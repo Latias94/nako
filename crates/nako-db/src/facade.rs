@@ -45,6 +45,7 @@ trait DatabaseBackendAdapter:
     + UserPlaybackStateRepository
     + UserPlaylistRepository
     + VfsCacheRepository
+    + StorageBackendHealthRepository
     + StagingManifestRepository
     + WebhookRepository
     + SearchIndex
@@ -90,6 +91,7 @@ impl<T> DatabaseBackendAdapter for T where
         + UserPlaybackStateRepository
         + UserPlaylistRepository
         + VfsCacheRepository
+        + StorageBackendHealthRepository
         + StagingManifestRepository
         + WebhookRepository
         + SearchIndex
@@ -120,6 +122,7 @@ pub struct DatabaseBackendCapabilities {
     pub managed_import: bool,
     pub nfo_sidecar_apply: bool,
     pub vfs_cache: bool,
+    pub storage_backend_health: bool,
     pub webhooks: bool,
     pub search_index: bool,
 }
@@ -147,6 +150,7 @@ impl DatabaseBackendCapabilities {
             managed_import: true,
             nfo_sidecar_apply: true,
             vfs_cache: true,
+            storage_backend_health: true,
             webhooks: true,
             search_index: true,
         }
@@ -174,6 +178,7 @@ impl DatabaseBackendCapabilities {
             managed_import: true,
             nfo_sidecar_apply: true,
             vfs_cache: true,
+            storage_backend_health: true,
             webhooks: true,
             search_index: true,
         }
@@ -2539,6 +2544,43 @@ impl VfsCacheRepository for NakoDatabase {
 
     async fn summarize_vfs_cache(&self, now_ms: i64) -> Result<VfsCacheSummary> {
         self.backend().summarize_vfs_cache(now_ms).await
+    }
+}
+
+#[async_trait::async_trait]
+impl StorageBackendHealthRepository for NakoDatabase {
+    async fn upsert_storage_backend_health(
+        &self,
+        record: StorageBackendHealthRecord,
+    ) -> Result<StorageBackendHealthRecord> {
+        self.backend().upsert_storage_backend_health(record).await
+    }
+
+    async fn get_storage_backend_health(
+        &self,
+        backend_key: &str,
+    ) -> Result<Option<StorageBackendHealthRecord>> {
+        self.backend().get_storage_backend_health(backend_key).await
+    }
+
+    async fn list_storage_backend_health(
+        &self,
+        filter: StorageBackendHealthListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<StorageBackendHealthRecord>> {
+        self.backend()
+            .list_storage_backend_health(filter, page)
+            .await
+    }
+
+    async fn clear_storage_backend_health(
+        &self,
+        backend_key: &str,
+        cleared_at_ms: i64,
+    ) -> Result<Option<StorageBackendHealthRecord>> {
+        self.backend()
+            .clear_storage_backend_health(backend_key, cleared_at_ms)
+            .await
     }
 }
 

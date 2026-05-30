@@ -3,8 +3,8 @@ use async_trait::async_trait;
 use super::PageRequest;
 use crate::{
     NewStagingManifestRecord, NewVfsCacheFailure, Result, StagingManifestId, StagingManifestRecord,
-    StagingPurpose, StagingState, VfsCacheFailure, VfsCacheOperation, VfsCacheSummary,
-    VfsCachedListing, VfsCachedObject,
+    StagingPurpose, StagingState, StorageBackendHealthListFilter, StorageBackendHealthRecord,
+    VfsCacheFailure, VfsCacheOperation, VfsCacheSummary, VfsCachedListing, VfsCachedObject,
 };
 
 #[async_trait]
@@ -29,6 +29,31 @@ pub trait VfsCacheRepository: Send + Sync {
     ) -> Result<Option<VfsCacheFailure>>;
 
     async fn summarize_vfs_cache(&self, now_ms: i64) -> Result<VfsCacheSummary>;
+}
+
+#[async_trait]
+pub trait StorageBackendHealthRepository: Send + Sync {
+    async fn upsert_storage_backend_health(
+        &self,
+        record: StorageBackendHealthRecord,
+    ) -> Result<StorageBackendHealthRecord>;
+
+    async fn get_storage_backend_health(
+        &self,
+        backend_key: &str,
+    ) -> Result<Option<StorageBackendHealthRecord>>;
+
+    async fn list_storage_backend_health(
+        &self,
+        filter: StorageBackendHealthListFilter,
+        page: PageRequest,
+    ) -> Result<Vec<StorageBackendHealthRecord>>;
+
+    async fn clear_storage_backend_health(
+        &self,
+        backend_key: &str,
+        cleared_at_ms: i64,
+    ) -> Result<Option<StorageBackendHealthRecord>>;
 }
 
 #[async_trait]

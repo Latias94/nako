@@ -732,6 +732,34 @@ CREATE INDEX vfs_cache_failures_scheme_idx
     ON vfs_cache_failures(scheme, operation, failed_at_ms);
 
 
+CREATE TABLE storage_backend_health (
+    backend_key TEXT PRIMARY KEY NOT NULL,
+    library_id TEXT,
+    scheme TEXT NOT NULL,
+    status TEXT NOT NULL,
+    circuit_breaker_state TEXT NOT NULL,
+    consecutive_failures INTEGER NOT NULL,
+    last_success_at_ms INTEGER,
+    last_failure_at_ms INTEGER,
+    last_failure_class TEXT,
+    last_failure_safe_message TEXT,
+    circuit_opened_at_ms INTEGER,
+    backoff_until_ms INTEGER,
+    updated_at_ms INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX storage_backend_health_library_idx
+    ON storage_backend_health(library_id, status);
+
+CREATE INDEX storage_backend_health_scheme_status_idx
+    ON storage_backend_health(scheme, status, circuit_breaker_state);
+
+CREATE INDEX storage_backend_health_backoff_idx
+    ON storage_backend_health(backoff_until_ms);
+
+
 CREATE TABLE staging_manifest_records (
     id TEXT PRIMARY KEY NOT NULL,
     source_uri TEXT NOT NULL,

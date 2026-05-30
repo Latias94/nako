@@ -47,6 +47,23 @@ impl StorageFailureClass {
         }
     }
 
+    pub fn parse(value: &str) -> std::result::Result<Self, NakoError> {
+        match value {
+            "timeout" => Ok(Self::Timeout),
+            "unavailable" => Ok(Self::Unavailable),
+            "permission" => Ok(Self::Permission),
+            "rate_limited" => Ok(Self::RateLimited),
+            "stale_cache" => Ok(Self::StaleCache),
+            "partial_read" => Ok(Self::PartialRead),
+            "budget" => Ok(Self::Budget),
+            "security" => Ok(Self::Security),
+            "unknown" => Ok(Self::Unknown),
+            _ => Err(NakoError::Database {
+                message: format!("unknown storage failure class stored in database: {value}"),
+            }),
+        }
+    }
+
     #[must_use]
     pub const fn safe_message(self) -> &'static str {
         match self {

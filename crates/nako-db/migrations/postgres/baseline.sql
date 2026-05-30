@@ -982,6 +982,32 @@ CREATE TABLE IF NOT EXISTS vfs_cache_failures (
 CREATE INDEX IF NOT EXISTS vfs_cache_failures_scheme_idx
     ON vfs_cache_failures(scheme, operation, failed_at_ms);
 
+CREATE TABLE IF NOT EXISTS storage_backend_health (
+    backend_key text PRIMARY KEY NOT NULL,
+    library_id uuid,
+    scheme text NOT NULL,
+    status text NOT NULL,
+    circuit_breaker_state text NOT NULL,
+    consecutive_failures bigint NOT NULL,
+    last_success_at_ms bigint,
+    last_failure_at_ms bigint,
+    last_failure_class text,
+    last_failure_safe_message text,
+    circuit_opened_at_ms bigint,
+    backoff_until_ms bigint,
+    updated_at_ms bigint NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+    updated_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+    CHECK (consecutive_failures >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS storage_backend_health_library_idx
+    ON storage_backend_health(library_id, status);
+CREATE INDEX IF NOT EXISTS storage_backend_health_scheme_status_idx
+    ON storage_backend_health(scheme, status, circuit_breaker_state);
+CREATE INDEX IF NOT EXISTS storage_backend_health_backoff_idx
+    ON storage_backend_health(backoff_until_ms);
+
 CREATE TABLE IF NOT EXISTS staging_manifest_records (
     id uuid PRIMARY KEY NOT NULL,
     source_uri text NOT NULL,

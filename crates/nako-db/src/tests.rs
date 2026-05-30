@@ -44,6 +44,7 @@ async fn nako_database_postgres_runtime_capabilities_include_managed_artwork() {
             managed_import: true,
             nfo_sidecar_apply: true,
             vfs_cache: true,
+            storage_backend_health: true,
             webhooks: true,
             search_index: true,
         }

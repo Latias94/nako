@@ -7,9 +7,10 @@
   "scope_kind": "fearless_refactor",
   "problem": "Remote storage failures are classified and bounded in process-local paths, but backend health is not yet a durable contract that can protect scan, probe, playback staging, and operator diagnostics consistently.",
   "task_prefix": "RSHC",
-  "current_task": "RSHC-020",
+  "current_task": "RSHC-030",
   "completed_tasks": [
-    "RSHC-010"
+    "RSHC-010",
+    "RSHC-020"
   ],
   "authoritative_docs": [
     {
@@ -53,6 +54,10 @@
     {
       "task": "RSHC-010",
       "summary": "Opened the durable remote storage health lane, linked it from storage architecture indexes, and split the first executable proof at the repository contract before runtime policy and Admin controls."
+    },
+    {
+      "task": "RSHC-020",
+      "summary": "Added durable Storage Backend Health records, repository trait, SQLite/PostgreSQL adapters, baseline schema, facade dispatch, and repository contract tests without changing playback staging, cache repair, or Admin routes."
     }
   ],
   "adr_refs": [

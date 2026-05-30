@@ -14,13 +14,13 @@ Last updated: 2026-05-30
 
 ## M1 - Durable Health Contract
 
-- [ ] RSHC-020 [owner=unassigned] [deps=RSHC-010] [scope=crates/nako-core/src/repository/vfs.rs,crates/nako-core/src/vfs*,crates/nako-db/src/**/vfs*,crates/nako-db/src/**/tests*]
+- [x] RSHC-020 [owner=codex] [deps=RSHC-010] [scope=crates/nako-core/src/repository/vfs.rs,crates/nako-core/src/vfs*,crates/nako-db/src/**/vfs*,crates/nako-db/src/**/tests*]
   Goal: Add a durable **Storage Backend Health** contract with SQLite and PostgreSQL repository parity.
   Validation: `cargo nextest run -p nako-db storage_backend_health --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`
   Review: Use `review-workstream` before accepting completion.
   Evidence: repository contract tests and `EVIDENCE_AND_GATES.md`.
   Context: `docs/workstreams/remote-storage-health-and-circuit-breaker/CONTEXT.jsonl`.
-  Handoff: Final status must be DONE, DONE_WITH_CONCERNS, BLOCKED, or NEEDS_CONTEXT. Do not modify playback staging or Admin reset routes in this task.
+  Handoff: DONE. Durable **Storage Backend Health** records, SQLite/PostgreSQL adapters, facade dispatch, baseline schema, and repository contract tests were added. Playback staging, cache repair, and Admin routes were not changed.
 
 ## M2 - Runtime Policy Adapter
 

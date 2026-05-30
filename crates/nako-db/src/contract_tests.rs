@@ -69,7 +69,9 @@ use nako_core::{
     RequestJobCancellation, RoleAssignment, ScanRepository, ScanSnapshotId, ScanStatus,
     SourceDuplicateEvidenceKind, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
     SourceDuplicateRelationshipStatus, SourceDuplicateRepository, SourceState, StagingManifestId,
-    StagingManifestRepository, StagingPurpose, StagingState, Studio, StudioId, Tag, TagId,
+    StagingManifestRepository, StagingPurpose, StagingState, StorageBackendHealthListFilter,
+    StorageBackendHealthRecord, StorageBackendHealthRepository, StorageBackendHealthStatus,
+    StorageCircuitBreakerState, StorageFailureClass, Studio, StudioId, Tag, TagId,
     TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
     TranscodeSessionRepository, TranscodeSessionState, User, UserId, UserInvitationId,
     UserInvitationRecord, UserInvitationStatus, UserPlaybackStateRepository,
@@ -104,6 +106,7 @@ enum ContractFamily {
     EventAddonAutomation,
     RuntimePromotion,
     VfsStaging,
+    StorageBackendHealth,
     AdminSettings,
     IdentityAccess,
     CredentialSession,
@@ -127,6 +130,7 @@ impl ContractFamily {
             Self::EventAddonAutomation => "event_addon_automation",
             Self::RuntimePromotion => "runtime_promotion",
             Self::VfsStaging => "vfs_staging",
+            Self::StorageBackendHealth => "storage_backend_health",
             Self::AdminSettings => "admin_settings",
             Self::IdentityAccess => "identity_access",
             Self::CredentialSession => "credential_session",
@@ -411,6 +415,16 @@ trait VfsStagingContractBackend:
 
 impl<T> VfsStagingContractBackend for T where
     T: LifecycleContractBackend + VfsCacheRepository + StagingManifestRepository
+{
+}
+
+trait StorageBackendHealthContractBackend:
+    LifecycleContractBackend + StorageBackendHealthRepository
+{
+}
+
+impl<T> StorageBackendHealthContractBackend for T where
+    T: LifecycleContractBackend + StorageBackendHealthRepository
 {
 }
 
@@ -6214,6 +6228,129 @@ where
     assert_eq!(summary.last_failure_at_ms, Some(950));
 }
 
+async fn storage_backend_health_contract_records_recovery_and_reset<S>(store: S)
+where
+    S: StorageBackendHealthContractBackend,
+{
+    let library_id = LibraryId::new();
+    let backend_key = format!("library:{library_id}:webdav");
+    let unhealthy = StorageBackendHealthRecord {
+        backend_key: backend_key.clone(),
+        library_id: Some(library_id),
+        scheme: "webdav".to_owned(),
+        status: StorageBackendHealthStatus::Unavailable,
+        circuit_breaker_state: StorageCircuitBreakerState::Open,
+        consecutive_failures: 3,
+        last_success_at_ms: Some(500),
+        last_failure_at_ms: Some(1_000),
+        last_failure_class: Some(StorageFailureClass::Timeout),
+        last_failure_safe_message: Some(StorageFailureClass::Timeout.safe_message().to_owned()),
+        circuit_opened_at_ms: Some(1_000),
+        backoff_until_ms: Some(2_000),
+        updated_at_ms: 1_000,
+    };
+    let healthy_local = StorageBackendHealthRecord {
+        backend_key: "library:local:default".to_owned(),
+        library_id: None,
+        scheme: "local".to_owned(),
+        status: StorageBackendHealthStatus::Healthy,
+        circuit_breaker_state: StorageCircuitBreakerState::Closed,
+        consecutive_failures: 0,
+        last_success_at_ms: Some(900),
+        last_failure_at_ms: None,
+        last_failure_class: None,
+        last_failure_safe_message: None,
+        circuit_opened_at_ms: None,
+        backoff_until_ms: None,
+        updated_at_ms: 900,
+    };
+
+    assert_eq!(
+        store
+            .get_storage_backend_health(&backend_key)
+            .await
+            .unwrap(),
+        None
+    );
+
+    let saved = store
+        .upsert_storage_backend_health(unhealthy.clone())
+        .await
+        .unwrap();
+    assert_eq!(saved, unhealthy);
+    store
+        .upsert_storage_backend_health(healthy_local)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        store
+            .get_storage_backend_health(&backend_key)
+            .await
+            .unwrap(),
+        Some(unhealthy.clone())
+    );
+    assert_eq!(
+        store
+            .list_storage_backend_health(
+                StorageBackendHealthListFilter {
+                    library_id: Some(library_id),
+                    scheme: Some("webdav".to_owned()),
+                    status: Some(StorageBackendHealthStatus::Unavailable),
+                    circuit_breaker_state: Some(StorageCircuitBreakerState::Open),
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap(),
+        vec![unhealthy.clone()]
+    );
+
+    let recovering = store
+        .upsert_storage_backend_health(StorageBackendHealthRecord {
+            status: StorageBackendHealthStatus::Recovering,
+            circuit_breaker_state: StorageCircuitBreakerState::HalfOpen,
+            backoff_until_ms: None,
+            updated_at_ms: 2_100,
+            ..unhealthy.clone()
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(recovering.status, StorageBackendHealthStatus::Recovering);
+    assert_eq!(
+        recovering.circuit_breaker_state,
+        StorageCircuitBreakerState::HalfOpen
+    );
+    assert_eq!(recovering.backoff_until_ms, None);
+
+    let reset = store
+        .clear_storage_backend_health(&backend_key, 2_200)
+        .await
+        .unwrap()
+        .expect("health reset should return existing backend record");
+    assert_eq!(reset.status, StorageBackendHealthStatus::Healthy);
+    assert_eq!(
+        reset.circuit_breaker_state,
+        StorageCircuitBreakerState::Closed
+    );
+    assert_eq!(reset.consecutive_failures, 0);
+    assert_eq!(reset.last_success_at_ms, Some(500));
+    assert_eq!(reset.last_failure_at_ms, None);
+    assert_eq!(reset.last_failure_class, None);
+    assert_eq!(reset.last_failure_safe_message, None);
+    assert_eq!(reset.circuit_opened_at_ms, None);
+    assert_eq!(reset.backoff_until_ms, None);
+    assert_eq!(reset.updated_at_ms, 2_200);
+    assert_eq!(
+        store
+            .clear_storage_backend_health("missing-backend", 2_300)
+            .await
+            .unwrap(),
+        None
+    );
+}
+
 async fn staging_manifest_contract_preserves_reservation_budget_and_leases<S>(store: S)
 where
     S: VfsStagingContractBackend,
@@ -7983,6 +8120,16 @@ database_contract_pair!(
         "round_trips_listing_failures_and_summary"
     ),
     contract = vfs_cache_contract_round_trips_listing_failures_and_summary,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_storage_backend_health_contract_records_recovery_and_reset,
+    postgres = postgres_storage_backend_health_contract_records_recovery_and_reset,
+    case = ContractCase::migrated(
+        ContractFamily::StorageBackendHealth,
+        "records_recovery_and_reset"
+    ),
+    contract = storage_backend_health_contract_records_recovery_and_reset,
 );
 
 database_contract_pair!(

@@ -38,6 +38,48 @@ Notes:
 - Playback staging and Admin reset work are deliberately sequenced after the
   durable health contract.
 
+### RSHC-020 - Durable health contract
+
+Status: Done
+
+Evidence:
+
+- `crates/nako-core/src/storage_health.rs`
+- `crates/nako-core/src/repository/vfs.rs`
+- `crates/nako-db/src/sqlite/vfs_health.rs`
+- `crates/nako-db/src/postgres/vfs_health.rs`
+- `crates/nako-db/src/contract_tests.rs`
+- `crates/nako-db/migrations/baseline.sql`
+- `crates/nako-db/migrations/postgres/baseline.sql`
+
+Validated on 2026-05-30:
+
+- `cargo nextest run -p nako-db storage_backend_health --no-fail-fast` -
+  passed; ran
+  `sqlite_storage_backend_health_contract_records_recovery_and_reset`.
+- `cargo fmt --all -- --check` - passed.
+- `git diff --check` - passed; Git reported only Windows line-ending
+  normalization warnings.
+
+Planner verification on 2026-05-30:
+
+- `cargo nextest run -p nako-db storage_backend_health --no-fail-fast` -
+  passed; 1 SQLite contract test run and 162 skipped by filter.
+- `cargo fmt --all -- --check` - passed.
+- `git diff --check` - passed with only Windows line-ending warnings.
+
+Notes:
+
+- The contract stores backend-scoped health status, circuit-breaker state,
+  consecutive failure count, last redaction-safe failure class/message,
+  backoff timestamp, and reset behavior.
+- Task-level `review-workstream` check found no workstream compliance or code
+  quality blockers before verification.
+- SQLite and PostgreSQL adapters use the same repository trait and contract
+  macro. The PostgreSQL contract case remains ignored by the existing harness
+  unless `NAKO_TEST_POSTGRES_URL` is provided.
+- No playback staging, cache repair, or Admin route behavior was changed.
+
 ## Residual Risks
 
 - Mount-like local paths can still hang below the OS boundary. Circuit-breaker

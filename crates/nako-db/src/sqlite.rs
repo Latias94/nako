@@ -33,6 +33,7 @@ pub(crate) mod staging;
 pub(crate) mod user_playback;
 pub(crate) mod user_playlist;
 pub(crate) mod vfs_cache;
+pub(crate) mod vfs_health;
 pub(crate) mod webhooks;
 
 pub use runtime::SqliteRuntimeOptions;
