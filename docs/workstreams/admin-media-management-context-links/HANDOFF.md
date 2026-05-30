@@ -1,12 +1,11 @@
 # Admin Media Management Context Links - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-30
 
 ## Current State
 
-This lane is a frontend execution lane for the current `web/` product
-frontend.
+This lane is closed for the current `web/` product frontend.
 
 The backend contract is already complete:
 
@@ -19,12 +18,11 @@ The backend contract is already complete:
 
 ## Active Task
 
-- Task ID: AMCL-050
+- Task ID: none
 - Lane: `web-product`
-- Owner: codex
-- Scope: `web/`, Admin/Media route transitions, browser smoke, and workstream
-  evidence.
-- Status: READY
+- Owner: none
+- Scope: none.
+- Status: CLOSED
 
 ## Completed
 
@@ -50,19 +48,25 @@ The backend contract is already complete:
 - AMCL-040 adjusted the aggregate `total-js` gzip budget from 330 KiB to 335
   KiB after keeping route-level budgets unchanged and recording measured bundle
   output.
+- AMCL-050 verified web gates and representative browser transitions:
+  `npm --prefix web run test`, `npm --prefix web run check`,
+  `npm --prefix web run build:budget`, Media/Public import guard, and
+  Playwright CLI smoke all passed.
+- AMCL-050 browser smoke covered Media detail links, Media library links,
+  Media-to-Admin refresh handoff, Admin-to-Media return links, library scan
+  Admin routing, disabled link states, and unsafe `source_id` redaction.
 
 ## Next Recommended Action
 
-Implement AMCL-050:
+Do not reopen this lane for broad product expansion. Split follow-on work into
+new lanes:
 
-1. Verify representative Media-to-Admin and Admin-to-Media transitions in the
-   browser.
-2. Confirm administrator/library-manager/viewer behavior follows backend link
-   enabled/disabled state.
-3. Re-run redaction/import guards for unsafe paths, tokens, Source Locators,
-   provider payloads, storage handles, and Admin API imports from Media/Public.
-4. Decide whether AMCL-090 can close the lane or whether role-specific UX
-   follow-ons should be split.
+1. Desktop/native playback strategy remains owned by CSAPA-050 or a follow-on
+   desktop playback spike.
+2. Role-specific UX polish or scoped manager job views should get a bounded
+   web-product workstream.
+3. Generated Artifact Metadata Authority apply workflow remains separate under
+   the GAMA lane.
 
 ## Guardrails
 
@@ -76,5 +80,5 @@ Implement AMCL-050:
 
 ## Parallelism
 
-AMCL-050 is now the primary remaining execution task. AMCL-090 should wait
-until cross-surface role/redaction verification is accepted.
+AMCL is closed. The `web-product` lane is free for the next planner-approved
+workstream.

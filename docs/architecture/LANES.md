@@ -21,7 +21,6 @@ ledger instead.
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
 | `library-metadata-control-plane` | `generated-artifact-metadata-authority-apply` | `GAMA-050` | Backend/control-plane execution |
-| `web-product` | `admin-media-management-context-links` | `AMCL-050` | Web product verification |
 | `client-surfaces-planning` | `client-surface-and-access-product-architecture` | `CSAPA-050` | Planner/docs split or defer decision |
 | `storage-vfs` | `remote-storage-health-and-circuit-breaker` | `RSHC-040` | Backend storage/Admin diagnostics execution |
 | `playback-transcode` | `audio-compatibility-downmix-normalization` | `ACDN-040` | Transcode FFmpeg filter planning |
@@ -29,7 +28,9 @@ ledger instead.
 
 Do not start `GAMA-060` until `GAMA-050` has reviewed and verified the final
 Admin apply route. Do not close `CSAPA` until desktop playback is split,
-deferred, or explicitly scoped.
+deferred, or explicitly scoped. The `web-product` lane is idle after
+`admin-media-management-context-links` closeout and should receive a new
+planner-approved workstream before more frontend execution starts.
 
 `HTP-030` remains parked while `ACDN-040` owns the next shared transcode/FFmpeg
 filter-planning surface. Start HDR transcode/HLS implementation only after the

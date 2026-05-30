@@ -20,38 +20,37 @@ Last reviewed: 2026-05-30
 
 - [generated-artifact-metadata-authority-apply](generated-artifact-metadata-authority-apply/README.md)
   is active on lane `library-metadata-control-plane`; next task is `GAMA-050`.
-- [admin-media-management-context-links](admin-media-management-context-links/README.md)
-  is active on lane `web-product`; next task is `AMCL-050`.
 - [client-surface-and-access-product-architecture](client-surface-and-access-product-architecture/README.md)
   is active on lane `client-surfaces-planning`; next task is `CSAPA-050`.
 - [remote-storage-health-and-circuit-breaker](remote-storage-health-and-circuit-breaker/README.md)
-  is active on lane `storage-vfs`; next task is `RSHC-020`.
+  is active on lane `storage-vfs`; next task is `RSHC-040`.
 - [audio-compatibility-downmix-normalization](audio-compatibility-downmix-normalization/README.md)
-  is active on lane `playback-transcode`; next task is `ACDN-020`.
+  is active on lane `playback-transcode`; next task is `ACDN-040`.
 - [hdr-tone-mapping-pipeline](hdr-tone-mapping-pipeline/README.md)
-  is a draft docs/research lane on `playback-transcode`; next task is `HTP-010`.
+  is active on lane `playback-transcode`; next task is `HTP-030` blocked.
 
 Planner coordination should keep `GAMA-060` blocked until `GAMA-050` is
 reviewed and verified. `CSAPA` should split or explicitly defer desktop
-playback before closeout.
-`HTP-010` may run beside `ACDN-020` only as docs/research; HDR implementation is
-not approved for parallel code changes with audio compatibility.
+playback before closeout. The `web-product` lane is idle after
+`admin-media-management-context-links` closeout.
+`HTP-030` remains parked while `ACDN-040` owns the next shared transcode/FFmpeg
+filter-planning surface.
 
 ## Current Workstreams
 
 - [remote-storage-health-and-circuit-breaker](remote-storage-health-and-circuit-breaker/README.md):
   active storage/VFS lane for adding durable **Storage Backend Health** and a
   backend circuit-breaker policy after the first storage resilience slice.
-  `RSHC-020` starts with core/db repository parity before runtime policy or
-  Admin reset routes.
+  `RSHC-040` owns redaction-safe Admin diagnostics and operator circuit reset.
 - [audio-compatibility-downmix-normalization](audio-compatibility-downmix-normalization/README.md):
   active playback/transcode lane for making downmix, channel compatibility,
   dynamic range, and normalization explicit **Audio Output Requirement**
-  behavior. `ACDN-020` starts in `nako-playback` before transcode propagation.
+  behavior. `ACDN-040` owns deterministic FFmpeg downmix and normalization
+  filter planning.
 - [hdr-tone-mapping-pipeline](hdr-tone-mapping-pipeline/README.md):
-  draft playback/transcode research lane for freezing HDR/color compatibility
-  inputs and the first executable tone-mapping slice. `HTP-010` is docs-only
-  until planner review activates implementation.
+  active playback/transcode lane for HDR/color compatibility and the first
+  executable tone-mapping slice. `HTP-030` is blocked until `ACDN-040` is
+  accepted or the shared transcode/HLS scope is explicitly serialized.
 - [storage-vfs-resilience-and-source-identity](storage-vfs-resilience-and-source-identity/README.md):
   completed fearless refactor lane for deepening **Source Fingerprint** evidence,
   move/rename reconciliation, storage failure classification, stale-cache
@@ -172,7 +171,7 @@ not approved for parallel code changes with audio compatibility.
   playback entry, playback state, browser/Tauri validation, and bundle-budget
   gates.
 - [admin-media-management-context-links](admin-media-management-context-links/README.md):
-  active frontend execution lane split from CSAPA-040 for making the current
+  closed frontend execution lane split from CSAPA-040 for making the current
   `web/` product frontend consume backend-computed Management Context Links
   between Media and Admin surfaces without duplicating authorization in Media
   UI or leaking privileged Admin state.
