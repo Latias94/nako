@@ -833,7 +833,7 @@ pub(super) fn retry_dispatch_from_previous_input(
     }
 }
 
-fn addon_task_run_input(input_json: &str) -> Result<serde_json::Value> {
+pub(super) fn addon_task_run_input(input_json: &str) -> Result<serde_json::Value> {
     serde_json::from_str::<serde_json::Value>(input_json).map_err(|err| NakoError::InvalidInput {
         message: format!("failed to parse addon task run input: {err}"),
     })
@@ -873,7 +873,7 @@ fn addon_task_resource_class(_declaration_id: &str) -> String {
     RUNTIME_RESOURCE_CLASS_ADDON_TASK.to_owned()
 }
 
-fn ensure_run_belongs_to_addon(
+pub(super) fn ensure_run_belongs_to_addon(
     run: &nako_core::AddonTaskRunRecord,
     addon_id: AddonId,
 ) -> Result<()> {

@@ -1,8 +1,14 @@
 import { AdminApiClient } from "./client"
 import { loadAdminApiConnection, type AdminApiConnection } from "./connection"
+import {
+  mapGeneratedArtifactReviewPlanResponse,
+  type AdminGeneratedArtifactReviewDecision,
+  type AdminGeneratedArtifactReviewPlanReadModel,
+} from "./read-models-data-source"
 import type {
   AddonStatus,
   AdminCreateUserRequest,
+  AdminGeneratedArtifactReviewPlanResponse,
   AdminUpdateMetadataRawCacheSettingsRequest,
   AdminUserRole,
   AdminUserStatus,
@@ -19,11 +25,23 @@ export type AdminMutationKind =
   | "user.password.delete"
   | "settings.metadata.raw-cache.update"
   | "addon.status.update"
+  | "generated-artifact.review"
 
 export interface AdminMutationResult {
   kind: AdminMutationKind
   id: string
   message: string
+}
+
+export interface AdminGeneratedArtifactReviewMutationResult {
+  kind: "generated-artifact.review"
+  artifactId: string
+  decision: AdminGeneratedArtifactReviewDecision
+  artifactStatus: string
+  acceptedAt: string | null
+  idempotentReplay: boolean
+  message: string
+  plan: AdminGeneratedArtifactReviewPlanReadModel
 }
 
 export interface AdminMutationDataSource {
@@ -41,6 +59,10 @@ export interface AdminMutationDataSource {
     request: AdminUpdateMetadataRawCacheSettingsRequest,
   ): Promise<AdminMutationResult>
   updateAddonStatus(addonId: string, status: AddonStatus): Promise<AdminMutationResult>
+  reviewGeneratedArtifact(
+    artifactId: string,
+    decision: AdminGeneratedArtifactReviewDecision,
+  ): Promise<AdminGeneratedArtifactReviewMutationResult>
 }
 
 export function createAdminMutationDataSource(
@@ -121,6 +143,20 @@ export function createAdminMutationDataSource(
         status === "enabled" ? "Addon 已启用" : "Addon 已禁用",
       )
     },
+
+    async reviewGeneratedArtifact(artifactId, decision) {
+      const response = await client.reviewGeneratedArtifact(artifactId, { decision })
+      return {
+        kind: "generated-artifact.review",
+        artifactId: response.artifact_id,
+        decision: response.decision,
+        artifactStatus: response.artifact_status,
+        acceptedAt: response.accepted_at,
+        idempotentReplay: response.idempotent_replay,
+        message: generatedArtifactReviewMessage(response.decision, response.idempotent_replay),
+        plan: mapGeneratedArtifactReviewPlanResponse(reviewResponseToPlanResponse(response)),
+      }
+    },
   }
 }
 
@@ -128,6 +164,10 @@ function disabledMutationDataSource(reason: string): AdminMutationDataSource {
   const reject = async (): Promise<AdminMutationResult> => {
     throw new Error(reason)
   }
+  const rejectGeneratedArtifactReview =
+    async (): Promise<AdminGeneratedArtifactReviewMutationResult> => {
+      throw new Error(reason)
+    }
 
   return {
     canMutate: false,
@@ -142,6 +182,7 @@ function disabledMutationDataSource(reason: string): AdminMutationDataSource {
     deleteUserLocalPassword: reject,
     updateMetadataRawCacheSettings: reject,
     updateAddonStatus: reject,
+    reviewGeneratedArtifact: rejectGeneratedArtifactReview,
   }
 }
 
@@ -151,4 +192,29 @@ function mutationResult(kind: AdminMutationKind, id: string, message: string): A
     id,
     message,
   }
+}
+
+function reviewResponseToPlanResponse(
+  response: {
+    admin_api_version: string
+    public_api_version: string
+    plan: AdminGeneratedArtifactReviewPlanResponse["plan"]
+  },
+): AdminGeneratedArtifactReviewPlanResponse {
+  return {
+    admin_api_version: response.admin_api_version,
+    public_api_version: response.public_api_version,
+    plan: response.plan,
+  }
+}
+
+function generatedArtifactReviewMessage(
+  decision: AdminGeneratedArtifactReviewDecision,
+  idempotentReplay: boolean,
+) {
+  if (idempotentReplay) {
+    return "审核结果已存在，已返回幂等结果"
+  }
+
+  return decision === "accept" ? "生成产物已接受" : "生成产物已拒绝"
 }

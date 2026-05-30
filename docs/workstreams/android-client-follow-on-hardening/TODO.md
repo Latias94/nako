@@ -1,7 +1,7 @@
 # Android Client Follow-On Hardening — TODO
 
-Status: Active
-Last updated: 2026-05-22
+Status: Complete
+Last updated: 2026-05-29
 
 ## Task Ledger
 
@@ -66,7 +66,7 @@ Last updated: 2026-05-22
 
 ### M4 — Closeout
 
-- [ ] ACFH-090 [owner=planner] [deps=ACFH-020,ACFH-030,ACFH-040] [scope=docs/workstreams/android-client-follow-on-hardening]
+- [x] ACFH-090 [owner=planner] [deps=ACFH-020,ACFH-030,ACFH-040] [scope=docs/workstreams/android-client-follow-on-hardening]
   Goal: Close or split the lane with final evidence, residual risks, and commit
   guidance.
   Validation: JSON validation for `WORKSTREAM.json`; `git diff --check`; focused
@@ -74,4 +74,6 @@ Last updated: 2026-05-22
   Review: No blocking token-safety, workstream, or player-platform ownership
   findings remain.
   Evidence: `CLOSEOUT.md`, `EVIDENCE_AND_GATES.md`, `HANDOFF.md`.
-  Handoff: Ask for commit confirmation before committing.
+  Handoff: DONE. The lane is closed with fresh focused JVM, full JVM,
+  x86_64 assemble, JSON, and diff hygiene evidence. End-to-end smoke remains
+  environment-blocked and is not claimed PASS.

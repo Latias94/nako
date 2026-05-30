@@ -1,7 +1,7 @@
 # Client Surface And Access Product Architecture - Evidence And Gates
 
 Status: Active
-Last updated: 2026-05-26
+Last updated: 2026-05-29
 
 ## Gate Policy
 
@@ -31,6 +31,7 @@ Implementation follow-ons must choose their own gates:
 | 2026-05-26 | CSAPA-010 validation | `python -m json.tool docs/workstreams/client-surface-and-access-product-architecture/WORKSTREAM.json > $null`; `git diff --check -- docs/workstreams/client-surface-and-access-product-architecture docs/workstreams/README.md` | Pass. `git diff --check` emitted the existing CRLF conversion warning for `docs/workstreams/README.md` only. |
 | 2026-05-26 | CSAPA-020 identity/access split | `docs/workstreams/identity-and-library-access-contract/` | Complete. Identity/access persistence, bootstrap administrator semantics, Admin API access management, and Public Client API effective-access enforcement landed in the execution lane. |
 | 2026-05-26 | CSAPA-030 Media Web split | `docs/workstreams/media-web-client-foundation/` | Complete. Media Web foundation lane opened with MWF-020 route/API readiness as the first executable task. |
+| 2026-05-29 | CSAPA-040 Management Context Links split | `docs/workstreams/admin-media-management-context-links/` | Complete. New lane targets the current `web/` product frontend and consumes backend-computed `/management/context-links` instead of hard-coding admin authority in Media UI. |
 
 ## Redaction And Safety Checks
 

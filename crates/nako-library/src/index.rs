@@ -140,6 +140,12 @@ where
                     .await?;
             }
 
+            let scan_source_locators = scan
+                .media_sources
+                .iter()
+                .map(|source| source.uri.as_str().to_owned())
+                .collect::<Vec<_>>();
+
             for discovered in scan.media_sources {
                 let source_summary = self
                     .repository
@@ -147,6 +153,7 @@ where
                         library_id: request.library.id,
                         scan_id,
                         discovered,
+                        scan_source_locators: scan_source_locators.clone(),
                     })
                     .await?;
 
@@ -246,6 +253,9 @@ mod tests {
                     modified_at: None,
                     etag: None,
                     fingerprint: None,
+                    fingerprint_evidence_kind:
+                        nako_core::SourceFingerprintEvidenceKind::LocatorOnly,
+                    fingerprint_confidence_milli: 250,
                     stale: false,
                 }],
                 directories: vec![ScannedDirectory {
@@ -349,6 +359,7 @@ mod tests {
                     library_item_states: 0,
                     local_inference_evidence: 0,
                     search_projections: 0,
+                    source_duplicate_relationships: 0,
                     resolved_ingestion_failures: 0,
                 },
             })

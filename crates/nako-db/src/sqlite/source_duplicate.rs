@@ -7,47 +7,7 @@ impl SourceDuplicateRepository for SqliteStore {
         &self,
         relationship: &SourceDuplicateRelationship,
     ) -> Result<()> {
-        let relationship = relationship.canonicalized();
-        let (evidence_kind, evidence_kind_key) =
-            source_duplicate_evidence_kind_to_parts(&relationship.evidence_kind);
-
-        sqlx::query(
-            r#"
-            INSERT INTO source_duplicate_relationships (
-                id,
-                source_id,
-                duplicate_source_id,
-                evidence_kind,
-                evidence_kind_key,
-                evidence_value,
-                status,
-                confidence_milli
-            )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
-            ON CONFLICT(id) DO UPDATE SET
-                source_id = excluded.source_id,
-                duplicate_source_id = excluded.duplicate_source_id,
-                evidence_kind = excluded.evidence_kind,
-                evidence_kind_key = excluded.evidence_kind_key,
-                evidence_value = excluded.evidence_value,
-                status = excluded.status,
-                confidence_milli = excluded.confidence_milli,
-                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-            "#,
-        )
-        .bind(relationship.id.to_string())
-        .bind(relationship.source_id.to_string())
-        .bind(relationship.duplicate_source_id.to_string())
-        .bind(evidence_kind)
-        .bind(evidence_kind_key)
-        .bind(&relationship.evidence_value)
-        .bind(relationship.status.as_str())
-        .bind(optional_u16_to_i64(relationship.confidence_milli))
-        .execute(&self.pool)
-        .await
-        .map_err(database_error)?;
-
-        Ok(())
+        upsert_source_duplicate_relationship_tx(&self.pool, relationship).await
     }
 
     async fn get_source_duplicate_relationship(
@@ -111,4 +71,54 @@ impl SourceDuplicateRepository for SqliteStore {
             .map(row_to_source_duplicate_relationship)
             .collect()
     }
+}
+
+pub(crate) async fn upsert_source_duplicate_relationship_tx<'e, E>(
+    executor: E,
+    relationship: &SourceDuplicateRelationship,
+) -> Result<()>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
+    let relationship = relationship.canonicalized();
+    let (evidence_kind, evidence_kind_key) =
+        source_duplicate_evidence_kind_to_parts(&relationship.evidence_kind);
+
+    sqlx::query(
+        r#"
+            INSERT INTO source_duplicate_relationships (
+                id,
+                source_id,
+                duplicate_source_id,
+                evidence_kind,
+                evidence_kind_key,
+                evidence_value,
+                status,
+                confidence_milli
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+            ON CONFLICT(id) DO UPDATE SET
+                source_id = excluded.source_id,
+                duplicate_source_id = excluded.duplicate_source_id,
+                evidence_kind = excluded.evidence_kind,
+                evidence_kind_key = excluded.evidence_kind_key,
+                evidence_value = excluded.evidence_value,
+                status = excluded.status,
+                confidence_milli = excluded.confidence_milli,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+    )
+    .bind(relationship.id.to_string())
+    .bind(relationship.source_id.to_string())
+    .bind(relationship.duplicate_source_id.to_string())
+    .bind(evidence_kind)
+    .bind(evidence_kind_key)
+    .bind(&relationship.evidence_value)
+    .bind(relationship.status.as_str())
+    .bind(optional_u16_to_i64(relationship.confidence_milli))
+    .execute(executor)
+    .await
+    .map_err(database_error)?;
+
+    Ok(())
 }

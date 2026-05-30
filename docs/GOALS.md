@@ -26,6 +26,55 @@ proposed milestone.
 
 ## Current Goal
 
+### Storage/VFS Resilience And Source Identity
+
+Status: active.
+
+Objective:
+
+- Deepen Nako's storage/VFS and **Media Source** identity behavior before
+  broader remote-library, watcher/debounce, provider, managed import, or
+  Library File Write breadth depends on shallow fingerprint semantics.
+- Preserve source state across strong-evidence moves or renames while keeping
+  weak evidence as reviewable duplicate/similarity state.
+- Classify storage timeout, unavailable, permission, rate-limit, stale-cache,
+  and partial-staging failures consistently and safely.
+
+Deliverables:
+
+- `docs/workstreams/storage-vfs-resilience-and-source-identity/`
+- source identity evidence policy
+- move/rename reconciliation behavior
+- storage failure classification and diagnostics
+- architecture links from `docs/architecture/STORAGE_VFS.md` and
+  `docs/architecture/WORKSTREAM_LINKS.md`
+
+Non-goals:
+
+- no Web UI or HLS runtime feature work;
+- no new storage backend unless a tiny fake adapter is needed for tests;
+- no mandatory full-file hashing for every source;
+- no automatic duplicate merge;
+- no provider breadth for TMDB, Douban, Bangumi, or addons.
+
+Exit criteria:
+
+- SVRS-020 through SVRS-050 are complete or split into explicit follow-on
+  lanes.
+- Relevant SQLite/PostgreSQL repository contracts are covered if persistence
+  changes.
+- Admin diagnostics remain redaction-safe for **Source Locators**, raw paths,
+  ETags, credentials, and fingerprint values.
+- Final evidence and handoff notes are recorded in the workstream.
+
+Evidence:
+
+- `docs/workstreams/storage-vfs-resilience-and-source-identity/`
+- focused Cargo nextest gates listed in
+  `docs/workstreams/storage-vfs-resilience-and-source-identity/EVIDENCE_AND_GATES.md`
+
+## Recent Completed Goals
+
 ### Media Server Architecture Map
 
 Status: completed.
@@ -37,28 +86,18 @@ Objective:
 - Clarify the long-term Jellyfin/Plex-class target without turning the roadmap
   into a feature checklist detached from current implementation evidence.
 
-Deliverables:
-
-- `docs/ARCHITECTURE.md`
-- `docs/adr/0052-hls-runtime-and-media-engine-boundary.md`
-- `docs/workstreams/media-server-architecture-progress-map/`
-- Roadmap and documentation index updates.
-
 Evidence:
 
 - Workstream docs:
   `docs/workstreams/media-server-architecture-progress-map/`.
-- Closeout proof:
-  - `python3 -m json.tool docs/workstreams/media-server-architecture-progress-map/WORKSTREAM.json`;
-  - `git diff --check`.
 
 ### Addon Ecosystem Foundation
 
-Status: active.
+Status: completed.
 
 Objective:
 
-- Record and execute the next Addon ecosystem deepening wave.
+- Record and execute the Addon ecosystem deepening wave.
 - Keep fine-grained Addon manifests, grants, tasks, and event delivery while
   allowing coarse-grained Addon Package and Addon Suite deployment.
 - Harden Addon Task idempotency, official catalog drift prevention, Addon Event
@@ -66,39 +105,11 @@ Objective:
   notification, watch-state sync, MCP, Arr-stack, DLNA, WebDAV, UPnP, or
   network-tunnel breadth lands.
 
-Deliverables:
-
-- `docs/adr/0034-package-addon-capabilities-into-sidecar-suites.md`
-- `docs/workstreams/addon-ecosystem-foundation/`
-- Addon Task request fingerprinting
-- official addon catalog/descriptor drift prevention
-- Addon Event Delivery runtime
-- first event-driven official addon proof
-
-Non-goals:
-
-- no Native Plugin ABI;
-- no Jellyfin Plugin Compatibility;
-- no Nako-owned Docker socket, systemd, Kubernetes, SSH, or host-agent
-  supervision in this goal;
-- no built-in NAT traversal runtime in Nako core;
-- no direct AI mutation of canonical state;
-- no direct addon database or raw library-path writes.
-
-Exit criteria:
-
-- AEF-010 through AEF-060 are complete or split into explicit follow-on lanes.
-- The Addon Package / Addon Suite decision is recorded in ADR and workstream
-  docs.
-- Task, catalog, and event delivery seams are implemented or verified with
-  focused tests.
-- Final evidence and handoff notes are recorded.
-
 Evidence:
 
 - `docs/adr/0034-package-addon-capabilities-into-sidecar-suites.md`
 - `docs/workstreams/addon-ecosystem-foundation/`
-- focused Cargo nextest gates and official addon manifest tests
+- follow-on `docs/workstreams/addon-event-scheduler-and-replay/`
 
 ## Completed Goals
 

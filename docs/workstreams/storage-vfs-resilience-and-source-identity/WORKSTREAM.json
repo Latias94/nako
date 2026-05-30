@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "slug": "storage-vfs-resilience-and-source-identity",
+  "title": "Storage/VFS Resilience And Source Identity",
+  "status": "active",
+  "updated": "2026-05-29",
+  "scope_kind": "architecture",
+  "problem": "Nako has a strong storage/VFS foundation, but source identity evidence, move/rename reconciliation, mount-hang protection, stale-cache diagnostics, and storage failure classification need to be deepened before broader remote-library and intake workflows expand.",
+  "task_prefix": "SVRS",
+  "current_task": "SVRS-050",
+  "completed_tasks": [
+    "SVRS-010",
+    "SVRS-020",
+    "SVRS-030",
+    "SVRS-040"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/storage-vfs-resilience-and-source-identity/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/storage-vfs-resilience-and-source-identity/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/storage-vfs-resilience-and-source-identity/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/storage-vfs-resilience-and-source-identity/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/storage-vfs-resilience-and-source-identity/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/storage-vfs-resilience-and-source-identity/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python -m json.tool docs/workstreams/storage-vfs-resilience-and-source-identity/WORKSTREAM.json > $null",
+    "git diff --check",
+    "cargo fmt --all -- --check",
+    "cargo check -p nako-core -p nako-db -p nako-vfs -p nako-library -p nako-server --tests",
+    "cargo nextest run -p nako-library source_identity scan --no-fail-fast",
+    "cargo nextest run -p nako-db scan source_duplicate --no-fail-fast",
+    "cargo nextest run -p nako-vfs --no-fail-fast",
+    "cargo nextest run -p nako-server storage --no-fail-fast"
+  ],
+  "evidence": [
+    "docs/architecture/STORAGE_VFS.md",
+    "docs/architecture/LIBRARY_PIPELINE.md",
+    "docs/architecture/WORKSTREAM_LINKS.md",
+    "docs/workstreams/storage-vfs-resilience-and-source-identity/DESIGN.md",
+    "docs/workstreams/storage-vfs-resilience-and-source-identity/TODO.md",
+    "crates/nako-core/src/media/source.rs",
+    "crates/nako-library/src/scan.rs",
+    "crates/nako-library/src/ingestion/source_commit.rs",
+    "crates/nako-library/src/index.rs",
+    "crates/nako-library/src/failure.rs",
+    "crates/nako-library/src/probe.rs",
+    "crates/nako-core/src/error.rs",
+    "crates/nako-vfs/src/cache.rs",
+    "crates/nako-vfs/src/webdav.rs",
+    "crates/nako-server/src/app/storage.rs",
+    "crates/nako-server/src/app/staging.rs",
+    "crates/nako-db/src/sqlite/scan.rs",
+    "crates/nako-db/src/postgres/core_catalog.rs"
+  ],
+  "adr_refs": [
+    "docs/adr/0002-internal-vfs-before-os-mounting.md",
+    "docs/adr/0012-durable-scan-state-and-source-tombstones.md",
+    "docs/adr/0016-remote-storage-and-vfs-cache-boundary.md",
+    "docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/STORAGE_VFS.md",
+      "capability": "Storage/VFS resilience and source identity"
+    },
+    {
+      "path": "docs/architecture/LIBRARY_PIPELINE.md",
+      "capability": "Media intake stability and source reconciliation"
+    }
+  ],
+  "capability_tags": [
+    "storage.vfs.resilience",
+    "storage.source_identity",
+    "library.scan.reconciliation",
+    "control_plane.storage_diagnostics"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "next_task": "SVRS-050",
+    "notes": "SVRS-040 is complete. Continue with redaction-safe Admin diagnostics for source identity reconciliation, stale VFS cache, storage health, and partial staging cleanup pressure. Keep the lane non-Web and non-HLS unless shared VFS contracts require coordinated playback staging changes."
+  }
+}

@@ -1399,6 +1399,7 @@ where
                 )
                 .unwrap(),
             ],
+            source_duplicate_relationships: Vec::new(),
             resolved_ingestion_failures: vec![IngestionFailureResolution {
                 library_id: library.id,
                 phase: IngestionFailurePhase::Scan,
@@ -1414,6 +1415,7 @@ where
     assert_eq!(summary.library_item_states, 1);
     assert_eq!(summary.local_inference_evidence, 1);
     assert_eq!(summary.search_projections, 1);
+    assert_eq!(summary.source_duplicate_relationships, 0);
     assert_eq!(summary.resolved_ingestion_failures, 1);
 
     assert_eq!(store.get_media_item(item_id).await.unwrap(), Some(item));
@@ -1623,6 +1625,7 @@ where
                 "Broken Search",
                 "projection points at a missing item",
             )],
+            source_duplicate_relationships: Vec::new(),
             resolved_ingestion_failures: vec![IngestionFailureResolution {
                 library_id: library.id,
                 phase: IngestionFailurePhase::Scan,

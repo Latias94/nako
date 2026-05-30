@@ -1,7 +1,7 @@
 # Web Admin Generated Artifacts Automation - Design
 
-Status: Active
-Last updated: 2026-05-28
+Status: Closed
+Last updated: 2026-05-29
 
 ## Problem
 
@@ -34,6 +34,10 @@ When this lane closes:
   idempotency, boundary, and confirmation tests, or split into a follow-on.
 - Route contracts, route-state tests, data-source contract tests, TypeScript
   check, bundle budget, and browser smoke evidence pass.
+
+Closeout result: the read-only route target shipped under `WAGA-030` and closed
+under `WAGA-050`. Review-plan and accept/reject mutations remain deferred to a
+guarded mutation follow-on.
 
 ## Scope
 

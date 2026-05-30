@@ -4,7 +4,6 @@ import dev.nako.android.browse.MediaSourceDto
 import dev.nako.android.media.ClientMediaStreamKind
 import dev.nako.android.media.MediaProbeDto
 import dev.nako.android.media.MediaStreamDto
-import dev.nako.android.playback.ClientHardwareAcceleration
 import dev.nako.android.playback.ClientOutputContainer
 import dev.nako.android.playback.ClientPlaybackDecision
 import dev.nako.android.playback.ClientPlaybackMode
@@ -136,7 +135,6 @@ class SourcePickerDisplayModelTest {
                 reason = "adaptive output",
                 transcodePlan = ClientTranscodePlan(
                     outputContainer = ClientOutputContainer.Hls,
-                    hardwareAcceleration = ClientHardwareAcceleration.None,
                 ),
             ),
         )

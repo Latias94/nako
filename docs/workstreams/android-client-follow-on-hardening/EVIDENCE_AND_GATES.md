@@ -1,7 +1,7 @@
 # Android Client Follow-On Hardening — Evidence And Gates
 
-Status: Active
-Last updated: 2026-05-22
+Status: Complete
+Last updated: 2026-05-29
 
 ## Gate Set
 
@@ -192,3 +192,66 @@ git diff --check
 ```
 
 Result: exit code 0. Git emitted CRLF normalization warnings only.
+
+### ACFH-090 — Closeout And Public SDK Contract Alignment
+
+Status: DONE
+Date: 2026-05-29
+Evidence:
+
+- During closeout the focused Android JVM gate initially exposed public SDK
+  contract drift in the playback adapter. Fixed the Android boundary by:
+  - mapping `ClientPlaybackDecisionReason` through `wireValue`;
+  - representing `denied` playback decisions and denial details explicitly;
+  - removing the legacy client transcode hardware-acceleration field from the
+    Android playback model because the public `ClientTranscodePlan` no longer
+    exposes it.
+- Refreshed Android public API fixtures to the current SDK contract:
+  - playback decision responses now include `denial`, `report`, and `target`;
+  - media stream fixtures include `disposition` and `origin`;
+  - library metadata profile fixtures include `scan`.
+- Offline focused gate was not a valid final signal on this machine because the
+  Gradle plugin was not present in the offline cache. The online gate below is
+  the accepted final evidence.
+
+Fresh focused JVM gate passed:
+
+```powershell
+apps\android\gradlew.bat -p apps\android --no-daemon --no-parallel --console=plain :app:testDebugUnitTest --tests "dev.nako.android.connection.*" --tests "dev.nako.android.ui.screens.player.*"
+```
+
+Result: BUILD SUCCESSFUL in 1m 57s.
+
+Fresh full Android JVM gate passed:
+
+```powershell
+apps\android\gradlew.bat -p apps\android --no-daemon --no-parallel --console=plain :app:testDebugUnitTest
+```
+
+Result: BUILD SUCCESSFUL in 41s.
+
+Fresh x86_64 debug assemble gate passed:
+
+```powershell
+apps\android\gradlew.bat -p apps\android --no-daemon --no-parallel --console=plain :app:assembleDebug -PnakoRustAndroidAbis=x86_64
+```
+
+Result: BUILD SUCCESSFUL in 24s. The first x86_64 assemble attempt in this
+closeout failed because the local Rust toolchain was missing the
+`x86_64-linux-android` target; after installing it, assemble passed. Android
+packaging emitted non-blocking strip warnings for native debug symbols on the
+first passing run.
+
+Fresh hygiene gates passed:
+
+```powershell
+python -m json.tool docs\workstreams\android-client-follow-on-hardening\WORKSTREAM.json > $null
+git diff --check
+```
+
+Result: both exited 0. Git emitted CRLF normalization warnings only.
+
+Residual risk:
+
+- End-to-end smoke remains the ACFH-020 environment-blocked concern and is not
+  claimed PASS.

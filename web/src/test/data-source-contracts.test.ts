@@ -10,6 +10,8 @@ import {
 } from "@/src/api/admin/addons-data-source"
 import {
   ADMIN_ACQUISITION_INTAKE_READ_MODEL_FIXTURE,
+  ADMIN_GENERATED_ARTIFACT_REVIEW_PLAN_FIXTURE,
+  ADMIN_GENERATED_ARTIFACTS_READ_MODEL_FIXTURE,
   ADMIN_LIBRARY_READ_MODEL_FIXTURE,
   ADMIN_LOGS_READ_MODEL_FIXTURE,
   ADMIN_SETTINGS_READ_MODEL_FIXTURE,
@@ -530,6 +532,150 @@ function adminAcquisitionIntakeCandidatesResponse() {
       },
     ],
     page,
+  }
+}
+
+function adminGeneratedArtifactProposalsResponse() {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    proposals: [
+      {
+        id: "artifact-live",
+        kind: "metadata_suggestion",
+        capability: "item_metadata_suggest",
+        status: "pending_review",
+        target: {
+          kind: "media_item",
+          library_id: "library-a",
+          item_id: "item-live",
+          source_id: "source-live",
+          local_path: "F:\\private\\source\\Movie.mkv",
+          source_locator: "file:///mnt/private/source/Movie.mkv",
+        },
+        provenance: {
+          provider_id: "provider-live",
+          provider_name: "Live Automation Provider",
+          job_id: "job-live",
+          capability: "item_metadata_suggest",
+          idempotency_key_fingerprint: "sha256:idempotency-live",
+          prompt_fingerprint: "sha256:prompt-live",
+          attempt_count: 2,
+          artifact_created_at: "2026-05-29T01:00:00Z",
+          raw_prompt: "unsafe prompt body",
+          provider_raw_response: "provider secret response",
+        },
+        payload: {
+          valid_json: true,
+          shape: "object",
+          payload_fingerprint: "sha256:payload-live",
+          payload_bytes: 4096,
+          object_field_count: 9,
+          array_item_count: null,
+          has_textual_values: true,
+          has_explanation: true,
+          confidence_milli: 910,
+          raw_payload: {
+            title: "unsafe generated payload title",
+            secret: "provider-secret",
+          },
+        },
+        readiness: {
+          status: "ready",
+          actionable: true,
+          reasons: ["ready_for_review"],
+        },
+        created_at: "2026-05-29T01:01:00Z",
+        updated_at: "2026-05-29T01:05:00Z",
+        accepted_at: null,
+        artifact_storage_handle: "F:\\nako\\artifact-cache\\metadata.json",
+      },
+    ],
+    page: {
+      limit: 25,
+      offset: 50,
+      returned: 1,
+    },
+  }
+}
+
+function adminGeneratedArtifactReviewPlanResponse(
+  artifactId = "artifact-live",
+  decision: "accept" | "reject" = "accept",
+) {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    plan: adminGeneratedArtifactAcceptancePlan(artifactId, decision),
+  }
+}
+
+function adminGeneratedArtifactReviewResponse(
+  artifactId = "artifact-live",
+  decision: "accept" | "reject" = "accept",
+) {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    artifact_id: artifactId,
+    decision,
+    artifact_status: decision === "accept" ? "accepted" : "rejected",
+    accepted_at: decision === "accept" ? "2026-05-29T01:10:00Z" : null,
+    idempotent_replay: true,
+    plan: adminGeneratedArtifactAcceptancePlan(artifactId, decision),
+  }
+}
+
+function adminGeneratedArtifactAcceptancePlan(
+  artifactId = "artifact-live",
+  decision: "accept" | "reject" = "accept",
+) {
+  return {
+    artifact_id: artifactId,
+    decision,
+    status: "ready",
+    action: decision === "accept" ? "accept_generated_artifact" : "reject_generated_artifact",
+    reasons: ["ready_for_review"],
+    capability: "item_metadata_suggest",
+    kind: "metadata_suggestion",
+    target: {
+      kind: "media_item",
+      library_id: "library-a",
+      item_id: "item-live",
+      source_id: "source-live",
+      local_path: "F:\\private\\source\\Movie.mkv",
+      source_locator: "file:///mnt/private/source/Movie.mkv",
+    },
+    payload: {
+      valid_json: true,
+      shape: "object",
+      payload_fingerprint: "sha256:payload-live",
+      payload_bytes: 4096,
+      object_field_count: 9,
+      array_item_count: null,
+      has_textual_values: true,
+      has_explanation: true,
+      confidence_milli: 910,
+      raw_payload: {
+        title: "unsafe generated payload title",
+        secret: "provider-secret",
+      },
+    },
+    readiness: {
+      status: "ready",
+      actionable: true,
+      reasons: ["ready_for_review"],
+    },
+    boundary: {
+      accepted_into_canonical_metadata: false,
+      writes_sidecar: false,
+      writes_library_files: false,
+      applies_immediately: false,
+      requires_metadata_authority_apply: decision === "accept",
+    },
+    raw_prompt: "unsafe prompt body",
+    provider_raw_response: "provider secret response",
+    artifact_storage_handle: "F:\\nako\\artifact-cache\\metadata.json",
   }
 }
 
@@ -1854,6 +2000,9 @@ describe("admin read model data source contracts", () => {
     await expect(source.loadAcquisitionIntake()).resolves.toBe(
       ADMIN_ACQUISITION_INTAKE_READ_MODEL_FIXTURE,
     )
+    await expect(source.loadGeneratedArtifacts()).resolves.toBe(
+      ADMIN_GENERATED_ARTIFACTS_READ_MODEL_FIXTURE,
+    )
     await expect(source.loadSettings()).resolves.toBe(ADMIN_SETTINGS_READ_MODEL_FIXTURE)
   })
 
@@ -1935,6 +2084,191 @@ describe("admin read model data source contracts", () => {
     const serialized = JSON.stringify(intake)
     expect(serialized).not.toContain("/mnt/private/raw")
     expect(serialized).not.toContain("unsafe prompt body")
+  })
+
+  it("maps live Admin generated artifact proposals into a redacted read model", async () => {
+    const fetcher = vi.fn<typeof fetch>(async (input) => {
+      const url = new URL(String(input))
+      if (url.pathname === "/admin/v1/automation/generated-artifacts/proposals") {
+        return jsonResponse(adminGeneratedArtifactProposalsResponse())
+      }
+
+      return jsonResponse({ message: "not found" }, 404)
+    })
+    const source = createAdminReadModelsDataSource(
+      {
+        mode: "live",
+        baseUrl: "http://nako-admin.test/",
+        bearerToken: "admin-token",
+      },
+      fetcher,
+    )
+
+    const artifacts = await source.loadGeneratedArtifacts({
+      limit: 25,
+      offset: 50,
+    })
+
+    expect(artifacts).toMatchObject({
+      source: "live",
+      fallback: false,
+      versions: {
+        adminApi: "v1",
+        publicApi: "v1",
+      },
+      query: {
+        limit: 25,
+        offset: 50,
+      },
+      proposals: [
+        {
+          id: "artifact-live",
+          kind: "metadata_suggestion",
+          capability: "item_metadata_suggest",
+          status: "pending_review",
+          target: {
+            kind: "media_item",
+            libraryId: "library-a",
+            itemId: "item-live",
+            sourceId: "source-live",
+          },
+          provenance: {
+            providerId: "provider-live",
+            providerName: "Live Automation Provider",
+            jobId: "job-live",
+            idempotencyKeyFingerprint: "sha256:idempotency-live",
+            promptFingerprint: "sha256:prompt-live",
+            attemptCount: 2,
+          },
+          payload: {
+            validJson: true,
+            shape: "object",
+            payloadFingerprint: "sha256:payload-live",
+            payloadBytes: 4096,
+            objectFieldCount: 9,
+            hasTextualValues: true,
+            hasExplanation: true,
+            confidenceMilli: 910,
+          },
+          readiness: {
+            status: "ready",
+            actionable: true,
+            reasons: ["ready_for_review"],
+          },
+        },
+      ],
+    })
+
+    const calledTarget = fetcher.mock.calls.map(([input]) => {
+      const url = new URL(String(input))
+      return `${url.pathname}${url.search}`
+    })
+    expect(calledTarget).toEqual([
+      "/admin/v1/automation/generated-artifacts/proposals?limit=25&offset=50",
+    ])
+    expect(new Headers(fetcher.mock.calls[0][1]?.headers).get("Authorization")).toBe(
+      "Bearer admin-token",
+    )
+
+    const serialized = JSON.stringify(artifacts)
+    expect(serialized).not.toContain("F:\\private")
+    expect(serialized).not.toContain("/mnt/private/source")
+    expect(serialized).not.toContain("unsafe prompt body")
+    expect(serialized).not.toContain("unsafe generated payload title")
+    expect(serialized).not.toContain("provider secret response")
+    expect(serialized).not.toContain("provider-secret")
+    expect(serialized).not.toContain("artifact_storage_handle")
+  })
+
+  it("maps live Admin generated artifact review plans through POST without unsafe fields", async () => {
+    const calls: Array<{ method: string; path: string; body?: unknown; authorization: string | null }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined
+      calls.push({
+        method: init?.method ?? "GET",
+        path: url.pathname,
+        body,
+        authorization: new Headers(init?.headers).get("Authorization"),
+      })
+
+      if (url.pathname === "/admin/v1/automation/generated-artifacts/artifact%2Funsafe%20id/review-plan") {
+        return jsonResponse(adminGeneratedArtifactReviewPlanResponse("artifact/unsafe id", "reject"))
+      }
+
+      return jsonResponse({ message: "not found" }, 404)
+    })
+    const source = createAdminReadModelsDataSource(
+      {
+        mode: "live",
+        baseUrl: "http://nako-admin.test/",
+        bearerToken: "admin-token",
+      },
+      fetcher,
+    )
+
+    const plan = await source.loadGeneratedArtifactReviewPlan("artifact/unsafe id", "reject")
+
+    expect(plan).toMatchObject({
+      source: "live",
+      fallback: false,
+      versions: {
+        adminApi: "v1",
+        publicApi: "v1",
+      },
+      artifactId: "artifact/unsafe id",
+      decision: "reject",
+      status: "ready",
+      action: "reject_generated_artifact",
+      target: {
+        kind: "media_item",
+        libraryId: "library-a",
+        itemId: "item-live",
+        sourceId: "source-live",
+      },
+      payload: {
+        payloadFingerprint: "sha256:payload-live",
+        payloadBytes: 4096,
+        confidenceMilli: 910,
+      },
+      readiness: {
+        actionable: true,
+        reasons: ["ready_for_review"],
+      },
+      boundary: {
+        acceptedIntoCanonicalMetadata: false,
+        writesSidecar: false,
+        writesLibraryFiles: false,
+        appliesImmediately: false,
+        requiresMetadataAuthorityApply: false,
+      },
+    })
+
+    expect(calls).toEqual([
+      {
+        method: "POST",
+        path: "/admin/v1/automation/generated-artifacts/artifact%2Funsafe%20id/review-plan",
+        body: { decision: "reject" },
+        authorization: "Bearer admin-token",
+      },
+    ])
+
+    const serialized = JSON.stringify(plan)
+    expect(serialized).not.toContain("F:\\private")
+    expect(serialized).not.toContain("/mnt/private/source")
+    expect(serialized).not.toContain("unsafe prompt body")
+    expect(serialized).not.toContain("unsafe generated payload title")
+    expect(serialized).not.toContain("provider secret response")
+    expect(serialized).not.toContain("provider-secret")
+    expect(serialized).not.toContain("artifact_storage_handle")
+  })
+
+  it("returns deterministic fixture generated artifact review plans", async () => {
+    const source = createAdminReadModelsDataSource({ mode: "fixture" })
+
+    await expect(
+      source.loadGeneratedArtifactReviewPlan("fixture-generated-artifact-1", "accept"),
+    ).resolves.toEqual(ADMIN_GENERATED_ARTIFACT_REVIEW_PLAN_FIXTURE)
   })
 
   it("maps live Admin API responses into deeper Admin page read models", async () => {
@@ -2110,6 +2444,9 @@ describe("admin mutation data source contracts", () => {
 
     expect(source.canMutate).toBe(false)
     await expect(source.scanLibrary("library-a")).rejects.toThrow("live Admin API")
+    await expect(source.reviewGeneratedArtifact("artifact-live", "accept")).rejects.toThrow(
+      "live Admin API",
+    )
   })
 
   it("maps accepted Admin mutations to versioned routes with JSON bodies", async () => {
@@ -2140,6 +2477,8 @@ describe("admin mutation data source contracts", () => {
           return jsonResponse(adminRawCacheSettingsResponse())
         case "PATCH /admin/v1/addons/addon-1/status":
           return jsonResponse(adminAddonRegistrationResponse("disabled"))
+        case "POST /admin/v1/automation/generated-artifacts/artifact%2Funsafe%20id/review":
+          return jsonResponse(adminGeneratedArtifactReviewResponse("artifact/unsafe id", "accept"))
         default:
           return jsonResponse({ message: "not found" }, 404)
       }
@@ -2179,6 +2518,22 @@ describe("admin mutation data source contracts", () => {
       cleanup_on_startup: true,
     })
     await source.updateAddonStatus("addon-1", "disabled")
+    const reviewResult = await source.reviewGeneratedArtifact("artifact/unsafe id", "accept")
+    expect(reviewResult).toMatchObject({
+      kind: "generated-artifact.review",
+      artifactId: "artifact/unsafe id",
+      decision: "accept",
+      artifactStatus: "accepted",
+      acceptedAt: "2026-05-29T01:10:00Z",
+      idempotentReplay: true,
+      plan: {
+        artifactId: "artifact/unsafe id",
+        decision: "accept",
+        boundary: {
+          requiresMetadataAuthorityApply: true,
+        },
+      },
+    })
 
     expect(calls).toEqual([
       {
@@ -2241,7 +2596,22 @@ describe("admin mutation data source contracts", () => {
         body: { status: "disabled" },
         authorization: "Bearer admin-token",
       },
+      {
+        method: "POST",
+        path: "/admin/v1/automation/generated-artifacts/artifact%2Funsafe%20id/review",
+        body: { decision: "accept" },
+        authorization: "Bearer admin-token",
+      },
     ])
+
+    const serialized = JSON.stringify(reviewResult)
+    expect(serialized).not.toContain("F:\\private")
+    expect(serialized).not.toContain("/mnt/private/source")
+    expect(serialized).not.toContain("unsafe prompt body")
+    expect(serialized).not.toContain("unsafe generated payload title")
+    expect(serialized).not.toContain("provider secret response")
+    expect(serialized).not.toContain("provider-secret")
+    expect(serialized).not.toContain("artifact_storage_handle")
   })
 })
 

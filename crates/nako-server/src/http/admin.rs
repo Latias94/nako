@@ -22,11 +22,12 @@ use nako_api::{
         AdminConfigPlaybackDiagnostics, AdminConfigStagingDiagnostics,
         AdminCreateInvitationRequest, AdminCreateInvitationResponse, AdminCreateUserRequest,
         AdminDatabaseBackendCapabilitiesDiagnostics, AdminDatabaseConfigDiagnostics,
-        AdminGeneratedArtifactProposal, AdminGeneratedArtifactProposalListResponse,
-        AdminGeneratedArtifactReviewPlanResponse, AdminGeneratedArtifactReviewRequest,
-        AdminGeneratedArtifactReviewResponse, AdminInvitationListResponse, AdminInvitationRecord,
-        AdminInvitationResponse, AdminJobCancelRequestResponse, AdminJobListItem,
-        AdminJobListResponse, AdminLibraryAccessLevel, AdminLibraryAccessPolicyDeleteResponse,
+        AdminGeneratedArtifactMetadataApplyPlanResponse, AdminGeneratedArtifactProposal,
+        AdminGeneratedArtifactProposalListResponse, AdminGeneratedArtifactReviewPlanResponse,
+        AdminGeneratedArtifactReviewRequest, AdminGeneratedArtifactReviewResponse,
+        AdminInvitationListResponse, AdminInvitationRecord, AdminInvitationResponse,
+        AdminJobCancelRequestResponse, AdminJobListItem, AdminJobListResponse,
+        AdminLibraryAccessLevel, AdminLibraryAccessPolicyDeleteResponse,
         AdminLibraryAccessPolicyListResponse, AdminLibraryAccessPolicyRecord,
         AdminLibraryAccessPolicyResponse, AdminLibraryAccessReason, AdminLibraryAccessSummary,
         AdminLibraryAccessSummaryEntry, AdminLibraryConfigDiagnostics,
@@ -137,6 +138,10 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/automation/generated-artifacts/{artifact_id}/review",
             post(review_admin_generated_artifact),
+        )
+        .route(
+            "/admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply-plan",
+            post(plan_admin_generated_artifact_metadata_apply),
         )
         .route(
             "/admin/v1/catalog/governance/items",
@@ -497,6 +502,22 @@ pub(super) async fn review_admin_generated_artifact(
     Ok(Json(AdminGeneratedArtifactReviewResponse::from_result(
         result,
     )))
+}
+
+pub(super) async fn plan_admin_generated_artifact_metadata_apply(
+    State(app): State<NakoApp>,
+    Path(artifact_id): Path<AutomationArtifactId>,
+) -> ApiResult<impl IntoResponse> {
+    let plan = app
+        .automation()
+        .plan_generated_artifact_metadata_apply(artifact_id)
+        .await?;
+
+    Ok(Json(AdminGeneratedArtifactMetadataApplyPlanResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        plan: nako_api::admin::AdminGeneratedArtifactMetadataApplyPlan::from_plan(plan),
+    }))
 }
 
 pub(super) async fn get_admin_library_metadata_profile(

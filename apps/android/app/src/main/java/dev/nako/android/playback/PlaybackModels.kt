@@ -36,14 +36,21 @@ data class PlaybackMediaSourceDto(
 data class ClientPlaybackDecision(
     val mode: ClientPlaybackMode,
     val reason: String,
+    val denial: ClientPlaybackDenial? = null,
     val directPlay: ClientDirectPlayPlan? = null,
     val transcodePlan: ClientTranscodePlan? = null,
+)
+
+data class ClientPlaybackDenial(
+    val permission: String,
+    val reason: String,
 )
 
 enum class ClientPlaybackMode {
     DirectPlay,
     Remux,
     Transcode,
+    Denied,
     Unknown,
 }
 
@@ -57,21 +64,12 @@ data class ClientTranscodePlan(
     val outputContainer: ClientOutputContainer,
     val videoCodec: String? = null,
     val audioCodec: String? = null,
-    val hardwareAcceleration: ClientHardwareAcceleration,
 )
 
 enum class ClientOutputContainer {
     Hls,
     Mp4,
     Mkv,
-    Unknown,
-}
-
-enum class ClientHardwareAcceleration {
-    None,
-    Vaapi,
-    Nvenc,
-    QuickSync,
     Unknown,
 }
 

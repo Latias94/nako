@@ -1,7 +1,7 @@
 # Client Surface And Access Product Architecture - Handoff
 
 Status: Active
-Last updated: 2026-05-26
+Last updated: 2026-05-29
 
 ## Current State
 
@@ -15,28 +15,31 @@ semantics, Admin API access-management routes, and Public Client API
 effective-access enforcement.
 
 CSAPA-030 is complete through `media-web-client-foundation`. The Media Web
-execution lane is now split and its first task is MWF-020 route/API readiness.
+foundation lane is closed; later product frontend work now targets `web/`.
+
+CSAPA-040 is complete through `admin-media-management-context-links`. Backend
+Management Context Links already exist at `/management/context-links`; the new
+frontend lane owns `web/` consumption, route resolution, and cross-surface
+verification.
 
 ## Next Recommended Task
 
-CSAPA-040: split the Management Context Links route/link matrix once Media Web
-route readiness is known.
+CSAPA-050: split or explicitly defer the desktop playback strategy.
 
 Recommended first decisions:
 
-- define media-to-admin links from libraries, Media Items, source/version
-  choice, and playback errors;
-- define admin-to-media links from library detail and item detail;
-- gate each link by Role plus Library Access;
-- keep stable IDs and safe query params only;
-- leave destructive or broad actions owned by Admin Web confirmation flows.
+- decide whether the first desktop lane is a playback-core spike, a packaging
+  validation lane, or an explicit deferral;
+- keep desktop browse/admin UX centered on `web/`;
+- keep serious playback quality owned by a native engine spike rather than
+  assuming WebView playback is sufficient.
 
 ## Key Constraints
 
 - Media Web must consume Public Client API, not Admin API.
 - Admin Web remains the operator console.
-- Management Context Links are permission-gated route links, not hidden shared
-  privileged state.
+- Management Context Links are backend-computed, permission-gated route links,
+  not hidden shared privileged state.
 - Tauri desktop playback should be Media Web-centered and should not assume
   WebView playback is sufficient for high-quality local media.
 - Mobile clients remain native playback surfaces and should not inherit server
@@ -45,8 +48,8 @@ Recommended first decisions:
 ## Follow-On Candidates
 
 - `identity-and-library-access-contract` (complete)
-- `media-web-client-foundation` (active)
-- `admin-media-management-context-links`
+- `media-web-client-foundation` (closed)
+- `admin-media-management-context-links` (active)
 - `desktop-tauri-native-playback-spike`
 
 ## Resume Notes

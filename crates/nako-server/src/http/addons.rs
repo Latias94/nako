@@ -7,10 +7,11 @@ use axum::{
 };
 use nako_addon_protocol::{
     ADDON_RUNTIME_ACCESS_CHECK_PATH, ADDON_RUNTIME_ACQUISITION_INTAKE_CANDIDATES_PATH,
-    ADDON_RUNTIME_GENERATED_ARTIFACTS_PATH, ADDON_RUNTIME_SIDE_EFFECTS_PATH,
-    ADDON_RUNTIME_TASK_RUN_CANCEL_PATH, ADDON_RUNTIME_TASK_RUN_CLAIM_PATH,
-    ADDON_RUNTIME_TASK_RUN_COMPLETE_PATH, ADDON_RUNTIME_TASK_RUN_FAIL_PATH,
-    ADDON_RUNTIME_TASK_RUN_PROGRESS_PATH,
+    ADDON_RUNTIME_EXTERNAL_ACQUISITION_MATERIALIZE_PATH, ADDON_RUNTIME_GENERATED_ARTIFACTS_PATH,
+    ADDON_RUNTIME_SIDE_EFFECTS_PATH, ADDON_RUNTIME_TASK_RUN_CANCEL_PATH,
+    ADDON_RUNTIME_TASK_RUN_CLAIM_PATH, ADDON_RUNTIME_TASK_RUN_COMPLETE_PATH,
+    ADDON_RUNTIME_TASK_RUN_FAIL_PATH, ADDON_RUNTIME_TASK_RUN_PROGRESS_PATH,
+    AddonExternalAcquisitionMaterializationRequest,
 };
 use nako_api::extension::{
     AddonAccessCheckRequest, AdminAddonInstallGuidePreviewRequest, AdminAddonManagerPlanRequest,
@@ -180,6 +181,10 @@ pub(super) fn runtime_routes() -> Router<NakoApp> {
         .route(
             ADDON_RUNTIME_ACQUISITION_INTAKE_CANDIDATES_PATH,
             post(submit_addon_acquisition_candidate),
+        )
+        .route(
+            ADDON_RUNTIME_EXTERNAL_ACQUISITION_MATERIALIZE_PATH,
+            post(materialize_external_acquisition),
         )
         .route(
             ADDON_RUNTIME_SIDE_EFFECTS_PATH,
@@ -774,6 +779,24 @@ pub(super) async fn submit_addon_acquisition_candidate(
     Ok(Json(
         app.addons()
             .submit_addon_acquisition_candidate(raw_token, request)
+            .await?,
+    ))
+}
+
+#[instrument(skip(app, request))]
+pub(super) async fn materialize_external_acquisition(
+    State(app): State<NakoApp>,
+    headers: HeaderMap,
+    Json(request): Json<AddonExternalAcquisitionMaterializationRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let raw_token =
+        auth::request_bearer_token(&headers).ok_or_else(|| nako_core::NakoError::Unauthorized {
+            message: "addon token is required".to_owned(),
+        })?;
+
+    Ok(Json(
+        app.addons()
+            .materialize_external_acquisition(raw_token, request)
             .await?,
     ))
 }

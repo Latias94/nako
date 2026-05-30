@@ -1,11 +1,11 @@
 # Android Client Follow-On Hardening — Handoff
 
-Status: Active
-Last updated: 2026-05-22
+Status: Complete
+Last updated: 2026-05-29
 
 ## Current State
 
-Workstream opened and implemented to handle the three requested follow-ons:
+Workstream closed after implementing the three requested follow-ons:
 
 1. Android smoke evidence.
 2. TokenVault migration away from deprecated token storage risk.
@@ -14,20 +14,12 @@ Workstream opened and implemented to handle the three requested follow-ons:
 
 ## Active Task
 
-- Task ID: ACFH-090
-- Owner: planner
-- Scope: closeout, final evidence review, and commit confirmation.
-- Status: READY
+- None. ACFH-090 is complete.
 
 ## Next Recommended Action
 
-Run ACFH-090:
-
-1. Validate `WORKSTREAM.json`.
-2. Run `git diff --check`.
-3. Confirm focused and broad Android gates remain green.
-4. Write `CLOSEOUT.md`.
-5. Ask for commit confirmation before committing.
+No remaining task in this lane. Re-run end-to-end Android smoke on stable device
+or emulator infrastructure before using smoke as release evidence.
 
 ## Completed Work
 
@@ -40,18 +32,26 @@ Run ACFH-090:
   deprecated dependency.
 - ACFH-040: PlayerRuntime owns the platform session lifecycle. The safe vertical
   slice includes Android framework MediaSession and a guarded PiP entrypoint.
+- ACFH-090: Closeout is complete. During final validation the Android playback
+  SDK adapter was aligned to the current public contract: decision reasons use
+  wire values, denied decisions are represented explicitly, and the removed
+  client transcode hardware-acceleration field was deleted from the Android
+  playback model.
 
 ## Fresh Validation
 
-- `apps\android\gradlew.bat -p apps\android --offline --no-daemon --no-parallel --console=plain :app:testDebugUnitTest --tests "dev.nako.android.connection.*" --tests "dev.nako.android.ui.screens.player.*"`:
-  PASS.
-- `apps\android\gradlew.bat -p apps\android --offline --no-daemon --no-parallel --console=plain :app:testDebugUnitTest`:
-  PASS.
-- `apps\android\gradlew.bat -p apps\android --offline --no-daemon --no-parallel --console=plain :app:assembleDebug -PnakoRustAndroidAbis=x86_64`:
-  PASS.
+- `apps\android\gradlew.bat -p apps\android --no-daemon --no-parallel --console=plain :app:testDebugUnitTest --tests "dev.nako.android.connection.*" --tests "dev.nako.android.ui.screens.player.*"`:
+  PASS on 2026-05-29.
+- `apps\android\gradlew.bat -p apps\android --no-daemon --no-parallel --console=plain :app:testDebugUnitTest`:
+  PASS on 2026-05-29.
+- `apps\android\gradlew.bat -p apps\android --no-daemon --no-parallel --console=plain :app:assembleDebug -PnakoRustAndroidAbis=x86_64`:
+  PASS on 2026-05-29 after installing the missing Rust
+  `x86_64-linux-android` target.
 - PowerShell parser check for smoke scripts: PASS.
 - Deprecated token-vault crypto grep: PASS.
-- `git diff --check`: PASS with CRLF normalization warnings only.
+- `python -m json.tool docs\workstreams\android-client-follow-on-hardening\WORKSTREAM.json`:
+  PASS on 2026-05-29.
+- `git diff --check`: PASS on 2026-05-29 with CRLF normalization warnings only.
 
 ## Residual Risks
 

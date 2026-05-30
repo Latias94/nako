@@ -99,10 +99,10 @@ Evidence workstreams:
 - `docs/workstreams/addon-library-file-write-policy/`
 - `docs/workstreams/nfo-sidecar-promotion-apply/`
 - `docs/workstreams/admin-web-v2-storage-staging-route/`
+- `docs/workstreams/storage-vfs-resilience-and-source-identity/`
 
 Proposed lanes:
 
-- `proposed:storage-vfs-resilience-and-source-identity`
 - `proposed:vfs-cache-repair-diagnostics`
 - `proposed:remote-storage-health-and-circuit-breaker`
 
@@ -119,6 +119,7 @@ Evidence workstreams:
 - `docs/workstreams/metadata-acquisition-pipeline/`
 - `docs/workstreams/metadata-profile-configuration-authority/`
 - `docs/workstreams/metadata-application-policy-seam/`
+- `docs/workstreams/generated-artifact-metadata-authority-apply/`
 - `docs/workstreams/metadata-provider-attempt-runtime/`
 - `docs/workstreams/metadata-operations/`
 - `docs/workstreams/scan-addon-bulk-metadata-scrape/`
@@ -201,6 +202,9 @@ Evidence workstreams:
 - `docs/workstreams/worker-job-cancellation-checkpoints/`
 - `docs/workstreams/admin-operations-read-models/`
 - `docs/workstreams/admin-web-console/`
+- `docs/workstreams/web-admin-generated-artifacts-automation/`
+- `docs/workstreams/web-admin-generated-artifact-review-mutations/`
+- `docs/workstreams/generated-artifact-metadata-authority-apply/`
 - `docs/workstreams/addon-architecture-deepening/`
 - `docs/workstreams/addon-runtime-and-distribution/`
 - `docs/workstreams/addon-manager-lifecycle-automation/`

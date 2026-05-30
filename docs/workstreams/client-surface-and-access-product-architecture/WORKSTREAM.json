@@ -3,8 +3,8 @@
   "slug": "client-surface-and-access-product-architecture",
   "title": "Client Surface And Access Product Architecture",
   "status": "active",
-  "current_task": "CSAPA-040",
-  "updated": "2026-05-26",
+  "current_task": "CSAPA-050",
+  "updated": "2026-05-29",
   "scope_kind": "planning",
   "problem": "Nako needs an accepted product architecture for Admin Web, Media Web, desktop playback, mobile clients, users, roles, Library Access, and permission-gated switching between media consumption and management.",
   "authoritative_docs": [
@@ -49,6 +49,10 @@
     {
       "task": "CSAPA-030",
       "summary": "Split media-web-client-foundation for local-media-first browser browsing/playback through Public Client API with route/API readiness as the first task."
+    },
+    {
+      "task": "CSAPA-040",
+      "summary": "Split admin-media-management-context-links for the current web product frontend to consume backend-computed Management Context Links without duplicating authorization in Media UI."
     }
   ],
   "adr_refs": [
@@ -59,6 +63,6 @@
   ],
   "continue_policy": {
     "default_action": "split_follow_on",
-    "notes": "Do not implement broad client/access work inside this planning lane. Split narrower identity/access, Media Web, management-context-links, and desktop playback lanes before code changes."
+    "notes": "Do not implement broad client/access work inside this planning lane. Identity/access, Media Web, and Management Context Links are split; split or defer desktop playback before closing this planning lane."
   }
 }

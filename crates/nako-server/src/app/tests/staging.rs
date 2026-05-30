@@ -270,6 +270,17 @@ async fn manifest_recording_backend_rolls_back_reservation_when_stage_fails() {
         .unwrap();
     assert_eq!(records.len(), 1);
     assert_eq!(records[0].state, StagingState::Failed);
+    assert_eq!(
+        records[0].validation_error.as_deref(),
+        Some("storage failure")
+    );
+    assert!(
+        !records[0]
+            .validation_error
+            .as_deref()
+            .unwrap()
+            .contains("Failing")
+    );
 }
 
 #[tokio::test]

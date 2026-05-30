@@ -7,7 +7,7 @@ Last updated: 2026-05-28
 
 | Frontend route | Surface | Status | Notes |
 | --- | --- | --- | --- |
-| `/admin/automation/generated-artifacts` | Admin | Planned | New `web/` route with route-owned pagination and proposal diagnostics. |
+| `/admin/automation/generated-artifacts` | Admin | Implemented | New `web/` route with route-owned pagination and read-only proposal diagnostics. |
 
 ## Generated Admin Contracts
 
@@ -28,8 +28,7 @@ and review boundaries:
 
 ## First Read-Only Mapping
 
-`WAGA-020` should verify and document the final field mapping before code work,
-but the initial mapping is:
+`WAGA-020` verified and implemented the read-model mapping:
 
 | UI field | Contract field |
 | --- | --- |
@@ -41,6 +40,48 @@ but the initial mapping is:
 | Payload summary | `payload.valid_json`, `shape`, `payload_bytes`, counts, textual/explanation booleans, `confidence_milli` |
 | Readiness | `readiness.status`, `actionable`, `reasons` |
 | Timestamps | `created_at`, `updated_at`, `accepted_at`, `provenance.artifact_created_at` |
+
+## WAGA-020 Audit Result
+
+`WAGA-020` added:
+
+- `AdminApiClient.getGeneratedArtifactProposals(query)`;
+- `createAdminReadModelsDataSource().loadGeneratedArtifacts(query)`;
+- `ADMIN_GENERATED_ARTIFACTS_READ_MODEL_FIXTURE`;
+- `AdminGeneratedArtifactsReadModel`;
+- data-source contract coverage for fixture fallback, live query
+  serialization, Bearer authorization, DTO-to-read-model mapping, and redaction
+  of non-contract raw fields.
+
+The read model intentionally exposes only summarized proposal facts. It does not
+carry raw prompts, raw generated payload bodies, provider raw responses, local
+paths, Source Locators, credentials, storage handles, or secrets.
+
+## WAGA-030 Route Evidence
+
+WAGA-030 added `web/src/features/admin/admin-generated-artifacts.tsx`, Admin
+navigation, router state for `limit` and `offset`, route contract coverage,
+route-state coverage, and live rendering coverage.
+
+The route is read-only. It renders proposal id, kind, capability, status,
+target ids, provider/job provenance, payload summary, readiness, safe
+fingerprints, timestamps, and fixture/live source state. Tests assert that raw
+prompt text, raw generated payload bodies, provider raw responses, local paths,
+Source Locators, credentials, and bearer tokens do not render.
+
+Review-plan and accept/reject actions remain deferred after WAGA-040.
+
+## WAGA-040 Mutation Decision
+
+WAGA-040 decided not to add review-plan or accept/reject controls in this lane.
+The generated Admin routes are present, but the UI needs a separate guarded
+mutation lane before exposing controls that change Generated Artifact status or
+advance an Acceptance Workflow.
+
+The follow-on must define route shape, permission/readiness disabled states,
+confirmation copy, idempotent replay behavior, boundary flag display,
+result/error rendering, cache invalidation, and redaction assertions before
+calling `generatedArtifactReview`.
 
 ## Review Guard Requirements
 

@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "slug": "admin-media-management-context-links",
+  "title": "Admin Media Management Context Links",
+  "status": "active",
+  "updated": "2026-05-29",
+  "scope_kind": "frontend_execution",
+  "problem": "Nako needs the current web product frontend to consume backend-computed Management Context Links so Media and Admin surfaces can switch contexts without duplicating authorization or leaking privileged state.",
+  "task_prefix": "AMCL",
+  "current_task": "AMCL-020",
+  "completed_tasks": ["AMCL-010"],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/admin-media-management-context-links/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-media-management-context-links/DESIGN.md"
+    },
+    {
+      "role": "route_matrix",
+      "path": "docs/workstreams/admin-media-management-context-links/ROUTE_MATRIX.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-media-management-context-links/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/admin-media-management-context-links/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-media-management-context-links/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/admin-media-management-context-links/HANDOFF.md"
+    }
+  ],
+  "gates": [
+    "python -m json.tool docs/workstreams/admin-media-management-context-links/WORKSTREAM.json",
+    "git diff --check -- docs/workstreams/admin-media-management-context-links docs/workstreams/client-surface-and-access-product-architecture docs/workstreams/README.md",
+    "npm --prefix web run test -- src/test/data-source-contracts.test.ts",
+    "npm --prefix web run test",
+    "npm --prefix web run check",
+    "npm --prefix web run build:budget"
+  ],
+  "evidence": [
+    {
+      "task": "AMCL-010",
+      "summary": "Opened a focused web frontend lane from CSAPA-040 after confirming backend-computed Management Context Links already exist at /management/context-links and the current product frontend is web/."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0024-inbound-token-authentication-boundary.md",
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md",
+    "docs/adr/0028-user-playback-state-principal-and-public-contract.md",
+    "docs/adr/0037-local-credential-and-session-auth.md"
+  ],
+  "continue_policy": {
+    "default_action": "continue",
+    "next_task": "AMCL-020",
+    "notes": "Start with the frontend route resolver and Public Client data-source boundary. Do not implement broad Admin or Media product expansion inside this lane."
+  }
+}

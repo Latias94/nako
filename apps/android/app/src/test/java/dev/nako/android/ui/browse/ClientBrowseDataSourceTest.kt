@@ -429,7 +429,12 @@ private fun libraryListJson(): String =
               "local_metadata_policy": "read_only",
               "local_readers": [],
               "metadata_providers": [],
-              "refresh_mode": "default"
+              "refresh_mode": "default",
+              "scan": {
+                "enabled": true,
+                "addon_scrape": false,
+                "addon_writeback": false
+              }
             },
             "naming_strategy": "movie",
             "preset": "movies",

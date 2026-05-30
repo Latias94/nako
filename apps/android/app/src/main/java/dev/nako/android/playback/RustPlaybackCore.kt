@@ -159,6 +159,7 @@ private fun ClientPlaybackMode.toCore(): CorePlaybackMode =
         ClientPlaybackMode.DirectPlay -> CorePlaybackMode.DIRECT_PLAY
         ClientPlaybackMode.Remux -> CorePlaybackMode.REMUX
         ClientPlaybackMode.Transcode -> CorePlaybackMode.TRANSCODE
+        ClientPlaybackMode.Denied -> CorePlaybackMode.UNKNOWN
         ClientPlaybackMode.Unknown -> CorePlaybackMode.UNKNOWN
     }
 

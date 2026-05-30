@@ -2,10 +2,10 @@ package dev.nako.android.playback
 
 import dev.nako.android.media.toAndroid
 import dev.nako.sdk.ClientDirectPlayPlan as SdkClientDirectPlayPlan
+import dev.nako.sdk.ClientPlaybackDenialDto as SdkClientPlaybackDenialDto
 import dev.nako.sdk.ClientPlaybackDecision as SdkClientPlaybackDecision
 import dev.nako.sdk.ClientPlaybackDecisionMode as SdkClientPlaybackDecisionMode
 import dev.nako.sdk.ClientTranscodePlan as SdkClientTranscodePlan
-import dev.nako.sdk.ClientTranscodePlanHardwareAcceleration as SdkClientHardwareAcceleration
 import dev.nako.sdk.ClientTranscodePlanOutputContainer as SdkClientOutputContainer
 import dev.nako.sdk.MediaSourceDto as SdkMediaSourceDto
 import dev.nako.sdk.PlaybackDecisionResponse as SdkPlaybackDecisionResponse
@@ -35,7 +35,8 @@ private fun SdkMediaSourceDto.toAndroidPlaybackSource(): PlaybackMediaSourceDto 
 private fun SdkClientPlaybackDecision.toAndroid(): ClientPlaybackDecision =
     ClientPlaybackDecision(
         mode = mode.toAndroid(),
-        reason = reason,
+        reason = reason.wireValue,
+        denial = denial?.toAndroid(),
         directPlay = directPlay?.toAndroid(),
         transcodePlan = transcodePlan?.toAndroid(),
     )
@@ -45,8 +46,15 @@ private fun SdkClientPlaybackDecisionMode.toAndroid(): ClientPlaybackMode =
         SdkClientPlaybackDecisionMode.DirectPlay.wireValue -> ClientPlaybackMode.DirectPlay
         SdkClientPlaybackDecisionMode.Remux.wireValue -> ClientPlaybackMode.Remux
         SdkClientPlaybackDecisionMode.Transcode.wireValue -> ClientPlaybackMode.Transcode
+        SdkClientPlaybackDecisionMode.Denied.wireValue -> ClientPlaybackMode.Denied
         else -> ClientPlaybackMode.Unknown
     }
+
+private fun SdkClientPlaybackDenialDto.toAndroid(): ClientPlaybackDenial =
+    ClientPlaybackDenial(
+        permission = permission.wireValue,
+        reason = reason.wireValue,
+    )
 
 private fun SdkClientDirectPlayPlan.toAndroid(): ClientDirectPlayPlan =
     ClientDirectPlayPlan(
@@ -60,7 +68,6 @@ private fun SdkClientTranscodePlan.toAndroid(): ClientTranscodePlan =
         outputContainer = outputContainer.toAndroid(),
         videoCodec = videoCodec,
         audioCodec = audioCodec,
-        hardwareAcceleration = hardwareAcceleration.toAndroid(),
     )
 
 private fun SdkClientOutputContainer.toAndroid(): ClientOutputContainer =
@@ -69,15 +76,6 @@ private fun SdkClientOutputContainer.toAndroid(): ClientOutputContainer =
         SdkClientOutputContainer.Mp4.wireValue -> ClientOutputContainer.Mp4
         SdkClientOutputContainer.Mkv.wireValue -> ClientOutputContainer.Mkv
         else -> ClientOutputContainer.Unknown
-    }
-
-private fun SdkClientHardwareAcceleration.toAndroid(): ClientHardwareAcceleration =
-    when (wireValue) {
-        SdkClientHardwareAcceleration.None.wireValue -> ClientHardwareAcceleration.None
-        SdkClientHardwareAcceleration.Vaapi.wireValue -> ClientHardwareAcceleration.Vaapi
-        SdkClientHardwareAcceleration.Nvenc.wireValue -> ClientHardwareAcceleration.Nvenc
-        SdkClientHardwareAcceleration.QuickSync.wireValue -> ClientHardwareAcceleration.QuickSync
-        else -> ClientHardwareAcceleration.Unknown
     }
 
 internal fun SdkTranscodeSessionResponse.toAndroid(): TranscodeSessionResponse =

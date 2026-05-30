@@ -6,6 +6,12 @@ attention.
 
 ## Current Workstreams
 
+- [storage-vfs-resilience-and-source-identity](storage-vfs-resilience-and-source-identity/README.md):
+  active fearless refactor lane for deepening **Source Fingerprint** evidence,
+  move/rename reconciliation, storage failure classification, stale-cache
+  diagnostics, and mount-hang resilience before broader remote-library,
+  watch-folder, provider, or Library File Write breadth depends on shallow
+  source identity behavior. This lane is intentionally non-Web and non-HLS.
 - [durable-job-queue-and-resource-classes](durable-job-queue-and-resource-classes/README.md):
   closed fearless refactor lane for centralizing process-local runtime resource
   classes first, then adding explicit durable job class to budget class mapping,
@@ -92,6 +98,15 @@ attention.
   through real backend/API contracts before downloads, playlists, photos,
   music, podcasts, AI assistant, or automation can re-enter the live web
   runtime.
+- [web-admin-generated-artifact-review-mutations](web-admin-generated-artifact-review-mutations/README.md):
+  completed guarded mutation lane for adding Generated Artifact review-plan
+  preview, explicit accept/reject confirmation, idempotent result display, and
+  redaction-safe Admin API mutations to the new `web/` Admin frontend.
+- [generated-artifact-metadata-authority-apply](generated-artifact-metadata-authority-apply/README.md):
+  active backend/Web authority lane for turning accepted metadata Generated
+  Artifacts into redacted apply plans, host-owned field-lock-aware metadata
+  apply, audited/idempotent outcomes, and a Web Admin confirmation workflow
+  without making review acceptance mutate Canonical Metadata.
 - [web-playlist-management-ui-mutations](web-playlist-management-ui-mutations/README.md):
   active fearless refactor lane for turning the closed User Playlist Public
   Client contract and first read-oriented web slice into create, rename, delete,
@@ -102,6 +117,11 @@ attention.
   fixture-first browsing toward live Public Client browse/detail, browser-safe
   playback entry, playback state, browser/Tauri validation, and bundle-budget
   gates.
+- [admin-media-management-context-links](admin-media-management-context-links/README.md):
+  active frontend execution lane split from CSAPA-040 for making the current
+  `web/` product frontend consume backend-computed Management Context Links
+  between Media and Admin surfaces without duplicating authorization in Media
+  UI or leaking privileged Admin state.
 - [web-modern-frontend-and-tauri-foundation](web-modern-frontend-and-tauri-foundation/README.md):
   closed foundation lane that made `web/` the product frontend release line,
   re-authored the v0 UX direction into a Vite React/Tailwind/TanStack app with a

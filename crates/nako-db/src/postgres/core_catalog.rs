@@ -1020,6 +1020,9 @@ impl ScanRepository for PostgresStore {
         for projection in &commit.search_projections {
             upsert_search_projection_tx(&mut transaction, projection).await?;
         }
+        for relationship in &commit.source_duplicate_relationships {
+            upsert_source_duplicate_relationship_tx(&mut *transaction, relationship).await?;
+        }
         let mut resolved_ingestion_failures = 0;
         for resolution in &commit.resolved_ingestion_failures {
             resolved_ingestion_failures += resolve_ingestion_failure_tx(
@@ -1040,6 +1043,7 @@ impl ScanRepository for PostgresStore {
             library_item_states: commit.library_item_states.len() as u64,
             local_inference_evidence: commit.local_inference_evidence.len() as u64,
             search_projections: commit.search_projections.len() as u64,
+            source_duplicate_relationships: commit.source_duplicate_relationships.len() as u64,
             resolved_ingestion_failures,
         })
     }
@@ -1177,47 +1181,7 @@ impl SourceDuplicateRepository for PostgresStore {
         &self,
         relationship: &SourceDuplicateRelationship,
     ) -> Result<()> {
-        let relationship = relationship.canonicalized();
-        let (evidence_kind, evidence_kind_key) =
-            source_duplicate_evidence_kind_to_parts(&relationship.evidence_kind);
-
-        sqlx::query(
-            r#"
-            INSERT INTO source_duplicate_relationships (
-                id,
-                source_id,
-                duplicate_source_id,
-                evidence_kind,
-                evidence_kind_key,
-                evidence_value,
-                status,
-                confidence_milli
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            ON CONFLICT(id) DO UPDATE SET
-                source_id = excluded.source_id,
-                duplicate_source_id = excluded.duplicate_source_id,
-                evidence_kind = excluded.evidence_kind,
-                evidence_kind_key = excluded.evidence_kind_key,
-                evidence_value = excluded.evidence_value,
-                status = excluded.status,
-                confidence_milli = excluded.confidence_milli,
-                updated_at = statement_timestamp()
-            "#,
-        )
-        .bind(relationship.id.as_uuid())
-        .bind(relationship.source_id.as_uuid())
-        .bind(relationship.duplicate_source_id.as_uuid())
-        .bind(evidence_kind)
-        .bind(evidence_kind_key)
-        .bind(&relationship.evidence_value)
-        .bind(relationship.status.as_str())
-        .bind(relationship.confidence_milli.map(i64::from))
-        .execute(&self.pool)
-        .await
-        .map_err(database_error)?;
-
-        Ok(())
+        upsert_source_duplicate_relationship_tx(&self.pool, relationship).await
     }
 
     async fn get_source_duplicate_relationship(
@@ -1267,6 +1231,56 @@ impl SourceDuplicateRepository for PostgresStore {
             .map(row_to_source_duplicate_relationship)
             .collect()
     }
+}
+
+async fn upsert_source_duplicate_relationship_tx<'e, E>(
+    executor: E,
+    relationship: &SourceDuplicateRelationship,
+) -> Result<()>
+where
+    E: sqlx::Executor<'e, Database = Postgres>,
+{
+    let relationship = relationship.canonicalized();
+    let (evidence_kind, evidence_kind_key) =
+        source_duplicate_evidence_kind_to_parts(&relationship.evidence_kind);
+
+    sqlx::query(
+        r#"
+            INSERT INTO source_duplicate_relationships (
+                id,
+                source_id,
+                duplicate_source_id,
+                evidence_kind,
+                evidence_kind_key,
+                evidence_value,
+                status,
+                confidence_milli
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            ON CONFLICT(id) DO UPDATE SET
+                source_id = excluded.source_id,
+                duplicate_source_id = excluded.duplicate_source_id,
+                evidence_kind = excluded.evidence_kind,
+                evidence_kind_key = excluded.evidence_kind_key,
+                evidence_value = excluded.evidence_value,
+                status = excluded.status,
+                confidence_milli = excluded.confidence_milli,
+                updated_at = statement_timestamp()
+            "#,
+    )
+    .bind(relationship.id.as_uuid())
+    .bind(relationship.source_id.as_uuid())
+    .bind(relationship.duplicate_source_id.as_uuid())
+    .bind(evidence_kind)
+    .bind(evidence_kind_key)
+    .bind(&relationship.evidence_value)
+    .bind(relationship.status.as_str())
+    .bind(relationship.confidence_milli.map(i64::from))
+    .execute(executor)
+    .await
+    .map_err(database_error)?;
+
+    Ok(())
 }
 
 #[async_trait::async_trait]

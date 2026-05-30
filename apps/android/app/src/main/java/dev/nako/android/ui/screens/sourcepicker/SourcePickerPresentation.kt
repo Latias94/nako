@@ -82,6 +82,11 @@ internal fun playbackModePresentation(
                 warning = "Prepared on server",
             )
         }
+        ClientPlaybackMode.Denied -> PlaybackModePresentation(
+            label = "Denied",
+            consequence = "This profile is not allowed to play this version.",
+            warning = "Blocked",
+        )
         ClientPlaybackMode.Unknown -> PlaybackModePresentation(
             label = "Unknown",
             consequence = "This server returned a playback mode this app does not understand.",
