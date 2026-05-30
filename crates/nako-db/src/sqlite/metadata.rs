@@ -191,6 +191,43 @@ impl MetadataRepository for SqliteStore {
         })
     }
 
+    async fn commit_metadata_application(
+        &self,
+        commit: &MetadataApplicationPersistenceCommit,
+    ) -> Result<MetadataApplicationPersistenceSummary> {
+        if commit.catalog_projection.search.item_id != commit.item.id {
+            return Err(NakoError::InvalidInput {
+                message: format!(
+                    "metadata application search projection item_id {} does not match item {}",
+                    commit.catalog_projection.search.item_id, commit.item.id
+                ),
+            });
+        }
+
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+
+        crate::sqlite::media::upsert_media_item_in_transaction(&mut transaction, &commit.item)
+            .await?;
+        crate::sqlite::catalog::replace_item_catalog_graph_tx(
+            &mut transaction,
+            commit.item.id,
+            &commit.catalog_projection.graph,
+        )
+        .await?;
+        crate::sqlite::catalog::upsert_search_projection_tx(
+            &mut transaction,
+            &commit.catalog_projection.search,
+        )
+        .await?;
+
+        transaction.commit().await.map_err(database_error)?;
+
+        Ok(MetadataApplicationPersistenceSummary {
+            item_id: commit.item.id,
+            projected_items: 1,
+        })
+    }
+
     async fn commit_metadata_item(&self, item: &MediaItem) -> Result<()> {
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
         crate::sqlite::media::upsert_media_item_in_transaction(&mut transaction, item).await?;

@@ -36,6 +36,7 @@ import type {
   PublicLibraryItemsQuery,
   PublicReadinessState,
 } from "@/src/api/public/media-data-source"
+import { ManagementContextLinks } from "./management-context-links"
 
 // ============ Types ============
 interface Library {
@@ -732,6 +733,19 @@ export function LibraryBrowser({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+        )}
+
+        {activeTab === "library" && (
+          <ManagementContextLinks
+            context={{ libraryId: selectedLibraryId }}
+            routeNames={[
+              "library.scan",
+              "library.metadata_profile",
+              "access.library_policies",
+              "jobs.filtered",
+            ]}
+            tone="inline"
+          />
         )}
 
           {/* Selection bar */}

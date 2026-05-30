@@ -1127,6 +1127,10 @@ HLS uses the configured FFmpeg binary, `remux_timeout_ms`, and the
 Clients may pass `preferred_audio_language` as a comma-separated ordered list
 of BCP-47-like audio language tags. The first matching source audio stream is
 used as the HLS audio rendition default; explicit `audio_stream` still wins.
+Clients may pass `preferred_subtitle_language` as a comma-separated ordered
+list of BCP-47-like subtitle language tags. The first matching source subtitle
+stream is used as the HLS subtitle rendition default; explicit
+`subtitle_stream` still wins.
 WebDAV source inputs are staged under `remux_staging_root/inputs` before HLS
 planning.
 Remote input staging is subject to the configured `[staging].max_bytes` disk

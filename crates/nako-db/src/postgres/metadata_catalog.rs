@@ -340,6 +340,38 @@ impl MetadataRepository for PostgresStore {
         })
     }
 
+    async fn commit_metadata_application(
+        &self,
+        commit: &MetadataApplicationPersistenceCommit,
+    ) -> Result<MetadataApplicationPersistenceSummary> {
+        if commit.catalog_projection.search.item_id != commit.item.id {
+            return Err(NakoError::InvalidInput {
+                message: format!(
+                    "metadata application search projection item_id {} does not match item {}",
+                    commit.catalog_projection.search.item_id, commit.item.id
+                ),
+            });
+        }
+
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+
+        upsert_media_item_tx(&mut transaction, &commit.item).await?;
+        replace_item_catalog_graph_tx(
+            &mut transaction,
+            commit.item.id,
+            &commit.catalog_projection.graph,
+        )
+        .await?;
+        upsert_search_projection_tx(&mut transaction, &commit.catalog_projection.search).await?;
+
+        transaction.commit().await.map_err(database_error)?;
+
+        Ok(MetadataApplicationPersistenceSummary {
+            item_id: commit.item.id,
+            projected_items: 1,
+        })
+    }
+
     async fn commit_metadata_item(&self, item: &MediaItem) -> Result<()> {
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
         upsert_media_item_tx(&mut transaction, item).await?;

@@ -170,7 +170,7 @@ impl PlaybackTargetProfile {
     pub fn identity(&self) -> crate::PlaybackProfileIdentity {
         crate::PlaybackProfileIdentity {
             request_key: format!(
-                "playback-target-profile:v1;direct={};direct={};remux={};transcode={};hls_variant={};hls_segment={};remote={};range={};audio={};audio_languages={};subtitle={};max_video_bitrate={};prefer_hdr={};remux_pref={};transcode_pref={}",
+                "playback-target-profile:v1;direct={};direct={};remux={};transcode={};hls_variant={};hls_segment={};remote={};range={};audio={};audio_languages={};subtitle={};subtitle_languages={};max_video_bitrate={};prefer_hdr={};remux_pref={};transcode_pref={}",
                 self.direct_play,
                 direct_play_profiles_key(&self.direct_play_profiles),
                 remux_profiles_key(&self.remux_profiles),
@@ -182,6 +182,7 @@ impl PlaybackTargetProfile {
                 optional_u32(self.preferences.requested_audio_stream),
                 language_preferences_key(&self.preferences.preferred_audio_languages),
                 optional_u32(self.preferences.requested_subtitle_stream),
+                language_preferences_key(&self.preferences.preferred_subtitle_languages),
                 optional_u64(self.preferences.max_video_bitrate),
                 optional_bool(self.preferences.prefer_hdr),
                 self.preferences
@@ -211,7 +212,7 @@ impl PlaybackTargetProfile {
     ) -> PlaybackTrackSelection {
         PlaybackTrackSelection {
             audio_stream: selected_audio_stream(probe, &self.preferences),
-            subtitle_stream: self.preferences.requested_subtitle_stream,
+            subtitle_stream: selected_subtitle_stream(probe, &self.preferences),
         }
     }
 
@@ -595,6 +596,38 @@ fn selected_audio_stream(
     for preferred_language in preferred_languages {
         if let Some(stream) = probe.streams.iter().find(|stream| {
             matches!(stream.kind, MediaStreamKind::Audio)
+                && stream
+                    .language
+                    .as_deref()
+                    .and_then(normalized_language_tag)
+                    .as_deref()
+                    == Some(preferred_language.as_str())
+        }) {
+            return Some(stream.index);
+        }
+    }
+
+    None
+}
+
+fn selected_subtitle_stream(
+    probe: Option<&MediaProbeResult>,
+    preferences: &PlaybackPreferenceContext,
+) -> Option<u32> {
+    if let Some(index) = preferences.requested_subtitle_stream {
+        return Some(index);
+    }
+
+    let preferred_languages =
+        normalized_language_preferences(&preferences.preferred_subtitle_languages);
+    if preferred_languages.is_empty() {
+        return None;
+    }
+
+    let probe = probe?;
+    for preferred_language in preferred_languages {
+        if let Some(stream) = probe.streams.iter().find(|stream| {
+            matches!(stream.kind, MediaStreamKind::Subtitle)
                 && stream
                     .language
                     .as_deref()

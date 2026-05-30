@@ -13,16 +13,23 @@ use nako_core::{
     GeneratedArtifactAcceptancePlan, GeneratedArtifactAcceptancePlanReason,
     GeneratedArtifactAcceptancePlanStatus, GeneratedArtifactMetadataApplyFieldPlan,
     GeneratedArtifactMetadataApplyPlan, GeneratedArtifactMetadataApplyPlanReason,
-    GeneratedArtifactMetadataApplyPlanStatus, GeneratedArtifactMetadataFieldAction,
+    GeneratedArtifactMetadataApplyPlanStatus, GeneratedArtifactMetadataApplyResult,
+    GeneratedArtifactMetadataApplyResultStatus, GeneratedArtifactMetadataFieldAction,
     GeneratedArtifactMetadataFieldReason, GeneratedArtifactMetadataValueSummary,
     GeneratedArtifactProposal, GeneratedArtifactReviewDecision, GeneratedArtifactReviewResult, Job,
-    JobId, JobRepository, LibraryRepository, MediaItemId, MediaRepository, MetadataField,
-    MetadataFieldLock, MetadataMergePolicy, MetadataRepository, NakoError,
-    NewAutomationProviderConfig, PageRequest, Result,
+    JobId, JobRepository, LibraryRepository, MediaItem, MediaItemId, MediaRepository,
+    MetadataApplicationPersistenceCommit, MetadataField, MetadataFieldLock, MetadataMergePolicy,
+    MetadataRepository, MetadataSource, NakoError, NewAutomationProviderConfig, PageRequest,
+    Result,
 };
 use nako_db::NakoDatabase;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
+
+use crate::app::metadata_application::{
+    MetadataApplication, MetadataApplicationCommand, MetadataApplicationLockScope,
+    MetadataApplicationMode, MetadataApplicationProvenance,
+};
 
 #[derive(Clone, Debug)]
 struct UnavailableAutomationProvider;
@@ -383,7 +390,7 @@ impl AutomationAppService {
 
         if let Some(source_id) = proposal.target.source_id {
             match self.store.get_media_source(source_id).await? {
-                Some(source) if source.item_id != item_id => {
+                Some(source) if source.item_id != item_id || source.library_id != library_id => {
                     status = GeneratedArtifactMetadataApplyPlanStatus::Stale;
                     reasons.push(GeneratedArtifactMetadataApplyPlanReason::TargetMismatch);
                 }
@@ -499,6 +506,80 @@ impl AutomationAppService {
         ))
     }
 
+    pub async fn apply_generated_artifact_metadata(
+        &self,
+        artifact_id: AutomationArtifactId,
+    ) -> Result<GeneratedArtifactMetadataApplyResult> {
+        let plan = self
+            .plan_generated_artifact_metadata_apply(artifact_id)
+            .await?;
+        if !plan.executable {
+            if generated_artifact_metadata_apply_is_idempotent_noop(&plan) {
+                return Ok(GeneratedArtifactMetadataApplyResult {
+                    artifact_id,
+                    status: GeneratedArtifactMetadataApplyResultStatus::Noop,
+                    applied: false,
+                    changed: false,
+                    idempotent_replay: true,
+                    applied_source: None,
+                    plan,
+                });
+            }
+
+            return Err(NakoError::InvalidInput {
+                message: format!(
+                    "generated artifact metadata apply plan is not executable: {:?}",
+                    plan.status
+                ),
+            });
+        }
+
+        let artifact = self
+            .store
+            .get_automation_artifact(artifact_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "automation_artifact",
+                id: artifact_id.to_string(),
+            })?;
+        let (item, library_id) = self
+            .resolve_generated_artifact_metadata_apply_target(&plan)
+            .await?;
+        let (incoming, _) =
+            parse_generated_artifact_metadata_patch(&artifact.artifact_json, &item.metadata)?;
+        let applied = MetadataApplication::new(self.store.clone())
+            .apply(MetadataApplicationCommand {
+                item,
+                source: MetadataSource::User,
+                incoming,
+                mode: MetadataApplicationMode::LibraryProfile { library_id },
+                lock_scope: MetadataApplicationLockScope::ProtectAllLocks,
+                provenance: MetadataApplicationProvenance::GeneratedArtifact {
+                    artifact_id,
+                    provider_id: artifact.provider_id,
+                    library_id,
+                },
+            })
+            .await?;
+
+        self.store
+            .commit_metadata_application(&MetadataApplicationPersistenceCommit {
+                item: applied.item,
+                catalog_projection: applied.projection,
+            })
+            .await?;
+
+        Ok(GeneratedArtifactMetadataApplyResult {
+            artifact_id,
+            status: GeneratedArtifactMetadataApplyResultStatus::Applied,
+            applied: true,
+            changed: applied.changed,
+            idempotent_replay: false,
+            applied_source: Some(applied.applied_source),
+            plan,
+        })
+    }
+
     async fn generated_artifact_proposal(
         &self,
         artifact_id: AutomationArtifactId,
@@ -512,6 +593,58 @@ impl AutomationAppService {
                 entity: "generated_artifact_proposal",
                 id: artifact_id.to_string(),
             })
+    }
+
+    async fn resolve_generated_artifact_metadata_apply_target(
+        &self,
+        plan: &GeneratedArtifactMetadataApplyPlan,
+    ) -> Result<(MediaItem, nako_core::LibraryId)> {
+        let item_id = plan.target.item_id.ok_or_else(|| NakoError::InvalidInput {
+            message: "generated artifact metadata apply target is missing media item".to_owned(),
+        })?;
+        let library_id = plan
+            .target
+            .library_id
+            .ok_or_else(|| NakoError::InvalidInput {
+                message: "generated artifact metadata apply target is missing library".to_owned(),
+            })?;
+        let item =
+            self.store
+                .get_media_item(item_id)
+                .await?
+                .ok_or_else(|| NakoError::NotFound {
+                    entity: "media_item",
+                    id: item_id.to_string(),
+                })?;
+        self.store
+            .get_library(library_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "library",
+                id: library_id.to_string(),
+            })?;
+
+        if let Some(source_id) = plan.target.source_id {
+            match self.store.get_media_source(source_id).await? {
+                Some(source) if source.item_id == item_id && source.library_id == library_id => {}
+                Some(_) => {
+                    return Err(NakoError::InvalidInput {
+                        message: format!(
+                            "generated artifact metadata apply target is stale: source {source_id} no longer belongs to item {item_id} in library {library_id}"
+                        ),
+                    });
+                }
+                None => {
+                    return Err(NakoError::InvalidInput {
+                        message: format!(
+                            "generated artifact metadata apply target is stale: source {source_id} is missing"
+                        ),
+                    });
+                }
+            }
+        }
+
+        Ok((item, library_id))
     }
 
     fn generated_artifact_metadata_apply_plan(
@@ -537,6 +670,16 @@ impl AutomationAppService {
             noop_field_count,
         }
     }
+}
+
+fn generated_artifact_metadata_apply_is_idempotent_noop(
+    plan: &GeneratedArtifactMetadataApplyPlan,
+) -> bool {
+    plan.status == GeneratedArtifactMetadataApplyPlanStatus::Blocked
+        && plan.apply_field_count == 0
+        && plan
+            .reasons
+            .contains(&GeneratedArtifactMetadataApplyPlanReason::NoApplicableMetadataFields)
 }
 
 fn generated_artifact_acceptance_plan(

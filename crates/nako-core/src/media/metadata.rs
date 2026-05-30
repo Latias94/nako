@@ -116,6 +116,18 @@ pub struct NfoImportPersistenceSummary {
     pub projected_items: u64,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataApplicationPersistenceCommit {
+    pub item: MediaItem,
+    pub catalog_projection: CatalogItemProjectionCommit,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataApplicationPersistenceSummary {
+    pub item_id: MediaItemId,
+    pub projected_items: u64,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct MetadataAttemptFilter {
     pub provider: Option<ExternalProvider>,

@@ -1,7 +1,7 @@
 # Admin Media Management Context Links - Milestones
 
 Status: Active
-Last updated: 2026-05-29
+Last updated: 2026-05-30
 
 ## M0 - Lane Open
 
@@ -15,18 +15,20 @@ Exit criteria:
 
 Exit criteria:
 
-- Public Client SDK link reads are wrapped behind a web data-source boundary.
-- One resolver maps every known backend `route_name`.
-- Unknown routes, disabled links, and unsafe query params have tests.
+- DONE. Public Client SDK link reads are wrapped behind a web data-source
+  boundary.
+- DONE. One resolver maps every known backend `route_name`.
+- DONE. Unknown routes, disabled links, and unsafe query params have tests.
 
 ## M2 - Media-to-Admin Links
 
 Exit criteria:
 
-- Media library/detail/source/watch contexts render enabled management links
-  only from backend state.
-- Ordinary viewer states do not expose admin affordances.
-- Media Web does not import Admin API DTOs or mutation clients.
+- DONE. Media library/detail/source/watch contexts render enabled management
+  links only from backend state.
+- DONE. Ordinary viewer states preserve backend disabled reasons instead of
+  inventing access logic.
+- DONE. Media Web does not import Admin API DTOs or mutation clients.
 
 ## M3 - Admin Command And Return Links
 

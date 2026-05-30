@@ -158,6 +158,8 @@ pub struct PlaybackPreferenceContext {
     #[serde(default)]
     pub preferred_audio_languages: Vec<String>,
     pub requested_subtitle_stream: Option<u32>,
+    #[serde(default)]
+    pub preferred_subtitle_languages: Vec<String>,
     pub max_video_bitrate: Option<u64>,
     pub prefer_hdr: Option<bool>,
     pub remux_output_container: Option<PlaybackRemuxContainer>,
@@ -981,6 +983,7 @@ mod tests {
                     requested_audio_stream: Some(1),
                     preferred_audio_languages: Vec::new(),
                     requested_subtitle_stream: Some(2),
+                    preferred_subtitle_languages: Vec::new(),
                     max_video_bitrate: Some(4_000_000),
                     prefer_hdr: Some(false),
                     remux_output_container: Some(PlaybackRemuxContainer::Mkv),
@@ -1399,6 +1402,163 @@ mod tests {
     }
 
     #[test]
+    fn subtitle_language_preference_selects_first_matching_transcode_stream() {
+        let source = media_source("movie.mp4");
+        let mut video = stream(MediaStreamKind::Video, Some("h264"));
+        video.index = 0;
+        let mut audio = stream(MediaStreamKind::Audio, Some("aac"));
+        audio.index = 1;
+        let mut english = stream(MediaStreamKind::Subtitle, Some("webvtt"));
+        english.index = 2;
+        english.language = Some("eng".to_owned());
+        let mut japanese = stream(MediaStreamKind::Subtitle, Some("webvtt"));
+        japanese.index = 3;
+        japanese.language = Some("JPN".to_owned());
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned()),
+            bit_rate: None,
+            streams: vec![video, audio, english, japanese],
+        };
+
+        let decision = plan_with_policy(
+            &source,
+            Some(&probe),
+            ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext {
+                storage: PlaybackStorageContext::default(),
+                preferences: PlaybackPreferenceContext {
+                    preferred_subtitle_languages: vec![" jpn ".to_owned(), "eng".to_owned()],
+                    transcode_output_container: Some(PlaybackTranscodeContainer::Hls),
+                    ..PlaybackPreferenceContext::default()
+                },
+            },
+            EffectivePlaybackPolicy::from_library_access(
+                source.library_id,
+                nako_core::LibraryAccessLevel::Play,
+            ),
+        );
+
+        let requirement = decision
+            .transcode_requirement()
+            .expect("preferred subtitle language should be reflected in transcode requirement");
+        assert_eq!(requirement.track_selection.subtitle_stream, Some(3));
+        assert_eq!(
+            requirement
+                .selected_streams
+                .subtitle
+                .as_ref()
+                .map(|stream| stream.index),
+            Some(3)
+        );
+    }
+
+    #[test]
+    fn requested_subtitle_stream_overrides_subtitle_language_preference() {
+        let source = media_source("movie.mp4");
+        let mut video = stream(MediaStreamKind::Video, Some("h264"));
+        video.index = 0;
+        let mut audio = stream(MediaStreamKind::Audio, Some("aac"));
+        audio.index = 1;
+        let mut english = stream(MediaStreamKind::Subtitle, Some("webvtt"));
+        english.index = 2;
+        english.language = Some("eng".to_owned());
+        let mut japanese = stream(MediaStreamKind::Subtitle, Some("webvtt"));
+        japanese.index = 3;
+        japanese.language = Some("jpn".to_owned());
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned()),
+            bit_rate: None,
+            streams: vec![video, audio, english, japanese],
+        };
+
+        let decision = plan_with_policy(
+            &source,
+            Some(&probe),
+            ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext {
+                storage: PlaybackStorageContext::default(),
+                preferences: PlaybackPreferenceContext {
+                    requested_subtitle_stream: Some(2),
+                    preferred_subtitle_languages: vec!["jpn".to_owned()],
+                    transcode_output_container: Some(PlaybackTranscodeContainer::Hls),
+                    ..PlaybackPreferenceContext::default()
+                },
+            },
+            EffectivePlaybackPolicy::from_library_access(
+                source.library_id,
+                nako_core::LibraryAccessLevel::Play,
+            ),
+        );
+
+        let requirement = decision
+            .transcode_requirement()
+            .expect("explicit subtitle stream should be reflected in transcode requirement");
+        assert_eq!(requirement.track_selection.subtitle_stream, Some(2));
+        assert_eq!(
+            requirement
+                .selected_streams
+                .subtitle
+                .as_ref()
+                .map(|stream| stream.index),
+            Some(2)
+        );
+    }
+
+    #[test]
+    fn subtitle_language_preference_falls_back_to_first_subtitle_without_match() {
+        let source = media_source("movie.mp4");
+        let mut video = stream(MediaStreamKind::Video, Some("h264"));
+        video.index = 0;
+        let mut audio = stream(MediaStreamKind::Audio, Some("aac"));
+        audio.index = 1;
+        let mut english = stream(MediaStreamKind::Subtitle, Some("webvtt"));
+        english.index = 2;
+        english.language = Some("eng".to_owned());
+        let mut japanese = stream(MediaStreamKind::Subtitle, Some("webvtt"));
+        japanese.index = 3;
+        japanese.language = Some("jpn".to_owned());
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned()),
+            bit_rate: None,
+            streams: vec![video, audio, english, japanese],
+        };
+
+        let decision = plan_with_policy(
+            &source,
+            Some(&probe),
+            ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext {
+                storage: PlaybackStorageContext::default(),
+                preferences: PlaybackPreferenceContext {
+                    preferred_subtitle_languages: vec!["fra".to_owned()],
+                    transcode_output_container: Some(PlaybackTranscodeContainer::Hls),
+                    ..PlaybackPreferenceContext::default()
+                },
+            },
+            EffectivePlaybackPolicy::from_library_access(
+                source.library_id,
+                nako_core::LibraryAccessLevel::Play,
+            ),
+        );
+
+        let requirement = decision
+            .transcode_requirement()
+            .expect("fallback subtitle should be reflected in transcode requirement");
+        assert_eq!(requirement.track_selection.subtitle_stream, None);
+        assert_eq!(
+            requirement
+                .selected_streams
+                .subtitle
+                .as_ref()
+                .map(|stream| stream.index),
+            Some(2)
+        );
+    }
+
+    #[test]
     fn client_capability_limits_drive_hls_requirement_and_transcode_reasons() {
         let source = media_source("movie.mp4");
         let mut video = stream(MediaStreamKind::Video, Some("h264"));
@@ -1516,6 +1676,7 @@ mod tests {
                     requested_audio_stream: Some(2),
                     preferred_audio_languages: Vec::new(),
                     requested_subtitle_stream: None,
+                    preferred_subtitle_languages: Vec::new(),
                     max_video_bitrate: Some(8_000_000),
                     prefer_hdr: Some(true),
                     remux_output_container: Some(PlaybackRemuxContainer::Mp4),
@@ -1540,6 +1701,7 @@ mod tests {
                     requested_audio_stream: Some(2),
                     preferred_audio_languages: Vec::new(),
                     requested_subtitle_stream: None,
+                    preferred_subtitle_languages: Vec::new(),
                     max_video_bitrate: Some(8_000_000),
                     prefer_hdr: Some(true),
                     remux_output_container: Some(PlaybackRemuxContainer::Mp4),
@@ -1588,6 +1750,37 @@ mod tests {
 
         assert_eq!(left.identity_key(), right.identity_key());
         assert!(left.identity_key().contains("audio_languages=jpn|eng"));
+    }
+
+    #[test]
+    fn playback_target_profile_identity_normalizes_subtitle_language_preferences() {
+        let left = PlaybackTargetProfile::from_capabilities(
+            &ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext {
+                storage: PlaybackStorageContext::default(),
+                preferences: PlaybackPreferenceContext {
+                    preferred_subtitle_languages: vec![
+                        " JPN ".to_owned(),
+                        "eng".to_owned(),
+                        "jpn".to_owned(),
+                    ],
+                    ..PlaybackPreferenceContext::default()
+                },
+            },
+        );
+        let right = PlaybackTargetProfile::from_capabilities(
+            &ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext {
+                storage: PlaybackStorageContext::default(),
+                preferences: PlaybackPreferenceContext {
+                    preferred_subtitle_languages: vec!["jpn".to_owned(), "ENG".to_owned()],
+                    ..PlaybackPreferenceContext::default()
+                },
+            },
+        );
+
+        assert_eq!(left.identity_key(), right.identity_key());
+        assert!(left.identity_key().contains("subtitle_languages=jpn|eng"));
     }
 
     #[test]

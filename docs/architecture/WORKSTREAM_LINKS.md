@@ -60,6 +60,7 @@ Evidence workstreams:
 - `docs/workstreams/adaptive-hls-source-aware-ladder/`
 - `docs/workstreams/hls-master-renditions-authoring/`
 - `docs/workstreams/hls-media-renditions-runtime/`
+- `docs/workstreams/playback-subtitle-language-default-policy/`
 - `docs/workstreams/hls-alternate-audio-renditions/`
 - `docs/workstreams/hls-audio-sidecar-artifacts/`
 - `docs/workstreams/hls-selected-main-audio-cleanup/`

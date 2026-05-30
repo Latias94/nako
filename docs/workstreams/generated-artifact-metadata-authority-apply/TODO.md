@@ -1,7 +1,7 @@
 # Generated Artifact Metadata Authority Apply - TODO
 
 Status: Active
-Last updated: 2026-05-29
+Last updated: 2026-05-30
 
 ## M0 - Scope And Evidence Freeze
 
@@ -20,12 +20,12 @@ Last updated: 2026-05-29
   Evidence: API DTO test, server app test, and HTTP route test show redacted field summaries and no Canonical Metadata mutation.
   Handoff: Final route is `POST /admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply-plan`, response `AdminGeneratedArtifactMetadataApplyPlanResponse`. Execution continues at `GAMA-030`.
 
-- [ ] GAMA-030 [owner=unassigned] [deps=GAMA-020] [scope=crates/nako-server/src/app/automation.rs,crates/nako-server/src/app/metadata_application.rs,crates/nako-core]
+- [x] GAMA-030 [owner=codex] [deps=GAMA-020] [scope=crates/nako-core,crates/nako-db,crates/nako-server/src/app/automation.rs,crates/nako-server/src/app/metadata_application.rs]
   Goal: Add host-owned apply execution for executable plans, preserving field locks and revalidating target freshness before mutation.
-  Validation: `cargo nextest run -p nako-server generated_artifact_metadata_apply --no-fail-fast`.
-  Review: `review-workstream` for stale-target rejection, lock behavior, and no raw-payload leakage.
-  Evidence: Server app tests for changed fields, skipped locked fields, stale target rejection, idempotent replay expectation, and catalog/search projection.
-  Handoff: If durable apply persistence is required, split or continue into `GAMA-040` before exposing Web controls.
+  Validation: `cargo nextest run -p nako-server generated_artifact_metadata_apply --no-fail-fast`; `cargo nextest run -p nako-db metadata_application --no-fail-fast`.
+  Review: `review-workstream` for stale-target rejection, lock behavior, atomic item/projection commit, and no raw-payload leakage.
+  Evidence: Server app tests cover changed fields, skipped locked fields, stale target rejection, idempotent replay, and catalog/search projection; DB contract covers atomic metadata application item/projection commit and rollback.
+  Handoff: Durable apply audit/outcome persistence remains `GAMA-040`; final Admin apply route remains `GAMA-050`.
 
 ## M2 - Persistence And API Surface
 
