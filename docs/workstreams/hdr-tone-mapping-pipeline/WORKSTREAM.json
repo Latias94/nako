@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "hdr-tone-mapping-pipeline",
   "title": "HDR Tone Mapping Pipeline",
-  "status": "draft",
+  "status": "active",
   "updated": "2026-05-30",
   "scope_kind": "architecture_research",
   "problem": "HDR media is identified as a future playback capability, but Nako has not yet frozen the color compatibility inputs, tone-mapping policy boundary, or first executable FFmpeg pipeline slice.",
@@ -78,6 +78,6 @@
   "lane_slug": "playback-transcode",
   "continue_policy": {
     "default_action": "continue",
-    "notes": "HTP-010 completed as docs/research only. Do not start HTP-020 while ACDN-020 is active unless the planner serializes shared playback/transcode scopes."
+    "notes": "HTP-010 completed as docs/research only. HTP-020 is ready on the HDR branch after the planner merged the accepted ACDN-020 audio output baseline; keep HTP-020 playback-only."
   }
 }

@@ -1,22 +1,17 @@
 # HDR Tone Mapping Pipeline - Handoff
 
-Status: Draft
+Status: Active
 Last updated: 2026-05-30
 
 ## Current State
 
-The lane remains a draft research workstream. `HTP-010` completed the
-docs/research scope freeze with concerns because `ACDN-020` is still active on
-the shared playback vocabulary files. No implementation code has been changed.
+The lane is active for `HTP-020`. `HTP-010` completed the docs/research scope freeze, and the planner merged the accepted `ACDN-020` audio output baseline into this HDR branch so the shared playback vocabulary files are current. No HDR implementation code has been changed yet.
 
 ## Next Task
 
-Do not start HDR implementation while `ACDN-020` is active. The next executable
-HDR task is blocked `HTP-020`, and it should only start after the planner
-confirms audio compatibility has completed, merged, or been serialized away
-from the shared playback scope.
+Run `HTP-020` with `run-workstream-task`. Keep the task playback-only and build on the merged `ACDN-020` audio output requirement vocabulary.
 
-Planned `HTP-020` scope:
+Owned `HTP-020` scope:
 
 - `crates/nako-playback/src/capability.rs`
 - `crates/nako-playback/src/values.rs`
@@ -56,7 +51,7 @@ Research conclusion:
 Return to planner coordination if:
 
 - implementation code seems necessary;
-- the first executable slice would overlap active `ACDN-020` files;
+- the task would expand beyond playback-owned color requirement vocabulary;
 - the lane needs a new ADR before code can start;
 - hardware-specific behavior cannot be represented by existing ADRs.
 
@@ -70,4 +65,4 @@ End with one of:
 - NEEDS_CONTEXT
 
 Include docs changed, research findings, proposed first executable task, and
-whether the workstream should move from draft to active.
+whether `HTP-020` is ready for planner review.

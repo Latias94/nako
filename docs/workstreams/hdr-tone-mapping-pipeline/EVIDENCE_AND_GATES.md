@@ -1,6 +1,6 @@
 # HDR Tone Mapping Pipeline - Evidence And Gates
 
-Status: Draft
+Status: Active
 Last updated: 2026-05-30
 
 ## HTP-010 Gates
@@ -43,7 +43,7 @@ should be split into an operations/release or hardware-matrix follow-on.
 
 ### HTP-010 - Research and scope freeze
 
-Status: Done with concerns
+Status: Done
 
 Evidence:
 

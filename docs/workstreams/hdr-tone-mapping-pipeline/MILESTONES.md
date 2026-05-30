@@ -1,6 +1,6 @@
 # HDR Tone Mapping Pipeline - Milestones
 
-Status: Draft
+Status: Active
 Last updated: 2026-05-30
 
 ## M0 - Research And Scope Freeze
@@ -12,7 +12,7 @@ Exit criteria:
 - first implementation task has explicit owned scope and validation;
 - shared-scope conflict with audio compatibility is resolved by sequencing.
 
-Status: Done with concerns.
+Status: Done.
 
 HTP-010 result:
 
@@ -31,11 +31,11 @@ Exit criteria:
 - playback-owned values can express direct-compatible HDR and tone-map-required
   cases.
 
-Status: Blocked by active `ACDN-020` and planner activation.
+Status: Ready after planner activation.
 
 Activation criteria:
 
-- `ACDN-020` is complete, merged, or explicitly serialized by the planner;
+- accepted `ACDN-020` is merged into the HDR branch;
 - the HDR worker rereads `nako-playback` after the audio requirement changes;
 - no Public Client API, media probe schema, or transcode code change is needed
   for the playback vocabulary slice.

@@ -1,6 +1,6 @@
 # HDR Tone Mapping Pipeline - TODO
 
-Status: Draft
+Status: Active
 Last updated: 2026-05-30
 
 ## M0 - Research And Scope Freeze
@@ -11,17 +11,17 @@ Last updated: 2026-05-30
   Review: Planner review before changing status from draft to active.
   Evidence: updated `DESIGN.md`, `TODO.md`, `MILESTONES.md`, and `EVIDENCE_AND_GATES.md`.
   Context: `docs/workstreams/hdr-tone-mapping-pipeline/CONTEXT.jsonl`.
-  Handoff: DONE_WITH_CONCERNS. Research confirmed a playback-first `HTP-020` slice and a later software-first HLS tone-map media slice. Do not start HDR implementation while `ACDN-020` is active; the workstream remains draft pending planner review.
+  Handoff: DONE. Research confirmed a playback-first `HTP-020` slice and a later software-first HLS tone-map media slice. Planner activated `HTP-020` after merging accepted `ACDN-020` into this HDR branch.
 
 ## M1 - Playback Color Requirement Vocabulary
 
-- [ ] HTP-020 [owner=blocked] [deps=HTP-010] [scope=crates/nako-playback/src/capability.rs,crates/nako-playback/src/values.rs,crates/nako-playback/src/lib.rs]
+- [ ] HTP-020 [owner=unassigned] [deps=HTP-010] [scope=crates/nako-playback/src/capability.rs,crates/nako-playback/src/values.rs,crates/nako-playback/src/lib.rs]
   Goal: Add playback-owned **Color Pipeline Requirement** values and typed HDR compatibility reasons that distinguish HDR passthrough, HDR-to-SDR tone-map intent, and unsupported/deferred HDR paths.
   Validation: `cargo nextest run -p nako-playback hdr --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`
   Review: Use `review-workstream` before accepting completion.
   Evidence: playback planner/unit tests and `EVIDENCE_AND_GATES.md`.
   Context: `docs/workstreams/hdr-tone-mapping-pipeline/CONTEXT.jsonl`.
-  Handoff: Blocked until `ACDN-020` is complete, merged, or explicitly serialized by the planner. Do not edit `nako-transcode`, server HLS code, Public Client API DTOs, media probe schemas, or web player code in this task.
+  Handoff: READY. The planner merged accepted `ACDN-020` into this HDR branch. Do not edit `nako-transcode`, server HLS code, Public Client API DTOs, media probe schemas, or web player code in this task.
 
 ## M2 - Transcode Tone-Mapping Strategy
 
