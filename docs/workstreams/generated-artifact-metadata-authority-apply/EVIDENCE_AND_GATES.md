@@ -17,6 +17,7 @@ change:
 - `cargo nextest run -p nako-server generated_artifact_metadata_apply_plan --no-fail-fast`
 - `cargo nextest run -p nako-server generated_artifact_metadata_apply --no-fail-fast`
 - `cargo nextest run -p nako-db metadata_application --no-fail-fast`
+- `cargo nextest run -p nako-db generated_artifact_metadata_apply_outcome --no-fail-fast`
 - `cargo fmt --all -- --check`
 - `git diff --check`
 
@@ -65,6 +66,27 @@ Only run after `GAMA-050` exposes a real Admin route:
   `NAKO_TEST_POSTGRES_URL` is unset in this session; the PostgreSQL
   implementation compiled through the focused gates and has a matching ignored
   contract entry.
+- `GAMA-040` (verified 2026-05-30): Added durable Generated Artifact metadata
+  apply outcomes and explicit idempotency-key replay. Evidence:
+  - `cargo nextest run -p nako-server generated_artifact_metadata_apply --no-fail-fast`
+  - `cargo nextest run -p nako-db generated_artifact_metadata_apply_outcome --no-fail-fast`
+  - `cargo nextest run -p nako-db postgres_metadata_catalog_contract_generated_artifact_metadata_apply_outcome_is_idempotent_and_atomic --run-ignored ignored-only --no-fail-fast`
+  - `cargo fmt --all -- --check`
+  - `python -m json.tool docs/workstreams/generated-artifact-metadata-authority-apply/WORKSTREAM.json`
+  - `git diff --check`
+  Behavior proven:
+  - successful apply persists an `applied` outcome with the redacted plan and
+    atomically commits Canonical Metadata plus catalog/search projection;
+  - repeated use of the same idempotency key replays the stored outcome;
+  - a later distinct key after all applicable fields are already applied
+    persists a durable `noop` outcome;
+  - failed non-executable plans persist a `failed` outcome without mutating the
+    original item;
+  - SQLite and PostgreSQL contracts cover duplicate-key rejection and rollback
+    when metadata application persistence fails.
+  The PostgreSQL contract ran against a temporary local PostgreSQL cluster under
+  `target/postgres-contract-gama040`, which was stopped and cleaned after the
+  run.
 
 ## Required Final Evidence
 

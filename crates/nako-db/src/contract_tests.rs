@@ -21,17 +21,22 @@ use nako_core::{
     CatalogSearchProjection, ClaimAddonEventDeliveryAttempt, Collection, CollectionId,
     CollectionItem, CompleteLeasedJob, CreditRole, DatabaseLifecycle, DirectorySnapshot,
     DomainEventKind, DomainEventSubject, EnqueueJobRetry, EventOutboxRepository, ExternalId,
-    ExternalProvider, FailLeasedJob, Genre, GenreId, IdentityAccessRepository, ImageAsset,
-    ImageAssetId, ImageKind, ImageOwner, IngestionFailureClass, IngestionFailureFilter,
-    IngestionFailurePhase, IngestionFailureRepository, IngestionFailureResolution,
-    IngestionFailureStatus, ItemCredit, ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind,
-    JobLeaseClaimFilter, JobLeaseClaimRequest, JobLeaseGuard, JobLeaseHeartbeat,
-    JobLeaseRepository, JobListFilter, JobRepository, JobRunToken, JobStatus, JobWorkerId, Library,
-    LibraryAccessLevel, LibraryAccessPolicy, LibraryAccessPolicyFilter, LibraryAccessPolicyScope,
-    LibraryId, LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryPreset,
-    LibraryRepository, LibraryScanSourcePersistenceCommit, LocalCredentialRecord,
-    LocalInferenceEvidence, LocalInferenceEvidenceId, LocalInferenceEvidenceSource,
-    LocalInferenceRepository, ManagedArtworkAcceptanceRecord, ManagedArtworkArtifactId,
+    ExternalProvider, FailLeasedJob, GeneratedArtifactMetadataApplyOutcomeCommit,
+    GeneratedArtifactMetadataApplyOutcomeId, GeneratedArtifactMetadataApplyOutcomeStatus,
+    GeneratedArtifactMetadataApplyPlan, GeneratedArtifactMetadataApplyPlanReason,
+    GeneratedArtifactMetadataApplyPlanStatus, GeneratedArtifactPayloadShape,
+    GeneratedArtifactPayloadSummary, GeneratedArtifactTarget, Genre, GenreId,
+    IdentityAccessRepository, ImageAsset, ImageAssetId, ImageKind, ImageOwner,
+    IngestionFailureClass, IngestionFailureFilter, IngestionFailurePhase,
+    IngestionFailureRepository, IngestionFailureResolution, IngestionFailureStatus, ItemCredit,
+    ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind, JobLeaseClaimFilter, JobLeaseClaimRequest,
+    JobLeaseGuard, JobLeaseHeartbeat, JobLeaseRepository, JobListFilter, JobRepository,
+    JobRunToken, JobStatus, JobWorkerId, Library, LibraryAccessLevel, LibraryAccessPolicy,
+    LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId, LibraryItemRepository,
+    LibraryItemState, LibraryOptions, LibraryPreset, LibraryRepository,
+    LibraryScanSourcePersistenceCommit, LocalCredentialRecord, LocalInferenceEvidence,
+    LocalInferenceEvidenceId, LocalInferenceEvidenceSource, LocalInferenceRepository,
+    ManagedArtworkAcceptanceRecord, ManagedArtworkArtifactId,
     ManagedArtworkArtifactLifecycleFilter, ManagedArtworkIngestId, ManagedArtworkIngestStatus,
     ManagedArtworkRepository, ManagedImportArtifactId, ManagedImportArtifactListFilter,
     ManagedImportArtifactState, ManagedImportPromotionApplyId, ManagedImportPromotionApplyState,
@@ -276,6 +281,16 @@ impl<T> MetadataCatalogContractBackend for T where
         + MetadataRepository
         + ProviderMappingRepository
         + SearchIndex
+{
+}
+
+trait GeneratedArtifactMetadataApplyOutcomeContractBackend:
+    MetadataCatalogContractBackend + AutomationRepository
+{
+}
+
+impl<T> GeneratedArtifactMetadataApplyOutcomeContractBackend for T where
+    T: MetadataCatalogContractBackend + AutomationRepository
 {
 }
 
@@ -2745,6 +2760,289 @@ where
             .unwrap(),
         Vec::new()
     );
+}
+
+async fn generated_artifact_metadata_apply_outcome_is_idempotent_and_atomic_contract<S>(store: S)
+where
+    S: GeneratedArtifactMetadataApplyOutcomeContractBackend,
+{
+    let library = seed_contract_library(&store).await;
+    let source = seed_contract_media_item_with_source(
+        &store,
+        library.id,
+        "Generated Artifact Apply Outcome",
+        "local:///Contract Movies/generated-artifact-apply.mkv",
+    )
+    .await;
+    let job = enqueue_contract_job(
+        &store,
+        JobKind::Automation,
+        "automation.external_api",
+        Some(library.id),
+        Some(r#"{"capability":"metadata_cleanup"}"#),
+    )
+    .await;
+    let provider_id = nako_core::AutomationProviderId::new();
+    store
+        .upsert_automation_provider(NewAutomationProviderConfig {
+            id: provider_id,
+            name: "Contract AI".to_owned(),
+            base_url: "https://automation.example.test".to_owned(),
+            secret_env: None,
+            capabilities: vec![AutomationCapability::MetadataCleanup],
+            timeout_ms: 2_500,
+            max_attempts: 2,
+            status: AutomationProviderStatus::Enabled,
+        })
+        .await
+        .unwrap();
+    let artifact = store
+        .create_automation_artifact(NewAutomationArtifact {
+            id: nako_core::AutomationArtifactId::new(),
+            job_id: job.id,
+            provider_id,
+            capability: AutomationCapability::MetadataCleanup,
+            kind: AutomationArtifactKind::MetadataSuggestion,
+            library_id: Some(library.id),
+            item_id: Some(source.item_id),
+            source_id: Some(source.id),
+            artifact_json: r#"{"overview":"contract generated overview"}"#.to_owned(),
+        })
+        .await
+        .unwrap();
+    store
+        .set_automation_artifact_status(artifact.id, AutomationArtifactStatus::Accepted)
+        .await
+        .unwrap();
+
+    let applied_genre = Genre {
+        id: GenreId::new(),
+        name: "Generated Apply Genre".to_owned(),
+        source: MetadataSource::User,
+    };
+    let applied_item = MediaItem {
+        id: source.item_id,
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Generated Artifact Apply Outcome".to_owned(),
+            overview: Some("contract generated overview".to_owned()),
+            genres: vec![applied_genre.name.clone()],
+            ..CanonicalMetadata::default()
+        },
+    };
+    let plan = contract_generated_artifact_metadata_apply_plan(
+        artifact.id,
+        library.id,
+        source.item_id,
+        Some(source.id),
+        GeneratedArtifactMetadataApplyPlanStatus::Ready,
+        vec![GeneratedArtifactMetadataApplyPlanReason::Ready],
+    );
+    let idempotency_key = "generated-artifact-apply:contract";
+    let outcome = store
+        .commit_generated_artifact_metadata_apply_outcome(
+            &GeneratedArtifactMetadataApplyOutcomeCommit {
+                id: GeneratedArtifactMetadataApplyOutcomeId::new(),
+                artifact_id: artifact.id,
+                idempotency_key: idempotency_key.to_owned(),
+                status: GeneratedArtifactMetadataApplyOutcomeStatus::Applied,
+                applied: true,
+                changed: true,
+                applied_source: Some("user".to_owned()),
+                item_id: Some(source.item_id),
+                plan: plan.clone(),
+                error_code: None,
+                error_message: None,
+                metadata_application: Some(MetadataApplicationPersistenceCommit {
+                    item: applied_item.clone(),
+                    catalog_projection: CatalogItemProjectionCommit {
+                        graph: CatalogItemGraphReplacement {
+                            genres: vec![applied_genre.clone()],
+                            item_genres: vec![ItemGenre {
+                                item_id: source.item_id,
+                                genre_id: applied_genre.id,
+                            }],
+                            ..CatalogItemGraphReplacement::default()
+                        },
+                        search: CatalogSearchProjection::try_from_facet_labels(
+                            source.item_id,
+                            "Generated Artifact Apply Outcome",
+                            "contract generated overview Generated Apply Genre",
+                            vec![
+                                "genre:Generated Apply Genre".to_owned(),
+                                "kind:movie".to_owned(),
+                            ],
+                        )
+                        .unwrap(),
+                    },
+                }),
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(outcome.artifact_id, artifact.id);
+    assert_eq!(
+        outcome.status,
+        GeneratedArtifactMetadataApplyOutcomeStatus::Applied
+    );
+    assert_eq!(outcome.plan, plan);
+    assert_eq!(
+        store
+            .find_generated_artifact_metadata_apply_outcome(artifact.id, idempotency_key)
+            .await
+            .unwrap()
+            .unwrap()
+            .id,
+        outcome.id
+    );
+    assert_eq!(
+        store.get_media_item(source.item_id).await.unwrap(),
+        Some(applied_item.clone())
+    );
+    assert_eq!(
+        store.list_item_genres(source.item_id).await.unwrap(),
+        vec![ItemGenre {
+            item_id: source.item_id,
+            genre_id: applied_genre.id,
+        }]
+    );
+    assert_eq!(
+        store
+            .search(
+                SearchQuery::from_facet_labels(
+                    "generated overview",
+                    vec!["genre:Generated Apply Genre".to_owned()],
+                    10,
+                    0,
+                )
+                .unwrap()
+            )
+            .await
+            .unwrap()[0]
+            .item_id,
+        source.item_id
+    );
+
+    let duplicate_error = store
+        .commit_generated_artifact_metadata_apply_outcome(
+            &GeneratedArtifactMetadataApplyOutcomeCommit {
+                id: GeneratedArtifactMetadataApplyOutcomeId::new(),
+                artifact_id: artifact.id,
+                idempotency_key: idempotency_key.to_owned(),
+                status: GeneratedArtifactMetadataApplyOutcomeStatus::Noop,
+                applied: false,
+                changed: false,
+                applied_source: None,
+                item_id: Some(source.item_id),
+                plan: plan.clone(),
+                error_code: None,
+                error_message: None,
+                metadata_application: None,
+            },
+        )
+        .await
+        .unwrap_err();
+    assert!(!duplicate_error.to_string().is_empty());
+
+    let broken_item = MediaItem {
+        metadata: CanonicalMetadata {
+            title: "Broken Generated Artifact Apply".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+        ..applied_item
+    };
+    let broken_key = "generated-artifact-apply:broken";
+    let missing_item_id = MediaItemId::new();
+    let broken_error = store
+        .commit_generated_artifact_metadata_apply_outcome(
+            &GeneratedArtifactMetadataApplyOutcomeCommit {
+                id: GeneratedArtifactMetadataApplyOutcomeId::new(),
+                artifact_id: artifact.id,
+                idempotency_key: broken_key.to_owned(),
+                status: GeneratedArtifactMetadataApplyOutcomeStatus::Applied,
+                applied: true,
+                changed: true,
+                applied_source: Some("user".to_owned()),
+                item_id: Some(source.item_id),
+                plan,
+                error_code: None,
+                error_message: None,
+                metadata_application: Some(MetadataApplicationPersistenceCommit {
+                    item: broken_item,
+                    catalog_projection: CatalogItemProjectionCommit {
+                        graph: CatalogItemGraphReplacement {
+                            genres: vec![Genre {
+                                id: GenreId::new(),
+                                name: "Broken Generated Apply Genre".to_owned(),
+                                source: MetadataSource::User,
+                            }],
+                            item_genres: vec![ItemGenre {
+                                item_id: missing_item_id,
+                                genre_id: GenreId::new(),
+                            }],
+                            ..CatalogItemGraphReplacement::default()
+                        },
+                        search: CatalogSearchProjection::new(
+                            source.item_id,
+                            "Broken Generated Artifact Apply",
+                            "broken generated artifact apply",
+                        ),
+                    },
+                }),
+            },
+        )
+        .await
+        .unwrap_err();
+
+    assert!(!broken_error.to_string().is_empty());
+    assert!(
+        store
+            .find_generated_artifact_metadata_apply_outcome(artifact.id, broken_key)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(
+        store
+            .search(SearchQuery::from_facet_labels("broken generated", Vec::new(), 10, 0).unwrap())
+            .await
+            .unwrap(),
+        Vec::new()
+    );
+}
+
+fn contract_generated_artifact_metadata_apply_plan(
+    artifact_id: nako_core::AutomationArtifactId,
+    library_id: LibraryId,
+    item_id: MediaItemId,
+    source_id: Option<MediaSourceId>,
+    status: GeneratedArtifactMetadataApplyPlanStatus,
+    reasons: Vec<GeneratedArtifactMetadataApplyPlanReason>,
+) -> GeneratedArtifactMetadataApplyPlan {
+    GeneratedArtifactMetadataApplyPlan {
+        artifact_id,
+        status,
+        executable: status.executable(),
+        reasons,
+        target: GeneratedArtifactTarget::from_scope(Some(library_id), Some(item_id), source_id),
+        payload: GeneratedArtifactPayloadSummary {
+            valid_json: true,
+            shape: GeneratedArtifactPayloadShape::Object,
+            payload_fingerprint: "sha256:contract".to_owned(),
+            payload_bytes: 42,
+            object_field_count: Some(1),
+            array_item_count: None,
+            has_textual_values: true,
+            has_explanation: false,
+            confidence_milli: Some(810),
+        },
+        fields: Vec::new(),
+        apply_field_count: u32::from(status.executable()),
+        skipped_field_count: 0,
+        noop_field_count: 0,
+    }
 }
 
 async fn user_playback_state_is_principal_scoped_and_continue_watching_contract<S>(store: S)
@@ -7472,6 +7770,18 @@ database_contract_pair!(
         "metadata_application_updates_item_projection_and_rolls_back"
     ),
     contract = metadata_application_commit_updates_item_projection_and_rolls_back_contract,
+);
+
+database_contract_pair!(
+    sqlite =
+        sqlite_metadata_catalog_contract_generated_artifact_metadata_apply_outcome_is_idempotent_and_atomic,
+    postgres =
+        postgres_metadata_catalog_contract_generated_artifact_metadata_apply_outcome_is_idempotent_and_atomic,
+    case = ContractCase::migrated(
+        ContractFamily::MetadataCatalog,
+        "generated_artifact_metadata_apply_outcome_is_idempotent_and_atomic"
+    ),
+    contract = generated_artifact_metadata_apply_outcome_is_idempotent_and_atomic_contract,
 );
 
 database_contract_pair!(

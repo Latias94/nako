@@ -12,12 +12,15 @@ use nako_core::{
     GeneratedArtifactAcceptanceActionKind, GeneratedArtifactAcceptanceBoundary,
     GeneratedArtifactAcceptancePlan, GeneratedArtifactAcceptancePlanReason,
     GeneratedArtifactAcceptancePlanStatus, GeneratedArtifactMetadataApplyFieldPlan,
+    GeneratedArtifactMetadataApplyOutcomeCommit, GeneratedArtifactMetadataApplyOutcomeId,
+    GeneratedArtifactMetadataApplyOutcomeRecord, GeneratedArtifactMetadataApplyOutcomeStatus,
     GeneratedArtifactMetadataApplyPlan, GeneratedArtifactMetadataApplyPlanReason,
-    GeneratedArtifactMetadataApplyPlanStatus, GeneratedArtifactMetadataApplyResult,
-    GeneratedArtifactMetadataApplyResultStatus, GeneratedArtifactMetadataFieldAction,
-    GeneratedArtifactMetadataFieldReason, GeneratedArtifactMetadataValueSummary,
-    GeneratedArtifactProposal, GeneratedArtifactReviewDecision, GeneratedArtifactReviewResult, Job,
-    JobId, JobRepository, LibraryRepository, MediaItem, MediaItemId, MediaRepository,
+    GeneratedArtifactMetadataApplyPlanStatus, GeneratedArtifactMetadataApplyRequest,
+    GeneratedArtifactMetadataApplyResult, GeneratedArtifactMetadataApplyResultStatus,
+    GeneratedArtifactMetadataFieldAction, GeneratedArtifactMetadataFieldReason,
+    GeneratedArtifactMetadataValueSummary, GeneratedArtifactProposal,
+    GeneratedArtifactReviewDecision, GeneratedArtifactReviewResult, Job, JobId, JobRepository,
+    LibraryRepository, MediaItem, MediaItemId, MediaRepository,
     MetadataApplicationPersistenceCommit, MetadataField, MetadataFieldLock, MetadataMergePolicy,
     MetadataRepository, MetadataSource, NakoError, NewAutomationProviderConfig, PageRequest,
     Result,
@@ -508,30 +511,59 @@ impl AutomationAppService {
 
     pub async fn apply_generated_artifact_metadata(
         &self,
-        artifact_id: AutomationArtifactId,
+        request: GeneratedArtifactMetadataApplyRequest,
     ) -> Result<GeneratedArtifactMetadataApplyResult> {
+        let artifact_id = request.artifact_id;
+        let idempotency_key =
+            normalize_generated_artifact_metadata_apply_idempotency_key(&request.idempotency_key)?;
+        if let Some(outcome) = self
+            .store
+            .find_generated_artifact_metadata_apply_outcome(artifact_id, &idempotency_key)
+            .await?
+        {
+            return generated_artifact_metadata_apply_result_from_outcome(outcome, true);
+        }
+
         let plan = self
             .plan_generated_artifact_metadata_apply(artifact_id)
             .await?;
         if !plan.executable {
             if generated_artifact_metadata_apply_is_idempotent_noop(&plan) {
-                return Ok(GeneratedArtifactMetadataApplyResult {
-                    artifact_id,
-                    status: GeneratedArtifactMetadataApplyResultStatus::Noop,
-                    applied: false,
-                    changed: false,
-                    idempotent_replay: true,
-                    applied_source: None,
-                    plan,
-                });
+                let outcome = self
+                    .store
+                    .commit_generated_artifact_metadata_apply_outcome(
+                        &GeneratedArtifactMetadataApplyOutcomeCommit {
+                            id: GeneratedArtifactMetadataApplyOutcomeId::new(),
+                            artifact_id,
+                            idempotency_key,
+                            status: GeneratedArtifactMetadataApplyOutcomeStatus::Noop,
+                            applied: false,
+                            changed: false,
+                            applied_source: None,
+                            item_id: plan.target.item_id,
+                            plan,
+                            error_code: None,
+                            error_message: None,
+                            metadata_application: None,
+                        },
+                    )
+                    .await?;
+                return generated_artifact_metadata_apply_result_from_outcome(outcome, false);
             }
 
-            return Err(NakoError::InvalidInput {
-                message: format!(
-                    "generated artifact metadata apply plan is not executable: {:?}",
-                    plan.status
-                ),
-            });
+            let message = format!(
+                "generated artifact metadata apply plan is not executable: {:?}",
+                plan.status
+            );
+            return self
+                .commit_generated_artifact_metadata_apply_failure(
+                    artifact_id,
+                    idempotency_key,
+                    plan,
+                    "plan_not_executable",
+                    message,
+                )
+                .await;
         }
 
         let artifact = self
@@ -542,9 +574,23 @@ impl AutomationAppService {
                 entity: "automation_artifact",
                 id: artifact_id.to_string(),
             })?;
-        let (item, library_id) = self
+        let (item, library_id) = match self
             .resolve_generated_artifact_metadata_apply_target(&plan)
-            .await?;
+            .await
+        {
+            Ok(target) => target,
+            Err(error) => {
+                return self
+                    .commit_generated_artifact_metadata_apply_failure(
+                        artifact_id,
+                        idempotency_key,
+                        plan,
+                        "target_stale",
+                        error.to_string(),
+                    )
+                    .await;
+            }
+        };
         let (incoming, _) =
             parse_generated_artifact_metadata_patch(&artifact.artifact_json, &item.metadata)?;
         let applied = MetadataApplication::new(self.store.clone())
@@ -561,23 +607,34 @@ impl AutomationAppService {
                 },
             })
             .await?;
+        let changed = applied.changed;
+        let applied_source = applied.applied_source.clone();
+        let item_id = applied.item.id;
 
-        self.store
-            .commit_metadata_application(&MetadataApplicationPersistenceCommit {
-                item: applied.item,
-                catalog_projection: applied.projection,
-            })
+        let outcome = self
+            .store
+            .commit_generated_artifact_metadata_apply_outcome(
+                &GeneratedArtifactMetadataApplyOutcomeCommit {
+                    id: GeneratedArtifactMetadataApplyOutcomeId::new(),
+                    artifact_id,
+                    idempotency_key,
+                    status: GeneratedArtifactMetadataApplyOutcomeStatus::Applied,
+                    applied: true,
+                    changed,
+                    applied_source: Some(applied_source),
+                    item_id: Some(item_id),
+                    plan,
+                    error_code: None,
+                    error_message: None,
+                    metadata_application: Some(MetadataApplicationPersistenceCommit {
+                        item: applied.item,
+                        catalog_projection: applied.projection,
+                    }),
+                },
+            )
             .await?;
 
-        Ok(GeneratedArtifactMetadataApplyResult {
-            artifact_id,
-            status: GeneratedArtifactMetadataApplyResultStatus::Applied,
-            applied: true,
-            changed: applied.changed,
-            idempotent_replay: false,
-            applied_source: Some(applied.applied_source),
-            plan,
-        })
+        generated_artifact_metadata_apply_result_from_outcome(outcome, false)
     }
 
     async fn generated_artifact_proposal(
@@ -647,6 +704,37 @@ impl AutomationAppService {
         Ok((item, library_id))
     }
 
+    async fn commit_generated_artifact_metadata_apply_failure(
+        &self,
+        artifact_id: AutomationArtifactId,
+        idempotency_key: String,
+        plan: GeneratedArtifactMetadataApplyPlan,
+        error_code: impl Into<String>,
+        message: String,
+    ) -> Result<GeneratedArtifactMetadataApplyResult> {
+        let outcome = self
+            .store
+            .commit_generated_artifact_metadata_apply_outcome(
+                &GeneratedArtifactMetadataApplyOutcomeCommit {
+                    id: GeneratedArtifactMetadataApplyOutcomeId::new(),
+                    artifact_id,
+                    idempotency_key,
+                    status: GeneratedArtifactMetadataApplyOutcomeStatus::Failed,
+                    applied: false,
+                    changed: false,
+                    applied_source: None,
+                    item_id: plan.target.item_id,
+                    plan,
+                    error_code: Some(error_code.into()),
+                    error_message: Some(message),
+                    metadata_application: None,
+                },
+            )
+            .await?;
+
+        generated_artifact_metadata_apply_result_from_outcome(outcome, false)
+    }
+
     fn generated_artifact_metadata_apply_plan(
         &self,
         proposal: GeneratedArtifactProposal,
@@ -680,6 +768,60 @@ fn generated_artifact_metadata_apply_is_idempotent_noop(
         && plan
             .reasons
             .contains(&GeneratedArtifactMetadataApplyPlanReason::NoApplicableMetadataFields)
+}
+
+fn normalize_generated_artifact_metadata_apply_idempotency_key(value: &str) -> Result<String> {
+    let value = value.trim();
+    if value.is_empty() {
+        return Err(NakoError::InvalidInput {
+            message: "generated artifact metadata apply idempotency_key cannot be empty".to_owned(),
+        });
+    }
+    if value.len() > 512 {
+        return Err(NakoError::InvalidInput {
+            message: "generated artifact metadata apply idempotency_key must be 512 bytes or fewer"
+                .to_owned(),
+        });
+    }
+
+    Ok(value.to_owned())
+}
+
+fn generated_artifact_metadata_apply_result_from_outcome(
+    outcome: GeneratedArtifactMetadataApplyOutcomeRecord,
+    idempotent_replay: bool,
+) -> Result<GeneratedArtifactMetadataApplyResult> {
+    if outcome.status == GeneratedArtifactMetadataApplyOutcomeStatus::Failed {
+        return Err(NakoError::InvalidInput {
+            message: outcome.error_message.unwrap_or_else(|| {
+                format!(
+                    "generated artifact metadata apply outcome {} failed",
+                    outcome.id
+                )
+            }),
+        });
+    }
+
+    let status = match outcome.status {
+        GeneratedArtifactMetadataApplyOutcomeStatus::Applied => {
+            GeneratedArtifactMetadataApplyResultStatus::Applied
+        }
+        GeneratedArtifactMetadataApplyOutcomeStatus::Noop => {
+            GeneratedArtifactMetadataApplyResultStatus::Noop
+        }
+        GeneratedArtifactMetadataApplyOutcomeStatus::Failed => unreachable!("handled above"),
+    };
+
+    Ok(GeneratedArtifactMetadataApplyResult {
+        outcome_id: Some(outcome.id),
+        artifact_id: outcome.artifact_id,
+        status,
+        applied: outcome.applied,
+        changed: outcome.changed,
+        idempotent_replay,
+        applied_source: outcome.applied_source,
+        plan: outcome.plan,
+    })
 }
 
 fn generated_artifact_acceptance_plan(

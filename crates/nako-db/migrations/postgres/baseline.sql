@@ -822,6 +822,26 @@ CREATE INDEX IF NOT EXISTS automation_artifacts_item_idx
 CREATE INDEX IF NOT EXISTS automation_artifacts_status_idx
     ON automation_artifacts(status, created_at);
 
+CREATE TABLE IF NOT EXISTS generated_artifact_metadata_apply_outcomes (
+    id uuid PRIMARY KEY NOT NULL,
+    artifact_id uuid NOT NULL REFERENCES automation_artifacts(id) ON DELETE CASCADE,
+    idempotency_key text NOT NULL,
+    status text NOT NULL,
+    applied boolean NOT NULL,
+    changed boolean NOT NULL,
+    applied_source text,
+    item_id uuid REFERENCES media_items(id) ON DELETE SET NULL,
+    plan_json jsonb NOT NULL,
+    error_code text,
+    error_message text,
+    created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+    updated_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+    UNIQUE(artifact_id, idempotency_key)
+);
+
+CREATE INDEX IF NOT EXISTS generated_artifact_metadata_apply_outcomes_artifact_idx
+    ON generated_artifact_metadata_apply_outcomes(artifact_id, created_at);
+
 CREATE TABLE IF NOT EXISTS addon_registrations (
     id uuid PRIMARY KEY NOT NULL,
     manifest_id text NOT NULL,

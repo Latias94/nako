@@ -7,11 +7,12 @@
   "scope_kind": "backend_web_authority_workflow",
   "problem": "Accepted metadata Generated Artifacts are staged for Metadata Authority apply, but Nako has no redacted apply-plan, audited apply route, or Web Admin confirmation workflow that turns them into Canonical Metadata through host policy.",
   "task_prefix": "GAMA",
-  "current_task": "GAMA-040",
+  "current_task": "GAMA-050",
   "completed_tasks": [
     "GAMA-010",
     "GAMA-020",
-    "GAMA-030"
+    "GAMA-030",
+    "GAMA-040"
   ],
   "authoritative_docs": [
     {
@@ -50,6 +51,8 @@
     "cargo nextest run -p nako-server generated_artifact_metadata_apply_plan --no-fail-fast",
     "cargo nextest run -p nako-server generated_artifact_metadata_apply --no-fail-fast",
     "cargo nextest run -p nako-db metadata_application --no-fail-fast",
+    "cargo nextest run -p nako-db generated_artifact_metadata_apply_outcome --no-fail-fast",
+    "cargo nextest run -p nako-db postgres_metadata_catalog_contract_generated_artifact_metadata_apply_outcome_is_idempotent_and_atomic --run-ignored ignored-only --no-fail-fast",
     "cargo fmt --all -- --check",
     "npm --prefix web run test -- src/test/data-source-contracts.test.ts",
     "npm --prefix web run test -- src/test/route-contracts.test.tsx src/test/route-state-contracts.test.tsx",
@@ -69,6 +72,10 @@
     {
       "task": "GAMA-030",
       "summary": "Added host-owned app-layer metadata apply execution for accepted Generated Artifacts, all-lock MetadataApplication policy, atomic metadata application item/projection commit, stale-target rejection, redacted apply results, idempotent no-op replay, and focused server plus SQLite DB contract evidence."
+    },
+    {
+      "task": "GAMA-040",
+      "summary": "Added durable Generated Artifact metadata apply outcomes with explicit idempotency keys, SQLite/PostgreSQL schema parity, atomic outcome plus metadata application commit, replay of persisted applied/noop outcomes, failed outcome audit, and focused SQLite/PostgreSQL/server evidence."
     }
   ],
   "adr_refs": [
@@ -100,6 +107,6 @@
   ],
   "continue_policy": {
     "default_action": "continue_current_task",
-    "notes": "Continue with GAMA-040. Decide durable apply audit/outcome persistence before exposing the final Admin apply route; keep bulk apply, provider-specific enrichment, and operations repair as follow-on scope unless the task is explicitly expanded."
+    "notes": "Continue with GAMA-050. Expose the final Admin apply route against the durable idempotency-key contract; keep bulk apply, provider-specific enrichment, and operations repair as follow-on scope unless the task is explicitly expanded."
   }
 }

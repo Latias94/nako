@@ -1694,7 +1694,7 @@ async fn library_ids_for_item_tx(
         .collect()
 }
 
-async fn replace_item_catalog_graph_tx(
+pub(super) async fn replace_item_catalog_graph_tx(
     transaction: &mut sqlx::Transaction<'_, Postgres>,
     item_id: MediaItemId,
     replacement: &CatalogItemGraphReplacement,

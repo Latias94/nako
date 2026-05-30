@@ -29,12 +29,12 @@ Last updated: 2026-05-30
 
 ## M2 - Persistence And API Surface
 
-- [ ] GAMA-040 [owner=unassigned] [deps=GAMA-030] [scope=crates/nako-core,crates/nako-db,crates/nako-server]
+- [x] GAMA-040 [owner=codex] [deps=GAMA-030] [scope=crates/nako-core,crates/nako-db,crates/nako-server]
   Goal: Persist idempotent apply audit/outcome when request-local apply result is not enough for retries, repair, or operations visibility.
-  Validation: `cargo nextest run -p nako-db generated_artifact_metadata_apply --no-fail-fast`; include PostgreSQL contract coverage if schema changes.
+  Validation: `cargo nextest run -p nako-db generated_artifact_metadata_apply_outcome --no-fail-fast`; `cargo nextest run -p nako-server generated_artifact_metadata_apply --no-fail-fast`; `cargo nextest run -p nako-db postgres_metadata_catalog_contract_generated_artifact_metadata_apply_outcome_is_idempotent_and_atomic --run-ignored ignored-only --no-fail-fast` with a temporary local PostgreSQL cluster.
   Review: `review-workstream` for SQLite/PostgreSQL parity and migration/backfill risk.
-  Evidence: Repository contract tests and migration notes, or a written decision that no new persistence is needed.
-  Handoff: Update `WORKSTREAM.json` gates and architecture refs if schema scope changes.
+  Evidence: Added durable Generated Artifact metadata apply outcomes with SQLite/PostgreSQL schemas, repository contract coverage for idempotency and atomic metadata application commit, and app tests for durable replay plus failed outcomes.
+  Handoff: Execution continues at `GAMA-050`; expose the final Admin route against the request/idempotency-key contract.
 
 - [ ] GAMA-050 [owner=unassigned] [deps=GAMA-030] [scope=crates/nako-api,crates/nako-server/src/http,generated clients]
   Goal: Expose final Admin metadata apply route and keep wire contracts/generated clients synchronized.

@@ -4,7 +4,8 @@ use nako_core::{
     AutomationJobInput, AutomationProviderId, AutomationProviderStatus, AutomationRepository,
     CatalogRepository, GeneratedArtifactAcceptanceActionKind,
     GeneratedArtifactAcceptancePlanReason, GeneratedArtifactAcceptancePlanStatus,
-    GeneratedArtifactMetadataApplyPlanReason, GeneratedArtifactMetadataApplyPlanStatus,
+    GeneratedArtifactMetadataApplyOutcomeStatus, GeneratedArtifactMetadataApplyPlanReason,
+    GeneratedArtifactMetadataApplyPlanStatus, GeneratedArtifactMetadataApplyRequest,
     GeneratedArtifactMetadataApplyResultStatus, GeneratedArtifactMetadataFieldAction,
     GeneratedArtifactMetadataFieldReason, GeneratedArtifactReadinessStatus,
     GeneratedArtifactReviewDecision, GeneratedArtifactTargetKind, NewAutomationArtifact,
@@ -543,7 +544,10 @@ async fn generated_artifact_metadata_apply_commits_unlocked_fields_and_catalog_p
     let applied = fixture
         .app
         .automation()
-        .apply_generated_artifact_metadata(fixture.artifact_id)
+        .apply_generated_artifact_metadata(generated_artifact_metadata_apply_request(
+            fixture.artifact_id,
+            "generated-artifact-apply:commit",
+        ))
         .await
         .unwrap();
 
@@ -554,6 +558,7 @@ async fn generated_artifact_metadata_apply_commits_unlocked_fields_and_catalog_p
     assert!(applied.applied);
     assert!(applied.changed);
     assert!(!applied.idempotent_replay);
+    assert!(applied.outcome_id.is_some());
     assert_eq!(applied.applied_source.as_deref(), Some("user"));
     assert_eq!(applied.plan.apply_field_count, 2);
     assert_eq!(applied.plan.skipped_field_count, 1);
@@ -639,7 +644,7 @@ async fn generated_artifact_metadata_apply_commits_unlocked_fields_and_catalog_p
 }
 
 #[tokio::test]
-async fn generated_artifact_metadata_apply_replay_is_idempotent_noop() {
+async fn generated_artifact_metadata_apply_replays_same_idempotency_key_from_durable_outcome() {
     let fixture = generated_artifact_metadata_apply_fixture(
         r#"{"overview":"private generated overview","confidence_milli":810}"#,
     )
@@ -648,34 +653,80 @@ async fn generated_artifact_metadata_apply_replay_is_idempotent_noop() {
     let applied = fixture
         .app
         .automation()
-        .apply_generated_artifact_metadata(fixture.artifact_id)
+        .apply_generated_artifact_metadata(generated_artifact_metadata_apply_request(
+            fixture.artifact_id,
+            "generated-artifact-apply:replay",
+        ))
         .await
         .unwrap();
     assert_eq!(
         applied.status,
         GeneratedArtifactMetadataApplyResultStatus::Applied
     );
+    assert!(applied.outcome_id.is_some());
+    assert!(!applied.idempotent_replay);
 
     let replay = fixture
         .app
         .automation()
-        .apply_generated_artifact_metadata(fixture.artifact_id)
+        .apply_generated_artifact_metadata(generated_artifact_metadata_apply_request(
+            fixture.artifact_id,
+            "generated-artifact-apply:replay",
+        ))
         .await
         .unwrap();
 
     assert_eq!(
         replay.status,
+        GeneratedArtifactMetadataApplyResultStatus::Applied
+    );
+    assert!(replay.applied);
+    assert!(replay.changed);
+    assert!(replay.idempotent_replay);
+    assert_eq!(replay.outcome_id, applied.outcome_id);
+
+    let noop = fixture
+        .app
+        .automation()
+        .apply_generated_artifact_metadata(generated_artifact_metadata_apply_request(
+            fixture.artifact_id,
+            "generated-artifact-apply:noop-after-apply",
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(
+        noop.status,
         GeneratedArtifactMetadataApplyResultStatus::Noop
     );
-    assert!(!replay.applied);
-    assert!(!replay.changed);
-    assert!(replay.idempotent_replay);
+    assert!(!noop.applied);
+    assert!(!noop.changed);
+    assert!(!noop.idempotent_replay);
+    assert!(noop.outcome_id.is_some());
     assert!(
-        replay
-            .plan
+        noop.plan
             .reasons
             .contains(&GeneratedArtifactMetadataApplyPlanReason::NoApplicableMetadataFields)
     );
+
+    let noop_replay = fixture
+        .app
+        .automation()
+        .apply_generated_artifact_metadata(generated_artifact_metadata_apply_request(
+            fixture.artifact_id,
+            "generated-artifact-apply:noop-after-apply",
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(
+        noop_replay.status,
+        GeneratedArtifactMetadataApplyResultStatus::Noop
+    );
+    assert!(!noop_replay.applied);
+    assert!(!noop_replay.changed);
+    assert!(noop_replay.idempotent_replay);
+    assert_eq!(noop_replay.outcome_id, noop.outcome_id);
 }
 
 #[tokio::test]
@@ -711,7 +762,10 @@ async fn generated_artifact_metadata_apply_rejects_stale_target_before_mutation(
     let err = fixture
         .app
         .automation()
-        .apply_generated_artifact_metadata(fixture.artifact_id)
+        .apply_generated_artifact_metadata(generated_artifact_metadata_apply_request(
+            fixture.artifact_id,
+            "generated-artifact-apply:stale",
+        ))
         .await
         .unwrap_err();
 
@@ -719,6 +773,20 @@ async fn generated_artifact_metadata_apply_rejects_stale_target_before_mutation(
         err.to_string()
             .contains("generated artifact metadata apply plan is not executable")
     );
+    let outcome = fixture
+        .store
+        .find_generated_artifact_metadata_apply_outcome(
+            fixture.artifact_id,
+            "generated-artifact-apply:stale",
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        outcome.status,
+        GeneratedArtifactMetadataApplyOutcomeStatus::Failed
+    );
+    assert_eq!(outcome.error_code.as_deref(), Some("plan_not_executable"));
     let item_after = fixture
         .store
         .get_media_item(fixture.item_id)
@@ -1042,5 +1110,15 @@ async fn generated_artifact_metadata_apply_fixture(
         item_id: item.id,
         source_id: source.id,
         artifact_id: artifact.id,
+    }
+}
+
+fn generated_artifact_metadata_apply_request(
+    artifact_id: AutomationArtifactId,
+    idempotency_key: &str,
+) -> GeneratedArtifactMetadataApplyRequest {
+    GeneratedArtifactMetadataApplyRequest {
+        artifact_id,
+        idempotency_key: idempotency_key.to_owned(),
     }
 }

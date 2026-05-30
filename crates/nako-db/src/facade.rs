@@ -843,6 +843,25 @@ impl AutomationRepository for NakoDatabase {
     ) -> Result<Vec<GeneratedArtifactProposal>> {
         self.backend().list_generated_artifact_proposals(page).await
     }
+
+    async fn find_generated_artifact_metadata_apply_outcome(
+        &self,
+        artifact_id: AutomationArtifactId,
+        idempotency_key: &str,
+    ) -> Result<Option<GeneratedArtifactMetadataApplyOutcomeRecord>> {
+        self.backend()
+            .find_generated_artifact_metadata_apply_outcome(artifact_id, idempotency_key)
+            .await
+    }
+
+    async fn commit_generated_artifact_metadata_apply_outcome(
+        &self,
+        commit: &GeneratedArtifactMetadataApplyOutcomeCommit,
+    ) -> Result<GeneratedArtifactMetadataApplyOutcomeRecord> {
+        self.backend()
+            .commit_generated_artifact_metadata_apply_outcome(commit)
+            .await
+    }
 }
 
 #[async_trait::async_trait]

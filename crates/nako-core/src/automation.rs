@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AutomationArtifactId, AutomationProviderId, JobId, LibraryId, MediaItemId, MediaSourceId,
-    MetadataField, NakoError, Result,
+    AutomationArtifactId, AutomationProviderId, GeneratedArtifactMetadataApplyOutcomeId, JobId,
+    LibraryId, MediaItemId, MediaSourceId, MetadataApplicationPersistenceCommit, MetadataField,
+    NakoError, Result,
 };
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -515,6 +516,12 @@ pub struct GeneratedArtifactMetadataApplyPlan {
     pub noop_field_count: u32,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactMetadataApplyRequest {
+    pub artifact_id: AutomationArtifactId,
+    pub idempotency_key: String,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum GeneratedArtifactMetadataApplyResultStatus {
@@ -524,6 +531,7 @@ pub enum GeneratedArtifactMetadataApplyResultStatus {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct GeneratedArtifactMetadataApplyResult {
+    pub outcome_id: Option<GeneratedArtifactMetadataApplyOutcomeId>,
     pub artifact_id: AutomationArtifactId,
     pub status: GeneratedArtifactMetadataApplyResultStatus,
     pub applied: bool,
@@ -531,6 +539,71 @@ pub struct GeneratedArtifactMetadataApplyResult {
     pub idempotent_replay: bool,
     pub applied_source: Option<String>,
     pub plan: GeneratedArtifactMetadataApplyPlan,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GeneratedArtifactMetadataApplyOutcomeStatus {
+    Applied,
+    Noop,
+    Failed,
+}
+
+impl GeneratedArtifactMetadataApplyOutcomeStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Applied => "applied",
+            Self::Noop => "noop",
+            Self::Failed => "failed",
+        }
+    }
+
+    pub fn parse(value: &str) -> Result<Self> {
+        match value {
+            "applied" => Ok(Self::Applied),
+            "noop" => Ok(Self::Noop),
+            "failed" => Ok(Self::Failed),
+            _ => Err(NakoError::Database {
+                message: format!(
+                    "unknown generated artifact metadata apply outcome status stored in database: {value}"
+                ),
+            }),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactMetadataApplyOutcomeRecord {
+    pub id: GeneratedArtifactMetadataApplyOutcomeId,
+    pub artifact_id: AutomationArtifactId,
+    pub idempotency_key: String,
+    pub status: GeneratedArtifactMetadataApplyOutcomeStatus,
+    pub applied: bool,
+    pub changed: bool,
+    pub applied_source: Option<String>,
+    pub item_id: Option<MediaItemId>,
+    pub plan: GeneratedArtifactMetadataApplyPlan,
+    pub error_code: Option<String>,
+    pub error_message: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactMetadataApplyOutcomeCommit {
+    pub id: GeneratedArtifactMetadataApplyOutcomeId,
+    pub artifact_id: AutomationArtifactId,
+    pub idempotency_key: String,
+    pub status: GeneratedArtifactMetadataApplyOutcomeStatus,
+    pub applied: bool,
+    pub changed: bool,
+    pub applied_source: Option<String>,
+    pub item_id: Option<MediaItemId>,
+    pub plan: GeneratedArtifactMetadataApplyPlan,
+    pub error_code: Option<String>,
+    pub error_message: Option<String>,
+    pub metadata_application: Option<MetadataApplicationPersistenceCommit>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

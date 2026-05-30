@@ -632,6 +632,26 @@ CREATE INDEX automation_artifacts_item_idx
 CREATE INDEX automation_artifacts_status_idx
     ON automation_artifacts(status, created_at);
 
+CREATE TABLE generated_artifact_metadata_apply_outcomes (
+    id TEXT PRIMARY KEY NOT NULL,
+    artifact_id TEXT NOT NULL REFERENCES automation_artifacts(id) ON DELETE CASCADE,
+    idempotency_key TEXT NOT NULL,
+    status TEXT NOT NULL,
+    applied INTEGER NOT NULL,
+    changed INTEGER NOT NULL,
+    applied_source TEXT,
+    item_id TEXT REFERENCES media_items(id) ON DELETE SET NULL,
+    plan_json TEXT NOT NULL,
+    error_code TEXT,
+    error_message TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    UNIQUE(artifact_id, idempotency_key)
+);
+
+CREATE INDEX generated_artifact_metadata_apply_outcomes_artifact_idx
+    ON generated_artifact_metadata_apply_outcomes(artifact_id, created_at);
+
 
 CREATE TABLE addon_registrations (
     id TEXT PRIMARY KEY NOT NULL,

@@ -5,7 +5,7 @@ Last updated: 2026-05-30
 
 ## Current State
 
-`GAMA-030` is complete.
+`GAMA-040` is complete.
 
 Generated Artifact review acceptance is still guarded, and the new read-only
 metadata apply-plan route now exposes field-level, redacted plan facts without
@@ -17,15 +17,21 @@ before mutation, applies through `MetadataApplication` with all field locks
 protected, and commits Canonical Metadata plus catalog/search projection in one
 metadata application transaction.
 
+Generated Artifact metadata apply outcomes are now durable. Each apply request
+uses an explicit idempotency key, persists an `applied`, `noop`, or `failed`
+outcome, stores the redacted apply plan, and atomically commits Canonical
+Metadata plus catalog/search projection with the outcome record for applied
+mutations.
+
 ## Active Task
 
-- Task ID: `GAMA-040`
+- Task ID: `GAMA-050`
 - Status: ready
 - Owner: unassigned
 
-Goal: decide and implement durable apply audit/outcome persistence if request
-local replay/no-op semantics are not enough for retries, repair, or operations
-visibility before the final Admin apply route is exposed.
+Goal: expose the final Admin metadata apply route and keep wire
+contracts/generated clients synchronized with the durable idempotency-key
+contract.
 
 ## Key Files
 
@@ -34,6 +40,8 @@ visibility before the final Admin apply route is exposed.
 - `crates/nako-core/src/repository/metadata.rs`
 - `crates/nako-api/src/admin/automation.rs`
 - `crates/nako-db/src/sqlite/metadata.rs`
+- `crates/nako-db/src/sqlite/automation.rs`
+- `crates/nako-db/src/postgres/addons_automation.rs`
 - `crates/nako-db/src/postgres/metadata_catalog.rs`
 - `crates/nako-server/src/app/automation.rs`
 - `crates/nako-server/src/http/admin.rs`
@@ -57,18 +65,23 @@ visibility before the final Admin apply route is exposed.
   source-relative lock protection.
 - `commit_metadata_application` is a generic item plus catalog/search projection
   transaction. It is not durable apply audit persistence.
+- `GeneratedArtifactMetadataApplyRequest` requires an explicit
+  `idempotency_key`. Reusing the same key returns the persisted outcome as an
+  idempotent replay.
+- Durable apply outcomes live in
+  `generated_artifact_metadata_apply_outcomes` with SQLite/PostgreSQL parity and
+  status values `applied`, `noop`, and `failed`.
 
 ## Blockers
 
-- None for `GAMA-030`.
+- None for `GAMA-050`.
 
 ## Watchpoints
 
 - Do not make `/review` or `/metadata-apply-plan` apply metadata.
-- Do not expose the final `/metadata-apply` Admin route until `GAMA-040` has
-  either shipped durable audit persistence or recorded why request-local replay
-  is sufficient.
+- The final `/metadata-apply` Admin route should require/derive a stable
+  idempotency key and return only redacted apply outcome facts.
 - Do not expose raw `artifact_json`, prompt, source locators, paths, or secrets.
 - Do not skip field lock and library refresh mode checks.
-- If apply audit persistence is required, add SQLite/PostgreSQL parity before
-  Web controls claim durable apply.
+- Keep direct repository duplicate-key behavior as a storage error; route/app
+  replay should fetch by `(artifact_id, idempotency_key)` before committing.

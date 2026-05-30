@@ -2,6 +2,8 @@ use std::collections::HashSet;
 
 use sqlx::{Postgres, postgres::PgRow};
 
+use super::core_catalog::{upsert_media_item_tx, upsert_search_projection_tx};
+use super::metadata_catalog::replace_item_catalog_graph_tx;
 use super::{
     PostgresStore, database_error, i64_to_u32, i64_to_u64, parse_id, parse_optional_id, row_get,
     u32_to_i64, u64_to_i64,
@@ -1072,6 +1074,116 @@ impl AutomationRepository for PostgresStore {
             .map(row_to_generated_artifact_proposal)
             .collect()
     }
+
+    async fn find_generated_artifact_metadata_apply_outcome(
+        &self,
+        artifact_id: AutomationArtifactId,
+        idempotency_key: &str,
+    ) -> Result<Option<GeneratedArtifactMetadataApplyOutcomeRecord>> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id::text AS id,
+                artifact_id::text AS artifact_id,
+                idempotency_key,
+                status,
+                applied,
+                changed,
+                applied_source,
+                item_id::text AS item_id,
+                plan_json::text AS plan_json,
+                error_code,
+                error_message,
+                to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS created_at,
+                to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS updated_at
+            FROM generated_artifact_metadata_apply_outcomes
+            WHERE artifact_id = $1 AND idempotency_key = $2
+            "#,
+        )
+        .bind(artifact_id.as_uuid())
+        .bind(idempotency_key)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_generated_artifact_metadata_apply_outcome)
+            .transpose()
+    }
+
+    async fn commit_generated_artifact_metadata_apply_outcome(
+        &self,
+        commit: &GeneratedArtifactMetadataApplyOutcomeCommit,
+    ) -> Result<GeneratedArtifactMetadataApplyOutcomeRecord> {
+        let plan_json = serde_json::to_string(&commit.plan).map_err(database_error)?;
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+
+        if let Some(application) = &commit.metadata_application {
+            if application.catalog_projection.search.item_id != application.item.id {
+                return Err(NakoError::InvalidInput {
+                    message: format!(
+                        "generated artifact metadata apply search projection item_id {} does not match item {}",
+                        application.catalog_projection.search.item_id, application.item.id
+                    ),
+                });
+            }
+            upsert_media_item_tx(&mut transaction, &application.item).await?;
+            replace_item_catalog_graph_tx(
+                &mut transaction,
+                application.item.id,
+                &application.catalog_projection.graph,
+            )
+            .await?;
+            upsert_search_projection_tx(&mut transaction, &application.catalog_projection.search)
+                .await?;
+        }
+
+        sqlx::query(
+            r#"
+            INSERT INTO generated_artifact_metadata_apply_outcomes (
+                id,
+                artifact_id,
+                idempotency_key,
+                status,
+                applied,
+                changed,
+                applied_source,
+                item_id,
+                plan_json,
+                error_code,
+                error_message
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11)
+            "#,
+        )
+        .bind(commit.id.as_uuid())
+        .bind(commit.artifact_id.as_uuid())
+        .bind(&commit.idempotency_key)
+        .bind(commit.status.as_str())
+        .bind(commit.applied)
+        .bind(commit.changed)
+        .bind(&commit.applied_source)
+        .bind(commit.item_id.map(|id| id.as_uuid()))
+        .bind(plan_json)
+        .bind(&commit.error_code)
+        .bind(&commit.error_message)
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+
+        transaction.commit().await.map_err(database_error)?;
+
+        self.find_generated_artifact_metadata_apply_outcome(
+            commit.artifact_id,
+            &commit.idempotency_key,
+        )
+        .await?
+        .ok_or_else(|| NakoError::Database {
+            message: format!(
+                "generated artifact metadata apply outcome {} was not found after commit",
+                commit.id
+            ),
+        })
+    }
 }
 
 impl PostgresStore {
@@ -1176,6 +1288,31 @@ fn row_to_generated_artifact_proposal(row: PgRow) -> Result<GeneratedArtifactPro
             source_item_id: parse_optional_id(row_get::<Option<String>>(&row, "source_item_id")?)?,
         },
     ))
+}
+
+fn row_to_generated_artifact_metadata_apply_outcome(
+    row: PgRow,
+) -> Result<GeneratedArtifactMetadataApplyOutcomeRecord> {
+    let plan_json: String = row_get(&row, "plan_json")?;
+    let plan = serde_json::from_str(&plan_json).map_err(database_error)?;
+
+    Ok(GeneratedArtifactMetadataApplyOutcomeRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        artifact_id: parse_id(row_get::<String>(&row, "artifact_id")?)?,
+        idempotency_key: row_get(&row, "idempotency_key")?,
+        status: GeneratedArtifactMetadataApplyOutcomeStatus::parse(&row_get::<String>(
+            &row, "status",
+        )?)?,
+        applied: row_get(&row, "applied")?,
+        changed: row_get(&row, "changed")?,
+        applied_source: row_get(&row, "applied_source")?,
+        item_id: parse_optional_id(row_get::<Option<String>>(&row, "item_id")?)?,
+        plan,
+        error_code: row_get(&row, "error_code")?,
+        error_message: row_get(&row, "error_message")?,
+        created_at: row_get(&row, "created_at")?,
+        updated_at: row_get(&row, "updated_at")?,
+    })
 }
 
 fn row_to_addon_registration(row: PgRow) -> Result<AddonRegistrationRecord> {
