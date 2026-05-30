@@ -3,15 +3,16 @@
   "slug": "audio-compatibility-downmix-normalization",
   "title": "Audio Compatibility Downmix Normalization",
   "status": "active",
-  "updated": "2026-05-30",
+  "updated": "2026-05-31",
   "scope_kind": "fearless_refactor",
   "problem": "Playback planning can select audio streams and HLS renditions, but it does not yet model client channel support, downmix, dynamic range, or normalization as explicit requirements.",
   "task_prefix": "ACDN",
-  "current_task": "ACDN-040",
+  "current_task": "ACDN-050",
   "completed_tasks": [
     "ACDN-010",
     "ACDN-020",
-    "ACDN-030"
+    "ACDN-030",
+    "ACDN-040"
   ],
   "authoritative_docs": [
     {
@@ -64,6 +65,10 @@
     {
       "task": "ACDN-030",
       "summary": "Propagated playback-owned audio output requirements through transcode execution policy, pipeline planning, profile identity, and server HLS adaptation; stabilized the concurrent HLS playlist gate without changing runtime semantics."
+    },
+    {
+      "task": "ACDN-040",
+      "summary": "Added deterministic FFmpeg HLS audio filter planning for downmix, normalization, combined downmix plus normalization, and audio sidecar outputs without adding UI preference storage, HDR tone mapping, subtitle burn-in, web player, or public DTO changes."
     }
   ],
   "adr_refs": [
@@ -91,6 +96,6 @@
   "lane_slug": "playback-transcode",
   "continue_policy": {
     "default_action": "continue",
-    "notes": "ACDN-030 is complete and planner-verified. Next ready task is ACDN-040 for deterministic FFmpeg audio downmix and normalization filter planning. Split HDR, subtitle burn-in, persisted user preferences, and web player controls into separate workstreams."
+    "notes": "ACDN-040 is complete and ready for planner verification. Next task is ACDN-050 for final evidence consolidation, architecture map updates, and closeout. Split HDR, subtitle burn-in, persisted user preferences, device profile databases, and web player controls into separate workstreams."
   }
 }
