@@ -1,6 +1,6 @@
 # Audio Compatibility Downmix Normalization - TODO
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-31
 
 ## M0 - Scope And Evidence Freeze
@@ -44,9 +44,9 @@ Last updated: 2026-05-31
 
 ## M4 - Diagnostics, Verification, And Closeout
 
-- [ ] ACDN-050 [owner=planner] [deps=ACDN-040] [scope=docs/workstreams/audio-compatibility-downmix-normalization,docs/architecture/PLAYBACK.md,docs/architecture/WORKSTREAM_LINKS.md]
+- [x] ACDN-050 [owner=planner] [deps=ACDN-040] [scope=docs/workstreams/audio-compatibility-downmix-normalization,docs/architecture/PLAYBACK.md,docs/architecture/WORKSTREAM_LINKS.md]
   Goal: Record final evidence, update capability maps, and close or split follow-ons.
   Validation: `cargo nextest run -p nako-playback audio --no-fail-fast`; `cargo nextest run -p nako-transcode hls audio --no-fail-fast`; `cargo nextest run -p nako-server hls --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`
   Review: `review-workstream` and `verify-rust-workstream` before closeout.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and closeout notes.
-  Handoff: Split persisted preferences, client UI controls, device profile database, or dialogue clarity into follow-ons.
+  Handoff: DONE. Fresh playback audio, transcode HLS/audio, server HLS, formatting, JSON, and whitespace gates passed on 2026-05-31. Persisted preferences, client UI controls, device profile database, dialogue clarity, subtitle burn-in, and HDR tone mapping remain separate follow-ons.

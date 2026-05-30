@@ -2,17 +2,18 @@
   "schema_version": 1,
   "slug": "audio-compatibility-downmix-normalization",
   "title": "Audio Compatibility Downmix Normalization",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-05-31",
   "scope_kind": "fearless_refactor",
   "problem": "Playback planning can select audio streams and HLS renditions, but it does not yet model client channel support, downmix, dynamic range, or normalization as explicit requirements.",
   "task_prefix": "ACDN",
-  "current_task": "ACDN-050",
+  "current_task": null,
   "completed_tasks": [
     "ACDN-010",
     "ACDN-020",
     "ACDN-030",
-    "ACDN-040"
+    "ACDN-040",
+    "ACDN-050"
   ],
   "authoritative_docs": [
     {
@@ -38,6 +39,10 @@
     {
       "role": "context_manifest",
       "path": "docs/workstreams/audio-compatibility-downmix-normalization/CONTEXT.jsonl"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/audio-compatibility-downmix-normalization/CLOSEOUT.md"
     },
     {
       "role": "handoff",
@@ -69,6 +74,10 @@
     {
       "task": "ACDN-040",
       "summary": "Added deterministic FFmpeg HLS audio filter planning for downmix, normalization, combined downmix plus normalization, and audio sidecar outputs without adding UI preference storage, HDR tone mapping, subtitle burn-in, web player, or public DTO changes."
+    },
+    {
+      "task": "ACDN-050",
+      "summary": "Verified fresh playback audio, transcode HLS/audio, server HLS, formatting, JSON, and whitespace gates; closed the lane and split persisted preferences, client controls, device profiles, dialogue clarity, subtitle burn-in, and HDR tone mapping as follow-ons."
     }
   ],
   "adr_refs": [
@@ -95,7 +104,7 @@
   ],
   "lane_slug": "playback-transcode",
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "ACDN-040 is accepted on main. Next task is ACDN-050 for final evidence consolidation, architecture map updates, and closeout. Split HDR, subtitle burn-in, persisted user preferences, device profile databases, and web player controls into separate workstreams."
+    "default_action": "closed",
+    "notes": "The audio compatibility downmix and normalization first slice is closed. Open follow-on workstreams for persisted preferences, client UI controls, device profile databases, dialogue clarity, subtitle burn-in, HDR tone mapping, or broader transcode Interface deepening."
   }
 }

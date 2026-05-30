@@ -1,6 +1,6 @@
 # Audio Compatibility Downmix Normalization - Evidence And Gates
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-31
 
 ## Required Gates
@@ -187,11 +187,48 @@ Notes:
 - This task did not add UI preference storage and did not touch HDR tone
   mapping, subtitle burn-in, web player, public DTO, or server playback code.
 
+### ACDN-050 - Verification and closeout
+
+Status: Done
+
+Evidence:
+
+- `docs/workstreams/audio-compatibility-downmix-normalization/README.md`
+- `docs/workstreams/audio-compatibility-downmix-normalization/DESIGN.md`
+- `docs/workstreams/audio-compatibility-downmix-normalization/TODO.md`
+- `docs/workstreams/audio-compatibility-downmix-normalization/MILESTONES.md`
+- `docs/workstreams/audio-compatibility-downmix-normalization/HANDOFF.md`
+- `docs/workstreams/audio-compatibility-downmix-normalization/WORKSTREAM.json`
+- `docs/architecture/PLAYBACK.md`
+- `docs/architecture/LANES.md`
+- `docs/workstreams/README.md`
+- `cargo nextest run -p nako-playback audio --no-fail-fast`
+  - 2026-05-31: Passed, 7 tests run and 27 skipped by filter.
+- `cargo nextest run -p nako-transcode hls audio --no-fail-fast`
+  - 2026-05-31: Passed, 48 tests run and 38 skipped by filter.
+- `cargo nextest run -p nako-server hls --no-fail-fast`
+  - 2026-05-31: Passed, 61 tests run and 433 skipped by filter.
+- `cargo fmt --all -- --check`
+  - 2026-05-31: Passed.
+- `python -m json.tool docs/workstreams/audio-compatibility-downmix-normalization/WORKSTREAM.json`
+  - 2026-05-31: Passed after closeout updates.
+- `git diff --check`
+  - 2026-05-31: Passed after closeout updates.
+
+Notes:
+
+- The core target state is complete: audio output requirements are playback
+  owned, transcode execution policy carries them, FFmpeg HLS planning emits
+  deterministic downmix/normalization filters, and HLS selected-main plus audio
+  sidecar behavior remains covered by tests.
+- Persisted preferences, client controls, device profile databases, dialogue
+  clarity, subtitle burn-in, and HDR tone mapping are split into follow-ons.
+
 ## Residual Risks
 
 - Real device audio capability databases may require a later profile import or
   calibration lane.
 - Normalization defaults can become product-sensitive; keep initial behavior
   deterministic and explainable.
-- Downmix and HDR implementation both touch playback/transcode seams. Do not
-  implement HDR code concurrently with this lane.
+- Future HDR, subtitle burn-in, or transcode Interface work should remain
+  planner-serialized when it touches shared playback/transcode planning files.

@@ -24,19 +24,16 @@ Last reviewed: 2026-05-31
   is active on lane `client-surfaces-planning`; next task is `CSAPA-050`.
 - [remote-storage-health-and-circuit-breaker](remote-storage-health-and-circuit-breaker/README.md)
   is active on lane `storage-vfs`; next task is `RSHC-040`.
-- [audio-compatibility-downmix-normalization](audio-compatibility-downmix-normalization/README.md)
-  is active on lane `playback-transcode`; next task is `ACDN-050`.
 - [hdr-tone-mapping-pipeline](hdr-tone-mapping-pipeline/README.md)
-  is active on lane `playback-transcode`; next task is `HTP-030` ready after
-  `ACDN-050` closeout or explicit planner serialization.
+  is active on lane `playback-transcode`; next task is `HTP-030`.
 
 Planner coordination should keep `GAMA-060` blocked until `GAMA-050` is
 reviewed and verified. `CSAPA` should split or explicitly defer desktop
 playback before closeout. The `web-product` lane is idle after
 `admin-media-management-context-links` closeout.
-`ACDN-040` is accepted on `main`; avoid running `HTP-030` concurrently with
-`ACDN-050` docs closeout unless the planner serializes the shared
-playback/transcode scope.
+`audio-compatibility-downmix-normalization` is closed; avoid running multiple
+transcode/HLS implementation tasks concurrently unless the planner serializes
+the shared playback/transcode scope.
 
 ## Current Workstreams
 
@@ -44,16 +41,15 @@ playback/transcode scope.
   active storage/VFS lane for adding durable **Storage Backend Health** and a
   backend circuit-breaker policy after the first storage resilience slice.
   `RSHC-040` owns redaction-safe Admin diagnostics and operator circuit reset.
-- [audio-compatibility-downmix-normalization](audio-compatibility-downmix-normalization/README.md):
-  active playback/transcode lane for making downmix, channel compatibility,
-  dynamic range, and normalization explicit **Audio Output Requirement**
-  behavior. `ACDN-050` owns final evidence consolidation, architecture map
-  refresh, and closeout/follow-on split.
 - [hdr-tone-mapping-pipeline](hdr-tone-mapping-pipeline/README.md):
   active playback/transcode lane for HDR/color compatibility and the first
-  executable tone-mapping slice. `HTP-030` is ready after the audio lane
-  closeout or explicit planner serialization of the shared transcode/HLS
-  scope.
+  executable tone-mapping slice. `HTP-030` is ready unless the planner inserts
+  a transcode Interface deepening slice first.
+- [audio-compatibility-downmix-normalization](audio-compatibility-downmix-normalization/README.md):
+  closed playback/transcode lane for making downmix, channel compatibility,
+  dynamic range, and normalization explicit **Audio Output Requirement**
+  behavior. Persisted preferences, client controls, device profile databases,
+  dialogue clarity, subtitle burn-in, and HDR tone mapping remain follow-ons.
 - [storage-vfs-resilience-and-source-identity](storage-vfs-resilience-and-source-identity/README.md):
   completed fearless refactor lane for deepening **Source Fingerprint** evidence,
   move/rename reconciliation, storage failure classification, stale-cache

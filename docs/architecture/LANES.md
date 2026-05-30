@@ -23,8 +23,7 @@ ledger instead.
 | `library-metadata-control-plane` | `generated-artifact-metadata-authority-apply` | `GAMA-050` | Backend/control-plane execution |
 | `client-surfaces-planning` | `client-surface-and-access-product-architecture` | `CSAPA-050` | Planner/docs split or defer decision |
 | `storage-vfs` | `remote-storage-health-and-circuit-breaker` | `RSHC-040` | Backend storage/Admin diagnostics execution |
-| `playback-transcode` | `audio-compatibility-downmix-normalization` | `ACDN-050` | Planner evidence consolidation and closeout |
-| `playback-transcode` | `hdr-tone-mapping-pipeline` | `HTP-030` ready | Start after `ACDN-050` closeout or explicit planner serialization |
+| `playback-transcode` | `hdr-tone-mapping-pipeline` | `HTP-030` ready | HDR transcode/HLS execution |
 
 Do not start `GAMA-060` until `GAMA-050` has reviewed and verified the final
 Admin apply route. Do not close `CSAPA` until desktop playback is split,
@@ -32,9 +31,9 @@ deferred, or explicitly scoped. The `web-product` lane is idle after
 `admin-media-management-context-links` closeout and should receive a new
 planner-approved workstream before more frontend execution starts.
 
-`ACDN-040` is accepted on `main`; keep `ACDN-050` as the next short planner
-closeout before starting another transcode/HLS implementation in the same
-lane, unless the planner explicitly serializes the shared scope.
+`audio-compatibility-downmix-normalization` is closed. Start the next
+playback/transcode implementation only after planner review confirms it does
+not overlap another active transcode/HLS task.
 
 ## Lane Registry
 

@@ -1,6 +1,6 @@
 # Playback Architecture
 
-Last updated: 2026-05-30
+Last updated: 2026-05-31
 
 This document is the agent-facing progress map for Nako video playback. It
 links expected media-server capabilities to current implementation state,
@@ -42,11 +42,11 @@ selection.
 | HLS artifact manifest | Shipped | `docs/workstreams/transcode-output-shape-hls-manifest-ladder/`; `docs/adr/0052-hls-runtime-and-media-engine-boundary.md` | Keep all playlist/media group URLs manifest-backed. |
 | Selected audio stream mapping | Shipped | `docs/workstreams/hls-alternate-audio-renditions/`; `docs/workstreams/hls-selected-main-audio-cleanup/`; `docs/workstreams/playback-audio-language-default-policy/` | Request-scoped language/default policy is shipped; persist user settings later. |
 | HLS subtitle sidecar media group | Shipped first slice | `docs/workstreams/hls-media-renditions-runtime/`; `docs/workstreams/hls-master-renditions-authoring/`; `docs/workstreams/playback-subtitle-language-default-policy/` | Request-scoped subtitle language/default policy is shipped; defer ASS/SSA, PGS, burn-in, and client subtitle capability policy. |
-| HLS audio sidecar media group | Shipped cleanup slice | `docs/workstreams/hls-audio-sidecar-artifacts/`; `docs/workstreams/hls-selected-main-audio-cleanup/`; `docs/workstreams/playback-audio-language-default-policy/` | Request-scoped language defaults are shipped; defer audio codec policy, downmix, and normalization. |
+| HLS audio sidecar media group | Shipped cleanup slice | `docs/workstreams/hls-audio-sidecar-artifacts/`; `docs/workstreams/hls-selected-main-audio-cleanup/`; `docs/workstreams/playback-audio-language-default-policy/` | Request-scoped language defaults and audio output compatibility are shipped; defer codec-aware sidecars and player-specific fallback. |
 | HLS seek/restart | Shipped first slice | `docs/adr/0052-hls-runtime-and-media-engine-boundary.md`; `docs/workstreams/hls-seek-restart-lifecycle/` | Generation identity, restart admission, FFmpeg seek flags, and public `start_position_ms` playlist query. |
 | HLS progressive runtime | Shipped | `docs/workstreams/hls-progressive-runtime-boundary/`; `docs/adr/0052-hls-runtime-and-media-engine-boundary.md` | Playlist readiness before full FFmpeg completion, running segment serving, typed artifact reconstruction, manifest-aware URL auth, and partial-playlist readiness guard. |
-| HDR tone mapping | Active playback vocabulary slice | `docs/ARCHITECTURE.md`; `docs/adr/0044-playback-capability-profile-planner.md`; `docs/workstreams/hdr-tone-mapping-pipeline/` | Run `HTP-020` playback-only on the HDR branch after the accepted audio baseline merge. |
-| Audio downmix and normalization | Active first slice | `docs/workstreams/audio-compatibility-downmix-normalization/` | Run `ACDN-020` in `nako-playback` before transcode propagation. |
+| HDR tone mapping | Active transcode slice | `docs/ARCHITECTURE.md`; `docs/adr/0044-playback-capability-profile-planner.md`; `docs/workstreams/hdr-tone-mapping-pipeline/` | Run `HTP-030` after planner confirms no overlapping transcode/HLS task is active. |
+| Audio downmix and normalization | Shipped first slice | `docs/workstreams/audio-compatibility-downmix-normalization/` | Persisted preferences, client controls, device profiles, and dialogue clarity remain follow-ons. |
 | Runtime resource scheduler | Shipped first slice | `docs/workstreams/playback-runtime-resource-scheduler/`; `docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md`; playback runtime diagnostics lanes | Add queueing, remote workers, OS isolation, per-device tuning, and disk-sensitive artifact I/O enforcement only through follow-on lanes. |
 | VFS/remote playback resilience | Partial | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md` | Timeout/circuit-breaker and remote staging hardening. |
 | SQLite/PostgreSQL write pressure | Good foundation | `docs/adr/0029-postgresql-ready-persistence-boundary.md`; `docs/adr/0030-postgresql-ready-sql-dialect-and-migration-policy.md`; PostgreSQL readiness lanes | Playback heartbeat/session-write pressure tests. |
@@ -64,10 +64,9 @@ linked to the most direct ADR/workstream evidence.
 These lanes are intentionally separable. They can run in parallel if each lane
 keeps its public contract explicit.
 
-The current HDR terminal may run beside audio compatibility only for
-`HTP-010`, which is docs/research-only. Do not implement HDR code while
-`ACDN-020` is changing playback audio requirement vocabulary unless the planner
-serializes the shared playback/transcode scopes.
+The audio compatibility first slice is closed. HDR, subtitle burn-in, and
+transcode Interface deepening can continue only when the planner serializes
+shared playback/transcode files.
 
 ### Lane A - Device Capability Profiles
 
@@ -167,11 +166,10 @@ Exit criteria:
 - planner selects direct/remux/transcode from client HDR capability;
 - FFmpeg software and hardware tone mapping strategies are testable.
 
-Current status: draft. `HTP-010` confirmed the first implementation slice is
-playback-owned **Color Pipeline Requirement** vocabulary, followed by a
-software-first HLS HDR-to-SDR media-output slice. Do not start HDR
-implementation while `ACDN-020` is active unless the planner serializes the
-shared playback/transcode scopes.
+Current status: active. `HTP-020` shipped playback-owned **Color Pipeline
+Requirement** vocabulary; `HTP-030` is the software-first HLS HDR-to-SDR
+media-output slice. Start it only after planner serialization of shared
+playback/transcode scopes.
 
 ### Lane F - Audio Compatibility
 
@@ -193,7 +191,9 @@ Exit criteria:
   filters;
 - HLS selected main audio and audio sidecar behavior stay compatible.
 
-Current status: active. Run `ACDN-020` before transcode or server changes.
+Current status: completed first slice. Follow-ons for persisted preferences,
+client controls, device profile databases, and dialogue clarity should open as
+separate workstreams.
 
 ### Lane E - Runtime Resource Scheduler
 
@@ -271,11 +271,10 @@ Follow-on resource scheduling must still account for:
 ### Audio Compatibility Is More Than Codec Conversion
 
 7.1 TrueHD/DTS-HD sources on 2.0 clients need policy beyond `-c:a aac`.
-Future audio compatibility work should model:
+The closed audio compatibility first slice now models channel downmix and
+loudness normalization. Future audio compatibility follow-ons should model:
 
-- channel downmix;
 - dynamic range compression;
-- loudness normalization;
 - dialogue clarity;
 - per-client night-mode or normalization preferences.
 

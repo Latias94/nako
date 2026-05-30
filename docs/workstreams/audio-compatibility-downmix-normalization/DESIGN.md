@@ -1,7 +1,7 @@
 # Audio Compatibility Downmix Normalization
 
-Status: Active
-Last updated: 2026-05-30
+Status: Completed
+Last updated: 2026-05-31
 
 ## Why This Lane Exists
 
@@ -51,6 +51,12 @@ When this workstream closes:
 - diagnostics explain audio compatibility without leaking local paths or
   command-line details.
 
+Closeout result on 2026-05-31: playback-owned audio output requirements,
+transcode policy/profile/pipeline propagation, FFmpeg HLS downmix and
+normalization filters, and HLS selected-main/audio-sidecar compatibility are
+implemented and verified. Persisted preferences, client controls, broad device
+profile databases, and dialogue enhancement remain follow-ons.
+
 ## In Scope
 
 - playback-owned audio output requirement vocabulary;
@@ -74,7 +80,7 @@ When this workstream closes:
 | --- | --- | --- | --- |
 | Audio requirements should be expressed in `nako-playback` first. | High | Playback owns compatibility planning while transcode owns execution planning. | `nako-transcode` would start making playback policy decisions. |
 | Initial downmix/normalization can be deterministic and profile-driven. | Medium | Current HLS policy already carries selected audio facts. | More client preference modeling may need a later lane. |
-| HDR work must not run as implementation in parallel with this lane. | High | Both lanes touch playback/transcode planner and server playback seams. | Concurrent code changes would create merge and semantic conflicts. |
+| HDR work must not run as implementation in parallel with audio implementation tasks. | High | Both lanes touch playback/transcode planner and server playback seams. | Concurrent code changes would create merge and semantic conflicts. |
 
 ## Architecture Direction
 

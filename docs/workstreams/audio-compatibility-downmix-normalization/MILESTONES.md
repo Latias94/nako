@@ -1,6 +1,6 @@
 # Audio Compatibility Downmix Normalization - Milestones
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-31
 
 ## M0 - Scope And Evidence Freeze
@@ -53,4 +53,4 @@ Exit criteria:
 - UI preferences, device databases, and dialogue enhancement are split or
   deferred.
 
-Status: Ready for `ACDN-050` planner closeout.
+Status: Done.

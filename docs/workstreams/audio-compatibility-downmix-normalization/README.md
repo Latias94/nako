@@ -1,14 +1,15 @@
 # Audio Compatibility Downmix Normalization
 
-Status: Active
-Last updated: 2026-05-30
+Status: Completed
+Last updated: 2026-05-31
 
-This workstream makes audio compatibility an explicit playback/transcode
-contract. The first target is to model **Audio Output Requirement** in
-`nako-playback`, then propagate it into transcode policy and FFmpeg planning
-without mixing it with HDR tone mapping, subtitle burn-in, or web player work.
+This workstream made audio compatibility an explicit playback/transcode
+contract. `nako-playback` now owns **Audio Output Requirement** vocabulary,
+`nako-transcode` carries that requirement through policy/profile/pipeline
+planning, and FFmpeg HLS command planning emits deterministic downmix and
+normalization filters when requested.
 
-First executable task: `ACDN-020`.
+Active task: none. `ACDN-010` through `ACDN-050` are complete.
 
 Planner-approved lane: `playback-transcode`.
 
@@ -19,4 +20,6 @@ Read before implementation:
 - `docs/architecture/WORKSTREAM_LINKS.md`
 - `docs/workstreams/audio-compatibility-downmix-normalization/CONTEXT.jsonl`
 
-Do not edit `nako-transcode` in `ACDN-020`; that work starts at `ACDN-030`.
+Follow-ons should be opened as separate workstreams for persisted preferences,
+client UI controls, device profile databases, dialogue clarity, subtitle
+burn-in, or HDR tone mapping.

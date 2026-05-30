@@ -1,12 +1,12 @@
 # Audio Compatibility Downmix Normalization - Handoff
 
-Status: Active
+Status: Completed
 Last updated: 2026-05-31
 
 ## Current State
 
-The lane is open and linked from playback architecture indexes. `ACDN-010`,
-`ACDN-020`, `ACDN-030`, and `ACDN-040` are complete.
+The lane is closed and linked from playback architecture indexes. `ACDN-010`
+through `ACDN-050` are complete.
 
 Playback owns audio output requirement values for channel support, downmix
 intent, normalization intent, and audio-specific compatibility reasons.
@@ -26,35 +26,33 @@ downmix is ordered before normalization in a single `-af` chain. Audio sidecar
 outputs receive the same filter chain so selected-main-audio cleanup does not
 drop the compatibility requirement when audio leaves the main HLS output.
 
-## Next Task
+## Active Task
 
-Planner/reviewer accepted `ACDN-040` and merged it to `main`. Assign
-`ACDN-050` for final evidence consolidation and closeout. The full server HLS
-gate is clean on 2026-05-31.
+None. Open follow-on workstreams for persisted preferences, client UI controls,
+device profile databases, dialogue clarity, subtitle burn-in, or HDR tone
+mapping.
 
-Owned scope:
+Closed implementation scope:
 
 - `crates/nako-transcode/src/ffmpeg.rs`
 - `crates/nako-transcode/src/lib.rs`
 - `crates/nako-transcode/src/tests*`
 
-Required validation:
+Final validation:
 
 ```text
+cargo nextest run -p nako-playback audio --no-fail-fast
 cargo nextest run -p nako-transcode hls audio --no-fail-fast
 cargo nextest run -p nako-server hls --no-fail-fast
 cargo fmt --all -- --check
+python -m json.tool docs/workstreams/audio-compatibility-downmix-normalization/WORKSTREAM.json
 git diff --check
 ```
 
 ## Stop Conditions
 
-Return to planner coordination if:
-
-- public API DTO or generated contract changes become necessary;
-- HDR tone mapping or subtitle burn-in becomes part of the design;
-- the audio vocabulary needs a new ADR rather than fitting ADR 0038/0044;
-- existing user changes appear in files you need to edit.
+None for this closed lane. New audio, HDR, subtitle, or device-profile work
+should open or reuse a planner-approved workstream.
 
 ## ACDN-030 Evidence
 
@@ -96,11 +94,5 @@ server playback code.
 
 ## Report Format
 
-End with one of:
-
-- DONE
-- DONE_WITH_CONCERNS
-- BLOCKED
-- NEEDS_CONTEXT
-
-Include changed files, tests run, and evidence anchors.
+This handoff is closed. Use `docs/workstreams/audio-compatibility-downmix-normalization/EVIDENCE_AND_GATES.md`
+for final evidence anchors.
