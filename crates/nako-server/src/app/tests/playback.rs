@@ -808,11 +808,23 @@ async fn hls_playlist_playback_returns_when_playlist_is_ready_before_runner_fini
         playlist.session.id
     )));
 
-    let segment = app
-        .playback()
-        .plan_hls_segment(transcode_session_id, "segment_00000.ts")
-        .await
-        .unwrap();
+    let segment = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            match app
+                .playback()
+                .plan_hls_segment(transcode_session_id, "segment_00000.ts")
+                .await
+            {
+                Ok(segment) => break segment,
+                Err(NakoError::Conflict { message }) if message.contains("is not ready") => {
+                    tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                }
+                Err(err) => panic!("expected running hls segment to become ready: {err:?}"),
+            }
+        }
+    })
+    .await
+    .expect("running hls segment should become ready");
     assert_eq!(segment.response.content_type, "video/mp2t");
     assert!(segment.path.ends_with("segment_00000.ts"));
 

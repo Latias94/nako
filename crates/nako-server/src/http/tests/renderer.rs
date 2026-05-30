@@ -28,6 +28,24 @@ use crate::app::{
 
 use super::*;
 
+async fn wait_for_hls_segment_ok(router: &Router, uri: &str) -> axum::response::Response {
+    let mut last_status = None;
+    for _ in 0..250 {
+        let response = response_for(router, Method::GET, uri).await;
+        let status = response.status();
+        if status == StatusCode::OK {
+            return response;
+        }
+        if status != StatusCode::CONFLICT {
+            panic!("expected hls segment {uri} to become OK, got {status}");
+        }
+        last_status = Some(status);
+        sleep(Duration::from_millis(20)).await;
+    }
+
+    panic!("hls segment {uri} did not become OK; last status: {last_status:?}");
+}
+
 #[tokio::test]
 async fn nako_renderer_registers_heartbeats_lists_and_polls_commands() {
     let (_temp, app, source, _store) =
@@ -375,8 +393,7 @@ async fn renderer_play_command_with_cast_ticket_hls_protects_playlist_and_segmen
         .expect("renderer hls playlist contains ticketed segment URL")
         .to_owned();
 
-    let segment_response = response_for(&router, Method::GET, &segment_uri).await;
-    assert_eq!(segment_response.status(), StatusCode::OK);
+    let segment_response = wait_for_hls_segment_ok(&router, &segment_uri).await;
     let segment = to_bytes(segment_response.into_body(), usize::MAX)
         .await
         .unwrap();

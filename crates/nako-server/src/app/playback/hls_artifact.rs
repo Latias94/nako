@@ -124,15 +124,29 @@ impl HlsArtifactService {
             });
         }
 
-        let total_len = tokio::fs::metadata(&artifact.path)
-            .await
-            .map_err(|err| {
-                NakoError::storage_io(
-                    artifact.path.display().to_string(),
-                    format!("failed to read hls segment length: {err}"),
-                )
-            })?
-            .len();
+        let Some(total_len) = hls_segment_len(&artifact.path).await? else {
+            if session.state == TranscodeSessionState::Running {
+                return Err(NakoError::Conflict {
+                    message: format!(
+                        "hls segment {segment_name} for session {} is not ready; current state is {:?}",
+                        session.id, session.state
+                    ),
+                });
+            }
+
+            return Err(NakoError::NotFound {
+                entity: "hls_segment",
+                id: segment_name.to_owned(),
+            });
+        };
+        if total_len == 0 && session.state == TranscodeSessionState::Running {
+            return Err(NakoError::Conflict {
+                message: format!(
+                    "hls segment {segment_name} for session {} is not ready; current state is {:?}",
+                    session.id, session.state
+                ),
+            });
+        }
         let response = nako_streaming::plan_direct_play_response(
             total_len,
             artifact.content_type,
@@ -191,15 +205,29 @@ async fn wait_for_hls_segment_if_configured(
     state: TranscodeSessionState,
     path: &Path,
 ) -> Result<()> {
-    if path_exists(path)?
-        || state != TranscodeSessionState::Running
-        || !config.transcode_throttle_enabled
-    {
+    if state != TranscodeSessionState::Running || !config.transcode_throttle_enabled {
         return Ok(());
+    }
+
+    if let Some(len) = hls_segment_len(path).await? {
+        if len > 0 {
+            return Ok(());
+        }
     }
 
     tokio::time::sleep(Duration::from_millis(config.transcode_throttle_delay_ms)).await;
     Ok(())
+}
+
+async fn hls_segment_len(path: &Path) -> Result<Option<u64>> {
+    match tokio::fs::metadata(path).await {
+        Ok(metadata) => Ok(Some(metadata.len())),
+        Err(err) if err.kind() == ErrorKind::NotFound => Ok(None),
+        Err(err) => Err(NakoError::storage_io(
+            path.display().to_string(),
+            format!("failed to read hls segment length: {err}"),
+        )),
+    }
 }
 
 async fn cleanup_hls_segment_dir_if_enabled(
@@ -339,12 +367,14 @@ mod tests {
             ..PlaybackConfig::default()
         };
 
+        let started = std::time::Instant::now();
         wait_for_hls_segment_if_configured(&config, TranscodeSessionState::Running, &segment_path)
             .await
             .unwrap();
 
-        assert!(path_exists(&segment_path).unwrap());
         writer.await.unwrap();
+        assert!(started.elapsed() >= Duration::from_millis(50));
+        assert!(path_exists(&segment_path).unwrap());
     }
 
     #[tokio::test]
