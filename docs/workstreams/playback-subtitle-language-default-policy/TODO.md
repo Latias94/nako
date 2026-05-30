@@ -44,7 +44,7 @@ Handoff:
 
 ### PSLD-020 - Model request-scoped subtitle language preference
 
-Status: Pending
+Status: Completed
 Owner: codex
 Depends on: PSLD-010
 
@@ -82,6 +82,11 @@ Evidence:
 
 Handoff:
 
+- DONE: Playback owns explicit-stream, preferred-language, and fallback
+  subtitle selection.
+- DONE: Request identity normalizes preferred subtitle language values.
+- DONE: HLS/server adapters compile with the new preference field while keeping
+  HTTP query input empty until PSLD-030.
 - PSLD-030 should make the behavior wire-visible through HLS request parsing
   and playlist/default-rendition assertions.
 

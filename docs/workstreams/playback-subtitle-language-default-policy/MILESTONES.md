@@ -21,7 +21,7 @@ Primary evidence:
 
 ## M1 - Preference Vocabulary And Selection Policy
 
-Status: Pending
+Status: Completed
 
 Exit criteria:
 

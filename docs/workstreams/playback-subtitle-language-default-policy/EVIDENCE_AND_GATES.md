@@ -5,8 +5,7 @@ Last updated: 2026-05-30
 
 ## Smallest Current Repro
 
-The current proof is PSLD-020 request-scoped subtitle language preference
-modeling.
+The current proof is PSLD-030 HLS request/default rendition integration.
 
 ```bash
 cargo nextest run -p nako-playback subtitle --no-fail-fast
@@ -84,6 +83,7 @@ note.
 | Date | Task | Evidence | Status | Notes |
 | --- | --- | --- | --- | --- |
 | 2026-05-30 | PSLD-010 | Workstream opened | Passed | Fresh gates: `python3 -m json.tool docs/workstreams/playback-subtitle-language-default-policy/WORKSTREAM.json`; `git diff --check -- docs/workstreams/playback-subtitle-language-default-policy docs/architecture/PLAYBACK.md docs/architecture/WORKSTREAM_LINKS.md docs/workstreams/README.md`. |
+| 2026-05-30 | PSLD-020 | Request-scoped subtitle language preference modeled | Passed | Fresh gates: `cargo nextest run -p nako-playback subtitle --no-fail-fast` (4 passed, 23 skipped); `cargo nextest run -p nako-server playback --no-fail-fast` (135 passed, 350 skipped); `cargo fmt --all -- --check`; `python3 -m json.tool docs/workstreams/playback-subtitle-language-default-policy/WORKSTREAM.json`; `git diff --check`. The policy selects preferred subtitle languages after explicit stream selection, falls back to existing first-subtitle behavior when no language matches, and normalizes preferred subtitle language values in request identity. Review gate found no blocking findings; HLS wire/default-rendition behavior remains PSLD-030 scope. API gate not run because PSLD-020 did not change public DTOs or request query contracts. |
 
 ## Evidence Anchors
 

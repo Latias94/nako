@@ -1451,6 +1451,7 @@ impl HlsPlaybackQuery {
                 Vec::new(),
             ),
             requested_subtitle_stream: self.subtitle_stream,
+            preferred_subtitle_languages: Vec::new(),
             max_video_bitrate: None,
             prefer_hdr: None,
             remux_output_container: None,

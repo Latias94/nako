@@ -11,17 +11,23 @@ policy workstreams. Nako now needs request-scoped subtitle language/default
 policy so HLS subtitle groups can mark the right rendition as default without
 relying only on an explicit stream index or first-subtitle fallback.
 
+PSLD-020 is complete. `nako-playback` now owns request-scoped preferred
+subtitle language selection, explicit subtitle stream precedence, fallback, and
+identity normalization. HTTP/HLS adapters compile with the new preference field
+but do not expose a wire-level subtitle-language query yet.
+
 ## Active Task
 
-- Task ID: PSLD-020
+- Task ID: PSLD-030
 - Owner: codex
 - Files:
-  - `crates/nako-playback`
   - `crates/nako-server/src/app/playback`
-  - focused playback policy tests
+  - `crates/nako-server/src/http/playback.rs`
+  - `crates/nako-api` only if public DTO/query contracts change
 - Validation:
-  - `cargo nextest run -p nako-playback subtitle --no-fail-fast`
+  - `cargo nextest run -p nako-server hls --no-fail-fast`
   - `cargo nextest run -p nako-server playback --no-fail-fast`
+  - `cargo nextest run -p nako-api --no-fail-fast` if public contracts change
 - Status: PENDING
 - Review: pending
 - Evidence: `docs/workstreams/playback-subtitle-language-default-policy/EVIDENCE_AND_GATES.md`
@@ -45,7 +51,6 @@ relying only on an explicit stream index or first-subtitle fallback.
 
 ## Next Recommended Action
 
-- Run PSLD-020 through `run-workstream-task` or TDD.
-- Model request-scoped preferred subtitle languages in playback policy, then
-  assert explicit stream precedence, preferred-language match, fallback, and
-  request identity normalization before touching HLS playlist behavior.
+- Run PSLD-030 through `run-workstream-task` or TDD.
+- Decide the HLS request query shape for preferred subtitle languages, then
+  assert the selected subtitle rendition is the generated default.

@@ -7,9 +7,10 @@
   "scope_kind": "feature_refactor",
   "problem": "Playback can honor explicit subtitle stream selection, but has no request-scoped language/default policy for multi-subtitle HLS subtitle groups.",
   "task_prefix": "PSLD",
-  "current_task": "PSLD-020",
+  "current_task": "PSLD-030",
   "completed_tasks": [
-    "PSLD-010"
+    "PSLD-010",
+    "PSLD-020"
   ],
   "authoritative_docs": [
     {
@@ -49,6 +50,10 @@
     {
       "task": "PSLD-010",
       "summary": "Opened a durable lane for request-scoped playback subtitle language/default selection after subtitle sidecar serving, HLS subtitle renditions, and audio language defaults shipped."
+    },
+    {
+      "task": "PSLD-020",
+      "summary": "Added request-scoped preferred subtitle languages, deterministic playback subtitle selection precedence, and normalized subtitle language preferences in request identity."
     }
   ],
   "adr_refs": [
