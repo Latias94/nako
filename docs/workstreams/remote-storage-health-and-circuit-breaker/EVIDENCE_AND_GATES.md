@@ -9,6 +9,7 @@ Last updated: 2026-05-30
 python -m json.tool docs/workstreams/remote-storage-health-and-circuit-breaker/WORKSTREAM.json
 cargo nextest run -p nako-db storage_backend_health --no-fail-fast
 cargo nextest run -p nako-server storage_health --no-fail-fast
+cargo nextest run -p nako-server storage --no-fail-fast
 cargo nextest run -p nako-server admin_v1_storage --no-fail-fast
 cargo fmt --all -- --check
 git diff --check
@@ -79,6 +80,59 @@ Notes:
   macro. The PostgreSQL contract case remains ignored by the existing harness
   unless `NAKO_TEST_POSTGRES_URL` is provided.
 - No playback staging, cache repair, or Admin route behavior was changed.
+
+### RSHC-030 - Runtime policy adapter
+
+Status: Done
+
+Evidence:
+
+- `crates/nako-server/src/app/storage.rs`
+- `crates/nako-server/src/app/tests/storage.rs`
+
+Validated on 2026-05-30:
+
+- `cargo nextest run -p nako-server storage_health --no-fail-fast` -
+  passed; ran
+  `app::tests::storage::storage_health_records_runtime_updates_and_rejects_durable_circuit`.
+- `cargo nextest run -p nako-server storage --no-fail-fast` - passed;
+  19 storage-filtered server tests run.
+- `cargo fmt --all -- --check` - passed.
+- `git diff --check` - passed; Git reported only Windows line-ending
+  normalization warnings.
+
+Notes:
+
+- `LibraryStorageBackend` now derives a stable backend key, persists
+  redaction-safe health updates through the durable repository, and checks
+  durable open circuit state before bounded storage reads, range work, listing,
+  string reads, streaming, staging, writes, link planning, storage apply,
+  cleanup, and restore.
+- Runtime tests prove a retryable timeout records `Unavailable`/`Open`,
+  a fresh backend instance is rejected without touching the wrapped backend for
+  read and mutation-style runtime work, and a later successful operation
+  records `Healthy`/`Closed`.
+- Reviewer follow-up on 2026-05-30 found that `write_string`, `write`,
+  `plan_link`, `apply`, `cleanup`, and `restore` originally recorded outcomes
+  but skipped circuit admission. The runtime test now covers those paths and
+  the adapter rejects them before invoking the wrapped backend while the
+  durable circuit is open.
+- Task-level `review-workstream` check found no workstream compliance or code
+  quality blockers before verification.
+- No playback staging, cache repair, Admin route, or schema behavior was
+  changed.
+
+Planner verification on 2026-05-30:
+
+- `python -m json.tool docs/workstreams/remote-storage-health-and-circuit-breaker/WORKSTREAM.json`
+  passed.
+- `cargo nextest run -p nako-server storage_health --no-fail-fast` passed with
+  1 test run and 490 skipped by filter.
+- `cargo nextest run -p nako-server storage --no-fail-fast` passed with 19
+  tests run and 472 skipped by filter.
+- `cargo fmt --all -- --check` passed.
+- `git diff --check` passed with only Windows line-ending normalization
+  warnings.
 
 ## Residual Risks
 

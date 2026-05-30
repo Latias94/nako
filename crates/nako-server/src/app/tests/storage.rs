@@ -1,4 +1,12 @@
 use super::*;
+use nako_core::{
+    StorageBackendHealthRepository, StorageBackendHealthStatus, StorageCircuitBreakerState,
+    StorageErrorKind, StorageFailureClass,
+};
+use nako_vfs::{
+    StorageApplyKind, StorageApplyRequest, StorageCleanupRequest, StorageLinkKind,
+    StorageLinkPlanRequest,
+};
 
 #[tokio::test]
 async fn webdav_preview_config_builds_scanner_backend() {
@@ -256,4 +264,300 @@ async fn storage_diagnostics_lists_reconciled_libraries_missing_from_config() {
         retained.reason.as_deref(),
         Some("configured library backend was not found")
     );
+}
+
+#[tokio::test]
+async fn storage_health_records_runtime_updates_and_rejects_durable_circuit() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().join("movies");
+    fs::create_dir_all(&root).unwrap();
+    let library_id = LibraryId::new();
+    let library_config = LocalLibraryConfig {
+        id: library_id,
+        name: "Remote-like Movies".to_owned(),
+        root: root.clone(),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(
+        NakoServerConfig {
+            database_backend: Default::default(),
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            database_url_env: None,
+            auth: crate::config::AuthConfig::disabled(),
+            network: crate::config::NetworkAccessConfig::default(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path: PathBuf::from("ffmpeg"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            webhook_concurrency: 2,
+            addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+            remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("nako-cache").join("remux"),
+            metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
+            artwork: crate::config::ArtworkConfig::default(),
+            libraries: vec![library_config.clone()],
+        },
+        store.clone(),
+    )
+    .await
+    .unwrap();
+    let library = store.get_library(library_id).await.unwrap().unwrap();
+    let first_backend = Arc::new(StorageHealthCountingBackend::new(StorageErrorKind::Timeout));
+    app.storage()
+        .replace_backend_for_test(library_config.clone(), first_backend.clone())
+        .await;
+    let uri = StorageUri::parse("local:///Demo.mkv").unwrap();
+    let backend = app
+        .storage()
+        .backend_for_library_root(&library)
+        .await
+        .unwrap();
+
+    let first = backend.stat(&uri).await.unwrap_err();
+
+    assert_eq!(
+        first.storage_failure_class(),
+        Some(StorageFailureClass::Timeout)
+    );
+    assert_eq!(first_backend.stat_calls.load(Ordering::SeqCst), 1);
+    let backend_key = format!("library:{library_id}:local");
+    let record = store
+        .get_storage_backend_health(&backend_key)
+        .await
+        .unwrap()
+        .expect("runtime storage failure should persist backend health");
+    assert_eq!(record.backend_key, backend_key);
+    assert_eq!(record.library_id, Some(library_id));
+    assert_eq!(record.scheme, "local");
+    assert_eq!(record.status, StorageBackendHealthStatus::Unavailable);
+    assert_eq!(
+        record.circuit_breaker_state,
+        StorageCircuitBreakerState::Open
+    );
+    assert_eq!(record.consecutive_failures, 1);
+    assert_eq!(
+        record.last_failure_class,
+        Some(StorageFailureClass::Timeout)
+    );
+    assert_eq!(
+        record.last_failure_safe_message.as_deref(),
+        Some("storage timeout")
+    );
+    assert!(record.last_failure_at_ms.is_some());
+    assert!(record.circuit_opened_at_ms.is_some());
+    assert!(record.backoff_until_ms.is_some());
+
+    let restarted_backend = Arc::new(StorageHealthCountingBackend::new(StorageErrorKind::Timeout));
+    app.storage()
+        .replace_backend_for_test(library_config.clone(), restarted_backend.clone())
+        .await;
+    let restarted = app
+        .storage()
+        .backend_for_library_root(&library)
+        .await
+        .unwrap();
+
+    let target_uri = StorageUri::parse("local:///Target.mkv").unwrap();
+    let rejected = restarted.stat(&uri).await.unwrap_err();
+
+    assert_storage_rate_limited(rejected);
+    assert_eq!(restarted_backend.stat_calls.load(Ordering::SeqCst), 0);
+    assert_storage_rate_limited(restarted.write_string(&uri, "blocked").await.unwrap_err());
+    assert_storage_rate_limited(
+        restarted
+            .write(StorageWriteRequest::direct(uri.clone(), "blocked"))
+            .await
+            .unwrap_err(),
+    );
+    assert_storage_rate_limited(
+        restarted
+            .plan_link(StorageLinkPlanRequest::new(
+                uri.clone(),
+                target_uri.clone(),
+                StorageLinkKind::Hard,
+            ))
+            .await
+            .unwrap_err(),
+    );
+    assert_storage_rate_limited(
+        restarted
+            .apply(StorageApplyRequest::new(
+                uri.clone(),
+                target_uri.clone(),
+                StorageApplyKind::Copy,
+            ))
+            .await
+            .unwrap_err(),
+    );
+    assert_storage_rate_limited(
+        restarted
+            .cleanup(StorageCleanupRequest::new(target_uri.clone()))
+            .await
+            .unwrap_err(),
+    );
+    assert_storage_rate_limited(
+        restarted
+            .restore(StorageRestoreRequest::new(uri.clone(), target_uri))
+            .await
+            .unwrap_err(),
+    );
+    assert_eq!(
+        restarted_backend.write_string_calls.load(Ordering::SeqCst),
+        0
+    );
+    assert_eq!(restarted_backend.write_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(restarted_backend.plan_link_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(restarted_backend.apply_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(restarted_backend.cleanup_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(restarted_backend.restore_calls.load(Ordering::SeqCst), 0);
+
+    store
+        .clear_storage_backend_health(&backend_key, record.updated_at_ms + 1)
+        .await
+        .unwrap();
+    fs::write(root.join("Demo.mkv"), b"demo").unwrap();
+    app.storage()
+        .replace_backend_for_test(
+            library_config,
+            Arc::new(LocalFsBackend::new(&root).unwrap()),
+        )
+        .await;
+    let healthy = app
+        .storage()
+        .backend_for_library_root(&library)
+        .await
+        .unwrap();
+
+    healthy.stat(&uri).await.unwrap();
+
+    let recovered = store
+        .get_storage_backend_health(&backend_key)
+        .await
+        .unwrap()
+        .expect("successful storage operation should persist healthy state");
+    assert_eq!(recovered.status, StorageBackendHealthStatus::Healthy);
+    assert_eq!(
+        recovered.circuit_breaker_state,
+        StorageCircuitBreakerState::Closed
+    );
+    assert_eq!(recovered.consecutive_failures, 0);
+    assert!(recovered.last_success_at_ms.is_some());
+    assert_eq!(recovered.last_failure_at_ms, None);
+    assert_eq!(recovered.last_failure_class, None);
+    assert_eq!(recovered.last_failure_safe_message, None);
+    assert_eq!(recovered.circuit_opened_at_ms, None);
+    assert_eq!(recovered.backoff_until_ms, None);
+}
+
+fn assert_storage_rate_limited(err: NakoError) {
+    assert_eq!(
+        err.storage_failure_class(),
+        Some(StorageFailureClass::RateLimited)
+    );
+}
+
+struct StorageHealthCountingBackend {
+    kind: StorageErrorKind,
+    stat_calls: AtomicUsize,
+    write_string_calls: AtomicUsize,
+    write_calls: AtomicUsize,
+    plan_link_calls: AtomicUsize,
+    apply_calls: AtomicUsize,
+    cleanup_calls: AtomicUsize,
+    restore_calls: AtomicUsize,
+}
+
+impl StorageHealthCountingBackend {
+    fn new(kind: StorageErrorKind) -> Self {
+        Self {
+            kind,
+            stat_calls: AtomicUsize::new(0),
+            write_string_calls: AtomicUsize::new(0),
+            write_calls: AtomicUsize::new(0),
+            plan_link_calls: AtomicUsize::new(0),
+            apply_calls: AtomicUsize::new(0),
+            cleanup_calls: AtomicUsize::new(0),
+            restore_calls: AtomicUsize::new(0),
+        }
+    }
+
+    fn err<T>(&self, uri: &StorageUri) -> Result<T> {
+        Err(NakoError::storage(
+            uri.to_string(),
+            self.kind,
+            "storage health test failure",
+        ))
+    }
+}
+
+#[async_trait]
+impl StorageBackend for StorageHealthCountingBackend {
+    fn scheme(&self) -> &'static str {
+        "local"
+    }
+
+    async fn stat(&self, uri: &StorageUri) -> Result<ObjectMetadata> {
+        self.stat_calls.fetch_add(1, Ordering::SeqCst);
+        self.err(uri)
+    }
+
+    async fn list(&self, uri: &StorageUri) -> Result<Vec<ObjectMetadata>> {
+        self.err(uri)
+    }
+
+    async fn open_range(&self, uri: &StorageUri, _range: Option<ByteRange>) -> Result<VirtualFile> {
+        self.err(uri)
+    }
+
+    async fn read_to_string(&self, uri: &StorageUri) -> Result<String> {
+        self.err(uri)
+    }
+
+    async fn write_string(&self, uri: &StorageUri, _content: &str) -> Result<()> {
+        self.write_string_calls.fetch_add(1, Ordering::SeqCst);
+        self.err(uri)
+    }
+
+    async fn write(&self, request: StorageWriteRequest) -> Result<StorageWriteReport> {
+        self.write_calls.fetch_add(1, Ordering::SeqCst);
+        self.err(&request.uri)
+    }
+
+    async fn plan_link(
+        &self,
+        request: StorageLinkPlanRequest,
+    ) -> Result<nako_vfs::StorageLinkPlan> {
+        self.plan_link_calls.fetch_add(1, Ordering::SeqCst);
+        self.err(&request.source_uri)
+    }
+
+    async fn apply(&self, request: StorageApplyRequest) -> Result<nako_vfs::StorageApplyReport> {
+        self.apply_calls.fetch_add(1, Ordering::SeqCst);
+        self.err(&request.source_uri)
+    }
+
+    async fn cleanup(
+        &self,
+        request: StorageCleanupRequest,
+    ) -> Result<nako_vfs::StorageCleanupReport> {
+        self.cleanup_calls.fetch_add(1, Ordering::SeqCst);
+        self.err(&request.target_uri)
+    }
+
+    async fn restore(&self, request: StorageRestoreRequest) -> Result<StorageRestoreReport> {
+        self.restore_calls.fetch_add(1, Ordering::SeqCst);
+        self.err(&request.backup_uri)
+    }
+
+    async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
+        self.err(&request.uri)
+    }
 }

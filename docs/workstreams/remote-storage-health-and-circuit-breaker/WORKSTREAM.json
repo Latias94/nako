@@ -7,10 +7,11 @@
   "scope_kind": "fearless_refactor",
   "problem": "Remote storage failures are classified and bounded in process-local paths, but backend health is not yet a durable contract that can protect scan, probe, playback staging, and operator diagnostics consistently.",
   "task_prefix": "RSHC",
-  "current_task": "RSHC-030",
+  "current_task": "RSHC-040",
   "completed_tasks": [
     "RSHC-010",
-    "RSHC-020"
+    "RSHC-020",
+    "RSHC-030"
   ],
   "authoritative_docs": [
     {
@@ -47,6 +48,7 @@
     "python -m json.tool docs/workstreams/remote-storage-health-and-circuit-breaker/WORKSTREAM.json",
     "cargo nextest run -p nako-db storage_backend_health --no-fail-fast",
     "cargo nextest run -p nako-server storage_health --no-fail-fast",
+    "cargo nextest run -p nako-server storage --no-fail-fast",
     "cargo fmt --all -- --check",
     "git diff --check"
   ],
@@ -58,6 +60,10 @@
     {
       "task": "RSHC-020",
       "summary": "Added durable Storage Backend Health records, repository trait, SQLite/PostgreSQL adapters, baseline schema, facade dispatch, and repository contract tests without changing playback staging, cache repair, or Admin routes."
+    },
+    {
+      "task": "RSHC-030",
+      "summary": "Wired server storage runtime paths to durable Storage Backend Health updates and durable Storage Circuit Breaker admission across read, stream, staging, write, link-plan, apply, cleanup, and restore paths without changing schema, Admin routes, playback staging, or scan scheduling."
     }
   ],
   "adr_refs": [
@@ -88,6 +94,6 @@
   "lane_slug": "storage-vfs",
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Continue while the work stays inside durable storage backend health, circuit-breaker policy, and operator diagnostics. Split a follow-on if the task grows into cache repair, hash escalation, or playback artifact I/O scheduling."
+    "notes": "RSHC-030 is complete and planner-verified. Next ready task is RSHC-040 for redaction-safe Admin diagnostics and operator circuit reset. Split a follow-on if the task grows into cache repair, hash escalation, or playback artifact I/O scheduling."
   }
 }

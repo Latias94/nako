@@ -21,7 +21,8 @@ use nako_api::admin::{
 use nako_core::{
     Library, LibraryId, LibraryRepository, MediaSource, NakoError, PageRequest, Result,
     StagingManifestRecord, StagingManifestRepository, StagingPurpose, StagingState,
-    StorageFailureClass, VfsCacheRepository, VfsCacheSummary,
+    StorageBackendHealthRecord, StorageBackendHealthRepository, StorageBackendHealthStatus,
+    StorageCircuitBreakerState, StorageFailureClass, VfsCacheRepository, VfsCacheSummary,
 };
 use nako_db::NakoDatabase;
 use nako_vfs::{LocalFsBackend, StorageBackend, StorageUri};
@@ -182,6 +183,7 @@ impl StorageBackendRegistry {
             config.clone(),
             self.build_backend(&config)?,
             self.playback,
+            self.store.clone(),
         ));
         backends.insert(config.id, backend.clone());
 
@@ -295,19 +297,28 @@ impl StorageBackendRegistry {
     ) {
         self.backends.lock().await.insert(
             config.id,
-            Arc::new(LibraryStorageBackend::new(config, backend, self.playback)),
+            Arc::new(LibraryStorageBackend::new(
+                config,
+                backend,
+                self.playback,
+                self.store.clone(),
+            )),
         );
     }
 }
 
 pub(super) struct LibraryStorageBackend {
     library_id: LibraryId,
+    backend_key: String,
+    scheme: String,
+    store: NakoDatabase,
     inner: Arc<dyn StorageBackend>,
     stream_permits: Arc<Semaphore>,
     stream_permits_max: usize,
     stage_permits: Arc<Semaphore>,
     stage_permits_max: usize,
     health: Arc<StorageBackendHealth>,
+    health_update_lock: Arc<Mutex<()>>,
 }
 
 impl LibraryStorageBackend {
@@ -315,18 +326,24 @@ impl LibraryStorageBackend {
         config: LocalLibraryConfig,
         inner: Arc<dyn StorageBackend>,
         playback: PlaybackConfig,
+        store: NakoDatabase,
     ) -> Self {
         let stream_permits_max = playback.remote_stream_concurrency.max(1);
         let stage_permits_max = playback.remote_stage_concurrency.max(1);
+        let scheme = inner.scheme().to_owned();
 
         Self {
             library_id: config.id,
+            backend_key: storage_backend_key(config.id, &scheme),
+            scheme,
+            store,
             inner,
             stream_permits: Arc::new(Semaphore::new(stream_permits_max)),
             stream_permits_max,
             stage_permits: Arc::new(Semaphore::new(stage_permits_max)),
             stage_permits_max,
             health: Arc::new(StorageBackendHealth::new()),
+            health_update_lock: Arc::new(Mutex::new(())),
         }
     }
 
@@ -387,7 +404,7 @@ impl LibraryStorageBackend {
             library_name,
             root_uri,
             backend_kind,
-            scheme: self.inner.scheme().to_owned(),
+            scheme: self.scheme.clone(),
             status,
             reason: None,
             registry: StorageBackendRegistryDiagnostic {
@@ -402,12 +419,82 @@ impl LibraryStorageBackend {
         }
     }
 
-    fn record_success(&self) {
-        self.health.record_success();
+    async fn record_success(&self) {
+        let _guard = self.health_update_lock.lock().await;
+        let now_ms = current_time_ms().unwrap_or_default();
+        self.health.record_success(now_ms);
+        let record = self.health_record(
+            StorageBackendHealthStatus::Healthy,
+            StorageCircuitBreakerState::Closed,
+            0,
+            Some(now_ms),
+            None,
+            None,
+            None,
+            None,
+            None,
+            now_ms,
+        );
+        let _ = self.store.upsert_storage_backend_health(record).await;
     }
 
-    fn record_error(&self, err: &NakoError) {
-        self.health.record_error(err);
+    async fn record_error(&self, err: &NakoError) {
+        let _guard = self.health_update_lock.lock().await;
+        let now_ms = current_time_ms().unwrap_or_default();
+        let class = err
+            .storage_failure_class()
+            .unwrap_or(StorageFailureClass::Unknown);
+        self.health.record_error(err, now_ms);
+        let diagnostic = self.health.diagnostic();
+        let circuit_breaker_state = if class.is_retryable() && diagnostic.backoff_until_ms.is_some()
+        {
+            StorageCircuitBreakerState::Open
+        } else {
+            StorageCircuitBreakerState::Closed
+        };
+        let record = self.health_record(
+            StorageBackendHealthStatus::Unavailable,
+            circuit_breaker_state,
+            u64_to_u32_saturating(diagnostic.consecutive_errors),
+            diagnostic.last_success_at_ms,
+            Some(now_ms),
+            Some(class),
+            Some(class.safe_message().to_owned()),
+            (circuit_breaker_state == StorageCircuitBreakerState::Open).then_some(now_ms),
+            diagnostic.backoff_until_ms,
+            now_ms,
+        );
+        let _ = self.store.upsert_storage_backend_health(record).await;
+    }
+
+    fn health_record(
+        &self,
+        status: StorageBackendHealthStatus,
+        circuit_breaker_state: StorageCircuitBreakerState,
+        consecutive_failures: u32,
+        last_success_at_ms: Option<i64>,
+        last_failure_at_ms: Option<i64>,
+        last_failure_class: Option<StorageFailureClass>,
+        last_failure_safe_message: Option<String>,
+        circuit_opened_at_ms: Option<i64>,
+        backoff_until_ms: Option<i64>,
+        updated_at_ms: i64,
+    ) -> StorageBackendHealthRecord {
+        StorageBackendHealthRecord {
+            backend_key: self.backend_key.clone(),
+            library_id: Some(self.library_id),
+            scheme: self.scheme.clone(),
+            status,
+            circuit_breaker_state,
+            consecutive_failures,
+            last_success_at_ms,
+            last_failure_at_ms,
+            last_failure_class,
+            last_failure_safe_message,
+            circuit_opened_at_ms,
+            backoff_until_ms,
+            updated_at_ms,
+        }
     }
 }
 
@@ -431,15 +518,13 @@ impl StorageBackendHealth {
         }
     }
 
-    fn record_success(&self) {
-        let now_ms = current_time_ms().unwrap_or_default();
+    fn record_success(&self, now_ms: i64) {
         self.last_success_at_ms.store(now_ms, Ordering::Relaxed);
         self.consecutive_errors.store(0, Ordering::Relaxed);
         self.backoff_until_ms.store(0, Ordering::Relaxed);
     }
 
-    fn record_error(&self, err: &NakoError) {
-        let now_ms = current_time_ms().unwrap_or_default();
+    fn record_error(&self, err: &NakoError, now_ms: i64) {
         let class = err
             .storage_failure_class()
             .unwrap_or(StorageFailureClass::Unknown);
@@ -500,29 +585,29 @@ impl StorageBackend for LibraryStorageBackend {
     }
 
     async fn stat(&self, uri: &StorageUri) -> Result<nako_vfs::ObjectMetadata> {
-        if let Some(result) = self.reject_if_backing_off() {
+        if let Some(result) = self.reject_if_backing_off().await {
             return result;
         }
         let result = self.inner.stat(uri).await;
-        self.record_result(&result);
+        self.record_result(result.as_ref().err().cloned()).await;
         result
     }
 
     async fn list(&self, uri: &StorageUri) -> Result<Vec<nako_vfs::ObjectMetadata>> {
-        if let Some(result) = self.reject_if_backing_off() {
+        if let Some(result) = self.reject_if_backing_off().await {
             return result;
         }
         let result = self.inner.list(uri).await;
-        self.record_result(&result);
+        self.record_result(result.as_ref().err().cloned()).await;
         result
     }
 
     async fn list_with_status(&self, uri: &StorageUri) -> Result<nako_vfs::ObjectListing> {
-        if let Some(result) = self.reject_if_backing_off() {
+        if let Some(result) = self.reject_if_backing_off().await {
             return result;
         }
         let result = self.inner.list_with_status(uri).await;
-        self.record_result(&result);
+        self.record_result(result.as_ref().err().cloned()).await;
         result
     }
 
@@ -531,11 +616,11 @@ impl StorageBackend for LibraryStorageBackend {
         uri: &StorageUri,
         range: Option<nako_vfs::ByteRange>,
     ) -> Result<nako_vfs::VirtualFile> {
-        if let Some(result) = self.reject_if_backing_off() {
+        if let Some(result) = self.reject_if_backing_off().await {
             return result;
         }
         let result = self.inner.open_range(uri, range).await;
-        self.record_result(&result);
+        self.record_result(result.as_ref().err().cloned()).await;
         result
     }
 
@@ -544,11 +629,11 @@ impl StorageBackend for LibraryStorageBackend {
         uri: &StorageUri,
         range: Option<nako_vfs::ByteRange>,
     ) -> Result<nako_vfs::ReadRange> {
-        if let Some(result) = self.reject_if_backing_off() {
+        if let Some(result) = self.reject_if_backing_off().await {
             return result;
         }
         let result = self.inner.read_range(uri, range).await;
-        self.record_result(&result);
+        self.record_result(result.as_ref().err().cloned()).await;
         result
     }
 
@@ -557,26 +642,29 @@ impl StorageBackend for LibraryStorageBackend {
         uri: &StorageUri,
         range: Option<nako_vfs::ByteRange>,
     ) -> Result<nako_vfs::ReadStream> {
-        if let Some(result) = self.reject_if_backing_off() {
+        if let Some(result) = self.reject_if_backing_off().await {
             return result;
         }
         let result = self.inner.stream_range(uri, range).await;
-        self.record_result(&result);
+        self.record_result(result.as_ref().err().cloned()).await;
         result
     }
 
     async fn read_to_string(&self, uri: &StorageUri) -> Result<String> {
-        if let Some(result) = self.reject_if_backing_off() {
+        if let Some(result) = self.reject_if_backing_off().await {
             return result;
         }
         let result = self.inner.read_to_string(uri).await;
-        self.record_result(&result);
+        self.record_result(result.as_ref().err().cloned()).await;
         result
     }
 
     async fn write_string(&self, uri: &StorageUri, content: &str) -> Result<()> {
+        if let Some(result) = self.reject_if_backing_off().await {
+            return result;
+        }
         let result = self.inner.write_string(uri, content).await;
-        self.record_result(&result);
+        self.record_result(result.as_ref().err().cloned()).await;
         result
     }
 
@@ -584,17 +672,20 @@ impl StorageBackend for LibraryStorageBackend {
         &self,
         request: nako_vfs::StorageWriteRequest,
     ) -> Result<nako_vfs::StorageWriteReport> {
+        if let Some(result) = self.reject_if_backing_off().await {
+            return result;
+        }
         let result = self.inner.write(request).await;
-        self.record_result(&result);
+        self.record_result(result.as_ref().err().cloned()).await;
         result
     }
 
     async fn stage(&self, request: nako_vfs::StageRequest) -> Result<nako_vfs::StagedFile> {
-        if let Some(result) = self.reject_if_backing_off() {
+        if let Some(result) = self.reject_if_backing_off().await {
             return result;
         }
         let result = self.inner.stage(request).await;
-        self.record_result(&result);
+        self.record_result(result.as_ref().err().cloned()).await;
         result
     }
 
@@ -602,8 +693,11 @@ impl StorageBackend for LibraryStorageBackend {
         &self,
         request: nako_vfs::StorageLinkPlanRequest,
     ) -> Result<nako_vfs::StorageLinkPlan> {
+        if let Some(result) = self.reject_if_backing_off().await {
+            return result;
+        }
         let result = self.inner.plan_link(request).await;
-        self.record_result(&result);
+        self.record_result(result.as_ref().err().cloned()).await;
         result
     }
 
@@ -611,8 +705,11 @@ impl StorageBackend for LibraryStorageBackend {
         &self,
         request: nako_vfs::StorageApplyRequest,
     ) -> Result<nako_vfs::StorageApplyReport> {
+        if let Some(result) = self.reject_if_backing_off().await {
+            return result;
+        }
         let result = self.inner.apply(request).await;
-        self.record_result(&result);
+        self.record_result(result.as_ref().err().cloned()).await;
         result
     }
 
@@ -620,8 +717,11 @@ impl StorageBackend for LibraryStorageBackend {
         &self,
         request: nako_vfs::StorageCleanupRequest,
     ) -> Result<nako_vfs::StorageCleanupReport> {
+        if let Some(result) = self.reject_if_backing_off().await {
+            return result;
+        }
         let result = self.inner.cleanup(request).await;
-        self.record_result(&result);
+        self.record_result(result.as_ref().err().cloned()).await;
         result
     }
 
@@ -629,23 +729,56 @@ impl StorageBackend for LibraryStorageBackend {
         &self,
         request: nako_vfs::StorageRestoreRequest,
     ) -> Result<nako_vfs::StorageRestoreReport> {
+        if let Some(result) = self.reject_if_backing_off().await {
+            return result;
+        }
         let result = self.inner.restore(request).await;
-        self.record_result(&result);
+        self.record_result(result.as_ref().err().cloned()).await;
         result
     }
 }
 
 impl LibraryStorageBackend {
-    fn record_result<T>(&self, result: &Result<T>) {
-        match result {
-            Ok(_) => self.record_success(),
-            Err(err) => self.record_error(err),
+    async fn record_result(&self, err: Option<NakoError>) {
+        match err {
+            None => self.record_success().await,
+            Some(err) => self.record_error(&err).await,
         }
     }
 
-    fn reject_if_backing_off<T>(&self) -> Option<Result<T>> {
+    async fn reject_if_backing_off<T>(&self) -> Option<Result<T>> {
+        match self.durable_backoff_error().await {
+            Ok(Some(err)) => return Some(Err(err)),
+            Ok(None) => {}
+            Err(err) => return Some(Err(err)),
+        }
+
         let err = self.health.backoff_error(self.library_id)?;
         Some(Err(err))
+    }
+
+    async fn durable_backoff_error(&self) -> Result<Option<NakoError>> {
+        let Some(record) = self
+            .store
+            .get_storage_backend_health(&self.backend_key)
+            .await?
+        else {
+            return Ok(None);
+        };
+        if record.circuit_breaker_state != StorageCircuitBreakerState::Open {
+            return Ok(None);
+        }
+        let Some(backoff_until_ms) = record.backoff_until_ms else {
+            return Ok(None);
+        };
+        if backoff_until_ms <= current_time_ms().unwrap_or_default() {
+            return Ok(None);
+        }
+
+        Ok(Some(NakoError::storage_rate_limited(
+            format!("library:{}", self.library_id),
+            "storage circuit breaker is open",
+        )))
     }
 }
 
@@ -654,7 +787,7 @@ impl std::fmt::Debug for LibraryStorageBackend {
         formatter
             .debug_struct("LibraryStorageBackend")
             .field("library_id", &self.library_id)
-            .field("scheme", &self.inner.scheme())
+            .field("scheme", &self.scheme)
             .field(
                 "available_stream_permits",
                 &self.stream_permits.available_permits(),
@@ -799,6 +932,14 @@ fn storage_backoff_ms(consecutive_errors: u64) -> i64 {
 
     let exponent = consecutive_errors.saturating_sub(1).min(7) as u32;
     BASE_MS.saturating_mul(2_i64.pow(exponent)).min(MAX_MS)
+}
+
+fn storage_backend_key(library_id: LibraryId, scheme: &str) -> String {
+    format!("library:{library_id}:{scheme}")
+}
+
+fn u64_to_u32_saturating(value: u64) -> u32 {
+    value.min(u64::from(u32::MAX)) as u32
 }
 
 fn encode_storage_failure_class(class: StorageFailureClass) -> u8 {
@@ -973,6 +1114,7 @@ mod tests {
     #[tokio::test]
     async fn library_backend_records_health_failures() {
         let temp = tempdir().unwrap();
+        let store = migrated_store().await;
         let config = LocalLibraryConfig {
             id: LibraryId::new(),
             name: "Movies".to_owned(),
@@ -980,8 +1122,12 @@ mod tests {
             preset: LibraryPreset::Movies,
             webdav: None,
         };
-        let backend =
-            LibraryStorageBackend::new(config, Arc::new(FailingBackend), PlaybackConfig::default());
+        let backend = LibraryStorageBackend::new(
+            config,
+            Arc::new(FailingBackend),
+            PlaybackConfig::default(),
+            store,
+        );
         let uri = StorageUri::parse("local:///demo.mkv").unwrap();
 
         assert!(backend.stat(&uri).await.is_err());
@@ -993,6 +1139,7 @@ mod tests {
     #[tokio::test]
     async fn library_backend_applies_process_local_backoff_after_retryable_storage_failure() {
         let temp = tempdir().unwrap();
+        let store = migrated_store().await;
         let config = LocalLibraryConfig {
             id: LibraryId::new(),
             name: "Movies".to_owned(),
@@ -1002,7 +1149,7 @@ mod tests {
         };
         let failing = Arc::new(CountingFailingBackend::new(StorageErrorKind::Timeout));
         let backend =
-            LibraryStorageBackend::new(config, failing.clone(), PlaybackConfig::default());
+            LibraryStorageBackend::new(config, failing.clone(), PlaybackConfig::default(), store);
         let uri = StorageUri::parse("local:///demo.mkv").unwrap();
 
         let first = backend.stat(&uri).await.unwrap_err();
@@ -1019,6 +1166,12 @@ mod tests {
         assert_eq!(failing.stat_calls.load(Ordering::SeqCst), 1);
         assert_eq!(backend.health().consecutive_errors(), 1);
         assert!(backend.health().backoff_until_ms().is_some());
+    }
+
+    async fn migrated_store() -> NakoDatabase {
+        let store = NakoDatabase::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        store
     }
 
     #[tokio::test]

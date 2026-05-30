@@ -24,13 +24,13 @@ Last updated: 2026-05-30
 
 ## M2 - Runtime Policy Adapter
 
-- [ ] RSHC-030 [owner=unassigned] [deps=RSHC-020] [scope=crates/nako-server/src/app/storage.rs,crates/nako-server/src/app/tests/storage*.rs]
+- [x] RSHC-030 [owner=codex] [deps=RSHC-020] [scope=crates/nako-server/src/app/storage.rs,crates/nako-server/src/app/tests/storage*.rs]
   Goal: Make server storage/VFS runtime paths record health updates and consult an explainable **Storage Circuit Breaker** decision before starting bounded work.
   Validation: `cargo nextest run -p nako-server storage_health --no-fail-fast`; `cargo nextest run -p nako-server storage --no-fail-fast`
   Review: Use `review-workstream` before accepting completion.
   Evidence: runtime policy tests and `EVIDENCE_AND_GATES.md`.
   Context: `docs/workstreams/remote-storage-health-and-circuit-breaker/CONTEXT.jsonl`.
-  Handoff: Stop for planner coordination if playback staging, scan scheduling, or durable jobs need shared-scope changes.
+  Handoff: DONE. Server storage runtime paths now persist durable **Storage Backend Health** updates and consult durable **Storage Circuit Breaker** state before bounded storage work. Playback staging, scan scheduling, durable jobs, cache repair, Admin routes, and schema were not changed.
 
 ## M3 - Operator Diagnostics And Reset
 
