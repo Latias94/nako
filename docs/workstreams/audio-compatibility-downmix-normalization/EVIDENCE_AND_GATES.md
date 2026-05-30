@@ -1,7 +1,7 @@
 # Audio Compatibility Downmix Normalization - Evidence And Gates
 
 Status: Active
-Last updated: 2026-05-30
+Last updated: 2026-05-31
 
 ## Required Gates
 
@@ -154,6 +154,38 @@ Planner verification on 2026-05-30:
 - `git diff --check` passed with only Windows line-ending normalization
   warnings.
 - ACDN-030 is planner-verified and can be accepted.
+
+### ACDN-040 - FFmpeg audio filter planning
+
+Status: Done
+
+Evidence:
+
+- `crates/nako-transcode/src/ffmpeg.rs`
+- `crates/nako-transcode/src/lib.rs`
+- `cargo nextest run -p nako-transcode hls audio --no-fail-fast`
+  - 2026-05-31: Passed, 48 tests run and 38 skipped by filter.
+- `cargo nextest run -p nako-server hls --no-fail-fast`
+  - 2026-05-31: Passed, 61 tests run and 433 skipped by filter.
+- `cargo fmt --all -- --check`
+  - 2026-05-31: Passed.
+- `git diff --check`
+  - 2026-05-31: Passed with only Windows line-ending warnings.
+
+Notes:
+
+- FFmpeg HLS command planning now derives a deterministic audio filter chain
+  from `TranscodeExecutionPolicy.audio_output`.
+- Downmix uses an explicit `aformat=channel_layouts=...` filter derived from
+  the policy target channel count, falling back to max supported channels when
+  the target is absent.
+- Normalization uses the one-pass `loudnorm=I=-16:TP=-1.5:LRA=11` filter.
+- When both requirements are present, command planning emits downmix before
+  normalization in a single `-af` filter chain.
+- The same filter chain is attached to audio sidecar outputs when HLS media
+  renditions carry audio outside the main playlist output.
+- This task did not add UI preference storage and did not touch HDR tone
+  mapping, subtitle burn-in, web player, public DTO, or server playback code.
 
 ## Residual Risks
 

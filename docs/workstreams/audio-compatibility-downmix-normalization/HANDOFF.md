@@ -1,12 +1,12 @@
 # Audio Compatibility Downmix Normalization - Handoff
 
 Status: Active
-Last updated: 2026-05-30
+Last updated: 2026-05-31
 
 ## Current State
 
 The lane is open and linked from playback architecture indexes. `ACDN-010`,
-`ACDN-020`, and `ACDN-030` are complete.
+`ACDN-020`, `ACDN-030`, and `ACDN-040` are complete.
 
 Playback owns audio output requirement values for channel support, downmix
 intent, normalization intent, and audio-specific compatibility reasons.
@@ -18,37 +18,30 @@ Compatible audio source facts are collapsed to the empty transcode audio output
 requirement at the server adaptation boundary. This keeps ordinary HLS request
 keys stable when no downmix or normalization is requested.
 
+FFmpeg HLS command planning now turns non-empty transcode audio output policy
+into deterministic audio filters. Downmix emits an explicit
+`aformat=channel_layouts=...` filter from the policy target channel count, and
+normalization emits `loudnorm=I=-16:TP=-1.5:LRA=11`. When both are requested,
+downmix is ordered before normalization in a single `-af` chain. Audio sidecar
+outputs receive the same filter chain so selected-main-audio cleanup does not
+drop the compatibility requirement when audio leaves the main HLS output.
+
 ## Next Task
 
-Planner can assign `ACDN-040` after accepting this branch. `ACDN-030` is
-implemented and the full server HLS gate is now clean.
-
-Diagnostic follow-up on 2026-05-30 showed the server HLS gate failure is not
-introduced by ACDN-030: the narrowed `hls_playlist` filter fails under default
-nextest parallelism in both the current worktree and a detached baseline
-worktree at `b770cac9`, before the ACDN-030 uncommitted changes. The same
-narrowed filter passes with `-j 1`, and the two focused running-playlist tests
-pass when isolated. The gate was stabilized by widening the focused
-running-playlist test timeout and by waiting for the first segment route
-readiness in the HTTP test.
+Planner/reviewer can review `ACDN-040`, then assign `ACDN-050` for final
+evidence consolidation and closeout if accepted. The full server HLS gate is
+clean on 2026-05-31.
 
 Owned scope:
 
-- `crates/nako-transcode/src/policy.rs`
-- `crates/nako-transcode/src/pipeline.rs`
-- `crates/nako-transcode/src/profile.rs`
-- `crates/nako-server/src/app/playback/mod.rs`
-- `crates/nako-server/src/app/playback/hls.rs`
-
-Additional HLS gate stabilization touched:
-
-- `crates/nako-server/src/app/tests/playback.rs`
-- `crates/nako-server/src/http/tests/playback.rs`
+- `crates/nako-transcode/src/ffmpeg.rs`
+- `crates/nako-transcode/src/lib.rs`
+- `crates/nako-transcode/src/tests*`
 
 Required validation:
 
 ```text
-cargo nextest run -p nako-transcode audio --no-fail-fast
+cargo nextest run -p nako-transcode hls audio --no-fail-fast
 cargo nextest run -p nako-server hls --no-fail-fast
 cargo fmt --all -- --check
 git diff --check
@@ -83,6 +76,23 @@ full HLS filter:
 
 Both tests passed when run individually on 2026-05-30. See
 `docs/workstreams/audio-compatibility-downmix-normalization/EVIDENCE_AND_GATES.md`.
+
+## ACDN-040 Evidence
+
+```text
+cargo nextest run -p nako-transcode hls audio --no-fail-fast
+cargo nextest run -p nako-server hls --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
+ACDN-040 transcode HLS/audio, server HLS, formatting, and whitespace gates
+passed on 2026-05-31. See
+`docs/workstreams/audio-compatibility-downmix-normalization/EVIDENCE_AND_GATES.md`.
+
+This task only changed FFmpeg HLS command planning and command-plan tests. It
+did not edit HDR tone mapping, subtitle burn-in, web player, public DTO, or
+server playback code.
 
 ## Report Format
 

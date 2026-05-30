@@ -54,6 +54,31 @@ mod tests {
             .unwrap()
     }
 
+    fn hls_audio_output_requirement(
+        source_channels: Option<u32>,
+        max_supported_channels: Option<u32>,
+        target_channels: Option<u32>,
+        downmix: TranscodeAudioDownmixRequirement,
+        normalization: TranscodeAudioNormalizationRequirement,
+    ) -> TranscodeAudioOutputRequirement {
+        TranscodeAudioOutputRequirement {
+            source_channels,
+            max_supported_channels,
+            target_channels,
+            downmix,
+            normalization,
+            reasons: TranscodeAudioCompatibilityReasons {
+                channel_limit_exceeded: matches!(
+                    (source_channels, max_supported_channels),
+                    (Some(source), Some(max_supported)) if max_supported > 0 && source > max_supported
+                ),
+                downmix_required: downmix == TranscodeAudioDownmixRequirement::Required,
+                normalization_requested: normalization
+                    == TranscodeAudioNormalizationRequirement::Requested,
+            },
+        }
+    }
+
     fn path_arg(path: &str) -> String {
         path.split('/').collect::<PathBuf>().display().to_string()
     }
@@ -256,6 +281,120 @@ mod tests {
 
         assert_eq!(maps, vec!["0:v:0", "0:2"]);
         assert!(!argv.iter().any(|arg| arg == "0:a:0?"));
+    }
+
+    #[test]
+    fn ffmpeg_builder_plans_hls_audio_downmix_filter_when_policy_requires_downmix() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let mut execution_policy = hls_policy(HardwareAcceleration::None);
+        execution_policy.audio_output = hls_audio_output_requirement(
+            Some(6),
+            Some(2),
+            Some(2),
+            TranscodeAudioDownmixRequirement::Required,
+            TranscodeAudioNormalizationRequirement::None,
+        );
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
+            artifacts: hls_artifacts(
+                "hls",
+                "hls/playlist.m3u8",
+                "hls/segment_%05d.ts",
+                HlsOutputRequirement::default(),
+            ),
+            segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
+            execution_policy,
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-af" && args[1] == "aformat=channel_layouts=stereo")
+        );
+        assert!(
+            argv.iter().position(|arg| arg == "-af").unwrap()
+                < argv.iter().position(|arg| arg == "-c:a").unwrap()
+        );
+    }
+
+    #[test]
+    fn ffmpeg_builder_plans_hls_audio_normalization_filter_when_policy_requests_normalization() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let mut execution_policy = hls_policy(HardwareAcceleration::None);
+        execution_policy.audio_output = hls_audio_output_requirement(
+            Some(2),
+            Some(2),
+            None,
+            TranscodeAudioDownmixRequirement::None,
+            TranscodeAudioNormalizationRequirement::Requested,
+        );
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
+            artifacts: hls_artifacts(
+                "hls",
+                "hls/playlist.m3u8",
+                "hls/segment_%05d.ts",
+                HlsOutputRequirement::default(),
+            ),
+            segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
+            execution_policy,
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+
+        assert!(
+            argv.windows(2)
+                .any(|args| { args[0] == "-af" && args[1] == "loudnorm=I=-16:TP=-1.5:LRA=11" })
+        );
+        assert!(
+            argv.iter().position(|arg| arg == "-af").unwrap()
+                < argv.iter().position(|arg| arg == "-c:a").unwrap()
+        );
+    }
+
+    #[test]
+    fn ffmpeg_builder_plans_hls_audio_downmix_before_normalization_when_both_are_requested() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let mut execution_policy = hls_policy(HardwareAcceleration::None);
+        execution_policy.audio_output = hls_audio_output_requirement(
+            Some(8),
+            Some(2),
+            Some(2),
+            TranscodeAudioDownmixRequirement::Required,
+            TranscodeAudioNormalizationRequirement::Requested,
+        );
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
+            artifacts: hls_artifacts(
+                "hls",
+                "hls/playlist.m3u8",
+                "hls/segment_%05d.ts",
+                HlsOutputRequirement::default(),
+            ),
+            segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
+            execution_policy,
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+
+        assert!(argv.windows(2).any(|args| {
+            args[0] == "-af"
+                && args[1] == "aformat=channel_layouts=stereo,loudnorm=I=-16:TP=-1.5:LRA=11"
+        }));
+        assert_eq!(argv.iter().filter(|arg| *arg == "-af").count(), 1);
     }
 
     #[test]
@@ -835,6 +974,65 @@ mod tests {
         );
         assert!(argv.contains(&audio_0_segment));
         assert!(argv.contains(&audio_1_segment));
+    }
+
+    #[test]
+    fn ffmpeg_builder_plans_hls_audio_sidecar_filter_when_policy_requires_downmix() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let mut execution_policy = hls_policy(HardwareAcceleration::None);
+        execution_policy.audio_output = hls_audio_output_requirement(
+            Some(6),
+            Some(2),
+            Some(2),
+            TranscodeAudioDownmixRequirement::Required,
+            TranscodeAudioNormalizationRequirement::None,
+        );
+        let artifacts = hls_artifacts(
+            "hls",
+            "hls/playlist.m3u8",
+            "hls/segment_%05d.ts",
+            HlsOutputRequirement::default(),
+        )
+        .with_media_renditions(
+            HlsMediaRenditionPlan::from_audios(vec![
+                HlsAudioRendition::new(0, 1, Some("eng".to_owned()), false),
+                HlsAudioRendition::new(1, 2, Some("jpn".to_owned()), true),
+            ])
+            .unwrap(),
+        )
+        .unwrap();
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
+            artifacts,
+            segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection {
+                audio_stream: Some(2),
+                subtitle_stream: None,
+            },
+            execution_policy,
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+        let filters = argv
+            .windows(2)
+            .filter_map(|args| (args[0] == "-af").then_some(args[1].as_str()))
+            .collect::<Vec<_>>();
+        let maps = argv
+            .windows(2)
+            .filter_map(|args| (args[0] == "-map").then_some(args[1].as_str()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            filters,
+            vec![
+                "aformat=channel_layouts=stereo",
+                "aformat=channel_layouts=stereo"
+            ]
+        );
+        assert_eq!(maps, vec!["0:v:0", "0:1", "0:2"]);
     }
 
     #[test]

@@ -1,7 +1,7 @@
 # Audio Compatibility Downmix Normalization - TODO
 
 Status: Active
-Last updated: 2026-05-30
+Last updated: 2026-05-31
 
 ## M0 - Scope And Evidence Freeze
 
@@ -34,13 +34,13 @@ Last updated: 2026-05-30
 
 ## M3 - FFmpeg Audio Filter Planning
 
-- [ ] ACDN-040 [owner=unassigned] [deps=ACDN-030] [scope=crates/nako-transcode/src/ffmpeg.rs,crates/nako-transcode/src/lib.rs,crates/nako-transcode/src/tests*]
+- [x] ACDN-040 [owner=codex] [deps=ACDN-030] [scope=crates/nako-transcode/src/ffmpeg.rs,crates/nako-transcode/src/lib.rs,crates/nako-transcode/src/tests*]
   Goal: Make FFmpeg command planning emit deterministic audio downmix and normalization filters when requested by the transcode policy.
   Validation: `cargo nextest run -p nako-transcode hls audio --no-fail-fast`; `cargo nextest run -p nako-server hls --no-fail-fast`
   Review: Use `review-workstream` before accepting completion.
   Evidence: FFmpeg command-plan tests and HLS regression tests.
   Context: `docs/workstreams/audio-compatibility-downmix-normalization/CONTEXT.jsonl`.
-  Handoff: Keep filter choices deterministic and explainable. Do not add UI preference storage in this task.
+  Handoff: DONE. FFmpeg HLS planning now emits deterministic `aformat` channel-layout downmix filters and one-pass `loudnorm` filters from transcode audio output policy, including audio sidecar outputs. No UI preference storage or HDR tone mapping code was changed.
 
 ## M4 - Diagnostics, Verification, And Closeout
 
