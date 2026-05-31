@@ -14,13 +14,13 @@ Last updated: 2026-05-31
 
 ## M1 - HLS Runtime Plan Interface
 
-- [ ] TIRP-020 [owner=codex] [deps=TIRP-010] [scope=crates/nako-transcode/src/pipeline.rs,crates/nako-transcode/src/profile.rs,crates/nako-transcode/src/artifact.rs,crates/nako-transcode/src/lib.rs,crates/nako-server/src/app/playback/mod.rs,crates/nako-server/src/app/playback/staging_policy.rs]
+- [x] TIRP-020 [owner=codex] [deps=TIRP-010] [scope=crates/nako-transcode/src/pipeline.rs,crates/nako-transcode/src/profile.rs,crates/nako-transcode/src/artifact.rs,crates/nako-transcode/src/lib.rs,crates/nako-server/src/app/playback/mod.rs,crates/nako-server/src/app/playback/staging_policy.rs]
   Goal: Introduce a transcode-owned HLS runtime plan Interface and move the HLS profile/request-variant/execution-policy assembly out of server orchestration without changing runtime behavior.
   Validation: `cargo nextest run -p nako-transcode hls audio --no-fail-fast`; `cargo nextest run -p nako-server hls --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`
   Review: Use `review-workstream` before accepting completion.
   Evidence: pure transcode planning tests, focused server HLS regression tests, and `EVIDENCE_AND_GATES.md`.
   Context: `docs/workstreams/transcode-interface-and-runtime-plan-deepening/CONTEXT.jsonl`.
-  Handoff: Keep HDR tone mapping, hardware capability matrix expansion, HLS lifecycle consolidation, and resource admission unification out of this task.
+  Handoff: DONE. Added a transcode-owned HLS runtime plan Interface and kept HDR tone mapping, hardware capability matrix expansion, HLS lifecycle consolidation, and resource admission unification out of this task.
 
 ## M2 - FFmpeg Adapter Interface Ratchet
 

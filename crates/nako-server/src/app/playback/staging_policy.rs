@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use nako_core::{MediaSourceId, NakoError, Result};
 use nako_transcode::{
     HLS_ADAPTIVE_MASTER_PLAYLIST_FILE, HlsAdaptiveLadderPlan, HlsArtifactManifest,
-    HlsMediaRenditionPlan, HlsOutputRequirement, HlsRequestVariantPlan, HlsSegmentContainer,
-    HlsVariantPolicy, RemuxContainer, TranscodeRequestIdentity,
+    HlsMediaRenditionPlan, HlsOutputRequirement, HlsRequestVariantPlan, HlsRuntimePlan,
+    HlsSegmentContainer, HlsVariantPolicy, RemuxContainer, TranscodeRequestIdentity,
 };
 
 #[derive(Clone, Debug)]
@@ -113,6 +113,19 @@ impl HlsStagingPolicy {
                 ),
             ),
         }
+    }
+
+    pub fn layout_for_runtime_plan(
+        &self,
+        source_id: MediaSourceId,
+        runtime_plan: &HlsRuntimePlan,
+    ) -> Result<HlsOutputLayout> {
+        self.layout_for_output_with_request_variant_plan(
+            source_id,
+            &runtime_plan.request_identity,
+            runtime_plan.hls_output,
+            &runtime_plan.request_variant,
+        )
     }
 
     pub fn layout_for_output_with_request_variant_plan(

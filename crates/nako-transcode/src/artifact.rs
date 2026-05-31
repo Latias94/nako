@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use nako_core::{NakoError, Result};
+use nako_core::{MediaProbeResult, MediaStreamKind, NakoError, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -245,6 +245,16 @@ impl HlsMediaRenditionPlan {
     }
 
     #[must_use]
+    pub fn selected_from_probe(
+        probe: Option<&MediaProbeResult>,
+        source: Option<&TranscodePipelineSourceFacts>,
+        track_selection: TranscodeTrackSelection,
+    ) -> Result<Self> {
+        Self::selected_from_source_facts(source, track_selection)?
+            .with_audio_renditions(hls_audio_renditions_from_probe(probe, source))
+    }
+
+    #[must_use]
     pub fn selected_from_source_facts(
         source: Option<&TranscodePipelineSourceFacts>,
         track_selection: TranscodeTrackSelection,
@@ -396,6 +406,41 @@ impl HlsMediaRenditionPlan {
 
         Ok(())
     }
+}
+
+fn hls_audio_renditions_from_probe(
+    probe: Option<&MediaProbeResult>,
+    source: Option<&TranscodePipelineSourceFacts>,
+) -> Vec<HlsAudioRendition> {
+    let Some(probe) = probe else {
+        return Vec::new();
+    };
+    let audio_streams = probe
+        .streams
+        .iter()
+        .filter(|stream| matches!(stream.kind, MediaStreamKind::Audio))
+        .collect::<Vec<_>>();
+    if audio_streams.len() < 2 {
+        return Vec::new();
+    }
+
+    let default_stream_index = source
+        .and_then(|facts| facts.audio.as_ref())
+        .map(|stream| stream.index)
+        .unwrap_or(audio_streams[0].index);
+
+    audio_streams
+        .into_iter()
+        .enumerate()
+        .map(|(index, stream)| {
+            HlsAudioRendition::new(
+                index,
+                stream.index,
+                stream.language.clone(),
+                stream.index == default_stream_index,
+            )
+        })
+        .collect()
 }
 
 fn invalid_media_rendition_language(language: &str) -> bool {

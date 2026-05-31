@@ -1,11 +1,14 @@
-use nako_core::{MediaStreamInfo, NakoError, Result};
+use nako_core::{MediaProbeResult, MediaSource, MediaStreamInfo, NakoError, Result};
 use serde::{Deserialize, Serialize};
 
 use super::{
     HardwareAcceleration, HardwareAccelerationFallback, HardwareAccelerationPolicy,
-    HardwareAccelerationReport, TranscodeAccelerationFallbackPlan, TranscodeAccelerationPlan,
-    TranscodeAudioOutputRequirement, TranscodeExecutionPolicy, TranscodeOutputConstraints,
-    TranscodeSubtitleStrategy, TranscodeTrackSelection,
+    HardwareAccelerationReport, HlsAdaptiveLadderPlan, HlsMediaRenditionPlan, HlsOutputRequirement,
+    HlsPlaybackGeneration, HlsRequestVariantPlan, HlsVariantPolicy, PlaybackHlsProfileRequest,
+    TranscodeAccelerationFallbackPlan, TranscodeAccelerationPlan, TranscodeAudioOutputRequirement,
+    TranscodeExecutionPolicy, TranscodeOutputConstraints, TranscodePlan, TranscodeProfile,
+    TranscodeProfileIdentity, TranscodeRequestIdentity, TranscodeSourceIdentity,
+    TranscodeSubtitleStrategy, TranscodeTrackSelection, build_playback_hls_profile,
 };
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -110,6 +113,34 @@ pub struct TranscodePipelinePlan {
     pub readiness: TranscodePipelineReadiness,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct HlsRuntimePlanRequest {
+    pub source: MediaSource,
+    pub plan: TranscodePlan,
+    pub hardware_policy: HardwareAccelerationPolicy,
+    pub track_selection: TranscodeTrackSelection,
+    pub output_constraints: TranscodeOutputConstraints,
+    pub audio_output: TranscodeAudioOutputRequirement,
+    pub hls_output: HlsOutputRequirement,
+    pub source_facts: Option<TranscodePipelineSourceFacts>,
+    pub media_probe: Option<MediaProbeResult>,
+    pub playback_generation: HlsPlaybackGeneration,
+    pub remote_input: bool,
+    pub playback_profile_key: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct HlsRuntimePlan {
+    pub profile: TranscodeProfile,
+    pub profile_identity: TranscodeProfileIdentity,
+    pub request_variant: HlsRequestVariantPlan,
+    pub request_identity: TranscodeRequestIdentity,
+    pub pipeline: TranscodePipelinePlan,
+    pub execution_policy: TranscodeExecutionPolicy,
+    pub hls_output: HlsOutputRequirement,
+    pub track_selection: TranscodeTrackSelection,
+}
+
 impl TranscodePipelinePlan {
     #[must_use]
     pub const fn execution_policy(self) -> TranscodeExecutionPolicy {
@@ -164,6 +195,75 @@ impl TranscodePipelinePlanner {
             subtitle_strategy: request.subtitle_strategy,
             audio_output: request.audio_output,
             readiness: selection,
+        })
+    }
+
+    pub fn plan_hls_runtime(
+        &self,
+        request: HlsRuntimePlanRequest,
+        report: &HardwareAccelerationReport,
+    ) -> Result<HlsRuntimePlan> {
+        let mut pipeline_request = TranscodePipelineRequest::hls_single_variant_with_audio_output(
+            request.hardware_policy,
+            request.track_selection,
+            request.output_constraints,
+            request.audio_output,
+        );
+        if let Some(source_facts) = request.source_facts.clone() {
+            pipeline_request = pipeline_request.with_source(source_facts);
+        }
+
+        let media_renditions = HlsMediaRenditionPlan::selected_from_probe(
+            request.media_probe.as_ref(),
+            request.source_facts.as_ref(),
+            request.track_selection,
+        )?;
+        let mut pipeline = self.plan_hls_single_variant(pipeline_request, report)?;
+        if media_renditions.has_subtitles() {
+            pipeline.subtitle_strategy = TranscodeSubtitleStrategy::SidecarSelected;
+        }
+        let execution_policy = pipeline.execution_policy();
+        let profile = build_playback_hls_profile(PlaybackHlsProfileRequest {
+            plan: request.plan,
+            execution_policy,
+            hls_output: request.hls_output,
+            track_selection: request.track_selection,
+            remote_input: request.remote_input,
+            playback_profile_key: request.playback_profile_key,
+        })?;
+        let hls_output =
+            profile
+                .hls_output_requirement()
+                .ok_or_else(|| NakoError::InvalidInput {
+                    message: "hls transcode profile did not carry HLS output requirements"
+                        .to_owned(),
+                })?;
+        let adaptive_ladder_plan =
+            (hls_output.variant_policy == HlsVariantPolicy::Adaptive).then(|| {
+                HlsAdaptiveLadderPlan::from_source_facts(
+                    request.source_facts.as_ref(),
+                    execution_policy.output_constraints,
+                )
+            });
+        let request_variant = HlsRequestVariantPlan::new(adaptive_ladder_plan, media_renditions)
+            .with_playback_generation(request.playback_generation);
+        let profile_identity = profile.identity();
+        let source_identity = TranscodeSourceIdentity::from_media_source(&request.source);
+        let request_identity = if let Some(request_variant_key) = request_variant.identity_key() {
+            profile_identity.bind_source_with_request_variant(&source_identity, request_variant_key)
+        } else {
+            profile_identity.bind_source(&source_identity)
+        };
+
+        Ok(HlsRuntimePlan {
+            profile,
+            profile_identity,
+            request_variant,
+            request_identity,
+            pipeline,
+            execution_policy,
+            hls_output,
+            track_selection: request.track_selection,
         })
     }
 }
@@ -363,12 +463,60 @@ fn unavailable_reason(
 
 #[cfg(test)]
 mod tests {
+    use nako_core::{
+        LibraryId, MediaItemId, MediaProbeResult, MediaSource, MediaSourceId, MediaStreamInfo,
+        MediaStreamKind, MediaStreamTechnicalFacts,
+    };
+
     use crate::{
-        TranscodeAudioCompatibilityReasons, TranscodeAudioDownmixRequirement,
-        TranscodeAudioNormalizationRequirement,
+        HlsSegmentContainer, OutputContainer, TranscodeAudioCompatibilityReasons,
+        TranscodeAudioDownmixRequirement, TranscodeAudioNormalizationRequirement,
+        TranscodeProfileKind,
     };
 
     use super::*;
+
+    fn demo_source() -> MediaSource {
+        MediaSource {
+            id: MediaSourceId::new(),
+            library_id: LibraryId::new(),
+            item_id: MediaItemId::new(),
+            locator: "local:///Movies/Demo.mkv".to_owned(),
+            file_name: "Demo.mkv".to_owned(),
+            size_bytes: Some(42),
+            fingerprint: Some("sha256:demo".to_owned()),
+        }
+    }
+
+    fn media_stream(
+        index: u32,
+        kind: MediaStreamKind,
+        codec: &str,
+        language: Option<&str>,
+    ) -> MediaStreamInfo {
+        MediaStreamInfo {
+            index,
+            kind,
+            codec: Some(codec.to_owned()),
+            language: language.map(str::to_owned),
+            duration_ms: None,
+            bit_rate: None,
+            width: None,
+            height: None,
+            channels: None,
+            sample_rate: None,
+            technical: MediaStreamTechnicalFacts::default(),
+        }
+    }
+
+    fn video_stream(width: u32, height: u32, bit_rate: u64) -> MediaStreamInfo {
+        MediaStreamInfo {
+            width: Some(width),
+            height: Some(height),
+            bit_rate: Some(bit_rate),
+            ..media_stream(0, MediaStreamKind::Video, "h264", None)
+        }
+    }
 
     #[test]
     fn hls_pipeline_plan_carries_audio_output_requirement_into_execution_policy() {
@@ -401,5 +549,141 @@ mod tests {
 
         assert_eq!(plan.audio_output, audio_output);
         assert_eq!(plan.execution_policy().audio_output, audio_output);
+    }
+
+    #[test]
+    fn hls_runtime_plan_carries_audio_output_and_request_variant_identity() {
+        let source = demo_source();
+        let video = video_stream(1920, 1080, 4_000_000);
+        let selected_audio = MediaStreamInfo {
+            channels: Some(6),
+            ..media_stream(1, MediaStreamKind::Audio, "aac", Some("eng"))
+        };
+        let alternate_audio = MediaStreamInfo {
+            channels: Some(2),
+            ..media_stream(2, MediaStreamKind::Audio, "aac", Some("jpn"))
+        };
+        let selected_subtitle = media_stream(3, MediaStreamKind::Subtitle, "subrip", Some("jpn"));
+        let audio_output = TranscodeAudioOutputRequirement {
+            source_channels: Some(6),
+            max_supported_channels: Some(2),
+            target_channels: Some(2),
+            downmix: TranscodeAudioDownmixRequirement::Required,
+            normalization: TranscodeAudioNormalizationRequirement::Requested,
+            reasons: TranscodeAudioCompatibilityReasons {
+                channel_limit_exceeded: true,
+                downmix_required: true,
+                normalization_requested: true,
+            },
+        };
+        let track_selection = TranscodeTrackSelection {
+            audio_stream: Some(1),
+            subtitle_stream: Some(3),
+        };
+        let request = HlsRuntimePlanRequest {
+            source,
+            plan: TranscodePlan {
+                input_locator: "local:///Movies/Demo.mkv".to_owned(),
+                output_container: OutputContainer::Hls,
+                video_codec: Some("h264".to_owned()),
+                audio_codec: Some("aac".to_owned()),
+            },
+            hardware_policy: HardwareAccelerationPolicy::default(),
+            track_selection,
+            output_constraints: TranscodeOutputConstraints {
+                max_video_bitrate: Some(2_000_000),
+                max_width: Some(1280),
+                max_height: Some(720),
+                prefer_hdr: Some(false),
+            },
+            audio_output,
+            hls_output: HlsOutputRequirement {
+                variant_policy: HlsVariantPolicy::Adaptive,
+                segment_container: HlsSegmentContainer::Fmp4,
+            },
+            source_facts: Some(TranscodePipelineSourceFacts {
+                video: Some(video.clone()),
+                audio: Some(selected_audio.clone()),
+                subtitle: Some(selected_subtitle.clone()),
+            }),
+            media_probe: Some(MediaProbeResult {
+                duration_ms: Some(1_000),
+                container: Some("matroska,webm".to_owned()),
+                bit_rate: None,
+                streams: vec![video, selected_audio, alternate_audio, selected_subtitle],
+            }),
+            playback_generation: HlsPlaybackGeneration::from_start_position_ms(45_000),
+            remote_input: true,
+            playback_profile_key: "playback-target-profile:v1;demo=true".to_owned(),
+        };
+        let report = HardwareAccelerationReport::with_available([HardwareAcceleration::None]);
+
+        let runtime = TranscodePipelinePlanner::new()
+            .plan_hls_runtime(request, &report)
+            .unwrap();
+
+        assert_eq!(runtime.profile.kind(), TranscodeProfileKind::HlsAdaptive);
+        assert_eq!(runtime.execution_policy.audio_output, audio_output);
+        assert_eq!(
+            runtime.execution_policy.subtitle_strategy,
+            TranscodeSubtitleStrategy::SidecarSelected
+        );
+        assert_eq!(runtime.track_selection, track_selection);
+        assert!(runtime.request_variant.media_renditions.has_audios());
+        assert!(runtime.request_variant.media_renditions.has_subtitles());
+        assert_eq!(
+            runtime.request_variant.playback_generation,
+            HlsPlaybackGeneration::from_start_position_ms(45_000)
+        );
+        assert!(runtime.request_variant.adaptive_ladder.is_some());
+
+        let request_key = runtime.request_identity.persisted_request_key();
+        assert!(request_key.contains(";request_variant=hls-request-variant:v1"));
+        assert!(request_key.contains("hls-adaptive-ladder:v1"));
+        assert!(request_key.contains("hls-media-renditions:v1"));
+        assert!(request_key.contains("hls-main-output:v1"));
+        assert!(request_key.contains("hls-playback-generation:v1"));
+    }
+
+    #[test]
+    fn hls_runtime_plan_keeps_default_single_variant_request_identity_plain() {
+        let source = demo_source();
+        let request = HlsRuntimePlanRequest {
+            source,
+            plan: TranscodePlan {
+                input_locator: "local:///Movies/Demo.mkv".to_owned(),
+                output_container: OutputContainer::Hls,
+                video_codec: Some("h264".to_owned()),
+                audio_codec: Some("aac".to_owned()),
+            },
+            hardware_policy: HardwareAccelerationPolicy::default(),
+            track_selection: TranscodeTrackSelection::default(),
+            output_constraints: TranscodeOutputConstraints::default(),
+            audio_output: TranscodeAudioOutputRequirement::none(),
+            hls_output: HlsOutputRequirement::default(),
+            source_facts: None,
+            media_probe: None,
+            playback_generation: HlsPlaybackGeneration::default(),
+            remote_input: false,
+            playback_profile_key: "playback-target-profile:v1;demo=true".to_owned(),
+        };
+        let report = HardwareAccelerationReport::with_available([HardwareAcceleration::None]);
+
+        let runtime = TranscodePipelinePlanner::new()
+            .plan_hls_runtime(request, &report)
+            .unwrap();
+
+        assert_eq!(
+            runtime.profile.kind(),
+            TranscodeProfileKind::HlsSingleVariant
+        );
+        assert_eq!(runtime.hls_output, HlsOutputRequirement::default());
+        assert!(runtime.request_variant.is_empty());
+        assert!(
+            !runtime
+                .request_identity
+                .persisted_request_key()
+                .contains(";request_variant=")
+        );
     }
 }

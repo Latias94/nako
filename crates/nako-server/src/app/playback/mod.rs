@@ -22,13 +22,11 @@ use nako_playback::{
 };
 use nako_streaming::{DirectPlayRangeRequest, DirectPlayResponsePlan};
 use nako_transcode::{
-    HlsAdaptiveLadderPlan, HlsAudioRendition, HlsMediaRenditionPlan, HlsPlaybackGeneration,
-    HlsRequestVariantPlan, HlsVariantPolicy, PlaybackHlsProfileRequest,
-    PlaybackRemuxProfileRequest, RemuxContainer, TranscodeAudioCompatibilityReasons,
-    TranscodeAudioDownmixRequirement, TranscodeAudioNormalizationRequirement,
-    TranscodeAudioOutputRequirement, TranscodeOutputConstraints, TranscodePipelineSourceFacts,
-    TranscodeRequestIdentity, TranscodeSourceIdentity, TranscodeSubtitleStrategy,
-    TranscodeTrackSelection, build_playback_hls_profile, build_playback_remux_profile,
+    HlsPlaybackGeneration, HlsRuntimePlanRequest, PlaybackRemuxProfileRequest, RemuxContainer,
+    TranscodeAudioCompatibilityReasons, TranscodeAudioDownmixRequirement,
+    TranscodeAudioNormalizationRequirement, TranscodeAudioOutputRequirement,
+    TranscodeOutputConstraints, TranscodePipelinePlanner, TranscodeRequestIdentity,
+    TranscodeSourceIdentity, TranscodeTrackSelection, build_playback_remux_profile,
 };
 use nako_vfs::{StorageBackend as _, StorageUri};
 use serde::{Deserialize, Serialize};
@@ -1878,59 +1876,31 @@ impl PlaybackAppService {
                 "hls app service requires an hls transcode playback decision",
             ))?;
         let source_facts = hls_pipeline_source_facts(probe.as_ref(), track_selection);
-        let mut execution_policy = self.hls.execution_policy_for_hls(
-            track_selection,
-            playback_output_constraints_to_transcode(target_profile.output_constraints()),
-            audio_output,
-            source_facts.clone(),
+        let hls_runtime = TranscodePipelinePlanner::new().plan_hls_runtime(
+            HlsRuntimePlanRequest {
+                source: source.clone(),
+                plan: transcode_plan,
+                hardware_policy: self.config.transcode.hardware_policy(),
+                track_selection,
+                output_constraints: playback_output_constraints_to_transcode(
+                    target_profile.output_constraints(),
+                ),
+                audio_output,
+                hls_output: playback_hls_output_requirement_to_transcode(
+                    target_profile.hls_output_requirement(),
+                ),
+                source_facts,
+                media_probe: probe.clone(),
+                playback_generation: request.playback_generation,
+                remote_input: target_profile.storage.remote,
+                playback_profile_key: target_profile.identity_key(),
+            },
+            &self.hls.hardware_report,
         )?;
-        let media_rendition_plan =
-            hls_media_rendition_plan(probe.as_ref(), source_facts.as_ref(), track_selection)?;
-        if media_rendition_plan.has_subtitles() {
-            execution_policy.subtitle_strategy = TranscodeSubtitleStrategy::SidecarSelected;
-        }
-        let hls_profile = build_playback_hls_profile(PlaybackHlsProfileRequest {
-            plan: transcode_plan.clone(),
-            execution_policy,
-            hls_output: playback_hls_output_requirement_to_transcode(
-                target_profile.hls_output_requirement(),
-            ),
-            track_selection,
-            remote_input: target_profile.storage.remote,
-            playback_profile_key: target_profile.identity_key(),
-        })?;
-        let execution_policy = hls_profile.execution_policy;
-        let hls_output =
-            hls_profile
-                .hls_output_requirement()
-                .ok_or_else(|| NakoError::InvalidInput {
-                    message: "hls transcode profile did not carry HLS output requirements"
-                        .to_owned(),
-                })?;
-        let adaptive_ladder_plan =
-            (hls_output.variant_policy == HlsVariantPolicy::Adaptive).then(|| {
-                HlsAdaptiveLadderPlan::from_source_facts(
-                    source_facts.as_ref(),
-                    execution_policy.output_constraints,
-                )
-            });
-        let request_variant_plan =
-            HlsRequestVariantPlan::new(adaptive_ladder_plan, media_rendition_plan)
-                .with_playback_generation(request.playback_generation);
-        let profile_identity = hls_profile.identity();
-        let source_identity = TranscodeSourceIdentity::from_media_source(&source);
-        let request_identity = if let Some(request_variant) = request_variant_plan.identity_key() {
-            profile_identity.bind_source_with_request_variant(&source_identity, request_variant)
-        } else {
-            profile_identity.bind_source(&source_identity)
-        };
+        let execution_policy = hls_runtime.execution_policy;
+        let request_identity = hls_runtime.request_identity.clone();
         let staging = HlsStagingPolicy::new(self.config.remux_staging_root.join("hls"))?;
-        let layout = staging.layout_for_output_with_request_variant_plan(
-            source.id,
-            &request_identity,
-            hls_output,
-            &request_variant_plan,
-        )?;
+        let layout = staging.layout_for_runtime_plan(source.id, &hls_runtime)?;
 
         Ok(HlsSourceContext {
             source,
@@ -1938,7 +1908,7 @@ impl PlaybackAppService {
             uri,
             backend,
             layout,
-            track_selection: hls_profile.track_selection,
+            track_selection: hls_runtime.track_selection,
             execution_policy,
             playback_generation: request.playback_generation,
             request_identity: request_identity.clone(),
@@ -2456,50 +2426,6 @@ fn redact_subtitle_sidecar_storage_error(
         NakoError::Unsupported(message) => NakoError::Unsupported(message),
         NakoError::Provider { provider, message } => NakoError::Provider { provider, message },
     }
-}
-
-fn hls_media_rendition_plan(
-    probe: Option<&MediaProbeResult>,
-    source_facts: Option<&TranscodePipelineSourceFacts>,
-    track_selection: TranscodeTrackSelection,
-) -> Result<HlsMediaRenditionPlan> {
-    HlsMediaRenditionPlan::selected_from_source_facts(source_facts, track_selection)?
-        .with_audio_renditions(hls_audio_renditions_from_probe(probe, source_facts))
-}
-
-fn hls_audio_renditions_from_probe(
-    probe: Option<&MediaProbeResult>,
-    source_facts: Option<&TranscodePipelineSourceFacts>,
-) -> Vec<HlsAudioRendition> {
-    let Some(probe) = probe else {
-        return Vec::new();
-    };
-    let audio_streams = probe
-        .streams
-        .iter()
-        .filter(|stream| matches!(stream.kind, MediaStreamKind::Audio))
-        .collect::<Vec<_>>();
-    if audio_streams.len() < 2 {
-        return Vec::new();
-    }
-
-    let default_stream_index = source_facts
-        .and_then(|facts| facts.audio.as_ref())
-        .map(|stream| stream.index)
-        .unwrap_or(audio_streams[0].index);
-
-    audio_streams
-        .into_iter()
-        .enumerate()
-        .map(|(index, stream)| {
-            HlsAudioRendition::new(
-                index,
-                stream.index,
-                stream.language.clone(),
-                stream.index == default_stream_index,
-            )
-        })
-        .collect()
 }
 
 fn playback_audio_output_requirement_to_transcode(

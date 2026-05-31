@@ -7,9 +7,10 @@
   "scope_kind": "fearless_refactor",
   "problem": "nako-server still assembles too much HLS transcode execution detail directly, which keeps nako-transcode shallow before HDR tone mapping expands the same surface.",
   "task_prefix": "TIRP",
-  "current_task": "TIRP-020",
+  "current_task": "TIRP-030",
   "completed_tasks": [
-    "TIRP-010"
+    "TIRP-010",
+    "TIRP-020"
   ],
   "authoritative_docs": [
     {
@@ -54,6 +55,10 @@
     {
       "task": "TIRP-010",
       "summary": "Opened the transcode Interface deepening lane, parked HDR HTP-030 behind it, and split hardware matrix, HLS lifecycle, and resource admission unification as follow-ons."
+    },
+    {
+      "task": "TIRP-020",
+      "summary": "Added a transcode-owned HLS runtime plan Interface so server HLS consumes planned profile identity, request variant, request identity, execution policy, media renditions, and staging layout without reassembling those details."
     }
   ],
   "adr_refs": [
@@ -85,6 +90,6 @@
   "lane_slug": "playback-transcode",
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Continue TIRP-020 before HDR HTP-030. Split stage-aware hardware matrix, HLS artifact lifecycle consolidation, resource admission unification, and Jellyfin-class capability expansion into separate workstreams."
+    "notes": "TIRP-020 is planner-reviewed and verified. Continue TIRP-030 before HDR HTP-030 to curate nako-transcode exports and hide low-level FFmpeg Adapter details. Split stage-aware hardware matrix, HLS artifact lifecycle consolidation, resource admission unification, and Jellyfin-class capability expansion into separate workstreams."
   }
 }

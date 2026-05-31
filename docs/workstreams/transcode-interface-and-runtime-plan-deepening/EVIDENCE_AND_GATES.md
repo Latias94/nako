@@ -43,6 +43,58 @@ Notes:
   consolidation, and resource admission unification are outside this first
   workstream unless the planner splits a task explicitly.
 
+### TIRP-020 - HLS runtime plan Interface
+
+Status: Done
+
+Interface changes:
+
+- Added `HlsRuntimePlanRequest` and `HlsRuntimePlan` in `nako-transcode`.
+- Added `TranscodePipelinePlanner::plan_hls_runtime` to assemble HLS execution
+  policy, profile identity, request variant, and request identity behind the
+  transcode Interface.
+- Added `HlsMediaRenditionPlan::selected_from_probe` so audio sidecar and
+  selected subtitle rendition identity assembly is transcode-owned.
+- Added `HlsStagingPolicy::layout_for_runtime_plan` so server HLS staging
+  consumes the runtime plan instead of reassembling HLS output/request variant
+  details.
+
+Evidence:
+
+- `crates/nako-transcode/src/pipeline.rs`
+- `crates/nako-transcode/src/artifact.rs`
+- `crates/nako-server/src/app/playback/mod.rs`
+- `crates/nako-server/src/app/playback/staging_policy.rs`
+- `cargo nextest run -p nako-transcode hls_runtime_plan --no-fail-fast`
+  - 2026-05-31: Passed, 2 tests.
+- `cargo nextest run -p nako-transcode hls audio --no-fail-fast`
+  - 2026-05-31: Passed, 50 tests.
+- `cargo nextest run -p nako-server hls --no-fail-fast`
+  - 2026-05-31: Passed, 61 tests; one slow adaptive HLS regression.
+- `cargo fmt --all -- --check`
+  - 2026-05-31: Passed.
+- `git diff --check`
+  - 2026-05-31: Passed with only Windows line-ending warnings.
+
+Planner fresh verification on 2026-05-31:
+
+- `cargo nextest run -p nako-transcode remux --no-fail-fast` passed, 13
+  tests.
+- `cargo nextest run -p nako-transcode hls --no-fail-fast` passed, 50 tests.
+- `cargo nextest run -p nako-server hls --no-fail-fast` passed, 61 tests, 6
+  slow.
+- `cargo fmt --all -- --check` passed.
+- `git diff --check` passed with only Windows line-ending warnings.
+
+Notes:
+
+- Runtime behavior is unchanged: existing server HLS regression coverage for
+  selected audio, subtitle sidecars, multi-audio sidecars, adaptive ladder,
+  seek generation, acceleration identity, fallback, and reuse passed.
+- No HDR tone mapping, subtitle burn-in, hardware capability matrix expansion,
+  HLS lifecycle consolidation, resource admission unification, or direct
+  `nako-transcode` dependency on `nako-playback` was introduced.
+
 ## Residual Risks
 
 - The first implementation may reveal that a small server adapter still needs
