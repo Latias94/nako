@@ -216,3 +216,41 @@ cargo nextest run -p nako-playback -p nako-transcode --no-fail-fast
 Result: passed on 2026-05-31. The combined nextest gate ran 137 tests across
 `nako-playback` and `nako-transcode`. `git diff --check` emitted LF/CRLF
 working-copy warnings for touched Markdown/JSON files and no whitespace errors.
+
+### PTJCH-210 - HLS Artifact Authority
+
+Status: Done
+
+Evidence collected:
+
+- Existing authority flow recorded in `worker-notes/PTJCH-210.md`.
+- `HlsRequestVariantPlan` keeps adaptive ladder, media renditions,
+  main-output audio shape, and playback generation in request variant
+  identity without changing the persisted request-key or artifact path format.
+- `HlsArtifactSpec` reconstructs `HlsArtifactManifest` from persisted request
+  identity plus the primary playlist path.
+- `HlsArtifactManifest::artifact_for_name` now treats the manifest pattern as
+  the serveable allow-list for primary playlists, adaptive variant playlists,
+  fMP4 init files, main segments, audio sidecars, and subtitle sidecars.
+- Legal artifact names outside the manifest return `hls_artifact` not found;
+  invalid names still fail validation before path resolution.
+
+Fresh validation:
+
+```text
+cargo nextest run -p nako-transcode hls --no-fail-fast
+cargo nextest run -p nako-server hls --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
+Result: passed on 2026-05-31. The `nako-transcode` HLS gate ran 59 tests. The
+`nako-server` HLS gate ran 71 tests. `cargo fmt --all -- --check` passed.
+`git diff --check` emitted LF/CRLF working-copy warnings for touched files and
+no whitespace errors.
+
+Notes: an earlier `nako-server` HLS run timed out before producing test
+results, and an earlier `nako-transcode` HLS run hit the existing progressive
+readiness timing test once; the focused rerun and final full HLS gate both
+passed. No PTJCH-220 session lifecycle, admission, cancel, or failure logic was
+changed.

@@ -2,7 +2,7 @@
 
 Status: Active
 Last updated: 2026-05-31
-Current tasks: `PTJCH-210`, `PTJCH-220`
+Current tasks: `PTJCH-220`
 
 ## Current State
 
@@ -32,16 +32,20 @@ suggested worktree branches, and validation gates for the first parallel batch.
 
 `PTJCH-130` is complete and merged as commit `bb3835e0`.
 
+`PTJCH-210` is complete. HLS artifact authority remains in
+`crates/nako-transcode/src/artifact.rs`: request variant identity reconstructs
+the artifact manifest, and manifest sequence patterns now define the
+serveable allow-list for playlists, media-group playlists, segments, init
+files, audio sidecars, and subtitle sidecars. See
+`worker-notes/PTJCH-210.md`.
+
 ## Next Action
 
-Run the coordinated HLS batch:
+Run `PTJCH-220` - Playback Runtime.
 
-- `PTJCH-210` - HLS Artifact Authority.
-- `PTJCH-220` - Playback Runtime.
-
-These tasks both touch server playback integration risk. Prefer `PTJCH-210`
-first if only one terminal is available; run them in parallel only with a
-planner watching shared files.
+Keep PTJCH-220 focused on sessions, admission, reuse, supersede, cancel,
+failure classification, and diagnostics. Do not move FFmpeg command planning
+or artifact allow-list ownership back into `nako-server`.
 
 ## Stop Conditions
 

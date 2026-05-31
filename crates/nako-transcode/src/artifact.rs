@@ -1118,11 +1118,7 @@ impl HlsArtifactManifest {
             });
         }
 
-        if Path::new(artifact_name)
-            .extension()
-            .and_then(|value| value.to_str())
-            == Some(self.output.segment_container.segment_extension())
-        {
+        if hls_artifact_name_matches_sequence_pattern(&self.media_segment_pattern, artifact_name) {
             return Ok(HlsArtifactDescriptor {
                 path,
                 content_type: self.output.segment_container.segment_content_type(),
@@ -1130,8 +1126,9 @@ impl HlsArtifactManifest {
             });
         }
 
-        Err(NakoError::InvalidInput {
-            message: "hls artifact is not part of the manifest".to_owned(),
+        Err(NakoError::NotFound {
+            entity: "hls_artifact",
+            id: artifact_name.to_owned(),
         })
     }
 
@@ -1157,12 +1154,12 @@ impl HlsArtifactManifest {
                 });
             }
 
-            if artifact_name.starts_with(&rendition.segment_file_prefix())
-                && Path::new(artifact_name)
-                    .extension()
-                    .and_then(|value| value.to_str())
-                    == Some(self.output.segment_container.segment_extension())
-            {
+            let segment_pattern = format!(
+                "{}%05d.{}",
+                rendition.segment_file_prefix(),
+                self.output.segment_container.segment_extension()
+            );
+            if hls_artifact_name_matches_sequence_pattern(&segment_pattern, artifact_name) {
                 return Ok(HlsArtifactDescriptor {
                     path,
                     content_type: self.output.segment_container.segment_content_type(),
@@ -1171,8 +1168,9 @@ impl HlsArtifactManifest {
             }
         }
 
-        Err(NakoError::InvalidInput {
-            message: "hls artifact is not part of the manifest".to_owned(),
+        Err(NakoError::NotFound {
+            entity: "hls_artifact",
+            id: artifact_name.to_owned(),
         })
     }
 
@@ -1190,12 +1188,10 @@ impl HlsArtifactManifest {
                 });
             }
 
-            if artifact_name.starts_with(&audio.segment_file_prefix())
-                && Path::new(artifact_name)
-                    .extension()
-                    .and_then(|value| value.to_str())
-                    == Some("aac")
-            {
+            if hls_artifact_name_matches_sequence_pattern(
+                &audio.segment_pattern_file_name(),
+                artifact_name,
+            ) {
                 return Some(HlsArtifactDescriptor {
                     path: path.to_path_buf(),
                     content_type: "audio/aac",
@@ -1221,12 +1217,10 @@ impl HlsArtifactManifest {
                 });
             }
 
-            if artifact_name.starts_with(&subtitle.segment_file_prefix())
-                && Path::new(artifact_name)
-                    .extension()
-                    .and_then(|value| value.to_str())
-                    == Some("vtt")
-            {
+            if hls_artifact_name_matches_sequence_pattern(
+                &subtitle.segment_pattern_file_name(),
+                artifact_name,
+            ) {
                 return Some(HlsArtifactDescriptor {
                     path: path.to_path_buf(),
                     content_type: "text/vtt",
@@ -1420,6 +1414,68 @@ fn hls_output_dir_for_primary_playlist(playlist_path: &Path) -> Result<PathBuf> 
                 "hls playlist path does not have a parent directory",
             )
         })
+}
+
+fn hls_artifact_name_matches_sequence_pattern(
+    sequence_pattern: impl AsRef<Path>,
+    artifact_name: &str,
+) -> bool {
+    let Some(pattern_name) = sequence_pattern
+        .as_ref()
+        .file_name()
+        .and_then(|value| value.to_str())
+    else {
+        return false;
+    };
+    let Some((prefix, suffix, min_width)) = hls_sequence_pattern_parts(pattern_name) else {
+        return false;
+    };
+
+    if artifact_name.len() < prefix.len().saturating_add(suffix.len())
+        || !artifact_name.starts_with(prefix)
+        || !artifact_name.ends_with(suffix)
+    {
+        return false;
+    }
+
+    let sequence_end = artifact_name.len() - suffix.len();
+    let sequence = &artifact_name[prefix.len()..sequence_end];
+    sequence.len() >= min_width && sequence.bytes().all(|value| value.is_ascii_digit())
+}
+
+fn hls_sequence_pattern_parts(pattern_name: &str) -> Option<(&str, &str, usize)> {
+    let bytes = pattern_name.as_bytes();
+    let mut search_at = 0;
+
+    while let Some(relative_start) = pattern_name[search_at..].find('%') {
+        let placeholder_start = search_at + relative_start;
+        let mut cursor = placeholder_start + 1;
+        let width_start = cursor;
+
+        while cursor < bytes.len() && bytes[cursor].is_ascii_digit() {
+            cursor += 1;
+        }
+
+        if bytes.get(cursor) == Some(&b'd') {
+            let min_width = if cursor == width_start {
+                1
+            } else {
+                pattern_name[width_start..cursor]
+                    .parse::<usize>()
+                    .unwrap_or(1)
+                    .max(1)
+            };
+            return Some((
+                &pattern_name[..placeholder_start],
+                &pattern_name[cursor + 1..],
+                min_width,
+            ));
+        }
+
+        search_at = placeholder_start + 1;
+    }
+
+    None
 }
 
 fn profile_identity_key_from_request_key(request_key: &str) -> Result<String> {
@@ -1820,4 +1876,223 @@ fn validate_hls_artifact_name(artifact_name: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use crate::policy::HlsSegmentContainer;
+
+    use super::*;
+
+    #[test]
+    fn hls_request_variant_identity_round_trips_full_artifact_authority_components() {
+        let ladder = single_rendition_ladder(false);
+        let media = media_renditions();
+        let plan = HlsRequestVariantPlan::new(Some(ladder), media)
+            .with_playback_generation(HlsPlaybackGeneration::from_start_position_ms(90_000));
+
+        let identity = plan.identity_key().unwrap();
+
+        assert!(identity.starts_with("hls-request-variant:v1;components="));
+        assert!(identity.contains("hls-adaptive-ladder:v1"));
+        assert!(identity.contains("hls-media-renditions:v1"));
+        assert!(identity.contains("hls-main-output:v1;main_audio=false"));
+        assert!(identity.contains("hls-playback-generation:v1;start_ms=90000"));
+
+        let reconstructed = HlsRequestVariantPlan::from_identity_key(&identity).unwrap();
+
+        assert_eq!(reconstructed, plan);
+        assert_eq!(
+            reconstructed.identity_key().as_deref(),
+            Some(identity.as_str())
+        );
+    }
+
+    #[test]
+    fn hls_artifact_spec_reconstructs_manifest_allow_list_from_request_variant_identity() {
+        let ladder = single_rendition_ladder(false);
+        let media = media_renditions();
+        let request_variant = HlsRequestVariantPlan::new(Some(ladder.clone()), media.clone())
+            .with_playback_generation(HlsPlaybackGeneration::from_start_position_ms(90_000));
+        let request_key = hls_request_key(
+            "hls_adaptive",
+            "adaptive",
+            "fmp4",
+            Some(&request_variant.identity_key().unwrap()),
+        );
+
+        let spec = HlsArtifactSpec::from_persisted_request_key(&request_key).unwrap();
+
+        assert_eq!(
+            spec.output(),
+            HlsOutputRequirement {
+                variant_policy: HlsVariantPolicy::Adaptive,
+                segment_container: HlsSegmentContainer::Fmp4,
+            }
+        );
+        assert_eq!(spec.request_variant(), &request_variant);
+        assert_eq!(
+            spec.request_variant()
+                .playback_generation
+                .start_position_ms(),
+            90_000
+        );
+
+        let manifest = spec
+            .manifest_for_primary_playlist(PathBuf::from("hls/master.m3u8"))
+            .unwrap();
+
+        assert_eq!(manifest.renditions(), ladder.renditions());
+        assert_eq!(manifest.media_renditions(), &media);
+        assert!(!manifest.has_audio());
+        assert!(!manifest.main_output_has_audio());
+        assert_artifact(
+            &manifest,
+            "master.m3u8",
+            "application/vnd.apple.mpegurl",
+            false,
+        );
+        assert_artifact(
+            &manifest,
+            "variant_0.m3u8",
+            "application/vnd.apple.mpegurl",
+            false,
+        );
+        assert_artifact(&manifest, "variant_0_init.mp4", "video/mp4", false);
+        assert_artifact(&manifest, "variant_0_segment_00042.m4s", "video/mp4", true);
+        assert_artifact(
+            &manifest,
+            "audio_0.m3u8",
+            "application/vnd.apple.mpegurl",
+            false,
+        );
+        assert_artifact(&manifest, "audio_0_00042.aac", "audio/aac", true);
+        assert_artifact(
+            &manifest,
+            "subtitle_0.m3u8",
+            "application/vnd.apple.mpegurl",
+            false,
+        );
+        assert_artifact(&manifest, "subtitle_0_00042.vtt", "text/vtt", true);
+        assert_not_manifest_artifact(&manifest, "variant_1_segment_00042.m4s");
+        assert_not_manifest_artifact(&manifest, "variant_0_segment_final.m4s");
+        assert_not_manifest_artifact(&manifest, "audio_0_final.aac");
+        assert_not_manifest_artifact(&manifest, "subtitle_0_final.vtt");
+        assert_not_manifest_artifact(&manifest, "init.mp4");
+    }
+
+    #[test]
+    fn hls_artifact_manifest_serves_only_sequence_instances_from_manifest_patterns() {
+        let ts = HlsArtifactManifest::single_variant(
+            "hls",
+            "hls/playlist.m3u8",
+            "hls/segment_%05d.ts",
+            HlsOutputRequirement::default(),
+        )
+        .unwrap();
+        let fmp4 = HlsArtifactManifest::single_variant(
+            "hls",
+            "hls/playlist.m3u8",
+            "hls/segment_%05d.m4s",
+            HlsOutputRequirement {
+                variant_policy: HlsVariantPolicy::SingleVariant,
+                segment_container: HlsSegmentContainer::Fmp4,
+            },
+        )
+        .unwrap()
+        .with_media_renditions(media_renditions())
+        .unwrap();
+
+        assert_artifact(&ts, "playlist.m3u8", "application/vnd.apple.mpegurl", false);
+        assert_artifact(&ts, "segment_00000.ts", "video/mp2t", true);
+        assert_artifact(&ts, "segment_100000.ts", "video/mp2t", true);
+        assert_not_manifest_artifact(&ts, "segment_1.ts");
+        assert_not_manifest_artifact(&ts, "segment_final.ts");
+        assert_not_manifest_artifact(&ts, "movie.ts");
+
+        assert_artifact(&fmp4, "init.mp4", "video/mp4", false);
+        assert_artifact(&fmp4, "segment_00000.m4s", "video/mp4", true);
+        assert_artifact(&fmp4, "audio_0_00000.aac", "audio/aac", true);
+        assert_artifact(&fmp4, "subtitle_0_00000.vtt", "text/vtt", true);
+        assert_not_manifest_artifact(&fmp4, "segment_1.m4s");
+        assert_not_manifest_artifact(&fmp4, "movie.m4s");
+        assert_not_manifest_artifact(&fmp4, "audio_0_final.aac");
+        assert_not_manifest_artifact(&fmp4, "subtitle_0_final.vtt");
+        assert_not_manifest_artifact(&fmp4, "../segment_00000.m4s");
+    }
+
+    fn single_rendition_ladder(has_audio: bool) -> HlsAdaptiveLadderPlan {
+        HlsAdaptiveLadderPlan::from_source(
+            HlsAdaptiveLadderSource {
+                width: Some(640),
+                height: Some(360),
+                video_bitrate: Some(700_000),
+                has_audio: Some(has_audio),
+            },
+            TranscodeOutputConstraints::default(),
+        )
+    }
+
+    fn media_renditions() -> HlsMediaRenditionPlan {
+        HlsMediaRenditionPlan::from_audio_and_subtitles(
+            vec![HlsAudioRendition::new(0, 1, Some("eng".to_owned()), true)],
+            vec![HlsSubtitleRendition::new(0, 2, Some("jpn".to_owned()))],
+        )
+        .unwrap()
+    }
+
+    fn hls_request_key(
+        profile_kind: &str,
+        variant_policy: &str,
+        segment_container: &str,
+        request_variant: Option<&str>,
+    ) -> String {
+        let profile = format!(
+            "transcode-profile:v1;kind={profile_kind};hls_variant={variant_policy};hls_segment={segment_container}",
+        );
+        let mut request_key = format!(
+            "transcode-request:v1;source=source-revision:v1;profile={}",
+            escape_request_key_component(&profile)
+        );
+        if let Some(request_variant) = request_variant {
+            request_key.push_str(";request_variant=");
+            request_key.push_str(&escape_request_key_component(request_variant));
+        }
+
+        request_key
+    }
+
+    fn escape_request_key_component(value: &str) -> String {
+        value
+            .replace('%', "%25")
+            .replace(';', "%3B")
+            .replace('=', "%3D")
+    }
+
+    fn assert_artifact(
+        manifest: &HlsArtifactManifest,
+        artifact_name: &str,
+        content_type: &'static str,
+        cleanup_candidate: bool,
+    ) {
+        let artifact = manifest.artifact_for_name(artifact_name).unwrap();
+
+        assert_eq!(artifact.path, manifest.output_dir().join(artifact_name));
+        assert_eq!(artifact.content_type, content_type);
+        assert_eq!(artifact.cleanup_candidate, cleanup_candidate);
+        assert_eq!(
+            manifest.cleanup_candidate_for_name(artifact_name),
+            cleanup_candidate
+        );
+    }
+
+    fn assert_not_manifest_artifact(manifest: &HlsArtifactManifest, artifact_name: &str) {
+        assert!(
+            manifest.artifact_for_name(artifact_name).is_err(),
+            "{artifact_name} should not be serveable from the HLS artifact manifest"
+        );
+        assert!(!manifest.cleanup_candidate_for_name(artifact_name));
+    }
 }

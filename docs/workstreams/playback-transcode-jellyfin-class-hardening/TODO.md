@@ -62,7 +62,7 @@ Last updated: 2026-05-31
 
 ## M2 - Coordinated HLS Runtime And Artifact Batch
 
-- [ ] PTJCH-210 [owner=codex] [deps=PTJCH-110,PTJCH-120,PTJCH-130] [scope=crates/nako-transcode/src/artifact.rs,crates/nako-server/src/app/playback/staging_policy.rs]
+- [x] PTJCH-210 [owner=codex] [deps=PTJCH-110,PTJCH-120,PTJCH-130] [scope=crates/nako-transcode/src/artifact.rs,crates/nako-server/src/app/playback/staging_policy.rs]
   Goal: Freeze or deepen HLS Artifact Authority around request variant
   identity, manifest reconstruction, and serveable artifact allow-lists.
   Validation: `cargo nextest run -p nako-transcode hls --no-fail-fast`; `cargo nextest run -p nako-server hls --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`
@@ -70,7 +70,10 @@ Last updated: 2026-05-31
   integration.
   Evidence: artifact identity/reconstruction tests and `EVIDENCE_AND_GATES.md`.
   Context: `CONTEXT.jsonl`.
-  Handoff: Pending.
+  Handoff: DONE. HLS Artifact Authority now keeps request variant identity,
+  manifest reconstruction, and serveable artifact allow-lists in
+  `nako-transcode`; playlist, variant playlist, segment, init, audio sidecar,
+  and subtitle sidecar artifacts are covered by manifest-backed tests.
 
 - [ ] PTJCH-220 [owner=codex] [deps=PTJCH-110,PTJCH-120,PTJCH-130] [scope=crates/nako-server/src/app/playback]
   Goal: Clarify Playback Runtime ownership for sessions, admission, reuse,
