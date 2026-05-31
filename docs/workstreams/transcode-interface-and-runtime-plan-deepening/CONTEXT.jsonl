@@ -8,3 +8,8 @@
 {"file":"docs/architecture/WORKSTREAM_LINKS.md","reason":"Playback/transcode workstream index."}
 {"file":"docs/workstreams/audio-compatibility-downmix-normalization/CLOSEOUT.md","reason":"Recently closed audio output requirement and FFmpeg filter evidence."}
 {"file":"docs/workstreams/hdr-tone-mapping-pipeline/HANDOFF.md","reason":"HDR HTP-030 is parked behind this Interface deepening."}
+{"file":"crates/nako-transcode/src/execution.rs","reason":"TIRP-030 public execution planner Interface and opaque execution request boundary."}
+{"file":"crates/nako-transcode/src/ffmpeg.rs","reason":"TIRP-030 low-level FFmpeg request, builder, arg, overwrite, and command-plan internals."}
+{"file":"crates/nako-transcode/src/lib.rs","reason":"TIRP-030 curated nako-transcode public exports."}
+{"file":"crates/nako-server/src/app/playback/hls.rs","reason":"TIRP-030 server HLS orchestration consuming high-level transcode execution planning."}
+{"file":"crates/nako-server/src/app/playback/remux.rs","reason":"TIRP-030 server remux orchestration consuming high-level transcode execution planning."}

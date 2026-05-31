@@ -24,13 +24,13 @@ Last updated: 2026-05-31
 
 ## M2 - FFmpeg Adapter Interface Ratchet
 
-- [ ] TIRP-030 [owner=codex] [deps=TIRP-020] [scope=crates/nako-transcode/src/lib.rs,crates/nako-transcode/src/ffmpeg.rs,crates/nako-transcode/src/execution.rs,crates/nako-transcode/src/hls.rs,crates/nako-transcode/src/remux.rs,crates/nako-server/src/app/playback/hls.rs,crates/nako-server/src/app/playback/remux.rs]
+- [x] TIRP-030 [owner=codex] [deps=TIRP-020] [scope=crates/nako-transcode/src/lib.rs,crates/nako-transcode/src/ffmpeg.rs,crates/nako-transcode/src/execution.rs,crates/nako-transcode/src/hls.rs,crates/nako-transcode/src/remux.rs,crates/nako-server/src/app/playback/hls.rs,crates/nako-server/src/app/playback/remux.rs]
   Goal: Curate `nako-transcode` exports and keep low-level FFmpeg request/builder details behind internal execution adapters while preserving server HLS/remux behavior.
   Validation: `cargo nextest run -p nako-transcode hls --no-fail-fast`; `cargo nextest run -p nako-transcode remux --no-fail-fast`; `cargo nextest run -p nako-server hls --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`
   Review: Use `review-workstream` before accepting completion.
   Evidence: compile-time server import reduction, transcode command-plan tests, HLS/remux runtime tests, and `EVIDENCE_AND_GATES.md`.
   Context: `docs/workstreams/transcode-interface-and-runtime-plan-deepening/CONTEXT.jsonl`.
-  Handoff: If server still needs raw `HlsRequest`, `RemuxRequest`, `FfmpegCommandBuilder`, or `FfmpegArg`, return to planner instead of widening `pub use`.
+  Handoff: DONE. Added a transcode-owned FFmpeg execution planner Interface, hid raw FFmpeg request/builder/arg/command-plan details behind crate-internal adapters, and moved server HLS/remux execution assembly onto high-level execution plan requests without changing runtime behavior.
 
 ## M3 - Closeout And HDR Unblock
 

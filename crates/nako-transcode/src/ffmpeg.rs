@@ -15,9 +15,9 @@ use super::{
 };
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct FfmpegCommandPlan {
-    pub program: PathBuf,
-    pub args: Vec<FfmpegArg>,
+pub(crate) struct FfmpegCommandPlan {
+    pub(crate) program: PathBuf,
+    pub(crate) args: Vec<FfmpegArg>,
 }
 
 impl FfmpegCommandPlan {
@@ -34,6 +34,7 @@ impl FfmpegCommandPlan {
         self.args.iter().map(FfmpegArg::to_os_string).collect()
     }
 
+    #[cfg(test)]
     #[must_use]
     pub fn argv_lossy(&self) -> Vec<String> {
         let mut argv = Vec::with_capacity(self.args.len() + 1);
@@ -45,7 +46,7 @@ impl FfmpegCommandPlan {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case", tag = "kind", content = "value")]
-pub enum FfmpegArg {
+pub(crate) enum FfmpegArg {
     Raw(String),
     Path(PathBuf),
 }
@@ -69,6 +70,7 @@ impl FfmpegArg {
         }
     }
 
+    #[cfg(test)]
     #[must_use]
     pub fn to_string_lossy(&self) -> String {
         match self {
@@ -80,31 +82,31 @@ impl FfmpegArg {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum FfmpegOverwritePolicy {
+pub(crate) enum FfmpegOverwritePolicy {
     Allow,
     #[default]
     Never,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct RemuxRequest {
-    pub source_id: MediaSourceId,
-    pub input_path: PathBuf,
-    pub output_path: PathBuf,
-    pub output_container: RemuxContainer,
-    pub overwrite: FfmpegOverwritePolicy,
+pub(crate) struct RemuxRequest {
+    pub(crate) source_id: MediaSourceId,
+    pub(crate) input_path: PathBuf,
+    pub(crate) output_path: PathBuf,
+    pub(crate) output_container: RemuxContainer,
+    pub(crate) overwrite: FfmpegOverwritePolicy,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct HlsRequest {
-    pub source_id: MediaSourceId,
-    pub input_path: PathBuf,
-    pub playback_generation: HlsPlaybackGeneration,
-    pub artifacts: HlsArtifactManifest,
-    pub segment_time_seconds: u32,
-    pub track_selection: TranscodeTrackSelection,
-    pub execution_policy: TranscodeExecutionPolicy,
-    pub overwrite: FfmpegOverwritePolicy,
+pub(crate) struct HlsRequest {
+    pub(crate) source_id: MediaSourceId,
+    pub(crate) input_path: PathBuf,
+    pub(crate) playback_generation: HlsPlaybackGeneration,
+    pub(crate) artifacts: HlsArtifactManifest,
+    pub(crate) segment_time_seconds: u32,
+    pub(crate) track_selection: TranscodeTrackSelection,
+    pub(crate) execution_policy: TranscodeExecutionPolicy,
+    pub(crate) overwrite: FfmpegOverwritePolicy,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -133,7 +135,7 @@ impl RemuxContainer {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct FfmpegCommandBuilder {
+pub(crate) struct FfmpegCommandBuilder {
     ffmpeg_path: PathBuf,
 }
 
@@ -149,11 +151,6 @@ impl FfmpegCommandBuilder {
         Self {
             ffmpeg_path: ffmpeg_path.into(),
         }
-    }
-
-    #[must_use]
-    pub fn ffmpeg_path(&self) -> &Path {
-        &self.ffmpeg_path
     }
 
     pub fn remux(&self, request: &RemuxRequest) -> Result<FfmpegCommandPlan> {

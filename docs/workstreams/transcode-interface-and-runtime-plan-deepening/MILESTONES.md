@@ -22,7 +22,7 @@ Exit criteria:
   request variant, execution policy, and artifact planning;
 - pure transcode tests prove the plan shape.
 
-Status: Pending `TIRP-020`.
+Status: Done.
 
 ## M2 - FFmpeg Adapter Interface Ratchet
 
@@ -33,7 +33,7 @@ Exit criteria:
 - server HLS/remux paths enter through planned execution adapters;
 - transcode command planning remains directly testable inside the crate.
 
-Status: Pending `TIRP-020`.
+Status: Done.
 
 ## M3 - Closeout And HDR Unblock
 
@@ -44,4 +44,4 @@ Exit criteria:
 - HDR `HTP-030` is either explicitly unblocked or replanned around a narrower
   follow-on.
 
-Status: Pending implementation.
+Status: Pending `TIRP-040`.

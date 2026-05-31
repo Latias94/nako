@@ -17,7 +17,7 @@ mod runtime;
 pub use artifact::*;
 pub use engine::*;
 pub use execution::*;
-pub use ffmpeg::*;
+pub use ffmpeg::RemuxContainer;
 pub use hardware::*;
 pub use hls::*;
 pub use pipeline::*;
@@ -29,6 +29,11 @@ pub use progress::*;
 pub use remux::*;
 pub use runtime::*;
 
+#[cfg(test)]
+pub(crate) use ffmpeg::{
+    FfmpegArg, FfmpegCommandBuilder, FfmpegCommandPlan, FfmpegOverwritePolicy, HlsRequest,
+    RemuxRequest,
+};
 #[cfg(test)]
 use runner_util::command_with_output_path;
 #[cfg(test)]
@@ -152,6 +157,37 @@ mod tests {
     }
 
     #[test]
+    fn ffmpeg_execution_planner_plans_remux_execution_without_raw_request() {
+        let source_id = MediaSourceId::new();
+        let session_id = TranscodeSessionId::new();
+        let planner = FfmpegExecutionPlanner::new("ffmpeg");
+
+        let execution = planner
+            .plan_remux_with_id(
+                session_id,
+                RemuxExecutionPlanRequest {
+                    source_id,
+                    input_path: PathBuf::from("input.mkv"),
+                    output_path: PathBuf::from("output.mp4"),
+                    output_container: RemuxContainer::Mp4,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(execution.session_id, session_id);
+        assert_eq!(execution.source_id, source_id);
+        assert_eq!(execution.kind, TranscodeSessionKind::Remux);
+        assert_eq!(execution.output_path, PathBuf::from("output.mp4"));
+        assert!(
+            execution
+                .command
+                .argv_lossy()
+                .windows(2)
+                .any(|args| args[0] == "-n" && args[1] == "-i")
+        );
+    }
+
+    #[test]
     fn ffmpeg_builder_plans_hls_single_variant() {
         let builder = FfmpegCommandBuilder::new("ffmpeg");
         let request = HlsRequest {
@@ -203,6 +239,45 @@ mod tests {
                 "hls/segment_%05d.ts",
                 "hls/playlist.m3u8",
             ]
+        );
+    }
+
+    #[test]
+    fn ffmpeg_execution_planner_plans_hls_execution_without_raw_request() {
+        let source_id = MediaSourceId::new();
+        let session_id = TranscodeSessionId::new();
+        let planner = FfmpegExecutionPlanner::new("ffmpeg");
+
+        let execution = planner
+            .plan_hls_with_id(
+                session_id,
+                HlsExecutionPlanRequest {
+                    source_id,
+                    input_path: PathBuf::from("input.mkv"),
+                    playback_generation: HlsPlaybackGeneration::default(),
+                    artifacts: hls_artifacts(
+                        "hls",
+                        "hls/playlist.m3u8",
+                        "hls/segment_%05d.ts",
+                        HlsOutputRequirement::default(),
+                    ),
+                    segment_time_seconds: 6,
+                    track_selection: TranscodeTrackSelection::default(),
+                    execution_policy: hls_policy(HardwareAcceleration::None),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(execution.session_id, session_id);
+        assert_eq!(execution.source_id, source_id);
+        assert_eq!(execution.kind, TranscodeSessionKind::HlsTranscode);
+        assert_eq!(execution.output_path, PathBuf::from("hls/playlist.m3u8"));
+        assert!(
+            execution
+                .command
+                .argv_lossy()
+                .windows(2)
+                .any(|args| args[0] == "-y" && args[1] == "-i")
         );
     }
 
@@ -2487,7 +2562,12 @@ hevc_metadata
             overwrite: FfmpegOverwritePolicy::Never,
         };
 
-        let execution = TranscodeExecutionRequest::plan_remux(request, &builder).unwrap();
+        let execution = TranscodeExecutionRequest::plan_remux_with_id(
+            TranscodeSessionId::new(),
+            request,
+            &builder,
+        )
+        .unwrap();
         assert_eq!(execution.kind, TranscodeSessionKind::Remux);
         assert_eq!(execution.output_path, PathBuf::from("output.mp4"));
         assert_eq!(
@@ -2520,7 +2600,12 @@ hevc_metadata
             overwrite: FfmpegOverwritePolicy::Allow,
         };
 
-        let execution = TranscodeExecutionRequest::plan_hls(request, &builder).unwrap();
+        let execution = TranscodeExecutionRequest::plan_hls_with_id(
+            TranscodeSessionId::new(),
+            request,
+            &builder,
+        )
+        .unwrap();
 
         assert_eq!(execution.kind, TranscodeSessionKind::HlsTranscode);
         assert_eq!(execution.output_path, PathBuf::from("hls/playlist.m3u8"));
@@ -2853,7 +2938,8 @@ hevc_metadata
         output_path: &Path,
     ) -> TranscodeExecutionRequest {
         let builder = FfmpegCommandBuilder::new(ffmpeg_path);
-        TranscodeExecutionRequest::plan_remux(
+        TranscodeExecutionRequest::plan_remux_with_id(
+            TranscodeSessionId::new(),
             RemuxRequest {
                 source_id: MediaSourceId::new(),
                 input_path: PathBuf::from("input.mkv"),
@@ -2881,7 +2967,8 @@ hevc_metadata
         segment_pattern: &Path,
     ) -> TranscodeExecutionRequest {
         let builder = FfmpegCommandBuilder::new(ffmpeg_path);
-        TranscodeExecutionRequest::plan_hls(
+        TranscodeExecutionRequest::plan_hls_with_id(
+            TranscodeSessionId::new(),
             HlsRequest {
                 source_id: MediaSourceId::new(),
                 input_path: PathBuf::from("input.mkv"),

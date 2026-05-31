@@ -10,10 +10,10 @@ use nako_core::{
 };
 use nako_playback::PlaybackDecision;
 use nako_transcode::{
-    CancellationToken, FfmpegCommandBuilder, FfmpegOverwritePolicy, FfmpegRemuxRunner,
-    RemuxContainer, RemuxRequest, TranscodeEngineAdapter, TranscodeEngineStartCommand,
-    TranscodeEngineStartOutcome, TranscodeExecutionRequest, TranscodeRequestIdentity,
-    TranscodeRuntimeGuard, TranscodeRuntimeLimits,
+    CancellationToken, FfmpegExecutionPlanner, FfmpegRemuxRunner, RemuxContainer,
+    RemuxExecutionPlanRequest, TranscodeEngineAdapter, TranscodeEngineStartCommand,
+    TranscodeEngineStartOutcome, TranscodeRequestIdentity, TranscodeRuntimeGuard,
+    TranscodeRuntimeLimits,
 };
 use tokio::sync::Mutex;
 
@@ -28,7 +28,7 @@ use super::{
 
 #[derive(Clone, Debug)]
 pub(super) struct RemuxAppService {
-    builder: FfmpegCommandBuilder,
+    execution_planner: FfmpegExecutionPlanner,
     engine: FfmpegRemuxRunner,
     cancellations: PlaybackSessionCancellationRegistry,
     in_flight: Arc<Mutex<HashSet<RemuxRequestKey>>>,
@@ -45,7 +45,7 @@ impl RemuxAppService {
         });
 
         Self {
-            builder: FfmpegCommandBuilder::new(&config.ffmpeg_path),
+            execution_planner: FfmpegExecutionPlanner::new(&config.ffmpeg_path),
             engine: FfmpegRemuxRunner::new(guard),
             cancellations,
             in_flight: Arc::new(Mutex::new(HashSet::new())),
@@ -213,16 +213,14 @@ impl RemuxAppService {
             return Err(error);
         }
 
-        let execution = match TranscodeExecutionRequest::plan_remux_with_id(
+        let execution = match self.execution_planner.plan_remux_with_id(
             session_id,
-            RemuxRequest {
+            RemuxExecutionPlanRequest {
                 source_id: source.id,
                 input_path,
                 output_path: output_path.clone(),
                 output_container,
-                overwrite: FfmpegOverwritePolicy::Never,
             },
-            &self.builder,
         ) {
             Ok(execution) => execution,
             Err(error) => {

@@ -7,16 +7,15 @@ use nako_core::{
 };
 use nako_playback::PlaybackDecision;
 use nako_transcode::{
-    CancellationToken, FfmpegCommandBuilder, FfmpegHardwareAccelerationDetector, FfmpegHlsRunner,
-    FfmpegOverwritePolicy, HardwareAccelerationDetector, HardwareAccelerationReport,
-    HlsOutputPublicationPolicy, HlsPlaybackGeneration, HlsRequest, TranscodeArtifactSet,
+    CancellationToken, FfmpegExecutionPlanner, FfmpegHardwareAccelerationDetector, FfmpegHlsRunner,
+    HardwareAccelerationDetector, HardwareAccelerationReport, HlsExecutionPlanRequest,
+    HlsOutputPublicationPolicy, HlsPlaybackGeneration, TranscodeArtifactSet,
     TranscodeAudioOutputRequirement, TranscodeEngineAdapter, TranscodeEngineStartCommand,
-    TranscodeEngineStartOutcome, TranscodeExecutionPolicy, TranscodeExecutionRequest,
-    TranscodeOutputConstraints, TranscodePipelinePlan, TranscodePipelinePlanner,
-    TranscodePipelineReadiness, TranscodePipelineRequest, TranscodePipelineSourceFacts,
-    TranscodeRequestIdentity, TranscodeResourceBudget, TranscodeRuntimeGuard,
-    TranscodeRuntimeLimits, TranscodeTrackSelection,
-    transcode_pipeline_readiness_without_selection,
+    TranscodeEngineStartOutcome, TranscodeExecutionPolicy, TranscodeOutputConstraints,
+    TranscodePipelinePlan, TranscodePipelinePlanner, TranscodePipelineReadiness,
+    TranscodePipelineRequest, TranscodePipelineSourceFacts, TranscodeRequestIdentity,
+    TranscodeResourceBudget, TranscodeRuntimeGuard, TranscodeRuntimeLimits,
+    TranscodeTrackSelection, transcode_pipeline_readiness_without_selection,
 };
 use tokio::sync::Mutex;
 use tracing::{debug, warn};
@@ -32,7 +31,7 @@ use super::{
 
 #[derive(Clone, Debug)]
 pub(super) struct HlsAppService {
-    builder: FfmpegCommandBuilder,
+    execution_planner: FfmpegExecutionPlanner,
     engine: FfmpegHlsRunner,
     hardware_policy: nako_transcode::HardwareAccelerationPolicy,
     pub(super) hardware_report: HardwareAccelerationReport,
@@ -92,7 +91,7 @@ impl HlsAppService {
         });
 
         Ok(Self {
-            builder: FfmpegCommandBuilder::new(&config.ffmpeg_path),
+            execution_planner: FfmpegExecutionPlanner::new(&config.ffmpeg_path),
             engine: FfmpegHlsRunner::new_with_output_publication_policy(
                 guard,
                 HlsOutputPublicationPolicy::ServeWhileRunning,
@@ -399,9 +398,9 @@ impl HlsAppService {
         let cancel = CancellationToken::new();
         let _cancel_handle = self.cancellations.register(session_id, cancel.clone());
 
-        let execution = match TranscodeExecutionRequest::plan_hls_with_id(
+        let execution = match self.execution_planner.plan_hls_with_id(
             session_id,
-            HlsRequest {
+            HlsExecutionPlanRequest {
                 source_id: source.id,
                 input_path,
                 playback_generation,
@@ -409,9 +408,7 @@ impl HlsAppService {
                 segment_time_seconds: 6,
                 track_selection,
                 execution_policy,
-                overwrite: FfmpegOverwritePolicy::Allow,
             },
-            &self.builder,
         ) {
             Ok(execution) => execution,
             Err(error) => {
