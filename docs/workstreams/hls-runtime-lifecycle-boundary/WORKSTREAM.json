@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "slug": "hls-runtime-lifecycle-boundary",
+  "title": "HLS Runtime Lifecycle Boundary",
+  "status": "active",
+  "updated": "2026-05-31",
+  "scope_kind": "fearless_refactor",
+  "problem": "HLS session lifecycle, admission, readiness, segment waits, and cleanup are distributed across server playback composition, HLS app service, artifact service, transcode runner, and startup cleanup, which will make queueing, artifact I/O pressure, remote workers, and LL-HLS harder to add safely.",
+  "task_prefix": "HRLB",
+  "current_task": "HRLB-010",
+  "completed_tasks": [],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/hls-runtime-lifecycle-boundary/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/hls-runtime-lifecycle-boundary/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/hls-runtime-lifecycle-boundary/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/hls-runtime-lifecycle-boundary/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/hls-runtime-lifecycle-boundary/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "context_manifest",
+      "path": "docs/workstreams/hls-runtime-lifecycle-boundary/CONTEXT.jsonl"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/hls-runtime-lifecycle-boundary/HANDOFF.md"
+    }
+  ],
+  "context_manifest": "docs/workstreams/hls-runtime-lifecycle-boundary/CONTEXT.jsonl",
+  "gates": [
+    "python -m json.tool docs/workstreams/hls-runtime-lifecycle-boundary/WORKSTREAM.json",
+    "git diff --check -- docs/workstreams/hls-runtime-lifecycle-boundary docs/architecture/PLAYBACK.md docs/architecture/LANES.md docs/architecture/WORKSTREAM_LINKS.md docs/workstreams/README.md",
+    "cargo nextest run -p nako-server hls --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [],
+  "adr_refs": [
+    "docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md",
+    "docs/adr/0052-hls-runtime-and-media-engine-boundary.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/PLAYBACK.md",
+      "capability": "HLS runtime lifecycle"
+    },
+    {
+      "path": "docs/architecture/LANES.md",
+      "capability": "playback-transcode"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Playback And Transcode"
+    }
+  ],
+  "capability_tags": [
+    "playback.hls.lifecycle",
+    "playback.hls.artifacts",
+    "playback.runtime.admission",
+    "transcode.runtime.boundary"
+  ],
+  "lane_slug": "playback-transcode",
+  "continue_policy": {
+    "default_action": "continue_current_task",
+    "notes": "Start with HRLB-010 invariant freeze. Do not implement artifact I/O pressure, resource admission unification, remote workers, LL-HLS/CMAF, Public/Admin DTOs, storage schema, or FFmpeg command planning until the planner splits or approves those scopes."
+  }
+}

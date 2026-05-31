@@ -79,6 +79,7 @@ Evidence workstreams:
 - `docs/workstreams/hdr-tone-mapping-pipeline/`
 - `docs/workstreams/playback-compatibility-matrix-hardening/`
 - `docs/workstreams/transcode-capability-inventory-matrix/`
+- `docs/workstreams/hls-runtime-lifecycle-boundary/`
 
 Proposed lanes:
 
