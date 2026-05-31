@@ -178,6 +178,22 @@ Validated on 2026-05-31:
 - `git diff --check` - passed; Git reported only Windows line-ending
   normalization warnings.
 
+Planner verification on 2026-05-31:
+
+- `python -m json.tool docs/workstreams/remote-storage-health-and-circuit-breaker/WORKSTREAM.json`
+  passed.
+- `cargo nextest run -p nako-server admin_v1_storage --no-fail-fast` passed
+  with 2 tests run.
+- `cargo nextest run -p nako-server storage_health --no-fail-fast` passed with
+  1 test run.
+- `cargo nextest run -p nako-api --no-fail-fast` passed with 71 tests run.
+- `cargo nextest run -p nako-db storage_backend_health --no-fail-fast` passed
+  with 1 SQLite contract test run.
+- `cargo nextest run -p nako-server storage --no-fail-fast` passed with 20
+  tests run.
+- `cargo fmt --all -- --check` passed.
+- `git diff --check` passed.
+
 Notes:
 
 - Admin storage diagnostics now expose a paginated, redaction-safe durable

@@ -24,7 +24,7 @@ and rclone-like mounts can be slow, stale, or unavailable.
 | Capability | Status | Authority | Next Lane |
 | --- | --- | --- | --- |
 | Local storage backend | Shipped | `docs/adr/0002-internal-vfs-before-os-mounting.md` | Keep local behavior as the compatibility baseline. |
-| Remote storage boundary | Active follow-on | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/` | Finish `RSHC-040` for Admin diagnostics and operator reset. |
+| Remote storage boundary | Active follow-on | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/` | Run `RSHC-050` verification and closeout, then split follow-ons if still relevant. |
 | WebDAV read path | Partial | `docs/workstreams/storage-vfs/`; remote storage lanes | Harden retries, cache, and operator diagnostics. |
 | Source locator | Shipped foundation | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Watcher/debounce productization and repair workflows. |
 | Source fingerprint | Shipped first slice | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Optional partial/full hash escalation policy. |
@@ -46,14 +46,16 @@ state and risk, not copied task evidence.
 
 Status: Active.
 
-Current task: `RSHC-040`.
+Current task: `RSHC-050`.
 
-Goal: surface redaction-safe durable **Storage Backend Health** through Admin
-diagnostics and add an operator reset action for durable circuit-breaker state.
+Goal: verify final gates, close the durable remote storage health lane, and
+split any remaining cache repair, hash escalation, playback artifact I/O, or
+PostgreSQL runtime harness follow-ons.
 
-Core/db health storage and runtime circuit-breaker wiring are complete.
-Playback staging, cache repair, source fingerprint escalation, and scan
-scheduling remain sequenced follow-ons.
+Core/db health storage, runtime circuit-breaker wiring, and Admin diagnostics
+plus reset are complete. Playback staging, cache repair, source fingerprint
+escalation, scan scheduling, and PostgreSQL runtime harness work remain
+sequenced follow-ons unless closeout proves they belong here.
 
 ## Completed Work Lanes
 

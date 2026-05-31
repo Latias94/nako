@@ -22,7 +22,7 @@ ledger instead.
 | --- | --- | --- | --- |
 | `library-metadata-control-plane` | `generated-artifact-metadata-authority-apply` | `GAMA-050` | Backend/control-plane execution |
 | `client-surfaces-planning` | `client-surface-and-access-product-architecture` | `CSAPA-050` | Planner/docs split or defer decision |
-| `storage-vfs` | `remote-storage-health-and-circuit-breaker` | `RSHC-040` | Backend storage/Admin diagnostics execution |
+| `storage-vfs` | `remote-storage-health-and-circuit-breaker` | `RSHC-050` | Planner verification and closeout |
 | `playback-transcode` | `transcode-interface-and-runtime-plan-deepening` | `TIRP-030` | Transcode Interface execution |
 | `playback-transcode` | `hdr-tone-mapping-pipeline` | `HTP-030` parked | Resume after `TIRP-030` acceptance or explicit serialization |
 
