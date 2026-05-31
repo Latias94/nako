@@ -1,6 +1,6 @@
 # HLS Runtime Lifecycle Boundary - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## M0 - Lifecycle Invariant Freeze
@@ -45,4 +45,13 @@ Exit criteria:
 - docs and `WORKSTREAM.json` reflect active/completed/deferred status;
 - no lifecycle ownership decision remains only in chat.
 
-Status: Pending `HRLB-040`.
+Status: Completed by `HRLB-040`.
+
+Follow-on split:
+
+- `docs/workstreams/hls-progressive-readiness-test-stability/` owned and
+  closed the full-suite progressive readiness instability before HRLB closeout
+  was retried.
+- PAIP artifact I/O pressure, resource admission unification, remote workers,
+  LL-HLS/CMAF, and player UX remain separate proposed lanes and are not
+  approved inside HRLB.

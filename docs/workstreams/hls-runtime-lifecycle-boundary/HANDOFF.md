@@ -1,117 +1,70 @@
 # HLS Runtime Lifecycle Boundary - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## Current State
 
-`HRLB-010` is complete as a docs/research invariant freeze.
+This workstream is closed.
 
-The freeze lives in `DESIGN.md` and covers active same-generation requests,
-finished session reuse, different-generation supersede, running playlist
-readiness, segment readiness and one-shot wait, cancellation/timeout cleanup,
-startup stale-session cleanup, terminal artifact cleanup, staging input
-release, and the decision to split artifact I/O pressure into a PAIP follow-on.
+`HRLB-010` froze HLS lifecycle invariants for active/reuse/supersede,
+readiness, one-shot segment wait, cancellation, timeout cleanup, startup stale
+recovery, terminal artifact cleanup, staging input release, and the explicit
+decision to keep artifact I/O pressure as a separate PAIP follow-on.
 
-`HRLB-020` is complete with concerns. It added behavior-preserving focused
-coverage for:
+`HRLB-020` added behavior-preserving HLS lifecycle coverage for timeout
+cleanup, HLS stale startup recovery, and remote staged-input release across
+success, runner error, and admission rejection. No lifecycle coordinator or
+facade was introduced because the useful slice was coverage and evidence.
 
-- HLS timeout failure mapping, persisted `Timeout` category, and serve-visible
-  output cleanup;
-- HLS-specific startup stale-session recovery;
-- HLS remote staged-input release after success, runner error, and admission
-  rejection.
+`HRLB-030` split non-lifecycle expansion work into follow-ons:
 
-No lifecycle coordinator/facade was introduced. HRLB-010 justified focused
-tests first, and this patch did not uncover a behavior-preserving abstraction
-that clearly reduces lifecycle ownership drift.
+- `hls-progressive-readiness-test-stability`
+- `proposed:hls-artifact-io-pressure-enforcement`
+- `proposed:playback-admission-queueing-and-waitlist`
+- `proposed:remote-transcode-worker-runtime`
+- `proposed:ll-hls-cmaf-runtime`
+- `proposed:player-hls-session-controls-and-recovery`
 
-Planner accepted a narrow scope-out compile fix for Admin hardware diagnostics:
-`HardwarePipelineStage::{ToneMap, SubtitleBurnIn}` now map to
-`AdminHardwarePipelineStage`.
+`HRLB-040` first found that the required full HLS gate failed under default
+nextest concurrency on two progressive readiness tests. That instability was
+split to `hls-progressive-readiness-test-stability`. After `HPRTS-020` fixed
+the test-only Windows readiness timeout and `HPRTS-030` verified the full HLS
+gate, HRLB closeout was retried and completed.
 
-Validation:
+## Completed
+
+- Task ID: `HRLB-010`, `HRLB-020`, `HRLB-030`, `HRLB-040`
+- Lane: `playback-transcode`
+- Final status: DONE_WITH_CONCERNS
+
+## Validation
+
+Fresh planner verification on 2026-05-31:
 
 ```text
 cargo nextest run -p nako-server hls --no-fail-fast
 cargo fmt --all -- --check
-git diff --check
-```
-
-Result: passed on 2026-05-31. An earlier full HLS run had one existing
-load-sensitive progressive-readiness timeout; that test passed individually and
-the final full rerun passed 70/70.
-
-## HRLB-030 Decisions
-
-`HRLB-030` is complete with concerns. Follow-on decisions:
-
-- next recommended bounded workstream:
-  `proposed:hls-progressive-readiness-test-stability`;
-- PAIP artifact I/O pressure remains separate:
-  `proposed:hls-artifact-io-pressure-enforcement`;
-- resource admission unification remains separate:
-  `proposed:playback-admission-queueing-and-waitlist`;
-- remote workers remain separate:
-  `proposed:remote-transcode-worker-runtime`;
-- LL-HLS/CMAF remains separate:
-  `proposed:ll-hls-cmaf-runtime`;
-- player UX remains separate:
-  `proposed:player-hls-session-controls-and-recovery`.
-
-The reason to prioritize HLS test stability is HRLB-020's load-sensitive
-progressive-readiness evidence. PAIP should wait until the HLS gate is stable
-because it will add read/write pressure and more concurrent segment behavior.
-
-## Next Task
-
-Assign `HRLB-040` for closeout. Verify final gates, preserve HRLB-030's
-follow-on decisions, and close this lifecycle boundary workstream or split any
-remaining closeout-only follow-ons.
-
-Required context:
-
-```text
-docs/workstreams/hls-runtime-lifecycle-boundary/CONTEXT.jsonl
-docs/adr/0052-hls-runtime-and-media-engine-boundary.md
-docs/architecture/PLAYBACK.md
-docs/architecture/LANES.md
-docs/workstreams/transcode-capability-inventory-matrix/CLOSEOUT.md
-docs/workstreams/hdr-tone-mapping-pipeline/CLOSEOUT.md
-docs/workstreams/hls-progressive-runtime-boundary/HANDOFF.md
-docs/workstreams/hls-seek-restart-lifecycle/HANDOFF.md
-docs/workstreams/playback-runtime-resource-scheduler/HANDOFF.md
-docs/workstreams/remote-storage-health-and-circuit-breaker/CLOSEOUT.md
-```
-
-Required validation for `HRLB-040`:
-
-```text
-final gates from EVIDENCE_AND_GATES.md
 python -m json.tool docs/workstreams/hls-runtime-lifecycle-boundary/WORKSTREAM.json
+python -m json.tool docs/workstreams/hls-progressive-readiness-test-stability/WORKSTREAM.json
 git diff --check
 ```
 
-## Stop Conditions
+Result: passed. The full HLS gate ran 71 tests, all passed, with 26 slow tests.
 
-Return to planner coordination if:
+## Residual Risks And Follow-Ons
 
-- implementation needs `nako-transcode` pipeline selection or FFmpeg command
-  planning;
-- the task needs Public/Admin DTO changes or storage schema changes;
-- artifact I/O pressure requires storage health/circuit-breaker behavior
-  changes;
-- client/player UX, LL-HLS/CMAF, DASH/CMAF, DRM/key delivery, or remote worker
-  execution becomes necessary.
+- PAIP artifact I/O pressure remains split and must coordinate with
+  storage/VFS health and playback resource demand.
+- Resource admission queueing/waitlists remain a separate playback scheduler
+  follow-on.
+- Remote transcode workers remain a control-plane/runtime follow-on.
+- LL-HLS/CMAF and player session controls remain separate protocol/client
+  follow-ons.
+- Broader Windows HLS fixture scheduling or nextest grouping may be needed if
+  the process-backed HLS suite keeps growing slower.
 
-## Report Format
+## Next Recommended Action
 
-End with one of:
-
-- DONE
-- DONE_WITH_CONCERNS
-- BLOCKED
-- NEEDS_CONTEXT
-
-Include files changed, invariant coverage, validation evidence, and follow-ons
-split.
+Open a dedicated follow-on before starting PAIP, queueing, remote workers,
+LL-HLS/CMAF, or player UX. Do not reopen HRLB for those scopes.

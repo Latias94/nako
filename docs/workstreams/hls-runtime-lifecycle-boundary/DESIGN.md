@@ -1,6 +1,6 @@
 # HLS Runtime Lifecycle Boundary
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## Why This Lane Exists
@@ -160,3 +160,30 @@ The immediate recommendation is: close HRLB after `HRLB-040`, then open
 `hls-progressive-readiness-test-stability` before PAIP or LL-HLS/CMAF. PAIP can
 be planned after the HLS gate is stable, with storage/VFS coordination from the
 start.
+
+## HRLB-040 Closeout Review
+
+`HRLB-040` did not close this workstream. Fresh verification on 2026-05-31
+showed the required full HLS gate failing twice:
+
+```text
+cargo nextest run -p nako-server hls --no-fail-fast
+```
+
+Both failures were in the progressive readiness tests:
+
+- `app::tests::playback::hls_playlist_playback_returns_when_playlist_is_ready_before_runner_finishes`
+- `http::tests::playback::hls_playlist_route_returns_while_transcode_session_is_running`
+
+Both tests passed when rerun individually, so the remaining work is a
+progressive readiness test-stability boundary, not PAIP, LL-HLS/CMAF, remote
+workers, player UX, DTO, schema, or VFS behavior. That follow-on is now split
+to `docs/workstreams/hls-progressive-readiness-test-stability/`.
+
+Final closeout result: `hls-progressive-readiness-test-stability` stabilized
+the full HLS gate with a test-only Windows readiness timeout adjustment.
+`HRLB-040` was retried after HPRTS closeout, the default full HLS gate passed,
+and this workstream is closed.
+
+The remaining follow-ons are outside HRLB: PAIP artifact I/O pressure,
+resource admission queueing, remote workers, LL-HLS/CMAF, and player UX.

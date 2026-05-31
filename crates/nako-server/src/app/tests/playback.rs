@@ -1,5 +1,12 @@
 use super::*;
 
+fn process_backed_hls_playlist_readiness_timeout() -> std::time::Duration {
+    // Full-suite HLS gates on Windows start many fake FFmpeg processes at once.
+    // Keep this guard above that startup tail while still bounding a hang.
+    let seconds = if cfg!(windows) { 180 } else { 60 };
+    std::time::Duration::from_secs(seconds)
+}
+
 #[tokio::test]
 async fn remux_source_runs_runner_and_reuses_completed_output() {
     let script_root = tempfile::tempdir().unwrap();
@@ -776,7 +783,7 @@ async fn hls_playlist_playback_returns_when_playlist_is_ready_before_runner_fini
     let principal = local_playback_viewer(&store, source.library_id).await;
 
     let playlist = tokio::time::timeout(
-        std::time::Duration::from_secs(60),
+        process_backed_hls_playlist_readiness_timeout(),
         app.playback()
             .hls_playlist_playback(HlsPlaylistPlaybackRequest {
                 principal,

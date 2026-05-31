@@ -2,16 +2,17 @@
   "schema_version": 1,
   "slug": "hls-runtime-lifecycle-boundary",
   "title": "HLS Runtime Lifecycle Boundary",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-05-31",
   "scope_kind": "fearless_refactor",
   "problem": "HLS session lifecycle, admission, readiness, segment waits, and cleanup are distributed across server playback composition, HLS app service, artifact service, transcode runner, and startup cleanup, which will make queueing, artifact I/O pressure, remote workers, and LL-HLS harder to add safely.",
   "task_prefix": "HRLB",
-  "current_task": "HRLB-040",
+  "current_task": null,
   "completed_tasks": [
     "HRLB-010",
     "HRLB-020",
-    "HRLB-030"
+    "HRLB-030",
+    "HRLB-040"
   ],
   "authoritative_docs": [
     {
@@ -41,6 +42,10 @@
     {
       "role": "handoff",
       "path": "docs/workstreams/hls-runtime-lifecycle-boundary/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/hls-runtime-lifecycle-boundary/CLOSEOUT.md"
     }
   ],
   "context_manifest": "docs/workstreams/hls-runtime-lifecycle-boundary/CONTEXT.jsonl",
@@ -63,6 +68,10 @@
     {
       "task": "HRLB-030",
       "summary": "Split follow-ons: make HLS progressive-readiness test stability the recommended next bounded playback-transcode workstream, keep PAIP artifact I/O pressure as a playback/storage follow-on, keep resource admission unification, remote workers, LL-HLS/CMAF, and player UX as separate proposed lanes."
+    },
+    {
+      "task": "HRLB-040",
+      "summary": "Closed after HPRTS stabilized the full HLS gate. HRLB lifecycle invariants, behavior-preserving coverage, follow-on splits, and closeout evidence are recorded; PAIP, resource admission unification, remote workers, LL-HLS/CMAF, and player UX remain separate follow-ons."
     }
   ],
   "adr_refs": [
@@ -91,7 +100,7 @@
   ],
   "lane_slug": "playback-transcode",
   "continue_policy": {
-    "default_action": "continue_current_task",
-    "notes": "Continue with HRLB-040 closeout. Verify final gates, preserve the HRLB-030 follow-on decisions, and close or split remaining work. Recommended next workstream after closeout: proposed:hls-progressive-readiness-test-stability. Do not implement PAIP artifact I/O pressure enforcement, resource admission unification, remote workers, LL-HLS/CMAF, or player UX until the planner opens dedicated workstreams."
+    "default_action": "closed",
+    "notes": "This workstream is closed. Do not reopen it for PAIP artifact I/O pressure enforcement, resource admission unification, remote workers, LL-HLS/CMAF, or player UX. Open dedicated follow-on workstreams for those scopes."
   }
 }

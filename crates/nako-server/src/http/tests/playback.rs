@@ -1,5 +1,12 @@
 use super::*;
 
+fn process_backed_hls_playlist_readiness_timeout() -> std::time::Duration {
+    // Full-suite HLS gates on Windows start many fake FFmpeg processes at once.
+    // Keep this guard above that startup tail while still bounding a hang.
+    let seconds = if cfg!(windows) { 180 } else { 60 };
+    std::time::Duration::from_secs(seconds)
+}
+
 async fn wait_for_marker(marker: &std::path::Path) {
     for _ in 0..250 {
         if marker.exists() {
@@ -2381,7 +2388,7 @@ async fn hls_playlist_route_returns_while_transcode_session_is_running() {
     let playlist_path = format!("/sources/{}/stream/hls/playlist.m3u8", source.id);
 
     let playlist_response = tokio::time::timeout(
-        Duration::from_secs(60),
+        process_backed_hls_playlist_readiness_timeout(),
         router.clone().oneshot(
             Request::builder()
                 .method(Method::GET)

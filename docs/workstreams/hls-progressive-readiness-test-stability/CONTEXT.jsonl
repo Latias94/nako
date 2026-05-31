@@ -1,0 +1,8 @@
+{"role":"glossary","path":"CONTEXT.md","reason":"Use Nako playback, source, artifact, and session terminology consistently."}
+{"role":"architecture","path":"docs/architecture/PLAYBACK.md","reason":"Primary playback/transcode capability map and HLS runtime lifecycle status."}
+{"role":"architecture","path":"docs/architecture/LANES.md","reason":"Active playback-transcode lane routing."}
+{"role":"architecture","path":"docs/architecture/WORKSTREAM_LINKS.md","reason":"Playback/transcode workstream evidence index and proposed follow-ons."}
+{"role":"adr","path":"docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md","reason":"Runtime resource budget baseline for admission and test concurrency context."}
+{"role":"adr","path":"docs/adr/0052-hls-runtime-and-media-engine-boundary.md","reason":"HLS runtime/media-engine boundary authority."}
+{"role":"workstream","path":"docs/workstreams/hls-runtime-lifecycle-boundary/EVIDENCE_AND_GATES.md","reason":"HRLB-040 failure evidence that opened this follow-on."}
+{"role":"workstream","path":"docs/workstreams/hls-progressive-runtime-boundary/HANDOFF.md","reason":"Progressive HLS readiness and running segment serving baseline."}

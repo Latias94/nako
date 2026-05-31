@@ -1,6 +1,6 @@
 # HLS Runtime Lifecycle Boundary
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 This workstream freezes and deepens the HLS runtime lifecycle boundary before
@@ -14,7 +14,7 @@ starts with a docs/research invariant freeze before any behavior change.
 
 Planner-approved lane: `playback-transcode`.
 
-Current task: `HRLB-040`.
+Current task: none. The workstream closed after `HRLB-040`.
 
 Read before implementation:
 
@@ -42,3 +42,9 @@ abstraction.
 workstream before PAIP artifact I/O pressure or LL-HLS/CMAF. PAIP, resource
 admission unification, remote workers, LL-HLS/CMAF, and player UX remain
 separate proposed lanes.
+
+`HRLB-040` first found that the full HLS gate failed under default nextest
+concurrency on progressive readiness tests. The remaining test-stability work
+was split to `docs/workstreams/hls-progressive-readiness-test-stability/`.
+After that follow-on passed, `HRLB-040` reran the final HLS, formatting, JSON,
+and diff gates successfully and closed this lifecycle boundary.

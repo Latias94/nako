@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "slug": "hls-progressive-readiness-test-stability",
+  "title": "HLS Progressive Readiness Test Stability",
+  "status": "closed",
+  "updated": "2026-05-31",
+  "scope_kind": "test_stability",
+  "problem": "The full nako-server HLS gate fails under default suite concurrency on progressive readiness tests that pass individually, blocking HLS runtime lifecycle closeout.",
+  "task_prefix": "HPRTS",
+  "current_task": null,
+  "completed_tasks": [
+    "HPRTS-010",
+    "HPRTS-020",
+    "HPRTS-030"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/hls-progressive-readiness-test-stability/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/hls-progressive-readiness-test-stability/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/hls-progressive-readiness-test-stability/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/hls-progressive-readiness-test-stability/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/hls-progressive-readiness-test-stability/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "context_manifest",
+      "path": "docs/workstreams/hls-progressive-readiness-test-stability/CONTEXT.jsonl"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/hls-progressive-readiness-test-stability/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/hls-progressive-readiness-test-stability/CLOSEOUT.md"
+    }
+  ],
+  "context_manifest": "docs/workstreams/hls-progressive-readiness-test-stability/CONTEXT.jsonl",
+  "gates": [
+    "python -m json.tool docs/workstreams/hls-progressive-readiness-test-stability/WORKSTREAM.json",
+    "cargo nextest run -p nako-server app::tests::playback::hls_playlist_playback_returns_when_playlist_is_ready_before_runner_finishes --no-fail-fast",
+    "cargo nextest run -p nako-server http::tests::playback::hls_playlist_route_returns_while_transcode_session_is_running --no-fail-fast",
+    "cargo nextest run -p nako-server hls --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "HPRTS-010",
+      "summary": "Split HRLB-040's failing final HLS gate into a dedicated progressive readiness test-stability follow-on. Full HLS gate failed twice on two readiness tests that passed individually."
+    },
+    {
+      "task": "HPRTS-020",
+      "summary": "Classified the default full HLS gate instability as Windows process-backed test timing. Added test-only readiness timeout helpers for the two progressive playlist tests; final targeted and full HLS nextest gates passed."
+    },
+    {
+      "task": "HPRTS-030",
+      "summary": "Verified the stabilized full HLS gate, closed the follow-on, and unblocked HRLB-040 closeout retry."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md",
+    "docs/adr/0052-hls-runtime-and-media-engine-boundary.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/PLAYBACK.md",
+      "capability": "HLS progressive readiness"
+    },
+    {
+      "path": "docs/architecture/LANES.md",
+      "capability": "playback-transcode"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Playback And Transcode"
+    }
+  ],
+  "capability_tags": [
+    "playback.hls.progressive",
+    "playback.hls.lifecycle",
+    "playback.test-stability"
+  ],
+  "lane_slug": "playback-transcode",
+  "continue_policy": {
+    "default_action": "closed",
+    "notes": "This test-stability follow-on is closed. The full HLS gate passed after the test-only Windows readiness timeout adjustment. Broader HLS fixture scheduling remains a separate follow-on candidate if the suite continues to slow down."
+  }
+}

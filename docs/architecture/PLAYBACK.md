@@ -46,7 +46,7 @@ selection.
 | HLS audio sidecar media group | Shipped cleanup slice | `docs/workstreams/hls-audio-sidecar-artifacts/`; `docs/workstreams/hls-selected-main-audio-cleanup/`; `docs/workstreams/playback-audio-language-default-policy/` | Request-scoped language defaults and audio output compatibility are shipped; defer codec-aware sidecars and player-specific fallback. |
 | HLS seek/restart | Shipped first slice | `docs/adr/0052-hls-runtime-and-media-engine-boundary.md`; `docs/workstreams/hls-seek-restart-lifecycle/` | Generation identity, restart admission, FFmpeg seek flags, and public `start_position_ms` playlist query. |
 | HLS progressive runtime | Shipped | `docs/workstreams/hls-progressive-runtime-boundary/`; `docs/adr/0052-hls-runtime-and-media-engine-boundary.md` | Playlist readiness before full FFmpeg completion, running segment serving, typed artifact reconstruction, manifest-aware URL auth, and partial-playlist readiness guard. |
-| HLS runtime lifecycle | Split decisions complete | `docs/adr/0052-hls-runtime-and-media-engine-boundary.md`; `docs/workstreams/hls-runtime-lifecycle-boundary/` | Close HRLB, then open HLS progressive-readiness test stability before PAIP artifact I/O pressure or LL-HLS/CMAF. |
+| HLS runtime lifecycle | Closed with test-stability follow-on | `docs/adr/0052-hls-runtime-and-media-engine-boundary.md`; `docs/workstreams/hls-runtime-lifecycle-boundary/`; `docs/workstreams/hls-progressive-readiness-test-stability/` | Lifecycle invariants are frozen, behavior-preserving tests are in place, and HPRTS stabilized the full HLS gate. PAIP artifact I/O pressure, queueing, remote workers, LL-HLS/CMAF, and player UX remain follow-ons. |
 | HDR tone mapping | Shipped software-first slice | `docs/ARCHITECTURE.md`; `docs/adr/0044-playback-capability-profile-planner.md`; `docs/workstreams/hdr-tone-mapping-pipeline/` | Split hardware tone mapping, dynamic HDR handling, device profiles, UI controls, and operator smoke matrices into follow-ons. |
 | Audio downmix and normalization | Shipped first slice | `docs/workstreams/audio-compatibility-downmix-normalization/` | Persisted preferences, client controls, device profiles, and dialogue clarity remain follow-ons. |
 | Runtime resource scheduler | Shipped first slice | `docs/workstreams/playback-runtime-resource-scheduler/`; `docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md`; playback runtime diagnostics lanes | Add queueing, remote workers, OS isolation, per-device tuning, and disk-sensitive artifact I/O enforcement only through follow-on lanes. |
@@ -70,9 +70,10 @@ The audio compatibility, Transcode Interface deepening, software-first HDR
 tone-mapping, playback compatibility matrix, and transcode capability
 inventory slices are closed. `hls-runtime-lifecycle-boundary` completed its
 docs/research invariant freeze, behavior-preserving lifecycle coverage slice,
-and follow-on split decisions. The next recommended playback-transcode
-workstream is HLS progressive-readiness test stability. Keep PAIP artifact I/O
-pressure, remote workers, LL-HLS/CMAF, and player-facing follow-ons separate.
+follow-on split decisions, and closeout retry. `hls-progressive-readiness-test-stability`
+closed the full-suite progressive-readiness gate instability that blocked HRLB
+closeout. Keep PAIP artifact I/O pressure, resource admission queueing, remote
+workers, LL-HLS/CMAF, and player-facing follow-ons separate.
 
 ### Lane A - Device Capability Profiles
 

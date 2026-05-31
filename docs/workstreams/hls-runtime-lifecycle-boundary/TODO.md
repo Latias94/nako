@@ -1,6 +1,6 @@
 # HLS Runtime Lifecycle Boundary - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## M0 - Lifecycle Invariant Freeze
@@ -34,9 +34,9 @@ Last updated: 2026-05-31
 
 ## M3 - Closeout
 
-- [ ] HRLB-040 [owner=planner] [deps=HRLB-030] [scope=docs/workstreams/hls-runtime-lifecycle-boundary,docs/architecture/PLAYBACK.md,docs/architecture/LANES.md,docs/workstreams/README.md]
+- [x] HRLB-040 [owner=planner] [deps=HRLB-030] [scope=docs/workstreams/hls-runtime-lifecycle-boundary,docs/architecture/PLAYBACK.md,docs/architecture/LANES.md,docs/workstreams/README.md]
   Goal: Verify final gates, record evidence, and close or split remaining follow-ons.
   Validation: final gates from `EVIDENCE_AND_GATES.md`; `python -m json.tool docs/workstreams/hls-runtime-lifecycle-boundary/WORKSTREAM.json`; `git diff --check`
   Review: `review-workstream` and `verify-rust-workstream` before closeout.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and closeout notes.
-  Handoff: Do not leave lifecycle/admission ownership decisions only in chat.
+  Handoff: DONE_WITH_CONCERNS. Initial closeout was blocked by full HLS gate instability, so `hls-progressive-readiness-test-stability` was split and completed first. HRLB-040 was then retried with fresh full HLS, fmt, JSON, and diff gates passing. PAIP, resource admission unification, remote workers, LL-HLS/CMAF, and player UX remain split follow-ons, not HRLB implementation scope.

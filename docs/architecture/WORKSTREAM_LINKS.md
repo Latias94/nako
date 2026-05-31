@@ -80,10 +80,10 @@ Evidence workstreams:
 - `docs/workstreams/playback-compatibility-matrix-hardening/`
 - `docs/workstreams/transcode-capability-inventory-matrix/`
 - `docs/workstreams/hls-runtime-lifecycle-boundary/`
+- `docs/workstreams/hls-progressive-readiness-test-stability/`
 
 Proposed lanes:
 
-- `proposed:hls-progressive-readiness-test-stability`
 - `proposed:ll-hls-cmaf-runtime`
 - `proposed:dash-cmaf-playback-packaging`
 - `proposed:hls-key-delivery-drm-boundary`

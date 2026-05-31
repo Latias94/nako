@@ -1,6 +1,6 @@
 # HLS Runtime Lifecycle Boundary - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## Required Gates
@@ -34,6 +34,20 @@ git diff --check
 ```
 
 `HRLB-030` is docs/planning-only. Do not run Rust gates or implement behavior.
+
+### HRLB-040 - Closeout verification
+
+```text
+python -m json.tool docs/workstreams/hls-runtime-lifecycle-boundary/WORKSTREAM.json
+python -m json.tool docs/workstreams/hls-progressive-readiness-test-stability/WORKSTREAM.json
+git diff --check -- docs/workstreams/hls-runtime-lifecycle-boundary docs/workstreams/hls-progressive-readiness-test-stability docs/architecture/PLAYBACK.md docs/architecture/LANES.md docs/architecture/WORKSTREAM_LINKS.md docs/workstreams/README.md
+cargo nextest run -p nako-server hls --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
+The Rust HLS gate must pass before this workstream is marked closed. Individual
+test reruns may classify a failure, but they do not replace the full HLS gate.
 
 ## Evidence Ledger
 
@@ -165,3 +179,102 @@ git diff --check
 Result: passed on 2026-05-31. `git diff --check` emitted only line-ending
 normalization warnings for touched Markdown/JSON files and no whitespace
 errors.
+
+### HRLB-040 - Closeout verification
+
+Status: Blocked
+
+Review findings:
+
+- Workstream compliance: blocking missing gate. The required full HLS gate
+  failed twice under default nextest concurrency, so HRLB must not be marked
+  closed.
+- Code quality: no HRLB-040 Rust code was changed. The observed failure is
+  isolated to progressive readiness tests that pass individually.
+- Scope: no PAIP, LL-HLS/CMAF, remote worker, player UX, DTO, schema, or VFS
+  behavior work was performed.
+
+Fresh validation:
+
+```text
+python -m json.tool docs/workstreams/hls-runtime-lifecycle-boundary/WORKSTREAM.json
+git diff --check -- docs/workstreams/hls-runtime-lifecycle-boundary docs/architecture/PLAYBACK.md docs/architecture/LANES.md docs/architecture/WORKSTREAM_LINKS.md docs/workstreams/README.md
+cargo nextest run -p nako-server hls --no-fail-fast
+cargo nextest run -p nako-server app::tests::playback::hls_playlist_playback_returns_when_playlist_is_ready_before_runner_finishes --no-fail-fast
+cargo nextest run -p nako-server http::tests::playback::hls_playlist_route_returns_while_transcode_session_is_running --no-fail-fast
+cargo nextest run -p nako-server hls --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
+Result on 2026-05-31:
+
+- `python -m json.tool docs/workstreams/hls-runtime-lifecycle-boundary/WORKSTREAM.json`:
+  passed before the closeout documentation update.
+- Scoped documentation `git diff --check`: passed before the closeout
+  documentation update.
+- First `cargo nextest run -p nako-server hls --no-fail-fast`: failed, 69/71
+  passed, 434 skipped. Failures:
+  `app::tests::playback::hls_playlist_playback_returns_when_playlist_is_ready_before_runner_finishes`
+  and
+  `http::tests::playback::hls_playlist_route_returns_while_transcode_session_is_running`.
+- Individual rerun of
+  `app::tests::playback::hls_playlist_playback_returns_when_playlist_is_ready_before_runner_finishes`:
+  passed, 1/1.
+- Individual rerun of
+  `http::tests::playback::hls_playlist_route_returns_while_transcode_session_is_running`:
+  passed, 1/1.
+- Second `cargo nextest run -p nako-server hls --no-fail-fast`: failed, 69/71
+  passed, 434 skipped, with the same two failures.
+- `cargo fmt --all -- --check`: passed.
+- `git diff --check`: passed before the closeout documentation update.
+- Post-documentation
+  `python -m json.tool docs/workstreams/hls-runtime-lifecycle-boundary/WORKSTREAM.json`:
+  passed.
+- Post-documentation
+  `python -m json.tool docs/workstreams/hls-progressive-readiness-test-stability/WORKSTREAM.json`:
+  passed.
+- Post-documentation scoped `git diff --check`: passed with only Git
+  line-ending normalization warnings and no whitespace errors.
+- Post-documentation `git diff --check`: passed with only Git line-ending
+  normalization warnings and no whitespace errors.
+- New untracked HPRTS docs and the HRLB-040 journal were checked with
+  `rg -n "[ \t]+$"` for trailing whitespace; no matches were found.
+
+Closeout decision:
+
+- Initial HRLB closeout remained active because the required full HLS gate
+  failed.
+- The remaining scope was split to
+  `docs/workstreams/hls-progressive-readiness-test-stability/`.
+
+### HRLB-040 - Closeout retry after HPRTS
+
+Status: Closed with concerns
+
+Fresh planner verification:
+
+```text
+cargo nextest run -p nako-server hls --no-fail-fast
+cargo fmt --all -- --check
+python -m json.tool docs/workstreams/hls-runtime-lifecycle-boundary/WORKSTREAM.json
+python -m json.tool docs/workstreams/hls-progressive-readiness-test-stability/WORKSTREAM.json
+git diff --check
+```
+
+Result on 2026-05-31:
+
+- `cargo nextest run -p nako-server hls --no-fail-fast`: passed, 71/71, 434
+  skipped, 26 slow tests, 111.217s.
+- `cargo fmt --all -- --check`: passed.
+- Both `WORKSTREAM.json` files parsed successfully.
+- `git diff --check`: passed with only Git line-ending normalization warnings
+  for touched files and no whitespace errors.
+
+Closeout decision:
+
+- HRLB is closed.
+- HPRTS is closed.
+- PAIP artifact I/O pressure, resource admission unification, remote workers,
+  LL-HLS/CMAF, and player UX remain separate follow-ons and are not approved
+  inside HRLB.
