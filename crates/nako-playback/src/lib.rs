@@ -796,9 +796,11 @@ fn transcode_requirement_reasons(
         push_unique_condition(&mut reasons, condition);
     }
 
-    for condition in &report.direct_play.reasons {
-        if *condition != PlaybackCompatibilityCondition::Compatible {
-            push_unique_condition(&mut reasons, *condition);
+    for evaluation in [&report.direct_play, &report.remux, &report.transcode] {
+        for condition in &evaluation.reasons {
+            if *condition != PlaybackCompatibilityCondition::Compatible {
+                push_unique_condition(&mut reasons, *condition);
+            }
         }
     }
 
@@ -2226,6 +2228,76 @@ mod tests {
     }
 
     #[test]
+    fn remux_compatibility_matrix_preserves_video_output_constraints() {
+        for case in remux_video_output_constraint_cases() {
+            let source = media_source("movie.mkv");
+            let mut video = stream(MediaStreamKind::Video, Some("h264"));
+            video.index = 0;
+            video.bit_rate = case.video_bitrate;
+            video.width = case.video_width;
+            video.height = case.video_height;
+            let mut audio = stream(MediaStreamKind::Audio, Some("aac"));
+            audio.index = 1;
+            let probe = MediaProbeResult {
+                duration_ms: Some(1_000),
+                container: Some("matroska,webm".to_owned()),
+                bit_rate: None,
+                streams: vec![video, audio],
+            };
+
+            let decision = plan_with_policy(
+                &source,
+                Some(&probe),
+                case.client,
+                case.context,
+                EffectivePlaybackPolicy::from_library_access(
+                    source.library_id,
+                    nako_core::LibraryAccessLevel::Play,
+                ),
+            );
+
+            assert_eq!(decision.mode, PlaybackMode::Transcode, "{}", case.name);
+            assert_eq!(
+                decision.reason,
+                PlaybackDecisionReason::ClientContainerUnsupported,
+                "{}",
+                case.name
+            );
+            assert!(
+                decision
+                    .report
+                    .direct_play
+                    .has(PlaybackCompatibilityCondition::ContainerUnsupported),
+                "{} missing direct-play container reason",
+                case.name
+            );
+            assert!(
+                decision.report.remux.has(case.expected_remux_condition),
+                "{} missing remux condition {:?}",
+                case.name,
+                case.expected_remux_condition
+            );
+
+            let requirement = decision
+                .transcode_requirement()
+                .expect("remux constraint failure should fall back to transcode");
+            assert!(
+                requirement
+                    .reasons
+                    .contains(&PlaybackCompatibilityCondition::ContainerUnsupported),
+                "{} missing source container reason in requirement",
+                case.name
+            );
+            assert!(
+                requirement.reasons.contains(&case.expected_remux_condition),
+                "{} missing remux blocker in requirement {:?}",
+                case.name,
+                case.expected_remux_condition
+            );
+        }
+    }
+
+    #[test]
     fn playback_target_profile_identity_normalizes_capability_order_and_case() {
         let left = PlaybackTargetProfile::from_capabilities(
             &ClientPlaybackCapabilities {
@@ -2884,6 +2956,62 @@ mod tests {
                     PlaybackAudioCompatibilityReason::DownmixRequired,
                     PlaybackAudioCompatibilityReason::NormalizationRequested,
                 ],
+            },
+        ]
+    }
+
+    struct RemuxVideoOutputConstraintCase {
+        name: &'static str,
+        video_bitrate: Option<u64>,
+        video_width: Option<u32>,
+        video_height: Option<u32>,
+        client: ClientPlaybackCapabilities,
+        context: PlaybackSelectionContext,
+        expected_remux_condition: PlaybackCompatibilityCondition,
+    }
+
+    fn remux_video_output_constraint_cases() -> Vec<RemuxVideoOutputConstraintCase> {
+        vec![
+            RemuxVideoOutputConstraintCase {
+                name: "client bitrate cap requires transcode instead of remux",
+                video_bitrate: Some(12_000_000),
+                video_width: Some(1920),
+                video_height: Some(1080),
+                client: ClientPlaybackCapabilities {
+                    max_video_bitrate: Some(8_000_000),
+                    ..ClientPlaybackCapabilities::default()
+                },
+                context: PlaybackSelectionContext::default(),
+                expected_remux_condition: PlaybackCompatibilityCondition::VideoBitrateUnsupported,
+            },
+            RemuxVideoOutputConstraintCase {
+                name: "client resolution cap requires transcode instead of remux",
+                video_bitrate: Some(8_000_000),
+                video_width: Some(3840),
+                video_height: Some(2160),
+                client: ClientPlaybackCapabilities {
+                    max_width: Some(1920),
+                    max_height: Some(1080),
+                    ..ClientPlaybackCapabilities::default()
+                },
+                context: PlaybackSelectionContext::default(),
+                expected_remux_condition:
+                    PlaybackCompatibilityCondition::VideoResolutionUnsupported,
+            },
+            RemuxVideoOutputConstraintCase {
+                name: "user bitrate preference requires transcode instead of remux",
+                video_bitrate: Some(7_000_000),
+                video_width: Some(1920),
+                video_height: Some(1080),
+                client: ClientPlaybackCapabilities::default(),
+                context: PlaybackSelectionContext {
+                    storage: PlaybackStorageContext::default(),
+                    preferences: PlaybackPreferenceContext {
+                        max_video_bitrate: Some(5_000_000),
+                        ..PlaybackPreferenceContext::default()
+                    },
+                },
+                expected_remux_condition: PlaybackCompatibilityCondition::VideoBitrateUnsupported,
             },
         ]
     }

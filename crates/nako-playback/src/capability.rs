@@ -401,13 +401,14 @@ pub(crate) fn evaluate_remux(
         ]);
     };
 
+    let output_constraints = profile.output_constraints();
     append_stream_compatibility_reasons(
         probe,
         &remux_profile.video_codecs,
         &remux_profile.audio_codecs,
-        None,
-        None,
-        None,
+        output_constraints.max_video_bitrate,
+        output_constraints.max_width,
+        output_constraints.max_height,
         profile.max_supported_audio_channels(),
         profile.supports_hdr(),
         &mut reasons,
