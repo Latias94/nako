@@ -223,6 +223,7 @@ Status: Done
 
 Evidence collected:
 
+- Merged commit `8ff30ecd`.
 - Existing authority flow recorded in `worker-notes/PTJCH-210.md`.
 - `HlsRequestVariantPlan` keeps adaptive ladder, media renditions,
   main-output audio shape, and playback generation in request variant

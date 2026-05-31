@@ -23,8 +23,7 @@ Last reviewed: 2026-05-31
 - [client-surface-and-access-product-architecture](client-surface-and-access-product-architecture/README.md)
   is active on lane `client-surfaces-planning`; next task is `CSAPA-050`.
 - [playback-transcode-jellyfin-class-hardening](playback-transcode-jellyfin-class-hardening/README.md)
-  is active on lane `playback-transcode`; next tasks are `PTJCH-210` and
-  `PTJCH-220`.
+  is active on lane `playback-transcode`; next task is `PTJCH-220`.
 
 Planner coordination should keep `GAMA-060` blocked until `GAMA-050` is
 reviewed and verified. `CSAPA` should split or explicitly defer desktop

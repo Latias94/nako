@@ -1,6 +1,7 @@
 # PTJCH-210 - HLS Artifact Authority
 
 Status: Done
+Merged commit: `8ff30ecd`
 Date: 2026-05-31
 
 ## Existing Authority Flow

@@ -22,7 +22,7 @@ ledger instead.
 | --- | --- | --- | --- |
 | `library-metadata-control-plane` | `generated-artifact-metadata-authority-apply` | `GAMA-050` | Backend/control-plane execution |
 | `client-surfaces-planning` | `client-surface-and-access-product-architecture` | `CSAPA-050` | Planner/docs split or defer decision |
-| `playback-transcode` | `playback-transcode-jellyfin-class-hardening` | `PTJCH-210/220` | Coordinated HLS planner/workers |
+| `playback-transcode` | `playback-transcode-jellyfin-class-hardening` | `PTJCH-220` | Playback runtime worker |
 
 Do not start `GAMA-060` until `GAMA-050` has reviewed and verified the final
 Admin apply route. Do not close `CSAPA` until desktop playback is split,

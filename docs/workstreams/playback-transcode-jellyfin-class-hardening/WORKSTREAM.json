@@ -7,13 +7,14 @@
   "scope_kind": "architecture",
   "problem": "Nako has strong playback/transcode seams, but Jellyfin/Plex-class hardening needs an explicit Interface freeze, owned scopes, shared scopes, and validation gates before multiple Codex lanes can work safely.",
   "task_prefix": "PTJCH",
-  "current_task": "PTJCH-210",
+  "current_task": "PTJCH-220",
   "completed_tasks": [
     "PTJCH-010",
     "PTJCH-020",
     "PTJCH-110",
     "PTJCH-120",
-    "PTJCH-130"
+    "PTJCH-130",
+    "PTJCH-210"
   ],
   "authoritative_docs": [
     {
@@ -80,6 +81,10 @@
     {
       "task": "PTJCH-130",
       "summary": "Merged FFmpeg adapter internal split into common, remux, and HLS command-planning modules behind the existing builder facade, with transcode package tests passing."
+    },
+    {
+      "task": "PTJCH-210",
+      "summary": "Merged HLS Artifact Authority hardening: request variant identity reconstructs manifests and manifest sequence patterns define serveable artifact allow-lists."
     }
   ],
   "adr_refs": [
@@ -119,7 +124,7 @@
   "lane_slug": "playback-transcode",
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "PTJCH-210",
-    "notes": "The first parallel implementation batch is merged. Continue with coordinated HLS Artifact Authority and Playback Runtime tasks. PTJCH-210 and PTJCH-220 share server playback integration risk, so keep planner coordination active."
+    "next_task": "PTJCH-220",
+    "notes": "PTJCH-210 is merged and PTJCH-220 is unblocked. Continue with Playback Runtime ownership for sessions, admission, reuse, supersede, cancel, failure classification, and diagnostics without moving FFmpeg command planning or artifact allow-list ownership into nako-server."
   }
 }

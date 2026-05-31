@@ -75,7 +75,7 @@ Last updated: 2026-05-31
   `nako-transcode`; playlist, variant playlist, segment, init, audio sidecar,
   and subtitle sidecar artifacts are covered by manifest-backed tests.
 
-- [ ] PTJCH-220 [owner=codex] [deps=PTJCH-110,PTJCH-120,PTJCH-130] [scope=crates/nako-server/src/app/playback]
+- [ ] PTJCH-220 [owner=codex] [deps=PTJCH-110,PTJCH-120,PTJCH-130,PTJCH-210] [scope=crates/nako-server/src/app/playback]
   Goal: Clarify Playback Runtime ownership for sessions, admission, reuse,
   supersede, cancel, failure classification, and diagnostics without moving
   transcode planning back into the server.

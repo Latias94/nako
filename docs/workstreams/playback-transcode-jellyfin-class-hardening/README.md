@@ -3,16 +3,16 @@
 Status: Active
 Last updated: 2026-05-31
 Lane: `playback-transcode`
-Current tasks: `PTJCH-210`, `PTJCH-220`
+Current task: `PTJCH-220`
 
 This workstream freezes the playback/transcode Interfaces, owned scopes,
 shared scopes, validation gates, and first parallel worker prompts needed to
 deepen Nako toward Jellyfin/Plex-class playback and transcode behavior without
 collapsing the current typed architecture boundaries.
 
-It is an architecture coordination lane first. `PTJCH-010`, `PTJCH-020`, and
-the first parallel Rust implementation batch are complete. The next work is
-the coordinated HLS Artifact Authority and Playback Runtime batch.
+It is an architecture coordination lane first. `PTJCH-010`, `PTJCH-020`, the
+first parallel Rust implementation batch, and `PTJCH-210` are complete. The
+next work is `PTJCH-220` Playback Runtime ownership.
 
 Authoritative files:
 
