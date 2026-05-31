@@ -81,6 +81,7 @@ Evidence workstreams:
 - `docs/workstreams/transcode-capability-inventory-matrix/`
 - `docs/workstreams/hls-runtime-lifecycle-boundary/`
 - `docs/workstreams/hls-progressive-readiness-test-stability/`
+- `docs/workstreams/playback-transcode-jellyfin-class-hardening/`
 
 Proposed lanes:
 

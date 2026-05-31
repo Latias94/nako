@@ -1,0 +1,29 @@
+{"kind":"glossary","path":"CONTEXT.md","note":"Domain language authority for Nako terms."}
+{"kind":"architecture","path":"docs/architecture/PLAYBACK.md","note":"Playback/transcode capability progress, shipped seams, and follow-on lanes."}
+{"kind":"architecture","path":"docs/architecture/LANES.md","note":"Long-lived terminal/worktree ownership map for the playback-transcode lane."}
+{"kind":"architecture","path":"docs/architecture/WORKSTREAM_LINKS.md","note":"Cross-reference index for Playback And Transcode workstream evidence."}
+{"kind":"adr","path":"docs/adr/0038-playback-planning-and-transcode-policy-seams.md","note":"Playback planning and transcode policy seam baseline."}
+{"kind":"adr","path":"docs/adr/0044-playback-capability-profile-planner.md","note":"Client capability profile and playback planner baseline."}
+{"kind":"adr","path":"docs/adr/0045-ffmpeg-hardware-pipeline-planner.md","note":"FFmpeg hardware pipeline planner baseline."}
+{"kind":"adr","path":"docs/adr/0046-ffmpeg-probe-inventory.md","note":"FFmpeg probe and hardware inventory baseline."}
+{"kind":"adr","path":"docs/adr/0047-cpu-transcode-readiness.md","note":"CPU transcode readiness baseline."}
+{"kind":"adr","path":"docs/adr/0048-playback-transcode-startup-degradation.md","note":"Startup degradation and transcode readiness baseline."}
+{"kind":"adr","path":"docs/adr/0049-source-aware-transcode-runtime.md","note":"Source-aware transcode runtime baseline."}
+{"kind":"adr","path":"docs/adr/0052-hls-runtime-and-media-engine-boundary.md","note":"HLS runtime and media engine boundary baseline."}
+{"kind":"adr","path":"docs/adr/0053-runtime-control-plane-boundary.md","note":"Runtime supervision and control-plane baseline."}
+{"kind":"related_workstream","path":"docs/workstreams/playback-compatibility-matrix-hardening/","note":"Closed playback compatibility matrix hardening evidence."}
+{"kind":"related_workstream","path":"docs/workstreams/transcode-capability-inventory-matrix/","note":"Closed FFmpeg capability inventory evidence."}
+{"kind":"related_workstream","path":"docs/workstreams/hls-runtime-lifecycle-boundary/","note":"Closed HLS lifecycle boundary and follow-on split evidence."}
+{"kind":"related_workstream","path":"docs/workstreams/hls-progressive-readiness-test-stability/","note":"Closed HLS progressive readiness full-gate stabilization evidence."}
+{"kind":"related_workstream","path":"docs/workstreams/transcode-interface-and-runtime-plan-deepening/","note":"Closed transcode Interface and FFmpeg adapter exposure ratchet evidence."}
+{"kind":"related_workstream","path":"docs/workstreams/source-aware-transcode-runtime/","note":"Source-aware transcode runtime evidence."}
+{"kind":"related_workstream","path":"docs/workstreams/hdr-tone-mapping-pipeline/","note":"Software-first HDR tone mapping evidence and remaining hardware follow-ons."}
+{"kind":"reference","path":"repo-ref/jellyfin/Jellyfin.Api/Controllers/DynamicHlsController.cs","note":"Reference for mature dynamic HLS controller pressure only; do not copy source."}
+{"kind":"reference","path":"repo-ref/jellyfin/Jellyfin.Api/Helpers/MediaInfoHelper.cs","note":"Reference for media-info request shaping pressure only; do not copy source."}
+{"kind":"reference","path":"repo-ref/jellyfin/Jellyfin.Api/Helpers/StreamingHelpers.cs","note":"Reference for streaming helper pressure only; do not copy source."}
+{"kind":"reference","path":"repo-ref/jellyfin/MediaBrowser.MediaEncoding/Transcoding/TranscodeManager.cs","note":"Reference for transcode lifecycle pressure only; do not copy source."}
+{"kind":"reference","path":"repo-ref/jellyfin/MediaBrowser.Controller/MediaEncoding/EncodingHelper.cs","note":"Reference anti-pattern pressure for oversized encoding helper; do not copy source."}
+{"kind":"reference","path":"repo-ref/jellyfin/MediaBrowser.MediaEncoding/Encoder/EncoderValidator.cs","note":"Reference for encoder validation and hardware capability pressure only; do not copy source."}
+{"kind":"reference","path":"repo-ref/jellyfin/MediaBrowser.Controller/MediaEncoding/TranscodingThrottler.cs","note":"Reference for throttling pressure only; keep Nako implementation original."}
+{"kind":"reference","path":"repo-ref/jellyfin/MediaBrowser.Controller/MediaEncoding/TranscodingSegmentCleaner.cs","note":"Reference for segment cleanup pressure only; keep Nako implementation original."}
+{"kind":"reference","path":"repo-ref/jellyfin/MediaBrowser.Model/Dlna/StreamBuilder.cs","note":"Reference for device/profile decision pressure only; do not copy source."}

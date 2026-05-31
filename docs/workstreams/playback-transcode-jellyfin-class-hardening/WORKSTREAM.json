@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "slug": "playback-transcode-jellyfin-class-hardening",
+  "title": "Playback Transcode Jellyfin-Class Hardening",
+  "status": "active",
+  "updated": "2026-05-31",
+  "scope_kind": "architecture",
+  "problem": "Nako has strong playback/transcode seams, but Jellyfin/Plex-class hardening needs an explicit Interface freeze, owned scopes, shared scopes, and validation gates before multiple Codex lanes can work safely.",
+  "task_prefix": "PTJCH",
+  "current_task": "PTJCH-110",
+  "completed_tasks": [
+    "PTJCH-010",
+    "PTJCH-020"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/playback-transcode-jellyfin-class-hardening/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/playback-transcode-jellyfin-class-hardening/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/playback-transcode-jellyfin-class-hardening/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/playback-transcode-jellyfin-class-hardening/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/playback-transcode-jellyfin-class-hardening/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "context_manifest",
+      "path": "docs/workstreams/playback-transcode-jellyfin-class-hardening/CONTEXT.jsonl"
+    },
+    {
+      "role": "worker_prompts",
+      "path": "docs/workstreams/playback-transcode-jellyfin-class-hardening/WORKER_PROMPTS.md"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/playback-transcode-jellyfin-class-hardening/HANDOFF.md"
+    }
+  ],
+  "context_manifest": "docs/workstreams/playback-transcode-jellyfin-class-hardening/CONTEXT.jsonl",
+  "gates": [
+    "python -m json.tool docs/workstreams/playback-transcode-jellyfin-class-hardening/WORKSTREAM.json",
+    "git diff --check -- docs/workstreams/playback-transcode-jellyfin-class-hardening docs/architecture/LANES.md docs/architecture/WORKSTREAM_LINKS.md docs/architecture/PLAYBACK.md docs/workstreams/README.md",
+    "cargo nextest run -p nako-playback --no-fail-fast",
+    "cargo nextest run -p nako-transcode pipeline hardware probe --no-fail-fast",
+    "cargo nextest run -p nako-transcode ffmpeg hls --no-fail-fast",
+    "cargo nextest run -p nako-server hls playback --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "PTJCH-010",
+      "summary": "Opened the playback/transcode hardening workstream, recorded the seam map, owned scopes, shared scopes, stop conditions, architecture links, and docs/planning gates for parallel Codex work."
+    },
+    {
+      "task": "PTJCH-020",
+      "summary": "Recorded first-batch worker prompts, suggested worktree branches, shared stop conditions, and task-local worker note paths for Playback Capability, Transcode Pipeline Capability, and FFmpeg Adapter lanes."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0038-playback-planning-and-transcode-policy-seams.md",
+    "docs/adr/0044-playback-capability-profile-planner.md",
+    "docs/adr/0045-ffmpeg-hardware-pipeline-planner.md",
+    "docs/adr/0046-ffmpeg-probe-inventory.md",
+    "docs/adr/0047-cpu-transcode-readiness.md",
+    "docs/adr/0048-playback-transcode-startup-degradation.md",
+    "docs/adr/0049-source-aware-transcode-runtime.md",
+    "docs/adr/0052-hls-runtime-and-media-engine-boundary.md",
+    "docs/adr/0053-runtime-control-plane-boundary.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/PLAYBACK.md",
+      "capability": "Playback/transcode parallel hardening"
+    },
+    {
+      "path": "docs/architecture/LANES.md",
+      "capability": "playback-transcode"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Playback And Transcode"
+    }
+  ],
+  "capability_tags": [
+    "playback.transcode.interface",
+    "playback.capability.profile",
+    "transcode.pipeline.capability",
+    "transcode.ffmpeg.adapter",
+    "playback.hls.artifacts",
+    "playback.runtime.admission",
+    "playback.hls.artifact-io"
+  ],
+  "lane_slug": "playback-transcode",
+  "continue_policy": {
+    "default_action": "continue",
+    "next_task": "PTJCH-110",
+    "notes": "The first parallel implementation batch is ready. PTJCH-110, PTJCH-120, and PTJCH-130 may run in separate worktrees using WORKER_PROMPTS.md; do not start PTJCH-210 or PTJCH-220 until the first batch merges or is split."
+  }
+}

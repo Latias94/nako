@@ -22,6 +22,7 @@ ledger instead.
 | --- | --- | --- | --- |
 | `library-metadata-control-plane` | `generated-artifact-metadata-authority-apply` | `GAMA-050` | Backend/control-plane execution |
 | `client-surfaces-planning` | `client-surface-and-access-product-architecture` | `CSAPA-050` | Planner/docs split or defer decision |
+| `playback-transcode` | `playback-transcode-jellyfin-class-hardening` | `PTJCH-110/120/130` | Parallel workers |
 
 Do not start `GAMA-060` until `GAMA-050` has reviewed and verified the final
 Admin apply route. Do not close `CSAPA` until desktop playback is split,
@@ -42,13 +43,14 @@ controls, or operator smoke matrices.
 
 `playback-compatibility-matrix-hardening`,
 `transcode-capability-inventory-matrix`, `hls-runtime-lifecycle-boundary`, and
-`hls-progressive-readiness-test-stability` are closed. The
-`playback-transcode` lane is idle after HPRTS stabilized the full HLS gate and
-HRLB closeout was retried successfully. Keep artifact I/O pressure split to a
-PAIP follow-on. Split resource admission queueing, remote workers,
-LL-HLS/CMAF, player UX, hardware tone-map execution, HEVC/AV1 output policy,
-subtitle burn-in, Admin/release reporting, and hardware smoke evidence into
-separate follow-ons.
+`hls-progressive-readiness-test-stability` are closed.
+`playback-transcode-jellyfin-class-hardening` is now the active lane for the
+first parallel playback/transcode hardening batch after seam freeze. Keep
+artifact I/O pressure split to a PAIP follow-on unless `PTJCH-310` explicitly
+accepts it. Split resource admission queueing, remote workers, LL-HLS/CMAF,
+player UX, hardware tone-map execution, HEVC/AV1 output policy, subtitle
+burn-in, Admin/release reporting, and hardware smoke evidence into separate
+follow-ons.
 
 ## Lane Registry
 

@@ -72,8 +72,12 @@ inventory slices are closed. `hls-runtime-lifecycle-boundary` completed its
 docs/research invariant freeze, behavior-preserving lifecycle coverage slice,
 follow-on split decisions, and closeout retry. `hls-progressive-readiness-test-stability`
 closed the full-suite progressive-readiness gate instability that blocked HRLB
-closeout. Keep PAIP artifact I/O pressure, resource admission queueing, remote
-workers, LL-HLS/CMAF, and player-facing follow-ons separate.
+closeout. `playback-transcode-jellyfin-class-hardening` is the active planner
+lane for freezing parallel Playback Capability, Transcode Pipeline Capability,
+FFmpeg Adapter, HLS Artifact Authority, Playback Runtime, and Artifact I/O
+Policy seams before multiple Codex workers start. Keep PAIP artifact I/O
+pressure, resource admission queueing, remote workers, LL-HLS/CMAF, and
+player-facing follow-ons separate.
 
 ### Lane A - Device Capability Profiles
 

@@ -22,6 +22,9 @@ Last reviewed: 2026-05-31
   is active on lane `library-metadata-control-plane`; next task is `GAMA-050`.
 - [client-surface-and-access-product-architecture](client-surface-and-access-product-architecture/README.md)
   is active on lane `client-surfaces-planning`; next task is `CSAPA-050`.
+- [playback-transcode-jellyfin-class-hardening](playback-transcode-jellyfin-class-hardening/README.md)
+  is active on lane `playback-transcode`; next tasks are `PTJCH-110`,
+  `PTJCH-120`, and `PTJCH-130`.
 
 Planner coordination should keep `GAMA-060` blocked until `GAMA-050` is
 reviewed and verified. `CSAPA` should split or explicitly defer desktop
@@ -35,10 +38,14 @@ playback before closeout. The `web-product` lane is idle after
 `transcode-capability-inventory-matrix`,
 `hls-runtime-lifecycle-boundary`, and
 `hls-progressive-readiness-test-stability` are closed. Artifact I/O pressure
-should still split to PAIP.
+should still split to PAIP unless `PTJCH-310` explicitly accepts it.
 
 ## Current Workstreams
 
+- [playback-transcode-jellyfin-class-hardening](playback-transcode-jellyfin-class-hardening/README.md):
+  active playback/transcode planner lane for freezing Jellyfin/Plex-class
+  hardening seams, owned scopes, shared scopes, validation gates, and first
+  parallel worker prompts before Rust implementation starts.
 - [hdr-tone-mapping-pipeline](hdr-tone-mapping-pipeline/README.md):
   closed playback/transcode lane for playback color pipeline requirements and
   software-first HLS HDR-to-SDR tone mapping. Hardware tone mapping, dynamic
