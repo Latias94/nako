@@ -13,18 +13,36 @@ Exit criteria:
 
 Status: Done.
 
-## M1 - Inventory Matrix Facts
+## M1 - Bitstream Filter Inventory Baseline
+
+Exit criteria:
+
+- capability inventory can represent optional bitstream-filter evidence;
+- tests prove report construction without changing HLS runtime selection;
+- no server or FFmpeg command execution changes are introduced.
+
+Status: Done.
+
+Evidence:
+
+- static CPU and hardware capability reports expose optional
+  `h264_mp4toannexb` bitstream-filter stage evidence;
+- probe reports keep missing optional bitstream-filter evidence non-fatal for
+  pipeline selection;
+- validation remained inside `nako-transcode`.
+
+## M2 - Broader Inventory Matrix Facts
 
 Exit criteria:
 
 - capability inventory can represent broader decoder, encoder, filter,
-  tone-map, subtitle, and bitstream-filter evidence;
+  tone-map, and subtitle evidence;
 - tests prove report construction without changing HLS runtime selection;
 - no server or FFmpeg command execution changes are introduced.
 
-Status: Pending `TCIM-020`.
+Status: Pending `TCIM-030`.
 
-## M2 - Closeout
+## M3 - Closeout
 
 Exit criteria:
 
@@ -32,4 +50,4 @@ Exit criteria:
 - evidence ledger records the expanded inventory facts;
 - policy/command/release follow-ons are split or deferred.
 
-Status: Pending `TCIM-020`.
+Status: Pending `TCIM-030`.

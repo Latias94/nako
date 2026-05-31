@@ -2135,6 +2135,76 @@ hevc_metadata
     }
 
     #[test]
+    fn hardware_static_report_expresses_bitstream_filter_capability_as_optional() {
+        let report = HardwareAccelerationReport::with_available([
+            HardwareAcceleration::None,
+            HardwareAcceleration::Nvenc,
+        ]);
+
+        for accelerator in [HardwareAcceleration::None, HardwareAcceleration::Nvenc] {
+            let capability = report.capability_for(accelerator).unwrap();
+
+            assert!(capability.available);
+            assert!(capability.stage_capabilities.iter().any(|stage| {
+                stage.stage == HardwarePipelineStage::BitstreamFilter
+                    && stage.available
+                    && !stage.required
+                    && stage.discovery_status == HardwareEncoderDiscoveryStatus::Static
+                    && stage.feature.as_deref() == Some("h264_mp4toannexb")
+            }));
+        }
+    }
+
+    #[test]
+    fn hardware_probe_report_keeps_missing_bitstream_filter_optional_for_selection() {
+        let inventory = FfmpegProbeInventory::from_outputs(
+            r#"
+ V..... libx264
+ A..... aac
+ V..... h264_vaapi
+"#,
+            r#"
+ VFS..D h264
+"#,
+            r#"
+vaapi
+"#,
+            r#"
+ ... hwupload
+"#,
+            "",
+        );
+        let report = report_from_ffmpeg_probe_inventory(&inventory);
+        let vaapi = report.capability_for(HardwareAcceleration::Vaapi).unwrap();
+
+        assert!(vaapi.available);
+        assert!(vaapi.stage_capabilities.iter().any(|stage| {
+            stage.stage == HardwarePipelineStage::BitstreamFilter
+                && !stage.required
+                && !stage.available
+                && stage.discovery_status == HardwareEncoderDiscoveryStatus::Missing
+                && stage.feature.as_deref() == Some("h264_mp4toannexb")
+        }));
+
+        let plan = TranscodePipelinePlanner::new()
+            .plan_hls_single_variant(
+                TranscodePipelineRequest::hls_single_variant(
+                    HardwareAccelerationPolicy {
+                        requested: HardwareAcceleration::Vaapi,
+                        fallback: HardwareAccelerationFallback::Fail,
+                    },
+                    TranscodeTrackSelection::default(),
+                    TranscodeOutputConstraints::default(),
+                ),
+                &report,
+            )
+            .unwrap();
+
+        assert_eq!(plan.selected_acceleration(), HardwareAcceleration::Vaapi);
+        assert!(!plan.fallback_used());
+    }
+
+    #[test]
     fn ffmpeg_probe_detector_runs_stage_inventory_commands() {
         let temp = tempfile::tempdir().unwrap();
         let ffmpeg_path = fake_probe_ffmpeg_script(temp.path(), "probe_success", false);

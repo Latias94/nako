@@ -12,19 +12,29 @@ Last updated: 2026-05-31
   Context: `docs/workstreams/transcode-capability-inventory-matrix/CONTEXT.jsonl`.
   Handoff: DONE. First executable task is `TCIM-020`.
 
-## M1 - Inventory Matrix Facts
+## M1 - Bitstream Filter Inventory Baseline
 
-- [ ] TCIM-020 [owner=codex] [deps=TCIM-010] [scope=crates/nako-transcode/src/hardware.rs,crates/nako-transcode/src/probe.rs,crates/nako-transcode/src/lib.rs]
-  Goal: Extend transcode capability inventory/report tests and values so decoder, encoder, filter, tone-map, subtitle, and bitstream-filter facts can be represented without changing HLS pipeline selection or FFmpeg command planning.
+- [x] TCIM-020 [owner=codex] [deps=TCIM-010] [scope=crates/nako-transcode/src/hardware.rs,crates/nako-transcode/src/lib.rs]
+  Goal: Add an optional bitstream-filter stage capability baseline for `h264_mp4toannexb` and prove missing optional bitstream-filter evidence does not change HLS pipeline selection.
+  Validation: `cargo nextest run -p nako-transcode hardware --no-fail-fast`; `cargo nextest run -p nako-transcode probe --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`
+  Review: Use `review-workstream` before accepting completion.
+  Evidence: capability inventory tests and `EVIDENCE_AND_GATES.md`.
+  Context: `docs/workstreams/transcode-capability-inventory-matrix/CONTEXT.jsonl`.
+  Handoff: DONE. Added optional static bitstream-filter stage evidence and tests for static reports plus missing-probe inventory without changing pipeline selection, FFmpeg command planning, server routes, Public Client DTOs, or release packaging.
+
+## M2 - Broader Inventory Matrix Facts
+
+- [ ] TCIM-030 [owner=codex] [deps=TCIM-020] [scope=crates/nako-transcode/src/hardware.rs,crates/nako-transcode/src/probe.rs,crates/nako-transcode/src/lib.rs]
+  Goal: Extend transcode capability inventory/report tests and values for broader decoder, encoder, filter, tone-map, and subtitle facts while keeping them evidence-only.
   Validation: `cargo nextest run -p nako-transcode hardware --no-fail-fast`; `cargo nextest run -p nako-transcode probe --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`
   Review: Use `review-workstream` before accepting completion.
   Evidence: capability inventory tests and `EVIDENCE_AND_GATES.md`.
   Context: `docs/workstreams/transcode-capability-inventory-matrix/CONTEXT.jsonl`.
   Handoff: Keep the task inside inventory/report seams. Stop if changes need `pipeline.rs`, `ffmpeg.rs`, server routes, Public Client DTOs, or release packaging.
 
-## M2 - Closeout
+## M3 - Closeout
 
-- [ ] TCIM-030 [owner=planner] [deps=TCIM-020] [scope=docs/workstreams/transcode-capability-inventory-matrix,docs/architecture/PLAYBACK.md,docs/architecture/LANES.md,docs/workstreams/README.md]
+- [ ] TCIM-040 [owner=planner] [deps=TCIM-030] [scope=docs/workstreams/transcode-capability-inventory-matrix,docs/architecture/PLAYBACK.md,docs/architecture/LANES.md,docs/workstreams/README.md]
   Goal: Verify final gates, record evidence, and close or split follow-ons.
   Validation: final gates from `EVIDENCE_AND_GATES.md`; `python -m json.tool docs/workstreams/transcode-capability-inventory-matrix/WORKSTREAM.json`; `git diff --check`
   Review: `review-workstream` and `verify-rust-workstream` before closeout.

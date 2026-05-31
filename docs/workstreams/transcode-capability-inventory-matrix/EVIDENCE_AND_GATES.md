@@ -39,6 +39,40 @@ Notes:
 - Pipeline selection, FFmpeg command planning, server routes, API DTOs, and
   release packaging are explicit follow-ons.
 
+### TCIM-020 - Bitstream filter inventory baseline
+
+Status: Done
+
+Evidence:
+
+- `crates/nako-transcode/src/hardware.rs`
+- `crates/nako-transcode/src/lib.rs`
+- `hardware_static_report_expresses_bitstream_filter_capability_as_optional`
+- `hardware_probe_report_keeps_missing_bitstream_filter_optional_for_selection`
+
+Findings:
+
+- Added optional static stage evidence for the `h264_mp4toannexb` bitstream
+  filter.
+- CPU and static hardware detector capabilities now advertise the optional
+  bitstream-filter stage.
+- Probe-derived reports can represent a missing optional bitstream filter
+  without treating the accelerator as unusable.
+- HLS pipeline selection does not change when optional bitstream-filter
+  evidence is missing.
+- Broader decoder, encoder, filter, tone-map, and subtitle coverage is split to
+  `TCIM-030`.
+
+Verification on 2026-05-31:
+
+- `cargo nextest run -p nako-transcode hardware --no-fail-fast` passed with
+  11 tests run.
+- `cargo nextest run -p nako-transcode probe --no-fail-fast` passed with 10
+  tests run.
+- `cargo fmt --all -- --check` passed.
+- `git diff --check` passed with only Windows line-ending normalization
+  warnings.
+
 ## Residual Risks
 
 - The lane improves capability observability, not actual playback format

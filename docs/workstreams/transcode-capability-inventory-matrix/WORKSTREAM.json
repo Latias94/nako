@@ -7,9 +7,10 @@
   "scope_kind": "fearless_refactor",
   "problem": "nako-transcode has stage-aware hardware capability records but the observable FFmpeg capability inventory remains focused on the first H.264/AAC path, which leaves future HDR, HEVC/AV1, subtitle burn-in, and operator diagnostics without a richer evidence layer.",
   "task_prefix": "TCIM",
-  "current_task": "TCIM-020",
+  "current_task": "TCIM-030",
   "completed_tasks": [
-    "TCIM-010"
+    "TCIM-010",
+    "TCIM-020"
   ],
   "authoritative_docs": [
     {
@@ -53,6 +54,10 @@
     {
       "task": "TCIM-010",
       "summary": "Opened a transcode-only capability inventory lane that can run beside HDR HTP-030 while staying out of pipeline selection, FFmpeg command planning, server routes, API DTOs, and release packaging."
+    },
+    {
+      "task": "TCIM-020",
+      "summary": "Added optional bitstream-filter stage evidence for h264_mp4toannexb and tests proving missing optional bitstream-filter evidence does not change HLS pipeline selection."
     }
   ],
   "adr_refs": [
@@ -83,6 +88,6 @@
   "lane_slug": "playback-transcode",
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Run TCIM-020 as a crate-local inventory/report task. Stop if implementation needs pipeline selection, FFmpeg command planning, server, API DTO, or release packaging changes."
+    "notes": "TCIM-020 is complete. Run TCIM-030 for broader decoder, encoder, filter, tone-map, and subtitle inventory facts. Stop if implementation needs pipeline selection, FFmpeg command planning, server, API DTO, or release packaging changes."
   }
 }

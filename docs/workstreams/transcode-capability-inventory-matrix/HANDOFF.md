@@ -5,13 +5,15 @@ Last updated: 2026-05-31
 
 ## Current State
 
-`TCIM-010` is complete. The lane is open as a transcode-only capability
-inventory workstream that may run in parallel with HDR `HTP-030` as long as it
-does not change pipeline selection or FFmpeg command planning.
+`TCIM-020` is complete and locally verified. The lane now has an optional
+bitstream-filter stage baseline for `h264_mp4toannexb`, including coverage that
+missing optional bitstream-filter evidence does not change HLS pipeline
+selection.
 
 ## Next Task
 
-Assign `TCIM-020`.
+Assign `TCIM-030` for broader decoder, encoder, filter, tone-map, and subtitle
+inventory expansion.
 
 Required context:
 
@@ -21,7 +23,7 @@ docs/adr/0045-ffmpeg-hardware-pipeline-planner.md
 docs/adr/0046-ffmpeg-probe-inventory.md
 docs/adr/0048-playback-transcode-startup-degradation.md
 docs/workstreams/transcode-interface-and-runtime-plan-deepening/CLOSEOUT.md
-docs/workstreams/hdr-tone-mapping-pipeline/HANDOFF.md
+docs/workstreams/hdr-tone-mapping-pipeline/CLOSEOUT.md
 ```
 
 Required validation:
@@ -41,7 +43,8 @@ Return to planner coordination if:
   or release packaging;
 - the task tries to choose a hardware pipeline rather than report capability
   evidence;
-- the task changes HDR `HTP-030` scope or timing.
+- the task tries to turn optional capability evidence into an admission or
+  runtime-selection rule.
 
 ## Report Format
 

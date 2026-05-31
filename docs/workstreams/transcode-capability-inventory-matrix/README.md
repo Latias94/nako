@@ -11,7 +11,11 @@ software-first media-output path.
 
 Planner-approved lane: `playback-transcode`.
 
-First executable task: `TCIM-020`.
+First shipped baseline: `TCIM-020` records optional bitstream-filter evidence
+without changing pipeline selection.
+
+Next executable task: `TCIM-030`, broader decoder, encoder, filter, tone-map,
+and subtitle inventory expansion.
 
 Read before implementation:
 

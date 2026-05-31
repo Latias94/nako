@@ -133,6 +133,21 @@ impl HardwareStageCapability {
     }
 
     #[must_use]
+    pub fn optional_static_available(
+        stage: HardwarePipelineStage,
+        feature: impl Into<String>,
+    ) -> Self {
+        Self {
+            stage,
+            available: true,
+            required: false,
+            feature: Some(feature.into()),
+            discovery_status: HardwareEncoderDiscoveryStatus::Static,
+            detail: None,
+        }
+    }
+
+    #[must_use]
     pub fn listed(stage: HardwarePipelineStage, feature: impl Into<String>) -> Self {
         Self {
             stage,
@@ -845,6 +860,7 @@ fn cpu_capability() -> HardwareAccelerationCapability {
                 HardwarePipelineStage::Encode,
                 CPU_HLS_AUDIO_ENCODER,
             ),
+            static_bitstream_filter_stage(H264_ANNEX_B_BITSTREAM_FILTER),
         ],
         encoder_discovery: HardwareEncoderDiscovery::not_required(),
         device_initialization: HardwareDeviceInitialization::not_required(),
@@ -1035,6 +1051,13 @@ fn optional_bitstream_filter_stage(
     }
 }
 
+fn static_bitstream_filter_stage(feature: &'static str) -> HardwareStageCapability {
+    HardwareStageCapability::optional_static_available(
+        HardwarePipelineStage::BitstreamFilter,
+        feature,
+    )
+}
+
 fn stage_capabilities_for_static_detector(
     accelerator: HardwareAcceleration,
 ) -> Vec<HardwareStageCapability> {
@@ -1044,23 +1067,27 @@ fn stage_capabilities_for_static_detector(
             HardwareStageCapability::static_available(HardwarePipelineStage::Decode, "software"),
             HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "software"),
             HardwareStageCapability::static_available(HardwarePipelineStage::Encode, "h264_nvenc"),
+            static_bitstream_filter_stage(H264_ANNEX_B_BITSTREAM_FILTER),
         ],
         HardwareAcceleration::Vaapi => vec![
             HardwareStageCapability::static_available(HardwarePipelineStage::Hwaccel, "vaapi"),
             HardwareStageCapability::static_available(HardwarePipelineStage::Decode, "vaapi"),
             HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "vaapi"),
             HardwareStageCapability::static_available(HardwarePipelineStage::Encode, "h264_vaapi"),
+            static_bitstream_filter_stage(H264_ANNEX_B_BITSTREAM_FILTER),
         ],
         HardwareAcceleration::QuickSync => vec![
             HardwareStageCapability::static_available(HardwarePipelineStage::Hwaccel, "qsv"),
             HardwareStageCapability::static_available(HardwarePipelineStage::Decode, "qsv"),
             HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "software"),
             HardwareStageCapability::static_available(HardwarePipelineStage::Encode, "h264_qsv"),
+            static_bitstream_filter_stage(H264_ANNEX_B_BITSTREAM_FILTER),
         ],
         HardwareAcceleration::Amf => vec![
             HardwareStageCapability::static_available(HardwarePipelineStage::Decode, "software"),
             HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "software"),
             HardwareStageCapability::static_available(HardwarePipelineStage::Encode, "h264_amf"),
+            static_bitstream_filter_stage(H264_ANNEX_B_BITSTREAM_FILTER),
         ],
         HardwareAcceleration::VideoToolbox => vec![
             HardwareStageCapability::static_available(
@@ -1072,6 +1099,7 @@ fn stage_capabilities_for_static_detector(
                 HardwarePipelineStage::Encode,
                 "h264_videotoolbox",
             ),
+            static_bitstream_filter_stage(H264_ANNEX_B_BITSTREAM_FILTER),
         ],
     }
 }
