@@ -1,6 +1,6 @@
 # Playback Compatibility Matrix Hardening - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## Required Gates
@@ -76,6 +76,32 @@ Scope check:
 - The task stayed inside `crates/nako-playback/src/lib.rs`.
 - No transcode, server, Public Client API DTO, persisted preference, device
   profile, media probe schema, or web/player behavior changed.
+
+Planner acceptance on 2026-05-31:
+
+- `PCMH-020` review found no blocking workstream or code-quality findings.
+- Commit `cf85d505 test(playback): add compatibility decision matrix` was
+  merged into `main`.
+
+### PCMH-030 - Verification and closeout
+
+Status: Done
+
+Evidence:
+
+- `docs/workstreams/playback-compatibility-matrix-hardening/CLOSEOUT.md`
+- `docs/workstreams/playback-compatibility-matrix-hardening/WORKSTREAM.json`
+- `docs/architecture/PLAYBACK.md`
+- `docs/architecture/LANES.md`
+- `docs/workstreams/README.md`
+
+Findings:
+
+- The shipped lane covers representative playback decision interactions.
+- The lane intentionally does not cover full device profile databases,
+  transcode execution policy, server HLS composition, Public Client DTO shape,
+  media probe schema, or web/player behavior.
+- Remaining compatibility matrix depth should open a new workstream.
 
 ## Residual Risks
 

@@ -22,7 +22,6 @@ ledger instead.
 | --- | --- | --- | --- |
 | `library-metadata-control-plane` | `generated-artifact-metadata-authority-apply` | `GAMA-050` | Backend/control-plane execution |
 | `client-surfaces-planning` | `client-surface-and-access-product-architecture` | `CSAPA-050` | Planner/docs split or defer decision |
-| `playback-transcode` | `playback-compatibility-matrix-hardening` | `PCMH-020` | Playback-only matrix execution |
 | `playback-transcode` | `transcode-capability-inventory-matrix` | `TCIM-020` | Transcode inventory execution |
 
 Do not start `GAMA-060` until `GAMA-050` has reviewed and verified the final
@@ -42,10 +41,10 @@ I/O pressure, scan scheduling, or PostgreSQL runtime harness work.
 workstream for hardware tone mapping, dynamic HDR handling, device profiles, UI
 controls, or operator smoke matrices.
 
-`PCMH-020` and `TCIM-020` are safe parallel tasks only while they stay inside
-their crate-local scopes. `PCMH-020` must not edit `nako-transcode` or
-`nako-server`; `TCIM-020` must not edit pipeline selection, FFmpeg command
-planning, server routes, API DTOs, or release packaging.
+`playback-compatibility-matrix-hardening` is closed. `TCIM-020` remains safe
+only while it stays inside `nako-transcode` hardware/probe inventory. It must
+not edit pipeline selection, FFmpeg command planning, server routes, API DTOs,
+or release packaging.
 
 ## Lane Registry
 

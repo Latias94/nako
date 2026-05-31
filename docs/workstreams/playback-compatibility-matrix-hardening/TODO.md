@@ -1,6 +1,6 @@
 # Playback Compatibility Matrix Hardening - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## M0 - Scope And Evidence Freeze
@@ -24,9 +24,9 @@ Last updated: 2026-05-31
 
 ## M2 - Closeout
 
-- [ ] PCMH-030 [owner=planner] [deps=PCMH-020] [scope=docs/workstreams/playback-compatibility-matrix-hardening,docs/architecture/PLAYBACK.md,docs/architecture/LANES.md,docs/workstreams/README.md]
+- [x] PCMH-030 [owner=planner] [deps=PCMH-020] [scope=docs/workstreams/playback-compatibility-matrix-hardening,docs/architecture/PLAYBACK.md,docs/architecture/LANES.md,docs/workstreams/README.md]
   Goal: Verify final gates, record evidence, and close the playback matrix lane.
   Validation: final gates from `EVIDENCE_AND_GATES.md`; `python -m json.tool docs/workstreams/playback-compatibility-matrix-hardening/WORKSTREAM.json`; `git diff --check`
   Review: `review-workstream` and `verify-rust-workstream` before closeout.
-  Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and closeout notes.
-  Handoff: Split any discovered transcode/server/API gaps into follow-ons instead of expanding this crate-local lane.
+  Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and `CLOSEOUT.md`.
+  Handoff: DONE. `PCMH-020` was reviewed, verified, merged into `main`, and closed. Split full device profile matrices, transcode/server/API gaps, and player behavior into follow-ons instead of expanding this crate-local lane.

@@ -1,6 +1,6 @@
 # Playback Compatibility Matrix Hardening
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## Why This Lane Exists
@@ -17,7 +17,7 @@ Transcode decision.
 
 ## Target State
 
-When this workstream closes:
+This workstream is closed. It shipped:
 
 - `nako-playback` has a table-driven compatibility matrix for representative
   Direct Play, Remux, and HLS Transcode cases;
@@ -53,3 +53,10 @@ The deletion test is: if the matrix were deleted, future maintainers would have
 to rediscover compatibility interactions through scattered focused tests and
 server regressions. The matrix should concentrate those interactions in one
 playback-only test surface.
+
+## Closeout Result
+
+`PCMH-020` shipped the matrix in `crates/nako-playback/src/lib.rs`. The matrix
+covers representative container, codec, HDR, audio channel, downmix,
+normalization, and requested HLS output shape cases. It intentionally does not
+attempt a full device profile database or cross-crate execution policy matrix.

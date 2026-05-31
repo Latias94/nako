@@ -31,7 +31,7 @@ selection.
 | --- | --- | --- | --- |
 | Direct Play byte ranges | Shipped | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md`; `docs/workstreams/playback-streaming/` | Client/player UX and remote transport polish. |
 | Remux / Direct Stream | Shipped | `docs/workstreams/source-aware-transcode-runtime/`; `docs/adr/0049-source-aware-transcode-runtime.md` | Container-specific compatibility reasons and TV/device profiles. |
-| Playback decision model | Shipped foundation; matrix hardening active | `docs/adr/0038-playback-planning-and-transcode-policy-seams.md`; `docs/adr/0044-playback-capability-profile-planner.md`; `docs/workstreams/playback-planner-transcode-seam-deepening/`; `docs/workstreams/playback-compatibility-matrix-hardening/` | Run playback-only compatibility matrix coverage without touching transcode/server. |
+| Playback decision model | Shipped with matrix coverage | `docs/adr/0038-playback-planning-and-transcode-policy-seams.md`; `docs/adr/0044-playback-capability-profile-planner.md`; `docs/workstreams/playback-planner-transcode-seam-deepening/`; `docs/workstreams/playback-compatibility-matrix-hardening/` | Split exhaustive device profile matrices, API reporting, or player controls into follow-ons. |
 | Playback-to-transcode Interface | Shipped deeper Interface slice | `docs/adr/0038-playback-planning-and-transcode-policy-seams.md`; `docs/adr/0045-ffmpeg-hardware-pipeline-planner.md`; `docs/workstreams/transcode-interface-and-runtime-plan-deepening/` | Extend the transcode-owned runtime/execution planners in HDR and future filter lanes; do not reintroduce server-side raw FFmpeg request assembly. |
 | Browser playback tickets | Shipped | `docs/adr/0036-short-lived-browser-playback-tickets.md`; `docs/workstreams/browser-playback-auth-transport/` | Player integration and cross-device resume polish. |
 | Renderer transport tickets | Shipped | `docs/adr/0041-renderer-cast-safe-transport-tickets.md` | Chromecast/DLNA/AirPlay adapter lanes. |
@@ -65,15 +65,11 @@ linked to the most direct ADR/workstream evidence.
 These lanes are intentionally separable. They can run in parallel if each lane
 keeps its public contract explicit.
 
-The audio compatibility, Transcode Interface deepening, and software-first HDR
-tone-mapping slices are closed. Playback/transcode depth now has two active
-parallel lanes: playback compatibility matrix hardening and transcode
-capability inventory expansion.
-
-Two crate-local tasks may run in parallel with `HTP-030`:
-`playback-compatibility-matrix-hardening` stays inside `nako-playback`, and
+The audio compatibility, Transcode Interface deepening, software-first HDR
+tone-mapping, and playback compatibility matrix slices are closed.
+Playback/transcode depth now has one active crate-local lane:
 `transcode-capability-inventory-matrix` stays inside `nako-transcode`
-hardware/probe inventory. Both must return to planner coordination if they need
+hardware/probe inventory and must return to planner coordination if it needs
 server HLS, pipeline selection, FFmpeg command planning, Public Client DTOs, or
 release packaging.
 

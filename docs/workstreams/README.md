@@ -22,8 +22,6 @@ Last reviewed: 2026-05-31
   is active on lane `library-metadata-control-plane`; next task is `GAMA-050`.
 - [client-surface-and-access-product-architecture](client-surface-and-access-product-architecture/README.md)
   is active on lane `client-surfaces-planning`; next task is `CSAPA-050`.
-- [playback-compatibility-matrix-hardening](playback-compatibility-matrix-hardening/README.md)
-  is active on lane `playback-transcode`; next task is `PCMH-020`.
 - [transcode-capability-inventory-matrix](transcode-capability-inventory-matrix/README.md)
   is active on lane `playback-transcode`; next task is `TCIM-020`.
 
@@ -32,10 +30,11 @@ reviewed and verified. `CSAPA` should split or explicitly defer desktop
 playback before closeout. The `web-product` lane is idle after
 `admin-media-management-context-links` closeout.
 `audio-compatibility-downmix-normalization`,
-`remote-storage-health-and-circuit-breaker`, and
-`transcode-interface-and-runtime-plan-deepening` are closed. `HTP-030` is ready
-for planner assignment from current `main`. `PCMH-020` and `TCIM-020` are safe
-parallel tasks only while they stay inside their crate-local scopes.
+`remote-storage-health-and-circuit-breaker`,
+`transcode-interface-and-runtime-plan-deepening`,
+`hdr-tone-mapping-pipeline`, and
+`playback-compatibility-matrix-hardening` are closed. `TCIM-020` remains safe
+only while it stays inside `nako-transcode` hardware/probe inventory.
 
 ## Current Workstreams
 
@@ -45,9 +44,10 @@ parallel tasks only while they stay inside their crate-local scopes.
   HDR handling, device profiles, UI controls, and operator smoke matrices are
   follow-ons.
 - [playback-compatibility-matrix-hardening](playback-compatibility-matrix-hardening/README.md):
-  active playback-only lane for table-driven Direct Play, Remux, and HLS
+  closed playback-only lane for table-driven Direct Play, Remux, and HLS
   Transcode decision coverage across representative container, codec, HDR, and
-  audio-output compatibility cases.
+  audio-output compatibility cases. Full device matrices and API/player
+  reporting are follow-ons.
 - [transcode-capability-inventory-matrix](transcode-capability-inventory-matrix/README.md):
   active transcode-only lane for expanding FFmpeg capability inventory facts
   without changing HLS pipeline selection, FFmpeg command planning, server

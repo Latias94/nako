@@ -1,20 +1,24 @@
 # Playback Compatibility Matrix Hardening - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## Current State
 
-`PCMH-020` is complete and locally verified. The lane now has playback-only
-table-driven matrix coverage for representative Direct Play, Remux, and HLS
-Transcode compatibility decisions, including HDR remux denial and audio output
-requirements.
+This workstream is closed. `PCMH-020` was reviewed, verified, merged into
+`main`, and accepted as the playback-only compatibility matrix slice.
 
-## Next Task
+## Follow-ons
 
-Assign `PCMH-030` for planner review, fresh verification, and closeout.
+Open separate workstreams for:
 
-Required context:
+- full device profile compatibility matrices;
+- persisted preferences or client/player controls;
+- Public Client API DTO compatibility reporting;
+- transcode execution policy or FFmpeg command-plan matrices;
+- server HLS composition gaps found by future compatibility work.
+
+Required context for follow-ons:
 
 ```text
 docs/workstreams/playback-compatibility-matrix-hardening/CONTEXT.jsonl
@@ -37,11 +41,9 @@ git diff --check
 
 Return to planner coordination if:
 
-- the task needs edits outside `crates/nako-playback`;
 - Public Client API DTOs, device profile databases, persisted preferences, or
   web/player behavior become necessary;
-- closeout discovers a transcode, server, or API gap that should become a
-  follow-on instead of expanding this lane.
+- a follow-on needs edits outside `crates/nako-playback`.
 
 ## Report Format
 

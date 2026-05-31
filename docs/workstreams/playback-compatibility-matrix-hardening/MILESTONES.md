@@ -1,6 +1,6 @@
 # Playback Compatibility Matrix Hardening - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## M0 - Scope And Evidence Freeze
@@ -42,4 +42,11 @@ Exit criteria:
 - evidence ledger records matrix coverage;
 - follow-ons discovered by the matrix are split or deferred.
 
-Status: Ready for planner review and closeout.
+Status: Done.
+
+Evidence:
+
+- final playback gates passed;
+- evidence ledger records matrix coverage;
+- follow-ons are deferred to separate workstreams instead of expanding the
+  crate-local lane.

@@ -2,15 +2,16 @@
   "schema_version": 1,
   "slug": "playback-compatibility-matrix-hardening",
   "title": "Playback Compatibility Matrix Hardening",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-05-31",
   "scope_kind": "fearless_refactor",
   "problem": "Playback planner compatibility interactions for container, codec, HDR, audio channel, downmix, and normalization behavior are covered by focused tests but not concentrated in a playback-only decision matrix.",
   "task_prefix": "PCMH",
-  "current_task": "PCMH-030",
+  "current_task": null,
   "completed_tasks": [
     "PCMH-010",
-    "PCMH-020"
+    "PCMH-020",
+    "PCMH-030"
   ],
   "authoritative_docs": [
     {
@@ -38,6 +39,10 @@
       "path": "docs/workstreams/playback-compatibility-matrix-hardening/CONTEXT.jsonl"
     },
     {
+      "role": "closeout",
+      "path": "docs/workstreams/playback-compatibility-matrix-hardening/CLOSEOUT.md"
+    },
+    {
       "role": "handoff",
       "path": "docs/workstreams/playback-compatibility-matrix-hardening/HANDOFF.md"
     }
@@ -58,6 +63,10 @@
     {
       "task": "PCMH-020",
       "summary": "Added playback-only table-driven matrix tests for Direct Play, Remux, HLS Transcode, HDR tone-map-required remux denial, audio downmix, normalization, and selected HLS output shape without changing transcode, server, API DTOs, or player behavior."
+    },
+    {
+      "task": "PCMH-030",
+      "summary": "Accepted planner review and fresh verification evidence, merged the playback-only compatibility matrix into main, closed the lane, and split full device profile, transcode/server/API, and player behavior expansion as follow-ons."
     }
   ],
   "adr_refs": [
@@ -86,7 +95,7 @@
   ],
   "lane_slug": "playback-transcode",
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "PCMH-020 is complete. Run PCMH-030 for planner review, fresh verification, and closeout. Stop if closeout discovers transcode, server, API DTO, or player changes."
+    "default_action": "closed",
+    "notes": "Workstream complete. Open follow-on lanes for full device profile matrices, Public Client API reporting, transcode/server compatibility matrices, persisted preferences, or player behavior."
   }
 }
