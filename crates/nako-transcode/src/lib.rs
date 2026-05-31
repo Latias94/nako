@@ -1236,6 +1236,59 @@ mod tests {
     }
 
     #[test]
+    fn ffmpeg_builder_plans_primary_hls_output_before_sidecar_outputs() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let mut execution_policy = hls_policy(HardwareAcceleration::None);
+        execution_policy.subtitle_strategy = TranscodeSubtitleStrategy::SidecarSelected;
+        let artifacts = hls_artifacts(
+            "hls",
+            "hls/playlist.m3u8",
+            "hls/segment_%05d.ts",
+            HlsOutputRequirement::default(),
+        )
+        .with_media_renditions(
+            HlsMediaRenditionPlan::from_audio_and_subtitles(
+                vec![HlsAudioRendition::new(0, 1, Some("eng".to_owned()), true)],
+                vec![HlsSubtitleRendition::new(0, 2, Some("jpn".to_owned()))],
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
+            artifacts,
+            segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
+            execution_policy,
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+        let audio_playlist = path_arg("hls/audio_0.m3u8");
+        let subtitle_playlist = path_arg("hls/subtitle_0.m3u8");
+        let primary_playlist_index = argv
+            .iter()
+            .position(|arg| arg == "hls/playlist.m3u8")
+            .unwrap();
+        let audio_playlist_index = argv
+            .windows(2)
+            .position(|args| args[0] == "-segment_list" && args[1] == audio_playlist)
+            .unwrap();
+        let subtitle_playlist_index = argv
+            .windows(2)
+            .position(|args| args[0] == "-segment_list" && args[1] == subtitle_playlist)
+            .unwrap();
+
+        assert!(primary_playlist_index < audio_playlist_index);
+        assert!(audio_playlist_index < subtitle_playlist_index);
+        assert!(argv.windows(2).any(|args| {
+            args[0] == "-hls_segment_filename" && args[1] == "hls/segment_%05d.ts"
+        }));
+    }
+
+    #[test]
     fn ffmpeg_builder_plans_hls_muxer_with_minimum_segment_time() {
         let builder = FfmpegCommandBuilder::new("ffmpeg");
         let request = HlsRequest {
