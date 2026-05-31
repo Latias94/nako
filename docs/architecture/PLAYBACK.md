@@ -46,7 +46,7 @@ selection.
 | HLS audio sidecar media group | Shipped cleanup slice | `docs/workstreams/hls-audio-sidecar-artifacts/`; `docs/workstreams/hls-selected-main-audio-cleanup/`; `docs/workstreams/playback-audio-language-default-policy/` | Request-scoped language defaults and audio output compatibility are shipped; defer codec-aware sidecars and player-specific fallback. |
 | HLS seek/restart | Shipped first slice | `docs/adr/0052-hls-runtime-and-media-engine-boundary.md`; `docs/workstreams/hls-seek-restart-lifecycle/` | Generation identity, restart admission, FFmpeg seek flags, and public `start_position_ms` playlist query. |
 | HLS progressive runtime | Shipped | `docs/workstreams/hls-progressive-runtime-boundary/`; `docs/adr/0052-hls-runtime-and-media-engine-boundary.md` | Playlist readiness before full FFmpeg completion, running segment serving, typed artifact reconstruction, manifest-aware URL auth, and partial-playlist readiness guard. |
-| HDR tone mapping | Active media-output slice ready | `docs/ARCHITECTURE.md`; `docs/adr/0044-playback-capability-profile-planner.md`; `docs/workstreams/hdr-tone-mapping-pipeline/` | Run `HTP-030` from current `main` for software-first HLS HDR-to-SDR command planning. |
+| HDR tone mapping | Shipped software-first slice | `docs/ARCHITECTURE.md`; `docs/adr/0044-playback-capability-profile-planner.md`; `docs/workstreams/hdr-tone-mapping-pipeline/` | Split hardware tone mapping, dynamic HDR handling, device profiles, UI controls, and operator smoke matrices into follow-ons. |
 | Audio downmix and normalization | Shipped first slice | `docs/workstreams/audio-compatibility-downmix-normalization/` | Persisted preferences, client controls, device profiles, and dialogue clarity remain follow-ons. |
 | Runtime resource scheduler | Shipped first slice | `docs/workstreams/playback-runtime-resource-scheduler/`; `docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md`; playback runtime diagnostics lanes | Add queueing, remote workers, OS isolation, per-device tuning, and disk-sensitive artifact I/O enforcement only through follow-on lanes. |
 | VFS/remote playback resilience | Partial | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md` | Timeout/circuit-breaker and remote staging hardening. |
@@ -65,10 +65,10 @@ linked to the most direct ADR/workstream evidence.
 These lanes are intentionally separable. They can run in parallel if each lane
 keeps its public contract explicit.
 
-The audio compatibility first slice and Transcode Interface deepening lane are
-closed. HDR `HTP-030` is the next playback/transcode media-output task and
-should start from current `main` using the transcode-owned runtime and
-execution planner Interfaces.
+The audio compatibility, Transcode Interface deepening, and software-first HDR
+tone-mapping slices are closed. Playback/transcode depth now has two active
+parallel lanes: playback compatibility matrix hardening and transcode
+capability inventory expansion.
 
 Two crate-local tasks may run in parallel with `HTP-030`:
 `playback-compatibility-matrix-hardening` stays inside `nako-playback`, and
@@ -175,12 +175,12 @@ Exit criteria:
 - planner selects direct/remux/transcode from client HDR capability;
 - FFmpeg software and hardware tone mapping strategies are testable.
 
-Current status: active and ready for planner assignment. `HTP-020` shipped
-playback-owned **Color Pipeline Requirement** vocabulary; `HTP-030` is the
-software-first HLS HDR-to-SDR media-output slice. Start it from current `main`
-and keep hardware tone mapping, device-specific filter chains, Dolby Vision
-dynamic handling, HDR10+ preservation, and operator smoke matrices as
-follow-ons unless split explicitly.
+Current status: closed first slice. `HTP-020` shipped playback-owned **Color
+Pipeline Requirement** vocabulary, and `HTP-030` shipped software-first HLS
+HDR-to-SDR media output through the transcode-owned runtime/execution planner
+Interfaces. Keep hardware tone mapping, device-specific filter chains, Dolby
+Vision dynamic handling, HDR10+ preservation, device profile databases, UI
+controls, and operator smoke matrices as follow-ons unless split explicitly.
 
 ### Lane F - Audio Compatibility
 

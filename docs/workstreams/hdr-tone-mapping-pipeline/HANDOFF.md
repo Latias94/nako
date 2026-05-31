@@ -1,19 +1,23 @@
 # HDR Tone Mapping Pipeline - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## Current State
 
-`HTP-030` is implemented and locally verified, pending planner review and
-closeout. The task stayed inside the approved software-first HLS HDR-to-SDR
-media-output slice.
+This workstream is closed. `HTP-030` was reviewed, verified, merged into
+`main`, and accepted as the first software-first HLS HDR-to-SDR media-output
+slice.
 
-## Next Task
+## Follow-ons
 
-`HTP-040` should review and close the lane, or split follow-ons for hardware
-tone mapping, device-specific filter chains, Dolby Vision/HDR10+ handling, and
-operator smoke matrices.
+Open separate workstreams for:
+
+- hardware tone mapping and vendor-specific filter chains;
+- Dolby Vision/HDR10+ dynamic handling or preservation;
+- device profile databases and richer display capability inputs;
+- operator hardware smoke matrices and release diagnostics;
+- UI/client controls for HDR behavior.
 
 Completed `HTP-020` implementation scope:
 
@@ -49,7 +53,7 @@ Owned docs scope for any continuation:
 - `docs/architecture/PLAYBACK.md`
 - `docs/architecture/WORKSTREAM_LINKS.md`
 
-Required docs validation:
+Closeout docs validation:
 
 ```text
 python -m json.tool docs/workstreams/hdr-tone-mapping-pipeline/WORKSTREAM.json
@@ -106,8 +110,6 @@ HTP-030 result:
 
 Return to planner coordination if:
 
-- implementation starts from an old branch that predates the accepted
-  `TIRP-030` Interface shape;
 - follow-up work would reintroduce server-side raw FFmpeg request assembly;
 - the lane needs a new ADR before code can start;
 - hardware-specific behavior cannot be represented by existing ADRs.

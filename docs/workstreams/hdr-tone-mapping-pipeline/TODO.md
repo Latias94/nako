@@ -1,6 +1,6 @@
 # HDR Tone Mapping Pipeline - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## M0 - Research And Scope Freeze
@@ -35,9 +35,9 @@ Last updated: 2026-05-31
 
 ## M3 - Verification And Closeout
 
-- [ ] HTP-040 [owner=planner] [deps=HTP-030] [scope=docs/workstreams/hdr-tone-mapping-pipeline,docs/architecture/PLAYBACK.md,docs/architecture/WORKSTREAM_LINKS.md]
+- [x] HTP-040 [owner=planner] [deps=HTP-030] [scope=docs/workstreams/hdr-tone-mapping-pipeline,docs/architecture/PLAYBACK.md,docs/architecture/WORKSTREAM_LINKS.md,docs/architecture/LANES.md,docs/workstreams/README.md]
   Goal: Verify final gates, record evidence, and close or split follow-ons.
-  Validation: to be confirmed after implementation tasks are activated.
+  Validation: `python -m json.tool docs/workstreams/hdr-tone-mapping-pipeline/WORKSTREAM.json`; `cargo nextest run -p nako-playback hdr --no-fail-fast`; `cargo nextest run -p nako-transcode hdr --no-fail-fast`; `cargo nextest run -p nako-server hls --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`
   Review: `review-workstream` and `verify-rust-workstream` before closeout.
-  Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and closeout notes.
-  Handoff: Split hardware vendor tuning, device profile databases, or UI controls into follow-ons.
+  Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and `CLOSEOUT.md`.
+  Handoff: DONE. `HTP-030` was reviewed, verified, merged into `main`, and the lane closed. Split hardware vendor tuning, device profile databases, Dolby Vision/HDR10+ dynamic handling, operator smoke matrices, and UI controls into follow-ons.

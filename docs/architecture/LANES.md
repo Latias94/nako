@@ -22,7 +22,6 @@ ledger instead.
 | --- | --- | --- | --- |
 | `library-metadata-control-plane` | `generated-artifact-metadata-authority-apply` | `GAMA-050` | Backend/control-plane execution |
 | `client-surfaces-planning` | `client-surface-and-access-product-architecture` | `CSAPA-050` | Planner/docs split or defer decision |
-| `playback-transcode` | `hdr-tone-mapping-pipeline` | `HTP-030` | HDR transcode execution |
 | `playback-transcode` | `playback-compatibility-matrix-hardening` | `PCMH-020` | Playback-only matrix execution |
 | `playback-transcode` | `transcode-capability-inventory-matrix` | `TCIM-020` | Transcode inventory execution |
 
@@ -37,11 +36,11 @@ The `storage-vfs` lane is idle after
 before starting cache repair, source fingerprint escalation, playback artifact
 I/O pressure, scan scheduling, or PostgreSQL runtime harness work.
 
-`audio-compatibility-downmix-normalization` and
-`transcode-interface-and-runtime-plan-deepening` are closed. `HTP-030` is ready
-for planner assignment from current `main`; start it in a synced or recreated
-HDR worktree so it uses the transcode-owned runtime and execution planner
-Interfaces.
+`audio-compatibility-downmix-normalization`,
+`transcode-interface-and-runtime-plan-deepening`, and
+`hdr-tone-mapping-pipeline` are closed. Reopen HDR only through a follow-on
+workstream for hardware tone mapping, dynamic HDR handling, device profiles, UI
+controls, or operator smoke matrices.
 
 `PCMH-020` and `TCIM-020` are safe parallel tasks only while they stay inside
 their crate-local scopes. `PCMH-020` must not edit `nako-transcode` or

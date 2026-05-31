@@ -1,6 +1,6 @@
 # HDR Tone Mapping Pipeline - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## HTP-010 Gates
@@ -142,7 +142,7 @@ Planner verification on 2026-05-31:
 
 ### HTP-030 - Software-first transcode tone-mapping strategy
 
-Status: Done, pending planner review.
+Status: Done and accepted.
 
 Evidence:
 
@@ -189,6 +189,35 @@ Verification on 2026-05-31:
 - `cargo fmt --all -- --check` passed.
 - `git diff --check` passed with only Windows line-ending normalization
   warnings.
+
+Planner acceptance on 2026-05-31:
+
+- `HTP-030` review found no blocking workstream or code-quality findings.
+- Commit `39a9dd2f feat(transcode): add software hdr tone mapping plan` was
+  merged into `main`.
+
+### HTP-040 - Verification and closeout
+
+Status: Done
+
+Evidence:
+
+- `docs/workstreams/hdr-tone-mapping-pipeline/CLOSEOUT.md`
+- `docs/workstreams/hdr-tone-mapping-pipeline/WORKSTREAM.json`
+- `docs/architecture/PLAYBACK.md`
+- `docs/architecture/LANES.md`
+- `docs/workstreams/README.md`
+
+Findings:
+
+- The shipped lane covers playback color pipeline vocabulary and software-first
+  HLS HDR-to-SDR FFmpeg planning.
+- The lane intentionally does not cover hardware tone mapping, vendor filter
+  chains, Dolby Vision/HDR10+ dynamic handling, device profile databases,
+  operator smoke matrices, UI controls, Public Client API DTO changes, or media
+  probe schema expansion.
+- Remaining HDR depth should be opened as separate workstreams so the closed
+  lane does not absorb unrelated hardware, device-profile, or UI work.
 
 ## Residual Risks
 

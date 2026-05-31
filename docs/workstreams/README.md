@@ -22,8 +22,6 @@ Last reviewed: 2026-05-31
   is active on lane `library-metadata-control-plane`; next task is `GAMA-050`.
 - [client-surface-and-access-product-architecture](client-surface-and-access-product-architecture/README.md)
   is active on lane `client-surfaces-planning`; next task is `CSAPA-050`.
-- [hdr-tone-mapping-pipeline](hdr-tone-mapping-pipeline/README.md)
-  is active on lane `playback-transcode`; next task is `HTP-030`.
 - [playback-compatibility-matrix-hardening](playback-compatibility-matrix-hardening/README.md)
   is active on lane `playback-transcode`; next task is `PCMH-020`.
 - [transcode-capability-inventory-matrix](transcode-capability-inventory-matrix/README.md)
@@ -42,9 +40,10 @@ parallel tasks only while they stay inside their crate-local scopes.
 ## Current Workstreams
 
 - [hdr-tone-mapping-pipeline](hdr-tone-mapping-pipeline/README.md):
-  active playback/transcode lane for HDR/color compatibility and the first
-  executable tone-mapping slice. `HTP-030` is ready for planner assignment
-  after transcode Interface closeout.
+  closed playback/transcode lane for playback color pipeline requirements and
+  software-first HLS HDR-to-SDR tone mapping. Hardware tone mapping, dynamic
+  HDR handling, device profiles, UI controls, and operator smoke matrices are
+  follow-ons.
 - [playback-compatibility-matrix-hardening](playback-compatibility-matrix-hardening/README.md):
   active playback-only lane for table-driven Direct Play, Remux, and HLS
   Transcode decision coverage across representative container, codec, HDR, and

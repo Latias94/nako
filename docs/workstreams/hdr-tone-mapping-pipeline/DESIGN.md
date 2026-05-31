@@ -1,7 +1,7 @@
 # HDR Tone Mapping Pipeline
 
-Status: Draft
-Last updated: 2026-05-30
+Status: Closed
+Last updated: 2026-05-31
 
 ## Why This Lane Exists
 
@@ -38,19 +38,18 @@ hardware and software strategies are selected, and how failures degrade.
 
 ## Target State
 
-After the research task, this workstream should either:
-
-- become active with a sequenced implementation plan and first code task; or
-- remain draft with explicit blockers and required ADR/research follow-ups.
-
-The eventual implementation target is:
+This workstream is now closed. The shipped implementation target is:
 
 - **Color Pipeline Requirement** is modeled in playback planning;
 - **HDR Tone Mapping** is selected only when source/client compatibility
   requires it;
-- FFmpeg software and hardware tone-mapping strategies are deterministic and
+- FFmpeg software HDR-to-SDR tone mapping for HLS is deterministic and
   testable;
 - fallback behavior preserves playable output and clear diagnostics.
+
+Hardware tone mapping, device-specific filter chains, richer display profile
+inputs, Dolby Vision/HDR10+ dynamic handling, and operator hardware smoke
+matrices are follow-ons.
 
 ## In Scope For HTP-010
 
@@ -147,19 +146,19 @@ return to planner coordination before editing code.
 
 ## Architecture Direction
 
-Start with docs/research. The planner should not approve implementation until
-`HTP-010` identifies the first executable seam, validation commands, and shared
-scope with active audio work. `HTP-010` confirms a playback-first seam. If the
-first code task discovers missing probe facts or needs Public Client API shape
-changes, split that work explicitly rather than widening the HDR task.
+The lane executed in three slices: docs/research, playback vocabulary, and
+software-first HLS media output. The final implementation keeps color
+compatibility planning in playback and keeps FFmpeg filter construction inside
+the transcode-owned runtime/execution planner Interface. Server code only maps
+playback requirements into transcode-owned request values and composes the HLS
+runtime path.
 
-The workstream should remain draft until planner review confirms that
-`ACDN-020` is complete, merged, or otherwise serialized away from the playback
-vocabulary files. Moving the lane to active before that would create a shared
-scope conflict.
+Public API DTOs, generated clients, media probe schema changes, web player
+controls, hardware filter chains, and device profile databases were
+intentionally kept out of scope.
 
 ## Closeout Condition
 
-This lane can close only after implementation evidence exists or after the
-research task intentionally defers it with documented blockers. Draft status is
-expected until `HTP-010` resolves the first executable slice.
+This lane is closed after `HTP-030` landed on `main` with fresh playback,
+transcode, server HLS, formatting, JSON, and whitespace evidence. Remaining HDR
+depth should open new workstreams instead of extending this closed lane.

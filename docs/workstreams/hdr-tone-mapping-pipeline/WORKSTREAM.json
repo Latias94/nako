@@ -2,16 +2,17 @@
   "schema_version": 1,
   "slug": "hdr-tone-mapping-pipeline",
   "title": "HDR Tone Mapping Pipeline",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-05-31",
   "scope_kind": "architecture_research",
   "problem": "HDR media is identified as a future playback capability, but Nako has not yet frozen the color compatibility inputs, tone-mapping policy boundary, or first executable FFmpeg pipeline slice.",
   "task_prefix": "HTP",
-  "current_task": "HTP-040",
+  "current_task": null,
   "completed_tasks": [
     "HTP-010",
     "HTP-020",
-    "HTP-030"
+    "HTP-030",
+    "HTP-040"
   ],
   "authoritative_docs": [
     {
@@ -37,6 +38,10 @@
     {
       "role": "context_manifest",
       "path": "docs/workstreams/hdr-tone-mapping-pipeline/CONTEXT.jsonl"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/hdr-tone-mapping-pipeline/CLOSEOUT.md"
     },
     {
       "role": "handoff",
@@ -65,6 +70,10 @@
     {
       "task": "HTP-030",
       "summary": "Propagated playback color pipeline intent into transcode-owned HLS runtime, profile identity, execution policy, and FFmpeg software HDR-to-SDR command planning while keeping server changes to thin playback-to-transcode mapping and HLS composition."
+    },
+    {
+      "task": "HTP-040",
+      "summary": "Accepted planner review and fresh verification evidence, merged the software-first HDR-to-SDR slice into main, closed the lane, and split hardware tone mapping, dynamic HDR handling, device profiles, and operator smoke matrices as follow-ons."
     }
   ],
   "adr_refs": [
@@ -92,7 +101,7 @@
   ],
   "lane_slug": "playback-transcode",
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "HTP-030 implementation is complete pending planner review and closeout. Keep hardware tone mapping, device-specific filter chains, Dolby Vision/HDR10+ dynamic handling, and operator smoke matrices as follow-ons unless the planner splits them."
+    "default_action": "closed",
+    "notes": "Workstream complete. Open follow-on lanes for hardware tone mapping, vendor filter chains, Dolby Vision/HDR10+ dynamic handling, device profile databases, UI/client controls, or operator hardware smoke matrices."
   }
 }

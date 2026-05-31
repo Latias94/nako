@@ -1,6 +1,6 @@
 # HDR Tone Mapping Pipeline - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## M0 - Research And Scope Freeze
@@ -51,7 +51,7 @@ Exit criteria:
 - software and hardware FFmpeg strategies are deterministic and testable;
 - CPU fallback behavior is explicit.
 
-Status: Done, pending planner review.
+Status: Done and accepted.
 
 First media-output target:
 
@@ -80,4 +80,12 @@ Exit criteria:
 - docs and `WORKSTREAM.json` reflect active/completed/deferred status;
 - follow-ons are split or explicitly deferred.
 
-Status: Ready for planner review and closeout.
+Status: Done.
+
+Evidence:
+
+- planner review found no blocking issues in the `HTP-030` implementation;
+- fresh focused HDR/transcode/server gates passed before merge;
+- `HTP-030` was merged into `main`;
+- hardware tone mapping, vendor filter chains, dynamic HDR handling, device
+  profiles, and operator smoke matrices were split as follow-ons.
