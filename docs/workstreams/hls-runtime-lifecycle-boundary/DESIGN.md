@@ -141,3 +141,22 @@ implemented as part of the behavior-preserving lifecycle coordinator because it
 crosses playback resource admission, storage/VFS health, segment read/write
 pressure, and Admin diagnostics. `HRLB-020` may keep the current
 `HlsArtifactIo` not-yet-enforced evidence, but must not enforce it.
+
+## HRLB-030 Follow-On Split Decisions
+
+`HRLB-030` keeps this workstream as a lifecycle/test-coverage lane and splits
+all non-lifecycle expansion work into explicit follow-ons. The decisions are:
+
+| Area | Decision | Proposed lane | Rationale |
+| --- | --- | --- | --- |
+| HLS test stability | Open the next bounded playback-transcode workstream. | `proposed:hls-progressive-readiness-test-stability` | HRLB-020 passed the final HLS gate, but an earlier full-suite run exposed a load-sensitive progressive-readiness timeout. Gate trust should be hardened before larger HLS runtime changes. |
+| Artifact I/O pressure | Split into a PAIP follow-on, not this lifecycle lane. | `proposed:hls-artifact-io-pressure-enforcement` | Enforcing `HlsArtifactIo` crosses playback resource demand, segment read/write scheduling, storage/VFS health, and Admin diagnostics. |
+| Resource admission unification | Keep as a separate playback resource scheduler follow-on. | `proposed:playback-admission-queueing-and-waitlist` | Queueing, waitlists, reuse fairness, and permit ownership are broader than HLS lifecycle invariants and should not be hidden inside artifact I/O enforcement. |
+| Remote workers | Keep as a later runtime/control-plane follow-on. | `proposed:remote-transcode-worker-runtime` | Remote execution needs durable ownership, artifact transport, cancellation semantics, and scheduler policy beyond server-local HLS lifecycle. |
+| LL-HLS/CMAF | Keep as a later protocol/runtime follow-on. | `proposed:ll-hls-cmaf-runtime` | LL-HLS changes manifest semantics, partial segment readiness, and player compatibility; it should build on stable lifecycle and test gates. |
+| Player UX | Keep in client/player product lanes. | `proposed:player-hls-session-controls-and-recovery` | Seek controls, stalled playback recovery, ABR UI, and device behavior depend on client contracts and should not be implemented inside server lifecycle cleanup. |
+
+The immediate recommendation is: close HRLB after `HRLB-040`, then open
+`hls-progressive-readiness-test-stability` before PAIP or LL-HLS/CMAF. PAIP can
+be planned after the HLS gate is stable, with storage/VFS coordination from the
+start.

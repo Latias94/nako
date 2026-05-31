@@ -31,11 +31,11 @@ Status: Completed by `HRLB-020`.
 Exit criteria:
 
 - artifact I/O pressure, resource admission unification, remote workers,
-  LL-HLS/CMAF, and player UX are either deferred or split into concrete
-  workstreams;
+  LL-HLS/CMAF, player UX, and HLS test stability are either deferred or split
+  into concrete workstreams;
 - storage/VFS shared scope is explicit when artifact I/O pressure is selected.
 
-Status: Pending `HRLB-020`.
+Status: Completed by `HRLB-030`.
 
 ## M3 - Closeout
 
@@ -45,4 +45,4 @@ Exit criteria:
 - docs and `WORKSTREAM.json` reflect active/completed/deferred status;
 - no lifecycle ownership decision remains only in chat.
 
-Status: Pending `HRLB-030`.
+Status: Pending `HRLB-040`.

@@ -25,12 +25,12 @@ Last updated: 2026-05-31
 
 ## M2 - Follow-On Split
 
-- [ ] HRLB-030 [owner=planner] [deps=HRLB-020] [scope=docs/workstreams/hls-runtime-lifecycle-boundary,docs/architecture/PLAYBACK.md,docs/architecture/STORAGE_VFS.md,docs/architecture/LANES.md,docs/architecture/WORKSTREAM_LINKS.md]
-  Goal: Decide whether artifact I/O pressure, resource admission unification, remote workers, LL-HLS/CMAF, and player UX remain follow-ons or become the next bounded workstream.
+- [x] HRLB-030 [owner=planner] [deps=HRLB-020] [scope=docs/workstreams/hls-runtime-lifecycle-boundary,docs/architecture/PLAYBACK.md,docs/architecture/STORAGE_VFS.md,docs/architecture/LANES.md,docs/architecture/WORKSTREAM_LINKS.md]
+  Goal: Decide whether artifact I/O pressure, resource admission unification, remote workers, LL-HLS/CMAF, player UX, and HLS test stability remain follow-ons or become the next bounded workstream.
   Validation: `python -m json.tool docs/workstreams/hls-runtime-lifecycle-boundary/WORKSTREAM.json`; `git diff --check`
   Review: Planner review before opening follow-on workstreams.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and follow-on decision notes.
-  Handoff: Split storage artifact I/O pressure if it needs storage health/circuit-breaker or Admin diagnostics scope.
+  Handoff: DONE_WITH_CONCERNS. Split PAIP artifact I/O pressure, resource admission unification, remote workers, LL-HLS/CMAF, and player UX into separate follow-ons. Recommend `proposed:hls-progressive-readiness-test-stability` as the next bounded workstream before PAIP because HRLB-020 left load-sensitive HLS gate evidence despite final validation passing.
 
 ## M3 - Closeout
 

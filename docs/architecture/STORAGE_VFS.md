@@ -75,6 +75,10 @@ Shipped:
 
 - `proposed:vfs-cache-repair-diagnostics`: cache repair previews, refresh
   actions, and stale-cache operator remediation.
+- `proposed:hls-artifact-io-pressure-enforcement`: playback/storage follow-on
+  for HLS segment read/write pressure, storage health coordination, and
+  redaction-safe diagnostics. Open only after HLS progressive-readiness gates
+  are stable.
 - `proposed:source-fingerprint-escalation-policy`: opt-in partial/full hash
   escalation for ambiguous source identity cases.
 - `proposed:storage-vfs-postgresql-runtime-harness`: runtime parity evidence

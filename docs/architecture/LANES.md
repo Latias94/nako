@@ -22,7 +22,7 @@ ledger instead.
 | --- | --- | --- | --- |
 | `library-metadata-control-plane` | `generated-artifact-metadata-authority-apply` | `GAMA-050` | Backend/control-plane execution |
 | `client-surfaces-planning` | `client-surface-and-access-product-architecture` | `CSAPA-050` | Planner/docs split or defer decision |
-| `playback-transcode` | `hls-runtime-lifecycle-boundary` | `HRLB-030` | Follow-on split decision |
+| `playback-transcode` | `hls-runtime-lifecycle-boundary` | `HRLB-040` | Closeout and follow-on handoff |
 
 Do not start `GAMA-060` until `GAMA-050` has reviewed and verified the final
 Admin apply route. Do not close `CSAPA` until desktop playback is split,
@@ -45,10 +45,12 @@ controls, or operator smoke matrices.
 `transcode-capability-inventory-matrix` are closed. The `playback-transcode`
 lane is now active on `hls-runtime-lifecycle-boundary`. `HRLB-010` froze HLS
 lifecycle invariants and `HRLB-020` added behavior-preserving coverage without
-introducing a coordinator/facade. Keep artifact I/O pressure split to a PAIP
-follow-on. Split hardware tone-map execution, HEVC/AV1 output policy, subtitle
-burn-in, Admin/release reporting, and hardware smoke evidence into separate
-follow-ons.
+introducing a coordinator/facade. `HRLB-030` split follow-ons and recommends
+`proposed:hls-progressive-readiness-test-stability` as the next bounded
+playback-transcode workstream after closeout. Keep artifact I/O pressure split
+to a PAIP follow-on. Split hardware tone-map execution, HEVC/AV1 output policy,
+subtitle burn-in, Admin/release reporting, and hardware smoke evidence into
+separate follow-ons.
 
 ## Lane Registry
 

@@ -26,6 +26,15 @@ git diff --check
 Broaden to playback/session or storage gates only if the task scope is expanded
 by the planner.
 
+### HRLB-030 - Follow-on split decisions
+
+```text
+python -m json.tool docs/workstreams/hls-runtime-lifecycle-boundary/WORKSTREAM.json
+git diff --check
+```
+
+`HRLB-030` is docs/planning-only. Do not run Rust gates or implement behavior.
+
 ## Evidence Ledger
 
 ### HRLB-010 - Lifecycle invariant freeze
@@ -128,3 +137,31 @@ Result on 2026-05-31:
 - The HLS test suite remains load-sensitive around progressive playlist
   readiness under full-suite concurrency; final verification passed, but
   `HRLB-030` should decide whether to split a test-stability follow-on.
+
+### HRLB-030 - Follow-on split decisions
+
+Status: Done with concerns
+
+Evidence collected:
+
+- Added the HRLB-030 decision table to `DESIGN.md`.
+- Classified PAIP artifact I/O pressure, resource admission unification,
+  remote workers, LL-HLS/CMAF, player UX, and HLS test stability as separate
+  follow-ons rather than HRLB implementation work.
+- Recommended `proposed:hls-progressive-readiness-test-stability` as the next
+  bounded workstream before PAIP or LL-HLS/CMAF, because HRLB-020 left a
+  load-sensitive progressive-readiness concern even though final HLS validation
+  passed.
+- Kept PAIP as `proposed:hls-artifact-io-pressure-enforcement` and documented
+  the required playback/storage coordination.
+
+Fresh validation:
+
+```text
+python -m json.tool docs/workstreams/hls-runtime-lifecycle-boundary/WORKSTREAM.json
+git diff --check
+```
+
+Result: passed on 2026-05-31. `git diff --check` emitted only line-ending
+normalization warnings for touched Markdown/JSON files and no whitespace
+errors.

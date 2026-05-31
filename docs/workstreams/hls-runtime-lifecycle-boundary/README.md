@@ -14,7 +14,7 @@ starts with a docs/research invariant freeze before any behavior change.
 
 Planner-approved lane: `playback-transcode`.
 
-Current task: `HRLB-030`.
+Current task: `HRLB-040`.
 
 Read before implementation:
 
@@ -36,3 +36,9 @@ hidden inside the lifecycle refactor.
 startup stale recovery, and remote staged-input release. It did not introduce a
 coordinator/facade because the first useful slice was coverage, not a new
 abstraction.
+
+`HRLB-030` split follow-ons and recommends
+`proposed:hls-progressive-readiness-test-stability` as the next bounded
+workstream before PAIP artifact I/O pressure or LL-HLS/CMAF. PAIP, resource
+admission unification, remote workers, LL-HLS/CMAF, and player UX remain
+separate proposed lanes.

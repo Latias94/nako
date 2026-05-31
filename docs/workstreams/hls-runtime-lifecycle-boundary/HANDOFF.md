@@ -42,11 +42,32 @@ Result: passed on 2026-05-31. An earlier full HLS run had one existing
 load-sensitive progressive-readiness timeout; that test passed individually and
 the final full rerun passed 70/70.
 
+## HRLB-030 Decisions
+
+`HRLB-030` is complete with concerns. Follow-on decisions:
+
+- next recommended bounded workstream:
+  `proposed:hls-progressive-readiness-test-stability`;
+- PAIP artifact I/O pressure remains separate:
+  `proposed:hls-artifact-io-pressure-enforcement`;
+- resource admission unification remains separate:
+  `proposed:playback-admission-queueing-and-waitlist`;
+- remote workers remain separate:
+  `proposed:remote-transcode-worker-runtime`;
+- LL-HLS/CMAF remains separate:
+  `proposed:ll-hls-cmaf-runtime`;
+- player UX remains separate:
+  `proposed:player-hls-session-controls-and-recovery`.
+
+The reason to prioritize HLS test stability is HRLB-020's load-sensitive
+progressive-readiness evidence. PAIP should wait until the HLS gate is stable
+because it will add read/write pressure and more concurrent segment behavior.
+
 ## Next Task
 
-Assign `HRLB-030` for planner follow-on split decisions. Decide whether PAIP
-artifact I/O pressure, resource admission unification, remote workers,
-LL-HLS/CMAF, player UX, or HLS test stability become separate workstreams.
+Assign `HRLB-040` for closeout. Verify final gates, preserve HRLB-030's
+follow-on decisions, and close this lifecycle boundary workstream or split any
+remaining closeout-only follow-ons.
 
 Required context:
 
@@ -63,9 +84,10 @@ docs/workstreams/playback-runtime-resource-scheduler/HANDOFF.md
 docs/workstreams/remote-storage-health-and-circuit-breaker/CLOSEOUT.md
 ```
 
-Required validation for `HRLB-030`:
+Required validation for `HRLB-040`:
 
 ```text
+final gates from EVIDENCE_AND_GATES.md
 python -m json.tool docs/workstreams/hls-runtime-lifecycle-boundary/WORKSTREAM.json
 git diff --check
 ```

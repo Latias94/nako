@@ -1,6 +1,6 @@
 # Architecture Workstream Links
 
-Last updated: 2026-05-30
+Last updated: 2026-05-31
 
 This index links architecture capability areas to workstream evidence and
 candidate follow-on lanes. The top-level architecture map stays concise; this
@@ -83,6 +83,7 @@ Evidence workstreams:
 
 Proposed lanes:
 
+- `proposed:hls-progressive-readiness-test-stability`
 - `proposed:ll-hls-cmaf-runtime`
 - `proposed:dash-cmaf-playback-packaging`
 - `proposed:hls-key-delivery-drm-boundary`
@@ -91,6 +92,7 @@ Proposed lanes:
 - `proposed:playback-os-resource-isolation`
 - `proposed:playback-device-capacity-tuning`
 - `proposed:hls-artifact-io-pressure-enforcement`
+- `proposed:player-hls-session-controls-and-recovery`
 - `proposed:playback-release-hardware-matrix`
 
 ## Storage And VFS
@@ -114,6 +116,7 @@ Evidence workstreams:
 Proposed lanes:
 
 - `proposed:vfs-cache-repair-diagnostics`
+- `proposed:hls-artifact-io-pressure-enforcement`
 - `proposed:source-fingerprint-escalation-policy`
 - `proposed:storage-vfs-postgresql-runtime-harness`
 
