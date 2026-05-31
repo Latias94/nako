@@ -12,9 +12,10 @@ audio output baseline into this HDR branch.
 ## Next Task
 
 Return to planner coordination before starting `HTP-030`. The HDR playback
-vocabulary slice is accepted, and `ACDN-040` is now accepted on `main`. Start
-the transcode/HLS implementation after the short `ACDN-050` closeout or after
-the planner explicitly serializes the shared transcode/FFmpeg/HLS files.
+vocabulary slice is accepted, including the reviewer finding that remux cannot
+satisfy HDR-to-SDR tone mapping for SDR-only clients. Keep `HTP-030` parked
+behind `transcode-interface-and-runtime-plan-deepening` while `TIRP-020` and
+`TIRP-030` own the shared transcode/FFmpeg/HLS files.
 
 Completed `HTP-020` implementation scope:
 
@@ -58,14 +59,14 @@ HTP-020 result:
   unsupported, tone mapping required, and deferred unsupported dynamic HDR;
 - `TranscodeRequirement` carries the color pipeline requirement beside existing
   output constraints and audio output requirement;
-- tests cover HDR passthrough, HDR-to-SDR tone-map intent, and Dolby Vision
-  deferred unsupported intent.
+- tests cover HDR passthrough, HDR-to-SDR tone-map intent, remux denial when
+  tone mapping is required, and Dolby Vision deferred unsupported intent.
 
 ## Stop Conditions
 
 Return to planner coordination if:
 
-- `HTP-030` is requested concurrently with `ACDN-050` docs closeout without
+- `HTP-030` is requested concurrently with `TIRP-020` or `TIRP-030` without
   planner serialization;
 - follow-up work would expand beyond playback-owned color requirement
   vocabulary without planner approval;
@@ -82,4 +83,4 @@ End with one of:
 - NEEDS_CONTEXT
 
 Include implementation files changed, validation evidence, residual risks, and
-whether `HTP-020` is ready for planner review.
+whether `HTP-020` remains accepted and whether `HTP-030` is ready to unpark.

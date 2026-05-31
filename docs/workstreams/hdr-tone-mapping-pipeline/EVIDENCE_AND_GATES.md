@@ -110,7 +110,7 @@ Verification on 2026-05-30:
 - `cargo fmt --all -- --check` passed.
 - `git diff --check` passed.
 
-Reviewer finding follow-up on 2026-05-30:
+Reviewer finding follow-up:
 
 - Added regression coverage for an SDR-only client playing an HDR source from
   an unsupported container. The planner now selects transcode, not remux, so
@@ -130,6 +130,15 @@ Planner verification on 2026-05-30:
 - `cargo fmt --all -- --check` passed.
 - `git diff --check` passed with only Windows line-ending normalization
   warnings.
+
+Planner verification on 2026-05-31:
+
+- `cargo nextest run -p nako-playback hdr --no-fail-fast` passed with 4 tests
+  run and 30 skipped by filter.
+- `cargo fmt --all -- --check` passed.
+- `python -m json.tool docs/workstreams/hdr-tone-mapping-pipeline/WORKSTREAM.json`
+  passed.
+- `git diff --check` passed.
 
 ## Residual Risks
 
