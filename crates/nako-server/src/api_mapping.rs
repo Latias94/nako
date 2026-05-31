@@ -136,6 +136,8 @@ pub(crate) const fn admin_hardware_pipeline_stage(
         HardwarePipelineStage::Filter => AdminHardwarePipelineStage::Filter,
         HardwarePipelineStage::Encode => AdminHardwarePipelineStage::Encode,
         HardwarePipelineStage::Hwaccel => AdminHardwarePipelineStage::Hwaccel,
+        HardwarePipelineStage::ToneMap => AdminHardwarePipelineStage::ToneMap,
+        HardwarePipelineStage::SubtitleBurnIn => AdminHardwarePipelineStage::SubtitleBurnIn,
         HardwarePipelineStage::BitstreamFilter => AdminHardwarePipelineStage::BitstreamFilter,
     }
 }

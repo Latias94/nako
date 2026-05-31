@@ -778,6 +778,8 @@ pub enum AdminHardwarePipelineStage {
     Filter,
     Encode,
     Hwaccel,
+    ToneMap,
+    SubtitleBurnIn,
     BitstreamFilter,
 }
 
