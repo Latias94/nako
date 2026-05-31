@@ -36,6 +36,8 @@ export const NAKO_ADMIN_ROUTES = {
   generatedArtifactProposals: "/admin/v1/automation/generated-artifacts/proposals",
   generatedArtifactReviewPlan: "/admin/v1/automation/generated-artifacts/{artifact_id}/review-plan",
   generatedArtifactReview: "/admin/v1/automation/generated-artifacts/{artifact_id}/review",
+  generatedArtifactMetadataApplyPlan: "/admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply-plan",
+  generatedArtifactMetadataApply: "/admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply",
   itemArtworkGallery: "/admin/v1/items/{item_id}/artwork",
   itemArtworkSelect: "/admin/v1/items/{item_id}/artwork/{kind}/select",
   itemArtworkSelection: "/admin/v1/items/{item_id}/artwork/{kind}/selection",
@@ -205,6 +207,10 @@ export interface AdminGeneratedArtifactProposalsQuery extends AdminPageQuery {}
 
 export interface AdminGeneratedArtifactReviewRequest {
   decision: "accept" | "reject";
+}
+
+export interface AdminGeneratedArtifactMetadataApplyRequest {
+  idempotency_key: string;
 }
 
 export type AdminArtworkKind =
@@ -1671,6 +1677,54 @@ export interface AdminGeneratedArtifactAcceptancePlan {
     applies_immediately: boolean;
     requires_metadata_authority_apply: boolean;
   };
+}
+
+export interface AdminGeneratedArtifactMetadataApplyPlanResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  plan: AdminGeneratedArtifactMetadataApplyPlan;
+}
+
+export interface AdminGeneratedArtifactMetadataApplyResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  outcome_id: string | null;
+  artifact_id: string;
+  status: string;
+  applied: boolean;
+  changed: boolean;
+  idempotent_replay: boolean;
+  applied_source: string | null;
+  plan: AdminGeneratedArtifactMetadataApplyPlan;
+}
+
+export interface AdminGeneratedArtifactMetadataApplyPlan {
+  artifact_id: string;
+  status: string;
+  executable: boolean;
+  reasons: string[];
+  target: AdminGeneratedArtifactTarget;
+  payload: AdminGeneratedArtifactPayloadSummary;
+  fields: AdminGeneratedArtifactMetadataApplyFieldPlan[];
+  apply_field_count: number;
+  skipped_field_count: number;
+  noop_field_count: number;
+}
+
+export interface AdminGeneratedArtifactMetadataApplyFieldPlan {
+  field: string;
+  action: string;
+  reasons: string[];
+  current: AdminGeneratedArtifactMetadataValueSummary;
+  incoming: AdminGeneratedArtifactMetadataValueSummary;
+}
+
+export interface AdminGeneratedArtifactMetadataValueSummary {
+  present: boolean;
+  empty: boolean;
+  value_fingerprint: string | null;
+  value_bytes: number | null;
+  item_count: number | null;
 }
 
 export type AdminPlaybackPolicyRoleMergeStrategy = "restrictive";

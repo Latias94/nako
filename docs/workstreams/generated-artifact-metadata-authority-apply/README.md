@@ -1,7 +1,7 @@
 # Generated Artifact Metadata Authority Apply
 
 Status: Active
-Last updated: 2026-05-29
+Last updated: 2026-05-30
 
 This workstream turns an accepted `Generated Artifact` metadata proposal into a
 bounded `Metadata Authority` apply workflow without letting automation mutate
@@ -23,6 +23,8 @@ Authoritative docs:
 - `EVIDENCE_AND_GATES.md`
 - `HANDOFF.md`
 
-Current executable task: `GAMA-030`, which should add host-owned apply
-execution for an executable metadata apply plan. `GAMA-020` shipped the
-read-only Admin apply-plan contract and kept Canonical Metadata unchanged.
+Current executable task: `GAMA-060`, which should add the Web Admin apply-plan
+and confirm-apply workflow. Backend work through `GAMA-050` has shipped the
+read-only apply-plan route, host-owned apply execution, durable idempotency
+outcomes, the final Admin metadata apply route, and synchronized generated
+Admin TypeScript contracts.

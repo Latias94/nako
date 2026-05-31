@@ -7,12 +7,13 @@
   "scope_kind": "backend_web_authority_workflow",
   "problem": "Accepted metadata Generated Artifacts are staged for Metadata Authority apply, but Nako has no redacted apply-plan, audited apply route, or Web Admin confirmation workflow that turns them into Canonical Metadata through host policy.",
   "task_prefix": "GAMA",
-  "current_task": "GAMA-050",
+  "current_task": "GAMA-060",
   "completed_tasks": [
     "GAMA-010",
     "GAMA-020",
     "GAMA-030",
-    "GAMA-040"
+    "GAMA-040",
+    "GAMA-050"
   ],
   "authoritative_docs": [
     {
@@ -76,6 +77,10 @@
     {
       "task": "GAMA-040",
       "summary": "Added durable Generated Artifact metadata apply outcomes with explicit idempotency keys, SQLite/PostgreSQL schema parity, atomic outcome plus metadata application commit, replay of persisted applied/noop outcomes, failed outcome audit, and focused SQLite/PostgreSQL/server evidence."
+    },
+    {
+      "task": "GAMA-050",
+      "summary": "Exposed the final Admin Generated Artifact metadata apply route, added redacted apply request/response DTOs, covered auth/body/error/replay HTTP behavior, and synchronized generated Admin TypeScript contracts for Web clients."
     }
   ],
   "adr_refs": [
@@ -112,6 +117,6 @@
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
     "default_action": "continue_current_task",
-    "notes": "Continue with GAMA-050. Expose the final Admin apply route against the durable idempotency-key contract; keep bulk apply, provider-specific enrichment, and operations repair as follow-on scope unless the task is explicitly expanded."
+    "notes": "Continue with GAMA-060 only when Web Admin workflow work is explicitly requested. Backend Admin apply route is stable; keep bulk apply, provider-specific enrichment, and operations repair as follow-on scope unless the task is explicitly expanded."
   }
 }

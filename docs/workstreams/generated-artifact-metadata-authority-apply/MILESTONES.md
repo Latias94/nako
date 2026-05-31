@@ -45,9 +45,9 @@ Exit criteria:
 - Any new persistence has SQLite/PostgreSQL parity and migration evidence.
 - Final Admin routes and generated contracts are stable enough for Web.
 
-Status: In progress. `GAMA-040` completed durable outcome persistence,
-idempotency-key replay, and SQLite/PostgreSQL contract evidence. `GAMA-050`
-still needs the final Admin route and generated wire contracts.
+Status: Complete via `GAMA-040` and `GAMA-050`. Durable outcome persistence,
+idempotency-key replay, SQLite/PostgreSQL contract evidence, final Admin route,
+and generated wire contracts are in place.
 
 ## M4 - Web Admin Workflow
 

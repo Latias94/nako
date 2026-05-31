@@ -42,6 +42,7 @@ use nako_api::{
         AdminCatalogGovernanceRepairPlanStatus, AdminCreateInvitationRequest,
         AdminCreateInvitationResponse, AdminCreateUserRequest,
         AdminGeneratedArtifactMetadataApplyPlanResponse,
+        AdminGeneratedArtifactMetadataApplyRequest, AdminGeneratedArtifactMetadataApplyResponse,
         AdminGeneratedArtifactProposalListResponse, AdminGeneratedArtifactReviewPlanResponse,
         AdminGeneratedArtifactReviewRequest, AdminGeneratedArtifactReviewResponse,
         AdminHardwareAcceleration, AdminHardwareAccelerationFallback, AdminHardwarePipelineStage,

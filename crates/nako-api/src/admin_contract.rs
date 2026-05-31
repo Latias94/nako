@@ -1,6 +1,6 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 56] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 58] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -74,6 +74,14 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 56] = [
     (
         "generatedArtifactReview",
         "automation/generated-artifacts/{artifact_id}/review",
+    ),
+    (
+        "generatedArtifactMetadataApplyPlan",
+        "automation/generated-artifacts/{artifact_id}/metadata-apply-plan",
+    ),
+    (
+        "generatedArtifactMetadataApply",
+        "automation/generated-artifacts/{artifact_id}/metadata-apply",
     ),
     ("itemArtworkGallery", "items/{item_id}/artwork"),
     ("itemArtworkSelect", "items/{item_id}/artwork/{kind}/select"),
@@ -289,6 +297,10 @@ export interface AdminGeneratedArtifactProposalsQuery extends AdminPageQuery {}
 
 export interface AdminGeneratedArtifactReviewRequest {
   decision: "accept" | "reject";
+}
+
+export interface AdminGeneratedArtifactMetadataApplyRequest {
+  idempotency_key: string;
 }
 
 export type AdminArtworkKind =
@@ -1757,6 +1769,54 @@ export interface AdminGeneratedArtifactAcceptancePlan {
   };
 }
 
+export interface AdminGeneratedArtifactMetadataApplyPlanResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  plan: AdminGeneratedArtifactMetadataApplyPlan;
+}
+
+export interface AdminGeneratedArtifactMetadataApplyResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  outcome_id: string | null;
+  artifact_id: string;
+  status: string;
+  applied: boolean;
+  changed: boolean;
+  idempotent_replay: boolean;
+  applied_source: string | null;
+  plan: AdminGeneratedArtifactMetadataApplyPlan;
+}
+
+export interface AdminGeneratedArtifactMetadataApplyPlan {
+  artifact_id: string;
+  status: string;
+  executable: boolean;
+  reasons: string[];
+  target: AdminGeneratedArtifactTarget;
+  payload: AdminGeneratedArtifactPayloadSummary;
+  fields: AdminGeneratedArtifactMetadataApplyFieldPlan[];
+  apply_field_count: number;
+  skipped_field_count: number;
+  noop_field_count: number;
+}
+
+export interface AdminGeneratedArtifactMetadataApplyFieldPlan {
+  field: string;
+  action: string;
+  reasons: string[];
+  current: AdminGeneratedArtifactMetadataValueSummary;
+  incoming: AdminGeneratedArtifactMetadataValueSummary;
+}
+
+export interface AdminGeneratedArtifactMetadataValueSummary {
+  present: boolean;
+  empty: boolean;
+  value_fingerprint: string | null;
+  value_bytes: number | null;
+  item_count: number | null;
+}
+
 export type AdminPlaybackPolicyRoleMergeStrategy = "restrictive";
 
 export type AdminPlaybackPolicyPermission =
@@ -2682,6 +2742,7 @@ mod tests {
             "AdminWatchFolderDiscoveryRequest",
             "AdminGeneratedArtifactProposalsQuery",
             "AdminGeneratedArtifactReviewRequest",
+            "AdminGeneratedArtifactMetadataApplyRequest",
             "AdminArtworkKind",
             "AdminItemArtworkGalleryQuery",
             "AdminSelectItemArtworkRequest",
@@ -2690,6 +2751,11 @@ mod tests {
             "AdminGeneratedArtifactProposalListResponse",
             "AdminGeneratedArtifactReviewPlanResponse",
             "AdminGeneratedArtifactReviewResponse",
+            "AdminGeneratedArtifactMetadataApplyPlanResponse",
+            "AdminGeneratedArtifactMetadataApplyResponse",
+            "AdminGeneratedArtifactMetadataApplyPlan",
+            "AdminGeneratedArtifactMetadataApplyFieldPlan",
+            "AdminGeneratedArtifactMetadataValueSummary",
             "AdminManagedArtworkGalleryResponse",
             "AdminManagedArtworkGallerySummary",
             "AdminManagedArtworkGalleryCandidate",

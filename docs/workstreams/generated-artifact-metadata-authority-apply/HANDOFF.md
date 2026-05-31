@@ -5,7 +5,7 @@ Last updated: 2026-05-30
 
 ## Current State
 
-`GAMA-040` is complete.
+`GAMA-050` is complete.
 
 Generated Artifact review acceptance is still guarded, and the new read-only
 metadata apply-plan route now exposes field-level, redacted plan facts without
@@ -23,16 +23,23 @@ outcome, stores the redacted apply plan, and atomically commits Canonical
 Metadata plus catalog/search projection with the outcome record for applied
 mutations.
 
+The final Admin apply route is exposed at
+`POST /admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply`.
+The request body is `AdminGeneratedArtifactMetadataApplyRequest` with an
+explicit `idempotency_key`. The response is
+`AdminGeneratedArtifactMetadataApplyResponse`, containing only redacted outcome
+facts and the redacted field-level plan. Generated Admin TypeScript contracts in
+`apps/admin-web` and `web` are synchronized with the Rust generator.
+
 ## Active Task
 
-- Task ID: `GAMA-050`
+- Task ID: `GAMA-060`
 - Lane: `library-metadata-control-plane`
 - Status: ready
 - Owner: unassigned
 
-Goal: expose the final Admin metadata apply route and keep wire
-contracts/generated clients synchronized with the durable idempotency-key
-contract.
+Goal: add the Web Admin apply-plan and confirm-apply workflow now that the
+backend route and generated contracts are stable.
 
 ## Key Files
 
@@ -48,6 +55,8 @@ contract.
 - `crates/nako-server/src/http/admin.rs`
 - `crates/nako-server/src/app/metadata_application.rs`
 - `crates/nako-server/src/app/tests/automation.rs`
+- `apps/admin-web/src/adminApi/generated/contract.ts`
+- `web/src/api/admin/generated/contract.ts`
 - `docs/workstreams/web-admin-generated-artifact-review-mutations/ROUTE_API_READINESS.md`
 - `docs/workstreams/metadata-application-policy-seam/`
 - `docs/workstreams/metadata-application-cross-path-audit/`
@@ -72,16 +81,24 @@ contract.
 - Durable apply outcomes live in
   `generated_artifact_metadata_apply_outcomes` with SQLite/PostgreSQL parity and
   status values `applied`, `noop`, and `failed`.
+- Final Admin apply route is
+  `POST /admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply`.
+- Final Admin apply request body is
+  `AdminGeneratedArtifactMetadataApplyRequest { idempotency_key }`.
+- Final Admin apply response is `AdminGeneratedArtifactMetadataApplyResponse`
+  and must stay redacted.
 
 ## Blockers
 
-- None for `GAMA-050`.
+- None for `GAMA-060`, but it must stay separate from backend route work.
 
 ## Watchpoints
 
 - Do not make `/review` or `/metadata-apply-plan` apply metadata.
-- The final `/metadata-apply` Admin route should require/derive a stable
-  idempotency key and return only redacted apply outcome facts.
+- The final `/metadata-apply` Admin route requires a stable idempotency key and
+  returns only redacted apply outcome facts.
+- `GAMA-060` should consume the generated contract; do not hand-write a
+  conflicting Web fixture contract.
 - Do not expose raw `artifact_json`, prompt, source locators, paths, or secrets.
 - Do not skip field lock and library refresh mode checks.
 - Keep direct repository duplicate-key behavior as a storage error; route/app

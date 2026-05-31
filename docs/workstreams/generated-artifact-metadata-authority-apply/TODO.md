@@ -36,12 +36,12 @@ Last updated: 2026-05-30
   Evidence: Added durable Generated Artifact metadata apply outcomes with SQLite/PostgreSQL schemas, repository contract coverage for idempotency and atomic metadata application commit, and app tests for durable replay plus failed outcomes.
   Handoff: Execution continues at `GAMA-050`; expose the final Admin route against the request/idempotency-key contract.
 
-- [ ] GAMA-050 [owner=unassigned] [deps=GAMA-030] [scope=crates/nako-api,crates/nako-server/src/http,generated clients]
+- [x] GAMA-050 [owner=codex] [deps=GAMA-040] [scope=crates/nako-api,crates/nako-server/src/http,generated clients]
   Goal: Expose final Admin metadata apply route and keep wire contracts/generated clients synchronized.
   Validation: `cargo nextest run -p nako-server admin_generated_artifact_metadata_apply --no-fail-fast`; generated client contract check used by the repo at that point.
   Review: `review-workstream` for Admin API boundary and redaction.
-  Evidence: HTTP tests for auth, route method/path/body, redacted response, idempotent replay, and error mapping.
-  Handoff: Web work can begin only after this route is stable.
+  Evidence: Added `POST /admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply` with `AdminGeneratedArtifactMetadataApplyRequest { idempotency_key }` and redacted `AdminGeneratedArtifactMetadataApplyResponse`; HTTP tests cover auth, method/path/body, redacted response, idempotent replay, and error mapping; generated Admin TypeScript contracts are synchronized.
+  Handoff: Backend route is stable. Execution continues at `GAMA-060`; Web workflow was not implemented in this task.
 
 ## M3 - Web Admin Apply Workflow
 

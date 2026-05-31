@@ -87,6 +87,46 @@ Only run after `GAMA-050` exposes a real Admin route:
   The PostgreSQL contract ran against a temporary local PostgreSQL cluster under
   `target/postgres-contract-gama040`, which was stopped and cleaned after the
   run.
+- `GAMA-050` (verified 2026-05-30): Exposed the final Admin Generated Artifact
+  metadata apply route and synchronized generated Admin TypeScript contracts.
+  Evidence:
+  - `cargo nextest run -p nako-api generated_artifact_metadata_apply --no-fail-fast`
+  - `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+  - `cargo nextest run -p nako-server admin_generated_artifact_metadata_apply --no-fail-fast`
+  - `cargo fmt --all -- --check`
+  - `python -m json.tool docs/workstreams/generated-artifact-metadata-authority-apply/WORKSTREAM.json`
+  - `git diff --check -- docs/workstreams/generated-artifact-metadata-authority-apply docs/architecture/WORKSTREAM_LINKS.md docs/workstreams/README.md`
+  - `git diff --check`
+  Behavior proven:
+  - final apply route is
+    `POST /admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply`;
+  - request body is `AdminGeneratedArtifactMetadataApplyRequest` with explicit
+    `idempotency_key`;
+  - response is redacted `AdminGeneratedArtifactMetadataApplyResponse` with
+    outcome id, apply status, replay flag, safe applied source, and field-level
+    redacted plan summaries;
+  - Admin auth rejects missing credentials before route execution;
+  - successful apply mutates Canonical Metadata through the existing
+    MetadataApplication path and returns no raw prompt, payload, Source Locator,
+    path, fingerprint, explanation, or secret values;
+  - repeating the same idempotency key replays the same durable outcome;
+  - invalid idempotency keys map to `400 invalid_input` and missing artifacts
+    map to `404 not_found` without leaking sensitive body content;
+  - generated Admin TypeScript contracts in `apps/admin-web` and `web` match
+    the Rust generator and keep Admin routes out of the Public Client SDK.
+  Web workflow gates were not run because `GAMA-060` is out of scope for this
+  task.
+
+  Planner result intake on 2026-05-31 replayed this slice onto the current
+  `main` baseline and fixed the generated Admin route table length after the
+  final apply route was added. Fresh intake evidence:
+  - `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+  - `cargo nextest run -p nako-api generated_artifact_metadata_apply --no-fail-fast`
+  - `cargo nextest run -p nako-server admin_generated_artifact_metadata_apply --no-fail-fast`
+  - `cargo fmt --all -- --check`
+  - `python -m json.tool docs/workstreams/generated-artifact-metadata-authority-apply/WORKSTREAM.json`
+  - `git diff --cached --check`
+  - `git diff --check`
 
 ## Required Final Evidence
 

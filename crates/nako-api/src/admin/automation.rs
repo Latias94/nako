@@ -4,14 +4,16 @@ use nako_core::{
     AutomationProviderId, GeneratedArtifactAcceptanceActionKind,
     GeneratedArtifactAcceptanceBoundary, GeneratedArtifactAcceptancePlan,
     GeneratedArtifactAcceptancePlanReason, GeneratedArtifactAcceptancePlanStatus,
-    GeneratedArtifactMetadataApplyFieldPlan, GeneratedArtifactMetadataApplyPlan,
-    GeneratedArtifactMetadataApplyPlanReason, GeneratedArtifactMetadataApplyPlanStatus,
-    GeneratedArtifactMetadataFieldAction, GeneratedArtifactMetadataFieldReason,
-    GeneratedArtifactMetadataValueSummary, GeneratedArtifactPayloadShape,
-    GeneratedArtifactPayloadSummary, GeneratedArtifactProposal, GeneratedArtifactProvenance,
-    GeneratedArtifactReadiness, GeneratedArtifactReadinessReason, GeneratedArtifactReadinessStatus,
-    GeneratedArtifactReviewDecision, GeneratedArtifactReviewResult, GeneratedArtifactTarget,
-    GeneratedArtifactTargetKind, JobId, LibraryId, MediaItemId, MediaSourceId, MetadataField,
+    GeneratedArtifactMetadataApplyFieldPlan, GeneratedArtifactMetadataApplyOutcomeId,
+    GeneratedArtifactMetadataApplyPlan, GeneratedArtifactMetadataApplyPlanReason,
+    GeneratedArtifactMetadataApplyPlanStatus, GeneratedArtifactMetadataApplyResult,
+    GeneratedArtifactMetadataApplyResultStatus, GeneratedArtifactMetadataFieldAction,
+    GeneratedArtifactMetadataFieldReason, GeneratedArtifactMetadataValueSummary,
+    GeneratedArtifactPayloadShape, GeneratedArtifactPayloadSummary, GeneratedArtifactProposal,
+    GeneratedArtifactProvenance, GeneratedArtifactReadiness, GeneratedArtifactReadinessReason,
+    GeneratedArtifactReadinessStatus, GeneratedArtifactReviewDecision,
+    GeneratedArtifactReviewResult, GeneratedArtifactTarget, GeneratedArtifactTargetKind, JobId,
+    LibraryId, MediaItemId, MediaSourceId, MetadataField,
 };
 use serde::{Deserialize, Serialize};
 
@@ -201,6 +203,43 @@ pub struct AdminGeneratedArtifactMetadataApplyPlanResponse {
     pub admin_api_version: String,
     pub public_api_version: String,
     pub plan: AdminGeneratedArtifactMetadataApplyPlan,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminGeneratedArtifactMetadataApplyRequest {
+    pub idempotency_key: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminGeneratedArtifactMetadataApplyResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub outcome_id: Option<GeneratedArtifactMetadataApplyOutcomeId>,
+    pub artifact_id: AutomationArtifactId,
+    pub status: GeneratedArtifactMetadataApplyResultStatus,
+    pub applied: bool,
+    pub changed: bool,
+    pub idempotent_replay: bool,
+    pub applied_source: Option<String>,
+    pub plan: AdminGeneratedArtifactMetadataApplyPlan,
+}
+
+impl AdminGeneratedArtifactMetadataApplyResponse {
+    #[must_use]
+    pub fn from_result(result: GeneratedArtifactMetadataApplyResult) -> Self {
+        Self {
+            admin_api_version: ADMIN_API_VERSION.to_owned(),
+            public_api_version: API_VERSION.to_owned(),
+            outcome_id: result.outcome_id,
+            artifact_id: result.artifact_id,
+            status: result.status,
+            applied: result.applied,
+            changed: result.changed,
+            idempotent_replay: result.idempotent_replay,
+            applied_source: result.applied_source,
+            plan: AdminGeneratedArtifactMetadataApplyPlan::from_plan(result.plan),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -518,6 +557,95 @@ mod tests {
         assert_eq!(value["plan"]["executable"], true);
         assert_eq!(value["plan"]["fields"][0]["field"], "overview");
         assert_eq!(value["plan"]["fields"][0]["action"], "apply");
+        assert_eq!(
+            value["plan"]["fields"][0]["incoming"]["value_fingerprint"],
+            "sha256:44444444444444444444444444444444"
+        );
+        assert!(!body.contains("private generated overview"));
+        assert!(!body.contains("artifact_json"));
+        assert!(!body.contains("prompt_json"));
+        assert!(!body.contains("local:///"));
+        assert!(!body.contains("secret"));
+    }
+
+    #[test]
+    fn generated_artifact_metadata_apply_response_is_redacted_and_replay_safe() {
+        let library_id = LibraryId::new();
+        let item_id = MediaItemId::new();
+        let source_id = MediaSourceId::new();
+        let artifact_id = AutomationArtifactId::new();
+        let outcome_id = GeneratedArtifactMetadataApplyOutcomeId::new();
+        let request = AdminGeneratedArtifactMetadataApplyRequest {
+            idempotency_key: "metadata-apply:operator-confirmation".to_owned(),
+        };
+        let plan = GeneratedArtifactMetadataApplyPlan {
+            artifact_id,
+            status: GeneratedArtifactMetadataApplyPlanStatus::Ready,
+            executable: true,
+            reasons: vec![GeneratedArtifactMetadataApplyPlanReason::Ready],
+            target: GeneratedArtifactTarget {
+                kind: GeneratedArtifactTargetKind::MediaSource,
+                library_id: Some(library_id),
+                item_id: Some(item_id),
+                source_id: Some(source_id),
+            },
+            payload: GeneratedArtifactPayloadSummary {
+                valid_json: true,
+                shape: GeneratedArtifactPayloadShape::Object,
+                payload_fingerprint: "sha256:33333333333333333333333333333333".to_owned(),
+                payload_bytes: 512,
+                object_field_count: Some(3),
+                array_item_count: None,
+                has_textual_values: true,
+                has_explanation: true,
+                confidence_milli: Some(810),
+            },
+            fields: vec![GeneratedArtifactMetadataApplyFieldPlan {
+                field: MetadataField::Overview,
+                action: GeneratedArtifactMetadataFieldAction::Apply,
+                reasons: vec![GeneratedArtifactMetadataFieldReason::Ready],
+                current: GeneratedArtifactMetadataValueSummary::missing(),
+                incoming: GeneratedArtifactMetadataValueSummary {
+                    present: true,
+                    empty: false,
+                    value_fingerprint: Some("sha256:44444444444444444444444444444444".to_owned()),
+                    value_bytes: Some(27),
+                    item_count: None,
+                },
+            }],
+            apply_field_count: 1,
+            skipped_field_count: 0,
+            noop_field_count: 0,
+        };
+        let response = AdminGeneratedArtifactMetadataApplyResponse::from_result(
+            GeneratedArtifactMetadataApplyResult {
+                outcome_id: Some(outcome_id),
+                artifact_id,
+                status: GeneratedArtifactMetadataApplyResultStatus::Applied,
+                applied: true,
+                changed: true,
+                idempotent_replay: true,
+                applied_source: Some("user".to_owned()),
+                plan,
+            },
+        );
+
+        let request_value = serde_json::to_value(&request).unwrap();
+        let value = serde_json::to_value(&response).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(
+            request_value["idempotency_key"],
+            "metadata-apply:operator-confirmation"
+        );
+        assert_eq!(value["outcome_id"], outcome_id.to_string());
+        assert_eq!(value["artifact_id"], artifact_id.to_string());
+        assert_eq!(value["status"], "applied");
+        assert_eq!(value["applied"], true);
+        assert_eq!(value["changed"], true);
+        assert_eq!(value["idempotent_replay"], true);
+        assert_eq!(value["applied_source"], "user");
+        assert_eq!(value["plan"]["fields"][0]["field"], "overview");
         assert_eq!(
             value["plan"]["fields"][0]["incoming"]["value_fingerprint"],
             "sha256:44444444444444444444444444444444"
