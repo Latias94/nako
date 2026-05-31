@@ -23,8 +23,8 @@ ledger instead.
 | `library-metadata-control-plane` | `generated-artifact-metadata-authority-apply` | `GAMA-050` | Backend/control-plane execution |
 | `client-surfaces-planning` | `client-surface-and-access-product-architecture` | `CSAPA-050` | Planner/docs split or defer decision |
 | `storage-vfs` | `remote-storage-health-and-circuit-breaker` | `RSHC-040` | Backend storage/Admin diagnostics execution |
-| `playback-transcode` | `transcode-interface-and-runtime-plan-deepening` | `TIRP-020` | Transcode Interface execution |
-| `playback-transcode` | `hdr-tone-mapping-pipeline` | `HTP-030` parked | Resume after `TIRP-020`/`TIRP-030` acceptance or explicit serialization |
+| `playback-transcode` | `transcode-interface-and-runtime-plan-deepening` | `TIRP-030` | Transcode Interface execution |
+| `playback-transcode` | `hdr-tone-mapping-pipeline` | `HTP-030` parked | Resume after `TIRP-030` acceptance or explicit serialization |
 
 Do not start `GAMA-060` until `GAMA-050` has reviewed and verified the final
 Admin apply route. Do not close `CSAPA` until desktop playback is split,
@@ -32,9 +32,9 @@ deferred, or explicitly scoped. The `web-product` lane is idle after
 `admin-media-management-context-links` closeout and should receive a new
 planner-approved workstream before more frontend execution starts.
 
-`audio-compatibility-downmix-normalization` is closed. Keep `HTP-030` parked
-while `TIRP-020` and `TIRP-030` own the shared transcode/HLS Interface surface,
-unless the planner explicitly serializes the shared scope.
+`audio-compatibility-downmix-normalization` is closed. `TIRP-020` is accepted.
+Keep `HTP-030` parked while `TIRP-030` owns the shared transcode/FFmpeg/HLS
+Interface surface, unless the planner explicitly serializes the shared scope.
 
 ## Lane Registry
 

@@ -32,7 +32,7 @@ selection.
 | Direct Play byte ranges | Shipped | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md`; `docs/workstreams/playback-streaming/` | Client/player UX and remote transport polish. |
 | Remux / Direct Stream | Shipped | `docs/workstreams/source-aware-transcode-runtime/`; `docs/adr/0049-source-aware-transcode-runtime.md` | Container-specific compatibility reasons and TV/device profiles. |
 | Playback decision model | Shipped foundation | `docs/adr/0038-playback-planning-and-transcode-policy-seams.md`; `docs/adr/0044-playback-capability-profile-planner.md`; `docs/workstreams/playback-planner-transcode-seam-deepening/` | Richer device capability profiles and transcode seam cleanup. |
-| Playback-to-transcode Interface | Active deepening | `docs/adr/0038-playback-planning-and-transcode-policy-seams.md`; `docs/adr/0045-ffmpeg-hardware-pipeline-planner.md`; `docs/workstreams/transcode-interface-and-runtime-plan-deepening/` | Run `TIRP-020`/`TIRP-030` before HDR transcode implementation unless planner serializes the shared scope. |
+| Playback-to-transcode Interface | Active deepening | `docs/adr/0038-playback-planning-and-transcode-policy-seams.md`; `docs/adr/0045-ffmpeg-hardware-pipeline-planner.md`; `docs/workstreams/transcode-interface-and-runtime-plan-deepening/` | Run `TIRP-030` before HDR transcode implementation unless planner serializes the shared scope. |
 | Browser playback tickets | Shipped | `docs/adr/0036-short-lived-browser-playback-tickets.md`; `docs/workstreams/browser-playback-auth-transport/` | Player integration and cross-device resume polish. |
 | Renderer transport tickets | Shipped | `docs/adr/0041-renderer-cast-safe-transport-tickets.md` | Chromecast/DLNA/AirPlay adapter lanes. |
 | FFmpeg command planning | Shipped foundation | `docs/adr/0045-ffmpeg-hardware-pipeline-planner.md`; `docs/adr/0052-hls-runtime-and-media-engine-boundary.md` | Tone mapping, audio filters, seek restart commands. |
@@ -65,10 +65,10 @@ linked to the most direct ADR/workstream evidence.
 These lanes are intentionally separable. They can run in parallel if each lane
 keeps its public contract explicit.
 
-The audio compatibility first slice is closed. Transcode Interface deepening
-now owns the shared playback/transcode files; HDR `HTP-030` should remain
-parked until `TIRP-020`/`TIRP-030` are accepted or the planner explicitly
-serializes the shared scope.
+The audio compatibility first slice is closed. `TIRP-020` is accepted and
+Transcode Interface deepening still owns the shared playback/transcode files;
+HDR `HTP-030` should remain parked until `TIRP-030` is accepted or the planner
+explicitly serializes the shared scope.
 
 ### Lane A - Device Capability Profiles
 
@@ -171,8 +171,8 @@ Exit criteria:
 Current status: active but parked. `HTP-020` shipped playback-owned **Color
 Pipeline Requirement** vocabulary; `HTP-030` is the software-first HLS
 HDR-to-SDR media-output slice. Resume it after
-`transcode-interface-and-runtime-plan-deepening` is accepted or explicitly
-serialized.
+`TIRP-030` in `transcode-interface-and-runtime-plan-deepening` is accepted or
+explicitly serialized.
 
 ### Lane F - Audio Compatibility
 

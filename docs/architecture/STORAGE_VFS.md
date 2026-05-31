@@ -1,6 +1,6 @@
 # Storage And VFS Architecture
 
-Last updated: 2026-05-30
+Last updated: 2026-05-31
 
 This document maps Nako's storage and VFS architecture for agents working on
 scan, probe, playback, imports, sidecar writes, and remote storage.
@@ -24,7 +24,7 @@ and rclone-like mounts can be slow, stale, or unavailable.
 | Capability | Status | Authority | Next Lane |
 | --- | --- | --- | --- |
 | Local storage backend | Shipped | `docs/adr/0002-internal-vfs-before-os-mounting.md` | Keep local behavior as the compatibility baseline. |
-| Remote storage boundary | Active follow-on | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/` | Run `RSHC-020` for durable backend health repository parity. |
+| Remote storage boundary | Active follow-on | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/` | Finish `RSHC-040` for Admin diagnostics and operator reset. |
 | WebDAV read path | Partial | `docs/workstreams/storage-vfs/`; remote storage lanes | Harden retries, cache, and operator diagnostics. |
 | Source locator | Shipped foundation | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Watcher/debounce productization and repair workflows. |
 | Source fingerprint | Shipped first slice | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Optional partial/full hash escalation policy. |
@@ -46,14 +46,14 @@ state and risk, not copied task evidence.
 
 Status: Active.
 
-Current task: `RSHC-020`.
+Current task: `RSHC-040`.
 
-Goal: add a durable **Storage Backend Health** repository contract with
-SQLite/PostgreSQL parity before runtime circuit-breaker policy or Admin reset
-routes are implemented.
+Goal: surface redaction-safe durable **Storage Backend Health** through Admin
+diagnostics and add an operator reset action for durable circuit-breaker state.
 
-Worker scope starts in core/db storage health records and repository tests.
-Playback staging, cache repair, and Admin controls are sequenced follow-ons.
+Core/db health storage and runtime circuit-breaker wiring are complete.
+Playback staging, cache repair, source fingerprint escalation, and scan
+scheduling remain sequenced follow-ons.
 
 ## Completed Work Lanes
 
