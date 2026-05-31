@@ -14,7 +14,8 @@ starts with a docs/research invariant freeze before any behavior change.
 
 Planner-approved lane: `playback-transcode`.
 
-Current task: `HRLB-010`.
+Current task: `HRLB-020` after planner review of the `HRLB-010` invariant
+freeze.
 
 Read before implementation:
 
@@ -27,3 +28,7 @@ Read before implementation:
 Do not expand this workstream into FFmpeg command planning, transcode
 capability inventory, Public/Admin DTO changes, storage schema changes, player
 UX, or release packaging without planner approval.
+
+`HRLB-010` froze the lifecycle invariants and test coverage map without Rust
+behavior changes. Artifact I/O pressure should split to PAIP rather than being
+hidden inside the lifecycle refactor.

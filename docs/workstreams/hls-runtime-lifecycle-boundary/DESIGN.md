@@ -79,6 +79,53 @@ implementation slice should be behavior-preserving: concentrate lifecycle
 decisions and tests without changing FFmpeg command planning, transcode
 pipeline policy, storage schema, or public contracts.
 
+## HRLB-010 Lifecycle Freeze
+
+This freeze is descriptive. It records current behavior and expected coverage
+targets for the next behavior-preserving task. It does not approve a runtime
+behavior change.
+
+### Lifecycle Invariants
+
+| Concern | Frozen behavior | Current evidence |
+| --- | --- | --- |
+| Active same-generation request | `hls_source` treats an active same request key as a duplicate conflict. Playlist entry points may wait on an already active same-generation session until the playlist is ready. | `hls_source_rejects_persisted_active_duplicate`; `hls_playlist_playback_returns_when_playlist_is_ready_before_runner_finishes`. |
+| Finished session reuse | A finished HLS session may be reused only when the persisted request key matches, the output path matches the current layout primary playlist, and that playlist still exists. Reuse must not acquire a new process permit. | `hls_source_runs_runner_and_reuses_completed_session`; PRRS reuse evidence. |
+| Different-generation supersede | A request key for the same source but a different HLS playback generation supersedes active prior-generation sessions by requesting cancellation, then starts a new session. | `hls_source_seek_generation_supersedes_active_prior_generation`; HSRL handoff. |
+| Playlist readiness while running | Running HLS sessions may serve a playlist before FFmpeg exits only after the manifest primary playlist exists and contains at least one media or variant URI line. Header-only playlists are not ready. | `hls_playlist_playback_returns_when_playlist_is_ready_before_runner_finishes`; `hls_playlist_readiness_requires_a_media_uri_line`; HPRB handoff. |
+| Segment readiness and one-shot wait | Segment routes serve only manifest-approved artifacts. For running sessions, a missing or zero-length artifact performs one configured throttle wait, then returns readiness conflict if still unavailable. Terminal missing artifacts are not found. | `hls_segment_waits_once_for_running_segment_when_throttle_enabled`; `hls_playlist_playback_returns_when_playlist_is_ready_before_runner_finishes`; `hls_source_rejects_persisted_active_duplicate`. |
+| Cancellation and timeout cleanup | Cancellation signals the process-local token, marks active DB state as cancel requested from the route/supersede path, and lets the HLS runner kill FFmpeg and remove visible or temporary output. Timeout also kills FFmpeg, removes output, and maps to timeout failure. | Cancellation: `hls_playlist_playback_returns_when_playlist_is_ready_before_runner_finishes`; `hls_runner_can_publish_output_while_process_is_running`. Timeout cleanup is implemented in the HLS runner but lacks a focused HLS timeout test. |
+| Startup stale-session cleanup | Startup marks unfinished active transcode sessions stale/failed before new playback work begins. This is transcode-session generic and should apply to HLS sessions. | `app_startup_marks_stale_transcode_sessions_failed`; DB transcode session stale contract. Add HLS-specific startup fixture in HRLB-020. |
+| Terminal artifact cleanup | Startup artifact cleanup is optional, scans terminal finished/failed/cancelled sessions, deletes remux files or HLS output directories under the configured transcode root, honors retention, and skips paths outside the root. | `app_startup_cleans_expired_playback_artifacts_inside_transcode_root`. |
+| Staging input release | FFmpeg source inputs release staging leases after successful HLS completion, after errors, and after playback-resource admission rejection. Local path hints have no lease. | `staging_lease_transitions_between_ready_and_leased`; `dropped_staging_lease_releases_manifest_record`; HLS end-to-end remote staging release remains a HRLB-020 test target. |
+| Artifact I/O pressure | `HlsArtifactIo` is modeled as not-yet-enforced. HLS lifecycle work must not silently add disk read/write pressure limits. | `playback_resource_admission_explains_process_permits_and_unenforced_artifacts`; PRRS closeout. Split PAIP follow-on. |
+
+### Cleanup Ownership Map
+
+| Surface | Current owner | Freeze |
+| --- | --- | --- |
+| Request admission and in-flight same-key guard | `HlsAppService` | Owns same-key duplicate rejection, finished reuse, new-session creation, supersede cancellation requests, and release of the process-local in-flight key. |
+| Playlist/segment artifact serving | `HlsArtifactService` | Owns manifest reconstruction, playlist readiness, segment readiness, one-shot running wait, content type/range planning, and per-request segment cleanup. |
+| FFmpeg process cancellation/timeout/failure cleanup | `FfmpegHlsRunner` | Owns process kill, temp or visible HLS output cleanup, and conversion to finished/cancelled/error outcomes. |
+| Startup recovery and artifact cleanup | `ServerStartupWorkflow` | Owns stale active-session failure and optional terminal playback artifact cleanup under the configured transcode root. |
+| FFmpeg input staging lease | `FfmpegInputService` plus staging runtime | Owns staged input acquisition and release. HLS orchestration must release inputs after every success/error/admission branch. |
+| Resource pressure | `PlaybackRuntimeAdmission` | Owns CPU/GPU process permits today. HLS artifact I/O remains observable/not-yet-enforced until a PAIP follow-on. |
+
+### Test Coverage Map
+
+| Area | Current coverage status | HRLB-020 target |
+| --- | --- | --- |
+| Same-generation active conflict | Covered for `hls_source`; playlist wait covered indirectly. | Add a focused route/app invariant test if lifecycle extraction changes entry points. |
+| Finished reuse | Covered across same process and app restart. | Preserve as a regression test around any coordinator/facade. |
+| Generation supersede | Covered for active default generation superseded by non-zero seek generation. | Add planned/starting/cancel-requested state variants only if coordinator extraction touches them. |
+| Running playlist readiness | Covered by app test plus unit guard requiring a URI line. | Preserve. |
+| Running segment one-shot wait | Unit covered; app test covers eventual readiness and missing running conflict. | Add zero-length segment case if artifact service is refactored. |
+| Cancellation cleanup | Covered by app cancellation and HLS runner visible-output cancellation cleanup. | Preserve; assert DB transition after any coordinator refactor. |
+| Timeout cleanup | HLS runner has timeout branch; remux has focused timeout test; HLS-specific timeout cleanup is not directly tested. | Add focused HLS timeout cleanup test before accepting HRLB-020. |
+| Startup stale HLS cleanup | Generic transcode startup stale recovery is covered; HLS-specific fixture is missing. | Add an HLS session fixture so stale recovery and request reuse cannot drift apart. |
+| Terminal HLS artifact cleanup | Covered for failed HLS output directory under root and outside-root skip. | Preserve. |
+| Staging input release | Lease primitive covered; HLS remote staged input release is not directly covered. | Add HLS success/error/admission rejection staged-input release tests if remote staging path is touched. |
+
 ## Follow-On Pressure
 
 The storage/VFS subarchitecture review identified playback artifact I/O
@@ -86,3 +133,11 @@ pressure as the most concrete storage follow-on. This workstream should decide
 whether that becomes a later `HRLB` task or a separate
 `storage-vfs-playback-artifact-io-pressure` workstream. Do not implement it in
 `HRLB-010`.
+
+`HRLB-010` freezes the decision as: split artifact I/O pressure into a PAIP
+follow-on, preferably under the existing
+`proposed:hls-artifact-io-pressure-enforcement` lane name. PAIP should not be
+implemented as part of the behavior-preserving lifecycle coordinator because it
+crosses playback resource admission, storage/VFS health, segment read/write
+pressure, and Admin diagnostics. `HRLB-020` may keep the current
+`HlsArtifactIo` not-yet-enforced evidence, but must not enforce it.

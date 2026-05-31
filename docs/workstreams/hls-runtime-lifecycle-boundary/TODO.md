@@ -5,13 +5,13 @@ Last updated: 2026-05-31
 
 ## M0 - Lifecycle Invariant Freeze
 
-- [ ] HRLB-010 [owner=planner] [deps=none] [scope=docs/workstreams/hls-runtime-lifecycle-boundary,docs/architecture/PLAYBACK.md,docs/architecture/LANES.md,docs/architecture/WORKSTREAM_LINKS.md,docs/workstreams/README.md]
+- [x] HRLB-010 [owner=planner] [deps=none] [scope=docs/workstreams/hls-runtime-lifecycle-boundary,docs/architecture/PLAYBACK.md,docs/architecture/LANES.md,docs/architecture/WORKSTREAM_LINKS.md,docs/workstreams/README.md]
   Goal: Freeze current HLS lifecycle invariants, readiness semantics, cleanup ownership, and test coverage map before any runtime behavior change.
   Validation: `python -m json.tool docs/workstreams/hls-runtime-lifecycle-boundary/WORKSTREAM.json`; `git diff --check -- docs/workstreams/hls-runtime-lifecycle-boundary docs/architecture/PLAYBACK.md docs/architecture/LANES.md docs/architecture/WORKSTREAM_LINKS.md docs/workstreams/README.md`
   Review: Planner review before implementation tasks start.
-  Evidence: `DESIGN.md`, `EVIDENCE_AND_GATES.md`, lifecycle invariant table, and test coverage map.
+  Evidence: `DESIGN.md`, `EVIDENCE_AND_GATES.md`, lifecycle invariant table, cleanup ownership map, PAIP split decision, and test coverage map.
   Context: `docs/workstreams/hls-runtime-lifecycle-boundary/CONTEXT.jsonl`.
-  Handoff: Do not edit Rust behavior in this task.
+  Handoff: DONE_WITH_CONCERNS. No Rust behavior changed. `HRLB-020` should add focused tests for HLS timeout cleanup, HLS startup stale recovery, and HLS remote staging input release before or during any coordinator extraction.
 
 ## M1 - Behavior-Preserving Lifecycle Boundary
 

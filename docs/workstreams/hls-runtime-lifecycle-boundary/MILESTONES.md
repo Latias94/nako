@@ -13,7 +13,7 @@ Exit criteria:
   classified;
 - implementation tasks have owned and shared scopes.
 
-Status: Pending `HRLB-010`.
+Status: Completed by `HRLB-010`.
 
 ## M1 - Behavior-Preserving Lifecycle Boundary
 
@@ -24,7 +24,7 @@ Exit criteria:
   defer extraction;
 - existing HLS behavior is not changed unless the task ledger is updated.
 
-Status: Pending `HRLB-010`.
+Status: Pending `HRLB-020`.
 
 ## M2 - Follow-On Split
 

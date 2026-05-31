@@ -5,12 +5,35 @@ Last updated: 2026-05-31
 
 ## Current State
 
-The workstream is open. `HRLB-010` is the next task and should freeze HLS
-lifecycle invariants before behavior changes.
+`HRLB-010` is complete as a docs/research invariant freeze. No Rust behavior
+changed.
+
+The freeze lives in `DESIGN.md` and covers active same-generation requests,
+finished session reuse, different-generation supersede, running playlist
+readiness, segment readiness and one-shot wait, cancellation/timeout cleanup,
+startup stale-session cleanup, terminal artifact cleanup, staging input
+release, and the decision to split artifact I/O pressure into a PAIP follow-on.
+
+Concerns to carry into `HRLB-020`:
+
+- HLS timeout cleanup is implemented in the runner but does not have a focused
+  HLS timeout cleanup test.
+- Startup stale-session recovery is tested generically for transcode sessions
+  but not with an HLS fixture.
+- Staging lease primitives are covered, but HLS remote staged-input release is
+  not directly covered across success/error/admission-rejection branches.
 
 ## Next Task
 
-Assign `HRLB-010`.
+Planner review should accept or revise the `HRLB-010` freeze before assigning
+`HRLB-020`.
+
+Recommended `HRLB-020` focus:
+
+- add focused tests for the frozen invariants above;
+- introduce a behavior-preserving lifecycle coordinator/facade only if it
+  reduces scattered lifecycle ownership;
+- keep `HlsArtifactIo` not-yet-enforced and leave PAIP for a split follow-on.
 
 Required context:
 
@@ -23,13 +46,16 @@ docs/workstreams/transcode-capability-inventory-matrix/CLOSEOUT.md
 docs/workstreams/hdr-tone-mapping-pipeline/CLOSEOUT.md
 docs/workstreams/hls-progressive-runtime-boundary/HANDOFF.md
 docs/workstreams/hls-seek-restart-lifecycle/HANDOFF.md
+docs/workstreams/playback-runtime-resource-scheduler/HANDOFF.md
+docs/workstreams/remote-storage-health-and-circuit-breaker/CLOSEOUT.md
 ```
 
-Required validation for `HRLB-010`:
+Required validation for `HRLB-020`:
 
 ```text
-python -m json.tool docs/workstreams/hls-runtime-lifecycle-boundary/WORKSTREAM.json
-git diff --check -- docs/workstreams/hls-runtime-lifecycle-boundary docs/architecture/PLAYBACK.md docs/architecture/LANES.md docs/architecture/WORKSTREAM_LINKS.md docs/workstreams/README.md
+cargo nextest run -p nako-server hls --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
 ```
 
 ## Stop Conditions

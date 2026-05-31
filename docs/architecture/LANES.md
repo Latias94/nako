@@ -22,7 +22,7 @@ ledger instead.
 | --- | --- | --- | --- |
 | `library-metadata-control-plane` | `generated-artifact-metadata-authority-apply` | `GAMA-050` | Backend/control-plane execution |
 | `client-surfaces-planning` | `client-surface-and-access-product-architecture` | `CSAPA-050` | Planner/docs split or defer decision |
-| `playback-transcode` | `hls-runtime-lifecycle-boundary` | `HRLB-010` | Planner/docs invariant freeze |
+| `playback-transcode` | `hls-runtime-lifecycle-boundary` | `HRLB-020` after planner review | Behavior-preserving lifecycle boundary |
 
 Do not start `GAMA-060` until `GAMA-050` has reviewed and verified the final
 Admin apply route. Do not close `CSAPA` until desktop playback is split,
@@ -43,10 +43,11 @@ controls, or operator smoke matrices.
 
 `playback-compatibility-matrix-hardening` and
 `transcode-capability-inventory-matrix` are closed. The `playback-transcode`
-lane is now active on `hls-runtime-lifecycle-boundary`. Keep `HRLB-010`
-docs/research-only; split hardware tone-map execution, HEVC/AV1 output policy,
-subtitle burn-in, Admin/release reporting, and hardware smoke evidence into
-separate follow-ons.
+lane is now active on `hls-runtime-lifecycle-boundary`. `HRLB-010` froze HLS
+lifecycle invariants without Rust behavior changes; run `HRLB-020` only after
+planner review and keep artifact I/O pressure split to a PAIP follow-on. Split
+hardware tone-map execution, HEVC/AV1 output policy, subtitle burn-in,
+Admin/release reporting, and hardware smoke evidence into separate follow-ons.
 
 ## Lane Registry
 

@@ -7,8 +7,10 @@
   "scope_kind": "fearless_refactor",
   "problem": "HLS session lifecycle, admission, readiness, segment waits, and cleanup are distributed across server playback composition, HLS app service, artifact service, transcode runner, and startup cleanup, which will make queueing, artifact I/O pressure, remote workers, and LL-HLS harder to add safely.",
   "task_prefix": "HRLB",
-  "current_task": "HRLB-010",
-  "completed_tasks": [],
+  "current_task": "HRLB-020",
+  "completed_tasks": [
+    "HRLB-010"
+  ],
   "authoritative_docs": [
     {
       "role": "overview",
@@ -47,7 +49,12 @@
     "cargo fmt --all -- --check",
     "git diff --check"
   ],
-  "evidence": [],
+  "evidence": [
+    {
+      "task": "HRLB-010",
+      "summary": "Froze current HLS lifecycle invariants, cleanup ownership, readiness and one-shot segment wait semantics, test coverage map, and the decision to split artifact I/O pressure into a PAIP follow-on without changing Rust behavior."
+    }
+  ],
   "adr_refs": [
     "docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md",
     "docs/adr/0052-hls-runtime-and-media-engine-boundary.md"
@@ -75,6 +82,6 @@
   "lane_slug": "playback-transcode",
   "continue_policy": {
     "default_action": "continue_current_task",
-    "notes": "Start with HRLB-010 invariant freeze. Do not implement artifact I/O pressure, resource admission unification, remote workers, LL-HLS/CMAF, Public/Admin DTOs, storage schema, or FFmpeg command planning until the planner splits or approves those scopes."
+    "notes": "Continue with HRLB-020 only after planner review of the HRLB-010 invariant freeze. Keep HRLB-020 behavior-preserving and focused on lifecycle tests/coordinator boundaries. Do not implement PAIP artifact I/O pressure enforcement, resource admission unification, remote workers, LL-HLS/CMAF, Public/Admin DTOs, storage schema, or FFmpeg command planning until the planner splits or approves those scopes."
   }
 }
