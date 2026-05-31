@@ -1,7 +1,7 @@
 # Remote Storage Health And Circuit Breaker - Handoff
 
 Status: Active
-Last updated: 2026-05-30
+Last updated: 2026-05-31
 
 ## Current State
 
@@ -25,12 +25,14 @@ runtime work, and successful recovery to `Healthy`/`Closed`.
 
 ## Next Task
 
-Planner can assign `RSHC-040` after review if the lane should continue.
+Planner can assign `RSHC-040` with expanded scope after the worker BLOCKED
+report on 2026-05-31.
 
 Expected next owned scope:
 
 - `crates/nako-api/src/admin/storage.rs`
 - `crates/nako-api/src/admin_contract.rs`
+- `crates/nako-server/src/app/storage.rs`
 - `crates/nako-server/src/http/admin.rs`
 - `crates/nako-server/src/http/tests/system.rs`
 
@@ -38,15 +40,26 @@ Expected validation:
 
 ```text
 cargo nextest run -p nako-server admin_v1_storage --no-fail-fast
+cargo nextest run -p nako-server storage_health --no-fail-fast
 cargo nextest run -p nako-api --no-fail-fast
 ```
+
+Scope decision:
+
+- Route Admin diagnostics/reset through `NakoApp::storage()` and
+  `StorageDiagnosticsAppService`.
+- Add redaction-safe durable health list/reset methods to the storage app
+  service, which already owns the registry/store.
+- Do not expose raw `NakoDatabase` from `NakoApp` unless the service path proves
+  insufficient and planner approves another scope expansion.
 
 ## Stop Conditions
 
 Return to planner coordination if:
 
 - the task needs schema migration policy outside storage health;
-- playback staging, scan scheduling, or Admin route changes become necessary;
+- playback staging, scan scheduling, or direct database exposure from Admin HTTP
+  becomes necessary;
 - the health model requires a durable ADR instead of fitting ADR 0016/0017;
 - existing user changes appear in files you need to edit.
 

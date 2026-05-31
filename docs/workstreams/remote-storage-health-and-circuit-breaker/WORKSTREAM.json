@@ -3,7 +3,7 @@
   "slug": "remote-storage-health-and-circuit-breaker",
   "title": "Remote Storage Health And Circuit Breaker",
   "status": "active",
-  "updated": "2026-05-30",
+  "updated": "2026-05-31",
   "scope_kind": "fearless_refactor",
   "problem": "Remote storage failures are classified and bounded in process-local paths, but backend health is not yet a durable contract that can protect scan, probe, playback staging, and operator diagnostics consistently.",
   "task_prefix": "RSHC",
@@ -94,6 +94,6 @@
   "lane_slug": "storage-vfs",
   "continue_policy": {
     "default_action": "continue",
-    "notes": "RSHC-030 is complete and planner-verified. Next ready task is RSHC-040 for redaction-safe Admin diagnostics and operator circuit reset. Split a follow-on if the task grows into cache repair, hash escalation, or playback artifact I/O scheduling."
+    "notes": "RSHC-030 is complete and planner-verified. RSHC-040 scope is expanded to include crates/nako-server/src/app/storage.rs so Admin HTTP can use StorageDiagnosticsAppService for redaction-safe durable health list/reset. Do not expose raw NakoDatabase from Admin HTTP unless planner approves another scope expansion. Split a follow-on if the task grows into cache repair, hash escalation, or playback artifact I/O scheduling."
   }
 }

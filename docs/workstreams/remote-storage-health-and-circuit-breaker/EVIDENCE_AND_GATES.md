@@ -1,7 +1,7 @@
 # Remote Storage Health And Circuit Breaker - Evidence And Gates
 
 Status: Active
-Last updated: 2026-05-30
+Last updated: 2026-05-31
 
 ## Required Gates
 
@@ -133,6 +133,25 @@ Planner verification on 2026-05-30:
 - `cargo fmt --all -- --check` passed.
 - `git diff --check` passed with only Windows line-ending normalization
   warnings.
+
+### RSHC-040 - Operator diagnostics and reset
+
+Status: Blocked, scope expanded by planner
+
+Worker BLOCKED report on 2026-05-31:
+
+- Original scope allowed `crates/nako-api/src/admin/storage.rs`,
+  `crates/nako-api/src/admin_contract.rs`,
+  `crates/nako-server/src/http/admin.rs`, and
+  `crates/nako-server/src/http/tests/system.rs`.
+- Admin HTTP needs durable **Storage Backend Health** list/reset behavior, but
+  `NakoApp` exposes storage diagnostics through `NakoApp::storage()` and the
+  storage app service did not yet expose durable health list/reset methods.
+- Planner expanded the scope to include `crates/nako-server/src/app/storage.rs`
+  so Admin HTTP can call redaction-safe methods on
+  `StorageDiagnosticsAppService`.
+- Preferred shape is app-service access, not raw `NakoDatabase` exposure from
+  `NakoApp`.
 
 ## Residual Risks
 

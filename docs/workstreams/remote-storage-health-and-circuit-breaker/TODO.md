@@ -1,7 +1,7 @@
 # Remote Storage Health And Circuit Breaker - TODO
 
 Status: Active
-Last updated: 2026-05-30
+Last updated: 2026-05-31
 
 ## M0 - Scope And Evidence Freeze
 
@@ -34,13 +34,13 @@ Last updated: 2026-05-30
 
 ## M3 - Operator Diagnostics And Reset
 
-- [ ] RSHC-040 [owner=unassigned] [deps=RSHC-030] [scope=crates/nako-api/src/admin/storage.rs,crates/nako-api/src/admin_contract.rs,crates/nako-server/src/http/admin.rs,crates/nako-server/src/http/tests/system.rs]
+- [ ] RSHC-040 [owner=codex] [deps=RSHC-030] [scope=crates/nako-api/src/admin/storage.rs,crates/nako-api/src/admin_contract.rs,crates/nako-server/src/app/storage.rs,crates/nako-server/src/http/admin.rs,crates/nako-server/src/http/tests/system.rs]
   Goal: Surface redaction-safe backend health and add an operator reset action that clears circuit-breaker state through the durable contract.
-  Validation: `cargo nextest run -p nako-server admin_v1_storage --no-fail-fast`; `cargo nextest run -p nako-api --no-fail-fast`
+  Validation: `cargo nextest run -p nako-server admin_v1_storage --no-fail-fast`; `cargo nextest run -p nako-server storage_health --no-fail-fast`; `cargo nextest run -p nako-api --no-fail-fast`
   Review: Use `review-workstream` before accepting completion.
   Evidence: Admin API contract and HTTP tests.
   Context: `docs/workstreams/remote-storage-health-and-circuit-breaker/CONTEXT.jsonl`.
-  Handoff: Regenerate generated contracts only if the existing repo workflow requires it for Admin DTO changes.
+  Handoff: Scope expanded on 2026-05-31 after worker BLOCKED report. Preferred access path is `NakoApp::storage()` -> `StorageDiagnosticsAppService`; do not expose raw `NakoDatabase` to Admin HTTP unless the app service path proves insufficient. Regenerate generated contracts only if the existing repo workflow requires it for Admin DTO changes.
 
 ## M4 - Verification And Closeout
 
