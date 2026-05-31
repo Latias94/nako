@@ -73,6 +73,43 @@ Verification on 2026-05-31:
 - `git diff --check` passed with only Windows line-ending normalization
   warnings.
 
+### TCIM-030 - Broader inventory matrix facts
+
+Status: Done
+
+Evidence:
+
+- `crates/nako-transcode/src/hardware.rs`
+- `crates/nako-transcode/src/lib.rs`
+- `hardware_probe_report_exposes_broader_inventory_facts_without_selecting_them`
+- `hardware_probe_report_keeps_missing_broader_inventory_facts_optional`
+
+Findings:
+
+- Added report-stage names for tone-map and subtitle burn-in evidence.
+- Probe-derived reports now include optional broader decoder facts for HEVC and
+  AV1 plus hardware-specific decoder facts for CUDA/NVDEC and QSV names.
+- Probe-derived reports now include optional future encoder facts for CPU,
+  VAAPI, NVENC, QSV, AMF, and VideoToolbox names.
+- Probe-derived reports now include optional filter facts for common software
+  filters and selected VAAPI, CUDA, and QSV filter names.
+- Probe-derived reports now include optional tone-map filter evidence and
+  subtitle burn-in filter evidence.
+- Listed broader facts are observable in `HardwareAccelerationReport`; missing
+  broader facts are represented as `Missing` with `required=false`.
+- HLS pipeline selection does not change when broader facts are listed or
+  missing.
+
+Verification on 2026-05-31:
+
+- `cargo nextest run -p nako-transcode hardware --no-fail-fast` passed with
+  13 tests run.
+- `cargo nextest run -p nako-transcode probe --no-fail-fast` passed with 12
+  tests run.
+- `cargo fmt --all -- --check` passed.
+- `git diff --check` passed with only Windows line-ending normalization
+  warnings.
+
 ## Residual Risks
 
 - The lane improves capability observability, not actual playback format

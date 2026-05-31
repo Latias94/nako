@@ -51,7 +51,8 @@ request run?".
 `TCIM-020` intentionally ships a narrow bitstream-filter baseline first because
 it proves optional stage evidence can exist without influencing HLS pipeline
 selection. Broader decoder, encoder, filter, tone-map, and subtitle inventory
-coverage should build on that seam in `TCIM-030`.
+coverage builds on that seam in `TCIM-030`, while keeping the new facts
+optional and evidence-only.
 
 The deletion test is: if the richer inventory were deleted, future pipeline
 and HDR work would have to infer host capability from scattered string checks

@@ -2205,6 +2205,162 @@ vaapi
     }
 
     #[test]
+    fn hardware_probe_report_exposes_broader_inventory_facts_without_selecting_them() {
+        let inventory = FfmpegProbeInventory::from_outputs(
+            r#"
+ V..... libx264
+ A..... aac
+ V..... h264_vaapi
+ V..... hevc_vaapi
+ V..... libx265
+ V..... libsvtav1
+"#,
+            r#"
+ VFS..D h264
+ VFS..D hevc
+ V..... av1
+"#,
+            r#"
+vaapi
+"#,
+            r#"
+ ... hwupload
+ ... scale
+ ... scale_vaapi
+ ... zscale
+ ... tonemap
+ ... subtitles
+ ... ass
+ ... overlay
+"#,
+            r#"
+h264_mp4toannexb
+"#,
+        );
+        let report = report_from_ffmpeg_probe_inventory(&inventory);
+        let vaapi = report.capability_for(HardwareAcceleration::Vaapi).unwrap();
+
+        assert!(vaapi.available);
+        assert!(vaapi.stage_capabilities.iter().any(|stage| {
+            stage.stage == HardwarePipelineStage::Decode
+                && !stage.required
+                && stage.available
+                && stage.discovery_status == HardwareEncoderDiscoveryStatus::Listed
+                && stage.feature.as_deref() == Some("hevc")
+        }));
+        assert!(vaapi.stage_capabilities.iter().any(|stage| {
+            stage.stage == HardwarePipelineStage::Encode
+                && !stage.required
+                && stage.available
+                && stage.discovery_status == HardwareEncoderDiscoveryStatus::Listed
+                && stage.feature.as_deref() == Some("hevc_vaapi")
+        }));
+        assert!(vaapi.stage_capabilities.iter().any(|stage| {
+            stage.stage == HardwarePipelineStage::Filter
+                && !stage.required
+                && stage.available
+                && stage.discovery_status == HardwareEncoderDiscoveryStatus::Listed
+                && stage.feature.as_deref() == Some("scale_vaapi")
+        }));
+        assert!(vaapi.stage_capabilities.iter().any(|stage| {
+            stage.stage == HardwarePipelineStage::ToneMap
+                && !stage.required
+                && stage.available
+                && stage.discovery_status == HardwareEncoderDiscoveryStatus::Listed
+                && stage.feature.as_deref() == Some("tonemap")
+        }));
+        assert!(vaapi.stage_capabilities.iter().any(|stage| {
+            stage.stage == HardwarePipelineStage::SubtitleBurnIn
+                && !stage.required
+                && stage.available
+                && stage.discovery_status == HardwareEncoderDiscoveryStatus::Listed
+                && stage.feature.as_deref() == Some("subtitles")
+        }));
+
+        let plan = TranscodePipelinePlanner::new()
+            .plan_hls_single_variant(
+                TranscodePipelineRequest::hls_single_variant(
+                    HardwareAccelerationPolicy {
+                        requested: HardwareAcceleration::Vaapi,
+                        fallback: HardwareAccelerationFallback::Fail,
+                    },
+                    TranscodeTrackSelection::default(),
+                    TranscodeOutputConstraints::default(),
+                ),
+                &report,
+            )
+            .unwrap();
+
+        assert_eq!(plan.selected_acceleration(), HardwareAcceleration::Vaapi);
+        assert!(!plan.fallback_used());
+    }
+
+    #[test]
+    fn hardware_probe_report_keeps_missing_broader_inventory_facts_optional() {
+        let inventory = FfmpegProbeInventory::from_outputs(
+            r#"
+ V..... libx264
+ A..... aac
+ V..... h264_vaapi
+"#,
+            r#"
+ VFS..D h264
+"#,
+            r#"
+vaapi
+"#,
+            r#"
+ ... hwupload
+"#,
+            r#"
+h264_mp4toannexb
+"#,
+        );
+        let report = report_from_ffmpeg_probe_inventory(&inventory);
+        let vaapi = report.capability_for(HardwareAcceleration::Vaapi).unwrap();
+
+        assert!(vaapi.available);
+        assert!(vaapi.stage_capabilities.iter().any(|stage| {
+            stage.stage == HardwarePipelineStage::Encode
+                && !stage.required
+                && !stage.available
+                && stage.discovery_status == HardwareEncoderDiscoveryStatus::Missing
+                && stage.feature.as_deref() == Some("hevc_vaapi")
+        }));
+        assert!(vaapi.stage_capabilities.iter().any(|stage| {
+            stage.stage == HardwarePipelineStage::ToneMap
+                && !stage.required
+                && !stage.available
+                && stage.discovery_status == HardwareEncoderDiscoveryStatus::Missing
+                && stage.feature.as_deref() == Some("zscale")
+        }));
+        assert!(vaapi.stage_capabilities.iter().any(|stage| {
+            stage.stage == HardwarePipelineStage::SubtitleBurnIn
+                && !stage.required
+                && !stage.available
+                && stage.discovery_status == HardwareEncoderDiscoveryStatus::Missing
+                && stage.feature.as_deref() == Some("subtitles")
+        }));
+
+        let plan = TranscodePipelinePlanner::new()
+            .plan_hls_single_variant(
+                TranscodePipelineRequest::hls_single_variant(
+                    HardwareAccelerationPolicy {
+                        requested: HardwareAcceleration::Vaapi,
+                        fallback: HardwareAccelerationFallback::Fail,
+                    },
+                    TranscodeTrackSelection::default(),
+                    TranscodeOutputConstraints::default(),
+                ),
+                &report,
+            )
+            .unwrap();
+
+        assert_eq!(plan.selected_acceleration(), HardwareAcceleration::Vaapi);
+        assert!(!plan.fallback_used());
+    }
+
+    #[test]
     fn ffmpeg_probe_detector_runs_stage_inventory_commands() {
         let temp = tempfile::tempdir().unwrap();
         let ffmpeg_path = fake_probe_ffmpeg_script(temp.path(), "probe_success", false);

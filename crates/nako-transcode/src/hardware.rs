@@ -8,6 +8,23 @@ use super::{ffmpeg::stderr_message, probe::FfmpegProbeInventory};
 const CPU_HLS_VIDEO_ENCODER: &str = "libx264";
 const CPU_HLS_AUDIO_ENCODER: &str = "aac";
 const H264_ANNEX_B_BITSTREAM_FILTER: &str = "h264_mp4toannexb";
+const OPTIONAL_SOFTWARE_VIDEO_DECODERS: &[&str] = &["hevc", "av1"];
+const OPTIONAL_CPU_VIDEO_ENCODERS: &[&str] = &["libx265", "libsvtav1", "libaom-av1"];
+const OPTIONAL_VAAPI_VIDEO_ENCODERS: &[&str] = &["hevc_vaapi", "av1_vaapi"];
+const OPTIONAL_NVENC_VIDEO_ENCODERS: &[&str] = &["hevc_nvenc", "av1_nvenc"];
+const OPTIONAL_QSV_VIDEO_ENCODERS: &[&str] = &["hevc_qsv", "av1_qsv"];
+const OPTIONAL_AMF_VIDEO_ENCODERS: &[&str] = &["hevc_amf", "av1_amf"];
+const OPTIONAL_VIDEOTOOLBOX_VIDEO_ENCODERS: &[&str] = &["hevc_videotoolbox"];
+const OPTIONAL_CUDA_VIDEO_DECODERS: &[&str] = &["h264_cuvid", "hevc_cuvid", "av1_cuvid"];
+const OPTIONAL_QSV_VIDEO_DECODERS: &[&str] = &["hevc_qsv", "av1_qsv"];
+const OPTIONAL_COMMON_FILTERS: &[&str] = &["scale", "format"];
+const OPTIONAL_VAAPI_FILTERS: &[&str] = &["scale_vaapi"];
+const OPTIONAL_CUDA_FILTERS: &[&str] = &["scale_cuda", "hwupload_cuda"];
+const OPTIONAL_QSV_FILTERS: &[&str] = &["scale_qsv", "vpp_qsv"];
+const OPTIONAL_SOFTWARE_TONE_MAP_FILTERS: &[&str] = &["zscale", "tonemap"];
+const OPTIONAL_VAAPI_TONE_MAP_FILTERS: &[&str] = &["tonemap_vaapi"];
+const OPTIONAL_CUDA_TONE_MAP_FILTERS: &[&str] = &["tonemap_cuda", "tonemap_opencl"];
+const OPTIONAL_SUBTITLE_BURN_IN_FILTERS: &[&str] = &["subtitles", "ass", "overlay"];
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -81,6 +98,8 @@ pub enum HardwarePipelineStage {
     Filter,
     Encode,
     Hwaccel,
+    ToneMap,
+    SubtitleBurnIn,
     BitstreamFilter,
 }
 
@@ -92,6 +111,8 @@ impl HardwarePipelineStage {
             Self::Filter => "filter",
             Self::Encode => "encode",
             Self::Hwaccel => "hwaccel",
+            Self::ToneMap => "tone_map",
+            Self::SubtitleBurnIn => "subtitle_burn_in",
             Self::BitstreamFilter => "bitstream_filter",
         }
     }
@@ -725,13 +746,17 @@ pub fn report_from_ffmpeg_probe_inventory_with_diagnostics(
 fn cpu_capability_from_inventory(
     inventory: &FfmpegProbeInventory,
 ) -> HardwareAccelerationCapability {
-    let stage_capabilities = vec![
+    let mut stage_capabilities = vec![
         HardwareStageCapability::static_available(HardwarePipelineStage::Decode, "software"),
         HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "software"),
         encoder_stage(inventory, CPU_HLS_VIDEO_ENCODER),
         encoder_stage(inventory, CPU_HLS_AUDIO_ENCODER),
         optional_bitstream_filter_stage(inventory, H264_ANNEX_B_BITSTREAM_FILTER),
     ];
+    stage_capabilities.extend(broader_stage_capabilities_for_inventory(
+        HardwareAcceleration::None,
+        inventory,
+    ));
     let available = required_stage_capabilities_available(&stage_capabilities);
     let encoder_discovery = cpu_encoder_discovery(&stage_capabilities);
 
@@ -835,6 +860,8 @@ fn probe_error_capability(
             HardwareStageCapability::probe_error(HardwarePipelineStage::Hwaccel, message),
             HardwareStageCapability::probe_error(HardwarePipelineStage::Filter, message),
             HardwareStageCapability::probe_error(HardwarePipelineStage::Encode, message),
+            HardwareStageCapability::probe_error(HardwarePipelineStage::ToneMap, message),
+            HardwareStageCapability::probe_error(HardwarePipelineStage::SubtitleBurnIn, message),
             HardwareStageCapability::probe_error(HardwarePipelineStage::BitstreamFilter, message),
         ],
         encoder_discovery: HardwareEncoderDiscovery::probe_error(message),
@@ -953,7 +980,7 @@ fn stage_capabilities_for_inventory(
     let encode = encoder_stage(inventory, encoder);
     let bsf = optional_bitstream_filter_stage(inventory, H264_ANNEX_B_BITSTREAM_FILTER);
 
-    match accelerator {
+    let mut stage_capabilities = match accelerator {
         HardwareAcceleration::None => vec![
             HardwareStageCapability::static_available(HardwarePipelineStage::Decode, "software"),
             HardwareStageCapability::static_available(HardwarePipelineStage::Filter, "software"),
@@ -993,7 +1020,13 @@ fn stage_capabilities_for_inventory(
             encode,
             bsf,
         ],
-    }
+    };
+
+    stage_capabilities.extend(broader_stage_capabilities_for_inventory(
+        accelerator,
+        inventory,
+    ));
+    stage_capabilities
 }
 
 fn encoder_stage(
@@ -1048,6 +1081,148 @@ fn optional_bitstream_filter_stage(
         HardwareStageCapability::optional_listed(HardwarePipelineStage::BitstreamFilter, feature)
     } else {
         HardwareStageCapability::optional_missing(HardwarePipelineStage::BitstreamFilter, feature)
+    }
+}
+
+fn broader_stage_capabilities_for_inventory(
+    accelerator: HardwareAcceleration,
+    inventory: &FfmpegProbeInventory,
+) -> Vec<HardwareStageCapability> {
+    let mut stages = Vec::new();
+    stages.extend(optional_decoder_stages(
+        inventory,
+        OPTIONAL_SOFTWARE_VIDEO_DECODERS,
+    ));
+    stages.extend(optional_decoder_stages(
+        inventory,
+        optional_hardware_decoder_features(accelerator),
+    ));
+    stages.extend(optional_encoder_stages(
+        inventory,
+        optional_encoder_features(accelerator),
+    ));
+    stages.extend(optional_filter_stages(
+        inventory,
+        HardwarePipelineStage::Filter,
+        OPTIONAL_COMMON_FILTERS,
+    ));
+    stages.extend(optional_filter_stages(
+        inventory,
+        HardwarePipelineStage::Filter,
+        optional_hardware_filter_features(accelerator),
+    ));
+    stages.extend(optional_filter_stages(
+        inventory,
+        HardwarePipelineStage::ToneMap,
+        OPTIONAL_SOFTWARE_TONE_MAP_FILTERS,
+    ));
+    stages.extend(optional_filter_stages(
+        inventory,
+        HardwarePipelineStage::ToneMap,
+        optional_hardware_tone_map_filter_features(accelerator),
+    ));
+    stages.extend(optional_filter_stages(
+        inventory,
+        HardwarePipelineStage::SubtitleBurnIn,
+        OPTIONAL_SUBTITLE_BURN_IN_FILTERS,
+    ));
+    stages
+}
+
+fn optional_decoder_stages(
+    inventory: &FfmpegProbeInventory,
+    features: &[&'static str],
+) -> Vec<HardwareStageCapability> {
+    features
+        .iter()
+        .map(|feature| {
+            if inventory.has_decoder(feature) {
+                HardwareStageCapability::optional_listed(HardwarePipelineStage::Decode, *feature)
+            } else {
+                HardwareStageCapability::optional_missing(HardwarePipelineStage::Decode, *feature)
+            }
+        })
+        .collect()
+}
+
+fn optional_encoder_stages(
+    inventory: &FfmpegProbeInventory,
+    features: &[&'static str],
+) -> Vec<HardwareStageCapability> {
+    features
+        .iter()
+        .map(|feature| {
+            if inventory.has_encoder(feature) {
+                HardwareStageCapability::optional_listed(HardwarePipelineStage::Encode, *feature)
+            } else {
+                HardwareStageCapability::optional_missing(HardwarePipelineStage::Encode, *feature)
+            }
+        })
+        .collect()
+}
+
+fn optional_filter_stages(
+    inventory: &FfmpegProbeInventory,
+    stage: HardwarePipelineStage,
+    features: &[&'static str],
+) -> Vec<HardwareStageCapability> {
+    features
+        .iter()
+        .map(|feature| {
+            if inventory.has_filter(feature) {
+                HardwareStageCapability::optional_listed(stage, *feature)
+            } else {
+                HardwareStageCapability::optional_missing(stage, *feature)
+            }
+        })
+        .collect()
+}
+
+fn optional_hardware_decoder_features(
+    accelerator: HardwareAcceleration,
+) -> &'static [&'static str] {
+    match accelerator {
+        HardwareAcceleration::Nvenc => OPTIONAL_CUDA_VIDEO_DECODERS,
+        HardwareAcceleration::QuickSync => OPTIONAL_QSV_VIDEO_DECODERS,
+        HardwareAcceleration::None
+        | HardwareAcceleration::Vaapi
+        | HardwareAcceleration::Amf
+        | HardwareAcceleration::VideoToolbox => &[],
+    }
+}
+
+fn optional_encoder_features(accelerator: HardwareAcceleration) -> &'static [&'static str] {
+    match accelerator {
+        HardwareAcceleration::None => OPTIONAL_CPU_VIDEO_ENCODERS,
+        HardwareAcceleration::Vaapi => OPTIONAL_VAAPI_VIDEO_ENCODERS,
+        HardwareAcceleration::Nvenc => OPTIONAL_NVENC_VIDEO_ENCODERS,
+        HardwareAcceleration::QuickSync => OPTIONAL_QSV_VIDEO_ENCODERS,
+        HardwareAcceleration::Amf => OPTIONAL_AMF_VIDEO_ENCODERS,
+        HardwareAcceleration::VideoToolbox => OPTIONAL_VIDEOTOOLBOX_VIDEO_ENCODERS,
+    }
+}
+
+fn optional_hardware_filter_features(accelerator: HardwareAcceleration) -> &'static [&'static str] {
+    match accelerator {
+        HardwareAcceleration::Vaapi => OPTIONAL_VAAPI_FILTERS,
+        HardwareAcceleration::Nvenc => OPTIONAL_CUDA_FILTERS,
+        HardwareAcceleration::QuickSync => OPTIONAL_QSV_FILTERS,
+        HardwareAcceleration::None
+        | HardwareAcceleration::Amf
+        | HardwareAcceleration::VideoToolbox => &[],
+    }
+}
+
+fn optional_hardware_tone_map_filter_features(
+    accelerator: HardwareAcceleration,
+) -> &'static [&'static str] {
+    match accelerator {
+        HardwareAcceleration::Vaapi => OPTIONAL_VAAPI_TONE_MAP_FILTERS,
+        HardwareAcceleration::Nvenc => OPTIONAL_CUDA_TONE_MAP_FILTERS,
+        HardwareAcceleration::None
+        | HardwareAcceleration::QuickSync
+        | HardwareAcceleration::Amf
+        | HardwareAcceleration::VideoToolbox => &[],
     }
 }
 

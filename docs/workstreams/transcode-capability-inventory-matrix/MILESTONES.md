@@ -40,7 +40,16 @@ Exit criteria:
 - tests prove report construction without changing HLS runtime selection;
 - no server or FFmpeg command execution changes are introduced.
 
-Status: Pending `TCIM-030`.
+Status: Done.
+
+Evidence:
+
+- probe-derived reports expose optional HEVC/AV1 decoder facts;
+- probe-derived reports expose optional future CPU and hardware encoder facts;
+- probe-derived reports expose optional common, hardware, tone-map, and
+  subtitle burn-in filter facts;
+- missing broader facts remain non-fatal for pipeline selection;
+- validation remained inside `nako-transcode`.
 
 ## M3 - Closeout
 
@@ -50,4 +59,4 @@ Exit criteria:
 - evidence ledger records the expanded inventory facts;
 - policy/command/release follow-ons are split or deferred.
 
-Status: Pending `TCIM-030`.
+Status: Pending `TCIM-040`.

@@ -24,13 +24,13 @@ Last updated: 2026-05-31
 
 ## M2 - Broader Inventory Matrix Facts
 
-- [ ] TCIM-030 [owner=codex] [deps=TCIM-020] [scope=crates/nako-transcode/src/hardware.rs,crates/nako-transcode/src/probe.rs,crates/nako-transcode/src/lib.rs]
+- [x] TCIM-030 [owner=codex] [deps=TCIM-020] [scope=crates/nako-transcode/src/hardware.rs,crates/nako-transcode/src/probe.rs,crates/nako-transcode/src/lib.rs]
   Goal: Extend transcode capability inventory/report tests and values for broader decoder, encoder, filter, tone-map, and subtitle facts while keeping them evidence-only.
   Validation: `cargo nextest run -p nako-transcode hardware --no-fail-fast`; `cargo nextest run -p nako-transcode probe --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`
   Review: Use `review-workstream` before accepting completion.
   Evidence: capability inventory tests and `EVIDENCE_AND_GATES.md`.
   Context: `docs/workstreams/transcode-capability-inventory-matrix/CONTEXT.jsonl`.
-  Handoff: Keep the task inside inventory/report seams. Stop if changes need `pipeline.rs`, `ffmpeg.rs`, server routes, Public Client DTOs, or release packaging.
+  Handoff: DONE. Added optional broader decoder, encoder, filter, tone-map, and subtitle burn-in capability facts from FFmpeg inventory/report seams. Missing broader facts remain optional and do not change pipeline selection, FFmpeg command planning, server routes, Public Client DTOs, or release packaging.
 
 ## M3 - Closeout
 

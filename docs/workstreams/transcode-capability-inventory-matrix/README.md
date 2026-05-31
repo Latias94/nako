@@ -14,8 +14,10 @@ Planner-approved lane: `playback-transcode`.
 First shipped baseline: `TCIM-020` records optional bitstream-filter evidence
 without changing pipeline selection.
 
-Next executable task: `TCIM-030`, broader decoder, encoder, filter, tone-map,
-and subtitle inventory expansion.
+Second shipped baseline: `TCIM-030` records optional decoder, encoder, filter,
+tone-map, and subtitle burn-in evidence without changing pipeline selection.
+
+Next executable task: `TCIM-040`, closeout and follow-on split.
 
 Read before implementation:
 

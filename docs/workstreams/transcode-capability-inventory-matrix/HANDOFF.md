@@ -5,15 +5,15 @@ Last updated: 2026-05-31
 
 ## Current State
 
-`TCIM-020` is complete and locally verified. The lane now has an optional
-bitstream-filter stage baseline for `h264_mp4toannexb`, including coverage that
-missing optional bitstream-filter evidence does not change HLS pipeline
-selection.
+`TCIM-030` is complete and locally verified. The lane now has optional
+decoder, encoder, filter, tone-map, subtitle burn-in, and bitstream-filter
+stage evidence populated from `nako-transcode` FFmpeg inventory/report seams.
+Listed broader facts are observable, missing broader facts remain optional, and
+neither path changes HLS pipeline selection.
 
 ## Next Task
 
-Assign `TCIM-030` for broader decoder, encoder, filter, tone-map, and subtitle
-inventory expansion.
+Assign `TCIM-040` for closeout, final review, and follow-on split decisions.
 
 Required context:
 
@@ -29,6 +29,7 @@ docs/workstreams/hdr-tone-mapping-pipeline/CLOSEOUT.md
 Required validation:
 
 ```text
+python -m json.tool docs/workstreams/transcode-capability-inventory-matrix/WORKSTREAM.json
 cargo nextest run -p nako-transcode hardware --no-fail-fast
 cargo nextest run -p nako-transcode probe --no-fail-fast
 cargo fmt --all -- --check
