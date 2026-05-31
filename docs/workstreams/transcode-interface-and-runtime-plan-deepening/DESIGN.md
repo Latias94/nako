@@ -1,6 +1,6 @@
 # Transcode Interface And Runtime Plan Deepening
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## Why This Lane Exists
@@ -68,10 +68,17 @@ place, not across multiple server call sites.
 
 ## Closeout Condition
 
-This lane can close when:
+This lane closed after:
 
 - HLS source execution uses a transcode-owned runtime plan Interface;
 - server playback no longer directly constructs low-level FFmpeg HLS requests;
 - `nako-transcode` no longer broadly re-exports FFmpeg command details needed
   only by internal adapters;
 - HDR `HTP-030` can start without adding more server-side transcode assembly.
+
+Closeout notes:
+
+- `TIRP-020` introduced the transcode-owned HLS runtime plan.
+- `TIRP-030` introduced the public FFmpeg execution planner Interface and hid
+  raw request/builder details behind crate-internal adapters.
+- `TIRP-040` records the final evidence and unblocks HDR `HTP-030`.

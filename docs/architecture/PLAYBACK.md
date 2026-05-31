@@ -32,7 +32,7 @@ selection.
 | Direct Play byte ranges | Shipped | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md`; `docs/workstreams/playback-streaming/` | Client/player UX and remote transport polish. |
 | Remux / Direct Stream | Shipped | `docs/workstreams/source-aware-transcode-runtime/`; `docs/adr/0049-source-aware-transcode-runtime.md` | Container-specific compatibility reasons and TV/device profiles. |
 | Playback decision model | Shipped foundation | `docs/adr/0038-playback-planning-and-transcode-policy-seams.md`; `docs/adr/0044-playback-capability-profile-planner.md`; `docs/workstreams/playback-planner-transcode-seam-deepening/` | Richer device capability profiles and transcode seam cleanup. |
-| Playback-to-transcode Interface | Active deepening | `docs/adr/0038-playback-planning-and-transcode-policy-seams.md`; `docs/adr/0045-ffmpeg-hardware-pipeline-planner.md`; `docs/workstreams/transcode-interface-and-runtime-plan-deepening/` | Run `TIRP-030` before HDR transcode implementation unless planner serializes the shared scope. |
+| Playback-to-transcode Interface | Shipped deeper Interface slice | `docs/adr/0038-playback-planning-and-transcode-policy-seams.md`; `docs/adr/0045-ffmpeg-hardware-pipeline-planner.md`; `docs/workstreams/transcode-interface-and-runtime-plan-deepening/` | Extend the transcode-owned runtime/execution planners in HDR and future filter lanes; do not reintroduce server-side raw FFmpeg request assembly. |
 | Browser playback tickets | Shipped | `docs/adr/0036-short-lived-browser-playback-tickets.md`; `docs/workstreams/browser-playback-auth-transport/` | Player integration and cross-device resume polish. |
 | Renderer transport tickets | Shipped | `docs/adr/0041-renderer-cast-safe-transport-tickets.md` | Chromecast/DLNA/AirPlay adapter lanes. |
 | FFmpeg command planning | Shipped foundation | `docs/adr/0045-ffmpeg-hardware-pipeline-planner.md`; `docs/adr/0052-hls-runtime-and-media-engine-boundary.md` | Tone mapping, audio filters, seek restart commands. |
@@ -46,7 +46,7 @@ selection.
 | HLS audio sidecar media group | Shipped cleanup slice | `docs/workstreams/hls-audio-sidecar-artifacts/`; `docs/workstreams/hls-selected-main-audio-cleanup/`; `docs/workstreams/playback-audio-language-default-policy/` | Request-scoped language defaults and audio output compatibility are shipped; defer codec-aware sidecars and player-specific fallback. |
 | HLS seek/restart | Shipped first slice | `docs/adr/0052-hls-runtime-and-media-engine-boundary.md`; `docs/workstreams/hls-seek-restart-lifecycle/` | Generation identity, restart admission, FFmpeg seek flags, and public `start_position_ms` playlist query. |
 | HLS progressive runtime | Shipped | `docs/workstreams/hls-progressive-runtime-boundary/`; `docs/adr/0052-hls-runtime-and-media-engine-boundary.md` | Playlist readiness before full FFmpeg completion, running segment serving, typed artifact reconstruction, manifest-aware URL auth, and partial-playlist readiness guard. |
-| HDR tone mapping | Active playback vocabulary slice | `docs/ARCHITECTURE.md`; `docs/adr/0044-playback-capability-profile-planner.md`; `docs/workstreams/hdr-tone-mapping-pipeline/` | Keep `HTP-030` parked until transcode Interface deepening is accepted or explicitly serialized. |
+| HDR tone mapping | Active media-output slice ready | `docs/ARCHITECTURE.md`; `docs/adr/0044-playback-capability-profile-planner.md`; `docs/workstreams/hdr-tone-mapping-pipeline/` | Run `HTP-030` from current `main` for software-first HLS HDR-to-SDR command planning. |
 | Audio downmix and normalization | Shipped first slice | `docs/workstreams/audio-compatibility-downmix-normalization/` | Persisted preferences, client controls, device profiles, and dialogue clarity remain follow-ons. |
 | Runtime resource scheduler | Shipped first slice | `docs/workstreams/playback-runtime-resource-scheduler/`; `docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md`; playback runtime diagnostics lanes | Add queueing, remote workers, OS isolation, per-device tuning, and disk-sensitive artifact I/O enforcement only through follow-on lanes. |
 | VFS/remote playback resilience | Partial | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md` | Timeout/circuit-breaker and remote staging hardening. |
@@ -65,10 +65,10 @@ linked to the most direct ADR/workstream evidence.
 These lanes are intentionally separable. They can run in parallel if each lane
 keeps its public contract explicit.
 
-The audio compatibility first slice is closed. `TIRP-020` is accepted and
-Transcode Interface deepening still owns the shared playback/transcode files;
-HDR `HTP-030` should remain parked until `TIRP-030` is accepted or the planner
-explicitly serializes the shared scope.
+The audio compatibility first slice and Transcode Interface deepening lane are
+closed. HDR `HTP-030` is the next playback/transcode media-output task and
+should start from current `main` using the transcode-owned runtime and
+execution planner Interfaces.
 
 ### Lane A - Device Capability Profiles
 
@@ -168,11 +168,12 @@ Exit criteria:
 - planner selects direct/remux/transcode from client HDR capability;
 - FFmpeg software and hardware tone mapping strategies are testable.
 
-Current status: active but parked. `HTP-020` shipped playback-owned **Color
-Pipeline Requirement** vocabulary; `HTP-030` is the software-first HLS
-HDR-to-SDR media-output slice. Resume it after
-`TIRP-030` in `transcode-interface-and-runtime-plan-deepening` is accepted or
-explicitly serialized.
+Current status: active and ready for planner assignment. `HTP-020` shipped
+playback-owned **Color Pipeline Requirement** vocabulary; `HTP-030` is the
+software-first HLS HDR-to-SDR media-output slice. Start it from current `main`
+and keep hardware tone mapping, device-specific filter chains, Dolby Vision
+dynamic handling, HDR10+ preservation, and operator smoke matrices as
+follow-ons unless split explicitly.
 
 ### Lane F - Audio Compatibility
 

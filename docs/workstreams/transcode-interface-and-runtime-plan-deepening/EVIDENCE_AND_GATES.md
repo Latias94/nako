@@ -1,6 +1,6 @@
 # Transcode Interface And Runtime Plan Deepening - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## Required Gates
@@ -163,6 +163,35 @@ Notes:
   HLS lifecycle consolidation, resource admission unification, public API DTO
   or generated contract changes, or direct `nako-transcode` dependency on
   `nako-playback` was introduced.
+
+### TIRP-040 - Closeout and HDR unblock
+
+Status: Done
+
+Closeout result:
+
+- `WORKSTREAM.json`, `TODO.md`, `MILESTONES.md`, `HANDOFF.md`, and
+  `CLOSEOUT.md` record the lane as closed.
+- Playback architecture and lane indexes no longer list
+  `transcode-interface-and-runtime-plan-deepening` as an active queue item.
+- HDR `HTP-030` is unblocked for planner assignment from current `main`.
+
+Final accepted implementation gates from `TIRP-030`:
+
+- `cargo nextest run -p nako-transcode hls --no-fail-fast` passed with 51
+  tests run.
+- `cargo nextest run -p nako-transcode remux --no-fail-fast` passed with 14
+  tests run.
+- `cargo nextest run -p nako-server hls --no-fail-fast` passed with 61 tests
+  run and 9 slow tests.
+- `cargo fmt --all -- --check` passed.
+- `git diff --check` passed with only Windows line-ending warnings.
+
+Closeout gates:
+
+- `python -m json.tool docs/workstreams/transcode-interface-and-runtime-plan-deepening/WORKSTREAM.json`
+- `python -m json.tool docs/workstreams/hdr-tone-mapping-pipeline/WORKSTREAM.json`
+- `git diff --check -- docs/workstreams/transcode-interface-and-runtime-plan-deepening docs/workstreams/hdr-tone-mapping-pipeline docs/architecture/LANES.md docs/architecture/PLAYBACK.md docs/workstreams/README.md`
 
 ## Residual Risks
 

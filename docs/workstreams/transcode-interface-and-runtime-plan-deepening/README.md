@@ -1,16 +1,17 @@
 # Transcode Interface And Runtime Plan Deepening
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
-This workstream deepens the `nako-transcode` Interface before HDR tone mapping
-adds more playback/transcode pressure. The goal is to stop `nako-server` from
-assembling low-level HLS and FFmpeg request details, then ratchet the public
-transcode surface so FFmpeg command details remain internal adapters.
+This workstream deepened the `nako-transcode` Interface before HDR tone mapping
+adds more playback/transcode pressure. `nako-server` no longer assembles the
+low-level HLS runtime plan or raw FFmpeg request details for playback HLS/remux
+execution; those paths now enter through transcode-owned runtime and execution
+planner Interfaces.
 
 Planner-approved lane: `playback-transcode`.
 
-First executable task: `TIRP-020`.
+Closed result: `TIRP-020`, `TIRP-030`, and `TIRP-040` are complete.
 
 Read before implementation:
 
@@ -22,5 +23,7 @@ Read before implementation:
 - `docs/architecture/WORKSTREAM_LINKS.md`
 - `docs/workstreams/transcode-interface-and-runtime-plan-deepening/CONTEXT.jsonl`
 
-Do not expand this workstream into HDR tone mapping, HLS lifecycle ownership,
+Do not reopen this workstream for HDR tone mapping, HLS lifecycle ownership,
 resource admission unification, or broad Jellyfin-class hardware matrices.
+Those are follow-on lanes. HDR `HTP-030` may now start from current `main`
+using the transcode-owned runtime and execution planner Interfaces.

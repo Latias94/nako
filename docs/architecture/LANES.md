@@ -22,8 +22,7 @@ ledger instead.
 | --- | --- | --- | --- |
 | `library-metadata-control-plane` | `generated-artifact-metadata-authority-apply` | `GAMA-050` | Backend/control-plane execution |
 | `client-surfaces-planning` | `client-surface-and-access-product-architecture` | `CSAPA-050` | Planner/docs split or defer decision |
-| `playback-transcode` | `transcode-interface-and-runtime-plan-deepening` | `TIRP-030` | Transcode Interface execution |
-| `playback-transcode` | `hdr-tone-mapping-pipeline` | `HTP-030` parked | Resume after `TIRP-030` acceptance or explicit serialization |
+| `playback-transcode` | `hdr-tone-mapping-pipeline` | `HTP-030` | HDR transcode execution |
 
 Do not start `GAMA-060` until `GAMA-050` has reviewed and verified the final
 Admin apply route. Do not close `CSAPA` until desktop playback is split,
@@ -36,9 +35,11 @@ The `storage-vfs` lane is idle after
 before starting cache repair, source fingerprint escalation, playback artifact
 I/O pressure, scan scheduling, or PostgreSQL runtime harness work.
 
-`audio-compatibility-downmix-normalization` is closed. `TIRP-020` is accepted.
-Keep `HTP-030` parked while `TIRP-030` owns the shared transcode/FFmpeg/HLS
-Interface surface, unless the planner explicitly serializes the shared scope.
+`audio-compatibility-downmix-normalization` and
+`transcode-interface-and-runtime-plan-deepening` are closed. `HTP-030` is ready
+for planner assignment from current `main`; start it in a synced or recreated
+HDR worktree so it uses the transcode-owned runtime and execution planner
+Interfaces.
 
 ## Lane Registry
 

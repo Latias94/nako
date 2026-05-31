@@ -1,7 +1,7 @@
 # HDR Tone Mapping Pipeline
 
 Status: Active
-Last updated: 2026-05-30
+Last updated: 2026-05-31
 
 This workstream is intentionally opened as a docs/research lane first. HDR tone
 mapping touches playback capability reporting, transcode policy, FFmpeg filter
@@ -14,5 +14,7 @@ accepted `ACDN-020` audio output baseline into this branch.
 
 Planner-approved lane: `playback-transcode`.
 
-`HTP-030` must wait for planner review and approval because it opens
-transcode, server HLS, and FFmpeg command-planning scopes.
+`HTP-030` is unblocked after
+`transcode-interface-and-runtime-plan-deepening` closeout, but still needs a
+planner-assigned worktree because it opens transcode, server HLS, and FFmpeg
+command-planning scopes.

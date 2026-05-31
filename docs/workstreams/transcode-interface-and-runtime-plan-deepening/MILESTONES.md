@@ -1,6 +1,6 @@
 # Transcode Interface And Runtime Plan Deepening - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## M0 - Scope And Evidence Freeze
@@ -44,4 +44,10 @@ Exit criteria:
 - HDR `HTP-030` is either explicitly unblocked or replanned around a narrower
   follow-on.
 
-Status: Pending `TIRP-040`.
+Status: Done.
+
+Closeout result:
+
+- final transcode/server gates passed before merge;
+- closeout docs now reflect the shipped Interface shape;
+- HDR `HTP-030` is unblocked for planner assignment from current `main`.

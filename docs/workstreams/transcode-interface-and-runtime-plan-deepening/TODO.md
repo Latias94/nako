@@ -1,6 +1,6 @@
 # Transcode Interface And Runtime Plan Deepening - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## M0 - Scope And Evidence Freeze
@@ -34,9 +34,9 @@ Last updated: 2026-05-31
 
 ## M3 - Closeout And HDR Unblock
 
-- [ ] TIRP-040 [owner=planner] [deps=TIRP-030] [scope=docs/workstreams/transcode-interface-and-runtime-plan-deepening,docs/architecture/PLAYBACK.md,docs/architecture/WORKSTREAM_LINKS.md,docs/architecture/LANES.md,docs/workstreams/README.md]
+- [x] TIRP-040 [owner=planner] [deps=TIRP-030] [scope=docs/workstreams/transcode-interface-and-runtime-plan-deepening,docs/architecture/PLAYBACK.md,docs/architecture/WORKSTREAM_LINKS.md,docs/architecture/LANES.md,docs/workstreams/README.md]
   Goal: Verify final gates, close this lane, and explicitly unblock or replan HDR `HTP-030`.
   Validation: `python -m json.tool docs/workstreams/transcode-interface-and-runtime-plan-deepening/WORKSTREAM.json`; final gates from `EVIDENCE_AND_GATES.md`; `git diff --check`
   Review: `review-workstream` and `verify-rust-workstream` before closeout.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and closeout notes.
-  Handoff: Split stage-aware HDR/tone-map capability matrix, HLS lifecycle consolidation, and resource admission unification into follow-ons.
+  Handoff: DONE. Closed the lane, recorded final gates, and unblocked HDR `HTP-030`; stage-aware HDR/tone-map capability matrix, HLS lifecycle consolidation, resource admission unification, and broader FFmpeg capability matrices remain follow-ons.

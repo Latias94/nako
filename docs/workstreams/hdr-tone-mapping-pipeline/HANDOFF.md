@@ -11,17 +11,31 @@ audio output baseline into this HDR branch.
 
 ## Next Task
 
-Return to planner coordination before starting `HTP-030`. The HDR playback
+`HTP-030` is ready for planner assignment after
+`transcode-interface-and-runtime-plan-deepening` closeout. The HDR playback
 vocabulary slice is accepted, including the reviewer finding that remux cannot
-satisfy HDR-to-SDR tone mapping for SDR-only clients. Keep `HTP-030` parked
-behind `transcode-interface-and-runtime-plan-deepening` while `TIRP-020` and
-`TIRP-030` own the shared transcode/FFmpeg/HLS files.
+satisfy HDR-to-SDR tone mapping for SDR-only clients.
+
+Before starting implementation, sync or recreate the HDR worktree from current
+`main`. The task should use the transcode-owned runtime and execution planner
+Interfaces introduced by `TIRP-020` and `TIRP-030`, not server-side raw FFmpeg
+request assembly.
 
 Completed `HTP-020` implementation scope:
 
 - `crates/nako-playback/src/capability.rs`
 - `crates/nako-playback/src/values.rs`
 - `crates/nako-playback/src/lib.rs`
+
+Planned `HTP-030` implementation scope:
+
+- `crates/nako-transcode/src/policy.rs`
+- `crates/nako-transcode/src/pipeline.rs`
+- `crates/nako-transcode/src/profile.rs`
+- `crates/nako-transcode/src/ffmpeg.rs`
+- focused `nako-transcode` tests
+- server HLS adaptation files only if the transcode-owned Interface requires a
+  composition update
 
 Owned docs scope for any continuation:
 
@@ -66,10 +80,9 @@ HTP-020 result:
 
 Return to planner coordination if:
 
-- `HTP-030` is requested concurrently with `TIRP-020` or `TIRP-030` without
-  planner serialization;
-- follow-up work would expand beyond playback-owned color requirement
-  vocabulary without planner approval;
+- implementation starts from an old branch that predates the accepted
+  `TIRP-030` Interface shape;
+- follow-up work would reintroduce server-side raw FFmpeg request assembly;
 - the lane needs a new ADR before code can start;
 - hardware-specific behavior cannot be represented by existing ADRs.
 
@@ -83,4 +96,4 @@ End with one of:
 - NEEDS_CONTEXT
 
 Include implementation files changed, validation evidence, residual risks, and
-whether `HTP-020` remains accepted and whether `HTP-030` is ready to unpark.
+whether the software-first HDR-to-SDR slice stayed inside the planned scope.

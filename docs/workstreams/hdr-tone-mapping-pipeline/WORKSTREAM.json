@@ -86,6 +86,6 @@
   "lane_slug": "playback-transcode",
   "continue_policy": {
     "default_action": "continue",
-    "notes": "HTP-020 is complete, planner-verified, and committed. Keep HTP-030 parked behind transcode-interface-and-runtime-plan-deepening while TIRP-020/TIRP-030 own the shared transcode/FFmpeg/HLS scope."
+    "notes": "HTP-020 is complete, planner-verified, and committed. HTP-030 is unblocked after transcode-interface-and-runtime-plan-deepening closeout; start from current main and use transcode-owned runtime/execution planner Interfaces. Keep hardware tone mapping, device-specific filter chains, Dolby Vision/HDR10+ dynamic handling, and operator smoke matrices as follow-ons unless the planner splits them."
   }
 }
