@@ -14,23 +14,15 @@ use nako_core::{
     TranscodeSessionRuntimeMetrics, TranscodeSessionState, UserId, UserPrincipalId,
 };
 use nako_playback::{
-    ClientPlaybackCapabilities, EffectivePlaybackPolicy, PlaybackAudioCompatibilityReason,
-    PlaybackAudioDownmixRequirement, PlaybackAudioNormalizationRequirement,
-    PlaybackAudioOutputRequirement, PlaybackColorCompatibilityReason,
-    PlaybackColorPipelineRequirement, PlaybackColorPipelineTarget, PlaybackDecision,
-    PlaybackHdrToneMappingRequirement, PlaybackMode, PlaybackPlanner, PlaybackPlanningRequest,
-    PlaybackPreferenceContext, PlaybackSelectionContext, PlaybackTarget, PlaybackTargetProfile,
-    PlaybackTranscodeContainer,
+    ClientPlaybackCapabilities, EffectivePlaybackPolicy, PlaybackDecision, PlaybackMode,
+    PlaybackPlanner, PlaybackPlanningRequest, PlaybackPreferenceContext, PlaybackSelectionContext,
+    PlaybackTarget, PlaybackTargetProfile, PlaybackTranscodeContainer,
 };
 use nako_streaming::{DirectPlayRangeRequest, DirectPlayResponsePlan};
 use nako_transcode::{
-    HlsPlaybackGeneration, HlsRuntimePlanRequest, PlaybackRemuxProfileRequest, RemuxContainer,
-    TranscodeAudioCompatibilityReasons, TranscodeAudioDownmixRequirement,
-    TranscodeAudioNormalizationRequirement, TranscodeAudioOutputRequirement,
-    TranscodeColorCompatibilityReasons, TranscodeColorPipelineRequirement,
-    TranscodeColorPipelineTarget, TranscodeHdrToneMappingRequirement, TranscodeOutputConstraints,
-    TranscodePipelinePlanner, TranscodeRequestIdentity, TranscodeSourceIdentity,
-    TranscodeTrackSelection, build_playback_remux_profile,
+    HlsPlaybackGeneration, PlaybackRemuxProfileRequest, RemuxContainer, TranscodePipelinePlanner,
+    TranscodeRequestIdentity, TranscodeSourceIdentity, TranscodeTrackSelection,
+    build_playback_remux_profile,
 };
 use nako_vfs::{StorageBackend as _, StorageUri};
 use serde::{Deserialize, Serialize};
@@ -38,7 +30,6 @@ use tracing::warn;
 
 use crate::config::NakoServerConfig;
 use crate::playback_mapping::{
-    playback_hls_output_requirement_to_transcode, playback_output_constraints_to_transcode,
     playback_track_selection_to_transcode, transcode_remux_container_to_playback,
 };
 
@@ -90,10 +81,7 @@ pub(crate) use resource::{
 };
 #[cfg(test)]
 pub(crate) use resource::{PlaybackResourceAdmissionStatus, PlaybackResourceCapacity};
-use selection::{
-    hls_pipeline_source_facts, hls_transcode_plan, hls_transcode_track_selection,
-    playback_selection_context, remux_output_container,
-};
+use selection::{hls_runtime_plan_request, playback_selection_context, remux_output_container};
 pub(crate) use staging_policy::{HlsOutputLayout, HlsStagingPolicy, RemuxStagingPolicy};
 pub(crate) use support::{
     PlaybackRuntimeDiagnostics, PlaybackSupportEvidenceContext, PlaybackSupportEvidenceRequest,
@@ -1869,41 +1857,17 @@ impl PlaybackAppService {
             context,
         });
         ensure_playback_decision_allowed(&decision)?;
-        let transcode_plan = hls_transcode_plan(&decision)?;
-        let track_selection = hls_transcode_track_selection(&decision)?;
-        let transcode_requirement =
-            decision
-                .transcode_requirement()
-                .ok_or(NakoError::Unsupported(
-                    "hls app service requires an hls transcode playback decision",
-                ))?;
-        let audio_output =
-            playback_audio_output_requirement_to_transcode(&transcode_requirement.audio_output);
-        let color_pipeline =
-            playback_color_pipeline_requirement_to_transcode(&transcode_requirement.color_pipeline);
-        let source_facts = hls_pipeline_source_facts(probe.as_ref(), track_selection);
-        let hls_runtime = TranscodePipelinePlanner::new().plan_hls_runtime(
-            HlsRuntimePlanRequest {
-                source: source.clone(),
-                plan: transcode_plan,
-                hardware_policy: self.config.transcode.hardware_policy(),
-                track_selection,
-                output_constraints: playback_output_constraints_to_transcode(
-                    target_profile.output_constraints(),
-                ),
-                audio_output,
-                color_pipeline,
-                hls_output: playback_hls_output_requirement_to_transcode(
-                    target_profile.hls_output_requirement(),
-                ),
-                source_facts,
-                media_probe: probe.clone(),
-                playback_generation: request.playback_generation,
-                remote_input: target_profile.storage.remote,
-                playback_profile_key: target_profile.identity_key(),
-            },
-            &self.hls.hardware_report,
+        let hls_runtime_request = hls_runtime_plan_request(
+            &source,
+            &decision,
+            &target_profile,
+            self.config.transcode.hardware_policy(),
+            request.playback_generation,
+            remote_input,
+            probe.clone(),
         )?;
+        let hls_runtime = TranscodePipelinePlanner::new()
+            .plan_hls_runtime(hls_runtime_request, &self.hls.hardware_report)?;
         let execution_policy = hls_runtime.execution_policy;
         let request_identity = hls_runtime.request_identity.clone();
         let staging = HlsStagingPolicy::new(self.config.remux_staging_root.join("hls"))?;
@@ -2435,122 +2399,6 @@ fn redact_subtitle_sidecar_storage_error(
     }
 }
 
-fn playback_audio_output_requirement_to_transcode(
-    requirement: &PlaybackAudioOutputRequirement,
-) -> TranscodeAudioOutputRequirement {
-    let downmix = playback_audio_downmix_requirement_to_transcode(requirement.downmix);
-    let normalization =
-        playback_audio_normalization_requirement_to_transcode(requirement.normalization);
-    let reasons = playback_audio_compatibility_reasons_to_transcode(&requirement.reasons);
-    if requirement.target_channels.is_none()
-        && downmix == TranscodeAudioDownmixRequirement::None
-        && normalization == TranscodeAudioNormalizationRequirement::None
-        && !reasons.channel_limit_exceeded
-        && !reasons.downmix_required
-        && !reasons.normalization_requested
-    {
-        return TranscodeAudioOutputRequirement::none();
-    }
-
-    TranscodeAudioOutputRequirement {
-        source_channels: requirement.source_channels,
-        max_supported_channels: requirement.max_supported_channels,
-        target_channels: requirement.target_channels,
-        downmix,
-        normalization,
-        reasons,
-    }
-}
-
-const fn playback_audio_downmix_requirement_to_transcode(
-    requirement: PlaybackAudioDownmixRequirement,
-) -> TranscodeAudioDownmixRequirement {
-    match requirement {
-        PlaybackAudioDownmixRequirement::None => TranscodeAudioDownmixRequirement::None,
-        PlaybackAudioDownmixRequirement::Required => TranscodeAudioDownmixRequirement::Required,
-    }
-}
-
-const fn playback_audio_normalization_requirement_to_transcode(
-    requirement: PlaybackAudioNormalizationRequirement,
-) -> TranscodeAudioNormalizationRequirement {
-    match requirement {
-        PlaybackAudioNormalizationRequirement::None => TranscodeAudioNormalizationRequirement::None,
-        PlaybackAudioNormalizationRequirement::Requested => {
-            TranscodeAudioNormalizationRequirement::Requested
-        }
-    }
-}
-
-fn playback_audio_compatibility_reasons_to_transcode(
-    reasons: &[PlaybackAudioCompatibilityReason],
-) -> TranscodeAudioCompatibilityReasons {
-    TranscodeAudioCompatibilityReasons {
-        channel_limit_exceeded: reasons
-            .contains(&PlaybackAudioCompatibilityReason::ChannelLimitExceeded),
-        downmix_required: reasons.contains(&PlaybackAudioCompatibilityReason::DownmixRequired),
-        normalization_requested: reasons
-            .contains(&PlaybackAudioCompatibilityReason::NormalizationRequested),
-    }
-}
-
-fn playback_color_pipeline_requirement_to_transcode(
-    requirement: &PlaybackColorPipelineRequirement,
-) -> TranscodeColorPipelineRequirement {
-    let target = playback_color_pipeline_target_to_transcode(requirement.target);
-    let tone_mapping = playback_hdr_tone_mapping_requirement_to_transcode(requirement.tone_mapping);
-    let reasons = playback_color_compatibility_reasons_to_transcode(&requirement.reasons);
-    if target == TranscodeColorPipelineTarget::PreserveSource
-        && tone_mapping == TranscodeHdrToneMappingRequirement::None
-        && reasons == TranscodeColorCompatibilityReasons::none()
-    {
-        return TranscodeColorPipelineRequirement::none();
-    }
-
-    TranscodeColorPipelineRequirement {
-        target,
-        tone_mapping,
-        reasons,
-    }
-}
-
-const fn playback_color_pipeline_target_to_transcode(
-    target: PlaybackColorPipelineTarget,
-) -> TranscodeColorPipelineTarget {
-    match target {
-        PlaybackColorPipelineTarget::PreserveSource => TranscodeColorPipelineTarget::PreserveSource,
-        PlaybackColorPipelineTarget::Sdr => TranscodeColorPipelineTarget::Sdr,
-    }
-}
-
-const fn playback_hdr_tone_mapping_requirement_to_transcode(
-    requirement: PlaybackHdrToneMappingRequirement,
-) -> TranscodeHdrToneMappingRequirement {
-    match requirement {
-        PlaybackHdrToneMappingRequirement::None => TranscodeHdrToneMappingRequirement::None,
-        PlaybackHdrToneMappingRequirement::Required => TranscodeHdrToneMappingRequirement::Required,
-        PlaybackHdrToneMappingRequirement::DeferredUnsupported => {
-            TranscodeHdrToneMappingRequirement::DeferredUnsupported
-        }
-    }
-}
-
-fn playback_color_compatibility_reasons_to_transcode(
-    reasons: &[PlaybackColorCompatibilityReason],
-) -> TranscodeColorCompatibilityReasons {
-    TranscodeColorCompatibilityReasons {
-        source_hdr_detected: reasons.contains(&PlaybackColorCompatibilityReason::SourceHdrDetected),
-        client_hdr_unsupported: reasons
-            .contains(&PlaybackColorCompatibilityReason::ClientHdrUnsupported),
-        hdr_passthrough_supported: reasons
-            .contains(&PlaybackColorCompatibilityReason::HdrPassthroughSupported),
-        tone_mapping_required: reasons
-            .contains(&PlaybackColorCompatibilityReason::ToneMappingRequired),
-        unsupported_hdr_format_deferred: reasons
-            .contains(&PlaybackColorCompatibilityReason::UnsupportedHdrFormatDeferred),
-    }
-}
-
 fn playback_target_for_client(client: ClientPlaybackCapabilities) -> PlaybackTarget {
     PlaybackTarget::browser_with_capabilities("Public Client", client)
 }
@@ -2672,13 +2520,27 @@ impl RemuxSourceContext {
 mod tests {
     use std::path::PathBuf;
 
+    use nako_playback::{
+        PlaybackAudioCompatibilityReason, PlaybackAudioDownmixRequirement,
+        PlaybackAudioNormalizationRequirement, PlaybackAudioOutputRequirement,
+        PlaybackColorCompatibilityReason, PlaybackColorPipelineRequirement,
+        PlaybackColorPipelineTarget, PlaybackHdrToneMappingRequirement,
+    };
     use nako_transcode::{
         HardwareAcceleration, HardwareAccelerationFallback, HardwareAccelerationReport,
         StaticHardwareAccelerationDetector, TranscodeAudioCompatibilityReason,
+        TranscodeAudioCompatibilityReasons, TranscodeAudioDownmixRequirement,
+        TranscodeAudioNormalizationRequirement, TranscodeAudioOutputRequirement,
+        TranscodeColorPipelineRequirement, TranscodeColorPipelineTarget,
+        TranscodeHdrToneMappingRequirement, TranscodeOutputConstraints,
     };
 
     use super::*;
     use crate::config::{MetadataConfig, PlaybackConfig, StagingConfig, TranscodeConfig};
+    use crate::playback_mapping::{
+        playback_audio_output_requirement_to_transcode,
+        playback_color_pipeline_requirement_to_transcode,
+    };
 
     fn test_config(transcode: TranscodeConfig) -> NakoServerConfig {
         NakoServerConfig {

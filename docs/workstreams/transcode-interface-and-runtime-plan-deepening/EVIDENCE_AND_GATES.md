@@ -200,3 +200,42 @@ Closeout gates:
 - Follow-on HDR/tone-map work should extend the transcode-owned planner and
   execution Interfaces instead of reintroducing server-owned FFmpeg request
   assembly.
+
+### Post-closeout verification - Playback decision as HLS request source
+
+Status: Verified
+
+Verification result:
+
+- Server HLS orchestration now builds `HlsRuntimePlanRequest` through
+  `hls_runtime_plan_request`, so track selection, output constraints,
+  audio-output requirements, color-pipeline requirements, HLS output shape, and
+  source facts all come from the selected `PlaybackDecision` transcode
+  requirement.
+- Playback-to-transcode audio/color mapping lives in `playback_mapping.rs`
+  rather than in the HLS app service module.
+- `nako-transcode` remains independent of `nako-playback`; the mapping stays
+  server-side at the composition boundary.
+
+Evidence:
+
+- `crates/nako-server/src/app/playback/selection.rs`
+- `crates/nako-server/src/app/playback/mod.rs`
+- `crates/nako-server/src/playback_mapping.rs`
+- `cargo nextest run -p nako-server hls_runtime_plan_request_uses_transcode_requirement_stream_facts --no-fail-fast`
+  - 2026-05-31: Passed, 1 test.
+- `cargo nextest run -p nako-server hls_audio_output_requirement_mapping --no-fail-fast`
+  - 2026-05-31: Passed, 2 tests.
+- `cargo nextest run -p nako-server hls_color_pipeline_requirement_mapping --no-fail-fast`
+  - 2026-05-31: Passed, 2 tests.
+- `cargo nextest run -p nako-transcode hls --no-fail-fast`
+  - 2026-05-31: Passed, 55 tests.
+- `cargo nextest run -p nako-server hls --no-fail-fast --test-threads=1`
+  - 2026-05-31: Passed, 71 tests.
+- `cargo nextest run -p nako-server hls --no-fail-fast`
+  - 2026-05-31: First default-parallel run passed 69 tests and timed out 2
+    ready-before-runner-exit tests; both timed-out tests passed individually,
+    and the serial full HLS gate above passed.
+- `cargo check -p nako-server -p nako-transcode`
+  - 2026-05-31: Passed with only existing repository unused/dead-code
+    warnings outside this change.

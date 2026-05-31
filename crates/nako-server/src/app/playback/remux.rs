@@ -13,7 +13,6 @@ use nako_transcode::{
     CancellationToken, FfmpegExecutionPlanner, FfmpegRemuxRunner, RemuxContainer,
     RemuxExecutionPlanRequest, TranscodeEngineAdapter, TranscodeEngineStartCommand,
     TranscodeEngineStartOutcome, TranscodeRequestIdentity, TranscodeRuntimeGuard,
-    TranscodeRuntimeLimits,
 };
 use tokio::sync::Mutex;
 
@@ -39,10 +38,7 @@ impl RemuxAppService {
         config: &NakoServerConfig,
         cancellations: PlaybackSessionCancellationRegistry,
     ) -> Self {
-        let guard = TranscodeRuntimeGuard::new(TranscodeRuntimeLimits {
-            max_concurrent_sessions: config.remux_concurrency,
-            timeout_ms: config.remux_timeout_ms,
-        });
+        let guard = TranscodeRuntimeGuard::timeout_only(config.remux_timeout_ms);
 
         Self {
             execution_planner: FfmpegExecutionPlanner::new(&config.ffmpeg_path),

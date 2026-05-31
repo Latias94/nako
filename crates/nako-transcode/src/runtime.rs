@@ -92,7 +92,7 @@ impl TranscodeRuntimeLimits {
 
 #[derive(Clone, Debug)]
 pub struct TranscodeRuntimeGuard {
-    semaphore: Arc<Semaphore>,
+    semaphore: Option<Arc<Semaphore>>,
     timeout: Duration,
 }
 
@@ -100,8 +100,16 @@ impl TranscodeRuntimeGuard {
     #[must_use]
     pub fn new(limits: TranscodeRuntimeLimits) -> Self {
         Self {
-            semaphore: Arc::new(Semaphore::new(limits.max_concurrent_sessions())),
+            semaphore: Some(Arc::new(Semaphore::new(limits.max_concurrent_sessions()))),
             timeout: limits.timeout(),
+        }
+    }
+
+    #[must_use]
+    pub fn timeout_only(timeout_ms: u64) -> Self {
+        Self {
+            semaphore: None,
+            timeout: Duration::from_millis(timeout_ms.max(1)),
         }
     }
 
@@ -111,15 +119,15 @@ impl TranscodeRuntimeGuard {
     }
 
     pub async fn acquire(&self) -> Result<TranscodeRuntimePermit> {
-        let permit = self
-            .semaphore
-            .clone()
-            .acquire_owned()
-            .await
-            .map_err(|err| NakoError::Provider {
-                provider: "ffmpeg".to_owned(),
-                message: format!("transcode runtime guard closed: {err}"),
-            })?;
+        let permit = match &self.semaphore {
+            Some(semaphore) => Some(semaphore.clone().acquire_owned().await.map_err(|err| {
+                NakoError::Provider {
+                    provider: "ffmpeg".to_owned(),
+                    message: format!("transcode runtime guard closed: {err}"),
+                }
+            })?),
+            None => None,
+        };
 
         Ok(TranscodeRuntimePermit { permit })
     }
@@ -128,7 +136,7 @@ impl TranscodeRuntimeGuard {
 #[derive(Debug)]
 pub struct TranscodeRuntimePermit {
     #[allow(dead_code)]
-    permit: OwnedSemaphorePermit,
+    permit: Option<OwnedSemaphorePermit>,
 }
 
 #[derive(Clone, Debug, Default)]

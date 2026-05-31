@@ -15,8 +15,7 @@ use nako_transcode::{
     TranscodeOutputConstraints, TranscodePipelinePlan, TranscodePipelinePlanner,
     TranscodePipelineReadiness, TranscodePipelineRequest, TranscodePipelineSourceFacts,
     TranscodeRequestIdentity, TranscodeResourceBudget, TranscodeRuntimeGuard,
-    TranscodeRuntimeLimits, TranscodeTrackSelection,
-    transcode_pipeline_readiness_without_selection,
+    TranscodeTrackSelection, transcode_pipeline_readiness_without_selection,
 };
 use tokio::sync::Mutex;
 use tracing::{debug, warn};
@@ -83,13 +82,7 @@ impl HlsAppService {
             |_| transcode_pipeline_readiness_without_selection(hardware_policy, &hardware_report),
             |plan| plan.readiness,
         );
-        let transcode_budget = config.transcode.resource_budget();
-        let guard = TranscodeRuntimeGuard::new(TranscodeRuntimeLimits {
-            max_concurrent_sessions: pipeline_plan.as_ref().map_or(1, |plan| {
-                transcode_budget.slots_for(plan.selected_acceleration())
-            }),
-            timeout_ms: config.remux_timeout_ms,
-        });
+        let guard = TranscodeRuntimeGuard::timeout_only(config.remux_timeout_ms);
 
         Ok(Self {
             execution_planner: FfmpegExecutionPlanner::new(&config.ffmpeg_path),
