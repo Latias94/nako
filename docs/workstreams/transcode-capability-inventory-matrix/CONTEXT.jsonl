@@ -1,0 +1,8 @@
+{"file":"CONTEXT.md","reason":"Project glossary and playback/media terminology."}
+{"file":"docs/adr/0045-ffmpeg-hardware-pipeline-planner.md","reason":"Hardware pipeline planner and stage ownership."}
+{"file":"docs/adr/0046-ffmpeg-probe-inventory.md","reason":"FFmpeg probe inventory authority."}
+{"file":"docs/adr/0048-playback-transcode-startup-degradation.md","reason":"Startup degradation and capability reporting expectations."}
+{"file":"docs/architecture/PLAYBACK.md","reason":"Playback/transcode capability map and active lane status."}
+{"file":"docs/architecture/LANES.md","reason":"Lane routing and shared-scope coordination."}
+{"file":"docs/workstreams/transcode-interface-and-runtime-plan-deepening/CLOSEOUT.md","reason":"Accepted transcode Interface and FFmpeg Adapter surface after TIRP closeout."}
+{"file":"docs/workstreams/hdr-tone-mapping-pipeline/HANDOFF.md","reason":"Current HDR HTP-030 scope that this inventory lane must not overlap."}

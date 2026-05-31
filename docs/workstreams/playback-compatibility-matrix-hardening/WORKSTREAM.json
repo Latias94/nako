@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "slug": "playback-compatibility-matrix-hardening",
+  "title": "Playback Compatibility Matrix Hardening",
+  "status": "active",
+  "updated": "2026-05-31",
+  "scope_kind": "fearless_refactor",
+  "problem": "Playback planner compatibility interactions for container, codec, HDR, audio channel, downmix, and normalization behavior are covered by focused tests but not concentrated in a playback-only decision matrix.",
+  "task_prefix": "PCMH",
+  "current_task": "PCMH-020",
+  "completed_tasks": [
+    "PCMH-010"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/playback-compatibility-matrix-hardening/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/playback-compatibility-matrix-hardening/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/playback-compatibility-matrix-hardening/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/playback-compatibility-matrix-hardening/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/playback-compatibility-matrix-hardening/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "context_manifest",
+      "path": "docs/workstreams/playback-compatibility-matrix-hardening/CONTEXT.jsonl"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/playback-compatibility-matrix-hardening/HANDOFF.md"
+    }
+  ],
+  "context_manifest": "docs/workstreams/playback-compatibility-matrix-hardening/CONTEXT.jsonl",
+  "gates": [
+    "python -m json.tool docs/workstreams/playback-compatibility-matrix-hardening/WORKSTREAM.json",
+    "cargo nextest run -p nako-playback compatibility --no-fail-fast",
+    "cargo nextest run -p nako-playback hdr audio --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "PCMH-010",
+      "summary": "Opened a playback-only compatibility matrix lane that can run beside HDR HTP-030 without touching transcode, server, Public Client API, or web/player behavior."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0038-playback-planning-and-transcode-policy-seams.md",
+    "docs/adr/0044-playback-capability-profile-planner.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/PLAYBACK.md",
+      "capability": "Playback decision model"
+    },
+    {
+      "path": "docs/architecture/LANES.md",
+      "capability": "playback-transcode"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Playback And Transcode"
+    }
+  ],
+  "capability_tags": [
+    "playback.compatibility_matrix",
+    "playback.decision_model",
+    "playback.color_pipeline",
+    "playback.audio_output"
+  ],
+  "lane_slug": "playback-transcode",
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Run PCMH-020 as a crate-local playback matrix task. Stop if implementation needs transcode, server, API DTO, or player changes."
+  }
+}

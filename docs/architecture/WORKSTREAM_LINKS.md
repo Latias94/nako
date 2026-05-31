@@ -77,6 +77,8 @@ Evidence workstreams:
 - `docs/workstreams/audio-compatibility-downmix-normalization/`
 - `docs/workstreams/transcode-interface-and-runtime-plan-deepening/`
 - `docs/workstreams/hdr-tone-mapping-pipeline/`
+- `docs/workstreams/playback-compatibility-matrix-hardening/`
+- `docs/workstreams/transcode-capability-inventory-matrix/`
 
 Proposed lanes:
 

@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "slug": "transcode-capability-inventory-matrix",
+  "title": "Transcode Capability Inventory Matrix",
+  "status": "active",
+  "updated": "2026-05-31",
+  "scope_kind": "fearless_refactor",
+  "problem": "nako-transcode has stage-aware hardware capability records but the observable FFmpeg capability inventory remains focused on the first H.264/AAC path, which leaves future HDR, HEVC/AV1, subtitle burn-in, and operator diagnostics without a richer evidence layer.",
+  "task_prefix": "TCIM",
+  "current_task": "TCIM-020",
+  "completed_tasks": [
+    "TCIM-010"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/transcode-capability-inventory-matrix/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/transcode-capability-inventory-matrix/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/transcode-capability-inventory-matrix/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/transcode-capability-inventory-matrix/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/transcode-capability-inventory-matrix/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "context_manifest",
+      "path": "docs/workstreams/transcode-capability-inventory-matrix/CONTEXT.jsonl"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/transcode-capability-inventory-matrix/HANDOFF.md"
+    }
+  ],
+  "context_manifest": "docs/workstreams/transcode-capability-inventory-matrix/CONTEXT.jsonl",
+  "gates": [
+    "python -m json.tool docs/workstreams/transcode-capability-inventory-matrix/WORKSTREAM.json",
+    "cargo nextest run -p nako-transcode hardware --no-fail-fast",
+    "cargo nextest run -p nako-transcode probe --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "TCIM-010",
+      "summary": "Opened a transcode-only capability inventory lane that can run beside HDR HTP-030 while staying out of pipeline selection, FFmpeg command planning, server routes, API DTOs, and release packaging."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0045-ffmpeg-hardware-pipeline-planner.md",
+    "docs/adr/0046-ffmpeg-probe-inventory.md",
+    "docs/adr/0048-playback-transcode-startup-degradation.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/PLAYBACK.md",
+      "capability": "Hardware detection and fallback"
+    },
+    {
+      "path": "docs/architecture/LANES.md",
+      "capability": "playback-transcode"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Playback And Transcode"
+    }
+  ],
+  "capability_tags": [
+    "transcode.capability_inventory",
+    "transcode.hardware_pipeline",
+    "transcode.ffmpeg_probe",
+    "operations.hardware_diagnostics"
+  ],
+  "lane_slug": "playback-transcode",
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Run TCIM-020 as a crate-local inventory/report task. Stop if implementation needs pipeline selection, FFmpeg command planning, server, API DTO, or release packaging changes."
+  }
+}

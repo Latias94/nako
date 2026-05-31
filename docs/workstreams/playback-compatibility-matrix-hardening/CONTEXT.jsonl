@@ -1,0 +1,7 @@
+{"file":"CONTEXT.md","reason":"Project glossary and playback/media terminology."}
+{"file":"docs/adr/0038-playback-planning-and-transcode-policy-seams.md","reason":"Playback planner and transcode policy seam ownership."}
+{"file":"docs/adr/0044-playback-capability-profile-planner.md","reason":"Playback capability profile and output requirement ownership."}
+{"file":"docs/architecture/PLAYBACK.md","reason":"Playback/transcode capability map and active lane status."}
+{"file":"docs/architecture/LANES.md","reason":"Lane routing and shared-scope coordination."}
+{"file":"docs/workstreams/audio-compatibility-downmix-normalization/CLOSEOUT.md","reason":"Accepted audio output requirement evidence."}
+{"file":"docs/workstreams/hdr-tone-mapping-pipeline/HANDOFF.md","reason":"Current HDR color pipeline context that this matrix must not block."}
