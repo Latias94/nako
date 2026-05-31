@@ -1,21 +1,26 @@
 # Transcode Capability Inventory Matrix - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## Current State
 
-`TCIM-030` is complete and locally verified. The lane now has optional
-decoder, encoder, filter, tone-map, subtitle burn-in, and bitstream-filter
-stage evidence populated from `nako-transcode` FFmpeg inventory/report seams.
-Listed broader facts are observable, missing broader facts remain optional, and
-neither path changes HLS pipeline selection.
+This workstream is closed. `TCIM-030` was reviewed, verified, merged into
+`main`, and accepted as the broader capability inventory evidence slice.
+Optional decoder, encoder, filter, tone-map, subtitle burn-in, and bitstream
+filter facts are now observable without changing HLS pipeline selection.
 
-## Next Task
+## Follow-ons
 
-Assign `TCIM-040` for closeout, final review, and follow-on split decisions.
+Open separate workstreams for:
 
-Required context:
+- hardware tone-map execution and vendor filter chains;
+- HEVC/AV1 output policy and FFmpeg command planning;
+- subtitle burn-in execution behavior;
+- Admin/Public capability reporting or release hardware matrices;
+- HLS lifecycle/resource admission work.
+
+Required context for follow-ons:
 
 ```text
 docs/workstreams/transcode-capability-inventory-matrix/CONTEXT.jsonl
@@ -26,7 +31,7 @@ docs/workstreams/transcode-interface-and-runtime-plan-deepening/CLOSEOUT.md
 docs/workstreams/hdr-tone-mapping-pipeline/CLOSEOUT.md
 ```
 
-Required validation:
+Completed validation:
 
 ```text
 python -m json.tool docs/workstreams/transcode-capability-inventory-matrix/WORKSTREAM.json

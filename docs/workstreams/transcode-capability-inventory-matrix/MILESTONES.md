@@ -1,6 +1,6 @@
 # Transcode Capability Inventory Matrix - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## M0 - Scope And Evidence Freeze
@@ -59,4 +59,11 @@ Exit criteria:
 - evidence ledger records the expanded inventory facts;
 - policy/command/release follow-ons are split or deferred.
 
-Status: Pending `TCIM-040`.
+Status: Done.
+
+Evidence:
+
+- final transcode capability gates passed;
+- evidence ledger records the expanded inventory facts;
+- policy, command, Admin/release, and HLS lifecycle follow-ons are deferred to
+  separate workstreams.

@@ -22,7 +22,6 @@ ledger instead.
 | --- | --- | --- | --- |
 | `library-metadata-control-plane` | `generated-artifact-metadata-authority-apply` | `GAMA-050` | Backend/control-plane execution |
 | `client-surfaces-planning` | `client-surface-and-access-product-architecture` | `CSAPA-050` | Planner/docs split or defer decision |
-| `playback-transcode` | `transcode-capability-inventory-matrix` | `TCIM-030` | Transcode inventory execution |
 
 Do not start `GAMA-060` until `GAMA-050` has reviewed and verified the final
 Admin apply route. Do not close `CSAPA` until desktop playback is split,
@@ -41,10 +40,11 @@ I/O pressure, scan scheduling, or PostgreSQL runtime harness work.
 workstream for hardware tone mapping, dynamic HDR handling, device profiles, UI
 controls, or operator smoke matrices.
 
-`playback-compatibility-matrix-hardening` is closed. `TCIM-030` remains safe
-only while it stays inside `nako-transcode` hardware/probe inventory. It must
-not edit pipeline selection, FFmpeg command planning, server routes, API DTOs,
-or release packaging.
+`playback-compatibility-matrix-hardening` and
+`transcode-capability-inventory-matrix` are closed. The `playback-transcode`
+lane is idle until a planner opens a follow-on for HLS lifecycle/resource
+admission, hardware tone-map execution, HEVC/AV1 output policy, subtitle
+burn-in, Admin/release reporting, or hardware smoke evidence.
 
 ## Lane Registry
 

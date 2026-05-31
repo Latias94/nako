@@ -22,8 +22,6 @@ Last reviewed: 2026-05-31
   is active on lane `library-metadata-control-plane`; next task is `GAMA-050`.
 - [client-surface-and-access-product-architecture](client-surface-and-access-product-architecture/README.md)
   is active on lane `client-surfaces-planning`; next task is `CSAPA-050`.
-- [transcode-capability-inventory-matrix](transcode-capability-inventory-matrix/README.md)
-  is active on lane `playback-transcode`; next task is `TCIM-030`.
 
 Planner coordination should keep `GAMA-060` blocked until `GAMA-050` is
 reviewed and verified. `CSAPA` should split or explicitly defer desktop
@@ -33,8 +31,11 @@ playback before closeout. The `web-product` lane is idle after
 `remote-storage-health-and-circuit-breaker`,
 `transcode-interface-and-runtime-plan-deepening`,
 `hdr-tone-mapping-pipeline`, and
-`playback-compatibility-matrix-hardening` are closed. `TCIM-030` remains safe
-only while it stays inside `nako-transcode` hardware/probe inventory.
+`playback-compatibility-matrix-hardening`, and
+`transcode-capability-inventory-matrix` are closed. Open explicit follow-ons
+for HLS lifecycle/resource admission, hardware tone-map execution, HEVC/AV1
+output policy, subtitle burn-in, Admin/release reporting, or hardware smoke
+evidence.
 
 ## Current Workstreams
 
@@ -49,7 +50,7 @@ only while it stays inside `nako-transcode` hardware/probe inventory.
   audio-output compatibility cases. Full device matrices and API/player
   reporting are follow-ons.
 - [transcode-capability-inventory-matrix](transcode-capability-inventory-matrix/README.md):
-  active transcode-only lane for expanding FFmpeg capability inventory facts
+  closed transcode-only lane for expanding FFmpeg capability inventory facts
   without changing HLS pipeline selection, FFmpeg command planning, server
   routes, API DTOs, or release packaging.
 - [transcode-interface-and-runtime-plan-deepening](transcode-interface-and-runtime-plan-deepening/README.md):

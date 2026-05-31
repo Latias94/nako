@@ -1,6 +1,6 @@
 # Transcode Capability Inventory Matrix - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## M0 - Scope And Evidence Freeze
@@ -34,9 +34,9 @@ Last updated: 2026-05-31
 
 ## M3 - Closeout
 
-- [ ] TCIM-040 [owner=planner] [deps=TCIM-030] [scope=docs/workstreams/transcode-capability-inventory-matrix,docs/architecture/PLAYBACK.md,docs/architecture/LANES.md,docs/workstreams/README.md]
+- [x] TCIM-040 [owner=planner] [deps=TCIM-030] [scope=docs/workstreams/transcode-capability-inventory-matrix,docs/architecture/PLAYBACK.md,docs/architecture/LANES.md,docs/workstreams/README.md]
   Goal: Verify final gates, record evidence, and close or split follow-ons.
   Validation: final gates from `EVIDENCE_AND_GATES.md`; `python -m json.tool docs/workstreams/transcode-capability-inventory-matrix/WORKSTREAM.json`; `git diff --check`
   Review: `review-workstream` and `verify-rust-workstream` before closeout.
-  Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and closeout notes.
-  Handoff: Split pipeline selection, HDR filter execution, HEVC/AV1 output, subtitle burn-in, and release packaging into follow-ons.
+  Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and `CLOSEOUT.md`.
+  Handoff: DONE. `TCIM-030` was reviewed, verified, merged into `main`, and the lane closed. Split pipeline selection, HDR filter execution, HEVC/AV1 output, subtitle burn-in, Admin/release hardware matrix, and HLS lifecycle/resource admission into follow-ons.

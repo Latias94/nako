@@ -1,6 +1,6 @@
 # Transcode Capability Inventory Matrix - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## Required Gates
@@ -109,6 +109,34 @@ Verification on 2026-05-31:
 - `cargo fmt --all -- --check` passed.
 - `git diff --check` passed with only Windows line-ending normalization
   warnings.
+
+Planner acceptance on 2026-05-31:
+
+- `TCIM-030` review found no blocking workstream or code-quality findings.
+- Fresh planner verification reran the required hardware, probe, formatting,
+  manifest, and whitespace gates.
+- Commit `bb53bd98 feat(transcode): expand capability inventory facts` was
+  merged into `main`.
+
+### TCIM-040 - Verification and closeout
+
+Status: Done
+
+Evidence:
+
+- `docs/workstreams/transcode-capability-inventory-matrix/CLOSEOUT.md`
+- `docs/workstreams/transcode-capability-inventory-matrix/WORKSTREAM.json`
+- `docs/architecture/PLAYBACK.md`
+- `docs/architecture/LANES.md`
+- `docs/workstreams/README.md`
+
+Findings:
+
+- The lane shipped optional capability inventory facts without changing
+  runtime selection or FFmpeg command planning.
+- Hardware tone-map execution, HEVC/AV1 output policy, subtitle burn-in,
+  Public/Admin DTO reporting, release hardware matrices, and HLS lifecycle or
+  resource admission changes are follow-ons.
 
 ## Residual Risks
 

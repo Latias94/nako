@@ -2,16 +2,17 @@
   "schema_version": 1,
   "slug": "transcode-capability-inventory-matrix",
   "title": "Transcode Capability Inventory Matrix",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-05-31",
   "scope_kind": "fearless_refactor",
   "problem": "nako-transcode has stage-aware hardware capability records but the observable FFmpeg capability inventory remains focused on the first H.264/AAC path, which leaves future HDR, HEVC/AV1, subtitle burn-in, and operator diagnostics without a richer evidence layer.",
   "task_prefix": "TCIM",
-  "current_task": "TCIM-040",
+  "current_task": null,
   "completed_tasks": [
     "TCIM-010",
     "TCIM-020",
-    "TCIM-030"
+    "TCIM-030",
+    "TCIM-040"
   ],
   "authoritative_docs": [
     {
@@ -39,6 +40,10 @@
       "path": "docs/workstreams/transcode-capability-inventory-matrix/CONTEXT.jsonl"
     },
     {
+      "role": "closeout",
+      "path": "docs/workstreams/transcode-capability-inventory-matrix/CLOSEOUT.md"
+    },
+    {
       "role": "handoff",
       "path": "docs/workstreams/transcode-capability-inventory-matrix/HANDOFF.md"
     }
@@ -63,6 +68,10 @@
     {
       "task": "TCIM-030",
       "summary": "Added optional decoder, encoder, filter, tone-map, and subtitle burn-in inventory facts and tests proving listed or missing broader facts remain evidence-only and do not change HLS pipeline selection."
+    },
+    {
+      "task": "TCIM-040",
+      "summary": "Accepted planner review and fresh verification evidence, merged broader capability inventory facts into main, closed the lane, and split hardware tone-map execution, HEVC/AV1 output, subtitle burn-in, Admin/release reporting, and HLS lifecycle/resource admission as follow-ons."
     }
   ],
   "adr_refs": [
@@ -92,7 +101,7 @@
   ],
   "lane_slug": "playback-transcode",
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "TCIM-030 is complete. Run TCIM-040 for closeout, final review, and follow-on splits. Stop if follow-up implementation needs pipeline selection, FFmpeg command planning, server, API DTO, or release packaging changes."
+    "default_action": "closed",
+    "notes": "Workstream complete. Open follow-on lanes for hardware tone-map execution, HEVC/AV1 output policy, subtitle burn-in, Admin/Public capability reporting, release hardware matrices, or HLS lifecycle/resource admission."
   }
 }

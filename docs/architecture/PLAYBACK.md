@@ -36,7 +36,7 @@ selection.
 | Browser playback tickets | Shipped | `docs/adr/0036-short-lived-browser-playback-tickets.md`; `docs/workstreams/browser-playback-auth-transport/` | Player integration and cross-device resume polish. |
 | Renderer transport tickets | Shipped | `docs/adr/0041-renderer-cast-safe-transport-tickets.md` | Chromecast/DLNA/AirPlay adapter lanes. |
 | FFmpeg command planning | Shipped foundation | `docs/adr/0045-ffmpeg-hardware-pipeline-planner.md`; `docs/adr/0052-hls-runtime-and-media-engine-boundary.md` | Tone mapping, audio filters, seek restart commands. |
-| Hardware detection and fallback | Partial; inventory matrix active | `docs/adr/0046-ffmpeg-probe-inventory.md`; `docs/adr/0047-cpu-transcode-readiness.md`; `docs/adr/0048-playback-transcode-startup-degradation.md`; `docs/workstreams/transcode-capability-inventory-matrix/` | Expand transcode capability inventory facts before policy selection or release packaging gates. |
+| Hardware detection and fallback | Shipped broader inventory evidence | `docs/adr/0046-ffmpeg-probe-inventory.md`; `docs/adr/0047-cpu-transcode-readiness.md`; `docs/adr/0048-playback-transcode-startup-degradation.md`; `docs/workstreams/transcode-capability-inventory-matrix/` | Split hardware tone-map execution, HEVC/AV1 output policy, subtitle burn-in, Admin/release reporting, and hardware smoke into follow-ons. |
 | HLS single-variant MPEG-TS | Shipped | `docs/workstreams/transcode-output-shape-hls-manifest-ladder/` | Keep as compatibility baseline. |
 | HLS single-variant fMP4 | Shipped | `docs/workstreams/executable-hls-fmp4-runtime-boundary/` | Player validation and browser compatibility matrix. |
 | Adaptive HLS fMP4 ladder | Shipped first slice | `docs/workstreams/adaptive-hls-source-aware-ladder/` | Bandwidth-aware ABR and variant pruning. |
@@ -66,12 +66,11 @@ These lanes are intentionally separable. They can run in parallel if each lane
 keeps its public contract explicit.
 
 The audio compatibility, Transcode Interface deepening, software-first HDR
-tone-mapping, and playback compatibility matrix slices are closed.
-Playback/transcode depth now has one active crate-local lane:
-`transcode-capability-inventory-matrix` stays inside `nako-transcode`
-hardware/probe inventory and must return to planner coordination if it needs
-server HLS, pipeline selection, FFmpeg command planning, Public Client DTOs, or
-release packaging.
+tone-mapping, playback compatibility matrix, and transcode capability
+inventory slices are closed. Playback/transcode depth should now open explicit
+follow-ons for HLS lifecycle/resource admission, hardware tone-map execution,
+HEVC/AV1 output policy, subtitle burn-in, Admin/release reporting, or hardware
+smoke evidence.
 
 ### Lane A - Device Capability Profiles
 

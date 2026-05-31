@@ -1,25 +1,24 @@
 # Transcode Capability Inventory Matrix
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
-This workstream deepens `nako-transcode` capability inventory without changing
+This workstream deepened `nako-transcode` capability inventory without changing
 HLS runtime selection or FFmpeg command planning. It captures more observable
 FFmpeg/host facts for future HDR tone mapping, HEVC/AV1, subtitle burn-in, and
-operator diagnostics while keeping HDR `HTP-030` free to own the first
-software-first media-output path.
+operator diagnostics while keeping executable policy and command planning in
+follow-on lanes.
 
 Planner-approved lane: `playback-transcode`.
 
-First shipped baseline: `TCIM-020` records optional bitstream-filter evidence
-without changing pipeline selection.
+Shipped tasks:
 
-Second shipped baseline: `TCIM-030` records optional decoder, encoder, filter,
-tone-map, and subtitle burn-in evidence without changing pipeline selection.
+- `TCIM-020` recorded optional bitstream-filter evidence without changing
+  pipeline selection.
+- `TCIM-030` recorded optional decoder, encoder, filter, tone-map, and
+  subtitle burn-in evidence without changing pipeline selection.
 
-Next executable task: `TCIM-040`, closeout and follow-on split.
-
-Read before implementation:
+Read before follow-on implementation:
 
 - `CONTEXT.md`
 - `docs/adr/0045-ffmpeg-hardware-pipeline-planner.md`
@@ -28,6 +27,6 @@ Read before implementation:
 - `docs/architecture/PLAYBACK.md`
 - `docs/workstreams/transcode-capability-inventory-matrix/CONTEXT.jsonl`
 
-Do not expand this workstream into pipeline selection, HDR FFmpeg filter
-execution, HLS lifecycle, resource admission, server orchestration, or release
-packaging gates.
+Open a new workstream before expanding into pipeline selection, HDR FFmpeg
+filter execution, HLS lifecycle, resource admission, server orchestration,
+Public/Admin DTOs, or release packaging gates.

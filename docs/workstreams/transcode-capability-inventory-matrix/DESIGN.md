@@ -1,6 +1,6 @@
 # Transcode Capability Inventory Matrix
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## Why This Lane Exists
@@ -16,7 +16,7 @@ before the capability report can explain what the host can actually do.
 
 ## Target State
 
-When this workstream closes:
+This workstream is closed. It shipped:
 
 - capability reporting can represent decoder, encoder, filter, tone-map,
   subtitle, and bitstream-filter evidence beyond the current H.264 baseline;
@@ -58,3 +58,10 @@ The deletion test is: if the richer inventory were deleted, future pipeline
 and HDR work would have to infer host capability from scattered string checks
 inside selection or command-building code. This workstream should keep that
 knowledge local to the inventory/report seam.
+
+## Closeout Result
+
+`TCIM-020` and `TCIM-030` shipped optional capability facts for bitstream
+filters, broader decoders, encoders, filters, tone-map filters, and subtitle
+burn-in filters. The facts are observable in `HardwareAccelerationReport`, but
+they remain evidence-only and do not affect HLS planner selection.
