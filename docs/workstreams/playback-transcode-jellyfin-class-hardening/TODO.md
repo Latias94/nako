@@ -40,23 +40,25 @@ Last updated: 2026-05-31
   preserves playback output constraints and transcode requirements carry remux
   blocker reasons.
 
-- [ ] PTJCH-120 [owner=codex] [deps=PTJCH-020] [scope=crates/nako-transcode/src/pipeline.rs,crates/nako-transcode/src/hardware.rs,crates/nako-transcode/src/probe.rs]
+- [x] PTJCH-120 [owner=codex] [deps=PTJCH-020] [scope=crates/nako-transcode/src/pipeline.rs,crates/nako-transcode/src/hardware.rs,crates/nako-transcode/src/probe.rs]
   Goal: Deepen stage-aware Transcode Pipeline Capability matching for hardware
   and fallback requirements without changing server runtime behavior.
   Validation: `cargo nextest run -p nako-transcode pipeline hardware probe --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`
   Review: Use `review-workstream` before accepting completion.
   Evidence: pipeline/hardware/probe tests and `EVIDENCE_AND_GATES.md`.
   Context: `CONTEXT.jsonl`.
-  Handoff: Pending.
+  Handoff: DONE. Merged commit `9f841951`; pipeline planning now checks
+  requested decode-stage support for source codec compatibility.
 
-- [ ] PTJCH-130 [owner=codex] [deps=PTJCH-020] [scope=crates/nako-transcode/src/ffmpeg.rs,crates/nako-transcode/src/execution.rs]
+- [x] PTJCH-130 [owner=codex] [deps=PTJCH-020] [scope=crates/nako-transcode/src/ffmpeg.rs,crates/nako-transcode/src/execution.rs]
   Goal: Split FFmpeg Adapter internals so command planning breadth can grow
   without creating one large encoding helper.
   Validation: `cargo nextest run -p nako-transcode ffmpeg hls --no-fail-fast`; `cargo nextest run -p nako-transcode remux --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`
   Review: Use `review-workstream` before accepting completion.
   Evidence: command planning tests and `EVIDENCE_AND_GATES.md`.
   Context: `CONTEXT.jsonl`.
-  Handoff: Pending.
+  Handoff: DONE. Merged commit `bb3835e0`; FFmpeg command planning internals
+  are split behind the existing builder facade.
 
 ## M2 - Coordinated HLS Runtime And Artifact Batch
 

@@ -2,7 +2,7 @@
 
 Status: Active
 Last updated: 2026-05-31
-Current tasks: `PTJCH-120`, `PTJCH-130`
+Current tasks: `PTJCH-210`, `PTJCH-220`
 
 ## Current State
 
@@ -28,12 +28,20 @@ suggested worktree branches, and validation gates for the first parallel batch.
 
 `PTJCH-110` is complete and merged as commit `0d3bd96f`.
 
+`PTJCH-120` is complete and merged as commit `9f841951`.
+
+`PTJCH-130` is complete and merged as commit `bb3835e0`.
+
 ## Next Action
 
-Run the first parallel batch from `WORKER_PROMPTS.md`:
+Run the coordinated HLS batch:
 
-- `PTJCH-120` - Transcode Pipeline Capability.
-- `PTJCH-130` - FFmpeg Adapter split.
+- `PTJCH-210` - HLS Artifact Authority.
+- `PTJCH-220` - Playback Runtime.
+
+These tasks both touch server playback integration risk. Prefer `PTJCH-210`
+first if only one terminal is available; run them in parallel only with a
+planner watching shared files.
 
 ## Stop Conditions
 

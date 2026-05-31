@@ -150,3 +150,69 @@ git diff --check
 Result: passed on 2026-05-31. `cargo nextest` ran 36 `nako-playback` tests.
 `git diff --check` emitted LF/CRLF working-copy warnings for touched Rust files
 and no whitespace errors.
+
+### PTJCH-120 - Transcode Pipeline Capability
+
+Status: Done
+
+Evidence collected:
+
+- Merged commit `9f841951`.
+- `HardwareAccelerationCapability` exposes available stage-feature lookup.
+- Pipeline source compatibility checks requested decode-stage support for
+  HEVC/AV1 source inputs.
+- QuickSync HEVC tests cover decode-stage present and missing cases.
+
+Fresh validation:
+
+```text
+cargo nextest run -p nako-transcode pipeline hardware probe --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
+Result: passed on 2026-05-31 before and after rebasing onto main. The focused
+nextest gate ran 29 tests after rebase.
+
+### PTJCH-130 - FFmpeg Adapter
+
+Status: Done
+
+Evidence collected:
+
+- Merged commit `bb3835e0`.
+- `ffmpeg.rs` is reduced to the builder facade and delegates command planning
+  to internal `common`, `remux`, and `hls` modules.
+- HLS command planning is split into input, filters, encoders, muxer, seek, and
+  sidecar helpers.
+- Regression coverage verifies primary HLS output ordering before sidecar
+  outputs.
+
+Fresh validation:
+
+```text
+cargo nextest run -p nako-transcode ffmpeg hls --no-fail-fast
+cargo nextest run -p nako-transcode remux --no-fail-fast
+cargo nextest run -p nako-transcode --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
+Result: passed on 2026-05-31. The full `nako-transcode` nextest gate ran 101
+tests after rebasing onto main with `PTJCH-120`.
+
+### First Batch Integration Validation
+
+Status: Done
+
+Fresh validation:
+
+```text
+python -m json.tool docs/workstreams/playback-transcode-jellyfin-class-hardening/WORKSTREAM.json
+git diff --check -- docs/workstreams/playback-transcode-jellyfin-class-hardening docs/architecture/LANES.md docs/workstreams/README.md
+cargo nextest run -p nako-playback -p nako-transcode --no-fail-fast
+```
+
+Result: passed on 2026-05-31. The combined nextest gate ran 137 tests across
+`nako-playback` and `nako-transcode`. `git diff --check` emitted LF/CRLF
+working-copy warnings for touched Markdown/JSON files and no whitespace errors.

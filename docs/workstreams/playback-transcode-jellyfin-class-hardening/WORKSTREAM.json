@@ -7,11 +7,13 @@
   "scope_kind": "architecture",
   "problem": "Nako has strong playback/transcode seams, but Jellyfin/Plex-class hardening needs an explicit Interface freeze, owned scopes, shared scopes, and validation gates before multiple Codex lanes can work safely.",
   "task_prefix": "PTJCH",
-  "current_task": "PTJCH-120",
+  "current_task": "PTJCH-210",
   "completed_tasks": [
     "PTJCH-010",
     "PTJCH-020",
-    "PTJCH-110"
+    "PTJCH-110",
+    "PTJCH-120",
+    "PTJCH-130"
   ],
   "authoritative_docs": [
     {
@@ -70,6 +72,14 @@
     {
       "task": "PTJCH-110",
       "summary": "Merged playback capability hardening for remux output constraints and transcode requirement reasons, with focused nako-playback test coverage."
+    },
+    {
+      "task": "PTJCH-120",
+      "summary": "Merged stage-aware transcode pipeline capability matching for requested decode-stage source codec support, with focused hardware/pipeline tests."
+    },
+    {
+      "task": "PTJCH-130",
+      "summary": "Merged FFmpeg adapter internal split into common, remux, and HLS command-planning modules behind the existing builder facade, with transcode package tests passing."
     }
   ],
   "adr_refs": [
@@ -109,7 +119,7 @@
   "lane_slug": "playback-transcode",
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "PTJCH-120",
-    "notes": "PTJCH-110 is merged. PTJCH-120 and PTJCH-130 remain ready in separate worktrees using WORKER_PROMPTS.md; do not start PTJCH-210 or PTJCH-220 until the first batch merges or is split."
+    "next_task": "PTJCH-210",
+    "notes": "The first parallel implementation batch is merged. Continue with coordinated HLS Artifact Authority and Playback Runtime tasks. PTJCH-210 and PTJCH-220 share server playback integration risk, so keep planner coordination active."
   }
 }
