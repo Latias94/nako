@@ -136,7 +136,17 @@ Planner verification on 2026-05-30:
 
 ### RSHC-040 - Operator diagnostics and reset
 
-Status: Blocked, scope expanded by planner
+Status: Done
+
+Evidence:
+
+- `crates/nako-api/src/admin/storage.rs`
+- `crates/nako-api/src/admin_contract.rs`
+- `apps/admin-web/src/adminApi/generated/contract.ts`
+- `web/src/api/admin/generated/contract.ts`
+- `crates/nako-server/src/app/storage.rs`
+- `crates/nako-server/src/http/admin.rs`
+- `crates/nako-server/src/http/tests/system.rs`
 
 Worker BLOCKED report on 2026-05-31:
 
@@ -144,14 +154,46 @@ Worker BLOCKED report on 2026-05-31:
   `crates/nako-api/src/admin_contract.rs`,
   `crates/nako-server/src/http/admin.rs`, and
   `crates/nako-server/src/http/tests/system.rs`.
-- Admin HTTP needs durable **Storage Backend Health** list/reset behavior, but
-  `NakoApp` exposes storage diagnostics through `NakoApp::storage()` and the
+- Admin HTTP needed durable **Storage Backend Health** list/reset behavior, but
+  `NakoApp` exposed storage diagnostics through `NakoApp::storage()` and the
   storage app service did not yet expose durable health list/reset methods.
 - Planner expanded the scope to include `crates/nako-server/src/app/storage.rs`
-  so Admin HTTP can call redaction-safe methods on
+  so Admin HTTP could call redaction-safe methods on
   `StorageDiagnosticsAppService`.
-- Preferred shape is app-service access, not raw `NakoDatabase` exposure from
-  `NakoApp`.
+- The implementation followed the preferred app-service access path and did
+  not expose raw `NakoDatabase` from `NakoApp` or Admin HTTP.
+
+Validated on 2026-05-31:
+
+- `cargo nextest run -p nako-server admin_v1_storage --no-fail-fast` -
+  passed; ran
+  `http::tests::system::admin_v1_storage_backends_lists_durable_health_and_resets_circuit`
+  and `http::tests::system::admin_v1_storage_staging_lists_filters_and_redacts_paths`.
+- `cargo nextest run -p nako-server storage_health --no-fail-fast` - passed;
+  ran
+  `app::tests::storage::storage_health_records_runtime_updates_and_rejects_durable_circuit`.
+- `cargo nextest run -p nako-api --no-fail-fast` - passed; 71 tests run,
+  including Admin storage redaction and generated Admin contract consistency.
+- `cargo fmt --all -- --check` - passed.
+- `git diff --check` - passed; Git reported only Windows line-ending
+  normalization warnings.
+
+Notes:
+
+- Admin storage diagnostics now expose a paginated, redaction-safe durable
+  **Storage Backend Health** list at `/admin/v1/storage/backends`.
+- The operator reset action at
+  `/admin/v1/storage/backends/{backend_key}/circuit-breaker/reset` clears
+  **Storage Circuit Breaker** state through
+  `StorageBackendHealthRepository::clear_storage_backend_health`.
+- DTOs expose backend key, library id, scheme, health status, circuit state,
+  counters, timestamps, and redaction-safe failure class/message; they do not
+  expose raw source URI, local path, root URI, credentials, cache path, or raw
+  backend internals.
+- Generated Admin TypeScript contracts were refreshed because
+  `nako-api` enforces generator-output parity for Admin DTO and route changes.
+- No playback staging, cache repair, hash escalation, scan scheduling, durable
+  jobs, schema migrations, or raw database exposure were added.
 
 ## Residual Risks
 

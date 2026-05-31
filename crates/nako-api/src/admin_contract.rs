@@ -1,6 +1,6 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 54] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 56] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -112,6 +112,11 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 54] = [
         "addons/{addon_id}/runtime-readiness",
     ),
     ("addonRoutingPlans", "addons/{addon_id}/routing-plans"),
+    ("storageBackends", "storage/backends"),
+    (
+        "storageBackendCircuitBreakerReset",
+        "storage/backends/{backend_key}/circuit-breaker/reset",
+    ),
     ("storageStaging", "storage/staging"),
     ("systemConfig", "system/config"),
     ("settingsMetadataRawCache", "settings/metadata/raw-cache"),
@@ -225,6 +230,59 @@ export interface AdminWatchFolderDiscoveryRequest {
 export interface AdminStorageStagingQuery extends AdminPageQuery {
   purpose?: string;
   state?: string;
+}
+
+export interface AdminStorageBackendsQuery extends AdminPageQuery {}
+
+export type StorageBackendHealthStatus =
+  | "healthy"
+  | "recovering"
+  | "unavailable";
+
+export type StorageCircuitBreakerState =
+  | "closed"
+  | "half_open"
+  | "open";
+
+export type StorageFailureClass =
+  | "timeout"
+  | "unavailable"
+  | "permission"
+  | "rate_limited"
+  | "stale_cache"
+  | "partial_read"
+  | "budget"
+  | "security"
+  | "unknown";
+
+export interface AdminStorageBackendHealthDiagnostic {
+  backend_key: string;
+  library_id: string | null;
+  scheme: string;
+  status: StorageBackendHealthStatus;
+  circuit_breaker_state: StorageCircuitBreakerState;
+  consecutive_failures: number;
+  last_success_at_ms: number | null;
+  last_failure_at_ms: number | null;
+  last_failure_class: StorageFailureClass | null;
+  last_failure_safe_message: string | null;
+  circuit_opened_at_ms: number | null;
+  backoff_until_ms: number | null;
+  updated_at_ms: number;
+}
+
+export interface AdminStorageBackendHealthDiagnosticsResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  backends: AdminStorageBackendHealthDiagnostic[];
+  page: PageInfo;
+}
+
+export interface AdminStorageBackendHealthResetResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  backend: AdminStorageBackendHealthDiagnostic;
+  reset_at_ms: number;
 }
 
 export interface AdminGeneratedArtifactProposalsQuery extends AdminPageQuery {}
@@ -2646,7 +2704,14 @@ mod tests {
             "AdminUpdateLibraryMetadataProfileRequest",
             "AdminLibraryMetadataProfileResponse",
             "AdminJobCommandResponse",
+            "AdminStorageBackendsQuery",
             "AdminStorageStagingQuery",
+            "StorageBackendHealthStatus",
+            "StorageCircuitBreakerState",
+            "StorageFailureClass",
+            "AdminStorageBackendHealthDiagnostic",
+            "AdminStorageBackendHealthDiagnosticsResponse",
+            "AdminStorageBackendHealthResetResponse",
             "AdminOverviewResponse",
             "AdminPlaybackSupportEvidenceResponse",
             "runtime_metrics",

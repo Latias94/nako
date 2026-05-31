@@ -34,13 +34,13 @@ Last updated: 2026-05-31
 
 ## M3 - Operator Diagnostics And Reset
 
-- [ ] RSHC-040 [owner=codex] [deps=RSHC-030] [scope=crates/nako-api/src/admin/storage.rs,crates/nako-api/src/admin_contract.rs,crates/nako-server/src/app/storage.rs,crates/nako-server/src/http/admin.rs,crates/nako-server/src/http/tests/system.rs]
+- [x] RSHC-040 [owner=codex] [deps=RSHC-030] [scope=crates/nako-api/src/admin/storage.rs,crates/nako-api/src/admin_contract.rs,crates/nako-server/src/app/storage.rs,crates/nako-server/src/http/admin.rs,crates/nako-server/src/http/tests/system.rs]
   Goal: Surface redaction-safe backend health and add an operator reset action that clears circuit-breaker state through the durable contract.
-  Validation: `cargo nextest run -p nako-server admin_v1_storage --no-fail-fast`; `cargo nextest run -p nako-server storage_health --no-fail-fast`; `cargo nextest run -p nako-api --no-fail-fast`
+  Validation: `cargo nextest run -p nako-server admin_v1_storage --no-fail-fast`; `cargo nextest run -p nako-server storage_health --no-fail-fast`; `cargo nextest run -p nako-api --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`
   Review: Use `review-workstream` before accepting completion.
   Evidence: Admin API contract and HTTP tests.
   Context: `docs/workstreams/remote-storage-health-and-circuit-breaker/CONTEXT.jsonl`.
-  Handoff: Scope expanded on 2026-05-31 after worker BLOCKED report. Preferred access path is `NakoApp::storage()` -> `StorageDiagnosticsAppService`; do not expose raw `NakoDatabase` to Admin HTTP unless the app service path proves insufficient. Regenerate generated contracts only if the existing repo workflow requires it for Admin DTO changes.
+  Handoff: DONE. Admin storage diagnostics now expose paginated, redaction-safe durable **Storage Backend Health** records through `StorageDiagnosticsAppService`, and the operator reset route clears **Storage Circuit Breaker** state through the durable repository contract. Generated Admin TypeScript contracts were refreshed because the existing `nako-api` contract test requires them.
 
 ## M4 - Verification And Closeout
 

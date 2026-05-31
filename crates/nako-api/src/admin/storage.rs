@@ -1,6 +1,7 @@
 use nako_client_protocol::PageInfo;
 use nako_core::{
     LibraryId, StagingManifestId, StagingManifestRecord, StagingPurpose, StagingState,
+    StorageBackendHealthRecord, StorageBackendHealthStatus, StorageCircuitBreakerState,
     StorageFailureClass,
 };
 use serde::{Deserialize, Serialize};
@@ -72,6 +73,60 @@ impl AdminStorageStagingRecord {
             updated_at_ms: record.updated_at_ms,
             last_accessed_at_ms: record.last_accessed_at_ms,
             expires_at_ms: record.expires_at_ms,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminStorageBackendHealthDiagnosticsResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub backends: Vec<AdminStorageBackendHealthDiagnostic>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminStorageBackendHealthResetResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub backend: AdminStorageBackendHealthDiagnostic,
+    pub reset_at_ms: i64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminStorageBackendHealthDiagnostic {
+    pub backend_key: String,
+    pub library_id: Option<LibraryId>,
+    pub scheme: String,
+    pub status: StorageBackendHealthStatus,
+    pub circuit_breaker_state: StorageCircuitBreakerState,
+    pub consecutive_failures: u32,
+    pub last_success_at_ms: Option<i64>,
+    pub last_failure_at_ms: Option<i64>,
+    pub last_failure_class: Option<StorageFailureClass>,
+    pub last_failure_safe_message: Option<String>,
+    pub circuit_opened_at_ms: Option<i64>,
+    pub backoff_until_ms: Option<i64>,
+    pub updated_at_ms: i64,
+}
+
+impl AdminStorageBackendHealthDiagnostic {
+    #[must_use]
+    pub fn from_record(record: StorageBackendHealthRecord) -> Self {
+        Self {
+            backend_key: record.backend_key,
+            library_id: record.library_id,
+            scheme: record.scheme,
+            status: record.status,
+            circuit_breaker_state: record.circuit_breaker_state,
+            consecutive_failures: record.consecutive_failures,
+            last_success_at_ms: record.last_success_at_ms,
+            last_failure_at_ms: record.last_failure_at_ms,
+            last_failure_class: record.last_failure_class,
+            last_failure_safe_message: record.last_failure_safe_message,
+            circuit_opened_at_ms: record.circuit_opened_at_ms,
+            backoff_until_ms: record.backoff_until_ms,
+            updated_at_ms: record.updated_at_ms,
         }
     }
 }
@@ -175,6 +230,51 @@ mod tests {
         assert!(!body.contains("etag-secret"));
         assert!(!body.contains("fingerprint-secret"));
         assert!(!body.contains("failed at"));
+    }
+
+    #[test]
+    fn admin_storage_backend_health_diagnostic_redacts_raw_backend_details() {
+        let library_id = LibraryId::new();
+        let diagnostic =
+            AdminStorageBackendHealthDiagnostic::from_record(StorageBackendHealthRecord {
+                backend_key: format!("library:{library_id}:webdav"),
+                library_id: Some(library_id),
+                scheme: "webdav".to_owned(),
+                status: StorageBackendHealthStatus::Unavailable,
+                circuit_breaker_state: StorageCircuitBreakerState::Open,
+                consecutive_failures: 3,
+                last_success_at_ms: Some(500),
+                last_failure_at_ms: Some(1_000),
+                last_failure_class: Some(StorageFailureClass::Timeout),
+                last_failure_safe_message: Some("storage backend timed out".to_owned()),
+                circuit_opened_at_ms: Some(1_000),
+                backoff_until_ms: Some(1_500),
+                updated_at_ms: 1_000,
+            });
+        let body = serde_json::to_string(&diagnostic).unwrap();
+
+        assert_eq!(
+            diagnostic.backend_key,
+            format!("library:{library_id}:webdav")
+        );
+        assert_eq!(diagnostic.library_id, Some(library_id));
+        assert_eq!(diagnostic.scheme, "webdav");
+        assert_eq!(diagnostic.status, StorageBackendHealthStatus::Unavailable);
+        assert_eq!(
+            diagnostic.circuit_breaker_state,
+            StorageCircuitBreakerState::Open
+        );
+        assert_eq!(
+            diagnostic.last_failure_safe_message.as_deref(),
+            Some("storage backend timed out")
+        );
+        assert!(!body.contains("root_uri"));
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("local_path"));
+        assert!(!body.contains("webdav:///"));
+        assert!(!body.contains("Private"));
+        assert!(!body.contains("token"));
+        assert!(!body.contains("password"));
     }
 
     #[test]

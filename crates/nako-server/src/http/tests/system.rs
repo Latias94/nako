@@ -1,4 +1,11 @@
 use super::*;
+use nako_api::admin::{
+    AdminStorageBackendHealthDiagnosticsResponse, AdminStorageBackendHealthResetResponse,
+};
+use nako_core::{
+    StorageBackendHealthRecord, StorageBackendHealthRepository, StorageBackendHealthStatus,
+    StorageCircuitBreakerState, StorageFailureClass,
+};
 
 #[tokio::test]
 async fn health_and_libraries_routes_work() {
@@ -1923,6 +1930,176 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
     assert!(!body.contains("cache-fingerprint-secret"));
     assert!(!body.contains("cache failed at secret path"));
     assert!(!body.contains("failed at local secret path"));
+}
+
+#[tokio::test]
+async fn admin_v1_storage_backends_lists_durable_health_and_resets_circuit() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("secret-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let backend_key = format!("library:{library_id}:webdav");
+    store
+        .upsert_storage_backend_health(StorageBackendHealthRecord {
+            backend_key: backend_key.clone(),
+            library_id: Some(library_id),
+            scheme: "webdav".to_owned(),
+            status: StorageBackendHealthStatus::Unavailable,
+            circuit_breaker_state: StorageCircuitBreakerState::Open,
+            consecutive_failures: 2,
+            last_success_at_ms: Some(500),
+            last_failure_at_ms: Some(1_000),
+            last_failure_class: Some(StorageFailureClass::Timeout),
+            last_failure_safe_message: Some("storage backend timed out".to_owned()),
+            circuit_opened_at_ms: Some(1_000),
+            backoff_until_ms: Some(2_000),
+            updated_at_ms: 1_000,
+        })
+        .await
+        .unwrap();
+
+    let router = build_router(app);
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/storage/backends?limit=5")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let diagnostics: AdminStorageBackendHealthDiagnosticsResponse =
+        serde_json::from_str(&body).unwrap();
+
+    assert_eq!(
+        diagnostics.admin_api_version,
+        nako_api::admin::ADMIN_API_VERSION
+    );
+    assert_eq!(
+        diagnostics.public_api_version,
+        nako_api::public_client::API_VERSION
+    );
+    assert_eq!(diagnostics.backends.len(), 1);
+    assert_eq!(diagnostics.page.limit, 5);
+    assert_eq!(diagnostics.page.returned, 1);
+    assert_eq!(diagnostics.backends[0].backend_key, backend_key);
+    assert_eq!(diagnostics.backends[0].library_id, Some(library_id));
+    assert_eq!(diagnostics.backends[0].scheme, "webdav");
+    assert_eq!(
+        diagnostics.backends[0].status,
+        StorageBackendHealthStatus::Unavailable
+    );
+    assert_eq!(
+        diagnostics.backends[0].circuit_breaker_state,
+        StorageCircuitBreakerState::Open
+    );
+    assert_eq!(
+        diagnostics.backends[0].last_failure_safe_message.as_deref(),
+        Some("storage backend timed out")
+    );
+    assert!(!body.contains("root_uri"));
+    assert!(!body.contains("source_uri"));
+    assert!(!body.contains("local_path"));
+    assert!(!body.contains("webdav:///"));
+    assert!(!body.contains("Private"));
+    assert!(!body.contains("secret-cache"));
+    assert!(!body.contains(&temp.path().display().to_string()));
+
+    let reset_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/admin/v1/storage/backends/{backend_key}/circuit-breaker/reset"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let reset_status = reset_response.status();
+    let reset_body = String::from_utf8(
+        to_bytes(reset_response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(reset_status, StatusCode::OK, "{reset_body}");
+    let reset: AdminStorageBackendHealthResetResponse = serde_json::from_str(&reset_body).unwrap();
+
+    assert_eq!(reset.backend.backend_key, backend_key);
+    assert_eq!(reset.backend.status, StorageBackendHealthStatus::Healthy);
+    assert_eq!(
+        reset.backend.circuit_breaker_state,
+        StorageCircuitBreakerState::Closed
+    );
+    assert_eq!(reset.backend.consecutive_failures, 0);
+    assert_eq!(reset.backend.last_success_at_ms, Some(500));
+    assert_eq!(reset.backend.last_failure_at_ms, None);
+    assert_eq!(reset.backend.last_failure_class, None);
+    assert_eq!(reset.backend.last_failure_safe_message, None);
+    assert_eq!(reset.backend.circuit_opened_at_ms, None);
+    assert_eq!(reset.backend.backoff_until_ms, None);
+    assert_eq!(reset.reset_at_ms, reset.backend.updated_at_ms);
+
+    let saved = store
+        .get_storage_backend_health(&backend_key)
+        .await
+        .unwrap()
+        .expect("reset should preserve the durable backend health row");
+    assert_eq!(saved.status, StorageBackendHealthStatus::Healthy);
+    assert_eq!(
+        saved.circuit_breaker_state,
+        StorageCircuitBreakerState::Closed
+    );
+    assert_eq!(saved.consecutive_failures, 0);
+    assert_eq!(saved.last_failure_at_ms, None);
+    assert_eq!(saved.backoff_until_ms, None);
 }
 
 #[tokio::test]

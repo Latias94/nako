@@ -64,8 +64,10 @@ use nako_api::{
         AdminRendererReadinessDiagnostics, AdminRendererRuntimeDiagnosticsResponse,
         AdminRendererSessionDiagnostics, AdminRendererSessionSummary, AdminReplaceUserRolesRequest,
         AdminRuntimeConfigDiagnostics, AdminServerConfigDiagnosticsResponse,
-        AdminSetLocalPasswordRequest, AdminStorageStagingDiagnosticsResponse,
-        AdminStorageStagingRecord, AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics,
+        AdminSetLocalPasswordRequest, AdminStorageBackendHealthDiagnostic,
+        AdminStorageBackendHealthDiagnosticsResponse, AdminStorageBackendHealthResetResponse,
+        AdminStorageStagingDiagnosticsResponse, AdminStorageStagingRecord,
+        AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics,
         AdminTranscodePipelineReadiness, AdminTranscodePipelineReadinessStatus,
         AdminTrustedProxyDiagnostics, AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
         AdminUpdateLibraryMetadataProfileRequest, AdminUpdateMetadataRawCacheSettingsRequest,
@@ -256,6 +258,11 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/artwork/artifacts/cleanup",
             post(cleanup_admin_artwork_artifacts),
+        )
+        .route("/admin/v1/storage/backends", get(list_admin_storage_backends))
+        .route(
+            "/admin/v1/storage/backends/{backend_key}/circuit-breaker/reset",
+            post(reset_admin_storage_backend_circuit_breaker),
         )
         .route("/admin/v1/storage/staging", get(list_admin_storage_staging))
         .route("/admin/v1/system/config", get(get_admin_system_config))
@@ -1306,6 +1313,53 @@ pub(super) async fn update_admin_playback_runtime_settings(
     Ok(Json(
         app.update_admin_playback_runtime_settings(request).await?,
     ))
+}
+
+pub(super) async fn list_admin_storage_backends(
+    State(app): State<NakoApp>,
+    Query(query): Query<PageQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let page = query.try_into()?;
+    let backends = app
+        .storage()
+        .list_storage_backend_health(page)
+        .await?
+        .into_iter();
+    let returned = backends.len();
+    let backends = backends
+        .map(AdminStorageBackendHealthDiagnostic::from_record)
+        .collect();
+
+    Ok(Json(AdminStorageBackendHealthDiagnosticsResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        backends,
+        page: page_info_from_request(page, returned),
+    }))
+}
+
+pub(super) async fn reset_admin_storage_backend_circuit_breaker(
+    State(app): State<NakoApp>,
+    Path(backend_key): Path<String>,
+) -> ApiResult<impl IntoResponse> {
+    let reset_at_ms = crate::app::current_time_ms()?;
+    let record = app
+        .storage()
+        .reset_storage_backend_health(&backend_key, reset_at_ms)
+        .await?
+        .ok_or_else(|| NakoError::NotFound {
+            entity: "storage_backend_health",
+            id: backend_key,
+        })?;
+    let reset_at_ms = record.updated_at_ms;
+    let backend = AdminStorageBackendHealthDiagnostic::from_record(record);
+
+    Ok(Json(AdminStorageBackendHealthResetResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        backend,
+        reset_at_ms,
+    }))
 }
 
 pub(super) async fn list_admin_storage_staging(

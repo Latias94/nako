@@ -21,8 +21,9 @@ use nako_api::admin::{
 use nako_core::{
     Library, LibraryId, LibraryRepository, MediaSource, NakoError, PageRequest, Result,
     StagingManifestRecord, StagingManifestRepository, StagingPurpose, StagingState,
-    StorageBackendHealthRecord, StorageBackendHealthRepository, StorageBackendHealthStatus,
-    StorageCircuitBreakerState, StorageFailureClass, VfsCacheRepository, VfsCacheSummary,
+    StorageBackendHealthListFilter, StorageBackendHealthRecord, StorageBackendHealthRepository,
+    StorageBackendHealthStatus, StorageCircuitBreakerState, StorageFailureClass,
+    VfsCacheRepository, VfsCacheSummary,
 };
 use nako_db::NakoDatabase;
 use nako_vfs::{LocalFsBackend, StorageBackend, StorageUri};
@@ -49,6 +50,27 @@ impl StorageDiagnosticsAppService {
         &self,
     ) -> StorageBackendDiagnosticsResponse {
         self.registry.diagnostics().await
+    }
+
+    pub(crate) async fn list_storage_backend_health(
+        &self,
+        page: PageRequest,
+    ) -> Result<Vec<StorageBackendHealthRecord>> {
+        self.registry
+            .store
+            .list_storage_backend_health(StorageBackendHealthListFilter::default(), page)
+            .await
+    }
+
+    pub(crate) async fn reset_storage_backend_health(
+        &self,
+        backend_key: &str,
+        reset_at_ms: i64,
+    ) -> Result<Option<StorageBackendHealthRecord>> {
+        self.registry
+            .store
+            .clear_storage_backend_health(backend_key, reset_at_ms)
+            .await
     }
 
     pub(crate) async fn list_staging_manifest_records(

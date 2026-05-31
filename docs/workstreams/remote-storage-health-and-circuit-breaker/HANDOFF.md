@@ -6,7 +6,7 @@ Last updated: 2026-05-31
 ## Current State
 
 The lane is open and linked from the storage/VFS architecture indexes.
-`RSHC-010`, `RSHC-020`, and `RSHC-030` are complete.
+`RSHC-010`, `RSHC-020`, `RSHC-030`, and `RSHC-040` are complete.
 
 `RSHC-020` added the durable **Storage Backend Health** repository contract,
 domain records, SQLite and PostgreSQL adapters, facade dispatch, baseline
@@ -23,35 +23,40 @@ cleanup, and restore paths. The runtime test covers retryable timeout
 recording, cross-instance circuit rejection across read and mutation-style
 runtime work, and successful recovery to `Healthy`/`Closed`.
 
+`RSHC-040` added Admin operator diagnostics and reset for durable
+**Storage Backend Health**. Admin HTTP now uses `NakoApp::storage()` and
+`StorageDiagnosticsAppService` for paginated, redaction-safe durable health
+listing and reset. The reset route clears **Storage Circuit Breaker** state
+through the durable repository contract. Generated Admin TypeScript contracts
+were refreshed because `nako-api` enforces generator-output parity for Admin
+DTO and route changes.
+
 ## Next Task
 
-Planner can assign `RSHC-040` with expanded scope after the worker BLOCKED
-report on 2026-05-31.
+Planner can assign `RSHC-050` for verification and closeout.
 
 Expected next owned scope:
 
-- `crates/nako-api/src/admin/storage.rs`
-- `crates/nako-api/src/admin_contract.rs`
-- `crates/nako-server/src/app/storage.rs`
-- `crates/nako-server/src/http/admin.rs`
-- `crates/nako-server/src/http/tests/system.rs`
+- `docs/workstreams/remote-storage-health-and-circuit-breaker`
+- `docs/architecture/STORAGE_VFS.md`
+- `docs/architecture/WORKSTREAM_LINKS.md`
 
 Expected validation:
 
 ```text
+cargo nextest run -p nako-db storage_backend_health --no-fail-fast
 cargo nextest run -p nako-server admin_v1_storage --no-fail-fast
 cargo nextest run -p nako-server storage_health --no-fail-fast
 cargo nextest run -p nako-api --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
 ```
 
-Scope decision:
+Closeout checks:
 
-- Route Admin diagnostics/reset through `NakoApp::storage()` and
-  `StorageDiagnosticsAppService`.
-- Add redaction-safe durable health list/reset methods to the storage app
-  service, which already owns the registry/store.
-- Do not expose raw `NakoDatabase` from `NakoApp` unless the service path proves
-  insufficient and planner approves another scope expansion.
+- Confirm no follow-on must remain inside this workstream.
+- Split cache repair, hash escalation, playback artifact I/O scheduling, or
+  PostgreSQL runtime harness work only if still relevant.
 
 ## Stop Conditions
 
@@ -94,6 +99,22 @@ read-like paths. The follow-up fix added durable circuit admission to
 `write_string`, `write`, `plan_link`, `apply`, `cleanup`, and `restore`, and
 expanded the storage health regression test to prove those calls are rejected
 before reaching the wrapped backend while the circuit is open.
+
+## RSHC-040 Validation
+
+```text
+cargo nextest run -p nako-server admin_v1_storage --no-fail-fast
+cargo nextest run -p nako-server storage_health --no-fail-fast
+cargo nextest run -p nako-api --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
+All required gates passed on 2026-05-31. `git diff --check` reported only
+Windows line-ending normalization warnings.
+
+No playback staging, cache repair, hash escalation, scan scheduling, durable
+jobs, schema migrations, or raw database exposure was changed.
 
 ## Report Format
 

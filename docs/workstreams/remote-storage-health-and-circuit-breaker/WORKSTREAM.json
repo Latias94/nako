@@ -7,11 +7,12 @@
   "scope_kind": "fearless_refactor",
   "problem": "Remote storage failures are classified and bounded in process-local paths, but backend health is not yet a durable contract that can protect scan, probe, playback staging, and operator diagnostics consistently.",
   "task_prefix": "RSHC",
-  "current_task": "RSHC-040",
+  "current_task": "RSHC-050",
   "completed_tasks": [
     "RSHC-010",
     "RSHC-020",
-    "RSHC-030"
+    "RSHC-030",
+    "RSHC-040"
   ],
   "authoritative_docs": [
     {
@@ -49,6 +50,8 @@
     "cargo nextest run -p nako-db storage_backend_health --no-fail-fast",
     "cargo nextest run -p nako-server storage_health --no-fail-fast",
     "cargo nextest run -p nako-server storage --no-fail-fast",
+    "cargo nextest run -p nako-server admin_v1_storage --no-fail-fast",
+    "cargo nextest run -p nako-api --no-fail-fast",
     "cargo fmt --all -- --check",
     "git diff --check"
   ],
@@ -64,6 +67,10 @@
     {
       "task": "RSHC-030",
       "summary": "Wired server storage runtime paths to durable Storage Backend Health updates and durable Storage Circuit Breaker admission across read, stream, staging, write, link-plan, apply, cleanup, and restore paths without changing schema, Admin routes, playback staging, or scan scheduling."
+    },
+    {
+      "task": "RSHC-040",
+      "summary": "Exposed paginated redaction-safe durable Storage Backend Health through Admin storage diagnostics and added an operator reset route that clears Storage Circuit Breaker state through StorageDiagnosticsAppService and the durable repository contract."
     }
   ],
   "adr_refs": [
@@ -94,6 +101,6 @@
   "lane_slug": "storage-vfs",
   "continue_policy": {
     "default_action": "continue",
-    "notes": "RSHC-030 is complete and planner-verified. RSHC-040 scope is expanded to include crates/nako-server/src/app/storage.rs so Admin HTTP can use StorageDiagnosticsAppService for redaction-safe durable health list/reset. Do not expose raw NakoDatabase from Admin HTTP unless planner approves another scope expansion. Split a follow-on if the task grows into cache repair, hash escalation, or playback artifact I/O scheduling."
+    "notes": "RSHC-040 is complete. Planner can run RSHC-050 verification and closeout. Do not reopen cache repair, hash escalation, playback artifact I/O scheduling, scan scheduling, durable jobs, or schema work inside this lane unless closeout evidence proves a follow-on is required."
   }
 }
