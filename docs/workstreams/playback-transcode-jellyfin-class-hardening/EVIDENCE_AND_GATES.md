@@ -124,3 +124,29 @@ git diff --check -- docs/workstreams/playback-transcode-jellyfin-class-hardening
 
 Result: passed on 2026-05-31. `CONTEXT.jsonl` was also parsed successfully with
 29 JSONL entries.
+
+### PTJCH-110 - Playback Capability
+
+Status: Done
+
+Evidence collected:
+
+- Merged commit `0d3bd96f`.
+- `evaluate_remux` applies playback output bitrate and resolution constraints.
+- Transcode requirement reasons include non-compatible remux evaluation
+  blockers.
+- Table-driven coverage verifies bitrate cap, resolution cap, and user
+  bitrate preference cases fall through from unsupported direct play/remux to
+  HLS transcode with explicit reasons.
+
+Fresh validation:
+
+```text
+cargo nextest run -p nako-playback --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
+Result: passed on 2026-05-31. `cargo nextest` ran 36 `nako-playback` tests.
+`git diff --check` emitted LF/CRLF working-copy warnings for touched Rust files
+and no whitespace errors.

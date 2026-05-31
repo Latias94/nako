@@ -29,14 +29,16 @@ Last updated: 2026-05-31
 
 ## M1 - First Parallel Batch
 
-- [ ] PTJCH-110 [owner=codex] [deps=PTJCH-020] [scope=crates/nako-playback]
+- [x] PTJCH-110 [owner=codex] [deps=PTJCH-020] [scope=crates/nako-playback]
   Goal: Deepen Playback Capability conditions and compatibility reason tests
   without adding transcode execution or server lifecycle behavior.
   Validation: `cargo nextest run -p nako-playback --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`
   Review: Use `review-workstream` before accepting completion.
   Evidence: focused playback planner tests and `EVIDENCE_AND_GATES.md`.
   Context: `CONTEXT.jsonl`.
-  Handoff: Pending.
+  Handoff: DONE. Merged commit `0d3bd96f`; remux capability evaluation now
+  preserves playback output constraints and transcode requirements carry remux
+  blocker reasons.
 
 - [ ] PTJCH-120 [owner=codex] [deps=PTJCH-020] [scope=crates/nako-transcode/src/pipeline.rs,crates/nako-transcode/src/hardware.rs,crates/nako-transcode/src/probe.rs]
   Goal: Deepen stage-aware Transcode Pipeline Capability matching for hardware

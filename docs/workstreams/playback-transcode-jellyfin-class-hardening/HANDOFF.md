@@ -2,7 +2,7 @@
 
 Status: Active
 Last updated: 2026-05-31
-Current tasks: `PTJCH-110`, `PTJCH-120`, `PTJCH-130`
+Current tasks: `PTJCH-120`, `PTJCH-130`
 
 ## Current State
 
@@ -26,11 +26,12 @@ architecture links, and docs/planning gates are recorded.
 `PTJCH-020` is complete. `WORKER_PROMPTS.md` contains ready-to-use prompts,
 suggested worktree branches, and validation gates for the first parallel batch.
 
+`PTJCH-110` is complete and merged as commit `0d3bd96f`.
+
 ## Next Action
 
 Run the first parallel batch from `WORKER_PROMPTS.md`:
 
-- `PTJCH-110` - Playback Capability.
 - `PTJCH-120` - Transcode Pipeline Capability.
 - `PTJCH-130` - FFmpeg Adapter split.
 

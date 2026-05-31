@@ -7,10 +7,11 @@
   "scope_kind": "architecture",
   "problem": "Nako has strong playback/transcode seams, but Jellyfin/Plex-class hardening needs an explicit Interface freeze, owned scopes, shared scopes, and validation gates before multiple Codex lanes can work safely.",
   "task_prefix": "PTJCH",
-  "current_task": "PTJCH-110",
+  "current_task": "PTJCH-120",
   "completed_tasks": [
     "PTJCH-010",
-    "PTJCH-020"
+    "PTJCH-020",
+    "PTJCH-110"
   ],
   "authoritative_docs": [
     {
@@ -65,6 +66,10 @@
     {
       "task": "PTJCH-020",
       "summary": "Recorded first-batch worker prompts, suggested worktree branches, shared stop conditions, and task-local worker note paths for Playback Capability, Transcode Pipeline Capability, and FFmpeg Adapter lanes."
+    },
+    {
+      "task": "PTJCH-110",
+      "summary": "Merged playback capability hardening for remux output constraints and transcode requirement reasons, with focused nako-playback test coverage."
     }
   ],
   "adr_refs": [
@@ -104,7 +109,7 @@
   "lane_slug": "playback-transcode",
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "PTJCH-110",
-    "notes": "The first parallel implementation batch is ready. PTJCH-110, PTJCH-120, and PTJCH-130 may run in separate worktrees using WORKER_PROMPTS.md; do not start PTJCH-210 or PTJCH-220 until the first batch merges or is split."
+    "next_task": "PTJCH-120",
+    "notes": "PTJCH-110 is merged. PTJCH-120 and PTJCH-130 remain ready in separate worktrees using WORKER_PROMPTS.md; do not start PTJCH-210 or PTJCH-220 until the first batch merges or is split."
   }
 }

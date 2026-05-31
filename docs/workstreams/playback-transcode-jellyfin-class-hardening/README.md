@@ -3,7 +3,7 @@
 Status: Active
 Last updated: 2026-05-31
 Lane: `playback-transcode`
-Current tasks: `PTJCH-110`, `PTJCH-120`, `PTJCH-130`
+Current tasks: `PTJCH-120`, `PTJCH-130`
 
 This workstream freezes the playback/transcode Interfaces, owned scopes,
 shared scopes, validation gates, and first parallel worker prompts needed to
