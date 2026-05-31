@@ -5,12 +5,14 @@ Last updated: 2026-05-31
 
 ## Current State
 
-`PCMH-010` is complete. The lane is open as a playback-only matrix hardening
-workstream that may run in parallel with HDR `HTP-030`.
+`PCMH-020` is complete and locally verified. The lane now has playback-only
+table-driven matrix coverage for representative Direct Play, Remux, and HLS
+Transcode compatibility decisions, including HDR remux denial and audio output
+requirements.
 
 ## Next Task
 
-Assign `PCMH-020`.
+Assign `PCMH-030` for planner review, fresh verification, and closeout.
 
 Required context:
 
@@ -19,7 +21,7 @@ docs/workstreams/playback-compatibility-matrix-hardening/CONTEXT.jsonl
 docs/adr/0038-playback-planning-and-transcode-policy-seams.md
 docs/adr/0044-playback-capability-profile-planner.md
 docs/workstreams/audio-compatibility-downmix-normalization/CLOSEOUT.md
-docs/workstreams/hdr-tone-mapping-pipeline/HANDOFF.md
+docs/workstreams/hdr-tone-mapping-pipeline/CLOSEOUT.md
 ```
 
 Required validation:
@@ -38,7 +40,8 @@ Return to planner coordination if:
 - the task needs edits outside `crates/nako-playback`;
 - Public Client API DTOs, device profile databases, persisted preferences, or
   web/player behavior become necessary;
-- the task changes HDR `HTP-030` scope or timing.
+- closeout discovers a transcode, server, or API gap that should become a
+  follow-on instead of expanding this lane.
 
 ## Report Format
 

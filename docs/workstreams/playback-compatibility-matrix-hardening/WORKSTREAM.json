@@ -7,9 +7,10 @@
   "scope_kind": "fearless_refactor",
   "problem": "Playback planner compatibility interactions for container, codec, HDR, audio channel, downmix, and normalization behavior are covered by focused tests but not concentrated in a playback-only decision matrix.",
   "task_prefix": "PCMH",
-  "current_task": "PCMH-020",
+  "current_task": "PCMH-030",
   "completed_tasks": [
-    "PCMH-010"
+    "PCMH-010",
+    "PCMH-020"
   ],
   "authoritative_docs": [
     {
@@ -53,6 +54,10 @@
     {
       "task": "PCMH-010",
       "summary": "Opened a playback-only compatibility matrix lane that can run beside HDR HTP-030 without touching transcode, server, Public Client API, or web/player behavior."
+    },
+    {
+      "task": "PCMH-020",
+      "summary": "Added playback-only table-driven matrix tests for Direct Play, Remux, HLS Transcode, HDR tone-map-required remux denial, audio downmix, normalization, and selected HLS output shape without changing transcode, server, API DTOs, or player behavior."
     }
   ],
   "adr_refs": [
@@ -82,6 +87,6 @@
   "lane_slug": "playback-transcode",
   "continue_policy": {
     "default_action": "continue",
-    "notes": "Run PCMH-020 as a crate-local playback matrix task. Stop if implementation needs transcode, server, API DTO, or player changes."
+    "notes": "PCMH-020 is complete. Run PCMH-030 for planner review, fresh verification, and closeout. Stop if closeout discovers transcode, server, API DTO, or player changes."
   }
 }

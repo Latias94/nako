@@ -23,7 +23,16 @@ Exit criteria:
 - audio output requirements prove downmix and normalization propagation;
 - validation remains playback-only.
 
-Status: Pending `PCMH-020`.
+Status: Done.
+
+Evidence:
+
+- table-driven compatibility cases cover Direct Play, Remux, HLS Transcode,
+  HDR tone-map-required remux denial, audio downmix, normalization, and
+  selected HLS output shape;
+- audio output requirement cases cover passthrough, downmix, normalization, and
+  combined downmix plus normalization;
+- validation remained playback-only.
 
 ## M2 - Closeout
 
@@ -33,4 +42,4 @@ Exit criteria:
 - evidence ledger records matrix coverage;
 - follow-ons discovered by the matrix are split or deferred.
 
-Status: Pending `PCMH-020`.
+Status: Ready for planner review and closeout.

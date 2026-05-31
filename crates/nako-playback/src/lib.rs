@@ -2091,19 +2091,138 @@ mod tests {
     }
 
     #[test]
-    fn audio_output_requirement_values_capture_normalization_intent() {
-        let requirement = PlaybackAudioOutputRequirement::from_channel_support(Some(2), Some(2))
-            .with_normalization(PlaybackAudioNormalizationRequirement::Requested);
+    fn playback_compatibility_matrix_covers_direct_play_remux_hls_transcode_hdr_and_audio() {
+        for case in playback_compatibility_matrix_cases() {
+            let source = media_source(case.file_name);
+            let probe = matrix_probe(
+                case.probe_container,
+                case.video_codec,
+                case.hdr,
+                case.audio_codec,
+                case.audio_channels,
+            );
 
-        assert_eq!(
-            requirement.normalization,
-            PlaybackAudioNormalizationRequirement::Requested
-        );
-        assert!(
-            requirement
-                .reasons
-                .contains(&PlaybackAudioCompatibilityReason::NormalizationRequested)
-        );
+            let decision = plan_with_policy(
+                &source,
+                Some(&probe),
+                case.client,
+                case.context,
+                EffectivePlaybackPolicy::from_library_access(
+                    source.library_id,
+                    nako_core::LibraryAccessLevel::Play,
+                ),
+            );
+
+            assert_eq!(decision.mode, case.expected_mode, "{}", case.name);
+            assert_eq!(decision.reason, case.expected_reason, "{}", case.name);
+            assert_eq!(
+                decision.report.selected_mode, case.expected_mode,
+                "{}",
+                case.name
+            );
+            assert_eq!(
+                decision.report.direct_play.supported, case.expected_direct_supported,
+                "{}",
+                case.name
+            );
+            assert_eq!(
+                decision.report.remux.supported, case.expected_remux_supported,
+                "{}",
+                case.name
+            );
+
+            for condition in case.expected_direct_conditions {
+                assert!(
+                    decision.report.direct_play.has(condition),
+                    "{} missing direct-play condition {condition:?}",
+                    case.name
+                );
+            }
+            for condition in case.expected_remux_conditions {
+                assert!(
+                    decision.report.remux.has(condition),
+                    "{} missing remux condition {condition:?}",
+                    case.name
+                );
+            }
+
+            match case.expected_transcode {
+                Some(expected) => {
+                    let requirement = decision
+                        .transcode_requirement()
+                        .expect("matrix transcode case should carry requirement");
+                    assert_eq!(
+                        requirement.output_container, expected.output_container,
+                        "{}",
+                        case.name
+                    );
+                    assert_eq!(requirement.hls_output, expected.hls_output, "{}", case.name);
+                    assert_eq!(
+                        requirement.audio_output.target_channels, expected.audio_target_channels,
+                        "{}",
+                        case.name
+                    );
+                    assert_eq!(
+                        requirement.audio_output.downmix, expected.audio_downmix,
+                        "{}",
+                        case.name
+                    );
+                    assert_eq!(
+                        requirement.audio_output.normalization, expected.audio_normalization,
+                        "{}",
+                        case.name
+                    );
+                    for reason in expected.audio_reasons {
+                        assert!(
+                            requirement.audio_output.reasons.contains(&reason),
+                            "{} missing audio output reason {reason:?}",
+                            case.name
+                        );
+                    }
+                    assert_eq!(
+                        requirement.color_pipeline.target, expected.color_target,
+                        "{}",
+                        case.name
+                    );
+                    assert_eq!(
+                        requirement.color_pipeline.tone_mapping, expected.tone_mapping,
+                        "{}",
+                        case.name
+                    );
+                }
+                None => {
+                    assert!(
+                        decision.transcode_requirement().is_none(),
+                        "{} should not carry a transcode requirement",
+                        case.name
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn playback_compatibility_matrix_audio_output_requirements_cover_downmix_and_normalization() {
+        for case in audio_output_requirement_matrix_cases() {
+            let requirement = PlaybackAudioOutputRequirement::from_channel_support(
+                case.source_channels,
+                case.max_supported_channels,
+            )
+            .with_normalization(case.normalization);
+
+            assert_eq!(
+                requirement.target_channels, case.expected_target_channels,
+                "{}",
+                case.name
+            );
+            assert_eq!(requirement.downmix, case.expected_downmix, "{}", case.name);
+            assert_eq!(
+                requirement.normalization, case.normalization,
+                "{}",
+                case.name
+            );
+            assert_eq!(requirement.reasons, case.expected_reasons, "{}", case.name);
+        }
     }
 
     #[test]
@@ -2477,6 +2596,342 @@ mod tests {
             PlaybackPermission::Cast,
             PlaybackPermissionDecisionReason::CastDisabled,
         );
+    }
+
+    struct PlaybackCompatibilityMatrixCase {
+        name: &'static str,
+        file_name: &'static str,
+        probe_container: &'static str,
+        video_codec: &'static str,
+        hdr: MatrixHdrInput,
+        audio_codec: &'static str,
+        audio_channels: Option<u32>,
+        client: ClientPlaybackCapabilities,
+        context: PlaybackSelectionContext,
+        expected_mode: PlaybackMode,
+        expected_reason: PlaybackDecisionReason,
+        expected_direct_supported: bool,
+        expected_direct_conditions: Vec<PlaybackCompatibilityCondition>,
+        expected_remux_supported: bool,
+        expected_remux_conditions: Vec<PlaybackCompatibilityCondition>,
+        expected_transcode: Option<ExpectedTranscodeMatrixRequirement>,
+    }
+
+    struct ExpectedTranscodeMatrixRequirement {
+        output_container: PlaybackTranscodeContainer,
+        hls_output: Option<PlaybackHlsOutputRequirement>,
+        audio_target_channels: Option<u32>,
+        audio_downmix: PlaybackAudioDownmixRequirement,
+        audio_normalization: PlaybackAudioNormalizationRequirement,
+        audio_reasons: Vec<PlaybackAudioCompatibilityReason>,
+        color_target: PlaybackColorPipelineTarget,
+        tone_mapping: PlaybackHdrToneMappingRequirement,
+    }
+
+    #[derive(Clone, Copy)]
+    enum MatrixHdrInput {
+        Sdr,
+        Hdr10,
+    }
+
+    fn playback_compatibility_matrix_cases() -> Vec<PlaybackCompatibilityMatrixCase> {
+        vec![
+            PlaybackCompatibilityMatrixCase {
+                name: "direct play for mp4 h264 aac source",
+                file_name: "movie.mp4",
+                probe_container: "mov,mp4,m4a,3gp,3g2,mj2",
+                video_codec: "h264",
+                hdr: MatrixHdrInput::Sdr,
+                audio_codec: "aac",
+                audio_channels: Some(2),
+                client: ClientPlaybackCapabilities::default(),
+                context: PlaybackSelectionContext::default(),
+                expected_mode: PlaybackMode::DirectPlay,
+                expected_reason: PlaybackDecisionReason::Compatible,
+                expected_direct_supported: true,
+                expected_direct_conditions: vec![PlaybackCompatibilityCondition::Compatible],
+                expected_remux_supported: true,
+                expected_remux_conditions: vec![PlaybackCompatibilityCondition::Compatible],
+                expected_transcode: None,
+            },
+            PlaybackCompatibilityMatrixCase {
+                name: "remux for unsupported source container with compatible streams",
+                file_name: "movie.mkv",
+                probe_container: "matroska,webm",
+                video_codec: "h264",
+                hdr: MatrixHdrInput::Sdr,
+                audio_codec: "aac",
+                audio_channels: Some(2),
+                client: ClientPlaybackCapabilities::default(),
+                context: PlaybackSelectionContext::default(),
+                expected_mode: PlaybackMode::Remux,
+                expected_reason: PlaybackDecisionReason::ClientContainerUnsupported,
+                expected_direct_supported: false,
+                expected_direct_conditions: vec![
+                    PlaybackCompatibilityCondition::ContainerUnsupported,
+                ],
+                expected_remux_supported: true,
+                expected_remux_conditions: vec![PlaybackCompatibilityCondition::Compatible],
+                expected_transcode: None,
+            },
+            PlaybackCompatibilityMatrixCase {
+                name: "hls transcode for unsupported video codec",
+                file_name: "movie.mp4",
+                probe_container: "mov,mp4,m4a,3gp,3g2,mj2",
+                video_codec: "mpeg2video",
+                hdr: MatrixHdrInput::Sdr,
+                audio_codec: "aac",
+                audio_channels: Some(2),
+                client: ClientPlaybackCapabilities::default(),
+                context: PlaybackSelectionContext::default(),
+                expected_mode: PlaybackMode::Transcode,
+                expected_reason: PlaybackDecisionReason::SourceCodecsUnsupported,
+                expected_direct_supported: false,
+                expected_direct_conditions: vec![
+                    PlaybackCompatibilityCondition::VideoCodecUnsupported,
+                ],
+                expected_remux_supported: false,
+                expected_remux_conditions: vec![
+                    PlaybackCompatibilityCondition::VideoCodecUnsupported,
+                ],
+                expected_transcode: Some(default_hls_requirement_expectation()),
+            },
+            PlaybackCompatibilityMatrixCase {
+                name: "hls transcode for unsupported audio codec",
+                file_name: "movie.mp4",
+                probe_container: "mov,mp4,m4a,3gp,3g2,mj2",
+                video_codec: "h264",
+                hdr: MatrixHdrInput::Sdr,
+                audio_codec: "flac",
+                audio_channels: Some(2),
+                client: ClientPlaybackCapabilities::default(),
+                context: PlaybackSelectionContext::default(),
+                expected_mode: PlaybackMode::Transcode,
+                expected_reason: PlaybackDecisionReason::SourceCodecsUnsupported,
+                expected_direct_supported: false,
+                expected_direct_conditions: vec![
+                    PlaybackCompatibilityCondition::AudioCodecUnsupported,
+                ],
+                expected_remux_supported: false,
+                expected_remux_conditions: vec![
+                    PlaybackCompatibilityCondition::AudioCodecUnsupported,
+                ],
+                expected_transcode: Some(default_hls_requirement_expectation()),
+            },
+            PlaybackCompatibilityMatrixCase {
+                name: "hls transcode instead of remux for hdr source on sdr client",
+                file_name: "movie.mkv",
+                probe_container: "matroska,webm",
+                video_codec: "h264",
+                hdr: MatrixHdrInput::Hdr10,
+                audio_codec: "aac",
+                audio_channels: Some(2),
+                client: ClientPlaybackCapabilities {
+                    supports_hdr: false,
+                    ..ClientPlaybackCapabilities::default()
+                },
+                context: PlaybackSelectionContext::default(),
+                expected_mode: PlaybackMode::Transcode,
+                expected_reason: PlaybackDecisionReason::ClientContainerUnsupported,
+                expected_direct_supported: false,
+                expected_direct_conditions: vec![
+                    PlaybackCompatibilityCondition::ContainerUnsupported,
+                ],
+                expected_remux_supported: false,
+                expected_remux_conditions: vec![
+                    PlaybackCompatibilityCondition::VideoHdrUnsupported,
+                ],
+                expected_transcode: Some(ExpectedTranscodeMatrixRequirement {
+                    color_target: PlaybackColorPipelineTarget::Sdr,
+                    tone_mapping: PlaybackHdrToneMappingRequirement::Required,
+                    ..default_hls_requirement_expectation()
+                }),
+            },
+            PlaybackCompatibilityMatrixCase {
+                name: "hls transcode instead of remux when audio downmix is required",
+                file_name: "movie.mkv",
+                probe_container: "matroska,webm",
+                video_codec: "h264",
+                hdr: MatrixHdrInput::Sdr,
+                audio_codec: "aac",
+                audio_channels: Some(6),
+                client: ClientPlaybackCapabilities {
+                    max_audio_channels: Some(2),
+                    ..ClientPlaybackCapabilities::default()
+                },
+                context: PlaybackSelectionContext::default(),
+                expected_mode: PlaybackMode::Transcode,
+                expected_reason: PlaybackDecisionReason::ClientContainerUnsupported,
+                expected_direct_supported: false,
+                expected_direct_conditions: vec![
+                    PlaybackCompatibilityCondition::ContainerUnsupported,
+                ],
+                expected_remux_supported: false,
+                expected_remux_conditions: vec![
+                    PlaybackCompatibilityCondition::AudioChannelsUnsupported,
+                ],
+                expected_transcode: Some(ExpectedTranscodeMatrixRequirement {
+                    audio_target_channels: Some(2),
+                    audio_downmix: PlaybackAudioDownmixRequirement::Required,
+                    audio_reasons: vec![
+                        PlaybackAudioCompatibilityReason::ChannelLimitExceeded,
+                        PlaybackAudioCompatibilityReason::DownmixRequired,
+                    ],
+                    ..default_hls_requirement_expectation()
+                }),
+            },
+            PlaybackCompatibilityMatrixCase {
+                name: "requested hls transcode carries selected hls output shape",
+                file_name: "movie.mp4",
+                probe_container: "mov,mp4,m4a,3gp,3g2,mj2",
+                video_codec: "h264",
+                hdr: MatrixHdrInput::Sdr,
+                audio_codec: "aac",
+                audio_channels: Some(2),
+                client: ClientPlaybackCapabilities {
+                    hls_variant_policy: PlaybackHlsVariantPolicy::Adaptive,
+                    hls_segment_container: PlaybackHlsSegmentContainer::Fmp4,
+                    ..ClientPlaybackCapabilities::default()
+                },
+                context: PlaybackSelectionContext {
+                    storage: PlaybackStorageContext::default(),
+                    preferences: PlaybackPreferenceContext {
+                        transcode_output_container: Some(PlaybackTranscodeContainer::Hls),
+                        ..PlaybackPreferenceContext::default()
+                    },
+                },
+                expected_mode: PlaybackMode::Transcode,
+                expected_reason: PlaybackDecisionReason::RequestedTranscodeOutput,
+                expected_direct_supported: true,
+                expected_direct_conditions: vec![PlaybackCompatibilityCondition::Compatible],
+                expected_remux_supported: true,
+                expected_remux_conditions: vec![PlaybackCompatibilityCondition::Compatible],
+                expected_transcode: Some(ExpectedTranscodeMatrixRequirement {
+                    hls_output: Some(PlaybackHlsOutputRequirement {
+                        variant_policy: PlaybackHlsVariantPolicy::Adaptive,
+                        segment_container: PlaybackHlsSegmentContainer::Fmp4,
+                    }),
+                    ..default_hls_requirement_expectation()
+                }),
+            },
+        ]
+    }
+
+    fn default_hls_requirement_expectation() -> ExpectedTranscodeMatrixRequirement {
+        ExpectedTranscodeMatrixRequirement {
+            output_container: PlaybackTranscodeContainer::Hls,
+            hls_output: Some(PlaybackHlsOutputRequirement::default()),
+            audio_target_channels: None,
+            audio_downmix: PlaybackAudioDownmixRequirement::None,
+            audio_normalization: PlaybackAudioNormalizationRequirement::None,
+            audio_reasons: Vec::new(),
+            color_target: PlaybackColorPipelineTarget::PreserveSource,
+            tone_mapping: PlaybackHdrToneMappingRequirement::None,
+        }
+    }
+
+    struct AudioOutputRequirementMatrixCase {
+        name: &'static str,
+        source_channels: Option<u32>,
+        max_supported_channels: Option<u32>,
+        normalization: PlaybackAudioNormalizationRequirement,
+        expected_target_channels: Option<u32>,
+        expected_downmix: PlaybackAudioDownmixRequirement,
+        expected_reasons: Vec<PlaybackAudioCompatibilityReason>,
+    }
+
+    fn audio_output_requirement_matrix_cases() -> Vec<AudioOutputRequirementMatrixCase> {
+        vec![
+            AudioOutputRequirementMatrixCase {
+                name: "stereo passthrough",
+                source_channels: Some(2),
+                max_supported_channels: Some(2),
+                normalization: PlaybackAudioNormalizationRequirement::None,
+                expected_target_channels: None,
+                expected_downmix: PlaybackAudioDownmixRequirement::None,
+                expected_reasons: Vec::new(),
+            },
+            AudioOutputRequirementMatrixCase {
+                name: "surround downmix",
+                source_channels: Some(6),
+                max_supported_channels: Some(2),
+                normalization: PlaybackAudioNormalizationRequirement::None,
+                expected_target_channels: Some(2),
+                expected_downmix: PlaybackAudioDownmixRequirement::Required,
+                expected_reasons: vec![
+                    PlaybackAudioCompatibilityReason::ChannelLimitExceeded,
+                    PlaybackAudioCompatibilityReason::DownmixRequired,
+                ],
+            },
+            AudioOutputRequirementMatrixCase {
+                name: "normalization request",
+                source_channels: Some(2),
+                max_supported_channels: Some(2),
+                normalization: PlaybackAudioNormalizationRequirement::Requested,
+                expected_target_channels: None,
+                expected_downmix: PlaybackAudioDownmixRequirement::None,
+                expected_reasons: vec![PlaybackAudioCompatibilityReason::NormalizationRequested],
+            },
+            AudioOutputRequirementMatrixCase {
+                name: "downmix before normalization request",
+                source_channels: Some(8),
+                max_supported_channels: Some(2),
+                normalization: PlaybackAudioNormalizationRequirement::Requested,
+                expected_target_channels: Some(2),
+                expected_downmix: PlaybackAudioDownmixRequirement::Required,
+                expected_reasons: vec![
+                    PlaybackAudioCompatibilityReason::ChannelLimitExceeded,
+                    PlaybackAudioCompatibilityReason::DownmixRequired,
+                    PlaybackAudioCompatibilityReason::NormalizationRequested,
+                ],
+            },
+        ]
+    }
+
+    fn matrix_probe(
+        container: &str,
+        video_codec: &str,
+        hdr: MatrixHdrInput,
+        audio_codec: &str,
+        audio_channels: Option<u32>,
+    ) -> MediaProbeResult {
+        let mut video = stream(MediaStreamKind::Video, Some(video_codec));
+        video.index = 0;
+        apply_matrix_hdr(&mut video, hdr);
+
+        let mut audio = stream(MediaStreamKind::Audio, Some(audio_codec));
+        audio.index = 1;
+        audio.channels = audio_channels;
+
+        MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some(container.to_owned()),
+            bit_rate: None,
+            streams: vec![video, audio],
+        }
+    }
+
+    fn apply_matrix_hdr(stream: &mut MediaStreamInfo, hdr: MatrixHdrInput) {
+        match hdr {
+            MatrixHdrInput::Sdr => {}
+            MatrixHdrInput::Hdr10 => {
+                stream.technical = MediaStreamTechnicalFacts {
+                    color: MediaColorInfo {
+                        space: Some("bt2020nc".to_owned()),
+                        transfer: Some("smpte2084".to_owned()),
+                        primaries: Some("bt2020".to_owned()),
+                        ..MediaColorInfo::default()
+                    },
+                    hdr: MediaHdrMetadata {
+                        dynamic_range: Some("hdr10".to_owned()),
+                        mastering_display: true,
+                        content_light_level: true,
+                        ..MediaHdrMetadata::default()
+                    },
+                    ..MediaStreamTechnicalFacts::default()
+                };
+            }
+        }
     }
 
     fn plan_with_policy(
