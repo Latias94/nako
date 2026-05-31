@@ -1,7 +1,7 @@
 # Remote Storage Health And Circuit Breaker - Milestones
 
-Status: Active
-Last updated: 2026-05-30
+Status: Closed
+Last updated: 2026-05-31
 
 ## M0 - Scope And Evidence Freeze
 
@@ -22,7 +22,7 @@ Exit criteria:
 - storage health can represent open, half-open/recovering, and healthy states
   without leaking raw locators or paths.
 
-Status: Ready.
+Status: Done.
 
 ## M2 - Runtime Policy Adapter
 
@@ -34,7 +34,7 @@ Exit criteria:
 - existing scan/probe/playback staging behavior remains compatible unless a
   task explicitly changes it.
 
-Status: Pending `RSHC-020`.
+Status: Done.
 
 ## M3 - Operator Diagnostics And Reset
 
@@ -45,7 +45,7 @@ Exit criteria:
 - reset action is persisted, audited through normal route behavior, and tested;
 - generated client contracts are refreshed if DTO shape changes.
 
-Status: Pending `RSHC-030`.
+Status: Done.
 
 ## M4 - Verification And Closeout
 
@@ -56,4 +56,4 @@ Exit criteria:
 - architecture docs reflect shipped behavior;
 - follow-ons are split or explicitly deferred.
 
-Status: Pending implementation.
+Status: Done.

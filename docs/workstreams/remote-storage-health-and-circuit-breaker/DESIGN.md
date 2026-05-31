@@ -1,7 +1,7 @@
 # Remote Storage Health And Circuit Breaker
 
-Status: Active
-Last updated: 2026-05-30
+Status: Closed
+Last updated: 2026-05-31
 
 ## Why This Lane Exists
 

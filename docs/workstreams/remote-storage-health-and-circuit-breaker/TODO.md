@@ -1,6 +1,6 @@
 # Remote Storage Health And Circuit Breaker - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## M0 - Scope And Evidence Freeze
@@ -44,9 +44,9 @@ Last updated: 2026-05-31
 
 ## M4 - Verification And Closeout
 
-- [ ] RSHC-050 [owner=planner] [deps=RSHC-040] [scope=docs/workstreams/remote-storage-health-and-circuit-breaker,docs/architecture/STORAGE_VFS.md,docs/architecture/WORKSTREAM_LINKS.md]
+- [x] RSHC-050 [owner=planner] [deps=RSHC-040] [scope=docs/workstreams/remote-storage-health-and-circuit-breaker,docs/architecture/STORAGE_VFS.md,docs/architecture/WORKSTREAM_LINKS.md]
   Goal: Run fresh gates, record evidence, and close or split remaining storage/VFS follow-ons.
   Validation: `cargo nextest run -p nako-db storage_backend_health --no-fail-fast`; `cargo nextest run -p nako-server storage_health --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`
   Review: `review-workstream` and `verify-rust-workstream` before closeout.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, and closeout notes.
-  Handoff: Split cache repair, hash escalation, or PostgreSQL runtime harness work if still relevant.
+  Handoff: DONE. Lane closed with cache repair, hash escalation, playback artifact I/O scheduling, scan scheduling, and PostgreSQL runtime harness deferred to follow-on workstreams.

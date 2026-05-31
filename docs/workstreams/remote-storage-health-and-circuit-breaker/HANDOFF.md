@@ -1,12 +1,12 @@
 # Remote Storage Health And Circuit Breaker - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## Current State
 
-The lane is open and linked from the storage/VFS architecture indexes.
-`RSHC-010`, `RSHC-020`, `RSHC-030`, and `RSHC-040` are complete.
+The lane is closed and linked from the storage/VFS architecture indexes.
+`RSHC-010` through `RSHC-050` are complete.
 
 `RSHC-020` added the durable **Storage Backend Health** repository contract,
 domain records, SQLite and PostgreSQL adapters, facade dispatch, baseline
@@ -33,30 +33,15 @@ DTO and route changes.
 
 ## Next Task
 
-Planner can assign `RSHC-050` for verification and closeout.
+No task remains inside this workstream.
 
-Expected next owned scope:
+Follow-ons should be opened as separate workstreams if prioritized:
 
-- `docs/workstreams/remote-storage-health-and-circuit-breaker`
-- `docs/architecture/STORAGE_VFS.md`
-- `docs/architecture/WORKSTREAM_LINKS.md`
-
-Expected validation:
-
-```text
-cargo nextest run -p nako-db storage_backend_health --no-fail-fast
-cargo nextest run -p nako-server admin_v1_storage --no-fail-fast
-cargo nextest run -p nako-server storage_health --no-fail-fast
-cargo nextest run -p nako-api --no-fail-fast
-cargo fmt --all -- --check
-git diff --check
-```
-
-Closeout checks:
-
-- Confirm no follow-on must remain inside this workstream.
-- Split cache repair, hash escalation, playback artifact I/O scheduling, or
-  PostgreSQL runtime harness work only if still relevant.
+- VFS cache repair diagnostics and operator remediation;
+- source fingerprint partial/full hash escalation policy;
+- playback artifact I/O pressure scheduling;
+- scan scheduling and watcher/debounce hardening;
+- PostgreSQL storage/VFS runtime harness evidence.
 
 ## Stop Conditions
 
@@ -116,13 +101,7 @@ Windows line-ending normalization warnings.
 No playback staging, cache repair, hash escalation, scan scheduling, durable
 jobs, schema migrations, or raw database exposure was changed.
 
-## Report Format
+## Closeout Validation
 
-End with one of:
-
-- DONE
-- DONE_WITH_CONCERNS
-- BLOCKED
-- NEEDS_CONTEXT
-
-Include changed files, tests run, and evidence anchors.
+Final gates passed on 2026-05-31 and are recorded in
+`EVIDENCE_AND_GATES.md` and `CLOSEOUT.md`.

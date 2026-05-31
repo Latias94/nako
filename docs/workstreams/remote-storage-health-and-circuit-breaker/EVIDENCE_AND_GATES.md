@@ -1,6 +1,6 @@
 # Remote Storage Health And Circuit Breaker - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-05-31
 
 ## Required Gates
@@ -210,6 +210,29 @@ Notes:
   `nako-api` enforces generator-output parity for Admin DTO and route changes.
 - No playback staging, cache repair, hash escalation, scan scheduling, durable
   jobs, schema migrations, or raw database exposure were added.
+
+### RSHC-050 - Verification and closeout
+
+Status: Done
+
+Evidence:
+
+- `docs/workstreams/remote-storage-health-and-circuit-breaker/CLOSEOUT.md`
+- `docs/workstreams/remote-storage-health-and-circuit-breaker/WORKSTREAM.json`
+- `docs/architecture/STORAGE_VFS.md`
+- `docs/architecture/LANES.md`
+
+Final verification on 2026-05-31:
+
+- `python -m json.tool docs/workstreams/remote-storage-health-and-circuit-breaker/WORKSTREAM.json`
+  passed.
+- `cargo nextest run -p nako-db storage_backend_health --no-fail-fast` passed.
+- `cargo nextest run -p nako-server admin_v1_storage --no-fail-fast` passed.
+- `cargo nextest run -p nako-server storage_health --no-fail-fast` passed.
+- `cargo nextest run -p nako-server storage --no-fail-fast` passed.
+- `cargo nextest run -p nako-api --no-fail-fast` passed.
+- `cargo fmt --all -- --check` passed.
+- `git diff --check` passed.
 
 ## Residual Risks
 

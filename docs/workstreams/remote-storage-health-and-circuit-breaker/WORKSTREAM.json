@@ -2,17 +2,18 @@
   "schema_version": 1,
   "slug": "remote-storage-health-and-circuit-breaker",
   "title": "Remote Storage Health And Circuit Breaker",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-05-31",
   "scope_kind": "fearless_refactor",
   "problem": "Remote storage failures are classified and bounded in process-local paths, but backend health is not yet a durable contract that can protect scan, probe, playback staging, and operator diagnostics consistently.",
   "task_prefix": "RSHC",
-  "current_task": "RSHC-050",
+  "current_task": null,
   "completed_tasks": [
     "RSHC-010",
     "RSHC-020",
     "RSHC-030",
-    "RSHC-040"
+    "RSHC-040",
+    "RSHC-050"
   ],
   "authoritative_docs": [
     {
@@ -34,6 +35,10 @@
     {
       "role": "gates",
       "path": "docs/workstreams/remote-storage-health-and-circuit-breaker/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/remote-storage-health-and-circuit-breaker/CLOSEOUT.md"
     },
     {
       "role": "context_manifest",
@@ -71,6 +76,10 @@
     {
       "task": "RSHC-040",
       "summary": "Exposed paginated redaction-safe durable Storage Backend Health through Admin storage diagnostics and added an operator reset route that clears Storage Circuit Breaker state through StorageDiagnosticsAppService and the durable repository contract."
+    },
+    {
+      "task": "RSHC-050",
+      "summary": "Verified final storage health, Admin storage, API, formatting, JSON, and whitespace gates; closed the lane and deferred cache repair, fingerprint escalation, playback artifact I/O scheduling, scan scheduling, and PostgreSQL runtime harnesses to follow-on workstreams."
     }
   ],
   "adr_refs": [
@@ -100,7 +109,7 @@
   ],
   "lane_slug": "storage-vfs",
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "RSHC-040 is complete. Planner can run RSHC-050 verification and closeout. Do not reopen cache repair, hash escalation, playback artifact I/O scheduling, scan scheduling, durable jobs, or schema work inside this lane unless closeout evidence proves a follow-on is required."
+    "default_action": "closed",
+    "notes": "The durable remote storage health and circuit breaker lane is closed. Open follow-on workstreams for cache repair, source fingerprint escalation, playback artifact I/O scheduling, scan scheduling, or PostgreSQL runtime harness work."
   }
 }

@@ -24,7 +24,7 @@ and rclone-like mounts can be slow, stale, or unavailable.
 | Capability | Status | Authority | Next Lane |
 | --- | --- | --- | --- |
 | Local storage backend | Shipped | `docs/adr/0002-internal-vfs-before-os-mounting.md` | Keep local behavior as the compatibility baseline. |
-| Remote storage boundary | Active follow-on | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/` | Run `RSHC-050` verification and closeout, then split follow-ons if still relevant. |
+| Remote storage boundary | Shipped durable health foundation | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/` | Open follow-ons for cache repair, fingerprint escalation, playback artifact I/O pressure, scan scheduling, or PostgreSQL runtime harness work. |
 | WebDAV read path | Partial | `docs/workstreams/storage-vfs/`; remote storage lanes | Harden retries, cache, and operator diagnostics. |
 | Source locator | Shipped foundation | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Watcher/debounce productization and repair workflows. |
 | Source fingerprint | Shipped first slice | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Optional partial/full hash escalation policy. |
@@ -32,7 +32,7 @@ and rclone-like mounts can be slow, stale, or unavailable.
 | Remote FFmpeg input staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md` | Per-backend staging budgets and diagnostics. |
 | VFS cache | Shipped diagnostics foundation | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Repair diagnostics and cache operator actions. |
 | Library file writes | Partial | addon/library-file-write and NFO workstreams | Capability-specific write/link/backup policy. |
-| Mount hang protection | Active follow-on | `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/` | Add durable backend health and circuit-breaker policy without claiming OS-level preemption. |
+| Mount hang protection | Shipped durable circuit foundation | `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/` | OS-level mount stalls still need bounded adapters and operator guidance; do not claim syscall preemption. |
 
 ## Workstream Evidence
 
@@ -40,24 +40,22 @@ Use `docs/architecture/WORKSTREAM_LINKS.md#storage-and-vfs` as the consolidated
 index for storage/VFS workstreams. Keep this document focused on capability
 state and risk, not copied task evidence.
 
-## Active Work Lanes
+## Completed Work Lanes
 
 ### remote-storage-health-and-circuit-breaker
 
-Status: Active.
+Status: Closed as of 2026-05-31.
 
-Current task: `RSHC-050`.
+Shipped:
 
-Goal: verify final gates, close the durable remote storage health lane, and
-split any remaining cache repair, hash escalation, playback artifact I/O, or
-PostgreSQL runtime harness follow-ons.
+- durable **Storage Backend Health** records and repository parity;
+- runtime **Storage Circuit Breaker** admission for bounded storage work;
+- redaction-safe Admin diagnostics and operator reset;
+- generated Admin TypeScript contract refresh for the new DTOs and routes.
 
-Core/db health storage, runtime circuit-breaker wiring, and Admin diagnostics
-plus reset are complete. Playback staging, cache repair, source fingerprint
-escalation, scan scheduling, and PostgreSQL runtime harness work remain
-sequenced follow-ons unless closeout proves they belong here.
-
-## Completed Work Lanes
+Follow-ons remain separate: cache repair, source fingerprint escalation,
+playback artifact I/O scheduling, scan scheduling, and PostgreSQL runtime
+harness evidence.
 
 ### storage-vfs-resilience-and-source-identity
 
