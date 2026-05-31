@@ -991,6 +991,96 @@ async fn hls_source_selected_audio_stream_reaches_ffmpeg_map() {
 }
 
 #[tokio::test]
+async fn hls_source_hdr_to_sdr_tone_mapping_reaches_ffmpeg_command() {
+    let script_root = tempfile::tempdir().unwrap();
+    let tone_mapping_filter = "zscale=transfer=linear:npl=100,tonemap=tonemap=hable:desat=0,zscale=transfer=bt709:matrix=bt709:primaries=bt709:range=tv,format=yuv420p";
+    let ffmpeg_path = fake_hls_ffmpeg_script_requiring_video_filter(
+        script_root.path(),
+        "hls_hdr_tone_mapping",
+        tone_mapping_filter,
+    );
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    store
+        .upsert_media_probe(
+            source.id,
+            &MediaProbeResult {
+                duration_ms: Some(1_000),
+                container: Some("matroska,webm".to_owned()),
+                bit_rate: None,
+                streams: vec![
+                    MediaStreamInfo {
+                        index: 0,
+                        kind: MediaStreamKind::Video,
+                        codec: Some("hevc".to_owned()),
+                        language: None,
+                        duration_ms: None,
+                        bit_rate: Some(8_000_000),
+                        width: Some(3840),
+                        height: Some(2160),
+                        channels: None,
+                        sample_rate: None,
+                        technical: MediaStreamTechnicalFacts {
+                            bits_per_raw_sample: Some(10),
+                            color: MediaColorInfo {
+                                range: Some("tv".to_owned()),
+                                space: Some("bt2020nc".to_owned()),
+                                transfer: Some("smpte2084".to_owned()),
+                                primaries: Some("bt2020".to_owned()),
+                                chroma_location: None,
+                            },
+                            hdr: MediaHdrMetadata {
+                                dynamic_range: Some("hdr10".to_owned()),
+                                mastering_display: true,
+                                content_light_level: true,
+                                dolby_vision: false,
+                                hdr10_plus: false,
+                            },
+                            ..MediaStreamTechnicalFacts::default()
+                        },
+                    },
+                    MediaStreamInfo {
+                        index: 1,
+                        kind: MediaStreamKind::Audio,
+                        codec: Some("aac".to_owned()),
+                        language: None,
+                        duration_ms: None,
+                        bit_rate: Some(128_000),
+                        width: None,
+                        height: None,
+                        channels: Some(2),
+                        sample_rate: Some(48_000),
+                        technical: Default::default(),
+                    },
+                ],
+            },
+        )
+        .await
+        .unwrap();
+
+    let output = app
+        .playback()
+        .hls_source(HlsSourceRequest {
+            source_id: source.id,
+            client: ClientPlaybackCapabilities {
+                supports_hdr: false,
+                ..ClientPlaybackCapabilities::default()
+            },
+            preferences: PlaybackPreferenceContext::default(),
+            playback_generation: HlsPlaybackGeneration::default(),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(output.disposition, HlsSourceDisposition::Finished);
+    assert!(
+        output
+            .session
+            .request_key
+            .contains("color_pipeline%3Dtarget:sdr,tone_mapping:required")
+    );
+}
+
+#[tokio::test]
 async fn hls_source_preferred_audio_language_selects_matching_stream() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_hls_ffmpeg_script_requiring_audio_map(

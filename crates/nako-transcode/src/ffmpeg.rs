@@ -11,8 +11,11 @@ use super::{
     HlsPlaybackGeneration, HlsRendition, HlsSegmentContainer, HlsVariantPolicy,
     TranscodeAccelerationPlan, TranscodeAudioDownmixRequirement,
     TranscodeAudioNormalizationRequirement, TranscodeAudioOutputRequirement,
-    TranscodeExecutionPolicy, TranscodeSubtitleStrategy, TranscodeTrackSelection,
+    TranscodeColorPipelineRequirement, TranscodeExecutionPolicy, TranscodeSubtitleStrategy,
+    TranscodeTrackSelection,
 };
+
+const HLS_HDR_TO_SDR_TONE_MAPPING_FILTER: &str = "zscale=transfer=linear:npl=100,tonemap=tonemap=hable:desat=0,zscale=transfer=bt709:matrix=bt709:primaries=bt709:range=tv,format=yuv420p";
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(crate) struct FfmpegCommandPlan {
@@ -299,7 +302,7 @@ fn plan_single_variant_hls_command_parts(request: &HlsRequest) -> Result<FfmpegH
         device_input: hls_device_input_args(request.execution_policy.acceleration),
         input: hls_input_args(&request.input_path, request.playback_generation),
         stream_map: hls_stream_map_args(request.track_selection, main_output_has_audio),
-        filter_graph: hls_filter_graph_args(request.execution_policy.acceleration),
+        filter_graph: hls_filter_graph_args(request.execution_policy)?,
         audio_filter: hls_audio_filter_args(main_output_has_audio, audio_filter_graph.as_deref()),
         video_encoder: hls_video_encoder_args(
             request.execution_policy,
@@ -339,7 +342,7 @@ fn plan_adaptive_hls_command_parts(request: &HlsRequest) -> Result<FfmpegHlsComm
             main_output_has_audio,
             request.track_selection,
         ),
-        filter_graph: hls_filter_graph_args(request.execution_policy.acceleration),
+        filter_graph: hls_filter_graph_args(request.execution_policy)?,
         video_encoder: hls_adaptive_video_encoder_args(
             request.execution_policy,
             request.artifacts.renditions(),
@@ -456,7 +459,16 @@ fn hls_stream_map_args(
     args
 }
 
-fn hls_filter_graph_args(acceleration: TranscodeAccelerationPlan) -> Vec<FfmpegArg> {
+fn hls_filter_graph_args(policy: TranscodeExecutionPolicy) -> Result<Vec<FfmpegArg>> {
+    if let Some(filter_graph) = hls_color_filter_graph(policy.color_pipeline, policy.acceleration)?
+    {
+        return Ok(vec![FfmpegArg::raw("-vf"), FfmpegArg::raw(filter_graph)]);
+    }
+
+    Ok(hls_hardware_filter_graph_args(policy.acceleration))
+}
+
+fn hls_hardware_filter_graph_args(acceleration: TranscodeAccelerationPlan) -> Vec<FfmpegArg> {
     match acceleration.filter.accelerator {
         HardwareAcceleration::None
         | HardwareAcceleration::Nvenc
@@ -468,6 +480,29 @@ fn hls_filter_graph_args(acceleration: TranscodeAccelerationPlan) -> Vec<FfmpegA
             FfmpegArg::raw("format=nv12,hwupload"),
         ],
     }
+}
+
+fn hls_color_filter_graph(
+    color_pipeline: TranscodeColorPipelineRequirement,
+    acceleration: TranscodeAccelerationPlan,
+) -> Result<Option<String>> {
+    if color_pipeline.is_deferred_unsupported() {
+        return Err(NakoError::Unsupported(
+            "hls hdr tone mapping for deferred dynamic hdr formats is not implemented",
+        ));
+    }
+
+    if !color_pipeline.requires_hdr_to_sdr_tone_mapping() {
+        return Ok(None);
+    }
+
+    if !acceleration.is_software_only() {
+        return Err(NakoError::Unsupported(
+            "hdr-to-sdr tone mapping requires the software transcode pipeline",
+        ));
+    }
+
+    Ok(Some(HLS_HDR_TO_SDR_TONE_MAPPING_FILTER.to_owned()))
 }
 
 fn hls_audio_filter_args(

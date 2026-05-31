@@ -10,12 +10,13 @@ use nako_transcode::{
     CancellationToken, FfmpegExecutionPlanner, FfmpegHardwareAccelerationDetector, FfmpegHlsRunner,
     HardwareAccelerationDetector, HardwareAccelerationReport, HlsExecutionPlanRequest,
     HlsOutputPublicationPolicy, HlsPlaybackGeneration, TranscodeArtifactSet,
-    TranscodeAudioOutputRequirement, TranscodeEngineAdapter, TranscodeEngineStartCommand,
-    TranscodeEngineStartOutcome, TranscodeExecutionPolicy, TranscodeOutputConstraints,
-    TranscodePipelinePlan, TranscodePipelinePlanner, TranscodePipelineReadiness,
-    TranscodePipelineRequest, TranscodePipelineSourceFacts, TranscodeRequestIdentity,
-    TranscodeResourceBudget, TranscodeRuntimeGuard, TranscodeRuntimeLimits,
-    TranscodeTrackSelection, transcode_pipeline_readiness_without_selection,
+    TranscodeAudioOutputRequirement, TranscodeColorPipelineRequirement, TranscodeEngineAdapter,
+    TranscodeEngineStartCommand, TranscodeEngineStartOutcome, TranscodeExecutionPolicy,
+    TranscodeOutputConstraints, TranscodePipelinePlan, TranscodePipelinePlanner,
+    TranscodePipelineReadiness, TranscodePipelineRequest, TranscodePipelineSourceFacts,
+    TranscodeRequestIdentity, TranscodeResourceBudget, TranscodeRuntimeGuard,
+    TranscodeRuntimeLimits, TranscodeTrackSelection,
+    transcode_pipeline_readiness_without_selection,
 };
 use tokio::sync::Mutex;
 use tracing::{debug, warn};
@@ -111,6 +112,7 @@ impl HlsAppService {
         track_selection: TranscodeTrackSelection,
         output_constraints: TranscodeOutputConstraints,
         audio_output: TranscodeAudioOutputRequirement,
+        color_pipeline: TranscodeColorPipelineRequirement,
         source: Option<TranscodePipelineSourceFacts>,
     ) -> Result<TranscodeExecutionPolicy> {
         let mut request = TranscodePipelineRequest::hls_single_variant_with_audio_output(
@@ -118,7 +120,8 @@ impl HlsAppService {
             track_selection,
             output_constraints,
             audio_output,
-        );
+        )
+        .with_color_pipeline(color_pipeline);
         if let Some(source) = source {
             request = request.with_source(source);
         }

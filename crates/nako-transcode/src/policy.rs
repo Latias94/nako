@@ -215,6 +215,207 @@ pub struct TranscodeOutputConstraints {
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub struct TranscodeColorPipelineRequirement {
+    pub target: TranscodeColorPipelineTarget,
+    pub tone_mapping: TranscodeHdrToneMappingRequirement,
+    pub reasons: TranscodeColorCompatibilityReasons,
+}
+
+impl TranscodeColorPipelineRequirement {
+    #[must_use]
+    pub const fn none() -> Self {
+        Self {
+            target: TranscodeColorPipelineTarget::PreserveSource,
+            tone_mapping: TranscodeHdrToneMappingRequirement::None,
+            reasons: TranscodeColorCompatibilityReasons::none(),
+        }
+    }
+
+    #[must_use]
+    pub const fn hdr_to_sdr_required() -> Self {
+        Self {
+            target: TranscodeColorPipelineTarget::Sdr,
+            tone_mapping: TranscodeHdrToneMappingRequirement::Required,
+            reasons: TranscodeColorCompatibilityReasons {
+                source_hdr_detected: true,
+                client_hdr_unsupported: true,
+                hdr_passthrough_supported: false,
+                tone_mapping_required: true,
+                unsupported_hdr_format_deferred: false,
+            },
+        }
+    }
+
+    #[must_use]
+    pub const fn hdr_to_sdr_deferred_unsupported() -> Self {
+        Self {
+            target: TranscodeColorPipelineTarget::Sdr,
+            tone_mapping: TranscodeHdrToneMappingRequirement::DeferredUnsupported,
+            reasons: TranscodeColorCompatibilityReasons {
+                source_hdr_detected: true,
+                client_hdr_unsupported: true,
+                hdr_passthrough_supported: false,
+                tone_mapping_required: false,
+                unsupported_hdr_format_deferred: true,
+            },
+        }
+    }
+
+    #[must_use]
+    pub const fn requires_hdr_to_sdr_tone_mapping(self) -> bool {
+        matches!(
+            (self.target, self.tone_mapping),
+            (
+                TranscodeColorPipelineTarget::Sdr,
+                TranscodeHdrToneMappingRequirement::Required
+            )
+        )
+    }
+
+    #[must_use]
+    pub const fn is_deferred_unsupported(self) -> bool {
+        matches!(
+            self.tone_mapping,
+            TranscodeHdrToneMappingRequirement::DeferredUnsupported
+        )
+    }
+
+    #[must_use]
+    pub fn persisted_identity_key(self) -> String {
+        format!(
+            "target:{},tone_mapping:{},reasons:{}",
+            self.target.as_str(),
+            self.tone_mapping.as_str(),
+            self.reasons.identity_key(),
+        )
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TranscodeColorPipelineTarget {
+    #[default]
+    PreserveSource,
+    Sdr,
+}
+
+impl TranscodeColorPipelineTarget {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::PreserveSource => "preserve_source",
+            Self::Sdr => "sdr",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TranscodeHdrToneMappingRequirement {
+    #[default]
+    None,
+    Required,
+    DeferredUnsupported,
+}
+
+impl TranscodeHdrToneMappingRequirement {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Required => "required",
+            Self::DeferredUnsupported => "deferred_unsupported",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub struct TranscodeColorCompatibilityReasons {
+    pub source_hdr_detected: bool,
+    pub client_hdr_unsupported: bool,
+    pub hdr_passthrough_supported: bool,
+    pub tone_mapping_required: bool,
+    pub unsupported_hdr_format_deferred: bool,
+}
+
+impl TranscodeColorCompatibilityReasons {
+    #[must_use]
+    pub const fn none() -> Self {
+        Self {
+            source_hdr_detected: false,
+            client_hdr_unsupported: false,
+            hdr_passthrough_supported: false,
+            tone_mapping_required: false,
+            unsupported_hdr_format_deferred: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn has(self, reason: TranscodeColorCompatibilityReason) -> bool {
+        match reason {
+            TranscodeColorCompatibilityReason::SourceHdrDetected => self.source_hdr_detected,
+            TranscodeColorCompatibilityReason::ClientHdrUnsupported => self.client_hdr_unsupported,
+            TranscodeColorCompatibilityReason::HdrPassthroughSupported => {
+                self.hdr_passthrough_supported
+            }
+            TranscodeColorCompatibilityReason::ToneMappingRequired => self.tone_mapping_required,
+            TranscodeColorCompatibilityReason::UnsupportedHdrFormatDeferred => {
+                self.unsupported_hdr_format_deferred
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn identity_key(self) -> String {
+        let mut reasons = Vec::new();
+        if self.source_hdr_detected {
+            reasons.push(TranscodeColorCompatibilityReason::SourceHdrDetected.as_str());
+        }
+        if self.client_hdr_unsupported {
+            reasons.push(TranscodeColorCompatibilityReason::ClientHdrUnsupported.as_str());
+        }
+        if self.hdr_passthrough_supported {
+            reasons.push(TranscodeColorCompatibilityReason::HdrPassthroughSupported.as_str());
+        }
+        if self.tone_mapping_required {
+            reasons.push(TranscodeColorCompatibilityReason::ToneMappingRequired.as_str());
+        }
+        if self.unsupported_hdr_format_deferred {
+            reasons.push(TranscodeColorCompatibilityReason::UnsupportedHdrFormatDeferred.as_str());
+        }
+
+        if reasons.is_empty() {
+            "none".to_owned()
+        } else {
+            reasons.join("|")
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TranscodeColorCompatibilityReason {
+    SourceHdrDetected,
+    ClientHdrUnsupported,
+    HdrPassthroughSupported,
+    ToneMappingRequired,
+    UnsupportedHdrFormatDeferred,
+}
+
+impl TranscodeColorCompatibilityReason {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::SourceHdrDetected => "source_hdr_detected",
+            Self::ClientHdrUnsupported => "client_hdr_unsupported",
+            Self::HdrPassthroughSupported => "hdr_passthrough_supported",
+            Self::ToneMappingRequired => "tone_mapping_required",
+            Self::UnsupportedHdrFormatDeferred => "unsupported_hdr_format_deferred",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct TranscodeAudioOutputRequirement {
     pub source_channels: Option<u32>,
     pub max_supported_channels: Option<u32>,
@@ -450,6 +651,7 @@ pub struct TranscodeExecutionPolicy {
     pub acceleration: TranscodeAccelerationPlan,
     pub output_constraints: TranscodeOutputConstraints,
     pub subtitle_strategy: TranscodeSubtitleStrategy,
+    pub color_pipeline: TranscodeColorPipelineRequirement,
     pub audio_output: TranscodeAudioOutputRequirement,
 }
 
@@ -465,6 +667,7 @@ impl TranscodeExecutionPolicy {
                 prefer_hdr: None,
             },
             subtitle_strategy: TranscodeSubtitleStrategy::PreserveInContainer,
+            color_pipeline: TranscodeColorPipelineRequirement::none(),
             audio_output: TranscodeAudioOutputRequirement::none(),
         }
     }
@@ -498,6 +701,7 @@ impl TranscodeExecutionPolicy {
             } else {
                 TranscodeSubtitleStrategy::None
             },
+            color_pipeline: TranscodeColorPipelineRequirement::none(),
             audio_output,
         }
     }

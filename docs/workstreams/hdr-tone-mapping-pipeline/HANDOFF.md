@@ -5,21 +5,15 @@ Last updated: 2026-05-31
 
 ## Current State
 
-`HTP-020` is complete, planner-verified, and committed on the HDR branch. The
-task stayed playback-only after the planner merged the accepted `ACDN-020`
-audio output baseline into this HDR branch.
+`HTP-030` is implemented and locally verified, pending planner review and
+closeout. The task stayed inside the approved software-first HLS HDR-to-SDR
+media-output slice.
 
 ## Next Task
 
-`HTP-030` is ready for planner assignment after
-`transcode-interface-and-runtime-plan-deepening` closeout. The HDR playback
-vocabulary slice is accepted, including the reviewer finding that remux cannot
-satisfy HDR-to-SDR tone mapping for SDR-only clients.
-
-Before starting implementation, sync or recreate the HDR worktree from current
-`main`. The task should use the transcode-owned runtime and execution planner
-Interfaces introduced by `TIRP-020` and `TIRP-030`, not server-side raw FFmpeg
-request assembly.
+`HTP-040` should review and close the lane, or split follow-ons for hardware
+tone mapping, device-specific filter chains, Dolby Vision/HDR10+ handling, and
+operator smoke matrices.
 
 Completed `HTP-020` implementation scope:
 
@@ -36,6 +30,18 @@ Planned `HTP-030` implementation scope:
 - focused `nako-transcode` tests
 - server HLS adaptation files only if the transcode-owned Interface requires a
   composition update
+
+Completed `HTP-030` result:
+
+- added transcode-owned color pipeline requirement values without introducing a
+  `nako-transcode -> nako-playback` dependency;
+- carried HDR-to-SDR tone mapping intent through HLS runtime planning,
+  execution policy, profile identity, and request identity;
+- made HDR-to-SDR HLS command planning emit a deterministic software video
+  filter before H.264 encoding;
+- rejected deferred dynamic HDR tone mapping as outside this slice;
+- kept server code as playback-to-transcode mapping and HLS composition around
+  the transcode-owned runtime/execution planner Interfaces.
 
 Owned docs scope for any continuation:
 
@@ -58,6 +64,15 @@ cargo fmt --all -- --check
 git diff --check
 ```
 
+Completed `HTP-030` implementation validation:
+
+```text
+cargo nextest run -p nako-transcode hdr --no-fail-fast
+cargo nextest run -p nako-server hls --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
 Research conclusion:
 
 - current probe facts are sufficient for the first playback planning slice;
@@ -75,6 +90,17 @@ HTP-020 result:
   output constraints and audio output requirement;
 - tests cover HDR passthrough, HDR-to-SDR tone-map intent, remux denial when
   tone mapping is required, and Dolby Vision deferred unsupported intent.
+
+HTP-030 result:
+
+- `TranscodeColorPipelineRequirement` mirrors playback color intent as a
+  transcode-owned execution value;
+- HLS runtime and profile identity include color pipeline identity for
+  tone-mapped outputs;
+- FFmpeg command planning uses software `zscale,tonemap,zscale,format` for
+  HDR-to-SDR HLS output;
+- an app-level HLS test proves HDR probe facts plus an SDR client reach the
+  FFmpeg tone-map command through the real playback service path.
 
 ## Stop Conditions
 

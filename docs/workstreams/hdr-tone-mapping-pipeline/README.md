@@ -14,7 +14,7 @@ accepted `ACDN-020` audio output baseline into this branch.
 
 Planner-approved lane: `playback-transcode`.
 
-`HTP-030` is unblocked after
-`transcode-interface-and-runtime-plan-deepening` closeout, but still needs a
-planner-assigned worktree because it opens transcode, server HLS, and FFmpeg
-command-planning scopes.
+`HTP-030` implemented the software-first HLS HDR-to-SDR media-output slice and
+is pending planner review/closeout. Hardware tone mapping, device-specific
+filter chains, Dolby Vision/HDR10+ dynamic handling, and operator smoke
+matrices remain deferred follow-ons.

@@ -473,6 +473,45 @@ mod tests {
     }
 
     #[test]
+    fn ffmpeg_builder_plans_hls_hdr_to_sdr_software_tone_mapping_filter() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let mut execution_policy = hls_policy(HardwareAcceleration::None);
+        execution_policy.color_pipeline = TranscodeColorPipelineRequirement::hdr_to_sdr_required();
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
+            artifacts: hls_artifacts(
+                "hls",
+                "hls/playlist.m3u8",
+                "hls/segment_%05d.ts",
+                HlsOutputRequirement::default(),
+            ),
+            segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
+            execution_policy,
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+
+        assert!(!argv.windows(2).any(|args| args[0] == "-hwaccel"));
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-c:v" && args[1] == "libx264")
+        );
+        assert!(argv.windows(2).any(|args| {
+            args[0] == "-vf"
+                && args[1]
+                    == "zscale=transfer=linear:npl=100,tonemap=tonemap=hable:desat=0,zscale=transfer=bt709:matrix=bt709:primaries=bt709:range=tv,format=yuv420p"
+        }));
+        assert!(
+            argv.iter().position(|arg| arg == "-vf").unwrap()
+                < argv.iter().position(|arg| arg == "-c:v").unwrap()
+        );
+    }
+
+    #[test]
     fn ffmpeg_builder_plans_hls_fmp4_single_variant() {
         let builder = FfmpegCommandBuilder::new("ffmpeg");
         let request = HlsRequest {

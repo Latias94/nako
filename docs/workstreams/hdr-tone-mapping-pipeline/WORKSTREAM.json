@@ -7,10 +7,11 @@
   "scope_kind": "architecture_research",
   "problem": "HDR media is identified as a future playback capability, but Nako has not yet frozen the color compatibility inputs, tone-mapping policy boundary, or first executable FFmpeg pipeline slice.",
   "task_prefix": "HTP",
-  "current_task": "HTP-030",
+  "current_task": "HTP-040",
   "completed_tasks": [
     "HTP-010",
-    "HTP-020"
+    "HTP-020",
+    "HTP-030"
   ],
   "authoritative_docs": [
     {
@@ -47,6 +48,8 @@
     "python -m json.tool docs/workstreams/hdr-tone-mapping-pipeline/WORKSTREAM.json",
     "cargo nextest run -p nako-playback hdr --no-fail-fast",
     "cargo nextest run -p nako-playback --no-fail-fast",
+    "cargo nextest run -p nako-transcode hdr --no-fail-fast",
+    "cargo nextest run -p nako-server hls --no-fail-fast",
     "cargo fmt --all -- --check",
     "git diff --check"
   ],
@@ -58,6 +61,10 @@
     {
       "task": "HTP-020",
       "summary": "Added playback-owned Color Pipeline Requirement values and tests for HDR passthrough, HDR-to-SDR tone-map intent, remux denial when tone mapping is required, and deferred unsupported dynamic HDR paths without editing transcode, server, Public Client API, media probe schema, or web code."
+    },
+    {
+      "task": "HTP-030",
+      "summary": "Propagated playback color pipeline intent into transcode-owned HLS runtime, profile identity, execution policy, and FFmpeg software HDR-to-SDR command planning while keeping server changes to thin playback-to-transcode mapping and HLS composition."
     }
   ],
   "adr_refs": [
@@ -86,6 +93,6 @@
   "lane_slug": "playback-transcode",
   "continue_policy": {
     "default_action": "continue",
-    "notes": "HTP-020 is complete, planner-verified, and committed. HTP-030 is unblocked after transcode-interface-and-runtime-plan-deepening closeout; start from current main and use transcode-owned runtime/execution planner Interfaces. Keep hardware tone mapping, device-specific filter chains, Dolby Vision/HDR10+ dynamic handling, and operator smoke matrices as follow-ons unless the planner splits them."
+    "notes": "HTP-030 implementation is complete pending planner review and closeout. Keep hardware tone mapping, device-specific filter chains, Dolby Vision/HDR10+ dynamic handling, and operator smoke matrices as follow-ons unless the planner splits them."
   }
 }

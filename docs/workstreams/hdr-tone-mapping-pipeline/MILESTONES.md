@@ -51,8 +51,7 @@ Exit criteria:
 - software and hardware FFmpeg strategies are deterministic and testable;
 - CPU fallback behavior is explicit.
 
-Status: Ready for planner assignment after
-`transcode-interface-and-runtime-plan-deepening` closeout.
+Status: Done, pending planner review.
 
 First media-output target:
 
@@ -62,6 +61,17 @@ First media-output target:
 - hardware tone mapping and Dolby Vision/HDR10+ dynamic behavior deferred to
   follow-ons unless the planner splits them earlier.
 
+Evidence:
+
+- `nako-transcode` owns color pipeline execution policy values without adding a
+  dependency on `nako-playback`;
+- HLS runtime/profile identity carries the color pipeline requirement so
+  SDR-mapped and non-tone-mapped outputs do not reuse the same request identity;
+- FFmpeg command planning emits a deterministic software HDR-to-SDR video
+  filter before HLS H.264 encoding;
+- HLS server code only maps playback requirements into transcode-owned request
+  values and starts the existing runtime/execution planner path.
+
 ## M3 - Verification And Closeout
 
 Exit criteria:
@@ -70,4 +80,4 @@ Exit criteria:
 - docs and `WORKSTREAM.json` reflect active/completed/deferred status;
 - follow-ons are split or explicitly deferred.
 
-Status: Pending `HTP-030`.
+Status: Ready for planner review and closeout.

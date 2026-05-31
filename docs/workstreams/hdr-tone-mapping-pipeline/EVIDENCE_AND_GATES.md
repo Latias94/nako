@@ -1,7 +1,7 @@
 # HDR Tone Mapping Pipeline - Evidence And Gates
 
 Status: Active
-Last updated: 2026-05-30
+Last updated: 2026-05-31
 
 ## HTP-010 Gates
 
@@ -140,11 +140,63 @@ Planner verification on 2026-05-31:
   passed.
 - `git diff --check` passed.
 
+### HTP-030 - Software-first transcode tone-mapping strategy
+
+Status: Done, pending planner review.
+
+Evidence:
+
+- `crates/nako-transcode/src/policy.rs`
+- `crates/nako-transcode/src/pipeline.rs`
+- `crates/nako-transcode/src/profile.rs`
+- `crates/nako-transcode/src/ffmpeg.rs`
+- `crates/nako-transcode/src/lib.rs`
+- `crates/nako-server/src/app/playback/mod.rs`
+- `crates/nako-server/src/app/playback/hls.rs`
+- `crates/nako-server/src/app/tests/mod.rs`
+- `crates/nako-server/src/app/tests/playback.rs`
+
+Findings:
+
+- Added transcode-owned color pipeline requirement values and reason bits so
+  `nako-transcode` does not depend on `nako-playback`.
+- HLS runtime planning carries HDR-to-SDR color intent into
+  `TranscodeExecutionPolicy`, `TranscodeProfileIdentity`, and request identity.
+- HDR-to-SDR HLS command planning emits a deterministic software
+  `zscale,tonemap,zscale,format` video filter before H.264 encoding.
+- Hardware tone mapping remains deferred: when HDR-to-SDR tone mapping is
+  required and hardware was requested, the runtime plan selects the software
+  pipeline through the existing CPU fallback path.
+- Deferred dynamic HDR tone mapping remains unsupported in this slice and
+  returns a typed unsupported error before command execution.
+- Server changes stay as thin composition/mapping around the transcode-owned
+  runtime and execution planner Interfaces; raw `HlsRequest` and FFmpeg builder
+  logic remain inside `nako-transcode`.
+
+Verification on 2026-05-31:
+
+- `cargo nextest run -p nako-transcode hdr --no-fail-fast` passed with 4 tests
+  run and 90 skipped by filter.
+- First `cargo nextest run -p nako-server hls --no-fail-fast` run passed 63 of
+  65 tests; two existing progressive HLS readiness tests timed out under load.
+  Both timed-out tests passed when rerun individually.
+- Fresh rerun of `cargo nextest run -p nako-server hls --no-fail-fast` passed
+  with 65 tests run and 434 skipped by filter.
+- `python -m json.tool docs/workstreams/hdr-tone-mapping-pipeline/WORKSTREAM.json`
+  passed and proved the updated workstream manifest remains valid JSON.
+- `git diff --check -- docs/workstreams/hdr-tone-mapping-pipeline docs/architecture/PLAYBACK.md docs/architecture/WORKSTREAM_LINKS.md`
+  passed and found no whitespace errors in the scoped docs diff.
+- `cargo fmt --all -- --check` passed.
+- `git diff --check` passed with only Windows line-ending normalization
+  warnings.
+
 ## Residual Risks
 
 - Existing HDR color facts are enough for HDR10/PQ and HLG detection, but may
   not be enough for Dolby Vision dynamic handling, HDR10+ preservation, or
   device-specific passthrough behavior.
 - Hardware tone mapping differs across VAAPI, QSV, NVENC, AMF, and CPU paths.
+- The HLS progressive readiness tests can be sensitive to host load when the
+  full filtered suite runs concurrently; reruns passed in this verification.
 - Tone mapping, audio downmix, and HLS runtime all touch playback/transcode
-  seams, so implementation must be serialized unless scopes are narrowed.
+  seams, so follow-ons should stay explicitly scoped.

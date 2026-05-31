@@ -263,8 +263,17 @@ impl TranscodeProfile {
         } else {
             format!(";audio_output={}", audio_output.persisted_identity_key())
         };
+        let color_pipeline = self.execution_policy.color_pipeline;
+        let color_pipeline_identity = if color_pipeline == Default::default() {
+            String::new()
+        } else {
+            format!(
+                ";color_pipeline={}",
+                color_pipeline.persisted_identity_key()
+            )
+        };
         format!(
-            "transcode-profile:v1;kind={};container={};vcodec={};acodec={};hls_variant={};hls_segment={};acceleration={};audio={};subtitle={};subtitle_strategy={}{};max_video_bitrate={};max_width={};max_height={};prefer_hdr={};remote_input={};reuse={};playback={}",
+            "transcode-profile:v1;kind={};container={};vcodec={};acodec={};hls_variant={};hls_segment={};acceleration={};audio={};subtitle={};subtitle_strategy={}{}{};max_video_bitrate={};max_width={};max_height={};prefer_hdr={};remote_input={};reuse={};playback={}",
             output.profile_kind().as_str(),
             output.container_key(),
             optional_str(self.video_codec.as_deref()),
@@ -276,6 +285,7 @@ impl TranscodeProfile {
             optional_u32(self.track_selection.subtitle_stream),
             self.execution_policy.subtitle_strategy.as_str(),
             audio_output_identity,
+            color_pipeline_identity,
             optional_u64(self.execution_policy.output_constraints.max_video_bitrate),
             optional_u32(self.execution_policy.output_constraints.max_width),
             optional_u32(self.execution_policy.output_constraints.max_height),

@@ -6,9 +6,10 @@ use super::{
     HardwareAccelerationReport, HlsAdaptiveLadderPlan, HlsMediaRenditionPlan, HlsOutputRequirement,
     HlsPlaybackGeneration, HlsRequestVariantPlan, HlsVariantPolicy, PlaybackHlsProfileRequest,
     TranscodeAccelerationFallbackPlan, TranscodeAccelerationPlan, TranscodeAudioOutputRequirement,
-    TranscodeExecutionPolicy, TranscodeOutputConstraints, TranscodePlan, TranscodeProfile,
-    TranscodeProfileIdentity, TranscodeRequestIdentity, TranscodeSourceIdentity,
-    TranscodeSubtitleStrategy, TranscodeTrackSelection, build_playback_hls_profile,
+    TranscodeColorPipelineRequirement, TranscodeExecutionPolicy, TranscodeOutputConstraints,
+    TranscodePlan, TranscodeProfile, TranscodeProfileIdentity, TranscodeRequestIdentity,
+    TranscodeSourceIdentity, TranscodeSubtitleStrategy, TranscodeTrackSelection,
+    build_playback_hls_profile,
 };
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -50,6 +51,7 @@ pub struct TranscodePipelineRequest {
     pub track_selection: TranscodeTrackSelection,
     pub output_constraints: TranscodeOutputConstraints,
     pub subtitle_strategy: TranscodeSubtitleStrategy,
+    pub color_pipeline: TranscodeColorPipelineRequirement,
     pub audio_output: TranscodeAudioOutputRequirement,
     pub source: Option<TranscodePipelineSourceFacts>,
 }
@@ -85,9 +87,19 @@ impl TranscodePipelineRequest {
             } else {
                 TranscodeSubtitleStrategy::None
             },
+            color_pipeline: TranscodeColorPipelineRequirement::none(),
             audio_output,
             source: None,
         }
+    }
+
+    #[must_use]
+    pub const fn with_color_pipeline(
+        mut self,
+        color_pipeline: TranscodeColorPipelineRequirement,
+    ) -> Self {
+        self.color_pipeline = color_pipeline;
+        self
     }
 
     #[must_use]
@@ -109,6 +121,7 @@ pub struct TranscodePipelinePlan {
     pub acceleration: TranscodeAccelerationPlan,
     pub output_constraints: TranscodeOutputConstraints,
     pub subtitle_strategy: TranscodeSubtitleStrategy,
+    pub color_pipeline: TranscodeColorPipelineRequirement,
     pub audio_output: TranscodeAudioOutputRequirement,
     pub readiness: TranscodePipelineReadiness,
 }
@@ -121,6 +134,7 @@ pub struct HlsRuntimePlanRequest {
     pub track_selection: TranscodeTrackSelection,
     pub output_constraints: TranscodeOutputConstraints,
     pub audio_output: TranscodeAudioOutputRequirement,
+    pub color_pipeline: TranscodeColorPipelineRequirement,
     pub hls_output: HlsOutputRequirement,
     pub source_facts: Option<TranscodePipelineSourceFacts>,
     pub media_probe: Option<MediaProbeResult>,
@@ -148,6 +162,7 @@ impl TranscodePipelinePlan {
             acceleration: self.acceleration,
             output_constraints: self.output_constraints,
             subtitle_strategy: self.subtitle_strategy,
+            color_pipeline: self.color_pipeline,
             audio_output: self.audio_output,
         }
     }
@@ -177,8 +192,13 @@ impl TranscodePipelinePlanner {
         request: TranscodePipelineRequest,
         report: &HardwareAccelerationReport,
     ) -> Result<TranscodePipelinePlan> {
-        let selection =
-            select_pipeline_acceleration(request.hardware_policy, report, request.source.as_ref())?;
+        validate_color_pipeline_requirement(request.color_pipeline)?;
+        let selection = select_pipeline_acceleration(
+            request.hardware_policy,
+            report,
+            request.source.as_ref(),
+            request.color_pipeline,
+        )?;
         let fallback = TranscodeAccelerationFallbackPlan {
             requested: request.hardware_policy.requested,
             selected: selection.selected,
@@ -193,6 +213,7 @@ impl TranscodePipelinePlanner {
             ),
             output_constraints: request.output_constraints,
             subtitle_strategy: request.subtitle_strategy,
+            color_pipeline: request.color_pipeline,
             audio_output: request.audio_output,
             readiness: selection,
         })
@@ -208,7 +229,8 @@ impl TranscodePipelinePlanner {
             request.track_selection,
             request.output_constraints,
             request.audio_output,
-        );
+        )
+        .with_color_pipeline(request.color_pipeline);
         if let Some(source_facts) = request.source_facts.clone() {
             pipeline_request = pipeline_request.with_source(source_facts);
         }
@@ -272,7 +294,12 @@ fn select_pipeline_acceleration(
     policy: HardwareAccelerationPolicy,
     report: &HardwareAccelerationReport,
     source: Option<&TranscodePipelineSourceFacts>,
+    color_pipeline: TranscodeColorPipelineRequirement,
 ) -> Result<TranscodePipelineReadiness> {
+    if color_pipeline.requires_hdr_to_sdr_tone_mapping() {
+        return select_software_hdr_tone_mapping_pipeline(policy, report);
+    }
+
     if policy.requested == HardwareAcceleration::None {
         if !report.is_available(HardwareAcceleration::None) {
             return Err(NakoError::Unsupported(
@@ -331,8 +358,59 @@ pub fn transcode_pipeline_readiness_without_selection(
     policy: HardwareAccelerationPolicy,
     report: &HardwareAccelerationReport,
 ) -> TranscodePipelineReadiness {
-    select_pipeline_acceleration(policy, report, None)
-        .unwrap_or_else(|_| unavailable_pipeline_readiness(policy, report))
+    select_pipeline_acceleration(
+        policy,
+        report,
+        None,
+        TranscodeColorPipelineRequirement::none(),
+    )
+    .unwrap_or_else(|_| unavailable_pipeline_readiness(policy, report))
+}
+
+fn validate_color_pipeline_requirement(
+    color_pipeline: TranscodeColorPipelineRequirement,
+) -> Result<()> {
+    if color_pipeline.is_deferred_unsupported() {
+        return Err(NakoError::Unsupported(
+            "hls hdr tone mapping for deferred dynamic hdr formats is not implemented",
+        ));
+    }
+
+    Ok(())
+}
+
+fn select_software_hdr_tone_mapping_pipeline(
+    policy: HardwareAccelerationPolicy,
+    report: &HardwareAccelerationReport,
+) -> Result<TranscodePipelineReadiness> {
+    if !report.is_available(HardwareAcceleration::None) {
+        return Err(NakoError::Unsupported(
+            "hdr-to-sdr tone mapping requires the software transcode pipeline",
+        ));
+    }
+
+    if policy.requested == HardwareAcceleration::None {
+        return Ok(TranscodePipelineReadiness {
+            status: TranscodePipelineReadinessStatus::Ready,
+            reason: TranscodePipelineReadinessReason::CpuRequested,
+            requested: HardwareAcceleration::None,
+            selected: HardwareAcceleration::None,
+            fallback_used: false,
+        });
+    }
+
+    match policy.fallback {
+        HardwareAccelerationFallback::Cpu => Ok(TranscodePipelineReadiness {
+            status: TranscodePipelineReadinessStatus::Degraded,
+            reason: TranscodePipelineReadinessReason::RequestedPipelineUnavailableFallbackToCpu,
+            requested: policy.requested,
+            selected: HardwareAcceleration::None,
+            fallback_used: true,
+        }),
+        HardwareAccelerationFallback::Fail => Err(NakoError::Unsupported(
+            "hdr-to-sdr tone mapping requires software fallback",
+        )),
+    }
 }
 
 fn source_incompatible_readiness(
@@ -552,6 +630,59 @@ mod tests {
     }
 
     #[test]
+    fn hls_pipeline_hdr_to_sdr_tone_mapping_falls_back_to_software_execution_policy() {
+        let color_pipeline = TranscodeColorPipelineRequirement::hdr_to_sdr_required();
+        let request = TranscodePipelineRequest::hls_single_variant(
+            HardwareAccelerationPolicy {
+                requested: HardwareAcceleration::Nvenc,
+                fallback: HardwareAccelerationFallback::Cpu,
+            },
+            TranscodeTrackSelection::default(),
+            TranscodeOutputConstraints::default(),
+        )
+        .with_color_pipeline(color_pipeline);
+        let report = HardwareAccelerationReport::with_available([
+            HardwareAcceleration::None,
+            HardwareAcceleration::Nvenc,
+        ]);
+
+        let plan = TranscodePipelinePlanner::new()
+            .plan_hls_single_variant(request, &report)
+            .unwrap();
+
+        assert_eq!(plan.color_pipeline, color_pipeline);
+        assert_eq!(
+            plan.readiness.status,
+            TranscodePipelineReadinessStatus::Degraded
+        );
+        assert_eq!(
+            plan.readiness.reason,
+            TranscodePipelineReadinessReason::RequestedPipelineUnavailableFallbackToCpu
+        );
+        assert_eq!(plan.readiness.selected, HardwareAcceleration::None);
+        assert!(plan.fallback_used());
+        assert!(plan.execution_policy().acceleration.is_software_only());
+        assert_eq!(plan.execution_policy().color_pipeline, color_pipeline);
+    }
+
+    #[test]
+    fn hls_pipeline_hdr_deferred_tone_mapping_is_not_executable() {
+        let request = TranscodePipelineRequest::hls_single_variant(
+            HardwareAccelerationPolicy::default(),
+            TranscodeTrackSelection::default(),
+            TranscodeOutputConstraints::default(),
+        )
+        .with_color_pipeline(TranscodeColorPipelineRequirement::hdr_to_sdr_deferred_unsupported());
+        let report = HardwareAccelerationReport::with_available([HardwareAcceleration::None]);
+
+        let err = TranscodePipelinePlanner::new()
+            .plan_hls_single_variant(request, &report)
+            .unwrap_err();
+
+        assert!(err.to_string().contains("deferred dynamic hdr"));
+    }
+
+    #[test]
     fn hls_runtime_plan_carries_audio_output_and_request_variant_identity() {
         let source = demo_source();
         let video = video_stream(1920, 1080, 4_000_000);
@@ -597,6 +728,7 @@ mod tests {
                 prefer_hdr: Some(false),
             },
             audio_output,
+            color_pipeline: TranscodeColorPipelineRequirement::none(),
             hls_output: HlsOutputRequirement {
                 variant_policy: HlsVariantPolicy::Adaptive,
                 segment_container: HlsSegmentContainer::Fmp4,
@@ -646,6 +778,42 @@ mod tests {
     }
 
     #[test]
+    fn hls_runtime_plan_carries_hdr_color_pipeline_into_profile_identity() {
+        let source = demo_source();
+        let color_pipeline = TranscodeColorPipelineRequirement::hdr_to_sdr_required();
+        let request = HlsRuntimePlanRequest {
+            source,
+            plan: TranscodePlan {
+                input_locator: "local:///Movies/Demo.mkv".to_owned(),
+                output_container: OutputContainer::Hls,
+                video_codec: Some("h264".to_owned()),
+                audio_codec: Some("aac".to_owned()),
+            },
+            hardware_policy: HardwareAccelerationPolicy::default(),
+            track_selection: TranscodeTrackSelection::default(),
+            output_constraints: TranscodeOutputConstraints::default(),
+            audio_output: TranscodeAudioOutputRequirement::none(),
+            color_pipeline,
+            hls_output: HlsOutputRequirement::default(),
+            source_facts: None,
+            media_probe: None,
+            playback_generation: HlsPlaybackGeneration::default(),
+            remote_input: false,
+            playback_profile_key: "playback-target-profile:v1;hdr=false".to_owned(),
+        };
+        let report = HardwareAccelerationReport::with_available([HardwareAcceleration::None]);
+
+        let runtime = TranscodePipelinePlanner::new()
+            .plan_hls_runtime(request, &report)
+            .unwrap();
+
+        assert_eq!(runtime.execution_policy.color_pipeline, color_pipeline);
+        assert!(runtime.profile_identity.persisted_request_key().contains(
+            "color_pipeline=target:sdr,tone_mapping:required,reasons:source_hdr_detected|client_hdr_unsupported|tone_mapping_required"
+        ));
+    }
+
+    #[test]
     fn hls_runtime_plan_keeps_default_single_variant_request_identity_plain() {
         let source = demo_source();
         let request = HlsRuntimePlanRequest {
@@ -660,6 +828,7 @@ mod tests {
             track_selection: TranscodeTrackSelection::default(),
             output_constraints: TranscodeOutputConstraints::default(),
             audio_output: TranscodeAudioOutputRequirement::none(),
+            color_pipeline: TranscodeColorPipelineRequirement::none(),
             hls_output: HlsOutputRequirement::default(),
             source_facts: None,
             media_probe: None,
