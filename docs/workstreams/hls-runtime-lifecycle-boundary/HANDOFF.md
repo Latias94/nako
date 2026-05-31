@@ -5,8 +5,7 @@ Last updated: 2026-05-31
 
 ## Current State
 
-`HRLB-010` is complete as a docs/research invariant freeze. No Rust behavior
-changed.
+`HRLB-010` is complete as a docs/research invariant freeze.
 
 The freeze lives in `DESIGN.md` and covers active same-generation requests,
 finished session reuse, different-generation supersede, running playlist
@@ -14,26 +13,40 @@ readiness, segment readiness and one-shot wait, cancellation/timeout cleanup,
 startup stale-session cleanup, terminal artifact cleanup, staging input
 release, and the decision to split artifact I/O pressure into a PAIP follow-on.
 
-Concerns to carry into `HRLB-020`:
+`HRLB-020` is complete with concerns. It added behavior-preserving focused
+coverage for:
 
-- HLS timeout cleanup is implemented in the runner but does not have a focused
-  HLS timeout cleanup test.
-- Startup stale-session recovery is tested generically for transcode sessions
-  but not with an HLS fixture.
-- Staging lease primitives are covered, but HLS remote staged-input release is
-  not directly covered across success/error/admission-rejection branches.
+- HLS timeout failure mapping, persisted `Timeout` category, and serve-visible
+  output cleanup;
+- HLS-specific startup stale-session recovery;
+- HLS remote staged-input release after success, runner error, and admission
+  rejection.
+
+No lifecycle coordinator/facade was introduced. HRLB-010 justified focused
+tests first, and this patch did not uncover a behavior-preserving abstraction
+that clearly reduces lifecycle ownership drift.
+
+Planner accepted a narrow scope-out compile fix for Admin hardware diagnostics:
+`HardwarePipelineStage::{ToneMap, SubtitleBurnIn}` now map to
+`AdminHardwarePipelineStage`.
+
+Validation:
+
+```text
+cargo nextest run -p nako-server hls --no-fail-fast
+cargo fmt --all -- --check
+git diff --check
+```
+
+Result: passed on 2026-05-31. An earlier full HLS run had one existing
+load-sensitive progressive-readiness timeout; that test passed individually and
+the final full rerun passed 70/70.
 
 ## Next Task
 
-Planner review should accept or revise the `HRLB-010` freeze before assigning
-`HRLB-020`.
-
-Recommended `HRLB-020` focus:
-
-- add focused tests for the frozen invariants above;
-- introduce a behavior-preserving lifecycle coordinator/facade only if it
-  reduces scattered lifecycle ownership;
-- keep `HlsArtifactIo` not-yet-enforced and leave PAIP for a split follow-on.
+Assign `HRLB-030` for planner follow-on split decisions. Decide whether PAIP
+artifact I/O pressure, resource admission unification, remote workers,
+LL-HLS/CMAF, player UX, or HLS test stability become separate workstreams.
 
 Required context:
 
@@ -50,11 +63,10 @@ docs/workstreams/playback-runtime-resource-scheduler/HANDOFF.md
 docs/workstreams/remote-storage-health-and-circuit-breaker/CLOSEOUT.md
 ```
 
-Required validation for `HRLB-020`:
+Required validation for `HRLB-030`:
 
 ```text
-cargo nextest run -p nako-server hls --no-fail-fast
-cargo fmt --all -- --check
+python -m json.tool docs/workstreams/hls-runtime-lifecycle-boundary/WORKSTREAM.json
 git diff --check
 ```
 

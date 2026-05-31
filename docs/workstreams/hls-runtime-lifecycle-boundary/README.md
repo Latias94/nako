@@ -14,8 +14,7 @@ starts with a docs/research invariant freeze before any behavior change.
 
 Planner-approved lane: `playback-transcode`.
 
-Current task: `HRLB-020` after planner review of the `HRLB-010` invariant
-freeze.
+Current task: `HRLB-030`.
 
 Read before implementation:
 
@@ -32,3 +31,8 @@ UX, or release packaging without planner approval.
 `HRLB-010` froze the lifecycle invariants and test coverage map without Rust
 behavior changes. Artifact I/O pressure should split to PAIP rather than being
 hidden inside the lifecycle refactor.
+
+`HRLB-020` added behavior-preserving lifecycle tests for timeout cleanup, HLS
+startup stale recovery, and remote staged-input release. It did not introduce a
+coordinator/facade because the first useful slice was coverage, not a new
+abstraction.

@@ -23,8 +23,7 @@ Last reviewed: 2026-05-31
 - [client-surface-and-access-product-architecture](client-surface-and-access-product-architecture/README.md)
   is active on lane `client-surfaces-planning`; next task is `CSAPA-050`.
 - [hls-runtime-lifecycle-boundary](hls-runtime-lifecycle-boundary/README.md)
-  is active on lane `playback-transcode`; next task is `HRLB-020` after
-  planner review.
+  is active on lane `playback-transcode`; next task is `HRLB-030`.
 
 Planner coordination should keep `GAMA-060` blocked until `GAMA-050` is
 reviewed and verified. `CSAPA` should split or explicitly defer desktop
@@ -36,8 +35,8 @@ playback before closeout. The `web-product` lane is idle after
 `hdr-tone-mapping-pipeline`, and
 `playback-compatibility-matrix-hardening`, and
 `transcode-capability-inventory-matrix` are closed. `HRLB-010` froze HLS
-lifecycle invariants without Rust behavior changes; `HRLB-020` should remain
-behavior-preserving, and artifact I/O pressure should split to PAIP.
+lifecycle invariants and `HRLB-020` added behavior-preserving tests; artifact
+I/O pressure should split to PAIP.
 
 ## Current Workstreams
 
@@ -57,9 +56,9 @@ behavior-preserving, and artifact I/O pressure should split to PAIP.
   routes, API DTOs, or release packaging.
 - [hls-runtime-lifecycle-boundary](hls-runtime-lifecycle-boundary/README.md):
   active playback/transcode lane with HLS active/reuse/supersede, readiness,
-  segment wait, cancellation, and cleanup invariants frozen before
-  behavior-preserving lifecycle boundary work. Artifact I/O pressure, queueing,
-  remote workers, and LL-HLS remain follow-ons.
+  segment wait, cancellation, and cleanup invariants frozen and covered by
+  focused behavior-preserving tests. Artifact I/O pressure, queueing, remote
+  workers, and LL-HLS remain follow-ons.
 - [transcode-interface-and-runtime-plan-deepening](transcode-interface-and-runtime-plan-deepening/README.md):
   closed playback/transcode lane for deepening the `nako-transcode` Interface
   before HDR tone mapping adds more color/filter requirements. It shipped the

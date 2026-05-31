@@ -2088,6 +2088,184 @@ async fn hls_source_persists_runner_failure() {
 }
 
 #[tokio::test]
+async fn hls_source_timeout_fails_session_and_cleans_visible_output() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_running_hls_ffmpeg_script(script_root.path(), "hls_timeout");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let mut config = app.config().clone();
+    config.remux_timeout_ms = 100;
+    drop(app);
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let request_key = local_hls_request_identity(&source, HardwareAcceleration::None)
+        .persisted_request_key()
+        .to_owned();
+
+    let err = app
+        .playback()
+        .hls_source(HlsSourceRequest {
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            preferences: PlaybackPreferenceContext::default(),
+            playback_generation: HlsPlaybackGeneration::default(),
+        })
+        .await
+        .unwrap_err();
+
+    let NakoError::Provider { provider, message } = err else {
+        panic!("expected hls provider timeout");
+    };
+    assert_eq!(provider, "ffmpeg_hls");
+    assert_eq!(message, "hls runner timed out");
+
+    let session = store
+        .find_latest_transcode_session(source.id, TranscodeSessionKind::HlsTranscode, &request_key)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(session.state, TranscodeSessionState::Failed);
+    assert_eq!(
+        session.failure_category,
+        Some(TranscodeFailureCategory::Timeout)
+    );
+    assert_eq!(
+        session.failure_message.as_deref(),
+        Some("hls runner timed out")
+    );
+    let output_dir = session.output_path.parent().unwrap();
+    assert!(
+        !output_dir.exists(),
+        "timed out serve-visible HLS output should be removed"
+    );
+}
+
+#[tokio::test]
+async fn app_startup_marks_stale_hls_transcode_sessions_failed() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_stale_startup");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let config = app.config().clone();
+    let staging = HlsStagingPolicy::new(config.remux_staging_root.join("hls")).unwrap();
+    let stale_id = TranscodeSessionId::new();
+    let request_identity = local_hls_request_identity(&source, HardwareAcceleration::None);
+    let layout = staging
+        .single_variant_layout(
+            source.id,
+            &request_identity,
+            nako_transcode::HlsOutputRequirement::default(),
+        )
+        .unwrap();
+
+    store
+        .create_transcode_session(NewTranscodeSession {
+            id: stale_id,
+            source_id: source.id,
+            kind: TranscodeSessionKind::HlsTranscode,
+            request_key: request_identity.persisted_request_key().to_owned(),
+            output_path: layout.playlist_path,
+            state: TranscodeSessionState::Running,
+        })
+        .await
+        .unwrap();
+
+    drop(app);
+    let restarted = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let stale = store
+        .get_transcode_session(stale_id)
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(stale.state, TranscodeSessionState::Failed);
+    assert_eq!(
+        stale.failure_category,
+        Some(TranscodeFailureCategory::Stale)
+    );
+    assert_eq!(restarted.startup_report().recovered_transcode_sessions, 1);
+}
+
+#[tokio::test]
+async fn hls_source_releases_remote_staged_input_after_success() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_remote_success");
+    let (_server, _temp, app, store, source) =
+        hls_remote_app_with_source(ffmpeg_path, TranscodeConfig::default()).await;
+
+    let output = app
+        .playback()
+        .hls_source(HlsSourceRequest {
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            preferences: PlaybackPreferenceContext::default(),
+            playback_generation: HlsPlaybackGeneration::default(),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(output.disposition, HlsSourceDisposition::Finished);
+    assert_released_ffmpeg_input_staging_record(&store, &source).await;
+}
+
+#[tokio::test]
+async fn hls_source_releases_remote_staged_input_after_runner_error() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_failing_hls_ffmpeg_script(script_root.path(), "hls_remote_failure");
+    let (_server, _temp, app, store, source) =
+        hls_remote_app_with_source(ffmpeg_path, TranscodeConfig::default()).await;
+
+    let err = app
+        .playback()
+        .hls_source(HlsSourceRequest {
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            preferences: PlaybackPreferenceContext::default(),
+            playback_generation: HlsPlaybackGeneration::default(),
+        })
+        .await
+        .unwrap_err();
+
+    let NakoError::Provider { provider, message } = err else {
+        panic!("expected hls provider failure");
+    };
+    assert_eq!(provider, "ffmpeg_hls");
+    assert_eq!(message, "hls runner failed");
+    assert_released_ffmpeg_input_staging_record(&store, &source).await;
+}
+
+#[tokio::test]
+async fn hls_playlist_releases_remote_staged_input_after_admission_rejection() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_remote_admission_reject");
+    let mut transcode = TranscodeConfig::default();
+    transcode.cpu_concurrency = 0;
+    let (_server, _temp, app, store, source) =
+        hls_remote_app_with_source(ffmpeg_path, transcode).await;
+    let principal = local_playback_viewer(&store, source.library_id).await;
+
+    let err = app
+        .playback()
+        .hls_playlist_playback(HlsPlaylistPlaybackRequest {
+            principal,
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            preferences: PlaybackPreferenceContext::default(),
+            playback_generation: HlsPlaybackGeneration::default(),
+            transport_query: None,
+        })
+        .await
+        .unwrap_err();
+
+    let NakoError::Conflict { message } = err else {
+        panic!("expected hls admission conflict");
+    };
+    assert!(message.contains("cpu_transcode"));
+    assert_released_ffmpeg_input_staging_record(&store, &source).await;
+}
+
+#[tokio::test]
 async fn direct_play_uses_vfs_stream_when_backend_has_no_local_path() {
     let backend = RemotePlaybackBackend {
         bytes: b"remote-media".to_vec(),
@@ -2424,6 +2602,142 @@ fn hls_staging_policy_carries_selected_subtitle_media_renditions() {
             .artifact_for_name("subtitle_0_00000.vtt")
             .is_ok()
     );
+}
+
+async fn hls_remote_app_with_source(
+    ffmpeg_path: PathBuf,
+    transcode: TranscodeConfig,
+) -> (
+    MockWebDavServer,
+    tempfile::TempDir,
+    NakoApp,
+    NakoDatabase,
+    MediaSource,
+) {
+    let server = MockWebDavServer::start().await;
+    let temp = tempfile::tempdir().unwrap();
+    let staging_root = temp.path().join("cache").join("remux");
+    let library_id = LibraryId::new();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path,
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: staging_root,
+        metadata: MetadataConfig::default(),
+        transcode,
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Remote Movies".to_owned(),
+            root: temp.path().join("unused-local-root"),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: Some(WebDavLibraryConfig {
+                root: "webdav:///Movies".to_owned(),
+                base_url: server.base_url(),
+                username: None,
+                password_env: None,
+                timeout_ms: 5_000,
+                max_attempts: 1,
+            }),
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Remote Demo".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        library_id,
+        item_id: item.id,
+        size_bytes: Some(4),
+        fingerprint: Some("webdav:etag=etag-demo".to_owned()),
+        ..remote_media_source("webdav:///Movies/Demo.mkv")
+    };
+
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+    store
+        .upsert_media_probe(
+            source.id,
+            &MediaProbeResult {
+                duration_ms: Some(1_000),
+                container: Some("matroska,webm".to_owned()),
+                bit_rate: None,
+                streams: vec![
+                    MediaStreamInfo {
+                        index: 0,
+                        kind: MediaStreamKind::Video,
+                        codec: Some("h264".to_owned()),
+                        language: None,
+                        duration_ms: None,
+                        bit_rate: None,
+                        width: Some(1920),
+                        height: Some(1080),
+                        channels: None,
+                        sample_rate: None,
+                        technical: Default::default(),
+                    },
+                    MediaStreamInfo {
+                        index: 1,
+                        kind: MediaStreamKind::Audio,
+                        codec: Some("aac".to_owned()),
+                        language: None,
+                        duration_ms: None,
+                        bit_rate: None,
+                        width: None,
+                        height: None,
+                        channels: Some(2),
+                        sample_rate: Some(48_000),
+                        technical: Default::default(),
+                    },
+                ],
+            },
+        )
+        .await
+        .unwrap();
+
+    (server, temp, app, store, source)
+}
+
+async fn assert_released_ffmpeg_input_staging_record(store: &NakoDatabase, source: &MediaSource) {
+    let records = store
+        .list_staging_manifest_records(
+            Some(StagingPurpose::FfmpegInput),
+            Some(StagingState::Ready),
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(records.len(), 1);
+    let record = &records[0];
+    assert_eq!(record.source_uri, source.locator);
+    assert_eq!(record.source_scheme, "webdav");
+    assert_eq!(record.active_leases, 0);
+    assert_eq!(record.validation_error, None);
+    assert!(PathBuf::from(&record.local_path).exists());
 }
 
 async fn local_playback_viewer(

@@ -24,7 +24,7 @@ Exit criteria:
   defer extraction;
 - existing HLS behavior is not changed unless the task ledger is updated.
 
-Status: Pending `HRLB-020`.
+Status: Completed by `HRLB-020`.
 
 ## M2 - Follow-On Split
 

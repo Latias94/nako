@@ -15,13 +15,13 @@ Last updated: 2026-05-31
 
 ## M1 - Behavior-Preserving Lifecycle Boundary
 
-- [ ] HRLB-020 [owner=codex] [deps=HRLB-010] [scope=crates/nako-server/src/app/playback/hls.rs,crates/nako-server/src/app/playback/hls_artifact.rs,crates/nako-server/src/app/playback/resource.rs,crates/nako-server/src/app/playback/control.rs,crates/nako-server/src/app/playback/support.rs,crates/nako-server/src/app/tests/playback.rs]
+- [x] HRLB-020 [owner=codex] [deps=HRLB-010] [scope=crates/nako-server/src/app/playback/hls.rs,crates/nako-server/src/app/playback/hls_artifact.rs,crates/nako-server/src/app/playback/resource.rs,crates/nako-server/src/app/playback/control.rs,crates/nako-server/src/app/playback/support.rs,crates/nako-server/src/app/tests/playback.rs]
   Goal: Add focused invariant tests and, if justified by `HRLB-010`, introduce a behavior-preserving server-local lifecycle coordinator/facade.
   Validation: `cargo nextest run -p nako-server hls --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`
   Review: Use `review-workstream` before accepting completion.
   Evidence: server HLS lifecycle tests and `EVIDENCE_AND_GATES.md`.
   Context: `docs/workstreams/hls-runtime-lifecycle-boundary/CONTEXT.jsonl`.
-  Handoff: Stop if the task needs `nako-transcode` command planning, pipeline selection, API DTOs, storage schema, or release packaging.
+  Handoff: DONE_WITH_CONCERNS. Added focused tests in `crates/nako-server/src/app/tests/playback.rs` for HLS timeout cleanup, HLS stale startup recovery, and HLS remote staged-input release across success, runner error, and admission rejection. Did not introduce a lifecycle coordinator/facade because HRLB-010 justified coverage first, not a new abstraction. Planner accepted a narrow scope-out Admin DTO stage mapping fix for `HardwarePipelineStage::{ToneMap, SubtitleBurnIn}`. Final HLS gate passed after a load-sensitive progressive-readiness test passed individually and on full rerun.
 
 ## M2 - Follow-On Split
 

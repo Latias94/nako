@@ -7,9 +7,10 @@
   "scope_kind": "fearless_refactor",
   "problem": "HLS session lifecycle, admission, readiness, segment waits, and cleanup are distributed across server playback composition, HLS app service, artifact service, transcode runner, and startup cleanup, which will make queueing, artifact I/O pressure, remote workers, and LL-HLS harder to add safely.",
   "task_prefix": "HRLB",
-  "current_task": "HRLB-020",
+  "current_task": "HRLB-030",
   "completed_tasks": [
-    "HRLB-010"
+    "HRLB-010",
+    "HRLB-020"
   ],
   "authoritative_docs": [
     {
@@ -53,6 +54,10 @@
     {
       "task": "HRLB-010",
       "summary": "Froze current HLS lifecycle invariants, cleanup ownership, readiness and one-shot segment wait semantics, test coverage map, and the decision to split artifact I/O pressure into a PAIP follow-on without changing Rust behavior."
+    },
+    {
+      "task": "HRLB-020",
+      "summary": "Added behavior-preserving HLS lifecycle tests for timeout cleanup, HLS stale startup recovery, and remote staged-input release across success, runner error, and admission rejection. Planner accepted a narrow Admin DTO stage mapping fix for HardwarePipelineStage::ToneMap and SubtitleBurnIn. Final HLS, fmt, and diff gates passed; one progressive-readiness test remains load-sensitive under full-suite concurrency."
     }
   ],
   "adr_refs": [
@@ -82,6 +87,6 @@
   "lane_slug": "playback-transcode",
   "continue_policy": {
     "default_action": "continue_current_task",
-    "notes": "Continue with HRLB-020 only after planner review of the HRLB-010 invariant freeze. Keep HRLB-020 behavior-preserving and focused on lifecycle tests/coordinator boundaries. Do not implement PAIP artifact I/O pressure enforcement, resource admission unification, remote workers, LL-HLS/CMAF, Public/Admin DTOs, storage schema, or FFmpeg command planning until the planner splits or approves those scopes."
+    "notes": "Continue with HRLB-030 follow-on split decisions. Decide whether PAIP artifact I/O pressure enforcement, resource admission unification, remote workers, LL-HLS/CMAF, player UX, and HLS test stability remain follow-ons or become bounded workstreams. Do not implement those scopes until the planner splits or approves them."
   }
 }
