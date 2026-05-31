@@ -2039,6 +2039,106 @@ mod tests {
     }
 
     #[test]
+    fn pipeline_planner_uses_decoder_stage_for_hevc_quick_sync_source() {
+        let inventory = FfmpegProbeInventory::from_outputs(
+            r#"
+ V..... libx264
+ A..... aac
+ V..... h264_qsv
+"#,
+            r#"
+ V..... h264_qsv
+ V..... hevc_qsv
+"#,
+            r#"
+qsv
+"#,
+            "",
+            r#"
+h264_mp4toannexb
+"#,
+        );
+        let report = report_from_ffmpeg_probe_inventory(&inventory);
+        let quick_sync = report
+            .capability_for(HardwareAcceleration::QuickSync)
+            .unwrap();
+
+        assert!(quick_sync.available);
+        assert!(quick_sync.has_available_stage_feature(HardwarePipelineStage::Decode, "hevc_qsv"));
+
+        let plan = TranscodePipelinePlanner::new()
+            .plan_hls_single_variant(
+                TranscodePipelineRequest::hls_single_variant(
+                    HardwareAccelerationPolicy {
+                        requested: HardwareAcceleration::QuickSync,
+                        fallback: HardwareAccelerationFallback::Cpu,
+                    },
+                    TranscodeTrackSelection::default(),
+                    TranscodeOutputConstraints::default(),
+                )
+                .with_source(source_video("hevc", None)),
+                &report,
+            )
+            .unwrap();
+
+        assert_eq!(
+            plan.selected_acceleration(),
+            HardwareAcceleration::QuickSync
+        );
+        assert!(!plan.fallback_used());
+    }
+
+    #[test]
+    fn pipeline_planner_falls_back_when_decoder_stage_missing_for_hevc_quick_sync_source() {
+        let inventory = FfmpegProbeInventory::from_outputs(
+            r#"
+ V..... libx264
+ A..... aac
+ V..... h264_qsv
+"#,
+            r#"
+ V..... h264_qsv
+"#,
+            r#"
+qsv
+"#,
+            "",
+            r#"
+h264_mp4toannexb
+"#,
+        );
+        let report = report_from_ffmpeg_probe_inventory(&inventory);
+        let quick_sync = report
+            .capability_for(HardwareAcceleration::QuickSync)
+            .unwrap();
+
+        assert!(quick_sync.available);
+        assert!(!quick_sync.has_available_stage_feature(HardwarePipelineStage::Decode, "hevc_qsv"));
+
+        let plan = TranscodePipelinePlanner::new()
+            .plan_hls_single_variant(
+                TranscodePipelineRequest::hls_single_variant(
+                    HardwareAccelerationPolicy {
+                        requested: HardwareAcceleration::QuickSync,
+                        fallback: HardwareAccelerationFallback::Cpu,
+                    },
+                    TranscodeTrackSelection::default(),
+                    TranscodeOutputConstraints::default(),
+                )
+                .with_source(source_video("hevc", None)),
+                &report,
+            )
+            .unwrap();
+
+        assert_eq!(plan.selected_acceleration(), HardwareAcceleration::None);
+        assert!(plan.fallback_used());
+        assert_eq!(
+            plan.readiness.reason,
+            TranscodePipelineReadinessReason::SourceVideoCodecUnsupportedByRequestedPipeline
+        );
+    }
+
+    #[test]
     fn pipeline_planner_rejects_source_incompatible_hardware_when_fallback_is_fail() {
         let report = HardwareAccelerationReport::with_available([
             HardwareAcceleration::None,

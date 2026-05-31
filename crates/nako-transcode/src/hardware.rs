@@ -412,6 +412,18 @@ impl HardwareAccelerationCapability {
                 .iter()
                 .any(|stage| stage.discovery_status == HardwareEncoderDiscoveryStatus::ProbeError)
     }
+
+    #[must_use]
+    pub fn has_available_stage_feature(&self, stage: HardwarePipelineStage, feature: &str) -> bool {
+        self.stage_capabilities.iter().any(|capability| {
+            capability.stage == stage
+                && capability.available
+                && capability
+                    .feature
+                    .as_deref()
+                    .is_some_and(|candidate| candidate.eq_ignore_ascii_case(feature))
+        })
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]

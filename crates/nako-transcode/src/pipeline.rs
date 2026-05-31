@@ -2,9 +2,10 @@ use nako_core::{MediaProbeResult, MediaSource, MediaStreamInfo, NakoError, Resul
 use serde::{Deserialize, Serialize};
 
 use super::{
-    HardwareAcceleration, HardwareAccelerationFallback, HardwareAccelerationPolicy,
-    HardwareAccelerationReport, HlsAdaptiveLadderPlan, HlsMediaRenditionPlan, HlsOutputRequirement,
-    HlsPlaybackGeneration, HlsRequestVariantPlan, HlsVariantPolicy, PlaybackHlsProfileRequest,
+    HardwareAcceleration, HardwareAccelerationCapability, HardwareAccelerationFallback,
+    HardwareAccelerationPolicy, HardwareAccelerationReport, HardwarePipelineStage,
+    HlsAdaptiveLadderPlan, HlsMediaRenditionPlan, HlsOutputRequirement, HlsPlaybackGeneration,
+    HlsRequestVariantPlan, HlsVariantPolicy, PlaybackHlsProfileRequest,
     TranscodeAccelerationFallbackPlan, TranscodeAccelerationPlan, TranscodeAudioOutputRequirement,
     TranscodeColorPipelineRequirement, TranscodeExecutionPolicy, TranscodeOutputConstraints,
     TranscodePlan, TranscodeProfile, TranscodeProfileIdentity, TranscodeRequestIdentity,
@@ -317,7 +318,11 @@ fn select_pipeline_acceleration(
     }
 
     if report.is_available(policy.requested) {
-        if let Some(reason) = source_incompatibility_reason(policy.requested, source) {
+        if let Some(reason) = source_incompatibility_reason(
+            policy.requested,
+            report.capability_for(policy.requested),
+            source,
+        ) {
             return source_incompatible_readiness(policy, report, reason);
         }
 
@@ -442,6 +447,7 @@ fn source_incompatible_readiness(
 
 fn source_incompatibility_reason(
     accelerator: HardwareAcceleration,
+    capability: Option<&HardwareAccelerationCapability>,
     source: Option<&TranscodePipelineSourceFacts>,
 ) -> Option<TranscodePipelineReadinessReason> {
     if !uses_source_aware_hardware_decode(accelerator) {
@@ -449,11 +455,9 @@ fn source_incompatibility_reason(
     }
 
     let video = source.and_then(|source| source.video.as_ref())?;
-    if !video
-        .codec
-        .as_deref()
-        .is_none_or(|codec| codec.eq_ignore_ascii_case("h264"))
-    {
+    if !video.codec.as_deref().is_none_or(|codec| {
+        source_video_codec_supported_by_requested_pipeline(accelerator, capability, codec)
+    }) {
         return Some(
             TranscodePipelineReadinessReason::SourceVideoCodecUnsupportedByRequestedPipeline,
         );
@@ -471,6 +475,72 @@ fn source_incompatibility_reason(
     }
 
     None
+}
+
+fn source_video_codec_supported_by_requested_pipeline(
+    accelerator: HardwareAcceleration,
+    capability: Option<&HardwareAccelerationCapability>,
+    codec: &str,
+) -> bool {
+    let Some(codec) = pipeline_source_video_codec(codec) else {
+        return false;
+    };
+
+    if codec == PipelineSourceVideoCodec::H264 {
+        return true;
+    }
+
+    let Some(decoder) = source_decoder_stage_feature(accelerator, codec) else {
+        return false;
+    };
+
+    capability.is_some_and(|capability| {
+        capability.has_available_stage_feature(HardwarePipelineStage::Decode, decoder)
+    })
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum PipelineSourceVideoCodec {
+    H264,
+    Hevc,
+    Av1,
+}
+
+fn pipeline_source_video_codec(codec: &str) -> Option<PipelineSourceVideoCodec> {
+    let normalized = codec
+        .trim()
+        .to_ascii_lowercase()
+        .replace(['.', '-', '_'], "");
+
+    match normalized.as_str() {
+        "h264" | "avc" => Some(PipelineSourceVideoCodec::H264),
+        "h265" | "hevc" => Some(PipelineSourceVideoCodec::Hevc),
+        "av1" => Some(PipelineSourceVideoCodec::Av1),
+        _ => None,
+    }
+}
+
+fn source_decoder_stage_feature(
+    accelerator: HardwareAcceleration,
+    codec: PipelineSourceVideoCodec,
+) -> Option<&'static str> {
+    match (accelerator, codec) {
+        (_, PipelineSourceVideoCodec::H264) => Some("h264"),
+        (
+            HardwareAcceleration::Vaapi | HardwareAcceleration::VideoToolbox,
+            PipelineSourceVideoCodec::Hevc,
+        ) => Some("hevc"),
+        (
+            HardwareAcceleration::Vaapi | HardwareAcceleration::VideoToolbox,
+            PipelineSourceVideoCodec::Av1,
+        ) => Some("av1"),
+        (HardwareAcceleration::QuickSync, PipelineSourceVideoCodec::Hevc) => Some("hevc_qsv"),
+        (HardwareAcceleration::QuickSync, PipelineSourceVideoCodec::Av1) => Some("av1_qsv"),
+        (
+            HardwareAcceleration::None | HardwareAcceleration::Nvenc | HardwareAcceleration::Amf,
+            PipelineSourceVideoCodec::Hevc | PipelineSourceVideoCodec::Av1,
+        ) => None,
+    }
 }
 
 fn uses_source_aware_hardware_decode(accelerator: HardwareAcceleration) -> bool {
@@ -493,7 +563,7 @@ fn unavailable_pipeline_readiness(
     {
         TranscodePipelineReadinessReason::CpuFallbackUnavailable
     } else {
-        TranscodePipelineReadinessReason::RequestedPipelineUnavailableFailPolicy
+        unavailable_reason(policy, report)
     };
 
     let selected = match reason {
@@ -515,12 +585,8 @@ fn unavailable_reason(
     policy: HardwareAccelerationPolicy,
     report: &HardwareAccelerationReport,
 ) -> TranscodePipelineReadinessReason {
-    if policy.fallback == HardwareAccelerationFallback::Fail {
-        return TranscodePipelineReadinessReason::RequestedPipelineUnavailableFailPolicy;
-    }
-
     let Some(capability) = report.capability_for(policy.requested) else {
-        return TranscodePipelineReadinessReason::RequestedPipelineUnavailableFallbackToCpu;
+        return fallback_unavailable_reason(policy);
     };
 
     if capability.has_probe_error() {
@@ -536,7 +602,20 @@ fn unavailable_reason(
         return TranscodePipelineReadinessReason::SmokeProbeFailed;
     }
 
-    TranscodePipelineReadinessReason::RequestedPipelineUnavailableFallbackToCpu
+    fallback_unavailable_reason(policy)
+}
+
+fn fallback_unavailable_reason(
+    policy: HardwareAccelerationPolicy,
+) -> TranscodePipelineReadinessReason {
+    match policy.fallback {
+        HardwareAccelerationFallback::Cpu => {
+            TranscodePipelineReadinessReason::RequestedPipelineUnavailableFallbackToCpu
+        }
+        HardwareAccelerationFallback::Fail => {
+            TranscodePipelineReadinessReason::RequestedPipelineUnavailableFailPolicy
+        }
+    }
 }
 
 #[cfg(test)]
