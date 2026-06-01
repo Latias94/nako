@@ -108,7 +108,7 @@ Non-goals:
 Follow-on split after closeout:
 
 - `proposed:admin-web-provider-depth-governance`
-- `docs/workstreams/accepted-review-provider-mapping-application/`
+- `docs/workstreams/accepted-review-provider-mapping-application/` (closed)
 
 ### proposed:admin-web-provider-depth-governance
 

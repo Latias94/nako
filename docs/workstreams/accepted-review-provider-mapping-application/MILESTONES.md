@@ -1,6 +1,6 @@
 # Accepted Review Provider Mapping Application - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 - Lane Opening
@@ -39,7 +39,7 @@ Exit criteria:
 
 ## M3 - Surface Split Review
 
-Status: Ready after `ARPMA-030`.
+Status: Complete after `ARPMA-040`.
 
 Exit criteria:
 
@@ -49,7 +49,7 @@ Exit criteria:
 
 ## M4 - Closeout
 
-Status: Pending after `ARPMA-040`.
+Status: Complete after `ARPMA-050`.
 
 Exit criteria:
 

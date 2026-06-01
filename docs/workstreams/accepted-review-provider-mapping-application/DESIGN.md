@@ -1,6 +1,6 @@
 # Accepted Review Provider Mapping Application - Design
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Why This Lane Exists
@@ -107,5 +107,5 @@ If implementation exposes a small shared helper, it belongs in
 
 `ARPMA-020` defines the read-only application plan contract and tests before any
 mutation service is added. `ARPMA-030` adds the root-only application service.
-`ARPMA-040` decides whether Admin API/Web mutation scope belongs in this lane or
-should split with provider depth governance before any surface is exposed.
+`ARPMA-040` split Admin API/Web mutation scope to
+`proposed:admin-web-provider-depth-governance` before any surface is exposed.

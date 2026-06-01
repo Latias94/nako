@@ -26,9 +26,57 @@ proposed milestone.
 
 ## Current Goal
 
+### Admin/Web Provider Depth Governance Planning
+
+Status: proposed next as of 2026-06-02.
+
+Objective:
+
+- Open a focused follow-on for durable Metadata Candidate Review evidence and
+  accepted-review application surfaces.
+- Keep Admin API/Web mutation semantics explicit before exposing the backend
+  `MetadataCandidateReviewApplicationService`.
+- Preserve the split between preview graph evidence, accepted Provider Mapping
+  facts, and future related-node hierarchy application.
+
+Deliverables:
+
+- `docs/workstreams/admin-web-provider-depth-governance/` or an equivalent
+  focused workstream;
+- Admin API/Web task ledger with redaction, idempotency, stale guard, generated
+  contract, and Web UX gates;
+- architecture map updates that route product exposure away from the closed
+  backend ARPMA lane.
+
+Non-goals:
+
+- no Public Client API expansion;
+- no raw provider payload, token, header, proxy URL, or path exposure;
+- no related graph node hierarchy mutation in the first surface lane;
+- no reuse of Generated Artifact apply outcomes as Candidate Review state.
+
+Exit criteria:
+
+- the follow-on workstream names owned scopes and shared scopes;
+- first executable task is bounded and validated;
+- existing Provider Mapping review routes are treated as precedent, not as the
+  durable Candidate Review surface itself.
+
+Evidence:
+
+- `docs/workstreams/accepted-review-provider-mapping-application/CLOSEOUT.md`
+- `docs/architecture/LIBRARY_PIPELINE.md`
+- `docs/architecture/LANES.md`
+
+Current task:
+
+- Open the Admin/Web provider depth governance workstream.
+
+## Recent Completed Goals
+
 ### Accepted Review Provider Mapping Application
 
-Status: active as of 2026-06-02.
+Status: completed on 2026-06-02.
 
 Objective:
 
@@ -45,7 +93,7 @@ Deliverables:
 - read-only accepted-review Provider Mapping application plan;
 - backend application service that writes only root Provider Subject and root
   accepted Provider Mapping idempotently;
-- workstream evidence deciding whether API/Web surfaces split or continue.
+- workstream evidence deciding that API/Web surfaces split to a follow-on.
 
 Non-goals:
 
@@ -71,10 +119,13 @@ Evidence:
 
 Current task:
 
-- `ARPMA-040`: decide whether Admin API/Web mutation scope belongs in this lane
-  or should split with Admin/Web provider depth governance.
+- DONE after `ARPMA-050`.
 
-## Recent Completed Goals
+Next recommended goal:
+
+- Open `proposed:admin-web-provider-depth-governance` so Admin API/Web can
+  expose durable Candidate Review evidence and accepted-review application
+  mutations through an explicit operator workflow.
 
 ### Metadata Candidate Durable Review
 

@@ -1,6 +1,6 @@
 # Accepted Review Provider Mapping Application
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 This workstream applies accepted Metadata Candidate Reviews to Provider Subject
@@ -17,13 +17,14 @@ Authoritative docs:
 - `CONTEXT.jsonl`
 - `HANDOFF.md`
 
-Current execution:
+Closed outcome:
 
 - `ARPMA-010` opens the lane.
 - `ARPMA-020` shipped the read-only Provider Mapping application plan.
 - `ARPMA-030` shipped the root-only idempotent backend application service.
-- `ARPMA-040` is ready: decide whether Admin API/Web mutation scope belongs in
-  this lane or should split with provider depth governance.
+- `ARPMA-040` split Admin API/Web mutation scope to
+  `proposed:admin-web-provider-depth-governance`.
+- `ARPMA-050` closed the lane.
 
 Boundary:
 

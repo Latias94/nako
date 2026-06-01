@@ -20,7 +20,7 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| library-metadata-control-plane | accepted-review-provider-mapping-application | ARPMA-040 | Candidate review surface split planner |
+| library-metadata-control-plane | proposed:admin-web-provider-depth-governance | OPEN | Provider depth governance planner |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
@@ -58,12 +58,12 @@ persistence, and backend-only accept/reject status transitions without Provider
 Mapping writes. Next choose a focused follow-on for Admin/Web provider depth
 governance, accepted-review Provider Mapping application, or Douban TV/episode
 endpoint depth rather than reopening it.
-`accepted-review-provider-mapping-application` is active at `ARPMA-040`.
-`ARPMA-020` added a read-only application plan and `ARPMA-030` added the
-idempotent root Provider Subject / Provider Mapping application service. Next
-decide whether Admin API/Web mutation scope belongs here or splits to provider
-depth governance before Public Client API changes or related graph node
-application.
+`accepted-review-provider-mapping-application` is closed after `ARPMA-050`.
+`ARPMA-020` added a read-only application plan, `ARPMA-030` added the
+idempotent root Provider Subject / Provider Mapping application service, and
+`ARPMA-040` split Admin API/Web mutation scope to
+`proposed:admin-web-provider-depth-governance` before Public Client API changes
+or related graph node application.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
@@ -162,10 +162,11 @@ Closed evidence:
 - `docs/workstreams/bangumi-relations-and-episode-depth/`
 - `docs/workstreams/douban-subject-kind-precision/`
 - `docs/workstreams/metadata-candidate-durable-review/`
+- `docs/workstreams/accepted-review-provider-mapping-application/`
 
 Active evidence:
 
-- `docs/workstreams/accepted-review-provider-mapping-application/`
+- None until `proposed:admin-web-provider-depth-governance` is opened.
 
 Owned scopes:
 

@@ -1,6 +1,6 @@
 # Accepted Review Provider Mapping Application - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Lane Opening Gates
@@ -76,8 +76,10 @@ Implemented behavior:
 Green checks:
 
 - `python -m json.tool docs/workstreams/accepted-review-provider-mapping-application/WORKSTREAM.json`
+  passed.
 - JSONL validation for `TASKS.jsonl`, `CAMPAIGNS.jsonl`, and `CONTEXT.jsonl`
-- `git diff --check`
+  passed.
+- `git diff --check` passed with Git CRLF normalization warnings only.
 
 ## ARPMA-020 Evidence
 
@@ -157,3 +159,37 @@ Green checks:
 - JSONL validation for `TASKS.jsonl`, `CAMPAIGNS.jsonl`, and `CONTEXT.jsonl`
   passed.
 - `git diff --check` passed with Git CRLF normalization warnings only.
+
+## ARPMA-040 Source Coverage And Split Decision
+
+| Source | State | Evidence | Impact |
+| --- | --- | --- | --- |
+| Domain glossary | COVERED | `CONTEXT.md` | Uses Provider Subject, Provider Mapping, Metadata Candidate Review, Admin API, and Public Client API terms. |
+| Metadata ADRs | COVERED | `docs/adr/0007-metadata-merge-policy-and-local-authority.md`; `docs/adr/0018-metadata-provider-runtime-and-diagnostics.md`; `docs/adr/0021-video-first-media-server-domain-model.md` | Provider evidence remains separate from Canonical Metadata and item identity. |
+| ARPMA backend evidence | COVERED | `crates/nako-metadata/src/candidate_review.rs`; `crates/nako-metadata/src/tests.rs` | Root-only application is safe as backend logic. |
+| Existing Admin Catalog Governance Provider Mapping review | COVERED | `crates/nako-api/src/admin/catalog_governance.rs`; `crates/nako-server/src/app/catalog.rs`; `crates/nako-server/src/http/admin.rs` | Existing routes review already persisted Provider Mapping rows, not durable Candidate Review graph evidence. |
+| Existing metadata diagnostics Candidate Review response | COVERED | `crates/nako-api/src/metadata_diagnostics.rs`; `crates/nako-server/src/app/metadata.rs`; `crates/nako-server/src/http/metadata.rs` | Diagnostics expose matching/review facts but do not own durable accepted-review application mutation. |
+| Web generated artifact Provider Mapping UI | OUT_OF_SCOPE | `web/src/features/admin/admin-generated-artifact-metadata-apply.tsx`; `web/src/api/admin/read-models-data-source.ts` | Useful pattern, but Generated Artifact apply remains a separate control-plane workflow. |
+
+Decision:
+
+- Split Admin API/Web durable Candidate Review exposure to
+  `proposed:admin-web-provider-depth-governance`.
+- Keep this lane closed after backend plan/apply semantics.
+- Split related graph node hierarchy application to a separate future lane.
+
+## ARPMA-050 Closeout Evidence
+
+Implemented behavior:
+
+- Added `CLOSEOUT.md`.
+- Marked `TODO.md`, `TASKS.jsonl`, `MILESTONES.md`, `HANDOFF.md`, and
+  `WORKSTREAM.json` closed.
+- Updated architecture and roadmap docs so active work no longer routes to this
+  closed backend lane.
+
+Green checks:
+
+- `python -m json.tool docs/workstreams/accepted-review-provider-mapping-application/WORKSTREAM.json`
+- JSONL validation for `TASKS.jsonl`, `CAMPAIGNS.jsonl`, and `CONTEXT.jsonl`
+- `git diff --check`

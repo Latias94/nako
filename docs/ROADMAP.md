@@ -11,8 +11,9 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: Accepted Review Provider Mapping Application is active after Metadata
-Candidate Durable Review closeout in the `library-metadata-control-plane` lane.
+Status: Admin/Web Provider Depth Governance Planning is next after Accepted
+Review Provider Mapping Application closed in the
+`library-metadata-control-plane` lane.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
 Operations Repair are both closed as of 2026-06-02. Web Admin Generated
@@ -22,15 +23,16 @@ Precision is closed after `MPDP-050`. TMDB Season Episode Graph Depth is
 closed after `TSEG-040`. Bangumi Relations And Episode Depth is closed after
 `BRED-050`. Douban Subject Kind Precision is closed after `DSKP-030`.
 Metadata Candidate Durable Review is closed after `MCDR-050`. Accepted Review
-Provider Mapping Application is active at `ARPMA-040`.
+Provider Mapping Application is closed after `ARPMA-050`.
 
-It targets:
+The next focus targets:
 
-- using the read-only accepted-review Provider Mapping application plan from
-  `ARPMA-020`;
-- keeping Provider Mapping writes out of review status transitions;
-- applying only root Provider Subject / Provider Mapping state through
-  `ARPMA-030` before Admin/Web or related graph node governance begins.
+- opening `proposed:admin-web-provider-depth-governance`;
+- exposing durable Candidate Review evidence and accepted-review application
+  mutations through explicit Admin API/Web operator workflows;
+- preserving redaction, stale guard, and idempotency semantics from the backend
+  ARPMA service;
+- keeping Public Client API and related graph node hierarchy application split.
 
 Authoritative evidence:
 
@@ -42,11 +44,30 @@ Authoritative evidence:
 
 Next task:
 
-- `ARPMA-040`: decide whether Admin API/Web mutation scope belongs in this lane
-  or should split with Admin/Web provider depth governance before Public Client
-  API changes or related graph node application.
+- Open `proposed:admin-web-provider-depth-governance` before exposing durable
+  Candidate Review evidence or accepted-review application mutations through
+  Admin API/Web.
 
 Latest completed architecture focus:
+
+Accepted Review Provider Mapping Application closed on 2026-06-02 after
+`ARPMA-050`.
+
+It shipped:
+
+- read-only accepted-review Provider Mapping application plans;
+- idempotent root Provider Subject / Provider Mapping application through
+  `MetadataCandidateReviewApplicationService`;
+- rejected-mapping protection, stale/wrong-item guards, and preview-only
+  related graph behavior;
+- explicit split of Admin API/Web provider depth governance and related-node
+  hierarchy application follow-ons.
+
+Authoritative lane:
+
+- `docs/workstreams/accepted-review-provider-mapping-application/`
+
+Previous completed architecture focus:
 
 Metadata Candidate Durable Review closed on 2026-06-02 after `MCDR-050`.
 
@@ -135,7 +156,7 @@ Follow-ons:
 - `docs/workstreams/bangumi-relations-and-episode-depth/` (closed);
 - `docs/workstreams/douban-subject-kind-precision/` (closed);
 - `docs/workstreams/metadata-candidate-durable-review/` (closed);
-- `docs/workstreams/accepted-review-provider-mapping-application/` (active);
+- `docs/workstreams/accepted-review-provider-mapping-application/` (closed);
 - `proposed:admin-web-provider-depth-governance`;
 - `proposed:douban-tv-episode-endpoint-depth`.
 

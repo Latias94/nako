@@ -164,7 +164,7 @@ Evidence workstreams:
 - `docs/workstreams/bangumi-relations-and-episode-depth/` (closed)
 - `docs/workstreams/douban-subject-kind-precision/` (closed)
 - `docs/workstreams/metadata-candidate-durable-review/` (closed)
-- `docs/workstreams/accepted-review-provider-mapping-application/` (active)
+- `docs/workstreams/accepted-review-provider-mapping-application/` (closed)
 - `docs/workstreams/metadata-acquisition-pipeline/`
 - `docs/workstreams/metadata-profile-configuration-authority/`
 - `docs/workstreams/metadata-application-policy-seam/`
@@ -201,6 +201,7 @@ Proposed lanes:
 - `proposed:library-watcher-and-media-intake-stability`
 - `proposed:artwork-delivery-cache-placeholder`
 - `proposed:admin-web-provider-depth-governance`
+- `proposed:provider-review-related-hierarchy-application`
 - `proposed:douban-tv-episode-endpoint-depth`
 - `proposed:provider-identity-mapping-breadth`
 

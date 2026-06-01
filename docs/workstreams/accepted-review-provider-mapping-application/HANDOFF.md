@@ -1,26 +1,22 @@
 # Accepted Review Provider Mapping Application - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Current State
 
-The lane is opened from `metadata-candidate-durable-review` closeout. Durable
-Metadata Candidate Reviews can be accepted/rejected, and accepted review root
-Provider Subject / Provider Mapping application now exists as an explicit
-backend service rather than a hidden status-transition side effect. Admin/Web
-governance remains unexposed until `ARPMA-040` decides the surface split.
+The lane is closed after proving accepted-review root Provider Subject /
+Provider Mapping application as an explicit backend service. Admin/API/Web
+exposure is split to `proposed:admin-web-provider-depth-governance`.
 
 ## Active Task
 
-- Task ID: `ARPMA-040`
-- Owner: planner
-- Files: this workstream evidence, architecture maps, `docs/GOALS.md`, and
-  `docs/ROADMAP.md`
-- Validation: fresh evidence in `EVIDENCE_AND_GATES.md`; JSON/JSONL
-  validation; `git diff --check`
-- Status: READY
-- Evidence: `docs/workstreams/accepted-review-provider-mapping-application/EVIDENCE_AND_GATES.md`
+- Task ID: none
+- Owner: none
+- Files: none
+- Validation: see `CLOSEOUT.md`
+- Status: DONE
+- Evidence: `docs/workstreams/accepted-review-provider-mapping-application/CLOSEOUT.md`
 
 ## Decisions Since Opening
 
@@ -40,13 +36,16 @@ governance remains unexposed until `ARPMA-040` decides the surface split.
   only the root Provider Subject / Provider Mapping idempotently, rejects
   rejected mapping conflicts, and leaves related review graph nodes as preview
   evidence.
+- `ARPMA-040` split Admin API/Web mutation scope to
+  `proposed:admin-web-provider-depth-governance`.
+- `ARPMA-050` closed this backend lane.
 
 ## Blockers
 
-- None for `ARPMA-040`.
+- None for this closed lane.
 
 ## Next Recommended Action
 
-- Run `ARPMA-040`: decide whether Admin API/Web mutation scope belongs in this
-  lane or should split with Admin/Web provider depth governance before exposing
-  the backend application service.
+- Open `proposed:admin-web-provider-depth-governance` before exposing durable
+  Metadata Candidate Review evidence or accepted-review application mutations
+  through Admin API/Web.

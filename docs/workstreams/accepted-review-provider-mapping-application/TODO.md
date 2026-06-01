@@ -1,6 +1,6 @@
 # Accepted Review Provider Mapping Application - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 - Lane Opening
@@ -31,18 +31,18 @@ Last updated: 2026-06-02
 
 ## M3 - Surface Split Review
 
-- [ ] ARPMA-040 [owner=planner] [deps=ARPMA-030] [scope=docs/workstreams/accepted-review-provider-mapping-application,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
+- [x] ARPMA-040 [owner=planner] [deps=ARPMA-030] [scope=docs/workstreams/accepted-review-provider-mapping-application,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
   Goal: Decide whether an Admin API route belongs in this lane or should split with Admin/Web provider depth governance.
   Validation: fresh evidence in `EVIDENCE_AND_GATES.md`; JSON/JSONL validation; `git diff --check`.
-  Review: API/UI work remains blocked until backend application semantics are safe.
+  Review: split Admin API/Web mutation scope to `proposed:admin-web-provider-depth-governance`; backend application semantics are safe, but product exposure needs its own operator workflow.
   Evidence: `EVIDENCE_AND_GATES.md`.
-  Handoff: Continue to `ARPMA-050` closeout or an explicit API follow-on.
+  Handoff: DONE; continue to `ARPMA-050` closeout.
 
 ## M4 - Closeout
 
-- [ ] ARPMA-050 [owner=planner] [deps=ARPMA-040] [scope=docs/workstreams/accepted-review-provider-mapping-application,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
+- [x] ARPMA-050 [owner=planner] [deps=ARPMA-040] [scope=docs/workstreams/accepted-review-provider-mapping-application,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
   Goal: Close the lane or split Admin/Web governance and related-node hierarchy follow-ons.
   Validation: fresh gate evidence in `EVIDENCE_AND_GATES.md`; JSON/JSONL validation; `git diff --check`.
   Review: accepted reviews can be safely planned/applied without hidden refresh or UI side effects.
   Evidence: `CLOSEOUT.md` if closed.
-  Handoff: DONE or explicit follow-on split.
+  Handoff: DONE; open `proposed:admin-web-provider-depth-governance` when product/API exposure begins.

@@ -18,16 +18,15 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 
 Last reviewed: 2026-06-02
 
-`accepted-review-provider-mapping-application` is active in the
-`library-metadata-control-plane` lane after `metadata-candidate-durable-review`
-closeout.
+`accepted-review-provider-mapping-application` is closed in the
+`library-metadata-control-plane` lane after shipping the backend accepted-review
+application boundary.
 
 Next task:
 
-- `ARPMA-040`: decide whether Admin API/Web mutation scope belongs in the
-  accepted-review application lane or should split with provider depth
-  governance before Public Client API changes or related graph node
-  application.
+- Open `proposed:admin-web-provider-depth-governance` before exposing durable
+  Candidate Review evidence or accepted-review application mutations through
+  Admin API/Web.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -56,7 +55,7 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
 ## Current Workstreams
 
 - [accepted-review-provider-mapping-application](accepted-review-provider-mapping-application/README.md):
-  active library-metadata-control-plane lane for turning accepted durable
+  closed library-metadata-control-plane lane for turning accepted durable
   Metadata Candidate Reviews into explicit root Provider Mapping application
   plans, backend application semantics, and an explicit surface split decision.
 - [metadata-candidate-durable-review](metadata-candidate-durable-review/README.md):

@@ -28,7 +28,7 @@ Storage event or scheduled scan
 | Local inference | Shipped foundation | `CONTEXT.md`; metadata/catalog lanes | Anime/series path heuristics and confidence reporting. |
 | Media probe | Shipped foundation | playback/transcode lanes | More HDR/audio/subtitle technical facts. |
 | NFO authority | Shipped foundation | `docs/adr/0008-nfo-as-local-metadata-boundary.md` | Round-trip/writeback polish and backup policy. |
-| Metadata merge policy | Shipped foundation; durable candidate review shipped; accepted-review root mapping application active | `docs/adr/0007-metadata-merge-policy-and-local-authority.md`; `docs/workstreams/metadata-candidate-durable-review/`; `docs/workstreams/accepted-review-provider-mapping-application/` | Admin/Web surface split review before exposing mutation. |
+| Metadata merge policy | Shipped foundation; durable candidate review and accepted-review root mapping application shipped | `docs/adr/0007-metadata-merge-policy-and-local-authority.md`; `docs/workstreams/metadata-candidate-durable-review/`; `docs/workstreams/accepted-review-provider-mapping-application/` | Open Admin/Web provider depth governance before exposing mutation. |
 | TMDB provider | Shipped movie plus series/season/episode graph preview foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/metadata-provider-depth-and-precision/`; `docs/workstreams/tmdb-season-episode-graph-depth/` | Accepted-review application or Admin/Web governance before preview graph depth becomes accepted hierarchy. |
 | Douban provider | Shipped MVP plus endpoint-backed capability precision | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/douban-subject-kind-precision/` | Accepted-review application, Admin/Web governance, or endpoint-backed TV/episode follow-on. |
 | Bangumi provider | Shipped MVP plus endpoint-backed episode graph preview | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/bangumi-relations-and-episode-depth/` | Accepted-review application or Admin/Web governance before preview graph depth becomes accepted hierarchy. |
@@ -47,16 +47,15 @@ this document focused on intake and asset pipeline capability state.
 
 ### accepted-review-provider-mapping-application
 
-Status: Active at
+Status: Closed at
 `docs/workstreams/accepted-review-provider-mapping-application/`.
 
 Goal: Apply accepted Metadata Candidate Reviews to root Provider Subject and
 Provider Mapping state through a named backend boundary.
 
-Current task:
+Next task:
 
-- `ARPMA-040`: decide whether Admin API/Web mutation scope belongs in this lane
-  or should split with provider depth governance.
+- Open `proposed:admin-web-provider-depth-governance`.
 
 Shipped:
 
@@ -64,6 +63,8 @@ Shipped:
   plan before mutation.
 - `ARPMA-030` applies only the root Provider Subject / Provider Mapping
   idempotently through the backend service.
+- `ARPMA-040` splits Admin API/Web mutation scope to provider depth governance.
+- `ARPMA-050` closes the backend lane.
 
 Non-goals:
 

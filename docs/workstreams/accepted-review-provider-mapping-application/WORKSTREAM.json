@@ -2,12 +2,12 @@
   "schema_version": 1,
   "slug": "accepted-review-provider-mapping-application",
   "title": "Accepted Review Provider Mapping Application",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-06-02",
   "scope_kind": "library_metadata_candidate_review_application",
   "problem": "Accepted Metadata Candidate Reviews are durable, but applying them to Provider Subject and Provider Mapping state must be a named backend service rather than a hidden status-transition side effect.",
   "task_prefix": "ARPMA",
-  "current_task": "ARPMA-040",
+  "current_task": null,
   "authoritative_docs": [
     {
       "role": "overview",
@@ -64,6 +64,14 @@
     {
       "task": "ARPMA-030",
       "summary": "Added an idempotent accepted-review application service that writes only the root Provider Subject and accepted Provider Mapping, protects rejected mappings, and keeps related graph nodes preview-only."
+    },
+    {
+      "task": "ARPMA-040",
+      "summary": "Split Admin API/Web mutation scope to proposed:admin-web-provider-depth-governance after source coverage showed existing Provider Mapping review routes do not cover durable Candidate Review application."
+    },
+    {
+      "task": "ARPMA-050",
+      "summary": "Closed the backend accepted-review Provider Mapping application lane and recorded Admin/Web governance plus related-node hierarchy follow-ons."
     }
   ],
   "adr_refs": [
@@ -78,7 +86,7 @@
     },
     {
       "path": "docs/architecture/WORKSTREAM_LINKS.md",
-      "capability": "Accepted review Provider Mapping application active lane"
+      "capability": "Accepted review Provider Mapping application closed evidence"
     },
     {
       "path": "docs/architecture/LIBRARY_PIPELINE.md",
@@ -92,8 +100,8 @@
   ],
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
-    "default_action": "run_current_task",
-    "current_task": "ARPMA-040",
-    "notes": "Next decide whether Admin API/Web mutation scope belongs in this lane or should split with Admin/Web provider depth governance. Do not add public route surfaces or related graph node application before this split review."
+    "default_action": "open_follow_on",
+    "current_task": null,
+    "notes": "This lane is closed. Open proposed:admin-web-provider-depth-governance before exposing durable Candidate Review evidence or accepted-review application through Admin API/Web."
   }
 }
