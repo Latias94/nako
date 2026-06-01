@@ -32,7 +32,7 @@ Storage event or scheduled scan
 | TMDB provider | Shipped movie plus series/season/episode foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Provider depth, identity matching, and conflict precision. |
 | Douban provider | Shipped MVP foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Provider depth, identity matching, and conflict precision. |
 | Bangumi provider | Shipped MVP foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Anime-first provider depth and identity matching. |
-| Addon-assisted metadata | Shipped guarded apply, bulk apply, provider mapping breadth, read-only apply recovery foundation, and Web recovery UI | addon architecture lanes; `docs/workstreams/generated-artifact-metadata-authority-apply/`; `docs/workstreams/generated-artifact-bulk-metadata-apply/`; `docs/workstreams/generated-artifact-provider-mapping-breadth/`; `docs/workstreams/generated-artifact-apply-operations-repair/`; `docs/workstreams/web-admin-generated-artifact-recovery-ui/` | Active bounded repair actions, then deeper provider identity precision. |
+| Addon-assisted metadata | Shipped guarded apply, bulk apply, provider mapping breadth, read-only apply recovery foundation, Web recovery UI, and repair seam proof | addon architecture lanes; `docs/workstreams/generated-artifact-metadata-authority-apply/`; `docs/workstreams/generated-artifact-bulk-metadata-apply/`; `docs/workstreams/generated-artifact-provider-mapping-breadth/`; `docs/workstreams/generated-artifact-apply-operations-repair/`; `docs/workstreams/web-admin-generated-artifact-recovery-ui/`; `docs/workstreams/generated-artifact-apply-repair-actions/` | Deeper provider identity precision, optional one-click repair wrapper, or Web repair copy polish. |
 | Artwork artifact lifecycle | Shipped selection, lifecycle, variant, and remediation foundation | managed artwork lanes | Delivery cache placeholders and broader derivative policy. |
 | Watcher/debounce | Weak | This document | Open `library-watcher-and-media-intake-stability`. |
 
@@ -173,24 +173,30 @@ Boundaries:
 Follow-ons:
 
 - `docs/workstreams/web-admin-generated-artifact-recovery-ui/` (closed)
-- `docs/workstreams/generated-artifact-apply-repair-actions/` (active)
+- `docs/workstreams/generated-artifact-apply-repair-actions/` (closed)
 - `proposed:provider-identity-mapping-breadth`
 
 ### generated-artifact-apply-repair-actions
 
-Status: Active at
+Status: Closed at
 `docs/workstreams/generated-artifact-apply-repair-actions/`.
 
-Goal: Turn the recovery queue into bounded repair actions while preserving
-Metadata Authority apply as the execution kernel.
+Goal: Prove the recovery queue can route operators into bounded repair
+preparation while preserving Metadata Authority apply as the execution kernel.
 
-Initial boundary:
+Shipped:
 
-- prove whether existing apply and bulk apply routes already provide enough
-  repair semantics;
-- add a recovery-context wrapper only if it prevents wrong-artifact, stale-row,
-  or replay-only mistakes;
-- do not add provider-depth or hierarchy matching work in this lane.
+- existing single/bulk apply routes are selected as the repair execution
+  boundary for the current product shape;
+- Web recovery rows route to the current apply plan and require confirmation
+  with a new idempotency key;
+- no backend recovery wrapper or second metadata apply executor is added.
+
+Follow-ons:
+
+- `proposed:generated-artifact-recovery-one-click-wrapper`
+- `proposed:web-generated-artifact-repair-copy-polish`
+- `proposed:metadata-provider-depth-and-precision`
 
 ## Risk Register
 

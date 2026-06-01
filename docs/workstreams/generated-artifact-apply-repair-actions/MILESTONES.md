@@ -1,6 +1,6 @@
 # Generated Artifact Apply Repair Actions — Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 — Lane Opening
@@ -59,6 +59,9 @@ Exit criteria:
 - route/data-source tests and browser smoke pass.
 
 ## M4 — Closeout
+
+Status: Complete. `GAARA-050` closed the lane and split optional one-click
+wrapper / UX polish work as follow-ons.
 
 Exit criteria:
 

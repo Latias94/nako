@@ -1,6 +1,6 @@
 # Generated Artifact Apply Repair Actions — Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Lane Opening Gates
@@ -71,7 +71,7 @@ Read-only explorer audit on 2026-06-02:
   that validates recovery context and then delegates to existing apply or bulk
   apply behavior.
 
-GAARA-020 should therefore prove one of two paths:
+`GAARA-020` proved one of two paths:
 
 1. Web-only repair preparation over existing apply routes.
 2. A narrow recovery-context wrapper with no duplicated executor.
@@ -158,8 +158,8 @@ Follow-on decision:
   recovery-context wrapper that adds real guards beyond the current apply route.
 - `GAARA-040` is deferred. Run it only for explicit UX copy or confirmation
   polish beyond the current recovery-row-to-apply-plan flow.
-- `GAARA-050` should close the lane or split those deferred choices as
-  separate follow-ons.
+- `GAARA-050` closed the lane and split those deferred choices as separate
+  follow-ons.
 
 ## Open Decisions For GAARA-020
 
@@ -176,3 +176,13 @@ Follow-on decision:
 - Existing apply semantics are the preferred execution kernel.
 - Treat raw artifact payloads, prompts, Source Locators, paths, tokens,
   secrets, provider responses, and idempotency keys as forbidden UI/API data.
+
+## GAARA-050 Closeout Decision
+
+Decision on 2026-06-02: close this lane.
+
+The lane target is complete because `GAARA-020` proved the current
+preparation-first path and selected no backend wrapper. `GAARA-030` and
+`GAARA-040` remain deferred follow-ons, not incomplete current-lane tasks.
+
+Closeout evidence lives in `CLOSEOUT.md`.

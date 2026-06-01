@@ -1,6 +1,6 @@
 # Generated Artifact Apply Repair Actions
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Why This Lane Exists
@@ -121,12 +121,11 @@ requires:
 - a new durable-job priority policy;
 - repair semantics that need provider-depth precision first.
 
-## First Executable Task
+## Closeout Direction
 
 `GAARA-020` completed the repair action seam audit and selected Web-only repair
 preparation over existing apply routes.
 
-Next execution should run `GAARA-050` to close the lane or split deferred
-one-click wrapper and UX polish work as separate follow-ons. Do not add a new
-backend mutation wrapper unless the product requirement changes from
-preparation-first repair to guarded one-click row repair.
+`GAARA-050` closed this lane. Do not add a new backend mutation wrapper unless
+the product requirement changes from preparation-first repair to guarded
+one-click row repair.

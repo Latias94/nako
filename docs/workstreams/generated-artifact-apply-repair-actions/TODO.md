@@ -1,6 +1,6 @@
 # Generated Artifact Apply Repair Actions — TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 — Lane Opening
@@ -40,9 +40,9 @@ Last updated: 2026-06-02
 
 ## M4 — Closeout
 
-- [ ] GAARA-050 [owner=planner] [deps=GAARA-020] [scope=docs/workstreams/generated-artifact-apply-repair-actions,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
+- [x] GAARA-050 [owner=planner] [deps=GAARA-020] [scope=docs/workstreams/generated-artifact-apply-repair-actions,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
   Goal: Close the lane or split remaining repair diagnostics into a follow-on.
   Validation: fresh gate evidence in `EVIDENCE_AND_GATES.md`; JSON/JSONL validation; `git diff --check`.
   Review: review-workstream has no blocking findings.
   Evidence: `CLOSEOUT.md` if closed, otherwise updated `HANDOFF.md`.
-  Handoff: DONE or explicit follow-on split only.
+  Handoff: DONE. One-click recovery wrapper and Web copy polish are explicit follow-ons, not unfinished current-lane work.

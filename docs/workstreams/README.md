@@ -18,14 +18,13 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 
 Last reviewed: 2026-06-02
 
-`generated-artifact-apply-repair-actions` is active in the
-`library-metadata-control-plane` lane.
+No workstream is active in the execution queue after
+`generated-artifact-apply-repair-actions` closeout.
 
 Next task:
 
-- `GAARA-020`: prove the repair action seam and decide whether existing
-  single/bulk apply routes are enough, a narrow recovery wrapper is required,
-  or Web-only repair preparation is sufficient.
+- Select the next focused lane. Do not reopen closed Generated Artifact lanes
+  unless a new product requirement justifies a follow-on.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -35,9 +34,11 @@ Authority apply verification. `CSAPA` is closed; desktop playback is deferred
 to a focused future Tauri/native playback spike.
 
 Read-only Generated Artifact apply recovery is closed after `GAOR-040`, and
-the Web recovery UI is closed after `WAGR-030`. Bounded repair mutations and
-Admin settings restoration remain separate follow-ons and should not be mixed
-back into `GAPM`, `GAOR`, or `WAGR`.
+the Web recovery UI is closed after `WAGR-030`. Generated Artifact repair seam
+proof is closed after `GAARA-050`; one-click repair wrappers, Web copy polish,
+provider-depth precision, and Admin settings restoration remain separate
+follow-ons and should not be mixed back into `GAPM`, `GAOR`, `WAGR`, or
+`GAARA`.
 `audio-compatibility-downmix-normalization`,
 `remote-storage-health-and-circuit-breaker`,
 `transcode-interface-and-runtime-plan-deepening`,
@@ -52,9 +53,9 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
 ## Current Workstreams
 
 - [generated-artifact-apply-repair-actions](generated-artifact-apply-repair-actions/README.md):
-  active control-plane/library-metadata lane for adding bounded repair actions
-  from the Generated Artifact apply recovery queue while reusing Metadata
-  Authority apply semantics.
+  closed control-plane/library-metadata lane proving the recovery repair seam
+  and selecting Web-only preparation over existing Metadata Authority apply
+  routes for the current product shape.
 - [web-admin-generated-artifact-recovery-ui](web-admin-generated-artifact-recovery-ui/README.md):
   closed Web Product lane for rendering the closed GAOR recovery queue as a
   read-only Admin route before any bounded repair mutation is introduced.

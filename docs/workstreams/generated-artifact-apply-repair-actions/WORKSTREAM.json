@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "generated-artifact-apply-repair-actions",
   "title": "Generated Artifact Apply Repair Actions",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-06-02",
   "scope_kind": "control_plane_admin_repair_action",
   "problem": "Generated Artifact apply recovery is visible and redaction-safe, but operators still lack a bounded repair action that reuses Metadata Authority apply semantics instead of blindly retrying stale plans.",
@@ -59,6 +59,10 @@
     {
       "task": "GAARA-020",
       "summary": "Selected Web-only repair preparation over existing Metadata Authority apply routes; no backend repair mutation wrapper is currently justified."
+    },
+    {
+      "task": "GAARA-050",
+      "summary": "Closed the lane and split one-click wrapper and UX polish choices into explicit follow-ons."
     }
   ],
   "adr_refs": [
@@ -90,8 +94,8 @@
   ],
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
-    "default_action": "run_current_task",
-    "current_task": "GAARA-050",
-    "notes": "Close the lane or split deferred one-click wrapper and UX polish choices. Do not auto-advance to GAARA-030 or GAARA-040 unless product requirements change."
+    "default_action": "closed",
+    "current_task": null,
+    "notes": "Lane target is complete. Open a new workstream for one-click recovery wrappers, Web copy polish, provider-depth precision, or unrelated Admin settings restoration."
   }
 }

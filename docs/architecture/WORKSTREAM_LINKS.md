@@ -166,7 +166,7 @@ Evidence workstreams:
 - `docs/workstreams/generated-artifact-bulk-metadata-apply/` (closed)
 - `docs/workstreams/generated-artifact-provider-mapping-breadth/` (closed)
 - `docs/workstreams/generated-artifact-apply-operations-repair/` (closed)
-- `docs/workstreams/generated-artifact-apply-repair-actions/` (active)
+- `docs/workstreams/generated-artifact-apply-repair-actions/` (closed)
 - `docs/workstreams/metadata-provider-attempt-runtime/`
 - `docs/workstreams/metadata-operations/`
 - `docs/workstreams/scan-addon-bulk-metadata-scrape/`
@@ -295,7 +295,7 @@ Evidence workstreams:
 - `docs/workstreams/generated-artifact-metadata-authority-apply/`
 - `docs/workstreams/generated-artifact-bulk-metadata-apply/` (closed)
 - `docs/workstreams/generated-artifact-apply-operations-repair/` (closed)
-- `docs/workstreams/generated-artifact-apply-repair-actions/` (active)
+- `docs/workstreams/generated-artifact-apply-repair-actions/` (closed)
 - `docs/workstreams/addon-architecture-deepening/`
 - `docs/workstreams/addon-runtime-and-distribution/`
 - `docs/workstreams/addon-manager-lifecycle-automation/`

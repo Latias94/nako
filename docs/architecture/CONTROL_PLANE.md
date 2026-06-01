@@ -114,25 +114,32 @@ Shipped control-plane behavior:
 Follow-ons:
 
 - `docs/workstreams/web-admin-generated-artifact-recovery-ui/` (closed)
-- `docs/workstreams/generated-artifact-apply-repair-actions/` (active)
+- `docs/workstreams/generated-artifact-apply-repair-actions/` (closed)
 - `proposed:control-plane-observability-and-trace-context`
 
 ### generated-artifact-apply-repair-actions
 
-Status: Active at
+Status: Closed at
 `docs/workstreams/generated-artifact-apply-repair-actions/`.
 
-Goal: Add bounded Admin repair actions for Generated Artifact apply recovery
-without adding a blind retry executor or duplicating Metadata Authority apply
-logic.
+Goal: Prove the bounded Admin repair action seam for Generated Artifact apply
+recovery without adding a blind retry executor or duplicating Metadata
+Authority apply logic.
 
-Control-plane requirements:
+Shipped control-plane behavior:
 
-- start with a seam proof over existing single-artifact and bulk apply routes;
-- reuse existing freshness, idempotency, and durable audit semantics;
-- add a wrapper only for recovery-context guards that existing apply routes
-  cannot provide;
-- keep repair actions Admin-only and redaction-safe.
+- recovery-row repair remains preparation-first through the current Metadata
+  Authority apply plan;
+- live mutation reuses existing single-artifact and bulk apply freshness,
+  idempotency, authorization, redaction, and durable audit semantics;
+- no backend recovery mutation wrapper or second apply executor is added;
+- one-click wrapper and Web copy polish are split as explicit follow-ons.
+
+Follow-ons:
+
+- `proposed:generated-artifact-recovery-one-click-wrapper`
+- `proposed:web-generated-artifact-repair-copy-polish`
+- `proposed:metadata-provider-depth-and-precision`
 
 ### generated-artifact-bulk-metadata-apply
 

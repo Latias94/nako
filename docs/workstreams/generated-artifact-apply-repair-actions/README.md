@@ -1,6 +1,6 @@
 # Generated Artifact Apply Repair Actions
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 This workstream proves how the read-only Generated Artifact apply recovery
@@ -13,7 +13,8 @@ Admin-only confirmation, and audit records. A new endpoint or Web action is
 allowed only when it adds recovery-context guards or operator ergonomics that
 the existing apply and bulk apply routes do not already provide. `GAARA-020`
 selected Web-only preparation over the existing apply route for the current
-product shape.
+product shape. `GAARA-050` closed the lane and split one-click wrapper or UX
+polish as explicit follow-ons.
 
 Authoritative docs:
 
@@ -24,12 +25,12 @@ Authoritative docs:
 - `CONTEXT.jsonl`
 - `HANDOFF.md`
 
-Current execution:
+Final execution:
 
 - `GAARA-010` opens the lane.
 - `GAARA-020` proved the seam and selected no backend repair wrapper.
-- `GAARA-050` should close the lane or split deferred one-click wrapper / UX
-  polish work as follow-ons.
+- `GAARA-050` closed the lane and split deferred one-click wrapper / UX polish
+  work as follow-ons.
 
 Boundary:
 

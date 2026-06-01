@@ -26,41 +26,60 @@ proposed milestone.
 
 ## Current Goal
 
-### Generated Artifact Apply Repair Actions
+### Next Architecture Lane Selection
 
-Status: active as of 2026-06-02.
+Status: planning as of 2026-06-02.
 
 Objective:
 
-- Add bounded operator repair actions for Generated Artifact apply recovery.
+- Select the next focused architecture lane after Generated Artifact apply
+  repair actions closed.
+- Keep follow-ons split instead of reopening closed Generated Artifact lanes.
+
+Deliverables:
+
+- updated active queue in `docs/architecture/LANES.md`;
+- a new focused workstream only when the next target has a clear boundary.
+
+Non-goals:
+
+- no reopening `GAMA`, `GABMA`, `GAPM`, `GAOR`, `WAGR`, or `GAARA`;
+- no bundling unrelated provider precision, Admin settings restoration, and
+  one-click repair wrapper work into one lane.
+
+Exit criteria:
+
+- the next workstream is opened with `WORKSTREAM.json`, TODO ledger, gates, and
+  architecture refs; or the active queue remains explicitly idle.
+
+Evidence:
+
+- `docs/architecture/LANES.md`
+- `docs/workstreams/README.md`
+
+## Recent Completed Goals
+
+### Generated Artifact Apply Repair Actions
+
+Status: completed on 2026-06-02.
+
+Objective:
+
+- Add bounded operator repair semantics for Generated Artifact apply recovery.
 - Reuse existing Metadata Authority apply and bulk apply semantics instead of
   adding a blind retry executor.
 
 Deliverables:
 
 - `docs/workstreams/generated-artifact-apply-repair-actions/`
-- seam proof for existing single/bulk apply reuse versus a narrow wrapper
-- Admin/Web repair preparation or confirmation UX only after the seam is proven
-
-Non-goals:
-
-- no reopening `web-admin-generated-artifact-recovery-ui`;
-- no blind repair mutation without idempotency, freshness, authorization, and
-  audit semantics.
-- no provider-depth precision or Public Client API changes in this lane.
-
-Exit criteria:
-
-- repair action semantics are proven with focused tests;
-- no second metadata apply executor exists;
-- Web/Admin responses remain redaction-safe.
+- seam proof selecting existing single/bulk apply reuse over a backend wrapper
+- Web route-state proof for recovery-row-to-current-apply-plan preparation
 
 Evidence:
 
-- `docs/workstreams/web-admin-generated-artifact-recovery-ui/CLOSEOUT.md`
-- `docs/workstreams/generated-artifact-apply-repair-actions/`
-
-## Recent Completed Goals
+- `GAARA-020` proves the seam and adds the Web route-state contract;
+- `GAARA-050` closes the lane and splits one-click wrapper / UX polish
+  follow-ons.
 
 ### Web Admin Generated Artifact Recovery UI
 

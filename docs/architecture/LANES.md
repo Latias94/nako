@@ -20,16 +20,17 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| library-metadata-control-plane | generated-artifact-apply-repair-actions | GAARA-020 | Backend/Web repair seam worker |
+| _None_ | _No active workstream_ | _n/a_ | Planner selects the next focused lane |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
 `generated-artifact-provider-mapping-breadth` is closed after `GAPM-060`.
 `generated-artifact-apply-operations-repair` is closed after `GAOR-040`.
 `web-admin-generated-artifact-recovery-ui` is closed after `WAGR-030`.
-`generated-artifact-apply-repair-actions` is active as the bounded repair
-follow-on. Start with seam proof; do not add a second metadata apply executor
-or blind retry mutation.
+`generated-artifact-apply-repair-actions` is closed after `GAARA-050`.
+The repair path stays preparation-first through existing Metadata Authority
+apply routes; do not add a second metadata apply executor or blind retry
+mutation.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
@@ -122,11 +123,7 @@ Closed evidence:
 - `docs/workstreams/generated-artifact-metadata-authority-apply/`
 - `docs/workstreams/generated-artifact-provider-mapping-breadth/`
 - `docs/workstreams/generated-artifact-apply-operations-repair/`
-
-Active evidence:
-
-- `docs/workstreams/generated-artifact-apply-repair-actions/` (`GAARA-020`
-  ready)
+- `docs/workstreams/generated-artifact-apply-repair-actions/`
 
 Owned scopes:
 

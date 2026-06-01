@@ -11,29 +11,48 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: active bounded repair-action follow-on.
+Status: planning the next focused lane after repair-action closeout.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
 Operations Repair are both closed as of 2026-06-02. Web Admin Generated
 Artifact Recovery UI is also closed after `WAGR-030`. Generated Artifact Apply
-Repair Actions is now active.
+Repair Actions is closed after `GAARA-050`.
 
-It targets:
+Recommended next choices:
 
-- proving whether existing single/bulk Metadata Authority apply routes are
-  enough as the repair execution kernel;
-- adding a narrow recovery-context wrapper only if it provides guard value;
-- keeping repair Admin-only, redaction-safe, idempotent, and freshness-checked.
+- `proposed:metadata-provider-depth-and-precision`;
+- `proposed:generated-artifact-recovery-one-click-wrapper`;
+- `proposed:web-generated-artifact-repair-copy-polish`;
+- `proposed:admin-settings-api-backed-restoration`.
+
+No active workstream is selected in this file until a focused lane is opened.
+
+Latest completed architecture focus:
+
+Generated Artifact Apply Repair Actions closed on 2026-06-02 after `GAARA-050`.
+
+It shipped:
+
+- a seam decision that existing single/bulk Metadata Authority apply routes are
+  sufficient as the repair execution kernel for the current product shape;
+- a Web route-state contract proving recovery rows prepare repair through the
+  current apply plan;
+- evidence that mutation waits for explicit confirmation and uses a new Web
+  idempotency key;
+- a split of one-click wrapper and UX copy polish into explicit follow-ons.
 
 Authoritative lane:
 
 - `docs/workstreams/generated-artifact-apply-repair-actions/`
 
-Next task:
+Follow-ons:
 
-- `GAARA-020`: repair action seam audit and preparation contract.
+- `proposed:generated-artifact-recovery-one-click-wrapper`;
+- `proposed:web-generated-artifact-repair-copy-polish`;
+- `proposed:metadata-provider-depth-and-precision`;
+- `proposed:admin-settings-api-backed-restoration`.
 
-Latest completed architecture focus:
+Previous architecture focus:
 
 Web Admin Generated Artifact Recovery UI closed on 2026-06-02 after GAOR.
 
@@ -52,7 +71,7 @@ Authoritative lane:
 
 Follow-ons:
 
-- `docs/workstreams/generated-artifact-apply-repair-actions/` (active);
+- `docs/workstreams/generated-artifact-apply-repair-actions/` (closed);
 - `proposed:metadata-provider-depth-and-precision`;
 - `proposed:admin-settings-api-backed-restoration`.
 
@@ -79,7 +98,7 @@ Authoritative lane:
 Follow-ons:
 
 - `docs/workstreams/web-admin-generated-artifact-recovery-ui/` (closed);
-- `docs/workstreams/generated-artifact-apply-repair-actions/` (active);
+- `docs/workstreams/generated-artifact-apply-repair-actions/` (closed);
 - `proposed:metadata-provider-depth-and-precision`.
 
 Previous architecture focus:
@@ -127,7 +146,7 @@ Authoritative lane:
 Follow-ons:
 
 - `docs/workstreams/generated-artifact-apply-operations-repair/` (closed);
-- `docs/workstreams/generated-artifact-apply-repair-actions/` (active);
+- `docs/workstreams/generated-artifact-apply-repair-actions/` (closed);
 - `proposed:admin-settings-api-backed-restoration`.
 
 Previous architecture focus:
