@@ -1,0 +1,10 @@
+{"path":"AGENTS.md","role":"repo_instructions","why":"Repository rules for workstreams, lane links, Rust/Web boundaries, and reference code."}
+{"path":"CONTEXT.md","role":"domain_language","why":"Defines Public Client API, Client Application, Playback Runtime, Single-Admin Mode, Media Library, Media Item, and Media Source language."}
+{"path":"docs/architecture/LANES.md","role":"lane_map","why":"Defines web-product ownership, active lane routing, shared scopes, and stop conditions."}
+{"path":"docs/architecture/WORKSTREAM_LINKS.md","role":"workstream_index","why":"Indexes capability evidence and links this workstream to the Web Product release-smoke lane."}
+{"path":"docs/workstreams/mvp-release-shape/CAMPAIGNS.md","role":"campaign_source","why":"Campaign B is the planner-approved split for Web/Public Client live MVP smoke."}
+{"path":"docs/workstreams/mvp-release-shape/EVIDENCE_AND_GATES.md","role":"mvp_gate","why":"Gate 3 defines the required Web/Public Client smoke coverage."}
+{"path":"docs/workstreams/web-media-live-public-client-parity/ROUTE_API_READINESS.md","role":"prior_evidence","why":"Records prior Public Client route readiness and historical Web gaps."}
+{"path":"docs/workstreams/web-media-live-public-client-parity/EVIDENCE_AND_GATES.md","role":"prior_evidence","why":"Records previous Web route/data-source/player gates and browser smoke evidence."}
+{"path":"docs/workstreams/admin-media-management-context-links/ROUTE_MATRIX.md","role":"related_evidence","why":"Defines safe Management Context Link behavior for Media-to-Admin handoffs."}
+

@@ -21,6 +21,7 @@ ledger instead.
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
 | `mvp-release-convergence` | `mvp-release-shape` | `MRS-050` | Upper planner / product architecture |
+| `web-product` | `web-mvp-live-smoke` | `WMLS-040` | Web product worker |
 | `library-metadata-control-plane` | `generated-artifact-metadata-authority-apply` | `GAMA-050` | Backend/control-plane execution |
 | `client-surfaces-planning` | `client-surface-and-access-product-architecture` | `CSAPA-050` | Planner/docs split or defer decision |
 | `playback-transcode` | `playback-transcode-jellyfin-class-hardening` | `PTJCH-220` | Playback runtime worker |
@@ -32,9 +33,9 @@ not mutate Rust/frontend code or active task ledgers under running workers.
 
 Do not start `GAMA-060` until `GAMA-050` has reviewed and verified the final
 Admin apply route. Do not close `CSAPA` until desktop playback is split,
-deferred, or explicitly scoped. The `web-product` lane is idle after
-`admin-media-management-context-links` closeout and should receive a new
-planner-approved workstream before more frontend execution starts.
+deferred, or explicitly scoped. The `web-product` lane is active only for the
+planner-approved `web-mvp-live-smoke` Gate 3 evidence slice; it must stop for
+backend/API contract, generated SDK, or desktop/native playback decisions.
 
 The `storage-vfs` lane is idle after
 `remote-storage-health-and-circuit-breaker` closeout. Open a new workstream
