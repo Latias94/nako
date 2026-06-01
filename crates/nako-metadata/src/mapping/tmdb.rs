@@ -5,8 +5,8 @@ use nako_core::{
 
 use crate::providers::{
     TmdbCredits, TmdbEpisodeDetails, TmdbImage, TmdbMovieDetails, TmdbMovieSearchResult,
-    TmdbReleaseDates, TmdbSeasonDetails, TmdbSeriesDetails, push_provider_image_uri,
-    result_original_title, result_release_date, result_title,
+    TmdbReleaseDates, TmdbSeasonDetails, TmdbSeasonSummary, TmdbSeriesDetails,
+    push_provider_image_uri, result_original_title, result_release_date, result_title,
 };
 
 pub(crate) fn tmdb_search_result_to_metadata(
@@ -285,14 +285,7 @@ pub(crate) fn tmdb_season_details_to_metadata(
     }
 
     MetadataCandidateRecord {
-        title: Some(if details.name.trim().is_empty() {
-            details
-                .season_number
-                .map(|season| format!("Season {season}"))
-                .unwrap_or_else(|| "Season".to_owned())
-        } else {
-            details.name
-        }),
+        title: Some(tmdb_season_title(&details.name, details.season_number)),
         overview: details.overview,
         release_date: details.air_date,
         images,
@@ -300,6 +293,35 @@ pub(crate) fn tmdb_season_details_to_metadata(
         external_ids: vec![ExternalId {
             provider: ExternalProvider::Tmdb,
             value: details.id.to_string(),
+        }],
+        ..MetadataCandidateRecord::default()
+    }
+}
+
+pub(crate) fn tmdb_season_summary_to_metadata(
+    summary: &TmdbSeasonSummary,
+    image_base_url: &str,
+) -> MetadataCandidateRecord {
+    let mut images = Vec::new();
+    push_provider_image_uri(
+        &mut images,
+        ImageKind::Poster,
+        summary.poster_path.as_deref(),
+        image_base_url,
+        ExternalProvider::Tmdb,
+        None,
+        None,
+        None,
+    );
+
+    MetadataCandidateRecord {
+        title: Some(tmdb_season_title(&summary.name, summary.season_number)),
+        overview: summary.overview.clone(),
+        release_date: summary.air_date.clone(),
+        images,
+        external_ids: vec![ExternalId {
+            provider: ExternalProvider::Tmdb,
+            value: summary.id.to_string(),
         }],
         ..MetadataCandidateRecord::default()
     }
@@ -437,4 +459,14 @@ fn push_tmdb_image(
 
 fn non_empty(value: String) -> Option<String> {
     (!value.trim().is_empty()).then_some(value)
+}
+
+fn tmdb_season_title(name: &str, season_number: Option<u32>) -> String {
+    if name.trim().is_empty() {
+        season_number
+            .map(|season| format!("Season {season}"))
+            .unwrap_or_else(|| "Season".to_owned())
+    } else {
+        name.to_owned()
+    }
 }

@@ -13,11 +13,11 @@ Last updated: 2026-06-02
 
 ## M1 — TMDB Series Season Graph Preview
 
-- [ ] MPDP-020 [owner=codex] [deps=MPDP-010] [scope=crates/nako-core/src/media/candidate.rs,crates/nako-metadata/src/providers/tmdb.rs,crates/nako-metadata/src/mapping/tmdb.rs,crates/nako-metadata/src/tests.rs,docs/workstreams/metadata-provider-depth-and-precision]
+- [x] MPDP-020 [owner=codex] [deps=MPDP-010] [scope=crates/nako-core/src/media/candidate.rs,crates/nako-metadata/src/providers/tmdb.rs,crates/nako-metadata/src/mapping/tmdb.rs,crates/nako-metadata/src/tests.rs,docs/workstreams/metadata-provider-depth-and-precision]
   Goal: Add a TMDB series -> season provider graph preview without creating hierarchy or mapping mutations.
   Validation: `cargo nextest run -p nako-metadata tmdb_provider --no-fail-fast`; `cargo nextest run -p nako-metadata matching_policy candidate_conflict_review --no-fail-fast`; `git diff --check`.
-  Review: season nodes are evidence only; root Canonical Metadata stays unchanged; no schema change, no Public Client API change, no Generated Artifact apply changes.
-  Evidence: `EVIDENCE_AND_GATES.md`.
+  Review: season nodes are evidence only; root Canonical Metadata stays unchanged; no schema change, no Public Client API change, no Generated Artifact apply changes. Passed on 2026-06-02.
+  Evidence: `EVIDENCE_AND_GATES.md` MPDP-020 section.
   Handoff: Continue to `MPDP-030` only after graph preview tests pass.
 
 ## M2 — Root-Only Refresh Guard

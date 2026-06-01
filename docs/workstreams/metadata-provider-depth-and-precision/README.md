@@ -25,8 +25,10 @@ Authoritative docs:
 Current execution:
 
 - `MPDP-010` opens the lane.
-- `MPDP-020` is the first executable task: add a TMDB series -> season
-  provider graph preview while proving it remains non-mutating evidence.
+- `MPDP-020` added TMDB series -> season provider graph preview as
+  non-mutating evidence.
+- `MPDP-030` is ready: prove refresh and Provider Mapping persistence remain
+  root-only when graph preview nodes are present.
 
 Boundary:
 

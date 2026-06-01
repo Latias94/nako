@@ -20,7 +20,7 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| library-metadata-control-plane | metadata-provider-depth-and-precision | MPDP-020 | TMDB provider graph implementer |
+| library-metadata-control-plane | metadata-provider-depth-and-precision | MPDP-030 | Refresh persistence guard implementer |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
@@ -32,9 +32,10 @@ The repair path stays preparation-first through existing Metadata Authority
 apply routes; do not add a second metadata apply executor or blind retry
 mutation.
 `metadata-provider-depth-and-precision` is active as the next
-library-metadata-control-plane lane. Start with TMDB series -> season provider
-graph preview, and keep graph depth non-mutating before considering schema,
-Public Client API, or Web confirmation UX.
+library-metadata-control-plane lane. `MPDP-020` added TMDB series -> season
+provider graph preview. Next prove refresh and Provider Mapping persistence
+stay root-only before considering schema, Public Client API, or Web
+confirmation UX.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
@@ -131,7 +132,7 @@ Closed evidence:
 
 Active evidence:
 
-- `docs/workstreams/metadata-provider-depth-and-precision/` (`MPDP-020`
+- `docs/workstreams/metadata-provider-depth-and-precision/` (`MPDP-030`
   ready)
 
 Owned scopes:

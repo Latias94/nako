@@ -16,10 +16,11 @@ use nako_core::{
     ExternalProvider, ImageKind, JobId, JobKind, JobRepository, Library, LibraryId,
     LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryPreset, LibraryRepository,
     MediaItem, MediaItemId, MediaKind, MediaRepository, MediaSource, MediaSourceId,
-    MetadataCandidateGraph, MetadataCandidateSource, MetadataField, MetadataFieldLock,
-    MetadataMatchKind, MetadataProfile, MetadataProviderAttemptStatus, MetadataProviderErrorClass,
-    MetadataRefreshMode, MetadataRepository, MetadataSource, NakoError, NewJob, PageRequest,
-    ProviderMappingRepository, ProviderMappingStatus, ProviderSubjectKind, Result,
+    MetadataCandidateGraph, MetadataCandidateRelationshipKind, MetadataCandidateSource,
+    MetadataField, MetadataFieldLock, MetadataMatchKind, MetadataProfile,
+    MetadataProviderAttemptStatus, MetadataProviderErrorClass, MetadataRefreshMode,
+    MetadataRepository, MetadataSource, NakoError, NewJob, PageRequest, ProviderMappingRepository,
+    ProviderMappingStatus, ProviderSubjectKind, Result,
 };
 use nako_db::NakoDatabase;
 use nako_search::{SearchIndex, SearchQuery};
@@ -1976,6 +1977,31 @@ async fn tmdb_provider_supports_series_season_and_episode_fetches() {
     assert_eq!(candidates[0].metadata().title, "Firefly");
     assert_eq!(series.provider_key, "1437");
     assert_eq!(series.metadata().title, "Firefly");
+    let series_subject = series.graph.root.subject.as_ref().unwrap();
+    assert_eq!(series_subject.subject_kind, ProviderSubjectKind::Series);
+    assert_eq!(series_subject.subject_key, "1437");
+    assert_eq!(series.graph.related.len(), 1);
+    let season_node = &series.graph.related[0];
+    assert_eq!(season_node.kind, MediaKind::Season);
+    assert_eq!(season_node.metadata.title.as_deref(), Some("Season 1"));
+    assert_eq!(
+        season_node.metadata.release_date.as_deref(),
+        Some("2002-09-20")
+    );
+    let season_subject = season_node.subject.as_ref().unwrap();
+    assert_eq!(season_subject.provider, ExternalProvider::Tmdb);
+    assert_eq!(season_subject.subject_kind, ProviderSubjectKind::Season);
+    assert_eq!(season_subject.subject_key, "1437/1");
+    assert_eq!(season_subject.title.as_deref(), Some("Season 1"));
+    assert_eq!(season_subject.release_year, Some(2002));
+    assert_eq!(series.graph.relationships.len(), 1);
+    let relationship = &series.graph.relationships[0];
+    assert_eq!(
+        relationship.kind,
+        MetadataCandidateRelationshipKind::Contains
+    );
+    assert_eq!(relationship.parent_subject, series_subject.clone());
+    assert_eq!(relationship.child_subject, season_subject.clone());
     assert_eq!(season.provider_key, "1437/1");
     assert_eq!(season.metadata().title, "Season 1");
     assert_eq!(episode.provider_key, "1437/1/2");
@@ -2571,7 +2597,15 @@ async fn mock_tmdb_tv_details(
         "backdrop_path": "/firefly-backdrop.jpg",
         "credits": {"cast": [], "crew": []},
         "images": {"posters": [], "backdrops": []},
-        "external_ids": {"imdb_id": "tt0303461"}
+        "external_ids": {"imdb_id": "tt0303461"},
+        "seasons": [{
+            "id": 3624,
+            "name": "Season 1",
+            "overview": "The first season.",
+            "air_date": "2002-09-20",
+            "season_number": 1,
+            "poster_path": "/firefly-s1.jpg"
+        }]
     }))
 }
 

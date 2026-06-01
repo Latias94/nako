@@ -24,8 +24,8 @@ Last reviewed: 2026-06-02
 
 Next task:
 
-- `MPDP-020`: add TMDB series -> season provider graph preview while keeping
-  graph depth non-mutating.
+- `MPDP-030`: prove TMDB graph preview depth remains non-mutating during
+  refresh and Provider Mapping persistence.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,

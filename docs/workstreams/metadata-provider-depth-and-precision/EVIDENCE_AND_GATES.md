@@ -84,6 +84,48 @@ The implementation should:
 - avoid Media Item hierarchy creation, schema changes, Public Client API
   changes, Web confirmation UI, or Generated Artifact apply behavior.
 
+## MPDP-020 Evidence
+
+Completed on 2026-06-02.
+
+Implementation:
+
+- `TmdbSeriesDetails` now parses TMDB `seasons` summaries.
+- `TmdbMetadataProvider::fetch(Series)` projects each season summary into a
+  related `MetadataCandidateNode`.
+- The graph records a `contains` relationship from the TMDB series Provider
+  Subject to each TMDB season Provider Subject.
+- Season subject keys use the existing `{series_id}/{season_number}` compound
+  key. Season TMDB IDs remain metadata external IDs.
+- No schema, Public Client API, Web, Generated Artifact apply, Media Item
+  hierarchy, or child Provider Mapping behavior changed.
+
+Validation:
+
+```bash
+cargo nextest run -p nako-metadata tmdb_provider_supports_series_season_and_episode_fetches --no-fail-fast
+```
+
+Result: passed, 1 test.
+
+```bash
+cargo nextest run -p nako-metadata tmdb_provider metadata_candidate --no-fail-fast
+```
+
+Result: passed, 3 tests.
+
+```bash
+cargo nextest run -p nako-metadata matching_policy candidate_conflict_review --no-fail-fast
+```
+
+Result: passed, 4 tests.
+
+```bash
+cargo fmt --all -- --check
+```
+
+Result: passed.
+
 ## Notes
 
 - Treat raw provider responses, provider headers, tokens, proxy URLs, local
