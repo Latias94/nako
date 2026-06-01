@@ -1,8 +1,8 @@
 # Playback Transcode Jellyfin-Class Hardening - Handoff
 
 Status: Active
-Last updated: 2026-05-31
-Current tasks: `PTJCH-220`
+Last updated: 2026-06-01
+Current tasks: `PTJCH-310`
 
 ## Current State
 
@@ -39,13 +39,20 @@ serveable allow-list for playlists, media-group playlists, segments, init
 files, audio sidecars, and subtitle sidecars. See
 `worker-notes/PTJCH-210.md`.
 
+`PTJCH-220` is complete. Playback Runtime now owns the HLS supersede flow more
+explicitly: candidate discovery/cancellation is centralized in runtime
+control, supersede admission waits briefly for the replaced local runner to
+release its permit, and active HLS playback sessions linked to superseded
+transcodes are marked cancelled. The required `nako-server` `hls playback`
+gate passed with 153 tests. See `worker-notes/PTJCH-220.md`.
+
 ## Next Action
 
-Run `PTJCH-220` - Playback Runtime.
+Run `PTJCH-310` - Artifact I/O decision.
 
-Keep PTJCH-220 focused on sessions, admission, reuse, supersede, cancel,
-failure classification, and diagnostics. Do not move FFmpeg command planning
-or artifact allow-list ownership back into `nako-server`.
+Decide whether HLS artifact I/O pressure remains inside this coordination
+workstream or should split to a dedicated PAIP follow-on. Keep FFmpeg command
+planning and HLS artifact allow-list ownership in `nako-transcode`.
 
 ## Stop Conditions
 

@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{collections::HashSet, path::PathBuf, sync::Arc};
 
 use async_trait::async_trait;
 use nako_api::public_client::{PlaybackDecisionResponse, playback_decision_response_to_dto};
@@ -58,7 +58,9 @@ mod selection;
 mod staging_policy;
 mod support;
 
-use control::PlaybackSessionCancellationRegistry;
+use control::{
+    PlaybackSessionCancellationRegistry, hls_supersede_candidates, request_hls_session_supersede,
+};
 pub(crate) use direct::{
     DirectPlaySourceBody, DirectPlaySourcePlan, DirectPlayStreamBody, plan_direct_play_with_backend,
 };
@@ -599,6 +601,15 @@ pub(crate) struct PlaybackSessionHeartbeatRequest {
     pub duration_ms: Option<u64>,
 }
 
+const HLS_SUPERSEDE_ADMISSION_WAIT: std::time::Duration = std::time::Duration::from_secs(5);
+const HLS_SUPERSEDE_ADMISSION_RETRY_INTERVAL: std::time::Duration =
+    std::time::Duration::from_millis(50);
+const ACTIVE_PLAYBACK_SESSION_STATES: [PlaybackSessionState; 3] = [
+    PlaybackSessionState::Active,
+    PlaybackSessionState::Paused,
+    PlaybackSessionState::CancelRequested,
+];
+
 #[derive(Clone, Debug)]
 pub(crate) struct PlaybackAppService {
     config: NakoServerConfig,
@@ -890,6 +901,12 @@ impl PlaybackAppService {
                     .await?;
                 self.link_playback_session_transcode(session.id, playlist.session.id)
                     .await?;
+                self.cancel_superseded_hls_playback_sessions(
+                    request.source_id,
+                    playlist.session.id,
+                    session.id,
+                )
+                .await?;
 
                 Ok(StartRendererPlaybackSessionOutput {
                     session,
@@ -1365,6 +1382,12 @@ impl PlaybackAppService {
         let playback_session = self
             .link_playback_session_transcode(playback_session.id, playlist.session.id)
             .await?;
+        self.cancel_superseded_hls_playback_sessions(
+            request.source_id,
+            playlist.session.id,
+            playback_session.id,
+        )
+        .await?;
         let body = self
             .hls_artifacts
             .read_playback_playlist(
@@ -1411,6 +1434,12 @@ impl PlaybackAppService {
             playback_session = self
                 .link_playback_session_transcode(playback_session.id, playlist.session.id)
                 .await?;
+            self.cancel_superseded_hls_playback_sessions(
+                request.source_id,
+                playlist.session.id,
+                playback_session.id,
+            )
+            .await?;
             let body = self
                 .hls_artifacts
                 .read_playback_playlist(
@@ -1947,6 +1976,7 @@ impl PlaybackAppService {
         let context = self
             .hls_source_context(&request, effective_policy.clone())
             .await?;
+        let resource_demand = context.resource_demand();
 
         if let Some(active) = PlaybackRuntimeStore::find_active_transcode_session(
             self.runtime_store.as_ref(),
@@ -1977,24 +2007,53 @@ impl PlaybackAppService {
             }
         }
 
+        let supersede_candidates = hls_supersede_candidates(
+            self.runtime_store.as_ref(),
+            context.source.id,
+            context.request_key.clone(),
+        )
+        .await?;
+        let resource_permit = if supersede_candidates.is_empty() {
+            None
+        } else {
+            self.resource_admission
+                .ensure_configured_capacity(&resource_demand, "hls supersede")?;
+            let _ = request_hls_session_supersede(
+                self.runtime_store.as_ref(),
+                &self.cancellations,
+                context.source.id,
+                context.request_key.clone(),
+                supersede_candidates,
+            )
+            .await?;
+            Some(
+                self.resource_admission
+                    .try_acquire_until(
+                        &resource_demand,
+                        HLS_SUPERSEDE_ADMISSION_WAIT,
+                        HLS_SUPERSEDE_ADMISSION_RETRY_INTERVAL,
+                    )
+                    .await?,
+            )
+        };
         let input = self
             .input
             .source_input_for_ffmpeg(&context.source, &context.uri, &context.backend)
             .await?;
-        let resource_permit = match self
-            .resource_admission
-            .try_acquire(&context.resource_demand())
-        {
-            Ok(permit) => permit,
-            Err(error) => {
-                if let Err(release_error) = self.input.release_source_input(input).await {
-                    warn!(
-                        error = %release_error,
-                        "failed to release HLS source input after playback resource admission rejection",
-                    );
+        let resource_permit = match resource_permit {
+            Some(permit) => permit,
+            None => match self.resource_admission.try_acquire(&resource_demand) {
+                Ok(permit) => permit,
+                Err(error) => {
+                    if let Err(release_error) = self.input.release_source_input(input).await {
+                        warn!(
+                            error = %release_error,
+                            "failed to release HLS source input after playback resource admission rejection",
+                        );
+                    }
+                    return Err(error);
                 }
-                return Err(error);
-            }
+            },
         };
         let wait_context = context.clone();
         let task_app = self.clone();
@@ -2222,6 +2281,106 @@ impl PlaybackAppService {
         .ok_or_else(|| NakoError::Conflict {
             message: format!("playback session {session_id} is no longer active enough to cancel"),
         })
+    }
+
+    async fn cancel_superseded_hls_playback_sessions(
+        &self,
+        source_id: MediaSourceId,
+        replacement_transcode_session_id: TranscodeSessionId,
+        replacement_playback_session_id: PlaybackSessionId,
+    ) -> Result<()> {
+        let superseded = self
+            .active_hls_playback_sessions_for_source(source_id)
+            .await?;
+        let superseded_transcode_candidates = superseded
+            .iter()
+            .filter_map(|session| session.transcode_session_id)
+            .filter(|id| *id != replacement_transcode_session_id)
+            .collect();
+        let superseded_transcode_ids = self
+            .cancelled_or_cancelling_hls_transcode_ids(superseded_transcode_candidates)
+            .await?;
+        if superseded_transcode_ids.is_empty() {
+            return Ok(());
+        }
+
+        let ended_at_ms = crate::app::current_time_ms()?;
+        for session in superseded {
+            if session.id == replacement_playback_session_id
+                || session.mode != PlaybackSessionMode::Hls
+            {
+                continue;
+            }
+            let Some(transcode_session_id) = session.transcode_session_id else {
+                continue;
+            };
+            if !superseded_transcode_ids.contains(&transcode_session_id) {
+                continue;
+            }
+
+            let _ = PlaybackRuntimeStore::set_playback_session_state(
+                self.runtime_store.as_ref(),
+                session.id,
+                PlaybackSessionState::Cancelled,
+                Some(ended_at_ms),
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    async fn active_hls_playback_sessions_for_source(
+        &self,
+        source_id: MediaSourceId,
+    ) -> Result<Vec<PlaybackSessionRecord>> {
+        let mut sessions = Vec::new();
+        let mut seen = HashSet::new();
+
+        for state in ACTIVE_PLAYBACK_SESSION_STATES {
+            for session in PlaybackRuntimeStore::list_playback_sessions(
+                self.runtime_store.as_ref(),
+                PlaybackSessionListFilter {
+                    principal_id: None,
+                    source_id: Some(source_id),
+                    state: Some(state),
+                },
+                PageRequest::new(PageRequest::MAX_LIMIT, 0),
+            )
+            .await?
+            {
+                if session.mode == PlaybackSessionMode::Hls && seen.insert(session.id) {
+                    sessions.push(session);
+                }
+            }
+        }
+
+        Ok(sessions)
+    }
+
+    async fn cancelled_or_cancelling_hls_transcode_ids(
+        &self,
+        transcode_session_ids: Vec<TranscodeSessionId>,
+    ) -> Result<HashSet<TranscodeSessionId>> {
+        let mut ids = HashSet::new();
+        let mut seen = HashSet::new();
+
+        for transcode_session_id in transcode_session_ids {
+            if !seen.insert(transcode_session_id) {
+                continue;
+            }
+            let transcode = self.get_transcode_session(transcode_session_id).await?;
+            if transcode.kind == TranscodeSessionKind::HlsTranscode
+                && matches!(
+                    transcode.state,
+                    TranscodeSessionState::CancelRequested | TranscodeSessionState::Cancelled
+                )
+            {
+                ids.insert(transcode_session_id);
+            }
+        }
+
+        Ok(ids)
     }
 
     #[cfg(test)]

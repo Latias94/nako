@@ -7,6 +7,13 @@ use nako_core::{
     StorageCircuitBreakerState, StorageFailureClass,
 };
 
+fn system_process_backed_hls_playlist_readiness_timeout() -> Duration {
+    // Full-suite HLS gates on Windows start many fake FFmpeg processes at once.
+    // Keep this guard above that startup tail while still bounding a hang.
+    let seconds = if cfg!(windows) { 180 } else { 60 };
+    Duration::from_secs(seconds)
+}
+
 #[tokio::test]
 async fn health_and_libraries_routes_work() {
     let temp = tempfile::tempdir().unwrap();
@@ -4640,7 +4647,7 @@ async fn admin_v1_playback_runtime_reports_active_resource_pressure() {
     let playlist_path = format!("/sources/{}/stream/hls/playlist.m3u8", source.id);
 
     let playlist_response = tokio::time::timeout(
-        Duration::from_secs(15),
+        system_process_backed_hls_playlist_readiness_timeout(),
         router.clone().oneshot(
             Request::builder()
                 .method(Method::GET)

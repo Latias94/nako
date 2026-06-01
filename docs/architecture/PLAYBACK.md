@@ -1,6 +1,6 @@
 # Playback Architecture
 
-Last updated: 2026-05-31
+Last updated: 2026-06-01
 
 This document is the agent-facing progress map for Nako video playback. It
 links expected media-server capabilities to current implementation state,
@@ -75,9 +75,11 @@ closed the full-suite progressive-readiness gate instability that blocked HRLB
 closeout. `playback-transcode-jellyfin-class-hardening` is the active planner
 lane for freezing parallel Playback Capability, Transcode Pipeline Capability,
 FFmpeg Adapter, HLS Artifact Authority, Playback Runtime, and Artifact I/O
-Policy seams before multiple Codex workers start. Keep PAIP artifact I/O
-pressure, resource admission queueing, remote workers, LL-HLS/CMAF, and
-player-facing follow-ons separate.
+Policy seams before multiple Codex workers start. Playback Runtime supersede
+ownership now covers HLS candidate discovery, cancellation, bounded replacement
+admission, and playback-session cancellation after supersede. Keep PAIP
+artifact I/O pressure, resource admission queueing, remote workers,
+LL-HLS/CMAF, and player-facing follow-ons separate.
 
 ### Lane A - Device Capability Profiles
 
