@@ -47,7 +47,7 @@ Primary map: `docs/workstreams/architecture-roadmap-reconciliation/README.md`
 
 Evidence workstreams:
 
-- `docs/workstreams/architecture-roadmap-reconciliation/` (active)
+- `docs/workstreams/architecture-roadmap-reconciliation/` (closed)
 
 This is the current planner/docs lane for reconciling roadmap status,
 architecture evidence links, active queue routing, and proposed follow-on

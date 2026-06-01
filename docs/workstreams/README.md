@@ -18,10 +18,10 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 
 Last reviewed: 2026-06-01
 
-- [architecture-roadmap-reconciliation](architecture-roadmap-reconciliation/README.md)
-  is the active planner/docs lane. It owns `ARR-050` verification and closeout
-  after reconciling roadmap and architecture evidence before new parallel
-  implementation work starts.
+No workstream is currently active by default after
+[architecture-roadmap-reconciliation](architecture-roadmap-reconciliation/README.md)
+closed at `ARR-050`. Select one focused follow-on before starting new parallel
+implementation work.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -47,7 +47,7 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
 ## Current Workstreams
 
 - [architecture-roadmap-reconciliation](architecture-roadmap-reconciliation/README.md):
-  active planner/docs lane for reconciling roadmap, lane registry,
+  closed planner/docs lane for reconciling roadmap, lane registry,
   architecture workstream links, high-risk capability maps, and workstream
   navigation after the latest sub-architecture audit.
 - [mvp-release-shape](mvp-release-shape/README.md): closed planner-owned

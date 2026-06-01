@@ -1,4 +1,4 @@
-{"path":"docs/GOALS.md","role":"program-goal-map","notes":"Top-level active planner goal and recent completed goals."}
+{"path":"docs/GOALS.md","role":"program-goal-map","notes":"Top-level current goal and recent completed goals."}
 {"path":"docs/ROADMAP.md","role":"program-roadmap","notes":"Current architecture focus and phase-band roadmap."}
 {"path":"docs/architecture/LANES.md","role":"lane-registry","notes":"Active queue and long-lived Codex terminal routing."}
 {"path":"docs/architecture/WORKSTREAM_LINKS.md","role":"architecture-evidence-index","notes":"Capability-to-workstream evidence and proposed lane cross-reference."}

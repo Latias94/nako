@@ -20,11 +20,10 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| `architecture-planning` | `architecture-roadmap-reconciliation` | `ARR-050` | Planner |
+| none | none | select focused follow-on | Planner |
 
-No implementation lane should be treated as active by default while
-`ARR-050` is verifying and closing or splitting the roadmap reconciliation.
-Open a focused follow-on before doing actual artifact publication, one-command
+`architecture-roadmap-reconciliation` is closed after `ARR-050`. Open a
+focused follow-on before doing actual artifact publication, one-command
 release-gate wrapping, official addon alpha smoke, bulk Generated Artifact
 apply, provider mapping breadth, Admin settings restoration, playback artifact
 I/O enforcement, or any product-scope change to the MVP cut.
@@ -69,7 +68,7 @@ Owns short-lived planner lanes that reconcile roadmap, lane routing,
 workstream status, and architecture evidence before parallel implementation
 lanes start.
 
-Active evidence:
+Closed evidence:
 
 - `docs/workstreams/architecture-roadmap-reconciliation/`
 

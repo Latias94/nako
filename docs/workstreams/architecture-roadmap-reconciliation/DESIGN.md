@@ -1,6 +1,6 @@
 # Architecture Roadmap Reconciliation - Design
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 ## Problem
@@ -70,9 +70,16 @@ Open this workstream as the audit source of truth:
 ## Closeout Criteria
 
 - Program-level docs identify `architecture-roadmap-reconciliation` as the
-  active planner goal.
-- Architecture lane queue has exactly one active planner lane unless a later
-  implementation lane is intentionally opened.
+  completed planner reconciliation goal.
+- Architecture lane queue does not route new work to closed implementation
+  lanes.
 - High-risk drift from the six sub-architecture audits is either corrected or
   split into explicit follow-ons.
 - JSON and diff checks pass.
+
+## Closeout Summary
+
+Closed by `ARR-050` on 2026-06-01. The roadmap now records this as the latest
+completed architecture focus, the active queue is idle, shipped evidence links
+are updated, stale high-risk references are repaired, and follow-on
+implementation lanes remain proposed until selected.

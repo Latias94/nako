@@ -1,12 +1,12 @@
 # Architecture Roadmap Reconciliation - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 ## Current State
 
-This lane is open to reconcile roadmap and architecture navigation after the
-latest sub-architecture audit and GAMA closeout.
+This lane is closed. It reconciled roadmap and architecture navigation after
+the latest sub-architecture audit and GAMA closeout.
 
 Six read-only audit agents inspected Playback/Transcode, Storage/VFS,
 Library/Metadata/NFO/Artwork, Web/Product, State/Access, and
@@ -16,13 +16,13 @@ blocking code issue discovered by the audit.
 
 ## Active Task
 
-- Task ID: `ARR-050`
+- Task ID: none
 - Lane: `architecture-planning`
-- Status: active
-- Owner: planner
+- Status: closed
+- Owner: none
 
-Goal: verify docs gates, update final evidence, and decide whether to close
-this lane or split broad historical cleanup into a follow-on.
+Goal: complete. Select a focused implementation follow-on before starting new
+parallel work.
 
 ## Key Files
 

@@ -11,25 +11,32 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: active planner reconciliation.
+Status: idle after architecture roadmap reconciliation closeout.
 
 Active architecture focus:
 
-Architecture Roadmap Reconciliation opened on 2026-06-01 after the latest
-sub-architecture audit. It is a docs-only planner lane that updates the
-program roadmap, active queue, architecture workstream links, and high-risk
-capability maps before new parallel implementation lanes start.
+No planner-owned architecture focus is currently open. Select one focused
+implementation follow-on from `docs/architecture/WORKSTREAM_LINKS.md` and open
+a durable workstream before starting new parallel work.
 
-The active task is `ARR-050`: verify docs gates, update final evidence, and
-decide whether to close the lane or split broad historical cleanup into a
-separate follow-on. Follow-on implementation lanes remain proposed until this
-reconciliation verifies that they are still the right next goals.
+Latest completed architecture focus:
+
+Architecture Roadmap Reconciliation closed on 2026-06-01. It reconciled the
+program roadmap, active queue, architecture workstream links, and high-risk
+capability maps after the latest sub-architecture audit:
+
+- current queue no longer points at closed MVP/GAMA/Web implementation lanes;
+- shipped provider, artwork, playback policy, cache/header, Web, addon,
+  realtime, and control-plane evidence is linked from architecture indexes;
+- provider MVP follow-on names were replaced with next-depth provider lanes;
+- stale high-risk historical references were repaired or explicitly left as
+  historical context.
 
 Authoritative lane:
 
 - `docs/workstreams/architecture-roadmap-reconciliation/`
 
-Latest completed architecture focus:
+Previous architecture focus:
 
 MVP Release Shape closed on 2026-06-01. It defined and validated the first
 release-shaped Nako MVP before more Jellyfin/Plex-class breadth is added:

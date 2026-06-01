@@ -26,9 +26,16 @@ proposed milestone.
 
 ## Current Goal
 
+No top-level planner goal is currently open after Architecture Roadmap
+Reconciliation closeout. Use `docs/architecture/LANES.md` and
+`docs/architecture/WORKSTREAM_LINKS.md` to select one focused implementation
+follow-on before starting new parallel work.
+
+## Recent Completed Goals
+
 ### Architecture Roadmap Reconciliation
 
-Status: active as of 2026-06-01.
+Status: completed on 2026-06-01.
 
 Objective:
 
@@ -57,8 +64,8 @@ Non-goals:
 
 Exit criteria:
 
-- current planner docs route active work to
-  `architecture-roadmap-reconciliation`;
+- current planner docs no longer route active work to closed implementation
+  lanes;
 - shipped provider, playback policy, artwork, Web, storage, addon, realtime,
   and control-plane evidence is linked from architecture indexes;
 - proposed lanes name real next-depth work instead of already-shipped MVP
@@ -68,10 +75,8 @@ Exit criteria:
 Evidence:
 
 - `docs/workstreams/architecture-roadmap-reconciliation/`
-- gates listed in
-  `docs/workstreams/architecture-roadmap-reconciliation/EVIDENCE_AND_GATES.md`
-
-## Recent Completed Goals
+- closeout recorded in
+  `docs/workstreams/architecture-roadmap-reconciliation/CLOSEOUT.md`
 
 ### MVP Release Shape
 

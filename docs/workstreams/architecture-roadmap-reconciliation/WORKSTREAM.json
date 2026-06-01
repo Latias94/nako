@@ -2,17 +2,18 @@
   "schema_version": 1,
   "slug": "architecture-roadmap-reconciliation",
   "title": "Architecture Roadmap Reconciliation",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-06-01",
   "scope_kind": "architecture_planning",
   "problem": "Roadmap, lane, architecture, and workstream navigation docs have drifted behind completed implementation lanes, making the next parallel task selection risky.",
   "task_prefix": "ARR",
-  "current_task": "ARR-050",
+  "current_task": null,
   "completed_tasks": [
     "ARR-010",
     "ARR-020",
     "ARR-030",
-    "ARR-040"
+    "ARR-040",
+    "ARR-050"
   ],
   "authoritative_docs": [
     {
@@ -46,6 +47,10 @@
     {
       "role": "handoff",
       "path": "docs/workstreams/architecture-roadmap-reconciliation/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/architecture-roadmap-reconciliation/CLOSEOUT.md"
     }
   ],
   "context_manifest": "docs/workstreams/architecture-roadmap-reconciliation/CONTEXT.jsonl",
@@ -69,6 +74,10 @@
     {
       "task": "ARR-040",
       "summary": "Repaired targeted stale references that could misroute future work, including the old ADR 0053 path and WMLP/PBSI heartbeat handoff drift."
+    },
+    {
+      "task": "ARR-050",
+      "summary": "Verified docs gates, closed the reconciliation lane, and left the next implementation choices as explicit proposed follow-ons."
     }
   ],
   "adr_refs": [
@@ -104,7 +113,7 @@
   ],
   "lane_slug": "architecture-planning",
   "continue_policy": {
-    "default_action": "continue_next_task",
-    "notes": "Run ARR-050 verification and close or split this planner lane before selecting the next implementation lane."
+    "default_action": "closed",
+    "notes": "This planner lane is closed. Select a focused implementation follow-on before starting new parallel work."
   }
 }

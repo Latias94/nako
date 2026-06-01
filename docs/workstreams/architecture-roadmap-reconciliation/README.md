@@ -1,6 +1,6 @@
 # Architecture Roadmap Reconciliation
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 This workstream reconciles Nako's roadmap, lane registry, architecture maps,
@@ -21,10 +21,12 @@ Authoritative docs:
 - `EVIDENCE_AND_GATES.md`
 - `CONTEXT.jsonl`
 - `HANDOFF.md`
+- `CLOSEOUT.md`
 
-Current task:
+Closeout:
 
-- `ARR-050`: verify docs gates, update evidence, and close or split the lane.
+- `ARR-050` closed this planner lane on 2026-06-01 after docs gates and
+  targeted stale-reference checks passed.
 
 Expected closeout:
 

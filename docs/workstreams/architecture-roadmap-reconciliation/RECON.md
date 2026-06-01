@@ -1,6 +1,6 @@
 # Architecture Roadmap Reconciliation - Audit Notes
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 These notes summarize the read-only sub-architecture audit used to open this

@@ -1,6 +1,6 @@
 # Architecture Roadmap Reconciliation - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 ## ARR-M0 - Lane Opened
@@ -72,4 +72,4 @@ Exit criteria:
 
 - all docs gates pass;
 - `HANDOFF.md` names the recommended next lane choices;
-- this workstream is ready for closeout or a follow-on split.
+- this workstream is closed and the next implementation lane can be selected.

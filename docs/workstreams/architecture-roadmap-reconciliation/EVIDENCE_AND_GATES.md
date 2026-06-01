@@ -1,6 +1,6 @@
 # Architecture Roadmap Reconciliation - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 ## Always Run
@@ -12,9 +12,9 @@ Last updated: 2026-06-01
 
 Run after `ARR-030` or `ARR-040` depending on which files changed:
 
-- `rg -n "docs/adr/0053-runtime-control-plane-boundary.md" docs -g "!docs/workstreams/architecture-roadmap-reconciliation/EVIDENCE_AND_GATES.md"`
+- `rg -n "docs/adr/0053-runtime-control-plane-boundary.md" docs -g "!docs/workstreams/architecture-roadmap-reconciliation/EVIDENCE_AND_GATES.md" -g "!docs/workstreams/architecture-roadmap-reconciliation/CLOSEOUT.md"`
 - `rg -n "Douban provider \\| Not started|Bangumi provider \\| Not started|tmdb-series-season-episode-depth|douban-provider-mvp|bangumi-provider-mvp" docs/architecture`
-- `rg -n "No planner-owned architecture focus is currently open|No top-level planner goal is currently open" docs/GOALS.md docs/ROADMAP.md`
+- `rg -n "Status: active planner reconciliation|active.*ARR-050|ARR-050.*active" docs/GOALS.md docs/ROADMAP.md docs/architecture/LANES.md docs/workstreams/README.md`
 
 ## Evidence Log
 
@@ -31,6 +31,9 @@ Run after `ARR-030` or `ARR-040` depending on which files changed:
 - `ARR-040`: Repaired high-risk stale references that could misroute future
   work, including the old ADR 0053 path and historical handoff wording that
   contradicted later closed lanes.
+- `ARR-050`: Closed this docs-only planner lane after JSON validation, staged
+  diff checks, and targeted stale-reference checks passed. No Rust or Web gates
+  were run because no code, schema, API, or generated contract changed.
 
 ## Notes
 

@@ -1,6 +1,6 @@
 # Architecture Roadmap Reconciliation - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 ## M0 - Open Planner Lane
@@ -45,10 +45,10 @@ Last updated: 2026-06-01
 
 ## M4 - Verify And Close Or Split
 
-- [ ] ARR-050 [owner=planner] [deps=ARR-040] [scope=docs/workstreams/architecture-roadmap-reconciliation]
+- [x] ARR-050 [owner=planner] [deps=ARR-040] [scope=docs/workstreams/architecture-roadmap-reconciliation]
   Goal: Verify docs checks, update evidence, and either close this lane or
   split broad historical cleanup into a separate follow-on.
   Validation: all gates in `EVIDENCE_AND_GATES.md`.
-  Evidence: `HANDOFF.md`, `WORKSTREAM.json`, and optional closeout note.
-  Handoff: next implementation lane should be selected from the updated
-  proposed queue.
+  Evidence: `HANDOFF.md`, `WORKSTREAM.json`, and `CLOSEOUT.md`.
+  Handoff: DONE. Select the next implementation lane from the updated proposed
+  queue.
