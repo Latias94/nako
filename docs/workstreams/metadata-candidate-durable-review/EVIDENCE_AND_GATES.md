@@ -1,0 +1,68 @@
+# Metadata Candidate Durable Review - Evidence And Gates
+
+Status: Active
+Last updated: 2026-06-02
+
+## Lane Opening Gates
+
+```bash
+python -m json.tool docs/workstreams/metadata-candidate-durable-review/WORKSTREAM.json
+```
+
+```bash
+python - <<'PY'
+import json
+from pathlib import Path
+for rel in [
+    "docs/workstreams/metadata-candidate-durable-review/TASKS.jsonl",
+    "docs/workstreams/metadata-candidate-durable-review/CAMPAIGNS.jsonl",
+    "docs/workstreams/metadata-candidate-durable-review/CONTEXT.jsonl",
+]:
+    for line in Path(rel).read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            json.loads(line)
+print("jsonl ok")
+PY
+```
+
+```bash
+git diff --check
+```
+
+## Expected Gates
+
+- `cargo nextest run -p nako-metadata candidate_review metadata_candidate --no-fail-fast`
+- `cargo fmt --all -- --check`
+- `git diff --check`
+
+## Evidence Anchors
+
+- `docs/workstreams/metadata-provider-depth-and-precision/FOLLOW_ONS.md`
+- `docs/workstreams/tmdb-season-episode-graph-depth/CLOSEOUT.md`
+- `docs/workstreams/bangumi-relations-and-episode-depth/CLOSEOUT.md`
+- `docs/workstreams/douban-subject-kind-precision/CLOSEOUT.md`
+- `docs/architecture/LIBRARY_PIPELINE.md`
+- `crates/nako-core/src/media/candidate.rs`
+- `crates/nako-core/src/media/provider.rs`
+- `crates/nako-core/src/repository/metadata.rs`
+- `crates/nako-metadata/src/confirmation.rs`
+
+## Opening Recon
+
+Local recon on 2026-06-02:
+
+- `MetadataCandidateGraph` is provider-neutral and currently in-memory.
+- Provider depth refresh guards prove related graph nodes do not persist child
+  Provider Subjects or Provider Mappings during automatic refresh.
+- `ProviderMappingStatus` already has `Candidate`, `Accepted`, and `Rejected`
+  states, but automatic refresh currently writes accepted root mappings only.
+- `HierarchyConfirmationService` accepts explicit hierarchy/provider mapping
+  confirmation, which should remain separate from automatic refresh and
+  candidate review planning.
+- Generated Artifact apply outcome tables are already a separate control-plane
+  workflow and must not become the generic candidate review queue.
+
+## Notes
+
+- Do not change persistence semantics in `MCDR-020`.
+- Do not expose raw provider payloads or secrets.

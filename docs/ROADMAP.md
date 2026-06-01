@@ -11,8 +11,8 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: provider-depth follow-on selection after Douban subject-kind precision
-closeout.
+Status: Metadata Candidate Durable Review active after Douban subject-kind
+precision closeout.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
 Operations Repair are both closed as of 2026-06-02. Web Admin Generated
@@ -24,25 +24,25 @@ closed after `TSEG-040`. Bangumi Relations And Episode Depth is closed after
 
 It targets:
 
-- selecting the next focused provider-depth lane without reopening closed
-  TMDB/MPDP/Bangumi/Douban work;
+- defining a provider-neutral, redaction-safe review contract for Candidate
+  Graph previews without reopening closed TMDB/MPDP/Bangumi/Douban work;
 - keeping provider graph evidence preview-only unless a durable review or
   Admin/Web governance lane deliberately changes persistence semantics;
-- keeping durable candidate review, Admin/Web governance, and future Douban
-  TV/episode endpoint depth split by scope.
+- keeping schema, Admin/Web governance, and future Douban TV/episode endpoint
+  depth split until backend review semantics are explicit.
 
 Authoritative evidence:
 
 - `docs/workstreams/bangumi-relations-and-episode-depth/`
 - `docs/workstreams/douban-subject-kind-precision/`
+- `docs/workstreams/metadata-candidate-durable-review/`
 - `docs/workstreams/metadata-provider-depth-and-precision/FOLLOW_ONS.md`
 
 Next task:
 
-- open the next focused provider-depth follow-on. Recommended candidates:
-  `proposed:metadata-candidate-durable-review`,
-  `proposed:admin-web-provider-depth-governance`, or
-  `proposed:douban-tv-episode-endpoint-depth`.
+- `MCDR-020`: define a pure Candidate Graph -> review plan contract without
+  schema, Admin/Web, Public Client API, Generated Artifact apply, or Provider
+  Mapping writes.
 
 Latest completed architecture focus:
 
@@ -114,7 +114,7 @@ Follow-ons:
 - `docs/workstreams/tmdb-season-episode-graph-depth/` (closed);
 - `docs/workstreams/bangumi-relations-and-episode-depth/` (closed);
 - `docs/workstreams/douban-subject-kind-precision/` (closed);
-- `proposed:metadata-candidate-durable-review`;
+- `docs/workstreams/metadata-candidate-durable-review/` (active);
 - `proposed:admin-web-provider-depth-governance`;
 - `proposed:douban-tv-episode-endpoint-depth`.
 

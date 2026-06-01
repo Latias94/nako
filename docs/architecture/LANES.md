@@ -20,7 +20,7 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| library-metadata-control-plane | follow-on selection | open next focused provider-depth lane | Planner |
+| library-metadata-control-plane | metadata-candidate-durable-review | MCDR-020 | Candidate review contract implementer |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
@@ -52,6 +52,10 @@ follow-ons.
 and rejected Series/Season/Episode requests before HTTP. Future Douban
 TV/episode depth, durable candidate review, and Admin/Web provider governance
 should open focused follow-ons.
+The next focused provider-depth lane is now
+`metadata-candidate-durable-review`. Start at `MCDR-020` with a pure
+redaction-safe review plan contract before schema, Admin/Web, Public Client API,
+Generated Artifact apply, or Provider Mapping mutation work.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
@@ -152,8 +156,7 @@ Closed evidence:
 
 Active evidence:
 
-- none; choose or open the next focused provider-depth follow-on before
-  assigning a lane terminal.
+- `docs/workstreams/metadata-candidate-durable-review/`
 
 Owned scopes:
 
@@ -177,6 +180,7 @@ Owned scopes:
 - `docs/workstreams/tmdb-season-episode-graph-depth/`
 - `docs/workstreams/bangumi-relations-and-episode-depth/`
 - `docs/workstreams/douban-subject-kind-precision/`
+- `docs/workstreams/metadata-candidate-durable-review/`
 
 Shared scopes requiring planner coordination:
 

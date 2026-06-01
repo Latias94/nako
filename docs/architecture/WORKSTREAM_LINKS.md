@@ -163,6 +163,7 @@ Evidence workstreams:
 - `docs/workstreams/tmdb-season-episode-graph-depth/` (closed)
 - `docs/workstreams/bangumi-relations-and-episode-depth/` (closed)
 - `docs/workstreams/douban-subject-kind-precision/` (closed)
+- `docs/workstreams/metadata-candidate-durable-review/` (active)
 - `docs/workstreams/metadata-acquisition-pipeline/`
 - `docs/workstreams/metadata-profile-configuration-authority/`
 - `docs/workstreams/metadata-application-policy-seam/`
@@ -198,7 +199,6 @@ Proposed lanes:
 
 - `proposed:library-watcher-and-media-intake-stability`
 - `proposed:artwork-delivery-cache-placeholder`
-- `proposed:metadata-candidate-durable-review`
 - `proposed:admin-web-provider-depth-governance`
 - `proposed:douban-tv-episode-endpoint-depth`
 - `proposed:provider-identity-mapping-breadth`

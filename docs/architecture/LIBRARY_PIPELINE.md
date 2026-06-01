@@ -28,7 +28,7 @@ Storage event or scheduled scan
 | Local inference | Shipped foundation | `CONTEXT.md`; metadata/catalog lanes | Anime/series path heuristics and confidence reporting. |
 | Media probe | Shipped foundation | playback/transcode lanes | More HDR/audio/subtitle technical facts. |
 | NFO authority | Shipped foundation | `docs/adr/0008-nfo-as-local-metadata-boundary.md` | Round-trip/writeback polish and backup policy. |
-| Metadata merge policy | Shipped foundation | `docs/adr/0007-metadata-merge-policy-and-local-authority.md` | Field-level review UX and provider conflict diagnostics. |
+| Metadata merge policy | Shipped foundation; candidate review active | `docs/adr/0007-metadata-merge-policy-and-local-authority.md`; `docs/workstreams/metadata-candidate-durable-review/` | Redaction-safe durable candidate review before field-level/Admin UX. |
 | TMDB provider | Shipped movie plus series/season/episode graph preview foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/metadata-provider-depth-and-precision/`; `docs/workstreams/tmdb-season-episode-graph-depth/` | Durable candidate review or Admin/Web governance before preview graph depth becomes accepted hierarchy. |
 | Douban provider | Shipped MVP plus endpoint-backed capability precision | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/douban-subject-kind-precision/` | Durable candidate review, Admin/Web governance, or endpoint-backed TV/episode follow-on. |
 | Bangumi provider | Shipped MVP plus endpoint-backed episode graph preview | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/bangumi-relations-and-episode-depth/` | Durable candidate review or Admin/Web governance before preview graph depth becomes accepted hierarchy. |
@@ -44,6 +44,26 @@ consolidated index for library, metadata, NFO, and artwork workstreams. Keep
 this document focused on intake and asset pipeline capability state.
 
 ## Next Work Lanes
+
+### metadata-candidate-durable-review
+
+Status: Active at `docs/workstreams/metadata-candidate-durable-review/`.
+
+Goal: Define a durable, redaction-safe review boundary for provider Candidate
+Graph previews before Admin/Web governance or accepted Provider Mapping
+mutation depends on them.
+
+Current task:
+
+- `MCDR-020`: define a pure Candidate Graph -> review plan contract without
+  schema, Admin/Web, Public Client API, Generated Artifact apply, or Provider
+  Mapping writes.
+
+Non-goals:
+
+- no schema migration in the first slice;
+- no raw provider payloads, secrets, proxy URLs, headers, or provider bodies;
+- no automatic hierarchy creation or accepted Provider Mapping writes.
 
 ### douban-subject-kind-precision
 
@@ -69,7 +89,7 @@ Non-goals:
 Follow-ons:
 
 - `proposed:douban-tv-episode-endpoint-depth`;
-- `proposed:metadata-candidate-durable-review`;
+- `docs/workstreams/metadata-candidate-durable-review/`;
 - `proposed:admin-web-provider-depth-governance`.
 
 ### bangumi-relations-and-episode-depth
@@ -89,7 +109,7 @@ Shipped:
 
 Follow-ons:
 
-- `proposed:metadata-candidate-durable-review`;
+- `docs/workstreams/metadata-candidate-durable-review/`;
 - `proposed:admin-web-provider-depth-governance`.
 
 ### tmdb-season-episode-graph-depth
@@ -110,7 +130,7 @@ Shipped:
 
 Follow-ons:
 
-- `proposed:metadata-candidate-durable-review`;
+- `docs/workstreams/metadata-candidate-durable-review/`;
 - `proposed:admin-web-provider-depth-governance`.
 
 ### metadata-provider-depth-and-precision

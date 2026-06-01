@@ -59,7 +59,7 @@ Results:
 
 - `docs/workstreams/bangumi-relations-and-episode-depth/`
 - `proposed:douban-subject-kind-precision`
-- `proposed:metadata-candidate-durable-review`
+- `docs/workstreams/metadata-candidate-durable-review/`
 - `proposed:admin-web-provider-depth-governance`
 
 ## Residual Risks

@@ -1,0 +1,13 @@
+{"role":"glossary","path":"CONTEXT.md","reason":"Use Nako domain terms: Provider Subject, Provider Mapping, Media Item, Candidate Graph, and Canonical Metadata."}
+{"role":"adr","path":"docs/adr/0007-metadata-merge-policy-and-local-authority.md","reason":"Metadata merge authority and raw provider cache boundary."}
+{"role":"adr","path":"docs/adr/0018-metadata-provider-runtime-and-diagnostics.md","reason":"Provider runtime, diagnostics, raw response, and secret redaction baseline."}
+{"role":"adr","path":"docs/adr/0021-video-first-media-server-domain-model.md","reason":"Provider-specific subjects map through provider mappings rather than replacing Media Item identity."}
+{"role":"architecture","path":"docs/architecture/LANES.md","reason":"Active queue and library-metadata-control-plane ownership."}
+{"role":"architecture","path":"docs/architecture/LIBRARY_PIPELINE.md","reason":"Library metadata provider precision and candidate review capability map."}
+{"role":"architecture","path":"docs/architecture/WORKSTREAM_LINKS.md","reason":"Architecture workstream evidence and proposed lane linkage."}
+{"role":"prior_workstream","path":"docs/workstreams/metadata-provider-depth-and-precision/FOLLOW_ONS.md","reason":"Selected the durable candidate review follow-on and non-goals."}
+{"role":"prior_workstream","path":"docs/workstreams/tmdb-season-episode-graph-depth/CLOSEOUT.md","reason":"Provider graph preview and root-only persistence baseline."}
+{"role":"prior_workstream","path":"docs/workstreams/bangumi-relations-and-episode-depth/CLOSEOUT.md","reason":"Endpoint-backed related episode preview and root-only refresh baseline."}
+{"role":"prior_workstream","path":"docs/workstreams/douban-subject-kind-precision/CLOSEOUT.md","reason":"Provider capability precision closeout before durable review."}
+{"role":"workstream","path":"docs/workstreams/metadata-candidate-durable-review/DESIGN.md","reason":"Current lane design and non-goals."}
+{"role":"gates","path":"docs/workstreams/metadata-candidate-durable-review/EVIDENCE_AND_GATES.md","reason":"Validation commands and evidence ledger."}

@@ -26,48 +26,44 @@ proposed milestone.
 
 ## Current Goal
 
-### Provider Depth Follow-On Selection
+### Metadata Candidate Durable Review
 
-Status: ready as of 2026-06-02.
+Status: active as of 2026-06-02.
 
 Objective:
 
-- Choose and open the next focused provider-depth lane after Douban subject-kind
-  precision closeout.
-- Keep provider graph evidence preview-only until a durable review or Admin/Web
-  governance lane deliberately changes persistence semantics.
+- Define a provider-neutral, redaction-safe review contract for
+  `MetadataCandidateGraph` previews.
+- Preserve automatic refresh root-only behavior until an explicit review service
+  changes Provider Mapping state.
+- Keep Admin/Web provider depth governance blocked on backend review semantics.
 
 Deliverables:
 
-- one new focused workstream, likely durable candidate review, Admin/Web
-  provider depth governance, or Douban TV/episode endpoint depth;
-- active queue updates in `docs/architecture/LANES.md` and
-  `docs/workstreams/README.md`;
-- clear non-goals that prevent schema/API/Admin/Web changes from leaking into
-  a provider adapter slice.
+- `docs/workstreams/metadata-candidate-durable-review/`;
+- a pure Candidate Graph -> review plan contract in the metadata/core boundary;
+- tests proving review plans include root/related Provider Subject facts without
+  raw provider payloads or Provider Mapping writes;
+- workstream evidence deciding when schema and accept/reject semantics are safe
+  to implement.
 
 Non-goals:
 
-- no reopening `metadata-provider-depth-and-precision` or
-  `tmdb-season-episode-graph-depth` or
-  `bangumi-relations-and-episode-depth` or
-  `douban-subject-kind-precision`;
-- no schema migration, Public Client API change, Admin/Web confirmation UI, or
-  Generated Artifact apply change unless the next lane explicitly selects that
-  architecture scope;
-- no automatic Media Item hierarchy creation or child Provider Mapping writes
-  from preview graph evidence.
+- no schema migration, Admin API, Public Client API, or Web route in the first
+  slice;
+- no Generated Artifact apply outcome reuse;
+- no automatic Media Item hierarchy creation;
+- no accepted Provider Mapping writes from preview graph nodes.
 
 Exit criteria:
 
-- next lane has an explicit workstream directory, task ledger, validation
-  gates, and architecture links;
-- closed TMDB, Bangumi, and Douban lanes remain closed and referenced as
-  evidence only.
+- review plan contract is redaction-safe and provider-neutral;
+- schema and mutation follow-ons are explicitly accepted or split;
+- focused `nako-metadata` gates pass and evidence is recorded.
 
 Evidence:
 
-- `docs/workstreams/douban-subject-kind-precision/CLOSEOUT.md`
+- `docs/workstreams/metadata-candidate-durable-review/`
 - `docs/architecture/LIBRARY_PIPELINE.md`
 
 ## Recent Completed Goals

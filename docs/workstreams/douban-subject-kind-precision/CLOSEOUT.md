@@ -52,7 +52,7 @@ Results:
 ## Follow-Ons
 
 - `proposed:douban-tv-episode-endpoint-depth`
-- `proposed:metadata-candidate-durable-review`
+- `docs/workstreams/metadata-candidate-durable-review/`
 - `proposed:admin-web-provider-depth-governance`
 
 ## Residual Risks

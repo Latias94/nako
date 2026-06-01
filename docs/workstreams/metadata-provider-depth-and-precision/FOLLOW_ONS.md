@@ -85,10 +85,12 @@ Follow-on split after closeout:
 
 - `proposed:douban-tv-episode-endpoint-depth`
 
-### proposed:metadata-candidate-durable-review
+### docs/workstreams/metadata-candidate-durable-review
 
 Goal: Persist candidate graph previews only when operator review becomes a
 product requirement.
+
+Status: opened as `docs/workstreams/metadata-candidate-durable-review/`.
 
 First slice:
 

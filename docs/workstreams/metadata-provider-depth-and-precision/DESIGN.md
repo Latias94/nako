@@ -128,7 +128,7 @@ This task should answer:
 - `proposed:tmdb-season-episode-graph-depth`
 - `docs/workstreams/bangumi-relations-and-episode-depth/`
 - `proposed:douban-subject-kind-precision`
-- `proposed:metadata-candidate-durable-review`
+- `docs/workstreams/metadata-candidate-durable-review/`
 - `proposed:admin-web-provider-depth-governance`
 
 These proposed lanes should open separately. This lane should close after the
