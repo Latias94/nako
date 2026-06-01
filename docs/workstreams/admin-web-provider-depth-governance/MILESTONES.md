@@ -39,7 +39,7 @@ Exit criteria:
 
 ## M3 - Web Admin Governance Surface
 
-Status: Ready after `AWPDG-030`.
+Status: Complete after `AWPDG-040`.
 
 Exit criteria:
 
@@ -50,7 +50,7 @@ Exit criteria:
 
 ## M4 - Closeout And Follow-On Split
 
-Status: Pending after `AWPDG-040`.
+Status: Ready after `AWPDG-040`.
 
 Exit criteria:
 

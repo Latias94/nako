@@ -6,3 +6,4 @@ export type { AdminGeneratedArtifactsRouteState } from "./admin-generated-artifa
 export type { AdminGeneratedArtifactRecoveryRouteState } from "./admin-generated-artifact-recovery"
 export type { AdminGeneratedArtifactReviewRouteState } from "./admin-generated-artifact-review"
 export type { AdminGeneratedArtifactMetadataApplyRouteState } from "./admin-generated-artifact-metadata-apply"
+export type { AdminMetadataCandidateReviewRouteState } from "./admin-metadata-candidate-review"

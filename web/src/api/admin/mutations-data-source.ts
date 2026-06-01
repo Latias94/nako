@@ -4,6 +4,8 @@ import {
   mapGeneratedArtifactMetadataBulkApplyBatchResponse,
   mapGeneratedArtifactMetadataApplyPlan,
   mapGeneratedArtifactReviewPlanResponse,
+  mapMetadataCandidateReviewApplyResponse,
+  type AdminMetadataCandidateReviewApplyReadModel,
   type AdminGeneratedArtifactReviewDecision,
   type AdminGeneratedArtifactMetadataBulkApplyBatchReadModel,
   type AdminGeneratedArtifactMetadataApplyPlanReadModel,
@@ -71,6 +73,18 @@ export interface AdminGeneratedArtifactMetadataBulkApplyMutationResult
   message: string
 }
 
+export interface AdminMetadataCandidateReviewApplyMutationRequest {
+  itemId: string
+  expectedUpdatedAtMs: number | null
+  idempotencyKey: string
+}
+
+export interface AdminMetadataCandidateReviewApplyMutationResult
+  extends AdminMetadataCandidateReviewApplyReadModel {
+  kind: "metadata-candidate-review.apply"
+  message: string
+}
+
 export interface AdminMutationDataSource {
   canMutate: boolean
   unavailableReason?: string
@@ -98,6 +112,10 @@ export interface AdminMutationDataSource {
     artifactIds: string[],
     idempotencyKey: string,
   ): Promise<AdminGeneratedArtifactMetadataBulkApplyMutationResult>
+  applyMetadataCandidateReview(
+    reviewId: string,
+    request: AdminMetadataCandidateReviewApplyMutationRequest,
+  ): Promise<AdminMetadataCandidateReviewApplyMutationResult>
 }
 
 export function createAdminMutationDataSource(
@@ -207,6 +225,15 @@ export function createAdminMutationDataSource(
       })
       return mapGeneratedArtifactMetadataBulkApplyMutationResponse(response)
     },
+
+    async applyMetadataCandidateReview(reviewId, request) {
+      const response = await client.applyMetadataCandidateReview(reviewId, {
+        item_id: request.itemId,
+        expected_updated_at_ms: request.expectedUpdatedAtMs,
+        idempotency_key: request.idempotencyKey,
+      })
+      return mapMetadataCandidateReviewApplyMutationResponse(response)
+    },
   }
 }
 
@@ -226,6 +253,10 @@ function disabledMutationDataSource(reason: string): AdminMutationDataSource {
     async (): Promise<AdminGeneratedArtifactMetadataBulkApplyMutationResult> => {
       throw new Error(reason)
     }
+  const rejectMetadataCandidateReviewApply =
+    async (): Promise<AdminMetadataCandidateReviewApplyMutationResult> => {
+      throw new Error(reason)
+    }
 
   return {
     canMutate: false,
@@ -243,6 +274,7 @@ function disabledMutationDataSource(reason: string): AdminMutationDataSource {
     reviewGeneratedArtifact: rejectGeneratedArtifactReview,
     applyGeneratedArtifactMetadata: rejectGeneratedArtifactMetadataApply,
     confirmGeneratedArtifactMetadataBulkApplyBatch: rejectGeneratedArtifactMetadataBulkApply,
+    applyMetadataCandidateReview: rejectMetadataCandidateReviewApply,
   }
 }
 
@@ -334,4 +366,30 @@ function generatedArtifactMetadataBulkApplyMessage(status: string) {
     default:
       return "批量元数据应用批次已提交"
   }
+}
+
+function mapMetadataCandidateReviewApplyMutationResponse(
+  response: Parameters<typeof mapMetadataCandidateReviewApplyResponse>[0],
+): AdminMetadataCandidateReviewApplyMutationResult {
+  const result = mapMetadataCandidateReviewApplyResponse(response)
+
+  return {
+    ...result,
+    kind: "metadata-candidate-review.apply",
+    message: metadataCandidateReviewApplyMessage(result),
+  }
+}
+
+function metadataCandidateReviewApplyMessage(result: AdminMetadataCandidateReviewApplyReadModel) {
+  if (result.idempotentReplay) {
+    return "Candidate Review 已应用，未产生新的 Provider Mapping 变更"
+  }
+
+  if (!result.applied) {
+    return "Candidate Review 应用未执行"
+  }
+
+  return result.changed
+    ? "Candidate Review 已应用到 root Provider Mapping"
+    : "Candidate Review 已应用，没有 Provider Mapping 变更"
 }

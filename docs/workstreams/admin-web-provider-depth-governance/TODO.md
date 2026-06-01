@@ -31,11 +31,11 @@ Last updated: 2026-06-02
 
 ## M3 - Web Admin Governance Surface
 
-- [ ] AWPDG-040 [owner=codex] [deps=AWPDG-030] [scope=web/src/api/admin,web/src/features/admin,web/src/test,docs/workstreams/admin-web-provider-depth-governance]
+- [x] AWPDG-040 [owner=codex] [deps=AWPDG-030] [scope=web/src/api/admin,web/src/features/admin,web/src/test,docs/workstreams/admin-web-provider-depth-governance]
   Goal: Add Web Admin read/confirm/apply UX for durable Candidate Review evidence and accepted-review application.
   Validation: `npm --prefix web run test`; `npm --prefix web run check`; `npm --prefix web run build:budget`; browser smoke if a route is added; `git diff --check`.
   Review: Web must distinguish preview graph evidence from accepted Provider Mapping facts and must not imply related nodes are applied.
-  Evidence: `EVIDENCE_AND_GATES.md`.
+  Evidence: `EVIDENCE_AND_GATES.md` (`AWPDG-040 Evidence`).
   Handoff: Continue to `AWPDG-050`.
 
 ## M4 - Closeout And Follow-On Split

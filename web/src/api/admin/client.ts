@@ -33,6 +33,9 @@ import {
   type AdminJobListResponse,
   type AdminJobsQuery,
   type AdminLocalPasswordResponse,
+  type AdminMetadataCandidateReviewApplyRequest,
+  type AdminMetadataCandidateReviewApplyResponse,
+  type AdminMetadataCandidateReviewResponse,
   type AdminMetadataRawCacheSettingsResponse,
   type AdminOutboxEventListResponse,
   type AdminOutboxEventsQuery,
@@ -234,6 +237,25 @@ export class AdminApiClient {
     return this.sendJson<AdminGeneratedArtifactMetadataApplyResponse>(
       "POST",
       pathParams(NAKO_ADMIN_ROUTES.generatedArtifactMetadataApply, { artifact_id: artifactId }),
+      request,
+    )
+  }
+
+  getMetadataCandidateReview(
+    reviewId: string,
+  ): Promise<AdminMetadataCandidateReviewResponse> {
+    return this.getJson<AdminMetadataCandidateReviewResponse>(
+      pathParams(NAKO_ADMIN_ROUTES.metadataCandidateReview, { review_id: reviewId }),
+    )
+  }
+
+  applyMetadataCandidateReview(
+    reviewId: string,
+    request: AdminMetadataCandidateReviewApplyRequest,
+  ): Promise<AdminMetadataCandidateReviewApplyResponse> {
+    return this.sendJson<AdminMetadataCandidateReviewApplyResponse>(
+      "POST",
+      pathParams(NAKO_ADMIN_ROUTES.metadataCandidateReviewApply, { review_id: reviewId }),
       request,
     )
   }

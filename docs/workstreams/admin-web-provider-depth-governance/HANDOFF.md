@@ -11,17 +11,17 @@ closeout. Backend accepted-review root Provider Mapping application exists, and
 Review detail and application-plan facts. `AWPDG-030` has added the explicit
 Admin API apply mutation for accepted Candidate Reviews with stale guards,
 idempotency-key fingerprinting, replay visibility, and root-only Provider
-Subject / Provider Mapping application.
+Subject / Provider Mapping application. `AWPDG-040` has added the Web Admin
+direct route for inspecting durable Candidate Review evidence and explicitly
+confirming accepted-review apply.
 
 ## Active Task
 
-- Task ID: `AWPDG-040`
-- Owner: codex
-- Files: `web/src/api/admin`, `web/src/features/admin`, `web/src/test`, and
-  this workstream evidence
-- Validation: `npm --prefix web run test`; `npm --prefix web run check`;
-  `npm --prefix web run build:budget`; browser smoke if a route is added;
-  `git diff --check`
+- Task ID: `AWPDG-050`
+- Owner: planner
+- Files: `docs/workstreams/admin-web-provider-depth-governance`,
+  `docs/architecture`, `docs/GOALS.md`, and `docs/ROADMAP.md`
+- Validation: fresh gate evidence; JSON/JSONL validation; `git diff --check`
 - Status: READY
 - Evidence: `docs/workstreams/admin-web-provider-depth-governance/EVIDENCE_AND_GATES.md`
 
@@ -47,13 +47,19 @@ Subject / Provider Mapping application.
   idempotency keys.
 - Admin apply remains root-only; preview related nodes are not persisted as
   hierarchy subjects by this mutation.
+- Web Admin Candidate Review apply keeps raw idempotency keys out of the UI,
+  shows related nodes as preview-only evidence, and uses fixture mode only as a
+  read fallback; fixture mutation remains disabled.
+- Static mock Admin dashboard actions, recent activity, DLNA, and transcode
+  setting panels were reduced or replaced with planned-API surfaces where no
+  durable Admin API contract exists.
 
 ## Blockers
 
-- None for `AWPDG-040`.
+- None for `AWPDG-050`.
 
 ## Next Recommended Action
 
-- Implement `AWPDG-040`: add Web Admin read/confirm/apply UX for durable
-  Candidate Review evidence, plan facts, conflict/noop/replay results, and the
-  explicit apply confirmation path.
+- Run `AWPDG-050`: close the lane or split follow-ons for related-node
+  hierarchy application, provider endpoint depth, Candidate Review list/search
+  navigation, and broader provider governance.

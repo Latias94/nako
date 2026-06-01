@@ -27,6 +27,7 @@ import type {
   AdminGeneratedArtifactReviewRouteState,
   AdminGeneratedArtifactsRouteState,
   AdminLogsRouteState,
+  AdminMetadataCandidateReviewRouteState,
   AdminLogsTab,
   AdminSurfaceSection,
   LogLevel,
@@ -489,6 +490,28 @@ function AdminGeneratedArtifactMetadataApplyRoute() {
   )
 }
 
+function AdminMetadataCandidateReviewRoute() {
+  const navigate = useNavigate()
+  const search = adminMetadataCandidateReviewRoute.useSearch()
+
+  return (
+    <AdminSurface
+      activeSection="metadata-candidate-review"
+      metadataCandidateReviewState={adminMetadataCandidateReviewStateFromSearch(search)}
+      onMetadataCandidateReviewStateChange={(state) => {
+        void navigate({
+          to: "/admin/metadata/candidate-reviews",
+          search: toAdminMetadataCandidateReviewSearch(state),
+          replace: true,
+        })
+      }}
+      onSectionNavigate={(nextSection) => {
+        void navigate(toAdminRoute(nextSection))
+      }}
+    />
+  )
+}
+
 function NotificationsRoute() {
   const navigate = useNavigate()
 
@@ -675,6 +698,13 @@ const adminGeneratedArtifactMetadataApplyRoute = createRoute({
   component: AdminGeneratedArtifactMetadataApplyRoute,
 })
 
+const adminMetadataCandidateReviewRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/metadata/candidate-reviews",
+  validateSearch: validateAdminMetadataCandidateReviewSearch,
+  component: AdminMetadataCandidateReviewRoute,
+})
+
 const adminSettingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/admin/settings",
@@ -777,6 +807,7 @@ const routeTree = rootRoute.addChildren([
   adminGeneratedArtifactRecoveryRoute,
   adminGeneratedArtifactReviewRoute,
   adminGeneratedArtifactMetadataApplyRoute,
+  adminMetadataCandidateReviewRoute,
   adminSettingsRoute,
   adminDlnaRoute,
   adminRemoteAccessRoute,
@@ -868,6 +899,8 @@ function toAdminRoute(section: AdminSurfaceSection) {
       return { to: "/admin/automation/generated-artifacts" } as const
     case "generated-artifact-metadata-apply":
       return { to: "/admin/automation/generated-artifacts" } as const
+    case "metadata-candidate-review":
+      return { to: "/admin/metadata/candidate-reviews" } as const
     case "advanced":
       return { to: "/admin/settings" } as const
     case "dlna":
@@ -938,6 +971,10 @@ interface AdminGeneratedArtifactMetadataApplyRouteSearch {
   artifact_id?: string
 }
 
+interface AdminMetadataCandidateReviewRouteSearch {
+  review_id?: string
+}
+
 function validateAdminLogsSearch(search: Record<string, unknown>): AdminLogsRouteSearch {
   const levels = parseAdminLogList(search.levels, ADMIN_LOG_LEVELS)
   const sources = parseAdminLogList(search.sources, ADMIN_LOG_SOURCES)
@@ -997,6 +1034,14 @@ function validateAdminGeneratedArtifactMetadataApplySearch(
 ): AdminGeneratedArtifactMetadataApplyRouteSearch {
   return {
     artifact_id: parseSearchString(search.artifact_id),
+  }
+}
+
+function validateAdminMetadataCandidateReviewSearch(
+  search: Record<string, unknown>,
+): AdminMetadataCandidateReviewRouteSearch {
+  return {
+    review_id: parseSearchString(search.review_id),
   }
 }
 
@@ -1111,6 +1156,14 @@ function adminGeneratedArtifactMetadataApplyStateFromSearch(
   }
 }
 
+function adminMetadataCandidateReviewStateFromSearch(
+  search: AdminMetadataCandidateReviewRouteSearch,
+): AdminMetadataCandidateReviewRouteState {
+  return {
+    reviewId: search.review_id,
+  }
+}
+
 function toAdminLogsSearch(state: AdminLogsRouteState) {
   return {
     q: state.query || undefined,
@@ -1151,6 +1204,12 @@ function toAdminGeneratedArtifactReviewSearch(state: AdminGeneratedArtifactRevie
   return {
     artifact_id: state.artifactId || undefined,
     decision: state.decision && state.decision !== "accept" ? state.decision : undefined,
+  }
+}
+
+function toAdminMetadataCandidateReviewSearch(state: AdminMetadataCandidateReviewRouteState) {
+  return {
+    review_id: state.reviewId || undefined,
   }
 }
 

@@ -35,6 +35,17 @@ import type {
   AdminGeneratedArtifactReadiness,
   AdminGeneratedArtifactTarget,
   AdminJobListItem,
+  AdminMetadataCandidateReviewApplicationBoundary,
+  AdminMetadataCandidateReviewApplicationPlan,
+  AdminMetadataCandidateReviewApplyResponse,
+  AdminMetadataCandidateReviewDetail,
+  AdminMetadataCandidateReviewMetadataSummary,
+  AdminMetadataCandidateReviewNode,
+  AdminMetadataCandidateReviewProviderMapping,
+  AdminMetadataCandidateReviewProviderSubject,
+  AdminMetadataCandidateReviewRelationship,
+  AdminMetadataCandidateReviewResponse,
+  AdminMetadataCandidateSubject,
   AdminMetadataRawCacheSettingsResponse,
   AdminOutboxEventListItem,
   AdminOverviewResponse,
@@ -588,6 +599,108 @@ export interface AdminGeneratedArtifactMetadataBulkApplyBatchReadModel extends A
   updatedAt: string
 }
 
+export interface AdminMetadataCandidateSubjectReadModel {
+  provider: string
+  subjectKind: string
+  subjectKey: string
+  title: string | null
+  releaseYear: number | null
+  locale: string | null
+}
+
+export interface AdminMetadataCandidateReviewMetadataSummaryReadModel {
+  title: string | null
+  releaseDate: string | null
+  descriptionPresent: boolean
+  genreCount: number
+  tagCount: number
+  imageCount: number
+}
+
+export interface AdminMetadataCandidateReviewNodeReadModel {
+  sourceLabel: string
+  kind: string
+  subject: AdminMetadataCandidateSubjectReadModel | null
+  metadata: AdminMetadataCandidateReviewMetadataSummaryReadModel
+}
+
+export interface AdminMetadataCandidateReviewRelationshipReadModel {
+  parentSubject: AdminMetadataCandidateSubjectReadModel
+  childSubject: AdminMetadataCandidateSubjectReadModel
+  kind: string
+}
+
+export interface AdminMetadataCandidateReviewApplicationPlanReadModel {
+  reviewId: string
+  itemId: string
+  action: string
+  reasons: string[]
+  existingMappingId: string | null
+  existingMappingStatus: string | null
+}
+
+export interface AdminMetadataCandidateReviewBoundaryReadModel {
+  applyMutationRequired: boolean
+  applyUpdatesRootProviderSubject: boolean
+  applyUpdatesRootProviderMapping: boolean
+  applyUpdatesRelatedProviderSubjects: boolean
+  updatesCanonicalMetadata: boolean
+  updatesHierarchy: boolean
+}
+
+export interface AdminMetadataCandidateReviewReadModel extends AdminReadModelEnvelope {
+  versions: {
+    adminApi: string
+    publicApi: string
+  }
+  reviewId: string
+  itemId: string
+  sourceLabel: string
+  sourceKey: string
+  status: string
+  root: AdminMetadataCandidateReviewNodeReadModel
+  related: AdminMetadataCandidateReviewNodeReadModel[]
+  relationships: AdminMetadataCandidateReviewRelationshipReadModel[]
+  relatedCount: number
+  relationshipCount: number
+  expiresAtMs: number | null
+  createdAtMs: number
+  updatedAtMs: number
+  applicationPlan: AdminMetadataCandidateReviewApplicationPlanReadModel
+  boundary: AdminMetadataCandidateReviewBoundaryReadModel
+}
+
+export interface AdminMetadataCandidateReviewProviderSubjectReadModel
+  extends AdminMetadataCandidateSubjectReadModel {
+  subjectId: string
+}
+
+export interface AdminMetadataCandidateReviewProviderMappingReadModel {
+  mappingId: string
+  itemId: string
+  subjectId: string
+  status: string
+  confidenceMilli: number | null
+  sourceLabel: string
+}
+
+export interface AdminMetadataCandidateReviewApplyReadModel extends AdminReadModelEnvelope {
+  versions: {
+    adminApi: string
+    publicApi: string
+  }
+  reviewId: string
+  itemId: string
+  applied: boolean
+  changed: boolean
+  idempotentReplay: boolean
+  idempotencyKeyFingerprint: string
+  plan: AdminMetadataCandidateReviewApplicationPlanReadModel
+  providerSubject: AdminMetadataCandidateReviewProviderSubjectReadModel | null
+  providerMapping: AdminMetadataCandidateReviewProviderMappingReadModel | null
+  boundary: AdminMetadataCandidateReviewBoundaryReadModel
+}
+
 export interface AdminSettingsReadModel extends AdminReadModelEnvelope {
   general: {
     serverName: string
@@ -926,6 +1039,15 @@ export function createAdminReadModelsDataSource(
       })
     },
 
+    async loadMetadataCandidateReview(
+      reviewId: string,
+    ): Promise<AdminMetadataCandidateReviewReadModel> {
+      return withFallback(metadataCandidateReviewFixture(reviewId), async () => {
+        const response = await client.getMetadataCandidateReview(reviewId)
+        return mapMetadataCandidateReviewResponse(response)
+      })
+    },
+
     async loadGeneratedArtifactMetadataBulkApplyPlan(
       artifactIds: string[],
     ): Promise<AdminGeneratedArtifactMetadataBulkApplyPlanReadModel> {
@@ -1013,6 +1135,9 @@ function fixtureDataSource() {
     },
     async loadGeneratedArtifactMetadataApplyPlan(artifactId: string) {
       return generatedArtifactMetadataApplyPlanFixture(artifactId)
+    },
+    async loadMetadataCandidateReview(reviewId: string) {
+      return metadataCandidateReviewFixture(reviewId)
     },
     async loadGeneratedArtifactMetadataBulkApplyPlan(artifactIds: string[]) {
       return generatedArtifactMetadataBulkApplyPlanFixture(artifactIds)
@@ -1462,6 +1587,64 @@ export function mapGeneratedArtifactMetadataApplyPlan(
   }
 }
 
+export function mapMetadataCandidateReviewResponse(
+  response: AdminMetadataCandidateReviewResponse,
+): AdminMetadataCandidateReviewReadModel {
+  const versions = {
+    adminApi: response.admin_api_version,
+    publicApi: response.public_api_version,
+  }
+  const review = response.review
+
+  return {
+    source: "live",
+    fallback: false,
+    versions,
+    reviewId: review.review_id,
+    itemId: review.item_id,
+    sourceLabel: sourceLabel(review.source),
+    sourceKey: review.source_key,
+    status: review.status,
+    root: mapMetadataCandidateReviewNode(review.root),
+    related: review.related.map(mapMetadataCandidateReviewNode),
+    relationships: review.relationships.map(mapMetadataCandidateReviewRelationship),
+    relatedCount: review.related_count,
+    relationshipCount: review.relationship_count,
+    expiresAtMs: review.expires_at_ms,
+    createdAtMs: review.created_at_ms,
+    updatedAtMs: review.updated_at_ms,
+    applicationPlan: mapMetadataCandidateReviewApplicationPlan(response.application_plan),
+    boundary: mapMetadataCandidateReviewBoundary(response.boundary),
+  }
+}
+
+export function mapMetadataCandidateReviewApplyResponse(
+  response: AdminMetadataCandidateReviewApplyResponse,
+): AdminMetadataCandidateReviewApplyReadModel {
+  return {
+    source: "live",
+    fallback: false,
+    versions: {
+      adminApi: response.admin_api_version,
+      publicApi: response.public_api_version,
+    },
+    reviewId: response.review_id,
+    itemId: response.item_id,
+    applied: response.applied,
+    changed: response.changed,
+    idempotentReplay: response.idempotent_replay,
+    idempotencyKeyFingerprint: response.idempotency_key_fingerprint,
+    plan: mapMetadataCandidateReviewApplicationPlan(response.plan),
+    providerSubject: response.provider_subject
+      ? mapMetadataCandidateReviewProviderSubject(response.provider_subject)
+      : null,
+    providerMapping: response.provider_mapping
+      ? mapMetadataCandidateReviewProviderMapping(response.provider_mapping)
+      : null,
+    boundary: mapMetadataCandidateReviewBoundary(response.boundary),
+  }
+}
+
 export function mapGeneratedArtifactMetadataBulkApplyPlanResponse(
   response: AdminGeneratedArtifactMetadataBulkApplyPlanResponse,
 ): AdminGeneratedArtifactMetadataBulkApplyPlanReadModel {
@@ -1684,6 +1867,127 @@ function mapGeneratedArtifactReadiness(
     actionable: readiness.actionable,
     reasons: readiness.reasons,
   }
+}
+
+function mapMetadataCandidateReviewNode(
+  node: AdminMetadataCandidateReviewNode,
+): AdminMetadataCandidateReviewNodeReadModel {
+  return {
+    sourceLabel: sourceLabel(node.source),
+    kind: node.kind,
+    subject: node.subject ? mapMetadataCandidateSubject(node.subject) : null,
+    metadata: mapMetadataCandidateReviewMetadataSummary(node.metadata),
+  }
+}
+
+function mapMetadataCandidateReviewRelationship(
+  relationship: AdminMetadataCandidateReviewRelationship,
+): AdminMetadataCandidateReviewRelationshipReadModel {
+  return {
+    parentSubject: mapMetadataCandidateSubject(relationship.parent_subject),
+    childSubject: mapMetadataCandidateSubject(relationship.child_subject),
+    kind: relationship.kind,
+  }
+}
+
+function mapMetadataCandidateReviewApplicationPlan(
+  plan: AdminMetadataCandidateReviewApplicationPlan,
+): AdminMetadataCandidateReviewApplicationPlanReadModel {
+  return {
+    reviewId: plan.review_id,
+    itemId: plan.item_id,
+    action: plan.action,
+    reasons: plan.reasons,
+    existingMappingId: plan.existing_mapping_id,
+    existingMappingStatus: plan.existing_mapping_status,
+  }
+}
+
+function mapMetadataCandidateReviewBoundary(
+  boundary: AdminMetadataCandidateReviewApplicationBoundary,
+): AdminMetadataCandidateReviewBoundaryReadModel {
+  return {
+    applyMutationRequired: boundary.apply_mutation_required,
+    applyUpdatesRootProviderSubject: boundary.apply_updates_root_provider_subject,
+    applyUpdatesRootProviderMapping: boundary.apply_updates_root_provider_mapping,
+    applyUpdatesRelatedProviderSubjects: boundary.apply_updates_related_provider_subjects,
+    updatesCanonicalMetadata: boundary.updates_canonical_metadata,
+    updatesHierarchy: boundary.updates_hierarchy,
+  }
+}
+
+function mapMetadataCandidateReviewProviderSubject(
+  subject: AdminMetadataCandidateReviewProviderSubject,
+): AdminMetadataCandidateReviewProviderSubjectReadModel {
+  return {
+    subjectId: subject.subject_id,
+    ...mapMetadataCandidateSubject(subject),
+  }
+}
+
+function mapMetadataCandidateReviewProviderMapping(
+  mapping: AdminMetadataCandidateReviewProviderMapping,
+): AdminMetadataCandidateReviewProviderMappingReadModel {
+  return {
+    mappingId: mapping.mapping_id,
+    itemId: mapping.item_id,
+    subjectId: mapping.subject_id,
+    status: mapping.status,
+    confidenceMilli: mapping.confidence_milli,
+    sourceLabel: sourceLabel(mapping.source),
+  }
+}
+
+function mapMetadataCandidateSubject(
+  subject: AdminMetadataCandidateSubject,
+): AdminMetadataCandidateSubjectReadModel {
+  return {
+    provider: sourceLabel(subject.provider),
+    subjectKind: sourceLabel(subject.subject_kind),
+    subjectKey: subject.subject_key,
+    title: subject.title,
+    releaseYear: subject.release_year,
+    locale: subject.locale,
+  }
+}
+
+function mapMetadataCandidateReviewMetadataSummary(
+  summary: AdminMetadataCandidateReviewMetadataSummary,
+): AdminMetadataCandidateReviewMetadataSummaryReadModel {
+  return {
+    title: summary.title,
+    releaseDate: summary.release_date,
+    descriptionPresent: summary.description_present,
+    genreCount: summary.genre_count,
+    tagCount: summary.tag_count,
+    imageCount: summary.image_count,
+  }
+}
+
+function sourceLabel(source: unknown): string {
+  if (typeof source === "string") {
+    return source
+  }
+
+  if (!source || typeof source !== "object") {
+    return "unknown"
+  }
+
+  const record = source as Record<string, unknown>
+  if (typeof record.provider === "string") {
+    return record.provider
+  }
+  if (typeof record.addon === "string") {
+    return `addon:${record.addon}`
+  }
+  if (typeof record.automation === "string") {
+    return `automation:${record.automation}`
+  }
+  if (typeof record.other === "string") {
+    return record.other
+  }
+
+  return "unknown"
 }
 
 function normalizeAcquisitionIntakeQuery(
@@ -2018,6 +2322,99 @@ function generatedArtifactReviewPlanFixture(
       appliesImmediately: false,
       requiresMetadataAuthorityApply: decision === "accept",
     },
+  }
+}
+
+function metadataCandidateReviewFixture(reviewId: string): AdminMetadataCandidateReviewReadModel {
+  const rootSubject = metadataCandidateSubjectFixture("subject", "1437", "Fixture Candidate")
+  const childSubject = metadataCandidateSubjectFixture("episode", "1437/1", "Episode One")
+
+  return {
+    source: "fixture",
+    fallback: true,
+    versions: {
+      adminApi: "fixture",
+      publicApi: "fixture",
+    },
+    reviewId,
+    itemId: "fixture-item-1",
+    sourceLabel: "bangumi",
+    sourceKey: "bangumi:1437",
+    status: "accepted",
+    root: {
+      sourceLabel: "bangumi",
+      kind: "series",
+      subject: rootSubject,
+      metadata: metadataCandidateSummaryFixture("Fixture Candidate"),
+    },
+    related: [
+      {
+        sourceLabel: "bangumi",
+        kind: "episode",
+        subject: childSubject,
+        metadata: metadataCandidateSummaryFixture("Episode One"),
+      },
+    ],
+    relationships: [
+      {
+        parentSubject: rootSubject,
+        childSubject,
+        kind: "contains",
+      },
+    ],
+    relatedCount: 1,
+    relationshipCount: 1,
+    expiresAtMs: null,
+    createdAtMs: 100,
+    updatedAtMs: 300,
+    applicationPlan: {
+      reviewId,
+      itemId: "fixture-item-1",
+      action: "apply",
+      reasons: ["ready"],
+      existingMappingId: null,
+      existingMappingStatus: null,
+    },
+    boundary: metadataCandidateReviewBoundaryFixture(),
+  }
+}
+
+function metadataCandidateSubjectFixture(
+  subjectKind: string,
+  subjectKey: string,
+  title: string,
+): AdminMetadataCandidateSubjectReadModel {
+  return {
+    provider: "bangumi",
+    subjectKind,
+    subjectKey,
+    title,
+    releaseYear: 2026,
+    locale: "zh-CN",
+  }
+}
+
+function metadataCandidateSummaryFixture(
+  title: string,
+): AdminMetadataCandidateReviewMetadataSummaryReadModel {
+  return {
+    title,
+    releaseDate: "2026-06-01",
+    descriptionPresent: true,
+    genreCount: 1,
+    tagCount: 1,
+    imageCount: 1,
+  }
+}
+
+function metadataCandidateReviewBoundaryFixture(): AdminMetadataCandidateReviewBoundaryReadModel {
+  return {
+    applyMutationRequired: true,
+    applyUpdatesRootProviderSubject: true,
+    applyUpdatesRootProviderMapping: true,
+    applyUpdatesRelatedProviderSubjects: false,
+    updatesCanonicalMetadata: false,
+    updatesHierarchy: false,
   }
 }
 

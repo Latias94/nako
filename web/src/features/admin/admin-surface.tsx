@@ -8,7 +8,6 @@ import {
   HardDrive,
   Users,
   Activity,
-  Database,
   RefreshCw,
   AlertTriangle,
   CheckCircle2,
@@ -16,16 +15,13 @@ import {
   Folder,
   Settings,
   Puzzle,
-  Shield,
   Cpu,
   Play,
-  ChevronRight,
   Wrench,
   Network,
   Bell,
   Globe,
   Download,
-  Trash2,
   RotateCcw,
   ArrowUpRight,
   Info,
@@ -43,7 +39,6 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { Slider } from "@/components/ui/slider"
-import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -73,6 +68,10 @@ import {
   AdminGeneratedArtifactMetadataApply,
   type AdminGeneratedArtifactMetadataApplyRouteState,
 } from "./admin-generated-artifact-metadata-apply"
+import {
+  AdminMetadataCandidateReview,
+  type AdminMetadataCandidateReviewRouteState,
+} from "./admin-metadata-candidate-review"
 import { AdminManagementContextNotice } from "./admin-management-context"
 import type { AdminManagementContextRouteState } from "./admin-management-context-state"
 import type { AdminGeneratedArtifactReviewDecision } from "@/src/api/admin/read-models-data-source"
@@ -100,6 +99,7 @@ export type AdminSurfaceSection =
   | "generated-artifact-recovery"
   | "generated-artifact-review"
   | "generated-artifact-metadata-apply"
+  | "metadata-candidate-review"
   | "libraries"
   | "users"
   | "dlna"
@@ -125,8 +125,10 @@ export interface AdminSurfaceProps {
   onGeneratedArtifactRecoveryStateChange?: (state: AdminGeneratedArtifactRecoveryRouteState) => void
   generatedArtifactReviewState?: AdminGeneratedArtifactReviewRouteState
   generatedArtifactMetadataApplyState?: AdminGeneratedArtifactMetadataApplyRouteState
+  metadataCandidateReviewState?: AdminMetadataCandidateReviewRouteState
   managementContextState?: AdminManagementContextRouteState
   onGeneratedArtifactReviewStateChange?: (state: AdminGeneratedArtifactReviewRouteState) => void
+  onMetadataCandidateReviewStateChange?: (state: AdminMetadataCandidateReviewRouteState) => void
   onGeneratedArtifactReviewRequest?: (
     artifactId: string,
     decision: AdminGeneratedArtifactReviewDecision,
@@ -194,25 +196,6 @@ const adminNavGroups: AdminNavGroup[] = [
   }
 ]
 
-// Recent activity log
-const activityLog = [
-  { time: "刚刚", event: "媒体库扫描完成", detail: "动画 · 新增 12 项", type: "success", icon: CheckCircle2 },
-  { time: "5 分钟前", event: "用户登录", detail: "张明 · Apple TV 4K", type: "info", icon: Users },
-  { time: "12 分钟前", event: "元数据更新", detail: "沙丘2 · TMDb Provider", type: "info", icon: Database },
-  { time: "1 小时前", event: "NFO 导入", detail: "电影库 · 3 个文件", type: "success", icon: Download },
-  { time: "2 小时前", event: "自动扫描触发", detail: "检测到文件系统变更", type: "info", icon: RefreshCw },
-  { time: "3 小时前", event: "插件更新", detail: "TMDb 插件更新至 v2.1.0", type: "success", icon: Puzzle },
-]
-
-// Scheduled tasks
-const scheduledTasks = [
-  { name: "媒体库扫描", schedule: "每日 03:00", lastRun: "今天 03:00", nextRun: "明天 03:00", status: "idle" },
-  { name: "元数据刷新", schedule: "每周日 04:00", lastRun: "上周日", nextRun: "本周日 04:00", status: "idle" },
-  { name: "图片优化", schedule: "每日 05:00", lastRun: "今天 05:00", nextRun: "明天 05:00", status: "idle" },
-  { name: "日志清理", schedule: "每月 1 号", lastRun: "2024-01-01", nextRun: "2024-02-01", status: "idle" },
-  { name: "缓存清理", schedule: "每周一 02:00", lastRun: "本周一", nextRun: "下周一 02:00", status: "idle" },
-]
-
 export function AdminSurface({
   activeSection = "dashboard",
   onSectionNavigate,
@@ -226,8 +209,10 @@ export function AdminSurface({
   onGeneratedArtifactRecoveryStateChange,
   generatedArtifactReviewState,
   generatedArtifactMetadataApplyState,
+  metadataCandidateReviewState,
   managementContextState,
   onGeneratedArtifactReviewStateChange,
+  onMetadataCandidateReviewStateChange,
   onGeneratedArtifactReviewRequest,
   onGeneratedArtifactRecoveryRequest,
   onGeneratedArtifactReviewBack,
@@ -307,14 +292,21 @@ export function AdminSurface({
             onBackToQueue={onGeneratedArtifactMetadataApplyBack}
           />
         )
+      case "metadata-candidate-review":
+        return (
+          <AdminMetadataCandidateReview
+            routeState={metadataCandidateReviewState}
+            onRouteStateChange={onMetadataCandidateReviewStateChange}
+          />
+        )
       case "scheduled-tasks":
         return <AdminScheduledTasks managementContext={managementContextState} />
       case "dlna":
-        return <DLNASettingsPage />
+        return <AdminPlaceholderPage title="DLNA/UPnP" description="本地网络发现和媒体共享等待 Admin API 合约接入。" />
       case "remote-access":
         return <AdminPlaceholderPage title="远程访问" description="Remote Access Endpoint 和 Network Tunnel Provider 接入后再开放配置面板。" />
       case "transcoding":
-        return <TranscodingSettingsPage managementContext={managementContextState} />
+        return <TranscodingRuntimePage managementContext={managementContextState} />
       case "network":
         return <AdminPlaceholderPage title="网络设置" description="网络代理、DNS 和证书设置等待 Admin API 合约接入。" />
       case "notifications":
@@ -385,7 +377,6 @@ export function AdminSurface({
     </div>
   )
 }
-
 function AdminContentFallback() {
   return (
     <div className="grid min-h-[18rem] place-items-center rounded-lg border border-border/50 bg-card">
@@ -547,9 +538,6 @@ function AdminDashboard({ data }: { data: AdminDashboardData }) {
               <RefreshCw className="h-4 w-4 text-muted-foreground" />
               任务队列
             </h2>
-            <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground">
-              查看全部 <ChevronRight className="ml-1 h-3 w-3" />
-            </Button>
           </div>
           <div className="divide-y divide-border/50">
             {activeTasks.slice(0, 3).map((task) => (
@@ -565,152 +553,15 @@ function AdminDashboard({ data }: { data: AdminDashboardData }) {
               <Activity className="h-4 w-4 text-muted-foreground" />
               最近活动
             </h2>
-            <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground">
-              查看全部 <ChevronRight className="ml-1 h-3 w-3" />
-            </Button>
           </div>
           <div className="divide-y divide-border/50">
-            {activityLog.slice(0, 5).map((log, i) => (
-              <div key={i} className="flex items-center gap-3 px-4 py-3">
-                <div className={cn(
-                  "flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full",
-                  log.type === "success" ? "bg-success/10" : "bg-muted"
-                )}>
-                  <log.icon className={cn(
-                    "h-3.5 w-3.5",
-                    log.type === "success" ? "text-success" : "text-muted-foreground"
-                  )} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm text-foreground">{log.event}</div>
-                  <div className="text-xs text-muted-foreground">{log.detail}</div>
-                </div>
-                <span className="flex-shrink-0 text-xs text-muted-foreground">{log.time}</span>
-              </div>
-            ))}
+            <div className="px-4 py-4 text-sm text-muted-foreground">
+              活动流待接入。
+            </div>
           </div>
         </section>
       </div>
 
-      {/* Quick Actions */}
-      <section className="mt-6">
-        <h2 className="mb-4 text-sm font-medium text-foreground">快捷操作</h2>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm">
-            <RefreshCw className="mr-2 h-3.5 w-3.5" />
-            扫描所有媒体库
-          </Button>
-          <Button variant="outline" size="sm">
-            <Database className="mr-2 h-3.5 w-3.5" />
-            刷新元数据
-          </Button>
-          <Button variant="outline" size="sm">
-            <Trash2 className="mr-2 h-3.5 w-3.5" />
-            清理缓存
-          </Button>
-          <Button variant="outline" size="sm">
-            <RotateCcw className="mr-2 h-3.5 w-3.5" />
-            重启服务器
-          </Button>
-        </div>
-      </section>
-    </>
-  )
-}
-
-// Activity Log Page
-function ActivityLogPage() {
-  return (
-    <>
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold text-foreground">活动日志</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          查看所有服务器活动记录
-        </p>
-      </div>
-
-      <section className="rounded-lg border border-border/50 bg-card">
-        <div className="flex items-center justify-between border-b border-border/50 p-4">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">全部</Button>
-            <Button variant="ghost" size="sm">用户</Button>
-            <Button variant="ghost" size="sm">系统</Button>
-            <Button variant="ghost" size="sm">播放</Button>
-          </div>
-          <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:bg-transparent hover:text-foreground">
-            清除日志
-          </Button>
-        </div>
-        <div className="divide-y divide-border/50">
-          {activityLog.map((log, i) => (
-            <div key={i} className="flex items-center gap-4 px-4 py-3">
-              <div className={cn(
-                "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full",
-                log.type === "success" ? "bg-success/10" : "bg-muted"
-              )}>
-                <log.icon className={cn(
-                  "h-4 w-4",
-                  log.type === "success" ? "text-success" : "text-muted-foreground"
-                )} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium text-foreground">{log.event}</div>
-                <div className="text-xs text-muted-foreground">{log.detail}</div>
-              </div>
-              <span className="flex-shrink-0 text-xs text-muted-foreground">{log.time}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-    </>
-  )
-}
-
-// Scheduled Tasks Page
-function ScheduledTasksPage() {
-  return (
-    <>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-foreground">计划任务</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            管理自动执行的后台任务
-          </p>
-        </div>
-        <Button size="sm">
-          <Clock className="mr-2 h-3.5 w-3.5" />
-          添加任务
-        </Button>
-      </div>
-
-      <section className="rounded-lg border border-border/50 bg-card">
-        <div className="divide-y divide-border/50">
-          {scheduledTasks.map((task, i) => (
-            <div key={i} className="flex items-center justify-between p-4">
-              <div className="flex items-center gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                  <Clock className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-foreground">{task.name}</div>
-                  <div className="text-xs text-muted-foreground">{task.schedule}</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-6">
-                <div className="text-right text-xs">
-                  <div className="text-muted-foreground">上次运行</div>
-                  <div className="text-foreground">{task.lastRun}</div>
-                </div>
-                <div className="text-right text-xs">
-                  <div className="text-muted-foreground">下次运行</div>
-                  <div className="text-foreground">{task.nextRun}</div>
-                </div>
-                <Button variant="outline" size="sm">立即运行</Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
     </>
   )
 }
@@ -902,387 +753,32 @@ function DLNASettingsPage() {
   )
 }
 
-// 远程访问页面
-function RemoteAccessPage() {
-  const [httpsEnabled, setHttpsEnabled] = useState(false)
-  const [ddnsEnabled, setDdnsEnabled] = useState(false)
-  const [ddnsProvider, setDdnsProvider] = useState("cloudflare")
-  
+function TranscodingRuntimePage({
+  managementContext,
+}: {
+  managementContext?: AdminManagementContextRouteState
+}) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">远程访问</h1>
-        <p className="mt-1 text-sm text-muted-foreground">配置外部网络访问和安全设置</p>
+        <h1 className="text-xl font-semibold">转码设置</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          转码策略配置由 Admin Settings 管理；运行时诊断通过 Management Link 进入。
+        </p>
       </div>
 
-      {/* 连接状态 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            连接状态
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="flex items-center gap-3 rounded-lg border border-green-500/30 bg-green-500/5 p-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/10">
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">本地访问</p>
-                <p className="text-xs text-muted-foreground">192.168.1.100:8096</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 rounded-lg border border-green-500/30 bg-green-500/5 p-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/10">
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">外部访问</p>
-                <p className="text-xs text-muted-foreground">media.example.com</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-500/10">
-                <AlertTriangle className="h-5 w-5 text-yellow-500" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">UPnP/NAT-PMP</p>
-                <p className="text-xs text-muted-foreground">未检测到</p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Network className="h-5 w-5" />
-            外部访问
-          </CardTitle>
-          <CardDescription>配置从外部网络访问服务器的方式</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>允许远程连接</Label>
-              <p className="text-xs text-muted-foreground">允许从外部网络访问服务器</p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-          <Separator />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>内部 HTTP 端口</Label>
-              <Input defaultValue="8096" />
-            </div>
-            <div className="space-y-2">
-              <Label>外部 HTTP 端口</Label>
-              <Input defaultValue="8096" />
-              <p className="text-xs text-muted-foreground">路由器端口映射的外部端口</p>
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>内部 HTTPS 端口</Label>
-              <Input defaultValue="8920" />
-            </div>
-            <div className="space-y-2">
-              <Label>外部 HTTPS 端口</Label>
-              <Input defaultValue="8920" />
-            </div>
-          </div>
-          <Separator />
-          <div className="space-y-2">
-            <Label>外部域名</Label>
-            <Input placeholder="media.example.com" defaultValue="media.example.com" />
-            <p className="text-xs text-muted-foreground">用于生成外部分享链接和访问地址</p>
-          </div>
-          <div className="space-y-2">
-            <Label>已知代理</Label>
-            <Input placeholder="10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16" />
-            <p className="text-xs text-muted-foreground">反向代理服务器的 IP 地址或 CIDR，用于正确识别客户端 IP</p>
-          </div>
-        </CardContent>
-      </Card>
+      <AdminManagementContextNotice
+        state={managementContext}
+        title={transcodingManagementContextTitle(managementContext)}
+        description="播放支持与转码运行时上下文。"
+      />
 
-      {/* DDNS 设置 */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Globe className="h-5 w-5" />
-                动态 DNS (DDNS)
-              </CardTitle>
-              <CardDescription>自动更新动态 IP 地址到域名</CardDescription>
-            </div>
-            <Switch checked={ddnsEnabled} onCheckedChange={setDdnsEnabled} />
-          </div>
-        </CardHeader>
-        {ddnsEnabled && (
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>DDNS 服务商</Label>
-              <Select value={ddnsProvider} onValueChange={setDdnsProvider}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cloudflare">Cloudflare</SelectItem>
-                  <SelectItem value="aliyun">阿里云 DNS</SelectItem>
-                  <SelectItem value="dnspod">DNSPod (腾讯云)</SelectItem>
-                  <SelectItem value="duckdns">DuckDNS</SelectItem>
-                  <SelectItem value="noip">No-IP</SelectItem>
-                  <SelectItem value="custom">自定义</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {ddnsProvider === "cloudflare" && (
-              <>
-                <div className="space-y-2">
-                  <Label>Zone ID</Label>
-                  <Input placeholder="输入 Cloudflare Zone ID" />
-                </div>
-                <div className="space-y-2">
-                  <Label>API Token</Label>
-                  <Input type="password" placeholder="输入 API Token" />
-                </div>
-                <div className="space-y-2">
-                  <Label>记录名称</Label>
-                  <Input placeholder="media.example.com" />
-                </div>
-              </>
-            )}
-            
-            {ddnsProvider === "aliyun" && (
-              <>
-                <div className="space-y-2">
-                  <Label>AccessKey ID</Label>
-                  <Input placeholder="输入 AccessKey ID" />
-                </div>
-                <div className="space-y-2">
-                  <Label>AccessKey Secret</Label>
-                  <Input type="password" placeholder="输入 AccessKey Secret" />
-                </div>
-                <div className="space-y-2">
-                  <Label>域名</Label>
-                  <Input placeholder="example.com" />
-                </div>
-                <div className="space-y-2">
-                  <Label>主机记录</Label>
-                  <Input placeholder="media" />
-                </div>
-              </>
-            )}
-
-            {ddnsProvider === "dnspod" && (
-              <>
-                <div className="space-y-2">
-                  <Label>SecretId</Label>
-                  <Input placeholder="输入 SecretId" />
-                </div>
-                <div className="space-y-2">
-                  <Label>SecretKey</Label>
-                  <Input type="password" placeholder="输入 SecretKey" />
-                </div>
-                <div className="space-y-2">
-                  <Label>域名</Label>
-                  <Input placeholder="example.com" />
-                </div>
-                <div className="space-y-2">
-                  <Label>子域名</Label>
-                  <Input placeholder="media" />
-                </div>
-              </>
-            )}
-
-            {ddnsProvider === "custom" && (
-              <>
-                <div className="space-y-2">
-                  <Label>更新 URL</Label>
-                  <Input placeholder="https://ddns.example.com/update?ip={ip}" />
-                  <p className="text-xs text-muted-foreground">{"使用 {ip} 作为 IP 地址占位符"}</p>
-                </div>
-                <div className="space-y-2">
-                  <Label>HTTP 方法</Label>
-                  <Select defaultValue="GET">
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="GET">GET</SelectItem>
-                      <SelectItem value="POST">POST</SelectItem>
-                      <SelectItem value="PUT">PUT</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
-            )}
-            
-            <div className="space-y-2">
-              <Label>更新间隔</Label>
-              <Select defaultValue="5">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">1 分钟</SelectItem>
-                  <SelectItem value="5">5 分钟</SelectItem>
-                  <SelectItem value="10">10 分钟</SelectItem>
-                  <SelectItem value="30">30 分钟</SelectItem>
-                  <SelectItem value="60">1 小时</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/5 p-3">
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
-              <span className="text-sm">上次更新: 2 分钟前 (123.45.67.89)</span>
-            </div>
-          </CardContent>
-        )}
-      </Card>
-
-      {/* SSL/TLS 证书 */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
-                SSL/TLS 证书
-              </CardTitle>
-              <CardDescription>配置 HTTPS 加密连接</CardDescription>
-            </div>
-            <Switch checked={httpsEnabled} onCheckedChange={setHttpsEnabled} />
-          </div>
-        </CardHeader>
-        {httpsEnabled && (
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>证书来源</Label>
-              <Select defaultValue="acme">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="acme">自动申请 (Let&apos;s Encrypt)</SelectItem>
-                  <SelectItem value="custom">自定义证书</SelectItem>
-                  <SelectItem value="selfsigned">自签名证书</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="rounded-lg border border-border/50 bg-muted/30 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm">证书状态</span>
-                <Badge variant="default" className="bg-green-500">有效</Badge>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">域名</span>
-                <span>media.example.com</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">颁发者</span>
-                <span>Let&apos;s Encrypt</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">到期时间</span>
-                <span>2024-06-15 (剩余 87 天)</span>
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>强制 HTTPS</Label>
-                <p className="text-xs text-muted-foreground">将 HTTP 请求重定向到 HTTPS</p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>HSTS</Label>
-                <p className="text-xs text-muted-foreground">启用 HTTP 严格传输安全</p>
-              </div>
-              <Switch />
-            </div>
-          </CardContent>
-        )}
-      </Card>
-
-      {/* 访问控制 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>访问控制</CardTitle>
-          <CardDescription>限制可访问服务器的 IP 地址</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>强制登录</Label>
-              <p className="text-xs text-muted-foreground">所有访问都需要用户认证</p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-          
-          <Separator />
-          
-          <div className="space-y-2">
-            <Label>IP 白名单</Label>
-            <Textarea 
-              placeholder="每行一个 IP 或 CIDR，例如：&#10;192.168.1.0/24&#10;10.0.0.1"
-              className="min-h-[80px] font-mono text-sm"
-            />
-            <p className="text-xs text-muted-foreground">留空表示允许所有 IP 访问</p>
-          </div>
-          
-          <div className="space-y-2">
-            <Label>IP 黑名单</Label>
-            <Textarea 
-              placeholder="每行一个 IP 或 CIDR"
-              className="min-h-[80px] font-mono text-sm"
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label>登录失败锁定</Label>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">失败次数</Label>
-                <Select defaultValue="5">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="3">3 次</SelectItem>
-                    <SelectItem value="5">5 次</SelectItem>
-                    <SelectItem value="10">10 次</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">锁定时长</Label>
-                <Select defaultValue="30">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="5">5 分钟</SelectItem>
-                    <SelectItem value="15">15 分钟</SelectItem>
-                    <SelectItem value="30">30 分钟</SelectItem>
-                    <SelectItem value="60">1 小时</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <section className="rounded-lg border border-border/50 bg-card p-4">
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="secondary">runtime diagnostics</Badge>
+          <Badge variant="outline">planned Admin API</Badge>
+        </div>
+      </section>
     </div>
   )
 }
@@ -1719,590 +1215,6 @@ function TranscodingSettingsPage({
               <span>50 Mbps</span>
             </div>
           </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
-// 网络设置页面
-function NetworkSettingsPage() {
-  const [proxyEnabled, setProxyEnabled] = useState(false)
-  const [ipv6Enabled, setIpv6Enabled] = useState(false)
-  
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">网络设置</h1>
-        <p className="mt-1 text-sm text-muted-foreground">配置服务器网络、代理和带宽</p>
-      </div>
-      
-      {/* 绑定设置 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Server className="h-5 w-5" />
-            服务器绑定
-          </CardTitle>
-          <CardDescription>配置服务器监听的地址和端口</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>HTTP 端口</Label>
-              <Input defaultValue="8096" />
-            </div>
-            <div className="space-y-2">
-              <Label>HTTPS 端口</Label>
-              <Input defaultValue="8920" />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>绑定地址 (IPv4)</Label>
-            <Select defaultValue="0.0.0.0">
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="0.0.0.0">所有接口 (0.0.0.0)</SelectItem>
-                <SelectItem value="127.0.0.1">仅本地 (127.0.0.1)</SelectItem>
-                <SelectItem value="192.168.1.100">192.168.1.100 (eth0)</SelectItem>
-                <SelectItem value="custom">自定义...</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <Separator />
-          
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>启用 IPv6</Label>
-              <p className="text-xs text-muted-foreground">监听 IPv6 地址</p>
-            </div>
-            <Switch checked={ipv6Enabled} onCheckedChange={setIpv6Enabled} />
-          </div>
-          
-          {ipv6Enabled && (
-            <div className="space-y-2">
-              <Label>绑定地址 (IPv6)</Label>
-              <Select defaultValue="::">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="::">所有接口 (::)</SelectItem>
-                  <SelectItem value="::1">仅本地 (::1)</SelectItem>
-                  <SelectItem value="custom">自定义...</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* 本地网络 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>本地网络识别</CardTitle>
-          <CardDescription>定义哪些 IP 范围被视为本地网络，本地网络不受带宽限制</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>本地网络地址</Label>
-            <Textarea 
-              defaultValue="192.168.0.0/16&#10;10.0.0.0/8&#10;172.16.0.0/12"
-              placeholder="每行一个 CIDR 格式的网络地址"
-              className="min-h-[100px] font-mono text-sm"
-            />
-            <p className="text-xs text-muted-foreground">来自这些网络的连接将被视为本地连接</p>
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>本地连接跳过认证</Label>
-              <p className="text-xs text-muted-foreground">本地网络的某些请求可跳过登录验证</p>
-            </div>
-            <Switch />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 带宽限制 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>带宽限制</CardTitle>
-          <CardDescription>限制远程访问的带宽使用</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>启用带宽限制</Label>
-              <p className="text-xs text-muted-foreground">限制远程流媒体的最大比特率</p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-          
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>远程用户最大比特率</Label>
-              <span className="text-sm text-muted-foreground">20 Mbps</span>
-            </div>
-            <Slider defaultValue={[20]} max={100} step={1} />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>1 Mbps</span>
-              <span>无限制</span>
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>同步下载限速</Label>
-              <span className="text-sm text-muted-foreground">50 Mbps</span>
-            </div>
-            <Slider defaultValue={[50]} max={100} step={1} />
-          </div>
-          
-          <div className="space-y-2">
-            <Label>最大并发流数</Label>
-            <Select defaultValue="0">
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="0">无限制</SelectItem>
-                <SelectItem value="5">5 个</SelectItem>
-                <SelectItem value="10">10 个</SelectItem>
-                <SelectItem value="20">20 个</SelectItem>
-                <SelectItem value="50">50 个</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">限制同时播放的流数量，0 表示不限制</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 代理设置 */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>代理设置</CardTitle>
-              <CardDescription>用于元数据刮削、字幕下载等外部请求</CardDescription>
-            </div>
-            <Switch checked={proxyEnabled} onCheckedChange={setProxyEnabled} />
-          </div>
-        </CardHeader>
-        {proxyEnabled && (
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>代理类型</Label>
-              <Select defaultValue="http">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="http">HTTP/HTTPS</SelectItem>
-                  <SelectItem value="socks5">SOCKS5</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-2 sm:col-span-2">
-                <Label>代理地址</Label>
-                <Input placeholder="127.0.0.1" />
-              </div>
-              <div className="space-y-2">
-                <Label>端口</Label>
-                <Input placeholder="7890" />
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>用户名 (可选)</Label>
-                <Input placeholder="username" />
-              </div>
-              <div className="space-y-2">
-                <Label>密码 (可选)</Label>
-                <Input type="password" placeholder="password" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>不使用代理的地址</Label>
-              <Input placeholder="localhost, 127.0.0.1, *.local" />
-              <p className="text-xs text-muted-foreground">逗号分隔，支持通配符</p>
-            </div>
-            <Button variant="outline" size="sm">测试连接</Button>
-          </CardContent>
-        )}
-      </Card>
-
-      {/* DNS 设置 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>DNS 设置</CardTitle>
-          <CardDescription>自定义 DNS 服务器用于域名解析</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>使用自定义 DNS</Label>
-              <p className="text-xs text-muted-foreground">覆盖系统默认 DNS</p>
-            </div>
-            <Switch />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>首选 DNS</Label>
-              <Input placeholder="8.8.8.8" />
-            </div>
-            <div className="space-y-2">
-              <Label>备用 DNS</Label>
-              <Input placeholder="8.8.4.4" />
-            </div>
-          </div>
-          <div className="rounded-lg border border-border/50 bg-muted/30 p-3">
-            <p className="text-xs text-muted-foreground">
-              常用 DNS：Google (8.8.8.8)、Cloudflare (1.1.1.1)、阿里 (223.5.5.5)、腾讯 (119.29.29.29)
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
-// 通知设置页面
-function NotificationsPage() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">通知设置</h1>
-        <p className="mt-1 text-sm text-muted-foreground">配置系统通知和推送服务</p>
-      </div>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5" />
-            通知渠道
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4 max-h-[280px] overflow-y-auto scrollbar-none">
-            {[
-              { name: "Telegram", desc: "通过 Telegram Bot 发送通知", enabled: true },
-              { name: "Bark", desc: "iOS 推送通知服务", enabled: false },
-              { name: "邮件", desc: "通过 SMTP 发送邮件通知", enabled: false },
-              { name: "Webhook", desc: "发送 HTTP 请求到自定义 URL", enabled: false },
-              { name: "Discord", desc: "通过 Discord Webhook 发送通知", enabled: false },
-              { name: "PushDeer", desc: "开源推送服务", enabled: false },
-            ].map(channel => (
-            <div key={channel.name} className="flex items-center justify-between rounded-lg border border-border/50 p-4">
-              <div>
-                <p className="font-medium">{channel.name}</p>
-                <p className="text-xs text-muted-foreground">{channel.desc}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm">配置</Button>
-                <Switch defaultChecked={channel.enabled} />
-              </div>
-            </div>
-          ))}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
-// 备份与恢复页面
-function BackupPage() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">备份与恢复</h1>
-        <p className="mt-1 text-sm text-muted-foreground">管理服务器配置和数据库备份</p>
-      </div>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Download className="h-5 w-5" />
-            创建备份
-          </CardTitle>
-          <CardDescription>备份包含配置、用户数据和元��据数据库</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2 max-h-[160px] overflow-y-auto scrollbar-none">
-            {["配置文件", "用户数据", "元数据数据库", "播放记录", "观看历史", "用户偏好"].map(item => (
-              <div key={item} className="flex items-center justify-between">
-                <span className="text-sm">{item}</span>
-                <Switch defaultChecked />
-              </div>
-            ))}
-          </div>
-          <Button className="w-full gap-2">
-            <Download className="h-4 w-4" />
-            创建备份
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>备份历史</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {[
-              { date: "2024-01-15 10:30", size: "128 MB", type: "完整备份" },
-              { date: "2024-01-08 10:30", size: "125 MB", type: "完整备份" },
-            ].map((backup, i) => (
-              <div key={i} className="flex items-center justify-between rounded-lg border border-border/50 p-3">
-                <div>
-                  <p className="text-sm font-medium">{backup.date}</p>
-                  <p className="text-xs text-muted-foreground">{backup.type} · {backup.size}</p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="ghost" size="sm">下载</Button>
-                  <Button variant="ghost" size="sm" className="text-destructive">删除</Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
-  }
-  
-// 高级设置页面
-function AdvancedSettingsPage() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">高级设置</h1>
-        <p className="mt-1 text-sm text-muted-foreground">系统高级配置选项，请谨慎修改</p>
-      </div>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle>日志设置</CardTitle>
-          <CardDescription>配置系统日志级别和存储</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>日志级别</Label>
-            <Select defaultValue="info">
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="debug">Debug (调试)</SelectItem>
-                <SelectItem value="info">Info (信息)</SelectItem>
-                <SelectItem value="warning">Warning (警告)</SelectItem>
-                <SelectItem value="error">Error (错误)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>日志保留天数</Label>
-            <Input type="number" defaultValue="30" />
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>启用访问日志</Label>
-              <p className="text-xs text-muted-foreground">记录所有 API 请求</p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>缓存设置</CardTitle>
-          <CardDescription>配置图片和元数据缓存</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>缓存目录</Label>
-            <Input defaultValue="/var/cache/nako" />
-          </div>
-          <div className="space-y-2">
-            <Label>最大缓存大小 (GB)</Label>
-            <Input type="number" defaultValue="10" />
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>自动清理过期缓存</Label>
-              <p className="text-xs text-muted-foreground">超过 30 天未访问的缓存将被清理</p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-          <Button variant="outline" className="w-full gap-2">
-            <Trash2 className="h-4 w-4" />
-            立即清理缓存
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>FFmpeg 设置</CardTitle>
-          <CardDescription>配置 FFmpeg 路径和参数</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>FFmpeg 路径</Label>
-            <Input defaultValue="/usr/bin/ffmpeg" />
-          </div>
-          <div className="space-y-2">
-            <Label>FFprobe 路径</Label>
-            <Input defaultValue="/usr/bin/ffprobe" />
-          </div>
-          <div className="space-y-2">
-            <Label>自定义 FFmpeg 参数</Label>
-            <Input placeholder="-threads 4" />
-            <p className="text-xs text-muted-foreground">高级用户可添加自定义参数</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>实验性功能</CardTitle>
-          <CardDescription>这些功能仍在开发中，可能不稳定</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>启用 AI 推荐</Label>
-              <p className="text-xs text-muted-foreground">基于观看历史的智能推荐</p>
-            </div>
-            <Switch />
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>启用实时字幕</Label>
-              <p className="text-xs text-muted-foreground">使用 AI 生成实时��幕</p>
-            </div>
-            <Switch />
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>启用智能跳过</Label>
-              <p className="text-xs text-muted-foreground">自动跳过片头片尾</p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="border-destructive/50">
-        <CardHeader>
-          <CardTitle className="text-destructive">危险操作</CardTitle>
-          <CardDescription>这些操作不可逆，请谨慎执行</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">重置所有设置</p>
-              <p className="text-xs text-muted-foreground">将所有设置恢复为默认值</p>
-            </div>
-            <Button variant="outline" size="sm" className="text-destructive border-destructive/50 hover:bg-destructive/10">
-              重置
-            </Button>
-          </div>
-          <Separator />
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">清空元数据数据库</p>
-              <p className="text-xs text-muted-foreground">删除所有刮削的元数据，媒体文件不受影响</p>
-            </div>
-            <Button variant="outline" size="sm" className="text-destructive border-destructive/50 hover:bg-destructive/10">
-              清空
-            </Button>
-          </div>
-          <Separator />
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">重建媒体数据库</p>
-              <p className="text-xs text-muted-foreground">完全重建媒体索引，耗时较长</p>
-            </div>
-            <Button variant="outline" size="sm" className="text-destructive border-destructive/50 hover:bg-destructive/10">
-              重建
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
-// 关于页面
-function AboutPage({ metrics: serverMetrics }: { metrics: AdminDashboardMetrics }) {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">关于 Nako</h1>
-        <p className="mt-1 text-sm text-muted-foreground">版本信息和系统状态</p>
-      </div>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle>版本信息</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">当前版本</span>
-            <span className="font-mono text-sm">{serverMetrics.version}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">最新版本</span>
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-sm text-info">{serverMetrics.latestVersion}</span>
-              <Badge variant="secondary" className="text-[10px]">有更新</Badge>
-            </div>
-          </div>
-          <Separator />
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">运行时间</span>
-            <span className="text-sm">{serverMetrics.uptime}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">操作系统</span>
-            <span className="text-sm">Linux (Docker)</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">数据库</span>
-            <span className="text-sm">SQLite 3.42.0</span>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>链接</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {[
-            { name: "项目主页", url: "https://github.com/nako-media" },
-            { name: "文档", url: "https://docs.nako.media" },
-            { name: "更新日志", url: "https://github.com/nako-media/releases" },
-            { name: "问题反馈", url: "https://github.com/nako-media/issues" },
-          ].map(link => (
-            <a 
-              key={link.name}
-              href={link.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-between rounded-lg border border-border/50 p-3 transition-colors hover:bg-muted/50"
-            >
-              <span className="text-sm">{link.name}</span>
-              <ExternalLink className="h-4 w-4 text-muted-foreground" />
-            </a>
-          ))}
         </CardContent>
       </Card>
     </div>

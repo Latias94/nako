@@ -152,3 +152,48 @@ Green checks:
   passed: 6 tests run, 6 passed.
 - `cargo nextest run -p nako-server candidate_review admin --no-fail-fast`
   passed: 109 tests run, 109 passed.
+
+## AWPDG-040 Evidence
+
+Implemented behavior:
+
+- added Web Admin client/read-model/mutation data-source support for
+  `GET /admin/v1/metadata/candidate-reviews/{review_id}` and
+  `POST /admin/v1/metadata/candidate-reviews/{review_id}/apply`;
+- added the direct route
+  `/admin/metadata/candidate-reviews?review_id=<id>` for durable Candidate
+  Review inspection;
+- rendered root Candidate Review evidence, root-only apply boundary facts, and
+  related graph preview evidence without presenting related nodes as applied
+  hierarchy;
+- added an explicit two-step prepare/confirm apply path that sends
+  `item_id`, `expected_updated_at_ms`, and an operator idempotency key to the
+  Admin API while hiding the raw idempotency key from the UI;
+- rendered apply result, idempotent replay, Provider Subject, Provider Mapping,
+  and idempotency-key fingerprint facts;
+- kept fixture mutation disabled and fixture read fallback clearly marked;
+- reduced unbound Admin mock surfaces that were carrying static UI without
+  durable Admin API contracts: dashboard fake quick actions/recent activity,
+  DLNA mock settings, and transcode mock settings are now planned/API-scoped
+  surfaces.
+
+Red checks:
+
+- `npm --prefix web run test -- data-source-contracts route-state-contracts`
+  initially failed because the Candidate Review read/apply data-source methods
+  and Web route did not exist.
+- `npm --prefix web run build:budget` initially failed with total JS at
+  344.12 KiB gzip over the 341 KiB budget.
+
+Green checks:
+
+- `npm --prefix web run check` passed.
+- `npm --prefix web run test` passed: 10 test files, 116 tests.
+- `npm --prefix web run build:budget` passed: `total-js` 1162.97 KiB raw /
+  340.92 KiB gzip, under the 1250/341 KiB budget.
+- Browser smoke passed against
+  `http://127.0.0.1:3001/admin/metadata/candidate-reviews?review_id=smoke-review`:
+  HTTP 200, page title loaded, key text (`Metadata Candidate Review`,
+  `Root Provider Mapping`, `Related preview only`, `准备应用`) present, and no
+  console errors. The only console warning was Vite/React DevTools Fast Refresh
+  shim compatibility.

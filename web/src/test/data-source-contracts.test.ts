@@ -661,6 +661,184 @@ function adminGeneratedArtifactProposalsResponse() {
   }
 }
 
+function adminMetadataCandidateReviewResponse(reviewId = "review-live") {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    review: adminMetadataCandidateReviewDetail(reviewId),
+    application_plan: adminMetadataCandidateReviewApplicationPlan(reviewId, "apply", ["ready"]),
+    boundary: adminMetadataCandidateReviewBoundary(),
+    raw_provider_response: "provider secret response",
+    idempotency_key: "candidate-review:operator-secret",
+  }
+}
+
+function adminMetadataCandidateReviewApplyResponse(reviewId = "review-live") {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    review_id: reviewId,
+    item_id: "item-live",
+    applied: true,
+    changed: false,
+    idempotent_replay: true,
+    idempotency_key_fingerprint: "0123456789abcdef",
+    plan: adminMetadataCandidateReviewApplicationPlan(
+      reviewId,
+      "noop",
+      ["existing_accepted_mapping"],
+    ),
+    provider_subject: {
+      subject_id: "subject-live",
+      provider: "bangumi",
+      subject_kind: "subject",
+      subject_key: "1437",
+      title: "Live Candidate",
+      release_year: 2026,
+      locale: "zh-CN",
+      raw_subject_payload: "provider secret response",
+    },
+    provider_mapping: {
+      mapping_id: "mapping-live",
+      item_id: "item-live",
+      subject_id: "subject-live",
+      status: "accepted",
+      confidence_milli: 940,
+      source: "user",
+      raw_provider_mapping: "provider secret response",
+    },
+    boundary: adminMetadataCandidateReviewBoundary({
+      read_only: false,
+      applies_on_read: false,
+      apply_mutation_required: true,
+    }),
+    idempotency_key: "web-metadata-candidate-review-apply:review-unsafe-id:test",
+  }
+}
+
+function adminMetadataCandidateReviewDetail(reviewId = "review-live") {
+  const rootSubject = adminMetadataCandidateSubject("subject", "1437", "Live Candidate")
+  const childSubject = adminMetadataCandidateSubject("episode", "1437/1", "Episode One")
+
+  return {
+    review_id: reviewId,
+    item_id: "item-live",
+    source: { provider: "bangumi" },
+    source_key: "bangumi:1437",
+    status: "accepted",
+    root: {
+      source: { provider: "bangumi" },
+      kind: "series",
+      subject: rootSubject,
+      metadata: adminMetadataCandidateSummary("Live Candidate", {
+        raw_overview: "secret candidate overview",
+        raw_tags: ["secret-candidate-tag"],
+        source_locator: "local:///Private/Live.S01E01.mkv?token=secret",
+        source_fingerprint: "sha256-private-candidate",
+      }),
+    },
+    related: [
+      {
+        source: { provider: "bangumi" },
+        kind: "episode",
+        subject: childSubject,
+        metadata: adminMetadataCandidateSummary("Episode One", {
+          raw_overview: "secret related overview",
+        }),
+      },
+    ],
+    relationships: [
+      {
+        parent_subject: rootSubject,
+        child_subject: childSubject,
+        kind: "contains",
+      },
+    ],
+    related_count: 1,
+    relationship_count: 1,
+    expires_at_ms: null,
+    created_at_ms: 100,
+    updated_at_ms: 300,
+  }
+}
+
+function adminMetadataCandidateReviewApplicationPlan(
+  reviewId: string,
+  action: "apply" | "skip" | "noop",
+  reasons: string[],
+) {
+  return {
+    review_id: reviewId,
+    item_id: "item-live",
+    action,
+    reasons,
+    source: "user",
+    root_subject: adminMetadataCandidateSubject("subject", "1437", "Live Candidate"),
+    existing_mapping_id: action === "noop" ? "mapping-live" : null,
+    existing_mapping_status: action === "noop" ? "accepted" : null,
+    raw_provider_response: "provider secret response",
+  }
+}
+
+function adminMetadataCandidateReviewBoundary(
+  overrides: Record<string, boolean> = {},
+) {
+  return {
+    read_only: true,
+    applies_on_read: false,
+    apply_mutation_required: true,
+    apply_updates_root_provider_subject: true,
+    apply_updates_root_provider_mapping: true,
+    apply_updates_related_provider_subjects: false,
+    apply_updates_related_provider_mappings: false,
+    updates_canonical_metadata: false,
+    updates_hierarchy: false,
+    writes_nfo: false,
+    writes_library_files: false,
+    ...overrides,
+  }
+}
+
+function adminMetadataCandidateSubject(
+  subjectKind: string,
+  subjectKey: string,
+  title: string,
+) {
+  return {
+    provider: "bangumi",
+    subject_kind: subjectKind,
+    subject_key: subjectKey,
+    title,
+    release_year: 2026,
+    locale: "zh-CN",
+    raw_subject_payload: "provider secret response",
+  }
+}
+
+function adminMetadataCandidateSummary(
+  title: string,
+  unsafeFields: Record<string, unknown> = {},
+) {
+  return {
+    title,
+    original_title: null,
+    sort_title: null,
+    release_date: "2026-06-01",
+    runtime_minutes: null,
+    description_present: true,
+    tagline_present: false,
+    genre_count: 1,
+    tag_count: 1,
+    rating_count: 1,
+    image_count: 1,
+    credit_count: 0,
+    collection_count: 0,
+    studio_count: 0,
+    external_id_count: 1,
+    ...unsafeFields,
+  }
+}
+
 function adminGeneratedArtifactReviewPlanResponse(
   artifactId = "artifact-live",
   decision: "accept" | "reject" = "accept",
@@ -2953,6 +3131,135 @@ describe("admin read model data source contracts", () => {
     ).resolves.toEqual(ADMIN_GENERATED_ARTIFACT_REVIEW_PLAN_FIXTURE)
   })
 
+  it("maps live Admin metadata candidate review detail without unsafe fields", async () => {
+    const calls: Array<{ method: string; path: string; authorization: string | null }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      calls.push({
+        method: init?.method ?? "GET",
+        path: url.pathname,
+        authorization: new Headers(init?.headers).get("Authorization"),
+      })
+
+      if (url.pathname === "/admin/v1/metadata/candidate-reviews/review%2Funsafe%20id") {
+        return jsonResponse(adminMetadataCandidateReviewResponse("review/unsafe id"))
+      }
+
+      return jsonResponse({ message: "not found" }, 404)
+    })
+    const source = createAdminReadModelsDataSource(
+      {
+        mode: "live",
+        baseUrl: "http://nako-admin.test/",
+        bearerToken: "admin-token",
+      },
+      fetcher,
+    )
+
+    const detail = await source.loadMetadataCandidateReview("review/unsafe id")
+
+    expect(detail).toMatchObject({
+      source: "live",
+      fallback: false,
+      versions: {
+        adminApi: "v1",
+        publicApi: "v1",
+      },
+      reviewId: "review/unsafe id",
+      itemId: "item-live",
+      status: "accepted",
+      sourceKey: "bangumi:1437",
+      root: {
+        kind: "series",
+        subject: {
+          provider: "bangumi",
+          subjectKind: "subject",
+          subjectKey: "1437",
+          title: "Live Candidate",
+        },
+        metadata: {
+          title: "Live Candidate",
+          descriptionPresent: true,
+          tagCount: 1,
+        },
+      },
+      related: [
+        expect.objectContaining({
+          kind: "episode",
+          subject: expect.objectContaining({
+            subjectKey: "1437/1",
+          }),
+        }),
+      ],
+      relationships: [
+        expect.objectContaining({
+          kind: "contains",
+          childSubject: expect.objectContaining({
+            subjectKey: "1437/1",
+          }),
+        }),
+      ],
+      applicationPlan: {
+        action: "apply",
+        reasons: ["ready"],
+        existingMappingId: null,
+        existingMappingStatus: null,
+      },
+      boundary: {
+        applyMutationRequired: true,
+        applyUpdatesRootProviderSubject: true,
+        applyUpdatesRootProviderMapping: true,
+        applyUpdatesRelatedProviderSubjects: false,
+        updatesHierarchy: false,
+        updatesCanonicalMetadata: false,
+      },
+    })
+
+    expect(calls).toEqual([
+      {
+        method: "GET",
+        path: "/admin/v1/metadata/candidate-reviews/review%2Funsafe%20id",
+        authorization: "Bearer admin-token",
+      },
+    ])
+
+    const serialized = JSON.stringify(detail)
+    expect(serialized).not.toContain("secret candidate overview")
+    expect(serialized).not.toContain("secret related overview")
+    expect(serialized).not.toContain("secret-candidate-tag")
+    expect(serialized).not.toContain("local:///")
+    expect(serialized).not.toContain("sha256-private")
+    expect(serialized).not.toContain("candidate-review:operator-secret")
+    expect(serialized).not.toContain("provider secret response")
+  })
+
+  it("returns deterministic fixture metadata candidate review detail", async () => {
+    const source = createAdminReadModelsDataSource({ mode: "fixture" })
+
+    await expect(
+      source.loadMetadataCandidateReview("fixture-metadata-candidate-review-1"),
+    ).resolves.toMatchObject({
+      source: "fixture",
+      fallback: true,
+      reviewId: "fixture-metadata-candidate-review-1",
+      root: {
+        subject: {
+          subjectKey: "1437",
+        },
+      },
+      related: [
+        expect.objectContaining({
+          subject: expect.objectContaining({
+            subjectKey: "1437/1",
+          }),
+        }),
+      ],
+      applicationPlan: {
+        action: "apply",
+      },
+    })
+  })
+
   it("maps live Admin generated artifact metadata apply plans through POST without unsafe fields", async () => {
     const calls: Array<{ method: string; path: string; body?: unknown; authorization: string | null }> = []
     const fetcher = vi.fn<typeof fetch>(async (input, init) => {
@@ -3482,6 +3789,13 @@ describe("admin mutation data source contracts", () => {
         "web-generated-artifact-metadata-bulk-apply:test",
       ),
     ).rejects.toThrow("live Admin API")
+    await expect(
+      source.applyMetadataCandidateReview("review-live", {
+        itemId: "item-live",
+        expectedUpdatedAtMs: 300,
+        idempotencyKey: "web-metadata-candidate-review-apply:review-live:test",
+      }),
+    ).rejects.toThrow("live Admin API")
   })
 
   it("maps accepted Admin mutations to versioned routes with JSON bodies", async () => {
@@ -3516,6 +3830,8 @@ describe("admin mutation data source contracts", () => {
           return jsonResponse(adminGeneratedArtifactReviewResponse("artifact/unsafe id", "accept"))
         case "POST /admin/v1/automation/generated-artifacts/artifact%2Funsafe%20id/metadata-apply":
           return jsonResponse(adminGeneratedArtifactMetadataApplyResponse("artifact/unsafe id"))
+        case "POST /admin/v1/metadata/candidate-reviews/review%2Funsafe%20id/apply":
+          return jsonResponse(adminMetadataCandidateReviewApplyResponse("review/unsafe id"))
         default:
           return jsonResponse({ message: "not found" }, 404)
       }
@@ -3595,6 +3911,36 @@ describe("admin mutation data source contracts", () => {
         ]),
       },
     })
+    const candidateApplyResult = await source.applyMetadataCandidateReview("review/unsafe id", {
+      itemId: "item-live",
+      expectedUpdatedAtMs: 300,
+      idempotencyKey: "web-metadata-candidate-review-apply:review-unsafe-id:test",
+    })
+    expect(candidateApplyResult).toMatchObject({
+      kind: "metadata-candidate-review.apply",
+      reviewId: "review/unsafe id",
+      itemId: "item-live",
+      applied: true,
+      changed: false,
+      idempotentReplay: true,
+      idempotencyKeyFingerprint: "0123456789abcdef",
+      plan: {
+        action: "noop",
+        reasons: ["existing_accepted_mapping"],
+      },
+      providerSubject: {
+        provider: "bangumi",
+        subjectKind: "subject",
+        subjectKey: "1437",
+      },
+      providerMapping: {
+        status: "accepted",
+      },
+      boundary: {
+        applyUpdatesRelatedProviderSubjects: false,
+        updatesHierarchy: false,
+      },
+    })
 
     expect(calls).toEqual([
       {
@@ -3671,9 +4017,19 @@ describe("admin mutation data source contracts", () => {
         },
         authorization: "Bearer admin-token",
       },
+      {
+        method: "POST",
+        path: "/admin/v1/metadata/candidate-reviews/review%2Funsafe%20id/apply",
+        body: {
+          item_id: "item-live",
+          expected_updated_at_ms: 300,
+          idempotency_key: "web-metadata-candidate-review-apply:review-unsafe-id:test",
+        },
+        authorization: "Bearer admin-token",
+      },
     ])
 
-    const serialized = JSON.stringify({ reviewResult, applyResult })
+    const serialized = JSON.stringify({ reviewResult, applyResult, candidateApplyResult })
     expect(serialized).not.toContain("F:\\private")
     expect(serialized).not.toContain("/mnt/private/source")
     expect(serialized).not.toContain("unsafe prompt body")
@@ -3682,6 +4038,7 @@ describe("admin mutation data source contracts", () => {
     expect(serialized).not.toContain("provider secret response")
     expect(serialized).not.toContain("provider-secret")
     expect(serialized).not.toContain("artifact_storage_handle")
+    expect(serialized).not.toContain("web-metadata-candidate-review-apply:review-unsafe-id:test")
   })
 
   it("maps live Admin generated artifact metadata bulk apply confirmation and batch status", async () => {

@@ -697,6 +697,116 @@ describe("route state contracts", () => {
     }
   })
 
+  it("runs live Admin metadata candidate review apply without exposing unsafe review fields", async () => {
+    const user = userEvent.setup()
+    const originalFetch = globalThis.fetch
+    const previousProfile = window.localStorage.getItem(CONNECTION_PROFILE_STORAGE_KEY)
+    const previousSession = window.sessionStorage.getItem(CONNECTION_SESSION_STORAGE_KEY)
+    const calls: Array<{
+      method: string
+      path: string
+      body?: unknown
+      authorization: string | null
+    }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined
+      const method = init?.method ?? "GET"
+      calls.push({
+        method,
+        path: url.pathname,
+        body,
+        authorization: new Headers(init?.headers).get("Authorization"),
+      })
+
+      switch (`${method} ${url.pathname}`) {
+        case "GET /admin/v1/metadata/candidate-reviews/review-live":
+          return jsonResponse(adminMetadataCandidateReviewResponse("review-live"))
+        case "POST /admin/v1/metadata/candidate-reviews/review-live/apply":
+          return jsonResponse(adminMetadataCandidateReviewApplyResponse("review-live"))
+        default:
+          return jsonResponse({ code: "not_found", message: "not found" }, 404)
+      }
+    })
+
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako-admin.test",
+      }),
+    )
+    window.sessionStorage.setItem(
+      CONNECTION_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        bearerToken: "admin-token",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+
+    try {
+      renderRoute("/admin/metadata/candidate-reviews?review_id=review-live")
+
+      expect(await screen.findByRole("heading", { name: "Metadata Candidate Review" }, { timeout: 10000 })).toBeInTheDocument()
+      expect(await screen.findByText("review-live", {}, { timeout: 10000 })).toBeInTheDocument()
+      expect(await screen.findByText("Live Candidate", {}, { timeout: 10000 })).toBeInTheDocument()
+      expect(await screen.findByText("1437/1", {}, { timeout: 10000 })).toBeInTheDocument()
+      expect(screen.getByText("Root Provider Mapping")).toBeInTheDocument()
+      expect(screen.getByText("Related preview only")).toBeInTheDocument()
+      expect(screen.queryByText("secret candidate overview")).not.toBeInTheDocument()
+      expect(screen.queryByText("secret related overview")).not.toBeInTheDocument()
+      expect(screen.queryByText("secret-candidate-tag")).not.toBeInTheDocument()
+      expect(screen.queryByText("local:///Private/Live.S01E01.mkv?token=secret")).not.toBeInTheDocument()
+      expect(screen.queryByText("sha256-private-candidate")).not.toBeInTheDocument()
+      expect(screen.queryByText("provider secret response")).not.toBeInTheDocument()
+      expect(screen.queryByText("admin-token")).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole("button", { name: "准备应用" }))
+      await user.click(screen.getByRole("button", { name: "确认应用" }))
+
+      expect(await screen.findByText("Candidate Review 已应用，未产生新的 Provider Mapping 变更", {}, { timeout: 10000 })).toBeInTheDocument()
+      expect(screen.getByText("idempotent replay")).toBeInTheDocument()
+      expect(screen.getByText("0123456789abcdef")).toBeInTheDocument()
+      expect(screen.getByText("mapping-live")).toBeInTheDocument()
+      expect(screen.queryByText("web-metadata-candidate-review-apply:review-live")).not.toBeInTheDocument()
+
+      expect(calls).toContainEqual({
+        method: "GET",
+        path: "/admin/v1/metadata/candidate-reviews/review-live",
+        body: undefined,
+        authorization: "Bearer admin-token",
+      })
+      const applyCall = calls.find(
+        (call) =>
+          call.method === "POST" &&
+          call.path === "/admin/v1/metadata/candidate-reviews/review-live/apply",
+      )
+      expect(applyCall).toBeDefined()
+      expect(applyCall?.body).toMatchObject({
+        item_id: "item-live",
+        expected_updated_at_ms: 300,
+        idempotency_key: expect.stringMatching(
+          /^web-metadata-candidate-review-apply:review-live:/,
+        ),
+      })
+      expect(applyCall?.authorization).toBe("Bearer admin-token")
+      await waitFor(() => {
+        expect(
+          calls.filter(
+            (call) =>
+              call.method === "GET" &&
+              call.path === "/admin/v1/metadata/candidate-reviews/review-live",
+          ).length,
+        ).toBeGreaterThanOrEqual(2)
+      })
+    } finally {
+      vi.stubGlobal("fetch", originalFetch)
+      restoreStorage(window.localStorage, CONNECTION_PROFILE_STORAGE_KEY, previousProfile)
+      restoreStorage(window.sessionStorage, CONNECTION_SESSION_STORAGE_KEY, previousSession)
+    }
+  })
+
   it("runs live Admin generated artifact metadata bulk apply through plan, confirm, and status", async () => {
     const user = userEvent.setup()
     const originalFetch = globalThis.fetch
@@ -2152,6 +2262,184 @@ function adminGeneratedArtifactProposalsResponse() {
       offset: 50,
       returned: 1,
     },
+  }
+}
+
+function adminMetadataCandidateReviewResponse(reviewId = "review-live") {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    review: adminMetadataCandidateReviewDetail(reviewId),
+    application_plan: adminMetadataCandidateReviewApplicationPlan(reviewId, "apply", ["ready"]),
+    boundary: adminMetadataCandidateReviewBoundary(),
+    raw_provider_response: "provider secret response",
+    idempotency_key: "candidate-review:operator-secret",
+  }
+}
+
+function adminMetadataCandidateReviewApplyResponse(reviewId = "review-live") {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    review_id: reviewId,
+    item_id: "item-live",
+    applied: true,
+    changed: false,
+    idempotent_replay: true,
+    idempotency_key_fingerprint: "0123456789abcdef",
+    plan: adminMetadataCandidateReviewApplicationPlan(
+      reviewId,
+      "noop",
+      ["existing_accepted_mapping"],
+    ),
+    provider_subject: {
+      subject_id: "subject-live",
+      provider: "bangumi",
+      subject_kind: "subject",
+      subject_key: "1437",
+      title: "Live Candidate",
+      release_year: 2026,
+      locale: "zh-CN",
+      raw_subject_payload: "provider secret response",
+    },
+    provider_mapping: {
+      mapping_id: "mapping-live",
+      item_id: "item-live",
+      subject_id: "subject-live",
+      status: "accepted",
+      confidence_milli: 940,
+      source: "user",
+      raw_provider_mapping: "provider secret response",
+    },
+    boundary: adminMetadataCandidateReviewBoundary({
+      read_only: false,
+      applies_on_read: false,
+      apply_mutation_required: true,
+    }),
+    idempotency_key: "web-metadata-candidate-review-apply:review-live:test",
+  }
+}
+
+function adminMetadataCandidateReviewDetail(reviewId = "review-live") {
+  const rootSubject = adminMetadataCandidateSubject("subject", "1437", "Live Candidate")
+  const childSubject = adminMetadataCandidateSubject("episode", "1437/1", "Episode One")
+
+  return {
+    review_id: reviewId,
+    item_id: "item-live",
+    source: { provider: "bangumi" },
+    source_key: "bangumi:1437",
+    status: "accepted",
+    root: {
+      source: { provider: "bangumi" },
+      kind: "series",
+      subject: rootSubject,
+      metadata: adminMetadataCandidateSummary("Live Candidate", {
+        raw_overview: "secret candidate overview",
+        raw_tags: ["secret-candidate-tag"],
+        source_locator: "local:///Private/Live.S01E01.mkv?token=secret",
+        source_fingerprint: "sha256-private-candidate",
+      }),
+    },
+    related: [
+      {
+        source: { provider: "bangumi" },
+        kind: "episode",
+        subject: childSubject,
+        metadata: adminMetadataCandidateSummary("Episode One", {
+          raw_overview: "secret related overview",
+        }),
+      },
+    ],
+    relationships: [
+      {
+        parent_subject: rootSubject,
+        child_subject: childSubject,
+        kind: "contains",
+      },
+    ],
+    related_count: 1,
+    relationship_count: 1,
+    expires_at_ms: null,
+    created_at_ms: 100,
+    updated_at_ms: 300,
+  }
+}
+
+function adminMetadataCandidateReviewApplicationPlan(
+  reviewId: string,
+  action: "apply" | "skip" | "noop",
+  reasons: string[],
+) {
+  return {
+    review_id: reviewId,
+    item_id: "item-live",
+    action,
+    reasons,
+    source: "user",
+    root_subject: adminMetadataCandidateSubject("subject", "1437", "Live Candidate"),
+    existing_mapping_id: action === "noop" ? "mapping-live" : null,
+    existing_mapping_status: action === "noop" ? "accepted" : null,
+    raw_provider_response: "provider secret response",
+  }
+}
+
+function adminMetadataCandidateReviewBoundary(
+  overrides: Record<string, boolean> = {},
+) {
+  return {
+    read_only: true,
+    applies_on_read: false,
+    apply_mutation_required: true,
+    apply_updates_root_provider_subject: true,
+    apply_updates_root_provider_mapping: true,
+    apply_updates_related_provider_subjects: false,
+    apply_updates_related_provider_mappings: false,
+    updates_canonical_metadata: false,
+    updates_hierarchy: false,
+    writes_nfo: false,
+    writes_library_files: false,
+    ...overrides,
+  }
+}
+
+function adminMetadataCandidateSubject(
+  subjectKind: string,
+  subjectKey: string,
+  title: string,
+) {
+  return {
+    provider: "bangumi",
+    subject_kind: subjectKind,
+    subject_key: subjectKey,
+    title,
+    release_year: 2026,
+    locale: "zh-CN",
+    raw_subject_payload: "provider secret response",
+  }
+}
+
+function adminMetadataCandidateSummary(
+  title: string,
+  unsafeFields: Record<string, unknown> = {},
+) {
+  return {
+    title,
+    original_title: null,
+    sort_title: null,
+    release_date: "2026-06-01",
+    runtime_minutes: null,
+    description_present: true,
+    tagline_present: false,
+    genre_count: 1,
+    tag_count: 1,
+    rating_count: 1,
+    image_count: 1,
+    credit_count: 0,
+    collection_count: 0,
+    studio_count: 0,
+    external_id_count: 1,
+    ...unsafeFields,
   }
 }
 
