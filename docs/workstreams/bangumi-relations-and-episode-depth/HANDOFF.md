@@ -8,14 +8,14 @@ Last updated: 2026-06-02
 The lane is opened from the closed MPDP follow-on split after TMDB episode
 graph depth closeout. `BRED-020` narrowed Bangumi capability claims to
 endpoint-backed subject-level behavior before episode endpoint support exists.
+`BRED-030` added endpoint-backed Bangumi episode graph preview for series
+fetches.
 
 ## Active Task
 
-- Task ID: `BRED-030`
+- Task ID: `BRED-040`
 - Owner: codex
-- Files: `crates/nako-metadata/src/providers/bangumi.rs`,
-  `crates/nako-metadata/src/mapping/bangumi.rs`,
-  `crates/nako-metadata/src/tests.rs`, and this workstream
+- Files: `crates/nako-metadata/src/tests.rs` and this workstream
 - Validation: focused `nako-metadata` Bangumi / candidate graph gates, plus
   `cargo fmt --all -- --check`
 - Status: READY
@@ -28,14 +28,16 @@ endpoint-backed subject-level behavior before episode endpoint support exists.
 - Start by making Bangumi capability claims truthful before adding graph depth.
 - Season/Episode search/fetch now returns `Unsupported` before provider HTTP
   until endpoint-backed behavior is implemented.
+- Bangumi series fetch may expose related Episode Provider Subjects from
+  `/v0/episodes`, but those nodes remain graph preview evidence.
 - Keep durable candidate review, schema changes, Admin/Web confirmation, and
   child Provider Mapping writes out of this lane.
 
 ## Blockers
 
-- None for `BRED-030`.
+- None for `BRED-040`.
 
 ## Next Recommended Action
 
-- Run `BRED-030`: add endpoint-backed Bangumi episode graph preview for series
-  fetches while keeping related nodes preview-only and non-mutating.
+- Run `BRED-040`: prove refresh persists only the root Bangumi Provider
+  Subject and ignores related episode preview nodes.

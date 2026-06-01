@@ -22,11 +22,11 @@ Last updated: 2026-06-02
 
 ## M2 - Bangumi Episode Graph Preview
 
-- [ ] BRED-030 [owner=codex] [deps=BRED-020] [scope=crates/nako-metadata/src/providers/bangumi.rs,crates/nako-metadata/src/mapping/bangumi.rs,crates/nako-metadata/src/tests.rs,docs/workstreams/bangumi-relations-and-episode-depth]
+- [x] BRED-030 [owner=codex] [deps=BRED-020] [scope=crates/nako-metadata/src/providers/bangumi.rs,crates/nako-metadata/src/mapping/bangumi.rs,crates/nako-metadata/src/tests.rs,docs/workstreams/bangumi-relations-and-episode-depth]
   Goal: Add endpoint-backed Bangumi episode graph preview for series fetches without persistence changes.
   Validation: `cargo nextest run -p nako-metadata bangumi_provider metadata_candidate --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`.
-  Review: episode nodes are evidence only and use precise Provider Subject keys.
-  Evidence: `EVIDENCE_AND_GATES.md`.
+  Review: episode nodes are evidence only and use precise Provider Subject keys. Passed on 2026-06-02.
+  Evidence: `EVIDENCE_AND_GATES.md` BRED-030 section.
   Handoff: Continue to `BRED-040`.
 
 ## M3 - Root-Only Refresh Guard

@@ -7,7 +7,7 @@ pub use bangumi::{BangumiMetadataProvider, BangumiProviderConfig};
 pub use douban::{DoubanMetadataProvider, DoubanProviderConfig};
 pub use tmdb::{TmdbMetadataProvider, TmdbProviderConfig};
 
-pub(crate) use bangumi::{BangumiInfoBoxItem, BangumiSubject};
+pub(crate) use bangumi::{BangumiEpisode, BangumiInfoBoxItem, BangumiSubject};
 pub(crate) use common::{
     api_key_query, bearer_headers, first_non_empty, header_map_from_pairs, non_empty_string,
     now_utc_string, provider_parse_error, provider_request_error, push_provider_image_uri,

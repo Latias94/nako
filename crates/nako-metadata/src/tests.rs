@@ -2373,12 +2373,56 @@ async fn bangumi_provider_uses_runtime_and_maps_http_response() {
 
     assert_eq!(candidates[0].provider, ExternalProvider::Bangumi);
     assert_eq!(fetched.metadata().title, "星际牛仔");
+    let series_subject = fetched.graph.root_provider_subject().unwrap().clone();
+    assert_eq!(series_subject.subject_kind, ProviderSubjectKind::Series);
+    assert_eq!(series_subject.subject_key, "8");
+    assert_eq!(fetched.graph.related.len(), 1);
+    let episode_node = &fetched.graph.related[0];
+    assert_eq!(episode_node.kind, MediaKind::Episode);
+    assert_eq!(episode_node.metadata.title.as_deref(), Some("阿斯特罗蓝调"));
+    assert_eq!(
+        episode_node.metadata.original_title.as_deref(),
+        Some("Asteroid Blues")
+    );
+    assert_eq!(
+        episode_node.metadata.release_date.as_deref(),
+        Some("1998-04-03")
+    );
+    assert_eq!(episode_node.metadata.runtime_minutes, Some(24));
+    assert!(
+        episode_node
+            .metadata
+            .external_ids
+            .iter()
+            .any(
+                |external_id| external_id.provider == ExternalProvider::Bangumi
+                    && external_id.value == "101"
+            )
+    );
+    let episode_subject = episode_node.subject.as_ref().unwrap();
+    assert_eq!(episode_subject.provider, ExternalProvider::Bangumi);
+    assert_eq!(episode_subject.subject_kind, ProviderSubjectKind::Episode);
+    assert_eq!(episode_subject.subject_key, "101");
+    assert_eq!(episode_subject.title.as_deref(), Some("阿斯特罗蓝调"));
+    assert_eq!(episode_subject.release_year, Some(1998));
+    assert_eq!(fetched.graph.relationships.len(), 1);
+    let relationship = &fetched.graph.relationships[0];
+    assert_eq!(
+        relationship.kind,
+        MetadataCandidateRelationshipKind::Contains
+    );
+    assert_eq!(relationship.parent_subject, series_subject);
+    assert_eq!(relationship.child_subject, episode_subject.clone());
+    assert!(fetched.raw_json.contains(r#""episodes""#));
     assert!(
         server
             .authorizations()
             .iter()
             .any(|value| value == &format!("Bearer {}", fixtures::BANGUMI_TOKEN))
     );
+    assert!(server.uris().iter().any(|uri| uri.contains("/v0/episodes")
+        && uri.contains("subject_id=8")
+        && uri.contains("type=0")));
 }
 
 #[tokio::test]
@@ -2700,6 +2744,7 @@ impl MockMetadataServer {
             )
             .route("/v0/search/subjects", post(mock_bangumi_search))
             .route("/v0/subjects/{id}", get(mock_bangumi_subject))
+            .route("/v0/episodes", get(mock_bangumi_episodes))
             .route("/movie/search", get(mock_douban_search))
             .route("/movie/subject/{id}", get(mock_douban_subject))
             .with_state(state.clone());
@@ -3003,6 +3048,32 @@ async fn mock_bangumi_subject(
         "infobox": [{"key": "动画制作", "value": "SUNRISE"}],
         "tags": [{"name": "科幻"}],
         "rating": {"score": 9.1}
+    }))
+}
+
+async fn mock_bangumi_episodes(
+    State(state): State<MockMetadataState>,
+    headers: AxumHeaderMap,
+    uri: Uri,
+) -> Json<serde_json::Value> {
+    record_request(&state, &headers, &uri);
+    Json(json!({
+        "data": [{
+            "id": 101,
+            "type": 0,
+            "name": "Asteroid Blues",
+            "name_cn": "阿斯特罗蓝调",
+            "sort": 1.0,
+            "ep": 1.0,
+            "airdate": "1998-04-03",
+            "comment": 0,
+            "duration": "24m",
+            "duration_seconds": 1440,
+            "desc": "Spike and Jet chase a bounty head."
+        }],
+        "total": 1,
+        "limit": 100,
+        "offset": 0
     }))
 }
 

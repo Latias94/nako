@@ -24,8 +24,8 @@ closeout.
 
 Next task:
 
-- `BRED-030`: add endpoint-backed Bangumi episode graph preview for series
-  fetches without changing persistence behavior.
+- `BRED-040`: prove Bangumi episode graph preview remains non-mutating during
+  refresh and Provider Mapping persistence.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,

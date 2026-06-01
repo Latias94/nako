@@ -3,7 +3,8 @@ use nako_core::{
 };
 
 use crate::providers::{
-    BangumiInfoBoxItem, BangumiSubject, first_non_empty, non_empty_string, push_provider_image_uri,
+    BangumiEpisode, BangumiInfoBoxItem, BangumiSubject, first_non_empty, non_empty_string,
+    push_provider_image_uri,
 };
 
 pub(crate) fn bangumi_subject_to_metadata(
@@ -70,6 +71,29 @@ pub(crate) fn bangumi_subject_to_metadata(
         external_ids: vec![ExternalId {
             provider: ExternalProvider::Bangumi,
             value: subject.id.to_string(),
+        }],
+        ..MetadataCandidateRecord::default()
+    }
+}
+
+pub(crate) fn bangumi_episode_to_metadata(episode: &BangumiEpisode) -> MetadataCandidateRecord {
+    MetadataCandidateRecord {
+        title: first_non_empty(&[Some(episode.name_cn.as_str()), Some(episode.name.as_str())]),
+        original_title: non_empty_string(episode.name.clone()),
+        overview: episode
+            .desc
+            .clone()
+            .filter(|value| !value.trim().is_empty()),
+        release_date: episode
+            .airdate
+            .clone()
+            .filter(|value| !value.trim().is_empty()),
+        runtime_minutes: episode
+            .duration_seconds
+            .and_then(|seconds| (seconds > 0).then_some(seconds.div_ceil(60))),
+        external_ids: vec![ExternalId {
+            provider: ExternalProvider::Bangumi,
+            value: episode.id.to_string(),
         }],
         ..MetadataCandidateRecord::default()
     }

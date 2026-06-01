@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use nako_core::{
-    ExternalProvider, MediaKind, MetadataCandidateGraph, NakoError, ProviderSubjectKind, Result,
-    SecretString,
+    ExternalProvider, MediaKind, MetadataCandidateGraph, MetadataCandidateNode,
+    MetadataCandidateRelationship, MetadataCandidateRelationshipKind, MetadataCandidateSource,
+    MetadataCandidateSubject, NakoError, ProviderSubjectKind, Result, SecretString,
 };
 use reqwest::header::HeaderMap;
 use serde::{Deserialize, Serialize};
@@ -97,7 +98,7 @@ impl MetadataProvider for BangumiMetadataProvider {
             supports_hierarchy: false,
             credential_requirement: MetadataProviderCredentialRequirement::Optional,
             notes: vec![
-                "Bangumi subject metadata is subject-level and anime-first; relation and episode endpoints are not advertised until implemented".to_owned(),
+                "Bangumi subject metadata is subject-level and anime-first; related episode graph preview does not imply direct Episode fetch support".to_owned(),
                 "Hierarchy confirmation remains Nako-owned".to_owned(),
             ],
         }
@@ -182,7 +183,7 @@ impl MetadataProvider for BangumiMetadataProvider {
             ));
         }
 
-        let value = self
+        let subject_value = self
             .runtime
             .get_json(
                 BANGUMI_PROVIDER_NAME,
@@ -192,20 +193,50 @@ impl MetadataProvider for BangumiMetadataProvider {
                 self.headers()?,
             )
             .await?;
-        let raw_json = serde_json::to_string(&value).map_err(|err| {
-            provider_parse_error(BANGUMI_PROVIDER_NAME, "serialize subject details", err)
-        })?;
-        let details: BangumiSubject = serde_json::from_value(value)
+        let details: BangumiSubject = serde_json::from_value(subject_value.clone())
             .map_err(|err| provider_parse_error(BANGUMI_PROVIDER_NAME, "subject details", err))?;
 
         let provider_key = details.id.to_string();
-        let graph = MetadataCandidateGraph::for_provider(
+        let mut raw_value = subject_value.clone();
+        let mut episodes = Vec::new();
+        if request.kind == MediaKind::Series {
+            let query = vec![
+                ("subject_id".to_owned(), provider_key.clone()),
+                ("type".to_owned(), "0".to_owned()),
+                ("limit".to_owned(), "200".to_owned()),
+                ("offset".to_owned(), "0".to_owned()),
+            ];
+            let episodes_value = self
+                .runtime
+                .get_json(
+                    BANGUMI_PROVIDER_NAME,
+                    "subject episodes",
+                    self.endpoint("v0/episodes"),
+                    &query,
+                    self.headers()?,
+                )
+                .await?;
+            let page: BangumiEpisodePage =
+                serde_json::from_value(episodes_value.clone()).map_err(|err| {
+                    provider_parse_error(BANGUMI_PROVIDER_NAME, "subject episodes", err)
+                })?;
+            episodes = page.data;
+            raw_value = serde_json::json!({
+                "subject": subject_value,
+                "episodes": episodes_value,
+            });
+        }
+        let raw_json = serde_json::to_string(&raw_value).map_err(|err| {
+            provider_parse_error(BANGUMI_PROVIDER_NAME, "serialize subject details", err)
+        })?;
+        let mut graph = MetadataCandidateGraph::for_provider(
             ExternalProvider::Bangumi,
             request.kind,
             provider_subject_kind_for_media_kind(request.kind),
             provider_key.clone(),
             crate::mapping::bangumi_subject_to_metadata(details, &self.config.image_base_url),
         );
+        append_bangumi_episode_graph(&mut graph, episodes);
 
         Ok(MetadataFetchResult {
             provider: ExternalProvider::Bangumi,
@@ -256,6 +287,29 @@ pub(crate) struct BangumiSubject {
     pub(crate) tags: Vec<BangumiTag>,
     #[serde(default)]
     pub(crate) rating: Option<BangumiRating>,
+}
+
+#[derive(Debug, Deserialize)]
+struct BangumiEpisodePage {
+    #[serde(default)]
+    data: Vec<BangumiEpisode>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct BangumiEpisode {
+    pub(crate) id: u64,
+    #[serde(default, rename = "type")]
+    pub(crate) episode_type: u8,
+    #[serde(default)]
+    pub(crate) name: String,
+    #[serde(default)]
+    pub(crate) name_cn: String,
+    #[serde(default)]
+    pub(crate) airdate: Option<String>,
+    #[serde(default)]
+    pub(crate) desc: Option<String>,
+    #[serde(default)]
+    pub(crate) duration_seconds: Option<u32>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -322,5 +376,37 @@ fn provider_subject_kind_for_media_kind(kind: MediaKind) -> ProviderSubjectKind 
         MediaKind::Episode => ProviderSubjectKind::Episode,
         MediaKind::Collection => ProviderSubjectKind::Collection,
         MediaKind::Extra | MediaKind::Unknown => ProviderSubjectKind::Subject,
+    }
+}
+
+fn append_bangumi_episode_graph(graph: &mut MetadataCandidateGraph, episodes: Vec<BangumiEpisode>) {
+    let Some(parent_subject) = graph.root_provider_subject().cloned() else {
+        return;
+    };
+
+    for episode in episodes {
+        if episode.episode_type != 0 {
+            continue;
+        }
+        let metadata = crate::mapping::bangumi_episode_to_metadata(&episode);
+        let subject = MetadataCandidateSubject {
+            provider: ExternalProvider::Bangumi,
+            subject_kind: ProviderSubjectKind::Episode,
+            subject_key: episode.id.to_string(),
+            title: metadata.title.clone(),
+            release_year: release_year(metadata.release_date.as_deref()).map(i32::from),
+            locale: None,
+        };
+        graph.relationships.push(MetadataCandidateRelationship {
+            parent_subject: parent_subject.clone(),
+            child_subject: subject.clone(),
+            kind: MetadataCandidateRelationshipKind::Contains,
+        });
+        graph.related.push(MetadataCandidateNode {
+            source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+            kind: MediaKind::Episode,
+            subject: Some(subject),
+            metadata,
+        });
     }
 }

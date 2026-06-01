@@ -7,7 +7,7 @@
   "scope_kind": "library_metadata_provider_graph_depth",
   "problem": "Bangumi metadata is subject-oriented, but the current adapter advertises season and episode support before it uses Bangumi relation or episode endpoints.",
   "task_prefix": "BRED",
-  "current_task": "BRED-030",
+  "current_task": "BRED-040",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -57,6 +57,10 @@
     {
       "task": "BRED-020",
       "summary": "Bangumi capabilities now advertise only endpoint-backed subject-level Movie, Series, and Unknown behavior; Season and Episode search/fetch requests fail before touching provider HTTP."
+    },
+    {
+      "task": "BRED-030",
+      "summary": "Bangumi series fetch now reads endpoint-backed episode summaries and projects main episodes into Candidate Graph related Episode nodes and contains relationships without changing persistence semantics."
     }
   ],
   "adr_refs": [
@@ -86,7 +90,7 @@
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
     "default_action": "run_current_task",
-    "current_task": "BRED-030",
-    "notes": "Next add endpoint-backed Bangumi episode graph preview for series fetches. Keep it preview-only; do not add schema, Public Client API, Admin/Web, Generated Artifact apply, Media Item hierarchy creation, or child Provider Mapping writes."
+    "current_task": "BRED-040",
+    "notes": "Next prove Bangumi episode graph preview remains non-mutating during refresh. Do not add schema, Public Client API, Admin/Web, Generated Artifact apply, Media Item hierarchy creation, or child Provider Mapping writes."
   }
 }

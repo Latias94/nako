@@ -97,6 +97,44 @@ cargo fmt --all -- --check
 
 Result: passed.
 
+## BRED-030 Evidence
+
+Completed on 2026-06-02.
+
+Implementation:
+
+- Bangumi `fetch(Series)` now reads `/v0/episodes` with `subject_id`, `type=0`,
+  and bounded pagination.
+- Main episode summaries are projected into related Candidate Graph nodes with
+  Bangumi Episode Provider Subjects.
+- The graph records `contains` relationships from the Bangumi series Provider
+  Subject to each related episode Provider Subject.
+- Bangumi raw fetch output records both subject and episode endpoint payloads
+  for the root fetch result.
+- Direct Episode search/fetch capability remains unsupported until a dedicated
+  endpoint-backed task implements it.
+
+Validation:
+
+```bash
+cargo nextest run -p nako-metadata bangumi_provider_uses_runtime_and_maps_http_response --no-fail-fast
+```
+
+Result: initially failed as expected before implementation, then passed with 1
+test after episode graph preview.
+
+```bash
+cargo nextest run -p nako-metadata bangumi_provider metadata_candidate --no-fail-fast
+```
+
+Result: passed, 4 tests.
+
+```bash
+cargo fmt --all -- --check
+```
+
+Result: passed.
+
 ## Notes
 
 - Do not change persistence semantics from this lane.
