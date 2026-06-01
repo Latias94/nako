@@ -57,7 +57,7 @@ Last updated: 2026-06-01
   results, and error mapping.
   Handoff: Continue at `GABMA-060` for Web.
 
-- [ ] GABMA-060 [owner=codex] [deps=GABMA-050] [scope=web/src]
+- [x] GABMA-060 [owner=codex] [deps=GABMA-050] [scope=web/src]
   Goal: Add Web Admin bulk metadata apply planning, confirmation, live-only
   mutation, and partial-result display.
   Validation: `npm --prefix web run test -- src/test/data-source-contracts.test.ts src/test/route-contracts.test.tsx src/test/route-state-contracts.test.tsx`; `npm --prefix web run check`; `npm --prefix web run build:budget`; browser smoke for desktop and mobile plan/result states.

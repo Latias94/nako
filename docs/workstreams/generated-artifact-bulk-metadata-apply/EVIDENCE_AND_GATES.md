@@ -81,6 +81,26 @@ Only run after Admin contract support exists:
   `cargo nextest run -p nako-api admin_contract --no-fail-fast`;
   `cargo nextest run -p nako-server generated_artifact_bulk_metadata_apply --no-fail-fast`;
   `cargo fmt --all -- --check`.
+- `GABMA-060`: Added Web Admin bulk metadata apply planning, live-only
+  confirmation, and batch status/result display on the Generated Artifacts
+  Admin route. The Web data sources now map the bulk plan, confirmation, and
+  status routes without exposing raw prompts, provider payloads, Source
+  Locators, paths, raw artifact JSON, idempotency keys, or tokens. The route
+  only allows accepted Generated Artifacts into the bulk selection, blocks
+  fixture/fallback mutation, shows aggregate plan counters, and renders
+  per-item batch outcomes. The Generated Artifacts page is lazy-loaded from
+  the Admin surface so `admin-route-js` remains below the route budget; the
+  total JS gzip budget was explicitly adjusted from 335 KiB to 340 KiB for
+  this new async Admin workflow.
+  Gates: `npm --prefix web run test -- src/test/data-source-contracts.test.ts`;
+  `npm --prefix web run test -- src/test/route-contracts.test.tsx src/test/route-state-contracts.test.tsx`;
+  `npm --prefix web run check`; `npm --prefix web run build:budget`.
+  Browser smoke: local Vite dev server at
+  `http://127.0.0.1:3000/admin/automation/generated-artifacts` with mocked
+  live Admin API completed selection, plan, confirm, and completed-batch
+  status flows at desktop `1440x1000` and mobile `390x844`; screenshots:
+  `.tmp/gabma060-desktop.png`, `.tmp/gabma060-mobile.png`; page text did not
+  expose unsafe prompt/generated title/provider/idempotency/token strings.
 
 ## Final Evidence Checklist
 

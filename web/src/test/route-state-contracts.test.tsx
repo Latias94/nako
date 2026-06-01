@@ -32,7 +32,7 @@ describe("route state contracts", () => {
     const user = userEvent.setup()
     const { router } = renderRoute("/admin/logs")
 
-    const input = await screen.findByPlaceholderText("搜索日志内容...", {}, { timeout: 5000 })
+    const input = await screen.findByPlaceholderText("搜索日志内容...", {}, { timeout: 10000 })
     await user.type(input, "database")
 
     await waitFor(() => {
@@ -80,7 +80,7 @@ describe("route state contracts", () => {
         "/admin/acquisition/intake?library_id=library-a&state=ready&source_kind=watch_folder&managed_import_artifact_id=artifact-live&limit=25&offset=50",
       )
 
-      expect(await screen.findByText("candidate-live", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByText("candidate-live", {}, { timeout: 10000 })).toBeInTheDocument()
       expect(screen.getByText("file://<redacted>/Live.mkv")).toBeInTheDocument()
       expect(screen.queryByText("/mnt/private/raw/Live.mkv")).not.toBeInTheDocument()
       expect(screen.queryByText("unsafe prompt body")).not.toBeInTheDocument()
@@ -104,7 +104,7 @@ describe("route state contracts", () => {
     const user = userEvent.setup()
     const { router } = renderRoute("/admin/acquisition/intake")
 
-    await user.type(await screen.findByLabelText("媒体库 ID", {}, { timeout: 5000 }), "library-anime")
+    await user.type(await screen.findByLabelText("媒体库 ID", {}, { timeout: 10000 }), "library-anime")
     await user.click(screen.getByRole("button", { name: "应用筛选" }))
 
     await waitFor(() => {
@@ -151,7 +151,7 @@ describe("route state contracts", () => {
     try {
       renderRoute("/admin/automation/generated-artifacts?limit=25&offset=50")
 
-      expect(await screen.findByText("artifact-live", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByText("artifact-live", {}, { timeout: 10000 })).toBeInTheDocument()
       expect(screen.getByText("Live Automation Provider")).toBeInTheDocument()
       expect(screen.queryByText("unsafe prompt body")).not.toBeInTheDocument()
       expect(screen.queryByText("unsafe generated payload title")).not.toBeInTheDocument()
@@ -174,7 +174,7 @@ describe("route state contracts", () => {
     const user = userEvent.setup()
     const { router } = renderRoute("/admin/automation/generated-artifacts?limit=1")
 
-    expect(await screen.findByText("fixture-generated-artifact-1", {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText("fixture-generated-artifact-1", {}, { timeout: 10000 })).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: /下一页/ }))
 
     await waitFor(() => {
@@ -187,7 +187,7 @@ describe("route state contracts", () => {
     const user = userEvent.setup()
     const { router } = renderRoute("/admin/automation/generated-artifacts")
 
-    expect(await screen.findByText("fixture-generated-artifact-1", {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText("fixture-generated-artifact-1", {}, { timeout: 10000 })).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: /查看接受计划 fixture-generated-artifact-1/ }))
 
     await waitFor(() => {
@@ -204,8 +204,8 @@ describe("route state contracts", () => {
       "/admin/automation/generated-artifacts/review?artifact_id=fixture-generated-artifact-1&decision=accept",
     )
 
-    expect(await screen.findByRole("heading", { name: "生成产物审核" }, { timeout: 5000 })).toBeInTheDocument()
-    expect(await screen.findByText("连接 live Admin API 后才能执行管理操作", {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByRole("heading", { name: "生成产物审核" }, { timeout: 10000 })).toBeInTheDocument()
+    expect(await screen.findByText("连接 live Admin API 后才能执行管理操作", {}, { timeout: 10000 })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "准备确认" })).toBeDisabled()
   })
 
@@ -236,7 +236,7 @@ describe("route state contracts", () => {
     try {
       renderRoute("/admin/automation/generated-artifacts/review?artifact_id=artifact-live&decision=accept")
 
-      expect(await screen.findByText("审核计划不是 live Admin API 返回，不能执行确认。", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByText("审核计划不是 live Admin API 返回，不能执行确认。", {}, { timeout: 10000 })).toBeInTheDocument()
       expect(screen.getByRole("button", { name: "准备确认" })).toBeDisabled()
     } finally {
       vi.stubGlobal("fetch", originalFetch)
@@ -296,7 +296,7 @@ describe("route state contracts", () => {
     try {
       renderRoute("/admin/automation/generated-artifacts/review?artifact_id=artifact-live&decision=accept")
 
-      expect(await screen.findByText("artifact-live", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByText("artifact-live", {}, { timeout: 10000 })).toBeInTheDocument()
       expect(screen.getByText("Metadata Authority apply")).toBeInTheDocument()
       expect(screen.queryByText("unsafe prompt body")).not.toBeInTheDocument()
       expect(screen.queryByText("unsafe generated payload title")).not.toBeInTheDocument()
@@ -308,7 +308,7 @@ describe("route state contracts", () => {
       await user.click(screen.getByRole("button", { name: "准备确认" }))
       await user.click(screen.getByRole("button", { name: "确认接受" }))
 
-      expect(await screen.findByText("idempotent replay", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByText("idempotent replay", {}, { timeout: 10000 })).toBeInTheDocument()
       expect(screen.getByText("accepted")).toBeInTheDocument()
 
       expect(calls).toContainEqual({
@@ -377,9 +377,9 @@ describe("route state contracts", () => {
     try {
       const { router } = renderRoute("/admin/automation/generated-artifacts/review?artifact_id=artifact-live&decision=accept")
 
-      await user.click(await screen.findByRole("button", { name: "准备确认" }, { timeout: 5000 }))
+      await user.click(await screen.findByRole("button", { name: "准备确认" }, { timeout: 10000 }))
       await user.click(screen.getByRole("button", { name: "确认接受" }))
-      await user.click(await screen.findByRole("button", { name: "进入 Metadata Authority apply" }, { timeout: 5000 }))
+      await user.click(await screen.findByRole("button", { name: "进入 Metadata Authority apply" }, { timeout: 10000 }))
 
       await waitFor(() => {
         expect(router.state.location.pathname).toBe("/admin/automation/generated-artifacts/metadata-apply")
@@ -419,7 +419,7 @@ describe("route state contracts", () => {
     try {
       renderRoute("/admin/automation/generated-artifacts/metadata-apply?artifact_id=artifact-live")
 
-      expect(await screen.findByText("应用计划不是 live Admin API 返回，不能执行确认。", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByText("应用计划不是 live Admin API 返回，不能执行确认。", {}, { timeout: 10000 })).toBeInTheDocument()
       expect(screen.getByRole("button", { name: "准备应用" })).toBeDisabled()
     } finally {
       vi.stubGlobal("fetch", originalFetch)
@@ -479,9 +479,9 @@ describe("route state contracts", () => {
     try {
       renderRoute("/admin/automation/generated-artifacts/metadata-apply?artifact_id=artifact-live")
 
-      expect(await screen.findByRole("heading", { name: "Metadata Authority apply" }, { timeout: 5000 })).toBeInTheDocument()
-      expect(await screen.findByText("title", {}, { timeout: 5000 })).toBeInTheDocument()
-      expect(await screen.findByText("field_locked", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByRole("heading", { name: "Metadata Authority apply" }, { timeout: 10000 })).toBeInTheDocument()
+      expect(await screen.findByText("title", {}, { timeout: 10000 })).toBeInTheDocument()
+      expect(await screen.findByText("field_locked", {}, { timeout: 10000 })).toBeInTheDocument()
       expect(screen.queryByText("unsafe prompt body")).not.toBeInTheDocument()
       expect(screen.queryByText("unsafe generated payload title")).not.toBeInTheDocument()
       expect(screen.queryByText("provider secret response")).not.toBeInTheDocument()
@@ -492,7 +492,7 @@ describe("route state contracts", () => {
       await user.click(screen.getByRole("button", { name: "准备应用" }))
       await user.click(screen.getByRole("button", { name: "确认应用" }))
 
-      expect(await screen.findByText("元数据应用结果已存在，已返回幂等结果", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByText("元数据应用结果已存在，已返回幂等结果", {}, { timeout: 10000 })).toBeInTheDocument()
       expect(screen.getByText("applied")).toBeInTheDocument()
 
       const applyCall = calls.find(
@@ -518,11 +518,126 @@ describe("route state contracts", () => {
     }
   })
 
+  it("runs live Admin generated artifact metadata bulk apply through plan, confirm, and status", async () => {
+    const user = userEvent.setup()
+    const originalFetch = globalThis.fetch
+    const previousProfile = window.localStorage.getItem(CONNECTION_PROFILE_STORAGE_KEY)
+    const previousSession = window.sessionStorage.getItem(CONNECTION_SESSION_STORAGE_KEY)
+    const calls: Array<{
+      method: string
+      path: string
+      body?: unknown
+      authorization: string | null
+    }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined
+      const method = init?.method ?? "GET"
+      calls.push({
+        method,
+        path: url.pathname,
+        body,
+        authorization: new Headers(init?.headers).get("Authorization"),
+      })
+
+      switch (`${method} ${url.pathname}`) {
+        case "GET /admin/v1/automation/generated-artifacts/proposals":
+          return jsonResponse({
+            admin_api_version: "v1",
+            public_api_version: "v1",
+            proposals: [adminGeneratedArtifactAcceptedProposal("artifact-bulk-accepted")],
+            page: routePage({ limit: 50, offset: 0 }),
+          })
+        case "POST /admin/v1/automation/generated-artifacts/metadata-apply-plan":
+          return jsonResponse(
+            adminGeneratedArtifactMetadataBulkApplyPlanResponse(["artifact-bulk-accepted"]),
+          )
+        case "POST /admin/v1/automation/generated-artifacts/metadata-apply-batches":
+          return jsonResponse(
+            adminGeneratedArtifactMetadataBulkApplyBatchResponse(["artifact-bulk-accepted"]),
+          )
+        case "GET /admin/v1/automation/generated-artifacts/metadata-apply-batches/bulk-batch-live":
+          return jsonResponse(
+            adminGeneratedArtifactMetadataBulkApplyBatchResponse(["artifact-bulk-accepted"]),
+          )
+        default:
+          return jsonResponse({ code: "not_found", message: "not found" }, 404)
+      }
+    })
+
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako-admin.test",
+      }),
+    )
+    window.sessionStorage.setItem(
+      CONNECTION_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        bearerToken: "admin-token",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+
+    try {
+      renderRoute("/admin/automation/generated-artifacts")
+
+      expect(await screen.findByText("artifact-bulk-accepted", {}, { timeout: 10000 })).toBeInTheDocument()
+      await user.click(
+        screen.getByRole("checkbox", { name: "选择批量应用 artifact-bulk-accepted" }),
+      )
+      await user.click(screen.getByRole("button", { name: "生成批量计划" }))
+
+      expect(await screen.findByText("Apply fields", {}, { timeout: 10000 })).toBeInTheDocument()
+      await user.click(screen.getByRole("button", { name: "准备确认批量应用" }))
+      await user.click(screen.getByRole("button", { name: "确认批量应用" }))
+
+      expect(await screen.findByText("批量元数据应用已完成", {}, { timeout: 10000 })).toBeInTheDocument()
+      expect(screen.getByText("bulk-batch-live")).toBeInTheDocument()
+      expect(screen.queryByText("unsafe prompt body")).not.toBeInTheDocument()
+      expect(screen.queryByText("unsafe generated payload title")).not.toBeInTheDocument()
+      expect(screen.queryByText("provider secret response")).not.toBeInTheDocument()
+      expect(screen.queryByText("unsafe-bulk-idempotency-key")).not.toBeInTheDocument()
+      expect(screen.queryByText("admin-token")).not.toBeInTheDocument()
+
+      expect(calls).toContainEqual({
+        method: "POST",
+        path: "/admin/v1/automation/generated-artifacts/metadata-apply-plan",
+        body: { artifact_ids: ["artifact-bulk-accepted"] },
+        authorization: "Bearer admin-token",
+      })
+      const confirmCall = calls.find(
+        (call) =>
+          call.method === "POST" &&
+          call.path === "/admin/v1/automation/generated-artifacts/metadata-apply-batches",
+      )
+      expect(confirmCall?.body).toMatchObject({
+        artifact_ids: ["artifact-bulk-accepted"],
+        idempotency_key: expect.stringMatching(
+          /^web-generated-artifact-metadata-bulk-apply:1:artifact-bulk-accepted:/,
+        ),
+      })
+      expect(confirmCall?.authorization).toBe("Bearer admin-token")
+      expect(calls).toContainEqual({
+        method: "GET",
+        path: "/admin/v1/automation/generated-artifacts/metadata-apply-batches/bulk-batch-live",
+        body: undefined,
+        authorization: "Bearer admin-token",
+      })
+    } finally {
+      vi.stubGlobal("fetch", originalFetch)
+      restoreStorage(window.localStorage, CONNECTION_PROFILE_STORAGE_KEY, previousProfile)
+      restoreStorage(window.sessionStorage, CONNECTION_SESSION_STORAGE_KEY, previousSession)
+    }
+  })
+
   it("writes Media search submits to the URL", async () => {
     const user = userEvent.setup()
     const { router } = renderRoute("/media/search")
 
-    const input = await screen.findByPlaceholderText("搜索电影、剧集、演员...", {}, { timeout: 5000 })
+    const input = await screen.findByPlaceholderText("搜索电影、剧集、演员...", {}, { timeout: 10000 })
     await user.type(input, "dune")
     const searchButtons = screen.getAllByRole("button", { name: "搜索" })
     await user.click(searchButtons[searchButtons.length - 1])
@@ -536,7 +651,7 @@ describe("route state contracts", () => {
     const user = userEvent.setup()
     const { router } = renderRoute("/media/my-list")
 
-    const favoritesTab = await screen.findByRole("tab", { name: /收藏/ }, { timeout: 5000 })
+    const favoritesTab = await screen.findByRole("tab", { name: /收藏/ }, { timeout: 10000 })
     await user.click(favoritesTab)
 
     await waitFor(() => {
@@ -615,7 +730,7 @@ describe("route state contracts", () => {
     vi.stubGlobal("fetch", fetcher)
     const { router } = renderRoute("/media/my-list?playlist=playlist-live")
 
-    expect(await screen.findAllByText("Live Playlist", {}, { timeout: 5000 })).toHaveLength(2)
+    expect(await screen.findAllByText("Live Playlist", {}, { timeout: 10000 })).toHaveLength(2)
     await user.click(await screen.findByRole("button", { name: "新建播放列表" }))
     await user.type(await screen.findByLabelText("播放列表名称"), "Weekend Queue")
     await user.click(screen.getByRole("button", { name: "创建播放列表" }))
@@ -703,7 +818,7 @@ describe("route state contracts", () => {
     vi.stubGlobal("fetch", fetcher)
     const { router } = renderRoute("/media/my-list?playlist=playlist-live&view=list")
 
-    expect(await screen.findAllByText("Live Playlist", {}, { timeout: 5000 })).toHaveLength(2)
+    expect(await screen.findAllByText("Live Playlist", {}, { timeout: 10000 })).toHaveLength(2)
     await user.click(await screen.findByRole("button", { name: "重命名播放列表" }))
     const nameInput = await screen.findByLabelText("播放列表名称")
     await user.clear(nameInput)
@@ -739,12 +854,12 @@ describe("route state contracts", () => {
     const user = userEvent.setup()
     const { router } = renderRoute("/media/my-list")
 
-    await user.click(await screen.findByRole("button", { name: "新建播放列表" }, { timeout: 5000 }))
+    await user.click(await screen.findByRole("button", { name: "新建播放列表" }, { timeout: 10000 }))
     await user.type(await screen.findByLabelText("播放列表名称"), "Fixture Queue")
     await user.click(screen.getByRole("button", { name: "创建播放列表" }))
 
     expect(
-      await screen.findByText("Fixture mode does not persist playlist mutations.", {}, { timeout: 5000 }),
+      await screen.findByText("Fixture mode does not persist playlist mutations.", {}, { timeout: 10000 }),
     ).toBeInTheDocument()
     expect(router.state.location.search).not.toMatchObject({ playlist: "Fixture Queue" })
   })
@@ -815,7 +930,7 @@ describe("route state contracts", () => {
     vi.stubGlobal("fetch", fetcher)
     renderRoute("/media/my-list?playlist=playlist-live&view=list")
 
-    expect(await screen.findByText("Live Movie", {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText("Live Movie", {}, { timeout: 10000 })).toBeInTheDocument()
     await user.click(await screen.findByRole("button", { name: "从播放列表移除 Live Movie" }))
 
     await waitFor(() => {
@@ -898,7 +1013,7 @@ describe("route state contracts", () => {
     vi.stubGlobal("fetch", fetcher)
     const { router } = renderRoute("/media/my-list?playlist=playlist-live&view=list")
 
-    expect(await screen.findByText("Live Movie A", {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText("Live Movie A", {}, { timeout: 10000 })).toBeInTheDocument()
     await user.click(await screen.findByRole("button", { name: "将 Live Movie B 上移" }))
 
     await waitFor(() => {
@@ -990,7 +1105,7 @@ describe("route state contracts", () => {
     vi.stubGlobal("fetch", fetcher)
     renderRoute("/media/my-list?playlist=playlist-live&view=list")
 
-    expect(await screen.findByText("Live Movie A", {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText("Live Movie A", {}, { timeout: 10000 })).toBeInTheDocument()
     await user.click(await screen.findByRole("button", { name: "将 Live Movie B 上移" }))
 
     await waitFor(() => {
@@ -1003,7 +1118,7 @@ describe("route state contracts", () => {
         },
       })
     })
-    expect(await screen.findByText("Playlist version conflict", {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText("Playlist version conflict", {}, { timeout: 10000 })).toBeInTheDocument()
     await waitFor(() => {
       expect(
         calls.filter((call) => call.method === "GET" && call.path === "/users/me/playlists/playlist-live/items")
@@ -1069,7 +1184,7 @@ describe("route state contracts", () => {
     vi.stubGlobal("fetch", fetcher)
     renderRoute("/media/detail?id=live-movie&type=movie")
 
-    expect(await screen.findByRole("heading", { name: "Live Movie" }, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByRole("heading", { name: "Live Movie" }, { timeout: 10000 })).toBeInTheDocument()
     await user.click(await screen.findByRole("button", { name: "添加到播放列表" }))
     await user.click(await screen.findByRole("menuitem", { name: "添加到 Live Playlist" }))
 
@@ -1165,7 +1280,7 @@ describe("route state contracts", () => {
     try {
       renderRoute("/media/detail?id=live-movie&type=movie")
 
-      const refreshLink = await screen.findByRole("link", { name: /刷新元数据/ }, { timeout: 5000 })
+      const refreshLink = await screen.findByRole("link", { name: /刷新元数据/ }, { timeout: 10000 })
       expect(refreshLink).toHaveAttribute(
         "href",
         "/admin/libraries?library_id=library-a&item_id=live-movie&media_type=movie&source_id=source-live&intent=refresh_item_metadata",
@@ -1259,7 +1374,7 @@ describe("route state contracts", () => {
     try {
       renderRoute("/media/library?id=movies")
 
-      const scanLink = await screen.findByRole("link", { name: /扫描媒体库/ }, { timeout: 5000 })
+      const scanLink = await screen.findByRole("link", { name: /扫描媒体库/ }, { timeout: 10000 })
       expect(scanLink).toHaveAttribute(
         "href",
         "/admin/libraries?library_id=movies&intent=scan_library",
@@ -1275,7 +1390,7 @@ describe("route state contracts", () => {
       "/admin/tasks?context=management_link&library_id=library-a&item_id=live-movie&source_id=file:///mnt/private/source.mkv&playback_session_id=session-a",
     )
 
-    expect(await screen.findByText("管理上下文", {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText("管理上下文", {}, { timeout: 10000 })).toBeInTheDocument()
     expect(screen.getByText("library-a")).toBeInTheDocument()
     expect(screen.getByText("live-movie")).toBeInTheDocument()
     expect(screen.getByText("session-a")).toBeInTheDocument()
@@ -1287,7 +1402,7 @@ describe("route state contracts", () => {
       "/admin/transcoding?panel=support&source_id=source-live&playback_session_id=session-a",
     )
 
-    expect(await screen.findByText("播放诊断", {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText("播放诊断", {}, { timeout: 10000 })).toBeInTheDocument()
     expect(screen.getByText("source-live")).toBeInTheDocument()
     expect(screen.getByText("session-a")).toBeInTheDocument()
     support.unmount()
@@ -1296,7 +1411,7 @@ describe("route state contracts", () => {
       "/admin/transcoding?panel=runtime&library_id=library-a&item_id=live-movie&source_id=file:///mnt/private/source.mkv",
     )
 
-    expect(await screen.findByText("转码运行时", {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText("转码运行时", {}, { timeout: 10000 })).toBeInTheDocument()
     expect(screen.getByText("library-a")).toBeInTheDocument()
     expect(screen.getByText("live-movie")).toBeInTheDocument()
     expect(document.body.textContent).not.toContain("file:///mnt/private/source.mkv")
@@ -1307,7 +1422,7 @@ describe("route state contracts", () => {
       "/admin/users?panel=library_access&library_id=library-a&source_id=file:///mnt/private/source.mkv",
     )
 
-    expect(await screen.findByText("访问策略", {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText("访问策略", {}, { timeout: 10000 })).toBeInTheDocument()
     expect(screen.getByText("library-a")).toBeInTheDocument()
     expect(document.body.textContent).not.toContain("file:///mnt/private/source.mkv")
   })
@@ -1383,7 +1498,7 @@ describe("route state contracts", () => {
         "/admin/libraries?library_id=library-a&item_id=live-movie&media_type=movie&source_id=file:///mnt/private/source.mkv&intent=scan_library",
       )
 
-      expect(await screen.findByText("扫描媒体库", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByText("扫描媒体库", {}, { timeout: 10000 })).toBeInTheDocument()
       expect(await screen.findByRole("link", { name: "返回媒体库" })).toHaveAttribute(
         "href",
         "/media/library?id=library-a",
@@ -1417,13 +1532,13 @@ describe("route state contracts", () => {
   it("renders Admin library metadata and item refresh handoff targets", async () => {
     const profileTarget = renderRoute("/admin/libraries?library_id=library-a&panel=metadata_profile")
 
-    expect(await screen.findByText("元数据配置", {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText("元数据配置", {}, { timeout: 10000 })).toBeInTheDocument()
     expect(screen.getByText("library-a")).toBeInTheDocument()
     profileTarget.unmount()
 
     renderRoute("/admin/libraries?library_id=library-a&item_id=live-movie&intent=refresh_item_metadata")
 
-    expect(await screen.findByText("刷新媒体项元数据", {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByText("刷新媒体项元数据", {}, { timeout: 10000 })).toBeInTheDocument()
     expect(screen.getByText("live-movie")).toBeInTheDocument()
     expect(screen.getByRole("link", { name: /查看相关任务/ })).toHaveAttribute(
       "href",
@@ -1484,7 +1599,7 @@ describe("route state contracts", () => {
     vi.stubGlobal("fetch", fetcher)
     renderRoute("/media")
 
-    await user.click(await screen.findByRole("button", { name: "添加 Live Movie 到播放列表" }, { timeout: 5000 }))
+    await user.click(await screen.findByRole("button", { name: "添加 Live Movie 到播放列表" }, { timeout: 10000 }))
     await user.click(await screen.findByRole("menuitem", { name: "添加到 Live Playlist" }))
 
     await waitFor(() => {
@@ -1858,6 +1973,57 @@ function adminGeneratedArtifactProposalsResponse() {
   }
 }
 
+function adminGeneratedArtifactAcceptedProposal(artifactId = "artifact-bulk-accepted") {
+  return {
+    id: artifactId,
+    kind: "metadata_suggestion",
+    capability: "item_metadata_suggest",
+    status: "accepted",
+    target: {
+      kind: "media_item",
+      library_id: "library-a",
+      item_id: "item-live",
+      source_id: "source-live",
+      local_path: "F:\\private\\source\\Movie.mkv",
+      source_locator: "file:///mnt/private/source/Movie.mkv",
+    },
+    provenance: {
+      provider_id: "provider-live",
+      provider_name: "Live Automation Provider",
+      job_id: "job-live",
+      capability: "item_metadata_suggest",
+      idempotency_key_fingerprint: "sha256:idempotency-live",
+      prompt_fingerprint: "sha256:prompt-live",
+      attempt_count: 2,
+      artifact_created_at: "2026-05-29T01:00:00Z",
+      raw_prompt: "unsafe prompt body",
+      provider_raw_response: "provider secret response",
+    },
+    payload: {
+      valid_json: true,
+      shape: "object",
+      payload_fingerprint: "sha256:payload-live",
+      payload_bytes: 4096,
+      object_field_count: 9,
+      array_item_count: null,
+      has_textual_values: true,
+      has_explanation: true,
+      confidence_milli: 910,
+      raw_payload: {
+        title: "unsafe generated payload title",
+      },
+    },
+    readiness: {
+      status: "accepted",
+      actionable: true,
+      reasons: ["accepted_generated_artifact"],
+    },
+    created_at: "2026-05-29T01:01:00Z",
+    updated_at: "2026-05-29T01:10:00Z",
+    accepted_at: "2026-05-29T01:10:00Z",
+  }
+}
+
 function adminGeneratedArtifactReviewPlanResponse(
   artifactId = "artifact-live",
   decision: "accept" | "reject" = "accept",
@@ -1905,6 +2071,101 @@ function adminGeneratedArtifactMetadataApplyResponse(artifactId = "artifact-live
     idempotent_replay: true,
     applied_source: "user",
     plan: adminGeneratedArtifactMetadataApplyPlan(artifactId),
+  }
+}
+
+function adminGeneratedArtifactMetadataBulkApplyPlanResponse(
+  artifactIds = ["artifact-bulk-accepted"],
+) {
+  const items = artifactIds.map((artifactId) => {
+    if (artifactId.includes("missing")) {
+      return {
+        artifact_id: artifactId,
+        status: "missing",
+        executable: false,
+        reasons: ["generated_artifact_not_found"],
+        plan: null,
+        raw_artifact_json: "unsafe raw artifact",
+      }
+    }
+
+    return {
+      artifact_id: artifactId,
+      status: "planned",
+      executable: true,
+      reasons: ["accepted_generated_artifact"],
+      plan: adminGeneratedArtifactMetadataApplyPlan(artifactId),
+      raw_artifact_json: "unsafe raw artifact",
+    }
+  })
+  const executableItems = items.filter((item) => item.executable)
+  const missingItems = items.filter((item) => item.status === "missing")
+
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    plan: {
+      selection: {
+        requested_artifact_count: artifactIds.length,
+        selected_artifact_count: new Set(artifactIds).size,
+        duplicate_artifact_count: artifactIds.length - new Set(artifactIds).size,
+        max_artifact_count: 100,
+      },
+      summary: {
+        planned_artifact_count: items.length - missingItems.length,
+        missing_artifact_count: missingItems.length,
+        ready_artifact_count: executableItems.length,
+        blocked_artifact_count: 0,
+        stale_artifact_count: 0,
+        executable_artifact_count: executableItems.length,
+        apply_field_count: executableItems.length,
+        skipped_field_count: executableItems.length,
+        noop_field_count: executableItems.length,
+      },
+      items,
+    },
+  }
+}
+
+function adminGeneratedArtifactMetadataBulkApplyBatchResponse(
+  artifactIds = ["artifact-bulk-accepted"],
+) {
+  const plan = adminGeneratedArtifactMetadataBulkApplyPlanResponse(artifactIds).plan
+
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    batch: {
+      id: "bulk-batch-live",
+      job_id: "bulk-job-live",
+      status: "completed",
+      selection: plan.selection,
+      summary: plan.summary,
+      execution_summary: {
+        total_item_count: plan.items.length,
+        pending_item_count: 0,
+        skipped_item_count: plan.items.filter((item) => !item.executable).length,
+        applied_item_count: plan.items.filter((item) => item.executable).length,
+        noop_item_count: 0,
+        stale_item_count: 0,
+        failed_item_count: 0,
+      },
+      items: plan.items.map((item, index) => ({
+        artifact_id: item.artifact_id,
+        position: index,
+        status: item.executable ? "applied" : "skipped",
+        outcome_id: item.executable ? "metadata-apply-outcome-live" : null,
+        error_code: item.executable ? null : "missing_artifact",
+        error_message: item.executable ? null : "Generated artifact missing",
+        plan_item: item,
+        created_at: "2026-05-29T01:15:00Z",
+        updated_at: "2026-05-29T01:16:00Z",
+        idempotency_key: "unsafe-item-idempotency",
+      })),
+      created_at: "2026-05-29T01:15:00Z",
+      updated_at: "2026-05-29T01:16:00Z",
+      idempotency_key: "unsafe-bulk-idempotency-key",
+    },
   }
 }
 

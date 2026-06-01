@@ -1,7 +1,7 @@
 "use client"
 
-import { useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useEffect, useMemo, useState } from "react"
+import { useMutation, useQuery, useQueryClient, type UseMutationResult } from "@tanstack/react-query"
 import {
   AlertTriangle,
   CheckCircle2,
@@ -23,9 +23,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import {
   ADMIN_GENERATED_ARTIFACTS_READ_MODEL_FIXTURE,
   createAdminReadModelsDataSource,
+  type AdminGeneratedArtifactMetadataBulkApplyBatchReadModel,
+  type AdminGeneratedArtifactMetadataBulkApplyPlanReadModel,
   type AdminGeneratedArtifactReviewDecision,
   type AdminGeneratedArtifactProposalReadModel,
 } from "@/src/api/admin/read-models-data-source"
+import {
+  createAdminMutationDataSource,
+  type AdminGeneratedArtifactMetadataBulkApplyMutationResult,
+} from "@/src/api/admin/mutations-data-source"
 import type { AdminGeneratedArtifactProposalsQuery } from "@/src/api/admin/generated/contract"
 
 const DEFAULT_LIMIT = 50
@@ -50,11 +56,70 @@ export function AdminGeneratedArtifacts({
 }: AdminGeneratedArtifactsProps = {}) {
   const normalizedRouteState = useMemo(() => normalizeRouteState(routeState), [routeState])
   const query = useMemo(() => routeStateToQuery(normalizedRouteState), [normalizedRouteState])
+  const readDataSource = useMemo(() => createAdminReadModelsDataSource(), [])
+  const mutationDataSource = useMemo(() => createAdminMutationDataSource(), [])
+  const queryClient = useQueryClient()
+  const [selectedArtifactIds, setSelectedArtifactIds] = useState<string[]>([])
+  const [bulkPlanArtifactIds, setBulkPlanArtifactIds] = useState<string[]>([])
+  const [bulkApplyArmed, setBulkApplyArmed] = useState(false)
+  const [bulkIdempotencyKey, setBulkIdempotencyKey] = useState("")
+  const [bulkBatchId, setBulkBatchId] = useState<string | null>(null)
   const { data = ADMIN_GENERATED_ARTIFACTS_READ_MODEL_FIXTURE, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["nako", "admin", "generated-artifacts", query],
-    queryFn: () => createAdminReadModelsDataSource().loadGeneratedArtifacts(query),
+    queryFn: () => readDataSource.loadGeneratedArtifacts(query),
     staleTime: 15 * 1000,
     retry: 0,
+  })
+  const visibleSelectableArtifactIds = useMemo(
+    () => data.proposals.filter(isBulkMetadataApplySelectable).map((proposal) => proposal.id),
+    [data.proposals],
+  )
+  const selectedVisibleCount = visibleSelectableArtifactIds.filter((artifactId) =>
+    selectedArtifactIds.includes(artifactId),
+  ).length
+  const allVisibleSelected =
+    visibleSelectableArtifactIds.length > 0 && selectedVisibleCount === visibleSelectableArtifactIds.length
+
+  useEffect(() => {
+    const visibleArtifactIdSet = new Set(data.proposals.map((proposal) => proposal.id))
+    setSelectedArtifactIds((current) => current.filter((artifactId) => visibleArtifactIdSet.has(artifactId)))
+  }, [data.proposals])
+
+  useEffect(() => {
+    setBulkApplyArmed(false)
+    setBulkBatchId(null)
+    setBulkIdempotencyKey(
+      bulkPlanArtifactIds.length > 0
+        ? createMetadataBulkApplyIdempotencyKey(bulkPlanArtifactIds)
+        : "",
+    )
+  }, [bulkPlanArtifactIds])
+
+  const bulkPlanQuery = useQuery({
+    queryKey: ["nako", "admin", "generated-artifact-metadata-bulk-apply-plan", bulkPlanArtifactIds],
+    queryFn: () => readDataSource.loadGeneratedArtifactMetadataBulkApplyPlan(bulkPlanArtifactIds),
+    enabled: bulkPlanArtifactIds.length > 0,
+    staleTime: 10 * 1000,
+    retry: 0,
+  })
+  const bulkBatchQuery = useQuery({
+    queryKey: ["nako", "admin", "generated-artifact-metadata-bulk-apply-batch", bulkBatchId],
+    queryFn: () => readDataSource.loadGeneratedArtifactMetadataBulkApplyBatch(bulkBatchId ?? ""),
+    enabled: Boolean(bulkBatchId),
+    staleTime: 5 * 1000,
+    retry: 0,
+  })
+  const bulkApplyMutation = useMutation({
+    mutationFn: () =>
+      mutationDataSource.confirmGeneratedArtifactMetadataBulkApplyBatch(
+        bulkPlanArtifactIds,
+        bulkIdempotencyKey,
+      ),
+    onSuccess: (batch) => {
+      setBulkBatchId(batch.id)
+      setBulkApplyArmed(false)
+      void queryClient.invalidateQueries({ queryKey: ["nako", "admin", "generated-artifacts"] })
+    },
   })
 
   const movePage = (direction: "previous" | "next") => {
@@ -79,6 +144,7 @@ export function AdminGeneratedArtifacts({
 
   const canPageBack = normalizedRouteState.offset > 0
   const canPageForward = data.page.returned >= normalizedRouteState.limit
+  const currentBulkBatch = bulkBatchQuery.data ?? bulkApplyMutation.data
 
   return (
     <div className="space-y-6">
@@ -125,6 +191,32 @@ export function AdminGeneratedArtifacts({
         </div>
       )}
 
+      <BulkMetadataApplyPanel
+        selectedArtifactIds={selectedArtifactIds}
+        plan={bulkPlanQuery.data}
+        planLoading={bulkPlanQuery.isLoading || bulkPlanQuery.isFetching}
+        planError={bulkPlanQuery.error}
+        batch={currentBulkBatch}
+        batchFetching={bulkBatchQuery.isFetching}
+        mutationDataSource={mutationDataSource}
+        mutation={bulkApplyMutation}
+        armed={bulkApplyArmed}
+        idempotencyKey={bulkIdempotencyKey}
+        onPlan={() => {
+          setBulkPlanArtifactIds(selectedArtifactIds)
+        }}
+        onClearSelection={() => {
+          setSelectedArtifactIds([])
+          setBulkPlanArtifactIds([])
+        }}
+        onArm={() => setBulkApplyArmed(true)}
+        onCancel={() => setBulkApplyArmed(false)}
+        onConfirm={() => bulkApplyMutation.mutate()}
+        onRefreshBatch={() => {
+          void bulkBatchQuery.refetch()
+        }}
+      />
+
       <section className="rounded-lg border border-border/50 bg-card">
         <div className="flex flex-col gap-3 border-b border-border/50 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -166,6 +258,25 @@ export function AdminGeneratedArtifacts({
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <input
+                      type="checkbox"
+                      aria-label="选择当前页可批量应用产物"
+                      className="size-4 rounded border border-input bg-background text-primary"
+                      checked={allVisibleSelected}
+                      disabled={visibleSelectableArtifactIds.length === 0}
+                      onChange={(event) => {
+                        const checked = event.currentTarget.checked
+                        setSelectedArtifactIds((current) => {
+                          const visibleIdSet = new Set(visibleSelectableArtifactIds)
+                          const remaining = current.filter((artifactId) => !visibleIdSet.has(artifactId))
+                          return checked
+                            ? [...remaining, ...visibleSelectableArtifactIds]
+                            : remaining
+                        })
+                      }}
+                    />
+                  </TableHead>
                   <TableHead>产物</TableHead>
                   <TableHead>状态</TableHead>
                   <TableHead>目标</TableHead>
@@ -182,6 +293,16 @@ export function AdminGeneratedArtifacts({
                   <GeneratedArtifactRow
                     key={proposal.id}
                     proposal={proposal}
+                    selected={selectedArtifactIds.includes(proposal.id)}
+                    onBulkSelectionChange={(selected) => {
+                      setSelectedArtifactIds((current) =>
+                        selected
+                          ? current.includes(proposal.id)
+                            ? current
+                            : [...current, proposal.id]
+                          : current.filter((artifactId) => artifactId !== proposal.id),
+                      )
+                    }}
                     onReviewRequest={onReviewRequest}
                   />
                 ))}
@@ -224,15 +345,31 @@ export function AdminGeneratedArtifacts({
 
 function GeneratedArtifactRow({
   proposal,
+  selected,
+  onBulkSelectionChange,
   onReviewRequest,
 }: {
   proposal: AdminGeneratedArtifactProposalReadModel
+  selected: boolean
+  onBulkSelectionChange: (selected: boolean) => void
   onReviewRequest?: (artifactId: string, decision: AdminGeneratedArtifactReviewDecision) => void
 }) {
   const canReview = proposal.readiness.actionable && proposal.status === "pending_review"
+  const canBulkApply = isBulkMetadataApplySelectable(proposal)
 
   return (
     <TableRow>
+      <TableCell className="align-top">
+        <input
+          type="checkbox"
+          aria-label={`选择批量应用 ${proposal.id}`}
+          className="size-4 rounded border border-input bg-background text-primary"
+          checked={selected}
+          disabled={!canBulkApply}
+          title={canBulkApply ? "加入批量 Metadata Authority apply" : "只有 accepted 产物可批量应用"}
+          onChange={(event) => onBulkSelectionChange(event.currentTarget.checked)}
+        />
+      </TableCell>
       <TableCell>
         <div className="space-y-1">
           <div className="font-mono text-xs font-medium text-foreground">{proposal.id}</div>
@@ -325,12 +462,360 @@ function GeneratedArtifactRow({
   )
 }
 
+function BulkMetadataApplyPanel({
+  selectedArtifactIds,
+  plan,
+  planLoading,
+  planError,
+  batch,
+  batchFetching,
+  mutationDataSource,
+  mutation,
+  armed,
+  idempotencyKey,
+  onPlan,
+  onClearSelection,
+  onArm,
+  onCancel,
+  onConfirm,
+  onRefreshBatch,
+}: {
+  selectedArtifactIds: string[]
+  plan?: AdminGeneratedArtifactMetadataBulkApplyPlanReadModel
+  planLoading: boolean
+  planError: Error | null
+  batch?: AdminGeneratedArtifactMetadataBulkApplyBatchReadModel | AdminGeneratedArtifactMetadataBulkApplyMutationResult
+  batchFetching: boolean
+  mutationDataSource: ReturnType<typeof createAdminMutationDataSource>
+  mutation: UseMutationResult<AdminGeneratedArtifactMetadataBulkApplyMutationResult, Error, void, unknown>
+  armed: boolean
+  idempotencyKey: string
+  onPlan: () => void
+  onClearSelection: () => void
+  onArm: () => void
+  onCancel: () => void
+  onConfirm: () => void
+  onRefreshBatch: () => void
+}) {
+  const mutationUnavailable = !mutationDataSource.canMutate
+  const planFallback = Boolean(plan?.fallback && mutationDataSource.canMutate)
+  const planUnavailable = !plan || planFallback || plan.summary.executableArtifactCount === 0
+  const canConfirm =
+    !mutationUnavailable &&
+    !planUnavailable &&
+    armed &&
+    !mutation.isPending &&
+    idempotencyKey.length > 0
+
+  return (
+    <section className="rounded-lg border border-border/50 bg-card">
+      <div className="flex flex-col gap-3 border-b border-border/50 p-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-medium text-foreground">批量 Metadata Authority apply</h2>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            只对 accepted Generated Artifact 建立计划，确认后通过 live Admin API 执行。
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline">已选 {selectedArtifactIds.length}</Badge>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            disabled={selectedArtifactIds.length === 0 || planLoading}
+            onClick={onPlan}
+          >
+            {planLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+            生成批量计划
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={selectedArtifactIds.length === 0}
+            onClick={onClearSelection}
+          >
+            清空
+          </Button>
+        </div>
+      </div>
+
+      <div className="space-y-4 p-4">
+        {mutationUnavailable && (
+          <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-sm text-warning">
+            {mutationDataSource.unavailableReason ?? "当前连接不能执行管理操作"}
+          </div>
+        )}
+
+        {selectedArtifactIds.length === 0 && (
+          <div className="text-sm text-muted-foreground">
+            从队列表格选择 accepted 产物后生成批量应用计划。
+          </div>
+        )}
+
+        {planError instanceof Error && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+            {planError.message}
+          </div>
+        )}
+
+        {planLoading && <BulkPlanSkeleton />}
+
+        {plan && !planLoading && (
+          <>
+            {plan.fallback && plan.error && (
+              <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-sm text-warning">
+                Admin API 不可用，正在显示 fixture 批量计划: {plan.error}
+              </div>
+            )}
+            {planFallback && (
+              <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-sm text-warning">
+                批量应用计划不是 live Admin API 返回，不能执行确认。
+              </div>
+            )}
+
+            <div className="grid gap-3 md:grid-cols-5">
+              <Fact label="Selected" value={String(plan.selection.selectedArtifactCount)} />
+              <Fact label="Executable" value={String(plan.summary.executableArtifactCount)} />
+              <Fact label="Missing" value={String(plan.summary.missingArtifactCount)} />
+              <Fact label="Apply fields" value={String(plan.summary.applyFieldCount)} />
+              <Fact label="Skip fields" value={String(plan.summary.skippedFieldCount)} />
+            </div>
+
+            <div className="overflow-x-auto rounded-md border border-border/50">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>产物</TableHead>
+                    <TableHead>状态</TableHead>
+                    <TableHead>字段动作</TableHead>
+                    <TableHead>原因</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {plan.items.map((item) => (
+                    <TableRow key={item.artifactId}>
+                      <TableCell className="font-mono text-xs text-foreground">{item.artifactId}</TableCell>
+                      <TableCell>
+                        <Badge variant={item.executable ? "default" : "secondary"}>
+                          {item.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        apply {item.plan?.applyFieldCount ?? 0} · skip {item.plan?.skippedFieldCount ?? 0} · noop {item.plan?.noopFieldCount ?? 0}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex max-w-[22rem] flex-wrap gap-1.5">
+                          {item.reasons.length > 0 ? (
+                            item.reasons.map((reason) => (
+                              <Badge key={reason} variant="secondary">
+                                {reason}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-xs text-muted-foreground">none</span>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="flex flex-col gap-3 rounded-lg border border-border/50 p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-sm font-medium text-foreground">确认批量应用</div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Idempotency key 只发送到 Admin API，不在界面显示。
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {!armed ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={mutationUnavailable || planUnavailable || mutation.isPending}
+                    onClick={onArm}
+                  >
+                    准备确认批量应用
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={mutation.isPending}
+                      onClick={onCancel}
+                    >
+                      取消
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="gap-2"
+                      disabled={!canConfirm}
+                      onClick={onConfirm}
+                    >
+                      {mutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                      {mutation.isPending ? "正在提交" : "确认批量应用"}
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {mutation.error instanceof Error && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+            {mutation.error.message}
+          </div>
+        )}
+
+        {batch && (
+          <BulkApplyBatchResult
+            batch={batch}
+            fetching={batchFetching}
+            onRefresh={onRefreshBatch}
+          />
+        )}
+      </div>
+    </section>
+  )
+}
+
+function BulkApplyBatchResult({
+  batch,
+  fetching,
+  onRefresh,
+}: {
+  batch: AdminGeneratedArtifactMetadataBulkApplyBatchReadModel | AdminGeneratedArtifactMetadataBulkApplyMutationResult
+  fetching: boolean
+  onRefresh: () => void
+}) {
+  const message =
+    "message" in batch ? batch.message : generatedArtifactMetadataBulkApplyBatchMessage(batch.status)
+
+  return (
+    <div className="rounded-lg border border-success/30 bg-success/5 p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-foreground">{message}</span>
+            <Badge variant="outline">{batch.status}</Badge>
+          </div>
+          <div className="mt-2 grid gap-3 sm:grid-cols-4">
+            <Fact label="Batch" value={batch.id} />
+            <Fact label="Job" value={batch.jobId} />
+            <Fact label="Applied" value={String(batch.executionSummary.appliedItemCount)} />
+            <Fact label="Skipped" value={String(batch.executionSummary.skippedItemCount)} />
+          </div>
+        </div>
+        <Button type="button" variant="outline" size="sm" className="gap-2" onClick={onRefresh}>
+          {fetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          刷新批次状态
+        </Button>
+      </div>
+
+      <div className="mt-4 overflow-x-auto rounded-md border border-success/20">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>产物</TableHead>
+              <TableHead>状态</TableHead>
+              <TableHead>Outcome</TableHead>
+              <TableHead>错误</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {batch.items.map((item) => (
+              <TableRow key={`${item.position}-${item.artifactId}`}>
+                <TableCell className="font-mono text-xs text-foreground">{item.artifactId}</TableCell>
+                <TableCell>
+                  <Badge variant={item.status === "applied" ? "default" : "secondary"}>
+                    {item.status}
+                  </Badge>
+                </TableCell>
+                <TableCell className="font-mono text-xs text-muted-foreground">
+                  {item.outcomeId ?? "none"}
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground">
+                  {item.errorCode ?? "none"}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  )
+}
+
+function BulkPlanSkeleton() {
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-3 md:grid-cols-5">
+        {Array.from({ length: 5 }, (_, index) => (
+          <Skeleton key={index} className="h-12" />
+        ))}
+      </div>
+      <Skeleton className="h-36" />
+    </div>
+  )
+}
+
 function Fingerprint({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="truncate font-mono text-muted-foreground">
       {label}: {value ?? "none"}
     </div>
   )
+}
+
+function Fact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <div className="text-xs font-medium text-muted-foreground">{label}</div>
+      <div className="mt-1 truncate font-mono text-xs text-foreground" title={value}>
+        {value}
+      </div>
+    </div>
+  )
+}
+
+function isBulkMetadataApplySelectable(proposal: AdminGeneratedArtifactProposalReadModel) {
+  return proposal.status === "accepted"
+}
+
+function createMetadataBulkApplyIdempotencyKey(artifactIds: string[]) {
+  const safeSeed =
+    artifactIds
+      .slice(0, 2)
+      .join("-")
+      .replace(/[^A-Za-z0-9._:-]+/g, "-")
+      .slice(0, 80) || "artifacts"
+  const nonce = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  return `web-generated-artifact-metadata-bulk-apply:${artifactIds.length}:${safeSeed}:${nonce}`
+}
+
+function generatedArtifactMetadataBulkApplyBatchMessage(status: string) {
+  switch (status) {
+    case "completed":
+      return "批量元数据应用已完成"
+    case "failed":
+      return "批量元数据应用失败"
+    case "cancelled":
+      return "批量元数据应用已取消"
+    default:
+      return "批量元数据应用批次已提交"
+  }
 }
 
 function ReadinessBadge({ ready, label }: { ready: boolean; label: string }) {

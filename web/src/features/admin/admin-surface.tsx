@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { lazy, Suspense, useEffect, useState } from "react"
 import type { ComponentType } from "react"
 import { useQuery } from "@tanstack/react-query"
 import {
@@ -20,11 +20,9 @@ import {
   Cpu,
   Play,
   ChevronRight,
-  FileWarning,
   Wrench,
   Network,
   Bell,
-  Palette,
   Globe,
   Download,
   Trash2,
@@ -62,7 +60,7 @@ import type { AdminLogsRouteState } from "./admin-logs"
 import { AdminScheduledTasks } from "./admin-scheduled-tasks"
 import { AdminSettings } from "./admin-settings"
 import { AdminAcquisitionIntake, type AdminAcquisitionIntakeRouteState } from "./admin-acquisition-intake"
-import { AdminGeneratedArtifacts, type AdminGeneratedArtifactsRouteState } from "./admin-generated-artifacts"
+import type { AdminGeneratedArtifactsRouteState } from "./admin-generated-artifacts"
 import {
   AdminGeneratedArtifactReview,
   type AdminGeneratedArtifactReviewRouteState,
@@ -82,6 +80,12 @@ import {
   type AdminDashboardPlaybackSession,
   type AdminDashboardTask,
 } from "@/src/api/admin/dashboard-data-source"
+
+const AdminGeneratedArtifacts = lazy(() =>
+  import("./admin-generated-artifacts").then((module) => ({
+    default: module.AdminGeneratedArtifacts,
+  })),
+)
 
 export type AdminSurfaceSection =
   | "dashboard"
@@ -353,9 +357,17 @@ export function AdminSurface({
       {/* Main Content - Scrollable */}
       <main className="flex-1 overflow-y-auto scrollbar-none">
         <div className="p-6 lg:p-8">
-          {renderContent()}
+          <Suspense fallback={<AdminContentFallback />}>{renderContent()}</Suspense>
         </div>
       </main>
+    </div>
+  )
+}
+
+function AdminContentFallback() {
+  return (
+    <div className="grid min-h-[18rem] place-items-center rounded-lg border border-border/50 bg-card">
+      <div className="h-7 w-7 animate-spin rounded-full border-2 border-muted border-t-primary" />
     </div>
   )
 }

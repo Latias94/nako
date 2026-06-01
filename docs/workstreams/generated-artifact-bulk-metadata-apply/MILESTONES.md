@@ -52,7 +52,8 @@ Exit criteria:
 - generated Admin contracts are synchronized;
 - Web fixture/fallback mode cannot claim live mutation;
 - Web shows aggregate and per-item results without leaking raw payloads;
-- bundle budget remains within existing limits.
+- per-route bundle budgets remain within limits, and any total budget change
+  is explicit evidence for closeout review.
 
 ## GABMA-M4 - Closeout
 

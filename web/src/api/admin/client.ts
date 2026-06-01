@@ -17,6 +17,10 @@ import {
   type AdminGeneratedArtifactMetadataApplyPlanResponse,
   type AdminGeneratedArtifactMetadataApplyRequest,
   type AdminGeneratedArtifactMetadataApplyResponse,
+  type AdminGeneratedArtifactMetadataBulkApplyBatchResponse,
+  type AdminGeneratedArtifactMetadataBulkApplyPlanRequest,
+  type AdminGeneratedArtifactMetadataBulkApplyPlanResponse,
+  type AdminGeneratedArtifactMetadataBulkApplyRequest,
   type AdminGeneratedArtifactProposalsQuery,
   type AdminGeneratedArtifactReviewPlanResponse,
   type AdminGeneratedArtifactReviewRequest,
@@ -185,6 +189,16 @@ export class AdminApiClient {
     )
   }
 
+  planGeneratedArtifactMetadataBulkApply(
+    request: AdminGeneratedArtifactMetadataBulkApplyPlanRequest,
+  ): Promise<AdminGeneratedArtifactMetadataBulkApplyPlanResponse> {
+    return this.sendJson<AdminGeneratedArtifactMetadataBulkApplyPlanResponse>(
+      "POST",
+      NAKO_ADMIN_ROUTES.generatedArtifactMetadataBulkApplyPlan,
+      request,
+    )
+  }
+
   applyGeneratedArtifactMetadata(
     artifactId: string,
     request: AdminGeneratedArtifactMetadataApplyRequest,
@@ -193,6 +207,24 @@ export class AdminApiClient {
       "POST",
       pathParams(NAKO_ADMIN_ROUTES.generatedArtifactMetadataApply, { artifact_id: artifactId }),
       request,
+    )
+  }
+
+  createGeneratedArtifactMetadataBulkApplyBatch(
+    request: AdminGeneratedArtifactMetadataBulkApplyRequest,
+  ): Promise<AdminGeneratedArtifactMetadataBulkApplyBatchResponse> {
+    return this.sendJson<AdminGeneratedArtifactMetadataBulkApplyBatchResponse>(
+      "POST",
+      NAKO_ADMIN_ROUTES.generatedArtifactMetadataBulkApplyBatches,
+      request,
+    )
+  }
+
+  getGeneratedArtifactMetadataBulkApplyBatch(
+    batchId: string,
+  ): Promise<AdminGeneratedArtifactMetadataBulkApplyBatchResponse> {
+    return this.getJson<AdminGeneratedArtifactMetadataBulkApplyBatchResponse>(
+      pathParams(NAKO_ADMIN_ROUTES.generatedArtifactMetadataBulkApplyBatch, { batch_id: batchId }),
     )
   }
 

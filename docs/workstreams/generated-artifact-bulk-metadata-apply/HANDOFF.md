@@ -21,17 +21,18 @@ added durable batch request persistence. `GABMA-040` added durable job-backed
 batch execution through the existing one-artifact apply path with per-item
 outcomes and partial-failure accounting. `GABMA-050` exposed the Admin
 confirm/status/result HTTP surface and synchronized generated Admin TypeScript
-contracts. The next task is the Web Admin workflow.
+contracts. `GABMA-060` wired the Web Admin bulk planning, confirmation, and
+result workflow. The next task is verification and closeout.
 
 ## Active Task
 
-- Task ID: `GABMA-060`
+- Task ID: `GABMA-070`
 - Lane: `library-metadata-control-plane`
 - Status: active
-- Owner: codex
+- Owner: planner
 
-Goal: add Web Admin bulk metadata apply planning, confirmation, live-only
-mutation, and partial-result display.
+Goal: verify backend/Web gates, review the budget tradeoff, update closeout
+evidence, and split follow-ons if needed.
 
 ## Completed Evidence
 
@@ -64,6 +65,17 @@ mutation, and partial-result display.
   TypeScript contracts are synchronized for both `apps/admin-web` and `web`.
 - Validated with focused `nako-api` contract/DTO gates, `nako-server` bulk
   metadata apply HTTP/app gates, contract generation, and format check.
+- `GABMA-060`: Web Admin now supports selecting accepted Generated Artifacts,
+  requesting the bulk metadata apply plan, confirming through the live-only
+  Admin mutation boundary, and showing completed batch status/results with
+  per-item outcomes. Fixture/fallback mode remains read-only. Data source and
+  route-state tests cover redaction, request bodies, disabled mutation, and
+  batch status reads. The Generated Artifacts page is lazy-loaded from the
+  Admin surface; `admin-route-js` is below budget and `total-js` gzip budget
+  was explicitly raised from 335 KiB to 340 KiB for the new async workflow.
+- Validated with focused Web data-source and route tests, `npm --prefix web run
+  check`, `npm --prefix web run build:budget`, and Playwright CLI smoke at
+  desktop `1440x1000` plus mobile `390x844` against a mocked live Admin API.
 
 ## Key Context
 
@@ -90,7 +102,7 @@ mutation, and partial-result display.
 
 ## Blockers
 
-- None for `GABMA-050`.
+- None for `GABMA-070`.
 
 ## Watchpoints
 
@@ -100,7 +112,8 @@ mutation, and partial-result display.
 - Do not expose raw artifact JSON, prompt, provider payload, Source Locator,
   path, token, or secret values.
 - Do not mix provider-specific mapping breadth into this lane.
-- Do not raise Web bundle budgets to hide low-frequency UI growth.
+- Treat the `total-js` gzip budget increase as an explicit closeout review
+  item; do not raise per-route budgets to hide low-frequency UI growth.
 
 ## Follow-Ons Outside This Lane
 

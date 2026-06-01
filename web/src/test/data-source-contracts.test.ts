@@ -711,6 +711,96 @@ function adminGeneratedArtifactMetadataApplyResponse(artifactId = "artifact-live
   }
 }
 
+function adminGeneratedArtifactMetadataBulkApplyPlanResponse(
+  artifactIds = ["artifact-live", "artifact-missing"],
+) {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    plan: {
+      selection: {
+        requested_artifact_count: artifactIds.length,
+        selected_artifact_count: artifactIds.length,
+        duplicate_artifact_count: 0,
+        max_artifact_count: 100,
+      },
+      summary: {
+        planned_artifact_count: 1,
+        missing_artifact_count: artifactIds.length > 1 ? 1 : 0,
+        ready_artifact_count: 1,
+        blocked_artifact_count: 0,
+        stale_artifact_count: 0,
+        executable_artifact_count: 1,
+        apply_field_count: 1,
+        skipped_field_count: 1,
+        noop_field_count: 1,
+      },
+      items: artifactIds.map((artifactId, index) =>
+        index === 0
+          ? {
+              artifact_id: artifactId,
+              status: "planned",
+              executable: true,
+              reasons: ["planned"],
+              plan: adminGeneratedArtifactMetadataApplyPlan(artifactId),
+            }
+          : {
+              artifact_id: artifactId,
+              status: "missing",
+              executable: false,
+              reasons: ["missing_artifact"],
+              plan: null,
+              raw_payload: "unsafe missing artifact payload",
+            },
+      ),
+      raw_prompt: "unsafe prompt body",
+    },
+  }
+}
+
+function adminGeneratedArtifactMetadataBulkApplyBatchResponse(
+  artifactIds = ["artifact-live", "artifact-missing"],
+) {
+  const plan = adminGeneratedArtifactMetadataBulkApplyPlanResponse(artifactIds).plan
+
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    batch: {
+      id: "bulk-batch-live",
+      job_id: "bulk-job-live",
+      idempotency_key: "unsafe-bulk-idempotency-key",
+      status: "completed",
+      selection: plan.selection,
+      summary: plan.summary,
+      execution_summary: {
+        total_item_count: artifactIds.length,
+        pending_item_count: 0,
+        skipped_item_count: artifactIds.length > 1 ? 1 : 0,
+        applied_item_count: 1,
+        noop_item_count: 0,
+        stale_item_count: 0,
+        failed_item_count: 0,
+      },
+      items: artifactIds.map((artifactId, index) => ({
+        artifact_id: artifactId,
+        position: index,
+        status: index === 0 ? "applied" : "skipped",
+        idempotency_key: `unsafe-item-idempotency-${index}`,
+        outcome_id: index === 0 ? "metadata-apply-outcome-live" : null,
+        error_code: index === 0 ? null : "missing_artifact",
+        error_message: index === 0 ? null : "safe missing artifact",
+        plan_item: plan.items[index],
+        created_at: "2026-06-01T00:00:00Z",
+        updated_at: "2026-06-01T00:00:01Z",
+      })),
+      created_at: "2026-06-01T00:00:00Z",
+      updated_at: "2026-06-01T00:00:01Z",
+      raw_artifact_json: "unsafe generated payload title",
+    },
+  }
+}
+
 function adminGeneratedArtifactAcceptancePlan(
   artifactId = "artifact-live",
   decision: "accept" | "reject" = "accept",
@@ -2884,6 +2974,114 @@ describe("admin read model data source contracts", () => {
     ).resolves.toEqual(ADMIN_GENERATED_ARTIFACT_METADATA_APPLY_PLAN_FIXTURE)
   })
 
+  it("maps live Admin generated artifact metadata bulk apply plans through POST without unsafe fields", async () => {
+    const calls: Array<{ method: string; path: string; body?: unknown; authorization: string | null }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined
+      calls.push({
+        method: init?.method ?? "GET",
+        path: url.pathname,
+        body,
+        authorization: new Headers(init?.headers).get("Authorization"),
+      })
+
+      if (url.pathname === "/admin/v1/automation/generated-artifacts/metadata-apply-plan") {
+        return jsonResponse(
+          adminGeneratedArtifactMetadataBulkApplyPlanResponse([
+            "artifact/unsafe id",
+            "artifact-missing",
+          ]),
+        )
+      }
+
+      return jsonResponse({ message: "not found" }, 404)
+    })
+    const source = createAdminReadModelsDataSource(
+      {
+        mode: "live",
+        baseUrl: "http://nako-admin.test/",
+        bearerToken: "admin-token",
+      },
+      fetcher,
+    )
+
+    const plan = await source.loadGeneratedArtifactMetadataBulkApplyPlan([
+      "artifact/unsafe id",
+      "artifact-missing",
+    ])
+
+    expect(plan).toMatchObject({
+      source: "live",
+      fallback: false,
+      selection: {
+        requestedArtifactCount: 2,
+        selectedArtifactCount: 2,
+      },
+      summary: {
+        plannedArtifactCount: 1,
+        missingArtifactCount: 1,
+        executableArtifactCount: 1,
+      },
+      items: [
+        expect.objectContaining({
+          artifactId: "artifact/unsafe id",
+          status: "planned",
+          executable: true,
+          plan: expect.objectContaining({
+            artifactId: "artifact/unsafe id",
+            applyFieldCount: 1,
+          }),
+        }),
+        expect.objectContaining({
+          artifactId: "artifact-missing",
+          status: "missing",
+          executable: false,
+          plan: null,
+        }),
+      ],
+    })
+
+    expect(calls).toEqual([
+      {
+        method: "POST",
+        path: "/admin/v1/automation/generated-artifacts/metadata-apply-plan",
+        body: { artifact_ids: ["artifact/unsafe id", "artifact-missing"] },
+        authorization: "Bearer admin-token",
+      },
+    ])
+
+    const serialized = JSON.stringify(plan)
+    expect(serialized).not.toContain("F:\\private")
+    expect(serialized).not.toContain("/mnt/private/source")
+    expect(serialized).not.toContain("unsafe prompt body")
+    expect(serialized).not.toContain("unsafe generated payload title")
+    expect(serialized).not.toContain("provider secret response")
+    expect(serialized).not.toContain("provider-secret")
+    expect(serialized).not.toContain("artifact_storage_handle")
+    expect(serialized).not.toContain("raw_payload")
+  })
+
+  it("returns deterministic fixture generated artifact metadata bulk apply plans", async () => {
+    const source = createAdminReadModelsDataSource({ mode: "fixture" })
+
+    await expect(
+      source.loadGeneratedArtifactMetadataBulkApplyPlan(["fixture-generated-artifact-accepted-1"]),
+    ).resolves.toMatchObject({
+      source: "fixture",
+      fallback: true,
+      summary: {
+        executableArtifactCount: 1,
+      },
+      items: [
+        expect.objectContaining({
+          artifactId: "fixture-generated-artifact-accepted-1",
+          executable: true,
+        }),
+      ],
+    })
+  })
+
   it("maps live Admin API responses into deeper Admin page read models", async () => {
     const fetcher = vi.fn<typeof fetch>(async (input) => {
       const url = new URL(String(input))
@@ -3064,6 +3262,12 @@ describe("admin mutation data source contracts", () => {
       source.applyGeneratedArtifactMetadata(
         "artifact-live",
         "web-generated-artifact-metadata-apply:artifact-live:test",
+      ),
+    ).rejects.toThrow("live Admin API")
+    await expect(
+      source.confirmGeneratedArtifactMetadataBulkApplyBatch(
+        ["artifact-live"],
+        "web-generated-artifact-metadata-bulk-apply:test",
       ),
     ).rejects.toThrow("live Admin API")
   })
@@ -3266,6 +3470,113 @@ describe("admin mutation data source contracts", () => {
     expect(serialized).not.toContain("provider secret response")
     expect(serialized).not.toContain("provider-secret")
     expect(serialized).not.toContain("artifact_storage_handle")
+  })
+
+  it("maps live Admin generated artifact metadata bulk apply confirmation and batch status", async () => {
+    const calls: Array<{ method: string; path: string; body?: unknown; authorization: string | null }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      const rawBody = typeof init?.body === "string" ? JSON.parse(init.body) : undefined
+      calls.push({
+        method: init?.method ?? "GET",
+        path: url.pathname,
+        body: rawBody,
+        authorization: new Headers(init?.headers).get("Authorization"),
+      })
+
+      switch (`${init?.method ?? "GET"} ${url.pathname}`) {
+        case "POST /admin/v1/automation/generated-artifacts/metadata-apply-batches":
+          return jsonResponse(
+            adminGeneratedArtifactMetadataBulkApplyBatchResponse([
+              "artifact/unsafe id",
+              "artifact-missing",
+            ]),
+          )
+        case "GET /admin/v1/automation/generated-artifacts/metadata-apply-batches/bulk-batch-live":
+          return jsonResponse(
+            adminGeneratedArtifactMetadataBulkApplyBatchResponse([
+              "artifact/unsafe id",
+              "artifact-missing",
+            ]),
+          )
+        default:
+          return jsonResponse({ message: "not found" }, 404)
+      }
+    })
+    const connection = {
+      mode: "live" as const,
+      baseUrl: "http://nako-admin.test",
+      bearerToken: "admin-token",
+    }
+    const mutationSource = createAdminMutationDataSource(connection, fetcher)
+    const readSource = createAdminReadModelsDataSource(connection, fetcher)
+
+    const confirmed = await mutationSource.confirmGeneratedArtifactMetadataBulkApplyBatch(
+      ["artifact/unsafe id", "artifact-missing"],
+      "web-generated-artifact-metadata-bulk-apply:test",
+    )
+    const status = await readSource.loadGeneratedArtifactMetadataBulkApplyBatch("bulk-batch-live")
+
+    expect(confirmed).toMatchObject({
+      kind: "generated-artifact.metadata-bulk-apply",
+      id: "bulk-batch-live",
+      jobId: "bulk-job-live",
+      status: "completed",
+      executionSummary: {
+        appliedItemCount: 1,
+        skippedItemCount: 1,
+      },
+      items: [
+        expect.objectContaining({
+          artifactId: "artifact/unsafe id",
+          status: "applied",
+          outcomeId: "metadata-apply-outcome-live",
+        }),
+        expect.objectContaining({
+          artifactId: "artifact-missing",
+          status: "skipped",
+          errorCode: "missing_artifact",
+        }),
+      ],
+    })
+    expect(status).toMatchObject({
+      source: "live",
+      fallback: false,
+      id: "bulk-batch-live",
+      status: "completed",
+      summary: {
+        executableArtifactCount: 1,
+      },
+    })
+
+    expect(calls).toEqual([
+      {
+        method: "POST",
+        path: "/admin/v1/automation/generated-artifacts/metadata-apply-batches",
+        body: {
+          artifact_ids: ["artifact/unsafe id", "artifact-missing"],
+          idempotency_key: "web-generated-artifact-metadata-bulk-apply:test",
+        },
+        authorization: "Bearer admin-token",
+      },
+      {
+        method: "GET",
+        path: "/admin/v1/automation/generated-artifacts/metadata-apply-batches/bulk-batch-live",
+        body: undefined,
+        authorization: "Bearer admin-token",
+      },
+    ])
+
+    const serialized = JSON.stringify({ confirmed, status })
+    expect(serialized).not.toContain("F:\\private")
+    expect(serialized).not.toContain("/mnt/private/source")
+    expect(serialized).not.toContain("unsafe prompt body")
+    expect(serialized).not.toContain("unsafe generated payload title")
+    expect(serialized).not.toContain("provider secret response")
+    expect(serialized).not.toContain("provider-secret")
+    expect(serialized).not.toContain("unsafe-bulk-idempotency-key")
+    expect(serialized).not.toContain("unsafe-item-idempotency")
+    expect(serialized).not.toContain("raw_artifact_json")
   })
 })
 

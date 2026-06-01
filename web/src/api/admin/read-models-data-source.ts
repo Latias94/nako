@@ -9,6 +9,14 @@ import type {
   AdminGeneratedArtifactMetadataApplyFieldPlan,
   AdminGeneratedArtifactMetadataApplyPlan,
   AdminGeneratedArtifactMetadataApplyPlanResponse,
+  AdminGeneratedArtifactMetadataBulkApplyBatch,
+  AdminGeneratedArtifactMetadataBulkApplyBatchItem,
+  AdminGeneratedArtifactMetadataBulkApplyBatchResponse,
+  AdminGeneratedArtifactMetadataBulkApplyBatchExecutionSummary,
+  AdminGeneratedArtifactMetadataBulkApplyPlanItem,
+  AdminGeneratedArtifactMetadataBulkApplyPlanResponse,
+  AdminGeneratedArtifactMetadataBulkApplyPlanSelection,
+  AdminGeneratedArtifactMetadataBulkApplyPlanSummary,
   AdminGeneratedArtifactMetadataValueSummary,
   AdminGeneratedArtifactProposal,
   AdminGeneratedArtifactProposalListResponse,
@@ -406,6 +414,81 @@ export interface AdminGeneratedArtifactMetadataApplyPlanReadModel extends AdminR
   noopFieldCount: number
 }
 
+export interface AdminGeneratedArtifactMetadataBulkApplyPlanSelectionReadModel {
+  requestedArtifactCount: number
+  selectedArtifactCount: number
+  duplicateArtifactCount: number
+  maxArtifactCount: number
+}
+
+export interface AdminGeneratedArtifactMetadataBulkApplyPlanSummaryReadModel {
+  plannedArtifactCount: number
+  missingArtifactCount: number
+  readyArtifactCount: number
+  blockedArtifactCount: number
+  staleArtifactCount: number
+  executableArtifactCount: number
+  applyFieldCount: number
+  skippedFieldCount: number
+  noopFieldCount: number
+}
+
+export interface AdminGeneratedArtifactMetadataBulkApplyPlanItemReadModel {
+  artifactId: string
+  status: string
+  executable: boolean
+  reasons: string[]
+  plan: AdminGeneratedArtifactMetadataApplyPlanReadModel | null
+}
+
+export interface AdminGeneratedArtifactMetadataBulkApplyPlanReadModel extends AdminReadModelEnvelope {
+  versions: {
+    adminApi: string
+    publicApi: string
+  }
+  selection: AdminGeneratedArtifactMetadataBulkApplyPlanSelectionReadModel
+  summary: AdminGeneratedArtifactMetadataBulkApplyPlanSummaryReadModel
+  items: AdminGeneratedArtifactMetadataBulkApplyPlanItemReadModel[]
+}
+
+export interface AdminGeneratedArtifactMetadataBulkApplyBatchExecutionSummaryReadModel {
+  totalItemCount: number
+  pendingItemCount: number
+  skippedItemCount: number
+  appliedItemCount: number
+  noopItemCount: number
+  staleItemCount: number
+  failedItemCount: number
+}
+
+export interface AdminGeneratedArtifactMetadataBulkApplyBatchItemReadModel {
+  artifactId: string
+  position: number
+  status: string
+  outcomeId: string | null
+  errorCode: string | null
+  errorMessage: string | null
+  planItem: AdminGeneratedArtifactMetadataBulkApplyPlanItemReadModel
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AdminGeneratedArtifactMetadataBulkApplyBatchReadModel extends AdminReadModelEnvelope {
+  versions: {
+    adminApi: string
+    publicApi: string
+  }
+  id: string
+  jobId: string
+  status: string
+  selection: AdminGeneratedArtifactMetadataBulkApplyPlanSelectionReadModel
+  summary: AdminGeneratedArtifactMetadataBulkApplyPlanSummaryReadModel
+  executionSummary: AdminGeneratedArtifactMetadataBulkApplyBatchExecutionSummaryReadModel
+  items: AdminGeneratedArtifactMetadataBulkApplyBatchItemReadModel[]
+  createdAt: string
+  updatedAt: string
+}
+
 export interface AdminSettingsReadModel extends AdminReadModelEnvelope {
   general: {
     serverName: string
@@ -561,6 +644,9 @@ export const ADMIN_GENERATED_ARTIFACT_REVIEW_PLAN_FIXTURE: AdminGeneratedArtifac
 export const ADMIN_GENERATED_ARTIFACT_METADATA_APPLY_PLAN_FIXTURE: AdminGeneratedArtifactMetadataApplyPlanReadModel =
   generatedArtifactMetadataApplyPlanFixture("fixture-generated-artifact-1")
 
+export const ADMIN_GENERATED_ARTIFACT_METADATA_BULK_APPLY_PLAN_FIXTURE: AdminGeneratedArtifactMetadataBulkApplyPlanReadModel =
+  generatedArtifactMetadataBulkApplyPlanFixture(["fixture-generated-artifact-accepted-1"])
+
 export const ADMIN_SETTINGS_READ_MODEL_FIXTURE: AdminSettingsReadModel = {
   source: "fixture",
   fallback: true,
@@ -709,6 +795,26 @@ export function createAdminReadModelsDataSource(
       })
     },
 
+    async loadGeneratedArtifactMetadataBulkApplyPlan(
+      artifactIds: string[],
+    ): Promise<AdminGeneratedArtifactMetadataBulkApplyPlanReadModel> {
+      return withFallback(generatedArtifactMetadataBulkApplyPlanFixture(artifactIds), async () => {
+        const response = await client.planGeneratedArtifactMetadataBulkApply({
+          artifact_ids: artifactIds,
+        })
+        return mapGeneratedArtifactMetadataBulkApplyPlanResponse(response)
+      })
+    },
+
+    async loadGeneratedArtifactMetadataBulkApplyBatch(
+      batchId: string,
+    ): Promise<AdminGeneratedArtifactMetadataBulkApplyBatchReadModel> {
+      return withFallback(generatedArtifactMetadataBulkApplyBatchFixture(batchId), async () => {
+        const response = await client.getGeneratedArtifactMetadataBulkApplyBatch(batchId)
+        return mapGeneratedArtifactMetadataBulkApplyBatchResponse(response)
+      })
+    },
+
     async loadSettings(): Promise<AdminSettingsReadModel> {
       return withFallback(ADMIN_SETTINGS_READ_MODEL_FIXTURE, async () => {
         const [config, runtime, staging, rawCache] = await Promise.all([
@@ -767,6 +873,12 @@ function fixtureDataSource() {
     },
     async loadGeneratedArtifactMetadataApplyPlan(artifactId: string) {
       return generatedArtifactMetadataApplyPlanFixture(artifactId)
+    },
+    async loadGeneratedArtifactMetadataBulkApplyPlan(artifactIds: string[]) {
+      return generatedArtifactMetadataBulkApplyPlanFixture(artifactIds)
+    },
+    async loadGeneratedArtifactMetadataBulkApplyBatch(batchId: string) {
+      return generatedArtifactMetadataBulkApplyBatchFixture(batchId)
     },
     async loadSettings() {
       return ADMIN_SETTINGS_READ_MODEL_FIXTURE
@@ -1103,6 +1215,132 @@ export function mapGeneratedArtifactMetadataApplyPlan(
   }
 }
 
+export function mapGeneratedArtifactMetadataBulkApplyPlanResponse(
+  response: AdminGeneratedArtifactMetadataBulkApplyPlanResponse,
+): AdminGeneratedArtifactMetadataBulkApplyPlanReadModel {
+  const versions = {
+    adminApi: response.admin_api_version,
+    publicApi: response.public_api_version,
+  }
+
+  return {
+    source: "live",
+    fallback: false,
+    versions,
+    selection: mapGeneratedArtifactMetadataBulkApplyPlanSelection(response.plan.selection),
+    summary: mapGeneratedArtifactMetadataBulkApplyPlanSummary(response.plan.summary),
+    items: response.plan.items.map((item) =>
+      mapGeneratedArtifactMetadataBulkApplyPlanItem(item, versions),
+    ),
+  }
+}
+
+export function mapGeneratedArtifactMetadataBulkApplyBatchResponse(
+  response: AdminGeneratedArtifactMetadataBulkApplyBatchResponse,
+): AdminGeneratedArtifactMetadataBulkApplyBatchReadModel {
+  const versions = {
+    adminApi: response.admin_api_version,
+    publicApi: response.public_api_version,
+  }
+
+  return mapGeneratedArtifactMetadataBulkApplyBatch(response.batch, versions)
+}
+
+export function mapGeneratedArtifactMetadataBulkApplyBatch(
+  batch: AdminGeneratedArtifactMetadataBulkApplyBatch,
+  versions: { adminApi: string; publicApi: string },
+): AdminGeneratedArtifactMetadataBulkApplyBatchReadModel {
+  return {
+    source: "live",
+    fallback: false,
+    versions,
+    id: batch.id,
+    jobId: batch.job_id,
+    status: batch.status,
+    selection: mapGeneratedArtifactMetadataBulkApplyPlanSelection(batch.selection),
+    summary: mapGeneratedArtifactMetadataBulkApplyPlanSummary(batch.summary),
+    executionSummary: mapGeneratedArtifactMetadataBulkApplyBatchExecutionSummary(
+      batch.execution_summary,
+    ),
+    items: batch.items.map((item) =>
+      mapGeneratedArtifactMetadataBulkApplyBatchItem(item, versions),
+    ),
+    createdAt: batch.created_at,
+    updatedAt: batch.updated_at,
+  }
+}
+
+function mapGeneratedArtifactMetadataBulkApplyPlanSelection(
+  selection: AdminGeneratedArtifactMetadataBulkApplyPlanSelection,
+): AdminGeneratedArtifactMetadataBulkApplyPlanSelectionReadModel {
+  return {
+    requestedArtifactCount: selection.requested_artifact_count,
+    selectedArtifactCount: selection.selected_artifact_count,
+    duplicateArtifactCount: selection.duplicate_artifact_count,
+    maxArtifactCount: selection.max_artifact_count,
+  }
+}
+
+function mapGeneratedArtifactMetadataBulkApplyPlanSummary(
+  summary: AdminGeneratedArtifactMetadataBulkApplyPlanSummary,
+): AdminGeneratedArtifactMetadataBulkApplyPlanSummaryReadModel {
+  return {
+    plannedArtifactCount: summary.planned_artifact_count,
+    missingArtifactCount: summary.missing_artifact_count,
+    readyArtifactCount: summary.ready_artifact_count,
+    blockedArtifactCount: summary.blocked_artifact_count,
+    staleArtifactCount: summary.stale_artifact_count,
+    executableArtifactCount: summary.executable_artifact_count,
+    applyFieldCount: summary.apply_field_count,
+    skippedFieldCount: summary.skipped_field_count,
+    noopFieldCount: summary.noop_field_count,
+  }
+}
+
+function mapGeneratedArtifactMetadataBulkApplyPlanItem(
+  item: AdminGeneratedArtifactMetadataBulkApplyPlanItem,
+  versions: { adminApi: string; publicApi: string },
+): AdminGeneratedArtifactMetadataBulkApplyPlanItemReadModel {
+  return {
+    artifactId: item.artifact_id,
+    status: item.status,
+    executable: item.executable,
+    reasons: item.reasons,
+    plan: item.plan ? mapGeneratedArtifactMetadataApplyPlan(item.plan, versions) : null,
+  }
+}
+
+function mapGeneratedArtifactMetadataBulkApplyBatchExecutionSummary(
+  summary: AdminGeneratedArtifactMetadataBulkApplyBatchExecutionSummary,
+): AdminGeneratedArtifactMetadataBulkApplyBatchExecutionSummaryReadModel {
+  return {
+    totalItemCount: summary.total_item_count,
+    pendingItemCount: summary.pending_item_count,
+    skippedItemCount: summary.skipped_item_count,
+    appliedItemCount: summary.applied_item_count,
+    noopItemCount: summary.noop_item_count,
+    staleItemCount: summary.stale_item_count,
+    failedItemCount: summary.failed_item_count,
+  }
+}
+
+function mapGeneratedArtifactMetadataBulkApplyBatchItem(
+  item: AdminGeneratedArtifactMetadataBulkApplyBatchItem,
+  versions: { adminApi: string; publicApi: string },
+): AdminGeneratedArtifactMetadataBulkApplyBatchItemReadModel {
+  return {
+    artifactId: item.artifact_id,
+    position: item.position,
+    status: item.status,
+    outcomeId: item.outcome_id,
+    errorCode: item.error_code,
+    errorMessage: item.error_message,
+    planItem: mapGeneratedArtifactMetadataBulkApplyPlanItem(item.plan_item, versions),
+    createdAt: item.created_at,
+    updatedAt: item.updated_at,
+  }
+}
+
 function mapGeneratedArtifactMetadataApplyFieldPlan(
   field: AdminGeneratedArtifactMetadataApplyFieldPlan,
 ): AdminGeneratedArtifactMetadataApplyFieldPlanReadModel {
@@ -1287,11 +1525,52 @@ function generatedArtifactsFixture(
         updatedAt: "2024-03-15T03:05:00.000Z",
         acceptedAt: null,
       },
+      {
+        id: "fixture-generated-artifact-accepted-1",
+        kind: "metadata_suggestion",
+        capability: "item_metadata_suggest",
+        status: "accepted",
+        target: {
+          kind: "media_item",
+          libraryId: "library-movies",
+          itemId: "item-fixture-1",
+          sourceId: null,
+        },
+        provenance: {
+          providerId: "automation-provider-fixture",
+          providerName: "Fixture Automation Provider",
+          jobId: "job-generated-artifact-fixture",
+          capability: "item_metadata_suggest",
+          idempotencyKeyFingerprint: "sha256:idempotency-fixture-accepted",
+          promptFingerprint: "sha256:prompt-fixture-accepted",
+          attemptCount: 1,
+          artifactCreatedAt: "2024-03-15T03:09:00.000Z",
+        },
+        payload: {
+          validJson: true,
+          shape: "object",
+          payloadFingerprint: "sha256:payload-fixture-accepted",
+          payloadBytes: 2048,
+          objectFieldCount: 8,
+          arrayItemCount: null,
+          hasTextualValues: true,
+          hasExplanation: true,
+          confidenceMilli: 840,
+        },
+        readiness: {
+          status: "accepted",
+          actionable: true,
+          reasons: ["accepted_generated_artifact"],
+        },
+        createdAt: "2024-03-15T03:08:00.000Z",
+        updatedAt: "2024-03-15T03:10:00.000Z",
+        acceptedAt: "2024-03-15T03:10:00.000Z",
+      },
     ],
     page: {
       limit: query.limit ?? 50,
       offset: query.offset ?? 0,
-      returned: 1,
+      returned: 2,
     },
   }
 }
@@ -1396,6 +1675,123 @@ function generatedArtifactMetadataApplyPlanFixture(
     applyFieldCount: 1,
     skippedFieldCount: 1,
     noopFieldCount: 0,
+  }
+}
+
+function generatedArtifactMetadataBulkApplyPlanFixture(
+  artifactIds: string[],
+): AdminGeneratedArtifactMetadataBulkApplyPlanReadModel {
+  const uniqueArtifactIds = Array.from(new Set(artifactIds))
+  const items = uniqueArtifactIds.map((artifactId) =>
+    generatedArtifactMetadataBulkApplyPlanItemFixture(artifactId),
+  )
+  const executableItems = items.filter((item) => item.executable && item.plan)
+  const missingItems = items.filter((item) => item.status === "missing")
+
+  return {
+    source: "fixture",
+    fallback: true,
+    versions: {
+      adminApi: "fixture",
+      publicApi: "fixture",
+    },
+    selection: {
+      requestedArtifactCount: artifactIds.length,
+      selectedArtifactCount: uniqueArtifactIds.length,
+      duplicateArtifactCount: artifactIds.length - uniqueArtifactIds.length,
+      maxArtifactCount: 100,
+    },
+    summary: {
+      plannedArtifactCount: items.length - missingItems.length,
+      missingArtifactCount: missingItems.length,
+      readyArtifactCount: executableItems.length,
+      blockedArtifactCount: items.filter((item) => item.status === "blocked").length,
+      staleArtifactCount: items.filter((item) => item.status === "stale").length,
+      executableArtifactCount: executableItems.length,
+      applyFieldCount: executableItems.reduce(
+        (total, item) => total + (item.plan?.applyFieldCount ?? 0),
+        0,
+      ),
+      skippedFieldCount: executableItems.reduce(
+        (total, item) => total + (item.plan?.skippedFieldCount ?? 0),
+        0,
+      ),
+      noopFieldCount: executableItems.reduce(
+        (total, item) => total + (item.plan?.noopFieldCount ?? 0),
+        0,
+      ),
+    },
+    items,
+  }
+}
+
+function generatedArtifactMetadataBulkApplyBatchFixture(
+  batchId: string,
+): AdminGeneratedArtifactMetadataBulkApplyBatchReadModel {
+  const plan = generatedArtifactMetadataBulkApplyPlanFixture([
+    "fixture-generated-artifact-accepted-1",
+    "fixture-generated-artifact-missing",
+  ])
+  const now = "2024-03-15T03:12:00.000Z"
+
+  return {
+    source: "fixture",
+    fallback: true,
+    versions: {
+      adminApi: "fixture",
+      publicApi: "fixture",
+    },
+    id: batchId,
+    jobId: "fixture-generated-artifact-metadata-bulk-apply-job",
+    status: "completed",
+    selection: plan.selection,
+    summary: plan.summary,
+    executionSummary: {
+      totalItemCount: plan.items.length,
+      pendingItemCount: 0,
+      skippedItemCount: 1,
+      appliedItemCount: 1,
+      noopItemCount: 0,
+      staleItemCount: 0,
+      failedItemCount: 0,
+    },
+    items: plan.items.map((item, index) => ({
+      artifactId: item.artifactId,
+      position: index,
+      status: item.executable ? "applied" : "skipped",
+      outcomeId: item.executable ? `fixture-metadata-apply-outcome-${index + 1}` : null,
+      errorCode: item.executable ? null : item.status,
+      errorMessage: item.executable ? null : "Generated artifact is not available for apply",
+      planItem: item,
+      createdAt: now,
+      updatedAt: now,
+    })),
+    createdAt: now,
+    updatedAt: now,
+  }
+}
+
+function generatedArtifactMetadataBulkApplyPlanItemFixture(
+  artifactId: string,
+): AdminGeneratedArtifactMetadataBulkApplyPlanItemReadModel {
+  if (artifactId.includes("missing")) {
+    return {
+      artifactId,
+      status: "missing",
+      executable: false,
+      reasons: ["generated_artifact_not_found"],
+      plan: null,
+    }
+  }
+
+  const plan = generatedArtifactMetadataApplyPlanFixture(artifactId)
+
+  return {
+    artifactId,
+    status: "planned",
+    executable: true,
+    reasons: ["accepted_generated_artifact"],
+    plan,
   }
 }
 

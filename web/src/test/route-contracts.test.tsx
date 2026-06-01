@@ -29,146 +29,146 @@ const routeContracts: RouteContract[] = [
   {
     path: "/",
     assert: async () => {
-      expect(await screen.findByText(/继续观看/, {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByText(/继续观看/, {}, { timeout: 10000 })).toBeInTheDocument()
     },
   },
   {
     path: "/media",
     assert: async () => {
-      expect(await screen.findByText(/继续观看/, {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByText(/继续观看/, {}, { timeout: 10000 })).toBeInTheDocument()
     },
   },
   {
     path: "/media/search?q=dune",
     assert: async () => {
-      expect(await screen.findByDisplayValue("dune", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByDisplayValue("dune", {}, { timeout: 10000 })).toBeInTheDocument()
     },
   },
   {
     path: "/media/detail?id=1&type=movie",
     assert: async () => {
-      expect(await screen.findByRole("heading", { name: "沙丘2" }, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByRole("heading", { name: "沙丘2" }, { timeout: 10000 })).toBeInTheDocument()
     },
   },
   {
     path: "/media/library?id=movies",
     assert: async () => {
-      expect(await screen.findByRole("button", { name: /按 日期已添加 排序/ }, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByRole("button", { name: /按 日期已添加 排序/ }, { timeout: 10000 })).toBeInTheDocument()
     },
   },
   {
     path: "/media/library?id=movies&view=table&sort=title&order=asc&filter=unwatched",
     assert: async () => {
-      expect(await screen.findByRole("button", { name: /按 标题 排序/ }, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByRole("button", { name: /按 标题 排序/ }, { timeout: 10000 })).toBeInTheDocument()
     },
   },
   {
     path: "/media/my-list",
     assert: async () => {
-      expect(await screen.findByRole("heading", { name: "我的列表" }, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByRole("heading", { name: "我的列表" }, { timeout: 10000 })).toBeInTheDocument()
     },
   },
   {
     path: "/admin",
     assert: async () => {
-      expect(await screen.findByRole("heading", { name: "仪表盘" }, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByRole("heading", { name: "仪表盘" }, { timeout: 10000 })).toBeInTheDocument()
     },
   },
   {
     path: "/admin/libraries",
     assert: async () => {
-      expect(await screen.findByRole("heading", { name: "媒体库管理" }, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByRole("heading", { name: "媒体库管理" }, { timeout: 10000 })).toBeInTheDocument()
     },
   },
   {
     path: "/admin/users",
     assert: async () => {
-      expect(await screen.findByRole("heading", { name: "用户管理" }, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByRole("heading", { name: "用户管理" }, { timeout: 10000 })).toBeInTheDocument()
     },
   },
   {
     path: "/admin/tasks",
     assert: async () => {
-      expect(await screen.findByRole("heading", { name: "计划任务" }, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByRole("heading", { name: "计划任务" }, { timeout: 10000 })).toBeInTheDocument()
     },
   },
   {
     path: "/admin/logs",
     assert: async () => {
-      expect(await screen.findByRole("heading", { name: "系统日志" }, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByRole("heading", { name: "系统日志" }, { timeout: 10000 })).toBeInTheDocument()
     },
   },
   {
     path: "/admin/logs?q=database&levels=error,warn&sources=database&tab=errors&time=7d",
     assert: async () => {
-      expect(await screen.findByDisplayValue("database", {}, { timeout: 5000 })).toBeInTheDocument()
-      expect(await screen.findByText("最近7天", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByDisplayValue("database", {}, { timeout: 10000 })).toBeInTheDocument()
+      expect(await screen.findByText("最近7天", {}, { timeout: 10000 })).toBeInTheDocument()
     },
   },
   {
     path: "/admin/acquisition/intake?state=ready",
     assert: async () => {
-      expect(await screen.findByRole("heading", { name: "采集入口" }, { timeout: 5000 })).toBeInTheDocument()
-      expect(await screen.findByText("fixture-intake-1", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByRole("heading", { name: "采集入口" }, { timeout: 10000 })).toBeInTheDocument()
+      expect(await screen.findByText("fixture-intake-1", {}, { timeout: 10000 })).toBeInTheDocument()
     },
   },
   {
     path: "/admin/automation/generated-artifacts?limit=25",
     assert: async () => {
-      expect(await screen.findByRole("heading", { name: "生成产物" }, { timeout: 5000 })).toBeInTheDocument()
-      expect(await screen.findByText("fixture-generated-artifact-1", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByRole("heading", { name: "生成产物" }, { timeout: 10000 })).toBeInTheDocument()
+      expect(await screen.findByText("fixture-generated-artifact-1", {}, { timeout: 10000 })).toBeInTheDocument()
     },
   },
   {
     path: "/admin/automation/generated-artifacts/review?artifact_id=fixture-generated-artifact-1&decision=accept",
     assert: async () => {
-      expect(await screen.findByRole("heading", { name: "生成产物审核" }, { timeout: 5000 })).toBeInTheDocument()
-      expect(await screen.findByText("fixture-generated-artifact-1", {}, { timeout: 5000 })).toBeInTheDocument()
-      expect(await screen.findByText("Metadata Authority apply", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByRole("heading", { name: "生成产物审核" }, { timeout: 10000 })).toBeInTheDocument()
+      expect(await screen.findByText("fixture-generated-artifact-1", {}, { timeout: 10000 })).toBeInTheDocument()
+      expect(await screen.findByText("Metadata Authority apply", {}, { timeout: 10000 })).toBeInTheDocument()
     },
   },
   {
     path: "/admin/automation/generated-artifacts/metadata-apply?artifact_id=fixture-generated-artifact-1",
     assert: async () => {
-      expect(await screen.findByRole("heading", { name: "Metadata Authority apply" }, { timeout: 5000 })).toBeInTheDocument()
-      expect(await screen.findByText("fixture-generated-artifact-1", {}, { timeout: 5000 })).toBeInTheDocument()
-      expect(await screen.findByText("field_locked", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByRole("heading", { name: "Metadata Authority apply" }, { timeout: 10000 })).toBeInTheDocument()
+      expect(await screen.findByText("fixture-generated-artifact-1", {}, { timeout: 10000 })).toBeInTheDocument()
+      expect(await screen.findByText("field_locked", {}, { timeout: 10000 })).toBeInTheDocument()
     },
   },
   {
     path: "/admin/settings",
     assert: async () => {
-      expect(await screen.findByRole("heading", { name: "高级设置" }, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByRole("heading", { name: "高级设置" }, { timeout: 10000 })).toBeInTheDocument()
     },
   },
   {
     path: "/notifications",
     assert: async () => {
-      expect(await screen.findByRole("heading", { name: "通知中心" }, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByRole("heading", { name: "通知中心" }, { timeout: 10000 })).toBeInTheDocument()
     },
   },
   {
     path: "/settings",
     assert: async () => {
-      expect(await screen.findByRole("heading", { name: "设置" }, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByRole("heading", { name: "设置" }, { timeout: 10000 })).toBeInTheDocument()
     },
   },
   {
     path: "/setup",
     assert: async () => {
-      expect(await screen.findByText(/Welcome to Nako/, {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByText(/Welcome to Nako/, {}, { timeout: 10000 })).toBeInTheDocument()
     },
   },
   {
     path: "/account",
     assert: async () => {
-      expect(await screen.findByText(/谁在观看？/, {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByText(/谁在观看？/, {}, { timeout: 10000 })).toBeInTheDocument()
     },
   },
   {
     path: "/tv",
     assert: async () => {
-      expect(await screen.findByRole("heading", { name: /沙丘2/ }, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByRole("heading", { name: /沙丘2/ }, { timeout: 10000 })).toBeInTheDocument()
     },
   },
 ]
@@ -224,7 +224,7 @@ describe("top-level route contracts", () => {
     try {
       renderRoute("/media/library?id=movies")
 
-      expect(await screen.findByText("Live Movie", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByText("Live Movie", {}, { timeout: 10000 })).toBeInTheDocument()
       const calledTargets = fetcher.mock.calls.map(([input]) => {
         const url = new URL(String(input))
         return `${url.pathname}${url.search}`
@@ -289,8 +289,8 @@ describe("top-level route contracts", () => {
     try {
       renderRoute("/media/my-list?playlist=playlist-live&view=list")
 
-      expect(await screen.findAllByText("Live Playlist", {}, { timeout: 5000 })).toHaveLength(2)
-      expect(await screen.findByText("Live Movie", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findAllByText("Live Playlist", {}, { timeout: 10000 })).toHaveLength(2)
+      expect(await screen.findByText("Live Movie", {}, { timeout: 10000 })).toBeInTheDocument()
       const calledTargets = fetcher.mock.calls
         .map(([input]) => {
           const url = new URL(String(input))

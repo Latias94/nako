@@ -1,15 +1,18 @@
 import { AdminApiClient } from "./client"
 import { loadAdminApiConnection, type AdminApiConnection } from "./connection"
 import {
+  mapGeneratedArtifactMetadataBulkApplyBatchResponse,
   mapGeneratedArtifactMetadataApplyPlan,
   mapGeneratedArtifactReviewPlanResponse,
   type AdminGeneratedArtifactReviewDecision,
+  type AdminGeneratedArtifactMetadataBulkApplyBatchReadModel,
   type AdminGeneratedArtifactMetadataApplyPlanReadModel,
   type AdminGeneratedArtifactReviewPlanReadModel,
 } from "./read-models-data-source"
 import type {
   AddonStatus,
   AdminCreateUserRequest,
+  AdminGeneratedArtifactMetadataBulkApplyBatchResponse,
   AdminGeneratedArtifactMetadataApplyResponse,
   AdminGeneratedArtifactReviewPlanResponse,
   AdminUpdateMetadataRawCacheSettingsRequest,
@@ -30,6 +33,7 @@ export type AdminMutationKind =
   | "addon.status.update"
   | "generated-artifact.review"
   | "generated-artifact.metadata-apply"
+  | "generated-artifact.metadata-bulk-apply"
 
 export interface AdminMutationResult {
   kind: AdminMutationKind
@@ -61,6 +65,12 @@ export interface AdminGeneratedArtifactMetadataApplyMutationResult {
   plan: AdminGeneratedArtifactMetadataApplyPlanReadModel
 }
 
+export interface AdminGeneratedArtifactMetadataBulkApplyMutationResult
+  extends AdminGeneratedArtifactMetadataBulkApplyBatchReadModel {
+  kind: "generated-artifact.metadata-bulk-apply"
+  message: string
+}
+
 export interface AdminMutationDataSource {
   canMutate: boolean
   unavailableReason?: string
@@ -84,6 +94,10 @@ export interface AdminMutationDataSource {
     artifactId: string,
     idempotencyKey: string,
   ): Promise<AdminGeneratedArtifactMetadataApplyMutationResult>
+  confirmGeneratedArtifactMetadataBulkApplyBatch(
+    artifactIds: string[],
+    idempotencyKey: string,
+  ): Promise<AdminGeneratedArtifactMetadataBulkApplyMutationResult>
 }
 
 export function createAdminMutationDataSource(
@@ -185,6 +199,14 @@ export function createAdminMutationDataSource(
       })
       return mapGeneratedArtifactMetadataApplyMutationResponse(response)
     },
+
+    async confirmGeneratedArtifactMetadataBulkApplyBatch(artifactIds, idempotencyKey) {
+      const response = await client.createGeneratedArtifactMetadataBulkApplyBatch({
+        artifact_ids: artifactIds,
+        idempotency_key: idempotencyKey,
+      })
+      return mapGeneratedArtifactMetadataBulkApplyMutationResponse(response)
+    },
   }
 }
 
@@ -198,6 +220,10 @@ function disabledMutationDataSource(reason: string): AdminMutationDataSource {
     }
   const rejectGeneratedArtifactMetadataApply =
     async (): Promise<AdminGeneratedArtifactMetadataApplyMutationResult> => {
+      throw new Error(reason)
+    }
+  const rejectGeneratedArtifactMetadataBulkApply =
+    async (): Promise<AdminGeneratedArtifactMetadataBulkApplyMutationResult> => {
       throw new Error(reason)
     }
 
@@ -216,6 +242,7 @@ function disabledMutationDataSource(reason: string): AdminMutationDataSource {
     updateAddonStatus: reject,
     reviewGeneratedArtifact: rejectGeneratedArtifactReview,
     applyGeneratedArtifactMetadata: rejectGeneratedArtifactMetadataApply,
+    confirmGeneratedArtifactMetadataBulkApplyBatch: rejectGeneratedArtifactMetadataBulkApply,
   }
 }
 
@@ -282,4 +309,29 @@ function generatedArtifactMetadataApplyMessage(response: AdminGeneratedArtifactM
   }
 
   return response.changed ? "Canonical Metadata 已更新" : "元数据应用完成，没有字段变更"
+}
+
+function mapGeneratedArtifactMetadataBulkApplyMutationResponse(
+  response: AdminGeneratedArtifactMetadataBulkApplyBatchResponse,
+): AdminGeneratedArtifactMetadataBulkApplyMutationResult {
+  const batch = mapGeneratedArtifactMetadataBulkApplyBatchResponse(response)
+
+  return {
+    ...batch,
+    kind: "generated-artifact.metadata-bulk-apply",
+    message: generatedArtifactMetadataBulkApplyMessage(batch.status),
+  }
+}
+
+function generatedArtifactMetadataBulkApplyMessage(status: string) {
+  switch (status) {
+    case "completed":
+      return "批量元数据应用已完成"
+    case "failed":
+      return "批量元数据应用失败"
+    case "cancelled":
+      return "批量元数据应用已取消"
+    default:
+      return "批量元数据应用批次已提交"
+  }
 }
