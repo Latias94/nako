@@ -1,7 +1,7 @@
 # Client Surface And Access Product Architecture - Milestones
 
-Status: Active
-Last updated: 2026-05-29
+Status: Closed
+Last updated: 2026-06-01
 
 ## M0 - Product Architecture Accepted
 
@@ -50,7 +50,7 @@ Evidence: `docs/workstreams/admin-media-management-context-links/`.
 
 ## M4 - Desktop Spike Split Or Deferred
 
-Status: Next
+Status: Complete
 
 Exit criteria:
 
@@ -59,6 +59,10 @@ Exit criteria:
 - The spike compares browser/WebView playback with native playback core
   integration, instead of assuming Tauri WebView is enough.
 
+Decision: deferred from the MVP/browser-first path. Open a focused
+`desktop-tauri-native-playback-spike` follow-on when desktop playback becomes a
+product priority.
+
 ## M5 - Closeout
 
 Exit criteria:
@@ -66,3 +70,6 @@ Exit criteria:
 - This planning lane has no unowned product decisions blocking implementation.
 - Follow-on lanes have authoritative docs and first executable tasks.
 - Remaining risks are recorded in HANDOFF.md.
+
+Status: Complete. CSAPA is closed after identity/access, Media Web, and
+Management Context Links were split, and desktop playback was deferred.

@@ -1,11 +1,11 @@
 # Client Surface And Access Product Architecture - Handoff
 
-Status: Active
-Last updated: 2026-05-29
+Status: Closed
+Last updated: 2026-06-01
 
 ## Current State
 
-This planning lane is open. CSAPA-010 drafted the product architecture for
+This planning lane is closed. CSAPA-010 drafted the product architecture for
 Admin Web, Media Web, desktop, mobile, accounts, roles, Library Access, and
 Management Context Links.
 
@@ -22,19 +22,14 @@ Management Context Links already exist at `/management/context-links`; the new
 frontend lane owns `web/` consumption, route resolution, and cross-surface
 verification.
 
-## Next Recommended Task
+## Closed State
 
-CSAPA-050: split or explicitly defer the desktop playback strategy.
+CSAPA-050 explicitly deferred desktop playback strategy from the MVP/browser-first
+path. A future desktop effort should open a focused
+`desktop-tauri-native-playback-spike` workstream with platform playback evidence.
 
-Lane: `client-surfaces-planning`
-
-Recommended first decisions:
-
-- decide whether the first desktop lane is a playback-core spike, a packaging
-  validation lane, or an explicit deferral;
-- keep desktop browse/admin UX centered on `web/`;
-- keep serious playback quality owned by a native engine spike rather than
-  assuming WebView playback is sufficient.
+CSAPA-060 closed this broad product architecture lane. Future implementation
+must open narrower follow-ons.
 
 ## Key Constraints
 
@@ -52,11 +47,11 @@ Recommended first decisions:
 - `identity-and-library-access-contract` (complete)
 - `media-web-client-foundation` (closed)
 - `admin-media-management-context-links` (active)
-- `desktop-tauri-native-playback-spike`
+- `desktop-tauri-native-playback-spike` (deferred/proposed)
 
 ## Resume Notes
 
-Before implementation, re-read:
+Before future implementation, re-read:
 
 - `DESIGN.md`
 - ADR 0024, 0026, 0027, and 0028

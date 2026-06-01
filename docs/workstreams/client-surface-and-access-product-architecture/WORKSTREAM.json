@@ -2,9 +2,9 @@
   "schema_version": 1,
   "slug": "client-surface-and-access-product-architecture",
   "title": "Client Surface And Access Product Architecture",
-  "status": "active",
-  "current_task": "CSAPA-050",
-  "updated": "2026-05-30",
+  "status": "closed",
+  "current_task": null,
+  "updated": "2026-06-01",
   "scope_kind": "planning",
   "problem": "Nako needs an accepted product architecture for Admin Web, Media Web, desktop playback, mobile clients, users, roles, Library Access, and permission-gated switching between media consumption and management.",
   "authoritative_docs": [
@@ -29,10 +29,19 @@
       "path": "docs/workstreams/client-surface-and-access-product-architecture/EVIDENCE_AND_GATES.md"
     },
     {
+      "role": "context_manifest",
+      "path": "docs/workstreams/client-surface-and-access-product-architecture/CONTEXT.jsonl"
+    },
+    {
       "role": "handoff",
       "path": "docs/workstreams/client-surface-and-access-product-architecture/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/client-surface-and-access-product-architecture/CLOSEOUT.md"
     }
   ],
+  "context_manifest": "docs/workstreams/client-surface-and-access-product-architecture/CONTEXT.jsonl",
   "gates": [
     "python -m json.tool docs/workstreams/client-surface-and-access-product-architecture/WORKSTREAM.json",
     "git diff --check"
@@ -53,6 +62,14 @@
     {
       "task": "CSAPA-040",
       "summary": "Split admin-media-management-context-links for the current web product frontend to consume backend-computed Management Context Links without duplicating authorization in Media UI."
+    },
+    {
+      "task": "CSAPA-050",
+      "summary": "Deferred desktop playback strategy from the MVP/browser-first path and recorded the future desktop-tauri-native-playback-spike follow-on."
+    },
+    {
+      "task": "CSAPA-060",
+      "summary": "Closed the broad client surface and access product architecture lane after all remaining product decisions were split or deferred."
     }
   ],
   "adr_refs": [
@@ -82,7 +99,7 @@
   ],
   "lane_slug": "client-surfaces-planning",
   "continue_policy": {
-    "default_action": "split_follow_on",
-    "notes": "Do not implement broad client/access work inside this planning lane. Identity/access, Media Web, and Management Context Links are split; split or defer desktop playback before closing this planning lane."
+    "default_action": "closed",
+    "notes": "The broad client surface planning lane is closed. Open focused follow-ons for desktop-tauri-native-playback-spike, mobile/native work, account UX, or broader Web product execution."
   }
 }

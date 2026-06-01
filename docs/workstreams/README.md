@@ -20,15 +20,13 @@ Last reviewed: 2026-06-01
 
 - [generated-artifact-metadata-authority-apply](generated-artifact-metadata-authority-apply/README.md)
   is active on lane `library-metadata-control-plane`; next task is `GAMA-060`.
-- [client-surface-and-access-product-architecture](client-surface-and-access-product-architecture/README.md)
-  is active on lane `client-surfaces-planning`; next task is `CSAPA-050`.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
 or any product-scope change to the MVP cut. `web-mvp-live-smoke` is closed as
 MVP Gate 3 evidence. `GAMA-060` is ready after focused final Admin apply route
-verification. `CSAPA` should split or explicitly defer desktop playback before
-closeout.
+verification. `CSAPA` is closed; desktop playback is deferred to a focused
+future Tauri/native playback spike.
 `audio-compatibility-downmix-normalization`,
 `remote-storage-health-and-circuit-breaker`,
 `transcode-interface-and-runtime-plan-deepening`,
@@ -322,12 +320,13 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
   account UI, Media Web login/account switching, invitations, and Management
   Context Links.
 - [client-surface-and-access-product-architecture](client-surface-and-access-product-architecture/README.md):
-  active planning lane for deciding how Nako grows from Single-Admin Mode and
+  closed planning lane for deciding how Nako grows from Single-Admin Mode and
   Admin Web V2 into separate but connected Admin Web, Media Web, desktop, and
   mobile surfaces. It records account/access staging, Library Access,
   permission-gated media-to-admin management links, and Tauri/native desktop
-  playback direction. Identity/access and Media Web have been split to narrower
-  lanes; Management Context Links are next.
+  playback direction. Identity/access, Media Web, and Management Context Links
+  have been split to narrower lanes; desktop playback is deferred to a focused
+  future spike.
 - [admin-web-v2-i18n-expansion](admin-web-v2-i18n-expansion/README.md):
   active execution lane for expanding Admin Web V2 localization beyond the
   shell and Media Library management routes. The first slice migrates

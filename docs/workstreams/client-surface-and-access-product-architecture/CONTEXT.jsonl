@@ -1,0 +1,13 @@
+{"kind":"glossary","path":"CONTEXT.md","note":"Domain language for Single-Admin Mode, Client Application, Public Client API, Library Access, and playback boundaries."}
+{"kind":"product","path":"PRODUCT.md","note":"Product surface split between Admin Web, Media Web, desktop, mobile, and self-hosted positioning."}
+{"kind":"architecture","path":"docs/architecture/LANES.md","note":"client-surfaces-planning lane ownership and active queue routing."}
+{"kind":"architecture","path":"docs/architecture/STATE_ACCESS.md","note":"Identity, Library Access, playback policy, and public/admin DTO boundaries."}
+{"kind":"architecture","path":"docs/architecture/CONTROL_PLANE.md","note":"Admin surface, remote access, diagnostics, and client-scale control-plane context."}
+{"kind":"adr","path":"docs/adr/0024-inbound-token-authentication-boundary.md","note":"Auth boundary baseline."}
+{"kind":"adr","path":"docs/adr/0026-native-client-shells-with-shared-rust-client-core.md","note":"Native client shell and shared client core direction."}
+{"kind":"adr","path":"docs/adr/0027-admin-api-boundary-for-web-console.md","note":"Admin API boundary for operator console."}
+{"kind":"adr","path":"docs/adr/0028-user-playback-state-principal-and-public-contract.md","note":"Playback state principal and Public Client contract."}
+{"kind":"workstream","path":"docs/workstreams/identity-and-library-access-contract/","note":"Completed identity/access split from CSAPA-020."}
+{"kind":"workstream","path":"docs/workstreams/media-web-client-foundation/","note":"Closed browser Media Web foundation split from CSAPA-030."}
+{"kind":"workstream","path":"docs/workstreams/admin-media-management-context-links/","note":"Management Context Links split from CSAPA-040."}
+{"kind":"workstream","path":"docs/workstreams/web-mvp-live-smoke/","note":"Closed MVP browser/Web Gate 3 evidence, reinforcing browser-first MVP path."}

@@ -21,7 +21,6 @@ ledger instead.
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
 | `library-metadata-control-plane` | `generated-artifact-metadata-authority-apply` | `GAMA-060` | Web Admin workflow worker |
-| `client-surfaces-planning` | `client-surface-and-access-product-architecture` | `CSAPA-050` | Planner/docs split or defer decision |
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 Open a focused follow-on before doing actual artifact publication, one-command
@@ -29,8 +28,8 @@ release-gate wrapping, official addon alpha smoke, or any product-scope change
 to the MVP cut.
 
 `GAMA-060` is ready after planner reconciliation verified the final Admin apply
-route from `GAMA-050`. Do not close `CSAPA` until desktop playback is split,
-deferred, or explicitly scoped. The `web-product` lane is idle after
+route from `GAMA-050`. The `client-surfaces-planning` lane is idle after CSAPA
+closeout deferred desktop playback to a focused future spike. The `web-product` lane is idle after
 `web-mvp-live-smoke` closeout; open a focused follow-on for backend/API
 contract, generated SDK, broader player UX, or desktop/native playback
 decisions.
@@ -132,10 +131,11 @@ Shared scopes requiring planner coordination:
 
 ### client-surfaces-planning
 
-Owns product architecture decisions for Admin Web, Media Web, desktop playback,
-mobile clients, access-gated context switching, and follow-on splits.
+Closed `client-surface-and-access-product-architecture` after splitting
+identity/access, browser Media Web, and Management Context Links, then
+deferring desktop playback to a focused future spike.
 
-Owned scopes:
+Closed evidence:
 
 - `docs/workstreams/client-surface-and-access-product-architecture/`
 - client/product ADR candidates;

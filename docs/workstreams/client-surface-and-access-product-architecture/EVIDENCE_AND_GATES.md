@@ -1,7 +1,7 @@
 # Client Surface And Access Product Architecture - Evidence And Gates
 
-Status: Active
-Last updated: 2026-05-29
+Status: Closed
+Last updated: 2026-06-01
 
 ## Gate Policy
 
@@ -32,6 +32,16 @@ Implementation follow-ons must choose their own gates:
 | 2026-05-26 | CSAPA-020 identity/access split | `docs/workstreams/identity-and-library-access-contract/` | Complete. Identity/access persistence, bootstrap administrator semantics, Admin API access management, and Public Client API effective-access enforcement landed in the execution lane. |
 | 2026-05-26 | CSAPA-030 Media Web split | `docs/workstreams/media-web-client-foundation/` | Complete. Media Web foundation lane opened with MWF-020 route/API readiness as the first executable task. |
 | 2026-05-29 | CSAPA-040 Management Context Links split | `docs/workstreams/admin-media-management-context-links/` | Complete. New lane targets the current `web/` product frontend and consumes backend-computed `/management/context-links` instead of hard-coding admin authority in Media UI. |
+| 2026-06-01 | CSAPA-050 desktop decision | `DESIGN.md`, `MILESTONES.md`, `HANDOFF.md` | Complete. Desktop playback strategy is deferred from the MVP/browser-first path and should open a focused Tauri/native playback spike when product priority changes. |
+| 2026-06-01 | CSAPA-060 closeout | `WORKSTREAM.json`, `CLOSEOUT.md`, `CONTEXT.jsonl` | Complete. Lane closed after all broad product decisions were split or deferred. |
+
+## Closeout Gates
+
+```text
+python -m json.tool docs/workstreams/client-surface-and-access-product-architecture/WORKSTREAM.json
+python C:/Users/Frankorz/.codex/skills/plan-engineering-program/scripts/workstream_inventory.py --root .
+git diff --check -- docs/workstreams/client-surface-and-access-product-architecture docs/architecture/LANES.md docs/workstreams/README.md
+```
 
 ## Redaction And Safety Checks
 

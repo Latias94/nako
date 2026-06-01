@@ -1,7 +1,7 @@
 # Client Surface And Access Product Architecture
 
-Status: Draft
-Last updated: 2026-05-26
+Status: Closed
+Last updated: 2026-06-01
 
 ## Why This Lane Exists
 
@@ -312,3 +312,11 @@ This lane can close when:
 - a desktop Tauri playback spike is either split or explicitly deferred;
 - docs/workstreams index and evidence docs are updated;
 - no implementation claim is made without fresh validation.
+
+## Closeout Summary
+
+Closed on 2026-06-01. Identity/access, Media Web foundation, and Management
+Context Links are already split to narrower lanes. `CSAPA-050` explicitly
+defers desktop playback strategy from the MVP/browser-first path; a future
+desktop effort should open a focused Tauri/native playback spike with platform
+playback evidence instead of reopening this broad product architecture lane.

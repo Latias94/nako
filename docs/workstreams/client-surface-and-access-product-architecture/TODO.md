@@ -1,7 +1,7 @@
 # Client Surface And Access Product Architecture - TODO
 
-Status: Active
-Last updated: 2026-05-29
+Status: Closed
+Last updated: 2026-06-01
 
 ## M0 - Scope And Evidence Freeze
 
@@ -48,18 +48,22 @@ Last updated: 2026-05-29
 
 ## M4 - Desktop Playback Strategy
 
-- [ ] CSAPA-050 [owner=unassigned] [deps=CSAPA-030] [scope=docs/workstreams,apps/desktop or accepted package]
+- [x] CSAPA-050 [owner=planner] [deps=CSAPA-030] [scope=docs/workstreams/client-surface-and-access-product-architecture,docs/architecture,docs/workstreams/README.md]
   Goal: Split a Tauri desktop playback spike comparing WebView playback against Tauri plus native playback core.
   Validation: Spike records codec/subtitle/hardware-acceleration evidence, packaging risks, and recommended player core.
   Review: Architecture review before committing to a desktop runtime.
   Evidence: Desktop playback spike workstream.
-  Handoff: Admin Web packaging remains separate from playback-client packaging.
+  Handoff: DONE. Desktop playback strategy is deferred from the MVP/browser-first
+  path. Open a focused `desktop-tauri-native-playback-spike` follow-on when
+  desktop playback becomes product priority. Admin Web packaging remains
+  separate from playback-client packaging.
 
 ## M5 - Closeout
 
-- [ ] CSAPA-060 [owner=planner] [deps=CSAPA-020,CSAPA-030,CSAPA-040,CSAPA-050] [scope=docs/workstreams/client-surface-and-access-product-architecture]
+- [x] CSAPA-060 [owner=planner] [deps=CSAPA-020,CSAPA-030,CSAPA-040,CSAPA-050] [scope=docs/workstreams/client-surface-and-access-product-architecture]
   Goal: Close this planning lane once narrower execution lanes own identity, Media Web, context links, and desktop playback.
   Validation: EVIDENCE_AND_GATES.md lists accepted follow-ons and any deferred risks.
   Review: review-workstream for workstream compliance.
   Evidence: WORKSTREAM.json and HANDOFF.md.
-  Handoff: Keep this lane as product architecture, not a dumping ground for implementation tasks.
+  Handoff: DONE. Lane closed after all broad product decisions were split or
+  deferred. Future implementation must open focused follow-ons.
