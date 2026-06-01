@@ -1,6 +1,6 @@
 # Metadata Provider Depth And Precision — Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 — Lane Opening
@@ -53,3 +53,5 @@ Exit criteria:
 - follow-ons for durable candidate review, Admin governance detail, or Web
   confirmation are split;
 - architecture maps no longer route active work to a closed lane.
+
+Status: complete after `MPDP-050`.

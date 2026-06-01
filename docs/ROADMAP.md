@@ -11,32 +11,52 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: active provider depth and precision lane.
+Status: planning the next focused lane after provider-depth closeout.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
 Operations Repair are both closed as of 2026-06-02. Web Admin Generated
 Artifact Recovery UI is also closed after `WAGR-030`. Generated Artifact Apply
 Repair Actions is closed after `GAARA-050`. Metadata Provider Depth And
-Precision is now active.
+Precision is closed after `MPDP-050`.
 
-It targets:
+Recommended next choices:
 
-- closing the focused provider depth lane after TMDB series -> season graph
-  preview, root-only refresh guard coverage, and follow-on split evidence;
-- tightening TMDB, Douban, and Bangumi subject identity and per-kind precision;
-- keeping candidate ambiguity non-mutating and redaction-safe;
-- splitting durable candidate review, Admin governance detail, and Web
-  confirmation if they become necessary.
+- `proposed:tmdb-season-episode-graph-depth`;
+- `proposed:bangumi-relations-and-episode-depth`;
+- `proposed:douban-subject-kind-precision`;
+- `proposed:metadata-candidate-durable-review`;
+- `proposed:admin-web-provider-depth-governance`;
+- `proposed:generated-artifact-recovery-one-click-wrapper`;
+- `proposed:web-generated-artifact-repair-copy-polish`;
+- `proposed:admin-settings-api-backed-restoration`.
+
+No active workstream is selected in this file until a focused lane is opened.
+
+Latest completed architecture focus:
+
+Metadata Provider Depth And Precision closed on 2026-06-02 after `MPDP-050`.
+
+It shipped:
+
+- TMDB series -> season provider graph preview;
+- guard coverage proving refresh and Provider Mapping persistence remain
+  root-only for provider graph preview nodes;
+- explicit follow-on routing for TMDB episode depth, Bangumi, Douban, durable
+  candidate review, and Admin/Web provider depth governance.
 
 Authoritative lane:
 
 - `docs/workstreams/metadata-provider-depth-and-precision/`
 
-Next task:
+Follow-ons:
 
-- `MPDP-050`: close Metadata Provider Depth And Precision and route follow-ons.
+- `proposed:tmdb-season-episode-graph-depth`;
+- `proposed:bangumi-relations-and-episode-depth`;
+- `proposed:douban-subject-kind-precision`;
+- `proposed:metadata-candidate-durable-review`;
+- `proposed:admin-web-provider-depth-governance`.
 
-Latest completed architecture focus:
+Previous architecture focus:
 
 Generated Artifact Apply Repair Actions closed on 2026-06-02 after `GAARA-050`.
 
@@ -58,7 +78,7 @@ Follow-ons:
 
 - `proposed:generated-artifact-recovery-one-click-wrapper`;
 - `proposed:web-generated-artifact-repair-copy-polish`;
-- `docs/workstreams/metadata-provider-depth-and-precision/` (active);
+- `docs/workstreams/metadata-provider-depth-and-precision/` (closed);
 - `proposed:admin-settings-api-backed-restoration`.
 
 Previous architecture focus:
@@ -81,7 +101,7 @@ Authoritative lane:
 Follow-ons:
 
 - `docs/workstreams/generated-artifact-apply-repair-actions/` (closed);
-- `docs/workstreams/metadata-provider-depth-and-precision/` (active);
+- `docs/workstreams/metadata-provider-depth-and-precision/` (closed);
 - `proposed:admin-settings-api-backed-restoration`.
 
 Previous architecture focus:
@@ -108,7 +128,7 @@ Follow-ons:
 
 - `docs/workstreams/web-admin-generated-artifact-recovery-ui/` (closed);
 - `docs/workstreams/generated-artifact-apply-repair-actions/` (closed);
-- `docs/workstreams/metadata-provider-depth-and-precision/` (active).
+- `docs/workstreams/metadata-provider-depth-and-precision/` (closed).
 
 Previous architecture focus:
 

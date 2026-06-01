@@ -26,9 +26,44 @@ proposed milestone.
 
 ## Current Goal
 
+### Next Architecture Lane Selection
+
+Status: planning as of 2026-06-02.
+
+Objective:
+
+- Select the next focused architecture lane after Metadata Provider Depth And
+  Precision closed.
+- Keep follow-ons split instead of reopening closed Generated Artifact or
+  provider-depth lanes.
+
+Deliverables:
+
+- updated active queue in `docs/architecture/LANES.md`;
+- a new focused workstream only when the next target has a clear boundary.
+
+Non-goals:
+
+- no reopening `GAMA`, `GABMA`, `GAPM`, `GAOR`, `WAGR`, `GAARA`, or
+  `metadata-provider-depth-and-precision`;
+- no bundling TMDB episode graph depth, Bangumi relations, Douban precision,
+  durable candidate review, and Admin/Web confirmation into one lane.
+
+Exit criteria:
+
+- the next workstream is opened with `WORKSTREAM.json`, TODO ledger, gates, and
+  architecture refs; or the active queue remains explicitly idle.
+
+Evidence:
+
+- `docs/architecture/LANES.md`
+- `docs/workstreams/README.md`
+
+## Recent Completed Goals
+
 ### Metadata Provider Depth And Precision
 
-Status: active as of 2026-06-02.
+Status: completed on 2026-06-02.
 
 Objective:
 
@@ -41,32 +76,16 @@ Deliverables:
 
 - `docs/workstreams/metadata-provider-depth-and-precision/`
 - TMDB series -> season provider graph preview as non-mutating evidence
-- focused `nako-metadata` tests proving provider graph depth and refresh
-  boundary behavior
-
-Non-goals:
-
-- no reopening `GAMA`, `GABMA`, `GAPM`, `GAOR`, `WAGR`, or `GAARA`;
-- no schema migration, Public Client API change, or Web confirmation UI in the
-  first slice;
-- no raw provider payload, token, proxy URL, path, or Source Locator exposure.
-
-Exit criteria:
-
-- TMDB series fetch exposes season Provider Subjects without automatic
-  hierarchy creation;
-- candidate ambiguity remains non-mutating;
-- refresh and Provider Mapping persistence remain root-only for this graph
-  preview;
-- follow-ons for durable candidate review, Admin governance detail, or Web
-  confirmation are split explicitly.
+- focused `nako-metadata` tests proving provider graph depth and root-only
+  refresh persistence behavior
+- explicit follow-on split in `FOLLOW_ONS.md`
 
 Evidence:
 
-- `docs/workstreams/metadata-provider-depth-and-precision/`
-- `docs/architecture/LIBRARY_PIPELINE.md`
-
-## Recent Completed Goals
+- `MPDP-020` adds TMDB series -> season graph preview;
+- `MPDP-030` proves refresh and Provider Mapping persistence stay root-only;
+- `MPDP-040` splits follow-ons;
+- `MPDP-050` closes the lane.
 
 ### Generated Artifact Apply Repair Actions
 

@@ -18,14 +18,15 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 
 Last reviewed: 2026-06-02
 
-`metadata-provider-depth-and-precision` is active in the
-`library-metadata-control-plane` lane after
-`generated-artifact-apply-repair-actions` closeout.
+No workstream is active in the execution queue after
+`metadata-provider-depth-and-precision` closeout.
 
 Next task:
 
-- `MPDP-050`: close `metadata-provider-depth-and-precision` after validating
-  follow-on routing.
+- Select the next focused lane from the proposed provider-depth follow-ons or
+  another architecture priority. Do not reopen closed Generated Artifact lanes
+  or `metadata-provider-depth-and-precision` unless a new product requirement
+  justifies a follow-on.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -54,9 +55,9 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
 ## Current Workstreams
 
 - [metadata-provider-depth-and-precision](metadata-provider-depth-and-precision/README.md):
-  active library-metadata-control-plane lane for tightening provider depth,
-  subject identity, and candidate precision before Admin/Web confirmation or
-  durable candidate review.
+  closed library-metadata-control-plane lane for TMDB series -> season provider
+  graph preview, root-only refresh persistence guards, and explicit
+  provider-depth follow-on routing.
 - [generated-artifact-apply-repair-actions](generated-artifact-apply-repair-actions/README.md):
   closed control-plane/library-metadata lane proving the recovery repair seam
   and selecting Web-only preparation over existing Metadata Authority apply

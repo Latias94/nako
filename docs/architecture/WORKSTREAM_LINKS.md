@@ -159,7 +159,7 @@ Evidence workstreams:
 - `docs/workstreams/library-metadata-scan-policy/`
 - `docs/workstreams/metadata-catalog/`
 - `docs/workstreams/metadata-provider-breadth/`
-- `docs/workstreams/metadata-provider-depth-and-precision/` (active)
+- `docs/workstreams/metadata-provider-depth-and-precision/` (closed)
 - `docs/workstreams/metadata-acquisition-pipeline/`
 - `docs/workstreams/metadata-profile-configuration-authority/`
 - `docs/workstreams/metadata-application-policy-seam/`

@@ -47,7 +47,7 @@ this document focused on intake and asset pipeline capability state.
 
 ### metadata-provider-depth-and-precision
 
-Status: Active at
+Status: Closed at
 `docs/workstreams/metadata-provider-depth-and-precision/`.
 
 Goal: Tighten built-in provider depth, subject identity, and candidate
@@ -64,6 +64,13 @@ Initial boundary:
 - keep candidate review non-mutating and redaction-safe;
 - do not change schema, Public Client API, or Generated Artifact apply behavior
   in the first task.
+
+Shipped:
+
+- TMDB series -> season provider graph preview;
+- root-only refresh and Provider Mapping persistence guard;
+- proposed follow-ons for TMDB episode depth, Bangumi, Douban, durable
+  candidate review, and Admin/Web provider depth governance.
 
 ### source-identity-foundation
 
@@ -216,7 +223,7 @@ Follow-ons:
 
 - `proposed:generated-artifact-recovery-one-click-wrapper`
 - `proposed:web-generated-artifact-repair-copy-polish`
-- `docs/workstreams/metadata-provider-depth-and-precision/` (active)
+- `docs/workstreams/metadata-provider-depth-and-precision/` (closed)
 
 ## Risk Register
 

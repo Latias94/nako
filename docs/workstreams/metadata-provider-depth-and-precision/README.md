@@ -1,6 +1,6 @@
 # Metadata Provider Depth And Precision
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 This workstream sharpens Nako's built-in metadata provider depth and identity
@@ -33,7 +33,7 @@ Current execution:
 - `MPDP-040` split follow-ons for TMDB episode depth, Bangumi
   relations/episodes, Douban precision, durable candidate review, and
   Admin/Web confirmation in `FOLLOW_ONS.md`.
-- `MPDP-050` is ready: close this lane.
+- `MPDP-050` closed this lane.
 
 Boundary:
 

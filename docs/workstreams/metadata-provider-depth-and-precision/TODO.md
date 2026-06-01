@@ -1,6 +1,6 @@
 # Metadata Provider Depth And Precision — TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 — Lane Opening
@@ -40,9 +40,9 @@ Last updated: 2026-06-02
 
 ## M4 — Closeout
 
-- [ ] MPDP-050 [owner=planner] [deps=MPDP-040] [scope=docs/workstreams/metadata-provider-depth-and-precision,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
+- [x] MPDP-050 [owner=planner] [deps=MPDP-040] [scope=docs/workstreams/metadata-provider-depth-and-precision,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
   Goal: Close the lane or split durable candidate review, Admin governance detail, and Web confirmation follow-ons.
   Validation: fresh gate evidence in `EVIDENCE_AND_GATES.md`; JSON/JSONL validation; `git diff --check`.
-  Review: provider depth claims are honest, tests cover the shipped precision, and follow-ons are split.
-  Evidence: `CLOSEOUT.md` if closed.
+  Review: provider depth claims are honest, tests cover the shipped precision, and follow-ons are split. Passed on 2026-06-02.
+  Evidence: `CLOSEOUT.md`.
   Handoff: DONE or explicit follow-on split.

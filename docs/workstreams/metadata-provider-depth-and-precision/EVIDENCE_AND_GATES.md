@@ -1,6 +1,6 @@
 # Metadata Provider Depth And Precision — Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Lane Opening Gates
@@ -187,6 +187,25 @@ Boundary:
 - No schema, Public Client API, Web confirmation UI, Generated Artifact apply
   behavior, automatic hierarchy creation, or child Provider Mapping writes were
   added.
+
+## MPDP-050 Closeout Evidence
+
+Completed on 2026-06-02.
+
+Evidence:
+
+- `docs/workstreams/metadata-provider-depth-and-precision/CLOSEOUT.md`
+- `docs/workstreams/metadata-provider-depth-and-precision/WORKSTREAM.json`
+- `docs/architecture/LANES.md`
+- `docs/architecture/WORKSTREAM_LINKS.md`
+
+Closeout decision:
+
+- The first safe provider depth slice is complete.
+- Remaining provider depth work is split into proposed lanes in
+  `FOLLOW_ONS.md`.
+- This workstream should stay closed; new behavior should open a focused
+  follow-on.
 
 ## Notes
 

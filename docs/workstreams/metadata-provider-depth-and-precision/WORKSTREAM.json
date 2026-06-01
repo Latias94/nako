@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "metadata-provider-depth-and-precision",
   "title": "Metadata Provider Depth And Precision",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-06-02",
   "scope_kind": "library_metadata_provider_precision",
   "problem": "Built-in metadata providers have capability and matching foundations, but provider depth, subject identity, and per-kind precision are still too coarse for future Admin governance and safe automatic refresh.",
@@ -38,6 +38,10 @@
       "path": "docs/workstreams/metadata-provider-depth-and-precision/FOLLOW_ONS.md"
     },
     {
+      "role": "closeout",
+      "path": "docs/workstreams/metadata-provider-depth-and-precision/CLOSEOUT.md"
+    },
+    {
       "role": "context_manifest",
       "path": "docs/workstreams/metadata-provider-depth-and-precision/CONTEXT.jsonl"
     },
@@ -69,6 +73,10 @@
     {
       "task": "MPDP-040",
       "summary": "Split follow-ons into separate proposed lanes for TMDB episode graph depth, Bangumi relations/episodes, Douban subject precision, durable candidate review, and Admin/Web provider depth governance."
+    },
+    {
+      "task": "MPDP-050",
+      "summary": "Closed the lane after TMDB graph preview, root-only refresh guard, and explicit follow-on routing."
     }
   ],
   "adr_refs": [
@@ -83,7 +91,7 @@
     },
     {
       "path": "docs/architecture/WORKSTREAM_LINKS.md",
-      "capability": "metadata provider depth active lane"
+      "capability": "metadata provider depth closed lane"
     },
     {
       "path": "docs/architecture/LIBRARY_PIPELINE.md",
@@ -97,8 +105,8 @@
   ],
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
-    "default_action": "run_current_task",
-    "current_task": "MPDP-050",
-    "notes": "Close the lane after validating evidence and routing proposed follow-ons. Do not add new provider/runtime/schema/Web behavior in closeout."
+    "default_action": "closed",
+    "current_task": null,
+    "notes": "Lane target is complete. Open a new workstream for TMDB episode graph depth, Bangumi relations/episodes, Douban subject precision, durable candidate review, or Admin/Web provider depth governance."
   }
 }
