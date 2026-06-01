@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "slug": "web-mvp-live-smoke",
+  "title": "Web MVP Live Smoke",
+  "status": "active",
+  "updated": "2026-06-01",
+  "scope_kind": "execution",
+  "problem": "MVP Gate 3 needs a dedicated, reproducible Web/Public Client live smoke for route, playback, heartbeat, and redaction evidence.",
+  "authoritative_docs": [
+    {
+      "role": "design",
+      "path": "docs/workstreams/web-mvp-live-smoke/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/web-mvp-live-smoke/TODO.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/web-mvp-live-smoke/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "context_manifest",
+      "path": "docs/workstreams/web-mvp-live-smoke/CONTEXT.jsonl"
+    }
+  ],
+  "context_manifest": "docs/workstreams/web-mvp-live-smoke/CONTEXT.jsonl",
+  "current_task": "WMLS-040",
+  "completed_tasks": [
+    "WMLS-010",
+    "WMLS-020",
+    "WMLS-030"
+  ],
+  "gates": [
+    {
+      "name": "targeted_web_mvp_smoke",
+      "command": "npm --prefix web run test -- src/test/mvp-live-smoke.test.tsx"
+    },
+    {
+      "name": "web_tests",
+      "command": "npm --prefix web run test"
+    },
+    {
+      "name": "web_typecheck",
+      "command": "npm --prefix web run check"
+    },
+    {
+      "name": "web_bundle_budget",
+      "command": "npm --prefix web run build:budget"
+    },
+    {
+      "name": "workstream_json",
+      "command": "python -m json.tool docs/workstreams/web-mvp-live-smoke/WORKSTREAM.json"
+    },
+    {
+      "name": "diff_check",
+      "command": "git diff --check -- docs/workstreams/web-mvp-live-smoke web docs/architecture/LANES.md docs/architecture/WORKSTREAM_LINKS.md"
+    }
+  ],
+  "evidence": [
+    {
+      "task": "WMLS-010",
+      "path": "docs/workstreams/web-mvp-live-smoke/DESIGN.md",
+      "summary": "Opened the Web MVP live smoke lane from MVP Campaign B."
+    },
+    {
+      "task": "WMLS-020",
+      "path": "web/src/test/mvp-live-smoke.test.tsx",
+      "summary": "Dedicated smoke coverage for route surfaces, browser playback tickets, native video/subtitle rendering, heartbeat, and redaction expectations."
+    },
+    {
+      "task": "WMLS-030",
+      "path": "docs/workstreams/web-mvp-live-smoke/EVIDENCE_AND_GATES.md",
+      "summary": "Full Web gate set passed: npm test, check, build:budget, workstream JSON, context JSONL, and scoped diff check."
+    }
+  ],
+  "adr_refs": [],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/LANES.md",
+      "capability": "web-product lane ownership and active queue"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Web Product release-smoke evidence index"
+    }
+  ],
+  "capability_tags": [
+    "web.media.public-client",
+    "web.media.live-smoke",
+    "playback.browser-ticket",
+    "playback.heartbeat",
+    "security.redaction"
+  ],
+  "lane_slug": "web-product",
+  "continue_policy": {
+    "default_action": "continue",
+    "notes": "Continue only inside Web MVP smoke scope. Stop and return NEEDS_CONTEXT for backend/API contract, generated client, or desktop/native playback decisions."
+  }
+}

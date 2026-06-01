@@ -192,6 +192,21 @@ Proposed lanes:
 - `proposed:playback-access-policy-and-session-limits`
 - `proposed:fts-filter-scale-up`
 
+## Web Product
+
+Primary map: `docs/architecture/LANES.md#web-product`
+
+Evidence workstreams:
+
+- `docs/workstreams/web-media-live-public-client-parity/`
+- `docs/workstreams/admin-media-management-context-links/`
+- `docs/workstreams/web-mvp-live-smoke/`
+
+Proposed lanes:
+
+- `proposed:web-public-client-release-smoke-script`
+- `proposed:web-player-error-recovery-ux`
+
 ## Realtime, Events, And Sync
 
 Primary map: `docs/architecture/REALTIME_SYNC.md`
