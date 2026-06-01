@@ -26,38 +26,43 @@ proposed milestone.
 
 ## Current Goal
 
-### Next Architecture Lane Selection
+### TMDB Season Episode Graph Depth
 
-Status: planning as of 2026-06-02.
+Status: active as of 2026-06-02.
 
 Objective:
 
-- Select the next focused architecture lane after Metadata Provider Depth And
-  Precision closed.
-- Keep follow-ons split instead of reopening closed Generated Artifact or
-  provider-depth lanes.
+- Extend TMDB graph preview from series -> season to season -> episode.
+- Keep provider graph depth preview-only and root-only for refresh/Provider
+  Mapping persistence.
 
 Deliverables:
 
-- updated active queue in `docs/architecture/LANES.md`;
-- a new focused workstream only when the next target has a clear boundary.
+- `docs/workstreams/tmdb-season-episode-graph-depth/`
+- TMDB season -> episode provider graph preview
+- focused `nako-metadata` tests proving graph depth and season refresh
+  boundary behavior
 
 Non-goals:
 
 - no reopening `GAMA`, `GABMA`, `GAPM`, `GAOR`, `WAGR`, `GAARA`, or
   `metadata-provider-depth-and-precision`;
-- no bundling TMDB episode graph depth, Bangumi relations, Douban precision,
-  durable candidate review, and Admin/Web confirmation into one lane.
+- no schema migration, Public Client API change, Admin/Web confirmation UI, or
+  Generated Artifact apply change;
+- no automatic episode Media Item creation or child Provider Mapping writes.
 
 Exit criteria:
 
-- the next workstream is opened with `WORKSTREAM.json`, TODO ledger, gates, and
-  architecture refs; or the active queue remains explicitly idle.
+- TMDB season fetch exposes episode Provider Subjects without automatic
+  hierarchy creation;
+- refresh and Provider Mapping persistence remain root-only for this graph
+  preview;
+- durable candidate review/Admin/Web confirmation follow-ons remain separate.
 
 Evidence:
 
-- `docs/architecture/LANES.md`
-- `docs/workstreams/README.md`
+- `docs/workstreams/tmdb-season-episode-graph-depth/`
+- `docs/architecture/LIBRARY_PIPELINE.md`
 
 ## Recent Completed Goals
 

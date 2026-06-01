@@ -1,0 +1,11 @@
+{"role":"glossary","path":"CONTEXT.md","reason":"Provider Subject, Provider Mapping, Media Item, and Canonical Metadata terminology."}
+{"role":"adr","path":"docs/adr/0007-metadata-merge-policy-and-local-authority.md","reason":"Field locks, raw provider cache, and canonical metadata authority."}
+{"role":"adr","path":"docs/adr/0018-metadata-provider-runtime-and-diagnostics.md","reason":"Shared provider runtime, diagnostics, attempts, and redaction boundary."}
+{"role":"adr","path":"docs/adr/0021-video-first-media-server-domain-model.md","reason":"Video-first scope and series/season/episode domain terms."}
+{"role":"architecture","path":"docs/architecture/LIBRARY_PIPELINE.md","reason":"Provider graph depth and library metadata lane routing."}
+{"role":"architecture","path":"docs/architecture/LANES.md","reason":"Active queue and library-metadata-control-plane ownership."}
+{"role":"architecture","path":"docs/architecture/WORKSTREAM_LINKS.md","reason":"Evidence and proposed lane index for provider graph depth."}
+{"role":"prior_workstream","path":"docs/workstreams/metadata-provider-depth-and-precision/CLOSEOUT.md","reason":"TMDB series -> season graph preview and root-only refresh guard baseline."}
+{"role":"prior_workstream","path":"docs/workstreams/metadata-provider-depth-and-precision/FOLLOW_ONS.md","reason":"Selects proposed:tmdb-season-episode-graph-depth and non-goals."}
+{"role":"workstream","path":"docs/workstreams/tmdb-season-episode-graph-depth/DESIGN.md","reason":"Current lane design and non-goals."}
+{"role":"gates","path":"docs/workstreams/tmdb-season-episode-graph-depth/EVIDENCE_AND_GATES.md","reason":"Validation commands and evidence ledger."}

@@ -11,26 +11,30 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: planning the next focused lane after provider-depth closeout.
+Status: active TMDB season episode graph depth lane.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
 Operations Repair are both closed as of 2026-06-02. Web Admin Generated
 Artifact Recovery UI is also closed after `WAGR-030`. Generated Artifact Apply
 Repair Actions is closed after `GAARA-050`. Metadata Provider Depth And
-Precision is closed after `MPDP-050`.
+Precision is closed after `MPDP-050`. TMDB Season Episode Graph Depth is now
+active.
 
-Recommended next choices:
+It targets:
 
-- `proposed:tmdb-season-episode-graph-depth`;
-- `proposed:bangumi-relations-and-episode-depth`;
-- `proposed:douban-subject-kind-precision`;
-- `proposed:metadata-candidate-durable-review`;
-- `proposed:admin-web-provider-depth-governance`;
-- `proposed:generated-artifact-recovery-one-click-wrapper`;
-- `proposed:web-generated-artifact-repair-copy-polish`;
-- `proposed:admin-settings-api-backed-restoration`.
+- parsing TMDB season episode summaries;
+- adding season -> episode provider graph preview nodes;
+- keeping refresh and Provider Mapping persistence root-only;
+- leaving durable candidate review, Admin/Web confirmation, and non-TMDB
+  provider depth to separate lanes.
 
-No active workstream is selected in this file until a focused lane is opened.
+Authoritative lane:
+
+- `docs/workstreams/tmdb-season-episode-graph-depth/`
+
+Next task:
+
+- `TSEG-020`: TMDB season -> episode provider graph preview.
 
 Latest completed architecture focus:
 
@@ -50,7 +54,7 @@ Authoritative lane:
 
 Follow-ons:
 
-- `proposed:tmdb-season-episode-graph-depth`;
+- `docs/workstreams/tmdb-season-episode-graph-depth/` (active);
 - `proposed:bangumi-relations-and-episode-depth`;
 - `proposed:douban-subject-kind-precision`;
 - `proposed:metadata-candidate-durable-review`;

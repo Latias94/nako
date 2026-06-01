@@ -20,7 +20,7 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| _None_ | _No active workstream_ | _n/a_ | Planner selects the next focused lane |
+| library-metadata-control-plane | tmdb-season-episode-graph-depth | TSEG-020 | TMDB episode graph implementer |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
@@ -36,6 +36,8 @@ mutation.
 proved refresh and Provider Mapping persistence stay root-only. `MPDP-040`
 split TMDB episode, Bangumi, Douban, durable candidate review, and Admin/Web
 confirmation follow-ons. Open a focused follow-on rather than reopening it.
+`tmdb-season-episode-graph-depth` is active as the next focused follow-on and
+continues the same preview-only, root-only persistence boundary.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
@@ -131,6 +133,10 @@ Closed evidence:
 - `docs/workstreams/generated-artifact-apply-repair-actions/`
 - `docs/workstreams/metadata-provider-depth-and-precision/`
 
+Active evidence:
+
+- `docs/workstreams/tmdb-season-episode-graph-depth/` (`TSEG-020` ready)
+
 Owned scopes:
 
 - `crates/nako-core/src/automation.rs`
@@ -150,6 +156,7 @@ Owned scopes:
 - `docs/workstreams/generated-artifact-metadata-authority-apply/`
 - `docs/workstreams/generated-artifact-bulk-metadata-apply/`
 - `docs/workstreams/metadata-provider-depth-and-precision/`
+- `docs/workstreams/tmdb-season-episode-graph-depth/`
 
 Shared scopes requiring planner coordination:
 

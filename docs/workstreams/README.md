@@ -18,15 +18,14 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 
 Last reviewed: 2026-06-02
 
-No workstream is active in the execution queue after
+`tmdb-season-episode-graph-depth` is active in the
+`library-metadata-control-plane` lane after
 `metadata-provider-depth-and-precision` closeout.
 
 Next task:
 
-- Select the next focused lane from the proposed provider-depth follow-ons or
-  another architecture priority. Do not reopen closed Generated Artifact lanes
-  or `metadata-provider-depth-and-precision` unless a new product requirement
-  justifies a follow-on.
+- `TSEG-020`: add TMDB season -> episode provider graph preview while keeping
+  graph depth non-mutating.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -54,6 +53,10 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
 
 ## Current Workstreams
 
+- [tmdb-season-episode-graph-depth](tmdb-season-episode-graph-depth/README.md):
+  active library-metadata-control-plane lane for extending TMDB graph preview
+  from series -> season to season -> episode without changing persistence
+  semantics.
 - [metadata-provider-depth-and-precision](metadata-provider-depth-and-precision/README.md):
   closed library-metadata-control-plane lane for TMDB series -> season provider
   graph preview, root-only refresh persistence guards, and explicit

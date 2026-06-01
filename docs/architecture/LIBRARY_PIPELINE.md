@@ -45,6 +45,22 @@ this document focused on intake and asset pipeline capability state.
 
 ## Next Work Lanes
 
+### tmdb-season-episode-graph-depth
+
+Status: Active at `docs/workstreams/tmdb-season-episode-graph-depth/`.
+
+Goal: Extend TMDB graph preview from series -> season to season -> episode
+without changing persistence semantics.
+
+Initial boundary:
+
+- parse TMDB season episode summaries;
+- add episode Provider Subjects and `contains` relationships under the season
+  root graph;
+- preserve root-only refresh and Provider Mapping persistence;
+- do not change schema, Public Client API, Admin/Web, or Generated Artifact
+  apply behavior.
+
 ### metadata-provider-depth-and-precision
 
 Status: Closed at
