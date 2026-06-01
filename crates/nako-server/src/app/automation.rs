@@ -18,8 +18,12 @@ use nako_core::{
     GeneratedArtifactMetadataApplyPlan, GeneratedArtifactMetadataApplyPlanReason,
     GeneratedArtifactMetadataApplyPlanStatus, GeneratedArtifactMetadataApplyRequest,
     GeneratedArtifactMetadataApplyResult, GeneratedArtifactMetadataApplyResultStatus,
-    GeneratedArtifactMetadataBulkApplyPlan, GeneratedArtifactMetadataBulkApplyPlanItem,
-    GeneratedArtifactMetadataBulkApplyPlanItemReason,
+    GeneratedArtifactMetadataBulkApplyBatchCommit, GeneratedArtifactMetadataBulkApplyBatchId,
+    GeneratedArtifactMetadataBulkApplyBatchItemCommit,
+    GeneratedArtifactMetadataBulkApplyBatchItemStatus,
+    GeneratedArtifactMetadataBulkApplyBatchRecord, GeneratedArtifactMetadataBulkApplyBatchRequest,
+    GeneratedArtifactMetadataBulkApplyBatchStatus, GeneratedArtifactMetadataBulkApplyPlan,
+    GeneratedArtifactMetadataBulkApplyPlanItem, GeneratedArtifactMetadataBulkApplyPlanItemReason,
     GeneratedArtifactMetadataBulkApplyPlanItemStatus,
     GeneratedArtifactMetadataBulkApplyPlanRequest, GeneratedArtifactMetadataBulkApplyPlanSelection,
     GeneratedArtifactMetadataBulkApplyPlanSummary, GeneratedArtifactMetadataFieldAction,
@@ -625,6 +629,72 @@ impl AutomationAppService {
         })
     }
 
+    pub async fn create_generated_artifact_metadata_bulk_apply_batch(
+        &self,
+        request: GeneratedArtifactMetadataBulkApplyBatchRequest,
+    ) -> Result<GeneratedArtifactMetadataBulkApplyBatchRecord> {
+        let idempotency_key = normalize_generated_artifact_metadata_bulk_apply_idempotency_key(
+            &request.idempotency_key,
+        )?;
+        if let Some(existing) = self
+            .store
+            .find_generated_artifact_metadata_bulk_apply_batch(&idempotency_key)
+            .await?
+        {
+            return Ok(existing);
+        }
+
+        let plan = self
+            .plan_generated_artifact_metadata_bulk_apply(
+                GeneratedArtifactMetadataBulkApplyPlanRequest {
+                    artifact_ids: request.artifact_ids,
+                },
+            )
+            .await?;
+        if plan.summary.executable_artifact_count == 0 {
+            return Err(NakoError::InvalidInput {
+                message: "generated artifact metadata bulk apply batch requires at least one executable item"
+                    .to_owned(),
+            });
+        }
+
+        let batch_id = GeneratedArtifactMetadataBulkApplyBatchId::new();
+        let items = plan
+            .items
+            .iter()
+            .enumerate()
+            .map(
+                |(index, item)| GeneratedArtifactMetadataBulkApplyBatchItemCommit {
+                    artifact_id: item.artifact_id,
+                    position: index as u32,
+                    status: if item.executable {
+                        GeneratedArtifactMetadataBulkApplyBatchItemStatus::Pending
+                    } else {
+                        GeneratedArtifactMetadataBulkApplyBatchItemStatus::Skipped
+                    },
+                    idempotency_key: generated_artifact_metadata_bulk_apply_item_idempotency_key(
+                        batch_id,
+                        item.artifact_id,
+                    ),
+                    plan_item: item.clone(),
+                },
+            )
+            .collect();
+
+        self.store
+            .commit_generated_artifact_metadata_bulk_apply_batch(
+                &GeneratedArtifactMetadataBulkApplyBatchCommit {
+                    id: batch_id,
+                    idempotency_key,
+                    status: GeneratedArtifactMetadataBulkApplyBatchStatus::Queued,
+                    selection: plan.selection,
+                    summary: plan.summary,
+                    items,
+                },
+            )
+            .await
+    }
+
     pub async fn apply_generated_artifact_metadata(
         &self,
         request: GeneratedArtifactMetadataApplyRequest,
@@ -901,6 +971,32 @@ fn normalize_generated_artifact_metadata_apply_idempotency_key(value: &str) -> R
     }
 
     Ok(value.to_owned())
+}
+
+fn normalize_generated_artifact_metadata_bulk_apply_idempotency_key(value: &str) -> Result<String> {
+    let value = value.trim();
+    if value.is_empty() {
+        return Err(NakoError::InvalidInput {
+            message: "generated artifact metadata bulk apply idempotency_key cannot be empty"
+                .to_owned(),
+        });
+    }
+    if value.len() > 512 {
+        return Err(NakoError::InvalidInput {
+            message:
+                "generated artifact metadata bulk apply idempotency_key must be 512 bytes or fewer"
+                    .to_owned(),
+        });
+    }
+
+    Ok(value.to_owned())
+}
+
+fn generated_artifact_metadata_bulk_apply_item_idempotency_key(
+    batch_id: GeneratedArtifactMetadataBulkApplyBatchId,
+    artifact_id: AutomationArtifactId,
+) -> String {
+    format!("generated-artifact-metadata-bulk-apply:{batch_id}:{artifact_id}")
 }
 
 fn generated_artifact_metadata_apply_result_from_outcome(

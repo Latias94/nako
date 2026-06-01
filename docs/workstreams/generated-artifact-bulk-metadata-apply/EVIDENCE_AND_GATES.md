@@ -49,6 +49,13 @@ Only run after Admin contract support exists:
   `cargo nextest run -p nako-server generated_artifact_metadata_apply_plan --no-fail-fast`;
   `cargo nextest run -p nako-api admin_contract --no-fail-fast`;
   `cargo fmt --all -- --check`; `git diff --check`.
+- `GABMA-030`: Added durable bulk metadata apply batch persistence with batch
+  identity, idempotency-key replay, selection and summary snapshots, per-item
+  idempotency keys, queued/running state transition guard, and transactional
+  rollback when item persistence fails.
+  Gates: `cargo nextest run -p nako-db generated_artifact_bulk_metadata_apply --no-fail-fast`;
+  `cargo nextest run -p nako-server generated_artifact_bulk_metadata_apply --no-fail-fast`;
+  `cargo fmt --all -- --check`; `git diff --check`.
 
 ## Final Evidence Checklist
 

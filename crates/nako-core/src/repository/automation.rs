@@ -5,6 +5,8 @@ use crate::{
     AutomationArtifactId, AutomationArtifactRecord, AutomationArtifactStatus,
     AutomationProviderConfigRecord, AutomationProviderId,
     GeneratedArtifactMetadataApplyOutcomeCommit, GeneratedArtifactMetadataApplyOutcomeRecord,
+    GeneratedArtifactMetadataBulkApplyBatchCommit, GeneratedArtifactMetadataBulkApplyBatchId,
+    GeneratedArtifactMetadataBulkApplyBatchRecord, GeneratedArtifactMetadataBulkApplyBatchStatus,
     GeneratedArtifactProposal, JobId, MediaItemId, NewAutomationArtifact,
     NewAutomationProviderConfig, Result,
 };
@@ -67,4 +69,26 @@ pub trait AutomationRepository: Send + Sync {
         &self,
         commit: &GeneratedArtifactMetadataApplyOutcomeCommit,
     ) -> Result<GeneratedArtifactMetadataApplyOutcomeRecord>;
+
+    async fn get_generated_artifact_metadata_bulk_apply_batch(
+        &self,
+        batch_id: GeneratedArtifactMetadataBulkApplyBatchId,
+    ) -> Result<Option<GeneratedArtifactMetadataBulkApplyBatchRecord>>;
+
+    async fn find_generated_artifact_metadata_bulk_apply_batch(
+        &self,
+        idempotency_key: &str,
+    ) -> Result<Option<GeneratedArtifactMetadataBulkApplyBatchRecord>>;
+
+    async fn commit_generated_artifact_metadata_bulk_apply_batch(
+        &self,
+        commit: &GeneratedArtifactMetadataBulkApplyBatchCommit,
+    ) -> Result<GeneratedArtifactMetadataBulkApplyBatchRecord>;
+
+    async fn update_generated_artifact_metadata_bulk_apply_batch_status(
+        &self,
+        batch_id: GeneratedArtifactMetadataBulkApplyBatchId,
+        expected: GeneratedArtifactMetadataBulkApplyBatchStatus,
+        status: GeneratedArtifactMetadataBulkApplyBatchStatus,
+    ) -> Result<GeneratedArtifactMetadataBulkApplyBatchRecord>;
 }

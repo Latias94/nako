@@ -7,6 +7,8 @@ use nako_core::{
     GeneratedArtifactAcceptancePlanStatus, GeneratedArtifactMetadataApplyOutcomeStatus,
     GeneratedArtifactMetadataApplyPlanReason, GeneratedArtifactMetadataApplyPlanStatus,
     GeneratedArtifactMetadataApplyRequest, GeneratedArtifactMetadataApplyResultStatus,
+    GeneratedArtifactMetadataBulkApplyBatchItemStatus,
+    GeneratedArtifactMetadataBulkApplyBatchRequest, GeneratedArtifactMetadataBulkApplyBatchStatus,
     GeneratedArtifactMetadataBulkApplyPlanItemStatus,
     GeneratedArtifactMetadataBulkApplyPlanRequest, GeneratedArtifactMetadataFieldAction,
     GeneratedArtifactMetadataFieldReason, GeneratedArtifactReadinessStatus,
@@ -610,6 +612,84 @@ async fn generated_artifact_metadata_apply_plan_bulk_aggregates_redacted_read_on
         .await
         .unwrap_err();
     assert!(err.to_string().contains("at most"));
+}
+
+#[tokio::test]
+async fn generated_artifact_bulk_metadata_apply_batch_persists_confirmed_request_without_mutation()
+{
+    let fixture = generated_artifact_metadata_apply_fixture(
+        r#"{"overview":"private generated overview","confidence_milli":810,"explanation":"private reasoning"}"#,
+    )
+    .await;
+    let missing_artifact_id = AutomationArtifactId::new();
+
+    let batch = fixture
+        .app
+        .automation()
+        .create_generated_artifact_metadata_bulk_apply_batch(
+            GeneratedArtifactMetadataBulkApplyBatchRequest {
+                artifact_ids: vec![
+                    fixture.artifact_id,
+                    fixture.artifact_id,
+                    missing_artifact_id,
+                ],
+                idempotency_key: " bulk-apply:confirmed ".to_owned(),
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        batch.status,
+        GeneratedArtifactMetadataBulkApplyBatchStatus::Queued
+    );
+    assert_eq!(batch.idempotency_key, "bulk-apply:confirmed");
+    assert_eq!(batch.selection.requested_artifact_count, 3);
+    assert_eq!(batch.selection.selected_artifact_count, 2);
+    assert_eq!(batch.selection.duplicate_artifact_count, 1);
+    assert_eq!(batch.summary.executable_artifact_count, 1);
+    assert_eq!(batch.items.len(), 2);
+    assert_eq!(
+        batch.items[0].status,
+        GeneratedArtifactMetadataBulkApplyBatchItemStatus::Pending
+    );
+    assert_eq!(
+        batch.items[1].status,
+        GeneratedArtifactMetadataBulkApplyBatchItemStatus::Skipped
+    );
+    assert_ne!(
+        batch.items[0].idempotency_key,
+        batch.items[1].idempotency_key
+    );
+
+    let replay = fixture
+        .app
+        .automation()
+        .create_generated_artifact_metadata_bulk_apply_batch(
+            GeneratedArtifactMetadataBulkApplyBatchRequest {
+                artifact_ids: vec![missing_artifact_id],
+                idempotency_key: "bulk-apply:confirmed".to_owned(),
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(replay.id, batch.id);
+    assert_eq!(replay.items, batch.items);
+
+    let item_after = fixture
+        .store
+        .get_media_item(fixture.item_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(item_after.metadata.title, "The Matrix");
+    assert!(item_after.metadata.overview.is_none());
+
+    let body = serde_json::to_string(&batch).unwrap();
+    assert!(!body.contains("private generated overview"));
+    assert!(!body.contains("private reasoning"));
+    assert!(!body.contains("local:///Movies/private"));
+    assert!(!body.contains("secret"));
 }
 
 #[tokio::test]

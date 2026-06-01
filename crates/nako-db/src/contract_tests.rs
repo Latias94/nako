@@ -24,9 +24,15 @@ use nako_core::{
     ExternalProvider, FailLeasedJob, GeneratedArtifactMetadataApplyOutcomeCommit,
     GeneratedArtifactMetadataApplyOutcomeId, GeneratedArtifactMetadataApplyOutcomeStatus,
     GeneratedArtifactMetadataApplyPlan, GeneratedArtifactMetadataApplyPlanReason,
-    GeneratedArtifactMetadataApplyPlanStatus, GeneratedArtifactPayloadShape,
-    GeneratedArtifactPayloadSummary, GeneratedArtifactTarget, Genre, GenreId,
-    IdentityAccessRepository, ImageAsset, ImageAssetId, ImageKind, ImageOwner,
+    GeneratedArtifactMetadataApplyPlanStatus, GeneratedArtifactMetadataBulkApplyBatchCommit,
+    GeneratedArtifactMetadataBulkApplyBatchId, GeneratedArtifactMetadataBulkApplyBatchItemCommit,
+    GeneratedArtifactMetadataBulkApplyBatchItemStatus,
+    GeneratedArtifactMetadataBulkApplyBatchStatus, GeneratedArtifactMetadataBulkApplyPlanItem,
+    GeneratedArtifactMetadataBulkApplyPlanItemReason,
+    GeneratedArtifactMetadataBulkApplyPlanItemStatus,
+    GeneratedArtifactMetadataBulkApplyPlanSelection, GeneratedArtifactMetadataBulkApplyPlanSummary,
+    GeneratedArtifactPayloadShape, GeneratedArtifactPayloadSummary, GeneratedArtifactTarget, Genre,
+    GenreId, IdentityAccessRepository, ImageAsset, ImageAssetId, ImageKind, ImageOwner,
     IngestionFailureClass, IngestionFailureFilter, IngestionFailurePhase,
     IngestionFailureRepository, IngestionFailureResolution, IngestionFailureStatus, ItemCredit,
     ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind, JobLeaseClaimFilter, JobLeaseClaimRequest,
@@ -3027,6 +3033,191 @@ where
     );
 }
 
+async fn generated_artifact_bulk_metadata_apply_batch_is_idempotent_and_atomic_contract<S>(store: S)
+where
+    S: GeneratedArtifactMetadataApplyOutcomeContractBackend,
+{
+    let library = seed_contract_library(&store).await;
+    let source = seed_contract_media_item_with_source(
+        &store,
+        library.id,
+        "Generated Artifact Bulk Apply Batch",
+        "local:///Contract Movies/generated-artifact-bulk-apply.mkv",
+    )
+    .await;
+    let job = enqueue_contract_job(
+        &store,
+        JobKind::Automation,
+        "automation.external_api",
+        Some(library.id),
+        Some(r#"{"capability":"metadata_cleanup"}"#),
+    )
+    .await;
+    let provider_id = nako_core::AutomationProviderId::new();
+    store
+        .upsert_automation_provider(NewAutomationProviderConfig {
+            id: provider_id,
+            name: "Contract AI".to_owned(),
+            base_url: "https://automation.example.test".to_owned(),
+            secret_env: None,
+            capabilities: vec![AutomationCapability::MetadataCleanup],
+            timeout_ms: 2_500,
+            max_attempts: 2,
+            status: AutomationProviderStatus::Enabled,
+        })
+        .await
+        .unwrap();
+    let first_artifact = store
+        .create_automation_artifact(NewAutomationArtifact {
+            id: nako_core::AutomationArtifactId::new(),
+            job_id: job.id,
+            provider_id,
+            capability: AutomationCapability::MetadataCleanup,
+            kind: AutomationArtifactKind::MetadataSuggestion,
+            library_id: Some(library.id),
+            item_id: Some(source.item_id),
+            source_id: Some(source.id),
+            artifact_json: r#"{"overview":"contract generated overview"}"#.to_owned(),
+        })
+        .await
+        .unwrap();
+    let second_artifact = store
+        .create_automation_artifact(NewAutomationArtifact {
+            id: nako_core::AutomationArtifactId::new(),
+            job_id: job.id,
+            provider_id,
+            capability: AutomationCapability::MetadataCleanup,
+            kind: AutomationArtifactKind::MetadataSuggestion,
+            library_id: Some(library.id),
+            item_id: Some(source.item_id),
+            source_id: Some(source.id),
+            artifact_json: r#"{"tagline":"contract generated tagline"}"#.to_owned(),
+        })
+        .await
+        .unwrap();
+    for artifact_id in [first_artifact.id, second_artifact.id] {
+        store
+            .set_automation_artifact_status(artifact_id, AutomationArtifactStatus::Accepted)
+            .await
+            .unwrap();
+    }
+
+    let first_plan_item = contract_generated_artifact_metadata_bulk_apply_plan_item(
+        contract_generated_artifact_metadata_apply_plan(
+            first_artifact.id,
+            library.id,
+            source.item_id,
+            Some(source.id),
+            GeneratedArtifactMetadataApplyPlanStatus::Ready,
+            vec![GeneratedArtifactMetadataApplyPlanReason::Ready],
+        ),
+    );
+    let second_plan_item = contract_generated_artifact_metadata_bulk_apply_plan_item(
+        contract_generated_artifact_metadata_apply_plan(
+            second_artifact.id,
+            library.id,
+            source.item_id,
+            Some(source.id),
+            GeneratedArtifactMetadataApplyPlanStatus::Ready,
+            vec![GeneratedArtifactMetadataApplyPlanReason::Ready],
+        ),
+    );
+    let batch_id = GeneratedArtifactMetadataBulkApplyBatchId::new();
+    let commit = contract_generated_artifact_metadata_bulk_apply_batch_commit(
+        batch_id,
+        "generated-artifact-bulk-apply:contract",
+        vec![first_plan_item.clone(), second_plan_item.clone()],
+    );
+
+    let created = store
+        .commit_generated_artifact_metadata_bulk_apply_batch(&commit)
+        .await
+        .unwrap();
+
+    assert_eq!(created.id, batch_id);
+    assert_eq!(
+        created.status,
+        GeneratedArtifactMetadataBulkApplyBatchStatus::Queued
+    );
+    assert_eq!(created.selection.requested_artifact_count, 2);
+    assert_eq!(created.summary.executable_artifact_count, 2);
+    assert_eq!(created.items.len(), 2);
+    assert_eq!(created.items[0].position, 0);
+    assert_eq!(created.items[0].artifact_id, first_artifact.id);
+    assert_eq!(
+        created.items[0].status,
+        GeneratedArtifactMetadataBulkApplyBatchItemStatus::Pending
+    );
+    assert_eq!(created.items[0].plan_item, first_plan_item);
+    assert_eq!(created.plan().items.len(), 2);
+    assert_eq!(
+        store
+            .find_generated_artifact_metadata_bulk_apply_batch(
+                "generated-artifact-bulk-apply:contract"
+            )
+            .await
+            .unwrap()
+            .unwrap()
+            .id,
+        batch_id
+    );
+
+    let replay = store
+        .commit_generated_artifact_metadata_bulk_apply_batch(
+            &contract_generated_artifact_metadata_bulk_apply_batch_commit(
+                GeneratedArtifactMetadataBulkApplyBatchId::new(),
+                "generated-artifact-bulk-apply:contract",
+                vec![second_plan_item.clone()],
+            ),
+        )
+        .await
+        .unwrap();
+    assert_eq!(replay.id, created.id);
+    assert_eq!(replay.items, created.items);
+
+    let running = store
+        .update_generated_artifact_metadata_bulk_apply_batch_status(
+            batch_id,
+            GeneratedArtifactMetadataBulkApplyBatchStatus::Queued,
+            GeneratedArtifactMetadataBulkApplyBatchStatus::Running,
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        running.status,
+        GeneratedArtifactMetadataBulkApplyBatchStatus::Running
+    );
+    let invalid_transition = store
+        .update_generated_artifact_metadata_bulk_apply_batch_status(
+            batch_id,
+            GeneratedArtifactMetadataBulkApplyBatchStatus::Queued,
+            GeneratedArtifactMetadataBulkApplyBatchStatus::Completed,
+        )
+        .await
+        .unwrap_err();
+    assert!(invalid_transition.to_string().contains("cannot transition"));
+
+    let conflict_batch_id = GeneratedArtifactMetadataBulkApplyBatchId::new();
+    let mut conflict = contract_generated_artifact_metadata_bulk_apply_batch_commit(
+        conflict_batch_id,
+        "generated-artifact-bulk-apply:conflict",
+        vec![first_plan_item],
+    );
+    conflict.items[0].idempotency_key = created.items[0].idempotency_key.clone();
+    let conflict_error = store
+        .commit_generated_artifact_metadata_bulk_apply_batch(&conflict)
+        .await
+        .unwrap_err();
+    assert!(!conflict_error.to_string().is_empty());
+    assert!(
+        store
+            .get_generated_artifact_metadata_bulk_apply_batch(conflict_batch_id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+}
+
 fn contract_generated_artifact_metadata_apply_plan(
     artifact_id: nako_core::AutomationArtifactId,
     library_id: LibraryId,
@@ -3056,6 +3247,64 @@ fn contract_generated_artifact_metadata_apply_plan(
         apply_field_count: u32::from(status.executable()),
         skipped_field_count: 0,
         noop_field_count: 0,
+    }
+}
+
+fn contract_generated_artifact_metadata_bulk_apply_plan_item(
+    plan: GeneratedArtifactMetadataApplyPlan,
+) -> GeneratedArtifactMetadataBulkApplyPlanItem {
+    GeneratedArtifactMetadataBulkApplyPlanItem {
+        artifact_id: plan.artifact_id,
+        status: GeneratedArtifactMetadataBulkApplyPlanItemStatus::Planned,
+        executable: plan.executable,
+        reasons: vec![GeneratedArtifactMetadataBulkApplyPlanItemReason::Planned],
+        plan: Some(plan),
+    }
+}
+
+fn contract_generated_artifact_metadata_bulk_apply_batch_commit(
+    batch_id: GeneratedArtifactMetadataBulkApplyBatchId,
+    idempotency_key: &str,
+    plan_items: Vec<GeneratedArtifactMetadataBulkApplyPlanItem>,
+) -> GeneratedArtifactMetadataBulkApplyBatchCommit {
+    let item_count = plan_items.len() as u32;
+    GeneratedArtifactMetadataBulkApplyBatchCommit {
+        id: batch_id,
+        idempotency_key: idempotency_key.to_owned(),
+        status: GeneratedArtifactMetadataBulkApplyBatchStatus::Queued,
+        selection: GeneratedArtifactMetadataBulkApplyPlanSelection {
+            requested_artifact_count: item_count,
+            selected_artifact_count: item_count,
+            duplicate_artifact_count: 0,
+            max_artifact_count: 100,
+        },
+        summary: GeneratedArtifactMetadataBulkApplyPlanSummary {
+            planned_artifact_count: item_count,
+            missing_artifact_count: 0,
+            ready_artifact_count: item_count,
+            blocked_artifact_count: 0,
+            stale_artifact_count: 0,
+            executable_artifact_count: item_count,
+            apply_field_count: item_count,
+            skipped_field_count: 0,
+            noop_field_count: 0,
+        },
+        items: plan_items
+            .into_iter()
+            .enumerate()
+            .map(
+                |(index, plan_item)| GeneratedArtifactMetadataBulkApplyBatchItemCommit {
+                    artifact_id: plan_item.artifact_id,
+                    position: index as u32,
+                    status: GeneratedArtifactMetadataBulkApplyBatchItemStatus::Pending,
+                    idempotency_key: format!(
+                        "generated-artifact-bulk-apply-item:{batch_id}:{}",
+                        plan_item.artifact_id
+                    ),
+                    plan_item,
+                },
+            )
+            .collect(),
     }
 }
 
@@ -7919,6 +8168,18 @@ database_contract_pair!(
         "generated_artifact_metadata_apply_outcome_is_idempotent_and_atomic"
     ),
     contract = generated_artifact_metadata_apply_outcome_is_idempotent_and_atomic_contract,
+);
+
+database_contract_pair!(
+    sqlite =
+        sqlite_metadata_catalog_contract_generated_artifact_bulk_metadata_apply_batch_is_idempotent_and_atomic,
+    postgres =
+        postgres_metadata_catalog_contract_generated_artifact_bulk_metadata_apply_batch_is_idempotent_and_atomic,
+    case = ContractCase::migrated(
+        ContractFamily::MetadataCatalog,
+        "generated_artifact_bulk_metadata_apply_batch_is_idempotent_and_atomic"
+    ),
+    contract = generated_artifact_bulk_metadata_apply_batch_is_idempotent_and_atomic_contract,
 );
 
 database_contract_pair!(

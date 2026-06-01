@@ -25,7 +25,7 @@ Last updated: 2026-06-01
 
 ## M2 - Durable Batch Request And Persistence
 
-- [ ] GABMA-030 [owner=codex] [deps=GABMA-020] [scope=crates/nako-core,crates/nako-db,crates/nako-server]
+- [x] GABMA-030 [owner=codex] [deps=GABMA-020] [scope=crates/nako-core,crates/nako-db,crates/nako-server]
   Goal: Persist a confirmed bulk apply request with batch identity, selection
   snapshot, aggregate plan snapshot, state, and per-item idempotency seeds.
   Validation: `cargo nextest run -p nako-db generated_artifact_bulk_metadata_apply --no-fail-fast`; PostgreSQL ignored contract when schema changes.

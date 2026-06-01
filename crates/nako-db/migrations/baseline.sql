@@ -652,6 +652,35 @@ CREATE TABLE generated_artifact_metadata_apply_outcomes (
 CREATE INDEX generated_artifact_metadata_apply_outcomes_artifact_idx
     ON generated_artifact_metadata_apply_outcomes(artifact_id, created_at);
 
+CREATE TABLE generated_artifact_metadata_bulk_apply_batches (
+    id TEXT PRIMARY KEY NOT NULL,
+    idempotency_key TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL,
+    selection_json TEXT NOT NULL,
+    summary_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX generated_artifact_metadata_bulk_apply_batches_status_idx
+    ON generated_artifact_metadata_bulk_apply_batches(status, created_at);
+
+CREATE TABLE generated_artifact_metadata_bulk_apply_batch_items (
+    batch_id TEXT NOT NULL REFERENCES generated_artifact_metadata_bulk_apply_batches(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL,
+    artifact_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    idempotency_key TEXT NOT NULL UNIQUE,
+    plan_item_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    PRIMARY KEY(batch_id, position),
+    UNIQUE(batch_id, artifact_id)
+);
+
+CREATE INDEX generated_artifact_metadata_bulk_apply_batch_items_status_idx
+    ON generated_artifact_metadata_bulk_apply_batch_items(batch_id, status, position);
+
 
 CREATE TABLE addon_registrations (
     id TEXT PRIMARY KEY NOT NULL,

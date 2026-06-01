@@ -75,6 +75,7 @@ define_id!(EventId);
 define_id!(AutomationProviderId);
 define_id!(AutomationArtifactId);
 define_id!(GeneratedArtifactMetadataApplyOutcomeId);
+define_id!(GeneratedArtifactMetadataBulkApplyBatchId);
 define_id!(WebhookEndpointId);
 define_id!(WebhookDeliveryAttemptId);
 define_id!(AddonId);

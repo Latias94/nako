@@ -867,6 +867,44 @@ impl AutomationRepository for NakoDatabase {
             .commit_generated_artifact_metadata_apply_outcome(commit)
             .await
     }
+
+    async fn get_generated_artifact_metadata_bulk_apply_batch(
+        &self,
+        batch_id: GeneratedArtifactMetadataBulkApplyBatchId,
+    ) -> Result<Option<GeneratedArtifactMetadataBulkApplyBatchRecord>> {
+        self.backend()
+            .get_generated_artifact_metadata_bulk_apply_batch(batch_id)
+            .await
+    }
+
+    async fn find_generated_artifact_metadata_bulk_apply_batch(
+        &self,
+        idempotency_key: &str,
+    ) -> Result<Option<GeneratedArtifactMetadataBulkApplyBatchRecord>> {
+        self.backend()
+            .find_generated_artifact_metadata_bulk_apply_batch(idempotency_key)
+            .await
+    }
+
+    async fn commit_generated_artifact_metadata_bulk_apply_batch(
+        &self,
+        commit: &GeneratedArtifactMetadataBulkApplyBatchCommit,
+    ) -> Result<GeneratedArtifactMetadataBulkApplyBatchRecord> {
+        self.backend()
+            .commit_generated_artifact_metadata_bulk_apply_batch(commit)
+            .await
+    }
+
+    async fn update_generated_artifact_metadata_bulk_apply_batch_status(
+        &self,
+        batch_id: GeneratedArtifactMetadataBulkApplyBatchId,
+        expected: GeneratedArtifactMetadataBulkApplyBatchStatus,
+        status: GeneratedArtifactMetadataBulkApplyBatchStatus,
+    ) -> Result<GeneratedArtifactMetadataBulkApplyBatchRecord> {
+        self.backend()
+            .update_generated_artifact_metadata_bulk_apply_batch_status(batch_id, expected, status)
+            .await
+    }
 }
 
 #[async_trait::async_trait]

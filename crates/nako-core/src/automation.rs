@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AutomationArtifactId, AutomationProviderId, GeneratedArtifactMetadataApplyOutcomeId, JobId,
-    LibraryId, MediaItemId, MediaSourceId, MetadataApplicationPersistenceCommit, MetadataField,
-    NakoError, Result,
+    AutomationArtifactId, AutomationProviderId, GeneratedArtifactMetadataApplyOutcomeId,
+    GeneratedArtifactMetadataBulkApplyBatchId, JobId, LibraryId, MediaItemId, MediaSourceId,
+    MetadataApplicationPersistenceCommit, MetadataField, NakoError, Result,
 };
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -572,6 +572,146 @@ pub struct GeneratedArtifactMetadataBulkApplyPlan {
     pub selection: GeneratedArtifactMetadataBulkApplyPlanSelection,
     pub summary: GeneratedArtifactMetadataBulkApplyPlanSummary,
     pub items: Vec<GeneratedArtifactMetadataBulkApplyPlanItem>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactMetadataBulkApplyBatchRequest {
+    pub artifact_ids: Vec<AutomationArtifactId>,
+    pub idempotency_key: String,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GeneratedArtifactMetadataBulkApplyBatchStatus {
+    Queued,
+    Running,
+    Completed,
+    Failed,
+    Cancelled,
+}
+
+impl GeneratedArtifactMetadataBulkApplyBatchStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Queued => "queued",
+            Self::Running => "running",
+            Self::Completed => "completed",
+            Self::Failed => "failed",
+            Self::Cancelled => "cancelled",
+        }
+    }
+
+    pub fn parse(value: &str) -> Result<Self> {
+        match value {
+            "queued" => Ok(Self::Queued),
+            "running" => Ok(Self::Running),
+            "completed" => Ok(Self::Completed),
+            "failed" => Ok(Self::Failed),
+            "cancelled" => Ok(Self::Cancelled),
+            _ => Err(NakoError::Database {
+                message: format!(
+                    "unknown generated artifact metadata bulk apply batch status stored in database: {value}"
+                ),
+            }),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GeneratedArtifactMetadataBulkApplyBatchItemStatus {
+    Pending,
+    Skipped,
+    Applied,
+    Noop,
+    Failed,
+}
+
+impl GeneratedArtifactMetadataBulkApplyBatchItemStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Pending => "pending",
+            Self::Skipped => "skipped",
+            Self::Applied => "applied",
+            Self::Noop => "noop",
+            Self::Failed => "failed",
+        }
+    }
+
+    pub fn parse(value: &str) -> Result<Self> {
+        match value {
+            "pending" => Ok(Self::Pending),
+            "skipped" => Ok(Self::Skipped),
+            "applied" => Ok(Self::Applied),
+            "noop" => Ok(Self::Noop),
+            "failed" => Ok(Self::Failed),
+            _ => Err(NakoError::Database {
+                message: format!(
+                    "unknown generated artifact metadata bulk apply batch item status stored in database: {value}"
+                ),
+            }),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactMetadataBulkApplyBatchItemCommit {
+    pub artifact_id: AutomationArtifactId,
+    pub position: u32,
+    pub status: GeneratedArtifactMetadataBulkApplyBatchItemStatus,
+    pub idempotency_key: String,
+    pub plan_item: GeneratedArtifactMetadataBulkApplyPlanItem,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactMetadataBulkApplyBatchCommit {
+    pub id: GeneratedArtifactMetadataBulkApplyBatchId,
+    pub idempotency_key: String,
+    pub status: GeneratedArtifactMetadataBulkApplyBatchStatus,
+    pub selection: GeneratedArtifactMetadataBulkApplyPlanSelection,
+    pub summary: GeneratedArtifactMetadataBulkApplyPlanSummary,
+    pub items: Vec<GeneratedArtifactMetadataBulkApplyBatchItemCommit>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactMetadataBulkApplyBatchItemRecord {
+    pub batch_id: GeneratedArtifactMetadataBulkApplyBatchId,
+    pub artifact_id: AutomationArtifactId,
+    pub position: u32,
+    pub status: GeneratedArtifactMetadataBulkApplyBatchItemStatus,
+    pub idempotency_key: String,
+    pub plan_item: GeneratedArtifactMetadataBulkApplyPlanItem,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactMetadataBulkApplyBatchRecord {
+    pub id: GeneratedArtifactMetadataBulkApplyBatchId,
+    pub idempotency_key: String,
+    pub status: GeneratedArtifactMetadataBulkApplyBatchStatus,
+    pub selection: GeneratedArtifactMetadataBulkApplyPlanSelection,
+    pub summary: GeneratedArtifactMetadataBulkApplyPlanSummary,
+    pub items: Vec<GeneratedArtifactMetadataBulkApplyBatchItemRecord>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl GeneratedArtifactMetadataBulkApplyBatchRecord {
+    #[must_use]
+    pub fn plan(&self) -> GeneratedArtifactMetadataBulkApplyPlan {
+        GeneratedArtifactMetadataBulkApplyPlan {
+            selection: self.selection.clone(),
+            summary: self.summary.clone(),
+            items: self
+                .items
+                .iter()
+                .map(|item| item.plan_item.clone())
+                .collect(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

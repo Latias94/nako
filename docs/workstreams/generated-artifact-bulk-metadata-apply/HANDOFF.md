@@ -16,19 +16,20 @@ GAMA shipped the one-artifact Metadata Authority apply workflow:
 - synchronized generated Admin TypeScript contracts;
 - Web Admin confirmation route.
 
-`GABMA-020` added the read-only bulk apply-plan contract and route. Bulk
-mutation is still not implemented; the next task adds durable batch request
-persistence before execution.
+`GABMA-020` added the read-only bulk apply-plan contract and route. `GABMA-030`
+added durable batch request persistence. Bulk mutation is still not implemented;
+the next task executes queued batches through the existing one-artifact apply
+path.
 
 ## Active Task
 
-- Task ID: `GABMA-030`
+- Task ID: `GABMA-040`
 - Lane: `library-metadata-control-plane`
 - Status: active
 - Owner: codex
 
-Goal: persist a confirmed bulk apply request with batch identity, selection
-snapshot, aggregate plan snapshot, state, and per-item idempotency seeds.
+Goal: execute confirmed batches through the existing one-artifact apply path
+with per-item outcomes, partial-failure accounting, and durable terminal state.
 
 ## Completed Evidence
 
@@ -37,6 +38,12 @@ snapshot, aggregate plan snapshot, state, and per-item idempotency seeds.
   selection counters, per-artifact planned/missing items, aggregate status and
   field-action counters, and no Canonical Metadata mutation.
 - Validated with focused API/server gates, Admin generated contract sync,
+  format check, and `git diff --check`.
+- `GABMA-030`: repository persistence now stores confirmed bulk batches with
+  idempotent replay by batch idempotency key, selection/summary snapshots,
+  per-item redacted plan snapshots and deterministic item idempotency keys,
+  guarded batch status transitions, and rollback on failed item persistence.
+- Validated with focused `nako-db` and `nako-server` bulk metadata apply gates,
   format check, and `git diff --check`.
 
 ## Key Context
@@ -64,7 +71,7 @@ snapshot, aggregate plan snapshot, state, and per-item idempotency seeds.
 
 ## Blockers
 
-- None for `GABMA-030`.
+- None for `GABMA-040`.
 
 ## Watchpoints
 

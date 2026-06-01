@@ -441,9 +441,220 @@ impl AutomationRepository for SqliteStore {
             ),
         })
     }
+
+    async fn get_generated_artifact_metadata_bulk_apply_batch(
+        &self,
+        batch_id: GeneratedArtifactMetadataBulkApplyBatchId,
+    ) -> Result<Option<GeneratedArtifactMetadataBulkApplyBatchRecord>> {
+        self.load_generated_artifact_metadata_bulk_apply_batch(batch_id)
+            .await
+    }
+
+    async fn find_generated_artifact_metadata_bulk_apply_batch(
+        &self,
+        idempotency_key: &str,
+    ) -> Result<Option<GeneratedArtifactMetadataBulkApplyBatchRecord>> {
+        let row = sqlx::query(
+            r#"
+            SELECT id
+            FROM generated_artifact_metadata_bulk_apply_batches
+            WHERE idempotency_key = ?1
+            "#,
+        )
+        .bind(idempotency_key)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        let Some(row) = row else {
+            return Ok(None);
+        };
+        self.load_generated_artifact_metadata_bulk_apply_batch(parse_id(row_get::<String>(
+            &row, "id",
+        )?)?)
+        .await
+    }
+
+    async fn commit_generated_artifact_metadata_bulk_apply_batch(
+        &self,
+        commit: &GeneratedArtifactMetadataBulkApplyBatchCommit,
+    ) -> Result<GeneratedArtifactMetadataBulkApplyBatchRecord> {
+        validate_generated_artifact_metadata_bulk_apply_batch_commit(commit)?;
+        if let Some(existing) = self
+            .find_generated_artifact_metadata_bulk_apply_batch(&commit.idempotency_key)
+            .await?
+        {
+            return Ok(existing);
+        }
+
+        let selection_json = serde_json::to_string(&commit.selection).map_err(database_error)?;
+        let summary_json = serde_json::to_string(&commit.summary).map_err(database_error)?;
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO generated_artifact_metadata_bulk_apply_batches (
+                id,
+                idempotency_key,
+                status,
+                selection_json,
+                summary_json
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5)
+            "#,
+        )
+        .bind(commit.id.to_string())
+        .bind(&commit.idempotency_key)
+        .bind(commit.status.as_str())
+        .bind(selection_json)
+        .bind(summary_json)
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+
+        for item in &commit.items {
+            let plan_item_json = serde_json::to_string(&item.plan_item).map_err(database_error)?;
+            sqlx::query(
+                r#"
+                INSERT INTO generated_artifact_metadata_bulk_apply_batch_items (
+                    batch_id,
+                    position,
+                    artifact_id,
+                    status,
+                    idempotency_key,
+                    plan_item_json
+                )
+                VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                "#,
+            )
+            .bind(commit.id.to_string())
+            .bind(u32_to_i64(item.position))
+            .bind(item.artifact_id.to_string())
+            .bind(item.status.as_str())
+            .bind(&item.idempotency_key)
+            .bind(plan_item_json)
+            .execute(&mut *transaction)
+            .await
+            .map_err(database_error)?;
+        }
+
+        transaction.commit().await.map_err(database_error)?;
+
+        self.load_generated_artifact_metadata_bulk_apply_batch(commit.id)
+            .await?
+            .ok_or_else(|| NakoError::Database {
+                message: format!(
+                    "generated artifact metadata bulk apply batch {} was not found after commit",
+                    commit.id
+                ),
+            })
+    }
+
+    async fn update_generated_artifact_metadata_bulk_apply_batch_status(
+        &self,
+        batch_id: GeneratedArtifactMetadataBulkApplyBatchId,
+        expected: GeneratedArtifactMetadataBulkApplyBatchStatus,
+        status: GeneratedArtifactMetadataBulkApplyBatchStatus,
+    ) -> Result<GeneratedArtifactMetadataBulkApplyBatchRecord> {
+        let result = sqlx::query(
+            r#"
+            UPDATE generated_artifact_metadata_bulk_apply_batches
+            SET status = ?1,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE id = ?2 AND status = ?3
+            "#,
+        )
+        .bind(status.as_str())
+        .bind(batch_id.to_string())
+        .bind(expected.as_str())
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        if result.rows_affected() == 0 {
+            if self
+                .load_generated_artifact_metadata_bulk_apply_batch(batch_id)
+                .await?
+                .is_none()
+            {
+                return Err(NakoError::NotFound {
+                    entity: "generated_artifact_metadata_bulk_apply_batch",
+                    id: batch_id.to_string(),
+                });
+            }
+            return Err(NakoError::InvalidInput {
+                message: format!(
+                    "cannot transition generated artifact metadata bulk apply batch {batch_id} from {:?} to {:?}",
+                    expected, status
+                ),
+            });
+        }
+
+        self.load_generated_artifact_metadata_bulk_apply_batch(batch_id)
+            .await?
+            .ok_or_else(|| NakoError::Database {
+                message: format!(
+                    "generated artifact metadata bulk apply batch {batch_id} was not found after status update"
+                ),
+            })
+    }
 }
 
 impl SqliteStore {
+    async fn load_generated_artifact_metadata_bulk_apply_batch(
+        &self,
+        batch_id: GeneratedArtifactMetadataBulkApplyBatchId,
+    ) -> Result<Option<GeneratedArtifactMetadataBulkApplyBatchRecord>> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id,
+                idempotency_key,
+                status,
+                selection_json,
+                summary_json,
+                created_at,
+                updated_at
+            FROM generated_artifact_metadata_bulk_apply_batches
+            WHERE id = ?1
+            "#,
+        )
+        .bind(batch_id.to_string())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        let Some(row) = row else {
+            return Ok(None);
+        };
+        let item_rows = sqlx::query(
+            r#"
+            SELECT
+                batch_id,
+                position,
+                artifact_id,
+                status,
+                idempotency_key,
+                plan_item_json,
+                created_at,
+                updated_at
+            FROM generated_artifact_metadata_bulk_apply_batch_items
+            WHERE batch_id = ?1
+            ORDER BY position ASC
+            "#,
+        )
+        .bind(batch_id.to_string())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+        let items = item_rows
+            .into_iter()
+            .map(row_to_generated_artifact_metadata_bulk_apply_batch_item)
+            .collect::<Result<Vec<_>>>()?;
+
+        row_to_generated_artifact_metadata_bulk_apply_batch(row, items).map(Some)
+    }
+
     pub(crate) async fn get_automation_artifact(
         &self,
         id: AutomationArtifactId,
@@ -545,6 +756,82 @@ fn row_to_generated_artifact_metadata_apply_outcome(
         plan,
         error_code: row_get(&row, "error_code")?,
         error_message: row_get(&row, "error_message")?,
+        created_at: row_get(&row, "created_at")?,
+        updated_at: row_get(&row, "updated_at")?,
+    })
+}
+
+fn validate_generated_artifact_metadata_bulk_apply_batch_commit(
+    commit: &GeneratedArtifactMetadataBulkApplyBatchCommit,
+) -> Result<()> {
+    if commit.idempotency_key.trim().is_empty() {
+        return Err(NakoError::InvalidInput {
+            message: "generated artifact metadata bulk apply batch idempotency_key cannot be empty"
+                .to_owned(),
+        });
+    }
+    if commit.items.is_empty() {
+        return Err(NakoError::InvalidInput {
+            message: "generated artifact metadata bulk apply batch requires at least one item"
+                .to_owned(),
+        });
+    }
+    for item in &commit.items {
+        if item.idempotency_key.trim().is_empty() {
+            return Err(NakoError::InvalidInput {
+                message:
+                    "generated artifact metadata bulk apply item idempotency_key cannot be empty"
+                        .to_owned(),
+            });
+        }
+        if item.artifact_id != item.plan_item.artifact_id {
+            return Err(NakoError::InvalidInput {
+                message: format!(
+                    "generated artifact metadata bulk apply item artifact_id {} does not match plan item {}",
+                    item.artifact_id, item.plan_item.artifact_id
+                ),
+            });
+        }
+    }
+
+    Ok(())
+}
+
+fn row_to_generated_artifact_metadata_bulk_apply_batch(
+    row: SqliteRow,
+    items: Vec<GeneratedArtifactMetadataBulkApplyBatchItemRecord>,
+) -> Result<GeneratedArtifactMetadataBulkApplyBatchRecord> {
+    let selection_json: String = row_get(&row, "selection_json")?;
+    let summary_json: String = row_get(&row, "summary_json")?;
+
+    Ok(GeneratedArtifactMetadataBulkApplyBatchRecord {
+        id: parse_id(row_get::<String>(&row, "id")?)?,
+        idempotency_key: row_get(&row, "idempotency_key")?,
+        status: GeneratedArtifactMetadataBulkApplyBatchStatus::parse(&row_get::<String>(
+            &row, "status",
+        )?)?,
+        selection: serde_json::from_str(&selection_json).map_err(database_error)?,
+        summary: serde_json::from_str(&summary_json).map_err(database_error)?,
+        items,
+        created_at: row_get(&row, "created_at")?,
+        updated_at: row_get(&row, "updated_at")?,
+    })
+}
+
+fn row_to_generated_artifact_metadata_bulk_apply_batch_item(
+    row: SqliteRow,
+) -> Result<GeneratedArtifactMetadataBulkApplyBatchItemRecord> {
+    let plan_item_json: String = row_get(&row, "plan_item_json")?;
+
+    Ok(GeneratedArtifactMetadataBulkApplyBatchItemRecord {
+        batch_id: parse_id(row_get::<String>(&row, "batch_id")?)?,
+        artifact_id: parse_id(row_get::<String>(&row, "artifact_id")?)?,
+        position: i64_to_u32(row_get::<i64>(&row, "position")?)?,
+        status: GeneratedArtifactMetadataBulkApplyBatchItemStatus::parse(&row_get::<String>(
+            &row, "status",
+        )?)?,
+        idempotency_key: row_get(&row, "idempotency_key")?,
+        plan_item: serde_json::from_str(&plan_item_json).map_err(database_error)?,
         created_at: row_get(&row, "created_at")?,
         updated_at: row_get(&row, "updated_at")?,
     })
