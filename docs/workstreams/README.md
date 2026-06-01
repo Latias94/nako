@@ -27,7 +27,7 @@ Last reviewed: 2026-06-01
 - [client-surface-and-access-product-architecture](client-surface-and-access-product-architecture/README.md)
   is active on lane `client-surfaces-planning`; next task is `CSAPA-050`.
 - [playback-transcode-jellyfin-class-hardening](playback-transcode-jellyfin-class-hardening/README.md)
-  is active on lane `playback-transcode`; next task is `PTJCH-220`.
+  is active on lane `playback-transcode`; next task is `PTJCH-310`.
 
 Planner coordination should use `mvp-release-shape` to decide which active
 tails block the first release. Keep `GAMA-060` blocked until `GAMA-050` is
