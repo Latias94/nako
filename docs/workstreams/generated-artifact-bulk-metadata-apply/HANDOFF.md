@@ -19,19 +19,19 @@ GAMA shipped the one-artifact Metadata Authority apply workflow:
 `GABMA-020` added the read-only bulk apply-plan contract and route. `GABMA-030`
 added durable batch request persistence. `GABMA-040` added durable job-backed
 batch execution through the existing one-artifact apply path with per-item
-outcomes and partial-failure accounting. Admin confirm/status/result routes are
-still not exposed; the next task publishes the backend read model and HTTP
-surface.
+outcomes and partial-failure accounting. `GABMA-050` exposed the Admin
+confirm/status/result HTTP surface and synchronized generated Admin TypeScript
+contracts. The next task is the Web Admin workflow.
 
 ## Active Task
 
-- Task ID: `GABMA-050`
+- Task ID: `GABMA-060`
 - Lane: `library-metadata-control-plane`
 - Status: active
 - Owner: codex
 
-Goal: expose final Admin bulk apply confirm/status/result routes and keep
-generated contracts synchronized.
+Goal: add Web Admin bulk metadata apply planning, confirmation, live-only
+mutation, and partial-result display.
 
 ## Completed Evidence
 
@@ -55,6 +55,15 @@ generated contracts synchronized.
   succeeds the durable job with a redacted summary, and replays terminal batch
   state without duplicate mutation.
 - Validated with focused `nako-db` and `nako-server` bulk metadata apply gates.
+- `GABMA-050`: Admin routes now expose batch confirmation and status/result
+  read models:
+  `POST /admin/v1/automation/generated-artifacts/metadata-apply-batches` and
+  `GET /admin/v1/automation/generated-artifacts/metadata-apply-batches/{batch_id}`.
+  Route tests cover auth, request body, idempotent replay, queued status,
+  completed partial results, error mapping, and redaction. Generated Admin
+  TypeScript contracts are synchronized for both `apps/admin-web` and `web`.
+- Validated with focused `nako-api` contract/DTO gates, `nako-server` bulk
+  metadata apply HTTP/app gates, contract generation, and format check.
 
 ## Key Context
 

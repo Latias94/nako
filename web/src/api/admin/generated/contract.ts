@@ -37,6 +37,8 @@ export const NAKO_ADMIN_ROUTES = {
   generatedArtifactReviewPlan: "/admin/v1/automation/generated-artifacts/{artifact_id}/review-plan",
   generatedArtifactReview: "/admin/v1/automation/generated-artifacts/{artifact_id}/review",
   generatedArtifactMetadataBulkApplyPlan: "/admin/v1/automation/generated-artifacts/metadata-apply-plan",
+  generatedArtifactMetadataBulkApplyBatches: "/admin/v1/automation/generated-artifacts/metadata-apply-batches",
+  generatedArtifactMetadataBulkApplyBatch: "/admin/v1/automation/generated-artifacts/metadata-apply-batches/{batch_id}",
   generatedArtifactMetadataApplyPlan: "/admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply-plan",
   generatedArtifactMetadataApply: "/admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply",
   itemArtworkGallery: "/admin/v1/items/{item_id}/artwork",
@@ -216,6 +218,11 @@ export interface AdminGeneratedArtifactMetadataApplyRequest {
 
 export interface AdminGeneratedArtifactMetadataBulkApplyPlanRequest {
   artifact_ids: string[];
+}
+
+export interface AdminGeneratedArtifactMetadataBulkApplyRequest {
+  artifact_ids: string[];
+  idempotency_key: string;
 }
 
 export type AdminArtworkKind =
@@ -1696,6 +1703,12 @@ export interface AdminGeneratedArtifactMetadataBulkApplyPlanResponse {
   plan: AdminGeneratedArtifactMetadataBulkApplyPlan;
 }
 
+export interface AdminGeneratedArtifactMetadataBulkApplyBatchResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  batch: AdminGeneratedArtifactMetadataBulkApplyBatch;
+}
+
 export interface AdminGeneratedArtifactMetadataApplyResponse {
   admin_api_version: string;
   public_api_version: string;
@@ -1761,6 +1774,40 @@ export interface AdminGeneratedArtifactMetadataBulkApplyPlanItem {
   executable: boolean;
   reasons: string[];
   plan: AdminGeneratedArtifactMetadataApplyPlan | null;
+}
+
+export interface AdminGeneratedArtifactMetadataBulkApplyBatch {
+  id: string;
+  job_id: string;
+  status: string;
+  selection: AdminGeneratedArtifactMetadataBulkApplyPlanSelection;
+  summary: AdminGeneratedArtifactMetadataBulkApplyPlanSummary;
+  execution_summary: AdminGeneratedArtifactMetadataBulkApplyBatchExecutionSummary;
+  items: AdminGeneratedArtifactMetadataBulkApplyBatchItem[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminGeneratedArtifactMetadataBulkApplyBatchExecutionSummary {
+  total_item_count: number;
+  pending_item_count: number;
+  skipped_item_count: number;
+  applied_item_count: number;
+  noop_item_count: number;
+  stale_item_count: number;
+  failed_item_count: number;
+}
+
+export interface AdminGeneratedArtifactMetadataBulkApplyBatchItem {
+  artifact_id: string;
+  position: number;
+  status: string;
+  outcome_id: string | null;
+  error_code: string | null;
+  error_message: string | null;
+  plan_item: AdminGeneratedArtifactMetadataBulkApplyPlanItem;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AdminGeneratedArtifactMetadataValueSummary {

@@ -7,12 +7,13 @@
   "scope_kind": "backend_web_authority_workflow",
   "problem": "Accepted metadata Generated Artifacts can be applied one artifact at a time, but Nako has no guarded bulk apply plan, durable batch execution, partial-failure reporting, or Web Admin bulk workflow.",
   "task_prefix": "GABMA",
-  "current_task": "GABMA-050",
+  "current_task": "GABMA-060",
   "completed_tasks": [
     "GABMA-010",
     "GABMA-020",
     "GABMA-030",
-    "GABMA-040"
+    "GABMA-040",
+    "GABMA-050"
   ],
   "authoritative_docs": [
     {
@@ -76,6 +77,10 @@
     {
       "task": "GABMA-040",
       "summary": "Added durable job-backed bulk metadata apply execution through the existing one-artifact apply path with per-item applied/noop/stale/failed outcomes, execution summary counters, terminal batch replay, and focused db/server evidence."
+    },
+    {
+      "task": "GABMA-050",
+      "summary": "Exposed Admin bulk metadata apply confirm and status/result routes with redacted batch read models, route auth tests, idempotent replay, partial-result reporting, generated Admin TypeScript contract sync, and no Public Client route leakage."
     }
   ],
   "adr_refs": [
@@ -113,6 +118,6 @@
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
     "default_action": "continue_next_task",
-    "notes": "Continue at GABMA-050. Expose Admin bulk apply confirm/status/result routes and generated contracts on top of the durable batch execution path; keep redaction and replay semantics intact."
+    "notes": "Continue at GABMA-060. Wire the Web Admin bulk metadata apply planning, confirmation, live-only mutation, and partial-result display on top of the exposed Admin routes."
   }
 }

@@ -1422,6 +1422,276 @@ async fn admin_v1_generated_artifact_metadata_apply_plan_bulk_is_redacted_read_o
 }
 
 #[tokio::test]
+async fn admin_generated_artifact_bulk_metadata_apply_v1_confirms_replays_and_reports_status() {
+    let fixture = admin_generated_artifact_metadata_apply_http_fixture().await;
+    let missing_artifact_id = AutomationArtifactId::new();
+    let uri = "/admin/v1/automation/generated-artifacts/metadata-apply-batches";
+    let request = AdminGeneratedArtifactMetadataBulkApplyRequest {
+        artifact_ids: vec![fixture.artifact_id, missing_artifact_id],
+        idempotency_key: "bulk-metadata-apply:operator-confirmation".to_owned(),
+    };
+
+    let response = response_body_json(&fixture.router, Method::POST, uri, &request).await;
+    let status = response.status();
+    let body = response_text(response).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let queued: AdminGeneratedArtifactMetadataBulkApplyBatchResponse =
+        serde_json::from_str(&body).unwrap();
+
+    assert_eq!(
+        queued.batch.status,
+        nako_core::GeneratedArtifactMetadataBulkApplyBatchStatus::Queued
+    );
+    assert_eq!(queued.batch.selection.requested_artifact_count, 2);
+    assert_eq!(queued.batch.summary.executable_artifact_count, 1);
+    assert_eq!(queued.batch.summary.missing_artifact_count, 1);
+    assert_eq!(queued.batch.execution_summary.total_item_count, 2);
+    assert_eq!(queued.batch.execution_summary.pending_item_count, 1);
+    assert_eq!(queued.batch.execution_summary.skipped_item_count, 1);
+    assert_eq!(queued.batch.items.len(), 2);
+    assert_eq!(
+        queued.batch.items[0].status,
+        nako_core::GeneratedArtifactMetadataBulkApplyBatchItemStatus::Pending
+    );
+    assert_eq!(
+        queued.batch.items[1].status,
+        nako_core::GeneratedArtifactMetadataBulkApplyBatchItemStatus::Skipped
+    );
+    assert!(queued.batch.items[0].outcome_id.is_none());
+    assert!(queued.batch.items[0].plan_item.plan.is_some());
+    assert!(queued.batch.items[1].plan_item.plan.is_none());
+    assert_generated_artifact_bulk_metadata_apply_body_redacted(&body);
+
+    let replay = response_body_json(&fixture.router, Method::POST, uri, &request).await;
+    let replay_status = replay.status();
+    let replay_body = response_text(replay).await;
+    assert_eq!(replay_status, StatusCode::OK, "{replay_body}");
+    let replayed: AdminGeneratedArtifactMetadataBulkApplyBatchResponse =
+        serde_json::from_str(&replay_body).unwrap();
+    assert_eq!(replayed.batch.id, queued.batch.id);
+    assert_eq!(replayed.batch.job_id, queued.batch.job_id);
+    assert_eq!(replayed.batch.status, queued.batch.status);
+    assert_generated_artifact_bulk_metadata_apply_body_redacted(&replay_body);
+
+    let status_uri = format!(
+        "/admin/v1/automation/generated-artifacts/metadata-apply-batches/{}",
+        queued.batch.id
+    );
+    let status_response = fixture
+        .router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&status_uri)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status_code = status_response.status();
+    let status_body = response_text(status_response).await;
+    assert_eq!(status_code, StatusCode::OK, "{status_body}");
+    let status_batch: AdminGeneratedArtifactMetadataBulkApplyBatchResponse =
+        serde_json::from_str(&status_body).unwrap();
+    assert_eq!(status_batch.batch.id, queued.batch.id);
+    assert_eq!(
+        status_batch.batch.status,
+        nako_core::GeneratedArtifactMetadataBulkApplyBatchStatus::Queued
+    );
+    assert_generated_artifact_bulk_metadata_apply_body_redacted(&status_body);
+
+    let executed = fixture
+        .app
+        .automation()
+        .execute_generated_artifact_metadata_bulk_apply_batch(queued.batch.id)
+        .await
+        .unwrap();
+    assert_eq!(
+        executed.status,
+        nako_core::GeneratedArtifactMetadataBulkApplyBatchStatus::Completed
+    );
+
+    let result_response = fixture
+        .router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(status_uri)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let result_status = result_response.status();
+    let result_body = response_text(result_response).await;
+    assert_eq!(result_status, StatusCode::OK, "{result_body}");
+    let result: AdminGeneratedArtifactMetadataBulkApplyBatchResponse =
+        serde_json::from_str(&result_body).unwrap();
+
+    assert_eq!(result.batch.id, queued.batch.id);
+    assert_eq!(
+        result.batch.status,
+        nako_core::GeneratedArtifactMetadataBulkApplyBatchStatus::Completed
+    );
+    assert_eq!(result.batch.execution_summary.pending_item_count, 0);
+    assert_eq!(result.batch.execution_summary.applied_item_count, 1);
+    assert_eq!(result.batch.execution_summary.skipped_item_count, 1);
+    assert_eq!(
+        result.batch.items[0].status,
+        nako_core::GeneratedArtifactMetadataBulkApplyBatchItemStatus::Applied
+    );
+    assert!(result.batch.items[0].outcome_id.is_some());
+    assert_eq!(
+        result.batch.items[1].status,
+        nako_core::GeneratedArtifactMetadataBulkApplyBatchItemStatus::Skipped
+    );
+    let item_after = fixture
+        .store
+        .get_media_item(fixture.item_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        item_after.metadata.overview.as_deref(),
+        Some("private generated overview")
+    );
+    assert_generated_artifact_bulk_metadata_apply_body_redacted(&result_body);
+}
+
+#[tokio::test]
+async fn admin_generated_artifact_bulk_metadata_apply_v1_maps_errors_without_sensitive_body() {
+    let fixture = admin_generated_artifact_metadata_apply_http_fixture().await;
+    let uri = "/admin/v1/automation/generated-artifacts/metadata-apply-batches";
+
+    let empty_key = response_body_json(
+        &fixture.router,
+        Method::POST,
+        uri,
+        &AdminGeneratedArtifactMetadataBulkApplyRequest {
+            artifact_ids: vec![fixture.artifact_id],
+            idempotency_key: "  ".to_owned(),
+        },
+    )
+    .await;
+    assert_eq!(empty_key.status(), StatusCode::BAD_REQUEST);
+    let empty_key_body = response_text(empty_key).await;
+    let empty_key_error: ErrorResponse = serde_json::from_str(&empty_key_body).unwrap();
+    assert_eq!(empty_key_error.code, "invalid_input");
+    assert!(empty_key_error.message.contains("idempotency_key"));
+    assert_generated_artifact_bulk_metadata_apply_body_redacted(&empty_key_body);
+
+    let no_executable = response_body_json(
+        &fixture.router,
+        Method::POST,
+        uri,
+        &AdminGeneratedArtifactMetadataBulkApplyRequest {
+            artifact_ids: vec![AutomationArtifactId::new()],
+            idempotency_key: "bulk-metadata-apply:no-executable".to_owned(),
+        },
+    )
+    .await;
+    assert_eq!(no_executable.status(), StatusCode::BAD_REQUEST);
+    let no_executable_body = response_text(no_executable).await;
+    let no_executable_error: ErrorResponse = serde_json::from_str(&no_executable_body).unwrap();
+    assert_eq!(no_executable_error.code, "invalid_input");
+    assert!(no_executable_error.message.contains("executable"));
+    assert_generated_artifact_bulk_metadata_apply_body_redacted(&no_executable_body);
+
+    let missing_batch_id = GeneratedArtifactMetadataBulkApplyBatchId::new();
+    let missing = fixture
+        .router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/admin/v1/automation/generated-artifacts/metadata-apply-batches/{missing_batch_id}"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+    let missing_body = response_text(missing).await;
+    let missing_error: ErrorResponse = serde_json::from_str(&missing_body).unwrap();
+    assert_eq!(missing_error.code, "not_found");
+    assert_generated_artifact_bulk_metadata_apply_body_redacted(&missing_body);
+}
+
+#[tokio::test]
+async fn admin_generated_artifact_bulk_metadata_apply_v1_requires_admin_auth() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let token = "bulk-metadata-apply-admin-token";
+    let router = test_router_with_bearer_auth(temp.path().to_path_buf(), library_id, token).await;
+    let post_uri = "/admin/v1/automation/generated-artifacts/metadata-apply-batches";
+    let request = AdminGeneratedArtifactMetadataBulkApplyRequest {
+        artifact_ids: vec![AutomationArtifactId::new()],
+        idempotency_key: "bulk-metadata-apply:auth".to_owned(),
+    };
+
+    let missing_post = response_body_json(&router, Method::POST, post_uri, &request).await;
+    assert_eq!(missing_post.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(missing_post.headers()[header::WWW_AUTHENTICATE], "Bearer");
+    let missing_post_error = body_json::<ErrorResponse>(missing_post).await;
+    assert_eq!(missing_post_error.code, "unauthorized");
+
+    let authorized_post = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(post_uri)
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(serde_json::to_vec(&request).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(authorized_post.status(), StatusCode::BAD_REQUEST);
+    let authorized_post_error = body_json::<ErrorResponse>(authorized_post).await;
+    assert_eq!(authorized_post_error.code, "invalid_input");
+
+    let batch_id = GeneratedArtifactMetadataBulkApplyBatchId::new();
+    let get_uri =
+        format!("/admin/v1/automation/generated-artifacts/metadata-apply-batches/{batch_id}");
+    let missing_get = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&get_uri)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(missing_get.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(missing_get.headers()[header::WWW_AUTHENTICATE], "Bearer");
+    let missing_get_error = body_json::<ErrorResponse>(missing_get).await;
+    assert_eq!(missing_get_error.code, "unauthorized");
+
+    let authorized_get = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(get_uri)
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(authorized_get.status(), StatusCode::NOT_FOUND);
+    let authorized_get_error = body_json::<ErrorResponse>(authorized_get).await;
+    assert_eq!(authorized_get_error.code, "not_found");
+}
+
+#[tokio::test]
 async fn admin_generated_artifact_metadata_apply_v1_commits_and_replays_redacted_result() {
     let fixture = admin_generated_artifact_metadata_apply_http_fixture().await;
     let uri = format!(
@@ -1570,8 +1840,20 @@ async fn admin_generated_artifact_metadata_apply_v1_requires_admin_auth() {
     assert_eq!(authorized_error.code, "not_found");
 }
 
+fn assert_generated_artifact_bulk_metadata_apply_body_redacted(body: &str) {
+    assert!(!body.contains("prompt_json"));
+    assert!(!body.contains("artifact_json"));
+    assert!(!body.contains("local:///Movies/private"));
+    assert!(!body.contains("private generated overview"));
+    assert!(!body.contains("private reasoning"));
+    assert!(!body.contains("secret"));
+    assert!(!body.contains("sha256-private-fingerprint"));
+    assert!(!body.contains("bulk-metadata-apply:operator-confirmation"));
+}
+
 struct AdminGeneratedArtifactMetadataApplyHttpFixture {
     _temp: tempfile::TempDir,
+    app: NakoApp,
     router: Router,
     store: NakoDatabase,
     artifact_id: AutomationArtifactId,
@@ -1699,10 +1981,11 @@ async fn admin_generated_artifact_metadata_apply_http_fixture()
         .review_generated_artifact(artifact.id, GeneratedArtifactReviewDecision::Accept)
         .await
         .unwrap();
-    let router = build_router(app);
+    let router = build_router(app.clone());
 
     AdminGeneratedArtifactMetadataApplyHttpFixture {
         _temp: temp,
+        app,
         router,
         store,
         artifact_id: artifact.id,

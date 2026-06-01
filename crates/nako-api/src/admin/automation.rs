@@ -7,8 +7,13 @@ use nako_core::{
     GeneratedArtifactMetadataApplyFieldPlan, GeneratedArtifactMetadataApplyOutcomeId,
     GeneratedArtifactMetadataApplyPlan, GeneratedArtifactMetadataApplyPlanReason,
     GeneratedArtifactMetadataApplyPlanStatus, GeneratedArtifactMetadataApplyResult,
-    GeneratedArtifactMetadataApplyResultStatus, GeneratedArtifactMetadataBulkApplyPlan,
-    GeneratedArtifactMetadataBulkApplyPlanItem, GeneratedArtifactMetadataBulkApplyPlanItemReason,
+    GeneratedArtifactMetadataApplyResultStatus,
+    GeneratedArtifactMetadataBulkApplyBatchExecutionSummary,
+    GeneratedArtifactMetadataBulkApplyBatchId, GeneratedArtifactMetadataBulkApplyBatchItemRecord,
+    GeneratedArtifactMetadataBulkApplyBatchItemStatus,
+    GeneratedArtifactMetadataBulkApplyBatchRecord, GeneratedArtifactMetadataBulkApplyBatchStatus,
+    GeneratedArtifactMetadataBulkApplyPlan, GeneratedArtifactMetadataBulkApplyPlanItem,
+    GeneratedArtifactMetadataBulkApplyPlanItemReason,
     GeneratedArtifactMetadataBulkApplyPlanItemStatus,
     GeneratedArtifactMetadataBulkApplyPlanSelection, GeneratedArtifactMetadataBulkApplyPlanSummary,
     GeneratedArtifactMetadataFieldAction, GeneratedArtifactMetadataFieldReason,
@@ -214,6 +219,12 @@ pub struct AdminGeneratedArtifactMetadataBulkApplyPlanRequest {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminGeneratedArtifactMetadataBulkApplyRequest {
+    pub artifact_ids: Vec<AutomationArtifactId>,
+    pub idempotency_key: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminGeneratedArtifactMetadataBulkApplyPlanResponse {
     pub admin_api_version: String,
     pub public_api_version: String,
@@ -227,6 +238,24 @@ impl AdminGeneratedArtifactMetadataBulkApplyPlanResponse {
             admin_api_version: ADMIN_API_VERSION.to_owned(),
             public_api_version: API_VERSION.to_owned(),
             plan: AdminGeneratedArtifactMetadataBulkApplyPlan::from_plan(plan),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminGeneratedArtifactMetadataBulkApplyBatchResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub batch: AdminGeneratedArtifactMetadataBulkApplyBatch,
+}
+
+impl AdminGeneratedArtifactMetadataBulkApplyBatchResponse {
+    #[must_use]
+    pub fn from_batch(batch: GeneratedArtifactMetadataBulkApplyBatchRecord) -> Self {
+        Self {
+            admin_api_version: ADMIN_API_VERSION.to_owned(),
+            public_api_version: API_VERSION.to_owned(),
+            batch: AdminGeneratedArtifactMetadataBulkApplyBatch::from_batch(batch),
         }
     }
 }
@@ -368,6 +397,70 @@ impl AdminGeneratedArtifactMetadataBulkApplyPlanItem {
             plan: item
                 .plan
                 .map(AdminGeneratedArtifactMetadataApplyPlan::from_plan),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminGeneratedArtifactMetadataBulkApplyBatch {
+    pub id: GeneratedArtifactMetadataBulkApplyBatchId,
+    pub job_id: JobId,
+    pub status: GeneratedArtifactMetadataBulkApplyBatchStatus,
+    pub selection: GeneratedArtifactMetadataBulkApplyPlanSelection,
+    pub summary: GeneratedArtifactMetadataBulkApplyPlanSummary,
+    pub execution_summary: GeneratedArtifactMetadataBulkApplyBatchExecutionSummary,
+    pub items: Vec<AdminGeneratedArtifactMetadataBulkApplyBatchItem>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl AdminGeneratedArtifactMetadataBulkApplyBatch {
+    #[must_use]
+    pub fn from_batch(batch: GeneratedArtifactMetadataBulkApplyBatchRecord) -> Self {
+        Self {
+            id: batch.id,
+            job_id: batch.job_id,
+            status: batch.status,
+            selection: batch.selection,
+            summary: batch.summary,
+            execution_summary: batch.execution_summary,
+            items: batch
+                .items
+                .into_iter()
+                .map(AdminGeneratedArtifactMetadataBulkApplyBatchItem::from_item)
+                .collect(),
+            created_at: batch.created_at,
+            updated_at: batch.updated_at,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminGeneratedArtifactMetadataBulkApplyBatchItem {
+    pub artifact_id: AutomationArtifactId,
+    pub position: u32,
+    pub status: GeneratedArtifactMetadataBulkApplyBatchItemStatus,
+    pub outcome_id: Option<GeneratedArtifactMetadataApplyOutcomeId>,
+    pub error_code: Option<String>,
+    pub error_message: Option<String>,
+    pub plan_item: AdminGeneratedArtifactMetadataBulkApplyPlanItem,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl AdminGeneratedArtifactMetadataBulkApplyBatchItem {
+    #[must_use]
+    pub fn from_item(item: GeneratedArtifactMetadataBulkApplyBatchItemRecord) -> Self {
+        Self {
+            artifact_id: item.artifact_id,
+            position: item.position,
+            status: item.status,
+            outcome_id: item.outcome_id,
+            error_code: item.error_code,
+            error_message: item.error_message,
+            plan_item: AdminGeneratedArtifactMetadataBulkApplyPlanItem::from_item(item.plan_item),
+            created_at: item.created_at,
+            updated_at: item.updated_at,
         }
     }
 }
@@ -747,6 +840,179 @@ mod tests {
         );
         assert_eq!(value["plan"]["items"][1]["status"], "missing");
         assert!(value["plan"]["items"][1]["plan"].is_null());
+        assert!(!body.contains("private generated overview"));
+        assert!(!body.contains("artifact_json"));
+        assert!(!body.contains("prompt_json"));
+        assert!(!body.contains("local:///"));
+        assert!(!body.contains("secret"));
+    }
+
+    #[test]
+    fn generated_artifact_metadata_apply_bulk_batch_response_is_redacted_and_result_safe() {
+        let library_id = LibraryId::new();
+        let item_id = MediaItemId::new();
+        let source_id = MediaSourceId::new();
+        let artifact_id = AutomationArtifactId::new();
+        let missing_artifact_id = AutomationArtifactId::new();
+        let outcome_id = GeneratedArtifactMetadataApplyOutcomeId::new();
+        let request = AdminGeneratedArtifactMetadataBulkApplyRequest {
+            artifact_ids: vec![artifact_id, missing_artifact_id],
+            idempotency_key: "bulk:operator-confirmation".to_owned(),
+        };
+        let plan = GeneratedArtifactMetadataApplyPlan {
+            artifact_id,
+            status: GeneratedArtifactMetadataApplyPlanStatus::Ready,
+            executable: true,
+            reasons: vec![GeneratedArtifactMetadataApplyPlanReason::Ready],
+            target: GeneratedArtifactTarget {
+                kind: GeneratedArtifactTargetKind::MediaSource,
+                library_id: Some(library_id),
+                item_id: Some(item_id),
+                source_id: Some(source_id),
+            },
+            payload: GeneratedArtifactPayloadSummary {
+                valid_json: true,
+                shape: GeneratedArtifactPayloadShape::Object,
+                payload_fingerprint: "sha256:33333333333333333333333333333333".to_owned(),
+                payload_bytes: 512,
+                object_field_count: Some(3),
+                array_item_count: None,
+                has_textual_values: true,
+                has_explanation: true,
+                confidence_milli: Some(810),
+            },
+            fields: vec![GeneratedArtifactMetadataApplyFieldPlan {
+                field: MetadataField::Overview,
+                action: GeneratedArtifactMetadataFieldAction::Apply,
+                reasons: vec![GeneratedArtifactMetadataFieldReason::Ready],
+                current: GeneratedArtifactMetadataValueSummary::missing(),
+                incoming: GeneratedArtifactMetadataValueSummary {
+                    present: true,
+                    empty: false,
+                    value_fingerprint: Some("sha256:44444444444444444444444444444444".to_owned()),
+                    value_bytes: Some(27),
+                    item_count: None,
+                },
+            }],
+            apply_field_count: 1,
+            skipped_field_count: 0,
+            noop_field_count: 0,
+        };
+        let batch = GeneratedArtifactMetadataBulkApplyBatchRecord {
+            id: GeneratedArtifactMetadataBulkApplyBatchId::new(),
+            job_id: JobId::new(),
+            idempotency_key: "bulk:operator-confirmation".to_owned(),
+            status: GeneratedArtifactMetadataBulkApplyBatchStatus::Completed,
+            selection: GeneratedArtifactMetadataBulkApplyPlanSelection {
+                requested_artifact_count: 2,
+                selected_artifact_count: 2,
+                duplicate_artifact_count: 0,
+                max_artifact_count: 100,
+            },
+            summary: GeneratedArtifactMetadataBulkApplyPlanSummary {
+                planned_artifact_count: 1,
+                missing_artifact_count: 1,
+                ready_artifact_count: 1,
+                blocked_artifact_count: 0,
+                stale_artifact_count: 0,
+                executable_artifact_count: 1,
+                apply_field_count: 1,
+                skipped_field_count: 0,
+                noop_field_count: 0,
+            },
+            execution_summary: GeneratedArtifactMetadataBulkApplyBatchExecutionSummary {
+                total_item_count: 2,
+                pending_item_count: 0,
+                skipped_item_count: 1,
+                applied_item_count: 1,
+                noop_item_count: 0,
+                stale_item_count: 0,
+                failed_item_count: 0,
+            },
+            items: vec![
+                GeneratedArtifactMetadataBulkApplyBatchItemRecord {
+                    batch_id: GeneratedArtifactMetadataBulkApplyBatchId::new(),
+                    artifact_id,
+                    position: 0,
+                    status: GeneratedArtifactMetadataBulkApplyBatchItemStatus::Applied,
+                    idempotency_key: "bulk:item:secret-key".to_owned(),
+                    outcome_id: Some(outcome_id),
+                    error_code: None,
+                    error_message: None,
+                    plan_item: GeneratedArtifactMetadataBulkApplyPlanItem {
+                        artifact_id,
+                        status: GeneratedArtifactMetadataBulkApplyPlanItemStatus::Planned,
+                        executable: true,
+                        reasons: vec![GeneratedArtifactMetadataBulkApplyPlanItemReason::Planned],
+                        plan: Some(plan),
+                    },
+                    created_at: "2026-06-01T00:00:00Z".to_owned(),
+                    updated_at: "2026-06-01T00:00:01Z".to_owned(),
+                },
+                GeneratedArtifactMetadataBulkApplyBatchItemRecord {
+                    batch_id: GeneratedArtifactMetadataBulkApplyBatchId::new(),
+                    artifact_id: missing_artifact_id,
+                    position: 1,
+                    status: GeneratedArtifactMetadataBulkApplyBatchItemStatus::Skipped,
+                    idempotency_key: "bulk:item:missing-secret-key".to_owned(),
+                    outcome_id: None,
+                    error_code: Some("missing_artifact".to_owned()),
+                    error_message: Some("artifact was missing during planning".to_owned()),
+                    plan_item: GeneratedArtifactMetadataBulkApplyPlanItem {
+                        artifact_id: missing_artifact_id,
+                        status: GeneratedArtifactMetadataBulkApplyPlanItemStatus::Missing,
+                        executable: false,
+                        reasons: vec![
+                            GeneratedArtifactMetadataBulkApplyPlanItemReason::MissingArtifact,
+                        ],
+                        plan: None,
+                    },
+                    created_at: "2026-06-01T00:00:00Z".to_owned(),
+                    updated_at: "2026-06-01T00:00:01Z".to_owned(),
+                },
+            ],
+            created_at: "2026-06-01T00:00:00Z".to_owned(),
+            updated_at: "2026-06-01T00:00:01Z".to_owned(),
+        };
+        let response = AdminGeneratedArtifactMetadataBulkApplyBatchResponse::from_batch(batch);
+
+        let request_value = serde_json::to_value(&request).unwrap();
+        let value = serde_json::to_value(&response).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(request_value["artifact_ids"].as_array().unwrap().len(), 2);
+        assert_eq!(
+            request_value["idempotency_key"],
+            "bulk:operator-confirmation"
+        );
+        assert_eq!(value["batch"]["status"], "completed");
+        assert_eq!(value["batch"]["execution_summary"]["applied_item_count"], 1);
+        assert_eq!(value["batch"]["execution_summary"]["skipped_item_count"], 1);
+        assert_eq!(value["batch"]["items"][0]["status"], "applied");
+        assert_eq!(
+            value["batch"]["items"][0]["outcome_id"],
+            outcome_id.to_string()
+        );
+        assert_eq!(
+            value["batch"]["items"][0]["plan_item"]["plan"]["fields"][0]["field"],
+            "overview"
+        );
+        assert_eq!(value["batch"]["items"][1]["status"], "skipped");
+        assert!(value["batch"]["items"][1]["plan_item"]["plan"].is_null());
+        assert!(
+            !value["batch"]
+                .as_object()
+                .unwrap()
+                .contains_key("idempotency_key")
+        );
+        assert!(
+            !value["batch"]["items"][0]
+                .as_object()
+                .unwrap()
+                .contains_key("idempotency_key")
+        );
+        assert!(!body.contains("bulk:operator-confirmation"));
+        assert!(!body.contains("bulk:item:secret-key"));
         assert!(!body.contains("private generated overview"));
         assert!(!body.contains("artifact_json"));
         assert!(!body.contains("prompt_json"));

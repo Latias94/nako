@@ -67,6 +67,20 @@ Only run after Admin contract support exists:
   PostgreSQL ignored contract was attempted with
   `cargo nextest run -p nako-db --run-ignored only postgres_metadata_catalog_contract_generated_artifact_bulk_metadata_apply_batch_is_idempotent_and_atomic --no-fail-fast`
   but did not run because `NAKO_TEST_POSTGRES_URL` is not configured locally.
+- `GABMA-050`: Exposed Admin bulk metadata apply confirm and status/result
+  routes at
+  `POST /admin/v1/automation/generated-artifacts/metadata-apply-batches` and
+  `GET /admin/v1/automation/generated-artifacts/metadata-apply-batches/{batch_id}`.
+  The Admin batch read model includes batch/job identity, queued/completed
+  status, selection and plan snapshots, execution counters, and per-item
+  outcome facts without exposing batch or item idempotency keys, raw prompts,
+  raw artifact JSON, Source Locators, paths, tokens, or provider payloads.
+  Gates: `cargo run -q -p nako-api --example emit-admin-typescript-contract -- --output apps/admin-web/src/adminApi/generated/contract.ts`;
+  `cargo run -q -p nako-api --example emit-admin-typescript-contract -- --output web/src/api/admin/generated/contract.ts`;
+  `cargo nextest run -p nako-api generated_artifact_metadata_apply --no-fail-fast`;
+  `cargo nextest run -p nako-api admin_contract --no-fail-fast`;
+  `cargo nextest run -p nako-server generated_artifact_bulk_metadata_apply --no-fail-fast`;
+  `cargo fmt --all -- --check`.
 
 ## Final Evidence Checklist
 

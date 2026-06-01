@@ -730,6 +730,19 @@ impl AutomationAppService {
             .await
     }
 
+    pub async fn get_generated_artifact_metadata_bulk_apply_batch(
+        &self,
+        batch_id: GeneratedArtifactMetadataBulkApplyBatchId,
+    ) -> Result<GeneratedArtifactMetadataBulkApplyBatchRecord> {
+        self.store
+            .get_generated_artifact_metadata_bulk_apply_batch(batch_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "generated_artifact_metadata_bulk_apply_batch",
+                id: batch_id.to_string(),
+            })
+    }
+
     pub(crate) async fn execute_generated_artifact_metadata_bulk_apply_batch(
         &self,
         batch_id: GeneratedArtifactMetadataBulkApplyBatchId,

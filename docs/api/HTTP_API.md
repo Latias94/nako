@@ -699,6 +699,8 @@ GET  /admin/v1/automation/generated-artifacts/proposals
 POST /admin/v1/automation/generated-artifacts/{artifact_id}/review-plan
 POST /admin/v1/automation/generated-artifacts/{artifact_id}/review
 POST /admin/v1/automation/generated-artifacts/metadata-apply-plan
+POST /admin/v1/automation/generated-artifacts/metadata-apply-batches
+GET  /admin/v1/automation/generated-artifacts/metadata-apply-batches/{batch_id}
 POST /admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply-plan
 POST /admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply
 GET  /admin/v1/catalog/governance/items
@@ -740,6 +742,8 @@ contract for the first read-model routes above:
 `POST /admin/v1/automation/generated-artifacts/{artifact_id}/review-plan`,
 `POST /admin/v1/automation/generated-artifacts/{artifact_id}/review`,
 `POST /admin/v1/automation/generated-artifacts/metadata-apply-plan`,
+`POST /admin/v1/automation/generated-artifacts/metadata-apply-batches`,
+`GET /admin/v1/automation/generated-artifacts/metadata-apply-batches/{batch_id}`,
 `POST /admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply-plan`,
 `POST /admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply`,
 `GET /admin/v1/catalog/governance/items`,
@@ -765,8 +769,23 @@ repeat IDs for planning, and returns per-artifact plan items plus aggregate
 ready/blocked/stale/missing and field-action counters. Missing artifacts are
 reported as redacted per-item `missing` rows instead of exposing provider,
 prompt, Source Locator, path, token, or artifact JSON details. This route never
-mutates Canonical Metadata; confirmed mutation remains behind the single-item
-metadata apply path until durable batch execution is added.
+mutates Canonical Metadata.
+
+`POST /admin/v1/automation/generated-artifacts/metadata-apply-batches` confirms a
+previously planned selection with `{ "artifact_ids": ["..."], "idempotency_key":
+"..." }`. It creates or replays a durable bulk apply batch, enqueues a
+`generated_artifact_metadata_bulk_apply` job, and returns a redacted batch read
+model with batch id, job id, status, selection and plan snapshots, execution
+counters, and per-item outcome facts. The response does not expose batch or
+item idempotency keys, raw prompts, raw artifact JSON, Source Locators, paths,
+tokens, or provider payloads.
+
+`GET /admin/v1/automation/generated-artifacts/metadata-apply-batches/{batch_id}`
+returns the same batch read model for status and result views. Completed batches
+surface applied/noop/skipped/stale/failed item counts and per-item outcome ids
+or safe error facts. Batch execution applies each executable artifact through
+the existing single-artifact Metadata Authority apply path; skipped or failed
+items do not roll back successful items.
 
 `POST /libraries/{library_id}/scan` returns `202 Accepted` with a queued job.
 The job runs in the background.

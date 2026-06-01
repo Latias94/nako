@@ -47,7 +47,7 @@ Last updated: 2026-06-01
 
 ## M3 - Admin Read Models And Web Workflow
 
-- [ ] GABMA-050 [owner=codex] [deps=GABMA-040] [scope=crates/nako-api,crates/nako-server/src/http,generated clients]
+- [x] GABMA-050 [owner=codex] [deps=GABMA-040] [scope=crates/nako-api,crates/nako-server/src/http,generated clients]
   Goal: Expose final Admin bulk apply confirm/status/result routes and keep
   generated contracts synchronized.
   Validation: `cargo nextest run -p nako-api admin_contract generated_artifact_metadata_apply --no-fail-fast`; `cargo nextest run -p nako-server generated_artifact_bulk_metadata_apply --no-fail-fast`.

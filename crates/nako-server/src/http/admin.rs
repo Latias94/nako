@@ -24,8 +24,10 @@ use nako_api::{
         AdminDatabaseBackendCapabilitiesDiagnostics, AdminDatabaseConfigDiagnostics,
         AdminGeneratedArtifactMetadataApplyPlanResponse,
         AdminGeneratedArtifactMetadataApplyRequest, AdminGeneratedArtifactMetadataApplyResponse,
+        AdminGeneratedArtifactMetadataBulkApplyBatchResponse,
         AdminGeneratedArtifactMetadataBulkApplyPlanRequest,
-        AdminGeneratedArtifactMetadataBulkApplyPlanResponse, AdminGeneratedArtifactProposal,
+        AdminGeneratedArtifactMetadataBulkApplyPlanResponse,
+        AdminGeneratedArtifactMetadataBulkApplyRequest, AdminGeneratedArtifactProposal,
         AdminGeneratedArtifactProposalListResponse, AdminGeneratedArtifactReviewPlanResponse,
         AdminGeneratedArtifactReviewRequest, AdminGeneratedArtifactReviewResponse,
         AdminInvitationListResponse, AdminInvitationRecord, AdminInvitationResponse,
@@ -84,11 +86,12 @@ use nako_api::{
     public_client::{API_VERSION, ClientErrorCode, ErrorResponse, page_info_from_request},
 };
 use nako_core::{
-    ArtworkCandidateId, AutomationArtifactId, ImageKind, JobId, LibraryAccessPolicy,
-    LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId, ManagedArtworkArtifactId,
-    ManagedArtworkIngestId, MediaItemId, NakoError, PageRequest, PlaybackTargetKind,
-    PlaybackTargetTransportAuth, ProviderMappingId, RendererSessionRecord, RendererSessionState,
-    RoleAssignment, User, UserId, UserInvitationId, UserPrincipalId, UserRole, UserStatus,
+    ArtworkCandidateId, AutomationArtifactId, GeneratedArtifactMetadataBulkApplyBatchId, ImageKind,
+    JobId, LibraryAccessPolicy, LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId,
+    ManagedArtworkArtifactId, ManagedArtworkIngestId, MediaItemId, NakoError, PageRequest,
+    PlaybackTargetKind, PlaybackTargetTransportAuth, ProviderMappingId, RendererSessionRecord,
+    RendererSessionState, RoleAssignment, User, UserId, UserInvitationId, UserPrincipalId,
+    UserRole, UserStatus,
 };
 use nako_db::DatabaseBackendCapabilities;
 use nako_transcode::{
@@ -139,6 +142,14 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/automation/generated-artifacts/metadata-apply-plan",
             post(plan_admin_generated_artifact_metadata_bulk_apply),
+        )
+        .route(
+            "/admin/v1/automation/generated-artifacts/metadata-apply-batches",
+            post(create_admin_generated_artifact_metadata_bulk_apply_batch),
+        )
+        .route(
+            "/admin/v1/automation/generated-artifacts/metadata-apply-batches/{batch_id}",
+            get(get_admin_generated_artifact_metadata_bulk_apply_batch),
         )
         .route(
             "/admin/v1/automation/generated-artifacts/{artifact_id}/review-plan",
@@ -553,6 +564,39 @@ pub(super) async fn plan_admin_generated_artifact_metadata_bulk_apply(
 
     Ok(Json(
         AdminGeneratedArtifactMetadataBulkApplyPlanResponse::from_plan(plan),
+    ))
+}
+
+pub(super) async fn create_admin_generated_artifact_metadata_bulk_apply_batch(
+    State(app): State<NakoApp>,
+    Json(request): Json<AdminGeneratedArtifactMetadataBulkApplyRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let batch = app
+        .automation()
+        .create_generated_artifact_metadata_bulk_apply_batch(
+            nako_core::GeneratedArtifactMetadataBulkApplyBatchRequest {
+                artifact_ids: request.artifact_ids,
+                idempotency_key: request.idempotency_key,
+            },
+        )
+        .await?;
+
+    Ok(Json(
+        AdminGeneratedArtifactMetadataBulkApplyBatchResponse::from_batch(batch),
+    ))
+}
+
+pub(super) async fn get_admin_generated_artifact_metadata_bulk_apply_batch(
+    State(app): State<NakoApp>,
+    Path(batch_id): Path<GeneratedArtifactMetadataBulkApplyBatchId>,
+) -> ApiResult<impl IntoResponse> {
+    let batch = app
+        .automation()
+        .get_generated_artifact_metadata_bulk_apply_batch(batch_id)
+        .await?;
+
+    Ok(Json(
+        AdminGeneratedArtifactMetadataBulkApplyBatchResponse::from_batch(batch),
     ))
 }
 
