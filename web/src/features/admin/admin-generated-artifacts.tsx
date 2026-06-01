@@ -48,12 +48,14 @@ interface AdminGeneratedArtifactsProps {
   routeState?: AdminGeneratedArtifactsRouteState
   onRouteStateChange?: (state: AdminGeneratedArtifactsRouteState) => void
   onReviewRequest?: (artifactId: string, decision: AdminGeneratedArtifactReviewDecision) => void
+  onRecoveryRequest?: () => void
 }
 
 export function AdminGeneratedArtifacts({
   routeState,
   onRouteStateChange,
   onReviewRequest,
+  onRecoveryRequest,
 }: AdminGeneratedArtifactsProps = {}) {
   const normalizedRouteState = useMemo(() => normalizeRouteState(routeState), [routeState])
   const query = useMemo(() => routeStateToQuery(normalizedRouteState), [normalizedRouteState])
@@ -167,6 +169,10 @@ export function AdminGeneratedArtifacts({
             <ShieldCheck className="h-3 w-3" />
             受控审核
           </Badge>
+          <Button type="button" variant="outline" size="sm" className="gap-2" onClick={onRecoveryRequest}>
+            <RefreshCw className="h-3.5 w-3.5" />
+            恢复队列
+          </Button>
           <Button
             type="button"
             variant="outline"

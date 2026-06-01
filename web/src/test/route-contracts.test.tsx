@@ -137,6 +137,14 @@ const routeContracts: RouteContract[] = [
     },
   },
   {
+    path: "/admin/automation/generated-artifacts/recovery?attention=needs_repair",
+    assert: async () => {
+      expect(await screen.findByRole("heading", { name: "生成产物恢复" }, { timeout: 10000 })).toBeInTheDocument()
+      expect(await screen.findByText(/fixture-generated-outcome-1/, {}, { timeout: 10000 })).toBeInTheDocument()
+      expect(await screen.findByText("只读恢复队列", {}, { timeout: 10000 })).toBeInTheDocument()
+    },
+  },
+  {
     path: "/admin/settings",
     assert: async () => {
       expect(await screen.findByRole("heading", { name: "高级设置" }, { timeout: 10000 })).toBeInTheDocument()

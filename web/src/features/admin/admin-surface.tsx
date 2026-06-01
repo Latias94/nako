@@ -62,6 +62,10 @@ import { AdminSettings } from "./admin-settings"
 import { AdminAcquisitionIntake, type AdminAcquisitionIntakeRouteState } from "./admin-acquisition-intake"
 import type { AdminGeneratedArtifactsRouteState } from "./admin-generated-artifacts"
 import {
+  AdminGeneratedArtifactRecovery,
+  type AdminGeneratedArtifactRecoveryRouteState,
+} from "./admin-generated-artifact-recovery"
+import {
   AdminGeneratedArtifactReview,
   type AdminGeneratedArtifactReviewRouteState,
 } from "./admin-generated-artifact-review"
@@ -93,6 +97,7 @@ export type AdminSurfaceSection =
   | "scheduled-tasks"
   | "acquisition-intake"
   | "generated-artifacts"
+  | "generated-artifact-recovery"
   | "generated-artifact-review"
   | "generated-artifact-metadata-apply"
   | "libraries"
@@ -116,6 +121,8 @@ export interface AdminSurfaceProps {
   onAcquisitionIntakeStateChange?: (state: AdminAcquisitionIntakeRouteState) => void
   generatedArtifactsState?: AdminGeneratedArtifactsRouteState
   onGeneratedArtifactsStateChange?: (state: AdminGeneratedArtifactsRouteState) => void
+  generatedArtifactRecoveryState?: AdminGeneratedArtifactRecoveryRouteState
+  onGeneratedArtifactRecoveryStateChange?: (state: AdminGeneratedArtifactRecoveryRouteState) => void
   generatedArtifactReviewState?: AdminGeneratedArtifactReviewRouteState
   generatedArtifactMetadataApplyState?: AdminGeneratedArtifactMetadataApplyRouteState
   managementContextState?: AdminManagementContextRouteState
@@ -124,6 +131,7 @@ export interface AdminSurfaceProps {
     artifactId: string,
     decision: AdminGeneratedArtifactReviewDecision,
   ) => void
+  onGeneratedArtifactRecoveryRequest?: () => void
   onGeneratedArtifactReviewBack?: () => void
   onGeneratedArtifactMetadataApplyRequest?: (artifactId: string) => void
   onGeneratedArtifactMetadataApplyBack?: () => void
@@ -156,6 +164,7 @@ const adminNavGroups: AdminNavGroup[] = [
       { name: "媒体库", icon: Folder, component: "libraries" },
       { name: "采集入口", icon: FileSearch, component: "acquisition-intake" },
       { name: "生成产物", icon: Sparkles, component: "generated-artifacts" },
+      { name: "恢复队列", icon: RotateCcw, component: "generated-artifact-recovery" },
     ]
   },
   {
@@ -213,11 +222,14 @@ export function AdminSurface({
   onAcquisitionIntakeStateChange,
   generatedArtifactsState,
   onGeneratedArtifactsStateChange,
+  generatedArtifactRecoveryState,
+  onGeneratedArtifactRecoveryStateChange,
   generatedArtifactReviewState,
   generatedArtifactMetadataApplyState,
   managementContextState,
   onGeneratedArtifactReviewStateChange,
   onGeneratedArtifactReviewRequest,
+  onGeneratedArtifactRecoveryRequest,
   onGeneratedArtifactReviewBack,
   onGeneratedArtifactMetadataApplyRequest,
   onGeneratedArtifactMetadataApplyBack,
@@ -267,6 +279,16 @@ export function AdminSurface({
             routeState={generatedArtifactsState}
             onRouteStateChange={onGeneratedArtifactsStateChange}
             onReviewRequest={onGeneratedArtifactReviewRequest}
+            onRecoveryRequest={onGeneratedArtifactRecoveryRequest}
+          />
+        )
+      case "generated-artifact-recovery":
+        return (
+          <AdminGeneratedArtifactRecovery
+            routeState={generatedArtifactRecoveryState}
+            onRouteStateChange={onGeneratedArtifactRecoveryStateChange}
+            onBackToArtifacts={() => navigateToSection("generated-artifacts")}
+            onApplyRequest={onGeneratedArtifactMetadataApplyRequest}
           />
         )
       case "generated-artifact-review":

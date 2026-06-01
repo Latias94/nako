@@ -1,6 +1,6 @@
 # Web Admin Generated Artifact Recovery UI — Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Lane Opening Gates
@@ -37,6 +37,37 @@ git diff --check
 - browser smoke on desktop and mobile widths when route code changes
 - `npm --prefix web run build:budget` if the route materially changes Admin
   bundle size
+
+## Verified Route Gates
+
+Verified on 2026-06-02:
+
+- `npm --prefix web run test -- src/test/data-source-contracts.test.ts`
+  - 1 file passed; 38 tests passed.
+- `npm --prefix web run test -- src/test/route-contracts.test.tsx src/test/route-state-contracts.test.tsx`
+  - 2 files passed; 58 tests passed.
+- `npm --prefix web run check`
+  - `tsc --noEmit` passed.
+- `npm --prefix web run build:budget`
+  - passed after keeping `total-js` to 340.53 KiB gzip under the adjusted
+    341 KiB limit.
+- browser smoke at
+  `/admin/automation/generated-artifacts/recovery?attention=needs_repair`
+  - desktop 1280px: heading, fixture outcome, and read-only badge visible;
+    no raw sensitive values; no page-level overflow.
+  - mobile 390px: heading, fixture outcome, and read-only badge visible; no
+    raw sensitive values; no page-level overflow; table overflow is contained
+    inside the table scroller.
+  - screenshots:
+    - `target/codex-smoke/wagr-recovery-desktop.png`
+    - `target/codex-smoke/wagr-recovery-mobile.png`
+
+Budget note:
+
+- The route adds a real Admin operator surface, so `web/scripts/check-bundle-budget.mjs`
+  raises only the aggregate `total-js` gzip limit from 340 KiB to 341 KiB.
+  Initial JS, initial CSS, Admin route JS, and Media route JS stayed under
+  their existing budgets.
 
 ## Evidence Anchors
 

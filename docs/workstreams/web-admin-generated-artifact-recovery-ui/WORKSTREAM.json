@@ -2,12 +2,12 @@
   "schema_version": 1,
   "slug": "web-admin-generated-artifact-recovery-ui",
   "title": "Web Admin Generated Artifact Recovery UI",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-06-02",
   "scope_kind": "web_product_admin_route",
   "problem": "Generated Artifact apply recovery is available through Admin API and Web read models, but operators still lack a dedicated Web Admin route for inspecting repair-relevant stale/noop/failed/skipped state.",
   "task_prefix": "WAGR",
-  "current_task": "WAGR-020",
+  "current_task": "WAGR-030",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -49,12 +49,22 @@
     "npm --prefix web run test -- src/test/data-source-contracts.test.ts",
     "npm --prefix web run test -- src/test/route-contracts.test.tsx src/test/route-state-contracts.test.tsx",
     "npm --prefix web run check",
+    "npm --prefix web run build:budget",
+    "browser smoke for desktop and mobile route rendering",
     "git diff --check"
   ],
   "evidence": [
     {
       "task": "WAGR-010",
       "summary": "Opened a Web Product follow-on from GAOR closeout to render the existing read-only Generated Artifact apply recovery queue in Web Admin."
+    },
+    {
+      "task": "WAGR-020",
+      "summary": "Added the read-only Web Admin recovery route with attention filters, pagination, summary counters, redaction-safe row facts, fixture/live tests, and desktop/mobile browser smoke."
+    },
+    {
+      "task": "WAGR-030",
+      "summary": "Closed the lane after route verification; repair mutation remains split to proposed:generated-artifact-apply-repair-actions."
     }
   ],
   "adr_refs": [
@@ -86,8 +96,8 @@
   ],
   "lane_slug": "web-product",
   "continue_policy": {
-    "default_action": "run_current_task",
-    "current_task": "WAGR-020",
-    "notes": "Implement the read-only Web Admin recovery route first. Stop and split if mutation or backend contract changes become necessary."
+    "default_action": "closed",
+    "current_task": null,
+    "notes": "Lane target shipped. Open a new workstream for repair mutation, deeper diagnostics, or provider-depth precision instead of reopening this read-only UI lane."
   }
 }

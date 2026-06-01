@@ -11,28 +11,43 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: active Web Product follow-on.
+Status: selecting next focused follow-on.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
 Operations Repair are both closed as of 2026-06-02. Web Admin Generated
-Artifact Recovery UI is now the focused follow-on.
+Artifact Recovery UI is also closed after `WAGR-030`.
 
-It targets:
+The next focused lane should choose one bounded target:
+
+- guarded Generated Artifact apply repair actions;
+- Admin settings API-backed restoration;
+- provider-depth precision;
+- a narrow Web/Public Client release-smoke slice.
+
+Latest completed architecture focus:
+
+Web Admin Generated Artifact Recovery UI closed on 2026-06-02 after GAOR.
+
+It shipped:
 
 - read-only Web Admin route for the GAOR recovery queue;
-- attention filtering, pagination, and summary counters;
-- no mutation controls until a separate repair-actions lane proves idempotency
-  and freshness reuse.
+- attention filtering, pagination, summary counters, and redaction-safe row
+  facts;
+- desktop/mobile browser smoke and Web route/data-source gates;
+- a mobile shell header sizing fix for the route;
+- a narrow aggregate Web total-JS gzip budget update from 340 KiB to 341 KiB.
 
 Authoritative lane:
 
 - `docs/workstreams/web-admin-generated-artifact-recovery-ui/`
 
-Next task:
+Follow-ons:
 
-- `WAGR-020`: implement the read-only route and Web verification gates.
+- `proposed:generated-artifact-apply-repair-actions`;
+- `proposed:metadata-provider-depth-and-precision`;
+- `proposed:admin-settings-api-backed-restoration`.
 
-Latest completed architecture focus:
+Previous architecture focus:
 
 Generated Artifact Apply Operations Repair closed on 2026-06-02 after
 Generated Artifact Provider Mapping Breadth and Bulk Metadata Apply closeouts.
@@ -54,7 +69,7 @@ Authoritative lane:
 
 Follow-ons:
 
-- `proposed:web-admin-generated-artifact-recovery-ui`;
+- `docs/workstreams/web-admin-generated-artifact-recovery-ui/` (closed);
 - `proposed:generated-artifact-apply-repair-actions`;
 - `proposed:metadata-provider-depth-and-precision`.
 

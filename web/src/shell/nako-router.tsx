@@ -22,6 +22,7 @@ import { SurfaceSwitcher } from "@/src/shell/surface-switcher"
 import type { MediaSurfaceRef, MediaSurfaceRouteView } from "@/src/features/media"
 import type {
   AdminAcquisitionIntakeRouteState,
+  AdminGeneratedArtifactRecoveryRouteState,
   AdminGeneratedArtifactMetadataApplyRouteState,
   AdminGeneratedArtifactReviewRouteState,
   AdminGeneratedArtifactsRouteState,
@@ -397,6 +398,39 @@ function AdminGeneratedArtifactsRoute() {
           },
         })
       }}
+      onGeneratedArtifactRecoveryRequest={() => {
+        void navigate({ to: "/admin/automation/generated-artifacts/recovery" })
+      }}
+      onSectionNavigate={(nextSection) => {
+        void navigate(toAdminRoute(nextSection))
+      }}
+    />
+  )
+}
+
+function AdminGeneratedArtifactRecoveryRoute() {
+  const navigate = useNavigate()
+  const search = adminGeneratedArtifactRecoveryRoute.useSearch()
+
+  return (
+    <AdminSurface
+      activeSection="generated-artifact-recovery"
+      generatedArtifactRecoveryState={adminGeneratedArtifactRecoveryStateFromSearch(search)}
+      onGeneratedArtifactRecoveryStateChange={(state) => {
+        void navigate({
+          to: "/admin/automation/generated-artifacts/recovery",
+          search: toAdminGeneratedArtifactRecoverySearch(state),
+          replace: true,
+        })
+      }}
+      onGeneratedArtifactMetadataApplyRequest={(artifactId) => {
+        void navigate({
+          to: "/admin/automation/generated-artifacts/metadata-apply",
+          search: {
+            artifact_id: artifactId,
+          },
+        })
+      }}
       onSectionNavigate={(nextSection) => {
         void navigate(toAdminRoute(nextSection))
       }}
@@ -620,6 +654,13 @@ const adminGeneratedArtifactsRoute = createRoute({
   component: AdminGeneratedArtifactsRoute,
 })
 
+const adminGeneratedArtifactRecoveryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/automation/generated-artifacts/recovery",
+  validateSearch: validateAdminGeneratedArtifactRecoverySearch,
+  component: AdminGeneratedArtifactRecoveryRoute,
+})
+
 const adminGeneratedArtifactReviewRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/admin/automation/generated-artifacts/review",
@@ -733,6 +774,7 @@ const routeTree = rootRoute.addChildren([
   adminLogsRoute,
   adminAcquisitionIntakeRoute,
   adminGeneratedArtifactsRoute,
+  adminGeneratedArtifactRecoveryRoute,
   adminGeneratedArtifactReviewRoute,
   adminGeneratedArtifactMetadataApplyRoute,
   adminSettingsRoute,
@@ -820,6 +862,8 @@ function toAdminRoute(section: AdminSurfaceSection) {
       return { to: "/admin/acquisition/intake" } as const
     case "generated-artifacts":
       return { to: "/admin/automation/generated-artifacts" } as const
+    case "generated-artifact-recovery":
+      return { to: "/admin/automation/generated-artifacts/recovery" } as const
     case "generated-artifact-review":
       return { to: "/admin/automation/generated-artifacts" } as const
     case "generated-artifact-metadata-apply":
@@ -849,6 +893,13 @@ const ADMIN_LOG_LEVELS: LogLevel[] = ["error", "warn", "info", "debug"]
 const ADMIN_LOG_SOURCES: LogSource[] = ["server", "auth", "database", "api", "playback", "scanner"]
 const ADMIN_LOG_TABS: AdminLogsTab[] = ["all", "errors", "warnings"]
 const ADMIN_LOG_TIME_RANGES = ["1h", "6h", "24h", "7d", "30d", "custom"]
+const ADMIN_GENERATED_ARTIFACT_RECOVERY_ATTENTIONS = [
+  "all",
+  "needs_repair",
+  "needs_review",
+  "replay_only",
+  "resolved",
+] as const
 
 interface AdminLogsRouteSearch {
   q?: string
@@ -868,6 +919,12 @@ interface AdminAcquisitionIntakeRouteSearch {
 }
 
 interface AdminGeneratedArtifactsRouteSearch {
+  limit?: number
+  offset?: number
+}
+
+interface AdminGeneratedArtifactRecoveryRouteSearch {
+  attention?: AdminGeneratedArtifactRecoveryRouteState["attention"]
   limit?: number
   offset?: number
 }
@@ -911,6 +968,16 @@ function validateAdminGeneratedArtifactsSearch(
   search: Record<string, unknown>,
 ): AdminGeneratedArtifactsRouteSearch {
   return {
+    limit: parsePositiveInteger(search.limit),
+    offset: parseNonNegativeInteger(search.offset),
+  }
+}
+
+function validateAdminGeneratedArtifactRecoverySearch(
+  search: Record<string, unknown>,
+): AdminGeneratedArtifactRecoveryRouteSearch {
+  return {
+    attention: parseAdminLogValue(search.attention, [...ADMIN_GENERATED_ARTIFACT_RECOVERY_ATTENTIONS]),
     limit: parsePositiveInteger(search.limit),
     offset: parseNonNegativeInteger(search.offset),
   }
@@ -1017,6 +1084,16 @@ function adminGeneratedArtifactsStateFromSearch(
   }
 }
 
+function adminGeneratedArtifactRecoveryStateFromSearch(
+  search: AdminGeneratedArtifactRecoveryRouteSearch,
+): AdminGeneratedArtifactRecoveryRouteState {
+  return {
+    attention: search.attention,
+    limit: search.limit,
+    offset: search.offset,
+  }
+}
+
 function adminGeneratedArtifactReviewStateFromSearch(
   search: AdminGeneratedArtifactReviewRouteSearch,
 ): AdminGeneratedArtifactReviewRouteState {
@@ -1057,6 +1134,14 @@ function toAdminAcquisitionIntakeSearch(state: AdminAcquisitionIntakeRouteState)
 
 function toAdminGeneratedArtifactsSearch(state: AdminGeneratedArtifactsRouteState) {
   return {
+    limit: state.limit && state.limit !== 50 ? state.limit : undefined,
+    offset: state.offset && state.offset > 0 ? state.offset : undefined,
+  }
+}
+
+function toAdminGeneratedArtifactRecoverySearch(state: AdminGeneratedArtifactRecoveryRouteState) {
+  return {
+    attention: state.attention && state.attention !== "needs_repair" ? state.attention : undefined,
     limit: state.limit && state.limit !== 50 ? state.limit : undefined,
     offset: state.offset && state.offset > 0 ? state.offset : undefined,
   }

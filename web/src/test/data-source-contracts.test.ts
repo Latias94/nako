@@ -711,6 +711,44 @@ function adminGeneratedArtifactMetadataApplyResponse(artifactId = "artifact-live
   }
 }
 
+function adminGeneratedArtifactMetadataApplyRecoveryResponse() {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    summary: {
+      returned_entry_count: 1,
+      needs_repair_count: 1,
+      needs_review_count: 0,
+      replay_only_count: 0,
+      resolved_count: 0,
+    },
+    entries: [
+      {
+        source: "apply_outcome",
+        attention: "needs_repair",
+        reason: "apply_outcome_failed",
+        artifact_id: "artifact/unsafe id",
+        outcome_id: "metadata-apply-outcome-live",
+        batch_id: null,
+        batch_item_status: null,
+        outcome_status: "failed",
+        item_id: "item-live",
+        plan: adminGeneratedArtifactMetadataApplyPlan("artifact/unsafe id"),
+        error_code: "target_stale",
+        error_message: "target became stale before apply execution",
+        created_at: "2026-06-02T12:00:00Z",
+        updated_at: "2026-06-02T12:05:00Z",
+        idempotency_key: "unsafe-recovery-idempotency",
+      },
+    ],
+    page: {
+      limit: 25,
+      offset: 50,
+      returned: 1,
+    },
+  }
+}
+
 function adminGeneratedArtifactMetadataBulkApplyPlanResponse(
   artifactIds = ["artifact-live", "artifact-missing"],
 ) {
@@ -3048,6 +3086,91 @@ describe("admin read model data source contracts", () => {
     await expect(
       source.loadGeneratedArtifactMetadataApplyPlan("fixture-generated-artifact-1"),
     ).resolves.toEqual(ADMIN_GENERATED_ARTIFACT_METADATA_APPLY_PLAN_FIXTURE)
+  })
+
+  it("maps live Admin generated artifact apply recovery without unsafe fields", async () => {
+    const calls: Array<{ method: string; path: string; authorization: string | null }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      calls.push({
+        method: init?.method ?? "GET",
+        path: `${url.pathname}${url.search}`,
+        authorization: new Headers(init?.headers).get("Authorization"),
+      })
+
+      if (url.pathname === "/admin/v1/automation/generated-artifact-apply-recovery") {
+        return jsonResponse(adminGeneratedArtifactMetadataApplyRecoveryResponse())
+      }
+
+      return jsonResponse({ message: "not found" }, 404)
+    })
+    const source = createAdminReadModelsDataSource(
+      {
+        mode: "live",
+        baseUrl: "http://nako-admin.test/",
+        bearerToken: "admin-token",
+      },
+      fetcher,
+    )
+
+    const recovery = await source.loadGeneratedArtifactApplyRecovery({
+      attention: "needs_repair",
+      limit: 25,
+      offset: 50,
+    })
+
+    expect(recovery).toMatchObject({
+      source: "live",
+      fallback: false,
+      summary: {
+        returnedEntryCount: 1,
+        needsRepairCount: 1,
+      },
+      entries: [
+        expect.objectContaining({
+          artifactId: "artifact/unsafe id",
+          outcomeId: "metadata-apply-outcome-live",
+          attention: "needs_repair",
+          reason: "apply_outcome_failed",
+          outcomeStatus: "failed",
+          errorCode: "target_stale",
+          plan: expect.objectContaining({
+            artifactId: "artifact/unsafe id",
+            providerMappings: expect.arrayContaining([
+              expect.objectContaining({
+                subject: expect.objectContaining({
+                  provider: "tmdb",
+                  subjectKey: "tmdb-123",
+                }),
+              }),
+            ]),
+          }),
+        }),
+      ],
+      page: {
+        limit: 25,
+        offset: 50,
+        returned: 1,
+      },
+    })
+
+    expect(calls).toEqual([
+      {
+        method: "GET",
+        path: "/admin/v1/automation/generated-artifact-apply-recovery?attention=needs_repair&limit=25&offset=50",
+        authorization: "Bearer admin-token",
+      },
+    ])
+
+    const serialized = JSON.stringify(recovery)
+    expect(serialized).not.toContain("F:\\private")
+    expect(serialized).not.toContain("/mnt/private/source")
+    expect(serialized).not.toContain("unsafe prompt body")
+    expect(serialized).not.toContain("unsafe current title")
+    expect(serialized).not.toContain("unsafe generated payload title")
+    expect(serialized).not.toContain("provider secret response")
+    expect(serialized).not.toContain("provider-secret")
+    expect(serialized).not.toContain("unsafe-recovery-idempotency")
   })
 
   it("maps live Admin generated artifact metadata bulk apply plans through POST without unsafe fields", async () => {

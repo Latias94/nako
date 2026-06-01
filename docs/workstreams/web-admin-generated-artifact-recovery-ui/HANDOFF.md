@@ -1,16 +1,20 @@
 # Web Admin Generated Artifact Recovery UI — Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Current State
 
-GAOR closed with a backend/Admin API/Web data-source recovery queue:
+The Web Admin recovery queue route is shipped and verified:
 
-- outcome list/detail and recovery queue Admin routes exist;
-- `web/src/api/admin/read-models-data-source.ts` can load and map recovery
-  entries;
-- no route-level Web Admin UI renders that recovery queue yet.
+- `/admin/automation/generated-artifacts/recovery` renders the GAOR recovery
+  read model;
+- attention, limit, and offset are route state;
+- rows stay read-only and link to the existing Metadata Authority apply plan
+  route instead of executing repair;
+- fixture/live data-source and route tests cover the read path;
+- desktop/mobile browser smoke passed without page-level overflow or sensitive
+  raw data leakage.
 
 ## Active Task
 
@@ -18,8 +22,8 @@ GAOR closed with a backend/Admin API/Web data-source recovery queue:
 - Owner: codex
 - Files: `web/src/features/admin`, `web/src/shell`, `web/src/api/admin`, `web/src/test`
 - Validation: Web data-source tests, route tests, TypeScript check, browser smoke
-- Status: READY
-- Review: not started
+- Status: DONE
+- Review: no blocking findings during closeout
 - Evidence: `docs/workstreams/web-admin-generated-artifact-recovery-ui/EVIDENCE_AND_GATES.md`
 
 ## Decisions Since Last Update
@@ -27,11 +31,17 @@ GAOR closed with a backend/Admin API/Web data-source recovery queue:
 - Opened a new `web-product` follow-on instead of reopening GAOR.
 - Kept repair mutation out of scope.
 - Chose attention filter plus paginated table as the first route shape.
+- Tightened mobile shell header sizing after browser smoke exposed top-bar
+  overlap at 390px.
+- Raised only the aggregate Web total-JS gzip budget from 340 KiB to 341 KiB
+  after route slimming left the meaningful Admin surface at 340.53 KiB.
 
 ## Blockers
 
-- None yet.
+- None.
 
 ## Next Recommended Action
 
-- Implement `WAGR-020` as a read-only route and update route/data-source tests.
+- Do not reopen this lane for mutation. Open
+  `proposed:generated-artifact-apply-repair-actions` if operators need a
+  guarded repair action over the same Metadata Authority semantics.

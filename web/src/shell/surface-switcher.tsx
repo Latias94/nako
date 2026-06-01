@@ -41,20 +41,20 @@ export function SurfaceSwitcher({ currentSurface, onSurfaceChange, onSearchClick
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/50 bg-background/95 backdrop-blur-sm">
-      <div className="flex h-14 items-center justify-between px-4 lg:px-6">
+      <div className="flex h-14 min-w-0 items-center justify-between gap-2 px-3 sm:px-4 lg:px-6">
         {/* Logo and Brand */}
-        <div className="flex items-center gap-3">
-          <img src={resolveArtwork("/nako-icon.png")} alt="Nako" className="h-8 w-8 rounded-lg" />
-          <span className="text-lg font-semibold tracking-tight text-foreground">Nako</span>
-          <span className="hidden text-xs text-muted-foreground sm:inline-block">私人媒体库</span>
+        <div className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
+          <img src={resolveArtwork("/nako-icon.png")} alt="Nako" className="h-8 w-8 shrink-0 rounded-lg" />
+          <span className="hidden text-lg font-semibold tracking-tight text-foreground sm:inline">Nako</span>
+          <span className="hidden text-xs text-muted-foreground md:inline-block">私人媒体库</span>
         </div>
 
         {/* Surface Tabs */}
-        <div className="flex items-center gap-1 rounded-lg bg-muted/50 p-1">
+        <div className="flex shrink-0 items-center gap-1 rounded-lg bg-muted/50 p-1">
           <button
             onClick={() => onSurfaceChange("media")}
             className={cn(
-              "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-all",
+              "flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium transition-all sm:gap-2 sm:px-3",
               currentSurface === "media"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -66,7 +66,7 @@ export function SurfaceSwitcher({ currentSurface, onSurfaceChange, onSearchClick
           <button
             onClick={() => onSurfaceChange("admin")}
             className={cn(
-              "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-all",
+              "flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium transition-all sm:gap-2 sm:px-3",
               currentSurface === "admin"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -78,7 +78,7 @@ export function SurfaceSwitcher({ currentSurface, onSurfaceChange, onSearchClick
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <Button
             variant="ghost"
             size="icon"
@@ -143,7 +143,7 @@ export function SurfaceSwitcher({ currentSurface, onSurfaceChange, onSearchClick
           {/* User Avatar Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="ml-2 flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-xs font-medium text-secondary-foreground transition-colors hover:bg-secondary/80">
+              <button className="ml-1 flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-xs font-medium text-secondary-foreground transition-colors hover:bg-secondary/80 sm:ml-2">
                 管理
               </button>
             </DropdownMenuTrigger>

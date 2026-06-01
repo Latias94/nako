@@ -6,6 +6,7 @@ import type {
   AdminAcquisitionIntakeCandidateDiagnostic,
   AdminAcquisitionIntakeCandidateListResponse,
   AdminAcquisitionIntakeCandidatesQuery,
+  AdminGeneratedArtifactApplyRecoveryQuery,
   AdminGeneratedArtifactMetadataApplyFieldPlan,
   AdminGeneratedArtifactMetadataApplyOutcome,
   AdminGeneratedArtifactMetadataApplyOutcomeListResponse,
@@ -896,13 +897,12 @@ export function createAdminReadModelsDataSource(
       })
     },
 
-    async loadGeneratedArtifactApplyRecovery(): Promise<AdminGeneratedArtifactMetadataApplyRecoveryReadModel> {
-      return withFallback(ADMIN_GENERATED_ARTIFACT_APPLY_RECOVERY_READ_MODEL_FIXTURE, async () => {
-        const response = await client.getGeneratedArtifactApplyRecovery({
-          attention: "needs_repair",
-          limit: 50,
-          offset: 0,
-        })
+    async loadGeneratedArtifactApplyRecovery(
+      query: AdminGeneratedArtifactApplyRecoveryQuery = {},
+    ): Promise<AdminGeneratedArtifactMetadataApplyRecoveryReadModel> {
+      const normalizedQuery = normalizeGeneratedArtifactApplyRecoveryQuery(query)
+      return withFallback(generatedArtifactApplyRecoveryFixture(normalizedQuery), async () => {
+        const response = await client.getGeneratedArtifactApplyRecovery(normalizedQuery)
         return mapGeneratedArtifactApplyRecovery(response)
       })
     },
@@ -1002,8 +1002,8 @@ function fixtureDataSource() {
     async loadGeneratedArtifactApplyOutcome(outcomeId: string) {
       return generatedArtifactApplyOutcomeFixture(outcomeId)
     },
-    async loadGeneratedArtifactApplyRecovery() {
-      return ADMIN_GENERATED_ARTIFACT_APPLY_RECOVERY_READ_MODEL_FIXTURE
+    async loadGeneratedArtifactApplyRecovery(query: AdminGeneratedArtifactApplyRecoveryQuery = {}) {
+      return generatedArtifactApplyRecoveryFixture(normalizeGeneratedArtifactApplyRecoveryQuery(query))
     },
     async loadGeneratedArtifactReviewPlan(
       artifactId: string,
@@ -1708,6 +1708,30 @@ function normalizeGeneratedArtifactsQuery(
   }
 }
 
+function normalizeGeneratedArtifactApplyRecoveryQuery(
+  query: AdminGeneratedArtifactApplyRecoveryQuery,
+): AdminGeneratedArtifactApplyRecoveryQuery {
+  return {
+    attention: normalizeGeneratedArtifactApplyRecoveryAttention(query.attention),
+    limit: query.limit ?? 50,
+    offset: query.offset ?? 0,
+  }
+}
+
+function normalizeGeneratedArtifactApplyRecoveryAttention(
+  value: AdminGeneratedArtifactApplyRecoveryQuery["attention"],
+): AdminGeneratedArtifactApplyRecoveryQuery["attention"] {
+  switch (value) {
+    case "needs_repair":
+    case "needs_review":
+    case "replay_only":
+    case "resolved":
+      return value
+    default:
+      return undefined
+  }
+}
+
 function cleanQueryValue(value: string | undefined) {
   const trimmed = value?.trim()
   return trimmed ? trimmed : undefined
@@ -1902,7 +1926,11 @@ function generatedArtifactApplyOutcomeFixture(
   }
 }
 
-function generatedArtifactApplyRecoveryFixture(): AdminGeneratedArtifactMetadataApplyRecoveryReadModel {
+function generatedArtifactApplyRecoveryFixture(
+  query: AdminGeneratedArtifactApplyRecoveryQuery = {},
+): AdminGeneratedArtifactMetadataApplyRecoveryReadModel {
+  const attention = query.attention ?? "needs_repair"
+
   return {
     source: "fixture",
     fallback: true,
@@ -1920,7 +1948,7 @@ function generatedArtifactApplyRecoveryFixture(): AdminGeneratedArtifactMetadata
     entries: [
       {
         source: "apply_outcome",
-        attention: "needs_repair",
+        attention,
         reason: "apply_outcome_failed",
         artifactId: "fixture-generated-artifact-1",
         outcomeId: "fixture-generated-outcome-1",
@@ -1936,8 +1964,8 @@ function generatedArtifactApplyRecoveryFixture(): AdminGeneratedArtifactMetadata
       },
     ],
     page: {
-      limit: 50,
-      offset: 0,
+      limit: query.limit ?? 50,
+      offset: query.offset ?? 0,
       returned: 1,
     },
   }

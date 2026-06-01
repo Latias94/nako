@@ -170,6 +170,65 @@ describe("route state contracts", () => {
     }
   })
 
+  it("renders live Admin generated artifact recovery queue without exposing raw sensitive fields", async () => {
+    const originalFetch = globalThis.fetch
+    const previousProfile = window.localStorage.getItem(CONNECTION_PROFILE_STORAGE_KEY)
+    const previousSession = window.sessionStorage.getItem(CONNECTION_SESSION_STORAGE_KEY)
+    const calls: Array<{ path: string; authorization: string | null }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      calls.push({
+        path: `${url.pathname}${url.search}`,
+        authorization: new Headers(init?.headers).get("Authorization"),
+      })
+
+      if (url.pathname === "/admin/v1/automation/generated-artifact-apply-recovery") {
+        return jsonResponse(adminGeneratedArtifactMetadataApplyRecoveryResponse())
+      }
+
+      return jsonResponse({ code: "not_found", message: "not found" }, 404)
+    })
+
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako-admin.test",
+      }),
+    )
+    window.sessionStorage.setItem(
+      CONNECTION_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        bearerToken: "admin-token",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+
+    try {
+      renderRoute("/admin/automation/generated-artifacts/recovery?attention=needs_repair&limit=25&offset=50")
+
+      expect(await screen.findByRole("heading", { name: "生成产物恢复" }, { timeout: 10000 })).toBeInTheDocument()
+      expect(await screen.findByText(/outcome-live/, {}, { timeout: 10000 })).toBeInTheDocument()
+      expect(screen.getByText("target_stale")).toBeInTheDocument()
+      expect(screen.queryByText("unsafe prompt body")).not.toBeInTheDocument()
+      expect(screen.queryByText("unsafe generated payload title")).not.toBeInTheDocument()
+      expect(screen.queryByText("provider secret response")).not.toBeInTheDocument()
+      expect(screen.queryByText("F:\\private\\source\\Movie.mkv")).not.toBeInTheDocument()
+      expect(screen.queryByText("file:///mnt/private/source/Movie.mkv")).not.toBeInTheDocument()
+      expect(screen.queryByText("unsafe-recovery-idempotency")).not.toBeInTheDocument()
+      expect(screen.queryByText("admin-token")).not.toBeInTheDocument()
+      expect(calls).toContainEqual({
+        path: "/admin/v1/automation/generated-artifact-apply-recovery?attention=needs_repair&limit=25&offset=50",
+        authorization: "Bearer admin-token",
+      })
+    } finally {
+      vi.stubGlobal("fetch", originalFetch)
+      restoreStorage(window.localStorage, CONNECTION_PROFILE_STORAGE_KEY, previousProfile)
+      restoreStorage(window.sessionStorage, CONNECTION_SESSION_STORAGE_KEY, previousSession)
+    }
+  })
+
   it("writes Admin generated artifact pagination state to the URL", async () => {
     const user = userEvent.setup()
     const { router } = renderRoute("/admin/automation/generated-artifacts?limit=1")
@@ -179,6 +238,19 @@ describe("route state contracts", () => {
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/admin/automation/generated-artifacts")
+      expect(router.state.location.search).toMatchObject({ limit: 1, offset: 1 })
+    })
+  })
+
+  it("writes Admin generated artifact recovery pagination state to the URL", async () => {
+    const user = userEvent.setup()
+    const { router } = renderRoute("/admin/automation/generated-artifacts/recovery?limit=1")
+
+    expect(await screen.findByText(/fixture-generated-outcome-1/, {}, { timeout: 10000 })).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: /下一页/ }))
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/admin/automation/generated-artifacts/recovery")
       expect(router.state.location.search).toMatchObject({ limit: 1, offset: 1 })
     })
   })
@@ -2079,6 +2151,47 @@ function adminGeneratedArtifactMetadataApplyResponse(artifactId = "artifact-live
     idempotent_replay: true,
     applied_source: "user",
     plan: adminGeneratedArtifactMetadataApplyPlan(artifactId),
+  }
+}
+
+function adminGeneratedArtifactMetadataApplyRecoveryResponse() {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    summary: {
+      returned_entry_count: 1,
+      needs_repair_count: 1,
+      needs_review_count: 0,
+      replay_only_count: 0,
+      resolved_count: 0,
+    },
+    entries: [
+      {
+        source: "apply_outcome",
+        attention: "needs_repair",
+        reason: "apply_outcome_failed",
+        artifact_id: "artifact-live",
+        outcome_id: "outcome-live",
+        batch_id: null,
+        batch_item_status: null,
+        outcome_status: "failed",
+        item_id: "item-live",
+        plan: {
+          ...adminGeneratedArtifactMetadataApplyPlan("artifact-live"),
+          raw_prompt: "unsafe prompt body",
+          idempotency_key: "unsafe-recovery-idempotency",
+        },
+        error_code: "target_stale",
+        error_message: "target became stale before apply execution",
+        created_at: "2026-06-02T12:00:00Z",
+        updated_at: "2026-06-02T12:05:00Z",
+      },
+    ],
+    page: {
+      limit: 25,
+      offset: 50,
+      returned: 1,
+    },
   }
 }
 

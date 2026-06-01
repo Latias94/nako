@@ -1,6 +1,6 @@
 # Web Admin Generated Artifact Recovery UI — TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 — Lane Opening
@@ -13,18 +13,18 @@ Last updated: 2026-06-02
 
 ## M1 — Recovery Route
 
-- [ ] WAGR-020 [owner=codex] [deps=WAGR-010] [scope=web/src/features/admin,web/src/shell,web/src/api/admin,web/src/test]
+- [x] WAGR-020 [owner=codex] [deps=WAGR-010] [scope=web/src/features/admin,web/src/shell,web/src/api/admin,web/src/test]
   Goal: Add a read-only Web Admin route for Generated Artifact apply recovery with attention filters, summary counters, pagination, and redaction-safe row facts.
   Validation: `npm --prefix web run test -- src/test/data-source-contracts.test.ts`; `npm --prefix web run test -- src/test/route-contracts.test.tsx src/test/route-state-contracts.test.tsx`; `npm --prefix web run check`; browser smoke when route renders.
   Review: confirm no mutation controls, no raw prompt/path/provider leakage, and no responsive overflow.
   Evidence: `EVIDENCE_AND_GATES.md`.
-  Handoff: Continue to `WAGR-030` for closeout or split if backend read-model gaps appear.
+  Handoff: DONE. Continued to `WAGR-030` closeout; no backend read-model gap was found.
 
 ## M2 — Closeout
 
-- [ ] WAGR-030 [owner=planner] [deps=WAGR-020] [scope=docs/workstreams/web-admin-generated-artifact-recovery-ui,docs/architecture]
+- [x] WAGR-030 [owner=planner] [deps=WAGR-020] [scope=docs/workstreams/web-admin-generated-artifact-recovery-ui,docs/architecture]
   Goal: Close the lane after route smoke, or split a narrow follow-on if repair mutation or deeper diagnostics become necessary.
   Validation: fresh gate evidence in `EVIDENCE_AND_GATES.md`; `git diff --check`.
   Review: review-workstream has no blocking findings.
-  Evidence: `CLOSEOUT.md` if closed, otherwise updated `HANDOFF.md`.
-  Handoff: DONE or explicit follow-on split only.
+  Evidence: `CLOSEOUT.md`.
+  Handoff: DONE. Repair mutation remains split to `proposed:generated-artifact-apply-repair-actions`.

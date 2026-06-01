@@ -113,7 +113,7 @@ Shipped control-plane behavior:
 
 Follow-ons:
 
-- `docs/workstreams/web-admin-generated-artifact-recovery-ui/` (active)
+- `docs/workstreams/web-admin-generated-artifact-recovery-ui/` (closed)
 - `proposed:generated-artifact-apply-repair-actions`
 - `proposed:control-plane-observability-and-trace-context`
 

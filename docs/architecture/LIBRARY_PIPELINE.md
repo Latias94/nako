@@ -32,7 +32,7 @@ Storage event or scheduled scan
 | TMDB provider | Shipped movie plus series/season/episode foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Provider depth, identity matching, and conflict precision. |
 | Douban provider | Shipped MVP foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Provider depth, identity matching, and conflict precision. |
 | Bangumi provider | Shipped MVP foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Anime-first provider depth and identity matching. |
-| Addon-assisted metadata | Shipped guarded apply, bulk apply, provider mapping breadth, and read-only apply recovery foundation | addon architecture lanes; `docs/workstreams/generated-artifact-metadata-authority-apply/`; `docs/workstreams/generated-artifact-bulk-metadata-apply/`; `docs/workstreams/generated-artifact-provider-mapping-breadth/`; `docs/workstreams/generated-artifact-apply-operations-repair/` | Web recovery UI, bounded repair actions, and deeper provider identity precision. |
+| Addon-assisted metadata | Shipped guarded apply, bulk apply, provider mapping breadth, read-only apply recovery foundation, and Web recovery UI | addon architecture lanes; `docs/workstreams/generated-artifact-metadata-authority-apply/`; `docs/workstreams/generated-artifact-bulk-metadata-apply/`; `docs/workstreams/generated-artifact-provider-mapping-breadth/`; `docs/workstreams/generated-artifact-apply-operations-repair/`; `docs/workstreams/web-admin-generated-artifact-recovery-ui/` | Bounded repair actions and deeper provider identity precision. |
 | Artwork artifact lifecycle | Shipped selection, lifecycle, variant, and remediation foundation | managed artwork lanes | Delivery cache placeholders and broader derivative policy. |
 | Watcher/debounce | Weak | This document | Open `library-watcher-and-media-intake-stability`. |
 
@@ -172,7 +172,7 @@ Boundaries:
 
 Follow-ons:
 
-- `docs/workstreams/web-admin-generated-artifact-recovery-ui/` (active)
+- `docs/workstreams/web-admin-generated-artifact-recovery-ui/` (closed)
 - `proposed:generated-artifact-apply-repair-actions`
 - `proposed:provider-identity-mapping-breadth`
 

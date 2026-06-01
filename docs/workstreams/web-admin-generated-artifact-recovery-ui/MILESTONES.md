@@ -1,6 +1,6 @@
 # Web Admin Generated Artifact Recovery UI — Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 — Lane Opening
@@ -32,6 +32,8 @@ Primary gates:
 - TypeScript check;
 - browser smoke.
 
+Status: Completed in `WAGR-020`.
+
 ## M2 — Closeout
 
 Exit criteria:
@@ -39,3 +41,5 @@ Exit criteria:
 - fresh evidence is recorded;
 - architecture maps and workstream indexes reflect the shipped route;
 - mutation and deeper diagnostics remain split as follow-ons.
+
+Status: Completed in `WAGR-030`.

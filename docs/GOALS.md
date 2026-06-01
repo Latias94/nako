@@ -26,9 +26,40 @@ proposed milestone.
 
 ## Current Goal
 
-### Web Admin Generated Artifact Recovery UI
+### Next Focus Selection
 
 Status: active as of 2026-06-02.
+
+Objective:
+
+- Choose the next bounded architecture lane after the Web Admin recovery route
+  closeout.
+- Keep repair mutation, Admin settings restoration, and provider-depth
+  precision split unless a new workstream proves one should be opened now.
+
+Deliverables:
+
+- updated workstream or lane plan before new implementation work begins.
+
+Non-goals:
+
+- no reopening `web-admin-generated-artifact-recovery-ui`;
+- no blind repair mutation without idempotency, freshness, authorization, and
+  audit semantics.
+
+Exit criteria:
+
+- one focused follow-on is opened or selected for execution.
+
+Evidence:
+
+- `docs/workstreams/web-admin-generated-artifact-recovery-ui/CLOSEOUT.md`
+
+## Recent Completed Goals
+
+### Web Admin Generated Artifact Recovery UI
+
+Status: completed on 2026-06-02.
 
 Objective:
 
@@ -39,30 +70,15 @@ Objective:
 Deliverables:
 
 - `docs/workstreams/web-admin-generated-artifact-recovery-ui/`
-- route state for attention, limit, and offset
+- `/admin/automation/generated-artifacts/recovery`
+- attention/limit/offset route state
 - summary counters and paginated recovery table
-- route/data-source tests and browser smoke evidence
-
-Non-goals:
-
-- no reopening `generated-artifact-provider-mapping-breadth`;
-- no reopening `generated-artifact-apply-operations-repair`;
-- no repair mutation buttons in this lane;
-- no Public Client API changes for Admin recovery.
-
-Exit criteria:
-
-- Web Admin route renders fixture/live recovery state with no raw internal
-  leakage;
-- route contracts, data-source tests, TypeScript check, and browser smoke pass;
-- repair mutation remains split to a focused follow-on.
+- route/data-source tests, build budget evidence, and browser smoke evidence
 
 Evidence:
 
-- `docs/workstreams/generated-artifact-apply-operations-repair/CLOSEOUT.md`
-- `docs/workstreams/web-admin-generated-artifact-recovery-ui/`
-
-## Recent Completed Goals
+- `WAGR-020` covers the route and tests;
+- `WAGR-030` closes the lane and keeps repair mutation split.
 
 ### Generated Artifact Apply Operations Repair
 

@@ -239,7 +239,7 @@ Evidence workstreams:
 - `docs/workstreams/web-playlist-management-ui-mutations/`
 - `docs/workstreams/web-admin-generated-artifact-review-mutations/`
 - `docs/workstreams/generated-artifact-metadata-authority-apply/`
-- `docs/workstreams/web-admin-generated-artifact-recovery-ui/` (active)
+- `docs/workstreams/web-admin-generated-artifact-recovery-ui/` (closed)
 - `docs/workstreams/web-mvp-live-smoke/` (closed)
 
 Proposed lanes:

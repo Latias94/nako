@@ -20,16 +20,15 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| web-product | web-admin-generated-artifact-recovery-ui | WAGR-020 | Frontend route/read-model worker |
+| web-product | idle | select next focused follow-on | Planner |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
 `generated-artifact-provider-mapping-breadth` is closed after `GAPM-060`.
 `generated-artifact-apply-operations-repair` is closed after `GAOR-040`.
-`web-admin-generated-artifact-recovery-ui` is active as the read-only Web
-follow-on. Keep it focused on route rendering and browser evidence; split
-bounded repair actions or provider-depth precision instead of reopening the
-completed read-path slice.
+`web-admin-generated-artifact-recovery-ui` is closed after `WAGR-030`.
+Bounded repair actions or provider-depth precision should open focused
+follow-ons instead of reopening the completed read-only UI slice.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
@@ -153,10 +152,9 @@ Owns the current `web/` product frontend, including Media/Admin route
 integration, frontend data-source boundaries, browser smoke evidence, and
 bundle-budget gates.
 
-Active evidence:
+Closed evidence:
 
-- `docs/workstreams/web-admin-generated-artifact-recovery-ui/` (`WAGR-020`
-  ready)
+- `docs/workstreams/web-admin-generated-artifact-recovery-ui/`
 
 Owned scopes:
 

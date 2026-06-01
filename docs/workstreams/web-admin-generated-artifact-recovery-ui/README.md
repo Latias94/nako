@@ -1,9 +1,9 @@
 # Web Admin Generated Artifact Recovery UI
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
-This workstream turns the closed GAOR read-only recovery queue into a concrete
+This workstream turned the closed GAOR read-only recovery queue into a concrete
 Web Admin operator surface.
 
 The backend already exposes redaction-safe recovery entries through
@@ -21,11 +21,12 @@ Authoritative docs:
 - `CONTEXT.jsonl`
 - `HANDOFF.md`
 
-Current execution:
+Closed execution:
 
 - `WAGR-010` opens the follow-on from GAOR closeout evidence.
-- `WAGR-020` is the first executable task: add the Web Admin recovery route,
-  filters, table, and tests against the existing read-model seam.
+- `WAGR-020` added the Web Admin recovery route, filters, table, route state,
+  and tests against the existing read-model seam.
+- `WAGR-030` closed the lane after desktop/mobile browser smoke and Web gates.
 
 Boundary:
 

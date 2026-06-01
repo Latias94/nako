@@ -18,13 +18,16 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 
 Last reviewed: 2026-06-02
 
-`web-admin-generated-artifact-recovery-ui` is active in the `web-product`
-lane.
+No implementation workstream is currently active in the `web-product` lane.
+The latest Web Product follow-on, `web-admin-generated-artifact-recovery-ui`,
+is closed after `WAGR-030`.
 
 Next task:
 
-- `WAGR-020`: add a read-only Web Admin Generated Artifact recovery route with
-  filters, summary counters, route tests, and browser smoke.
+- select the next focused follow-on. Good candidates are
+  `proposed:generated-artifact-apply-repair-actions`,
+  `proposed:admin-settings-api-backed-restoration`, or a narrow Web/Product
+  release-smoke slice.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -33,9 +36,10 @@ MVP Gate 3 evidence. `GAMA` is closed after fresh backend/Web Metadata
 Authority apply verification. `CSAPA` is closed; desktop playback is deferred
 to a focused future Tauri/native playback spike.
 
-Read-only Generated Artifact apply recovery is closed after `GAOR-040`.
-Bounded repair mutations, Web recovery UI, and Admin settings restoration
-remain separate follow-ons and should not be mixed back into `GAPM` or `GAOR`.
+Read-only Generated Artifact apply recovery is closed after `GAOR-040`, and
+the Web recovery UI is closed after `WAGR-030`. Bounded repair mutations and
+Admin settings restoration remain separate follow-ons and should not be mixed
+back into `GAPM`, `GAOR`, or `WAGR`.
 `audio-compatibility-downmix-normalization`,
 `remote-storage-health-and-circuit-breaker`,
 `transcode-interface-and-runtime-plan-deepening`,
@@ -50,7 +54,7 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
 ## Current Workstreams
 
 - [web-admin-generated-artifact-recovery-ui](web-admin-generated-artifact-recovery-ui/README.md):
-  active Web Product lane for rendering the closed GAOR recovery queue as a
+  closed Web Product lane for rendering the closed GAOR recovery queue as a
   read-only Admin route before any bounded repair mutation is introduced.
 - [generated-artifact-provider-mapping-breadth](generated-artifact-provider-mapping-breadth/README.md):
   closed backend/Web authority lane for extending accepted metadata Generated

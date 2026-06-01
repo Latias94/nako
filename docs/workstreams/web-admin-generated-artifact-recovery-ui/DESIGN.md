@@ -1,6 +1,6 @@
 # Web Admin Generated Artifact Recovery UI
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Why This Lane Exists
@@ -90,3 +90,23 @@ This lane can close when:
 - browser smoke covers desktop and mobile rendering;
 - no sensitive raw internals are visible;
 - repair mutation remains split to `proposed:generated-artifact-apply-repair-actions`.
+
+## Closeout Result
+
+Closed on 2026-06-02 after shipping the read-only Web Admin recovery route.
+
+Shipped:
+
+- `/admin/automation/generated-artifacts/recovery` with attention, limit, and
+  offset route state;
+- summary counters and a paginated recovery table over the GAOR read model;
+- navigation from Generated Artifacts to the recovery queue and from recovery
+  rows back to the existing Metadata Authority apply plan route;
+- fixture/live route and data-source contract coverage;
+- desktop and mobile browser smoke with no page-level overflow and no raw
+  prompt, payload, provider, path, token, or idempotency-key leakage.
+
+Deferred:
+
+- repair mutation remains `proposed:generated-artifact-apply-repair-actions`;
+- deeper provider precision remains `proposed:metadata-provider-depth-and-precision`.
