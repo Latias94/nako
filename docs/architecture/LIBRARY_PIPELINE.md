@@ -32,7 +32,7 @@ Storage event or scheduled scan
 | TMDB provider | Shipped movie plus series/season/episode foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Provider depth, identity matching, and conflict precision. |
 | Douban provider | Shipped MVP foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Provider depth, identity matching, and conflict precision. |
 | Bangumi provider | Shipped MVP foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Anime-first provider depth and identity matching. |
-| Addon-assisted metadata | Shipped guarded apply and bulk apply foundation; provider mapping breadth active | addon architecture lanes; `docs/workstreams/generated-artifact-metadata-authority-apply/`; `docs/workstreams/generated-artifact-bulk-metadata-apply/`; `docs/workstreams/generated-artifact-provider-mapping-breadth/` | Finish provider mapping breadth, then apply repair diagnostics. |
+| Addon-assisted metadata | Shipped guarded apply, bulk apply, and provider mapping breadth foundation | addon architecture lanes; `docs/workstreams/generated-artifact-metadata-authority-apply/`; `docs/workstreams/generated-artifact-bulk-metadata-apply/`; `docs/workstreams/generated-artifact-provider-mapping-breadth/` | Apply repair diagnostics and deeper provider identity precision. |
 | Artwork artifact lifecycle | Shipped selection, lifecycle, variant, and remediation foundation | managed artwork lanes | Delivery cache placeholders and broader derivative policy. |
 | Watcher/debounce | Weak | This document | Open `library-watcher-and-media-intake-stability`. |
 
@@ -110,7 +110,7 @@ Next lanes:
 
 ### generated-artifact-provider-mapping-breadth
 
-Status: Active at
+Status: Closed at
 `docs/workstreams/generated-artifact-provider-mapping-breadth/`.
 
 Goal: Extend accepted metadata Generated Artifact apply so it can plan and
@@ -129,10 +129,12 @@ Shipped backend slices:
   summaries, batch snapshots, Admin HTTP responses, generated contracts, and
   Web read-model mapping.
 
-Next slice:
+Closeout:
 
-- `GAPM-050` renders Provider Mapping plan/result facts in Web Admin without
-  adding backend apply behavior.
+- Web Admin renders Provider Mapping plan/result facts in single and bulk
+  Metadata Authority apply workflows without adding backend apply behavior.
+- Continue through `proposed:generated-artifact-apply-operations-repair` and
+  `proposed:provider-identity-mapping-breadth`, not by reopening this lane.
 
 Boundaries:
 

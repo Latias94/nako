@@ -1,6 +1,6 @@
 # Generated Artifact Provider Mapping Breadth - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Current State
@@ -27,17 +27,17 @@ Current source state:
   `nako-core`, `nako-db`, `nako-metadata`, and Admin Catalog Governance read
   models.
 
-## Active Task
+## Final Task
 
 - Task ID: `GAPM-060`
 - Lane: `library-metadata-control-plane`
-- Status: ready
+- Status: done
 - Owner: planner
 
-Goal: verify lane evidence, close the Provider Mapping breadth workstream, and
-split any deeper Provider Mapping follow-ons if needed.
+Goal satisfied: lane evidence verified, closeout recorded, and follow-ons split
+without reopening the breadth slice.
 
-## Recommended Verification Start
+## Recommended Next Start
 
 Read:
 
@@ -49,7 +49,7 @@ Read:
 - `docs/architecture/LIBRARY_PIPELINE.md`
 - `docs/architecture/CONTROL_PLANE.md`
 
-Then inspect the current code/document slices:
+Then inspect the current closeout/follow-on anchors:
 
 - `web/src/api/admin/generated/contract.ts`
 - `web/src/api/admin/read-models-data-source.ts`
@@ -58,6 +58,7 @@ Then inspect the current code/document slices:
 - `web/src/features/admin/admin-generated-artifact-metadata-apply.tsx`
 - existing Web contract/route tests under `web/src/test/`
 - `docs/workstreams/generated-artifact-provider-mapping-breadth/EVIDENCE_AND_GATES.md`
+- `docs/workstreams/generated-artifact-provider-mapping-breadth/CLOSEOUT.md`
 - `docs/workstreams/generated-artifact-provider-mapping-breadth/TASKS.jsonl`
 
 ## Completed Evidence
@@ -128,12 +129,11 @@ Then inspect the current code/document slices:
 
 ## Blockers
 
-- None for `GAPM-060`.
-- Re-run PostgreSQL parity only if closeout broadens beyond this Web-only slice
-  and changes repository transaction behavior.
+- None. This lane is closed.
+- Re-run PostgreSQL parity only if a future follow-on changes repository
+  transaction behavior again.
 
 ## Parallelism
 
-`GAPM-050` is complete in the current worktree. Keep `GAPM-060` serial so the
-closeout reflects fresh evidence, consistent task ledger state, and any split
-follow-ons.
+This lane no longer owns active implementation. Start a focused follow-on
+instead of reopening breadth here.

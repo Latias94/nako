@@ -65,7 +65,7 @@ capabilities and risks.
 
 ### generated-artifact-provider-mapping-breadth
 
-Status: Active at
+Status: Closed at
 `docs/workstreams/generated-artifact-provider-mapping-breadth/`.
 
 Goal: Add guarded Provider Mapping proposal planning and final apply to the
@@ -81,8 +81,16 @@ Control-plane requirements:
 - `GAPM-040` bulk apply summaries and batch snapshots expose Provider Mapping
   apply/skip/noop counters while reusing the one-artifact apply path instead
   of adding a second provider mapping executor;
+- `GAPM-050` Web Admin renders Provider Mapping plan/result facts for single
+  and bulk Metadata Authority apply without weakening fallback honesty or
+  redaction;
 - Admin/Web DTOs must not expose raw payloads, prompts, Source Locators, paths,
   tokens, or secrets.
+
+Follow-ons:
+
+- `proposed:generated-artifact-apply-operations-repair`
+- `proposed:provider-identity-mapping-breadth`
 
 ### generated-artifact-bulk-metadata-apply
 

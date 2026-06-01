@@ -1,7 +1,7 @@
 # Generated Artifact Provider Mapping Breadth
 
-Status: Active
-Last updated: 2026-06-01
+Status: Closed
+Last updated: 2026-06-02
 
 This workstream extends accepted metadata Generated Artifacts beyond neutral
 Canonical Metadata field patches so they can also propose Provider Subject and
@@ -27,8 +27,9 @@ Authoritative docs:
 - `EVIDENCE_AND_GATES.md`
 - `CONTEXT.jsonl`
 - `HANDOFF.md`
+- `CLOSEOUT.md`
 
-Current execution:
+Closed execution:
 
 - `GAPM-010` opened the lane and reconciled architecture routing.
 - `GAPM-020` shipped redaction-safe read-only provider mapping plan support for
@@ -39,8 +40,10 @@ Current execution:
 - `GAPM-040` shipped bulk/Admin counter and outcome reconciliation through
   bulk plan summaries, batch snapshots, HTTP responses, generated contracts,
   and Web read-model mapping.
-- Next task: `GAPM-050`, Web Admin display for Provider Mapping plan/result
-  facts.
+- `GAPM-050` shipped Web Admin Provider Mapping plan/result display for single
+  and bulk Metadata Authority apply workflows.
+- `GAPM-060` closed the lane after fresh verification and follow-on split
+  decisions.
 
 Boundary:
 
@@ -50,4 +53,5 @@ Boundary:
 - Provider Mapping persistence must use Nako-owned Provider Subject and
   Provider Mapping repositories, not raw addon/provider payloads.
 - Broader provider depth, provider search, apply repair tooling, Admin settings
-  restoration, and Public Client API changes stay outside this lane.
+  restoration, and Public Client API changes stay outside this lane and should
+  continue through explicit follow-ons.

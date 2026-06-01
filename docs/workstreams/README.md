@@ -16,15 +16,17 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 
 ## Active Execution Queue
 
-Last reviewed: 2026-06-01
+Last reviewed: 2026-06-02
 
-[generated-artifact-provider-mapping-breadth](generated-artifact-provider-mapping-breadth/README.md)
-is active in the `library-metadata-control-plane` lane.
+`generated-artifact-provider-mapping-breadth` is closed after `GAPM-060`.
 
-Next task:
+Next lane recommendation for `library-metadata-control-plane`:
 
-- `GAPM-050`: render Provider Mapping plan/result facts in Web Admin after
-  bulk/Admin counters and generated contracts were stabilized.
+- `proposed:generated-artifact-apply-operations-repair`: outcome search,
+  stale/failed/noop repair, replay diagnostics, and operator recovery tooling.
+- `proposed:provider-identity-mapping-breadth`: deeper Provider Subject /
+  Provider Mapping precision and conflict diagnostics beyond the first guarded
+  breadth slice.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -49,11 +51,11 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
 ## Current Workstreams
 
 - [generated-artifact-provider-mapping-breadth](generated-artifact-provider-mapping-breadth/README.md):
-  active backend/Web authority lane for extending accepted metadata Generated
+  closed backend/Web authority lane for extending accepted metadata Generated
   Artifact apply so it can plan and apply Provider Subject and Provider
-  Mapping proposals. Backend/Admin bulk counters and outcomes are reconciled;
-  the active slice is Web Admin rendering without weakening review staging,
-  target freshness, idempotent outcomes, or redaction.
+  Mapping proposals, reconcile bulk/Admin outcomes, and render Web Admin
+  Provider Mapping plan/result facts without weakening review staging, target
+  freshness, idempotent outcomes, or redaction.
 - [generated-artifact-bulk-metadata-apply](generated-artifact-bulk-metadata-apply/README.md):
   closed backend/Web authority lane for turning the single-artifact Generated
   Artifact Metadata Authority apply workflow into guarded bulk planning,

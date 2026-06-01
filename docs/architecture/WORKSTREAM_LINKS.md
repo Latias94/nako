@@ -164,7 +164,7 @@ Evidence workstreams:
 - `docs/workstreams/metadata-application-policy-seam/`
 - `docs/workstreams/generated-artifact-metadata-authority-apply/`
 - `docs/workstreams/generated-artifact-bulk-metadata-apply/` (closed)
-- `docs/workstreams/generated-artifact-provider-mapping-breadth/` (active)
+- `docs/workstreams/generated-artifact-provider-mapping-breadth/` (closed)
 - `docs/workstreams/metadata-provider-attempt-runtime/`
 - `docs/workstreams/metadata-operations/`
 - `docs/workstreams/scan-addon-bulk-metadata-scrape/`

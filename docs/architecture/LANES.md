@@ -1,6 +1,6 @@
 # Architecture Lanes
 
-Last updated: 2026-06-01
+Last updated: 2026-06-02
 
 This registry routes long-lived Codex terminals and worktrees by capability
 area. It is an ownership map for parallel development, not a replacement for
@@ -20,14 +20,14 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| library-metadata-control-plane | generated-artifact-provider-mapping-breadth | GAPM-050 | Web Admin surface worker |
+| library-metadata-control-plane | none | open focused follow-on | Planner closeout / next-lane selection |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
-`generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`. Do not
-start Admin settings restoration, playback artifact I/O enforcement, actual
-release publication, one-command release-gate wrapping, or official addon alpha
-smoke until `generated-artifact-provider-mapping-breadth` has produced
-Web display evidence and the planner selects another follow-on.
+`generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
+`generated-artifact-provider-mapping-breadth` is closed after `GAPM-060`.
+Continue the `library-metadata-control-plane` lane through a focused follow-on
+such as generated-artifact apply operations repair or deeper provider identity
+precision; do not reopen breadth just to add diagnostics or repair controls.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
@@ -114,15 +114,11 @@ Owns Generated Artifact metadata authority, guarded Admin automation routes,
 metadata application, audit/outcome persistence, and the control-plane workflow
 that turns accepted generated artifacts into Canonical Metadata.
 
-Active evidence:
-
-- `docs/workstreams/generated-artifact-provider-mapping-breadth/` (`GAPM-050`
-  ready)
-
 Closed evidence:
 
 - `docs/workstreams/generated-artifact-bulk-metadata-apply/`
 - `docs/workstreams/generated-artifact-metadata-authority-apply/`
+- `docs/workstreams/generated-artifact-provider-mapping-breadth/`
 
 Owned scopes:
 

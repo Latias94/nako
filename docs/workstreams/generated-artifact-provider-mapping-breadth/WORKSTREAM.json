@@ -2,12 +2,12 @@
   "schema_version": 1,
   "slug": "generated-artifact-provider-mapping-breadth",
   "title": "Generated Artifact Provider Mapping Breadth",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-06-02",
   "scope_kind": "backend_web_authority_workflow",
   "problem": "Accepted metadata Generated Artifacts can now plan, apply, and render Provider Subject and Provider Mapping effects through Web Admin; the remaining work is to close the breadth lane with fresh evidence and decide whether deeper Provider Mapping diagnostics or repair follow-ons should split out.",
   "task_prefix": "GAPM",
-  "current_task": "GAPM-060",
+  "current_task": null,
   "completed_tasks": [
     "GAPM-010",
     "GAPM-020",
@@ -83,6 +83,10 @@
     {
       "task": "GAPM-050",
       "summary": "Rendered Provider Mapping plan/result facts in Web Admin single and bulk Metadata Authority apply workflows, updated live/fixture read models and route tests, and verified redaction-safe responsive display through Web gates and browser smoke."
+    },
+    {
+      "task": "GAPM-060",
+      "summary": "Closed the Provider Mapping breadth lane after fresh Web/docs verification, architecture/workstream routing updates, and explicit follow-on split decisions for operations repair and deeper provider identity precision."
     }
   ],
   "adr_refs": [
@@ -120,8 +124,8 @@
   ],
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
-    "default_action": "run_current_task",
-    "current_task": "GAPM-060",
-    "notes": "GAPM-050 is complete in the current worktree. Continue with GAPM-060 closeout, fresh verification, and follow-on splitting only; do not add new backend behavior inside this lane unless closeout proves a gap."
+    "default_action": "open_follow_on",
+    "current_task": null,
+    "notes": "Workstream complete. Open a focused follow-on for generated artifact apply operations repair, deeper provider identity precision, or adjacent Admin settings restoration instead of reopening breadth here."
   }
 }

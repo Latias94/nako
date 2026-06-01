@@ -1,6 +1,6 @@
 # Generated Artifact Provider Mapping Breadth - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Always Run For Docs Changes
@@ -123,6 +123,14 @@ Only run after Admin contract support exists:
   the bulk apply route render Provider Mapping facts without responsive
   overflow or secret leakage; browser console showed only the existing Vite
   Fast Refresh / React DevTools hook shim warning.
+- `GAPM-060`: closed the lane after reconciling `WORKSTREAM.json`, `TODO.md`,
+  `TASKS.jsonl`, `HANDOFF.md`, `README.md`, architecture references, and a new
+  `CLOSEOUT.md` with the shipped breadth slice. JSON and JSONL validation
+  passed; targeted and repository-wide `git diff --check` passed with only
+  LF/CRLF normalization warnings. Closeout split follow-ons remain explicit:
+  `proposed:generated-artifact-apply-operations-repair`,
+  `proposed:provider-identity-mapping-breadth`, and
+  `proposed:admin-settings-api-backed-restoration`.
 
 ## Final Evidence Checklist
 

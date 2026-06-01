@@ -1,7 +1,7 @@
 # Generated Artifact Provider Mapping Breadth - TODO
 
-Status: Active
-Last updated: 2026-06-01
+Status: Closed
+Last updated: 2026-06-02
 
 ## M0 - Scope And Evidence Freeze
 
@@ -67,7 +67,7 @@ Last updated: 2026-06-01
 
 ## M4 - Verification And Closeout
 
-- [ ] GAPM-060 [owner=planner] [deps=GAPM-050] [scope=docs/workstreams/generated-artifact-provider-mapping-breadth,docs/architecture]
+- [x] GAPM-060 [owner=planner] [deps=GAPM-050] [scope=docs/workstreams/generated-artifact-provider-mapping-breadth,docs/architecture]
   Goal: Verify backend/Web/PostgreSQL/docs gates, close the lane, and split
   provider-depth, conflict repair, or operations repair follow-ons if needed.
   Validation: fresh focused Rust/Web gates, PostgreSQL parity if repository
@@ -75,4 +75,4 @@ Last updated: 2026-06-01
   Review: workstream compliance and code-quality review.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`, optional
   `CLOSEOUT.md`.
-  Handoff: DONE or split follow-ons.
+  Handoff: DONE. Lane closed; continue through explicit follow-ons only.
