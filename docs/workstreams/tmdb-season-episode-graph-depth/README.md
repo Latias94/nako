@@ -24,8 +24,9 @@ Current execution:
 
 - `TSEG-010` opens the lane.
 - `TSEG-020` added TMDB season -> episode graph preview nodes.
-- `TSEG-030` is ready: prove season refresh remains root-only when graph
-  preview nodes are present.
+- `TSEG-030` proved season refresh remains root-only when graph preview nodes
+  are present.
+- `TSEG-040` is ready for lane closeout or explicit follow-on split.
 
 Boundary:
 

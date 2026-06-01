@@ -22,11 +22,11 @@ Last updated: 2026-06-02
 
 ## M2 — Root-Only Season Refresh Guard
 
-- [ ] TSEG-030 [owner=codex] [deps=TSEG-020] [scope=crates/nako-metadata/src/tests.rs,docs/workstreams/tmdb-season-episode-graph-depth]
+- [x] TSEG-030 [owner=codex] [deps=TSEG-020] [scope=crates/nako-metadata/src/tests.rs,docs/workstreams/tmdb-season-episode-graph-depth]
   Goal: Prove TMDB episode graph preview remains non-mutating during season refresh.
   Validation: focused `cargo nextest run -p nako-metadata refresh season metadata_candidate --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`.
-  Review: no automatic episode Media Item creation, no episode Provider Subject insertion, no child Provider Mapping writes.
-  Evidence: `EVIDENCE_AND_GATES.md`.
+  Review: no automatic episode Media Item creation, no episode Provider Subject insertion, no child Provider Mapping writes. Passed on 2026-06-02.
+  Evidence: `EVIDENCE_AND_GATES.md` TSEG-030 section.
   Handoff: Continue to `TSEG-040`.
 
 ## M3 — Closeout

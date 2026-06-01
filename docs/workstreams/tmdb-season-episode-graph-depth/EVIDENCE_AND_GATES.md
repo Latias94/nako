@@ -96,6 +96,41 @@ cargo fmt --all -- --check
 
 Result: passed.
 
+## TSEG-030 Evidence
+
+Completed on 2026-06-02.
+
+Implementation:
+
+- Added a season refresh guard that feeds a TMDB season root graph with a
+  related episode preview node into `MetadataRefreshService`.
+- The refresh persists only the root season Provider Subject and accepted root
+  Provider Mapping.
+- The related episode preview node remains evidence only: no episode Media
+  Item, episode Provider Subject, or child Provider Mapping is created.
+- Raw provider response caching still records the season payload under the root
+  season provider key.
+
+Validation:
+
+```bash
+cargo nextest run -p nako-metadata refresh_persists_only_root_provider_mapping_from_season_episode_graph_preview --no-fail-fast
+```
+
+Result: passed, 1 test.
+
+```bash
+cargo nextest run -p nako-metadata refresh season metadata_candidate --no-fail-fast
+```
+
+Result: passed, 12 tests.
+
+```bash
+cargo fmt --all -- --check
+```
+
+Result: passed.
+
 ## Notes
 
 - Do not change persistence semantics from this lane.

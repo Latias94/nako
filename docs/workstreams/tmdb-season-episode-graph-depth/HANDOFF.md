@@ -8,14 +8,15 @@ Last updated: 2026-06-02
 The lane is newly opened from the closed MPDP follow-on split. The baseline is
 TMDB series -> season graph preview with root-only refresh persistence. This
 lane extends the same preview-only model to TMDB season -> episode graph depth.
-`TSEG-020` shipped season -> episode graph preview.
+`TSEG-020` shipped season -> episode graph preview. `TSEG-030` added refresh
+guard evidence that related episode preview nodes remain non-mutating.
 
 ## Active Task
 
-- Task ID: `TSEG-030`
-- Owner: codex
-- Files: `crates/nako-metadata/src/tests.rs` and this workstream
-- Validation: focused `nako-metadata` refresh / candidate graph gates, plus `cargo fmt --all -- --check`
+- Task ID: `TSEG-040`
+- Owner: planner
+- Files: this workstream, architecture links, `docs/GOALS.md`, and `docs/ROADMAP.md`
+- Validation: fresh gate evidence, JSON/JSONL validation, and `git diff --check`
 - Status: READY
 - Evidence: `docs/workstreams/tmdb-season-episode-graph-depth/EVIDENCE_AND_GATES.md`
 
@@ -29,9 +30,9 @@ lane extends the same preview-only model to TMDB season -> episode graph depth.
 
 ## Blockers
 
-- None for `TSEG-020`.
+- None for `TSEG-040`.
 
 ## Next Recommended Action
 
-- Run `TSEG-030`: prove season refresh persists only the root season Provider
-  Subject and ignores related episode preview nodes.
+- Run `TSEG-040`: close this focused lane or explicitly split any remaining
+  durable candidate review and Admin/Web confirmation follow-ons.
