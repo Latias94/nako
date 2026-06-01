@@ -19,6 +19,19 @@ One-line introduction:
 The Nako icon rationale and final generation prompt are recorded in
 [nako-brand-identity](../../docs/workstreams/nako-brand-identity/README.md).
 
+## Main Mascot / IP
+
+<img src="./nako-main-ip-playloop-keeper.png" alt="Nako Playloop Keeper mascot model sheet" width="320">
+
+- `nako-main-ip-playloop-keeper.png` is the selected Nako main mascot/IP
+  direction, working name **Nako Playloop Keeper**.
+- The full-body mascot uses the playloop tail as its primary recognition point.
+  The hand-held glow is a media core, not a second play button.
+- The small deep-teal device is a side-mounted NAS/server pod, not a normal
+  two-strap backpack.
+- Use this asset as the canonical visual direction for future mascot poses,
+  stickers, docs illustrations, and developer swag.
+
 ## Product Icon
 
 - `nako-app-icon-1024.png` is the selected Nako source product/app icon.
