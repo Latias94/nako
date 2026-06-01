@@ -26,19 +26,49 @@ proposed milestone.
 
 ## Current Goal
 
-### No Active Implementation Goal
+### Generated Artifact Provider Mapping Breadth
 
-Status: idle after `generated-artifact-bulk-metadata-apply` closeout on
-2026-06-01.
+Status: active as of 2026-06-01.
 
-Next planner action:
+Objective:
 
-- choose exactly one focused follow-on before starting more parallel
-  implementation;
-- preferred candidates are provider-specific Generated Artifact mapping
-  breadth, Generated Artifact apply operations repair, Admin settings
-  API-backed restoration, or a broader architecture planning pass if priorities
-  changed.
+- Extend accepted metadata Generated Artifacts so their Metadata Authority
+  apply plan can include Provider Subject and Provider Mapping proposals.
+- Preserve the GAMA/GABMA authority boundary: review acceptance stages
+  evidence, while final Admin apply performs host-owned, idempotent mutation.
+- Start with a read-only plan slice before adding Provider Mapping
+  persistence, bulk result counters, and Web Admin rendering.
+
+Deliverables:
+
+- `docs/workstreams/generated-artifact-provider-mapping-breadth/`
+- Provider Mapping proposal entries and counters in the Generated Artifact
+  metadata apply plan
+- durable/idempotent Provider Mapping apply through host-owned repositories
+- Admin/Web plan and result display after backend contract stabilization
+
+Non-goals:
+
+- no provider search/depth or hierarchy repair;
+- no review-acceptance mutation;
+- no Public Client API changes;
+- no raw payload, prompt, path, Source Locator, token, or secret exposure;
+- no Generated Artifact apply operations repair tooling;
+- no Admin settings restoration.
+
+Exit criteria:
+
+- read-only plan proves supported and unsupported provider mapping proposals
+  without mutation;
+- final apply revalidates target freshness and upserts Provider Subjects and
+  accepted Provider Mappings idempotently;
+- bulk apply inherits mapping counters/results through the one-artifact path;
+- Web Admin displays mapping effects honestly in live/fallback modes;
+- focused Rust/Web/PostgreSQL/docs gates pass as required by the workstream.
+
+Evidence:
+
+- `docs/workstreams/generated-artifact-provider-mapping-breadth/`
 
 ## Recent Completed Goals
 

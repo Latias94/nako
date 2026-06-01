@@ -20,24 +20,24 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| _none_ | _none_ | _none_ | Planner should select the next focused follow-on |
+| library-metadata-control-plane | generated-artifact-provider-mapping-breadth | GAPM-020 | Backend/API planner-worker |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`. Do not
-start provider mapping breadth, Admin settings restoration, playback artifact
-I/O enforcement, actual release publication, one-command release-gate wrapping,
-or official addon alpha smoke until the next focused workstream is selected.
+start Admin settings restoration, playback artifact I/O enforcement, actual
+release publication, one-command release-gate wrapping, or official addon alpha
+smoke until `generated-artifact-provider-mapping-breadth` has produced
+read-only plan evidence and the planner selects another follow-on.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
 `generated-artifact-metadata-authority-apply` is closed after `GAMA-070`.
-Provider-specific Generated Artifact mapping breadth, apply outcome repair
-tooling, and API-backed restoration of placeholder Admin settings pages remain
-separate follow-ons. The `client-surfaces-planning` lane is idle after CSAPA
-closeout deferred desktop playback to a focused future spike. The `web-product` lane is idle after
-`web-mvp-live-smoke` closeout; open a focused follow-on for backend/API
-contract, generated SDK, broader player UX, or desktop/native playback
-decisions.
+Apply outcome repair tooling and API-backed restoration of placeholder Admin
+settings pages remain separate follow-ons. The `client-surfaces-planning` lane
+is idle after CSAPA closeout deferred desktop playback to a focused future
+spike. The `web-product` lane is idle after `web-mvp-live-smoke` closeout;
+open a focused follow-on for backend/API contract, generated SDK, broader
+player UX, or desktop/native playback decisions.
 
 The `storage-vfs` lane is idle after
 `remote-storage-health-and-circuit-breaker` closeout. Open a new workstream
@@ -116,7 +116,8 @@ that turns accepted generated artifacts into Canonical Metadata.
 
 Active evidence:
 
-- None.
+- `docs/workstreams/generated-artifact-provider-mapping-breadth/` (`GAPM-020`
+  ready)
 
 Closed evidence:
 
@@ -135,6 +136,7 @@ Owned scopes:
 - `crates/nako-server/src/app/automation.rs`
 - `crates/nako-server/src/app/metadata_application.rs`
 - `crates/nako-server/src/http/admin.rs`
+- `docs/workstreams/generated-artifact-provider-mapping-breadth/`
 - `docs/workstreams/generated-artifact-metadata-authority-apply/`
 - `docs/workstreams/generated-artifact-bulk-metadata-apply/`
 

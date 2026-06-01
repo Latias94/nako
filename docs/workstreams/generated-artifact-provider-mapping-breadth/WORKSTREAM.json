@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "slug": "generated-artifact-provider-mapping-breadth",
+  "title": "Generated Artifact Provider Mapping Breadth",
+  "status": "active",
+  "updated": "2026-06-01",
+  "scope_kind": "backend_web_authority_workflow",
+  "problem": "Accepted metadata Generated Artifacts can apply neutral Canonical Metadata fields, but they cannot yet plan or apply Provider Subject and Provider Mapping proposals through the guarded Metadata Authority workflow.",
+  "task_prefix": "GAPM",
+  "current_task": "GAPM-020",
+  "completed_tasks": [
+    "GAPM-010"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/generated-artifact-provider-mapping-breadth/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/generated-artifact-provider-mapping-breadth/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/generated-artifact-provider-mapping-breadth/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/generated-artifact-provider-mapping-breadth/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/generated-artifact-provider-mapping-breadth/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "context_manifest",
+      "path": "docs/workstreams/generated-artifact-provider-mapping-breadth/CONTEXT.jsonl"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/generated-artifact-provider-mapping-breadth/HANDOFF.md"
+    }
+  ],
+  "context_manifest": "docs/workstreams/generated-artifact-provider-mapping-breadth/CONTEXT.jsonl",
+  "gates": [
+    "python -m json.tool docs/workstreams/generated-artifact-provider-mapping-breadth/WORKSTREAM.json",
+    "JSONL validation for docs/workstreams/generated-artifact-provider-mapping-breadth/TASKS.jsonl and CAMPAIGNS.jsonl",
+    "git diff --check -- docs/workstreams/generated-artifact-provider-mapping-breadth docs/architecture/LANES.md docs/architecture/WORKSTREAM_LINKS.md docs/architecture/LIBRARY_PIPELINE.md docs/architecture/CONTROL_PLANE.md docs/workstreams/README.md docs/GOALS.md docs/ROADMAP.md",
+    "cargo nextest run -p nako-api generated_artifact_metadata_apply --no-fail-fast",
+    "cargo nextest run -p nako-api admin_contract --no-fail-fast",
+    "cargo nextest run -p nako-server generated_artifact_metadata_apply_plan --no-fail-fast",
+    "cargo nextest run -p nako-server generated_artifact_metadata_apply --no-fail-fast",
+    "cargo nextest run -p nako-server generated_artifact_bulk_metadata_apply --no-fail-fast",
+    "cargo nextest run -p nako-db provider_mapping generated_artifact_metadata_apply --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "npm --prefix web run test -- src/test/data-source-contracts.test.ts",
+    "npm --prefix web run test -- src/test/route-contracts.test.tsx src/test/route-state-contracts.test.tsx",
+    "npm --prefix web run check",
+    "npm --prefix web run build:budget",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "GAPM-010",
+      "summary": "Opened the Provider Mapping breadth lane from GAMA/GABMA closeout, confirmed the existing apply parser only handles Canonical Metadata fields, and selected a read-only Provider Mapping plan extension as the first executable task."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0004-ai-as-external-automation-first.md",
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md",
+    "docs/adr/0035-addon-native-metadata-writeback.md",
+    "docs/adr/0053-application-control-plane-boundary.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/LIBRARY_PIPELINE.md",
+      "capability": "Generated Artifact Provider Mapping breadth"
+    },
+    {
+      "path": "docs/architecture/CONTROL_PLANE.md",
+      "capability": "Admin guarded Generated Artifact provider mapping apply"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Library Metadata and Control Plane workstream evidence"
+    },
+    {
+      "path": "docs/architecture/LANES.md",
+      "capability": "library-metadata-control-plane lane ownership"
+    }
+  ],
+  "capability_tags": [
+    "library.metadata.generated-artifact-provider-mapping",
+    "library.metadata.provider-mapping",
+    "control-plane.admin.generated-artifacts",
+    "automation.generated-artifact-acceptance",
+    "web.admin.metadata-authority"
+  ],
+  "lane_slug": "library-metadata-control-plane",
+  "continue_policy": {
+    "default_action": "run_current_task",
+    "current_task": "GAPM-020",
+    "notes": "Start with read-only Provider Mapping plan support. Stop before persistence, bulk/result mutation, Web work, addon protocol changes, or provider-depth expansion until GAPM-020 evidence is reviewed."
+  }
+}

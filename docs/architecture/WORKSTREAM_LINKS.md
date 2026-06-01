@@ -164,6 +164,7 @@ Evidence workstreams:
 - `docs/workstreams/metadata-application-policy-seam/`
 - `docs/workstreams/generated-artifact-metadata-authority-apply/`
 - `docs/workstreams/generated-artifact-bulk-metadata-apply/` (closed)
+- `docs/workstreams/generated-artifact-provider-mapping-breadth/` (active)
 - `docs/workstreams/metadata-provider-attempt-runtime/`
 - `docs/workstreams/metadata-operations/`
 - `docs/workstreams/scan-addon-bulk-metadata-scrape/`
@@ -191,7 +192,6 @@ Proposed lanes:
 
 - `proposed:library-watcher-and-media-intake-stability`
 - `proposed:artwork-delivery-cache-placeholder`
-- `proposed:generated-artifact-provider-mapping-breadth`
 - `proposed:metadata-provider-depth-and-precision`
 - `proposed:provider-identity-mapping-breadth`
 

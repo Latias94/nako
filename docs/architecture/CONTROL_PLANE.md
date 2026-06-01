@@ -63,6 +63,25 @@ capabilities and risks.
 
 ## Next Work Lanes
 
+### generated-artifact-provider-mapping-breadth
+
+Status: Active at
+`docs/workstreams/generated-artifact-provider-mapping-breadth/`.
+
+Goal: Add guarded Provider Mapping proposal planning and final apply to the
+Generated Artifact Metadata Authority workflow while preserving Admin-only
+confirmation, target freshness, redaction, and idempotent outcome behavior.
+
+Control-plane requirements:
+
+- review acceptance must remain staging-only;
+- the first slice is read-only and must not write Provider Mappings;
+- final Provider Mapping mutation must be host-owned and replay-safe;
+- bulk apply should reuse the one-artifact apply path instead of adding a
+  second provider mapping executor;
+- Admin/Web DTOs must not expose raw payloads, prompts, Source Locators, paths,
+  tokens, or secrets.
+
 ### generated-artifact-bulk-metadata-apply
 
 Status: Closed at

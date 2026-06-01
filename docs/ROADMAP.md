@@ -11,15 +11,28 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: idle after the latest implementation follow-on closed.
+Status: active implementation follow-on.
 
-Next planner action:
+Generated Artifact Provider Mapping Breadth opened on 2026-06-01 as the next
+focused follow-on after Generated Artifact Bulk Metadata Apply closeout.
 
-- choose exactly one focused follow-on before starting more parallel
-  implementation;
-- candidates include provider-specific Generated Artifact mapping breadth,
-  Generated Artifact apply operations repair, Admin settings API-backed
-  restoration, or a broader architecture planning pass if priorities changed.
+It targets:
+
+- redaction-safe Provider Subject and Provider Mapping proposal planning inside
+  the existing Generated Artifact metadata apply plan;
+- idempotent final Provider Mapping apply through host-owned repositories;
+- bulk apply/Admin/Web result surfaces after the one-artifact contract is
+  stable;
+- no provider search/depth, review-acceptance mutation, Public Client API
+  change, operations repair, or Admin settings restoration.
+
+Authoritative lane:
+
+- `docs/workstreams/generated-artifact-provider-mapping-breadth/`
+
+Next task:
+
+- `GAPM-020`: read-only Provider Mapping plan support.
 
 Latest completed architecture focus:
 
@@ -43,7 +56,6 @@ Authoritative lane:
 
 Follow-ons:
 
-- `proposed:generated-artifact-provider-mapping-breadth`;
 - `proposed:generated-artifact-apply-operations-repair`;
 - `proposed:admin-settings-api-backed-restoration`.
 

@@ -1,0 +1,17 @@
+{"path":"CONTEXT.md","role":"domain-glossary","notes":"Use Nako terms such as Generated Artifact, Metadata Authority, Canonical Metadata, Provider Subject, Provider Mapping, Provider Subject Kind, and Source Locator."}
+{"path":"docs/adr/0004-ai-as-external-automation-first.md","role":"automation-adr","notes":"Generated/addon automation should submit evidence rather than own core state directly."}
+{"path":"docs/adr/0007-metadata-merge-policy-and-local-authority.md","role":"metadata-authority-adr","notes":"Field locks, local authority, and provider merge policy remain the baseline for Canonical Metadata changes."}
+{"path":"docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md","role":"addon-automation-adr","notes":"Addon capabilities and scoped automation provider behavior for generated artifact handoff."}
+{"path":"docs/adr/0027-admin-api-boundary-for-web-console.md","role":"admin-api-adr","notes":"Admin Web must use explicit Admin API DTOs and generated contracts."}
+{"path":"docs/adr/0035-addon-native-metadata-writeback.md","role":"addon-writeback-adr","notes":"Addon metadata writeback must remain host-owned and policy-controlled."}
+{"path":"docs/adr/0053-application-control-plane-boundary.md","role":"control-plane-adr","notes":"Durable jobs, runtime supervision, diagnostics, and cross-cutting workflow authority belong in the control plane."}
+{"path":"docs/workstreams/generated-artifact-metadata-authority-apply/CLOSEOUT.md","role":"predecessor-closeout","notes":"One-artifact Metadata Authority apply workflow, final evidence, and provider mapping follow-on split."}
+{"path":"docs/workstreams/generated-artifact-bulk-metadata-apply/CLOSEOUT.md","role":"predecessor-closeout","notes":"Bulk apply workflow, final evidence, and provider mapping follow-on split."}
+{"path":"docs/workstreams/metadata-provider-breadth/README.md","role":"provider-context","notes":"Existing provider breadth foundation and provider capability context."}
+{"path":"docs/workstreams/metadata-catalog/README.md","role":"metadata-catalog-context","notes":"Provider Subject and Provider Mapping catalog model context."}
+{"path":"docs/workstreams/metadata-application-policy-seam/","role":"metadata-application-policy","notes":"Host-owned metadata application policy and field-lock application context."}
+{"path":"docs/workstreams/metadata-application-cross-path-audit/","role":"metadata-application-audit","notes":"Cross-path MetadataApplication safety and consistency context."}
+{"path":"docs/architecture/LIBRARY_PIPELINE.md","role":"architecture-map","notes":"Library metadata and Generated Artifact follow-on state."}
+{"path":"docs/architecture/CONTROL_PLANE.md","role":"control-plane-map","notes":"Durable work, diagnostics, and Admin workflow constraints."}
+{"path":"docs/architecture/LANES.md","role":"lane-registry","notes":"library-metadata-control-plane ownership and shared scopes."}
+{"path":"docs/architecture/WORKSTREAM_LINKS.md","role":"evidence-index","notes":"Architecture evidence and proposed follow-ons."}
