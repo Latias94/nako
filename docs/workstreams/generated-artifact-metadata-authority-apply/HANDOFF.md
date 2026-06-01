@@ -1,11 +1,13 @@
 # Generated Artifact Metadata Authority Apply - Handoff
 
 Status: Active
-Last updated: 2026-05-30
+Last updated: 2026-06-01
 
 ## Current State
 
 `GAMA-050` is complete.
+Planner reconciliation on 2026-06-01 reran the focused final route gates and
+confirmed `GAMA-060` is the active task.
 
 Generated Artifact review acceptance is still guarded, and the new read-only
 metadata apply-plan route now exposes field-level, redacted plan facts without

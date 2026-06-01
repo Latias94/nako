@@ -19,16 +19,16 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 Last reviewed: 2026-06-01
 
 - [generated-artifact-metadata-authority-apply](generated-artifact-metadata-authority-apply/README.md)
-  is active on lane `library-metadata-control-plane`; next task is `GAMA-050`.
+  is active on lane `library-metadata-control-plane`; next task is `GAMA-060`.
 - [client-surface-and-access-product-architecture](client-surface-and-access-product-architecture/README.md)
   is active on lane `client-surfaces-planning`; next task is `CSAPA-050`.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
 or any product-scope change to the MVP cut. `web-mvp-live-smoke` is closed as
-MVP Gate 3 evidence. Keep `GAMA-060` blocked until `GAMA-050` is reviewed and
-verified or the GAMA ledger is reconciled. `CSAPA` should split or explicitly
-defer desktop playback before closeout.
+MVP Gate 3 evidence. `GAMA-060` is ready after focused final Admin apply route
+verification. `CSAPA` should split or explicitly defer desktop playback before
+closeout.
 `audio-compatibility-downmix-normalization`,
 `remote-storage-health-and-circuit-breaker`,
 `transcode-interface-and-runtime-plan-deepening`,

@@ -3,7 +3,7 @@
   "slug": "generated-artifact-metadata-authority-apply",
   "title": "Generated Artifact Metadata Authority Apply",
   "status": "active",
-  "updated": "2026-05-30",
+  "updated": "2026-06-01",
   "scope_kind": "backend_web_authority_workflow",
   "problem": "Accepted metadata Generated Artifacts are staged for Metadata Authority apply, but Nako has no redacted apply-plan, audited apply route, or Web Admin confirmation workflow that turns them into Canonical Metadata through host policy.",
   "task_prefix": "GAMA",
@@ -41,10 +41,15 @@
       "path": "docs/workstreams/generated-artifact-metadata-authority-apply/EVIDENCE_AND_GATES.md"
     },
     {
+      "role": "context_manifest",
+      "path": "docs/workstreams/generated-artifact-metadata-authority-apply/CONTEXT.jsonl"
+    },
+    {
       "role": "handoff",
       "path": "docs/workstreams/generated-artifact-metadata-authority-apply/HANDOFF.md"
     }
   ],
+  "context_manifest": "docs/workstreams/generated-artifact-metadata-authority-apply/CONTEXT.jsonl",
   "gates": [
     "python -m json.tool docs/workstreams/generated-artifact-metadata-authority-apply/WORKSTREAM.json",
     "git diff --check -- docs/workstreams/generated-artifact-metadata-authority-apply docs/architecture/WORKSTREAM_LINKS.md docs/workstreams/README.md",
@@ -81,6 +86,10 @@
     {
       "task": "GAMA-050",
       "summary": "Exposed the final Admin Generated Artifact metadata apply route, added redacted apply request/response DTOs, covered auth/body/error/replay HTTP behavior, and synchronized generated Admin TypeScript contracts for Web clients."
+    },
+    {
+      "task": "GAMA-050-reconciliation",
+      "summary": "Planner reconciliation on 2026-06-01 reran focused final Admin apply route gates and advanced the lane registry to GAMA-060."
     }
   ],
   "adr_refs": [
@@ -117,6 +126,6 @@
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
     "default_action": "continue_current_task",
-    "notes": "Continue with GAMA-060 only when Web Admin workflow work is explicitly requested. Backend Admin apply route is stable; keep bulk apply, provider-specific enrichment, and operations repair as follow-on scope unless the task is explicitly expanded."
+    "notes": "GAMA-060 is ready after GAMA-050 reconciliation. Continue only when Web Admin apply-plan and confirm-apply workflow work is explicitly requested. Backend Admin apply route is stable; keep bulk apply, provider-specific enrichment, and operations repair as follow-on scope unless the task is explicitly expanded."
   }
 }

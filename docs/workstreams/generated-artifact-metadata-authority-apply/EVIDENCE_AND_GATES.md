@@ -1,7 +1,7 @@
 # Generated Artifact Metadata Authority Apply - Evidence And Gates
 
 Status: Active
-Last updated: 2026-05-30
+Last updated: 2026-06-01
 
 ## Always Run For Docs Changes
 
@@ -127,6 +127,15 @@ Only run after `GAMA-050` exposes a real Admin route:
   - `python -m json.tool docs/workstreams/generated-artifact-metadata-authority-apply/WORKSTREAM.json`
   - `git diff --cached --check`
   - `git diff --check`
+
+  Planner reconciliation on 2026-06-01 confirmed `GAMA-050` is accepted and
+  `GAMA-060` is the active queue task. Fresh focused evidence:
+  - `cargo nextest run -p nako-api generated_artifact_metadata_apply admin_contract --no-fail-fast`
+    passed 7/7.
+  - `cargo nextest run -p nako-server admin_generated_artifact_metadata_apply --no-fail-fast`
+    passed 3/3.
+  - Added `CONTEXT.jsonl` and advanced lane registry/workstream index to
+    `GAMA-060`.
 
 ## Required Final Evidence
 

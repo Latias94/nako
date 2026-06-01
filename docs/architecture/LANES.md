@@ -20,7 +20,7 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| `library-metadata-control-plane` | `generated-artifact-metadata-authority-apply` | `GAMA-050` | Backend/control-plane execution |
+| `library-metadata-control-plane` | `generated-artifact-metadata-authority-apply` | `GAMA-060` | Web Admin workflow worker |
 | `client-surfaces-planning` | `client-surface-and-access-product-architecture` | `CSAPA-050` | Planner/docs split or defer decision |
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
@@ -28,8 +28,8 @@ Open a focused follow-on before doing actual artifact publication, one-command
 release-gate wrapping, official addon alpha smoke, or any product-scope change
 to the MVP cut.
 
-Do not start `GAMA-060` until `GAMA-050` has reviewed and verified the final
-Admin apply route. Do not close `CSAPA` until desktop playback is split,
+`GAMA-060` is ready after planner reconciliation verified the final Admin apply
+route from `GAMA-050`. Do not close `CSAPA` until desktop playback is split,
 deferred, or explicitly scoped. The `web-product` lane is idle after
 `web-mvp-live-smoke` closeout; open a focused follow-on for backend/API
 contract, generated SDK, broader player UX, or desktop/native playback
