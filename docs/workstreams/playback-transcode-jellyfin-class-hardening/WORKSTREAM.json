@@ -3,18 +3,19 @@
   "slug": "playback-transcode-jellyfin-class-hardening",
   "title": "Playback Transcode Jellyfin-Class Hardening",
   "status": "active",
-  "updated": "2026-05-31",
+  "updated": "2026-06-01",
   "scope_kind": "architecture",
   "problem": "Nako has strong playback/transcode seams, but Jellyfin/Plex-class hardening needs an explicit Interface freeze, owned scopes, shared scopes, and validation gates before multiple Codex lanes can work safely.",
   "task_prefix": "PTJCH",
-  "current_task": "PTJCH-220",
+  "current_task": "PTJCH-310",
   "completed_tasks": [
     "PTJCH-010",
     "PTJCH-020",
     "PTJCH-110",
     "PTJCH-120",
     "PTJCH-130",
-    "PTJCH-210"
+    "PTJCH-210",
+    "PTJCH-220"
   ],
   "authoritative_docs": [
     {
@@ -85,6 +86,10 @@
     {
       "task": "PTJCH-210",
       "summary": "Merged HLS Artifact Authority hardening: request variant identity reconstructs manifests and manifest sequence patterns define serveable artifact allow-lists."
+    },
+    {
+      "task": "PTJCH-220",
+      "summary": "Hardened Playback Runtime supersede ownership: HLS supersede candidate discovery and cancellation are centralized in runtime control, supersede admission waits briefly for the replaced local runner to release its permit, and active HLS playback sessions linked to superseded transcodes are cancelled."
     }
   ],
   "adr_refs": [
@@ -124,7 +129,7 @@
   "lane_slug": "playback-transcode",
   "continue_policy": {
     "default_action": "continue",
-    "next_task": "PTJCH-220",
-    "notes": "PTJCH-210 is merged and PTJCH-220 is unblocked. Continue with Playback Runtime ownership for sessions, admission, reuse, supersede, cancel, failure classification, and diagnostics without moving FFmpeg command planning or artifact allow-list ownership into nako-server."
+    "next_task": "PTJCH-310",
+    "notes": "PTJCH-220 is implemented, reviewed, and verified. Continue with the planner-owned PTJCH-310 decision on whether HLS artifact I/O pressure remains in this workstream or splits to a PAIP follow-on."
   }
 }

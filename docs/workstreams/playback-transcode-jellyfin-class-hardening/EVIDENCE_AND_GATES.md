@@ -1,7 +1,7 @@
 # Playback Transcode Jellyfin-Class Hardening - Evidence And Gates
 
 Status: Active
-Last updated: 2026-05-31
+Last updated: 2026-06-01
 
 ## Source Coverage Audit
 
@@ -255,3 +255,59 @@ results, and an earlier `nako-transcode` HLS run hit the existing progressive
 readiness timing test once; the focused rerun and final full HLS gate both
 passed. No PTJCH-220 session lifecycle, admission, cancel, or failure logic was
 changed.
+
+### PTJCH-220 - Playback Runtime
+
+Status: Done
+
+Evidence collected:
+
+- HLS supersede candidate discovery and cancellation request ownership now
+  lives in the playback runtime control helper instead of being hidden inside
+  one HLS reserve branch.
+- HLS supersede checks configured resource capacity before cancelling older
+  sessions, then waits briefly for a locally cancelled runner to release its
+  admission permit before starting the replacement session. Supersede
+  candidates include `cancel_requested` sessions because those sessions are
+  still active and may still hold local admission permits.
+- Browser/renderer HLS playlist paths cancel active playback sessions whose
+  linked HLS transcode was superseded, so playback-session state follows the
+  runtime cancellation boundary.
+- FFmpeg command planning, HLS artifact identity, and manifest allow-lists
+  remain owned by `nako-transcode`; this task only changed server runtime
+  session/admission/cancellation behavior.
+- Added regression coverage for a running HLS playlist session occupying the
+  only CPU transcode permit, followed by a seeked HLS request that supersedes
+  it without dead-ending on `cpu_transcode` admission.
+- Added regression coverage for a `cancel_requested` HLS runner that still
+  holds its permit, followed by a seeked HLS request that must signal the
+  local cancellation registry and wait for permit release.
+- The system playback runtime active-pressure test now uses the same
+  platform-aware process-backed HLS readiness timeout as the surrounding
+  playback tests, avoiding a Windows full-gate timeout under fake-FFmpeg load.
+
+Fresh validation:
+
+```text
+cargo nextest run -p nako-server hls_playlist_playback_seek_supersedes_running_session_without_admission_dead_end --no-fail-fast
+cargo nextest run -p nako-server hls_playlist_playback_seek_waits_for_cancel_requested_runner_permit --no-fail-fast
+cargo nextest run -p nako-server hls_playlist_playback hls_source_seek_generation_supersedes_active_prior_generation --no-fail-fast
+cargo nextest run -p nako-server admin_v1_playback_runtime_reports_active_resource_pressure --no-fail-fast
+cargo nextest run -p nako-server hls playback --no-fail-fast
+cargo fmt --all -- --check
+python -m json.tool docs/workstreams/playback-transcode-jellyfin-class-hardening/WORKSTREAM.json
+git diff --check
+```
+
+Result: passed on 2026-06-01. The focused tracer test failed red first with
+`playback resource cpu_transcode is busy`, then passed after bounded supersede
+admission and playback-session cancellation were added. The focused HLS
+playlist/seek gate ran 4 tests and passed. The active resource-pressure system
+test passed focused after its readiness timeout was aligned with existing
+Windows playback test helpers. Integration verification also reran the new
+seek focused gate with 2 tests passing. The first full `hls playback` attempt
+hit a remux cancellation timing failure under parallel test load; that failure
+passed on focused rerun, and the second full `hls playback` gate ran 153 tests
+and passed. `cargo fmt --all -- --check`, `python -m json.tool`, and
+`git diff --check` passed; `git diff --check` emitted LF/CRLF working-copy
+warnings only.

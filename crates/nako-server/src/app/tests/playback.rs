@@ -858,6 +858,171 @@ async fn hls_playlist_playback_returns_when_playlist_is_ready_before_runner_fini
 }
 
 #[tokio::test]
+async fn hls_playlist_playback_seek_supersedes_running_session_without_admission_dead_end() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_running_hls_ffmpeg_script(script_root.path(), "hls_seek_runtime");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let principal = local_playback_viewer(&store, source.library_id).await;
+
+    let first = tokio::time::timeout(
+        process_backed_hls_playlist_readiness_timeout(),
+        app.playback()
+            .hls_playlist_playback(HlsPlaylistPlaybackRequest {
+                principal: principal.clone(),
+                source_id: source.id,
+                client: ClientPlaybackCapabilities::default(),
+                preferences: PlaybackPreferenceContext::default(),
+                playback_generation: HlsPlaybackGeneration::default(),
+                transport_query: None,
+            }),
+    )
+    .await
+    .expect("first hls playlist should become ready")
+    .unwrap();
+    let first_transcode_session_id = first
+        .session
+        .transcode_session_id
+        .expect("first hls playback session should link a transcode session");
+
+    let first_transcode = store
+        .get_transcode_session(first_transcode_session_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(first_transcode.state, TranscodeSessionState::Running);
+
+    let second = tokio::time::timeout(
+        process_backed_hls_playlist_readiness_timeout(),
+        app.playback()
+            .hls_playlist_playback(HlsPlaylistPlaybackRequest {
+                principal,
+                source_id: source.id,
+                client: ClientPlaybackCapabilities::default(),
+                preferences: PlaybackPreferenceContext::default(),
+                playback_generation: HlsPlaybackGeneration::from_start_position_ms(45_000),
+                transport_query: None,
+            }),
+    )
+    .await
+    .expect("seeked hls playlist should supersede without timing out")
+    .unwrap();
+    let second_transcode_session_id = second
+        .session
+        .transcode_session_id
+        .expect("second hls playback session should link a transcode session");
+
+    assert_ne!(first_transcode_session_id, second_transcode_session_id);
+    assert!(second.body.contains("#EXTM3U"));
+    wait_for_transcode_state(
+        &store,
+        first_transcode_session_id,
+        TranscodeSessionState::Cancelled,
+    )
+    .await;
+    let superseded_playback = store
+        .get_playback_session(first.session.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(superseded_playback.state, PlaybackSessionState::Cancelled);
+
+    app.playback()
+        .cancel_playback_session(second.session.id)
+        .await
+        .unwrap();
+    wait_for_transcode_state(
+        &store,
+        second_transcode_session_id,
+        TranscodeSessionState::Cancelled,
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn hls_playlist_playback_seek_waits_for_cancel_requested_runner_permit() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path =
+        fake_running_hls_ffmpeg_script(script_root.path(), "hls_seek_cancel_requested");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let principal = local_playback_viewer(&store, source.library_id).await;
+
+    let first = tokio::time::timeout(
+        process_backed_hls_playlist_readiness_timeout(),
+        app.playback()
+            .hls_playlist_playback(HlsPlaylistPlaybackRequest {
+                principal: principal.clone(),
+                source_id: source.id,
+                client: ClientPlaybackCapabilities::default(),
+                preferences: PlaybackPreferenceContext::default(),
+                playback_generation: HlsPlaybackGeneration::default(),
+                transport_query: None,
+            }),
+    )
+    .await
+    .expect("first hls playlist should become ready")
+    .unwrap();
+    let first_transcode_session_id = first
+        .session
+        .transcode_session_id
+        .expect("first hls playback session should link a transcode session");
+
+    store
+        .request_transcode_session_cancellation(
+            first_transcode_session_id,
+            "external cancel requested before replacement".to_owned(),
+        )
+        .await
+        .unwrap()
+        .expect("running hls session should accept cancellation request");
+
+    let second = tokio::time::timeout(
+        process_backed_hls_playlist_readiness_timeout(),
+        app.playback()
+            .hls_playlist_playback(HlsPlaylistPlaybackRequest {
+                principal,
+                source_id: source.id,
+                client: ClientPlaybackCapabilities::default(),
+                preferences: PlaybackPreferenceContext::default(),
+                playback_generation: HlsPlaybackGeneration::from_start_position_ms(45_000),
+                transport_query: None,
+            }),
+    )
+    .await
+    .expect("seeked hls playlist should wait for cancel-requested permit")
+    .unwrap();
+    let second_transcode_session_id = second
+        .session
+        .transcode_session_id
+        .expect("second hls playback session should link a transcode session");
+
+    assert_ne!(first_transcode_session_id, second_transcode_session_id);
+    assert!(second.body.contains("#EXTM3U"));
+    wait_for_transcode_state(
+        &store,
+        first_transcode_session_id,
+        TranscodeSessionState::Cancelled,
+    )
+    .await;
+    let superseded_playback = store
+        .get_playback_session(first.session.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(superseded_playback.state, PlaybackSessionState::Cancelled);
+
+    app.playback()
+        .cancel_playback_session(second.session.id)
+        .await
+        .unwrap();
+    wait_for_transcode_state(
+        &store,
+        second_transcode_session_id,
+        TranscodeSessionState::Cancelled,
+    )
+    .await;
+}
+
+#[tokio::test]
 async fn hls_playlist_playback_rejects_when_playback_resource_permit_is_busy() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_running_hls_ffmpeg_script(script_root.path(), "hls_resource_busy");

@@ -75,7 +75,7 @@ Last updated: 2026-05-31
   `nako-transcode`; playlist, variant playlist, segment, init, audio sidecar,
   and subtitle sidecar artifacts are covered by manifest-backed tests.
 
-- [ ] PTJCH-220 [owner=codex] [deps=PTJCH-110,PTJCH-120,PTJCH-130,PTJCH-210] [scope=crates/nako-server/src/app/playback]
+- [x] PTJCH-220 [owner=codex] [deps=PTJCH-110,PTJCH-120,PTJCH-130,PTJCH-210] [scope=crates/nako-server/src/app/playback]
   Goal: Clarify Playback Runtime ownership for sessions, admission, reuse,
   supersede, cancel, failure classification, and diagnostics without moving
   transcode planning back into the server.
@@ -83,7 +83,11 @@ Last updated: 2026-05-31
   Review: Planner coordination required if `PTJCH-210` is active.
   Evidence: runtime lifecycle tests and `EVIDENCE_AND_GATES.md`.
   Context: `CONTEXT.jsonl`.
-  Handoff: Pending.
+  Handoff: DONE. Centralized HLS supersede candidate discovery/cancellation in
+  playback runtime control, added bounded admission retry after supersede,
+  synchronized superseded HLS playback-session cancellation, and covered the
+  running-session seek supersede path that previously dead-ended on a busy
+  `cpu_transcode` permit.
 
 ## M3 - Artifact I/O And Closeout
 

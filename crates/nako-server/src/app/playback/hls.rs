@@ -1,9 +1,8 @@
-use std::{collections::HashSet, path::PathBuf, sync::Arc};
+use std::{collections::HashSet, path::PathBuf, sync::Arc, time::Duration};
 
 use nako_core::{
-    MediaSource, MediaSourceId, NakoError, NewTranscodeSession, PageRequest, Result,
-    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
-    TranscodeSessionRecord, TranscodeSessionState,
+    MediaSource, MediaSourceId, NakoError, NewTranscodeSession, Result, TranscodeFailureCategory,
+    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
 };
 use nako_playback::PlaybackDecision;
 use nako_transcode::{
@@ -24,8 +23,8 @@ use crate::config::NakoServerConfig;
 
 use super::{
     HlsOutputLayout, HlsSourceDisposition, HlsSourceOutput, PlaybackSessionCancellationRegistry,
-    map_hls_runner_error, path_exists, persist_session_failure,
-    record_playback_session_finished_event,
+    hls_supersede_candidates, map_hls_runner_error, path_exists, persist_session_failure,
+    record_playback_session_finished_event, request_hls_session_supersede,
     resource::{PlaybackResourceDemand, PlaybackResourcePermitSet, PlaybackRuntimeAdmission},
 };
 
@@ -249,6 +248,9 @@ impl HlsAppService {
             });
         }
 
+        let supersede_candidates =
+            hls_supersede_candidates(sessions, key.source_id, request_key.clone()).await?;
+
         let latest = sessions
             .find_latest_transcode_session(
                 key.source_id,
@@ -269,10 +271,6 @@ impl HlsAppService {
             }
         }
 
-        let superseded = self
-            .request_superseded_active_sessions(sessions, key, &request_key)
-            .await?;
-
         {
             let mut in_flight = self.in_flight.lock().await;
             if !in_flight.insert(key.clone()) {
@@ -285,9 +283,54 @@ impl HlsAppService {
             }
         }
 
+        if resource_permit.is_none() && !supersede_candidates.is_empty() {
+            if let Err(error) =
+                resource_admission.ensure_configured_capacity(resource_demand, "hls supersede")
+            {
+                self.release(key).await;
+                return Err(error);
+            }
+        }
+
+        let superseded = if supersede_candidates.is_empty() {
+            Vec::new()
+        } else {
+            match request_hls_session_supersede(
+                sessions,
+                &self.cancellations,
+                key.source_id,
+                request_key.clone(),
+                supersede_candidates,
+            )
+            .await
+            {
+                Ok(superseded) => superseded,
+                Err(error) => {
+                    self.release(key).await;
+                    return Err(error);
+                }
+            }
+        };
+
         let permit = match resource_permit {
             Some(permit) => permit,
-            None => match resource_admission.try_acquire(resource_demand) {
+            None if superseded.is_empty() => {
+                match resource_admission.try_acquire(resource_demand) {
+                    Ok(permit) => permit,
+                    Err(error) => {
+                        self.release(key).await;
+                        return Err(error);
+                    }
+                }
+            }
+            None => match resource_admission
+                .try_acquire_until(
+                    resource_demand,
+                    HLS_SUPERSEDE_ADMISSION_WAIT,
+                    HLS_SUPERSEDE_ADMISSION_RETRY_INTERVAL,
+                )
+                .await
+            {
                 Ok(permit) => permit,
                 Err(error) => {
                     self.release(key).await;
@@ -323,58 +366,6 @@ impl HlsAppService {
                 Err(error)
             }
         }
-    }
-
-    async fn request_superseded_active_sessions(
-        &self,
-        sessions: &dyn super::PlaybackRuntimeStore,
-        key: &HlsRequestKey,
-        request_key: &str,
-    ) -> Result<Vec<TranscodeSessionRecord>> {
-        let mut superseded = Vec::new();
-        let mut seen = HashSet::new();
-
-        for state in ACTIVE_HLS_ADMISSION_STATES {
-            let active = sessions
-                .list_transcode_sessions(
-                    TranscodeSessionListFilter {
-                        source_id: Some(key.source_id),
-                        kind: Some(TranscodeSessionKind::HlsTranscode),
-                        state: Some(state),
-                    },
-                    PageRequest::new(PageRequest::MAX_LIMIT, 0),
-                )
-                .await?;
-
-            for session in active {
-                if session.request_key == request_key || !seen.insert(session.id) {
-                    continue;
-                }
-
-                let local_cancelled = self.cancellations.cancel(session.id);
-                let updated = sessions
-                    .request_transcode_session_cancellation(
-                        session.id,
-                        format!(
-                            "hls session {} superseded by hls request {}",
-                            session.id, request_key
-                        ),
-                    )
-                    .await?;
-
-                if local_cancelled {
-                    debug!(
-                        transcode_session_id = %session.id,
-                        source_id = %key.source_id,
-                        "signalled local hls runner cancellation for superseded session"
-                    );
-                }
-
-                superseded.push(updated.unwrap_or(session));
-            }
-        }
-
-        Ok(superseded)
     }
 
     async fn run_reserved(
@@ -521,9 +512,5 @@ enum HlsRequestAdmission {
     },
 }
 
-const ACTIVE_HLS_ADMISSION_STATES: [TranscodeSessionState; 4] = [
-    TranscodeSessionState::Planned,
-    TranscodeSessionState::Starting,
-    TranscodeSessionState::Running,
-    TranscodeSessionState::CancelRequested,
-];
+const HLS_SUPERSEDE_ADMISSION_WAIT: Duration = Duration::from_secs(5);
+const HLS_SUPERSEDE_ADMISSION_RETRY_INTERVAL: Duration = Duration::from_millis(50);

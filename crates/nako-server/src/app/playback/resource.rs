@@ -1,8 +1,11 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use nako_core::{NakoError, Result};
 use nako_transcode::{HardwareAcceleration, TranscodeExecutionPolicy};
-use tokio::sync::{OwnedSemaphorePermit, Semaphore, TryAcquireError};
+use tokio::{
+    sync::{OwnedSemaphorePermit, Semaphore, TryAcquireError},
+    time::{Instant, sleep},
+};
 
 use crate::config::NakoServerConfig;
 
@@ -310,6 +313,58 @@ impl PlaybackRuntimeAdmission {
         }
 
         Ok(PlaybackResourcePermitSet { _permits: permits })
+    }
+
+    pub(crate) async fn try_acquire_until(
+        &self,
+        demand: &PlaybackResourceDemand,
+        timeout: Duration,
+        retry_interval: Duration,
+    ) -> Result<PlaybackResourcePermitSet> {
+        let deadline = Instant::now() + timeout;
+
+        loop {
+            match self.try_acquire(demand) {
+                Ok(permit) => return Ok(permit),
+                Err(error @ NakoError::Conflict { .. }) if Instant::now() < deadline => {
+                    sleep(retry_interval).await;
+                    if Instant::now() >= deadline {
+                        return Err(error);
+                    }
+                }
+                Err(error) => return Err(error),
+            }
+        }
+    }
+
+    pub(crate) fn ensure_configured_capacity(
+        &self,
+        demand: &PlaybackResourceDemand,
+        operation: &str,
+    ) -> Result<()> {
+        let decision = self.decide(demand.clone());
+        if decision.accepted() {
+            return Ok(());
+        }
+
+        let blocked = decision.classes().iter().find(|class| {
+            class
+                .capacity_units
+                .is_none_or(|capacity| capacity < class.requested_units)
+        });
+        let Some(blocked) = blocked else {
+            return Err(NakoError::Conflict {
+                message: format!("{operation} resource admission was rejected"),
+            });
+        };
+
+        Err(NakoError::Conflict {
+            message: format!(
+                "playback resource {} is unavailable for {operation}: {}",
+                blocked.class.as_str(),
+                blocked.reason
+            ),
+        })
     }
 
     #[must_use]
