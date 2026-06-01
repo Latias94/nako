@@ -22,8 +22,6 @@ Last reviewed: 2026-06-01
   is active on lane `library-metadata-control-plane`; next task is `GAMA-050`.
 - [client-surface-and-access-product-architecture](client-surface-and-access-product-architecture/README.md)
   is active on lane `client-surfaces-planning`; next task is `CSAPA-050`.
-- [playback-transcode-jellyfin-class-hardening](playback-transcode-jellyfin-class-hardening/README.md)
-  is active on lane `playback-transcode`; next task is `PTJCH-310`.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -38,8 +36,9 @@ defer desktop playback before closeout.
 `playback-compatibility-matrix-hardening`,
 `transcode-capability-inventory-matrix`,
 `hls-runtime-lifecycle-boundary`, and
-`hls-progressive-readiness-test-stability` are closed. Artifact I/O pressure
-should still split to PAIP unless `PTJCH-310` explicitly accepts it.
+`hls-progressive-readiness-test-stability` and
+`playback-transcode-jellyfin-class-hardening` are closed. Artifact I/O
+pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
 
 ## Current Workstreams
 
@@ -52,7 +51,7 @@ should still split to PAIP unless `PTJCH-310` explicitly accepts it.
   library-scoped item browse, detail rendering, browser playback tickets,
   native video/subtitle rendering, playback heartbeat, and redaction checks.
 - [playback-transcode-jellyfin-class-hardening](playback-transcode-jellyfin-class-hardening/README.md):
-  active playback/transcode planner lane for freezing Jellyfin/Plex-class
+  closed playback/transcode planner lane for freezing Jellyfin/Plex-class
   hardening seams, owned scopes, shared scopes, validation gates, and first
   parallel worker prompts before Rust implementation starts.
 - [hdr-tone-mapping-pipeline](hdr-tone-mapping-pipeline/README.md):

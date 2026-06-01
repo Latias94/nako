@@ -2,12 +2,12 @@
   "schema_version": 1,
   "slug": "playback-transcode-jellyfin-class-hardening",
   "title": "Playback Transcode Jellyfin-Class Hardening",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-06-01",
   "scope_kind": "architecture",
   "problem": "Nako has strong playback/transcode seams, but Jellyfin/Plex-class hardening needs an explicit Interface freeze, owned scopes, shared scopes, and validation gates before multiple Codex lanes can work safely.",
   "task_prefix": "PTJCH",
-  "current_task": "PTJCH-310",
+  "current_task": null,
   "completed_tasks": [
     "PTJCH-010",
     "PTJCH-020",
@@ -15,7 +15,9 @@
     "PTJCH-120",
     "PTJCH-130",
     "PTJCH-210",
-    "PTJCH-220"
+    "PTJCH-220",
+    "PTJCH-310",
+    "PTJCH-390"
   ],
   "authoritative_docs": [
     {
@@ -49,6 +51,10 @@
     {
       "role": "handoff",
       "path": "docs/workstreams/playback-transcode-jellyfin-class-hardening/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/playback-transcode-jellyfin-class-hardening/CLOSEOUT.md"
     }
   ],
   "context_manifest": "docs/workstreams/playback-transcode-jellyfin-class-hardening/CONTEXT.jsonl",
@@ -90,6 +96,14 @@
     {
       "task": "PTJCH-220",
       "summary": "Hardened Playback Runtime supersede ownership: HLS supersede candidate discovery and cancellation are centralized in runtime control, supersede admission waits briefly for the replaced local runner to release its permit, and active HLS playback sessions linked to superseded transcodes are cancelled."
+    },
+    {
+      "task": "PTJCH-310",
+      "summary": "Decided that HLS artifact I/O pressure should split to the existing proposed hls-artifact-io-pressure-enforcement follow-on instead of remaining inside PTJCH."
+    },
+    {
+      "task": "PTJCH-390",
+      "summary": "Closed the playback/transcode Jellyfin-class hardening coordination workstream with final docs/json/diff evidence."
     }
   ],
   "adr_refs": [
@@ -128,8 +142,7 @@
   ],
   "lane_slug": "playback-transcode",
   "continue_policy": {
-    "default_action": "continue",
-    "next_task": "PTJCH-310",
-    "notes": "PTJCH-220 is implemented, reviewed, and verified. Continue with the planner-owned PTJCH-310 decision on whether HLS artifact I/O pressure remains in this workstream or splits to a PAIP follow-on."
+    "default_action": "closed",
+    "notes": "The workstream is closed. Open focused follow-ons for HLS artifact I/O pressure enforcement, resource admission queueing, remote workers, LL-HLS/CMAF, player UX, hardware tone-map execution, or release hardware matrices."
   }
 }

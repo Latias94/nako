@@ -1,7 +1,7 @@
 # Playback Transcode Jellyfin-Class Hardening - TODO
 
-Status: Active
-Last updated: 2026-05-31
+Status: Closed
+Last updated: 2026-06-01
 
 ## M0 - Interface And Parallel Lane Freeze
 
@@ -91,16 +91,18 @@ Last updated: 2026-05-31
 
 ## M3 - Artifact I/O And Closeout
 
-- [ ] PTJCH-310 [owner=planner] [deps=PTJCH-210,PTJCH-220] [scope=docs/workstreams/playback-transcode-jellyfin-class-hardening,docs/architecture]
+- [x] PTJCH-310 [owner=planner] [deps=PTJCH-210,PTJCH-220] [scope=docs/workstreams/playback-transcode-jellyfin-class-hardening,docs/architecture]
   Goal: Decide whether HLS artifact I/O pressure belongs inside this workstream
   or should split to a dedicated PAIP follow-on.
   Validation: `python -m json.tool docs/workstreams/playback-transcode-jellyfin-class-hardening/WORKSTREAM.json`; `git diff --check`
   Review: Planner decision required.
   Evidence: `EVIDENCE_AND_GATES.md` and updated follow-on links.
   Context: `CONTEXT.jsonl`.
-  Handoff: Pending.
+  Handoff: DONE. HLS artifact I/O pressure is split to the existing
+  `proposed:hls-artifact-io-pressure-enforcement` follow-on. It is not
+  accepted into PTJCH.
 
-- [ ] PTJCH-390 [owner=planner] [deps=PTJCH-310] [scope=docs/workstreams/playback-transcode-jellyfin-class-hardening,docs/architecture]
+- [x] PTJCH-390 [owner=planner] [deps=PTJCH-310] [scope=docs/workstreams/playback-transcode-jellyfin-class-hardening,docs/architecture]
   Goal: Close this coordination workstream or split remaining implementation
   into dedicated workstreams with explicit owners and gates.
   Validation: final gates from `EVIDENCE_AND_GATES.md`; `python -m json.tool docs/workstreams/playback-transcode-jellyfin-class-hardening/WORKSTREAM.json`; `git diff --check`
@@ -108,4 +110,5 @@ Last updated: 2026-05-31
   if Rust code changed.
   Evidence: closeout notes and final gate output.
   Context: `CONTEXT.jsonl`.
-  Handoff: Pending.
+  Handoff: DONE. Workstream closed; future playback/transcode work must open
+  focused follow-ons.

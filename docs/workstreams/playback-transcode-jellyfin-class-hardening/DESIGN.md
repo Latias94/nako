@@ -1,7 +1,7 @@
 # Playback Transcode Jellyfin-Class Hardening - Design
 
-Status: Active
-Last updated: 2026-05-31
+Status: Closed
+Last updated: 2026-06-01
 
 ## Problem
 
@@ -188,3 +188,11 @@ batch clarifies Interfaces. Artifact I/O pressure should remain a later split.
   separate active workstreams with clear ownership.
 - Architecture links and handoff state are updated.
 - Required gates pass or failures are recorded with exact follow-up scope.
+
+## Closeout Summary
+
+Closed on 2026-06-01 after the first parallel batch, HLS Artifact Authority,
+and Playback Runtime slices were implemented and verified. `PTJCH-310` decided
+that HLS artifact I/O pressure remains outside this coordination lane and
+should use the existing `proposed:hls-artifact-io-pressure-enforcement`
+follow-on. `PTJCH-390` closed the workstream with no additional Rust changes.

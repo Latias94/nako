@@ -1,7 +1,7 @@
 # Playback Transcode Jellyfin-Class Hardening - Milestones
 
-Status: Active
-Last updated: 2026-05-31
+Status: Closed
+Last updated: 2026-06-01
 
 ## M0 - Interface Freeze
 
@@ -49,3 +49,7 @@ Exit criteria:
 - Workstream state, evidence, and handoff are current.
 - Final validation gates pass or residual risks are recorded with follow-up
   scope.
+
+Status: Complete. Artifact I/O pressure is split to
+`proposed:hls-artifact-io-pressure-enforcement`; PTJCH is closed with final
+docs/json/diff gates and no additional Rust changes.

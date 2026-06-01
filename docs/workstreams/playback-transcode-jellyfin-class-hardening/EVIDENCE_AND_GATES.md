@@ -1,6 +1,6 @@
 # Playback Transcode Jellyfin-Class Hardening - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 ## Source Coverage Audit
@@ -311,3 +311,32 @@ passed on focused rerun, and the second full `hls playback` gate ran 153 tests
 and passed. `cargo fmt --all -- --check`, `python -m json.tool`, and
 `git diff --check` passed; `git diff --check` emitted LF/CRLF working-copy
 warnings only.
+
+### PTJCH-310 - Artifact I/O Decision
+
+Status: Done
+
+Decision:
+
+- HLS artifact I/O pressure is not accepted into this coordination workstream.
+- Use the existing `proposed:hls-artifact-io-pressure-enforcement` follow-on
+  for disk-sensitive segment read/write pressure, cleanup/throttle policy,
+  storage/VFS coordination, and Admin diagnostics.
+- Keep FFmpeg command planning and HLS artifact identity in `nako-transcode`;
+  keep playback session/admission/supersede/cancel behavior in `nako-server`
+  Playback Runtime.
+
+### PTJCH-390 - Closeout
+
+Status: Done
+
+Fresh validation:
+
+```text
+python -m json.tool docs/workstreams/playback-transcode-jellyfin-class-hardening/WORKSTREAM.json
+python C:/Users/Frankorz/.codex/skills/plan-engineering-program/scripts/workstream_inventory.py --root .
+git diff --check -- docs/workstreams/playback-transcode-jellyfin-class-hardening docs/architecture docs/workstreams/README.md
+```
+
+Result: passed on 2026-06-01. No Rust code changed for `PTJCH-310` or
+`PTJCH-390`, so no Rust gates were rerun for closeout.

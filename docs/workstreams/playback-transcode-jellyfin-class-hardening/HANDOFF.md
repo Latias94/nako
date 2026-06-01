@@ -1,13 +1,14 @@
 # Playback Transcode Jellyfin-Class Hardening - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
-Current tasks: `PTJCH-310`
+Current tasks: none
 
 ## Current State
 
-This workstream has been opened to coordinate playback/transcode hardening
-before parallel Rust implementation starts.
+This workstream is closed after coordinating playback/transcode hardening
+across the first parallel Rust implementation batch, HLS Artifact Authority,
+and Playback Runtime.
 
 The initial design records six seams:
 
@@ -48,11 +49,10 @@ gate passed with 153 tests. See `worker-notes/PTJCH-220.md`.
 
 ## Next Action
 
-Run `PTJCH-310` - Artifact I/O decision.
-
-Decide whether HLS artifact I/O pressure remains inside this coordination
-workstream or should split to a dedicated PAIP follow-on. Keep FFmpeg command
-planning and HLS artifact allow-list ownership in `nako-transcode`.
+No routine continuation. HLS artifact I/O pressure is split to
+`proposed:hls-artifact-io-pressure-enforcement`. Open a focused follow-on
+before changing disk-sensitive segment read/write pressure, cleanup/throttle
+policy, storage/VFS coordination, or Admin diagnostics.
 
 ## Stop Conditions
 

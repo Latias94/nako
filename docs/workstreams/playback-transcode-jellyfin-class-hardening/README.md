@@ -1,9 +1,9 @@
 # Playback Transcode Jellyfin-Class Hardening
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 Lane: `playback-transcode`
-Current task: `PTJCH-310`
+Current task: none
 
 This workstream freezes the playback/transcode Interfaces, owned scopes,
 shared scopes, validation gates, and first parallel worker prompts needed to
@@ -11,9 +11,10 @@ deepen Nako toward Jellyfin/Plex-class playback and transcode behavior without
 collapsing the current typed architecture boundaries.
 
 It is an architecture coordination lane first. `PTJCH-010`, `PTJCH-020`, the
-first parallel Rust implementation batch, `PTJCH-210`, and `PTJCH-220` are
-complete. The next work is the planner-owned `PTJCH-310` Artifact I/O pressure
-decision.
+first parallel Rust implementation batch, `PTJCH-210`, `PTJCH-220`,
+`PTJCH-310`, and `PTJCH-390` are complete. HLS artifact I/O pressure is split
+to the existing `proposed:hls-artifact-io-pressure-enforcement` follow-on
+rather than remaining inside this workstream.
 
 Authoritative files:
 
@@ -25,3 +26,4 @@ Authoritative files:
 - `WORKER_PROMPTS.md` - first-batch prompts for parallel Codex terminals.
 - `WORKSTREAM.json` - machine-readable status and lane metadata.
 - `HANDOFF.md` - continuation notes for the next Codex terminal.
+- `CLOSEOUT.md` - closeout decision, gates, follow-ons, and residual risks.

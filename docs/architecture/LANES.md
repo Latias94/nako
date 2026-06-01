@@ -22,7 +22,6 @@ ledger instead.
 | --- | --- | --- | --- |
 | `library-metadata-control-plane` | `generated-artifact-metadata-authority-apply` | `GAMA-050` | Backend/control-plane execution |
 | `client-surfaces-planning` | `client-surface-and-access-product-architecture` | `CSAPA-050` | Planner/docs split or defer decision |
-| `playback-transcode` | `playback-transcode-jellyfin-class-hardening` | `PTJCH-310` | Playback artifact I/O decision |
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 Open a focused follow-on before doing actual artifact publication, one-command
@@ -48,15 +47,13 @@ workstream for hardware tone mapping, dynamic HDR handling, device profiles, UI
 controls, or operator smoke matrices.
 
 `playback-compatibility-matrix-hardening`,
-`transcode-capability-inventory-matrix`, `hls-runtime-lifecycle-boundary`, and
-`hls-progressive-readiness-test-stability` are closed.
-`playback-transcode-jellyfin-class-hardening` is now the active lane for the
-first parallel playback/transcode hardening batch after seam freeze. Keep
-artifact I/O pressure split to a PAIP follow-on unless `PTJCH-310` explicitly
-accepts it. Split resource admission queueing, remote workers, LL-HLS/CMAF,
-player UX, hardware tone-map execution, HEVC/AV1 output policy, subtitle
-burn-in, Admin/release reporting, and hardware smoke evidence into separate
-follow-ons.
+`transcode-capability-inventory-matrix`, `hls-runtime-lifecycle-boundary`,
+`hls-progressive-readiness-test-stability`, and
+`playback-transcode-jellyfin-class-hardening` are closed. Keep artifact I/O
+pressure split to `proposed:hls-artifact-io-pressure-enforcement`. Split
+resource admission queueing, remote workers, LL-HLS/CMAF, player UX, hardware
+tone-map execution, HEVC/AV1 output policy, subtitle burn-in, Admin/release
+reporting, and hardware smoke evidence into separate follow-ons.
 
 ## Lane Registry
 
