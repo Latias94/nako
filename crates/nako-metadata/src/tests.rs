@@ -2128,6 +2128,38 @@ async fn tmdb_provider_supports_series_season_and_episode_fetches() {
     assert_eq!(relationship.child_subject, season_subject.clone());
     assert_eq!(season.provider_key, "1437/1");
     assert_eq!(season.metadata().title, "Season 1");
+    let fetched_season_subject = season.graph.root.subject.as_ref().unwrap();
+    assert_eq!(
+        fetched_season_subject.subject_kind,
+        ProviderSubjectKind::Season
+    );
+    assert_eq!(fetched_season_subject.subject_key, "1437/1");
+    assert_eq!(season.graph.related.len(), 1);
+    let episode_node = &season.graph.related[0];
+    assert_eq!(episode_node.kind, MediaKind::Episode);
+    assert_eq!(
+        episode_node.metadata.title.as_deref(),
+        Some("The Train Job")
+    );
+    assert_eq!(
+        episode_node.metadata.release_date.as_deref(),
+        Some("2002-09-20")
+    );
+    assert_eq!(episode_node.metadata.runtime_minutes, Some(45));
+    let episode_subject = episode_node.subject.as_ref().unwrap();
+    assert_eq!(episode_subject.provider, ExternalProvider::Tmdb);
+    assert_eq!(episode_subject.subject_kind, ProviderSubjectKind::Episode);
+    assert_eq!(episode_subject.subject_key, "1437/1/2");
+    assert_eq!(episode_subject.title.as_deref(), Some("The Train Job"));
+    assert_eq!(episode_subject.release_year, Some(2002));
+    assert_eq!(season.graph.relationships.len(), 1);
+    let relationship = &season.graph.relationships[0];
+    assert_eq!(
+        relationship.kind,
+        MetadataCandidateRelationshipKind::Contains
+    );
+    assert_eq!(relationship.parent_subject, fetched_season_subject.clone());
+    assert_eq!(relationship.child_subject, episode_subject.clone());
     assert_eq!(episode.provider_key, "1437/1/2");
     assert_eq!(episode.metadata().title, "The Train Job");
     assert_eq!(
@@ -2747,7 +2779,17 @@ async fn mock_tmdb_season_details(
         "season_number": 1,
         "poster_path": "/firefly-s1.jpg",
         "credits": {"cast": [], "crew": []},
-        "images": {"posters": []}
+        "images": {"posters": []},
+        "episodes": [{
+            "id": 12345,
+            "name": "The Train Job",
+            "overview": "The crew takes a train heist job.",
+            "air_date": "2002-09-20",
+            "season_number": 1,
+            "episode_number": 2,
+            "runtime": 45,
+            "still_path": "/train-job.jpg"
+        }]
     }))
 }
 

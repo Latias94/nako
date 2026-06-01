@@ -13,11 +13,11 @@ Last updated: 2026-06-02
 
 ## M1 — TMDB Season Episode Graph Preview
 
-- [ ] TSEG-020 [owner=codex] [deps=TSEG-010] [scope=crates/nako-metadata/src/providers/tmdb.rs,crates/nako-metadata/src/mapping/tmdb.rs,crates/nako-metadata/src/tests.rs,docs/workstreams/tmdb-season-episode-graph-depth]
+- [x] TSEG-020 [owner=codex] [deps=TSEG-010] [scope=crates/nako-metadata/src/providers/tmdb.rs,crates/nako-metadata/src/mapping/tmdb.rs,crates/nako-metadata/src/tests.rs,docs/workstreams/tmdb-season-episode-graph-depth]
   Goal: Add TMDB season -> episode provider graph preview without hierarchy or mapping mutations.
   Validation: `cargo nextest run -p nako-metadata tmdb_provider_supports_series_season_and_episode_fetches --no-fail-fast`; `cargo nextest run -p nako-metadata tmdb_provider metadata_candidate --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`.
-  Review: episode nodes are evidence only; root season Canonical Metadata stays unchanged.
-  Evidence: `EVIDENCE_AND_GATES.md`.
+  Review: episode nodes are evidence only; root season Canonical Metadata stays unchanged. Passed on 2026-06-02.
+  Evidence: `EVIDENCE_AND_GATES.md` TSEG-020 section.
   Handoff: Continue to `TSEG-030` after graph preview tests pass.
 
 ## M2 — Root-Only Season Refresh Guard

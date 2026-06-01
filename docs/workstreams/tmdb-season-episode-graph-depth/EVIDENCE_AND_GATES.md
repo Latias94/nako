@@ -59,6 +59,43 @@ Local planning recon on 2026-06-02:
   guide episode summary metadata shape.
 - Prior MPDP refresh guard proves related graph nodes remain non-mutating.
 
+## TSEG-020 Evidence
+
+Completed on 2026-06-02.
+
+Implementation:
+
+- `TmdbSeasonDetails` now parses TMDB `episodes` summaries.
+- `TmdbMetadataProvider::fetch(Season)` projects each episode summary into a
+  related `MetadataCandidateNode`.
+- The graph records a `contains` relationship from the TMDB season Provider
+  Subject to each TMDB episode Provider Subject.
+- Episode subject keys use the existing
+  `{series_id}/{season_number}/{episode_number}` compound key. Episode TMDB IDs
+  remain metadata external IDs.
+- No schema, API, Web, Generated Artifact apply, Media Item hierarchy, or
+  Provider Mapping behavior changed.
+
+Validation:
+
+```bash
+cargo nextest run -p nako-metadata tmdb_provider_supports_series_season_and_episode_fetches --no-fail-fast
+```
+
+Result: passed, 1 test.
+
+```bash
+cargo nextest run -p nako-metadata tmdb_provider metadata_candidate --no-fail-fast
+```
+
+Result: passed, 3 tests.
+
+```bash
+cargo fmt --all -- --check
+```
+
+Result: passed.
+
 ## Notes
 
 - Do not change persistence semantics from this lane.

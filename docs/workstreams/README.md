@@ -24,8 +24,8 @@ Last reviewed: 2026-06-02
 
 Next task:
 
-- `TSEG-020`: add TMDB season -> episode provider graph preview while keeping
-  graph depth non-mutating.
+- `TSEG-030`: prove TMDB episode graph preview depth remains non-mutating
+  during season refresh and Provider Mapping persistence.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,

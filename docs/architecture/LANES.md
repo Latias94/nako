@@ -20,7 +20,7 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| library-metadata-control-plane | tmdb-season-episode-graph-depth | TSEG-020 | TMDB episode graph implementer |
+| library-metadata-control-plane | tmdb-season-episode-graph-depth | TSEG-030 | Season refresh guard implementer |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
@@ -36,8 +36,9 @@ mutation.
 proved refresh and Provider Mapping persistence stay root-only. `MPDP-040`
 split TMDB episode, Bangumi, Douban, durable candidate review, and Admin/Web
 confirmation follow-ons. Open a focused follow-on rather than reopening it.
-`tmdb-season-episode-graph-depth` is active as the next focused follow-on and
-continues the same preview-only, root-only persistence boundary.
+`tmdb-season-episode-graph-depth` is active as the next focused follow-on.
+`TSEG-020` added season -> episode graph preview; next prove season refresh
+keeps the same preview-only, root-only persistence boundary.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
@@ -135,7 +136,7 @@ Closed evidence:
 
 Active evidence:
 
-- `docs/workstreams/tmdb-season-episode-graph-depth/` (`TSEG-020` ready)
+- `docs/workstreams/tmdb-season-episode-graph-depth/` (`TSEG-030` ready)
 
 Owned scopes:
 

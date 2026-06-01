@@ -4,9 +4,10 @@ use nako_core::{
 };
 
 use crate::providers::{
-    TmdbCredits, TmdbEpisodeDetails, TmdbImage, TmdbMovieDetails, TmdbMovieSearchResult,
-    TmdbReleaseDates, TmdbSeasonDetails, TmdbSeasonSummary, TmdbSeriesDetails,
-    push_provider_image_uri, result_original_title, result_release_date, result_title,
+    TmdbCredits, TmdbEpisodeDetails, TmdbEpisodeSummary, TmdbImage, TmdbMovieDetails,
+    TmdbMovieSearchResult, TmdbReleaseDates, TmdbSeasonDetails, TmdbSeasonSummary,
+    TmdbSeriesDetails, push_provider_image_uri, result_original_title, result_release_date,
+    result_title,
 };
 
 pub(crate) fn tmdb_search_result_to_metadata(
@@ -354,14 +355,7 @@ pub(crate) fn tmdb_episode_details_to_metadata(
     }
 
     MetadataCandidateRecord {
-        title: Some(if details.name.trim().is_empty() {
-            match details.episode_number {
-                Some(episode) => format!("Episode {episode}"),
-                None => "Episode".to_owned(),
-            }
-        } else {
-            details.name
-        }),
+        title: Some(tmdb_episode_title(&details.name, details.episode_number)),
         overview: details.overview,
         release_date: details.air_date,
         runtime_minutes: details.runtime,
@@ -371,6 +365,42 @@ pub(crate) fn tmdb_episode_details_to_metadata(
         external_ids: vec![ExternalId {
             provider: ExternalProvider::Tmdb,
             value: details.id.to_string(),
+        }],
+        ..MetadataCandidateRecord::default()
+    }
+}
+
+pub(crate) fn tmdb_episode_summary_to_metadata(
+    summary: &TmdbEpisodeSummary,
+    image_base_url: &str,
+) -> MetadataCandidateRecord {
+    let mut images = Vec::new();
+    push_provider_image_uri(
+        &mut images,
+        ImageKind::Thumbnail,
+        summary.still_path.as_deref(),
+        image_base_url,
+        ExternalProvider::Tmdb,
+        None,
+        None,
+        None,
+    );
+
+    let mut tags = Vec::new();
+    if let Some(season) = summary.season_number {
+        tags.push(format!("tmdb:season:{season}"));
+    }
+
+    MetadataCandidateRecord {
+        title: Some(tmdb_episode_title(&summary.name, summary.episode_number)),
+        overview: summary.overview.clone(),
+        release_date: summary.air_date.clone(),
+        runtime_minutes: summary.runtime,
+        tags,
+        images,
+        external_ids: vec![ExternalId {
+            provider: ExternalProvider::Tmdb,
+            value: summary.id.to_string(),
         }],
         ..MetadataCandidateRecord::default()
     }
@@ -466,6 +496,16 @@ fn tmdb_season_title(name: &str, season_number: Option<u32>) -> String {
         season_number
             .map(|season| format!("Season {season}"))
             .unwrap_or_else(|| "Season".to_owned())
+    } else {
+        name.to_owned()
+    }
+}
+
+fn tmdb_episode_title(name: &str, episode_number: Option<u32>) -> String {
+    if name.trim().is_empty() {
+        episode_number
+            .map(|episode| format!("Episode {episode}"))
+            .unwrap_or_else(|| "Episode".to_owned())
     } else {
         name.to_owned()
     }

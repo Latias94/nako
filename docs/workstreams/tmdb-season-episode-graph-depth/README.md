@@ -23,8 +23,9 @@ Authoritative docs:
 Current execution:
 
 - `TSEG-010` opens the lane.
-- `TSEG-020` is ready: parse TMDB season episode summaries and add
-  season -> episode graph preview nodes.
+- `TSEG-020` added TMDB season -> episode graph preview nodes.
+- `TSEG-030` is ready: prove season refresh remains root-only when graph
+  preview nodes are present.
 
 Boundary:
 

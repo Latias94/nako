@@ -7,7 +7,7 @@
   "scope_kind": "library_metadata_provider_graph_depth",
   "problem": "TMDB series fetch can expose season graph preview, but TMDB season fetch does not yet expose episode graph preview even though TMDB episode compound key semantics already exist.",
   "task_prefix": "TSEG",
-  "current_task": "TSEG-020",
+  "current_task": "TSEG-030",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -53,6 +53,10 @@
     {
       "task": "TSEG-010",
       "summary": "Opened the TMDB season -> episode graph depth lane from MPDP closeout and follow-on split evidence."
+    },
+    {
+      "task": "TSEG-020",
+      "summary": "TMDB season fetch now projects episode summaries into MetadataCandidateGraph related nodes and contains relationships without schema, API, Web, Generated Artifact apply, or persistence changes."
     }
   ],
   "adr_refs": [
@@ -82,7 +86,7 @@
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
     "default_action": "run_current_task",
-    "current_task": "TSEG-020",
-    "notes": "Start with TMDB season -> episode provider graph preview. Keep graph depth non-mutating; do not add schema, Public Client API, Admin/Web, Generated Artifact apply, Media Item hierarchy creation, or child Provider Mapping writes."
+    "current_task": "TSEG-030",
+    "notes": "Next prove season refresh persists only the root season Provider Subject and ignores episode preview nodes. Do not add schema, Public Client API, Admin/Web, Generated Artifact apply, Media Item hierarchy creation, or child Provider Mapping writes."
   }
 }

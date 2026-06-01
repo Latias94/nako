@@ -290,22 +290,31 @@ impl MetadataProvider for TmdbMetadataProvider {
                 (provider_key, graph)
             }
             MediaKind::Season => {
-                let details: TmdbSeasonDetails = serde_json::from_value(value)
+                let mut details: TmdbSeasonDetails = serde_json::from_value(value)
                     .map_err(|err| tmdb_parse_error(operation, err))?;
                 let provider_key = request.provider_key;
-                (
+                let (series_id, season_number) = split_tmdb_season_key(&provider_key)?;
+                let series_id = series_id.to_owned();
+                let season_number = season_number.to_owned();
+                let episodes = std::mem::take(&mut details.episodes);
+                let mut graph = MetadataCandidateGraph::for_provider(
+                    ExternalProvider::Tmdb,
+                    MediaKind::Season,
+                    ProviderSubjectKind::Season,
                     provider_key.clone(),
-                    MetadataCandidateGraph::for_provider(
-                        ExternalProvider::Tmdb,
-                        MediaKind::Season,
-                        ProviderSubjectKind::Season,
-                        provider_key,
-                        crate::mapping::tmdb_season_details_to_metadata(
-                            details,
-                            &self.config.image_base_url,
-                        ),
+                    crate::mapping::tmdb_season_details_to_metadata(
+                        details,
+                        &self.config.image_base_url,
                     ),
-                )
+                );
+                append_tmdb_season_episode_graph(
+                    &mut graph,
+                    &series_id,
+                    &season_number,
+                    episodes,
+                    &self.config.image_base_url,
+                );
+                (provider_key, graph)
             }
             MediaKind::Episode => {
                 let details: TmdbEpisodeDetails = serde_json::from_value(value)
@@ -565,6 +574,27 @@ pub(crate) struct TmdbSeasonDetails {
     pub(crate) credits: Option<TmdbCredits>,
     #[serde(default)]
     pub(crate) images: Option<TmdbImages>,
+    #[serde(default)]
+    pub(crate) episodes: Vec<TmdbEpisodeSummary>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct TmdbEpisodeSummary {
+    pub(crate) id: u64,
+    #[serde(default)]
+    pub(crate) name: String,
+    #[serde(default)]
+    pub(crate) overview: Option<String>,
+    #[serde(default)]
+    pub(crate) air_date: Option<String>,
+    #[serde(default)]
+    pub(crate) episode_number: Option<u32>,
+    #[serde(default)]
+    pub(crate) season_number: Option<u32>,
+    #[serde(default)]
+    pub(crate) runtime: Option<u32>,
+    #[serde(default)]
+    pub(crate) still_path: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -710,6 +740,46 @@ fn append_tmdb_series_season_graph(
         graph.related.push(MetadataCandidateNode {
             source: MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
             kind: MediaKind::Season,
+            subject: Some(subject),
+            metadata,
+        });
+    }
+}
+
+fn append_tmdb_season_episode_graph(
+    graph: &mut MetadataCandidateGraph,
+    series_id: &str,
+    season_number: &str,
+    episodes: Vec<TmdbEpisodeSummary>,
+    image_base_url: &str,
+) {
+    let Some(parent_subject) = graph.root.subject.clone() else {
+        return;
+    };
+
+    for episode in episodes {
+        let Some(episode_number) = episode.episode_number else {
+            continue;
+        };
+        let subject_key = format!("{series_id}/{season_number}/{episode_number}");
+        let metadata = crate::mapping::tmdb_episode_summary_to_metadata(&episode, image_base_url);
+        let subject = MetadataCandidateSubject {
+            provider: ExternalProvider::Tmdb,
+            subject_kind: ProviderSubjectKind::Episode,
+            subject_key,
+            title: metadata.title.clone(),
+            release_year: release_year(metadata.release_date.as_deref()).map(i32::from),
+            locale: None,
+        };
+
+        graph.relationships.push(MetadataCandidateRelationship {
+            parent_subject: parent_subject.clone(),
+            child_subject: subject.clone(),
+            kind: MetadataCandidateRelationshipKind::Contains,
+        });
+        graph.related.push(MetadataCandidateNode {
+            source: MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+            kind: MediaKind::Episode,
             subject: Some(subject),
             metadata,
         });

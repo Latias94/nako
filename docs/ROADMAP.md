@@ -22,8 +22,8 @@ active.
 
 It targets:
 
-- parsing TMDB season episode summaries;
-- adding season -> episode provider graph preview nodes;
+- proving root-only season refresh after adding TMDB season -> episode provider
+  graph preview nodes;
 - keeping refresh and Provider Mapping persistence root-only;
 - leaving durable candidate review, Admin/Web confirmation, and non-TMDB
   provider depth to separate lanes.
@@ -34,7 +34,7 @@ Authoritative lane:
 
 Next task:
 
-- `TSEG-020`: TMDB season -> episode provider graph preview.
+- `TSEG-030`: root-only season refresh guard for episode graph preview.
 
 Latest completed architecture focus:
 
