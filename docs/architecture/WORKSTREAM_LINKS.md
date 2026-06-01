@@ -159,6 +159,7 @@ Evidence workstreams:
 - `docs/workstreams/library-metadata-scan-policy/`
 - `docs/workstreams/metadata-catalog/`
 - `docs/workstreams/metadata-provider-breadth/`
+- `docs/workstreams/metadata-provider-depth-and-precision/` (active)
 - `docs/workstreams/metadata-acquisition-pipeline/`
 - `docs/workstreams/metadata-profile-configuration-authority/`
 - `docs/workstreams/metadata-application-policy-seam/`
@@ -194,7 +195,6 @@ Proposed lanes:
 
 - `proposed:library-watcher-and-media-intake-stability`
 - `proposed:artwork-delivery-cache-placeholder`
-- `proposed:metadata-provider-depth-and-precision`
 - `proposed:provider-identity-mapping-breadth`
 
 ## State, Database, Identity, And Access

@@ -29,10 +29,10 @@ Storage event or scheduled scan
 | Media probe | Shipped foundation | playback/transcode lanes | More HDR/audio/subtitle technical facts. |
 | NFO authority | Shipped foundation | `docs/adr/0008-nfo-as-local-metadata-boundary.md` | Round-trip/writeback polish and backup policy. |
 | Metadata merge policy | Shipped foundation | `docs/adr/0007-metadata-merge-policy-and-local-authority.md` | Field-level review UX and provider conflict diagnostics. |
-| TMDB provider | Shipped movie plus series/season/episode foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Provider depth, identity matching, and conflict precision. |
-| Douban provider | Shipped MVP foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Provider depth, identity matching, and conflict precision. |
-| Bangumi provider | Shipped MVP foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Anime-first provider depth and identity matching. |
-| Addon-assisted metadata | Shipped guarded apply, bulk apply, provider mapping breadth, read-only apply recovery foundation, Web recovery UI, and repair seam proof | addon architecture lanes; `docs/workstreams/generated-artifact-metadata-authority-apply/`; `docs/workstreams/generated-artifact-bulk-metadata-apply/`; `docs/workstreams/generated-artifact-provider-mapping-breadth/`; `docs/workstreams/generated-artifact-apply-operations-repair/`; `docs/workstreams/web-admin-generated-artifact-recovery-ui/`; `docs/workstreams/generated-artifact-apply-repair-actions/` | Deeper provider identity precision, optional one-click repair wrapper, or Web repair copy polish. |
+| TMDB provider | Shipped movie plus series/season/episode foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Active provider depth, identity matching, and conflict precision. |
+| Douban provider | Shipped MVP foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Active provider depth, identity matching, and conflict precision. |
+| Bangumi provider | Shipped MVP foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Active anime-first provider depth and identity matching. |
+| Addon-assisted metadata | Shipped guarded apply, bulk apply, provider mapping breadth, read-only apply recovery foundation, Web recovery UI, and repair seam proof | addon architecture lanes; `docs/workstreams/generated-artifact-metadata-authority-apply/`; `docs/workstreams/generated-artifact-bulk-metadata-apply/`; `docs/workstreams/generated-artifact-provider-mapping-breadth/`; `docs/workstreams/generated-artifact-apply-operations-repair/`; `docs/workstreams/web-admin-generated-artifact-recovery-ui/`; `docs/workstreams/generated-artifact-apply-repair-actions/` | Active provider depth precision, optional one-click repair wrapper, or Web repair copy polish. |
 | Artwork artifact lifecycle | Shipped selection, lifecycle, variant, and remediation foundation | managed artwork lanes | Delivery cache placeholders and broader derivative policy. |
 | Watcher/debounce | Weak | This document | Open `library-watcher-and-media-intake-stability`. |
 
@@ -44,6 +44,25 @@ consolidated index for library, metadata, NFO, and artwork workstreams. Keep
 this document focused on intake and asset pipeline capability state.
 
 ## Next Work Lanes
+
+### metadata-provider-depth-and-precision
+
+Status: Active at
+`docs/workstreams/metadata-provider-depth-and-precision/`.
+
+Goal: Tighten built-in provider depth, subject identity, and candidate
+precision before adding Admin/Web confirmation or durable candidate review.
+
+Initial boundary:
+
+- add TMDB series -> season provider graph evidence before hierarchy mutation;
+- preserve root-only refresh and Provider Mapping persistence for graph
+  preview data;
+- split capability-matrix, Douban, Bangumi, and TMDB episode follow-ons only
+  after the first graph slice lands;
+- keep candidate review non-mutating and redaction-safe;
+- do not change schema, Public Client API, or Generated Artifact apply behavior
+  in the first task.
 
 ### source-identity-foundation
 
@@ -196,7 +215,7 @@ Follow-ons:
 
 - `proposed:generated-artifact-recovery-one-click-wrapper`
 - `proposed:web-generated-artifact-repair-copy-polish`
-- `proposed:metadata-provider-depth-and-precision`
+- `docs/workstreams/metadata-provider-depth-and-precision/` (active)
 
 ## Risk Register
 

@@ -11,21 +11,30 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: planning the next focused lane after repair-action closeout.
+Status: active provider depth and precision lane.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
 Operations Repair are both closed as of 2026-06-02. Web Admin Generated
 Artifact Recovery UI is also closed after `WAGR-030`. Generated Artifact Apply
-Repair Actions is closed after `GAARA-050`.
+Repair Actions is closed after `GAARA-050`. Metadata Provider Depth And
+Precision is now active.
 
-Recommended next choices:
+It targets:
 
-- `proposed:metadata-provider-depth-and-precision`;
-- `proposed:generated-artifact-recovery-one-click-wrapper`;
-- `proposed:web-generated-artifact-repair-copy-polish`;
-- `proposed:admin-settings-api-backed-restoration`.
+- adding a TMDB series -> season provider graph preview before hierarchy
+  mutation behavior;
+- tightening TMDB, Douban, and Bangumi subject identity and per-kind precision;
+- keeping candidate ambiguity non-mutating and redaction-safe;
+- splitting durable candidate review, Admin governance detail, and Web
+  confirmation if they become necessary.
 
-No active workstream is selected in this file until a focused lane is opened.
+Authoritative lane:
+
+- `docs/workstreams/metadata-provider-depth-and-precision/`
+
+Next task:
+
+- `MPDP-020`: TMDB series -> season provider graph preview.
 
 Latest completed architecture focus:
 
@@ -49,7 +58,7 @@ Follow-ons:
 
 - `proposed:generated-artifact-recovery-one-click-wrapper`;
 - `proposed:web-generated-artifact-repair-copy-polish`;
-- `proposed:metadata-provider-depth-and-precision`;
+- `docs/workstreams/metadata-provider-depth-and-precision/` (active);
 - `proposed:admin-settings-api-backed-restoration`.
 
 Previous architecture focus:
@@ -72,7 +81,7 @@ Authoritative lane:
 Follow-ons:
 
 - `docs/workstreams/generated-artifact-apply-repair-actions/` (closed);
-- `proposed:metadata-provider-depth-and-precision`;
+- `docs/workstreams/metadata-provider-depth-and-precision/` (active);
 - `proposed:admin-settings-api-backed-restoration`.
 
 Previous architecture focus:
@@ -99,7 +108,7 @@ Follow-ons:
 
 - `docs/workstreams/web-admin-generated-artifact-recovery-ui/` (closed);
 - `docs/workstreams/generated-artifact-apply-repair-actions/` (closed);
-- `proposed:metadata-provider-depth-and-precision`.
+- `docs/workstreams/metadata-provider-depth-and-precision/` (active).
 
 Previous architecture focus:
 

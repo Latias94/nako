@@ -1,0 +1,13 @@
+{"role":"glossary","path":"CONTEXT.md","reason":"Provider Subject, Provider Mapping, Canonical Metadata, Local Inference, and Metadata Authority terminology."}
+{"role":"adr","path":"docs/adr/0007-metadata-merge-policy-and-local-authority.md","reason":"Field locks, raw provider cache, and canonical metadata authority."}
+{"role":"adr","path":"docs/adr/0018-metadata-provider-runtime-and-diagnostics.md","reason":"Shared provider runtime, diagnostics, attempts, and redaction boundary."}
+{"role":"adr","path":"docs/adr/0021-video-first-media-server-domain-model.md","reason":"Video-first scope and media kind hierarchy terms."}
+{"role":"architecture","path":"docs/architecture/LIBRARY_PIPELINE.md","reason":"Provider depth and library metadata lane routing."}
+{"role":"architecture","path":"docs/architecture/LANES.md","reason":"Active queue and library-metadata-control-plane ownership."}
+{"role":"architecture","path":"docs/architecture/WORKSTREAM_LINKS.md","reason":"Evidence index for the active metadata provider depth lane."}
+{"role":"prior_workstream","path":"docs/workstreams/metadata-provider-breadth/DESIGN.md","reason":"Provider capabilities, matching policy, and candidate review baseline."}
+{"role":"prior_workstream","path":"docs/workstreams/generated-artifact-provider-mapping-breadth/CLOSEOUT.md","reason":"Provider Subject and Provider Mapping breadth closeout and residual precision risk."}
+{"role":"prior_workstream","path":"docs/workstreams/generated-artifact-apply-repair-actions/CLOSEOUT.md","reason":"Generated Artifact apply repair is closed and out of scope."}
+{"role":"admin_context","path":"docs/workstreams/admin-catalog-governance-read-model/DESIGN.md","reason":"Admin governance read-model needs for Provider Mapping counts and future details."}
+{"role":"workstream","path":"docs/workstreams/metadata-provider-depth-and-precision/DESIGN.md","reason":"Current lane design and non-goals."}
+{"role":"gates","path":"docs/workstreams/metadata-provider-depth-and-precision/EVIDENCE_AND_GATES.md","reason":"Validation commands and evidence ledger."}

@@ -139,7 +139,8 @@ Follow-ons:
 
 - `proposed:generated-artifact-recovery-one-click-wrapper`
 - `proposed:web-generated-artifact-repair-copy-polish`
-- `proposed:metadata-provider-depth-and-precision`
+- `docs/workstreams/metadata-provider-depth-and-precision/` (active in the
+  library pipeline lane)
 
 ### generated-artifact-bulk-metadata-apply
 

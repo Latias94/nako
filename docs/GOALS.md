@@ -26,36 +26,45 @@ proposed milestone.
 
 ## Current Goal
 
-### Next Architecture Lane Selection
+### Metadata Provider Depth And Precision
 
-Status: planning as of 2026-06-02.
+Status: active as of 2026-06-02.
 
 Objective:
 
-- Select the next focused architecture lane after Generated Artifact apply
-  repair actions closed.
-- Keep follow-ons split instead of reopening closed Generated Artifact lanes.
+- Tighten provider depth, subject identity, and candidate precision for TMDB,
+  Douban, and Bangumi.
+- Keep provider precision separate from Generated Artifact apply repair,
+  one-click repair wrappers, and Admin Web confirmation UX.
 
 Deliverables:
 
-- updated active queue in `docs/architecture/LANES.md`;
-- a new focused workstream only when the next target has a clear boundary.
+- `docs/workstreams/metadata-provider-depth-and-precision/`
+- TMDB series -> season provider graph preview as non-mutating evidence
+- focused `nako-metadata` tests proving provider graph depth and refresh
+  boundary behavior
 
 Non-goals:
 
 - no reopening `GAMA`, `GABMA`, `GAPM`, `GAOR`, `WAGR`, or `GAARA`;
-- no bundling unrelated provider precision, Admin settings restoration, and
-  one-click repair wrapper work into one lane.
+- no schema migration, Public Client API change, or Web confirmation UI in the
+  first slice;
+- no raw provider payload, token, proxy URL, path, or Source Locator exposure.
 
 Exit criteria:
 
-- the next workstream is opened with `WORKSTREAM.json`, TODO ledger, gates, and
-  architecture refs; or the active queue remains explicitly idle.
+- TMDB series fetch exposes season Provider Subjects without automatic
+  hierarchy creation;
+- candidate ambiguity remains non-mutating;
+- refresh and Provider Mapping persistence remain root-only for this graph
+  preview;
+- follow-ons for durable candidate review, Admin governance detail, or Web
+  confirmation are split explicitly.
 
 Evidence:
 
-- `docs/architecture/LANES.md`
-- `docs/workstreams/README.md`
+- `docs/workstreams/metadata-provider-depth-and-precision/`
+- `docs/architecture/LIBRARY_PIPELINE.md`
 
 ## Recent Completed Goals
 

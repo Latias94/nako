@@ -20,7 +20,7 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| _None_ | _No active workstream_ | _n/a_ | Planner selects the next focused lane |
+| library-metadata-control-plane | metadata-provider-depth-and-precision | MPDP-020 | TMDB provider graph implementer |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
@@ -31,6 +31,10 @@ ledger instead.
 The repair path stays preparation-first through existing Metadata Authority
 apply routes; do not add a second metadata apply executor or blind retry
 mutation.
+`metadata-provider-depth-and-precision` is active as the next
+library-metadata-control-plane lane. Start with TMDB series -> season provider
+graph preview, and keep graph depth non-mutating before considering schema,
+Public Client API, or Web confirmation UX.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
@@ -125,6 +129,11 @@ Closed evidence:
 - `docs/workstreams/generated-artifact-apply-operations-repair/`
 - `docs/workstreams/generated-artifact-apply-repair-actions/`
 
+Active evidence:
+
+- `docs/workstreams/metadata-provider-depth-and-precision/` (`MPDP-020`
+  ready)
+
 Owned scopes:
 
 - `crates/nako-core/src/automation.rs`
@@ -137,10 +146,13 @@ Owned scopes:
 - `crates/nako-server/src/app/automation.rs`
 - `crates/nako-server/src/app/metadata_application.rs`
 - `crates/nako-server/src/http/admin.rs`
+- `crates/nako-metadata/src/**`
+- `crates/nako-api/src/metadata_diagnostics.rs`
 - `docs/workstreams/generated-artifact-provider-mapping-breadth/`
 - `docs/workstreams/generated-artifact-apply-operations-repair/`
 - `docs/workstreams/generated-artifact-metadata-authority-apply/`
 - `docs/workstreams/generated-artifact-bulk-metadata-apply/`
+- `docs/workstreams/metadata-provider-depth-and-precision/`
 
 Shared scopes requiring planner coordination:
 
