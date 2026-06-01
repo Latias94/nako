@@ -3409,6 +3409,9 @@ fn contract_generated_artifact_metadata_bulk_apply_batch_commit(
             apply_field_count: item_count,
             skipped_field_count: 0,
             noop_field_count: 0,
+            apply_provider_mapping_count: 0,
+            skipped_provider_mapping_count: 0,
+            noop_provider_mapping_count: 0,
         },
         items: plan_items
             .into_iter()

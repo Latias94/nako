@@ -5,13 +5,14 @@
   "status": "active",
   "updated": "2026-06-01",
   "scope_kind": "backend_web_authority_workflow",
-  "problem": "Accepted metadata Generated Artifacts can now plan and apply single-artifact Provider Subject and Provider Mapping proposals, but bulk/Admin/Web surfaces still need to expose those mapping counters and outcomes through the guarded Metadata Authority workflow.",
+  "problem": "Accepted metadata Generated Artifacts can now plan, apply, and expose backend/Admin bulk Provider Subject and Provider Mapping effects, but Web Admin still needs to render those mapping counters and results in the guarded Metadata Authority workflow.",
   "task_prefix": "GAPM",
-  "current_task": "GAPM-040",
+  "current_task": "GAPM-050",
   "completed_tasks": [
     "GAPM-010",
     "GAPM-020",
-    "GAPM-030"
+    "GAPM-030",
+    "GAPM-040"
   ],
   "authoritative_docs": [
     {
@@ -73,6 +74,10 @@
     {
       "task": "GAPM-030",
       "summary": "Made final Generated Artifact metadata apply persist Provider Subjects and accepted Provider Mappings through the generated artifact outcome transaction, including idempotent replay, candidate promotion, rejected-mapping preservation, and SQLite/PostgreSQL repository support."
+    },
+    {
+      "task": "GAPM-040",
+      "summary": "Surfaced Provider Mapping apply/skip/noop counters through bulk apply plan summaries, batch snapshots, Admin DTOs, HTTP route responses, generated TypeScript contracts, and Web Admin read-model mapping while keeping bulk execution on the existing single-artifact apply path."
     }
   ],
   "adr_refs": [
@@ -111,7 +116,7 @@
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
     "default_action": "run_current_task",
-    "current_task": "GAPM-040",
-    "notes": "Continue with bulk/Admin surface reconciliation now that GAPM-030 stabilized single-artifact Provider Subject/Mapping persistence. GAPM-040 must reuse the one-artifact apply path and avoid a second provider mapping executor."
+    "current_task": "GAPM-050",
+    "notes": "Continue with Web Admin Provider Mapping display now that GAPM-040 stabilized backend/Admin bulk summary counters and generated contracts. GAPM-050 should render mapping plan/result facts from the existing read models without adding new backend behavior."
   }
 }

@@ -854,9 +854,26 @@ async fn generated_artifact_metadata_apply_accepts_candidate_and_preserves_rejec
 #[tokio::test]
 async fn generated_artifact_metadata_apply_plan_bulk_aggregates_redacted_read_only_selection() {
     let fixture = generated_artifact_metadata_apply_fixture(
-        r#"{"overview":"private generated overview","confidence_milli":810,"explanation":"private reasoning"}"#,
+        r#"{"overview":"private generated overview","confidence_milli":810,"explanation":"private reasoning","provider_subjects":[{"provider":"tmdb","subject_kind":"movie","subject_key":"603","title":"The Matrix","release_year":1999,"locale":"en-US","confidence_milli":930}]}"#,
     )
     .await;
+    let noop = fixture
+        .add_accepted_metadata_artifact(
+            "Noop Matrix",
+            "noop-matrix.mkv",
+            r#"{"provider_subjects":[{"provider":"tmdb","subject_kind":"movie","subject_key":"604","title":"Noop Matrix","release_year":1999,"locale":"en-US","confidence_milli":930}]}"#,
+        )
+        .await;
+    fixture
+        .upsert_accepted_provider_mapping(noop.item_id, "604", "Noop Matrix", Some(930))
+        .await;
+    let skipped = fixture
+        .add_accepted_metadata_artifact(
+            "Skipped Matrix",
+            "skipped-matrix.mkv",
+            r#"{"provider_subjects":[{"provider":"unknown","subject_kind":"movie","subject_key":"999","title":"Skipped Matrix","confidence_milli":930},{"provider":"tmdb","subject_kind":"movie","title":"Missing Key","confidence_milli":930}]}"#,
+        )
+        .await;
     let missing_artifact_id = AutomationArtifactId::new();
 
     let plan = fixture
@@ -867,6 +884,8 @@ async fn generated_artifact_metadata_apply_plan_bulk_aggregates_redacted_read_on
                 artifact_ids: vec![
                     fixture.artifact_id,
                     fixture.artifact_id,
+                    noop.artifact_id,
+                    skipped.artifact_id,
                     missing_artifact_id,
                 ],
             },
@@ -874,21 +893,25 @@ async fn generated_artifact_metadata_apply_plan_bulk_aggregates_redacted_read_on
         .await
         .unwrap();
 
-    assert_eq!(plan.selection.requested_artifact_count, 3);
-    assert_eq!(plan.selection.selected_artifact_count, 2);
+    assert_eq!(plan.selection.requested_artifact_count, 5);
+    assert_eq!(plan.selection.selected_artifact_count, 4);
     assert_eq!(plan.selection.duplicate_artifact_count, 1);
     assert_eq!(
         plan.selection.max_artifact_count,
         GENERATED_ARTIFACT_METADATA_BULK_APPLY_PLAN_MAX_ARTIFACTS as u32
     );
-    assert_eq!(plan.summary.planned_artifact_count, 1);
+    assert_eq!(plan.summary.planned_artifact_count, 3);
     assert_eq!(plan.summary.missing_artifact_count, 1);
     assert_eq!(plan.summary.ready_artifact_count, 1);
+    assert_eq!(plan.summary.blocked_artifact_count, 2);
     assert_eq!(plan.summary.executable_artifact_count, 1);
     assert_eq!(plan.summary.apply_field_count, 1);
     assert_eq!(plan.summary.skipped_field_count, 0);
     assert_eq!(plan.summary.noop_field_count, 0);
-    assert_eq!(plan.items.len(), 2);
+    assert_eq!(plan.summary.apply_provider_mapping_count, 1);
+    assert_eq!(plan.summary.skipped_provider_mapping_count, 2);
+    assert_eq!(plan.summary.noop_provider_mapping_count, 1);
+    assert_eq!(plan.items.len(), 4);
     assert_eq!(
         plan.items[0].status,
         GeneratedArtifactMetadataBulkApplyPlanItemStatus::Planned
@@ -899,11 +922,45 @@ async fn generated_artifact_metadata_apply_plan_bulk_aggregates_redacted_read_on
         GeneratedArtifactMetadataApplyPlanStatus::Ready
     );
     assert_eq!(
+        plan.items[0]
+            .plan
+            .as_ref()
+            .unwrap()
+            .apply_provider_mapping_count,
+        1
+    );
+    assert_eq!(
         plan.items[1].status,
-        GeneratedArtifactMetadataBulkApplyPlanItemStatus::Missing
+        GeneratedArtifactMetadataBulkApplyPlanItemStatus::Planned
     );
     assert!(!plan.items[1].executable);
-    assert!(plan.items[1].plan.is_none());
+    assert_eq!(
+        plan.items[1]
+            .plan
+            .as_ref()
+            .unwrap()
+            .noop_provider_mapping_count,
+        1
+    );
+    assert_eq!(
+        plan.items[2].status,
+        GeneratedArtifactMetadataBulkApplyPlanItemStatus::Planned
+    );
+    assert!(!plan.items[2].executable);
+    assert_eq!(
+        plan.items[2]
+            .plan
+            .as_ref()
+            .unwrap()
+            .skipped_provider_mapping_count,
+        2
+    );
+    assert_eq!(
+        plan.items[3].status,
+        GeneratedArtifactMetadataBulkApplyPlanItemStatus::Missing
+    );
+    assert!(!plan.items[3].executable);
+    assert!(plan.items[3].plan.is_none());
 
     let item_after = fixture
         .store
@@ -941,7 +998,7 @@ async fn generated_artifact_metadata_apply_plan_bulk_aggregates_redacted_read_on
 async fn generated_artifact_bulk_metadata_apply_batch_persists_confirmed_request_without_mutation()
 {
     let fixture = generated_artifact_metadata_apply_fixture(
-        r#"{"overview":"private generated overview","confidence_milli":810,"explanation":"private reasoning"}"#,
+        r#"{"overview":"private generated overview","confidence_milli":810,"explanation":"private reasoning","provider_subjects":[{"provider":"tmdb","subject_kind":"movie","subject_key":"603","title":"The Matrix","release_year":1999,"locale":"en-US","confidence_milli":930}]}"#,
     )
     .await;
     let missing_artifact_id = AutomationArtifactId::new();
@@ -971,6 +1028,9 @@ async fn generated_artifact_bulk_metadata_apply_batch_persists_confirmed_request
     assert_eq!(batch.selection.selected_artifact_count, 2);
     assert_eq!(batch.selection.duplicate_artifact_count, 1);
     assert_eq!(batch.summary.executable_artifact_count, 1);
+    assert_eq!(batch.summary.apply_provider_mapping_count, 1);
+    assert_eq!(batch.summary.skipped_provider_mapping_count, 0);
+    assert_eq!(batch.summary.noop_provider_mapping_count, 0);
     assert_eq!(batch.items.len(), 2);
     assert_eq!(
         batch.items[0].status,
@@ -1007,6 +1067,14 @@ async fn generated_artifact_bulk_metadata_apply_batch_persists_confirmed_request
         .unwrap();
     assert_eq!(item_after.metadata.title, "The Matrix");
     assert!(item_after.metadata.overview.is_none());
+    assert!(
+        fixture
+            .store
+            .list_provider_mappings_for_item(fixture.item_id, PageRequest::first_page())
+            .await
+            .unwrap()
+            .is_empty()
+    );
 
     let body = serde_json::to_string(&batch).unwrap();
     assert!(!body.contains("private generated overview"));
@@ -1018,7 +1086,7 @@ async fn generated_artifact_bulk_metadata_apply_batch_persists_confirmed_request
 #[tokio::test]
 async fn generated_artifact_bulk_metadata_apply_batch_executes_with_partial_results_and_replay() {
     let fixture = generated_artifact_metadata_apply_fixture(
-        r#"{"overview":"bulk generated overview","confidence_milli":810}"#,
+        r#"{"overview":"bulk generated overview","confidence_milli":810,"provider_subjects":[{"provider":"tmdb","subject_kind":"movie","subject_key":"603","title":"The Matrix","release_year":1999,"locale":"en-US","confidence_milli":930}]}"#,
     )
     .await;
     let noop_artifact_id = fixture
@@ -1065,6 +1133,9 @@ async fn generated_artifact_bulk_metadata_apply_batch_executes_with_partial_resu
         batch.status,
         GeneratedArtifactMetadataBulkApplyBatchStatus::Queued
     );
+    assert_eq!(batch.summary.apply_provider_mapping_count, 1);
+    assert_eq!(batch.summary.skipped_provider_mapping_count, 0);
+    assert_eq!(batch.summary.noop_provider_mapping_count, 0);
     assert_eq!(
         fixture
             .store
@@ -1121,6 +1192,9 @@ async fn generated_artifact_bulk_metadata_apply_batch_executes_with_partial_resu
     assert_eq!(executed.execution_summary.stale_item_count, 1);
     assert_eq!(executed.execution_summary.failed_item_count, 1);
     assert_eq!(executed.execution_summary.skipped_item_count, 1);
+    assert_eq!(executed.summary.apply_provider_mapping_count, 1);
+    assert_eq!(executed.summary.skipped_provider_mapping_count, 0);
+    assert_eq!(executed.summary.noop_provider_mapping_count, 0);
     assert_eq!(
         executed
             .items
@@ -1163,6 +1237,15 @@ async fn generated_artifact_bulk_metadata_apply_batch_executes_with_partial_resu
         item_after.metadata.overview.as_deref(),
         Some("bulk generated overview")
     );
+    let mappings = fixture
+        .store
+        .list_provider_mappings_for_item(fixture.item_id, PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(mappings.len(), 1);
+    assert_eq!(mappings[0].status, ProviderMappingStatus::Accepted);
+    assert_eq!(mappings[0].confidence_milli, Some(930));
+    assert_eq!(mappings[0].source, MetadataSource::User);
 
     let replay = fixture
         .app
@@ -1636,6 +1719,7 @@ struct GeneratedArtifactMetadataApplyFixture {
 }
 
 struct GeneratedArtifactMetadataApplyFixtureArtifact {
+    item_id: MediaItemId,
     source_id: MediaSourceId,
     artifact_id: AutomationArtifactId,
 }
@@ -1672,9 +1756,40 @@ impl GeneratedArtifactMetadataApplyFixture {
             .await;
 
         GeneratedArtifactMetadataApplyFixtureArtifact {
+            item_id: item.id,
             source_id: source.id,
             artifact_id,
         }
+    }
+
+    async fn upsert_accepted_provider_mapping(
+        &self,
+        item_id: MediaItemId,
+        subject_key: &str,
+        title: &str,
+        confidence_milli: Option<u16>,
+    ) {
+        let subject = ProviderSubject {
+            id: ProviderSubjectId::new(),
+            provider: nako_core::ExternalProvider::Tmdb,
+            subject_kind: nako_core::ProviderSubjectKind::Movie,
+            subject_key: subject_key.to_owned(),
+            title: Some(title.to_owned()),
+            release_year: Some(1999),
+            locale: Some("en-US".to_owned()),
+        };
+        self.store.upsert_provider_subject(&subject).await.unwrap();
+        self.store
+            .upsert_provider_mapping(&ProviderMapping {
+                id: ProviderMappingId::new(),
+                item_id,
+                subject_id: subject.id,
+                status: ProviderMappingStatus::Accepted,
+                confidence_milli,
+                source: MetadataSource::User,
+            })
+            .await
+            .unwrap();
     }
 
     async fn add_accepted_metadata_artifact_for_item(

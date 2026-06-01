@@ -43,7 +43,7 @@ Last updated: 2026-06-01
 
 ## M3 - Bulk/Admin Surface Reconciliation
 
-- [ ] GAPM-040 [owner=codex] [deps=GAPM-030] [scope=crates/nako-core,crates/nako-api,crates/nako-server,generated clients]
+- [x] GAPM-040 [owner=codex] [deps=GAPM-030] [scope=crates/nako-core,crates/nako-api,crates/nako-server,generated clients]
   Goal: Surface Provider Mapping counters and outcomes through bulk plan,
   batch result, Admin DTOs, HTTP routes, and generated TypeScript contracts.
   Validation: `cargo nextest run -p nako-api generated_artifact_metadata_apply admin_contract --no-fail-fast`; `cargo nextest run -p nako-server generated_artifact_bulk_metadata_apply generated_artifact_metadata_apply --no-fail-fast`; `cargo fmt --all -- --check`.
@@ -52,7 +52,7 @@ Last updated: 2026-06-01
   Evidence: bulk tests prove provider mapping plans/results flow through the
   one-artifact apply path and batch summaries count mapping apply/noop/skip
   facts.
-  Handoff: Continue at `GAPM-050` for Web Admin.
+  Handoff: DONE. Continue at `GAPM-050` for Web Admin display.
 
 - [ ] GAPM-050 [owner=codex] [deps=GAPM-040] [scope=web/src]
   Goal: Add Web Admin Provider Mapping plan/result display to Generated

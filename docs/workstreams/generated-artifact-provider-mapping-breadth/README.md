@@ -36,7 +36,11 @@ Current execution:
 - `GAPM-030` shipped durable/idempotent Provider Subject and accepted Provider
   Mapping apply through the single-artifact Metadata Authority outcome
   transaction.
-- Next task: `GAPM-040`, bulk/Admin counter and outcome reconciliation.
+- `GAPM-040` shipped bulk/Admin counter and outcome reconciliation through
+  bulk plan summaries, batch snapshots, HTTP responses, generated contracts,
+  and Web read-model mapping.
+- Next task: `GAPM-050`, Web Admin display for Provider Mapping plan/result
+  facts.
 
 Boundary:
 

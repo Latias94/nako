@@ -65,6 +65,9 @@ Exit criteria:
 - fixture/fallback mode cannot claim live mutation;
 - bundle-budget gates pass or any budget change is explicit closeout evidence.
 
+Status: backend/Admin contract portion satisfied by `GAPM-040` on 2026-06-01;
+Web Admin rendering remains `GAPM-050`.
+
 ## GAPM-M4 - Closeout
 
 Outcome: The provider mapping breadth lane is verified and either closed or

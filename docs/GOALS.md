@@ -36,8 +36,8 @@ Objective:
   apply plan can include Provider Subject and Provider Mapping proposals.
 - Preserve the GAMA/GABMA authority boundary: review acceptance stages
   evidence, while final Admin apply performs host-owned, idempotent mutation.
-- Start with a read-only plan slice before adding Provider Mapping
-  persistence, bulk result counters, and Web Admin rendering.
+- Start with read-only planning and durable Provider Mapping persistence, then
+  surface bulk/Admin counters before Web Admin rendering.
 
 Deliverables:
 
@@ -45,7 +45,8 @@ Deliverables:
 - Provider Mapping proposal entries and counters in the Generated Artifact
   metadata apply plan
 - durable/idempotent Provider Mapping apply through host-owned repositories
-- Admin/Web plan and result display after backend contract stabilization
+- bulk/Admin plan and result counters through the existing apply path
+- Web plan and result display after backend contract stabilization
 
 Non-goals:
 
@@ -70,7 +71,8 @@ Evidence:
 
 - `docs/workstreams/generated-artifact-provider-mapping-breadth/`
 - `GAPM-020` covers redacted read-only Provider Mapping planning; `GAPM-030`
-  covers final Provider Subject/Mapping persistence and idempotent replay.
+  covers final Provider Subject/Mapping persistence and idempotent replay;
+  `GAPM-040` covers bulk/Admin counter and generated contract reconciliation.
 
 ## Recent Completed Goals
 

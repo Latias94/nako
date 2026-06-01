@@ -23,8 +23,8 @@ is active in the `library-metadata-control-plane` lane.
 
 Next task:
 
-- `GAPM-040`: surface Provider Mapping counters and outcomes through bulk
-  plan/result and Admin contracts after the single-artifact persistence path.
+- `GAPM-050`: render Provider Mapping plan/result facts in Web Admin after
+  bulk/Admin counters and generated contracts were stabilized.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -34,7 +34,7 @@ Authority apply verification. `CSAPA` is closed; desktop playback is deferred
 to a focused future Tauri/native playback spike.
 
 Apply repair tooling and Admin settings restoration remain separate follow-ons
-after `GABMA` closeout and should not be mixed into `GAPM-020`.
+after `GABMA` closeout and should not be mixed into `GAPM`.
 `audio-compatibility-downmix-normalization`,
 `remote-storage-health-and-circuit-breaker`,
 `transcode-interface-and-runtime-plan-deepening`,
@@ -51,9 +51,9 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
 - [generated-artifact-provider-mapping-breadth](generated-artifact-provider-mapping-breadth/README.md):
   active backend/Web authority lane for extending accepted metadata Generated
   Artifact apply so it can plan and apply Provider Subject and Provider
-  Mapping proposals while reconciling bulk/Admin/Web counters and outcomes
-  without weakening review staging, target freshness, idempotent outcomes, or
-  redaction.
+  Mapping proposals. Backend/Admin bulk counters and outcomes are reconciled;
+  the active slice is Web Admin rendering without weakening review staging,
+  target freshness, idempotent outcomes, or redaction.
 - [generated-artifact-bulk-metadata-apply](generated-artifact-bulk-metadata-apply/README.md):
   closed backend/Web authority lane for turning the single-artifact Generated
   Artifact Metadata Authority apply workflow into guarded bulk planning,

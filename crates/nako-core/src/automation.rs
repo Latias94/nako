@@ -584,6 +584,7 @@ pub struct GeneratedArtifactMetadataBulkApplyPlanSelection {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(default)]
 pub struct GeneratedArtifactMetadataBulkApplyPlanSummary {
     pub planned_artifact_count: u32,
     pub missing_artifact_count: u32,
@@ -594,6 +595,9 @@ pub struct GeneratedArtifactMetadataBulkApplyPlanSummary {
     pub apply_field_count: u32,
     pub skipped_field_count: u32,
     pub noop_field_count: u32,
+    pub apply_provider_mapping_count: u32,
+    pub skipped_provider_mapping_count: u32,
+    pub noop_provider_mapping_count: u32,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]

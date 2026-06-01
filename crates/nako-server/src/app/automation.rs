@@ -647,6 +647,15 @@ impl AutomationAppService {
                     summary.noop_field_count = summary
                         .noop_field_count
                         .saturating_add(plan.noop_field_count);
+                    summary.apply_provider_mapping_count = summary
+                        .apply_provider_mapping_count
+                        .saturating_add(plan.apply_provider_mapping_count);
+                    summary.skipped_provider_mapping_count = summary
+                        .skipped_provider_mapping_count
+                        .saturating_add(plan.skipped_provider_mapping_count);
+                    summary.noop_provider_mapping_count = summary
+                        .noop_provider_mapping_count
+                        .saturating_add(plan.noop_provider_mapping_count);
 
                     items.push(GeneratedArtifactMetadataBulkApplyPlanItem {
                         artifact_id,

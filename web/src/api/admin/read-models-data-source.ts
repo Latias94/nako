@@ -412,6 +412,9 @@ export interface AdminGeneratedArtifactMetadataApplyPlanReadModel extends AdminR
   applyFieldCount: number
   skippedFieldCount: number
   noopFieldCount: number
+  applyProviderMappingCount: number
+  skippedProviderMappingCount: number
+  noopProviderMappingCount: number
 }
 
 export interface AdminGeneratedArtifactMetadataBulkApplyPlanSelectionReadModel {
@@ -431,6 +434,9 @@ export interface AdminGeneratedArtifactMetadataBulkApplyPlanSummaryReadModel {
   applyFieldCount: number
   skippedFieldCount: number
   noopFieldCount: number
+  applyProviderMappingCount: number
+  skippedProviderMappingCount: number
+  noopProviderMappingCount: number
 }
 
 export interface AdminGeneratedArtifactMetadataBulkApplyPlanItemReadModel {
@@ -1212,6 +1218,9 @@ export function mapGeneratedArtifactMetadataApplyPlan(
     applyFieldCount: plan.apply_field_count,
     skippedFieldCount: plan.skipped_field_count,
     noopFieldCount: plan.noop_field_count,
+    applyProviderMappingCount: plan.apply_provider_mapping_count,
+    skippedProviderMappingCount: plan.skipped_provider_mapping_count,
+    noopProviderMappingCount: plan.noop_provider_mapping_count,
   }
 }
 
@@ -1294,6 +1303,9 @@ function mapGeneratedArtifactMetadataBulkApplyPlanSummary(
     applyFieldCount: summary.apply_field_count,
     skippedFieldCount: summary.skipped_field_count,
     noopFieldCount: summary.noop_field_count,
+    applyProviderMappingCount: summary.apply_provider_mapping_count,
+    skippedProviderMappingCount: summary.skipped_provider_mapping_count,
+    noopProviderMappingCount: summary.noop_provider_mapping_count,
   }
 }
 
@@ -1675,6 +1687,9 @@ function generatedArtifactMetadataApplyPlanFixture(
     applyFieldCount: 1,
     skippedFieldCount: 1,
     noopFieldCount: 0,
+    applyProviderMappingCount: 1,
+    skippedProviderMappingCount: 0,
+    noopProviderMappingCount: 0,
   }
 }
 
@@ -1718,6 +1733,18 @@ function generatedArtifactMetadataBulkApplyPlanFixture(
       ),
       noopFieldCount: executableItems.reduce(
         (total, item) => total + (item.plan?.noopFieldCount ?? 0),
+        0,
+      ),
+      applyProviderMappingCount: items.reduce(
+        (total, item) => total + (item.plan?.applyProviderMappingCount ?? 0),
+        0,
+      ),
+      skippedProviderMappingCount: items.reduce(
+        (total, item) => total + (item.plan?.skippedProviderMappingCount ?? 0),
+        0,
+      ),
+      noopProviderMappingCount: items.reduce(
+        (total, item) => total + (item.plan?.noopProviderMappingCount ?? 0),
         0,
       ),
     },

@@ -89,6 +89,21 @@ Only run after Admin contract support exists:
   passed; `WORKSTREAM.json` and JSONL validation passed; targeted and
   repository-wide `git diff --check` passed with only LF/CRLF normalization
   warnings.
+- `GAPM-040`: Surfaced Provider Mapping apply/skip/noop counters through
+  bulk apply plan summaries, persisted batch summaries, Admin DTOs, HTTP route
+  responses, and generated TypeScript contracts. Bulk execution continues to
+  call the single-artifact Metadata Authority apply path; tests prove Provider
+  Mapping writes happen through that path and that redacted batch snapshots
+  carry aggregate mapping counters without exposing raw payloads or
+  idempotency keys. Web Admin read-model mapping now preserves the counters
+  for the `GAPM-050` display slice.
+  Gates: `cargo nextest run -p nako-api generated_artifact_metadata_apply admin_contract --no-fail-fast`
+  passed 9/9; `cargo nextest run -p nako-server generated_artifact_bulk_metadata_apply generated_artifact_metadata_apply --no-fail-fast`
+  passed 19/19; `cargo nextest run -p nako-db generated_artifact_bulk_metadata_apply_batch_is_idempotent_and_atomic --no-fail-fast`
+  passed 1/1; `npm --prefix web run check` passed; `cargo fmt --all -- --check`
+  passed; `WORKSTREAM.json` and JSONL validation passed; targeted and
+  repository-wide `git diff --check` passed with only LF/CRLF normalization
+  warnings.
 
 ## Final Evidence Checklist
 

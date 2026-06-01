@@ -20,19 +20,22 @@ Current source state:
 - `GAPM-030` extended final one-artifact metadata apply so applyable Provider
   Subject proposals persist accepted Provider Mappings through the generated
   artifact metadata apply outcome transaction.
+- `GAPM-040` extended bulk apply summaries, batch snapshots, Admin DTOs, HTTP
+  responses, generated TypeScript contracts, and Web Admin read-model mapping
+  with Provider Mapping apply/skip/noop counters.
 - Provider Subject and Provider Mapping primitives already exist in
   `nako-core`, `nako-db`, `nako-metadata`, and Admin Catalog Governance read
   models.
 
 ## Active Task
 
-- Task ID: `GAPM-040`
+- Task ID: `GAPM-050`
 - Lane: `library-metadata-control-plane`
 - Status: ready
 - Owner: codex
 
-Goal: surface Provider Mapping counters and outcomes through bulk plan, batch
-result, Admin DTOs, HTTP routes, and generated TypeScript contracts.
+Goal: add Web Admin Provider Mapping plan/result display to Generated Artifact
+single and bulk metadata apply workflows.
 
 ## Recommended Implementation Start
 
@@ -50,13 +53,11 @@ Read:
 
 Then inspect the current code slices:
 
-- `crates/nako-core/src/automation.rs`
-- `crates/nako-core/src/media/provider.rs`
-- `crates/nako-core/src/repository/metadata.rs`
-- `crates/nako-api/src/admin/automation.rs`
-- `crates/nako-server/src/app/automation.rs`
-- `crates/nako-server/src/http/admin.rs`
-- generated Admin TypeScript contract outputs if Admin DTOs change.
+- `web/src/api/admin/generated/contract.ts`
+- `web/src/api/admin/read-models-data-source.ts`
+- `web/src/api/admin/mutations-data-source.ts`
+- `web/src/features/admin/admin-generated-artifacts.tsx`
+- existing Web contract/route tests under `web/src/test/`
 
 ## Completed Evidence
 
@@ -81,6 +82,12 @@ Then inspect the current code slices:
 - `GAPM-030`: server tests cover first apply, idempotent replay, candidate
   promotion to accepted, rejected-mapping preservation, stale-target
   pre-mutation failure, and mixed metadata-field/provider-mapping outcomes.
+- `GAPM-040`: bulk apply plan summaries and persisted batch summaries now
+  expose Provider Mapping apply/skip/noop counters. Server and HTTP tests prove
+  those counters flow through bulk plan, batch confirm/status/result responses,
+  and execution still uses the one-artifact apply path. Generated Admin
+  contracts under `apps/admin-web` and `web` are synchronized, and Web
+  read-model mapping can carry the counters forward for `GAPM-050`.
 
 ## Decisions
 
@@ -95,6 +102,9 @@ Then inspect the current code slices:
   Mapping repositories through the generated artifact outcome transaction.
 - Final apply uses `MetadataSource::User` for Provider Mappings because the
   Admin confirmation is the authority boundary.
+- Bulk apply reuses the single-artifact Metadata Authority apply path and only
+  aggregates Provider Mapping counters from the per-artifact plans; it does not
+  add a second provider mapping executor.
 
 ## Watchpoints
 
@@ -110,12 +120,12 @@ Then inspect the current code slices:
 
 ## Blockers
 
-- None for `GAPM-040`.
+- None for `GAPM-050`.
 - Re-run PostgreSQL parity if additional repository transaction behavior
   changes.
 
 ## Parallelism
 
-Keep `GAPM-040` serial until the generated Admin contract shape is stable.
-After `GAPM-040` is accepted, `GAPM-050` Web work can run independently from
-docs closeout verification if the DTO/result fields are fixed.
+`GAPM-050` can run in the Web surface independently from backend persistence
+as long as it does not change generated contracts or backend DTOs. Keep closeout
+verification serial after Web evidence is available.

@@ -125,11 +125,14 @@ Shipped backend slices:
 - `GAPM-030` adds durable/idempotent Provider Subject and accepted Provider
   Mapping apply through the single-artifact Metadata Authority outcome
   transaction.
+- `GAPM-040` adds Provider Mapping apply/skip/noop counters to bulk plan
+  summaries, batch snapshots, Admin HTTP responses, generated contracts, and
+  Web read-model mapping.
 
 Next slice:
 
-- `GAPM-040` reconciles bulk/Admin counters and outcomes on top of the
-  one-artifact apply path.
+- `GAPM-050` renders Provider Mapping plan/result facts in Web Admin without
+  adding backend apply behavior.
 
 Boundaries:
 

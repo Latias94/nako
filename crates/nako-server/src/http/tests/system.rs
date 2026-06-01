@@ -1289,7 +1289,7 @@ async fn admin_v1_generated_artifact_metadata_apply_plan_is_redacted_and_read_on
             library_id: Some(library_id),
             item_id: Some(item.id),
             source_id: Some(source.id),
-            artifact_json: r#"{"overview":"private generated overview","confidence_milli":810,"explanation":"private reasoning"}"#.to_owned(),
+            artifact_json: r#"{"overview":"private generated overview","confidence_milli":810,"explanation":"private reasoning","provider_subjects":[{"provider":"tmdb","subject_kind":"movie","subject_key":"603","title":"The Matrix","release_year":1999,"locale":"en-US","confidence_milli":930}]}"#.to_owned(),
         })
         .await
         .unwrap();
@@ -1330,10 +1330,15 @@ async fn admin_v1_generated_artifact_metadata_apply_plan_is_redacted_and_read_on
     );
     assert!(plan.plan.executable);
     assert_eq!(plan.plan.apply_field_count, 1);
+    assert_eq!(plan.plan.apply_provider_mapping_count, 1);
     assert_eq!(plan.plan.fields[0].field, MetadataField::Overview);
     assert_eq!(
         plan.plan.fields[0].action,
         nako_core::GeneratedArtifactMetadataFieldAction::Apply
+    );
+    assert_eq!(
+        plan.plan.provider_mappings[0].action,
+        nako_core::GeneratedArtifactProviderMappingAction::Apply
     );
     let item_after = store.get_media_item(item.id).await.unwrap().unwrap();
     assert_eq!(item_after.metadata.title, "The Matrix");
@@ -1375,12 +1380,23 @@ async fn admin_v1_generated_artifact_metadata_apply_plan_bulk_is_redacted_read_o
     assert_eq!(plan.plan.summary.ready_artifact_count, 1);
     assert_eq!(plan.plan.summary.executable_artifact_count, 1);
     assert_eq!(plan.plan.summary.apply_field_count, 1);
+    assert_eq!(plan.plan.summary.apply_provider_mapping_count, 1);
+    assert_eq!(plan.plan.summary.skipped_provider_mapping_count, 0);
+    assert_eq!(plan.plan.summary.noop_provider_mapping_count, 0);
     assert_eq!(plan.plan.items.len(), 2);
     assert_eq!(
         plan.plan.items[0].status,
         nako_core::GeneratedArtifactMetadataBulkApplyPlanItemStatus::Planned
     );
     assert!(plan.plan.items[0].plan.is_some());
+    assert_eq!(
+        plan.plan
+            .items
+            .first()
+            .and_then(|item| item.plan.as_ref())
+            .map(|item_plan| item_plan.apply_provider_mapping_count),
+        Some(1)
+    );
     assert_eq!(
         plan.plan.items[1].status,
         nako_core::GeneratedArtifactMetadataBulkApplyPlanItemStatus::Missing
@@ -1445,6 +1461,9 @@ async fn admin_generated_artifact_bulk_metadata_apply_v1_confirms_replays_and_re
     assert_eq!(queued.batch.selection.requested_artifact_count, 2);
     assert_eq!(queued.batch.summary.executable_artifact_count, 1);
     assert_eq!(queued.batch.summary.missing_artifact_count, 1);
+    assert_eq!(queued.batch.summary.apply_provider_mapping_count, 1);
+    assert_eq!(queued.batch.summary.skipped_provider_mapping_count, 0);
+    assert_eq!(queued.batch.summary.noop_provider_mapping_count, 0);
     assert_eq!(queued.batch.execution_summary.total_item_count, 2);
     assert_eq!(queued.batch.execution_summary.pending_item_count, 1);
     assert_eq!(queued.batch.execution_summary.skipped_item_count, 1);
@@ -1538,6 +1557,9 @@ async fn admin_generated_artifact_bulk_metadata_apply_v1_confirms_replays_and_re
     assert_eq!(result.batch.execution_summary.pending_item_count, 0);
     assert_eq!(result.batch.execution_summary.applied_item_count, 1);
     assert_eq!(result.batch.execution_summary.skipped_item_count, 1);
+    assert_eq!(result.batch.summary.apply_provider_mapping_count, 1);
+    assert_eq!(result.batch.summary.skipped_provider_mapping_count, 0);
+    assert_eq!(result.batch.summary.noop_provider_mapping_count, 0);
     assert_eq!(
         result.batch.items[0].status,
         nako_core::GeneratedArtifactMetadataBulkApplyBatchItemStatus::Applied
@@ -1556,6 +1578,16 @@ async fn admin_generated_artifact_bulk_metadata_apply_v1_confirms_replays_and_re
     assert_eq!(
         item_after.metadata.overview.as_deref(),
         Some("private generated overview")
+    );
+    let mappings = fixture
+        .store
+        .list_provider_mappings_for_item(fixture.item_id, PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(mappings.len(), 1);
+    assert_eq!(
+        mappings[0].status,
+        nako_core::ProviderMappingStatus::Accepted
     );
     assert_generated_artifact_bulk_metadata_apply_body_redacted(&result_body);
 }
@@ -1973,7 +2005,7 @@ async fn admin_generated_artifact_metadata_apply_http_fixture()
             library_id: Some(library_id),
             item_id: Some(item.id),
             source_id: Some(source.id),
-            artifact_json: r#"{"overview":"private generated overview","confidence_milli":810,"explanation":"private reasoning"}"#.to_owned(),
+            artifact_json: r#"{"overview":"private generated overview","confidence_milli":810,"explanation":"private reasoning","provider_subjects":[{"provider":"tmdb","subject_kind":"movie","subject_key":"603","title":"The Matrix","release_year":1999,"locale":"en-US","confidence_milli":930}]}"#.to_owned(),
         })
         .await
         .unwrap();

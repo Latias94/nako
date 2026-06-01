@@ -21,8 +21,9 @@ It targets:
 - redaction-safe Provider Subject and Provider Mapping proposal planning inside
   the existing Generated Artifact metadata apply plan;
 - idempotent final Provider Mapping apply through host-owned repositories;
-- bulk apply/Admin/Web result surfaces after the one-artifact contract is
-  stable;
+- bulk apply/Admin result counters through the existing one-artifact apply path;
+- Web Admin Provider Mapping plan/result display after backend contract
+  stabilization;
 - no provider search/depth, review-acceptance mutation, Public Client API
   change, operations repair, or Admin settings restoration.
 
@@ -32,9 +33,8 @@ Authoritative lane:
 
 Next task:
 
-- `GAPM-040`: surface Provider Mapping counters and outcomes through bulk
-  plan/result and Admin contracts now that single-artifact persistence is
-  stable.
+- `GAPM-050`: render Provider Mapping plan/result facts in Web Admin using the
+  stabilized bulk/Admin contract and read models.
 
 Latest completed architecture focus:
 

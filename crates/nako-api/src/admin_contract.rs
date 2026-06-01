@@ -1888,6 +1888,9 @@ export interface AdminGeneratedArtifactMetadataBulkApplyPlanSummary {
   apply_field_count: number;
   skipped_field_count: number;
   noop_field_count: number;
+  apply_provider_mapping_count: number;
+  skipped_provider_mapping_count: number;
+  noop_provider_mapping_count: number;
 }
 
 export interface AdminGeneratedArtifactMetadataBulkApplyPlanItem {

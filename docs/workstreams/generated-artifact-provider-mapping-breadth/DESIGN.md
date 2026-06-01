@@ -187,6 +187,8 @@ before any Provider Mapping persistence is added.
 `GAPM-030` completed durable/idempotent Provider Subject and Provider Mapping
 apply without changing review acceptance semantics.
 
-Next task: `GAPM-040`, which must surface Provider Mapping counters and
-outcomes through bulk/Admin contracts while reusing the one-artifact apply
-path.
+`GAPM-040` completed bulk/Admin counter and outcome reconciliation while
+reusing the one-artifact apply path.
+
+Next task: `GAPM-050`, which must render Provider Mapping plan/result facts in
+Web Admin without adding backend apply behavior.

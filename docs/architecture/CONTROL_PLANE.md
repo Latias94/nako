@@ -78,8 +78,9 @@ Control-plane requirements:
 - `GAPM-020` read-only planning must not write Provider Mappings;
 - `GAPM-030` final Provider Mapping mutation is host-owned, replay-safe, and
   committed with the generated artifact metadata apply outcome;
-- bulk apply should reuse the one-artifact apply path instead of adding a
-  second provider mapping executor;
+- `GAPM-040` bulk apply summaries and batch snapshots expose Provider Mapping
+  apply/skip/noop counters while reusing the one-artifact apply path instead
+  of adding a second provider mapping executor;
 - Admin/Web DTOs must not expose raw payloads, prompts, Source Locators, paths,
   tokens, or secrets.
 

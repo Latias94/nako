@@ -20,14 +20,14 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| library-metadata-control-plane | generated-artifact-provider-mapping-breadth | GAPM-040 | Backend/Admin contract planner-worker |
+| library-metadata-control-plane | generated-artifact-provider-mapping-breadth | GAPM-050 | Web Admin surface worker |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`. Do not
 start Admin settings restoration, playback artifact I/O enforcement, actual
 release publication, one-command release-gate wrapping, or official addon alpha
 smoke until `generated-artifact-provider-mapping-breadth` has produced
-read-only plan evidence and the planner selects another follow-on.
+Web display evidence and the planner selects another follow-on.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
@@ -116,7 +116,7 @@ that turns accepted generated artifacts into Canonical Metadata.
 
 Active evidence:
 
-- `docs/workstreams/generated-artifact-provider-mapping-breadth/` (`GAPM-040`
+- `docs/workstreams/generated-artifact-provider-mapping-breadth/` (`GAPM-050`
   ready)
 
 Closed evidence:

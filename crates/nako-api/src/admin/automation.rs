@@ -568,6 +568,32 @@ impl AdminGeneratedArtifactAcceptancePlan {
 mod tests {
     use super::*;
 
+    fn provider_mapping_plan_fixture(
+        provider: Option<ExternalProvider>,
+        provider_name: Option<&str>,
+        subject_key: Option<&str>,
+        action: GeneratedArtifactProviderMappingAction,
+        reasons: Vec<GeneratedArtifactProviderMappingReason>,
+        existing_mapping_status: Option<ProviderMappingStatus>,
+    ) -> GeneratedArtifactProviderMappingPlan {
+        GeneratedArtifactProviderMappingPlan {
+            subject: GeneratedArtifactProviderSubjectPlan {
+                provider,
+                provider_name: provider_name.map(str::to_owned),
+                subject_kind: Some(ProviderSubjectKind::Movie),
+                subject_kind_name: Some("movie".to_owned()),
+                subject_key: subject_key.map(str::to_owned),
+                title: Some("The Matrix".to_owned()),
+                release_year: Some(1999),
+                locale: Some("en-US".to_owned()),
+            },
+            action,
+            reasons,
+            confidence_milli: Some(930),
+            existing_mapping_status,
+        }
+    }
+
     #[test]
     fn generated_artifact_proposals_expose_summaries_not_raw_prompt_or_payload() {
         let library_id = LibraryId::new();
@@ -880,13 +906,38 @@ mod tests {
                     item_count: None,
                 },
             }],
-            provider_mappings: Vec::new(),
+            provider_mappings: vec![
+                provider_mapping_plan_fixture(
+                    Some(ExternalProvider::Tmdb),
+                    Some("tmdb"),
+                    Some("603"),
+                    GeneratedArtifactProviderMappingAction::Apply,
+                    vec![GeneratedArtifactProviderMappingReason::Ready],
+                    None,
+                ),
+                provider_mapping_plan_fixture(
+                    None,
+                    Some("unknown"),
+                    Some("603"),
+                    GeneratedArtifactProviderMappingAction::Skip,
+                    vec![GeneratedArtifactProviderMappingReason::UnsupportedProvider],
+                    None,
+                ),
+                provider_mapping_plan_fixture(
+                    Some(ExternalProvider::Tmdb),
+                    Some("tmdb"),
+                    Some("603"),
+                    GeneratedArtifactProviderMappingAction::Noop,
+                    vec![GeneratedArtifactProviderMappingReason::ExistingAcceptedMapping],
+                    Some(ProviderMappingStatus::Accepted),
+                ),
+            ],
             apply_field_count: 1,
             skipped_field_count: 0,
             noop_field_count: 0,
-            apply_provider_mapping_count: 0,
-            skipped_provider_mapping_count: 0,
-            noop_provider_mapping_count: 0,
+            apply_provider_mapping_count: 1,
+            skipped_provider_mapping_count: 1,
+            noop_provider_mapping_count: 1,
         };
         let response = AdminGeneratedArtifactMetadataBulkApplyPlanResponse::from_plan(
             GeneratedArtifactMetadataBulkApplyPlan {
@@ -906,6 +957,9 @@ mod tests {
                     apply_field_count: 1,
                     skipped_field_count: 0,
                     noop_field_count: 0,
+                    apply_provider_mapping_count: 1,
+                    skipped_provider_mapping_count: 1,
+                    noop_provider_mapping_count: 1,
                 },
                 items: vec![
                     GeneratedArtifactMetadataBulkApplyPlanItem {
@@ -939,10 +993,28 @@ mod tests {
         assert_eq!(value["plan"]["summary"]["planned_artifact_count"], 1);
         assert_eq!(value["plan"]["summary"]["missing_artifact_count"], 1);
         assert_eq!(value["plan"]["summary"]["apply_field_count"], 1);
+        assert_eq!(value["plan"]["summary"]["apply_provider_mapping_count"], 1);
+        assert_eq!(
+            value["plan"]["summary"]["skipped_provider_mapping_count"],
+            1
+        );
+        assert_eq!(value["plan"]["summary"]["noop_provider_mapping_count"], 1);
         assert_eq!(value["plan"]["items"][0]["status"], "planned");
         assert_eq!(
             value["plan"]["items"][0]["plan"]["fields"][0]["field"],
             "overview"
+        );
+        assert_eq!(
+            value["plan"]["items"][0]["plan"]["provider_mappings"][0]["action"],
+            "apply"
+        );
+        assert_eq!(
+            value["plan"]["items"][0]["plan"]["provider_mappings"][1]["action"],
+            "skip"
+        );
+        assert_eq!(
+            value["plan"]["items"][0]["plan"]["provider_mappings"][2]["action"],
+            "noop"
         );
         assert_eq!(value["plan"]["items"][1]["status"], "missing");
         assert!(value["plan"]["items"][1]["plan"].is_null());
@@ -1000,11 +1072,18 @@ mod tests {
                     item_count: None,
                 },
             }],
-            provider_mappings: Vec::new(),
+            provider_mappings: vec![provider_mapping_plan_fixture(
+                Some(ExternalProvider::Tmdb),
+                Some("tmdb"),
+                Some("603"),
+                GeneratedArtifactProviderMappingAction::Apply,
+                vec![GeneratedArtifactProviderMappingReason::Ready],
+                None,
+            )],
             apply_field_count: 1,
             skipped_field_count: 0,
             noop_field_count: 0,
-            apply_provider_mapping_count: 0,
+            apply_provider_mapping_count: 1,
             skipped_provider_mapping_count: 0,
             noop_provider_mapping_count: 0,
         };
@@ -1029,6 +1108,9 @@ mod tests {
                 apply_field_count: 1,
                 skipped_field_count: 0,
                 noop_field_count: 0,
+                apply_provider_mapping_count: 1,
+                skipped_provider_mapping_count: 0,
+                noop_provider_mapping_count: 0,
             },
             execution_summary: GeneratedArtifactMetadataBulkApplyBatchExecutionSummary {
                 total_item_count: 2,
@@ -1096,6 +1178,12 @@ mod tests {
             "bulk:operator-confirmation"
         );
         assert_eq!(value["batch"]["status"], "completed");
+        assert_eq!(value["batch"]["summary"]["apply_provider_mapping_count"], 1);
+        assert_eq!(
+            value["batch"]["summary"]["skipped_provider_mapping_count"],
+            0
+        );
+        assert_eq!(value["batch"]["summary"]["noop_provider_mapping_count"], 0);
         assert_eq!(value["batch"]["execution_summary"]["applied_item_count"], 1);
         assert_eq!(value["batch"]["execution_summary"]["skipped_item_count"], 1);
         assert_eq!(value["batch"]["items"][0]["status"], "applied");
@@ -1106,6 +1194,10 @@ mod tests {
         assert_eq!(
             value["batch"]["items"][0]["plan_item"]["plan"]["fields"][0]["field"],
             "overview"
+        );
+        assert_eq!(
+            value["batch"]["items"][0]["plan_item"]["plan"]["provider_mappings"][0]["action"],
+            "apply"
         );
         assert_eq!(value["batch"]["items"][1]["status"], "skipped");
         assert!(value["batch"]["items"][1]["plan_item"]["plan"].is_null());
