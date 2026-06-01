@@ -1,6 +1,6 @@
 # TMDB Season Episode Graph Depth — TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 — Lane Opening
@@ -31,9 +31,9 @@ Last updated: 2026-06-02
 
 ## M3 — Closeout
 
-- [ ] TSEG-040 [owner=planner] [deps=TSEG-030] [scope=docs/workstreams/tmdb-season-episode-graph-depth,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
+- [x] TSEG-040 [owner=planner] [deps=TSEG-030] [scope=docs/workstreams/tmdb-season-episode-graph-depth,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
   Goal: Close the lane or split durable review/Admin confirmation follow-ons.
   Validation: fresh gate evidence in `EVIDENCE_AND_GATES.md`; JSON/JSONL validation; `git diff --check`.
-  Review: TMDB episode graph depth remains preview-only.
-  Evidence: `CLOSEOUT.md` if closed.
-  Handoff: DONE or explicit follow-on split.
+  Review: TMDB episode graph depth remains preview-only. Closed on 2026-06-02.
+  Evidence: `CLOSEOUT.md`.
+  Handoff: DONE; next provider-depth follow-on should open a new focused lane.

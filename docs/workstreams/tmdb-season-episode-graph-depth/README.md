@@ -1,6 +1,6 @@
 # TMDB Season Episode Graph Depth
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 This workstream extends the closed
@@ -20,13 +20,14 @@ Authoritative docs:
 - `CONTEXT.jsonl`
 - `HANDOFF.md`
 
-Current execution:
+Shipped:
 
 - `TSEG-010` opens the lane.
 - `TSEG-020` added TMDB season -> episode graph preview nodes.
 - `TSEG-030` proved season refresh remains root-only when graph preview nodes
   are present.
-- `TSEG-040` is ready for lane closeout or explicit follow-on split.
+- `TSEG-040` closed the lane and kept durable candidate review, Admin/Web
+  confirmation, Bangumi depth, and Douban precision split to follow-ons.
 
 Boundary:
 

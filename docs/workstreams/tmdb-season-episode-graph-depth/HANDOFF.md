@@ -1,6 +1,6 @@
 # TMDB Season Episode Graph Depth — Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Current State
@@ -11,13 +11,13 @@ lane extends the same preview-only model to TMDB season -> episode graph depth.
 `TSEG-020` shipped season -> episode graph preview. `TSEG-030` added refresh
 guard evidence that related episode preview nodes remain non-mutating.
 
-## Active Task
+## Closed Task
 
 - Task ID: `TSEG-040`
 - Owner: planner
 - Files: this workstream, architecture links, `docs/GOALS.md`, and `docs/ROADMAP.md`
 - Validation: fresh gate evidence, JSON/JSONL validation, and `git diff --check`
-- Status: READY
+- Status: DONE
 - Evidence: `docs/workstreams/tmdb-season-episode-graph-depth/EVIDENCE_AND_GATES.md`
 
 ## Decisions Since Opening
@@ -34,5 +34,6 @@ guard evidence that related episode preview nodes remain non-mutating.
 
 ## Next Recommended Action
 
-- Run `TSEG-040`: close this focused lane or explicitly split any remaining
-  durable candidate review and Admin/Web confirmation follow-ons.
+- Open a new focused follow-on for Bangumi relations/episode depth, Douban
+  subject precision, durable candidate review, or Admin/Web provider depth
+  governance. Do not reopen this lane unless TMDB preview semantics change.

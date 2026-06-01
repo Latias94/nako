@@ -160,7 +160,7 @@ Evidence workstreams:
 - `docs/workstreams/metadata-catalog/`
 - `docs/workstreams/metadata-provider-breadth/`
 - `docs/workstreams/metadata-provider-depth-and-precision/` (closed)
-- `docs/workstreams/tmdb-season-episode-graph-depth/` (active)
+- `docs/workstreams/tmdb-season-episode-graph-depth/` (closed)
 - `docs/workstreams/metadata-acquisition-pipeline/`
 - `docs/workstreams/metadata-profile-configuration-authority/`
 - `docs/workstreams/metadata-application-policy-seam/`

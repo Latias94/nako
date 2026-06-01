@@ -26,9 +26,54 @@ proposed milestone.
 
 ## Current Goal
 
+### Provider Depth Follow-On Selection
+
+Status: ready as of 2026-06-02.
+
+Objective:
+
+- Choose and open the next focused provider-depth lane after TMDB season ->
+  episode graph depth closeout.
+- Keep provider graph evidence preview-only until a durable review or Admin/Web
+  governance lane deliberately changes persistence semantics.
+
+Deliverables:
+
+- one new focused workstream, likely Bangumi relations/episode depth, Douban
+  subject precision, durable candidate review, or Admin/Web provider depth
+  governance;
+- active queue updates in `docs/architecture/LANES.md` and
+  `docs/workstreams/README.md`;
+- clear non-goals that prevent schema/API/Admin/Web changes from leaking into
+  a provider adapter slice.
+
+Non-goals:
+
+- no reopening `metadata-provider-depth-and-precision` or
+  `tmdb-season-episode-graph-depth`;
+- no schema migration, Public Client API change, Admin/Web confirmation UI, or
+  Generated Artifact apply change unless the next lane explicitly selects that
+  architecture scope;
+- no automatic Media Item hierarchy creation or child Provider Mapping writes
+  from preview graph evidence.
+
+Exit criteria:
+
+- next lane has an explicit workstream directory, task ledger, validation
+  gates, and architecture links;
+- closed TMDB lane remains closed and referenced as evidence only.
+
+Evidence:
+
+- `docs/workstreams/metadata-provider-depth-and-precision/FOLLOW_ONS.md`
+- `docs/workstreams/tmdb-season-episode-graph-depth/CLOSEOUT.md`
+- `docs/architecture/LIBRARY_PIPELINE.md`
+
+## Recent Completed Goals
+
 ### TMDB Season Episode Graph Depth
 
-Status: active as of 2026-06-02.
+Status: completed on 2026-06-02.
 
 Objective:
 
@@ -43,28 +88,13 @@ Deliverables:
 - focused `nako-metadata` tests proving graph depth and season refresh
   boundary behavior
 
-Non-goals:
-
-- no reopening `GAMA`, `GABMA`, `GAPM`, `GAOR`, `WAGR`, `GAARA`, or
-  `metadata-provider-depth-and-precision`;
-- no schema migration, Public Client API change, Admin/Web confirmation UI, or
-  Generated Artifact apply change;
-- no automatic episode Media Item creation or child Provider Mapping writes.
-
-Exit criteria:
-
-- TMDB season fetch exposes episode Provider Subjects without automatic
-  hierarchy creation;
-- refresh and Provider Mapping persistence remain root-only for this graph
-  preview;
-- durable candidate review/Admin/Web confirmation follow-ons remain separate.
-
 Evidence:
 
-- `docs/workstreams/tmdb-season-episode-graph-depth/`
-- `docs/architecture/LIBRARY_PIPELINE.md`
-
-## Recent Completed Goals
+- `TSEG-020` adds TMDB season -> episode graph preview;
+- `TSEG-030` proves season refresh remains root-only and non-mutating for
+  episode preview nodes;
+- `TSEG-040` closes the lane and keeps durable review/Admin/Web follow-ons
+  split.
 
 ### Metadata Provider Depth And Precision
 

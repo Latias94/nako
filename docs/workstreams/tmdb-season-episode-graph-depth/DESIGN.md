@@ -1,6 +1,6 @@
 # TMDB Season Episode Graph Depth
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Why This Lane Exists
@@ -72,12 +72,13 @@ Mappings, canonical hierarchy, or confirmed Media Items.
 Tests should exercise `TmdbMetadataProvider::fetch(Season)` and
 `MetadataRefreshService` rather than private helper functions.
 
-## First Executable Task
+## Closeout
 
-Start with `TSEG-020`: TMDB season -> episode provider graph preview.
+Closed after `TSEG-040`.
 
-This task should answer:
+This lane answered:
 
 - how TMDB season details expose episode summary facts;
 - how episode Provider Subjects are keyed;
-- how existing season fetch behavior remains compatible.
+- how existing season fetch behavior remains compatible;
+- how season refresh remains root-only when episode preview nodes are present.

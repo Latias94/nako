@@ -1,6 +1,6 @@
 # TMDB Season Episode Graph Depth — Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 — Lane Opening
@@ -38,3 +38,5 @@ Exit criteria:
 - fresh evidence is recorded;
 - any durable review/Admin/Web follow-ons are split;
 - architecture maps no longer route active work to a closed lane.
+
+Result: completed on 2026-06-02. See `CLOSEOUT.md`.

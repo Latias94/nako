@@ -11,32 +11,55 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: active TMDB season episode graph depth lane.
+Status: provider-depth follow-on selection after TMDB season episode graph
+depth closeout.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
 Operations Repair are both closed as of 2026-06-02. Web Admin Generated
 Artifact Recovery UI is also closed after `WAGR-030`. Generated Artifact Apply
 Repair Actions is closed after `GAARA-050`. Metadata Provider Depth And
-Precision is closed after `MPDP-050`. TMDB Season Episode Graph Depth is now
-active.
+Precision is closed after `MPDP-050`. TMDB Season Episode Graph Depth is
+closed after `TSEG-040`.
 
 It targets:
 
-- proving root-only season refresh after adding TMDB season -> episode provider
-  graph preview nodes;
-- keeping refresh and Provider Mapping persistence root-only;
-- leaving durable candidate review, Admin/Web confirmation, and non-TMDB
-  provider depth to separate lanes.
+- selecting the next focused provider-depth lane without reopening closed
+  TMDB/MPDP work;
+- keeping provider graph evidence preview-only unless a durable review or
+  Admin/Web governance lane deliberately changes persistence semantics;
+- keeping Bangumi, Douban, durable candidate review, and Admin/Web governance
+  split by scope.
+
+Authoritative evidence:
+
+- `docs/workstreams/tmdb-season-episode-graph-depth/`
+- `docs/workstreams/metadata-provider-depth-and-precision/FOLLOW_ONS.md`
+
+Next task:
+
+- open the next focused provider-depth follow-on. Recommended candidates:
+  `proposed:bangumi-relations-and-episode-depth`,
+  `proposed:douban-subject-kind-precision`,
+  `proposed:metadata-candidate-durable-review`, or
+  `proposed:admin-web-provider-depth-governance`.
+
+Latest completed architecture focus:
+
+TMDB Season Episode Graph Depth closed on 2026-06-02 after `TSEG-040`.
+
+It shipped:
+
+- TMDB season -> episode provider graph preview;
+- guard coverage proving season refresh and Provider Mapping persistence remain
+  root-only for episode graph preview nodes;
+- explicit split of durable candidate review and Admin/Web provider depth
+  governance.
 
 Authoritative lane:
 
 - `docs/workstreams/tmdb-season-episode-graph-depth/`
 
-Next task:
-
-- `TSEG-030`: root-only season refresh guard for episode graph preview.
-
-Latest completed architecture focus:
+Previous completed architecture focus:
 
 Metadata Provider Depth And Precision closed on 2026-06-02 after `MPDP-050`.
 
@@ -54,7 +77,7 @@ Authoritative lane:
 
 Follow-ons:
 
-- `docs/workstreams/tmdb-season-episode-graph-depth/` (active);
+- `docs/workstreams/tmdb-season-episode-graph-depth/` (closed);
 - `proposed:bangumi-relations-and-episode-depth`;
 - `proposed:douban-subject-kind-precision`;
 - `proposed:metadata-candidate-durable-review`;
