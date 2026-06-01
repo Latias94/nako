@@ -120,6 +120,36 @@ impl MetadataCandidateReviewRepository for PostgresStore {
         row.map(row_to_metadata_candidate_review).transpose()
     }
 
+    async fn set_metadata_candidate_review_status(
+        &self,
+        id: MetadataCandidateReviewId,
+        status: MetadataCandidateReviewStatus,
+        updated_at_ms: i64,
+    ) -> Result<Option<MetadataCandidateReviewRecord>> {
+        let result = sqlx::query(
+            r#"
+            UPDATE metadata_candidate_reviews
+            SET
+                status = $2,
+                updated_at_ms = $3,
+                updated_at = statement_timestamp()
+            WHERE id = $1
+            "#,
+        )
+        .bind(id.as_uuid())
+        .bind(status.as_str())
+        .bind(updated_at_ms)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        if result.rows_affected() == 0 {
+            return Ok(None);
+        }
+
+        self.get_metadata_candidate_review(id).await
+    }
+
     async fn list_metadata_candidate_reviews_for_item(
         &self,
         item_id: MediaItemId,

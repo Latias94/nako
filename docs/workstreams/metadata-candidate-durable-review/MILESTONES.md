@@ -36,7 +36,7 @@ Exit criteria:
 
 ## M3 - Idempotent Accept/Reject Backend Semantics
 
-Status: Ready after `MCDR-030`.
+Status: Complete after `MCDR-040`.
 
 Exit criteria:
 
@@ -46,6 +46,8 @@ Exit criteria:
 - stale candidate review decisions cannot mutate the wrong Media Item state.
 
 ## M4 - Closeout
+
+Status: Ready after `MCDR-040`.
 
 Exit criteria:
 

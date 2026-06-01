@@ -13,14 +13,15 @@ use crate::{
     ManagedArtworkIngestRequeueRecord, MediaItem, MediaItemId, MediaSourceId,
     MetadataApplicationPersistenceCommit, MetadataApplicationPersistenceSummary,
     MetadataAttemptFilter, MetadataCandidateReviewId, MetadataCandidateReviewRecord,
-    MetadataCandidateSource, MetadataFieldLock, MetadataProviderAttemptRecord,
-    MetadataRefreshPersistenceCommit, MetadataRefreshPersistenceSummary, NewArtworkCandidate,
-    NewJob, NewManagedArtworkArtifact, NewManagedArtworkIngest, NewMetadataCandidateReview,
-    NewMetadataProviderAttempt, NfoImportPersistenceCommit, NfoImportPersistenceSummary,
-    ProviderMapping, ProviderRawResponse, ProviderRawResponseCleanup, ProviderRawResponseFilter,
-    ProviderSubject, ProviderSubjectId, ProviderSubjectKind, Result, SelectedArtworkId,
-    SelectedArtworkPublicationRecord, SelectedArtworkRecord, SelectedArtworkUnpublicationRecord,
-    SourceDuplicateRelationship, SourceDuplicateRelationshipId,
+    MetadataCandidateReviewStatus, MetadataCandidateSource, MetadataFieldLock,
+    MetadataProviderAttemptRecord, MetadataRefreshPersistenceCommit,
+    MetadataRefreshPersistenceSummary, NewArtworkCandidate, NewJob, NewManagedArtworkArtifact,
+    NewManagedArtworkIngest, NewMetadataCandidateReview, NewMetadataProviderAttempt,
+    NfoImportPersistenceCommit, NfoImportPersistenceSummary, ProviderMapping, ProviderRawResponse,
+    ProviderRawResponseCleanup, ProviderRawResponseFilter, ProviderSubject, ProviderSubjectId,
+    ProviderSubjectKind, Result, SelectedArtworkId, SelectedArtworkPublicationRecord,
+    SelectedArtworkRecord, SelectedArtworkUnpublicationRecord, SourceDuplicateRelationship,
+    SourceDuplicateRelationshipId,
 };
 
 #[async_trait]
@@ -281,6 +282,13 @@ pub trait MetadataCandidateReviewRepository: Send + Sync {
         item_id: MediaItemId,
         source: &MetadataCandidateSource,
         source_key: &str,
+    ) -> Result<Option<MetadataCandidateReviewRecord>>;
+
+    async fn set_metadata_candidate_review_status(
+        &self,
+        id: MetadataCandidateReviewId,
+        status: MetadataCandidateReviewStatus,
+        updated_at_ms: i64,
     ) -> Result<Option<MetadataCandidateReviewRecord>>;
 
     async fn list_metadata_candidate_reviews_for_item(

@@ -122,7 +122,39 @@ Green checks:
 - `cargo nextest run -p nako-db baseline_migration --no-fail-fast`
 - `cargo nextest run -p nako-db --no-fail-fast`
 
+## MCDR-040 Evidence
+
+Red checks:
+
+- `cargo nextest run -p nako-metadata candidate_review_decision --no-fail-fast`
+  failed before implementation because
+  `MetadataCandidateReviewDecisionService`,
+  `MetadataCandidateReviewDecisionRequest`, and
+  `MetadataCandidateReviewDecision` did not exist.
+- The same gate then failed while expired pending reviews remained `Pending`
+  after an attempted decision.
+
+Implemented behavior:
+
+- Added `set_metadata_candidate_review_status` to
+  `MetadataCandidateReviewRepository`, SQLite, PostgreSQL, and `NakoDatabase`.
+- Added `MetadataCandidateReviewDecisionService` in `nako-metadata`.
+- Accept/reject transitions are idempotent for the same terminal decision.
+- Conflicting terminal decisions fail safely.
+- Decisions guard `item_id` and optional `expected_updated_at_ms`.
+- Expired pending reviews are marked `Expired` and fail the decision.
+- The decision service depends only on `MetadataCandidateReviewRepository`, not
+  `ProviderMappingRepository`, so it cannot write Provider Mapping rows.
+
+Green checks:
+
+- `cargo nextest run -p nako-metadata candidate_review_decision --no-fail-fast`
+- `cargo nextest run -p nako-db candidate_review --no-fail-fast`
+- `cargo nextest run -p nako-metadata --no-fail-fast`
+- `cargo nextest run -p nako-db --no-fail-fast`
+
 ## Notes
 
-- Do not add accept/reject Provider Mapping mutation before `MCDR-040`.
+- Accepted-review Provider Mapping application remains a follow-on service, not
+  part of review status transitions.
 - Do not expose raw provider payloads or secrets.

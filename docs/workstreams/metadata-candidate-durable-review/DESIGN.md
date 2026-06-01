@@ -89,9 +89,18 @@ candidate queue.
 
 ### Mutation Stays Explicit
 
+`MCDR-040` adds backend-only decision semantics for the review record itself:
+
+- accepting or rejecting the same review decision is idempotent;
+- conflicting decisions fail with a safe conflict;
+- `item_id` and `expected_updated_at_ms` guards prevent stale review decisions;
+- expired pending reviews are marked `Expired`;
+- decision transitions do not write Provider Mapping rows.
+
 Accepting a review may eventually create or update `ProviderMappingStatus`
-records, but only through a named backend service with idempotent semantics.
-Automatic refresh must continue to avoid child Provider Mapping writes.
+records, but only through a named application service split from the review
+status transition. Automatic refresh must continue to avoid child Provider
+Mapping writes.
 
 ## First Executable Task
 
@@ -99,10 +108,10 @@ Automatic refresh must continue to avoid child Provider Mapping writes.
 `MetadataCandidateGraph`. `MCDR-030` made that plan durable without changing
 Provider Mapping behavior.
 
-`MCDR-040` should answer:
+`MCDR-040` answered:
 
 - how accept/reject transitions remain idempotent;
 - how stale or expired review decisions are prevented from mutating current
   Media Item state;
-- whether accepted reviews create or update `ProviderMappingStatus` records and
-  which named backend service owns that mutation.
+- accepted reviews do not create or update `ProviderMappingStatus` records in
+  this lane. That mutation should be a named follow-on service.

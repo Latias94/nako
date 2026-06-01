@@ -27,7 +27,10 @@ Current execution:
   redaction-safe review plan without schema or Provider Mapping writes.
 - `MCDR-030` is done: review plans can be stored as durable, redaction-safe
   snapshot records in SQLite/PostgreSQL without Provider Mapping writes.
-- `MCDR-040` is ready for backend-only accept/reject semantics before UI.
+- `MCDR-040` is done: backend-only accept/reject decisions are idempotent,
+  guard stale reviews, mark expired pending reviews, and do not write Provider
+  Mappings.
+- `MCDR-050` is ready for closeout or follow-on split.
 
 Boundary:
 

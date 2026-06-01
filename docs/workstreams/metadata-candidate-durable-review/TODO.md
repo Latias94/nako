@@ -31,12 +31,12 @@ Last updated: 2026-06-02
 
 ## M3 - Idempotent Accept/Reject Backend Semantics
 
-- [ ] MCDR-040 [owner=codex] [deps=MCDR-030] [scope=crates/nako-core,crates/nako-metadata,crates/nako-db,docs/workstreams/metadata-candidate-durable-review]
+- [x] MCDR-040 [owner=codex] [deps=MCDR-030] [scope=crates/nako-core,crates/nako-metadata,crates/nako-db,docs/workstreams/metadata-candidate-durable-review]
   Goal: Add backend-only accept/reject semantics for durable candidate reviews before Admin/Web mutation.
-  Validation: focused `nako-metadata` and `nako-db` gates; `cargo fmt --all -- --check`; `git diff --check`.
+  Validation: `cargo nextest run -p nako-metadata candidate_review_decision --no-fail-fast`; `cargo nextest run -p nako-db candidate_review --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: accepting or rejecting the same review is idempotent and does not bypass existing Provider Mapping confirmation boundaries.
   Evidence: `EVIDENCE_AND_GATES.md`.
-  Handoff: Continue to `MCDR-050`.
+  Handoff: DONE; continue to `MCDR-050`.
 
 ## M4 - Closeout
 

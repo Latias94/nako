@@ -17,11 +17,12 @@ use nako_core::{
     LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryPreset, LibraryRepository,
     MediaItem, MediaItemId, MediaKind, MediaRepository, MediaSource, MediaSourceId,
     MetadataCandidateGraph, MetadataCandidateNode, MetadataCandidateRecord,
-    MetadataCandidateRelationship, MetadataCandidateRelationshipKind, MetadataCandidateSource,
+    MetadataCandidateRelationship, MetadataCandidateRelationshipKind, MetadataCandidateReviewId,
+    MetadataCandidateReviewRepository, MetadataCandidateReviewStatus, MetadataCandidateSource,
     MetadataCandidateSubject, MetadataField, MetadataFieldLock, MetadataMatchKind, MetadataProfile,
     MetadataProviderAttemptStatus, MetadataProviderErrorClass, MetadataRefreshMode,
-    MetadataRepository, MetadataSource, NakoError, NewJob, PageRequest, ProviderMappingRepository,
-    ProviderMappingStatus, ProviderSubjectKind, Result,
+    MetadataRepository, MetadataSource, NakoError, NewJob, NewMetadataCandidateReview, PageRequest,
+    ProviderMappingRepository, ProviderMappingStatus, ProviderSubjectKind, Result,
 };
 use nako_db::NakoDatabase;
 use nako_search::{SearchIndex, SearchQuery};
@@ -2183,6 +2184,306 @@ fn metadata_candidate_review_plan_projects_graph_without_raw_payload_or_mapping_
     assert!(!serialized.contains("raw_json"));
     assert!(!serialized.contains("provider_mapping"));
     assert!(!serialized.contains("accepted"));
+}
+
+#[tokio::test]
+async fn candidate_review_decision_accepts_pending_review_idempotently_without_provider_mapping() {
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library = Library {
+        id: LibraryId::new(),
+        name: "TV".to_owned(),
+        roots: vec!["local:///TV".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Tv),
+    };
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Series,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Local Series".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_library(&library).await.unwrap();
+    store.upsert_media_item(&item).await.unwrap();
+
+    let inserted = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+            source_key: "tmdb:series:1437".to_owned(),
+            plan: sample_candidate_review_plan(),
+            expires_at_ms: Some(10_000),
+            created_at_ms: 1_000,
+            updated_at_ms: 1_000,
+        })
+        .await
+        .unwrap();
+
+    let service = MetadataCandidateReviewDecisionService::new(store.clone());
+    let accepted = service
+        .decide(MetadataCandidateReviewDecisionRequest {
+            review_id: inserted.id,
+            item_id: item.id,
+            decision: MetadataCandidateReviewDecision::Accept,
+            decided_at_ms: 2_000,
+            expected_updated_at_ms: Some(inserted.updated_at_ms),
+        })
+        .await
+        .unwrap();
+
+    assert!(accepted.changed);
+    assert_eq!(
+        accepted.review.status,
+        MetadataCandidateReviewStatus::Accepted
+    );
+    assert_eq!(accepted.review.updated_at_ms, 2_000);
+    assert_eq!(
+        store
+            .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+            .await
+            .unwrap(),
+        vec![]
+    );
+
+    let replay = service
+        .decide(MetadataCandidateReviewDecisionRequest {
+            review_id: inserted.id,
+            item_id: item.id,
+            decision: MetadataCandidateReviewDecision::Accept,
+            decided_at_ms: 3_000,
+            expected_updated_at_ms: None,
+        })
+        .await
+        .unwrap();
+
+    assert!(!replay.changed);
+    assert_eq!(replay.review, accepted.review);
+    assert_eq!(
+        store
+            .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+            .await
+            .unwrap(),
+        vec![]
+    );
+}
+
+#[tokio::test]
+async fn candidate_review_decision_marks_expired_pending_review_without_provider_mapping() {
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Series,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Local Series".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_media_item(&item).await.unwrap();
+
+    let inserted = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+            source_key: "tmdb:series:expired".to_owned(),
+            plan: sample_candidate_review_plan(),
+            expires_at_ms: Some(1_500),
+            created_at_ms: 1_000,
+            updated_at_ms: 1_000,
+        })
+        .await
+        .unwrap();
+
+    let service = MetadataCandidateReviewDecisionService::new(store.clone());
+    let err = service
+        .decide(MetadataCandidateReviewDecisionRequest {
+            review_id: inserted.id,
+            item_id: item.id,
+            decision: MetadataCandidateReviewDecision::Accept,
+            decided_at_ms: 2_000,
+            expected_updated_at_ms: Some(inserted.updated_at_ms),
+        })
+        .await
+        .unwrap_err();
+
+    assert!(matches!(err, NakoError::Conflict { .. }));
+    assert!(err.to_string().contains("expired"));
+
+    let expired = store
+        .get_metadata_candidate_review(inserted.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(expired.status, MetadataCandidateReviewStatus::Expired);
+    assert_eq!(expired.updated_at_ms, 2_000);
+    assert_eq!(
+        store
+            .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+            .await
+            .unwrap(),
+        vec![]
+    );
+}
+
+#[tokio::test]
+async fn candidate_review_decision_rejects_conflicting_and_stale_decisions() {
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Series,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Local Series".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let other_item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Series,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Other Series".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_item(&other_item).await.unwrap();
+
+    let inserted = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+            source_key: "tmdb:series:conflict".to_owned(),
+            plan: sample_candidate_review_plan(),
+            expires_at_ms: Some(10_000),
+            created_at_ms: 1_000,
+            updated_at_ms: 1_000,
+        })
+        .await
+        .unwrap();
+
+    let service = MetadataCandidateReviewDecisionService::new(store.clone());
+    let accepted = service
+        .decide(MetadataCandidateReviewDecisionRequest {
+            review_id: inserted.id,
+            item_id: item.id,
+            decision: MetadataCandidateReviewDecision::Accept,
+            decided_at_ms: 2_000,
+            expected_updated_at_ms: Some(inserted.updated_at_ms),
+        })
+        .await
+        .unwrap();
+
+    let conflicting = service
+        .decide(MetadataCandidateReviewDecisionRequest {
+            review_id: inserted.id,
+            item_id: item.id,
+            decision: MetadataCandidateReviewDecision::Reject,
+            decided_at_ms: 3_000,
+            expected_updated_at_ms: None,
+        })
+        .await
+        .unwrap_err();
+
+    assert!(matches!(conflicting, NakoError::Conflict { .. }));
+    assert_eq!(
+        store
+            .get_metadata_candidate_review(inserted.id)
+            .await
+            .unwrap(),
+        Some(accepted.review.clone())
+    );
+
+    let wrong_item = service
+        .decide(MetadataCandidateReviewDecisionRequest {
+            review_id: inserted.id,
+            item_id: other_item.id,
+            decision: MetadataCandidateReviewDecision::Accept,
+            decided_at_ms: 3_000,
+            expected_updated_at_ms: None,
+        })
+        .await
+        .unwrap_err();
+
+    assert!(matches!(wrong_item, NakoError::Conflict { .. }));
+
+    let pending = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+            source_key: "tmdb:series:stale".to_owned(),
+            plan: sample_candidate_review_plan(),
+            expires_at_ms: Some(10_000),
+            created_at_ms: 4_000,
+            updated_at_ms: 4_000,
+        })
+        .await
+        .unwrap();
+    store
+        .set_metadata_candidate_review_status(
+            pending.id,
+            MetadataCandidateReviewStatus::Pending,
+            4_500,
+        )
+        .await
+        .unwrap();
+
+    let stale = service
+        .decide(MetadataCandidateReviewDecisionRequest {
+            review_id: pending.id,
+            item_id: item.id,
+            decision: MetadataCandidateReviewDecision::Reject,
+            decided_at_ms: 5_000,
+            expected_updated_at_ms: Some(4_000),
+        })
+        .await
+        .unwrap_err();
+
+    assert!(matches!(stale, NakoError::Conflict { .. }));
+    assert_eq!(
+        store
+            .get_metadata_candidate_review(pending.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .status,
+        MetadataCandidateReviewStatus::Pending
+    );
+}
+
+fn sample_candidate_review_plan() -> MetadataCandidateReviewPlan {
+    MetadataCandidateReviewPlan {
+        root: MetadataCandidateReviewNode {
+            source: MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+            kind: MediaKind::Series,
+            subject: Some(MetadataCandidateSubject {
+                provider: ExternalProvider::Tmdb,
+                subject_kind: ProviderSubjectKind::Series,
+                subject_key: "1437".to_owned(),
+                title: Some("Firefly".to_owned()),
+                release_year: Some(2002),
+                locale: Some("en-US".to_owned()),
+            }),
+            metadata: MetadataCandidateRecord::from(CanonicalMetadata {
+                title: "Firefly".to_owned(),
+                release_date: Some("2002-09-20".to_owned()),
+                ..CanonicalMetadata::default()
+            }),
+        },
+        related: Vec::new(),
+        relationships: Vec::new(),
+    }
 }
 
 #[test]

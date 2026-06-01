@@ -2149,6 +2149,17 @@ impl MetadataCandidateReviewRepository for NakoDatabase {
             .await
     }
 
+    async fn set_metadata_candidate_review_status(
+        &self,
+        id: MetadataCandidateReviewId,
+        status: MetadataCandidateReviewStatus,
+        updated_at_ms: i64,
+    ) -> Result<Option<MetadataCandidateReviewRecord>> {
+        self.backend()
+            .set_metadata_candidate_review_status(id, status, updated_at_ms)
+            .await
+    }
+
     async fn list_metadata_candidate_reviews_for_item(
         &self,
         item_id: MediaItemId,
