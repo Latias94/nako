@@ -277,6 +277,7 @@ function fixtureBrowserPlaybackTicket(
     expires_at: "2026-05-26T12:00:00Z",
     item_id: "item-episode-1",
     mode: body.mode,
+    playback_session_id: body.mode === "hls" ? "playback-session-hls-fixture" : null,
     source_id: sourceId,
     urls: [
       {

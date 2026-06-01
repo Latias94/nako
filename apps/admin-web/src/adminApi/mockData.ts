@@ -116,6 +116,13 @@ export const mockOverview: AdminOverviewResponse = {
       },
     ],
   },
+  catalog: {
+    governed_items: 1240,
+    unknown_kind_items: 3,
+    low_confidence_items: 11,
+    items_with_duplicate_relationships: 2,
+    items_missing_accepted_provider_mapping: 7,
+  },
   metadata: {
     total_providers: 4,
     available_providers: 3,
@@ -1703,6 +1710,31 @@ export const mockPlaybackRuntime: AdminPlaybackRuntimeDiagnosticsResponse = {
     max_concurrent_sessions: 2,
     timeout_ms: 30000,
   },
+  resource_pressure: {
+    classes: [
+      {
+        class: "cpu_transcode",
+        enforcement: "admission_permit",
+        configured_capacity: 2,
+        available_permits: 1,
+        in_use_permits: 1,
+      },
+      {
+        class: "gpu_transcode",
+        enforcement: "admission_permit",
+        configured_capacity: 1,
+        available_permits: 1,
+        in_use_permits: 0,
+      },
+      {
+        class: "hls_artifact_io",
+        enforcement: "not_yet_enforced",
+        configured_capacity: null,
+        available_permits: null,
+        in_use_permits: null,
+      },
+    ],
+  },
   remote_playback: {
     backend_count: 2,
     stream_permits_available: 4,
@@ -1824,6 +1856,8 @@ export const mockStorageStaging: AdminStorageStagingDiagnosticsResponse = {
     retention_ms: 86400000,
     startup_deleted_records: 4,
     startup_deleted_files: 4,
+    cleanup_candidate_records: 12,
+    cleanup_candidate_bytes: 3221225472,
     process_cached_backends: 2,
     vfs_cache: {
       object_count: 48,

@@ -4,6 +4,7 @@ import type {
   ItemsResponse,
   LibraryListResponse,
   LibrarySourcesResponse,
+  MediaStreamDispositionDto,
   MetadataProfileDto,
   PlaybackDecisionResponse,
   SearchResponse,
@@ -14,6 +15,17 @@ const page = {
   limit: 20,
   offset: 0,
   returned: 2,
+};
+
+const streamDisposition: MediaStreamDispositionDto = {
+  attached_pic: false,
+  captions: false,
+  commentary: false,
+  default: false,
+  descriptions: false,
+  forced: false,
+  hearing_impaired: false,
+  visual_impaired: false,
 };
 
 const metadataProfile: MetadataProfileDto = {
@@ -171,6 +183,8 @@ export const fixtureLibrarySources: LibrarySourcesResponse = {
             index: 0,
             kind: "video",
             language: null,
+            origin: null,
+            disposition: streamDisposition,
             sample_rate: null,
             width: 1920,
           },
@@ -183,6 +197,8 @@ export const fixtureLibrarySources: LibrarySourcesResponse = {
             index: 1,
             kind: "audio",
             language: "ja",
+            origin: null,
+            disposition: streamDisposition,
             sample_rate: 48_000,
             width: null,
           },
@@ -288,6 +304,8 @@ export function fixturePlaybackDecision(sourceId: string): PlaybackDecisionRespo
           index: 0,
           kind: "video",
           language: null,
+          origin: null,
+          disposition: streamDisposition,
           sample_rate: null,
           width: isMp4 ? 1280 : 1920,
         },
@@ -300,6 +318,8 @@ export function fixturePlaybackDecision(sourceId: string): PlaybackDecisionRespo
           index: 1,
           kind: "audio",
           language: "ja",
+          origin: null,
+          disposition: streamDisposition,
           sample_rate: 48_000,
           width: null,
         },
