@@ -1,6 +1,6 @@
 # Web MVP Live Smoke - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 ## M0 - Scope And Evidence Freeze
@@ -41,12 +41,12 @@ Last updated: 2026-06-01
 
 ## M3 - Closeout
 
-- [ ] WMLS-040 [owner=planner] [deps=WMLS-030] [scope=docs/workstreams/web-mvp-live-smoke,docs/workstreams/mvp-release-shape]
+- [x] WMLS-040 [owner=planner] [deps=WMLS-030] [scope=docs/workstreams/web-mvp-live-smoke,docs/workstreams/mvp-release-shape]
   Goal: Close this lane or split only proven follow-ons.
   Validation: Fresh Web gate evidence exists and the MVP planner can link Gate 3
   to this workstream.
   Review: Close through `review-workstream` or planner integration.
   Evidence: `docs/workstreams/web-mvp-live-smoke/EVIDENCE_AND_GATES.md`
   Context: `docs/workstreams/web-mvp-live-smoke/CONTEXT.jsonl`
-  Handoff: Return any follow-on to the planner; do not self-assign desktop,
-  backend, or contract work.
+  Handoff: DONE. Closed as MVP Gate 3 evidence. Do not self-assign desktop,
+  backend, contract, generated SDK, or broader player UX work from this lane.

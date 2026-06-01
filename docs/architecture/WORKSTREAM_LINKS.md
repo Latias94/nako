@@ -201,7 +201,7 @@ Evidence workstreams:
 
 - `docs/workstreams/web-media-live-public-client-parity/`
 - `docs/workstreams/admin-media-management-context-links/`
-- `docs/workstreams/web-mvp-live-smoke/`
+- `docs/workstreams/web-mvp-live-smoke/` (closed)
 
 Proposed lanes:
 

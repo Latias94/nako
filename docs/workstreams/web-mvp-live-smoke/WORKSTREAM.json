@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "web-mvp-live-smoke",
   "title": "Web MVP Live Smoke",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-06-01",
   "scope_kind": "execution",
   "problem": "MVP Gate 3 needs a dedicated, reproducible Web/Public Client live smoke for route, playback, heartbeat, and redaction evidence.",
@@ -25,11 +25,12 @@
     }
   ],
   "context_manifest": "docs/workstreams/web-mvp-live-smoke/CONTEXT.jsonl",
-  "current_task": "WMLS-040",
+  "current_task": null,
   "completed_tasks": [
     "WMLS-010",
     "WMLS-020",
-    "WMLS-030"
+    "WMLS-030",
+    "WMLS-040"
   ],
   "gates": [
     {
@@ -72,6 +73,11 @@
       "task": "WMLS-030",
       "path": "docs/workstreams/web-mvp-live-smoke/EVIDENCE_AND_GATES.md",
       "summary": "Full Web gate set passed: npm test, check, build:budget, workstream JSON, context JSONL, and scoped diff check."
+    },
+    {
+      "task": "WMLS-040",
+      "path": "docs/workstreams/web-mvp-live-smoke/CLOSEOUT.md",
+      "summary": "Closed the lane as MVP Gate 3 evidence; broader Web, desktop/native, backend/API, and generated SDK work remain follow-ons."
     }
   ],
   "adr_refs": [],
@@ -94,7 +100,7 @@
   ],
   "lane_slug": "web-product",
   "continue_policy": {
-    "default_action": "continue",
-    "notes": "Continue only inside Web MVP smoke scope. Stop and return NEEDS_CONTEXT for backend/API contract, generated client, or desktop/native playback decisions."
+    "default_action": "closed",
+    "notes": "The lane is closed as MVP Gate 3 evidence. Open focused follow-ons for broader Web UX, desktop/native playback, backend/API contract, or generated client work."
   }
 }

@@ -1,6 +1,6 @@
 # Web MVP Live Smoke - Design
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 ## Why This Lane Exists
@@ -92,3 +92,10 @@ This lane can close when:
 - evidence is recorded in `EVIDENCE_AND_GATES.md`;
 - residual MVP risks are limited to other lanes such as `playback-transcode`;
 - follow-ons are either split or explicitly deferred.
+
+## Closeout Summary
+
+Closed on 2026-06-01 after WMLS-020 added the dedicated MVP smoke and WMLS-030
+recorded full Web gate evidence. The lane remains a release evidence slice only:
+desktop/native playback, backend/API contracts, generated SDK changes, and
+broader player UX are follow-ons outside this workstream.

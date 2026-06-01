@@ -1,18 +1,20 @@
 # Web MVP Live Smoke - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 ## Current State
 
-The workstream is opened under the `web-product` lane. WMLS-020 added the
-dedicated MVP smoke artifact and WMLS-030 passed the required Web gate set.
+The workstream is closed under the `web-product` lane. WMLS-020 added the
+dedicated MVP smoke artifact, WMLS-030 passed the required Web gate set, and
+WMLS-040 closed it as MVP Gate 3 evidence.
 
-## Next Task
+## Closed State
 
-Return to planner integration for WMLS-040. The planner should decide whether
-this workstream can close as MVP Gate 3 evidence or whether a separate manual
-browser screenshot/runbook is still required.
+No further work should continue in this lane. A separate manual browser
+screenshot/runbook is not required for the current MVP release candidate
+because the deterministic Web gate set passed and is recorded by
+`mvp-release-shape` closeout.
 
 Fresh evidence recorded:
 
@@ -35,5 +37,6 @@ git diff --check -- docs/workstreams/web-mvp-live-smoke web docs/architecture/LA
 
 ## Integration Note
 
-Return to the planner with `integrate-lane-results`. This lane should not start
-desktop/native playback, backend/API, generated client, or MVP planner work.
+This lane should not start desktop/native playback, backend/API, generated
+client, or broader player UX work. Open focused follow-ons if those become
+product goals.

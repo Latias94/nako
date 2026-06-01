@@ -18,8 +18,6 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 
 Last reviewed: 2026-06-01
 
-- [web-mvp-live-smoke](web-mvp-live-smoke/README.md) is active on lane
-  `web-product`; next task is `WMLS-040`.
 - [generated-artifact-metadata-authority-apply](generated-artifact-metadata-authority-apply/README.md)
   is active on lane `library-metadata-control-plane`; next task is `GAMA-050`.
 - [client-surface-and-access-product-architecture](client-surface-and-access-product-architecture/README.md)
@@ -29,10 +27,10 @@ Last reviewed: 2026-06-01
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
-or any product-scope change to the MVP cut. Keep `GAMA-060` blocked until `GAMA-050` is
-reviewed and verified or the GAMA ledger is reconciled. `CSAPA` should split
-or explicitly defer desktop playback before closeout. The `web-product` lane
-is active only for `web-mvp-live-smoke` Gate 3 release evidence.
+or any product-scope change to the MVP cut. `web-mvp-live-smoke` is closed as
+MVP Gate 3 evidence. Keep `GAMA-060` blocked until `GAMA-050` is reviewed and
+verified or the GAMA ledger is reconciled. `CSAPA` should split or explicitly
+defer desktop playback before closeout.
 `audio-compatibility-downmix-normalization`,
 `remote-storage-health-and-circuit-breaker`,
 `transcode-interface-and-runtime-plan-deepening`,
@@ -49,7 +47,7 @@ should still split to PAIP unless `PTJCH-310` explicitly accepts it.
   release convergence lane for defining the first video-first, self-hosted,
   single-admin Nako MVP; routing release blockers to existing lanes; and
   keeping post-MVP Jellyfin/Plex-class breadth out of the first release cut.
-- [web-mvp-live-smoke](web-mvp-live-smoke/README.md): active Web Product lane
+- [web-mvp-live-smoke](web-mvp-live-smoke/README.md): closed Web Product lane
   for making MVP Gate 3 reproducible across Public Client media browse,
   library-scoped item browse, detail rendering, browser playback tickets,
   native video/subtitle rendering, playback heartbeat, and redaction checks.

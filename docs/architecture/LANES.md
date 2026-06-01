@@ -20,7 +20,6 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| `web-product` | `web-mvp-live-smoke` | `WMLS-040` | Web product worker |
 | `library-metadata-control-plane` | `generated-artifact-metadata-authority-apply` | `GAMA-050` | Backend/control-plane execution |
 | `client-surfaces-planning` | `client-surface-and-access-product-architecture` | `CSAPA-050` | Planner/docs split or defer decision |
 | `playback-transcode` | `playback-transcode-jellyfin-class-hardening` | `PTJCH-310` | Playback artifact I/O decision |
@@ -32,9 +31,10 @@ to the MVP cut.
 
 Do not start `GAMA-060` until `GAMA-050` has reviewed and verified the final
 Admin apply route. Do not close `CSAPA` until desktop playback is split,
-deferred, or explicitly scoped. The `web-product` lane is active only for the
-planner-approved `web-mvp-live-smoke` Gate 3 evidence slice; it must stop for
-backend/API contract, generated SDK, or desktop/native playback decisions.
+deferred, or explicitly scoped. The `web-product` lane is idle after
+`web-mvp-live-smoke` closeout; open a focused follow-on for backend/API
+contract, generated SDK, broader player UX, or desktop/native playback
+decisions.
 
 The `storage-vfs` lane is idle after
 `remote-storage-health-and-circuit-breaker` closeout. Open a new workstream
@@ -113,7 +113,7 @@ Shared scopes requiring planner coordination:
 
 Owns the current `web/` product frontend, including Media/Admin route
 integration, frontend data-source boundaries, browser smoke evidence, and
-bundle-budget gates.
+bundle-budget gates. It is idle after `web-mvp-live-smoke` closeout.
 
 Owned scopes:
 

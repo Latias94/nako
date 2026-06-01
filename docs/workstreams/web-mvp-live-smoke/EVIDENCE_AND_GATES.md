@@ -1,6 +1,6 @@
 # Web MVP Live Smoke - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 ## Smallest Current Repro
@@ -54,10 +54,11 @@ git diff --check -- docs/workstreams/web-mvp-live-smoke web docs/architecture/LA
 | 2026-06-01 | WMLS-010 | Opened `web-mvp-live-smoke` from MVP Campaign B; linked it to `web-product`; recorded authority, scope, gates, and context manifest. | Pending validation. |
 | 2026-06-01 | WMLS-020 | Added dedicated Web MVP live smoke coverage for route surfaces, Public Client playback plan, native `VideoPlayer`, heartbeat, and redaction expectations. Ran `npm --prefix web run test -- src/test/mvp-live-smoke.test.tsx`. | Passed: 1 Vitest file / 2 tests passed. |
 | 2026-06-01 | WMLS-030 | Ran the required Web gate set and metadata checks: `npm --prefix web run test`, `npm --prefix web run check`, `npm --prefix web run build:budget`, `python -m json.tool docs/workstreams/web-mvp-live-smoke/WORKSTREAM.json`, `CONTEXT.jsonl` parse check, and `git diff --check -- docs/workstreams/web-mvp-live-smoke web docs/architecture/LANES.md docs/architecture/WORKSTREAM_LINKS.md docs/workstreams/README.md`. | Passed: 10 Vitest files / 98 tests passed; TypeScript passed; bundle budget passed with media route JS 43.68 KiB raw / 12.06 KiB gzip and total JS 1132.92 KiB raw / 331.87 KiB gzip; JSON/JSONL passed; diff check had only LF/CRLF warnings. |
+| 2026-06-01 | WMLS-040 | Closed the workstream as MVP Gate 3 evidence and removed it from the active Web Product queue. | Passed: closeout metadata and scoped diff checks. |
 
 ## Notes
 
 - This lane does not prove backend playback runtime closeout; that remains owned
   by `playback-transcode` and `PTJCH-220`.
 - This lane does not promote Tauri/native playback into MVP.
-- WMLS-030 is ready for planner review through `integrate-lane-results`.
+- WMLS-040 closed this lane as MVP Gate 3 evidence.

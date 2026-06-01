@@ -1,6 +1,6 @@
 # Web MVP Live Smoke - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 ## M0 - Lane Opened
@@ -40,3 +40,7 @@ Exit criteria:
   concerns/follow-ups, and review readiness.
 - The planner can route this through `integrate-lane-results`.
 - Any remaining risk is outside this Web MVP smoke lane.
+
+Status: Complete. WMLS-040 closed the lane as MVP Gate 3 evidence. Remaining
+browser polish, desktop/native playback, backend/API contract changes, and
+generated SDK work must open separate follow-ons.
