@@ -24,11 +24,13 @@ use nako_api::{
         AdminDatabaseBackendCapabilitiesDiagnostics, AdminDatabaseConfigDiagnostics,
         AdminGeneratedArtifactMetadataApplyPlanResponse,
         AdminGeneratedArtifactMetadataApplyRequest, AdminGeneratedArtifactMetadataApplyResponse,
-        AdminGeneratedArtifactProposal, AdminGeneratedArtifactProposalListResponse,
-        AdminGeneratedArtifactReviewPlanResponse, AdminGeneratedArtifactReviewRequest,
-        AdminGeneratedArtifactReviewResponse, AdminInvitationListResponse, AdminInvitationRecord,
-        AdminInvitationResponse, AdminJobCancelRequestResponse, AdminJobListItem,
-        AdminJobListResponse, AdminLibraryAccessLevel, AdminLibraryAccessPolicyDeleteResponse,
+        AdminGeneratedArtifactMetadataBulkApplyPlanRequest,
+        AdminGeneratedArtifactMetadataBulkApplyPlanResponse, AdminGeneratedArtifactProposal,
+        AdminGeneratedArtifactProposalListResponse, AdminGeneratedArtifactReviewPlanResponse,
+        AdminGeneratedArtifactReviewRequest, AdminGeneratedArtifactReviewResponse,
+        AdminInvitationListResponse, AdminInvitationRecord, AdminInvitationResponse,
+        AdminJobCancelRequestResponse, AdminJobListItem, AdminJobListResponse,
+        AdminLibraryAccessLevel, AdminLibraryAccessPolicyDeleteResponse,
         AdminLibraryAccessPolicyListResponse, AdminLibraryAccessPolicyRecord,
         AdminLibraryAccessPolicyResponse, AdminLibraryAccessReason, AdminLibraryAccessSummary,
         AdminLibraryAccessSummaryEntry, AdminLibraryConfigDiagnostics,
@@ -133,6 +135,10 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/automation/generated-artifacts/proposals",
             get(list_admin_generated_artifact_proposals),
+        )
+        .route(
+            "/admin/v1/automation/generated-artifacts/metadata-apply-plan",
+            post(plan_admin_generated_artifact_metadata_bulk_apply),
         )
         .route(
             "/admin/v1/automation/generated-artifacts/{artifact_id}/review-plan",
@@ -530,6 +536,24 @@ pub(super) async fn plan_admin_generated_artifact_metadata_apply(
         public_api_version: API_VERSION.to_owned(),
         plan: nako_api::admin::AdminGeneratedArtifactMetadataApplyPlan::from_plan(plan),
     }))
+}
+
+pub(super) async fn plan_admin_generated_artifact_metadata_bulk_apply(
+    State(app): State<NakoApp>,
+    Json(request): Json<AdminGeneratedArtifactMetadataBulkApplyPlanRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let plan = app
+        .automation()
+        .plan_generated_artifact_metadata_bulk_apply(
+            nako_core::GeneratedArtifactMetadataBulkApplyPlanRequest {
+                artifact_ids: request.artifact_ids,
+            },
+        )
+        .await?;
+
+    Ok(Json(
+        AdminGeneratedArtifactMetadataBulkApplyPlanResponse::from_plan(plan),
+    ))
 }
 
 pub(super) async fn apply_admin_generated_artifact_metadata(

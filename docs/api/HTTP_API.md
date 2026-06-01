@@ -698,6 +698,9 @@ DELETE /admin/v1/access/library-policies
 GET  /admin/v1/automation/generated-artifacts/proposals
 POST /admin/v1/automation/generated-artifacts/{artifact_id}/review-plan
 POST /admin/v1/automation/generated-artifacts/{artifact_id}/review
+POST /admin/v1/automation/generated-artifacts/metadata-apply-plan
+POST /admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply-plan
+POST /admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply
 GET  /admin/v1/catalog/governance/items
 GET  /admin/v1/catalog/governance/items/{item_id}
 POST /admin/v1/catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review-plan
@@ -736,6 +739,9 @@ contract for the first read-model routes above:
 `GET /admin/v1/automation/generated-artifacts/proposals`,
 `POST /admin/v1/automation/generated-artifacts/{artifact_id}/review-plan`,
 `POST /admin/v1/automation/generated-artifacts/{artifact_id}/review`,
+`POST /admin/v1/automation/generated-artifacts/metadata-apply-plan`,
+`POST /admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply-plan`,
+`POST /admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply`,
 `GET /admin/v1/catalog/governance/items`,
 `GET /admin/v1/catalog/governance/items/{item_id}`,
 `POST /admin/v1/catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review-plan`,
@@ -750,6 +756,17 @@ Refresh it from `apps/admin-web` with `npm run generate:admin-api`.
 This generated Admin contract is separate from the Public Client TypeScript SDK
 under `sdk/typescript`: Admin routes must not appear in public OpenAPI,
 `nako-client-protocol`, or `@nako/sdk` route inventories.
+
+`POST /admin/v1/automation/generated-artifacts/metadata-apply-plan` is a
+read-only Admin planning route for a selected set of Generated Artifacts. Its
+request body is `{ "artifact_ids": ["..."] }`. The server rejects empty
+selection and selections above the advertised `max_artifact_count`, de-duplicates
+repeat IDs for planning, and returns per-artifact plan items plus aggregate
+ready/blocked/stale/missing and field-action counters. Missing artifacts are
+reported as redacted per-item `missing` rows instead of exposing provider,
+prompt, Source Locator, path, token, or artifact JSON details. This route never
+mutates Canonical Metadata; confirmed mutation remains behind the single-item
+metadata apply path until durable batch execution is added.
 
 `POST /libraries/{library_id}/scan` returns `202 Accepted` with a queued job.
 The job runs in the background.

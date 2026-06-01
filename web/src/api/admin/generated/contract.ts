@@ -36,6 +36,7 @@ export const NAKO_ADMIN_ROUTES = {
   generatedArtifactProposals: "/admin/v1/automation/generated-artifacts/proposals",
   generatedArtifactReviewPlan: "/admin/v1/automation/generated-artifacts/{artifact_id}/review-plan",
   generatedArtifactReview: "/admin/v1/automation/generated-artifacts/{artifact_id}/review",
+  generatedArtifactMetadataBulkApplyPlan: "/admin/v1/automation/generated-artifacts/metadata-apply-plan",
   generatedArtifactMetadataApplyPlan: "/admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply-plan",
   generatedArtifactMetadataApply: "/admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply",
   itemArtworkGallery: "/admin/v1/items/{item_id}/artwork",
@@ -211,6 +212,10 @@ export interface AdminGeneratedArtifactReviewRequest {
 
 export interface AdminGeneratedArtifactMetadataApplyRequest {
   idempotency_key: string;
+}
+
+export interface AdminGeneratedArtifactMetadataBulkApplyPlanRequest {
+  artifact_ids: string[];
 }
 
 export type AdminArtworkKind =
@@ -1685,6 +1690,12 @@ export interface AdminGeneratedArtifactMetadataApplyPlanResponse {
   plan: AdminGeneratedArtifactMetadataApplyPlan;
 }
 
+export interface AdminGeneratedArtifactMetadataBulkApplyPlanResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  plan: AdminGeneratedArtifactMetadataBulkApplyPlan;
+}
+
 export interface AdminGeneratedArtifactMetadataApplyResponse {
   admin_api_version: string;
   public_api_version: string;
@@ -1717,6 +1728,39 @@ export interface AdminGeneratedArtifactMetadataApplyFieldPlan {
   reasons: string[];
   current: AdminGeneratedArtifactMetadataValueSummary;
   incoming: AdminGeneratedArtifactMetadataValueSummary;
+}
+
+export interface AdminGeneratedArtifactMetadataBulkApplyPlan {
+  selection: AdminGeneratedArtifactMetadataBulkApplyPlanSelection;
+  summary: AdminGeneratedArtifactMetadataBulkApplyPlanSummary;
+  items: AdminGeneratedArtifactMetadataBulkApplyPlanItem[];
+}
+
+export interface AdminGeneratedArtifactMetadataBulkApplyPlanSelection {
+  requested_artifact_count: number;
+  selected_artifact_count: number;
+  duplicate_artifact_count: number;
+  max_artifact_count: number;
+}
+
+export interface AdminGeneratedArtifactMetadataBulkApplyPlanSummary {
+  planned_artifact_count: number;
+  missing_artifact_count: number;
+  ready_artifact_count: number;
+  blocked_artifact_count: number;
+  stale_artifact_count: number;
+  executable_artifact_count: number;
+  apply_field_count: number;
+  skipped_field_count: number;
+  noop_field_count: number;
+}
+
+export interface AdminGeneratedArtifactMetadataBulkApplyPlanItem {
+  artifact_id: string;
+  status: string;
+  executable: boolean;
+  reasons: string[];
+  plan: AdminGeneratedArtifactMetadataApplyPlan | null;
 }
 
 export interface AdminGeneratedArtifactMetadataValueSummary {

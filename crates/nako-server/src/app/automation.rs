@@ -9,6 +9,7 @@ use nako_automation::AutomationJobService;
 use nako_core::{
     AutomationArtifactId, AutomationArtifactKind, AutomationArtifactStatus, AutomationCapability,
     AutomationProviderId, AutomationRepository, CanonicalMetadata,
+    GENERATED_ARTIFACT_METADATA_BULK_APPLY_PLAN_MAX_ARTIFACTS,
     GeneratedArtifactAcceptanceActionKind, GeneratedArtifactAcceptanceBoundary,
     GeneratedArtifactAcceptancePlan, GeneratedArtifactAcceptancePlanReason,
     GeneratedArtifactAcceptancePlanStatus, GeneratedArtifactMetadataApplyFieldPlan,
@@ -17,10 +18,14 @@ use nako_core::{
     GeneratedArtifactMetadataApplyPlan, GeneratedArtifactMetadataApplyPlanReason,
     GeneratedArtifactMetadataApplyPlanStatus, GeneratedArtifactMetadataApplyRequest,
     GeneratedArtifactMetadataApplyResult, GeneratedArtifactMetadataApplyResultStatus,
-    GeneratedArtifactMetadataFieldAction, GeneratedArtifactMetadataFieldReason,
-    GeneratedArtifactMetadataValueSummary, GeneratedArtifactProposal,
-    GeneratedArtifactReviewDecision, GeneratedArtifactReviewResult, Job, JobId, JobRepository,
-    LibraryRepository, MediaItem, MediaItemId, MediaRepository,
+    GeneratedArtifactMetadataBulkApplyPlan, GeneratedArtifactMetadataBulkApplyPlanItem,
+    GeneratedArtifactMetadataBulkApplyPlanItemReason,
+    GeneratedArtifactMetadataBulkApplyPlanItemStatus,
+    GeneratedArtifactMetadataBulkApplyPlanRequest, GeneratedArtifactMetadataBulkApplyPlanSelection,
+    GeneratedArtifactMetadataBulkApplyPlanSummary, GeneratedArtifactMetadataFieldAction,
+    GeneratedArtifactMetadataFieldReason, GeneratedArtifactMetadataValueSummary,
+    GeneratedArtifactProposal, GeneratedArtifactReviewDecision, GeneratedArtifactReviewResult, Job,
+    JobId, JobRepository, LibraryRepository, MediaItem, MediaItemId, MediaRepository,
     MetadataApplicationPersistenceCommit, MetadataField, MetadataFieldLock, MetadataMergePolicy,
     MetadataRepository, MetadataSource, NakoError, NewAutomationProviderConfig, PageRequest,
     Result,
@@ -507,6 +512,117 @@ impl AutomationAppService {
             skipped_field_count,
             noop_field_count,
         ))
+    }
+
+    pub async fn plan_generated_artifact_metadata_bulk_apply(
+        &self,
+        request: GeneratedArtifactMetadataBulkApplyPlanRequest,
+    ) -> Result<GeneratedArtifactMetadataBulkApplyPlan> {
+        let requested_count = request.artifact_ids.len();
+        if requested_count == 0 {
+            return Err(NakoError::InvalidInput {
+                message:
+                    "generated artifact metadata bulk apply plan requires at least one artifact_id"
+                        .to_owned(),
+            });
+        }
+        if requested_count > GENERATED_ARTIFACT_METADATA_BULK_APPLY_PLAN_MAX_ARTIFACTS {
+            return Err(NakoError::InvalidInput {
+                message: format!(
+                    "generated artifact metadata bulk apply plan supports at most {} artifact_ids",
+                    GENERATED_ARTIFACT_METADATA_BULK_APPLY_PLAN_MAX_ARTIFACTS
+                ),
+            });
+        }
+
+        let mut seen = HashSet::new();
+        let mut selected_artifact_ids = Vec::with_capacity(requested_count);
+        for artifact_id in request.artifact_ids {
+            if seen.insert(artifact_id) {
+                selected_artifact_ids.push(artifact_id);
+            }
+        }
+
+        let mut summary = GeneratedArtifactMetadataBulkApplyPlanSummary::default();
+        let mut items = Vec::with_capacity(selected_artifact_ids.len());
+
+        for artifact_id in selected_artifact_ids.iter().copied() {
+            match self
+                .plan_generated_artifact_metadata_apply(artifact_id)
+                .await
+            {
+                Ok(plan) => {
+                    summary.planned_artifact_count =
+                        summary.planned_artifact_count.saturating_add(1);
+                    if plan.executable {
+                        summary.executable_artifact_count =
+                            summary.executable_artifact_count.saturating_add(1);
+                    }
+                    match plan.status {
+                        GeneratedArtifactMetadataApplyPlanStatus::Ready => {
+                            summary.ready_artifact_count =
+                                summary.ready_artifact_count.saturating_add(1);
+                        }
+                        GeneratedArtifactMetadataApplyPlanStatus::Blocked => {
+                            summary.blocked_artifact_count =
+                                summary.blocked_artifact_count.saturating_add(1);
+                        }
+                        GeneratedArtifactMetadataApplyPlanStatus::Stale => {
+                            summary.stale_artifact_count =
+                                summary.stale_artifact_count.saturating_add(1);
+                        }
+                    }
+                    summary.apply_field_count = summary
+                        .apply_field_count
+                        .saturating_add(plan.apply_field_count);
+                    summary.skipped_field_count = summary
+                        .skipped_field_count
+                        .saturating_add(plan.skipped_field_count);
+                    summary.noop_field_count = summary
+                        .noop_field_count
+                        .saturating_add(plan.noop_field_count);
+
+                    items.push(GeneratedArtifactMetadataBulkApplyPlanItem {
+                        artifact_id,
+                        status: GeneratedArtifactMetadataBulkApplyPlanItemStatus::Planned,
+                        executable: plan.executable,
+                        reasons: vec![GeneratedArtifactMetadataBulkApplyPlanItemReason::Planned],
+                        plan: Some(plan),
+                    });
+                }
+                Err(NakoError::NotFound { entity, .. })
+                    if entity == "generated_artifact_proposal"
+                        || entity == "automation_artifact" =>
+                {
+                    summary.missing_artifact_count =
+                        summary.missing_artifact_count.saturating_add(1);
+                    items.push(GeneratedArtifactMetadataBulkApplyPlanItem {
+                        artifact_id,
+                        status: GeneratedArtifactMetadataBulkApplyPlanItemStatus::Missing,
+                        executable: false,
+                        reasons: vec![
+                            GeneratedArtifactMetadataBulkApplyPlanItemReason::MissingArtifact,
+                        ],
+                        plan: None,
+                    });
+                }
+                Err(error) => return Err(error),
+            }
+        }
+
+        Ok(GeneratedArtifactMetadataBulkApplyPlan {
+            selection: GeneratedArtifactMetadataBulkApplyPlanSelection {
+                requested_artifact_count: requested_count as u32,
+                selected_artifact_count: selected_artifact_ids.len() as u32,
+                duplicate_artifact_count: requested_count
+                    .saturating_sub(selected_artifact_ids.len())
+                    as u32,
+                max_artifact_count: GENERATED_ARTIFACT_METADATA_BULK_APPLY_PLAN_MAX_ARTIFACTS
+                    as u32,
+            },
+            summary,
+            items,
+        })
     }
 
     pub async fn apply_generated_artifact_metadata(

@@ -516,6 +516,64 @@ pub struct GeneratedArtifactMetadataApplyPlan {
     pub noop_field_count: u32,
 }
 
+pub const GENERATED_ARTIFACT_METADATA_BULK_APPLY_PLAN_MAX_ARTIFACTS: usize = 100;
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactMetadataBulkApplyPlanRequest {
+    pub artifact_ids: Vec<AutomationArtifactId>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactMetadataBulkApplyPlanSelection {
+    pub requested_artifact_count: u32,
+    pub selected_artifact_count: u32,
+    pub duplicate_artifact_count: u32,
+    pub max_artifact_count: u32,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactMetadataBulkApplyPlanSummary {
+    pub planned_artifact_count: u32,
+    pub missing_artifact_count: u32,
+    pub ready_artifact_count: u32,
+    pub blocked_artifact_count: u32,
+    pub stale_artifact_count: u32,
+    pub executable_artifact_count: u32,
+    pub apply_field_count: u32,
+    pub skipped_field_count: u32,
+    pub noop_field_count: u32,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GeneratedArtifactMetadataBulkApplyPlanItemStatus {
+    Planned,
+    Missing,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GeneratedArtifactMetadataBulkApplyPlanItemReason {
+    Planned,
+    MissingArtifact,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactMetadataBulkApplyPlanItem {
+    pub artifact_id: AutomationArtifactId,
+    pub status: GeneratedArtifactMetadataBulkApplyPlanItemStatus,
+    pub executable: bool,
+    pub reasons: Vec<GeneratedArtifactMetadataBulkApplyPlanItemReason>,
+    pub plan: Option<GeneratedArtifactMetadataApplyPlan>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactMetadataBulkApplyPlan {
+    pub selection: GeneratedArtifactMetadataBulkApplyPlanSelection,
+    pub summary: GeneratedArtifactMetadataBulkApplyPlanSummary,
+    pub items: Vec<GeneratedArtifactMetadataBulkApplyPlanItem>,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct GeneratedArtifactMetadataApplyRequest {
     pub artifact_id: AutomationArtifactId,

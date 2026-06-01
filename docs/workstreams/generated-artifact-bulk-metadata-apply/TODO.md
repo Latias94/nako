@@ -13,7 +13,7 @@ Last updated: 2026-06-01
 
 ## M1 - Read-Only Bulk Apply Plan
 
-- [ ] GABMA-020 [owner=codex] [deps=GABMA-010] [scope=crates/nako-core,crates/nako-api,crates/nako-server/src/app/automation.rs,crates/nako-server/src/http/admin.rs,docs/api/HTTP_API.md]
+- [x] GABMA-020 [owner=codex] [deps=GABMA-010] [scope=crates/nako-core,crates/nako-api,crates/nako-server/src/app/automation.rs,crates/nako-server/src/http/admin.rs,docs/api/HTTP_API.md]
   Goal: Add a redaction-safe, read-only bulk metadata apply-plan contract for
   selected accepted metadata Generated Artifacts.
   Validation: `cargo nextest run -p nako-api generated_artifact_metadata_apply --no-fail-fast`; `cargo nextest run -p nako-server generated_artifact_metadata_apply_plan --no-fail-fast`; `cargo fmt --all -- --check`.

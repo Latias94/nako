@@ -7,13 +7,16 @@ use nako_core::{
     GeneratedArtifactMetadataApplyFieldPlan, GeneratedArtifactMetadataApplyOutcomeId,
     GeneratedArtifactMetadataApplyPlan, GeneratedArtifactMetadataApplyPlanReason,
     GeneratedArtifactMetadataApplyPlanStatus, GeneratedArtifactMetadataApplyResult,
-    GeneratedArtifactMetadataApplyResultStatus, GeneratedArtifactMetadataFieldAction,
-    GeneratedArtifactMetadataFieldReason, GeneratedArtifactMetadataValueSummary,
-    GeneratedArtifactPayloadShape, GeneratedArtifactPayloadSummary, GeneratedArtifactProposal,
-    GeneratedArtifactProvenance, GeneratedArtifactReadiness, GeneratedArtifactReadinessReason,
-    GeneratedArtifactReadinessStatus, GeneratedArtifactReviewDecision,
-    GeneratedArtifactReviewResult, GeneratedArtifactTarget, GeneratedArtifactTargetKind, JobId,
-    LibraryId, MediaItemId, MediaSourceId, MetadataField,
+    GeneratedArtifactMetadataApplyResultStatus, GeneratedArtifactMetadataBulkApplyPlan,
+    GeneratedArtifactMetadataBulkApplyPlanItem, GeneratedArtifactMetadataBulkApplyPlanItemReason,
+    GeneratedArtifactMetadataBulkApplyPlanItemStatus,
+    GeneratedArtifactMetadataBulkApplyPlanSelection, GeneratedArtifactMetadataBulkApplyPlanSummary,
+    GeneratedArtifactMetadataFieldAction, GeneratedArtifactMetadataFieldReason,
+    GeneratedArtifactMetadataValueSummary, GeneratedArtifactPayloadShape,
+    GeneratedArtifactPayloadSummary, GeneratedArtifactProposal, GeneratedArtifactProvenance,
+    GeneratedArtifactReadiness, GeneratedArtifactReadinessReason, GeneratedArtifactReadinessStatus,
+    GeneratedArtifactReviewDecision, GeneratedArtifactReviewResult, GeneratedArtifactTarget,
+    GeneratedArtifactTargetKind, JobId, LibraryId, MediaItemId, MediaSourceId, MetadataField,
 };
 use serde::{Deserialize, Serialize};
 
@@ -206,6 +209,29 @@ pub struct AdminGeneratedArtifactMetadataApplyPlanResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminGeneratedArtifactMetadataBulkApplyPlanRequest {
+    pub artifact_ids: Vec<AutomationArtifactId>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminGeneratedArtifactMetadataBulkApplyPlanResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub plan: AdminGeneratedArtifactMetadataBulkApplyPlan,
+}
+
+impl AdminGeneratedArtifactMetadataBulkApplyPlanResponse {
+    #[must_use]
+    pub fn from_plan(plan: GeneratedArtifactMetadataBulkApplyPlan) -> Self {
+        Self {
+            admin_api_version: ADMIN_API_VERSION.to_owned(),
+            public_api_version: API_VERSION.to_owned(),
+            plan: AdminGeneratedArtifactMetadataBulkApplyPlan::from_plan(plan),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminGeneratedArtifactMetadataApplyRequest {
     pub idempotency_key: String,
 }
@@ -296,6 +322,52 @@ impl AdminGeneratedArtifactMetadataApplyFieldPlan {
             reasons: plan.reasons,
             current: plan.current,
             incoming: plan.incoming,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminGeneratedArtifactMetadataBulkApplyPlan {
+    pub selection: GeneratedArtifactMetadataBulkApplyPlanSelection,
+    pub summary: GeneratedArtifactMetadataBulkApplyPlanSummary,
+    pub items: Vec<AdminGeneratedArtifactMetadataBulkApplyPlanItem>,
+}
+
+impl AdminGeneratedArtifactMetadataBulkApplyPlan {
+    #[must_use]
+    pub fn from_plan(plan: GeneratedArtifactMetadataBulkApplyPlan) -> Self {
+        Self {
+            selection: plan.selection,
+            summary: plan.summary,
+            items: plan
+                .items
+                .into_iter()
+                .map(AdminGeneratedArtifactMetadataBulkApplyPlanItem::from_item)
+                .collect(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminGeneratedArtifactMetadataBulkApplyPlanItem {
+    pub artifact_id: AutomationArtifactId,
+    pub status: GeneratedArtifactMetadataBulkApplyPlanItemStatus,
+    pub executable: bool,
+    pub reasons: Vec<GeneratedArtifactMetadataBulkApplyPlanItemReason>,
+    pub plan: Option<AdminGeneratedArtifactMetadataApplyPlan>,
+}
+
+impl AdminGeneratedArtifactMetadataBulkApplyPlanItem {
+    #[must_use]
+    pub fn from_item(item: GeneratedArtifactMetadataBulkApplyPlanItem) -> Self {
+        Self {
+            artifact_id: item.artifact_id,
+            status: item.status,
+            executable: item.executable,
+            reasons: item.reasons,
+            plan: item
+                .plan
+                .map(AdminGeneratedArtifactMetadataApplyPlan::from_plan),
         }
     }
 }
@@ -561,6 +633,120 @@ mod tests {
             value["plan"]["fields"][0]["incoming"]["value_fingerprint"],
             "sha256:44444444444444444444444444444444"
         );
+        assert!(!body.contains("private generated overview"));
+        assert!(!body.contains("artifact_json"));
+        assert!(!body.contains("prompt_json"));
+        assert!(!body.contains("local:///"));
+        assert!(!body.contains("secret"));
+    }
+
+    #[test]
+    fn generated_artifact_metadata_apply_bulk_plan_exposes_aggregate_summaries_not_raw_payload() {
+        let library_id = LibraryId::new();
+        let item_id = MediaItemId::new();
+        let source_id = MediaSourceId::new();
+        let artifact_id = AutomationArtifactId::new();
+        let missing_artifact_id = AutomationArtifactId::new();
+        let request = AdminGeneratedArtifactMetadataBulkApplyPlanRequest {
+            artifact_ids: vec![artifact_id, artifact_id, missing_artifact_id],
+        };
+        let plan = GeneratedArtifactMetadataApplyPlan {
+            artifact_id,
+            status: GeneratedArtifactMetadataApplyPlanStatus::Ready,
+            executable: true,
+            reasons: vec![GeneratedArtifactMetadataApplyPlanReason::Ready],
+            target: GeneratedArtifactTarget {
+                kind: GeneratedArtifactTargetKind::MediaSource,
+                library_id: Some(library_id),
+                item_id: Some(item_id),
+                source_id: Some(source_id),
+            },
+            payload: GeneratedArtifactPayloadSummary {
+                valid_json: true,
+                shape: GeneratedArtifactPayloadShape::Object,
+                payload_fingerprint: "sha256:33333333333333333333333333333333".to_owned(),
+                payload_bytes: 512,
+                object_field_count: Some(3),
+                array_item_count: None,
+                has_textual_values: true,
+                has_explanation: true,
+                confidence_milli: Some(810),
+            },
+            fields: vec![GeneratedArtifactMetadataApplyFieldPlan {
+                field: MetadataField::Overview,
+                action: GeneratedArtifactMetadataFieldAction::Apply,
+                reasons: vec![GeneratedArtifactMetadataFieldReason::Ready],
+                current: GeneratedArtifactMetadataValueSummary::missing(),
+                incoming: GeneratedArtifactMetadataValueSummary {
+                    present: true,
+                    empty: false,
+                    value_fingerprint: Some("sha256:44444444444444444444444444444444".to_owned()),
+                    value_bytes: Some(27),
+                    item_count: None,
+                },
+            }],
+            apply_field_count: 1,
+            skipped_field_count: 0,
+            noop_field_count: 0,
+        };
+        let response = AdminGeneratedArtifactMetadataBulkApplyPlanResponse::from_plan(
+            GeneratedArtifactMetadataBulkApplyPlan {
+                selection: GeneratedArtifactMetadataBulkApplyPlanSelection {
+                    requested_artifact_count: 3,
+                    selected_artifact_count: 2,
+                    duplicate_artifact_count: 1,
+                    max_artifact_count: 100,
+                },
+                summary: GeneratedArtifactMetadataBulkApplyPlanSummary {
+                    planned_artifact_count: 1,
+                    missing_artifact_count: 1,
+                    ready_artifact_count: 1,
+                    blocked_artifact_count: 0,
+                    stale_artifact_count: 0,
+                    executable_artifact_count: 1,
+                    apply_field_count: 1,
+                    skipped_field_count: 0,
+                    noop_field_count: 0,
+                },
+                items: vec![
+                    GeneratedArtifactMetadataBulkApplyPlanItem {
+                        artifact_id,
+                        status: GeneratedArtifactMetadataBulkApplyPlanItemStatus::Planned,
+                        executable: true,
+                        reasons: vec![GeneratedArtifactMetadataBulkApplyPlanItemReason::Planned],
+                        plan: Some(plan),
+                    },
+                    GeneratedArtifactMetadataBulkApplyPlanItem {
+                        artifact_id: missing_artifact_id,
+                        status: GeneratedArtifactMetadataBulkApplyPlanItemStatus::Missing,
+                        executable: false,
+                        reasons: vec![
+                            GeneratedArtifactMetadataBulkApplyPlanItemReason::MissingArtifact,
+                        ],
+                        plan: None,
+                    },
+                ],
+            },
+        );
+
+        let request_value = serde_json::to_value(&request).unwrap();
+        let value = serde_json::to_value(&response).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(request_value["artifact_ids"].as_array().unwrap().len(), 3);
+        assert_eq!(value["plan"]["selection"]["requested_artifact_count"], 3);
+        assert_eq!(value["plan"]["selection"]["selected_artifact_count"], 2);
+        assert_eq!(value["plan"]["selection"]["duplicate_artifact_count"], 1);
+        assert_eq!(value["plan"]["summary"]["planned_artifact_count"], 1);
+        assert_eq!(value["plan"]["summary"]["missing_artifact_count"], 1);
+        assert_eq!(value["plan"]["summary"]["apply_field_count"], 1);
+        assert_eq!(value["plan"]["items"][0]["status"], "planned");
+        assert_eq!(
+            value["plan"]["items"][0]["plan"]["fields"][0]["field"],
+            "overview"
+        );
+        assert_eq!(value["plan"]["items"][1]["status"], "missing");
+        assert!(value["plan"]["items"][1]["plan"].is_null());
         assert!(!body.contains("private generated overview"));
         assert!(!body.contains("artifact_json"));
         assert!(!body.contains("prompt_json"));

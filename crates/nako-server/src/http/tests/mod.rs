@@ -43,6 +43,8 @@ use nako_api::{
         AdminCreateInvitationResponse, AdminCreateUserRequest,
         AdminGeneratedArtifactMetadataApplyPlanResponse,
         AdminGeneratedArtifactMetadataApplyRequest, AdminGeneratedArtifactMetadataApplyResponse,
+        AdminGeneratedArtifactMetadataBulkApplyPlanRequest,
+        AdminGeneratedArtifactMetadataBulkApplyPlanResponse,
         AdminGeneratedArtifactProposalListResponse, AdminGeneratedArtifactReviewPlanResponse,
         AdminGeneratedArtifactReviewRequest, AdminGeneratedArtifactReviewResponse,
         AdminHardwareAcceleration, AdminHardwareAccelerationFallback, AdminHardwarePipelineStage,

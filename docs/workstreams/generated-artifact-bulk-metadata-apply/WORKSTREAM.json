@@ -7,9 +7,10 @@
   "scope_kind": "backend_web_authority_workflow",
   "problem": "Accepted metadata Generated Artifacts can be applied one artifact at a time, but Nako has no guarded bulk apply plan, durable batch execution, partial-failure reporting, or Web Admin bulk workflow.",
   "task_prefix": "GABMA",
-  "current_task": "GABMA-020",
+  "current_task": "GABMA-030",
   "completed_tasks": [
-    "GABMA-010"
+    "GABMA-010",
+    "GABMA-020"
   ],
   "authoritative_docs": [
     {
@@ -61,6 +62,10 @@
     {
       "task": "GABMA-010",
       "summary": "Opened the bulk Generated Artifact Metadata Authority apply lane from GAMA closeout with a read-only bulk plan as the first executable task."
+    },
+    {
+      "task": "GABMA-020",
+      "summary": "Added a redaction-safe read-only Admin bulk metadata apply-plan route with bounded explicit selection, duplicate accounting, per-artifact planned/missing items, aggregate counters, generated contract sync, and no Canonical Metadata mutation evidence."
     }
   ],
   "adr_refs": [
@@ -98,6 +103,6 @@
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
     "default_action": "continue_next_task",
-    "notes": "Start GABMA-020 with the read-only bulk apply-plan contract. Do not implement bulk mutation until the plan contract and no-mutation evidence are stable."
+    "notes": "Continue at GABMA-030. Persist confirmed bulk apply requests and selection snapshots before adding execution; do not run bulk mutation in the HTTP request path."
   }
 }

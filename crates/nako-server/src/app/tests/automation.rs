@@ -2,11 +2,13 @@ use super::*;
 use nako_core::{
     AutomationArtifactId, AutomationArtifactKind, AutomationArtifactStatus, AutomationCapability,
     AutomationJobInput, AutomationProviderId, AutomationProviderStatus, AutomationRepository,
-    CatalogRepository, GeneratedArtifactAcceptanceActionKind,
-    GeneratedArtifactAcceptancePlanReason, GeneratedArtifactAcceptancePlanStatus,
-    GeneratedArtifactMetadataApplyOutcomeStatus, GeneratedArtifactMetadataApplyPlanReason,
-    GeneratedArtifactMetadataApplyPlanStatus, GeneratedArtifactMetadataApplyRequest,
-    GeneratedArtifactMetadataApplyResultStatus, GeneratedArtifactMetadataFieldAction,
+    CatalogRepository, GENERATED_ARTIFACT_METADATA_BULK_APPLY_PLAN_MAX_ARTIFACTS,
+    GeneratedArtifactAcceptanceActionKind, GeneratedArtifactAcceptancePlanReason,
+    GeneratedArtifactAcceptancePlanStatus, GeneratedArtifactMetadataApplyOutcomeStatus,
+    GeneratedArtifactMetadataApplyPlanReason, GeneratedArtifactMetadataApplyPlanStatus,
+    GeneratedArtifactMetadataApplyRequest, GeneratedArtifactMetadataApplyResultStatus,
+    GeneratedArtifactMetadataBulkApplyPlanItemStatus,
+    GeneratedArtifactMetadataBulkApplyPlanRequest, GeneratedArtifactMetadataFieldAction,
     GeneratedArtifactMetadataFieldReason, GeneratedArtifactReadinessStatus,
     GeneratedArtifactReviewDecision, GeneratedArtifactTargetKind, NewAutomationArtifact,
     NewAutomationProviderConfig,
@@ -522,6 +524,92 @@ async fn generated_artifact_metadata_apply_plan_is_field_level_redacted_and_read
     assert!(!body.contains("local:///Movies/private"));
     assert!(!body.contains("secret"));
     assert!(!body.contains("sha256-private-fingerprint"));
+}
+
+#[tokio::test]
+async fn generated_artifact_metadata_apply_plan_bulk_aggregates_redacted_read_only_selection() {
+    let fixture = generated_artifact_metadata_apply_fixture(
+        r#"{"overview":"private generated overview","confidence_milli":810,"explanation":"private reasoning"}"#,
+    )
+    .await;
+    let missing_artifact_id = AutomationArtifactId::new();
+
+    let plan = fixture
+        .app
+        .automation()
+        .plan_generated_artifact_metadata_bulk_apply(
+            GeneratedArtifactMetadataBulkApplyPlanRequest {
+                artifact_ids: vec![
+                    fixture.artifact_id,
+                    fixture.artifact_id,
+                    missing_artifact_id,
+                ],
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(plan.selection.requested_artifact_count, 3);
+    assert_eq!(plan.selection.selected_artifact_count, 2);
+    assert_eq!(plan.selection.duplicate_artifact_count, 1);
+    assert_eq!(
+        plan.selection.max_artifact_count,
+        GENERATED_ARTIFACT_METADATA_BULK_APPLY_PLAN_MAX_ARTIFACTS as u32
+    );
+    assert_eq!(plan.summary.planned_artifact_count, 1);
+    assert_eq!(plan.summary.missing_artifact_count, 1);
+    assert_eq!(plan.summary.ready_artifact_count, 1);
+    assert_eq!(plan.summary.executable_artifact_count, 1);
+    assert_eq!(plan.summary.apply_field_count, 1);
+    assert_eq!(plan.summary.skipped_field_count, 0);
+    assert_eq!(plan.summary.noop_field_count, 0);
+    assert_eq!(plan.items.len(), 2);
+    assert_eq!(
+        plan.items[0].status,
+        GeneratedArtifactMetadataBulkApplyPlanItemStatus::Planned
+    );
+    assert!(plan.items[0].executable);
+    assert_eq!(
+        plan.items[0].plan.as_ref().unwrap().status,
+        GeneratedArtifactMetadataApplyPlanStatus::Ready
+    );
+    assert_eq!(
+        plan.items[1].status,
+        GeneratedArtifactMetadataBulkApplyPlanItemStatus::Missing
+    );
+    assert!(!plan.items[1].executable);
+    assert!(plan.items[1].plan.is_none());
+
+    let item_after = fixture
+        .store
+        .get_media_item(fixture.item_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(item_after.metadata.title, "The Matrix");
+    assert!(item_after.metadata.overview.is_none());
+
+    let body = serde_json::to_string(&plan).unwrap();
+    assert!(!body.contains("private generated overview"));
+    assert!(!body.contains("private reasoning"));
+    assert!(!body.contains("local:///Movies/private"));
+    assert!(!body.contains("secret"));
+    assert!(!body.contains("sha256-private-fingerprint"));
+
+    let too_many_artifact_ids = (0..=GENERATED_ARTIFACT_METADATA_BULK_APPLY_PLAN_MAX_ARTIFACTS)
+        .map(|_| AutomationArtifactId::new())
+        .collect();
+    let err = fixture
+        .app
+        .automation()
+        .plan_generated_artifact_metadata_bulk_apply(
+            GeneratedArtifactMetadataBulkApplyPlanRequest {
+                artifact_ids: too_many_artifact_ids,
+            },
+        )
+        .await
+        .unwrap_err();
+    assert!(err.to_string().contains("at most"));
 }
 
 #[tokio::test]

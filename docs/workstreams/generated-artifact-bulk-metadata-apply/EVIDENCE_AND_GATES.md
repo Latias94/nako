@@ -39,6 +39,16 @@ Only run after Admin contract support exists:
 
 - `GABMA-010`: Opened the lane from GAMA closeout after confirming the shipped
   one-artifact apply workflow and bulk-apply follow-on boundary.
+- `GABMA-020`: Added the read-only Admin bulk metadata apply-plan contract at
+  `POST /admin/v1/automation/generated-artifacts/metadata-apply-plan`.
+  Evidence: per-artifact planned/missing items, aggregate ready/blocked/stale
+  and field-action counters, duplicate selection accounting, selection bound
+  enforcement, generated Admin contract sync, and no Canonical Metadata mutation
+  in app/HTTP tests.
+  Gates: `cargo nextest run -p nako-api generated_artifact_metadata_apply --no-fail-fast`;
+  `cargo nextest run -p nako-server generated_artifact_metadata_apply_plan --no-fail-fast`;
+  `cargo nextest run -p nako-api admin_contract --no-fail-fast`;
+  `cargo fmt --all -- --check`; `git diff --check`.
 
 ## Final Evidence Checklist
 
