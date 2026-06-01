@@ -50,7 +50,7 @@ campaigns are assigned.
 
 ## MVP Validation Ladder
 
-Status: MRS-030 release-gate baseline
+Status: MRS-050 campaign-integrated release-gate baseline
 
 Run the ladder from a clean release-candidate worktree with FFmpeg/FFprobe,
 `cargo-nextest`, Rust, Node/npm, and the Web dependencies available. Docker and
@@ -106,8 +106,9 @@ playback-state persistence at the server layer.
 
 ### Gate 3 - Web/Public Client MVP Smoke
 
-Required for MVP, but currently not fully represented by one committed
-release-smoke script.
+Required for MVP. The deterministic `web-mvp-live-smoke` gate now represents
+the first committed Web/Public Client release smoke; broader Web tests remain
+part of this gate.
 
 ```text
 npm --prefix web run test
@@ -125,15 +126,13 @@ Browser smoke must cover:
 - playback heartbeat through `playback_session_id`;
 - no console errors and no secret/raw path exposure in the checked surfaces.
 
-Routing: if this cannot be reproduced from existing tests plus manual browser
-smoke, split a `web-product` P0 workstream to add a deterministic MVP live Web
-smoke before release closeout.
+Routing: if this gate fails, keep fixes inside `web-product` unless the
+failure proves a backend/Public Client contract gap.
 
 ### Gate 4 - Playback Runtime Closeout
 
-Required for MVP and currently blocked by `PTJCH-220`.
-
-`PTJCH-220` must produce fresh evidence for:
+Required for MVP. `PTJCH-220` is now integrated on `main`; the release
+candidate still needs fresh playback gate evidence for:
 
 - session ownership and lifecycle;
 - admission/reuse/supersede/cancel behavior;
@@ -142,9 +141,9 @@ Required for MVP and currently blocked by `PTJCH-220`.
 - missing FFmpeg diagnostics and CPU fallback;
 - no raw source locator, token, or path leakage in playback diagnostics.
 
-Routing: keep this on `playback-transcode`. Do not close the MVP workstream
-while `PTJCH-220` remains unresolved unless the user explicitly accepts the
-risk.
+Routing: keep regressions on `playback-transcode`. Treat `PTJCH-310` artifact
+I/O pressure as a follow-on unless the release-candidate playback gates prove
+it is unsafe for MVP.
 
 ### Gate 5 - Package And Container Shape
 
@@ -188,8 +187,8 @@ than implying it passed.
 
 | Gap | MVP decision | Route |
 | --- | --- | --- |
-| `PTJCH-220` playback runtime ownership | P0 blocker | Continue `playback-transcode-jellyfin-class-hardening` or split only if PTJCH owns the split. |
-| Web/Public Client live release smoke | P0 gate gap | Split a small `web-product` smoke workstream if existing tests plus manual browser smoke are insufficient. |
+| `PTJCH-220` playback runtime ownership | Resolved P0 blocker | Keep Gate 4 playback evidence in the release ladder; route artifact I/O pressure to `PTJCH-310` or PAIP only if gates escalate it. |
+| Web/Public Client live release smoke | Resolved P0 gate gap | Keep `web-mvp-live-smoke` plus broader Web gates in Gate 3; broaden only if release-candidate browser QA finds a real gap. |
 | Release-gate script does not wrap the full video-first ladder | P0 release-ops gap | Split an `operations-release` task if the team wants one command beyond documented per-area gates. |
 | `GAMA-060` Web Generated Artifact apply | Conditional/P1 | Defer unless MVP explicitly exposes Web apply confirmation. |
 | `CSAPA-050` desktop playback | P1/deferred | Record deferral in `MRS-040`; do not block browser/web MVP. |
