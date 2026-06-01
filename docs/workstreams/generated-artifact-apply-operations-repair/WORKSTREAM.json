@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "slug": "generated-artifact-apply-operations-repair",
+  "title": "Generated Artifact Apply Operations Repair",
+  "status": "active",
+  "updated": "2026-06-02",
+  "scope_kind": "control_plane_admin_operations",
+  "problem": "Generated Artifact Metadata Authority apply now supports one-artifact, bulk, and Provider Mapping breadth, but operators still lack a dedicated way to inspect stale/noop/failed apply outcomes, replay-safe batch state, and bounded repair actions without reading raw database state or rerunning blind mutations.",
+  "task_prefix": "GAOR",
+  "current_task": "GAOR-020",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/generated-artifact-apply-operations-repair/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/generated-artifact-apply-operations-repair/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/generated-artifact-apply-operations-repair/TODO.md"
+    },
+    {
+      "role": "task_state",
+      "path": "docs/workstreams/generated-artifact-apply-operations-repair/TASKS.jsonl"
+    },
+    {
+      "role": "campaign_state",
+      "path": "docs/workstreams/generated-artifact-apply-operations-repair/CAMPAIGNS.jsonl"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/generated-artifact-apply-operations-repair/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "context_manifest",
+      "path": "docs/workstreams/generated-artifact-apply-operations-repair/CONTEXT.jsonl"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/generated-artifact-apply-operations-repair/HANDOFF.md"
+    }
+  ],
+  "context_manifest": "docs/workstreams/generated-artifact-apply-operations-repair/CONTEXT.jsonl",
+  "gates": [
+    "python -m json.tool docs/workstreams/generated-artifact-apply-operations-repair/WORKSTREAM.json",
+    "JSONL validation for docs/workstreams/generated-artifact-apply-operations-repair/TASKS.jsonl and CAMPAIGNS.jsonl",
+    "git diff --check -- docs/workstreams/generated-artifact-apply-operations-repair docs/architecture/LANES.md docs/architecture/WORKSTREAM_LINKS.md docs/architecture/LIBRARY_PIPELINE.md docs/architecture/CONTROL_PLANE.md docs/workstreams/README.md",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "GAOR-010",
+      "summary": "Open the operations repair lane from GAMA/GABMA/GAPM closeouts, freeze the operator-facing repair problem, and audit current apply/batch read paths, stale outcomes, and missing recovery surfaces before implementation."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md",
+    "docs/adr/0053-application-control-plane-boundary.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/LIBRARY_PIPELINE.md",
+      "capability": "Generated Artifact apply operations repair"
+    },
+    {
+      "path": "docs/architecture/CONTROL_PLANE.md",
+      "capability": "Admin recovery workflow for Generated Artifact apply"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Library metadata and control-plane repair follow-ons"
+    },
+    {
+      "path": "docs/architecture/LANES.md",
+      "capability": "library-metadata-control-plane lane ownership"
+    }
+  ],
+  "capability_tags": [
+    "library.metadata.generated-artifact-apply-repair",
+    "control-plane.admin.generated-artifact-recovery",
+    "automation.generated-artifact-batch-operations",
+    "web.admin.generated-artifact-operations"
+  ],
+  "lane_slug": "library-metadata-control-plane",
+  "continue_policy": {
+    "default_action": "run_current_task",
+    "current_task": "GAOR-020",
+    "notes": "Run the read-path and repair-boundary audit first. Prefer the smallest Admin outcome-oriented surface that distinguishes replayable success from actionable repair state before adding any bounded recovery action."
+  }
+}

@@ -7,6 +7,9 @@ import type {
   AdminAcquisitionIntakeCandidateListResponse,
   AdminAcquisitionIntakeCandidatesQuery,
   AdminGeneratedArtifactMetadataApplyFieldPlan,
+  AdminGeneratedArtifactMetadataApplyOutcome,
+  AdminGeneratedArtifactMetadataApplyOutcomeListResponse,
+  AdminGeneratedArtifactMetadataApplyOutcomeResponse,
   AdminGeneratedArtifactMetadataApplyPlan,
   AdminGeneratedArtifactMetadataApplyPlanResponse,
   AdminGeneratedArtifactMetadataBulkApplyBatch,
@@ -439,6 +442,37 @@ export interface AdminGeneratedArtifactMetadataApplyPlanReadModel extends AdminR
   noopProviderMappingCount: number
 }
 
+export interface AdminGeneratedArtifactMetadataApplyOutcomeReadModel
+  extends AdminReadModelEnvelope {
+  versions: {
+    adminApi: string
+    publicApi: string
+  }
+  id: string
+  artifactId: string
+  idempotencyKeyFingerprint: string
+  status: string
+  applied: boolean
+  changed: boolean
+  appliedSource: string | null
+  itemId: string | null
+  plan: AdminGeneratedArtifactMetadataApplyPlanReadModel
+  errorCode: string | null
+  errorMessage: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AdminGeneratedArtifactMetadataApplyOutcomesReadModel
+  extends AdminReadModelEnvelope {
+  versions: {
+    adminApi: string
+    publicApi: string
+  }
+  outcomes: AdminGeneratedArtifactMetadataApplyOutcomeReadModel[]
+  page: AdminGeneratedArtifactMetadataApplyOutcomeListResponse["page"]
+}
+
 export interface AdminGeneratedArtifactMetadataBulkApplyPlanSelectionReadModel {
   requestedArtifactCount: number
   selectedArtifactCount: number
@@ -666,6 +700,9 @@ export const ADMIN_ACQUISITION_INTAKE_READ_MODEL_FIXTURE: AdminAcquisitionIntake
 export const ADMIN_GENERATED_ARTIFACTS_READ_MODEL_FIXTURE: AdminGeneratedArtifactsReadModel =
   generatedArtifactsFixture(normalizeGeneratedArtifactsQuery({}))
 
+export const ADMIN_GENERATED_ARTIFACT_APPLY_OUTCOMES_READ_MODEL_FIXTURE: AdminGeneratedArtifactMetadataApplyOutcomesReadModel =
+  generatedArtifactApplyOutcomesFixture()
+
 export const ADMIN_GENERATED_ARTIFACT_REVIEW_PLAN_FIXTURE: AdminGeneratedArtifactReviewPlanReadModel =
   generatedArtifactReviewPlanFixture("fixture-generated-artifact-1", "accept")
 
@@ -804,6 +841,22 @@ export function createAdminReadModelsDataSource(
       })
     },
 
+    async loadGeneratedArtifactApplyOutcomes(): Promise<AdminGeneratedArtifactMetadataApplyOutcomesReadModel> {
+      return withFallback(ADMIN_GENERATED_ARTIFACT_APPLY_OUTCOMES_READ_MODEL_FIXTURE, async () => {
+        const response = await client.getGeneratedArtifactApplyOutcomes({ limit: 50, offset: 0 })
+        return mapGeneratedArtifactApplyOutcomes(response)
+      })
+    },
+
+    async loadGeneratedArtifactApplyOutcome(
+      outcomeId: string,
+    ): Promise<AdminGeneratedArtifactMetadataApplyOutcomeReadModel> {
+      return withFallback(generatedArtifactApplyOutcomeFixture(outcomeId), async () => {
+        const response = await client.getGeneratedArtifactApplyOutcome(outcomeId)
+        return mapGeneratedArtifactApplyOutcomeResponse(response)
+      })
+    },
+
     async loadGeneratedArtifactReviewPlan(
       artifactId: string,
       decision: AdminGeneratedArtifactReviewDecision,
@@ -892,6 +945,12 @@ function fixtureDataSource() {
       }
 
       return generatedArtifactsFixture(normalizeGeneratedArtifactsQuery(query))
+    },
+    async loadGeneratedArtifactApplyOutcomes() {
+      return ADMIN_GENERATED_ARTIFACT_APPLY_OUTCOMES_READ_MODEL_FIXTURE
+    },
+    async loadGeneratedArtifactApplyOutcome(outcomeId: string) {
+      return generatedArtifactApplyOutcomeFixture(outcomeId)
     },
     async loadGeneratedArtifactReviewPlan(
       artifactId: string,
@@ -1154,6 +1213,32 @@ function mapGeneratedArtifacts(
   }
 }
 
+export function mapGeneratedArtifactApplyOutcomes(
+  response: AdminGeneratedArtifactMetadataApplyOutcomeListResponse,
+): AdminGeneratedArtifactMetadataApplyOutcomesReadModel {
+  const versions = {
+    adminApi: response.admin_api_version,
+    publicApi: response.public_api_version,
+  }
+
+  return {
+    source: "live",
+    fallback: false,
+    versions,
+    outcomes: response.outcomes.map((outcome) => mapGeneratedArtifactApplyOutcome(outcome, versions)),
+    page: response.page,
+  }
+}
+
+export function mapGeneratedArtifactApplyOutcomeResponse(
+  response: AdminGeneratedArtifactMetadataApplyOutcomeResponse,
+): AdminGeneratedArtifactMetadataApplyOutcomeReadModel {
+  return mapGeneratedArtifactApplyOutcome(response.outcome, {
+    adminApi: response.admin_api_version,
+    publicApi: response.public_api_version,
+  })
+}
+
 function mapGeneratedArtifactProposal(
   proposal: AdminGeneratedArtifactProposal,
 ): AdminGeneratedArtifactProposalReadModel {
@@ -1178,6 +1263,30 @@ function mapGeneratedArtifactProposal(
     createdAt: proposal.created_at,
     updatedAt: proposal.updated_at,
     acceptedAt: proposal.accepted_at,
+  }
+}
+
+function mapGeneratedArtifactApplyOutcome(
+  outcome: AdminGeneratedArtifactMetadataApplyOutcome,
+  versions: { adminApi: string; publicApi: string },
+): AdminGeneratedArtifactMetadataApplyOutcomeReadModel {
+  return {
+    source: "live",
+    fallback: false,
+    versions,
+    id: outcome.id,
+    artifactId: outcome.artifact_id,
+    idempotencyKeyFingerprint: outcome.idempotency_key_fingerprint,
+    status: outcome.status,
+    applied: outcome.applied,
+    changed: outcome.changed,
+    appliedSource: outcome.applied_source,
+    itemId: outcome.item_id,
+    plan: mapGeneratedArtifactMetadataApplyPlan(outcome.plan, versions),
+    errorCode: outcome.error_code,
+    errorMessage: outcome.error_message,
+    createdAt: outcome.created_at,
+    updatedAt: outcome.updated_at,
   }
 }
 
@@ -1648,6 +1757,49 @@ function generatedArtifactsFixture(
       offset: query.offset ?? 0,
       returned: 2,
     },
+  }
+}
+
+function generatedArtifactApplyOutcomesFixture(): AdminGeneratedArtifactMetadataApplyOutcomesReadModel {
+  return {
+    source: "fixture",
+    fallback: true,
+    versions: {
+      adminApi: "fixture",
+      publicApi: "fixture",
+    },
+    outcomes: [generatedArtifactApplyOutcomeFixture("fixture-generated-outcome-1")],
+    page: {
+      limit: 50,
+      offset: 0,
+      returned: 1,
+    },
+  }
+}
+
+function generatedArtifactApplyOutcomeFixture(
+  outcomeId: string,
+): AdminGeneratedArtifactMetadataApplyOutcomeReadModel {
+  return {
+    source: "fixture",
+    fallback: true,
+    versions: {
+      adminApi: "fixture",
+      publicApi: "fixture",
+    },
+    id: outcomeId,
+    artifactId: "fixture-generated-artifact-1",
+    idempotencyKeyFingerprint: "a1b2c3d4e5f60708",
+    status: "failed",
+    applied: false,
+    changed: false,
+    appliedSource: null,
+    itemId: "fixture-item-1",
+    plan: generatedArtifactMetadataApplyPlanFixture("fixture-generated-artifact-1"),
+    errorCode: "target_stale",
+    errorMessage: "target became stale before apply execution",
+    createdAt: "2026-06-02T12:00:00Z",
+    updatedAt: "2026-06-02T12:05:00Z",
   }
 }
 

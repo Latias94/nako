@@ -1,0 +1,11 @@
+{"path":"CONTEXT.md","role":"domain-glossary","notes":"Use Nako terms such as Generated Artifact, Metadata Authority, Canonical Metadata, Provider Subject, Provider Mapping, and Source Locator."}
+{"path":"docs/adr/0007-metadata-merge-policy-and-local-authority.md","role":"metadata-authority-adr","notes":"Field locks, local authority, and Canonical Metadata mutation rules still govern repair work."}
+{"path":"docs/adr/0027-admin-api-boundary-for-web-console.md","role":"admin-api-adr","notes":"Admin-only routes and read/mutation boundary expectations for repair surfaces."}
+{"path":"docs/adr/0053-application-control-plane-boundary.md","role":"control-plane-adr","notes":"Recovery workflows, diagnostics, and durable background behavior belong in the control plane."}
+{"path":"docs/architecture/LIBRARY_PIPELINE.md","role":"architecture-map","notes":"Library metadata pipeline state and Generated Artifact follow-on placement."}
+{"path":"docs/architecture/CONTROL_PLANE.md","role":"control-plane-map","notes":"Admin recovery workflow constraints and control-plane follow-ons."}
+{"path":"docs/architecture/LANES.md","role":"lane-registry","notes":"This lane belongs to library-metadata-control-plane."}
+{"path":"docs/architecture/WORKSTREAM_LINKS.md","role":"evidence-index","notes":"Proposed follow-on naming and architecture evidence linkage."}
+{"path":"docs/workstreams/generated-artifact-metadata-authority-apply/CLOSEOUT.md","role":"predecessor-closeout","notes":"One-artifact apply behavior, outcome semantics, redaction, and follow-on split."}
+{"path":"docs/workstreams/generated-artifact-bulk-metadata-apply/CLOSEOUT.md","role":"predecessor-closeout","notes":"Bulk batch persistence, status/result semantics, and explicit operations repair follow-on."}
+{"path":"docs/workstreams/generated-artifact-provider-mapping-breadth/CLOSEOUT.md","role":"predecessor-closeout","notes":"Provider Mapping breadth completion and residual operations-repair gap."}

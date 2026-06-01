@@ -859,6 +859,24 @@ impl AutomationRepository for NakoDatabase {
             .await
     }
 
+    async fn get_generated_artifact_metadata_apply_outcome(
+        &self,
+        outcome_id: GeneratedArtifactMetadataApplyOutcomeId,
+    ) -> Result<Option<GeneratedArtifactMetadataApplyOutcomeRecord>> {
+        self.backend()
+            .get_generated_artifact_metadata_apply_outcome(outcome_id)
+            .await
+    }
+
+    async fn list_generated_artifact_metadata_apply_outcomes(
+        &self,
+        page: PageRequest,
+    ) -> Result<Vec<GeneratedArtifactMetadataApplyOutcomeRecord>> {
+        self.backend()
+            .list_generated_artifact_metadata_apply_outcomes(page)
+            .await
+    }
+
     async fn commit_generated_artifact_metadata_apply_outcome(
         &self,
         commit: &GeneratedArtifactMetadataApplyOutcomeCommit,

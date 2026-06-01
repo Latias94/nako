@@ -92,6 +92,24 @@ Follow-ons:
 - `proposed:generated-artifact-apply-operations-repair`
 - `proposed:provider-identity-mapping-breadth`
 
+### generated-artifact-apply-operations-repair
+
+Status: Active at
+`docs/workstreams/generated-artifact-apply-operations-repair/`.
+
+Goal: Add an Admin recovery workflow for Generated Artifact apply outcomes and
+bulk batches so operators can inspect repair-relevant state and take bounded
+recovery actions without raw internal access.
+
+Control-plane requirements:
+
+- read paths must distinguish replayable success from actionable repair work;
+- repair actions, if added, must reuse the existing Metadata Authority apply
+  semantics instead of introducing a second hidden executor;
+- recovery DTOs and Web surfaces must remain redaction-safe and Admin-only;
+- broader automation policy, provider-depth precision, and generic retry UI
+  remain explicit follow-ons.
+
 ### generated-artifact-bulk-metadata-apply
 
 Status: Closed at

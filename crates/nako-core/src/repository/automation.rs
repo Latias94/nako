@@ -4,7 +4,8 @@ use super::PageRequest;
 use crate::{
     AutomationArtifactId, AutomationArtifactRecord, AutomationArtifactStatus,
     AutomationProviderConfigRecord, AutomationProviderId,
-    GeneratedArtifactMetadataApplyOutcomeCommit, GeneratedArtifactMetadataApplyOutcomeRecord,
+    GeneratedArtifactMetadataApplyOutcomeCommit, GeneratedArtifactMetadataApplyOutcomeId,
+    GeneratedArtifactMetadataApplyOutcomeRecord,
     GeneratedArtifactMetadataBulkApplyBatchCommit, GeneratedArtifactMetadataBulkApplyBatchId,
     GeneratedArtifactMetadataBulkApplyBatchItemOutcomeCommit,
     GeneratedArtifactMetadataBulkApplyBatchRecord, GeneratedArtifactMetadataBulkApplyBatchStatus,
@@ -65,6 +66,16 @@ pub trait AutomationRepository: Send + Sync {
         artifact_id: AutomationArtifactId,
         idempotency_key: &str,
     ) -> Result<Option<GeneratedArtifactMetadataApplyOutcomeRecord>>;
+
+    async fn get_generated_artifact_metadata_apply_outcome(
+        &self,
+        outcome_id: GeneratedArtifactMetadataApplyOutcomeId,
+    ) -> Result<Option<GeneratedArtifactMetadataApplyOutcomeRecord>>;
+
+    async fn list_generated_artifact_metadata_apply_outcomes(
+        &self,
+        page: PageRequest,
+    ) -> Result<Vec<GeneratedArtifactMetadataApplyOutcomeRecord>>;
 
     async fn commit_generated_artifact_metadata_apply_outcome(
         &self,

@@ -5,6 +5,7 @@ use nako_core::{
     GeneratedArtifactAcceptanceBoundary, GeneratedArtifactAcceptancePlan,
     GeneratedArtifactAcceptancePlanReason, GeneratedArtifactAcceptancePlanStatus,
     GeneratedArtifactMetadataApplyFieldPlan, GeneratedArtifactMetadataApplyOutcomeId,
+    GeneratedArtifactMetadataApplyOutcomeRecord,
     GeneratedArtifactMetadataApplyPlan, GeneratedArtifactMetadataApplyPlanReason,
     GeneratedArtifactMetadataApplyPlanStatus, GeneratedArtifactMetadataApplyResult,
     GeneratedArtifactMetadataApplyResultStatus,
@@ -37,6 +38,21 @@ pub struct AdminGeneratedArtifactProposalListResponse {
     pub public_api_version: String,
     pub proposals: Vec<AdminGeneratedArtifactProposal>,
     pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminGeneratedArtifactMetadataApplyOutcomeListResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub outcomes: Vec<AdminGeneratedArtifactMetadataApplyOutcome>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminGeneratedArtifactMetadataApplyOutcomeResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub outcome: AdminGeneratedArtifactMetadataApplyOutcome,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -298,6 +314,50 @@ impl AdminGeneratedArtifactMetadataApplyResponse {
             plan: AdminGeneratedArtifactMetadataApplyPlan::from_plan(result.plan),
         }
     }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminGeneratedArtifactMetadataApplyOutcome {
+    pub id: GeneratedArtifactMetadataApplyOutcomeId,
+    pub artifact_id: AutomationArtifactId,
+    pub idempotency_key_fingerprint: String,
+    pub status: nako_core::GeneratedArtifactMetadataApplyOutcomeStatus,
+    pub applied: bool,
+    pub changed: bool,
+    pub applied_source: Option<String>,
+    pub item_id: Option<MediaItemId>,
+    pub plan: AdminGeneratedArtifactMetadataApplyPlan,
+    pub error_code: Option<String>,
+    pub error_message: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl AdminGeneratedArtifactMetadataApplyOutcome {
+    #[must_use]
+    pub fn from_record(outcome: GeneratedArtifactMetadataApplyOutcomeRecord) -> Self {
+        Self {
+            id: outcome.id,
+            artifact_id: outcome.artifact_id,
+            idempotency_key_fingerprint: fingerprint_text(&outcome.idempotency_key),
+            status: outcome.status,
+            applied: outcome.applied,
+            changed: outcome.changed,
+            applied_source: outcome.applied_source,
+            item_id: outcome.item_id,
+            plan: AdminGeneratedArtifactMetadataApplyPlan::from_plan(outcome.plan),
+            error_code: outcome.error_code,
+            error_message: outcome.error_message,
+            created_at: outcome.created_at,
+            updated_at: outcome.updated_at,
+        }
+    }
+}
+
+fn fingerprint_text(value: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(value.as_bytes());
+    format!("{:x}", digest)[..16].to_owned()
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

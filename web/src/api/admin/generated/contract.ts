@@ -34,6 +34,8 @@ export const NAKO_ADMIN_ROUTES = {
   acquisitionIntakeCandidates: "/admin/v1/acquisition/intake/candidates",
   acquisitionIntakeWatchFolderDiscovery: "/admin/v1/acquisition/intake/watch-folder-discovery",
   generatedArtifactProposals: "/admin/v1/automation/generated-artifacts/proposals",
+  generatedArtifactApplyOutcomes: "/admin/v1/automation/generated-artifact-apply-outcomes",
+  generatedArtifactApplyOutcome: "/admin/v1/automation/generated-artifact-apply-outcomes/{outcome_id}",
   generatedArtifactReviewPlan: "/admin/v1/automation/generated-artifacts/{artifact_id}/review-plan",
   generatedArtifactReview: "/admin/v1/automation/generated-artifacts/{artifact_id}/review",
   generatedArtifactMetadataBulkApplyPlan: "/admin/v1/automation/generated-artifacts/metadata-apply-plan",
@@ -207,6 +209,8 @@ export interface AdminStorageBackendHealthResetResponse {
 }
 
 export interface AdminGeneratedArtifactProposalsQuery extends AdminPageQuery {}
+
+export interface AdminGeneratedArtifactApplyOutcomesQuery extends AdminPageQuery {}
 
 export interface AdminGeneratedArtifactReviewRequest {
   decision: "accept" | "reject";
@@ -1604,6 +1608,19 @@ export interface AdminGeneratedArtifactProposalListResponse {
   page: PageInfo;
 }
 
+export interface AdminGeneratedArtifactMetadataApplyOutcomeListResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  outcomes: AdminGeneratedArtifactMetadataApplyOutcome[];
+  page: PageInfo;
+}
+
+export interface AdminGeneratedArtifactMetadataApplyOutcomeResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  outcome: AdminGeneratedArtifactMetadataApplyOutcome;
+}
+
 export interface AdminGeneratedArtifactProposal {
   id: string;
   kind: string;
@@ -1720,6 +1737,22 @@ export interface AdminGeneratedArtifactMetadataApplyResponse {
   idempotent_replay: boolean;
   applied_source: string | null;
   plan: AdminGeneratedArtifactMetadataApplyPlan;
+}
+
+export interface AdminGeneratedArtifactMetadataApplyOutcome {
+  id: string;
+  artifact_id: string;
+  idempotency_key_fingerprint: string;
+  status: string;
+  applied: boolean;
+  changed: boolean;
+  applied_source: string | null;
+  item_id: string | null;
+  plan: AdminGeneratedArtifactMetadataApplyPlan;
+  error_code: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AdminGeneratedArtifactMetadataApplyPlan {

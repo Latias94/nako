@@ -1,6 +1,6 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 61] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 63] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -66,6 +66,14 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 61] = [
     (
         "generatedArtifactProposals",
         "automation/generated-artifacts/proposals",
+    ),
+    (
+        "generatedArtifactApplyOutcomes",
+        "automation/generated-artifact-apply-outcomes",
+    ),
+    (
+        "generatedArtifactApplyOutcome",
+        "automation/generated-artifact-apply-outcomes/{outcome_id}",
     ),
     (
         "generatedArtifactReviewPlan",
@@ -306,6 +314,8 @@ export interface AdminStorageBackendHealthResetResponse {
 }
 
 export interface AdminGeneratedArtifactProposalsQuery extends AdminPageQuery {}
+
+export interface AdminGeneratedArtifactApplyOutcomesQuery extends AdminPageQuery {}
 
 export interface AdminGeneratedArtifactReviewRequest {
   decision: "accept" | "reject";
@@ -1703,6 +1713,19 @@ export interface AdminGeneratedArtifactProposalListResponse {
   page: PageInfo;
 }
 
+export interface AdminGeneratedArtifactMetadataApplyOutcomeListResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  outcomes: AdminGeneratedArtifactMetadataApplyOutcome[];
+  page: PageInfo;
+}
+
+export interface AdminGeneratedArtifactMetadataApplyOutcomeResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  outcome: AdminGeneratedArtifactMetadataApplyOutcome;
+}
+
 export interface AdminGeneratedArtifactProposal {
   id: string;
   kind: string;
@@ -1819,6 +1842,22 @@ export interface AdminGeneratedArtifactMetadataApplyResponse {
   idempotent_replay: boolean;
   applied_source: string | null;
   plan: AdminGeneratedArtifactMetadataApplyPlan;
+}
+
+export interface AdminGeneratedArtifactMetadataApplyOutcome {
+  id: string;
+  artifact_id: string;
+  idempotency_key_fingerprint: string;
+  status: string;
+  applied: boolean;
+  changed: boolean;
+  applied_source: string | null;
+  item_id: string | null;
+  plan: AdminGeneratedArtifactMetadataApplyPlan;
+  error_code: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AdminGeneratedArtifactMetadataApplyPlan {

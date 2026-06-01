@@ -365,6 +365,76 @@ impl AutomationRepository for SqliteStore {
             .transpose()
     }
 
+    async fn get_generated_artifact_metadata_apply_outcome(
+        &self,
+        outcome_id: GeneratedArtifactMetadataApplyOutcomeId,
+    ) -> Result<Option<GeneratedArtifactMetadataApplyOutcomeRecord>> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id,
+                artifact_id,
+                idempotency_key,
+                status,
+                applied,
+                changed,
+                applied_source,
+                item_id,
+                plan_json,
+                error_code,
+                error_message,
+                created_at,
+                updated_at
+            FROM generated_artifact_metadata_apply_outcomes
+            WHERE id = ?1
+            "#,
+        )
+        .bind(outcome_id.to_string())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_generated_artifact_metadata_apply_outcome)
+            .transpose()
+    }
+
+    async fn list_generated_artifact_metadata_apply_outcomes(
+        &self,
+        page: PageRequest,
+    ) -> Result<Vec<GeneratedArtifactMetadataApplyOutcomeRecord>> {
+        let page = page.clamped();
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                id,
+                artifact_id,
+                idempotency_key,
+                status,
+                applied,
+                changed,
+                applied_source,
+                item_id,
+                plan_json,
+                error_code,
+                error_message,
+                created_at,
+                updated_at
+            FROM generated_artifact_metadata_apply_outcomes
+            ORDER BY created_at DESC, id DESC
+            LIMIT ?1 OFFSET ?2
+            "#,
+        )
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter()
+            .map(row_to_generated_artifact_metadata_apply_outcome)
+            .collect()
+    }
+
     async fn commit_generated_artifact_metadata_apply_outcome(
         &self,
         commit: &GeneratedArtifactMetadataApplyOutcomeCommit,

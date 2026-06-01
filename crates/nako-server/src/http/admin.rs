@@ -22,6 +22,8 @@ use nako_api::{
         AdminConfigPlaybackDiagnostics, AdminConfigStagingDiagnostics,
         AdminCreateInvitationRequest, AdminCreateInvitationResponse, AdminCreateUserRequest,
         AdminDatabaseBackendCapabilitiesDiagnostics, AdminDatabaseConfigDiagnostics,
+        AdminGeneratedArtifactMetadataApplyOutcomeListResponse,
+        AdminGeneratedArtifactMetadataApplyOutcomeResponse,
         AdminGeneratedArtifactMetadataApplyPlanResponse,
         AdminGeneratedArtifactMetadataApplyRequest, AdminGeneratedArtifactMetadataApplyResponse,
         AdminGeneratedArtifactMetadataBulkApplyBatchResponse,
@@ -86,9 +88,10 @@ use nako_api::{
     public_client::{API_VERSION, ClientErrorCode, ErrorResponse, page_info_from_request},
 };
 use nako_core::{
-    ArtworkCandidateId, AutomationArtifactId, GeneratedArtifactMetadataBulkApplyBatchId, ImageKind,
-    JobId, LibraryAccessPolicy, LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId,
-    ManagedArtworkArtifactId, ManagedArtworkIngestId, MediaItemId, NakoError, PageRequest,
+    ArtworkCandidateId, AutomationArtifactId, GeneratedArtifactMetadataApplyOutcomeId,
+    GeneratedArtifactMetadataBulkApplyBatchId, ImageKind, JobId, LibraryAccessPolicy,
+    LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId, ManagedArtworkArtifactId,
+    ManagedArtworkIngestId, MediaItemId, NakoError, PageRequest,
     PlaybackTargetKind, PlaybackTargetTransportAuth, ProviderMappingId, RendererSessionRecord,
     RendererSessionState, RoleAssignment, User, UserId, UserInvitationId, UserPrincipalId,
     UserRole, UserStatus,
@@ -138,6 +141,14 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/automation/generated-artifacts/proposals",
             get(list_admin_generated_artifact_proposals),
+        )
+        .route(
+            "/admin/v1/automation/generated-artifact-apply-outcomes",
+            get(list_admin_generated_artifact_metadata_apply_outcomes),
+        )
+        .route(
+            "/admin/v1/automation/generated-artifact-apply-outcomes/{outcome_id}",
+            get(get_admin_generated_artifact_metadata_apply_outcome),
         )
         .route(
             "/admin/v1/automation/generated-artifacts/metadata-apply-plan",
@@ -498,6 +509,45 @@ pub(super) async fn list_admin_generated_artifact_proposals(
         public_api_version: API_VERSION.to_owned(),
         proposals,
         page: page_info_from_request(page, returned),
+    }))
+}
+
+pub(super) async fn list_admin_generated_artifact_metadata_apply_outcomes(
+    State(app): State<NakoApp>,
+    Query(query): Query<PageQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let page: PageRequest = query.try_into()?;
+    let outcomes = app
+        .automation()
+        .list_generated_artifact_metadata_apply_outcomes(page)
+        .await?;
+    let returned = outcomes.len();
+    let outcomes = outcomes
+        .into_iter()
+        .map(nako_api::admin::AdminGeneratedArtifactMetadataApplyOutcome::from_record)
+        .collect();
+
+    Ok(Json(AdminGeneratedArtifactMetadataApplyOutcomeListResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        outcomes,
+        page: page_info_from_request(page, returned),
+    }))
+}
+
+pub(super) async fn get_admin_generated_artifact_metadata_apply_outcome(
+    State(app): State<NakoApp>,
+    Path(outcome_id): Path<GeneratedArtifactMetadataApplyOutcomeId>,
+) -> ApiResult<impl IntoResponse> {
+    let outcome = app
+        .automation()
+        .get_generated_artifact_metadata_apply_outcome(outcome_id)
+        .await?;
+
+    Ok(Json(AdminGeneratedArtifactMetadataApplyOutcomeResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        outcome: nako_api::admin::AdminGeneratedArtifactMetadataApplyOutcome::from_record(outcome),
     }))
 }
 

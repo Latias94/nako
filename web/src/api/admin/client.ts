@@ -14,6 +14,8 @@ import {
   type AdminAddonSourceCatalogSourcesResponse,
   type AdminCreateUserRequest,
   type AdminGeneratedArtifactProposalListResponse,
+  type AdminGeneratedArtifactMetadataApplyOutcomeListResponse,
+  type AdminGeneratedArtifactMetadataApplyOutcomeResponse,
   type AdminGeneratedArtifactMetadataApplyPlanResponse,
   type AdminGeneratedArtifactMetadataApplyRequest,
   type AdminGeneratedArtifactMetadataApplyResponse,
@@ -155,6 +157,22 @@ export class AdminApiClient {
   ): Promise<AdminGeneratedArtifactProposalListResponse> {
     return this.getJson<AdminGeneratedArtifactProposalListResponse>(
       withQuery(NAKO_ADMIN_ROUTES.generatedArtifactProposals, query),
+    )
+  }
+
+  getGeneratedArtifactApplyOutcomes(
+    query: AdminPageQuery = {},
+  ): Promise<AdminGeneratedArtifactMetadataApplyOutcomeListResponse> {
+    return this.getJson<AdminGeneratedArtifactMetadataApplyOutcomeListResponse>(
+      withQuery(NAKO_ADMIN_ROUTES.generatedArtifactApplyOutcomes, query),
+    )
+  }
+
+  getGeneratedArtifactApplyOutcome(
+    outcomeId: string,
+  ): Promise<AdminGeneratedArtifactMetadataApplyOutcomeResponse> {
+    return this.getJson<AdminGeneratedArtifactMetadataApplyOutcomeResponse>(
+      pathParams(NAKO_ADMIN_ROUTES.generatedArtifactApplyOutcome, { outcome_id: outcomeId }),
     )
   }
 

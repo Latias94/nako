@@ -143,6 +143,27 @@ Boundaries:
 - no Public Client API changes;
 - no operations repair tooling in this lane.
 
+### generated-artifact-apply-operations-repair
+
+Status: Active at
+`docs/workstreams/generated-artifact-apply-operations-repair/`.
+
+Goal: Turn durable Generated Artifact apply outcomes and bulk batch state into
+an operator-facing recovery workflow for stale, failed, skipped, and noop
+results without weakening Metadata Authority boundaries or redaction.
+
+First slice:
+
+- audit one-artifact outcome and bulk batch records;
+- define the smallest Admin repair read path;
+- separate replayable success from actionable repair state.
+
+Boundaries:
+
+- no blind retry button without plan/result semantics;
+- no provider-depth precision expansion in this lane;
+- no Public Client API changes.
+
 ## Risk Register
 
 ### Watch Events Are Not Stable Media Events

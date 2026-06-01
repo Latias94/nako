@@ -18,15 +18,13 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 
 Last reviewed: 2026-06-02
 
-`generated-artifact-provider-mapping-breadth` is closed after `GAPM-060`.
+`generated-artifact-apply-operations-repair` is active in the
+`library-metadata-control-plane` lane.
 
-Next lane recommendation for `library-metadata-control-plane`:
+Next task:
 
-- `proposed:generated-artifact-apply-operations-repair`: outcome search,
-  stale/failed/noop repair, replay diagnostics, and operator recovery tooling.
-- `proposed:provider-identity-mapping-breadth`: deeper Provider Subject /
-  Provider Mapping precision and conflict diagnostics beyond the first guarded
-  breadth slice.
+- `GAOR-020`: audit durable apply outcomes and bulk batch records, then choose
+  the first redaction-safe Admin repair read path.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -56,6 +54,11 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
   Mapping proposals, reconcile bulk/Admin outcomes, and render Web Admin
   Provider Mapping plan/result facts without weakening review staging, target
   freshness, idempotent outcomes, or redaction.
+- [generated-artifact-apply-operations-repair](generated-artifact-apply-operations-repair/README.md):
+  active backend/Web control-plane lane for turning durable Generated Artifact
+  apply and bulk batch outcomes into an operator-facing repair workflow for
+  stale, failed, skipped, and noop results without exposing raw internal
+  records or bypassing existing Metadata Authority semantics.
 - [generated-artifact-bulk-metadata-apply](generated-artifact-bulk-metadata-apply/README.md):
   closed backend/Web authority lane for turning the single-artifact Generated
   Artifact Metadata Authority apply workflow into guarded bulk planning,

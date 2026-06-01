@@ -254,6 +254,28 @@ impl AutomationAppService {
         self.store.list_generated_artifact_proposals(page).await
     }
 
+    pub async fn list_generated_artifact_metadata_apply_outcomes(
+        &self,
+        page: PageRequest,
+    ) -> Result<Vec<GeneratedArtifactMetadataApplyOutcomeRecord>> {
+        self.store
+            .list_generated_artifact_metadata_apply_outcomes(page)
+            .await
+    }
+
+    pub async fn get_generated_artifact_metadata_apply_outcome(
+        &self,
+        outcome_id: GeneratedArtifactMetadataApplyOutcomeId,
+    ) -> Result<GeneratedArtifactMetadataApplyOutcomeRecord> {
+        self.store
+            .get_generated_artifact_metadata_apply_outcome(outcome_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "generated_artifact_metadata_apply_outcome",
+                id: outcome_id.to_string(),
+            })
+    }
+
     pub async fn plan_generated_artifact_review(
         &self,
         artifact_id: AutomationArtifactId,

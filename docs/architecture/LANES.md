@@ -20,14 +20,14 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| library-metadata-control-plane | none | open focused follow-on | Planner closeout / next-lane selection |
+| library-metadata-control-plane | generated-artifact-apply-operations-repair | GAOR-020 | Planner plus Admin/control-plane audit worker |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
 `generated-artifact-provider-mapping-breadth` is closed after `GAPM-060`.
-Continue the `library-metadata-control-plane` lane through a focused follow-on
-such as generated-artifact apply operations repair or deeper provider identity
-precision; do not reopen breadth just to add diagnostics or repair controls.
+`generated-artifact-apply-operations-repair` is now active. Keep the lane
+focused on repair-oriented visibility and bounded recovery semantics; do not
+reopen breadth or hide provider-depth precision inside this operations slice.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
@@ -120,6 +120,11 @@ Closed evidence:
 - `docs/workstreams/generated-artifact-metadata-authority-apply/`
 - `docs/workstreams/generated-artifact-provider-mapping-breadth/`
 
+Active evidence:
+
+- `docs/workstreams/generated-artifact-apply-operations-repair/` (`GAOR-020`
+  ready)
+
 Owned scopes:
 
 - `crates/nako-core/src/automation.rs`
@@ -133,6 +138,7 @@ Owned scopes:
 - `crates/nako-server/src/app/metadata_application.rs`
 - `crates/nako-server/src/http/admin.rs`
 - `docs/workstreams/generated-artifact-provider-mapping-breadth/`
+- `docs/workstreams/generated-artifact-apply-operations-repair/`
 - `docs/workstreams/generated-artifact-metadata-authority-apply/`
 - `docs/workstreams/generated-artifact-bulk-metadata-apply/`
 
