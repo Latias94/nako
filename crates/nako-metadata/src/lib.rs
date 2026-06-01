@@ -10,9 +10,11 @@ mod strategy;
 mod types;
 
 pub use candidate_review::{
-    MetadataCandidateReviewDecision, MetadataCandidateReviewDecisionRequest,
-    MetadataCandidateReviewDecisionService, MetadataCandidateReviewDecisionSummary,
-    build_candidate_review_application_plan, build_candidate_review_plan,
+    MetadataCandidateReviewApplicationRequest, MetadataCandidateReviewApplicationService,
+    MetadataCandidateReviewApplicationSummary, MetadataCandidateReviewDecision,
+    MetadataCandidateReviewDecisionRequest, MetadataCandidateReviewDecisionService,
+    MetadataCandidateReviewDecisionSummary, build_candidate_review_application_plan,
+    build_candidate_review_plan,
 };
 pub use confirmation::{
     HierarchyConfirmationItem, HierarchyConfirmationRequest, HierarchyConfirmationService,

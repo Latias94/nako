@@ -34,7 +34,8 @@ Objective:
 
 - Apply accepted Metadata Candidate Reviews to Provider Subject and Provider
   Mapping state through a named backend boundary.
-- Start with a read-only application plan before mutation.
+- Start with a read-only application plan before mutation, then apply root
+  Provider Mapping state through that plan.
 - Keep Admin/Web provider depth governance and related graph node hierarchy
   application split until backend semantics are safe.
 
@@ -70,8 +71,8 @@ Evidence:
 
 Current task:
 
-- `ARPMA-030`: apply accepted review root Provider Subject and Provider Mapping
-  idempotently through existing repository semantics.
+- `ARPMA-040`: decide whether Admin API/Web mutation scope belongs in this lane
+  or should split with Admin/Web provider depth governance.
 
 ## Recent Completed Goals
 

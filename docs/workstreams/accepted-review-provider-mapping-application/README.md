@@ -20,8 +20,10 @@ Authoritative docs:
 Current execution:
 
 - `ARPMA-010` opens the lane.
-- `ARPMA-020` is ready: define a read-only Provider Mapping application plan
-  for accepted Metadata Candidate Reviews without writing Provider Mapping rows.
+- `ARPMA-020` shipped the read-only Provider Mapping application plan.
+- `ARPMA-030` shipped the root-only idempotent backend application service.
+- `ARPMA-040` is ready: decide whether Admin API/Web mutation scope belongs in
+  this lane or should split with provider depth governance.
 
 Boundary:
 

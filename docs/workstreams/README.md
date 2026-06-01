@@ -24,10 +24,10 @@ closeout.
 
 Next task:
 
-- `ARPMA-020`: define a read-only accepted-review Provider Mapping application
-- `ARPMA-030`: apply accepted review root Provider Subject and Provider Mapping
-  idempotently through existing repository semantics before Admin/Web routes,
-  Public Client API changes, or related graph node application.
+- `ARPMA-040`: decide whether Admin API/Web mutation scope belongs in the
+  accepted-review application lane or should split with provider depth
+  governance before Public Client API changes or related graph node
+  application.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -58,7 +58,7 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
 - [accepted-review-provider-mapping-application](accepted-review-provider-mapping-application/README.md):
   active library-metadata-control-plane lane for turning accepted durable
   Metadata Candidate Reviews into explicit root Provider Mapping application
-  plans and later backend application semantics.
+  plans, backend application semantics, and an explicit surface split decision.
 - [metadata-candidate-durable-review](metadata-candidate-durable-review/README.md):
   closed library-metadata-control-plane lane for durable, redaction-safe
   provider Candidate Graph review semantics before Admin/Web governance and

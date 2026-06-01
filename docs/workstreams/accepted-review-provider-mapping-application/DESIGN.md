@@ -103,7 +103,9 @@ If implementation exposes a small shared helper, it belongs in
 | Durable candidate review closeout | Covered | `docs/workstreams/metadata-candidate-durable-review/CLOSEOUT.md` | Requires accepted-review Provider Mapping application to be explicit follow-on scope. |
 | Generated Artifact Provider Mapping closeout | Covered | `docs/workstreams/generated-artifact-provider-mapping-breadth/CLOSEOUT.md` | Proves idempotent host-owned Provider Mapping apply semantics and warns against duplicate executors. |
 
-## First Executable Task
+## Executable Sequence
 
 `ARPMA-020` defines the read-only application plan contract and tests before any
-mutation service is added.
+mutation service is added. `ARPMA-030` adds the root-only application service.
+`ARPMA-040` decides whether Admin API/Web mutation scope belongs in this lane or
+should split with provider depth governance before any surface is exposed.

@@ -118,3 +118,42 @@ Green checks:
 - JSONL validation for `TASKS.jsonl`, `CAMPAIGNS.jsonl`, and `CONTEXT.jsonl`
   passed.
 - `git diff --check` passed.
+
+## ARPMA-030 Evidence
+
+Red check:
+
+- `cargo nextest run -p nako-metadata candidate_review_application --no-fail-fast`
+  failed before implementation because
+  `MetadataCandidateReviewApplicationRequest` and
+  `MetadataCandidateReviewApplicationService` did not exist.
+
+Implemented behavior:
+
+- Added `MetadataCandidateReviewApplicationService` in `nako-metadata`.
+- Application loads a durable review, enforces item and freshness guards, then
+  uses the read-only application plan before writing anything.
+- Wrong-item and stale expected-update requests return conflicts without
+  Provider Mapping mutation.
+- Accepted reviews write or promote only the root Provider Subject and root
+  Provider Mapping through `ProviderMappingRepository`.
+- Replays of an already accepted root mapping return `Noop` without duplicate
+  Provider Mapping rows.
+- Existing rejected Provider Mappings return a conflict and are not overwritten.
+- Related review nodes and relationships remain preview evidence and are not
+  persisted by this service.
+
+Green checks:
+
+- `cargo nextest run -p nako-metadata candidate_review_application --no-fail-fast`
+  passed: 6 tests run, 6 passed.
+- `cargo nextest run -p nako-metadata --no-fail-fast` passed: 51 tests run,
+  51 passed.
+- `cargo nextest run -p nako-db candidate_review provider_mapping --no-fail-fast`
+  passed: 3 tests run, 3 passed.
+- `cargo fmt --all -- --check` passed.
+- `python -m json.tool docs/workstreams/accepted-review-provider-mapping-application/WORKSTREAM.json`
+  passed.
+- JSONL validation for `TASKS.jsonl`, `CAMPAIGNS.jsonl`, and `CONTEXT.jsonl`
+  passed.
+- `git diff --check` passed with Git CRLF normalization warnings only.

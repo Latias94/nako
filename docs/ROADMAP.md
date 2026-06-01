@@ -22,15 +22,15 @@ Precision is closed after `MPDP-050`. TMDB Season Episode Graph Depth is
 closed after `TSEG-040`. Bangumi Relations And Episode Depth is closed after
 `BRED-050`. Douban Subject Kind Precision is closed after `DSKP-030`.
 Metadata Candidate Durable Review is closed after `MCDR-050`. Accepted Review
-Provider Mapping Application is active at `ARPMA-030`.
+Provider Mapping Application is active at `ARPMA-040`.
 
 It targets:
 
 - using the read-only accepted-review Provider Mapping application plan from
   `ARPMA-020`;
 - keeping Provider Mapping writes out of review status transitions;
-- applying only root Provider Subject / Provider Mapping state before Admin/Web
-  or related graph node governance begins.
+- applying only root Provider Subject / Provider Mapping state through
+  `ARPMA-030` before Admin/Web or related graph node governance begins.
 
 Authoritative evidence:
 
@@ -42,9 +42,9 @@ Authoritative evidence:
 
 Next task:
 
-- `ARPMA-030`: apply accepted review root Provider Subject and Provider Mapping
-  idempotently through existing repository semantics without Admin/Web routes,
-  Public Client API changes, or related graph node application.
+- `ARPMA-040`: decide whether Admin API/Web mutation scope belongs in this lane
+  or should split with Admin/Web provider depth governance before Public Client
+  API changes or related graph node application.
 
 Latest completed architecture focus:
 

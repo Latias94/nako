@@ -6,19 +6,19 @@ Last updated: 2026-06-02
 ## Current State
 
 The lane is opened from `metadata-candidate-durable-review` closeout. Durable
-Metadata Candidate Reviews can be accepted/rejected, but accepted review status
-does not currently apply Provider Mapping rows. This lane defines that backend
-application boundary before Admin/Web governance depends on it.
+Metadata Candidate Reviews can be accepted/rejected, and accepted review root
+Provider Subject / Provider Mapping application now exists as an explicit
+backend service rather than a hidden status-transition side effect. Admin/Web
+governance remains unexposed until `ARPMA-040` decides the surface split.
 
 ## Active Task
 
-- Task ID: `ARPMA-030`
-- Owner: codex
-- Files: `crates/nako-core`, `crates/nako-metadata`, `crates/nako-db`, and
-  this workstream evidence
-- Validation: `cargo nextest run -p nako-metadata candidate_review_application --no-fail-fast`;
-  `cargo nextest run -p nako-db candidate_review provider_mapping --no-fail-fast`;
-  `cargo fmt --all -- --check`; `git diff --check`
+- Task ID: `ARPMA-040`
+- Owner: planner
+- Files: this workstream evidence, architecture maps, `docs/GOALS.md`, and
+  `docs/ROADMAP.md`
+- Validation: fresh evidence in `EVIDENCE_AND_GATES.md`; JSON/JSONL
+  validation; `git diff --check`
 - Status: READY
 - Evidence: `docs/workstreams/accepted-review-provider-mapping-application/EVIDENCE_AND_GATES.md`
 
@@ -36,12 +36,17 @@ application boundary before Admin/Web governance depends on it.
   root mappings or promote existing candidate mappings, noops existing accepted
   mappings, skips rejected mappings, and exposes unsupported sources as skip
   reasons.
+- `ARPMA-030` shipped `MetadataCandidateReviewApplicationService`, which applies
+  only the root Provider Subject / Provider Mapping idempotently, rejects
+  rejected mapping conflicts, and leaves related review graph nodes as preview
+  evidence.
 
 ## Blockers
 
-- None for `ARPMA-020`.
+- None for `ARPMA-040`.
 
 ## Next Recommended Action
 
-- Run `ARPMA-030`: apply accepted review root Provider Subject and Provider
-  Mapping idempotently through existing repository semantics.
+- Run `ARPMA-040`: decide whether Admin API/Web mutation scope belongs in this
+  lane or should split with Admin/Web provider depth governance before exposing
+  the backend application service.

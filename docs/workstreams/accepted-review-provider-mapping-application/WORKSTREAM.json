@@ -7,7 +7,7 @@
   "scope_kind": "library_metadata_candidate_review_application",
   "problem": "Accepted Metadata Candidate Reviews are durable, but applying them to Provider Subject and Provider Mapping state must be a named backend service rather than a hidden status-transition side effect.",
   "task_prefix": "ARPMA",
-  "current_task": "ARPMA-030",
+  "current_task": "ARPMA-040",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -47,6 +47,8 @@
     "python -m json.tool docs/workstreams/accepted-review-provider-mapping-application/WORKSTREAM.json",
     "JSONL validation for docs/workstreams/accepted-review-provider-mapping-application/TASKS.jsonl, CAMPAIGNS.jsonl, and CONTEXT.jsonl",
     "cargo nextest run -p nako-metadata candidate_review_application --no-fail-fast",
+    "cargo nextest run -p nako-metadata --no-fail-fast",
+    "cargo nextest run -p nako-db candidate_review provider_mapping --no-fail-fast",
     "cargo fmt --all -- --check",
     "git diff --check"
   ],
@@ -58,6 +60,10 @@
     {
       "task": "ARPMA-020",
       "summary": "Added read-only accepted-review Provider Mapping application plans with action/reason/source semantics and tests proving no Provider Mapping writes during planning."
+    },
+    {
+      "task": "ARPMA-030",
+      "summary": "Added an idempotent accepted-review application service that writes only the root Provider Subject and accepted Provider Mapping, protects rejected mappings, and keeps related graph nodes preview-only."
     }
   ],
   "adr_refs": [
@@ -87,7 +93,7 @@
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
     "default_action": "run_current_task",
-    "current_task": "ARPMA-030",
-    "notes": "Next apply accepted review root Provider Subject and Provider Mapping idempotently. Do not add Admin/Web routes, generated clients, or related graph node application in ARPMA-030."
+    "current_task": "ARPMA-040",
+    "notes": "Next decide whether Admin API/Web mutation scope belongs in this lane or should split with Admin/Web provider depth governance. Do not add public route surfaces or related graph node application before this split review."
   }
 }

@@ -22,12 +22,12 @@ Last updated: 2026-06-02
 
 ## M2 - Root Provider Mapping Apply Service
 
-- [ ] ARPMA-030 [owner=codex] [deps=ARPMA-020] [scope=crates/nako-core,crates/nako-metadata,crates/nako-db,docs/workstreams/accepted-review-provider-mapping-application]
+- [x] ARPMA-030 [owner=codex] [deps=ARPMA-020] [scope=crates/nako-core,crates/nako-metadata,crates/nako-db,docs/workstreams/accepted-review-provider-mapping-application]
   Goal: Apply accepted candidate review root Provider Subject and Provider Mapping idempotently through existing repository semantics.
-  Validation: `cargo nextest run -p nako-metadata candidate_review_application --no-fail-fast`; `cargo nextest run -p nako-db candidate_review provider_mapping --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`.
+  Validation: `cargo nextest run -p nako-metadata candidate_review_application --no-fail-fast`; `cargo nextest run -p nako-metadata --no-fail-fast`; `cargo nextest run -p nako-db candidate_review provider_mapping --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: application writes only the root Provider Subject/Mapping, protects rejected mappings, and never applies related graph nodes.
   Evidence: `EVIDENCE_AND_GATES.md`.
-  Handoff: Continue to `ARPMA-040`.
+  Handoff: DONE; continue to `ARPMA-040`.
 
 ## M3 - Surface Split Review
 

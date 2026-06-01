@@ -4,7 +4,8 @@ use nako_core::{
     MetadataCandidateReviewId, MetadataCandidateReviewPlan, MetadataCandidateReviewRecord,
     MetadataCandidateReviewRepository, MetadataCandidateReviewStatus, MetadataCandidateSource,
     MetadataCandidateSubject, MetadataSource, NakoError, PageRequest, ProviderMapping,
-    ProviderMappingRepository, ProviderMappingStatus, Result,
+    ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus, ProviderSubject,
+    ProviderSubjectId, Result,
 };
 use serde::{Deserialize, Serialize};
 
@@ -108,12 +109,46 @@ pub struct MetadataCandidateReviewDecisionSummary {
     pub changed: bool,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataCandidateReviewApplicationRequest {
+    pub review_id: MetadataCandidateReviewId,
+    pub item_id: MediaItemId,
+    pub applied_at_ms: i64,
+    pub expected_updated_at_ms: Option<i64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataCandidateReviewApplicationSummary {
+    pub review: MetadataCandidateReviewRecord,
+    pub plan: MetadataCandidateReviewApplicationPlan,
+    pub provider_subject: Option<ProviderSubject>,
+    pub provider_mapping: Option<ProviderMapping>,
+    pub changed: bool,
+}
+
 #[derive(Debug)]
 pub struct MetadataCandidateReviewDecisionService<R> {
     repository: R,
 }
 
+#[derive(Debug)]
+pub struct MetadataCandidateReviewApplicationService<R> {
+    repository: R,
+}
+
 impl<R> MetadataCandidateReviewDecisionService<R> {
+    #[must_use]
+    pub fn new(repository: R) -> Self {
+        Self { repository }
+    }
+
+    #[must_use]
+    pub fn repository(&self) -> &R {
+        &self.repository
+    }
+}
+
+impl<R> MetadataCandidateReviewApplicationService<R> {
     #[must_use]
     pub fn new(repository: R) -> Self {
         Self { repository }
@@ -142,7 +177,7 @@ where
                 id: request.review_id.to_string(),
             })?;
 
-        reject_stale_decision(&review, &request)?;
+        reject_stale_review_operation(&review, request.item_id, request.expected_updated_at_ms)?;
 
         let target_status = request.decision.target_status();
         if review.status == target_status {
@@ -200,20 +235,116 @@ where
     }
 }
 
-fn reject_stale_decision(
+impl<R> MetadataCandidateReviewApplicationService<R>
+where
+    R: MetadataCandidateReviewRepository + ProviderMappingRepository,
+{
+    pub async fn apply(
+        &self,
+        request: MetadataCandidateReviewApplicationRequest,
+    ) -> Result<MetadataCandidateReviewApplicationSummary> {
+        let review = self
+            .repository
+            .get_metadata_candidate_review(request.review_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "metadata_candidate_review",
+                id: request.review_id.to_string(),
+            })?;
+
+        reject_stale_review_operation(&review, request.item_id, request.expected_updated_at_ms)?;
+
+        let plan = build_candidate_review_application_plan(&self.repository, &review).await?;
+        match plan.action {
+            MetadataCandidateReviewApplicationAction::Skip => {
+                return Err(NakoError::Conflict {
+                    message: format!(
+                        "metadata candidate review {} cannot be applied: {:?}",
+                        review.id, plan.reasons
+                    ),
+                });
+            }
+            MetadataCandidateReviewApplicationAction::Noop => {
+                let provider_subject = match plan.root_subject.as_ref() {
+                    Some(subject) => {
+                        existing_provider_subject_for_candidate(&self.repository, subject).await?
+                    }
+                    None => None,
+                };
+                let provider_mapping = match plan.root_subject.as_ref() {
+                    Some(subject) => {
+                        existing_mapping_for_subject(&self.repository, review.item_id, subject)
+                            .await?
+                    }
+                    None => None,
+                };
+                return Ok(MetadataCandidateReviewApplicationSummary {
+                    review,
+                    plan,
+                    provider_subject,
+                    provider_mapping,
+                    changed: false,
+                });
+            }
+            MetadataCandidateReviewApplicationAction::Apply => {}
+        }
+
+        let source = plan.source.clone().ok_or_else(|| NakoError::Conflict {
+            message: format!(
+                "metadata candidate review {} has no supported application source",
+                review.id
+            ),
+        })?;
+        let root_subject = plan
+            .root_subject
+            .clone()
+            .ok_or_else(|| NakoError::Conflict {
+                message: format!(
+                    "metadata candidate review {} has no root provider subject",
+                    review.id
+                ),
+            })?;
+        let provider_subject =
+            upsert_provider_subject_for_candidate(&self.repository, root_subject).await?;
+        let provider_mapping = ProviderMapping {
+            id: plan
+                .existing_mapping_id
+                .unwrap_or_else(ProviderMappingId::new),
+            item_id: review.item_id,
+            subject_id: provider_subject.id,
+            status: ProviderMappingStatus::Accepted,
+            confidence_milli: None,
+            source,
+        };
+        self.repository
+            .upsert_provider_mapping(&provider_mapping)
+            .await?;
+
+        Ok(MetadataCandidateReviewApplicationSummary {
+            review,
+            plan,
+            provider_subject: Some(provider_subject),
+            provider_mapping: Some(provider_mapping),
+            changed: true,
+        })
+    }
+}
+
+fn reject_stale_review_operation(
     review: &MetadataCandidateReviewRecord,
-    request: &MetadataCandidateReviewDecisionRequest,
+    item_id: MediaItemId,
+    expected_updated_at_ms: Option<i64>,
 ) -> Result<()> {
-    if review.item_id != request.item_id {
+    if review.item_id != item_id {
         return Err(NakoError::Conflict {
             message: format!(
                 "metadata candidate review {} belongs to item {}, not {}",
-                review.id, review.item_id, request.item_id
+                review.id, review.item_id, item_id
             ),
         });
     }
 
-    if let Some(expected_updated_at_ms) = request.expected_updated_at_ms {
+    if let Some(expected_updated_at_ms) = expected_updated_at_ms {
         if review.updated_at_ms != expected_updated_at_ms {
             return Err(NakoError::Conflict {
                 message: format!(
@@ -284,4 +415,40 @@ where
         }
         offset += u64::from(PageRequest::MAX_LIMIT);
     }
+}
+
+async fn existing_provider_subject_for_candidate<R>(
+    repository: &R,
+    subject: &MetadataCandidateSubject,
+) -> Result<Option<ProviderSubject>>
+where
+    R: ProviderMappingRepository,
+{
+    repository
+        .find_provider_subject(
+            &subject.provider,
+            &subject.subject_kind,
+            &subject.subject_key,
+        )
+        .await
+}
+
+async fn upsert_provider_subject_for_candidate<R>(
+    repository: &R,
+    subject: MetadataCandidateSubject,
+) -> Result<ProviderSubject>
+where
+    R: ProviderMappingRepository,
+{
+    let existing = existing_provider_subject_for_candidate(repository, &subject).await?;
+    let provider_subject = subject.into_provider_subject(
+        existing
+            .as_ref()
+            .map(|subject| subject.id)
+            .unwrap_or_else(ProviderSubjectId::new),
+    );
+    repository
+        .upsert_provider_subject(&provider_subject)
+        .await?;
+    Ok(provider_subject)
 }

@@ -28,7 +28,7 @@ Exit criteria:
 
 ## M2 - Root Provider Mapping Apply Service
 
-Status: Ready after `ARPMA-020`.
+Status: Complete after `ARPMA-030`.
 
 Exit criteria:
 
@@ -39,7 +39,7 @@ Exit criteria:
 
 ## M3 - Surface Split Review
 
-Status: Pending after `ARPMA-030`.
+Status: Ready after `ARPMA-030`.
 
 Exit criteria:
 
