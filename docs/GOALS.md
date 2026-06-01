@@ -26,9 +26,55 @@ proposed milestone.
 
 ## Current Goal
 
+### Provider Depth Follow-On Selection
+
+Status: ready as of 2026-06-02.
+
+Objective:
+
+- Choose and open the next focused provider-depth lane after Douban subject-kind
+  precision closeout.
+- Keep provider graph evidence preview-only until a durable review or Admin/Web
+  governance lane deliberately changes persistence semantics.
+
+Deliverables:
+
+- one new focused workstream, likely durable candidate review, Admin/Web
+  provider depth governance, or Douban TV/episode endpoint depth;
+- active queue updates in `docs/architecture/LANES.md` and
+  `docs/workstreams/README.md`;
+- clear non-goals that prevent schema/API/Admin/Web changes from leaking into
+  a provider adapter slice.
+
+Non-goals:
+
+- no reopening `metadata-provider-depth-and-precision` or
+  `tmdb-season-episode-graph-depth` or
+  `bangumi-relations-and-episode-depth` or
+  `douban-subject-kind-precision`;
+- no schema migration, Public Client API change, Admin/Web confirmation UI, or
+  Generated Artifact apply change unless the next lane explicitly selects that
+  architecture scope;
+- no automatic Media Item hierarchy creation or child Provider Mapping writes
+  from preview graph evidence.
+
+Exit criteria:
+
+- next lane has an explicit workstream directory, task ledger, validation
+  gates, and architecture links;
+- closed TMDB, Bangumi, and Douban lanes remain closed and referenced as
+  evidence only.
+
+Evidence:
+
+- `docs/workstreams/douban-subject-kind-precision/CLOSEOUT.md`
+- `docs/architecture/LIBRARY_PIPELINE.md`
+
+## Recent Completed Goals
+
 ### Douban Subject Kind Precision
 
-Status: active as of 2026-06-02.
+Status: completed on 2026-06-02.
 
 Objective:
 
@@ -40,35 +86,19 @@ Objective:
 
 Deliverables:
 
-- `docs/workstreams/douban-subject-kind-precision/`;
-- Douban provider capability tests that prove diagnostics are endpoint-backed;
+- `docs/workstreams/douban-subject-kind-precision/`
+- Douban provider capability tests proving diagnostics are endpoint-backed
 - unsupported-kind search/fetch regression coverage for Series, Season, and
-  Episode requests;
-- workstream evidence proving existing movie behavior remains compatible.
-
-Non-goals:
-
-- no reopening `metadata-provider-depth-and-precision` or
-  `tmdb-season-episode-graph-depth` or
-  `bangumi-relations-and-episode-depth`;
-- no schema migration, Public Client API change, Admin/Web confirmation UI, or
-  Generated Artifact apply change;
-- no Douban hierarchy graph preview, automatic Media Item hierarchy creation,
-  or child Provider Mapping writes.
-
-Exit criteria:
-
-- Douban capabilities no longer claim Series, Season, or Episode support while
-  only movie endpoints are implemented;
-- unsupported search/fetch requests fail before provider HTTP calls;
-- focused `nako-metadata` gates pass and evidence is recorded.
+  Episode requests
+- workstream closeout proving existing movie behavior remains compatible
 
 Evidence:
 
-- `docs/workstreams/douban-subject-kind-precision/`
-- `docs/architecture/LIBRARY_PIPELINE.md`
-
-## Recent Completed Goals
+- `DSKP-020` narrows Douban capability claims;
+- `DSKP-020` adds unsupported-kind tests proving Series, Season, and Episode
+  requests fail before provider HTTP;
+- `DSKP-030` closes the lane and keeps Douban TV/episode endpoint depth,
+  durable review, and Admin/Web governance split.
 
 ### Bangumi Relations And Episode Depth
 

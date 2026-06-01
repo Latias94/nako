@@ -1,6 +1,6 @@
 # Douban Subject Kind Precision
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 This workstream turns the proposed Douban provider precision follow-on into a
@@ -24,8 +24,8 @@ Current execution:
 - `DSKP-010` opens the lane.
 - `DSKP-020` is done: Douban media and Provider Subject capability claims now
   match endpoint-backed movie behavior.
-- `DSKP-030` is ready: close the lane or split a future Douban TV/episode
-  endpoint follow-on.
+- `DSKP-030` closed the lane and split future Douban TV/episode endpoint work
+  to a separate follow-on.
 
 Boundary:
 

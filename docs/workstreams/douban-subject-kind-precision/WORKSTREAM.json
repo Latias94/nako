@@ -2,12 +2,12 @@
   "schema_version": 1,
   "slug": "douban-subject-kind-precision",
   "title": "Douban Subject Kind Precision",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-06-02",
   "scope_kind": "library_metadata_provider_precision",
   "problem": "Douban metadata currently uses movie search/detail endpoints, but the adapter advertises series, season, and episode support before endpoint-backed behavior exists.",
   "task_prefix": "DSKP",
-  "current_task": "DSKP-030",
+  "current_task": null,
   "authoritative_docs": [
     {
       "role": "overview",
@@ -40,6 +40,10 @@
     {
       "role": "handoff",
       "path": "docs/workstreams/douban-subject-kind-precision/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/douban-subject-kind-precision/CLOSEOUT.md"
     }
   ],
   "context_manifest": "docs/workstreams/douban-subject-kind-precision/CONTEXT.jsonl",
@@ -57,6 +61,10 @@
     {
       "task": "DSKP-020",
       "summary": "Narrowed Douban provider capabilities to movie endpoint-backed behavior and added unsupported Series/Season/Episode regression coverage."
+    },
+    {
+      "task": "DSKP-030",
+      "summary": "Closed the lane after endpoint-backed Douban capability precision; future TV/episode depth, durable review, and Admin/Web governance remain split follow-ons."
     }
   ],
   "adr_refs": [
@@ -71,7 +79,7 @@
     },
     {
       "path": "docs/architecture/WORKSTREAM_LINKS.md",
-      "capability": "Douban provider subject-kind precision active lane"
+      "capability": "Douban provider subject-kind precision closed lane"
     },
     {
       "path": "docs/architecture/LIBRARY_PIPELINE.md",
@@ -85,8 +93,8 @@
   ],
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
-    "default_action": "run_current_task",
-    "current_task": "DSKP-030",
-    "notes": "Next close the lane or split future Douban TV/episode endpoint work. Do not add schema, Public Client API, Admin/Web, Generated Artifact apply, hierarchy graph preview, Media Item hierarchy creation, or child Provider Mapping writes."
+    "default_action": "open_follow_on",
+    "current_task": null,
+    "notes": "Lane target is complete. Open a new workstream for Douban TV/episode endpoint depth, durable candidate review, or Admin/Web provider depth governance."
   }
 }

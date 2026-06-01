@@ -20,7 +20,7 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| library-metadata-control-plane | douban-subject-kind-precision | DSKP-020 | Douban capability implementer |
+| library-metadata-control-plane | follow-on selection | open next focused provider-depth lane | Planner |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
@@ -47,6 +47,11 @@ episode graph preview, and `BRED-040` proved refresh remains root-only. Next
 focused provider-depth work is now `douban-subject-kind-precision`; durable
 candidate review and Admin/Web provider depth governance remain split
 follow-ons.
+`douban-subject-kind-precision` is closed after `DSKP-030`.
+`DSKP-020` narrowed Douban capability claims to movie endpoint-backed behavior
+and rejected Series/Season/Episode requests before HTTP. Future Douban
+TV/episode depth, durable candidate review, and Admin/Web provider governance
+should open focused follow-ons.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
@@ -143,10 +148,12 @@ Closed evidence:
 - `docs/workstreams/metadata-provider-depth-and-precision/`
 - `docs/workstreams/tmdb-season-episode-graph-depth/`
 - `docs/workstreams/bangumi-relations-and-episode-depth/`
+- `docs/workstreams/douban-subject-kind-precision/`
 
 Active evidence:
 
-- `docs/workstreams/douban-subject-kind-precision/`
+- none; choose or open the next focused provider-depth follow-on before
+  assigning a lane terminal.
 
 Owned scopes:
 

@@ -1,6 +1,6 @@
 # Douban Subject Kind Precision
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Why This Lane Exists
@@ -14,7 +14,7 @@ The current Douban adapter is movie-endpoint oriented:
 
 - search uses `movie/search`;
 - fetch uses `movie/subject/{id}`;
-- capabilities currently include `Series`, `Season`, and `Episode`;
+- capabilities previously included `Series`, `Season`, and `Episode`;
 - graph output is root-only.
 
 Nako should not claim non-movie subject kinds until a future endpoint-backed
@@ -88,3 +88,10 @@ This task should answer:
 - which unsupported search/fetch requests should fail explicitly;
 - which tests should guard future Douban breadth work from reintroducing
   overclaims.
+
+## Closeout
+
+Closed after `DSKP-030`. Douban capabilities now describe only endpoint-backed
+movie behavior, unsupported Series/Season/Episode requests fail before HTTP,
+and future Douban TV/episode support is split to
+`proposed:douban-tv-episode-endpoint-depth`.

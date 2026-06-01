@@ -1,6 +1,6 @@
 # Douban Subject Kind Precision - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Lane Opening Gates
@@ -85,6 +85,25 @@ Green checks:
 - `cargo nextest run -p nako-metadata douban_provider metadata_candidate --no-fail-fast`
 - `cargo fmt --all -- --check`
 - `git diff --check`
+
+## DSKP-030 Closeout Evidence
+
+Closeout checks:
+
+- `cargo nextest run -p nako-metadata douban_provider built_in_provider_capabilities --no-fail-fast`
+- `cargo nextest run -p nako-metadata douban_provider metadata_candidate --no-fail-fast`
+- `cargo fmt --all -- --check`
+- `python -m json.tool docs/workstreams/douban-subject-kind-precision/WORKSTREAM.json`
+- JSONL validation for `TASKS.jsonl`, `CAMPAIGNS.jsonl`, and `CONTEXT.jsonl`
+- `git diff --check`
+
+Closeout result:
+
+- Douban precision target state is complete.
+- Future Douban TV/episode endpoint depth is split to
+  `proposed:douban-tv-episode-endpoint-depth`.
+- Durable candidate review and Admin/Web provider governance remain separate
+  follow-ons.
 
 ## Notes
 

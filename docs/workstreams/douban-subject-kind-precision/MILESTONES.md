@@ -1,6 +1,6 @@
 # Douban Subject Kind Precision - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 - Lane Opening
@@ -25,6 +25,8 @@ Exit criteria:
 - existing movie search/fetch and refresh behavior remains compatible.
 
 ## M2 - Closeout
+
+Status: Complete after `DSKP-030`.
 
 Exit criteria:
 

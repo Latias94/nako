@@ -67,7 +67,7 @@ Non-goals:
 Goal: Tighten Douban subject-kind precision around its current movie/generic
 subject boundary.
 
-Status: opened as `docs/workstreams/douban-subject-kind-precision/`.
+Status: closed as `docs/workstreams/douban-subject-kind-precision/`.
 
 First slice:
 
@@ -80,6 +80,10 @@ Non-goals:
 - no hierarchy graph preview until endpoint evidence exists;
 - no Admin/Web review surface;
 - no schema migration.
+
+Follow-on split after closeout:
+
+- `proposed:douban-tv-episode-endpoint-depth`
 
 ### proposed:metadata-candidate-durable-review
 

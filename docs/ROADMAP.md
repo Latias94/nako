@@ -11,8 +11,8 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: Douban subject-kind precision active after Bangumi relation and
-episode depth closeout.
+Status: provider-depth follow-on selection after Douban subject-kind precision
+closeout.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
 Operations Repair are both closed as of 2026-06-02. Web Admin Generated
@@ -20,16 +20,16 @@ Artifact Recovery UI is also closed after `WAGR-030`. Generated Artifact Apply
 Repair Actions is closed after `GAARA-050`. Metadata Provider Depth And
 Precision is closed after `MPDP-050`. TMDB Season Episode Graph Depth is
 closed after `TSEG-040`. Bangumi Relations And Episode Depth is closed after
-`BRED-050`.
+`BRED-050`. Douban Subject Kind Precision is closed after `DSKP-030`.
 
 It targets:
 
 - selecting the next focused provider-depth lane without reopening closed
-  TMDB/MPDP/Bangumi work;
+  TMDB/MPDP/Bangumi/Douban work;
 - keeping provider graph evidence preview-only unless a durable review or
   Admin/Web governance lane deliberately changes persistence semantics;
-- making Douban capability diagnostics endpoint-backed before durable
-  candidate review or Admin/Web governance depends on them.
+- keeping durable candidate review, Admin/Web governance, and future Douban
+  TV/episode endpoint depth split by scope.
 
 Authoritative evidence:
 
@@ -39,10 +39,28 @@ Authoritative evidence:
 
 Next task:
 
-- `DSKP-020`: narrow Douban media and Provider Subject capability claims to
-  endpoint-backed movie behavior and add unsupported-kind regression coverage.
+- open the next focused provider-depth follow-on. Recommended candidates:
+  `proposed:metadata-candidate-durable-review`,
+  `proposed:admin-web-provider-depth-governance`, or
+  `proposed:douban-tv-episode-endpoint-depth`.
 
 Latest completed architecture focus:
+
+Douban Subject Kind Precision closed on 2026-06-02 after `DSKP-030`.
+
+It shipped:
+
+- Douban capability narrowing to endpoint-backed movie search/detail behavior;
+- unsupported-kind guard coverage proving Series, Season, and Episode requests
+  fail before provider HTTP;
+- explicit split of Douban TV/episode endpoint depth, durable candidate review,
+  and Admin/Web provider depth governance.
+
+Authoritative lane:
+
+- `docs/workstreams/douban-subject-kind-precision/`
+
+Previous completed architecture focus:
 
 Bangumi Relations And Episode Depth closed on 2026-06-02 after `BRED-050`.
 
@@ -95,9 +113,10 @@ Follow-ons:
 
 - `docs/workstreams/tmdb-season-episode-graph-depth/` (closed);
 - `docs/workstreams/bangumi-relations-and-episode-depth/` (closed);
-- `docs/workstreams/douban-subject-kind-precision/` (active);
+- `docs/workstreams/douban-subject-kind-precision/` (closed);
 - `proposed:metadata-candidate-durable-review`;
-- `proposed:admin-web-provider-depth-governance`.
+- `proposed:admin-web-provider-depth-governance`;
+- `proposed:douban-tv-episode-endpoint-depth`.
 
 Previous architecture focus:
 

@@ -1,6 +1,6 @@
 # Douban Subject Kind Precision - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 - Lane Opening
@@ -22,9 +22,9 @@ Last updated: 2026-06-02
 
 ## M2 - Closeout
 
-- [ ] DSKP-030 [owner=planner] [deps=DSKP-020] [scope=docs/workstreams/douban-subject-kind-precision,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
+- [x] DSKP-030 [owner=planner] [deps=DSKP-020] [scope=docs/workstreams/douban-subject-kind-precision,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
   Goal: Close the lane or split future Douban TV/episode endpoint follow-ons.
   Validation: fresh gate evidence in `EVIDENCE_AND_GATES.md`; JSON/JSONL validation; `git diff --check`.
   Review: Douban precision remains endpoint-backed and movie-compatible.
   Evidence: `CLOSEOUT.md` if closed.
-  Handoff: DONE or explicit follow-on split.
+  Handoff: DONE; future Douban TV/episode support is split to `proposed:douban-tv-episode-endpoint-depth`.

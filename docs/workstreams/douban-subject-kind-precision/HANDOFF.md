@@ -1,6 +1,6 @@
 # Douban Subject Kind Precision - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Current State
@@ -13,13 +13,9 @@ movie endpoints.
 
 ## Active Task
 
-- Task ID: `DSKP-030`
-- Owner: planner
-- Files: `docs/workstreams/douban-subject-kind-precision`, architecture maps,
-  `docs/GOALS.md`, and `docs/ROADMAP.md`
-- Validation: fresh gate evidence in `EVIDENCE_AND_GATES.md`, JSON/JSONL
-  validation, and `git diff --check`
-- Status: READY
+- Task ID: none
+- Owner: none
+- Status: DONE
 - Evidence: `docs/workstreams/douban-subject-kind-precision/EVIDENCE_AND_GATES.md`
 
 ## Decisions Since Opening
@@ -35,10 +31,10 @@ movie endpoints.
 
 ## Blockers
 
-- None for `DSKP-030`.
+- None.
 
 ## Next Recommended Action
 
-- Run `DSKP-030`: close the lane, keep future Douban TV/episode breadth split,
-  and return active queue ownership to provider-depth follow-on selection or
-  the next focused lane.
+- Open the next focused provider-depth follow-on. Recommended candidates are
+  durable candidate review, Admin/Web provider depth governance, or future
+  Douban TV/episode endpoint depth.
