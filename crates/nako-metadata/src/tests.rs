@@ -2117,6 +2117,75 @@ fn metadata_candidate_graph_projects_provider_payload_without_becoming_raw_paylo
 }
 
 #[test]
+fn metadata_candidate_review_plan_projects_graph_without_raw_payload_or_mapping_mutation() {
+    let mut graph = MetadataCandidateGraph::for_provider(
+        ExternalProvider::Tmdb,
+        MediaKind::Series,
+        ProviderSubjectKind::Series,
+        "1437",
+        MetadataCandidateRecord::from(CanonicalMetadata {
+            title: "Firefly".to_owned(),
+            release_date: Some("2002-09-20".to_owned()),
+            external_ids: vec![ExternalId {
+                provider: ExternalProvider::Tmdb,
+                value: "1437".to_owned(),
+            }],
+            ..CanonicalMetadata::default()
+        }),
+    );
+    let series_subject = graph.root_provider_subject().unwrap().clone();
+    let episode_subject = MetadataCandidateSubject {
+        provider: ExternalProvider::Tmdb,
+        subject_kind: ProviderSubjectKind::Episode,
+        subject_key: "1437/1/1".to_owned(),
+        title: Some("Serenity".to_owned()),
+        release_year: Some(2002),
+        locale: Some("en-US".to_owned()),
+    };
+    graph.related.push(MetadataCandidateNode {
+        source: MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+        kind: MediaKind::Episode,
+        subject: Some(episode_subject.clone()),
+        metadata: MetadataCandidateRecord::from(CanonicalMetadata {
+            title: "Serenity".to_owned(),
+            overview: Some("The crew takes a job on Persephone.".to_owned()),
+            external_ids: vec![ExternalId {
+                provider: ExternalProvider::Tmdb,
+                value: "1001".to_owned(),
+            }],
+            ..CanonicalMetadata::default()
+        }),
+    });
+    graph.relationships.push(MetadataCandidateRelationship {
+        parent_subject: series_subject.clone(),
+        child_subject: episode_subject.clone(),
+        kind: MetadataCandidateRelationshipKind::Contains,
+    });
+
+    let plan = build_candidate_review_plan(&graph);
+
+    assert_eq!(plan.root.kind, MediaKind::Series);
+    assert_eq!(plan.root.subject.as_ref(), Some(&series_subject));
+    assert_eq!(plan.related.len(), 1);
+    assert_eq!(plan.related[0].kind, MediaKind::Episode);
+    assert_eq!(plan.related[0].subject.as_ref(), Some(&episode_subject));
+    assert_eq!(plan.relationships.len(), 1);
+    assert_eq!(
+        plan.relationships[0].kind,
+        MetadataCandidateRelationshipKind::Contains
+    );
+    assert_eq!(plan.relationships[0].parent_subject, series_subject);
+    assert_eq!(plan.relationships[0].child_subject, episode_subject);
+
+    let serialized = serde_json::to_string(&plan).unwrap();
+    assert!(serialized.contains("Serenity"));
+    assert!(serialized.contains("contains"));
+    assert!(!serialized.contains("raw_json"));
+    assert!(!serialized.contains("provider_mapping"));
+    assert!(!serialized.contains("accepted"));
+}
+
+#[test]
 fn bangumi_subject_maps_core_metadata() {
     let subject: BangumiSubject = serde_json::from_str(
         r#"

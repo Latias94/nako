@@ -7,7 +7,7 @@
   "scope_kind": "library_metadata_candidate_review",
   "problem": "Provider Candidate Graph previews are useful operator evidence, but they currently disappear after refresh and should not become implicit accepted Provider Mapping writes.",
   "task_prefix": "MCDR",
-  "current_task": "MCDR-020",
+  "current_task": "MCDR-030",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -53,6 +53,10 @@
     {
       "task": "MCDR-010",
       "summary": "Opened the Metadata Candidate Durable Review lane from provider-depth follow-on selection."
+    },
+    {
+      "task": "MCDR-020",
+      "summary": "Added a pure redaction-safe Metadata Candidate Review plan contract from MetadataCandidateGraph without schema or Provider Mapping writes."
     }
   ],
   "adr_refs": [
@@ -82,7 +86,7 @@
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
     "default_action": "run_current_task",
-    "current_task": "MCDR-020",
-    "notes": "Next define the pure redaction-safe review plan contract. Do not add schema, Admin/Web, Public Client API, Generated Artifact apply, or Provider Mapping mutation in MCDR-020."
+    "current_task": "MCDR-030",
+    "notes": "Next decide the durable repository/schema boundary for candidate review snapshots. Keep Admin/Web, Public Client API, and Generated Artifact apply split."
   }
 }

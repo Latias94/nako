@@ -15,6 +15,8 @@ Exit criteria:
 
 ## M1 - Redaction-Safe Review Plan Contract
 
+Status: Complete after `MCDR-020`.
+
 Exit criteria:
 
 - Candidate Graph review plans include root and related Provider Subject
@@ -23,6 +25,8 @@ Exit criteria:
 - plan generation does not write Provider Subjects or Provider Mappings.
 
 ## M2 - Durable Review Repository Shape
+
+Status: Ready for planner review after `MCDR-020`.
 
 Exit criteria:
 

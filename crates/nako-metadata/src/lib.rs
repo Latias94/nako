@@ -1,3 +1,4 @@
+mod candidate_review;
 mod confirmation;
 mod mapping;
 mod matching;
@@ -8,6 +9,7 @@ mod runtime;
 mod strategy;
 mod types;
 
+pub use candidate_review::build_candidate_review_plan;
 pub use confirmation::{
     HierarchyConfirmationItem, HierarchyConfirmationRequest, HierarchyConfirmationService,
     HierarchyConfirmationSummary, HierarchyProviderSubject,
@@ -19,7 +21,8 @@ pub use matching::{
 };
 pub use nako_core::{
     MetadataCandidateGraph, MetadataCandidateRecord, MetadataCandidateRelationship,
-    MetadataCandidateRelationshipKind, MetadataCandidateSource, MetadataCandidateSubject,
+    MetadataCandidateRelationshipKind, MetadataCandidateReviewNode, MetadataCandidateReviewPlan,
+    MetadataCandidateReviewRelationship, MetadataCandidateSource, MetadataCandidateSubject,
     MetadataMergePolicy,
 };
 pub use providers::{

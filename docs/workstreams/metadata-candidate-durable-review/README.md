@@ -23,9 +23,10 @@ Authoritative docs:
 Current execution:
 
 - `MCDR-010` opens the lane.
-- `MCDR-020` is ready: define a redaction-safe Metadata Candidate Review plan
-  contract from `MetadataCandidateGraph` without schema or Provider Mapping
-  writes.
+- `MCDR-020` is done: `MetadataCandidateGraph` can be projected into a
+  redaction-safe review plan without schema or Provider Mapping writes.
+- `MCDR-030` is ready for planner review of the durable repository/schema
+  boundary.
 
 Boundary:
 

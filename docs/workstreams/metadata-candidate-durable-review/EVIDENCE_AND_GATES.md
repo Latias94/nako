@@ -62,6 +62,31 @@ Local recon on 2026-06-02:
 - Generated Artifact apply outcome tables are already a separate control-plane
   workflow and must not become the generic candidate review queue.
 
+## MCDR-020 Evidence
+
+Red check:
+
+- `cargo nextest run -p nako-metadata candidate_review metadata_candidate --no-fail-fast`
+  failed before implementation because `build_candidate_review_plan` did not
+  exist.
+
+Implemented behavior:
+
+- Added provider-neutral `MetadataCandidateReviewPlan`,
+  `MetadataCandidateReviewNode`, and `MetadataCandidateReviewRelationship`
+  records in `nako-core`.
+- Added pure `build_candidate_review_plan` in `nako-metadata`.
+- Review plans preserve root and related Provider Subject summaries,
+  relationships, and safe Candidate Record metadata.
+- Review plans do not include raw provider payload fields or Provider Mapping
+  mutation state, and `MCDR-020` added no repository/schema changes.
+
+Green checks:
+
+- `cargo nextest run -p nako-metadata candidate_review metadata_candidate --no-fail-fast`
+- `cargo fmt --all -- --check`
+- `git diff --check`
+
 ## Notes
 
 - Do not change persistence semantics in `MCDR-020`.

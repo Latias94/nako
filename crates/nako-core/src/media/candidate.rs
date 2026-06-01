@@ -61,6 +61,30 @@ pub enum MetadataCandidateSource {
     Other(String),
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataCandidateReviewPlan {
+    pub root: MetadataCandidateReviewNode,
+    #[serde(default)]
+    pub related: Vec<MetadataCandidateReviewNode>,
+    #[serde(default)]
+    pub relationships: Vec<MetadataCandidateReviewRelationship>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataCandidateReviewNode {
+    pub source: MetadataCandidateSource,
+    pub kind: MediaKind,
+    pub subject: Option<MetadataCandidateSubject>,
+    pub metadata: MetadataCandidateRecord,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataCandidateReviewRelationship {
+    pub parent_subject: MetadataCandidateSubject,
+    pub child_subject: MetadataCandidateSubject,
+    pub kind: MetadataCandidateRelationshipKind,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct MetadataCandidateRecord {
     pub title: Option<String>,
@@ -160,6 +184,52 @@ impl MetadataCandidateGraph {
     #[must_use]
     pub fn root_provider_subject(&self) -> Option<&MetadataCandidateSubject> {
         self.root.subject.as_ref()
+    }
+}
+
+impl MetadataCandidateReviewPlan {
+    #[must_use]
+    pub fn from_graph(graph: &MetadataCandidateGraph) -> Self {
+        Self {
+            root: MetadataCandidateReviewNode::from(&graph.root),
+            related: graph
+                .related
+                .iter()
+                .map(MetadataCandidateReviewNode::from)
+                .collect(),
+            relationships: graph
+                .relationships
+                .iter()
+                .map(MetadataCandidateReviewRelationship::from)
+                .collect(),
+        }
+    }
+}
+
+impl From<&MetadataCandidateGraph> for MetadataCandidateReviewPlan {
+    fn from(value: &MetadataCandidateGraph) -> Self {
+        Self::from_graph(value)
+    }
+}
+
+impl From<&MetadataCandidateNode> for MetadataCandidateReviewNode {
+    fn from(value: &MetadataCandidateNode) -> Self {
+        Self {
+            source: value.source.clone(),
+            kind: value.kind,
+            subject: value.subject.clone(),
+            metadata: value.metadata.clone(),
+        }
+    }
+}
+
+impl From<&MetadataCandidateRelationship> for MetadataCandidateReviewRelationship {
+    fn from(value: &MetadataCandidateRelationship) -> Self {
+        Self {
+            parent_subject: value.parent_subject.clone(),
+            child_subject: value.child_subject.clone(),
+            kind: value.kind,
+        }
     }
 }
 

@@ -13,12 +13,12 @@ Last updated: 2026-06-02
 
 ## M1 - Redaction-Safe Review Plan Contract
 
-- [ ] MCDR-020 [owner=codex] [deps=MCDR-010] [scope=crates/nako-core/src/media/candidate.rs,crates/nako-metadata/src,crates/nako-metadata/src/tests.rs,docs/workstreams/metadata-candidate-durable-review]
+- [x] MCDR-020 [owner=codex] [deps=MCDR-010] [scope=crates/nako-core/src/media/candidate.rs,crates/nako-metadata/src,crates/nako-metadata/src/tests.rs,docs/workstreams/metadata-candidate-durable-review]
   Goal: Define a provider-neutral Metadata Candidate Review plan contract from `MetadataCandidateGraph` without schema or Provider Mapping writes.
   Validation: `cargo nextest run -p nako-metadata candidate_review metadata_candidate --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: review plan includes root and related Provider Subject summaries, relationships, and safe metadata summaries without raw provider payloads or accepted Provider Mapping mutations.
   Evidence: `EVIDENCE_AND_GATES.md`.
-  Handoff: Continue to `MCDR-030` or split if schema scope needs a new ADR.
+  Handoff: DONE; continue to `MCDR-030` planner review before schema.
 
 ## M2 - Durable Review Repository Shape
 
