@@ -1,6 +1,6 @@
 # Architecture Lanes
 
-Last updated: 2026-05-31
+Last updated: 2026-06-01
 
 This registry routes long-lived Codex terminals and worktrees by capability
 area. It is an ownership map for parallel development, not a replacement for
@@ -20,9 +20,15 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
+| `mvp-release-convergence` | `mvp-release-shape` | `MRS-050` | Upper planner / product architecture |
 | `library-metadata-control-plane` | `generated-artifact-metadata-authority-apply` | `GAMA-050` | Backend/control-plane execution |
 | `client-surfaces-planning` | `client-surface-and-access-product-architecture` | `CSAPA-050` | Planner/docs split or defer decision |
 | `playback-transcode` | `playback-transcode-jellyfin-class-hardening` | `PTJCH-220` | Playback runtime worker |
+
+The `mvp-release-convergence` lane is planner-owned and docs-only while
+`MRS-050` closes the planning lane or splits focused MVP campaigns. It may
+route work to other lanes after a concrete MVP blocker is proven, but it must
+not mutate Rust/frontend code or active task ledgers under running workers.
 
 Do not start `GAMA-060` until `GAMA-050` has reviewed and verified the final
 Admin apply route. Do not close `CSAPA` until desktop playback is split,
@@ -53,6 +59,29 @@ burn-in, Admin/release reporting, and hardware smoke evidence into separate
 follow-ons.
 
 ## Lane Registry
+
+### mvp-release-convergence
+
+Owns the product/release convergence overlay for the first self-hosted,
+video-first, single-admin Nako MVP. This lane defines release blockers,
+validation ladders, and active-queue routing. It does not own implementation
+inside playback, storage, web, addon, or operations crates.
+
+Owned scopes:
+
+- `docs/workstreams/mvp-release-shape/`
+- MVP-related updates in `docs/GOALS.md`
+- MVP-related updates in `docs/ROADMAP.md`
+- MVP references in `docs/architecture/WORKSTREAM_LINKS.md`
+- MVP queue/routing notes in this file
+
+Shared scopes requiring planner coordination:
+
+- all implementation crates and `web/`;
+- deployment and release gates;
+- public/Admin API contracts;
+- related repository work in `nako-official-addons`;
+- any ADR/schema/public-contract decision that changes the MVP cut.
 
 ### library-metadata-control-plane
 

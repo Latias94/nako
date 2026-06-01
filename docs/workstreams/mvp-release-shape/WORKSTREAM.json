@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "slug": "mvp-release-shape",
+  "title": "MVP Release Shape",
+  "status": "active",
+  "updated": "2026-06-01",
+  "scope_kind": "product_architecture",
+  "problem": "Nako has strong capability lanes, but needs a release-shaped MVP boundary so future work converges on the first usable self-hosted video-first release instead of expanding all Jellyfin/Plex-class breadth at once.",
+  "task_prefix": "MRS",
+  "current_task": "MRS-050",
+  "completed_tasks": [
+    "MRS-010",
+    "MRS-020",
+    "MRS-030",
+    "MRS-040"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/mvp-release-shape/README.md"
+    },
+    {
+      "role": "mvp",
+      "path": "docs/workstreams/mvp-release-shape/MVP.md"
+    },
+    {
+      "role": "release_cut",
+      "path": "docs/workstreams/mvp-release-shape/RELEASE_CUT.md"
+    },
+    {
+      "role": "campaigns",
+      "path": "docs/workstreams/mvp-release-shape/CAMPAIGNS.md"
+    },
+    {
+      "role": "gap_matrix",
+      "path": "docs/workstreams/mvp-release-shape/GAP_MATRIX.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/mvp-release-shape/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/mvp-release-shape/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/mvp-release-shape/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/mvp-release-shape/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "context_manifest",
+      "path": "docs/workstreams/mvp-release-shape/CONTEXT.jsonl"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/mvp-release-shape/HANDOFF.md"
+    }
+  ],
+  "context_manifest": "docs/workstreams/mvp-release-shape/CONTEXT.jsonl",
+  "gates": [
+    "python -m json.tool docs/workstreams/mvp-release-shape/WORKSTREAM.json",
+    "git diff --check -- docs/workstreams/mvp-release-shape docs/deployment docs/architecture"
+  ],
+  "evidence": [
+    {
+      "task": "MRS-010",
+      "summary": "Opened the MVP release convergence lane, recorded the initial video-first self-hosted single-admin MVP cut, and linked it from planner-owned architecture docs."
+    },
+    {
+      "task": "MRS-020",
+      "summary": "Verified the release cut against current docs, active workstreams, selected code/test inventory, Web Public Client usage, deployment scripts, and related-repo status. Marked PTJCH-220 as a P0 blocker; classified GAMA-060 as conditional and CSAPA-050 as P1/deferred if browser/web remains the MVP path."
+    },
+    {
+      "task": "MRS-030",
+      "summary": "Defined the MVP validation ladder across planner/docs preflight, fast release gate, focused server tests, Web/Public Client smoke, PTJCH playback runtime closeout, package/container shape, official addon smoke, and conditional PostgreSQL compatibility."
+    },
+    {
+      "task": "MRS-040",
+      "summary": "Aligned active tails with the MVP cut: kept PTJCH-220 as the only current active-tail P0 blocker, classified GAMA-060 as conditional/P1, classified CSAPA-050 as deferred/P1, and recorded Web live smoke plus operations gate wrapper as possible MRS-050 splits."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0003-http-addons-before-in-process-plugins.md",
+    "docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md",
+    "docs/adr/0016-remote-storage-and-vfs-cache-boundary.md",
+    "docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md",
+    "docs/adr/0021-video-first-media-server-domain-model.md",
+    "docs/adr/0023-public-api-versioning-and-error-envelope-contract.md",
+    "docs/adr/0024-inbound-token-authentication-boundary.md",
+    "docs/adr/0026-native-client-shells-with-shared-rust-client-core.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md",
+    "docs/adr/0028-user-playback-state-principal-and-public-contract.md",
+    "docs/adr/0036-short-lived-browser-playback-tickets.md",
+    "docs/adr/0038-playback-planning-and-transcode-policy-seams.md",
+    "docs/adr/0045-ffmpeg-hardware-pipeline-planner.md",
+    "docs/adr/0052-hls-runtime-and-media-engine-boundary.md",
+    "docs/adr/0053-application-control-plane-boundary.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "capability": "MVP release convergence"
+    },
+    {
+      "path": "docs/architecture/LANES.md",
+      "capability": "mvp-release-convergence lane ownership"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "MVP Release Convergence"
+    },
+    {
+      "path": "docs/architecture/PLAYBACK.md",
+      "capability": "MVP playback and transcode release blockers"
+    },
+    {
+      "path": "docs/architecture/CONTROL_PLANE.md",
+      "capability": "MVP remote access, diagnostics, and API scale boundaries"
+    },
+    {
+      "path": "docs/architecture/OPERATIONS_RELEASE.md",
+      "capability": "MVP release gates and deployment readiness"
+    }
+  ],
+  "capability_tags": [
+    "product.mvp",
+    "release.convergence",
+    "program.planning",
+    "playback.mvp",
+    "admin.diagnostics",
+    "addon.sidecar-foundation",
+    "remote-access.cookbook"
+  ],
+  "lane_slug": "mvp-release-convergence",
+  "continue_policy": {
+    "default_action": "continue_current_task",
+    "notes": "Continue with MRS-050 closeout or campaign split. Do not implement code in this lane. Split implementation work only after a gap is proven to block the MVP user journey."
+  }
+}

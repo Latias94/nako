@@ -26,52 +26,52 @@ proposed milestone.
 
 ## Current Goal
 
-### Storage/VFS Resilience And Source Identity
+### MVP Release Shape
 
 Status: active.
 
 Objective:
 
-- Deepen Nako's storage/VFS and **Media Source** identity behavior before
-  broader remote-library, watcher/debounce, provider, managed import, or
-  Library File Write breadth depends on shallow fingerprint semantics.
-- Preserve source state across strong-evidence moves or renames while keeping
-  weak evidence as reviewable duplicate/similarity state.
-- Classify storage timeout, unavailable, permission, rate-limit, stale-cache,
-  and partial-staging failures consistently and safely.
+- Define the first release-shaped Nako MVP before more Jellyfin/Plex-class
+  breadth is added.
+- Converge current playback, metadata, web, addon, storage, network, and
+  release work around a video-first, self-hosted, single-admin user journey.
+- Route only true MVP blockers into active implementation lanes and explicitly
+  defer P1/P2 capabilities.
 
 Deliverables:
 
-- `docs/workstreams/storage-vfs-resilience-and-source-identity/`
-- source identity evidence policy
-- move/rename reconciliation behavior
-- storage failure classification and diagnostics
-- architecture links from `docs/architecture/STORAGE_VFS.md` and
+- `docs/workstreams/mvp-release-shape/`
+- MVP statement and release cut
+- release blocker gap matrix
+- MVP validation ladder
+- active queue alignment across `PTJCH`, `GAMA`, and `CSAPA`
+- architecture links from `docs/architecture/LANES.md` and
   `docs/architecture/WORKSTREAM_LINKS.md`
 
 Non-goals:
 
-- no Web UI or HLS runtime feature work;
-- no new storage backend unless a tiny fake adapter is needed for tests;
-- no mandatory full-file hashing for every source;
-- no automatic duplicate merge;
-- no provider breadth for TMDB, Douban, Bangumi, or addons.
+- no Rust or frontend implementation inside the MVP planning lane;
+- no Jellyfin Plugin Compatibility or native in-process plugin ABI;
+- no built-in tunnel provider or first-party relay;
+- no Addon Manager process/package lifecycle in the MVP cut;
+- no production mobile, TV, or desktop-native client implementation.
 
 Exit criteria:
 
-- SVRS-020 through SVRS-050 are complete or split into explicit follow-on
-  lanes.
-- Relevant SQLite/PostgreSQL repository contracts are covered if persistence
-  changes.
-- Admin diagnostics remain redaction-safe for **Source Locators**, raw paths,
-  ETags, credentials, and fingerprint values.
-- Final evidence and handoff notes are recorded in the workstream.
+- P0/P1/P2 scope has been verified against repository evidence.
+- MVP blockers are routed to active or newly opened workstreams with exact
+  gates and owners.
+- Non-MVP breadth is explicitly deferred.
+- Release gates prove install, scan, metadata, playback, Admin diagnostics,
+  Addon Sidecar foundation, network guidance, redaction, and packaging
+  readiness.
 
 Evidence:
 
-- `docs/workstreams/storage-vfs-resilience-and-source-identity/`
-- focused Cargo nextest gates listed in
-  `docs/workstreams/storage-vfs-resilience-and-source-identity/EVIDENCE_AND_GATES.md`
+- `docs/workstreams/mvp-release-shape/`
+- planning gates listed in
+  `docs/workstreams/mvp-release-shape/EVIDENCE_AND_GATES.md`
 
 ## Recent Completed Goals
 

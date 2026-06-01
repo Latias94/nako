@@ -1,0 +1,17 @@
+{"kind":"user_goal","path":"conversation","note":"User approved opening an MVP release-shape planning lane for Nako after deciding the project needs MVP convergence rather than a full plan rewrite."}
+{"kind":"glossary","path":"CONTEXT.md","note":"Domain language for Video-First Phase, Media Server Scope, Addon Sidecar, Hardware Capability Report, Remote Access Endpoint, and Single-Admin Mode."}
+{"kind":"product","path":"PRODUCT.md","note":"Product purpose, strategic surfaces, Admin Web vs Media Web boundary, desktop/mobile/client direction, and self-hosted clarity."}
+{"kind":"architecture","path":"docs/ARCHITECTURE.md","note":"North Star, system map, FFmpeg CLI first, out-of-process Addons, and explicit control-plane work."}
+{"kind":"lane_map","path":"docs/architecture/LANES.md","note":"Active queue and ownership map for planner, playback, web, storage, addon, and operations lanes."}
+{"kind":"architecture","path":"docs/architecture/PLAYBACK.md","note":"Playback/transcode capability state and follow-on lanes."}
+{"kind":"architecture","path":"docs/architecture/STORAGE_VFS.md","note":"Storage/VFS resilience and follow-on lanes."}
+{"kind":"architecture","path":"docs/architecture/LIBRARY_PIPELINE.md","note":"Scan, metadata, artwork, addon-assisted intake, and watcher/debounce risk."}
+{"kind":"architecture","path":"docs/architecture/STATE_ACCESS.md","note":"Identity, Library Access, playback policy, and persistence pressure."}
+{"kind":"architecture","path":"docs/architecture/CONTROL_PLANE.md","note":"Remote access, durable jobs, diagnostics, API scale, and Addon lifecycle boundaries."}
+{"kind":"architecture","path":"docs/architecture/OPERATIONS_RELEASE.md","note":"Release gates, deployment docs, FFmpeg hardware diagnostics, and remote access cookbook lanes."}
+{"kind":"architecture","path":"docs/architecture/REALTIME_SYNC.md","note":"Realtime and offline sync are future lanes unless MVP polling breaks key flows."}
+{"kind":"active_workstream","path":"docs/workstreams/playback-transcode-jellyfin-class-hardening/WORKSTREAM.json","note":"PTJCH active tail for playback runtime hardening."}
+{"kind":"active_workstream","path":"docs/workstreams/generated-artifact-metadata-authority-apply/WORKSTREAM.json","note":"GAMA backend route is stable; Web apply workflow remains a candidate MVP decision."}
+{"kind":"active_workstream","path":"docs/workstreams/client-surface-and-access-product-architecture/WORKSTREAM.json","note":"CSAPA must split or defer desktop playback strategy."}
+{"kind":"related_repo","path":"F:/SourceCodes/Rust/nako-official-addons","note":"Official addons repository is clean on main with no active workstreams at the time this lane opened."}
+{"kind":"reference_repo","path":"repo-ref/jellyfin","note":"Reference only for behavior and architecture pressure; do not copy source, schemas, migrations, comments, tests, assets, or generated code."}

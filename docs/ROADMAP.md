@@ -15,10 +15,26 @@ Status: active.
 
 Active architecture focus:
 
-Storage/VFS Resilience And Source Identity is the current architecture focus.
-It deepens source identity and storage failure behavior before broader remote
-library, watcher/debounce, provider, managed import, or Library File Write
-breadth depends on shallow fingerprint semantics:
+MVP Release Shape is the current architecture focus. It defines the first
+release-shaped Nako MVP before more Jellyfin/Plex-class breadth is added:
+
+- video-first, self-hosted, single-admin release cut;
+- P0/P1/P2 scope for install, scan, metadata, playback, Admin diagnostics,
+  Addon Sidecar foundation, and remote access guidance;
+- active queue alignment for playback/transcode, metadata authority apply, and
+  client-surface planning tails;
+- release blocker gap matrix and validation ladder.
+
+Authoritative lane:
+
+- `docs/workstreams/mvp-release-shape/`
+
+Latest completed architecture focus:
+
+Storage/VFS Resilience And Source Identity closed on 2026-05-30. It deepened
+source identity and storage failure behavior before broader remote library,
+watcher/debounce, provider, managed import, or Library File Write breadth
+depends on shallow fingerprint semantics:
 
 - layered **Source Fingerprint** evidence policy;
 - move/rename reconciliation with strong evidence;
@@ -31,7 +47,7 @@ Authoritative lane:
 
 - `docs/workstreams/storage-vfs-resilience-and-source-identity/`
 
-Latest completed architecture focus:
+Previous architecture focus:
 
 Addon Ecosystem Foundation closed on 2026-05-25. It deepened the Addon
 ecosystem before broader official addon breadth:

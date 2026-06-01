@@ -1,6 +1,6 @@
 # Architecture Workstream Links
 
-Last updated: 2026-05-31
+Last updated: 2026-06-01
 
 This index links architecture capability areas to workstream evidence and
 candidate follow-on lanes. The top-level architecture map stays concise; this
@@ -40,6 +40,18 @@ Recommended `WORKSTREAM.json` fields:
   "capability_tags": ["playback.hls.seek"]
 }
 ```
+
+## MVP Release Convergence
+
+Primary map: `docs/workstreams/mvp-release-shape/MVP.md`
+
+Evidence workstreams:
+
+- `docs/workstreams/mvp-release-shape/`
+
+This is a planner-owned release convergence overlay. It routes release
+blockers to existing capability lanes instead of replacing playback, storage,
+web, addon, client, or operations ownership.
 
 ## Playback And Transcode
 

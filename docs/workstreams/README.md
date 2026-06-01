@@ -16,8 +16,10 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 
 ## Active Execution Queue
 
-Last reviewed: 2026-05-31
+Last reviewed: 2026-06-01
 
+- [mvp-release-shape](mvp-release-shape/README.md) is active on lane
+  `mvp-release-convergence`; next task is `MRS-050`.
 - [generated-artifact-metadata-authority-apply](generated-artifact-metadata-authority-apply/README.md)
   is active on lane `library-metadata-control-plane`; next task is `GAMA-050`.
 - [client-surface-and-access-product-architecture](client-surface-and-access-product-architecture/README.md)
@@ -25,10 +27,11 @@ Last reviewed: 2026-05-31
 - [playback-transcode-jellyfin-class-hardening](playback-transcode-jellyfin-class-hardening/README.md)
   is active on lane `playback-transcode`; next task is `PTJCH-220`.
 
-Planner coordination should keep `GAMA-060` blocked until `GAMA-050` is
-reviewed and verified. `CSAPA` should split or explicitly defer desktop
-playback before closeout. The `web-product` lane is idle after
-`admin-media-management-context-links` closeout.
+Planner coordination should use `mvp-release-shape` to decide which active
+tails block the first release. Keep `GAMA-060` blocked until `GAMA-050` is
+reviewed and verified or the GAMA ledger is reconciled. `CSAPA` should split
+or explicitly defer desktop playback before closeout. The `web-product` lane
+is idle after `admin-media-management-context-links` closeout.
 `audio-compatibility-downmix-normalization`,
 `remote-storage-health-and-circuit-breaker`,
 `transcode-interface-and-runtime-plan-deepening`,
@@ -41,6 +44,10 @@ should still split to PAIP unless `PTJCH-310` explicitly accepts it.
 
 ## Current Workstreams
 
+- [mvp-release-shape](mvp-release-shape/README.md): active planner-owned
+  release convergence lane for defining the first video-first, self-hosted,
+  single-admin Nako MVP; routing release blockers to existing lanes; and
+  keeping post-MVP Jellyfin/Plex-class breadth out of the first release cut.
 - [playback-transcode-jellyfin-class-hardening](playback-transcode-jellyfin-class-hardening/README.md):
   active playback/transcode planner lane for freezing Jellyfin/Plex-class
   hardening seams, owned scopes, shared scopes, validation gates, and first
