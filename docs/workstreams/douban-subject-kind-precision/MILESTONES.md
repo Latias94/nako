@@ -15,6 +15,8 @@ Exit criteria:
 
 ## M1 - Endpoint-Backed Capability Claims
 
+Status: Complete after `DSKP-020`.
+
 Exit criteria:
 
 - Douban capabilities no longer claim Series, Season, or Episode support while

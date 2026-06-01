@@ -132,6 +132,37 @@ fn built_in_provider_capabilities_are_diagnostics_safe() {
             .supported_media_kinds
             .contains(&MediaKind::Movie)
     );
+    assert!(
+        !douban_capabilities
+            .supported_media_kinds
+            .contains(&MediaKind::Series)
+    );
+    assert!(
+        !douban_capabilities
+            .supported_media_kinds
+            .contains(&MediaKind::Season)
+    );
+    assert!(
+        !douban_capabilities
+            .supported_media_kinds
+            .contains(&MediaKind::Episode)
+    );
+    assert!(
+        !douban_capabilities
+            .supported_subject_kinds
+            .contains(&ProviderSubjectKind::Series)
+    );
+    assert!(
+        !douban_capabilities
+            .supported_subject_kinds
+            .contains(&ProviderSubjectKind::Season)
+    );
+    assert!(
+        !douban_capabilities
+            .supported_subject_kinds
+            .contains(&ProviderSubjectKind::Episode)
+    );
+    assert!(!douban_capabilities.supports_hierarchy);
     assert!(!debug.contains(fixtures::TMDB_TOKEN));
     assert!(!debug.contains(fixtures::BANGUMI_TOKEN));
     assert!(!debug.contains(fixtures::DOUBAN_API_KEY));
@@ -2640,6 +2671,47 @@ async fn douban_provider_uses_api_key_and_maps_http_response() {
             .iter()
             .any(|value| value == "ok")
     );
+}
+
+#[tokio::test]
+async fn douban_provider_rejects_series_season_episode_until_endpoint_backed() {
+    let server = MockMetadataServer::start().await;
+    let provider = DoubanMetadataProvider::new(DoubanProviderConfig {
+        api_key: Some(fixtures::DOUBAN_API_KEY.into()),
+        api_base_url: server.base_url(),
+        runtime: MetadataHttpRuntimeConfig {
+            min_interval_ms: 0,
+            ..MetadataHttpRuntimeConfig::default()
+        },
+        ..DoubanProviderConfig::default()
+    })
+    .unwrap();
+
+    for kind in [MediaKind::Series, MediaKind::Season, MediaKind::Episode] {
+        let search_err = provider
+            .search(MetadataLookup {
+                kind: Some(kind),
+                title: "Douban unsupported title".to_owned(),
+                year: Some(2024),
+                language: Some("zh-CN".to_owned()),
+                external_ids: Vec::new(),
+            })
+            .await
+            .unwrap_err();
+        let fetch_err = provider
+            .fetch(MetadataFetchRequest {
+                kind,
+                provider_key: "1292052".to_owned(),
+                language: Some("zh-CN".to_owned()),
+            })
+            .await
+            .unwrap_err();
+
+        assert!(matches!(search_err, NakoError::Unsupported(_)));
+        assert!(matches!(fetch_err, NakoError::Unsupported(_)));
+    }
+
+    assert!(server.uris().is_empty());
 }
 
 async fn seed_movie(

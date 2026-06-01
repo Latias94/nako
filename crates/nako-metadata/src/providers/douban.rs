@@ -80,18 +80,9 @@ impl MetadataProvider for DoubanMetadataProvider {
         MetadataProviderCapabilities {
             provider: ExternalProvider::Douban,
             provider_name: DOUBAN_PROVIDER_NAME.to_owned(),
-            supported_media_kinds: vec![
-                MediaKind::Movie,
-                MediaKind::Series,
-                MediaKind::Season,
-                MediaKind::Episode,
-                MediaKind::Unknown,
-            ],
+            supported_media_kinds: vec![MediaKind::Movie, MediaKind::Unknown],
             supported_subject_kinds: vec![
                 ProviderSubjectKind::Movie,
-                ProviderSubjectKind::Series,
-                ProviderSubjectKind::Season,
-                ProviderSubjectKind::Episode,
                 ProviderSubjectKind::Subject,
             ],
             supports_search: true,
@@ -110,18 +101,9 @@ impl MetadataProvider for DoubanMetadataProvider {
     }
 
     async fn search(&self, lookup: MetadataLookup) -> Result<Vec<MetadataCandidate>> {
-        if !lookup.kind.is_none_or(|kind| {
-            matches!(
-                kind,
-                MediaKind::Movie
-                    | MediaKind::Series
-                    | MediaKind::Season
-                    | MediaKind::Episode
-                    | MediaKind::Unknown
-            )
-        }) {
+        if !lookup.kind.is_none_or(douban_movie_endpoint_kind) {
             return Err(NakoError::Unsupported(
-                "Douban provider supports video metadata lookups only",
+                "Douban provider currently supports movie endpoint lookups only",
             ));
         }
 
@@ -170,16 +152,9 @@ impl MetadataProvider for DoubanMetadataProvider {
     }
 
     async fn fetch(&self, request: MetadataFetchRequest) -> Result<MetadataFetchResult> {
-        if !matches!(
-            request.kind,
-            MediaKind::Movie
-                | MediaKind::Series
-                | MediaKind::Season
-                | MediaKind::Episode
-                | MediaKind::Unknown
-        ) {
+        if !douban_movie_endpoint_kind(request.kind) {
             return Err(NakoError::Unsupported(
-                "Douban provider supports video metadata only",
+                "Douban provider currently supports movie endpoint metadata only",
             ));
         }
 
@@ -310,10 +285,15 @@ fn douban_search_score(lookup: &MetadataLookup, subject: &DoubanSubject) -> f32 
 fn provider_subject_kind_for_media_kind(kind: MediaKind) -> ProviderSubjectKind {
     match kind {
         MediaKind::Movie => ProviderSubjectKind::Movie,
-        MediaKind::Series => ProviderSubjectKind::Series,
-        MediaKind::Season => ProviderSubjectKind::Season,
-        MediaKind::Episode => ProviderSubjectKind::Episode,
-        MediaKind::Collection => ProviderSubjectKind::Collection,
-        MediaKind::Extra | MediaKind::Unknown => ProviderSubjectKind::Subject,
+        MediaKind::Collection
+        | MediaKind::Series
+        | MediaKind::Season
+        | MediaKind::Episode
+        | MediaKind::Extra
+        | MediaKind::Unknown => ProviderSubjectKind::Subject,
     }
+}
+
+fn douban_movie_endpoint_kind(kind: MediaKind) -> bool {
+    matches!(kind, MediaKind::Movie | MediaKind::Unknown)
 }

@@ -22,8 +22,10 @@ Authoritative docs:
 Current execution:
 
 - `DSKP-010` opens the lane.
-- `DSKP-020` is ready: tighten Douban media and Provider Subject capability
-  claims around endpoint-backed movie behavior.
+- `DSKP-020` is done: Douban media and Provider Subject capability claims now
+  match endpoint-backed movie behavior.
+- `DSKP-030` is ready: close the lane or split a future Douban TV/episode
+  endpoint follow-on.
 
 Boundary:
 

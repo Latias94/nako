@@ -7,7 +7,7 @@
   "scope_kind": "library_metadata_provider_precision",
   "problem": "Douban metadata currently uses movie search/detail endpoints, but the adapter advertises series, season, and episode support before endpoint-backed behavior exists.",
   "task_prefix": "DSKP",
-  "current_task": "DSKP-020",
+  "current_task": "DSKP-030",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -53,6 +53,10 @@
     {
       "task": "DSKP-010",
       "summary": "Opened the Douban subject-kind precision lane from MPDP and BRED closeout evidence."
+    },
+    {
+      "task": "DSKP-020",
+      "summary": "Narrowed Douban provider capabilities to movie endpoint-backed behavior and added unsupported Series/Season/Episode regression coverage."
     }
   ],
   "adr_refs": [
@@ -82,7 +86,7 @@
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
     "default_action": "run_current_task",
-    "current_task": "DSKP-020",
-    "notes": "Next narrow Douban capability claims to endpoint-backed movie behavior. Do not add schema, Public Client API, Admin/Web, Generated Artifact apply, hierarchy graph preview, Media Item hierarchy creation, or child Provider Mapping writes."
+    "current_task": "DSKP-030",
+    "notes": "Next close the lane or split future Douban TV/episode endpoint work. Do not add schema, Public Client API, Admin/Web, Generated Artifact apply, hierarchy graph preview, Media Item hierarchy creation, or child Provider Mapping writes."
   }
 }

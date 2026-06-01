@@ -13,12 +13,12 @@ Last updated: 2026-06-02
 
 ## M1 - Endpoint-Backed Douban Capability Claims
 
-- [ ] DSKP-020 [owner=codex] [deps=DSKP-010] [scope=crates/nako-metadata/src/providers/douban.rs,crates/nako-metadata/src/tests.rs,docs/workstreams/douban-subject-kind-precision]
+- [x] DSKP-020 [owner=codex] [deps=DSKP-010] [scope=crates/nako-metadata/src/providers/douban.rs,crates/nako-metadata/src/tests.rs,docs/workstreams/douban-subject-kind-precision]
   Goal: Narrow Douban provider media/subject capability claims to endpoint-backed movie behavior and add regression coverage.
   Validation: `cargo nextest run -p nako-metadata douban_provider built_in_provider_capabilities --no-fail-fast`; `cargo nextest run -p nako-metadata douban_provider metadata_candidate --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: no false series/season/episode support remains while only movie endpoints are implemented.
   Evidence: `EVIDENCE_AND_GATES.md`.
-  Handoff: Continue to `DSKP-030`.
+  Handoff: DONE; continue to `DSKP-030`.
 
 ## M2 - Closeout
 

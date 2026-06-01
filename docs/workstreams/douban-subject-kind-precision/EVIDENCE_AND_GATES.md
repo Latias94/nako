@@ -58,6 +58,34 @@ Local recon on 2026-06-02:
 - The first implementation slice should remove false capability claims before
   any future Douban TV or episode endpoint work.
 
+## DSKP-020 Evidence
+
+Red checks:
+
+- `cargo nextest run -p nako-metadata built_in_provider_capabilities_are_diagnostics_safe --no-fail-fast`
+  failed before implementation because Douban still advertised
+  `MediaKind::Series`.
+- `cargo nextest run -p nako-metadata douban_provider_rejects_series_season_episode_until_endpoint_backed --no-fail-fast`
+  failed before implementation because a Series search reached `/movie/search`
+  and returned a candidate graph.
+
+Implemented behavior:
+
+- Douban capabilities now advertise only `Movie` and `Unknown` media kinds and
+  only `Movie` and `Subject` Provider Subject kinds.
+- Douban search/fetch rejects `Series`, `Season`, and `Episode` before HTTP.
+- Unsupported Douban subject kinds no longer map to Series/Season/Episode
+  Provider Subject kinds through the movie endpoint.
+
+Green checks:
+
+- `cargo nextest run -p nako-metadata built_in_provider_capabilities_are_diagnostics_safe --no-fail-fast`
+- `cargo nextest run -p nako-metadata douban_provider_rejects_series_season_episode_until_endpoint_backed --no-fail-fast`
+- `cargo nextest run -p nako-metadata douban_provider built_in_provider_capabilities --no-fail-fast`
+- `cargo nextest run -p nako-metadata douban_provider metadata_candidate --no-fail-fast`
+- `cargo fmt --all -- --check`
+- `git diff --check`
+
 ## Notes
 
 - Do not change persistence semantics from this lane.
