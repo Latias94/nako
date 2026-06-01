@@ -239,6 +239,7 @@ Evidence workstreams:
 - `docs/workstreams/web-playlist-management-ui-mutations/`
 - `docs/workstreams/web-admin-generated-artifact-review-mutations/`
 - `docs/workstreams/generated-artifact-metadata-authority-apply/`
+- `docs/workstreams/web-admin-generated-artifact-recovery-ui/` (active)
 - `docs/workstreams/web-mvp-live-smoke/` (closed)
 
 Proposed lanes:
@@ -246,7 +247,6 @@ Proposed lanes:
 - `proposed:admin-settings-api-backed-restoration`
 - `proposed:web-public-client-library-scoped-item-browse`
 - `proposed:web-public-client-release-smoke-script`
-- `proposed:web-admin-generated-artifact-recovery-ui`
 - `proposed:web-player-error-recovery-ux`
 - `proposed:desktop-tauri-native-playback-spike`
 

@@ -18,13 +18,13 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 
 Last reviewed: 2026-06-02
 
-No workstream is currently active in the `library-metadata-control-plane` lane.
+`web-admin-generated-artifact-recovery-ui` is active in the `web-product`
+lane.
 
 Next task:
 
-- Open a focused follow-on for Web Admin recovery UI, bounded Generated
-  Artifact apply repair actions, or provider identity precision before
-  implementation.
+- `WAGR-020`: add a read-only Web Admin Generated Artifact recovery route with
+  filters, summary counters, route tests, and browser smoke.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -49,6 +49,9 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
 
 ## Current Workstreams
 
+- [web-admin-generated-artifact-recovery-ui](web-admin-generated-artifact-recovery-ui/README.md):
+  active Web Product lane for rendering the closed GAOR recovery queue as a
+  read-only Admin route before any bounded repair mutation is introduced.
 - [generated-artifact-provider-mapping-breadth](generated-artifact-provider-mapping-breadth/README.md):
   closed backend/Web authority lane for extending accepted metadata Generated
   Artifact apply so it can plan and apply Provider Subject and Provider

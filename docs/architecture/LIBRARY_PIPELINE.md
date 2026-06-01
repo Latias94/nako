@@ -172,7 +172,7 @@ Boundaries:
 
 Follow-ons:
 
-- `proposed:web-admin-generated-artifact-recovery-ui`
+- `docs/workstreams/web-admin-generated-artifact-recovery-ui/` (active)
 - `proposed:generated-artifact-apply-repair-actions`
 - `proposed:provider-identity-mapping-breadth`
 

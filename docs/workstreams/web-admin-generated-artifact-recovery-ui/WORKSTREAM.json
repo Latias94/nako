@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "slug": "web-admin-generated-artifact-recovery-ui",
+  "title": "Web Admin Generated Artifact Recovery UI",
+  "status": "active",
+  "updated": "2026-06-02",
+  "scope_kind": "web_product_admin_route",
+  "problem": "Generated Artifact apply recovery is available through Admin API and Web read models, but operators still lack a dedicated Web Admin route for inspecting repair-relevant stale/noop/failed/skipped state.",
+  "task_prefix": "WAGR",
+  "current_task": "WAGR-020",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/web-admin-generated-artifact-recovery-ui/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/web-admin-generated-artifact-recovery-ui/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/web-admin-generated-artifact-recovery-ui/TODO.md"
+    },
+    {
+      "role": "task_state",
+      "path": "docs/workstreams/web-admin-generated-artifact-recovery-ui/TASKS.jsonl"
+    },
+    {
+      "role": "campaign_state",
+      "path": "docs/workstreams/web-admin-generated-artifact-recovery-ui/CAMPAIGNS.jsonl"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/web-admin-generated-artifact-recovery-ui/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "context_manifest",
+      "path": "docs/workstreams/web-admin-generated-artifact-recovery-ui/CONTEXT.jsonl"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/web-admin-generated-artifact-recovery-ui/HANDOFF.md"
+    }
+  ],
+  "context_manifest": "docs/workstreams/web-admin-generated-artifact-recovery-ui/CONTEXT.jsonl",
+  "gates": [
+    "python -m json.tool docs/workstreams/web-admin-generated-artifact-recovery-ui/WORKSTREAM.json",
+    "JSONL validation for docs/workstreams/web-admin-generated-artifact-recovery-ui/TASKS.jsonl and CAMPAIGNS.jsonl",
+    "npm --prefix web run test -- src/test/data-source-contracts.test.ts",
+    "npm --prefix web run test -- src/test/route-contracts.test.tsx src/test/route-state-contracts.test.tsx",
+    "npm --prefix web run check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "WAGR-010",
+      "summary": "Opened a Web Product follow-on from GAOR closeout to render the existing read-only Generated Artifact apply recovery queue in Web Admin."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0027-admin-api-boundary-for-web-console.md",
+    "docs/adr/0053-application-control-plane-boundary.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/LANES.md",
+      "capability": "web-product lane ownership"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Web Product and control-plane recovery follow-ons"
+    },
+    {
+      "path": "docs/architecture/CONTROL_PLANE.md",
+      "capability": "Admin recovery workflow for Generated Artifact apply"
+    },
+    {
+      "path": "docs/architecture/LIBRARY_PIPELINE.md",
+      "capability": "Generated Artifact apply recovery visibility"
+    }
+  ],
+  "capability_tags": [
+    "web.admin.generated-artifact-recovery",
+    "control-plane.admin.generated-artifact-recovery",
+    "library.metadata.generated-artifact-apply-repair"
+  ],
+  "lane_slug": "web-product",
+  "continue_policy": {
+    "default_action": "run_current_task",
+    "current_task": "WAGR-020",
+    "notes": "Implement the read-only Web Admin recovery route first. Stop and split if mutation or backend contract changes become necessary."
+  }
+}

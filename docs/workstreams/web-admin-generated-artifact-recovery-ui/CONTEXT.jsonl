@@ -1,0 +1,8 @@
+{"role":"domain_glossary","path":"CONTEXT.md","reason":"Use Nako terminology for Generated Artifact, Canonical Metadata, Provider Mapping, and Admin surfaces."}
+{"role":"adr","path":"docs/adr/0027-admin-api-boundary-for-web-console.md","reason":"Admin Web must consume explicit Admin API/read-model boundaries."}
+{"role":"adr","path":"docs/adr/0053-application-control-plane-boundary.md","reason":"Recovery and repair belong to the control plane and must remain redacted and supervised."}
+{"role":"architecture","path":"docs/architecture/LANES.md","reason":"Confirms web-product ownership and shared library metadata coordination."}
+{"role":"architecture","path":"docs/architecture/WORKSTREAM_LINKS.md","reason":"Indexes the new follow-on and related evidence."}
+{"role":"workstream","path":"docs/workstreams/generated-artifact-apply-operations-repair/CLOSEOUT.md","reason":"Source closeout for the recovery read model and follow-on split."}
+{"role":"workstream","path":"docs/workstreams/web-admin-generated-artifact-recovery-ui/DESIGN.md","reason":"Current product boundary and non-goals."}
+{"role":"gates","path":"docs/workstreams/web-admin-generated-artifact-recovery-ui/EVIDENCE_AND_GATES.md","reason":"Fresh verification commands and browser smoke expectations."}

@@ -11,23 +11,26 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: follow-on selection after closeout.
+Status: active Web Product follow-on.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
-Operations Repair are both closed as of 2026-06-02. The next architecture focus
-should open a narrow follow-on instead of extending either completed lane.
+Operations Repair are both closed as of 2026-06-02. Web Admin Generated
+Artifact Recovery UI is now the focused follow-on.
 
-Candidate follow-ons:
+It targets:
 
-- `proposed:web-admin-generated-artifact-recovery-ui`;
-- `proposed:generated-artifact-apply-repair-actions`;
-- `proposed:metadata-provider-depth-and-precision`;
-- `proposed:admin-settings-api-backed-restoration`.
+- read-only Web Admin route for the GAOR recovery queue;
+- attention filtering, pagination, and summary counters;
+- no mutation controls until a separate repair-actions lane proves idempotency
+  and freshness reuse.
 
-Selection rule:
+Authoritative lane:
 
-- choose one focused lane with its own workstream, gates, and closeout target
-  before implementation.
+- `docs/workstreams/web-admin-generated-artifact-recovery-ui/`
+
+Next task:
+
+- `WAGR-020`: implement the read-only route and Web verification gates.
 
 Latest completed architecture focus:
 

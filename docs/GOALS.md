@@ -26,41 +26,41 @@ proposed milestone.
 
 ## Current Goal
 
-### Follow-On Selection After Apply Recovery Closeout
+### Web Admin Generated Artifact Recovery UI
 
-Status: planning as of 2026-06-02.
+Status: active as of 2026-06-02.
 
 Objective:
 
-- Choose the next focused implementation lane after Generated Artifact Provider
-  Mapping breadth and read-only apply recovery both closed.
-- Keep Web recovery UI, bounded repair mutation, provider identity precision,
-  and Admin settings restoration as separate scopes.
+- Turn the GAOR read-only recovery queue into a Web Admin operator route.
+- Let operators inspect repair-relevant Generated Artifact apply state before
+  adding repair mutation controls.
 
-Candidate deliverables:
+Deliverables:
 
-- `proposed:web-admin-generated-artifact-recovery-ui`
-- `proposed:generated-artifact-apply-repair-actions`
-- `proposed:metadata-provider-depth-and-precision`
-- `proposed:admin-settings-api-backed-restoration`
+- `docs/workstreams/web-admin-generated-artifact-recovery-ui/`
+- route state for attention, limit, and offset
+- summary counters and paginated recovery table
+- route/data-source tests and browser smoke evidence
 
 Non-goals:
 
 - no reopening `generated-artifact-provider-mapping-breadth`;
 - no reopening `generated-artifact-apply-operations-repair`;
-- no repair mutation before idempotency and freshness reuse are proven;
+- no repair mutation buttons in this lane;
 - no Public Client API changes for Admin recovery.
 
 Exit criteria:
 
-- the next workstream has a narrow problem statement, owner lane, validation
-  gates, and explicit follow-ons;
-- architecture maps point at proposed work instead of stale active lanes.
+- Web Admin route renders fixture/live recovery state with no raw internal
+  leakage;
+- route contracts, data-source tests, TypeScript check, and browser smoke pass;
+- repair mutation remains split to a focused follow-on.
 
 Evidence:
 
-- `docs/workstreams/generated-artifact-provider-mapping-breadth/CLOSEOUT.md`
 - `docs/workstreams/generated-artifact-apply-operations-repair/CLOSEOUT.md`
+- `docs/workstreams/web-admin-generated-artifact-recovery-ui/`
 
 ## Recent Completed Goals
 
