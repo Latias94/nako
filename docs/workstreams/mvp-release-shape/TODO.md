@@ -72,4 +72,5 @@ Last updated: 2026-06-01
   Handoff: IN_PROGRESS. Campaign A (`PTJCH-220`) and Campaign B
   (`web-mvp-live-smoke`) are integrated on `main`; Campaign C remains optional
   for one-command release proof, and Campaign D remains conditional on an
-  official addon claim.
+  official addon claim. Release-candidate Gate 0, Gate 1, and Gate 2 now pass;
+  continue from Gate 3 Web/Public Client validation.

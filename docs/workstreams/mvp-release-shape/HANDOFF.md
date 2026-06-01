@@ -23,6 +23,13 @@ queue:
   remaining optional/conditional campaigns.
 - Campaign A (`PTJCH-220`) and Campaign B (`web-mvp-live-smoke`) have been
   merged to `main` after `integrate-lane-results` review and post-merge gates.
+- Release-candidate validation has started on `main`. Gate 0 planner/docs
+  preflight, Gate 1 `scripts/release-gate.ps1 -Mode fast`, and Gate 2 focused
+  server MVP journey tests now pass.
+- The Gate 2 retry fixed a stale official external acquisition runner catalog
+  assertion. The catalog resolve response now correctly exposes the optional
+  `transmission_password` Secret Reference declaration while still proving no
+  raw links, bearer tokens, addon tokens, or host internals leak.
 
 Important `MRS-020` findings:
 
@@ -44,8 +51,8 @@ Continue `MRS-050` only for release-candidate coordination:
 
 Key checks:
 
-- run the documented MVP validation ladder from a clean release-candidate
-  worktree;
+- continue the documented MVP validation ladder from Gate 3 Web/Public Client
+  validation;
 - split an `operations-release` gate-wrapper task only if the team wants one
   command for the full video-first ladder;
 - keep `GAMA-060` and `CSAPA-050` out of the MVP campaign unless the product

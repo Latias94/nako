@@ -343,7 +343,7 @@ non-MVP-blocking by this lane. `WORKSTREAM.json` is valid. `git diff --check`
 emitted LF/CRLF working-copy warnings for touched Markdown files and no
 whitespace errors.
 
-### MRS-050 - Campaign Integration
+### MRS-050 - Campaign Integration And RC Validation
 
 Status: In progress
 
@@ -361,6 +361,10 @@ Evidence collected:
   smoke conditional.
 - The operations release wrapper remains optional until the team requires a
   single command for the full video-first ladder.
+- Release-candidate validation has started on `main`. Gate 0 and Gate 1 pass;
+  Gate 2 passes after aligning the external acquisition runner catalog resolve
+  test with the official optional `transmission_password` Secret Reference
+  declaration.
 
 Fresh validation:
 
@@ -380,3 +384,23 @@ with media route JS at 43.68 KiB raw / 12.07 KiB gzip and total JS at
 1132.92 KiB raw / 331.89 KiB gzip. `git diff --check` passed after trimming
 new-file EOF blanks from the Web smoke docs; it emitted LF/CRLF working-copy
 warnings only.
+
+Release-candidate validation:
+
+```text
+python -m json.tool docs/workstreams/mvp-release-shape/WORKSTREAM.json
+python C:/Users/Frankorz/.codex/skills/plan-engineering-program/scripts/workstream_inventory.py --root .
+git diff --check -- docs/workstreams/mvp-release-shape docs/deployment docs/architecture
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode docs
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode fast
+cargo nextest run -p nako-server self_host_smoke scan_library metadata storage addons playback hls user_playback --no-fail-fast
+```
+
+Result: Gate 0, Gate 1, and Gate 2 passed on 2026-06-01. Workstream inventory
+still reports `mvp-release-shape`, `playback-transcode-jellyfin-class-hardening`,
+and `web-mvp-live-smoke` as ready; the known `GAMA-060` and `CSAPA-050`
+readiness issues remain non-MVP-blocking. The first Gate 1 run exposed stale
+Admin Web mock fixtures, fixed by `d1c8550d`. The first Gate 2 run exposed a
+stale Addon catalog resolve assertion, fixed by `94385f98`, and a playback
+permit timing failure that passed on focused rerun. The final Gate 2 combined
+server run passed 341/341 with 169 skipped.
