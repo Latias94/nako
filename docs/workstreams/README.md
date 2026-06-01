@@ -24,9 +24,8 @@ Last reviewed: 2026-06-02
 
 Next task:
 
-- `MPDP-040`: split TMDB episode graph depth, Bangumi relations/episodes,
-  Douban precision, durable candidate review, and Admin/Web confirmation
-  follow-ons.
+- `MPDP-050`: close `metadata-provider-depth-and-precision` after validating
+  follow-on routing.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,

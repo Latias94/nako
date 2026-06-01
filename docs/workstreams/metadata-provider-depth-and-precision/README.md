@@ -19,6 +19,7 @@ Authoritative docs:
 - `TODO.md`
 - `MILESTONES.md`
 - `EVIDENCE_AND_GATES.md`
+- `FOLLOW_ONS.md`
 - `CONTEXT.jsonl`
 - `HANDOFF.md`
 
@@ -29,9 +30,10 @@ Current execution:
   non-mutating evidence.
 - `MPDP-030` proved refresh and Provider Mapping persistence remain root-only
   when graph preview nodes are present.
-- `MPDP-040` is ready: split follow-ons for TMDB episode depth, Bangumi
+- `MPDP-040` split follow-ons for TMDB episode depth, Bangumi
   relations/episodes, Douban precision, durable candidate review, and
-  Admin/Web confirmation.
+  Admin/Web confirmation in `FOLLOW_ONS.md`.
+- `MPDP-050` is ready: close this lane.
 
 Boundary:
 

@@ -162,6 +162,32 @@ cargo fmt --all -- --check
 
 Result: passed.
 
+## MPDP-040 Evidence
+
+Completed on 2026-06-02.
+
+Split follow-ons:
+
+- `proposed:tmdb-season-episode-graph-depth`
+- `proposed:bangumi-relations-and-episode-depth`
+- `proposed:douban-subject-kind-precision`
+- `proposed:metadata-candidate-durable-review`
+- `proposed:admin-web-provider-depth-governance`
+
+Evidence:
+
+- `docs/workstreams/metadata-provider-depth-and-precision/FOLLOW_ONS.md`
+- `docs/architecture/WORKSTREAM_LINKS.md`
+- `docs/architecture/LIBRARY_PIPELINE.md`
+
+Boundary:
+
+- The first slice remains TMDB series -> season graph preview only.
+- Root-only refresh persistence remains the accepted behavior.
+- No schema, Public Client API, Web confirmation UI, Generated Artifact apply
+  behavior, automatic hierarchy creation, or child Provider Mapping writes were
+  added.
+
 ## Notes
 
 - Treat raw provider responses, provider headers, tokens, proxy URLs, local

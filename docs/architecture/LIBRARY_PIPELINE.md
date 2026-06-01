@@ -58,8 +58,9 @@ Initial boundary:
 - add TMDB series -> season provider graph evidence before hierarchy mutation;
 - preserve root-only refresh and Provider Mapping persistence for graph
   preview data;
-- split capability-matrix, Douban, Bangumi, and TMDB episode follow-ons only
-  after the first graph slice lands;
+- split TMDB episode, Bangumi, Douban, durable candidate review, and Admin/Web
+  confirmation follow-ons through
+  `docs/workstreams/metadata-provider-depth-and-precision/FOLLOW_ONS.md`;
 - keep candidate review non-mutating and redaction-safe;
 - do not change schema, Public Client API, or Generated Artifact apply behavior
   in the first task.

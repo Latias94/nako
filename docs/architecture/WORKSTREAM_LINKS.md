@@ -195,6 +195,11 @@ Proposed lanes:
 
 - `proposed:library-watcher-and-media-intake-stability`
 - `proposed:artwork-delivery-cache-placeholder`
+- `proposed:tmdb-season-episode-graph-depth`
+- `proposed:bangumi-relations-and-episode-depth`
+- `proposed:douban-subject-kind-precision`
+- `proposed:metadata-candidate-durable-review`
+- `proposed:admin-web-provider-depth-governance`
 - `proposed:provider-identity-mapping-breadth`
 
 ## State, Database, Identity, And Access

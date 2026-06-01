@@ -120,3 +120,16 @@ This task should answer:
 - how refresh and Provider Mapping persistence stay root-only;
 - which follow-ons should own episode graph depth, Bangumi relations, Douban
   precision, durable candidate review, and Admin/Web confirmation.
+
+## Follow-On Split
+
+`MPDP-040` records the follow-on split in `FOLLOW_ONS.md`:
+
+- `proposed:tmdb-season-episode-graph-depth`
+- `proposed:bangumi-relations-and-episode-depth`
+- `proposed:douban-subject-kind-precision`
+- `proposed:metadata-candidate-durable-review`
+- `proposed:admin-web-provider-depth-governance`
+
+These proposed lanes should open separately. This lane should close after the
+split is validated because its first safe vertical slice is already proven.

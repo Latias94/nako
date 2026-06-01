@@ -31,11 +31,11 @@ Last updated: 2026-06-02
 
 ## M3 — Follow-On Split
 
-- [ ] MPDP-040 [owner=planner] [deps=MPDP-030] [scope=docs/workstreams/metadata-provider-depth-and-precision,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
+- [x] MPDP-040 [owner=planner] [deps=MPDP-030] [scope=docs/workstreams/metadata-provider-depth-and-precision,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
   Goal: Split episode graph depth, Bangumi relation depth, Douban precision, durable candidate review, and Admin/Web confirmation follow-ons.
   Validation: fresh gate evidence in `EVIDENCE_AND_GATES.md`; JSON/JSONL validation; `git diff --check`.
-  Review: first slice remains TMDB season graph preview only.
-  Evidence: `EVIDENCE_AND_GATES.md`.
+  Review: first slice remains TMDB season graph preview only. Passed on 2026-06-02.
+  Evidence: `FOLLOW_ONS.md`, `EVIDENCE_AND_GATES.md` MPDP-040 section.
   Handoff: Continue to `MPDP-050`.
 
 ## M4 — Closeout

@@ -11,3 +11,4 @@
 {"role":"admin_context","path":"docs/workstreams/admin-catalog-governance-read-model/DESIGN.md","reason":"Admin governance read-model needs for Provider Mapping counts and future details."}
 {"role":"workstream","path":"docs/workstreams/metadata-provider-depth-and-precision/DESIGN.md","reason":"Current lane design and non-goals."}
 {"role":"gates","path":"docs/workstreams/metadata-provider-depth-and-precision/EVIDENCE_AND_GATES.md","reason":"Validation commands and evidence ledger."}
+{"role":"follow_ons","path":"docs/workstreams/metadata-provider-depth-and-precision/FOLLOW_ONS.md","reason":"Explicit proposed lane split after TMDB graph preview and root-only refresh guard."}

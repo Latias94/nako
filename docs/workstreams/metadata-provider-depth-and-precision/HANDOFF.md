@@ -10,11 +10,12 @@ The lane is active in the `library-metadata-control-plane` queue.
 `MPDP-020` shipped the first vertical slice: TMDB series fetch exposes season
 Provider Subjects in the candidate graph. `MPDP-030` proved refresh persists
 only the root Provider Subject/Mapping and does not create child Media Items or
-child Provider Subjects from graph preview data.
+child Provider Subjects from graph preview data. `MPDP-040` split remaining
+depth work into proposed lanes in `FOLLOW_ONS.md`.
 
 ## Active Task
 
-- Task ID: `MPDP-040`
+- Task ID: `MPDP-050`
 - Owner: planner
 - Files: this workstream, `docs/architecture`, `docs/GOALS.md`, and `docs/ROADMAP.md`
 - Validation: JSON/JSONL validation and `git diff --check`
@@ -32,10 +33,9 @@ child Provider Subjects from graph preview data.
 
 ## Blockers
 
-- None for `MPDP-040`.
+- None for `MPDP-050`.
 
 ## Next Recommended Action
 
-- Run `MPDP-040`: split follow-ons for TMDB episode graph depth, Bangumi
-  relations/episodes, Douban subject precision, durable candidate review, and
-  Admin/Web confirmation.
+- Run `MPDP-050`: close the lane after validating the evidence and proposed
+  follow-on routing.
