@@ -82,3 +82,35 @@ Green checks:
 - JSONL validation for `TASKS.jsonl`, `CAMPAIGNS.jsonl`, and `CONTEXT.jsonl`
   passed.
 - `git diff --check` passed with Git CRLF normalization warnings only.
+
+## AWPDG-020 Evidence
+
+Implemented behavior:
+
+- added `GET /admin/v1/metadata/candidate-reviews/{review_id}`;
+- exposed durable Metadata Candidate Review detail, preview related graph
+  evidence, and accepted-review application plan facts through Admin DTOs;
+- redacted candidate metadata to titles, dates, presence flags, and counts
+  instead of raw descriptions, tags, image URLs, provider bodies, paths, tokens,
+  or fingerprints;
+- reused `build_candidate_review_application_plan` for action/reason/source
+  facts instead of duplicating application rules in HTTP;
+- kept the route read-only: no Provider Subject, Provider Mapping, Canonical
+  Metadata, or related graph state is written on read;
+- regenerated both Admin TypeScript contract outputs.
+
+Red check:
+
+- `cargo nextest run -p nako-server admin_v1_metadata_candidate_review_detail --no-fail-fast`
+  initially failed because Admin Candidate Review DTOs and route were missing.
+
+Green checks:
+
+- `cargo nextest run -p nako-server admin_v1_metadata_candidate_review_detail --no-fail-fast`
+  passed: 1 test run, 1 passed.
+- `cargo nextest run -p nako-api admin_contract --no-fail-fast` passed: 5
+  tests run, 5 passed.
+- `cargo nextest run -p nako-server candidate_review admin --no-fail-fast`
+  passed: 108 tests run, 108 passed.
+- `cargo fmt --all -- --check` passed.
+- `git diff --check` passed with Git CRLF normalization warnings only.

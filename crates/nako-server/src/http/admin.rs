@@ -93,9 +93,10 @@ use nako_core::{
     GeneratedArtifactMetadataApplyRecoveryAttention, GeneratedArtifactMetadataApplyRecoveryFilter,
     GeneratedArtifactMetadataBulkApplyBatchId, ImageKind, JobId, LibraryAccessPolicy,
     LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId, ManagedArtworkArtifactId,
-    ManagedArtworkIngestId, MediaItemId, NakoError, PageRequest, PlaybackTargetKind,
-    PlaybackTargetTransportAuth, ProviderMappingId, RendererSessionRecord, RendererSessionState,
-    RoleAssignment, User, UserId, UserInvitationId, UserPrincipalId, UserRole, UserStatus,
+    ManagedArtworkIngestId, MediaItemId, MetadataCandidateReviewId, NakoError, PageRequest,
+    PlaybackTargetKind, PlaybackTargetTransportAuth, ProviderMappingId, RendererSessionRecord,
+    RendererSessionState, RoleAssignment, User, UserId, UserInvitationId, UserPrincipalId,
+    UserRole, UserStatus,
 };
 use nako_db::DatabaseBackendCapabilities;
 use nako_transcode::{
@@ -198,6 +199,10 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review",
             post(review_admin_catalog_governance_provider_mapping),
+        )
+        .route(
+            "/admin/v1/metadata/candidate-reviews/{review_id}",
+            get(get_admin_metadata_candidate_review),
         )
         .route("/admin/v1/events", get(list_admin_outbox_events))
         .route("/admin/v1/jobs", get(list_admin_jobs))
@@ -1046,6 +1051,17 @@ pub(super) async fn review_admin_catalog_governance_provider_mapping(
     Ok(Json(
         app.catalog()
             .review_catalog_governance_provider_mapping(item_id, mapping_id, request.decision)
+            .await?,
+    ))
+}
+
+pub(super) async fn get_admin_metadata_candidate_review(
+    State(app): State<NakoApp>,
+    Path(review_id): Path<MetadataCandidateReviewId>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.metadata()
+            .get_admin_metadata_candidate_review(review_id)
             .await?,
     ))
 }

@@ -17,7 +17,7 @@ Exit criteria:
 
 ## M1 - Read-Only Admin API Review Plan
 
-Status: Ready after `AWPDG-010`.
+Status: Complete after `AWPDG-020`.
 
 Exit criteria:
 
@@ -28,7 +28,7 @@ Exit criteria:
 
 ## M2 - Confirmed Admin API Apply Mutation
 
-Status: Pending after `AWPDG-020`.
+Status: Ready after `AWPDG-020`.
 
 Exit criteria:
 

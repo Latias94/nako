@@ -1,11 +1,18 @@
 use super::*;
 use nako_api::admin::{
     AdminGeneratedArtifactMetadataApplyRecoveryResponse,
-    AdminStorageBackendHealthDiagnosticsResponse, AdminStorageBackendHealthResetResponse,
+    AdminMetadataCandidateReviewApplicationAction, AdminMetadataCandidateReviewApplicationReason,
+    AdminMetadataCandidateReviewResponse, AdminStorageBackendHealthDiagnosticsResponse,
+    AdminStorageBackendHealthResetResponse,
 };
 use nako_core::{
-    StorageBackendHealthRecord, StorageBackendHealthRepository, StorageBackendHealthStatus,
-    StorageCircuitBreakerState, StorageFailureClass,
+    MetadataCandidateRecord, MetadataCandidateRelationshipKind, MetadataCandidateReviewId,
+    MetadataCandidateReviewNode, MetadataCandidateReviewPlan, MetadataCandidateReviewRelationship,
+    MetadataCandidateReviewRepository,
+    MetadataCandidateReviewStatus as DurableMetadataCandidateReviewStatus, MetadataCandidateSource,
+    MetadataCandidateSubject, NewMetadataCandidateReview, StorageBackendHealthRecord,
+    StorageBackendHealthRepository, StorageBackendHealthStatus, StorageCircuitBreakerState,
+    StorageFailureClass,
 };
 
 fn system_process_backed_hls_playlist_readiness_timeout() -> Duration {
@@ -792,6 +799,246 @@ async fn admin_v1_catalog_governance_provider_mapping_review_mutates_idempotentl
     assert_eq!(replay.current_status, ProviderMappingStatus::Accepted);
     assert!(!replay.changed);
     assert!(replay.idempotent_replay);
+}
+
+#[tokio::test]
+async fn admin_v1_metadata_candidate_review_detail_is_redacted_and_read_only() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("nako-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Series,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Depth Candidate".to_owned(),
+            release_date: Some("2026-05-30".to_owned()),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: "local:///Private/Depth.Candidate.S01E01.mkv?token=secret".to_owned(),
+        file_name: "Depth.Candidate.S01E01.mkv".to_owned(),
+        size_bytes: Some(42),
+        fingerprint: Some("sha256-private-candidate-review".to_owned()),
+    };
+    let root_subject = MetadataCandidateSubject {
+        provider: ExternalProvider::Bangumi,
+        subject_kind: ProviderSubjectKind::Subject,
+        subject_key: "1437".to_owned(),
+        title: Some("Depth Candidate".to_owned()),
+        release_year: Some(2026),
+        locale: Some("zh-CN".to_owned()),
+    };
+    let related_subject = MetadataCandidateSubject {
+        provider: ExternalProvider::Bangumi,
+        subject_kind: ProviderSubjectKind::Episode,
+        subject_key: "1437/1".to_owned(),
+        title: Some("Episode One".to_owned()),
+        release_year: Some(2026),
+        locale: Some("zh-CN".to_owned()),
+    };
+    let review_id = MetadataCandidateReviewId::new();
+    store.upsert_media_item(&item).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id,
+            item_id: item.id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+    let inserted = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: review_id,
+            item_id: item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+            source_key: "bangumi:1437".to_owned(),
+            plan: MetadataCandidateReviewPlan {
+                root: MetadataCandidateReviewNode {
+                    source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+                    kind: MediaKind::Series,
+                    subject: Some(root_subject.clone()),
+                    metadata: MetadataCandidateRecord {
+                        title: Some("Depth Candidate".to_owned()),
+                        overview: Some(
+                            "raw provider payload should not leak secret-overview".to_owned(),
+                        ),
+                        release_date: Some("2026-05-30".to_owned()),
+                        runtime_minutes: Some(24),
+                        tags: vec!["secret-tag".to_owned()],
+                        ..MetadataCandidateRecord::default()
+                    },
+                },
+                related: vec![MetadataCandidateReviewNode {
+                    source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+                    kind: MediaKind::Episode,
+                    subject: Some(related_subject.clone()),
+                    metadata: MetadataCandidateRecord {
+                        title: Some("Episode One".to_owned()),
+                        overview: Some("secret-related-overview".to_owned()),
+                        release_date: Some("2026-06-01".to_owned()),
+                        ..MetadataCandidateRecord::default()
+                    },
+                }],
+                relationships: vec![MetadataCandidateReviewRelationship {
+                    parent_subject: root_subject,
+                    child_subject: related_subject,
+                    kind: MetadataCandidateRelationshipKind::Contains,
+                }],
+            },
+            expires_at_ms: None,
+            created_at_ms: 100,
+            updated_at_ms: 200,
+        })
+        .await
+        .unwrap();
+    store
+        .set_metadata_candidate_review_status(
+            inserted.id,
+            DurableMetadataCandidateReviewStatus::Accepted,
+            300,
+        )
+        .await
+        .unwrap();
+
+    let router = build_router(app);
+    let path = format!("/admin/v1/metadata/candidate-reviews/{review_id}");
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let detail: AdminMetadataCandidateReviewResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(detail.review.review_id, review_id);
+    assert_eq!(detail.review.item_id, item.id);
+    assert_eq!(
+        detail.review.status,
+        DurableMetadataCandidateReviewStatus::Accepted
+    );
+    assert_eq!(
+        detail.review.root.subject.as_ref().unwrap().subject_key,
+        "1437"
+    );
+    assert_eq!(detail.review.related.len(), 1);
+    assert_eq!(
+        detail.review.related[0]
+            .subject
+            .as_ref()
+            .unwrap()
+            .subject_key,
+        "1437/1"
+    );
+    assert_eq!(detail.review.relationship_count, 1);
+    assert_eq!(
+        detail.application_plan.action,
+        AdminMetadataCandidateReviewApplicationAction::Apply
+    );
+    assert_eq!(
+        detail.application_plan.reasons,
+        vec![AdminMetadataCandidateReviewApplicationReason::Ready]
+    );
+    assert!(detail.boundary.read_only);
+    assert!(!detail.boundary.applies_on_read);
+    assert!(detail.boundary.apply_mutation_required);
+    assert!(detail.boundary.apply_updates_root_provider_subject);
+    assert!(detail.boundary.apply_updates_root_provider_mapping);
+    assert!(!detail.boundary.apply_updates_related_provider_subjects);
+    assert!(!detail.boundary.apply_updates_related_provider_mappings);
+    assert!(!detail.boundary.updates_canonical_metadata);
+    assert!(!detail.boundary.updates_hierarchy);
+    assert!(!detail.boundary.writes_nfo);
+    assert!(!detail.boundary.writes_library_files);
+    assert!(
+        store
+            .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .find_provider_subject(
+                &ExternalProvider::Bangumi,
+                &ProviderSubjectKind::Subject,
+                "1437"
+            )
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        store
+            .find_provider_subject(
+                &ExternalProvider::Bangumi,
+                &ProviderSubjectKind::Episode,
+                "1437/1"
+            )
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(!body.contains("overview"));
+    assert!(!body.contains("secret-overview"));
+    assert!(!body.contains("secret-related-overview"));
+    assert!(!body.contains("secret-tag"));
+    assert!(!body.contains("local:///"));
+    assert!(!body.contains("token=secret"));
+    assert!(!body.contains("sha256-private-candidate-review"));
+    assert!(!body.contains(&temp.path().display().to_string()));
 }
 
 #[tokio::test]

@@ -13,11 +13,11 @@ Last updated: 2026-06-02
 
 ## M1 - Read-Only Admin API Review Plan
 
-- [ ] AWPDG-020 [owner=codex] [deps=AWPDG-010] [scope=crates/nako-api,crates/nako-server,crates/nako-metadata,docs/workstreams/admin-web-provider-depth-governance]
+- [x] AWPDG-020 [owner=codex] [deps=AWPDG-010] [scope=crates/nako-api,crates/nako-server,crates/nako-metadata,docs/workstreams/admin-web-provider-depth-governance]
   Goal: Expose durable Metadata Candidate Review detail and accepted-review application plan facts through a redaction-safe read-only Admin API boundary.
   Validation: `cargo nextest run -p nako-api admin_contract --no-fail-fast`; `cargo nextest run -p nako-server candidate_review admin --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: route must not write Provider Subject, Provider Mapping, Canonical Metadata, or related graph node state.
-  Evidence: `EVIDENCE_AND_GATES.md`.
+  Evidence: `EVIDENCE_AND_GATES.md` (`AWPDG-020 Evidence`).
   Handoff: Continue to `AWPDG-030`.
 
 ## M2 - Confirmed Admin API Apply Mutation

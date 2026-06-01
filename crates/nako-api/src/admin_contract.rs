@@ -1,6 +1,6 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 64] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 65] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -125,6 +125,10 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 64] = [
     (
         "catalogGovernanceProviderMappingReview",
         "catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review",
+    ),
+    (
+        "metadataCandidateReview",
+        "metadata/candidate-reviews/{review_id}",
     ),
     ("events", "events"),
     ("jobs", "jobs"),
@@ -1535,6 +1539,139 @@ export type AdminMetadataSource =
   | "user"
   | { addon: string };
 
+export type AdminMetadataCandidateReviewStatus =
+  | "pending"
+  | "accepted"
+  | "rejected"
+  | "superseded"
+  | "expired";
+
+export type AdminMetadataCandidateReviewApplicationAction =
+  | "apply"
+  | "skip"
+  | "noop";
+
+export type AdminMetadataCandidateReviewApplicationReason =
+  | "review_not_accepted"
+  | "missing_root_subject"
+  | "unsupported_source"
+  | "existing_accepted_mapping"
+  | "existing_candidate_mapping"
+  | "existing_rejected_mapping"
+  | "ready";
+
+export type AdminMetadataCandidateReviewMediaKind =
+  | "movie"
+  | "series"
+  | "season"
+  | "episode"
+  | "collection"
+  | "extra"
+  | "unknown";
+
+export type AdminMetadataCandidateReviewSource =
+  | "local"
+  | "nfo"
+  | { provider: AdminExternalProvider }
+  | { addon: string }
+  | { automation: string }
+  | "user"
+  | { other: string };
+
+export type AdminMetadataCandidateReviewRelationshipKind =
+  | "contains"
+  | "belongs_to"
+  | "related";
+
+export interface AdminMetadataCandidateSubject {
+  provider: AdminExternalProvider;
+  subject_kind: AdminProviderSubjectKind;
+  subject_key: string;
+  title: string | null;
+  release_year: number | null;
+  locale: string | null;
+}
+
+export interface AdminMetadataCandidateReviewMetadataSummary {
+  title: string | null;
+  original_title: string | null;
+  sort_title: string | null;
+  release_date: string | null;
+  runtime_minutes: number | null;
+  description_present: boolean;
+  tagline_present: boolean;
+  genre_count: number;
+  tag_count: number;
+  rating_count: number;
+  image_count: number;
+  credit_count: number;
+  collection_count: number;
+  studio_count: number;
+  external_id_count: number;
+}
+
+export interface AdminMetadataCandidateReviewNode {
+  source: AdminMetadataCandidateReviewSource;
+  kind: AdminMetadataCandidateReviewMediaKind;
+  subject: AdminMetadataCandidateSubject | null;
+  metadata: AdminMetadataCandidateReviewMetadataSummary;
+}
+
+export interface AdminMetadataCandidateReviewRelationship {
+  parent_subject: AdminMetadataCandidateSubject;
+  child_subject: AdminMetadataCandidateSubject;
+  kind: AdminMetadataCandidateReviewRelationshipKind;
+}
+
+export interface AdminMetadataCandidateReviewDetail {
+  review_id: string;
+  item_id: string;
+  source: AdminMetadataCandidateReviewSource;
+  source_key: string;
+  status: AdminMetadataCandidateReviewStatus;
+  root: AdminMetadataCandidateReviewNode;
+  related: AdminMetadataCandidateReviewNode[];
+  relationships: AdminMetadataCandidateReviewRelationship[];
+  related_count: number;
+  relationship_count: number;
+  expires_at_ms: number | null;
+  created_at_ms: number;
+  updated_at_ms: number;
+}
+
+export interface AdminMetadataCandidateReviewApplicationPlan {
+  review_id: string;
+  item_id: string;
+  action: AdminMetadataCandidateReviewApplicationAction;
+  reasons: AdminMetadataCandidateReviewApplicationReason[];
+  source: AdminMetadataSource | null;
+  root_subject: AdminMetadataCandidateSubject | null;
+  existing_mapping_id: string | null;
+  existing_mapping_status: AdminProviderMappingStatus | null;
+}
+
+export interface AdminMetadataCandidateReviewApplicationBoundary {
+  read_only: boolean;
+  applies_on_read: boolean;
+  apply_mutation_required: boolean;
+  apply_updates_root_provider_subject: boolean;
+  apply_updates_root_provider_mapping: boolean;
+  apply_updates_related_provider_subjects: boolean;
+  apply_updates_related_provider_mappings: boolean;
+  updates_canonical_metadata: boolean;
+  updates_hierarchy: boolean;
+  writes_nfo: boolean;
+  writes_library_files: boolean;
+}
+
+export interface AdminMetadataCandidateReviewResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  review: AdminMetadataCandidateReviewDetail;
+  application_plan: AdminMetadataCandidateReviewApplicationPlan;
+  boundary: AdminMetadataCandidateReviewApplicationBoundary;
+}
+
 export interface AdminCatalogGovernanceProviderMappingReviewRequest {
   decision: AdminCatalogGovernanceProviderMappingReviewDecision;
 }
@@ -2890,6 +3027,14 @@ mod tests {
             "AdminCatalogGovernanceProviderMappingReviewPlanResponse",
             "AdminCatalogGovernanceProviderMappingReviewResponse",
             "AdminCatalogGovernanceRepairBoundary",
+            "AdminMetadataCandidateReviewResponse",
+            "AdminMetadataCandidateReviewDetail",
+            "AdminMetadataCandidateReviewNode",
+            "AdminMetadataCandidateReviewMetadataSummary",
+            "AdminMetadataCandidateReviewApplicationPlan",
+            "AdminMetadataCandidateReviewApplicationBoundary",
+            "AdminMetadataCandidateReviewApplicationAction",
+            "AdminMetadataCandidateReviewApplicationReason",
             "AdminOutboxEventsQuery",
             "AdminJobsQuery",
             "AdminPlaybackSessionsQuery",

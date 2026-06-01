@@ -1,0 +1,308 @@
+use nako_core::{
+    MediaItemId, MediaKind, MetadataCandidateRecord, MetadataCandidateReviewApplicationAction,
+    MetadataCandidateReviewApplicationPlan, MetadataCandidateReviewApplicationReason,
+    MetadataCandidateReviewId, MetadataCandidateReviewNode as CoreMetadataCandidateReviewNode,
+    MetadataCandidateReviewRecord,
+    MetadataCandidateReviewRelationship as CoreMetadataCandidateReviewRelationship,
+    MetadataCandidateReviewStatus, MetadataCandidateSource, MetadataCandidateSubject,
+    MetadataSource, ProviderMappingId, ProviderMappingStatus,
+};
+use serde::{Deserialize, Serialize};
+
+use super::ADMIN_API_VERSION;
+use crate::public_client::API_VERSION;
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub review: AdminMetadataCandidateReviewDetail,
+    pub application_plan: AdminMetadataCandidateReviewApplicationPlan,
+    pub boundary: AdminMetadataCandidateReviewApplicationBoundary,
+}
+
+impl AdminMetadataCandidateReviewResponse {
+    #[must_use]
+    pub fn new(
+        review: MetadataCandidateReviewRecord,
+        application_plan: MetadataCandidateReviewApplicationPlan,
+    ) -> Self {
+        let boundary =
+            AdminMetadataCandidateReviewApplicationBoundary::from_plan(&application_plan);
+
+        Self {
+            admin_api_version: ADMIN_API_VERSION.to_owned(),
+            public_api_version: API_VERSION.to_owned(),
+            review: AdminMetadataCandidateReviewDetail::from_record(review),
+            application_plan: AdminMetadataCandidateReviewApplicationPlan::from_plan(
+                application_plan,
+            ),
+            boundary,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewDetail {
+    pub review_id: MetadataCandidateReviewId,
+    pub item_id: MediaItemId,
+    pub source: MetadataCandidateSource,
+    pub source_key: String,
+    pub status: MetadataCandidateReviewStatus,
+    pub root: AdminMetadataCandidateReviewNode,
+    pub related: Vec<AdminMetadataCandidateReviewNode>,
+    pub relationships: Vec<AdminMetadataCandidateReviewRelationship>,
+    pub related_count: u32,
+    pub relationship_count: u32,
+    pub expires_at_ms: Option<i64>,
+    pub created_at_ms: i64,
+    pub updated_at_ms: i64,
+}
+
+impl AdminMetadataCandidateReviewDetail {
+    #[must_use]
+    pub fn from_record(review: MetadataCandidateReviewRecord) -> Self {
+        let related_count = saturating_u32_len(review.plan.related.len());
+        let relationship_count = saturating_u32_len(review.plan.relationships.len());
+
+        Self {
+            review_id: review.id,
+            item_id: review.item_id,
+            source: review.source,
+            source_key: review.source_key,
+            status: review.status,
+            root: AdminMetadataCandidateReviewNode::from_node(review.plan.root),
+            related: review
+                .plan
+                .related
+                .into_iter()
+                .map(AdminMetadataCandidateReviewNode::from_node)
+                .collect(),
+            relationships: review
+                .plan
+                .relationships
+                .into_iter()
+                .map(AdminMetadataCandidateReviewRelationship::from_relationship)
+                .collect(),
+            related_count,
+            relationship_count,
+            expires_at_ms: review.expires_at_ms,
+            created_at_ms: review.created_at_ms,
+            updated_at_ms: review.updated_at_ms,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewNode {
+    pub source: MetadataCandidateSource,
+    pub kind: MediaKind,
+    pub subject: Option<MetadataCandidateSubject>,
+    pub metadata: AdminMetadataCandidateReviewMetadataSummary,
+}
+
+impl AdminMetadataCandidateReviewNode {
+    #[must_use]
+    pub fn from_node(node: CoreMetadataCandidateReviewNode) -> Self {
+        Self {
+            source: node.source,
+            kind: node.kind,
+            subject: node.subject,
+            metadata: AdminMetadataCandidateReviewMetadataSummary::from_record(node.metadata),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewMetadataSummary {
+    pub title: Option<String>,
+    pub original_title: Option<String>,
+    pub sort_title: Option<String>,
+    pub release_date: Option<String>,
+    pub runtime_minutes: Option<u32>,
+    pub description_present: bool,
+    pub tagline_present: bool,
+    pub genre_count: u32,
+    pub tag_count: u32,
+    pub rating_count: u32,
+    pub image_count: u32,
+    pub credit_count: u32,
+    pub collection_count: u32,
+    pub studio_count: u32,
+    pub external_id_count: u32,
+}
+
+impl AdminMetadataCandidateReviewMetadataSummary {
+    #[must_use]
+    pub fn from_record(record: MetadataCandidateRecord) -> Self {
+        Self {
+            title: record.title,
+            original_title: record.original_title,
+            sort_title: record.sort_title,
+            release_date: record.release_date,
+            runtime_minutes: record.runtime_minutes,
+            description_present: record
+                .overview
+                .as_deref()
+                .is_some_and(|value| !value.trim().is_empty()),
+            tagline_present: record
+                .tagline
+                .as_deref()
+                .is_some_and(|value| !value.trim().is_empty()),
+            genre_count: saturating_u32_len(record.genres.len()),
+            tag_count: saturating_u32_len(record.tags.len()),
+            rating_count: saturating_u32_len(record.ratings.len()),
+            image_count: saturating_u32_len(record.images.len()),
+            credit_count: saturating_u32_len(record.credits.len()),
+            collection_count: saturating_u32_len(record.collections.len()),
+            studio_count: saturating_u32_len(record.studios.len()),
+            external_id_count: saturating_u32_len(record.external_ids.len()),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewRelationship {
+    pub parent_subject: MetadataCandidateSubject,
+    pub child_subject: MetadataCandidateSubject,
+    pub kind: nako_core::MetadataCandidateRelationshipKind,
+}
+
+impl AdminMetadataCandidateReviewRelationship {
+    #[must_use]
+    pub fn from_relationship(relationship: CoreMetadataCandidateReviewRelationship) -> Self {
+        Self {
+            parent_subject: relationship.parent_subject,
+            child_subject: relationship.child_subject,
+            kind: relationship.kind,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewApplicationPlan {
+    pub review_id: MetadataCandidateReviewId,
+    pub item_id: MediaItemId,
+    pub action: AdminMetadataCandidateReviewApplicationAction,
+    pub reasons: Vec<AdminMetadataCandidateReviewApplicationReason>,
+    pub source: Option<MetadataSource>,
+    pub root_subject: Option<MetadataCandidateSubject>,
+    pub existing_mapping_id: Option<ProviderMappingId>,
+    pub existing_mapping_status: Option<ProviderMappingStatus>,
+}
+
+impl AdminMetadataCandidateReviewApplicationPlan {
+    #[must_use]
+    pub fn from_plan(plan: MetadataCandidateReviewApplicationPlan) -> Self {
+        Self {
+            review_id: plan.review_id,
+            item_id: plan.item_id,
+            action: AdminMetadataCandidateReviewApplicationAction::from(plan.action),
+            reasons: plan
+                .reasons
+                .into_iter()
+                .map(AdminMetadataCandidateReviewApplicationReason::from)
+                .collect(),
+            source: plan.source,
+            root_subject: plan.root_subject,
+            existing_mapping_id: plan.existing_mapping_id,
+            existing_mapping_status: plan.existing_mapping_status,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminMetadataCandidateReviewApplicationAction {
+    Apply,
+    Skip,
+    Noop,
+}
+
+impl From<MetadataCandidateReviewApplicationAction>
+    for AdminMetadataCandidateReviewApplicationAction
+{
+    fn from(value: MetadataCandidateReviewApplicationAction) -> Self {
+        match value {
+            MetadataCandidateReviewApplicationAction::Apply => Self::Apply,
+            MetadataCandidateReviewApplicationAction::Skip => Self::Skip,
+            MetadataCandidateReviewApplicationAction::Noop => Self::Noop,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminMetadataCandidateReviewApplicationReason {
+    ReviewNotAccepted,
+    MissingRootSubject,
+    UnsupportedSource,
+    ExistingAcceptedMapping,
+    ExistingCandidateMapping,
+    ExistingRejectedMapping,
+    Ready,
+}
+
+impl From<MetadataCandidateReviewApplicationReason>
+    for AdminMetadataCandidateReviewApplicationReason
+{
+    fn from(value: MetadataCandidateReviewApplicationReason) -> Self {
+        match value {
+            MetadataCandidateReviewApplicationReason::ReviewNotAccepted => Self::ReviewNotAccepted,
+            MetadataCandidateReviewApplicationReason::MissingRootSubject => {
+                Self::MissingRootSubject
+            }
+            MetadataCandidateReviewApplicationReason::UnsupportedSource => Self::UnsupportedSource,
+            MetadataCandidateReviewApplicationReason::ExistingAcceptedMapping => {
+                Self::ExistingAcceptedMapping
+            }
+            MetadataCandidateReviewApplicationReason::ExistingCandidateMapping => {
+                Self::ExistingCandidateMapping
+            }
+            MetadataCandidateReviewApplicationReason::ExistingRejectedMapping => {
+                Self::ExistingRejectedMapping
+            }
+            MetadataCandidateReviewApplicationReason::Ready => Self::Ready,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewApplicationBoundary {
+    pub read_only: bool,
+    pub applies_on_read: bool,
+    pub apply_mutation_required: bool,
+    pub apply_updates_root_provider_subject: bool,
+    pub apply_updates_root_provider_mapping: bool,
+    pub apply_updates_related_provider_subjects: bool,
+    pub apply_updates_related_provider_mappings: bool,
+    pub updates_canonical_metadata: bool,
+    pub updates_hierarchy: bool,
+    pub writes_nfo: bool,
+    pub writes_library_files: bool,
+}
+
+impl AdminMetadataCandidateReviewApplicationBoundary {
+    #[must_use]
+    pub const fn from_plan(plan: &MetadataCandidateReviewApplicationPlan) -> Self {
+        let would_apply = matches!(plan.action, MetadataCandidateReviewApplicationAction::Apply);
+
+        Self {
+            read_only: true,
+            applies_on_read: false,
+            apply_mutation_required: would_apply,
+            apply_updates_root_provider_subject: would_apply,
+            apply_updates_root_provider_mapping: would_apply,
+            apply_updates_related_provider_subjects: false,
+            apply_updates_related_provider_mappings: false,
+            updates_canonical_metadata: false,
+            updates_hierarchy: false,
+            writes_nfo: false,
+            writes_library_files: false,
+        }
+    }
+}
+
+fn saturating_u32_len(value: usize) -> u32 {
+    u32::try_from(value).unwrap_or(u32::MAX)
+}

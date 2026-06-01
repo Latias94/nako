@@ -1,6 +1,7 @@
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use nako_api::{
+    admin::AdminMetadataCandidateReviewResponse,
     metadata_diagnostics::{
         EnqueueMetadataMaintenanceRequest, MetadataCandidateReviewDecision,
         MetadataCandidateReviewDecisionKind, MetadataCandidateReviewLookup,
@@ -18,10 +19,10 @@ use nako_core::{
     EventOutboxRepository, ExternalProvider, FailLeasedJob, Job, JobId, JobKind,
     JobLeaseClaimRequest, JobLeaseHeartbeat, JobRepository, LeasedJob, Library, LibraryId,
     LibraryRepository, MediaItem, MediaItemId, MediaRepository, MediaSource, MetadataAttemptFilter,
-    MetadataProfile, MetadataProviderAttemptRecord, MetadataProviderAttemptStatus,
-    MetadataRefreshMode, MetadataRepository, NakoError, NewJob, NewOutboxEvent, OutboxEventRecord,
-    PageRequest, ProviderRawResponse, ProviderRawResponseCleanup, ProviderRawResponseFilter,
-    Result,
+    MetadataCandidateReviewId, MetadataCandidateReviewRepository, MetadataProfile,
+    MetadataProviderAttemptRecord, MetadataProviderAttemptStatus, MetadataRefreshMode,
+    MetadataRepository, NakoError, NewJob, NewOutboxEvent, OutboxEventRecord, PageRequest,
+    ProviderRawResponse, ProviderRawResponseCleanup, ProviderRawResponseFilter, Result,
 };
 use nako_db::NakoDatabase;
 use nako_metadata::{
@@ -30,6 +31,7 @@ use nako_metadata::{
     MetadataProviderRegistry, MetadataRefreshCommit, MetadataRefreshJobInput, MetadataRefreshPort,
     MetadataRefreshRequest, MetadataRefreshSnapshot, MetadataRefreshSummary,
     MetadataStrategyExecutor, build_candidate_conflict_review,
+    build_candidate_review_application_plan,
 };
 use serde::Serialize;
 use time::OffsetDateTime;
@@ -470,6 +472,28 @@ impl MetadataAppService {
             profile.language,
             candidates,
         )))
+    }
+
+    pub async fn get_admin_metadata_candidate_review(
+        &self,
+        review_id: MetadataCandidateReviewId,
+    ) -> Result<AdminMetadataCandidateReviewResponse> {
+        let review = MetadataCandidateReviewRepository::get_metadata_candidate_review(
+            &self.execution_store.store,
+            review_id,
+        )
+        .await?
+        .ok_or_else(|| NakoError::NotFound {
+            entity: "metadata_candidate_review",
+            id: review_id.to_string(),
+        })?;
+        let application_plan =
+            build_candidate_review_application_plan(&self.execution_store.store, &review).await?;
+
+        Ok(AdminMetadataCandidateReviewResponse::new(
+            review,
+            application_plan,
+        ))
     }
 
     async fn search_metadata_candidates(
