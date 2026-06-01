@@ -1,6 +1,6 @@
 # Generated Artifact Apply Operations Repair — Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Lane Opening Gates
@@ -151,3 +151,27 @@ Review result:
   the SQLite/Postgres adapters and into `nako-core`;
 - `GAOR-030` is accepted as the first read-only repair surface. Mutation-based
   repair actions remain intentionally out of scope.
+
+## GAOR-040 Closeout Evidence
+
+Closeout date: 2026-06-02
+
+Fresh verification:
+
+- `cargo nextest run -p nako-api admin_contract generated_artifact_metadata_apply_recovery_response_classifies_repair_state --no-fail-fast`
+- `cargo nextest run -p nako-db generated_artifact_metadata_apply_outcome_is_idempotent_and_atomic --no-fail-fast`
+- `cargo nextest run -p nako-server admin_generated_artifact_metadata_apply_v1_commits_and_replays_redacted_result --no-fail-fast`
+- `cargo check -p nako-server --tests`
+- `cargo fmt --all -- --check`
+- `npm --prefix web run check`
+- `npm --prefix web run build:budget`
+- `python -m json.tool docs/workstreams/generated-artifact-apply-operations-repair/WORKSTREAM.json`
+- JSONL validation for `TASKS.jsonl` and `CAMPAIGNS.jsonl`
+- `git diff --check`
+
+Result:
+
+- pass, except PostgreSQL runtime contract parity was not run because
+  `NAKO_TEST_POSTGRES_URL` was not set;
+- workstream closed with follow-ons split for Web UI and bounded repair
+  mutations.

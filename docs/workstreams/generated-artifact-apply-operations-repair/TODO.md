@@ -1,6 +1,6 @@
 # Generated Artifact Apply Operations Repair — TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 — Scope And Evidence Freeze
@@ -31,7 +31,7 @@ Last updated: 2026-06-02
 
 ## M3 — Closeout
 
-- [ ] GAOR-040 [owner=planner] [deps=GAOR-030] [scope=docs/workstreams/generated-artifact-apply-operations-repair,docs/architecture]
+- [x] GAOR-040 [owner=planner] [deps=GAOR-030] [scope=docs/workstreams/generated-artifact-apply-operations-repair,docs/architecture]
   Goal: Close the lane or split a narrower follow-on for broader operations automation, provider precision, or cross-lane diagnostics.
   Validation: verify-rust-workstream or equivalent fresh gate evidence recorded in `EVIDENCE_AND_GATES.md`; `git diff --check`.
   Review: review-workstream has no blocking findings.

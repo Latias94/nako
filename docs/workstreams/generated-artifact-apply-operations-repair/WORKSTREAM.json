@@ -2,12 +2,18 @@
   "schema_version": 1,
   "slug": "generated-artifact-apply-operations-repair",
   "title": "Generated Artifact Apply Operations Repair",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-06-02",
   "scope_kind": "control_plane_admin_operations",
-  "problem": "Generated Artifact Metadata Authority apply now supports one-artifact, bulk, and Provider Mapping breadth, but operators still lack a dedicated way to inspect stale/noop/failed apply outcomes, replay-safe batch state, and bounded repair actions without reading raw database state or rerunning blind mutations.",
+  "problem": "Generated Artifact Metadata Authority apply now has redaction-safe Admin read paths for one-artifact outcomes and a read-only recovery queue for stale/noop/failed/skipped apply state; remaining UI rendering and bounded repair mutation work is split to follow-ons.",
   "task_prefix": "GAOR",
-  "current_task": "GAOR-040",
+  "current_task": null,
+  "completed_tasks": [
+    "GAOR-010",
+    "GAOR-020",
+    "GAOR-030",
+    "GAOR-040"
+  ],
   "authoritative_docs": [
     {
       "role": "overview",
@@ -40,13 +46,17 @@
     {
       "role": "handoff",
       "path": "docs/workstreams/generated-artifact-apply-operations-repair/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/generated-artifact-apply-operations-repair/CLOSEOUT.md"
     }
   ],
   "context_manifest": "docs/workstreams/generated-artifact-apply-operations-repair/CONTEXT.jsonl",
   "gates": [
     "python -m json.tool docs/workstreams/generated-artifact-apply-operations-repair/WORKSTREAM.json",
     "JSONL validation for docs/workstreams/generated-artifact-apply-operations-repair/TASKS.jsonl and CAMPAIGNS.jsonl",
-    "git diff --check -- docs/workstreams/generated-artifact-apply-operations-repair docs/architecture/LANES.md docs/architecture/WORKSTREAM_LINKS.md docs/architecture/LIBRARY_PIPELINE.md docs/architecture/CONTROL_PLANE.md docs/workstreams/README.md",
+    "git diff --check -- docs/workstreams/generated-artifact-apply-operations-repair docs/architecture/LANES.md docs/architecture/WORKSTREAM_LINKS.md docs/architecture/LIBRARY_PIPELINE.md docs/architecture/CONTROL_PLANE.md docs/workstreams/README.md docs/GOALS.md docs/ROADMAP.md",
     "git diff --check"
   ],
   "evidence": [
@@ -61,6 +71,10 @@
     {
       "task": "GAOR-030",
       "summary": "Added a read-only Admin recovery queue for Generated Artifact apply outcomes and bulk batch terminal items, with core-owned repair classification and Web Admin read-model mapping."
+    },
+    {
+      "task": "GAOR-040",
+      "summary": "Closed the operations repair lane with fresh evidence, architecture routing updates, and explicit follow-ons for Web recovery UI, bounded repair mutation, and provider precision."
     }
   ],
   "adr_refs": [
@@ -94,8 +108,8 @@
   ],
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
-    "default_action": "run_current_task",
-    "current_task": "GAOR-040",
-    "notes": "Close the lane or split a follow-on for UI presentation and bounded repair mutation. Keep mutation out until it proves idempotent reuse of existing Metadata Authority apply semantics and freshness checks."
+    "default_action": "open_follow_on",
+    "current_task": null,
+    "notes": "Workstream complete. Open a focused follow-on for Web Admin recovery UI or bounded repair actions instead of reopening this read-path lane."
   }
 }

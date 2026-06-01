@@ -1,6 +1,6 @@
 # Generated Artifact Apply Operations Repair — Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Current State
@@ -30,7 +30,7 @@ GAOR-020 audit conclusion:
 - Owner: planner
 - Files: `docs/workstreams/generated-artifact-apply-operations-repair`, `docs/architecture`
 - Validation: fresh closeout verification and `git diff --check`
-- Status: READY
+- Status: DONE
 - Review: GAOR-030 self-review completed with no blocking findings
 - Evidence: `docs/workstreams/generated-artifact-apply-operations-repair/EVIDENCE_AND_GATES.md`
 
@@ -53,6 +53,5 @@ GAOR-020 audit conclusion:
 
 ## Next Recommended Action
 
-- Run `GAOR-040`: close the lane if the API/read-model surface is sufficient,
-  or split a follow-on for UI presentation and bounded repair mutation. Do not
-  add mutation until idempotency and freshness reuse are explicitly proven.
+- Open a focused follow-on for `web-admin-generated-artifact-recovery-ui` or
+  `generated-artifact-apply-repair-actions`; do not reopen this read-path lane.

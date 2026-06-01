@@ -26,55 +26,68 @@ proposed milestone.
 
 ## Current Goal
 
-### Generated Artifact Provider Mapping Breadth
+### Follow-On Selection After Apply Recovery Closeout
 
-Status: active as of 2026-06-01.
+Status: planning as of 2026-06-02.
 
 Objective:
 
-- Extend accepted metadata Generated Artifacts so their Metadata Authority
-  apply plan can include Provider Subject and Provider Mapping proposals.
-- Preserve the GAMA/GABMA authority boundary: review acceptance stages
-  evidence, while final Admin apply performs host-owned, idempotent mutation.
-- Start with read-only planning and durable Provider Mapping persistence, then
-  surface bulk/Admin counters before Web Admin rendering.
+- Choose the next focused implementation lane after Generated Artifact Provider
+  Mapping breadth and read-only apply recovery both closed.
+- Keep Web recovery UI, bounded repair mutation, provider identity precision,
+  and Admin settings restoration as separate scopes.
 
-Deliverables:
+Candidate deliverables:
 
-- `docs/workstreams/generated-artifact-provider-mapping-breadth/`
-- Provider Mapping proposal entries and counters in the Generated Artifact
-  metadata apply plan
-- durable/idempotent Provider Mapping apply through host-owned repositories
-- bulk/Admin plan and result counters through the existing apply path
-- Web plan and result display after backend contract stabilization
+- `proposed:web-admin-generated-artifact-recovery-ui`
+- `proposed:generated-artifact-apply-repair-actions`
+- `proposed:metadata-provider-depth-and-precision`
+- `proposed:admin-settings-api-backed-restoration`
 
 Non-goals:
 
-- no provider search/depth or hierarchy repair;
-- no review-acceptance mutation;
-- no Public Client API changes;
-- no raw payload, prompt, path, Source Locator, token, or secret exposure;
-- no Generated Artifact apply operations repair tooling;
-- no Admin settings restoration.
+- no reopening `generated-artifact-provider-mapping-breadth`;
+- no reopening `generated-artifact-apply-operations-repair`;
+- no repair mutation before idempotency and freshness reuse are proven;
+- no Public Client API changes for Admin recovery.
 
 Exit criteria:
 
-- read-only plan proves supported and unsupported provider mapping proposals
-  without mutation;
-- final apply revalidates target freshness and upserts Provider Subjects and
-  accepted Provider Mappings idempotently;
-- bulk apply inherits mapping counters/results through the one-artifact path;
-- Web Admin displays mapping effects honestly in live/fallback modes;
-- focused Rust/Web/PostgreSQL/docs gates pass as required by the workstream.
+- the next workstream has a narrow problem statement, owner lane, validation
+  gates, and explicit follow-ons;
+- architecture maps point at proposed work instead of stale active lanes.
 
 Evidence:
 
-- `docs/workstreams/generated-artifact-provider-mapping-breadth/`
-- `GAPM-020` covers redacted read-only Provider Mapping planning; `GAPM-030`
-  covers final Provider Subject/Mapping persistence and idempotent replay;
-  `GAPM-040` covers bulk/Admin counter and generated contract reconciliation.
+- `docs/workstreams/generated-artifact-provider-mapping-breadth/CLOSEOUT.md`
+- `docs/workstreams/generated-artifact-apply-operations-repair/CLOSEOUT.md`
 
 ## Recent Completed Goals
+
+### Generated Artifact Apply Operations Repair
+
+Status: completed on 2026-06-02.
+
+Objective:
+
+- Turn durable Generated Artifact apply outcomes and bulk batch terminal state
+  into a redaction-safe Admin recovery read surface.
+- Distinguish replayable success from actionable repair work before adding any
+  mutation.
+
+Deliverables:
+
+- `docs/workstreams/generated-artifact-apply-operations-repair/`
+- Admin outcome list/detail routes for one-artifact apply outcomes
+- Admin recovery queue route for outcome-only and batch-linked terminal states
+- core-owned recovery classification
+- generated Admin TypeScript contracts and Web Admin read-model mapping
+
+Evidence:
+
+- `GAOR-020` covers the read-path audit;
+- `GAOR-030` covers outcome list/detail and the read-only recovery queue;
+- `GAOR-040` closes the lane and splits UI/mutation follow-ons.
 
 ### Generated Artifact Bulk Metadata Apply
 

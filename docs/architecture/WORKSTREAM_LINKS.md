@@ -1,6 +1,6 @@
 # Architecture Workstream Links
 
-Last updated: 2026-06-01
+Last updated: 2026-06-02
 
 This index links architecture capability areas to workstream evidence and
 candidate follow-on lanes. The top-level architecture map stays concise; this
@@ -165,7 +165,7 @@ Evidence workstreams:
 - `docs/workstreams/generated-artifact-metadata-authority-apply/`
 - `docs/workstreams/generated-artifact-bulk-metadata-apply/` (closed)
 - `docs/workstreams/generated-artifact-provider-mapping-breadth/` (closed)
-- `docs/workstreams/generated-artifact-apply-operations-repair/` (active)
+- `docs/workstreams/generated-artifact-apply-operations-repair/` (closed)
 - `docs/workstreams/metadata-provider-attempt-runtime/`
 - `docs/workstreams/metadata-operations/`
 - `docs/workstreams/scan-addon-bulk-metadata-scrape/`
@@ -193,6 +193,7 @@ Proposed lanes:
 
 - `proposed:library-watcher-and-media-intake-stability`
 - `proposed:artwork-delivery-cache-placeholder`
+- `proposed:generated-artifact-apply-repair-actions`
 - `proposed:metadata-provider-depth-and-precision`
 - `proposed:provider-identity-mapping-breadth`
 
@@ -245,7 +246,7 @@ Proposed lanes:
 - `proposed:admin-settings-api-backed-restoration`
 - `proposed:web-public-client-library-scoped-item-browse`
 - `proposed:web-public-client-release-smoke-script`
-- `proposed:generated-artifact-apply-operations-repair`
+- `proposed:web-admin-generated-artifact-recovery-ui`
 - `proposed:web-player-error-recovery-ux`
 - `proposed:desktop-tauri-native-playback-spike`
 
@@ -293,6 +294,7 @@ Evidence workstreams:
 - `docs/workstreams/web-admin-generated-artifact-review-mutations/`
 - `docs/workstreams/generated-artifact-metadata-authority-apply/`
 - `docs/workstreams/generated-artifact-bulk-metadata-apply/` (closed)
+- `docs/workstreams/generated-artifact-apply-operations-repair/` (closed)
 - `docs/workstreams/addon-architecture-deepening/`
 - `docs/workstreams/addon-runtime-and-distribution/`
 - `docs/workstreams/addon-manager-lifecycle-automation/`
@@ -312,7 +314,7 @@ Proposed lanes:
 - `proposed:control-plane-observability-and-trace-context`
 - `proposed:addon-manager-trust-update-lifecycle`
 - `proposed:api-scale-and-cache-contracts`
-- `proposed:generated-artifact-apply-operations-repair`
+- `proposed:generated-artifact-apply-repair-actions`
 - `proposed:self-hosted-remote-access-and-endpoint-discovery`
 
 ## Operations And Release

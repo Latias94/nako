@@ -1,6 +1,6 @@
 # Generated Artifact Apply Operations Repair
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 This workstream opens the next `library-metadata-control-plane` follow-on after
@@ -20,12 +20,18 @@ Authoritative docs:
 - `EVIDENCE_AND_GATES.md`
 - `CONTEXT.jsonl`
 - `HANDOFF.md`
+- `CLOSEOUT.md`
 
-Current execution:
+Closed execution:
 
 - `GAOR-010` opened the lane from GAMA/GABMA/GAPM closeout evidence.
-- `GAOR-020` is the first executable task: audit current durable outcome/batch
-  records and choose the smallest repair-oriented Admin surface.
+- `GAOR-020` audited current durable outcome/batch records and chose the
+  smallest repair-oriented Admin surface.
+- `GAOR-030` shipped Admin outcome list/detail reads and a read-only recovery
+  queue across core, DB, API, server, generated contracts, and Web Admin
+  read-model mapping.
+- `GAOR-040` closed the lane and split UI rendering plus bounded repair
+  mutation into explicit follow-ons.
 
 Boundary:
 

@@ -1,6 +1,6 @@
 # Generated Artifact Apply Operations Repair — Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 — Scope And Evidence Freeze
@@ -55,3 +55,9 @@ Exit criteria:
 - architecture maps and workstream indexes reflect the shipped repair surface;
 - remaining larger operations automation or provider-depth work is either
   deferred or split into an explicit follow-on.
+
+Closeout result:
+
+- completed on 2026-06-02;
+- current lane is closed after shipping read-only recovery visibility;
+- Web Admin recovery UI and bounded repair mutation are split as follow-ons.

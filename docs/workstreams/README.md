@@ -18,13 +18,13 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 
 Last reviewed: 2026-06-02
 
-`generated-artifact-apply-operations-repair` is active in the
-`library-metadata-control-plane` lane.
+No workstream is currently active in the `library-metadata-control-plane` lane.
 
 Next task:
 
-- `GAOR-020`: audit durable apply outcomes and bulk batch records, then choose
-  the first redaction-safe Admin repair read path.
+- Open a focused follow-on for Web Admin recovery UI, bounded Generated
+  Artifact apply repair actions, or provider identity precision before
+  implementation.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -33,8 +33,9 @@ MVP Gate 3 evidence. `GAMA` is closed after fresh backend/Web Metadata
 Authority apply verification. `CSAPA` is closed; desktop playback is deferred
 to a focused future Tauri/native playback spike.
 
-Apply repair tooling and Admin settings restoration remain separate follow-ons
-after `GABMA` closeout and should not be mixed into `GAPM`.
+Read-only Generated Artifact apply recovery is closed after `GAOR-040`.
+Bounded repair mutations, Web recovery UI, and Admin settings restoration
+remain separate follow-ons and should not be mixed back into `GAPM` or `GAOR`.
 `audio-compatibility-downmix-normalization`,
 `remote-storage-health-and-circuit-breaker`,
 `transcode-interface-and-runtime-plan-deepening`,
@@ -55,7 +56,7 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
   Provider Mapping plan/result facts without weakening review staging, target
   freshness, idempotent outcomes, or redaction.
 - [generated-artifact-apply-operations-repair](generated-artifact-apply-operations-repair/README.md):
-  active backend/Web control-plane lane for turning durable Generated Artifact
+  closed backend/Web control-plane lane for turning durable Generated Artifact
   apply and bulk batch outcomes into an operator-facing repair workflow for
   stale, failed, skipped, and noop results without exposing raw internal
   records or bypassing existing Metadata Authority semantics.

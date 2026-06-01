@@ -1,6 +1,6 @@
 # Control Plane Architecture
 
-Last updated: 2026-06-01
+Last updated: 2026-06-02
 
 This document maps Nako's application control plane: the cross-cutting systems
 that keep the media data plane safe, observable, extensible, and operable.
@@ -89,26 +89,33 @@ Control-plane requirements:
 
 Follow-ons:
 
-- `proposed:generated-artifact-apply-operations-repair`
+- `docs/workstreams/generated-artifact-apply-operations-repair/` (closed)
 - `proposed:provider-identity-mapping-breadth`
 
 ### generated-artifact-apply-operations-repair
 
-Status: Active at
+Status: Closed at
 `docs/workstreams/generated-artifact-apply-operations-repair/`.
 
 Goal: Add an Admin recovery workflow for Generated Artifact apply outcomes and
-bulk batches so operators can inspect repair-relevant state and take bounded
-recovery actions without raw internal access.
+bulk batches so operators can inspect repair-relevant state without raw
+internal access.
 
-Control-plane requirements:
+Shipped control-plane behavior:
 
-- read paths must distinguish replayable success from actionable repair work;
-- repair actions, if added, must reuse the existing Metadata Authority apply
-  semantics instead of introducing a second hidden executor;
-- recovery DTOs and Web surfaces must remain redaction-safe and Admin-only;
-- broader automation policy, provider-depth precision, and generic retry UI
-  remain explicit follow-ons.
+- one-artifact apply outcomes have Admin list/detail read paths;
+- outcome-only records and bulk batch terminal items feed a read-only recovery
+  queue;
+- recovery DTOs distinguish replayable success from actionable repair work;
+- recovery classification is domain-owned in `nako-core`;
+- generated contracts and Web Admin read models are synchronized without raw
+  payload, prompt, path, token, or secret exposure.
+
+Follow-ons:
+
+- `proposed:web-admin-generated-artifact-recovery-ui`
+- `proposed:generated-artifact-apply-repair-actions`
+- `proposed:control-plane-observability-and-trace-context`
 
 ### generated-artifact-bulk-metadata-apply
 

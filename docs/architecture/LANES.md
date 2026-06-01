@@ -20,14 +20,14 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| library-metadata-control-plane | generated-artifact-apply-operations-repair | GAOR-020 | Planner plus Admin/control-plane audit worker |
+| _none_ | _none_ | _none_ | Open a focused follow-on before implementation |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
 `generated-artifact-provider-mapping-breadth` is closed after `GAPM-060`.
-`generated-artifact-apply-operations-repair` is now active. Keep the lane
-focused on repair-oriented visibility and bounded recovery semantics; do not
-reopen breadth or hide provider-depth precision inside this operations slice.
+`generated-artifact-apply-operations-repair` is closed after `GAOR-040`.
+Open a focused follow-on for Web recovery UI, bounded repair actions, or
+provider-depth precision instead of reopening the completed read-path slice.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
@@ -119,11 +119,7 @@ Closed evidence:
 - `docs/workstreams/generated-artifact-bulk-metadata-apply/`
 - `docs/workstreams/generated-artifact-metadata-authority-apply/`
 - `docs/workstreams/generated-artifact-provider-mapping-breadth/`
-
-Active evidence:
-
-- `docs/workstreams/generated-artifact-apply-operations-repair/` (`GAOR-020`
-  ready)
+- `docs/workstreams/generated-artifact-apply-operations-repair/`
 
 Owned scopes:
 

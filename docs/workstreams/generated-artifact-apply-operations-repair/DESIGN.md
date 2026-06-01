@@ -1,6 +1,6 @@
 # Generated Artifact Apply Operations Repair
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Why This Lane Exists
@@ -73,6 +73,20 @@ When this lane closes:
    do not require raw payload, prompt, path, token, or secret exposure.
 5. Follow-ons remain explicit for deeper provider identity precision,
    background automation policy, or large-scale batch orchestration.
+
+## Shipped State
+
+This lane shipped the read-first recovery boundary:
+
+- durable one-artifact apply outcomes are queryable through Admin list/detail
+  routes;
+- outcome-only records and bulk batch terminal items are grouped into a
+  read-only Admin recovery queue;
+- recovery rows distinguish `needs_repair`, `needs_review`, `replay_only`, and
+  `resolved` instead of flattening everything into a retry flag;
+- generated Admin contracts and Web Admin read-model mapping are synchronized;
+- repair mutations, route-level Web UI, and broader automation policy are split
+  to explicit follow-ons.
 
 ## In Scope
 
@@ -212,3 +226,5 @@ This lane can close when:
   idempotent, and redacted;
 - docs reflect the shipped behavior and any remaining larger operations work is
   split into explicit follow-ons.
+
+Closeout result: met on 2026-06-02. See `CLOSEOUT.md`.

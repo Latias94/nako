@@ -11,32 +11,73 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: active implementation follow-on.
+Status: follow-on selection after closeout.
 
-Generated Artifact Provider Mapping Breadth opened on 2026-06-01 as the next
-focused follow-on after Generated Artifact Bulk Metadata Apply closeout.
+Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
+Operations Repair are both closed as of 2026-06-02. The next architecture focus
+should open a narrow follow-on instead of extending either completed lane.
 
-It targets:
+Candidate follow-ons:
+
+- `proposed:web-admin-generated-artifact-recovery-ui`;
+- `proposed:generated-artifact-apply-repair-actions`;
+- `proposed:metadata-provider-depth-and-precision`;
+- `proposed:admin-settings-api-backed-restoration`.
+
+Selection rule:
+
+- choose one focused lane with its own workstream, gates, and closeout target
+  before implementation.
+
+Latest completed architecture focus:
+
+Generated Artifact Apply Operations Repair closed on 2026-06-02 after
+Generated Artifact Provider Mapping Breadth and Bulk Metadata Apply closeouts.
+
+It shipped:
+
+- Admin outcome list/detail read paths for one-artifact Metadata Authority
+  apply outcomes;
+- a read-only Admin recovery queue for outcome-only and bulk batch terminal
+  states;
+- core-owned recovery classification across `needs_repair`, `needs_review`,
+  `replay_only`, and `resolved`;
+- generated Admin contracts and Web Admin read-model mapping without exposing
+  raw payloads, prompts, Source Locators, paths, tokens, or secrets.
+
+Authoritative lane:
+
+- `docs/workstreams/generated-artifact-apply-operations-repair/`
+
+Follow-ons:
+
+- `proposed:web-admin-generated-artifact-recovery-ui`;
+- `proposed:generated-artifact-apply-repair-actions`;
+- `proposed:metadata-provider-depth-and-precision`.
+
+Previous architecture focus:
+
+Generated Artifact Provider Mapping Breadth closed on 2026-06-02 as the
+follow-on after Bulk Metadata Apply.
+
+It shipped:
 
 - redaction-safe Provider Subject and Provider Mapping proposal planning inside
   the existing Generated Artifact metadata apply plan;
 - idempotent final Provider Mapping apply through host-owned repositories;
 - bulk apply/Admin result counters through the existing one-artifact apply path;
-- Web Admin Provider Mapping plan/result display after backend contract
-  stabilization;
-- no provider search/depth, review-acceptance mutation, Public Client API
-  change, operations repair, or Admin settings restoration.
+- Web Admin Provider Mapping plan/result display.
 
 Authoritative lane:
 
 - `docs/workstreams/generated-artifact-provider-mapping-breadth/`
 
-Next task:
+Follow-ons:
 
-- `GAPM-050`: render Provider Mapping plan/result facts in Web Admin using the
-  stabilized bulk/Admin contract and read models.
+- `docs/workstreams/generated-artifact-apply-operations-repair/` (closed);
+- `proposed:provider-identity-mapping-breadth`.
 
-Latest completed architecture focus:
+Previous architecture focus:
 
 Generated Artifact Bulk Metadata Apply closed on 2026-06-01 as the first
 implementation follow-on after Architecture Roadmap Reconciliation and GAMA
@@ -58,7 +99,8 @@ Authoritative lane:
 
 Follow-ons:
 
-- `proposed:generated-artifact-apply-operations-repair`;
+- `docs/workstreams/generated-artifact-apply-operations-repair/` (closed);
+- `proposed:generated-artifact-apply-repair-actions`;
 - `proposed:admin-settings-api-backed-restoration`.
 
 Previous architecture focus:
