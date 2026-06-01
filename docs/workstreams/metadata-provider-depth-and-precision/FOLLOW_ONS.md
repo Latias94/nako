@@ -107,13 +107,15 @@ Non-goals:
 
 Follow-on split after closeout:
 
-- `proposed:admin-web-provider-depth-governance`
+- `docs/workstreams/admin-web-provider-depth-governance/` (active)
 - `docs/workstreams/accepted-review-provider-mapping-application/` (closed)
 
-### proposed:admin-web-provider-depth-governance
+### docs/workstreams/admin-web-provider-depth-governance
 
 Goal: Show provider depth evidence in Admin/Web after backend review semantics
 are stable.
+
+Status: active as `docs/workstreams/admin-web-provider-depth-governance/`.
 
 First slice:
 

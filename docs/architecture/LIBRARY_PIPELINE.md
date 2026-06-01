@@ -28,7 +28,7 @@ Storage event or scheduled scan
 | Local inference | Shipped foundation | `CONTEXT.md`; metadata/catalog lanes | Anime/series path heuristics and confidence reporting. |
 | Media probe | Shipped foundation | playback/transcode lanes | More HDR/audio/subtitle technical facts. |
 | NFO authority | Shipped foundation | `docs/adr/0008-nfo-as-local-metadata-boundary.md` | Round-trip/writeback polish and backup policy. |
-| Metadata merge policy | Shipped foundation; durable candidate review and accepted-review root mapping application shipped | `docs/adr/0007-metadata-merge-policy-and-local-authority.md`; `docs/workstreams/metadata-candidate-durable-review/`; `docs/workstreams/accepted-review-provider-mapping-application/` | Open Admin/Web provider depth governance before exposing mutation. |
+| Metadata merge policy | Shipped foundation; durable candidate review and accepted-review root mapping application shipped; Admin/Web governance active | `docs/adr/0007-metadata-merge-policy-and-local-authority.md`; `docs/workstreams/metadata-candidate-durable-review/`; `docs/workstreams/accepted-review-provider-mapping-application/`; `docs/workstreams/admin-web-provider-depth-governance/` | Read-only Admin API review/application plan before mutation. |
 | TMDB provider | Shipped movie plus series/season/episode graph preview foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/metadata-provider-depth-and-precision/`; `docs/workstreams/tmdb-season-episode-graph-depth/` | Accepted-review application or Admin/Web governance before preview graph depth becomes accepted hierarchy. |
 | Douban provider | Shipped MVP plus endpoint-backed capability precision | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/douban-subject-kind-precision/` | Accepted-review application, Admin/Web governance, or endpoint-backed TV/episode follow-on. |
 | Bangumi provider | Shipped MVP plus endpoint-backed episode graph preview | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/bangumi-relations-and-episode-depth/` | Accepted-review application or Admin/Web governance before preview graph depth becomes accepted hierarchy. |
@@ -45,20 +45,23 @@ this document focused on intake and asset pipeline capability state.
 
 ## Next Work Lanes
 
-### accepted-review-provider-mapping-application
+### admin-web-provider-depth-governance
 
-Status: Closed at
-`docs/workstreams/accepted-review-provider-mapping-application/`.
+Status: Active at
+`docs/workstreams/admin-web-provider-depth-governance/`.
 
-Goal: Apply accepted Metadata Candidate Reviews to root Provider Subject and
-Provider Mapping state through a named backend boundary.
+Goal: Expose durable Metadata Candidate Review evidence and accepted-review
+application through Admin API/Web governance.
 
-Next task:
+Current task:
 
-- Open `proposed:admin-web-provider-depth-governance`.
+- `AWPDG-020`: expose durable Candidate Review detail and application plan
+  facts through a redaction-safe read-only Admin API boundary.
 
 Shipped:
 
+- `accepted-review-provider-mapping-application` closed after backend
+  plan/apply semantics.
 - `ARPMA-020` defines a read-only accepted-review Provider Mapping application
   plan before mutation.
 - `ARPMA-030` applies only the root Provider Subject / Provider Mapping
@@ -68,10 +71,28 @@ Shipped:
 
 Non-goals:
 
-- no Admin/Web or Public Client API route in the first task;
+- no apply mutation or Web route in the first task;
+- no Public Client API route;
 - no related graph node hierarchy application;
 - no raw provider payloads, secrets, proxy URLs, headers, or provider bodies;
 - no Generated Artifact apply outcome reuse.
+
+### accepted-review-provider-mapping-application
+
+Status: Closed at
+`docs/workstreams/accepted-review-provider-mapping-application/`.
+
+Goal: Apply accepted Metadata Candidate Reviews to root Provider Subject and
+Provider Mapping state through a named backend boundary.
+
+Shipped:
+
+- `ARPMA-020` defines a read-only accepted-review Provider Mapping application
+  plan before mutation.
+- `ARPMA-030` applies only the root Provider Subject / Provider Mapping
+  idempotently through the backend service.
+- `ARPMA-040` splits Admin API/Web mutation scope to provider depth governance.
+- `ARPMA-050` closes the backend lane.
 
 ### metadata-candidate-durable-review
 
@@ -91,8 +112,8 @@ Shipped:
 
 Follow-ons:
 
-- `proposed:admin-web-provider-depth-governance`;
-- `docs/workstreams/accepted-review-provider-mapping-application/`;
+- `docs/workstreams/admin-web-provider-depth-governance/` (active);
+- `docs/workstreams/accepted-review-provider-mapping-application/` (closed);
 - `proposed:douban-tv-episode-endpoint-depth`.
 
 ### douban-subject-kind-precision
@@ -120,8 +141,8 @@ Follow-ons:
 
 - `proposed:douban-tv-episode-endpoint-depth`;
 - `docs/workstreams/metadata-candidate-durable-review/` (closed);
-- `docs/workstreams/accepted-review-provider-mapping-application/`;
-- `proposed:admin-web-provider-depth-governance`.
+- `docs/workstreams/accepted-review-provider-mapping-application/` (closed);
+- `docs/workstreams/admin-web-provider-depth-governance/` (active).
 
 ### bangumi-relations-and-episode-depth
 
@@ -141,8 +162,8 @@ Shipped:
 Follow-ons:
 
 - `docs/workstreams/metadata-candidate-durable-review/` (closed);
-- `docs/workstreams/accepted-review-provider-mapping-application/`;
-- `proposed:admin-web-provider-depth-governance`.
+- `docs/workstreams/accepted-review-provider-mapping-application/` (closed);
+- `docs/workstreams/admin-web-provider-depth-governance/` (active).
 
 ### tmdb-season-episode-graph-depth
 
@@ -163,8 +184,8 @@ Shipped:
 Follow-ons:
 
 - `docs/workstreams/metadata-candidate-durable-review/` (closed);
-- `docs/workstreams/accepted-review-provider-mapping-application/`;
-- `proposed:admin-web-provider-depth-governance`.
+- `docs/workstreams/accepted-review-provider-mapping-application/` (closed);
+- `docs/workstreams/admin-web-provider-depth-governance/` (active).
 
 ### metadata-provider-depth-and-precision
 

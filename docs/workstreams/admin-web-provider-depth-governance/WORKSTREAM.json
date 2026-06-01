@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "slug": "admin-web-provider-depth-governance",
+  "title": "Admin Web Provider Depth Governance",
+  "status": "active",
+  "updated": "2026-06-02",
+  "scope_kind": "admin_web_metadata_candidate_review_governance",
+  "problem": "Durable Metadata Candidate Reviews and backend accepted-review application exist, but Admin API/Web must expose review evidence, application plans, and explicit apply mutations without conflating them with existing Provider Mapping row review or Generated Artifact apply workflows.",
+  "task_prefix": "AWPDG",
+  "current_task": "AWPDG-020",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/admin-web-provider-depth-governance/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-web-provider-depth-governance/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-web-provider-depth-governance/TODO.md"
+    },
+    {
+      "role": "task_state",
+      "path": "docs/workstreams/admin-web-provider-depth-governance/TASKS.jsonl"
+    },
+    {
+      "role": "campaign_state",
+      "path": "docs/workstreams/admin-web-provider-depth-governance/CAMPAIGNS.jsonl"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-web-provider-depth-governance/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "context_manifest",
+      "path": "docs/workstreams/admin-web-provider-depth-governance/CONTEXT.jsonl"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/admin-web-provider-depth-governance/HANDOFF.md"
+    }
+  ],
+  "context_manifest": "docs/workstreams/admin-web-provider-depth-governance/CONTEXT.jsonl",
+  "gates": [
+    "python -m json.tool docs/workstreams/admin-web-provider-depth-governance/WORKSTREAM.json",
+    "JSONL validation for docs/workstreams/admin-web-provider-depth-governance/TASKS.jsonl, CAMPAIGNS.jsonl, and CONTEXT.jsonl",
+    "cargo nextest run -p nako-api admin_contract --no-fail-fast",
+    "cargo nextest run -p nako-server candidate_review admin --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "AWPDG-010",
+      "summary": "Opened the Admin/Web provider depth governance lane from ARPMA closeout and selected read-only Admin API Candidate Review detail/application-plan exposure as the first executable task."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0018-metadata-provider-runtime-and-diagnostics.md",
+    "docs/adr/0021-video-first-media-server-domain-model.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/LANES.md",
+      "capability": "library-metadata-control-plane lane ownership"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Admin/Web provider depth governance active lane"
+    },
+    {
+      "path": "docs/architecture/LIBRARY_PIPELINE.md",
+      "capability": "Metadata Candidate Review Admin/Web governance"
+    }
+  ],
+  "capability_tags": [
+    "library.metadata.candidate-review.admin",
+    "library.metadata.provider-depth.governance",
+    "web.admin.metadata-governance"
+  ],
+  "lane_slug": "library-metadata-control-plane",
+  "continue_policy": {
+    "default_action": "run_current_task",
+    "current_task": "AWPDG-020",
+    "notes": "Next expose durable Candidate Review detail and application plan facts through read-only Admin API. Do not add apply mutation, Web UI, Public Client API, schema migrations, or related-node hierarchy application in AWPDG-020."
+  }
+}

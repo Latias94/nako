@@ -34,7 +34,7 @@ Last updated: 2026-06-02
 - [x] ARPMA-040 [owner=planner] [deps=ARPMA-030] [scope=docs/workstreams/accepted-review-provider-mapping-application,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
   Goal: Decide whether an Admin API route belongs in this lane or should split with Admin/Web provider depth governance.
   Validation: fresh evidence in `EVIDENCE_AND_GATES.md`; JSON/JSONL validation; `git diff --check`.
-  Review: split Admin API/Web mutation scope to `proposed:admin-web-provider-depth-governance`; backend application semantics are safe, but product exposure needs its own operator workflow.
+  Review: split Admin API/Web mutation scope to `docs/workstreams/admin-web-provider-depth-governance/`; backend application semantics are safe, but product exposure needs its own operator workflow.
   Evidence: `EVIDENCE_AND_GATES.md`.
   Handoff: DONE; continue to `ARPMA-050` closeout.
 
@@ -45,4 +45,4 @@ Last updated: 2026-06-02
   Validation: fresh gate evidence in `EVIDENCE_AND_GATES.md`; JSON/JSONL validation; `git diff --check`.
   Review: accepted reviews can be safely planned/applied without hidden refresh or UI side effects.
   Evidence: `CLOSEOUT.md` if closed.
-  Handoff: DONE; open `proposed:admin-web-provider-depth-governance` when product/API exposure begins.
+  Handoff: DONE; continue `docs/workstreams/admin-web-provider-depth-governance/` when product/API exposure begins.

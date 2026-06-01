@@ -7,7 +7,7 @@ Last updated: 2026-06-02
 
 The lane is closed after proving accepted-review root Provider Subject /
 Provider Mapping application as an explicit backend service. Admin/API/Web
-exposure is split to `proposed:admin-web-provider-depth-governance`.
+exposure is split to `docs/workstreams/admin-web-provider-depth-governance/`.
 
 ## Active Task
 
@@ -37,7 +37,7 @@ exposure is split to `proposed:admin-web-provider-depth-governance`.
   rejected mapping conflicts, and leaves related review graph nodes as preview
   evidence.
 - `ARPMA-040` split Admin API/Web mutation scope to
-  `proposed:admin-web-provider-depth-governance`.
+  `docs/workstreams/admin-web-provider-depth-governance/`.
 - `ARPMA-050` closed this backend lane.
 
 ## Blockers
@@ -46,6 +46,6 @@ exposure is split to `proposed:admin-web-provider-depth-governance`.
 
 ## Next Recommended Action
 
-- Open `proposed:admin-web-provider-depth-governance` before exposing durable
-  Metadata Candidate Review evidence or accepted-review application mutations
-  through Admin API/Web.
+- Continue `docs/workstreams/admin-web-provider-depth-governance/` before
+  exposing durable Metadata Candidate Review evidence or accepted-review
+  application mutations through Admin API/Web.

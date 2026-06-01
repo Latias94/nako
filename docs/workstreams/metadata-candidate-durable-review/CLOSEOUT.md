@@ -51,8 +51,9 @@ Recent broader implementation gates:
 
 ## Follow-Ons
 
-- `proposed:admin-web-provider-depth-governance`: expose durable provider graph
-  review evidence and explicit operator decisions through Admin/Web.
+- `docs/workstreams/admin-web-provider-depth-governance/` (active): expose
+  durable provider graph review evidence and explicit operator decisions
+  through Admin/Web.
 - `docs/workstreams/accepted-review-provider-mapping-application/` (closed):
   apply accepted candidate reviews to Provider Subject / Provider Mapping state
   through a named backend service, separate from review status transitions.

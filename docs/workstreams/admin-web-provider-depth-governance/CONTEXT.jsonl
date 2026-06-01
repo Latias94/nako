@@ -1,0 +1,12 @@
+{"role":"domain-glossary","path":"CONTEXT.md","reason":"Use Nako terms such as Provider Subject, Provider Mapping, Metadata Candidate Review, Admin API, Public Client API, and Media Item."}
+{"role":"adr","path":"docs/adr/0007-metadata-merge-policy-and-local-authority.md","reason":"Metadata and provider evidence must remain separate from canonical metadata merge authority."}
+{"role":"adr","path":"docs/adr/0018-metadata-provider-runtime-and-diagnostics.md","reason":"Provider payloads, secrets, headers, proxy URLs, and raw bodies must stay out of diagnostics and application surfaces."}
+{"role":"adr","path":"docs/adr/0021-video-first-media-server-domain-model.md","reason":"Provider-specific subjects map through Provider Mapping rather than replacing Media Item identity."}
+{"role":"architecture","path":"docs/architecture/LIBRARY_PIPELINE.md","reason":"Library metadata candidate review and provider depth governance capability map."}
+{"role":"architecture","path":"docs/architecture/LANES.md","reason":"library-metadata-control-plane lane routing and shared-scope rules."}
+{"role":"prior_workstream","path":"docs/workstreams/metadata-candidate-durable-review/CLOSEOUT.md","reason":"Durable Candidate Review snapshot and decision semantics."}
+{"role":"prior_workstream","path":"docs/workstreams/accepted-review-provider-mapping-application/CLOSEOUT.md","reason":"Backend accepted-review root Provider Mapping application semantics and split decision."}
+{"role":"prior_workstream","path":"docs/workstreams/generated-artifact-provider-mapping-breadth/CLOSEOUT.md","reason":"Plan/apply/result precedent and duplicate-executor warning."}
+{"role":"prior_workstream","path":"docs/workstreams/admin-catalog-governance-read-model/README.md","reason":"Existing Admin governance read-model pattern for catalog repair and Provider Mapping review."}
+{"role":"workstream","path":"docs/workstreams/admin-web-provider-depth-governance/DESIGN.md","reason":"Current lane design, task scope, and non-goals."}
+{"role":"gates","path":"docs/workstreams/admin-web-provider-depth-governance/EVIDENCE_AND_GATES.md","reason":"Validation commands and evidence ledger."}

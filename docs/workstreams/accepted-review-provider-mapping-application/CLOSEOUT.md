@@ -36,7 +36,7 @@ Shipped behavior:
 ## Surface Split Decision
 
 Admin API/Web mutation scope is split to
-`proposed:admin-web-provider-depth-governance`.
+`docs/workstreams/admin-web-provider-depth-governance/`.
 
 Rationale:
 
@@ -71,10 +71,10 @@ Fresh closeout gates:
 
 ## Follow-Ons
 
-- `proposed:admin-web-provider-depth-governance`: expose durable review
-  evidence, decision state, application plans, and explicit apply mutations
-  through Admin API/Web without leaking raw provider data or adding Public
-  Client API.
+- `docs/workstreams/admin-web-provider-depth-governance/`: expose durable
+  review evidence, decision state, application plans, and explicit apply
+  mutations through Admin API/Web without leaking raw provider data or adding
+  Public Client API.
 - `proposed:provider-review-related-hierarchy-application`: apply related
   graph nodes, child Provider Subjects, child Provider Mappings, or Media Item
   hierarchy changes only after Admin/Web governance proves the operator model.

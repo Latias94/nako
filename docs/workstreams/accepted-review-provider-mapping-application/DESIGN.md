@@ -108,4 +108,5 @@ If implementation exposes a small shared helper, it belongs in
 `ARPMA-020` defines the read-only application plan contract and tests before any
 mutation service is added. `ARPMA-030` adds the root-only application service.
 `ARPMA-040` split Admin API/Web mutation scope to
-`proposed:admin-web-provider-depth-governance` before any surface is exposed.
+`docs/workstreams/admin-web-provider-depth-governance/` before any surface is
+exposed.

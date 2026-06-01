@@ -28,7 +28,7 @@ proposed milestone.
 
 ### Admin/Web Provider Depth Governance Planning
 
-Status: proposed next as of 2026-06-02.
+Status: active as of 2026-06-02.
 
 Objective:
 
@@ -41,8 +41,7 @@ Objective:
 
 Deliverables:
 
-- `docs/workstreams/admin-web-provider-depth-governance/` or an equivalent
-  focused workstream;
+- `docs/workstreams/admin-web-provider-depth-governance/`;
 - Admin API/Web task ledger with redaction, idempotency, stale guard, generated
   contract, and Web UX gates;
 - architecture map updates that route product exposure away from the closed
@@ -70,7 +69,8 @@ Evidence:
 
 Current task:
 
-- Open the Admin/Web provider depth governance workstream.
+- `AWPDG-020`: expose durable Candidate Review detail and accepted-review
+  application plan facts through a redaction-safe read-only Admin API boundary.
 
 ## Recent Completed Goals
 
@@ -121,11 +121,11 @@ Current task:
 
 - DONE after `ARPMA-050`.
 
-Next recommended goal:
+Next follow-on:
 
-- Open `proposed:admin-web-provider-depth-governance` so Admin API/Web can
-  expose durable Candidate Review evidence and accepted-review application
-  mutations through an explicit operator workflow.
+- `docs/workstreams/admin-web-provider-depth-governance/` is open so Admin
+  API/Web can expose durable Candidate Review evidence and accepted-review
+  application mutations through an explicit operator workflow.
 
 ### Metadata Candidate Durable Review
 

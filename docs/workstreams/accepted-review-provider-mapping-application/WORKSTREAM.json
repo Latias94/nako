@@ -67,7 +67,7 @@
     },
     {
       "task": "ARPMA-040",
-      "summary": "Split Admin API/Web mutation scope to proposed:admin-web-provider-depth-governance after source coverage showed existing Provider Mapping review routes do not cover durable Candidate Review application."
+      "summary": "Split Admin API/Web mutation scope to docs/workstreams/admin-web-provider-depth-governance/ after source coverage showed existing Provider Mapping review routes do not cover durable Candidate Review application."
     },
     {
       "task": "ARPMA-050",
@@ -102,6 +102,6 @@
   "continue_policy": {
     "default_action": "open_follow_on",
     "current_task": null,
-    "notes": "This lane is closed. Open proposed:admin-web-provider-depth-governance before exposing durable Candidate Review evidence or accepted-review application through Admin API/Web."
+    "notes": "This lane is closed. Continue docs/workstreams/admin-web-provider-depth-governance/ before exposing durable Candidate Review evidence or accepted-review application through Admin API/Web."
   }
 }

@@ -11,9 +11,9 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: Admin/Web Provider Depth Governance Planning is next after Accepted
-Review Provider Mapping Application closed in the
-`library-metadata-control-plane` lane.
+Status: Admin/Web Provider Depth Governance is active after Accepted Review
+Provider Mapping Application closed in the `library-metadata-control-plane`
+lane.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
 Operations Repair are both closed as of 2026-06-02. Web Admin Generated
@@ -25,9 +25,8 @@ closed after `TSEG-040`. Bangumi Relations And Episode Depth is closed after
 Metadata Candidate Durable Review is closed after `MCDR-050`. Accepted Review
 Provider Mapping Application is closed after `ARPMA-050`.
 
-The next focus targets:
+The active focus targets:
 
-- opening `proposed:admin-web-provider-depth-governance`;
 - exposing durable Candidate Review evidence and accepted-review application
   mutations through explicit Admin API/Web operator workflows;
 - preserving redaction, stale guard, and idempotency semantics from the backend
@@ -36,6 +35,7 @@ The next focus targets:
 
 Authoritative evidence:
 
+- `docs/workstreams/admin-web-provider-depth-governance/`
 - `docs/workstreams/accepted-review-provider-mapping-application/`
 - `docs/workstreams/metadata-candidate-durable-review/CLOSEOUT.md`
 - `docs/workstreams/metadata-provider-depth-and-precision/FOLLOW_ONS.md`
@@ -44,9 +44,8 @@ Authoritative evidence:
 
 Next task:
 
-- Open `proposed:admin-web-provider-depth-governance` before exposing durable
-  Candidate Review evidence or accepted-review application mutations through
-  Admin API/Web.
+- `AWPDG-020`: expose durable Candidate Review detail and accepted-review
+  application plan facts through a redaction-safe read-only Admin API boundary.
 
 Latest completed architecture focus:
 
@@ -157,7 +156,7 @@ Follow-ons:
 - `docs/workstreams/douban-subject-kind-precision/` (closed);
 - `docs/workstreams/metadata-candidate-durable-review/` (closed);
 - `docs/workstreams/accepted-review-provider-mapping-application/` (closed);
-- `proposed:admin-web-provider-depth-governance`;
+- `docs/workstreams/admin-web-provider-depth-governance/` (active);
 - `proposed:douban-tv-episode-endpoint-depth`.
 
 Previous architecture focus:

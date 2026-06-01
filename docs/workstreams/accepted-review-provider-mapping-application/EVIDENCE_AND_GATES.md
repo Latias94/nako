@@ -174,7 +174,7 @@ Green checks:
 Decision:
 
 - Split Admin API/Web durable Candidate Review exposure to
-  `proposed:admin-web-provider-depth-governance`.
+  `docs/workstreams/admin-web-provider-depth-governance/`.
 - Keep this lane closed after backend plan/apply semantics.
 - Split related graph node hierarchy application to a separate future lane.
 
