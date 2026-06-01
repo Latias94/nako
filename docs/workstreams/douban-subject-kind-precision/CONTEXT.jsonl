@@ -1,0 +1,11 @@
+{"role":"glossary","path":"CONTEXT.md","reason":"Use Nako domain terms: Provider Subject, Provider Mapping, Media Item, Candidate Graph, and Canonical Metadata."}
+{"role":"adr","path":"docs/adr/0007-metadata-merge-policy-and-local-authority.md","reason":"Metadata merge authority and local field ownership baseline."}
+{"role":"adr","path":"docs/adr/0018-metadata-provider-runtime-and-diagnostics.md","reason":"Provider runtime, diagnostics, and redaction baseline."}
+{"role":"adr","path":"docs/adr/0021-video-first-media-server-domain-model.md","reason":"Video-first domain model and subject-kind vocabulary."}
+{"role":"architecture","path":"docs/architecture/LANES.md","reason":"Active queue and library-metadata-control-plane ownership."}
+{"role":"architecture","path":"docs/architecture/LIBRARY_PIPELINE.md","reason":"Library metadata provider precision capability map."}
+{"role":"architecture","path":"docs/architecture/WORKSTREAM_LINKS.md","reason":"Architecture workstream evidence and proposed lane linkage."}
+{"role":"prior_workstream","path":"docs/workstreams/metadata-provider-depth-and-precision/FOLLOW_ONS.md","reason":"Selected the Douban subject-kind precision follow-on and non-goals."}
+{"role":"prior_workstream","path":"docs/workstreams/bangumi-relations-and-episode-depth/CLOSEOUT.md","reason":"Recent endpoint-backed provider capability narrowing model."}
+{"role":"workstream","path":"docs/workstreams/douban-subject-kind-precision/DESIGN.md","reason":"Current lane design and non-goals."}
+{"role":"gates","path":"docs/workstreams/douban-subject-kind-precision/EVIDENCE_AND_GATES.md","reason":"Validation commands and evidence ledger."}

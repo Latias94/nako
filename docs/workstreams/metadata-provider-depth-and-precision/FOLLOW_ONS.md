@@ -20,12 +20,14 @@ continuing this lane as a broad provider project.
 - Treat raw provider payloads, paths, tokens, proxy URLs, and headers as
   forbidden diagnostics data unless a dedicated redaction contract owns them.
 
-## Proposed Lanes
+## Split Lanes
 
-### proposed:tmdb-season-episode-graph-depth
+### docs/workstreams/tmdb-season-episode-graph-depth
 
 Goal: Extend TMDB depth from series -> season preview to season -> episode
 preview when TMDB season details expose episode summaries.
+
+Status: closed as `docs/workstreams/tmdb-season-episode-graph-depth/`.
 
 First slice:
 
@@ -60,10 +62,12 @@ Non-goals:
 - no generated artifact apply changes;
 - no raw Bangumi response exposure.
 
-### proposed:douban-subject-kind-precision
+### docs/workstreams/douban-subject-kind-precision
 
 Goal: Tighten Douban subject-kind precision around its current movie/generic
 subject boundary.
+
+Status: opened as `docs/workstreams/douban-subject-kind-precision/`.
 
 First slice:
 

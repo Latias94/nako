@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "slug": "douban-subject-kind-precision",
+  "title": "Douban Subject Kind Precision",
+  "status": "active",
+  "updated": "2026-06-02",
+  "scope_kind": "library_metadata_provider_precision",
+  "problem": "Douban metadata currently uses movie search/detail endpoints, but the adapter advertises series, season, and episode support before endpoint-backed behavior exists.",
+  "task_prefix": "DSKP",
+  "current_task": "DSKP-020",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/douban-subject-kind-precision/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/douban-subject-kind-precision/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/douban-subject-kind-precision/TODO.md"
+    },
+    {
+      "role": "task_state",
+      "path": "docs/workstreams/douban-subject-kind-precision/TASKS.jsonl"
+    },
+    {
+      "role": "campaign_state",
+      "path": "docs/workstreams/douban-subject-kind-precision/CAMPAIGNS.jsonl"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/douban-subject-kind-precision/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "context_manifest",
+      "path": "docs/workstreams/douban-subject-kind-precision/CONTEXT.jsonl"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/douban-subject-kind-precision/HANDOFF.md"
+    }
+  ],
+  "context_manifest": "docs/workstreams/douban-subject-kind-precision/CONTEXT.jsonl",
+  "gates": [
+    "python -m json.tool docs/workstreams/douban-subject-kind-precision/WORKSTREAM.json",
+    "JSONL validation for docs/workstreams/douban-subject-kind-precision/TASKS.jsonl and CAMPAIGNS.jsonl",
+    "cargo nextest run -p nako-metadata douban_provider metadata_candidate --no-fail-fast",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "DSKP-010",
+      "summary": "Opened the Douban subject-kind precision lane from MPDP and BRED closeout evidence."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0018-metadata-provider-runtime-and-diagnostics.md",
+    "docs/adr/0021-video-first-media-server-domain-model.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/LANES.md",
+      "capability": "library-metadata-control-plane lane ownership"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Douban provider subject-kind precision active lane"
+    },
+    {
+      "path": "docs/architecture/LIBRARY_PIPELINE.md",
+      "capability": "Douban subject-kind precision"
+    }
+  ],
+  "capability_tags": [
+    "library.metadata.provider-depth",
+    "library.metadata.douban",
+    "library.metadata.provider-identity"
+  ],
+  "lane_slug": "library-metadata-control-plane",
+  "continue_policy": {
+    "default_action": "run_current_task",
+    "current_task": "DSKP-020",
+    "notes": "Next narrow Douban capability claims to endpoint-backed movie behavior. Do not add schema, Public Client API, Admin/Web, Generated Artifact apply, hierarchy graph preview, Media Item hierarchy creation, or child Provider Mapping writes."
+  }
+}

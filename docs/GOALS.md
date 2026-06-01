@@ -26,25 +26,25 @@ proposed milestone.
 
 ## Current Goal
 
-### Provider Depth Follow-On Selection
+### Douban Subject Kind Precision
 
-Status: ready as of 2026-06-02.
+Status: active as of 2026-06-02.
 
 Objective:
 
-- Choose and open the next focused provider-depth lane after Bangumi relation
-  and episode depth closeout.
-- Keep provider graph evidence preview-only until a durable review or Admin/Web
-  governance lane deliberately changes persistence semantics.
+- Make Douban provider capability claims match the adapter's current movie
+  search/detail endpoint contract.
+- Prevent Series, Season, and Episode support from being advertised before an
+  endpoint-backed Douban lane proves those semantics.
+- Preserve current movie refresh and root Provider Mapping behavior.
 
 Deliverables:
 
-- one new focused workstream, likely Douban subject precision, durable
-  candidate review, or Admin/Web provider depth governance;
-- active queue updates in `docs/architecture/LANES.md` and
-  `docs/workstreams/README.md`;
-- clear non-goals that prevent schema/API/Admin/Web changes from leaking into
-  a provider adapter slice.
+- `docs/workstreams/douban-subject-kind-precision/`;
+- Douban provider capability tests that prove diagnostics are endpoint-backed;
+- unsupported-kind search/fetch regression coverage for Series, Season, and
+  Episode requests;
+- workstream evidence proving existing movie behavior remains compatible.
 
 Non-goals:
 
@@ -52,20 +52,20 @@ Non-goals:
   `tmdb-season-episode-graph-depth` or
   `bangumi-relations-and-episode-depth`;
 - no schema migration, Public Client API change, Admin/Web confirmation UI, or
-  Generated Artifact apply change unless the next lane explicitly selects that
-  architecture scope;
-- no automatic Media Item hierarchy creation or child Provider Mapping writes
-  from preview graph evidence.
+  Generated Artifact apply change;
+- no Douban hierarchy graph preview, automatic Media Item hierarchy creation,
+  or child Provider Mapping writes.
 
 Exit criteria:
 
-- next lane has an explicit workstream directory, task ledger, validation
-  gates, and architecture links;
-- closed TMDB and Bangumi lanes remain closed and referenced as evidence only.
+- Douban capabilities no longer claim Series, Season, or Episode support while
+  only movie endpoints are implemented;
+- unsupported search/fetch requests fail before provider HTTP calls;
+- focused `nako-metadata` gates pass and evidence is recorded.
 
 Evidence:
 
-- `docs/workstreams/bangumi-relations-and-episode-depth/CLOSEOUT.md`
+- `docs/workstreams/douban-subject-kind-precision/`
 - `docs/architecture/LIBRARY_PIPELINE.md`
 
 ## Recent Completed Goals

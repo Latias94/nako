@@ -30,7 +30,7 @@ Storage event or scheduled scan
 | NFO authority | Shipped foundation | `docs/adr/0008-nfo-as-local-metadata-boundary.md` | Round-trip/writeback polish and backup policy. |
 | Metadata merge policy | Shipped foundation | `docs/adr/0007-metadata-merge-policy-and-local-authority.md` | Field-level review UX and provider conflict diagnostics. |
 | TMDB provider | Shipped movie plus series/season/episode graph preview foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/metadata-provider-depth-and-precision/`; `docs/workstreams/tmdb-season-episode-graph-depth/` | Durable candidate review or Admin/Web governance before preview graph depth becomes accepted hierarchy. |
-| Douban provider | Shipped MVP foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Subject-kind precision and identity matching follow-on. |
+| Douban provider | Shipped MVP foundation; subject-kind precision active | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/douban-subject-kind-precision/` | Finish endpoint-backed capability narrowing before durable review or Admin/Web governance. |
 | Bangumi provider | Shipped MVP plus endpoint-backed episode graph preview | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/bangumi-relations-and-episode-depth/` | Durable candidate review or Admin/Web governance before preview graph depth becomes accepted hierarchy. |
 | Addon-assisted metadata | Shipped guarded apply, bulk apply, provider mapping breadth, read-only apply recovery foundation, Web recovery UI, and repair seam proof | addon architecture lanes; `docs/workstreams/generated-artifact-metadata-authority-apply/`; `docs/workstreams/generated-artifact-bulk-metadata-apply/`; `docs/workstreams/generated-artifact-provider-mapping-breadth/`; `docs/workstreams/generated-artifact-apply-operations-repair/`; `docs/workstreams/web-admin-generated-artifact-recovery-ui/`; `docs/workstreams/generated-artifact-apply-repair-actions/` | Optional one-click repair wrapper or Web repair copy polish. |
 | Artwork artifact lifecycle | Shipped selection, lifecycle, variant, and remediation foundation | managed artwork lanes | Delivery cache placeholders and broader derivative policy. |
@@ -44,6 +44,25 @@ consolidated index for library, metadata, NFO, and artwork workstreams. Keep
 this document focused on intake and asset pipeline capability state.
 
 ## Next Work Lanes
+
+### douban-subject-kind-precision
+
+Status: Active at `docs/workstreams/douban-subject-kind-precision/`.
+
+Goal: Make Douban capability claims match its current movie search/detail
+endpoint contract before durable candidate review or Admin/Web governance
+depends on provider diagnostics.
+
+Current task:
+
+- `DSKP-020`: narrow Douban media and Provider Subject capability claims to
+  endpoint-backed movie behavior and add unsupported-kind regression coverage.
+
+Non-goals:
+
+- no schema, Public Client API, Admin/Web, or Generated Artifact apply changes;
+- no hierarchy graph preview or child Provider Mapping writes;
+- no raw Douban payload, API key, header, or proxy URL exposure.
 
 ### bangumi-relations-and-episode-depth
 

@@ -11,8 +11,8 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: provider-depth follow-on selection after Bangumi relation and episode
-depth closeout.
+Status: Douban subject-kind precision active after Bangumi relation and
+episode depth closeout.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
 Operations Repair are both closed as of 2026-06-02. Web Admin Generated
@@ -28,20 +28,19 @@ It targets:
   TMDB/MPDP/Bangumi work;
 - keeping provider graph evidence preview-only unless a durable review or
   Admin/Web governance lane deliberately changes persistence semantics;
-- keeping Douban subject precision, durable candidate review, and Admin/Web
-  governance split by scope.
+- making Douban capability diagnostics endpoint-backed before durable
+  candidate review or Admin/Web governance depends on them.
 
 Authoritative evidence:
 
 - `docs/workstreams/bangumi-relations-and-episode-depth/`
+- `docs/workstreams/douban-subject-kind-precision/`
 - `docs/workstreams/metadata-provider-depth-and-precision/FOLLOW_ONS.md`
 
 Next task:
 
-- open the next focused provider-depth follow-on. Recommended candidates:
-  `proposed:douban-subject-kind-precision`,
-  `proposed:metadata-candidate-durable-review`, or
-  `proposed:admin-web-provider-depth-governance`.
+- `DSKP-020`: narrow Douban media and Provider Subject capability claims to
+  endpoint-backed movie behavior and add unsupported-kind regression coverage.
 
 Latest completed architecture focus:
 
@@ -96,7 +95,7 @@ Follow-ons:
 
 - `docs/workstreams/tmdb-season-episode-graph-depth/` (closed);
 - `docs/workstreams/bangumi-relations-and-episode-depth/` (closed);
-- `proposed:douban-subject-kind-precision`;
+- `docs/workstreams/douban-subject-kind-precision/` (active);
 - `proposed:metadata-candidate-durable-review`;
 - `proposed:admin-web-provider-depth-governance`.
 

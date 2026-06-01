@@ -19,14 +19,13 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 Last reviewed: 2026-06-02
 
 `bangumi-relations-and-episode-depth` is closed after `BRED-050` in the
-`library-metadata-control-plane` lane.
+`library-metadata-control-plane` lane. The next focused provider-depth
+follow-on is now active as `douban-subject-kind-precision`.
 
 Next task:
 
-- open the next focused provider-depth follow-on. Recommended candidates are
-  `proposed:douban-subject-kind-precision`,
-  `proposed:metadata-candidate-durable-review`, or
-  `proposed:admin-web-provider-depth-governance`.
+- `DSKP-020`: narrow Douban media and Provider Subject capability claims to
+  endpoint-backed movie behavior and add unsupported-kind regression coverage.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -54,6 +53,9 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
 
 ## Current Workstreams
 
+- [douban-subject-kind-precision](douban-subject-kind-precision/README.md):
+  active library-metadata-control-plane lane for making Douban provider
+  capability claims match its current movie search/detail endpoint contract.
 - [bangumi-relations-and-episode-depth](bangumi-relations-and-episode-depth/README.md):
   closed library-metadata-control-plane lane for making Bangumi provider depth
   anime-first and endpoint-backed before relation/episode graph preview.

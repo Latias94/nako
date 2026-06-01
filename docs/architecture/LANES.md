@@ -20,7 +20,7 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| library-metadata-control-plane | follow-on selection | open next focused provider-depth lane | Planner |
+| library-metadata-control-plane | douban-subject-kind-precision | DSKP-020 | Douban capability implementer |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
@@ -44,8 +44,9 @@ review, or Admin/Web provider depth governance rather than reopening it.
 `bangumi-relations-and-episode-depth` is closed after `BRED-050`.
 `BRED-020` narrowed capability claims, `BRED-030` added endpoint-backed
 episode graph preview, and `BRED-040` proved refresh remains root-only. Next
-open a focused follow-on for Douban subject precision, durable candidate
-review, or Admin/Web provider depth governance rather than reopening it.
+focused provider-depth work is now `douban-subject-kind-precision`; durable
+candidate review and Admin/Web provider depth governance remain split
+follow-ons.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
@@ -145,8 +146,7 @@ Closed evidence:
 
 Active evidence:
 
-- none; choose or open the next focused provider-depth follow-on before
-  assigning a lane terminal.
+- `docs/workstreams/douban-subject-kind-precision/`
 
 Owned scopes:
 
@@ -169,6 +169,7 @@ Owned scopes:
 - `docs/workstreams/metadata-provider-depth-and-precision/`
 - `docs/workstreams/tmdb-season-episode-graph-depth/`
 - `docs/workstreams/bangumi-relations-and-episode-depth/`
+- `docs/workstreams/douban-subject-kind-precision/`
 
 Shared scopes requiring planner coordination:
 
