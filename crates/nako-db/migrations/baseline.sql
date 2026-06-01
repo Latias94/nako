@@ -654,6 +654,7 @@ CREATE INDEX generated_artifact_metadata_apply_outcomes_artifact_idx
 
 CREATE TABLE generated_artifact_metadata_bulk_apply_batches (
     id TEXT PRIMARY KEY NOT NULL,
+    job_id TEXT NOT NULL UNIQUE REFERENCES jobs(id),
     idempotency_key TEXT NOT NULL UNIQUE,
     status TEXT NOT NULL,
     selection_json TEXT NOT NULL,
@@ -671,6 +672,9 @@ CREATE TABLE generated_artifact_metadata_bulk_apply_batch_items (
     artifact_id TEXT NOT NULL,
     status TEXT NOT NULL,
     idempotency_key TEXT NOT NULL UNIQUE,
+    outcome_id TEXT REFERENCES generated_artifact_metadata_apply_outcomes(id),
+    error_code TEXT,
+    error_message TEXT,
     plan_item_json TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),

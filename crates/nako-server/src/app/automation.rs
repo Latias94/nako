@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 
 use async_trait::async_trait;
 use nako_api::extension::{
@@ -9,6 +9,7 @@ use nako_automation::AutomationJobService;
 use nako_core::{
     AutomationArtifactId, AutomationArtifactKind, AutomationArtifactStatus, AutomationCapability,
     AutomationProviderId, AutomationRepository, CanonicalMetadata,
+    GENERATED_ARTIFACT_METADATA_BULK_APPLY_JOB_RESOURCE_CLASS,
     GENERATED_ARTIFACT_METADATA_BULK_APPLY_PLAN_MAX_ARTIFACTS,
     GeneratedArtifactAcceptanceActionKind, GeneratedArtifactAcceptanceBoundary,
     GeneratedArtifactAcceptancePlan, GeneratedArtifactAcceptancePlanReason,
@@ -20,6 +21,7 @@ use nako_core::{
     GeneratedArtifactMetadataApplyResult, GeneratedArtifactMetadataApplyResultStatus,
     GeneratedArtifactMetadataBulkApplyBatchCommit, GeneratedArtifactMetadataBulkApplyBatchId,
     GeneratedArtifactMetadataBulkApplyBatchItemCommit,
+    GeneratedArtifactMetadataBulkApplyBatchItemOutcomeCommit,
     GeneratedArtifactMetadataBulkApplyBatchItemStatus,
     GeneratedArtifactMetadataBulkApplyBatchRecord, GeneratedArtifactMetadataBulkApplyBatchRequest,
     GeneratedArtifactMetadataBulkApplyBatchStatus, GeneratedArtifactMetadataBulkApplyPlan,
@@ -29,22 +31,34 @@ use nako_core::{
     GeneratedArtifactMetadataBulkApplyPlanSummary, GeneratedArtifactMetadataFieldAction,
     GeneratedArtifactMetadataFieldReason, GeneratedArtifactMetadataValueSummary,
     GeneratedArtifactProposal, GeneratedArtifactReviewDecision, GeneratedArtifactReviewResult, Job,
-    JobId, JobRepository, LibraryRepository, MediaItem, MediaItemId, MediaRepository,
+    JobId, JobKind, JobRepository, LibraryRepository, MediaItem, MediaItemId, MediaRepository,
     MetadataApplicationPersistenceCommit, MetadataField, MetadataFieldLock, MetadataMergePolicy,
-    MetadataRepository, MetadataSource, NakoError, NewAutomationProviderConfig, PageRequest,
-    Result,
+    MetadataRepository, MetadataSource, NakoError, NewAutomationProviderConfig, NewJob,
+    PageRequest, Result,
 };
 use nako_db::NakoDatabase;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
-use crate::app::metadata_application::{
-    MetadataApplication, MetadataApplicationCommand, MetadataApplicationLockScope,
-    MetadataApplicationMode, MetadataApplicationProvenance,
+use crate::app::{
+    job_runtime::{
+        DurableJobOperationError, DurableJobOperationResult, DurableJobRunOutcome,
+        DurableJobRuntime,
+    },
+    metadata_application::{
+        MetadataApplication, MetadataApplicationCommand, MetadataApplicationLockScope,
+        MetadataApplicationMode, MetadataApplicationProvenance,
+    },
 };
 
 #[derive(Clone, Debug)]
 struct UnavailableAutomationProvider;
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct GeneratedArtifactMetadataBulkApplyJobInput {
+    batch_id: GeneratedArtifactMetadataBulkApplyBatchId,
+}
 
 #[async_trait]
 impl nako_automation::AutomationProvider for UnavailableAutomationProvider {
@@ -75,11 +89,15 @@ impl nako_automation::AutomationProvider for UnavailableAutomationProvider {
 #[derive(Clone, Debug)]
 pub(crate) struct AutomationAppService {
     store: NakoDatabase,
+    metadata_permits: Arc<Semaphore>,
 }
 
 impl AutomationAppService {
-    pub(crate) fn new(store: NakoDatabase) -> Self {
-        Self { store }
+    pub(crate) fn new(store: NakoDatabase, metadata_permits: Arc<Semaphore>) -> Self {
+        Self {
+            store,
+            metadata_permits,
+        }
     }
 
     fn normalize_automation_provider(
@@ -659,6 +677,14 @@ impl AutomationAppService {
         }
 
         let batch_id = GeneratedArtifactMetadataBulkApplyBatchId::new();
+        let job_id = JobId::new();
+        let job_input = GeneratedArtifactMetadataBulkApplyJobInput { batch_id };
+        let input_json =
+            serde_json::to_string(&job_input).map_err(|err| NakoError::InvalidInput {
+                message: format!(
+                    "failed to serialize generated artifact metadata bulk apply job input: {err}"
+                ),
+            })?;
         let items = plan
             .items
             .iter()
@@ -685,6 +711,15 @@ impl AutomationAppService {
             .commit_generated_artifact_metadata_bulk_apply_batch(
                 &GeneratedArtifactMetadataBulkApplyBatchCommit {
                     id: batch_id,
+                    job: NewJob {
+                        id: job_id,
+                        kind: JobKind::GeneratedArtifactMetadataBulkApply,
+                        resource_class: GENERATED_ARTIFACT_METADATA_BULK_APPLY_JOB_RESOURCE_CLASS
+                            .to_owned(),
+                        library_id: None,
+                        source_id: None,
+                        input_json: Some(input_json),
+                    },
                     idempotency_key,
                     status: GeneratedArtifactMetadataBulkApplyBatchStatus::Queued,
                     selection: plan.selection,
@@ -693,6 +728,66 @@ impl AutomationAppService {
                 },
             )
             .await
+    }
+
+    pub(crate) async fn execute_generated_artifact_metadata_bulk_apply_batch(
+        &self,
+        batch_id: GeneratedArtifactMetadataBulkApplyBatchId,
+    ) -> Result<GeneratedArtifactMetadataBulkApplyBatchRecord> {
+        let batch = self
+            .store
+            .get_generated_artifact_metadata_bulk_apply_batch(batch_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "generated_artifact_metadata_bulk_apply_batch",
+                id: batch_id.to_string(),
+            })?;
+        if generated_artifact_metadata_bulk_apply_batch_status_is_terminal(batch.status) {
+            return Ok(batch);
+        }
+
+        let _permit = self
+            .acquire_generated_artifact_metadata_bulk_apply_permit()
+            .await?;
+        let runtime = DurableJobRuntime::new(self.store.clone());
+        let run = runtime
+            .run_job_with_context(
+                batch.job_id,
+                "generated artifact metadata bulk apply job",
+                |context| async move {
+                    self.run_generated_artifact_metadata_bulk_apply_batch(batch_id, context)
+                        .await
+                },
+                |batch| {
+                    DurableJobRuntime::serialize_summary(
+                        &batch.execution_summary,
+                        "generated artifact metadata bulk apply job summary",
+                    )
+                },
+            )
+            .await;
+
+        match run {
+            Ok(DurableJobRunOutcome::Completed(run)) => Ok(run.output),
+            Ok(DurableJobRunOutcome::Cancelled(_job)) => {
+                self.update_generated_artifact_metadata_bulk_apply_batch_status_best_effort(
+                    batch_id,
+                    GeneratedArtifactMetadataBulkApplyBatchStatus::Running,
+                    GeneratedArtifactMetadataBulkApplyBatchStatus::Cancelled,
+                )
+                .await
+            }
+            Err(err) => {
+                let _ = self
+                    .update_generated_artifact_metadata_bulk_apply_batch_status_best_effort(
+                        batch_id,
+                        GeneratedArtifactMetadataBulkApplyBatchStatus::Running,
+                        GeneratedArtifactMetadataBulkApplyBatchStatus::Failed,
+                    )
+                    .await;
+                Err(err)
+            }
+        }
     }
 
     pub async fn apply_generated_artifact_metadata(
@@ -921,6 +1016,145 @@ impl AutomationAppService {
         generated_artifact_metadata_apply_result_from_outcome(outcome, false)
     }
 
+    async fn run_generated_artifact_metadata_bulk_apply_batch(
+        &self,
+        batch_id: GeneratedArtifactMetadataBulkApplyBatchId,
+        context: crate::app::job_runtime::DurableJobContext,
+    ) -> DurableJobOperationResult<GeneratedArtifactMetadataBulkApplyBatchRecord> {
+        let batch = self
+            .store
+            .update_generated_artifact_metadata_bulk_apply_batch_status(
+                batch_id,
+                GeneratedArtifactMetadataBulkApplyBatchStatus::Queued,
+                GeneratedArtifactMetadataBulkApplyBatchStatus::Running,
+            )
+            .await
+            .map_err(DurableJobOperationError::from)?;
+
+        for item in batch.items.clone() {
+            context.check_cancelled().await?;
+            if item.status != GeneratedArtifactMetadataBulkApplyBatchItemStatus::Pending {
+                continue;
+            }
+
+            let outcome_commit = match self
+                .apply_generated_artifact_metadata(GeneratedArtifactMetadataApplyRequest {
+                    artifact_id: item.artifact_id,
+                    idempotency_key: item.idempotency_key.clone(),
+                })
+                .await
+            {
+                Ok(result) => GeneratedArtifactMetadataBulkApplyBatchItemOutcomeCommit {
+                    batch_id,
+                    artifact_id: item.artifact_id,
+                    status: match result.status {
+                        GeneratedArtifactMetadataApplyResultStatus::Applied => {
+                            GeneratedArtifactMetadataBulkApplyBatchItemStatus::Applied
+                        }
+                        GeneratedArtifactMetadataApplyResultStatus::Noop => {
+                            GeneratedArtifactMetadataBulkApplyBatchItemStatus::Noop
+                        }
+                    },
+                    outcome_id: result.outcome_id,
+                    error_code: None,
+                    error_message: None,
+                },
+                Err(error) => self
+                    .generated_artifact_metadata_bulk_apply_item_failure_commit(&item, &error)
+                    .await
+                    .map_err(DurableJobOperationError::from)?,
+            };
+
+            self.store
+                .commit_generated_artifact_metadata_bulk_apply_batch_item_outcome(&outcome_commit)
+                .await
+                .map_err(DurableJobOperationError::from)?;
+        }
+
+        context.check_cancelled().await?;
+        self.store
+            .update_generated_artifact_metadata_bulk_apply_batch_status(
+                batch_id,
+                GeneratedArtifactMetadataBulkApplyBatchStatus::Running,
+                GeneratedArtifactMetadataBulkApplyBatchStatus::Completed,
+            )
+            .await
+            .map_err(DurableJobOperationError::from)
+    }
+
+    async fn generated_artifact_metadata_bulk_apply_item_failure_commit(
+        &self,
+        item: &nako_core::GeneratedArtifactMetadataBulkApplyBatchItemRecord,
+        error: &NakoError,
+    ) -> Result<GeneratedArtifactMetadataBulkApplyBatchItemOutcomeCommit> {
+        if let Some(outcome) = self
+            .store
+            .find_generated_artifact_metadata_apply_outcome(item.artifact_id, &item.idempotency_key)
+            .await?
+        {
+            return Ok(GeneratedArtifactMetadataBulkApplyBatchItemOutcomeCommit {
+                batch_id: item.batch_id,
+                artifact_id: item.artifact_id,
+                status: if outcome.plan.status == GeneratedArtifactMetadataApplyPlanStatus::Stale {
+                    GeneratedArtifactMetadataBulkApplyBatchItemStatus::Stale
+                } else {
+                    GeneratedArtifactMetadataBulkApplyBatchItemStatus::Failed
+                },
+                outcome_id: Some(outcome.id),
+                error_code: outcome.error_code,
+                error_message: outcome
+                    .error_message
+                    .map(redact_generated_artifact_metadata_bulk_apply_error_message),
+            });
+        }
+
+        Ok(GeneratedArtifactMetadataBulkApplyBatchItemOutcomeCommit {
+            batch_id: item.batch_id,
+            artifact_id: item.artifact_id,
+            status: GeneratedArtifactMetadataBulkApplyBatchItemStatus::Failed,
+            outcome_id: None,
+            error_code: Some("apply_failed".to_owned()),
+            error_message: Some(redact_generated_artifact_metadata_bulk_apply_error_message(
+                error.to_string(),
+            )),
+        })
+    }
+
+    async fn acquire_generated_artifact_metadata_bulk_apply_permit(
+        &self,
+    ) -> Result<OwnedSemaphorePermit> {
+        self.metadata_permits
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|err| NakoError::InvalidInput {
+                message: format!("metadata bulk apply concurrency limiter is unavailable: {err}"),
+            })
+    }
+
+    async fn update_generated_artifact_metadata_bulk_apply_batch_status_best_effort(
+        &self,
+        batch_id: GeneratedArtifactMetadataBulkApplyBatchId,
+        expected: GeneratedArtifactMetadataBulkApplyBatchStatus,
+        status: GeneratedArtifactMetadataBulkApplyBatchStatus,
+    ) -> Result<GeneratedArtifactMetadataBulkApplyBatchRecord> {
+        match self
+            .store
+            .update_generated_artifact_metadata_bulk_apply_batch_status(batch_id, expected, status)
+            .await
+        {
+            Ok(batch) => Ok(batch),
+            Err(_) => self
+                .store
+                .get_generated_artifact_metadata_bulk_apply_batch(batch_id)
+                .await?
+                .ok_or_else(|| NakoError::NotFound {
+                    entity: "generated_artifact_metadata_bulk_apply_batch",
+                    id: batch_id.to_string(),
+                }),
+        }
+    }
+
     fn generated_artifact_metadata_apply_plan(
         &self,
         proposal: GeneratedArtifactProposal,
@@ -954,6 +1188,26 @@ fn generated_artifact_metadata_apply_is_idempotent_noop(
         && plan
             .reasons
             .contains(&GeneratedArtifactMetadataApplyPlanReason::NoApplicableMetadataFields)
+}
+
+fn generated_artifact_metadata_bulk_apply_batch_status_is_terminal(
+    status: GeneratedArtifactMetadataBulkApplyBatchStatus,
+) -> bool {
+    matches!(
+        status,
+        GeneratedArtifactMetadataBulkApplyBatchStatus::Completed
+            | GeneratedArtifactMetadataBulkApplyBatchStatus::Failed
+            | GeneratedArtifactMetadataBulkApplyBatchStatus::Cancelled
+    )
+}
+
+fn redact_generated_artifact_metadata_bulk_apply_error_message(message: String) -> String {
+    const MAX_LEN: usize = 512;
+    if message.chars().count() <= MAX_LEN {
+        return message;
+    }
+
+    message.chars().take(MAX_LEN).collect()
 }
 
 fn normalize_generated_artifact_metadata_apply_idempotency_key(value: &str) -> Result<String> {

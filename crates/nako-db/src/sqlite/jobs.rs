@@ -77,32 +77,10 @@ const JOB_LEASE_SELECT_BY_ID: &str = r#"
 #[async_trait::async_trait]
 impl JobRepository for SqliteStore {
     async fn enqueue_job(&self, job: NewJob) -> Result<Job> {
-        sqlx::query(
-            r#"
-            INSERT INTO jobs (
-                id,
-                kind,
-                status,
-                resource_class,
-                library_id,
-                source_id,
-                input_json
-            )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
-            "#,
-        )
-        .bind(job.id.to_string())
-        .bind(job.kind.as_str())
-        .bind(JobStatus::Queued.as_str())
-        .bind(job.resource_class)
-        .bind(job.library_id.map(|id| id.to_string()))
-        .bind(job.source_id.map(|id| id.to_string()))
-        .bind(job.input_json)
-        .execute(&self.pool)
-        .await
-        .map_err(database_error)?;
+        let job_id = job.id;
+        insert_job(&self.pool, job).await?;
 
-        self.get_job_or_not_found(job.id).await
+        self.get_job_or_not_found(job_id).await
     }
 
     async fn enqueue_job_retry(&self, retry: EnqueueJobRetry) -> Result<Job> {
@@ -332,6 +310,45 @@ impl JobRepository for SqliteStore {
             .map(row_to_queue_pressure_summary)
             .collect()
     }
+}
+
+pub(super) async fn insert_job_tx(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    job: NewJob,
+) -> Result<()> {
+    insert_job(&mut **transaction, job).await
+}
+
+async fn insert_job<'e, E>(executor: E, job: NewJob) -> Result<()>
+where
+    E: sqlx::Executor<'e, Database = Sqlite>,
+{
+    sqlx::query(
+        r#"
+        INSERT INTO jobs (
+            id,
+            kind,
+            status,
+            resource_class,
+            library_id,
+            source_id,
+            input_json
+        )
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+        "#,
+    )
+    .bind(job.id.to_string())
+    .bind(job.kind.as_str())
+    .bind(JobStatus::Queued.as_str())
+    .bind(job.resource_class)
+    .bind(job.library_id.map(|id| id.to_string()))
+    .bind(job.source_id.map(|id| id.to_string()))
+    .bind(job.input_json)
+    .execute(executor)
+    .await
+    .map_err(database_error)?;
+
+    Ok(())
 }
 
 #[async_trait::async_trait]

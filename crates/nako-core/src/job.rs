@@ -12,6 +12,7 @@ pub enum JobKind {
     NfoImport,
     NfoExport,
     ManagedArtworkIngest,
+    GeneratedArtifactMetadataBulkApply,
     Transcode,
     WebhookDelivery,
     Automation,
@@ -29,6 +30,7 @@ impl JobKind {
             Self::NfoImport => "nfo_import",
             Self::NfoExport => "nfo_export",
             Self::ManagedArtworkIngest => "managed_artwork_ingest",
+            Self::GeneratedArtifactMetadataBulkApply => "generated_artifact_metadata_bulk_apply",
             Self::Transcode => "transcode",
             Self::WebhookDelivery => "webhook_delivery",
             Self::Automation => "automation",
@@ -45,6 +47,9 @@ impl JobKind {
             "nfo_import" => Ok(Self::NfoImport),
             "nfo_export" => Ok(Self::NfoExport),
             "managed_artwork_ingest" => Ok(Self::ManagedArtworkIngest),
+            "generated_artifact_metadata_bulk_apply" => {
+                Ok(Self::GeneratedArtifactMetadataBulkApply)
+            }
             "transcode" => Ok(Self::Transcode),
             "webhook_delivery" => Ok(Self::WebhookDelivery),
             "automation" => Ok(Self::Automation),
@@ -292,6 +297,18 @@ mod tests {
     fn addon_task_kind_round_trips() {
         assert_eq!(JobKind::AddonTask.as_str(), "addon_task");
         assert_eq!(JobKind::parse("addon_task").unwrap(), JobKind::AddonTask);
+    }
+
+    #[test]
+    fn generated_artifact_metadata_bulk_apply_kind_round_trips() {
+        assert_eq!(
+            JobKind::GeneratedArtifactMetadataBulkApply.as_str(),
+            "generated_artifact_metadata_bulk_apply"
+        );
+        assert_eq!(
+            JobKind::parse("generated_artifact_metadata_bulk_apply").unwrap(),
+            JobKind::GeneratedArtifactMetadataBulkApply
+        );
     }
 
     #[test]

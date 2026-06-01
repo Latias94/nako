@@ -35,7 +35,7 @@ Last updated: 2026-06-01
   replay without item mutation.
   Handoff: Continue at `GABMA-040` for execution.
 
-- [ ] GABMA-040 [owner=codex] [deps=GABMA-030] [scope=crates/nako-server/src/app/automation.rs,crates/nako-server/src/app/runtime*,crates/nako-db]
+- [x] GABMA-040 [owner=codex] [deps=GABMA-030] [scope=crates/nako-server/src/app/automation.rs,crates/nako-server/src/app/runtime*,crates/nako-db]
   Goal: Execute confirmed batches through the existing one-artifact apply path
   with per-item outcomes, partial-failure accounting, and durable terminal
   state.

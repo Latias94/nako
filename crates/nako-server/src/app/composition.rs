@@ -200,7 +200,7 @@ impl NakoAppServices {
             runtime.supervisor.clone(),
             addons.clone(),
         );
-        let automation = AutomationAppService::new(store.clone());
+        let automation = AutomationAppService::new(store.clone(), runtime.metadata_permits.clone());
         let webhooks = WebhookAppService::new(store.clone(), runtime.webhook_permits);
         let catalog = CatalogAppService::new(store.clone());
         let library = LibraryAppService::new(store.clone());

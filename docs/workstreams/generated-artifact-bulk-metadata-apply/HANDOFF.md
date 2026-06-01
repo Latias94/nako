@@ -17,19 +17,21 @@ GAMA shipped the one-artifact Metadata Authority apply workflow:
 - Web Admin confirmation route.
 
 `GABMA-020` added the read-only bulk apply-plan contract and route. `GABMA-030`
-added durable batch request persistence. Bulk mutation is still not implemented;
-the next task executes queued batches through the existing one-artifact apply
-path.
+added durable batch request persistence. `GABMA-040` added durable job-backed
+batch execution through the existing one-artifact apply path with per-item
+outcomes and partial-failure accounting. Admin confirm/status/result routes are
+still not exposed; the next task publishes the backend read model and HTTP
+surface.
 
 ## Active Task
 
-- Task ID: `GABMA-040`
+- Task ID: `GABMA-050`
 - Lane: `library-metadata-control-plane`
 - Status: active
 - Owner: codex
 
-Goal: execute confirmed batches through the existing one-artifact apply path
-with per-item outcomes, partial-failure accounting, and durable terminal state.
+Goal: expose final Admin bulk apply confirm/status/result routes and keep
+generated contracts synchronized.
 
 ## Completed Evidence
 
@@ -45,6 +47,14 @@ with per-item outcomes, partial-failure accounting, and durable terminal state.
   guarded batch status transitions, and rollback on failed item persistence.
 - Validated with focused `nako-db` and `nako-server` bulk metadata apply gates,
   format check, and `git diff --check`.
+- `GABMA-040`: confirmed batches now enqueue a durable
+  `generated_artifact_metadata_bulk_apply` job and can be executed through
+  `AutomationAppService::execute_generated_artifact_metadata_bulk_apply_batch`.
+  Execution reuses the one-artifact Metadata Authority apply path, persists
+  per-item applied/noop/stale/failed outcomes and derived execution counters,
+  succeeds the durable job with a redacted summary, and replays terminal batch
+  state without duplicate mutation.
+- Validated with focused `nako-db` and `nako-server` bulk metadata apply gates.
 
 ## Key Context
 
@@ -71,7 +81,7 @@ with per-item outcomes, partial-failure accounting, and durable terminal state.
 
 ## Blockers
 
-- None for `GABMA-040`.
+- None for `GABMA-050`.
 
 ## Watchpoints
 

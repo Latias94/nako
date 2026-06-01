@@ -9,7 +9,10 @@ use std::{
 };
 
 use futures_util::FutureExt;
-use nako_core::{Job, JobId, JobKind, JobStatus, NakoError, Result};
+use nako_core::{
+    GENERATED_ARTIFACT_METADATA_BULK_APPLY_JOB_RESOURCE_CLASS, Job, JobId, JobKind, JobStatus,
+    NakoError, Result,
+};
 use tokio::{
     sync::{OwnedSemaphorePermit, Semaphore},
     task::AbortHandle,
@@ -205,6 +208,11 @@ pub(crate) fn runtime_budget_class_for_job_resource_class(
             if resource_class == RUNTIME_RESOURCE_CLASS_ARTWORK_INGEST =>
         {
             Some(RUNTIME_RESOURCE_CLASS_ARTWORK_INGEST)
+        }
+        JobKind::GeneratedArtifactMetadataBulkApply
+            if resource_class == GENERATED_ARTIFACT_METADATA_BULK_APPLY_JOB_RESOURCE_CLASS =>
+        {
+            Some(RUNTIME_RESOURCE_CLASS_METADATA_SHARED)
         }
         JobKind::WebhookDelivery if resource_class == RUNTIME_RESOURCE_CLASS_NETWORK_WEBHOOK => {
             Some(RUNTIME_RESOURCE_CLASS_NETWORK_WEBHOOK)
@@ -589,6 +597,11 @@ mod tests {
                 JobKind::ManagedArtworkIngest,
                 "artwork.ingest",
                 RUNTIME_RESOURCE_CLASS_ARTWORK_INGEST,
+            ),
+            (
+                JobKind::GeneratedArtifactMetadataBulkApply,
+                GENERATED_ARTIFACT_METADATA_BULK_APPLY_JOB_RESOURCE_CLASS,
+                RUNTIME_RESOURCE_CLASS_METADATA_SHARED,
             ),
             (
                 JobKind::WebhookDelivery,

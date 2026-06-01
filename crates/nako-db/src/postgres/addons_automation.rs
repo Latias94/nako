@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use sqlx::{Postgres, postgres::PgRow};
 
 use super::core_catalog::{upsert_media_item_tx, upsert_search_projection_tx};
+use super::jobs::insert_job_tx;
 use super::metadata_catalog::replace_item_catalog_graph_tx;
 use super::{
     PostgresStore, database_error, i64_to_u32, i64_to_u64, parse_id, parse_optional_id, row_get,
@@ -1233,20 +1234,23 @@ impl AutomationRepository for PostgresStore {
         let selection_json = serde_json::to_string(&commit.selection).map_err(database_error)?;
         let summary_json = serde_json::to_string(&commit.summary).map_err(database_error)?;
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
+        insert_job_tx(&mut transaction, commit.job.clone()).await?;
 
         sqlx::query(
             r#"
             INSERT INTO generated_artifact_metadata_bulk_apply_batches (
                 id,
+                job_id,
                 idempotency_key,
                 status,
                 selection_json,
                 summary_json
             )
-            VALUES ($1, $2, $3, $4::jsonb, $5::jsonb)
+            VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb)
             "#,
         )
         .bind(commit.id.as_uuid())
+        .bind(commit.job.id.as_uuid())
         .bind(&commit.idempotency_key)
         .bind(commit.status.as_str())
         .bind(selection_json)
@@ -1265,9 +1269,12 @@ impl AutomationRepository for PostgresStore {
                     artifact_id,
                     status,
                     idempotency_key,
+                    outcome_id,
+                    error_code,
+                    error_message,
                     plan_item_json
                 )
-                VALUES ($1, $2, $3, $4, $5, $6::jsonb)
+                VALUES ($1, $2, $3, $4, $5, NULL, NULL, NULL, $6::jsonb)
                 "#,
             )
             .bind(commit.id.as_uuid())
@@ -1289,6 +1296,49 @@ impl AutomationRepository for PostgresStore {
                 message: format!(
                     "generated artifact metadata bulk apply batch {} was not found after commit",
                     commit.id
+                ),
+            })
+    }
+
+    async fn commit_generated_artifact_metadata_bulk_apply_batch_item_outcome(
+        &self,
+        commit: &GeneratedArtifactMetadataBulkApplyBatchItemOutcomeCommit,
+    ) -> Result<GeneratedArtifactMetadataBulkApplyBatchRecord> {
+        validate_generated_artifact_metadata_bulk_apply_batch_item_outcome_commit(commit)?;
+        let result = sqlx::query(
+            r#"
+            UPDATE generated_artifact_metadata_bulk_apply_batch_items
+            SET status = $1,
+                outcome_id = $2,
+                error_code = $3,
+                error_message = $4,
+                updated_at = statement_timestamp()
+            WHERE batch_id = $5 AND artifact_id = $6
+            "#,
+        )
+        .bind(commit.status.as_str())
+        .bind(commit.outcome_id.map(|id| id.as_uuid()))
+        .bind(&commit.error_code)
+        .bind(&commit.error_message)
+        .bind(commit.batch_id.as_uuid())
+        .bind(commit.artifact_id.as_uuid())
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        if result.rows_affected() == 0 {
+            return Err(NakoError::NotFound {
+                entity: "generated_artifact_metadata_bulk_apply_batch_item",
+                id: format!("{}:{}", commit.batch_id, commit.artifact_id),
+            });
+        }
+
+        self.load_generated_artifact_metadata_bulk_apply_batch(commit.batch_id)
+            .await?
+            .ok_or_else(|| NakoError::Database {
+                message: format!(
+                    "generated artifact metadata bulk apply batch {} was not found after item outcome commit",
+                    commit.batch_id
                 ),
             })
     }
@@ -1352,6 +1402,7 @@ impl PostgresStore {
             r#"
             SELECT
                 id::text AS id,
+                job_id::text AS job_id,
                 idempotency_key,
                 status,
                 selection_json::text AS selection_json,
@@ -1378,6 +1429,9 @@ impl PostgresStore {
                 artifact_id::text AS artifact_id,
                 status,
                 idempotency_key,
+                outcome_id::text AS outcome_id,
+                error_code,
+                error_message,
                 plan_item_json::text AS plan_item_json,
                 to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS created_at,
                 to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS updated_at
@@ -1529,6 +1583,18 @@ fn row_to_generated_artifact_metadata_apply_outcome(
 fn validate_generated_artifact_metadata_bulk_apply_batch_commit(
     commit: &GeneratedArtifactMetadataBulkApplyBatchCommit,
 ) -> Result<()> {
+    if commit.job.kind != JobKind::GeneratedArtifactMetadataBulkApply {
+        return Err(NakoError::InvalidInput {
+            message: "generated artifact metadata bulk apply batch job must use JobKind::GeneratedArtifactMetadataBulkApply"
+                .to_owned(),
+        });
+    }
+    if commit.job.resource_class != GENERATED_ARTIFACT_METADATA_BULK_APPLY_JOB_RESOURCE_CLASS {
+        return Err(NakoError::InvalidInput {
+            message: "generated artifact metadata bulk apply batch job resource_class is invalid"
+                .to_owned(),
+        });
+    }
     if commit.idempotency_key.trim().is_empty() {
         return Err(NakoError::InvalidInput {
             message: "generated artifact metadata bulk apply batch idempotency_key cannot be empty"
@@ -1562,6 +1628,32 @@ fn validate_generated_artifact_metadata_bulk_apply_batch_commit(
     Ok(())
 }
 
+fn validate_generated_artifact_metadata_bulk_apply_batch_item_outcome_commit(
+    commit: &GeneratedArtifactMetadataBulkApplyBatchItemOutcomeCommit,
+) -> Result<()> {
+    if matches!(
+        commit.status,
+        GeneratedArtifactMetadataBulkApplyBatchItemStatus::Pending
+            | GeneratedArtifactMetadataBulkApplyBatchItemStatus::Skipped
+    ) {
+        return Err(NakoError::InvalidInput {
+            message: "generated artifact metadata bulk apply item outcome must be terminal"
+                .to_owned(),
+        });
+    }
+    if commit.error_code.as_deref().is_some_and(str::is_empty)
+        || commit.error_message.as_deref().is_some_and(str::is_empty)
+    {
+        return Err(NakoError::InvalidInput {
+            message:
+                "generated artifact metadata bulk apply item outcome error fields cannot be empty"
+                    .to_owned(),
+        });
+    }
+
+    Ok(())
+}
+
 fn row_to_generated_artifact_metadata_bulk_apply_batch(
     row: PgRow,
     items: Vec<GeneratedArtifactMetadataBulkApplyBatchItemRecord>,
@@ -1571,12 +1663,16 @@ fn row_to_generated_artifact_metadata_bulk_apply_batch(
 
     Ok(GeneratedArtifactMetadataBulkApplyBatchRecord {
         id: parse_id(row_get::<String>(&row, "id")?)?,
+        job_id: parse_id(row_get::<String>(&row, "job_id")?)?,
         idempotency_key: row_get(&row, "idempotency_key")?,
         status: GeneratedArtifactMetadataBulkApplyBatchStatus::parse(&row_get::<String>(
             &row, "status",
         )?)?,
         selection: serde_json::from_str(&selection_json).map_err(database_error)?,
         summary: serde_json::from_str(&summary_json).map_err(database_error)?,
+        execution_summary: GeneratedArtifactMetadataBulkApplyBatchExecutionSummary::from_items(
+            &items,
+        ),
         items,
         created_at: row_get(&row, "created_at")?,
         updated_at: row_get(&row, "updated_at")?,
@@ -1596,6 +1692,9 @@ fn row_to_generated_artifact_metadata_bulk_apply_batch_item(
             &row, "status",
         )?)?,
         idempotency_key: row_get(&row, "idempotency_key")?,
+        outcome_id: parse_optional_id(row_get::<Option<String>>(&row, "outcome_id")?)?,
+        error_code: row_get(&row, "error_code")?,
+        error_message: row_get(&row, "error_message")?,
         plan_item: serde_json::from_str(&plan_item_json).map_err(database_error)?,
         created_at: row_get(&row, "created_at")?,
         updated_at: row_get(&row, "updated_at")?,

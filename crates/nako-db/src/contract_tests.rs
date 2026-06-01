@@ -21,11 +21,13 @@ use nako_core::{
     CatalogSearchProjection, ClaimAddonEventDeliveryAttempt, Collection, CollectionId,
     CollectionItem, CompleteLeasedJob, CreditRole, DatabaseLifecycle, DirectorySnapshot,
     DomainEventKind, DomainEventSubject, EnqueueJobRetry, EventOutboxRepository, ExternalId,
-    ExternalProvider, FailLeasedJob, GeneratedArtifactMetadataApplyOutcomeCommit,
-    GeneratedArtifactMetadataApplyOutcomeId, GeneratedArtifactMetadataApplyOutcomeStatus,
-    GeneratedArtifactMetadataApplyPlan, GeneratedArtifactMetadataApplyPlanReason,
-    GeneratedArtifactMetadataApplyPlanStatus, GeneratedArtifactMetadataBulkApplyBatchCommit,
-    GeneratedArtifactMetadataBulkApplyBatchId, GeneratedArtifactMetadataBulkApplyBatchItemCommit,
+    ExternalProvider, FailLeasedJob, GENERATED_ARTIFACT_METADATA_BULK_APPLY_JOB_RESOURCE_CLASS,
+    GeneratedArtifactMetadataApplyOutcomeCommit, GeneratedArtifactMetadataApplyOutcomeId,
+    GeneratedArtifactMetadataApplyOutcomeStatus, GeneratedArtifactMetadataApplyPlan,
+    GeneratedArtifactMetadataApplyPlanReason, GeneratedArtifactMetadataApplyPlanStatus,
+    GeneratedArtifactMetadataBulkApplyBatchCommit, GeneratedArtifactMetadataBulkApplyBatchId,
+    GeneratedArtifactMetadataBulkApplyBatchItemCommit,
+    GeneratedArtifactMetadataBulkApplyBatchItemOutcomeCommit,
     GeneratedArtifactMetadataBulkApplyBatchItemStatus,
     GeneratedArtifactMetadataBulkApplyBatchStatus, GeneratedArtifactMetadataBulkApplyPlanItem,
     GeneratedArtifactMetadataBulkApplyPlanItemReason,
@@ -3135,6 +3137,10 @@ where
         .unwrap();
 
     assert_eq!(created.id, batch_id);
+    assert_eq!(created.job_id, commit.job.id);
+    let batch_job = store.get_job(created.job_id).await.unwrap().unwrap();
+    assert_eq!(batch_job.kind, JobKind::GeneratedArtifactMetadataBulkApply);
+    assert_eq!(batch_job.status, JobStatus::Queued);
     assert_eq!(
         created.status,
         GeneratedArtifactMetadataBulkApplyBatchStatus::Queued
@@ -3148,6 +3154,7 @@ where
         created.items[0].status,
         GeneratedArtifactMetadataBulkApplyBatchItemStatus::Pending
     );
+    assert_eq!(created.execution_summary.pending_item_count, 2);
     assert_eq!(created.items[0].plan_item, first_plan_item);
     assert_eq!(created.plan().items.len(), 2);
     assert_eq!(
@@ -3187,6 +3194,48 @@ where
         running.status,
         GeneratedArtifactMetadataBulkApplyBatchStatus::Running
     );
+    let applied_outcome = store
+        .commit_generated_artifact_metadata_apply_outcome(
+            &GeneratedArtifactMetadataApplyOutcomeCommit {
+                id: GeneratedArtifactMetadataApplyOutcomeId::new(),
+                artifact_id: created.items[0].artifact_id,
+                idempotency_key: created.items[0].idempotency_key.clone(),
+                status: GeneratedArtifactMetadataApplyOutcomeStatus::Applied,
+                applied: true,
+                changed: true,
+                applied_source: Some("user".to_owned()),
+                item_id: Some(source.item_id),
+                plan: created.items[0].plan_item.plan.clone().unwrap(),
+                error_code: None,
+                error_message: None,
+                metadata_application: None,
+            },
+        )
+        .await
+        .unwrap();
+    let with_item_outcome = store
+        .commit_generated_artifact_metadata_bulk_apply_batch_item_outcome(
+            &GeneratedArtifactMetadataBulkApplyBatchItemOutcomeCommit {
+                batch_id,
+                artifact_id: created.items[0].artifact_id,
+                status: GeneratedArtifactMetadataBulkApplyBatchItemStatus::Applied,
+                outcome_id: Some(applied_outcome.id),
+                error_code: None,
+                error_message: None,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        with_item_outcome.items[0].status,
+        GeneratedArtifactMetadataBulkApplyBatchItemStatus::Applied
+    );
+    assert_eq!(
+        with_item_outcome.items[0].outcome_id,
+        Some(applied_outcome.id)
+    );
+    assert_eq!(with_item_outcome.execution_summary.applied_item_count, 1);
+    assert_eq!(with_item_outcome.execution_summary.pending_item_count, 1);
     let invalid_transition = store
         .update_generated_artifact_metadata_bulk_apply_batch_status(
             batch_id,
@@ -3216,6 +3265,7 @@ where
             .unwrap()
             .is_none()
     );
+    assert!(store.get_job(conflict.job.id).await.unwrap().is_none());
 }
 
 fn contract_generated_artifact_metadata_apply_plan(
@@ -3268,8 +3318,17 @@ fn contract_generated_artifact_metadata_bulk_apply_batch_commit(
     plan_items: Vec<GeneratedArtifactMetadataBulkApplyPlanItem>,
 ) -> GeneratedArtifactMetadataBulkApplyBatchCommit {
     let item_count = plan_items.len() as u32;
+    let job_id = JobId::new();
     GeneratedArtifactMetadataBulkApplyBatchCommit {
         id: batch_id,
+        job: NewJob {
+            id: job_id,
+            kind: JobKind::GeneratedArtifactMetadataBulkApply,
+            resource_class: GENERATED_ARTIFACT_METADATA_BULK_APPLY_JOB_RESOURCE_CLASS.to_owned(),
+            library_id: None,
+            source_id: None,
+            input_json: Some(format!(r#"{{"batch_id":"{batch_id}"}}"#)),
+        },
         idempotency_key: idempotency_key.to_owned(),
         status: GeneratedArtifactMetadataBulkApplyBatchStatus::Queued,
         selection: GeneratedArtifactMetadataBulkApplyPlanSelection {

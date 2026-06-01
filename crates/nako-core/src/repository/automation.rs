@@ -6,6 +6,7 @@ use crate::{
     AutomationProviderConfigRecord, AutomationProviderId,
     GeneratedArtifactMetadataApplyOutcomeCommit, GeneratedArtifactMetadataApplyOutcomeRecord,
     GeneratedArtifactMetadataBulkApplyBatchCommit, GeneratedArtifactMetadataBulkApplyBatchId,
+    GeneratedArtifactMetadataBulkApplyBatchItemOutcomeCommit,
     GeneratedArtifactMetadataBulkApplyBatchRecord, GeneratedArtifactMetadataBulkApplyBatchStatus,
     GeneratedArtifactProposal, JobId, MediaItemId, NewAutomationArtifact,
     NewAutomationProviderConfig, Result,
@@ -83,6 +84,11 @@ pub trait AutomationRepository: Send + Sync {
     async fn commit_generated_artifact_metadata_bulk_apply_batch(
         &self,
         commit: &GeneratedArtifactMetadataBulkApplyBatchCommit,
+    ) -> Result<GeneratedArtifactMetadataBulkApplyBatchRecord>;
+
+    async fn commit_generated_artifact_metadata_bulk_apply_batch_item_outcome(
+        &self,
+        commit: &GeneratedArtifactMetadataBulkApplyBatchItemOutcomeCommit,
     ) -> Result<GeneratedArtifactMetadataBulkApplyBatchRecord>;
 
     async fn update_generated_artifact_metadata_bulk_apply_batch_status(

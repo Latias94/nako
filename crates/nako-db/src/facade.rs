@@ -895,6 +895,15 @@ impl AutomationRepository for NakoDatabase {
             .await
     }
 
+    async fn commit_generated_artifact_metadata_bulk_apply_batch_item_outcome(
+        &self,
+        commit: &GeneratedArtifactMetadataBulkApplyBatchItemOutcomeCommit,
+    ) -> Result<GeneratedArtifactMetadataBulkApplyBatchRecord> {
+        self.backend()
+            .commit_generated_artifact_metadata_bulk_apply_batch_item_outcome(commit)
+            .await
+    }
+
     async fn update_generated_artifact_metadata_bulk_apply_batch_status(
         &self,
         batch_id: GeneratedArtifactMetadataBulkApplyBatchId,

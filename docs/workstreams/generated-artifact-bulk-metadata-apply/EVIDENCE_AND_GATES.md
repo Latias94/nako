@@ -56,6 +56,17 @@ Only run after Admin contract support exists:
   Gates: `cargo nextest run -p nako-db generated_artifact_bulk_metadata_apply --no-fail-fast`;
   `cargo nextest run -p nako-server generated_artifact_bulk_metadata_apply --no-fail-fast`;
   `cargo fmt --all -- --check`; `git diff --check`.
+- `GABMA-040`: Added durable job-backed batch execution through the existing
+  one-artifact Metadata Authority apply path. Batch rows now link to a queued
+  `generated_artifact_metadata_bulk_apply` job, item rows persist terminal
+  applied/noop/stale/failed outcomes, execution summary counters are derived
+  from item state, and replay returns terminal batch state without duplicate
+  mutations.
+  Gates: `cargo nextest run -p nako-db generated_artifact_bulk_metadata_apply --no-fail-fast`;
+  `cargo nextest run -p nako-server generated_artifact_bulk_metadata_apply --no-fail-fast`.
+  PostgreSQL ignored contract was attempted with
+  `cargo nextest run -p nako-db --run-ignored only postgres_metadata_catalog_contract_generated_artifact_bulk_metadata_apply_batch_is_idempotent_and_atomic --no-fail-fast`
+  but did not run because `NAKO_TEST_POSTGRES_URL` is not configured locally.
 
 ## Final Evidence Checklist
 

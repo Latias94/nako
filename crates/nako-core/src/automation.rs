@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     AutomationArtifactId, AutomationProviderId, GeneratedArtifactMetadataApplyOutcomeId,
     GeneratedArtifactMetadataBulkApplyBatchId, JobId, LibraryId, MediaItemId, MediaSourceId,
-    MetadataApplicationPersistenceCommit, MetadataField, NakoError, Result,
+    MetadataApplicationPersistenceCommit, MetadataField, NakoError, NewJob, Result,
 };
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -517,6 +517,8 @@ pub struct GeneratedArtifactMetadataApplyPlan {
 }
 
 pub const GENERATED_ARTIFACT_METADATA_BULK_APPLY_PLAN_MAX_ARTIFACTS: usize = 100;
+pub const GENERATED_ARTIFACT_METADATA_BULK_APPLY_JOB_RESOURCE_CLASS: &str =
+    "metadata.generated_artifact_bulk_apply";
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct GeneratedArtifactMetadataBulkApplyPlanRequest {
@@ -625,6 +627,7 @@ pub enum GeneratedArtifactMetadataBulkApplyBatchItemStatus {
     Skipped,
     Applied,
     Noop,
+    Stale,
     Failed,
 }
 
@@ -636,6 +639,7 @@ impl GeneratedArtifactMetadataBulkApplyBatchItemStatus {
             Self::Skipped => "skipped",
             Self::Applied => "applied",
             Self::Noop => "noop",
+            Self::Stale => "stale",
             Self::Failed => "failed",
         }
     }
@@ -646,6 +650,7 @@ impl GeneratedArtifactMetadataBulkApplyBatchItemStatus {
             "skipped" => Ok(Self::Skipped),
             "applied" => Ok(Self::Applied),
             "noop" => Ok(Self::Noop),
+            "stale" => Ok(Self::Stale),
             "failed" => Ok(Self::Failed),
             _ => Err(NakoError::Database {
                 message: format!(
@@ -668,11 +673,66 @@ pub struct GeneratedArtifactMetadataBulkApplyBatchItemCommit {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct GeneratedArtifactMetadataBulkApplyBatchCommit {
     pub id: GeneratedArtifactMetadataBulkApplyBatchId,
+    pub job: NewJob,
     pub idempotency_key: String,
     pub status: GeneratedArtifactMetadataBulkApplyBatchStatus,
     pub selection: GeneratedArtifactMetadataBulkApplyPlanSelection,
     pub summary: GeneratedArtifactMetadataBulkApplyPlanSummary,
     pub items: Vec<GeneratedArtifactMetadataBulkApplyBatchItemCommit>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactMetadataBulkApplyBatchExecutionSummary {
+    pub total_item_count: u32,
+    pub pending_item_count: u32,
+    pub skipped_item_count: u32,
+    pub applied_item_count: u32,
+    pub noop_item_count: u32,
+    pub stale_item_count: u32,
+    pub failed_item_count: u32,
+}
+
+impl GeneratedArtifactMetadataBulkApplyBatchExecutionSummary {
+    #[must_use]
+    pub fn from_items(items: &[GeneratedArtifactMetadataBulkApplyBatchItemRecord]) -> Self {
+        let mut summary = Self {
+            total_item_count: items.len() as u32,
+            ..Self::default()
+        };
+        for item in items {
+            match item.status {
+                GeneratedArtifactMetadataBulkApplyBatchItemStatus::Pending => {
+                    summary.pending_item_count = summary.pending_item_count.saturating_add(1);
+                }
+                GeneratedArtifactMetadataBulkApplyBatchItemStatus::Skipped => {
+                    summary.skipped_item_count = summary.skipped_item_count.saturating_add(1);
+                }
+                GeneratedArtifactMetadataBulkApplyBatchItemStatus::Applied => {
+                    summary.applied_item_count = summary.applied_item_count.saturating_add(1);
+                }
+                GeneratedArtifactMetadataBulkApplyBatchItemStatus::Noop => {
+                    summary.noop_item_count = summary.noop_item_count.saturating_add(1);
+                }
+                GeneratedArtifactMetadataBulkApplyBatchItemStatus::Stale => {
+                    summary.stale_item_count = summary.stale_item_count.saturating_add(1);
+                }
+                GeneratedArtifactMetadataBulkApplyBatchItemStatus::Failed => {
+                    summary.failed_item_count = summary.failed_item_count.saturating_add(1);
+                }
+            }
+        }
+        summary
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactMetadataBulkApplyBatchItemOutcomeCommit {
+    pub batch_id: GeneratedArtifactMetadataBulkApplyBatchId,
+    pub artifact_id: AutomationArtifactId,
+    pub status: GeneratedArtifactMetadataBulkApplyBatchItemStatus,
+    pub outcome_id: Option<GeneratedArtifactMetadataApplyOutcomeId>,
+    pub error_code: Option<String>,
+    pub error_message: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -682,6 +742,9 @@ pub struct GeneratedArtifactMetadataBulkApplyBatchItemRecord {
     pub position: u32,
     pub status: GeneratedArtifactMetadataBulkApplyBatchItemStatus,
     pub idempotency_key: String,
+    pub outcome_id: Option<GeneratedArtifactMetadataApplyOutcomeId>,
+    pub error_code: Option<String>,
+    pub error_message: Option<String>,
     pub plan_item: GeneratedArtifactMetadataBulkApplyPlanItem,
     pub created_at: String,
     pub updated_at: String,
@@ -690,10 +753,12 @@ pub struct GeneratedArtifactMetadataBulkApplyBatchItemRecord {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct GeneratedArtifactMetadataBulkApplyBatchRecord {
     pub id: GeneratedArtifactMetadataBulkApplyBatchId,
+    pub job_id: JobId,
     pub idempotency_key: String,
     pub status: GeneratedArtifactMetadataBulkApplyBatchStatus,
     pub selection: GeneratedArtifactMetadataBulkApplyPlanSelection,
     pub summary: GeneratedArtifactMetadataBulkApplyPlanSummary,
+    pub execution_summary: GeneratedArtifactMetadataBulkApplyBatchExecutionSummary,
     pub items: Vec<GeneratedArtifactMetadataBulkApplyBatchItemRecord>,
     pub created_at: String,
     pub updated_at: String,

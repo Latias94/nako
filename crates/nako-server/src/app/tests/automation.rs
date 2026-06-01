@@ -12,8 +12,8 @@ use nako_core::{
     GeneratedArtifactMetadataBulkApplyPlanItemStatus,
     GeneratedArtifactMetadataBulkApplyPlanRequest, GeneratedArtifactMetadataFieldAction,
     GeneratedArtifactMetadataFieldReason, GeneratedArtifactReadinessStatus,
-    GeneratedArtifactReviewDecision, GeneratedArtifactTargetKind, NewAutomationArtifact,
-    NewAutomationProviderConfig,
+    GeneratedArtifactReviewDecision, GeneratedArtifactTargetKind, JobRepository, JobStatus,
+    NewAutomationArtifact, NewAutomationProviderConfig,
 };
 use nako_search::{SearchIndex, SearchQuery};
 
@@ -693,6 +693,171 @@ async fn generated_artifact_bulk_metadata_apply_batch_persists_confirmed_request
 }
 
 #[tokio::test]
+async fn generated_artifact_bulk_metadata_apply_batch_executes_with_partial_results_and_replay() {
+    let fixture = generated_artifact_metadata_apply_fixture(
+        r#"{"overview":"bulk generated overview","confidence_milli":810}"#,
+    )
+    .await;
+    let noop_artifact_id = fixture
+        .add_accepted_metadata_artifact_for_item(
+            fixture.item_id,
+            fixture.source_id,
+            r#"{"overview":"bulk generated overview","confidence_milli":810}"#,
+        )
+        .await;
+    let stale = fixture
+        .add_accepted_metadata_artifact(
+            "Stale Matrix",
+            "stale-matrix.mkv",
+            r#"{"overview":"stale generated overview","confidence_milli":810}"#,
+        )
+        .await;
+    let failed = fixture
+        .add_accepted_metadata_artifact(
+            "Rejected Matrix",
+            "rejected-matrix.mkv",
+            r#"{"overview":"rejected generated overview","confidence_milli":810}"#,
+        )
+        .await;
+    let missing_artifact_id = AutomationArtifactId::new();
+    let batch = fixture
+        .app
+        .automation()
+        .create_generated_artifact_metadata_bulk_apply_batch(
+            GeneratedArtifactMetadataBulkApplyBatchRequest {
+                artifact_ids: vec![
+                    fixture.artifact_id,
+                    noop_artifact_id,
+                    stale.artifact_id,
+                    failed.artifact_id,
+                    missing_artifact_id,
+                ],
+                idempotency_key: "bulk-apply:execute".to_owned(),
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        batch.status,
+        GeneratedArtifactMetadataBulkApplyBatchStatus::Queued
+    );
+    assert_eq!(
+        fixture
+            .store
+            .get_job(batch.job_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .status,
+        JobStatus::Queued
+    );
+
+    let moved_item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Moved Matrix".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    fixture.store.upsert_media_item(&moved_item).await.unwrap();
+    fixture
+        .store
+        .upsert_media_source(&MediaSource {
+            id: stale.source_id,
+            library_id: fixture.library_id,
+            item_id: moved_item.id,
+            locator: "local:///Movies/private/stale-matrix.mkv".to_owned(),
+            file_name: "stale-matrix.mkv".to_owned(),
+            size_bytes: Some(2048),
+            fingerprint: Some("sha256-private-stale-fingerprint".to_owned()),
+        })
+        .await
+        .unwrap();
+    fixture
+        .store
+        .set_automation_artifact_status(failed.artifact_id, AutomationArtifactStatus::Rejected)
+        .await
+        .unwrap();
+
+    let executed = fixture
+        .app
+        .automation()
+        .execute_generated_artifact_metadata_bulk_apply_batch(batch.id)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        executed.status,
+        GeneratedArtifactMetadataBulkApplyBatchStatus::Completed
+    );
+    assert_eq!(executed.execution_summary.applied_item_count, 1);
+    assert_eq!(executed.execution_summary.noop_item_count, 1);
+    assert_eq!(executed.execution_summary.stale_item_count, 1);
+    assert_eq!(executed.execution_summary.failed_item_count, 1);
+    assert_eq!(executed.execution_summary.skipped_item_count, 1);
+    assert_eq!(
+        executed
+            .items
+            .iter()
+            .map(|item| item.status)
+            .collect::<Vec<_>>(),
+        vec![
+            GeneratedArtifactMetadataBulkApplyBatchItemStatus::Applied,
+            GeneratedArtifactMetadataBulkApplyBatchItemStatus::Noop,
+            GeneratedArtifactMetadataBulkApplyBatchItemStatus::Stale,
+            GeneratedArtifactMetadataBulkApplyBatchItemStatus::Failed,
+            GeneratedArtifactMetadataBulkApplyBatchItemStatus::Skipped,
+        ]
+    );
+    assert!(executed.items[0].outcome_id.is_some());
+    assert!(executed.items[1].outcome_id.is_some());
+    assert!(executed.items[2].outcome_id.is_some());
+    assert_eq!(
+        executed.items[2].error_code.as_deref(),
+        Some("plan_not_executable")
+    );
+    assert!(executed.items[3].outcome_id.is_some());
+    assert_eq!(
+        executed.items[3].error_code.as_deref(),
+        Some("plan_not_executable")
+    );
+    assert!(executed.items[4].outcome_id.is_none());
+
+    let job = fixture.store.get_job(batch.job_id).await.unwrap().unwrap();
+    assert_eq!(job.status, JobStatus::Succeeded);
+    assert!(job.summary_json.is_some());
+
+    let item_after = fixture
+        .store
+        .get_media_item(fixture.item_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        item_after.metadata.overview.as_deref(),
+        Some("bulk generated overview")
+    );
+
+    let replay = fixture
+        .app
+        .automation()
+        .execute_generated_artifact_metadata_bulk_apply_batch(batch.id)
+        .await
+        .unwrap();
+    assert_eq!(replay.items, executed.items);
+
+    let body = serde_json::to_string(&executed).unwrap();
+    assert!(!body.contains("bulk generated overview"));
+    assert!(!body.contains("stale generated overview"));
+    assert!(!body.contains("rejected generated overview"));
+    assert!(!body.contains("local:///Movies/private"));
+    assert!(!body.contains("sha256-private"));
+}
+
+#[tokio::test]
 async fn generated_artifact_metadata_apply_commits_unlocked_fields_and_catalog_projection() {
     let fixture = generated_artifact_metadata_apply_fixture(
         r#"{"title":"Private AI Title","overview":"private generated overview","genres":["Cyberpunk"],"confidence_milli":810,"explanation":"private reasoning"}"#,
@@ -1141,9 +1306,108 @@ struct GeneratedArtifactMetadataApplyFixture {
     app: NakoApp,
     store: NakoDatabase,
     library_id: LibraryId,
+    provider_id: AutomationProviderId,
     item_id: MediaItemId,
     source_id: MediaSourceId,
     artifact_id: AutomationArtifactId,
+}
+
+struct GeneratedArtifactMetadataApplyFixtureArtifact {
+    source_id: MediaSourceId,
+    artifact_id: AutomationArtifactId,
+}
+
+impl GeneratedArtifactMetadataApplyFixture {
+    async fn add_accepted_metadata_artifact(
+        &self,
+        title: &str,
+        file_name: &str,
+        artifact_json: &str,
+    ) -> GeneratedArtifactMetadataApplyFixtureArtifact {
+        let item = MediaItem {
+            id: MediaItemId::new(),
+            kind: MediaKind::Movie,
+            parent_id: None,
+            metadata: CanonicalMetadata {
+                title: title.to_owned(),
+                ..CanonicalMetadata::default()
+            },
+        };
+        let source = MediaSource {
+            id: MediaSourceId::new(),
+            library_id: self.library_id,
+            item_id: item.id,
+            locator: format!("local:///Movies/private/{file_name}"),
+            file_name: file_name.to_owned(),
+            size_bytes: Some(2048),
+            fingerprint: Some(format!("sha256-private-{file_name}")),
+        };
+        self.store.upsert_media_item(&item).await.unwrap();
+        self.store.upsert_media_source(&source).await.unwrap();
+        let artifact_id = self
+            .add_accepted_metadata_artifact_for_item(item.id, source.id, artifact_json)
+            .await;
+
+        GeneratedArtifactMetadataApplyFixtureArtifact {
+            source_id: source.id,
+            artifact_id,
+        }
+    }
+
+    async fn add_accepted_metadata_artifact_for_item(
+        &self,
+        item_id: MediaItemId,
+        source_id: MediaSourceId,
+        artifact_json: &str,
+    ) -> AutomationArtifactId {
+        let job = self
+            .store
+            .enqueue_job(NewJob {
+                id: JobId::new(),
+                kind: JobKind::Automation,
+                resource_class: "automation.external_api".to_owned(),
+                library_id: Some(self.library_id),
+                source_id: Some(source_id),
+                input_json: Some(
+                    serde_json::to_string(&AutomationJobInput {
+                        provider_id: self.provider_id,
+                        capability: AutomationCapability::MetadataCleanup,
+                        library_id: Some(self.library_id),
+                        item_id: Some(item_id),
+                        source_id: Some(source_id),
+                        prompt_json:
+                            r#"{"path":"local:///Movies/private/extra.mkv","token":"secret"}"#
+                                .to_owned(),
+                        idempotency_key: format!("metadata-cleanup:{item_id}:{source_id}"),
+                    })
+                    .unwrap(),
+                ),
+            })
+            .await
+            .unwrap();
+        let artifact = self
+            .store
+            .create_automation_artifact(NewAutomationArtifact {
+                id: AutomationArtifactId::new(),
+                job_id: job.id,
+                provider_id: self.provider_id,
+                capability: AutomationCapability::MetadataCleanup,
+                kind: AutomationArtifactKind::MetadataSuggestion,
+                library_id: Some(self.library_id),
+                item_id: Some(item_id),
+                source_id: Some(source_id),
+                artifact_json: artifact_json.to_owned(),
+            })
+            .await
+            .unwrap();
+        self.app
+            .automation()
+            .review_generated_artifact(artifact.id, GeneratedArtifactReviewDecision::Accept)
+            .await
+            .unwrap();
+
+        artifact.id
+    }
 }
 
 async fn generated_artifact_metadata_apply_fixture(
@@ -1275,6 +1539,7 @@ async fn generated_artifact_metadata_apply_fixture(
         app,
         store,
         library_id,
+        provider_id,
         item_id: item.id,
         source_id: source.id,
         artifact_id: artifact.id,

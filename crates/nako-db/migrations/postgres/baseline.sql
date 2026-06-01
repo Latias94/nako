@@ -844,6 +844,7 @@ CREATE INDEX IF NOT EXISTS generated_artifact_metadata_apply_outcomes_artifact_i
 
 CREATE TABLE IF NOT EXISTS generated_artifact_metadata_bulk_apply_batches (
     id uuid PRIMARY KEY NOT NULL,
+    job_id uuid NOT NULL UNIQUE REFERENCES jobs(id),
     idempotency_key text NOT NULL UNIQUE,
     status text NOT NULL,
     selection_json jsonb NOT NULL,
@@ -861,6 +862,9 @@ CREATE TABLE IF NOT EXISTS generated_artifact_metadata_bulk_apply_batch_items (
     artifact_id uuid NOT NULL,
     status text NOT NULL,
     idempotency_key text NOT NULL UNIQUE,
+    outcome_id uuid REFERENCES generated_artifact_metadata_apply_outcomes(id),
+    error_code text,
+    error_message text,
     plan_item_json jsonb NOT NULL,
     created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
     updated_at timestamptz NOT NULL DEFAULT statement_timestamp(),
