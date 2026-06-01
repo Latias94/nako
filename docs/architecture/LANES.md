@@ -20,12 +20,16 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| `library-metadata-control-plane` | none | open focused follow-on | Planner |
+| `architecture-planning` | `architecture-roadmap-reconciliation` | `ARR-050` | Planner |
+
+No implementation lane should be treated as active by default while
+`ARR-050` is verifying and closing or splitting the roadmap reconciliation.
+Open a focused follow-on before doing actual artifact publication, one-command
+release-gate wrapping, official addon alpha smoke, bulk Generated Artifact
+apply, provider mapping breadth, Admin settings restoration, playback artifact
+I/O enforcement, or any product-scope change to the MVP cut.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
-Open a focused follow-on before doing actual artifact publication, one-command
-release-gate wrapping, official addon alpha smoke, or any product-scope change
-to the MVP cut.
 
 `generated-artifact-metadata-authority-apply` is closed after `GAMA-070`. Open
 a focused follow-on before starting bulk apply, provider-specific Generated
@@ -58,6 +62,31 @@ tone-map execution, HEVC/AV1 output policy, subtitle burn-in, Admin/release
 reporting, and hardware smoke evidence into separate follow-ons.
 
 ## Lane Registry
+
+### architecture-planning
+
+Owns short-lived planner lanes that reconcile roadmap, lane routing,
+workstream status, and architecture evidence before parallel implementation
+lanes start.
+
+Active evidence:
+
+- `docs/workstreams/architecture-roadmap-reconciliation/`
+
+Owned scopes:
+
+- `docs/GOALS.md`
+- `docs/ROADMAP.md`
+- `docs/architecture/LANES.md`
+- `docs/architecture/WORKSTREAM_LINKS.md`
+- high-risk capability maps under `docs/architecture/`
+- workstream navigation and active queue summaries under `docs/workstreams/`
+
+Shared scopes requiring planner coordination:
+
+- any architecture map that also changes API, schema, crate, runtime, release,
+  or product implementation scope;
+- broad historical handoff cleanup that could hide useful execution context.
 
 ### mvp-release-convergence
 

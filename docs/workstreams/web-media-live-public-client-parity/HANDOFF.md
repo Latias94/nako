@@ -57,9 +57,10 @@ Completed:
 
 Concern:
 
-- `BrowserPlaybackTicketResponse` does not expose a playback session id, so
-  browser heartbeat cannot be implemented from the current ticket DTO alone. The
-  missing session-id/heartbeat contract is now a named follow-on.
+- At WMLP closeout, `BrowserPlaybackTicketResponse` did not expose a playback
+  session id, so browser heartbeat was split to a named follow-on. That
+  follow-on later closed in
+  `docs/workstreams/public-client-browser-playback-session-identity/`.
 
 ## Completed Task
 
@@ -86,8 +87,8 @@ Completed:
 
 ## Follow-Ons
 
-- Browser playback ticket should expose a playback session id, or another stable
-  web-visible session identity, before heartbeat can be wired honestly.
+- Browser playback ticket session identity is now resolved by
+  `docs/workstreams/public-client-browser-playback-session-identity/`.
 - Public Client needs library-scoped item browse before `/media/library` can show
   scoped live items.
 - Public Client needs stable catalog sort/filter before Recently Added and

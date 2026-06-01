@@ -11,14 +11,23 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: idle after closeout.
+Status: active planner reconciliation.
 
 Active architecture focus:
 
-No planner-owned architecture focus is currently open. Use
-`docs/architecture/LANES.md` for active execution queues. Open a focused
-follow-on for actual release publication, one-command release-gate wrapping,
-official addon alpha smoke, or a product-scope change.
+Architecture Roadmap Reconciliation opened on 2026-06-01 after the latest
+sub-architecture audit. It is a docs-only planner lane that updates the
+program roadmap, active queue, architecture workstream links, and high-risk
+capability maps before new parallel implementation lanes start.
+
+The active task is `ARR-050`: verify docs gates, update final evidence, and
+decide whether to close the lane or split broad historical cleanup into a
+separate follow-on. Follow-on implementation lanes remain proposed until this
+reconciliation verifies that they are still the right next goals.
+
+Authoritative lane:
+
+- `docs/workstreams/architecture-roadmap-reconciliation/`
 
 Latest completed architecture focus:
 

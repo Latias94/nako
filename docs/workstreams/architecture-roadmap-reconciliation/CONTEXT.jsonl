@@ -1,0 +1,8 @@
+{"path":"docs/GOALS.md","role":"program-goal-map","notes":"Top-level active planner goal and recent completed goals."}
+{"path":"docs/ROADMAP.md","role":"program-roadmap","notes":"Current architecture focus and phase-band roadmap."}
+{"path":"docs/architecture/LANES.md","role":"lane-registry","notes":"Active queue and long-lived Codex terminal routing."}
+{"path":"docs/architecture/WORKSTREAM_LINKS.md","role":"architecture-evidence-index","notes":"Capability-to-workstream evidence and proposed lane cross-reference."}
+{"path":"docs/architecture/LIBRARY_PIPELINE.md","role":"library-metadata-map","notes":"Scan, metadata, NFO, artwork, and provider capability state."}
+{"path":"docs/architecture/STATE_ACCESS.md","role":"state-access-map","notes":"Persistence, identity, playback policy, and access state."}
+{"path":"docs/architecture/CONTROL_PLANE.md","role":"control-plane-map","notes":"Durable jobs, runtime supervision, diagnostics, addon lifecycle, API scale, and remote access."}
+{"path":"docs/architecture/STORAGE_VFS.md","role":"storage-vfs-map","notes":"Storage backend, source identity, staging, cache, and remote storage capability state."}

@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "slug": "architecture-roadmap-reconciliation",
+  "title": "Architecture Roadmap Reconciliation",
+  "status": "active",
+  "updated": "2026-06-01",
+  "scope_kind": "architecture_planning",
+  "problem": "Roadmap, lane, architecture, and workstream navigation docs have drifted behind completed implementation lanes, making the next parallel task selection risky.",
+  "task_prefix": "ARR",
+  "current_task": "ARR-050",
+  "completed_tasks": [
+    "ARR-010",
+    "ARR-020",
+    "ARR-030",
+    "ARR-040"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/architecture-roadmap-reconciliation/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/architecture-roadmap-reconciliation/DESIGN.md"
+    },
+    {
+      "role": "audit_notes",
+      "path": "docs/workstreams/architecture-roadmap-reconciliation/RECON.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/architecture-roadmap-reconciliation/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/architecture-roadmap-reconciliation/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/architecture-roadmap-reconciliation/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "context_manifest",
+      "path": "docs/workstreams/architecture-roadmap-reconciliation/CONTEXT.jsonl"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/architecture-roadmap-reconciliation/HANDOFF.md"
+    }
+  ],
+  "context_manifest": "docs/workstreams/architecture-roadmap-reconciliation/CONTEXT.jsonl",
+  "gates": [
+    "python -m json.tool docs/workstreams/architecture-roadmap-reconciliation/WORKSTREAM.json",
+    "git diff --check -- docs/GOALS.md docs/ROADMAP.md docs/architecture docs/workstreams/README.md docs/workstreams/architecture-roadmap-reconciliation"
+  ],
+  "evidence": [
+    {
+      "task": "ARR-010",
+      "summary": "Opened this planner/docs lane after read-only sub-architecture audits found roadmap and status drift across Playback/Transcode, Storage/VFS, Library/Metadata/NFO/Artwork, Web/Product, State/Access, and Control/Addons/Ops/Realtime."
+    },
+    {
+      "task": "ARR-020",
+      "summary": "Updated top-level goal, roadmap, lane registry, and workstream navigation docs so active work routes to architecture-roadmap-reconciliation instead of closed MVP/GAMA/Web lanes."
+    },
+    {
+      "task": "ARR-030",
+      "summary": "Updated architecture evidence links and high-risk capability maps for provider breadth, Generated Artifact apply follow-ons, Managed Artwork, playback policy, cache/header state, Web product evidence, addon/realtime evidence, and control-plane follow-ons."
+    },
+    {
+      "task": "ARR-040",
+      "summary": "Repaired targeted stale references that could misroute future work, including the old ADR 0053 path and WMLP/PBSI heartbeat handoff drift."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0053-application-control-plane-boundary.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/LANES.md",
+      "capability": "Architecture lane routing and active queue"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Architecture workstream evidence index"
+    },
+    {
+      "path": "docs/architecture/LIBRARY_PIPELINE.md",
+      "capability": "Library and metadata capability map"
+    },
+    {
+      "path": "docs/architecture/STATE_ACCESS.md",
+      "capability": "State, identity, and access capability map"
+    },
+    {
+      "path": "docs/architecture/CONTROL_PLANE.md",
+      "capability": "Control-plane capability map"
+    }
+  ],
+  "capability_tags": [
+    "program.roadmap.reconciliation",
+    "architecture.lane-index",
+    "architecture.workstream-links",
+    "docs.workstream-status"
+  ],
+  "lane_slug": "architecture-planning",
+  "continue_policy": {
+    "default_action": "continue_next_task",
+    "notes": "Run ARR-050 verification and close or split this planner lane before selecting the next implementation lane."
+  }
+}

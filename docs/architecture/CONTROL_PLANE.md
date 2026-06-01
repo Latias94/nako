@@ -1,6 +1,6 @@
 # Control Plane Architecture
 
-Last updated: 2026-05-29
+Last updated: 2026-06-01
 
 This document maps Nako's application control plane: the cross-cutting systems
 that keep the media data plane safe, observable, extensible, and operable.
@@ -51,7 +51,7 @@ Deployment Endpoint Config
 | Built-in tunnel provider | Deferred | ADR 0053 | Do not make core depend on a central relay. |
 | Endpoint discovery | Not started | This document | LAN/remote endpoint model for clients. |
 | API version/error/page contracts | Shipped foundation | ADR 0023; Public/Admin API lanes | Cursor pagination and large-library contracts. |
-| HTTP cache/ETag contracts | Not started | This document | Image/artifact/catalog cache semantics. |
+| HTTP cache/ETag contracts | Narrow shipped partial | managed artwork thumbnail/serving lanes; this document | Systematize image, artifact, and catalog cache semantics. |
 | N+1/list projection discipline | Partial | catalog projection lanes | API scale tests for large libraries. |
 
 ## Workstream Evidence
@@ -131,7 +131,7 @@ Exit criteria:
 - image/artifact routes have explicit cache semantics;
 - large-library tests cover query and response-size budgets.
 
-### remote-access-and-endpoint-discovery
+### self-hosted-remote-access-and-endpoint-discovery
 
 Goal: Make self-hosted remote access predictable without making Nako core a
 tunnel service.

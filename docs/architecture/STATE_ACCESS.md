@@ -1,6 +1,6 @@
 # State, Database, And Access Architecture
 
-Last updated: 2026-05-29
+Last updated: 2026-06-01
 
 This document maps Nako's persistence, playback state, identity, and access
 boundaries.
@@ -25,7 +25,7 @@ Authenticated Principal
 | Repository traits | Shipped foundation | `docs/adr/0001-modular-monolith-rust-workspace.md` | Keep domain traits out of adapters. |
 | Local credential auth | Shipped | `docs/adr/0037-local-credential-and-session-auth.md` | Account recovery/SSO follow-ons. |
 | Library access | Shipped foundation | identity/access lanes | Fine-grained content policies. |
-| Playback policy | Partial | `docs/adr/0039-playback-policy-and-renderer-target-boundary.md` | Remote bitrate, transcode, session-limit policies. |
+| Playback policy | Shipped foundation | `docs/adr/0039-playback-policy-and-renderer-target-boundary.md`; `docs/workstreams/playback-policy-and-renderer-targets/` | Editable operator controls, remote bitrate, transcode, and session-limit policies. |
 | User playback progress | Shipped foundation | `docs/adr/0028-user-playback-state-principal-and-public-contract.md` | Heartbeat buffering and conflict semantics. |
 | Transcode/playback sessions | Shipped foundation | playback runtime lanes | Active-session limits and write pressure tests. |
 | Search projection | Shipped foundation | catalog/search lanes | FTS/filter scale-up. |
@@ -70,6 +70,18 @@ Scope:
 - allow/deny transcode;
 - active session count or resource limit;
 - idle session termination policy.
+
+### api-scale-and-cache-contracts
+
+Goal: Make stateful list/read APIs safe for large libraries and multiple
+principals.
+
+Scope:
+
+- cursor pagination rules for stable browse/search orderings;
+- cache validators that respect access boundaries;
+- API response budget guidance;
+- query-shape regression tests for common list/detail surfaces.
 
 ## Risk Register
 

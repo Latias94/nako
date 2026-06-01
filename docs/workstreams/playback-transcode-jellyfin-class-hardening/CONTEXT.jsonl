@@ -10,7 +10,7 @@
 {"kind":"adr","path":"docs/adr/0048-playback-transcode-startup-degradation.md","note":"Startup degradation and transcode readiness baseline."}
 {"kind":"adr","path":"docs/adr/0049-source-aware-transcode-runtime.md","note":"Source-aware transcode runtime baseline."}
 {"kind":"adr","path":"docs/adr/0052-hls-runtime-and-media-engine-boundary.md","note":"HLS runtime and media engine boundary baseline."}
-{"kind":"adr","path":"docs/adr/0053-runtime-control-plane-boundary.md","note":"Runtime supervision and control-plane baseline."}
+{"kind":"adr","path":"docs/adr/0053-application-control-plane-boundary.md","note":"Runtime supervision and control-plane baseline."}
 {"kind":"related_workstream","path":"docs/workstreams/playback-compatibility-matrix-hardening/","note":"Closed playback compatibility matrix hardening evidence."}
 {"kind":"related_workstream","path":"docs/workstreams/transcode-capability-inventory-matrix/","note":"Closed FFmpeg capability inventory evidence."}
 {"kind":"related_workstream","path":"docs/workstreams/hls-runtime-lifecycle-boundary/","note":"Closed HLS lifecycle boundary and follow-on split evidence."}

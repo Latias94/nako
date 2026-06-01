@@ -5,7 +5,7 @@ Last updated: 2026-05-21
 
 ## Current State
 
-This lane is opened as the follow-on split from
+This lane is complete. It was opened as the follow-on split from
 `link-apply-and-import-promotion` LAIP-070. The split is intentional: Managed
 Import promotion applies staged artifacts into a Media Library, while NFO
 sidecar import/export apply is a separate **Library File Write** and
@@ -73,7 +73,7 @@ Existing prerequisites are in place:
 - Validation: tests with failing storage/repository doubles prove no false
   committed state and no unredacted diagnostics across export/import partial
   failures.
-- Status: IN_PROGRESS
+- Status: DONE
 - Evidence: NSPA-040 export apply and NSPA-050 import apply mutation
   boundaries. The first NSPA-060 slice now injects final audit commit failure
   after export sidecar write and after import metadata mutation; both paths

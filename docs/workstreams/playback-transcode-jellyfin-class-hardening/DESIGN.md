@@ -40,7 +40,7 @@ must remain original and aligned with Nako's domain model.
 - `docs/adr/0048-playback-transcode-startup-degradation.md`
 - `docs/adr/0049-source-aware-transcode-runtime.md`
 - `docs/adr/0052-hls-runtime-and-media-engine-boundary.md`
-- `docs/adr/0053-runtime-control-plane-boundary.md`
+- `docs/adr/0053-application-control-plane-boundary.md`
 
 ## Target State
 

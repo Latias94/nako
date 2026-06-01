@@ -26,10 +26,50 @@ proposed milestone.
 
 ## Current Goal
 
-No top-level planner goal is currently open after MVP Release Shape closeout.
-Use `docs/architecture/LANES.md` for active execution queues, and open a new
-goal/workstream for actual release publication, one-command release-gate
-wrapping, official addon alpha smoke, or a product-scope change.
+### Architecture Roadmap Reconciliation
+
+Status: active as of 2026-06-01.
+
+Objective:
+
+- Reconcile Nako's top-level roadmap, architecture lane registry, capability
+  maps, and workstream navigation after the latest sub-architecture audit.
+- Make the next parallel implementation choices evidence-backed instead of
+  relying on stale historical handoffs or old active-lane wording.
+- Keep completed MVP, GAMA, Web, storage, playback, provider, addon, and
+  control-plane lanes closed unless a focused follow-on is explicitly opened.
+
+Deliverables:
+
+- `docs/workstreams/architecture-roadmap-reconciliation/`
+- updated active queue in `docs/architecture/LANES.md`
+- refreshed program status in `docs/ROADMAP.md`
+- corrected high-risk architecture map drift in `docs/architecture/*.md`
+- updated workstream evidence links in
+  `docs/architecture/WORKSTREAM_LINKS.md`
+
+Non-goals:
+
+- no Rust, Web, schema, API, generated contract, or runtime behavior changes;
+- no release artifact publication or packaging changes;
+- no broad rewrite of every historical workstream handoff;
+- no implementation of proposed follow-on lanes.
+
+Exit criteria:
+
+- current planner docs route active work to
+  `architecture-roadmap-reconciliation`;
+- shipped provider, playback policy, artwork, Web, storage, addon, realtime,
+  and control-plane evidence is linked from architecture indexes;
+- proposed lanes name real next-depth work instead of already-shipped MVP
+  slices;
+- docs validation gates pass.
+
+Evidence:
+
+- `docs/workstreams/architecture-roadmap-reconciliation/`
+- gates listed in
+  `docs/workstreams/architecture-roadmap-reconciliation/EVIDENCE_AND_GATES.md`
 
 ## Recent Completed Goals
 

@@ -5,7 +5,7 @@ Last updated: 2026-05-21
 
 ## Current State
 
-The lane is active as the next post-RPD mainline after metadata provider
+The lane is complete. It was the next post-RPD mainline after metadata provider
 breadth. Existing NFO preservation/write/backup/retention work is treated as
 baseline. Non-destructive VFS link planning is implemented. Filesystem-link
 evidence can be recorded as suggested Source Duplicate Relationship

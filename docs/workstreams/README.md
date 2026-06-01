@@ -18,10 +18,10 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 
 Last reviewed: 2026-06-01
 
-- `library-metadata-control-plane` has no active workstream after
-  [generated-artifact-metadata-authority-apply](generated-artifact-metadata-authority-apply/README.md)
-  closed at `GAMA-070`. Open a focused follow-on before bulk apply, provider
-  mapping breadth, apply repair tooling, or Admin settings restoration work.
+- [architecture-roadmap-reconciliation](architecture-roadmap-reconciliation/README.md)
+  is the active planner/docs lane. It owns `ARR-050` verification and closeout
+  after reconciling roadmap and architecture evidence before new parallel
+  implementation work starts.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -29,6 +29,10 @@ or any product-scope change to the MVP cut. `web-mvp-live-smoke` is closed as
 MVP Gate 3 evidence. `GAMA` is closed after fresh backend/Web Metadata
 Authority apply verification. `CSAPA` is closed; desktop playback is deferred
 to a focused future Tauri/native playback spike.
+
+`library-metadata-control-plane` has no implementation workstream after
+`GAMA-070`. Open a focused follow-on before bulk apply, provider mapping
+breadth, apply repair tooling, or Admin settings restoration work.
 `audio-compatibility-downmix-normalization`,
 `remote-storage-health-and-circuit-breaker`,
 `transcode-interface-and-runtime-plan-deepening`,
@@ -42,6 +46,10 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
 
 ## Current Workstreams
 
+- [architecture-roadmap-reconciliation](architecture-roadmap-reconciliation/README.md):
+  active planner/docs lane for reconciling roadmap, lane registry,
+  architecture workstream links, high-risk capability maps, and workstream
+  navigation after the latest sub-architecture audit.
 - [mvp-release-shape](mvp-release-shape/README.md): closed planner-owned
   release convergence lane for defining the first video-first, self-hosted,
   single-admin Nako MVP; routing release blockers to existing lanes; and
@@ -182,12 +190,12 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
   constrained rendition planning, stable request-variant identity, artifact
   reconstruction, and no-audio adaptive FFmpeg stream-map support.
 - [web-v0-copy-first-tanstack-refactor](web-v0-copy-first-tanstack-refactor/README.md):
-  active copy-first frontend replacement lane that imports the complete
-  `repo-ref/nako-admin-web` product shell into `web/`, then removes Next/Vercel
-  runtime assumptions, restores Nako API boundaries, moves route ownership to
-  TanStack, and records browser/Tauri performance gates before closeout.
+  completed copy-first frontend replacement lane that imported the complete
+  `repo-ref/nako-admin-web` product shell into `web/`, removed Next/Vercel
+  runtime assumptions, restored Nako API boundaries, moved route ownership to
+  TanStack, and split remaining product work to follow-ons.
 - [web-deferred-product-reentry-plan](web-deferred-product-reentry-plan/README.md):
-  active planning lane for routing the WBBP-deferred frontend surfaces back
+  completed planning lane for routing the WBBP-deferred frontend surfaces back
   through real backend/API contracts before downloads, playlists, photos,
   music, podcasts, AI assistant, or automation can re-enter the live web
   runtime.
@@ -203,12 +211,12 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
   provider mapping breadth, apply repair tooling, and placeholder Admin
   settings restoration are follow-ons.
 - [web-playlist-management-ui-mutations](web-playlist-management-ui-mutations/README.md):
-  active fearless refactor lane for turning the closed User Playlist Public
+  closed fearless refactor lane for turning the closed User Playlist Public
   Client contract and first read-oriented web slice into create, rename, delete,
   add, remove, and reorder management flows without Admin API imports or
   fixture-only success claims.
 - [web-media-live-public-client-parity](web-media-live-public-client-parity/README.md):
-  active implementation lane for moving the new `web/` Media surface from
+  completed implementation lane for moving the new `web/` Media surface from
   fixture-first browsing toward live Public Client browse/detail, browser-safe
   playback entry, playback state, browser/Tauri validation, and bundle-budget
   gates.
@@ -254,7 +262,7 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
   capability-profile boundary before adaptive HLS, fMP4, DLNA profiles, or
   remote workers expand the surface area.
 - [external-casting-adapter-boundary](external-casting-adapter-boundary/README.md):
-  active execution lane for adding Chromecast, DLNA, and AirPlay through
+  completed execution lane for adding Chromecast, DLNA, and AirPlay through
   protocol-specific renderer adapters after Nako remote-client cast-safe
   transport. It keeps Nako host-owned policy, Renderer Sessions, Playback
   Sessions, and transport tickets while moving protocol discovery/control into
@@ -332,26 +340,25 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
   have been split to narrower lanes; desktop playback is deferred to a focused
   future spike.
 - [admin-web-v2-i18n-expansion](admin-web-v2-i18n-expansion/README.md):
-  active execution lane for expanding Admin Web V2 localization beyond the
-  shell and Media Library management routes. The first slice migrates
-  `/overview` and `/access` route-visible copy while preserving API enum values
-  and diagnostic facts.
+  closed execution lane for expanding Admin Web V2 localization beyond the
+  shell and Media Library management routes, covering overview, access,
+  settings, catalog governance, item detail, jobs, playback sessions, storage,
+  acquisition, generated artifacts, and addons route-visible copy.
 - [admin-web-v2-users-access-readiness](admin-web-v2-users-access-readiness/README.md):
   completed execution lane for adding a truthful Users & Access surface to
   Admin Web V2. The first slice exposes Single-Admin Mode, the stable
   local-admin principal, role/account readiness, and effective Library Access
   without fake account or RBAC mutation controls.
 - [admin-settings-configuration-authority](admin-settings-configuration-authority/README.md):
-  active backend architecture lane split from Admin Web V2 settings mutation
-  readiness. It defines the source of truth, startup merge, hot-apply or
-  restart-required semantics, persistence, and Admin API shape needed before
-  `/settings` can expose real save controls.
+  closed backend architecture lane split from Admin Web V2 settings mutation
+  readiness. It defined metadata raw cache settings authority, startup merge,
+  restart-required semantics, persistence, and Admin API shape for the first
+  safe `/settings` mutation group.
 - [admin-web-v2-settings-mutation-authority](admin-web-v2-settings-mutation-authority/README.md):
-  active execution lane for defining and implementing the first safe Admin Web
-  V2 settings mutation path after the read-only `/settings` route. The first
-  readiness task found no safe global settings mutation surface yet; Admin Web
-  save controls are blocked until `admin-settings-configuration-authority`
-  provides a real backend route or accepted runtime-only model.
+  closed execution lane for defining and implementing the first safe Admin Web
+  V2 settings mutation path after the read-only `/settings` route, limited to
+  metadata raw cache settings after the backend configuration-authority lane
+  shipped the route.
 - [admin-web-v2-catalog-repair-actions](admin-web-v2-catalog-repair-actions/README.md):
   completed execution lane for turning the read-only Catalog Governance queue into
   bounded, review-plan-driven repair workflows after Generated Artifact review
@@ -546,7 +553,7 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
   cross-provider candidate review before NFO/link, import, AI, or addon
   metadata breadth depends on provider authority.
 - [generated-sdk-runtime-ownership](generated-sdk-runtime-ownership/README.md):
-  active planning lane for deciding whether Public Client API runtime
+  closed planning lane for deciding whether Public Client API runtime
   responsibilities such as HTTP execution, public error parsing, API-version
   header checks, request preview redaction, and transport failure mapping remain
   Android-owned, move into a narrow generated SDK/runtime seam, or should be

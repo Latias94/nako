@@ -5,8 +5,8 @@ Last updated: 2026-05-22
 
 ## Current State
 
-This lane is open as the next mainline child of `post-rpd-product-hardening`
-after Downloads / Watch-Folder Intake closed.
+This lane is complete. It was opened as the next mainline child of
+`post-rpd-product-hardening` after Downloads / Watch-Folder Intake closed.
 
 Prerequisites are complete:
 

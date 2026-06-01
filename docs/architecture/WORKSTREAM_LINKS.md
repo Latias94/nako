@@ -41,6 +41,18 @@ Recommended `WORKSTREAM.json` fields:
 }
 ```
 
+## Architecture Roadmap Reconciliation
+
+Primary map: `docs/workstreams/architecture-roadmap-reconciliation/README.md`
+
+Evidence workstreams:
+
+- `docs/workstreams/architecture-roadmap-reconciliation/` (active)
+
+This is the current planner/docs lane for reconciling roadmap status,
+architecture evidence links, active queue routing, and proposed follow-on
+names after the latest sub-architecture audit.
+
 ## MVP Release Convergence
 
 Primary map: `docs/workstreams/mvp-release-shape/MVP.md`
@@ -108,6 +120,8 @@ Proposed lanes:
 - `proposed:hls-artifact-io-pressure-enforcement`
 - `proposed:player-hls-session-controls-and-recovery`
 - `proposed:playback-release-hardware-matrix`
+- `proposed:hardware-tone-map-execution`
+- `proposed:subtitle-burn-in-and-client-subtitle-policy`
 
 ## Storage And VFS
 
@@ -132,6 +146,7 @@ Proposed lanes:
 - `proposed:vfs-cache-repair-diagnostics`
 - `proposed:hls-artifact-io-pressure-enforcement`
 - `proposed:source-fingerprint-escalation-policy`
+- `proposed:library-watcher-and-media-intake-stability`
 - `proposed:storage-vfs-postgresql-runtime-harness`
 
 ## Library, Metadata, NFO, And Artwork
@@ -155,21 +170,30 @@ Evidence workstreams:
 - `docs/workstreams/nfo-round-trip-preservation/`
 - `docs/workstreams/nfo-sidecar-backup-policy/`
 - `docs/workstreams/nfo-backup-retention-diagnostics/`
+- `docs/workstreams/nfo-sidecar-cancellation-checkpoints/`
 - `docs/workstreams/managed-artwork-fetch-artifact-storage/`
+- `docs/workstreams/managed-artwork-ingest-selection/`
+- `docs/workstreams/managed-artwork-public-serving-selection/`
+- `docs/workstreams/managed-artwork-artifact-store-drift-inventory/`
+- `docs/workstreams/managed-artwork-remediation-policy/`
 - `docs/workstreams/managed-artwork-gallery-candidate-management/`
 - `docs/workstreams/managed-artwork-thumbnail-variants/`
+- `docs/workstreams/selected-artwork-unpublish-delete-policy/`
 - `docs/workstreams/managed-artwork-artifact-lifecycle-cleanup/`
 - `docs/workstreams/managed-artwork-postgresql-parity/`
+- `docs/workstreams/admin-web-v2-item-artwork-selection/`
+- `docs/workstreams/metadata-merge-policy-unification/`
+- `docs/workstreams/metadata-application-cross-path-audit/`
+- `docs/workstreams/metadata-refresh-seam/`
 
 Proposed lanes:
 
 - `proposed:library-watcher-and-media-intake-stability`
-- `proposed:artwork-delivery-pipeline`
+- `proposed:artwork-delivery-cache-placeholder`
 - `proposed:generated-artifact-bulk-metadata-apply`
 - `proposed:generated-artifact-provider-mapping-breadth`
-- `proposed:tmdb-series-season-episode-depth`
-- `proposed:douban-provider-mvp`
-- `proposed:bangumi-provider-mvp`
+- `proposed:metadata-provider-depth-and-precision`
+- `proposed:provider-identity-mapping-breadth`
 
 ## State, Database, Identity, And Access
 
@@ -188,11 +212,18 @@ Evidence workstreams:
 - `docs/workstreams/admin-catalog-governance-read-model/`
 - `docs/workstreams/catalog-hydration-lookup-deepening/`
 - `docs/workstreams/public-client-library-browse-query-contract/`
+- `docs/workstreams/public-client-browser-playback-session-identity/`
+- `docs/workstreams/user-playlists-contract-and-web-slice/`
+- `docs/workstreams/playback-policy-and-renderer-targets/`
+- `docs/workstreams/admin-api-typescript-contract/`
+- `docs/workstreams/managed-artwork-postgresql-parity/`
 
 Proposed lanes:
 
 - `proposed:playback-db-write-pressure-and-wal-policy`
 - `proposed:playback-access-policy-and-session-limits`
+- `proposed:api-scale-and-cache-contracts`
+- `proposed:postgresql-contract-ci-hardening`
 - `proposed:fts-filter-scale-up`
 
 ## Web Product
@@ -203,12 +234,19 @@ Evidence workstreams:
 
 - `docs/workstreams/web-media-live-public-client-parity/`
 - `docs/workstreams/admin-media-management-context-links/`
+- `docs/workstreams/web-playlist-management-ui-mutations/`
+- `docs/workstreams/web-admin-generated-artifact-review-mutations/`
+- `docs/workstreams/generated-artifact-metadata-authority-apply/`
 - `docs/workstreams/web-mvp-live-smoke/` (closed)
 
 Proposed lanes:
 
+- `proposed:admin-settings-api-backed-restoration`
+- `proposed:web-public-client-library-scoped-item-browse`
 - `proposed:web-public-client-release-smoke-script`
+- `proposed:generated-artifact-apply-operations-repair`
 - `proposed:web-player-error-recovery-ux`
+- `proposed:desktop-tauri-native-playback-spike`
 
 ## Realtime, Events, And Sync
 
@@ -221,6 +259,9 @@ Evidence workstreams:
 - `docs/workstreams/addon-notification-bridge/`
 - `docs/workstreams/addon-notification-provider-adapters/`
 - `docs/workstreams/addon-notification-platform-adapters/`
+- `docs/workstreams/addon-notification-template-controls/`
+- `docs/workstreams/addon-notification-provider-attempt-history/`
+- `docs/workstreams/addon-notification-provider-live-smoke/`
 - `docs/workstreams/user-playback-state-contract/`
 - `docs/workstreams/public-client-browser-playback-session-identity/`
 - `docs/workstreams/admin-playback-session-read-model/`
@@ -254,6 +295,12 @@ Evidence workstreams:
 - `docs/workstreams/addon-runtime-and-distribution/`
 - `docs/workstreams/addon-manager-lifecycle-automation/`
 - `docs/workstreams/addon-install-guide-generation/`
+- `docs/workstreams/addon-source-catalog-marketplace/`
+- `docs/workstreams/addon-outbound-task-dispatch-credentials/`
+- `docs/workstreams/official-addon-e2e-alpha2/`
+- `docs/workstreams/addon-notification-template-controls/`
+- `docs/workstreams/addon-notification-provider-attempt-history/`
+- `docs/workstreams/addon-notification-provider-live-smoke/`
 - `docs/workstreams/network-access-boundary/`
 - `docs/workstreams/public-client-library-browse-query-contract/`
 
@@ -261,9 +308,10 @@ Proposed lanes:
 
 - `proposed:durable-job-priority-policy-and-scheduler-migration`
 - `proposed:control-plane-observability-and-trace-context`
+- `proposed:addon-manager-trust-update-lifecycle`
 - `proposed:api-scale-and-cache-contracts`
 - `proposed:generated-artifact-apply-operations-repair`
-- `proposed:remote-access-and-endpoint-discovery`
+- `proposed:self-hosted-remote-access-and-endpoint-discovery`
 
 ## Operations And Release
 
@@ -282,6 +330,7 @@ Evidence workstreams:
 Proposed lanes:
 
 - `proposed:self-hosted-remote-access-cookbook`
+- `proposed:self-hosted-remote-access-and-endpoint-discovery`
 - `proposed:admin-settings-api-backed-restoration`
 - `proposed:backup-classification-for-generated-artifacts`
 - `proposed:config-hot-apply-and-restart-required-model`
