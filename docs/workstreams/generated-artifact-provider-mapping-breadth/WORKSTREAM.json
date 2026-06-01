@@ -7,9 +7,10 @@
   "scope_kind": "backend_web_authority_workflow",
   "problem": "Accepted metadata Generated Artifacts can apply neutral Canonical Metadata fields, but they cannot yet plan or apply Provider Subject and Provider Mapping proposals through the guarded Metadata Authority workflow.",
   "task_prefix": "GAPM",
-  "current_task": "GAPM-020",
+  "current_task": "GAPM-030",
   "completed_tasks": [
-    "GAPM-010"
+    "GAPM-010",
+    "GAPM-020"
   ],
   "authoritative_docs": [
     {
@@ -63,6 +64,10 @@
     {
       "task": "GAPM-010",
       "summary": "Opened the Provider Mapping breadth lane from GAMA/GABMA closeout, confirmed the existing apply parser only handles Canonical Metadata fields, and selected a read-only Provider Mapping plan extension as the first executable task."
+    },
+    {
+      "task": "GAPM-020",
+      "summary": "Added redaction-safe read-only Provider Mapping proposal entries and counters to the Generated Artifact metadata apply plan; synchronized Admin DTOs and generated TypeScript contracts; documented HTTP behavior; and verified no Provider Mapping mutation during planning."
     }
   ],
   "adr_refs": [
@@ -101,7 +106,7 @@
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
     "default_action": "run_current_task",
-    "current_task": "GAPM-020",
-    "notes": "Start with read-only Provider Mapping plan support. Stop before persistence, bulk/result mutation, Web work, addon protocol changes, or provider-depth expansion until GAPM-020 evidence is reviewed."
+    "current_task": "GAPM-030",
+    "notes": "Continue with durable Provider Mapping apply only after reviewing GAPM-020 evidence. GAPM-030 must preserve review-acceptance staging, idempotent outcome replay, and atomic-enough Provider Subject/Mapping persistence."
   }
 }

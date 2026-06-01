@@ -11,9 +11,10 @@ use nako_core::{
     GeneratedArtifactMetadataBulkApplyBatchRequest, GeneratedArtifactMetadataBulkApplyBatchStatus,
     GeneratedArtifactMetadataBulkApplyPlanItemStatus,
     GeneratedArtifactMetadataBulkApplyPlanRequest, GeneratedArtifactMetadataFieldAction,
-    GeneratedArtifactMetadataFieldReason, GeneratedArtifactReadinessStatus,
+    GeneratedArtifactMetadataFieldReason, GeneratedArtifactProviderMappingAction,
+    GeneratedArtifactProviderMappingReason, GeneratedArtifactReadinessStatus,
     GeneratedArtifactReviewDecision, GeneratedArtifactTargetKind, JobRepository, JobStatus,
-    NewAutomationArtifact, NewAutomationProviderConfig,
+    NewAutomationArtifact, NewAutomationProviderConfig, ProviderMappingRepository,
 };
 use nako_search::{SearchIndex, SearchQuery};
 
@@ -526,6 +527,132 @@ async fn generated_artifact_metadata_apply_plan_is_field_level_redacted_and_read
     assert!(!body.contains("local:///Movies/private"));
     assert!(!body.contains("secret"));
     assert!(!body.contains("sha256-private-fingerprint"));
+}
+
+#[tokio::test]
+async fn generated_artifact_metadata_apply_plan_includes_provider_mapping_without_mutation() {
+    let fixture = generated_artifact_metadata_apply_fixture(
+        r#"{"provider_subjects":[{"provider":"tmdb","subject_kind":"movie","subject_key":"603","title":"The Matrix","release_year":1999,"locale":"en-US","confidence_milli":930}],"confidence_milli":930,"explanation":"private provider reasoning"}"#,
+    )
+    .await;
+
+    let plan = fixture
+        .app
+        .automation()
+        .plan_generated_artifact_metadata_apply(fixture.artifact_id)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        plan.status,
+        GeneratedArtifactMetadataApplyPlanStatus::Blocked
+    );
+    assert!(!plan.executable);
+    assert!(
+        plan.reasons
+            .contains(&GeneratedArtifactMetadataApplyPlanReason::ProviderMappingApplyDeferred)
+    );
+    assert_eq!(plan.apply_field_count, 0);
+    assert_eq!(plan.skipped_field_count, 0);
+    assert_eq!(plan.noop_field_count, 0);
+    assert_eq!(plan.apply_provider_mapping_count, 1);
+    assert_eq!(plan.skipped_provider_mapping_count, 0);
+    assert_eq!(plan.noop_provider_mapping_count, 0);
+    assert_eq!(plan.provider_mappings.len(), 1);
+
+    let mapping = &plan.provider_mappings[0];
+    assert_eq!(
+        mapping.action,
+        GeneratedArtifactProviderMappingAction::Apply
+    );
+    assert!(
+        mapping
+            .reasons
+            .contains(&GeneratedArtifactProviderMappingReason::Ready)
+    );
+    assert_eq!(
+        mapping.subject.provider,
+        Some(nako_core::ExternalProvider::Tmdb)
+    );
+    assert_eq!(mapping.subject.provider_name.as_deref(), Some("tmdb"));
+    assert_eq!(
+        mapping.subject.subject_kind,
+        Some(nako_core::ProviderSubjectKind::Movie)
+    );
+    assert_eq!(mapping.subject.subject_kind_name.as_deref(), Some("movie"));
+    assert_eq!(mapping.subject.subject_key.as_deref(), Some("603"));
+    assert_eq!(mapping.subject.title.as_deref(), Some("The Matrix"));
+    assert_eq!(mapping.subject.release_year, Some(1999));
+    assert_eq!(mapping.subject.locale.as_deref(), Some("en-US"));
+    assert_eq!(mapping.confidence_milli, Some(930));
+    assert_eq!(mapping.existing_mapping_status, None);
+
+    let mappings = fixture
+        .store
+        .list_provider_mappings_for_item(fixture.item_id, PageRequest::first_page())
+        .await
+        .unwrap();
+    assert!(mappings.is_empty());
+
+    let body = serde_json::to_string(&plan).unwrap();
+    assert!(!body.contains("private provider reasoning"));
+    assert!(!body.contains("local:///Movies/private"));
+    assert!(!body.contains("secret"));
+    assert!(!body.contains("sha256-private-fingerprint"));
+}
+
+#[tokio::test]
+async fn generated_artifact_metadata_apply_plan_marks_invalid_provider_mapping_proposals() {
+    let fixture = generated_artifact_metadata_apply_fixture(
+        r#"{"provider_subjects":[{"provider":"tvdb","subject_kind":"movie","subject_key":"42"},{"provider":"tmdb","subject_kind":"movie","subject_key":" "}],"confidence_milli":700}"#,
+    )
+    .await;
+
+    let plan = fixture
+        .app
+        .automation()
+        .plan_generated_artifact_metadata_apply(fixture.artifact_id)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        plan.status,
+        GeneratedArtifactMetadataApplyPlanStatus::Blocked
+    );
+    assert!(!plan.executable);
+    assert!(
+        plan.reasons
+            .contains(&GeneratedArtifactMetadataApplyPlanReason::NoApplicableMetadataFields)
+    );
+    assert_eq!(plan.provider_mappings.len(), 2);
+    assert_eq!(plan.apply_provider_mapping_count, 0);
+    assert_eq!(plan.skipped_provider_mapping_count, 2);
+    assert_eq!(plan.noop_provider_mapping_count, 0);
+    assert_eq!(
+        plan.provider_mappings[0].action,
+        GeneratedArtifactProviderMappingAction::Skip
+    );
+    assert!(
+        plan.provider_mappings[0]
+            .reasons
+            .contains(&GeneratedArtifactProviderMappingReason::UnsupportedProvider)
+    );
+    assert_eq!(
+        plan.provider_mappings[1].action,
+        GeneratedArtifactProviderMappingAction::Skip
+    );
+    assert!(
+        plan.provider_mappings[1]
+            .reasons
+            .contains(&GeneratedArtifactProviderMappingReason::MissingSubjectKey)
+    );
+
+    let mappings = fixture
+        .store
+        .list_provider_mappings_for_item(fixture.item_id, PageRequest::first_page())
+        .await
+        .unwrap();
+    assert!(mappings.is_empty());
 }
 
 #[tokio::test]

@@ -20,7 +20,7 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| library-metadata-control-plane | generated-artifact-provider-mapping-breadth | GAPM-020 | Backend/API planner-worker |
+| library-metadata-control-plane | generated-artifact-provider-mapping-breadth | GAPM-030 | Backend persistence planner-worker |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`. Do not
@@ -116,7 +116,7 @@ that turns accepted generated artifacts into Canonical Metadata.
 
 Active evidence:
 
-- `docs/workstreams/generated-artifact-provider-mapping-breadth/` (`GAPM-020`
+- `docs/workstreams/generated-artifact-provider-mapping-breadth/` (`GAPM-030`
   ready)
 
 Closed evidence:

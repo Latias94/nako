@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AutomationArtifactId, AutomationProviderId, GeneratedArtifactMetadataApplyOutcomeId,
-    GeneratedArtifactMetadataBulkApplyBatchId, JobId, LibraryId, MediaItemId, MediaSourceId,
-    MetadataApplicationPersistenceCommit, MetadataField, NakoError, NewJob, Result,
+    AutomationArtifactId, AutomationProviderId, ExternalProvider,
+    GeneratedArtifactMetadataApplyOutcomeId, GeneratedArtifactMetadataBulkApplyBatchId, JobId,
+    LibraryId, MediaItemId, MediaSourceId, MetadataApplicationPersistenceCommit, MetadataField,
+    NakoError, NewJob, ProviderMappingStatus, ProviderSubjectKind, Result,
 };
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -452,6 +453,7 @@ pub enum GeneratedArtifactMetadataApplyPlanReason {
     PayloadMustBeObject,
     NoSupportedMetadataFields,
     NoApplicableMetadataFields,
+    ProviderMappingApplyDeferred,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -502,6 +504,49 @@ pub struct GeneratedArtifactMetadataApplyFieldPlan {
     pub incoming: GeneratedArtifactMetadataValueSummary,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GeneratedArtifactProviderMappingAction {
+    Apply,
+    Skip,
+    Noop,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GeneratedArtifactProviderMappingReason {
+    Ready,
+    UnsupportedProvider,
+    UnsupportedSubjectKind,
+    MissingSubjectKey,
+    InvalidSubjectKey,
+    DuplicateProposal,
+    ExistingAcceptedMapping,
+    ExistingCandidateMapping,
+    ExistingRejectedMapping,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactProviderSubjectPlan {
+    pub provider: Option<ExternalProvider>,
+    pub provider_name: Option<String>,
+    pub subject_kind: Option<ProviderSubjectKind>,
+    pub subject_kind_name: Option<String>,
+    pub subject_key: Option<String>,
+    pub title: Option<String>,
+    pub release_year: Option<i32>,
+    pub locale: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactProviderMappingPlan {
+    pub subject: GeneratedArtifactProviderSubjectPlan,
+    pub action: GeneratedArtifactProviderMappingAction,
+    pub reasons: Vec<GeneratedArtifactProviderMappingReason>,
+    pub confidence_milli: Option<u16>,
+    pub existing_mapping_status: Option<ProviderMappingStatus>,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct GeneratedArtifactMetadataApplyPlan {
     pub artifact_id: AutomationArtifactId,
@@ -511,9 +556,13 @@ pub struct GeneratedArtifactMetadataApplyPlan {
     pub target: GeneratedArtifactTarget,
     pub payload: GeneratedArtifactPayloadSummary,
     pub fields: Vec<GeneratedArtifactMetadataApplyFieldPlan>,
+    pub provider_mappings: Vec<GeneratedArtifactProviderMappingPlan>,
     pub apply_field_count: u32,
     pub skipped_field_count: u32,
     pub noop_field_count: u32,
+    pub apply_provider_mapping_count: u32,
+    pub skipped_provider_mapping_count: u32,
+    pub noop_provider_mapping_count: u32,
 }
 
 pub const GENERATED_ARTIFACT_METADATA_BULK_APPLY_PLAN_MAX_ARTIFACTS: usize = 100;

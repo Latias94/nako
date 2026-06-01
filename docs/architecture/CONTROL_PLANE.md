@@ -75,7 +75,7 @@ confirmation, target freshness, redaction, and idempotent outcome behavior.
 Control-plane requirements:
 
 - review acceptance must remain staging-only;
-- the first slice is read-only and must not write Provider Mappings;
+- `GAPM-020` read-only planning must not write Provider Mappings;
 - final Provider Mapping mutation must be host-owned and replay-safe;
 - bulk apply should reuse the one-artifact apply path instead of adding a
   second provider mapping executor;

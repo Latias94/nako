@@ -14,7 +14,7 @@ Last updated: 2026-06-01
 
 ## M1 - Read-Only Provider Mapping Plan
 
-- [ ] GAPM-020 [owner=codex] [deps=GAPM-010] [scope=crates/nako-core,crates/nako-api,crates/nako-server/src/app/automation.rs,crates/nako-server/src/http/admin.rs,docs/api/HTTP_API.md,generated clients]
+- [x] GAPM-020 [owner=codex] [deps=GAPM-010] [scope=crates/nako-core,crates/nako-api,crates/nako-server/src/app/automation.rs,crates/nako-server/src/http/admin.rs,docs/api/HTTP_API.md,generated clients]
   Goal: Extend the existing Generated Artifact metadata apply plan with
   redaction-safe, read-only Provider Mapping proposal entries and counters.
   Validation: `cargo nextest run -p nako-api generated_artifact_metadata_apply --no-fail-fast`; `cargo nextest run -p nako-api admin_contract --no-fail-fast`; `cargo nextest run -p nako-server generated_artifact_metadata_apply_plan --no-fail-fast`; `cargo fmt --all -- --check`.
@@ -23,8 +23,8 @@ Last updated: 2026-06-01
   Evidence: API/server tests show supported provider subject proposals,
   unsupported/invalid proposal reasons, existing mapping comparison, and no
   Canonical Metadata or Provider Mapping writes during plan.
-  Handoff: Continue at `GAPM-030` only after the read-only plan contract is
-  stable.
+  Handoff: DONE. Continue at `GAPM-030`; persistence must preserve idempotent
+  outcome replay and avoid review-acceptance mutation.
 
 ## M2 - Durable Provider Mapping Apply
 

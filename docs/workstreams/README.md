@@ -23,8 +23,9 @@ is active in the `library-metadata-control-plane` lane.
 
 Next task:
 
-- `GAPM-020`: add redaction-safe, read-only Provider Mapping proposal planning
-  to the existing Generated Artifact metadata apply plan.
+- `GAPM-030`: make final Generated Artifact metadata apply upsert Provider
+  Subjects and accepted Provider Mappings idempotently through host-owned
+  repositories.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,

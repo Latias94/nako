@@ -3294,9 +3294,13 @@ fn contract_generated_artifact_metadata_apply_plan(
             confidence_milli: Some(810),
         },
         fields: Vec::new(),
+        provider_mappings: Vec::new(),
         apply_field_count: u32::from(status.executable()),
         skipped_field_count: 0,
         noop_field_count: 0,
+        apply_provider_mapping_count: 0,
+        skipped_provider_mapping_count: 0,
+        noop_provider_mapping_count: 0,
     }
 }
 

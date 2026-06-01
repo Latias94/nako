@@ -761,6 +761,17 @@ This generated Admin contract is separate from the Public Client TypeScript SDK
 under `sdk/typescript`: Admin routes must not appear in public OpenAPI,
 `nako-client-protocol`, or `@nako/sdk` route inventories.
 
+`POST /admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply-plan`
+is the single-artifact read-only Metadata Authority plan route. For accepted
+metadata Generated Artifacts it returns redacted field plans and, when the
+artifact payload includes supported Provider Subject proposals, redacted
+`provider_mappings` plan entries with apply/skip/noop counters. The plan may
+inspect existing Provider Subjects and Provider Mappings, but it does not
+mutate Canonical Metadata or Provider Mappings. Until durable Provider Mapping
+apply ships, plans with applyable Provider Mapping entries are marked
+non-executable with a deferred Provider Mapping apply reason rather than
+claiming a partial mutation path.
+
 `POST /admin/v1/automation/generated-artifacts/metadata-apply-plan` is a
 read-only Admin planning route for a selected set of Generated Artifacts. Its
 request body is `{ "artifact_ids": ["..."] }`. The server rejects empty

@@ -8,7 +8,7 @@ use nako_api::extension::{
 use nako_automation::AutomationJobService;
 use nako_core::{
     AutomationArtifactId, AutomationArtifactKind, AutomationArtifactStatus, AutomationCapability,
-    AutomationProviderId, AutomationRepository, CanonicalMetadata,
+    AutomationProviderId, AutomationRepository, CanonicalMetadata, ExternalProvider,
     GENERATED_ARTIFACT_METADATA_BULK_APPLY_JOB_RESOURCE_CLASS,
     GENERATED_ARTIFACT_METADATA_BULK_APPLY_PLAN_MAX_ARTIFACTS,
     GeneratedArtifactAcceptanceActionKind, GeneratedArtifactAcceptanceBoundary,
@@ -30,11 +30,14 @@ use nako_core::{
     GeneratedArtifactMetadataBulkApplyPlanRequest, GeneratedArtifactMetadataBulkApplyPlanSelection,
     GeneratedArtifactMetadataBulkApplyPlanSummary, GeneratedArtifactMetadataFieldAction,
     GeneratedArtifactMetadataFieldReason, GeneratedArtifactMetadataValueSummary,
-    GeneratedArtifactProposal, GeneratedArtifactReviewDecision, GeneratedArtifactReviewResult, Job,
-    JobId, JobKind, JobRepository, LibraryRepository, MediaItem, MediaItemId, MediaRepository,
-    MetadataApplicationPersistenceCommit, MetadataField, MetadataFieldLock, MetadataMergePolicy,
-    MetadataRepository, MetadataSource, NakoError, NewAutomationProviderConfig, NewJob,
-    PageRequest, Result,
+    GeneratedArtifactProposal, GeneratedArtifactProviderMappingAction,
+    GeneratedArtifactProviderMappingPlan, GeneratedArtifactProviderMappingReason,
+    GeneratedArtifactProviderSubjectPlan, GeneratedArtifactReviewDecision,
+    GeneratedArtifactReviewResult, Job, JobId, JobKind, JobRepository, LibraryRepository,
+    MediaItem, MediaItemId, MediaRepository, MetadataApplicationPersistenceCommit, MetadataField,
+    MetadataFieldLock, MetadataMergePolicy, MetadataRepository, MetadataSource, NakoError,
+    NewAutomationProviderConfig, NewJob, PageRequest, ProviderMappingRepository,
+    ProviderMappingStatus, ProviderSubjectKind, Result,
 };
 use nako_db::NakoDatabase;
 use serde::{Deserialize, Serialize};
@@ -352,6 +355,10 @@ impl AutomationAppService {
                 status,
                 reasons,
                 Vec::new(),
+                Vec::new(),
+                0,
+                0,
+                0,
                 0,
                 0,
                 0,
@@ -366,6 +373,10 @@ impl AutomationAppService {
                 status,
                 reasons,
                 Vec::new(),
+                Vec::new(),
+                0,
+                0,
+                0,
                 0,
                 0,
                 0,
@@ -379,6 +390,10 @@ impl AutomationAppService {
                 status,
                 reasons,
                 Vec::new(),
+                Vec::new(),
+                0,
+                0,
+                0,
                 0,
                 0,
                 0,
@@ -395,6 +410,10 @@ impl AutomationAppService {
                     status,
                     reasons,
                     Vec::new(),
+                    Vec::new(),
+                    0,
+                    0,
+                    0,
                     0,
                     0,
                     0,
@@ -411,6 +430,10 @@ impl AutomationAppService {
                     status,
                     reasons,
                     Vec::new(),
+                    Vec::new(),
+                    0,
+                    0,
+                    0,
                     0,
                     0,
                     0,
@@ -446,13 +469,25 @@ impl AutomationAppService {
                     status,
                     reasons,
                     Vec::new(),
+                    Vec::new(),
+                    0,
+                    0,
+                    0,
                     0,
                     0,
                     0,
                 ));
             }
         };
-        if suggested_fields.is_empty() {
+        let provider_mappings = self
+            .generated_artifact_provider_mapping_plans(item.id, &artifact.artifact_json)
+            .await?;
+        let (
+            apply_provider_mapping_count,
+            skipped_provider_mapping_count,
+            noop_provider_mapping_count,
+        ) = count_provider_mapping_actions(&provider_mappings);
+        if suggested_fields.is_empty() && provider_mappings.is_empty() {
             status = GeneratedArtifactMetadataApplyPlanStatus::Blocked;
             reasons.push(GeneratedArtifactMetadataApplyPlanReason::NoSupportedMetadataFields);
             return Ok(self.generated_artifact_metadata_apply_plan(
@@ -464,6 +499,10 @@ impl AutomationAppService {
                     reasons
                 },
                 Vec::new(),
+                Vec::new(),
+                0,
+                0,
+                0,
                 0,
                 0,
                 0,
@@ -516,7 +555,10 @@ impl AutomationAppService {
             });
         }
 
-        if apply_field_count == 0 && status.executable() {
+        if apply_provider_mapping_count > 0 && status.executable() {
+            status = GeneratedArtifactMetadataApplyPlanStatus::Blocked;
+            reasons.push(GeneratedArtifactMetadataApplyPlanReason::ProviderMappingApplyDeferred);
+        } else if apply_field_count == 0 && status.executable() {
             status = GeneratedArtifactMetadataApplyPlanStatus::Blocked;
             reasons.push(GeneratedArtifactMetadataApplyPlanReason::NoApplicableMetadataFields);
         }
@@ -530,9 +572,13 @@ impl AutomationAppService {
             status,
             reasons,
             fields,
+            provider_mappings,
             apply_field_count,
             skipped_field_count,
             noop_field_count,
+            apply_provider_mapping_count,
+            skipped_provider_mapping_count,
+            noop_provider_mapping_count,
         ))
     }
 
@@ -946,6 +992,125 @@ impl AutomationAppService {
             })
     }
 
+    async fn generated_artifact_provider_mapping_plans(
+        &self,
+        item_id: MediaItemId,
+        artifact_json: &str,
+    ) -> Result<Vec<GeneratedArtifactProviderMappingPlan>> {
+        let proposals = parse_generated_artifact_provider_subject_proposals(artifact_json)?;
+        if proposals.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let existing_mappings = self.provider_mappings_for_item(item_id).await?;
+        let mut seen = HashSet::new();
+        let mut plans = Vec::new();
+
+        for proposal in proposals {
+            let mut reasons = proposal.reasons.clone();
+            let valid_subject_key = proposal.subject_key.as_ref().filter(|key| key.len() <= 512);
+            let duplicate = match (
+                proposal.provider.clone(),
+                proposal.subject_kind.clone(),
+                valid_subject_key.cloned(),
+            ) {
+                (Some(provider), Some(subject_kind), Some(subject_key)) => {
+                    !seen.insert((provider, subject_kind, subject_key))
+                }
+                _ => false,
+            };
+            if duplicate {
+                reasons.push(GeneratedArtifactProviderMappingReason::DuplicateProposal);
+            }
+
+            let existing_mapping_status = if reasons.is_empty() {
+                match (
+                    proposal.provider.as_ref(),
+                    proposal.subject_kind.as_ref(),
+                    proposal.subject_key.as_ref(),
+                ) {
+                    (Some(provider), Some(subject_kind), Some(subject_key)) => self
+                        .store
+                        .find_provider_subject(provider, subject_kind, subject_key)
+                        .await?
+                        .and_then(|subject| {
+                            existing_mappings
+                                .iter()
+                                .find(|mapping| mapping.subject_id == subject.id)
+                                .map(|mapping| mapping.status)
+                        }),
+                    _ => None,
+                }
+            } else {
+                None
+            };
+
+            match existing_mapping_status {
+                Some(ProviderMappingStatus::Accepted) => {
+                    reasons.push(GeneratedArtifactProviderMappingReason::ExistingAcceptedMapping)
+                }
+                Some(ProviderMappingStatus::Candidate) => {
+                    reasons.push(GeneratedArtifactProviderMappingReason::ExistingCandidateMapping);
+                    reasons.push(GeneratedArtifactProviderMappingReason::Ready);
+                }
+                Some(ProviderMappingStatus::Rejected) => {
+                    reasons.push(GeneratedArtifactProviderMappingReason::ExistingRejectedMapping);
+                }
+                None if reasons.is_empty() => {
+                    reasons.push(GeneratedArtifactProviderMappingReason::Ready);
+                }
+                None => {}
+            }
+
+            let action = provider_mapping_action(&reasons);
+            plans.push(GeneratedArtifactProviderMappingPlan {
+                subject: GeneratedArtifactProviderSubjectPlan {
+                    provider: proposal.provider,
+                    provider_name: proposal.provider_name,
+                    subject_kind: proposal.subject_kind,
+                    subject_kind_name: proposal.subject_kind_name,
+                    subject_key: proposal.subject_key,
+                    title: proposal.title,
+                    release_year: proposal.release_year,
+                    locale: proposal.locale,
+                },
+                action,
+                reasons,
+                confidence_milli: proposal.confidence_milli,
+                existing_mapping_status,
+            });
+        }
+
+        Ok(plans)
+    }
+
+    async fn provider_mappings_for_item(
+        &self,
+        item_id: MediaItemId,
+    ) -> Result<Vec<nako_core::ProviderMapping>> {
+        let mut offset = 0;
+        let mut all = Vec::new();
+
+        loop {
+            let page = self
+                .store
+                .list_provider_mappings_for_item(
+                    item_id,
+                    PageRequest {
+                        limit: PageRequest::MAX_LIMIT,
+                        offset,
+                    },
+                )
+                .await?;
+            let returned = page.len();
+            all.extend(page);
+            if returned < PageRequest::MAX_LIMIT as usize {
+                return Ok(all);
+            }
+            offset += u64::from(PageRequest::MAX_LIMIT);
+        }
+    }
+
     async fn resolve_generated_artifact_metadata_apply_target(
         &self,
         plan: &GeneratedArtifactMetadataApplyPlan,
@@ -1174,9 +1339,13 @@ impl AutomationAppService {
         status: GeneratedArtifactMetadataApplyPlanStatus,
         reasons: Vec<GeneratedArtifactMetadataApplyPlanReason>,
         fields: Vec<GeneratedArtifactMetadataApplyFieldPlan>,
+        provider_mappings: Vec<GeneratedArtifactProviderMappingPlan>,
         apply_field_count: u32,
         skipped_field_count: u32,
         noop_field_count: u32,
+        apply_provider_mapping_count: u32,
+        skipped_provider_mapping_count: u32,
+        noop_provider_mapping_count: u32,
     ) -> GeneratedArtifactMetadataApplyPlan {
         GeneratedArtifactMetadataApplyPlan {
             artifact_id: proposal.id,
@@ -1186,9 +1355,13 @@ impl AutomationAppService {
             target: proposal.target,
             payload: proposal.payload,
             fields,
+            provider_mappings,
             apply_field_count,
             skipped_field_count,
             noop_field_count,
+            apply_provider_mapping_count,
+            skipped_provider_mapping_count,
+            noop_provider_mapping_count,
         }
     }
 }
@@ -1415,6 +1588,187 @@ struct GeneratedArtifactMetadataPatch {
     tagline: Option<String>,
     genres: Option<Vec<String>>,
     tags: Option<Vec<String>>,
+}
+
+#[derive(Clone, Debug)]
+struct GeneratedArtifactProviderSubjectProposal {
+    provider: Option<ExternalProvider>,
+    provider_name: Option<String>,
+    subject_kind: Option<ProviderSubjectKind>,
+    subject_kind_name: Option<String>,
+    subject_key: Option<String>,
+    title: Option<String>,
+    release_year: Option<i32>,
+    locale: Option<String>,
+    confidence_milli: Option<u16>,
+    reasons: Vec<GeneratedArtifactProviderMappingReason>,
+}
+
+fn parse_generated_artifact_provider_subject_proposals(
+    artifact_json: &str,
+) -> Result<Vec<GeneratedArtifactProviderSubjectProposal>> {
+    let value: serde_json::Value =
+        serde_json::from_str(artifact_json).map_err(|error| NakoError::InvalidInput {
+            message: format!("generated artifact metadata payload is not valid JSON: {error}"),
+        })?;
+    let Some(object) = value.as_object() else {
+        return Ok(Vec::new());
+    };
+
+    let mut proposals = Vec::new();
+    if let Some(value) = object.get("provider_subject") {
+        if let Some(proposal) = parse_generated_artifact_provider_subject_proposal(value) {
+            proposals.push(proposal);
+        }
+    }
+    if let Some(value) = object.get("provider_subjects") {
+        if let Some(values) = value.as_array() {
+            for value in values {
+                if let Some(proposal) = parse_generated_artifact_provider_subject_proposal(value) {
+                    proposals.push(proposal);
+                }
+            }
+        } else if let Some(proposal) = parse_generated_artifact_provider_subject_proposal(value) {
+            proposals.push(proposal);
+        }
+    }
+
+    Ok(proposals)
+}
+
+fn parse_generated_artifact_provider_subject_proposal(
+    value: &serde_json::Value,
+) -> Option<GeneratedArtifactProviderSubjectProposal> {
+    let object = value.as_object()?;
+    let mut reasons = Vec::new();
+    let provider_name = json_string_field(object, "provider").map(|value| value.to_lowercase());
+    let provider = provider_name
+        .as_deref()
+        .and_then(parse_generated_artifact_external_provider);
+    if provider.is_none() {
+        reasons.push(GeneratedArtifactProviderMappingReason::UnsupportedProvider);
+    }
+
+    let subject_kind_name =
+        json_string_field(object, "subject_kind").map(|value| value.to_lowercase());
+    let subject_kind = subject_kind_name
+        .as_deref()
+        .and_then(parse_generated_artifact_provider_subject_kind);
+    if subject_kind.is_none() {
+        reasons.push(GeneratedArtifactProviderMappingReason::UnsupportedSubjectKind);
+    }
+
+    let subject_key = json_string_field(object, "subject_key");
+    match &subject_key {
+        None => reasons.push(GeneratedArtifactProviderMappingReason::MissingSubjectKey),
+        Some(value) if value.len() > 512 => {
+            reasons.push(GeneratedArtifactProviderMappingReason::InvalidSubjectKey);
+        }
+        Some(_) => {}
+    }
+
+    Some(GeneratedArtifactProviderSubjectProposal {
+        provider,
+        provider_name,
+        subject_kind,
+        subject_kind_name,
+        subject_key,
+        title: json_string_field(object, "title"),
+        release_year: object
+            .get("release_year")
+            .and_then(serde_json::Value::as_i64)
+            .and_then(|value| i32::try_from(value).ok()),
+        locale: json_string_field(object, "locale"),
+        confidence_milli: object
+            .get("confidence_milli")
+            .and_then(serde_json::Value::as_u64)
+            .and_then(|value| u16::try_from(value.min(1_000)).ok()),
+        reasons,
+    })
+}
+
+fn parse_generated_artifact_external_provider(value: &str) -> Option<ExternalProvider> {
+    match value {
+        "tmdb" => Some(ExternalProvider::Tmdb),
+        "douban" => Some(ExternalProvider::Douban),
+        "bangumi" => Some(ExternalProvider::Bangumi),
+        "imdb" => Some(ExternalProvider::Imdb),
+        _ => None,
+    }
+}
+
+fn parse_generated_artifact_provider_subject_kind(value: &str) -> Option<ProviderSubjectKind> {
+    match value {
+        "movie" => Some(ProviderSubjectKind::Movie),
+        "series" => Some(ProviderSubjectKind::Series),
+        "season" => Some(ProviderSubjectKind::Season),
+        "episode" => Some(ProviderSubjectKind::Episode),
+        "collection" => Some(ProviderSubjectKind::Collection),
+        "subject" => Some(ProviderSubjectKind::Subject),
+        "person" => Some(ProviderSubjectKind::Person),
+        _ => None,
+    }
+}
+
+fn json_string_field(
+    object: &serde_json::Map<String, serde_json::Value>,
+    field: &str,
+) -> Option<String> {
+    object
+        .get(field)
+        .and_then(serde_json::Value::as_str)
+        .and_then(|value| non_empty_trimmed(value.to_owned()))
+}
+
+fn provider_mapping_action(
+    reasons: &[GeneratedArtifactProviderMappingReason],
+) -> GeneratedArtifactProviderMappingAction {
+    if reasons.iter().any(|reason| {
+        matches!(
+            reason,
+            GeneratedArtifactProviderMappingReason::UnsupportedProvider
+                | GeneratedArtifactProviderMappingReason::UnsupportedSubjectKind
+                | GeneratedArtifactProviderMappingReason::MissingSubjectKey
+                | GeneratedArtifactProviderMappingReason::InvalidSubjectKey
+                | GeneratedArtifactProviderMappingReason::DuplicateProposal
+                | GeneratedArtifactProviderMappingReason::ExistingRejectedMapping
+        )
+    }) {
+        GeneratedArtifactProviderMappingAction::Skip
+    } else if reasons.iter().any(|reason| {
+        matches!(
+            reason,
+            GeneratedArtifactProviderMappingReason::ExistingAcceptedMapping
+        )
+    }) {
+        GeneratedArtifactProviderMappingAction::Noop
+    } else {
+        GeneratedArtifactProviderMappingAction::Apply
+    }
+}
+
+fn count_provider_mapping_actions(
+    plans: &[GeneratedArtifactProviderMappingPlan],
+) -> (u32, u32, u32) {
+    let mut apply_count = 0_u32;
+    let mut skipped_count = 0_u32;
+    let mut noop_count = 0_u32;
+
+    for plan in plans {
+        match plan.action {
+            GeneratedArtifactProviderMappingAction::Apply => {
+                apply_count = apply_count.saturating_add(1);
+            }
+            GeneratedArtifactProviderMappingAction::Skip => {
+                skipped_count = skipped_count.saturating_add(1);
+            }
+            GeneratedArtifactProviderMappingAction::Noop => {
+                noop_count = noop_count.saturating_add(1);
+            }
+        }
+    }
+
+    (apply_count, skipped_count, noop_count)
 }
 
 fn parse_generated_artifact_metadata_patch(

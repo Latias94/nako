@@ -33,6 +33,8 @@ Exit criteria:
 - raw artifact JSON, prompts, provider payloads, Source Locators, paths,
   tokens, secrets, and idempotency keys are not exposed.
 
+Status: satisfied by `GAPM-020` on 2026-06-01.
+
 ## GAPM-M2 - Durable Provider Mapping Apply
 
 Outcome: Final metadata apply can create or update accepted Provider Mappings

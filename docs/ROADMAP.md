@@ -32,7 +32,8 @@ Authoritative lane:
 
 Next task:
 
-- `GAPM-020`: read-only Provider Mapping plan support.
+- `GAPM-030`: durable/idempotent Provider Mapping apply through host-owned
+  repositories.
 
 Latest completed architecture focus:
 

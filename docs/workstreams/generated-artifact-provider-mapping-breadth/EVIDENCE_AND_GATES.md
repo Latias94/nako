@@ -48,6 +48,25 @@ Only run after Admin contract support exists:
   Canonical Metadata fields while Provider Subject/Mapping repositories and
   Admin governance summaries already exist. First executable task is
   `GAPM-020`, a read-only plan extension with no Provider Mapping mutation.
+- `GAPM-020`: Added read-only Provider Mapping proposal planning to the
+  Generated Artifact metadata apply plan. The core plan now carries
+  `provider_mappings` plus apply/skip/noop Provider Mapping counters. The
+  server parses host-interpreted `provider_subject` and `provider_subjects`
+  payload shapes, supports typed TMDB/Douban/Bangumi/IMDb provider subjects,
+  reports unsupported provider, unsupported subject kind, missing/invalid
+  subject key, duplicate proposal, and existing mapping statuses as explicit
+  plan reasons, marks applyable Provider Mapping entries as deferred and
+  non-executable until persistence ships, and does not mutate Provider Subjects
+  or Provider Mappings during planning. Admin DTOs and generated TypeScript
+  contracts were synchronized, and `docs/api/HTTP_API.md` records the
+  read-only plan behavior.
+  Gates: `cargo nextest run -p nako-api generated_artifact_metadata_apply --no-fail-fast`
+  passed 4/4; `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+  passed 5/5; `cargo nextest run -p nako-server generated_artifact_metadata_apply_plan --no-fail-fast`
+  passed 6/6; `cargo nextest run -p nako-db generated_artifact_bulk_metadata_apply --no-fail-fast`
+  passed 1/1 after the shared contract-test helper update; `cargo fmt --all -- --check`
+  passed; `npm --prefix web run check` passed; `git diff --check` passed with
+  only LF/CRLF normalization warnings.
 
 ## Final Evidence Checklist
 

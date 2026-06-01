@@ -117,10 +117,15 @@ Goal: Extend accepted metadata Generated Artifact apply so it can plan and
 later apply Provider Subject and Provider Mapping proposals without turning
 review acceptance into a catalog mutation.
 
-First slice:
+Shipped first slice:
 
 - `GAPM-020` adds redaction-safe read-only Provider Mapping plan entries and
   counters to the existing Generated Artifact metadata apply plan.
+
+Next slice:
+
+- `GAPM-030` adds durable/idempotent Provider Mapping apply through host-owned
+  repositories.
 
 Boundaries:
 

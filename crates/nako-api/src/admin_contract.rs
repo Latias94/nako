@@ -1829,9 +1829,13 @@ export interface AdminGeneratedArtifactMetadataApplyPlan {
   target: AdminGeneratedArtifactTarget;
   payload: AdminGeneratedArtifactPayloadSummary;
   fields: AdminGeneratedArtifactMetadataApplyFieldPlan[];
+  provider_mappings: AdminGeneratedArtifactProviderMappingPlan[];
   apply_field_count: number;
   skipped_field_count: number;
   noop_field_count: number;
+  apply_provider_mapping_count: number;
+  skipped_provider_mapping_count: number;
+  noop_provider_mapping_count: number;
 }
 
 export interface AdminGeneratedArtifactMetadataApplyFieldPlan {
@@ -1840,6 +1844,25 @@ export interface AdminGeneratedArtifactMetadataApplyFieldPlan {
   reasons: string[];
   current: AdminGeneratedArtifactMetadataValueSummary;
   incoming: AdminGeneratedArtifactMetadataValueSummary;
+}
+
+export interface AdminGeneratedArtifactProviderMappingPlan {
+  subject: AdminGeneratedArtifactProviderSubjectPlan;
+  action: string;
+  reasons: string[];
+  confidence_milli: number | null;
+  existing_mapping_status: string | null;
+}
+
+export interface AdminGeneratedArtifactProviderSubjectPlan {
+  provider: string | null;
+  provider_name: string | null;
+  subject_kind: string | null;
+  subject_kind_name: string | null;
+  subject_key: string | null;
+  title: string | null;
+  release_year: number | null;
+  locale: string | null;
 }
 
 export interface AdminGeneratedArtifactMetadataBulkApplyPlan {
@@ -2859,6 +2882,8 @@ mod tests {
             "AdminGeneratedArtifactMetadataApplyResponse",
             "AdminGeneratedArtifactMetadataApplyPlan",
             "AdminGeneratedArtifactMetadataApplyFieldPlan",
+            "AdminGeneratedArtifactProviderMappingPlan",
+            "AdminGeneratedArtifactProviderSubjectPlan",
             "AdminGeneratedArtifactMetadataBulkApplyPlan",
             "AdminGeneratedArtifactMetadataBulkApplyPlanSelection",
             "AdminGeneratedArtifactMetadataBulkApplyPlanSummary",

@@ -177,8 +177,11 @@ Return to planner coordination before continuing if implementation requires:
 
 ## First Executable Task
 
-Start with `GAPM-020`: read-only Provider Mapping plan support in the existing
-Generated Artifact metadata apply plan.
+`GAPM-020` completed the read-only Provider Mapping plan support in the
+existing Generated Artifact metadata apply plan.
 
-This task proves parsing, redaction, current-state comparison, and no-mutation
-behavior before any Provider Mapping persistence is added.
+It proves parsing, redaction, current-state comparison, and no-mutation behavior
+before any Provider Mapping persistence is added.
+
+Next task: `GAPM-030`, which must add durable/idempotent Provider Subject and
+Provider Mapping apply without changing review acceptance semantics.

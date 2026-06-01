@@ -15,21 +15,21 @@ Current source state:
 - One-artifact and bulk Metadata Authority apply can apply supported Canonical
   Metadata fields with field locks, stale-target checks, durable outcomes, and
   Web confirmation.
-- `AutomationAppService::plan_generated_artifact_metadata_apply` currently
-  parses metadata suggestion payloads into Canonical Metadata fields only.
+- `GAPM-020` extended `AutomationAppService::plan_generated_artifact_metadata_apply`
+  with read-only Provider Mapping proposal planning and counters.
 - Provider Subject and Provider Mapping primitives already exist in
   `nako-core`, `nako-db`, `nako-metadata`, and Admin Catalog Governance read
   models.
 
 ## Active Task
 
-- Task ID: `GAPM-020`
+- Task ID: `GAPM-030`
 - Lane: `library-metadata-control-plane`
 - Status: ready
 - Owner: codex
 
-Goal: add read-only Provider Mapping proposal planning to the existing
-Generated Artifact metadata apply plan.
+Goal: make final Generated Artifact metadata apply upsert Provider Subjects and
+accepted Provider Mappings idempotently through host-owned repositories.
 
 ## Recommended Implementation Start
 
@@ -55,10 +55,25 @@ Then inspect the current code slices:
 - `crates/nako-server/src/http/admin.rs`
 - generated Admin TypeScript contract outputs if Admin DTOs change.
 
+## Completed Evidence
+
+- `GAPM-020`: core/API/server plan types now include
+  `provider_mappings`, Provider Mapping action/reason enums, safe Provider
+  Subject plan facts, and apply/skip/noop mapping counters.
+- `GAPM-020`: server tests cover valid Provider Mapping proposals, unsupported
+  provider proposals, missing subject keys, read-only behavior, redaction, and
+  no Provider Mapping writes during planning. Applyable Provider Mapping plans
+  are intentionally deferred/non-executable until `GAPM-030` adds persistence,
+  preventing final apply from claiming a partial metadata-only mutation.
+- `GAPM-020`: Admin DTO tests and generated TypeScript contract tests pass;
+  `apps/admin-web` and `web` generated Admin contracts are synchronized.
+- `GAPM-020`: `docs/api/HTTP_API.md` documents single-artifact metadata
+  apply-plan Provider Mapping entries.
+
 ## Decisions
 
 - Use `GAPM` as the task prefix.
-- First executable task is read-only plan support, not mutation.
+- First executable task was read-only plan support, not mutation.
 - Review acceptance must remain staging-only.
 - Provider Mapping apply should eventually happen during final Metadata
   Authority apply, not in addon intake or review acceptance.
@@ -82,18 +97,18 @@ Then inspect the current code slices:
 
 ## Blockers
 
-- None for `GAPM-020`.
+- None for `GAPM-030`, but the worker must decide whether existing generated
+  artifact apply outcome persistence needs a repository contract extension so
+  Provider Subject/Mapping writes and outcome records do not produce partial
+  success claims.
 
-Later tasks may require a planner check if the worker finds that atomic outcome
-persistence needs a schema or repository contract extension.
+Run PostgreSQL parity if repository transaction behavior changes.
 
 ## Parallelism
 
-Not safe yet. `GAPM-020` should run serially because it defines the public
-Admin plan shape that later mutation, bulk, and Web tasks consume.
+Not safe yet. `GAPM-030` should run serially because it defines the persistence
+and idempotency behavior that bulk and Web result tasks consume.
 
-After `GAPM-020` is accepted:
-
-- `GAPM-030` backend persistence should run before Web work.
-- `GAPM-040` and `GAPM-050` can be considered for parallelization only if the
-  generated Admin contract shape has stabilized.
+After `GAPM-030` is accepted, `GAPM-040` and `GAPM-050` can be considered for
+parallelization only if the generated Admin contract shape and persistence
+outcomes are stable.

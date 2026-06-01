@@ -1,7 +1,7 @@
 use nako_client_protocol::PageInfo;
 use nako_core::{
     AutomationArtifactId, AutomationArtifactKind, AutomationArtifactStatus, AutomationCapability,
-    AutomationProviderId, GeneratedArtifactAcceptanceActionKind,
+    AutomationProviderId, ExternalProvider, GeneratedArtifactAcceptanceActionKind,
     GeneratedArtifactAcceptanceBoundary, GeneratedArtifactAcceptancePlan,
     GeneratedArtifactAcceptancePlanReason, GeneratedArtifactAcceptancePlanStatus,
     GeneratedArtifactMetadataApplyFieldPlan, GeneratedArtifactMetadataApplyOutcomeId,
@@ -19,9 +19,12 @@ use nako_core::{
     GeneratedArtifactMetadataFieldAction, GeneratedArtifactMetadataFieldReason,
     GeneratedArtifactMetadataValueSummary, GeneratedArtifactPayloadShape,
     GeneratedArtifactPayloadSummary, GeneratedArtifactProposal, GeneratedArtifactProvenance,
+    GeneratedArtifactProviderMappingAction, GeneratedArtifactProviderMappingPlan,
+    GeneratedArtifactProviderMappingReason, GeneratedArtifactProviderSubjectPlan,
     GeneratedArtifactReadiness, GeneratedArtifactReadinessReason, GeneratedArtifactReadinessStatus,
     GeneratedArtifactReviewDecision, GeneratedArtifactReviewResult, GeneratedArtifactTarget,
     GeneratedArtifactTargetKind, JobId, LibraryId, MediaItemId, MediaSourceId, MetadataField,
+    ProviderMappingStatus, ProviderSubjectKind,
 };
 use serde::{Deserialize, Serialize};
 
@@ -306,9 +309,13 @@ pub struct AdminGeneratedArtifactMetadataApplyPlan {
     pub target: AdminGeneratedArtifactTarget,
     pub payload: AdminGeneratedArtifactPayloadSummary,
     pub fields: Vec<AdminGeneratedArtifactMetadataApplyFieldPlan>,
+    pub provider_mappings: Vec<AdminGeneratedArtifactProviderMappingPlan>,
     pub apply_field_count: u32,
     pub skipped_field_count: u32,
     pub noop_field_count: u32,
+    pub apply_provider_mapping_count: u32,
+    pub skipped_provider_mapping_count: u32,
+    pub noop_provider_mapping_count: u32,
 }
 
 impl AdminGeneratedArtifactMetadataApplyPlan {
@@ -326,9 +333,17 @@ impl AdminGeneratedArtifactMetadataApplyPlan {
                 .into_iter()
                 .map(AdminGeneratedArtifactMetadataApplyFieldPlan::from_plan)
                 .collect(),
+            provider_mappings: plan
+                .provider_mappings
+                .into_iter()
+                .map(AdminGeneratedArtifactProviderMappingPlan::from_plan)
+                .collect(),
             apply_field_count: plan.apply_field_count,
             skipped_field_count: plan.skipped_field_count,
             noop_field_count: plan.noop_field_count,
+            apply_provider_mapping_count: plan.apply_provider_mapping_count,
+            skipped_provider_mapping_count: plan.skipped_provider_mapping_count,
+            noop_provider_mapping_count: plan.noop_provider_mapping_count,
         }
     }
 }
@@ -351,6 +366,56 @@ impl AdminGeneratedArtifactMetadataApplyFieldPlan {
             reasons: plan.reasons,
             current: plan.current,
             incoming: plan.incoming,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminGeneratedArtifactProviderMappingPlan {
+    pub subject: AdminGeneratedArtifactProviderSubjectPlan,
+    pub action: GeneratedArtifactProviderMappingAction,
+    pub reasons: Vec<GeneratedArtifactProviderMappingReason>,
+    pub confidence_milli: Option<u16>,
+    pub existing_mapping_status: Option<ProviderMappingStatus>,
+}
+
+impl AdminGeneratedArtifactProviderMappingPlan {
+    #[must_use]
+    pub fn from_plan(plan: GeneratedArtifactProviderMappingPlan) -> Self {
+        Self {
+            subject: AdminGeneratedArtifactProviderSubjectPlan::from_plan(plan.subject),
+            action: plan.action,
+            reasons: plan.reasons,
+            confidence_milli: plan.confidence_milli,
+            existing_mapping_status: plan.existing_mapping_status,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminGeneratedArtifactProviderSubjectPlan {
+    pub provider: Option<ExternalProvider>,
+    pub provider_name: Option<String>,
+    pub subject_kind: Option<ProviderSubjectKind>,
+    pub subject_kind_name: Option<String>,
+    pub subject_key: Option<String>,
+    pub title: Option<String>,
+    pub release_year: Option<i32>,
+    pub locale: Option<String>,
+}
+
+impl AdminGeneratedArtifactProviderSubjectPlan {
+    #[must_use]
+    pub fn from_plan(plan: GeneratedArtifactProviderSubjectPlan) -> Self {
+        Self {
+            provider: plan.provider,
+            provider_name: plan.provider_name,
+            subject_kind: plan.subject_kind,
+            subject_kind_name: plan.subject_kind_name,
+            subject_key: plan.subject_key,
+            title: plan.title,
+            release_year: plan.release_year,
+            locale: plan.locale,
         }
     }
 }
@@ -705,9 +770,28 @@ mod tests {
                     item_count: None,
                 },
             }],
+            provider_mappings: vec![GeneratedArtifactProviderMappingPlan {
+                subject: GeneratedArtifactProviderSubjectPlan {
+                    provider: Some(ExternalProvider::Tmdb),
+                    provider_name: Some("tmdb".to_owned()),
+                    subject_kind: Some(ProviderSubjectKind::Movie),
+                    subject_kind_name: Some("movie".to_owned()),
+                    subject_key: Some("603".to_owned()),
+                    title: Some("The Matrix".to_owned()),
+                    release_year: Some(1999),
+                    locale: Some("en-US".to_owned()),
+                },
+                action: GeneratedArtifactProviderMappingAction::Apply,
+                reasons: vec![GeneratedArtifactProviderMappingReason::Ready],
+                confidence_milli: Some(930),
+                existing_mapping_status: None,
+            }],
             apply_field_count: 1,
             skipped_field_count: 0,
             noop_field_count: 0,
+            apply_provider_mapping_count: 1,
+            skipped_provider_mapping_count: 0,
+            noop_provider_mapping_count: 0,
         };
         let response = AdminGeneratedArtifactMetadataApplyPlanResponse {
             admin_api_version: ADMIN_API_VERSION.to_owned(),
@@ -726,6 +810,24 @@ mod tests {
             value["plan"]["fields"][0]["incoming"]["value_fingerprint"],
             "sha256:44444444444444444444444444444444"
         );
+        assert_eq!(
+            value["plan"]["provider_mappings"][0]["subject"]["provider"],
+            "tmdb"
+        );
+        assert_eq!(
+            value["plan"]["provider_mappings"][0]["subject"]["subject_kind"],
+            "movie"
+        );
+        assert_eq!(
+            value["plan"]["provider_mappings"][0]["subject"]["subject_key"],
+            "603"
+        );
+        assert_eq!(value["plan"]["provider_mappings"][0]["action"], "apply");
+        assert_eq!(
+            value["plan"]["provider_mappings"][0]["confidence_milli"],
+            930
+        );
+        assert_eq!(value["plan"]["apply_provider_mapping_count"], 1);
         assert!(!body.contains("private generated overview"));
         assert!(!body.contains("artifact_json"));
         assert!(!body.contains("prompt_json"));
@@ -778,9 +880,13 @@ mod tests {
                     item_count: None,
                 },
             }],
+            provider_mappings: Vec::new(),
             apply_field_count: 1,
             skipped_field_count: 0,
             noop_field_count: 0,
+            apply_provider_mapping_count: 0,
+            skipped_provider_mapping_count: 0,
+            noop_provider_mapping_count: 0,
         };
         let response = AdminGeneratedArtifactMetadataBulkApplyPlanResponse::from_plan(
             GeneratedArtifactMetadataBulkApplyPlan {
@@ -894,9 +1000,13 @@ mod tests {
                     item_count: None,
                 },
             }],
+            provider_mappings: Vec::new(),
             apply_field_count: 1,
             skipped_field_count: 0,
             noop_field_count: 0,
+            apply_provider_mapping_count: 0,
+            skipped_provider_mapping_count: 0,
+            noop_provider_mapping_count: 0,
         };
         let batch = GeneratedArtifactMetadataBulkApplyBatchRecord {
             id: GeneratedArtifactMetadataBulkApplyBatchId::new(),
@@ -1065,9 +1175,13 @@ mod tests {
                     item_count: None,
                 },
             }],
+            provider_mappings: Vec::new(),
             apply_field_count: 1,
             skipped_field_count: 0,
             noop_field_count: 0,
+            apply_provider_mapping_count: 0,
+            skipped_provider_mapping_count: 0,
+            noop_provider_mapping_count: 0,
         };
         let response = AdminGeneratedArtifactMetadataApplyResponse::from_result(
             GeneratedArtifactMetadataApplyResult {
