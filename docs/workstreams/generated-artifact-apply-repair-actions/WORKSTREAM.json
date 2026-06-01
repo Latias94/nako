@@ -7,7 +7,7 @@
   "scope_kind": "control_plane_admin_repair_action",
   "problem": "Generated Artifact apply recovery is visible and redaction-safe, but operators still lack a bounded repair action that reuses Metadata Authority apply semantics instead of blindly retrying stale plans.",
   "task_prefix": "GAARA",
-  "current_task": "GAARA-020",
+  "current_task": "GAARA-050",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -47,12 +47,18 @@
     "python -m json.tool docs/workstreams/generated-artifact-apply-repair-actions/WORKSTREAM.json",
     "JSONL validation for docs/workstreams/generated-artifact-apply-repair-actions/TASKS.jsonl and CAMPAIGNS.jsonl",
     "cargo nextest run -p nako-server generated_artifact_metadata_apply_replays_same_idempotency_key_from_durable_outcome generated_artifact_metadata_apply_rejects_stale_target_before_mutation --no-fail-fast",
+    "npm --prefix web run test -- src/test/route-state-contracts.test.tsx",
+    "npm --prefix web run check",
     "git diff --check"
   ],
   "evidence": [
     {
       "task": "GAARA-010",
       "summary": "Opened a bounded repair-actions lane from GAOR and WAGR closeout evidence."
+    },
+    {
+      "task": "GAARA-020",
+      "summary": "Selected Web-only repair preparation over existing Metadata Authority apply routes; no backend repair mutation wrapper is currently justified."
     }
   ],
   "adr_refs": [
@@ -85,7 +91,7 @@
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
     "default_action": "run_current_task",
-    "current_task": "GAARA-020",
-    "notes": "Start with seam proof. Do not add mutation behavior until existing apply reuse versus narrow wrapper is proven with tests."
+    "current_task": "GAARA-050",
+    "notes": "Close the lane or split deferred one-click wrapper and UX polish choices. Do not auto-advance to GAARA-030 or GAARA-040 unless product requirements change."
   }
 }

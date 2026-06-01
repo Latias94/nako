@@ -229,6 +229,108 @@ describe("route state contracts", () => {
     }
   })
 
+  it("prepares recovery repairs through the current Metadata Authority apply plan", async () => {
+    const user = userEvent.setup()
+    const originalFetch = globalThis.fetch
+    const previousProfile = window.localStorage.getItem(CONNECTION_PROFILE_STORAGE_KEY)
+    const previousSession = window.sessionStorage.getItem(CONNECTION_SESSION_STORAGE_KEY)
+    const calls: Array<{
+      method: string
+      path: string
+      body?: unknown
+      authorization: string | null
+    }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      const method = init?.method ?? "GET"
+      const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined
+      calls.push({
+        method,
+        path: `${url.pathname}${url.search}`,
+        body,
+        authorization: new Headers(init?.headers).get("Authorization"),
+      })
+
+      switch (`${method} ${url.pathname}`) {
+        case "GET /admin/v1/automation/generated-artifact-apply-recovery":
+          return jsonResponse(adminGeneratedArtifactMetadataApplyRecoveryResponse())
+        case "POST /admin/v1/automation/generated-artifacts/artifact-live/metadata-apply-plan":
+          return jsonResponse(adminGeneratedArtifactMetadataApplyPlanResponse("artifact-live"))
+        case "POST /admin/v1/automation/generated-artifacts/artifact-live/metadata-apply":
+          return jsonResponse(adminGeneratedArtifactMetadataApplyResponse("artifact-live"))
+        default:
+          return jsonResponse({ code: "not_found", message: "not found" }, 404)
+      }
+    })
+
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako-admin.test",
+      }),
+    )
+    window.sessionStorage.setItem(
+      CONNECTION_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        bearerToken: "admin-token",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+
+    try {
+      const { router } = renderRoute("/admin/automation/generated-artifacts/recovery?attention=needs_repair")
+
+      expect(await screen.findByRole("heading", { name: "生成产物恢复" }, { timeout: 10000 })).toBeInTheDocument()
+      expect(await screen.findByText(/outcome-live/, {}, { timeout: 10000 })).toBeInTheDocument()
+      expect(screen.queryByText("unsafe-recovery-idempotency")).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole("button", { name: "应用计划" }))
+
+      await waitFor(() => {
+        expect(router.state.location.pathname).toBe("/admin/automation/generated-artifacts/metadata-apply")
+        expect(router.state.location.search).toMatchObject({ artifact_id: "artifact-live" })
+      })
+      expect(await screen.findByRole("heading", { name: "Metadata Authority apply" }, { timeout: 10000 })).toBeInTheDocument()
+      expect(await screen.findByText("title", {}, { timeout: 10000 })).toBeInTheDocument()
+      expect(calls).toContainEqual({
+        method: "POST",
+        path: "/admin/v1/automation/generated-artifacts/artifact-live/metadata-apply-plan",
+        body: undefined,
+        authorization: "Bearer admin-token",
+      })
+      expect(
+        calls.some(
+          (call) =>
+            call.method === "POST" &&
+            call.path === "/admin/v1/automation/generated-artifacts/artifact-live/metadata-apply",
+        ),
+      ).toBe(false)
+
+      await user.click(screen.getByRole("button", { name: "准备应用" }))
+      await user.click(screen.getByRole("button", { name: "确认应用" }))
+
+      const applyCall = calls.find(
+        (call) =>
+          call.method === "POST" &&
+          call.path === "/admin/v1/automation/generated-artifacts/artifact-live/metadata-apply",
+      )
+      expect(applyCall).toBeDefined()
+      expect(applyCall?.body).toMatchObject({
+        idempotency_key: expect.stringMatching(/^web-generated-artifact-metadata-apply:artifact-live:/),
+      })
+      expect(JSON.stringify(applyCall?.body)).not.toContain("unsafe-recovery-idempotency")
+      expect(applyCall?.authorization).toBe("Bearer admin-token")
+      expect(await screen.findByText("元数据应用结果已存在，已返回幂等结果", {}, { timeout: 10000 })).toBeInTheDocument()
+      expect(screen.queryByText("unsafe-recovery-idempotency")).not.toBeInTheDocument()
+    } finally {
+      vi.stubGlobal("fetch", originalFetch)
+      restoreStorage(window.localStorage, CONNECTION_PROFILE_STORAGE_KEY, previousProfile)
+      restoreStorage(window.sessionStorage, CONNECTION_SESSION_STORAGE_KEY, previousSession)
+    }
+  })
+
   it("writes Admin generated artifact pagination state to the URL", async () => {
     const user = userEvent.setup()
     const { router } = renderRoute("/admin/automation/generated-artifacts?limit=1")

@@ -19,6 +19,9 @@ Primary evidence:
 
 ## M1 — Repair Seam Proof
 
+Status: Complete. `GAARA-020` selected Web-only repair preparation over the
+existing Metadata Authority apply routes.
+
 Exit criteria:
 
 - current single/bulk apply execution seams are audited;
@@ -34,6 +37,9 @@ Primary gates:
 
 ## M2 — Bounded Repair Action
 
+Status: Deferred. No backend wrapper is selected unless one-click recovery-row
+repair becomes an explicit product requirement.
+
 Exit criteria:
 
 - chosen repair contract is implemented;
@@ -42,6 +48,9 @@ Exit criteria:
   tests.
 
 ## M3 — Web Confirmation UX
+
+Status: Deferred. The current recovery-row-to-apply-plan flow is proven by
+route-state tests; run only for explicit UX copy or browser-smoke polish.
 
 Exit criteria:
 

@@ -76,14 +76,99 @@ GAARA-020 should therefore prove one of two paths:
 1. Web-only repair preparation over existing apply routes.
 2. A narrow recovery-context wrapper with no duplicated executor.
 
+## GAARA-020 Seam Decision
+
+Decision on 2026-06-02: use Web-only repair preparation over the existing
+Metadata Authority apply routes. Do not add a backend recovery mutation wrapper
+for the current product shape.
+
+Why:
+
+- `AutomationService::apply_generated_artifact_metadata` already owns the
+  mutation boundary: it normalizes a caller-provided idempotency key, replays
+  durable outcomes for the same key, replans from the current artifact state,
+  rejects stale targets before mutation, commits failures as outcomes, and
+  persists successful `MetadataApplication` and Provider Mapping results.
+- Bulk apply already delegates each item to the same single-artifact apply path,
+  so adding a second recovery executor would duplicate behavior and increase
+  audit risk.
+- The Admin recovery queue is read-only and redaction-safe. Its row action
+  passes only the artifact id into the existing Metadata Authority apply route.
+- The Web apply route fetches the current apply plan before confirmation,
+  disables fixture-mode mutation, and generates a fresh Web idempotency key for
+  the live apply request. It does not reuse recovery-row plan snapshots or
+  recovery-row idempotency data.
+
+Fresh gates:
+
+```bash
+cargo nextest run -p nako-server generated_artifact_metadata_apply_replays_same_idempotency_key_from_durable_outcome generated_artifact_metadata_apply_rejects_stale_target_before_mutation --no-fail-fast
+```
+
+Result: passed, 2 tests run.
+
+```bash
+npm --prefix web run test -- src/test/route-state-contracts.test.tsx
+```
+
+Result: passed, 33 tests run. The new route-state contract covers recovery row
+navigation into the current apply plan, no mutation before confirmation, a new
+Web-generated idempotency key on confirmation, and no display or reuse of the
+unsafe recovery idempotency field embedded in the fixture response.
+
+```bash
+npm --prefix web run check
+```
+
+Result: passed.
+
+```bash
+python -m json.tool docs/workstreams/generated-artifact-apply-repair-actions/WORKSTREAM.json
+```
+
+Result: passed.
+
+```bash
+python - <<'PY'
+import json
+from pathlib import Path
+for rel in [
+    "docs/workstreams/generated-artifact-apply-repair-actions/TASKS.jsonl",
+    "docs/workstreams/generated-artifact-apply-repair-actions/CAMPAIGNS.jsonl",
+    "docs/workstreams/generated-artifact-apply-repair-actions/CONTEXT.jsonl",
+]:
+    for line in Path(rel).read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            json.loads(line)
+print("jsonl ok")
+PY
+```
+
+Result: passed.
+
+```bash
+git diff --check
+```
+
+Result: passed with Windows line-ending warnings only.
+
+Follow-on decision:
+
+- `GAARA-030` is deferred. Run it only if product chooses a one-click
+  recovery-context wrapper that adds real guards beyond the current apply route.
+- `GAARA-040` is deferred. Run it only for explicit UX copy or confirmation
+  polish beyond the current recovery-row-to-apply-plan flow.
+- `GAARA-050` should close the lane or split those deferred choices as
+  separate follow-ons.
+
 ## Open Decisions For GAARA-020
 
-- Does repair need a backend mutation wrapper, or is the existing single/bulk
-  apply mutation sufficient when launched from recovery context?
-- If a wrapper is needed, which recovery-context guards does it add that the
-  existing apply route cannot provide?
-- Should the first Web action remain "prepare repair" instead of "execute
-  repair" until backend guard evidence exists?
+- Resolved: repair does not need a backend mutation wrapper for the current
+  recovery-row-to-apply-plan product shape.
+- Resolved: the existing single/bulk apply mutation is sufficient when launched
+  from recovery context because Web re-plans before confirmation and uses a new
+  idempotency key.
+- Resolved: the first Web action remains preparation, not one-click execution.
 
 ## Notes
 

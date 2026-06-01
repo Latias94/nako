@@ -3,14 +3,17 @@
 Status: Active
 Last updated: 2026-06-02
 
-This workstream turns the read-only Generated Artifact apply recovery queue
-into bounded operator repair actions without adding a blind retry executor.
+This workstream proves how the read-only Generated Artifact apply recovery
+queue should lead operators into bounded repair actions without adding a blind
+retry executor.
 
 The core rule is that repair must reuse the existing Metadata Authority apply
 semantics: redacted planning, target freshness checks, idempotent outcomes,
 Admin-only confirmation, and audit records. A new endpoint or Web action is
 allowed only when it adds recovery-context guards or operator ergonomics that
-the existing apply and bulk apply routes do not already provide.
+the existing apply and bulk apply routes do not already provide. `GAARA-020`
+selected Web-only preparation over the existing apply route for the current
+product shape.
 
 Authoritative docs:
 
@@ -24,8 +27,9 @@ Authoritative docs:
 Current execution:
 
 - `GAARA-010` opens the lane.
-- `GAARA-020` is the first executable task: audit and prove the repair action
-  seam before adding mutation behavior.
+- `GAARA-020` proved the seam and selected no backend repair wrapper.
+- `GAARA-050` should close the lane or split deferred one-click wrapper / UX
+  polish work as follow-ons.
 
 Boundary:
 

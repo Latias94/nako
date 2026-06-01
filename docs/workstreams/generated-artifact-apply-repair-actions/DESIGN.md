@@ -84,9 +84,10 @@ repair. If they are enough, the work should focus on recovery-context UX and
 tests instead of adding backend mutation surface.
 
 Read-only recon on 2026-06-02 supports this direction: no new metadata
-mutation core is needed. The likely choices are Web-only repair preparation
-over existing apply routes, or a narrow Admin wrapper that adds recovery-row
-guards before delegating to existing apply behavior.
+mutation core is needed. `GAARA-020` selected Web-only repair preparation over
+existing apply routes for the current product shape. A narrow Admin wrapper is
+deferred unless one-click recovery-row repair becomes an explicit product
+requirement with guards the existing apply route cannot provide.
 
 ### Add Wrapper Only For Guards
 
@@ -122,9 +123,10 @@ requires:
 
 ## First Executable Task
 
-Start with `GAARA-020`: repair action seam audit and preparation contract.
+`GAARA-020` completed the repair action seam audit and selected Web-only repair
+preparation over existing apply routes.
 
-This task should answer whether repair needs a new backend mutation, a narrow
-guard wrapper, or only Web UX over existing apply routes. It should add or
-update tests around stale-target rejection, idempotent replay, and recovery
-context before any wider mutation UX ships.
+Next execution should run `GAARA-050` to close the lane or split deferred
+one-click wrapper and UX polish work as separate follow-ons. Do not add a new
+backend mutation wrapper unless the product requirement changes from
+preparation-first repair to guarded one-click row repair.
