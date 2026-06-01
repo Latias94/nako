@@ -40,9 +40,11 @@ Non-goals:
 - no child Provider Mapping writes;
 - no Web hierarchy confirmation UI.
 
-### proposed:bangumi-relations-and-episode-depth
+### docs/workstreams/bangumi-relations-and-episode-depth
 
 Goal: Make Bangumi depth claims anime-first and endpoint-backed.
+
+Status: opened as `docs/workstreams/bangumi-relations-and-episode-depth/`.
 
 First slice:
 

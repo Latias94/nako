@@ -126,7 +126,7 @@ This task should answer:
 `MPDP-040` records the follow-on split in `FOLLOW_ONS.md`:
 
 - `proposed:tmdb-season-episode-graph-depth`
-- `proposed:bangumi-relations-and-episode-depth`
+- `docs/workstreams/bangumi-relations-and-episode-depth/`
 - `proposed:douban-subject-kind-precision`
 - `proposed:metadata-candidate-durable-review`
 - `proposed:admin-web-provider-depth-governance`

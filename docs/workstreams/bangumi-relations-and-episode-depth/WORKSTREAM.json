@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "slug": "bangumi-relations-and-episode-depth",
+  "title": "Bangumi Relations And Episode Depth",
+  "status": "active",
+  "updated": "2026-06-02",
+  "scope_kind": "library_metadata_provider_graph_depth",
+  "problem": "Bangumi metadata is subject-oriented, but the current adapter advertises season and episode support before it uses Bangumi relation or episode endpoints.",
+  "task_prefix": "BRED",
+  "current_task": "BRED-020",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/bangumi-relations-and-episode-depth/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/bangumi-relations-and-episode-depth/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/bangumi-relations-and-episode-depth/TODO.md"
+    },
+    {
+      "role": "task_state",
+      "path": "docs/workstreams/bangumi-relations-and-episode-depth/TASKS.jsonl"
+    },
+    {
+      "role": "campaign_state",
+      "path": "docs/workstreams/bangumi-relations-and-episode-depth/CAMPAIGNS.jsonl"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/bangumi-relations-and-episode-depth/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "context_manifest",
+      "path": "docs/workstreams/bangumi-relations-and-episode-depth/CONTEXT.jsonl"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/bangumi-relations-and-episode-depth/HANDOFF.md"
+    }
+  ],
+  "context_manifest": "docs/workstreams/bangumi-relations-and-episode-depth/CONTEXT.jsonl",
+  "gates": [
+    "python -m json.tool docs/workstreams/bangumi-relations-and-episode-depth/WORKSTREAM.json",
+    "JSONL validation for docs/workstreams/bangumi-relations-and-episode-depth/TASKS.jsonl and CAMPAIGNS.jsonl",
+    "cargo nextest run -p nako-metadata bangumi_provider metadata_candidate --no-fail-fast",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "BRED-010",
+      "summary": "Opened the Bangumi relation and episode depth lane from MPDP and TSEG closeout evidence."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0018-metadata-provider-runtime-and-diagnostics.md",
+    "docs/adr/0021-video-first-media-server-domain-model.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/LANES.md",
+      "capability": "library-metadata-control-plane lane ownership"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Bangumi provider graph depth active lane"
+    },
+    {
+      "path": "docs/architecture/LIBRARY_PIPELINE.md",
+      "capability": "Bangumi relation and episode graph preview"
+    }
+  ],
+  "capability_tags": [
+    "library.metadata.provider-depth",
+    "library.metadata.bangumi",
+    "library.metadata.episode-graph"
+  ],
+  "lane_slug": "library-metadata-control-plane",
+  "continue_policy": {
+    "default_action": "run_current_task",
+    "current_task": "BRED-020",
+    "notes": "Next narrow Bangumi capability claims to endpoint-backed behavior. Do not add schema, Public Client API, Admin/Web, Generated Artifact apply, Media Item hierarchy creation, or child Provider Mapping writes."
+  }
+}

@@ -11,37 +11,31 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: provider-depth follow-on selection after TMDB season episode graph
-depth closeout.
+Status: active Bangumi relation and episode depth lane.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
 Operations Repair are both closed as of 2026-06-02. Web Admin Generated
 Artifact Recovery UI is also closed after `WAGR-030`. Generated Artifact Apply
 Repair Actions is closed after `GAARA-050`. Metadata Provider Depth And
 Precision is closed after `MPDP-050`. TMDB Season Episode Graph Depth is
-closed after `TSEG-040`.
+closed after `TSEG-040`. Bangumi Relations And Episode Depth is now active.
 
 It targets:
 
-- selecting the next focused provider-depth lane without reopening closed
-  TMDB/MPDP work;
-- keeping provider graph evidence preview-only unless a durable review or
-  Admin/Web governance lane deliberately changes persistence semantics;
-- keeping Bangumi, Douban, durable candidate review, and Admin/Web governance
-  split by scope.
+- narrowing Bangumi provider capability claims to endpoint-backed behavior;
+- adding relation or episode graph preview only after the adapter uses the
+  relevant Bangumi endpoint;
+- keeping refresh and Provider Mapping persistence root-only;
+- leaving durable candidate review, Admin/Web confirmation, and Douban subject
+  precision to separate lanes.
 
-Authoritative evidence:
+Authoritative lane:
 
-- `docs/workstreams/tmdb-season-episode-graph-depth/`
-- `docs/workstreams/metadata-provider-depth-and-precision/FOLLOW_ONS.md`
+- `docs/workstreams/bangumi-relations-and-episode-depth/`
 
 Next task:
 
-- open the next focused provider-depth follow-on. Recommended candidates:
-  `proposed:bangumi-relations-and-episode-depth`,
-  `proposed:douban-subject-kind-precision`,
-  `proposed:metadata-candidate-durable-review`, or
-  `proposed:admin-web-provider-depth-governance`.
+- `BRED-020`: narrow Bangumi capability claims and add regression coverage.
 
 Latest completed architecture focus:
 
@@ -78,7 +72,7 @@ Authoritative lane:
 Follow-ons:
 
 - `docs/workstreams/tmdb-season-episode-graph-depth/` (closed);
-- `proposed:bangumi-relations-and-episode-depth`;
+- `docs/workstreams/bangumi-relations-and-episode-depth/` (active);
 - `proposed:douban-subject-kind-precision`;
 - `proposed:metadata-candidate-durable-review`;
 - `proposed:admin-web-provider-depth-governance`.

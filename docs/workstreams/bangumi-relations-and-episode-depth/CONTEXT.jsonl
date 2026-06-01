@@ -1,0 +1,12 @@
+{"role":"glossary","path":"CONTEXT.md","reason":"Use Nako domain terms: Provider Subject, Provider Mapping, Media Item, Candidate Graph, and Canonical Metadata."}
+{"role":"adr","path":"docs/adr/0007-metadata-merge-policy-and-local-authority.md","reason":"Metadata merge authority and local field ownership baseline."}
+{"role":"adr","path":"docs/adr/0018-metadata-provider-runtime-and-diagnostics.md","reason":"Provider runtime, diagnostics, and redaction baseline."}
+{"role":"adr","path":"docs/adr/0021-video-first-media-server-domain-model.md","reason":"Video-first domain model and episode hierarchy vocabulary."}
+{"role":"architecture","path":"docs/architecture/LANES.md","reason":"Active queue and library-metadata-control-plane ownership."}
+{"role":"architecture","path":"docs/architecture/LIBRARY_PIPELINE.md","reason":"Library metadata provider depth capability map."}
+{"role":"architecture","path":"docs/architecture/WORKSTREAM_LINKS.md","reason":"Architecture workstream evidence and proposed lane linkage."}
+{"role":"prior_workstream","path":"docs/workstreams/metadata-provider-depth-and-precision/FOLLOW_ONS.md","reason":"Selected the Bangumi relations and episode depth follow-on and non-goals."}
+{"role":"prior_workstream","path":"docs/workstreams/tmdb-season-episode-graph-depth/CLOSEOUT.md","reason":"Recent provider-depth preview-only and root-only refresh boundary."}
+{"role":"external_spec","url":"https://raw.githubusercontent.com/bangumi/api/master/open-api/v0.yaml","reason":"Official Bangumi OpenAPI endpoint evidence for subject relations and episodes."}
+{"role":"workstream","path":"docs/workstreams/bangumi-relations-and-episode-depth/DESIGN.md","reason":"Current lane design and non-goals."}
+{"role":"gates","path":"docs/workstreams/bangumi-relations-and-episode-depth/EVIDENCE_AND_GATES.md","reason":"Validation commands and evidence ledger."}

@@ -56,7 +56,7 @@ Results:
 ## Follow-Ons
 
 - `proposed:tmdb-season-episode-graph-depth`
-- `proposed:bangumi-relations-and-episode-depth`
+- `docs/workstreams/bangumi-relations-and-episode-depth/`
 - `proposed:douban-subject-kind-precision`
 - `proposed:metadata-candidate-durable-review`
 - `proposed:admin-web-provider-depth-governance`

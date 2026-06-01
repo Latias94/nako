@@ -20,7 +20,7 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| library-metadata-control-plane | follow-on selection | open next focused provider-depth lane | Planner |
+| library-metadata-control-plane | bangumi-relations-and-episode-depth | BRED-020 | Bangumi capability implementer |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
@@ -41,6 +41,9 @@ It added TMDB season -> episode graph preview and proved season refresh keeps
 the same preview-only, root-only persistence boundary. Open a focused follow-on
 for Bangumi relations/episodes, Douban subject precision, durable candidate
 review, or Admin/Web provider depth governance rather than reopening it.
+`bangumi-relations-and-episode-depth` is active as the next focused follow-on.
+Start with `BRED-020` to narrow capability claims before endpoint-backed
+episode graph depth.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
@@ -139,8 +142,7 @@ Closed evidence:
 
 Active evidence:
 
-- none; choose or open the next focused provider-depth follow-on before
-  assigning a lane terminal.
+- `docs/workstreams/bangumi-relations-and-episode-depth/` (`BRED-020` ready)
 
 Owned scopes:
 
@@ -162,6 +164,7 @@ Owned scopes:
 - `docs/workstreams/generated-artifact-bulk-metadata-apply/`
 - `docs/workstreams/metadata-provider-depth-and-precision/`
 - `docs/workstreams/tmdb-season-episode-graph-depth/`
+- `docs/workstreams/bangumi-relations-and-episode-depth/`
 
 Shared scopes requiring planner coordination:
 
