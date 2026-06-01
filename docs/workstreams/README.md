@@ -24,8 +24,8 @@ closeout.
 
 Next task:
 
-- `BRED-040`: prove Bangumi episode graph preview remains non-mutating during
-  refresh and Provider Mapping persistence.
+- `BRED-050`: close the Bangumi depth lane or split durable review/Admin
+  confirmation follow-ons.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,

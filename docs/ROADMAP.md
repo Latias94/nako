@@ -35,8 +35,8 @@ Authoritative lane:
 
 Next task:
 
-- `BRED-040`: prove Bangumi episode graph preview remains non-mutating during
-  refresh and Provider Mapping persistence.
+- `BRED-050`: close the Bangumi depth lane or split durable review/Admin
+  confirmation follow-ons.
 
 Latest completed architecture focus:
 

@@ -20,7 +20,7 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| library-metadata-control-plane | bangumi-relations-and-episode-depth | BRED-040 | Bangumi refresh guard implementer |
+| library-metadata-control-plane | bangumi-relations-and-episode-depth | BRED-050 | Bangumi closeout planner |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
@@ -42,8 +42,9 @@ the same preview-only, root-only persistence boundary. Open a focused follow-on
 for Bangumi relations/episodes, Douban subject precision, durable candidate
 review, or Admin/Web provider depth governance rather than reopening it.
 `bangumi-relations-and-episode-depth` is active as the next focused follow-on.
-`BRED-020` narrowed capability claims and `BRED-030` added endpoint-backed
-episode graph preview. Next prove refresh remains root-only under `BRED-040`.
+`BRED-020` narrowed capability claims, `BRED-030` added endpoint-backed
+episode graph preview, and `BRED-040` proved refresh remains root-only. Next
+close or split follow-ons under `BRED-050`.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
@@ -142,7 +143,7 @@ Closed evidence:
 
 Active evidence:
 
-- `docs/workstreams/bangumi-relations-and-episode-depth/` (`BRED-040` ready)
+- `docs/workstreams/bangumi-relations-and-episode-depth/` (`BRED-050` ready)
 
 Owned scopes:
 

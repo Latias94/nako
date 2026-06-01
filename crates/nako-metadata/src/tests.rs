@@ -1487,6 +1487,134 @@ async fn refresh_persists_only_root_provider_mapping_from_season_episode_graph_p
 }
 
 #[tokio::test]
+async fn refresh_persists_only_root_provider_mapping_from_bangumi_episode_graph_preview() {
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let item = seed_media_item(
+        &store,
+        LibraryPreset::Anime,
+        MediaKind::Series,
+        "星际牛仔",
+        Some("1998-04-03".to_owned()),
+        vec![ExternalId {
+            provider: ExternalProvider::Bangumi,
+            value: "8".to_owned(),
+        }],
+    )
+    .await;
+    let mut graph = MetadataCandidateGraph::for_provider(
+        ExternalProvider::Bangumi,
+        MediaKind::Series,
+        ProviderSubjectKind::Series,
+        "8",
+        MetadataCandidateRecord::from(CanonicalMetadata {
+            title: "星际牛仔".to_owned(),
+            original_title: Some("Cowboy Bebop".to_owned()),
+            release_date: Some("1998-04-03".to_owned()),
+            external_ids: vec![ExternalId {
+                provider: ExternalProvider::Bangumi,
+                value: "8".to_owned(),
+            }],
+            ..CanonicalMetadata::default()
+        }),
+    );
+    let series_subject = graph.root_provider_subject().unwrap().clone();
+    let episode_subject = MetadataCandidateSubject {
+        provider: ExternalProvider::Bangumi,
+        subject_kind: ProviderSubjectKind::Episode,
+        subject_key: "101".to_owned(),
+        title: Some("阿斯特罗蓝调".to_owned()),
+        release_year: Some(1998),
+        locale: None,
+    };
+    graph.related.push(MetadataCandidateNode {
+        source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+        kind: MediaKind::Episode,
+        subject: Some(episode_subject.clone()),
+        metadata: MetadataCandidateRecord::from(CanonicalMetadata {
+            title: "阿斯特罗蓝调".to_owned(),
+            original_title: Some("Asteroid Blues".to_owned()),
+            release_date: Some("1998-04-03".to_owned()),
+            runtime_minutes: Some(24),
+            external_ids: vec![ExternalId {
+                provider: ExternalProvider::Bangumi,
+                value: "101".to_owned(),
+            }],
+            ..CanonicalMetadata::default()
+        }),
+    });
+    graph.relationships.push(MetadataCandidateRelationship {
+        parent_subject: series_subject,
+        child_subject: episode_subject,
+        kind: MetadataCandidateRelationshipKind::Contains,
+    });
+    let provider = mock_provider(
+        ExternalProvider::Bangumi,
+        Vec::new(),
+        MetadataFetchResult {
+            provider: ExternalProvider::Bangumi,
+            provider_key: "8".to_owned(),
+            graph,
+            raw_json: r#"{"subject":{"id":8},"episodes":{"data":[{"id":101}]}}"#.to_owned(),
+        },
+    );
+    let service = MetadataRefreshService::new(provider, store.clone());
+    let job_id = seed_metadata_job(&store, &item).await;
+    let mut profile = MetadataProfile::from_preset(LibraryPreset::Anime);
+    profile.metadata_providers = vec![ExternalProvider::Bangumi];
+
+    let summary = service
+        .refresh_item(MetadataRefreshRequest {
+            job_id,
+            item_id: item.id,
+            profile,
+            force: false,
+        })
+        .await
+        .unwrap();
+
+    let media_items = store
+        .list_media_items(PageRequest::first_page())
+        .await
+        .unwrap();
+    let provider_mappings = store
+        .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+        .await
+        .unwrap();
+    let provider_subjects = store
+        .list_provider_subjects_for_item(item.id, PageRequest::first_page())
+        .await
+        .unwrap();
+    let raw = store
+        .get_provider_raw_response(item.id, &ExternalProvider::Bangumi, "8")
+        .await
+        .unwrap()
+        .unwrap();
+    let episode_subject = store
+        .find_provider_subject(
+            &ExternalProvider::Bangumi,
+            &ProviderSubjectKind::Episode,
+            "101",
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(summary.matched_by, MetadataMatchKind::ExternalId);
+    assert_eq!(summary.provider_key, "8");
+    assert!(raw.body_json.contains(r#""episodes""#));
+    assert_eq!(media_items.len(), 1);
+    assert_eq!(provider_mappings.len(), 1);
+    assert_eq!(provider_mappings[0].status, ProviderMappingStatus::Accepted);
+    assert_eq!(provider_subjects.len(), 1);
+    assert_eq!(
+        provider_subjects[0].subject_kind,
+        ProviderSubjectKind::Series
+    );
+    assert_eq!(provider_subjects[0].subject_key, "8");
+    assert!(episode_subject.is_none());
+}
+
+#[tokio::test]
 async fn strategy_falls_back_from_unimplemented_bangumi_to_tmdb() {
     let store = NakoDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();

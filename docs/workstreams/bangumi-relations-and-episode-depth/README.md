@@ -28,8 +28,9 @@ Current execution:
   endpoint-backed behavior before adding graph depth.
 - `BRED-030` added endpoint-backed Bangumi episode graph preview for series
   fetches without changing persistence.
-- `BRED-040` is ready: prove refresh remains root-only when graph preview
-  nodes are present.
+- `BRED-040` proved refresh remains root-only when graph preview nodes are
+  present.
+- `BRED-050` is ready for lane closeout or explicit follow-on split.
 
 Boundary:
 

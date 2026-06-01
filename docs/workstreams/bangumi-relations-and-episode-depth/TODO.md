@@ -31,11 +31,11 @@ Last updated: 2026-06-02
 
 ## M3 - Root-Only Refresh Guard
 
-- [ ] BRED-040 [owner=codex] [deps=BRED-030] [scope=crates/nako-metadata/src/tests.rs,docs/workstreams/bangumi-relations-and-episode-depth]
+- [x] BRED-040 [owner=codex] [deps=BRED-030] [scope=crates/nako-metadata/src/tests.rs,docs/workstreams/bangumi-relations-and-episode-depth]
   Goal: Prove Bangumi episode graph preview remains non-mutating during refresh.
   Validation: `cargo nextest run -p nako-metadata bangumi refresh metadata_candidate --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`.
-  Review: no automatic episode Media Item creation, no episode Provider Subject insertion, no child Provider Mapping writes.
-  Evidence: `EVIDENCE_AND_GATES.md`.
+  Review: no automatic episode Media Item creation, no episode Provider Subject insertion, no child Provider Mapping writes. Passed on 2026-06-02.
+  Evidence: `EVIDENCE_AND_GATES.md` BRED-040 section.
   Handoff: Continue to `BRED-050`.
 
 ## M4 - Closeout

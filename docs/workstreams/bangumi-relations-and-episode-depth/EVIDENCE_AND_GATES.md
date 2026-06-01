@@ -135,6 +135,41 @@ cargo fmt --all -- --check
 
 Result: passed.
 
+## BRED-040 Evidence
+
+Completed on 2026-06-02.
+
+Implementation:
+
+- Added a Bangumi series refresh guard that feeds a root series graph with a
+  related episode preview node into `MetadataRefreshService`.
+- Refresh persists only the root Bangumi Series Provider Subject and accepted
+  root Provider Mapping.
+- The related Bangumi Episode preview node remains evidence only: no episode
+  Media Item, episode Provider Subject, or child Provider Mapping is created.
+- Raw provider response caching still records the root series payload that
+  includes episode preview evidence.
+
+Validation:
+
+```bash
+cargo nextest run -p nako-metadata refresh_persists_only_root_provider_mapping_from_bangumi_episode_graph_preview --no-fail-fast
+```
+
+Result: passed, 1 test.
+
+```bash
+cargo nextest run -p nako-metadata bangumi refresh metadata_candidate --no-fail-fast
+```
+
+Result: passed, 16 tests.
+
+```bash
+cargo fmt --all -- --check
+```
+
+Result: passed.
+
 ## Notes
 
 - Do not change persistence semantics from this lane.
