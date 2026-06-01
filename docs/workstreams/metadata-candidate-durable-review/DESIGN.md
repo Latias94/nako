@@ -1,6 +1,6 @@
 # Metadata Candidate Durable Review
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Why This Lane Exists
@@ -29,7 +29,7 @@ This lane creates that contract before UI work.
 
 ## Target State
 
-When this lane closes:
+This lane closed with the following target state:
 
 1. Nako has a provider-neutral Metadata Candidate Review contract.
 2. Review records can represent root and related Provider Subjects without
@@ -115,3 +115,10 @@ Provider Mapping behavior.
   Media Item state;
 - accepted reviews do not create or update `ProviderMappingStatus` records in
   this lane. That mutation should be a named follow-on service.
+
+## Closeout State
+
+`MCDR-050` closed this lane after the backend review contract, durable snapshot
+state, and review decision semantics shipped. Admin/Web provider depth
+governance and accepted-review Provider Mapping application remain explicit
+follow-ons, not hidden continuations of review status transitions.

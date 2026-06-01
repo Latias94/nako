@@ -1,6 +1,6 @@
 # Metadata Candidate Durable Review - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Lane Opening Gates
@@ -36,6 +36,8 @@ git diff --check
 - `cargo nextest run -p nako-db provider_subjects --no-fail-fast`
 - `cargo nextest run -p nako-db baseline_migration --no-fail-fast`
 - `cargo nextest run -p nako-db --no-fail-fast`
+- `cargo nextest run -p nako-metadata candidate_review_decision --no-fail-fast`
+- `cargo nextest run -p nako-metadata --no-fail-fast`
 - `cargo fmt --all -- --check`
 - `git diff --check`
 
@@ -158,3 +160,28 @@ Green checks:
 - Accepted-review Provider Mapping application remains a follow-on service, not
   part of review status transitions.
 - Do not expose raw provider payloads or secrets.
+
+## MCDR-050 Closeout Evidence
+
+Closeout result:
+
+- lane status is `closed`;
+- durable review planning, snapshot persistence, and decision transitions are
+  shipped;
+- Admin/Web provider depth governance is split to
+  `proposed:admin-web-provider-depth-governance`;
+- accepted-review Provider Mapping application is split to
+  `proposed:accepted-review-provider-mapping-application`.
+
+Fresh closeout checks:
+
+- `cargo nextest run -p nako-metadata candidate_review_decision --no-fail-fast`
+  passed: 3 tests run, 3 passed.
+- `cargo nextest run -p nako-db candidate_review --no-fail-fast` passed: 1
+  test run, 1 passed.
+- `python -m json.tool docs/workstreams/metadata-candidate-durable-review/WORKSTREAM.json`
+  passed.
+- JSONL validation for `TASKS.jsonl`, `CAMPAIGNS.jsonl`, and `CONTEXT.jsonl`
+  passed.
+- `cargo fmt --all -- --check` passed.
+- `git diff --check` passed.

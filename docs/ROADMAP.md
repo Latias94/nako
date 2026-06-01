@@ -11,8 +11,9 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: Metadata Candidate Durable Review active after Douban subject-kind
-precision closeout.
+Status: Metadata Candidate Durable Review is closed after `MCDR-050`; the next
+architecture focus is follow-on selection in the
+`library-metadata-control-plane` lane.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
 Operations Repair are both closed as of 2026-06-02. Web Admin Generated
@@ -21,30 +22,39 @@ Repair Actions is closed after `GAARA-050`. Metadata Provider Depth And
 Precision is closed after `MPDP-050`. TMDB Season Episode Graph Depth is
 closed after `TSEG-040`. Bangumi Relations And Episode Depth is closed after
 `BRED-050`. Douban Subject Kind Precision is closed after `DSKP-030`.
+Metadata Candidate Durable Review is closed after `MCDR-050`.
 
-It targets:
+Next candidate lanes:
 
-- defining a provider-neutral, redaction-safe review contract for Candidate
-  Graph previews without reopening closed TMDB/MPDP/Bangumi/Douban work;
-- keeping provider graph evidence preview-only unless a durable review or
-  Admin/Web governance lane deliberately changes persistence semantics;
-- keeping schema, Admin/Web governance, and future Douban TV/episode endpoint
-  depth split until backend review semantics are explicit.
+- `proposed:admin-web-provider-depth-governance`;
+- `proposed:accepted-review-provider-mapping-application`;
+- `proposed:douban-tv-episode-endpoint-depth`.
 
 Authoritative evidence:
 
-- `docs/workstreams/bangumi-relations-and-episode-depth/`
-- `docs/workstreams/douban-subject-kind-precision/`
-- `docs/workstreams/metadata-candidate-durable-review/`
+- `docs/workstreams/metadata-candidate-durable-review/CLOSEOUT.md`
 - `docs/workstreams/metadata-provider-depth-and-precision/FOLLOW_ONS.md`
-
-Next task:
-
-- `MCDR-020`: define a pure Candidate Graph -> review plan contract without
-  schema, Admin/Web, Public Client API, Generated Artifact apply, or Provider
-  Mapping writes.
+- `docs/architecture/LIBRARY_PIPELINE.md`
+- `docs/architecture/LANES.md`
 
 Latest completed architecture focus:
+
+Metadata Candidate Durable Review closed on 2026-06-02 after `MCDR-050`.
+
+It shipped:
+
+- provider-neutral, redaction-safe Candidate Graph review plans;
+- durable review snapshot records and SQLite/PostgreSQL persistence;
+- backend-only idempotent accept/reject status transitions with stale guards
+  and expiry handling;
+- explicit split of Admin/Web provider depth governance and accepted-review
+  Provider Mapping application follow-ons.
+
+Authoritative lane:
+
+- `docs/workstreams/metadata-candidate-durable-review/`
+
+Previous completed architecture focus:
 
 Douban Subject Kind Precision closed on 2026-06-02 after `DSKP-030`.
 
@@ -54,7 +64,8 @@ It shipped:
 - unsupported-kind guard coverage proving Series, Season, and Episode requests
   fail before provider HTTP;
 - explicit split of Douban TV/episode endpoint depth, durable candidate review,
-  and Admin/Web provider depth governance.
+  and Admin/Web provider depth governance. Durable candidate review is now
+  closed after `MCDR-050`.
 
 Authoritative lane:
 
@@ -114,8 +125,9 @@ Follow-ons:
 - `docs/workstreams/tmdb-season-episode-graph-depth/` (closed);
 - `docs/workstreams/bangumi-relations-and-episode-depth/` (closed);
 - `docs/workstreams/douban-subject-kind-precision/` (closed);
-- `docs/workstreams/metadata-candidate-durable-review/` (active);
+- `docs/workstreams/metadata-candidate-durable-review/` (closed);
 - `proposed:admin-web-provider-depth-governance`;
+- `proposed:accepted-review-provider-mapping-application`;
 - `proposed:douban-tv-episode-endpoint-depth`.
 
 Previous architecture focus:

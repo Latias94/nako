@@ -20,7 +20,7 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| library-metadata-control-plane | metadata-candidate-durable-review | MCDR-020 | Candidate review contract implementer |
+| library-metadata-control-plane | follow-on selection | open next focused workstream | Metadata governance planner |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
@@ -52,10 +52,12 @@ follow-ons.
 and rejected Series/Season/Episode requests before HTTP. Future Douban
 TV/episode depth, durable candidate review, and Admin/Web provider governance
 should open focused follow-ons.
-The next focused provider-depth lane is now
-`metadata-candidate-durable-review`. Start at `MCDR-020` with a pure
-redaction-safe review plan contract before schema, Admin/Web, Public Client API,
-Generated Artifact apply, or Provider Mapping mutation work.
+`metadata-candidate-durable-review` is closed after `MCDR-050`.
+It shipped redaction-safe Candidate Graph review plans, durable review snapshot
+persistence, and backend-only accept/reject status transitions without Provider
+Mapping writes. Next choose a focused follow-on for Admin/Web provider depth
+governance, accepted-review Provider Mapping application, or Douban TV/episode
+endpoint depth rather than reopening it.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
@@ -153,10 +155,11 @@ Closed evidence:
 - `docs/workstreams/tmdb-season-episode-graph-depth/`
 - `docs/workstreams/bangumi-relations-and-episode-depth/`
 - `docs/workstreams/douban-subject-kind-precision/`
+- `docs/workstreams/metadata-candidate-durable-review/`
 
 Active evidence:
 
-- `docs/workstreams/metadata-candidate-durable-review/`
+- none. Open a focused follow-on before assigning implementation in this lane.
 
 Owned scopes:
 

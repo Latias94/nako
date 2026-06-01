@@ -26,9 +26,49 @@ proposed milestone.
 
 ## Current Goal
 
+### Metadata Governance Follow-On Selection
+
+Status: selecting next implementation goal as of 2026-06-02.
+
+Objective:
+
+- Choose the next focused lane after durable candidate review closeout.
+- Keep Admin/Web provider depth governance, accepted-review Provider Mapping
+  application, and Douban TV/episode endpoint depth as separate workstreams.
+- Avoid reopening closed provider-depth or candidate-review lanes for new
+  product/API behavior.
+
+Deliverables:
+
+- a newly opened focused workstream for the selected follow-on;
+- updated `docs/architecture/LANES.md` active queue;
+- exact task ledger, gates, and non-goals before implementation starts.
+
+Non-goals:
+
+- no hidden Provider Mapping writes inside review status transitions;
+- no raw provider payload exposure;
+- no Public Client API expansion before Admin semantics settle;
+- no broad provider-depth project reopening.
+
+Exit criteria:
+
+- one follow-on is selected and opened with `WORKSTREAM.json`, `TODO.md`,
+  `EVIDENCE_AND_GATES.md`, and architecture refs;
+- closed MCDR evidence remains the backend prerequisite for Admin/Web or
+  Provider Mapping application behavior.
+
+Evidence:
+
+- `docs/workstreams/metadata-candidate-durable-review/CLOSEOUT.md`
+- `docs/architecture/LIBRARY_PIPELINE.md`
+- `docs/architecture/LANES.md`
+
+## Recent Completed Goals
+
 ### Metadata Candidate Durable Review
 
-Status: active as of 2026-06-02.
+Status: completed on 2026-06-02.
 
 Objective:
 
@@ -40,33 +80,21 @@ Objective:
 
 Deliverables:
 
-- `docs/workstreams/metadata-candidate-durable-review/`;
-- a pure Candidate Graph -> review plan contract in the metadata/core boundary;
-- tests proving review plans include root/related Provider Subject facts without
-  raw provider payloads or Provider Mapping writes;
-- workstream evidence deciding when schema and accept/reject semantics are safe
-  to implement.
-
-Non-goals:
-
-- no schema migration, Admin API, Public Client API, or Web route in the first
-  slice;
-- no Generated Artifact apply outcome reuse;
-- no automatic Media Item hierarchy creation;
-- no accepted Provider Mapping writes from preview graph nodes.
-
-Exit criteria:
-
-- review plan contract is redaction-safe and provider-neutral;
-- schema and mutation follow-ons are explicitly accepted or split;
-- focused `nako-metadata` gates pass and evidence is recorded.
+- `docs/workstreams/metadata-candidate-durable-review/`
+- pure Candidate Graph -> review plan contract in the metadata/core boundary
+- durable review snapshot records, repository trait, and SQLite/PostgreSQL
+  persistence
+- backend-only idempotent accept/reject status transitions with stale guards
+  and expiry handling
 
 Evidence:
 
-- `docs/workstreams/metadata-candidate-durable-review/`
-- `docs/architecture/LIBRARY_PIPELINE.md`
-
-## Recent Completed Goals
+- `MCDR-020` adds redaction-safe review plan projection without schema or
+  Provider Mapping writes;
+- `MCDR-030` persists review snapshots without Provider Mapping writes;
+- `MCDR-040` adds backend-only decision semantics without Admin/Web/API routes;
+- `MCDR-050` closes the lane and splits Admin/Web governance plus
+  accepted-review Provider Mapping application follow-ons.
 
 ### Douban Subject Kind Precision
 

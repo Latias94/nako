@@ -1,29 +1,26 @@
 # Metadata Candidate Durable Review - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Current State
 
-The lane is opened from provider-depth follow-on selection after TMDB, Bangumi,
+The lane was opened from provider-depth follow-on selection after TMDB, Bangumi,
 and Douban provider precision closeouts. Candidate Graph previews are useful,
 but automatic refresh intentionally persists only root Provider Mapping
 behavior. `MCDR-020` added a pure, redaction-safe review plan before any schema
 or mutation work. `MCDR-030` added durable review snapshot persistence without
 Provider Mapping writes. `MCDR-040` added backend-only idempotent review
 decision status transitions without Admin/Web/API or Provider Mapping
-application.
+application. `MCDR-050` closed the lane and split the remaining product and
+application work into follow-ons.
 
-## Active Task
+## Closed State
 
-- Task ID: `MCDR-050`
-- Owner: planner
-- Files: this workstream, `docs/architecture`, `docs/GOALS.md`,
-  `docs/ROADMAP.md`
-- Validation: fresh evidence in `EVIDENCE_AND_GATES.md`; JSON/JSONL
-  validation; `git diff --check`
-- Status: READY
+- Closed task: `MCDR-050`
+- Status: DONE
 - Evidence: `docs/workstreams/metadata-candidate-durable-review/EVIDENCE_AND_GATES.md`
+  and `docs/workstreams/metadata-candidate-durable-review/CLOSEOUT.md`
 
 ## Decisions Since Opening
 
@@ -41,11 +38,17 @@ application.
   are durable and redaction-safe.
 - Do not reuse Generated Artifact apply outcomes as a generic candidate queue.
 
+## Follow-Ons
+
+- `proposed:admin-web-provider-depth-governance`
+- `proposed:accepted-review-provider-mapping-application`
+- `proposed:douban-tv-episode-endpoint-depth`
+
 ## Blockers
 
 - None for closeout review.
 
 ## Next Recommended Action
 
-- Run `MCDR-050`: close the lane or split follow-ons for Admin/Web provider
-  depth governance and explicit accepted-review Provider Mapping application.
+- Select one focused follow-on. Do not reopen this lane for Admin/Web routes or
+  Provider Mapping application behavior.

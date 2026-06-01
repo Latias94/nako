@@ -18,15 +18,14 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 
 Last reviewed: 2026-06-02
 
-`metadata-candidate-durable-review` is active in the
-`library-metadata-control-plane` lane after `douban-subject-kind-precision`
-closeout.
+`metadata-candidate-durable-review` is closed in the
+`library-metadata-control-plane` lane after `MCDR-050`.
 
-Next task:
+Next selection:
 
-- `MCDR-020`: define a redaction-safe Candidate Graph -> review plan contract
-  without schema, Admin/Web, Public Client API, Generated Artifact apply, or
-  Provider Mapping writes.
+- open a focused follow-on for `proposed:admin-web-provider-depth-governance`,
+  `proposed:accepted-review-provider-mapping-application`, or
+  `proposed:douban-tv-episode-endpoint-depth`.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -55,8 +54,9 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
 ## Current Workstreams
 
 - [metadata-candidate-durable-review](metadata-candidate-durable-review/README.md):
-  active library-metadata-control-plane lane for durable, redaction-safe
-  provider Candidate Graph review semantics before Admin/Web governance.
+  closed library-metadata-control-plane lane for durable, redaction-safe
+  provider Candidate Graph review semantics before Admin/Web governance and
+  Provider Mapping application follow-ons.
 - [douban-subject-kind-precision](douban-subject-kind-precision/README.md):
   closed library-metadata-control-plane lane for making Douban provider
   capability claims match its current movie search/detail endpoint contract.

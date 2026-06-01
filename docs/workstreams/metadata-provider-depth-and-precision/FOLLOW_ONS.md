@@ -90,20 +90,25 @@ Follow-on split after closeout:
 Goal: Persist candidate graph previews only when operator review becomes a
 product requirement.
 
-Status: opened as `docs/workstreams/metadata-candidate-durable-review/`.
+Status: closed as `docs/workstreams/metadata-candidate-durable-review/`.
 
-First slice:
+Shipped:
 
-- define the review record ownership, retention, and redaction contract;
-- model root and related Provider Subjects without making them accepted
-  Provider Mappings;
-- prove idempotent accept/reject behavior before adding Web mutation.
+- redaction-safe Candidate Graph review plan contract;
+- durable review snapshot persistence for SQLite/PostgreSQL;
+- backend-only idempotent accept/reject status transitions with stale guards;
+- no Provider Mapping writes from review status transitions.
 
 Non-goals:
 
 - no provider adapter-specific persistence shortcuts;
 - no reuse of Generated Artifact apply outcome tables as a generic candidate
   queue.
+
+Follow-on split after closeout:
+
+- `proposed:admin-web-provider-depth-governance`
+- `proposed:accepted-review-provider-mapping-application`
 
 ### proposed:admin-web-provider-depth-governance
 

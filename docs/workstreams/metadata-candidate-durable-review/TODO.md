@@ -1,6 +1,6 @@
 # Metadata Candidate Durable Review - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 - Lane Opening
@@ -40,9 +40,9 @@ Last updated: 2026-06-02
 
 ## M4 - Closeout
 
-- [ ] MCDR-050 [owner=planner] [deps=MCDR-040] [scope=docs/workstreams/metadata-candidate-durable-review,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
-  Goal: Close the lane or split Admin/Web provider depth governance.
-  Validation: fresh gate evidence in `EVIDENCE_AND_GATES.md`; JSON/JSONL validation; `git diff --check`.
+- [x] MCDR-050 [owner=planner] [deps=MCDR-040] [scope=docs/workstreams/metadata-candidate-durable-review,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
+  Goal: Close the lane and split Admin/Web provider depth governance plus accepted-review Provider Mapping application follow-ons.
+  Validation: fresh gate evidence in `EVIDENCE_AND_GATES.md`; JSON/JSONL validation; `cargo nextest run -p nako-metadata candidate_review_decision --no-fail-fast`; `cargo nextest run -p nako-db candidate_review --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: candidate review is durable, redaction-safe, and separate from automatic refresh and Generated Artifact apply.
-  Evidence: `CLOSEOUT.md` if closed.
-  Handoff: DONE or explicit follow-on split.
+  Evidence: `CLOSEOUT.md`.
+  Handoff: DONE; next choose a focused follow-on such as `proposed:admin-web-provider-depth-governance`, `proposed:accepted-review-provider-mapping-application`, or `proposed:douban-tv-episode-endpoint-depth`.

@@ -1,6 +1,6 @@
 # Metadata Candidate Durable Review - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 - Lane Opening
@@ -47,10 +47,18 @@ Exit criteria:
 
 ## M4 - Closeout
 
-Status: Ready after `MCDR-040`.
+Status: Complete after `MCDR-050`.
 
 Exit criteria:
 
 - fresh evidence is recorded;
 - Admin/Web provider depth governance is split if UI work remains;
 - architecture maps no longer route active work to a closed lane.
+
+Closeout result:
+
+- `MCDR-050` closed the lane;
+- Admin/Web provider depth governance is split to
+  `proposed:admin-web-provider-depth-governance`;
+- accepted-review Provider Mapping application is split to
+  `proposed:accepted-review-provider-mapping-application`.

@@ -1,6 +1,6 @@
 # Metadata Candidate Durable Review
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 This workstream turns provider Candidate Graph previews into a durable review
@@ -20,7 +20,7 @@ Authoritative docs:
 - `CONTEXT.jsonl`
 - `HANDOFF.md`
 
-Current execution:
+Closed execution:
 
 - `MCDR-010` opens the lane.
 - `MCDR-020` is done: `MetadataCandidateGraph` can be projected into a
@@ -30,7 +30,9 @@ Current execution:
 - `MCDR-040` is done: backend-only accept/reject decisions are idempotent,
   guard stale reviews, mark expired pending reviews, and do not write Provider
   Mappings.
-- `MCDR-050` is ready for closeout or follow-on split.
+- `MCDR-050` is done: the lane is closed, with Admin/Web provider depth
+  governance and accepted-review Provider Mapping application split as
+  follow-ons.
 
 Boundary:
 
@@ -39,3 +41,7 @@ Boundary:
 - no accepted Provider Mapping writes from preview graph nodes;
 - no raw provider response, token, proxy URL, header, path, or provider body
   exposure.
+
+Closeout:
+
+- `CLOSEOUT.md`
