@@ -24,6 +24,7 @@ import {
   ADMIN_GENERATED_ARTIFACTS_READ_MODEL_FIXTURE,
   createAdminReadModelsDataSource,
   type AdminGeneratedArtifactMetadataBulkApplyBatchReadModel,
+  type AdminGeneratedArtifactMetadataApplyPlanReadModel,
   type AdminGeneratedArtifactMetadataBulkApplyPlanReadModel,
   type AdminGeneratedArtifactReviewDecision,
   type AdminGeneratedArtifactProposalReadModel,
@@ -578,12 +579,15 @@ function BulkMetadataApplyPanel({
               </div>
             )}
 
-            <div className="grid gap-3 md:grid-cols-5">
+            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-8">
               <Fact label="Selected" value={String(plan.selection.selectedArtifactCount)} />
               <Fact label="Executable" value={String(plan.summary.executableArtifactCount)} />
               <Fact label="Missing" value={String(plan.summary.missingArtifactCount)} />
               <Fact label="Apply fields" value={String(plan.summary.applyFieldCount)} />
               <Fact label="Skip fields" value={String(plan.summary.skippedFieldCount)} />
+              <Fact label="Noop fields" value={String(plan.summary.noopFieldCount)} />
+              <Fact label="Apply mappings" value={String(plan.summary.applyProviderMappingCount)} />
+              <Fact label="Noop mappings" value={String(plan.summary.noopProviderMappingCount)} />
             </div>
 
             <div className="overflow-x-auto rounded-md border border-border/50">
@@ -593,6 +597,7 @@ function BulkMetadataApplyPanel({
                     <TableHead>产物</TableHead>
                     <TableHead>状态</TableHead>
                     <TableHead>字段动作</TableHead>
+                    <TableHead>Provider Mapping</TableHead>
                     <TableHead>原因</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -607,6 +612,9 @@ function BulkMetadataApplyPanel({
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         apply {item.plan?.applyFieldCount ?? 0} · skip {item.plan?.skippedFieldCount ?? 0} · noop {item.plan?.noopFieldCount ?? 0}
+                      </TableCell>
+                      <TableCell>
+                        <ProviderMappingCell plan={item.plan} />
                       </TableCell>
                       <TableCell>
                         <div className="flex max-w-[22rem] flex-wrap gap-1.5">
@@ -711,11 +719,14 @@ function BulkApplyBatchResult({
             <span className="text-sm font-medium text-foreground">{message}</span>
             <Badge variant="outline">{batch.status}</Badge>
           </div>
-          <div className="mt-2 grid gap-3 sm:grid-cols-4">
+          <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
             <Fact label="Batch" value={batch.id} />
             <Fact label="Job" value={batch.jobId} />
             <Fact label="Applied" value={String(batch.executionSummary.appliedItemCount)} />
             <Fact label="Skipped" value={String(batch.executionSummary.skippedItemCount)} />
+            <Fact label="Apply mappings" value={String(batch.summary.applyProviderMappingCount)} />
+            <Fact label="Skip mappings" value={String(batch.summary.skippedProviderMappingCount)} />
+            <Fact label="Noop mappings" value={String(batch.summary.noopProviderMappingCount)} />
           </div>
         </div>
         <Button type="button" variant="outline" size="sm" className="gap-2" onClick={onRefresh}>
@@ -730,6 +741,7 @@ function BulkApplyBatchResult({
             <TableRow>
               <TableHead>产物</TableHead>
               <TableHead>状态</TableHead>
+              <TableHead>Provider Mapping</TableHead>
               <TableHead>Outcome</TableHead>
               <TableHead>错误</TableHead>
             </TableRow>
@@ -742,6 +754,9 @@ function BulkApplyBatchResult({
                   <Badge variant={item.status === "applied" ? "default" : "secondary"}>
                     {item.status}
                   </Badge>
+                </TableCell>
+                <TableCell>
+                  <ProviderMappingCell plan={item.planItem.plan} />
                 </TableCell>
                 <TableCell className="font-mono text-xs text-muted-foreground">
                   {item.outcomeId ?? "none"}
@@ -761,12 +776,39 @@ function BulkApplyBatchResult({
 function BulkPlanSkeleton() {
   return (
     <div className="space-y-3">
-      <div className="grid gap-3 md:grid-cols-5">
-        {Array.from({ length: 5 }, (_, index) => (
+      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-8">
+        {Array.from({ length: 8 }, (_, index) => (
           <Skeleton key={index} className="h-12" />
         ))}
       </div>
       <Skeleton className="h-36" />
+    </div>
+  )
+}
+
+function ProviderMappingCell({
+  plan,
+}: {
+  plan: AdminGeneratedArtifactMetadataApplyPlanReadModel | null
+}) {
+  if (!plan) {
+    return <span className="text-xs text-muted-foreground">mapping none</span>
+  }
+
+  const firstMapping = plan.providerMappings[0]
+
+  return (
+    <div className="max-w-[18rem] space-y-1 text-xs">
+      <div className="text-muted-foreground">
+        mapping apply {plan.applyProviderMappingCount} · skip {plan.skippedProviderMappingCount} · noop {plan.noopProviderMappingCount}
+      </div>
+      {firstMapping ? (
+        <div className="truncate font-mono text-muted-foreground" title={firstMapping.subject.subjectKey ?? "key unknown"}>
+          {firstMapping.subject.provider ?? "provider"} · {firstMapping.subject.subjectKind ?? "kind"} · {firstMapping.subject.subjectKey ?? "key unknown"}
+        </div>
+      ) : (
+        <div className="text-muted-foreground">no Provider Subject changes</div>
+      )}
     </div>
   )
 }

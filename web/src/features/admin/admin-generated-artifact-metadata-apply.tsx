@@ -10,6 +10,7 @@ import {
   createAdminReadModelsDataSource,
   type AdminGeneratedArtifactMetadataApplyFieldPlanReadModel,
   type AdminGeneratedArtifactMetadataApplyPlanReadModel,
+  type AdminGeneratedArtifactProviderMappingPlanReadModel,
 } from "@/src/api/admin/read-models-data-source"
 import {
   createAdminMutationDataSource,
@@ -186,6 +187,23 @@ export function AdminGeneratedArtifactMetadataApply({
         <FieldPlanTable fields={data.fields} />
       </section>
 
+      <section className="rounded-lg border border-border/50 bg-card">
+        <div className="flex flex-col gap-3 border-b border-border/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-sm font-medium text-foreground">Provider Mapping 计划</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              显示将被确认的 Provider Subject 关联摘要，不显示原始 provider 响应。
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline">apply {data.applyProviderMappingCount}</Badge>
+            <Badge variant="outline">skip {data.skippedProviderMappingCount}</Badge>
+            <Badge variant="outline">noop {data.noopProviderMappingCount}</Badge>
+          </div>
+        </div>
+        <ProviderMappingPlanTable mappings={data.providerMappings} />
+      </section>
+
       <section className="rounded-lg border border-border/50 bg-card p-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -335,7 +353,7 @@ function FieldPlanTable({
             <TableRow key={field.field}>
               <TableCell className="font-mono text-xs text-foreground">{field.field}</TableCell>
               <TableCell>
-                <Badge variant={fieldActionVariant(field.action)}>{field.action}</Badge>
+                <Badge variant={metadataApplyActionVariant(field.action)}>{field.action}</Badge>
               </TableCell>
               <TableCell>
                 <div className="flex max-w-[18rem] flex-wrap gap-1.5">
@@ -364,6 +382,92 @@ function FieldPlanTable({
   )
 }
 
+function ProviderMappingPlanTable({
+  mappings,
+}: {
+  mappings: AdminGeneratedArtifactProviderMappingPlanReadModel[]
+}) {
+  if (mappings.length === 0) {
+    return (
+      <div className="p-4 text-sm text-muted-foreground">
+        没有 Provider Mapping 变更。
+      </div>
+    )
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Provider</TableHead>
+            <TableHead>Subject</TableHead>
+            <TableHead>动作</TableHead>
+            <TableHead>Confidence</TableHead>
+            <TableHead>Existing</TableHead>
+            <TableHead>原因</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {mappings.map((mapping, index) => (
+            <TableRow key={`${mapping.subject.provider ?? "provider"}-${mapping.subject.subjectKey ?? index}`}>
+              <TableCell>
+                <div className="space-y-1 text-xs">
+                  <div className="font-medium text-foreground">
+                    {mapping.subject.providerName ?? mapping.subject.provider ?? "provider unknown"}
+                  </div>
+                  <div className="font-mono text-muted-foreground">
+                    {mapping.subject.provider ?? "provider unknown"}
+                  </div>
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="max-w-[18rem] space-y-1 text-xs">
+                  <div className="font-medium text-foreground">
+                    {mapping.subject.title ?? "title unknown"}
+                    {mapping.subject.releaseYear ? ` (${mapping.subject.releaseYear})` : ""}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge variant="outline">
+                      {mapping.subject.subjectKindName ?? mapping.subject.subjectKind ?? "kind unknown"}
+                    </Badge>
+                    {mapping.subject.locale && <Badge variant="secondary">{mapping.subject.locale}</Badge>}
+                  </div>
+                  <div className="truncate font-mono text-muted-foreground" title={mapping.subject.subjectKey ?? "key unknown"}>
+                    {mapping.subject.subjectKey ?? "key unknown"}
+                  </div>
+                </div>
+              </TableCell>
+              <TableCell>
+                <Badge variant={metadataApplyActionVariant(mapping.action)}>{mapping.action}</Badge>
+              </TableCell>
+              <TableCell className="font-mono text-xs text-muted-foreground">
+                {confidenceLabel(mapping.confidenceMilli)}
+              </TableCell>
+              <TableCell className="font-mono text-xs text-muted-foreground">
+                {mapping.existingMappingStatus ?? "none"}
+              </TableCell>
+              <TableCell>
+                <div className="flex max-w-[18rem] flex-wrap gap-1.5">
+                  {mapping.reasons.length > 0 ? (
+                    mapping.reasons.map((reason) => (
+                      <Badge key={reason} variant="secondary">
+                        {reason}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-xs text-muted-foreground">none</span>
+                  )}
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
+
 function ApplyResult({ result }: { result: AdminGeneratedArtifactMetadataApplyMutationResult }) {
   return (
     <div className="mt-4 rounded-lg border border-success/30 bg-success/5 p-4">
@@ -379,7 +483,18 @@ function ApplyResult({ result }: { result: AdminGeneratedArtifactMetadataApplyMu
         <Fact label="Outcome" value={result.outcomeId ?? "none"} />
         <Fact label="Applied" value={result.applied ? "true" : "false"} />
         <Fact label="Changed" value={result.changed ? "true" : "false"} />
+        <Fact label="Apply mappings" value={String(result.plan.applyProviderMappingCount)} />
+        <Fact label="Skip mappings" value={String(result.plan.skippedProviderMappingCount)} />
+        <Fact label="Noop mappings" value={String(result.plan.noopProviderMappingCount)} />
       </div>
+      {result.plan.providerMappings.length > 0 && (
+        <div className="mt-4">
+          <div className="text-xs font-medium text-muted-foreground">Provider Mapping 结果</div>
+          <div className="mt-2 rounded-md border border-success/20 bg-card/40">
+            <ProviderMappingPlanTable mappings={result.plan.providerMappings} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -405,7 +520,7 @@ function ApplySkeleton() {
   )
 }
 
-function fieldActionVariant(action: string): "default" | "secondary" | "destructive" | "outline" {
+function metadataApplyActionVariant(action: string): "default" | "secondary" | "destructive" | "outline" {
   switch (action) {
     case "apply":
       return "default"
@@ -436,4 +551,8 @@ function formatBytes(value: number) {
 
   const precision = amount >= 10 || unitIndex === 0 ? 0 : 1
   return `${amount.toFixed(precision)} ${units[unitIndex]}`
+}
+
+function confidenceLabel(value: number | null) {
+  return value === null ? "unknown" : `${value} / 1000`
 }

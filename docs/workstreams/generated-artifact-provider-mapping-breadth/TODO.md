@@ -54,7 +54,7 @@ Last updated: 2026-06-01
   facts.
   Handoff: DONE. Continue at `GAPM-050` for Web Admin display.
 
-- [ ] GAPM-050 [owner=codex] [deps=GAPM-040] [scope=web/src]
+- [x] GAPM-050 [owner=codex] [deps=GAPM-040] [scope=web/src]
   Goal: Add Web Admin Provider Mapping plan/result display to Generated
   Artifact single and bulk metadata apply workflows.
   Validation: `npm --prefix web run test -- src/test/data-source-contracts.test.ts`; `npm --prefix web run test -- src/test/route-contracts.test.tsx src/test/route-state-contracts.test.tsx`; `npm --prefix web run check`; `npm --prefix web run build:budget`; browser smoke for desktop and mobile plan/result states.
@@ -63,7 +63,7 @@ Last updated: 2026-06-01
   Evidence: Web tests and screenshots prove provider mapping proposal display,
   confirmation, result rendering, disabled fallback mutation, and no unsafe
   payload/path/token leakage.
-  Handoff: Continue at `GAPM-060`.
+  Handoff: DONE. Continue at `GAPM-060`.
 
 ## M4 - Verification And Closeout
 

@@ -734,6 +734,9 @@ function adminGeneratedArtifactMetadataBulkApplyPlanResponse(
         apply_field_count: 1,
         skipped_field_count: 1,
         noop_field_count: 1,
+        apply_provider_mapping_count: 1,
+        skipped_provider_mapping_count: 0,
+        noop_provider_mapping_count: 1,
       },
       items: artifactIds.map((artifactId, index) =>
         index === 0
@@ -944,13 +947,56 @@ function adminGeneratedArtifactMetadataApplyPlan(artifactId = "artifact-live") {
         },
       },
     ],
+    provider_mappings: adminGeneratedArtifactProviderMappingPlans(),
     apply_field_count: 1,
     skipped_field_count: 1,
     noop_field_count: 1,
+    apply_provider_mapping_count: 1,
+    skipped_provider_mapping_count: 0,
+    noop_provider_mapping_count: 1,
     raw_prompt: "unsafe prompt body",
     provider_raw_response: "provider secret response",
     artifact_storage_handle: "F:\\nako\\artifact-cache\\metadata.json",
   }
+}
+
+function adminGeneratedArtifactProviderMappingPlans() {
+  return [
+    {
+      subject: {
+        provider: "tmdb",
+        provider_name: "TMDB",
+        subject_kind: "movie",
+        subject_kind_name: "Movie",
+        subject_key: "tmdb-123",
+        title: "Live Movie",
+        release_year: 2026,
+        locale: "zh-CN",
+        raw_subject_payload: "provider secret response",
+      },
+      action: "apply",
+      reasons: ["incoming_provider_subject"],
+      confidence_milli: 910,
+      existing_mapping_status: null,
+      raw_provider_mapping: "provider secret response",
+    },
+    {
+      subject: {
+        provider: "tmdb",
+        provider_name: "TMDB",
+        subject_kind: "collection",
+        subject_kind_name: "Collection",
+        subject_key: "tmdb-collection-9",
+        title: "Live Collection",
+        release_year: null,
+        locale: "zh-CN",
+      },
+      action: "noop",
+      reasons: ["existing_mapping_same_subject"],
+      confidence_milli: 870,
+      existing_mapping_status: "accepted",
+    },
+  ]
 }
 
 function adminPlaybackRuntimeFullResponse() {
@@ -2912,6 +2958,9 @@ describe("admin read model data source contracts", () => {
       applyFieldCount: 1,
       skippedFieldCount: 1,
       noopFieldCount: 1,
+      applyProviderMappingCount: 1,
+      skippedProviderMappingCount: 0,
+      noopProviderMappingCount: 1,
       target: {
         kind: "media_item",
         libraryId: "library-a",
@@ -2942,6 +2991,33 @@ describe("admin read model data source contracts", () => {
             valueBytes: 16,
             itemCount: null,
           },
+        }),
+      ]),
+      providerMappings: expect.arrayContaining([
+        expect.objectContaining({
+          action: "apply",
+          reasons: ["incoming_provider_subject"],
+          confidenceMilli: 910,
+          existingMappingStatus: null,
+          subject: {
+            provider: "tmdb",
+            providerName: "TMDB",
+            subjectKind: "movie",
+            subjectKindName: "Movie",
+            subjectKey: "tmdb-123",
+            title: "Live Movie",
+            releaseYear: 2026,
+            locale: "zh-CN",
+          },
+        }),
+        expect.objectContaining({
+          action: "noop",
+          existingMappingStatus: "accepted",
+          subject: expect.objectContaining({
+            provider: "tmdb",
+            subjectKind: "collection",
+            subjectKey: "tmdb-collection-9",
+          }),
         }),
       ]),
     })
@@ -3022,6 +3098,9 @@ describe("admin read model data source contracts", () => {
         plannedArtifactCount: 1,
         missingArtifactCount: 1,
         executableArtifactCount: 1,
+        applyProviderMappingCount: 1,
+        skippedProviderMappingCount: 0,
+        noopProviderMappingCount: 1,
       },
       items: [
         expect.objectContaining({
@@ -3031,6 +3110,16 @@ describe("admin read model data source contracts", () => {
           plan: expect.objectContaining({
             artifactId: "artifact/unsafe id",
             applyFieldCount: 1,
+            applyProviderMappingCount: 1,
+            providerMappings: expect.arrayContaining([
+              expect.objectContaining({
+                action: "apply",
+                subject: expect.objectContaining({
+                  provider: "tmdb",
+                  subjectKey: "tmdb-123",
+                }),
+              }),
+            ]),
           }),
         }),
         expect.objectContaining({

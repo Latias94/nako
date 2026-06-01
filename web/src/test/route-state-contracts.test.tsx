@@ -482,6 +482,9 @@ describe("route state contracts", () => {
       expect(await screen.findByRole("heading", { name: "Metadata Authority apply" }, { timeout: 10000 })).toBeInTheDocument()
       expect(await screen.findByText("title", {}, { timeout: 10000 })).toBeInTheDocument()
       expect(await screen.findByText("field_locked", {}, { timeout: 10000 })).toBeInTheDocument()
+      expect(await screen.findByText("Provider Mapping 计划", {}, { timeout: 10000 })).toBeInTheDocument()
+      expect(await screen.findByText("tmdb-123", {}, { timeout: 10000 })).toBeInTheDocument()
+      expect(screen.getByText("incoming_provider_subject")).toBeInTheDocument()
       expect(screen.queryByText("unsafe prompt body")).not.toBeInTheDocument()
       expect(screen.queryByText("unsafe generated payload title")).not.toBeInTheDocument()
       expect(screen.queryByText("provider secret response")).not.toBeInTheDocument()
@@ -494,6 +497,8 @@ describe("route state contracts", () => {
 
       expect(await screen.findByText("元数据应用结果已存在，已返回幂等结果", {}, { timeout: 10000 })).toBeInTheDocument()
       expect(screen.getByText("applied")).toBeInTheDocument()
+      expect(screen.getByText("Apply mappings")).toBeInTheDocument()
+      expect(screen.getByText("Provider Mapping 结果")).toBeInTheDocument()
 
       const applyCall = calls.find(
         (call) =>
@@ -591,11 +596,14 @@ describe("route state contracts", () => {
       await user.click(screen.getByRole("button", { name: "生成批量计划" }))
 
       expect(await screen.findByText("Apply fields", {}, { timeout: 10000 })).toBeInTheDocument()
+      expect(screen.getAllByText("Apply mappings").length).toBeGreaterThan(0)
+      expect(screen.getByText("mapping apply 1 · skip 0 · noop 1")).toBeInTheDocument()
       await user.click(screen.getByRole("button", { name: "准备确认批量应用" }))
       await user.click(screen.getByRole("button", { name: "确认批量应用" }))
 
       expect(await screen.findByText("批量元数据应用已完成", {}, { timeout: 10000 })).toBeInTheDocument()
       expect(screen.getByText("bulk-batch-live")).toBeInTheDocument()
+      expect(screen.getAllByText("Provider Mapping").length).toBeGreaterThan(0)
       expect(screen.queryByText("unsafe prompt body")).not.toBeInTheDocument()
       expect(screen.queryByText("unsafe generated payload title")).not.toBeInTheDocument()
       expect(screen.queryByText("provider secret response")).not.toBeInTheDocument()
@@ -2121,6 +2129,9 @@ function adminGeneratedArtifactMetadataBulkApplyPlanResponse(
         apply_field_count: executableItems.length,
         skipped_field_count: executableItems.length,
         noop_field_count: executableItems.length,
+        apply_provider_mapping_count: executableItems.length,
+        skipped_provider_mapping_count: 0,
+        noop_provider_mapping_count: executableItems.length,
       },
       items,
     },
@@ -2311,13 +2322,56 @@ function adminGeneratedArtifactMetadataApplyPlan(artifactId = "artifact-live") {
         },
       },
     ],
+    provider_mappings: adminGeneratedArtifactProviderMappingPlans(),
     apply_field_count: 1,
     skipped_field_count: 1,
     noop_field_count: 1,
+    apply_provider_mapping_count: 1,
+    skipped_provider_mapping_count: 0,
+    noop_provider_mapping_count: 1,
     raw_prompt: "unsafe prompt body",
     provider_raw_response: "provider secret response",
     artifact_storage_handle: "F:\\nako\\artifact-cache\\metadata.json",
   }
+}
+
+function adminGeneratedArtifactProviderMappingPlans() {
+  return [
+    {
+      subject: {
+        provider: "tmdb",
+        provider_name: "TMDB",
+        subject_kind: "movie",
+        subject_kind_name: "Movie",
+        subject_key: "tmdb-123",
+        title: "Live Movie",
+        release_year: 2026,
+        locale: "zh-CN",
+        raw_subject_payload: "provider secret response",
+      },
+      action: "apply",
+      reasons: ["incoming_provider_subject"],
+      confidence_milli: 910,
+      existing_mapping_status: null,
+      raw_provider_mapping: "provider secret response",
+    },
+    {
+      subject: {
+        provider: "tmdb",
+        provider_name: "TMDB",
+        subject_kind: "collection",
+        subject_kind_name: "Collection",
+        subject_key: "tmdb-collection-9",
+        title: "Live Collection",
+        release_year: null,
+        locale: "zh-CN",
+      },
+      action: "noop",
+      reasons: ["existing_mapping_same_subject"],
+      confidence_milli: 870,
+      existing_mapping_status: "accepted",
+    },
+  ]
 }
 
 function publicUserPlaylist(overrides: Record<string, unknown> = {}) {

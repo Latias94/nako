@@ -1,7 +1,7 @@
 # Generated Artifact Provider Mapping Breadth - Handoff
 
 Status: Active
-Last updated: 2026-06-01
+Last updated: 2026-06-02
 
 ## Current State
 
@@ -29,15 +29,15 @@ Current source state:
 
 ## Active Task
 
-- Task ID: `GAPM-050`
+- Task ID: `GAPM-060`
 - Lane: `library-metadata-control-plane`
 - Status: ready
-- Owner: codex
+- Owner: planner
 
-Goal: add Web Admin Provider Mapping plan/result display to Generated Artifact
-single and bulk metadata apply workflows.
+Goal: verify lane evidence, close the Provider Mapping breadth workstream, and
+split any deeper Provider Mapping follow-ons if needed.
 
-## Recommended Implementation Start
+## Recommended Verification Start
 
 Read:
 
@@ -45,19 +45,20 @@ Read:
 - `DESIGN.md`
 - `TODO.md`
 - `EVIDENCE_AND_GATES.md`
-- `docs/workstreams/generated-artifact-metadata-authority-apply/CLOSEOUT.md`
-- `docs/workstreams/generated-artifact-bulk-metadata-apply/CLOSEOUT.md`
 - `docs/adr/0007-metadata-merge-policy-and-local-authority.md`
 - `docs/architecture/LIBRARY_PIPELINE.md`
 - `docs/architecture/CONTROL_PLANE.md`
 
-Then inspect the current code slices:
+Then inspect the current code/document slices:
 
 - `web/src/api/admin/generated/contract.ts`
 - `web/src/api/admin/read-models-data-source.ts`
 - `web/src/api/admin/mutations-data-source.ts`
 - `web/src/features/admin/admin-generated-artifacts.tsx`
+- `web/src/features/admin/admin-generated-artifact-metadata-apply.tsx`
 - existing Web contract/route tests under `web/src/test/`
+- `docs/workstreams/generated-artifact-provider-mapping-breadth/EVIDENCE_AND_GATES.md`
+- `docs/workstreams/generated-artifact-provider-mapping-breadth/TASKS.jsonl`
 
 ## Completed Evidence
 
@@ -88,6 +89,13 @@ Then inspect the current code slices:
   and execution still uses the one-artifact apply path. Generated Admin
   contracts under `apps/admin-web` and `web` are synchronized, and Web
   read-model mapping can carry the counters forward for `GAPM-050`.
+- `GAPM-050`: Web Admin now renders Provider Mapping plan/result facts beside
+  Canonical Metadata field actions in the single-artifact Metadata Authority
+  apply route, single-apply result state, bulk plan summaries, bulk per-item
+  rows, and bulk batch result rows. Data-source contract tests, route/route
+  state tests, type-check, bundle budget, and browser smoke confirm the UI is
+  redaction-safe, honest about fixture fallback, and responsive on desktop and
+  mobile widths.
 
 ## Decisions
 
@@ -120,12 +128,12 @@ Then inspect the current code slices:
 
 ## Blockers
 
-- None for `GAPM-050`.
-- Re-run PostgreSQL parity if additional repository transaction behavior
-  changes.
+- None for `GAPM-060`.
+- Re-run PostgreSQL parity only if closeout broadens beyond this Web-only slice
+  and changes repository transaction behavior.
 
 ## Parallelism
 
-`GAPM-050` can run in the Web surface independently from backend persistence
-as long as it does not change generated contracts or backend DTOs. Keep closeout
-verification serial after Web evidence is available.
+`GAPM-050` is complete in the current worktree. Keep `GAPM-060` serial so the
+closeout reflects fresh evidence, consistent task ledger state, and any split
+follow-ons.

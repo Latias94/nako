@@ -133,6 +133,7 @@ const routeContracts: RouteContract[] = [
       expect(await screen.findByRole("heading", { name: "Metadata Authority apply" }, { timeout: 10000 })).toBeInTheDocument()
       expect(await screen.findByText("fixture-generated-artifact-1", {}, { timeout: 10000 })).toBeInTheDocument()
       expect(await screen.findByText("field_locked", {}, { timeout: 10000 })).toBeInTheDocument()
+      expect(await screen.findByText("Provider Mapping 计划", {}, { timeout: 10000 })).toBeInTheDocument()
     },
   },
   {

@@ -1,7 +1,7 @@
 # Generated Artifact Provider Mapping Breadth - Evidence And Gates
 
 Status: Active
-Last updated: 2026-06-01
+Last updated: 2026-06-02
 
 ## Always Run For Docs Changes
 
@@ -104,6 +104,25 @@ Only run after Admin contract support exists:
   passed; `WORKSTREAM.json` and JSONL validation passed; targeted and
   repository-wide `git diff --check` passed with only LF/CRLF normalization
   warnings.
+- `GAPM-050`: Web Admin now renders Provider Mapping plan/result details from
+  the existing Admin read models without adding backend behavior. The
+  single-artifact Metadata Authority apply route shows a dedicated Provider
+  Mapping plan table plus result replay facts; the bulk apply route exposes
+  aggregate mapping counters and per-artifact mapping summaries in both plan
+  and batch result states. Fixture data and live contract fixtures now carry
+  redaction-safe mapping subjects, confidence, action, and existing-status
+  facts so UI tests cover plan/result rendering and fallback honesty without
+  exposing provider raw responses, prompts, idempotency keys, local paths, or
+  raw payloads.
+  Gates: `npm --prefix web run test -- src/test/data-source-contracts.test.ts`
+  passed 37/37; `npm --prefix web run test -- src/test/route-contracts.test.tsx src/test/route-state-contracts.test.tsx`
+  passed 55/55; `npm --prefix web run check` passed; `npm --prefix web run build:budget`
+  passed with `admin-route-js` 207.38 KiB raw / 43.76 KiB gzip against the
+  260/65 KiB budget; Playwright smoke against `http://127.0.0.1:3000` verified
+  desktop `1440x900` and mobile `390x844` Metadata Authority apply states plus
+  the bulk apply route render Provider Mapping facts without responsive
+  overflow or secret leakage; browser console showed only the existing Vite
+  Fast Refresh / React DevTools hook shim warning.
 
 ## Final Evidence Checklist
 

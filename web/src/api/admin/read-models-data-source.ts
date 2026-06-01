@@ -18,6 +18,8 @@ import type {
   AdminGeneratedArtifactMetadataBulkApplyPlanSelection,
   AdminGeneratedArtifactMetadataBulkApplyPlanSummary,
   AdminGeneratedArtifactMetadataValueSummary,
+  AdminGeneratedArtifactProviderMappingPlan,
+  AdminGeneratedArtifactProviderSubjectPlan,
   AdminGeneratedArtifactProposal,
   AdminGeneratedArtifactProposalListResponse,
   AdminGeneratedArtifactProposalsQuery,
@@ -397,6 +399,25 @@ export interface AdminGeneratedArtifactMetadataApplyFieldPlanReadModel {
   incoming: AdminGeneratedArtifactMetadataValueSummaryReadModel
 }
 
+export interface AdminGeneratedArtifactProviderSubjectPlanReadModel {
+  provider: string | null
+  providerName: string | null
+  subjectKind: string | null
+  subjectKindName: string | null
+  subjectKey: string | null
+  title: string | null
+  releaseYear: number | null
+  locale: string | null
+}
+
+export interface AdminGeneratedArtifactProviderMappingPlanReadModel {
+  subject: AdminGeneratedArtifactProviderSubjectPlanReadModel
+  action: string
+  reasons: string[]
+  confidenceMilli: number | null
+  existingMappingStatus: string | null
+}
+
 export interface AdminGeneratedArtifactMetadataApplyPlanReadModel extends AdminReadModelEnvelope {
   versions: {
     adminApi: string
@@ -409,6 +430,7 @@ export interface AdminGeneratedArtifactMetadataApplyPlanReadModel extends AdminR
   target: AdminGeneratedArtifactTargetReadModel
   payload: AdminGeneratedArtifactPayloadReadModel
   fields: AdminGeneratedArtifactMetadataApplyFieldPlanReadModel[]
+  providerMappings: AdminGeneratedArtifactProviderMappingPlanReadModel[]
   applyFieldCount: number
   skippedFieldCount: number
   noopFieldCount: number
@@ -1204,6 +1226,10 @@ export function mapGeneratedArtifactMetadataApplyPlan(
   plan: AdminGeneratedArtifactMetadataApplyPlan,
   versions: { adminApi: string; publicApi: string },
 ): AdminGeneratedArtifactMetadataApplyPlanReadModel {
+  const providerMappings = (plan.provider_mappings ?? []).map(
+    mapGeneratedArtifactProviderMappingPlan,
+  )
+
   return {
     source: "live",
     fallback: false,
@@ -1215,12 +1241,16 @@ export function mapGeneratedArtifactMetadataApplyPlan(
     target: mapGeneratedArtifactTarget(plan.target),
     payload: mapGeneratedArtifactPayload(plan.payload),
     fields: plan.fields.map(mapGeneratedArtifactMetadataApplyFieldPlan),
+    providerMappings,
     applyFieldCount: plan.apply_field_count,
     skippedFieldCount: plan.skipped_field_count,
     noopFieldCount: plan.noop_field_count,
-    applyProviderMappingCount: plan.apply_provider_mapping_count,
-    skippedProviderMappingCount: plan.skipped_provider_mapping_count,
-    noopProviderMappingCount: plan.noop_provider_mapping_count,
+    applyProviderMappingCount:
+      plan.apply_provider_mapping_count ?? countProviderMappingsByAction(providerMappings, "apply"),
+    skippedProviderMappingCount:
+      plan.skipped_provider_mapping_count ?? countProviderMappingsByAction(providerMappings, "skip"),
+    noopProviderMappingCount:
+      plan.noop_provider_mapping_count ?? countProviderMappingsByAction(providerMappings, "noop"),
   }
 }
 
@@ -1303,9 +1333,9 @@ function mapGeneratedArtifactMetadataBulkApplyPlanSummary(
     applyFieldCount: summary.apply_field_count,
     skippedFieldCount: summary.skipped_field_count,
     noopFieldCount: summary.noop_field_count,
-    applyProviderMappingCount: summary.apply_provider_mapping_count,
-    skippedProviderMappingCount: summary.skipped_provider_mapping_count,
-    noopProviderMappingCount: summary.noop_provider_mapping_count,
+    applyProviderMappingCount: summary.apply_provider_mapping_count ?? 0,
+    skippedProviderMappingCount: summary.skipped_provider_mapping_count ?? 0,
+    noopProviderMappingCount: summary.noop_provider_mapping_count ?? 0,
   }
 }
 
@@ -1363,6 +1393,40 @@ function mapGeneratedArtifactMetadataApplyFieldPlan(
     current: mapGeneratedArtifactMetadataValueSummary(field.current),
     incoming: mapGeneratedArtifactMetadataValueSummary(field.incoming),
   }
+}
+
+function mapGeneratedArtifactProviderMappingPlan(
+  mapping: AdminGeneratedArtifactProviderMappingPlan,
+): AdminGeneratedArtifactProviderMappingPlanReadModel {
+  return {
+    subject: mapGeneratedArtifactProviderSubjectPlan(mapping.subject),
+    action: mapping.action,
+    reasons: mapping.reasons,
+    confidenceMilli: mapping.confidence_milli,
+    existingMappingStatus: mapping.existing_mapping_status,
+  }
+}
+
+function mapGeneratedArtifactProviderSubjectPlan(
+  subject: AdminGeneratedArtifactProviderSubjectPlan,
+): AdminGeneratedArtifactProviderSubjectPlanReadModel {
+  return {
+    provider: subject.provider,
+    providerName: subject.provider_name,
+    subjectKind: subject.subject_kind,
+    subjectKindName: subject.subject_kind_name,
+    subjectKey: subject.subject_key,
+    title: subject.title,
+    releaseYear: subject.release_year,
+    locale: subject.locale,
+  }
+}
+
+function countProviderMappingsByAction(
+  mappings: AdminGeneratedArtifactProviderMappingPlanReadModel[],
+  action: string,
+) {
+  return mappings.filter((mapping) => mapping.action === action).length
 }
 
 function mapGeneratedArtifactMetadataValueSummary(
@@ -1684,6 +1748,21 @@ function generatedArtifactMetadataApplyPlanFixture(
         "sha256:fixture-incoming-overview",
       ),
     ],
+    providerMappings: [
+      providerMappingPlanFixture(
+        "tmdb",
+        "Fixture TMDB",
+        "movie",
+        "Movie",
+        "tmdb-550",
+        "Fixture Movie",
+        2024,
+        "apply",
+        "incoming_provider_subject",
+        820,
+        null,
+      ),
+    ],
     applyFieldCount: 1,
     skippedFieldCount: 1,
     noopFieldCount: 0,
@@ -1835,6 +1914,37 @@ function metadataApplyFieldFixture(
     reasons: [reason],
     current: metadataApplyValueFixture(currentFingerprint),
     incoming: metadataApplyValueFixture(incomingFingerprint),
+  }
+}
+
+function providerMappingPlanFixture(
+  provider: string,
+  providerName: string,
+  subjectKind: string,
+  subjectKindName: string,
+  subjectKey: string,
+  title: string,
+  releaseYear: number | null,
+  action: string,
+  reason: string,
+  confidenceMilli: number | null,
+  existingMappingStatus: string | null,
+): AdminGeneratedArtifactProviderMappingPlanReadModel {
+  return {
+    subject: {
+      provider,
+      providerName,
+      subjectKind,
+      subjectKindName,
+      subjectKey,
+      title,
+      releaseYear,
+      locale: "zh-CN",
+    },
+    action,
+    reasons: [reason],
+    confidenceMilli,
+    existingMappingStatus,
   }
 }
 
