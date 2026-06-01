@@ -25,8 +25,9 @@ use nako_core::{
     GeneratedArtifactMetadataApplyOutcomeCommit, GeneratedArtifactMetadataApplyOutcomeId,
     GeneratedArtifactMetadataApplyOutcomeStatus, GeneratedArtifactMetadataApplyPlan,
     GeneratedArtifactMetadataApplyPlanReason, GeneratedArtifactMetadataApplyPlanStatus,
-    GeneratedArtifactMetadataBulkApplyBatchCommit, GeneratedArtifactMetadataBulkApplyBatchId,
-    GeneratedArtifactMetadataBulkApplyBatchItemCommit,
+    GeneratedArtifactMetadataApplyRecoveryAttention, GeneratedArtifactMetadataApplyRecoveryFilter,
+    GeneratedArtifactMetadataApplyRecoveryReason, GeneratedArtifactMetadataBulkApplyBatchCommit,
+    GeneratedArtifactMetadataBulkApplyBatchId, GeneratedArtifactMetadataBulkApplyBatchItemCommit,
     GeneratedArtifactMetadataBulkApplyBatchItemOutcomeCommit,
     GeneratedArtifactMetadataBulkApplyBatchItemStatus,
     GeneratedArtifactMetadataBulkApplyBatchStatus, GeneratedArtifactMetadataBulkApplyPlanItem,
@@ -2959,6 +2960,71 @@ where
             .unwrap()
             .id,
         outcome.id
+    );
+    assert_eq!(
+        store
+            .get_generated_artifact_metadata_apply_outcome(outcome.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .id,
+        outcome.id
+    );
+    let failed_recovery_outcome = store
+        .commit_generated_artifact_metadata_apply_outcome(
+            &GeneratedArtifactMetadataApplyOutcomeCommit {
+                id: GeneratedArtifactMetadataApplyOutcomeId::new(),
+                artifact_id: artifact.id,
+                idempotency_key: "generated-artifact-apply:failed-recovery".to_owned(),
+                status: GeneratedArtifactMetadataApplyOutcomeStatus::Failed,
+                applied: false,
+                changed: false,
+                applied_source: None,
+                item_id: Some(source.item_id),
+                plan: plan.clone(),
+                error_code: Some("plan_not_executable".to_owned()),
+                error_message: Some("target became stale before apply".to_owned()),
+                metadata_application: None,
+                provider_mappings: Vec::new(),
+            },
+        )
+        .await
+        .unwrap();
+    let repair_entries = store
+        .list_generated_artifact_metadata_apply_recovery_entries(
+            GeneratedArtifactMetadataApplyRecoveryFilter {
+                attention: Some(GeneratedArtifactMetadataApplyRecoveryAttention::NeedsRepair),
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(repair_entries.len(), 1);
+    assert_eq!(
+        repair_entries[0].outcome_id,
+        Some(failed_recovery_outcome.id)
+    );
+    assert_eq!(
+        repair_entries[0].attention,
+        GeneratedArtifactMetadataApplyRecoveryAttention::NeedsRepair
+    );
+    assert_eq!(
+        repair_entries[0].reason,
+        GeneratedArtifactMetadataApplyRecoveryReason::ApplyOutcomeFailed
+    );
+    let resolved_entries = store
+        .list_generated_artifact_metadata_apply_recovery_entries(
+            GeneratedArtifactMetadataApplyRecoveryFilter {
+                attention: Some(GeneratedArtifactMetadataApplyRecoveryAttention::Resolved),
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert!(
+        resolved_entries
+            .iter()
+            .any(|entry| entry.outcome_id == Some(outcome.id))
     );
     assert_eq!(
         store.get_media_item(source.item_id).await.unwrap(),

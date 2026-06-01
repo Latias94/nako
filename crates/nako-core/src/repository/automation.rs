@@ -5,8 +5,9 @@ use crate::{
     AutomationArtifactId, AutomationArtifactRecord, AutomationArtifactStatus,
     AutomationProviderConfigRecord, AutomationProviderId,
     GeneratedArtifactMetadataApplyOutcomeCommit, GeneratedArtifactMetadataApplyOutcomeId,
-    GeneratedArtifactMetadataApplyOutcomeRecord,
-    GeneratedArtifactMetadataBulkApplyBatchCommit, GeneratedArtifactMetadataBulkApplyBatchId,
+    GeneratedArtifactMetadataApplyOutcomeRecord, GeneratedArtifactMetadataApplyRecoveryEntryRecord,
+    GeneratedArtifactMetadataApplyRecoveryFilter, GeneratedArtifactMetadataBulkApplyBatchCommit,
+    GeneratedArtifactMetadataBulkApplyBatchId,
     GeneratedArtifactMetadataBulkApplyBatchItemOutcomeCommit,
     GeneratedArtifactMetadataBulkApplyBatchRecord, GeneratedArtifactMetadataBulkApplyBatchStatus,
     GeneratedArtifactProposal, JobId, MediaItemId, NewAutomationArtifact,
@@ -76,6 +77,12 @@ pub trait AutomationRepository: Send + Sync {
         &self,
         page: PageRequest,
     ) -> Result<Vec<GeneratedArtifactMetadataApplyOutcomeRecord>>;
+
+    async fn list_generated_artifact_metadata_apply_recovery_entries(
+        &self,
+        filter: GeneratedArtifactMetadataApplyRecoveryFilter,
+        page: PageRequest,
+    ) -> Result<Vec<GeneratedArtifactMetadataApplyRecoveryEntryRecord>>;
 
     async fn commit_generated_artifact_metadata_apply_outcome(
         &self,

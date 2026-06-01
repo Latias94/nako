@@ -7,7 +7,7 @@
   "scope_kind": "control_plane_admin_operations",
   "problem": "Generated Artifact Metadata Authority apply now supports one-artifact, bulk, and Provider Mapping breadth, but operators still lack a dedicated way to inspect stale/noop/failed apply outcomes, replay-safe batch state, and bounded repair actions without reading raw database state or rerunning blind mutations.",
   "task_prefix": "GAOR",
-  "current_task": "GAOR-020",
+  "current_task": "GAOR-040",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -53,6 +53,14 @@
     {
       "task": "GAOR-010",
       "summary": "Open the operations repair lane from GAMA/GABMA/GAPM closeouts, freeze the operator-facing repair problem, and audit current apply/batch read paths, stale outcomes, and missing recovery surfaces before implementation."
+    },
+    {
+      "task": "GAOR-020",
+      "summary": "Accepted the repair read-path audit and selected a redaction-safe Admin read surface before mutation."
+    },
+    {
+      "task": "GAOR-030",
+      "summary": "Added a read-only Admin recovery queue for Generated Artifact apply outcomes and bulk batch terminal items, with core-owned repair classification and Web Admin read-model mapping."
     }
   ],
   "adr_refs": [
@@ -87,7 +95,7 @@
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
     "default_action": "run_current_task",
-    "current_task": "GAOR-020",
-    "notes": "Run the read-path and repair-boundary audit first. Prefer the smallest Admin outcome-oriented surface that distinguishes replayable success from actionable repair state before adding any bounded recovery action."
+    "current_task": "GAOR-040",
+    "notes": "Close the lane or split a follow-on for UI presentation and bounded repair mutation. Keep mutation out until it proves idempotent reuse of existing Metadata Authority apply semantics and freshness checks."
   }
 }

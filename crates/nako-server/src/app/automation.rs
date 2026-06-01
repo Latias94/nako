@@ -17,7 +17,8 @@ use nako_core::{
     GeneratedArtifactMetadataApplyOutcomeCommit, GeneratedArtifactMetadataApplyOutcomeId,
     GeneratedArtifactMetadataApplyOutcomeRecord, GeneratedArtifactMetadataApplyOutcomeStatus,
     GeneratedArtifactMetadataApplyPlan, GeneratedArtifactMetadataApplyPlanReason,
-    GeneratedArtifactMetadataApplyPlanStatus, GeneratedArtifactMetadataApplyRequest,
+    GeneratedArtifactMetadataApplyPlanStatus, GeneratedArtifactMetadataApplyRecoveryEntryRecord,
+    GeneratedArtifactMetadataApplyRecoveryFilter, GeneratedArtifactMetadataApplyRequest,
     GeneratedArtifactMetadataApplyResult, GeneratedArtifactMetadataApplyResultStatus,
     GeneratedArtifactMetadataBulkApplyBatchCommit, GeneratedArtifactMetadataBulkApplyBatchId,
     GeneratedArtifactMetadataBulkApplyBatchItemCommit,
@@ -274,6 +275,16 @@ impl AutomationAppService {
                 entity: "generated_artifact_metadata_apply_outcome",
                 id: outcome_id.to_string(),
             })
+    }
+
+    pub async fn list_generated_artifact_metadata_apply_recovery_entries(
+        &self,
+        filter: GeneratedArtifactMetadataApplyRecoveryFilter,
+        page: PageRequest,
+    ) -> Result<Vec<GeneratedArtifactMetadataApplyRecoveryEntryRecord>> {
+        self.store
+            .list_generated_artifact_metadata_apply_recovery_entries(filter, page)
+            .await
     }
 
     pub async fn plan_generated_artifact_review(

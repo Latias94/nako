@@ -10,6 +10,8 @@ import type {
   AdminGeneratedArtifactMetadataApplyOutcome,
   AdminGeneratedArtifactMetadataApplyOutcomeListResponse,
   AdminGeneratedArtifactMetadataApplyOutcomeResponse,
+  AdminGeneratedArtifactMetadataApplyRecoveryEntry,
+  AdminGeneratedArtifactMetadataApplyRecoveryResponse,
   AdminGeneratedArtifactMetadataApplyPlan,
   AdminGeneratedArtifactMetadataApplyPlanResponse,
   AdminGeneratedArtifactMetadataBulkApplyBatch,
@@ -473,6 +475,40 @@ export interface AdminGeneratedArtifactMetadataApplyOutcomesReadModel
   page: AdminGeneratedArtifactMetadataApplyOutcomeListResponse["page"]
 }
 
+export interface AdminGeneratedArtifactMetadataApplyRecoveryEntryReadModel {
+  source: string
+  attention: string
+  reason: string
+  artifactId: string
+  outcomeId: string | null
+  batchId: string | null
+  batchItemStatus: string | null
+  outcomeStatus: string | null
+  itemId: string | null
+  plan: AdminGeneratedArtifactMetadataApplyPlanReadModel | null
+  errorCode: string | null
+  errorMessage: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AdminGeneratedArtifactMetadataApplyRecoveryReadModel
+  extends AdminReadModelEnvelope {
+  versions: {
+    adminApi: string
+    publicApi: string
+  }
+  summary: {
+    returnedEntryCount: number
+    needsRepairCount: number
+    needsReviewCount: number
+    replayOnlyCount: number
+    resolvedCount: number
+  }
+  entries: AdminGeneratedArtifactMetadataApplyRecoveryEntryReadModel[]
+  page: AdminGeneratedArtifactMetadataApplyRecoveryResponse["page"]
+}
+
 export interface AdminGeneratedArtifactMetadataBulkApplyPlanSelectionReadModel {
   requestedArtifactCount: number
   selectedArtifactCount: number
@@ -703,6 +739,9 @@ export const ADMIN_GENERATED_ARTIFACTS_READ_MODEL_FIXTURE: AdminGeneratedArtifac
 export const ADMIN_GENERATED_ARTIFACT_APPLY_OUTCOMES_READ_MODEL_FIXTURE: AdminGeneratedArtifactMetadataApplyOutcomesReadModel =
   generatedArtifactApplyOutcomesFixture()
 
+export const ADMIN_GENERATED_ARTIFACT_APPLY_RECOVERY_READ_MODEL_FIXTURE: AdminGeneratedArtifactMetadataApplyRecoveryReadModel =
+  generatedArtifactApplyRecoveryFixture()
+
 export const ADMIN_GENERATED_ARTIFACT_REVIEW_PLAN_FIXTURE: AdminGeneratedArtifactReviewPlanReadModel =
   generatedArtifactReviewPlanFixture("fixture-generated-artifact-1", "accept")
 
@@ -857,6 +896,17 @@ export function createAdminReadModelsDataSource(
       })
     },
 
+    async loadGeneratedArtifactApplyRecovery(): Promise<AdminGeneratedArtifactMetadataApplyRecoveryReadModel> {
+      return withFallback(ADMIN_GENERATED_ARTIFACT_APPLY_RECOVERY_READ_MODEL_FIXTURE, async () => {
+        const response = await client.getGeneratedArtifactApplyRecovery({
+          attention: "needs_repair",
+          limit: 50,
+          offset: 0,
+        })
+        return mapGeneratedArtifactApplyRecovery(response)
+      })
+    },
+
     async loadGeneratedArtifactReviewPlan(
       artifactId: string,
       decision: AdminGeneratedArtifactReviewDecision,
@@ -951,6 +1001,9 @@ function fixtureDataSource() {
     },
     async loadGeneratedArtifactApplyOutcome(outcomeId: string) {
       return generatedArtifactApplyOutcomeFixture(outcomeId)
+    },
+    async loadGeneratedArtifactApplyRecovery() {
+      return ADMIN_GENERATED_ARTIFACT_APPLY_RECOVERY_READ_MODEL_FIXTURE
     },
     async loadGeneratedArtifactReviewPlan(
       artifactId: string,
@@ -1239,6 +1292,30 @@ export function mapGeneratedArtifactApplyOutcomeResponse(
   })
 }
 
+export function mapGeneratedArtifactApplyRecovery(
+  response: AdminGeneratedArtifactMetadataApplyRecoveryResponse,
+): AdminGeneratedArtifactMetadataApplyRecoveryReadModel {
+  const versions = {
+    adminApi: response.admin_api_version,
+    publicApi: response.public_api_version,
+  }
+
+  return {
+    source: "live",
+    fallback: false,
+    versions,
+    summary: {
+      returnedEntryCount: response.summary.returned_entry_count,
+      needsRepairCount: response.summary.needs_repair_count,
+      needsReviewCount: response.summary.needs_review_count,
+      replayOnlyCount: response.summary.replay_only_count,
+      resolvedCount: response.summary.resolved_count,
+    },
+    entries: response.entries.map((entry) => mapGeneratedArtifactApplyRecoveryEntry(entry, versions)),
+    page: response.page,
+  }
+}
+
 function mapGeneratedArtifactProposal(
   proposal: AdminGeneratedArtifactProposal,
 ): AdminGeneratedArtifactProposalReadModel {
@@ -1287,6 +1364,28 @@ function mapGeneratedArtifactApplyOutcome(
     errorMessage: outcome.error_message,
     createdAt: outcome.created_at,
     updatedAt: outcome.updated_at,
+  }
+}
+
+function mapGeneratedArtifactApplyRecoveryEntry(
+  entry: AdminGeneratedArtifactMetadataApplyRecoveryEntry,
+  versions: { adminApi: string; publicApi: string },
+): AdminGeneratedArtifactMetadataApplyRecoveryEntryReadModel {
+  return {
+    source: entry.source,
+    attention: entry.attention,
+    reason: entry.reason,
+    artifactId: entry.artifact_id,
+    outcomeId: entry.outcome_id,
+    batchId: entry.batch_id,
+    batchItemStatus: entry.batch_item_status,
+    outcomeStatus: entry.outcome_status,
+    itemId: entry.item_id,
+    plan: entry.plan ? mapGeneratedArtifactMetadataApplyPlan(entry.plan, versions) : null,
+    errorCode: entry.error_code,
+    errorMessage: entry.error_message,
+    createdAt: entry.created_at,
+    updatedAt: entry.updated_at,
   }
 }
 
@@ -1800,6 +1899,47 @@ function generatedArtifactApplyOutcomeFixture(
     errorMessage: "target became stale before apply execution",
     createdAt: "2026-06-02T12:00:00Z",
     updatedAt: "2026-06-02T12:05:00Z",
+  }
+}
+
+function generatedArtifactApplyRecoveryFixture(): AdminGeneratedArtifactMetadataApplyRecoveryReadModel {
+  return {
+    source: "fixture",
+    fallback: true,
+    versions: {
+      adminApi: "fixture",
+      publicApi: "fixture",
+    },
+    summary: {
+      returnedEntryCount: 1,
+      needsRepairCount: 1,
+      needsReviewCount: 0,
+      replayOnlyCount: 0,
+      resolvedCount: 0,
+    },
+    entries: [
+      {
+        source: "apply_outcome",
+        attention: "needs_repair",
+        reason: "apply_outcome_failed",
+        artifactId: "fixture-generated-artifact-1",
+        outcomeId: "fixture-generated-outcome-1",
+        batchId: null,
+        batchItemStatus: null,
+        outcomeStatus: "failed",
+        itemId: "fixture-item-1",
+        plan: generatedArtifactMetadataApplyPlanFixture("fixture-generated-artifact-1"),
+        errorCode: "target_stale",
+        errorMessage: "target became stale before apply execution",
+        createdAt: "2026-06-02T12:00:00Z",
+        updatedAt: "2026-06-02T12:05:00Z",
+      },
+    ],
+    page: {
+      limit: 50,
+      offset: 0,
+      returned: 1,
+    },
   }
 }
 

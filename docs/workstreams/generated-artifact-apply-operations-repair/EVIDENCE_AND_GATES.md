@@ -119,3 +119,35 @@ Result:
 - pass; the first repair-oriented outcome read path is now wired through Rust,
   generated contract, and Web data-source boundaries without exposing raw
   prompt/payload secrets.
+
+## GAOR-030 Recovery Queue Evidence
+
+Implementation date: 2026-06-02
+
+Delivered slice:
+
+- domain recovery classification for apply outcomes and bulk batch terminal
+  items: `needs_repair`, `needs_review`, `replay_only`, and `resolved`;
+- repository seam and SQLite/Postgres read adapters for
+  `list_generated_artifact_metadata_apply_recovery_entries`;
+- Admin API response, generated TypeScript contract, and HTTP route
+  `/admin/v1/automation/generated-artifact-apply-recovery`;
+- Web Admin client/read-model mapper and fixture for the repair-oriented queue;
+- recovery classification is owned by `nako-core`, while DB adapters only map
+  rows and deserialize plans.
+
+Focused verification:
+
+- `cargo nextest run -p nako-api admin_contract generated_artifact_metadata_apply_recovery_response_classifies_repair_state --no-fail-fast`
+- `cargo nextest run -p nako-db generated_artifact_metadata_apply_outcome_is_idempotent_and_atomic --no-fail-fast`
+- `cargo nextest run -p nako-server admin_generated_artifact_metadata_apply_v1_commits_and_replays_redacted_result --no-fail-fast`
+- `cargo check -p nako-server --tests`
+- `npm --prefix web run check`
+- `npm --prefix web run build:budget`
+
+Review result:
+
+- no blocking findings after moving duplicated recovery classification out of
+  the SQLite/Postgres adapters and into `nako-core`;
+- `GAOR-030` is accepted as the first read-only repair surface. Mutation-based
+  repair actions remain intentionally out of scope.

@@ -1,6 +1,6 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 63] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 64] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -74,6 +74,10 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 63] = [
     (
         "generatedArtifactApplyOutcome",
         "automation/generated-artifact-apply-outcomes/{outcome_id}",
+    ),
+    (
+        "generatedArtifactApplyRecovery",
+        "automation/generated-artifact-apply-recovery",
     ),
     (
         "generatedArtifactReviewPlan",
@@ -316,6 +320,16 @@ export interface AdminStorageBackendHealthResetResponse {
 export interface AdminGeneratedArtifactProposalsQuery extends AdminPageQuery {}
 
 export interface AdminGeneratedArtifactApplyOutcomesQuery extends AdminPageQuery {}
+
+export type AdminGeneratedArtifactApplyRecoveryAttention =
+  | "needs_repair"
+  | "needs_review"
+  | "replay_only"
+  | "resolved";
+
+export interface AdminGeneratedArtifactApplyRecoveryQuery extends AdminPageQuery {
+  attention?: AdminGeneratedArtifactApplyRecoveryAttention;
+}
 
 export interface AdminGeneratedArtifactReviewRequest {
   decision: "accept" | "reject";
@@ -1726,6 +1740,14 @@ export interface AdminGeneratedArtifactMetadataApplyOutcomeResponse {
   outcome: AdminGeneratedArtifactMetadataApplyOutcome;
 }
 
+export interface AdminGeneratedArtifactMetadataApplyRecoveryResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  summary: AdminGeneratedArtifactMetadataApplyRecoverySummary;
+  entries: AdminGeneratedArtifactMetadataApplyRecoveryEntry[];
+  page: PageInfo;
+}
+
 export interface AdminGeneratedArtifactProposal {
   id: string;
   kind: string;
@@ -1854,6 +1876,39 @@ export interface AdminGeneratedArtifactMetadataApplyOutcome {
   applied_source: string | null;
   item_id: string | null;
   plan: AdminGeneratedArtifactMetadataApplyPlan;
+  error_code: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminGeneratedArtifactMetadataApplyRecoverySummary {
+  returned_entry_count: number;
+  needs_repair_count: number;
+  needs_review_count: number;
+  replay_only_count: number;
+  resolved_count: number;
+}
+
+export interface AdminGeneratedArtifactMetadataApplyRecoveryEntry {
+  source: "apply_outcome" | "bulk_batch_item";
+  attention: AdminGeneratedArtifactApplyRecoveryAttention;
+  reason:
+    | "apply_outcome_applied"
+    | "apply_outcome_noop"
+    | "apply_outcome_failed"
+    | "bulk_batch_item_applied"
+    | "bulk_batch_item_noop"
+    | "bulk_batch_item_stale"
+    | "bulk_batch_item_failed"
+    | "bulk_batch_item_skipped";
+  artifact_id: string;
+  outcome_id: string | null;
+  batch_id: string | null;
+  batch_item_status: string | null;
+  outcome_status: string | null;
+  item_id: string | null;
+  plan: AdminGeneratedArtifactMetadataApplyPlan | null;
   error_code: string | null;
   error_message: string | null;
   created_at: string;

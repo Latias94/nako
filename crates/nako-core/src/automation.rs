@@ -907,6 +907,189 @@ pub struct GeneratedArtifactMetadataApplyOutcomeRecord {
     pub updated_at: String,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GeneratedArtifactMetadataApplyRecoveryAttention {
+    NeedsRepair,
+    NeedsReview,
+    ReplayOnly,
+    Resolved,
+}
+
+impl GeneratedArtifactMetadataApplyRecoveryAttention {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::NeedsRepair => "needs_repair",
+            Self::NeedsReview => "needs_review",
+            Self::ReplayOnly => "replay_only",
+            Self::Resolved => "resolved",
+        }
+    }
+
+    pub fn parse(value: &str) -> Result<Self> {
+        match value {
+            "needs_repair" => Ok(Self::NeedsRepair),
+            "needs_review" => Ok(Self::NeedsReview),
+            "replay_only" => Ok(Self::ReplayOnly),
+            "resolved" => Ok(Self::Resolved),
+            _ => Err(NakoError::InvalidInput {
+                message: format!(
+                    "unknown generated artifact metadata apply recovery attention: {value}"
+                ),
+            }),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GeneratedArtifactMetadataApplyRecoverySource {
+    ApplyOutcome,
+    BulkBatchItem,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GeneratedArtifactMetadataApplyRecoveryReason {
+    ApplyOutcomeApplied,
+    ApplyOutcomeNoop,
+    ApplyOutcomeFailed,
+    BulkBatchItemApplied,
+    BulkBatchItemNoop,
+    BulkBatchItemStale,
+    BulkBatchItemFailed,
+    BulkBatchItemSkipped,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactMetadataApplyRecoveryFilter {
+    pub attention: Option<GeneratedArtifactMetadataApplyRecoveryAttention>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactMetadataApplyRecoveryEntryRecord {
+    pub source: GeneratedArtifactMetadataApplyRecoverySource,
+    pub attention: GeneratedArtifactMetadataApplyRecoveryAttention,
+    pub reason: GeneratedArtifactMetadataApplyRecoveryReason,
+    pub artifact_id: AutomationArtifactId,
+    pub outcome_id: Option<GeneratedArtifactMetadataApplyOutcomeId>,
+    pub batch_id: Option<GeneratedArtifactMetadataBulkApplyBatchId>,
+    pub batch_item_status: Option<GeneratedArtifactMetadataBulkApplyBatchItemStatus>,
+    pub outcome_status: Option<GeneratedArtifactMetadataApplyOutcomeStatus>,
+    pub item_id: Option<MediaItemId>,
+    pub plan: Option<GeneratedArtifactMetadataApplyPlan>,
+    pub error_code: Option<String>,
+    pub error_message: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl GeneratedArtifactMetadataApplyRecoveryEntryRecord {
+    pub fn classify(
+        source: GeneratedArtifactMetadataApplyRecoverySource,
+        batch_item_status: Option<GeneratedArtifactMetadataBulkApplyBatchItemStatus>,
+        outcome_status: Option<GeneratedArtifactMetadataApplyOutcomeStatus>,
+    ) -> Result<(
+        GeneratedArtifactMetadataApplyRecoveryAttention,
+        GeneratedArtifactMetadataApplyRecoveryReason,
+    )> {
+        match source {
+            GeneratedArtifactMetadataApplyRecoverySource::ApplyOutcome => match outcome_status {
+                Some(GeneratedArtifactMetadataApplyOutcomeStatus::Applied) => Ok((
+                    GeneratedArtifactMetadataApplyRecoveryAttention::Resolved,
+                    GeneratedArtifactMetadataApplyRecoveryReason::ApplyOutcomeApplied,
+                )),
+                Some(GeneratedArtifactMetadataApplyOutcomeStatus::Noop) => Ok((
+                    GeneratedArtifactMetadataApplyRecoveryAttention::ReplayOnly,
+                    GeneratedArtifactMetadataApplyRecoveryReason::ApplyOutcomeNoop,
+                )),
+                Some(GeneratedArtifactMetadataApplyOutcomeStatus::Failed) => Ok((
+                    GeneratedArtifactMetadataApplyRecoveryAttention::NeedsRepair,
+                    GeneratedArtifactMetadataApplyRecoveryReason::ApplyOutcomeFailed,
+                )),
+                None => Err(NakoError::Database {
+                    message:
+                        "generated artifact metadata apply recovery outcome row is missing outcome status"
+                            .to_owned(),
+                }),
+            },
+            GeneratedArtifactMetadataApplyRecoverySource::BulkBatchItem => {
+                match batch_item_status {
+                    Some(GeneratedArtifactMetadataBulkApplyBatchItemStatus::Applied) => Ok((
+                        GeneratedArtifactMetadataApplyRecoveryAttention::Resolved,
+                        GeneratedArtifactMetadataApplyRecoveryReason::BulkBatchItemApplied,
+                    )),
+                    Some(GeneratedArtifactMetadataBulkApplyBatchItemStatus::Noop) => Ok((
+                        GeneratedArtifactMetadataApplyRecoveryAttention::ReplayOnly,
+                        GeneratedArtifactMetadataApplyRecoveryReason::BulkBatchItemNoop,
+                    )),
+                    Some(GeneratedArtifactMetadataBulkApplyBatchItemStatus::Stale) => Ok((
+                        GeneratedArtifactMetadataApplyRecoveryAttention::NeedsRepair,
+                        GeneratedArtifactMetadataApplyRecoveryReason::BulkBatchItemStale,
+                    )),
+                    Some(GeneratedArtifactMetadataBulkApplyBatchItemStatus::Failed) => Ok((
+                        GeneratedArtifactMetadataApplyRecoveryAttention::NeedsRepair,
+                        GeneratedArtifactMetadataApplyRecoveryReason::BulkBatchItemFailed,
+                    )),
+                    Some(GeneratedArtifactMetadataBulkApplyBatchItemStatus::Skipped) => Ok((
+                        GeneratedArtifactMetadataApplyRecoveryAttention::NeedsReview,
+                        GeneratedArtifactMetadataApplyRecoveryReason::BulkBatchItemSkipped,
+                    )),
+                    Some(GeneratedArtifactMetadataBulkApplyBatchItemStatus::Pending) | None => {
+                        Err(NakoError::Database {
+                            message:
+                                "generated artifact metadata apply recovery batch row is not terminal"
+                                    .to_owned(),
+                        })
+                    }
+                }
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn returned_summary(
+        entries: &[GeneratedArtifactMetadataApplyRecoveryEntryRecord],
+    ) -> GeneratedArtifactMetadataApplyRecoverySummary {
+        let mut summary = GeneratedArtifactMetadataApplyRecoverySummary {
+            returned_entry_count: entries.len() as u32,
+            needs_repair_count: 0,
+            needs_review_count: 0,
+            replay_only_count: 0,
+            resolved_count: 0,
+        };
+        let mut index = 0;
+        while index < entries.len() {
+            match entries[index].attention {
+                GeneratedArtifactMetadataApplyRecoveryAttention::NeedsRepair => {
+                    summary.needs_repair_count += 1;
+                }
+                GeneratedArtifactMetadataApplyRecoveryAttention::NeedsReview => {
+                    summary.needs_review_count += 1;
+                }
+                GeneratedArtifactMetadataApplyRecoveryAttention::ReplayOnly => {
+                    summary.replay_only_count += 1;
+                }
+                GeneratedArtifactMetadataApplyRecoveryAttention::Resolved => {
+                    summary.resolved_count += 1;
+                }
+            }
+            index += 1;
+        }
+        summary
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactMetadataApplyRecoverySummary {
+    pub returned_entry_count: u32,
+    pub needs_repair_count: u32,
+    pub needs_review_count: u32,
+    pub replay_only_count: u32,
+    pub resolved_count: u32,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct GeneratedArtifactProviderMappingApplyCommit {
     pub subject: ProviderSubject,

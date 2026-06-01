@@ -5,9 +5,12 @@ use nako_core::{
     GeneratedArtifactAcceptanceBoundary, GeneratedArtifactAcceptancePlan,
     GeneratedArtifactAcceptancePlanReason, GeneratedArtifactAcceptancePlanStatus,
     GeneratedArtifactMetadataApplyFieldPlan, GeneratedArtifactMetadataApplyOutcomeId,
-    GeneratedArtifactMetadataApplyOutcomeRecord,
-    GeneratedArtifactMetadataApplyPlan, GeneratedArtifactMetadataApplyPlanReason,
-    GeneratedArtifactMetadataApplyPlanStatus, GeneratedArtifactMetadataApplyResult,
+    GeneratedArtifactMetadataApplyOutcomeRecord, GeneratedArtifactMetadataApplyPlan,
+    GeneratedArtifactMetadataApplyPlanReason, GeneratedArtifactMetadataApplyPlanStatus,
+    GeneratedArtifactMetadataApplyRecoveryAttention,
+    GeneratedArtifactMetadataApplyRecoveryEntryRecord,
+    GeneratedArtifactMetadataApplyRecoveryReason, GeneratedArtifactMetadataApplyRecoverySource,
+    GeneratedArtifactMetadataApplyRecoverySummary, GeneratedArtifactMetadataApplyResult,
     GeneratedArtifactMetadataApplyResultStatus,
     GeneratedArtifactMetadataBulkApplyBatchExecutionSummary,
     GeneratedArtifactMetadataBulkApplyBatchId, GeneratedArtifactMetadataBulkApplyBatchItemRecord,
@@ -53,6 +56,35 @@ pub struct AdminGeneratedArtifactMetadataApplyOutcomeResponse {
     pub admin_api_version: String,
     pub public_api_version: String,
     pub outcome: AdminGeneratedArtifactMetadataApplyOutcome,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminGeneratedArtifactMetadataApplyRecoveryResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub summary: GeneratedArtifactMetadataApplyRecoverySummary,
+    pub entries: Vec<AdminGeneratedArtifactMetadataApplyRecoveryEntry>,
+    pub page: PageInfo,
+}
+
+impl AdminGeneratedArtifactMetadataApplyRecoveryResponse {
+    #[must_use]
+    pub fn from_entries(
+        entries: Vec<GeneratedArtifactMetadataApplyRecoveryEntryRecord>,
+        page: PageInfo,
+    ) -> Self {
+        let summary = GeneratedArtifactMetadataApplyRecoveryEntryRecord::returned_summary(&entries);
+        Self {
+            admin_api_version: ADMIN_API_VERSION.to_owned(),
+            public_api_version: API_VERSION.to_owned(),
+            summary,
+            entries: entries
+                .into_iter()
+                .map(AdminGeneratedArtifactMetadataApplyRecoveryEntry::from_record)
+                .collect(),
+            page,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -350,6 +382,48 @@ impl AdminGeneratedArtifactMetadataApplyOutcome {
             error_message: outcome.error_message,
             created_at: outcome.created_at,
             updated_at: outcome.updated_at,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminGeneratedArtifactMetadataApplyRecoveryEntry {
+    pub source: GeneratedArtifactMetadataApplyRecoverySource,
+    pub attention: GeneratedArtifactMetadataApplyRecoveryAttention,
+    pub reason: GeneratedArtifactMetadataApplyRecoveryReason,
+    pub artifact_id: AutomationArtifactId,
+    pub outcome_id: Option<GeneratedArtifactMetadataApplyOutcomeId>,
+    pub batch_id: Option<GeneratedArtifactMetadataBulkApplyBatchId>,
+    pub batch_item_status: Option<GeneratedArtifactMetadataBulkApplyBatchItemStatus>,
+    pub outcome_status: Option<nako_core::GeneratedArtifactMetadataApplyOutcomeStatus>,
+    pub item_id: Option<MediaItemId>,
+    pub plan: Option<AdminGeneratedArtifactMetadataApplyPlan>,
+    pub error_code: Option<String>,
+    pub error_message: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl AdminGeneratedArtifactMetadataApplyRecoveryEntry {
+    #[must_use]
+    pub fn from_record(record: GeneratedArtifactMetadataApplyRecoveryEntryRecord) -> Self {
+        Self {
+            source: record.source,
+            attention: record.attention,
+            reason: record.reason,
+            artifact_id: record.artifact_id,
+            outcome_id: record.outcome_id,
+            batch_id: record.batch_id,
+            batch_item_status: record.batch_item_status,
+            outcome_status: record.outcome_status,
+            item_id: record.item_id,
+            plan: record
+                .plan
+                .map(AdminGeneratedArtifactMetadataApplyPlan::from_plan),
+            error_code: record.error_code,
+            error_message: record.error_message,
+            created_at: record.created_at,
+            updated_at: record.updated_at,
         }
     }
 }
@@ -1369,6 +1443,82 @@ mod tests {
             "sha256:44444444444444444444444444444444"
         );
         assert!(!body.contains("private generated overview"));
+        assert!(!body.contains("artifact_json"));
+        assert!(!body.contains("prompt_json"));
+        assert!(!body.contains("local:///"));
+        assert!(!body.contains("secret"));
+    }
+
+    #[test]
+    fn generated_artifact_metadata_apply_recovery_response_classifies_repair_state() {
+        let library_id = LibraryId::new();
+        let item_id = MediaItemId::new();
+        let source_id = MediaSourceId::new();
+        let artifact_id = AutomationArtifactId::new();
+        let outcome_id = GeneratedArtifactMetadataApplyOutcomeId::new();
+        let plan = GeneratedArtifactMetadataApplyPlan {
+            artifact_id,
+            status: GeneratedArtifactMetadataApplyPlanStatus::Stale,
+            executable: false,
+            reasons: vec![GeneratedArtifactMetadataApplyPlanReason::TargetMismatch],
+            target: GeneratedArtifactTarget {
+                kind: GeneratedArtifactTargetKind::MediaSource,
+                library_id: Some(library_id),
+                item_id: Some(item_id),
+                source_id: Some(source_id),
+            },
+            payload: GeneratedArtifactPayloadSummary {
+                valid_json: true,
+                shape: GeneratedArtifactPayloadShape::Object,
+                payload_fingerprint: "sha256:33333333333333333333333333333333".to_owned(),
+                payload_bytes: 512,
+                object_field_count: Some(3),
+                array_item_count: None,
+                has_textual_values: true,
+                has_explanation: true,
+                confidence_milli: Some(810),
+            },
+            fields: Vec::new(),
+            provider_mappings: Vec::new(),
+            apply_field_count: 0,
+            skipped_field_count: 0,
+            noop_field_count: 0,
+            apply_provider_mapping_count: 0,
+            skipped_provider_mapping_count: 0,
+            noop_provider_mapping_count: 0,
+        };
+        let response = AdminGeneratedArtifactMetadataApplyRecoveryResponse::from_entries(
+            vec![GeneratedArtifactMetadataApplyRecoveryEntryRecord {
+                source: GeneratedArtifactMetadataApplyRecoverySource::ApplyOutcome,
+                attention: GeneratedArtifactMetadataApplyRecoveryAttention::NeedsRepair,
+                reason: GeneratedArtifactMetadataApplyRecoveryReason::ApplyOutcomeFailed,
+                artifact_id,
+                outcome_id: Some(outcome_id),
+                batch_id: None,
+                batch_item_status: None,
+                outcome_status: Some(
+                    nako_core::GeneratedArtifactMetadataApplyOutcomeStatus::Failed,
+                ),
+                item_id: Some(item_id),
+                plan: Some(plan),
+                error_code: Some("plan_not_executable".to_owned()),
+                error_message: Some("target became stale before apply".to_owned()),
+                created_at: "2026-06-02T00:00:00Z".to_owned(),
+                updated_at: "2026-06-02T00:00:01Z".to_owned(),
+            }],
+            PageInfo::new(50, 0, 1),
+        );
+
+        let value = serde_json::to_value(&response).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(value["summary"]["returned_entry_count"], 1);
+        assert_eq!(value["summary"]["needs_repair_count"], 1);
+        assert_eq!(value["entries"][0]["source"], "apply_outcome");
+        assert_eq!(value["entries"][0]["attention"], "needs_repair");
+        assert_eq!(value["entries"][0]["reason"], "apply_outcome_failed");
+        assert_eq!(value["entries"][0]["outcome_status"], "failed");
+        assert_eq!(value["entries"][0]["plan"]["reasons"][0], "target_mismatch");
         assert!(!body.contains("artifact_json"));
         assert!(!body.contains("prompt_json"));
         assert!(!body.contains("local:///"));

@@ -13,9 +13,11 @@ import {
   type AdminAddonSourceCatalogEntriesResponse,
   type AdminAddonSourceCatalogSourcesResponse,
   type AdminCreateUserRequest,
+  type AdminGeneratedArtifactApplyRecoveryQuery,
   type AdminGeneratedArtifactProposalListResponse,
   type AdminGeneratedArtifactMetadataApplyOutcomeListResponse,
   type AdminGeneratedArtifactMetadataApplyOutcomeResponse,
+  type AdminGeneratedArtifactMetadataApplyRecoveryResponse,
   type AdminGeneratedArtifactMetadataApplyPlanResponse,
   type AdminGeneratedArtifactMetadataApplyRequest,
   type AdminGeneratedArtifactMetadataApplyResponse,
@@ -173,6 +175,14 @@ export class AdminApiClient {
   ): Promise<AdminGeneratedArtifactMetadataApplyOutcomeResponse> {
     return this.getJson<AdminGeneratedArtifactMetadataApplyOutcomeResponse>(
       pathParams(NAKO_ADMIN_ROUTES.generatedArtifactApplyOutcome, { outcome_id: outcomeId }),
+    )
+  }
+
+  getGeneratedArtifactApplyRecovery(
+    query: AdminGeneratedArtifactApplyRecoveryQuery = {},
+  ): Promise<AdminGeneratedArtifactMetadataApplyRecoveryResponse> {
+    return this.getJson<AdminGeneratedArtifactMetadataApplyRecoveryResponse>(
+      withQuery(NAKO_ADMIN_ROUTES.generatedArtifactApplyRecovery, query),
     )
   }
 

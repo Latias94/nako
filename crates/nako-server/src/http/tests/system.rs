@@ -1,5 +1,6 @@
 use super::*;
 use nako_api::admin::{
+    AdminGeneratedArtifactMetadataApplyRecoveryResponse,
     AdminStorageBackendHealthDiagnosticsResponse, AdminStorageBackendHealthResetResponse,
 };
 use nako_core::{
@@ -1787,6 +1788,37 @@ async fn admin_generated_artifact_metadata_apply_v1_commits_and_replays_redacted
     assert!(!replay_body.contains("private reasoning"));
     assert!(!replay_body.contains("secret"));
     assert!(!replay_body.contains("sha256-private-fingerprint"));
+
+    let recovery_response = fixture
+        .router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/automation/generated-artifact-apply-recovery?attention=resolved")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let recovery_status = recovery_response.status();
+    let recovery_body = response_text(recovery_response).await;
+    assert_eq!(recovery_status, StatusCode::OK, "{recovery_body}");
+    let recovery: AdminGeneratedArtifactMetadataApplyRecoveryResponse =
+        serde_json::from_str(&recovery_body).unwrap();
+    assert_eq!(recovery.summary.resolved_count, 1);
+    assert_eq!(
+        recovery.entries[0].attention,
+        nako_core::GeneratedArtifactMetadataApplyRecoveryAttention::Resolved
+    );
+    assert_eq!(recovery.entries[0].outcome_id, applied.outcome_id);
+    assert!(!recovery_body.contains("prompt_json"));
+    assert!(!recovery_body.contains("artifact_json"));
+    assert!(!recovery_body.contains("local:///Movies/private"));
+    assert!(!recovery_body.contains("private generated overview"));
+    assert!(!recovery_body.contains("private reasoning"));
+    assert!(!recovery_body.contains("secret"));
+    assert!(!recovery_body.contains("sha256-private-fingerprint"));
 }
 
 #[tokio::test]

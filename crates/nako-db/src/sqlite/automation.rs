@@ -435,6 +435,88 @@ impl AutomationRepository for SqliteStore {
             .collect()
     }
 
+    async fn list_generated_artifact_metadata_apply_recovery_entries(
+        &self,
+        filter: GeneratedArtifactMetadataApplyRecoveryFilter,
+        page: PageRequest,
+    ) -> Result<Vec<GeneratedArtifactMetadataApplyRecoveryEntryRecord>> {
+        let page = page.clamped();
+        let attention = filter
+            .attention
+            .map(|attention| attention.as_str().to_owned());
+        let rows = sqlx::query(
+            r#"
+            SELECT *
+            FROM (
+                SELECT
+                    'bulk_batch_item' AS source,
+                    batch_items.batch_id AS batch_id,
+                    batch_items.artifact_id AS artifact_id,
+                    batch_items.status AS batch_item_status,
+                    batch_items.outcome_id AS outcome_id,
+                    outcomes.status AS outcome_status,
+                    outcomes.item_id AS item_id,
+                    batch_items.plan_item_json AS plan_item_json,
+                    outcomes.plan_json AS outcome_plan_json,
+                    COALESCE(batch_items.error_code, outcomes.error_code) AS error_code,
+                    COALESCE(batch_items.error_message, outcomes.error_message) AS error_message,
+                    batch_items.created_at AS created_at,
+                    batch_items.updated_at AS updated_at
+                FROM generated_artifact_metadata_bulk_apply_batch_items AS batch_items
+                LEFT JOIN generated_artifact_metadata_apply_outcomes AS outcomes
+                    ON outcomes.id = batch_items.outcome_id
+                WHERE batch_items.status <> 'pending'
+                    AND (
+                        ?1 IS NULL
+                        OR (?1 = 'needs_repair' AND batch_items.status IN ('stale', 'failed'))
+                        OR (?1 = 'needs_review' AND batch_items.status = 'skipped')
+                        OR (?1 = 'replay_only' AND batch_items.status = 'noop')
+                        OR (?1 = 'resolved' AND batch_items.status = 'applied')
+                    )
+                UNION ALL
+                SELECT
+                    'apply_outcome' AS source,
+                    NULL AS batch_id,
+                    outcomes.artifact_id AS artifact_id,
+                    NULL AS batch_item_status,
+                    outcomes.id AS outcome_id,
+                    outcomes.status AS outcome_status,
+                    outcomes.item_id AS item_id,
+                    NULL AS plan_item_json,
+                    outcomes.plan_json AS outcome_plan_json,
+                    outcomes.error_code AS error_code,
+                    outcomes.error_message AS error_message,
+                    outcomes.created_at AS created_at,
+                    outcomes.updated_at AS updated_at
+                FROM generated_artifact_metadata_apply_outcomes AS outcomes
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM generated_artifact_metadata_bulk_apply_batch_items AS batch_items
+                    WHERE batch_items.outcome_id = outcomes.id
+                )
+                    AND (
+                        ?1 IS NULL
+                        OR (?1 = 'needs_repair' AND outcomes.status = 'failed')
+                        OR (?1 = 'replay_only' AND outcomes.status = 'noop')
+                        OR (?1 = 'resolved' AND outcomes.status = 'applied')
+                    )
+            )
+            ORDER BY updated_at DESC, created_at DESC, artifact_id DESC
+            LIMIT ?2 OFFSET ?3
+            "#,
+        )
+        .bind(attention.as_deref())
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter()
+            .map(row_to_generated_artifact_metadata_apply_recovery_entry)
+            .collect()
+    }
+
     async fn commit_generated_artifact_metadata_apply_outcome(
         &self,
         commit: &GeneratedArtifactMetadataApplyOutcomeCommit,
@@ -885,6 +967,61 @@ fn row_to_generated_artifact_metadata_apply_outcome(
         applied: i64_to_bool(row_get(&row, "applied")?)?,
         changed: i64_to_bool(row_get(&row, "changed")?)?,
         applied_source: row_get(&row, "applied_source")?,
+        item_id: parse_optional_id(row_get::<Option<String>>(&row, "item_id")?)?,
+        plan,
+        error_code: row_get(&row, "error_code")?,
+        error_message: row_get(&row, "error_message")?,
+        created_at: row_get(&row, "created_at")?,
+        updated_at: row_get(&row, "updated_at")?,
+    })
+}
+
+fn row_to_generated_artifact_metadata_apply_recovery_entry(
+    row: SqliteRow,
+) -> Result<GeneratedArtifactMetadataApplyRecoveryEntryRecord> {
+    let source = match row_get::<String>(&row, "source")?.as_str() {
+        "apply_outcome" => GeneratedArtifactMetadataApplyRecoverySource::ApplyOutcome,
+        "bulk_batch_item" => GeneratedArtifactMetadataApplyRecoverySource::BulkBatchItem,
+        value => {
+            return Err(NakoError::Database {
+                message: format!(
+                    "unknown generated artifact metadata apply recovery source stored in database: {value}"
+                ),
+            });
+        }
+    };
+    let batch_item_status = row_get::<Option<String>>(&row, "batch_item_status")?
+        .map(|status| GeneratedArtifactMetadataBulkApplyBatchItemStatus::parse(&status))
+        .transpose()?;
+    let outcome_status = row_get::<Option<String>>(&row, "outcome_status")?
+        .map(|status| GeneratedArtifactMetadataApplyOutcomeStatus::parse(&status))
+        .transpose()?;
+    let (attention, reason) = GeneratedArtifactMetadataApplyRecoveryEntryRecord::classify(
+        source,
+        batch_item_status,
+        outcome_status,
+    )?;
+    let outcome_plan_json: Option<String> = row_get(&row, "outcome_plan_json")?;
+    let plan_item_json: Option<String> = row_get(&row, "plan_item_json")?;
+    let plan = match (outcome_plan_json, plan_item_json) {
+        (Some(plan_json), _) => Some(serde_json::from_str(&plan_json).map_err(database_error)?),
+        (None, Some(plan_item_json)) => {
+            let plan_item: GeneratedArtifactMetadataBulkApplyPlanItem =
+                serde_json::from_str(&plan_item_json).map_err(database_error)?;
+            plan_item.plan
+        }
+        (None, None) => None,
+    };
+
+    Ok(GeneratedArtifactMetadataApplyRecoveryEntryRecord {
+        source,
+        attention,
+        reason,
+        artifact_id: parse_id(row_get::<String>(&row, "artifact_id")?)?,
+        outcome_id: parse_optional_id(row_get::<Option<String>>(&row, "outcome_id")?)?,
+        batch_id: parse_optional_id(row_get::<Option<String>>(&row, "batch_id")?)?,
+        batch_item_status,
+        outcome_status,
         item_id: parse_optional_id(row_get::<Option<String>>(&row, "item_id")?)?,
         plan,
         error_code: row_get(&row, "error_code")?,

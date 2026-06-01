@@ -25,6 +25,7 @@ use nako_api::{
         AdminGeneratedArtifactMetadataApplyOutcomeListResponse,
         AdminGeneratedArtifactMetadataApplyOutcomeResponse,
         AdminGeneratedArtifactMetadataApplyPlanResponse,
+        AdminGeneratedArtifactMetadataApplyRecoveryResponse,
         AdminGeneratedArtifactMetadataApplyRequest, AdminGeneratedArtifactMetadataApplyResponse,
         AdminGeneratedArtifactMetadataBulkApplyBatchResponse,
         AdminGeneratedArtifactMetadataBulkApplyPlanRequest,
@@ -89,12 +90,12 @@ use nako_api::{
 };
 use nako_core::{
     ArtworkCandidateId, AutomationArtifactId, GeneratedArtifactMetadataApplyOutcomeId,
+    GeneratedArtifactMetadataApplyRecoveryAttention, GeneratedArtifactMetadataApplyRecoveryFilter,
     GeneratedArtifactMetadataBulkApplyBatchId, ImageKind, JobId, LibraryAccessPolicy,
     LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId, ManagedArtworkArtifactId,
-    ManagedArtworkIngestId, MediaItemId, NakoError, PageRequest,
-    PlaybackTargetKind, PlaybackTargetTransportAuth, ProviderMappingId, RendererSessionRecord,
-    RendererSessionState, RoleAssignment, User, UserId, UserInvitationId, UserPrincipalId,
-    UserRole, UserStatus,
+    ManagedArtworkIngestId, MediaItemId, NakoError, PageRequest, PlaybackTargetKind,
+    PlaybackTargetTransportAuth, ProviderMappingId, RendererSessionRecord, RendererSessionState,
+    RoleAssignment, User, UserId, UserInvitationId, UserPrincipalId, UserRole, UserStatus,
 };
 use nako_db::DatabaseBackendCapabilities;
 use nako_transcode::{
@@ -149,6 +150,10 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/automation/generated-artifact-apply-outcomes/{outcome_id}",
             get(get_admin_generated_artifact_metadata_apply_outcome),
+        )
+        .route(
+            "/admin/v1/automation/generated-artifact-apply-recovery",
+            get(list_admin_generated_artifact_metadata_apply_recovery),
         )
         .route(
             "/admin/v1/automation/generated-artifacts/metadata-apply-plan",
@@ -527,12 +532,14 @@ pub(super) async fn list_admin_generated_artifact_metadata_apply_outcomes(
         .map(nako_api::admin::AdminGeneratedArtifactMetadataApplyOutcome::from_record)
         .collect();
 
-    Ok(Json(AdminGeneratedArtifactMetadataApplyOutcomeListResponse {
-        admin_api_version: ADMIN_API_VERSION.to_owned(),
-        public_api_version: API_VERSION.to_owned(),
-        outcomes,
-        page: page_info_from_request(page, returned),
-    }))
+    Ok(Json(
+        AdminGeneratedArtifactMetadataApplyOutcomeListResponse {
+            admin_api_version: ADMIN_API_VERSION.to_owned(),
+            public_api_version: API_VERSION.to_owned(),
+            outcomes,
+            page: page_info_from_request(page, returned),
+        },
+    ))
 }
 
 pub(super) async fn get_admin_generated_artifact_metadata_apply_outcome(
@@ -549,6 +556,25 @@ pub(super) async fn get_admin_generated_artifact_metadata_apply_outcome(
         public_api_version: API_VERSION.to_owned(),
         outcome: nako_api::admin::AdminGeneratedArtifactMetadataApplyOutcome::from_record(outcome),
     }))
+}
+
+pub(super) async fn list_admin_generated_artifact_metadata_apply_recovery(
+    State(app): State<NakoApp>,
+    Query(query): Query<AdminGeneratedArtifactApplyRecoveryQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let (filter, page) = query.into_filter_and_page()?;
+    let entries = app
+        .automation()
+        .list_generated_artifact_metadata_apply_recovery_entries(filter, page)
+        .await?;
+    let returned = entries.len();
+
+    Ok(Json(
+        AdminGeneratedArtifactMetadataApplyRecoveryResponse::from_entries(
+            entries,
+            page_info_from_request(page, returned),
+        ),
+    ))
 }
 
 pub(super) async fn plan_admin_generated_artifact_review(
@@ -756,6 +782,26 @@ pub(super) struct SelectAdminItemArtworkRequest {
 pub(super) struct AdminAccessUsersQuery {
     #[serde(flatten)]
     pub(super) page: PageQuery,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
+pub(super) struct AdminGeneratedArtifactApplyRecoveryQuery {
+    pub(super) attention: Option<GeneratedArtifactMetadataApplyRecoveryAttention>,
+    #[serde(flatten)]
+    pub(super) page: PageQuery,
+}
+
+impl AdminGeneratedArtifactApplyRecoveryQuery {
+    fn into_filter_and_page(
+        self,
+    ) -> Result<(GeneratedArtifactMetadataApplyRecoveryFilter, PageRequest), NakoError> {
+        Ok((
+            GeneratedArtifactMetadataApplyRecoveryFilter {
+                attention: self.attention,
+            },
+            self.page.try_into()?,
+        ))
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize)]

@@ -13,24 +13,25 @@ already has:
 - bulk batch persistence with selection snapshots, summaries, and per-item
   statuses;
 - Web Admin plan and batch views for the currently selected artifact(s);
-- no dedicated operator-facing repair queue, outcome search, or bounded repair
-  surface for stale/noop/failed/skipped apply results.
+- a dedicated Admin recovery queue for stale/noop/failed/skipped apply state,
+  including outcome-only records and bulk batch terminal item records.
 
 GAOR-020 audit conclusion:
 
 - bulk batch visibility is already materially present across API and Web;
-- one-artifact durable outcomes are persisted but not queryable through Admin;
-- the most leveraged first repair surface is an Admin outcome-oriented read
-  path with optional batch context, not another batch-centric route.
+- one-artifact durable outcomes are now queryable through Admin list/detail
+  read paths;
+- the first repair surface is a read-only Admin recovery route that classifies
+  outcome and batch item state by operator attention level.
 
 ## Active Task
 
-- Task ID: `GAOR-030`
-- Owner: codex
-- Files: `crates/nako-core`, `crates/nako-db`, `crates/nako-api`, `crates/nako-server`, `web/src/api/admin`
-- Validation: `cargo nextest run -p nako-api admin_contract --no-fail-fast`; `cargo check -p nako-server --tests`; `npm --prefix web run check`
+- Task ID: `GAOR-040`
+- Owner: planner
+- Files: `docs/workstreams/generated-artifact-apply-operations-repair`, `docs/architecture`
+- Validation: fresh closeout verification and `git diff --check`
 - Status: READY
-- Review: not started
+- Review: GAOR-030 self-review completed with no blocking findings
 - Evidence: `docs/workstreams/generated-artifact-apply-operations-repair/EVIDENCE_AND_GATES.md`
 
 ## Decisions Since Last Update
@@ -41,6 +42,10 @@ GAOR-020 audit conclusion:
   out of scope for the first slice.
 - Landed the first `GAOR-030` implementation slice as outcome-oriented Admin
   list/detail read paths instead of another batch-centric surface.
+- Completed `GAOR-030` by adding a recovery queue route/read model that groups
+  outcome-only and batch-linked terminal states into operator attention levels.
+- Moved recovery classification into `nako-core` so SQLite/Postgres adapters do
+  not duplicate repair semantics.
 
 ## Blockers
 
@@ -48,7 +53,6 @@ GAOR-020 audit conclusion:
 
 ## Next Recommended Action
 
-- Continue `GAOR-030` by deciding whether to add a dedicated Admin route/view
-  that groups repairable outcomes (`failed` plus batch-linked `stale/skipped`)
-  or to split a narrower Web/Admin product follow-on before any repair
-  mutation is introduced.
+- Run `GAOR-040`: close the lane if the API/read-model surface is sufficient,
+  or split a follow-on for UI presentation and bounded repair mutation. Do not
+  add mutation until idempotency and freshness reuse are explicitly proven.

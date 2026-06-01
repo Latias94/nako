@@ -877,6 +877,16 @@ impl AutomationRepository for NakoDatabase {
             .await
     }
 
+    async fn list_generated_artifact_metadata_apply_recovery_entries(
+        &self,
+        filter: GeneratedArtifactMetadataApplyRecoveryFilter,
+        page: PageRequest,
+    ) -> Result<Vec<GeneratedArtifactMetadataApplyRecoveryEntryRecord>> {
+        self.backend()
+            .list_generated_artifact_metadata_apply_recovery_entries(filter, page)
+            .await
+    }
+
     async fn commit_generated_artifact_metadata_apply_outcome(
         &self,
         commit: &GeneratedArtifactMetadataApplyOutcomeCommit,

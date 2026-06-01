@@ -13,7 +13,7 @@ Last updated: 2026-06-02
 
 ## M1 — Repair Read-Path Audit
 
-- [ ] GAOR-020 [owner=codex] [deps=GAOR-010] [scope=crates/nako-core,crates/nako-api,crates/nako-server/src/app/automation.rs,crates/nako-server/src/http/admin.rs,web/src/api/admin]
+- [x] GAOR-020 [owner=codex] [deps=GAOR-010] [scope=crates/nako-core,crates/nako-api,crates/nako-server/src/app/automation.rs,crates/nako-server/src/http/admin.rs,web/src/api/admin]
   Goal: Audit current one-artifact outcome and bulk batch persistence/DTO/read-model coverage, then define the smallest redaction-safe Admin repair read path for stale/noop/failed/skipped apply outcomes.
   Validation: focused Rust/API/Web contract gates for the chosen read path; `cargo fmt --all -- --check`; `npm --prefix web run check` if Web/Admin contract shape changes.
   Review: confirm replay-vs-repair semantics, target freshness visibility, and no raw prompt/path/provider leakage.
@@ -22,7 +22,7 @@ Last updated: 2026-06-02
 
 ## M2 — First Repair Surface
 
-- [ ] GAOR-030 [owner=codex] [deps=GAOR-020] [scope=crates/nako-api,crates/nako-server,web/src/features/admin,web/src/test]
+- [x] GAOR-030 [owner=codex] [deps=GAOR-020] [scope=crates/nako-core,crates/nako-db,crates/nako-api,crates/nako-server,web/src/api/admin]
   Goal: Ship the first Admin-facing repair surface, either as a read-only recovery queue/detail route or as a bounded repair action that reuses existing apply semantics.
   Validation: focused Rust/Web gates chosen by `GAOR-020`; browser smoke if a Web route is added; `npm --prefix web run build:budget` when route code changes.
   Review: review-workstream before accepting completion.
