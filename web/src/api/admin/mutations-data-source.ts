@@ -1,13 +1,16 @@
 import { AdminApiClient } from "./client"
 import { loadAdminApiConnection, type AdminApiConnection } from "./connection"
 import {
+  mapGeneratedArtifactMetadataApplyPlan,
   mapGeneratedArtifactReviewPlanResponse,
   type AdminGeneratedArtifactReviewDecision,
+  type AdminGeneratedArtifactMetadataApplyPlanReadModel,
   type AdminGeneratedArtifactReviewPlanReadModel,
 } from "./read-models-data-source"
 import type {
   AddonStatus,
   AdminCreateUserRequest,
+  AdminGeneratedArtifactMetadataApplyResponse,
   AdminGeneratedArtifactReviewPlanResponse,
   AdminUpdateMetadataRawCacheSettingsRequest,
   AdminUserRole,
@@ -26,6 +29,7 @@ export type AdminMutationKind =
   | "settings.metadata.raw-cache.update"
   | "addon.status.update"
   | "generated-artifact.review"
+  | "generated-artifact.metadata-apply"
 
 export interface AdminMutationResult {
   kind: AdminMutationKind
@@ -42,6 +46,19 @@ export interface AdminGeneratedArtifactReviewMutationResult {
   idempotentReplay: boolean
   message: string
   plan: AdminGeneratedArtifactReviewPlanReadModel
+}
+
+export interface AdminGeneratedArtifactMetadataApplyMutationResult {
+  kind: "generated-artifact.metadata-apply"
+  artifactId: string
+  outcomeId: string | null
+  status: string
+  applied: boolean
+  changed: boolean
+  idempotentReplay: boolean
+  appliedSource: string | null
+  message: string
+  plan: AdminGeneratedArtifactMetadataApplyPlanReadModel
 }
 
 export interface AdminMutationDataSource {
@@ -63,6 +80,10 @@ export interface AdminMutationDataSource {
     artifactId: string,
     decision: AdminGeneratedArtifactReviewDecision,
   ): Promise<AdminGeneratedArtifactReviewMutationResult>
+  applyGeneratedArtifactMetadata(
+    artifactId: string,
+    idempotencyKey: string,
+  ): Promise<AdminGeneratedArtifactMetadataApplyMutationResult>
 }
 
 export function createAdminMutationDataSource(
@@ -157,6 +178,13 @@ export function createAdminMutationDataSource(
         plan: mapGeneratedArtifactReviewPlanResponse(reviewResponseToPlanResponse(response)),
       }
     },
+
+    async applyGeneratedArtifactMetadata(artifactId, idempotencyKey) {
+      const response = await client.applyGeneratedArtifactMetadata(artifactId, {
+        idempotency_key: idempotencyKey,
+      })
+      return mapGeneratedArtifactMetadataApplyMutationResponse(response)
+    },
   }
 }
 
@@ -166,6 +194,10 @@ function disabledMutationDataSource(reason: string): AdminMutationDataSource {
   }
   const rejectGeneratedArtifactReview =
     async (): Promise<AdminGeneratedArtifactReviewMutationResult> => {
+      throw new Error(reason)
+    }
+  const rejectGeneratedArtifactMetadataApply =
+    async (): Promise<AdminGeneratedArtifactMetadataApplyMutationResult> => {
       throw new Error(reason)
     }
 
@@ -183,6 +215,7 @@ function disabledMutationDataSource(reason: string): AdminMutationDataSource {
     updateMetadataRawCacheSettings: reject,
     updateAddonStatus: reject,
     reviewGeneratedArtifact: rejectGeneratedArtifactReview,
+    applyGeneratedArtifactMetadata: rejectGeneratedArtifactMetadataApply,
   }
 }
 
@@ -217,4 +250,36 @@ function generatedArtifactReviewMessage(
   }
 
   return decision === "accept" ? "生成产物已接受" : "生成产物已拒绝"
+}
+
+function mapGeneratedArtifactMetadataApplyMutationResponse(
+  response: AdminGeneratedArtifactMetadataApplyResponse,
+): AdminGeneratedArtifactMetadataApplyMutationResult {
+  return {
+    kind: "generated-artifact.metadata-apply",
+    artifactId: response.artifact_id,
+    outcomeId: response.outcome_id,
+    status: response.status,
+    applied: response.applied,
+    changed: response.changed,
+    idempotentReplay: response.idempotent_replay,
+    appliedSource: response.applied_source,
+    message: generatedArtifactMetadataApplyMessage(response),
+    plan: mapGeneratedArtifactMetadataApplyPlan(response.plan, {
+      adminApi: response.admin_api_version,
+      publicApi: response.public_api_version,
+    }),
+  }
+}
+
+function generatedArtifactMetadataApplyMessage(response: AdminGeneratedArtifactMetadataApplyResponse) {
+  if (response.idempotent_replay) {
+    return "元数据应用结果已存在，已返回幂等结果"
+  }
+
+  if (!response.applied) {
+    return response.status === "noop" ? "没有可应用的元数据变更" : "元数据应用未执行"
+  }
+
+  return response.changed ? "Canonical Metadata 已更新" : "元数据应用完成，没有字段变更"
 }

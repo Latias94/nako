@@ -136,6 +136,39 @@ Only run after `GAMA-050` exposes a real Admin route:
     passed 3/3.
   - Added `CONTEXT.jsonl` and advanced lane registry/workstream index to
     `GAMA-060`.
+- `GAMA-060` (verified 2026-06-01): Added the Web Admin Metadata Authority
+  apply workflow after Generated Artifact review acceptance. Evidence:
+  - `npm --prefix web run test -- src/test/data-source-contracts.test.ts src/test/route-contracts.test.tsx src/test/route-state-contracts.test.tsx`
+    passed 88/88.
+  - `npm --prefix web run check`
+  - `npm --prefix web run build:budget`
+    passed with `admin-route-js` at 245.16 raw KiB / 53.24 gzip KiB and
+    `total-js` at 1121.69 raw KiB / 330.28 gzip KiB.
+  - Browser/Playwright smoke against local Vite on `127.0.0.1:3001` captured:
+    `target/gama060-apply-plan-desktop.png`,
+    `target/gama060-apply-plan-mobile.png`,
+    `target/gama060-apply-result-desktop.png`, and
+    `target/gama060-apply-result-mobile.png`.
+  Behavior proven:
+  - review accept and Metadata Authority apply remain separate screens and
+    routes;
+  - apply-plan uses
+    `POST /admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply-plan`
+    with no request body and maps
+    `AdminGeneratedArtifactMetadataApplyPlanResponse`;
+  - final apply uses
+    `POST /admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply`
+    with `AdminGeneratedArtifactMetadataApplyRequest { idempotency_key }` and
+    maps `AdminGeneratedArtifactMetadataApplyResponse`;
+  - the UI displays only redacted field actions, reasons, counters, target ids,
+    outcome ids, and fingerprints; tests assert raw payload, prompt, provider
+    details, paths, tokens, and secrets do not appear;
+  - fallback/fixture plans disable final apply, while live executable plans
+    require an explicit operator preparation step and a stable UI
+    idempotency key for the final mutation;
+  - low-frequency mock-only Admin settings pages were compacted to placeholders
+    so this real GAMA workflow stayed inside the existing Admin bundle budget
+    without raising limits.
 
 ## Required Final Evidence
 

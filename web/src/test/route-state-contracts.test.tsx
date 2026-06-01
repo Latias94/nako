@@ -339,6 +339,185 @@ describe("route state contracts", () => {
     }
   })
 
+  it("routes accepted generated artifact review into Metadata Authority apply", async () => {
+    const user = userEvent.setup()
+    const originalFetch = globalThis.fetch
+    const previousProfile = window.localStorage.getItem(CONNECTION_PROFILE_STORAGE_KEY)
+    const previousSession = window.sessionStorage.getItem(CONNECTION_SESSION_STORAGE_KEY)
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      const method = init?.method ?? "GET"
+
+      switch (`${method} ${url.pathname}`) {
+        case "POST /admin/v1/automation/generated-artifacts/artifact-live/review-plan":
+          return jsonResponse(adminGeneratedArtifactReviewPlanResponse("artifact-live", "accept"))
+        case "POST /admin/v1/automation/generated-artifacts/artifact-live/review":
+          return jsonResponse(adminGeneratedArtifactReviewResponse("artifact-live", "accept"))
+        default:
+          return jsonResponse({ code: "not_found", message: "not found" }, 404)
+      }
+    })
+
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako-admin.test",
+      }),
+    )
+    window.sessionStorage.setItem(
+      CONNECTION_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        bearerToken: "admin-token",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+
+    try {
+      const { router } = renderRoute("/admin/automation/generated-artifacts/review?artifact_id=artifact-live&decision=accept")
+
+      await user.click(await screen.findByRole("button", { name: "准备确认" }, { timeout: 5000 }))
+      await user.click(screen.getByRole("button", { name: "确认接受" }))
+      await user.click(await screen.findByRole("button", { name: "进入 Metadata Authority apply" }, { timeout: 5000 }))
+
+      await waitFor(() => {
+        expect(router.state.location.pathname).toBe("/admin/automation/generated-artifacts/metadata-apply")
+        expect(router.state.location.search).toMatchObject({ artifact_id: "artifact-live" })
+      })
+    } finally {
+      vi.stubGlobal("fetch", originalFetch)
+      restoreStorage(window.localStorage, CONNECTION_PROFILE_STORAGE_KEY, previousProfile)
+      restoreStorage(window.sessionStorage, CONNECTION_SESSION_STORAGE_KEY, previousSession)
+    }
+  })
+
+  it("does not allow live generated artifact metadata apply when apply-plan falls back to fixture", async () => {
+    const originalFetch = globalThis.fetch
+    const previousProfile = window.localStorage.getItem(CONNECTION_PROFILE_STORAGE_KEY)
+    const previousSession = window.sessionStorage.getItem(CONNECTION_SESSION_STORAGE_KEY)
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      jsonResponse({ code: "metadata_apply_plan_unavailable", message: "offline" }, 503),
+    )
+
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako-admin.test",
+      }),
+    )
+    window.sessionStorage.setItem(
+      CONNECTION_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        bearerToken: "admin-token",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+
+    try {
+      renderRoute("/admin/automation/generated-artifacts/metadata-apply?artifact_id=artifact-live")
+
+      expect(await screen.findByText("应用计划不是 live Admin API 返回，不能执行确认。", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: "准备应用" })).toBeDisabled()
+    } finally {
+      vi.stubGlobal("fetch", originalFetch)
+      restoreStorage(window.localStorage, CONNECTION_PROFILE_STORAGE_KEY, previousProfile)
+      restoreStorage(window.sessionStorage, CONNECTION_SESSION_STORAGE_KEY, previousSession)
+    }
+  })
+
+  it("runs live Admin generated artifact metadata apply through apply-plan and confirmed mutation", async () => {
+    const user = userEvent.setup()
+    const originalFetch = globalThis.fetch
+    const previousProfile = window.localStorage.getItem(CONNECTION_PROFILE_STORAGE_KEY)
+    const previousSession = window.sessionStorage.getItem(CONNECTION_SESSION_STORAGE_KEY)
+    const calls: Array<{
+      method: string
+      path: string
+      body?: unknown
+      authorization: string | null
+    }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined
+      const method = init?.method ?? "GET"
+      calls.push({
+        method,
+        path: url.pathname,
+        body,
+        authorization: new Headers(init?.headers).get("Authorization"),
+      })
+
+      switch (`${method} ${url.pathname}`) {
+        case "POST /admin/v1/automation/generated-artifacts/artifact-live/metadata-apply-plan":
+          return jsonResponse(adminGeneratedArtifactMetadataApplyPlanResponse("artifact-live"))
+        case "POST /admin/v1/automation/generated-artifacts/artifact-live/metadata-apply":
+          return jsonResponse(adminGeneratedArtifactMetadataApplyResponse("artifact-live"))
+        default:
+          return jsonResponse({ code: "not_found", message: "not found" }, 404)
+      }
+    })
+
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako-admin.test",
+      }),
+    )
+    window.sessionStorage.setItem(
+      CONNECTION_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        bearerToken: "admin-token",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+
+    try {
+      renderRoute("/admin/automation/generated-artifacts/metadata-apply?artifact_id=artifact-live")
+
+      expect(await screen.findByRole("heading", { name: "Metadata Authority apply" }, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByText("title", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(await screen.findByText("field_locked", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(screen.queryByText("unsafe prompt body")).not.toBeInTheDocument()
+      expect(screen.queryByText("unsafe generated payload title")).not.toBeInTheDocument()
+      expect(screen.queryByText("provider secret response")).not.toBeInTheDocument()
+      expect(screen.queryByText("F:\\private\\source\\Movie.mkv")).not.toBeInTheDocument()
+      expect(screen.queryByText("file:///mnt/private/source/Movie.mkv")).not.toBeInTheDocument()
+      expect(screen.queryByText("admin-token")).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole("button", { name: "准备应用" }))
+      await user.click(screen.getByRole("button", { name: "确认应用" }))
+
+      expect(await screen.findByText("元数据应用结果已存在，已返回幂等结果", {}, { timeout: 5000 })).toBeInTheDocument()
+      expect(screen.getByText("applied")).toBeInTheDocument()
+
+      const applyCall = calls.find(
+        (call) =>
+          call.method === "POST" &&
+          call.path === "/admin/v1/automation/generated-artifacts/artifact-live/metadata-apply",
+      )
+      expect(applyCall).toBeDefined()
+      expect(applyCall?.body).toMatchObject({
+        idempotency_key: expect.stringMatching(/^web-generated-artifact-metadata-apply:artifact-live:/),
+      })
+      expect(applyCall?.authorization).toBe("Bearer admin-token")
+      expect(calls).toContainEqual({
+        method: "POST",
+        path: "/admin/v1/automation/generated-artifacts/artifact-live/metadata-apply-plan",
+        body: undefined,
+        authorization: "Bearer admin-token",
+      })
+    } finally {
+      vi.stubGlobal("fetch", originalFetch)
+      restoreStorage(window.localStorage, CONNECTION_PROFILE_STORAGE_KEY, previousProfile)
+      restoreStorage(window.sessionStorage, CONNECTION_SESSION_STORAGE_KEY, previousSession)
+    }
+  })
+
   it("writes Media search submits to the URL", async () => {
     const user = userEvent.setup()
     const { router } = renderRoute("/media/search")
@@ -1706,6 +1885,29 @@ function adminGeneratedArtifactReviewResponse(
   }
 }
 
+function adminGeneratedArtifactMetadataApplyPlanResponse(artifactId = "artifact-live") {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    plan: adminGeneratedArtifactMetadataApplyPlan(artifactId),
+  }
+}
+
+function adminGeneratedArtifactMetadataApplyResponse(artifactId = "artifact-live") {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    outcome_id: "metadata-apply-outcome-live",
+    artifact_id: artifactId,
+    status: "applied",
+    applied: true,
+    changed: true,
+    idempotent_replay: true,
+    applied_source: "user",
+    plan: adminGeneratedArtifactMetadataApplyPlan(artifactId),
+  }
+}
+
 function adminGeneratedArtifactAcceptancePlan(
   artifactId = "artifact-live",
   decision: "accept" | "reject" = "accept",
@@ -1752,6 +1954,105 @@ function adminGeneratedArtifactAcceptancePlan(
       applies_immediately: false,
       requires_metadata_authority_apply: decision === "accept",
     },
+    raw_prompt: "unsafe prompt body",
+    provider_raw_response: "provider secret response",
+    artifact_storage_handle: "F:\\nako\\artifact-cache\\metadata.json",
+  }
+}
+
+function adminGeneratedArtifactMetadataApplyPlan(artifactId = "artifact-live") {
+  return {
+    artifact_id: artifactId,
+    status: "ready",
+    executable: true,
+    reasons: ["accepted_generated_artifact"],
+    target: {
+      kind: "media_item",
+      library_id: "library-a",
+      item_id: "item-live",
+      source_id: "source-live",
+      local_path: "F:\\private\\source\\Movie.mkv",
+      source_locator: "file:///mnt/private/source/Movie.mkv",
+    },
+    payload: {
+      valid_json: true,
+      shape: "object",
+      payload_fingerprint: "sha256:payload-live",
+      payload_bytes: 4096,
+      object_field_count: 9,
+      array_item_count: null,
+      has_textual_values: true,
+      has_explanation: true,
+      confidence_milli: 910,
+      raw_payload: {
+        title: "unsafe generated payload title",
+        secret: "provider-secret",
+      },
+    },
+    fields: [
+      {
+        field: "title",
+        action: "apply",
+        reasons: ["incoming_differs"],
+        current: {
+          present: true,
+          empty: false,
+          value_fingerprint: "sha256:current-title",
+          value_bytes: 12,
+          item_count: null,
+          raw_value: "unsafe current title",
+        },
+        incoming: {
+          present: true,
+          empty: false,
+          value_fingerprint: "sha256:incoming-title",
+          value_bytes: 16,
+          item_count: null,
+          raw_value: "unsafe generated payload title",
+        },
+      },
+      {
+        field: "overview",
+        action: "skip",
+        reasons: ["field_locked"],
+        current: {
+          present: true,
+          empty: false,
+          value_fingerprint: "sha256:current-overview",
+          value_bytes: 32,
+          item_count: null,
+        },
+        incoming: {
+          present: true,
+          empty: false,
+          value_fingerprint: "sha256:incoming-overview",
+          value_bytes: 64,
+          item_count: null,
+        },
+      },
+      {
+        field: "genres",
+        action: "noop",
+        reasons: ["same_value"],
+        current: {
+          present: true,
+          empty: false,
+          value_fingerprint: "sha256:genres",
+          value_bytes: null,
+          item_count: 2,
+        },
+        incoming: {
+          present: true,
+          empty: false,
+          value_fingerprint: "sha256:genres",
+          value_bytes: null,
+          item_count: 2,
+        },
+      },
+    ],
+    apply_field_count: 1,
+    skipped_field_count: 1,
+    noop_field_count: 1,
     raw_prompt: "unsafe prompt body",
     provider_raw_response: "provider secret response",
     artifact_storage_handle: "F:\\nako\\artifact-cache\\metadata.json",

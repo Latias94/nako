@@ -22,6 +22,7 @@ import { SurfaceSwitcher } from "@/src/shell/surface-switcher"
 import type { MediaSurfaceRef, MediaSurfaceRouteView } from "@/src/features/media"
 import type {
   AdminAcquisitionIntakeRouteState,
+  AdminGeneratedArtifactMetadataApplyRouteState,
   AdminGeneratedArtifactReviewRouteState,
   AdminGeneratedArtifactsRouteState,
   AdminLogsRouteState,
@@ -421,6 +422,32 @@ function AdminGeneratedArtifactReviewRoute() {
       onGeneratedArtifactReviewBack={() => {
         void navigate({ to: "/admin/automation/generated-artifacts" })
       }}
+      onGeneratedArtifactMetadataApplyRequest={(artifactId) => {
+        void navigate({
+          to: "/admin/automation/generated-artifacts/metadata-apply",
+          search: {
+            artifact_id: artifactId,
+          },
+        })
+      }}
+      onSectionNavigate={(nextSection) => {
+        void navigate(toAdminRoute(nextSection))
+      }}
+    />
+  )
+}
+
+function AdminGeneratedArtifactMetadataApplyRoute() {
+  const navigate = useNavigate()
+  const search = adminGeneratedArtifactMetadataApplyRoute.useSearch()
+
+  return (
+    <AdminSurface
+      activeSection="generated-artifact-metadata-apply"
+      generatedArtifactMetadataApplyState={adminGeneratedArtifactMetadataApplyStateFromSearch(search)}
+      onGeneratedArtifactMetadataApplyBack={() => {
+        void navigate({ to: "/admin/automation/generated-artifacts" })
+      }}
       onSectionNavigate={(nextSection) => {
         void navigate(toAdminRoute(nextSection))
       }}
@@ -600,6 +627,13 @@ const adminGeneratedArtifactReviewRoute = createRoute({
   component: AdminGeneratedArtifactReviewRoute,
 })
 
+const adminGeneratedArtifactMetadataApplyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/automation/generated-artifacts/metadata-apply",
+  validateSearch: validateAdminGeneratedArtifactMetadataApplySearch,
+  component: AdminGeneratedArtifactMetadataApplyRoute,
+})
+
 const adminSettingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/admin/settings",
@@ -700,6 +734,7 @@ const routeTree = rootRoute.addChildren([
   adminAcquisitionIntakeRoute,
   adminGeneratedArtifactsRoute,
   adminGeneratedArtifactReviewRoute,
+  adminGeneratedArtifactMetadataApplyRoute,
   adminSettingsRoute,
   adminDlnaRoute,
   adminRemoteAccessRoute,
@@ -787,6 +822,8 @@ function toAdminRoute(section: AdminSurfaceSection) {
       return { to: "/admin/automation/generated-artifacts" } as const
     case "generated-artifact-review":
       return { to: "/admin/automation/generated-artifacts" } as const
+    case "generated-artifact-metadata-apply":
+      return { to: "/admin/automation/generated-artifacts" } as const
     case "advanced":
       return { to: "/admin/settings" } as const
     case "dlna":
@@ -840,6 +877,10 @@ interface AdminGeneratedArtifactReviewRouteSearch {
   decision?: "accept" | "reject"
 }
 
+interface AdminGeneratedArtifactMetadataApplyRouteSearch {
+  artifact_id?: string
+}
+
 function validateAdminLogsSearch(search: Record<string, unknown>): AdminLogsRouteSearch {
   const levels = parseAdminLogList(search.levels, ADMIN_LOG_LEVELS)
   const sources = parseAdminLogList(search.sources, ADMIN_LOG_SOURCES)
@@ -881,6 +922,14 @@ function validateAdminGeneratedArtifactReviewSearch(
   return {
     artifact_id: parseSearchString(search.artifact_id),
     decision: search.decision === "reject" ? "reject" : "accept",
+  }
+}
+
+function validateAdminGeneratedArtifactMetadataApplySearch(
+  search: Record<string, unknown>,
+): AdminGeneratedArtifactMetadataApplyRouteSearch {
+  return {
+    artifact_id: parseSearchString(search.artifact_id),
   }
 }
 
@@ -974,6 +1023,14 @@ function adminGeneratedArtifactReviewStateFromSearch(
   return {
     artifactId: search.artifact_id,
     decision: search.decision,
+  }
+}
+
+function adminGeneratedArtifactMetadataApplyStateFromSearch(
+  search: AdminGeneratedArtifactMetadataApplyRouteSearch,
+): AdminGeneratedArtifactMetadataApplyRouteState {
+  return {
+    artifactId: search.artifact_id,
   }
 }
 

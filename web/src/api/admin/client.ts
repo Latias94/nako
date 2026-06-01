@@ -14,6 +14,9 @@ import {
   type AdminAddonSourceCatalogSourcesResponse,
   type AdminCreateUserRequest,
   type AdminGeneratedArtifactProposalListResponse,
+  type AdminGeneratedArtifactMetadataApplyPlanResponse,
+  type AdminGeneratedArtifactMetadataApplyRequest,
+  type AdminGeneratedArtifactMetadataApplyResponse,
   type AdminGeneratedArtifactProposalsQuery,
   type AdminGeneratedArtifactReviewPlanResponse,
   type AdminGeneratedArtifactReviewRequest,
@@ -169,6 +172,26 @@ export class AdminApiClient {
     return this.sendJson<AdminGeneratedArtifactReviewResponse>(
       "POST",
       pathParams(NAKO_ADMIN_ROUTES.generatedArtifactReview, { artifact_id: artifactId }),
+      request,
+    )
+  }
+
+  planGeneratedArtifactMetadataApply(
+    artifactId: string,
+  ): Promise<AdminGeneratedArtifactMetadataApplyPlanResponse> {
+    return this.sendJson<AdminGeneratedArtifactMetadataApplyPlanResponse>(
+      "POST",
+      pathParams(NAKO_ADMIN_ROUTES.generatedArtifactMetadataApplyPlan, { artifact_id: artifactId }),
+    )
+  }
+
+  applyGeneratedArtifactMetadata(
+    artifactId: string,
+    request: AdminGeneratedArtifactMetadataApplyRequest,
+  ): Promise<AdminGeneratedArtifactMetadataApplyResponse> {
+    return this.sendJson<AdminGeneratedArtifactMetadataApplyResponse>(
+      "POST",
+      pathParams(NAKO_ADMIN_ROUTES.generatedArtifactMetadataApply, { artifact_id: artifactId }),
       request,
     )
   }

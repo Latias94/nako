@@ -7,9 +7,10 @@
 {"kind":"workstream","path":"docs/workstreams/generated-artifact-metadata-authority-apply/DESIGN.md","note":"Target state and non-goals for Generated Artifact Metadata Authority apply."}
 {"kind":"workstream","path":"docs/workstreams/generated-artifact-metadata-authority-apply/TODO.md","note":"Task ledger for GAMA-020 through GAMA-070."}
 {"kind":"workstream","path":"docs/workstreams/generated-artifact-metadata-authority-apply/EVIDENCE_AND_GATES.md","note":"Gate evidence for apply-plan, host-owned apply, durable outcomes, final Admin apply route, and Web workflow gates."}
-{"kind":"workstream","path":"docs/workstreams/generated-artifact-metadata-authority-apply/HANDOFF.md","note":"Current GAMA-060 handoff and watchpoints."}
+{"kind":"workstream","path":"docs/workstreams/generated-artifact-metadata-authority-apply/HANDOFF.md","note":"Current GAMA-070 handoff and watchpoints."}
 {"kind":"api","path":"crates/nako-api/src/admin/automation.rs","note":"Admin Generated Artifact metadata apply DTOs and redaction contracts."}
 {"kind":"server","path":"crates/nako-server/src/http/admin.rs","note":"Admin apply-plan and final metadata-apply route boundaries."}
 {"kind":"server","path":"crates/nako-server/src/app/automation.rs","note":"Generated Artifact apply plan and execution orchestration."}
 {"kind":"web","path":"web/src/api/admin/generated/contract.ts","note":"Generated Admin TypeScript contract consumed by Web workflow work."}
+{"kind":"web","path":"web/src/features/admin/admin-generated-artifact-metadata-apply.tsx","note":"Web Admin Metadata Authority apply-plan and confirm-apply route implementation."}
 {"kind":"web","path":"apps/admin-web/src/adminApi/generated/contract.ts","note":"Generated Admin Web contract synchronized by GAMA-050."}

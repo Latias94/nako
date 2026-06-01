@@ -1,7 +1,7 @@
 # Generated Artifact Metadata Authority Apply - TODO
 
 Status: Active
-Last updated: 2026-05-30
+Last updated: 2026-06-01
 
 ## M0 - Scope And Evidence Freeze
 
@@ -45,12 +45,12 @@ Last updated: 2026-05-30
 
 ## M3 - Web Admin Apply Workflow
 
-- [ ] GAMA-060 [owner=unassigned] [deps=GAMA-050] [scope=web/src]
+- [x] GAMA-060 [owner=codex] [deps=GAMA-050] [scope=web/src]
   Goal: Add Web Admin apply-plan and confirm-apply workflow after Generated Artifact review acceptance.
   Validation: `npm --prefix web run test -- src/test/data-source-contracts.test.ts src/test/route-contracts.test.tsx src/test/route-state-contracts.test.tsx`; `npm --prefix web run check`; `npm --prefix web run build:budget`.
   Review: `review-workstream` for live API boundary, no fixture mutation claims, and accessible confirmation states.
-  Evidence: Web tests and browser screenshots for desktop/mobile apply-plan and result states.
-  Handoff: Keep accept/reject review and Metadata Authority apply visibly separate.
+  Evidence: Web data-source, route, and route-state tests passed 88/88; `npm --prefix web run check`; `npm --prefix web run build:budget`; browser screenshots at `target/gama060-apply-plan-desktop.png`, `target/gama060-apply-plan-mobile.png`, `target/gama060-apply-result-desktop.png`, and `target/gama060-apply-result-mobile.png`.
+  Handoff: Review acceptance routes to a separate Metadata Authority apply page; fixture/fallback plans cannot execute mutation; final apply requires an explicit UI idempotency key. Low-frequency mock-only Admin settings pages were compacted to placeholders to keep the Admin route budget under the existing threshold.
 
 ## M4 - Verification And Closeout
 

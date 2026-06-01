@@ -7,13 +7,14 @@
   "scope_kind": "backend_web_authority_workflow",
   "problem": "Accepted metadata Generated Artifacts are staged for Metadata Authority apply, but Nako has no redacted apply-plan, audited apply route, or Web Admin confirmation workflow that turns them into Canonical Metadata through host policy.",
   "task_prefix": "GAMA",
-  "current_task": "GAMA-060",
+  "current_task": "GAMA-070",
   "completed_tasks": [
     "GAMA-010",
     "GAMA-020",
     "GAMA-030",
     "GAMA-040",
-    "GAMA-050"
+    "GAMA-050",
+    "GAMA-060"
   ],
   "authoritative_docs": [
     {
@@ -90,6 +91,10 @@
     {
       "task": "GAMA-050-reconciliation",
       "summary": "Planner reconciliation on 2026-06-01 reran focused final Admin apply route gates and advanced the lane registry to GAMA-060."
+    },
+    {
+      "task": "GAMA-060",
+      "summary": "Added the Web Admin Metadata Authority apply workflow with a separate apply-plan route, live confirm-apply mutation using explicit UI idempotency keys, fixture/fallback mutation guards, redacted field summaries, route/data-source tests, budget validation, and desktop/mobile browser evidence."
     }
   ],
   "adr_refs": [
@@ -126,6 +131,6 @@
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
     "default_action": "continue_current_task",
-    "notes": "GAMA-060 is ready after GAMA-050 reconciliation. Continue only when Web Admin apply-plan and confirm-apply workflow work is explicitly requested. Backend Admin apply route is stable; keep bulk apply, provider-specific enrichment, and operations repair as follow-on scope unless the task is explicitly expanded."
+    "notes": "GAMA-070 is ready after GAMA-060. Verify final backend/Web gates, close the lane, and split bulk apply, provider-specific enrichment, and operations repair as follow-on scope unless the task is explicitly expanded."
   }
 }

@@ -4,3 +4,4 @@ export type { AdminLogsRouteState, LogLevel, LogSource, AdminLogsTab } from "./a
 export type { AdminAcquisitionIntakeRouteState } from "./admin-acquisition-intake"
 export type { AdminGeneratedArtifactsRouteState } from "./admin-generated-artifacts"
 export type { AdminGeneratedArtifactReviewRouteState } from "./admin-generated-artifact-review"
+export type { AdminGeneratedArtifactMetadataApplyRouteState } from "./admin-generated-artifact-metadata-apply"

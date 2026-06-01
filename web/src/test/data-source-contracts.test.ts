@@ -10,6 +10,7 @@ import {
 } from "@/src/api/admin/addons-data-source"
 import {
   ADMIN_ACQUISITION_INTAKE_READ_MODEL_FIXTURE,
+  ADMIN_GENERATED_ARTIFACT_METADATA_APPLY_PLAN_FIXTURE,
   ADMIN_GENERATED_ARTIFACT_REVIEW_PLAN_FIXTURE,
   ADMIN_GENERATED_ARTIFACTS_READ_MODEL_FIXTURE,
   ADMIN_LIBRARY_READ_MODEL_FIXTURE,
@@ -687,6 +688,29 @@ function adminGeneratedArtifactReviewResponse(
   }
 }
 
+function adminGeneratedArtifactMetadataApplyPlanResponse(artifactId = "artifact-live") {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    plan: adminGeneratedArtifactMetadataApplyPlan(artifactId),
+  }
+}
+
+function adminGeneratedArtifactMetadataApplyResponse(artifactId = "artifact-live") {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    outcome_id: "metadata-apply-outcome-live",
+    artifact_id: artifactId,
+    status: "applied",
+    applied: true,
+    changed: true,
+    idempotent_replay: true,
+    applied_source: "user",
+    plan: adminGeneratedArtifactMetadataApplyPlan(artifactId),
+  }
+}
+
 function adminGeneratedArtifactAcceptancePlan(
   artifactId = "artifact-live",
   decision: "accept" | "reject" = "accept",
@@ -734,6 +758,105 @@ function adminGeneratedArtifactAcceptancePlan(
       applies_immediately: false,
       requires_metadata_authority_apply: decision === "accept",
     },
+    raw_prompt: "unsafe prompt body",
+    provider_raw_response: "provider secret response",
+    artifact_storage_handle: "F:\\nako\\artifact-cache\\metadata.json",
+  }
+}
+
+function adminGeneratedArtifactMetadataApplyPlan(artifactId = "artifact-live") {
+  return {
+    artifact_id: artifactId,
+    status: "ready",
+    executable: true,
+    reasons: ["accepted_generated_artifact"],
+    target: {
+      kind: "media_item",
+      library_id: "library-a",
+      item_id: "item-live",
+      source_id: "source-live",
+      local_path: "F:\\private\\source\\Movie.mkv",
+      source_locator: "file:///mnt/private/source/Movie.mkv",
+    },
+    payload: {
+      valid_json: true,
+      shape: "object",
+      payload_fingerprint: "sha256:payload-live",
+      payload_bytes: 4096,
+      object_field_count: 9,
+      array_item_count: null,
+      has_textual_values: true,
+      has_explanation: true,
+      confidence_milli: 910,
+      raw_payload: {
+        title: "unsafe generated payload title",
+        secret: "provider-secret",
+      },
+    },
+    fields: [
+      {
+        field: "title",
+        action: "apply",
+        reasons: ["incoming_differs"],
+        current: {
+          present: true,
+          empty: false,
+          value_fingerprint: "sha256:current-title",
+          value_bytes: 12,
+          item_count: null,
+          raw_value: "unsafe current title",
+        },
+        incoming: {
+          present: true,
+          empty: false,
+          value_fingerprint: "sha256:incoming-title",
+          value_bytes: 16,
+          item_count: null,
+          raw_value: "unsafe generated payload title",
+        },
+      },
+      {
+        field: "overview",
+        action: "skip",
+        reasons: ["field_locked"],
+        current: {
+          present: true,
+          empty: false,
+          value_fingerprint: "sha256:current-overview",
+          value_bytes: 32,
+          item_count: null,
+        },
+        incoming: {
+          present: true,
+          empty: false,
+          value_fingerprint: "sha256:incoming-overview",
+          value_bytes: 64,
+          item_count: null,
+        },
+      },
+      {
+        field: "genres",
+        action: "noop",
+        reasons: ["same_value"],
+        current: {
+          present: true,
+          empty: false,
+          value_fingerprint: "sha256:genres",
+          value_bytes: null,
+          item_count: 2,
+        },
+        incoming: {
+          present: true,
+          empty: false,
+          value_fingerprint: "sha256:genres",
+          value_bytes: null,
+          item_count: 2,
+        },
+      },
+    ],
+    apply_field_count: 1,
+    skipped_field_count: 1,
+    noop_field_count: 1,
     raw_prompt: "unsafe prompt body",
     provider_raw_response: "provider secret response",
     artifact_storage_handle: "F:\\nako\\artifact-cache\\metadata.json",
@@ -2656,6 +2779,111 @@ describe("admin read model data source contracts", () => {
     ).resolves.toEqual(ADMIN_GENERATED_ARTIFACT_REVIEW_PLAN_FIXTURE)
   })
 
+  it("maps live Admin generated artifact metadata apply plans through POST without unsafe fields", async () => {
+    const calls: Array<{ method: string; path: string; body?: unknown; authorization: string | null }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined
+      calls.push({
+        method: init?.method ?? "GET",
+        path: url.pathname,
+        body,
+        authorization: new Headers(init?.headers).get("Authorization"),
+      })
+
+      if (url.pathname === "/admin/v1/automation/generated-artifacts/artifact%2Funsafe%20id/metadata-apply-plan") {
+        return jsonResponse(adminGeneratedArtifactMetadataApplyPlanResponse("artifact/unsafe id"))
+      }
+
+      return jsonResponse({ message: "not found" }, 404)
+    })
+    const source = createAdminReadModelsDataSource(
+      {
+        mode: "live",
+        baseUrl: "http://nako-admin.test/",
+        bearerToken: "admin-token",
+      },
+      fetcher,
+    )
+
+    const plan = await source.loadGeneratedArtifactMetadataApplyPlan("artifact/unsafe id")
+
+    expect(plan).toMatchObject({
+      source: "live",
+      fallback: false,
+      versions: {
+        adminApi: "v1",
+        publicApi: "v1",
+      },
+      artifactId: "artifact/unsafe id",
+      status: "ready",
+      executable: true,
+      reasons: ["accepted_generated_artifact"],
+      applyFieldCount: 1,
+      skippedFieldCount: 1,
+      noopFieldCount: 1,
+      target: {
+        kind: "media_item",
+        libraryId: "library-a",
+        itemId: "item-live",
+        sourceId: "source-live",
+      },
+      payload: {
+        payloadFingerprint: "sha256:payload-live",
+        payloadBytes: 4096,
+        confidenceMilli: 910,
+      },
+      fields: expect.arrayContaining([
+        expect.objectContaining({
+          field: "title",
+          action: "apply",
+          reasons: ["incoming_differs"],
+          current: {
+            present: true,
+            empty: false,
+            valueFingerprint: "sha256:current-title",
+            valueBytes: 12,
+            itemCount: null,
+          },
+          incoming: {
+            present: true,
+            empty: false,
+            valueFingerprint: "sha256:incoming-title",
+            valueBytes: 16,
+            itemCount: null,
+          },
+        }),
+      ]),
+    })
+
+    expect(calls).toEqual([
+      {
+        method: "POST",
+        path: "/admin/v1/automation/generated-artifacts/artifact%2Funsafe%20id/metadata-apply-plan",
+        body: undefined,
+        authorization: "Bearer admin-token",
+      },
+    ])
+
+    const serialized = JSON.stringify(plan)
+    expect(serialized).not.toContain("F:\\private")
+    expect(serialized).not.toContain("/mnt/private/source")
+    expect(serialized).not.toContain("unsafe prompt body")
+    expect(serialized).not.toContain("unsafe current title")
+    expect(serialized).not.toContain("unsafe generated payload title")
+    expect(serialized).not.toContain("provider secret response")
+    expect(serialized).not.toContain("provider-secret")
+    expect(serialized).not.toContain("artifact_storage_handle")
+  })
+
+  it("returns deterministic fixture generated artifact metadata apply plans", async () => {
+    const source = createAdminReadModelsDataSource({ mode: "fixture" })
+
+    await expect(
+      source.loadGeneratedArtifactMetadataApplyPlan("fixture-generated-artifact-1"),
+    ).resolves.toEqual(ADMIN_GENERATED_ARTIFACT_METADATA_APPLY_PLAN_FIXTURE)
+  })
+
   it("maps live Admin API responses into deeper Admin page read models", async () => {
     const fetcher = vi.fn<typeof fetch>(async (input) => {
       const url = new URL(String(input))
@@ -2832,6 +3060,12 @@ describe("admin mutation data source contracts", () => {
     await expect(source.reviewGeneratedArtifact("artifact-live", "accept")).rejects.toThrow(
       "live Admin API",
     )
+    await expect(
+      source.applyGeneratedArtifactMetadata(
+        "artifact-live",
+        "web-generated-artifact-metadata-apply:artifact-live:test",
+      ),
+    ).rejects.toThrow("live Admin API")
   })
 
   it("maps accepted Admin mutations to versioned routes with JSON bodies", async () => {
@@ -2864,6 +3098,8 @@ describe("admin mutation data source contracts", () => {
           return jsonResponse(adminAddonRegistrationResponse("disabled"))
         case "POST /admin/v1/automation/generated-artifacts/artifact%2Funsafe%20id/review":
           return jsonResponse(adminGeneratedArtifactReviewResponse("artifact/unsafe id", "accept"))
+        case "POST /admin/v1/automation/generated-artifacts/artifact%2Funsafe%20id/metadata-apply":
+          return jsonResponse(adminGeneratedArtifactMetadataApplyResponse("artifact/unsafe id"))
         default:
           return jsonResponse({ message: "not found" }, 404)
       }
@@ -2917,6 +3153,30 @@ describe("admin mutation data source contracts", () => {
         boundary: {
           requiresMetadataAuthorityApply: true,
         },
+      },
+    })
+    const applyResult = await source.applyGeneratedArtifactMetadata(
+      "artifact/unsafe id",
+      "web-generated-artifact-metadata-apply:artifact-unsafe-id:test",
+    )
+    expect(applyResult).toMatchObject({
+      kind: "generated-artifact.metadata-apply",
+      artifactId: "artifact/unsafe id",
+      outcomeId: "metadata-apply-outcome-live",
+      status: "applied",
+      applied: true,
+      changed: true,
+      idempotentReplay: true,
+      appliedSource: "user",
+      plan: {
+        artifactId: "artifact/unsafe id",
+        executable: true,
+        fields: expect.arrayContaining([
+          expect.objectContaining({
+            field: "title",
+            action: "apply",
+          }),
+        ]),
       },
     })
 
@@ -2987,12 +3247,21 @@ describe("admin mutation data source contracts", () => {
         body: { decision: "accept" },
         authorization: "Bearer admin-token",
       },
+      {
+        method: "POST",
+        path: "/admin/v1/automation/generated-artifacts/artifact%2Funsafe%20id/metadata-apply",
+        body: {
+          idempotency_key: "web-generated-artifact-metadata-apply:artifact-unsafe-id:test",
+        },
+        authorization: "Bearer admin-token",
+      },
     ])
 
-    const serialized = JSON.stringify(reviewResult)
+    const serialized = JSON.stringify({ reviewResult, applyResult })
     expect(serialized).not.toContain("F:\\private")
     expect(serialized).not.toContain("/mnt/private/source")
     expect(serialized).not.toContain("unsafe prompt body")
+    expect(serialized).not.toContain("unsafe current title")
     expect(serialized).not.toContain("unsafe generated payload title")
     expect(serialized).not.toContain("provider secret response")
     expect(serialized).not.toContain("provider-secret")

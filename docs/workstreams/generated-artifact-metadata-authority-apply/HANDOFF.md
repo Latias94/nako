@@ -5,9 +5,9 @@ Last updated: 2026-06-01
 
 ## Current State
 
-`GAMA-050` is complete.
-Planner reconciliation on 2026-06-01 reran the focused final route gates and
-confirmed `GAMA-060` is the active task.
+`GAMA-060` is complete.
+Planner reconciliation on 2026-06-01 reran the focused final backend route
+gates, and the Web Admin apply workflow has now landed.
 
 Generated Artifact review acceptance is still guarded, and the new read-only
 metadata apply-plan route now exposes field-level, redacted plan facts without
@@ -33,15 +33,30 @@ explicit `idempotency_key`. The response is
 facts and the redacted field-level plan. Generated Admin TypeScript contracts in
 `apps/admin-web` and `web` are synchronized with the Rust generator.
 
+Web Admin now has a separate Metadata Authority apply page at
+`/admin/automation/generated-artifacts/metadata-apply?artifact_id=...`.
+Accepted review results can navigate there, but review acceptance still does
+not mutate Canonical Metadata. The page loads the read-only apply-plan, shows
+only redacted field summaries, disables final apply for fixture/fallback plans,
+requires an explicit preparation step, and submits the final live mutation with
+a stable UI idempotency key prefixed by
+`web-generated-artifact-metadata-apply:`.
+
+GAMA-060 browser evidence lives at:
+`target/gama060-apply-plan-desktop.png`,
+`target/gama060-apply-plan-mobile.png`,
+`target/gama060-apply-result-desktop.png`, and
+`target/gama060-apply-result-mobile.png`.
+
 ## Active Task
 
-- Task ID: `GAMA-060`
+- Task ID: `GAMA-070`
 - Lane: `library-metadata-control-plane`
 - Status: ready
-- Owner: unassigned
+- Owner: planner
 
-Goal: add the Web Admin apply-plan and confirm-apply workflow now that the
-backend route and generated contracts are stable.
+Goal: verify final backend/Web gates, update evidence, close the lane, and split
+bulk apply, provider mapping, or operations repair follow-ons if needed.
 
 ## Key Files
 
@@ -59,6 +74,13 @@ backend route and generated contracts are stable.
 - `crates/nako-server/src/app/tests/automation.rs`
 - `apps/admin-web/src/adminApi/generated/contract.ts`
 - `web/src/api/admin/generated/contract.ts`
+- `web/src/api/admin/client.ts`
+- `web/src/api/admin/read-models-data-source.ts`
+- `web/src/api/admin/mutations-data-source.ts`
+- `web/src/features/admin/admin-generated-artifact-review.tsx`
+- `web/src/features/admin/admin-generated-artifact-metadata-apply.tsx`
+- `web/src/features/admin/admin-surface.tsx`
+- `web/src/shell/nako-router.tsx`
 - `docs/workstreams/web-admin-generated-artifact-review-mutations/ROUTE_API_READINESS.md`
 - `docs/workstreams/metadata-application-policy-seam/`
 - `docs/workstreams/metadata-application-cross-path-audit/`
@@ -89,17 +111,24 @@ backend route and generated contracts are stable.
   `AdminGeneratedArtifactMetadataApplyRequest { idempotency_key }`.
 - Final Admin apply response is `AdminGeneratedArtifactMetadataApplyResponse`
   and must stay redacted.
+- Web Metadata Authority apply route is
+  `/admin/automation/generated-artifacts/metadata-apply?artifact_id=...`.
+- Web fixture and fallback data sources can render the plan, but must not claim
+  to execute final apply.
+- Low-frequency mock-only Admin settings pages were compacted to placeholders to
+  keep the Admin route inside the existing bundle budget after adding the real
+  GAMA workflow.
 
 ## Blockers
 
-- None for `GAMA-060`, but it must stay separate from backend route work.
+- None for `GAMA-070`.
 
 ## Watchpoints
 
 - Do not make `/review` or `/metadata-apply-plan` apply metadata.
 - The final `/metadata-apply` Admin route requires a stable idempotency key and
   returns only redacted apply outcome facts.
-- `GAMA-060` should consume the generated contract; do not hand-write a
+- Any follow-up Web work should consume the generated contract; do not hand-write a
   conflicting Web fixture contract.
 - Do not expose raw `artifact_json`, prompt, source locators, paths, or secrets.
 - Do not skip field lock and library refresh mode checks.

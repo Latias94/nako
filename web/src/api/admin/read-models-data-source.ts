@@ -6,6 +6,10 @@ import type {
   AdminAcquisitionIntakeCandidateDiagnostic,
   AdminAcquisitionIntakeCandidateListResponse,
   AdminAcquisitionIntakeCandidatesQuery,
+  AdminGeneratedArtifactMetadataApplyFieldPlan,
+  AdminGeneratedArtifactMetadataApplyPlan,
+  AdminGeneratedArtifactMetadataApplyPlanResponse,
+  AdminGeneratedArtifactMetadataValueSummary,
   AdminGeneratedArtifactProposal,
   AdminGeneratedArtifactProposalListResponse,
   AdminGeneratedArtifactProposalsQuery,
@@ -369,6 +373,39 @@ export interface AdminGeneratedArtifactReviewPlanReadModel extends AdminReadMode
   boundary: AdminGeneratedArtifactAcceptanceBoundaryReadModel
 }
 
+export interface AdminGeneratedArtifactMetadataValueSummaryReadModel {
+  present: boolean
+  empty: boolean
+  valueFingerprint: string | null
+  valueBytes: number | null
+  itemCount: number | null
+}
+
+export interface AdminGeneratedArtifactMetadataApplyFieldPlanReadModel {
+  field: string
+  action: string
+  reasons: string[]
+  current: AdminGeneratedArtifactMetadataValueSummaryReadModel
+  incoming: AdminGeneratedArtifactMetadataValueSummaryReadModel
+}
+
+export interface AdminGeneratedArtifactMetadataApplyPlanReadModel extends AdminReadModelEnvelope {
+  versions: {
+    adminApi: string
+    publicApi: string
+  }
+  artifactId: string
+  status: string
+  executable: boolean
+  reasons: string[]
+  target: AdminGeneratedArtifactTargetReadModel
+  payload: AdminGeneratedArtifactPayloadReadModel
+  fields: AdminGeneratedArtifactMetadataApplyFieldPlanReadModel[]
+  applyFieldCount: number
+  skippedFieldCount: number
+  noopFieldCount: number
+}
+
 export interface AdminSettingsReadModel extends AdminReadModelEnvelope {
   general: {
     serverName: string
@@ -521,6 +558,9 @@ export const ADMIN_GENERATED_ARTIFACTS_READ_MODEL_FIXTURE: AdminGeneratedArtifac
 export const ADMIN_GENERATED_ARTIFACT_REVIEW_PLAN_FIXTURE: AdminGeneratedArtifactReviewPlanReadModel =
   generatedArtifactReviewPlanFixture("fixture-generated-artifact-1", "accept")
 
+export const ADMIN_GENERATED_ARTIFACT_METADATA_APPLY_PLAN_FIXTURE: AdminGeneratedArtifactMetadataApplyPlanReadModel =
+  generatedArtifactMetadataApplyPlanFixture("fixture-generated-artifact-1")
+
 export const ADMIN_SETTINGS_READ_MODEL_FIXTURE: AdminSettingsReadModel = {
   source: "fixture",
   fallback: true,
@@ -660,6 +700,15 @@ export function createAdminReadModelsDataSource(
       })
     },
 
+    async loadGeneratedArtifactMetadataApplyPlan(
+      artifactId: string,
+    ): Promise<AdminGeneratedArtifactMetadataApplyPlanReadModel> {
+      return withFallback(generatedArtifactMetadataApplyPlanFixture(artifactId), async () => {
+        const response = await client.planGeneratedArtifactMetadataApply(artifactId)
+        return mapGeneratedArtifactMetadataApplyPlanResponse(response)
+      })
+    },
+
     async loadSettings(): Promise<AdminSettingsReadModel> {
       return withFallback(ADMIN_SETTINGS_READ_MODEL_FIXTURE, async () => {
         const [config, runtime, staging, rawCache] = await Promise.all([
@@ -715,6 +764,9 @@ function fixtureDataSource() {
       decision: AdminGeneratedArtifactReviewDecision,
     ) {
       return generatedArtifactReviewPlanFixture(artifactId, decision)
+    },
+    async loadGeneratedArtifactMetadataApplyPlan(artifactId: string) {
+      return generatedArtifactMetadataApplyPlanFixture(artifactId)
     },
     async loadSettings() {
       return ADMIN_SETTINGS_READ_MODEL_FIXTURE
@@ -1021,6 +1073,60 @@ export function mapGeneratedArtifactReviewPlanResponse(
   }
 }
 
+export function mapGeneratedArtifactMetadataApplyPlanResponse(
+  response: AdminGeneratedArtifactMetadataApplyPlanResponse,
+): AdminGeneratedArtifactMetadataApplyPlanReadModel {
+  return mapGeneratedArtifactMetadataApplyPlan(response.plan, {
+    adminApi: response.admin_api_version,
+    publicApi: response.public_api_version,
+  })
+}
+
+export function mapGeneratedArtifactMetadataApplyPlan(
+  plan: AdminGeneratedArtifactMetadataApplyPlan,
+  versions: { adminApi: string; publicApi: string },
+): AdminGeneratedArtifactMetadataApplyPlanReadModel {
+  return {
+    source: "live",
+    fallback: false,
+    versions,
+    artifactId: plan.artifact_id,
+    status: plan.status,
+    executable: plan.executable,
+    reasons: plan.reasons,
+    target: mapGeneratedArtifactTarget(plan.target),
+    payload: mapGeneratedArtifactPayload(plan.payload),
+    fields: plan.fields.map(mapGeneratedArtifactMetadataApplyFieldPlan),
+    applyFieldCount: plan.apply_field_count,
+    skippedFieldCount: plan.skipped_field_count,
+    noopFieldCount: plan.noop_field_count,
+  }
+}
+
+function mapGeneratedArtifactMetadataApplyFieldPlan(
+  field: AdminGeneratedArtifactMetadataApplyFieldPlan,
+): AdminGeneratedArtifactMetadataApplyFieldPlanReadModel {
+  return {
+    field: field.field,
+    action: field.action,
+    reasons: field.reasons,
+    current: mapGeneratedArtifactMetadataValueSummary(field.current),
+    incoming: mapGeneratedArtifactMetadataValueSummary(field.incoming),
+  }
+}
+
+function mapGeneratedArtifactMetadataValueSummary(
+  value: AdminGeneratedArtifactMetadataValueSummary,
+): AdminGeneratedArtifactMetadataValueSummaryReadModel {
+  return {
+    present: value.present,
+    empty: value.empty,
+    valueFingerprint: value.value_fingerprint,
+    valueBytes: value.value_bytes,
+    itemCount: value.item_count,
+  }
+}
+
 function mapGeneratedArtifactTarget(
   target: AdminGeneratedArtifactTarget,
 ): AdminGeneratedArtifactTargetReadModel {
@@ -1237,6 +1343,85 @@ function generatedArtifactReviewPlanFixture(
       appliesImmediately: false,
       requiresMetadataAuthorityApply: decision === "accept",
     },
+  }
+}
+
+function generatedArtifactMetadataApplyPlanFixture(
+  artifactId: string,
+): AdminGeneratedArtifactMetadataApplyPlanReadModel {
+  return {
+    source: "fixture",
+    fallback: true,
+    versions: {
+      adminApi: "fixture",
+      publicApi: "fixture",
+    },
+    artifactId,
+    status: "ready",
+    executable: true,
+    reasons: ["accepted_generated_artifact"],
+    target: {
+      kind: "media_item",
+      libraryId: "library-movies",
+      itemId: "item-fixture-1",
+      sourceId: null,
+    },
+    payload: {
+      validJson: true,
+      shape: "object",
+      payloadFingerprint: "sha256:payload-fixture",
+      payloadBytes: 2048,
+      objectFieldCount: 8,
+      arrayItemCount: null,
+      hasTextualValues: true,
+      hasExplanation: true,
+      confidenceMilli: 820,
+    },
+    fields: [
+      metadataApplyFieldFixture(
+        "title",
+        "apply",
+        "incoming_differs",
+        "sha256:fixture-current-title",
+        "sha256:fixture-incoming-title",
+      ),
+      metadataApplyFieldFixture(
+        "overview",
+        "skip",
+        "field_locked",
+        "sha256:fixture-current-overview",
+        "sha256:fixture-incoming-overview",
+      ),
+    ],
+    applyFieldCount: 1,
+    skippedFieldCount: 1,
+    noopFieldCount: 0,
+  }
+}
+
+function metadataApplyFieldFixture(
+  field: string,
+  action: string,
+  reason: string,
+  currentFingerprint: string,
+  incomingFingerprint: string,
+): AdminGeneratedArtifactMetadataApplyFieldPlanReadModel {
+  return {
+    field,
+    action,
+    reasons: [reason],
+    current: metadataApplyValueFixture(currentFingerprint),
+    incoming: metadataApplyValueFixture(incomingFingerprint),
+  }
+}
+
+function metadataApplyValueFixture(valueFingerprint: string): AdminGeneratedArtifactMetadataValueSummaryReadModel {
+  return {
+    present: true,
+    empty: false,
+    valueFingerprint,
+    valueBytes: 24,
+    itemCount: null,
   }
 }
 

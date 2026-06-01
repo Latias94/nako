@@ -37,6 +37,7 @@ interface AdminGeneratedArtifactReviewProps {
   routeState?: AdminGeneratedArtifactReviewRouteState
   onRouteStateChange?: (state: AdminGeneratedArtifactReviewRouteState) => void
   onBackToQueue?: () => void
+  onMetadataApplyRequest?: (artifactId: string) => void
 }
 
 const DEFAULT_REVIEW_STATE: Required<AdminGeneratedArtifactReviewRouteState> = {
@@ -48,6 +49,7 @@ export function AdminGeneratedArtifactReview({
   routeState,
   onRouteStateChange,
   onBackToQueue,
+  onMetadataApplyRequest,
 }: AdminGeneratedArtifactReviewProps = {}) {
   const normalizedRouteState = useMemo(() => normalizeReviewRouteState(routeState), [routeState])
   const [armed, setArmed] = useState(false)
@@ -268,7 +270,7 @@ export function AdminGeneratedArtifactReview({
           </div>
         )}
 
-        {result && <ReviewResult result={result} />}
+        {result && <ReviewResult result={result} onMetadataApplyRequest={onMetadataApplyRequest} />}
       </section>
     </div>
   )
@@ -453,7 +455,16 @@ function PayloadSummary({ plan }: { plan: AdminGeneratedArtifactReviewPlanReadMo
   )
 }
 
-function ReviewResult({ result }: { result: AdminGeneratedArtifactReviewMutationResult }) {
+function ReviewResult({
+  result,
+  onMetadataApplyRequest,
+}: {
+  result: AdminGeneratedArtifactReviewMutationResult
+  onMetadataApplyRequest?: (artifactId: string) => void
+}) {
+  const canApplyMetadata =
+    result.decision === "accept" && result.plan.boundary.requiresMetadataAuthorityApply
+
   return (
     <div className="mt-4 rounded-lg border border-success/30 bg-success/5 p-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -469,6 +480,18 @@ function ReviewResult({ result }: { result: AdminGeneratedArtifactReviewMutation
         <Fact label="Decision" value={result.decision} />
         <Fact label="Accepted at" value={result.acceptedAt ? formatDateTime(result.acceptedAt) : "none"} />
       </div>
+      {canApplyMetadata && onMetadataApplyRequest && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-4 gap-2"
+          onClick={() => onMetadataApplyRequest(result.artifactId)}
+        >
+          <ShieldCheck className="h-3.5 w-3.5" />
+          进入 Metadata Authority apply
+        </Button>
+      )}
     </div>
   )
 }

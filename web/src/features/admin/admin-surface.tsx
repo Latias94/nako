@@ -67,6 +67,10 @@ import {
   AdminGeneratedArtifactReview,
   type AdminGeneratedArtifactReviewRouteState,
 } from "./admin-generated-artifact-review"
+import {
+  AdminGeneratedArtifactMetadataApply,
+  type AdminGeneratedArtifactMetadataApplyRouteState,
+} from "./admin-generated-artifact-metadata-apply"
 import { AdminManagementContextNotice } from "./admin-management-context"
 import type { AdminManagementContextRouteState } from "./admin-management-context-state"
 import type { AdminGeneratedArtifactReviewDecision } from "@/src/api/admin/read-models-data-source"
@@ -86,6 +90,7 @@ export type AdminSurfaceSection =
   | "acquisition-intake"
   | "generated-artifacts"
   | "generated-artifact-review"
+  | "generated-artifact-metadata-apply"
   | "libraries"
   | "users"
   | "dlna"
@@ -108,6 +113,7 @@ export interface AdminSurfaceProps {
   generatedArtifactsState?: AdminGeneratedArtifactsRouteState
   onGeneratedArtifactsStateChange?: (state: AdminGeneratedArtifactsRouteState) => void
   generatedArtifactReviewState?: AdminGeneratedArtifactReviewRouteState
+  generatedArtifactMetadataApplyState?: AdminGeneratedArtifactMetadataApplyRouteState
   managementContextState?: AdminManagementContextRouteState
   onGeneratedArtifactReviewStateChange?: (state: AdminGeneratedArtifactReviewRouteState) => void
   onGeneratedArtifactReviewRequest?: (
@@ -115,6 +121,8 @@ export interface AdminSurfaceProps {
     decision: AdminGeneratedArtifactReviewDecision,
   ) => void
   onGeneratedArtifactReviewBack?: () => void
+  onGeneratedArtifactMetadataApplyRequest?: (artifactId: string) => void
+  onGeneratedArtifactMetadataApplyBack?: () => void
 }
 
 interface AdminNavItem {
@@ -202,10 +210,13 @@ export function AdminSurface({
   generatedArtifactsState,
   onGeneratedArtifactsStateChange,
   generatedArtifactReviewState,
+  generatedArtifactMetadataApplyState,
   managementContextState,
   onGeneratedArtifactReviewStateChange,
   onGeneratedArtifactReviewRequest,
   onGeneratedArtifactReviewBack,
+  onGeneratedArtifactMetadataApplyRequest,
+  onGeneratedArtifactMetadataApplyBack,
 }: AdminSurfaceProps = {}) {
   const [activeComponent, setActiveComponent] = useState<AdminSurfaceSection>(activeSection)
   const { data: dashboardData = ADMIN_DASHBOARD_FIXTURE } = useQuery({
@@ -260,6 +271,14 @@ export function AdminSurface({
             routeState={generatedArtifactReviewState}
             onRouteStateChange={onGeneratedArtifactReviewStateChange}
             onBackToQueue={onGeneratedArtifactReviewBack}
+            onMetadataApplyRequest={onGeneratedArtifactMetadataApplyRequest}
+          />
+        )
+      case "generated-artifact-metadata-apply":
+        return (
+          <AdminGeneratedArtifactMetadataApply
+            routeState={generatedArtifactMetadataApplyState}
+            onBackToQueue={onGeneratedArtifactMetadataApplyBack}
           />
         )
       case "scheduled-tasks":
@@ -267,19 +286,19 @@ export function AdminSurface({
       case "dlna":
         return <DLNASettingsPage />
       case "remote-access":
-        return <RemoteAccessPage />
+        return <AdminPlaceholderPage title="远程访问" description="Remote Access Endpoint 和 Network Tunnel Provider 接入后再开放配置面板。" />
       case "transcoding":
         return <TranscodingSettingsPage managementContext={managementContextState} />
       case "network":
-        return <NetworkSettingsPage />
+        return <AdminPlaceholderPage title="网络设置" description="网络代理、DNS 和证书设置等待 Admin API 合约接入。" />
       case "notifications":
-        return <NotificationsPage />
+        return <AdminPlaceholderPage title="通知设置" description="通知渠道会通过 webhook 和事件投递合约接入。" />
       case "backup":
-        return <BackupPage />
+        return <AdminPlaceholderPage title="备份与恢复" description="配置和数据库备份需要 durable job 合约后再开放。" />
       case "advanced":
         return <AdminSettings />
       case "about":
-        return <AboutPage metrics={serverMetrics} />
+        return <AdminPlaceholderPage title="关于 Nako" description={`当前版本 ${serverMetrics.version}`} />
       default:
         return <AdminDashboard data={dashboardData} />
     }
@@ -352,7 +371,9 @@ function AdminNavButton({
 }) {
   const active =
     activeComponent === item.component ||
-    (activeComponent === "generated-artifact-review" && item.component === "generated-artifacts")
+    ((activeComponent === "generated-artifact-review" ||
+      activeComponent === "generated-artifact-metadata-apply") &&
+      item.component === "generated-artifacts")
 
   return (
     <button
@@ -367,6 +388,20 @@ function AdminNavButton({
       <item.icon className="h-4 w-4" />
       <span>{item.name}</span>
     </button>
+  )
+}
+
+function AdminPlaceholderPage({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold">{title}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      </div>
+      <section className="rounded-lg border border-border/50 bg-card p-4">
+        <Badge variant="secondary">planned Admin API</Badge>
+      </section>
+    </div>
   )
 }
 

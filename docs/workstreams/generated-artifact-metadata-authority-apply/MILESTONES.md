@@ -1,7 +1,7 @@
 # Generated Artifact Metadata Authority Apply - Milestones
 
 Status: Active
-Last updated: 2026-05-30
+Last updated: 2026-06-01
 
 ## M0 - Lane Opened
 
@@ -58,6 +58,11 @@ Exit criteria:
 - Review acceptance and Metadata Authority apply remain separate user actions.
 - Browser smoke covers desktop and mobile without layout overlap or fixture-only
   success.
+
+Status: Complete via `GAMA-060`. Web Admin now has a separate apply-plan and
+confirm-apply route with fixture/fallback mutation guards, explicit UI
+idempotency keys, redacted field/outcome facts, focused route/data-source tests,
+budget evidence, and desktop/mobile browser screenshots.
 
 ## M5 - Closeout
 
