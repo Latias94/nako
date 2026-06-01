@@ -7,7 +7,7 @@
   "scope_kind": "admin_web_metadata_candidate_review_governance",
   "problem": "Durable Metadata Candidate Reviews and backend accepted-review application exist, but Admin API/Web must expose review evidence, application plans, and explicit apply mutations without conflating them with existing Provider Mapping row review or Generated Artifact apply workflows.",
   "task_prefix": "AWPDG",
-  "current_task": "AWPDG-030",
+  "current_task": "AWPDG-040",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -59,6 +59,10 @@
     {
       "task": "AWPDG-020",
       "summary": "Exposed redaction-safe read-only Admin API durable Metadata Candidate Review detail and accepted-review application plan facts without writing Provider Subject, Provider Mapping, Canonical Metadata, or related graph node state."
+    },
+    {
+      "task": "AWPDG-030",
+      "summary": "Added an explicit Admin API apply mutation for accepted durable Metadata Candidate Reviews that calls MetadataCandidateReviewApplicationService with stale guards, idempotency-key fingerprinting, replay visibility, and root-only Provider Subject / Provider Mapping application."
     }
   ],
   "adr_refs": [
@@ -88,7 +92,7 @@
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
     "default_action": "run_current_task",
-    "current_task": "AWPDG-030",
-    "notes": "Next add an explicit Admin API apply mutation that calls MetadataCandidateReviewApplicationService with stale guards and idempotency. Keep Web UI, Public Client API, schema migrations, and related-node hierarchy application out of AWPDG-030."
+    "current_task": "AWPDG-040",
+    "notes": "Next add a Web Admin governance surface for durable Candidate Review evidence, plan facts, conflict/noop/replay outcomes, and explicit apply confirmation. Keep Public Client API, schema migrations, and related-node hierarchy application out of AWPDG-040."
   }
 }

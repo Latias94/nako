@@ -20,8 +20,11 @@ Authoritative docs:
 Current execution:
 
 - `AWPDG-010` opens the lane.
-- `AWPDG-020` is ready: add a read-only Admin API surface for durable Candidate
+- `AWPDG-020` shipped a read-only Admin API surface for durable Candidate
   Review detail and application plan evidence.
+- `AWPDG-030` shipped an explicit Admin API apply mutation for accepted
+  Candidate Reviews.
+- `AWPDG-040` is ready: add Web Admin read/confirm/apply UX.
 
 Boundary:
 

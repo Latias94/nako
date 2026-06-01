@@ -52,6 +52,7 @@ export const NAKO_ADMIN_ROUTES = {
   catalogGovernanceProviderMappingReviewPlan: "/admin/v1/catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review-plan",
   catalogGovernanceProviderMappingReview: "/admin/v1/catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review",
   metadataCandidateReview: "/admin/v1/metadata/candidate-reviews/{review_id}",
+  metadataCandidateReviewApply: "/admin/v1/metadata/candidate-reviews/{review_id}/apply",
   events: "/admin/v1/events",
   jobs: "/admin/v1/jobs",
   libraryMetadataProfile: "/admin/v1/libraries/{library_id}/metadata-profile",
@@ -1553,11 +1554,51 @@ export interface AdminMetadataCandidateReviewApplicationBoundary {
   writes_library_files: boolean;
 }
 
+export interface AdminMetadataCandidateReviewApplyRequest {
+  item_id: string;
+  expected_updated_at_ms: number | null;
+  idempotency_key: string;
+}
+
+export interface AdminMetadataCandidateReviewProviderSubject {
+  subject_id: string;
+  provider: AdminExternalProvider;
+  subject_kind: AdminProviderSubjectKind;
+  subject_key: string;
+  title: string | null;
+  release_year: number | null;
+  locale: string | null;
+}
+
+export interface AdminMetadataCandidateReviewProviderMapping {
+  mapping_id: string;
+  item_id: string;
+  subject_id: string;
+  status: AdminProviderMappingStatus;
+  confidence_milli: number | null;
+  source: AdminMetadataSource;
+}
+
 export interface AdminMetadataCandidateReviewResponse {
   admin_api_version: string;
   public_api_version: string;
   review: AdminMetadataCandidateReviewDetail;
   application_plan: AdminMetadataCandidateReviewApplicationPlan;
+  boundary: AdminMetadataCandidateReviewApplicationBoundary;
+}
+
+export interface AdminMetadataCandidateReviewApplyResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  review_id: string;
+  item_id: string;
+  applied: boolean;
+  changed: boolean;
+  idempotent_replay: boolean;
+  idempotency_key_fingerprint: string;
+  plan: AdminMetadataCandidateReviewApplicationPlan;
+  provider_subject: AdminMetadataCandidateReviewProviderSubject | null;
+  provider_mapping: AdminMetadataCandidateReviewProviderMapping | null;
   boundary: AdminMetadataCandidateReviewApplicationBoundary;
 }
 

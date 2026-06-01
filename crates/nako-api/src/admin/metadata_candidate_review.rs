@@ -5,7 +5,8 @@ use nako_core::{
     MetadataCandidateReviewRecord,
     MetadataCandidateReviewRelationship as CoreMetadataCandidateReviewRelationship,
     MetadataCandidateReviewStatus, MetadataCandidateSource, MetadataCandidateSubject,
-    MetadataSource, ProviderMappingId, ProviderMappingStatus,
+    MetadataSource, ProviderMapping, ProviderMappingId, ProviderMappingStatus, ProviderSubject,
+    ProviderSubjectId,
 };
 use serde::{Deserialize, Serialize};
 
@@ -19,6 +20,112 @@ pub struct AdminMetadataCandidateReviewResponse {
     pub review: AdminMetadataCandidateReviewDetail,
     pub application_plan: AdminMetadataCandidateReviewApplicationPlan,
     pub boundary: AdminMetadataCandidateReviewApplicationBoundary,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewApplyRequest {
+    pub item_id: MediaItemId,
+    pub expected_updated_at_ms: Option<i64>,
+    pub idempotency_key: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewApplyResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub review_id: MetadataCandidateReviewId,
+    pub item_id: MediaItemId,
+    pub applied: bool,
+    pub changed: bool,
+    pub idempotent_replay: bool,
+    pub idempotency_key_fingerprint: String,
+    pub plan: AdminMetadataCandidateReviewApplicationPlan,
+    pub provider_subject: Option<AdminMetadataCandidateReviewProviderSubject>,
+    pub provider_mapping: Option<AdminMetadataCandidateReviewProviderMapping>,
+    pub boundary: AdminMetadataCandidateReviewApplicationBoundary,
+}
+
+impl AdminMetadataCandidateReviewApplyResponse {
+    #[must_use]
+    pub fn from_application(
+        review: MetadataCandidateReviewRecord,
+        plan: MetadataCandidateReviewApplicationPlan,
+        provider_subject: Option<ProviderSubject>,
+        provider_mapping: Option<ProviderMapping>,
+        changed: bool,
+        idempotency_key: &str,
+    ) -> Self {
+        let applied = provider_mapping.is_some();
+        let idempotent_replay = applied && !changed;
+        let boundary = AdminMetadataCandidateReviewApplicationBoundary::from_plan(&plan);
+
+        Self {
+            admin_api_version: ADMIN_API_VERSION.to_owned(),
+            public_api_version: API_VERSION.to_owned(),
+            review_id: review.id,
+            item_id: review.item_id,
+            applied,
+            changed,
+            idempotent_replay,
+            idempotency_key_fingerprint: fingerprint_text(idempotency_key),
+            plan: AdminMetadataCandidateReviewApplicationPlan::from_plan(plan),
+            provider_subject: provider_subject
+                .map(AdminMetadataCandidateReviewProviderSubject::from_subject),
+            provider_mapping: provider_mapping
+                .map(AdminMetadataCandidateReviewProviderMapping::from_mapping),
+            boundary,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewProviderSubject {
+    pub subject_id: ProviderSubjectId,
+    pub provider: nako_core::ExternalProvider,
+    pub subject_kind: nako_core::ProviderSubjectKind,
+    pub subject_key: String,
+    pub title: Option<String>,
+    pub release_year: Option<i32>,
+    pub locale: Option<String>,
+}
+
+impl AdminMetadataCandidateReviewProviderSubject {
+    #[must_use]
+    pub fn from_subject(subject: ProviderSubject) -> Self {
+        Self {
+            subject_id: subject.id,
+            provider: subject.provider,
+            subject_kind: subject.subject_kind,
+            subject_key: subject.subject_key,
+            title: subject.title,
+            release_year: subject.release_year,
+            locale: subject.locale,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewProviderMapping {
+    pub mapping_id: ProviderMappingId,
+    pub item_id: MediaItemId,
+    pub subject_id: ProviderSubjectId,
+    pub status: ProviderMappingStatus,
+    pub confidence_milli: Option<u16>,
+    pub source: MetadataSource,
+}
+
+impl AdminMetadataCandidateReviewProviderMapping {
+    #[must_use]
+    pub fn from_mapping(mapping: ProviderMapping) -> Self {
+        Self {
+            mapping_id: mapping.id,
+            item_id: mapping.item_id,
+            subject_id: mapping.subject_id,
+            status: mapping.status,
+            confidence_milli: mapping.confidence_milli,
+            source: mapping.source,
+        }
+    }
 }
 
 impl AdminMetadataCandidateReviewResponse {
@@ -305,4 +412,10 @@ impl AdminMetadataCandidateReviewApplicationBoundary {
 
 fn saturating_u32_len(value: usize) -> u32 {
     u32::try_from(value).unwrap_or(u32::MAX)
+}
+
+fn fingerprint_text(value: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(value.as_bytes());
+    format!("{:x}", digest)[..16].to_owned()
 }

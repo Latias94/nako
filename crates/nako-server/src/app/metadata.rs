@@ -1,7 +1,10 @@
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use nako_api::{
-    admin::AdminMetadataCandidateReviewResponse,
+    admin::{
+        AdminMetadataCandidateReviewApplyRequest, AdminMetadataCandidateReviewApplyResponse,
+        AdminMetadataCandidateReviewResponse,
+    },
     metadata_diagnostics::{
         EnqueueMetadataMaintenanceRequest, MetadataCandidateReviewDecision,
         MetadataCandidateReviewDecisionKind, MetadataCandidateReviewLookup,
@@ -28,6 +31,7 @@ use nako_db::NakoDatabase;
 use nako_metadata::{
     MetadataAttemptPort, MetadataCandidateConflictReview, MetadataCandidateConflictReviewStatus,
     MetadataCandidateMatch, MetadataCandidateMatchDecision, MetadataCandidateMatchReason,
+    MetadataCandidateReviewApplicationRequest, MetadataCandidateReviewApplicationService,
     MetadataProviderRegistry, MetadataRefreshCommit, MetadataRefreshJobInput, MetadataRefreshPort,
     MetadataRefreshRequest, MetadataRefreshSnapshot, MetadataRefreshSummary,
     MetadataStrategyExecutor, build_candidate_conflict_review,
@@ -493,6 +497,34 @@ impl MetadataAppService {
         Ok(AdminMetadataCandidateReviewResponse::new(
             review,
             application_plan,
+        ))
+    }
+
+    pub async fn apply_admin_metadata_candidate_review(
+        &self,
+        review_id: MetadataCandidateReviewId,
+        request: AdminMetadataCandidateReviewApplyRequest,
+    ) -> Result<AdminMetadataCandidateReviewApplyResponse> {
+        let idempotency_key =
+            normalize_candidate_review_apply_idempotency_key(&request.idempotency_key)?;
+        let applied_at_ms = super::current_time_ms()?;
+        let summary =
+            MetadataCandidateReviewApplicationService::new(self.execution_store.store.clone())
+                .apply(MetadataCandidateReviewApplicationRequest {
+                    review_id,
+                    item_id: request.item_id,
+                    applied_at_ms,
+                    expected_updated_at_ms: request.expected_updated_at_ms,
+                })
+                .await?;
+
+        Ok(AdminMetadataCandidateReviewApplyResponse::from_application(
+            summary.review,
+            summary.plan,
+            summary.provider_subject,
+            summary.provider_mapping,
+            summary.changed,
+            &idempotency_key,
         ))
     }
 
@@ -1455,6 +1487,23 @@ fn metadata_maintenance_resource_class(request: &EnqueueMetadataMaintenanceReque
         .and_then(|providers| providers.first())
         .map(|provider| format!("metadata.{}", provider_resource_name(provider)))
         .unwrap_or_else(|| "metadata.maintenance".to_owned())
+}
+
+fn normalize_candidate_review_apply_idempotency_key(value: &str) -> Result<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err(NakoError::InvalidInput {
+            message: "metadata candidate review apply idempotency_key cannot be empty".to_owned(),
+        });
+    }
+    if trimmed.len() > 512 {
+        return Err(NakoError::InvalidInput {
+            message: "metadata candidate review apply idempotency_key must be 512 bytes or fewer"
+                .to_owned(),
+        });
+    }
+
+    Ok(trimmed.to_owned())
 }
 
 fn apply_metadata_provider_override(

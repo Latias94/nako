@@ -8,18 +8,20 @@ Last updated: 2026-06-02
 The lane is opened from `accepted-review-provider-mapping-application`
 closeout. Backend accepted-review root Provider Mapping application exists, and
 `AWPDG-020` has added read-only Admin API inspection for durable Candidate
-Review detail and application-plan facts.
+Review detail and application-plan facts. `AWPDG-030` has added the explicit
+Admin API apply mutation for accepted Candidate Reviews with stale guards,
+idempotency-key fingerprinting, replay visibility, and root-only Provider
+Subject / Provider Mapping application.
 
 ## Active Task
 
-- Task ID: `AWPDG-030`
+- Task ID: `AWPDG-040`
 - Owner: codex
-- Files: `crates/nako-api`, `crates/nako-server`, `crates/nako-metadata`, and
+- Files: `web/src/api/admin`, `web/src/features/admin`, `web/src/test`, and
   this workstream evidence
-- Validation: `cargo nextest run -p nako-api admin_contract --no-fail-fast`;
-  `cargo nextest run -p nako-server candidate_review admin --no-fail-fast`;
-  `cargo nextest run -p nako-metadata candidate_review_application --no-fail-fast`;
-  `cargo fmt --all -- --check`; `git diff --check`
+- Validation: `npm --prefix web run test`; `npm --prefix web run check`;
+  `npm --prefix web run build:budget`; browser smoke if a route is added;
+  `git diff --check`
 - Status: READY
 - Evidence: `docs/workstreams/admin-web-provider-depth-governance/EVIDENCE_AND_GATES.md`
 
@@ -38,13 +40,20 @@ Review detail and application-plan facts.
   plan rules.
 - `GET /admin/v1/metadata/candidate-reviews/{review_id}` is read-only and
   exposes preview related nodes without applying them.
+- `POST /admin/v1/metadata/candidate-reviews/{review_id}/apply` calls
+  `MetadataCandidateReviewApplicationService`; HTTP does not duplicate apply
+  rules.
+- Admin apply responses expose idempotency fingerprints only, never raw
+  idempotency keys.
+- Admin apply remains root-only; preview related nodes are not persisted as
+  hierarchy subjects by this mutation.
 
 ## Blockers
 
-- None for `AWPDG-030`.
+- None for `AWPDG-040`.
 
 ## Next Recommended Action
 
-- Open an `AWPDG-030` mutation campaign and add an explicit Admin API apply
-  route that calls `MetadataCandidateReviewApplicationService` with stale
-  guards and idempotency.
+- Implement `AWPDG-040`: add Web Admin read/confirm/apply UX for durable
+  Candidate Review evidence, plan facts, conflict/noop/replay results, and the
+  explicit apply confirmation path.

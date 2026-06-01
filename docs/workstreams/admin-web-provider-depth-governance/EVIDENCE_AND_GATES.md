@@ -114,3 +114,41 @@ Green checks:
   passed: 108 tests run, 108 passed.
 - `cargo fmt --all -- --check` passed.
 - `git diff --check` passed with Git CRLF normalization warnings only.
+
+## AWPDG-030 Evidence
+
+Implemented behavior:
+
+- added `POST /admin/v1/metadata/candidate-reviews/{review_id}/apply`;
+- added an explicit Admin apply request with `item_id`,
+  `expected_updated_at_ms`, and an operator-provided `idempotency_key`;
+- validated the idempotency key at the Admin boundary and exposed only a short
+  fingerprint in responses;
+- called `MetadataCandidateReviewApplicationService` instead of duplicating
+  apply rules in HTTP;
+- made apply, conflict, noop, and idempotent replay outcomes visible through
+  Admin DTO fields;
+- proved stale `expected_updated_at_ms` conflicts do not write Provider Mapping
+  state;
+- proved empty idempotency keys fail with `invalid_input`;
+- persisted only the root Provider Subject and accepted Provider Mapping on
+  first apply;
+- kept related candidate nodes as preview evidence and did not persist related
+  hierarchy subjects;
+- regenerated both Admin TypeScript contract outputs.
+
+Red check:
+
+- `cargo nextest run -p nako-server admin_v1_metadata_candidate_review_apply_commits_root_mapping_and_replays --no-fail-fast`
+  initially failed because the Admin apply DTOs and route did not exist.
+
+Green checks:
+
+- `cargo nextest run -p nako-server admin_v1_metadata_candidate_review_apply_commits_root_mapping_and_replays --no-fail-fast`
+  passed: 1 test run, 1 passed.
+- `cargo nextest run -p nako-api admin_contract --no-fail-fast` passed: 5
+  tests run, 5 passed.
+- `cargo nextest run -p nako-metadata candidate_review_application --no-fail-fast`
+  passed: 6 tests run, 6 passed.
+- `cargo nextest run -p nako-server candidate_review admin --no-fail-fast`
+  passed: 109 tests run, 109 passed.

@@ -28,7 +28,7 @@ Exit criteria:
 
 ## M2 - Confirmed Admin API Apply Mutation
 
-Status: Ready after `AWPDG-020`.
+Status: Complete after `AWPDG-030`.
 
 Exit criteria:
 
@@ -39,7 +39,7 @@ Exit criteria:
 
 ## M3 - Web Admin Governance Surface
 
-Status: Pending after `AWPDG-030`.
+Status: Ready after `AWPDG-030`.
 
 Exit criteria:
 

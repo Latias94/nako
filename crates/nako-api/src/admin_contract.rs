@@ -1,6 +1,6 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 65] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 66] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -129,6 +129,10 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 65] = [
     (
         "metadataCandidateReview",
         "metadata/candidate-reviews/{review_id}",
+    ),
+    (
+        "metadataCandidateReviewApply",
+        "metadata/candidate-reviews/{review_id}/apply",
     ),
     ("events", "events"),
     ("jobs", "jobs"),
@@ -1664,11 +1668,51 @@ export interface AdminMetadataCandidateReviewApplicationBoundary {
   writes_library_files: boolean;
 }
 
+export interface AdminMetadataCandidateReviewApplyRequest {
+  item_id: string;
+  expected_updated_at_ms: number | null;
+  idempotency_key: string;
+}
+
+export interface AdminMetadataCandidateReviewProviderSubject {
+  subject_id: string;
+  provider: AdminExternalProvider;
+  subject_kind: AdminProviderSubjectKind;
+  subject_key: string;
+  title: string | null;
+  release_year: number | null;
+  locale: string | null;
+}
+
+export interface AdminMetadataCandidateReviewProviderMapping {
+  mapping_id: string;
+  item_id: string;
+  subject_id: string;
+  status: AdminProviderMappingStatus;
+  confidence_milli: number | null;
+  source: AdminMetadataSource;
+}
+
 export interface AdminMetadataCandidateReviewResponse {
   admin_api_version: string;
   public_api_version: string;
   review: AdminMetadataCandidateReviewDetail;
   application_plan: AdminMetadataCandidateReviewApplicationPlan;
+  boundary: AdminMetadataCandidateReviewApplicationBoundary;
+}
+
+export interface AdminMetadataCandidateReviewApplyResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  review_id: string;
+  item_id: string;
+  applied: boolean;
+  changed: boolean;
+  idempotent_replay: boolean;
+  idempotency_key_fingerprint: string;
+  plan: AdminMetadataCandidateReviewApplicationPlan;
+  provider_subject: AdminMetadataCandidateReviewProviderSubject | null;
+  provider_mapping: AdminMetadataCandidateReviewProviderMapping | null;
   boundary: AdminMetadataCandidateReviewApplicationBoundary;
 }
 
@@ -3033,6 +3077,10 @@ mod tests {
             "AdminMetadataCandidateReviewMetadataSummary",
             "AdminMetadataCandidateReviewApplicationPlan",
             "AdminMetadataCandidateReviewApplicationBoundary",
+            "AdminMetadataCandidateReviewApplyRequest",
+            "AdminMetadataCandidateReviewApplyResponse",
+            "AdminMetadataCandidateReviewProviderSubject",
+            "AdminMetadataCandidateReviewProviderMapping",
             "AdminMetadataCandidateReviewApplicationAction",
             "AdminMetadataCandidateReviewApplicationReason",
             "AdminOutboxEventsQuery",

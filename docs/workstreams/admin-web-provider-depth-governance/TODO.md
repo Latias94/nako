@@ -22,11 +22,11 @@ Last updated: 2026-06-02
 
 ## M2 - Confirmed Admin API Apply Mutation
 
-- [ ] AWPDG-030 [owner=codex] [deps=AWPDG-020] [scope=crates/nako-api,crates/nako-server,crates/nako-metadata,docs/workstreams/admin-web-provider-depth-governance]
+- [x] AWPDG-030 [owner=codex] [deps=AWPDG-020] [scope=crates/nako-api,crates/nako-server,crates/nako-metadata,docs/workstreams/admin-web-provider-depth-governance]
   Goal: Add an explicit Admin API mutation that applies an accepted review through `MetadataCandidateReviewApplicationService` with stale guards and idempotency.
   Validation: `cargo nextest run -p nako-api admin_contract --no-fail-fast`; `cargo nextest run -p nako-server candidate_review admin --no-fail-fast`; `cargo nextest run -p nako-metadata candidate_review_application --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: mutation must apply only root Provider Subject / Provider Mapping state and must make noop/conflict/replay behavior visible.
-  Evidence: `EVIDENCE_AND_GATES.md`.
+  Evidence: `EVIDENCE_AND_GATES.md` (`AWPDG-030 Evidence`).
   Handoff: Continue to `AWPDG-040`.
 
 ## M3 - Web Admin Governance Surface

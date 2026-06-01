@@ -2,6 +2,7 @@ use super::*;
 use nako_api::admin::{
     AdminGeneratedArtifactMetadataApplyRecoveryResponse,
     AdminMetadataCandidateReviewApplicationAction, AdminMetadataCandidateReviewApplicationReason,
+    AdminMetadataCandidateReviewApplyRequest, AdminMetadataCandidateReviewApplyResponse,
     AdminMetadataCandidateReviewResponse, AdminStorageBackendHealthDiagnosticsResponse,
     AdminStorageBackendHealthResetResponse,
 };
@@ -1039,6 +1040,272 @@ async fn admin_v1_metadata_candidate_review_detail_is_redacted_and_read_only() {
     assert!(!body.contains("token=secret"));
     assert!(!body.contains("sha256-private-candidate-review"));
     assert!(!body.contains(&temp.path().display().to_string()));
+}
+
+#[tokio::test]
+async fn admin_v1_metadata_candidate_review_apply_commits_root_mapping_and_replays() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("nako-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Series,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Apply Candidate".to_owned(),
+            release_date: Some("2026-05-30".to_owned()),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: "local:///Private/Apply.Candidate.S01E01.mkv?token=secret".to_owned(),
+        file_name: "Apply.Candidate.S01E01.mkv".to_owned(),
+        size_bytes: Some(42),
+        fingerprint: Some("sha256-private-candidate-apply".to_owned()),
+    };
+    let root_subject = MetadataCandidateSubject {
+        provider: ExternalProvider::Bangumi,
+        subject_kind: ProviderSubjectKind::Subject,
+        subject_key: "1437".to_owned(),
+        title: Some("Apply Candidate".to_owned()),
+        release_year: Some(2026),
+        locale: Some("zh-CN".to_owned()),
+    };
+    let related_subject = MetadataCandidateSubject {
+        provider: ExternalProvider::Bangumi,
+        subject_kind: ProviderSubjectKind::Episode,
+        subject_key: "1437/1".to_owned(),
+        title: Some("Episode One".to_owned()),
+        release_year: Some(2026),
+        locale: Some("zh-CN".to_owned()),
+    };
+    let review_id = MetadataCandidateReviewId::new();
+    store.upsert_media_item(&item).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id,
+            item_id: item.id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+    let inserted = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: review_id,
+            item_id: item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+            source_key: "bangumi:1437".to_owned(),
+            plan: MetadataCandidateReviewPlan {
+                root: MetadataCandidateReviewNode {
+                    source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+                    kind: MediaKind::Series,
+                    subject: Some(root_subject.clone()),
+                    metadata: MetadataCandidateRecord {
+                        title: Some("Apply Candidate".to_owned()),
+                        overview: Some("secret apply overview".to_owned()),
+                        release_date: Some("2026-05-30".to_owned()),
+                        tags: vec!["secret-apply-tag".to_owned()],
+                        ..MetadataCandidateRecord::default()
+                    },
+                },
+                related: vec![MetadataCandidateReviewNode {
+                    source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+                    kind: MediaKind::Episode,
+                    subject: Some(related_subject.clone()),
+                    metadata: MetadataCandidateRecord {
+                        title: Some("Episode One".to_owned()),
+                        overview: Some("secret related apply overview".to_owned()),
+                        release_date: Some("2026-06-01".to_owned()),
+                        ..MetadataCandidateRecord::default()
+                    },
+                }],
+                relationships: vec![MetadataCandidateReviewRelationship {
+                    parent_subject: root_subject,
+                    child_subject: related_subject,
+                    kind: MetadataCandidateRelationshipKind::Contains,
+                }],
+            },
+            expires_at_ms: None,
+            created_at_ms: 100,
+            updated_at_ms: 200,
+        })
+        .await
+        .unwrap();
+    let accepted = store
+        .set_metadata_candidate_review_status(
+            inserted.id,
+            DurableMetadataCandidateReviewStatus::Accepted,
+            300,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+
+    let router = build_router(app);
+    let path = format!("/admin/v1/metadata/candidate-reviews/{review_id}/apply");
+    let request = AdminMetadataCandidateReviewApplyRequest {
+        item_id: item.id,
+        expected_updated_at_ms: Some(accepted.updated_at_ms),
+        idempotency_key: "candidate-review:operator-confirmation:secret".to_owned(),
+    };
+    let stale_response = response_body_json(
+        &router,
+        Method::POST,
+        &path,
+        &AdminMetadataCandidateReviewApplyRequest {
+            item_id: item.id,
+            expected_updated_at_ms: Some(accepted.updated_at_ms - 1),
+            idempotency_key: "candidate-review:stale-secret".to_owned(),
+        },
+    )
+    .await;
+    assert_eq!(stale_response.status(), StatusCode::CONFLICT);
+    let stale_body = response_text(stale_response).await;
+    let stale_error: ErrorResponse = serde_json::from_str(&stale_body).unwrap();
+    assert_eq!(stale_error.code, "conflict");
+    assert!(!stale_body.contains("candidate-review:stale-secret"));
+    assert!(
+        store
+            .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+            .await
+            .unwrap()
+            .is_empty()
+    );
+
+    let empty_key_response = response_body_json(
+        &router,
+        Method::POST,
+        &path,
+        &AdminMetadataCandidateReviewApplyRequest {
+            item_id: item.id,
+            expected_updated_at_ms: Some(accepted.updated_at_ms),
+            idempotency_key: "  ".to_owned(),
+        },
+    )
+    .await;
+    assert_eq!(empty_key_response.status(), StatusCode::BAD_REQUEST);
+    let empty_key_body = response_text(empty_key_response).await;
+    let empty_key_error: ErrorResponse = serde_json::from_str(&empty_key_body).unwrap();
+    assert_eq!(empty_key_error.code, "invalid_input");
+
+    let response = response_body_json(&router, Method::POST, &path, &request).await;
+    let status = response.status();
+    let body = response_text(response).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let applied: AdminMetadataCandidateReviewApplyResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(applied.review_id, review_id);
+    assert_eq!(applied.item_id, item.id);
+    assert!(applied.applied);
+    assert!(applied.changed);
+    assert!(!applied.idempotent_replay);
+    assert!(!applied.idempotency_key_fingerprint.is_empty());
+    assert_eq!(
+        applied.plan.action,
+        AdminMetadataCandidateReviewApplicationAction::Apply
+    );
+    assert_eq!(
+        applied.provider_subject.as_ref().unwrap().subject_key,
+        "1437"
+    );
+    assert_eq!(
+        applied.provider_mapping.as_ref().unwrap().status,
+        ProviderMappingStatus::Accepted
+    );
+    assert!(applied.boundary.apply_updates_root_provider_subject);
+    assert!(applied.boundary.apply_updates_root_provider_mapping);
+    assert!(!applied.boundary.apply_updates_related_provider_subjects);
+    assert!(!applied.boundary.updates_hierarchy);
+
+    let provider_mappings = store
+        .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(provider_mappings.len(), 1);
+    assert_eq!(provider_mappings[0].status, ProviderMappingStatus::Accepted);
+    assert!(
+        store
+            .find_provider_subject(
+                &ExternalProvider::Bangumi,
+                &ProviderSubjectKind::Episode,
+                "1437/1"
+            )
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(!body.contains("candidate-review:operator-confirmation:secret"));
+    assert!(!body.contains("secret apply overview"));
+    assert!(!body.contains("secret related apply overview"));
+    assert!(!body.contains("secret-apply-tag"));
+    assert!(!body.contains("local:///"));
+    assert!(!body.contains("sha256-private-candidate-apply"));
+    assert!(!body.contains(&temp.path().display().to_string()));
+
+    let replay = response_body_json(&router, Method::POST, &path, &request).await;
+    let replay_status = replay.status();
+    let replay_body = response_text(replay).await;
+    assert_eq!(replay_status, StatusCode::OK, "{replay_body}");
+    let replayed: AdminMetadataCandidateReviewApplyResponse =
+        serde_json::from_str(&replay_body).unwrap();
+
+    assert!(replayed.applied);
+    assert!(!replayed.changed);
+    assert!(replayed.idempotent_replay);
+    assert_eq!(replayed.provider_mapping, applied.provider_mapping);
+    assert_eq!(
+        replayed.plan.action,
+        AdminMetadataCandidateReviewApplicationAction::Noop
+    );
+    assert_eq!(
+        store
+            .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+    assert!(!replay_body.contains("candidate-review:operator-confirmation:secret"));
+    assert!(!replay_body.contains("secret apply overview"));
+    assert!(!replay_body.contains("secret related apply overview"));
+    assert!(!replay_body.contains("local:///"));
 }
 
 #[tokio::test]
