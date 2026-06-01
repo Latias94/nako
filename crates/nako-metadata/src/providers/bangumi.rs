@@ -84,15 +84,11 @@ impl MetadataProvider for BangumiMetadataProvider {
             supported_media_kinds: vec![
                 MediaKind::Movie,
                 MediaKind::Series,
-                MediaKind::Season,
-                MediaKind::Episode,
                 MediaKind::Unknown,
             ],
             supported_subject_kinds: vec![
                 ProviderSubjectKind::Movie,
                 ProviderSubjectKind::Series,
-                ProviderSubjectKind::Season,
-                ProviderSubjectKind::Episode,
                 ProviderSubjectKind::Subject,
             ],
             supports_search: true,
@@ -101,7 +97,8 @@ impl MetadataProvider for BangumiMetadataProvider {
             supports_hierarchy: false,
             credential_requirement: MetadataProviderCredentialRequirement::Optional,
             notes: vec![
-                "Bangumi subject metadata is provider-subject oriented; hierarchy confirmation remains Nako-owned".to_owned(),
+                "Bangumi subject metadata is subject-level and anime-first; relation and episode endpoints are not advertised until implemented".to_owned(),
+                "Hierarchy confirmation remains Nako-owned".to_owned(),
             ],
         }
     }
@@ -114,15 +111,11 @@ impl MetadataProvider for BangumiMetadataProvider {
         if !lookup.kind.is_none_or(|kind| {
             matches!(
                 kind,
-                MediaKind::Movie
-                    | MediaKind::Series
-                    | MediaKind::Season
-                    | MediaKind::Episode
-                    | MediaKind::Unknown
+                MediaKind::Movie | MediaKind::Series | MediaKind::Unknown
             )
         }) {
             return Err(NakoError::Unsupported(
-                "Bangumi provider supports video metadata lookups only",
+                "Bangumi provider supports subject-level anime lookups only; season and episode require dedicated endpoints",
             ));
         }
 
@@ -182,14 +175,10 @@ impl MetadataProvider for BangumiMetadataProvider {
     async fn fetch(&self, request: MetadataFetchRequest) -> Result<MetadataFetchResult> {
         if !matches!(
             request.kind,
-            MediaKind::Movie
-                | MediaKind::Series
-                | MediaKind::Season
-                | MediaKind::Episode
-                | MediaKind::Unknown
+            MediaKind::Movie | MediaKind::Series | MediaKind::Unknown
         ) {
             return Err(NakoError::Unsupported(
-                "Bangumi provider supports video metadata only",
+                "Bangumi provider supports subject-level anime fetches only; season and episode require dedicated endpoints",
             ));
         }
 

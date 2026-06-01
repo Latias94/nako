@@ -13,11 +13,11 @@ Last updated: 2026-06-02
 
 ## M1 - Endpoint-Backed Capability Claims
 
-- [ ] BRED-020 [owner=codex] [deps=BRED-010] [scope=crates/nako-metadata/src/providers/bangumi.rs,crates/nako-metadata/src/tests.rs,docs/workstreams/bangumi-relations-and-episode-depth]
+- [x] BRED-020 [owner=codex] [deps=BRED-010] [scope=crates/nako-metadata/src/providers/bangumi.rs,crates/nako-metadata/src/tests.rs,docs/workstreams/bangumi-relations-and-episode-depth]
   Goal: Narrow Bangumi provider media/subject capability claims to endpoint-backed behavior and add regression coverage.
   Validation: `cargo nextest run -p nako-metadata bangumi_provider metadata_candidate --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`.
-  Review: no false season/episode support remains before episode endpoints are implemented.
-  Evidence: `EVIDENCE_AND_GATES.md`.
+  Review: no false season/episode support remains before episode endpoints are implemented. Passed on 2026-06-02.
+  Evidence: `EVIDENCE_AND_GATES.md` BRED-020 section.
   Handoff: Continue to `BRED-030`.
 
 ## M2 - Bangumi Episode Graph Preview

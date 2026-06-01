@@ -24,8 +24,10 @@ Authoritative docs:
 Current execution:
 
 - `BRED-010` opens the lane.
-- `BRED-020` is ready: tighten Bangumi provider capability claims around
+- `BRED-020` tightened Bangumi provider capability claims around
   endpoint-backed behavior before adding graph depth.
+- `BRED-030` is ready: add endpoint-backed Bangumi episode graph preview for
+  series fetches without changing persistence.
 
 Boundary:
 

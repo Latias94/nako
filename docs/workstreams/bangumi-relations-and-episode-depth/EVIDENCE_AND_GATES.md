@@ -61,6 +61,42 @@ Local and official-spec recon on 2026-06-02:
 - The first implementation slice should remove false capability claims before
   adding relation or episode graph depth.
 
+## BRED-020 Evidence
+
+Completed on 2026-06-02.
+
+Implementation:
+
+- Bangumi `MetadataProviderCapabilities` now advertises only endpoint-backed
+  subject-level `Movie`, `Series`, and `Unknown` media kinds.
+- Bangumi supported Provider Subject kinds no longer include `Season` or
+  `Episode`.
+- Bangumi `search` and `fetch` reject Season/Episode requests before provider
+  HTTP calls until dedicated relation or episode endpoints are implemented.
+- Existing Bangumi subject search/fetch and refresh mapping behavior remains
+  compatible.
+
+Validation:
+
+```bash
+cargo nextest run -p nako-metadata bangumi_provider built_in_provider_capabilities --no-fail-fast
+```
+
+Result: initially failed as expected before implementation, then passed with 4
+tests after capability narrowing.
+
+```bash
+cargo nextest run -p nako-metadata bangumi_provider metadata_candidate --no-fail-fast
+```
+
+Result: passed, 4 tests.
+
+```bash
+cargo fmt --all -- --check
+```
+
+Result: passed.
+
 ## Notes
 
 - Do not change persistence semantics from this lane.

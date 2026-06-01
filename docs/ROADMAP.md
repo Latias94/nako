@@ -35,7 +35,8 @@ Authoritative lane:
 
 Next task:
 
-- `BRED-020`: narrow Bangumi capability claims and add regression coverage.
+- `BRED-030`: add endpoint-backed Bangumi episode graph preview for series
+  fetches without changing persistence behavior.
 
 Latest completed architecture focus:
 

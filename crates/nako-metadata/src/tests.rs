@@ -110,8 +110,19 @@ fn built_in_provider_capabilities_are_diagnostics_safe() {
     assert!(
         bangumi_capabilities
             .supported_media_kinds
+            .contains(&MediaKind::Series)
+    );
+    assert!(
+        !bangumi_capabilities
+            .supported_media_kinds
             .contains(&MediaKind::Episode)
     );
+    assert!(
+        !bangumi_capabilities
+            .supported_subject_kinds
+            .contains(&ProviderSubjectKind::Episode)
+    );
+    assert!(!bangumi_capabilities.supports_hierarchy);
     assert_eq!(
         douban_capabilities.credential_requirement,
         MetadataProviderCredentialRequirement::Optional
@@ -2368,6 +2379,45 @@ async fn bangumi_provider_uses_runtime_and_maps_http_response() {
             .iter()
             .any(|value| value == &format!("Bearer {}", fixtures::BANGUMI_TOKEN))
     );
+}
+
+#[tokio::test]
+async fn bangumi_provider_rejects_season_episode_until_endpoint_backed() {
+    let server = MockMetadataServer::start().await;
+    let provider = BangumiMetadataProvider::new(BangumiProviderConfig {
+        access_token: Some(fixtures::BANGUMI_TOKEN.into()),
+        api_base_url: server.base_url(),
+        runtime: MetadataHttpRuntimeConfig {
+            min_interval_ms: 0,
+            user_agent: "nako-bangumi-test".to_owned(),
+            ..MetadataHttpRuntimeConfig::default()
+        },
+        ..BangumiProviderConfig::default()
+    })
+    .unwrap();
+
+    let search_err = provider
+        .search(MetadataLookup {
+            kind: Some(MediaKind::Episode),
+            title: "Asteroid Blues".to_owned(),
+            year: Some(1998),
+            language: Some("zh-CN".to_owned()),
+            external_ids: Vec::new(),
+        })
+        .await
+        .unwrap_err();
+    let fetch_err = provider
+        .fetch(MetadataFetchRequest {
+            kind: MediaKind::Episode,
+            provider_key: "8/1".to_owned(),
+            language: Some("zh-CN".to_owned()),
+        })
+        .await
+        .unwrap_err();
+
+    assert!(matches!(search_err, NakoError::Unsupported(_)));
+    assert!(matches!(fetch_err, NakoError::Unsupported(_)));
+    assert!(server.uris().is_empty());
 }
 
 #[tokio::test]
