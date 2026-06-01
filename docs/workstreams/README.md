@@ -18,8 +18,6 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 
 Last reviewed: 2026-06-01
 
-- [mvp-release-shape](mvp-release-shape/README.md) is active on lane
-  `mvp-release-convergence`; next task is `MRS-050`.
 - [web-mvp-live-smoke](web-mvp-live-smoke/README.md) is active on lane
   `web-product`; next task is `WMLS-040`.
 - [generated-artifact-metadata-authority-apply](generated-artifact-metadata-authority-apply/README.md)
@@ -29,8 +27,9 @@ Last reviewed: 2026-06-01
 - [playback-transcode-jellyfin-class-hardening](playback-transcode-jellyfin-class-hardening/README.md)
   is active on lane `playback-transcode`; next task is `PTJCH-310`.
 
-Planner coordination should use `mvp-release-shape` to decide which active
-tails block the first release. Keep `GAMA-060` blocked until `GAMA-050` is
+`mvp-release-shape` is closed. Open focused follow-ons for actual release
+artifact publication, one-command release-gate wrapping, official addon smoke,
+or any product-scope change to the MVP cut. Keep `GAMA-060` blocked until `GAMA-050` is
 reviewed and verified or the GAMA ledger is reconciled. `CSAPA` should split
 or explicitly defer desktop playback before closeout. The `web-product` lane
 is active only for `web-mvp-live-smoke` Gate 3 release evidence.
@@ -46,7 +45,7 @@ should still split to PAIP unless `PTJCH-310` explicitly accepts it.
 
 ## Current Workstreams
 
-- [mvp-release-shape](mvp-release-shape/README.md): active planner-owned
+- [mvp-release-shape](mvp-release-shape/README.md): closed planner-owned
   release convergence lane for defining the first video-first, self-hosted,
   single-admin Nako MVP; routing release blockers to existing lanes; and
   keeping post-MVP Jellyfin/Plex-class breadth out of the first release cut.

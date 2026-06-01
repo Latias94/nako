@@ -47,11 +47,12 @@ Primary map: `docs/workstreams/mvp-release-shape/MVP.md`
 
 Evidence workstreams:
 
-- `docs/workstreams/mvp-release-shape/`
+- `docs/workstreams/mvp-release-shape/` (closed)
 
-This is a planner-owned release convergence overlay. It routes release
+This was a planner-owned release convergence overlay. It routed release
 blockers to existing capability lanes instead of replacing playback, storage,
-web, addon, client, or operations ownership.
+web, addon, client, or operations ownership. Future release execution should
+open focused follow-on workstreams.
 
 ## Playback And Transcode
 

@@ -2,17 +2,18 @@
   "schema_version": 1,
   "slug": "mvp-release-shape",
   "title": "MVP Release Shape",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-06-01",
   "scope_kind": "product_architecture",
   "problem": "Nako has strong capability lanes, but needs a release-shaped MVP boundary so future work converges on the first usable self-hosted video-first release instead of expanding all Jellyfin/Plex-class breadth at once.",
   "task_prefix": "MRS",
-  "current_task": "MRS-050",
+  "current_task": null,
   "completed_tasks": [
     "MRS-010",
     "MRS-020",
     "MRS-030",
-    "MRS-040"
+    "MRS-040",
+    "MRS-050"
   ],
   "authoritative_docs": [
     {
@@ -52,6 +53,10 @@
       "path": "docs/workstreams/mvp-release-shape/EVIDENCE_AND_GATES.md"
     },
     {
+      "role": "closeout",
+      "path": "docs/workstreams/mvp-release-shape/CLOSEOUT.md"
+    },
+    {
       "role": "context_manifest",
       "path": "docs/workstreams/mvp-release-shape/CONTEXT.jsonl"
     },
@@ -84,7 +89,7 @@
     },
     {
       "task": "MRS-050",
-      "summary": "Integrated the first MVP campaigns on main: PTJCH-220 playback runtime closeout and web-mvp-live-smoke deterministic Web/Public Client smoke. Started release-candidate validation and passed Gate 0, Gate 1, and Gate 2 after aligning stale Admin Web fixtures and the external acquisition runner catalog test with current contracts. Operations release wrapper remains optional; official addon alpha smoke remains conditional."
+      "summary": "Integrated the first MVP campaigns on main: PTJCH-220 playback runtime closeout and web-mvp-live-smoke deterministic Web/Public Client smoke. Release-candidate validation passes Gate 0 through Gate 5 and Gate 7 after aligning stale Admin Web fixtures and the external acquisition runner catalog test with current contracts. Gate 6 is skipped by MVP scope because this candidate does not claim an official Addon Sidecar proof. Operations release wrapper remains optional."
     }
   ],
   "adr_refs": [
@@ -141,7 +146,7 @@
   ],
   "lane_slug": "mvp-release-convergence",
   "continue_policy": {
-    "default_action": "continue_current_task",
-    "notes": "Continue MRS-050 as release-candidate coordination: Gate 0, Gate 1, and Gate 2 pass; continue from Gate 3 Web/Public Client validation, split an operations-release wrapper only if one-command proof is required, and keep GAMA/CSAPA out of the MVP campaign unless the product cut changes."
+    "default_action": "closed",
+    "notes": "The MVP release-shape planning lane is closed. Gate 0 through Gate 5 and Gate 7 pass; Gate 6 is skipped unless a future release claims an official Addon Sidecar proof. Open a focused follow-on for release artifact publication, one-command gate wrapping, official addon smoke, or any product decision that changes MVP scope."
   }
 }

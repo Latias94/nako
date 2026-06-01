@@ -1,6 +1,6 @@
 # MVP Release Shape - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 ## Source Coverage Audit
@@ -343,9 +343,9 @@ non-MVP-blocking by this lane. `WORKSTREAM.json` is valid. `git diff --check`
 emitted LF/CRLF working-copy warnings for touched Markdown files and no
 whitespace errors.
 
-### MRS-050 - Campaign Integration And RC Validation
+### MRS-050 - Campaign Integration, RC Validation, And Closeout
 
-Status: In progress
+Status: Done
 
 Evidence collected:
 
@@ -361,10 +361,10 @@ Evidence collected:
   smoke conditional.
 - The operations release wrapper remains optional until the team requires a
   single command for the full video-first ladder.
-- Release-candidate validation has started on `main`. Gate 0 and Gate 1 pass;
-  Gate 2 passes after aligning the external acquisition runner catalog resolve
-  test with the official optional `transmission_password` Secret Reference
-  declaration.
+- Release-candidate validation has run on `main`. Gate 0 through Gate 5 pass,
+  Gate 6 is skipped by MVP scope because the release cut does not claim an
+  official Addon Sidecar proof, and Gate 7 passes with the local PostgreSQL
+  contract harness.
 
 Fresh validation:
 
@@ -394,13 +394,39 @@ git diff --check -- docs/workstreams/mvp-release-shape docs/deployment docs/arch
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode docs
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode fast
 cargo nextest run -p nako-server self_host_smoke scan_library metadata storage addons playback hls user_playback --no-fail-fast
+npm --prefix web run test
+npm --prefix web run check
+npm --prefix web run build:budget
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1 -WhatIf
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode container
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode postgres
 ```
 
-Result: Gate 0, Gate 1, and Gate 2 passed on 2026-06-01. Workstream inventory
+Result: Gate 0 through Gate 5 and Gate 7 passed on 2026-06-01. Workstream inventory
 still reports `mvp-release-shape`, `playback-transcode-jellyfin-class-hardening`,
 and `web-mvp-live-smoke` as ready; the known `GAMA-060` and `CSAPA-050`
 readiness issues remain non-MVP-blocking. The first Gate 1 run exposed stale
 Admin Web mock fixtures, fixed by `d1c8550d`. The first Gate 2 run exposed a
 stale Addon catalog resolve assertion, fixed by `94385f98`, and a playback
 permit timing failure that passed on focused rerun. The final Gate 2 combined
-server run passed 341/341 with 169 skipped.
+server run passed 341/341 with 169 skipped. Gate 3 passed 98/98 Web tests,
+TypeScript check, and bundle budget with total JS at 1132.92 KiB raw /
+331.89 KiB gzip. Gate 4 is covered by the Gate 2 `playback`/`hls` filters plus
+the post-merge PTJCH seek gate. Gate 5 passed package `-WhatIf`, container
+config tests 42/42, and SQLite/PostgreSQL compose config. Gate 6 is skipped
+because the MVP scope explicitly excludes official addon catalog breadth and
+no official Sidecar proof is claimed for this candidate. Gate 7 passed 6/6
+PostgreSQL managed-artwork contract tests through a temporary local PostgreSQL
+harness.
+
+Closeout validation:
+
+```text
+python -m json.tool docs/workstreams/mvp-release-shape/WORKSTREAM.json
+python C:/Users/Frankorz/.codex/skills/plan-engineering-program/scripts/workstream_inventory.py --root .
+git diff --check -- docs/workstreams/mvp-release-shape docs/deployment docs/architecture
+```
+
+Result: passed on 2026-06-01. After closeout, `mvp-release-shape` no longer
+appears in the active workstream queue. The remaining active readiness issues
+are the known non-MVP-blocking `GAMA-060` and `CSAPA-050` lane/context drift.

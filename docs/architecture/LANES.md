@@ -20,16 +20,15 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| `mvp-release-convergence` | `mvp-release-shape` | `MRS-050` | Upper planner / product architecture |
 | `web-product` | `web-mvp-live-smoke` | `WMLS-040` | Web product worker |
 | `library-metadata-control-plane` | `generated-artifact-metadata-authority-apply` | `GAMA-050` | Backend/control-plane execution |
 | `client-surfaces-planning` | `client-surface-and-access-product-architecture` | `CSAPA-050` | Planner/docs split or defer decision |
 | `playback-transcode` | `playback-transcode-jellyfin-class-hardening` | `PTJCH-310` | Playback artifact I/O decision |
 
-The `mvp-release-convergence` lane is planner-owned and docs-only while
-`MRS-050` closes the planning lane or splits focused MVP campaigns. It may
-route work to other lanes after a concrete MVP blocker is proven, but it must
-not mutate Rust/frontend code or active task ledgers under running workers.
+The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
+Open a focused follow-on before doing actual artifact publication, one-command
+release-gate wrapping, official addon alpha smoke, or any product-scope change
+to the MVP cut.
 
 Do not start `GAMA-060` until `GAMA-050` has reviewed and verified the final
 Admin apply route. Do not close `CSAPA` until desktop playback is split,
@@ -63,12 +62,11 @@ follow-ons.
 
 ### mvp-release-convergence
 
-Owns the product/release convergence overlay for the first self-hosted,
-video-first, single-admin Nako MVP. This lane defines release blockers,
-validation ladders, and active-queue routing. It does not own implementation
-inside playback, storage, web, addon, or operations crates.
+Closed `mvp-release-shape` after defining the product/release convergence
+overlay for the first self-hosted, video-first, single-admin Nako MVP. Future
+work should open a focused follow-on instead of reopening the planning lane.
 
-Owned scopes:
+Closed evidence:
 
 - `docs/workstreams/mvp-release-shape/`
 - MVP-related updates in `docs/GOALS.md`

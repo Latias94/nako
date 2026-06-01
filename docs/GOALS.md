@@ -26,9 +26,16 @@ proposed milestone.
 
 ## Current Goal
 
+No top-level planner goal is currently open after MVP Release Shape closeout.
+Use `docs/architecture/LANES.md` for active execution queues, and open a new
+goal/workstream for actual release publication, one-command release-gate
+wrapping, official addon alpha smoke, or a product-scope change.
+
+## Recent Completed Goals
+
 ### MVP Release Shape
 
-Status: active.
+Status: completed on 2026-06-01.
 
 Objective:
 
@@ -72,8 +79,7 @@ Evidence:
 - `docs/workstreams/mvp-release-shape/`
 - planning gates listed in
   `docs/workstreams/mvp-release-shape/EVIDENCE_AND_GATES.md`
-
-## Recent Completed Goals
+- closeout recorded in `docs/workstreams/mvp-release-shape/CLOSEOUT.md`
 
 ### Media Server Architecture Map
 

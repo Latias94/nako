@@ -1,6 +1,6 @@
 # MVP Release Shape - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 ## M0 - Scope And Evidence Freeze
@@ -57,3 +57,10 @@ Exit criteria:
   conditions.
 - Post-MVP work is not in the active release path.
 - The workstream is closed or left active with one current task.
+
+Status: Complete. Campaign A (`PTJCH-220`) and Campaign B
+(`web-mvp-live-smoke`) are integrated on `main`. Gate 0 through Gate 5 and
+Gate 7 pass. Gate 6 is skipped by MVP scope because this candidate does not
+claim an official Addon Sidecar proof. The planning lane is closed; package
+publication, one-command gate wrapping, and official addon proof should be
+separate follow-ons when required.

@@ -11,11 +11,18 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: active.
+Status: idle after closeout.
 
 Active architecture focus:
 
-MVP Release Shape is the current architecture focus. It defines the first
+No planner-owned architecture focus is currently open. Use
+`docs/architecture/LANES.md` for active execution queues. Open a focused
+follow-on for actual release publication, one-command release-gate wrapping,
+official addon alpha smoke, or a product-scope change.
+
+Latest completed architecture focus:
+
+MVP Release Shape closed on 2026-06-01. It defined and validated the first
 release-shaped Nako MVP before more Jellyfin/Plex-class breadth is added:
 
 - video-first, self-hosted, single-admin release cut;
@@ -29,7 +36,7 @@ Authoritative lane:
 
 - `docs/workstreams/mvp-release-shape/`
 
-Latest completed architecture focus:
+Previous architecture focus:
 
 Storage/VFS Resilience And Source Identity closed on 2026-05-30. It deepened
 source identity and storage failure behavior before broader remote library,

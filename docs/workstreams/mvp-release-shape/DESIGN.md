@@ -1,6 +1,6 @@
 # MVP Release Shape
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 ## Why This Lane Exists
@@ -108,3 +108,12 @@ This lane can close when:
 - validation gates are documented;
 - docs links are updated;
 - remaining non-MVP work is explicitly deferred.
+
+## Closeout Summary
+
+Closed on 2026-06-01 after `MRS-050` integrated the two P0 campaign slices and
+ran the release-candidate validation ladder. Gate 0 through Gate 5 and Gate 7
+pass on `main`; Gate 6 is skipped by MVP scope because this candidate does not
+claim an official Addon Sidecar proof. Remaining release execution, actual
+artifact publication, one-command gate wrapping, and official addon alpha smoke
+should open focused follow-on workstreams when they become required.

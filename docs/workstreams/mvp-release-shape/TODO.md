@@ -1,6 +1,6 @@
 # MVP Release Shape - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 ## M0 - Scope And Evidence Freeze
@@ -61,7 +61,7 @@ Last updated: 2026-06-01
 
 ## M4 - Closeout Or Campaign Split
 
-- [ ] MRS-050 [owner=planner] [deps=MRS-030,MRS-040] [scope=docs/workstreams/mvp-release-shape,docs/GOALS.md,docs/ROADMAP.md]
+- [x] MRS-050 [owner=planner] [deps=MRS-030,MRS-040] [scope=docs/workstreams/mvp-release-shape,docs/GOALS.md,docs/ROADMAP.md]
   Goal: Close this planning lane or split a small set of MVP implementation
   campaigns with exact owners, worktrees, gates, and side-effect policies.
   Validation: `python -m json.tool docs/workstreams/mvp-release-shape/WORKSTREAM.json`; `git diff --check`.
@@ -69,8 +69,10 @@ Last updated: 2026-06-01
   Evidence: `CAMPAIGNS.md`, `EVIDENCE_AND_GATES.md`, `HANDOFF.md`, and
   optional `CLOSEOUT.md`.
   Context: `CONTEXT.jsonl`.
-  Handoff: IN_PROGRESS. Campaign A (`PTJCH-220`) and Campaign B
+  Handoff: DONE. Campaign A (`PTJCH-220`) and Campaign B
   (`web-mvp-live-smoke`) are integrated on `main`; Campaign C remains optional
   for one-command release proof, and Campaign D remains conditional on an
-  official addon claim. Release-candidate Gate 0, Gate 1, and Gate 2 now pass;
-  continue from Gate 3 Web/Public Client validation.
+  official addon claim. Release-candidate Gate 0 through Gate 5 and Gate 7 now
+  pass; Gate 6 is skipped by MVP scope because this candidate does not claim an
+  official Addon Sidecar proof. The workstream is closed; future release
+  execution should open a focused follow-on workstream.
