@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{AddonId, AutomationProviderId, ProviderSubjectId};
+use crate::{
+    AddonId, AutomationProviderId, MediaItemId, MetadataCandidateReviewId, NakoError,
+    ProviderSubjectId, Result,
+};
 
 use super::{
     CanonicalMetadata, CollectionRef, ContentRating, Credit, ExternalId, ExternalProvider,
@@ -83,6 +86,69 @@ pub struct MetadataCandidateReviewRelationship {
     pub parent_subject: MetadataCandidateSubject,
     pub child_subject: MetadataCandidateSubject,
     pub kind: MetadataCandidateRelationshipKind,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MetadataCandidateReviewStatus {
+    Pending,
+    Accepted,
+    Rejected,
+    Superseded,
+    Expired,
+}
+
+impl MetadataCandidateReviewStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Pending => "pending",
+            Self::Accepted => "accepted",
+            Self::Rejected => "rejected",
+            Self::Superseded => "superseded",
+            Self::Expired => "expired",
+        }
+    }
+
+    pub fn parse(value: &str) -> Result<Self> {
+        match value {
+            "pending" => Ok(Self::Pending),
+            "accepted" => Ok(Self::Accepted),
+            "rejected" => Ok(Self::Rejected),
+            "superseded" => Ok(Self::Superseded),
+            "expired" => Ok(Self::Expired),
+            _ => Err(NakoError::Database {
+                message: format!(
+                    "unknown metadata candidate review status stored in database: {value}"
+                ),
+            }),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct NewMetadataCandidateReview {
+    pub id: MetadataCandidateReviewId,
+    pub item_id: MediaItemId,
+    pub source: MetadataCandidateSource,
+    pub source_key: String,
+    pub plan: MetadataCandidateReviewPlan,
+    pub expires_at_ms: Option<i64>,
+    pub created_at_ms: i64,
+    pub updated_at_ms: i64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataCandidateReviewRecord {
+    pub id: MetadataCandidateReviewId,
+    pub item_id: MediaItemId,
+    pub source: MetadataCandidateSource,
+    pub source_key: String,
+    pub status: MetadataCandidateReviewStatus,
+    pub plan: MetadataCandidateReviewPlan,
+    pub expires_at_ms: Option<i64>,
+    pub created_at_ms: i64,
+    pub updated_at_ms: i64,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]

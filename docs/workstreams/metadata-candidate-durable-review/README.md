@@ -25,12 +25,12 @@ Current execution:
 - `MCDR-010` opens the lane.
 - `MCDR-020` is done: `MetadataCandidateGraph` can be projected into a
   redaction-safe review plan without schema or Provider Mapping writes.
-- `MCDR-030` is ready for planner review of the durable repository/schema
-  boundary.
+- `MCDR-030` is done: review plans can be stored as durable, redaction-safe
+  snapshot records in SQLite/PostgreSQL without Provider Mapping writes.
+- `MCDR-040` is ready for backend-only accept/reject semantics before UI.
 
 Boundary:
 
-- no schema migration in the first slice;
 - no Admin API, Public Client API, or Web route in the first slice;
 - no Generated Artifact apply outcome table reuse;
 - no accepted Provider Mapping writes from preview graph nodes;

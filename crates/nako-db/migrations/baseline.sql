@@ -914,6 +914,33 @@ CREATE INDEX provider_mappings_item_id_idx
 CREATE INDEX provider_mappings_subject_id_idx
     ON provider_mappings(subject_id, status);
 
+CREATE TABLE metadata_candidate_reviews (
+    id TEXT PRIMARY KEY NOT NULL,
+    item_id TEXT NOT NULL REFERENCES media_items(id) ON DELETE CASCADE,
+    source TEXT NOT NULL,
+    source_kind_key TEXT NOT NULL DEFAULT '',
+    source_key TEXT NOT NULL,
+    status TEXT NOT NULL,
+    plan_json TEXT NOT NULL,
+    expires_at_ms INTEGER,
+    created_at_ms INTEGER NOT NULL,
+    updated_at_ms INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    UNIQUE(item_id, source, source_kind_key, source_key),
+    CHECK (length(source_key) > 0),
+    CHECK (length(plan_json) > 0),
+    CHECK (expires_at_ms IS NULL OR expires_at_ms >= 0),
+    CHECK (created_at_ms >= 0),
+    CHECK (updated_at_ms >= 0)
+);
+
+CREATE INDEX metadata_candidate_reviews_item_status_idx
+    ON metadata_candidate_reviews(item_id, status, updated_at_ms DESC, id);
+
+CREATE INDEX metadata_candidate_reviews_source_idx
+    ON metadata_candidate_reviews(source, source_kind_key, source_key);
+
 CREATE TABLE source_duplicate_relationships (
     id TEXT PRIMARY KEY NOT NULL,
     source_id TEXT NOT NULL REFERENCES media_sources(id) ON DELETE CASCADE,

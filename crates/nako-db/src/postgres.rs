@@ -19,6 +19,7 @@ mod identity;
 mod import_state;
 mod jobs;
 mod managed_artwork;
+mod metadata_candidate_review;
 mod metadata_catalog;
 mod playback_runtime;
 mod renderer_runtime;
@@ -288,6 +289,46 @@ fn metadata_source_from_parts(source: String, source_key: String) -> MetadataSou
             MetadataSource::Provider(provider_from_parts(provider, source_key))
         }
         _ => MetadataSource::Provider(ExternalProvider::Other(source)),
+    }
+}
+
+fn metadata_candidate_source_to_parts(source: &MetadataCandidateSource) -> (String, String) {
+    match source {
+        MetadataCandidateSource::Local => ("local".to_owned(), String::new()),
+        MetadataCandidateSource::Nfo => ("nfo".to_owned(), String::new()),
+        MetadataCandidateSource::User => ("user".to_owned(), String::new()),
+        MetadataCandidateSource::Addon(addon_id) => ("addon".to_owned(), addon_id.to_string()),
+        MetadataCandidateSource::Automation(provider_id) => {
+            ("automation".to_owned(), provider_id.to_string())
+        }
+        MetadataCandidateSource::Provider(provider) => {
+            let (provider, provider_key) = provider_to_parts(provider);
+            (format!("provider:{provider}"), provider_key)
+        }
+        MetadataCandidateSource::Other(value) => ("other".to_owned(), value.clone()),
+    }
+}
+
+fn metadata_candidate_source_from_parts(
+    source: String,
+    source_key: String,
+) -> MetadataCandidateSource {
+    match source.as_str() {
+        "local" => MetadataCandidateSource::Local,
+        "nfo" => MetadataCandidateSource::Nfo,
+        "user" => MetadataCandidateSource::User,
+        "addon" => parse_id(source_key)
+            .map(MetadataCandidateSource::Addon)
+            .unwrap_or_else(|_| MetadataCandidateSource::Other(source)),
+        "automation" => parse_id(source_key)
+            .map(MetadataCandidateSource::Automation)
+            .unwrap_or_else(|_| MetadataCandidateSource::Other(source)),
+        "other" => MetadataCandidateSource::Other(source_key),
+        value if value.starts_with("provider:") => {
+            let provider = value.trim_start_matches("provider:").to_owned();
+            MetadataCandidateSource::Provider(provider_from_parts(provider, source_key))
+        }
+        _ => MetadataCandidateSource::Other(source),
     }
 }
 

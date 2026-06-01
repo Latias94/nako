@@ -32,6 +32,10 @@ git diff --check
 ## Expected Gates
 
 - `cargo nextest run -p nako-metadata candidate_review metadata_candidate --no-fail-fast`
+- `cargo nextest run -p nako-db candidate_review --no-fail-fast`
+- `cargo nextest run -p nako-db provider_subjects --no-fail-fast`
+- `cargo nextest run -p nako-db baseline_migration --no-fail-fast`
+- `cargo nextest run -p nako-db --no-fail-fast`
 - `cargo fmt --all -- --check`
 - `git diff --check`
 
@@ -87,7 +91,38 @@ Green checks:
 - `cargo fmt --all -- --check`
 - `git diff --check`
 
+## MCDR-030 Evidence
+
+Red check:
+
+- `cargo nextest run -p nako-db candidate_review --no-fail-fast` failed before
+  implementation because `NewMetadataCandidateReview`,
+  `MetadataCandidateReviewId`, `MetadataCandidateReviewStatus`, and
+  `MetadataCandidateReviewRepository` did not exist.
+
+Implemented behavior:
+
+- Added `MetadataCandidateReviewId`, `NewMetadataCandidateReview`,
+  `MetadataCandidateReviewRecord`, and `MetadataCandidateReviewStatus` in
+  `nako-core`.
+- Added `MetadataCandidateReviewRepository` with upsert/get/find/list methods.
+- Added `metadata_candidate_reviews` to SQLite and PostgreSQL baselines.
+- Stored only serialized `MetadataCandidateReviewPlan` in `plan_json`; raw
+  provider response bodies, tokens, proxy URLs, headers, and paths remain out of
+  review snapshots.
+- Added SQLite and PostgreSQL repository adapters with item/source/source-key
+  idempotency.
+- Added a SQLite round-trip test proving review snapshots do not create
+  Provider Mapping rows.
+
+Green checks:
+
+- `cargo nextest run -p nako-db candidate_review --no-fail-fast`
+- `cargo nextest run -p nako-db provider_subjects --no-fail-fast`
+- `cargo nextest run -p nako-db baseline_migration --no-fail-fast`
+- `cargo nextest run -p nako-db --no-fail-fast`
+
 ## Notes
 
-- Do not change persistence semantics in `MCDR-020`.
+- Do not add accept/reject Provider Mapping mutation before `MCDR-040`.
 - Do not expose raw provider payloads or secrets.

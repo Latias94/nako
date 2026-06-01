@@ -71,12 +71,21 @@ Start with a pure, testable review plan contract. It should translate
 
 The contract must not require a database migration to prove shape and safety.
 
-### Durable State Later
+### Durable Snapshot State
 
-After the pure contract is stable, add durable repository/schema support. The
-durable layer should own retention, status transitions, idempotency, and stale
-review invalidation. It should not reuse Generated Artifact apply outcomes as a
-generic candidate queue.
+`MCDR-030` adds durable repository/schema support for review snapshots:
+
+- `MetadataCandidateReviewRecord` owns item identity, candidate source,
+  `source_key`, status, expiry, timestamps, and the redaction-safe
+  `MetadataCandidateReviewPlan`.
+- `metadata_candidate_reviews` stores `plan_json`; raw provider response bodies
+  stay in the existing raw cache boundary.
+- snapshots are idempotent by `item_id`, source, and `source_key`;
+- SQLite and PostgreSQL adapters expose the same
+  `MetadataCandidateReviewRepository` contract.
+
+The durable layer does not reuse Generated Artifact apply outcomes as a generic
+candidate queue.
 
 ### Mutation Stays Explicit
 
@@ -86,12 +95,14 @@ Automatic refresh must continue to avoid child Provider Mapping writes.
 
 ## First Executable Task
 
-Start with `MCDR-020`: define a redaction-safe Metadata Candidate Review plan
-contract from `MetadataCandidateGraph`.
+`MCDR-020` defined a redaction-safe Metadata Candidate Review plan contract from
+`MetadataCandidateGraph`. `MCDR-030` made that plan durable without changing
+Provider Mapping behavior.
 
-This task should answer:
+`MCDR-040` should answer:
 
-- what durable review needs to know about root and related Provider Subjects;
-- which Candidate Graph fields are safe to retain;
-- how review facts stay separate from raw provider payloads and accepted
-  Provider Mappings.
+- how accept/reject transitions remain idempotent;
+- how stale or expired review decisions are prevented from mutating current
+  Media Item state;
+- whether accepted reviews create or update `ProviderMappingStatus` records and
+  which named backend service owns that mutation.

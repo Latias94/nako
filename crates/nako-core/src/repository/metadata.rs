@@ -12,14 +12,15 @@ use crate::{
     ManagedArtworkIngestProcessingRecord, ManagedArtworkIngestRecord,
     ManagedArtworkIngestRequeueRecord, MediaItem, MediaItemId, MediaSourceId,
     MetadataApplicationPersistenceCommit, MetadataApplicationPersistenceSummary,
-    MetadataAttemptFilter, MetadataFieldLock, MetadataProviderAttemptRecord,
+    MetadataAttemptFilter, MetadataCandidateReviewId, MetadataCandidateReviewRecord,
+    MetadataCandidateSource, MetadataFieldLock, MetadataProviderAttemptRecord,
     MetadataRefreshPersistenceCommit, MetadataRefreshPersistenceSummary, NewArtworkCandidate,
-    NewJob, NewManagedArtworkArtifact, NewManagedArtworkIngest, NewMetadataProviderAttempt,
-    NfoImportPersistenceCommit, NfoImportPersistenceSummary, ProviderMapping, ProviderRawResponse,
-    ProviderRawResponseCleanup, ProviderRawResponseFilter, ProviderSubject, ProviderSubjectId,
-    ProviderSubjectKind, Result, SelectedArtworkId, SelectedArtworkPublicationRecord,
-    SelectedArtworkRecord, SelectedArtworkUnpublicationRecord, SourceDuplicateRelationship,
-    SourceDuplicateRelationshipId,
+    NewJob, NewManagedArtworkArtifact, NewManagedArtworkIngest, NewMetadataCandidateReview,
+    NewMetadataProviderAttempt, NfoImportPersistenceCommit, NfoImportPersistenceSummary,
+    ProviderMapping, ProviderRawResponse, ProviderRawResponseCleanup, ProviderRawResponseFilter,
+    ProviderSubject, ProviderSubjectId, ProviderSubjectKind, Result, SelectedArtworkId,
+    SelectedArtworkPublicationRecord, SelectedArtworkRecord, SelectedArtworkUnpublicationRecord,
+    SourceDuplicateRelationship, SourceDuplicateRelationshipId,
 };
 
 #[async_trait]
@@ -261,6 +262,32 @@ pub trait ProviderMappingRepository: Send + Sync {
         item_id: MediaItemId,
         page: PageRequest,
     ) -> Result<Vec<ProviderMapping>>;
+}
+
+#[async_trait]
+pub trait MetadataCandidateReviewRepository: Send + Sync {
+    async fn upsert_metadata_candidate_review(
+        &self,
+        review: NewMetadataCandidateReview,
+    ) -> Result<MetadataCandidateReviewRecord>;
+
+    async fn get_metadata_candidate_review(
+        &self,
+        id: MetadataCandidateReviewId,
+    ) -> Result<Option<MetadataCandidateReviewRecord>>;
+
+    async fn find_metadata_candidate_review(
+        &self,
+        item_id: MediaItemId,
+        source: &MetadataCandidateSource,
+        source_key: &str,
+    ) -> Result<Option<MetadataCandidateReviewRecord>>;
+
+    async fn list_metadata_candidate_reviews_for_item(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<Vec<MetadataCandidateReviewRecord>>;
 }
 
 #[async_trait]

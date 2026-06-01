@@ -107,6 +107,7 @@ define_id!(RendererCommandId);
 define_id!(TranscodeSessionId);
 define_id!(StagingManifestId);
 define_id!(MetadataProviderAttemptId);
+define_id!(MetadataCandidateReviewId);
 define_id!(ProviderSubjectId);
 define_id!(ProviderMappingId);
 define_id!(SourceDuplicateRelationshipId);

@@ -26,7 +26,7 @@ Exit criteria:
 
 ## M2 - Durable Review Repository Shape
 
-Status: Ready for planner review after `MCDR-020`.
+Status: Complete after `MCDR-030`.
 
 Exit criteria:
 
@@ -35,6 +35,8 @@ Exit criteria:
 - Generated Artifact apply outcome tables are not reused as a candidate queue.
 
 ## M3 - Idempotent Accept/Reject Backend Semantics
+
+Status: Ready after `MCDR-030`.
 
 Exit criteria:
 

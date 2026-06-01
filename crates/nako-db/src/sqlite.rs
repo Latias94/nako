@@ -20,6 +20,7 @@ pub(crate) mod local_inference;
 pub(crate) mod managed_import;
 pub(crate) mod media;
 pub(crate) mod metadata;
+pub(crate) mod metadata_candidate_review;
 mod migrations;
 pub(crate) mod nfo_sidecar_apply;
 pub(crate) mod playback;

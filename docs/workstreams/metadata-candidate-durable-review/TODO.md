@@ -22,12 +22,12 @@ Last updated: 2026-06-02
 
 ## M2 - Durable Review Repository Shape
 
-- [ ] MCDR-030 [owner=planner] [deps=MCDR-020] [scope=crates/nako-core,crates/nako-db,docs/workstreams/metadata-candidate-durable-review]
+- [x] MCDR-030 [owner=codex] [deps=MCDR-020] [scope=crates/nako-core,crates/nako-db,docs/workstreams/metadata-candidate-durable-review]
   Goal: Decide and implement the durable repository/schema boundary for candidate review snapshots.
-  Validation: focused `nako-db` contract tests, JSON/JSONL validation, `git diff --check`.
+  Validation: `cargo nextest run -p nako-db candidate_review --no-fail-fast`; `cargo nextest run -p nako-db provider_subjects --no-fail-fast`; `cargo nextest run -p nako-db baseline_migration --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: retention, idempotency, stale-review invalidation, and redaction boundaries are explicit.
   Evidence: `EVIDENCE_AND_GATES.md`.
-  Handoff: Continue to `MCDR-040`.
+  Handoff: DONE; continue to `MCDR-040`.
 
 ## M3 - Idempotent Accept/Reject Backend Semantics
 

@@ -1193,6 +1193,167 @@ async fn nako_database_sqlite_round_trips_provider_subjects_and_mappings() {
 }
 
 #[tokio::test]
+async fn nako_database_sqlite_round_trips_metadata_candidate_reviews_without_provider_mappings() {
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library = Library {
+        id: LibraryId::new(),
+        name: "TV".to_owned(),
+        roots: vec!["local:///TV".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Tv),
+    };
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Series,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Local Series".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_library(&library).await.unwrap();
+    store.upsert_media_item(&item).await.unwrap();
+
+    let plan = MetadataCandidateReviewPlan {
+        root: MetadataCandidateReviewNode {
+            source: MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+            kind: MediaKind::Series,
+            subject: Some(MetadataCandidateSubject {
+                provider: ExternalProvider::Tmdb,
+                subject_kind: ProviderSubjectKind::Series,
+                subject_key: "1396".to_owned(),
+                title: Some("Breaking Bad".to_owned()),
+                release_year: Some(2008),
+                locale: Some("en-US".to_owned()),
+            }),
+            metadata: MetadataCandidateRecord {
+                title: Some("Breaking Bad".to_owned()),
+                overview: Some("A chemistry teacher turns to crime.".to_owned()),
+                ..MetadataCandidateRecord::default()
+            },
+        },
+        related: vec![MetadataCandidateReviewNode {
+            source: MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+            kind: MediaKind::Episode,
+            subject: Some(MetadataCandidateSubject {
+                provider: ExternalProvider::Tmdb,
+                subject_kind: ProviderSubjectKind::Episode,
+                subject_key: "1396:S1E1".to_owned(),
+                title: Some("Pilot".to_owned()),
+                release_year: Some(2008),
+                locale: Some("en-US".to_owned()),
+            }),
+            metadata: MetadataCandidateRecord {
+                title: Some("Pilot".to_owned()),
+                release_date: Some("2008-01-20".to_owned()),
+                ..MetadataCandidateRecord::default()
+            },
+        }],
+        relationships: vec![MetadataCandidateReviewRelationship {
+            parent_subject: MetadataCandidateSubject {
+                provider: ExternalProvider::Tmdb,
+                subject_kind: ProviderSubjectKind::Series,
+                subject_key: "1396".to_owned(),
+                title: Some("Breaking Bad".to_owned()),
+                release_year: Some(2008),
+                locale: Some("en-US".to_owned()),
+            },
+            child_subject: MetadataCandidateSubject {
+                provider: ExternalProvider::Tmdb,
+                subject_kind: ProviderSubjectKind::Episode,
+                subject_key: "1396:S1E1".to_owned(),
+                title: Some("Pilot".to_owned()),
+                release_year: Some(2008),
+                locale: Some("en-US".to_owned()),
+            },
+            kind: MetadataCandidateRelationshipKind::Contains,
+        }],
+    };
+
+    let inserted = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+            source_key: "tmdb:series:1396".to_owned(),
+            plan: plan.clone(),
+            expires_at_ms: Some(1_800_000),
+            created_at_ms: 1_000,
+            updated_at_ms: 1_000,
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(inserted.item_id, item.id);
+    assert_eq!(inserted.status, MetadataCandidateReviewStatus::Pending);
+    assert_eq!(inserted.plan, plan);
+    assert_eq!(inserted.expires_at_ms, Some(1_800_000));
+    assert_eq!(
+        store
+            .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+            .await
+            .unwrap(),
+        Vec::<ProviderMapping>::new()
+    );
+
+    let mut updated_plan = inserted.plan.clone();
+    updated_plan.root.metadata.overview = Some("Updated safe review summary.".to_owned());
+    let updated = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+            source_key: "tmdb:series:1396".to_owned(),
+            plan: updated_plan.clone(),
+            expires_at_ms: Some(2_800_000),
+            created_at_ms: 2_000,
+            updated_at_ms: 2_000,
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(updated.id, inserted.id);
+    assert_eq!(updated.created_at_ms, inserted.created_at_ms);
+    assert_eq!(updated.updated_at_ms, 2_000);
+    assert_eq!(updated.plan, updated_plan);
+    assert_eq!(updated.expires_at_ms, Some(2_800_000));
+
+    assert_eq!(
+        store
+            .get_metadata_candidate_review(inserted.id)
+            .await
+            .unwrap(),
+        Some(updated.clone())
+    );
+    assert_eq!(
+        store
+            .find_metadata_candidate_review(
+                item.id,
+                &MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+                "tmdb:series:1396",
+            )
+            .await
+            .unwrap(),
+        Some(updated.clone())
+    );
+    assert_eq!(
+        store
+            .list_metadata_candidate_reviews_for_item(item.id, PageRequest::first_page())
+            .await
+            .unwrap(),
+        vec![updated]
+    );
+    assert_eq!(
+        store
+            .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+            .await
+            .unwrap(),
+        Vec::<ProviderMapping>::new()
+    );
+}
+
+#[tokio::test]
 async fn nako_database_sqlite_round_trips_source_duplicate_relationships_without_merging_items() {
     let store = NakoDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();

@@ -352,6 +352,32 @@ CREATE INDEX IF NOT EXISTS provider_mappings_item_id_idx
 CREATE INDEX IF NOT EXISTS provider_mappings_subject_id_idx
     ON provider_mappings(subject_id, status);
 
+CREATE TABLE IF NOT EXISTS metadata_candidate_reviews (
+    id uuid PRIMARY KEY NOT NULL,
+    item_id uuid NOT NULL REFERENCES media_items(id) ON DELETE CASCADE,
+    source text NOT NULL,
+    source_kind_key text NOT NULL DEFAULT '',
+    source_key text NOT NULL,
+    status text NOT NULL,
+    plan_json jsonb NOT NULL,
+    expires_at_ms bigint,
+    created_at_ms bigint NOT NULL,
+    updated_at_ms bigint NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+    updated_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+    UNIQUE(item_id, source, source_kind_key, source_key),
+    CHECK (length(source_key) > 0),
+    CHECK (expires_at_ms IS NULL OR expires_at_ms >= 0),
+    CHECK (created_at_ms >= 0),
+    CHECK (updated_at_ms >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS metadata_candidate_reviews_item_status_idx
+    ON metadata_candidate_reviews(item_id, status, updated_at_ms DESC, id);
+
+CREATE INDEX IF NOT EXISTS metadata_candidate_reviews_source_idx
+    ON metadata_candidate_reviews(source, source_kind_key, source_key);
+
 CREATE TABLE IF NOT EXISTS metadata_provider_attempts (
     id uuid PRIMARY KEY NOT NULL,
     job_id uuid NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,

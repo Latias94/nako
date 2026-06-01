@@ -34,6 +34,7 @@ trait DatabaseBackendAdapter:
     + NfoSidecarApplyRepository
     + MetadataRepository
     + ProviderMappingRepository
+    + MetadataCandidateReviewRepository
     + SourceDuplicateRepository
     + LocalInferenceRepository
     + ScanRepository
@@ -80,6 +81,7 @@ impl<T> DatabaseBackendAdapter for T where
         + NfoSidecarApplyRepository
         + MetadataRepository
         + ProviderMappingRepository
+        + MetadataCandidateReviewRepository
         + SourceDuplicateRepository
         + LocalInferenceRepository
         + ScanRepository
@@ -2114,6 +2116,46 @@ impl ProviderMappingRepository for NakoDatabase {
     ) -> Result<Vec<ProviderMapping>> {
         self.backend()
             .list_provider_mappings_for_item(item_id, page)
+            .await
+    }
+}
+
+#[async_trait::async_trait]
+impl MetadataCandidateReviewRepository for NakoDatabase {
+    async fn upsert_metadata_candidate_review(
+        &self,
+        review: NewMetadataCandidateReview,
+    ) -> Result<MetadataCandidateReviewRecord> {
+        self.backend()
+            .upsert_metadata_candidate_review(review)
+            .await
+    }
+
+    async fn get_metadata_candidate_review(
+        &self,
+        id: MetadataCandidateReviewId,
+    ) -> Result<Option<MetadataCandidateReviewRecord>> {
+        self.backend().get_metadata_candidate_review(id).await
+    }
+
+    async fn find_metadata_candidate_review(
+        &self,
+        item_id: MediaItemId,
+        source: &MetadataCandidateSource,
+        source_key: &str,
+    ) -> Result<Option<MetadataCandidateReviewRecord>> {
+        self.backend()
+            .find_metadata_candidate_review(item_id, source, source_key)
+            .await
+    }
+
+    async fn list_metadata_candidate_reviews_for_item(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<Vec<MetadataCandidateReviewRecord>> {
+        self.backend()
+            .list_metadata_candidate_reviews_for_item(item_id, page)
             .await
     }
 }
