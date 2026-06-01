@@ -1,6 +1,6 @@
 # Bangumi Relations And Episode Depth - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 - Lane Opening
@@ -40,9 +40,9 @@ Last updated: 2026-06-02
 
 ## M4 - Closeout
 
-- [ ] BRED-050 [owner=planner] [deps=BRED-040] [scope=docs/workstreams/bangumi-relations-and-episode-depth,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
+- [x] BRED-050 [owner=planner] [deps=BRED-040] [scope=docs/workstreams/bangumi-relations-and-episode-depth,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
   Goal: Close the lane or split durable review/Admin confirmation follow-ons.
   Validation: fresh gate evidence in `EVIDENCE_AND_GATES.md`; JSON/JSONL validation; `git diff --check`.
-  Review: Bangumi depth remains preview-only.
-  Evidence: `CLOSEOUT.md` if closed.
-  Handoff: DONE or explicit follow-on split.
+  Review: Bangumi depth remains preview-only. Closed on 2026-06-02.
+  Evidence: `CLOSEOUT.md`.
+  Handoff: DONE; next provider-depth follow-on should open a new focused lane.

@@ -1,6 +1,6 @@
 # Bangumi Relations And Episode Depth
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 This workstream turns the proposed Bangumi provider-depth follow-on into a
@@ -21,7 +21,7 @@ Authoritative docs:
 - `CONTEXT.jsonl`
 - `HANDOFF.md`
 
-Current execution:
+Shipped:
 
 - `BRED-010` opens the lane.
 - `BRED-020` tightened Bangumi provider capability claims around
@@ -30,7 +30,8 @@ Current execution:
   fetches without changing persistence.
 - `BRED-040` proved refresh remains root-only when graph preview nodes are
   present.
-- `BRED-050` is ready for lane closeout or explicit follow-on split.
+- `BRED-050` closed the lane and kept Douban precision, durable candidate
+  review, and Admin/Web confirmation split to follow-ons.
 
 Boundary:
 

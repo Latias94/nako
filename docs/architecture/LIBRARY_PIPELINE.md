@@ -31,7 +31,7 @@ Storage event or scheduled scan
 | Metadata merge policy | Shipped foundation | `docs/adr/0007-metadata-merge-policy-and-local-authority.md` | Field-level review UX and provider conflict diagnostics. |
 | TMDB provider | Shipped movie plus series/season/episode graph preview foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/metadata-provider-depth-and-precision/`; `docs/workstreams/tmdb-season-episode-graph-depth/` | Durable candidate review or Admin/Web governance before preview graph depth becomes accepted hierarchy. |
 | Douban provider | Shipped MVP foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Subject-kind precision and identity matching follow-on. |
-| Bangumi provider | Shipped MVP foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Active anime-first relation and episode depth follow-on. |
+| Bangumi provider | Shipped MVP plus endpoint-backed episode graph preview | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/bangumi-relations-and-episode-depth/` | Durable candidate review or Admin/Web governance before preview graph depth becomes accepted hierarchy. |
 | Addon-assisted metadata | Shipped guarded apply, bulk apply, provider mapping breadth, read-only apply recovery foundation, Web recovery UI, and repair seam proof | addon architecture lanes; `docs/workstreams/generated-artifact-metadata-authority-apply/`; `docs/workstreams/generated-artifact-bulk-metadata-apply/`; `docs/workstreams/generated-artifact-provider-mapping-breadth/`; `docs/workstreams/generated-artifact-apply-operations-repair/`; `docs/workstreams/web-admin-generated-artifact-recovery-ui/`; `docs/workstreams/generated-artifact-apply-repair-actions/` | Optional one-click repair wrapper or Web repair copy polish. |
 | Artwork artifact lifecycle | Shipped selection, lifecycle, variant, and remediation foundation | managed artwork lanes | Delivery cache placeholders and broader derivative policy. |
 | Watcher/debounce | Weak | This document | Open `library-watcher-and-media-intake-stability`. |
@@ -47,18 +47,23 @@ this document focused on intake and asset pipeline capability state.
 
 ### bangumi-relations-and-episode-depth
 
-Status: Active at `docs/workstreams/bangumi-relations-and-episode-depth/`.
+Status: Closed at `docs/workstreams/bangumi-relations-and-episode-depth/`.
 
 Goal: Make Bangumi depth claims anime-first and endpoint-backed before Admin
 diagnostics or durable candidate review depend on them.
 
-Initial boundary:
+Shipped:
 
 - narrow current Bangumi capability claims to executable subject behavior;
 - use official Bangumi relation and episode endpoints before adding graph depth;
 - preserve root-only refresh and Provider Mapping persistence;
 - do not change schema, Public Client API, Admin/Web, or Generated Artifact
   apply behavior.
+
+Follow-ons:
+
+- `proposed:metadata-candidate-durable-review`;
+- `proposed:admin-web-provider-depth-governance`.
 
 ### tmdb-season-episode-graph-depth
 

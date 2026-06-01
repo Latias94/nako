@@ -1,6 +1,6 @@
 # Bangumi Relations And Episode Depth - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Current State
@@ -11,13 +11,13 @@ endpoint-backed subject-level behavior before episode endpoint support exists.
 `BRED-030` added endpoint-backed Bangumi episode graph preview for series
 fetches. `BRED-040` proved refresh keeps related episode nodes non-mutating.
 
-## Active Task
+## Closed Task
 
 - Task ID: `BRED-050`
 - Owner: planner
 - Files: this workstream, architecture links, `docs/GOALS.md`, and `docs/ROADMAP.md`
 - Validation: fresh gate evidence, JSON/JSONL validation, and `git diff --check`
-- Status: READY
+- Status: DONE
 - Evidence: `docs/workstreams/bangumi-relations-and-episode-depth/EVIDENCE_AND_GATES.md`
 
 ## Decisions Since Opening
@@ -36,9 +36,10 @@ fetches. `BRED-040` proved refresh keeps related episode nodes non-mutating.
 
 ## Blockers
 
-- None for `BRED-050`.
+- None.
 
 ## Next Recommended Action
 
-- Run `BRED-050`: close this focused lane or explicitly split any remaining
-  durable candidate review and Admin/Web confirmation follow-ons.
+- Open a new focused follow-on for Douban subject precision, durable candidate
+  review, or Admin/Web provider depth governance. Do not reopen this lane
+  unless Bangumi preview semantics change.

@@ -1,6 +1,6 @@
 # Bangumi Relations And Episode Depth - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Lane Opening Gates
@@ -174,3 +174,4 @@ Result: passed.
 
 - Do not change persistence semantics from this lane.
 - Do not expose raw provider payloads or secrets.
+- Lane closed at `BRED-050`; see `CLOSEOUT.md`.

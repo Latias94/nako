@@ -1,6 +1,6 @@
 # Bangumi Relations And Episode Depth
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Why This Lane Exists
@@ -83,14 +83,14 @@ onto Bangumi.
 Related episode nodes communicate evidence. They do not imply accepted Provider
 Mappings, canonical hierarchy, or confirmed Media Items.
 
-## First Executable Task
+## Closeout
 
-Start with `BRED-020`: narrow Bangumi capability claims and tests to
-endpoint-backed subject behavior before adding relation/episode graph depth.
+Closed after `BRED-050`.
 
-This task should answer:
+This lane answered:
 
 - which current Bangumi capability claims are executable today;
 - which unsupported search/fetch requests should fail explicitly;
-- which tests should guard future episode endpoint work from reintroducing
-  overclaims.
+- how endpoint-backed Bangumi episode evidence is represented in Candidate
+  Graph preview;
+- how refresh remains root-only when Bangumi episode preview nodes are present.

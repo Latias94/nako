@@ -18,14 +18,15 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 
 Last reviewed: 2026-06-02
 
-`bangumi-relations-and-episode-depth` is active in the
-`library-metadata-control-plane` lane after `tmdb-season-episode-graph-depth`
-closeout.
+`bangumi-relations-and-episode-depth` is closed after `BRED-050` in the
+`library-metadata-control-plane` lane.
 
 Next task:
 
-- `BRED-050`: close the Bangumi depth lane or split durable review/Admin
-  confirmation follow-ons.
+- open the next focused provider-depth follow-on. Recommended candidates are
+  `proposed:douban-subject-kind-precision`,
+  `proposed:metadata-candidate-durable-review`, or
+  `proposed:admin-web-provider-depth-governance`.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -54,7 +55,7 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
 ## Current Workstreams
 
 - [bangumi-relations-and-episode-depth](bangumi-relations-and-episode-depth/README.md):
-  active library-metadata-control-plane lane for making Bangumi provider depth
+  closed library-metadata-control-plane lane for making Bangumi provider depth
   anime-first and endpoint-backed before relation/episode graph preview.
 - [tmdb-season-episode-graph-depth](tmdb-season-episode-graph-depth/README.md):
   closed library-metadata-control-plane lane for extending TMDB graph preview

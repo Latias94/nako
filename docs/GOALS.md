@@ -26,9 +26,53 @@ proposed milestone.
 
 ## Current Goal
 
+### Provider Depth Follow-On Selection
+
+Status: ready as of 2026-06-02.
+
+Objective:
+
+- Choose and open the next focused provider-depth lane after Bangumi relation
+  and episode depth closeout.
+- Keep provider graph evidence preview-only until a durable review or Admin/Web
+  governance lane deliberately changes persistence semantics.
+
+Deliverables:
+
+- one new focused workstream, likely Douban subject precision, durable
+  candidate review, or Admin/Web provider depth governance;
+- active queue updates in `docs/architecture/LANES.md` and
+  `docs/workstreams/README.md`;
+- clear non-goals that prevent schema/API/Admin/Web changes from leaking into
+  a provider adapter slice.
+
+Non-goals:
+
+- no reopening `metadata-provider-depth-and-precision` or
+  `tmdb-season-episode-graph-depth` or
+  `bangumi-relations-and-episode-depth`;
+- no schema migration, Public Client API change, Admin/Web confirmation UI, or
+  Generated Artifact apply change unless the next lane explicitly selects that
+  architecture scope;
+- no automatic Media Item hierarchy creation or child Provider Mapping writes
+  from preview graph evidence.
+
+Exit criteria:
+
+- next lane has an explicit workstream directory, task ledger, validation
+  gates, and architecture links;
+- closed TMDB and Bangumi lanes remain closed and referenced as evidence only.
+
+Evidence:
+
+- `docs/workstreams/bangumi-relations-and-episode-depth/CLOSEOUT.md`
+- `docs/architecture/LIBRARY_PIPELINE.md`
+
+## Recent Completed Goals
+
 ### Bangumi Relations And Episode Depth
 
-Status: active as of 2026-06-02.
+Status: completed on 2026-06-02.
 
 Objective:
 
@@ -47,32 +91,14 @@ Deliverables:
 - focused `nako-metadata` tests proving graph depth and refresh boundary
   behavior
 
-Non-goals:
-
-- no reopening `metadata-provider-depth-and-precision` or
-  `tmdb-season-episode-graph-depth`;
-- no schema migration, Public Client API change, Admin/Web confirmation UI, or
-  Generated Artifact apply change;
-- no automatic episode Media Item creation or child Provider Mapping writes
-  from preview graph evidence;
-- no raw Bangumi response, token, header, or proxy URL exposure.
-
-Exit criteria:
-
-- Bangumi capabilities do not claim Season/Episode support before endpoint
-  implementation;
-- Bangumi series fetch can expose endpoint-backed episode Provider Subjects
-  without automatic hierarchy creation;
-- refresh and Provider Mapping persistence remain root-only for this graph
-  preview;
-- durable candidate review/Admin/Web confirmation follow-ons remain separate.
-
 Evidence:
 
-- `docs/workstreams/bangumi-relations-and-episode-depth/`
-- `docs/architecture/LIBRARY_PIPELINE.md`
-
-## Recent Completed Goals
+- `BRED-020` narrows Bangumi capability claims;
+- `BRED-030` adds endpoint-backed Bangumi episode graph preview;
+- `BRED-040` proves refresh remains root-only and non-mutating for episode
+  preview nodes;
+- `BRED-050` closes the lane and keeps durable review/Admin/Web follow-ons
+  split.
 
 ### TMDB Season Episode Graph Depth
 

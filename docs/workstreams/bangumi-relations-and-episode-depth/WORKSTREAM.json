@@ -2,7 +2,7 @@
   "schema_version": 1,
   "slug": "bangumi-relations-and-episode-depth",
   "title": "Bangumi Relations And Episode Depth",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-06-02",
   "scope_kind": "library_metadata_provider_graph_depth",
   "problem": "Bangumi metadata is subject-oriented, but the current adapter advertises season and episode support before it uses Bangumi relation or episode endpoints.",
@@ -40,6 +40,10 @@
     {
       "role": "handoff",
       "path": "docs/workstreams/bangumi-relations-and-episode-depth/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/bangumi-relations-and-episode-depth/CLOSEOUT.md"
     }
   ],
   "context_manifest": "docs/workstreams/bangumi-relations-and-episode-depth/CONTEXT.jsonl",
@@ -65,6 +69,10 @@
     {
       "task": "BRED-040",
       "summary": "Refresh guard proves Bangumi episode preview nodes remain non-mutating: no episode Media Items, episode Provider Subjects, or child Provider Mappings are written from related graph nodes."
+    },
+    {
+      "task": "BRED-050",
+      "summary": "Closed the lane after Bangumi capability narrowing, endpoint-backed episode graph preview, and root-only refresh guard evidence; Douban precision, durable review, and Admin/Web governance remain split follow-ons."
     }
   ],
   "adr_refs": [
@@ -79,7 +87,7 @@
     },
     {
       "path": "docs/architecture/WORKSTREAM_LINKS.md",
-      "capability": "Bangumi provider graph depth active lane"
+      "capability": "Bangumi provider graph depth closed lane"
     },
     {
       "path": "docs/architecture/LIBRARY_PIPELINE.md",
@@ -93,8 +101,8 @@
   ],
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
-    "default_action": "run_current_task",
-    "current_task": "BRED-050",
-    "notes": "Next close the lane or split follow-ons. Keep Bangumi episode graph depth preview-only; do not add schema, Public Client API, Admin/Web, Generated Artifact apply, Media Item hierarchy creation, or child Provider Mapping writes."
+    "default_action": "closed",
+    "current_task": null,
+    "notes": "Lane target is complete. Open a new workstream for Douban subject precision, durable candidate review, or Admin/Web provider depth governance."
   }
 }
