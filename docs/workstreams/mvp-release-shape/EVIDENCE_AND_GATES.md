@@ -344,18 +344,22 @@ non-MVP-blocking by this lane. `WORKSTREAM.json` is valid. `git diff --check`
 emitted LF/CRLF working-copy warnings for touched Markdown files and no
 whitespace errors.
 
-### MRS-050 - Closeout Or Campaign Split
+### MRS-050 - Campaign Integration
 
 Status: In progress
 
 Evidence collected:
 
-- `CAMPAIGNS.md` records the active PTJCH worker plus candidate Web/Public
-  Client live smoke, operations release gate wrapper, and official addon alpha
-  smoke campaigns.
-- The Web smoke campaign is ready to split after planner docs are committed or
-  otherwise synced into a clean worktree; it should not run in the dirty planner
-  root.
+- `PTJCH-220` is integrated on `main`. The accepted playback runtime slice
+  centralizes HLS supersede discovery/cancellation, adds bounded replacement
+  admission, keeps `cancel_requested` runners in the active supersede set, and
+  synchronizes superseded HLS playback-session cancellation.
+- `web-mvp-live-smoke` is integrated on `main`. The deterministic Web smoke
+  covers Public Client library browse/detail/playback ticket, native
+  media/subtitle rendering, heartbeat, and unsafe text redaction.
+- `CAMPAIGNS.md` now records Campaign A and Campaign B as integrated, while
+  keeping the operations release wrapper optional and official addon alpha
+  smoke conditional.
 - The operations release wrapper remains optional until the team requires a
   single command for the full video-first ladder.
 
@@ -363,10 +367,17 @@ Fresh validation:
 
 ```text
 python -m json.tool docs/workstreams/mvp-release-shape/WORKSTREAM.json
-git diff --check -- docs/workstreams/mvp-release-shape
+cargo nextest run -p nako-server hls_playlist_playback_seek --no-fail-fast
+npm --prefix web run test -- src/test/mvp-live-smoke.test.tsx
+npm --prefix web run check
+npm --prefix web run build:budget
+git diff --check
 ```
 
-Result: document validation passed on 2026-06-01. `WORKSTREAM.json` is valid
-and `git diff --check -- docs/workstreams/mvp-release-shape` found no
-whitespace errors. `MRS-050` remains in progress until the planner decides
-whether to commit/sync these docs, split Web live smoke, or close the lane.
+Result: post-merge validation passed on 2026-06-01. `WORKSTREAM.json` is
+valid. The PTJCH post-merge seek gate passed 2/2 on `main`. The Web smoke
+focused test passed 2/2, TypeScript check passed, and bundle budget passed
+with media route JS at 43.68 KiB raw / 12.07 KiB gzip and total JS at
+1132.92 KiB raw / 331.89 KiB gzip. `git diff --check` passed after trimming
+new-file EOF blanks from the Web smoke docs; it emitted LF/CRLF working-copy
+warnings only.

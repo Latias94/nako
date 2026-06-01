@@ -26,9 +26,15 @@ Does this unblock the first self-hosted, video-first, single-admin Nako release?
 
 ## Current State
 
-`MRS-010` opened the workstream and recorded the first MVP shape. The next
-task is `MRS-020`: verify the release cut against current code, docs, active
-workstreams, and known validation gates.
+`MRS-010` opened the workstream and recorded the first MVP shape. `MRS-020`
+verified the release cut, `MRS-030` defined the validation ladder, `MRS-040`
+aligned active queue risk, and `MRS-050` launched the first implementation
+campaigns.
+
+Campaign A (`PTJCH-220`) and Campaign B (`web-mvp-live-smoke`) are now
+integrated on `main`. The next release-planning action is to run the documented
+MVP validation ladder or split the optional release-gate wrapper if the team
+requires one-command proof.
 
 ## Non-Goals
 

@@ -69,5 +69,7 @@ Last updated: 2026-06-01
   Evidence: `CAMPAIGNS.md`, `EVIDENCE_AND_GATES.md`, `HANDOFF.md`, and
   optional `CLOSEOUT.md`.
   Context: `CONTEXT.jsonl`.
-  Handoff: Return to upper planner with implementation horizon and terminal
-  budget.
+  Handoff: IN_PROGRESS. Campaign A (`PTJCH-220`) and Campaign B
+  (`web-mvp-live-smoke`) are integrated on `main`; Campaign C remains optional
+  for one-command release proof, and Campaign D remains conditional on an
+  official addon claim.

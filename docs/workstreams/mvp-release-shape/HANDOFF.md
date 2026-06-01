@@ -19,38 +19,35 @@ queue:
 - Architecture and roadmap links point to this workstream.
 - `EVIDENCE_AND_GATES.md` now records required, conditional, and gap-routing
   release gates.
-- `CAMPAIGNS.md` records the current parallel campaign split and worker
-  policies.
-
-No Rust or frontend implementation was changed by this lane.
+- `CAMPAIGNS.md` records the parallel campaign split, integration status, and
+  remaining optional/conditional campaigns.
+- Campaign A (`PTJCH-220`) and Campaign B (`web-mvp-live-smoke`) have been
+  merged to `main` after `integrate-lane-results` review and post-merge gates.
 
 Important `MRS-020` findings:
 
 - Install/release, scan/source state, metadata authority, storage health, Admin
   diagnostics, Addon Sidecar foundation, and documented remote access are
   evidence-backed enough for MVP planning.
-- Browser/web remains the accepted MVP client path. It needs a fresh live
-  browse/detail/playback smoke gate; split `web-product` work only if existing
-  tests plus manual browser smoke are not reproducible enough for release.
-- `PTJCH-220` is a P0 blocker until playback runtime ownership and diagnostics
-  are finished, split, or explicitly accepted. A parallel playback worker is
-  running on this task and should return through `integrate-lane-results`.
+- Browser/web remains the accepted MVP client path. The deterministic
+  `web-mvp-live-smoke` gate now covers the Web/Public Client browse/detail/
+  playback journey.
+- `PTJCH-220` is no longer a P0 blocker after merge. `PTJCH-310` artifact I/O
+  pressure is a follow-on unless release-candidate gates escalate it.
 - `GAMA-060` is conditional/P1 unless MVP requires Web Generated Artifact
   apply. `CSAPA-050` is P1/deferred if browser/web remains the first client.
 - GAMA/CSAPA active-lane drift remains visible but is not MVP-blocking.
 
 ## Next Action
 
-Run `MRS-050`: close this planning lane or split focused MVP implementation
-campaigns.
+Continue `MRS-050` only for release-candidate coordination:
 
 Key checks:
 
-- wait for or later integrate the `PTJCH-220` worker result;
-- split a small `web-product` live MVP smoke workstream from `CAMPAIGNS.md`
-  once planner docs are committed or synced into a clean worktree;
-- split an `operations-release` gate-wrapper task if the team wants one command
-  for the full video-first ladder;
+- run the documented MVP validation ladder from a clean release-candidate
+  worktree;
+- split an `operations-release` gate-wrapper task only if the team wants one
+  command for the full video-first ladder;
 - keep `GAMA-060` and `CSAPA-050` out of the MVP campaign unless the product
   cut changes.
 
@@ -68,5 +65,5 @@ Return to planner/user decision before:
 ## Suggested Goal
 
 ```text
-Set the current Codex goal to execute MRS-050 for docs/workstreams/mvp-release-shape. Close the planning lane or split focused MVP campaigns with exact owners, worktrees, gates, and stop conditions. Keep PTJCH-220 as the active P0 blocker until its worker result is integrated. Do not mutate GAMA/CSAPA active ledgers from this lane.
+Set the current Codex goal to execute the MVP release-candidate validation ladder from docs/workstreams/mvp-release-shape/EVIDENCE_AND_GATES.md. Keep PTJCH-220 and web-mvp-live-smoke as integrated evidence, split an operations-release wrapper only if one-command proof is required, and do not mutate GAMA/CSAPA active ledgers from this lane.
 ```

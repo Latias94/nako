@@ -81,6 +81,10 @@
     {
       "task": "MRS-040",
       "summary": "Aligned active tails with the MVP cut: kept PTJCH-220 as the only current active-tail P0 blocker, classified GAMA-060 as conditional/P1, classified CSAPA-050 as deferred/P1, and recorded Web live smoke plus operations gate wrapper as possible MRS-050 splits."
+    },
+    {
+      "task": "MRS-050",
+      "summary": "Integrated the first MVP campaigns on main: PTJCH-220 playback runtime closeout and web-mvp-live-smoke deterministic Web/Public Client smoke. Operations release wrapper remains optional; official addon alpha smoke remains conditional."
     }
   ],
   "adr_refs": [
@@ -138,6 +142,6 @@
   "lane_slug": "mvp-release-convergence",
   "continue_policy": {
     "default_action": "continue_current_task",
-    "notes": "Continue with MRS-050 closeout or campaign split. Do not implement code in this lane. Split implementation work only after a gap is proven to block the MVP user journey."
+    "notes": "Continue MRS-050 as release-candidate coordination: run the documented validation ladder, split an operations-release wrapper only if one-command proof is required, and keep GAMA/CSAPA out of the MVP campaign unless the product cut changes."
   }
 }

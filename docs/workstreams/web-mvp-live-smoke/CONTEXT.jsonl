@@ -7,4 +7,3 @@
 {"path":"docs/workstreams/web-media-live-public-client-parity/ROUTE_API_READINESS.md","role":"prior_evidence","why":"Records prior Public Client route readiness and historical Web gaps."}
 {"path":"docs/workstreams/web-media-live-public-client-parity/EVIDENCE_AND_GATES.md","role":"prior_evidence","why":"Records previous Web route/data-source/player gates and browser smoke evidence."}
 {"path":"docs/workstreams/admin-media-management-context-links/ROUTE_MATRIX.md","role":"related_evidence","why":"Defines safe Management Context Link behavior for Media-to-Admin handoffs."}
-

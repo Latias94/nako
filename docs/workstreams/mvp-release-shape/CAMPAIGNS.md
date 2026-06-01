@@ -1,6 +1,6 @@
 # MVP Implementation Campaigns
 
-Status: MRS-050 campaign split draft
+Status: MRS-050 campaign integration ledger
 Last updated: 2026-06-01
 
 This file records the implementation campaigns produced by the MVP release
@@ -22,7 +22,7 @@ own task ledger.
 
 ## Campaign A - Playback Runtime Closeout
 
-Status: running
+Status: integrated on `main`
 
 Owner lane: `playback-transcode`
 
@@ -37,6 +37,18 @@ Worker:
 - Worktree:
   `F:/SourceCodes/Rust/nako-worktrees/nako-ptjch-130-ffmpeg-adapter-split`
 - Branch: `work/ptjch-220-playback-runtime-boundary`
+
+Integration:
+
+- Worker result: `DONE_WITH_CONCERNS`, accepted after integrator review and a
+  small `cancel_requested` HLS runner permit fix.
+- Branch commit: `d6712d14 fix(playback): harden HLS supersede admission`.
+- Main merge: `chore(integration): merge PTJCH-220 playback runtime`.
+- Branch gate: `cargo nextest run -p nako-server hls playback --no-fail-fast`
+  passed 153/153 on final rerun.
+- Post-merge gate:
+  `cargo nextest run -p nako-server hls_playlist_playback_seek --no-fail-fast`
+  passed 2/2 on `main`.
 
 Goal:
 
@@ -61,29 +73,42 @@ git diff --check
 
 MVP decision:
 
-This is the only currently running P0 blocker. MVP closeout waits for a
-reviewed result or an explicit accepted-risk decision.
+Resolved for MVP planning. `PTJCH-310` artifact I/O pressure remains a
+follow-on unless release-candidate playback gates escalate it.
 
 ## Campaign B - Web/Public Client Live MVP Smoke
 
-Status: ready to split after planner docs are committed or synced into a clean
-worktree
+Status: integrated on `main`
 
 Owner lane: `web-product`
 
-Suggested workstream slug: `web-mvp-live-smoke`
+Workstream slug: `web-mvp-live-smoke`
 
-Suggested worktree:
+Worker:
+
+- Agent nickname: `Beauvoir`
+- Agent id: `019e811e-e155-7651-859f-1e1a895a9ea2`
+- Worktree:
 
 ```text
 F:/SourceCodes/Rust/nako-worktrees/nako-web-mvp-live-smoke
 ```
 
-Suggested branch:
+- Branch:
 
 ```text
 work/web-mvp-live-smoke
 ```
+
+Integration:
+
+- Worker result: `DONE`, accepted after integrator review and fresh Web gates.
+- Branch commit: `8d0a05b0 test(web): add MVP live smoke coverage`.
+- Main merge: `chore(integration): merge web MVP live smoke`.
+- Post-merge gates:
+  `npm --prefix web run test -- src/test/mvp-live-smoke.test.tsx`,
+  `npm --prefix web run check`, and
+  `npm --prefix web run build:budget` passed on `main`.
 
 Goal:
 
@@ -127,9 +152,9 @@ Browser smoke must cover:
 
 MVP decision:
 
-This is a P0 gate gap only if manual browser smoke is not acceptable release
-evidence. It can run in parallel with PTJCH because it owns Web surfaces, not
-playback runtime internals.
+Resolved for MVP planning as a deterministic Web/Public Client smoke. Keep
+the Gate 3 Web commands in the release ladder; broaden only if release
+candidate browser QA finds a real gap.
 
 ## Campaign C - Release Ladder Wrapper
 

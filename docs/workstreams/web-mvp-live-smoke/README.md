@@ -16,4 +16,3 @@ Authoritative files:
 - `CONTEXT.jsonl`
 - `WORKSTREAM.json`
 - `HANDOFF.md`
-

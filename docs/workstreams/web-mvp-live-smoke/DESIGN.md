@@ -92,4 +92,3 @@ This lane can close when:
 - evidence is recorded in `EVIDENCE_AND_GATES.md`;
 - residual MVP risks are limited to other lanes such as `playback-transcode`;
 - follow-ons are either split or explicitly deferred.
-
