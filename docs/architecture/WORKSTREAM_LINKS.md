@@ -49,7 +49,7 @@ Evidence workstreams:
 
 - `docs/workstreams/architecture-roadmap-reconciliation/` (closed)
 
-This is the current planner/docs lane for reconciling roadmap status,
+This was the planner/docs lane for reconciling roadmap status,
 architecture evidence links, active queue routing, and proposed follow-on
 names after the latest sub-architecture audit.
 
@@ -163,6 +163,7 @@ Evidence workstreams:
 - `docs/workstreams/metadata-profile-configuration-authority/`
 - `docs/workstreams/metadata-application-policy-seam/`
 - `docs/workstreams/generated-artifact-metadata-authority-apply/`
+- `docs/workstreams/generated-artifact-bulk-metadata-apply/` (active)
 - `docs/workstreams/metadata-provider-attempt-runtime/`
 - `docs/workstreams/metadata-operations/`
 - `docs/workstreams/scan-addon-bulk-metadata-scrape/`
@@ -190,7 +191,6 @@ Proposed lanes:
 
 - `proposed:library-watcher-and-media-intake-stability`
 - `proposed:artwork-delivery-cache-placeholder`
-- `proposed:generated-artifact-bulk-metadata-apply`
 - `proposed:generated-artifact-provider-mapping-breadth`
 - `proposed:metadata-provider-depth-and-precision`
 - `proposed:provider-identity-mapping-breadth`
@@ -291,6 +291,7 @@ Evidence workstreams:
 - `docs/workstreams/web-admin-generated-artifacts-automation/`
 - `docs/workstreams/web-admin-generated-artifact-review-mutations/`
 - `docs/workstreams/generated-artifact-metadata-authority-apply/`
+- `docs/workstreams/generated-artifact-bulk-metadata-apply/` (active)
 - `docs/workstreams/addon-architecture-deepening/`
 - `docs/workstreams/addon-runtime-and-distribution/`
 - `docs/workstreams/addon-manager-lifecycle-automation/`

@@ -20,22 +20,22 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| none | none | select focused follow-on | Planner |
+| `library-metadata-control-plane` | `generated-artifact-bulk-metadata-apply` | `GABMA-020` | Backend/API planner-worker |
 
-`architecture-roadmap-reconciliation` is closed after `ARR-050`. Open a
-focused follow-on before doing actual artifact publication, one-command
-release-gate wrapping, official addon alpha smoke, bulk Generated Artifact
-apply, provider mapping breadth, Admin settings restoration, playback artifact
-I/O enforcement, or any product-scope change to the MVP cut.
+`architecture-roadmap-reconciliation` is closed after `ARR-050`.
+`generated-artifact-bulk-metadata-apply` is now active as the focused
+follow-on for bulk Generated Artifact metadata apply. Do not start provider
+mapping breadth, Admin settings restoration, playback artifact I/O
+enforcement, actual release publication, one-command release-gate wrapping, or
+official addon alpha smoke until this active queue is reviewed or split.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
-`generated-artifact-metadata-authority-apply` is closed after `GAMA-070`. Open
-a focused follow-on before starting bulk apply, provider-specific Generated
-Artifact mapping breadth, apply outcome repair tooling, or API-backed
-restoration of placeholder Admin settings pages. The `client-surfaces-planning`
-lane is idle after CSAPA closeout deferred desktop playback to a focused future
-spike. The `web-product` lane is idle after
+`generated-artifact-metadata-authority-apply` is closed after `GAMA-070`.
+Provider-specific Generated Artifact mapping breadth, apply outcome repair
+tooling, and API-backed restoration of placeholder Admin settings pages remain
+separate follow-ons. The `client-surfaces-planning` lane is idle after CSAPA
+closeout deferred desktop playback to a focused future spike. The `web-product` lane is idle after
 `web-mvp-live-smoke` closeout; open a focused follow-on for backend/API
 contract, generated SDK, broader player UX, or desktop/native playback
 decisions.
@@ -115,6 +115,10 @@ Owns Generated Artifact metadata authority, guarded Admin automation routes,
 metadata application, audit/outcome persistence, and the control-plane workflow
 that turns accepted generated artifacts into Canonical Metadata.
 
+Active evidence:
+
+- `docs/workstreams/generated-artifact-bulk-metadata-apply/`
+
 Closed evidence:
 
 - `docs/workstreams/generated-artifact-metadata-authority-apply/`
@@ -132,6 +136,7 @@ Owned scopes:
 - `crates/nako-server/src/app/metadata_application.rs`
 - `crates/nako-server/src/http/admin.rs`
 - `docs/workstreams/generated-artifact-metadata-authority-apply/`
+- `docs/workstreams/generated-artifact-bulk-metadata-apply/`
 
 Shared scopes requiring planner coordination:
 

@@ -32,7 +32,7 @@ Storage event or scheduled scan
 | TMDB provider | Shipped movie plus series/season/episode foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Provider depth, identity matching, and conflict precision. |
 | Douban provider | Shipped MVP foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Provider depth, identity matching, and conflict precision. |
 | Bangumi provider | Shipped MVP foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Anime-first provider depth and identity matching. |
-| Addon-assisted metadata | Shipped guarded apply foundation | addon architecture lanes; `docs/workstreams/generated-artifact-metadata-authority-apply/` | Bulk apply, provider mapping breadth, and apply repair diagnostics. |
+| Addon-assisted metadata | Shipped guarded apply foundation with active bulk follow-on | addon architecture lanes; `docs/workstreams/generated-artifact-metadata-authority-apply/`; `docs/workstreams/generated-artifact-bulk-metadata-apply/` | Provider mapping breadth and apply repair diagnostics after bulk apply. |
 | Artwork artifact lifecycle | Shipped selection, lifecycle, variant, and remediation foundation | managed artwork lanes | Delivery cache placeholders and broader derivative policy. |
 | Watcher/debounce | Weak | This document | Open `library-watcher-and-media-intake-stability`. |
 
@@ -88,6 +88,17 @@ Scope:
 - size presets;
 - Blurhash or placeholder evidence;
 - cache invalidation and selected artwork policy.
+
+### generated-artifact-bulk-metadata-apply
+
+Status: Active at `docs/workstreams/generated-artifact-bulk-metadata-apply/`.
+
+Goal: Turn one-artifact Metadata Authority apply into guarded bulk planning,
+durable execution, partial-failure reporting, and Web Admin operator controls.
+
+First slice:
+
+- read-only bulk apply-plan contract before any bulk mutation route exists.
 
 ## Risk Register
 

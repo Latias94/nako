@@ -1,0 +1,11 @@
+{"path":"CONTEXT.md","role":"domain-glossary","notes":"Use Nako terms such as Generated Artifact, Metadata Authority, Canonical Metadata, Provider Subject, Provider Mapping, and Source Locator."}
+{"path":"docs/workstreams/generated-artifact-metadata-authority-apply/README.md","role":"predecessor-overview","notes":"One-artifact Metadata Authority apply workflow and boundaries."}
+{"path":"docs/workstreams/generated-artifact-metadata-authority-apply/CLOSEOUT.md","role":"predecessor-closeout","notes":"Final evidence and follow-on split for bulk apply."}
+{"path":"docs/workstreams/generated-artifact-metadata-authority-apply/HANDOFF.md","role":"predecessor-handoff","notes":"Routes, idempotency decisions, Web route, and watchpoints."}
+{"path":"docs/workstreams/web-admin-generated-artifact-review-mutations/ROUTE_API_READINESS.md","role":"review-web-context","notes":"Generated Artifact review workflow context before Metadata Authority apply."}
+{"path":"docs/workstreams/metadata-application-policy-seam/","role":"metadata-application-policy","notes":"Host-owned metadata application and field lock policy context."}
+{"path":"docs/workstreams/metadata-application-cross-path-audit/","role":"metadata-application-audit","notes":"Cross-path MetadataApplication safety and consistency context."}
+{"path":"docs/architecture/LIBRARY_PIPELINE.md","role":"architecture-map","notes":"Library metadata and Generated Artifact follow-on state."}
+{"path":"docs/architecture/CONTROL_PLANE.md","role":"control-plane-map","notes":"Durable work, runtime supervision, diagnostics, and API scale constraints."}
+{"path":"docs/architecture/LANES.md","role":"lane-registry","notes":"library-metadata-control-plane ownership and shared scopes."}
+{"path":"docs/architecture/WORKSTREAM_LINKS.md","role":"evidence-index","notes":"Architecture evidence and proposed follow-ons."}

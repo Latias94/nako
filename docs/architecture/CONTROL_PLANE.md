@@ -63,6 +63,22 @@ capabilities and risks.
 
 ## Next Work Lanes
 
+### generated-artifact-bulk-metadata-apply
+
+Status: Active at
+`docs/workstreams/generated-artifact-bulk-metadata-apply/`.
+
+Goal: Add a guarded Admin bulk apply workflow for accepted metadata Generated
+Artifacts while keeping mutation outside the initial read-only plan slice and,
+later, outside unbounded HTTP request execution.
+
+Control-plane constraints:
+
+- selection and plan responses must stay redacted;
+- confirmed bulk mutation should enqueue durable work;
+- per-item idempotency and partial-failure state must be explicit;
+- provider-specific mapping breadth and repair tooling remain follow-ons.
+
 ### control-plane-observability-and-trace-context
 
 Goal: Make operator-visible diagnostics and developer traces follow one request

@@ -26,10 +26,51 @@ proposed milestone.
 
 ## Current Goal
 
-No top-level planner goal is currently open after Architecture Roadmap
-Reconciliation closeout. Use `docs/architecture/LANES.md` and
-`docs/architecture/WORKSTREAM_LINKS.md` to select one focused implementation
-follow-on before starting new parallel work.
+### Generated Artifact Bulk Metadata Apply
+
+Status: active as of 2026-06-01.
+
+Objective:
+
+- Extend the shipped one-artifact Generated Artifact Metadata Authority apply
+  workflow into a guarded bulk workflow for accepted metadata Generated
+  Artifacts.
+- Keep bulk planning read-only before mutation, then add durable batch
+  execution with per-item idempotency and partial-failure reporting.
+- Expose the workflow safely through Admin API and Web without leaking raw
+  payloads, prompts, Source Locators, paths, tokens, or secrets.
+
+Deliverables:
+
+- `docs/workstreams/generated-artifact-bulk-metadata-apply/`
+- bulk apply-plan Admin API contract and route
+- durable bulk apply request/job persistence and execution
+- Admin bulk status/result read models
+- Web Admin bulk plan, confirm, and result workflow
+
+Non-goals:
+
+- no provider-specific Generated Artifact mapping breadth;
+- no outcome repair/search tooling beyond batch result display;
+- no change to Generated Artifact review acceptance semantics;
+- no automatic application of newly accepted artifacts;
+- no Public Client API changes;
+- no Admin settings restoration.
+
+Exit criteria:
+
+- bulk plan route is read-only and redacted;
+- confirmed bulk apply runs durably outside the request path;
+- per-item idempotency prevents duplicate mutations on replay;
+- partial failures are visible and redacted;
+- Web live/fallback behavior is honest and bundle budgets hold;
+- focused Rust/Web gates pass.
+
+Evidence:
+
+- `docs/workstreams/generated-artifact-bulk-metadata-apply/`
+- gates listed in
+  `docs/workstreams/generated-artifact-bulk-metadata-apply/EVIDENCE_AND_GATES.md`
 
 ## Recent Completed Goals
 

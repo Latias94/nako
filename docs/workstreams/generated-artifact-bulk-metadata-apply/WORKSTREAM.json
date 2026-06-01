@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "slug": "generated-artifact-bulk-metadata-apply",
+  "title": "Generated Artifact Bulk Metadata Apply",
+  "status": "active",
+  "updated": "2026-06-01",
+  "scope_kind": "backend_web_authority_workflow",
+  "problem": "Accepted metadata Generated Artifacts can be applied one artifact at a time, but Nako has no guarded bulk apply plan, durable batch execution, partial-failure reporting, or Web Admin bulk workflow.",
+  "task_prefix": "GABMA",
+  "current_task": "GABMA-020",
+  "completed_tasks": [
+    "GABMA-010"
+  ],
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/generated-artifact-bulk-metadata-apply/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/generated-artifact-bulk-metadata-apply/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/generated-artifact-bulk-metadata-apply/TODO.md"
+    },
+    {
+      "role": "milestones",
+      "path": "docs/workstreams/generated-artifact-bulk-metadata-apply/MILESTONES.md"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/generated-artifact-bulk-metadata-apply/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "context_manifest",
+      "path": "docs/workstreams/generated-artifact-bulk-metadata-apply/CONTEXT.jsonl"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/generated-artifact-bulk-metadata-apply/HANDOFF.md"
+    }
+  ],
+  "context_manifest": "docs/workstreams/generated-artifact-bulk-metadata-apply/CONTEXT.jsonl",
+  "gates": [
+    "python -m json.tool docs/workstreams/generated-artifact-bulk-metadata-apply/WORKSTREAM.json",
+    "git diff --check -- docs/workstreams/generated-artifact-bulk-metadata-apply docs/architecture/LANES.md docs/architecture/WORKSTREAM_LINKS.md docs/workstreams/README.md docs/GOALS.md docs/ROADMAP.md",
+    "cargo nextest run -p nako-api generated_artifact_metadata_apply --no-fail-fast",
+    "cargo nextest run -p nako-api admin_contract --no-fail-fast",
+    "cargo nextest run -p nako-server generated_artifact_metadata_apply_plan --no-fail-fast",
+    "cargo nextest run -p nako-server generated_artifact_bulk_metadata_apply --no-fail-fast",
+    "cargo nextest run -p nako-db generated_artifact_bulk_metadata_apply --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "npm --prefix web run test -- src/test/data-source-contracts.test.ts",
+    "npm --prefix web run test -- src/test/route-contracts.test.tsx src/test/route-state-contracts.test.tsx",
+    "npm --prefix web run check",
+    "npm --prefix web run build:budget",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "GABMA-010",
+      "summary": "Opened the bulk Generated Artifact Metadata Authority apply lane from GAMA closeout with a read-only bulk plan as the first executable task."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0004-ai-as-external-automation-first.md",
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0015-capability-scoped-http-addons-and-automation-providers.md",
+    "docs/adr/0027-admin-api-boundary-for-web-console.md",
+    "docs/adr/0035-addon-native-metadata-writeback.md",
+    "docs/adr/0053-application-control-plane-boundary.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/LIBRARY_PIPELINE.md",
+      "capability": "Bulk Generated Artifact Metadata Authority apply"
+    },
+    {
+      "path": "docs/architecture/CONTROL_PLANE.md",
+      "capability": "Durable guarded bulk apply workflow"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Library Metadata and Control Plane workstream evidence"
+    },
+    {
+      "path": "docs/architecture/LANES.md",
+      "capability": "library-metadata-control-plane lane ownership"
+    }
+  ],
+  "capability_tags": [
+    "library.metadata.generated-artifact-bulk-apply",
+    "control-plane.admin.generated-artifacts",
+    "automation.generated-artifact-acceptance",
+    "web.admin.metadata-authority"
+  ],
+  "lane_slug": "library-metadata-control-plane",
+  "continue_policy": {
+    "default_action": "continue_next_task",
+    "notes": "Start GABMA-020 with the read-only bulk apply-plan contract. Do not implement bulk mutation until the plan contract and no-mutation evidence are stable."
+  }
+}

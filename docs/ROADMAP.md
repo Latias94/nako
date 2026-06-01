@@ -11,13 +11,29 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: idle after architecture roadmap reconciliation closeout.
+Status: active implementation follow-on.
 
 Active architecture focus:
 
-No planner-owned architecture focus is currently open. Select one focused
-implementation follow-on from `docs/architecture/WORKSTREAM_LINKS.md` and open
-a durable workstream before starting new parallel work.
+Generated Artifact Bulk Metadata Apply opened on 2026-06-01 as the first
+implementation follow-on after Architecture Roadmap Reconciliation and GAMA
+closeout.
+
+The active task is `GABMA-020`: add a redaction-safe, read-only bulk metadata
+apply-plan contract for selected accepted metadata Generated Artifacts before
+any bulk mutation route exists.
+
+Authoritative lane:
+
+- `docs/workstreams/generated-artifact-bulk-metadata-apply/`
+
+Why this is next:
+
+- GAMA shipped safe one-artifact Metadata Authority apply.
+- Operators need batch selection, partial-failure reporting, and durable
+  execution before metadata automation can be efficient at library scale.
+- The first slice is read-only, so it can validate selection/redaction before
+  introducing durable mutation behavior.
 
 Latest completed architecture focus:
 
@@ -281,11 +297,12 @@ and images.
 
 Important remaining breadth:
 
-- TMDB series, season, and episode support.
-- Douban provider MVP.
-- Bangumi provider MVP.
+- provider depth and identity-matching precision beyond the shipped TMDB,
+  Douban, and Bangumi foundations.
+- bulk Generated Artifact metadata apply, now active in
+  `docs/workstreams/generated-artifact-bulk-metadata-apply/`.
 - item-level metadata profile overrides.
-- image proxy/cache routes and preview-frame generation jobs.
+- artwork delivery placeholders/cache policy and preview-frame generation jobs.
 
 ### Playback and Transcode: M4.2-M4.10
 
