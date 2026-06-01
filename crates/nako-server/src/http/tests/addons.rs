@@ -2385,13 +2385,15 @@ async fn admin_addon_source_catalog_resolves_external_acquisition_runner_action_
         external_acquisition_runner::DIAGNOSTICS_HOSTED_PAGE_ID
     );
     assert!(resolved.descriptor.manifest.event_subscriptions.is_empty());
-    assert!(
-        resolved
-            .descriptor
-            .manifest
-            .secret_reference_fields
-            .is_empty()
+    assert_eq!(
+        resolved.descriptor.manifest.secret_reference_fields.len(),
+        1
     );
+    assert_eq!(
+        resolved.descriptor.manifest.secret_reference_fields[0].id,
+        external_acquisition_runner::TRANSMISSION_PASSWORD_SECRET_FIELD_ID
+    );
+    assert!(!resolved.descriptor.manifest.secret_reference_fields[0].required);
     assert_eq!(
         resolved.install_guide.runtime_reference.value,
         external_acquisition_runner::RUNTIME_IMAGE
@@ -2401,6 +2403,20 @@ async fn admin_addon_source_catalog_resolves_external_acquisition_runner_action_
     assert_eq!(resolved.install_guide.entry_point_count, 1);
     assert_eq!(resolved.install_guide.hosted_page_count, 1);
     assert_eq!(resolved.install_guide.event_subscription_count, 0);
+    assert_eq!(resolved.install_guide.required_secret_fields.len(), 1);
+    assert_eq!(
+        resolved.install_guide.required_secret_fields[0].id,
+        external_acquisition_runner::TRANSMISSION_PASSWORD_SECRET_FIELD_ID
+    );
+    assert!(!resolved.install_guide.required_secret_fields[0].required);
+    assert!(!resolved.install_guide.required_secret_fields[0].provided);
+    assert!(resolved.install_guide.provided_secret_refs.is_empty());
+    assert!(
+        resolved
+            .install_guide
+            .missing_required_secret_fields
+            .is_empty()
+    );
 
     for forbidden in ["raw_url", "magnet:", "Bearer ", "nako_at_", "docker.sock"] {
         assert!(
