@@ -1,13 +1,80 @@
 use nako_core::{
-    MediaItemId, MetadataCandidateGraph, MetadataCandidateReviewId, MetadataCandidateReviewPlan,
-    MetadataCandidateReviewRecord, MetadataCandidateReviewRepository,
-    MetadataCandidateReviewStatus, NakoError, Result,
+    MediaItemId, MetadataCandidateGraph, MetadataCandidateReviewApplicationAction,
+    MetadataCandidateReviewApplicationPlan, MetadataCandidateReviewApplicationReason,
+    MetadataCandidateReviewId, MetadataCandidateReviewPlan, MetadataCandidateReviewRecord,
+    MetadataCandidateReviewRepository, MetadataCandidateReviewStatus, MetadataCandidateSource,
+    MetadataCandidateSubject, MetadataSource, NakoError, PageRequest, ProviderMapping,
+    ProviderMappingRepository, ProviderMappingStatus, Result,
 };
 use serde::{Deserialize, Serialize};
 
 #[must_use]
 pub fn build_candidate_review_plan(graph: &MetadataCandidateGraph) -> MetadataCandidateReviewPlan {
     MetadataCandidateReviewPlan::from_graph(graph)
+}
+
+pub async fn build_candidate_review_application_plan<R>(
+    repository: &R,
+    review: &MetadataCandidateReviewRecord,
+) -> Result<MetadataCandidateReviewApplicationPlan>
+where
+    R: ProviderMappingRepository,
+{
+    let root_subject = review.plan.root.subject.clone();
+    let source = metadata_source_from_candidate_source(&review.source);
+    let existing_mapping = match root_subject.as_ref() {
+        Some(subject) => existing_mapping_for_subject(repository, review.item_id, subject).await?,
+        None => None,
+    };
+    let existing_mapping_id = existing_mapping.as_ref().map(|mapping| mapping.id);
+    let existing_mapping_status = existing_mapping.as_ref().map(|mapping| mapping.status);
+
+    let mut reasons = Vec::new();
+    if review.status != MetadataCandidateReviewStatus::Accepted {
+        reasons.push(MetadataCandidateReviewApplicationReason::ReviewNotAccepted);
+    }
+    if root_subject.is_none() {
+        reasons.push(MetadataCandidateReviewApplicationReason::MissingRootSubject);
+    }
+    if source.is_none() {
+        reasons.push(MetadataCandidateReviewApplicationReason::UnsupportedSource);
+    }
+    match existing_mapping_status {
+        Some(ProviderMappingStatus::Accepted) => {
+            reasons.push(MetadataCandidateReviewApplicationReason::ExistingAcceptedMapping);
+        }
+        Some(ProviderMappingStatus::Candidate) => {
+            reasons.push(MetadataCandidateReviewApplicationReason::ExistingCandidateMapping);
+        }
+        Some(ProviderMappingStatus::Rejected) => {
+            reasons.push(MetadataCandidateReviewApplicationReason::ExistingRejectedMapping);
+        }
+        None => {}
+    }
+
+    let action = if review.status != MetadataCandidateReviewStatus::Accepted
+        || root_subject.is_none()
+        || source.is_none()
+        || existing_mapping_status == Some(ProviderMappingStatus::Rejected)
+    {
+        MetadataCandidateReviewApplicationAction::Skip
+    } else if existing_mapping_status == Some(ProviderMappingStatus::Accepted) {
+        MetadataCandidateReviewApplicationAction::Noop
+    } else {
+        reasons.push(MetadataCandidateReviewApplicationReason::Ready);
+        MetadataCandidateReviewApplicationAction::Apply
+    };
+
+    Ok(MetadataCandidateReviewApplicationPlan {
+        review_id: review.id,
+        item_id: review.item_id,
+        action,
+        reasons,
+        source,
+        root_subject,
+        existing_mapping_id,
+        existing_mapping_status,
+    })
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -158,4 +225,63 @@ fn reject_stale_decision(
     }
 
     Ok(())
+}
+
+fn metadata_source_from_candidate_source(
+    source: &MetadataCandidateSource,
+) -> Option<MetadataSource> {
+    match source {
+        MetadataCandidateSource::Local => Some(MetadataSource::Local),
+        MetadataCandidateSource::Nfo => Some(MetadataSource::Nfo),
+        MetadataCandidateSource::Provider(provider) => {
+            Some(MetadataSource::Provider(provider.clone()))
+        }
+        MetadataCandidateSource::Addon(addon_id) => Some(MetadataSource::Addon(*addon_id)),
+        MetadataCandidateSource::User => Some(MetadataSource::User),
+        MetadataCandidateSource::Automation(_) | MetadataCandidateSource::Other(_) => None,
+    }
+}
+
+async fn existing_mapping_for_subject<R>(
+    repository: &R,
+    item_id: MediaItemId,
+    subject: &MetadataCandidateSubject,
+) -> Result<Option<ProviderMapping>>
+where
+    R: ProviderMappingRepository,
+{
+    let Some(provider_subject) = repository
+        .find_provider_subject(
+            &subject.provider,
+            &subject.subject_kind,
+            &subject.subject_key,
+        )
+        .await?
+    else {
+        return Ok(None);
+    };
+
+    let mut offset = 0;
+    loop {
+        let mappings = repository
+            .list_provider_mappings_for_item(
+                item_id,
+                PageRequest {
+                    limit: PageRequest::MAX_LIMIT,
+                    offset,
+                },
+            )
+            .await?;
+        let returned = mappings.len();
+        if let Some(mapping) = mappings
+            .into_iter()
+            .find(|mapping| mapping.subject_id == provider_subject.id)
+        {
+            return Ok(Some(mapping));
+        }
+        if returned < PageRequest::MAX_LIMIT as usize {
+            return Ok(None);
+        }
+        offset += u64::from(PageRequest::MAX_LIMIT);
+    }
 }

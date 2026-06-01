@@ -20,7 +20,7 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| library-metadata-control-plane | accepted-review-provider-mapping-application | ARPMA-020 | Candidate review application planner |
+| library-metadata-control-plane | accepted-review-provider-mapping-application | ARPMA-030 | Candidate review application implementer |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
@@ -58,9 +58,10 @@ persistence, and backend-only accept/reject status transitions without Provider
 Mapping writes. Next choose a focused follow-on for Admin/Web provider depth
 governance, accepted-review Provider Mapping application, or Douban TV/episode
 endpoint depth rather than reopening it.
-`accepted-review-provider-mapping-application` is active at `ARPMA-020`.
-Start with a read-only application plan before Provider Mapping persistence,
-Admin/Web routes, Public Client API changes, or related graph node application.
+`accepted-review-provider-mapping-application` is active at `ARPMA-030`.
+`ARPMA-020` added a read-only application plan; next apply only root Provider
+Subject / Provider Mapping state before Admin/Web routes, Public Client API
+changes, or related graph node application.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 

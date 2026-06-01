@@ -25,8 +25,9 @@ closeout.
 Next task:
 
 - `ARPMA-020`: define a read-only accepted-review Provider Mapping application
-  plan before Provider Mapping persistence, Admin/Web routes, Public Client API
-  changes, or related graph node application.
+- `ARPMA-030`: apply accepted review root Provider Subject and Provider Mapping
+  idempotently through existing repository semantics before Admin/Web routes,
+  Public Client API changes, or related graph node application.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,

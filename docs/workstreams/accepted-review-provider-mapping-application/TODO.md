@@ -13,12 +13,12 @@ Last updated: 2026-06-02
 
 ## M1 - Read-Only Application Plan
 
-- [ ] ARPMA-020 [owner=codex] [deps=ARPMA-010] [scope=crates/nako-core/src/media/candidate.rs,crates/nako-metadata/src/candidate_review.rs,crates/nako-metadata/src/tests.rs,docs/workstreams/accepted-review-provider-mapping-application]
+- [x] ARPMA-020 [owner=codex] [deps=ARPMA-010] [scope=crates/nako-core/src/media/candidate.rs,crates/nako-metadata/src/candidate_review.rs,crates/nako-metadata/src/tests.rs,docs/workstreams/accepted-review-provider-mapping-application]
   Goal: Define a read-only accepted-review Provider Mapping application plan with action/reason/source conversion semantics and no Provider Mapping writes.
-  Validation: `cargo nextest run -p nako-metadata candidate_review_application --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`.
+  Validation: `cargo nextest run -p nako-metadata candidate_review_application --no-fail-fast`; `cargo nextest run -p nako-metadata --no-fail-fast`; `cargo nextest run -p nako-core --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: plan reasons explain accepted/not-accepted, missing root subject, unsupported source, existing accepted/rejected mapping, noop, and ready behavior.
   Evidence: `EVIDENCE_AND_GATES.md`.
-  Handoff: Continue to `ARPMA-030` only after the read-only plan is accepted.
+  Handoff: DONE; continue to `ARPMA-030`.
 
 ## M2 - Root Provider Mapping Apply Service
 

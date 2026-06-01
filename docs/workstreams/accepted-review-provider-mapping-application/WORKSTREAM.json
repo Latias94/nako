@@ -7,7 +7,7 @@
   "scope_kind": "library_metadata_candidate_review_application",
   "problem": "Accepted Metadata Candidate Reviews are durable, but applying them to Provider Subject and Provider Mapping state must be a named backend service rather than a hidden status-transition side effect.",
   "task_prefix": "ARPMA",
-  "current_task": "ARPMA-020",
+  "current_task": "ARPMA-030",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -54,6 +54,10 @@
     {
       "task": "ARPMA-010",
       "summary": "Opened the accepted-review Provider Mapping application lane from MCDR closeout and selected a read-only application plan as the first executable task."
+    },
+    {
+      "task": "ARPMA-020",
+      "summary": "Added read-only accepted-review Provider Mapping application plans with action/reason/source semantics and tests proving no Provider Mapping writes during planning."
     }
   ],
   "adr_refs": [
@@ -83,7 +87,7 @@
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
     "default_action": "run_current_task",
-    "current_task": "ARPMA-020",
-    "notes": "Run the read-only application plan first. Do not add Provider Mapping persistence, Admin/Web routes, generated clients, or related graph node application until the plan contract is accepted."
+    "current_task": "ARPMA-030",
+    "notes": "Next apply accepted review root Provider Subject and Provider Mapping idempotently. Do not add Admin/Web routes, generated clients, or related graph node application in ARPMA-030."
   }
 }

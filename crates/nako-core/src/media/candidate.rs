@@ -2,12 +2,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AddonId, AutomationProviderId, MediaItemId, MetadataCandidateReviewId, NakoError,
-    ProviderSubjectId, Result,
+    ProviderMappingId, ProviderSubjectId, Result,
 };
 
 use super::{
     CanonicalMetadata, CollectionRef, ContentRating, Credit, ExternalId, ExternalProvider,
-    ImageRef, MediaKind, MetadataSource, ProviderSubject, ProviderSubjectKind, StudioRef,
+    ImageRef, MediaKind, MetadataSource, ProviderMappingStatus, ProviderSubject,
+    ProviderSubjectKind, StudioRef,
 };
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -124,6 +125,38 @@ impl MetadataCandidateReviewStatus {
             }),
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MetadataCandidateReviewApplicationAction {
+    Apply,
+    Skip,
+    Noop,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MetadataCandidateReviewApplicationReason {
+    ReviewNotAccepted,
+    MissingRootSubject,
+    UnsupportedSource,
+    ExistingAcceptedMapping,
+    ExistingCandidateMapping,
+    ExistingRejectedMapping,
+    Ready,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataCandidateReviewApplicationPlan {
+    pub review_id: MetadataCandidateReviewId,
+    pub item_id: MediaItemId,
+    pub action: MetadataCandidateReviewApplicationAction,
+    pub reasons: Vec<MetadataCandidateReviewApplicationReason>,
+    pub source: Option<MetadataSource>,
+    pub root_subject: Option<MetadataCandidateSubject>,
+    pub existing_mapping_id: Option<ProviderMappingId>,
+    pub existing_mapping_status: Option<ProviderMappingStatus>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

@@ -68,6 +68,11 @@ Evidence:
 - `docs/architecture/LIBRARY_PIPELINE.md`
 - `docs/architecture/LANES.md`
 
+Current task:
+
+- `ARPMA-030`: apply accepted review root Provider Subject and Provider Mapping
+  idempotently through existing repository semantics.
+
 ## Recent Completed Goals
 
 ### Metadata Candidate Durable Review

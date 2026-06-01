@@ -17,7 +17,7 @@ Exit criteria:
 
 ## M1 - Read-Only Application Plan
 
-Status: Ready at `ARPMA-020`.
+Status: Complete after `ARPMA-020`.
 
 Exit criteria:
 
@@ -28,7 +28,7 @@ Exit criteria:
 
 ## M2 - Root Provider Mapping Apply Service
 
-Status: Pending after `ARPMA-020`.
+Status: Ready after `ARPMA-020`.
 
 Exit criteria:
 

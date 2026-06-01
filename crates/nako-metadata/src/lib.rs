@@ -12,7 +12,7 @@ mod types;
 pub use candidate_review::{
     MetadataCandidateReviewDecision, MetadataCandidateReviewDecisionRequest,
     MetadataCandidateReviewDecisionService, MetadataCandidateReviewDecisionSummary,
-    build_candidate_review_plan,
+    build_candidate_review_application_plan, build_candidate_review_plan,
 };
 pub use confirmation::{
     HierarchyConfirmationItem, HierarchyConfirmationRequest, HierarchyConfirmationService,
@@ -25,9 +25,10 @@ pub use matching::{
 };
 pub use nako_core::{
     MetadataCandidateGraph, MetadataCandidateRecord, MetadataCandidateRelationship,
-    MetadataCandidateRelationshipKind, MetadataCandidateReviewNode, MetadataCandidateReviewPlan,
-    MetadataCandidateReviewRelationship, MetadataCandidateSource, MetadataCandidateSubject,
-    MetadataMergePolicy,
+    MetadataCandidateRelationshipKind, MetadataCandidateReviewApplicationAction,
+    MetadataCandidateReviewApplicationPlan, MetadataCandidateReviewApplicationReason,
+    MetadataCandidateReviewNode, MetadataCandidateReviewPlan, MetadataCandidateReviewRelationship,
+    MetadataCandidateSource, MetadataCandidateSubject, MetadataMergePolicy,
 };
 pub use providers::{
     BangumiMetadataProvider, BangumiProviderConfig, DoubanMetadataProvider, DoubanProviderConfig,

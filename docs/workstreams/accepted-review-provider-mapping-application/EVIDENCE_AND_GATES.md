@@ -32,6 +32,8 @@ git diff --check
 ## Expected Gates
 
 - `cargo nextest run -p nako-metadata candidate_review_application --no-fail-fast`
+- `cargo nextest run -p nako-metadata --no-fail-fast`
+- `cargo nextest run -p nako-core --no-fail-fast`
 - `cargo nextest run -p nako-db candidate_review provider_mapping --no-fail-fast`
 - `cargo fmt --all -- --check`
 - `git diff --check`
@@ -76,3 +78,43 @@ Green checks:
 - `python -m json.tool docs/workstreams/accepted-review-provider-mapping-application/WORKSTREAM.json`
 - JSONL validation for `TASKS.jsonl`, `CAMPAIGNS.jsonl`, and `CONTEXT.jsonl`
 - `git diff --check`
+
+## ARPMA-020 Evidence
+
+Red check:
+
+- `cargo nextest run -p nako-metadata candidate_review_application --no-fail-fast`
+  failed before implementation because
+  `build_candidate_review_application_plan`,
+  `MetadataCandidateReviewApplicationAction`, and
+  `MetadataCandidateReviewApplicationReason` did not exist.
+
+Implemented behavior:
+
+- Added `MetadataCandidateReviewApplicationPlan`,
+  `MetadataCandidateReviewApplicationAction`, and
+  `MetadataCandidateReviewApplicationReason` in `nako-core`.
+- Added read-only `build_candidate_review_application_plan` in
+  `nako-metadata`.
+- Plans expose source conversion from `MetadataCandidateSource` to
+  `MetadataSource`, and unsupported sources remain explicit skip reasons.
+- Plans inspect existing Provider Mapping state without upserting Provider
+  Subjects or Provider Mappings.
+- Existing accepted mappings become `Noop`, existing rejected mappings become
+  `Skip`, existing candidate mappings stay `Apply`, and ready new mappings are
+  `Apply`.
+
+Green checks:
+
+- `cargo nextest run -p nako-metadata candidate_review_application --no-fail-fast`
+  passed: 3 tests run, 3 passed.
+- `cargo nextest run -p nako-metadata --no-fail-fast` passed: 48 tests run,
+  48 passed.
+- `cargo nextest run -p nako-core --no-fail-fast` passed: 35 tests run,
+  35 passed.
+- `cargo fmt --all -- --check` passed.
+- `python -m json.tool docs/workstreams/accepted-review-provider-mapping-application/WORKSTREAM.json`
+  passed.
+- JSONL validation for `TASKS.jsonl`, `CAMPAIGNS.jsonl`, and `CONTEXT.jsonl`
+  passed.
+- `git diff --check` passed.

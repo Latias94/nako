@@ -22,7 +22,8 @@ use nako_core::{
     MetadataCandidateSubject, MetadataField, MetadataFieldLock, MetadataMatchKind, MetadataProfile,
     MetadataProviderAttemptStatus, MetadataProviderErrorClass, MetadataRefreshMode,
     MetadataRepository, MetadataSource, NakoError, NewJob, NewMetadataCandidateReview, PageRequest,
-    ProviderMappingRepository, ProviderMappingStatus, ProviderSubjectKind, Result,
+    ProviderMapping, ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus,
+    ProviderSubject, ProviderSubjectId, ProviderSubjectKind, Result,
 };
 use nako_db::NakoDatabase;
 use nako_search::{SearchIndex, SearchQuery};
@@ -2187,6 +2188,334 @@ fn metadata_candidate_review_plan_projects_graph_without_raw_payload_or_mapping_
 }
 
 #[tokio::test]
+async fn candidate_review_application_plan_is_read_only_for_accepted_root_mapping() {
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Series,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Local Series".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    let inserted = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+            source_key: "tmdb:series:1437".to_owned(),
+            plan: sample_candidate_review_plan(),
+            expires_at_ms: Some(10_000),
+            created_at_ms: 1_000,
+            updated_at_ms: 1_000,
+        })
+        .await
+        .unwrap();
+    let accepted = store
+        .set_metadata_candidate_review_status(
+            inserted.id,
+            MetadataCandidateReviewStatus::Accepted,
+            2_000,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+
+    let plan = build_candidate_review_application_plan(&store, &accepted)
+        .await
+        .unwrap();
+
+    assert_eq!(plan.review_id, accepted.id);
+    assert_eq!(plan.item_id, item.id);
+    assert_eq!(plan.action, MetadataCandidateReviewApplicationAction::Apply);
+    assert_eq!(
+        plan.reasons,
+        vec![MetadataCandidateReviewApplicationReason::Ready]
+    );
+    assert_eq!(
+        plan.source,
+        Some(MetadataSource::Provider(ExternalProvider::Tmdb))
+    );
+    assert_eq!(
+        plan.root_subject
+            .as_ref()
+            .map(|subject| subject.subject_key.as_str()),
+        Some("1437")
+    );
+    assert_eq!(plan.existing_mapping_status, None);
+    assert_eq!(
+        store
+            .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+            .await
+            .unwrap(),
+        vec![]
+    );
+}
+
+#[tokio::test]
+async fn candidate_review_application_plan_skips_blocked_review_shapes_without_provider_mapping() {
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Series,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Local Series".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_media_item(&item).await.unwrap();
+
+    let pending = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+            source_key: "tmdb:series:pending".to_owned(),
+            plan: sample_candidate_review_plan(),
+            expires_at_ms: Some(10_000),
+            created_at_ms: 1_000,
+            updated_at_ms: 1_000,
+        })
+        .await
+        .unwrap();
+    let pending_plan = build_candidate_review_application_plan(&store, &pending)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        pending_plan.action,
+        MetadataCandidateReviewApplicationAction::Skip
+    );
+    assert_eq!(
+        pending_plan.reasons,
+        vec![MetadataCandidateReviewApplicationReason::ReviewNotAccepted]
+    );
+
+    let unsupported = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: item.id,
+            source: MetadataCandidateSource::Other("external-ai".to_owned()),
+            source_key: "other:series:1437".to_owned(),
+            plan: sample_candidate_review_plan(),
+            expires_at_ms: Some(10_000),
+            created_at_ms: 2_000,
+            updated_at_ms: 2_000,
+        })
+        .await
+        .unwrap();
+    let unsupported = store
+        .set_metadata_candidate_review_status(
+            unsupported.id,
+            MetadataCandidateReviewStatus::Accepted,
+            2_500,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    let unsupported_plan = build_candidate_review_application_plan(&store, &unsupported)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        unsupported_plan.action,
+        MetadataCandidateReviewApplicationAction::Skip
+    );
+    assert_eq!(
+        unsupported_plan.reasons,
+        vec![MetadataCandidateReviewApplicationReason::UnsupportedSource]
+    );
+    assert_eq!(unsupported_plan.source, None);
+
+    let missing_subject = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+            source_key: "tmdb:series:missing-subject".to_owned(),
+            plan: sample_candidate_review_plan_without_subject(),
+            expires_at_ms: Some(10_000),
+            created_at_ms: 3_000,
+            updated_at_ms: 3_000,
+        })
+        .await
+        .unwrap();
+    let missing_subject = store
+        .set_metadata_candidate_review_status(
+            missing_subject.id,
+            MetadataCandidateReviewStatus::Accepted,
+            3_500,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    let missing_subject_plan = build_candidate_review_application_plan(&store, &missing_subject)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        missing_subject_plan.action,
+        MetadataCandidateReviewApplicationAction::Skip
+    );
+    assert_eq!(
+        missing_subject_plan.reasons,
+        vec![MetadataCandidateReviewApplicationReason::MissingRootSubject]
+    );
+    assert_eq!(
+        store
+            .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+            .await
+            .unwrap(),
+        vec![]
+    );
+}
+
+#[tokio::test]
+async fn candidate_review_application_plan_reports_existing_mapping_status_without_writes() {
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Series,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Local Series".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    let subject = ProviderSubject {
+        id: ProviderSubjectId::new(),
+        provider: ExternalProvider::Tmdb,
+        subject_kind: ProviderSubjectKind::Series,
+        subject_key: "1437".to_owned(),
+        title: Some("Firefly".to_owned()),
+        release_year: Some(2002),
+        locale: Some("en-US".to_owned()),
+    };
+    let mapping_id = ProviderMappingId::new();
+    store.upsert_provider_subject(&subject).await.unwrap();
+    let inserted = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+            source_key: "tmdb:series:existing".to_owned(),
+            plan: sample_candidate_review_plan(),
+            expires_at_ms: Some(10_000),
+            created_at_ms: 1_000,
+            updated_at_ms: 1_000,
+        })
+        .await
+        .unwrap();
+    let accepted = store
+        .set_metadata_candidate_review_status(
+            inserted.id,
+            MetadataCandidateReviewStatus::Accepted,
+            2_000,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+
+    store
+        .upsert_provider_mapping(&ProviderMapping {
+            id: mapping_id,
+            item_id: item.id,
+            subject_id: subject.id,
+            status: ProviderMappingStatus::Candidate,
+            confidence_milli: Some(800),
+            source: MetadataSource::Provider(ExternalProvider::Tmdb),
+        })
+        .await
+        .unwrap();
+    let candidate_plan = build_candidate_review_application_plan(&store, &accepted)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        candidate_plan.action,
+        MetadataCandidateReviewApplicationAction::Apply
+    );
+    assert_eq!(
+        candidate_plan.reasons,
+        vec![
+            MetadataCandidateReviewApplicationReason::ExistingCandidateMapping,
+            MetadataCandidateReviewApplicationReason::Ready
+        ]
+    );
+    assert_eq!(candidate_plan.existing_mapping_id, Some(mapping_id));
+    assert_eq!(
+        candidate_plan.existing_mapping_status,
+        Some(ProviderMappingStatus::Candidate)
+    );
+
+    store
+        .upsert_provider_mapping(&ProviderMapping {
+            id: mapping_id,
+            item_id: item.id,
+            subject_id: subject.id,
+            status: ProviderMappingStatus::Accepted,
+            confidence_milli: Some(800),
+            source: MetadataSource::Provider(ExternalProvider::Tmdb),
+        })
+        .await
+        .unwrap();
+    let accepted_plan = build_candidate_review_application_plan(&store, &accepted)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        accepted_plan.action,
+        MetadataCandidateReviewApplicationAction::Noop
+    );
+    assert_eq!(
+        accepted_plan.reasons,
+        vec![MetadataCandidateReviewApplicationReason::ExistingAcceptedMapping]
+    );
+
+    store
+        .upsert_provider_mapping(&ProviderMapping {
+            id: mapping_id,
+            item_id: item.id,
+            subject_id: subject.id,
+            status: ProviderMappingStatus::Rejected,
+            confidence_milli: Some(800),
+            source: MetadataSource::Provider(ExternalProvider::Tmdb),
+        })
+        .await
+        .unwrap();
+    let rejected_plan = build_candidate_review_application_plan(&store, &accepted)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        rejected_plan.action,
+        MetadataCandidateReviewApplicationAction::Skip
+    );
+    assert_eq!(
+        rejected_plan.reasons,
+        vec![MetadataCandidateReviewApplicationReason::ExistingRejectedMapping]
+    );
+    assert_eq!(
+        store
+            .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+}
+
+#[tokio::test]
 async fn candidate_review_decision_accepts_pending_review_idempotently_without_provider_mapping() {
     let store = NakoDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
@@ -2484,6 +2813,12 @@ fn sample_candidate_review_plan() -> MetadataCandidateReviewPlan {
         related: Vec::new(),
         relationships: Vec::new(),
     }
+}
+
+fn sample_candidate_review_plan_without_subject() -> MetadataCandidateReviewPlan {
+    let mut plan = sample_candidate_review_plan();
+    plan.root.subject = None;
+    plan
 }
 
 #[test]
