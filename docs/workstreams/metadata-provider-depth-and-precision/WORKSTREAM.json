@@ -7,7 +7,7 @@
   "scope_kind": "library_metadata_provider_precision",
   "problem": "Built-in metadata providers have capability and matching foundations, but provider depth, subject identity, and per-kind precision are still too coarse for future Admin governance and safe automatic refresh.",
   "task_prefix": "MPDP",
-  "current_task": "MPDP-030",
+  "current_task": "MPDP-040",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -57,6 +57,10 @@
     {
       "task": "MPDP-020",
       "summary": "TMDB series fetch now projects season summaries into MetadataCandidateGraph related nodes and contains relationships without schema, Public Client API, Web, or Generated Artifact apply changes."
+    },
+    {
+      "task": "MPDP-030",
+      "summary": "Refresh guard coverage proves provider graph preview nodes do not create child Media Items, child Provider Subjects, or child Provider Mappings; refresh persists only the root Provider Subject."
     }
   ],
   "adr_refs": [
@@ -86,7 +90,7 @@
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
     "default_action": "run_current_task",
-    "current_task": "MPDP-030",
-    "notes": "Next prove root-only refresh and Provider Mapping persistence still ignore child graph preview nodes. Do not add schema, Public Client API, Web confirmation UI, Generated Artifact apply changes, Media Item hierarchy creation, or child Provider Mapping writes."
+    "current_task": "MPDP-040",
+    "notes": "Split follow-ons for TMDB episode graph depth, Bangumi relations/episodes, Douban subject precision, durable candidate review, and Admin/Web confirmation. Do not add schema, Public Client API, Web confirmation UI, Generated Artifact apply changes, Media Item hierarchy creation, or child Provider Mapping writes in this lane."
   }
 }

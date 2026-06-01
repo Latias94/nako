@@ -126,6 +126,42 @@ cargo fmt --all -- --check
 
 Result: passed.
 
+## MPDP-030 Evidence
+
+Completed on 2026-06-02.
+
+Implementation:
+
+- Added a refresh guard test that sends a provider graph with a root TMDB
+  series subject, related TMDB season node, and `contains` relationship through
+  `MetadataRefreshService`.
+- Verified refresh uses the existing external ID, caches the root raw response,
+  and persists one accepted Provider Mapping for the root series subject only.
+- Verified no child Media Item is created and no TMDB season Provider Subject
+  is inserted from graph preview data.
+- No production persistence behavior changed; existing `root_provider_subject`
+  handling remains the boundary.
+
+Validation:
+
+```bash
+cargo nextest run -p nako-metadata refresh_persists_only_root_provider_mapping_from_provider_graph_preview --no-fail-fast
+```
+
+Result: passed, 1 test.
+
+```bash
+cargo nextest run -p nako-metadata matching refresh metadata_candidate --no-fail-fast
+```
+
+Result: passed, 12 tests.
+
+```bash
+cargo fmt --all -- --check
+```
+
+Result: passed.
+
 ## Notes
 
 - Treat raw provider responses, provider headers, tokens, proxy URLs, local

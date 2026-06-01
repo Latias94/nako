@@ -16,8 +16,9 @@ use nako_core::{
     ExternalProvider, ImageKind, JobId, JobKind, JobRepository, Library, LibraryId,
     LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryPreset, LibraryRepository,
     MediaItem, MediaItemId, MediaKind, MediaRepository, MediaSource, MediaSourceId,
-    MetadataCandidateGraph, MetadataCandidateRelationshipKind, MetadataCandidateSource,
-    MetadataField, MetadataFieldLock, MetadataMatchKind, MetadataProfile,
+    MetadataCandidateGraph, MetadataCandidateNode, MetadataCandidateRecord,
+    MetadataCandidateRelationship, MetadataCandidateRelationshipKind, MetadataCandidateSource,
+    MetadataCandidateSubject, MetadataField, MetadataFieldLock, MetadataMatchKind, MetadataProfile,
     MetadataProviderAttemptStatus, MetadataProviderErrorClass, MetadataRefreshMode,
     MetadataRepository, MetadataSource, NakoError, NewJob, PageRequest, ProviderMappingRepository,
     ProviderMappingStatus, ProviderSubjectKind, Result,
@@ -1225,6 +1226,129 @@ async fn refresh_uses_existing_external_id_without_search() {
             .runtime_minutes,
         Some(136)
     );
+}
+
+#[tokio::test]
+async fn refresh_persists_only_root_provider_mapping_from_provider_graph_preview() {
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let item = seed_media_item(
+        &store,
+        LibraryPreset::Tv,
+        MediaKind::Series,
+        "Firefly",
+        Some("2002-09-20".to_owned()),
+        vec![ExternalId {
+            provider: ExternalProvider::Tmdb,
+            value: "1437".to_owned(),
+        }],
+    )
+    .await;
+    let mut graph = MetadataCandidateGraph::for_provider(
+        ExternalProvider::Tmdb,
+        MediaKind::Series,
+        ProviderSubjectKind::Series,
+        "1437",
+        MetadataCandidateRecord::from(CanonicalMetadata {
+            title: "Firefly".to_owned(),
+            release_date: Some("2002-09-20".to_owned()),
+            external_ids: vec![ExternalId {
+                provider: ExternalProvider::Tmdb,
+                value: "1437".to_owned(),
+            }],
+            ..CanonicalMetadata::default()
+        }),
+    );
+    let series_subject = graph.root_provider_subject().unwrap().clone();
+    let season_subject = MetadataCandidateSubject {
+        provider: ExternalProvider::Tmdb,
+        subject_kind: ProviderSubjectKind::Season,
+        subject_key: "1437/1".to_owned(),
+        title: Some("Season 1".to_owned()),
+        release_year: Some(2002),
+        locale: None,
+    };
+    graph.related.push(MetadataCandidateNode {
+        source: MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+        kind: MediaKind::Season,
+        subject: Some(season_subject.clone()),
+        metadata: MetadataCandidateRecord::from(CanonicalMetadata {
+            title: "Season 1".to_owned(),
+            release_date: Some("2002-09-20".to_owned()),
+            external_ids: vec![ExternalId {
+                provider: ExternalProvider::Tmdb,
+                value: "3624".to_owned(),
+            }],
+            ..CanonicalMetadata::default()
+        }),
+    });
+    graph.relationships.push(MetadataCandidateRelationship {
+        parent_subject: series_subject,
+        child_subject: season_subject,
+        kind: MetadataCandidateRelationshipKind::Contains,
+    });
+    let provider = mock_provider(
+        ExternalProvider::Tmdb,
+        Vec::new(),
+        MetadataFetchResult {
+            provider: ExternalProvider::Tmdb,
+            provider_key: "1437".to_owned(),
+            graph,
+            raw_json: r#"{"id":1437,"name":"Firefly","seasons":[{"id":3624}]}"#.to_owned(),
+        },
+    );
+    let service = MetadataRefreshService::new(provider, store.clone());
+    let job_id = seed_metadata_job(&store, &item).await;
+
+    let summary = service
+        .refresh_item(MetadataRefreshRequest {
+            job_id,
+            item_id: item.id,
+            profile: MetadataProfile::from_preset(LibraryPreset::Tv),
+            force: false,
+        })
+        .await
+        .unwrap();
+
+    let media_items = store
+        .list_media_items(PageRequest::first_page())
+        .await
+        .unwrap();
+    let provider_mappings = store
+        .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+        .await
+        .unwrap();
+    let provider_subjects = store
+        .list_provider_subjects_for_item(item.id, PageRequest::first_page())
+        .await
+        .unwrap();
+    let raw = store
+        .get_provider_raw_response(item.id, &ExternalProvider::Tmdb, "1437")
+        .await
+        .unwrap()
+        .unwrap();
+    let season_subject = store
+        .find_provider_subject(
+            &ExternalProvider::Tmdb,
+            &ProviderSubjectKind::Season,
+            "1437/1",
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(summary.matched_by, MetadataMatchKind::ExternalId);
+    assert_eq!(summary.provider_key, "1437");
+    assert!(raw.body_json.contains(r#""seasons""#));
+    assert_eq!(media_items.len(), 1);
+    assert_eq!(provider_mappings.len(), 1);
+    assert_eq!(provider_mappings[0].status, ProviderMappingStatus::Accepted);
+    assert_eq!(provider_subjects.len(), 1);
+    assert_eq!(
+        provider_subjects[0].subject_kind,
+        ProviderSubjectKind::Series
+    );
+    assert_eq!(provider_subjects[0].subject_key, "1437");
+    assert!(season_subject.is_none());
 }
 
 #[tokio::test]

@@ -8,17 +8,16 @@ Last updated: 2026-06-02
 The lane is active in the `library-metadata-control-plane` queue.
 
 `MPDP-020` shipped the first vertical slice: TMDB series fetch exposes season
-Provider Subjects in the candidate graph. That graph depth is preview evidence
-only; it must not create Media Items, child Provider Mappings, schema changes,
-Public Client API changes, Web confirmation UI, or Generated Artifact apply
-behavior.
+Provider Subjects in the candidate graph. `MPDP-030` proved refresh persists
+only the root Provider Subject/Mapping and does not create child Media Items or
+child Provider Subjects from graph preview data.
 
 ## Active Task
 
-- Task ID: `MPDP-030`
-- Owner: codex
-- Files: `crates/nako-metadata/src/provider_attempt.rs`, `crates/nako-metadata/src/strategy.rs`, `crates/nako-metadata/src/tests.rs`, `crates/nako-server/src/app/tests/metadata.rs`, and this workstream
-- Validation: focused `nako-metadata` refresh / candidate graph gates, plus server metadata refresh tests if persistence behavior changes
+- Task ID: `MPDP-040`
+- Owner: planner
+- Files: this workstream, `docs/architecture`, `docs/GOALS.md`, and `docs/ROADMAP.md`
+- Validation: JSON/JSONL validation and `git diff --check`
 - Status: READY
 - Evidence: `docs/workstreams/metadata-provider-depth-and-precision/EVIDENCE_AND_GATES.md`
 
@@ -33,9 +32,10 @@ behavior.
 
 ## Blockers
 
-- None for `MPDP-030`.
+- None for `MPDP-040`.
 
 ## Next Recommended Action
 
-- Run `MPDP-030`: prove refresh and Provider Mapping persistence remain
-  root-only even when the fetched TMDB graph includes season preview nodes.
+- Run `MPDP-040`: split follow-ons for TMDB episode graph depth, Bangumi
+  relations/episodes, Douban subject precision, durable candidate review, and
+  Admin/Web confirmation.

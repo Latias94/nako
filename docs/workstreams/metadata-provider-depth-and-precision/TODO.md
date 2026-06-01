@@ -22,11 +22,11 @@ Last updated: 2026-06-02
 
 ## M2 — Root-Only Refresh Guard
 
-- [ ] MPDP-030 [owner=codex] [deps=MPDP-020] [scope=crates/nako-metadata/src/provider_attempt.rs,crates/nako-metadata/src/strategy.rs,crates/nako-metadata/src/tests.rs,crates/nako-server/src/app/tests/metadata.rs]
+- [x] MPDP-030 [owner=codex] [deps=MPDP-020] [scope=crates/nako-metadata/src/provider_attempt.rs,crates/nako-metadata/src/strategy.rs,crates/nako-metadata/src/tests.rs,crates/nako-server/src/app/tests/metadata.rs]
   Goal: Prove TMDB graph depth remains non-mutating during refresh and only root Provider Mapping behavior persists.
   Validation: focused `cargo nextest run -p nako-metadata metadata_refresh tmdb --no-fail-fast`; focused server metadata refresh tests if persistence behavior changes; `cargo fmt --all -- --check` when Rust changes.
-  Review: no automatic Media Item hierarchy creation, no child Provider Mapping writes, external-ID refresh compatibility remains covered.
-  Evidence: `EVIDENCE_AND_GATES.md`.
+  Review: no automatic Media Item hierarchy creation, no child Provider Mapping writes, external-ID refresh compatibility remains covered. Passed on 2026-06-02.
+  Evidence: `EVIDENCE_AND_GATES.md` MPDP-030 section.
   Handoff: Continue to `MPDP-040` for closeout or follow-on split.
 
 ## M3 — Follow-On Split

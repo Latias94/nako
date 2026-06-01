@@ -21,8 +21,8 @@ Precision is now active.
 
 It targets:
 
-- preserving root-only refresh and Provider Mapping persistence after TMDB
-  series -> season provider graph preview;
+- splitting precise follow-ons after TMDB series -> season graph preview and
+  root-only refresh guard coverage;
 - tightening TMDB, Douban, and Bangumi subject identity and per-kind precision;
 - keeping candidate ambiguity non-mutating and redaction-safe;
 - splitting durable candidate review, Admin governance detail, and Web
@@ -34,7 +34,9 @@ Authoritative lane:
 
 Next task:
 
-- `MPDP-030`: root-only refresh and Provider Mapping persistence guard.
+- `MPDP-040`: split TMDB episode graph depth, Bangumi relations/episodes,
+  Douban subject precision, durable candidate review, and Admin/Web
+  confirmation follow-ons.
 
 Latest completed architecture focus:
 

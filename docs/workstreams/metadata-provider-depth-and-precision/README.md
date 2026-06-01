@@ -27,8 +27,11 @@ Current execution:
 - `MPDP-010` opens the lane.
 - `MPDP-020` added TMDB series -> season provider graph preview as
   non-mutating evidence.
-- `MPDP-030` is ready: prove refresh and Provider Mapping persistence remain
-  root-only when graph preview nodes are present.
+- `MPDP-030` proved refresh and Provider Mapping persistence remain root-only
+  when graph preview nodes are present.
+- `MPDP-040` is ready: split follow-ons for TMDB episode depth, Bangumi
+  relations/episodes, Douban precision, durable candidate review, and
+  Admin/Web confirmation.
 
 Boundary:
 
