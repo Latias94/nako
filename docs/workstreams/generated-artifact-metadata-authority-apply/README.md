@@ -1,6 +1,6 @@
 # Generated Artifact Metadata Authority Apply
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 This workstream turns an accepted `Generated Artifact` metadata proposal into a
@@ -23,10 +23,12 @@ Authoritative docs:
 - `EVIDENCE_AND_GATES.md`
 - `CONTEXT.jsonl`
 - `HANDOFF.md`
+- `CLOSEOUT.md`
 
-Current executable task: `GAMA-060`, which should add the Web Admin apply-plan
-and confirm-apply workflow. Backend work through `GAMA-050` has shipped the
-read-only apply-plan route, host-owned apply execution, durable idempotency
-outcomes, the final Admin metadata apply route, and synchronized generated
-Admin TypeScript contracts. Planner reconciliation on 2026-06-01 reran focused
-GAMA-050 route gates and advanced the active queue to `GAMA-060`.
+Closeout: `GAMA-070` closed the lane on 2026-06-01 after fresh backend/Web
+verification. The shipped workflow has a read-only apply-plan route, host-owned
+field-lock-aware apply execution, durable idempotency outcomes, a final Admin
+metadata apply route, synchronized generated Admin TypeScript contracts, and a
+separate Web Admin confirmation surface. Bulk apply, provider-specific mapping
+breadth, operations repair tooling, and API-backed restoration of placeholder
+Admin settings pages are split to follow-ons.

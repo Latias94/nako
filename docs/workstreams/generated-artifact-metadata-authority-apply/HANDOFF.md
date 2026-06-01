@@ -1,11 +1,11 @@
 # Generated Artifact Metadata Authority Apply - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 ## Current State
 
-`GAMA-060` is complete.
+`GAMA-070` is complete and the lane is closed.
 Planner reconciliation on 2026-06-01 reran the focused final backend route
 gates, and the Web Admin apply workflow has now landed.
 
@@ -48,15 +48,17 @@ GAMA-060 browser evidence lives at:
 `target/gama060-apply-result-desktop.png`, and
 `target/gama060-apply-result-mobile.png`.
 
+Closeout evidence and review findings are in `CLOSEOUT.md` and
+`EVIDENCE_AND_GATES.md`.
+
 ## Active Task
 
-- Task ID: `GAMA-070`
+- Task ID: none
 - Lane: `library-metadata-control-plane`
-- Status: ready
-- Owner: planner
+- Status: closed
+- Owner: none
 
-Goal: verify final backend/Web gates, update evidence, close the lane, and split
-bulk apply, provider mapping, or operations repair follow-ons if needed.
+Goal: complete. Open a focused follow-on before expanding this workflow.
 
 ## Key Files
 
@@ -121,7 +123,19 @@ bulk apply, provider mapping, or operations repair follow-ons if needed.
 
 ## Blockers
 
-- None for `GAMA-070`.
+- None.
+
+## Follow-Ons
+
+- `proposed:generated-artifact-bulk-metadata-apply`: batch apply semantics,
+  queueing, partial failure display, and per-item idempotency.
+- `proposed:generated-artifact-provider-mapping-breadth`: provider-specific
+  metadata patch mapping beyond the neutral first `MetadataSuggestion` shape.
+- `proposed:generated-artifact-apply-operations-repair`: operator repair,
+  replay diagnostics, and outcome audit search for failed/noop/applied results.
+- `proposed:admin-settings-api-backed-restoration`: restore the placeholder
+  Admin settings pages with real Admin API-backed controls while preserving
+  bundle budgets.
 
 ## Watchpoints
 

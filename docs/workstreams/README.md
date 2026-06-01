@@ -18,15 +18,17 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 
 Last reviewed: 2026-06-01
 
-- [generated-artifact-metadata-authority-apply](generated-artifact-metadata-authority-apply/README.md)
-  is active on lane `library-metadata-control-plane`; next task is `GAMA-060`.
+- `library-metadata-control-plane` has no active workstream after
+  [generated-artifact-metadata-authority-apply](generated-artifact-metadata-authority-apply/README.md)
+  closed at `GAMA-070`. Open a focused follow-on before bulk apply, provider
+  mapping breadth, apply repair tooling, or Admin settings restoration work.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
 or any product-scope change to the MVP cut. `web-mvp-live-smoke` is closed as
-MVP Gate 3 evidence. `GAMA-060` is ready after focused final Admin apply route
-verification. `CSAPA` is closed; desktop playback is deferred to a focused
-future Tauri/native playback spike.
+MVP Gate 3 evidence. `GAMA` is closed after fresh backend/Web Metadata
+Authority apply verification. `CSAPA` is closed; desktop playback is deferred
+to a focused future Tauri/native playback spike.
 `audio-compatibility-downmix-normalization`,
 `remote-storage-health-and-circuit-breaker`,
 `transcode-interface-and-runtime-plan-deepening`,
@@ -194,10 +196,12 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
   preview, explicit accept/reject confirmation, idempotent result display, and
   redaction-safe Admin API mutations to the new `web/` Admin frontend.
 - [generated-artifact-metadata-authority-apply](generated-artifact-metadata-authority-apply/README.md):
-  active backend/Web authority lane for turning accepted metadata Generated
+  closed backend/Web authority lane for turning accepted metadata Generated
   Artifacts into redacted apply plans, host-owned field-lock-aware metadata
   apply, audited/idempotent outcomes, and a Web Admin confirmation workflow
-  without making review acceptance mutate Canonical Metadata.
+  without making review acceptance mutate Canonical Metadata. Bulk apply,
+  provider mapping breadth, apply repair tooling, and placeholder Admin
+  settings restoration are follow-ons.
 - [web-playlist-management-ui-mutations](web-playlist-management-ui-mutations/README.md):
   active fearless refactor lane for turning the closed User Playlist Public
   Client contract and first read-oriented web slice into create, rename, delete,

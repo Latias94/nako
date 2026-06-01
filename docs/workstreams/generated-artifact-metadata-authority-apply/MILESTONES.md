@@ -1,6 +1,6 @@
 # Generated Artifact Metadata Authority Apply - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 ## M0 - Lane Opened
@@ -72,3 +72,8 @@ Exit criteria:
 - `WORKSTREAM.json` evidence is current.
 - Bulk apply, provider-specific enrichment, or operations repair follow-ons are
   split instead of being hidden in this lane.
+
+Status: Complete via `GAMA-070`. Fresh backend/Web gates are recorded in
+`EVIDENCE_AND_GATES.md`, `CLOSEOUT.md` documents the review result and
+residual risks, `WORKSTREAM.json` is closed, and follow-ons are proposed in the
+architecture/workstream indexes.

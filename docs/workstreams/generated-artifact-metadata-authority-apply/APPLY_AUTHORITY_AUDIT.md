@@ -1,7 +1,7 @@
 # Generated Artifact Metadata Authority Apply - Audit
 
-Status: Active
-Last updated: 2026-05-29
+Status: Closed
+Last updated: 2026-06-01
 
 ## Existing Admin API
 
@@ -68,10 +68,15 @@ The apply route remains a `GAMA-030/GAMA-050` concern:
 
 | Operation | Method | Path | Body | Response |
 | --- | --- | --- | --- | --- |
-| Metadata apply | `POST` | `/admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply` | `idempotency_key`, optional accepted field set | `AdminGeneratedArtifactMetadataApplyResponse` |
+| Metadata apply | `POST` | `/admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply` | `AdminGeneratedArtifactMetadataApplyRequest { idempotency_key }` | `AdminGeneratedArtifactMetadataApplyResponse` |
 
 The important invariant is that review and metadata apply stay separate route
 operations.
+
+Closeout note: `GAMA-070` closed the lane after the read-only apply-plan route,
+host-owned apply execution, durable apply outcomes, final Admin apply route,
+and Web confirmation workflow all shipped. See `CLOSEOUT.md` for final
+evidence and follow-ons.
 
 ## Redaction Rules
 

@@ -1,12 +1,12 @@
 # Generated Artifact Metadata Authority Apply - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 ## Always Run For Docs Changes
 
 - `python -m json.tool docs/workstreams/generated-artifact-metadata-authority-apply/WORKSTREAM.json`
-- `git diff --check -- docs/workstreams/generated-artifact-metadata-authority-apply docs/architecture/WORKSTREAM_LINKS.md docs/workstreams/README.md`
+- `git diff --check -- docs/workstreams/generated-artifact-metadata-authority-apply docs/architecture/WORKSTREAM_LINKS.md docs/architecture/LANES.md docs/workstreams/README.md`
 
 ## Backend Gates
 
@@ -169,10 +169,52 @@ Only run after `GAMA-050` exposes a real Admin route:
   - low-frequency mock-only Admin settings pages were compacted to placeholders
     so this real GAMA workflow stayed inside the existing Admin bundle budget
     without raising limits.
+- `GAMA-070` (verified 2026-06-01): Closed the Generated Artifact Metadata
+  Authority apply lane after fresh backend/Web verification and workstream
+  review. Evidence:
+  - `cargo nextest run -p nako-api generated_artifact_metadata_apply admin_contract --no-fail-fast`
+    passed 7/7.
+  - `cargo nextest run -p nako-server generated_artifact_metadata_apply --no-fail-fast`
+    passed 8/8, covering read-only apply-plan, stale-target rejection,
+    field-lock-aware apply, durable replay, Admin auth, HTTP error mapping, and
+    redacted final apply response.
+  - `cargo nextest run -p nako-db metadata_application --no-fail-fast`
+    passed 1/1 for SQLite item/projection commit and rollback behavior.
+  - `cargo nextest run -p nako-db generated_artifact_metadata_apply_outcome --no-fail-fast`
+    passed 1/1 for SQLite idempotent outcome persistence.
+  - `cargo fmt --all -- --check`
+  - `python -m json.tool docs/workstreams/generated-artifact-metadata-authority-apply/WORKSTREAM.json`
+  - `npm --prefix web run test -- src/test/data-source-contracts.test.ts src/test/route-contracts.test.tsx src/test/route-state-contracts.test.tsx`
+    passed 88/88 during `GAMA-060` final verification.
+  - `npm --prefix web run check`
+  - `npm --prefix web run build:budget`
+    passed with `admin-route-js` at 245.16 raw KiB / 53.24 gzip KiB and
+    `total-js` at 1121.69 raw KiB / 330.28 gzip KiB.
+  - `npm --prefix web run test -- src/test/route-state-contracts.test.tsx`
+    passed 29/29 after a non-reproduced full-suite timeout in the Admin logs
+    URL-state test.
+  - `npm --prefix web run test` passed 104/104 on immediate full-suite rerun.
+  - `git diff --check -- docs/workstreams/generated-artifact-metadata-authority-apply docs/architecture/WORKSTREAM_LINKS.md docs/architecture/LANES.md docs/workstreams/README.md`
+  - `git diff --check`
+  - Browser evidence from `GAMA-060` remains:
+    `target/gama060-apply-plan-desktop.png`,
+    `target/gama060-apply-plan-mobile.png`,
+    `target/gama060-apply-result-desktop.png`, and
+    `target/gama060-apply-result-mobile.png`.
+  Review result:
+  - no blocking workstream compliance findings remain;
+  - no blocking code-quality findings remain for the one-artifact authority
+    workflow;
+  - PostgreSQL ignored contract was not rerun in `GAMA-070` because no schema
+    or PostgreSQL repository code changed after the `GAMA-040` PostgreSQL
+    parity evidence;
+  - bulk apply, provider-specific mapping breadth, operations repair tooling,
+    and API-backed restoration of placeholder Admin settings pages are split as
+    follow-ons instead of being hidden in this lane.
 
-## Required Final Evidence
+## Final Evidence Checklist
 
-Before closeout, record:
+Recorded before closeout:
 
 - exact Admin route method/path/body/response for apply plan and apply;
 - no-mutation evidence for read-only apply plan;
@@ -180,5 +222,6 @@ Before closeout, record:
 - stale-target rejection before mutation;
 - idempotent replay behavior;
 - redaction assertions for payload, prompt, locators, paths, and secrets;
-- SQLite/PostgreSQL parity if persistence changes;
-- Web screenshots and tests if `GAMA-060` ships in this lane.
+- SQLite/PostgreSQL parity evidence for the persistence slice;
+- Web screenshots and tests for `GAMA-060`;
+- closeout review result and follow-on split decisions in `CLOSEOUT.md`.

@@ -20,16 +20,19 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| `library-metadata-control-plane` | `generated-artifact-metadata-authority-apply` | `GAMA-060` | Web Admin workflow worker |
+| `library-metadata-control-plane` | none | open focused follow-on | Planner |
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 Open a focused follow-on before doing actual artifact publication, one-command
 release-gate wrapping, official addon alpha smoke, or any product-scope change
 to the MVP cut.
 
-`GAMA-060` is ready after planner reconciliation verified the final Admin apply
-route from `GAMA-050`. The `client-surfaces-planning` lane is idle after CSAPA
-closeout deferred desktop playback to a focused future spike. The `web-product` lane is idle after
+`generated-artifact-metadata-authority-apply` is closed after `GAMA-070`. Open
+a focused follow-on before starting bulk apply, provider-specific Generated
+Artifact mapping breadth, apply outcome repair tooling, or API-backed
+restoration of placeholder Admin settings pages. The `client-surfaces-planning`
+lane is idle after CSAPA closeout deferred desktop playback to a focused future
+spike. The `web-product` lane is idle after
 `web-mvp-live-smoke` closeout; open a focused follow-on for backend/API
 contract, generated SDK, broader player UX, or desktop/native playback
 decisions.
@@ -83,6 +86,10 @@ Shared scopes requiring planner coordination:
 Owns Generated Artifact metadata authority, guarded Admin automation routes,
 metadata application, audit/outcome persistence, and the control-plane workflow
 that turns accepted generated artifacts into Canonical Metadata.
+
+Closed evidence:
+
+- `docs/workstreams/generated-artifact-metadata-authority-apply/`
 
 Owned scopes:
 

@@ -1,7 +1,7 @@
 # Generated Artifact Metadata Authority Apply - Design
 
-Status: Active
-Last updated: 2026-05-29
+Status: Closed
+Last updated: 2026-06-01
 
 ## Problem
 
@@ -117,3 +117,11 @@ commit, and treat raw generated payloads as privileged internals.
 
 Workflow plan: this is a durable fearless-refactor lane. `GAMA-010` opened and
 audited the boundary; execution starts with `GAMA-020` apply-plan contract.
+
+## Closeout
+
+Closed by `GAMA-070` on 2026-06-01. The target state is satisfied for the
+one-artifact authority workflow: review acceptance, apply-plan, final apply,
+durable idempotency outcomes, and Web confirmation are separate and covered by
+focused backend/Web gates. See `CLOSEOUT.md` for final evidence, review result,
+residual risks, and follow-ons.

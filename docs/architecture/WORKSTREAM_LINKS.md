@@ -165,6 +165,8 @@ Proposed lanes:
 
 - `proposed:library-watcher-and-media-intake-stability`
 - `proposed:artwork-delivery-pipeline`
+- `proposed:generated-artifact-bulk-metadata-apply`
+- `proposed:generated-artifact-provider-mapping-breadth`
 - `proposed:tmdb-series-season-episode-depth`
 - `proposed:douban-provider-mvp`
 - `proposed:bangumi-provider-mvp`
@@ -260,6 +262,7 @@ Proposed lanes:
 - `proposed:durable-job-priority-policy-and-scheduler-migration`
 - `proposed:control-plane-observability-and-trace-context`
 - `proposed:api-scale-and-cache-contracts`
+- `proposed:generated-artifact-apply-operations-repair`
 - `proposed:remote-access-and-endpoint-discovery`
 
 ## Operations And Release
@@ -279,5 +282,6 @@ Evidence workstreams:
 Proposed lanes:
 
 - `proposed:self-hosted-remote-access-cookbook`
+- `proposed:admin-settings-api-backed-restoration`
 - `proposed:backup-classification-for-generated-artifacts`
 - `proposed:config-hot-apply-and-restart-required-model`

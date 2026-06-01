@@ -1,6 +1,6 @@
 # Generated Artifact Metadata Authority Apply - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 ## M0 - Scope And Evidence Freeze
@@ -54,9 +54,9 @@ Last updated: 2026-06-01
 
 ## M4 - Verification And Closeout
 
-- [ ] GAMA-070 [owner=planner] [deps=GAMA-060] [scope=docs/workstreams/generated-artifact-metadata-authority-apply]
+- [x] GAMA-070 [owner=planner] [deps=GAMA-060] [scope=docs/workstreams/generated-artifact-metadata-authority-apply]
   Goal: Verify backend/Web gates, update evidence, close the lane, and split bulk apply/provider mapping follow-ons if needed.
   Validation: `verify-rust-workstream` records fresh final gate evidence; `git diff --check`.
   Review: `review-workstream` has no blocking findings.
-  Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, optional `CLOSEOUT.md`.
-  Handoff: Summarize residual risks and next lane candidates.
+  Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `CLOSEOUT.md`, `HANDOFF.md`, `docs/architecture/LANES.md`, `docs/workstreams/README.md`.
+  Handoff: DONE. The lane is closed. Split bulk apply, provider-specific mapping breadth, operations repair, and Admin settings placeholder restoration into focused follow-ons.
