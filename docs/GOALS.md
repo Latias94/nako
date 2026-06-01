@@ -26,34 +26,39 @@ proposed milestone.
 
 ## Current Goal
 
-### Next Focus Selection
+### Generated Artifact Apply Repair Actions
 
 Status: active as of 2026-06-02.
 
 Objective:
 
-- Choose the next bounded architecture lane after the Web Admin recovery route
-  closeout.
-- Keep repair mutation, Admin settings restoration, and provider-depth
-  precision split unless a new workstream proves one should be opened now.
+- Add bounded operator repair actions for Generated Artifact apply recovery.
+- Reuse existing Metadata Authority apply and bulk apply semantics instead of
+  adding a blind retry executor.
 
 Deliverables:
 
-- updated workstream or lane plan before new implementation work begins.
+- `docs/workstreams/generated-artifact-apply-repair-actions/`
+- seam proof for existing single/bulk apply reuse versus a narrow wrapper
+- Admin/Web repair preparation or confirmation UX only after the seam is proven
 
 Non-goals:
 
 - no reopening `web-admin-generated-artifact-recovery-ui`;
 - no blind repair mutation without idempotency, freshness, authorization, and
   audit semantics.
+- no provider-depth precision or Public Client API changes in this lane.
 
 Exit criteria:
 
-- one focused follow-on is opened or selected for execution.
+- repair action semantics are proven with focused tests;
+- no second metadata apply executor exists;
+- Web/Admin responses remain redaction-safe.
 
 Evidence:
 
 - `docs/workstreams/web-admin-generated-artifact-recovery-ui/CLOSEOUT.md`
+- `docs/workstreams/generated-artifact-apply-repair-actions/`
 
 ## Recent Completed Goals
 

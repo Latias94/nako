@@ -32,7 +32,7 @@ Storage event or scheduled scan
 | TMDB provider | Shipped movie plus series/season/episode foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Provider depth, identity matching, and conflict precision. |
 | Douban provider | Shipped MVP foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Provider depth, identity matching, and conflict precision. |
 | Bangumi provider | Shipped MVP foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Anime-first provider depth and identity matching. |
-| Addon-assisted metadata | Shipped guarded apply, bulk apply, provider mapping breadth, read-only apply recovery foundation, and Web recovery UI | addon architecture lanes; `docs/workstreams/generated-artifact-metadata-authority-apply/`; `docs/workstreams/generated-artifact-bulk-metadata-apply/`; `docs/workstreams/generated-artifact-provider-mapping-breadth/`; `docs/workstreams/generated-artifact-apply-operations-repair/`; `docs/workstreams/web-admin-generated-artifact-recovery-ui/` | Bounded repair actions and deeper provider identity precision. |
+| Addon-assisted metadata | Shipped guarded apply, bulk apply, provider mapping breadth, read-only apply recovery foundation, and Web recovery UI | addon architecture lanes; `docs/workstreams/generated-artifact-metadata-authority-apply/`; `docs/workstreams/generated-artifact-bulk-metadata-apply/`; `docs/workstreams/generated-artifact-provider-mapping-breadth/`; `docs/workstreams/generated-artifact-apply-operations-repair/`; `docs/workstreams/web-admin-generated-artifact-recovery-ui/` | Active bounded repair actions, then deeper provider identity precision. |
 | Artwork artifact lifecycle | Shipped selection, lifecycle, variant, and remediation foundation | managed artwork lanes | Delivery cache placeholders and broader derivative policy. |
 | Watcher/debounce | Weak | This document | Open `library-watcher-and-media-intake-stability`. |
 
@@ -107,7 +107,7 @@ Next lanes:
 
 - `docs/workstreams/generated-artifact-provider-mapping-breadth/`;
 - `docs/workstreams/generated-artifact-apply-operations-repair/`;
-- `proposed:generated-artifact-apply-repair-actions`.
+- `docs/workstreams/generated-artifact-apply-repair-actions/`.
 
 ### generated-artifact-provider-mapping-breadth
 
@@ -173,8 +173,24 @@ Boundaries:
 Follow-ons:
 
 - `docs/workstreams/web-admin-generated-artifact-recovery-ui/` (closed)
-- `proposed:generated-artifact-apply-repair-actions`
+- `docs/workstreams/generated-artifact-apply-repair-actions/` (active)
 - `proposed:provider-identity-mapping-breadth`
+
+### generated-artifact-apply-repair-actions
+
+Status: Active at
+`docs/workstreams/generated-artifact-apply-repair-actions/`.
+
+Goal: Turn the recovery queue into bounded repair actions while preserving
+Metadata Authority apply as the execution kernel.
+
+Initial boundary:
+
+- prove whether existing apply and bulk apply routes already provide enough
+  repair semantics;
+- add a recovery-context wrapper only if it prevents wrong-artifact, stale-row,
+  or replay-only mistakes;
+- do not add provider-depth or hierarchy matching work in this lane.
 
 ## Risk Register
 

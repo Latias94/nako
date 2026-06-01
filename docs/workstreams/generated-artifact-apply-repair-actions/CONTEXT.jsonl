@@ -1,0 +1,11 @@
+{"role":"glossary","path":"CONTEXT.md","reason":"Terminology for Generated Artifact, Canonical Metadata, Source Locator, and Metadata Authority."}
+{"role":"adr","path":"docs/adr/0027-admin-api-boundary-for-web-console.md","reason":"Admin API redaction and version boundary."}
+{"role":"adr","path":"docs/adr/0053-application-control-plane-boundary.md","reason":"Control-plane rules for durable/supervised work, diagnostics, and redaction."}
+{"role":"architecture","path":"docs/architecture/CONTROL_PLANE.md","reason":"Generated Artifact repair and Admin recovery routing."}
+{"role":"architecture","path":"docs/architecture/LIBRARY_PIPELINE.md","reason":"Addon-assisted metadata and repair follow-ons."}
+{"role":"prior_workstream","path":"docs/workstreams/generated-artifact-metadata-authority-apply/CLOSEOUT.md","reason":"Single-artifact apply semantics and evidence."}
+{"role":"prior_workstream","path":"docs/workstreams/generated-artifact-bulk-metadata-apply/CLOSEOUT.md","reason":"Bulk apply durable batch semantics and evidence."}
+{"role":"prior_workstream","path":"docs/workstreams/generated-artifact-apply-operations-repair/CLOSEOUT.md","reason":"Read-only recovery queue semantics and follow-on split."}
+{"role":"prior_workstream","path":"docs/workstreams/web-admin-generated-artifact-recovery-ui/CLOSEOUT.md","reason":"Web recovery route and residual repair-action risk."}
+{"role":"workstream","path":"docs/workstreams/generated-artifact-apply-repair-actions/DESIGN.md","reason":"Current lane product and architecture boundary."}
+{"role":"gates","path":"docs/workstreams/generated-artifact-apply-repair-actions/EVIDENCE_AND_GATES.md","reason":"Fresh validation commands and evidence ledger."}

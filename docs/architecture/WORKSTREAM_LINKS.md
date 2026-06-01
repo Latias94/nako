@@ -166,6 +166,7 @@ Evidence workstreams:
 - `docs/workstreams/generated-artifact-bulk-metadata-apply/` (closed)
 - `docs/workstreams/generated-artifact-provider-mapping-breadth/` (closed)
 - `docs/workstreams/generated-artifact-apply-operations-repair/` (closed)
+- `docs/workstreams/generated-artifact-apply-repair-actions/` (active)
 - `docs/workstreams/metadata-provider-attempt-runtime/`
 - `docs/workstreams/metadata-operations/`
 - `docs/workstreams/scan-addon-bulk-metadata-scrape/`
@@ -193,7 +194,6 @@ Proposed lanes:
 
 - `proposed:library-watcher-and-media-intake-stability`
 - `proposed:artwork-delivery-cache-placeholder`
-- `proposed:generated-artifact-apply-repair-actions`
 - `proposed:metadata-provider-depth-and-precision`
 - `proposed:provider-identity-mapping-breadth`
 
@@ -295,6 +295,7 @@ Evidence workstreams:
 - `docs/workstreams/generated-artifact-metadata-authority-apply/`
 - `docs/workstreams/generated-artifact-bulk-metadata-apply/` (closed)
 - `docs/workstreams/generated-artifact-apply-operations-repair/` (closed)
+- `docs/workstreams/generated-artifact-apply-repair-actions/` (active)
 - `docs/workstreams/addon-architecture-deepening/`
 - `docs/workstreams/addon-runtime-and-distribution/`
 - `docs/workstreams/addon-manager-lifecycle-automation/`
@@ -314,7 +315,6 @@ Proposed lanes:
 - `proposed:control-plane-observability-and-trace-context`
 - `proposed:addon-manager-trust-update-lifecycle`
 - `proposed:api-scale-and-cache-contracts`
-- `proposed:generated-artifact-apply-repair-actions`
 - `proposed:self-hosted-remote-access-and-endpoint-discovery`
 
 ## Operations And Release

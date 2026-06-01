@@ -11,18 +11,27 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: selecting next focused follow-on.
+Status: active bounded repair-action follow-on.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
 Operations Repair are both closed as of 2026-06-02. Web Admin Generated
-Artifact Recovery UI is also closed after `WAGR-030`.
+Artifact Recovery UI is also closed after `WAGR-030`. Generated Artifact Apply
+Repair Actions is now active.
 
-The next focused lane should choose one bounded target:
+It targets:
 
-- guarded Generated Artifact apply repair actions;
-- Admin settings API-backed restoration;
-- provider-depth precision;
-- a narrow Web/Public Client release-smoke slice.
+- proving whether existing single/bulk Metadata Authority apply routes are
+  enough as the repair execution kernel;
+- adding a narrow recovery-context wrapper only if it provides guard value;
+- keeping repair Admin-only, redaction-safe, idempotent, and freshness-checked.
+
+Authoritative lane:
+
+- `docs/workstreams/generated-artifact-apply-repair-actions/`
+
+Next task:
+
+- `GAARA-020`: repair action seam audit and preparation contract.
 
 Latest completed architecture focus:
 
@@ -43,7 +52,7 @@ Authoritative lane:
 
 Follow-ons:
 
-- `proposed:generated-artifact-apply-repair-actions`;
+- `docs/workstreams/generated-artifact-apply-repair-actions/` (active);
 - `proposed:metadata-provider-depth-and-precision`;
 - `proposed:admin-settings-api-backed-restoration`.
 
@@ -70,7 +79,7 @@ Authoritative lane:
 Follow-ons:
 
 - `docs/workstreams/web-admin-generated-artifact-recovery-ui/` (closed);
-- `proposed:generated-artifact-apply-repair-actions`;
+- `docs/workstreams/generated-artifact-apply-repair-actions/` (active);
 - `proposed:metadata-provider-depth-and-precision`.
 
 Previous architecture focus:
@@ -118,7 +127,7 @@ Authoritative lane:
 Follow-ons:
 
 - `docs/workstreams/generated-artifact-apply-operations-repair/` (closed);
-- `proposed:generated-artifact-apply-repair-actions`;
+- `docs/workstreams/generated-artifact-apply-repair-actions/` (active);
 - `proposed:admin-settings-api-backed-restoration`.
 
 Previous architecture focus:

@@ -114,8 +114,25 @@ Shipped control-plane behavior:
 Follow-ons:
 
 - `docs/workstreams/web-admin-generated-artifact-recovery-ui/` (closed)
-- `proposed:generated-artifact-apply-repair-actions`
+- `docs/workstreams/generated-artifact-apply-repair-actions/` (active)
 - `proposed:control-plane-observability-and-trace-context`
+
+### generated-artifact-apply-repair-actions
+
+Status: Active at
+`docs/workstreams/generated-artifact-apply-repair-actions/`.
+
+Goal: Add bounded Admin repair actions for Generated Artifact apply recovery
+without adding a blind retry executor or duplicating Metadata Authority apply
+logic.
+
+Control-plane requirements:
+
+- start with a seam proof over existing single-artifact and bulk apply routes;
+- reuse existing freshness, idempotency, and durable audit semantics;
+- add a wrapper only for recovery-context guards that existing apply routes
+  cannot provide;
+- keep repair actions Admin-only and redaction-safe.
 
 ### generated-artifact-bulk-metadata-apply
 

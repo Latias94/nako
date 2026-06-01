@@ -18,16 +18,14 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 
 Last reviewed: 2026-06-02
 
-No implementation workstream is currently active in the `web-product` lane.
-The latest Web Product follow-on, `web-admin-generated-artifact-recovery-ui`,
-is closed after `WAGR-030`.
+`generated-artifact-apply-repair-actions` is active in the
+`library-metadata-control-plane` lane.
 
 Next task:
 
-- select the next focused follow-on. Good candidates are
-  `proposed:generated-artifact-apply-repair-actions`,
-  `proposed:admin-settings-api-backed-restoration`, or a narrow Web/Product
-  release-smoke slice.
+- `GAARA-020`: prove the repair action seam and decide whether existing
+  single/bulk apply routes are enough, a narrow recovery wrapper is required,
+  or Web-only repair preparation is sufficient.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -53,6 +51,10 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
 
 ## Current Workstreams
 
+- [generated-artifact-apply-repair-actions](generated-artifact-apply-repair-actions/README.md):
+  active control-plane/library-metadata lane for adding bounded repair actions
+  from the Generated Artifact apply recovery queue while reusing Metadata
+  Authority apply semantics.
 - [web-admin-generated-artifact-recovery-ui](web-admin-generated-artifact-recovery-ui/README.md):
   closed Web Product lane for rendering the closed GAOR recovery queue as a
   read-only Admin route before any bounded repair mutation is introduced.
