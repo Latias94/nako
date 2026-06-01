@@ -18,14 +18,15 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 
 Last reviewed: 2026-06-02
 
-`metadata-candidate-durable-review` is closed in the
-`library-metadata-control-plane` lane after `MCDR-050`.
+`accepted-review-provider-mapping-application` is active in the
+`library-metadata-control-plane` lane after `metadata-candidate-durable-review`
+closeout.
 
-Next selection:
+Next task:
 
-- open a focused follow-on for `proposed:admin-web-provider-depth-governance`,
-  `proposed:accepted-review-provider-mapping-application`, or
-  `proposed:douban-tv-episode-endpoint-depth`.
+- `ARPMA-020`: define a read-only accepted-review Provider Mapping application
+  plan before Provider Mapping persistence, Admin/Web routes, Public Client API
+  changes, or related graph node application.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -53,6 +54,10 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
 
 ## Current Workstreams
 
+- [accepted-review-provider-mapping-application](accepted-review-provider-mapping-application/README.md):
+  active library-metadata-control-plane lane for turning accepted durable
+  Metadata Candidate Reviews into explicit root Provider Mapping application
+  plans and later backend application semantics.
 - [metadata-candidate-durable-review](metadata-candidate-durable-review/README.md):
   closed library-metadata-control-plane lane for durable, redaction-safe
   provider Candidate Graph review semantics before Admin/Web governance and

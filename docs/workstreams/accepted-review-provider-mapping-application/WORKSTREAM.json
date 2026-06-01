@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "slug": "accepted-review-provider-mapping-application",
+  "title": "Accepted Review Provider Mapping Application",
+  "status": "active",
+  "updated": "2026-06-02",
+  "scope_kind": "library_metadata_candidate_review_application",
+  "problem": "Accepted Metadata Candidate Reviews are durable, but applying them to Provider Subject and Provider Mapping state must be a named backend service rather than a hidden status-transition side effect.",
+  "task_prefix": "ARPMA",
+  "current_task": "ARPMA-020",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/accepted-review-provider-mapping-application/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/accepted-review-provider-mapping-application/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/accepted-review-provider-mapping-application/TODO.md"
+    },
+    {
+      "role": "task_state",
+      "path": "docs/workstreams/accepted-review-provider-mapping-application/TASKS.jsonl"
+    },
+    {
+      "role": "campaign_state",
+      "path": "docs/workstreams/accepted-review-provider-mapping-application/CAMPAIGNS.jsonl"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/accepted-review-provider-mapping-application/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "context_manifest",
+      "path": "docs/workstreams/accepted-review-provider-mapping-application/CONTEXT.jsonl"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/accepted-review-provider-mapping-application/HANDOFF.md"
+    }
+  ],
+  "context_manifest": "docs/workstreams/accepted-review-provider-mapping-application/CONTEXT.jsonl",
+  "gates": [
+    "python -m json.tool docs/workstreams/accepted-review-provider-mapping-application/WORKSTREAM.json",
+    "JSONL validation for docs/workstreams/accepted-review-provider-mapping-application/TASKS.jsonl, CAMPAIGNS.jsonl, and CONTEXT.jsonl",
+    "cargo nextest run -p nako-metadata candidate_review_application --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "ARPMA-010",
+      "summary": "Opened the accepted-review Provider Mapping application lane from MCDR closeout and selected a read-only application plan as the first executable task."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0018-metadata-provider-runtime-and-diagnostics.md",
+    "docs/adr/0021-video-first-media-server-domain-model.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/LANES.md",
+      "capability": "library-metadata-control-plane lane ownership"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Accepted review Provider Mapping application active lane"
+    },
+    {
+      "path": "docs/architecture/LIBRARY_PIPELINE.md",
+      "capability": "Metadata Candidate Review application"
+    }
+  ],
+  "capability_tags": [
+    "library.metadata.candidate-review.application",
+    "library.metadata.provider-identity",
+    "library.metadata.control-plane"
+  ],
+  "lane_slug": "library-metadata-control-plane",
+  "continue_policy": {
+    "default_action": "run_current_task",
+    "current_task": "ARPMA-020",
+    "notes": "Run the read-only application plan first. Do not add Provider Mapping persistence, Admin/Web routes, generated clients, or related graph node application until the plan contract is accepted."
+  }
+}

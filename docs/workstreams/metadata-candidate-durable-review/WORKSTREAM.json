@@ -105,6 +105,6 @@
   "continue_policy": {
     "default_action": "select_follow_on",
     "current_task": null,
-    "notes": "Lane is closed. Select a focused follow-on such as proposed:admin-web-provider-depth-governance, proposed:accepted-review-provider-mapping-application, or proposed:douban-tv-episode-endpoint-depth."
+    "notes": "Lane is closed. Accepted-review Provider Mapping application is opened at docs/workstreams/accepted-review-provider-mapping-application/. Remaining follow-ons include proposed:admin-web-provider-depth-governance and proposed:douban-tv-episode-endpoint-depth."
   }
 }

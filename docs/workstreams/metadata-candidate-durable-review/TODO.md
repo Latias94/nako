@@ -45,4 +45,4 @@ Last updated: 2026-06-02
   Validation: fresh gate evidence in `EVIDENCE_AND_GATES.md`; JSON/JSONL validation; `cargo nextest run -p nako-metadata candidate_review_decision --no-fail-fast`; `cargo nextest run -p nako-db candidate_review --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: candidate review is durable, redaction-safe, and separate from automatic refresh and Generated Artifact apply.
   Evidence: `CLOSEOUT.md`.
-  Handoff: DONE; next choose a focused follow-on such as `proposed:admin-web-provider-depth-governance`, `proposed:accepted-review-provider-mapping-application`, or `proposed:douban-tv-episode-endpoint-depth`.
+  Handoff: DONE; accepted-review Provider Mapping application is opened at `docs/workstreams/accepted-review-provider-mapping-application/`; remaining focused follow-ons include `proposed:admin-web-provider-depth-governance` and `proposed:douban-tv-episode-endpoint-depth`.

@@ -170,8 +170,8 @@ Closeout result:
   shipped;
 - Admin/Web provider depth governance is split to
   `proposed:admin-web-provider-depth-governance`;
-- accepted-review Provider Mapping application is split to
-  `proposed:accepted-review-provider-mapping-application`.
+- accepted-review Provider Mapping application is opened at
+  `docs/workstreams/accepted-review-provider-mapping-application/`.
 
 Fresh closeout checks:
 

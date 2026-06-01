@@ -26,40 +26,44 @@ proposed milestone.
 
 ## Current Goal
 
-### Metadata Governance Follow-On Selection
+### Accepted Review Provider Mapping Application
 
-Status: selecting next implementation goal as of 2026-06-02.
+Status: active as of 2026-06-02.
 
 Objective:
 
-- Choose the next focused lane after durable candidate review closeout.
-- Keep Admin/Web provider depth governance, accepted-review Provider Mapping
-  application, and Douban TV/episode endpoint depth as separate workstreams.
-- Avoid reopening closed provider-depth or candidate-review lanes for new
-  product/API behavior.
+- Apply accepted Metadata Candidate Reviews to Provider Subject and Provider
+  Mapping state through a named backend boundary.
+- Start with a read-only application plan before mutation.
+- Keep Admin/Web provider depth governance and related graph node hierarchy
+  application split until backend semantics are safe.
 
 Deliverables:
 
-- a newly opened focused workstream for the selected follow-on;
-- updated `docs/architecture/LANES.md` active queue;
-- exact task ledger, gates, and non-goals before implementation starts.
+- `docs/workstreams/accepted-review-provider-mapping-application/`;
+- read-only accepted-review Provider Mapping application plan;
+- backend application service that writes only root Provider Subject and root
+  accepted Provider Mapping idempotently;
+- workstream evidence deciding whether API/Web surfaces split or continue.
 
 Non-goals:
 
 - no hidden Provider Mapping writes inside review status transitions;
 - no raw provider payload exposure;
 - no Public Client API expansion before Admin semantics settle;
+- no related graph node hierarchy application in the first backend slices;
 - no broad provider-depth project reopening.
 
 Exit criteria:
 
-- one follow-on is selected and opened with `WORKSTREAM.json`, `TODO.md`,
-  `EVIDENCE_AND_GATES.md`, and architecture refs;
-- closed MCDR evidence remains the backend prerequisite for Admin/Web or
-  Provider Mapping application behavior.
+- application plan contract is redaction-safe and provider-neutral;
+- accepted-review root mapping application is idempotent;
+- Admin/API/Web scope is explicitly accepted or split;
+- focused `nako-metadata` gates pass and evidence is recorded.
 
 Evidence:
 
+- `docs/workstreams/accepted-review-provider-mapping-application/`
 - `docs/workstreams/metadata-candidate-durable-review/CLOSEOUT.md`
 - `docs/architecture/LIBRARY_PIPELINE.md`
 - `docs/architecture/LANES.md`

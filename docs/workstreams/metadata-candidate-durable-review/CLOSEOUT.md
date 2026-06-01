@@ -53,7 +53,7 @@ Recent broader implementation gates:
 
 - `proposed:admin-web-provider-depth-governance`: expose durable provider graph
   review evidence and explicit operator decisions through Admin/Web.
-- `proposed:accepted-review-provider-mapping-application`: apply accepted
+- `docs/workstreams/accepted-review-provider-mapping-application/`: apply accepted
   candidate reviews to Provider Subject / Provider Mapping state through a
   named backend service, separate from review status transitions.
 - `proposed:douban-tv-episode-endpoint-depth`: prove Douban TV/episode endpoint

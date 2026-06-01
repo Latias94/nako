@@ -11,9 +11,8 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: Metadata Candidate Durable Review is closed after `MCDR-050`; the next
-architecture focus is follow-on selection in the
-`library-metadata-control-plane` lane.
+Status: Accepted Review Provider Mapping Application is active after Metadata
+Candidate Durable Review closeout in the `library-metadata-control-plane` lane.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
 Operations Repair are both closed as of 2026-06-02. Web Admin Generated
@@ -22,20 +21,29 @@ Repair Actions is closed after `GAARA-050`. Metadata Provider Depth And
 Precision is closed after `MPDP-050`. TMDB Season Episode Graph Depth is
 closed after `TSEG-040`. Bangumi Relations And Episode Depth is closed after
 `BRED-050`. Douban Subject Kind Precision is closed after `DSKP-030`.
-Metadata Candidate Durable Review is closed after `MCDR-050`.
+Metadata Candidate Durable Review is closed after `MCDR-050`. Accepted Review
+Provider Mapping Application is active at `ARPMA-020`.
 
-Next candidate lanes:
+It targets:
 
-- `proposed:admin-web-provider-depth-governance`;
-- `proposed:accepted-review-provider-mapping-application`;
-- `proposed:douban-tv-episode-endpoint-depth`.
+- defining a read-only accepted-review Provider Mapping application plan;
+- keeping Provider Mapping writes out of review status transitions;
+- applying only root Provider Subject / Provider Mapping state before Admin/Web
+  or related graph node governance begins.
 
 Authoritative evidence:
 
+- `docs/workstreams/accepted-review-provider-mapping-application/`
 - `docs/workstreams/metadata-candidate-durable-review/CLOSEOUT.md`
 - `docs/workstreams/metadata-provider-depth-and-precision/FOLLOW_ONS.md`
 - `docs/architecture/LIBRARY_PIPELINE.md`
 - `docs/architecture/LANES.md`
+
+Next task:
+
+- `ARPMA-020`: define a read-only accepted-review Provider Mapping application
+  plan without Provider Mapping writes, Admin/Web routes, Public Client API
+  changes, or related graph node application.
 
 Latest completed architecture focus:
 
@@ -126,8 +134,8 @@ Follow-ons:
 - `docs/workstreams/bangumi-relations-and-episode-depth/` (closed);
 - `docs/workstreams/douban-subject-kind-precision/` (closed);
 - `docs/workstreams/metadata-candidate-durable-review/` (closed);
+- `docs/workstreams/accepted-review-provider-mapping-application/` (active);
 - `proposed:admin-web-provider-depth-governance`;
-- `proposed:accepted-review-provider-mapping-application`;
 - `proposed:douban-tv-episode-endpoint-depth`.
 
 Previous architecture focus:

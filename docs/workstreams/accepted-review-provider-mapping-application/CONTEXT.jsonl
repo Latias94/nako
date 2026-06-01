@@ -1,0 +1,10 @@
+{"role":"domain-glossary","path":"CONTEXT.md","reason":"Use Nako terms such as Provider Subject, Provider Mapping, Metadata Candidate Review, Canonical Metadata, Admin API, and Public Client API."}
+{"role":"adr","path":"docs/adr/0007-metadata-merge-policy-and-local-authority.md","reason":"Metadata and provider evidence must remain separate from canonical metadata merge authority."}
+{"role":"adr","path":"docs/adr/0018-metadata-provider-runtime-and-diagnostics.md","reason":"Provider payloads, secrets, headers, and proxy URLs must stay out of diagnostics and application evidence."}
+{"role":"adr","path":"docs/adr/0021-video-first-media-server-domain-model.md","reason":"Provider-specific subjects map through Provider Mapping rather than replacing Media Item identity."}
+{"role":"architecture","path":"docs/architecture/LIBRARY_PIPELINE.md","reason":"Library metadata provider precision and candidate review application capability map."}
+{"role":"architecture","path":"docs/architecture/LANES.md","reason":"library-metadata-control-plane lane routing and shared-scope rules."}
+{"role":"prior_workstream","path":"docs/workstreams/metadata-candidate-durable-review/CLOSEOUT.md","reason":"Selected accepted-review Provider Mapping application as explicit follow-on."}
+{"role":"prior_workstream","path":"docs/workstreams/generated-artifact-provider-mapping-breadth/CLOSEOUT.md","reason":"Existing host-owned Provider Mapping apply semantics and duplicate-executor warning."}
+{"role":"workstream","path":"docs/workstreams/accepted-review-provider-mapping-application/DESIGN.md","reason":"Current lane design, task scope, and non-goals."}
+{"role":"gates","path":"docs/workstreams/accepted-review-provider-mapping-application/EVIDENCE_AND_GATES.md","reason":"Validation commands and evidence ledger."}

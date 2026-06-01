@@ -41,7 +41,7 @@ application work into follow-ons.
 ## Follow-Ons
 
 - `proposed:admin-web-provider-depth-governance`
-- `proposed:accepted-review-provider-mapping-application`
+- `docs/workstreams/accepted-review-provider-mapping-application/`
 - `proposed:douban-tv-episode-endpoint-depth`
 
 ## Blockers
