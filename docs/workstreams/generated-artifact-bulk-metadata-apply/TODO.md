@@ -1,6 +1,6 @@
 # Generated Artifact Bulk Metadata Apply - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 ## M0 - Scope And Evidence Freeze
@@ -69,11 +69,11 @@ Last updated: 2026-06-01
 
 ## M4 - Verification And Closeout
 
-- [ ] GABMA-070 [owner=planner] [deps=GABMA-060] [scope=docs/workstreams/generated-artifact-bulk-metadata-apply,docs/architecture]
+- [x] GABMA-070 [owner=planner] [deps=GABMA-060] [scope=docs/workstreams/generated-artifact-bulk-metadata-apply,docs/architecture]
   Goal: Verify backend/Web gates, update evidence, close the lane, and split
   provider mapping breadth or operations repair if needed.
   Validation: fresh focused Rust/Web gates, JSON validation, and `git diff --check`.
   Review: workstream compliance and code-quality review.
   Evidence: `EVIDENCE_AND_GATES.md`, `WORKSTREAM.json`, `HANDOFF.md`, optional
   `CLOSEOUT.md`.
-  Handoff: DONE or split follow-ons.
+  Handoff: DONE. Follow-ons remain proposed and outside this lane.

@@ -2,19 +2,20 @@
   "schema_version": 1,
   "slug": "generated-artifact-bulk-metadata-apply",
   "title": "Generated Artifact Bulk Metadata Apply",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-06-01",
   "scope_kind": "backend_web_authority_workflow",
   "problem": "Accepted metadata Generated Artifacts can be applied one artifact at a time, but Nako has no guarded bulk apply plan, durable batch execution, partial-failure reporting, or Web Admin bulk workflow.",
   "task_prefix": "GABMA",
-  "current_task": "GABMA-070",
+  "current_task": null,
   "completed_tasks": [
     "GABMA-010",
     "GABMA-020",
     "GABMA-030",
     "GABMA-040",
     "GABMA-050",
-    "GABMA-060"
+    "GABMA-060",
+    "GABMA-070"
   ],
   "authoritative_docs": [
     {
@@ -44,6 +45,10 @@
     {
       "role": "handoff",
       "path": "docs/workstreams/generated-artifact-bulk-metadata-apply/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/generated-artifact-bulk-metadata-apply/CLOSEOUT.md"
     }
   ],
   "context_manifest": "docs/workstreams/generated-artifact-bulk-metadata-apply/CONTEXT.jsonl",
@@ -86,6 +91,10 @@
     {
       "task": "GABMA-060",
       "summary": "Added the Web Admin bulk metadata apply workflow with accepted-artifact selection, live bulk plan/confirm/status data sources, fixture/fallback mutation guards, redacted partial-result display, route-state tests, browser smoke evidence, lazy-loaded Generated Artifacts page, and an explicit total-js gzip budget adjustment to 340 KiB."
+    },
+    {
+      "task": "GABMA-070",
+      "summary": "Closed the lane after fresh Rust, Web, PostgreSQL, and docs gates; accepted the explicit total-js gzip budget tradeoff; updated architecture/workstream routing; and split provider mapping breadth, operations repair, and Admin settings restoration to follow-ons."
     }
   ],
   "adr_refs": [
@@ -122,7 +131,7 @@
   ],
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
-    "default_action": "continue_next_task",
-    "notes": "Continue at GABMA-070. Verify backend/Web gates, review the Web budget tradeoff, close the lane, and split provider mapping breadth or operations repair if needed."
+    "default_action": "closed",
+    "notes": "This lane is closed. Open focused follow-ons for provider-specific Generated Artifact mapping breadth, apply operations repair/replay diagnostics, or API-backed restoration of placeholder Admin settings pages."
   }
 }

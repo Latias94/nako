@@ -65,18 +65,19 @@ capabilities and risks.
 
 ### generated-artifact-bulk-metadata-apply
 
-Status: Active at
+Status: Closed at
 `docs/workstreams/generated-artifact-bulk-metadata-apply/`.
 
 Goal: Add a guarded Admin bulk apply workflow for accepted metadata Generated
 Artifacts while keeping mutation outside the initial read-only plan slice and,
 later, outside unbounded HTTP request execution.
 
-Control-plane constraints:
+Shipped control-plane behavior:
 
 - selection and plan responses must stay redacted;
-- confirmed bulk mutation should enqueue durable work;
-- per-item idempotency and partial-failure state must be explicit;
+- confirmed bulk mutation enqueues durable work;
+- per-item idempotency and partial-failure state are explicit;
+- Web Admin confirms only through live Admin API;
 - provider-specific mapping breadth and repair tooling remain follow-ons.
 
 ### control-plane-observability-and-trace-context

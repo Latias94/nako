@@ -20,14 +20,13 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| `library-metadata-control-plane` | `generated-artifact-bulk-metadata-apply` | `GABMA-020` | Backend/API planner-worker |
+| _none_ | _none_ | _none_ | Planner should select the next focused follow-on |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
-`generated-artifact-bulk-metadata-apply` is now active as the focused
-follow-on for bulk Generated Artifact metadata apply. Do not start provider
-mapping breadth, Admin settings restoration, playback artifact I/O
-enforcement, actual release publication, one-command release-gate wrapping, or
-official addon alpha smoke until this active queue is reviewed or split.
+`generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`. Do not
+start provider mapping breadth, Admin settings restoration, playback artifact
+I/O enforcement, actual release publication, one-command release-gate wrapping,
+or official addon alpha smoke until the next focused workstream is selected.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
@@ -117,10 +116,11 @@ that turns accepted generated artifacts into Canonical Metadata.
 
 Active evidence:
 
-- `docs/workstreams/generated-artifact-bulk-metadata-apply/`
+- None.
 
 Closed evidence:
 
+- `docs/workstreams/generated-artifact-bulk-metadata-apply/`
 - `docs/workstreams/generated-artifact-metadata-authority-apply/`
 
 Owned scopes:

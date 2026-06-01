@@ -1,6 +1,6 @@
 # Generated Artifact Bulk Metadata Apply - Design
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 ## Problem
@@ -34,6 +34,9 @@ Nako supports an Admin-only bulk metadata apply flow:
    Metadata Authority apply path and records per-item outcomes;
 6. Admin API and Web expose batch status, partial failures, skipped/noop
    counts, and replay-safe result facts.
+
+Closeout: this target state shipped in `GABMA-070`; final evidence lives in
+`CLOSEOUT.md` and `EVIDENCE_AND_GATES.md`.
 
 ## Scope
 

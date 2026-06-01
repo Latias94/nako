@@ -11,31 +11,43 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: active implementation follow-on.
+Status: idle after the latest implementation follow-on closed.
 
-Active architecture focus:
+Next planner action:
 
-Generated Artifact Bulk Metadata Apply opened on 2026-06-01 as the first
+- choose exactly one focused follow-on before starting more parallel
+  implementation;
+- candidates include provider-specific Generated Artifact mapping breadth,
+  Generated Artifact apply operations repair, Admin settings API-backed
+  restoration, or a broader architecture planning pass if priorities changed.
+
+Latest completed architecture focus:
+
+Generated Artifact Bulk Metadata Apply closed on 2026-06-01 as the first
 implementation follow-on after Architecture Roadmap Reconciliation and GAMA
 closeout.
 
-The active task is `GABMA-020`: add a redaction-safe, read-only bulk metadata
-apply-plan contract for selected accepted metadata Generated Artifacts before
-any bulk mutation route exists.
+It shipped:
+
+- redacted, read-only bulk metadata apply planning for selected accepted
+  Generated Artifacts;
+- durable batch confirmation and job-backed execution outside the request path;
+- per-item idempotency, replay, partial-failure reporting, and PostgreSQL
+  parity evidence;
+- Admin API status/result routes and Web Admin accepted-artifact selection,
+  live-only confirmation, and redacted result display.
 
 Authoritative lane:
 
 - `docs/workstreams/generated-artifact-bulk-metadata-apply/`
 
-Why this is next:
+Follow-ons:
 
-- GAMA shipped safe one-artifact Metadata Authority apply.
-- Operators need batch selection, partial-failure reporting, and durable
-  execution before metadata automation can be efficient at library scale.
-- The first slice is read-only, so it can validate selection/redaction before
-  introducing durable mutation behavior.
+- `proposed:generated-artifact-provider-mapping-breadth`;
+- `proposed:generated-artifact-apply-operations-repair`;
+- `proposed:admin-settings-api-backed-restoration`.
 
-Latest completed architecture focus:
+Previous architecture focus:
 
 Architecture Roadmap Reconciliation closed on 2026-06-01. It reconciled the
 program roadmap, active queue, architecture workstream links, and high-risk
@@ -299,8 +311,8 @@ Important remaining breadth:
 
 - provider depth and identity-matching precision beyond the shipped TMDB,
   Douban, and Bangumi foundations.
-- bulk Generated Artifact metadata apply, now active in
-  `docs/workstreams/generated-artifact-bulk-metadata-apply/`.
+- provider-specific Generated Artifact mapping breadth after the shipped bulk
+  apply workflow.
 - item-level metadata profile overrides.
 - artwork delivery placeholders/cache policy and preview-frame generation jobs.
 

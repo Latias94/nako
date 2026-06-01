@@ -1,11 +1,11 @@
 # Generated Artifact Bulk Metadata Apply - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 ## Current State
 
-This lane is open as the first implementation follow-on after
+This lane is closed as the first implementation follow-on after
 `generated-artifact-metadata-authority-apply`.
 
 GAMA shipped the one-artifact Metadata Authority apply workflow:
@@ -22,17 +22,19 @@ batch execution through the existing one-artifact apply path with per-item
 outcomes and partial-failure accounting. `GABMA-050` exposed the Admin
 confirm/status/result HTTP surface and synchronized generated Admin TypeScript
 contracts. `GABMA-060` wired the Web Admin bulk planning, confirmation, and
-result workflow. The next task is verification and closeout.
+result workflow. `GABMA-070` verified and closed the lane.
 
-## Active Task
+## Final Status
 
 - Task ID: `GABMA-070`
 - Lane: `library-metadata-control-plane`
-- Status: active
+- Status: closed
 - Owner: planner
 
-Goal: verify backend/Web gates, review the budget tradeoff, update closeout
-evidence, and split follow-ons if needed.
+Result: backend/Web/PostgreSQL/docs gates passed; the Web total-JS gzip budget
+increase to 340 KiB was accepted as explicit evidence; provider mapping
+breadth, apply operations repair, and Admin settings restoration remain
+separate follow-ons.
 
 ## Completed Evidence
 
@@ -76,6 +78,16 @@ evidence, and split follow-ons if needed.
 - Validated with focused Web data-source and route tests, `npm --prefix web run
   check`, `npm --prefix web run build:budget`, and Playwright CLI smoke at
   desktop `1440x1000` plus mobile `390x844` against a mocked live Admin API.
+- `GABMA-070`: fresh closeout verification passed:
+  `cargo nextest run -p nako-api generated_artifact_metadata_apply --no-fail-fast`;
+  `cargo nextest run -p nako-api admin_contract --no-fail-fast`;
+  `cargo nextest run -p nako-server generated_artifact_metadata_apply_plan --no-fail-fast`;
+  `cargo nextest run -p nako-server generated_artifact_bulk_metadata_apply --no-fail-fast`;
+  `cargo nextest run -p nako-db generated_artifact_bulk_metadata_apply --no-fail-fast`;
+  `cargo fmt --all -- --check`; Web data-source and route-state gates;
+  `npm --prefix web run check`; `npm --prefix web run build:budget`;
+  PostgreSQL `scripts/postgres-contract-harness.ps1 -Suite all-contracts` with
+  46/46 ignored contracts passed; JSON validation and diff checks.
 
 ## Key Context
 
@@ -102,7 +114,7 @@ evidence, and split follow-ons if needed.
 
 ## Blockers
 
-- None for `GABMA-070`.
+- None.
 
 ## Watchpoints
 
@@ -120,3 +132,6 @@ evidence, and split follow-ons if needed.
 - `proposed:generated-artifact-provider-mapping-breadth`
 - `proposed:generated-artifact-apply-operations-repair`
 - `proposed:admin-settings-api-backed-restoration`
+
+Next planner action: choose one follow-on or reopen a broader architecture
+planning pass; do not continue work inside this closed lane.

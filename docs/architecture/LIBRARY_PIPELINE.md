@@ -32,7 +32,7 @@ Storage event or scheduled scan
 | TMDB provider | Shipped movie plus series/season/episode foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Provider depth, identity matching, and conflict precision. |
 | Douban provider | Shipped MVP foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Provider depth, identity matching, and conflict precision. |
 | Bangumi provider | Shipped MVP foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/` | Anime-first provider depth and identity matching. |
-| Addon-assisted metadata | Shipped guarded apply foundation with active bulk follow-on | addon architecture lanes; `docs/workstreams/generated-artifact-metadata-authority-apply/`; `docs/workstreams/generated-artifact-bulk-metadata-apply/` | Provider mapping breadth and apply repair diagnostics after bulk apply. |
+| Addon-assisted metadata | Shipped guarded apply and bulk apply foundation | addon architecture lanes; `docs/workstreams/generated-artifact-metadata-authority-apply/`; `docs/workstreams/generated-artifact-bulk-metadata-apply/` | Provider mapping breadth and apply repair diagnostics. |
 | Artwork artifact lifecycle | Shipped selection, lifecycle, variant, and remediation foundation | managed artwork lanes | Delivery cache placeholders and broader derivative policy. |
 | Watcher/debounce | Weak | This document | Open `library-watcher-and-media-intake-stability`. |
 
@@ -91,14 +91,22 @@ Scope:
 
 ### generated-artifact-bulk-metadata-apply
 
-Status: Active at `docs/workstreams/generated-artifact-bulk-metadata-apply/`.
+Status: Closed at `docs/workstreams/generated-artifact-bulk-metadata-apply/`.
 
 Goal: Turn one-artifact Metadata Authority apply into guarded bulk planning,
 durable execution, partial-failure reporting, and Web Admin operator controls.
 
-First slice:
+Shipped:
 
-- read-only bulk apply-plan contract before any bulk mutation route exists.
+- read-only bulk apply-plan contract;
+- durable batch confirmation and job-backed execution;
+- per-item idempotency and partial-failure reporting;
+- Admin status/result routes and Web Admin operator workflow.
+
+Next lanes:
+
+- `proposed:generated-artifact-provider-mapping-breadth`;
+- `proposed:generated-artifact-apply-operations-repair`.
 
 ## Risk Register
 

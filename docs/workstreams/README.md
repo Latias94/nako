@@ -18,10 +18,10 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 
 Last reviewed: 2026-06-01
 
+No workstream is currently active after
 [generated-artifact-bulk-metadata-apply](generated-artifact-bulk-metadata-apply/README.md)
-is active in the `library-metadata-control-plane` lane. The next task is
-`GABMA-020`: add a redaction-safe, read-only bulk metadata apply-plan contract
-before any bulk mutation route exists.
+closed on 2026-06-01. The planner should choose one focused follow-on before
+starting more parallel implementation.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -31,7 +31,7 @@ Authority apply verification. `CSAPA` is closed; desktop playback is deferred
 to a focused future Tauri/native playback spike.
 
 Provider mapping breadth, apply repair tooling, and Admin settings restoration
-remain separate follow-ons while `GABMA` owns bulk apply.
+remain separate follow-ons after `GABMA` closeout.
 `audio-compatibility-downmix-normalization`,
 `remote-storage-health-and-circuit-breaker`,
 `transcode-interface-and-runtime-plan-deepening`,
@@ -46,7 +46,7 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
 ## Current Workstreams
 
 - [generated-artifact-bulk-metadata-apply](generated-artifact-bulk-metadata-apply/README.md):
-  active backend/Web authority lane for turning the single-artifact Generated
+  closed backend/Web authority lane for turning the single-artifact Generated
   Artifact Metadata Authority apply workflow into guarded bulk planning,
   durable execution, partial-failure reporting, and Web Admin operator
   controls.

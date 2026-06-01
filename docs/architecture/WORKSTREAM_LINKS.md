@@ -163,7 +163,7 @@ Evidence workstreams:
 - `docs/workstreams/metadata-profile-configuration-authority/`
 - `docs/workstreams/metadata-application-policy-seam/`
 - `docs/workstreams/generated-artifact-metadata-authority-apply/`
-- `docs/workstreams/generated-artifact-bulk-metadata-apply/` (active)
+- `docs/workstreams/generated-artifact-bulk-metadata-apply/` (closed)
 - `docs/workstreams/metadata-provider-attempt-runtime/`
 - `docs/workstreams/metadata-operations/`
 - `docs/workstreams/scan-addon-bulk-metadata-scrape/`
@@ -291,7 +291,7 @@ Evidence workstreams:
 - `docs/workstreams/web-admin-generated-artifacts-automation/`
 - `docs/workstreams/web-admin-generated-artifact-review-mutations/`
 - `docs/workstreams/generated-artifact-metadata-authority-apply/`
-- `docs/workstreams/generated-artifact-bulk-metadata-apply/` (active)
+- `docs/workstreams/generated-artifact-bulk-metadata-apply/` (closed)
 - `docs/workstreams/addon-architecture-deepening/`
 - `docs/workstreams/addon-runtime-and-distribution/`
 - `docs/workstreams/addon-manager-lifecycle-automation/`

@@ -26,9 +26,25 @@ proposed milestone.
 
 ## Current Goal
 
+### No Active Implementation Goal
+
+Status: idle after `generated-artifact-bulk-metadata-apply` closeout on
+2026-06-01.
+
+Next planner action:
+
+- choose exactly one focused follow-on before starting more parallel
+  implementation;
+- preferred candidates are provider-specific Generated Artifact mapping
+  breadth, Generated Artifact apply operations repair, Admin settings
+  API-backed restoration, or a broader architecture planning pass if priorities
+  changed.
+
+## Recent Completed Goals
+
 ### Generated Artifact Bulk Metadata Apply
 
-Status: active as of 2026-06-01.
+Status: completed on 2026-06-01.
 
 Objective:
 
@@ -71,8 +87,8 @@ Evidence:
 - `docs/workstreams/generated-artifact-bulk-metadata-apply/`
 - gates listed in
   `docs/workstreams/generated-artifact-bulk-metadata-apply/EVIDENCE_AND_GATES.md`
-
-## Recent Completed Goals
+- closeout recorded in
+  `docs/workstreams/generated-artifact-bulk-metadata-apply/CLOSEOUT.md`
 
 ### Architecture Roadmap Reconciliation
 

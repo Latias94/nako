@@ -1,6 +1,6 @@
 # Generated Artifact Bulk Metadata Apply - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 ## Always Run For Docs Changes
@@ -101,10 +101,40 @@ Only run after Admin contract support exists:
   status flows at desktop `1440x1000` and mobile `390x844`; screenshots:
   `.tmp/gabma060-desktop.png`, `.tmp/gabma060-mobile.png`; page text did not
   expose unsafe prompt/generated title/provider/idempotency/token strings.
+- `GABMA-070`: Closed the lane after fresh backend, Web, PostgreSQL, and docs
+  verification. The shipped flow covers redacted read-only bulk planning,
+  durable batch confirmation, job-backed per-item execution, partial-result
+  status reads, Web live/fallback honesty, and the accepted Web bundle-budget
+  tradeoff. `TODO.md`, `TASKS.jsonl`, `CAMPAIGNS.jsonl`, `WORKSTREAM.json`,
+  architecture maps, and top-level planning docs now all record the lane as
+  closed.
+  Rust gates: `cargo nextest run -p nako-api generated_artifact_metadata_apply --no-fail-fast`
+  passed 4/4; `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+  passed 5/5; `cargo nextest run -p nako-server generated_artifact_metadata_apply_plan --no-fail-fast`
+  passed 4/4; `cargo nextest run -p nako-server generated_artifact_bulk_metadata_apply --no-fail-fast`
+  passed 5/5; `cargo nextest run -p nako-db generated_artifact_bulk_metadata_apply --no-fail-fast`
+  passed 1/1; `cargo fmt --all -- --check` passed.
+  PostgreSQL: directly running the ignored contract without
+  `NAKO_TEST_POSTGRES_URL` failed fast as designed; then
+  `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/postgres-contract-harness.ps1 -Suite all-contracts`
+  started a local PostgreSQL 17 harness and passed 46/46 ignored PostgreSQL
+  contracts, including
+  `postgres_metadata_catalog_contract_generated_artifact_bulk_metadata_apply_batch_is_idempotent_and_atomic`.
+  The harness warned that `pg_ctl stop` returned a failure, but port `55432`
+  was closed afterward and `target/postgres-contract` was removed.
+  Web gates: `npm --prefix web run test -- src/test/data-source-contracts.test.ts`
+  passed 37/37; `npm --prefix web run test -- src/test/route-contracts.test.tsx src/test/route-state-contracts.test.tsx`
+  passed 55/55; `npm --prefix web run check` passed; `npm --prefix web run build:budget`
+  passed with `admin-route-js` 203.77 raw KiB / 43.27 gzip KiB and
+  `total-js` 1140.00 raw KiB / 336.96 gzip KiB under the explicit 340 KiB
+  gzip limit.
+  Docs gates: `python -m json.tool docs/workstreams/generated-artifact-bulk-metadata-apply/WORKSTREAM.json`
+  and `git diff --check` passed before closeout edits; final docs diff gates
+  are recorded in `CLOSEOUT.md`.
 
 ## Final Evidence Checklist
 
-Record before closeout:
+Recorded in `GABMA-070` and `CLOSEOUT.md`:
 
 - exact Admin route method/path/body/response for bulk plan, confirm, and
   status/results;
@@ -112,6 +142,6 @@ Record before closeout:
 - selection bound and redaction evidence;
 - durable batch idempotency and per-item idempotency evidence;
 - partial failure and replay behavior;
-- SQLite/PostgreSQL parity evidence if schema changes;
+- SQLite/PostgreSQL parity evidence for the bulk batch contract;
 - Web live/fallback honesty and screenshots;
 - closeout review result and follow-on split decisions.

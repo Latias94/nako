@@ -1,6 +1,6 @@
 # Generated Artifact Bulk Metadata Apply - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-01
 
 ## GABMA-M0 - Lane Opened
@@ -65,3 +65,7 @@ Exit criteria:
 - residual provider mapping breadth and operations repair are not hidden in
   this lane;
 - architecture and workstream docs reflect the shipped state.
+
+Closeout: satisfied by `GABMA-070` on 2026-06-01. The lane is closed; provider
+mapping breadth, apply operations repair, and Admin settings restoration remain
+separate proposed follow-ons.
