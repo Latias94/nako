@@ -33,8 +33,11 @@ use nako_core::{
     GeneratedArtifactMetadataBulkApplyPlanItemReason,
     GeneratedArtifactMetadataBulkApplyPlanItemStatus,
     GeneratedArtifactMetadataBulkApplyPlanSelection, GeneratedArtifactMetadataBulkApplyPlanSummary,
-    GeneratedArtifactPayloadShape, GeneratedArtifactPayloadSummary, GeneratedArtifactTarget, Genre,
-    GenreId, IdentityAccessRepository, ImageAsset, ImageAssetId, ImageKind, ImageOwner,
+    GeneratedArtifactPayloadShape, GeneratedArtifactPayloadSummary,
+    GeneratedArtifactProviderMappingAction, GeneratedArtifactProviderMappingApplyCommit,
+    GeneratedArtifactProviderMappingPlan, GeneratedArtifactProviderMappingReason,
+    GeneratedArtifactProviderSubjectPlan, GeneratedArtifactTarget, Genre, GenreId,
+    IdentityAccessRepository, ImageAsset, ImageAssetId, ImageKind, ImageOwner,
     IngestionFailureClass, IngestionFailureFilter, IngestionFailurePhase,
     IngestionFailureRepository, IngestionFailureResolution, IngestionFailureStatus, ItemCredit,
     ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind, JobLeaseClaimFilter, JobLeaseClaimRequest,
@@ -2853,7 +2856,7 @@ where
             ..CanonicalMetadata::default()
         },
     };
-    let plan = contract_generated_artifact_metadata_apply_plan(
+    let mut plan = contract_generated_artifact_metadata_apply_plan(
         artifact.id,
         library.id,
         source.item_id,
@@ -2861,6 +2864,40 @@ where
         GeneratedArtifactMetadataApplyPlanStatus::Ready,
         vec![GeneratedArtifactMetadataApplyPlanReason::Ready],
     );
+    let provider_subject = ProviderSubject {
+        id: ProviderSubjectId::new(),
+        provider: ExternalProvider::Tmdb,
+        subject_kind: ProviderSubjectKind::Movie,
+        subject_key: "603".to_owned(),
+        title: Some("Generated Artifact Provider Subject".to_owned()),
+        release_year: Some(1999),
+        locale: Some("en-US".to_owned()),
+    };
+    let provider_mapping = ProviderMapping {
+        id: ProviderMappingId::new(),
+        item_id: source.item_id,
+        subject_id: provider_subject.id,
+        status: ProviderMappingStatus::Accepted,
+        confidence_milli: Some(930),
+        source: MetadataSource::User,
+    };
+    plan.provider_mappings = vec![GeneratedArtifactProviderMappingPlan {
+        subject: GeneratedArtifactProviderSubjectPlan {
+            provider: Some(ExternalProvider::Tmdb),
+            provider_name: Some("tmdb".to_owned()),
+            subject_kind: Some(ProviderSubjectKind::Movie),
+            subject_kind_name: Some("movie".to_owned()),
+            subject_key: Some("603".to_owned()),
+            title: provider_subject.title.clone(),
+            release_year: provider_subject.release_year,
+            locale: provider_subject.locale.clone(),
+        },
+        action: GeneratedArtifactProviderMappingAction::Apply,
+        reasons: vec![GeneratedArtifactProviderMappingReason::Ready],
+        confidence_milli: Some(930),
+        existing_mapping_status: None,
+    }];
+    plan.apply_provider_mapping_count = 1;
     let idempotency_key = "generated-artifact-apply:contract";
     let outcome = store
         .commit_generated_artifact_metadata_apply_outcome(
@@ -2899,6 +2936,10 @@ where
                         .unwrap(),
                     },
                 }),
+                provider_mappings: vec![GeneratedArtifactProviderMappingApplyCommit {
+                    subject: provider_subject.clone(),
+                    mapping: provider_mapping.clone(),
+                }],
             },
         )
         .await
@@ -2932,6 +2973,20 @@ where
     );
     assert_eq!(
         store
+            .find_provider_subject(&ExternalProvider::Tmdb, &ProviderSubjectKind::Movie, "603")
+            .await
+            .unwrap(),
+        Some(provider_subject.clone())
+    );
+    assert_eq!(
+        store
+            .list_provider_mappings_for_item(source.item_id, PageRequest::first_page())
+            .await
+            .unwrap(),
+        vec![provider_mapping]
+    );
+    assert_eq!(
+        store
             .search(
                 SearchQuery::from_facet_labels(
                     "generated overview",
@@ -2962,6 +3017,7 @@ where
                 error_code: None,
                 error_message: None,
                 metadata_application: None,
+                provider_mappings: Vec::new(),
             },
         )
         .await
@@ -3013,6 +3069,7 @@ where
                         ),
                     },
                 }),
+                provider_mappings: Vec::new(),
             },
         )
         .await
@@ -3209,6 +3266,7 @@ where
                 error_code: None,
                 error_message: None,
                 metadata_application: None,
+                provider_mappings: Vec::new(),
             },
         )
         .await

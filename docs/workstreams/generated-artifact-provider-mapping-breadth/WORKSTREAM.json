@@ -5,12 +5,13 @@
   "status": "active",
   "updated": "2026-06-01",
   "scope_kind": "backend_web_authority_workflow",
-  "problem": "Accepted metadata Generated Artifacts can apply neutral Canonical Metadata fields, but they cannot yet plan or apply Provider Subject and Provider Mapping proposals through the guarded Metadata Authority workflow.",
+  "problem": "Accepted metadata Generated Artifacts can now plan and apply single-artifact Provider Subject and Provider Mapping proposals, but bulk/Admin/Web surfaces still need to expose those mapping counters and outcomes through the guarded Metadata Authority workflow.",
   "task_prefix": "GAPM",
-  "current_task": "GAPM-030",
+  "current_task": "GAPM-040",
   "completed_tasks": [
     "GAPM-010",
-    "GAPM-020"
+    "GAPM-020",
+    "GAPM-030"
   ],
   "authoritative_docs": [
     {
@@ -68,6 +69,10 @@
     {
       "task": "GAPM-020",
       "summary": "Added redaction-safe read-only Provider Mapping proposal entries and counters to the Generated Artifact metadata apply plan; synchronized Admin DTOs and generated TypeScript contracts; documented HTTP behavior; and verified no Provider Mapping mutation during planning."
+    },
+    {
+      "task": "GAPM-030",
+      "summary": "Made final Generated Artifact metadata apply persist Provider Subjects and accepted Provider Mappings through the generated artifact outcome transaction, including idempotent replay, candidate promotion, rejected-mapping preservation, and SQLite/PostgreSQL repository support."
     }
   ],
   "adr_refs": [
@@ -106,7 +111,7 @@
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
     "default_action": "run_current_task",
-    "current_task": "GAPM-030",
-    "notes": "Continue with durable Provider Mapping apply only after reviewing GAPM-020 evidence. GAPM-030 must preserve review-acceptance staging, idempotent outcome replay, and atomic-enough Provider Subject/Mapping persistence."
+    "current_task": "GAPM-040",
+    "notes": "Continue with bulk/Admin surface reconciliation now that GAPM-030 stabilized single-artifact Provider Subject/Mapping persistence. GAPM-040 must reuse the one-artifact apply path and avoid a second provider mapping executor."
   }
 }

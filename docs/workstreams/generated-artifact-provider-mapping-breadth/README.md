@@ -33,8 +33,10 @@ Current execution:
 - `GAPM-010` opened the lane and reconciled architecture routing.
 - `GAPM-020` shipped redaction-safe read-only provider mapping plan support for
   the existing Generated Artifact metadata apply workflow.
-- Next task: `GAPM-030`, durable/idempotent Provider Mapping apply through
-  host-owned repositories.
+- `GAPM-030` shipped durable/idempotent Provider Subject and accepted Provider
+  Mapping apply through the single-artifact Metadata Authority outcome
+  transaction.
+- Next task: `GAPM-040`, bulk/Admin counter and outcome reconciliation.
 
 Boundary:
 

@@ -767,10 +767,19 @@ metadata Generated Artifacts it returns redacted field plans and, when the
 artifact payload includes supported Provider Subject proposals, redacted
 `provider_mappings` plan entries with apply/skip/noop counters. The plan may
 inspect existing Provider Subjects and Provider Mappings, but it does not
-mutate Canonical Metadata or Provider Mappings. Until durable Provider Mapping
-apply ships, plans with applyable Provider Mapping entries are marked
-non-executable with a deferred Provider Mapping apply reason rather than
-claiming a partial mutation path.
+mutate Canonical Metadata or Provider Mappings. Applyable Provider Mapping
+entries make the plan executable even when no Canonical Metadata field needs
+mutation.
+
+`POST /admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply`
+confirms the single-artifact Metadata Authority plan with
+`{ "idempotency_key": "..." }`. Final apply revalidates target freshness,
+applies unlocked Canonical Metadata fields, and upserts accepted Provider
+Subject and Provider Mapping proposals through host-owned repositories in the
+same durable outcome transaction. Existing accepted mappings are noops,
+existing candidate mappings can be promoted to accepted, and existing rejected
+mappings are preserved as skipped proposals. Idempotent replay returns the
+stored outcome without duplicating Provider Subjects or Provider Mappings.
 
 `POST /admin/v1/automation/generated-artifacts/metadata-apply-plan` is a
 read-only Admin planning route for a selected set of Generated Artifacts. Its

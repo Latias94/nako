@@ -4,7 +4,8 @@ use crate::{
     AutomationArtifactId, AutomationProviderId, ExternalProvider,
     GeneratedArtifactMetadataApplyOutcomeId, GeneratedArtifactMetadataBulkApplyBatchId, JobId,
     LibraryId, MediaItemId, MediaSourceId, MetadataApplicationPersistenceCommit, MetadataField,
-    NakoError, NewJob, ProviderMappingStatus, ProviderSubjectKind, Result,
+    NakoError, NewJob, ProviderMapping, ProviderMappingStatus, ProviderSubject,
+    ProviderSubjectKind, Result,
 };
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -903,6 +904,12 @@ pub struct GeneratedArtifactMetadataApplyOutcomeRecord {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct GeneratedArtifactProviderMappingApplyCommit {
+    pub subject: ProviderSubject,
+    pub mapping: ProviderMapping,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct GeneratedArtifactMetadataApplyOutcomeCommit {
     pub id: GeneratedArtifactMetadataApplyOutcomeId,
     pub artifact_id: AutomationArtifactId,
@@ -916,6 +923,7 @@ pub struct GeneratedArtifactMetadataApplyOutcomeCommit {
     pub error_code: Option<String>,
     pub error_message: Option<String>,
     pub metadata_application: Option<MetadataApplicationPersistenceCommit>,
+    pub provider_mappings: Vec<GeneratedArtifactProviderMappingApplyCommit>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

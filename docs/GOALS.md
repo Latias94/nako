@@ -69,6 +69,8 @@ Exit criteria:
 Evidence:
 
 - `docs/workstreams/generated-artifact-provider-mapping-breadth/`
+- `GAPM-020` covers redacted read-only Provider Mapping planning; `GAPM-030`
+  covers final Provider Subject/Mapping persistence and idempotent replay.
 
 ## Recent Completed Goals
 

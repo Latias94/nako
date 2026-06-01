@@ -1581,7 +1581,7 @@ async fn upsert_provider_raw_response_tx(
     Ok(())
 }
 
-async fn upsert_provider_subject_tx(
+pub(super) async fn upsert_provider_subject_tx(
     transaction: &mut sqlx::Transaction<'_, Postgres>,
     subject: &ProviderSubject,
 ) -> Result<()> {
@@ -1630,7 +1630,7 @@ async fn upsert_provider_subject_tx(
     Ok(())
 }
 
-async fn upsert_provider_mapping_tx(
+pub(super) async fn upsert_provider_mapping_tx(
     transaction: &mut sqlx::Transaction<'_, Postgres>,
     mapping: &ProviderMapping,
 ) -> Result<()> {

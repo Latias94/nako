@@ -32,8 +32,9 @@ Authoritative lane:
 
 Next task:
 
-- `GAPM-030`: durable/idempotent Provider Mapping apply through host-owned
-  repositories.
+- `GAPM-040`: surface Provider Mapping counters and outcomes through bulk
+  plan/result and Admin contracts now that single-artifact persistence is
+  stable.
 
 Latest completed architecture focus:
 

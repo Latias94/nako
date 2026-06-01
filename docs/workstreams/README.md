@@ -23,9 +23,8 @@ is active in the `library-metadata-control-plane` lane.
 
 Next task:
 
-- `GAPM-030`: make final Generated Artifact metadata apply upsert Provider
-  Subjects and accepted Provider Mappings idempotently through host-owned
-  repositories.
+- `GAPM-040`: surface Provider Mapping counters and outcomes through bulk
+  plan/result and Admin contracts after the single-artifact persistence path.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -51,9 +50,10 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
 
 - [generated-artifact-provider-mapping-breadth](generated-artifact-provider-mapping-breadth/README.md):
   active backend/Web authority lane for extending accepted metadata Generated
-  Artifact apply so it can plan and later apply Provider Subject and Provider
-  Mapping proposals while preserving review staging, target freshness,
-  idempotent outcomes, and Admin/Web redaction.
+  Artifact apply so it can plan and apply Provider Subject and Provider
+  Mapping proposals while reconciling bulk/Admin/Web counters and outcomes
+  without weakening review staging, target freshness, idempotent outcomes, or
+  redaction.
 - [generated-artifact-bulk-metadata-apply](generated-artifact-bulk-metadata-apply/README.md):
   closed backend/Web authority lane for turning the single-artifact Generated
   Artifact Metadata Authority apply workflow into guarded bulk planning,

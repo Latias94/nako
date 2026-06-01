@@ -4,7 +4,9 @@ use sqlx::{Postgres, postgres::PgRow};
 
 use super::core_catalog::{upsert_media_item_tx, upsert_search_projection_tx};
 use super::jobs::insert_job_tx;
-use super::metadata_catalog::replace_item_catalog_graph_tx;
+use super::metadata_catalog::{
+    replace_item_catalog_graph_tx, upsert_provider_mapping_tx, upsert_provider_subject_tx,
+};
 use super::{
     PostgresStore, database_error, i64_to_u32, i64_to_u64, parse_id, parse_optional_id, row_get,
     u32_to_i64, u64_to_i64,
@@ -1116,6 +1118,7 @@ impl AutomationRepository for PostgresStore {
         commit: &GeneratedArtifactMetadataApplyOutcomeCommit,
     ) -> Result<GeneratedArtifactMetadataApplyOutcomeRecord> {
         let plan_json = serde_json::to_string(&commit.plan).map_err(database_error)?;
+        validate_generated_artifact_provider_mapping_apply_commits(commit)?;
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
         if let Some(application) = &commit.metadata_application {
@@ -1136,6 +1139,10 @@ impl AutomationRepository for PostgresStore {
             .await?;
             upsert_search_projection_tx(&mut transaction, &application.catalog_projection.search)
                 .await?;
+        }
+        for provider_mapping in &commit.provider_mappings {
+            upsert_provider_subject_tx(&mut transaction, &provider_mapping.subject).await?;
+            upsert_provider_mapping_tx(&mut transaction, &provider_mapping.mapping).await?;
         }
 
         sqlx::query(
@@ -1578,6 +1585,38 @@ fn row_to_generated_artifact_metadata_apply_outcome(
         created_at: row_get(&row, "created_at")?,
         updated_at: row_get(&row, "updated_at")?,
     })
+}
+
+fn validate_generated_artifact_provider_mapping_apply_commits(
+    commit: &GeneratedArtifactMetadataApplyOutcomeCommit,
+) -> Result<()> {
+    for provider_mapping in &commit.provider_mappings {
+        if provider_mapping.mapping.subject_id != provider_mapping.subject.id {
+            return Err(NakoError::InvalidInput {
+                message: format!(
+                    "generated artifact provider mapping subject_id {} does not match subject {}",
+                    provider_mapping.mapping.subject_id, provider_mapping.subject.id
+                ),
+            });
+        }
+        if provider_mapping.mapping.status != ProviderMappingStatus::Accepted {
+            return Err(NakoError::InvalidInput {
+                message:
+                    "generated artifact provider mapping apply commits must use accepted status"
+                        .to_owned(),
+            });
+        }
+        if Some(provider_mapping.mapping.item_id) != commit.item_id {
+            return Err(NakoError::InvalidInput {
+                message: format!(
+                    "generated artifact provider mapping item_id {} does not match outcome item {:?}",
+                    provider_mapping.mapping.item_id, commit.item_id
+                ),
+            });
+        }
+    }
+
+    Ok(())
 }
 
 fn validate_generated_artifact_metadata_bulk_apply_batch_commit(

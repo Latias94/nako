@@ -50,6 +50,8 @@ Exit criteria:
 - SQLite and PostgreSQL behavior are covered when transaction boundaries
   change.
 
+Status: satisfied by `GAPM-030` on 2026-06-01.
+
 ## GAPM-M3 - Bulk/Admin/Web Surface
 
 Outcome: Bulk apply and Web Admin display provider mapping plan/result facts

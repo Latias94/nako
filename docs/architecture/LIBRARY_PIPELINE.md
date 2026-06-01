@@ -114,18 +114,22 @@ Status: Active at
 `docs/workstreams/generated-artifact-provider-mapping-breadth/`.
 
 Goal: Extend accepted metadata Generated Artifact apply so it can plan and
-later apply Provider Subject and Provider Mapping proposals without turning
-review acceptance into a catalog mutation.
+apply Provider Subject and Provider Mapping proposals without turning review
+acceptance into a catalog mutation, then surface those effects through
+bulk/Admin/Web results.
 
-Shipped first slice:
+Shipped backend slices:
 
 - `GAPM-020` adds redaction-safe read-only Provider Mapping plan entries and
   counters to the existing Generated Artifact metadata apply plan.
+- `GAPM-030` adds durable/idempotent Provider Subject and accepted Provider
+  Mapping apply through the single-artifact Metadata Authority outcome
+  transaction.
 
 Next slice:
 
-- `GAPM-030` adds durable/idempotent Provider Mapping apply through host-owned
-  repositories.
+- `GAPM-040` reconciles bulk/Admin counters and outcomes on top of the
+  one-artifact apply path.
 
 Boundaries:
 

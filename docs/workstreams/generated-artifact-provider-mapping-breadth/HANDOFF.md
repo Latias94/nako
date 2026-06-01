@@ -17,19 +17,22 @@ Current source state:
   Web confirmation.
 - `GAPM-020` extended `AutomationAppService::plan_generated_artifact_metadata_apply`
   with read-only Provider Mapping proposal planning and counters.
+- `GAPM-030` extended final one-artifact metadata apply so applyable Provider
+  Subject proposals persist accepted Provider Mappings through the generated
+  artifact metadata apply outcome transaction.
 - Provider Subject and Provider Mapping primitives already exist in
   `nako-core`, `nako-db`, `nako-metadata`, and Admin Catalog Governance read
   models.
 
 ## Active Task
 
-- Task ID: `GAPM-030`
+- Task ID: `GAPM-040`
 - Lane: `library-metadata-control-plane`
 - Status: ready
 - Owner: codex
 
-Goal: make final Generated Artifact metadata apply upsert Provider Subjects and
-accepted Provider Mappings idempotently through host-owned repositories.
+Goal: surface Provider Mapping counters and outcomes through bulk plan, batch
+result, Admin DTOs, HTTP routes, and generated TypeScript contracts.
 
 ## Recommended Implementation Start
 
@@ -63,25 +66,35 @@ Then inspect the current code slices:
 - `GAPM-020`: server tests cover valid Provider Mapping proposals, unsupported
   provider proposals, missing subject keys, read-only behavior, redaction, and
   no Provider Mapping writes during planning. Applyable Provider Mapping plans
-  are intentionally deferred/non-executable until `GAPM-030` adds persistence,
-  preventing final apply from claiming a partial metadata-only mutation.
+  were deferred until `GAPM-030` added persistence.
 - `GAPM-020`: Admin DTO tests and generated TypeScript contract tests pass;
   `apps/admin-web` and `web` generated Admin contracts are synchronized.
 - `GAPM-020`: `docs/api/HTTP_API.md` documents single-artifact metadata
   apply-plan Provider Mapping entries.
+- `GAPM-030`: final single-artifact apply now writes Provider Subjects and
+  accepted Provider Mappings only during Metadata Authority apply, never during
+  review acceptance or read-only planning.
+- `GAPM-030`: Provider Mapping writes are included in the same generated
+  artifact metadata apply outcome transaction as Canonical Metadata
+  persistence; SQLite and PostgreSQL repository implementations share the same
+  commit contract.
+- `GAPM-030`: server tests cover first apply, idempotent replay, candidate
+  promotion to accepted, rejected-mapping preservation, stale-target
+  pre-mutation failure, and mixed metadata-field/provider-mapping outcomes.
 
 ## Decisions
 
 - Use `GAPM` as the task prefix.
 - First executable task was read-only plan support, not mutation.
 - Review acceptance must remain staging-only.
-- Provider Mapping apply should eventually happen during final Metadata
-  Authority apply, not in addon intake or review acceptance.
+- Provider Mapping apply happens during final Metadata Authority apply, not in
+  addon intake or review acceptance.
 - Start with host-interpreted Provider Subject proposal shapes and Nako
   provider terminology; do not pass through raw provider payloads.
-- Provider Mapping persistence should use existing Provider Subject and
-  Provider Mapping repositories, extending outcome transaction boundaries only
-  if needed for atomic success claims.
+- Provider Mapping persistence uses existing Provider Subject and Provider
+  Mapping repositories through the generated artifact outcome transaction.
+- Final apply uses `MetadataSource::User` for Provider Mappings because the
+  Admin confirmation is the authority boundary.
 
 ## Watchpoints
 
@@ -91,24 +104,18 @@ Then inspect the current code slices:
 - Do not bypass target freshness checks.
 - Do not let Provider Mapping changes ignore durable outcome replay.
 - Do not broaden into provider search/depth, hierarchy repair, or conflict
-  diagnostics inside `GAPM-020`.
+  diagnostics inside this lane.
 - Do not change addon protocol or `nako-official-addons` unless a later planner
   decision explicitly scopes that work.
 
 ## Blockers
 
-- None for `GAPM-030`, but the worker must decide whether existing generated
-  artifact apply outcome persistence needs a repository contract extension so
-  Provider Subject/Mapping writes and outcome records do not produce partial
-  success claims.
-
-Run PostgreSQL parity if repository transaction behavior changes.
+- None for `GAPM-040`.
+- Re-run PostgreSQL parity if additional repository transaction behavior
+  changes.
 
 ## Parallelism
 
-Not safe yet. `GAPM-030` should run serially because it defines the persistence
-and idempotency behavior that bulk and Web result tasks consume.
-
-After `GAPM-030` is accepted, `GAPM-040` and `GAPM-050` can be considered for
-parallelization only if the generated Admin contract shape and persistence
-outcomes are stable.
+Keep `GAPM-040` serial until the generated Admin contract shape is stable.
+After `GAPM-040` is accepted, `GAPM-050` Web work can run independently from
+docs closeout verification if the DTO/result fields are fixed.

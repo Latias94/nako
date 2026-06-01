@@ -31,13 +31,14 @@ use nako_core::{
     GeneratedArtifactMetadataBulkApplyPlanSummary, GeneratedArtifactMetadataFieldAction,
     GeneratedArtifactMetadataFieldReason, GeneratedArtifactMetadataValueSummary,
     GeneratedArtifactProposal, GeneratedArtifactProviderMappingAction,
-    GeneratedArtifactProviderMappingPlan, GeneratedArtifactProviderMappingReason,
-    GeneratedArtifactProviderSubjectPlan, GeneratedArtifactReviewDecision,
-    GeneratedArtifactReviewResult, Job, JobId, JobKind, JobRepository, LibraryRepository,
-    MediaItem, MediaItemId, MediaRepository, MetadataApplicationPersistenceCommit, MetadataField,
-    MetadataFieldLock, MetadataMergePolicy, MetadataRepository, MetadataSource, NakoError,
-    NewAutomationProviderConfig, NewJob, PageRequest, ProviderMappingRepository,
-    ProviderMappingStatus, ProviderSubjectKind, Result,
+    GeneratedArtifactProviderMappingApplyCommit, GeneratedArtifactProviderMappingPlan,
+    GeneratedArtifactProviderMappingReason, GeneratedArtifactProviderSubjectPlan,
+    GeneratedArtifactReviewDecision, GeneratedArtifactReviewResult, Job, JobId, JobKind,
+    JobRepository, LibraryRepository, MediaItem, MediaItemId, MediaRepository,
+    MetadataApplicationPersistenceCommit, MetadataField, MetadataFieldLock, MetadataMergePolicy,
+    MetadataRepository, MetadataSource, NakoError, NewAutomationProviderConfig, NewJob,
+    PageRequest, ProviderMapping, ProviderMappingId, ProviderMappingRepository,
+    ProviderMappingStatus, ProviderSubject, ProviderSubjectId, ProviderSubjectKind, Result,
 };
 use nako_db::NakoDatabase;
 use serde::{Deserialize, Serialize};
@@ -555,10 +556,7 @@ impl AutomationAppService {
             });
         }
 
-        if apply_provider_mapping_count > 0 && status.executable() {
-            status = GeneratedArtifactMetadataApplyPlanStatus::Blocked;
-            reasons.push(GeneratedArtifactMetadataApplyPlanReason::ProviderMappingApplyDeferred);
-        } else if apply_field_count == 0 && status.executable() {
+        if apply_field_count == 0 && apply_provider_mapping_count == 0 && status.executable() {
             status = GeneratedArtifactMetadataApplyPlanStatus::Blocked;
             reasons.push(GeneratedArtifactMetadataApplyPlanReason::NoApplicableMetadataFields);
         }
@@ -885,6 +883,7 @@ impl AutomationAppService {
                             error_code: None,
                             error_message: None,
                             metadata_application: None,
+                            provider_mappings: Vec::new(),
                         },
                     )
                     .await?;
@@ -931,25 +930,43 @@ impl AutomationAppService {
                     .await;
             }
         };
-        let (incoming, _) =
-            parse_generated_artifact_metadata_patch(&artifact.artifact_json, &item.metadata)?;
-        let applied = MetadataApplication::new(self.store.clone())
-            .apply(MetadataApplicationCommand {
-                item,
-                source: MetadataSource::User,
-                incoming,
-                mode: MetadataApplicationMode::LibraryProfile { library_id },
-                lock_scope: MetadataApplicationLockScope::ProtectAllLocks,
-                provenance: MetadataApplicationProvenance::GeneratedArtifact {
-                    artifact_id,
-                    provider_id: artifact.provider_id,
-                    library_id,
-                },
-            })
+        let item_id = item.id;
+        let mut changed = false;
+        let mut applied_source = None;
+        let mut metadata_application = None;
+
+        if plan.apply_field_count > 0 {
+            let (incoming, _) =
+                parse_generated_artifact_metadata_patch(&artifact.artifact_json, &item.metadata)?;
+            let applied = MetadataApplication::new(self.store.clone())
+                .apply(MetadataApplicationCommand {
+                    item,
+                    source: MetadataSource::User,
+                    incoming,
+                    mode: MetadataApplicationMode::LibraryProfile { library_id },
+                    lock_scope: MetadataApplicationLockScope::ProtectAllLocks,
+                    provenance: MetadataApplicationProvenance::GeneratedArtifact {
+                        artifact_id,
+                        provider_id: artifact.provider_id,
+                        library_id,
+                    },
+                })
+                .await?;
+            changed = applied.changed;
+            applied_source = Some(applied.applied_source.clone());
+            metadata_application = Some(MetadataApplicationPersistenceCommit {
+                item: applied.item,
+                catalog_projection: applied.projection,
+            });
+        }
+
+        let provider_mappings = self
+            .generated_artifact_provider_mapping_apply_commits(item_id, &plan)
             .await?;
-        let changed = applied.changed;
-        let applied_source = applied.applied_source.clone();
-        let item_id = applied.item.id;
+        if !provider_mappings.is_empty() {
+            changed = true;
+            applied_source.get_or_insert_with(|| "user".to_owned());
+        }
 
         let outcome = self
             .store
@@ -961,15 +978,13 @@ impl AutomationAppService {
                     status: GeneratedArtifactMetadataApplyOutcomeStatus::Applied,
                     applied: true,
                     changed,
-                    applied_source: Some(applied_source),
+                    applied_source,
                     item_id: Some(item_id),
                     plan,
                     error_code: None,
                     error_message: None,
-                    metadata_application: Some(MetadataApplicationPersistenceCommit {
-                        item: applied.item,
-                        catalog_projection: applied.projection,
-                    }),
+                    metadata_application,
+                    provider_mappings,
                 },
             )
             .await?;
@@ -1111,6 +1126,96 @@ impl AutomationAppService {
         }
     }
 
+    async fn generated_artifact_provider_mapping_apply_commits(
+        &self,
+        item_id: MediaItemId,
+        plan: &GeneratedArtifactMetadataApplyPlan,
+    ) -> Result<Vec<GeneratedArtifactProviderMappingApplyCommit>> {
+        let mut commits = Vec::new();
+        let existing_mappings = self.provider_mappings_for_item(item_id).await?;
+
+        for mapping_plan in plan
+            .provider_mappings
+            .iter()
+            .filter(|mapping| mapping.action == GeneratedArtifactProviderMappingAction::Apply)
+        {
+            let provider =
+                mapping_plan
+                    .subject
+                    .provider
+                    .clone()
+                    .ok_or_else(|| NakoError::InvalidInput {
+                        message: "provider mapping apply plan is missing provider for apply action"
+                            .to_owned(),
+                    })?;
+            let subject_kind = mapping_plan.subject.subject_kind.clone().ok_or_else(|| {
+                NakoError::InvalidInput {
+                    message: "provider mapping apply plan is missing subject kind for apply action"
+                        .to_owned(),
+                }
+            })?;
+            let subject_key = mapping_plan.subject.subject_key.clone().ok_or_else(|| {
+                NakoError::InvalidInput {
+                    message: "provider mapping apply plan is missing subject key for apply action"
+                        .to_owned(),
+                }
+            })?;
+
+            let existing_subject = self
+                .store
+                .find_provider_subject(&provider, &subject_kind, &subject_key)
+                .await?;
+            let mut subject = existing_subject.clone().unwrap_or_else(|| ProviderSubject {
+                id: ProviderSubjectId::new(),
+                provider,
+                subject_kind,
+                subject_key,
+                title: None,
+                release_year: None,
+                locale: None,
+            });
+            if mapping_plan.subject.title.is_some() {
+                subject.title = mapping_plan.subject.title.clone();
+            }
+            if mapping_plan.subject.release_year.is_some() {
+                subject.release_year = mapping_plan.subject.release_year;
+            }
+            if mapping_plan.subject.locale.is_some() {
+                subject.locale = mapping_plan.subject.locale.clone();
+            }
+
+            let existing_mapping = existing_mappings
+                .iter()
+                .find(|mapping| mapping.subject_id == subject.id);
+            if let Some(existing) = existing_mapping
+                && existing.status == ProviderMappingStatus::Rejected
+            {
+                return Err(NakoError::InvalidInput {
+                    message: format!(
+                        "provider mapping proposal for subject {} became rejected before apply",
+                        subject.id
+                    ),
+                });
+            }
+
+            commits.push(GeneratedArtifactProviderMappingApplyCommit {
+                mapping: ProviderMapping {
+                    id: existing_mapping
+                        .map(|mapping| mapping.id)
+                        .unwrap_or_else(ProviderMappingId::new),
+                    item_id,
+                    subject_id: subject.id,
+                    status: ProviderMappingStatus::Accepted,
+                    confidence_milli: mapping_plan.confidence_milli,
+                    source: MetadataSource::User,
+                },
+                subject,
+            });
+        }
+
+        Ok(commits)
+    }
+
     async fn resolve_generated_artifact_metadata_apply_target(
         &self,
         plan: &GeneratedArtifactMetadataApplyPlan,
@@ -1187,6 +1292,7 @@ impl AutomationAppService {
                     error_code: Some(error_code.into()),
                     error_message: Some(message),
                     metadata_application: None,
+                    provider_mappings: Vec::new(),
                 },
             )
             .await?;

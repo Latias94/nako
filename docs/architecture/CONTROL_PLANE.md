@@ -76,7 +76,8 @@ Control-plane requirements:
 
 - review acceptance must remain staging-only;
 - `GAPM-020` read-only planning must not write Provider Mappings;
-- final Provider Mapping mutation must be host-owned and replay-safe;
+- `GAPM-030` final Provider Mapping mutation is host-owned, replay-safe, and
+  committed with the generated artifact metadata apply outcome;
 - bulk apply should reuse the one-artifact apply path instead of adding a
   second provider mapping executor;
 - Admin/Web DTOs must not expose raw payloads, prompts, Source Locators, paths,

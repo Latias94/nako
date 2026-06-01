@@ -14,7 +14,8 @@ use nako_core::{
     GeneratedArtifactMetadataFieldReason, GeneratedArtifactProviderMappingAction,
     GeneratedArtifactProviderMappingReason, GeneratedArtifactReadinessStatus,
     GeneratedArtifactReviewDecision, GeneratedArtifactTargetKind, JobRepository, JobStatus,
-    NewAutomationArtifact, NewAutomationProviderConfig, ProviderMappingRepository,
+    NewAutomationArtifact, NewAutomationProviderConfig, ProviderMapping, ProviderMappingId,
+    ProviderMappingRepository, ProviderMappingStatus, ProviderSubject, ProviderSubjectId,
 };
 use nako_search::{SearchIndex, SearchQuery};
 
@@ -543,14 +544,11 @@ async fn generated_artifact_metadata_apply_plan_includes_provider_mapping_withou
         .await
         .unwrap();
 
-    assert_eq!(
-        plan.status,
-        GeneratedArtifactMetadataApplyPlanStatus::Blocked
-    );
-    assert!(!plan.executable);
+    assert_eq!(plan.status, GeneratedArtifactMetadataApplyPlanStatus::Ready);
+    assert!(plan.executable);
     assert!(
         plan.reasons
-            .contains(&GeneratedArtifactMetadataApplyPlanReason::ProviderMappingApplyDeferred)
+            .contains(&GeneratedArtifactMetadataApplyPlanReason::Ready)
     );
     assert_eq!(plan.apply_field_count, 0);
     assert_eq!(plan.skipped_field_count, 0);
@@ -653,6 +651,204 @@ async fn generated_artifact_metadata_apply_plan_marks_invalid_provider_mapping_p
         .await
         .unwrap();
     assert!(mappings.is_empty());
+}
+
+#[tokio::test]
+async fn generated_artifact_metadata_apply_commits_provider_mapping_and_replays_idempotently() {
+    let fixture = generated_artifact_metadata_apply_fixture(
+        r#"{"provider_subjects":[{"provider":"tmdb","subject_kind":"movie","subject_key":"603","title":"The Matrix","release_year":1999,"locale":"en-US","confidence_milli":930}]}"#,
+    )
+    .await;
+
+    let applied = fixture
+        .app
+        .automation()
+        .apply_generated_artifact_metadata(generated_artifact_metadata_apply_request(
+            fixture.artifact_id,
+            "generated-artifact-apply:provider-mapping",
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(
+        applied.status,
+        GeneratedArtifactMetadataApplyResultStatus::Applied
+    );
+    assert!(applied.applied);
+    assert!(applied.changed);
+    assert!(!applied.idempotent_replay);
+    assert_eq!(applied.applied_source.as_deref(), Some("user"));
+    assert_eq!(applied.plan.apply_field_count, 0);
+    assert_eq!(applied.plan.apply_provider_mapping_count, 1);
+
+    let subject = fixture
+        .store
+        .find_provider_subject(
+            &nako_core::ExternalProvider::Tmdb,
+            &nako_core::ProviderSubjectKind::Movie,
+            "603",
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(subject.title.as_deref(), Some("The Matrix"));
+    let mappings = fixture
+        .store
+        .list_provider_mappings_for_item(fixture.item_id, PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(mappings.len(), 1);
+    assert_eq!(mappings[0].subject_id, subject.id);
+    assert_eq!(mappings[0].status, ProviderMappingStatus::Accepted);
+    assert_eq!(mappings[0].confidence_milli, Some(930));
+    assert_eq!(mappings[0].source, MetadataSource::User);
+
+    let replay = fixture
+        .app
+        .automation()
+        .apply_generated_artifact_metadata(generated_artifact_metadata_apply_request(
+            fixture.artifact_id,
+            "generated-artifact-apply:provider-mapping",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(replay.outcome_id, applied.outcome_id);
+    assert!(replay.idempotent_replay);
+    assert_eq!(
+        fixture
+            .store
+            .list_provider_mappings_for_item(fixture.item_id, PageRequest::first_page())
+            .await
+            .unwrap(),
+        mappings
+    );
+
+    let noop = fixture
+        .app
+        .automation()
+        .apply_generated_artifact_metadata(generated_artifact_metadata_apply_request(
+            fixture.artifact_id,
+            "generated-artifact-apply:provider-mapping-noop",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(
+        noop.status,
+        GeneratedArtifactMetadataApplyResultStatus::Noop
+    );
+    assert!(noop.plan.noop_provider_mapping_count >= 1);
+}
+
+#[tokio::test]
+async fn generated_artifact_metadata_apply_accepts_candidate_and_preserves_rejected_mapping() {
+    let fixture = generated_artifact_metadata_apply_fixture(
+        r#"{"provider_subjects":[{"provider":"tmdb","subject_kind":"movie","subject_key":"603","title":"The Matrix","confidence_milli":930}]}"#,
+    )
+    .await;
+    let subject = ProviderSubject {
+        id: ProviderSubjectId::new(),
+        provider: nako_core::ExternalProvider::Tmdb,
+        subject_kind: nako_core::ProviderSubjectKind::Movie,
+        subject_key: "603".to_owned(),
+        title: Some("Old Matrix".to_owned()),
+        release_year: None,
+        locale: None,
+    };
+    let candidate = ProviderMapping {
+        id: ProviderMappingId::new(),
+        item_id: fixture.item_id,
+        subject_id: subject.id,
+        status: ProviderMappingStatus::Candidate,
+        confidence_milli: Some(710),
+        source: MetadataSource::Provider(nako_core::ExternalProvider::Tmdb),
+    };
+    fixture
+        .store
+        .upsert_provider_subject(&subject)
+        .await
+        .unwrap();
+    fixture
+        .store
+        .upsert_provider_mapping(&candidate)
+        .await
+        .unwrap();
+
+    let applied = fixture
+        .app
+        .automation()
+        .apply_generated_artifact_metadata(generated_artifact_metadata_apply_request(
+            fixture.artifact_id,
+            "generated-artifact-apply:candidate-provider-mapping",
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(
+        applied.status,
+        GeneratedArtifactMetadataApplyResultStatus::Applied
+    );
+    let mappings = fixture
+        .store
+        .list_provider_mappings_for_item(fixture.item_id, PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(mappings.len(), 1);
+    assert_eq!(mappings[0].id, candidate.id);
+    assert_eq!(mappings[0].status, ProviderMappingStatus::Accepted);
+    assert_eq!(mappings[0].confidence_milli, Some(930));
+    assert_eq!(mappings[0].source, MetadataSource::User);
+
+    let rejected_fixture = generated_artifact_metadata_apply_fixture(
+        r#"{"provider_subjects":[{"provider":"tmdb","subject_kind":"movie","subject_key":"604","title":"Rejected Matrix","confidence_milli":930}]}"#,
+    )
+    .await;
+    let rejected_subject = ProviderSubject {
+        id: ProviderSubjectId::new(),
+        provider: nako_core::ExternalProvider::Tmdb,
+        subject_kind: nako_core::ProviderSubjectKind::Movie,
+        subject_key: "604".to_owned(),
+        title: Some("Rejected Matrix".to_owned()),
+        release_year: None,
+        locale: None,
+    };
+    let rejected = ProviderMapping {
+        id: ProviderMappingId::new(),
+        item_id: rejected_fixture.item_id,
+        subject_id: rejected_subject.id,
+        status: ProviderMappingStatus::Rejected,
+        confidence_milli: Some(100),
+        source: MetadataSource::Provider(nako_core::ExternalProvider::Tmdb),
+    };
+    rejected_fixture
+        .store
+        .upsert_provider_subject(&rejected_subject)
+        .await
+        .unwrap();
+    rejected_fixture
+        .store
+        .upsert_provider_mapping(&rejected)
+        .await
+        .unwrap();
+
+    let noop = rejected_fixture
+        .app
+        .automation()
+        .apply_generated_artifact_metadata(generated_artifact_metadata_apply_request(
+            rejected_fixture.artifact_id,
+            "generated-artifact-apply:rejected-provider-mapping",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(
+        noop.status,
+        GeneratedArtifactMetadataApplyResultStatus::Noop
+    );
+    let mappings = rejected_fixture
+        .store
+        .list_provider_mappings_for_item(rejected_fixture.item_id, PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(mappings, vec![rejected]);
 }
 
 #[tokio::test]

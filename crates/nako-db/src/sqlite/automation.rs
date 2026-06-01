@@ -1,6 +1,11 @@
 use sqlx::sqlite::SqliteRow;
 
-use super::{SqliteStore, codec::*, jobs::insert_job_tx};
+use super::{
+    SqliteStore,
+    codec::*,
+    jobs::insert_job_tx,
+    provider_mapping::{upsert_provider_mapping_tx, upsert_provider_subject_tx},
+};
 use crate::automation_proposals::{GeneratedArtifactProposalFacts, generated_artifact_proposal};
 use nako_core::*;
 
@@ -365,6 +370,7 @@ impl AutomationRepository for SqliteStore {
         commit: &GeneratedArtifactMetadataApplyOutcomeCommit,
     ) -> Result<GeneratedArtifactMetadataApplyOutcomeRecord> {
         let plan_json = serde_json::to_string(&commit.plan).map_err(database_error)?;
+        validate_generated_artifact_provider_mapping_apply_commits(commit)?;
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
         if let Some(application) = &commit.metadata_application {
@@ -392,6 +398,10 @@ impl AutomationRepository for SqliteStore {
                 &application.catalog_projection.search,
             )
             .await?;
+        }
+        for provider_mapping in &commit.provider_mappings {
+            upsert_provider_subject_tx(&mut transaction, &provider_mapping.subject).await?;
+            upsert_provider_mapping_tx(&mut transaction, &provider_mapping.mapping).await?;
         }
 
         sqlx::query(
@@ -854,6 +864,38 @@ fn validate_generated_artifact_metadata_bulk_apply_batch_commit(
                 message: format!(
                     "generated artifact metadata bulk apply item artifact_id {} does not match plan item {}",
                     item.artifact_id, item.plan_item.artifact_id
+                ),
+            });
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_generated_artifact_provider_mapping_apply_commits(
+    commit: &GeneratedArtifactMetadataApplyOutcomeCommit,
+) -> Result<()> {
+    for provider_mapping in &commit.provider_mappings {
+        if provider_mapping.mapping.subject_id != provider_mapping.subject.id {
+            return Err(NakoError::InvalidInput {
+                message: format!(
+                    "generated artifact provider mapping subject_id {} does not match subject {}",
+                    provider_mapping.mapping.subject_id, provider_mapping.subject.id
+                ),
+            });
+        }
+        if provider_mapping.mapping.status != ProviderMappingStatus::Accepted {
+            return Err(NakoError::InvalidInput {
+                message:
+                    "generated artifact provider mapping apply commits must use accepted status"
+                        .to_owned(),
+            });
+        }
+        if Some(provider_mapping.mapping.item_id) != commit.item_id {
+            return Err(NakoError::InvalidInput {
+                message: format!(
+                    "generated artifact provider mapping item_id {} does not match outcome item {:?}",
+                    provider_mapping.mapping.item_id, commit.item_id
                 ),
             });
         }

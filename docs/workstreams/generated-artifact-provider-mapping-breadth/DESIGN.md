@@ -15,8 +15,9 @@ That leaves a valuable class of addon/AI evidence unused:
   other Provider Subject;
 - existing Provider Subject and Provider Mapping repositories can already
   represent that identity;
-- Admin Catalog Governance can review Provider Mappings, but Generated Artifact
-  apply cannot yet turn accepted generated evidence into a host-owned mapping.
+- Admin Catalog Governance can review Provider Mappings, and this lane extends
+  Generated Artifact apply so accepted generated evidence can become a
+  host-owned mapping without bypassing Metadata Authority confirmation.
 
 The risk is that provider identity can become a hidden side effect. If a review
 acceptance directly upserts Provider Mappings, addons would effectively mutate
@@ -183,5 +184,9 @@ existing Generated Artifact metadata apply plan.
 It proves parsing, redaction, current-state comparison, and no-mutation behavior
 before any Provider Mapping persistence is added.
 
-Next task: `GAPM-030`, which must add durable/idempotent Provider Subject and
-Provider Mapping apply without changing review acceptance semantics.
+`GAPM-030` completed durable/idempotent Provider Subject and Provider Mapping
+apply without changing review acceptance semantics.
+
+Next task: `GAPM-040`, which must surface Provider Mapping counters and
+outcomes through bulk/Admin contracts while reusing the one-artifact apply
+path.

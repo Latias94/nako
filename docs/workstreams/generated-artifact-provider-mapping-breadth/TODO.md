@@ -28,7 +28,7 @@ Last updated: 2026-06-01
 
 ## M2 - Durable Provider Mapping Apply
 
-- [ ] GAPM-030 [owner=codex] [deps=GAPM-020] [scope=crates/nako-core,crates/nako-db,crates/nako-server/src/app/automation.rs]
+- [x] GAPM-030 [owner=codex] [deps=GAPM-020] [scope=crates/nako-core,crates/nako-db,crates/nako-server/src/app/automation.rs]
   Goal: Make final Generated Artifact metadata apply upsert Provider Subjects
   and accepted Provider Mappings idempotently through host-owned repositories.
   Validation: `cargo nextest run -p nako-server generated_artifact_metadata_apply --no-fail-fast`; `cargo nextest run -p nako-db provider_mapping generated_artifact_metadata_apply --no-fail-fast`; PostgreSQL ignored contract or harness when transaction/repository behavior changes; `cargo fmt --all -- --check`.
@@ -39,7 +39,7 @@ Last updated: 2026-06-01
   Provider Mapping, replay does not duplicate it, stale targets fail before
   mutation, and mixed metadata-field/provider-mapping apply records one durable
   outcome.
-  Handoff: Continue at `GAPM-040` for bulk/Admin surface reconciliation.
+  Handoff: DONE. Continue at `GAPM-040` for bulk/Admin surface reconciliation.
 
 ## M3 - Bulk/Admin Surface Reconciliation
 

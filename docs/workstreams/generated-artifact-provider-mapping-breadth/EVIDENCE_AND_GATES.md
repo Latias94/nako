@@ -67,6 +67,28 @@ Only run after Admin contract support exists:
   passed 1/1 after the shared contract-test helper update; `cargo fmt --all -- --check`
   passed; `npm --prefix web run check` passed; `git diff --check` passed with
   only LF/CRLF normalization warnings.
+- `GAPM-030`: Made final single-artifact Generated Artifact metadata apply
+  persist Provider Subjects and accepted Provider Mappings only during the
+  Metadata Authority apply step. The core outcome commit now carries Provider
+  Mapping apply commits; SQLite and PostgreSQL outcome commits write Provider
+  Subject/Mapping rows inside the same generated artifact metadata apply
+  outcome transaction. Server apply now treats applyable Provider Mapping
+  plans as executable, writes new accepted mappings, promotes existing
+  candidate mappings, preserves existing rejected mappings as skipped/noop
+  work, and returns durable idempotent replays without duplicate mappings.
+  Gates: `cargo nextest run -p nako-api generated_artifact_metadata_apply admin_contract --no-fail-fast`
+  passed 9/9; `cargo nextest run -p nako-server generated_artifact_metadata_apply --no-fail-fast`
+  passed 14/14; `cargo nextest run -p nako-server generated_artifact_bulk_metadata_apply --no-fail-fast`
+  passed 5/5; `cargo nextest run -p nako-db provider_mapping generated_artifact_metadata_apply --no-fail-fast`
+  passed 3/3; `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/postgres-contract-harness.ps1 -Suite all-contracts`
+  passed 46/46 ignored PostgreSQL contracts, including
+  `postgres_metadata_catalog_contract_generated_artifact_metadata_apply_outcome_is_idempotent_and_atomic`
+  and `postgres_metadata_catalog_contract_generated_artifact_bulk_metadata_apply_batch_is_idempotent_and_atomic`;
+  the harness again warned that `pg_ctl stop` failed, but `127.0.0.1:55432`
+  was closed afterward and `target/postgres-contract` was removed; `cargo fmt --all -- --check`
+  passed; `WORKSTREAM.json` and JSONL validation passed; targeted and
+  repository-wide `git diff --check` passed with only LF/CRLF normalization
+  warnings.
 
 ## Final Evidence Checklist
 
