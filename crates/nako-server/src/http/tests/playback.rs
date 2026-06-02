@@ -1465,18 +1465,22 @@ async fn remote_direct_stream_permit_lives_until_response_body_is_dropped() {
     assert_eq!(first_response.status(), StatusCode::OK);
     let first_body = first_response.into_body();
 
-    let second = tokio::time::timeout(
-        Duration::from_millis(50),
-        router.clone().oneshot(
+    let second_busy_response = router
+        .clone()
+        .oneshot(
             Request::builder()
                 .method(Method::GET)
                 .uri(format!("/sources/{}/stream", source.id))
                 .body(Body::empty())
                 .unwrap(),
-        ),
-    )
-    .await;
-    assert!(second.is_err());
+        )
+        .await
+        .unwrap();
+    assert_eq!(second_busy_response.status(), StatusCode::CONFLICT);
+    let busy_error = body_json::<ErrorResponse>(second_busy_response).await;
+    assert_eq!(busy_error.code, "conflict");
+    assert!(busy_error.message.contains("remote_stream"));
+    assert!(!busy_error.message.contains("webdav:///"));
 
     drop(first_body);
     let second_response = router
