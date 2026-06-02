@@ -8,19 +8,18 @@ Last updated: 2026-06-02
 The lane is open from `provider-review-global-queue-search` closeout.
 Operators can browse a global Metadata Candidate Review queue, apply a single
 accepted review through the existing detail/apply route, and request a bounded
-read-only batch application plan for selected review IDs. Confirmed batch
-mutation is still absent and is the next backend slice.
+read-only batch application plan for selected review IDs. Backend confirmed
+batch apply now exists as a bounded synchronous Admin API route with redacted
+partial results.
 
 ## Active Task
 
-- Task ID: `PGBR-030`
+- Task ID: `PGBR-040`
 - Owner: codex
-- Files: `crates/nako-metadata`, `crates/nako-api`, `crates/nako-server`, and
-  `docs/workstreams/provider-governance-bulk-review`
-- Validation: `cargo test -p nako-api admin_contract -- --nocapture`;
-  `cargo test -p nako-server metadata_candidate_review -- --nocapture`;
-  `cargo test -p nako-metadata candidate_review_application -- --nocapture`;
-  `cargo fmt --all -- --check`; `git diff --check`
+- Files: `web/src/api/admin`, `web/src/features/admin`, `web/src/shell`,
+  `web/src/test`, and `docs/workstreams/provider-governance-bulk-review`
+- Validation: `npm --prefix web run check`; `npm --prefix web run test`;
+  `npm --prefix web run build:budget`; browser smoke; `git diff --check`
 - Status: READY
 - Evidence: `docs/workstreams/provider-governance-bulk-review/EVIDENCE_AND_GATES.md`
 
@@ -30,10 +29,10 @@ mutation is still absent and is the next backend slice.
 - Plan rows must reuse single-review application planning semantics.
 - `PGBR-020` shipped the read-only batch plan route and generated Admin
   contracts.
-- Batch mutation is now scoped to `PGBR-030`.
-- Web Admin selection/confirmation waits for backend mutation semantics.
-- Durable job execution is not assumed; it must be used or split only if
-  bounded synchronous confirmation cannot remain honest.
+- `PGBR-030` shipped bounded backend batch apply with row-level partial results.
+- Web Admin selection/confirmation is now scoped to `PGBR-040`.
+- Durable job execution is not required for the current bounded synchronous
+  backend route.
 
 ## Non-Goals To Preserve
 
@@ -46,11 +45,11 @@ mutation is still absent and is the next backend slice.
 
 ## Blockers
 
-- None for `PGBR-030`.
+- None for `PGBR-040`.
 
 ## Next Recommended Action
 
-Run `PGBR-030`: add bounded confirmed backend batch apply through the existing
-single-review application authority. Stop before Web selection, related
-hierarchy application, provider endpoint breadth, Public Client API changes, or
-hidden background execution.
+Run `PGBR-040`: add Web Admin queue selection, batch plan inspection, explicit
+confirmation, and partial-result rendering against the shipped Admin API
+routes. Stop before related hierarchy application, provider endpoint breadth,
+Public Client API changes, or backend execution model changes.

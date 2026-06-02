@@ -25,13 +25,13 @@ Last updated: 2026-06-02
 
 ## M2 - Confirmed Backend Batch Apply
 
-- [ ] PGBR-030 [owner=codex] [deps=PGBR-020] [scope=crates/nako-metadata,crates/nako-api,crates/nako-server,docs/workstreams/provider-governance-bulk-review]
+- [x] PGBR-030 [owner=codex] [deps=PGBR-020] [scope=crates/nako-metadata,crates/nako-api,crates/nako-server,docs/workstreams/provider-governance-bulk-review]
   Goal: Add bounded Admin API batch confirmation that applies only eligible accepted reviews through the existing single-review application service.
-  Validation: focused `nako-metadata`, `nako-api`, and `nako-server` Candidate Review gates; `cargo fmt --all -- --check`; `git diff --check`.
+  Validation: `cargo test -p nako-server admin_v1_metadata_candidate_review_batch_apply_reports_partial_results_redacted -- --nocapture`; `cargo test -p nako-api admin_contract -- --nocapture`; `cargo test -p nako-server metadata_candidate_review -- --nocapture`; `cargo test -p nako-metadata candidate_review_application -- --nocapture`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: each row must preserve stale guard, idempotency-key fingerprinting, replay behavior, redacted partial results, and root-only Provider Subject / Provider Mapping mutation.
   Evidence: `EVIDENCE_AND_GATES.md` (`PGBR-030 Evidence`).
   Context: `CONTEXT.jsonl`.
-  Handoff: READY; split durable job execution if bounded synchronous execution cannot remain honest.
+  Handoff: DONE.
 
 ## M3 - Web Admin Batch Governance
 
@@ -41,7 +41,7 @@ Last updated: 2026-06-02
   Review: Web must present batch governance as explicit operator confirmation, not fixture-only success, hidden apply, hierarchy mutation, or Public Client API behavior.
   Evidence: `EVIDENCE_AND_GATES.md` (`PGBR-040 Evidence`).
   Context: `CONTEXT.jsonl`.
-  Handoff: split UX polish or durable-job progress UI if needed.
+  Handoff: READY; split UX polish if needed.
 
 ## M4 - Closeout And Follow-On Split
 

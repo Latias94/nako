@@ -3,6 +3,9 @@ use nako_api::admin::{
     AdminGeneratedArtifactMetadataApplyRecoveryResponse,
     AdminMetadataCandidateReviewApplicationAction, AdminMetadataCandidateReviewApplicationReason,
     AdminMetadataCandidateReviewApplyRequest, AdminMetadataCandidateReviewApplyResponse,
+    AdminMetadataCandidateReviewBatchApplyItemRequest,
+    AdminMetadataCandidateReviewBatchApplyRequest, AdminMetadataCandidateReviewBatchApplyResponse,
+    AdminMetadataCandidateReviewBatchApplyResultStatus,
     AdminMetadataCandidateReviewBatchPlanRequest, AdminMetadataCandidateReviewBatchPlanResponse,
     AdminMetadataCandidateReviewListResponse, AdminMetadataCandidateReviewQueueResponse,
     AdminMetadataCandidateReviewResponse, AdminStorageBackendHealthDiagnosticsResponse,
@@ -1667,6 +1670,536 @@ async fn admin_v1_metadata_candidate_review_batch_plan_is_bounded_redacted_and_r
         path,
         &AdminMetadataCandidateReviewBatchPlanRequest {
             review_ids: too_many_review_ids,
+        },
+    )
+    .await;
+    assert_eq!(too_many.status(), StatusCode::BAD_REQUEST);
+    let too_many_body = response_text(too_many).await;
+    let too_many_error: ErrorResponse = serde_json::from_str(&too_many_body).unwrap();
+    assert_eq!(too_many_error.code, "invalid_input");
+}
+
+#[tokio::test]
+async fn admin_v1_metadata_candidate_review_batch_apply_reports_partial_results_redacted() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("nako-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Series,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Batch Apply Candidate".to_owned(),
+            release_date: Some("2026-06-02".to_owned()),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: "local:///Private/Batch.Apply.Candidate.S01E01.mkv?token=batch-secret".to_owned(),
+        file_name: "Batch.Apply.Candidate.S01E01.mkv".to_owned(),
+        size_bytes: Some(42),
+        fingerprint: Some("sha256-private-batch-apply".to_owned()),
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id,
+            item_id: item.id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+
+    let make_subject = |subject_key: &str, title: &str| MetadataCandidateSubject {
+        provider: ExternalProvider::Bangumi,
+        subject_kind: ProviderSubjectKind::Subject,
+        subject_key: subject_key.to_owned(),
+        title: Some(title.to_owned()),
+        release_year: Some(2026),
+        locale: Some("zh-CN".to_owned()),
+    };
+    let make_review_node =
+        |subject: Option<MetadataCandidateSubject>, title: &str| MetadataCandidateReviewNode {
+            source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+            kind: MediaKind::Series,
+            subject,
+            metadata: MetadataCandidateRecord {
+                title: Some(title.to_owned()),
+                overview: Some(format!("{title} private batch overview")),
+                tags: vec![format!("{title} private batch tag")],
+                ..MetadataCandidateRecord::default()
+            },
+        };
+
+    let apply_subject = make_subject("batch-apply", "Batch Apply");
+    let apply_related_subject = MetadataCandidateSubject {
+        provider: ExternalProvider::Bangumi,
+        subject_kind: ProviderSubjectKind::Episode,
+        subject_key: "batch-apply/1".to_owned(),
+        title: Some("Batch Apply Episode".to_owned()),
+        release_year: Some(2026),
+        locale: Some("zh-CN".to_owned()),
+    };
+    let apply_review = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+            source_key: "bangumi:batch-apply".to_owned(),
+            plan: MetadataCandidateReviewPlan {
+                root: make_review_node(Some(apply_subject.clone()), "Batch Apply"),
+                related: vec![MetadataCandidateReviewNode {
+                    source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+                    kind: MediaKind::Episode,
+                    subject: Some(apply_related_subject.clone()),
+                    metadata: MetadataCandidateRecord {
+                        title: Some("Batch Apply Episode".to_owned()),
+                        overview: Some("related private batch overview".to_owned()),
+                        tags: vec!["related-private-batch-tag".to_owned()],
+                        ..MetadataCandidateRecord::default()
+                    },
+                }],
+                relationships: vec![MetadataCandidateReviewRelationship {
+                    parent_subject: apply_subject,
+                    child_subject: apply_related_subject,
+                    kind: MetadataCandidateRelationshipKind::Contains,
+                }],
+            },
+            expires_at_ms: None,
+            created_at_ms: 100,
+            updated_at_ms: 200,
+        })
+        .await
+        .unwrap();
+    let apply_review = store
+        .set_metadata_candidate_review_status(
+            apply_review.id,
+            DurableMetadataCandidateReviewStatus::Accepted,
+            300,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+
+    let noop_subject = ProviderSubject {
+        id: ProviderSubjectId::new(),
+        provider: ExternalProvider::Bangumi,
+        subject_kind: ProviderSubjectKind::Subject,
+        subject_key: "batch-noop".to_owned(),
+        title: Some("Batch Noop".to_owned()),
+        release_year: Some(2026),
+        locale: Some("zh-CN".to_owned()),
+    };
+    store.upsert_provider_subject(&noop_subject).await.unwrap();
+    store
+        .upsert_provider_mapping(&ProviderMapping {
+            id: ProviderMappingId::new(),
+            item_id: item.id,
+            subject_id: noop_subject.id,
+            status: ProviderMappingStatus::Accepted,
+            confidence_milli: None,
+            source: MetadataSource::Provider(ExternalProvider::Bangumi),
+        })
+        .await
+        .unwrap();
+    let noop_review = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+            source_key: "bangumi:batch-noop".to_owned(),
+            plan: MetadataCandidateReviewPlan {
+                root: make_review_node(
+                    Some(make_subject("batch-noop", "Batch Noop")),
+                    "Batch Noop",
+                ),
+                related: vec![],
+                relationships: vec![],
+            },
+            expires_at_ms: None,
+            created_at_ms: 110,
+            updated_at_ms: 210,
+        })
+        .await
+        .unwrap();
+    let noop_review = store
+        .set_metadata_candidate_review_status(
+            noop_review.id,
+            DurableMetadataCandidateReviewStatus::Accepted,
+            310,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+
+    let pending_review = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+            source_key: "bangumi:batch-pending".to_owned(),
+            plan: MetadataCandidateReviewPlan {
+                root: make_review_node(
+                    Some(make_subject("batch-pending", "Batch Pending")),
+                    "Batch Pending",
+                ),
+                related: vec![],
+                relationships: vec![],
+            },
+            expires_at_ms: None,
+            created_at_ms: 120,
+            updated_at_ms: 220,
+        })
+        .await
+        .unwrap();
+
+    let blocked_review = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+            source_key: "bangumi:batch-blocked".to_owned(),
+            plan: MetadataCandidateReviewPlan {
+                root: make_review_node(None, "Batch Blocked"),
+                related: vec![],
+                relationships: vec![],
+            },
+            expires_at_ms: None,
+            created_at_ms: 130,
+            updated_at_ms: 230,
+        })
+        .await
+        .unwrap();
+    let blocked_review = store
+        .set_metadata_candidate_review_status(
+            blocked_review.id,
+            DurableMetadataCandidateReviewStatus::Accepted,
+            330,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+
+    let stale_review = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+            source_key: "bangumi:batch-stale".to_owned(),
+            plan: MetadataCandidateReviewPlan {
+                root: make_review_node(
+                    Some(make_subject("batch-stale", "Batch Stale")),
+                    "Batch Stale",
+                ),
+                related: vec![],
+                relationships: vec![],
+            },
+            expires_at_ms: None,
+            created_at_ms: 140,
+            updated_at_ms: 240,
+        })
+        .await
+        .unwrap();
+    let stale_review = store
+        .set_metadata_candidate_review_status(
+            stale_review.id,
+            DurableMetadataCandidateReviewStatus::Accepted,
+            340,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+
+    let conflict_review = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+            source_key: "bangumi:batch-conflict".to_owned(),
+            plan: MetadataCandidateReviewPlan {
+                root: make_review_node(
+                    Some(make_subject("batch-conflict", "Batch Conflict")),
+                    "Batch Conflict",
+                ),
+                related: vec![],
+                relationships: vec![],
+            },
+            expires_at_ms: None,
+            created_at_ms: 150,
+            updated_at_ms: 250,
+        })
+        .await
+        .unwrap();
+    let conflict_review = store
+        .set_metadata_candidate_review_status(
+            conflict_review.id,
+            DurableMetadataCandidateReviewStatus::Accepted,
+            350,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    let missing_review_id = MetadataCandidateReviewId::new();
+
+    let router = build_router(app);
+    let path = "/admin/v1/metadata/candidate-reviews/batch-apply";
+    let request = AdminMetadataCandidateReviewBatchApplyRequest {
+        idempotency_key: "candidate-review:batch-secret".to_owned(),
+        reviews: vec![
+            AdminMetadataCandidateReviewBatchApplyItemRequest {
+                review_id: apply_review.id,
+                item_id: item.id,
+                expected_updated_at_ms: Some(apply_review.updated_at_ms),
+            },
+            AdminMetadataCandidateReviewBatchApplyItemRequest {
+                review_id: noop_review.id,
+                item_id: item.id,
+                expected_updated_at_ms: Some(noop_review.updated_at_ms),
+            },
+            AdminMetadataCandidateReviewBatchApplyItemRequest {
+                review_id: pending_review.id,
+                item_id: item.id,
+                expected_updated_at_ms: Some(pending_review.updated_at_ms),
+            },
+            AdminMetadataCandidateReviewBatchApplyItemRequest {
+                review_id: blocked_review.id,
+                item_id: item.id,
+                expected_updated_at_ms: Some(blocked_review.updated_at_ms),
+            },
+            AdminMetadataCandidateReviewBatchApplyItemRequest {
+                review_id: stale_review.id,
+                item_id: item.id,
+                expected_updated_at_ms: Some(stale_review.updated_at_ms - 1),
+            },
+            AdminMetadataCandidateReviewBatchApplyItemRequest {
+                review_id: conflict_review.id,
+                item_id: MediaItemId::new(),
+                expected_updated_at_ms: Some(conflict_review.updated_at_ms),
+            },
+            AdminMetadataCandidateReviewBatchApplyItemRequest {
+                review_id: missing_review_id,
+                item_id: item.id,
+                expected_updated_at_ms: None,
+            },
+        ],
+    };
+
+    let response = response_body_json(&router, Method::POST, path, &request).await;
+    let status = response.status();
+    let body = response_text(response).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let batch: AdminMetadataCandidateReviewBatchApplyResponse =
+        serde_json::from_str(&body).unwrap();
+
+    assert_eq!(batch.summary.requested_count, 7);
+    assert_eq!(batch.summary.returned_count, 7);
+    assert_eq!(batch.summary.max_review_count, 50);
+    assert_eq!(batch.summary.applied_count, 1);
+    assert_eq!(batch.summary.changed_count, 1);
+    assert_eq!(batch.summary.noop_count, 1);
+    assert_eq!(batch.summary.replay_count, 1);
+    assert_eq!(batch.summary.skipped_count, 1);
+    assert_eq!(batch.summary.blocked_count, 1);
+    assert_eq!(batch.summary.stale_count, 1);
+    assert_eq!(batch.summary.conflict_count, 1);
+    assert_eq!(batch.summary.failed_count, 1);
+    assert_eq!(
+        batch.results[0].status,
+        AdminMetadataCandidateReviewBatchApplyResultStatus::Applied
+    );
+    assert_eq!(
+        batch.results[1].status,
+        AdminMetadataCandidateReviewBatchApplyResultStatus::Noop
+    );
+    assert_eq!(
+        batch.results[2].status,
+        AdminMetadataCandidateReviewBatchApplyResultStatus::Skipped
+    );
+    assert_eq!(
+        batch.results[3].status,
+        AdminMetadataCandidateReviewBatchApplyResultStatus::Blocked
+    );
+    assert_eq!(
+        batch.results[4].status,
+        AdminMetadataCandidateReviewBatchApplyResultStatus::Stale
+    );
+    assert_eq!(
+        batch.results[5].status,
+        AdminMetadataCandidateReviewBatchApplyResultStatus::Conflict
+    );
+    assert_eq!(
+        batch.results[6].status,
+        AdminMetadataCandidateReviewBatchApplyResultStatus::Failed
+    );
+    assert!(batch.results[0].provider_mapping.is_some());
+    assert!(batch.results[1].idempotent_replay);
+    assert!(batch.results[2].plan.is_some());
+    assert!(batch.results[3].plan.is_some());
+    assert!(
+        batch.results[4]
+            .error
+            .as_ref()
+            .is_some_and(|error| error.code == "conflict")
+    );
+    assert!(
+        batch.results[6]
+            .error
+            .as_ref()
+            .is_some_and(|error| error.code == "not_found")
+    );
+    assert!(!batch.idempotency_key_fingerprint.is_empty());
+
+    let provider_mappings = store
+        .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(provider_mappings.len(), 2);
+    assert!(
+        provider_mappings
+            .iter()
+            .all(|mapping| mapping.status == ProviderMappingStatus::Accepted)
+    );
+    assert!(
+        store
+            .find_provider_subject(
+                &ExternalProvider::Bangumi,
+                &ProviderSubjectKind::Episode,
+                "batch-apply/1"
+            )
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(!body.contains("candidate-review:batch-secret"));
+    assert!(!body.contains("private batch overview"));
+    assert!(!body.contains("private batch tag"));
+    assert!(!body.contains("related private batch overview"));
+    assert!(!body.contains("local:///"));
+    assert!(!body.contains("sha256-private-batch-apply"));
+    assert!(!body.contains(&temp.path().display().to_string()));
+
+    let replay = response_body_json(&router, Method::POST, path, &request).await;
+    let replay_status = replay.status();
+    let replay_body = response_text(replay).await;
+    assert_eq!(replay_status, StatusCode::OK, "{replay_body}");
+    let replayed: AdminMetadataCandidateReviewBatchApplyResponse =
+        serde_json::from_str(&replay_body).unwrap();
+    assert_eq!(replayed.summary.applied_count, 0);
+    assert_eq!(replayed.summary.changed_count, 0);
+    assert_eq!(replayed.summary.noop_count, 2);
+    assert_eq!(replayed.summary.replay_count, 2);
+    assert_eq!(
+        replayed.results[0].status,
+        AdminMetadataCandidateReviewBatchApplyResultStatus::Noop
+    );
+    assert_eq!(
+        store
+            .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+            .await
+            .unwrap()
+            .len(),
+        2
+    );
+    assert!(!replay_body.contains("candidate-review:batch-secret"));
+    assert!(!replay_body.contains("private batch overview"));
+    assert!(!replay_body.contains("local:///"));
+
+    let duplicate = response_body_json(
+        &router,
+        Method::POST,
+        path,
+        &AdminMetadataCandidateReviewBatchApplyRequest {
+            idempotency_key: "candidate-review:duplicate".to_owned(),
+            reviews: vec![
+                AdminMetadataCandidateReviewBatchApplyItemRequest {
+                    review_id: apply_review.id,
+                    item_id: item.id,
+                    expected_updated_at_ms: Some(apply_review.updated_at_ms),
+                },
+                AdminMetadataCandidateReviewBatchApplyItemRequest {
+                    review_id: apply_review.id,
+                    item_id: item.id,
+                    expected_updated_at_ms: Some(apply_review.updated_at_ms),
+                },
+            ],
+        },
+    )
+    .await;
+    assert_eq!(duplicate.status(), StatusCode::BAD_REQUEST);
+    let duplicate_body = response_text(duplicate).await;
+    let duplicate_error: ErrorResponse = serde_json::from_str(&duplicate_body).unwrap();
+    assert_eq!(duplicate_error.code, "invalid_input");
+
+    let empty_key = response_body_json(
+        &router,
+        Method::POST,
+        path,
+        &AdminMetadataCandidateReviewBatchApplyRequest {
+            idempotency_key: "  ".to_owned(),
+            reviews: vec![AdminMetadataCandidateReviewBatchApplyItemRequest {
+                review_id: noop_review.id,
+                item_id: item.id,
+                expected_updated_at_ms: Some(noop_review.updated_at_ms),
+            }],
+        },
+    )
+    .await;
+    assert_eq!(empty_key.status(), StatusCode::BAD_REQUEST);
+    let empty_key_body = response_text(empty_key).await;
+    let empty_key_error: ErrorResponse = serde_json::from_str(&empty_key_body).unwrap();
+    assert_eq!(empty_key_error.code, "invalid_input");
+
+    let too_many_review_ids = (0..=batch.summary.max_review_count)
+        .map(|_| AdminMetadataCandidateReviewBatchApplyItemRequest {
+            review_id: MetadataCandidateReviewId::new(),
+            item_id: item.id,
+            expected_updated_at_ms: None,
+        })
+        .collect();
+    let too_many = response_body_json(
+        &router,
+        Method::POST,
+        path,
+        &AdminMetadataCandidateReviewBatchApplyRequest {
+            idempotency_key: "candidate-review:too-many".to_owned(),
+            reviews: too_many_review_ids,
         },
     )
     .await;

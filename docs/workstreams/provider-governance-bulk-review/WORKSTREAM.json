@@ -7,7 +7,7 @@
   "scope_kind": "admin_metadata_candidate_review_bulk_governance",
   "problem": "Global Metadata Candidate Review discovery now exists, but operators still need batch governance that preserves single-review stale guard, idempotency, root-only application, and redaction semantics.",
   "task_prefix": "PGBR",
-  "current_task": "PGBR-030",
+  "current_task": "PGBR-040",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -64,6 +64,10 @@
     {
       "task": "PGBR-020",
       "summary": "Shipped the read-only Admin API batch Candidate Review application plan with bounded selection, deterministic duplicate rejection, generated Admin contract sync, and no-write redaction-safe route evidence."
+    },
+    {
+      "task": "PGBR-030",
+      "summary": "Shipped bounded synchronous Admin API batch Candidate Review confirmation through the existing single-review application authority, with row-level partial results, replay/noop evidence, generated Admin contract sync, and root-only mutation proof."
     }
   ],
   "adr_refs": [
@@ -75,7 +79,7 @@
   "architecture_refs": [
     {
       "path": "docs/architecture/LANES.md",
-      "capability": "library-metadata-control-plane lane ownership"
+      "capability": "web-product lane ownership for Web Admin batch governance"
     },
     {
       "path": "docs/architecture/WORKSTREAM_LINKS.md",
@@ -92,10 +96,10 @@
     "web.admin.metadata-governance",
     "control-plane.batch-application"
   ],
-  "lane_slug": "library-metadata-control-plane",
+  "lane_slug": "web-product",
   "continue_policy": {
     "default_action": "run_current_task",
-    "current_task": "PGBR-030",
-    "notes": "Next add bounded confirmed backend batch apply through the existing single-review Candidate Review application authority. Do not add Web selection, Public Client API changes, related hierarchy application, provider endpoint depth, or hidden background execution under PGBR-030; split durable job execution if synchronous confirmation cannot remain honest."
+    "current_task": "PGBR-040",
+    "notes": "Next add Web Admin queue selection, read-only batch plan inspection, explicit confirmation, and partial-result rendering against the shipped Admin batch plan/apply routes. Do not add Public Client API changes, related hierarchy application, provider endpoint depth, or backend execution model changes under PGBR-040."
   }
 }

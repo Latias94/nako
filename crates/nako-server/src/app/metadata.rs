@@ -3,6 +3,12 @@ use std::{collections::HashSet, sync::Arc, time::Duration};
 use nako_api::{
     admin::{
         AdminMetadataCandidateReviewApplyRequest, AdminMetadataCandidateReviewApplyResponse,
+        AdminMetadataCandidateReviewBatchApplyError,
+        AdminMetadataCandidateReviewBatchApplyItemRequest,
+        AdminMetadataCandidateReviewBatchApplyRequest,
+        AdminMetadataCandidateReviewBatchApplyResponse,
+        AdminMetadataCandidateReviewBatchApplyResult,
+        AdminMetadataCandidateReviewBatchApplyResultStatus,
         AdminMetadataCandidateReviewBatchPlanRequest,
         AdminMetadataCandidateReviewBatchPlanResponse, AdminMetadataCandidateReviewListResponse,
         AdminMetadataCandidateReviewQueueResponse, AdminMetadataCandidateReviewResponse,
@@ -34,10 +40,10 @@ use nako_db::NakoDatabase;
 use nako_metadata::{
     MetadataAttemptPort, MetadataCandidateConflictReview, MetadataCandidateConflictReviewStatus,
     MetadataCandidateMatch, MetadataCandidateMatchDecision, MetadataCandidateMatchReason,
-    MetadataCandidateReviewApplicationRequest, MetadataCandidateReviewApplicationService,
-    MetadataProviderRegistry, MetadataRefreshCommit, MetadataRefreshJobInput, MetadataRefreshPort,
-    MetadataRefreshRequest, MetadataRefreshSnapshot, MetadataRefreshSummary,
-    MetadataStrategyExecutor, build_candidate_conflict_review,
+    MetadataCandidateReviewApplicationPlanRequest, MetadataCandidateReviewApplicationRequest,
+    MetadataCandidateReviewApplicationService, MetadataProviderRegistry, MetadataRefreshCommit,
+    MetadataRefreshJobInput, MetadataRefreshPort, MetadataRefreshRequest, MetadataRefreshSnapshot,
+    MetadataRefreshSummary, MetadataStrategyExecutor, build_candidate_conflict_review,
     build_candidate_review_application_plan,
 };
 use serde::Serialize;
@@ -52,7 +58,7 @@ use super::metadata_runtime::provider_resource_name;
 use super::runtime::{RuntimeSupervisor, runtime_budget_class_for_job_resource_class};
 use crate::config::{MetadataMaintenancePolicyConfig, NakoServerConfig};
 
-const ADMIN_METADATA_CANDIDATE_REVIEW_BATCH_PLAN_MAX: usize = 50;
+const ADMIN_METADATA_CANDIDATE_REVIEW_BATCH_MAX: usize = 50;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct MetadataRefreshCommandOutput {
@@ -565,7 +571,7 @@ impl MetadataAppService {
     ) -> Result<AdminMetadataCandidateReviewBatchPlanResponse> {
         let review_ids = validate_candidate_review_batch_plan_ids(
             request.review_ids,
-            ADMIN_METADATA_CANDIDATE_REVIEW_BATCH_PLAN_MAX,
+            ADMIN_METADATA_CANDIDATE_REVIEW_BATCH_MAX,
         )?;
         let requested_count = review_ids.len();
         let mut rows = Vec::with_capacity(requested_count);
@@ -588,7 +594,88 @@ impl MetadataAppService {
         Ok(AdminMetadataCandidateReviewBatchPlanResponse::new(
             rows,
             requested_count,
-            ADMIN_METADATA_CANDIDATE_REVIEW_BATCH_PLAN_MAX,
+            ADMIN_METADATA_CANDIDATE_REVIEW_BATCH_MAX,
+        ))
+    }
+
+    pub async fn apply_admin_metadata_candidate_review_batch(
+        &self,
+        request: AdminMetadataCandidateReviewBatchApplyRequest,
+    ) -> Result<AdminMetadataCandidateReviewBatchApplyResponse> {
+        let idempotency_key =
+            normalize_candidate_review_apply_idempotency_key(&request.idempotency_key)?;
+        let reviews = validate_candidate_review_batch_apply_items(
+            request.reviews,
+            ADMIN_METADATA_CANDIDATE_REVIEW_BATCH_MAX,
+        )?;
+        let requested_count = reviews.len();
+        let applied_at_ms = super::current_time_ms()?;
+        let service =
+            MetadataCandidateReviewApplicationService::new(self.execution_store.store.clone());
+        let mut results = Vec::with_capacity(requested_count);
+
+        for item in reviews {
+            let planned = service
+                .plan(MetadataCandidateReviewApplicationPlanRequest {
+                    review_id: item.review_id,
+                    item_id: item.item_id,
+                    expected_updated_at_ms: item.expected_updated_at_ms,
+                })
+                .await;
+
+            match planned {
+                Ok(planned) => match planned.plan.action {
+                    nako_core::MetadataCandidateReviewApplicationAction::Skip => {
+                        results.push(
+                            AdminMetadataCandidateReviewBatchApplyResult::from_skipped_plan(
+                                planned.review,
+                                planned.plan,
+                                &idempotency_key,
+                            ),
+                        );
+                    }
+                    nako_core::MetadataCandidateReviewApplicationAction::Noop
+                    | nako_core::MetadataCandidateReviewApplicationAction::Apply => {
+                        let applied = service
+                            .apply(MetadataCandidateReviewApplicationRequest {
+                                review_id: item.review_id,
+                                item_id: item.item_id,
+                                applied_at_ms,
+                                expected_updated_at_ms: item.expected_updated_at_ms,
+                            })
+                            .await;
+                        match applied {
+                            Ok(summary) => results.push(
+                                AdminMetadataCandidateReviewBatchApplyResult::from_application(
+                                    summary.review,
+                                    summary.plan,
+                                    summary.provider_subject,
+                                    summary.provider_mapping,
+                                    summary.changed,
+                                    &idempotency_key,
+                                ),
+                            ),
+                            Err(error) => results.push(candidate_review_batch_apply_error_result(
+                                &item,
+                                &idempotency_key,
+                                &error,
+                            )),
+                        }
+                    }
+                },
+                Err(error) => results.push(candidate_review_batch_apply_error_result(
+                    &item,
+                    &idempotency_key,
+                    &error,
+                )),
+            }
+        }
+
+        Ok(AdminMetadataCandidateReviewBatchApplyResponse::new(
+            &idempotency_key,
+            results,
+            requested_count,
+            ADMIN_METADATA_CANDIDATE_REVIEW_BATCH_MAX,
         ))
     }
 
@@ -1627,6 +1714,93 @@ fn validate_candidate_review_batch_plan_ids(
     }
 
     Ok(review_ids)
+}
+
+fn validate_candidate_review_batch_apply_items(
+    reviews: Vec<AdminMetadataCandidateReviewBatchApplyItemRequest>,
+    max_review_count: usize,
+) -> Result<Vec<AdminMetadataCandidateReviewBatchApplyItemRequest>> {
+    if reviews.is_empty() {
+        return Err(NakoError::InvalidInput {
+            message: "metadata candidate review batch apply reviews cannot be empty".to_owned(),
+        });
+    }
+    if reviews.len() > max_review_count {
+        return Err(NakoError::InvalidInput {
+            message: format!(
+                "metadata candidate review batch apply accepts at most {max_review_count} reviews"
+            ),
+        });
+    }
+
+    let mut seen = HashSet::with_capacity(reviews.len());
+    for review in &reviews {
+        if !seen.insert(review.review_id) {
+            return Err(NakoError::InvalidInput {
+                message: format!(
+                    "metadata candidate review batch apply contains duplicate review_id {}",
+                    review.review_id
+                ),
+            });
+        }
+    }
+
+    Ok(reviews)
+}
+
+fn candidate_review_batch_apply_error_result(
+    item: &AdminMetadataCandidateReviewBatchApplyItemRequest,
+    idempotency_key: &str,
+    error: &NakoError,
+) -> AdminMetadataCandidateReviewBatchApplyResult {
+    AdminMetadataCandidateReviewBatchApplyResult::from_error(
+        item.review_id,
+        item.item_id,
+        candidate_review_batch_apply_error_status(error),
+        candidate_review_batch_apply_error(error),
+        idempotency_key,
+    )
+}
+
+fn candidate_review_batch_apply_error_status(
+    error: &NakoError,
+) -> AdminMetadataCandidateReviewBatchApplyResultStatus {
+    match error {
+        NakoError::Conflict { message } if message.contains("changed from") => {
+            AdminMetadataCandidateReviewBatchApplyResultStatus::Stale
+        }
+        NakoError::Conflict { .. } => AdminMetadataCandidateReviewBatchApplyResultStatus::Conflict,
+        _ => AdminMetadataCandidateReviewBatchApplyResultStatus::Failed,
+    }
+}
+
+fn candidate_review_batch_apply_error(
+    error: &NakoError,
+) -> AdminMetadataCandidateReviewBatchApplyError {
+    let (code, message) = match error {
+        NakoError::InvalidInput { message } => ("invalid_input", message.clone()),
+        NakoError::NotFound { entity, id } => ("not_found", format!("{entity} {id} not found")),
+        NakoError::Conflict { message } => ("conflict", message.clone()),
+        NakoError::Unauthorized { message } => ("unauthorized", message.clone()),
+        NakoError::Forbidden { message } => ("forbidden", message.clone()),
+        NakoError::Unsupported(message) => ("unsupported", (*message).to_owned()),
+        NakoError::Provider { provider, .. } => {
+            ("provider_error", format!("provider {provider} error"))
+        }
+        NakoError::Storage { .. } => (
+            "storage_error",
+            "storage error while applying metadata candidate review".to_owned(),
+        ),
+        NakoError::Database { .. } => (
+            "database_error",
+            "database error while applying metadata candidate review".to_owned(),
+        ),
+    };
+
+    AdminMetadataCandidateReviewBatchApplyError {
+        code: code.to_owned(),
+        message,
+    }
 }
 
 fn apply_metadata_provider_override(

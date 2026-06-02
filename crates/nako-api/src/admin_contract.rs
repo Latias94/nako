@@ -1,6 +1,6 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 69] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 70] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -130,6 +130,10 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 69] = [
     (
         "metadataCandidateReviewBatchApplicationPlan",
         "metadata/candidate-reviews/batch-application-plan",
+    ),
+    (
+        "metadataCandidateReviewBatchApply",
+        "metadata/candidate-reviews/batch-apply",
     ),
     (
         "metadataCandidateReviewsForItem",
@@ -1758,6 +1762,70 @@ export interface AdminMetadataCandidateReviewBatchPlanResponse {
   reviews: AdminMetadataCandidateReviewListEntry[];
 }
 
+export interface AdminMetadataCandidateReviewBatchApplyItemRequest {
+  review_id: string;
+  item_id: string;
+  expected_updated_at_ms: number | null;
+}
+
+export interface AdminMetadataCandidateReviewBatchApplyRequest {
+  idempotency_key: string;
+  reviews: AdminMetadataCandidateReviewBatchApplyItemRequest[];
+}
+
+export type AdminMetadataCandidateReviewBatchApplyResultStatus =
+  | "applied"
+  | "noop"
+  | "replayed"
+  | "skipped"
+  | "blocked"
+  | "stale"
+  | "conflict"
+  | "failed";
+
+export interface AdminMetadataCandidateReviewBatchApplySummary {
+  requested_count: number;
+  returned_count: number;
+  max_review_count: number;
+  applied_count: number;
+  changed_count: number;
+  noop_count: number;
+  replay_count: number;
+  skipped_count: number;
+  blocked_count: number;
+  stale_count: number;
+  conflict_count: number;
+  failed_count: number;
+}
+
+export interface AdminMetadataCandidateReviewBatchApplyError {
+  code: string;
+  message: string;
+}
+
+export interface AdminMetadataCandidateReviewBatchApplyResult {
+  review_id: string;
+  item_id: string;
+  status: AdminMetadataCandidateReviewBatchApplyResultStatus;
+  applied: boolean;
+  changed: boolean;
+  idempotent_replay: boolean;
+  idempotency_key_fingerprint: string;
+  plan: AdminMetadataCandidateReviewApplicationPlan | null;
+  provider_subject: AdminMetadataCandidateReviewProviderSubject | null;
+  provider_mapping: AdminMetadataCandidateReviewProviderMapping | null;
+  boundary: AdminMetadataCandidateReviewApplicationBoundary | null;
+  error: AdminMetadataCandidateReviewBatchApplyError | null;
+}
+
+export interface AdminMetadataCandidateReviewBatchApplyResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  idempotency_key_fingerprint: string;
+  summary: AdminMetadataCandidateReviewBatchApplySummary;
+  results: AdminMetadataCandidateReviewBatchApplyResult[];
+}
+
 export interface AdminMetadataCandidateReviewResponse {
   admin_api_version: string;
   public_api_version: string;
@@ -3141,6 +3209,13 @@ mod tests {
             "AdminMetadataCandidateReviewBatchPlanRequest",
             "AdminMetadataCandidateReviewBatchPlanSummary",
             "AdminMetadataCandidateReviewBatchPlanResponse",
+            "AdminMetadataCandidateReviewBatchApplyItemRequest",
+            "AdminMetadataCandidateReviewBatchApplyRequest",
+            "AdminMetadataCandidateReviewBatchApplyResultStatus",
+            "AdminMetadataCandidateReviewBatchApplySummary",
+            "AdminMetadataCandidateReviewBatchApplyError",
+            "AdminMetadataCandidateReviewBatchApplyResult",
+            "AdminMetadataCandidateReviewBatchApplyResponse",
             "AdminMetadataCandidateReviewListResponse",
             "AdminMetadataCandidateReviewListEntry",
             "AdminMetadataCandidateReviewResponse",

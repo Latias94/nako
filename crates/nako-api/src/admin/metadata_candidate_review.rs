@@ -155,6 +155,249 @@ pub struct AdminMetadataCandidateReviewBatchPlanSummary {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewBatchApplyItemRequest {
+    pub review_id: MetadataCandidateReviewId,
+    pub item_id: MediaItemId,
+    pub expected_updated_at_ms: Option<i64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewBatchApplyRequest {
+    pub idempotency_key: String,
+    pub reviews: Vec<AdminMetadataCandidateReviewBatchApplyItemRequest>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewBatchApplyResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub idempotency_key_fingerprint: String,
+    pub summary: AdminMetadataCandidateReviewBatchApplySummary,
+    pub results: Vec<AdminMetadataCandidateReviewBatchApplyResult>,
+}
+
+impl AdminMetadataCandidateReviewBatchApplyResponse {
+    #[must_use]
+    pub fn new(
+        idempotency_key: &str,
+        results: Vec<AdminMetadataCandidateReviewBatchApplyResult>,
+        requested_count: usize,
+        max_review_count: usize,
+    ) -> Self {
+        let mut summary = AdminMetadataCandidateReviewBatchApplySummary {
+            requested_count: saturating_u32_len(requested_count),
+            returned_count: saturating_u32_len(results.len()),
+            max_review_count: saturating_u32_len(max_review_count),
+            applied_count: 0,
+            changed_count: 0,
+            noop_count: 0,
+            replay_count: 0,
+            skipped_count: 0,
+            blocked_count: 0,
+            stale_count: 0,
+            conflict_count: 0,
+            failed_count: 0,
+        };
+
+        for result in &results {
+            if result.changed {
+                summary.changed_count += 1;
+            }
+            if result.idempotent_replay {
+                summary.replay_count += 1;
+            }
+            match result.status {
+                AdminMetadataCandidateReviewBatchApplyResultStatus::Applied => {
+                    summary.applied_count += 1;
+                }
+                AdminMetadataCandidateReviewBatchApplyResultStatus::Noop => {
+                    summary.noop_count += 1;
+                }
+                AdminMetadataCandidateReviewBatchApplyResultStatus::Replayed => {}
+                AdminMetadataCandidateReviewBatchApplyResultStatus::Skipped => {
+                    summary.skipped_count += 1;
+                }
+                AdminMetadataCandidateReviewBatchApplyResultStatus::Blocked => {
+                    summary.blocked_count += 1;
+                }
+                AdminMetadataCandidateReviewBatchApplyResultStatus::Stale => {
+                    summary.stale_count += 1;
+                }
+                AdminMetadataCandidateReviewBatchApplyResultStatus::Conflict => {
+                    summary.conflict_count += 1;
+                }
+                AdminMetadataCandidateReviewBatchApplyResultStatus::Failed => {
+                    summary.failed_count += 1;
+                }
+            }
+        }
+
+        Self {
+            admin_api_version: ADMIN_API_VERSION.to_owned(),
+            public_api_version: API_VERSION.to_owned(),
+            idempotency_key_fingerprint: fingerprint_text(idempotency_key),
+            summary,
+            results,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewBatchApplySummary {
+    pub requested_count: u32,
+    pub returned_count: u32,
+    pub max_review_count: u32,
+    pub applied_count: u32,
+    pub changed_count: u32,
+    pub noop_count: u32,
+    pub replay_count: u32,
+    pub skipped_count: u32,
+    pub blocked_count: u32,
+    pub stale_count: u32,
+    pub conflict_count: u32,
+    pub failed_count: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewBatchApplyResult {
+    pub review_id: MetadataCandidateReviewId,
+    pub item_id: MediaItemId,
+    pub status: AdminMetadataCandidateReviewBatchApplyResultStatus,
+    pub applied: bool,
+    pub changed: bool,
+    pub idempotent_replay: bool,
+    pub idempotency_key_fingerprint: String,
+    pub plan: Option<AdminMetadataCandidateReviewApplicationPlan>,
+    pub provider_subject: Option<AdminMetadataCandidateReviewProviderSubject>,
+    pub provider_mapping: Option<AdminMetadataCandidateReviewProviderMapping>,
+    pub boundary: Option<AdminMetadataCandidateReviewApplicationBoundary>,
+    pub error: Option<AdminMetadataCandidateReviewBatchApplyError>,
+}
+
+impl AdminMetadataCandidateReviewBatchApplyResult {
+    #[must_use]
+    pub fn from_application(
+        review: MetadataCandidateReviewRecord,
+        plan: MetadataCandidateReviewApplicationPlan,
+        provider_subject: Option<ProviderSubject>,
+        provider_mapping: Option<ProviderMapping>,
+        changed: bool,
+        idempotency_key: &str,
+    ) -> Self {
+        let response = AdminMetadataCandidateReviewApplyResponse::from_application(
+            review,
+            plan,
+            provider_subject,
+            provider_mapping,
+            changed,
+            idempotency_key,
+        );
+        let status = if response.changed {
+            AdminMetadataCandidateReviewBatchApplyResultStatus::Applied
+        } else if matches!(
+            response.plan.action,
+            AdminMetadataCandidateReviewApplicationAction::Noop
+        ) {
+            AdminMetadataCandidateReviewBatchApplyResultStatus::Noop
+        } else if response.idempotent_replay {
+            AdminMetadataCandidateReviewBatchApplyResultStatus::Replayed
+        } else {
+            AdminMetadataCandidateReviewBatchApplyResultStatus::Applied
+        };
+
+        Self {
+            review_id: response.review_id,
+            item_id: response.item_id,
+            status,
+            applied: response.applied,
+            changed: response.changed,
+            idempotent_replay: response.idempotent_replay,
+            idempotency_key_fingerprint: response.idempotency_key_fingerprint,
+            plan: Some(response.plan),
+            provider_subject: response.provider_subject,
+            provider_mapping: response.provider_mapping,
+            boundary: Some(response.boundary),
+            error: None,
+        }
+    }
+
+    #[must_use]
+    pub fn from_skipped_plan(
+        review: MetadataCandidateReviewRecord,
+        plan: MetadataCandidateReviewApplicationPlan,
+        idempotency_key: &str,
+    ) -> Self {
+        let status = if plan
+            .reasons
+            .contains(&MetadataCandidateReviewApplicationReason::ReviewNotAccepted)
+        {
+            AdminMetadataCandidateReviewBatchApplyResultStatus::Skipped
+        } else {
+            AdminMetadataCandidateReviewBatchApplyResultStatus::Blocked
+        };
+        let boundary = AdminMetadataCandidateReviewApplicationBoundary::from_plan(&plan);
+
+        Self {
+            review_id: review.id,
+            item_id: review.item_id,
+            status,
+            applied: false,
+            changed: false,
+            idempotent_replay: false,
+            idempotency_key_fingerprint: fingerprint_text(idempotency_key),
+            plan: Some(AdminMetadataCandidateReviewApplicationPlan::from_plan(plan)),
+            provider_subject: None,
+            provider_mapping: None,
+            boundary: Some(boundary),
+            error: None,
+        }
+    }
+
+    #[must_use]
+    pub fn from_error(
+        review_id: MetadataCandidateReviewId,
+        item_id: MediaItemId,
+        status: AdminMetadataCandidateReviewBatchApplyResultStatus,
+        error: AdminMetadataCandidateReviewBatchApplyError,
+        idempotency_key: &str,
+    ) -> Self {
+        Self {
+            review_id,
+            item_id,
+            status,
+            applied: false,
+            changed: false,
+            idempotent_replay: false,
+            idempotency_key_fingerprint: fingerprint_text(idempotency_key),
+            plan: None,
+            provider_subject: None,
+            provider_mapping: None,
+            boundary: None,
+            error: Some(error),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminMetadataCandidateReviewBatchApplyResultStatus {
+    Applied,
+    Noop,
+    Replayed,
+    Skipped,
+    Blocked,
+    Stale,
+    Conflict,
+    Failed,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewBatchApplyError {
+    pub code: String,
+    pub message: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminMetadataCandidateReviewListEntry {
     pub review_id: MetadataCandidateReviewId,
     pub item_id: MediaItemId,

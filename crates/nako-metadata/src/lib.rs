@@ -10,6 +10,7 @@ mod strategy;
 mod types;
 
 pub use candidate_review::{
+    MetadataCandidateReviewApplicationPlanRequest, MetadataCandidateReviewApplicationPlanSummary,
     MetadataCandidateReviewApplicationRequest, MetadataCandidateReviewApplicationService,
     MetadataCandidateReviewApplicationSummary, MetadataCandidateReviewDecision,
     MetadataCandidateReviewDecisionRequest, MetadataCandidateReviewDecisionService,

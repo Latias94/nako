@@ -110,6 +110,19 @@ pub struct MetadataCandidateReviewDecisionSummary {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataCandidateReviewApplicationPlanRequest {
+    pub review_id: MetadataCandidateReviewId,
+    pub item_id: MediaItemId,
+    pub expected_updated_at_ms: Option<i64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataCandidateReviewApplicationPlanSummary {
+    pub review: MetadataCandidateReviewRecord,
+    pub plan: MetadataCandidateReviewApplicationPlan,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct MetadataCandidateReviewApplicationRequest {
     pub review_id: MetadataCandidateReviewId,
     pub item_id: MediaItemId,
@@ -239,10 +252,10 @@ impl<R> MetadataCandidateReviewApplicationService<R>
 where
     R: MetadataCandidateReviewRepository + ProviderMappingRepository,
 {
-    pub async fn apply(
+    pub async fn plan(
         &self,
-        request: MetadataCandidateReviewApplicationRequest,
-    ) -> Result<MetadataCandidateReviewApplicationSummary> {
+        request: MetadataCandidateReviewApplicationPlanRequest,
+    ) -> Result<MetadataCandidateReviewApplicationPlanSummary> {
         let review = self
             .repository
             .get_metadata_candidate_review(request.review_id)
@@ -255,6 +268,23 @@ where
         reject_stale_review_operation(&review, request.item_id, request.expected_updated_at_ms)?;
 
         let plan = build_candidate_review_application_plan(&self.repository, &review).await?;
+
+        Ok(MetadataCandidateReviewApplicationPlanSummary { review, plan })
+    }
+
+    pub async fn apply(
+        &self,
+        request: MetadataCandidateReviewApplicationRequest,
+    ) -> Result<MetadataCandidateReviewApplicationSummary> {
+        let planned = self
+            .plan(MetadataCandidateReviewApplicationPlanRequest {
+                review_id: request.review_id,
+                item_id: request.item_id,
+                expected_updated_at_ms: request.expected_updated_at_ms,
+            })
+            .await?;
+        let review = planned.review;
+        let plan = planned.plan;
         match plan.action {
             MetadataCandidateReviewApplicationAction::Skip => {
                 return Err(NakoError::Conflict {

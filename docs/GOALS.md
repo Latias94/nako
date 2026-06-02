@@ -34,8 +34,9 @@ Objective:
 
 - Add guarded batch governance for durable Metadata Candidate Reviews after
   global queue discovery shipped.
-- The read-only batch application plan for selected review IDs has shipped;
-  next add bounded backend batch confirmation.
+- Read-only batch planning and bounded backend batch confirmation have shipped;
+  next add Web Admin selection, plan inspection, confirmation, and partial
+  result rendering.
 - Preserve single-review stale guard, idempotency-key fingerprinting, replay
   visibility, root-only Provider Mapping application, and redaction semantics.
 
@@ -44,10 +45,10 @@ Deliverables:
 - `docs/workstreams/provider-governance-bulk-review/`;
 - read-only Admin API batch Candidate Review application plan (shipped in
   `PGBR-020`);
-- bounded Admin API batch Candidate Review confirmation;
+- bounded Admin API batch Candidate Review confirmation (shipped in
+  `PGBR-030`);
 - generated Admin TypeScript contract sync when the Admin API shape changes;
-- later bounded batch confirmation and Web Admin selection only after the plan
-  semantics are proven.
+- Web Admin selection and confirmation against the shipped backend semantics.
 
 Non-goals:
 
@@ -63,8 +64,9 @@ Exit criteria:
 
 - `PGBR-020` proves a no-write, redaction-safe batch plan;
 - `PGBR-030` proves bounded confirmed backend batch apply;
-- subsequent mutation, Web, and closeout tasks preserve the same boundaries or
-  are split explicitly.
+- `PGBR-040` proves Web Admin selection/confirmation without weakening backend
+  boundaries;
+- closeout tasks preserve the same boundaries or split follow-ons explicitly.
 
 Evidence:
 
@@ -76,8 +78,8 @@ Evidence:
 
 Current task:
 
-- `PGBR-030`: add bounded confirmed backend batch apply through the existing
-  single-review application authority.
+- `PGBR-040`: add Web Admin selection, batch plan inspection, confirmation, and
+  partial-result rendering.
 
 Candidate follow-ons:
 

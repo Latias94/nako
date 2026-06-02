@@ -31,7 +31,7 @@ Exit criteria:
 
 ## M2 - Confirmed Backend Batch Apply
 
-Status: Ready at `PGBR-030`.
+Status: Complete after `PGBR-030`.
 
 Exit criteria:
 
@@ -47,7 +47,7 @@ Exit criteria:
 
 ## M3 - Web Admin Batch Governance
 
-Status: Planned after `PGBR-030`.
+Status: Ready at `PGBR-040`.
 
 Exit criteria:
 

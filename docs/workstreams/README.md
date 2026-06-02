@@ -24,8 +24,8 @@ Last reviewed: 2026-06-02
 
 Next task:
 
-- `PGBR-030`: add bounded confirmed backend batch apply through the existing
-  single-review application authority.
+- `PGBR-040`: add Web Admin selection, batch plan inspection, confirmation, and
+  partial-result rendering.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -54,9 +54,9 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
 ## Current Workstreams
 
 - [provider-governance-bulk-review](provider-governance-bulk-review/README.md):
-  active library-metadata-control-plane lane for guarded batch Candidate Review
-  governance; the read-only batch application plan is shipped, and the next
-  backend slice is bounded confirmed batch apply before Web selection.
+  active web-product slice for guarded batch Candidate Review governance; the
+  read-only batch application plan and bounded backend batch apply are shipped,
+  and the next slice is Web Admin selection/confirmation.
 - [provider-review-global-queue-search](provider-review-global-queue-search/README.md):
   closed library-metadata-control-plane lane for global Candidate Review
   queue/filter navigation without adding Public Client API, batch governance,

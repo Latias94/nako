@@ -77,25 +77,53 @@ Behavior evidence:
 - no batch apply mutation, Web UI, Public Client API, related hierarchy
   application, provider endpoint depth, or durable job execution was added.
 
-## PGBR-030 Gates
+## PGBR-030 Evidence
 
-Implementation gates:
+Implementation:
 
-- focused `nako-metadata` Candidate Review application gates;
-- focused `nako-api` Admin contract gates;
-- focused `nako-server` Candidate Review route gates;
-- `cargo fmt --all -- --check`;
-- `git diff --check`.
+- Added `POST /admin/v1/metadata/candidate-reviews/batch-apply`.
+- Added bounded batch apply Admin DTOs with per-row status, redacted error,
+  idempotency-key fingerprint, summary counts, and provider mapping result
+  fields.
+- Deepened `MetadataCandidateReviewApplicationService` with a stale-aware
+  `plan` method, then reused that method from `apply`.
+- Batch confirmation delegates apply/noop rows to the existing single-review
+  application service instead of adding a second metadata apply executor.
+- Synchronized generated Admin TypeScript contracts in `apps/admin-web` and
+  `web`.
 
-Behavior evidence required:
+TDD evidence:
 
-- confirmed batch apply preserves per-review stale guard and idempotent replay;
-- partial results are redaction-safe and distinguish applied, noop, conflict,
-  stale, blocked, failed, and skipped rows;
-- only root Provider Subject / Provider Mapping state may mutate;
-- no related hierarchy mutation occurs;
-- durable job/runtime execution is used or explicitly split if synchronous
-  bounded execution is insufficient.
+- RED: `cargo test -p nako-server admin_v1_metadata_candidate_review_batch_apply_reports_partial_results_redacted -- --nocapture`
+  failed before the batch apply DTO/status types existed.
+- GREEN: the same focused system test passed after implementation.
+
+Green gates:
+
+- `cargo test -p nako-server admin_v1_metadata_candidate_review_batch_apply_reports_partial_results_redacted -- --nocapture`
+  passed.
+- `cargo test -p nako-api admin_contract -- --nocapture` passed: 5 tests.
+- `cargo test -p nako-server metadata_candidate_review -- --nocapture`
+  passed: 7 tests.
+- `cargo test -p nako-metadata candidate_review_application -- --nocapture`
+  passed: 6 tests.
+
+Behavior evidence:
+
+- batch confirmation is capped at 50 rows and duplicate review IDs are rejected
+  as deterministic `invalid_input`;
+- rows distinguish `applied`, `noop`, `skipped`, `blocked`, `stale`,
+  `conflict`, and `failed`;
+- stale guard and item mismatch are preserved per row without aborting the
+  whole batch;
+- replaying the same batch returns noop/replay counts without creating extra
+  Provider Mapping rows;
+- only root Provider Subject / Provider Mapping state mutates;
+- related episode Provider Subjects remain absent after apply;
+- response bodies omit raw idempotency keys, candidate overview/tag strings,
+  local paths, source fingerprints, and checkout-local paths;
+- no Web UI, Public Client API, related hierarchy application, provider
+  endpoint depth, durable job, or hidden background execution was added.
 
 ## PGBR-040 Gates
 
