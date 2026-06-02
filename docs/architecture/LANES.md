@@ -20,7 +20,7 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| library-metadata-control-plane | `docs/workstreams/provider-governance-durable-batch-execution/` | `PGDBE-030` | Main terminal runs the Admin create/status boundary next; keep execution, Web, Public Client API, related hierarchy, provider breadth, and audit/undo split until their tasks own them. |
+| library-metadata-control-plane | `docs/workstreams/provider-governance-durable-batch-execution/` | `PGDBE-040` | Main terminal runs the job-backed execution boundary next; keep Web, Public Client API, related hierarchy, provider breadth, audit/undo, and scheduler priority expansion split until their tasks own them. |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
@@ -77,11 +77,13 @@ read-only Admin API batch Candidate Review application plan, bounded backend
 batch apply, Web Admin selection/plan/confirm/result governance, and split
 durable execution, related hierarchy application, Public Client API exposure,
 provider endpoint depth, and audit/undo governance into proposed follow-ons.
-`provider-governance-durable-batch-execution` is active after `PGDBE-020`.
+`provider-governance-durable-batch-execution` is active after `PGDBE-030`.
 `PGDBE-020` shipped the core/DB durable batch state and repository contract.
-`PGDBE-030` owns only the Admin create/status boundary; Web UI, execution loop,
-related hierarchy application, Public Client API exposure, provider endpoint
-depth, and audit/undo remain out of its campaign.
+`PGDBE-030` shipped the Admin create/status boundary without executing Provider
+Mapping writes. `PGDBE-040` owns only job-backed execution through
+`DurableJobRuntime`; Web UI, related hierarchy application, Public Client API
+exposure, provider endpoint depth, audit/undo, and scheduler priority expansion
+remain out of its campaign.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 

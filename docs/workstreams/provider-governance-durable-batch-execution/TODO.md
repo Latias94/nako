@@ -26,18 +26,18 @@ Last updated: 2026-06-02
 
 ## M2 - Admin Create And Status Boundary
 
-- [ ] PGDBE-030 [owner=unassigned] [deps=PGDBE-020] [scope=crates/nako-api,crates/nako-server,docs/workstreams/provider-governance-durable-batch-execution]
+- [x] PGDBE-030 [owner=codex] [deps=PGDBE-020] [scope=crates/nako-api,crates/nako-server,docs/workstreams/provider-governance-durable-batch-execution]
   Goal: Add server app and Admin API create/status routes for durable Candidate Review batches, returning queued batch state and redacted item plan snapshots.
   Validation: `cargo test -p nako-server metadata_candidate_review_batch -- --nocapture`; `cargo test -p nako-api admin_contract -- --nocapture`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: Create must be idempotent by key, must persist a job, must reject empty/duplicate/oversized input, and must not execute Provider Mapping writes.
-  Evidence: `EVIDENCE_AND_GATES.md`, system route tests, generated Admin contract sync.
+  Evidence: `EVIDENCE_AND_GATES.md`, `JOURNAL/2026-06-02-PGDBE-030.md`, system route tests, generated Admin contract sync.
   Context: `CONTEXT.jsonl`
-  Handoff: Stop before execution if runtime resource policy or job semantics are unclear.
-  State: `TASKS.jsonl` entry `PGDBE-030` records status and evidence.
+  Handoff: DONE. Continue with `PGDBE-040`; execution must use `DurableJobRuntime`.
+  State: `TASKS.jsonl` entry `PGDBE-030` is accepted.
 
 ## M3 - Job-Backed Execution
 
-- [ ] PGDBE-040 [owner=unassigned] [deps=PGDBE-030] [scope=crates/nako-server,crates/nako-core,crates/nako-db,docs/workstreams/provider-governance-durable-batch-execution]
+- [ ] PGDBE-040 [owner=codex] [deps=PGDBE-030] [scope=crates/nako-server,crates/nako-core,crates/nako-db,docs/workstreams/provider-governance-durable-batch-execution]
   Goal: Execute queued durable Candidate Review batches through `DurableJobRuntime`, recording per-item applied/noop/skipped/stale/conflict/failed outcomes and cancellation checkpoints.
   Validation: `cargo test -p nako-server metadata_candidate_review_batch -- --nocapture`; `cargo test -p nako-metadata candidate_review_application -- --nocapture`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: Execution must call `MetadataCandidateReviewApplicationService` per item, map resource class through metadata shared budget, and must not use raw `tokio::spawn`.

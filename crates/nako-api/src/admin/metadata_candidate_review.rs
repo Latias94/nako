@@ -1,9 +1,13 @@
 use nako_client_protocol::PageInfo;
 use nako_core::{
-    MediaItemId, MediaKind, MetadataCandidateRecord, MetadataCandidateReviewApplicationAction,
-    MetadataCandidateReviewApplicationPlan, MetadataCandidateReviewApplicationReason,
-    MetadataCandidateReviewId, MetadataCandidateReviewNode as CoreMetadataCandidateReviewNode,
-    MetadataCandidateReviewRecord,
+    JobId, MediaItemId, MediaKind, MetadataCandidateRecord,
+    MetadataCandidateReviewApplicationAction, MetadataCandidateReviewApplicationPlan,
+    MetadataCandidateReviewApplicationReason, MetadataCandidateReviewBatchExecutionSummary,
+    MetadataCandidateReviewBatchId, MetadataCandidateReviewBatchItemRecord,
+    MetadataCandidateReviewBatchItemStatus, MetadataCandidateReviewBatchPlanSelection,
+    MetadataCandidateReviewBatchPlanSummary, MetadataCandidateReviewBatchRecord,
+    MetadataCandidateReviewBatchStatus, MetadataCandidateReviewId,
+    MetadataCandidateReviewNode as CoreMetadataCandidateReviewNode, MetadataCandidateReviewRecord,
     MetadataCandidateReviewRelationship as CoreMetadataCandidateReviewRelationship,
     MetadataCandidateReviewStatus, MetadataCandidateSource, MetadataCandidateSubject,
     MetadataSource, PageRequest, ProviderMapping, ProviderMappingId, ProviderMappingStatus,
@@ -165,6 +169,106 @@ pub struct AdminMetadataCandidateReviewBatchApplyItemRequest {
 pub struct AdminMetadataCandidateReviewBatchApplyRequest {
     pub idempotency_key: String,
     pub reviews: Vec<AdminMetadataCandidateReviewBatchApplyItemRequest>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewBatchCreateRequest {
+    pub idempotency_key: String,
+    pub reviews: Vec<AdminMetadataCandidateReviewBatchApplyItemRequest>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewBatchResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub batch: AdminMetadataCandidateReviewBatch,
+}
+
+impl AdminMetadataCandidateReviewBatchResponse {
+    #[must_use]
+    pub fn from_batch(batch: MetadataCandidateReviewBatchRecord) -> Self {
+        Self {
+            admin_api_version: ADMIN_API_VERSION.to_owned(),
+            public_api_version: API_VERSION.to_owned(),
+            batch: AdminMetadataCandidateReviewBatch::from_batch(batch),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewBatch {
+    pub id: MetadataCandidateReviewBatchId,
+    pub job_id: JobId,
+    pub status: MetadataCandidateReviewBatchStatus,
+    pub idempotency_key_fingerprint: String,
+    pub selection: MetadataCandidateReviewBatchPlanSelection,
+    pub summary: MetadataCandidateReviewBatchPlanSummary,
+    pub execution_summary: MetadataCandidateReviewBatchExecutionSummary,
+    pub items: Vec<AdminMetadataCandidateReviewBatchItem>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl AdminMetadataCandidateReviewBatch {
+    #[must_use]
+    pub fn from_batch(batch: MetadataCandidateReviewBatchRecord) -> Self {
+        Self {
+            id: batch.id,
+            job_id: batch.job_id,
+            status: batch.status,
+            idempotency_key_fingerprint: fingerprint_text(&batch.idempotency_key),
+            selection: batch.selection,
+            summary: batch.summary,
+            execution_summary: batch.execution_summary,
+            items: batch
+                .items
+                .into_iter()
+                .map(AdminMetadataCandidateReviewBatchItem::from_item)
+                .collect(),
+            created_at: batch.created_at,
+            updated_at: batch.updated_at,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewBatchItem {
+    pub review_id: MetadataCandidateReviewId,
+    pub item_id: MediaItemId,
+    pub position: u32,
+    pub status: MetadataCandidateReviewBatchItemStatus,
+    pub idempotency_key_fingerprint: String,
+    pub expected_updated_at_ms: Option<i64>,
+    pub provider_subject_id: Option<ProviderSubjectId>,
+    pub provider_mapping_id: Option<ProviderMappingId>,
+    pub error: Option<AdminMetadataCandidateReviewBatchApplyError>,
+    pub plan: AdminMetadataCandidateReviewApplicationPlan,
+    pub boundary: AdminMetadataCandidateReviewApplicationBoundary,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl AdminMetadataCandidateReviewBatchItem {
+    #[must_use]
+    pub fn from_item(item: MetadataCandidateReviewBatchItemRecord) -> Self {
+        let boundary = AdminMetadataCandidateReviewApplicationBoundary::from_plan(&item.plan);
+
+        Self {
+            review_id: item.review_id,
+            item_id: item.item_id,
+            position: item.position,
+            status: item.status,
+            idempotency_key_fingerprint: fingerprint_text(&item.idempotency_key),
+            expected_updated_at_ms: item.expected_updated_at_ms,
+            provider_subject_id: item.provider_subject_id,
+            provider_mapping_id: item.provider_mapping_id,
+            error: batch_item_error(item.error_code, item.error_message),
+            plan: AdminMetadataCandidateReviewApplicationPlan::from_plan(item.plan),
+            boundary,
+            created_at: item.created_at,
+            updated_at: item.updated_at,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -835,6 +939,26 @@ impl AdminMetadataCandidateReviewApplicationBoundary {
 
 fn saturating_u32_len(value: usize) -> u32 {
     u32::try_from(value).unwrap_or(u32::MAX)
+}
+
+fn batch_item_error(
+    code: Option<String>,
+    message: Option<String>,
+) -> Option<AdminMetadataCandidateReviewBatchApplyError> {
+    match (code, message) {
+        (Some(code), Some(message)) => {
+            Some(AdminMetadataCandidateReviewBatchApplyError { code, message })
+        }
+        (Some(code), None) => Some(AdminMetadataCandidateReviewBatchApplyError {
+            code,
+            message: String::new(),
+        }),
+        (None, Some(message)) => Some(AdminMetadataCandidateReviewBatchApplyError {
+            code: "batch_item_error".to_owned(),
+            message,
+        }),
+        (None, None) => None,
+    }
 }
 
 fn fingerprint_text(value: &str) -> String {

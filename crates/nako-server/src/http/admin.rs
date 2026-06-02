@@ -40,29 +40,30 @@ use nako_api::{
         AdminLibraryAccessPolicyResponse, AdminLibraryAccessReason, AdminLibraryAccessSummary,
         AdminLibraryAccessSummaryEntry, AdminLibraryConfigDiagnostics,
         AdminMetadataCandidateReviewApplyRequest, AdminMetadataCandidateReviewBatchApplyRequest,
-        AdminMetadataCandidateReviewBatchPlanRequest, AdminMetadataConfigDiagnostics,
-        AdminMetadataProviderConfigDiagnostics, AdminMetadataRuntimeConfigDiagnostics,
-        AdminNetworkAccessDiagnostics, AdminNetworkExposureMode,
-        AdminNetworkExternalEndpointDiagnostics, AdminNetworkReadinessCheck,
-        AdminNetworkReadinessCheckName, AdminNetworkReadinessDiagnostics,
-        AdminNetworkReadinessReason, AdminOriginPolicyDiagnostics, AdminOutboxEventListItem,
-        AdminOutboxEventListResponse, AdminOverviewMetadataProviderSummary,
-        AdminOverviewMetadataSummary, AdminOverviewResponse, AdminOverviewRuntimeSummary,
-        AdminOverviewStartupSummary, AdminOverviewStatus, AdminOverviewStorageBackendSummary,
-        AdminOverviewStorageSummary, AdminPlaybackArtifactLifecycleDiagnostics,
-        AdminPlaybackFfmpegDiagnostics, AdminPlaybackHardwareCapability,
-        AdminPlaybackHardwareCapabilityReason, AdminPlaybackHardwareDeviceInitialization,
-        AdminPlaybackHardwareDeviceInitializationStatus, AdminPlaybackHardwareDiagnostics,
-        AdminPlaybackHardwareEncoderDiscovery, AdminPlaybackHardwareEncoderDiscoveryStatus,
-        AdminPlaybackHardwareSmokeProbe, AdminPlaybackHardwareSmokeProbeStatus,
-        AdminPlaybackHardwareStageCapability, AdminPlaybackPolicyDiagnostics,
-        AdminPlaybackReadinessCheck, AdminPlaybackReadinessCheckName,
-        AdminPlaybackReadinessDiagnostics, AdminPlaybackReadinessReason,
-        AdminPlaybackRemoteBudgetDiagnostics, AdminPlaybackRemuxRuntimeDiagnostics,
-        AdminPlaybackResourceClass, AdminPlaybackResourceClassPressure,
-        AdminPlaybackResourceEnforcement, AdminPlaybackResourcePressureDiagnostics,
-        AdminPlaybackRuntimeDiagnosticsResponse, AdminPlaybackRuntimeStatus,
-        AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
+        AdminMetadataCandidateReviewBatchCreateRequest,
+        AdminMetadataCandidateReviewBatchPlanRequest, AdminMetadataCandidateReviewBatchResponse,
+        AdminMetadataConfigDiagnostics, AdminMetadataProviderConfigDiagnostics,
+        AdminMetadataRuntimeConfigDiagnostics, AdminNetworkAccessDiagnostics,
+        AdminNetworkExposureMode, AdminNetworkExternalEndpointDiagnostics,
+        AdminNetworkReadinessCheck, AdminNetworkReadinessCheckName,
+        AdminNetworkReadinessDiagnostics, AdminNetworkReadinessReason,
+        AdminOriginPolicyDiagnostics, AdminOutboxEventListItem, AdminOutboxEventListResponse,
+        AdminOverviewMetadataProviderSummary, AdminOverviewMetadataSummary, AdminOverviewResponse,
+        AdminOverviewRuntimeSummary, AdminOverviewStartupSummary, AdminOverviewStatus,
+        AdminOverviewStorageBackendSummary, AdminOverviewStorageSummary,
+        AdminPlaybackArtifactLifecycleDiagnostics, AdminPlaybackFfmpegDiagnostics,
+        AdminPlaybackHardwareCapability, AdminPlaybackHardwareCapabilityReason,
+        AdminPlaybackHardwareDeviceInitialization, AdminPlaybackHardwareDeviceInitializationStatus,
+        AdminPlaybackHardwareDiagnostics, AdminPlaybackHardwareEncoderDiscovery,
+        AdminPlaybackHardwareEncoderDiscoveryStatus, AdminPlaybackHardwareSmokeProbe,
+        AdminPlaybackHardwareSmokeProbeStatus, AdminPlaybackHardwareStageCapability,
+        AdminPlaybackPolicyDiagnostics, AdminPlaybackReadinessCheck,
+        AdminPlaybackReadinessCheckName, AdminPlaybackReadinessDiagnostics,
+        AdminPlaybackReadinessReason, AdminPlaybackRemoteBudgetDiagnostics,
+        AdminPlaybackRemuxRuntimeDiagnostics, AdminPlaybackResourceClass,
+        AdminPlaybackResourceClassPressure, AdminPlaybackResourceEnforcement,
+        AdminPlaybackResourcePressureDiagnostics, AdminPlaybackRuntimeDiagnosticsResponse,
+        AdminPlaybackRuntimeStatus, AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
         AdminPlaybackStagingDiagnostics, AdminPlaybackSupportEvidenceResponse,
         AdminPlaybackSupportHardwareCapabilityEvidence, AdminPlaybackSupportHardwareEvidence,
         AdminPlaybackSupportRedactionEvidence, AdminPlaybackSupportRuntimeEvidence,
@@ -96,10 +97,10 @@ use nako_core::{
     GeneratedArtifactMetadataApplyRecoveryFilter, GeneratedArtifactMetadataBulkApplyBatchId,
     ImageKind, JobId, LibraryAccessPolicy, LibraryAccessPolicyFilter, LibraryAccessPolicyScope,
     LibraryId, ManagedArtworkArtifactId, ManagedArtworkIngestId, MediaItemId,
-    MetadataCandidateReviewId, MetadataCandidateReviewQueueFilter, MetadataCandidateReviewStatus,
-    NakoError, PageRequest, PlaybackTargetKind, PlaybackTargetTransportAuth, ProviderMappingId,
-    RendererSessionRecord, RendererSessionState, RoleAssignment, User, UserId, UserInvitationId,
-    UserPrincipalId, UserRole, UserStatus,
+    MetadataCandidateReviewBatchId, MetadataCandidateReviewId, MetadataCandidateReviewQueueFilter,
+    MetadataCandidateReviewStatus, NakoError, PageRequest, PlaybackTargetKind,
+    PlaybackTargetTransportAuth, ProviderMappingId, RendererSessionRecord, RendererSessionState,
+    RoleAssignment, User, UserId, UserInvitationId, UserPrincipalId, UserRole, UserStatus,
 };
 use nako_db::DatabaseBackendCapabilities;
 use nako_transcode::{
@@ -215,6 +216,14 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/metadata/candidate-reviews/batch-apply",
             post(apply_admin_metadata_candidate_review_batch),
+        )
+        .route(
+            "/admin/v1/metadata/candidate-reviews/batches",
+            post(create_admin_metadata_candidate_review_batch),
+        )
+        .route(
+            "/admin/v1/metadata/candidate-reviews/batches/{batch_id}",
+            get(get_admin_metadata_candidate_review_batch),
         )
         .route(
             "/admin/v1/metadata/items/{item_id}/candidate-reviews",
@@ -1170,6 +1179,34 @@ pub(super) async fn apply_admin_metadata_candidate_review_batch(
             .apply_admin_metadata_candidate_review_batch(request)
             .await?,
     ))
+}
+
+pub(super) async fn create_admin_metadata_candidate_review_batch(
+    State(app): State<NakoApp>,
+    Json(request): Json<AdminMetadataCandidateReviewBatchCreateRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let batch = app
+        .metadata()
+        .create_admin_metadata_candidate_review_batch(request)
+        .await?;
+
+    Ok(Json(AdminMetadataCandidateReviewBatchResponse::from_batch(
+        batch,
+    )))
+}
+
+pub(super) async fn get_admin_metadata_candidate_review_batch(
+    State(app): State<NakoApp>,
+    Path(batch_id): Path<MetadataCandidateReviewBatchId>,
+) -> ApiResult<impl IntoResponse> {
+    let batch = app
+        .metadata()
+        .get_admin_metadata_candidate_review_batch(batch_id)
+        .await?;
+
+    Ok(Json(AdminMetadataCandidateReviewBatchResponse::from_batch(
+        batch,
+    )))
 }
 
 pub(super) async fn apply_admin_metadata_candidate_review(

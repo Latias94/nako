@@ -9,6 +9,7 @@ use nako_api::{
         AdminMetadataCandidateReviewBatchApplyResponse,
         AdminMetadataCandidateReviewBatchApplyResult,
         AdminMetadataCandidateReviewBatchApplyResultStatus,
+        AdminMetadataCandidateReviewBatchCreateRequest,
         AdminMetadataCandidateReviewBatchPlanRequest,
         AdminMetadataCandidateReviewBatchPlanResponse, AdminMetadataCandidateReviewListResponse,
         AdminMetadataCandidateReviewQueueResponse, AdminMetadataCandidateReviewResponse,
@@ -29,7 +30,11 @@ use nako_core::{
     CancelLeasedJob, CompleteLeasedJob, DomainEventKind, DomainEventSubject, EventId,
     EventOutboxRepository, ExternalProvider, FailLeasedJob, Job, JobId, JobKind,
     JobLeaseClaimRequest, JobLeaseHeartbeat, JobRepository, LeasedJob, Library, LibraryId,
-    LibraryRepository, MediaItem, MediaItemId, MediaRepository, MediaSource, MetadataAttemptFilter,
+    LibraryRepository, METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS, MediaItem,
+    MediaItemId, MediaRepository, MediaSource, MetadataAttemptFilter,
+    MetadataCandidateReviewBatchCommit, MetadataCandidateReviewBatchId,
+    MetadataCandidateReviewBatchItemCommit, MetadataCandidateReviewBatchItemStatus,
+    MetadataCandidateReviewBatchRecord, MetadataCandidateReviewBatchStatus,
     MetadataCandidateReviewId, MetadataCandidateReviewQueueFilter,
     MetadataCandidateReviewRepository, MetadataProfile, MetadataProviderAttemptRecord,
     MetadataProviderAttemptStatus, MetadataRefreshMode, MetadataRepository, NakoError, NewJob,
@@ -59,6 +64,11 @@ use super::runtime::{RuntimeSupervisor, runtime_budget_class_for_job_resource_cl
 use crate::config::{MetadataMaintenancePolicyConfig, NakoServerConfig};
 
 const ADMIN_METADATA_CANDIDATE_REVIEW_BATCH_MAX: usize = 50;
+
+#[derive(Clone, Copy, Debug, Serialize)]
+struct MetadataCandidateReviewBatchApplyJobInput {
+    batch_id: MetadataCandidateReviewBatchId,
+}
 
 #[derive(Clone, Debug, Serialize)]
 pub struct MetadataRefreshCommandOutput {
@@ -596,6 +606,123 @@ impl MetadataAppService {
             requested_count,
             ADMIN_METADATA_CANDIDATE_REVIEW_BATCH_MAX,
         ))
+    }
+
+    pub async fn create_admin_metadata_candidate_review_batch(
+        &self,
+        request: AdminMetadataCandidateReviewBatchCreateRequest,
+    ) -> Result<MetadataCandidateReviewBatchRecord> {
+        let idempotency_key =
+            normalize_candidate_review_apply_idempotency_key(&request.idempotency_key)?;
+        if let Some(existing) = self
+            .execution_store
+            .store
+            .find_metadata_candidate_review_batch(&idempotency_key)
+            .await?
+        {
+            return Ok(existing);
+        }
+
+        let reviews = validate_candidate_review_batch_apply_items(
+            request.reviews,
+            ADMIN_METADATA_CANDIDATE_REVIEW_BATCH_MAX,
+        )?;
+        let requested_count = reviews.len();
+        let batch_id = MetadataCandidateReviewBatchId::new();
+        let job_id = JobId::new();
+        let service =
+            MetadataCandidateReviewApplicationService::new(self.execution_store.store.clone());
+        let mut apply_count = 0_u32;
+        let mut noop_count = 0_u32;
+        let mut skip_count = 0_u32;
+        let mut items = Vec::with_capacity(requested_count);
+
+        for (index, item) in reviews.into_iter().enumerate() {
+            let planned = service
+                .plan(MetadataCandidateReviewApplicationPlanRequest {
+                    review_id: item.review_id,
+                    item_id: item.item_id,
+                    expected_updated_at_ms: item.expected_updated_at_ms,
+                })
+                .await?;
+            match planned.plan.action {
+                nako_core::MetadataCandidateReviewApplicationAction::Apply => {
+                    apply_count = apply_count.saturating_add(1);
+                }
+                nako_core::MetadataCandidateReviewApplicationAction::Noop => {
+                    noop_count = noop_count.saturating_add(1);
+                }
+                nako_core::MetadataCandidateReviewApplicationAction::Skip => {
+                    skip_count = skip_count.saturating_add(1);
+                }
+            }
+            let status = candidate_review_batch_item_status_for_plan(&planned.plan);
+            items.push(MetadataCandidateReviewBatchItemCommit {
+                review_id: planned.review.id,
+                item_id: planned.review.item_id,
+                position: index as u32,
+                status,
+                idempotency_key: metadata_candidate_review_batch_item_idempotency_key(
+                    batch_id,
+                    planned.review.id,
+                ),
+                expected_updated_at_ms: item.expected_updated_at_ms,
+                plan: planned.plan,
+            });
+        }
+
+        let input_json =
+            serde_json::to_string(&MetadataCandidateReviewBatchApplyJobInput { batch_id })
+                .map_err(|err| NakoError::InvalidInput {
+                    message: format!(
+                        "failed to serialize metadata candidate review batch apply job input: {err}"
+                    ),
+                })?;
+
+        self.execution_store
+            .store
+            .commit_metadata_candidate_review_batch(&MetadataCandidateReviewBatchCommit {
+                id: batch_id,
+                job: NewJob {
+                    id: job_id,
+                    kind: JobKind::MetadataCandidateReviewBatchApply,
+                    resource_class: METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS
+                        .to_owned(),
+                    library_id: None,
+                    source_id: None,
+                    input_json: Some(input_json),
+                },
+                idempotency_key,
+                status: MetadataCandidateReviewBatchStatus::Queued,
+                selection: nako_core::MetadataCandidateReviewBatchPlanSelection {
+                    requested_review_count: requested_count as u32,
+                    selected_review_count: items.len() as u32,
+                    duplicate_review_count: 0,
+                    max_review_count: ADMIN_METADATA_CANDIDATE_REVIEW_BATCH_MAX as u32,
+                },
+                summary: nako_core::MetadataCandidateReviewBatchPlanSummary {
+                    planned_review_count: items.len() as u32,
+                    apply_count,
+                    noop_count,
+                    skip_count,
+                },
+                items,
+            })
+            .await
+    }
+
+    pub async fn get_admin_metadata_candidate_review_batch(
+        &self,
+        batch_id: MetadataCandidateReviewBatchId,
+    ) -> Result<MetadataCandidateReviewBatchRecord> {
+        self.execution_store
+            .store
+            .get_metadata_candidate_review_batch(batch_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "metadata_candidate_review_batch",
+                id: batch_id.to_string(),
+            })
     }
 
     pub async fn apply_admin_metadata_candidate_review_batch(
@@ -1746,6 +1873,34 @@ fn validate_candidate_review_batch_apply_items(
     }
 
     Ok(reviews)
+}
+
+fn candidate_review_batch_item_status_for_plan(
+    plan: &nako_core::MetadataCandidateReviewApplicationPlan,
+) -> MetadataCandidateReviewBatchItemStatus {
+    match plan.action {
+        nako_core::MetadataCandidateReviewApplicationAction::Apply
+        | nako_core::MetadataCandidateReviewApplicationAction::Noop => {
+            MetadataCandidateReviewBatchItemStatus::Pending
+        }
+        nako_core::MetadataCandidateReviewApplicationAction::Skip => {
+            if plan
+                .reasons
+                .contains(&nako_core::MetadataCandidateReviewApplicationReason::ReviewNotAccepted)
+            {
+                MetadataCandidateReviewBatchItemStatus::Skipped
+            } else {
+                MetadataCandidateReviewBatchItemStatus::Blocked
+            }
+        }
+    }
+}
+
+fn metadata_candidate_review_batch_item_idempotency_key(
+    batch_id: MetadataCandidateReviewBatchId,
+    review_id: MetadataCandidateReviewId,
+) -> String {
+    format!("metadata-candidate-review-batch-item:{batch_id}:{review_id}")
 }
 
 fn candidate_review_batch_apply_error_result(

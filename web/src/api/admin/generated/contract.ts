@@ -54,6 +54,8 @@ export const NAKO_ADMIN_ROUTES = {
   metadataCandidateReviews: "/admin/v1/metadata/candidate-reviews",
   metadataCandidateReviewBatchApplicationPlan: "/admin/v1/metadata/candidate-reviews/batch-application-plan",
   metadataCandidateReviewBatchApply: "/admin/v1/metadata/candidate-reviews/batch-apply",
+  metadataCandidateReviewBatches: "/admin/v1/metadata/candidate-reviews/batches",
+  metadataCandidateReviewBatch: "/admin/v1/metadata/candidate-reviews/batches/{batch_id}",
   metadataCandidateReviewsForItem: "/admin/v1/metadata/items/{item_id}/candidate-reviews",
   metadataCandidateReview: "/admin/v1/metadata/candidate-reviews/{review_id}",
   metadataCandidateReviewApply: "/admin/v1/metadata/candidate-reviews/{review_id}/apply",
@@ -1648,6 +1650,65 @@ export interface AdminMetadataCandidateReviewBatchApplyItemRequest {
 export interface AdminMetadataCandidateReviewBatchApplyRequest {
   idempotency_key: string;
   reviews: AdminMetadataCandidateReviewBatchApplyItemRequest[];
+}
+
+export interface AdminMetadataCandidateReviewBatchCreateRequest {
+  idempotency_key: string;
+  reviews: AdminMetadataCandidateReviewBatchApplyItemRequest[];
+}
+
+export interface AdminMetadataCandidateReviewBatchResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  batch: AdminMetadataCandidateReviewBatch;
+}
+
+export interface AdminMetadataCandidateReviewBatch {
+  id: string;
+  job_id: string;
+  status: string;
+  idempotency_key_fingerprint: string;
+  selection: AdminMetadataCandidateReviewBatchPlanSelection;
+  summary: AdminMetadataCandidateReviewBatchPlanSummary;
+  execution_summary: AdminMetadataCandidateReviewBatchExecutionSummary;
+  items: AdminMetadataCandidateReviewBatchItem[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminMetadataCandidateReviewBatchPlanSelection {
+  requested_review_count: number;
+  selected_review_count: number;
+  duplicate_review_count: number;
+  max_review_count: number;
+}
+
+export interface AdminMetadataCandidateReviewBatchExecutionSummary {
+  total_item_count: number;
+  pending_item_count: number;
+  skipped_item_count: number;
+  blocked_item_count: number;
+  applied_item_count: number;
+  noop_item_count: number;
+  stale_item_count: number;
+  conflict_item_count: number;
+  failed_item_count: number;
+}
+
+export interface AdminMetadataCandidateReviewBatchItem {
+  review_id: string;
+  item_id: string;
+  position: number;
+  status: string;
+  idempotency_key_fingerprint: string;
+  expected_updated_at_ms: number | null;
+  provider_subject_id: string | null;
+  provider_mapping_id: string | null;
+  error: AdminMetadataCandidateReviewBatchApplyError | null;
+  plan: AdminMetadataCandidateReviewApplicationPlan;
+  boundary: AdminMetadataCandidateReviewApplicationBoundary;
+  created_at: string;
+  updated_at: string;
 }
 
 export type AdminMetadataCandidateReviewBatchApplyResultStatus =

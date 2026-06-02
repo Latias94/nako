@@ -88,13 +88,39 @@ Green gates:
 - `git diff --check`
   - Result: passed; Git emitted CRLF normalization warnings only.
 
+## PGDBE-030 Evidence
+
+Implemented:
+
+- Admin API DTOs for durable Candidate Review batch create/status responses,
+  including redaction-safe plan snapshots and idempotency-key fingerprints
+  without raw idempotency keys.
+- `nako-server` metadata app boundary for idempotent queued batch creation,
+  per-item plan snapshot persistence, durable job persistence, and status
+  lookup.
+- Admin HTTP routes:
+  - `POST /admin/v1/metadata/candidate-reviews/batches`
+  - `GET /admin/v1/metadata/candidate-reviews/batches/{batch_id}`
+- System route coverage proving create replay, persisted job facts, status
+  lookup, duplicate input rejection, and no Provider Mapping or Provider
+  Subject writes during create/status.
+- Generated Admin TypeScript contract synchronization for both Admin Web and
+  Web contract locations.
+
+Green gates:
+
+- `cargo test -p nako-server metadata_candidate_review_batch -- --nocapture`
+  - Result: passed, 3 tests.
+- `cargo test -p nako-api admin_contract -- --nocapture`
+  - Result: passed, 5 tests.
+- `cargo check -p nako-api -p nako-server --tests`
+  - Result: passed.
+- `cargo fmt --all -- --check`
+  - Result: passed.
+- `git diff --check`
+  - Result: passed; Git emitted CRLF normalization warnings only.
+
 ## Later Gates
-
-`PGDBE-030`:
-
-- Admin create/status routes are redaction-safe and do not execute mutation.
-- Generated Admin contract is synchronized.
-- Route tests prove empty/duplicate/oversized inputs are rejected.
 
 `PGDBE-040`:
 

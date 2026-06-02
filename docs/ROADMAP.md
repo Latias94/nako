@@ -12,14 +12,14 @@ milestone.
 ## Current Architecture Focus
 
 Status: Provider Governance Durable Batch Execution is active after
-`PGDBE-020`.
+`PGDBE-030`.
 
 The active workstream is
 `docs/workstreams/provider-governance-durable-batch-execution/`. It follows
-Provider Governance Bulk Review. `PGDBE-020` has shipped Candidate Review
-durable batch state, repository contracts, SQLite/PostgreSQL persistence, and
-an explicit job/resource-class foundation; `PGDBE-030` is next for Admin
-create/status boundaries.
+Provider Governance Bulk Review. `PGDBE-020` shipped Candidate Review durable
+batch state, repository contracts, SQLite/PostgreSQL persistence, and an
+explicit job/resource-class foundation; `PGDBE-030` shipped the Admin
+create/status boundary; `PGDBE-040` is next for job-backed execution.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
 Operations Repair are both closed as of 2026-06-02. Web Admin Generated
@@ -34,7 +34,7 @@ Depth Governance is closed after `AWPDG-050`. Admin Candidate Review List
 Navigation is closed after `ACRN-040`. Provider Review Global Queue Search is
 closed after `PRGQ-040`. Provider Governance Bulk Review is closed after
 `PGBR-050`. Provider Governance Durable Batch Execution is active after
-`PGDBE-010`.
+`PGDBE-030`.
 
 The active focus will ship:
 
@@ -68,8 +68,9 @@ Current lane and candidate follow-ons:
 
 Latest active architecture slice:
 
-`PGDBE-020` shipped Provider Governance Durable Batch Execution core/DB state
-on 2026-06-02 and selected `PGDBE-030` as the next Admin boundary task.
+`PGDBE-030` shipped Provider Governance Durable Batch Execution Admin
+create/status routes on 2026-06-02 and selected `PGDBE-040` as the next
+job-backed execution task.
 
 Latest completed architecture slices:
 
@@ -79,6 +80,10 @@ and selected `PGDBE-020` as the first executable task.
 `PGDBE-020` shipped on 2026-06-02 with Candidate Review durable batch domain
 records, repository contract, SQLite/PostgreSQL persistence, explicit job
 kind/resource class, and idempotency/atomicity contract coverage.
+
+`PGDBE-030` shipped on 2026-06-02 with redaction-safe Admin create/status
+routes, idempotent queued batch creation, durable job persistence, generated
+Admin contract sync, and no Provider Mapping writes during create/status.
 
 `PGBR-020` shipped on 2026-06-02 with a no-write, redaction-safe Admin API
 batch application plan and generated Admin contract sync.

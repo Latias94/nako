@@ -36,7 +36,7 @@ Exit criteria:
 - status reads return redacted batch/item summaries;
 - no execution occurs during create/status reads.
 
-Status: Current.
+Status: Done.
 
 ## M3 - Job-Backed Execution
 
@@ -48,7 +48,7 @@ Exit criteria:
 - cancellation checkpoints are covered;
 - no raw `tokio::spawn` path is introduced.
 
-Status: Pending.
+Status: Current.
 
 ## M4 - Web Admin Durable Status
 
