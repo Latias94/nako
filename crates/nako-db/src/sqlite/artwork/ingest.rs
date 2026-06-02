@@ -27,17 +27,19 @@ pub(super) async fn enqueue_job_tx(
             kind,
             status,
             resource_class,
+            priority,
             library_id,
             source_id,
             input_json
         )
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
         "#,
     )
     .bind(job.id.to_string())
     .bind(job.kind.as_str())
     .bind(JobStatus::Queued.as_str())
     .bind(job.resource_class)
+    .bind(job.priority.score())
     .bind(job.library_id.map(|id| id.to_string()))
     .bind(job.source_id.map(|id| id.to_string()))
     .bind(job.input_json)
@@ -59,6 +61,7 @@ pub(super) async fn get_job_tx(
             kind,
             status,
             resource_class,
+            priority,
             library_id,
             source_id,
             input_json,

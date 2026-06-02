@@ -9,6 +9,7 @@ const ADDON_TASK_RUN_SELECT: &str = r#"
                 jobs.kind,
                 jobs.status,
                 jobs.resource_class,
+                jobs.priority,
                 jobs.library_id,
                 jobs.source_id,
                 jobs.input_json AS job_input_json,
@@ -50,6 +51,7 @@ const LEASED_ADDON_TASK_RUN_SELECT: &str = r#"
                 jobs.kind,
                 jobs.status,
                 jobs.resource_class,
+                jobs.priority,
                 jobs.library_id,
                 jobs.source_id,
                 jobs.input_json AS job_input_json,
@@ -601,17 +603,19 @@ async fn insert_job_tx(transaction: &mut sqlx::Transaction<'_, Sqlite>, job: New
             kind,
             status,
             resource_class,
+            priority,
             library_id,
             source_id,
             input_json
         )
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
         "#,
     )
     .bind(job.id.to_string())
     .bind(job.kind.as_str())
     .bind(JobStatus::Queued.as_str())
     .bind(job.resource_class)
+    .bind(job.priority.score())
     .bind(job.library_id.map(|id| id.to_string()))
     .bind(job.source_id.map(|id| id.to_string()))
     .bind(job.input_json)
@@ -744,6 +748,7 @@ fn row_to_addon_task_run(row: SqliteRow) -> Result<AddonTaskRunRecord> {
         kind: JobKind::parse(&row_get::<String>(&row, "kind")?)?,
         status: JobStatus::parse(&row_get::<String>(&row, "status")?)?,
         resource_class: row_get(&row, "resource_class")?,
+        priority: JobPriority::from_score(row_get::<i64>(&row, "priority")?)?,
         library_id: parse_optional_id(row_get::<Option<String>>(&row, "library_id")?)?,
         source_id: parse_optional_id(row_get::<Option<String>>(&row, "source_id")?)?,
         input_json: row_get(&row, "job_input_json")?,

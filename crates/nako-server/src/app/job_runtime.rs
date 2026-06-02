@@ -471,7 +471,8 @@ impl DurableJobHeartbeat {
 mod tests {
     use super::*;
     use nako_core::{
-        DatabaseLifecycle, JobKind, JobLeaseClaimFilter, JobRepository, JobStatus, NewJob,
+        DatabaseLifecycle, JobKind, JobLeaseClaimFilter, JobPriority, JobRepository, JobStatus,
+        NewJob,
     };
     use nako_db::NakoDatabase;
     use tokio::sync::Notify;
@@ -495,6 +496,7 @@ mod tests {
                 id: JobId::new(),
                 kind: JobKind::LibraryScan,
                 resource_class: "disk.scan".to_owned(),
+                priority: JobPriority::Normal,
                 library_id: None,
                 source_id: None,
                 input_json: None,
@@ -506,6 +508,7 @@ mod tests {
                 id: JobId::new(),
                 kind: JobKind::LibraryScan,
                 resource_class: "disk.scan".to_owned(),
+                priority: JobPriority::Normal,
                 library_id: None,
                 source_id: None,
                 input_json: None,
@@ -563,6 +566,7 @@ mod tests {
                 id: JobId::new(),
                 kind: JobKind::MetadataRefresh,
                 resource_class: "metadata.tmdb".to_owned(),
+                priority: JobPriority::Normal,
                 library_id: None,
                 source_id: None,
                 input_json: None,
@@ -603,6 +607,7 @@ mod tests {
                 id: JobId::new(),
                 kind: JobKind::MetadataMaintenance,
                 resource_class: "metadata.maintenance".to_owned(),
+                priority: JobPriority::Normal,
                 library_id: None,
                 source_id: None,
                 input_json: None,
@@ -677,6 +682,7 @@ mod tests {
                 id: JobId::new(),
                 kind: JobKind::NfoExport,
                 resource_class: "metadata.nfo.export".to_owned(),
+                priority: JobPriority::Normal,
                 library_id: None,
                 source_id: None,
                 input_json: None,

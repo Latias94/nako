@@ -3,12 +3,18 @@ use sqlx::{QueryBuilder, Sqlite, sqlite::SqliteRow};
 use super::{SqliteStore, codec::*};
 use nako_core::*;
 
+#[cfg(test)]
+const JOB_PRIORITY_STARVATION_GUARD_MS: i64 = 250;
+#[cfg(not(test))]
+const JOB_PRIORITY_STARVATION_GUARD_MS: i64 = 300_000;
+
 const JOB_SELECT: &str = r#"
             SELECT
                 id,
                 kind,
                 status,
                 resource_class,
+                priority,
                 library_id,
                 source_id,
                 input_json,
@@ -30,6 +36,7 @@ const JOB_SELECT_BY_ID: &str = r#"
                 kind,
                 status,
                 resource_class,
+                priority,
                 library_id,
                 source_id,
                 input_json,
@@ -52,6 +59,7 @@ const JOB_LEASE_SELECT_BY_ID: &str = r#"
                 kind,
                 status,
                 resource_class,
+                priority,
                 library_id,
                 source_id,
                 input_json,
@@ -94,6 +102,7 @@ impl JobRepository for SqliteStore {
                 kind,
                 status,
                 resource_class,
+                priority,
                 library_id,
                 source_id,
                 input_json,
@@ -102,13 +111,14 @@ impl JobRepository for SqliteStore {
                 retry_of_job_id,
                 next_attempt_at
             )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
             "#,
         )
         .bind(retry.retry_job_id.to_string())
         .bind(source.kind.as_str())
         .bind(JobStatus::Queued.as_str())
         .bind(source.resource_class)
+        .bind(source.priority.score())
         .bind(source.library_id.map(|id| id.to_string()))
         .bind(source.source_id.map(|id| id.to_string()))
         .bind(source.input_json)
@@ -330,17 +340,19 @@ where
             kind,
             status,
             resource_class,
+            priority,
             library_id,
             source_id,
             input_json
         )
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
         "#,
     )
     .bind(job.id.to_string())
     .bind(job.kind.as_str())
     .bind(JobStatus::Queued.as_str())
     .bind(job.resource_class)
+    .bind(job.priority.score())
     .bind(job.library_id.map(|id| id.to_string()))
     .bind(job.source_id.map(|id| id.to_string()))
     .bind(job.input_json)
@@ -376,7 +388,24 @@ impl JobLeaseRepository for SqliteStore {
                 AND (?5 IS NULL OR library_id = ?5)
                 AND (?6 IS NULL OR source_id = ?6)
                 AND (next_attempt_at IS NULL OR next_attempt_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-            ORDER BY queued_at ASC, id ASC
+            ORDER BY
+                CASE
+                    WHEN queued_at <= strftime(
+                        '%Y-%m-%dT%H:%M:%fZ',
+                        'now',
+                        '-' || (CAST(?7 AS REAL) / 1000.0) || ' seconds'
+                    ) THEN 1 ELSE 0
+                END DESC,
+                CASE
+                    WHEN queued_at <= strftime(
+                        '%Y-%m-%dT%H:%M:%fZ',
+                        'now',
+                        '-' || (CAST(?7 AS REAL) / 1000.0) || ' seconds'
+                    ) THEN queued_at ELSE NULL
+                END ASC,
+                priority DESC,
+                queued_at ASC,
+                id ASC
             LIMIT 1
             "#,
         )
@@ -386,6 +415,7 @@ impl JobLeaseRepository for SqliteStore {
         .bind(requested_job_id.as_deref())
         .bind(library_id.as_deref())
         .bind(source_id.as_deref())
+        .bind(JOB_PRIORITY_STARVATION_GUARD_MS)
         .fetch_optional(&mut *transaction)
         .await
         .map_err(database_error)?;
@@ -738,6 +768,7 @@ impl SqliteStore {
                 kind,
                 status,
                 resource_class,
+                priority,
                 library_id,
                 source_id,
                 input_json,
@@ -814,6 +845,7 @@ fn row_to_leased_job(row: SqliteRow) -> Result<LeasedJob> {
         kind: JobKind::parse(&row_get::<String>(&row, "kind")?)?,
         status: JobStatus::parse(&row_get::<String>(&row, "status")?)?,
         resource_class: row_get(&row, "resource_class")?,
+        priority: JobPriority::from_score(row_get::<i64>(&row, "priority")?)?,
         library_id: parse_optional_id(row_get::<Option<String>>(&row, "library_id")?)?,
         source_id: parse_optional_id(row_get::<Option<String>>(&row, "source_id")?)?,
         input_json: row_get(&row, "input_json")?,

@@ -100,11 +100,67 @@ impl JobStatus {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum JobPriority {
+    Low,
+    #[default]
+    Normal,
+    High,
+}
+
+impl JobPriority {
+    pub const LOW_SCORE: i64 = 0;
+    pub const NORMAL_SCORE: i64 = 50;
+    pub const HIGH_SCORE: i64 = 100;
+
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Low => "low",
+            Self::Normal => "normal",
+            Self::High => "high",
+        }
+    }
+
+    #[must_use]
+    pub const fn score(self) -> i64 {
+        match self {
+            Self::Low => Self::LOW_SCORE,
+            Self::Normal => Self::NORMAL_SCORE,
+            Self::High => Self::HIGH_SCORE,
+        }
+    }
+
+    pub fn parse(value: &str) -> Result<Self> {
+        match value {
+            "low" => Ok(Self::Low),
+            "normal" => Ok(Self::Normal),
+            "high" => Ok(Self::High),
+            _ => Err(NakoError::Database {
+                message: format!("unknown job priority stored in database: {value}"),
+            }),
+        }
+    }
+
+    pub fn from_score(value: i64) -> Result<Self> {
+        match value {
+            Self::LOW_SCORE => Ok(Self::Low),
+            Self::NORMAL_SCORE => Ok(Self::Normal),
+            Self::HIGH_SCORE => Ok(Self::High),
+            _ => Err(NakoError::Database {
+                message: format!("unknown job priority score stored in database: {value}"),
+            }),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct NewJob {
     pub id: JobId,
     pub kind: JobKind,
     pub resource_class: String,
+    pub priority: JobPriority,
     pub library_id: Option<LibraryId>,
     pub source_id: Option<MediaSourceId>,
     pub input_json: Option<String>,
@@ -116,6 +172,7 @@ pub struct Job {
     pub kind: JobKind,
     pub status: JobStatus,
     pub resource_class: String,
+    pub priority: JobPriority,
     pub library_id: Option<LibraryId>,
     pub source_id: Option<MediaSourceId>,
     pub input_json: Option<String>,
@@ -294,6 +351,18 @@ mod tests {
     fn job_status_round_trips_cancelled() {
         assert_eq!(JobStatus::Cancelled.as_str(), "cancelled");
         assert_eq!(JobStatus::parse("cancelled").unwrap(), JobStatus::Cancelled);
+    }
+
+    #[test]
+    fn job_priority_round_trips_scores() {
+        assert_eq!(JobPriority::Low.as_str(), "low");
+        assert_eq!(JobPriority::Normal.as_str(), "normal");
+        assert_eq!(JobPriority::High.as_str(), "high");
+        assert_eq!(JobPriority::parse("normal").unwrap(), JobPriority::Normal);
+        assert_eq!(
+            JobPriority::from_score(JobPriority::High.score()).unwrap(),
+            JobPriority::High
+        );
     }
 
     #[test]

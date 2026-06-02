@@ -8,9 +8,9 @@ use nako_api::extension::{
 use nako_core::{
     AcquisitionIntakeCandidateState, AcquisitionIntakeRepository, AcquisitionIntakeSourceKind,
     AddonPrincipal, AutomationArtifactId, AutomationJobInput, AutomationProviderId,
-    AutomationProviderStatus, AutomationRepository, JobId, JobKind, JobRepository, LibraryId,
-    LibraryItemRepository, LibraryRepository, MediaRepository, NakoError, NewAutomationArtifact,
-    NewAutomationProviderConfig, NewJob, Result,
+    AutomationProviderStatus, AutomationRepository, JobId, JobKind, JobPriority, JobRepository,
+    LibraryId, LibraryItemRepository, LibraryRepository, MediaRepository, NakoError,
+    NewAutomationArtifact, NewAutomationProviderConfig, NewJob, Result,
 };
 
 use super::{AddonAppService, runtime::AddonSideEffectRuntime};
@@ -81,6 +81,7 @@ impl AddonAppService {
                 id: JobId::new(),
                 kind: JobKind::AddonTask,
                 resource_class: RUNTIME_RESOURCE_CLASS_ADDON_TASK.to_owned(),
+                priority: JobPriority::Normal,
                 library_id: request.library_id,
                 source_id: request.source_id,
                 input_json: Some(serde_json::to_string(&input).map_err(|err| {

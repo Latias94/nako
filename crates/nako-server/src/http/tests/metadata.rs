@@ -353,6 +353,7 @@ async fn metadata_diagnostics_routes_expose_attempts_raw_and_provider_status_wit
             id: JobId::new(),
             kind: JobKind::MetadataRefresh,
             resource_class: "metadata.douban".to_owned(),
+            priority: nako_core::JobPriority::Normal,
             library_id: Some(library_id),
             source_id: None,
             input_json: None,

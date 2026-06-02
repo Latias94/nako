@@ -224,6 +224,7 @@ pub struct IgnoreIngestionFailureRequest {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nako_core::JobPriority;
 
     #[test]
     fn ingestion_failure_diagnostic_serializes_explicit_dto_fields() {
@@ -264,6 +265,7 @@ mod tests {
             kind: JobKind::LibraryScan,
             status: JobStatus::Failed,
             resource_class: "disk.scan".to_owned(),
+            priority: JobPriority::Normal,
             library_id: Some(LibraryId::new()),
             source_id: Some(MediaSourceId::new()),
             input_json: Some(r#"{"secret":"admin-token"}"#.to_owned()),
@@ -300,6 +302,7 @@ mod tests {
             kind: JobKind::LibraryScan,
             status: JobStatus::Failed,
             resource_class: "disk.scan".to_owned(),
+            priority: JobPriority::Normal,
             library_id: Some(LibraryId::new()),
             source_id: Some(MediaSourceId::new()),
             input_json: Some(r#"{"secret":"admin-token"}"#.to_owned()),
@@ -334,6 +337,7 @@ mod tests {
                 kind: JobKind::LibraryScan,
                 status: JobStatus::Running,
                 resource_class: "disk.scan".to_owned(),
+                priority: JobPriority::Normal,
                 library_id: Some(LibraryId::new()),
                 source_id: Some(MediaSourceId::new()),
                 input_json: Some(r#"{"secret":"admin-token"}"#.to_owned()),

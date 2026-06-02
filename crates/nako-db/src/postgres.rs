@@ -29,11 +29,18 @@ mod vfs_staging;
 
 const POSTGRES_MAX_CONNECTIONS: u32 = 5;
 
-const MIGRATIONS: &[(i64, &str, &str)] = &[(
-    1,
-    "baseline",
-    include_str!("../migrations/postgres/baseline.sql"),
-)];
+const MIGRATIONS: &[(i64, &str, &str)] = &[
+    (
+        1,
+        "baseline",
+        include_str!("../migrations/postgres/baseline.sql"),
+    ),
+    (
+        2,
+        "durable_job_priority",
+        include_str!("../migrations/postgres/0002_durable_job_priority.sql"),
+    ),
+];
 
 #[derive(Clone, Debug)]
 pub(crate) struct PostgresStore {
@@ -451,7 +458,7 @@ mod tests {
 
     #[test]
     fn postgres_baseline_migration_contains_identity_and_library_access_schema() {
-        assert_eq!(MIGRATIONS.len(), 1);
+        assert!(MIGRATIONS.len() >= 2);
         assert_eq!(MIGRATIONS[0].0, 1);
         assert_eq!(MIGRATIONS[0].1, "baseline");
 

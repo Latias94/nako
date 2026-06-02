@@ -483,7 +483,7 @@ impl RuntimeSupervisorInner {
 mod tests {
     use std::sync::Arc;
 
-    use nako_core::{JobKind, JobStatus};
+    use nako_core::{JobKind, JobPriority, JobStatus};
     use tokio::sync::Notify;
 
     use super::*;
@@ -838,6 +838,7 @@ mod tests {
             kind: JobKind::LibraryScan,
             status,
             resource_class: "test.job".to_owned(),
+            priority: JobPriority::Normal,
             library_id: None,
             source_id: None,
             input_json: None,

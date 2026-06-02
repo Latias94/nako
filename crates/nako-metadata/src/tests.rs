@@ -3782,6 +3782,7 @@ async fn seed_metadata_job(store: &NakoDatabase, item: &MediaItem) -> JobId {
             id: JobId::new(),
             kind: JobKind::MetadataRefresh,
             resource_class: "metadata.test".to_owned(),
+            priority: nako_core::JobPriority::Normal,
             library_id: None,
             source_id: None,
             input_json: Some(

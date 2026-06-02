@@ -636,6 +636,7 @@ pub(crate) fn row_to_job(row: SqliteRow) -> Result<Job> {
         kind: JobKind::parse(&row_get::<String>(&row, "kind")?)?,
         status: JobStatus::parse(&row_get::<String>(&row, "status")?)?,
         resource_class: row_get(&row, "resource_class")?,
+        priority: JobPriority::from_score(row_get::<i64>(&row, "priority")?)?,
         library_id: parse_optional_id(row_get::<Option<String>>(&row, "library_id")?)?,
         source_id: parse_optional_id(row_get::<Option<String>>(&row, "source_id")?)?,
         input_json: row_get(&row, "input_json")?,

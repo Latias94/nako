@@ -3,11 +3,11 @@ use std::sync::Arc;
 use nako_core::{
     CancelLeasedJob, CompleteLeasedJob, DomainEventKind, DomainEventSubject, EventId,
     EventOutboxRepository, FailLeasedJob, Job, JobId, JobKind, JobLeaseClaimRequest,
-    JobLeaseHeartbeat, JobRepository, LeasedJob, Library, LibraryId, LibraryRepository, MediaItem,
-    MediaItemId, MediaRepository, MediaSource, MediaSourceId, NakoError, NewJob,
-    NewNfoSidecarApply, NewOutboxEvent, NfoSidecarApplyId, NfoSidecarApplyOperationKind,
-    NfoSidecarApplyRecord, NfoSidecarApplyRepository, NfoSidecarApplyState, OutboxEventRecord,
-    Result, UserPrincipalId,
+    JobLeaseHeartbeat, JobPriority, JobRepository, LeasedJob, Library, LibraryId,
+    LibraryRepository, MediaItem, MediaItemId, MediaRepository, MediaSource, MediaSourceId,
+    NakoError, NewJob, NewNfoSidecarApply, NewOutboxEvent, NfoSidecarApplyId,
+    NfoSidecarApplyOperationKind, NfoSidecarApplyRecord, NfoSidecarApplyRepository,
+    NfoSidecarApplyState, OutboxEventRecord, Result, UserPrincipalId,
 };
 use nako_db::NakoDatabase;
 use nako_nfo::{
@@ -1082,6 +1082,7 @@ impl NfoAppService {
                 id: JobId::new(),
                 kind: JobKind::NfoImport,
                 resource_class: "metadata.nfo.import".to_owned(),
+                priority: JobPriority::Normal,
                 library_id: Some(library_id),
                 source_id: None,
                 input_json: Some(input_json),
@@ -1105,6 +1106,7 @@ impl NfoAppService {
                 id: JobId::new(),
                 kind: JobKind::NfoExport,
                 resource_class: "metadata.nfo.export".to_owned(),
+                priority: JobPriority::Normal,
                 library_id: Some(library_id),
                 source_id: None,
                 input_json: Some(input_json),

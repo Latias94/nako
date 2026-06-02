@@ -23,8 +23,8 @@ use nako_api::admin::{
 use nako_api::public_client::page_info_from_request;
 use nako_core::{
     ArtworkCandidateId, ArtworkCandidateRecord, ArtworkCandidateRepository, ArtworkCandidateStatus,
-    JobId, JobKind, LibraryItemRepository, LibraryItemState, ManagedArtworkAcceptanceRecord,
-    ManagedArtworkArtifactCleanupReport, ManagedArtworkArtifactId,
+    JobId, JobKind, JobPriority, LibraryItemRepository, LibraryItemState,
+    ManagedArtworkAcceptanceRecord, ManagedArtworkArtifactCleanupReport, ManagedArtworkArtifactId,
     ManagedArtworkArtifactLifecycleFilter, ManagedArtworkArtifactLifecycleSnapshot,
     ManagedArtworkArtifactRecord, ManagedArtworkGallerySnapshot, ManagedArtworkIngestClaimRecord,
     ManagedArtworkIngestId, ManagedArtworkIngestProcessingRecord,
@@ -476,6 +476,7 @@ impl ManagedArtworkAppService {
                     id: job_id,
                     kind: JobKind::ManagedArtworkIngest,
                     resource_class: "artwork.ingest".to_owned(),
+                    priority: JobPriority::Normal,
                     library_id: Some(candidate.library_id),
                     source_id: None,
                     input_json: Some(input_json),

@@ -920,6 +920,7 @@ fn gallery_selected_artwork_to_public_image_ref(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nako_core::JobPriority;
 
     #[test]
     fn managed_artwork_processing_response_redacts_storage_uri() {
@@ -977,6 +978,7 @@ mod tests {
                     kind: JobKind::ManagedArtworkIngest,
                     status: JobStatus::Queued,
                     resource_class: "artwork.ingest".to_owned(),
+                    priority: JobPriority::Normal,
                     library_id: Some(LibraryId::new()),
                     source_id: None,
                     input_json: Some(

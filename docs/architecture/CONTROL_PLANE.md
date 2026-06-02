@@ -41,9 +41,9 @@ Deployment Endpoint Config
 | HTTP addon protocol | Shipped foundation | ADR 0003; ADR 0015; ADR 0020 | Addon Manager lifecycle is still deferred. |
 | Addon capability and token scopes | Shipped foundation | addon token/grant workstreams | Stronger hosted surface and route policy. |
 | Addon process supervision | Deferred | ADR 0020; ADR 0053 | `addon-manager-process-lifecycle`. |
-| Durable jobs | Shipped foundation plus schedulable partial; Candidate Review durable batch execution closed | ADR 0006; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/` | Keep priority policy as a separate scheduler follow-on. |
+| Durable jobs | Shipped foundation plus schedulable partial; generic priority policy added | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/` | Broader job-kind scheduler migration remains a follow-on. |
 | Runtime supervisor | Shipped resource-accounted foundation | ADR 0019; server runtime deepening; durable job queue/resource lane | Unified trace context and broader scheduler migration remain follow-ons. |
-| Resource classes and budgets | Shipped process-local foundation | ADR 0005; playback/runtime lanes; durable job queue/resource lane | Broader job-kind scheduler migration after priority policy is concrete. |
+| Resource classes and budgets | Shipped process-local foundation | ADR 0005; playback/runtime lanes; durable job queue/resource lane | Continue migrating job kinds onto typed budget-admitted scheduler paths. |
 | Tracing/request identity | Partial | diagnostics and playback identity lanes | Unified trace context across HTTP/jobs/FFmpeg/VFS/addons. |
 | Admin diagnostics | Good partial | Admin API and diagnostics lanes | Safe realtime diagnostics and incident bundles. |
 | Crash/fault bundles | Not started | This document | Redacted operator export for hard bugs. |
@@ -224,8 +224,11 @@ Closeout:
 - resource classes and budgets are centralized in the process-local runtime;
 - library scan jobs have the first typed budget-admitted scheduler path;
 - retry/backoff rows and queue pressure diagnostics are persisted and redacted;
-- priority policy is split to
-  `proposed:durable-job-priority-policy-and-scheduler-migration`.
+- generic durable job priority is persisted with queued work, inherited by
+  retries, used by lease claiming, and bounded by a starvation guard so aged
+  lower-priority work can still run;
+- broader job-kind scheduler migration remains a follow-on after the generic
+  priority policy baseline.
 
 ### api-scale-and-cache-contracts
 

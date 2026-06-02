@@ -10,8 +10,8 @@ use async_trait::async_trait;
 use nako_core::{
     AutomationArtifactId, AutomationArtifactKind, AutomationCapability, AutomationJobInput,
     AutomationJobSummary, AutomationProviderConfigRecord, AutomationProviderId,
-    AutomationProviderStatus, AutomationRepository, Job, JobId, JobKind, JobRepository, NakoError,
-    NewAutomationArtifact, NewJob, Result,
+    AutomationProviderStatus, AutomationRepository, Job, JobId, JobKind, JobPriority,
+    JobRepository, NakoError, NewAutomationArtifact, NewJob, Result,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -106,6 +106,7 @@ where
                 id: JobId::new(),
                 kind: JobKind::Automation,
                 resource_class: "automation.external_api".to_owned(),
+                priority: JobPriority::Normal,
                 library_id: input.library_id,
                 source_id: input.source_id,
                 input_json: Some(input_json),

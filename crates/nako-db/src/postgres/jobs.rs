@@ -6,12 +6,18 @@ use super::{
 };
 use nako_core::*;
 
+#[cfg(test)]
+const JOB_PRIORITY_STARVATION_GUARD_MS: i64 = 250;
+#[cfg(not(test))]
+const JOB_PRIORITY_STARVATION_GUARD_MS: i64 = 300_000;
+
 const JOB_SELECT: &str = r#"
             SELECT
                 id::text AS id,
                 kind,
                 status,
                 resource_class,
+                priority,
                 library_id::text AS library_id,
                 source_id::text AS source_id,
                 input_json,
@@ -33,6 +39,7 @@ const JOB_SELECT_BY_ID: &str = r#"
                 kind,
                 status,
                 resource_class,
+                priority,
                 library_id::text AS library_id,
                 source_id::text AS source_id,
                 input_json,
@@ -55,6 +62,7 @@ const JOB_LEASE_SELECT_BY_ID: &str = r#"
                 kind,
                 status,
                 resource_class,
+                priority,
                 library_id::text AS library_id,
                 source_id::text AS source_id,
                 input_json,
@@ -97,6 +105,7 @@ impl JobRepository for PostgresStore {
                 kind,
                 status,
                 resource_class,
+                priority,
                 library_id,
                 source_id,
                 input_json,
@@ -105,13 +114,14 @@ impl JobRepository for PostgresStore {
                 retry_of_job_id,
                 next_attempt_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::timestamptz)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::timestamptz)
             "#,
         )
         .bind(retry.retry_job_id.as_uuid())
         .bind(source.kind.as_str())
         .bind(JobStatus::Queued.as_str())
         .bind(source.resource_class)
+        .bind(source.priority.score())
         .bind(source.library_id.map(|id| id.as_uuid()))
         .bind(source.source_id.map(|id| id.as_uuid()))
         .bind(source.input_json)
@@ -339,7 +349,18 @@ impl JobLeaseRepository for PostgresStore {
                 AND ($5::uuid IS NULL OR library_id = $5)
                 AND ($6::uuid IS NULL OR source_id = $6)
                 AND (next_attempt_at IS NULL OR next_attempt_at <= statement_timestamp())
-            ORDER BY queued_at ASC, id ASC
+            ORDER BY
+                CASE
+                    WHEN queued_at <= statement_timestamp() - ($7::double precision * INTERVAL '1 millisecond')
+                    THEN 1 ELSE 0
+                END DESC,
+                CASE
+                    WHEN queued_at <= statement_timestamp() - ($7::double precision * INTERVAL '1 millisecond')
+                    THEN queued_at ELSE NULL
+                END ASC,
+                priority DESC,
+                queued_at ASC,
+                id ASC
             FOR UPDATE SKIP LOCKED
             LIMIT 1
             "#,
@@ -350,6 +371,7 @@ impl JobLeaseRepository for PostgresStore {
         .bind(requested_job_id)
         .bind(library_id)
         .bind(source_id)
+        .bind(JOB_PRIORITY_STARVATION_GUARD_MS)
         .fetch_optional(&mut *transaction)
         .await
         .map_err(database_error)?;
@@ -694,6 +716,7 @@ impl PostgresStore {
                 kind,
                 status,
                 resource_class,
+                priority,
                 library_id::text AS library_id,
                 source_id::text AS source_id,
                 input_json,
@@ -770,17 +793,19 @@ where
             kind,
             status,
             resource_class,
+            priority,
             library_id,
             source_id,
             input_json
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         "#,
     )
     .bind(job.id.as_uuid())
     .bind(job.kind.as_str())
     .bind(JobStatus::Queued.as_str())
     .bind(job.resource_class)
+    .bind(job.priority.score())
     .bind(job.library_id.map(|id| id.as_uuid()))
     .bind(job.source_id.map(|id| id.as_uuid()))
     .bind(job.input_json)
@@ -810,6 +835,7 @@ fn row_to_job(row: PgRow) -> Result<Job> {
         kind: JobKind::parse(&row_get::<String>(&row, "kind")?)?,
         status: JobStatus::parse(&row_get::<String>(&row, "status")?)?,
         resource_class: row_get(&row, "resource_class")?,
+        priority: JobPriority::from_score(row_get::<i64>(&row, "priority")?)?,
         library_id: parse_optional_id(row_get::<Option<String>>(&row, "library_id")?)?,
         source_id: parse_optional_id(row_get::<Option<String>>(&row, "source_id")?)?,
         input_json: row_get(&row, "input_json")?,
@@ -832,6 +858,7 @@ fn row_to_leased_job(row: PgRow) -> Result<LeasedJob> {
         kind: JobKind::parse(&row_get::<String>(&row, "kind")?)?,
         status: JobStatus::parse(&row_get::<String>(&row, "status")?)?,
         resource_class: row_get(&row, "resource_class")?,
+        priority: JobPriority::from_score(row_get::<i64>(&row, "priority")?)?,
         library_id: parse_optional_id(row_get::<Option<String>>(&row, "library_id")?)?,
         source_id: parse_optional_id(row_get::<Option<String>>(&row, "source_id")?)?,
         input_json: row_get(&row, "input_json")?,

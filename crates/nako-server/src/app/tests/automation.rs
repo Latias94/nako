@@ -104,6 +104,7 @@ async fn automation_app_lists_generated_artifact_proposals_without_raw_payloads_
             id: JobId::new(),
             kind: JobKind::Automation,
             resource_class: "automation.external_api".to_owned(),
+            priority: nako_core::JobPriority::Normal,
             library_id: Some(library_id),
             source_id: Some(source.id),
             input_json: Some(
@@ -251,6 +252,7 @@ async fn automation_app_reviews_metadata_cleanup_proposal_without_canonical_muta
             id: JobId::new(),
             kind: JobKind::Automation,
             resource_class: "automation.external_api".to_owned(),
+            priority: nako_core::JobPriority::Normal,
             library_id: Some(library_id),
             source_id: Some(source.id),
             input_json: Some(
@@ -441,6 +443,7 @@ async fn generated_artifact_metadata_apply_plan_is_field_level_redacted_and_read
             id: JobId::new(),
             kind: JobKind::Automation,
             resource_class: "automation.external_api".to_owned(),
+            priority: nako_core::JobPriority::Normal,
             library_id: Some(library_id),
             source_id: Some(source.id),
             input_json: Some(
@@ -1630,6 +1633,7 @@ async fn automation_app_blocks_stale_generated_artifact_acceptance_and_allows_re
             id: JobId::new(),
             kind: JobKind::Automation,
             resource_class: "automation.external_api".to_owned(),
+            priority: nako_core::JobPriority::Normal,
             library_id: Some(library_id),
             source_id: Some(source.id),
             input_json: Some(
@@ -1804,6 +1808,7 @@ impl GeneratedArtifactMetadataApplyFixture {
                 id: JobId::new(),
                 kind: JobKind::Automation,
                 resource_class: "automation.external_api".to_owned(),
+                priority: nako_core::JobPriority::Normal,
                 library_id: Some(self.library_id),
                 source_id: Some(source_id),
                 input_json: Some(
@@ -1934,6 +1939,7 @@ async fn generated_artifact_metadata_apply_fixture(
             id: JobId::new(),
             kind: JobKind::Automation,
             resource_class: "automation.external_api".to_owned(),
+            priority: nako_core::JobPriority::Normal,
             library_id: Some(library_id),
             source_id: Some(source.id),
             input_json: Some(

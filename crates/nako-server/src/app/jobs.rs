@@ -4,10 +4,10 @@ use nako_core::{
     CancelLeasedJob, CompleteLeasedJob, DomainEventKind, DomainEventSubject, EventId,
     EventOutboxRepository, FailLeasedJob, IngestionFailurePhase, IngestionFailureRecord, Job,
     JobCancellationRequestRecord, JobId, JobKind, JobLeaseClaimFilter, JobLeaseClaimRequest,
-    JobLeaseHeartbeat, JobLeaseRepository, JobListFilter, JobRepository, LeasedJob, Library,
-    LibraryId, LibraryRepository, MediaProbeResult, MediaSource, NakoError, NewIngestionFailure,
-    NewJob, NewOutboxEvent, OutboxEventRecord, PageRequest, RequestJobCancellation, Result,
-    StagingPurpose,
+    JobLeaseHeartbeat, JobLeaseRepository, JobListFilter, JobPriority, JobRepository, LeasedJob,
+    Library, LibraryId, LibraryRepository, MediaProbeResult, MediaSource, NakoError,
+    NewIngestionFailure, NewJob, NewOutboxEvent, OutboxEventRecord, PageRequest,
+    RequestJobCancellation, Result, StagingPurpose,
 };
 use nako_db::NakoDatabase;
 use nako_library::{
@@ -398,6 +398,7 @@ impl LibraryScanAppService {
                 id: JobId::new(),
                 kind: JobKind::LibraryScan,
                 resource_class: "disk.scan".to_owned(),
+                priority: JobPriority::Normal,
                 library_id: Some(library_id),
                 source_id: None,
                 input_json: Some(input_json),

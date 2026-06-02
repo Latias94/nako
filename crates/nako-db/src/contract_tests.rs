@@ -42,10 +42,10 @@ use nako_core::{
     IngestionFailureClass, IngestionFailureFilter, IngestionFailurePhase,
     IngestionFailureRepository, IngestionFailureResolution, IngestionFailureStatus, ItemCredit,
     ItemGenre, ItemStudio, ItemTag, Job, JobId, JobKind, JobLeaseClaimFilter, JobLeaseClaimRequest,
-    JobLeaseGuard, JobLeaseHeartbeat, JobLeaseRepository, JobListFilter, JobRepository,
-    JobRunToken, JobStatus, JobWorkerId, Library, LibraryAccessLevel, LibraryAccessPolicy,
-    LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId, LibraryItemRepository,
-    LibraryItemState, LibraryOptions, LibraryPreset, LibraryRepository,
+    JobLeaseGuard, JobLeaseHeartbeat, JobLeaseRepository, JobListFilter, JobPriority,
+    JobRepository, JobRunToken, JobStatus, JobWorkerId, Library, LibraryAccessLevel,
+    LibraryAccessPolicy, LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId,
+    LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryPreset, LibraryRepository,
     LibraryScanSourcePersistenceCommit, LocalCredentialRecord, LocalInferenceEvidence,
     LocalInferenceEvidenceId, LocalInferenceEvidenceSource, LocalInferenceRepository,
     METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS, ManagedArtworkAcceptanceRecord,
@@ -599,11 +599,34 @@ async fn enqueue_contract_job<S>(
 where
     S: JobRepository + ?Sized,
 {
+    enqueue_contract_job_with_priority(
+        store,
+        kind,
+        resource_class,
+        JobPriority::Normal,
+        library_id,
+        input_json,
+    )
+    .await
+}
+
+async fn enqueue_contract_job_with_priority<S>(
+    store: &S,
+    kind: JobKind,
+    resource_class: &str,
+    priority: JobPriority,
+    library_id: Option<LibraryId>,
+    input_json: Option<&str>,
+) -> Job
+where
+    S: JobRepository + ?Sized,
+{
     store
         .enqueue_job(NewJob {
             id: JobId::new(),
             kind,
             resource_class: resource_class.to_owned(),
+            priority,
             library_id,
             source_id: None,
             input_json: input_json.map(str::to_owned),
@@ -732,6 +755,146 @@ where
         .await
         .is_none()
     );
+}
+
+async fn job_priority_policy_contract<S>(store: S)
+where
+    S: JobRetryContractBackend,
+{
+    let low = enqueue_contract_job_with_priority(
+        &store,
+        JobKind::LibraryScan,
+        "disk.scan",
+        JobPriority::Low,
+        None,
+        Some(r#"{"slot":"low"}"#),
+    )
+    .await;
+    let high = enqueue_contract_job_with_priority(
+        &store,
+        JobKind::LibraryScan,
+        "disk.scan",
+        JobPriority::High,
+        None,
+        Some(r#"{"slot":"high"}"#),
+    )
+    .await;
+    let worker_id = JobWorkerId::new();
+    let high_claim = claim_next(
+        &store,
+        worker_id,
+        JobLeaseClaimFilter {
+            kind: Some(JobKind::LibraryScan),
+            resource_class: Some("disk.scan".to_owned()),
+            ..JobLeaseClaimFilter::default()
+        },
+    )
+    .await
+    .expect("high priority job should be claimable first");
+    assert_eq!(high_claim.job.id, high.id);
+    assert_eq!(high_claim.job.priority, JobPriority::High);
+
+    let low_claim = claim_next(
+        &store,
+        worker_id,
+        JobLeaseClaimFilter {
+            kind: Some(JobKind::LibraryScan),
+            resource_class: Some("disk.scan".to_owned()),
+            ..JobLeaseClaimFilter::default()
+        },
+    )
+    .await
+    .expect("low priority job should remain claimable");
+    assert_eq!(low_claim.job.id, low.id);
+    assert_eq!(low_claim.job.priority, JobPriority::Low);
+
+    let aged_low = enqueue_contract_job_with_priority(
+        &store,
+        JobKind::LibraryScan,
+        "disk.scan",
+        JobPriority::Low,
+        None,
+        Some(r#"{"slot":"aged-low"}"#),
+    )
+    .await;
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    let fresh_high = enqueue_contract_job_with_priority(
+        &store,
+        JobKind::LibraryScan,
+        "disk.scan",
+        JobPriority::High,
+        None,
+        Some(r#"{"slot":"fresh-high"}"#),
+    )
+    .await;
+    let fairness_claim = claim_next(
+        &store,
+        worker_id,
+        JobLeaseClaimFilter {
+            kind: Some(JobKind::LibraryScan),
+            resource_class: Some("disk.scan".to_owned()),
+            ..JobLeaseClaimFilter::default()
+        },
+    )
+    .await
+    .expect("aged low priority job should be claimable before fresh high priority work");
+    assert_eq!(fairness_claim.job.id, aged_low.id);
+    assert_eq!(fairness_claim.job.priority, JobPriority::Low);
+    assert_eq!(
+        store.get_job(fresh_high.id).await.unwrap().unwrap().status,
+        JobStatus::Queued
+    );
+
+    let failed_high = enqueue_contract_job_with_priority(
+        &store,
+        JobKind::MetadataRefresh,
+        "metadata.tmdb",
+        JobPriority::High,
+        None,
+        Some(r#"{"provider":"tmdb"}"#),
+    )
+    .await;
+    let failed_high = store
+        .fail_job(failed_high.id, "transient metadata failure".to_owned())
+        .await
+        .unwrap();
+    let retry = store
+        .enqueue_job_retry(EnqueueJobRetry {
+            source_job_id: failed_high.id,
+            retry_job_id: JobId::new(),
+            max_attempts: 2,
+            next_attempt_at: None,
+        })
+        .await
+        .unwrap();
+    assert_eq!(retry.priority, JobPriority::High);
+
+    let retry_claim = claim_next(
+        &store,
+        worker_id,
+        JobLeaseClaimFilter {
+            job_id: Some(retry.id),
+            ..JobLeaseClaimFilter::default()
+        },
+    )
+    .await
+    .expect("retry should be claimable by id");
+    assert_eq!(retry_claim.job.priority, JobPriority::High);
+    let recovered = store
+        .recover_expired_job_leases(RecoverExpiredJobLeases {
+            filter: JobLeaseClaimFilter {
+                job_id: Some(retry.id),
+                ..JobLeaseClaimFilter::default()
+            },
+            expired_before: "9999-01-01T00:00:00.000Z".to_owned(),
+            error: "lease expired during startup recovery".to_owned(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(recovered, 1);
+    let recovered_retry = store.get_job(retry.id).await.unwrap().unwrap();
+    assert_eq!(recovered_retry.status, JobStatus::Failed);
+    assert_eq!(recovered_retry.priority, JobPriority::High);
 }
 
 async fn job_lease_run_token_fence_contract<S>(store: S)
@@ -3684,6 +3847,7 @@ fn contract_metadata_candidate_review_batch_commit(
             id: JobId::new(),
             kind: JobKind::MetadataCandidateReviewBatchApply,
             resource_class: METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS.to_owned(),
+            priority: JobPriority::Normal,
             library_id: None,
             source_id: None,
             input_json: Some(format!(r#"{{"batch_id":"{batch_id}"}}"#)),
@@ -3784,6 +3948,7 @@ fn contract_generated_artifact_metadata_bulk_apply_batch_commit(
             id: job_id,
             kind: JobKind::GeneratedArtifactMetadataBulkApply,
             resource_class: GENERATED_ARTIFACT_METADATA_BULK_APPLY_JOB_RESOURCE_CLASS.to_owned(),
+            priority: JobPriority::Normal,
             library_id: None,
             source_id: None,
             input_json: Some(format!(r#"{{"batch_id":"{batch_id}"}}"#)),
@@ -5876,6 +6041,7 @@ fn contract_addon_task_run(
             id: job_id,
             kind: JobKind::AddonTask,
             resource_class: "addon.task.bulk-refresh".to_owned(),
+            priority: JobPriority::Normal,
             library_id: Some(library_id),
             source_id: Some(source_id),
             input_json: Some(input_json.to_owned()),
@@ -6339,6 +6505,7 @@ where
                 id: job_id,
                 kind: JobKind::ManagedArtworkIngest,
                 resource_class: "artwork.ingest".to_owned(),
+                priority: JobPriority::Normal,
                 library_id: Some(library_id),
                 source_id: None,
                 input_json: Some(
@@ -6440,6 +6607,7 @@ where
                 id: JobId::new(),
                 kind: JobKind::ManagedArtworkIngest,
                 resource_class: "artwork.ingest".to_owned(),
+                priority: JobPriority::Normal,
                 library_id: Some(library_id),
                 source_id: None,
                 input_json: Some("{}".to_owned()),
@@ -8604,6 +8772,16 @@ database_contract_pair!(
         "persists_backoff_and_redacted_queue_pressure"
     ),
     contract = job_retry_backoff_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_job_retry_contract_priority_policy_orders_fairly_and_recovers,
+    postgres = postgres_job_retry_contract_priority_policy_orders_fairly_and_recovers,
+    case = ContractCase::migrated(
+        ContractFamily::JobRetry,
+        "priority_policy_orders_fairly_and_recovers"
+    ),
+    contract = job_priority_policy_contract,
 );
 
 database_contract_pair!(

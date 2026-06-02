@@ -5,8 +5,14 @@ use sqlx::migrate::{Migration, MigrationType, Migrator};
 
 use super::{SqliteStore, codec::database_error};
 
-const MIGRATIONS: &[(i64, &str, &str)] =
-    &[(1, "baseline", include_str!("../../migrations/baseline.sql"))];
+const MIGRATIONS: &[(i64, &str, &str)] = &[
+    (1, "baseline", include_str!("../../migrations/baseline.sql")),
+    (
+        2,
+        "durable_job_priority",
+        include_str!("../../migrations/0002_durable_job_priority.sql"),
+    ),
+];
 
 #[async_trait::async_trait]
 impl DatabaseLifecycle for SqliteStore {
@@ -63,7 +69,7 @@ mod tests {
 
     #[test]
     fn baseline_migration_describes_direct_schema_shape() {
-        assert_eq!(MIGRATIONS.len(), 1);
+        assert!(MIGRATIONS.len() >= 2);
         assert_eq!(MIGRATIONS[0].0, 1);
         assert_eq!(MIGRATIONS[0].1, "baseline");
 
@@ -88,7 +94,7 @@ mod tests {
                 .await
                 .unwrap();
 
-        assert_eq!(applied_versions, vec![1]);
+        assert_eq!(applied_versions, vec![1, 2]);
 
         for table in [
             "users",

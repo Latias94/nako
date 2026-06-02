@@ -35,7 +35,7 @@ use nako_core::{
     GeneratedArtifactProviderMappingApplyCommit, GeneratedArtifactProviderMappingPlan,
     GeneratedArtifactProviderMappingReason, GeneratedArtifactProviderSubjectPlan,
     GeneratedArtifactReviewDecision, GeneratedArtifactReviewResult, Job, JobId, JobKind,
-    JobRepository, LibraryRepository, MediaItem, MediaItemId, MediaRepository,
+    JobPriority, JobRepository, LibraryRepository, MediaItem, MediaItemId, MediaRepository,
     MetadataApplicationPersistenceCommit, MetadataField, MetadataFieldLock, MetadataMergePolicy,
     MetadataRepository, MetadataSource, NakoError, NewAutomationProviderConfig, NewJob,
     PageRequest, ProviderMapping, ProviderMappingId, ProviderMappingRepository,
@@ -802,6 +802,7 @@ impl AutomationAppService {
                         kind: JobKind::GeneratedArtifactMetadataBulkApply,
                         resource_class: GENERATED_ARTIFACT_METADATA_BULK_APPLY_JOB_RESOURCE_CLASS
                             .to_owned(),
+                        priority: JobPriority::Normal,
                         library_id: None,
                         source_id: None,
                         input_json: Some(input_json),
