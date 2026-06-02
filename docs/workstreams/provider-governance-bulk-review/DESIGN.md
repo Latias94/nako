@@ -11,9 +11,11 @@ reviews still apply one at a time. A Jellyfin/Plex-class self-hosted server
 needs batch governance for library-scale metadata maintenance without turning
 review acceptance into a hidden mutation path.
 
-The next correct slice is a read-only batch application plan. It should prove
-which selected reviews are eligible, stale, already applied, blocked, or unsafe
-before any batch mutation is introduced.
+The first implementation slice is now a read-only batch application plan. It
+proves which selected reviews are eligible, stale, already applied, blocked, or
+unsafe before confirmed batch mutation is introduced. The next correct slice is
+bounded backend confirmation through the existing single-review application
+authority.
 
 ## Relevant Authority
 
@@ -94,8 +96,8 @@ When this lane closes:
 
 | Assumption | Confidence | Evidence | Consequence if wrong |
 | --- | --- | --- | --- |
-| Existing single-review application planning can be reused per selected review. | High | `admin-web-provider-depth-governance` and `accepted-review-provider-mapping-application` closeouts. | If false, `PGBR-020` must first deepen the single-review planning interface. |
-| A read-only batch plan can ship before batch mutation. | High | Generated Artifact bulk apply used a plan-first workflow. | If false, the lane would need an ADR/product decision before mutation. |
+| Existing single-review application planning can be reused per selected review. | High | `PGBR-020` reused the existing planner per selected review. | If future row classes expose drift, deepen the single-review planning interface before batch confirmation. |
+| A read-only batch plan can ship before batch mutation. | High | `PGBR-020` shipped the plan-first Admin API route. | If product scope changes, record an ADR/product decision before changing mutation order. |
 | Initial batch selection can be bounded by review IDs rather than an unbounded queue filter snapshot. | Medium | Current queue rows expose review IDs and route state. | If false, add a filter-snapshot token or durable selection model as a separate task. |
 | Batch mutation may stay synchronous only if bounded and fast. | Medium | ADR 0053 requires durable/supervised boundaries for important background work. | If false, `PGBR-030` must split durable job execution before Web confirmation. |
 

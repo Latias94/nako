@@ -93,6 +93,68 @@ impl AdminMetadataCandidateReviewQueueResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewBatchPlanRequest {
+    pub review_ids: Vec<MetadataCandidateReviewId>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewBatchPlanResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub summary: AdminMetadataCandidateReviewBatchPlanSummary,
+    pub reviews: Vec<AdminMetadataCandidateReviewListEntry>,
+}
+
+impl AdminMetadataCandidateReviewBatchPlanResponse {
+    #[must_use]
+    pub fn new(
+        reviews: Vec<(
+            MetadataCandidateReviewRecord,
+            MetadataCandidateReviewApplicationPlan,
+        )>,
+        requested_count: usize,
+        max_review_count: usize,
+    ) -> Self {
+        let mut summary = AdminMetadataCandidateReviewBatchPlanSummary {
+            requested_count: saturating_u32_len(requested_count),
+            returned_count: saturating_u32_len(reviews.len()),
+            max_review_count: saturating_u32_len(max_review_count),
+            apply_count: 0,
+            noop_count: 0,
+            skip_count: 0,
+        };
+        let reviews: Vec<_> = reviews
+            .into_iter()
+            .map(|(review, application_plan)| {
+                match application_plan.action {
+                    MetadataCandidateReviewApplicationAction::Apply => summary.apply_count += 1,
+                    MetadataCandidateReviewApplicationAction::Noop => summary.noop_count += 1,
+                    MetadataCandidateReviewApplicationAction::Skip => summary.skip_count += 1,
+                }
+                AdminMetadataCandidateReviewListEntry::from_record(review, application_plan)
+            })
+            .collect();
+
+        Self {
+            admin_api_version: ADMIN_API_VERSION.to_owned(),
+            public_api_version: API_VERSION.to_owned(),
+            summary,
+            reviews,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewBatchPlanSummary {
+    pub requested_count: u32,
+    pub returned_count: u32,
+    pub max_review_count: u32,
+    pub apply_count: u32,
+    pub noop_count: u32,
+    pub skip_count: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminMetadataCandidateReviewListEntry {
     pub review_id: MetadataCandidateReviewId,
     pub item_id: MediaItemId,

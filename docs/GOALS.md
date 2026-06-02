@@ -34,14 +34,17 @@ Objective:
 
 - Add guarded batch governance for durable Metadata Candidate Reviews after
   global queue discovery shipped.
-- Start with a read-only batch application plan for selected review IDs.
+- The read-only batch application plan for selected review IDs has shipped;
+  next add bounded backend batch confirmation.
 - Preserve single-review stale guard, idempotency-key fingerprinting, replay
   visibility, root-only Provider Mapping application, and redaction semantics.
 
 Deliverables:
 
 - `docs/workstreams/provider-governance-bulk-review/`;
-- read-only Admin API batch Candidate Review application plan;
+- read-only Admin API batch Candidate Review application plan (shipped in
+  `PGBR-020`);
+- bounded Admin API batch Candidate Review confirmation;
 - generated Admin TypeScript contract sync when the Admin API shape changes;
 - later bounded batch confirmation and Web Admin selection only after the plan
   semantics are proven.
@@ -59,6 +62,7 @@ Non-goals:
 Exit criteria:
 
 - `PGBR-020` proves a no-write, redaction-safe batch plan;
+- `PGBR-030` proves bounded confirmed backend batch apply;
 - subsequent mutation, Web, and closeout tasks preserve the same boundaries or
   are split explicitly.
 
@@ -72,8 +76,8 @@ Evidence:
 
 Current task:
 
-- `PGBR-020`: add a read-only Admin API batch Candidate Review application
-  plan for selected review IDs.
+- `PGBR-030`: add bounded confirmed backend batch apply through the existing
+  single-review application authority.
 
 Candidate follow-ons:
 

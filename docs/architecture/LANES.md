@@ -20,7 +20,7 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| library-metadata-control-plane | provider-governance-bulk-review | PGBR-020 | Candidate Review batch-plan implementer |
+| library-metadata-control-plane | provider-governance-bulk-review | PGBR-030 | Candidate Review batch-confirmation implementer |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
@@ -72,10 +72,11 @@ the read-only global Candidate Review queue Admin API route and Web Admin
 global queue navigation while keeping batch governance, status/apply mutation,
 provider endpoint depth, Public Client API changes, and related hierarchy
 application split.
-`provider-governance-bulk-review` is active at `PGBR-020` to add a read-only
-Admin API batch Candidate Review application plan before any batch mutation,
-Web selection workflow, related hierarchy application, Public Client API
-change, provider endpoint depth, or durable job execution.
+`provider-governance-bulk-review` is active at `PGBR-030` after `PGBR-020`
+shipped the read-only Admin API batch Candidate Review application plan. The
+next slice adds bounded confirmed backend batch apply before any Web selection
+workflow, related hierarchy application, Public Client API change, provider
+endpoint depth, or hidden background execution.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 

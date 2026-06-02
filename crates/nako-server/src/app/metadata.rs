@@ -3,8 +3,9 @@ use std::{collections::HashSet, sync::Arc, time::Duration};
 use nako_api::{
     admin::{
         AdminMetadataCandidateReviewApplyRequest, AdminMetadataCandidateReviewApplyResponse,
-        AdminMetadataCandidateReviewListResponse, AdminMetadataCandidateReviewQueueResponse,
-        AdminMetadataCandidateReviewResponse,
+        AdminMetadataCandidateReviewBatchPlanRequest,
+        AdminMetadataCandidateReviewBatchPlanResponse, AdminMetadataCandidateReviewListResponse,
+        AdminMetadataCandidateReviewQueueResponse, AdminMetadataCandidateReviewResponse,
     },
     metadata_diagnostics::{
         EnqueueMetadataMaintenanceRequest, MetadataCandidateReviewDecision,
@@ -50,6 +51,8 @@ use super::job_runtime::{
 use super::metadata_runtime::provider_resource_name;
 use super::runtime::{RuntimeSupervisor, runtime_budget_class_for_job_resource_class};
 use crate::config::{MetadataMaintenancePolicyConfig, NakoServerConfig};
+
+const ADMIN_METADATA_CANDIDATE_REVIEW_BATCH_PLAN_MAX: usize = 50;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct MetadataRefreshCommandOutput {
@@ -554,6 +557,39 @@ impl MetadataAppService {
         }
 
         Ok(AdminMetadataCandidateReviewQueueResponse::new(rows, page))
+    }
+
+    pub async fn plan_admin_metadata_candidate_review_batch_application(
+        &self,
+        request: AdminMetadataCandidateReviewBatchPlanRequest,
+    ) -> Result<AdminMetadataCandidateReviewBatchPlanResponse> {
+        let review_ids = validate_candidate_review_batch_plan_ids(
+            request.review_ids,
+            ADMIN_METADATA_CANDIDATE_REVIEW_BATCH_PLAN_MAX,
+        )?;
+        let requested_count = review_ids.len();
+        let mut rows = Vec::with_capacity(requested_count);
+        for review_id in review_ids {
+            let review = MetadataCandidateReviewRepository::get_metadata_candidate_review(
+                &self.execution_store.store,
+                review_id,
+            )
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "metadata_candidate_review",
+                id: review_id.to_string(),
+            })?;
+            let application_plan =
+                build_candidate_review_application_plan(&self.execution_store.store, &review)
+                    .await?;
+            rows.push((review, application_plan));
+        }
+
+        Ok(AdminMetadataCandidateReviewBatchPlanResponse::new(
+            rows,
+            requested_count,
+            ADMIN_METADATA_CANDIDATE_REVIEW_BATCH_PLAN_MAX,
+        ))
     }
 
     pub async fn apply_admin_metadata_candidate_review(
@@ -1560,6 +1596,37 @@ fn normalize_candidate_review_apply_idempotency_key(value: &str) -> Result<Strin
     }
 
     Ok(trimmed.to_owned())
+}
+
+fn validate_candidate_review_batch_plan_ids(
+    review_ids: Vec<MetadataCandidateReviewId>,
+    max_review_count: usize,
+) -> Result<Vec<MetadataCandidateReviewId>> {
+    if review_ids.is_empty() {
+        return Err(NakoError::InvalidInput {
+            message: "metadata candidate review batch plan review_ids cannot be empty".to_owned(),
+        });
+    }
+    if review_ids.len() > max_review_count {
+        return Err(NakoError::InvalidInput {
+            message: format!(
+                "metadata candidate review batch plan accepts at most {max_review_count} review_ids"
+            ),
+        });
+    }
+
+    let mut seen = HashSet::with_capacity(review_ids.len());
+    for review_id in &review_ids {
+        if !seen.insert(*review_id) {
+            return Err(NakoError::InvalidInput {
+                message: format!(
+                    "metadata candidate review batch plan contains duplicate review_id {review_id}"
+                ),
+            });
+        }
+    }
+
+    Ok(review_ids)
 }
 
 fn apply_metadata_provider_override(

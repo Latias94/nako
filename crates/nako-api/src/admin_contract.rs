@@ -1,6 +1,6 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 68] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 69] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -127,6 +127,10 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 68] = [
         "catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review",
     ),
     ("metadataCandidateReviews", "metadata/candidate-reviews"),
+    (
+        "metadataCandidateReviewBatchApplicationPlan",
+        "metadata/candidate-reviews/batch-application-plan",
+    ),
     (
         "metadataCandidateReviewsForItem",
         "metadata/items/{item_id}/candidate-reviews",
@@ -1734,6 +1738,26 @@ export interface AdminMetadataCandidateReviewQueueResponse {
   page: PageInfo;
 }
 
+export interface AdminMetadataCandidateReviewBatchPlanRequest {
+  review_ids: string[];
+}
+
+export interface AdminMetadataCandidateReviewBatchPlanSummary {
+  requested_count: number;
+  returned_count: number;
+  max_review_count: number;
+  apply_count: number;
+  noop_count: number;
+  skip_count: number;
+}
+
+export interface AdminMetadataCandidateReviewBatchPlanResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  summary: AdminMetadataCandidateReviewBatchPlanSummary;
+  reviews: AdminMetadataCandidateReviewListEntry[];
+}
+
 export interface AdminMetadataCandidateReviewResponse {
   admin_api_version: string;
   public_api_version: string;
@@ -3114,6 +3138,9 @@ mod tests {
             "AdminCatalogGovernanceRepairBoundary",
             "AdminMetadataCandidateReviewQueueQuery",
             "AdminMetadataCandidateReviewQueueResponse",
+            "AdminMetadataCandidateReviewBatchPlanRequest",
+            "AdminMetadataCandidateReviewBatchPlanSummary",
+            "AdminMetadataCandidateReviewBatchPlanResponse",
             "AdminMetadataCandidateReviewListResponse",
             "AdminMetadataCandidateReviewListEntry",
             "AdminMetadataCandidateReviewResponse",

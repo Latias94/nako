@@ -28,27 +28,54 @@ Green opening gates for `PGBR-010`:
   passed: 5 task records, 2 campaign records, and 13 context records.
 - `git diff --check` passed with Git CRLF normalization warnings only.
 
-## PGBR-020 Gates
+## PGBR-020 Evidence
 
-Implementation gates:
+Implementation:
 
-- Attempt `cargo nextest` when available; record local fallback if unavailable.
-- `cargo test -p nako-api admin_contract -- --nocapture`
+- Added `POST /admin/v1/metadata/candidate-reviews/batch-application-plan`.
+- Added Admin DTOs for selected review IDs, batch summary counts, and
+  redaction-safe per-review plan rows.
+- Reused existing single-review Candidate Review application planning for each
+  selected review instead of adding a second planning policy.
+- Synchronized generated Admin TypeScript contracts in `apps/admin-web` and
+  `web`.
+
+TDD evidence:
+
+- RED: `cargo test -p nako-server admin_v1_metadata_candidate_review_batch_plan_is_bounded_redacted_and_read_only -- --nocapture`
+  failed before the batch DTO/service/route existed.
+- GREEN: the same focused system test passed after implementation.
+
+Green gates:
+
+- `cargo test -p nako-server admin_v1_metadata_candidate_review_batch_plan_is_bounded_redacted_and_read_only -- --nocapture`
+  passed.
+- `cargo test -p nako-api admin_contract -- --nocapture` passed: 5 tests.
 - `cargo test -p nako-server metadata_candidate_review -- --nocapture`
+  passed: 6 tests.
 - `cargo test -p nako-metadata candidate_review_application -- --nocapture`
-- `cargo fmt --all -- --check`
-- `git diff --check`
+  passed: 6 tests.
+- `cargo fmt --all -- --check` passed.
+- `git diff --check` passed with Git CRLF normalization warnings only.
 
-Behavior evidence required:
+Local tool note:
 
-- batch plan route is read-only and writes no Candidate Review, Provider
-  Subject, Provider Mapping, Canonical Metadata, job, or outcome rows;
-- selected review IDs are bounded and duplicate handling is deterministic;
-- stale, rejected, pending, already-applied, blocked, noop, and eligible rows
-  are classified through existing single-review application planning semantics;
-- DTOs redact raw provider payloads, provider bodies, image URLs, local paths,
-  headers, proxy URLs, source fingerprints, and raw idempotency keys;
-- generated Admin TypeScript contract remains synchronized.
+- `cargo nextest` is unavailable in this checkout (`cargo` reports no
+  `nextest` command), so focused `cargo test` gates were used.
+
+Behavior evidence:
+
+- selected review IDs preserve request order and are capped at 50 rows;
+- duplicate review IDs return deterministic `invalid_input`;
+- accepted rows can plan as `apply`, while pending rows plan as `skip` with
+  `ReviewNotAccepted`;
+- all returned row boundaries remain read-only;
+- the route writes no Provider Mapping or Provider Subject rows in the system
+  test;
+- response bodies omit candidate overview and tag strings, preserving the
+  existing redaction boundary;
+- no batch apply mutation, Web UI, Public Client API, related hierarchy
+  application, provider endpoint depth, or durable job execution was added.
 
 ## PGBR-030 Gates
 

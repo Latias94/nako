@@ -27,13 +27,13 @@ Provider Mapping Application is closed after `ARPMA-050`. Admin/Web Provider
 Depth Governance is closed after `AWPDG-050`. Admin Candidate Review List
 Navigation is closed after `ACRN-040`. Provider Review Global Queue Search is
 closed after `PRGQ-040`. Provider Governance Bulk Review is active at
-`PGBR-020`.
+`PGBR-030`.
 
 The active focus targets:
 
-- a read-only Admin API batch application plan for selected durable Candidate
-  Reviews;
-- reuse of single-review application planning semantics before batch mutation;
+- bounded Admin API batch confirmation for selected durable Candidate Reviews;
+- reuse of single-review application authority per row after the read-only plan
+  shipped;
 - preserving ACRN/AWPDG redaction, no-write, stale guard, and root-only
   application boundaries;
 - keeping batch confirmation, Web selection, Public Client API, provider
@@ -54,8 +54,13 @@ Authoritative evidence:
 
 Next task:
 
-- `PGBR-020`: add a read-only Admin API batch Candidate Review application
-  plan for selected review IDs.
+- `PGBR-030`: add bounded confirmed backend batch apply through the existing
+  single-review application authority.
+
+Latest completed architecture slice:
+
+`PGBR-020` shipped on 2026-06-02 with a no-write, redaction-safe Admin API
+batch application plan and generated Admin contract sync.
 
 Latest completed architecture focus:
 

@@ -24,8 +24,8 @@ Last reviewed: 2026-06-02
 
 Next task:
 
-- `PGBR-020`: add a read-only Admin API batch Candidate Review application plan
-  for selected review IDs.
+- `PGBR-030`: add bounded confirmed backend batch apply through the existing
+  single-review application authority.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -55,8 +55,8 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
 
 - [provider-governance-bulk-review](provider-governance-bulk-review/README.md):
   active library-metadata-control-plane lane for guarded batch Candidate Review
-  governance, starting with a read-only batch application plan before any
-  batch mutation or Web selection workflow.
+  governance; the read-only batch application plan is shipped, and the next
+  backend slice is bounded confirmed batch apply before Web selection.
 - [provider-review-global-queue-search](provider-review-global-queue-search/README.md):
   closed library-metadata-control-plane lane for global Candidate Review
   queue/filter navigation without adding Public Client API, batch governance,

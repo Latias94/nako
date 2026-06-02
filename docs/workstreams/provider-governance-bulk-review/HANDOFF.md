@@ -5,17 +5,17 @@ Last updated: 2026-06-02
 
 ## Current State
 
-The lane is opened from `provider-review-global-queue-search` closeout.
-Operators can browse a global Metadata Candidate Review queue and apply a
-single accepted review through the existing detail/apply route. Batch governance
-is still absent and must start with a read-only plan.
+The lane is open from `provider-review-global-queue-search` closeout.
+Operators can browse a global Metadata Candidate Review queue, apply a single
+accepted review through the existing detail/apply route, and request a bounded
+read-only batch application plan for selected review IDs. Confirmed batch
+mutation is still absent and is the next backend slice.
 
 ## Active Task
 
-- Task ID: `PGBR-020`
+- Task ID: `PGBR-030`
 - Owner: codex
-- Files: `crates/nako-metadata`, `crates/nako-api`, `crates/nako-server`,
-  generated Admin contract output under `web/src/api/admin/generated`, and
+- Files: `crates/nako-metadata`, `crates/nako-api`, `crates/nako-server`, and
   `docs/workstreams/provider-governance-bulk-review`
 - Validation: `cargo test -p nako-api admin_contract -- --nocapture`;
   `cargo test -p nako-server metadata_candidate_review -- --nocapture`;
@@ -28,7 +28,9 @@ is still absent and must start with a read-only plan.
 
 - Batch governance starts with a read-only Admin API plan.
 - Plan rows must reuse single-review application planning semantics.
-- Batch mutation waits for `PGBR-030`.
+- `PGBR-020` shipped the read-only batch plan route and generated Admin
+  contracts.
+- Batch mutation is now scoped to `PGBR-030`.
 - Web Admin selection/confirmation waits for backend mutation semantics.
 - Durable job execution is not assumed; it must be used or split only if
   bounded synchronous confirmation cannot remain honest.
@@ -44,10 +46,11 @@ is still absent and must start with a read-only plan.
 
 ## Blockers
 
-- None for `PGBR-020`.
+- None for `PGBR-030`.
 
 ## Next Recommended Action
 
-Run `PGBR-020`: add the read-only batch application plan route and tests. Stop
-before mutation, Web selection, related hierarchy application, or provider
-endpoint breadth.
+Run `PGBR-030`: add bounded confirmed backend batch apply through the existing
+single-review application authority. Stop before Web selection, related
+hierarchy application, provider endpoint breadth, Public Client API changes, or
+hidden background execution.

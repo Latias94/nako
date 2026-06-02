@@ -17,7 +17,7 @@ Exit criteria:
 
 ## M1 - Read-Only Batch Plan
 
-Status: Ready at `PGBR-020`.
+Status: Complete after `PGBR-020`.
 
 Exit criteria:
 
@@ -31,7 +31,7 @@ Exit criteria:
 
 ## M2 - Confirmed Backend Batch Apply
 
-Status: Planned after `PGBR-020`.
+Status: Ready at `PGBR-030`.
 
 Exit criteria:
 

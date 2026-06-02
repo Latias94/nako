@@ -20,14 +20,16 @@ Authoritative docs:
 Current execution:
 
 - `PGBR-010` opens the lane.
-- `PGBR-020` is ready: add a read-only Admin API batch application plan for
+- `PGBR-020` shipped the read-only Admin API batch application plan for
   selected Metadata Candidate Reviews.
+- `PGBR-030` is ready: add bounded confirmed backend batch apply through the
+  existing single-review application authority.
 
 Boundary:
 
 - batch governance must reuse existing single-review stale guard and
   idempotency semantics;
-- the first executable slice is read-only;
+- the first executable slice is read-only and already shipped;
 - no Public Client API expansion;
 - no related Provider Subject, child Provider Mapping, or Media Item hierarchy
   mutation;

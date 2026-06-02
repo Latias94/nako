@@ -15,13 +15,13 @@ Last updated: 2026-06-02
 
 ## M1 - Read-Only Batch Plan
 
-- [ ] PGBR-020 [owner=codex] [deps=PGBR-010] [scope=crates/nako-metadata,crates/nako-api,crates/nako-server,web/src/api/admin/generated,docs/workstreams/provider-governance-bulk-review]
+- [x] PGBR-020 [owner=codex] [deps=PGBR-010] [scope=crates/nako-metadata,crates/nako-api,crates/nako-server,web/src/api/admin/generated,docs/workstreams/provider-governance-bulk-review]
   Goal: Add a read-only Admin API batch Candidate Review application plan for selected review IDs.
-  Validation: `cargo test -p nako-api admin_contract -- --nocapture`; `cargo test -p nako-server metadata_candidate_review -- --nocapture`; `cargo test -p nako-metadata candidate_review_application -- --nocapture`; `cargo fmt --all -- --check`; `git diff --check`.
+  Validation: `cargo test -p nako-server admin_v1_metadata_candidate_review_batch_plan_is_bounded_redacted_and_read_only -- --nocapture`; `cargo test -p nako-api admin_contract -- --nocapture`; `cargo test -p nako-server metadata_candidate_review -- --nocapture`; `cargo test -p nako-metadata candidate_review_application -- --nocapture`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: plan route must do no writes, reuse single-review planning semantics, bound selection size, and redact raw provider/local/secret/idempotency facts.
   Evidence: `EVIDENCE_AND_GATES.md` (`PGBR-020 Evidence`).
   Context: `CONTEXT.jsonl`.
-  Handoff: final status must be DONE, DONE_WITH_CONCERNS, BLOCKED, or NEEDS_CONTEXT.
+  Handoff: DONE.
 
 ## M2 - Confirmed Backend Batch Apply
 
@@ -31,7 +31,7 @@ Last updated: 2026-06-02
   Review: each row must preserve stale guard, idempotency-key fingerprinting, replay behavior, redacted partial results, and root-only Provider Subject / Provider Mapping mutation.
   Evidence: `EVIDENCE_AND_GATES.md` (`PGBR-030 Evidence`).
   Context: `CONTEXT.jsonl`.
-  Handoff: split durable job execution if bounded synchronous execution cannot remain honest.
+  Handoff: READY; split durable job execution if bounded synchronous execution cannot remain honest.
 
 ## M3 - Web Admin Batch Governance
 
