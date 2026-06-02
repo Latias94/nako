@@ -13,9 +13,9 @@ evidence archive for ADR and architecture links. Existing `WORKSTREAM.json`,
 `TODO.md`, `TASKS.jsonl`, `CAMPAIGNS.jsonl`, `HANDOFF.md`, and `CLOSEOUT.md`
 files are historical evidence, not current assignment authority.
 
-Workstreams group related milestones, TODOs, phase notes, and design context.
-They are not ownership silos; they are long-running areas of architectural
-attention.
+Before Trellis adoption, workstreams grouped related milestones, TODOs, phase
+notes, and design context. They are not ownership silos; they are historical
+areas of architectural attention.
 
 ## Status Authority
 
@@ -35,11 +35,12 @@ work is tracked under `.trellis/tasks/`.
 
 Last reviewed: 2026-06-02
 
-`provider-governance-bulk-review` is active in the
-`library-metadata-control-plane` lane after
-`provider-review-global-queue-search` closed.
+At the time of this snapshot, `provider-governance-bulk-review` was active in
+the `library-metadata-control-plane` lane after
+`provider-review-global-queue-search` closed. It has since closed and remains
+historical evidence.
 
-Next task:
+Historical next task:
 
 - `PGBR-040`: add Web Admin selection, batch plan inspection, confirmation, and
   partial-result rendering.
@@ -68,12 +69,12 @@ follow-ons and should not be mixed back into `GAPM`, `GAOR`, `WAGR`, or
 `playback-transcode-jellyfin-class-hardening` are closed. Artifact I/O
 pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
 
-## Current Workstreams
+## Legacy Workstream Archive
 
 - [provider-governance-bulk-review](provider-governance-bulk-review/README.md):
-  active web-product slice for guarded batch Candidate Review governance; the
-  read-only batch application plan and bounded backend batch apply are shipped,
-  and the next slice is Web Admin selection/confirmation.
+  closed web-product slice for guarded batch Candidate Review governance,
+  including the read-only batch application plan, bounded backend batch apply,
+  and Web Admin selection/confirmation.
 - [provider-review-global-queue-search](provider-review-global-queue-search/README.md):
   closed library-metadata-control-plane lane for global Candidate Review
   queue/filter navigation without adding Public Client API, batch governance,
@@ -973,17 +974,22 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
   foundation, catalog, metadata, playback, transcode, VFS, and historical
   planning hub.
 
-## When To Split A Workstream
+## Legacy Split Guidance
 
-Split a workstream when one of these becomes true:
+This section is retained for historical context only. New work should split into
+focused Trellis tasks under `.trellis/tasks/`, not new directories under
+`docs/workstreams/`.
 
-- it has independent milestones that can progress without blocking the active
-  backend foundation;
+Before Trellis adoption, splitting a workstream was appropriate when one of
+these became true:
+
+- it had independent milestones that could progress without blocking the
+  current foundation task;
 - it needs its own ADR cluster or validation matrix;
 - its TODO file becomes too broad to guide the next implementation goal;
 - the same docs are repeatedly edited for unrelated domains.
 
-Expected future splits:
+Historical expected splits:
 
 - SDK package publishing, client streaming/download helpers, Dart/Flutter SDK,
   Rust CLI, or concrete Flutter/web app work after the public protocol and
@@ -992,18 +998,20 @@ Expected future splits:
   coverage for item artwork routes: `admin-web-v2-item-artwork-selection`.
 - Admin Web V2 catalog repair/actions after safe catalog item detail, Provider
   Mapping, and Local Inference evidence semantics are defined:
-  `admin-web-v2-catalog-repair-actions` (opened as the active lane).
+  `admin-web-v2-catalog-repair-actions` (opened historically as an active
+  lane).
 - Admin Web V2 safe metadata diagnostics, item NFO status/actions, playback
   support detail, settings mutation, users/permissions/Library Access, and
   full-site i18n as separate lanes rather than extensions of the media
   browse/detail read slice.
 
-Keep unsplit domains in `server-foundation` until a split reduces real
-coordination cost. Avoid splitting merely because a domain exists conceptually.
+Before Trellis adoption, unsplit domains stayed in `server-foundation` until a
+split reduced real coordination cost. The same principle still applies to
+Trellis tasks: avoid splitting merely because a domain exists conceptually.
 
-## Standard Files
+## Legacy Standard Files
 
-A substantial workstream should have:
+Before Trellis adoption, a substantial workstream had:
 
 - `README.md`: purpose, status, goals, non-goals, links to active phases.
 - `MILESTONES.md`: ordered outcomes with deliverables and exit criteria.

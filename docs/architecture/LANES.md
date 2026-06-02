@@ -20,7 +20,12 @@ instead.
 
 | Lane | Active Trellis task | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| library-metadata-control-plane | None | None | Idle after PGDBE closeout. Open focused follow-ons before Public Client API, related hierarchy, provider breadth, audit/undo, or scheduler priority work. |
+| architecture-planning | `06-02-01a-archive-legacy-workstreams-and-trellis-lane-routing` | Archive legacy workstreams and route active execution through Trellis. | Merge first when possible; docs-only cleanup reduces later ambiguity. |
+| web-product | `06-02-01b-admin-settings-api-backed-restoration` | Restore API-backed Admin settings surfaces. | Serialize with any task changing `nako-api` Admin DTOs, generated Admin Web contracts, or shared Admin settings routes. |
+| library-metadata-control-plane | `06-02-01c-provider-review-related-hierarchy-application` | Prove accepted-review related hierarchy application policy. | Start backend-first; pause before Admin API/Web or generated contract changes until `01b` is coordinated. |
+| playback-transcode | `06-02-01d-hls-artifact-io-pressure-enforcement` | Add bounded HLS artifact I/O pressure policy. | Safe to run beside storage work if shared staging/source-read contracts stay explicit. |
+| storage-vfs | `06-02-01e-storage-vfs-cache-repair-diagnostics` | Deepen VFS cache repair diagnostics. | Keep separate from HLS artifact I/O pressure; coordinate only on shared staging/source reads. |
+| control-plane | `06-02-01f-durable-job-priority-policy-and-scheduler-migration` | Introduce generic durable job priority policy and scheduler migration. | Keep scheduler policy generic; do not bake provider-review semantics into the runtime. |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
@@ -103,18 +108,19 @@ pressure, scan scheduling, or PostgreSQL runtime harness work.
 
 `audio-compatibility-downmix-normalization`,
 `transcode-interface-and-runtime-plan-deepening`, and
-`hdr-tone-mapping-pipeline` are closed. Reopen HDR only through a follow-on
-workstream for hardware tone mapping, dynamic HDR handling, device profiles, UI
-controls, or operator smoke matrices.
+`hdr-tone-mapping-pipeline` are closed. Reopen HDR only through a focused
+Trellis follow-on for hardware tone mapping, dynamic HDR handling, device
+profiles, UI controls, or operator smoke matrices.
 
 `playback-compatibility-matrix-hardening`,
 `transcode-capability-inventory-matrix`, `hls-runtime-lifecycle-boundary`,
 `hls-progressive-readiness-test-stability`, and
 `playback-transcode-jellyfin-class-hardening` are closed. Keep artifact I/O
-pressure split to `proposed:hls-artifact-io-pressure-enforcement`. Split
-resource admission queueing, remote workers, LL-HLS/CMAF, player UX, hardware
-tone-map execution, HEVC/AV1 output policy, subtitle burn-in, Admin/release
-reporting, and hardware smoke evidence into separate follow-ons.
+pressure routed to Trellis task
+`06-02-01d-hls-artifact-io-pressure-enforcement`. Split resource admission
+queueing, remote workers, LL-HLS/CMAF, player UX, hardware tone-map execution,
+HEVC/AV1 output policy, subtitle burn-in, Admin/release reporting, and
+hardware smoke evidence into separate follow-ons.
 
 ## Lane Registry
 
@@ -135,7 +141,8 @@ Owned scopes:
 - `docs/architecture/LANES.md`
 - `docs/architecture/WORKSTREAM_LINKS.md`
 - high-risk capability maps under `docs/architecture/`
-- workstream navigation and active queue summaries under `docs/workstreams/`
+- legacy workstream navigation and historical queue summaries under
+  `docs/workstreams/`
 
 Shared scopes requiring planner coordination:
 
@@ -171,7 +178,7 @@ Owns Generated Artifact metadata authority, guarded Admin automation routes,
 metadata application, audit/outcome persistence, and the control-plane workflow
 that turns accepted generated artifacts into Canonical Metadata.
 
-Active evidence:
+Recent closed evidence:
 
 - `docs/workstreams/provider-governance-durable-batch-execution/`
 

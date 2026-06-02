@@ -69,7 +69,7 @@ Evidence workstreams:
 This was a planner-owned release convergence overlay. It routed release
 blockers to existing capability lanes instead of replacing playback, storage,
 web, addon, client, or operations ownership. Future release execution should
-open focused follow-on workstreams.
+open focused follow-on Trellis tasks.
 
 ## Playback And Transcode
 
