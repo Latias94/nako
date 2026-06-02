@@ -1,0 +1,6 @@
+{"file": "docs/architecture/PLAYBACK.md", "reason": "Verify playback/transcode scope and proposed lane boundaries."}
+{"file": "docs/adr/0052-hls-runtime-and-media-engine-boundary.md", "reason": "Verify HLS runtime boundary is preserved."}
+{"file": "docs/adr/0049-source-aware-transcode-runtime.md", "reason": "Verify source-aware runtime constraints."}
+{"file": "docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md", "reason": "Verify bounded runtime behavior."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify scoped tests and nextest usage."}
+{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "Verify runtime logs remain structured and secret-safe."}

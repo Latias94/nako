@@ -1,0 +1,33 @@
+{
+  "id": "01-parallel-worktree-development-plan",
+  "name": "01-parallel-worktree-development-plan",
+  "title": "Parallel Worktree Development Plan",
+  "description": "Plan and queue independent Trellis tasks for parallel development across E:\\\\Rust\\\\nako-worktrees while preserving architecture lane boundaries.",
+  "status": "planning",
+  "dev_type": null,
+  "scope": "architecture-planning",
+  "package": "nako",
+  "priority": "P1",
+  "creator": "Latias94",
+  "assignee": "Latias94",
+  "createdAt": "2026-06-02",
+  "completedAt": null,
+  "branch": "task/01-parallel-worktree-development-plan",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "06-02-01a-archive-legacy-workstreams-and-trellis-lane-routing",
+    "06-02-01b-admin-settings-api-backed-restoration",
+    "06-02-01c-provider-review-related-hierarchy-application",
+    "06-02-01d-hls-artifact-io-pressure-enforcement",
+    "06-02-01e-storage-vfs-cache-repair-diagnostics",
+    "06-02-01f-durable-job-priority-policy-and-scheduler-migration"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

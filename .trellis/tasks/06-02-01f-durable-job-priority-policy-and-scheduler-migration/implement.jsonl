@@ -1,0 +1,6 @@
+{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Control-plane durable job and scheduler capability map."}
+{"file": "docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md", "reason": "Bounded async/resource budget decision."}
+{"file": "docs/adr/0006-persist-job-inputs-and-explicit-retry-policy.md", "reason": "Durable job persistence and retry policy decision."}
+{"file": "docs/adr/0053-application-control-plane-boundary.md", "reason": "Application control-plane boundary and durable work ownership."}
+{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "Runtime/job trace and logging patterns."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Backend test expectations for job runtime changes."}

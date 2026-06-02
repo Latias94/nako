@@ -1,0 +1,4 @@
+{"file": ".trellis/workflow.md", "reason": "Trellis task lifecycle and context curation rules for the planner task."}
+{"file": "docs/architecture/LANES.md", "reason": "Defines lane/worktree ownership boundaries for parallel development."}
+{"file": "docs/architecture/WORKSTREAM_LINKS.md", "reason": "Maps legacy workstream evidence and proposed follow-on lanes."}
+{"file": "docs/workstreams/README.md", "reason": "Documents the legacy workstream archive status after Trellis adoption."}

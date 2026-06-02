@@ -1,20 +1,37 @@
 # Workstreams
 
+## Trellis Migration Notice
+
+As of 2026-06-02, active workflow authority has moved to Trellis:
+
+- Use `.trellis/tasks/` for new work.
+- Use `.trellis/spec/` for durable coding and quality guidance.
+- Use `.trellis/workspace/` for session journals and agent handoff state.
+
+Do not open new workstreams here. This directory is retained as a legacy
+evidence archive for ADR and architecture links. Existing `WORKSTREAM.json`,
+`TODO.md`, `TASKS.jsonl`, `CAMPAIGNS.jsonl`, `HANDOFF.md`, and `CLOSEOUT.md`
+files are historical evidence, not current assignment authority.
+
 Workstreams group related milestones, TODOs, phase notes, and design context.
 They are not ownership silos; they are long-running areas of architectural
 attention.
 
 ## Status Authority
 
-`WORKSTREAM.json` is the authoritative status record for each workstream. This
-README is navigation and may lag detailed closeout evidence.
+Before Trellis adoption, `WORKSTREAM.json` was the authoritative status record
+for each workstream. After Trellis adoption, these files are historical status
+evidence. Current task status lives under `.trellis/tasks/`.
 
 Use `docs/architecture/LANES.md` to decide whether a Codex terminal should own a
-capability area across multiple workstreams. New or materially changed
-workstreams should record `lane_slug`, `architecture_refs`, and
-`capability_tags` in `WORKSTREAM.json` when they affect an architecture lane.
+capability area across multiple Trellis tasks. New Trellis tasks should record
+their lane/scope in `task.json` and link relevant ADR, architecture, spec, and
+legacy workstream evidence from the task PRD or research notes.
 
 ## Active Execution Queue
+
+This section is a historical snapshot retained for traceability. Current active
+work is tracked under `.trellis/tasks/`.
 
 Last reviewed: 2026-06-02
 

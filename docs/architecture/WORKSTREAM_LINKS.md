@@ -12,16 +12,21 @@ Use this index as navigation, not as the source of design truth:
 - `docs/architecture/*.md` owns capability progress and risk maps.
 - `docs/architecture/LANES.md` owns terminal/worktree lane routing for
   parallel development.
-- `docs/workstreams/*` owns task plans, evidence, gates, and handoff state.
+- `.trellis/tasks/*` owns current task plans and handoff state.
+- `docs/workstreams/*` is retained as a legacy evidence archive for historical
+  plans, gates, screenshots, closeouts, and architecture traceability.
 
 ## Linkage Rules
 
 - A shipped or partial capability should link at least one concrete workstream
   when evidence exists.
-- A future lane should use a proposed slug until a real workstream directory is
-  opened, for example `proposed:hls-seek-restart-lifecycle`.
-- New workstreams should add `architecture_refs` and `capability_tags` to
-  `WORKSTREAM.json` when they materially change an architecture capability.
+- A future lane should use a proposed slug until a real Trellis task is opened,
+  for example `proposed:hls-seek-restart-lifecycle`.
+- Do not open new workstream directories after Trellis adoption. New work should
+  open a Trellis task and link relevant ADR, architecture, spec, and legacy
+  workstream evidence from the task PRD or research notes.
+- Existing workstreams may still carry `architecture_refs` and
+  `capability_tags` in `WORKSTREAM.json` for historical traceability.
 - New long-lived terminal lanes should be registered in
   `docs/architecture/LANES.md` before multiple agents rely on the boundary.
 - Do not copy detailed workstream evidence into architecture docs. Link the

@@ -1,3 +1,25 @@
+<!-- TRELLIS:START -->
+# Trellis Instructions
+
+These instructions are for AI assistants working in this project.
+
+This project is managed by Trellis. The working knowledge you need lives under `.trellis/`:
+
+- `.trellis/workflow.md` — development phases, when to create tasks, skill routing
+- `.trellis/spec/` — package- and layer-scoped coding guidelines (read before writing code in a given layer)
+- `.trellis/workspace/` — per-developer journals and session traces
+- `.trellis/tasks/` — active and archived tasks (PRDs, research, jsonl context)
+
+If a Trellis command is available on your platform (e.g. `/trellis:finish-work`, `/trellis:continue`), prefer it over manual steps. Not every platform exposes every command.
+
+If you're using Codex or another agent-capable tool, additional project-scoped helpers may live in:
+- `.agents/skills/` — reusable Trellis skills
+- `.codex/agents/` — optional custom subagents
+
+Managed by Trellis. Edits outside this block are preserved; edits inside may be overwritten by a future `trellis update`.
+
+<!-- TRELLIS:END -->
+
 # AGENTS.md
 
 This file gives repository-local guidance for agents working on Nako.
@@ -11,27 +33,29 @@ This file gives repository-local guidance for agents working on Nako.
 - Keep `CONTEXT.md` as a glossary only. Do not put implementation plans,
   schemas, workstream notes, or ADR content in it.
 
-## Architecture Records and Workstreams
+## Architecture Records, Trellis, And Workstreams
 
 - Durable architecture decisions live in `docs/adr/`.
 - Current system maps live in `docs/ARCHITECTURE.md` and
   `docs/architecture/`.
 - `docs/architecture/LANES.md` routes long-lived Codex terminal/worktree
   ownership across architecture lanes.
-- Workstream planning lives in `docs/workstreams/`.
+- Trellis task planning lives in `.trellis/tasks/`.
+- Durable agent coding guidance lives in `.trellis/spec/`.
+- Legacy workstream evidence lives in `docs/workstreams/`. Do not open new
+  workstreams after Trellis adoption.
 - When a change crosses crate boundaries, changes public API shape, changes
   storage/schema behavior, or changes resource/concurrency policy, update the
-  relevant ADR or workstream docs before considering the work complete.
+  relevant ADR, architecture map, Trellis spec, or Trellis task context before
+  considering the work complete.
 - Before changing playback, storage/VFS, library intake, state/access,
   realtime/sync, operations/release, or control-plane behavior, read the
   matching `docs/architecture/*.md` map and the ADRs it references.
 - Treat ADR 0053 as the control-plane baseline. New durable jobs, runtime
   supervision, tracing/diagnostics, remote access, addon lifecycle, or API
   cache/scale behavior should not be hidden inside a one-off feature helper.
-- When opening or materially changing a workstream, link it from the relevant
-  `docs/architecture/*.md` file or `docs/architecture/WORKSTREAM_LINKS.md`.
-  Add `lane_slug`, `architecture_refs`, and `capability_tags` to
-  `WORKSTREAM.json` when the workstream changes an architecture capability.
+- New work should open a Trellis task and link relevant ADR, architecture, spec,
+  and legacy workstream evidence from the task PRD or research notes.
 - M27.0 is a design baseline only. Do not add schema migrations, provider
   features, runtime behavior, or public API changes under M27.0.
 
@@ -40,7 +64,7 @@ This file gives repository-local guidance for agents working on Nako.
 - Use `cargo fmt --all` for formatting when practical.
 - Prefer `cargo nextest run` for tests. For narrow changes, run focused
   package tests first, then broaden only when risk requires it.
-- Keep crate boundaries aligned with the workstream docs:
+- Keep crate boundaries aligned with ADRs, architecture maps, and Trellis specs:
   - `nako-core`: domain records, IDs, repository traits.
   - `nako-db`: schema, migrations, SQLite/PostgreSQL adapters, repository
     contract tests.
@@ -96,7 +120,7 @@ This file gives repository-local guidance for agents working on Nako.
   metadata, playback, addon, webhook, or artifact workflows without checking
   ADR 0053.
 
-## Reference Code and Licensing
+## Reference Code And Licensing
 
 - Nako server-side code is AGPL-3.0-or-later unless a crate or file says
   otherwise.

@@ -9,16 +9,16 @@ ADRs, architecture maps, or workstream evidence.
 Authority order remains:
 
 ```text
-ADRs -> docs/architecture/*.md -> docs/workstreams/* -> journals/handoff -> chat
+ADRs -> docs/architecture/*.md -> .trellis/spec/* -> .trellis/tasks/* -> docs/workstreams/* history -> chat
 ```
 
 Use this file when deciding whether a terminal may keep advancing a capability
-area across multiple workstreams. For one small task, use the workstream task
-ledger instead.
+area across multiple tasks. For one small task, use the Trellis task state
+instead.
 
 ## Active Queue
 
-| Lane | Active workstream | Next task | Recommended terminal role |
+| Lane | Active Trellis task | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
 | library-metadata-control-plane | None | None | Idle after PGDBE closeout. Open focused follow-ons before Public Client API, related hierarchy, provider breadth, audit/undo, or scheduler priority work. |
 
@@ -97,9 +97,9 @@ open a focused follow-on for backend/API contract, generated SDK, broader
 player UX, or desktop/native playback decisions.
 
 The `storage-vfs` lane is idle after
-`remote-storage-health-and-circuit-breaker` closeout. Open a new workstream
-before starting cache repair, source fingerprint escalation, playback artifact
-I/O pressure, scan scheduling, or PostgreSQL runtime harness work.
+`remote-storage-health-and-circuit-breaker` closeout. Open a Trellis task before
+starting cache repair, source fingerprint escalation, playback artifact I/O
+pressure, scan scheduling, or PostgreSQL runtime harness work.
 
 `audio-compatibility-downmix-normalization`,
 `transcode-interface-and-runtime-plan-deepening`, and
@@ -380,13 +380,12 @@ should be coordinated by the planner:
 Before a lane terminal starts:
 
 1. Start from a clean worktree and sync to the planner-approved baseline.
-2. Confirm the lane slug, active workstream, next task, owned scopes, shared
+2. Confirm the lane slug, active Trellis task, next task, owned scopes, shared
    scopes, and validation commands.
-3. Set a Codex goal only for one bounded task from `TODO.md`, not for the whole
-   lane.
+3. Set a Codex goal only for one bounded Trellis task, not for the whole lane.
 4. Stop and return to planner coordination when the task needs a shared scope,
    ADR change, schema migration outside the lane, or generated contract update.
-5. Review and verify the completed task before starting the next workstream.
+5. Review and verify the completed task before starting the next Trellis task.
 
 Planner terminals own sequencing, branch integration, lane conflicts, closeout,
 and follow-on splits. Lane terminals own implementation inside the approved

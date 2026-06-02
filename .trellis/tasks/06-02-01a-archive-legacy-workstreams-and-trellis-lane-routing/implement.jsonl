@@ -1,0 +1,4 @@
+{"file": ".trellis/workflow.md", "reason": "Current Trellis workflow authority to reflect in docs."}
+{"file": "docs/architecture/LANES.md", "reason": "Architecture lane routing and worktree protocol to align with Trellis tasks."}
+{"file": "docs/architecture/WORKSTREAM_LINKS.md", "reason": "Legacy workstream evidence index to freeze as history."}
+{"file": "docs/workstreams/README.md", "reason": "Top-level legacy workstream archive notice target."}

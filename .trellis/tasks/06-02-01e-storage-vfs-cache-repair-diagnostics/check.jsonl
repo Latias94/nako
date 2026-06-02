@@ -1,0 +1,6 @@
+{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Verify storage/VFS scope and cache repair boundaries."}
+{"file": "docs/adr/0016-remote-storage-and-vfs-cache-boundary.md", "reason": "Verify remote storage cache boundary."}
+{"file": "docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md", "reason": "Verify playback/storage shared behavior remains scoped."}
+{"file": "docs/adr/0053-application-control-plane-boundary.md", "reason": "Verify diagnostics are bounded and redacted."}
+{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "Verify logs avoid secrets and noisy payloads."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify scoped tests and nextest usage."}
