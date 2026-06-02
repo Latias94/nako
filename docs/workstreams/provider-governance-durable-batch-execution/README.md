@@ -1,6 +1,6 @@
 # Provider Governance Durable Batch Execution
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 This workstream turns bounded synchronous Metadata Candidate Review batch apply
@@ -8,13 +8,18 @@ into a durable, job-backed Admin control-plane workflow.
 
 It follows `provider-governance-bulk-review`, which shipped selected-review
 batch planning, bounded synchronous confirmation, and Web Admin governance. The
-next problem is not another Provider Mapping executor; it is a persisted batch
-and job envelope for larger, retryable, cancellable operator work.
+durable execution problem was not another Provider Mapping executor; it was a
+persisted batch and job envelope for larger, retryable, cancellable operator
+work.
 
-## Current Task
+## Final State
 
-- `PGDBE-020`: add the core and database durable batch model, repository
-  contract, job kind, and resource-class mapping.
+- Closed after `PGDBE-060`.
+- Durable batch state, Admin create/status, job-backed execution, and Web Admin
+  durable status are shipped.
+- Remaining scope is split to focused follow-ons for related hierarchy
+  application, Public Client API exposure, provider endpoint breadth,
+  scheduler priority policy, and audit/undo governance.
 
 ## Authoritative Docs
 
@@ -26,6 +31,7 @@ and job envelope for larger, retryable, cancellable operator work.
 - `EVIDENCE_AND_GATES.md`: validation commands and evidence.
 - `WORKSTREAM.json`: machine-readable workstream summary.
 - `HANDOFF.md`: continuation state.
+- `CLOSEOUT.md`: final shipped scope, gates, follow-ons, and residual risks.
 
 ## Boundaries
 

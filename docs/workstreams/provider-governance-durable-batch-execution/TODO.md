@@ -1,6 +1,6 @@
 # Provider Governance Durable Batch Execution - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 - Scope And Evidence Freeze
@@ -59,11 +59,11 @@ Last updated: 2026-06-02
 
 ## M5 - Closeout
 
-- [ ] PGDBE-060 [owner=planner] [deps=PGDBE-050] [scope=docs/workstreams/provider-governance-durable-batch-execution,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
+- [x] PGDBE-060 [owner=planner] [deps=PGDBE-050] [scope=docs/workstreams/provider-governance-durable-batch-execution,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
   Goal: Close the durable batch execution lane or split unfinished backend/Web/status/audit follow-ons explicitly.
   Validation: JSON/JSONL validation; fresh gate evidence in `EVIDENCE_AND_GATES.md`; `git diff --check`.
   Review: Verify workstream compliance and code quality before closeout.
   Evidence: `CLOSEOUT.md`, `WORKSTREAM.json`, `EVIDENCE_AND_GATES.md`
   Context: `CONTEXT.jsonl`
-  Handoff: Final state must route remaining scope to focused follow-ons.
-  State: `TASKS.jsonl` entry `PGDBE-060` records closeout status.
+  Handoff: DONE. Remaining scope is routed to focused proposed follow-ons.
+  State: `TASKS.jsonl` entry `PGDBE-060` is accepted.

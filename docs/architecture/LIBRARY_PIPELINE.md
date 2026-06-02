@@ -28,7 +28,7 @@ Storage event or scheduled scan
 | Local inference | Shipped foundation | `CONTEXT.md`; metadata/catalog lanes | Anime/series path heuristics and confidence reporting. |
 | Media probe | Shipped foundation | playback/transcode lanes | More HDR/audio/subtitle technical facts. |
 | NFO authority | Shipped foundation | `docs/adr/0008-nfo-as-local-metadata-boundary.md` | Round-trip/writeback polish and backup policy. |
-| Metadata merge policy | Shipped foundation; durable candidate review, accepted-review root mapping application, Admin/Web governance, item-scoped Candidate Review list/navigation, global Candidate Review queue/navigation, read-only batch planning, bounded batch confirmation, and Web bulk governance shipped; durable batch execution active | `docs/adr/0007-metadata-merge-policy-and-local-authority.md`; `docs/workstreams/metadata-candidate-durable-review/`; `docs/workstreams/accepted-review-provider-mapping-application/`; `docs/workstreams/admin-web-provider-depth-governance/`; `docs/workstreams/admin-candidate-review-list-navigation/`; `docs/workstreams/provider-review-global-queue-search/`; `docs/workstreams/provider-governance-bulk-review/`; `docs/workstreams/provider-governance-durable-batch-execution/` | Complete durable batch execution, then keep related hierarchy application, provider endpoint depth, Public Client API exposure, and audit/undo governance in focused follow-ons. |
+| Metadata merge policy | Shipped foundation; durable candidate review, accepted-review root mapping application, Admin/Web governance, item-scoped Candidate Review list/navigation, global Candidate Review queue/navigation, read-only batch planning, bounded batch confirmation, Web bulk governance, and durable batch execution shipped | `docs/adr/0007-metadata-merge-policy-and-local-authority.md`; `docs/workstreams/metadata-candidate-durable-review/`; `docs/workstreams/accepted-review-provider-mapping-application/`; `docs/workstreams/admin-web-provider-depth-governance/`; `docs/workstreams/admin-candidate-review-list-navigation/`; `docs/workstreams/provider-review-global-queue-search/`; `docs/workstreams/provider-governance-bulk-review/`; `docs/workstreams/provider-governance-durable-batch-execution/` | Keep related hierarchy application, provider endpoint depth, Public Client API exposure, and audit/undo governance in focused follow-ons. |
 | TMDB provider | Shipped movie plus series/season/episode graph preview foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/metadata-provider-depth-and-precision/`; `docs/workstreams/tmdb-season-episode-graph-depth/` | Accepted-review application or Admin/Web governance before preview graph depth becomes accepted hierarchy. |
 | Douban provider | Shipped MVP plus endpoint-backed capability precision | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/douban-subject-kind-precision/` | Accepted-review application, Admin/Web governance, or endpoint-backed TV/episode follow-on. |
 | Bangumi provider | Shipped MVP plus endpoint-backed episode graph preview | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/bangumi-relations-and-episode-depth/` | Accepted-review application or Admin/Web governance before preview graph depth becomes accepted hierarchy. |
@@ -47,23 +47,26 @@ this document focused on intake and asset pipeline capability state.
 
 ### provider-governance-durable-batch-execution
 
-Status: Active at
+Status: Closed at
 `docs/workstreams/provider-governance-durable-batch-execution/`.
 
 Goal: Add a durable, job-backed Admin execution boundary for Metadata Candidate
 Review batch apply while preserving the existing single-review application
 authority and PGBR redaction semantics.
 
-Current task:
+Shipped:
 
-- `PGDBE-050` adds Web Admin durable Candidate Review batch status.
+- `PGDBE-020` added durable batch state and repository contracts.
+- `PGDBE-030` added Admin create/status routes.
+- `PGDBE-040` added job-backed execution.
+- `PGDBE-050` added Web Admin durable Candidate Review batch status.
+- `PGDBE-060` closed the lane and split follow-ons.
 
 Non-goals:
 
-- no Public Client API route in `PGDBE-050`;
+- no Public Client API route;
 - no related Provider Subject, child Provider Mapping, or Media Item hierarchy
   application;
-- no Public Client API route;
 - no provider endpoint breadth;
 - no Generated Artifact apply outcome table reuse;
 - no raw background execution outside ADR 0053 runtime boundaries.
@@ -100,7 +103,6 @@ Non-goals:
 
 Follow-ons:
 
-- `docs/workstreams/provider-governance-durable-batch-execution/` (active);
 - `proposed:provider-review-related-hierarchy-application`;
 - `proposed:douban-tv-episode-endpoint-depth`;
 - `proposed:provider-review-public-client-governance`;

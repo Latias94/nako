@@ -1,6 +1,6 @@
 # Provider Governance Durable Batch Execution - Design
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Why This Lane Exists

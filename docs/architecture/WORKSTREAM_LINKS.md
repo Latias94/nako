@@ -169,7 +169,7 @@ Evidence workstreams:
 - `docs/workstreams/admin-candidate-review-list-navigation/` (closed)
 - `docs/workstreams/provider-review-global-queue-search/` (closed)
 - `docs/workstreams/provider-governance-bulk-review/` (closed)
-- `docs/workstreams/provider-governance-durable-batch-execution/` (active)
+- `docs/workstreams/provider-governance-durable-batch-execution/` (closed)
 - `docs/workstreams/metadata-acquisition-pipeline/`
 - `docs/workstreams/metadata-profile-configuration-authority/`
 - `docs/workstreams/metadata-application-policy-seam/`
@@ -303,7 +303,7 @@ Evidence workstreams:
 - `docs/workstreams/durable-job-ownership-leases/`
 - `docs/workstreams/job-runtime-worker-control-plane/`
 - `docs/workstreams/worker-job-cancellation-checkpoints/`
-- `docs/workstreams/provider-governance-durable-batch-execution/` (active)
+- `docs/workstreams/provider-governance-durable-batch-execution/` (closed)
 - `docs/workstreams/admin-operations-read-models/`
 - `docs/workstreams/admin-web-console/`
 - `docs/workstreams/web-admin-generated-artifacts-automation/`

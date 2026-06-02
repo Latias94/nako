@@ -24,11 +24,11 @@ reuse earlier gaps such as M10-M12 or M17 for new work. New implementation
 goals should use the next number after the highest documented completed or
 proposed milestone.
 
-## Current Goal
+## Recent Completed Goals
 
 ### Provider Governance Durable Batch Execution
 
-Status: active after `PGDBE-040`.
+Status: completed on 2026-06-02 after `PGDBE-060`.
 
 Objective:
 
@@ -48,7 +48,8 @@ Deliverables:
 - explicit durable job kind/resource class for Candidate Review batch apply;
 - Admin create/status boundary (done in `PGDBE-030`);
 - job-backed execution (done in `PGDBE-040`);
-- Web Admin durable batch status only after backend semantics are stable.
+- Web Admin durable batch status (done in `PGDBE-050`);
+- closeout and follow-on split (done in `PGDBE-060`).
 
 Non-goals:
 
@@ -65,8 +66,8 @@ Exit criteria:
 - `PGDBE-020` proves the core/DB durable batch state and repository contract;
 - `PGDBE-030` proves redaction-safe Admin create/status reads;
 - `PGDBE-040` proves job-backed execution through `DurableJobRuntime`;
-- `PGDBE-050` proves Web Admin durable status if included before closeout;
-- `PGDBE-060` closes the lane or splits unfinished scope.
+- `PGDBE-050` proves Web Admin durable status;
+- `PGDBE-060` closes the lane and splits unfinished scope.
 
 Evidence:
 
@@ -77,11 +78,21 @@ Evidence:
 - `docs/architecture/CONTROL_PLANE.md`
 - `docs/architecture/LANES.md`
 
-Current task:
+Completed tasks:
 
-- `PGDBE-050`: Web Admin durable batch status.
+- `PGDBE-020`: core/DB durable batch state and repository contract;
+- `PGDBE-030`: Admin create/status boundary;
+- `PGDBE-040`: job-backed execution;
+- `PGDBE-050`: Web Admin durable batch status;
+- `PGDBE-060`: closeout and follow-on split.
 
-## Recent Completed Goals
+Candidate follow-ons:
+
+- `proposed:provider-review-related-hierarchy-application`;
+- `proposed:douban-tv-episode-endpoint-depth`;
+- `proposed:provider-review-public-client-governance`;
+- `proposed:provider-governance-audit-and-undo`;
+- `proposed:durable-job-priority-policy-and-scheduler-migration`.
 
 ### Provider Governance Bulk Review
 
@@ -144,7 +155,7 @@ Completed tasks:
 
 Candidate follow-ons:
 
-- `docs/workstreams/provider-governance-durable-batch-execution/` (active);
+- `docs/workstreams/provider-governance-durable-batch-execution/` (closed);
 - `proposed:provider-review-related-hierarchy-application`;
 - `proposed:douban-tv-episode-endpoint-depth`;
 - `proposed:provider-review-public-client-governance`;

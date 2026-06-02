@@ -1,6 +1,6 @@
 # Provider Governance Durable Batch Execution - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 - Scope And Evidence Freeze
@@ -57,9 +57,9 @@ Exit criteria:
 - Web Admin can queue a durable batch from selected reviews;
 - Web can display queued/running/completed/failed/cancelled status and
   redaction-safe partial results;
-- route-state tests and browser smoke pass.
+- route-state tests and local route smoke pass.
 
-Status: Current.
+Status: Done.
 
 ## M5 - Closeout
 
@@ -69,4 +69,4 @@ Exit criteria:
 - architecture maps route shipped behavior as evidence;
 - unfinished scope is split to focused follow-ons.
 
-Status: Pending.
+Status: Done.

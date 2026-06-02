@@ -20,7 +20,7 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| library-metadata-control-plane | `docs/workstreams/provider-governance-durable-batch-execution/` | `PGDBE-050` | Main terminal runs the Web Admin durable status slice next; keep Public Client API, related hierarchy, provider breadth, audit/undo, and scheduler priority expansion split until their tasks own them. |
+| library-metadata-control-plane | None | None | Idle after PGDBE closeout. Open focused follow-ons before Public Client API, related hierarchy, provider breadth, audit/undo, or scheduler priority work. |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
@@ -77,13 +77,14 @@ read-only Admin API batch Candidate Review application plan, bounded backend
 batch apply, Web Admin selection/plan/confirm/result governance, and split
 durable execution, related hierarchy application, Public Client API exposure,
 provider endpoint depth, and audit/undo governance into proposed follow-ons.
-`provider-governance-durable-batch-execution` is active after `PGDBE-040`.
+`provider-governance-durable-batch-execution` is closed after `PGDBE-060`.
 `PGDBE-020` shipped the core/DB durable batch state and repository contract.
 `PGDBE-030` shipped the Admin create/status boundary without executing Provider
 Mapping writes. `PGDBE-040` shipped job-backed execution through
-`DurableJobRuntime`. `PGDBE-050` owns only Web Admin durable status; related
-hierarchy application, Public Client API exposure, provider endpoint depth,
-audit/undo, and scheduler priority expansion remain out of its campaign.
+`DurableJobRuntime`. `PGDBE-050` shipped Web Admin durable status, and
+`PGDBE-060` split related hierarchy application, Public Client API exposure,
+provider endpoint depth, audit/undo, and scheduler priority expansion to
+focused follow-ons.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 

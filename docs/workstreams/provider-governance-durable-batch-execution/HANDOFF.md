@@ -1,27 +1,20 @@
 # Provider Governance Durable Batch Execution - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Current State
 
-`PGDBE-050` is accepted.
+`PGDBE-060` is accepted. The workstream is closed.
 
 Current task:
 
-- `PGDBE-060`: close the durable batch execution lane or split remaining
-  follow-ons explicitly.
+- None.
 
-Approved campaign:
+Completed campaigns:
 
 - `PGDBE-20260602-01`, limited to `PGDBE-020`, is complete.
-
-Completed campaign:
-
 - `PGDBE-20260602-02`, covering `PGDBE-030` and `PGDBE-040`, is complete.
-
-Completed campaign:
-
 - `PGDBE-20260602-03`, covering `PGDBE-050`, is complete.
 
 ## Read First
@@ -46,19 +39,12 @@ Completed campaign:
 - Do not add Public Client API exposure.
 - Do not add raw background execution.
 
-## Implementation Hint
+## Final State
 
 The durable batch state, Admin create/status boundary, backend execution, and
-Web Admin durable create/status workflow now exist. `PGDBE-060` should close
-the lane or split follow-ons for Public Client API, audit/undo, provider
-endpoint breadth, and related hierarchy application.
-
-Expected first files to inspect before closeout:
-
-- `docs/workstreams/provider-governance-durable-batch-execution`
-- `docs/architecture`
-- `docs/GOALS.md`
-- `docs/ROADMAP.md`
+Web Admin durable create/status workflow now exist. Remaining scope is split to
+follow-ons for Public Client API, audit/undo, provider endpoint breadth,
+related hierarchy application, and scheduler priority policy.
 
 ## Validation
 
@@ -86,3 +72,11 @@ For `PGDBE-060`:
 
 - JSON/JSONL validation for the workstream ledgers
 - `git diff --check`
+
+## Follow-Ons
+
+- `proposed:provider-review-related-hierarchy-application`
+- `proposed:douban-tv-episode-endpoint-depth`
+- `proposed:provider-review-public-client-governance`
+- `proposed:provider-governance-audit-and-undo`
+- `proposed:durable-job-priority-policy-and-scheduler-migration`

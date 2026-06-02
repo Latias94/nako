@@ -1,6 +1,6 @@
 # Provider Governance Durable Batch Execution - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Opening Evidence
@@ -190,13 +190,35 @@ Green gates:
 - `git diff --check`
   - Result: passed; Git emitted CRLF normalization warnings only.
 
+## PGDBE-060 Evidence
+
+Closeout result:
+
+- Workstream target state in `DESIGN.md` is satisfied.
+- All tasks in `TODO.md` and `TASKS.jsonl` are accepted.
+- `WORKSTREAM.json` is closed and records completed tasks.
+- `CLOSEOUT.md` records shipped behavior, gates, preserved boundaries,
+  follow-ons, and residual risks.
+- Architecture maps, `docs/GOALS.md`, and `docs/ROADMAP.md` route this lane as
+  closed evidence.
+
+Closeout gates:
+
+- JSON/JSONL validation:
+  - Result: passed for `WORKSTREAM.json`, `TASKS.jsonl`, `CAMPAIGNS.jsonl`, and
+    `CONTEXT.jsonl`.
+- `git diff --check`
+  - Result: passed; Git emitted CRLF normalization warnings only.
+
 ## Later Gates
 
-`PGDBE-060`:
+Follow-ons:
 
-- Closeout docs must reconcile final scope, accepted evidence, and follow-ons
-  for Public Client API, audit/undo, provider endpoint breadth, and related
-  hierarchy application.
+- `proposed:provider-review-related-hierarchy-application`
+- `proposed:douban-tv-episode-endpoint-depth`
+- `proposed:provider-review-public-client-governance`
+- `proposed:provider-governance-audit-and-undo`
+- `proposed:durable-job-priority-policy-and-scheduler-migration`
 
 ## Tooling Gap
 

@@ -11,16 +11,16 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: Provider Governance Durable Batch Execution is active after
-`PGDBE-040`.
+Status: no active architecture focus is selected after `PGDBE-060`. Provider
+Governance Durable Batch Execution is the latest completed focus.
 
-The active workstream is
+The now-closed workstream is
 `docs/workstreams/provider-governance-durable-batch-execution/`. It follows
 Provider Governance Bulk Review. `PGDBE-020` shipped Candidate Review durable
 batch state, repository contracts, SQLite/PostgreSQL persistence, and an
 explicit job/resource-class foundation; `PGDBE-030` shipped the Admin
 create/status boundary; `PGDBE-040` shipped job-backed execution; `PGDBE-050`
-is next for Web Admin durable status.
+shipped Web Admin durable status; `PGDBE-060` closed the lane.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
 Operations Repair are both closed as of 2026-06-02. Web Admin Generated
@@ -34,15 +34,15 @@ Provider Mapping Application is closed after `ARPMA-050`. Admin/Web Provider
 Depth Governance is closed after `AWPDG-050`. Admin Candidate Review List
 Navigation is closed after `ACRN-040`. Provider Review Global Queue Search is
 closed after `PRGQ-040`. Provider Governance Bulk Review is closed after
-`PGBR-050`. Provider Governance Durable Batch Execution is active after
-`PGDBE-040`.
+`PGBR-050`. Provider Governance Durable Batch Execution is closed after
+`PGDBE-060`.
 
-The active focus will ship:
+The completed focus shipped:
 
 - Candidate Review specific durable batch and item state;
 - a job-backed execution path through ADR 0053 runtime boundaries;
 - persisted per-item outcomes and redaction-safe Admin status reads;
-- later Web Admin durable status only after backend semantics are stable;
+- Web Admin durable status after backend semantics stabilized;
 - preserved split for Public Client API, provider endpoint depth, related
   hierarchy application, and audit/undo governance.
 
@@ -59,21 +59,24 @@ Authoritative evidence:
 - `docs/architecture/LIBRARY_PIPELINE.md`
 - `docs/architecture/LANES.md`
 
-Current lane and candidate follow-ons:
+Closed lane and candidate follow-ons:
 
-- `docs/workstreams/provider-governance-durable-batch-execution/` (active);
+- `docs/workstreams/provider-governance-durable-batch-execution/` (closed);
 - `proposed:provider-review-related-hierarchy-application`;
 - `proposed:douban-tv-episode-endpoint-depth`;
 - `proposed:provider-review-public-client-governance`;
 - `proposed:provider-governance-audit-and-undo`.
 
-Latest active architecture slice:
-
-`PGDBE-040` shipped Provider Governance Durable Batch Execution job-backed
-execution on 2026-06-02 and selected `PGDBE-050` as the next Web Admin durable
-status task.
-
 Latest completed architecture slices:
+
+`PGDBE-060` closed Provider Governance Durable Batch Execution on 2026-06-02
+and split related hierarchy application, Public Client API exposure, provider
+endpoint depth, audit/undo, and scheduler priority policy to focused
+follow-ons.
+
+`PGDBE-050` shipped on 2026-06-02 with Web Admin durable Candidate Review
+batch creation, status rendering, queued/running polling, data-source and
+route-state redaction coverage, local route smoke, and green bundle budget.
 
 `PGDBE-010` opened Provider Governance Durable Batch Execution on 2026-06-02
 and selected `PGDBE-020` as the first executable task.
@@ -294,7 +297,7 @@ Follow-ons:
 - `docs/workstreams/admin-candidate-review-list-navigation/` (closed);
 - `docs/workstreams/provider-review-global-queue-search/` (closed);
 - `docs/workstreams/provider-governance-bulk-review/` (closed);
-- `docs/workstreams/provider-governance-durable-batch-execution/` (active);
+- `docs/workstreams/provider-governance-durable-batch-execution/` (closed);
 - `proposed:provider-review-related-hierarchy-application`;
 - `proposed:douban-tv-episode-endpoint-depth`;
 - `proposed:provider-review-public-client-governance`;

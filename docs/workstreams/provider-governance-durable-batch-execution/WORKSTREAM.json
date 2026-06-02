@@ -2,12 +2,20 @@
   "schema_version": 1,
   "slug": "provider-governance-durable-batch-execution",
   "title": "Provider Governance Durable Batch Execution",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-06-02",
   "scope_kind": "admin_metadata_candidate_review_durable_batch_execution",
   "problem": "Metadata Candidate Review batch apply is currently bounded and synchronous; durable progress, cancellation, retry-ready status, and larger operator selections need an ADR 0053 job-backed control-plane boundary.",
   "task_prefix": "PGDBE",
-  "current_task": "PGDBE-060",
+  "current_task": null,
+  "completed_tasks": [
+    "PGDBE-010",
+    "PGDBE-020",
+    "PGDBE-030",
+    "PGDBE-040",
+    "PGDBE-050",
+    "PGDBE-060"
+  ],
   "authoritative_docs": [
     {
       "role": "overview",
@@ -40,6 +48,10 @@
     {
       "role": "handoff",
       "path": "docs/workstreams/provider-governance-durable-batch-execution/HANDOFF.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/provider-governance-durable-batch-execution/CLOSEOUT.md"
     }
   ],
   "context_manifest": "docs/workstreams/provider-governance-durable-batch-execution/CONTEXT.jsonl",
@@ -72,6 +84,10 @@
     {
       "task": "PGDBE-050",
       "summary": "Connected Web Admin Candidate Review batch selection to durable batch create/status APIs, rendered queued/running/completed/failed/cancelled status safely, added route/data-source coverage for raw-key and provider-payload redaction, and kept the Web bundle under budget."
+    },
+    {
+      "task": "PGDBE-060",
+      "summary": "Closed the durable batch execution lane after fresh Web, docs, JSON/JSONL, local route smoke, and diff-check evidence, and kept Public Client API, related hierarchy application, provider endpoint breadth, scheduler priority, and audit/undo as focused follow-ons."
     }
   ],
   "adr_refs": [
@@ -107,8 +123,8 @@
   ],
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
-    "default_action": "continue",
-    "current_task": "PGDBE-060",
-    "notes": "PGDBE-050 is accepted. Continue with workstream closeout. Stop before Public Client API exposure, related hierarchy application, provider endpoint breadth, audit/undo, or scheduler priority expansion unless a later task/campaign explicitly owns that scope."
+    "default_action": "closed",
+    "current_task": null,
+    "notes": "Provider Governance Durable Batch Execution is closed. Open focused follow-on workstreams before adding Public Client API exposure, related hierarchy application, provider endpoint breadth, audit/undo, scheduler priority expansion, or broader operations repair."
   }
 }
