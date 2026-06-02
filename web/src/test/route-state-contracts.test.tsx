@@ -1022,8 +1022,10 @@ describe("route state contracts", () => {
           return jsonResponse(adminMetadataCandidateReviewQueueResponse())
         case "POST /admin/v1/metadata/candidate-reviews/batch-application-plan":
           return jsonResponse(adminMetadataCandidateReviewBatchPlanResponse(["review-live-older"]))
-        case "POST /admin/v1/metadata/candidate-reviews/batch-apply":
-          return jsonResponse(adminMetadataCandidateReviewBatchApplyResponse(["review-live-older"]))
+        case "POST /admin/v1/metadata/candidate-reviews/batches":
+          return jsonResponse(adminMetadataCandidateReviewBatchResponse(["review-live-older"], "queued"))
+        case "GET /admin/v1/metadata/candidate-reviews/batches/candidate-review-batch-live":
+          return jsonResponse(adminMetadataCandidateReviewBatchResponse(["review-live-older"], "completed"))
         default:
           return jsonResponse({ code: "not_found", message: "not found" }, 404)
       }
@@ -1062,12 +1064,14 @@ describe("route state contracts", () => {
       await user.click(screen.getByRole("button", { name: "确认批量应用" }))
 
       expect(
-        await screen.findByText("批量 Candidate Review 已应用到 root Provider Mapping", {}, { timeout: 10000 }),
+        await screen.findByText("completed", {}, { timeout: 10000 }),
       ).toBeInTheDocument()
+      expect(screen.getByText(/candidate-review-batch-live/)).toBeInTheDocument()
       expect(screen.getByText(/mapping-batch-live/)).toBeInTheDocument()
       expect(screen.queryByText("secret candidate overview")).not.toBeInTheDocument()
       expect(screen.queryByText("provider secret response")).not.toBeInTheDocument()
       expect(screen.queryByText("unsafe-batch-idempotency-key")).not.toBeInTheDocument()
+      expect(screen.queryByText("unsafe-item-idempotency-key")).not.toBeInTheDocument()
       expect(screen.queryByText("admin-token")).not.toBeInTheDocument()
 
       expect(calls).toContainEqual({
@@ -1079,7 +1083,7 @@ describe("route state contracts", () => {
       const confirmCall = calls.find(
         (call) =>
           call.method === "POST" &&
-          call.path === "/admin/v1/metadata/candidate-reviews/batch-apply",
+          call.path === "/admin/v1/metadata/candidate-reviews/batches",
       )
       expect(confirmCall?.body).toMatchObject({
         reviews: [
@@ -1094,6 +1098,12 @@ describe("route state contracts", () => {
         ),
       })
       expect(confirmCall?.authorization).toBe("Bearer admin-token")
+      expect(calls).toContainEqual({
+        method: "GET",
+        path: "/admin/v1/metadata/candidate-reviews/batches/candidate-review-batch-live",
+        body: undefined,
+        authorization: "Bearer admin-token",
+      })
     } finally {
       vi.stubGlobal("fetch", originalFetch)
       restoreStorage(window.localStorage, CONNECTION_PROFILE_STORAGE_KEY, previousProfile)
@@ -2785,6 +2795,81 @@ function adminMetadataCandidateReviewBatchApplyResponse(reviewIds = ["review-liv
       idempotency_key: "unsafe-batch-idempotency-key",
     })),
     raw_provider_response: "provider secret response",
+  }
+}
+
+function adminMetadataCandidateReviewBatchResponse(
+  reviewIds = ["review-live-older"],
+  status: "queued" | "running" | "completed" | "failed" | "cancelled" = "completed",
+) {
+  const completed = status === "completed"
+  const failed = status === "failed"
+  const pending = status === "queued" || status === "running"
+
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    batch: {
+      id: "candidate-review-batch-live",
+      job_id: "candidate-review-batch-job-live",
+      status,
+      idempotency_key_fingerprint: "batch-fingerprint",
+      selection: {
+        requested_review_count: reviewIds.length,
+        selected_review_count: reviewIds.length,
+        duplicate_review_count: 0,
+        max_review_count: 50,
+      },
+      summary: {
+        requested_count: reviewIds.length,
+        returned_count: reviewIds.length,
+        max_review_count: 50,
+        apply_count: reviewIds.length,
+        noop_count: 0,
+        skip_count: 0,
+      },
+      execution_summary: {
+        total_item_count: reviewIds.length,
+        pending_item_count: pending ? reviewIds.length : 0,
+        skipped_item_count: 0,
+        blocked_item_count: 0,
+        applied_item_count: completed ? reviewIds.length : 0,
+        noop_item_count: 0,
+        stale_item_count: 0,
+        conflict_item_count: 0,
+        failed_item_count: failed ? reviewIds.length : 0,
+      },
+      items: reviewIds.map((reviewId, position) => ({
+        review_id: reviewId,
+        item_id: "item-live-other",
+        position,
+        status: completed ? "applied" : failed ? "failed" : "pending",
+        idempotency_key_fingerprint: `row-fingerprint-${position}`,
+        expected_updated_at_ms: 300,
+        provider_subject_id: completed ? "subject-live" : null,
+        provider_mapping_id: completed ? "mapping-batch-live" : null,
+        error: failed
+          ? {
+              code: "provider_mapping_conflict",
+              message: "Provider Mapping changed before apply",
+            }
+          : null,
+        plan: adminMetadataCandidateReviewApplicationPlan(reviewId, "apply", ["ready"]),
+        boundary: adminMetadataCandidateReviewBoundary({
+          read_only: false,
+          applies_on_read: false,
+          apply_mutation_required: true,
+        }),
+        created_at: "2026-06-02T02:00:00Z",
+        updated_at: "2026-06-02T02:01:00Z",
+        idempotency_key: "unsafe-item-idempotency-key",
+        raw_provider_response: "provider secret response",
+      })),
+      created_at: "2026-06-02T02:00:00Z",
+      updated_at: "2026-06-02T02:01:00Z",
+      idempotency_key: "unsafe-batch-idempotency-key",
+      raw_provider_response: "provider secret response",
+    },
   }
 }
 

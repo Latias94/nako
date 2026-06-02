@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select"
 import {
   createAdminReadModelsDataSource,
+  type AdminMetadataCandidateReviewBatchReadModel,
   type AdminMetadataCandidateReviewBatchPlanReadModel,
   type AdminMetadataCandidateReviewListItemReadModel,
   type AdminMetadataCandidateReviewListReadModel,
@@ -24,7 +25,7 @@ import {
 } from "@/src/api/admin/read-models-data-source"
 import {
   createAdminMutationDataSource,
-  type AdminMetadataCandidateReviewBatchApplyMutationResult,
+  type AdminMetadataCandidateReviewBatchCreateMutationResult,
   type AdminMetadataCandidateReviewApplyMutationResult,
 } from "@/src/api/admin/mutations-data-source"
 
@@ -101,6 +102,7 @@ export function AdminMetadataCandidateReview({
   const [armed, setArmed] = useState(false)
   const [selectedReviewIds, setSelectedReviewIds] = useState<string[]>([])
   const [idempotencyKey, setIdempotencyKey] = useState("")
+  const [batchId, setBatchId] = useState<string | null>(null)
   const queryClient = useQueryClient()
   const readDataSource = useMemo(() => createAdminReadModelsDataSource(), [])
   const mutationDataSource = useMemo(() => createAdminMutationDataSource(), [])
@@ -210,14 +212,14 @@ export function AdminMetadataCandidateReview({
     mutationFn: () => readDataSource.loadMetadataCandidateReviewBatchPlan(selectedReviewIds),
   })
 
-  const batchApplyMutation = useMutation({
+  const batchCreateMutation = useMutation({
     mutationFn: () => {
       const plan = batchPlanMutation.data
       if (!plan || plan.fallback) {
         throw new Error("Batch plan is not loaded from live Admin API")
       }
 
-      return mutationDataSource.confirmMetadataCandidateReviewBatchApply(
+      return mutationDataSource.createMetadataCandidateReviewBatch(
         plan.reviews.map((review) => ({
           reviewId: review.reviewId,
           itemId: review.itemId,
@@ -226,7 +228,8 @@ export function AdminMetadataCandidateReview({
         createCandidateReviewBatchApplyIdempotencyKey(plan.reviews.map((review) => review.reviewId)),
       )
     },
-    onSuccess: () => {
+    onSuccess: (batch) => {
+      setBatchId(batch.id)
       void queryClient.invalidateQueries({
         queryKey: metadataCandidateReviewQueueQueryKey(
           normalizedRouteState.status,
@@ -243,13 +246,28 @@ export function AdminMetadataCandidateReview({
     },
   })
 
+  const batchStatusQuery = useQuery({
+    queryKey: metadataCandidateReviewBatchQueryKey(batchId ?? ""),
+    queryFn: () => readDataSource.loadMetadataCandidateReviewBatch(batchId ?? ""),
+    enabled: Boolean(batchId),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status
+      return status === "queued" || status === "running" ? 2_000 : false
+    },
+    staleTime: 5 * 1000,
+    retry: 0,
+  })
+
+  const currentBatch = batchStatusQuery.data ?? batchCreateMutation.data
+
   const selectedReviewIdSet = useMemo(() => new Set(selectedReviewIds), [selectedReviewIds])
   const selectedReviewIdsKey = selectedReviewIds.join("|")
 
   useEffect(() => {
     setSelectedReviewIds([])
+    setBatchId(null)
     batchPlanMutation.reset()
-    batchApplyMutation.reset()
+    batchCreateMutation.reset()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     mode,
@@ -261,8 +279,9 @@ export function AdminMetadataCandidateReview({
   ])
 
   useEffect(() => {
+    setBatchId(null)
     batchPlanMutation.reset()
-    batchApplyMutation.reset()
+    batchCreateMutation.reset()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedReviewIdsKey])
 
@@ -362,7 +381,6 @@ export function AdminMetadataCandidateReview({
   const canRequestBatchPlan =
     mode === "queue" && selectedReviewIds.length > 0 && !batchPlanMutation.isPending
   const batchPlan = batchPlanMutation.data
-  const batchApplyResult = batchApplyMutation.data
 
   const mutationUnavailable = !mutationDataSource.canMutate
   const planFallback = Boolean(data?.fallback && mutationDataSource.canMutate)
@@ -498,13 +516,13 @@ export function AdminMetadataCandidateReview({
       {mode === "queue" && (
         <CandidateReviewBatchPanel
           plan={batchPlan}
-          result={batchApplyResult}
+          batch={currentBatch}
           planError={batchPlanMutation.error}
-          applyError={batchApplyMutation.error}
+          createError={batchCreateMutation.error}
           mutationUnavailable={mutationUnavailable}
           mutationUnavailableReason={mutationDataSource.unavailableReason}
-          isApplying={batchApplyMutation.isPending}
-          onConfirm={() => batchApplyMutation.mutate()}
+          isCreating={batchCreateMutation.isPending}
+          onConfirm={() => batchCreateMutation.mutate()}
         />
       )}
 
@@ -699,6 +717,10 @@ function metadataCandidateReviewListQueryKey(itemId: string, limit: number, offs
 
 function metadataCandidateReviewQueryKey(reviewId: string) {
   return ["nako", "admin", "metadata-candidate-review", reviewId] as const
+}
+
+function metadataCandidateReviewBatchQueryKey(batchId: string) {
+  return ["nako", "admin", "metadata-candidate-review-batch", batchId] as const
 }
 
 function ReviewHeader({
@@ -919,44 +941,38 @@ function CandidateReviewListRow({
 
 function CandidateReviewBatchPanel({
   plan,
-  result,
+  batch,
   planError,
-  applyError,
+  createError,
   mutationUnavailable,
   mutationUnavailableReason,
-  isApplying,
+  isCreating,
   onConfirm,
 }: {
   plan?: AdminMetadataCandidateReviewBatchPlanReadModel
-  result?: AdminMetadataCandidateReviewBatchApplyMutationResult
+  batch?: AdminMetadataCandidateReviewBatchReadModel | AdminMetadataCandidateReviewBatchCreateMutationResult
   planError: unknown
-  applyError: unknown
+  createError: unknown
   mutationUnavailable: boolean
   mutationUnavailableReason?: string
-  isApplying: boolean
+  isCreating: boolean
   onConfirm: () => void
 }) {
-  if (!plan && !result && !planError && !applyError) {
+  if (!plan && !batch && !planError && !createError) {
     return null
   }
 
   const planFallback = Boolean(plan?.fallback)
   const canConfirm = plan
-    ? !planFallback && !mutationUnavailable && !isApplying && plan.reviews.length > 0
+    ? !planFallback && !mutationUnavailable && !isCreating && plan.reviews.length > 0
     : false
   const unavailableMessage = mutationUnavailable
     ? mutationUnavailableReason ?? "当前连接不能执行管理操作"
     : planFallback
       ? "Batch plan is fixture data and cannot be confirmed."
-      : "Confirming applies only the planned root rows."
+      : "Confirming creates a durable apply batch."
   const planRows = plan?.reviews
     .map((review) => `${review.reviewId} · ${review.itemId} · ${review.applicationAction}`)
-    .join(" | ")
-  const resultRows = result?.results
-    .map((row) => {
-      const reason = row.error?.message ?? (row.reasons.join(", ") || "ok")
-      return `${row.reviewId} · ${row.status} · ${reason} · ${row.mappingId ?? "no mapping"}`
-    })
     .join(" | ")
 
   return (
@@ -995,30 +1011,60 @@ function CandidateReviewBatchPanel({
 
           <div className="mt-3 flex flex-wrap justify-end gap-2">
             <Button type="button" size="sm" disabled={!canConfirm} onClick={onConfirm}>
-              {isApplying ? "应用中" : "确认批量应用"}
+              {isCreating ? "正在提交" : "确认批量应用"}
             </Button>
           </div>
         </>
       )}
 
-      {applyError instanceof Error && (
-        <div className="mt-3 text-sm text-destructive">{applyError.message}</div>
+      {createError instanceof Error && (
+        <div className="mt-3 text-sm text-destructive">{createError.message}</div>
       )}
 
-      {result && (
-        <div className="mt-4 border-t border-border/50 pt-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-foreground">{result.message}</span>
-            <Badge variant={result.summary.failedCount > 0 ? "secondary" : "outline"}>
-              failed {result.summary.failedCount}
-            </Badge>
-          </div>
-          <div className="mt-3 break-words rounded-md border border-border/50 p-3 font-mono text-xs text-muted-foreground">
-            {resultRows || "no result rows"}
-          </div>
-        </div>
+      {batch && (
+        <CandidateReviewBatchStatus
+          batch={batch}
+        />
       )}
     </section>
+  )
+}
+
+function CandidateReviewBatchStatus({
+  batch,
+}: {
+  batch: AdminMetadataCandidateReviewBatchReadModel | AdminMetadataCandidateReviewBatchCreateMutationResult
+}) {
+  const message = "message" in batch ? batch.message : "Batch status"
+  const rows = batch.items
+    .map((item) => `${item.reviewId} · ${item.status} · ${item.providerMappingId ?? "none"}`)
+    .join(" | ")
+
+  return (
+    <div className="mt-4 rounded-lg border border-success/30 bg-success/5 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium text-foreground">{message}</span>
+        <Badge
+          variant={
+            batch.status === "completed"
+              ? "default"
+              : batch.status === "failed" || batch.status === "cancelled"
+                ? "secondary"
+                : "outline"
+          }
+        >
+          {batch.status}
+        </Badge>
+      </div>
+
+      <div className="mt-2 break-words font-mono text-xs text-muted-foreground">
+        {batch.id}
+      </div>
+
+      <div className="mt-3 break-words rounded-md border border-success/20 p-3 font-mono text-xs text-muted-foreground">
+        {rows || "no batch rows"}
+      </div>
+    </div>
   )
 }
 

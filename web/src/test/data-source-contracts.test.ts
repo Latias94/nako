@@ -800,6 +800,81 @@ function adminMetadataCandidateReviewApplyResponse(reviewId = "review-live") {
   }
 }
 
+function adminMetadataCandidateReviewBatchResponse(
+  reviewIds = ["review/unsafe id"],
+  status: "queued" | "running" | "completed" | "failed" | "cancelled" = "completed",
+) {
+  const completed = status === "completed"
+  const failed = status === "failed"
+  const pending = status === "queued" || status === "running"
+
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    batch: {
+      id: "candidate-review-batch-live",
+      job_id: "candidate-review-batch-job-live",
+      status,
+      idempotency_key_fingerprint: "batch-key-fingerprint",
+      selection: {
+        requested_review_count: reviewIds.length,
+        selected_review_count: reviewIds.length,
+        duplicate_review_count: 0,
+        max_review_count: 50,
+      },
+      summary: {
+        requested_count: reviewIds.length,
+        returned_count: reviewIds.length,
+        max_review_count: 50,
+        apply_count: reviewIds.length,
+        noop_count: 0,
+        skip_count: 0,
+      },
+      execution_summary: {
+        total_item_count: reviewIds.length,
+        pending_item_count: pending ? reviewIds.length : 0,
+        skipped_item_count: 0,
+        blocked_item_count: 0,
+        applied_item_count: completed ? reviewIds.length : 0,
+        noop_item_count: 0,
+        stale_item_count: 0,
+        conflict_item_count: 0,
+        failed_item_count: failed ? reviewIds.length : 0,
+      },
+      items: reviewIds.map((reviewId, position) => ({
+        review_id: reviewId,
+        item_id: "item-live",
+        position,
+        status: completed ? "applied" : failed ? "failed" : "pending",
+        idempotency_key_fingerprint: `row-key-fingerprint-${position}`,
+        expected_updated_at_ms: 300,
+        provider_subject_id: completed ? "subject-live" : null,
+        provider_mapping_id: completed ? "mapping-batch-live" : null,
+        error: failed
+          ? {
+              code: "provider_mapping_conflict",
+              message: "Provider Mapping changed before apply",
+            }
+          : null,
+        plan: adminMetadataCandidateReviewApplicationPlan(reviewId, "apply", ["ready"]),
+        boundary: adminMetadataCandidateReviewBoundary({
+          read_only: false,
+          applies_on_read: false,
+          apply_mutation_required: true,
+        }),
+        created_at: "2026-06-02T02:00:00Z",
+        updated_at: "2026-06-02T02:01:00Z",
+        idempotency_key: "unsafe-item-idempotency-key",
+        raw_provider_response: "provider secret response",
+      })),
+      created_at: "2026-06-02T02:00:00Z",
+      updated_at: "2026-06-02T02:01:00Z",
+      idempotency_key: "unsafe-batch-idempotency-key",
+      raw_provider_response: "provider secret response",
+    },
+  }
+}
+
 function adminMetadataCandidateReviewDetail(reviewId = "review-live") {
   const rootSubject = adminMetadataCandidateSubject("subject", "1437", "Live Candidate")
   const childSubject = adminMetadataCandidateSubject("episode", "1437/1", "Episode One")
@@ -4290,6 +4365,113 @@ describe("admin mutation data source contracts", () => {
     expect(serialized).not.toContain("provider-secret")
     expect(serialized).not.toContain("artifact_storage_handle")
     expect(serialized).not.toContain("web-metadata-candidate-review-apply:review-unsafe-id:test")
+  })
+
+  it("maps live Admin metadata candidate review durable batch creation and status", async () => {
+    const calls: Array<{ method: string; path: string; body?: unknown; authorization: string | null }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      const rawBody = typeof init?.body === "string" ? JSON.parse(init.body) : undefined
+      calls.push({
+        method: init?.method ?? "GET",
+        path: url.pathname,
+        body: rawBody,
+        authorization: new Headers(init?.headers).get("Authorization"),
+      })
+
+      switch (`${init?.method ?? "GET"} ${url.pathname}`) {
+        case "POST /admin/v1/metadata/candidate-reviews/batches":
+          return jsonResponse(adminMetadataCandidateReviewBatchResponse(["review/unsafe id"], "queued"))
+        case "GET /admin/v1/metadata/candidate-reviews/batches/candidate-review-batch-live":
+          return jsonResponse(adminMetadataCandidateReviewBatchResponse(["review/unsafe id"], "completed"))
+        default:
+          return jsonResponse({ message: "not found" }, 404)
+      }
+    })
+    const connection = {
+      mode: "live" as const,
+      baseUrl: "http://nako-admin.test",
+      bearerToken: "admin-token",
+    }
+    const mutationSource = createAdminMutationDataSource(connection, fetcher)
+    const readSource = createAdminReadModelsDataSource(connection, fetcher)
+
+    const confirmed = await mutationSource.createMetadataCandidateReviewBatch(
+      [
+        {
+          reviewId: "review/unsafe id",
+          itemId: "item-live",
+          expectedUpdatedAtMs: 300,
+        },
+      ],
+      "web-metadata-candidate-review-batch-apply:test",
+    )
+    const status = await readSource.loadMetadataCandidateReviewBatch("candidate-review-batch-live")
+
+    expect(confirmed).toMatchObject({
+      kind: "metadata-candidate-review.batch-create",
+      id: "candidate-review-batch-live",
+      jobId: "candidate-review-batch-job-live",
+      status: "queued",
+      selection: {
+        selectedReviewCount: 1,
+      },
+      summary: {
+        applyCount: 1,
+      },
+      executionSummary: {
+        pendingItemCount: 1,
+      },
+    })
+    expect(status).toMatchObject({
+      source: "live",
+      fallback: false,
+      id: "candidate-review-batch-live",
+      status: "completed",
+      executionSummary: {
+        appliedItemCount: 1,
+        failedItemCount: 0,
+      },
+      items: [
+        expect.objectContaining({
+          reviewId: "review/unsafe id",
+          itemId: "item-live",
+          status: "applied",
+          providerMappingId: "mapping-batch-live",
+          error: null,
+        }),
+      ],
+    })
+
+    expect(calls).toEqual([
+      {
+        method: "POST",
+        path: "/admin/v1/metadata/candidate-reviews/batches",
+        body: {
+          reviews: [
+            {
+              review_id: "review/unsafe id",
+              item_id: "item-live",
+              expected_updated_at_ms: 300,
+            },
+          ],
+          idempotency_key: "web-metadata-candidate-review-batch-apply:test",
+        },
+        authorization: "Bearer admin-token",
+      },
+      {
+        method: "GET",
+        path: "/admin/v1/metadata/candidate-reviews/batches/candidate-review-batch-live",
+        body: undefined,
+        authorization: "Bearer admin-token",
+      },
+    ])
+
+    const serialized = JSON.stringify({ confirmed, status })
+    expect(serialized).not.toContain("provider secret response")
+    expect(serialized).not.toContain("unsafe-batch-idempotency-key")
+    expect(serialized).not.toContain("unsafe-item-idempotency-key")
+    expect(serialized).not.toContain("web-metadata-candidate-review-batch-apply:test")
   })
 
   it("maps live Admin generated artifact metadata bulk apply confirmation and batch status", async () => {

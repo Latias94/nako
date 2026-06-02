@@ -151,13 +151,52 @@ Green gates:
 - `git diff --check`
   - Result: passed; Git emitted CRLF normalization warnings only.
 
+## PGDBE-050 Evidence
+
+Implemented:
+
+- Web Admin client methods for durable Candidate Review batch creation and
+  status lookup:
+  - `POST /admin/v1/metadata/candidate-reviews/batches`
+  - `GET /admin/v1/metadata/candidate-reviews/batches/{batch_id}`
+- Web read-model mapping for durable batch status, selection, execution
+  summary, and redaction-safe item outcomes.
+- Web mutation data source now creates durable Candidate Review batches from
+  selected planned review rows instead of using the old synchronous Web batch
+  apply path.
+- Candidate Review Admin page renders durable batch status, polls
+  queued/running status through TanStack Query, and shows compact redaction-safe
+  item result rows.
+- Data-source and route-state tests prove request bodies, status reads, and UI
+  rendering do not expose raw idempotency keys, provider payloads, bearer
+  tokens, local paths, or source fingerprints.
+- Removed the obsolete Web synchronous Candidate Review `batch-apply` client
+  and read-model mapper to avoid stale UI boundary reuse and keep bundle budget
+  green.
+
+Green gates:
+
+- `npm --prefix web run check`
+  - Result: passed.
+- `npm --prefix web run test`
+  - Result: passed, 10 test files / 122 tests.
+- `npm --prefix web run build:budget`
+  - Result: passed; total JS gzip was 344.96 KiB against the 345 KiB limit.
+- Local route smoke:
+  - Result: existing local Web servers at
+    `http://127.0.0.1:3000/admin/metadata/candidate-reviews?status=accepted&provider=bangumi&limit=25&offset=0`
+    and the same route on port `3001` returned HTTP 200 with 1155-byte SPA
+    entry HTML.
+- `git diff --check`
+  - Result: passed; Git emitted CRLF normalization warnings only.
+
 ## Later Gates
 
-`PGDBE-050`:
+`PGDBE-060`:
 
-- Web Admin can create/read/poll durable batches.
-- Route-state tests and browser smoke prove no raw provider, secret, path,
-  source fingerprint, or raw idempotency-key facts render.
+- Closeout docs must reconcile final scope, accepted evidence, and follow-ons
+  for Public Client API, audit/undo, provider endpoint breadth, and related
+  hierarchy application.
 
 ## Tooling Gap
 

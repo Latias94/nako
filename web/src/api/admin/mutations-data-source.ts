@@ -4,9 +4,9 @@ import {
   mapGeneratedArtifactMetadataBulkApplyBatchResponse,
   mapGeneratedArtifactMetadataApplyPlan,
   mapGeneratedArtifactReviewPlanResponse,
-  mapMetadataCandidateReviewBatchApplyResponse,
+  mapMetadataCandidateReviewBatchResponse,
   mapMetadataCandidateReviewApplyResponse,
-  type AdminMetadataCandidateReviewBatchApplyReadModel,
+  type AdminMetadataCandidateReviewBatchReadModel,
   type AdminMetadataCandidateReviewApplyReadModel,
   type AdminGeneratedArtifactReviewDecision,
   type AdminGeneratedArtifactMetadataBulkApplyBatchReadModel,
@@ -38,7 +38,7 @@ export type AdminMutationKind =
   | "generated-artifact.review"
   | "generated-artifact.metadata-apply"
   | "generated-artifact.metadata-bulk-apply"
-  | "metadata-candidate-review.batch-apply"
+  | "metadata-candidate-review.batch-create"
 
 export interface AdminMutationResult {
   kind: AdminMutationKind
@@ -88,15 +88,15 @@ export interface AdminMetadataCandidateReviewApplyMutationResult
   message: string
 }
 
-export interface AdminMetadataCandidateReviewBatchApplyMutationRequestItem {
+export interface AdminMetadataCandidateReviewBatchMutationRequestItem {
   reviewId: string
   itemId: string
   expectedUpdatedAtMs: number | null
 }
 
-export interface AdminMetadataCandidateReviewBatchApplyMutationResult
-  extends AdminMetadataCandidateReviewBatchApplyReadModel {
-  kind: "metadata-candidate-review.batch-apply"
+export interface AdminMetadataCandidateReviewBatchCreateMutationResult
+  extends AdminMetadataCandidateReviewBatchReadModel {
+  kind: "metadata-candidate-review.batch-create"
   message: string
 }
 
@@ -131,10 +131,10 @@ export interface AdminMutationDataSource {
     reviewId: string,
     request: AdminMetadataCandidateReviewApplyMutationRequest,
   ): Promise<AdminMetadataCandidateReviewApplyMutationResult>
-  confirmMetadataCandidateReviewBatchApply(
-    reviews: AdminMetadataCandidateReviewBatchApplyMutationRequestItem[],
+  createMetadataCandidateReviewBatch(
+    reviews: AdminMetadataCandidateReviewBatchMutationRequestItem[],
     idempotencyKey: string,
-  ): Promise<AdminMetadataCandidateReviewBatchApplyMutationResult>
+  ): Promise<AdminMetadataCandidateReviewBatchCreateMutationResult>
 }
 
 export function createAdminMutationDataSource(
@@ -254,8 +254,8 @@ export function createAdminMutationDataSource(
       return mapMetadataCandidateReviewApplyMutationResponse(response)
     },
 
-    async confirmMetadataCandidateReviewBatchApply(reviews, idempotencyKey) {
-      const response = await client.applyMetadataCandidateReviewBatch({
+    async createMetadataCandidateReviewBatch(reviews, idempotencyKey) {
+      const response = await client.createMetadataCandidateReviewBatch({
         idempotency_key: idempotencyKey,
         reviews: reviews.map((review) => ({
           review_id: review.reviewId,
@@ -263,7 +263,7 @@ export function createAdminMutationDataSource(
           expected_updated_at_ms: review.expectedUpdatedAtMs,
         })),
       })
-      return mapMetadataCandidateReviewBatchApplyMutationResponse(response)
+      return mapMetadataCandidateReviewBatchCreateMutationResponse(response)
     },
   }
 }
@@ -288,8 +288,8 @@ function disabledMutationDataSource(reason: string): AdminMutationDataSource {
     async (): Promise<AdminMetadataCandidateReviewApplyMutationResult> => {
       throw new Error(reason)
     }
-  const rejectMetadataCandidateReviewBatchApply =
-    async (): Promise<AdminMetadataCandidateReviewBatchApplyMutationResult> => {
+  const rejectMetadataCandidateReviewBatchCreate =
+    async (): Promise<AdminMetadataCandidateReviewBatchCreateMutationResult> => {
       throw new Error(reason)
     }
 
@@ -310,7 +310,7 @@ function disabledMutationDataSource(reason: string): AdminMutationDataSource {
     applyGeneratedArtifactMetadata: rejectGeneratedArtifactMetadataApply,
     confirmGeneratedArtifactMetadataBulkApplyBatch: rejectGeneratedArtifactMetadataBulkApply,
     applyMetadataCandidateReview: rejectMetadataCandidateReviewApply,
-    confirmMetadataCandidateReviewBatchApply: rejectMetadataCandidateReviewBatchApply,
+    createMetadataCandidateReviewBatch: rejectMetadataCandidateReviewBatchCreate,
   }
 }
 
@@ -416,15 +416,15 @@ function mapMetadataCandidateReviewApplyMutationResponse(
   }
 }
 
-function mapMetadataCandidateReviewBatchApplyMutationResponse(
-  response: Parameters<typeof mapMetadataCandidateReviewBatchApplyResponse>[0],
-): AdminMetadataCandidateReviewBatchApplyMutationResult {
-  const result = mapMetadataCandidateReviewBatchApplyResponse(response)
+function mapMetadataCandidateReviewBatchCreateMutationResponse(
+  response: Parameters<typeof mapMetadataCandidateReviewBatchResponse>[0],
+): AdminMetadataCandidateReviewBatchCreateMutationResult {
+  const result = mapMetadataCandidateReviewBatchResponse(response)
 
   return {
     ...result,
-    kind: "metadata-candidate-review.batch-apply",
-    message: metadataCandidateReviewBatchApplyMessage(result),
+    kind: "metadata-candidate-review.batch-create",
+    message: metadataCandidateReviewBatchMessage(),
   }
 }
 
@@ -442,27 +442,6 @@ function metadataCandidateReviewApplyMessage(result: AdminMetadataCandidateRevie
     : "Candidate Review 已应用，没有 Provider Mapping 变更"
 }
 
-function metadataCandidateReviewBatchApplyMessage(
-  result: AdminMetadataCandidateReviewBatchApplyReadModel,
-) {
-  const problemCount =
-    result.summary.skippedCount +
-    result.summary.blockedCount +
-    result.summary.staleCount +
-    result.summary.conflictCount +
-    result.summary.failedCount
-
-  if (problemCount > 0) {
-    return "批量 Candidate Review 应用完成，存在未应用行"
-  }
-
-  if (result.summary.changedCount > 0) {
-    return "批量 Candidate Review 已应用到 root Provider Mapping"
-  }
-
-  if (result.summary.noopCount > 0 || result.summary.replayCount > 0) {
-    return "批量 Candidate Review 已返回幂等结果"
-  }
-
-  return "批量 Candidate Review 没有可应用变更"
+function metadataCandidateReviewBatchMessage() {
+  return "批量 Candidate Review 批次已提交"
 }

@@ -48,14 +48,14 @@ Last updated: 2026-06-02
 
 ## M4 - Web Admin Durable Batch Status
 
-- [ ] PGDBE-050 [owner=codex] [deps=PGDBE-040] [scope=web/src/api/admin,web/src/features/admin,web/src/test,web/scripts,docs/workstreams/provider-governance-durable-batch-execution]
+- [x] PGDBE-050 [owner=codex] [deps=PGDBE-040] [scope=web/src/api/admin,web/src/features/admin,web/src/test,web/scripts,docs/workstreams/provider-governance-durable-batch-execution]
   Goal: Let Web Admin create a durable Candidate Review batch from selected reviews, navigate to or render batch status, and poll redaction-safe results.
-  Validation: `npm --prefix web run check`; `npm --prefix web run test`; `npm --prefix web run build:budget`; browser smoke if route behavior changes; `git diff --check`.
+  Validation: `npm --prefix web run check`; `npm --prefix web run test`; `npm --prefix web run build:budget`; browser or local HTTP route smoke if route behavior changes; `git diff --check`.
   Review: Web must distinguish queued/running/completed/failed/cancelled status and must not render raw idempotency keys, provider payloads, tokens, local paths, or source fingerprints.
-  Evidence: `EVIDENCE_AND_GATES.md`, route-state tests, browser smoke.
+  Evidence: `EVIDENCE_AND_GATES.md`, `JOURNAL/2026-06-02-PGDBE-050.md`, data-source and route-state tests, local HTTP route smoke.
   Context: `CONTEXT.jsonl`
-  Handoff: Keep Public Client API and audit/undo split.
-  State: `TASKS.jsonl` entry `PGDBE-050` records status and evidence.
+  Handoff: DONE. Continue with `PGDBE-060` closeout; keep Public Client API and audit/undo split.
+  State: `TASKS.jsonl` entry `PGDBE-050` is accepted.
 
 ## M5 - Closeout
 

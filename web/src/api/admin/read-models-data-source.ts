@@ -38,9 +38,13 @@ import type {
   AdminMetadataCandidateReviewApplicationBoundary,
   AdminMetadataCandidateReviewApplicationPlan,
   AdminMetadataCandidateReviewApplyResponse,
-  AdminMetadataCandidateReviewBatchApplyResponse,
-  AdminMetadataCandidateReviewBatchApplyResult,
+  AdminMetadataCandidateReviewBatch,
+  AdminMetadataCandidateReviewBatchExecutionSummary,
+  AdminMetadataCandidateReviewBatchItem,
+  AdminMetadataCandidateReviewBatchPlanSelection,
+  AdminMetadataCandidateReviewBatchPlanSummary,
   AdminMetadataCandidateReviewBatchPlanResponse,
+  AdminMetadataCandidateReviewBatchResponse,
   AdminMetadataCandidateReviewDetail,
   AdminMetadataCandidateReviewListEntry,
   AdminMetadataCandidateReviewListResponse,
@@ -770,42 +774,52 @@ export interface AdminMetadataCandidateReviewApplyReadModel extends AdminReadMod
   boundary: AdminMetadataCandidateReviewBoundaryReadModel
 }
 
-export interface AdminMetadataCandidateReviewBatchApplySummaryReadModel {
-  requestedCount: number
-  returnedCount: number
-  maxReviewCount: number
-  appliedCount: number
-  changedCount: number
-  noopCount: number
-  replayCount: number
-  skippedCount: number
-  blockedCount: number
-  staleCount: number
-  conflictCount: number
-  failedCount: number
-}
-
 export interface AdminMetadataCandidateReviewBatchApplyErrorReadModel {
   code: string
   message: string
 }
 
-export interface AdminMetadataCandidateReviewBatchApplyResultReadModel {
+export interface AdminMetadataCandidateReviewBatchSelectionReadModel {
+  requestedReviewCount: number
+  selectedReviewCount: number
+  duplicateReviewCount: number
+  maxReviewCount: number
+}
+
+export interface AdminMetadataCandidateReviewBatchExecutionSummaryReadModel {
+  totalItemCount: number
+  pendingItemCount: number
+  skippedItemCount: number
+  blockedItemCount: number
+  appliedItemCount: number
+  noopItemCount: number
+  staleItemCount: number
+  conflictItemCount: number
+  failedItemCount: number
+}
+
+export interface AdminMetadataCandidateReviewBatchItemReadModel {
   reviewId: string
+  itemId: string
+  position: number
   status: string
-  changed: boolean
-  reasons: string[]
-  mappingId: string | null
+  providerSubjectId: string | null
+  providerMappingId: string | null
   error: AdminMetadataCandidateReviewBatchApplyErrorReadModel | null
 }
 
-export interface AdminMetadataCandidateReviewBatchApplyReadModel extends AdminReadModelEnvelope {
+export interface AdminMetadataCandidateReviewBatchReadModel extends AdminReadModelEnvelope {
   versions: {
     adminApi: string
     publicApi: string
   }
-  summary: AdminMetadataCandidateReviewBatchApplySummaryReadModel
-  results: AdminMetadataCandidateReviewBatchApplyResultReadModel[]
+  id: string
+  jobId: string
+  status: string
+  selection: AdminMetadataCandidateReviewBatchSelectionReadModel
+  summary: AdminMetadataCandidateReviewBatchPlanSummaryReadModel
+  executionSummary: AdminMetadataCandidateReviewBatchExecutionSummaryReadModel
+  items: AdminMetadataCandidateReviewBatchItemReadModel[]
 }
 
 export interface AdminSettingsReadModel extends AdminReadModelEnvelope {
@@ -1187,6 +1201,15 @@ export function createAdminReadModelsDataSource(
       })
     },
 
+    async loadMetadataCandidateReviewBatch(
+      batchId: string,
+    ): Promise<AdminMetadataCandidateReviewBatchReadModel> {
+      return withFallback(metadataCandidateReviewBatchFixture(batchId), async () => {
+        const response = await client.getMetadataCandidateReviewBatch(batchId)
+        return mapMetadataCandidateReviewBatchResponse(response)
+      })
+    },
+
     async loadGeneratedArtifactMetadataBulkApplyPlan(
       artifactIds: string[],
     ): Promise<AdminGeneratedArtifactMetadataBulkApplyPlanReadModel> {
@@ -1289,6 +1312,9 @@ function fixtureDataSource() {
     },
     async loadMetadataCandidateReviewBatchPlan(reviewIds: string[]) {
       return metadataCandidateReviewBatchPlanFixture(reviewIds)
+    },
+    async loadMetadataCandidateReviewBatch(batchId: string) {
+      return metadataCandidateReviewBatchFixture(batchId)
     },
     async loadGeneratedArtifactMetadataBulkApplyPlan(artifactIds: string[]) {
       return generatedArtifactMetadataBulkApplyPlanFixture(artifactIds)
@@ -1861,59 +1887,94 @@ export function mapMetadataCandidateReviewBatchPlanResponse(
       adminApi: response.admin_api_version,
       publicApi: response.public_api_version,
     },
-    summary: {
-      requestedCount: response.summary.requested_count,
-      returnedCount: response.summary.returned_count,
-      maxReviewCount: response.summary.max_review_count,
-      applyCount: response.summary.apply_count,
-      noopCount: response.summary.noop_count,
-      skipCount: response.summary.skip_count,
-    },
+    summary: mapMetadataCandidateReviewBatchPlanSummary(response.summary),
     reviews: response.reviews.map(mapMetadataCandidateReviewListEntry),
   }
 }
 
-export function mapMetadataCandidateReviewBatchApplyResponse(
-  response: AdminMetadataCandidateReviewBatchApplyResponse,
-): AdminMetadataCandidateReviewBatchApplyReadModel {
+export function mapMetadataCandidateReviewBatchResponse(
+  response: AdminMetadataCandidateReviewBatchResponse,
+): AdminMetadataCandidateReviewBatchReadModel {
+  const versions = {
+    adminApi: response.admin_api_version,
+    publicApi: response.public_api_version,
+  }
+
+  return mapMetadataCandidateReviewBatch(response.batch, versions)
+}
+
+export function mapMetadataCandidateReviewBatch(
+  batch: AdminMetadataCandidateReviewBatch,
+  versions: { adminApi: string; publicApi: string },
+): AdminMetadataCandidateReviewBatchReadModel {
   return {
     source: "live",
     fallback: false,
-    versions: {
-      adminApi: response.admin_api_version,
-      publicApi: response.public_api_version,
-    },
-    summary: {
-      requestedCount: response.summary.requested_count,
-      returnedCount: response.summary.returned_count,
-      maxReviewCount: response.summary.max_review_count,
-      appliedCount: response.summary.applied_count,
-      changedCount: response.summary.changed_count,
-      noopCount: response.summary.noop_count,
-      replayCount: response.summary.replay_count,
-      skippedCount: response.summary.skipped_count,
-      blockedCount: response.summary.blocked_count,
-      staleCount: response.summary.stale_count,
-      conflictCount: response.summary.conflict_count,
-      failedCount: response.summary.failed_count,
-    },
-    results: response.results.map(mapMetadataCandidateReviewBatchApplyResult),
+    versions,
+    id: batch.id,
+    jobId: batch.job_id,
+    status: batch.status,
+    selection: mapMetadataCandidateReviewBatchSelection(batch.selection),
+    summary: mapMetadataCandidateReviewBatchPlanSummary(batch.summary),
+    executionSummary: mapMetadataCandidateReviewBatchExecutionSummary(batch.execution_summary),
+    items: batch.items.map(mapMetadataCandidateReviewBatchItem),
   }
 }
 
-function mapMetadataCandidateReviewBatchApplyResult(
-  result: AdminMetadataCandidateReviewBatchApplyResult,
-): AdminMetadataCandidateReviewBatchApplyResultReadModel {
+function mapMetadataCandidateReviewBatchSelection(
+  selection: AdminMetadataCandidateReviewBatchPlanSelection,
+): AdminMetadataCandidateReviewBatchSelectionReadModel {
   return {
-    reviewId: result.review_id,
-    status: result.status,
-    changed: result.changed,
-    reasons: result.plan?.reasons ?? [],
-    mappingId: result.provider_mapping?.mapping_id ?? null,
-    error: result.error
+    requestedReviewCount: selection.requested_review_count,
+    selectedReviewCount: selection.selected_review_count,
+    duplicateReviewCount: selection.duplicate_review_count,
+    maxReviewCount: selection.max_review_count,
+  }
+}
+
+function mapMetadataCandidateReviewBatchPlanSummary(
+  summary: AdminMetadataCandidateReviewBatchPlanSummary,
+): AdminMetadataCandidateReviewBatchPlanSummaryReadModel {
+  return {
+    requestedCount: summary.requested_count,
+    returnedCount: summary.returned_count,
+    maxReviewCount: summary.max_review_count,
+    applyCount: summary.apply_count,
+    noopCount: summary.noop_count,
+    skipCount: summary.skip_count,
+  }
+}
+
+function mapMetadataCandidateReviewBatchExecutionSummary(
+  summary: AdminMetadataCandidateReviewBatchExecutionSummary,
+): AdminMetadataCandidateReviewBatchExecutionSummaryReadModel {
+  return {
+    totalItemCount: summary.total_item_count,
+    pendingItemCount: summary.pending_item_count,
+    skippedItemCount: summary.skipped_item_count,
+    blockedItemCount: summary.blocked_item_count,
+    appliedItemCount: summary.applied_item_count,
+    noopItemCount: summary.noop_item_count,
+    staleItemCount: summary.stale_item_count,
+    conflictItemCount: summary.conflict_item_count,
+    failedItemCount: summary.failed_item_count,
+  }
+}
+
+function mapMetadataCandidateReviewBatchItem(
+  item: AdminMetadataCandidateReviewBatchItem,
+): AdminMetadataCandidateReviewBatchItemReadModel {
+  return {
+    reviewId: item.review_id,
+    itemId: item.item_id,
+    position: item.position,
+    status: item.status,
+    providerSubjectId: item.provider_subject_id,
+    providerMappingId: item.provider_mapping_id,
+    error: item.error
       ? {
-          code: result.error.code,
-          message: result.error.message,
+          code: item.error.code,
+          message: item.error.message,
         }
       : null,
   }
@@ -2764,6 +2825,57 @@ function metadataCandidateReviewBatchPlanFixture(
       skipCount: 0,
     },
     reviews: [],
+  }
+}
+
+function metadataCandidateReviewBatchFixture(
+  batchId: string,
+): AdminMetadataCandidateReviewBatchReadModel {
+  const detail = metadataCandidateReviewFixture("fixture-metadata-candidate-review-accepted-1")
+
+  return {
+    source: "fixture",
+    fallback: true,
+    versions: { adminApi: "fixture", publicApi: "fixture" },
+    id: batchId,
+    jobId: "fixture-metadata-candidate-review-batch-job",
+    status: "completed",
+    selection: {
+      requestedReviewCount: 1,
+      selectedReviewCount: 1,
+      duplicateReviewCount: 0,
+      maxReviewCount: 50,
+    },
+    summary: {
+      requestedCount: 1,
+      returnedCount: 1,
+      maxReviewCount: 50,
+      applyCount: 1,
+      noopCount: 0,
+      skipCount: 0,
+    },
+    executionSummary: {
+      totalItemCount: 1,
+      pendingItemCount: 0,
+      skippedItemCount: 0,
+      blockedItemCount: 0,
+      appliedItemCount: 1,
+      noopItemCount: 0,
+      staleItemCount: 0,
+      conflictItemCount: 0,
+      failedItemCount: 0,
+    },
+    items: [
+      {
+        reviewId: detail.reviewId,
+        itemId: detail.itemId,
+        position: 0,
+        status: "applied",
+        providerSubjectId: "fixture-provider-subject",
+        providerMappingId: "fixture-provider-mapping",
+        error: null,
+      },
+    ],
   }
 }
 

@@ -35,10 +35,10 @@ import {
   type AdminLocalPasswordResponse,
   type AdminMetadataCandidateReviewApplyRequest,
   type AdminMetadataCandidateReviewApplyResponse,
-  type AdminMetadataCandidateReviewBatchApplyRequest,
-  type AdminMetadataCandidateReviewBatchApplyResponse,
+  type AdminMetadataCandidateReviewBatchCreateRequest,
   type AdminMetadataCandidateReviewBatchPlanRequest,
   type AdminMetadataCandidateReviewBatchPlanResponse,
+  type AdminMetadataCandidateReviewBatchResponse,
   type AdminMetadataCandidateReviewListResponse,
   type AdminMetadataCandidateReviewQueueQuery,
   type AdminMetadataCandidateReviewQueueResponse,
@@ -297,13 +297,21 @@ export class AdminApiClient {
     )
   }
 
-  applyMetadataCandidateReviewBatch(
-    request: AdminMetadataCandidateReviewBatchApplyRequest,
-  ): Promise<AdminMetadataCandidateReviewBatchApplyResponse> {
-    return this.sendJson<AdminMetadataCandidateReviewBatchApplyResponse>(
+  createMetadataCandidateReviewBatch(
+    request: AdminMetadataCandidateReviewBatchCreateRequest,
+  ): Promise<AdminMetadataCandidateReviewBatchResponse> {
+    return this.sendJson<AdminMetadataCandidateReviewBatchResponse>(
       "POST",
-      NAKO_ADMIN_ROUTES.metadataCandidateReviewBatchApply,
+      NAKO_ADMIN_ROUTES.metadataCandidateReviewBatches,
       request,
+    )
+  }
+
+  getMetadataCandidateReviewBatch(
+    batchId: string,
+  ): Promise<AdminMetadataCandidateReviewBatchResponse> {
+    return this.getJson<AdminMetadataCandidateReviewBatchResponse>(
+      pathParams(NAKO_ADMIN_ROUTES.metadataCandidateReviewBatch, { batch_id: batchId }),
     )
   }
 
