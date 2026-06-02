@@ -1,6 +1,6 @@
 # Admin Candidate Review List Navigation - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 - Lane Opening
@@ -41,7 +41,7 @@ Exit criteria:
 
 ## M3 - Closeout And Follow-On Split
 
-Status: Ready at `ACRN-040`.
+Status: Complete after `ACRN-040`.
 
 Exit criteria:
 

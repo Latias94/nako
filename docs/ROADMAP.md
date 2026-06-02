@@ -11,8 +11,8 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: Admin Candidate Review List Navigation is active after Admin/Web
-Provider Depth Governance closed in the `library-metadata-control-plane` lane.
+Status: the `library-metadata-control-plane` lane is idle after Admin Candidate
+Review List Navigation closed.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
 Operations Repair are both closed as of 2026-06-02. Web Admin Generated
@@ -24,15 +24,14 @@ closed after `TSEG-040`. Bangumi Relations And Episode Depth is closed after
 Metadata Candidate Durable Review is closed after `MCDR-050`. Accepted Review
 Provider Mapping Application is closed after `ARPMA-050`. Admin/Web Provider
 Depth Governance is closed after `AWPDG-050`. Admin Candidate Review List
-Navigation is active at `ACRN-020`.
+Navigation is closed after `ACRN-040`.
 
-The active focus targets:
+No active implementation workstream is currently claimed. The next focus should
+choose one explicit follow-on:
 
-- adding an item-scoped Admin API list route for durable Candidate Reviews;
-- preserving AWPDG redaction, no-write, stale guard, and root-only application
-  boundaries;
-- routing Web Admin operators from item context into the existing Candidate
-  Review detail/apply page without adding global queues or batch governance.
+- `proposed:provider-review-global-queue-search`;
+- `proposed:provider-governance-bulk-review`;
+- `proposed:provider-review-related-hierarchy-application`.
 
 Authoritative evidence:
 
@@ -46,10 +45,29 @@ Authoritative evidence:
 
 Next task:
 
-- `ACRN-020`: add a redaction-safe Admin API list route for durable Metadata
-  Candidate Reviews scoped to one Media Item.
+- Open one focused follow-on workstream if the lane continues, otherwise keep
+  the lane explicitly idle.
 
 Latest completed architecture focus:
+
+Admin Candidate Review List Navigation closed on 2026-06-02 after `ACRN-040`.
+
+It shipped:
+
+- redaction-safe item-scoped Admin API listing for durable Metadata Candidate
+  Reviews;
+- Web Admin item-scoped list/navigation into the existing Candidate Review
+  detail/apply route;
+- route-state, data-source, no-write, redaction, bundle-budget, and browser
+  smoke evidence;
+- explicit split of global review queue/search, provider governance bulk
+  review, and related hierarchy application follow-ons.
+
+Authoritative lane:
+
+- `docs/workstreams/admin-candidate-review-list-navigation/`
+
+Previous completed architecture focus:
 
 Admin/Web Provider Depth Governance closed on 2026-06-02 after `AWPDG-050`.
 
@@ -180,7 +198,8 @@ Follow-ons:
 - `docs/workstreams/metadata-candidate-durable-review/` (closed);
 - `docs/workstreams/accepted-review-provider-mapping-application/` (closed);
 - `docs/workstreams/admin-web-provider-depth-governance/` (closed);
-- `docs/workstreams/admin-candidate-review-list-navigation/` (active);
+- `docs/workstreams/admin-candidate-review-list-navigation/` (closed);
+- `proposed:provider-review-global-queue-search`;
 - `proposed:provider-review-related-hierarchy-application`;
 - `proposed:provider-governance-bulk-review`;
 - `proposed:douban-tv-episode-endpoint-depth`.

@@ -1,6 +1,6 @@
 # Admin Candidate Review List Navigation - Design
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Why This Lane Exists
@@ -81,7 +81,9 @@ detail/apply route rather than adding another apply mutation entrypoint.
 | Repository seam | Covered | `crates/nako-core/src/repository/metadata.rs`; `crates/nako-db/src/sqlite/metadata_candidate_review.rs` | Existing item-scoped list method makes a no-schema first slice realistic. |
 | Architecture lane map | Covered | `docs/architecture/LANES.md`; `docs/architecture/LIBRARY_PIPELINE.md` | Routes this as the active library-metadata-control-plane follow-on. |
 
-## First Executable Task
+## Shipped Shape
 
-`ACRN-020` adds the Admin API item-scoped Candidate Review list. It must be
-read-only and redaction-safe.
+`ACRN-020` added the Admin API item-scoped Candidate Review list. `ACRN-030`
+added Web Admin list/navigation into the existing detail/apply page. `ACRN-040`
+closed the lane and left global queue/search, batch governance, and related
+hierarchy application as focused follow-ons.

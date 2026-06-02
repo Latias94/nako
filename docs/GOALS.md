@@ -26,9 +26,57 @@ proposed milestone.
 
 ## Current Goal
 
+### Library Metadata Control-Plane Follow-On Selection
+
+Status: ready as of 2026-06-02.
+
+Objective:
+
+- Choose the next focused `library-metadata-control-plane` follow-on after
+  item-scoped Candidate Review navigation closed.
+- Keep global queue/search, batch governance, and related hierarchy application
+  separated until each has its own workstream and gates.
+- Avoid reopening closed durable review, accepted-review apply, Admin/Web
+  governance, or list/navigation lanes.
+
+Deliverables:
+
+- one selected follow-on workstream, if implementation starts;
+- updated `docs/architecture/LANES.md` active queue when a follow-on is opened;
+- clear non-goals preserving Public Client API, schema, and hierarchy mutation
+  boundaries unless the selected lane explicitly owns them.
+
+Non-goals:
+
+- no hidden runtime behavior under the closed ACRN lane;
+- no batch apply without a bulk governance workstream;
+- no related hierarchy mutation without a hierarchy application workstream;
+- no global review queue hidden inside the item-scoped navigation surface.
+
+Exit criteria:
+
+- next active queue item names a focused workstream and task ledger, or the
+  lane remains explicitly idle;
+- follow-on names are stable in roadmap and architecture maps;
+- closed ACRN evidence remains the authority for item-scoped navigation.
+
+Evidence:
+
+- `docs/workstreams/admin-candidate-review-list-navigation/CLOSEOUT.md`
+- `docs/architecture/LIBRARY_PIPELINE.md`
+- `docs/architecture/LANES.md`
+
+Candidate follow-ons:
+
+- `proposed:provider-review-global-queue-search`
+- `proposed:provider-governance-bulk-review`
+- `proposed:provider-review-related-hierarchy-application`
+
+## Recent Completed Goals
+
 ### Admin Candidate Review List Navigation
 
-Status: active as of 2026-06-02.
+Status: completed on 2026-06-02.
 
 Objective:
 
@@ -47,36 +95,16 @@ Deliverables:
 - redaction, pagination, no-write, route-state, bundle-budget, and browser-smoke
   evidence.
 
-Non-goals:
-
-- no Public Client API expansion;
-- no related graph node hierarchy mutation;
-- no global Candidate Review queue/search;
-- no batch accept/apply or provider governance bulk actions;
-- no raw provider payload, token, header, proxy URL, local path, image URL, or
-  raw idempotency-key exposure.
-
-Exit criteria:
-
-- Admin API exposes a redaction-safe item-scoped Candidate Review list;
-- Web can navigate from item context to the existing Candidate Review detail
-  route;
-- generated Admin contracts and Web data-source mapping remain synchronized;
-- follow-ons are split for global queues, batch governance, and hierarchy
-  application.
-
 Evidence:
 
-- `docs/workstreams/admin-candidate-review-list-navigation/`
+- `docs/workstreams/admin-candidate-review-list-navigation/CLOSEOUT.md`
+- `docs/workstreams/admin-candidate-review-list-navigation/EVIDENCE_AND_GATES.md`
 - `docs/architecture/LIBRARY_PIPELINE.md`
 - `docs/architecture/LANES.md`
 
 Current task:
 
-- `ACRN-020`: add a redaction-safe Admin API list route for durable Metadata
-  Candidate Reviews scoped to one Media Item.
-
-## Recent Completed Goals
+- DONE after `ACRN-040`.
 
 ### Admin/Web Provider Depth Governance
 

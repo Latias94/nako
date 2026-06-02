@@ -1,6 +1,6 @@
 # Admin Candidate Review List Navigation
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 This workstream makes durable Metadata Candidate Reviews discoverable from
@@ -23,8 +23,8 @@ Current execution:
   Candidate Reviews without exposing raw provider payloads.
 - `ACRN-030` added Web Admin item-scoped Candidate Review list/navigation into
   the existing detail/apply page.
-- `ACRN-040` is ready: close the lane or split global queue/search, batch
-  governance, and related hierarchy application follow-ons.
+- `ACRN-040` closed the lane and split global queue/search, batch governance,
+  and related hierarchy application into follow-ons.
 
 Boundary:
 

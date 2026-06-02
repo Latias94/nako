@@ -1,24 +1,26 @@
 # Admin Candidate Review List Navigation - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Current State
 
-The lane is ready for closeout/follow-on split. Durable Candidate Review
-detail/apply exists, `ACRN-020` added the read-only Admin API item-scoped
-Candidate Review list route, and `ACRN-030` added Web Admin item-scoped
-list/navigation into the existing detail/apply page.
+The lane is closed. Durable Candidate Review detail/apply exists, `ACRN-020`
+added the read-only Admin API item-scoped Candidate Review list route,
+`ACRN-030` added Web Admin item-scoped list/navigation into the existing
+detail/apply page, and `ACRN-040` split remaining queue, batch, and hierarchy
+work to follow-ons.
 
-## Active Task
+## Closed Task
 
 - Task ID: `ACRN-040`
 - Owner: planner
-- Files: `docs/workstreams/admin-candidate-review-list-navigation`
+- Files: `docs/workstreams/admin-candidate-review-list-navigation`,
+  `docs/architecture`, `docs/GOALS.md`, and `docs/ROADMAP.md`
 - Validation: fresh gate evidence in `EVIDENCE_AND_GATES.md`; JSON/JSONL
   validation; `git diff --check`
-- Status: READY
-- Evidence: `EVIDENCE_AND_GATES.md`; optional `CLOSEOUT.md`
+- Status: DONE
+- Evidence: `CLOSEOUT.md`; `EVIDENCE_AND_GATES.md`
 
 ## Decisions Since Opening
 
@@ -39,9 +41,11 @@ list/navigation into the existing detail/apply page.
 
 ## Blockers
 
-- None for `ACRN-040`.
+- None. This lane is closed.
 
 ## Next Recommended Action
 
-- Run `ACRN-040`: close this lane or split follow-ons for global Candidate
-  Review queues/search, batch governance, and related hierarchy application.
+- Open one focused follow-on rather than reopening this lane:
+  `proposed:provider-review-global-queue-search`,
+  `proposed:provider-governance-bulk-review`, or
+  `proposed:provider-review-related-hierarchy-application`.

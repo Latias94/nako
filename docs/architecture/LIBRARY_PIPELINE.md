@@ -28,7 +28,7 @@ Storage event or scheduled scan
 | Local inference | Shipped foundation | `CONTEXT.md`; metadata/catalog lanes | Anime/series path heuristics and confidence reporting. |
 | Media probe | Shipped foundation | playback/transcode lanes | More HDR/audio/subtitle technical facts. |
 | NFO authority | Shipped foundation | `docs/adr/0008-nfo-as-local-metadata-boundary.md` | Round-trip/writeback polish and backup policy. |
-| Metadata merge policy | Shipped foundation; durable candidate review, accepted-review root mapping application, and Admin/Web governance shipped; Candidate Review list/navigation active | `docs/adr/0007-metadata-merge-policy-and-local-authority.md`; `docs/workstreams/metadata-candidate-durable-review/`; `docs/workstreams/accepted-review-provider-mapping-application/`; `docs/workstreams/admin-web-provider-depth-governance/`; `docs/workstreams/admin-candidate-review-list-navigation/` | Add item-scoped Candidate Review navigation before global queues or hierarchy application. |
+| Metadata merge policy | Shipped foundation; durable candidate review, accepted-review root mapping application, Admin/Web governance, and item-scoped Candidate Review list/navigation shipped | `docs/adr/0007-metadata-merge-policy-and-local-authority.md`; `docs/workstreams/metadata-candidate-durable-review/`; `docs/workstreams/accepted-review-provider-mapping-application/`; `docs/workstreams/admin-web-provider-depth-governance/`; `docs/workstreams/admin-candidate-review-list-navigation/` | Open focused follow-ons for global queue/search, batch governance, or related hierarchy application. |
 | TMDB provider | Shipped movie plus series/season/episode graph preview foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/metadata-provider-depth-and-precision/`; `docs/workstreams/tmdb-season-episode-graph-depth/` | Accepted-review application or Admin/Web governance before preview graph depth becomes accepted hierarchy. |
 | Douban provider | Shipped MVP plus endpoint-backed capability precision | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/douban-subject-kind-precision/` | Accepted-review application, Admin/Web governance, or endpoint-backed TV/episode follow-on. |
 | Bangumi provider | Shipped MVP plus endpoint-backed episode graph preview | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/bangumi-relations-and-episode-depth/` | Accepted-review application or Admin/Web governance before preview graph depth becomes accepted hierarchy. |
@@ -47,17 +47,21 @@ this document focused on intake and asset pipeline capability state.
 
 ### admin-candidate-review-list-navigation
 
-Status: Active at
+Status: Closed at
 `docs/workstreams/admin-candidate-review-list-navigation/`.
 
 Goal: Make durable Metadata Candidate Reviews discoverable from an item-scoped
 Admin context and route operators into the existing Candidate Review detail/apply
 flow.
 
-Current task:
+Shipped:
 
-- `ACRN-020`: add a redaction-safe Admin API list route for durable Metadata
+- `ACRN-020` added a redaction-safe Admin API list route for durable Metadata
   Candidate Reviews scoped to one Media Item.
+- `ACRN-030` added Web Admin item-scoped Candidate Review list/navigation into
+  the existing detail/apply page.
+- `ACRN-040` closed the lane and split global queue/search, batch governance,
+  and related hierarchy application into follow-ons.
 
 Non-goals:
 
@@ -67,6 +71,13 @@ Non-goals:
 - no batch governance or batch apply;
 - no raw provider payloads, secrets, proxy URLs, headers, paths, or provider
   bodies.
+
+Follow-ons:
+
+- `proposed:provider-review-global-queue-search`;
+- `proposed:provider-governance-bulk-review`;
+- `proposed:provider-review-related-hierarchy-application`;
+- `proposed:douban-tv-episode-endpoint-depth`.
 
 ### admin-web-provider-depth-governance
 

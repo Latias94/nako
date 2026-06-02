@@ -1,6 +1,6 @@
 # Admin Candidate Review List Navigation - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Opening Gates
@@ -145,3 +145,27 @@ Gate notes:
 
 - The Browser plugin runtime was not exposed in this session, so the browser
   smoke used local Edge headless CDP against a temporary Vite dev server.
+
+## ACRN-040 Evidence
+
+Implemented behavior:
+
+- closed the workstream after the Admin API item-scoped list and Web Admin
+  list/navigation target state was met;
+- added `CLOSEOUT.md` and a closeout journal;
+- moved `WORKSTREAM.json`, `TODO.md`, `TASKS.jsonl`, `MILESTONES.md`,
+  `HANDOFF.md`, `README.md`, and `DESIGN.md` to closed/DONE state;
+- updated architecture, goal, and roadmap docs so active routing no longer
+  points to this closed lane;
+- split remaining work to focused follow-ons:
+  `proposed:provider-review-global-queue-search`,
+  `proposed:provider-governance-bulk-review`, and
+  `proposed:provider-review-related-hierarchy-application`.
+
+Green checks:
+
+- `python -m json.tool docs/workstreams/admin-candidate-review-list-navigation/WORKSTREAM.json`
+  passed.
+- JSONL validation for `TASKS.jsonl`, `CAMPAIGNS.jsonl`, and `CONTEXT.jsonl`
+  passed.
+- `git diff --check` passed with Git CRLF normalization warnings only.

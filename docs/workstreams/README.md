@@ -18,14 +18,14 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 
 Last reviewed: 2026-06-02
 
-`admin-candidate-review-list-navigation` is active in the
-`library-metadata-control-plane` lane after
-`admin-web-provider-depth-governance` closed.
+`admin-candidate-review-list-navigation` is closed in the
+`library-metadata-control-plane` lane after `ACRN-040`.
 
 Next task:
 
-- `ACRN-020`: add a redaction-safe Admin API list route for durable Metadata
-  Candidate Reviews scoped to one Media Item.
+- Open a focused follow-on for global Candidate Review queue/search, provider
+  governance bulk review, or related hierarchy application; otherwise keep the
+  lane explicitly idle.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -54,7 +54,7 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
 ## Current Workstreams
 
 - [admin-candidate-review-list-navigation](admin-candidate-review-list-navigation/README.md):
-  active library-metadata-control-plane lane for making durable Candidate
+  closed library-metadata-control-plane lane for making durable Candidate
   Reviews discoverable from item-scoped Admin/Web navigation without adding
   hierarchy mutation, Public Client API, global queues, or batch governance.
 - [admin-web-provider-depth-governance](admin-web-provider-depth-governance/README.md):

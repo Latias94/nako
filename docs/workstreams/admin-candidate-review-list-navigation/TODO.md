@@ -1,6 +1,6 @@
 # Admin Candidate Review List Navigation - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 - Lane Opening
@@ -31,9 +31,9 @@ Last updated: 2026-06-02
 
 ## M3 - Closeout And Follow-On Split
 
-- [ ] ACRN-040 [owner=planner] [deps=ACRN-030] [scope=docs/workstreams/admin-candidate-review-list-navigation,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
+- [x] ACRN-040 [owner=planner] [deps=ACRN-030] [scope=docs/workstreams/admin-candidate-review-list-navigation,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
   Goal: Close the lane or split global Candidate Review queues, batch governance, and related hierarchy application follow-ons.
   Validation: fresh gate evidence in `EVIDENCE_AND_GATES.md`; JSON/JSONL validation; `git diff --check`.
   Review: Admin/Web can navigate durable Candidate Reviews without broadening Public Client API, hierarchy mutation, or bulk apply.
-  Evidence: `CLOSEOUT.md` if closed.
-  Handoff: DONE or explicit follow-on split.
+  Evidence: `CLOSEOUT.md`; `EVIDENCE_AND_GATES.md` (`ACRN-040 Evidence`); JSON/JSONL validation; `git diff --check`.
+  Handoff: DONE.

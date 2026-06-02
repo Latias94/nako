@@ -2,12 +2,12 @@
   "schema_version": 1,
   "slug": "admin-candidate-review-list-navigation",
   "title": "Admin Candidate Review List Navigation",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-06-02",
   "scope_kind": "admin_web_metadata_candidate_review_navigation",
   "problem": "Durable Metadata Candidate Review detail/apply governance exists, but operators still need an item-scoped Admin API/Web way to discover review IDs and navigate into the existing detail/apply route.",
   "task_prefix": "ACRN",
-  "current_task": "ACRN-040",
+  "current_task": null,
   "authoritative_docs": [
     {
       "role": "overview",
@@ -32,6 +32,10 @@
     {
       "role": "gates",
       "path": "docs/workstreams/admin-candidate-review-list-navigation/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/admin-candidate-review-list-navigation/CLOSEOUT.md"
     },
     {
       "role": "context_manifest",
@@ -67,6 +71,10 @@
     {
       "task": "ACRN-030",
       "summary": "Added Web Admin item-scoped Candidate Review list/navigation, route-state support for item_id/review_id/limit/offset, fixture/live data-source mapping, regression tests, and browser smoke coverage into the existing detail/apply route."
+    },
+    {
+      "task": "ACRN-040",
+      "summary": "Closed the Admin Candidate Review list/navigation lane and split global Candidate Review queue/search, provider governance bulk review, and related hierarchy application into focused follow-ons."
     }
   ],
   "adr_refs": [
@@ -95,8 +103,8 @@
   ],
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
-    "default_action": "run_current_task",
-    "current_task": "ACRN-040",
-    "notes": "Next close this lane or split follow-ons for global Candidate Review queues/search, batch governance, and related hierarchy application. Keep Public Client API, schema migrations, batch apply, and hierarchy mutation out unless ACRN-040 explicitly opens a new follow-on lane."
+    "default_action": "closed",
+    "current_task": null,
+    "notes": "Lane target is complete. Open a focused follow-on for global Candidate Review queue/search, provider governance bulk review, or related hierarchy application instead of reopening this lane."
   }
 }
