@@ -1,51 +1,18 @@
 # Logging Guidelines
 
-> How logging is done in this project.
+Library diagnostics should be useful without exposing host-local details.
 
----
+## Rules
 
-## Overview
+- Prefer durable ingestion failure records and summaries over ad hoc logs.
+- Do not log raw local filesystem paths, credentials, provider payloads, or full
+  source fingerprints.
+- When diagnostics are needed, prefer library ID, job ID, source ID, phase,
+  retryability, failure class, and redaction-safe message.
+- High-volume scan/probe logs should stay behind deliberate tracing decisions.
 
-<!--
-Document your project's logging conventions here.
+## Evidence
 
-Questions to answer:
-- What logging library do you use?
-- What are the log levels and when to use each?
-- What should be logged?
-- What should NOT be logged (PII, secrets)?
--->
-
-(To be filled by the team)
-
----
-
-## Log Levels
-
-<!-- When to use each level: debug, info, warn, error -->
-
-(To be filled by the team)
-
----
-
-## Structured Logging
-
-<!-- Log format, required fields -->
-
-(To be filled by the team)
-
----
-
-## What to Log
-
-<!-- Important events to log -->
-
-(To be filled by the team)
-
----
-
-## What NOT to Log
-
-<!-- Sensitive data, PII, secrets -->
-
-(To be filled by the team)
+- `crates/nako-library/src/failure.rs`
+- `crates/nako-library/src/summary.rs`
+- `docs/architecture/LIBRARY_PIPELINE.md`

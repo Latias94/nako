@@ -1,38 +1,42 @@
-# Backend Development Guidelines
+# nako-streaming Backend Guidelines
 
-> Best practices for backend development in this project.
+`nako-streaming` owns direct byte/range response planning and simple content
+type helpers. It does not execute playback decisions, transcode jobs, or HTTP
+server wiring.
 
----
+## Current Evidence
 
-## Overview
+- `crates/nako-streaming/src/direct.rs`
+- `crates/nako-streaming/src/lib.rs`
+- `docs/architecture/PLAYBACK.md`
 
-This directory contains guidelines for backend development. Fill in each file with your project's specific conventions.
+## Boundaries
 
----
+- Parse HTTP range headers.
+- Resolve satisfiable byte ranges against object length.
+- Plan direct-play response status, headers, and body range metadata.
+- Keep actual byte transport in server or storage adapters.
+- Keep playback policy in `nako-playback` and FFmpeg planning in
+  `nako-transcode`.
 
-## Guidelines Index
+## Required Patterns
 
-| Guide | Description | Status |
-|-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill |
-| [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
+- Keep planners pure and deterministic.
+- Return `RangeNotSatisfiable` plans for malformed or out-of-bounds ranges.
+- Use `bytes */len` content-range syntax for unsatisfiable ranges.
+- Preserve full-object responses when no range is requested.
+- Use filename-based content type helper only as a simple fallback.
 
----
+## Forbidden Patterns
 
-## How to Fill These Guidelines
+- Do not read files or streams from this crate.
+- Do not spawn FFmpeg or transcode work.
+- Do not create HTTP framework response types here.
+- Do not panic on malformed range headers.
 
-For each guideline file:
+## Validation
 
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
-
-The goal is to help AI assistants and new team members understand how YOUR project works.
-
----
-
-**Language**: All documentation should be written in **English**.
+- Focused:
+  `cargo nextest run -p nako-streaming --no-fail-fast`
+- Playback contract:
+  `cargo check -p nako-streaming -p nako-playback --tests`

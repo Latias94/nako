@@ -1,51 +1,32 @@
 # Database Guidelines
 
-> Database patterns and conventions for this project.
+Automation persistence is accessed through core repository and job contracts.
+This crate does not own SQL schema.
 
----
+## Required Patterns
 
-## Overview
+- Enqueue automation work as durable `JobKind::Automation`.
+- Use `JobPriority::Normal` unless a real priority policy exists.
+- Persist provider artifacts through repository contracts.
+- Start, complete, or fail jobs through the durable job API.
+- Keep provider secrets out of stored error details.
 
-<!--
-Document your project's database conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What ORM/query library do you use?
-- How are migrations managed?
-- What are the naming conventions for tables/columns?
-- How do you handle transactions?
--->
+- Do not import SQL adapters, database pools, or migrations.
+- Do not run provider work without a corresponding job record.
+- Do not mutate canonical metadata from automation artifact creation.
+- Do not persist raw provider secret material.
 
-(To be filled by the team)
+## Job Rules
 
----
+- Validate provider enabled state and capability before enqueue.
+- Use resource class `automation.external_api`.
+- Respect max attempts and timeout configuration.
+- Mark failed jobs with redaction-safe `safe_error` values.
 
-## Query Patterns
+## Tests Required
 
-<!-- How should queries be written? Batch operations? -->
-
-(To be filled by the team)
-
----
-
-## Migrations
-
-<!-- How to create and run migrations -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- Table names, column names, index names -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Database-related mistakes your team has made -->
-
-(To be filled by the team)
+- Fake repository tests for enqueue validation.
+- Job lifecycle tests for start, success, failure, and cancellation.
+- Artifact persistence tests for provider outcomes.

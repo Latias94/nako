@@ -1,51 +1,24 @@
 # Database Guidelines
 
-> Database patterns and conventions for this project.
+`nako-streaming` has no database layer. It plans ranges from caller-provided
+object length, file name, and optional range headers.
 
----
+## Required Patterns
 
-## Overview
+- Accept object length and header text from callers.
+- Return response plan data that higher layers can combine with storage access.
+- Keep source lookup, authorization, and playback-session persistence outside
+  this crate.
 
-<!--
-Document your project's database conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What ORM/query library do you use?
-- How are migrations managed?
-- What are the naming conventions for tables/columns?
-- How do you handle transactions?
--->
+- Do not import repository traits, SQL, or database adapters.
+- Do not lookup media source records in direct response planning.
+- Do not persist playback sessions or stream metrics here.
+- Do not infer storage locator state from file names.
 
-(To be filled by the team)
+## Tests Required
 
----
-
-## Query Patterns
-
-<!-- How should queries be written? Batch operations? -->
-
-(To be filled by the team)
-
----
-
-## Migrations
-
-<!-- How to create and run migrations -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- Table names, column names, index names -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Database-related mistakes your team has made -->
-
-(To be filled by the team)
+- Pure unit tests should cover range parsing and response planning.
+- Cross-layer tests should live in server/playback crates when database-backed
+  source lookup is involved.

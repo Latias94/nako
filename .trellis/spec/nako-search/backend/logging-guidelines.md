@@ -1,51 +1,28 @@
 # Logging Guidelines
 
-> How logging is done in this project.
+`nako-search` currently does not need routine logging because evaluation is
+pure. Add tracing only around future indexing or expensive evaluation paths.
 
----
+## Required Patterns
 
-## Overview
+- Prefer counters such as document count, candidate count, result count, and
+  elapsed time.
+- Log projection version mismatches as version diagnostics, not data dumps.
+- Keep query text redacted or sampled carefully if user-entered terms can be
+  sensitive.
+- Keep facet labels bounded and normalized before logging.
 
-<!--
-Document your project's logging conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What logging library do you use?
-- What are the log levels and when to use each?
-- What should be logged?
-- What should NOT be logged (PII, secrets)?
--->
+- Do not log full search documents.
+- Do not log raw user search text by default.
+- Do not emit one log line per candidate document in normal operation.
+- Do not hide ranking determinism issues behind debug-only output.
 
-(To be filled by the team)
+## Useful Fields
 
----
-
-## Log Levels
-
-<!-- When to use each level: debug, info, warn, error -->
-
-(To be filled by the team)
-
----
-
-## Structured Logging
-
-<!-- Log format, required fields -->
-
-(To be filled by the team)
-
----
-
-## What to Log
-
-<!-- Important events to log -->
-
-(To be filled by the team)
-
----
-
-## What NOT to Log
-
-<!-- Sensitive data, PII, secrets -->
-
-(To be filled by the team)
+- `search.document_count`
+- `search.candidate_count`
+- `search.result_count`
+- `search.projection_version`
+- `search.required_facet_count`

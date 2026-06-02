@@ -1,51 +1,35 @@
 # Database Guidelines
 
-> Database patterns and conventions for this project.
+`nako-catalog` depends on repository traits from `nako-core`; it does not own
+schema, migrations, or SQL.
 
----
+## Required Patterns
 
-## Overview
+- Read catalog state through `MediaRepository`, `MetadataRepository`, and other
+  relevant core traits.
+- Use the repository APIs that already return domain records, links, and
+  accepted provider mappings.
+- Treat hydrated graph output as a read model derived from canonical records.
+- Keep repository calls explicit enough that missing data paths are reviewable.
 
-<!--
-Document your project's database conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What ORM/query library do you use?
-- How are migrations managed?
-- What are the naming conventions for tables/columns?
-- How do you handle transactions?
--->
+- Do not import `sqlx`, `rusqlite`, database pools, or migration files.
+- Do not infer storage schema details from repository implementation types.
+- Do not persist search projections directly from this crate unless a repository
+  trait is explicitly added for that contract.
+- Do not backfill canonical metadata from projection labels.
 
-(To be filled by the team)
+## Missing Data Rules
 
----
+- Missing requested item/person/genre/tag/collection/studio records should be
+  reported as `NakoError::NotFound`.
+- Optional relationships may be absent without failing the whole graph.
+- Accepted provider mappings are evidence; rejected or tentative mappings must
+  not appear in published graph projections.
 
-## Query Patterns
+## Tests Required
 
-<!-- How should queries be written? Batch operations? -->
-
-(To be filled by the team)
-
----
-
-## Migrations
-
-<!-- How to create and run migrations -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- Table names, column names, index names -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Database-related mistakes your team has made -->
-
-(To be filled by the team)
+- Repository-backed hydration tests should use fake or test repositories.
+- Add cases for missing requested records, missing optional relationships, and
+  accepted provider mappings.

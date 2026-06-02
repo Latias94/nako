@@ -1,38 +1,41 @@
-# Backend Development Guidelines
+# nako-search Backend Guidelines
 
-> Best practices for backend development in this project.
+`nako-search` owns transport-free search documents, query evaluation, and
+ranking primitives. It currently performs pure in-memory evaluation over
+`SearchDocument` values supplied by catalog projections.
 
----
+## Current Evidence
 
-## Overview
+- `crates/nako-search/src/lib.rs`
+- `crates/nako-catalog/src/lib.rs`
+- `crates/nako-core/src/lib.rs`
 
-This directory contains guidelines for backend development. Fill in each file with your project's specific conventions.
+## Boundaries
 
----
+- Define search documents, query inputs, hits, facets, and evaluation results.
+- Use `nako_core::CATALOG_SEARCH_PROJECTION_VERSION` for projection versioning.
+- Keep catalog hydration in `nako-catalog`.
+- Keep HTTP query parsing and response DTOs in `nako-api` or `nako-server`.
+- Keep external search engine adapters out until a real adapter exists.
 
-## Guidelines Index
+## Required Patterns
 
-| Guide | Description | Status |
-|-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill |
-| [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
+- Evaluate search deterministically in memory.
+- Normalize query text before matching.
+- Clamp pagination through `PageRequest`.
+- Score title, alias, body, and facet matches with the existing weights.
+- Sort by score descending, then item ID ascending.
 
----
+## Forbidden Patterns
 
-## How to Fill These Guidelines
+- Do not mutate catalog state during search.
+- Do not reach into database or storage adapters.
+- Do not add provider-specific search behavior here.
+- Do not expose transport-specific error or DTO types.
 
-For each guideline file:
+## Validation
 
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
-
-The goal is to help AI assistants and new team members understand how YOUR project works.
-
----
-
-**Language**: All documentation should be written in **English**.
+- Focused search tests:
+  `cargo nextest run -p nako-search --no-fail-fast`
+- Projection contract checks:
+  `cargo check -p nako-search -p nako-catalog --tests`

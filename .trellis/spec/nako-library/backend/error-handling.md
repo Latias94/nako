@@ -1,51 +1,49 @@
 # Error Handling
 
-> How errors are handled in this project.
+Library intake should classify failures into durable ingestion failure records
+so operators can distinguish retryable storage/provider errors from structural
+problems.
 
----
+## Required Patterns
 
-## Overview
+- Convert scan/probe backend errors through `failure.rs` helpers before
+  persisting ingestion failures.
+- Record scan failures with `IngestionFailurePhase::Scan`.
+- Record probe failures with the probe phase and source/locator context.
+- Resolve prior ingestion failures when a directory or source observation
+  succeeds.
+- Sort failure summaries deterministically before returning them.
+- Do not panic on unsupported entries, stale cache, or missing probe facts.
 
-<!--
-Document your project's error handling conventions here.
+## Validation Matrix
 
-Questions to answer:
-- What error types do you define?
-- How are errors propagated?
-- How are errors logged?
-- How are errors returned to clients?
--->
+| Condition | Behavior |
+|-----------|----------|
+| VFS stat/list fails during scan | Add `LibraryScanFailure` and continue |
+| Directory observation succeeds | Upsert directory snapshot and resolve scan failure |
+| Source missing from current scan | Tombstone through `ScanRepository` |
+| Probe fails | Persist ingestion failure and include `LibraryProbeFailure` |
+| Existing probe and `force == false` | Skip source |
 
-(To be filled by the team)
+## Wrong vs Correct
 
----
+### Wrong
 
-## Error Types
+```rust
+return Err(err);
+```
 
-<!-- Custom error classes/types -->
+### Correct
 
-(To be filled by the team)
+```rust
+failures.push(scan_failure(uri, "directory", err));
+```
 
----
+Scanning should continue and preserve failure evidence when a bounded entry
+fails.
 
-## Error Handling Patterns
+## Evidence
 
-<!-- Try-catch patterns, error propagation -->
-
-(To be filled by the team)
-
----
-
-## API Error Responses
-
-<!-- Standard error response format -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Error handling mistakes your team has made -->
-
-(To be filled by the team)
+- `crates/nako-library/src/failure.rs`
+- `crates/nako-library/src/scan.rs`
+- `crates/nako-library/src/probe.rs`

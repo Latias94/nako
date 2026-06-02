@@ -1,51 +1,30 @@
 # Error Handling
 
-> How errors are handled in this project.
+Catalog hydration errors should explain which requested read model could not be
+assembled without hiding repository failures.
 
----
+## Required Patterns
 
-## Overview
+- Use `NakoError::NotFound` for missing explicitly requested graph roots.
+- Propagate repository errors with their existing `NakoResult` context.
+- Keep optional relationship absence distinct from missing graph roots.
+- Validate input IDs before running broad hydration work when practical.
 
-<!--
-Document your project's error handling conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What error types do you define?
-- How are errors propagated?
-- How are errors logged?
-- How are errors returned to clients?
--->
+- Do not convert repository failures into empty graphs.
+- Do not return partial graph replacements as successful complete replacements.
+- Do not use provider labels or external IDs as primary lookup success signals.
+- Do not panic on absent optional relationship lists.
 
-(To be filled by the team)
+## Examples
 
----
+- Item graph hydration should fail when the item itself is absent.
+- A known item without tags should hydrate successfully with an empty tag list.
+- Provider subjects should be included only when their mappings are accepted.
 
-## Error Types
+## Review Checklist
 
-<!-- Custom error classes/types -->
-
-(To be filled by the team)
-
----
-
-## Error Handling Patterns
-
-<!-- Try-catch patterns, error propagation -->
-
-(To be filled by the team)
-
----
-
-## API Error Responses
-
-<!-- Standard error response format -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Error handling mistakes your team has made -->
-
-(To be filled by the team)
+- Is the failed root identified?
+- Are optional and required relationships separated?
+- Could a caller accidentally publish a partial graph as complete?

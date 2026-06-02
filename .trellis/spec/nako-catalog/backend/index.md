@@ -1,38 +1,43 @@
-# Backend Development Guidelines
+# nako-catalog Backend Guidelines
 
-> Best practices for backend development in this project.
+`nako-catalog` hydrates catalog graph read models from core repository traits
+and builds search projections. It is a pure orchestration/read-model crate, not
+an HTTP, database, or search-engine adapter.
 
----
+## Current Evidence
 
-## Overview
+- `crates/nako-catalog/src/lib.rs`
+- `crates/nako-core/src/lib.rs`
+- `docs/architecture/LIBRARY_PIPELINE.md`
+- `docs/architecture/LANES.md`
 
-This directory contains guidelines for backend development. Fill in each file with your project's specific conventions.
+## Boundaries
 
----
+- Use `CatalogHydrationPort` as the composition entry point.
+- Load catalog facts through `nako-core` repository traits.
+- Return `CatalogItemGraph`, person/genre/tag/collection/studio graphs, and
+  `CatalogSearchProjection`.
+- Keep search scoring and query evaluation in `nako-search`.
+- Keep transport DTO mapping in `nako-api` or `nako-server`.
 
-## Guidelines Index
+## Required Patterns
 
-| Guide | Description | Status |
-|-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill |
-| [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
+- Hydrate a complete graph replacement before publishing a projection.
+- Use accepted provider mappings when adding provider subjects.
+- Normalize provider labels and facet labels before projection output.
+- Preserve deterministic ordering in hydrated graph components.
+- Report missing catalog records with `NakoError::NotFound`.
 
----
+## Forbidden Patterns
 
-## How to Fill These Guidelines
+- Do not add direct SQL or storage adapter calls here.
+- Do not issue HTTP responses or route-level DTOs from this crate.
+- Do not run search ranking in catalog hydration.
+- Do not mutate canonical metadata while hydrating read models.
 
-For each guideline file:
+## Validation
 
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
-
-The goal is to help AI assistants and new team members understand how YOUR project works.
-
----
-
-**Language**: All documentation should be written in **English**.
+- Focused catalog checks:
+  `cargo nextest run -p nako-catalog --no-fail-fast`
+- Cross-layer compile when projection shape changes:
+  `cargo check -p nako-catalog -p nako-search -p nako-api --tests`

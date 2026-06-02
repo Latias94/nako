@@ -1,51 +1,27 @@
 # Logging Guidelines
 
-> How logging is done in this project.
+Automation diagnostics must show job progress without exposing external
+provider secrets or raw responses.
 
----
+## Required Patterns
 
-## Overview
+- Prefer structured fields for provider ID, job ID, capability, attempt number,
+  status, and artifact ID.
+- Use redaction-safe error text for job failure logs.
+- Log cancellation and timeout as job lifecycle events.
+- Keep provider request and response bodies out of normal logs.
 
-<!--
-Document your project's logging conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What logging library do you use?
-- What are the log levels and when to use each?
-- What should be logged?
-- What should NOT be logged (PII, secrets)?
--->
+- Do not log API tokens, provider secrets, or authorization headers.
+- Do not log raw external API responses by default.
+- Do not replace durable job state with logs.
+- Do not emit high-cardinality per-record logs for bulk provider output.
 
-(To be filled by the team)
+## Useful Fields
 
----
-
-## Log Levels
-
-<!-- When to use each level: debug, info, warn, error -->
-
-(To be filled by the team)
-
----
-
-## Structured Logging
-
-<!-- Log format, required fields -->
-
-(To be filled by the team)
-
----
-
-## What to Log
-
-<!-- Important events to log -->
-
-(To be filled by the team)
-
----
-
-## What NOT to Log
-
-<!-- Sensitive data, PII, secrets -->
-
-(To be filled by the team)
+- `automation.provider_id`
+- `automation.job_id`
+- `automation.capability`
+- `automation.attempt_number`
+- `automation.artifact_id`

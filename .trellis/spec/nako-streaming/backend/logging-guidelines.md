@@ -1,51 +1,27 @@
 # Logging Guidelines
 
-> How logging is done in this project.
+`nako-streaming` should usually return response plans rather than log. If
+future diagnostics are added, keep them small and transport-neutral.
 
----
+## Required Patterns
 
-## Overview
+- Prefer counters for requested range kind, response status, object length, and
+  resolved range length.
+- Avoid logging raw URLs or authorization-sensitive locators.
+- Keep malformed range diagnostics concise.
+- Let server middleware own request IDs and client network metadata.
 
-<!--
-Document your project's logging conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What logging library do you use?
-- What are the log levels and when to use each?
-- What should be logged?
-- What should NOT be logged (PII, secrets)?
--->
+- Do not log full storage URIs with credentials.
+- Do not log one line per byte chunk from this crate.
+- Do not add HTTP request logging here.
+- Do not use logs as the only place where range errors are visible.
 
-(To be filled by the team)
+## Useful Fields
 
----
-
-## Log Levels
-
-<!-- When to use each level: debug, info, warn, error -->
-
-(To be filled by the team)
-
----
-
-## Structured Logging
-
-<!-- Log format, required fields -->
-
-(To be filled by the team)
-
----
-
-## What to Log
-
-<!-- Important events to log -->
-
-(To be filled by the team)
-
----
-
-## What NOT to Log
-
-<!-- Sensitive data, PII, secrets -->
-
-(To be filled by the team)
+- `streaming.range_kind`
+- `streaming.status`
+- `streaming.object_length`
+- `streaming.range_start`
+- `streaming.range_end`

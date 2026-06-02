@@ -1,54 +1,34 @@
 # Directory Structure
 
-> How backend code is organized in this project.
+`nako-search` currently fits in `src/lib.rs`. Keep it compact unless query
+parsing, scoring, and facet handling each become large enough to justify
+private modules.
 
----
+## Current Layout
 
-## Overview
+- `SearchDocument`: indexable catalog document.
+- `SearchQuery`: normalized query input with filters and pagination.
+- `SearchHit` / `SearchEvaluationResult`: output from pure evaluation.
+- `SearchEvaluationDocument`: helper for evaluation against projection facts.
+- Facet conversion helpers using `BrowseFacet::parse_label`.
+- `evaluate_search_documents`: pure ranking and pagination function.
 
-<!--
-Document your project's backend directory structure here.
+## Module Split Rules
 
-Questions to answer:
-- How are modules/packages organized?
-- Where does business logic live?
-- Where are API endpoints defined?
-- How are utilities and helpers organized?
--->
+- Keep public structs and constructors close together.
+- Move private scoring helpers only if they grow beyond simple matching logic.
+- Keep projection conversion explicit so version drift is visible.
+- Keep adapter-specific code out of this crate.
 
-(To be filled by the team)
+## Naming Rules
 
----
+- Use `SearchDocument` for stored or projected search records.
+- Use `SearchEvaluationDocument` for runtime scoring input.
+- Use `SearchHit` for ranked results.
+- Use `BrowseFacet` labels for facet parsing and matching.
 
-## Directory Layout
+## Anti-Patterns
 
-```
-<!-- Replace with your actual structure -->
-src/
-├── ...
-└── ...
-```
-
----
-
-## Module Organization
-
-<!-- How should new features/modules be organized? -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- File and folder naming rules -->
-
-(To be filled by the team)
-
----
-
-## Examples
-
-<!-- Link to well-organized modules as examples -->
-
-(To be filled by the team)
+- Do not create modules named after providers.
+- Do not add API route modules.
+- Do not create database-backed indexer modules in this crate.

@@ -1,51 +1,35 @@
 # Quality Guidelines
 
-> Code quality standards for backend development.
-
----
-
-## Overview
-
-<!--
-Document your project's quality standards here.
-
-Questions to answer:
-- What patterns are forbidden?
-- What linting rules do you enforce?
-- What are your testing requirements?
-- What code review standards apply?
--->
-
-(To be filled by the team)
-
----
-
-## Forbidden Patterns
-
-<!-- Patterns that should never be used and why -->
-
-(To be filled by the team)
-
----
+Streaming changes must preserve RFC-style range semantics and keep direct
+streaming independent from playback policy.
 
 ## Required Patterns
 
-<!-- Patterns that must always be used -->
+- Cover range parsing with table-driven tests.
+- Keep inclusive range math clear and overflow-safe.
+- Keep response plans serializable and framework-neutral.
+- Preserve deterministic headers for full, partial, and unsatisfiable responses.
+- Keep content type mapping simple and predictable.
 
-(To be filled by the team)
+## Forbidden Patterns
 
----
+- Do not introduce external IO into range planning.
+- Do not combine direct response planning with transcode artifact selection.
+- Do not use lossy integer casts for lengths or offsets.
+- Do not change malformed range behavior without tests.
 
-## Testing Requirements
+## Tests Required
 
-<!-- What level of testing is expected -->
+- Full content response tests.
+- Open-ended range tests.
+- Suffix range tests if supported by parser behavior.
+- Malformed header tests.
+- Out-of-bounds range tests.
+- Content type mapping tests.
 
-(To be filled by the team)
+## Gate Selection
 
----
-
-## Code Review Checklist
-
-<!-- What reviewers should check -->
-
-(To be filled by the team)
+- Focused:
+  `cargo nextest run -p nako-streaming --no-fail-fast`
+- Cross-layer compile:
+  `cargo check -p nako-streaming -p nako-server --tests`

@@ -1,38 +1,41 @@
-# Backend Development Guidelines
+# nako-automation Backend Guidelines
 
-> Best practices for backend development in this project.
+`nako-automation` owns automation provider configuration, durable automation
+jobs, provider execution, cancellation, and automation artifacts. It must not
+let external automation mutate canonical metadata directly.
 
----
+## Current Evidence
 
-## Overview
+- `crates/nako-automation/src/lib.rs`
+- `docs/architecture/CONTROL_PLANE.md`
+- `docs/adr/0053-control-plane-runtime-baseline.md`
 
-This directory contains guidelines for backend development. Fill in each file with your project's specific conventions.
+## Boundaries
 
----
+- Use `AutomationProvider` for provider execution abstraction.
+- Use `AutomationJobService` for enqueue and one-shot execution workflow.
+- Enqueue durable `JobKind::Automation` jobs.
+- Use resource class `automation.external_api` for external provider work.
+- Keep canonical metadata acceptance in metadata/catalog workflows.
 
-## Guidelines Index
+## Required Patterns
 
-| Guide | Description | Status |
-|-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill |
-| [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
+- Validate provider enabled state and capability before enqueueing.
+- Execute provider work through a bounded timeout.
+- Pass cancellation state into provider execution.
+- Persist automation artifacts for provider outcomes.
+- Reject outcomes marked as directly accepted into canonical metadata.
 
----
+## Forbidden Patterns
 
-## How to Fill These Guidelines
+- Do not call automation providers without a durable job.
+- Do not log provider secrets.
+- Do not let automation results bypass canonical acceptance workflows.
+- Do not create raw background tasks outside the control-plane model.
 
-For each guideline file:
+## Validation
 
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
-
-The goal is to help AI assistants and new team members understand how YOUR project works.
-
----
-
-**Language**: All documentation should be written in **English**.
+- Focused:
+  `cargo nextest run -p nako-automation --no-fail-fast`
+- Control-plane compile:
+  `cargo check -p nako-automation -p nako-core --tests`

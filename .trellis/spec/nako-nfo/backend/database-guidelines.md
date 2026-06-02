@@ -1,51 +1,33 @@
 # Database Guidelines
 
-> Database patterns and conventions for this project.
+`nako-nfo` uses repository traits to find media sources and metadata records. It
+does not own database schema or migrations.
 
----
+## Required Patterns
 
-## Overview
+- Use `MediaRepository` or other core traits for source and item lookups.
+- Use `StorageBackend` for sidecar content, never direct path reads.
+- Keep import/export state as workflow results unless a repository contract
+  explicitly persists it.
+- Use fingerprints to decide whether sidecar content changed.
 
-<!--
-Document your project's database conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What ORM/query library do you use?
-- How are migrations managed?
-- What are the naming conventions for tables/columns?
-- How do you handle transactions?
--->
+- Do not import SQL adapters or database pools.
+- Do not write canonical metadata tables from codec code.
+- Do not treat sidecar file presence as proof of catalog identity.
+- Do not persist preview-only decisions.
 
-(To be filled by the team)
+## Import/Export Rules
 
----
+- Import can produce decisions such as skip, update, create, or fail depending
+  on policy and source state.
+- Export should respect existing sidecar content and preservation support.
+- Missing source records should fail through repository errors, not local path
+  guessing.
 
-## Query Patterns
+## Tests Required
 
-<!-- How should queries be written? Batch operations? -->
-
-(To be filled by the team)
-
----
-
-## Migrations
-
-<!-- How to create and run migrations -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- Table names, column names, index names -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Database-related mistakes your team has made -->
-
-(To be filled by the team)
+- Repository fake tests for source lookup and missing source cases.
+- Fingerprint tests for skip/update decisions.
+- Preview tests proving no storage mutation.

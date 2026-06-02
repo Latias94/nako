@@ -1,51 +1,34 @@
 # Error Handling
 
-> How errors are handled in this project.
+NFO errors should distinguish invalid XML, unsupported preservation, storage
+failures, and policy decisions.
 
----
+## Required Patterns
 
-## Overview
+- Return `NakoError::InvalidInput` for invalid XML and invalid sidecar content.
+- Return `NakoError::Unsupported` when preservation is requested but unavailable.
+- Propagate VFS read/write errors through `NakoResult`.
+- Represent skip/update/create/fail as explicit import/export decisions.
+- Report codec conflicts during preserving render instead of silently choosing a
+  side.
 
-<!--
-Document your project's error handling conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What error types do you define?
-- How are errors propagated?
-- How are errors logged?
-- How are errors returned to clients?
--->
+- Do not panic on malformed XML.
+- Do not treat unsupported preservation as a successful lossy render.
+- Do not hide VFS failures as skipped sidecars.
+- Do not merge sidecar data into canonical metadata when policy says preview or
+  skip.
 
-(To be filled by the team)
+## Examples
 
----
+- Invalid XML input should fail parsing with `InvalidInput`.
+- A preserving render with conflicting known and unknown fields should report a
+  conflict.
+- Missing sidecar files may become a create/export decision, not a codec error.
 
-## Error Types
+## Review Checklist
 
-<!-- Custom error classes/types -->
-
-(To be filled by the team)
-
----
-
-## Error Handling Patterns
-
-<!-- Try-catch patterns, error propagation -->
-
-(To be filled by the team)
-
----
-
-## API Error Responses
-
-<!-- Standard error response format -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Error handling mistakes your team has made -->
-
-(To be filled by the team)
+- Is the failure a codec, storage, repository, or policy failure?
+- Does the decision remain inspectable by callers?
+- Could unknown XML content be lost?

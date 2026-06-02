@@ -1,54 +1,34 @@
 # Directory Structure
 
-> How backend code is organized in this project.
+`nako-automation` currently keeps provider, job, and artifact orchestration in
+`src/lib.rs`. Split by provider contracts and job orchestration only when the
+crate grows.
 
----
+## Current Layout
 
-## Overview
+- `AutomationProvider`: external automation provider trait.
+- Provider config and capability structs.
+- `AutomationJobService`: enqueue and run-once orchestration.
+- Job request/result/outcome structs.
+- Artifact creation and safe error helpers.
 
-<!--
-Document your project's backend directory structure here.
+## Module Split Rules
 
-Questions to answer:
-- How are modules/packages organized?
-- Where does business logic live?
-- Where are API endpoints defined?
-- How are utilities and helpers organized?
--->
+- Keep provider trait and provider request/result types together.
+- Move durable job orchestration into a private module before adding more job
+  types.
+- Keep artifact mapping separate from provider client adapters.
+- Keep external API clients outside this crate unless they implement the
+  provider trait cleanly.
 
-(To be filled by the team)
+## Naming Rules
 
----
+- Use `Automation*Job*` for durable job workflow types.
+- Use `AutomationProvider*` for external provider contracts.
+- Use `AutomationArtifact` terminology for stored provider outcomes.
 
-## Directory Layout
+## Anti-Patterns
 
-```
-<!-- Replace with your actual structure -->
-src/
-├── ...
-└── ...
-```
-
----
-
-## Module Organization
-
-<!-- How should new features/modules be organized? -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- File and folder naming rules -->
-
-(To be filled by the team)
-
----
-
-## Examples
-
-<!-- Link to well-organized modules as examples -->
-
-(To be filled by the team)
+- Do not create provider-specific modules without a concrete provider adapter.
+- Do not mix automation provider results with metadata acceptance code.
+- Do not add server route handlers here.

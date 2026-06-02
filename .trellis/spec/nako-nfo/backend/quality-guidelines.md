@@ -1,51 +1,34 @@
 # Quality Guidelines
 
-> Code quality standards for backend development.
-
----
-
-## Overview
-
-<!--
-Document your project's quality standards here.
-
-Questions to answer:
-- What patterns are forbidden?
-- What linting rules do you enforce?
-- What are your testing requirements?
-- What code review standards apply?
--->
-
-(To be filled by the team)
-
----
-
-## Forbidden Patterns
-
-<!-- Patterns that should never be used and why -->
-
-(To be filled by the team)
-
----
+NFO changes must protect round-trip behavior and keep import/export workflows
+observable before mutation.
 
 ## Required Patterns
 
-<!-- Patterns that must always be used -->
+- Add round-trip tests for parsed and rendered XML.
+- Preserve unknown fields and comments when using preserving render paths.
+- Keep preview decisions pure and non-mutating.
+- Derive sidecar URI from source locator consistently.
+- Track content fingerprints in summaries and decisions.
 
-(To be filled by the team)
+## Forbidden Patterns
 
----
+- Do not drop unknown XML fields during preservation.
+- Do not mutate VFS or repositories during preview.
+- Do not couple codec parsing to metadata provider adapters.
+- Do not rely on OS filesystem paths instead of `StorageUri`.
 
-## Testing Requirements
+## Tests Required
 
-<!-- What level of testing is expected -->
+- Codec parse/render tests for valid and invalid XML.
+- Preserving render tests for unknown fields, comments, and conflicts.
+- Import policy tests for skip/update/create/fail.
+- Export policy tests for existing and missing sidecars.
+- Workflow tests with fake `StorageBackend`.
 
-(To be filled by the team)
+## Gate Selection
 
----
-
-## Code Review Checklist
-
-<!-- What reviewers should check -->
-
-(To be filled by the team)
+- Focused:
+  `cargo nextest run -p nako-nfo --no-fail-fast`
+- VFS contract:
+  `cargo check -p nako-nfo -p nako-vfs --tests`

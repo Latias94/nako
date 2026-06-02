@@ -1,51 +1,35 @@
 # Quality Guidelines
 
-> Code quality standards for backend development.
-
----
-
-## Overview
-
-<!--
-Document your project's quality standards here.
-
-Questions to answer:
-- What patterns are forbidden?
-- What linting rules do you enforce?
-- What are your testing requirements?
-- What code review standards apply?
--->
-
-(To be filled by the team)
-
----
-
-## Forbidden Patterns
-
-<!-- Patterns that should never be used and why -->
-
-(To be filled by the team)
-
----
+Event changes must preserve signing correctness, durable delivery evidence, and
+control-plane compatibility.
 
 ## Required Patterns
 
-<!-- Patterns that must always be used -->
+- Test HMAC SHA256 signatures against deterministic payloads.
+- Test `x-nako-signature` header construction.
+- Keep event envelope protocol version explicit.
+- Keep delivery attempts auditable across success and failure.
+- Keep retry math deterministic and bounded.
 
-(To be filled by the team)
+## Forbidden Patterns
 
----
+- Do not use wall-clock sleeps in unit tests.
+- Do not create fire-and-forget webhook tasks.
+- Do not add event payload types that leak provider secrets.
+- Do not make reqwest the only possible transport path.
 
-## Testing Requirements
+## Tests Required
 
-<!-- What level of testing is expected -->
+- Envelope serialization tests.
+- Signature tests.
+- Disabled subscription tests.
+- Max-attempt/exhaustion tests.
+- Transport success and failure tests with fake `WebhookTransport`.
+- Retry delay tests.
 
-(To be filled by the team)
+## Gate Selection
 
----
-
-## Code Review Checklist
-
-<!-- What reviewers should check -->
-
-(To be filled by the team)
+- Focused:
+  `cargo nextest run -p nako-events --no-fail-fast`
+- Control-plane compile:
+  `cargo check -p nako-events -p nako-core --tests`

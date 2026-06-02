@@ -1,38 +1,42 @@
-# Backend Development Guidelines
+# nako-events Backend Guidelines
 
-> Best practices for backend development in this project.
+`nako-events` owns event envelopes, webhook signing, delivery attempts, and
+transport helpers. It should stay aligned with the control-plane direction for
+durable background work.
 
----
+## Current Evidence
 
-## Overview
+- `crates/nako-events/src/lib.rs`
+- `docs/architecture/REALTIME_SYNC.md`
+- `docs/architecture/CONTROL_PLANE.md`
+- `docs/adr/0053-control-plane-runtime-baseline.md`
 
-This directory contains guidelines for backend development. Fill in each file with your project's specific conventions.
+## Boundaries
 
----
+- Build `WebhookEventEnvelope` values and delivery requests.
+- Use repository traits for subscription and delivery-attempt persistence.
+- Use `WebhookTransport` for transport abstraction.
+- Use `ReqwestWebhookTransport` only as the HTTP adapter.
+- Keep event producer domain logic in the producing crates.
 
-## Guidelines Index
+## Required Patterns
 
-| Guide | Description | Status |
-|-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill |
-| [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
+- Use protocol version `2026-05-15` for current webhook envelopes.
+- Sign webhook payloads with HMAC SHA256 and `x-nako-signature`.
+- Persist delivery attempts before reporting success or failure.
+- Respect subscription enabled state and max-attempt limits.
+- Use exponential retry delay based on attempt number.
 
----
+## Forbidden Patterns
 
-## How to Fill These Guidelines
+- Do not deliver disabled subscriptions.
+- Do not log webhook secrets or full signed payloads.
+- Do not add raw `tokio::spawn` delivery loops outside the control-plane model.
+- Do not hide HTTP transport failures as successful attempts.
 
-For each guideline file:
+## Validation
 
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
-
-The goal is to help AI assistants and new team members understand how YOUR project works.
-
----
-
-**Language**: All documentation should be written in **English**.
+- Focused:
+  `cargo nextest run -p nako-events --no-fail-fast`
+- Cross-layer control-plane checks:
+  `cargo check -p nako-events -p nako-core --tests`

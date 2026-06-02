@@ -1,51 +1,31 @@
 # Error Handling
 
-> How errors are handled in this project.
+Webhook delivery should make subscription, retry, signing, transport, and
+persistence failures distinguishable.
 
----
+## Required Patterns
 
-## Overview
+- Return `NakoError::InvalidInput` for invalid subscription configuration.
+- Return `NakoError::Conflict` when max attempts are exhausted.
+- Convert reqwest transport failures into provider-style errors.
+- Persist failed attempts with redaction-safe failure details.
+- Keep non-2xx transport responses visible as delivery failures.
 
-<!--
-Document your project's error handling conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What error types do you define?
-- How are errors propagated?
-- How are errors logged?
-- How are errors returned to clients?
--->
+- Do not retry disabled subscriptions.
+- Do not swallow persistence errors after a transport request.
+- Do not expose webhook secret values in errors.
+- Do not parse or serialize JSON with unchecked unwraps.
 
-(To be filled by the team)
+## Examples
 
----
+- Disabled subscription: fail before signing or sending.
+- Exhausted attempts: conflict, no extra transport call.
+- Transport timeout: record failed attempt and return a provider error.
 
-## Error Types
+## Review Checklist
 
-<!-- Custom error classes/types -->
-
-(To be filled by the team)
-
----
-
-## Error Handling Patterns
-
-<!-- Try-catch patterns, error propagation -->
-
-(To be filled by the team)
-
----
-
-## API Error Responses
-
-<!-- Standard error response format -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Error handling mistakes your team has made -->
-
-(To be filled by the team)
+- Was an attempt persisted exactly once for this delivery path?
+- Are secrets excluded from errors?
+- Can the scheduler decide whether to retry?

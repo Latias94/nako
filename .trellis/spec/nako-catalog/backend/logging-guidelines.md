@@ -1,51 +1,27 @@
 # Logging Guidelines
 
-> How logging is done in this project.
+Catalog hydration should emit redaction-safe operational context if logging or
+tracing is added. The current crate mostly returns summaries instead of logging.
 
----
+## Required Patterns
 
-## Overview
+- Prefer structured fields such as item ID, graph kind, relationship count, and
+  projection document count.
+- Use `CatalogHydrationSummary` for caller-visible run outcomes.
+- Keep provider labels and external IDs out of high-cardinality logs unless
+  needed for explicit diagnostics.
+- Log accepted mapping counts rather than raw provider payloads.
 
-<!--
-Document your project's logging conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What logging library do you use?
-- What are the log levels and when to use each?
-- What should be logged?
-- What should NOT be logged (PII, secrets)?
--->
+- Do not log metadata provider secrets or raw provider responses.
+- Do not log full catalog graph payloads.
+- Do not hide missing root errors behind generic hydration-failed messages.
 
-(To be filled by the team)
+## Useful Fields
 
----
-
-## Log Levels
-
-<!-- When to use each level: debug, info, warn, error -->
-
-(To be filled by the team)
-
----
-
-## Structured Logging
-
-<!-- Log format, required fields -->
-
-(To be filled by the team)
-
----
-
-## What to Log
-
-<!-- Important events to log -->
-
-(To be filled by the team)
-
----
-
-## What NOT to Log
-
-<!-- Sensitive data, PII, secrets -->
-
-(To be filled by the team)
+- `catalog.item_id`
+- `catalog.graph_kind`
+- `catalog.relationship_count`
+- `catalog.projection_count`
+- `catalog.accepted_provider_subject_count`

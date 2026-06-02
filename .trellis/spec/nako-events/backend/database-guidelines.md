@@ -1,51 +1,32 @@
 # Database Guidelines
 
-> Database patterns and conventions for this project.
+`nako-events` uses repository traits for subscriptions and delivery attempts. It
+does not own SQL schema in this crate.
 
----
+## Required Patterns
 
-## Overview
+- Load webhook subscriptions through core repository contracts.
+- Persist each delivery attempt with enough status to audit success, failure,
+  and retry eligibility.
+- Enforce subscription enabled state before transport execution.
+- Enforce max-attempt limits before building a signed request.
+- Store safe failure details, not raw secrets or full payload dumps.
 
-<!--
-Document your project's database conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What ORM/query library do you use?
-- How are migrations managed?
-- What are the naming conventions for tables/columns?
-- How do you handle transactions?
--->
+- Do not import SQL adapters or connection pools.
+- Do not deliver events without recording attempt state.
+- Do not store webhook secrets in logs or failure strings.
+- Do not treat transport success as persistence success.
 
-(To be filled by the team)
+## Retry Rules
 
----
+- Use exponential retry delay starting from 30 seconds.
+- Cap the exponent at the current implementation limit.
+- Report exhausted attempts as a conflict rather than retrying forever.
 
-## Query Patterns
+## Tests Required
 
-<!-- How should queries be written? Batch operations? -->
-
-(To be filled by the team)
-
----
-
-## Migrations
-
-<!-- How to create and run migrations -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- Table names, column names, index names -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Database-related mistakes your team has made -->
-
-(To be filled by the team)
+- Repository fake tests for disabled subscriptions and max attempts.
+- Attempt persistence tests for success and failure paths.
+- Retry-delay tests for attempt number behavior.

@@ -1,51 +1,38 @@
 # Quality Guidelines
 
-> Code quality standards for backend development.
-
----
-
-## Overview
-
-<!--
-Document your project's quality standards here.
-
-Questions to answer:
-- What patterns are forbidden?
-- What linting rules do you enforce?
-- What are your testing requirements?
-- What code review standards apply?
--->
-
-(To be filled by the team)
-
----
-
-## Forbidden Patterns
-
-<!-- Patterns that should never be used and why -->
-
-(To be filled by the team)
-
----
+Search behavior must be deterministic, projection-version-aware, and easy to
+test without external services.
 
 ## Required Patterns
 
-<!-- Patterns that must always be used -->
+- Keep evaluation pure and side-effect free.
+- Normalize query terms and document text before matching.
+- Preserve the current scoring weights:
+  - title match: `1.0`
+  - alias match: `0.9`
+  - body match: `0.7`
+  - facet match: `0.5`
+- Apply required facet filters before scoring.
+- Sort by score descending and item ID ascending.
 
-(To be filled by the team)
+## Forbidden Patterns
 
----
+- Do not add nondeterministic tie-breaking.
+- Do not add network calls or search engine clients here.
+- Do not let callers bypass `PageRequest` bounds.
+- Do not mix catalog hydration concerns into scoring code.
 
-## Testing Requirements
+## Tests Required
 
-<!-- What level of testing is expected -->
+- Query normalization tests.
+- Required facet filter tests.
+- Weight and tie-break ordering tests.
+- Pagination clamping tests.
+- Projection version tests when document shape changes.
 
-(To be filled by the team)
+## Gate Selection
 
----
-
-## Code Review Checklist
-
-<!-- What reviewers should check -->
-
-(To be filled by the team)
+- Focused:
+  `cargo nextest run -p nako-search --no-fail-fast`
+- Cross-crate:
+  `cargo check -p nako-search -p nako-catalog --tests`

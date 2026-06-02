@@ -1,38 +1,44 @@
-# Backend Development Guidelines
+# nako-nfo Backend Guidelines
 
-> Best practices for backend development in this project.
+`nako-nfo` owns NFO codec, import/export preview, sidecar URI planning, and
+round-trip behavior. It works through VFS and repository traits instead of raw
+filesystem or database access.
 
----
+## Current Evidence
 
-## Overview
+- `crates/nako-nfo/src/codec.rs`
+- `crates/nako-nfo/src/import.rs`
+- `crates/nako-nfo/src/export.rs`
+- `crates/nako-nfo/src/preview.rs`
+- `crates/nako-nfo/src/workflow.rs`
+- `crates/nako-nfo/src/summary.rs`
 
-This directory contains guidelines for backend development. Fill in each file with your project's specific conventions.
+## Boundaries
 
----
+- Parse and render NFO XML through `NfoCodec`.
+- Use `MovieNfoCodec` for current movie-style fixtures and behavior.
+- Use `NfoService` for storage-backed import/export operations.
+- Use `StorageBackend` for sidecar reads and writes.
+- Keep canonical metadata ownership in core repositories and metadata workflows.
 
-## Guidelines Index
+## Required Patterns
 
-| Guide | Description | Status |
-|-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill |
-| [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
+- Preserve unknown XML fields and comments when `render_preserving` is used.
+- Surface invalid XML as `NakoError::InvalidInput`.
+- Convert source locators to sidecar `.nfo` URIs through existing helpers.
+- Use preview decisions before mutating sidecars or imported data.
+- Track content fingerprints for import/export decisions.
 
----
+## Forbidden Patterns
 
-## How to Fill These Guidelines
+- Do not bypass VFS for local file paths.
+- Do not overwrite unknown NFO fields during preserving renders.
+- Do not silently import sidecar data into canonical metadata without policy.
+- Do not treat default preservation as supported unless the codec implements it.
 
-For each guideline file:
+## Validation
 
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
-
-The goal is to help AI assistants and new team members understand how YOUR project works.
-
----
-
-**Language**: All documentation should be written in **English**.
+- Focused:
+  `cargo nextest run -p nako-nfo --no-fail-fast`
+- Cross-layer:
+  `cargo check -p nako-nfo -p nako-vfs -p nako-core --tests`

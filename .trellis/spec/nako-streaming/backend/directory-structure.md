@@ -1,54 +1,29 @@
 # Directory Structure
 
-> How backend code is organized in this project.
+`nako-streaming` keeps direct response planning in a small module.
 
----
+## Current Layout
 
-## Overview
+- `direct.rs`: range parsing, byte-range resolution, direct-play response plan,
+  and content type helper.
+- `lib.rs`: public exports.
 
-<!--
-Document your project's backend directory structure here.
+## Module Rules
 
-Questions to answer:
-- How are modules/packages organized?
-- Where does business logic live?
-- Where are API endpoints defined?
-- How are utilities and helpers organized?
--->
+- Keep range parsing and response planning together while the crate stays small.
+- Add a new module only for a real streaming mode with its own pure planning
+  contract.
+- Keep HTTP framework adapters outside this crate.
+- Keep storage reads outside this crate.
 
-(To be filled by the team)
+## Naming Rules
 
----
+- Use `DirectPlay*` for direct byte-serving plans.
+- Use `ByteRange` for resolved inclusive ranges.
+- Use `RangeNotSatisfiable` for invalid or unsatisfiable range responses.
 
-## Directory Layout
+## Anti-Patterns
 
-```
-<!-- Replace with your actual structure -->
-src/
-├── ...
-└── ...
-```
-
----
-
-## Module Organization
-
-<!-- How should new features/modules be organized? -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- File and folder naming rules -->
-
-(To be filled by the team)
-
----
-
-## Examples
-
-<!-- Link to well-organized modules as examples -->
-
-(To be filled by the team)
+- Do not add `axum`, `hyper`, or `tokio` response glue here.
+- Do not create local-file-specific modules.
+- Do not mix direct streaming with HLS/transcode artifact planning.

@@ -1,54 +1,37 @@
 # Directory Structure
 
-> How backend code is organized in this project.
+`nako-catalog` currently keeps its implementation in `src/lib.rs`. Split only
+when a group of graph builders or projection helpers becomes large enough to
+need its own module.
 
----
+## Current Layout
 
-## Overview
+- `CatalogHydrationPort`: read-model orchestration entry point.
+- `CatalogHydrationSummary`: summary counts for hydration runs.
+- `CatalogGraphReplacement` / `CatalogItemGraphReplacement`: replacement
+  payloads used to publish complete graph state.
+- Builder helpers for item, person, genre, tag, collection, studio, and provider
+  subject graphs.
+- Projection helpers for `CatalogSearchProjection`.
 
-<!--
-Document your project's backend directory structure here.
+## Module Split Rules
 
-Questions to answer:
-- How are modules/packages organized?
-- Where does business logic live?
-- Where are API endpoints defined?
-- How are utilities and helpers organized?
--->
+- Keep repository orchestration near the hydration port.
+- Move pure graph-building helpers into private modules only when they stop
+  being readable in `lib.rs`.
+- Keep public output structs stable and explicit.
+- Keep search document evaluation out of this crate.
 
-(To be filled by the team)
+## Naming Rules
 
----
+- Use `Catalog*Graph` for hydrated read models.
+- Use `*Replacement` for complete replacement payloads.
+- Use `CatalogSearchProjection` for search-indexable documents.
+- Use `ProviderSubject` terminology for accepted external mappings.
 
-## Directory Layout
+## Anti-Patterns
 
-```
-<!-- Replace with your actual structure -->
-src/
-├── ...
-└── ...
-```
-
----
-
-## Module Organization
-
-<!-- How should new features/modules be organized? -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- File and folder naming rules -->
-
-(To be filled by the team)
-
----
-
-## Examples
-
-<!-- Link to well-organized modules as examples -->
-
-(To be filled by the team)
+- Do not create a `service` module that mixes hydration, API mapping, and
+  search ranking.
+- Do not add per-provider adapter modules in catalog.
+- Do not create database-specific catalog modules.

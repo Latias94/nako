@@ -1,51 +1,31 @@
 # Error Handling
 
-> How errors are handled in this project.
+Automation errors should preserve job lifecycle state and protect provider
+secrets.
 
----
+## Required Patterns
 
-## Overview
+- Fail enqueue when provider is disabled or lacks the requested capability.
+- Respect provider timeout and cancellation signals.
+- Record provider failures in durable job state with safe error text.
+- Return provider execution failures after recording the failed job state.
+- Reject direct canonical metadata acceptance with `NakoError::InvalidInput`.
 
-<!--
-Document your project's error handling conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What error types do you define?
-- How are errors propagated?
-- How are errors logged?
-- How are errors returned to clients?
--->
+- Do not unwrap provider results or cancellation checks.
+- Do not expose provider secrets in returned errors.
+- Do not mark failed provider execution as a successful artifact.
+- Do not ignore durable job persistence errors.
 
-(To be filled by the team)
+## Examples
 
----
+- Disabled provider: fail before enqueueing a job.
+- Provider timeout: fail job and return a provider-style error.
+- Outcome requesting canonical acceptance: fail as invalid input during M5.3.
 
-## Error Types
+## Review Checklist
 
-<!-- Custom error classes/types -->
-
-(To be filled by the team)
-
----
-
-## Error Handling Patterns
-
-<!-- Try-catch patterns, error propagation -->
-
-(To be filled by the team)
-
----
-
-## API Error Responses
-
-<!-- Standard error response format -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Error handling mistakes your team has made -->
-
-(To be filled by the team)
+- Is the job state consistent with the returned result?
+- Are secrets excluded from errors and artifacts?
+- Can a scheduler retry or inspect the failure?

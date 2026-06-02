@@ -1,51 +1,31 @@
 # Database Guidelines
 
-> Database patterns and conventions for this project.
+`nako-search` has no database ownership. It evaluates supplied documents and
+does not load, persist, or invalidate indexes by itself.
 
----
+## Required Patterns
 
-## Overview
+- Accept `SearchDocument` or evaluation documents from callers.
+- Use projection version values from `nako-core`.
+- Keep pagination behavior consistent with `PageRequest`.
+- Let catalog or future repository adapters decide where documents are stored.
 
-<!--
-Document your project's database conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What ORM/query library do you use?
-- How are migrations managed?
-- What are the naming conventions for tables/columns?
-- How do you handle transactions?
--->
+- Do not import SQL, database pools, migrations, or repository adapters.
+- Do not persist search documents from inside `evaluate_search_documents`.
+- Do not bypass catalog projection generation to read canonical tables.
+- Do not add implicit global indexes.
 
-(To be filled by the team)
+## Versioning Rules
 
----
+- Preserve `projection_version` on search documents.
+- When projection shape changes, update the catalog producer and search
+  consumer together.
+- Add tests for mixed or mismatched projection data before accepting version
+  changes.
 
-## Query Patterns
+## Tests Required
 
-<!-- How should queries be written? Batch operations? -->
-
-(To be filled by the team)
-
----
-
-## Migrations
-
-<!-- How to create and run migrations -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- Table names, column names, index names -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Database-related mistakes your team has made -->
-
-(To be filled by the team)
+- Pure evaluation tests should construct documents in memory.
+- Projection tests should compile with `nako-catalog` when shape changes.

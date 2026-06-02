@@ -1,51 +1,31 @@
 # Error Handling
 
-> How errors are handled in this project.
+Streaming planners should convert invalid range input into explicit response
+plans instead of throwing transport errors.
 
----
+## Required Patterns
 
-## Overview
+- Treat malformed range headers as unsatisfiable range plans.
+- Treat ranges beyond object length as unsatisfiable range plans.
+- Use full-object response plans when range header is absent.
+- Keep zero-length object behavior explicit in tests.
+- Return deterministic headers for each plan.
 
-<!--
-Document your project's error handling conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What error types do you define?
-- How are errors propagated?
-- How are errors logged?
-- How are errors returned to clients?
--->
+- Do not panic on malformed range syntax.
+- Do not return HTTP framework errors from pure planning code.
+- Do not silently clamp out-of-bounds starts into valid ranges.
+- Do not assume object length is nonzero without testing that path.
 
-(To be filled by the team)
+## Examples
 
----
+- `bytes=0-99` on a 1000-byte object returns partial content.
+- `bytes=9999-10000` on a 1000-byte object returns range-not-satisfiable.
+- Missing range header returns full content planning.
 
-## Error Types
+## Review Checklist
 
-<!-- Custom error classes/types -->
-
-(To be filled by the team)
-
----
-
-## Error Handling Patterns
-
-<!-- Try-catch patterns, error propagation -->
-
-(To be filled by the team)
-
----
-
-## API Error Responses
-
-<!-- Standard error response format -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Error handling mistakes your team has made -->
-
-(To be filled by the team)
+- Is the `Content-Range` value correct?
+- Are malformed and out-of-bounds inputs separated in tests?
+- Does the caller still own actual byte transport?

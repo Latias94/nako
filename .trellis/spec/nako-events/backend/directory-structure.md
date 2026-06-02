@@ -1,54 +1,32 @@
 # Directory Structure
 
-> How backend code is organized in this project.
+`nako-events` currently lives in `src/lib.rs`. Split only around real event
+contracts, repository orchestration, and transport adapters.
 
----
+## Current Layout
 
-## Overview
+- Event envelope and payload structs.
+- Webhook request signing helpers.
+- `WebhookTransport` trait.
+- `ReqwestWebhookTransport` HTTP adapter.
+- `WebhookDeliveryService` delivery orchestration.
+- Retry and attempt-state helpers.
 
-<!--
-Document your project's backend directory structure here.
+## Module Split Rules
 
-Questions to answer:
-- How are modules/packages organized?
-- Where does business logic live?
-- Where are API endpoints defined?
-- How are utilities and helpers organized?
--->
+- Move envelope and signing helpers together if they grow.
+- Move reqwest adapter into a transport module before adding another adapter.
+- Keep durable attempt orchestration separate from transport execution.
+- Keep event producers outside this crate.
 
-(To be filled by the team)
+## Naming Rules
 
----
+- Use `Webhook*` for webhook delivery concepts.
+- Use `DeliveryAttempt` terminology for persisted attempt state.
+- Use `EventEnvelope` terminology for transport-neutral event payloads.
 
-## Directory Layout
+## Anti-Patterns
 
-```
-<!-- Replace with your actual structure -->
-src/
-├── ...
-└── ...
-```
-
----
-
-## Module Organization
-
-<!-- How should new features/modules be organized? -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- File and folder naming rules -->
-
-(To be filled by the team)
-
----
-
-## Examples
-
-<!-- Link to well-organized modules as examples -->
-
-(To be filled by the team)
+- Do not add per-domain event producer modules here.
+- Do not add server route handlers here.
+- Do not mix retry scheduling with HTTP client implementation.

@@ -1,51 +1,31 @@
 # Error Handling
 
-> How errors are handled in this project.
+Search evaluation should be total for valid inputs and conservative for empty or
+malformed query state.
 
----
+## Required Patterns
 
-## Overview
+- Treat empty query text as browse-style matching with filters and pagination.
+- Use normalized text matching for title, aliases, body, and facets.
+- Ignore malformed facet labels by failing conversion before evaluation when the
+  caller builds documents.
+- Clamp pagination rather than letting callers request unbounded result sets.
 
-<!--
-Document your project's error handling conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What error types do you define?
-- How are errors propagated?
-- How are errors logged?
-- How are errors returned to clients?
--->
+- Do not panic on empty aliases, body text, or facets.
+- Do not return database or transport errors from pure evaluation.
+- Do not silently change projection versions.
+- Do not throw away all results because one optional facet is absent.
 
-(To be filled by the team)
+## Examples
 
----
+- A document that fails a required facet filter should not be scored.
+- A document with no body text can still match on title or alias.
+- Results with equal score must sort by item ID for deterministic output.
 
-## Error Types
+## Review Checklist
 
-<!-- Custom error classes/types -->
-
-(To be filled by the team)
-
----
-
-## Error Handling Patterns
-
-<!-- Try-catch patterns, error propagation -->
-
-(To be filled by the team)
-
----
-
-## API Error Responses
-
-<!-- Standard error response format -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Error handling mistakes your team has made -->
-
-(To be filled by the team)
+- Is evaluation deterministic?
+- Does pagination stay bounded?
+- Are empty fields handled without special-case panics?
