@@ -1,51 +1,52 @@
 # Error Handling
 
-> How errors are handled in this project.
+Metadata workflows should make operator-visible state transitions explicit.
 
----
+## Required Patterns
 
-## Overview
+- Missing targeted reviews or items return `NakoError::NotFound` with a stable
+  entity name and ID.
+- Stale review operations use `expected_updated_at_ms` and return
+  `NakoError::Conflict` when the review changed under the caller.
+- Expired, already accepted, already rejected, or already applied reviews are
+  conflicts unless the existing service contract returns an unchanged summary.
+- Unsupported source or missing root subject should produce a typed application
+  plan with `Skip`, not a blind write failure.
+- Provider HTTP/runtime failures should be captured as provider diagnostics or
+  attempt records; do not leak credentials or raw response payloads in public
+  errors.
 
-<!--
-Document your project's error handling conventions here.
+## Validation Matrix
 
-Questions to answer:
-- What error types do you define?
-- How are errors propagated?
-- How are errors logged?
-- How are errors returned to clients?
--->
+| Condition | Behavior |
+|-----------|----------|
+| Review ID not found | `NotFound { entity: "metadata_candidate_review", ... }` |
+| Request item ID differs from review item ID | `Conflict` or stale-operation rejection |
+| Review expired before decision | mark expired, then return `Conflict` |
+| Review not accepted for application | application plan action `Skip` |
+| Existing accepted Provider Mapping | application plan action `Noop` |
+| Provider lacks endpoint support | reject before HTTP or return provider diagnostic |
 
-(To be filled by the team)
+## Wrong vs Correct
 
----
+### Wrong
 
-## Error Types
+```rust
+// Applies provider mapping even though the review is still pending.
+repository.upsert_provider_mapping(mapping).await?;
+```
 
-<!-- Custom error classes/types -->
+### Correct
 
-(To be filled by the team)
+```rust
+let plan = build_candidate_review_application_plan(repository, &review).await?;
+if plan.action == MetadataCandidateReviewApplicationAction::Apply {
+    // Apply through the service boundary.
+}
+```
 
----
+## Evidence
 
-## Error Handling Patterns
-
-<!-- Try-catch patterns, error propagation -->
-
-(To be filled by the team)
-
----
-
-## API Error Responses
-
-<!-- Standard error response format -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Error handling mistakes your team has made -->
-
-(To be filled by the team)
+- `crates/nako-metadata/src/candidate_review.rs`
+- `crates/nako-metadata/src/providers/douban.rs`
+- `crates/nako-metadata/src/runtime.rs`

@@ -1,51 +1,16 @@
 # Logging Guidelines
 
-> How logging is done in this project.
+`nako-api` is a contract crate and should not emit runtime logs.
 
----
+## Rules
 
-## Overview
+- Do not add tracing or logging side effects to DTO definitions or generator
+  helpers.
+- Generator commands may print deterministic command/help output, but should
+  not log secrets or machine-local paths beyond explicit output paths.
+- Runtime request logging belongs in `nako-server`.
 
-<!--
-Document your project's logging conventions here.
+## Evidence
 
-Questions to answer:
-- What logging library do you use?
-- What are the log levels and when to use each?
-- What should be logged?
-- What should NOT be logged (PII, secrets)?
--->
-
-(To be filled by the team)
-
----
-
-## Log Levels
-
-<!-- When to use each level: debug, info, warn, error -->
-
-(To be filled by the team)
-
----
-
-## Structured Logging
-
-<!-- Log format, required fields -->
-
-(To be filled by the team)
-
----
-
-## What to Log
-
-<!-- Important events to log -->
-
-(To be filled by the team)
-
----
-
-## What NOT to Log
-
-<!-- Sensitive data, PII, secrets -->
-
-(To be filled by the team)
+- `crates/nako-api/src/admin_contract.rs`
+- `crates/nako-server/src/http.rs`

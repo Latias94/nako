@@ -1,51 +1,47 @@
 # Error Handling
 
-> How errors are handled in this project.
+Playback planning should usually return a typed decision report instead of
+throwing an error.
 
----
+## Required Patterns
 
-## Overview
+- Incompatible playback should produce `PlaybackMode::Denied`,
+  `PlaybackDenial`, and `PlaybackDecisionReport` reasons where possible.
+- Capability failures should use `PlaybackCompatibilityCondition` values such
+  as `ContainerUnsupported`, `VideoCodecUnsupported`, `AudioChannelsUnsupported`,
+  `VideoHdrUnsupported`, `SubtitleDeliveryUnsupported`, or `PolicyDenied`.
+- Missing media technical facts should be represented as
+  `MediaTechnicalFactsMissing` or a specific compatibility condition, not a
+  panic.
+- Runtime failures after planning belong to `nako-server`/`nako-transcode`.
 
-<!--
-Document your project's error handling conventions here.
+## Validation Matrix
 
-Questions to answer:
-- What error types do you define?
-- How are errors propagated?
-- How are errors logged?
-- How are errors returned to clients?
--->
+| Condition | Planner behavior |
+|-----------|------------------|
+| Policy denies all modes | `Denied` with `PolicyDenied` |
+| Direct Play disabled by client | Direct Play unsupported, consider Remux/Transcode |
+| Container unknown | Direct Play/Remux unsupported by container condition |
+| Requested HLS output | Transcode path with HLS output requirement |
+| HDR unsupported | color pipeline/tone mapping requirement or unsupported condition |
 
-(To be filled by the team)
+## Wrong vs Correct
 
----
+### Wrong
 
-## Error Types
+```rust
+panic!("client does not support this codec");
+```
 
-<!-- Custom error classes/types -->
+### Correct
 
-(To be filled by the team)
+```rust
+PlaybackCapabilityEvaluation::unsupported(vec![
+    PlaybackCompatibilityCondition::VideoCodecUnsupported,
+])
+```
 
----
+## Evidence
 
-## Error Handling Patterns
-
-<!-- Try-catch patterns, error propagation -->
-
-(To be filled by the team)
-
----
-
-## API Error Responses
-
-<!-- Standard error response format -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Error handling mistakes your team has made -->
-
-(To be filled by the team)
+- `crates/nako-playback/src/capability.rs`
+- `crates/nako-playback/src/lib.rs`

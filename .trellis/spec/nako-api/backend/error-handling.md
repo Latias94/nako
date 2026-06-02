@@ -1,51 +1,40 @@
 # Error Handling
 
-> How errors are handled in this project.
+`nako-api` owns error response shapes and constants when they are part of the
+wire contract. `nako-server` maps `NakoError` into HTTP responses.
 
----
+## Rules
 
-## Overview
+- Keep public error bodies stable and version-aware per ADR 0023.
+- Do not put adapter-specific errors, SQL strings, provider payloads, local
+  paths, raw tokens, or playback tickets into error DTOs.
+- New API-visible error fields require route tests in `nako-server` and
+  contract/generator tests in `nako-api`.
+- Admin-only diagnostics can be richer than Public Client errors, but must
+  remain redaction-safe.
 
-<!--
-Document your project's error handling conventions here.
+## Wrong vs Correct
 
-Questions to answer:
-- What error types do you define?
-- How are errors propagated?
-- How are errors logged?
-- How are errors returned to clients?
--->
+### Wrong
 
-(To be filled by the team)
+```rust
+pub struct ErrorResponse {
+    pub sql: String,
+    pub local_path: String,
+}
+```
 
----
+### Correct
 
-## Error Types
+```rust
+pub struct ErrorResponse {
+    pub code: String,
+    pub message: String,
+}
+```
 
-<!-- Custom error classes/types -->
+## Evidence
 
-(To be filled by the team)
-
----
-
-## Error Handling Patterns
-
-<!-- Try-catch patterns, error propagation -->
-
-(To be filled by the team)
-
----
-
-## API Error Responses
-
-<!-- Standard error response format -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Error handling mistakes your team has made -->
-
-(To be filled by the team)
+- ADR 0023
+- `crates/nako-server/src/http/error.rs`
+- `crates/nako-api/src/public_client.rs`

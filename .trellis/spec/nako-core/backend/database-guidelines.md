@@ -1,51 +1,49 @@
 # Database Guidelines
 
-> Database patterns and conventions for this project.
+`nako-core` defines persistence contracts, not persistence implementation.
 
----
+## Scope
 
-## Overview
+- Repository traits live in `crates/nako-core/src/repository/*.rs`.
+- Durable records, IDs, filters, and commit structs live in `nako-core`.
+- SQLite/Postgres SQL, migrations, row mappers, and contract tests live in
+  `nako-db`.
 
-<!--
-Document your project's database conventions here.
+## Contract Rules
 
-Questions to answer:
-- What ORM/query library do you use?
-- How are migrations managed?
-- What are the naming conventions for tables/columns?
-- How do you handle transactions?
--->
+- Adding a repository method is a cross-crate contract change. Update:
+  `nako-core` trait, SQLite adapter, Postgres adapter when implemented,
+  contract tests, and any server app service that calls it.
+- Use strong ID types instead of raw `String`/`Uuid` parameters in repository
+  traits.
+- Use `PageRequest` for list surfaces. Do not add unbounded list methods for
+  Admin/Public/API scale surfaces.
+- Persisted enums must expose parse helpers that return `NakoError::Database`
+  for unknown stored values. This turns database drift into a visible adapter
+  error.
+- Store domain state in neutral terms from `CONTEXT.md`; do not encode provider
+  payload ownership into core records unless the concept is explicitly a
+  Provider Subject or Provider Mapping.
 
-(To be filled by the team)
+## Wrong vs Correct
 
----
+### Wrong
 
-## Query Patterns
+```rust
+async fn list_jobs_raw_sql(&self, sql: &str) -> Result<Vec<Job>>;
+```
 
-<!-- How should queries be written? Batch operations? -->
+### Correct
 
-(To be filled by the team)
+```rust
+async fn list_jobs(&self, filter: JobListFilter, page: PageRequest) -> Result<Vec<Job>>;
+```
 
----
+Repository traits describe domain queries. SQL shape stays in `nako-db`.
 
-## Migrations
+## Evidence
 
-<!-- How to create and run migrations -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- Table names, column names, index names -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Database-related mistakes your team has made -->
-
-(To be filled by the team)
+- `crates/nako-core/src/repository/jobs.rs`
+- `crates/nako-core/src/repository/metadata.rs`
+- `crates/nako-core/src/repository/pagination.rs`
+- `crates/nako-db/src/contract_tests.rs`

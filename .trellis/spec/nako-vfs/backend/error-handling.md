@@ -1,51 +1,55 @@
 # Error Handling
 
-> How errors are handled in this project.
+VFS errors should classify storage failures so callers can make bounded
+decisions instead of guessing from raw strings.
 
----
+## Required Patterns
 
-## Overview
+- Invalid `StorageUri` input returns `NakoError::InvalidInput`.
+- Backend failures should map to `StorageErrorKind` and
+  `StorageFailureClass` when possible.
+- Cache repair diagnostics should use `VfsCacheRepairDiagnostic` and
+  `VfsCacheRepairClassification`.
+- Redact cache failure messages before exposing them. Use safe operator actions
+  instead of raw backend error dumps.
+- Permission and security failures should become operator-action-required, not
+  infinite retry loops.
 
-<!--
-Document your project's error handling conventions here.
+## Validation Matrix
 
-Questions to answer:
-- What error types do you define?
-- How are errors propagated?
-- How are errors logged?
-- How are errors returned to clients?
--->
+| Condition | Behavior |
+|-----------|----------|
+| URI missing `://` or empty scheme | `NakoError::InvalidInput` |
+| Fresh cache with no failure | `Healthy` |
+| Stale fallback object | `RepairableStaleFallback` |
+| Timeout/unavailable/rate limited/partial read | `RetryableRefreshFailure` |
+| Permission or security failure | `OperatorActionRequired` |
+| Unknown failure class | `UnknownFailure` |
 
-(To be filled by the team)
+## Wrong vs Correct
 
----
+### Wrong
 
-## Error Types
+```rust
+Err(NakoError::Provider {
+    provider: "webdav".to_owned(),
+    message: format!("{raw_url_with_secret}: {err}"),
+})
+```
 
-<!-- Custom error classes/types -->
+### Correct
 
-(To be filled by the team)
+```rust
+Err(NakoError::Provider {
+    provider: "webdav".to_owned(),
+    message: "webdav storage request failed".to_owned(),
+})
+```
 
----
+Expose details through redaction-safe diagnostics only.
 
-## Error Handling Patterns
+## Evidence
 
-<!-- Try-catch patterns, error propagation -->
-
-(To be filled by the team)
-
----
-
-## API Error Responses
-
-<!-- Standard error response format -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Error handling mistakes your team has made -->
-
-(To be filled by the team)
+- `crates/nako-vfs/src/lib.rs`
+- `crates/nako-core/src/error.rs`
+- `crates/nako-core/src/vfs_cache.rs`

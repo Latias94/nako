@@ -1,51 +1,18 @@
 # Database Guidelines
 
-> Database patterns and conventions for this project.
+`nako-transcode` does not own database persistence.
 
----
+## Rules
 
-## Overview
+- Transcode session records and repository traits live in `nako-core`.
+- SQLite/Postgres adapters live in `nako-db`.
+- Server app services decide when to persist transcode sessions, artifacts, and
+  runtime outcomes.
+- `nako-transcode` may produce typed session IDs, manifests, plans, and runtime
+  summaries that callers persist.
 
-<!--
-Document your project's database conventions here.
+## Review Checklist
 
-Questions to answer:
-- What ORM/query library do you use?
-- How are migrations managed?
-- What are the naming conventions for tables/columns?
-- How do you handle transactions?
--->
-
-(To be filled by the team)
-
----
-
-## Query Patterns
-
-<!-- How should queries be written? Batch operations? -->
-
-(To be filled by the team)
-
----
-
-## Migrations
-
-<!-- How to create and run migrations -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- Table names, column names, index names -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Database-related mistakes your team has made -->
-
-(To be filled by the team)
+- Is this a plan/artifact/runtime value or durable session state?
+- Should a new durable field be added to `nako-core` and `nako-db` instead?
+- Does the caller own resource admission and session lifecycle?

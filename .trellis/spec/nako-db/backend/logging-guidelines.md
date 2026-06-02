@@ -1,51 +1,20 @@
 # Logging Guidelines
 
-> How logging is done in this project.
+`nako-db` should keep database diagnostics redaction-safe and adapter-focused.
 
----
+## Rules
 
-## Overview
+- Do not log raw SQL with bound values when those values may include tokens,
+  secrets, local paths, provider cache payloads, or playback tickets.
+- Prefer returning structured domain diagnostics through repository records
+  when users or operators need to see state.
+- If tracing is added around database work, use feature/action names and record
+  counts, not sensitive payloads.
+- Migration failures should surface through `NakoError::Database`; do not add
+  side-channel logs that leak connection strings.
 
-<!--
-Document your project's logging conventions here.
+## Examples
 
-Questions to answer:
-- What logging library do you use?
-- What are the log levels and when to use each?
-- What should be logged?
-- What should NOT be logged (PII, secrets)?
--->
-
-(To be filled by the team)
-
----
-
-## Log Levels
-
-<!-- When to use each level: debug, info, warn, error -->
-
-(To be filled by the team)
-
----
-
-## Structured Logging
-
-<!-- Log format, required fields -->
-
-(To be filled by the team)
-
----
-
-## What to Log
-
-<!-- Important events to log -->
-
-(To be filled by the team)
-
----
-
-## What NOT to Log
-
-<!-- Sensitive data, PII, secrets -->
-
-(To be filled by the team)
+- `contract_tests.rs` asserts repository behavior instead of relying on logs.
+- `sqlite/codec.rs` converts persisted values into domain types without logging
+  raw rows.

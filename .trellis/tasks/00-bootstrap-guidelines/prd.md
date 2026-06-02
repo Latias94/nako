@@ -24,7 +24,7 @@ the rest conversationally.
 - [ ] Fill guidelines for nako
 - [ ] Fill guidelines for nako-addon-client
 - [ ] Fill guidelines for nako-addon-protocol
-- [ ] Fill guidelines for nako-api
+- [x] Fill guidelines for nako-api
 - [ ] Fill guidelines for nako-automation
 - [ ] Fill guidelines for nako-catalog
 - [ ] Fill guidelines for nako-client
@@ -32,24 +32,32 @@ the rest conversationally.
 - [ ] Fill guidelines for nako-client-core
 - [ ] Fill guidelines for nako-client-protocol
 - [ ] Fill guidelines for nako-client-uniffi
-- [ ] Fill guidelines for nako-core
-- [ ] Fill guidelines for nako-db
+- [x] Fill guidelines for nako-core
+- [x] Fill guidelines for nako-db
 - [ ] Fill guidelines for nako-events
 - [ ] Fill guidelines for nako-library
 - [ ] Fill guidelines for nako-media-probe
-- [ ] Fill guidelines for nako-metadata
+- [x] Fill guidelines for nako-metadata
 - [ ] Fill guidelines for nako-naming
 - [ ] Fill guidelines for nako-nfo
 - [ ] Fill guidelines for nako-official-addon-catalog
-- [ ] Fill guidelines for nako-playback
+- [x] Fill guidelines for nako-playback
 - [ ] Fill guidelines for nako-reference-addon
 - [ ] Fill guidelines for nako-search
-- [ ] Fill guidelines for nako-server
+- [x] Fill guidelines for nako-server
 - [ ] Fill guidelines for nako-streaming
-- [ ] Fill guidelines for nako-transcode
+- [x] Fill guidelines for nako-transcode
 - [ ] Fill guidelines for nako-uniffi-bindgen
-- [ ] Fill guidelines for nako-vfs
-- [ ] Add code examples
+- [x] Fill guidelines for nako-vfs
+- [x] Add code examples
+
+Session progress on 2026-06-02:
+
+- Seeded real, code-referenced specs for `nako-core`, `nako-db`,
+  `nako-metadata`, `nako-server`, `nako-api`, `nako-vfs`, `nako-playback`,
+  and `nako-transcode`.
+- Left remaining package checkboxes open until their own specs are filled with
+  real examples.
 
 ---
 

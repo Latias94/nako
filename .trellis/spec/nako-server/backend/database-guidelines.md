@@ -1,51 +1,51 @@
 # Database Guidelines
 
-> Database patterns and conventions for this project.
+`nako-server` uses repository traits and database facades; it does not own SQL,
+migrations, row mappers, or adapter-specific persistence behavior.
 
----
+## Rules
 
-## Overview
+- App services call repository traits or `NakoDatabase` facade methods. They do
+  not issue raw SQL.
+- HTTP handlers should not coordinate database work directly. Handlers translate
+  request/response and delegate to app services.
+- Schema, migration, and row-mapping changes belong in `nako-core` and
+  `nako-db`.
+- Cross-layer changes that add a persisted field usually need updates in:
+  `nako-core`, `nako-db`, `nako-api`, `nako-server`, and tests.
+- List surfaces exposed through server routes must remain bounded and paginated
+  per ADR 0053.
 
-<!--
-Document your project's database conventions here.
+## Good/Base/Bad Cases
 
-Questions to answer:
-- What ORM/query library do you use?
-- How are migrations managed?
-- What are the naming conventions for tables/columns?
-- How do you handle transactions?
--->
+- Good: `app/metadata.rs` calls a metadata service/repository and maps the
+  summary to an API DTO.
+- Base: Admin diagnostics route reads a bounded page through an app service.
+- Bad: an Axum handler runs a SQL query or builds pagination by loading every
+  row.
 
-(To be filled by the team)
+## Wrong vs Correct
 
----
+### Wrong
 
-## Query Patterns
+```rust
+async fn handler(State(app): State<NakoApp>) -> ApiResult<Json<Response>> {
+    let rows = sqlx::query("SELECT * FROM jobs").fetch_all(app.pool()).await?;
+    Ok(Json(map_rows(rows)))
+}
+```
 
-<!-- How should queries be written? Batch operations? -->
+### Correct
 
-(To be filled by the team)
+```rust
+async fn handler(State(app): State<NakoApp>) -> ApiResult<Json<Response>> {
+    let page = app.jobs().list_jobs(filter, page).await?;
+    Ok(Json(map_jobs(page)))
+}
+```
 
----
+## Evidence
 
-## Migrations
-
-<!-- How to create and run migrations -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- Table names, column names, index names -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Database-related mistakes your team has made -->
-
-(To be filled by the team)
+- `crates/nako-server/src/app/*.rs`
+- `crates/nako-server/src/http/*.rs`
+- `crates/nako-db/src/contract_tests.rs`

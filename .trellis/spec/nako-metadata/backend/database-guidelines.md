@@ -1,51 +1,32 @@
 # Database Guidelines
 
-> Database patterns and conventions for this project.
+`nako-metadata` talks to persistence through repository traits only.
 
----
+## Contract Rules
 
-## Overview
+- Use `nako-core` repository traits such as `MetadataCandidateReviewRepository`,
+  `ProviderMappingRepository`, `LibraryItemRepository`, and
+  `MetadataRepository`.
+- Keep service structs generic over repository traits. Example:
+  `MetadataCandidateReviewApplicationService<R>`.
+- Return domain summaries from metadata services; let `nako-server` map them to
+  Admin/Public DTOs.
+- Do not perform raw SQL, migrations, or row mapping in this crate.
+- When a metadata workflow needs a new persisted field, update `nako-core`
+  records and `nako-db` adapters in the same Trellis task or split an explicit
+  schema task first.
 
-<!--
-Document your project's database conventions here.
+## Good/Base/Bad Cases
 
-Questions to answer:
-- What ORM/query library do you use?
-- How are migrations managed?
-- What are the naming conventions for tables/columns?
-- How do you handle transactions?
--->
+- Good: a service loads a Candidate Review through a repository trait, builds a
+  typed plan, then calls repository methods to apply status or Provider Mapping
+  changes.
+- Base: provider fetch returns a candidate graph without any database write.
+- Bad: provider adapter writes provider subjects directly to SQLite or returns
+  a database row as metadata output.
 
-(To be filled by the team)
+## Evidence
 
----
-
-## Query Patterns
-
-<!-- How should queries be written? Batch operations? -->
-
-(To be filled by the team)
-
----
-
-## Migrations
-
-<!-- How to create and run migrations -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- Table names, column names, index names -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Database-related mistakes your team has made -->
-
-(To be filled by the team)
+- `crates/nako-metadata/src/candidate_review.rs`
+- `crates/nako-metadata/src/strategy.rs`
+- `crates/nako-core/src/repository/metadata.rs`

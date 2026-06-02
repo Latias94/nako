@@ -1,51 +1,20 @@
 # Logging Guidelines
 
-> How logging is done in this project.
+Provider diagnostics must be useful to operators without leaking secrets.
 
----
+## Rules
 
-## Overview
+- Do not log provider API keys, bearer tokens, signed URLs, raw request headers,
+  or full raw provider payloads.
+- Prefer structured attempt/diagnostic records over ad hoc logs for provider
+  refresh behavior.
+- Log or record provider name, subject kind, capability status, and safe error
+  class when diagnostics are needed.
+- Keep Admin/Public summaries redacted; detailed provider payload inspection
+  requires a deliberate diagnostics contract.
 
-<!--
-Document your project's logging conventions here.
+## Evidence
 
-Questions to answer:
-- What logging library do you use?
-- What are the log levels and when to use each?
-- What should be logged?
-- What should NOT be logged (PII, secrets)?
--->
-
-(To be filled by the team)
-
----
-
-## Log Levels
-
-<!-- When to use each level: debug, info, warn, error -->
-
-(To be filled by the team)
-
----
-
-## Structured Logging
-
-<!-- Log format, required fields -->
-
-(To be filled by the team)
-
----
-
-## What to Log
-
-<!-- Important events to log -->
-
-(To be filled by the team)
-
----
-
-## What NOT to Log
-
-<!-- Sensitive data, PII, secrets -->
-
-(To be filled by the team)
+- `crates/nako-metadata/src/provider_attempt.rs`
+- `crates/nako-metadata/src/runtime.rs`
+- ADR 0018

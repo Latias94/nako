@@ -1,51 +1,20 @@
 # Database Guidelines
 
-> Database patterns and conventions for this project.
+`nako-api` has no database ownership.
 
----
+## Rules
 
-## Overview
+- DTOs may mirror domain concepts, but they must not expose database row shape
+  as the public contract.
+- Do not import `nako-db`, `sqlx`, or repository traits into this crate.
+- Persistence field additions start in `nako-core`/`nako-db`; API exposure is a
+  separate contract decision.
+- Public/Admin list DTOs should represent bounded, paginated API behavior rather
+  than raw table scans.
 
-<!--
-Document your project's database conventions here.
+## Review Checklist
 
-Questions to answer:
-- What ORM/query library do you use?
-- How are migrations managed?
-- What are the naming conventions for tables/columns?
-- How do you handle transactions?
--->
-
-(To be filled by the team)
-
----
-
-## Query Patterns
-
-<!-- How should queries be written? Batch operations? -->
-
-(To be filled by the team)
-
----
-
-## Migrations
-
-<!-- How to create and run migrations -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- Table names, column names, index names -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Database-related mistakes your team has made -->
-
-(To be filled by the team)
+- Is this field safe for the intended API audience?
+- Is the field a stable wire contract rather than an adapter detail?
+- Does the Admin/Public split still hold?
+- Does `nako-server` own the mapping from domain record to DTO?

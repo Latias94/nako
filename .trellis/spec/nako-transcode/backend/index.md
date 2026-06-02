@@ -1,38 +1,39 @@
-# Backend Development Guidelines
+# nako-transcode Backend Development Guidelines
 
-> Best practices for backend development in this project.
+These specs describe FFmpeg command planning, remux/HLS/transcode artifact
+modeling, hardware capability inventory, and transcode runtime primitives in
+`crates/nako-transcode`.
 
----
+## Pre-Development Checklist
 
-## Overview
-
-This directory contains guidelines for backend development. Fill in each file with your project's specific conventions.
-
----
+- Read [Directory Structure](./directory-structure.md) before adding FFmpeg,
+  HLS, remux, hardware, runtime, or artifact modules.
+- Read [Database Guidelines](./database-guidelines.md) before touching
+  transcode session persistence from related work.
+- Read [Error Handling](./error-handling.md) before changing plan validation,
+  command planning, runtime guard, or cancellation behavior.
+- Read [Quality Guidelines](./quality-guidelines.md) before changing FFmpeg
+  arguments, HLS artifact manifests, hardware policy, or runtime limits.
+- Read [Logging Guidelines](./logging-guidelines.md) before adding FFmpeg or
+  transcode diagnostics.
 
 ## Guidelines Index
 
 | Guide | Description | Status |
 |-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill |
-| [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
+| [Directory Structure](./directory-structure.md) | FFmpeg, HLS, remux, hardware, artifact, runtime modules | Filled from code and ADRs |
+| [Database Guidelines](./database-guidelines.md) | Transcode runtime persistence non-ownership | Filled as adapter boundary |
+| [Error Handling](./error-handling.md) | Plan validation, FFmpeg planning errors, runtime guard failures | Filled from code |
+| [Quality Guidelines](./quality-guidelines.md) | Typed FFmpeg planning, artifact manifests, hardware/runtime gates | Filled from code |
+| [Logging Guidelines](./logging-guidelines.md) | Redaction-safe FFmpeg/transcode diagnostics | Filled from code |
 
----
+## Authority / Evidence
 
-## How to Fill These Guidelines
-
-For each guideline file:
-
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
-
-The goal is to help AI assistants and new team members understand how YOUR project works.
-
----
-
-**Language**: All documentation should be written in **English**.
+- ADR 0045: FFmpeg hardware pipeline planner.
+- ADR 0049: source-aware transcode runtime.
+- ADR 0052: HLS runtime and media engine boundary.
+- `docs/architecture/PLAYBACK.md`
+- `crates/nako-transcode/src/lib.rs`
+- `crates/nako-transcode/src/ffmpeg/*`
+- `crates/nako-transcode/src/hls.rs`
+- `crates/nako-transcode/src/runtime.rs`

@@ -1,51 +1,49 @@
 # Error Handling
 
-> How errors are handled in this project.
+Transcode errors should identify planning, validation, runtime guard, and
+external engine failures without leaking unsafe paths or command payloads.
 
----
+## Required Patterns
 
-## Overview
+- Validate playback transcode plans through typed validation errors before
+  command execution.
+- Reject in-place remux/transcode outputs.
+- Runtime guard acquisition failures map to `NakoError::Provider` for the
+  FFmpeg engine.
+- Cancellation should use the typed cancellation primitive and caller-owned
+  lifecycle; do not rely on dropped futures as the cancellation contract.
+- Hardware inventory probe errors should mark inventory degraded rather than
+  claiming full readiness.
 
-<!--
-Document your project's error handling conventions here.
+## Validation Matrix
 
-Questions to answer:
-- What error types do you define?
-- How are errors propagated?
-- How are errors logged?
-- How are errors returned to clients?
--->
+| Condition | Behavior |
+|-----------|----------|
+| Empty input locator | invalid input plan validation |
+| HLS video codec not h264 | plan validation error |
+| HLS audio codec not aac | plan validation error |
+| Input and output path are same | reject command plan |
+| Runtime semaphore closed | `NakoError::Provider { provider: "ffmpeg", ... }` |
+| Hardware probe error | degraded inventory status |
 
-(To be filled by the team)
+## Wrong vs Correct
 
----
+### Wrong
 
-## Error Types
+```rust
+let args = format!("-i {} {}", input.display(), output.display());
+```
 
-<!-- Custom error classes/types -->
+### Correct
 
-(To be filled by the team)
+```rust
+let command = FfmpegCommandBuilder::new("ffmpeg").hls(&request)?;
+```
 
----
+Use typed command builders so paths and options stay structured and testable.
 
-## Error Handling Patterns
+## Evidence
 
-<!-- Try-catch patterns, error propagation -->
-
-(To be filled by the team)
-
----
-
-## API Error Responses
-
-<!-- Standard error response format -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Error handling mistakes your team has made -->
-
-(To be filled by the team)
+- `crates/nako-transcode/src/plan.rs`
+- `crates/nako-transcode/src/runtime.rs`
+- `crates/nako-transcode/src/lib.rs`

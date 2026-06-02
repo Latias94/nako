@@ -1,51 +1,19 @@
 # Logging Guidelines
 
-> How logging is done in this project.
+`nako-core` should stay mostly free of runtime logging.
 
----
+## Boundary
 
-## Overview
+- Core records may carry redaction-safe diagnostic fields, but runtime log
+  emission belongs in adapters and app services.
+- Do not add `tracing` spans or logging side effects to core parse helpers,
+  records, or repository traits unless an ADR explicitly moves diagnostics into
+  the core contract.
+- Diagnostic strings in core must be operator-safe: no raw tokens, credentials,
+  playback tickets, local filesystem paths, or provider secret payloads.
 
-<!--
-Document your project's logging conventions here.
+## Examples
 
-Questions to answer:
-- What logging library do you use?
-- What are the log levels and when to use each?
-- What should be logged?
-- What should NOT be logged (PII, secrets)?
--->
-
-(To be filled by the team)
-
----
-
-## Log Levels
-
-<!-- When to use each level: debug, info, warn, error -->
-
-(To be filled by the team)
-
----
-
-## Structured Logging
-
-<!-- Log format, required fields -->
-
-(To be filled by the team)
-
----
-
-## What to Log
-
-<!-- Important events to log -->
-
-(To be filled by the team)
-
----
-
-## What NOT to Log
-
-<!-- Sensitive data, PII, secrets -->
-
-(To be filled by the team)
+- `storage_health.rs` models storage health state without logging directly.
+- `vfs_cache.rs` stores VFS cache failure facts; rendering and emission happen
+  in VFS/server surfaces.

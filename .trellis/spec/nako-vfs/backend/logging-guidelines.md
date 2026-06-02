@@ -1,51 +1,19 @@
 # Logging Guidelines
 
-> How logging is done in this project.
+VFS logs and diagnostics must be storage-safe.
 
----
+## Rules
 
-## Overview
+- Do not log raw local paths, WebDAV credentials, signed URLs, or request
+  headers.
+- Prefer storage URI scheme, operation kind, failure class, retryability, and
+  safe operator action over raw error text.
+- Cache repair messages exposed to operators must be redaction-safe.
+- Keep high-volume listing/read logs behind deliberate tracing decisions; large
+  libraries and remote storage can produce noisy logs.
 
-<!--
-Document your project's logging conventions here.
+## Evidence
 
-Questions to answer:
-- What logging library do you use?
-- What are the log levels and when to use each?
-- What should be logged?
-- What should NOT be logged (PII, secrets)?
--->
-
-(To be filled by the team)
-
----
-
-## Log Levels
-
-<!-- When to use each level: debug, info, warn, error -->
-
-(To be filled by the team)
-
----
-
-## Structured Logging
-
-<!-- Log format, required fields -->
-
-(To be filled by the team)
-
----
-
-## What to Log
-
-<!-- Important events to log -->
-
-(To be filled by the team)
-
----
-
-## What NOT to Log
-
-<!-- Sensitive data, PII, secrets -->
-
-(To be filled by the team)
+- `crates/nako-vfs/src/lib.rs`
+- `crates/nako-vfs/src/cache.rs`
+- `docs/architecture/STORAGE_VFS.md`

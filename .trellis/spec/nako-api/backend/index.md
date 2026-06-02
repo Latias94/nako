@@ -8,17 +8,21 @@ generation, TypeScript SDK generation, or Admin Web contract generation.
 
 - Read [Admin and Public Contracts](./admin-and-public-contracts.md) before API
   DTO or route inventory work.
+- Read [Directory Structure](./directory-structure.md) before adding an Admin,
+  Public Client, OpenAPI, or generated-contract module.
+- Read [Quality Guidelines](./quality-guidelines.md) before changing generated
+  contract artifacts or redaction-sensitive DTOs.
 
 ## Guidelines Index
 
 | Guide | Description | Status |
 |-------|-------------|--------|
 | [Admin and Public Contracts](./admin-and-public-contracts.md) | DTO ownership, admin/public split, generated contracts, tests | Filled from code and ADRs |
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill beyond contract slice |
-| [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | Not applicable unless contract work touches persistence |
-| [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
+| [Directory Structure](./directory-structure.md) | Admin/Public DTO, OpenAPI, SDK, and contract generator layout | Filled from code |
+| [Database Guidelines](./database-guidelines.md) | Persistence non-ownership for API contracts | Filled as not-applicable boundary |
+| [Error Handling](./error-handling.md) | Error DTO ownership and server-side mapping boundary | Filled from ADR 0023 |
+| [Quality Guidelines](./quality-guidelines.md) | Generated contract, redaction, and route inventory gates | Filled from code |
+| [Logging Guidelines](./logging-guidelines.md) | API crate no-runtime/logging boundary | Filled as no-runtime boundary |
 
 ## Authority / Evidence
 

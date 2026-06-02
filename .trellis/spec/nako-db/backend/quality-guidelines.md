@@ -1,51 +1,44 @@
 # Quality Guidelines
 
-> Code quality standards for backend development.
-
----
-
-## Overview
-
-<!--
-Document your project's quality standards here.
-
-Questions to answer:
-- What patterns are forbidden?
-- What linting rules do you enforce?
-- What are your testing requirements?
-- What code review standards apply?
--->
-
-(To be filled by the team)
-
----
-
-## Forbidden Patterns
-
-<!-- Patterns that should never be used and why -->
-
-(To be filled by the team)
-
----
+Persistence work must prove repository behavior, not only compile.
 
 ## Required Patterns
 
-<!-- Patterns that must always be used -->
+- Add or extend `contract_tests.rs` for every repository behavior that should
+  hold across SQLite and Postgres.
+- Include both fresh-store and migrated-store cases when the schema change
+  affects migration behavior.
+- Use `NAKO_TEST_POSTGRES_URL` for optional Postgres contract runs. Do not make
+  local development require Postgres for SQLite-only checks.
+- Keep SQLite and Postgres row shape comparable even when SQL dialect differs.
+- Keep list methods bounded with `PageRequest`.
 
-(To be filled by the team)
+## Gate Selection
 
----
+- Narrow DB compile:
+  `cargo check -p nako-db --tests`
+- Focused DB behavior:
+  `cargo nextest run -p nako-db <filter> --no-fail-fast`
+- Cross-crate repository contract:
+  `cargo nextest run -p nako-core -p nako-db <filter> --no-fail-fast`
+- Docs-only spec update:
+  `git diff --check`
 
-## Testing Requirements
+## Forbidden Patterns
 
-<!-- What level of testing is expected -->
+- Do not skip Postgres adapter updates by hiding new behavior behind SQLite
+  helper methods.
+- Do not use live external services in contract tests other than the optional
+  Postgres URL path already modeled in the crate.
+- Do not add unbounded scans or list queries for Admin/Public surfaces.
+- Do not store raw secrets, playback tickets, or raw local paths in diagnostic
+  columns unless an ADR and redaction contract explicitly require it.
 
-(To be filled by the team)
+## Review Checklist
 
----
-
-## Code Review Checklist
-
-<!-- What reviewers should check -->
-
-(To be filled by the team)
+- Migration file exists for SQLite and Postgres.
+- Both migration arrays include the same version.
+- Inserts, updates, row readers, list filters, and contract tests all know about
+  the new field.
+- Stored enum conversions reject unknown values.
+- The new SQL preserves existing pagination, ordering, and transaction rules.

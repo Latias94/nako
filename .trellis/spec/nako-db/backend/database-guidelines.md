@@ -1,41 +1,43 @@
 # Database Guidelines
 
-> Database patterns and conventions for this project.
-
----
-
-## Overview
-
-<!--
-Document your project's database conventions here.
-
-Questions to answer:
-- What ORM/query library do you use?
-- How are migrations managed?
-- What are the naming conventions for tables/columns?
-- How do you handle transactions?
--->
-
-(To be filled by the team)
-
----
+Use SQLx directly in adapter modules. Repository traits come from `nako-core`;
+database-specific SQL and row mapping stay inside `nako-db`.
 
 ## Query Patterns
 
-<!-- How should queries be written? Batch operations? -->
-
-(To be filled by the team)
-
----
+- Use parameter binding, not interpolated values, for row data.
+- String-built SQL is allowed only for controlled identifiers such as table or
+  owner-column names in shared helper functions. Do not interpolate user input.
+- Convert all SQLx errors through backend helper functions such as
+  `database_error`.
+- Keep row mapping close to the adapter that owns the query. Use shared codec
+  helpers for repeated enum, ID, JSON, and numeric conversions.
+- Use transactions for multi-table commits that must be atomic, such as catalog
+  graph replacement, provider mapping commits, artwork lifecycle writes, and
+  durable job state transitions.
 
 ## Migrations
 
-<!-- How to create and run migrations -->
+- Add SQLite schema changes under `crates/nako-db/migrations/`.
+- Add PostgreSQL schema changes under `crates/nako-db/migrations/postgres/`.
+- Register every new migration in both:
+  - `crates/nako-db/src/sqlite/migrations.rs`
+  - `crates/nako-db/src/postgres.rs`
+- Keep version numbers and descriptions aligned across SQLite and Postgres.
+- Keep baseline migrations as direct schema shape. Do not replay historical
+  `ALTER TABLE` fragments in baseline SQL.
+- After a schema change, update row mappers, insert/update SQL, list filters,
+  and contract tests in the same task.
 
-Add schema changes as versioned SQL files under `crates/nako-db/migrations/`
-and `crates/nako-db/migrations/postgres/`, then register both in the matching
-SQLite/Postgres `MIGRATIONS` arrays. Keep adapter row mappers, insert SQL, and
-contract tests in sync with every new durable column.
+## Naming Conventions
+
+- Table and column names use `snake_case`.
+- ID columns store strong IDs as text strings unless an existing table uses a
+  different established shape.
+- JSON payload columns use `*_json` names.
+- Timestamp columns use the existing `*_at` or `*_at_ms` convention from the
+  surrounding table; do not mix both styles inside one table without a reason.
+- Index names should describe table plus key or access pattern.
 
 ## Scenario: Durable Job Priority Policy
 
@@ -113,18 +115,10 @@ NewJob {
 }
 ```
 
----
-
-## Naming Conventions
-
-<!-- Table names, column names, index names -->
-
-(To be filled by the team)
-
----
-
 ## Common Mistakes
 
-<!-- Database-related mistakes your team has made -->
-
-(To be filled by the team)
+- Adding a column to SQLite only.
+- Registering migration files but forgetting the `MIGRATIONS` array.
+- Updating row inserts but not row readers.
+- Adding a repository trait method without a contract test.
+- Returning a raw SQLx error type through a `nako-core` repository trait.

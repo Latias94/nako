@@ -18,8 +18,8 @@ examples and matching architecture decisions.
 | [Error Handling](./error-handling.md) | `ApiResult`, `ApiError`, public error bodies, HTTP status mapping | Filled from code and ADR 0023 |
 | [Logging Guidelines](./logging-guidelines.md) | `tracing` setup, handler instrumentation, secret-safe skip fields | Filled from code and ADR 0053 |
 | [Quality Guidelines](./quality-guidelines.md) | Server-focused Rust test patterns and gates | Filled from code and repo gates |
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill beyond HTTP slice |
-| [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill in `nako-db` bootstrap |
+| [Directory Structure](./directory-structure.md) | App service, HTTP route, runtime, config, and test module layout | Filled from code and ADR 0019/0053 |
+| [Database Guidelines](./database-guidelines.md) | Server persistence usage through repositories and app services | Filled as SQL non-ownership boundary |
 
 ## Authority / Evidence
 
@@ -37,3 +37,5 @@ examples and matching architecture decisions.
 - `crates/nako-server/src/http/error.rs`
 - `crates/nako-server/src/http/tests/mod.rs`
 - `crates/nako-server/src/main.rs`
+- `crates/nako-server/src/app/job_runtime.rs`
+- `crates/nako-server/src/app/playback/resource.rs`

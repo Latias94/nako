@@ -1,51 +1,20 @@
 # Logging Guidelines
 
-> How logging is done in this project.
+Transcode diagnostics should help operators debug FFmpeg behavior without
+leaking sensitive machine-local details.
 
----
+## Rules
 
-## Overview
+- Do not log raw tokens, playback tickets, credentials, or signed URLs.
+- Be careful with local paths in logs; prefer session IDs, source IDs, artifact
+  IDs, engine kind, codec/container choices, and safe failure categories.
+- Use FFmpeg progress parsing and typed runtime summaries over unstructured
+  stdout/stderr dumps when exposing diagnostics.
+- Hardware probe diagnostics should distinguish unavailable hardware, probe
+  error, and unsupported policy.
 
-<!--
-Document your project's logging conventions here.
+## Evidence
 
-Questions to answer:
-- What logging library do you use?
-- What are the log levels and when to use each?
-- What should be logged?
-- What should NOT be logged (PII, secrets)?
--->
-
-(To be filled by the team)
-
----
-
-## Log Levels
-
-<!-- When to use each level: debug, info, warn, error -->
-
-(To be filled by the team)
-
----
-
-## Structured Logging
-
-<!-- Log format, required fields -->
-
-(To be filled by the team)
-
----
-
-## What to Log
-
-<!-- Important events to log -->
-
-(To be filled by the team)
-
----
-
-## What NOT to Log
-
-<!-- Sensitive data, PII, secrets -->
-
-(To be filled by the team)
+- `crates/nako-transcode/src/progress.rs`
+- `crates/nako-transcode/src/hardware.rs`
+- `crates/nako-transcode/src/runtime.rs`

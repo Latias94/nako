@@ -1,38 +1,38 @@
-# Backend Development Guidelines
+# nako-playback Backend Development Guidelines
 
-> Best practices for backend development in this project.
+These specs describe the pure playback planning boundary in
+`crates/nako-playback`. This crate selects Direct Play, Remux, Transcode, or
+Denied from source, probe, target, policy, storage, and preference facts. It
+does not execute FFmpeg or serve bytes.
 
----
+## Pre-Development Checklist
 
-## Overview
-
-This directory contains guidelines for backend development. Fill in each file with your project's specific conventions.
-
----
+- Read [Directory Structure](./directory-structure.md) before adding playback
+  planning values or capability evaluation modules.
+- Read [Database Guidelines](./database-guidelines.md) before touching playback
+  session persistence from related work.
+- Read [Error Handling](./error-handling.md) before changing denial/report
+  semantics.
+- Read [Quality Guidelines](./quality-guidelines.md) before changing Direct
+  Play/Remux/Transcode decision behavior.
+- Read [Logging Guidelines](./logging-guidelines.md) before adding diagnostics.
 
 ## Guidelines Index
 
 | Guide | Description | Status |
 |-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill |
-| [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
+| [Directory Structure](./directory-structure.md) | Pure planner modules and exported value types | Filled from code and ADRs |
+| [Database Guidelines](./database-guidelines.md) | Playback planner persistence non-ownership | Filled as not-applicable boundary |
+| [Error Handling](./error-handling.md) | Decision denial and compatibility report behavior | Filled from code |
+| [Quality Guidelines](./quality-guidelines.md) | Planner purity, capability profile, track/HDR/audio rules | Filled from code |
+| [Logging Guidelines](./logging-guidelines.md) | No-runtime/logging boundary | Filled as no-runtime boundary |
 
----
+## Authority / Evidence
 
-## How to Fill These Guidelines
-
-For each guideline file:
-
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
-
-The goal is to help AI assistants and new team members understand how YOUR project works.
-
----
-
-**Language**: All documentation should be written in **English**.
+- ADR 0038: playback planning and transcode policy seams.
+- ADR 0039: playback policy and renderer target boundary.
+- ADR 0044: playback capability profile planner.
+- `docs/architecture/PLAYBACK.md`
+- `crates/nako-playback/src/lib.rs`
+- `crates/nako-playback/src/capability.rs`
+- `crates/nako-playback/src/values.rs`

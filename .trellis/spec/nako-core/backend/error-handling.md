@@ -1,51 +1,51 @@
 # Error Handling
 
-> How errors are handled in this project.
+`nako-core` owns the shared `NakoError` type. Use it to express domain and
+repository-contract failures without pulling in adapter-specific error types.
 
----
+## Required Patterns
 
-## Overview
+- Invalid request fields or impossible domain inputs return
+  `NakoError::InvalidInput`.
+- Stale updates, already-applied decisions, cancellation conflicts, and invalid
+  state transitions return `NakoError::Conflict`.
+- Missing records return `NakoError::NotFound { entity, id }` when the caller
+  asked for a specific entity.
+- Unknown persisted enum strings or scores return `NakoError::Database`; see
+  `JobKind::parse`, `JobStatus::parse`, and `JobPriority::from_score`.
+- Provider or external runtime failures should not be represented in core with
+  raw HTTP, SQL, or process errors. Convert them at the adapter boundary.
 
-<!--
-Document your project's error handling conventions here.
+## Validation Matrix
 
-Questions to answer:
-- What error types do you define?
-- How are errors propagated?
-- How are errors logged?
-- How are errors returned to clients?
--->
+| Condition | Error |
+|-----------|-------|
+| Empty required locator, URI, ID-like value, or zero max attempts | `InvalidInput` |
+| Retry source job does not match loaded job | `InvalidInput` |
+| Retrying a non-failed job | `Conflict` |
+| Unknown stored enum value | `Database` |
+| Expected record missing during a targeted operation | `NotFound` |
 
-(To be filled by the team)
+## Wrong vs Correct
 
----
+### Wrong
 
-## Error Types
+```rust
+return Err(sqlx_error.into());
+```
 
-<!-- Custom error classes/types -->
+### Correct
 
-(To be filled by the team)
+```rust
+return Err(NakoError::Database {
+    message: format!("unknown job status stored in database: {value}"),
+});
+```
 
----
+`nako-core` should expose project error meaning, not adapter error types.
 
-## Error Handling Patterns
+## Evidence
 
-<!-- Try-catch patterns, error propagation -->
-
-(To be filled by the team)
-
----
-
-## API Error Responses
-
-<!-- Standard error response format -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Error handling mistakes your team has made -->
-
-(To be filled by the team)
+- `crates/nako-core/src/error.rs`
+- `crates/nako-core/src/job.rs`
+- `crates/nako-metadata/src/candidate_review.rs`
