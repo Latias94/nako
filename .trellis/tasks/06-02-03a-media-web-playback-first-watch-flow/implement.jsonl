@@ -1,0 +1,10 @@
+{"file":"docs/architecture/LANES.md","reason":"Web-product and playback-transcode shared scope routing."}
+{"file":"docs/architecture/PLAYBACK.md","reason":"Playback planning/runtime boundaries and client-facing playback constraints."}
+{"file":"docs/architecture/STATE_ACCESS.md","reason":"User playback state, auth, and access constraints for client flows."}
+{"file":".trellis/spec/nako-client-protocol/backend/index.md","reason":"Public Client API route and DTO contract guidance."}
+{"file":".trellis/spec/nako-client-core/backend/index.md","reason":"Transport-neutral request builder and safe preview guidance."}
+{"file":".trellis/spec/nako-client/backend/index.md","reason":"Rust SDK public client behavior and redaction constraints."}
+{"file":".trellis/spec/nako-api/backend/index.md","reason":"Public/Admin DTO separation and generated contract behavior."}
+{"file":".trellis/spec/nako-server/backend/index.md","reason":"HTTP auth, route, and playback ticket behavior if backend routes are touched."}
+{"file":".trellis/spec/admin-web/frontend/index.md","reason":"Existing frontend route/data/test conventions closest to current Web surfaces."}
+{"file":".trellis/spec/admin-web/frontend/routes-forms-and-tests.md","reason":"Frontend data-source, route-state, and Vitest/Playwright expectations."}

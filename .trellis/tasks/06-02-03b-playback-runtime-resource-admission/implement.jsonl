@@ -1,0 +1,9 @@
+{"file":"docs/architecture/LANES.md","reason":"Playback-transcode ownership and shared storage/web/control-plane scopes."}
+{"file":"docs/architecture/PLAYBACK.md","reason":"Playback runtime, HLS, remux, and transcode architecture map."}
+{"file":"docs/architecture/CONTROL_PLANE.md","reason":"ADR 0053-aligned runtime, diagnostics, and durable-job boundaries."}
+{"file":"docs/adr/0053-application-control-plane-boundary.md","reason":"Control-plane baseline for resource admission and runtime visibility."}
+{"file":".trellis/spec/nako-playback/backend/index.md","reason":"Pure playback planner boundary and quality rules."}
+{"file":".trellis/spec/nako-transcode/backend/index.md","reason":"FFmpeg/transcode runtime and artifact planning rules."}
+{"file":".trellis/spec/nako-streaming/backend/index.md","reason":"Streaming response and byte/range serving constraints."}
+{"file":".trellis/spec/nako-server/backend/index.md","reason":"Server runtime, HTTP error, and test patterns."}
+{"file":".trellis/spec/nako-vfs/backend/index.md","reason":"Storage/staging pressure and source-read constraints."}

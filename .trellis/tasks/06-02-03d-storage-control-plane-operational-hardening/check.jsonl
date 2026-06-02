@@ -1,0 +1,8 @@
+{"file":"docs/architecture/STORAGE_VFS.md","reason":"Check storage/source identity and VFS pressure behavior."}
+{"file":"docs/architecture/CONTROL_PLANE.md","reason":"Check diagnostics/control-plane alignment."}
+{"file":"docs/adr/0016-remote-storage-and-vfs-cache-boundary.md","reason":"Check VFS cache boundary decisions."}
+{"file":"docs/adr/0053-application-control-plane-boundary.md","reason":"Check no hidden runtime work."}
+{"file":".trellis/spec/nako-vfs/backend/index.md","reason":"Check VFS implementation rules."}
+{"file":".trellis/spec/nako-library/backend/index.md","reason":"Check scan/ingestion behavior."}
+{"file":".trellis/spec/nako-server/backend/index.md","reason":"Check server diagnostics/routes."}
+{"file":".trellis/spec/nako-db/backend/index.md","reason":"Check persistence behavior if touched."}

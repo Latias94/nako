@@ -1,0 +1,6 @@
+{"file":"docs/architecture/LANES.md","reason":"Check web/playback shared scope and stop conditions."}
+{"file":"docs/architecture/PLAYBACK.md","reason":"Check playback runtime and public URL safety."}
+{"file":".trellis/spec/nako-client-protocol/backend/index.md","reason":"Check public protocol compatibility."}
+{"file":".trellis/spec/nako-client-core/backend/index.md","reason":"Check request builder and redaction behavior."}
+{"file":".trellis/spec/nako-server/backend/index.md","reason":"Check route/auth behavior if backend changed."}
+{"file":".trellis/spec/admin-web/frontend/routes-forms-and-tests.md","reason":"Check frontend route, data-source, and test conventions."}

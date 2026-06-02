@@ -1,0 +1,7 @@
+{"file":"docs/architecture/LIBRARY_PIPELINE.md","reason":"Check metadata/provider governance alignment."}
+{"file":"docs/architecture/CONTROL_PLANE.md","reason":"Check durable control-plane boundaries."}
+{"file":"docs/workstreams/provider-governance-durable-batch-execution/CLOSEOUT.md","reason":"Check latest split non-goals are preserved."}
+{"file":".trellis/spec/nako-metadata/backend/index.md","reason":"Check provider mapping and candidate review behavior."}
+{"file":".trellis/spec/nako-api/backend/index.md","reason":"Check API DTO/redaction/generated contract behavior."}
+{"file":".trellis/spec/nako-server/backend/index.md","reason":"Check HTTP/app service behavior."}
+{"file":".trellis/spec/nako-db/backend/index.md","reason":"Check persistence contract behavior if touched."}
