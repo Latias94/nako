@@ -23,13 +23,13 @@ bearer tokens or playback tickets.
 
 ## Acceptance Criteria
 
-- [ ] HLS playlist playback is handled by native browser support or a lazy
+- [x] HLS playlist playback is handled by native browser support or a lazy
   loaded HLS engine with a tested fallback/error state.
-- [ ] Direct playable URLs still render through the native video element.
-- [ ] Route state and DOM do not expose bearer tokens or playback ticket values.
-- [ ] Tests cover the HLS path, native path, subtitles, and player lifecycle.
-- [ ] Bundle budget and Web package checks pass.
-- [ ] Browser or Playwright smoke evidence is recorded.
+- [x] Direct playable URLs still render through the native video element.
+- [x] Route state and DOM do not expose bearer tokens or playback ticket values.
+- [x] Tests cover the HLS path, native path, subtitles, and player lifecycle.
+- [x] Bundle budget and Web package checks pass.
+- [x] Browser or Playwright smoke evidence is recorded.
 
 ## Definition of Done
 

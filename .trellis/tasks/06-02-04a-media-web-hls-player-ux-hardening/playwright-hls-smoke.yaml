@@ -1,0 +1,63 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - img "Nako" [ref=e7]
+        - generic [ref=e8]: Nako
+        - generic [ref=e9]: 私人媒体库
+      - generic [ref=e10]:
+        - button "媒体库" [ref=e11]:
+          - img [ref=e12]
+          - generic [ref=e14]: 媒体库
+        - button "管理面板" [ref=e15]:
+          - img [ref=e16]
+          - generic [ref=e19]: 管理面板
+      - generic [ref=e20]:
+        - button "搜索" [ref=e21]:
+          - img
+          - generic [ref=e22]: 搜索
+        - button "2 通知" [ref=e23]:
+          - img
+          - generic [ref=e24]: "2"
+          - generic [ref=e25]: 通知
+        - button "管理" [ref=e26]
+  - generic [ref=e27]:
+    - generic [ref=e31]:
+      - generic [ref=e32]:
+        - button [ref=e33]:
+          - img
+        - heading "沙丘2" [level=1] [ref=e35]
+      - generic [ref=e36]:
+        - button [ref=e37]:
+          - img
+        - button [ref=e38]:
+          - img
+    - button [ref=e39]:
+      - img
+    - button [ref=e40]:
+      - img
+    - generic [ref=e41]:
+      - generic [ref=e43]:
+        - generic [ref=e44]: 0:00
+        - slider [ref=e49]
+        - generic [ref=e50]: 2:46:00
+      - generic [ref=e51]:
+        - generic [ref=e52]:
+          - button [ref=e53]:
+            - img
+          - button [disabled]:
+            - img
+          - button [disabled]:
+            - img
+          - generic [ref=e54]:
+            - button [ref=e55]:
+              - img
+            - slider [ref=e57]
+          - generic [ref=e58]: 2:46:00 剩余
+        - generic [ref=e59]:
+          - button [ref=e60]:
+            - img
+          - button [ref=e61]:
+            - img
+          - button [ref=e62]:
+            - img
