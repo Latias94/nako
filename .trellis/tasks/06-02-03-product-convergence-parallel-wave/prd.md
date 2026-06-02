@@ -31,11 +31,11 @@ global refactor.
 
 ## Acceptance Criteria
 
-- [ ] Four child Trellis tasks exist.
-- [ ] Four task branches and worktrees exist under `F:/SourceCodes/Rust/nako-worktrees`.
-- [ ] Each child task has a PRD and curated `implement.jsonl` / `check.jsonl`.
-- [ ] Each child task records its branch and intended worktree path.
-- [ ] The parent task remains a coordination task, not an implementation lane.
+- [x] Four child Trellis tasks exist.
+- [x] Four task branches and worktrees exist under `F:/SourceCodes/Rust/nako-worktrees`.
+- [x] Each child task has a PRD and curated `implement.jsonl` / `check.jsonl`.
+- [x] Each child task records its branch and intended worktree path.
+- [x] The parent task remains a coordination task, not an implementation lane.
 
 ## Definition of Done
 
