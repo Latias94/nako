@@ -6460,6 +6460,83 @@ async fn admin_v1_metadata_raw_cache_settings_rejects_zero_retention() {
 }
 
 #[tokio::test]
+async fn admin_v1_metadata_raw_cache_settings_rejects_non_admin_session() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let token = "test-admin-token";
+    let router = test_router_with_bearer_auth(temp.path().to_path_buf(), library_id, token).await;
+
+    let created = request_body_json_with_bearer::<AdminAccessUserResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/access/users",
+        &AdminCreateUserRequest {
+            username: "settings-viewer".to_owned(),
+            display_name: "Settings Viewer".to_owned(),
+            roles: vec![UserRole::Viewer],
+        },
+        token,
+    )
+    .await;
+    let password_path = format!(
+        "/admin/v1/access/users/{}/local-password",
+        created.user.user_id
+    );
+    request_body_json_with_bearer::<nako_api::admin::AdminLocalPasswordResponse, _>(
+        &router,
+        Method::PUT,
+        &password_path,
+        &nako_api::admin::AdminSetLocalPasswordRequest {
+            password: "correct horse battery staple".to_owned(),
+        },
+        token,
+    )
+    .await;
+
+    let login = request_body_json::<LoginResponse, _>(
+        &router,
+        Method::POST,
+        "/auth/login",
+        &LoginRequest {
+            username: "settings-viewer".to_owned(),
+            password: "correct horse battery staple".to_owned(),
+        },
+    )
+    .await;
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::PUT)
+                .uri("/admin/v1/settings/metadata/raw-cache")
+                .header(
+                    header::AUTHORIZATION,
+                    format!("Bearer {}", login.session.token),
+                )
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_vec(&AdminUpdateMetadataRawCacheSettingsRequest {
+                        retention_ms: 3_600_000,
+                        cleanup_on_startup: true,
+                    })
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let error = body_json::<ErrorResponse>(response).await;
+    assert_eq!(
+        error.code,
+        nako_api::public_client::ClientErrorCode::Forbidden.as_str()
+    );
+    assert_eq!(error.message, "administrator role is required");
+}
+
+#[tokio::test]
 async fn admin_v1_playback_runtime_settings_round_trips_persisted_override() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
