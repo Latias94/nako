@@ -1,10 +1,10 @@
 import { createMemoryHistory } from "@tanstack/react-router"
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { NakoRouter, createNakoRouter } from "@/src/shell"
 import { ThemeProvider } from "@/components/theme-provider"
 import { QueryProvider } from "@/lib/query-provider"
-import { CONNECTION_PROFILE_STORAGE_KEY } from "@/src/api/connection-profile"
+import { CONNECTION_PROFILE_STORAGE_KEY, CONNECTION_SESSION_STORAGE_KEY } from "@/src/api/connection-profile"
 
 interface RouteContract {
   path: string
@@ -48,6 +48,12 @@ const routeContracts: RouteContract[] = [
     path: "/media/detail?id=1&type=movie",
     assert: async () => {
       expect(await screen.findByRole("heading", { name: "沙丘2" }, { timeout: 10000 })).toBeInTheDocument()
+    },
+  },
+  {
+    path: "/media/watch?id=1&type=movie",
+    assert: async () => {
+      expect(await screen.findByText("视频播放区域", {}, { timeout: 10000 })).toBeInTheDocument()
     },
   },
   {
@@ -320,12 +326,114 @@ describe("top-level route contracts", () => {
       }
     }
   })
+
+  it("starts live Media watch through Public Client playback ticket routes", async () => {
+    const originalFetch = globalThis.fetch
+    const previousProfile = window.localStorage.getItem(CONNECTION_PROFILE_STORAGE_KEY)
+    const previousSession = window.sessionStorage.getItem(CONNECTION_SESSION_STORAGE_KEY)
+    const calls: Array<{
+      method: string
+      path: string
+      authorization: string | null
+      body?: unknown
+    }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      const method = init?.method ?? "GET"
+      const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined
+      calls.push({
+        method,
+        path: `${url.pathname}${url.search}`,
+        authorization: new Headers(init?.headers).get("Authorization"),
+        body,
+      })
+
+      switch (`${method} ${url.pathname}`) {
+        case "GET /items/live-movie":
+          return jsonResponse({
+            item: publicMediaItem(),
+            sources: [publicMediaSource()],
+            images: [],
+          })
+        case "GET /sources/source-live/playback/decision":
+          return jsonResponse(playbackDecisionResponse())
+        case "GET /sources/source-live/probe":
+          return jsonResponse(sourceProbeResponse())
+        case "POST /sources/source-live/playback/browser-ticket":
+          return jsonResponse(browserTicketResponse())
+        default:
+          return jsonResponse({ code: "not_found", message: "not found" }, 404)
+      }
+    })
+
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako.test",
+      }),
+    )
+    window.sessionStorage.setItem(
+      CONNECTION_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        bearerToken: "public-token",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+
+    try {
+      renderRoute("/media/watch?id=live-movie&type=movie&source_id=source-live")
+
+      const source = await screen.findByTestId("nako-video-source", {}, { timeout: 10000 })
+      expect(source).toHaveAttribute(
+        "src",
+        "http://nako.test/sources/source-live/stream?ticket=video-ticket",
+      )
+      expect(source).toHaveAttribute("type", "video/x-matroska")
+
+      await waitFor(() => {
+        expect(calls.some((call) => call.path === "/sources/source-live/playback/browser-ticket")).toBe(true)
+      })
+      expect(calls.map((call) => `${call.method} ${call.path}`)).toEqual(
+        expect.arrayContaining([
+          "GET /items/live-movie",
+          "GET /sources/source-live/probe",
+          "POST /sources/source-live/playback/browser-ticket",
+        ]),
+      )
+      const decisionCall = calls.find((call) => call.path.startsWith("/sources/source-live/playback/decision?"))
+      const decisionUrl = new URL(decisionCall?.path ?? "/", "http://nako.test")
+      expect(decisionCall?.method).toBe("GET")
+      expect(decisionUrl.searchParams.get("direct_play")).toBe("true")
+      expect(decisionUrl.searchParams.get("supports_subtitles")).toBe("true")
+      expect(decisionUrl.searchParams.get("hls_variant_policy")).toBe("single_variant")
+      expect(decisionUrl.searchParams.get("hls_segment_container")).toBe("mpeg_ts")
+      expect(calls.every((call) => !call.path.startsWith("/admin"))).toBe(true)
+      expect(calls.find((call) => call.method === "POST")?.authorization).toBe("Bearer public-token")
+      expect(JSON.stringify(calls.find((call) => call.method === "POST")?.body)).not.toContain("public-token")
+      expect(document.body.textContent).not.toContain("public-token")
+      expect(document.body.textContent).not.toContain("video-ticket")
+    } finally {
+      vi.stubGlobal("fetch", originalFetch)
+      restoreStorage(window.localStorage, CONNECTION_PROFILE_STORAGE_KEY, previousProfile)
+      restoreStorage(window.sessionStorage, CONNECTION_SESSION_STORAGE_KEY, previousSession)
+    }
+  })
 })
 
 const page = {
   limit: 50,
   offset: 0,
   returned: 1,
+}
+
+function restoreStorage(storage: Storage, key: string, value: string | null) {
+  if (value === null) {
+    storage.removeItem(key)
+  } else {
+    storage.setItem(key, value)
+  }
 }
 
 function jsonResponse(body: unknown, status = 200) {
@@ -390,6 +498,81 @@ function publicMediaItem() {
       tags: [],
       title: "Live Movie",
     },
+  }
+}
+
+function publicMediaSource() {
+  return {
+    id: "source-live",
+    item_id: "live-movie",
+    library_id: "library-a",
+    file_name: "Live Movie.mkv",
+    fingerprint: null,
+    size_bytes: 1024,
+  }
+}
+
+function playbackDecisionResponse() {
+  return {
+    source: publicMediaSource(),
+    probe: null,
+    target: {
+      kind: "browser",
+      network_scope: "local",
+      transport_auth: "ticket",
+      control_capabilities: {
+        can_pause: true,
+        can_seek: true,
+        can_set_volume: true,
+        can_stop: true,
+      },
+      media_capabilities: {
+        direct_play: true,
+      },
+    },
+    decision: {
+      mode: "direct_play",
+      reason: "compatible",
+      direct_play: {},
+      transcode_plan: null,
+      denial: null,
+      report: {
+        selected_mode: "direct_play",
+        direct_play: { supported: true, conditions: ["compatible"] },
+        remux: { supported: true, conditions: ["compatible"] },
+        transcode: { supported: false, conditions: ["requested_transcode_output"] },
+      },
+    },
+  }
+}
+
+function sourceProbeResponse() {
+  return {
+    source_id: "source-live",
+    probe: {
+      container: "matroska",
+      duration_ms: 60000,
+      bit_rate: null,
+      streams: [],
+    },
+  }
+}
+
+function browserTicketResponse() {
+  return {
+    source_id: "source-live",
+    item_id: "live-movie",
+    playback_session_id: "playback-session-live",
+    mode: "direct",
+    expires_at: "2026-05-28T10:00:00Z",
+    urls: [
+      {
+        kind: "stream",
+        url: "/sources/source-live/stream?ticket=video-ticket",
+        content_type: "video/x-matroska",
+        supports_range_requests: true,
+      },
+    ],
   }
 }
 

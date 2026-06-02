@@ -126,6 +126,7 @@ const DEFERRED_MEDIA_FEATURE_KEYS = new Set<ViewState["type"]>(Object.keys(DEFER
 export type MediaSurfaceRouteView =
   | { type: "browse" }
   | { type: "detail"; mediaId: string; mediaType: "movie" | "series" }
+  | { type: "player"; mediaId: string; mediaType: "movie" | "series"; sourceId?: string }
   | { type: "search"; query?: string }
   | ({ type: "my-list" } & MyListRouteState)
   | { type: "library"; libraryId: string; state?: LibraryBrowserRouteState }
@@ -325,7 +326,7 @@ export const MediaSurface = forwardRef<MediaSurfaceRef, MediaSurfaceProps>(funct
     setViewState(initialView)
     setNavHistory([])
 
-    if (initialView.type === "detail") {
+    if (initialView.type === "detail" || initialView.type === "player") {
       setCurrentMediaId(initialView.mediaId)
       setCurrentMediaType(initialView.mediaType)
     }
@@ -987,6 +988,7 @@ function mediaRouteTarget(view: ViewState): MediaSurfaceRouteView | null {
     case "browse":
     case "search":
     case "detail":
+    case "player":
     case "my-list":
     case "library":
       return view
