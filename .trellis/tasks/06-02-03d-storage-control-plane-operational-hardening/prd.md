@@ -22,12 +22,12 @@ scheduling, source fingerprint escalation, or diagnostics.
 
 ## Acceptance Criteria
 
-- [ ] The worker selects one bounded operational hardening slice after audit.
-- [ ] Storage or scan pressure behavior is observable through typed diagnostics,
+- [x] The worker selects one bounded operational hardening slice after audit.
+- [x] Storage or scan pressure behavior is observable through typed diagnostics,
   tests, or control-plane state.
-- [ ] Existing VFS/local/WebDAV behavior remains compatible.
-- [ ] Redaction behavior is covered where diagnostics/API/Web output changes.
-- [ ] Follow-ons are recorded for source fingerprint escalation, scan
+- [x] Existing VFS/local/WebDAV behavior remains compatible.
+- [x] Redaction behavior is covered where diagnostics/API/Web output changes.
+- [x] Follow-ons are recorded for source fingerprint escalation, scan
   scheduling, PostgreSQL harness, or playback artifact pressure if not selected.
 
 ## Definition of Done
