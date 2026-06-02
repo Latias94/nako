@@ -2633,6 +2633,457 @@ async fn candidate_review_application_applies_root_mapping_idempotently_without_
 }
 
 #[tokio::test]
+async fn candidate_review_related_hierarchy_application_requires_accepted_review_and_root_mapping()
+{
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let library = Library {
+        id: LibraryId::new(),
+        name: "TV".to_owned(),
+        roots: vec!["local:///TV".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Tv),
+    };
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Series,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Local Series".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let child = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Season,
+        parent_id: Some(item.id),
+        metadata: CanonicalMetadata {
+            title: "Season 1".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_library(&library).await.unwrap();
+    for item in [&item, &child] {
+        store.upsert_media_item(item).await.unwrap();
+        store
+            .upsert_library_item_state(&LibraryItemState {
+                library_id: library.id,
+                item_id: item.id,
+                provisional: true,
+            })
+            .await
+            .unwrap();
+    }
+    let inserted = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+            source_key: "tmdb:series:1437-related-required".to_owned(),
+            plan: sample_candidate_review_plan_with_related_subject(),
+            expires_at_ms: Some(10_000),
+            created_at_ms: 1_000,
+            updated_at_ms: 1_000,
+        })
+        .await
+        .unwrap();
+    let service = MetadataCandidateReviewApplicationService::new(store.clone());
+
+    let pending_err = service
+        .apply_related_hierarchy(MetadataCandidateReviewRelatedHierarchyApplicationRequest {
+            review_id: inserted.id,
+            item_id: item.id,
+            applied_at_ms: 2_000,
+            expected_updated_at_ms: Some(inserted.updated_at_ms),
+        })
+        .await
+        .unwrap_err();
+
+    assert!(matches!(pending_err, NakoError::Conflict { .. }));
+    assert!(pending_err.to_string().contains("before it is accepted"));
+
+    let accepted = store
+        .set_metadata_candidate_review_status(
+            inserted.id,
+            MetadataCandidateReviewStatus::Accepted,
+            3_000,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    let missing_root_mapping_err = service
+        .apply_related_hierarchy(MetadataCandidateReviewRelatedHierarchyApplicationRequest {
+            review_id: accepted.id,
+            item_id: item.id,
+            applied_at_ms: 4_000,
+            expected_updated_at_ms: Some(accepted.updated_at_ms),
+        })
+        .await
+        .unwrap_err();
+
+    assert!(matches!(
+        missing_root_mapping_err,
+        NakoError::Conflict { .. }
+    ));
+    assert!(
+        missing_root_mapping_err
+            .to_string()
+            .contains("requires an accepted root provider mapping")
+    );
+    assert!(
+        store
+            .find_provider_subject(
+                &ExternalProvider::Tmdb,
+                &ProviderSubjectKind::Season,
+                "1437/1",
+            )
+            .await
+            .unwrap()
+            .is_none()
+    );
+}
+
+#[tokio::test]
+async fn candidate_review_related_hierarchy_application_confirms_existing_child_mapping() {
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let library = Library {
+        id: LibraryId::new(),
+        name: "TV".to_owned(),
+        roots: vec!["local:///TV".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Tv),
+    };
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Series,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Local Series".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let child = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Season,
+        parent_id: Some(item.id),
+        metadata: CanonicalMetadata {
+            title: "Season 1".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_library(&library).await.unwrap();
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_item(&child).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id: library.id,
+            item_id: item.id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id: library.id,
+            item_id: child.id,
+            provisional: true,
+        })
+        .await
+        .unwrap();
+    let inserted = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+            source_key: "tmdb:series:1437-related-safe".to_owned(),
+            plan: sample_candidate_review_plan_with_related_subject(),
+            expires_at_ms: Some(10_000),
+            created_at_ms: 1_000,
+            updated_at_ms: 1_000,
+        })
+        .await
+        .unwrap();
+    let accepted = store
+        .set_metadata_candidate_review_status(
+            inserted.id,
+            MetadataCandidateReviewStatus::Accepted,
+            2_000,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    MetadataCandidateReviewApplicationService::new(store.clone())
+        .apply(MetadataCandidateReviewApplicationRequest {
+            review_id: accepted.id,
+            item_id: item.id,
+            applied_at_ms: 2_500,
+            expected_updated_at_ms: Some(accepted.updated_at_ms),
+        })
+        .await
+        .unwrap();
+
+    let service = MetadataCandidateReviewApplicationService::new(store.clone());
+    let applied = service
+        .apply_related_hierarchy(MetadataCandidateReviewRelatedHierarchyApplicationRequest {
+            review_id: accepted.id,
+            item_id: item.id,
+            applied_at_ms: 3_000,
+            expected_updated_at_ms: Some(accepted.updated_at_ms),
+        })
+        .await
+        .unwrap();
+
+    assert!(applied.changed);
+    assert_eq!(applied.confirmed_item_ids, vec![child.id]);
+    assert_eq!(applied.provider_subjects.len(), 1);
+    assert_eq!(applied.provider_subjects[0].subject_key, "1437/1");
+    assert_eq!(applied.provider_mappings.len(), 1);
+    assert_eq!(applied.provider_mappings[0].item_id, child.id);
+    assert_eq!(
+        applied.provider_mappings[0].status,
+        ProviderMappingStatus::Accepted
+    );
+    assert!(
+        !store
+            .get_library_item_state(library.id, child.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .provisional
+    );
+    let loaded_child = store.get_media_item(child.id).await.unwrap().unwrap();
+    assert_eq!(loaded_child.parent_id, Some(item.id));
+    assert_eq!(loaded_child.metadata.title, "Season 1");
+    assert_eq!(loaded_child.metadata.release_date, None);
+
+    let replay = service
+        .apply_related_hierarchy(MetadataCandidateReviewRelatedHierarchyApplicationRequest {
+            review_id: accepted.id,
+            item_id: item.id,
+            applied_at_ms: 4_000,
+            expected_updated_at_ms: None,
+        })
+        .await
+        .unwrap();
+
+    assert!(!replay.changed);
+    assert_eq!(
+        store
+            .list_provider_mappings_for_item(child.id, PageRequest::first_page())
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn candidate_review_related_hierarchy_application_rejects_ambiguous_target_without_mutation()
+{
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let library = Library {
+        id: LibraryId::new(),
+        name: "TV".to_owned(),
+        roots: vec!["local:///TV".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Tv),
+    };
+    let root = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Series,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Local Series".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let first_child = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Season,
+        parent_id: Some(root.id),
+        metadata: CanonicalMetadata {
+            title: "Season 1".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let second_child = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Season,
+        parent_id: Some(root.id),
+        metadata: CanonicalMetadata {
+            title: "Season 1".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_library(&library).await.unwrap();
+    for item in [&root, &first_child, &second_child] {
+        store.upsert_media_item(item).await.unwrap();
+        store
+            .upsert_library_item_state(&LibraryItemState {
+                library_id: library.id,
+                item_id: item.id,
+                provisional: true,
+            })
+            .await
+            .unwrap();
+    }
+    let inserted = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: root.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+            source_key: "tmdb:series:1437-related-ambiguous".to_owned(),
+            plan: sample_candidate_review_plan_with_related_subject(),
+            expires_at_ms: Some(10_000),
+            created_at_ms: 1_000,
+            updated_at_ms: 1_000,
+        })
+        .await
+        .unwrap();
+    let accepted = store
+        .set_metadata_candidate_review_status(
+            inserted.id,
+            MetadataCandidateReviewStatus::Accepted,
+            2_000,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    MetadataCandidateReviewApplicationService::new(store.clone())
+        .apply(MetadataCandidateReviewApplicationRequest {
+            review_id: accepted.id,
+            item_id: root.id,
+            applied_at_ms: 2_500,
+            expected_updated_at_ms: Some(accepted.updated_at_ms),
+        })
+        .await
+        .unwrap();
+
+    let err = MetadataCandidateReviewApplicationService::new(store.clone())
+        .apply_related_hierarchy(MetadataCandidateReviewRelatedHierarchyApplicationRequest {
+            review_id: accepted.id,
+            item_id: root.id,
+            applied_at_ms: 3_000,
+            expected_updated_at_ms: Some(accepted.updated_at_ms),
+        })
+        .await
+        .unwrap_err();
+
+    assert!(matches!(err, NakoError::Conflict { .. }));
+    assert!(err.to_string().contains("ambiguous"));
+    assert!(
+        store
+            .find_provider_subject(
+                &ExternalProvider::Tmdb,
+                &ProviderSubjectKind::Season,
+                "1437/1",
+            )
+            .await
+            .unwrap()
+            .is_none()
+    );
+}
+
+#[tokio::test]
+async fn candidate_review_related_hierarchy_application_rejects_unsafe_relationship_without_mutation()
+ {
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let library = Library {
+        id: LibraryId::new(),
+        name: "TV".to_owned(),
+        roots: vec!["local:///TV".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Tv),
+    };
+    let root = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Series,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Local Series".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let child = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Season,
+        parent_id: Some(root.id),
+        metadata: CanonicalMetadata {
+            title: "Season 1".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_library(&library).await.unwrap();
+    for item in [&root, &child] {
+        store.upsert_media_item(item).await.unwrap();
+        store
+            .upsert_library_item_state(&LibraryItemState {
+                library_id: library.id,
+                item_id: item.id,
+                provisional: true,
+            })
+            .await
+            .unwrap();
+    }
+    let inserted = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: root.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+            source_key: "tmdb:series:1437-related-unsafe".to_owned(),
+            plan: sample_candidate_review_plan_with_related_relationship_kind(
+                MetadataCandidateRelationshipKind::Related,
+            ),
+            expires_at_ms: Some(10_000),
+            created_at_ms: 1_000,
+            updated_at_ms: 1_000,
+        })
+        .await
+        .unwrap();
+    let accepted = store
+        .set_metadata_candidate_review_status(
+            inserted.id,
+            MetadataCandidateReviewStatus::Accepted,
+            2_000,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    MetadataCandidateReviewApplicationService::new(store.clone())
+        .apply(MetadataCandidateReviewApplicationRequest {
+            review_id: accepted.id,
+            item_id: root.id,
+            applied_at_ms: 2_500,
+            expected_updated_at_ms: Some(accepted.updated_at_ms),
+        })
+        .await
+        .unwrap();
+
+    let err = MetadataCandidateReviewApplicationService::new(store.clone())
+        .apply_related_hierarchy(MetadataCandidateReviewRelatedHierarchyApplicationRequest {
+            review_id: accepted.id,
+            item_id: root.id,
+            applied_at_ms: 3_000,
+            expected_updated_at_ms: Some(accepted.updated_at_ms),
+        })
+        .await
+        .unwrap_err();
+
+    assert!(matches!(err, NakoError::Conflict { .. }));
+    assert!(err.to_string().contains("unsupported"));
+    assert!(
+        store
+            .find_provider_subject(
+                &ExternalProvider::Tmdb,
+                &ProviderSubjectKind::Season,
+                "1437/1",
+            )
+            .await
+            .unwrap()
+            .is_none()
+    );
+}
+
+#[tokio::test]
 async fn candidate_review_application_rejects_rejected_mapping_without_mutation() {
     let store = NakoDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
@@ -3119,6 +3570,14 @@ fn sample_candidate_review_plan_with_related_subject() -> MetadataCandidateRevie
             child_subject,
             kind: MetadataCandidateRelationshipKind::Contains,
         });
+    plan
+}
+
+fn sample_candidate_review_plan_with_related_relationship_kind(
+    kind: MetadataCandidateRelationshipKind,
+) -> MetadataCandidateReviewPlan {
+    let mut plan = sample_candidate_review_plan_with_related_subject();
+    plan.relationships[0].kind = kind;
     plan
 }
 

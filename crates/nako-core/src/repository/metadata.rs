@@ -265,6 +265,12 @@ pub trait ProviderMappingRepository: Send + Sync {
         item_id: MediaItemId,
         page: PageRequest,
     ) -> Result<Vec<ProviderMapping>>;
+
+    async fn list_provider_mappings_for_subject(
+        &self,
+        subject_id: ProviderSubjectId,
+        page: PageRequest,
+    ) -> Result<Vec<ProviderMapping>>;
 }
 
 #[async_trait]

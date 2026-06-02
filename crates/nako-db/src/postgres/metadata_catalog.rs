@@ -174,6 +174,38 @@ impl ProviderMappingRepository for PostgresStore {
 
         rows.into_iter().map(row_to_provider_mapping).collect()
     }
+
+    async fn list_provider_mappings_for_subject(
+        &self,
+        subject_id: ProviderSubjectId,
+        page: PageRequest,
+    ) -> Result<Vec<ProviderMapping>> {
+        let page = page.clamped();
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                id::text AS id,
+                item_id::text AS item_id,
+                subject_id::text AS subject_id,
+                status,
+                confidence_milli,
+                source,
+                source_key
+            FROM provider_mappings
+            WHERE subject_id = $1
+            ORDER BY item_id ASC, id ASC
+            LIMIT $2 OFFSET $3
+            "#,
+        )
+        .bind(subject_id.as_uuid())
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_provider_mapping).collect()
+    }
 }
 
 #[async_trait::async_trait]

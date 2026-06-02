@@ -5,3 +5,9 @@
 {"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Verify route/auth patterns if touched."}
 {"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify backend tests and quality gates."}
 {"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Verify Admin/Public contract separation if touched."}
+{"command": "cargo nextest run -p nako-metadata candidate_review_related_hierarchy_application --no-fail-fast", "result": "PASS", "summary": "4 tests passed; proves accepted-review-only prerequisite, accepted root Provider Mapping prerequisite, safe existing child application, ambiguous target rejection, and unsafe relationship rejection."}
+{"command": "cargo nextest run -p nako-metadata candidate_review_application --no-fail-fast", "result": "PASS", "summary": "6 tests passed; existing root-only application behavior remains protected."}
+{"command": "cargo nextest run -p nako-db provider_mapping --no-fail-fast", "result": "PASS", "summary": "3 tests passed; provider mapping persistence filter remains green after subject-scoped lookup addition."}
+{"command": "cargo check -p nako-core -p nako-db -p nako-metadata --tests", "result": "PASS", "summary": "Core, DB, and metadata test targets compile."}
+{"command": "cargo fmt --all -- --check", "result": "PASS", "summary": "Rust formatting check passed."}
+{"command": "git diff --check", "result": "PASS", "summary": "No whitespace errors."}

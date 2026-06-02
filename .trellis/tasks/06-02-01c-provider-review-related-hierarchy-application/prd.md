@@ -19,15 +19,43 @@ or durable execution work.
 * If Admin API/Web surfaces are needed, coordinate generated contract changes
   with the Admin settings task.
 
+## Confirmed Operation
+
+This backend-first slice adds an internal related hierarchy application method
+for accepted Metadata Candidate Reviews. It does not change the existing Admin
+apply route, durable batch execution, Public Client API, Admin Web, or generated
+contracts.
+
+The supported operation is deliberately narrow:
+
+* The review must be `accepted`, and the root Provider Mapping for the review
+  item must already be `accepted`.
+* Only `contains` relationships anchored at the accepted root Provider Subject
+  are eligible.
+* Safe hierarchy shapes are `Series -> Season`, `Series -> Episode`, and
+  `Season -> Episode`.
+* The related node must match exactly one existing child Media Item under the
+  root item within the root item's library memberships. Missing, duplicate, or
+  otherwise ambiguous targets are rejected before related writes.
+* Application upserts the related Provider Subject when needed, creates or
+  promotes the related Provider Mapping to `accepted`, and marks the matched
+  child library item state as non-provisional.
+* The operation does not create Media Items, change existing item parentage,
+  change canonical metadata fields, write NFO/library files, or bypass rejected
+  Provider Mapping protection.
+
+ADR 0007 remains unchanged because canonical metadata merge behavior is not
+expanded in this slice.
+
 ## Acceptance Criteria
 
-* [ ] PRD confirms the exact related hierarchy operation and out-of-scope
+* [x] PRD confirms the exact related hierarchy operation and out-of-scope
       provider governance areas before implementation begins.
-* [ ] Backend tests prove accepted-review-only behavior and rejection of
+* [x] Backend tests prove accepted-review-only behavior and rejection of
       ambiguous or unsafe hierarchy application.
-* [ ] Persistence behavior remains consistent with ADR 0007 unless an ADR update
+* [x] Persistence behavior remains consistent with ADR 0007 unless an ADR update
       is approved.
-* [ ] Admin/Public API boundary remains explicit.
+* [x] Admin/Public API boundary remains explicit.
 
 ## Definition of Done
 

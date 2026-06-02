@@ -2118,6 +2118,16 @@ impl ProviderMappingRepository for NakoDatabase {
             .list_provider_mappings_for_item(item_id, page)
             .await
     }
+
+    async fn list_provider_mappings_for_subject(
+        &self,
+        subject_id: ProviderSubjectId,
+        page: PageRequest,
+    ) -> Result<Vec<ProviderMapping>> {
+        self.backend()
+            .list_provider_mappings_for_subject(subject_id, page)
+            .await
+    }
 }
 
 #[async_trait::async_trait]
