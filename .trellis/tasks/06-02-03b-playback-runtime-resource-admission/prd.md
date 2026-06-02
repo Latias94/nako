@@ -20,13 +20,13 @@ of relying on hidden per-feature limits.
 
 ## Acceptance Criteria
 
-- [ ] Current resource permits and pressure behavior are mapped.
-- [ ] A bounded admission decision exists for at least one high-pressure
+- [x] Current resource permits and pressure behavior are mapped.
+- [x] A bounded admission decision exists for at least one high-pressure
   playback path selected by the worker after audit.
-- [ ] Denied or deferred playback work produces stable, redaction-safe error or
+- [x] Denied or deferred playback work produces stable, redaction-safe error or
   status evidence.
-- [ ] Existing Direct Play/Remux/HLS happy-path tests continue to pass.
-- [ ] Operator or diagnostic follow-on is recorded if the first slice does not
+- [x] Existing Direct Play/Remux/HLS happy-path tests continue to pass.
+- [x] Operator or diagnostic follow-on is recorded if the first slice does not
   expose UI/API status.
 
 ## Definition of Done
@@ -51,3 +51,25 @@ of relying on hidden per-feature limits.
   and playback HTTP tests.
 - ADR 0053 is the baseline for runtime/control-plane behavior.
 - Stop for planner coordination if this needs global job scheduler semantics.
+
+## Completion Evidence
+
+Completed on 2026-06-02 with remote Direct Play stream admission selected as
+the bounded slice.
+
+Fresh integration gates:
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check -p nako-server --tests`: passed.
+- `cargo nextest run -p nako-server playback --no-fail-fast`: 154 passed,
+  377 skipped.
+- `cargo nextest run -p nako-server direct_play_holds_remote_stream_budget_until_body_is_dropped --no-fail-fast`:
+  1 passed, 530 skipped.
+
+Implementation evidence:
+
+- `resource-audit.md` maps current playback resource pressure behavior and
+  records follow-ons.
+- Remote Direct Play now returns a typed redaction-safe `409 conflict` when
+  the remote stream budget is exhausted instead of waiting inside the storage
+  backend.

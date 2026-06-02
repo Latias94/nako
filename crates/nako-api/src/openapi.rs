@@ -2050,6 +2050,40 @@ mod tests {
     }
 
     #[test]
+    fn public_openapi_excludes_provider_governance_routes_and_types() {
+        let document = public_openapi_v1();
+        let paths = document["paths"].as_object().unwrap();
+        let serialized = public_openapi_v1_json().to_ascii_lowercase();
+
+        for forbidden in crate::PROVIDER_GOVERNANCE_PUBLIC_FORBIDDEN_TERMS {
+            assert!(
+                !serialized.contains(forbidden),
+                "public OpenAPI leaked provider governance term: {forbidden}"
+            );
+        }
+
+        for excluded_path in [
+            "/catalog/governance/items",
+            "/catalog/governance/items/{item_id}",
+            "/catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review-plan",
+            "/catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review",
+            "/metadata/candidate-reviews",
+            "/metadata/candidate-reviews/batch-application-plan",
+            "/metadata/candidate-reviews/batch-apply",
+            "/metadata/candidate-reviews/batches",
+            "/metadata/candidate-reviews/batches/{batch_id}",
+            "/metadata/items/{item_id}/candidate-reviews",
+            "/metadata/candidate-reviews/{review_id}",
+            "/metadata/candidate-reviews/{review_id}/apply",
+        ] {
+            assert!(
+                !paths.contains_key(excluded_path),
+                "public OpenAPI leaked provider governance path: {excluded_path}"
+            );
+        }
+    }
+
+    #[test]
     fn public_openapi_image_contract_uses_public_refs_without_raw_locators() {
         managed_artwork_variant_openapi_contract_uses_safe_query_parameters();
     }

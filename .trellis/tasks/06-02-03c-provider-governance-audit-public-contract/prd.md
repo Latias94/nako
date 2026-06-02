@@ -22,11 +22,11 @@ governance, or a narrow provider endpoint-depth bridge selected by repo audit.
 
 ## Acceptance Criteria
 
-- [ ] The worker documents which follow-on is selected and why.
-- [ ] Existing Candidate Review and durable batch semantics remain compatible.
-- [ ] New audit/undo/public contract behavior is redaction-safe and testable.
-- [ ] Generated contracts are updated if API shape changes.
-- [ ] Follow-ons are split if related hierarchy application or provider endpoint
+- [x] The worker documents which follow-on is selected and why.
+- [x] Existing Candidate Review and durable batch semantics remain compatible.
+- [x] New audit/undo/public contract behavior is redaction-safe and testable.
+- [x] Generated contracts are updated if API shape changes.
+- [x] Follow-ons are split if related hierarchy application or provider endpoint
   depth exceeds the selected scope.
 
 ## Definition of Done

@@ -1793,6 +1793,79 @@ describe("route state contracts", () => {
     })
   })
 
+  it("routes Media detail playback start to a Public Client watch URL without secrets", async () => {
+    const user = userEvent.setup()
+    const originalFetch = globalThis.fetch
+    const previousProfile = window.localStorage.getItem(CONNECTION_PROFILE_STORAGE_KEY)
+    const previousSession = window.sessionStorage.getItem(CONNECTION_SESSION_STORAGE_KEY)
+    const calls: Array<{ path: string; authorization: string | null }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      calls.push({
+        path: `${url.pathname}${url.search}`,
+        authorization: new Headers(init?.headers).get("Authorization"),
+      })
+
+      if (url.pathname === "/items/live-movie") {
+        return jsonResponse({
+          item: publicMediaItem(),
+          sources: [publicMediaSource()],
+          images: [],
+        })
+      }
+
+      if (url.pathname === "/management/context-links") {
+        return jsonResponse(
+          managementContextLinksResponse({
+            links: [],
+          }),
+        )
+      }
+
+      return jsonResponse({ code: "not_found", message: "not found" }, 404)
+    })
+
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako.test",
+      }),
+    )
+    window.sessionStorage.setItem(
+      CONNECTION_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        bearerToken: "public-token",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+
+    try {
+      const { router } = renderRoute("/media/detail?id=live-movie&type=movie")
+
+      expect(await screen.findByRole("heading", { name: "Live Movie" }, { timeout: 10000 })).toBeInTheDocument()
+      await user.click(await screen.findByRole("button", { name: /^播放$/ }))
+
+      await waitFor(() => {
+        expect(router.state.location.pathname).toBe("/media/watch")
+        expect(router.state.location.search).toMatchObject({
+          id: "live-movie",
+          type: "movie",
+          source_id: "source-live",
+        })
+      })
+      expect(JSON.stringify(router.state.location.search)).not.toContain("public-token")
+      expect(JSON.stringify(router.state.location.search)).not.toContain("ticket=")
+      expect(document.body.textContent).not.toContain("public-token")
+      expect(calls.every((call) => !call.path.startsWith("/admin"))).toBe(true)
+    } finally {
+      vi.stubGlobal("fetch", originalFetch)
+      restoreStorage(window.localStorage, CONNECTION_PROFILE_STORAGE_KEY, previousProfile)
+      restoreStorage(window.sessionStorage, CONNECTION_SESSION_STORAGE_KEY, previousSession)
+    }
+  })
+
   it("renders live Media detail Management Context Links without leaking unsafe targets", async () => {
     const originalFetch = globalThis.fetch
     const previousProfile = window.localStorage.getItem(CONNECTION_PROFILE_STORAGE_KEY)

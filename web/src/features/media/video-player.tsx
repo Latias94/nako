@@ -19,8 +19,7 @@ import {
   FastForward,
   PictureInPicture,
   Cast,
-  Loader2,
-  MessageSquare
+  Loader2
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
@@ -763,12 +762,6 @@ export function VideoPlayer({
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
 
-                <DropdownMenuSeparator />
-                
-                <DropdownMenuItem>
-                  <MessageSquare className="mr-2 h-4 w-4" />
-                  弹幕设置
-                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -789,12 +782,6 @@ export function VideoPlayer({
         </div>
       </div>
 
-      {/* 快捷键提示 (仅桌面) */}
-      {showControls && (
-        <div className="absolute bottom-24 left-1/2 hidden -translate-x-1/2 text-xs text-white/50 lg:block">
-          空格/K 播放/暂停 · 左右箭头 快进快退 · M 静音 · F 全屏
-        </div>
-      )}
     </div>
   )
 }

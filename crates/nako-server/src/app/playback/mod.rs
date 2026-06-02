@@ -988,7 +988,7 @@ impl PlaybackAppService {
         let source = self.get_source_or_not_found(source_id).await?;
         let (uri, backend) = self.storage_backend_for_media_source(&source).await?;
         let stream_permit = if should_budget_remote_stream(&uri) {
-            Some(backend.acquire_stream_permit().await?)
+            Some(backend.try_acquire_stream_permit()?)
         } else {
             None
         };

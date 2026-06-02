@@ -3538,9 +3538,36 @@ mod tests {
 
         for (_key, suffix) in ADMIN_ROUTE_SUFFIXES {
             let admin_path = admin_route_path(suffix);
+
             assert!(
                 !public_paths.contains(&admin_path.as_str()),
                 "Public Client route inventory leaked Admin API path: {admin_path}"
+            );
+        }
+    }
+
+    #[test]
+    fn provider_governance_route_shapes_stay_out_of_public_client_inventory() {
+        let public_paths = public_client_paths().collect::<Vec<_>>();
+
+        for suffix in [
+            "catalog/governance/items",
+            "catalog/governance/items/{item_id}",
+            "catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review-plan",
+            "catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review",
+            "metadata/candidate-reviews",
+            "metadata/candidate-reviews/batch-application-plan",
+            "metadata/candidate-reviews/batch-apply",
+            "metadata/candidate-reviews/batches",
+            "metadata/candidate-reviews/batches/{batch_id}",
+            "metadata/items/{item_id}/candidate-reviews",
+            "metadata/candidate-reviews/{review_id}",
+            "metadata/candidate-reviews/{review_id}/apply",
+        ] {
+            let public_shape_path = format!("/{suffix}");
+            assert!(
+                !public_paths.contains(&public_shape_path.as_str()),
+                "Public Client route inventory leaked provider governance path: {public_shape_path}"
             );
         }
     }
