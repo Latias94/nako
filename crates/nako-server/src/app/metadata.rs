@@ -3,7 +3,8 @@ use std::{collections::HashSet, sync::Arc, time::Duration};
 use nako_api::{
     admin::{
         AdminMetadataCandidateReviewApplyRequest, AdminMetadataCandidateReviewApplyResponse,
-        AdminMetadataCandidateReviewListResponse, AdminMetadataCandidateReviewResponse,
+        AdminMetadataCandidateReviewListResponse, AdminMetadataCandidateReviewQueueResponse,
+        AdminMetadataCandidateReviewResponse,
     },
     metadata_diagnostics::{
         EnqueueMetadataMaintenanceRequest, MetadataCandidateReviewDecision,
@@ -22,10 +23,11 @@ use nako_core::{
     EventOutboxRepository, ExternalProvider, FailLeasedJob, Job, JobId, JobKind,
     JobLeaseClaimRequest, JobLeaseHeartbeat, JobRepository, LeasedJob, Library, LibraryId,
     LibraryRepository, MediaItem, MediaItemId, MediaRepository, MediaSource, MetadataAttemptFilter,
-    MetadataCandidateReviewId, MetadataCandidateReviewRepository, MetadataProfile,
-    MetadataProviderAttemptRecord, MetadataProviderAttemptStatus, MetadataRefreshMode,
-    MetadataRepository, NakoError, NewJob, NewOutboxEvent, OutboxEventRecord, PageRequest,
-    ProviderRawResponse, ProviderRawResponseCleanup, ProviderRawResponseFilter, Result,
+    MetadataCandidateReviewId, MetadataCandidateReviewQueueFilter,
+    MetadataCandidateReviewRepository, MetadataProfile, MetadataProviderAttemptRecord,
+    MetadataProviderAttemptStatus, MetadataRefreshMode, MetadataRepository, NakoError, NewJob,
+    NewOutboxEvent, OutboxEventRecord, PageRequest, ProviderRawResponse,
+    ProviderRawResponseCleanup, ProviderRawResponseFilter, Result,
 };
 use nako_db::NakoDatabase;
 use nako_metadata::{
@@ -530,6 +532,28 @@ impl MetadataAppService {
         Ok(AdminMetadataCandidateReviewListResponse::new(
             item_id, rows, page,
         ))
+    }
+
+    pub async fn list_admin_metadata_candidate_reviews(
+        &self,
+        filter: MetadataCandidateReviewQueueFilter,
+        page: PageRequest,
+    ) -> Result<AdminMetadataCandidateReviewQueueResponse> {
+        let reviews = MetadataCandidateReviewRepository::list_metadata_candidate_reviews(
+            &self.execution_store.store,
+            filter,
+            page,
+        )
+        .await?;
+        let mut rows = Vec::with_capacity(reviews.len());
+        for review in reviews {
+            let application_plan =
+                build_candidate_review_application_plan(&self.execution_store.store, &review)
+                    .await?;
+            rows.push((review, application_plan));
+        }
+
+        Ok(AdminMetadataCandidateReviewQueueResponse::new(rows, page))
     }
 
     pub async fn apply_admin_metadata_candidate_review(

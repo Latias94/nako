@@ -82,3 +82,36 @@ Green checks:
 - JSONL validation for `TASKS.jsonl`, `CAMPAIGNS.jsonl`, and `CONTEXT.jsonl`
   passed.
 - `git diff --check` passed with Git CRLF normalization warnings only.
+
+## PRGQ-020 Evidence
+
+Implemented behavior:
+
+- added a repository-owned global Candidate Review queue query with optional
+  `status` and `provider` filters, stable `updated_at_ms DESC, id ASC`
+  ordering, and page limit/offset handling in SQLite and PostgreSQL adapters;
+- added `GET /admin/v1/metadata/candidate-reviews` as a read-only Admin API
+  route backed by queue DTO rows and application-plan summaries;
+- synchronized `nako-api` Admin contract source plus generated contract output
+  for `apps/admin-web` and `web`;
+- verified route responses do not write Provider Subject, Provider Mapping,
+  Canonical Metadata, apply state, status, or hierarchy state and do not expose
+  raw provider payloads, local URIs, fingerprints, temp paths, or secret review
+  metadata.
+
+Green checks:
+
+- `cargo test -p nako-server admin_v1_metadata_candidate_review_queue_filters_global_rows_without_writes -- --nocapture`
+  passed.
+- `cargo test -p nako-db nako_database_sqlite_lists_metadata_candidate_review_queue_with_filters_and_pagination -- --nocapture`
+  passed.
+- `cargo test -p nako-api admin_contract -- --nocapture` passed.
+- `cargo test -p nako-server metadata_candidate_review -- --nocapture` passed.
+- `cargo test -p nako-db metadata_candidate_review -- --nocapture` passed.
+- `cargo fmt --all -- --check` passed.
+- `git diff --check` passed with Git CRLF normalization warnings only.
+
+Environment note:
+
+- `cargo nextest run -p nako-server metadata_candidate_review` could not run
+  because local Cargo has no `nextest` subcommand installed.

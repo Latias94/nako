@@ -2169,6 +2169,16 @@ impl MetadataCandidateReviewRepository for NakoDatabase {
             .list_metadata_candidate_reviews_for_item(item_id, page)
             .await
     }
+
+    async fn list_metadata_candidate_reviews(
+        &self,
+        filter: MetadataCandidateReviewQueueFilter,
+        page: PageRequest,
+    ) -> Result<Vec<MetadataCandidateReviewRecord>> {
+        self.backend()
+            .list_metadata_candidate_reviews(filter, page)
+            .await
+    }
 }
 
 #[async_trait::async_trait]

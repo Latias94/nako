@@ -7,7 +7,7 @@
   "scope_kind": "admin_metadata_candidate_review_global_queue",
   "problem": "Durable Metadata Candidate Reviews are now discoverable from item context, but operators still need a global Admin queue/search surface for cross-item triage before batch governance or hierarchy application.",
   "task_prefix": "PRGQ",
-  "current_task": "PRGQ-020",
+  "current_task": "PRGQ-030",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -59,6 +59,10 @@
     {
       "task": "PRGQ-010",
       "summary": "Opened the Provider Review global queue/search lane from ACRN closeout and selected a read-only Admin API global Candidate Review queue route as the first executable task."
+    },
+    {
+      "task": "PRGQ-020",
+      "summary": "Added the read-only Admin API global Candidate Review queue route with repository-owned filters, deterministic pagination, redaction-safe DTO rows, synchronized Admin TypeScript contract output, and server/db/API focused test evidence."
     }
   ],
   "adr_refs": [
@@ -88,7 +92,7 @@
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
     "default_action": "run_current_task",
-    "current_task": "PRGQ-020",
-    "notes": "Next add the read-only Admin API global Candidate Review queue route and repository query contract. Keep Public Client API, batch governance, status mutation, apply mutation, and related hierarchy application out of PRGQ-020."
+    "current_task": "PRGQ-030",
+    "notes": "Next add the Web Admin global Candidate Review queue/search navigation against the new read-only Admin API route. Keep batch governance, status mutation, hierarchy application, and Public Client API out of PRGQ-030."
   }
 }

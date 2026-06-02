@@ -51,6 +51,7 @@ export const NAKO_ADMIN_ROUTES = {
   catalogGovernanceItemDetail: "/admin/v1/catalog/governance/items/{item_id}",
   catalogGovernanceProviderMappingReviewPlan: "/admin/v1/catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review-plan",
   catalogGovernanceProviderMappingReview: "/admin/v1/catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review",
+  metadataCandidateReviews: "/admin/v1/metadata/candidate-reviews",
   metadataCandidateReviewsForItem: "/admin/v1/metadata/items/{item_id}/candidate-reviews",
   metadataCandidateReview: "/admin/v1/metadata/candidate-reviews/{review_id}",
   metadataCandidateReviewApply: "/admin/v1/metadata/candidate-reviews/{review_id}/apply",
@@ -1437,6 +1438,11 @@ export type AdminMetadataCandidateReviewStatus =
   | "superseded"
   | "expired";
 
+export interface AdminMetadataCandidateReviewQueueQuery extends AdminPageQuery {
+  status?: AdminMetadataCandidateReviewStatus;
+  provider?: AdminExternalProvider;
+}
+
 export type AdminMetadataCandidateReviewApplicationAction =
   | "apply"
   | "skip"
@@ -1600,6 +1606,13 @@ export interface AdminMetadataCandidateReviewListResponse {
   admin_api_version: string;
   public_api_version: string;
   item_id: string;
+  reviews: AdminMetadataCandidateReviewListEntry[];
+  page: PageInfo;
+}
+
+export interface AdminMetadataCandidateReviewQueueResponse {
+  admin_api_version: string;
+  public_api_version: string;
   reviews: AdminMetadataCandidateReviewListEntry[];
   page: PageInfo;
 }

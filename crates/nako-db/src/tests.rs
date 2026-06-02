@@ -1354,6 +1354,202 @@ async fn nako_database_sqlite_round_trips_metadata_candidate_reviews_without_pro
 }
 
 #[tokio::test]
+async fn nako_database_sqlite_lists_metadata_candidate_review_queue_with_filters_and_pagination() {
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+
+    let library = Library {
+        id: LibraryId::new(),
+        name: "Queue".to_owned(),
+        roots: vec!["local:///Queue".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Tv),
+    };
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Series,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Queue Series".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let other_item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Queue Movie".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_library(&library).await.unwrap();
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_item(&other_item).await.unwrap();
+
+    let review_plan = |provider: ExternalProvider,
+                       subject_kind: ProviderSubjectKind,
+                       media_kind: MediaKind,
+                       subject_key: &str,
+                       title: &str| {
+        MetadataCandidateReviewPlan {
+            root: MetadataCandidateReviewNode {
+                source: MetadataCandidateSource::Provider(provider.clone()),
+                kind: media_kind,
+                subject: Some(MetadataCandidateSubject {
+                    provider,
+                    subject_kind,
+                    subject_key: subject_key.to_owned(),
+                    title: Some(title.to_owned()),
+                    release_year: None,
+                    locale: None,
+                }),
+                metadata: MetadataCandidateRecord {
+                    title: Some(title.to_owned()),
+                    ..MetadataCandidateRecord::default()
+                },
+            },
+            related: vec![],
+            relationships: vec![],
+        }
+    };
+
+    let pending_review = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+            source_key: "bangumi:pending".to_owned(),
+            plan: review_plan(
+                ExternalProvider::Bangumi,
+                ProviderSubjectKind::Subject,
+                MediaKind::Series,
+                "pending",
+                "Pending Queue Series",
+            ),
+            expires_at_ms: None,
+            created_at_ms: 100,
+            updated_at_ms: 200,
+        })
+        .await
+        .unwrap();
+    let accepted_review = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+            source_key: "bangumi:accepted".to_owned(),
+            plan: review_plan(
+                ExternalProvider::Bangumi,
+                ProviderSubjectKind::Subject,
+                MediaKind::Series,
+                "accepted",
+                "Accepted Queue Series",
+            ),
+            expires_at_ms: None,
+            created_at_ms: 90,
+            updated_at_ms: 100,
+        })
+        .await
+        .unwrap();
+    let other_review = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: other_item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+            source_key: "tmdb:queue-other".to_owned(),
+            plan: review_plan(
+                ExternalProvider::Tmdb,
+                ProviderSubjectKind::Movie,
+                MediaKind::Movie,
+                "queue-other",
+                "Accepted Queue Movie",
+            ),
+            expires_at_ms: None,
+            created_at_ms: 80,
+            updated_at_ms: 700,
+        })
+        .await
+        .unwrap();
+    store
+        .set_metadata_candidate_review_status(
+            pending_review.id,
+            MetadataCandidateReviewStatus::Pending,
+            500,
+        )
+        .await
+        .unwrap();
+    store
+        .set_metadata_candidate_review_status(
+            accepted_review.id,
+            MetadataCandidateReviewStatus::Accepted,
+            300,
+        )
+        .await
+        .unwrap();
+    store
+        .set_metadata_candidate_review_status(
+            other_review.id,
+            MetadataCandidateReviewStatus::Accepted,
+            700,
+        )
+        .await
+        .unwrap();
+
+    let accepted_rows = store
+        .list_metadata_candidate_reviews(
+            MetadataCandidateReviewQueueFilter {
+                status: Some(MetadataCandidateReviewStatus::Accepted),
+                provider: None,
+            },
+            PageRequest {
+                limit: 2,
+                offset: 0,
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        accepted_rows
+            .iter()
+            .map(|review| review.id)
+            .collect::<Vec<_>>(),
+        vec![other_review.id, accepted_review.id]
+    );
+
+    let bangumi_rows = store
+        .list_metadata_candidate_reviews(
+            MetadataCandidateReviewQueueFilter {
+                status: Some(MetadataCandidateReviewStatus::Accepted),
+                provider: Some(ExternalProvider::Bangumi),
+            },
+            PageRequest {
+                limit: 10,
+                offset: 0,
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(bangumi_rows.len(), 1);
+    assert_eq!(bangumi_rows[0].id, accepted_review.id);
+
+    let offset_rows = store
+        .list_metadata_candidate_reviews(
+            MetadataCandidateReviewQueueFilter::default(),
+            PageRequest {
+                limit: 1,
+                offset: 1,
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(offset_rows.len(), 1);
+    assert_eq!(offset_rows[0].id, pending_review.id);
+}
+
+#[tokio::test]
 async fn nako_database_sqlite_round_trips_source_duplicate_relationships_without_merging_items() {
     let store = NakoDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();

@@ -175,6 +175,84 @@ impl MetadataCandidateReviewRepository for PostgresStore {
             .map(row_to_metadata_candidate_review)
             .collect()
     }
+
+    async fn list_metadata_candidate_reviews(
+        &self,
+        filter: MetadataCandidateReviewQueueFilter,
+        page: PageRequest,
+    ) -> Result<Vec<MetadataCandidateReviewRecord>> {
+        let page = page.clamped();
+        let provider_parts = filter.provider.map(|provider| {
+            metadata_candidate_source_to_parts(&MetadataCandidateSource::Provider(provider))
+        });
+
+        let rows = match (filter.status, provider_parts) {
+            (Some(status), Some((source, source_kind_key))) => sqlx::query(&format!(
+                r#"
+                    {METADATA_CANDIDATE_REVIEW_SELECT}
+                    WHERE status = $1
+                      AND source = $2
+                      AND source_kind_key = $3
+                    ORDER BY updated_at_ms DESC, id ASC
+                    LIMIT $4 OFFSET $5
+                    "#
+            ))
+            .bind(status.as_str())
+            .bind(source)
+            .bind(source_kind_key)
+            .bind(u32_to_i64(page.limit))
+            .bind(u64_to_i64(page.offset)?)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(database_error)?,
+            (Some(status), None) => sqlx::query(&format!(
+                r#"
+                    {METADATA_CANDIDATE_REVIEW_SELECT}
+                    WHERE status = $1
+                    ORDER BY updated_at_ms DESC, id ASC
+                    LIMIT $2 OFFSET $3
+                    "#
+            ))
+            .bind(status.as_str())
+            .bind(u32_to_i64(page.limit))
+            .bind(u64_to_i64(page.offset)?)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(database_error)?,
+            (None, Some((source, source_kind_key))) => sqlx::query(&format!(
+                r#"
+                    {METADATA_CANDIDATE_REVIEW_SELECT}
+                    WHERE source = $1
+                      AND source_kind_key = $2
+                    ORDER BY updated_at_ms DESC, id ASC
+                    LIMIT $3 OFFSET $4
+                    "#
+            ))
+            .bind(source)
+            .bind(source_kind_key)
+            .bind(u32_to_i64(page.limit))
+            .bind(u64_to_i64(page.offset)?)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(database_error)?,
+            (None, None) => sqlx::query(&format!(
+                r#"
+                    {METADATA_CANDIDATE_REVIEW_SELECT}
+                    ORDER BY updated_at_ms DESC, id ASC
+                    LIMIT $1 OFFSET $2
+                    "#
+            ))
+            .bind(u32_to_i64(page.limit))
+            .bind(u64_to_i64(page.offset)?)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(database_error)?,
+        };
+
+        rows.into_iter()
+            .map(row_to_metadata_candidate_review)
+            .collect()
+    }
 }
 
 fn row_to_metadata_candidate_review(row: PgRow) -> Result<MetadataCandidateReviewRecord> {

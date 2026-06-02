@@ -1,6 +1,6 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 67] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 68] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -126,6 +126,7 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 67] = [
         "catalogGovernanceProviderMappingReview",
         "catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review",
     ),
+    ("metadataCandidateReviews", "metadata/candidate-reviews"),
     (
         "metadataCandidateReviewsForItem",
         "metadata/items/{item_id}/candidate-reviews",
@@ -1554,6 +1555,11 @@ export type AdminMetadataCandidateReviewStatus =
   | "superseded"
   | "expired";
 
+export interface AdminMetadataCandidateReviewQueueQuery extends AdminPageQuery {
+  status?: AdminMetadataCandidateReviewStatus;
+  provider?: AdminExternalProvider;
+}
+
 export type AdminMetadataCandidateReviewApplicationAction =
   | "apply"
   | "skip"
@@ -1717,6 +1723,13 @@ export interface AdminMetadataCandidateReviewListResponse {
   admin_api_version: string;
   public_api_version: string;
   item_id: string;
+  reviews: AdminMetadataCandidateReviewListEntry[];
+  page: PageInfo;
+}
+
+export interface AdminMetadataCandidateReviewQueueResponse {
+  admin_api_version: string;
+  public_api_version: string;
   reviews: AdminMetadataCandidateReviewListEntry[];
   page: PageInfo;
 }
@@ -3099,6 +3112,8 @@ mod tests {
             "AdminCatalogGovernanceProviderMappingReviewPlanResponse",
             "AdminCatalogGovernanceProviderMappingReviewResponse",
             "AdminCatalogGovernanceRepairBoundary",
+            "AdminMetadataCandidateReviewQueueQuery",
+            "AdminMetadataCandidateReviewQueueResponse",
             "AdminMetadataCandidateReviewListResponse",
             "AdminMetadataCandidateReviewListEntry",
             "AdminMetadataCandidateReviewResponse",

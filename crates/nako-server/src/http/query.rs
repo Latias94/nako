@@ -740,13 +740,13 @@ fn parse_library_item_watch_state(
     }
 }
 
-fn parse_u32_filter(name: &str, value: String) -> Result<u32, NakoError> {
+pub(super) fn parse_u32_filter(name: &str, value: String) -> Result<u32, NakoError> {
     value.parse::<u32>().map_err(|err| NakoError::InvalidInput {
         message: format!("invalid {name} filter: {err}"),
     })
 }
 
-fn parse_u64_filter(name: &str, value: String) -> Result<u64, NakoError> {
+pub(super) fn parse_u64_filter(name: &str, value: String) -> Result<u64, NakoError> {
     value.parse::<u64>().map_err(|err| NakoError::InvalidInput {
         message: format!("invalid {name} filter: {err}"),
     })

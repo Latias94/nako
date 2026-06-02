@@ -17,7 +17,7 @@ Exit criteria:
 
 ## M1 - Read-Only Admin API Global Queue
 
-Status: Ready at `PRGQ-020`.
+Status: Complete after `PRGQ-020`.
 
 Exit criteria:
 
@@ -30,7 +30,7 @@ Exit criteria:
 
 ## M2 - Web Admin Global Queue Navigation
 
-Status: Pending `PRGQ-020`.
+Status: Ready at `PRGQ-030`.
 
 Exit criteria:
 

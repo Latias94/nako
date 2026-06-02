@@ -296,6 +296,18 @@ pub trait MetadataCandidateReviewRepository: Send + Sync {
         item_id: MediaItemId,
         page: PageRequest,
     ) -> Result<Vec<MetadataCandidateReviewRecord>>;
+
+    async fn list_metadata_candidate_reviews(
+        &self,
+        filter: MetadataCandidateReviewQueueFilter,
+        page: PageRequest,
+    ) -> Result<Vec<MetadataCandidateReviewRecord>>;
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct MetadataCandidateReviewQueueFilter {
+    pub status: Option<MetadataCandidateReviewStatus>,
+    pub provider: Option<ExternalProvider>,
 }
 
 #[async_trait]

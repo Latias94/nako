@@ -14,7 +14,7 @@ Last updated: 2026-06-02
 
 ## M1 - Read-Only Admin API Global Queue
 
-- [ ] PRGQ-020 [owner=codex] [deps=PRGQ-010] [scope=crates/nako-core,crates/nako-db,crates/nako-api,crates/nako-server,docs/workstreams/provider-review-global-queue-search]
+- [x] PRGQ-020 [owner=codex] [deps=PRGQ-010] [scope=crates/nako-core,crates/nako-db,crates/nako-api,crates/nako-server,docs/workstreams/provider-review-global-queue-search]
   Goal: Add a read-only Admin API global Metadata Candidate Review queue route with redaction-safe rows, filters, pagination, and deterministic ordering.
   Validation: `cargo nextest run -p nako-api admin_contract --no-fail-fast`; `cargo nextest run -p nako-server candidate_review admin --no-fail-fast`; focused `nako-db` queue query tests if repository contract changes; `cargo fmt --all -- --check`; `git diff --check`.
   Review: query must not filter broad result sets in HTTP memory, must not write Provider Subject, Provider Mapping, Canonical Metadata, or hierarchy state, and must not expose raw provider payloads or secrets.

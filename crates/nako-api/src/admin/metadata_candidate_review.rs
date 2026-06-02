@@ -60,6 +60,39 @@ impl AdminMetadataCandidateReviewListResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewQueueResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub reviews: Vec<AdminMetadataCandidateReviewListEntry>,
+    pub page: PageInfo,
+}
+
+impl AdminMetadataCandidateReviewQueueResponse {
+    #[must_use]
+    pub fn new(
+        reviews: Vec<(
+            MetadataCandidateReviewRecord,
+            MetadataCandidateReviewApplicationPlan,
+        )>,
+        page: PageRequest,
+    ) -> Self {
+        let reviews: Vec<_> = reviews
+            .into_iter()
+            .map(|(review, application_plan)| {
+                AdminMetadataCandidateReviewListEntry::from_record(review, application_plan)
+            })
+            .collect();
+
+        Self {
+            admin_api_version: ADMIN_API_VERSION.to_owned(),
+            public_api_version: API_VERSION.to_owned(),
+            page: PageInfo::new(page.limit, page.offset, saturating_u32_len(reviews.len())),
+            reviews,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminMetadataCandidateReviewListEntry {
     pub review_id: MetadataCandidateReviewId,
     pub item_id: MediaItemId,

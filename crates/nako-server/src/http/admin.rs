@@ -90,14 +90,15 @@ use nako_api::{
     public_client::{API_VERSION, ClientErrorCode, ErrorResponse, page_info_from_request},
 };
 use nako_core::{
-    ArtworkCandidateId, AutomationArtifactId, GeneratedArtifactMetadataApplyOutcomeId,
-    GeneratedArtifactMetadataApplyRecoveryAttention, GeneratedArtifactMetadataApplyRecoveryFilter,
-    GeneratedArtifactMetadataBulkApplyBatchId, ImageKind, JobId, LibraryAccessPolicy,
-    LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId, ManagedArtworkArtifactId,
-    ManagedArtworkIngestId, MediaItemId, MetadataCandidateReviewId, NakoError, PageRequest,
-    PlaybackTargetKind, PlaybackTargetTransportAuth, ProviderMappingId, RendererSessionRecord,
-    RendererSessionState, RoleAssignment, User, UserId, UserInvitationId, UserPrincipalId,
-    UserRole, UserStatus,
+    ArtworkCandidateId, AutomationArtifactId, ExternalProvider,
+    GeneratedArtifactMetadataApplyOutcomeId, GeneratedArtifactMetadataApplyRecoveryAttention,
+    GeneratedArtifactMetadataApplyRecoveryFilter, GeneratedArtifactMetadataBulkApplyBatchId,
+    ImageKind, JobId, LibraryAccessPolicy, LibraryAccessPolicyFilter, LibraryAccessPolicyScope,
+    LibraryId, ManagedArtworkArtifactId, ManagedArtworkIngestId, MediaItemId,
+    MetadataCandidateReviewId, MetadataCandidateReviewQueueFilter, MetadataCandidateReviewStatus,
+    NakoError, PageRequest, PlaybackTargetKind, PlaybackTargetTransportAuth, ProviderMappingId,
+    RendererSessionRecord, RendererSessionState, RoleAssignment, User, UserId, UserInvitationId,
+    UserPrincipalId, UserRole, UserStatus,
 };
 use nako_db::DatabaseBackendCapabilities;
 use nako_transcode::{
@@ -127,6 +128,7 @@ use super::{
         ArtworkArtifactRemediationQuery, ArtworkArtifactStorageDriftQuery, ArtworkGalleryQuery,
         CatalogGovernanceItemsQuery, JobListQuery, OutboxEventListQuery, PageQuery,
         PlaybackSessionListQuery, PlaybackSupportEvidenceQuery, StorageStagingQuery,
+        parse_u32_filter, parse_u64_filter,
     },
 };
 
@@ -200,6 +202,10 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review",
             post(review_admin_catalog_governance_provider_mapping),
+        )
+        .route(
+            "/admin/v1/metadata/candidate-reviews",
+            get(list_admin_metadata_candidate_reviews),
         )
         .route(
             "/admin/v1/metadata/items/{item_id}/candidate-reviews",
@@ -868,6 +874,39 @@ impl AdminLibraryAccessPolicyDeleteQuery {
     }
 }
 
+#[derive(Clone, Debug, Default, Deserialize)]
+pub(super) struct AdminMetadataCandidateReviewQueueQuery {
+    pub(super) status: Option<MetadataCandidateReviewStatus>,
+    pub(super) provider: Option<ExternalProvider>,
+    pub(super) limit: Option<String>,
+    pub(super) offset: Option<String>,
+}
+
+impl AdminMetadataCandidateReviewQueueQuery {
+    fn into_filter_and_page(
+        self,
+    ) -> Result<(MetadataCandidateReviewQueueFilter, PageRequest), NakoError> {
+        let page = PageQuery {
+            limit: self
+                .limit
+                .map(|value| parse_u32_filter("limit", value))
+                .transpose()?,
+            offset: self
+                .offset
+                .map(|value| parse_u64_filter("offset", value))
+                .transpose()?,
+        };
+
+        Ok((
+            MetadataCandidateReviewQueueFilter {
+                status: self.status,
+                provider: self.provider,
+            },
+            page.try_into()?,
+        ))
+    }
+}
+
 async fn admin_access_user_record(
     app: &NakoApp,
     user: User,
@@ -1085,6 +1124,19 @@ pub(super) async fn list_admin_metadata_candidate_reviews_for_item(
     Ok(Json(
         app.metadata()
             .list_admin_metadata_candidate_reviews_for_item(item_id, page)
+            .await?,
+    ))
+}
+
+pub(super) async fn list_admin_metadata_candidate_reviews(
+    State(app): State<NakoApp>,
+    Query(query): Query<AdminMetadataCandidateReviewQueueQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let (filter, page) = query.into_filter_and_page()?;
+
+    Ok(Json(
+        app.metadata()
+            .list_admin_metadata_candidate_reviews(filter, page)
             .await?,
     ))
 }

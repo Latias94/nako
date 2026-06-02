@@ -9,17 +9,21 @@ The lane is opened from `admin-candidate-review-list-navigation` closeout.
 Item-scoped Candidate Review discovery/navigation exists, but operators still
 need a global Admin queue/search surface for cross-item triage.
 
+`PRGQ-020` added the read-only Admin API global Candidate Review queue route:
+`GET /admin/v1/metadata/candidate-reviews`. The route supports `status`,
+`provider`, `limit`, and `offset` query fields and returns redaction-safe
+summary rows for triage/navigation.
+
 ## Active Task
 
-- Task ID: `PRGQ-020`
+- Task ID: `PRGQ-030`
 - Owner: codex
-- Files: `crates/nako-core`, `crates/nako-db`, `crates/nako-api`,
-  `crates/nako-server`, and
+- Files: `web/src/api/admin`, `web/src/features/admin`, `web/src/shell`,
+  `web/src/test`, and
   `docs/workstreams/provider-review-global-queue-search`
-- Validation: `cargo nextest run -p nako-api admin_contract --no-fail-fast`;
-  `cargo nextest run -p nako-server candidate_review admin --no-fail-fast`;
-  focused `nako-db` queue query tests if repository contract changes;
-  `cargo fmt --all -- --check`; `git diff --check`
+- Validation: `npm --prefix web run test`; `npm --prefix web run check`;
+  `npm --prefix web run build:budget`; browser smoke if a route or navigation
+  mode is added; `git diff --check`
 - Status: READY
 - Evidence: `docs/workstreams/provider-review-global-queue-search/EVIDENCE_AND_GATES.md`
 
@@ -32,12 +36,16 @@ need a global Admin queue/search surface for cross-item triage.
   filters and pagination.
 - Batch governance, status mutation, apply mutation, Public Client API, and
   related hierarchy application remain out of scope.
+- Web queue should use the new global route for discovery, then navigate into
+  the existing Candidate Review detail/apply route instead of duplicating the
+  detail workflow.
 
 ## Blockers
 
-- None for `PRGQ-020`.
+- None for `PRGQ-030`.
 
 ## Next Recommended Action
 
-- Run `PRGQ-020`: add the read-only Admin API global Candidate Review queue
-  route, repository query contract, redaction-safe DTOs, and route/query tests.
+- Run `PRGQ-030`: add Web Admin global Candidate Review queue/search
+  navigation backed by the new Admin API route and route into the existing
+  detail/apply page.
