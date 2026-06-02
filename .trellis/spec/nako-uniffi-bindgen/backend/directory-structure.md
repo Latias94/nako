@@ -1,54 +1,32 @@
 # Directory Structure
 
-> How backend code is organized in this project.
+`nako-uniffi-bindgen` is intentionally a single binary with no library target.
 
----
+## Current Layout
 
-## Overview
+- `src/main.rs`: delegates directly to `uniffi::uniffi_bindgen_main()`.
+- `Cargo.toml`: depends on workspace `uniffi` with the `cli` feature and sets
+  `publish = false`.
 
-<!--
-Document your project's backend directory structure here.
+## Module Rules
 
-Questions to answer:
-- How are modules/packages organized?
-- Where does business logic live?
-- Where are API endpoints defined?
-- How are utilities and helpers organized?
--->
+- Keep the wrapper in `src/main.rs`.
+- Do not add a `lib.rs` unless workspace tooling needs reusable generator
+  functions.
+- Do not place generated language bindings in this crate.
+- Keep binding record/enum definitions in the crate being bound, currently
+  `nako-client-uniffi`.
 
-(To be filled by the team)
+## Naming Rules
 
----
+- Keep the package and binary name `nako-uniffi-bindgen`.
+- Keep command behavior aligned with upstream UniFFI CLI naming.
+- Use crate names, not generated language names, when documenting binding
+  targets.
 
-## Directory Layout
+## Anti-Patterns
 
-```
-<!-- Replace with your actual structure -->
-src/
-├── ...
-└── ...
-```
-
----
-
-## Module Organization
-
-<!-- How should new features/modules be organized? -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- File and folder naming rules -->
-
-(To be filled by the team)
-
----
-
-## Examples
-
-<!-- Link to well-organized modules as examples -->
-
-(To be filled by the team)
+- Do not add hand-written CLI parsing around UniFFI unless a concrete release
+  workflow requires it.
+- Do not import `nako-client`, server, API, database, or runtime crates.
+- Do not use this crate as a general build script or release packager.

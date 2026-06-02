@@ -1,51 +1,38 @@
 # Logging Guidelines
 
-> How logging is done in this project.
+`nako-media-probe` currently has no logging. If diagnostics are added, they
+must help operators understand probe execution without leaking source secrets.
 
----
+## Required Patterns
 
-## Overview
+- Prefer caller-level structured events for scan/probe orchestration.
+- Log provider name, stream counts, and high-level outcome when useful.
+- Keep local paths and storage URIs redacted or policy-controlled in logs.
+- Keep stderr content out of routine logs; return it through provider errors
+  where callers can classify it.
 
-<!--
-Document your project's logging conventions here.
+## Suggested Fields
 
-Questions to answer:
-- What logging library do you use?
-- What are the log levels and when to use each?
-- What should be logged?
-- What should NOT be logged (PII, secrets)?
--->
+| Field | Purpose |
+|-------|---------|
+| `provider` | Probe backend, currently `ffprobe` |
+| `source_scheme` | Storage scheme without full locator |
+| `stream_count` | Number of streams parsed |
+| `duration_ms` | Optional parsed container duration |
+| `outcome` | `success`, `unsupported`, or `provider_error` |
 
-(To be filled by the team)
+## Forbidden Patterns
 
----
+- Do not log full local file paths, signed URLs, credentials, source locators,
+  or raw ffprobe JSON by default.
+- Do not log ffprobe stderr at info level.
+- Do not add per-stream verbose logs in hot scan paths unless gated by tracing
+  level.
+- Do not initialize global logging from this crate.
 
-## Log Levels
+## Review Checklist
 
-<!-- When to use each level: debug, info, warn, error -->
-
-(To be filled by the team)
-
----
-
-## Structured Logging
-
-<!-- Log format, required fields -->
-
-(To be filled by the team)
-
----
-
-## What to Log
-
-<!-- Important events to log -->
-
-(To be filled by the team)
-
----
-
-## What NOT to Log
-
-<!-- Sensitive data, PII, secrets -->
-
-(To be filled by the team)
+- Would the log be safe in a multi-user server?
+- Is the diagnostic better emitted by `nako-library` where source context and
+  failure persistence are available?
+- Does the log avoid high-cardinality raw paths and provider blobs?

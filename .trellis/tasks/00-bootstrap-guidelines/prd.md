@@ -21,7 +21,7 @@ the rest conversationally.
 
 ## Status (update the checkboxes as you complete each item)
 
-- [ ] Fill guidelines for nako
+- [x] Fill guidelines for nako
 - [x] Fill guidelines for nako-addon-client
 - [x] Fill guidelines for nako-addon-protocol
 - [x] Fill guidelines for nako-api
@@ -36,9 +36,9 @@ the rest conversationally.
 - [x] Fill guidelines for nako-db
 - [x] Fill guidelines for nako-events
 - [x] Fill guidelines for nako-library
-- [ ] Fill guidelines for nako-media-probe
+- [x] Fill guidelines for nako-media-probe
 - [x] Fill guidelines for nako-metadata
-- [ ] Fill guidelines for nako-naming
+- [x] Fill guidelines for nako-naming
 - [x] Fill guidelines for nako-nfo
 - [x] Fill guidelines for nako-official-addon-catalog
 - [x] Fill guidelines for nako-playback
@@ -47,7 +47,7 @@ the rest conversationally.
 - [x] Fill guidelines for nako-server
 - [x] Fill guidelines for nako-streaming
 - [x] Fill guidelines for nako-transcode
-- [ ] Fill guidelines for nako-uniffi-bindgen
+- [x] Fill guidelines for nako-uniffi-bindgen
 - [x] Fill guidelines for nako-vfs
 - [x] Add code examples
 
@@ -62,8 +62,8 @@ Session progress on 2026-06-02:
   `nako-official-addon-catalog`, and `nako-reference-addon`.
 - Extended real specs for `nako-client-protocol`, `nako-client-core`,
   `nako-client`, `nako-client-cli`, and `nako-client-uniffi`.
-- Left remaining package checkboxes open until their own specs are filled with
-  real examples.
+- Completed the remaining real specs for `nako`, `nako-media-probe`,
+  `nako-naming`, and `nako-uniffi-bindgen`, closing the bootstrap checklist.
 
 ---
 

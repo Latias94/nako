@@ -1,54 +1,35 @@
 # Directory Structure
 
-> How backend code is organized in this project.
+`nako` should remain a one-file facade unless the public SDK surface grows
+enough to justify feature-specific modules.
 
----
+## Current Layout
 
-## Overview
+- `src/lib.rs`: crate docs, public re-exports, feature-gated addon client
+  re-export, and facade visibility tests.
+- `README.md`: consumer examples for `addon_protocol` and optional
+  `addon_client`.
+- `Cargo.toml`: permissive license, SDK metadata, and feature definitions.
 
-<!--
-Document your project's backend directory structure here.
+## Module Rules
 
-Questions to answer:
-- How are modules/packages organized?
-- Where does business logic live?
-- Where are API endpoints defined?
-- How are utilities and helpers organized?
--->
+- Keep root-level re-exports obvious and stable.
+- Place real protocol types and validation in `nako-addon-protocol`.
+- Place HTTP caller helpers in `nako-addon-client`.
+- Add a module only when multiple facade items share real internal structure.
+- Keep generated artifacts and server composition code out of this crate.
 
-(To be filled by the team)
+## Naming Rules
 
----
+- Use lower_snake_case module aliases that match public consumer imports:
+  `addon_protocol` and `addon_client`.
+- Feature names should describe optional SDK capabilities, such as
+  `addon-client`.
+- README examples should use `nako::...` imports, not path dependencies.
 
-## Directory Layout
+## Anti-Patterns
 
-```
-<!-- Replace with your actual structure -->
-src/
-├── ...
-└── ...
-```
-
----
-
-## Module Organization
-
-<!-- How should new features/modules be organized? -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- File and folder naming rules -->
-
-(To be filled by the team)
-
----
-
-## Examples
-
-<!-- Link to well-organized modules as examples -->
-
-(To be filled by the team)
+- Do not mirror the whole workspace under `nako::*`.
+- Do not expose server, API, database, VFS, catalog, playback, metadata,
+  transcode, or runtime supervision crates from this facade.
+- Do not add implementation modules just to wrap one re-export.

@@ -1,51 +1,37 @@
 # Logging Guidelines
 
-> How logging is done in this project.
+`nako-naming` currently logs nothing. Pure parsing should stay silent by
+default.
 
----
+## Required Patterns
 
-## Overview
+- Prefer caller-level diagnostics when library ingestion wants to explain local
+  inference decisions.
+- If parser diagnostics are added, expose structured facts such as parser
+  version, evidence source, and kind hint.
+- Keep raw paths and file names redacted or caller-controlled in logs.
+- Keep tests deterministic and independent from tracing state.
 
-<!--
-Document your project's logging conventions here.
+## Suggested Fields
 
-Questions to answer:
-- What logging library do you use?
-- What are the log levels and when to use each?
-- What should be logged?
-- What should NOT be logged (PII, secrets)?
--->
+| Field | Purpose |
+|-------|---------|
+| `parser_version` | Identifies heuristic version |
+| `kind_hint` | Movie, episode, unknown, or other hint |
+| `confidence_milli` | Confidence score emitted by parser |
+| `evidence_source` | Source of the parse evidence |
 
-(To be filled by the team)
+## Forbidden Patterns
 
----
+- Do not log every parsed file by default.
+- Do not log full local paths, source locators, or user directory names without
+  an explicit caller policy.
+- Do not initialize tracing or global logging from this crate.
+- Do not make logging affect parser output.
 
-## Log Levels
+## Review Checklist
 
-<!-- When to use each level: debug, info, warn, error -->
-
-(To be filled by the team)
-
----
-
-## Structured Logging
-
-<!-- Log format, required fields -->
-
-(To be filled by the team)
-
----
-
-## What to Log
-
-<!-- Important events to log -->
-
-(To be filled by the team)
-
----
-
-## What NOT to Log
-
-<!-- Sensitive data, PII, secrets -->
-
-(To be filled by the team)
+- Is the diagnostic needed at parser level, or can `nako-library` log the
+  inference decision with more context?
+- Does the log avoid high-cardinality raw path values?
+- Does the parser remain pure and deterministic?

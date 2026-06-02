@@ -1,51 +1,31 @@
 # Logging Guidelines
 
-> How logging is done in this project.
+`nako` currently emits no logs. That is the preferred default for a public SDK
+facade.
 
----
+## Required Patterns
 
-## Overview
+- Keep diagnostics in the crates that perform real work.
+- If facade-level diagnostics become necessary, use the workspace tracing
+  conventions and keep messages about feature/export setup only.
+- Keep README examples free of logging setup unless the underlying SDK crate
+  requires it.
 
-<!--
-Document your project's logging conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What logging library do you use?
-- What are the log levels and when to use each?
-- What should be logged?
-- What should NOT be logged (PII, secrets)?
--->
+- Do not log from re-export-only code.
+- Do not log tokens, shared secrets, URLs with credentials, local server paths,
+  source locators, or addon request bodies.
+- Do not initialize a global logger from this crate.
+- Do not add noisy startup or import-time diagnostics.
 
-(To be filled by the team)
+## Review Checklist
 
----
+- Does the log communicate a facade-level event rather than underlying SDK
+  behavior?
+- Should the diagnostic live in `nako-addon-client` instead?
+- Is the message safe for third-party integration logs?
 
-## Log Levels
+## Evidence
 
-<!-- When to use each level: debug, info, warn, error -->
-
-(To be filled by the team)
-
----
-
-## Structured Logging
-
-<!-- Log format, required fields -->
-
-(To be filled by the team)
-
----
-
-## What to Log
-
-<!-- Important events to log -->
-
-(To be filled by the team)
-
----
-
-## What NOT to Log
-
-<!-- Sensitive data, PII, secrets -->
-
-(To be filled by the team)
+- `crates/nako/src/lib.rs`

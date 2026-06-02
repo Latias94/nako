@@ -1,51 +1,35 @@
 # Database Guidelines
 
-> Database patterns and conventions for this project.
+`nako` has no database responsibilities. Treat database isolation as part of
+the public SDK contract.
 
----
+## Required Patterns
 
-## Overview
+- Keep all persistence, migrations, repository traits, and server-side database
+  adapters outside this crate.
+- Re-export only protocol or SDK crates that are safe for third-party addon and
+  integration authors.
+- Review dependency changes for accidental pulls of `nako-db`, `sqlx`, server,
+  API, storage, or catalog internals.
+- Keep crate metadata aligned with its permissive SDK purpose.
 
-<!--
-Document your project's database conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What ORM/query library do you use?
-- How are migrations managed?
-- What are the naming conventions for tables/columns?
-- How do you handle transactions?
--->
+- Do not depend on `nako-db`, `nako-server`, `nako-api`, `nako-core`,
+  `nako-vfs`, or persistence adapters from this facade.
+- Do not expose repository traits, migration helpers, database IDs, internal
+  server records, or SQL-related feature flags.
+- Do not use facade convenience as a shortcut for leaking implementation
+  details to addon authors.
 
-(To be filled by the team)
+## Review Checklist
 
----
+- Does the dependency graph still contain only public protocol or SDK crates?
+- Does a new export make sense for third-party addon/integration authors?
+- Would the exported type require server persistence knowledge to use?
+- Is the behavior better placed in a dedicated public SDK crate?
 
-## Query Patterns
+## Evidence
 
-<!-- How should queries be written? Batch operations? -->
-
-(To be filled by the team)
-
----
-
-## Migrations
-
-<!-- How to create and run migrations -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- Table names, column names, index names -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Database-related mistakes your team has made -->
-
-(To be filled by the team)
+- `crates/nako/Cargo.toml`
+- `crates/nako/src/lib.rs`

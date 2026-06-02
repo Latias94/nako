@@ -1,51 +1,33 @@
 # Database Guidelines
 
-> Database patterns and conventions for this project.
+`nako-naming` is a pure parsing crate. It has no database layer and should not
+learn about persisted catalog state.
 
----
+## Required Patterns
 
-## Overview
+- Return serializable parsing evidence to callers.
+- Let library ingestion or metadata workflows decide whether to persist parser
+  output.
+- Keep parser version explicit so stored inference evidence can be interpreted
+  later.
+- Keep source paths as input strings; do not resolve or query source records.
 
-<!--
-Document your project's database conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What ORM/query library do you use?
-- How are migrations managed?
-- What are the naming conventions for tables/columns?
-- How do you handle transactions?
--->
+- Do not depend on `nako-db`, repository traits, metadata providers, catalog
+  graph code, or server state.
+- Do not perform lookups to confirm movie, series, season, or episode identity.
+- Do not mutate catalog records, ingestion state, or source observations.
+- Do not introduce parser caches that affect deterministic output.
 
-(To be filled by the team)
+## Review Checklist
 
----
+- Is this still a pure function of path text and parser version?
+- Does a persistence concern belong in `nako-library` instead?
+- Does a metadata concern belong in `nako-metadata` instead?
+- Can unit tests exercise the behavior without repositories or fixtures?
 
-## Query Patterns
+## Evidence
 
-<!-- How should queries be written? Batch operations? -->
-
-(To be filled by the team)
-
----
-
-## Migrations
-
-<!-- How to create and run migrations -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- Table names, column names, index names -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Database-related mistakes your team has made -->
-
-(To be filled by the team)
+- `crates/nako-naming/Cargo.toml`
+- `crates/nako-naming/src/lib.rs`

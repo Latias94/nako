@@ -1,51 +1,55 @@
 # Error Handling
 
-> How errors are handled in this project.
+Probe errors should be typed through `nako-core::NakoError` so library
+ingestion can classify and persist failures at the orchestration layer.
 
----
+## Required Patterns
 
-## Overview
+- Return `NakoError::Unsupported` when the adapter cannot handle the source,
+  currently when ffprobe lacks a `local_path_hint`.
+- Map process spawn failures to `NakoError::Provider` with provider `ffprobe`.
+- Map non-zero ffprobe exit status to `NakoError::Provider` and include trimmed
+  stderr as the provider message.
+- Map JSON decode failures to `NakoError::Provider` with a parse-specific
+  message.
+- Treat malformed optional fields as absent rather than fatal when the field is
+  not required.
+- Use checked math when converting seconds to milliseconds.
 
-<!--
-Document your project's error handling conventions here.
+## Validation Matrix
 
-Questions to answer:
-- What error types do you define?
-- How are errors propagated?
-- How are errors logged?
-- How are errors returned to clients?
--->
+| Condition | Behavior |
+|-----------|----------|
+| Missing local path hint | `NakoError::Unsupported` |
+| ffprobe executable cannot start | `NakoError::Provider { provider: "ffprobe" }` |
+| ffprobe exits non-zero | Provider error with trimmed stderr |
+| ffprobe JSON cannot decode | Provider error with parse message |
+| Unknown stream kind | `MediaStreamKind::Other(value)` |
+| Invalid numeric optional field | Field becomes `None` |
+| Zero rational numerator or denominator | Frame rate becomes `None` |
 
-(To be filled by the team)
+## Forbidden Patterns
 
----
+- Do not panic or unwrap while parsing provider output.
+- Do not promote optional ffprobe metadata parse failures into fatal errors.
+- Do not discard provider identity from errors.
+- Do not expose local path hints in high-level library failure summaries unless
+  the caller explicitly chooses that policy.
 
-## Error Types
+## Wrong vs Correct
 
-<!-- Custom error classes/types -->
+### Wrong
 
-(To be filled by the team)
+```rust
+let value = stream.sample_rate.unwrap().parse().unwrap();
+```
 
----
+### Correct
 
-## Error Handling Patterns
+```rust
+let value = parse_u32(stream.sample_rate.as_deref());
+```
 
-<!-- Try-catch patterns, error propagation -->
+## Evidence
 
-(To be filled by the team)
-
----
-
-## API Error Responses
-
-<!-- Standard error response format -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Error handling mistakes your team has made -->
-
-(To be filled by the team)
+- `crates/nako-media-probe/src/lib.rs`
