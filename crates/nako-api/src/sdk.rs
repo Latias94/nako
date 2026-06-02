@@ -1640,6 +1640,17 @@ type QueryInput = object;
 mod tests {
     use super::*;
 
+    fn assert_sdk_excludes_provider_governance_routes_and_types(sdk: &str, surface: &str) {
+        let sdk = sdk.to_ascii_lowercase();
+
+        for forbidden in crate::PROVIDER_GOVERNANCE_PUBLIC_FORBIDDEN_TERMS {
+            assert!(
+                !sdk.contains(forbidden),
+                "{surface} SDK leaked provider governance term: {forbidden}"
+            );
+        }
+    }
+
     #[test]
     fn typescript_sdk_includes_public_route_methods_and_paths() {
         let sdk = typescript_sdk();
@@ -1775,6 +1786,11 @@ mod tests {
     }
 
     #[test]
+    fn typescript_sdk_excludes_provider_governance_routes_and_types() {
+        assert_sdk_excludes_provider_governance_routes_and_types(&typescript_sdk(), "TypeScript");
+    }
+
+    #[test]
     fn typescript_package_entry_matches_generator_output() {
         let generated = typescript_sdk().replace("\r\n", "\n");
         let package_entry =
@@ -1871,6 +1887,11 @@ mod tests {
                 "Kotlin SDK leaked forbidden term: {forbidden}"
             );
         }
+    }
+
+    #[test]
+    fn kotlin_sdk_excludes_provider_governance_routes_and_types() {
+        assert_sdk_excludes_provider_governance_routes_and_types(&kotlin_sdk(), "Kotlin");
     }
 
     #[test]

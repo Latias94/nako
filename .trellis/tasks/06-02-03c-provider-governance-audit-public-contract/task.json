@@ -3,7 +3,7 @@
   "name": "03c-provider-governance-audit-public-contract",
   "title": "Provider governance audit and public contract",
   "description": "Provider governance trust slice for audit, undo, public contract, or endpoint-depth follow-on.",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": "implementation",
   "scope": "library-metadata-control-plane",
   "package": "nako",
