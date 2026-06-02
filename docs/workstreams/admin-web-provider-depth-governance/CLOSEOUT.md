@@ -92,9 +92,9 @@ Fresh closeout gates:
   hierarchy changes only through a new policy and operator workflow.
 - `proposed:douban-tv-episode-endpoint-depth`: prove Douban TV/episode endpoint
   semantics before broadening Douban provider capabilities.
-- `proposed:admin-candidate-review-list-navigation`: add an Admin queue/list
-  and navigation entry for durable Candidate Reviews instead of requiring a
-  direct `review_id` URL.
+- `docs/workstreams/admin-candidate-review-list-navigation/` (active): add an
+  Admin queue/list and navigation entry for durable Candidate Reviews instead
+  of requiring a direct `review_id` URL.
 - `proposed:provider-governance-bulk-review`: handle batch or cross-provider
   governance only after single-review semantics remain stable.
 

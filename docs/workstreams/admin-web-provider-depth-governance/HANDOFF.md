@@ -65,5 +65,5 @@ follow-ons.
 - Open one focused follow-on rather than reopening this lane:
   `proposed:provider-review-related-hierarchy-application`,
   `proposed:douban-tv-episode-endpoint-depth`,
-  `proposed:admin-candidate-review-list-navigation`, or
+  `docs/workstreams/admin-candidate-review-list-navigation/`, or
   `proposed:provider-governance-bulk-review`.

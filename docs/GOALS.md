@@ -26,52 +26,55 @@ proposed milestone.
 
 ## Current Goal
 
-### Library Metadata Governance Follow-On Selection
+### Admin Candidate Review List Navigation
 
-Status: selecting as of 2026-06-02.
+Status: active as of 2026-06-02.
 
 Objective:
 
-- Choose the next focused follow-on after Admin/Web Provider Depth Governance
-  closed.
-- Keep related-node hierarchy application, provider endpoint breadth, Candidate
-  Review list/navigation, and broader provider governance as separate lanes.
-- Avoid reopening closed provider-depth lanes for unrelated implementation
-  breadth.
+- Make durable Metadata Candidate Reviews discoverable from an item-scoped
+  Admin context after the direct detail/apply route shipped.
+- Route operators into the existing Candidate Review detail/apply governance
+  surface without adding another apply executor.
+- Keep global queues, batch governance, Public Client API, and related hierarchy
+  application separate.
 
 Deliverables:
 
-- a newly opened workstream for exactly one selected follow-on;
-- updated architecture lane routing and workstream links;
-- bounded validation gates before any runtime, Web, schema, or public API work.
+- `docs/workstreams/admin-candidate-review-list-navigation/`;
+- item-scoped Admin API Candidate Review list route and generated contract;
+- Web Admin item-scoped list/navigation into the existing detail/apply page;
+- redaction, pagination, no-write, route-state, bundle-budget, and browser-smoke
+  evidence.
 
 Non-goals:
 
-- no implementation in this selection goal;
-- no mixed hierarchy/provider/Web-navigation mega-lane;
-- no Public Client API or schema migration unless the selected follow-on
-  explicitly justifies it.
+- no Public Client API expansion;
+- no related graph node hierarchy mutation;
+- no global Candidate Review queue/search;
+- no batch accept/apply or provider governance bulk actions;
+- no raw provider payload, token, header, proxy URL, local path, image URL, or
+  raw idempotency-key exposure.
 
 Exit criteria:
 
-- selected follow-on has a clear scope, non-goals, task ledger, and validation
-  ladder;
-- closed AWPDG evidence remains the source of truth for shipped Admin/Web
-  Candidate Review governance;
-- no active queue points back to a closed lane.
+- Admin API exposes a redaction-safe item-scoped Candidate Review list;
+- Web can navigate from item context to the existing Candidate Review detail
+  route;
+- generated Admin contracts and Web data-source mapping remain synchronized;
+- follow-ons are split for global queues, batch governance, and hierarchy
+  application.
 
 Evidence:
 
-- `docs/workstreams/admin-web-provider-depth-governance/CLOSEOUT.md`
+- `docs/workstreams/admin-candidate-review-list-navigation/`
 - `docs/architecture/LIBRARY_PIPELINE.md`
 - `docs/architecture/LANES.md`
 
-Candidate follow-ons:
+Current task:
 
-- `proposed:provider-review-related-hierarchy-application`
-- `proposed:douban-tv-episode-endpoint-depth`
-- `proposed:admin-candidate-review-list-navigation`
-- `proposed:provider-governance-bulk-review`
+- `ACRN-020`: add a redaction-safe Admin API list route for durable Metadata
+  Candidate Reviews scoped to one Media Item.
 
 ## Recent Completed Goals
 

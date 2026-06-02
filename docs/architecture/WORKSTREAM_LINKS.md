@@ -166,6 +166,7 @@ Evidence workstreams:
 - `docs/workstreams/metadata-candidate-durable-review/` (closed)
 - `docs/workstreams/accepted-review-provider-mapping-application/` (closed)
 - `docs/workstreams/admin-web-provider-depth-governance/` (closed)
+- `docs/workstreams/admin-candidate-review-list-navigation/` (active)
 - `docs/workstreams/metadata-acquisition-pipeline/`
 - `docs/workstreams/metadata-profile-configuration-authority/`
 - `docs/workstreams/metadata-application-policy-seam/`
@@ -203,7 +204,6 @@ Proposed lanes:
 - `proposed:artwork-delivery-cache-placeholder`
 - `proposed:provider-review-related-hierarchy-application`
 - `proposed:douban-tv-episode-endpoint-depth`
-- `proposed:admin-candidate-review-list-navigation`
 - `proposed:provider-governance-bulk-review`
 - `proposed:provider-identity-mapping-breadth`
 

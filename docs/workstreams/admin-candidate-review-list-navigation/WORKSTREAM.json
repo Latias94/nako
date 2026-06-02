@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "slug": "admin-candidate-review-list-navigation",
+  "title": "Admin Candidate Review List Navigation",
+  "status": "active",
+  "updated": "2026-06-02",
+  "scope_kind": "admin_web_metadata_candidate_review_navigation",
+  "problem": "Durable Metadata Candidate Review detail/apply governance exists, but operators still need an item-scoped Admin API/Web way to discover review IDs and navigate into the existing detail/apply route.",
+  "task_prefix": "ACRN",
+  "current_task": "ACRN-020",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/admin-candidate-review-list-navigation/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/admin-candidate-review-list-navigation/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/admin-candidate-review-list-navigation/TODO.md"
+    },
+    {
+      "role": "task_state",
+      "path": "docs/workstreams/admin-candidate-review-list-navigation/TASKS.jsonl"
+    },
+    {
+      "role": "campaign_state",
+      "path": "docs/workstreams/admin-candidate-review-list-navigation/CAMPAIGNS.jsonl"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/admin-candidate-review-list-navigation/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "context_manifest",
+      "path": "docs/workstreams/admin-candidate-review-list-navigation/CONTEXT.jsonl"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/admin-candidate-review-list-navigation/HANDOFF.md"
+    }
+  ],
+  "context_manifest": "docs/workstreams/admin-candidate-review-list-navigation/CONTEXT.jsonl",
+  "gates": [
+    "python -m json.tool docs/workstreams/admin-candidate-review-list-navigation/WORKSTREAM.json",
+    "JSONL validation for docs/workstreams/admin-candidate-review-list-navigation/TASKS.jsonl, CAMPAIGNS.jsonl, and CONTEXT.jsonl",
+    "cargo nextest run -p nako-api admin_contract --no-fail-fast",
+    "cargo nextest run -p nako-server candidate_review admin --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "ACRN-010",
+      "summary": "Opened the Admin Candidate Review list/navigation lane from AWPDG closeout and selected a read-only item-scoped Admin API Candidate Review list as the first executable task."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0018-metadata-provider-runtime-and-diagnostics.md",
+    "docs/adr/0021-video-first-media-server-domain-model.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/LANES.md",
+      "capability": "library-metadata-control-plane lane ownership"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Admin Candidate Review list/navigation active lane"
+    },
+    {
+      "path": "docs/architecture/LIBRARY_PIPELINE.md",
+      "capability": "Metadata Candidate Review Admin/Web navigation"
+    }
+  ],
+  "capability_tags": [
+    "library.metadata.candidate-review.admin",
+    "library.metadata.candidate-review.navigation",
+    "web.admin.metadata-governance"
+  ],
+  "lane_slug": "library-metadata-control-plane",
+  "continue_policy": {
+    "default_action": "run_current_task",
+    "current_task": "ACRN-020",
+    "notes": "Next add the read-only Admin API item-scoped Candidate Review list. Keep Web navigation, Public Client API, schema migrations, global queues, batch governance, and related hierarchy application out of ACRN-020."
+  }
+}

@@ -20,7 +20,7 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| library-metadata-control-plane | none | select follow-on | Planner: open related hierarchy, Douban TV/episode, Candidate Review list/navigation, or broader provider governance workstream |
+| library-metadata-control-plane | admin-candidate-review-list-navigation | ACRN-020 | Candidate Review navigation implementer |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
@@ -61,9 +61,12 @@ endpoint depth rather than reopening it.
 `admin-web-provider-depth-governance` is closed after `AWPDG-050`. It shipped
 Admin API read, Admin API apply, and Web Admin read/confirm/apply governance for
 durable Candidate Reviews while keeping Public Client API changes and related
-graph node application split. Future work should open a focused follow-on for
-related hierarchy, Douban TV/episode depth, Candidate Review list/navigation, or
-broader provider governance.
+graph node application split. Candidate Review list/navigation is now split to
+the active ACRN lane; future unrelated work should open focused follow-ons for
+related hierarchy, Douban TV/episode depth, or broader provider governance.
+`admin-candidate-review-list-navigation` is active at `ACRN-020` to make durable
+Candidate Reviews discoverable from an item-scoped Admin context before any
+global queue, batch governance, or hierarchy application work.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
@@ -167,7 +170,7 @@ Closed evidence:
 
 Active evidence:
 
-- None currently.
+- `docs/workstreams/admin-candidate-review-list-navigation/`
 
 Owned scopes:
 
@@ -194,6 +197,7 @@ Owned scopes:
 - `docs/workstreams/metadata-candidate-durable-review/`
 - `docs/workstreams/accepted-review-provider-mapping-application/`
 - `docs/workstreams/admin-web-provider-depth-governance/`
+- `docs/workstreams/admin-candidate-review-list-navigation/`
 
 Shared scopes requiring planner coordination:
 

@@ -1,0 +1,80 @@
+# Admin Candidate Review List Navigation - Evidence And Gates
+
+Status: Active
+Last updated: 2026-06-02
+
+## Opening Gates
+
+```bash
+python -m json.tool docs/workstreams/admin-candidate-review-list-navigation/WORKSTREAM.json
+```
+
+```bash
+python - <<'PY'
+import json
+from pathlib import Path
+for rel in [
+    "docs/workstreams/admin-candidate-review-list-navigation/TASKS.jsonl",
+    "docs/workstreams/admin-candidate-review-list-navigation/CAMPAIGNS.jsonl",
+    "docs/workstreams/admin-candidate-review-list-navigation/CONTEXT.jsonl",
+]:
+    for line in Path(rel).read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            json.loads(line)
+print("jsonl ok")
+PY
+```
+
+```bash
+git diff --check
+```
+
+## Expected Gates
+
+- `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+- `cargo nextest run -p nako-server candidate_review admin --no-fail-fast`
+- `cargo fmt --all -- --check`
+- `npm --prefix web run test`
+- `npm --prefix web run check`
+- `npm --prefix web run build:budget`
+- browser smoke if a route or navigation mode is added
+- `git diff --check`
+
+## Evidence Anchors
+
+- `docs/workstreams/admin-web-provider-depth-governance/CLOSEOUT.md`
+- `docs/workstreams/accepted-review-provider-mapping-application/CLOSEOUT.md`
+- `docs/workstreams/metadata-candidate-durable-review/CLOSEOUT.md`
+- `docs/architecture/LIBRARY_PIPELINE.md`
+- `docs/architecture/LANES.md`
+
+## Opening Recon
+
+Local recon on 2026-06-02:
+
+- Admin/Web Candidate Review detail and apply are shipped at
+  `docs/workstreams/admin-web-provider-depth-governance/`.
+- `MetadataCandidateReviewRepository::list_metadata_candidate_reviews_for_item`
+  already exists and the SQLite adapter orders by `updated_at_ms DESC, id ASC`.
+- Current Admin API routes expose detail/apply by `review_id` only.
+- Current Web route can render detail/apply when `review_id` is known, but there
+  is no item-scoped discovery/navigation surface.
+
+## ACRN-010 Evidence
+
+Implemented behavior:
+
+- opened this workstream as the item-scoped Candidate Review discovery follow-on
+  from AWPDG closeout;
+- selected a read-only Admin API list route as the first executable task;
+- kept Web navigation, Public Client API, schema migrations, global queues,
+  batch governance, and related-node hierarchy application out of the first
+  campaign.
+
+Green checks:
+
+- `python -m json.tool docs/workstreams/admin-candidate-review-list-navigation/WORKSTREAM.json`
+  passed.
+- JSONL validation for `TASKS.jsonl`, `CAMPAIGNS.jsonl`, and `CONTEXT.jsonl`
+  passed.
+- `git diff --check` passed with Git CRLF normalization warnings only.
