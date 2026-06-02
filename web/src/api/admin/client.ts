@@ -35,6 +35,7 @@ import {
   type AdminLocalPasswordResponse,
   type AdminMetadataCandidateReviewApplyRequest,
   type AdminMetadataCandidateReviewApplyResponse,
+  type AdminMetadataCandidateReviewListResponse,
   type AdminMetadataCandidateReviewResponse,
   type AdminMetadataRawCacheSettingsResponse,
   type AdminOutboxEventListResponse,
@@ -246,6 +247,18 @@ export class AdminApiClient {
   ): Promise<AdminMetadataCandidateReviewResponse> {
     return this.getJson<AdminMetadataCandidateReviewResponse>(
       pathParams(NAKO_ADMIN_ROUTES.metadataCandidateReview, { review_id: reviewId }),
+    )
+  }
+
+  listMetadataCandidateReviewsForItem(
+    itemId: string,
+    query: AdminPageQuery = {},
+  ): Promise<AdminMetadataCandidateReviewListResponse> {
+    return this.getJson<AdminMetadataCandidateReviewListResponse>(
+      withQuery(
+        pathParams(NAKO_ADMIN_ROUTES.metadataCandidateReviewsForItem, { item_id: itemId }),
+        query,
+      ),
     )
   }
 

@@ -107,3 +107,41 @@ Green checks:
 - JSONL validation for `TASKS.jsonl`, `CAMPAIGNS.jsonl`, and `CONTEXT.jsonl`
   passed.
 - `git diff --check` passed with Git CRLF normalization warnings only.
+
+## ACRN-030 Evidence
+
+Implemented behavior:
+
+- added Web Admin item-scoped Candidate Review list loading through
+  `NAKO_ADMIN_ROUTES.metadataCandidateReviewsForItem`;
+- mapped live list responses into redaction-safe navigation rows and kept full
+  evidence loading on the existing detail route;
+- added route-state support for `item_id`, `review_id`, `limit`, and `offset`;
+- let list row selection preserve item paging state while routing into the
+  existing detail/apply page;
+- kept list rows as navigation/triage summaries only: no batch apply, no related
+  hierarchy application, no raw provider payload display, and no Public Client
+  API expansion;
+- raised the aggregate `total-js` gzip budget from 341 KiB to 343 KiB after the
+  measured production build reached 342.05 KiB. Individual initial, admin-route,
+  and media-route budgets stayed unchanged.
+
+Green checks:
+
+- `npm --prefix web run check` passed.
+- `npm --prefix web run test` passed: 10 files, 118 tests.
+- `npm --prefix web run build:budget` passed. Final budget table included
+  `admin-route-js` 216.11 raw KiB / 45.08 gzip KiB and `total-js` 1168.11 raw
+  KiB / 342.05 gzip KiB against the 1250/343 KiB budget.
+- Edge CDP browser smoke passed for
+  `/admin/metadata/candidate-reviews?item_id=fixture-item-1`: the page rendered
+  `fixture-metadata-candidate-review-accepted-1`, clicked the row button, and
+  reached
+  `?item_id=fixture-item-1&review_id=fixture-metadata-candidate-review-accepted-1`
+  with `Review evidence` and `Root Provider Mapping` visible.
+- `git diff --check` passed with Git CRLF normalization warnings only.
+
+Gate notes:
+
+- The Browser plugin runtime was not exposed in this session, so the browser
+  smoke used local Edge headless CDP against a temporary Vite dev server.

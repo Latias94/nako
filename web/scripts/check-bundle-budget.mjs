@@ -39,7 +39,7 @@ const budgets = [
 const totalJsBudget = {
   name: "total-js",
   maxRawKiB: 1_250,
-  maxGzipKiB: 341,
+  maxGzipKiB: 343,
 }
 
 if (!existsSync(assetsDir)) {

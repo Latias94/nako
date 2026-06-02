@@ -673,6 +673,75 @@ function adminMetadataCandidateReviewResponse(reviewId = "review-live") {
   }
 }
 
+function adminMetadataCandidateReviewListResponse(itemId = "item-live") {
+  const newer = adminMetadataCandidateReviewDetail("review-live-newer")
+  const older = adminMetadataCandidateReviewDetail("review-live-older")
+
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    item_id: itemId,
+    reviews: [
+      {
+        review_id: newer.review_id,
+        item_id: itemId,
+        source: { provider: "bangumi" },
+        source_key: "bangumi:newer",
+        status: "pending",
+        root: {
+          ...newer.root,
+          metadata: adminMetadataCandidateSummary("Newer Candidate", {
+            raw_overview: "secret candidate overview",
+            raw_tags: ["secret-candidate-tag"],
+            source_locator: "local:///Private/Live.S01E02.mkv?token=secret",
+            source_fingerprint: "sha256-private-list-candidate",
+          }),
+        },
+        related_count: 1,
+        relationship_count: 1,
+        application_plan: adminMetadataCandidateReviewApplicationPlan(
+          newer.review_id,
+          "skip",
+          ["review_status_not_accepted"],
+        ),
+        boundary: adminMetadataCandidateReviewBoundary({
+          apply_mutation_required: false,
+          apply_updates_root_provider_subject: false,
+          apply_updates_root_provider_mapping: false,
+        }),
+        expires_at_ms: null,
+        created_at_ms: 100,
+        updated_at_ms: 500,
+        raw_provider_response: "provider secret response",
+      },
+      {
+        review_id: older.review_id,
+        item_id: itemId,
+        source: { provider: "bangumi" },
+        source_key: "bangumi:older",
+        status: "accepted",
+        root: older.root,
+        related_count: 0,
+        relationship_count: 0,
+        application_plan: adminMetadataCandidateReviewApplicationPlan(
+          older.review_id,
+          "apply",
+          ["ready"],
+        ),
+        boundary: adminMetadataCandidateReviewBoundary(),
+        expires_at_ms: null,
+        created_at_ms: 90,
+        updated_at_ms: 300,
+      },
+    ],
+    page: {
+      limit: 25,
+      offset: 50,
+      returned: 2,
+    },
+  }
+}
+
 function adminMetadataCandidateReviewApplyResponse(reviewId = "review-live") {
   return {
     admin_api_version: "v1",
@@ -3230,6 +3299,94 @@ describe("admin read model data source contracts", () => {
     expect(serialized).not.toContain("local:///")
     expect(serialized).not.toContain("sha256-private")
     expect(serialized).not.toContain("candidate-review:operator-secret")
+    expect(serialized).not.toContain("provider secret response")
+  })
+
+  it("maps live Admin metadata candidate review lists into redacted navigation rows", async () => {
+    const calls: Array<{ method: string; path: string; authorization: string | null }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      calls.push({
+        method: init?.method ?? "GET",
+        path: `${url.pathname}${url.search}`,
+        authorization: new Headers(init?.headers).get("Authorization"),
+      })
+
+      if (url.pathname === "/admin/v1/metadata/items/item%2Funsafe%20id/candidate-reviews") {
+        return jsonResponse(adminMetadataCandidateReviewListResponse("item/unsafe id"))
+      }
+
+      return jsonResponse({ message: "not found" }, 404)
+    })
+    const source = createAdminReadModelsDataSource(
+      {
+        mode: "live",
+        baseUrl: "http://nako-admin.test/",
+        bearerToken: "admin-token",
+      },
+      fetcher,
+    )
+
+    const list = await source.loadMetadataCandidateReviewsForItem("item/unsafe id", {
+      limit: 25,
+      offset: 50,
+    })
+
+    expect(list).toMatchObject({
+      source: "live",
+      fallback: false,
+      versions: {
+        adminApi: "v1",
+        publicApi: "v1",
+      },
+      itemId: "item/unsafe id",
+      page: {
+        limit: 25,
+        offset: 50,
+        returned: 2,
+      },
+      reviews: [
+        {
+          reviewId: "review-live-newer",
+          itemId: "item/unsafe id",
+          status: "pending",
+          sourceLabel: "bangumi",
+          sourceKey: "bangumi:newer",
+          root: {
+            metadata: {
+              title: "Newer Candidate",
+              descriptionPresent: true,
+              tagCount: 1,
+            },
+          },
+          relatedCount: 1,
+          relationshipCount: 1,
+          applicationAction: "skip",
+          applicationReasons: ["review_status_not_accepted"],
+        },
+        {
+          reviewId: "review-live-older",
+          status: "accepted",
+          applicationAction: "apply",
+          applicationReasons: ["ready"],
+        },
+      ],
+    })
+
+    expect(calls).toEqual([
+      {
+        method: "GET",
+        path: "/admin/v1/metadata/items/item%2Funsafe%20id/candidate-reviews?limit=25&offset=50",
+        authorization: "Bearer admin-token",
+      },
+    ])
+
+    const serialized = JSON.stringify(list)
+    expect(serialized).not.toContain("secret candidate overview")
+    expect(serialized).not.toContain("secret related overview")
+    expect(serialized).not.toContain("secret-candidate-tag")
+    expect(serialized).not.toContain("local:///")
+    expect(serialized).not.toContain("sha256-private")
     expect(serialized).not.toContain("provider secret response")
   })
 

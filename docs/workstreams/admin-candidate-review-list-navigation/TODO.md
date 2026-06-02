@@ -22,11 +22,11 @@ Last updated: 2026-06-02
 
 ## M2 - Web Admin List And Navigation
 
-- [ ] ACRN-030 [owner=codex] [deps=ACRN-020] [scope=web/src/api/admin,web/src/features/admin,web/src/shell,web/src/test,docs/workstreams/admin-candidate-review-list-navigation]
+- [x] ACRN-030 [owner=codex] [deps=ACRN-020] [scope=web/src/api/admin,web/src/features/admin,web/src/shell,web/src/test,docs/workstreams/admin-candidate-review-list-navigation]
   Goal: Add Web Admin item-scoped Candidate Review list/navigation that routes into the existing detail/apply page.
   Validation: `npm --prefix web run test`; `npm --prefix web run check`; `npm --prefix web run build:budget`; browser smoke if a route or navigation mode is added; `git diff --check`.
   Review: Web must present list rows as review navigation/triage only, not as hierarchy application or batch apply.
-  Evidence: `EVIDENCE_AND_GATES.md` (`ACRN-030 Evidence`).
+  Evidence: `EVIDENCE_AND_GATES.md` (`ACRN-030 Evidence`); `npm --prefix web run test`; `npm --prefix web run check`; `npm --prefix web run build:budget`; Edge CDP browser smoke; `git diff --check`.
   Handoff: Continue to `ACRN-040`.
 
 ## M3 - Closeout And Follow-On Split

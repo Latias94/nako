@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   createAdminReadModelsDataSource,
+  type AdminMetadataCandidateReviewListItemReadModel,
+  type AdminMetadataCandidateReviewListReadModel,
   type AdminMetadataCandidateReviewNodeReadModel,
   type AdminMetadataCandidateReviewReadModel,
   type AdminMetadataCandidateReviewRelationshipReadModel,
@@ -17,7 +19,10 @@ import {
 } from "@/src/api/admin/mutations-data-source"
 
 export interface AdminMetadataCandidateReviewRouteState {
+  itemId?: string
   reviewId?: string
+  limit?: number
+  offset?: number
 }
 
 interface AdminMetadataCandidateReviewProps {
@@ -25,8 +30,14 @@ interface AdminMetadataCandidateReviewProps {
   onRouteStateChange?: (state: AdminMetadataCandidateReviewRouteState) => void
 }
 
+const DEFAULT_LIMIT = 50
+const DEFAULT_OFFSET = 0
+
 const DEFAULT_REVIEW_STATE: Required<AdminMetadataCandidateReviewRouteState> = {
+  itemId: "",
   reviewId: "",
+  limit: DEFAULT_LIMIT,
+  offset: DEFAULT_OFFSET,
 }
 
 export function AdminMetadataCandidateReview({
@@ -34,25 +45,45 @@ export function AdminMetadataCandidateReview({
   onRouteStateChange,
 }: AdminMetadataCandidateReviewProps = {}) {
   const normalizedRouteState = useMemo(() => normalizeReviewRouteState(routeState), [routeState])
-  const [draftReviewId, setDraftReviewId] = useState(normalizedRouteState.reviewId)
+  const [draftItemId, setDraftItemId] = useState(normalizedRouteState.itemId)
   const [armed, setArmed] = useState(false)
   const [idempotencyKey, setIdempotencyKey] = useState("")
   const queryClient = useQueryClient()
+  const readDataSource = useMemo(() => createAdminReadModelsDataSource(), [])
   const mutationDataSource = useMemo(() => createAdminMutationDataSource(), [])
+  const itemId = normalizedRouteState.itemId
   const reviewId = normalizedRouteState.reviewId
+  const listQuery = useMemo(
+    () => ({
+      limit: normalizedRouteState.limit,
+      offset: normalizedRouteState.offset,
+    }),
+    [normalizedRouteState.limit, normalizedRouteState.offset],
+  )
 
   useEffect(() => {
-    setDraftReviewId(reviewId)
+    setDraftItemId(itemId)
     setArmed(false)
     setIdempotencyKey(reviewId ? createCandidateReviewApplyIdempotencyKey(reviewId) : "")
-  }, [reviewId])
+  }, [itemId, reviewId])
+
+  const {
+    data: listData,
+    isLoading: isListLoading,
+  } = useQuery({
+    queryKey: metadataCandidateReviewListQueryKey(itemId, listQuery.limit, listQuery.offset),
+    queryFn: () => readDataSource.loadMetadataCandidateReviewsForItem(itemId, listQuery),
+    enabled: itemId.length > 0,
+    staleTime: 10 * 1000,
+    retry: 0,
+  })
 
   const {
     data,
     isLoading,
   } = useQuery({
     queryKey: metadataCandidateReviewQueryKey(reviewId),
-    queryFn: () => createAdminReadModelsDataSource().loadMetadataCandidateReview(reviewId),
+    queryFn: () => readDataSource.loadMetadataCandidateReview(reviewId),
     enabled: reviewId.length > 0,
     staleTime: 10 * 1000,
     retry: 0,
@@ -72,12 +103,42 @@ export function AdminMetadataCandidateReview({
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: metadataCandidateReviewQueryKey(reviewId) })
+      if (itemId) {
+        void queryClient.invalidateQueries({
+          queryKey: metadataCandidateReviewListQueryKey(itemId, listQuery.limit, listQuery.offset),
+        })
+      }
     },
   })
 
-  const submitReviewId = (event: FormEvent<HTMLFormElement>) => {
+  const submitItemId = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    onRouteStateChange?.({ reviewId: draftReviewId.trim() })
+    const nextItemId = draftItemId.trim()
+    onRouteStateChange?.({
+      itemId: nextItemId,
+      reviewId: "",
+      limit: DEFAULT_LIMIT,
+      offset: DEFAULT_OFFSET,
+    })
+  }
+
+  const selectReview = (nextReviewId: string) => {
+    onRouteStateChange?.({
+      ...normalizedRouteState,
+      reviewId: nextReviewId,
+    })
+  }
+
+  const moveListPage = (direction: "previous" | "next") => {
+    const nextOffset =
+      direction === "previous"
+        ? Math.max(DEFAULT_OFFSET, normalizedRouteState.offset - normalizedRouteState.limit)
+        : normalizedRouteState.offset + normalizedRouteState.limit
+
+    onRouteStateChange?.({
+      ...normalizedRouteState,
+      offset: nextOffset,
+    })
   }
 
   const mutationUnavailable = !mutationDataSource.canMutate
@@ -97,36 +158,46 @@ export function AdminMetadataCandidateReview({
   return (
     <div className="space-y-6">
       <ReviewHeader
-        source={data?.source ?? "fixture"}
+        source={data?.source ?? listData?.source ?? "fixture"}
       />
 
-      <form
-        className="flex flex-col gap-3 rounded-lg border border-border/50 bg-card p-4 sm:flex-row sm:items-end"
-        onSubmit={submitReviewId}
-      >
-        <div className="min-w-0 flex-1">
-          <label className="text-xs font-medium text-muted-foreground" htmlFor="candidate-review-id">
-            Candidate Review ID
-          </label>
-          <Input
-            id="candidate-review-id"
-            aria-label="Candidate Review ID"
-            className="mt-1 font-mono text-sm"
-            value={draftReviewId}
-            onChange={(event) => setDraftReviewId(event.target.value)}
-            placeholder="review id"
-          />
-        </div>
-        <Button type="submit" size="sm" disabled={!draftReviewId.trim()}>
-          查看
-        </Button>
-      </form>
+      <section className="rounded-lg border border-border/50 bg-card p-4">
+        <form className="flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={submitItemId}>
+          <div className="min-w-0 flex-1">
+            <label className="text-xs font-medium text-muted-foreground" htmlFor="candidate-review-item-id">
+              Media Item ID
+            </label>
+            <Input
+              id="candidate-review-item-id"
+              aria-label="Media Item ID"
+              className="mt-1 font-mono text-sm"
+              value={draftItemId}
+              onChange={(event) => setDraftItemId(event.target.value)}
+              placeholder="item id"
+            />
+          </div>
+          <Button type="submit" size="sm" disabled={!draftItemId.trim()}>
+            加载列表
+          </Button>
+        </form>
+      </section>
 
-      {!reviewId && (
+      {itemId && (
+        <CandidateReviewList
+          list={listData}
+          isLoading={isListLoading}
+          selectedReviewId={reviewId}
+          routeState={normalizedRouteState}
+          onSelectReview={selectReview}
+          onMovePage={moveListPage}
+        />
+      )}
+
+      {!itemId && !reviewId && (
         <section className="rounded-lg border border-border/50 bg-card p-8 text-center">
-          <h2 className="text-sm font-medium text-foreground">缺少 Candidate Review ID</h2>
+          <h2 className="text-sm font-medium text-foreground">缺少 Media Item ID</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            输入 durable Metadata Candidate Review ID 后查看证据和 apply plan。
+            输入 Media Item ID 查看 durable Candidate Reviews。
           </p>
         </section>
       )}
@@ -266,8 +337,15 @@ function normalizeReviewRouteState(
   routeState?: AdminMetadataCandidateReviewRouteState,
 ): Required<AdminMetadataCandidateReviewRouteState> {
   return {
+    itemId: routeState?.itemId?.trim() || DEFAULT_REVIEW_STATE.itemId,
     reviewId: routeState?.reviewId?.trim() || DEFAULT_REVIEW_STATE.reviewId,
+    limit: routeState?.limit && routeState.limit > 0 ? routeState.limit : DEFAULT_REVIEW_STATE.limit,
+    offset: routeState?.offset && routeState.offset > 0 ? routeState.offset : DEFAULT_REVIEW_STATE.offset,
   }
+}
+
+function metadataCandidateReviewListQueryKey(itemId: string, limit: number, offset: number) {
+  return ["nako", "admin", "metadata-candidate-review-list", itemId, limit, offset] as const
 }
 
 function metadataCandidateReviewQueryKey(reviewId: string) {
@@ -293,6 +371,120 @@ function ReviewHeader({
         <Badge variant={source === "live" ? "default" : "secondary"}>
           {source === "live" ? "Live Admin API" : "Fixture"}
         </Badge>
+      </div>
+    </div>
+  )
+}
+
+function CandidateReviewList({
+  list,
+  isLoading,
+  selectedReviewId,
+  routeState,
+  onSelectReview,
+  onMovePage,
+}: {
+  list?: AdminMetadataCandidateReviewListReadModel
+  isLoading: boolean
+  selectedReviewId: string
+  routeState: Required<AdminMetadataCandidateReviewRouteState>
+  onSelectReview: (reviewId: string) => void
+  onMovePage: (direction: "previous" | "next") => void
+}) {
+  const canPageBack = routeState.offset > 0
+  const canPageForward = Boolean(list && list.page.returned >= routeState.limit)
+
+  return (
+    <section className="rounded-lg border border-border/50 bg-card">
+      <div className="flex flex-col gap-3 border-b border-border/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-sm font-medium text-foreground">Candidate Reviews</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            返回 {list?.page.returned ?? 0} 项，偏移 {routeState.offset}，每页 {routeState.limit}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline" className="font-mono">
+            {routeState.itemId}
+          </Badge>
+          {list && <Badge variant="outline">Admin API {list.versions.adminApi}</Badge>}
+        </div>
+      </div>
+
+      {isLoading ? (
+        <ReviewSkeleton />
+      ) : !list || list.reviews.length === 0 ? (
+        <div className="p-8 text-center text-sm text-muted-foreground">没有 Candidate Reviews。</div>
+      ) : (
+        <div className="divide-y divide-border/50">
+          {list.reviews.map((review) => (
+            <CandidateReviewListRow
+              key={review.reviewId}
+              review={review}
+              selected={review.reviewId === selectedReviewId}
+              onSelectReview={onSelectReview}
+            />
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between border-t border-border/50 p-4">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          disabled={!canPageBack}
+          onClick={() => onMovePage("previous")}
+        >
+          上一页
+        </Button>
+        <span className="text-xs text-muted-foreground">Offset {routeState.offset}</span>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          disabled={!canPageForward}
+          onClick={() => onMovePage("next")}
+        >
+          下一页
+        </Button>
+      </div>
+    </section>
+  )
+}
+
+function CandidateReviewListRow({
+  review,
+  selected,
+  onSelectReview,
+}: {
+  review: AdminMetadataCandidateReviewListItemReadModel
+  selected: boolean
+  onSelectReview: (reviewId: string) => void
+}) {
+  return (
+    <div className={`grid gap-3 p-4 text-sm lg:grid-cols-[minmax(10rem,0.8fr)_1fr_10rem] ${selected ? "bg-muted/50" : ""}`}>
+      <div className="min-w-0 font-mono text-xs text-foreground">{review.reviewId}</div>
+      <div className="min-w-0">
+        <div className="truncate text-foreground">
+          {review.root.metadata.title ?? review.root.subject?.title ?? "unknown"}
+        </div>
+        <div className="mt-1 truncate font-mono text-xs text-muted-foreground">
+          {review.status} · {review.applicationAction} · {review.sourceLabel}:{review.sourceKey}
+        </div>
+      </div>
+      <div className="flex items-center justify-between gap-3 lg:justify-end">
+        <Button
+          type="button"
+          variant={selected ? "secondary" : "outline"}
+          size="sm"
+          aria-label={`查看 Candidate Review ${review.reviewId}`}
+          onClick={() => onSelectReview(review.reviewId)}
+        >
+          查看
+        </Button>
       </div>
     </div>
   )

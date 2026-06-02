@@ -5,24 +5,20 @@ Last updated: 2026-06-02
 
 ## Current State
 
-The lane is opened from `admin-web-provider-depth-governance` closeout. Durable
-Candidate Review detail/apply exists, and `ACRN-020` added the read-only
-Admin API item-scoped Candidate Review list route needed for discovery. Web
-navigation still needs to consume that route and route into the existing
-detail/apply page.
+The lane is ready for closeout/follow-on split. Durable Candidate Review
+detail/apply exists, `ACRN-020` added the read-only Admin API item-scoped
+Candidate Review list route, and `ACRN-030` added Web Admin item-scoped
+list/navigation into the existing detail/apply page.
 
 ## Active Task
 
-- Task ID: `ACRN-030`
-- Owner: codex
-- Files: `web/src/api/admin`, `web/src/features/admin`, `web/src/shell`,
-  `web/src/test`, and
-  `docs/workstreams/admin-candidate-review-list-navigation`
-- Validation: `npm --prefix web run test`; `npm --prefix web run check`;
-  `npm --prefix web run build:budget`; browser smoke if a route or navigation
-  mode is added; `git diff --check`
+- Task ID: `ACRN-040`
+- Owner: planner
+- Files: `docs/workstreams/admin-candidate-review-list-navigation`
+- Validation: fresh gate evidence in `EVIDENCE_AND_GATES.md`; JSON/JSONL
+  validation; `git diff --check`
 - Status: READY
-- Evidence: `docs/workstreams/admin-candidate-review-list-navigation/EVIDENCE_AND_GATES.md`
+- Evidence: `EVIDENCE_AND_GATES.md`; optional `CLOSEOUT.md`
 
 ## Decisions Since Opening
 
@@ -32,15 +28,20 @@ detail/apply page.
 - ACRN-020 is read-only and must not write Provider Subject, Provider Mapping,
   Canonical Metadata, or related graph hierarchy state.
 - ACRN-020 exposes list rows as summaries, not full detail duplication.
-- Web navigation waits for ACRN-030 and should route into the existing
-  detail/apply page instead of adding another apply path.
+- ACRN-030 routes Web navigation into the existing detail/apply page instead of
+  adding another apply path.
+- ACRN-030 keeps list rows as navigation/triage summaries and does not add a
+  second apply mutation path, batch apply, hierarchy mutation, or Public Client
+  API expansion.
+- ACRN-030 moved only the aggregate `total-js` gzip budget from 341 KiB to
+  343 KiB after a measured 342.05 KiB production build; route-level budgets
+  stayed unchanged.
 
 ## Blockers
 
-- None for `ACRN-030`.
+- None for `ACRN-040`.
 
 ## Next Recommended Action
 
-- Run `ACRN-030`: add Web Admin item-scoped Candidate Review list/navigation
-  using `NAKO_ADMIN_ROUTES.metadataCandidateReviewsForItem` and route into the
-  existing detail/apply page.
+- Run `ACRN-040`: close this lane or split follow-ons for global Candidate
+  Review queues/search, batch governance, and related hierarchy application.

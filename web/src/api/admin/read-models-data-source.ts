@@ -39,6 +39,8 @@ import type {
   AdminMetadataCandidateReviewApplicationPlan,
   AdminMetadataCandidateReviewApplyResponse,
   AdminMetadataCandidateReviewDetail,
+  AdminMetadataCandidateReviewListEntry,
+  AdminMetadataCandidateReviewListResponse,
   AdminMetadataCandidateReviewMetadataSummary,
   AdminMetadataCandidateReviewNode,
   AdminMetadataCandidateReviewProviderMapping,
@@ -49,6 +51,7 @@ import type {
   AdminMetadataRawCacheSettingsResponse,
   AdminOutboxEventListItem,
   AdminOverviewResponse,
+  AdminPageQuery,
   AdminPlaybackRuntimeDiagnosticsResponse,
   AdminPlaybackSessionListItem,
   AdminServerConfigDiagnosticsResponse,
@@ -670,6 +673,36 @@ export interface AdminMetadataCandidateReviewReadModel extends AdminReadModelEnv
   boundary: AdminMetadataCandidateReviewBoundaryReadModel
 }
 
+export interface AdminMetadataCandidateReviewListItemReadModel {
+  reviewId: string
+  itemId: string
+  sourceLabel: string
+  sourceKey: string
+  status: string
+  root: AdminMetadataCandidateReviewNodeReadModel
+  relatedCount: number
+  relationshipCount: number
+  expiresAtMs: number | null
+  createdAtMs: number
+  updatedAtMs: number
+  applicationAction: string
+  applicationReasons: string[]
+}
+
+export interface AdminMetadataCandidateReviewListReadModel extends AdminReadModelEnvelope {
+  versions: {
+    adminApi: string
+    publicApi: string
+  }
+  itemId: string
+  reviews: AdminMetadataCandidateReviewListItemReadModel[]
+  page: {
+    limit: number
+    offset: number
+    returned: number
+  }
+}
+
 export interface AdminMetadataCandidateReviewProviderSubjectReadModel
   extends AdminMetadataCandidateSubjectReadModel {
   subjectId: string
@@ -1048,6 +1081,17 @@ export function createAdminReadModelsDataSource(
       })
     },
 
+    async loadMetadataCandidateReviewsForItem(
+      itemId: string,
+      query: AdminPageQuery = {},
+    ): Promise<AdminMetadataCandidateReviewListReadModel> {
+      const normalizedQuery = normalizeMetadataCandidateReviewListQuery(query)
+      return withFallback(metadataCandidateReviewListFixture(itemId, normalizedQuery), async () => {
+        const response = await client.listMetadataCandidateReviewsForItem(itemId, normalizedQuery)
+        return mapMetadataCandidateReviewListResponse(response)
+      })
+    },
+
     async loadGeneratedArtifactMetadataBulkApplyPlan(
       artifactIds: string[],
     ): Promise<AdminGeneratedArtifactMetadataBulkApplyPlanReadModel> {
@@ -1138,6 +1182,12 @@ function fixtureDataSource() {
     },
     async loadMetadataCandidateReview(reviewId: string) {
       return metadataCandidateReviewFixture(reviewId)
+    },
+    async loadMetadataCandidateReviewsForItem(itemId: string, query: AdminPageQuery = {}) {
+      return metadataCandidateReviewListFixture(
+        itemId,
+        normalizeMetadataCandidateReviewListQuery(query),
+      )
     },
     async loadGeneratedArtifactMetadataBulkApplyPlan(artifactIds: string[]) {
       return generatedArtifactMetadataBulkApplyPlanFixture(artifactIds)
@@ -1618,6 +1668,44 @@ export function mapMetadataCandidateReviewResponse(
   }
 }
 
+export function mapMetadataCandidateReviewListResponse(
+  response: AdminMetadataCandidateReviewListResponse,
+): AdminMetadataCandidateReviewListReadModel {
+  const versions = {
+    adminApi: response.admin_api_version,
+    publicApi: response.public_api_version,
+  }
+
+  return {
+    source: "live",
+    fallback: false,
+    versions,
+    itemId: response.item_id,
+    reviews: response.reviews.map(mapMetadataCandidateReviewListEntry),
+    page: response.page,
+  }
+}
+
+function mapMetadataCandidateReviewListEntry(
+  review: AdminMetadataCandidateReviewListEntry,
+): AdminMetadataCandidateReviewListItemReadModel {
+  return {
+    reviewId: review.review_id,
+    itemId: review.item_id,
+    sourceLabel: sourceLabel(review.source),
+    sourceKey: review.source_key,
+    status: review.status,
+    root: mapMetadataCandidateReviewNode(review.root),
+    relatedCount: review.related_count,
+    relationshipCount: review.relationship_count,
+    expiresAtMs: review.expires_at_ms,
+    createdAtMs: review.created_at_ms,
+    updatedAtMs: review.updated_at_ms,
+    applicationAction: review.application_plan.action,
+    applicationReasons: review.application_plan.reasons,
+  }
+}
+
 export function mapMetadataCandidateReviewApplyResponse(
   response: AdminMetadataCandidateReviewApplyResponse,
 ): AdminMetadataCandidateReviewApplyReadModel {
@@ -2022,6 +2110,13 @@ function normalizeGeneratedArtifactApplyRecoveryQuery(
   }
 }
 
+function normalizeMetadataCandidateReviewListQuery(query: AdminPageQuery): AdminPageQuery {
+  return {
+    limit: query.limit ?? 50,
+    offset: query.offset ?? 0,
+  }
+}
+
 function normalizeGeneratedArtifactApplyRecoveryAttention(
   value: AdminGeneratedArtifactApplyRecoveryQuery["attention"],
 ): AdminGeneratedArtifactApplyRecoveryQuery["attention"] {
@@ -2376,6 +2471,45 @@ function metadataCandidateReviewFixture(reviewId: string): AdminMetadataCandidat
       existingMappingStatus: null,
     },
     boundary: metadataCandidateReviewBoundaryFixture(),
+  }
+}
+
+function metadataCandidateReviewListFixture(
+  itemId: string,
+  query: AdminPageQuery,
+): AdminMetadataCandidateReviewListReadModel {
+  const detail = metadataCandidateReviewFixture("fixture-metadata-candidate-review-accepted-1")
+
+  return {
+    source: "fixture",
+    fallback: true,
+    versions: {
+      adminApi: "fixture",
+      publicApi: "fixture",
+    },
+    itemId,
+    reviews: [
+      {
+        reviewId: detail.reviewId,
+        itemId,
+        sourceLabel: detail.sourceLabel,
+        sourceKey: detail.sourceKey,
+        status: detail.status,
+        root: detail.root,
+        relatedCount: detail.relatedCount,
+        relationshipCount: detail.relationshipCount,
+        expiresAtMs: detail.expiresAtMs,
+        createdAtMs: detail.createdAtMs,
+        updatedAtMs: detail.updatedAtMs,
+        applicationAction: detail.applicationPlan.action,
+        applicationReasons: detail.applicationPlan.reasons,
+      },
+    ],
+    page: {
+      limit: query.limit ?? 50,
+      offset: query.offset ?? 0,
+      returned: 1,
+    },
   }
 }
 

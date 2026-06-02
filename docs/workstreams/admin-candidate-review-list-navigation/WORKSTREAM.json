@@ -7,7 +7,7 @@
   "scope_kind": "admin_web_metadata_candidate_review_navigation",
   "problem": "Durable Metadata Candidate Review detail/apply governance exists, but operators still need an item-scoped Admin API/Web way to discover review IDs and navigate into the existing detail/apply route.",
   "task_prefix": "ACRN",
-  "current_task": "ACRN-030",
+  "current_task": "ACRN-040",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -49,6 +49,10 @@
     "cargo nextest run -p nako-api admin_contract --no-fail-fast",
     "cargo nextest run -p nako-server candidate_review admin --no-fail-fast",
     "cargo fmt --all -- --check",
+    "npm --prefix web run check",
+    "npm --prefix web run test",
+    "npm --prefix web run build:budget",
+    "browser smoke if a route or navigation mode is added",
     "git diff --check"
   ],
   "evidence": [
@@ -59,6 +63,10 @@
     {
       "task": "ACRN-020",
       "summary": "Added the read-only Admin API item-scoped Metadata Candidate Review list route, redaction-safe list DTOs, synchronized generated Admin contracts, and server regression coverage for item scoping, no writes, and secret redaction."
+    },
+    {
+      "task": "ACRN-030",
+      "summary": "Added Web Admin item-scoped Candidate Review list/navigation, route-state support for item_id/review_id/limit/offset, fixture/live data-source mapping, regression tests, and browser smoke coverage into the existing detail/apply route."
     }
   ],
   "adr_refs": [
@@ -88,7 +96,7 @@
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
     "default_action": "run_current_task",
-    "current_task": "ACRN-030",
-    "notes": "Next add Web Admin item-scoped Candidate Review list/navigation that consumes the read-only Admin API list route and routes into the existing detail/apply page. Keep Public Client API, schema migrations, global queues, batch governance, and related hierarchy application out of ACRN-030."
+    "current_task": "ACRN-040",
+    "notes": "Next close this lane or split follow-ons for global Candidate Review queues/search, batch governance, and related hierarchy application. Keep Public Client API, schema migrations, batch apply, and hierarchy mutation out unless ACRN-040 explicitly opens a new follow-on lane."
   }
 }

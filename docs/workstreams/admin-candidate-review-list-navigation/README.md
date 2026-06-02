@@ -19,8 +19,12 @@ Authoritative docs:
 Current execution:
 
 - `ACRN-010` opens the lane.
-- `ACRN-020` is ready: add an item-scoped Admin API list/read-model for durable
+- `ACRN-020` added the item-scoped Admin API list/read-model for durable
   Candidate Reviews without exposing raw provider payloads.
+- `ACRN-030` added Web Admin item-scoped Candidate Review list/navigation into
+  the existing detail/apply page.
+- `ACRN-040` is ready: close the lane or split global queue/search, batch
+  governance, and related hierarchy application follow-ons.
 
 Boundary:
 

@@ -29,7 +29,7 @@ Exit criteria:
 
 ## M2 - Web Admin List And Navigation
 
-Status: Ready at `ACRN-030`.
+Status: Complete after `ACRN-030`.
 
 Exit criteria:
 
@@ -41,7 +41,7 @@ Exit criteria:
 
 ## M3 - Closeout And Follow-On Split
 
-Status: Pending `ACRN-030`.
+Status: Ready at `ACRN-040`.
 
 Exit criteria:
 

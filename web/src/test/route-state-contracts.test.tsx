@@ -807,6 +807,99 @@ describe("route state contracts", () => {
     }
   })
 
+  it("navigates item-scoped Admin metadata candidate review lists into existing detail", async () => {
+    const user = userEvent.setup()
+    const originalFetch = globalThis.fetch
+    const previousProfile = window.localStorage.getItem(CONNECTION_PROFILE_STORAGE_KEY)
+    const previousSession = window.sessionStorage.getItem(CONNECTION_SESSION_STORAGE_KEY)
+    const calls: Array<{
+      method: string
+      path: string
+      authorization: string | null
+    }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      const method = init?.method ?? "GET"
+      calls.push({
+        method,
+        path: `${url.pathname}${url.search}`,
+        authorization: new Headers(init?.headers).get("Authorization"),
+      })
+
+      switch (`${method} ${url.pathname}`) {
+        case "GET /admin/v1/metadata/items/item-live/candidate-reviews":
+          return jsonResponse(adminMetadataCandidateReviewListResponse("item-live"))
+        case "GET /admin/v1/metadata/candidate-reviews/review-live-older":
+          return jsonResponse(adminMetadataCandidateReviewResponse("review-live-older"))
+        default:
+          return jsonResponse({ code: "not_found", message: "not found" }, 404)
+      }
+    })
+
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako-admin.test",
+      }),
+    )
+    window.sessionStorage.setItem(
+      CONNECTION_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        bearerToken: "admin-token",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+
+    try {
+      const { router } = renderRoute(
+        "/admin/metadata/candidate-reviews?item_id=item-live&limit=25&offset=0",
+      )
+
+      expect(await screen.findByText("review-live-newer", {}, { timeout: 10000 })).toBeInTheDocument()
+      expect(await screen.findByText("Newer Candidate", {}, { timeout: 10000 })).toBeInTheDocument()
+      expect(screen.getByText("review-live-older")).toBeInTheDocument()
+      expect(screen.queryByText("secret candidate overview")).not.toBeInTheDocument()
+      expect(screen.queryByText("local:///Private/Live.S01E02.mkv?token=secret")).not.toBeInTheDocument()
+      expect(screen.queryByText("provider secret response")).not.toBeInTheDocument()
+
+      await user.click(
+        screen.getByRole("button", {
+          name: /查看 Candidate Review review-live-older/,
+        }),
+      )
+
+      expect(router.state.location.pathname).toBe("/admin/metadata/candidate-reviews")
+      expect(router.state.location.search).toMatchObject({
+        item_id: "item-live",
+        review_id: "review-live-older",
+        limit: 25,
+      })
+      expect(await screen.findByText("Root Provider Mapping", {}, { timeout: 10000 })).toBeInTheDocument()
+
+      const candidateReviewCalls = calls.filter((call) =>
+        call.path.includes("/admin/v1/metadata/"),
+      )
+      expect(candidateReviewCalls).toEqual([
+        {
+          method: "GET",
+          path: "/admin/v1/metadata/items/item-live/candidate-reviews?limit=25&offset=0",
+          authorization: "Bearer admin-token",
+        },
+        {
+          method: "GET",
+          path: "/admin/v1/metadata/candidate-reviews/review-live-older",
+          authorization: "Bearer admin-token",
+        },
+      ])
+    } finally {
+      vi.stubGlobal("fetch", originalFetch)
+      restoreStorage(window.localStorage, CONNECTION_PROFILE_STORAGE_KEY, previousProfile)
+      restoreStorage(window.sessionStorage, CONNECTION_SESSION_STORAGE_KEY, previousSession)
+    }
+  })
+
   it("runs live Admin generated artifact metadata bulk apply through plan, confirm, and status", async () => {
     const user = userEvent.setup()
     const originalFetch = globalThis.fetch
@@ -2274,6 +2367,75 @@ function adminMetadataCandidateReviewResponse(reviewId = "review-live") {
     boundary: adminMetadataCandidateReviewBoundary(),
     raw_provider_response: "provider secret response",
     idempotency_key: "candidate-review:operator-secret",
+  }
+}
+
+function adminMetadataCandidateReviewListResponse(itemId = "item-live") {
+  const newer = adminMetadataCandidateReviewDetail("review-live-newer")
+  const older = adminMetadataCandidateReviewDetail("review-live-older")
+
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    item_id: itemId,
+    reviews: [
+      {
+        review_id: newer.review_id,
+        item_id: itemId,
+        source: { provider: "bangumi" },
+        source_key: "bangumi:newer",
+        status: "pending",
+        root: {
+          ...newer.root,
+          metadata: adminMetadataCandidateSummary("Newer Candidate", {
+            raw_overview: "secret candidate overview",
+            raw_tags: ["secret-candidate-tag"],
+            source_locator: "local:///Private/Live.S01E02.mkv?token=secret",
+            source_fingerprint: "sha256-private-list-candidate",
+          }),
+        },
+        related_count: 1,
+        relationship_count: 1,
+        application_plan: adminMetadataCandidateReviewApplicationPlan(
+          newer.review_id,
+          "skip",
+          ["review_status_not_accepted"],
+        ),
+        boundary: adminMetadataCandidateReviewBoundary({
+          apply_mutation_required: false,
+          apply_updates_root_provider_subject: false,
+          apply_updates_root_provider_mapping: false,
+        }),
+        expires_at_ms: null,
+        created_at_ms: 100,
+        updated_at_ms: 500,
+        raw_provider_response: "provider secret response",
+      },
+      {
+        review_id: older.review_id,
+        item_id: itemId,
+        source: { provider: "bangumi" },
+        source_key: "bangumi:older",
+        status: "accepted",
+        root: older.root,
+        related_count: 0,
+        relationship_count: 0,
+        application_plan: adminMetadataCandidateReviewApplicationPlan(
+          older.review_id,
+          "apply",
+          ["ready"],
+        ),
+        boundary: adminMetadataCandidateReviewBoundary(),
+        expires_at_ms: null,
+        created_at_ms: 90,
+        updated_at_ms: 300,
+      },
+    ],
+    page: {
+      limit: 25,
+      offset: 0,
+      returned: 2,
+    },
   }
 }
 

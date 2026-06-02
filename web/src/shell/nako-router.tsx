@@ -972,7 +972,10 @@ interface AdminGeneratedArtifactMetadataApplyRouteSearch {
 }
 
 interface AdminMetadataCandidateReviewRouteSearch {
+  item_id?: string
   review_id?: string
+  limit?: number
+  offset?: number
 }
 
 function validateAdminLogsSearch(search: Record<string, unknown>): AdminLogsRouteSearch {
@@ -1041,7 +1044,10 @@ function validateAdminMetadataCandidateReviewSearch(
   search: Record<string, unknown>,
 ): AdminMetadataCandidateReviewRouteSearch {
   return {
+    item_id: parseSearchString(search.item_id),
     review_id: parseSearchString(search.review_id),
+    limit: parsePositiveInteger(search.limit),
+    offset: parseNonNegativeInteger(search.offset),
   }
 }
 
@@ -1160,7 +1166,10 @@ function adminMetadataCandidateReviewStateFromSearch(
   search: AdminMetadataCandidateReviewRouteSearch,
 ): AdminMetadataCandidateReviewRouteState {
   return {
+    itemId: search.item_id,
     reviewId: search.review_id,
+    limit: search.limit,
+    offset: search.offset,
   }
 }
 
@@ -1209,7 +1218,10 @@ function toAdminGeneratedArtifactReviewSearch(state: AdminGeneratedArtifactRevie
 
 function toAdminMetadataCandidateReviewSearch(state: AdminMetadataCandidateReviewRouteState) {
   return {
+    item_id: state.itemId || undefined,
     review_id: state.reviewId || undefined,
+    limit: state.limit && state.limit !== 50 ? state.limit : undefined,
+    offset: state.offset && state.offset > 0 ? state.offset : undefined,
   }
 }
 
