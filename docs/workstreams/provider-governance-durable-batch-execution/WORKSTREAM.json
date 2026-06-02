@@ -7,7 +7,7 @@
   "scope_kind": "admin_metadata_candidate_review_durable_batch_execution",
   "problem": "Metadata Candidate Review batch apply is currently bounded and synchronous; durable progress, cancellation, retry-ready status, and larger operator selections need an ADR 0053 job-backed control-plane boundary.",
   "task_prefix": "PGDBE",
-  "current_task": "PGDBE-040",
+  "current_task": "PGDBE-050",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -46,10 +46,10 @@
   "gates": [
     "python -m json.tool docs/workstreams/provider-governance-durable-batch-execution/WORKSTREAM.json",
     "JSONL validation for docs/workstreams/provider-governance-durable-batch-execution/TASKS.jsonl, CAMPAIGNS.jsonl, and CONTEXT.jsonl",
-    "cargo test -p nako-server metadata_candidate_review_batch -- --nocapture",
-    "cargo test -p nako-api admin_contract -- --nocapture",
-    "cargo test -p nako-metadata candidate_review_application -- --nocapture",
-    "cargo fmt --all -- --check",
+    "npm --prefix web run check",
+    "npm --prefix web run test",
+    "npm --prefix web run build:budget",
+    "browser smoke if route behavior changes",
     "git diff --check"
   ],
   "evidence": [
@@ -64,6 +64,10 @@
     {
       "task": "PGDBE-030",
       "summary": "Added redaction-safe Admin create/status routes for queued Candidate Review durable batches, generated Admin contract coverage, idempotent replay behavior, and persisted job creation without Provider Mapping writes."
+    },
+    {
+      "task": "PGDBE-040",
+      "summary": "Executed queued Candidate Review durable batches through DurableJobRuntime, mapped the job resource class to the metadata shared budget, persisted per-item outcomes, and synchronized cancellation/failed terminal batch state."
     }
   ],
   "adr_refs": [
@@ -100,7 +104,7 @@
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
     "default_action": "continue",
-    "current_task": "PGDBE-040",
-    "notes": "PGDBE-030 is accepted. Continue with job-backed execution through DurableJobRuntime. Stop before Web UI, Public Client API exposure, related hierarchy application, provider endpoint breadth, audit/undo, or scheduler priority expansion unless a later task/campaign explicitly owns that scope."
+    "current_task": "PGDBE-050",
+    "notes": "PGDBE-040 is accepted. Continue with Web Admin durable batch create/status rendering and polling. Stop before Public Client API exposure, related hierarchy application, provider endpoint breadth, audit/undo, or scheduler priority expansion unless a later task/campaign explicitly owns that scope."
   }
 }

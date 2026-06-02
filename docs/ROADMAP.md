@@ -12,14 +12,15 @@ milestone.
 ## Current Architecture Focus
 
 Status: Provider Governance Durable Batch Execution is active after
-`PGDBE-030`.
+`PGDBE-040`.
 
 The active workstream is
 `docs/workstreams/provider-governance-durable-batch-execution/`. It follows
 Provider Governance Bulk Review. `PGDBE-020` shipped Candidate Review durable
 batch state, repository contracts, SQLite/PostgreSQL persistence, and an
 explicit job/resource-class foundation; `PGDBE-030` shipped the Admin
-create/status boundary; `PGDBE-040` is next for job-backed execution.
+create/status boundary; `PGDBE-040` shipped job-backed execution; `PGDBE-050`
+is next for Web Admin durable status.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
 Operations Repair are both closed as of 2026-06-02. Web Admin Generated
@@ -34,7 +35,7 @@ Depth Governance is closed after `AWPDG-050`. Admin Candidate Review List
 Navigation is closed after `ACRN-040`. Provider Review Global Queue Search is
 closed after `PRGQ-040`. Provider Governance Bulk Review is closed after
 `PGBR-050`. Provider Governance Durable Batch Execution is active after
-`PGDBE-030`.
+`PGDBE-040`.
 
 The active focus will ship:
 
@@ -68,9 +69,9 @@ Current lane and candidate follow-ons:
 
 Latest active architecture slice:
 
-`PGDBE-030` shipped Provider Governance Durable Batch Execution Admin
-create/status routes on 2026-06-02 and selected `PGDBE-040` as the next
-job-backed execution task.
+`PGDBE-040` shipped Provider Governance Durable Batch Execution job-backed
+execution on 2026-06-02 and selected `PGDBE-050` as the next Web Admin durable
+status task.
 
 Latest completed architecture slices:
 
@@ -84,6 +85,11 @@ kind/resource class, and idempotency/atomicity contract coverage.
 `PGDBE-030` shipped on 2026-06-02 with redaction-safe Admin create/status
 routes, idempotent queued batch creation, durable job persistence, generated
 Admin contract sync, and no Provider Mapping writes during create/status.
+
+`PGDBE-040` shipped on 2026-06-02 with DurableJobRuntime-backed Candidate
+Review batch execution, metadata shared budget mapping, per-item outcome
+persistence, cancellation synchronization, and preserved single-review
+application authority.
 
 `PGBR-020` shipped on 2026-06-02 with a no-write, redaction-safe Admin API
 batch application plan and generated Admin contract sync.

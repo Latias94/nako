@@ -29,11 +29,12 @@ use nako_catalog::{CatalogHydrationPort, CatalogHydrationSummary};
 use nako_core::{
     CancelLeasedJob, CompleteLeasedJob, DomainEventKind, DomainEventSubject, EventId,
     EventOutboxRepository, ExternalProvider, FailLeasedJob, Job, JobId, JobKind,
-    JobLeaseClaimRequest, JobLeaseHeartbeat, JobRepository, LeasedJob, Library, LibraryId,
-    LibraryRepository, METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS, MediaItem,
-    MediaItemId, MediaRepository, MediaSource, MetadataAttemptFilter,
+    JobLeaseClaimRequest, JobLeaseHeartbeat, JobRepository, JobStatus, LeasedJob, Library,
+    LibraryId, LibraryRepository, METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS,
+    MediaItem, MediaItemId, MediaRepository, MediaSource, MetadataAttemptFilter,
     MetadataCandidateReviewBatchCommit, MetadataCandidateReviewBatchId,
-    MetadataCandidateReviewBatchItemCommit, MetadataCandidateReviewBatchItemStatus,
+    MetadataCandidateReviewBatchItemCommit, MetadataCandidateReviewBatchItemOutcomeCommit,
+    MetadataCandidateReviewBatchItemRecord, MetadataCandidateReviewBatchItemStatus,
     MetadataCandidateReviewBatchRecord, MetadataCandidateReviewBatchStatus,
     MetadataCandidateReviewId, MetadataCandidateReviewQueueFilter,
     MetadataCandidateReviewRepository, MetadataProfile, MetadataProviderAttemptRecord,
@@ -57,7 +58,8 @@ use tokio::sync::Semaphore;
 use tracing::{Instrument, info, info_span, warn};
 
 use super::job_runtime::{
-    DurableJobContext, DurableJobOperationResult, DurableJobRunOutcome, DurableJobRuntime,
+    DurableJobContext, DurableJobOperationError, DurableJobOperationResult, DurableJobRunOutcome,
+    DurableJobRuntime,
 };
 use super::metadata_runtime::provider_resource_name;
 use super::runtime::{RuntimeSupervisor, runtime_budget_class_for_job_resource_class};
@@ -725,6 +727,86 @@ impl MetadataAppService {
             })
     }
 
+    pub(crate) async fn execute_admin_metadata_candidate_review_batch(
+        &self,
+        batch_id: MetadataCandidateReviewBatchId,
+    ) -> Result<MetadataCandidateReviewBatchRecord> {
+        let batch = self
+            .execution_store
+            .store
+            .get_metadata_candidate_review_batch(batch_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "metadata_candidate_review_batch",
+                id: batch_id.to_string(),
+            })?;
+        if metadata_candidate_review_batch_status_is_terminal(batch.status) {
+            return Ok(batch);
+        }
+
+        let job = self
+            .execution_store
+            .store
+            .get_job(batch.job_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "job",
+                id: batch.job_id.to_string(),
+            })?;
+        if job.status == JobStatus::Cancelled {
+            return self
+                .update_metadata_candidate_review_batch_status_best_effort(
+                    batch_id,
+                    MetadataCandidateReviewBatchStatus::Queued,
+                    MetadataCandidateReviewBatchStatus::Cancelled,
+                )
+                .await;
+        }
+
+        let _permit = self
+            .acquire_metadata_candidate_review_batch_apply_permit()
+            .await?;
+        let runtime = DurableJobRuntime::new(self.execution_store.clone());
+        let run = runtime
+            .run_job_with_context(
+                batch.job_id,
+                "metadata candidate review batch apply job",
+                |context| async move {
+                    self.run_metadata_candidate_review_batch_apply(batch_id, context)
+                        .await
+                },
+                |batch| {
+                    DurableJobRuntime::serialize_summary(
+                        &batch.execution_summary,
+                        "metadata candidate review batch apply job summary",
+                    )
+                },
+            )
+            .await;
+
+        match run {
+            Ok(DurableJobRunOutcome::Completed(run)) => Ok(run.output),
+            Ok(DurableJobRunOutcome::Cancelled(_job)) => {
+                self.update_metadata_candidate_review_batch_status_best_effort(
+                    batch_id,
+                    MetadataCandidateReviewBatchStatus::Running,
+                    MetadataCandidateReviewBatchStatus::Cancelled,
+                )
+                .await
+            }
+            Err(err) => {
+                let _ = self
+                    .update_metadata_candidate_review_batch_status_best_effort(
+                        batch_id,
+                        MetadataCandidateReviewBatchStatus::Running,
+                        MetadataCandidateReviewBatchStatus::Failed,
+                    )
+                    .await;
+                Err(err)
+            }
+        }
+    }
+
     pub async fn apply_admin_metadata_candidate_review_batch(
         &self,
         request: AdminMetadataCandidateReviewBatchApplyRequest,
@@ -832,6 +914,112 @@ impl MetadataAppService {
             summary.changed,
             &idempotency_key,
         ))
+    }
+
+    async fn run_metadata_candidate_review_batch_apply(
+        &self,
+        batch_id: MetadataCandidateReviewBatchId,
+        context: DurableJobContext,
+    ) -> DurableJobOperationResult<MetadataCandidateReviewBatchRecord> {
+        let batch = self
+            .execution_store
+            .store
+            .update_metadata_candidate_review_batch_status(
+                batch_id,
+                MetadataCandidateReviewBatchStatus::Queued,
+                MetadataCandidateReviewBatchStatus::Running,
+            )
+            .await
+            .map_err(DurableJobOperationError::from)?;
+        let service =
+            MetadataCandidateReviewApplicationService::new(self.execution_store.store.clone());
+
+        for item in batch.items.clone() {
+            context.check_cancelled().await?;
+            if item.status != MetadataCandidateReviewBatchItemStatus::Pending {
+                continue;
+            }
+
+            let outcome_commit = match service
+                .apply(MetadataCandidateReviewApplicationRequest {
+                    review_id: item.review_id,
+                    item_id: item.item_id,
+                    applied_at_ms: super::current_time_ms()
+                        .map_err(DurableJobOperationError::from)?,
+                    expected_updated_at_ms: item.expected_updated_at_ms,
+                })
+                .await
+            {
+                Ok(summary) => MetadataCandidateReviewBatchItemOutcomeCommit {
+                    batch_id,
+                    review_id: item.review_id,
+                    status: candidate_review_batch_apply_item_success_status(&summary.plan),
+                    provider_subject_id: summary.provider_subject.map(|subject| subject.id),
+                    provider_mapping_id: summary.provider_mapping.map(|mapping| mapping.id),
+                    error_code: None,
+                    error_message: None,
+                },
+                Err(error) => {
+                    metadata_candidate_review_batch_apply_item_failure_commit(&item, &error)
+                }
+            };
+
+            self.execution_store
+                .store
+                .commit_metadata_candidate_review_batch_item_outcome(&outcome_commit)
+                .await
+                .map_err(DurableJobOperationError::from)?;
+        }
+
+        context.check_cancelled().await?;
+        self.execution_store
+            .store
+            .update_metadata_candidate_review_batch_status(
+                batch_id,
+                MetadataCandidateReviewBatchStatus::Running,
+                MetadataCandidateReviewBatchStatus::Completed,
+            )
+            .await
+            .map_err(DurableJobOperationError::from)
+    }
+
+    async fn acquire_metadata_candidate_review_batch_apply_permit(
+        &self,
+    ) -> Result<tokio::sync::OwnedSemaphorePermit> {
+        self.permits
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|err| NakoError::InvalidInput {
+                message: format!(
+                    "metadata candidate review batch apply concurrency limiter is unavailable: {err}"
+                ),
+            })
+    }
+
+    async fn update_metadata_candidate_review_batch_status_best_effort(
+        &self,
+        batch_id: MetadataCandidateReviewBatchId,
+        expected: MetadataCandidateReviewBatchStatus,
+        status: MetadataCandidateReviewBatchStatus,
+    ) -> Result<MetadataCandidateReviewBatchRecord> {
+        match self
+            .execution_store
+            .store
+            .update_metadata_candidate_review_batch_status(batch_id, expected, status)
+            .await
+        {
+            Ok(batch) => Ok(batch),
+            Err(_) => self
+                .execution_store
+                .store
+                .get_metadata_candidate_review_batch(batch_id)
+                .await?
+                .ok_or_else(|| NakoError::NotFound {
+                    entity: "metadata_candidate_review_batch",
+                    id: batch_id.to_string(),
+                }),
+        }
     }
 
     async fn search_metadata_candidates(
@@ -1901,6 +2089,91 @@ fn metadata_candidate_review_batch_item_idempotency_key(
     review_id: MetadataCandidateReviewId,
 ) -> String {
     format!("metadata-candidate-review-batch-item:{batch_id}:{review_id}")
+}
+
+fn metadata_candidate_review_batch_status_is_terminal(
+    status: MetadataCandidateReviewBatchStatus,
+) -> bool {
+    matches!(
+        status,
+        MetadataCandidateReviewBatchStatus::Completed
+            | MetadataCandidateReviewBatchStatus::Failed
+            | MetadataCandidateReviewBatchStatus::Cancelled
+    )
+}
+
+fn candidate_review_batch_apply_item_success_status(
+    plan: &nako_core::MetadataCandidateReviewApplicationPlan,
+) -> MetadataCandidateReviewBatchItemStatus {
+    match plan.action {
+        nako_core::MetadataCandidateReviewApplicationAction::Apply => {
+            MetadataCandidateReviewBatchItemStatus::Applied
+        }
+        nako_core::MetadataCandidateReviewApplicationAction::Noop => {
+            MetadataCandidateReviewBatchItemStatus::Noop
+        }
+        nako_core::MetadataCandidateReviewApplicationAction::Skip => {
+            MetadataCandidateReviewBatchItemStatus::Skipped
+        }
+    }
+}
+
+fn metadata_candidate_review_batch_apply_item_failure_commit(
+    item: &MetadataCandidateReviewBatchItemRecord,
+    error: &NakoError,
+) -> MetadataCandidateReviewBatchItemOutcomeCommit {
+    let apply_error = candidate_review_batch_apply_error(error);
+    MetadataCandidateReviewBatchItemOutcomeCommit {
+        batch_id: item.batch_id,
+        review_id: item.review_id,
+        status: candidate_review_batch_apply_item_error_status(error),
+        provider_subject_id: None,
+        provider_mapping_id: None,
+        error_code: Some(apply_error.code),
+        error_message: Some(redact_metadata_candidate_review_batch_apply_error_message(
+            apply_error.message,
+        )),
+    }
+}
+
+fn candidate_review_batch_apply_item_error_status(
+    error: &NakoError,
+) -> MetadataCandidateReviewBatchItemStatus {
+    match candidate_review_batch_apply_error_status(error) {
+        AdminMetadataCandidateReviewBatchApplyResultStatus::Stale => {
+            MetadataCandidateReviewBatchItemStatus::Stale
+        }
+        AdminMetadataCandidateReviewBatchApplyResultStatus::Conflict => {
+            MetadataCandidateReviewBatchItemStatus::Conflict
+        }
+        AdminMetadataCandidateReviewBatchApplyResultStatus::Blocked => {
+            MetadataCandidateReviewBatchItemStatus::Blocked
+        }
+        AdminMetadataCandidateReviewBatchApplyResultStatus::Failed => {
+            MetadataCandidateReviewBatchItemStatus::Failed
+        }
+        AdminMetadataCandidateReviewBatchApplyResultStatus::Replayed => {
+            MetadataCandidateReviewBatchItemStatus::Noop
+        }
+        AdminMetadataCandidateReviewBatchApplyResultStatus::Applied => {
+            MetadataCandidateReviewBatchItemStatus::Applied
+        }
+        AdminMetadataCandidateReviewBatchApplyResultStatus::Noop => {
+            MetadataCandidateReviewBatchItemStatus::Noop
+        }
+        AdminMetadataCandidateReviewBatchApplyResultStatus::Skipped => {
+            MetadataCandidateReviewBatchItemStatus::Skipped
+        }
+    }
+}
+
+fn redact_metadata_candidate_review_batch_apply_error_message(message: String) -> String {
+    const MAX_LEN: usize = 512;
+    if message.chars().count() <= MAX_LEN {
+        return message;
+    }
+
+    message.chars().take(MAX_LEN).collect()
 }
 
 fn candidate_review_batch_apply_error_result(

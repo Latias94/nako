@@ -120,14 +120,38 @@ Green gates:
 - `git diff --check`
   - Result: passed; Git emitted CRLF normalization warnings only.
 
+## PGDBE-040 Evidence
+
+Implemented:
+
+- `nako-server` metadata app execution entrypoint for queued Candidate Review
+  durable batches.
+- Job execution through `DurableJobRuntime` with the Candidate Review batch job
+  kind/resource class mapped to the metadata shared runtime budget.
+- Per-item execution through `MetadataCandidateReviewApplicationService`,
+  preserving the existing stale guard, root-only Provider Subject / Provider
+  Mapping application, idempotent noop behavior, and related hierarchy split.
+- Per-item outcome persistence for applied, noop, skipped, blocked, stale,
+  conflict, and failed states.
+- Batch terminal synchronization for completed, cancelled, and infrastructure
+  failed execution.
+- Route/system coverage proving Admin status reads see completed execution
+  summaries and queued job cancellation maps to batch cancellation.
+
+Green gates:
+
+- `cargo test -p nako-server metadata_candidate_review_batch -- --nocapture`
+  - Result: passed, 3 tests.
+- `cargo test -p nako-metadata candidate_review_application -- --nocapture`
+  - Result: passed, 6 tests.
+- `cargo check -p nako-server -p nako-metadata --tests`
+  - Result: passed.
+- `cargo fmt --all -- --check`
+  - Result: passed.
+- `git diff --check`
+  - Result: passed; Git emitted CRLF normalization warnings only.
+
 ## Later Gates
-
-`PGDBE-040`:
-
-- Execution uses `DurableJobRuntime`.
-- Per-item execution calls `MetadataCandidateReviewApplicationService`.
-- Cancellation checkpoints persist a terminal cancelled state.
-- Runtime resource-class mapping uses the metadata budget class.
 
 `PGDBE-050`:
 

@@ -48,7 +48,7 @@ Exit criteria:
 - cancellation checkpoints are covered;
 - no raw `tokio::spawn` path is introduced.
 
-Status: Current.
+Status: Done.
 
 ## M4 - Web Admin Durable Status
 
@@ -59,7 +59,7 @@ Exit criteria:
   redaction-safe partial results;
 - route-state tests and browser smoke pass.
 
-Status: Pending.
+Status: Current.
 
 ## M5 - Closeout
 

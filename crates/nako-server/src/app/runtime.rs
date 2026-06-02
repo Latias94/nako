@@ -11,7 +11,7 @@ use std::{
 use futures_util::FutureExt;
 use nako_core::{
     GENERATED_ARTIFACT_METADATA_BULK_APPLY_JOB_RESOURCE_CLASS, Job, JobId, JobKind, JobStatus,
-    NakoError, Result,
+    METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS, NakoError, Result,
 };
 use tokio::{
     sync::{OwnedSemaphorePermit, Semaphore},
@@ -211,6 +211,11 @@ pub(crate) fn runtime_budget_class_for_job_resource_class(
         }
         JobKind::GeneratedArtifactMetadataBulkApply
             if resource_class == GENERATED_ARTIFACT_METADATA_BULK_APPLY_JOB_RESOURCE_CLASS =>
+        {
+            Some(RUNTIME_RESOURCE_CLASS_METADATA_SHARED)
+        }
+        JobKind::MetadataCandidateReviewBatchApply
+            if resource_class == METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS =>
         {
             Some(RUNTIME_RESOURCE_CLASS_METADATA_SHARED)
         }
@@ -601,6 +606,11 @@ mod tests {
             (
                 JobKind::GeneratedArtifactMetadataBulkApply,
                 GENERATED_ARTIFACT_METADATA_BULK_APPLY_JOB_RESOURCE_CLASS,
+                RUNTIME_RESOURCE_CLASS_METADATA_SHARED,
+            ),
+            (
+                JobKind::MetadataCandidateReviewBatchApply,
+                METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS,
                 RUNTIME_RESOURCE_CLASS_METADATA_SHARED,
             ),
             (

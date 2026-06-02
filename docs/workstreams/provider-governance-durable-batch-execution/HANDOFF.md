@@ -5,22 +5,25 @@ Last updated: 2026-06-02
 
 ## Current State
 
-`PGDBE-030` is accepted.
+`PGDBE-040` is accepted.
 
 Current task:
 
-- `PGDBE-040`: job-backed execution for queued durable Candidate Review
-  batches through `DurableJobRuntime`.
+- `PGDBE-050`: Web Admin durable Candidate Review batch create/status
+  workflow.
 
 Approved campaign:
 
 - `PGDBE-20260602-01`, limited to `PGDBE-020`, is complete.
 
+Completed campaign:
+
+- `PGDBE-20260602-02`, covering `PGDBE-030` and `PGDBE-040`, is complete.
+
 Active campaign:
 
-- `PGDBE-20260602-02`, covering `PGDBE-030` and `PGDBE-040`, is active.
-  `PGDBE-030` is done; continue with `PGDBE-040` only inside the documented
-  backend execution boundary.
+- `PGDBE-20260602-03`, covering `PGDBE-050`, is active for Web Admin durable
+  batch status only.
 
 ## Read First
 
@@ -37,6 +40,8 @@ Active campaign:
 - Do not execute batches in `PGDBE-030`.
 - Do not add Web UI in `PGDBE-030`.
 - Do not add Web UI in `PGDBE-040`.
+- Do not add Public Client API or related hierarchy application in
+  `PGDBE-050`.
 - Do not reuse Generated Artifact apply outcome tables.
 - Do not add related hierarchy application or child Provider Mapping writes.
 - Do not add Public Client API exposure.
@@ -44,20 +49,18 @@ Active campaign:
 
 ## Implementation Hint
 
-The durable batch state and Admin create/status boundary now exist behind
-`MetadataCandidateReviewRepository` and `NakoMetadataApp`.
-`PGDBE-040` should execute queued batches through the ADR 0053 job runtime,
-call `MetadataCandidateReviewApplicationService` per item, and persist per-item
-outcomes and cancellation checkpoints.
+The durable batch state, Admin create/status boundary, and backend execution
+now exist behind `MetadataCandidateReviewRepository` and `NakoMetadataApp`.
+`PGDBE-050` should connect Web Admin selection/confirmation to the durable
+create route and render/poll redaction-safe batch status.
 
 Expected first files to inspect before editing:
 
-- `crates/nako-server/src/app/metadata.rs`
-- `crates/nako-server/src/jobs`
-- `crates/nako-server/src/runtime`
-- `crates/nako-core/src/media/candidate.rs`
-- `crates/nako-core/src/repository/metadata.rs`
-- `crates/nako-db/src/contract_tests.rs`
+- `web/src/api/admin`
+- `web/src/features/admin`
+- `web/src/test`
+- `web/scripts`
+- `apps/admin-web/src/adminApi/generated/contract.ts`
 
 ## Validation
 
@@ -69,5 +72,14 @@ Fallback used in this environment when `nextest` is unavailable:
 
 - `cargo test -p nako-server metadata_candidate_review_batch -- --nocapture`
 - `cargo test -p nako-api admin_contract -- --nocapture`
+- `cargo test -p nako-metadata candidate_review_application -- --nocapture`
 - `cargo fmt --all -- --check`
+- `git diff --check`
+
+For `PGDBE-050`:
+
+- `npm --prefix web run check`
+- `npm --prefix web run test`
+- `npm --prefix web run build:budget`
+- browser smoke if route behavior changes
 - `git diff --check`

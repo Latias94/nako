@@ -13,14 +13,14 @@ use nako_api::admin::{
     AdminStorageBackendHealthResetResponse,
 };
 use nako_core::{
-    JobKind, JobRepository, METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS,
+    JobKind, JobRepository, JobStatus, METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS,
     MetadataCandidateRecord, MetadataCandidateRelationshipKind, MetadataCandidateReviewBatchStatus,
     MetadataCandidateReviewId, MetadataCandidateReviewNode, MetadataCandidateReviewPlan,
     MetadataCandidateReviewRelationship, MetadataCandidateReviewRepository,
     MetadataCandidateReviewStatus as DurableMetadataCandidateReviewStatus, MetadataCandidateSource,
-    MetadataCandidateSubject, NewMetadataCandidateReview, StorageBackendHealthRecord,
-    StorageBackendHealthRepository, StorageBackendHealthStatus, StorageCircuitBreakerState,
-    StorageFailureClass,
+    MetadataCandidateSubject, NewMetadataCandidateReview, ProviderMappingStatus,
+    StorageBackendHealthRecord, StorageBackendHealthRepository, StorageBackendHealthStatus,
+    StorageCircuitBreakerState, StorageFailureClass,
 };
 
 fn system_process_backed_hls_playlist_readiness_timeout() -> Duration {
@@ -364,7 +364,7 @@ async fn admin_v1_catalog_governance_lists_unknown_low_confidence_and_redacts_ev
             .unwrap();
     }
 
-    let router = build_router(app);
+    let router = build_router(app.clone());
     let response = router
         .clone()
         .oneshot(
@@ -531,7 +531,7 @@ async fn admin_v1_catalog_governance_provider_mapping_review_plan_is_redacted() 
     store.upsert_provider_subject(&subject).await.unwrap();
     store.upsert_provider_mapping(&mapping).await.unwrap();
 
-    let router = build_router(app);
+    let router = build_router(app.clone());
     let detail_path = format!("/admin/v1/catalog/governance/items/{}", item.id);
     let detail_response = router
         .clone()
@@ -1809,7 +1809,7 @@ async fn admin_v1_metadata_candidate_review_batch_durable_create_replays_and_rep
         .await
         .unwrap();
 
-    let router = build_router(app);
+    let router = build_router(app.clone());
     let path = "/admin/v1/metadata/candidate-reviews/batches";
     let request = AdminMetadataCandidateReviewBatchCreateRequest {
         idempotency_key: "candidate-review:durable-secret".to_owned(),
@@ -1925,6 +1925,115 @@ async fn admin_v1_metadata_candidate_review_batch_durable_create_replays_and_rep
         MetadataCandidateReviewBatchStatus::Queued
     );
     assert!(!status_body.contains("candidate-review:durable-secret"));
+
+    let executed = app
+        .metadata()
+        .execute_admin_metadata_candidate_review_batch(created.batch.id)
+        .await
+        .unwrap();
+    assert_eq!(
+        executed.status,
+        MetadataCandidateReviewBatchStatus::Completed
+    );
+    assert_eq!(executed.execution_summary.applied_item_count, 1);
+    assert_eq!(executed.execution_summary.skipped_item_count, 1);
+    assert_eq!(executed.execution_summary.pending_item_count, 0);
+    assert_eq!(
+        executed.items[0].status,
+        nako_core::MetadataCandidateReviewBatchItemStatus::Applied
+    );
+    assert_eq!(
+        executed.items[1].status,
+        nako_core::MetadataCandidateReviewBatchItemStatus::Skipped
+    );
+
+    let executed_job = store.get_job(created.batch.job_id).await.unwrap().unwrap();
+    assert_eq!(executed_job.status, JobStatus::Succeeded);
+    assert!(executed_job.summary_json.is_some());
+    let provider_mappings = store
+        .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(provider_mappings.len(), 1);
+    assert_eq!(provider_mappings[0].status, ProviderMappingStatus::Accepted);
+    assert!(
+        store
+            .find_provider_subject(
+                &ExternalProvider::Bangumi,
+                &ProviderSubjectKind::Subject,
+                "durable-batch-accepted"
+            )
+            .await
+            .unwrap()
+            .is_some()
+    );
+
+    let completed_status_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&status_uri)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let completed_status_code = completed_status_response.status();
+    let completed_status_body = response_text(completed_status_response).await;
+    assert_eq!(
+        completed_status_code,
+        StatusCode::OK,
+        "{completed_status_body}"
+    );
+    let completed_status: AdminMetadataCandidateReviewBatchResponse =
+        serde_json::from_str(&completed_status_body).unwrap();
+    assert_eq!(
+        completed_status.batch.status,
+        MetadataCandidateReviewBatchStatus::Completed
+    );
+    assert_eq!(
+        completed_status.batch.execution_summary.applied_item_count,
+        1
+    );
+    assert!(!completed_status_body.contains("candidate-review:durable-secret"));
+
+    let cancel_response = response_body_json(
+        &router,
+        Method::POST,
+        path,
+        &AdminMetadataCandidateReviewBatchCreateRequest {
+            idempotency_key: "candidate-review:durable-cancel".to_owned(),
+            reviews: vec![AdminMetadataCandidateReviewBatchApplyItemRequest {
+                review_id: accepted_review.id,
+                item_id: item.id,
+                expected_updated_at_ms: Some(accepted_review.updated_at_ms),
+            }],
+        },
+    )
+    .await;
+    let cancel_status = cancel_response.status();
+    let cancel_body = response_text(cancel_response).await;
+    assert_eq!(cancel_status, StatusCode::OK, "{cancel_body}");
+    let cancel_created: AdminMetadataCandidateReviewBatchResponse =
+        serde_json::from_str(&cancel_body).unwrap();
+    let cancellation = app
+        .jobs()
+        .request_job_cancellation(cancel_created.batch.job_id)
+        .await
+        .unwrap();
+    assert!(cancellation.requested);
+    assert!(cancellation.terminal);
+    assert_eq!(cancellation.job.status, JobStatus::Cancelled);
+    let cancelled_batch = app
+        .metadata()
+        .execute_admin_metadata_candidate_review_batch(cancel_created.batch.id)
+        .await
+        .unwrap();
+    assert_eq!(
+        cancelled_batch.status,
+        MetadataCandidateReviewBatchStatus::Cancelled
+    );
 
     let duplicate = response_body_json(
         &router,

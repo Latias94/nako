@@ -76,7 +76,8 @@ outcomes.
 Control-plane requirements:
 
 - create persists a durable job with explicit input (shipped in `PGDBE-030`);
-- execution uses `DurableJobRuntime` and runtime resource-class mapping;
+- execution uses `DurableJobRuntime` and runtime resource-class mapping
+  (shipped in `PGDBE-040`);
 - per-item work calls the existing single-review application authority;
 - status reads expose operator-useful, redacted diagnostics;
 - no raw `tokio::spawn`, duplicate Provider Mapping executor, Public Client

@@ -28,7 +28,7 @@ proposed milestone.
 
 ### Provider Governance Durable Batch Execution
 
-Status: active after `PGDBE-030`.
+Status: active after `PGDBE-040`.
 
 Objective:
 
@@ -47,7 +47,7 @@ Deliverables:
   repository contract, and SQLite/PostgreSQL persistence (done in `PGDBE-020`);
 - explicit durable job kind/resource class for Candidate Review batch apply;
 - Admin create/status boundary (done in `PGDBE-030`);
-- job-backed execution in `PGDBE-040`;
+- job-backed execution (done in `PGDBE-040`);
 - Web Admin durable batch status only after backend semantics are stable.
 
 Non-goals:
@@ -79,7 +79,7 @@ Evidence:
 
 Current task:
 
-- `PGDBE-040`: job-backed execution for queued durable batches.
+- `PGDBE-050`: Web Admin durable batch status.
 
 ## Recent Completed Goals
 

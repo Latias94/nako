@@ -56,12 +56,11 @@ authority and PGBR redaction semantics.
 
 Current task:
 
-- `PGDBE-040` adds job-backed execution for queued durable Candidate Review
-  batches.
+- `PGDBE-050` adds Web Admin durable Candidate Review batch status.
 
 Non-goals:
 
-- no Web UI in `PGDBE-040`;
+- no Public Client API route in `PGDBE-050`;
 - no related Provider Subject, child Provider Mapping, or Media Item hierarchy
   application;
 - no Public Client API route;
