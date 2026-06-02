@@ -2593,9 +2593,6 @@ fn admin_playback_resource_enforcement(
         crate::app::playback::PlaybackResourceEnforcement::AdmissionPermit => {
             AdminPlaybackResourceEnforcement::AdmissionPermit
         }
-        crate::app::playback::PlaybackResourceEnforcement::NotYetEnforced => {
-            AdminPlaybackResourceEnforcement::NotYetEnforced
-        }
     }
 }
 

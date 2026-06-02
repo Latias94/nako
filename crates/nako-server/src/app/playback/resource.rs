@@ -55,7 +55,6 @@ impl PlaybackResourceWorkload {
 pub(crate) enum PlaybackResourceEnforcement {
     HostOwned,
     AdmissionPermit,
-    NotYetEnforced,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -87,11 +86,6 @@ impl PlaybackResourceRequirement {
     #[must_use]
     pub(crate) const fn admission_permit(class: PlaybackResourceClass, units: usize) -> Self {
         Self::new(class, units, PlaybackResourceEnforcement::AdmissionPermit)
-    }
-
-    #[must_use]
-    pub(crate) const fn not_yet_enforced(class: PlaybackResourceClass, units: usize) -> Self {
-        Self::new(class, units, PlaybackResourceEnforcement::NotYetEnforced)
     }
 }
 
@@ -158,7 +152,7 @@ impl PlaybackResourceDemand {
             transcode_class,
             1,
         ));
-        requirements.push(PlaybackResourceRequirement::not_yet_enforced(
+        requirements.push(PlaybackResourceRequirement::admission_permit(
             PlaybackResourceClass::HlsArtifactIo,
             1,
         ));
@@ -182,17 +176,23 @@ pub(crate) struct PlaybackResourceCapacity {
     pub(crate) remux_processes: usize,
     pub(crate) cpu_transcodes: usize,
     pub(crate) gpu_transcodes: usize,
+    pub(crate) hls_artifact_io: usize,
 }
 
 impl PlaybackResourceCapacity {
     #[must_use]
-    pub(crate) const fn from_config(config: &NakoServerConfig) -> Self {
+    pub(crate) fn from_config(config: &NakoServerConfig) -> Self {
+        let transcode = config.transcode.resource_budget();
         Self {
             remote_streams: config.playback.remote_stream_concurrency,
             remote_stages: config.playback.remote_stage_concurrency,
             remux_processes: config.remux_concurrency,
             cpu_transcodes: config.transcode.cpu_concurrency,
             gpu_transcodes: config.transcode.gpu_concurrency,
+            hls_artifact_io: transcode
+                .cpu_slots
+                .saturating_add(transcode.gpu_slots)
+                .max(1),
         }
     }
 
@@ -204,7 +204,7 @@ impl PlaybackResourceCapacity {
             PlaybackResourceClass::RemuxProcess => Some(self.remux_processes),
             PlaybackResourceClass::CpuTranscode => Some(self.cpu_transcodes),
             PlaybackResourceClass::GpuTranscode => Some(self.gpu_transcodes),
-            PlaybackResourceClass::HlsArtifactIo => None,
+            PlaybackResourceClass::HlsArtifactIo => Some(self.hls_artifact_io),
         }
     }
 }
@@ -213,7 +213,6 @@ impl PlaybackResourceCapacity {
 pub(crate) enum PlaybackResourceAdmissionStatus {
     Accepted,
     Rejected,
-    NotYetEnforced,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -240,13 +239,6 @@ impl PlaybackResourceAdmissionDecision {
     }
 
     #[must_use]
-    pub(crate) fn has_not_yet_enforced_classes(&self) -> bool {
-        self.classes
-            .iter()
-            .any(|class| class.status == PlaybackResourceAdmissionStatus::NotYetEnforced)
-    }
-
-    #[must_use]
     pub(crate) fn status_for(
         &self,
         class: PlaybackResourceClass,
@@ -269,6 +261,7 @@ pub(crate) struct PlaybackRuntimeAdmission {
     remux_processes: Arc<Semaphore>,
     cpu_transcodes: Arc<Semaphore>,
     gpu_transcodes: Arc<Semaphore>,
+    hls_artifact_io: Arc<Semaphore>,
 }
 
 impl PlaybackRuntimeAdmission {
@@ -279,6 +272,7 @@ impl PlaybackRuntimeAdmission {
             remux_processes: Arc::new(Semaphore::new(capacity.remux_processes)),
             cpu_transcodes: Arc::new(Semaphore::new(capacity.cpu_transcodes)),
             gpu_transcodes: Arc::new(Semaphore::new(capacity.gpu_transcodes)),
+            hls_artifact_io: Arc::new(Semaphore::new(capacity.hls_artifact_io)),
         }
     }
 
@@ -398,8 +392,8 @@ impl PlaybackRuntimeAdmission {
                 ),
                 self.class_pressure(
                     PlaybackResourceClass::HlsArtifactIo,
-                    PlaybackResourceEnforcement::NotYetEnforced,
-                    None,
+                    PlaybackResourceEnforcement::AdmissionPermit,
+                    Some(self.hls_artifact_io.available_permits()),
                 ),
             ],
         }
@@ -457,10 +451,6 @@ impl PlaybackRuntimeAdmission {
                     )
                 }
             }
-            PlaybackResourceEnforcement::NotYetEnforced => (
-                PlaybackResourceAdmissionStatus::NotYetEnforced,
-                "host-owned admission is not implemented yet",
-            ),
         };
 
         PlaybackResourceClassAdmission {
@@ -516,9 +506,8 @@ impl PlaybackRuntimeAdmission {
             PlaybackResourceClass::RemuxProcess => Some(self.remux_processes.clone()),
             PlaybackResourceClass::CpuTranscode => Some(self.cpu_transcodes.clone()),
             PlaybackResourceClass::GpuTranscode => Some(self.gpu_transcodes.clone()),
-            PlaybackResourceClass::RemoteStream
-            | PlaybackResourceClass::RemoteStage
-            | PlaybackResourceClass::HlsArtifactIo => None,
+            PlaybackResourceClass::HlsArtifactIo => Some(self.hls_artifact_io.clone()),
+            PlaybackResourceClass::RemoteStream | PlaybackResourceClass::RemoteStage => None,
         }
     }
 }

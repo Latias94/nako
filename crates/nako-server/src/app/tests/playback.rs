@@ -137,6 +137,7 @@ fn playback_resource_admission_rejects_unavailable_host_owned_capacity() {
         remux_processes: 1,
         cpu_transcodes: 1,
         gpu_transcodes: 1,
+        hls_artifact_io: 1,
     });
 
     let decision = admission.decide(PlaybackResourceDemand::direct_stream(true));
@@ -157,13 +158,14 @@ fn playback_resource_admission_rejects_unavailable_host_owned_capacity() {
 }
 
 #[test]
-fn playback_resource_admission_explains_process_permits_and_unenforced_artifacts() {
+fn playback_resource_admission_explains_process_and_hls_artifact_io_permits() {
     let admission = PlaybackRuntimeAdmission::new(PlaybackResourceCapacity {
         remote_streams: 1,
         remote_stages: 1,
         remux_processes: 1,
         cpu_transcodes: 1,
         gpu_transcodes: 1,
+        hls_artifact_io: 1,
     });
 
     let remux = admission.decide(PlaybackResourceDemand::remux(false));
@@ -183,7 +185,6 @@ fn playback_resource_admission_explains_process_permits_and_unenforced_artifacts
         ),
     ));
     assert!(gpu_hls.accepted());
-    assert!(gpu_hls.has_not_yet_enforced_classes());
     assert_eq!(gpu_hls.demand.workload.as_str(), "hls");
     assert_eq!(
         gpu_hls.status_for(PlaybackResourceClass::RemoteStage),
@@ -195,7 +196,7 @@ fn playback_resource_admission_explains_process_permits_and_unenforced_artifacts
     );
     assert_eq!(
         gpu_hls.status_for(PlaybackResourceClass::HlsArtifactIo),
-        Some(PlaybackResourceAdmissionStatus::NotYetEnforced)
+        Some(PlaybackResourceAdmissionStatus::Accepted)
     );
 
     let cpu_hls = admission.decide(PlaybackResourceDemand::hls(
@@ -210,6 +211,90 @@ fn playback_resource_admission_explains_process_permits_and_unenforced_artifacts
         cpu_hls.status_for(PlaybackResourceClass::CpuTranscode),
         Some(PlaybackResourceAdmissionStatus::Accepted)
     );
+    assert_eq!(
+        cpu_hls.status_for(PlaybackResourceClass::HlsArtifactIo),
+        Some(PlaybackResourceAdmissionStatus::Accepted)
+    );
+}
+
+#[test]
+fn playback_resource_admission_rejects_hls_artifact_io_pressure() {
+    let admission = PlaybackRuntimeAdmission::new(PlaybackResourceCapacity {
+        remote_streams: 1,
+        remote_stages: 1,
+        remux_processes: 1,
+        cpu_transcodes: 2,
+        gpu_transcodes: 1,
+        hls_artifact_io: 1,
+    });
+    let demand = PlaybackResourceDemand::hls(
+        false,
+        TranscodeExecutionPolicy::hls_single_variant(
+            TranscodeAccelerationPlan::software(),
+            TranscodeTrackSelection::default(),
+            TranscodeOutputConstraints::default(),
+        ),
+    );
+
+    let _permit = admission.try_acquire(&demand).unwrap();
+    let pressure = admission.resource_pressure();
+    let artifact_io = pressure
+        .classes
+        .iter()
+        .find(|class| class.class == PlaybackResourceClass::HlsArtifactIo)
+        .unwrap();
+    assert_eq!(
+        artifact_io.enforcement,
+        PlaybackResourceEnforcement::AdmissionPermit
+    );
+    assert_eq!(artifact_io.configured_capacity, Some(1));
+    assert_eq!(artifact_io.available_permits, Some(0));
+    assert_eq!(artifact_io.in_use_permits, Some(1));
+
+    let err = admission.try_acquire(&demand).unwrap_err();
+    let NakoError::Conflict { message } = err else {
+        panic!("expected hls artifact io pressure conflict");
+    };
+    assert!(message.contains("hls_artifact_io"));
+}
+
+#[tokio::test]
+async fn playback_resource_admission_defers_hls_artifact_io_until_permit_releases() {
+    let admission = PlaybackRuntimeAdmission::new(PlaybackResourceCapacity {
+        remote_streams: 1,
+        remote_stages: 1,
+        remux_processes: 1,
+        cpu_transcodes: 2,
+        gpu_transcodes: 1,
+        hls_artifact_io: 1,
+    });
+    let demand = PlaybackResourceDemand::hls(
+        false,
+        TranscodeExecutionPolicy::hls_single_variant(
+            TranscodeAccelerationPlan::software(),
+            TranscodeTrackSelection::default(),
+            TranscodeOutputConstraints::default(),
+        ),
+    );
+    let first_permit = admission.try_acquire(&demand).unwrap();
+
+    let release = tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(25)).await;
+        drop(first_permit);
+    });
+    let started = std::time::Instant::now();
+    let second_permit = admission
+        .try_acquire_until(
+            &demand,
+            Duration::from_millis(250),
+            Duration::from_millis(10),
+        )
+        .await
+        .unwrap();
+
+    assert!(started.elapsed() >= Duration::from_millis(20));
+    drop(second_permit);
+    release.await.unwrap();
 }
 
 #[tokio::test]

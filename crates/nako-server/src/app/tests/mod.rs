@@ -63,8 +63,8 @@ use tokio::{
 use super::playback::{
     HlsSourceDisposition, HlsStagingPolicy, PlaybackResourceAdmissionStatus,
     PlaybackResourceCapacity, PlaybackResourceClass, PlaybackResourceDemand,
-    PlaybackRuntimeAdmission, RemuxRequestKey, RemuxSourceDisposition, RemuxStagingPolicy,
-    source_path_for_ffmpeg_with_backend,
+    PlaybackResourceEnforcement, PlaybackRuntimeAdmission, RemuxRequestKey, RemuxSourceDisposition,
+    RemuxStagingPolicy, source_path_for_ffmpeg_with_backend,
 };
 use super::staging::ManifestRecordingStorageBackend;
 use super::*;

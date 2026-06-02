@@ -46,10 +46,10 @@ selection.
 | HLS audio sidecar media group | Shipped cleanup slice | `docs/workstreams/hls-audio-sidecar-artifacts/`; `docs/workstreams/hls-selected-main-audio-cleanup/`; `docs/workstreams/playback-audio-language-default-policy/` | Request-scoped language defaults and audio output compatibility are shipped; defer codec-aware sidecars and player-specific fallback. |
 | HLS seek/restart | Shipped first slice | `docs/adr/0052-hls-runtime-and-media-engine-boundary.md`; `docs/workstreams/hls-seek-restart-lifecycle/` | Generation identity, restart admission, FFmpeg seek flags, and public `start_position_ms` playlist query. |
 | HLS progressive runtime | Shipped | `docs/workstreams/hls-progressive-runtime-boundary/`; `docs/adr/0052-hls-runtime-and-media-engine-boundary.md` | Playlist readiness before full FFmpeg completion, running segment serving, typed artifact reconstruction, manifest-aware URL auth, and partial-playlist readiness guard. |
-| HLS runtime lifecycle | Closed with test-stability follow-on | `docs/adr/0052-hls-runtime-and-media-engine-boundary.md`; `docs/workstreams/hls-runtime-lifecycle-boundary/`; `docs/workstreams/hls-progressive-readiness-test-stability/` | Lifecycle invariants are frozen, behavior-preserving tests are in place, and HPRTS stabilized the full HLS gate. PAIP artifact I/O pressure, queueing, remote workers, LL-HLS/CMAF, and player UX remain follow-ons. |
+| HLS runtime lifecycle | Closed with test-stability follow-on | `docs/adr/0052-hls-runtime-and-media-engine-boundary.md`; `docs/workstreams/hls-runtime-lifecycle-boundary/`; `docs/workstreams/hls-progressive-readiness-test-stability/` | Lifecycle invariants are frozen, behavior-preserving tests are in place, and HPRTS stabilized the full HLS gate. HLS artifact I/O now has a first session-admission policy; queueing, remote workers, LL-HLS/CMAF, and player UX remain follow-ons. |
 | HDR tone mapping | Shipped software-first slice | `docs/ARCHITECTURE.md`; `docs/adr/0044-playback-capability-profile-planner.md`; `docs/workstreams/hdr-tone-mapping-pipeline/` | Split hardware tone mapping, dynamic HDR handling, device profiles, UI controls, and operator smoke matrices into follow-ons. |
 | Audio downmix and normalization | Shipped first slice | `docs/workstreams/audio-compatibility-downmix-normalization/` | Persisted preferences, client controls, device profiles, and dialogue clarity remain follow-ons. |
-| Runtime resource scheduler | Shipped first slice | `docs/workstreams/playback-runtime-resource-scheduler/`; `docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md`; playback runtime diagnostics lanes | Add queueing, remote workers, OS isolation, per-device tuning, and disk-sensitive artifact I/O enforcement only through follow-on lanes. |
+| Runtime resource scheduler | Shipped first slice plus HLS artifact I/O admission | `docs/workstreams/playback-runtime-resource-scheduler/`; `docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md`; playback runtime diagnostics lanes | HLS artifact I/O session admission is enforced through playback resource permits. Add queueing, remote workers, OS isolation, per-device tuning, and per-artifact read/write pressure policy only through follow-on lanes. |
 | VFS/remote playback resilience | Partial | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md` | Timeout/circuit-breaker and remote staging hardening. |
 | SQLite/PostgreSQL write pressure | Good foundation | `docs/adr/0029-postgresql-ready-persistence-boundary.md`; `docs/adr/0030-postgresql-ready-sql-dialect-and-migration-policy.md`; PostgreSQL readiness lanes | Playback heartbeat/session-write pressure tests. |
 | Release and packaging | Partial | `docs/deployment/SELF_HOSTED.md`; `docs/deployment/RELEASE_CHECKLIST.md`; `scripts/release-gate.*` | FFmpeg/hardware matrix packaging gate. |
@@ -76,10 +76,10 @@ closeout. `playback-transcode-jellyfin-class-hardening` is closed after
 freezing and implementing the parallel Playback Capability, Transcode Pipeline
 Capability, FFmpeg Adapter, HLS Artifact Authority, and Playback Runtime
 slices. Playback Runtime supersede ownership now covers HLS candidate
-discovery, cancellation, bounded replacement admission, and playback-session
-cancellation after supersede. Keep PAIP artifact I/O pressure, resource
-admission queueing, remote workers, LL-HLS/CMAF, and player-facing follow-ons
-separate.
+discovery, cancellation, bounded replacement admission, playback-session
+cancellation after supersede, and first HLS artifact I/O session admission.
+Keep resource admission queueing, per-artifact read/write pressure, remote
+workers, LL-HLS/CMAF, and player-facing follow-ons separate.
 
 ### Lane A - Device Capability Profiles
 
@@ -240,7 +240,7 @@ Follow-ons:
 - remote transcode worker runtime;
 - OS-level cgroups, process priority, and GPU vendor scheduling;
 - per-device and per-host capacity tuning;
-- disk-sensitive HLS artifact read/write pressure enforcement.
+- per-artifact HLS read/write queueing and waitlist policy.
 
 ## Risk Register
 
