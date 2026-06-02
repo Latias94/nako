@@ -535,7 +535,7 @@ mod tests {
     fn manifest_keeps_client_cli_apache_and_outside_server_crates() {
         let manifest = include_str!("../Cargo.toml");
 
-        assert!(manifest.contains("license = \"Apache-2.0\""));
+        assert!(manifest.contains("license = \"Apache-2.0 OR MIT\""));
         assert!(manifest.contains("nako-client ="));
         for forbidden in [
             "nako-api",
