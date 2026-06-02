@@ -277,6 +277,7 @@ export type PublicMediaDataSource = {
     sessionId: string,
     body: PlaybackSessionHeartbeatRequest,
   ): Promise<void>
+  cancelPlaybackSession(sessionId: string): Promise<void>
   loadPlaybackPlan(
     itemId: string,
     mediaType: MediaItem["type"],
@@ -527,6 +528,9 @@ function createLiveMediaDataSource(
     async heartbeatPlaybackSession(sessionId, body) {
       await client.heartbeatPlaybackSession(sessionId, body)
     },
+    async cancelPlaybackSession(sessionId) {
+      await client.cancelPlaybackSession(sessionId)
+    },
     async loadPlaybackPlan(itemId, mediaType, requestedSourceId) {
       try {
         const detail = await client.getItem(itemId)
@@ -640,6 +644,9 @@ function createFixtureMediaDataSource(): PublicMediaDataSource {
       return fixturePlaybackState(itemId, undefined, body.position_ms ?? null, body.duration_ms, body.watched)
     },
     async heartbeatPlaybackSession() {
+      return undefined
+    },
+    async cancelPlaybackSession() {
       return undefined
     },
     async loadPlaybackPlan(itemId, mediaType, sourceId) {

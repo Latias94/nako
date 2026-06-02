@@ -2374,6 +2374,52 @@ describe("public media data source contracts", () => {
     )
   })
 
+  it("cancels playback sessions through the Public Client session route", async () => {
+    const calls: Array<{ method: string; path: string; authorization: string | null }> = []
+    const fetcher = vi.fn<FetchLike>(async (input, init) => {
+      const url = new URL(String(input))
+      calls.push({
+        method: init?.method ?? "GET",
+        path: url.pathname,
+        authorization: new Headers(init?.headers).get("Authorization"),
+      })
+
+      return jsonResponse({
+        session: {
+          id: "playback-session-1",
+          source_id: "source-1",
+          item_id: "live-movie",
+          mode: "hls",
+          state: "cancelled",
+          position_ms: null,
+          duration_ms: null,
+          started_at: "2026-05-28T10:00:00Z",
+          updated_at: "2026-05-28T10:00:01Z",
+          ended_at: "2026-05-28T10:00:01Z",
+        },
+      })
+    })
+    const source = createPublicMediaDataSource(
+      {
+        mode: "live",
+        baseUrl: "http://nako.test/",
+        bearerToken: "public-token",
+      },
+      fetcher,
+    )
+
+    await source.cancelPlaybackSession("playback-session-1")
+
+    expect(calls).toEqual([
+      {
+        method: "POST",
+        path: "/playback/sessions/playback-session-1/cancel",
+        authorization: "Bearer public-token",
+      },
+    ])
+    expect(JSON.stringify(calls)).not.toContain("ticket=")
+  })
+
   it("builds browser-ticket playback plans with sidecar subtitle track URLs", async () => {
     const ticketBodies: unknown[] = []
     const fetcher = vi.fn<FetchLike>(async (input, init) => {
@@ -2580,6 +2626,148 @@ describe("public media data source contracts", () => {
       {
         mode: "subtitle",
         subtitle_stream_index: 2,
+      },
+    ])
+  })
+
+  it("builds HLS browser-ticket playback plans from transcode decisions", async () => {
+    const ticketBodies: unknown[] = []
+    const fetcher = vi.fn<FetchLike>(async (input, init) => {
+      const url = new URL(String(input))
+
+      if (url.pathname === "/items/hls-movie") {
+        return jsonResponse({
+          item: publicMediaItem({ id: "hls-movie" }),
+          sources: [
+            {
+              id: "source-hls",
+              item_id: "hls-movie",
+              library_id: "library-a",
+              file_name: "Demo.mkv",
+              fingerprint: null,
+              size_bytes: 1024,
+            },
+          ],
+          collections: [],
+          credits: [],
+          genres: [],
+          images: [],
+          studios: [],
+          tags: [],
+        })
+      }
+
+      if (url.pathname === "/sources/source-hls/playback/decision") {
+        return jsonResponse({
+          source: {
+            id: "source-hls",
+            item_id: "hls-movie",
+            library_id: "library-a",
+            file_name: "Demo.mkv",
+            fingerprint: null,
+            size_bytes: 1024,
+          },
+          probe: null,
+          target: {
+            kind: "browser",
+            network_scope: "local",
+            transport_auth: "ticket",
+            control_capabilities: {
+              can_pause: true,
+              can_seek: true,
+              can_set_volume: true,
+              can_stop: true,
+            },
+            media_capabilities: {
+              direct_play: true,
+            },
+          },
+          decision: {
+            mode: "transcode",
+            reason: "video_codec",
+            direct_play: null,
+            transcode_plan: {
+              output_container: "hls",
+              video_codec: "h264",
+              audio_codec: "aac",
+            },
+            denial: null,
+            report: {
+              selected_mode: "transcode",
+              direct_play: { supported: false, conditions: ["video_codec"] },
+              remux: { supported: false, conditions: ["video_codec"] },
+              transcode: { supported: true, conditions: ["hls"] },
+            },
+          },
+        })
+      }
+
+      if (url.pathname === "/sources/source-hls/probe") {
+        return jsonResponse({
+          source_id: "source-hls",
+          probe: {
+            container: "matroska",
+            duration_ms: 60000,
+            bit_rate: null,
+            streams: [],
+          },
+        })
+      }
+
+      if (url.pathname === "/sources/source-hls/playback/browser-ticket") {
+        const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined
+        ticketBodies.push(body)
+        return jsonResponse({
+          source_id: "source-hls",
+          item_id: "hls-movie",
+          playback_session_id: "playback-session-hls",
+          mode: "hls",
+          expires_at: "2026-05-28T10:00:00Z",
+          urls: [
+            {
+              kind: "playlist",
+              url: "/sources/source-hls/stream/hls/playlist.m3u8?ticket=hls-ticket",
+              content_type: "application/vnd.apple.mpegurl",
+              supports_range_requests: false,
+            },
+          ],
+        })
+      }
+
+      return jsonResponse({ message: "not found" }, 404)
+    })
+
+    const source = createPublicMediaDataSource(
+      {
+        mode: "live",
+        baseUrl: "http://nako.test/",
+        bearerToken: "public-token",
+      },
+      fetcher,
+    )
+
+    const plan = await source.loadPlaybackPlan("hls-movie", "movie", "source-hls")
+
+    expect(plan).toMatchObject({
+      source: "live",
+      fallback: false,
+      sourceId: "source-hls",
+      playbackSessionId: "playback-session-hls",
+      mode: "hls",
+      mediaUrl: "http://nako.test/sources/source-hls/stream/hls/playlist.m3u8?ticket=hls-ticket",
+      mediaContentType: "application/vnd.apple.mpegurl",
+      subtitles: [],
+    })
+    expect(plan.mediaUrl).not.toContain("public-token")
+    expect(ticketBodies).toEqual([
+      {
+        mode: "hls",
+        capabilities: {
+          direct_play: true,
+          supports_subtitles: true,
+          hls_variant_policy: "single_variant",
+          hls_segment_container: "mpeg_ts",
+        },
       },
     ])
   })

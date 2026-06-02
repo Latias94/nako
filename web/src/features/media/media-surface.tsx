@@ -19,6 +19,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import {
+  cancelPublicPlaybackSession,
   heartbeatPublicPlaybackSession,
   useTrendingMedia,
   useCategoryMedia,
@@ -1103,6 +1104,7 @@ function MediaPlayerRoute({
       subtitles={liveSubtitles}
       playbackSessionId={shouldUsePlaybackPlan ? playbackPlan.data.playbackSessionId : undefined}
       onPlaybackHeartbeat={heartbeatPublicPlaybackSession}
+      onPlaybackCancel={cancelPublicPlaybackSession}
       diagnosticActions={
         playbackIssue ? (
           <ManagementContextLinks

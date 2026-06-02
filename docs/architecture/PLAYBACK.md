@@ -53,7 +53,7 @@ selection.
 | VFS/remote playback resilience | Partial | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md` | Timeout/circuit-breaker and remote staging hardening. |
 | SQLite/PostgreSQL write pressure | Good foundation | `docs/adr/0029-postgresql-ready-persistence-boundary.md`; `docs/adr/0030-postgresql-ready-sql-dialect-and-migration-policy.md`; PostgreSQL readiness lanes | Playback heartbeat/session-write pressure tests. |
 | Release and packaging | Partial | `docs/deployment/SELF_HOSTED.md`; `docs/deployment/RELEASE_CHECKLIST.md`; `scripts/release-gate.*` | FFmpeg/hardware matrix packaging gate. |
-| Web player integration | Partial | Media Web workstreams | HLS.js/Shaka integration and capability reporting. |
+| Web player integration | Shipped first slice | Media Web workstreams | Browser HLS playback now prefers native support and lazy-loads `hls.js` fallback while preserving Direct Play and ticket redaction. Follow with capability reporting, richer retry UX, and desktop/native player decisions. |
 
 ## Workstream Evidence
 

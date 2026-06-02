@@ -34,12 +34,20 @@ const budgets = [
     maxRawKiB: 360,
     maxGzipKiB: 90,
   },
+  {
+    name: "hls-engine-js",
+    pattern: /^hls-[\w-]+\.js$/,
+    required: false,
+    maxRawKiB: 540,
+    maxGzipKiB: 165,
+    excludeFromTotal: true,
+  },
 ]
 
 const totalJsBudget = {
   name: "total-js",
   maxRawKiB: 1_250,
-  maxGzipKiB: 345,
+  maxGzipKiB: 350,
 }
 
 if (!existsSync(assetsDir)) {
@@ -85,7 +93,13 @@ for (const budget of budgets) {
   })
 }
 
-const jsAssets = assetFiles.filter((file) => file.endsWith(".js")).map(readAsset)
+const totalExclusionPatterns = budgets
+  .filter((budget) => budget.excludeFromTotal)
+  .map((budget) => budget.pattern)
+const jsAssets = assetFiles
+  .filter((file) => file.endsWith(".js"))
+  .filter((file) => !totalExclusionPatterns.some((pattern) => pattern.test(basename(file))))
+  .map(readAsset)
 const totalJs = jsAssets.reduce(
   (acc, asset) => ({
     rawKiB: acc.rawKiB + asset.rawKiB,

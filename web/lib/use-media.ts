@@ -266,6 +266,10 @@ export async function heartbeatPublicPlaybackSession(
   await createPublicMediaDataSource().heartbeatPlaybackSession(sessionId, body)
 }
 
+export async function cancelPublicPlaybackSession(sessionId: string) {
+  await createPublicMediaDataSource().cancelPlaybackSession(sessionId)
+}
+
 export function usePlaybackPlan(
   itemId: string,
   mediaType: "movie" | "series",

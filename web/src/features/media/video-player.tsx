@@ -72,12 +72,67 @@ interface VideoPlayerProps {
     sessionId: string,
     body: PlaybackSessionHeartbeatRequest,
   ) => void | Promise<void>
+  onPlaybackCancel?: (sessionId: string) => void | Promise<void>
   diagnosticActions?: ReactNode
   hasPrevious?: boolean
   hasNext?: boolean
 }
 
 const PLAYBACK_HEARTBEAT_INTERVAL_MS = 30_000
+const HLS_CONTENT_TYPE_MARKERS = [
+  "application/vnd.apple.mpegurl",
+  "application/x-mpegurl",
+  "audio/mpegurl",
+  "mpegurl",
+]
+
+type HlsEngineState = "idle" | "native" | "loading" | "ready" | "unsupported" | "error"
+type HlsErrorData = { fatal?: boolean }
+type HlsEngine = {
+  attachMedia(media: HTMLMediaElement): void
+  loadSource(source: string): void
+  destroy(): void
+  on(event: string, listener: (event: string, data: HlsErrorData) => void): void
+}
+type HlsConstructor = {
+  new (): HlsEngine
+  isSupported(): boolean
+  Events: { ERROR: string }
+}
+
+async function loadHlsConstructor(): Promise<HlsConstructor> {
+  const module = await import("hls.js")
+  return module.default as HlsConstructor
+}
+
+function isHlsSource(source?: { url?: string; contentType?: string }) {
+  if (!source) {
+    return false
+  }
+
+  const contentType = source.contentType?.toLowerCase() ?? ""
+  if (HLS_CONTENT_TYPE_MARKERS.some((marker) => contentType.includes(marker))) {
+    return true
+  }
+
+  const url = source.url?.trim()
+  if (!url) {
+    return false
+  }
+
+  try {
+    return new URL(url, window.location.href).pathname.toLowerCase().endsWith(".m3u8")
+  } catch {
+    return url.split("?")[0]?.toLowerCase().endsWith(".m3u8") ?? false
+  }
+}
+
+function canUseNativeHls(video: HTMLVideoElement) {
+  return Boolean(
+    video.canPlayType("application/vnd.apple.mpegurl") ||
+      video.canPlayType("application/x-mpegURL"),
+  )
+}
 
 function secondsToMilliseconds(value?: number) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0
@@ -110,6 +165,7 @@ export function VideoPlayer({
   startTime = 0,
   playbackSessionId,
   onPlaybackHeartbeat,
+  onPlaybackCancel,
   diagnosticActions,
   hasPrevious = true,
   hasNext = true,
@@ -122,6 +178,8 @@ export function VideoPlayer({
   const [isMuted, setIsMuted] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isBuffering, setIsBuffering] = useState(false)
+  const [hlsEngineState, setHlsEngineState] = useState<HlsEngineState>("idle")
+  const [hlsEngineError, setHlsEngineError] = useState<string | null>(null)
   
   // UI 状态
   const [showControls, setShowControls] = useState(true)
@@ -146,6 +204,12 @@ export function VideoPlayer({
   const selectedSource = sources.find((source) => source.quality === selectedQuality) ?? sources[0]
   const selectedSourceUrl = selectedSource?.url?.trim() ?? ""
   const hasPlayableSource = selectedSourceUrl.length > 0
+  const isSelectedSourceHls = isHlsSource(selectedSource)
+  const hlsEngineReady = isSelectedSourceHls && (hlsEngineState === "native" || hlsEngineState === "ready")
+  const canDriveVideoElement = hasPlayableSource && (!isSelectedSourceHls || hlsEngineReady)
+  const shouldRenderNativeSource = hasPlayableSource && (!isSelectedSourceHls || hlsEngineState === "native")
+  const hlsIsPreparing = hasPlayableSource && isSelectedSourceHls && (hlsEngineState === "idle" || hlsEngineState === "loading")
+  const hlsHasFatalError = hasPlayableSource && isSelectedSourceHls && (hlsEngineState === "unsupported" || hlsEngineState === "error")
   const subtitleOptions = [{ id: "none", language: "关闭" }, ...subtitles]
 
   useEffect(() => {
@@ -189,6 +253,82 @@ export function VideoPlayer({
   }, [])
 
   useEffect(() => {
+    if (!hasPlayableSource || !isSelectedSourceHls) {
+      setHlsEngineState("idle")
+      setHlsEngineError(null)
+      return
+    }
+
+    const video = videoRef.current
+    if (!video) {
+      return
+    }
+
+    if (canUseNativeHls(video)) {
+      setHlsEngineState("native")
+      setHlsEngineError(null)
+      setIsBuffering(false)
+      return
+    }
+
+    let disposed = false
+    let engine: HlsEngine | null = null
+    setHlsEngineState("loading")
+    setHlsEngineError(null)
+    setIsBuffering(true)
+    video.removeAttribute("src")
+
+    void loadHlsConstructor()
+      .then((Hls) => {
+        if (disposed) {
+          return
+        }
+
+        if (!Hls.isSupported()) {
+          setHlsEngineState("unsupported")
+          setHlsEngineError("HLS playback is not supported in this browser.")
+          setIsBuffering(false)
+          return
+        }
+
+        engine = new Hls()
+        engine.on(Hls.Events.ERROR, (_event, data) => {
+          if (!data?.fatal) {
+            return
+          }
+
+          setHlsEngineState("error")
+          setHlsEngineError("HLS playback failed. Try another source or check the playback session.")
+          setIsBuffering(false)
+          setIsPlaying(false)
+          sendPlaybackHeartbeat("failed")
+          engine?.destroy()
+          engine = null
+        })
+        engine.attachMedia(video)
+        engine.loadSource(selectedSourceUrl)
+        setHlsEngineState("ready")
+        setIsBuffering(false)
+      })
+      .catch(() => {
+        if (disposed) {
+          return
+        }
+
+        setHlsEngineState("error")
+        setHlsEngineError("HLS playback engine could not be loaded.")
+        setIsBuffering(false)
+        setIsPlaying(false)
+        sendPlaybackHeartbeat("failed")
+      })
+
+    return () => {
+      disposed = true
+      engine?.destroy()
+    }
+  }, [hasPlayableSource, isSelectedSourceHls, selectedSourceUrl, sendPlaybackHeartbeat])
+
+  useEffect(() => {
     if (!hasPlayableSource || !playbackSessionId || !onPlaybackHeartbeat) {
       return
     }
@@ -199,6 +339,16 @@ export function VideoPlayer({
 
     return () => window.clearInterval(intervalId)
   }, [hasPlayableSource, onPlaybackHeartbeat, playbackSessionId, sendPlaybackHeartbeat])
+
+  useEffect(() => {
+    if (!hasPlayableSource || !playbackSessionId || !onPlaybackCancel) {
+      return
+    }
+
+    return () => {
+      void Promise.resolve(onPlaybackCancel(playbackSessionId)).catch(() => undefined)
+    }
+  }, [hasPlayableSource, onPlaybackCancel, playbackSessionId, selectedSourceUrl])
 
   useEffect(() => {
     if (!sources.some((source) => source.quality === selectedQuality)) {
@@ -242,7 +392,7 @@ export function VideoPlayer({
 
   useEffect(() => {
     const video = videoRef.current
-    if (!video || !hasPlayableSource) {
+    if (!video || !canDriveVideoElement) {
       return
     }
 
@@ -251,7 +401,7 @@ export function VideoPlayer({
     } else {
       video.pause()
     }
-  }, [hasPlayableSource, isPlaying, selectedSourceUrl])
+  }, [canDriveVideoElement, isPlaying, selectedSourceUrl])
 
   useEffect(() => {
     if (videoRef.current) {
@@ -261,7 +411,7 @@ export function VideoPlayer({
 
   useEffect(() => {
     const video = videoRef.current
-    if (!video || !hasPlayableSource) {
+    if (!video || !canDriveVideoElement) {
       return
     }
 
@@ -272,7 +422,7 @@ export function VideoPlayer({
         track.mode = sub.id === selectedSubtitle ? "showing" : "disabled"
       }
     })
-  }, [hasPlayableSource, selectedSubtitle, subtitles])
+  }, [canDriveVideoElement, selectedSubtitle, subtitles])
 
   // 自动隐藏控制栏
   const resetHideTimeout = useCallback(() => {
@@ -386,7 +536,7 @@ export function VideoPlayer({
       )}
       onMouseMove={resetHideTimeout}
       onClick={() => {
-        if (!showSettings) {
+        if (!showSettings && !hlsHasFatalError) {
           setIsPlaying(prev => !prev)
           resetHideTimeout()
         }
@@ -395,67 +545,98 @@ export function VideoPlayer({
       {/* 视频区域 */}
       <div className="absolute inset-0 flex items-center justify-center bg-black">
         {hasPlayableSource ? (
-          <video
-            ref={videoRef}
-            className="h-full w-full bg-black object-contain"
-            playsInline
-            preload="metadata"
-            onLoadedMetadata={(event) => {
-              const nextDuration = event.currentTarget.duration
-              capturePlaybackSnapshot(event.currentTarget)
-              if (Number.isFinite(nextDuration) && nextDuration > 0) {
-                setDuration(nextDuration)
-              }
-            }}
-            onTimeUpdate={(event) => {
-              capturePlaybackSnapshot(event.currentTarget)
-              setCurrentTime(event.currentTarget.currentTime)
-            }}
-            onWaiting={() => setIsBuffering(true)}
-            onCanPlay={() => setIsBuffering(false)}
-            onPlaying={(event) => {
-              capturePlaybackSnapshot(event.currentTarget)
-              setIsBuffering(false)
-              setIsPlaying(true)
-              sendPlaybackHeartbeat("active")
-            }}
-            onPause={(event) => {
-              capturePlaybackSnapshot(event.currentTarget)
-              setIsPlaying(false)
-              sendPlaybackHeartbeat("paused")
-            }}
-            onEnded={(event) => {
-              capturePlaybackSnapshot(event.currentTarget)
-              setIsPlaying(false)
-              sendPlaybackHeartbeat("ended")
-            }}
-            onError={(event) => {
-              capturePlaybackSnapshot(event.currentTarget)
-              setIsPlaying(false)
-              sendPlaybackHeartbeat("failed")
-            }}
-            data-testid="nako-video-player"
-          >
-            <source
-              src={selectedSourceUrl}
-              type={selectedSource?.contentType}
-              data-testid="nako-video-source"
-            />
-            {subtitles
-              .filter((sub) => sub.url?.trim())
-              .map((sub) => (
-                <track
-                  key={sub.id}
-                  kind="subtitles"
-                  src={sub.url}
-                  srcLang={sub.srcLang ?? "und"}
-                  label={sub.language}
-                  default={sub.default}
-                  data-subtitle-id={sub.id}
-                  data-testid="nako-video-subtitle-track"
+          <>
+            <video
+              ref={videoRef}
+              className="h-full w-full bg-black object-contain"
+              playsInline
+              preload="metadata"
+              onLoadedMetadata={(event) => {
+                const nextDuration = event.currentTarget.duration
+                capturePlaybackSnapshot(event.currentTarget)
+                if (Number.isFinite(nextDuration) && nextDuration > 0) {
+                  setDuration(nextDuration)
+                }
+              }}
+              onTimeUpdate={(event) => {
+                capturePlaybackSnapshot(event.currentTarget)
+                setCurrentTime(event.currentTarget.currentTime)
+              }}
+              onWaiting={() => setIsBuffering(true)}
+              onCanPlay={() => setIsBuffering(false)}
+              onPlaying={(event) => {
+                capturePlaybackSnapshot(event.currentTarget)
+                setIsBuffering(false)
+                setIsPlaying(true)
+                sendPlaybackHeartbeat("active")
+              }}
+              onPause={(event) => {
+                capturePlaybackSnapshot(event.currentTarget)
+                setIsPlaying(false)
+                sendPlaybackHeartbeat("paused")
+              }}
+              onEnded={(event) => {
+                capturePlaybackSnapshot(event.currentTarget)
+                setIsPlaying(false)
+                sendPlaybackHeartbeat("ended")
+              }}
+              onError={(event) => {
+                capturePlaybackSnapshot(event.currentTarget)
+                setIsPlaying(false)
+                sendPlaybackHeartbeat("failed")
+              }}
+              data-testid="nako-video-player"
+            >
+              {shouldRenderNativeSource ? (
+                <source
+                  src={selectedSourceUrl}
+                  type={selectedSource?.contentType}
+                  data-testid="nako-video-source"
                 />
-              ))}
-          </video>
+              ) : null}
+              {subtitles
+                .filter((sub) => sub.url?.trim())
+                .map((sub) => (
+                  <track
+                    key={sub.id}
+                    kind="subtitles"
+                    src={sub.url}
+                    srcLang={sub.srcLang ?? "und"}
+                    label={sub.language}
+                    default={sub.default}
+                    data-subtitle-id={sub.id}
+                    data-testid="nako-video-subtitle-track"
+                  />
+                ))}
+            </video>
+            {hlsIsPreparing ? (
+              <div
+                className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/60 text-white"
+                data-testid="nako-video-hls-status"
+              >
+                <Loader2 className="h-10 w-10 animate-spin" />
+                <p className="text-sm text-white/80">正在准备 HLS 播放</p>
+              </div>
+            ) : null}
+            {hlsHasFatalError ? (
+              <div
+                className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/75 px-6 text-center text-white"
+                data-testid="nako-video-hls-status"
+              >
+                <div>
+                  <p className="text-base font-medium">HLS 播放不可用</p>
+                  {hlsEngineError ? (
+                    <p className="mt-2 max-w-lg text-sm text-white/70">{hlsEngineError}</p>
+                  ) : null}
+                </div>
+                {diagnosticActions ? (
+                  <div className="max-w-xl" onClick={(event) => event.stopPropagation()}>
+                    {diagnosticActions}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </>
         ) : (
           <div className="text-muted-foreground">
           {isBuffering ? (
