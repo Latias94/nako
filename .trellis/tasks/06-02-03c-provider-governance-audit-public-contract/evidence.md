@@ -74,3 +74,23 @@ generated SDK output.
 - Fixed the final newline in `task.json`.
 - No schema, Public route, DTO, Provider Mapping write path, metadata service,
   server route, or database adapter path was changed.
+
+## Fresh Integration Evidence
+
+Date: 2026-06-02
+
+- Synced current `main` into the worktree with `git merge --no-edit main`; no
+  conflicts.
+- `cargo fmt --all -- --check` passed.
+- `cargo nextest run -p nako-api provider_governance_routes_and_types --no-fail-fast`
+  passed: 3 tests.
+- `cargo nextest run -p nako-api --no-fail-fast` passed: 79 tests.
+- `cargo nextest run -p nako-client-protocol public_route_inventory --no-fail-fast`
+  passed: 3 tests.
+- `cargo nextest run -p nako-metadata candidate_review_application -p nako-db metadata_candidate_review -p nako-server metadata_candidate_review --no-fail-fast`
+  passed: 18 tests.
+- `cargo check -p nako-core -p nako-metadata -p nako-api -p nako-server -p nako-db --tests`
+  passed.
+- `python ./.trellis/scripts/task.py validate 06-02-03c-provider-governance-audit-public-contract`
+  passed.
+- `git diff --check` passed.
