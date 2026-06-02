@@ -1,0 +1,86 @@
+# Provider Governance Durable Batch Execution - Evidence And Gates
+
+Status: Active
+Last updated: 2026-06-02
+
+## Opening Evidence
+
+Source coverage:
+
+- `CONTEXT.md` read for Nako domain terms.
+- ADR 0006, ADR 0007, ADR 0018, ADR 0021, and ADR 0053 were used as the
+  durable metadata/control-plane authority.
+- `docs/GOALS.md`, `docs/ROADMAP.md`, `docs/architecture/LANES.md`,
+  `docs/architecture/LIBRARY_PIPELINE.md`, `docs/architecture/CONTROL_PLANE.md`,
+  and `docs/architecture/WORKSTREAM_LINKS.md` were inspected after PGBR
+  closeout.
+- `docs/workstreams/provider-governance-bulk-review/CLOSEOUT.md` split durable
+  execution as this follow-on.
+- `scripts/workstream_inventory.py`, `scripts/program_status.py`, and
+  `scripts/validate_orchestration_state.py` are not present in this checkout;
+  manual `WORKSTREAM.json` status parsing found no active/draft workstreams
+  before this lane opened.
+- A read-only explorer independently recommended this lane as the next
+  focused workstream and warned against raw `tokio::spawn`, duplicate apply
+  executors, Generated Artifact table reuse, Public Client API expansion, and
+  related hierarchy application.
+
+Green opening gates for `PGDBE-010`:
+
+- `python -m json.tool docs/workstreams/provider-governance-durable-batch-execution/WORKSTREAM.json`
+- JSONL validation for `TASKS.jsonl`, `CAMPAIGNS.jsonl`, and `CONTEXT.jsonl`
+- `git diff --check`
+
+## PGDBE-020 Gate Plan
+
+Implementation scope:
+
+- Candidate Review durable batch types and constants in `nako-core`.
+- Candidate Review batch repository trait methods.
+- SQLite and PostgreSQL persistence.
+- Repository contract tests proving idempotency, status transitions, lookup, and
+  per-item outcomes.
+
+Validation:
+
+- `cargo test -p nako-db metadata_candidate_review_batch -- --nocapture`
+- `cargo check -p nako-core -p nako-db --tests`
+- `cargo fmt --all -- --check`
+- `git diff --check`
+
+Acceptance evidence must prove:
+
+- batch commit is idempotent by normalized idempotency key;
+- batch items preserve request order and plan snapshots;
+- batch status transitions fail closed on invalid expected states;
+- item outcome commits update only batch item state;
+- job kind/resource class are explicit and ready for runtime mapping;
+- no Provider Subject, Provider Mapping, Canonical Metadata, Admin API route,
+  Web UI, Public Client API, or related hierarchy state changes are introduced.
+
+## Later Gates
+
+`PGDBE-030`:
+
+- Admin create/status routes are redaction-safe and do not execute mutation.
+- Generated Admin contract is synchronized.
+- Route tests prove empty/duplicate/oversized inputs are rejected.
+
+`PGDBE-040`:
+
+- Execution uses `DurableJobRuntime`.
+- Per-item execution calls `MetadataCandidateReviewApplicationService`.
+- Cancellation checkpoints persist a terminal cancelled state.
+- Runtime resource-class mapping uses the metadata budget class.
+
+`PGDBE-050`:
+
+- Web Admin can create/read/poll durable batches.
+- Route-state tests and browser smoke prove no raw provider, secret, path,
+  source fingerprint, or raw idempotency-key facts render.
+
+## Tooling Gap
+
+The planner skill references orchestration scripts that are absent from this
+checkout. This workstream uses manual JSON/JSONL validation until a separate
+tooling follow-on restores or removes those script references.

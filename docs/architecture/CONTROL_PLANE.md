@@ -41,7 +41,7 @@ Deployment Endpoint Config
 | HTTP addon protocol | Shipped foundation | ADR 0003; ADR 0015; ADR 0020 | Addon Manager lifecycle is still deferred. |
 | Addon capability and token scopes | Shipped foundation | addon token/grant workstreams | Stronger hosted surface and route policy. |
 | Addon process supervision | Deferred | ADR 0020; ADR 0053 | `addon-manager-process-lifecycle`. |
-| Durable jobs | Shipped foundation plus schedulable partial | ADR 0006; runtime deepening lanes; durable job queue/resource lane | `proposed:durable-job-priority-policy-and-scheduler-migration` before playback-affecting work needs priority. |
+| Durable jobs | Shipped foundation plus schedulable partial; Candidate Review durable batch execution active | ADR 0006; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/` | Complete Candidate Review durable batch execution, then keep priority policy as a separate scheduler follow-on. |
 | Runtime supervisor | Shipped resource-accounted foundation | ADR 0019; server runtime deepening; durable job queue/resource lane | Unified trace context and broader scheduler migration remain follow-ons. |
 | Resource classes and budgets | Shipped process-local foundation | ADR 0005; playback/runtime lanes; durable job queue/resource lane | Broader job-kind scheduler migration after priority policy is concrete. |
 | Tracing/request identity | Partial | diagnostics and playback identity lanes | Unified trace context across HTTP/jobs/FFmpeg/VFS/addons. |
@@ -62,6 +62,25 @@ API scale workstreams. Keep this document focused on shared control-plane
 capabilities and risks.
 
 ## Next Work Lanes
+
+### provider-governance-durable-batch-execution
+
+Status: Active at
+`docs/workstreams/provider-governance-durable-batch-execution/`.
+
+Goal: Move Metadata Candidate Review batch apply from bounded synchronous
+Admin confirmation toward a durable job-backed workflow with persisted batch
+state, progress/status reads, cancellation checkpoints, and redacted per-item
+outcomes.
+
+Control-plane requirements:
+
+- create persists a durable job with explicit input;
+- execution uses `DurableJobRuntime` and runtime resource-class mapping;
+- per-item work calls the existing single-review application authority;
+- status reads expose operator-useful, redacted diagnostics;
+- no raw `tokio::spawn`, duplicate Provider Mapping executor, Public Client
+  API route, related hierarchy application, or Generated Artifact table reuse.
 
 ### generated-artifact-provider-mapping-breadth
 

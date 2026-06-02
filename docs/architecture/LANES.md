@@ -20,7 +20,7 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| _none_ | _none_ | _none_ | Open or select the next approved workstream before implementation. |
+| library-metadata-control-plane | `docs/workstreams/provider-governance-durable-batch-execution/` | `PGDBE-020` | Main terminal runs the approved persistence-foundation campaign; coordinate schema, API, runtime, and Web shared scopes before later tasks. |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
@@ -77,6 +77,11 @@ read-only Admin API batch Candidate Review application plan, bounded backend
 batch apply, Web Admin selection/plan/confirm/result governance, and split
 durable execution, related hierarchy application, Public Client API exposure,
 provider endpoint depth, and audit/undo governance into proposed follow-ons.
+`provider-governance-durable-batch-execution` is active after `PGDBE-010`.
+`PGDBE-020` owns only the core/DB durable batch state and repository contract;
+Admin routes, Web UI, execution loop, related hierarchy application, Public
+Client API exposure, provider endpoint depth, and audit/undo remain out of its
+first campaign.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
@@ -163,6 +168,10 @@ Owns Generated Artifact metadata authority, guarded Admin automation routes,
 metadata application, audit/outcome persistence, and the control-plane workflow
 that turns accepted generated artifacts into Canonical Metadata.
 
+Active evidence:
+
+- `docs/workstreams/provider-governance-durable-batch-execution/`
+
 Closed evidence:
 
 - `docs/workstreams/generated-artifact-bulk-metadata-apply/`
@@ -208,6 +217,7 @@ Owned scopes:
 - `docs/workstreams/admin-web-provider-depth-governance/`
 - `docs/workstreams/admin-candidate-review-list-navigation/`
 - `docs/workstreams/provider-governance-bulk-review/`
+- `docs/workstreams/provider-governance-durable-batch-execution/`
 
 Shared scopes requiring planner coordination:
 

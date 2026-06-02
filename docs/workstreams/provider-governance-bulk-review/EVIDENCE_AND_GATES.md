@@ -192,7 +192,7 @@ Closeout evidence:
 
 Follow-ons split:
 
-- `proposed:provider-governance-durable-batch-execution`;
+- `docs/workstreams/provider-governance-durable-batch-execution/` (active);
 - `proposed:provider-review-related-hierarchy-application`;
 - `proposed:douban-tv-episode-endpoint-depth`;
 - `proposed:provider-review-public-client-governance`;

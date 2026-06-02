@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "slug": "provider-governance-durable-batch-execution",
+  "title": "Provider Governance Durable Batch Execution",
+  "status": "active",
+  "updated": "2026-06-02",
+  "scope_kind": "admin_metadata_candidate_review_durable_batch_execution",
+  "problem": "Metadata Candidate Review batch apply is currently bounded and synchronous; durable progress, cancellation, retry-ready status, and larger operator selections need an ADR 0053 job-backed control-plane boundary.",
+  "task_prefix": "PGDBE",
+  "current_task": "PGDBE-020",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/provider-governance-durable-batch-execution/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/provider-governance-durable-batch-execution/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/provider-governance-durable-batch-execution/TODO.md"
+    },
+    {
+      "role": "task_state",
+      "path": "docs/workstreams/provider-governance-durable-batch-execution/TASKS.jsonl"
+    },
+    {
+      "role": "campaign_state",
+      "path": "docs/workstreams/provider-governance-durable-batch-execution/CAMPAIGNS.jsonl"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/provider-governance-durable-batch-execution/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "context_manifest",
+      "path": "docs/workstreams/provider-governance-durable-batch-execution/CONTEXT.jsonl"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/provider-governance-durable-batch-execution/HANDOFF.md"
+    }
+  ],
+  "context_manifest": "docs/workstreams/provider-governance-durable-batch-execution/CONTEXT.jsonl",
+  "gates": [
+    "python -m json.tool docs/workstreams/provider-governance-durable-batch-execution/WORKSTREAM.json",
+    "JSONL validation for docs/workstreams/provider-governance-durable-batch-execution/TASKS.jsonl, CAMPAIGNS.jsonl, and CONTEXT.jsonl",
+    "cargo test -p nako-db metadata_candidate_review_batch -- --nocapture",
+    "cargo check -p nako-core -p nako-db --tests",
+    "cargo fmt --all -- --check",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "PGDBE-010",
+      "summary": "Opened the durable Candidate Review batch execution lane after PGBR closeout and selected core/DB durable batch state as the first executable task."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0006-persist-job-inputs-and-explicit-retry-policy.md",
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0018-metadata-provider-runtime-and-diagnostics.md",
+    "docs/adr/0021-video-first-media-server-domain-model.md",
+    "docs/adr/0053-application-control-plane-boundary.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/LIBRARY_PIPELINE.md",
+      "capability": "Metadata Candidate Review durable batch execution"
+    },
+    {
+      "path": "docs/architecture/CONTROL_PLANE.md",
+      "capability": "durable job-backed metadata batch execution"
+    },
+    {
+      "path": "docs/architecture/LANES.md",
+      "capability": "library-metadata-control-plane active queue"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Provider Governance durable batch execution active lane"
+    }
+  ],
+  "capability_tags": [
+    "library.metadata.candidate-review.durable-batch",
+    "library.metadata.provider-governance",
+    "control-plane.jobs.metadata",
+    "admin.metadata-governance"
+  ],
+  "lane_slug": "library-metadata-control-plane",
+  "continue_policy": {
+    "default_action": "continue",
+    "current_task": "PGDBE-020",
+    "notes": "Continue with the approved PGDBE-20260602-01 campaign. Stop before Admin routes, Web UI, job execution loop, Public Client API exposure, related hierarchy application, provider endpoint breadth, or audit/undo unless a later task/campaign explicitly owns that scope."
+  }
+}

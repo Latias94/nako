@@ -1,0 +1,16 @@
+{"role":"domain-glossary","path":"CONTEXT.md","reason":"Use Nako terms such as Metadata Candidate Review, Provider Subject, Provider Mapping, Media Item, Admin API, and Public Client API."}
+{"role":"adr","path":"docs/adr/0006-persist-job-inputs-and-explicit-retry-policy.md","reason":"Durable batch execution must persist job input and retry-ready state explicitly."}
+{"role":"adr","path":"docs/adr/0007-metadata-merge-policy-and-local-authority.md","reason":"Candidate Review application remains explicit metadata governance, not hidden provider overwrite."}
+{"role":"adr","path":"docs/adr/0018-metadata-provider-runtime-and-diagnostics.md","reason":"Provider payloads, secrets, headers, proxy URLs, raw bodies, and paths must stay out of Admin batch status surfaces."}
+{"role":"adr","path":"docs/adr/0021-video-first-media-server-domain-model.md","reason":"Provider-specific subjects map through Provider Mapping rather than replacing Media Item identity."}
+{"role":"adr","path":"docs/adr/0053-application-control-plane-boundary.md","reason":"Important background batch execution must use durable jobs or supervised runtime boundaries."}
+{"role":"architecture","path":"docs/architecture/LIBRARY_PIPELINE.md","reason":"Library metadata candidate review and provider governance capability map."}
+{"role":"architecture","path":"docs/architecture/CONTROL_PLANE.md","reason":"Durable jobs, runtime supervision, resource classes, diagnostics, and API scale boundary."}
+{"role":"architecture","path":"docs/architecture/LANES.md","reason":"library-metadata-control-plane lane routing and shared-scope rules."}
+{"role":"architecture","path":"docs/architecture/WORKSTREAM_LINKS.md","reason":"Workstream evidence index and proposed follow-on naming."}
+{"role":"prior_workstream","path":"docs/workstreams/provider-governance-bulk-review/CLOSEOUT.md","reason":"Immediate predecessor that split durable execution as this focused follow-on."}
+{"role":"prior_workstream","path":"docs/workstreams/provider-governance-bulk-review/EVIDENCE_AND_GATES.md","reason":"Batch plan/apply validation evidence and preserved non-goals."}
+{"role":"prior_workstream","path":"docs/workstreams/admin-web-provider-depth-governance/CLOSEOUT.md","reason":"Direct single-review Admin/Web governance boundaries."}
+{"role":"prior_workstream","path":"docs/workstreams/accepted-review-provider-mapping-application/CLOSEOUT.md","reason":"Root Provider Subject and Provider Mapping application authority."}
+{"role":"prior_workstream","path":"docs/workstreams/durable-job-queue-and-resource-classes/WORKSTREAM.json","reason":"Durable job resource-class precedent and validation ladder."}
+{"role":"prior_workstream","path":"docs/workstreams/generated-artifact-bulk-metadata-apply/WORKSTREAM.json","reason":"Durable batch/job precedent; use as pattern only, not as shared state."}

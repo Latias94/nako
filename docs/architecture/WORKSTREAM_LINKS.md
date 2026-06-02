@@ -169,6 +169,7 @@ Evidence workstreams:
 - `docs/workstreams/admin-candidate-review-list-navigation/` (closed)
 - `docs/workstreams/provider-review-global-queue-search/` (closed)
 - `docs/workstreams/provider-governance-bulk-review/` (closed)
+- `docs/workstreams/provider-governance-durable-batch-execution/` (active)
 - `docs/workstreams/metadata-acquisition-pipeline/`
 - `docs/workstreams/metadata-profile-configuration-authority/`
 - `docs/workstreams/metadata-application-policy-seam/`
@@ -207,7 +208,6 @@ Proposed lanes:
 - `proposed:provider-review-related-hierarchy-application`
 - `proposed:douban-tv-episode-endpoint-depth`
 - `proposed:provider-identity-mapping-breadth`
-- `proposed:provider-governance-durable-batch-execution`
 - `proposed:provider-review-public-client-governance`
 - `proposed:provider-governance-audit-and-undo`
 
@@ -303,6 +303,7 @@ Evidence workstreams:
 - `docs/workstreams/durable-job-ownership-leases/`
 - `docs/workstreams/job-runtime-worker-control-plane/`
 - `docs/workstreams/worker-job-cancellation-checkpoints/`
+- `docs/workstreams/provider-governance-durable-batch-execution/` (active)
 - `docs/workstreams/admin-operations-read-models/`
 - `docs/workstreams/admin-web-console/`
 - `docs/workstreams/web-admin-generated-artifacts-automation/`

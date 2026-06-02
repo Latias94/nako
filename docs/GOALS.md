@@ -26,9 +26,59 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal is selected after Provider Governance Bulk
-Review closeout. Choose the next focused workstream from the proposed follow-on
-lanes before starting new runtime behavior.
+### Provider Governance Durable Batch Execution
+
+Status: active after `PGDBE-010`.
+
+Objective:
+
+- Move Metadata Candidate Review batch execution from bounded synchronous
+  confirmation toward a durable, job-backed Admin control-plane workflow.
+- Preserve existing single-review stale guard, idempotency, replay visibility,
+  root-only Provider Subject / Provider Mapping application, and redaction
+  semantics.
+- Start with Candidate Review specific durable batch state instead of copying
+  or reusing Generated Artifact apply outcome tables.
+
+Deliverables:
+
+- `docs/workstreams/provider-governance-durable-batch-execution/`;
+- Candidate Review durable batch records, item status, execution summary,
+  repository contract, and SQLite/PostgreSQL persistence;
+- explicit durable job kind/resource class for Candidate Review batch apply;
+- Admin create/status boundary and job-backed execution in later tasks;
+- Web Admin durable batch status only after backend semantics are stable.
+
+Non-goals:
+
+- no related Provider Subject, child Provider Mapping, or Media Item hierarchy
+  application;
+- no Public Client API route;
+- no Douban TV/episode endpoint depth or provider endpoint breadth;
+- no Generated Artifact apply outcome table reuse;
+- no hidden raw background execution outside ADR 0053 control-plane boundaries;
+- no audit/undo expansion beyond minimal batch/item outcome status evidence.
+
+Exit criteria:
+
+- `PGDBE-020` proves the core/DB durable batch state and repository contract;
+- `PGDBE-030` proves redaction-safe Admin create/status reads;
+- `PGDBE-040` proves job-backed execution through `DurableJobRuntime`;
+- `PGDBE-050` proves Web Admin durable status if included before closeout;
+- `PGDBE-060` closes the lane or splits unfinished scope.
+
+Evidence:
+
+- `docs/workstreams/provider-governance-durable-batch-execution/`
+- `docs/workstreams/provider-governance-bulk-review/CLOSEOUT.md`
+- `docs/adr/0053-application-control-plane-boundary.md`
+- `docs/architecture/LIBRARY_PIPELINE.md`
+- `docs/architecture/CONTROL_PLANE.md`
+- `docs/architecture/LANES.md`
+
+Current task:
+
+- `PGDBE-020`: core/DB durable batch state and repository contract.
 
 ## Recent Completed Goals
 
@@ -93,7 +143,7 @@ Completed tasks:
 
 Candidate follow-ons:
 
-- `proposed:provider-governance-durable-batch-execution`;
+- `docs/workstreams/provider-governance-durable-batch-execution/` (active);
 - `proposed:provider-review-related-hierarchy-application`;
 - `proposed:douban-tv-episode-endpoint-depth`;
 - `proposed:provider-review-public-client-governance`;
