@@ -41,6 +41,17 @@ pub(crate) struct StagingCleanupPressureSummary {
     pub(crate) cleanup_candidate_bytes: u64,
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) struct StagingManifestPressureSummary {
+    pub(crate) total_records: usize,
+    pub(crate) in_flight_records: usize,
+    pub(crate) failed_records: usize,
+    pub(crate) unknown_size_records: usize,
+    pub(crate) active_leases: u64,
+    pub(crate) ffmpeg_input_records: usize,
+    pub(crate) probe_input_records: usize,
+}
+
 impl StorageDiagnosticsAppService {
     pub(super) fn new(registry: StorageBackendRegistry) -> Self {
         Self { registry }
@@ -131,6 +142,64 @@ impl StorageDiagnosticsAppService {
                     .ok_or_else(|| NakoError::InvalidInput {
                         message: "storage staging cleanup diagnostics pagination offset overflowed"
                             .to_owned(),
+                    })?;
+        }
+    }
+
+    pub(crate) async fn summarize_staging_manifest_pressure(
+        &self,
+    ) -> Result<StagingManifestPressureSummary> {
+        let mut summary = StagingManifestPressureSummary::default();
+        let mut offset = 0;
+
+        loop {
+            let page = PageRequest::new(PageRequest::MAX_LIMIT, offset);
+            let records = self
+                .registry
+                .store
+                .list_staging_manifest_records(None, None, page)
+                .await?;
+            let returned = records.len();
+
+            for record in &records {
+                summary.total_records = summary.total_records.saturating_add(1);
+                summary.active_leases = summary
+                    .active_leases
+                    .saturating_add(u64::from(record.active_leases));
+                if record.size_bytes.is_none() {
+                    summary.unknown_size_records = summary.unknown_size_records.saturating_add(1);
+                }
+                match record.state {
+                    StagingState::Reserved | StagingState::Staging | StagingState::Leased => {
+                        summary.in_flight_records = summary.in_flight_records.saturating_add(1);
+                    }
+                    StagingState::Failed => {
+                        summary.failed_records = summary.failed_records.saturating_add(1);
+                    }
+                    StagingState::Ready | StagingState::Expired | StagingState::Deleted => {}
+                }
+                match record.purpose {
+                    StagingPurpose::FfmpegInput => {
+                        summary.ffmpeg_input_records =
+                            summary.ffmpeg_input_records.saturating_add(1);
+                    }
+                    StagingPurpose::ProbeInput => {
+                        summary.probe_input_records = summary.probe_input_records.saturating_add(1);
+                    }
+                }
+            }
+
+            if returned < PageRequest::MAX_LIMIT as usize {
+                return Ok(summary);
+            }
+
+            offset =
+                offset
+                    .checked_add(returned as u64)
+                    .ok_or_else(|| NakoError::InvalidInput {
+                        message:
+                            "storage staging pressure diagnostics pagination offset overflowed"
+                                .to_owned(),
                     })?;
         }
     }

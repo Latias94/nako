@@ -10,7 +10,7 @@ use nako_api::admin::{
     AdminMetadataCandidateReviewBatchPlanResponse, AdminMetadataCandidateReviewBatchResponse,
     AdminMetadataCandidateReviewListResponse, AdminMetadataCandidateReviewQueueResponse,
     AdminMetadataCandidateReviewResponse, AdminStorageBackendHealthDiagnosticsResponse,
-    AdminStorageBackendHealthResetResponse,
+    AdminStorageBackendHealthResetResponse, AdminStorageStagingPressureStatus,
 };
 use nako_core::{
     JobKind, JobRepository, JobStatus, METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS,
@@ -4800,7 +4800,7 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
         metadata: MetadataConfig::default(),
         transcode: TranscodeConfig::default(),
         staging: StagingConfig {
-            max_bytes: 9_999,
+            max_bytes: 50,
             retention_ms: 8_888,
             cleanup_on_startup: true,
         },
@@ -4896,6 +4896,34 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
         })
         .await
         .unwrap();
+    store
+        .upsert_staging_manifest_record(NewStagingManifestRecord {
+            id: StagingManifestId::new(),
+            source_uri: "webdav:///Movies/Private/Failed.mkv".to_owned(),
+            source_scheme: "webdav".to_owned(),
+            purpose: StagingPurpose::ProbeInput,
+            local_path: temp
+                .path()
+                .join("secret-cache")
+                .join("probe")
+                .join("Failed.mkv")
+                .display()
+                .to_string(),
+            size_bytes: None,
+            etag: Some("failed-etag-secret".to_owned()),
+            fingerprint: Some("failed-fingerprint-secret".to_owned()),
+            state: StagingState::Failed,
+            created_at_ms: 3_000,
+            updated_at_ms: 3_100,
+            last_accessed_at_ms: 3_200,
+            expires_at_ms: Some(3_300),
+            active_leases: 2,
+            validation_error: Some(
+                "backend raw error: F:\\Nako\\secret-cache\\token=secret".to_owned(),
+            ),
+        })
+        .await
+        .unwrap();
 
     let router = build_router(app);
     let response = router
@@ -4925,8 +4953,20 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
         diagnostics.admin_api_version,
         nako_api::admin::ADMIN_API_VERSION
     );
-    assert_eq!(diagnostics.summary.configured_max_bytes, 9_999);
+    assert_eq!(diagnostics.summary.configured_max_bytes, 50);
     assert_eq!(diagnostics.summary.used_manifest_bytes, 52);
+    assert_eq!(
+        diagnostics.summary.pressure.status,
+        AdminStorageStagingPressureStatus::Exhausted
+    );
+    assert_eq!(diagnostics.summary.pressure.used_ratio_milli, Some(1_040));
+    assert_eq!(diagnostics.summary.pressure.total_records, 3);
+    assert_eq!(diagnostics.summary.pressure.in_flight_records, 1);
+    assert_eq!(diagnostics.summary.pressure.failed_records, 1);
+    assert_eq!(diagnostics.summary.pressure.unknown_size_records, 1);
+    assert_eq!(diagnostics.summary.pressure.active_leases, 2);
+    assert_eq!(diagnostics.summary.pressure.ffmpeg_input_records, 1);
+    assert_eq!(diagnostics.summary.pressure.probe_input_records, 2);
     assert!(diagnostics.summary.cleanup_on_startup);
     assert_eq!(diagnostics.summary.retention_ms, 8_888);
     assert_eq!(diagnostics.summary.cleanup_candidate_records, 2);
@@ -4956,10 +4996,14 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
     assert!(!body.contains(&temp.path().display().to_string()));
     assert!(!body.contains("etag-secret"));
     assert!(!body.contains("fingerprint-secret"));
+    assert!(!body.contains("failed-etag-secret"));
+    assert!(!body.contains("failed-fingerprint-secret"));
     assert!(!body.contains("cache-etag-secret"));
     assert!(!body.contains("cache-fingerprint-secret"));
     assert!(!body.contains("cache failed at secret path"));
     assert!(!body.contains("failed at local secret path"));
+    assert!(!body.contains("backend raw error"));
+    assert!(!body.contains("token=secret"));
 }
 
 #[tokio::test]

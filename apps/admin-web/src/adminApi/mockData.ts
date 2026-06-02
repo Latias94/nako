@@ -1852,6 +1852,17 @@ export const mockStorageStaging: AdminStorageStagingDiagnosticsResponse = {
   summary: {
     configured_max_bytes: 10737418240,
     used_manifest_bytes: 2147483648,
+    pressure: {
+      status: "healthy",
+      used_ratio_milli: 200,
+      total_records: 2,
+      in_flight_records: 0,
+      failed_records: 1,
+      unknown_size_records: 1,
+      active_leases: 1,
+      ffmpeg_input_records: 2,
+      probe_input_records: 0,
+    },
     cleanup_on_startup: true,
     retention_ms: 86400000,
     startup_deleted_records: 4,

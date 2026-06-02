@@ -546,6 +546,17 @@ function adminStorageStagingResponse() {
     summary: {
       configured_max_bytes: 1000,
       used_manifest_bytes: 250,
+      pressure: {
+        status: "healthy",
+        used_ratio_milli: 250,
+        total_records: 0,
+        in_flight_records: 0,
+        failed_records: 0,
+        unknown_size_records: 0,
+        active_leases: 0,
+        ffmpeg_input_records: 0,
+        probe_input_records: 0,
+      },
       cleanup_on_startup: true,
       retention_ms: 86400000,
       startup_deleted_records: 0,

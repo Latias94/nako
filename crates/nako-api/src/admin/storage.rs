@@ -19,6 +19,7 @@ pub struct AdminStorageStagingDiagnosticsResponse {
 pub struct AdminStorageStagingSummary {
     pub configured_max_bytes: u64,
     pub used_manifest_bytes: u64,
+    pub pressure: AdminStorageStagingPressureSummary,
     pub cleanup_on_startup: bool,
     pub retention_ms: u64,
     pub startup_deleted_records: u32,
@@ -27,6 +28,29 @@ pub struct AdminStorageStagingSummary {
     pub cleanup_candidate_bytes: u64,
     pub process_cached_backends: u32,
     pub vfs_cache: AdminVfsCacheSummary,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminStorageStagingPressureStatus {
+    Disabled,
+    Healthy,
+    Elevated,
+    Critical,
+    Exhausted,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminStorageStagingPressureSummary {
+    pub status: AdminStorageStagingPressureStatus,
+    pub used_ratio_milli: Option<u32>,
+    pub total_records: u32,
+    pub in_flight_records: u32,
+    pub failed_records: u32,
+    pub unknown_size_records: u32,
+    pub active_leases: u32,
+    pub ffmpeg_input_records: u32,
+    pub probe_input_records: u32,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

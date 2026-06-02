@@ -295,6 +295,25 @@ export interface AdminStorageStagingQuery extends AdminPageQuery {
 
 export interface AdminStorageBackendsQuery extends AdminPageQuery {}
 
+export type AdminStorageStagingPressureStatus =
+  | "disabled"
+  | "healthy"
+  | "elevated"
+  | "critical"
+  | "exhausted";
+
+export interface AdminStorageStagingPressureSummary {
+  status: AdminStorageStagingPressureStatus;
+  used_ratio_milli: number | null;
+  total_records: number;
+  in_flight_records: number;
+  failed_records: number;
+  unknown_size_records: number;
+  active_leases: number;
+  ffmpeg_input_records: number;
+  probe_input_records: number;
+}
+
 export type StorageBackendHealthStatus =
   | "healthy"
   | "recovering"
@@ -2856,6 +2875,7 @@ export interface AdminStorageStagingDiagnosticsResponse {
   summary: {
     configured_max_bytes: number;
     used_manifest_bytes: number;
+    pressure: AdminStorageStagingPressureSummary;
     cleanup_on_startup: boolean;
     retention_ms: number;
     startup_deleted_records: number;
@@ -3418,6 +3438,8 @@ mod tests {
             "AdminJobCommandResponse",
             "AdminStorageBackendsQuery",
             "AdminStorageStagingQuery",
+            "AdminStorageStagingPressureStatus",
+            "AdminStorageStagingPressureSummary",
             "StorageBackendHealthStatus",
             "StorageCircuitBreakerState",
             "StorageFailureClass",

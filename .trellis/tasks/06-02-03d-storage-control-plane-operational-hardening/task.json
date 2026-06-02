@@ -3,7 +3,7 @@
   "name": "03d-storage-control-plane-operational-hardening",
   "title": "Storage control plane operational hardening",
   "description": "Storage/VFS and control-plane operational hardening slice for reliability, diagnostics, or scheduling.",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": "implementation",
   "scope": "storage-vfs",
   "package": "nako",

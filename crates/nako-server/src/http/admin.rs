@@ -77,10 +77,11 @@ use nako_api::{
         AdminRuntimeConfigDiagnostics, AdminServerConfigDiagnosticsResponse,
         AdminSetLocalPasswordRequest, AdminStorageBackendHealthDiagnostic,
         AdminStorageBackendHealthDiagnosticsResponse, AdminStorageBackendHealthResetResponse,
-        AdminStorageStagingDiagnosticsResponse, AdminStorageStagingRecord,
-        AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics,
-        AdminTranscodePipelineReadiness, AdminTranscodePipelineReadinessStatus,
-        AdminTrustedProxyDiagnostics, AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
+        AdminStorageStagingDiagnosticsResponse, AdminStorageStagingPressureStatus,
+        AdminStorageStagingPressureSummary, AdminStorageStagingRecord, AdminStorageStagingSummary,
+        AdminTranscodeConfigDiagnostics, AdminTranscodePipelineReadiness,
+        AdminTranscodePipelineReadinessStatus, AdminTrustedProxyDiagnostics,
+        AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
         AdminUpdateLibraryMetadataProfileRequest, AdminUpdateMetadataRawCacheSettingsRequest,
         AdminUpdatePlaybackRuntimeSettingsRequest, AdminUpdateUserStatusRequest,
         AdminUpsertLibraryAccessPolicyRequest, AdminVfsCacheSummary,
@@ -1742,6 +1743,7 @@ pub(super) async fn list_admin_storage_staging(
         .storage()
         .summarize_staging_cleanup_pressure(now_ms)
         .await?;
+    let manifest_pressure = app.storage().summarize_staging_manifest_pressure().await?;
     let vfs_cache = app.storage().summarize_vfs_cache(now_ms).await?;
 
     Ok(Json(AdminStorageStagingDiagnosticsResponse {
@@ -1750,6 +1752,17 @@ pub(super) async fn list_admin_storage_staging(
         summary: AdminStorageStagingSummary {
             configured_max_bytes: app.config().staging.max_bytes,
             used_manifest_bytes,
+            pressure: storage_staging_pressure_summary(
+                app.config().staging.max_bytes,
+                used_manifest_bytes,
+                manifest_pressure.total_records,
+                manifest_pressure.in_flight_records,
+                manifest_pressure.failed_records,
+                manifest_pressure.unknown_size_records,
+                manifest_pressure.active_leases,
+                manifest_pressure.ffmpeg_input_records,
+                manifest_pressure.probe_input_records,
+            ),
             cleanup_on_startup: app.config().staging.cleanup_on_startup,
             retention_ms: app.config().staging.retention_ms,
             startup_deleted_records: startup
@@ -1775,6 +1788,70 @@ pub(super) async fn list_admin_storage_staging(
         records,
         page: page_info_from_request(page, returned),
     }))
+}
+
+fn storage_staging_pressure_summary(
+    configured_max_bytes: u64,
+    used_manifest_bytes: u64,
+    total_records: usize,
+    in_flight_records: usize,
+    failed_records: usize,
+    unknown_size_records: usize,
+    active_leases: u64,
+    ffmpeg_input_records: usize,
+    probe_input_records: usize,
+) -> AdminStorageStagingPressureSummary {
+    AdminStorageStagingPressureSummary {
+        status: storage_staging_pressure_status(configured_max_bytes, used_manifest_bytes),
+        used_ratio_milli: storage_staging_used_ratio_milli(
+            configured_max_bytes,
+            used_manifest_bytes,
+        ),
+        total_records: usize_to_u32(total_records),
+        in_flight_records: usize_to_u32(in_flight_records),
+        failed_records: usize_to_u32(failed_records),
+        unknown_size_records: usize_to_u32(unknown_size_records),
+        active_leases: u64_to_u32(active_leases),
+        ffmpeg_input_records: usize_to_u32(ffmpeg_input_records),
+        probe_input_records: usize_to_u32(probe_input_records),
+    }
+}
+
+fn storage_staging_pressure_status(
+    configured_max_bytes: u64,
+    used_manifest_bytes: u64,
+) -> AdminStorageStagingPressureStatus {
+    if configured_max_bytes == 0 {
+        return AdminStorageStagingPressureStatus::Disabled;
+    }
+
+    let configured = u128::from(configured_max_bytes);
+    let used = u128::from(used_manifest_bytes);
+
+    if used >= configured {
+        AdminStorageStagingPressureStatus::Exhausted
+    } else if used.saturating_mul(100) >= configured.saturating_mul(90) {
+        AdminStorageStagingPressureStatus::Critical
+    } else if used.saturating_mul(100) >= configured.saturating_mul(75) {
+        AdminStorageStagingPressureStatus::Elevated
+    } else {
+        AdminStorageStagingPressureStatus::Healthy
+    }
+}
+
+fn storage_staging_used_ratio_milli(
+    configured_max_bytes: u64,
+    used_manifest_bytes: u64,
+) -> Option<u32> {
+    if configured_max_bytes == 0 {
+        return None;
+    }
+
+    let ratio = u128::from(used_manifest_bytes)
+        .saturating_mul(1_000)
+        .saturating_div(u128::from(configured_max_bytes));
+
+    Some(ratio.min(u128::from(u32::MAX)) as u32)
 }
 
 fn network_access_diagnostics(
@@ -3010,4 +3087,39 @@ fn playback_readiness_diagnostics(
 
 fn usize_to_u32(value: usize) -> u32 {
     u32::try_from(value).unwrap_or(u32::MAX)
+}
+
+fn u64_to_u32(value: u64) -> u32 {
+    u32::try_from(value).unwrap_or(u32::MAX)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn storage_staging_pressure_status_uses_redacted_thresholds() {
+        assert_eq!(
+            storage_staging_pressure_status(0, 10),
+            AdminStorageStagingPressureStatus::Disabled
+        );
+        assert_eq!(
+            storage_staging_pressure_status(1_000, 749),
+            AdminStorageStagingPressureStatus::Healthy
+        );
+        assert_eq!(
+            storage_staging_pressure_status(1_000, 750),
+            AdminStorageStagingPressureStatus::Elevated
+        );
+        assert_eq!(
+            storage_staging_pressure_status(1_000, 900),
+            AdminStorageStagingPressureStatus::Critical
+        );
+        assert_eq!(
+            storage_staging_pressure_status(1_000, 1_000),
+            AdminStorageStagingPressureStatus::Exhausted
+        );
+        assert_eq!(storage_staging_used_ratio_milli(0, 10), None);
+        assert_eq!(storage_staging_used_ratio_milli(1_000, 1_250), Some(1_250));
+    }
 }
