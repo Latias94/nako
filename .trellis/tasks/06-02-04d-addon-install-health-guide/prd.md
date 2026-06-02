@@ -22,14 +22,14 @@ boundary.
 
 ## Acceptance Criteria
 
-- [ ] The selected addon onboarding slice is documented with the reason it is
+- [x] The selected addon onboarding slice is documented with the reason it is
   the smallest useful step.
-- [ ] Install guide or health-readiness output is typed, redaction-safe, and
+- [x] Install guide or health-readiness output is typed, redaction-safe, and
   testable.
-- [ ] Addon Protocol compatibility is preserved or version impact is explicitly
+- [x] Addon Protocol compatibility is preserved or version impact is explicitly
   documented.
-- [ ] Official addon catalog/client behavior remains compatible.
-- [ ] Follow-ons are recorded for Addon Manager, hosted settings, token
+- [x] Official addon catalog/client behavior remains compatible.
+- [x] Follow-ons are recorded for Addon Manager, hosted settings, token
   rotation, official provider breadth, or cross-repo addon implementation.
 
 ## Definition of Done
