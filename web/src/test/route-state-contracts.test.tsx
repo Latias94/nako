@@ -900,6 +900,101 @@ describe("route state contracts", () => {
     }
   })
 
+  it("navigates global Admin metadata candidate review queues into existing detail", async () => {
+    const user = userEvent.setup()
+    const originalFetch = globalThis.fetch
+    const previousProfile = window.localStorage.getItem(CONNECTION_PROFILE_STORAGE_KEY)
+    const previousSession = window.sessionStorage.getItem(CONNECTION_SESSION_STORAGE_KEY)
+    const calls: Array<{
+      method: string
+      path: string
+      authorization: string | null
+    }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      const method = init?.method ?? "GET"
+      calls.push({
+        method,
+        path: `${url.pathname}${url.search}`,
+        authorization: new Headers(init?.headers).get("Authorization"),
+      })
+
+      switch (`${method} ${url.pathname}`) {
+        case "GET /admin/v1/metadata/candidate-reviews":
+          return jsonResponse(adminMetadataCandidateReviewQueueResponse())
+        case "GET /admin/v1/metadata/candidate-reviews/review-live-older":
+          return jsonResponse(adminMetadataCandidateReviewResponse("review-live-older"))
+        default:
+          return jsonResponse({ code: "not_found", message: "not found" }, 404)
+      }
+    })
+
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako-admin.test",
+      }),
+    )
+    window.sessionStorage.setItem(
+      CONNECTION_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        bearerToken: "admin-token",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+
+    try {
+      const { router } = renderRoute(
+        "/admin/metadata/candidate-reviews?status=accepted&provider=bangumi&limit=25&offset=0",
+      )
+
+      expect(await screen.findByText("review-live-newer", {}, { timeout: 10000 })).toBeInTheDocument()
+      expect(await screen.findByText("Global Candidate Review queue", {}, { timeout: 10000 })).toBeInTheDocument()
+      expect(screen.getByText("review-live-older")).toBeInTheDocument()
+      expect(screen.queryByText("secret candidate overview")).not.toBeInTheDocument()
+      expect(screen.queryByText("local:///Private/Live.S01E02.mkv?token=secret")).not.toBeInTheDocument()
+      expect(screen.queryByText("provider secret response")).not.toBeInTheDocument()
+
+      await user.click(
+        screen.getByRole("button", {
+          name: /查看 Candidate Review review-live-older/,
+        }),
+      )
+
+      expect(router.state.location.pathname).toBe("/admin/metadata/candidate-reviews")
+      expect(router.state.location.search).toMatchObject({
+        mode: "queue",
+        review_id: "review-live-older",
+        status: "accepted",
+        provider: "bangumi",
+        limit: 25,
+      })
+      expect(await screen.findByText("Root Provider Mapping", {}, { timeout: 10000 })).toBeInTheDocument()
+
+      const candidateReviewCalls = calls.filter((call) =>
+        call.path.includes("/admin/v1/metadata/"),
+      )
+      expect(candidateReviewCalls).toEqual([
+        {
+          method: "GET",
+          path: "/admin/v1/metadata/candidate-reviews?status=accepted&provider=bangumi&limit=25&offset=0",
+          authorization: "Bearer admin-token",
+        },
+        {
+          method: "GET",
+          path: "/admin/v1/metadata/candidate-reviews/review-live-older",
+          authorization: "Bearer admin-token",
+        },
+      ])
+    } finally {
+      vi.stubGlobal("fetch", originalFetch)
+      restoreStorage(window.localStorage, CONNECTION_PROFILE_STORAGE_KEY, previousProfile)
+      restoreStorage(window.sessionStorage, CONNECTION_SESSION_STORAGE_KEY, previousSession)
+    }
+  })
+
   it("runs live Admin generated artifact metadata bulk apply through plan, confirm, and status", async () => {
     const user = userEvent.setup()
     const originalFetch = globalThis.fetch
@@ -2436,6 +2531,21 @@ function adminMetadataCandidateReviewListResponse(itemId = "item-live") {
       offset: 0,
       returned: 2,
     },
+  }
+}
+
+function adminMetadataCandidateReviewQueueResponse() {
+  const list = adminMetadataCandidateReviewListResponse("item-live")
+
+  return {
+    admin_api_version: list.admin_api_version,
+    public_api_version: list.public_api_version,
+    reviews: list.reviews.map((review, index) => ({
+      ...review,
+      item_id: index === 0 ? "item-live" : "item-live-other",
+    })),
+    page: list.page,
+    raw_provider_response: "provider secret response",
   }
 }
 

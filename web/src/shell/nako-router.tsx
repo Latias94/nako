@@ -971,9 +971,30 @@ interface AdminGeneratedArtifactMetadataApplyRouteSearch {
   artifact_id?: string
 }
 
+const ADMIN_METADATA_CANDIDATE_REVIEW_MODES = ["queue", "item"] as const
+const ADMIN_METADATA_CANDIDATE_REVIEW_STATUSES = [
+  "all",
+  "pending",
+  "accepted",
+  "rejected",
+  "superseded",
+  "expired",
+] as const
+const ADMIN_METADATA_CANDIDATE_REVIEW_PROVIDERS = [
+  "all",
+  "tmdb",
+  "douban",
+  "bangumi",
+  "imdb",
+  "local",
+] as const
+
 interface AdminMetadataCandidateReviewRouteSearch {
+  mode?: AdminMetadataCandidateReviewRouteState["mode"]
   item_id?: string
   review_id?: string
+  status?: AdminMetadataCandidateReviewRouteState["status"]
+  provider?: AdminMetadataCandidateReviewRouteState["provider"]
   limit?: number
   offset?: number
 }
@@ -1044,8 +1065,11 @@ function validateAdminMetadataCandidateReviewSearch(
   search: Record<string, unknown>,
 ): AdminMetadataCandidateReviewRouteSearch {
   return {
+    mode: parseAdminLogValue(search.mode, [...ADMIN_METADATA_CANDIDATE_REVIEW_MODES]),
     item_id: parseSearchString(search.item_id),
     review_id: parseSearchString(search.review_id),
+    status: parseAdminLogValue(search.status, [...ADMIN_METADATA_CANDIDATE_REVIEW_STATUSES]),
+    provider: parseAdminLogValue(search.provider, [...ADMIN_METADATA_CANDIDATE_REVIEW_PROVIDERS]),
     limit: parsePositiveInteger(search.limit),
     offset: parseNonNegativeInteger(search.offset),
   }
@@ -1166,8 +1190,11 @@ function adminMetadataCandidateReviewStateFromSearch(
   search: AdminMetadataCandidateReviewRouteSearch,
 ): AdminMetadataCandidateReviewRouteState {
   return {
+    mode: search.mode,
     itemId: search.item_id,
     reviewId: search.review_id,
+    status: search.status,
+    provider: search.provider,
     limit: search.limit,
     offset: search.offset,
   }
@@ -1218,8 +1245,14 @@ function toAdminGeneratedArtifactReviewSearch(state: AdminGeneratedArtifactRevie
 
 function toAdminMetadataCandidateReviewSearch(state: AdminMetadataCandidateReviewRouteState) {
   return {
+    mode: state.mode === "queue" && state.reviewId ? state.mode : undefined,
     item_id: state.itemId || undefined,
     review_id: state.reviewId || undefined,
+    status:
+      state.status && (state.status !== "accepted" || (state.mode === "queue" && Boolean(state.reviewId)))
+        ? state.status
+        : undefined,
+    provider: state.provider && state.provider !== "all" ? state.provider : undefined,
     limit: state.limit && state.limit !== 50 ? state.limit : undefined,
     offset: state.offset && state.offset > 0 ? state.offset : undefined,
   }

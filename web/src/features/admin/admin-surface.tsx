@@ -167,6 +167,7 @@ const adminNavGroups: AdminNavGroup[] = [
       { name: "采集入口", icon: FileSearch, component: "acquisition-intake" },
       { name: "生成产物", icon: Sparkles, component: "generated-artifacts" },
       { name: "恢复队列", icon: RotateCcw, component: "generated-artifact-recovery" },
+      { name: "候选评审", icon: CheckCircle2, component: "metadata-candidate-review" },
     ]
   },
   {

@@ -115,3 +115,35 @@ Environment note:
 
 - `cargo nextest run -p nako-server metadata_candidate_review` could not run
   because local Cargo has no `nextest` subcommand installed.
+
+## PRGQ-030 Evidence
+
+Implemented behavior:
+
+- added Web Admin client/read-model support for the global Candidate Review
+  queue route and fixture fallback;
+- added global queue mode to the Candidate Review page with status/provider
+  filters, stable pagination, row-level item IDs, and route-state preservation
+  into the existing detail/apply page;
+- added a sidebar navigation entry for Candidate Review discovery;
+- kept Web behavior read-only for queue rows: no batch apply, status mutation,
+  hierarchy application, Public Client API, or provider endpoint depth;
+- raised `total-js` gzip bundle budget from 343 KiB to 344 KiB after the new
+  queue navigation increased the measured total to 343.14 KiB.
+
+Green checks:
+
+- `npm --prefix web run check` passed.
+- `npm --prefix web run test -- src/test/data-source-contracts.test.ts src/test/route-state-contracts.test.ts`
+  passed: 2 files, 78 tests.
+- `npm --prefix web run test` passed: 10 files, 120 tests.
+- `npm --prefix web run build:budget` passed: total-js 343.14/344 KiB gzip.
+- Playwright smoke passed against
+  `http://127.0.0.1:3001/admin/metadata/candidate-reviews`: global queue
+  rendered, sidebar `候选评审` was present, clicking a queue row navigated to
+  the existing detail/apply surface, and the console had no page errors.
+
+Environment note:
+
+- Port 3000 was already occupied, so the smoke dev server was started from
+  `web/` on port 3001.

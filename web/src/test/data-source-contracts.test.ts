@@ -742,6 +742,21 @@ function adminMetadataCandidateReviewListResponse(itemId = "item-live") {
   }
 }
 
+function adminMetadataCandidateReviewQueueResponse() {
+  const list = adminMetadataCandidateReviewListResponse("item/unsafe id")
+
+  return {
+    admin_api_version: list.admin_api_version,
+    public_api_version: list.public_api_version,
+    reviews: list.reviews.map((review, index) => ({
+      ...review,
+      item_id: index === 0 ? "item/unsafe id" : "item-live-other",
+    })),
+    page: list.page,
+    raw_provider_response: "provider secret response",
+  }
+}
+
 function adminMetadataCandidateReviewApplyResponse(reviewId = "review-live") {
   return {
     admin_api_version: "v1",
@@ -3382,6 +3397,85 @@ describe("admin read model data source contracts", () => {
     ])
 
     const serialized = JSON.stringify(list)
+    expect(serialized).not.toContain("secret candidate overview")
+    expect(serialized).not.toContain("secret related overview")
+    expect(serialized).not.toContain("secret-candidate-tag")
+    expect(serialized).not.toContain("local:///")
+    expect(serialized).not.toContain("sha256-private")
+    expect(serialized).not.toContain("provider secret response")
+  })
+
+  it("maps live Admin metadata candidate review global queues into redacted navigation rows", async () => {
+    const calls: Array<{ method: string; path: string; authorization: string | null }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      calls.push({
+        method: init?.method ?? "GET",
+        path: `${url.pathname}${url.search}`,
+        authorization: new Headers(init?.headers).get("Authorization"),
+      })
+
+      if (url.pathname === "/admin/v1/metadata/candidate-reviews") {
+        return jsonResponse(adminMetadataCandidateReviewQueueResponse())
+      }
+
+      return jsonResponse({ message: "not found" }, 404)
+    })
+    const source = createAdminReadModelsDataSource(
+      {
+        mode: "live",
+        baseUrl: "http://nako-admin.test/",
+        bearerToken: "admin-token",
+      },
+      fetcher,
+    )
+
+    const queue = await source.loadMetadataCandidateReviews({
+      status: "accepted",
+      provider: "bangumi",
+      limit: 25,
+      offset: 50,
+    })
+
+    expect(queue).toMatchObject({
+      source: "live",
+      fallback: false,
+      versions: {
+        adminApi: "v1",
+        publicApi: "v1",
+      },
+      page: {
+        limit: 25,
+        offset: 50,
+        returned: 2,
+      },
+      reviews: [
+        {
+          reviewId: "review-live-newer",
+          itemId: "item/unsafe id",
+          status: "pending",
+          sourceLabel: "bangumi",
+          sourceKey: "bangumi:newer",
+          applicationAction: "skip",
+        },
+        {
+          reviewId: "review-live-older",
+          itemId: "item-live-other",
+          status: "accepted",
+          applicationAction: "apply",
+        },
+      ],
+    })
+
+    expect(calls).toEqual([
+      {
+        method: "GET",
+        path: "/admin/v1/metadata/candidate-reviews?status=accepted&provider=bangumi&limit=25&offset=50",
+        authorization: "Bearer admin-token",
+      },
+    ])
+
+    const serialized = JSON.stringify(queue)
     expect(serialized).not.toContain("secret candidate overview")
     expect(serialized).not.toContain("secret related overview")
     expect(serialized).not.toContain("secret-candidate-tag")

@@ -30,7 +30,7 @@ Exit criteria:
 
 ## M2 - Web Admin Global Queue Navigation
 
-Status: Ready at `PRGQ-030`.
+Status: Complete after `PRGQ-030`.
 
 Exit criteria:
 
@@ -42,7 +42,7 @@ Exit criteria:
 
 ## M3 - Closeout And Follow-On Split
 
-Status: Pending `PRGQ-030`.
+Status: Ready at `PRGQ-040`.
 
 Exit criteria:
 

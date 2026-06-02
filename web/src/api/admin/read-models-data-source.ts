@@ -45,6 +45,8 @@ import type {
   AdminMetadataCandidateReviewNode,
   AdminMetadataCandidateReviewProviderMapping,
   AdminMetadataCandidateReviewProviderSubject,
+  AdminMetadataCandidateReviewQueueQuery,
+  AdminMetadataCandidateReviewQueueResponse,
   AdminMetadataCandidateReviewRelationship,
   AdminMetadataCandidateReviewResponse,
   AdminMetadataCandidateSubject,
@@ -703,6 +705,19 @@ export interface AdminMetadataCandidateReviewListReadModel extends AdminReadMode
   }
 }
 
+export interface AdminMetadataCandidateReviewQueueReadModel extends AdminReadModelEnvelope {
+  versions: {
+    adminApi: string
+    publicApi: string
+  }
+  reviews: AdminMetadataCandidateReviewListItemReadModel[]
+  page: {
+    limit: number
+    offset: number
+    returned: number
+  }
+}
+
 export interface AdminMetadataCandidateReviewProviderSubjectReadModel
   extends AdminMetadataCandidateSubjectReadModel {
   subjectId: string
@@ -1081,6 +1096,16 @@ export function createAdminReadModelsDataSource(
       })
     },
 
+    async loadMetadataCandidateReviews(
+      query: AdminMetadataCandidateReviewQueueQuery = {},
+    ): Promise<AdminMetadataCandidateReviewQueueReadModel> {
+      const normalizedQuery = normalizeMetadataCandidateReviewQueueQuery(query)
+      return withFallback(metadataCandidateReviewQueueFixture(normalizedQuery), async () => {
+        const response = await client.listMetadataCandidateReviews(normalizedQuery)
+        return mapMetadataCandidateReviewQueueResponse(response)
+      })
+    },
+
     async loadMetadataCandidateReviewsForItem(
       itemId: string,
       query: AdminPageQuery = {},
@@ -1182,6 +1207,9 @@ function fixtureDataSource() {
     },
     async loadMetadataCandidateReview(reviewId: string) {
       return metadataCandidateReviewFixture(reviewId)
+    },
+    async loadMetadataCandidateReviews(query: AdminMetadataCandidateReviewQueueQuery = {}) {
+      return metadataCandidateReviewQueueFixture(normalizeMetadataCandidateReviewQueueQuery(query))
     },
     async loadMetadataCandidateReviewsForItem(itemId: string, query: AdminPageQuery = {}) {
       return metadataCandidateReviewListFixture(
@@ -1686,6 +1714,23 @@ export function mapMetadataCandidateReviewListResponse(
   }
 }
 
+export function mapMetadataCandidateReviewQueueResponse(
+  response: AdminMetadataCandidateReviewQueueResponse,
+): AdminMetadataCandidateReviewQueueReadModel {
+  const versions = {
+    adminApi: response.admin_api_version,
+    publicApi: response.public_api_version,
+  }
+
+  return {
+    source: "live",
+    fallback: false,
+    versions,
+    reviews: response.reviews.map(mapMetadataCandidateReviewListEntry),
+    page: response.page,
+  }
+}
+
 function mapMetadataCandidateReviewListEntry(
   review: AdminMetadataCandidateReviewListEntry,
 ): AdminMetadataCandidateReviewListItemReadModel {
@@ -2117,6 +2162,17 @@ function normalizeMetadataCandidateReviewListQuery(query: AdminPageQuery): Admin
   }
 }
 
+function normalizeMetadataCandidateReviewQueueQuery(
+  query: AdminMetadataCandidateReviewQueueQuery,
+): AdminMetadataCandidateReviewQueueQuery {
+  return {
+    status: query.status,
+    provider: query.provider,
+    limit: query.limit ?? 50,
+    offset: query.offset ?? 0,
+  }
+}
+
 function normalizeGeneratedArtifactApplyRecoveryAttention(
   value: AdminGeneratedArtifactApplyRecoveryQuery["attention"],
 ): AdminGeneratedArtifactApplyRecoveryQuery["attention"] {
@@ -2495,6 +2551,44 @@ function metadataCandidateReviewListFixture(
         sourceLabel: detail.sourceLabel,
         sourceKey: detail.sourceKey,
         status: detail.status,
+        root: detail.root,
+        relatedCount: detail.relatedCount,
+        relationshipCount: detail.relationshipCount,
+        expiresAtMs: detail.expiresAtMs,
+        createdAtMs: detail.createdAtMs,
+        updatedAtMs: detail.updatedAtMs,
+        applicationAction: detail.applicationPlan.action,
+        applicationReasons: detail.applicationPlan.reasons,
+      },
+    ],
+    page: {
+      limit: query.limit ?? 50,
+      offset: query.offset ?? 0,
+      returned: 1,
+    },
+  }
+}
+
+function metadataCandidateReviewQueueFixture(
+  query: AdminMetadataCandidateReviewQueueQuery,
+): AdminMetadataCandidateReviewQueueReadModel {
+  const itemId = "fixture-item-queue-1"
+  const detail = metadataCandidateReviewFixture("fixture-metadata-candidate-review-accepted-1")
+
+  return {
+    source: "fixture",
+    fallback: true,
+    versions: {
+      adminApi: "fixture",
+      publicApi: "fixture",
+    },
+    reviews: [
+      {
+        reviewId: detail.reviewId,
+        itemId,
+        sourceLabel: detail.sourceLabel,
+        sourceKey: detail.sourceKey,
+        status: query.status ?? detail.status,
         root: detail.root,
         relatedCount: detail.relatedCount,
         relationshipCount: detail.relationshipCount,

@@ -23,7 +23,7 @@ Last updated: 2026-06-02
 
 ## M2 - Web Admin Global Queue Navigation
 
-- [ ] PRGQ-030 [owner=codex] [deps=PRGQ-020] [scope=web/src/api/admin,web/src/features/admin,web/src/shell,web/src/test,docs/workstreams/provider-review-global-queue-search]
+- [x] PRGQ-030 [owner=codex] [deps=PRGQ-020] [scope=web/src/api/admin,web/src/features/admin,web/src/shell,web/src/test,docs/workstreams/provider-review-global-queue-search]
   Goal: Add Web Admin global Candidate Review queue/search navigation that routes into the existing detail/apply page.
   Validation: `npm --prefix web run test`; `npm --prefix web run check`; `npm --prefix web run build:budget`; browser smoke if a route or navigation mode is added; `git diff --check`.
   Review: Web must present queue rows as discovery/triage only, not as batch apply, status mutation, or hierarchy application.
