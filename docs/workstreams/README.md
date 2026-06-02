@@ -18,15 +18,16 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 
 Last reviewed: 2026-06-02
 
-`admin-web-provider-depth-governance` is active in the
+No implementation workstream is currently active in the
 `library-metadata-control-plane` lane after
-`accepted-review-provider-mapping-application` shipped the backend
-accepted-review application boundary.
+`admin-web-provider-depth-governance` closed.
 
-Next task:
+Next selection:
 
-- `AWPDG-020`: expose durable Candidate Review detail and accepted-review
-  application plan facts through a redaction-safe read-only Admin API boundary.
+- open one focused follow-on for related-node hierarchy application, Douban
+  TV/episode endpoint depth, Candidate Review list/navigation, or broader
+  provider governance. Do not reopen `admin-web-provider-depth-governance` for
+  those scopes.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -55,7 +56,7 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
 ## Current Workstreams
 
 - [admin-web-provider-depth-governance](admin-web-provider-depth-governance/README.md):
-  active library-metadata-control-plane lane for exposing durable Candidate
+  closed library-metadata-control-plane lane for exposing durable Candidate
   Review evidence, application plans, confirmed apply mutations, and Web Admin
   governance without leaking raw provider data or applying related graph nodes.
 - [accepted-review-provider-mapping-application](accepted-review-provider-mapping-application/README.md):

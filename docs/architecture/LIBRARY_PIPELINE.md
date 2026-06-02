@@ -28,7 +28,7 @@ Storage event or scheduled scan
 | Local inference | Shipped foundation | `CONTEXT.md`; metadata/catalog lanes | Anime/series path heuristics and confidence reporting. |
 | Media probe | Shipped foundation | playback/transcode lanes | More HDR/audio/subtitle technical facts. |
 | NFO authority | Shipped foundation | `docs/adr/0008-nfo-as-local-metadata-boundary.md` | Round-trip/writeback polish and backup policy. |
-| Metadata merge policy | Shipped foundation; durable candidate review and accepted-review root mapping application shipped; Admin/Web governance active | `docs/adr/0007-metadata-merge-policy-and-local-authority.md`; `docs/workstreams/metadata-candidate-durable-review/`; `docs/workstreams/accepted-review-provider-mapping-application/`; `docs/workstreams/admin-web-provider-depth-governance/` | Read-only Admin API review/application plan before mutation. |
+| Metadata merge policy | Shipped foundation; durable candidate review, accepted-review root mapping application, and Admin/Web governance shipped | `docs/adr/0007-metadata-merge-policy-and-local-authority.md`; `docs/workstreams/metadata-candidate-durable-review/`; `docs/workstreams/accepted-review-provider-mapping-application/`; `docs/workstreams/admin-web-provider-depth-governance/` | Open focused follow-ons for related hierarchy, Candidate Review navigation, or provider endpoint depth. |
 | TMDB provider | Shipped movie plus series/season/episode graph preview foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/metadata-provider-depth-and-precision/`; `docs/workstreams/tmdb-season-episode-graph-depth/` | Accepted-review application or Admin/Web governance before preview graph depth becomes accepted hierarchy. |
 | Douban provider | Shipped MVP plus endpoint-backed capability precision | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/douban-subject-kind-precision/` | Accepted-review application, Admin/Web governance, or endpoint-backed TV/episode follow-on. |
 | Bangumi provider | Shipped MVP plus endpoint-backed episode graph preview | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/bangumi-relations-and-episode-depth/` | Accepted-review application or Admin/Web governance before preview graph depth becomes accepted hierarchy. |
@@ -47,35 +47,38 @@ this document focused on intake and asset pipeline capability state.
 
 ### admin-web-provider-depth-governance
 
-Status: Active at
+Status: Closed at
 `docs/workstreams/admin-web-provider-depth-governance/`.
 
 Goal: Expose durable Metadata Candidate Review evidence and accepted-review
 application through Admin API/Web governance.
 
-Current task:
-
-- `AWPDG-020`: expose durable Candidate Review detail and application plan
-  facts through a redaction-safe read-only Admin API boundary.
-
 Shipped:
 
 - `accepted-review-provider-mapping-application` closed after backend
   plan/apply semantics.
-- `ARPMA-020` defines a read-only accepted-review Provider Mapping application
-  plan before mutation.
-- `ARPMA-030` applies only the root Provider Subject / Provider Mapping
-  idempotently through the backend service.
-- `ARPMA-040` splits Admin API/Web mutation scope to provider depth governance.
-- `ARPMA-050` closes the backend lane.
+- `AWPDG-020` exposes durable Candidate Review detail and application plan facts
+  through a redaction-safe read-only Admin API boundary.
+- `AWPDG-030` applies accepted reviews explicitly through the backend
+  `MetadataCandidateReviewApplicationService` with stale guards and
+  idempotency-key fingerprinting.
+- `AWPDG-040` exposes the Web Admin direct route for review evidence and
+  two-step apply confirmation.
+- `AWPDG-050` closes the lane and splits follow-ons.
 
 Non-goals:
 
-- no apply mutation or Web route in the first task;
 - no Public Client API route;
 - no related graph node hierarchy application;
 - no raw provider payloads, secrets, proxy URLs, headers, or provider bodies;
 - no Generated Artifact apply outcome reuse.
+
+Follow-ons:
+
+- `proposed:provider-review-related-hierarchy-application`;
+- `proposed:douban-tv-episode-endpoint-depth`;
+- `proposed:admin-candidate-review-list-navigation`;
+- `proposed:provider-governance-bulk-review`.
 
 ### accepted-review-provider-mapping-application
 
@@ -112,7 +115,7 @@ Shipped:
 
 Follow-ons:
 
-- `docs/workstreams/admin-web-provider-depth-governance/` (active);
+- `docs/workstreams/admin-web-provider-depth-governance/` (closed);
 - `docs/workstreams/accepted-review-provider-mapping-application/` (closed);
 - `proposed:douban-tv-episode-endpoint-depth`.
 
@@ -142,7 +145,7 @@ Follow-ons:
 - `proposed:douban-tv-episode-endpoint-depth`;
 - `docs/workstreams/metadata-candidate-durable-review/` (closed);
 - `docs/workstreams/accepted-review-provider-mapping-application/` (closed);
-- `docs/workstreams/admin-web-provider-depth-governance/` (active).
+- `docs/workstreams/admin-web-provider-depth-governance/` (closed).
 
 ### bangumi-relations-and-episode-depth
 
@@ -163,7 +166,7 @@ Follow-ons:
 
 - `docs/workstreams/metadata-candidate-durable-review/` (closed);
 - `docs/workstreams/accepted-review-provider-mapping-application/` (closed);
-- `docs/workstreams/admin-web-provider-depth-governance/` (active).
+- `docs/workstreams/admin-web-provider-depth-governance/` (closed).
 
 ### tmdb-season-episode-graph-depth
 
@@ -185,7 +188,7 @@ Follow-ons:
 
 - `docs/workstreams/metadata-candidate-durable-review/` (closed);
 - `docs/workstreams/accepted-review-provider-mapping-application/` (closed);
-- `docs/workstreams/admin-web-provider-depth-governance/` (active).
+- `docs/workstreams/admin-web-provider-depth-governance/` (closed).
 
 ### metadata-provider-depth-and-precision
 

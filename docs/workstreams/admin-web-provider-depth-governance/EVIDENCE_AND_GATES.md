@@ -1,6 +1,6 @@
 # Admin Web Provider Depth Governance - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Opening Gates
@@ -197,3 +197,28 @@ Green checks:
   `Root Provider Mapping`, `Related preview only`, `准备应用`) present, and no
   console errors. The only console warning was Vite/React DevTools Fast Refresh
   shim compatibility.
+
+## AWPDG-050 Evidence
+
+Implemented behavior:
+
+- closed the Admin/Web Provider Depth Governance lane after Admin API read,
+  Admin API apply, and Web Admin read/confirm/apply semantics were shipped;
+- added `CLOSEOUT.md` as the durable summary of shipped scope, confirmed
+  boundaries, validation, follow-ons, and residual risks;
+- marked the workstream state as closed across `README.md`, `DESIGN.md`,
+  `TODO.md`, `MILESTONES.md`, `HANDOFF.md`, `TASKS.jsonl`, and
+  `WORKSTREAM.json`;
+- updated top-level roadmap, goal, architecture lane, and library pipeline maps
+  so no active queue points back to this closed lane;
+- split related-node hierarchy application, Douban TV/episode endpoint depth,
+  Candidate Review list/navigation, and broader provider governance to proposed
+  follow-ons.
+
+Green checks:
+
+- `python -m json.tool docs/workstreams/admin-web-provider-depth-governance/WORKSTREAM.json`
+  passed.
+- JSONL validation for `TASKS.jsonl`, `CAMPAIGNS.jsonl`, and `CONTEXT.jsonl`
+  passed.
+- `git diff --check` passed with Git CRLF normalization warnings only.

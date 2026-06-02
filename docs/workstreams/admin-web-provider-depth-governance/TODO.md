@@ -1,6 +1,6 @@
 # Admin Web Provider Depth Governance - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 - Lane Opening
@@ -40,9 +40,9 @@ Last updated: 2026-06-02
 
 ## M4 - Closeout And Follow-On Split
 
-- [ ] AWPDG-050 [owner=planner] [deps=AWPDG-040] [scope=docs/workstreams/admin-web-provider-depth-governance,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
+- [x] AWPDG-050 [owner=planner] [deps=AWPDG-040] [scope=docs/workstreams/admin-web-provider-depth-governance,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
   Goal: Close the lane or split related-node hierarchy application, Douban TV/episode depth, and broader provider governance follow-ons.
   Validation: fresh gate evidence in `EVIDENCE_AND_GATES.md`; JSON/JSONL validation; `git diff --check`.
   Review: Admin/Web can safely govern durable Candidate Review application without broadening Public Client API or hierarchy mutation.
-  Evidence: `CLOSEOUT.md` if closed.
-  Handoff: DONE or explicit follow-on split.
+  Evidence: `CLOSEOUT.md`; `EVIDENCE_AND_GATES.md` (`AWPDG-050 Evidence`).
+  Handoff: DONE; follow-ons are proposed, not active work in this lane.

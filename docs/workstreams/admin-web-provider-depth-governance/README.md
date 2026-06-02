@@ -1,6 +1,6 @@
 # Admin Web Provider Depth Governance
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 This workstream exposes durable Metadata Candidate Review evidence and accepted
@@ -24,7 +24,9 @@ Current execution:
   Review detail and application plan evidence.
 - `AWPDG-030` shipped an explicit Admin API apply mutation for accepted
   Candidate Reviews.
-- `AWPDG-040` is ready: add Web Admin read/confirm/apply UX.
+- `AWPDG-040` shipped Web Admin read/confirm/apply UX.
+- `AWPDG-050` closed the lane and split related hierarchy, provider endpoint
+  depth, and review navigation follow-ons.
 
 Boundary:
 

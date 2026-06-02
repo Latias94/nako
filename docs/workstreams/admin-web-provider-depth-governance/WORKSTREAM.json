@@ -2,12 +2,12 @@
   "schema_version": 1,
   "slug": "admin-web-provider-depth-governance",
   "title": "Admin Web Provider Depth Governance",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-06-02",
   "scope_kind": "admin_web_metadata_candidate_review_governance",
   "problem": "Durable Metadata Candidate Reviews and backend accepted-review application exist, but Admin API/Web must expose review evidence, application plans, and explicit apply mutations without conflating them with existing Provider Mapping row review or Generated Artifact apply workflows.",
   "task_prefix": "AWPDG",
-  "current_task": "AWPDG-050",
+  "current_task": null,
   "authoritative_docs": [
     {
       "role": "overview",
@@ -32,6 +32,10 @@
     {
       "role": "gates",
       "path": "docs/workstreams/admin-web-provider-depth-governance/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "closeout",
+      "path": "docs/workstreams/admin-web-provider-depth-governance/CLOSEOUT.md"
     },
     {
       "role": "context_manifest",
@@ -67,6 +71,10 @@
     {
       "task": "AWPDG-040",
       "summary": "Added a Web Admin direct route for durable Metadata Candidate Review inspection and explicit accepted-review apply confirmation, with live/fixture data-source contracts, route-state coverage, idempotency-key handling, and preview-only related graph presentation."
+    },
+    {
+      "task": "AWPDG-050",
+      "summary": "Closed the Admin/Web provider depth governance lane and split related-node hierarchy application, provider endpoint depth, Candidate Review list/navigation, and broader provider governance follow-ons."
     }
   ],
   "adr_refs": [
@@ -81,7 +89,7 @@
     },
     {
       "path": "docs/architecture/WORKSTREAM_LINKS.md",
-      "capability": "Admin/Web provider depth governance active lane"
+      "capability": "Admin/Web provider depth governance closed lane"
     },
     {
       "path": "docs/architecture/LIBRARY_PIPELINE.md",
@@ -95,8 +103,8 @@
   ],
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
-    "default_action": "run_current_task",
-    "current_task": "AWPDG-050",
-    "notes": "Next close the lane or split follow-ons for related-node hierarchy application, provider endpoint depth, and durable governance navigation/list surfaces. Keep Public Client API and schema migrations out unless a follow-on explicitly opens them."
+    "default_action": "closed",
+    "current_task": null,
+    "notes": "Lane target is complete. Open a focused follow-on for related-node hierarchy application, Douban TV/episode endpoint depth, Candidate Review list/navigation, or broader provider governance."
   }
 }

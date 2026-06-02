@@ -10,3 +10,4 @@
 {"role":"prior_workstream","path":"docs/workstreams/admin-catalog-governance-read-model/README.md","reason":"Existing Admin governance read-model pattern for catalog repair and Provider Mapping review."}
 {"role":"workstream","path":"docs/workstreams/admin-web-provider-depth-governance/DESIGN.md","reason":"Current lane design, task scope, and non-goals."}
 {"role":"gates","path":"docs/workstreams/admin-web-provider-depth-governance/EVIDENCE_AND_GATES.md","reason":"Validation commands and evidence ledger."}
+{"role":"closeout","path":"docs/workstreams/admin-web-provider-depth-governance/CLOSEOUT.md","reason":"Closed lane summary, shipped scope, follow-ons, and residual risks."}

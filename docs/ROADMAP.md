@@ -11,9 +11,9 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: Admin/Web Provider Depth Governance is active after Accepted Review
-Provider Mapping Application closed in the `library-metadata-control-plane`
-lane.
+Status: Admin/Web Provider Depth Governance is closed after `AWPDG-050` in the
+`library-metadata-control-plane` lane. The current planner decision is which
+focused follow-on should open next.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
 Operations Repair are both closed as of 2026-06-02. Web Admin Generated
@@ -23,15 +23,15 @@ Precision is closed after `MPDP-050`. TMDB Season Episode Graph Depth is
 closed after `TSEG-040`. Bangumi Relations And Episode Depth is closed after
 `BRED-050`. Douban Subject Kind Precision is closed after `DSKP-030`.
 Metadata Candidate Durable Review is closed after `MCDR-050`. Accepted Review
-Provider Mapping Application is closed after `ARPMA-050`.
+Provider Mapping Application is closed after `ARPMA-050`. Admin/Web Provider
+Depth Governance is closed after `AWPDG-050`.
 
-The active focus targets:
+The next focus should choose one of:
 
-- exposing durable Candidate Review evidence and accepted-review application
-  mutations through explicit Admin API/Web operator workflows;
-- preserving redaction, stale guard, and idempotency semantics from the backend
-  ARPMA service;
-- keeping Public Client API and related graph node hierarchy application split.
+- `proposed:provider-review-related-hierarchy-application`;
+- `proposed:douban-tv-episode-endpoint-depth`;
+- `proposed:admin-candidate-review-list-navigation`;
+- `proposed:provider-governance-bulk-review`.
 
 Authoritative evidence:
 
@@ -44,10 +44,32 @@ Authoritative evidence:
 
 Next task:
 
-- `AWPDG-020`: expose durable Candidate Review detail and accepted-review
-  application plan facts through a redaction-safe read-only Admin API boundary.
+- open one focused follow-on workstream. Do not reopen
+  `admin-web-provider-depth-governance` for hierarchy, provider endpoint,
+  navigation, or bulk governance breadth.
 
 Latest completed architecture focus:
+
+Admin/Web Provider Depth Governance closed on 2026-06-02 after `AWPDG-050`.
+
+It shipped:
+
+- redaction-safe durable Candidate Review detail and application plan Admin API
+  reads;
+- an explicit accepted-review apply mutation through
+  `MetadataCandidateReviewApplicationService` with stale guards,
+  idempotency-key fingerprinting, replay visibility, and root-only Provider
+  Subject / Provider Mapping application;
+- Web Admin inspection and two-step apply confirmation for durable Candidate
+  Reviews;
+- explicit split of related hierarchy application, Douban TV/episode endpoint
+  depth, Candidate Review list/navigation, and broader provider governance.
+
+Authoritative lane:
+
+- `docs/workstreams/admin-web-provider-depth-governance/`
+
+Previous completed architecture focus:
 
 Accepted Review Provider Mapping Application closed on 2026-06-02 after
 `ARPMA-050`.
@@ -156,7 +178,10 @@ Follow-ons:
 - `docs/workstreams/douban-subject-kind-precision/` (closed);
 - `docs/workstreams/metadata-candidate-durable-review/` (closed);
 - `docs/workstreams/accepted-review-provider-mapping-application/` (closed);
-- `docs/workstreams/admin-web-provider-depth-governance/` (active);
+- `docs/workstreams/admin-web-provider-depth-governance/` (closed);
+- `proposed:provider-review-related-hierarchy-application`;
+- `proposed:admin-candidate-review-list-navigation`;
+- `proposed:provider-governance-bulk-review`;
 - `proposed:douban-tv-episode-endpoint-depth`.
 
 Previous architecture focus:

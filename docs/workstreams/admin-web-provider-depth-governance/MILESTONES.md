@@ -1,6 +1,6 @@
 # Admin Web Provider Depth Governance - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 - Lane Opening
@@ -50,7 +50,7 @@ Exit criteria:
 
 ## M4 - Closeout And Follow-On Split
 
-Status: Ready after `AWPDG-040`.
+Status: Complete after `AWPDG-050`.
 
 Exit criteria:
 

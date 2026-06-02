@@ -26,53 +26,87 @@ proposed milestone.
 
 ## Current Goal
 
-### Admin/Web Provider Depth Governance Planning
+### Library Metadata Governance Follow-On Selection
 
-Status: active as of 2026-06-02.
+Status: selecting as of 2026-06-02.
 
 Objective:
 
-- Open a focused follow-on for durable Metadata Candidate Review evidence and
-  accepted-review application surfaces.
-- Keep Admin API/Web mutation semantics explicit before exposing the backend
-  `MetadataCandidateReviewApplicationService`.
+- Choose the next focused follow-on after Admin/Web Provider Depth Governance
+  closed.
+- Keep related-node hierarchy application, provider endpoint breadth, Candidate
+  Review list/navigation, and broader provider governance as separate lanes.
+- Avoid reopening closed provider-depth lanes for unrelated implementation
+  breadth.
+
+Deliverables:
+
+- a newly opened workstream for exactly one selected follow-on;
+- updated architecture lane routing and workstream links;
+- bounded validation gates before any runtime, Web, schema, or public API work.
+
+Non-goals:
+
+- no implementation in this selection goal;
+- no mixed hierarchy/provider/Web-navigation mega-lane;
+- no Public Client API or schema migration unless the selected follow-on
+  explicitly justifies it.
+
+Exit criteria:
+
+- selected follow-on has a clear scope, non-goals, task ledger, and validation
+  ladder;
+- closed AWPDG evidence remains the source of truth for shipped Admin/Web
+  Candidate Review governance;
+- no active queue points back to a closed lane.
+
+Evidence:
+
+- `docs/workstreams/admin-web-provider-depth-governance/CLOSEOUT.md`
+- `docs/architecture/LIBRARY_PIPELINE.md`
+- `docs/architecture/LANES.md`
+
+Candidate follow-ons:
+
+- `proposed:provider-review-related-hierarchy-application`
+- `proposed:douban-tv-episode-endpoint-depth`
+- `proposed:admin-candidate-review-list-navigation`
+- `proposed:provider-governance-bulk-review`
+
+## Recent Completed Goals
+
+### Admin/Web Provider Depth Governance
+
+Status: completed on 2026-06-02.
+
+Objective:
+
+- Expose durable Metadata Candidate Review evidence, accepted-review
+  application plans, and explicit apply mutation semantics through Admin API/Web
+  governance.
 - Preserve the split between preview graph evidence, accepted Provider Mapping
   facts, and future related-node hierarchy application.
 
 Deliverables:
 
 - `docs/workstreams/admin-web-provider-depth-governance/`;
-- Admin API/Web task ledger with redaction, idempotency, stale guard, generated
-  contract, and Web UX gates;
-- architecture map updates that route product exposure away from the closed
-  backend ARPMA lane.
-
-Non-goals:
-
-- no Public Client API expansion;
-- no raw provider payload, token, header, proxy URL, or path exposure;
-- no related graph node hierarchy mutation in the first surface lane;
-- no reuse of Generated Artifact apply outcomes as Candidate Review state.
-
-Exit criteria:
-
-- the follow-on workstream names owned scopes and shared scopes;
-- first executable task is bounded and validated;
-- existing Provider Mapping review routes are treated as precedent, not as the
-  durable Candidate Review surface itself.
+- `GET /admin/v1/metadata/candidate-reviews/{review_id}`;
+- `POST /admin/v1/metadata/candidate-reviews/{review_id}/apply`;
+- Web Admin route
+  `/admin/metadata/candidate-reviews?review_id=<id>`;
+- redaction, stale guard, idempotency, replay, route-state, bundle-budget, and
+  browser-smoke evidence.
 
 Evidence:
 
-- `docs/workstreams/accepted-review-provider-mapping-application/CLOSEOUT.md`
+- `docs/workstreams/admin-web-provider-depth-governance/CLOSEOUT.md`
+- `docs/workstreams/admin-web-provider-depth-governance/EVIDENCE_AND_GATES.md`
 - `docs/architecture/LIBRARY_PIPELINE.md`
 - `docs/architecture/LANES.md`
 
 Current task:
 
-- `AWPDG-020`: expose durable Candidate Review detail and accepted-review
-  application plan facts through a redaction-safe read-only Admin API boundary.
-
-## Recent Completed Goals
+- DONE after `AWPDG-050`.
 
 ### Accepted Review Provider Mapping Application
 
@@ -121,11 +155,11 @@ Current task:
 
 - DONE after `ARPMA-050`.
 
-Next follow-on:
+Follow-on status:
 
-- `docs/workstreams/admin-web-provider-depth-governance/` is open so Admin
-  API/Web can expose durable Candidate Review evidence and accepted-review
-  application mutations through an explicit operator workflow.
+- `docs/workstreams/admin-web-provider-depth-governance/` is closed after
+  exposing durable Candidate Review evidence and accepted-review application
+  mutations through an explicit Admin API/Web operator workflow.
 
 ### Metadata Candidate Durable Review
 

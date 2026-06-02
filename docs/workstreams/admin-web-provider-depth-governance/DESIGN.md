@@ -1,6 +1,6 @@
 # Admin Web Provider Depth Governance - Design
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Why This Lane Exists
@@ -92,3 +92,10 @@ confirming, and related nodes must not appear as silently applied hierarchy.
 
 `AWPDG-020` adds a read-only Admin API surface for durable Candidate Review
 detail and application plan evidence. It must not apply Provider Mappings.
+
+## Closeout Decision
+
+The lane closes after `AWPDG-050`. Admin API/Web now expose the root-only
+durable Candidate Review governance flow. Related-node hierarchy application,
+Douban TV/episode endpoint depth, Candidate Review list/navigation, and broader
+provider governance remain separate follow-ons.

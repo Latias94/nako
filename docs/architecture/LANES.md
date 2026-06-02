@@ -20,7 +20,7 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| library-metadata-control-plane | admin-web-provider-depth-governance | AWPDG-020 | Provider depth governance implementer |
+| library-metadata-control-plane | none | select follow-on | Planner: open related hierarchy, Douban TV/episode, Candidate Review list/navigation, or broader provider governance workstream |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
@@ -58,13 +58,12 @@ persistence, and backend-only accept/reject status transitions without Provider
 Mapping writes. Next choose a focused follow-on for Admin/Web provider depth
 governance, accepted-review Provider Mapping application, or Douban TV/episode
 endpoint depth rather than reopening it.
-`admin-web-provider-depth-governance` is active at `AWPDG-020` after
-`accepted-review-provider-mapping-application` closed at `ARPMA-050`.
-`ARPMA-020` added a read-only application plan, `ARPMA-030` added the
-idempotent root Provider Subject / Provider Mapping application service, and
-`ARPMA-040` split Admin API/Web mutation scope to
-the Admin/Web provider depth governance lane before Public Client API changes
-or related graph node application.
+`admin-web-provider-depth-governance` is closed after `AWPDG-050`. It shipped
+Admin API read, Admin API apply, and Web Admin read/confirm/apply governance for
+durable Candidate Reviews while keeping Public Client API changes and related
+graph node application split. Future work should open a focused follow-on for
+related hierarchy, Douban TV/episode depth, Candidate Review list/navigation, or
+broader provider governance.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
@@ -164,10 +163,11 @@ Closed evidence:
 - `docs/workstreams/douban-subject-kind-precision/`
 - `docs/workstreams/metadata-candidate-durable-review/`
 - `docs/workstreams/accepted-review-provider-mapping-application/`
+- `docs/workstreams/admin-web-provider-depth-governance/`
 
 Active evidence:
 
-- `docs/workstreams/admin-web-provider-depth-governance/`
+- None currently.
 
 Owned scopes:
 
