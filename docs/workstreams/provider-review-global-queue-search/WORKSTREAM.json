@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "slug": "provider-review-global-queue-search",
+  "title": "Provider Review Global Queue Search",
+  "status": "active",
+  "updated": "2026-06-02",
+  "scope_kind": "admin_metadata_candidate_review_global_queue",
+  "problem": "Durable Metadata Candidate Reviews are now discoverable from item context, but operators still need a global Admin queue/search surface for cross-item triage before batch governance or hierarchy application.",
+  "task_prefix": "PRGQ",
+  "current_task": "PRGQ-020",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/provider-review-global-queue-search/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/provider-review-global-queue-search/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/provider-review-global-queue-search/TODO.md"
+    },
+    {
+      "role": "task_state",
+      "path": "docs/workstreams/provider-review-global-queue-search/TASKS.jsonl"
+    },
+    {
+      "role": "campaign_state",
+      "path": "docs/workstreams/provider-review-global-queue-search/CAMPAIGNS.jsonl"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/provider-review-global-queue-search/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "context_manifest",
+      "path": "docs/workstreams/provider-review-global-queue-search/CONTEXT.jsonl"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/provider-review-global-queue-search/HANDOFF.md"
+    }
+  ],
+  "context_manifest": "docs/workstreams/provider-review-global-queue-search/CONTEXT.jsonl",
+  "gates": [
+    "python -m json.tool docs/workstreams/provider-review-global-queue-search/WORKSTREAM.json",
+    "JSONL validation for docs/workstreams/provider-review-global-queue-search/TASKS.jsonl, CAMPAIGNS.jsonl, and CONTEXT.jsonl",
+    "cargo nextest run -p nako-api admin_contract --no-fail-fast",
+    "cargo nextest run -p nako-server candidate_review admin --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "npm --prefix web run check",
+    "npm --prefix web run test",
+    "npm --prefix web run build:budget",
+    "browser smoke if a route or navigation mode is added",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "PRGQ-010",
+      "summary": "Opened the Provider Review global queue/search lane from ACRN closeout and selected a read-only Admin API global Candidate Review queue route as the first executable task."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0018-metadata-provider-runtime-and-diagnostics.md",
+    "docs/adr/0021-video-first-media-server-domain-model.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/LANES.md",
+      "capability": "library-metadata-control-plane lane ownership"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Provider Review global queue/search active lane"
+    },
+    {
+      "path": "docs/architecture/LIBRARY_PIPELINE.md",
+      "capability": "Metadata Candidate Review global Admin queue/search"
+    }
+  ],
+  "capability_tags": [
+    "library.metadata.candidate-review.admin",
+    "library.metadata.candidate-review.queue",
+    "web.admin.metadata-governance"
+  ],
+  "lane_slug": "library-metadata-control-plane",
+  "continue_policy": {
+    "default_action": "run_current_task",
+    "current_task": "PRGQ-020",
+    "notes": "Next add the read-only Admin API global Candidate Review queue route and repository query contract. Keep Public Client API, batch governance, status mutation, apply mutation, and related hierarchy application out of PRGQ-020."
+  }
+}

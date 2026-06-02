@@ -1,0 +1,12 @@
+{"role":"domain-glossary","path":"CONTEXT.md","reason":"Use Nako terms such as Media Item, Metadata Candidate Review, Provider Subject, Provider Mapping, Admin API, and Public Client API."}
+{"role":"adr","path":"docs/adr/0007-metadata-merge-policy-and-local-authority.md","reason":"Queue/search must remain separate from Canonical Metadata merge authority and application policy."}
+{"role":"adr","path":"docs/adr/0018-metadata-provider-runtime-and-diagnostics.md","reason":"Provider payloads, secrets, headers, proxy URLs, raw bodies, and paths must stay out of Admin queue/search surfaces."}
+{"role":"adr","path":"docs/adr/0021-video-first-media-server-domain-model.md","reason":"Provider-specific subjects map through Provider Mapping rather than replacing Media Item identity."}
+{"role":"architecture","path":"docs/architecture/LIBRARY_PIPELINE.md","reason":"Library metadata candidate review and provider governance capability map."}
+{"role":"architecture","path":"docs/architecture/LANES.md","reason":"library-metadata-control-plane lane routing and shared-scope rules."}
+{"role":"architecture","path":"docs/architecture/WORKSTREAM_LINKS.md","reason":"Workstream evidence index and proposed follow-on naming."}
+{"role":"prior_workstream","path":"docs/workstreams/admin-candidate-review-list-navigation/CLOSEOUT.md","reason":"Item-scoped discovery/navigation shipped and global queue/search was split as the residual gap."}
+{"role":"prior_workstream","path":"docs/workstreams/admin-web-provider-depth-governance/CLOSEOUT.md","reason":"Direct detail/apply route and governance boundaries are the target navigation sink."}
+{"role":"prior_workstream","path":"docs/workstreams/metadata-candidate-durable-review/CLOSEOUT.md","reason":"Durable Candidate Review snapshot and decision semantics."}
+{"role":"workstream","path":"docs/workstreams/provider-review-global-queue-search/DESIGN.md","reason":"Current lane design, task scope, and non-goals."}
+{"role":"gates","path":"docs/workstreams/provider-review-global-queue-search/EVIDENCE_AND_GATES.md","reason":"Validation commands and evidence ledger."}

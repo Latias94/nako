@@ -20,7 +20,7 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| library-metadata-control-plane | none | choose focused follow-on | planner |
+| library-metadata-control-plane | provider-review-global-queue-search | PRGQ-020 | Candidate Review queue implementer |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
@@ -67,6 +67,9 @@ item-scoped Admin API/Web Candidate Review discovery and navigation into the
 existing detail/apply page. Future work should open a focused follow-on for
 global queue/search, provider governance bulk review, related hierarchy
 application, Douban TV/episode depth, or broader provider governance.
+`provider-review-global-queue-search` is active at `PRGQ-020` to add a
+read-only global Candidate Review queue/search Admin API surface before any Web
+queue UI, batch governance, status/apply mutation, or hierarchy application.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
@@ -171,7 +174,7 @@ Closed evidence:
 
 Active evidence:
 
-- none
+- `docs/workstreams/provider-review-global-queue-search/`
 
 Owned scopes:
 
@@ -199,6 +202,7 @@ Owned scopes:
 - `docs/workstreams/accepted-review-provider-mapping-application/`
 - `docs/workstreams/admin-web-provider-depth-governance/`
 - `docs/workstreams/admin-candidate-review-list-navigation/`
+- `docs/workstreams/provider-review-global-queue-search/`
 
 Shared scopes requiring planner coordination:
 

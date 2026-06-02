@@ -46,6 +46,6 @@ work to follow-ons.
 ## Next Recommended Action
 
 - Open one focused follow-on rather than reopening this lane:
-  `proposed:provider-review-global-queue-search`,
+  `docs/workstreams/provider-review-global-queue-search/`,
   `proposed:provider-governance-bulk-review`, or
   `proposed:provider-review-related-hierarchy-application`.

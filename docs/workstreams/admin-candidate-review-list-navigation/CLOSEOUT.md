@@ -71,8 +71,9 @@ Fresh closeout gates from `ACRN-040`:
 
 ## Follow-Ons
 
-- `proposed:provider-review-global-queue-search`: cross-item Candidate Review
-  queue/search/filtering for operators who are not starting from a Media Item.
+- `docs/workstreams/provider-review-global-queue-search/` (active): cross-item
+  Candidate Review queue/search/filtering for operators who are not starting
+  from a Media Item.
 - `proposed:provider-governance-bulk-review`: batch accept/reject/apply
   governance only after single-review semantics remain stable.
 - `proposed:provider-review-related-hierarchy-application`: apply related graph

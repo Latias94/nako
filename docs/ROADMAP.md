@@ -11,8 +11,9 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: the `library-metadata-control-plane` lane is idle after Admin Candidate
-Review List Navigation closed.
+Status: Provider Review Global Queue Search is active in the
+`library-metadata-control-plane` lane after Admin Candidate Review List
+Navigation closed.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
 Operations Repair are both closed as of 2026-06-02. Web Admin Generated
@@ -24,19 +25,23 @@ closed after `TSEG-040`. Bangumi Relations And Episode Depth is closed after
 Metadata Candidate Durable Review is closed after `MCDR-050`. Accepted Review
 Provider Mapping Application is closed after `ARPMA-050`. Admin/Web Provider
 Depth Governance is closed after `AWPDG-050`. Admin Candidate Review List
-Navigation is closed after `ACRN-040`.
+Navigation is closed after `ACRN-040`. Provider Review Global Queue Search is
+active at `PRGQ-020`.
 
-No active implementation workstream is currently claimed. The next focus should
-choose one explicit follow-on:
+The active focus targets:
 
-- `proposed:provider-review-global-queue-search`;
-- `proposed:provider-governance-bulk-review`;
-- `proposed:provider-review-related-hierarchy-application`.
+- adding a read-only global Admin API queue route for durable Candidate
+  Reviews;
+- preserving ACRN/AWPDG redaction, no-write, stale guard, and root-only
+  application boundaries;
+- keeping Web queue UI, batch governance, Public Client API, and related
+  hierarchy application split until their own tasks own them.
 
 Authoritative evidence:
 
 - `docs/workstreams/admin-web-provider-depth-governance/`
 - `docs/workstreams/admin-candidate-review-list-navigation/`
+- `docs/workstreams/provider-review-global-queue-search/`
 - `docs/workstreams/accepted-review-provider-mapping-application/`
 - `docs/workstreams/metadata-candidate-durable-review/CLOSEOUT.md`
 - `docs/workstreams/metadata-provider-depth-and-precision/FOLLOW_ONS.md`
@@ -45,8 +50,8 @@ Authoritative evidence:
 
 Next task:
 
-- Open one focused follow-on workstream if the lane continues, otherwise keep
-  the lane explicitly idle.
+- `PRGQ-020`: add a read-only Admin API global Candidate Review queue route
+  and repository query contract.
 
 Latest completed architecture focus:
 
@@ -199,7 +204,7 @@ Follow-ons:
 - `docs/workstreams/accepted-review-provider-mapping-application/` (closed);
 - `docs/workstreams/admin-web-provider-depth-governance/` (closed);
 - `docs/workstreams/admin-candidate-review-list-navigation/` (closed);
-- `proposed:provider-review-global-queue-search`;
+- `docs/workstreams/provider-review-global-queue-search/` (active);
 - `proposed:provider-review-related-hierarchy-application`;
 - `proposed:provider-governance-bulk-review`;
 - `proposed:douban-tv-episode-endpoint-depth`.

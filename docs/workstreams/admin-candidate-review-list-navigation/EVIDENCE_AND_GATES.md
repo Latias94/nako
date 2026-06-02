@@ -158,7 +158,7 @@ Implemented behavior:
 - updated architecture, goal, and roadmap docs so active routing no longer
   points to this closed lane;
 - split remaining work to focused follow-ons:
-  `proposed:provider-review-global-queue-search`,
+  `docs/workstreams/provider-review-global-queue-search/`,
   `proposed:provider-governance-bulk-review`, and
   `proposed:provider-review-related-hierarchy-application`.
 

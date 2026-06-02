@@ -26,51 +26,55 @@ proposed milestone.
 
 ## Current Goal
 
-### Library Metadata Control-Plane Follow-On Selection
+### Provider Review Global Queue Search
 
-Status: ready as of 2026-06-02.
+Status: active as of 2026-06-02.
 
 Objective:
 
-- Choose the next focused `library-metadata-control-plane` follow-on after
-  item-scoped Candidate Review navigation closed.
-- Keep global queue/search, batch governance, and related hierarchy application
-  separated until each has its own workstream and gates.
-- Avoid reopening closed durable review, accepted-review apply, Admin/Web
-  governance, or list/navigation lanes.
+- Add a read-only global Metadata Candidate Review queue/search surface for
+  Admin operators triaging review work across items.
+- Route global queue rows into the existing Candidate Review detail/apply
+  governance page.
+- Keep batch governance, Public Client API, status/apply mutations, and related
+  hierarchy application separate.
 
 Deliverables:
 
-- one selected follow-on workstream, if implementation starts;
-- updated `docs/architecture/LANES.md` active queue when a follow-on is opened;
-- clear non-goals preserving Public Client API, schema, and hierarchy mutation
-  boundaries unless the selected lane explicitly owns them.
+- `docs/workstreams/provider-review-global-queue-search/`;
+- repository query contract for global Candidate Review queue reads;
+- read-only Admin API global queue route and generated Admin contract;
+- Web Admin global queue/search navigation into the existing detail/apply page;
+- redaction, pagination, filter/search, no-write, route-state, bundle-budget,
+  and browser-smoke evidence.
 
 Non-goals:
 
-- no hidden runtime behavior under the closed ACRN lane;
-- no batch apply without a bulk governance workstream;
-- no related hierarchy mutation without a hierarchy application workstream;
-- no global review queue hidden inside the item-scoped navigation surface.
+- no Public Client API expansion;
+- no status mutation, accept/reject, apply, batch apply, or bulk governance;
+- no related graph node hierarchy mutation;
+- no raw provider payload, token, header, proxy URL, local path, image URL,
+  source fingerprint, or raw idempotency-key exposure.
 
 Exit criteria:
 
-- next active queue item names a focused workstream and task ledger, or the
-  lane remains explicitly idle;
-- follow-on names are stable in roadmap and architecture maps;
-- closed ACRN evidence remains the authority for item-scoped navigation.
+- Admin API exposes a redaction-safe global Candidate Review queue;
+- Web can navigate from global queue context to the existing Candidate Review
+  detail route;
+- generated Admin contracts and Web data-source mapping remain synchronized;
+- follow-ons remain split for batch governance and hierarchy application.
 
 Evidence:
 
+- `docs/workstreams/provider-review-global-queue-search/`
 - `docs/workstreams/admin-candidate-review-list-navigation/CLOSEOUT.md`
 - `docs/architecture/LIBRARY_PIPELINE.md`
 - `docs/architecture/LANES.md`
 
-Candidate follow-ons:
+Current task:
 
-- `proposed:provider-review-global-queue-search`
-- `proposed:provider-governance-bulk-review`
-- `proposed:provider-review-related-hierarchy-application`
+- `PRGQ-020`: add a read-only Admin API global Candidate Review queue route
+  and repository query contract.
 
 ## Recent Completed Goals
 
