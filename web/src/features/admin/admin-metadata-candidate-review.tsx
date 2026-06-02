@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select"
 import {
   createAdminReadModelsDataSource,
+  type AdminMetadataCandidateReviewBatchPlanReadModel,
   type AdminMetadataCandidateReviewListItemReadModel,
   type AdminMetadataCandidateReviewListReadModel,
   type AdminMetadataCandidateReviewNodeReadModel,
@@ -23,6 +24,7 @@ import {
 } from "@/src/api/admin/read-models-data-source"
 import {
   createAdminMutationDataSource,
+  type AdminMetadataCandidateReviewBatchApplyMutationResult,
   type AdminMetadataCandidateReviewApplyMutationResult,
 } from "@/src/api/admin/mutations-data-source"
 
@@ -97,6 +99,7 @@ export function AdminMetadataCandidateReview({
   const normalizedRouteState = useMemo(() => normalizeReviewRouteState(routeState), [routeState])
   const [draftItemId, setDraftItemId] = useState(normalizedRouteState.itemId)
   const [armed, setArmed] = useState(false)
+  const [selectedReviewIds, setSelectedReviewIds] = useState<string[]>([])
   const [idempotencyKey, setIdempotencyKey] = useState("")
   const queryClient = useQueryClient()
   const readDataSource = useMemo(() => createAdminReadModelsDataSource(), [])
@@ -203,6 +206,66 @@ export function AdminMetadataCandidateReview({
     },
   })
 
+  const batchPlanMutation = useMutation({
+    mutationFn: () => readDataSource.loadMetadataCandidateReviewBatchPlan(selectedReviewIds),
+  })
+
+  const batchApplyMutation = useMutation({
+    mutationFn: () => {
+      const plan = batchPlanMutation.data
+      if (!plan || plan.fallback) {
+        throw new Error("Batch plan is not loaded from live Admin API")
+      }
+
+      return mutationDataSource.confirmMetadataCandidateReviewBatchApply(
+        plan.reviews.map((review) => ({
+          reviewId: review.reviewId,
+          itemId: review.itemId,
+          expectedUpdatedAtMs: review.updatedAtMs,
+        })),
+        createCandidateReviewBatchApplyIdempotencyKey(plan.reviews.map((review) => review.reviewId)),
+      )
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: metadataCandidateReviewQueueQueryKey(
+          normalizedRouteState.status,
+          normalizedRouteState.provider,
+          queueQuery.limit,
+          queueQuery.offset,
+        ),
+      })
+      for (const selectedReviewId of selectedReviewIds) {
+        void queryClient.invalidateQueries({
+          queryKey: metadataCandidateReviewQueryKey(selectedReviewId),
+        })
+      }
+    },
+  })
+
+  const selectedReviewIdSet = useMemo(() => new Set(selectedReviewIds), [selectedReviewIds])
+  const selectedReviewIdsKey = selectedReviewIds.join("|")
+
+  useEffect(() => {
+    setSelectedReviewIds([])
+    batchPlanMutation.reset()
+    batchApplyMutation.reset()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    mode,
+    itemId,
+    normalizedRouteState.status,
+    normalizedRouteState.provider,
+    normalizedRouteState.limit,
+    normalizedRouteState.offset,
+  ])
+
+  useEffect(() => {
+    batchPlanMutation.reset()
+    batchApplyMutation.reset()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedReviewIdsKey])
+
   const submitItemId = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const nextItemId = draftItemId.trim()
@@ -266,9 +329,40 @@ export function AdminMetadataCandidateReview({
     })
   }
 
+  const toggleReviewSelection = (targetReviewId: string, selected: boolean) => {
+    setSelectedReviewIds((current) => {
+      if (selected) {
+        return current.includes(targetReviewId) ? current : [...current, targetReviewId]
+      }
+
+      return current.filter((entry) => entry !== targetReviewId)
+    })
+  }
+
+  const selectCurrentPageReviews = () => {
+    const reviews = listData?.reviews ?? []
+    setSelectedReviewIds(reviews.map((review) => review.reviewId).slice(0, 50))
+  }
+
+  const clearBatchSelection = () => {
+    setSelectedReviewIds([])
+  }
+
+  const requestBatchPlan = () => {
+    if (selectedReviewIds.length === 0) {
+      return
+    }
+
+    batchPlanMutation.mutate()
+  }
+
   const listData = mode === "queue" ? queueData : itemListData
   const isListLoading = mode === "queue" ? isQueueLoading : isItemListLoading
   const showList = mode === "queue" ? shouldLoadQueue : itemId.length > 0
+  const canRequestBatchPlan =
+    mode === "queue" && selectedReviewIds.length > 0 && !batchPlanMutation.isPending
+  const batchPlan = batchPlanMutation.data
+  const batchApplyResult = batchApplyMutation.data
 
   const mutationUnavailable = !mutationDataSource.canMutate
   const planFallback = Boolean(data?.fallback && mutationDataSource.canMutate)
@@ -388,8 +482,29 @@ export function AdminMetadataCandidateReview({
           selectedReviewId={reviewId}
           routeState={normalizedRouteState}
           mode={mode}
+          selectedReviewIds={selectedReviewIdSet}
           onSelectReview={selectReview}
+          onToggleReviewSelection={toggleReviewSelection}
+          onSelectCurrentPageReviews={selectCurrentPageReviews}
+          onClearBatchSelection={clearBatchSelection}
+          onRequestBatchPlan={requestBatchPlan}
+          selectedCount={selectedReviewIds.length}
+          canRequestBatchPlan={canRequestBatchPlan}
+          isBatchPlanPending={batchPlanMutation.isPending}
           onMovePage={moveListPage}
+        />
+      )}
+
+      {mode === "queue" && (
+        <CandidateReviewBatchPanel
+          plan={batchPlan}
+          result={batchApplyResult}
+          planError={batchPlanMutation.error}
+          applyError={batchApplyMutation.error}
+          mutationUnavailable={mutationUnavailable}
+          mutationUnavailableReason={mutationDataSource.unavailableReason}
+          isApplying={batchApplyMutation.isPending}
+          onConfirm={() => batchApplyMutation.mutate()}
         />
       )}
 
@@ -616,7 +731,15 @@ function CandidateReviewList({
   selectedReviewId,
   routeState,
   mode,
+  selectedReviewIds,
   onSelectReview,
+  onToggleReviewSelection,
+  onSelectCurrentPageReviews,
+  onClearBatchSelection,
+  onRequestBatchPlan,
+  selectedCount,
+  canRequestBatchPlan,
+  isBatchPlanPending,
   onMovePage,
 }: {
   list?: AdminMetadataCandidateReviewListReadModel | AdminMetadataCandidateReviewQueueReadModel
@@ -624,7 +747,15 @@ function CandidateReviewList({
   selectedReviewId: string
   routeState: Required<AdminMetadataCandidateReviewRouteState>
   mode: AdminMetadataCandidateReviewMode
+  selectedReviewIds: Set<string>
   onSelectReview: (reviewId: string) => void
+  onToggleReviewSelection: (reviewId: string, selected: boolean) => void
+  onSelectCurrentPageReviews: () => void
+  onClearBatchSelection: () => void
+  onRequestBatchPlan: () => void
+  selectedCount: number
+  canRequestBatchPlan: boolean
+  isBatchPlanPending: boolean
   onMovePage: (direction: "previous" | "next") => void
 }) {
   const canPageBack = routeState.offset > 0
@@ -656,6 +787,36 @@ function CandidateReviewList({
         </div>
       </div>
 
+      {mode === "queue" && list && list.reviews.length > 0 && (
+        <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={selectedCount > 0 ? "default" : "outline"}>
+              selected {selectedCount}
+            </Badge>
+            <Button type="button" variant="outline" size="sm" onClick={onSelectCurrentPageReviews}>
+              选择本页
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={selectedCount === 0}
+              onClick={onClearBatchSelection}
+            >
+              清空
+            </Button>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            disabled={!canRequestBatchPlan}
+            onClick={onRequestBatchPlan}
+          >
+            {isBatchPlanPending ? "生成中" : "生成批量计划"}
+          </Button>
+        </div>
+      )}
+
       {isLoading ? (
         <ReviewSkeleton />
       ) : !list || list.reviews.length === 0 ? (
@@ -667,7 +828,10 @@ function CandidateReviewList({
               key={review.reviewId}
               review={review}
               selected={review.reviewId === selectedReviewId}
+              batchSelected={selectedReviewIds.has(review.reviewId)}
+              batchSelectable={mode === "queue"}
               onSelectReview={onSelectReview}
+              onToggleReviewSelection={onToggleReviewSelection}
             />
           ))}
         </div>
@@ -703,14 +867,31 @@ function CandidateReviewList({
 function CandidateReviewListRow({
   review,
   selected,
+  batchSelected,
+  batchSelectable,
   onSelectReview,
+  onToggleReviewSelection,
 }: {
   review: AdminMetadataCandidateReviewListItemReadModel
   selected: boolean
+  batchSelected: boolean
+  batchSelectable: boolean
   onSelectReview: (reviewId: string) => void
+  onToggleReviewSelection: (reviewId: string, selected: boolean) => void
 }) {
   return (
-    <div className={`grid gap-3 p-4 text-sm lg:grid-cols-[minmax(10rem,0.8fr)_1fr_minmax(8rem,0.5fr)_10rem] ${selected ? "bg-muted/50" : ""}`}>
+    <div className={`grid gap-3 p-4 text-sm lg:grid-cols-[2rem_minmax(10rem,0.8fr)_1fr_minmax(8rem,0.5fr)_10rem] ${selected ? "bg-muted/50" : ""}`}>
+      <div className="flex items-center">
+        {batchSelectable ? (
+          <input
+            type="checkbox"
+            aria-label={`选择批量应用 ${review.reviewId}`}
+            className="size-4 rounded border border-input bg-background text-primary"
+            checked={batchSelected}
+            onChange={(event) => onToggleReviewSelection(review.reviewId, event.currentTarget.checked)}
+          />
+        ) : null}
+      </div>
       <div className="min-w-0 font-mono text-xs text-foreground">{review.reviewId}</div>
       <div className="min-w-0">
         <div className="truncate text-foreground">
@@ -733,6 +914,111 @@ function CandidateReviewListRow({
         </Button>
       </div>
     </div>
+  )
+}
+
+function CandidateReviewBatchPanel({
+  plan,
+  result,
+  planError,
+  applyError,
+  mutationUnavailable,
+  mutationUnavailableReason,
+  isApplying,
+  onConfirm,
+}: {
+  plan?: AdminMetadataCandidateReviewBatchPlanReadModel
+  result?: AdminMetadataCandidateReviewBatchApplyMutationResult
+  planError: unknown
+  applyError: unknown
+  mutationUnavailable: boolean
+  mutationUnavailableReason?: string
+  isApplying: boolean
+  onConfirm: () => void
+}) {
+  if (!plan && !result && !planError && !applyError) {
+    return null
+  }
+
+  const planFallback = Boolean(plan?.fallback)
+  const canConfirm = plan
+    ? !planFallback && !mutationUnavailable && !isApplying && plan.reviews.length > 0
+    : false
+  const unavailableMessage = mutationUnavailable
+    ? mutationUnavailableReason ?? "当前连接不能执行管理操作"
+    : planFallback
+      ? "Batch plan is fixture data and cannot be confirmed."
+      : "Confirming applies only the planned root rows."
+  const planRows = plan?.reviews
+    .map((review) => `${review.reviewId} · ${review.itemId} · ${review.applicationAction}`)
+    .join(" | ")
+  const resultRows = result?.results
+    .map((row) => {
+      const reason = row.error?.message ?? (row.reasons.join(", ") || "ok")
+      return `${row.reviewId} · ${row.status} · ${reason} · ${row.mappingId ?? "no mapping"}`
+    })
+    .join(" | ")
+
+  return (
+    <section className="rounded-lg border border-border/50 bg-card p-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h2 className="text-sm font-medium text-foreground">Batch Candidate Review plan</h2>
+          <p className="mt-1 text-xs text-muted-foreground">{unavailableMessage}</p>
+        </div>
+        {plan && (
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline">requested {plan.summary.requestedCount}</Badge>
+            <Badge variant="outline">returned {plan.summary.returnedCount}</Badge>
+          </div>
+        )}
+      </div>
+
+      {planError instanceof Error && (
+        <div className="mt-3 text-sm text-destructive">{planError.message}</div>
+      )}
+
+      {plan && (
+        <>
+          <div className="mt-3 flex flex-wrap gap-2 text-sm">
+            <Badge variant="outline">
+              apply {plan.summary.applyCount} · noop {plan.summary.noopCount} · skip{" "}
+              {plan.summary.skipCount}
+            </Badge>
+            {planFallback && <Badge variant="secondary">fixture plan</Badge>}
+            {mutationUnavailable && <Badge variant="secondary">mutation unavailable</Badge>}
+          </div>
+
+          <div className="mt-3 break-words rounded-md border border-border/50 p-3 font-mono text-xs text-muted-foreground">
+            {planRows || "no planned rows"}
+          </div>
+
+          <div className="mt-3 flex flex-wrap justify-end gap-2">
+            <Button type="button" size="sm" disabled={!canConfirm} onClick={onConfirm}>
+              {isApplying ? "应用中" : "确认批量应用"}
+            </Button>
+          </div>
+        </>
+      )}
+
+      {applyError instanceof Error && (
+        <div className="mt-3 text-sm text-destructive">{applyError.message}</div>
+      )}
+
+      {result && (
+        <div className="mt-4 border-t border-border/50 pt-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-foreground">{result.message}</span>
+            <Badge variant={result.summary.failedCount > 0 ? "secondary" : "outline"}>
+              failed {result.summary.failedCount}
+            </Badge>
+          </div>
+          <div className="mt-3 break-words rounded-md border border-border/50 p-3 font-mono text-xs text-muted-foreground">
+            {resultRows || "no result rows"}
+          </div>
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -886,7 +1172,19 @@ function ReviewSkeleton() {
 }
 
 function createCandidateReviewApplyIdempotencyKey(reviewId: string) {
-  const safeReviewId = reviewId.replace(/[^A-Za-z0-9._:-]+/g, "-").slice(0, 64) || "review"
+  return createCandidateReviewIdempotencyKey("web-metadata-candidate-review-apply", reviewId, 64)
+}
+
+function createCandidateReviewBatchApplyIdempotencyKey(reviewIds: string[]) {
+  return createCandidateReviewIdempotencyKey(
+    `web-metadata-candidate-review-batch-apply:${reviewIds.length}`,
+    reviewIds[0] ?? "review",
+    48,
+  )
+}
+
+function createCandidateReviewIdempotencyKey(prefix: string, sourceId: string, maxIdLength: number) {
+  const safeSourceId = sourceId.replace(/[^A-Za-z0-9._:-]+/g, "-").slice(0, maxIdLength) || "review"
   const nonce = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
-  return `web-metadata-candidate-review-apply:${safeReviewId}:${nonce}`
+  return `${prefix}:${safeSourceId}:${nonce}`
 }

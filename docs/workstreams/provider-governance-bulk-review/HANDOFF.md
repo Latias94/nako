@@ -10,16 +10,18 @@ Operators can browse a global Metadata Candidate Review queue, apply a single
 accepted review through the existing detail/apply route, and request a bounded
 read-only batch application plan for selected review IDs. Backend confirmed
 batch apply now exists as a bounded synchronous Admin API route with redacted
-partial results.
+partial results. Web Admin now supports explicit global queue selection, batch
+plan inspection, confirmed live batch apply, and redaction-safe partial result
+rendering.
 
 ## Active Task
 
-- Task ID: `PGBR-040`
-- Owner: codex
-- Files: `web/src/api/admin`, `web/src/features/admin`, `web/src/shell`,
-  `web/src/test`, and `docs/workstreams/provider-governance-bulk-review`
-- Validation: `npm --prefix web run check`; `npm --prefix web run test`;
-  `npm --prefix web run build:budget`; browser smoke; `git diff --check`
+- Task ID: `PGBR-050`
+- Owner: planner
+- Files: `docs/workstreams/provider-governance-bulk-review`,
+  `docs/architecture`, `docs/GOALS.md`, and `docs/ROADMAP.md`
+- Validation: fresh gate evidence in `EVIDENCE_AND_GATES.md`; JSON/JSONL
+  validation; `git diff --check`
 - Status: READY
 - Evidence: `docs/workstreams/provider-governance-bulk-review/EVIDENCE_AND_GATES.md`
 
@@ -30,9 +32,13 @@ partial results.
 - `PGBR-020` shipped the read-only batch plan route and generated Admin
   contracts.
 - `PGBR-030` shipped bounded backend batch apply with row-level partial results.
-- Web Admin selection/confirmation is now scoped to `PGBR-040`.
+- `PGBR-040` shipped Web Admin selection, plan inspection, confirmation, and
+  partial-result rendering.
 - Durable job execution is not required for the current bounded synchronous
   backend route.
+- The Web total-JS gzip budget was raised by 1 KiB to cover the new batch
+  governance UI after feature-level slimming; route budgets remain below their
+  limits.
 
 ## Non-Goals To Preserve
 
@@ -45,11 +51,11 @@ partial results.
 
 ## Blockers
 
-- None for `PGBR-040`.
+- None for `PGBR-050`.
 
 ## Next Recommended Action
 
-Run `PGBR-040`: add Web Admin queue selection, batch plan inspection, explicit
-confirmation, and partial-result rendering against the shipped Admin API
-routes. Stop before related hierarchy application, provider endpoint breadth,
-Public Client API changes, or backend execution model changes.
+Run `PGBR-050`: close the lane or split follow-ons for durable job execution,
+related hierarchy application, provider endpoint depth, Public Client API
+exposure, and broader provider governance. Stop before adding new runtime
+behavior unless it is opened as a follow-on workstream/task.

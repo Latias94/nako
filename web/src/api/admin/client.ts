@@ -35,6 +35,10 @@ import {
   type AdminLocalPasswordResponse,
   type AdminMetadataCandidateReviewApplyRequest,
   type AdminMetadataCandidateReviewApplyResponse,
+  type AdminMetadataCandidateReviewBatchApplyRequest,
+  type AdminMetadataCandidateReviewBatchApplyResponse,
+  type AdminMetadataCandidateReviewBatchPlanRequest,
+  type AdminMetadataCandidateReviewBatchPlanResponse,
   type AdminMetadataCandidateReviewListResponse,
   type AdminMetadataCandidateReviewQueueQuery,
   type AdminMetadataCandidateReviewQueueResponse,
@@ -279,6 +283,26 @@ export class AdminApiClient {
     return this.sendJson<AdminMetadataCandidateReviewApplyResponse>(
       "POST",
       pathParams(NAKO_ADMIN_ROUTES.metadataCandidateReviewApply, { review_id: reviewId }),
+      request,
+    )
+  }
+
+  planMetadataCandidateReviewBatchApplication(
+    request: AdminMetadataCandidateReviewBatchPlanRequest,
+  ): Promise<AdminMetadataCandidateReviewBatchPlanResponse> {
+    return this.sendJson<AdminMetadataCandidateReviewBatchPlanResponse>(
+      "POST",
+      NAKO_ADMIN_ROUTES.metadataCandidateReviewBatchApplicationPlan,
+      request,
+    )
+  }
+
+  applyMetadataCandidateReviewBatch(
+    request: AdminMetadataCandidateReviewBatchApplyRequest,
+  ): Promise<AdminMetadataCandidateReviewBatchApplyResponse> {
+    return this.sendJson<AdminMetadataCandidateReviewBatchApplyResponse>(
+      "POST",
+      NAKO_ADMIN_ROUTES.metadataCandidateReviewBatchApply,
       request,
     )
   }

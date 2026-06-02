@@ -47,7 +47,7 @@ Exit criteria:
 
 ## M3 - Web Admin Batch Governance
 
-Status: Ready at `PGBR-040`.
+Status: Complete after `PGBR-040`.
 
 Exit criteria:
 
@@ -58,7 +58,7 @@ Exit criteria:
 
 ## M4 - Closeout And Follow-On Split
 
-Status: Planned at `PGBR-050`.
+Status: Ready at `PGBR-050`.
 
 Exit criteria:
 

@@ -125,20 +125,66 @@ Behavior evidence:
 - no Web UI, Public Client API, related hierarchy application, provider
   endpoint depth, durable job, or hidden background execution was added.
 
-## PGBR-040 Gates
+## PGBR-040 Evidence
+
+Implementation:
+
+- Added Web Admin client/data-source support for batch Candidate Review plan
+  and apply routes.
+- Added global Candidate Review queue selection, selected-count controls,
+  read-only batch plan inspection, and explicit confirmation against live Admin
+  API behavior.
+- Added redaction-safe partial result rendering that carries only status,
+  reasons, and Provider Mapping ID into the Web read model.
+- Kept fixture fallback truthful: fixture batch plans are marked fallback and
+  cannot claim live mutation success.
+- Raised the total JS gzip budget by 1 KiB after slimming the feature; current
+  measured total is `344.77/345 KiB`, while route-specific budgets remain well
+  below their limits.
+
+TDD and route-state evidence:
+
+- Added route-state contract coverage for queue selection -> batch plan ->
+  confirmation.
+- The test asserts request bodies for both batch plan and batch apply, checks
+  route authorization, validates generated idempotency-key prefixing, and
+  proves raw provider response, local secret fields, raw idempotency keys, and
+  bearer tokens do not render.
+
+Green gates:
+
+- `npm --prefix web run check` passed.
+- `npm --prefix web run test` passed: 10 files, 121 tests.
+- `npm --prefix web run build:budget` passed with total JS `344.77/345 KiB`.
+- Browser smoke passed on
+  `/admin/metadata/candidate-reviews?status=accepted&provider=bangumi&limit=25&offset=0`:
+  selected `review-live-older`, generated a batch plan, confirmed batch apply,
+  rendered `mapping-batch-live`, and detected no raw provider response, raw
+  idempotency key, or bearer token in the page text.
+- `git diff --check` passed with Git CRLF normalization warnings only.
+
+Behavior evidence:
+
+- Web Admin selection is explicit and operator-driven from the global queue;
+- operators inspect the live batch plan before confirmation;
+- confirmation sends selected review ID, item ID, expected update time, and a
+  generated idempotency key;
+- route-state query context remains on the global queue URL;
+- fixture fallback does not confirm live mutation success;
+- no Public Client API surface, related hierarchy mutation, provider endpoint
+  depth, or backend execution model change was introduced.
+
+## PGBR-050 Gates
 
 Implementation gates:
 
-- `npm --prefix web run check`
-- `npm --prefix web run test`
-- `npm --prefix web run build:budget`
-- browser smoke for queue selection -> batch plan -> confirmation/result route
+- fresh gate evidence in this file
+- JSON/JSONL validation
 - `git diff --check`
 
 Behavior evidence required:
 
-- Web Admin selection is explicit and bounded;
-- operators inspect a batch plan before confirmation;
-- route state preserves queue context;
-- fixture fallback does not claim live mutation success;
-- no Public Client API surface or related hierarchy mutation is introduced.
+- workstream ledgers and architecture maps agree;
+- related hierarchy application, provider endpoint depth, Public Client API,
+  durable job execution, and broader provider governance are closed, split, or
+  deferred explicitly.

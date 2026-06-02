@@ -38,6 +38,9 @@ import type {
   AdminMetadataCandidateReviewApplicationBoundary,
   AdminMetadataCandidateReviewApplicationPlan,
   AdminMetadataCandidateReviewApplyResponse,
+  AdminMetadataCandidateReviewBatchApplyResponse,
+  AdminMetadataCandidateReviewBatchApplyResult,
+  AdminMetadataCandidateReviewBatchPlanResponse,
   AdminMetadataCandidateReviewDetail,
   AdminMetadataCandidateReviewListEntry,
   AdminMetadataCandidateReviewListResponse,
@@ -718,6 +721,24 @@ export interface AdminMetadataCandidateReviewQueueReadModel extends AdminReadMod
   }
 }
 
+export interface AdminMetadataCandidateReviewBatchPlanSummaryReadModel {
+  requestedCount: number
+  returnedCount: number
+  maxReviewCount: number
+  applyCount: number
+  noopCount: number
+  skipCount: number
+}
+
+export interface AdminMetadataCandidateReviewBatchPlanReadModel extends AdminReadModelEnvelope {
+  versions: {
+    adminApi: string
+    publicApi: string
+  }
+  summary: AdminMetadataCandidateReviewBatchPlanSummaryReadModel
+  reviews: AdminMetadataCandidateReviewListItemReadModel[]
+}
+
 export interface AdminMetadataCandidateReviewProviderSubjectReadModel
   extends AdminMetadataCandidateSubjectReadModel {
   subjectId: string
@@ -747,6 +768,44 @@ export interface AdminMetadataCandidateReviewApplyReadModel extends AdminReadMod
   providerSubject: AdminMetadataCandidateReviewProviderSubjectReadModel | null
   providerMapping: AdminMetadataCandidateReviewProviderMappingReadModel | null
   boundary: AdminMetadataCandidateReviewBoundaryReadModel
+}
+
+export interface AdminMetadataCandidateReviewBatchApplySummaryReadModel {
+  requestedCount: number
+  returnedCount: number
+  maxReviewCount: number
+  appliedCount: number
+  changedCount: number
+  noopCount: number
+  replayCount: number
+  skippedCount: number
+  blockedCount: number
+  staleCount: number
+  conflictCount: number
+  failedCount: number
+}
+
+export interface AdminMetadataCandidateReviewBatchApplyErrorReadModel {
+  code: string
+  message: string
+}
+
+export interface AdminMetadataCandidateReviewBatchApplyResultReadModel {
+  reviewId: string
+  status: string
+  changed: boolean
+  reasons: string[]
+  mappingId: string | null
+  error: AdminMetadataCandidateReviewBatchApplyErrorReadModel | null
+}
+
+export interface AdminMetadataCandidateReviewBatchApplyReadModel extends AdminReadModelEnvelope {
+  versions: {
+    adminApi: string
+    publicApi: string
+  }
+  summary: AdminMetadataCandidateReviewBatchApplySummaryReadModel
+  results: AdminMetadataCandidateReviewBatchApplyResultReadModel[]
 }
 
 export interface AdminSettingsReadModel extends AdminReadModelEnvelope {
@@ -1117,6 +1176,17 @@ export function createAdminReadModelsDataSource(
       })
     },
 
+    async loadMetadataCandidateReviewBatchPlan(
+      reviewIds: string[],
+    ): Promise<AdminMetadataCandidateReviewBatchPlanReadModel> {
+      return withFallback(metadataCandidateReviewBatchPlanFixture(reviewIds), async () => {
+        const response = await client.planMetadataCandidateReviewBatchApplication({
+          review_ids: reviewIds,
+        })
+        return mapMetadataCandidateReviewBatchPlanResponse(response)
+      })
+    },
+
     async loadGeneratedArtifactMetadataBulkApplyPlan(
       artifactIds: string[],
     ): Promise<AdminGeneratedArtifactMetadataBulkApplyPlanReadModel> {
@@ -1216,6 +1286,9 @@ function fixtureDataSource() {
         itemId,
         normalizeMetadataCandidateReviewListQuery(query),
       )
+    },
+    async loadMetadataCandidateReviewBatchPlan(reviewIds: string[]) {
+      return metadataCandidateReviewBatchPlanFixture(reviewIds)
     },
     async loadGeneratedArtifactMetadataBulkApplyPlan(artifactIds: string[]) {
       return generatedArtifactMetadataBulkApplyPlanFixture(artifactIds)
@@ -1775,6 +1848,74 @@ export function mapMetadataCandidateReviewApplyResponse(
       ? mapMetadataCandidateReviewProviderMapping(response.provider_mapping)
       : null,
     boundary: mapMetadataCandidateReviewBoundary(response.boundary),
+  }
+}
+
+export function mapMetadataCandidateReviewBatchPlanResponse(
+  response: AdminMetadataCandidateReviewBatchPlanResponse,
+): AdminMetadataCandidateReviewBatchPlanReadModel {
+  return {
+    source: "live",
+    fallback: false,
+    versions: {
+      adminApi: response.admin_api_version,
+      publicApi: response.public_api_version,
+    },
+    summary: {
+      requestedCount: response.summary.requested_count,
+      returnedCount: response.summary.returned_count,
+      maxReviewCount: response.summary.max_review_count,
+      applyCount: response.summary.apply_count,
+      noopCount: response.summary.noop_count,
+      skipCount: response.summary.skip_count,
+    },
+    reviews: response.reviews.map(mapMetadataCandidateReviewListEntry),
+  }
+}
+
+export function mapMetadataCandidateReviewBatchApplyResponse(
+  response: AdminMetadataCandidateReviewBatchApplyResponse,
+): AdminMetadataCandidateReviewBatchApplyReadModel {
+  return {
+    source: "live",
+    fallback: false,
+    versions: {
+      adminApi: response.admin_api_version,
+      publicApi: response.public_api_version,
+    },
+    summary: {
+      requestedCount: response.summary.requested_count,
+      returnedCount: response.summary.returned_count,
+      maxReviewCount: response.summary.max_review_count,
+      appliedCount: response.summary.applied_count,
+      changedCount: response.summary.changed_count,
+      noopCount: response.summary.noop_count,
+      replayCount: response.summary.replay_count,
+      skippedCount: response.summary.skipped_count,
+      blockedCount: response.summary.blocked_count,
+      staleCount: response.summary.stale_count,
+      conflictCount: response.summary.conflict_count,
+      failedCount: response.summary.failed_count,
+    },
+    results: response.results.map(mapMetadataCandidateReviewBatchApplyResult),
+  }
+}
+
+function mapMetadataCandidateReviewBatchApplyResult(
+  result: AdminMetadataCandidateReviewBatchApplyResult,
+): AdminMetadataCandidateReviewBatchApplyResultReadModel {
+  return {
+    reviewId: result.review_id,
+    status: result.status,
+    changed: result.changed,
+    reasons: result.plan?.reasons ?? [],
+    mappingId: result.provider_mapping?.mapping_id ?? null,
+    error: result.error
+      ? {
+          code: result.error.code,
+          message: result.error.message,
+        }
+      : null,
   }
 }
 
@@ -2604,6 +2745,25 @@ function metadataCandidateReviewQueueFixture(
       offset: query.offset ?? 0,
       returned: 1,
     },
+  }
+}
+
+function metadataCandidateReviewBatchPlanFixture(
+  reviewIds: string[],
+): AdminMetadataCandidateReviewBatchPlanReadModel {
+  return {
+    source: "fixture",
+    fallback: true,
+    versions: { adminApi: "fixture", publicApi: "fixture" },
+    summary: {
+      requestedCount: reviewIds.length,
+      returnedCount: 0,
+      maxReviewCount: 50,
+      applyCount: 0,
+      noopCount: 0,
+      skipCount: 0,
+    },
+    reviews: [],
   }
 }
 

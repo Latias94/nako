@@ -995,6 +995,112 @@ describe("route state contracts", () => {
     }
   })
 
+  it("runs live Admin metadata candidate review batch governance through plan and confirmation", async () => {
+    const user = userEvent.setup()
+    const originalFetch = globalThis.fetch
+    const previousProfile = window.localStorage.getItem(CONNECTION_PROFILE_STORAGE_KEY)
+    const previousSession = window.sessionStorage.getItem(CONNECTION_SESSION_STORAGE_KEY)
+    const calls: Array<{
+      method: string
+      path: string
+      body?: unknown
+      authorization: string | null
+    }> = []
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined
+      const method = init?.method ?? "GET"
+      calls.push({
+        method,
+        path: `${url.pathname}${url.search}`,
+        body,
+        authorization: new Headers(init?.headers).get("Authorization"),
+      })
+
+      switch (`${method} ${url.pathname}`) {
+        case "GET /admin/v1/metadata/candidate-reviews":
+          return jsonResponse(adminMetadataCandidateReviewQueueResponse())
+        case "POST /admin/v1/metadata/candidate-reviews/batch-application-plan":
+          return jsonResponse(adminMetadataCandidateReviewBatchPlanResponse(["review-live-older"]))
+        case "POST /admin/v1/metadata/candidate-reviews/batch-apply":
+          return jsonResponse(adminMetadataCandidateReviewBatchApplyResponse(["review-live-older"]))
+        default:
+          return jsonResponse({ code: "not_found", message: "not found" }, 404)
+      }
+    })
+
+    window.localStorage.setItem(
+      CONNECTION_PROFILE_STORAGE_KEY,
+      JSON.stringify({
+        mode: "live",
+        runtime: "browser",
+        baseUrl: "http://nako-admin.test",
+      }),
+    )
+    window.sessionStorage.setItem(
+      CONNECTION_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        bearerToken: "admin-token",
+      }),
+    )
+    vi.stubGlobal("fetch", fetcher)
+
+    try {
+      renderRoute(
+        "/admin/metadata/candidate-reviews?status=accepted&provider=bangumi&limit=25&offset=0",
+      )
+
+      expect(await screen.findByText("Global Candidate Review queue", {}, { timeout: 10000 })).toBeInTheDocument()
+      expect(await screen.findByText("review-live-older", {}, { timeout: 10000 })).toBeInTheDocument()
+      await user.click(
+        screen.getByRole("checkbox", { name: "选择批量应用 review-live-older" }),
+      )
+      await user.click(screen.getByRole("button", { name: "生成批量计划" }))
+
+      expect(await screen.findByText("Batch Candidate Review plan", {}, { timeout: 10000 })).toBeInTheDocument()
+      expect(screen.getByText("apply 1 · noop 0 · skip 0")).toBeInTheDocument()
+      await user.click(screen.getByRole("button", { name: "确认批量应用" }))
+
+      expect(
+        await screen.findByText("批量 Candidate Review 已应用到 root Provider Mapping", {}, { timeout: 10000 }),
+      ).toBeInTheDocument()
+      expect(screen.getByText(/mapping-batch-live/)).toBeInTheDocument()
+      expect(screen.queryByText("secret candidate overview")).not.toBeInTheDocument()
+      expect(screen.queryByText("provider secret response")).not.toBeInTheDocument()
+      expect(screen.queryByText("unsafe-batch-idempotency-key")).not.toBeInTheDocument()
+      expect(screen.queryByText("admin-token")).not.toBeInTheDocument()
+
+      expect(calls).toContainEqual({
+        method: "POST",
+        path: "/admin/v1/metadata/candidate-reviews/batch-application-plan",
+        body: { review_ids: ["review-live-older"] },
+        authorization: "Bearer admin-token",
+      })
+      const confirmCall = calls.find(
+        (call) =>
+          call.method === "POST" &&
+          call.path === "/admin/v1/metadata/candidate-reviews/batch-apply",
+      )
+      expect(confirmCall?.body).toMatchObject({
+        reviews: [
+          {
+            review_id: "review-live-older",
+            item_id: "item-live-other",
+            expected_updated_at_ms: 300,
+          },
+        ],
+        idempotency_key: expect.stringMatching(
+          /^web-metadata-candidate-review-batch-apply:1:review-live-older:/,
+        ),
+      })
+      expect(confirmCall?.authorization).toBe("Bearer admin-token")
+    } finally {
+      vi.stubGlobal("fetch", originalFetch)
+      restoreStorage(window.localStorage, CONNECTION_PROFILE_STORAGE_KEY, previousProfile)
+      restoreStorage(window.sessionStorage, CONNECTION_SESSION_STORAGE_KEY, previousSession)
+    }
+  })
+
   it("runs live Admin generated artifact metadata bulk apply through plan, confirm, and status", async () => {
     const user = userEvent.setup()
     const originalFetch = globalThis.fetch
@@ -2589,6 +2695,96 @@ function adminMetadataCandidateReviewApplyResponse(reviewId = "review-live") {
       apply_mutation_required: true,
     }),
     idempotency_key: "web-metadata-candidate-review-apply:review-live:test",
+  }
+}
+
+function adminMetadataCandidateReviewBatchPlanResponse(reviewIds = ["review-live-older"]) {
+  const queue = adminMetadataCandidateReviewQueueResponse()
+  const requestedReviews = reviewIds
+    .map((reviewId) => queue.reviews.find((review) => review.review_id === reviewId))
+    .filter((review): review is NonNullable<typeof review> => Boolean(review))
+
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    summary: {
+      requested_count: reviewIds.length,
+      returned_count: requestedReviews.length,
+      max_review_count: 50,
+      apply_count: requestedReviews.filter(
+        (review) => review.application_plan.action === "apply",
+      ).length,
+      noop_count: requestedReviews.filter(
+        (review) => review.application_plan.action === "noop",
+      ).length,
+      skip_count: requestedReviews.filter(
+        (review) => review.application_plan.action === "skip",
+      ).length,
+    },
+    reviews: requestedReviews.map((review) => ({
+      ...review,
+      raw_provider_response: "provider secret response",
+    })),
+    raw_provider_response: "provider secret response",
+  }
+}
+
+function adminMetadataCandidateReviewBatchApplyResponse(reviewIds = ["review-live-older"]) {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    idempotency_key_fingerprint: "batch-fingerprint",
+    summary: {
+      requested_count: reviewIds.length,
+      returned_count: reviewIds.length,
+      max_review_count: 50,
+      applied_count: reviewIds.length,
+      changed_count: reviewIds.length,
+      noop_count: 0,
+      replay_count: 0,
+      skipped_count: 0,
+      blocked_count: 0,
+      stale_count: 0,
+      conflict_count: 0,
+      failed_count: 0,
+    },
+    results: reviewIds.map((reviewId) => ({
+      review_id: reviewId,
+      item_id: "item-live-other",
+      status: "applied",
+      applied: true,
+      changed: true,
+      idempotent_replay: false,
+      idempotency_key_fingerprint: "row-fingerprint",
+      plan: adminMetadataCandidateReviewApplicationPlan(reviewId, "apply", ["ready"]),
+      provider_subject: {
+        subject_id: "subject-live",
+        provider: "bangumi",
+        subject_kind: "subject",
+        subject_key: "1437",
+        title: "Live Candidate",
+        release_year: 2026,
+        locale: "zh-CN",
+        raw_subject_payload: "provider secret response",
+      },
+      provider_mapping: {
+        mapping_id: "mapping-batch-live",
+        item_id: "item-live-other",
+        subject_id: "subject-live",
+        status: "accepted",
+        confidence_milli: 940,
+        source: "user",
+        raw_provider_mapping: "provider secret response",
+      },
+      boundary: adminMetadataCandidateReviewBoundary({
+        read_only: false,
+        applies_on_read: false,
+        apply_mutation_required: true,
+      }),
+      error: null,
+      idempotency_key: "unsafe-batch-idempotency-key",
+    })),
+    raw_provider_response: "provider secret response",
   }
 }
 

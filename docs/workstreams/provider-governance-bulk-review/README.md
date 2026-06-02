@@ -24,8 +24,11 @@ Current execution:
   selected Metadata Candidate Reviews.
 - `PGBR-030` shipped bounded confirmed backend batch apply through the
   existing single-review application authority.
-- `PGBR-040` is ready: add Web Admin selection, plan inspection,
-  confirmation, and partial-result rendering.
+- `PGBR-040` shipped Web Admin selection, plan inspection, confirmation, and
+  partial-result rendering.
+- `PGBR-050` is ready: close the lane or split durable job execution, related
+  hierarchy application, provider endpoint depth, and broader provider
+  governance follow-ons.
 
 Boundary:
 

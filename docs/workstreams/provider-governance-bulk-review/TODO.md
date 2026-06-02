@@ -35,13 +35,13 @@ Last updated: 2026-06-02
 
 ## M3 - Web Admin Batch Governance
 
-- [ ] PGBR-040 [owner=codex] [deps=PGBR-030] [scope=web/src/api/admin,web/src/features/admin,web/src/shell,web/src/test,docs/workstreams/provider-governance-bulk-review]
+- [x] PGBR-040 [owner=codex] [deps=PGBR-030] [scope=web/src/api/admin,web/src/features/admin,web/src/shell,web/src/test,web/scripts,docs/workstreams/provider-governance-bulk-review]
   Goal: Add Web Admin selection, read-only batch plan inspection, and explicit confirmation from the global Candidate Review queue.
   Validation: `npm --prefix web run check`; `npm --prefix web run test`; `npm --prefix web run build:budget`; browser smoke; `git diff --check`.
   Review: Web must present batch governance as explicit operator confirmation, not fixture-only success, hidden apply, hierarchy mutation, or Public Client API behavior.
   Evidence: `EVIDENCE_AND_GATES.md` (`PGBR-040 Evidence`).
   Context: `CONTEXT.jsonl`.
-  Handoff: READY; split UX polish if needed.
+  Handoff: DONE.
 
 ## M4 - Closeout And Follow-On Split
 
@@ -51,4 +51,4 @@ Last updated: 2026-06-02
   Review: batch governance must not weaken single-review semantics or leak raw provider/local/secret facts.
   Evidence: `EVIDENCE_AND_GATES.md`; `WORKSTREAM.json`; optional `CLOSEOUT.md`.
   Context: `CONTEXT.jsonl`.
-  Handoff: final status must be DONE, DONE_WITH_CONCERNS, BLOCKED, or NEEDS_CONTEXT.
+  Handoff: READY.
