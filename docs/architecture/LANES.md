@@ -18,14 +18,21 @@ instead.
 
 ## Active Queue
 
-| Lane | Active Trellis task | Next task | Recommended terminal role |
+No active implementation lane is selected as of 2026-06-02. The 01a-01f
+parallel Trellis queue has completed and merged; do not spawn new terminals
+from that completed queue.
+
+`00-bootstrap-guidelines` remains active as Trellis spec setup. Treat it as a
+documentation/bootstrap task, not as an implementation lane.
+
+| Area | Current state | Candidate next action | Coordination note |
 | --- | --- | --- | --- |
-| architecture-planning | `06-02-01a-archive-legacy-workstreams-and-trellis-lane-routing` | Archive legacy workstreams and route active execution through Trellis. | Merge first when possible; docs-only cleanup reduces later ambiguity. |
-| web-product | `06-02-01b-admin-settings-api-backed-restoration` | Restore API-backed Admin settings surfaces. | Serialize with any task changing `nako-api` Admin DTOs, generated Admin Web contracts, or shared Admin settings routes. |
-| library-metadata-control-plane | `06-02-01c-provider-review-related-hierarchy-application` | Prove accepted-review related hierarchy application policy. | Start backend-first; pause before Admin API/Web or generated contract changes until `01b` is coordinated. |
-| playback-transcode | `06-02-01d-hls-artifact-io-pressure-enforcement` | Add bounded HLS artifact I/O pressure policy. | Safe to run beside storage work if shared staging/source-read contracts stay explicit. |
-| storage-vfs | `06-02-01e-storage-vfs-cache-repair-diagnostics` | Deepen VFS cache repair diagnostics. | Keep separate from HLS artifact I/O pressure; coordinate only on shared staging/source reads. |
-| control-plane | `06-02-01f-durable-job-priority-policy-and-scheduler-migration` | Introduce generic durable job priority policy and scheduler migration. | Keep scheduler policy generic; do not bake provider-review semantics into the runtime. |
+| architecture-planning | Idle after 01a and 01 parent closeout. | Select the next architecture focus or continue `00-bootstrap-guidelines` spec coverage. | Open a focused Trellis task before starting implementation lanes. |
+| library-metadata-control-plane | Idle after accepted-review related hierarchy application and durable batch execution follow-ons landed. | Consider `provider-review-public-client-governance`, `provider-governance-audit-and-undo`, or `douban-tv-episode-endpoint-depth`. | Coordinate with `nako-api`, Admin Web, and schema changes before assigning parallel work. |
+| playback-transcode | Idle after HLS artifact I/O pressure enforcement. | Consider resource admission queueing, LL-HLS/CMAF, player UX, hardware tone-map execution, HEVC/AV1 output policy, subtitle burn-in, or hardware smoke evidence. | Coordinate with storage/VFS and web/native player work. |
+| storage-vfs | Idle after cache repair diagnostics. | Consider source fingerprint escalation, playback artifact/source-read pressure, scan scheduling, or PostgreSQL runtime harness work. | Coordinate with playback input staging and library scan/probe lanes. |
+| web-product | Idle after Admin settings API restoration and previous Web Admin closeouts. | Consider backend/API contract follow-ons, generated SDK work, broader player UX, or desktop/native playback decisions. | Serialize with shared Admin DTO, generated contract, and auth/redaction changes. |
+| control-plane | Idle after durable job priority policy and scheduler migration. | Consider diagnostics, remote access, API cache/scale, or broader durable-job operator surfaces once a Trellis task is opened. | Keep ADR 0053 as the baseline; avoid per-feature hidden runtimes. |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
@@ -115,8 +122,8 @@ profiles, UI controls, or operator smoke matrices.
 `playback-compatibility-matrix-hardening`,
 `transcode-capability-inventory-matrix`, `hls-runtime-lifecycle-boundary`,
 `hls-progressive-readiness-test-stability`, and
-`playback-transcode-jellyfin-class-hardening` are closed. Keep artifact I/O
-pressure routed to Trellis task
+`playback-transcode-jellyfin-class-hardening` are closed. HLS artifact I/O
+pressure enforcement is closed after
 `06-02-01d-hls-artifact-io-pressure-enforcement`. Split resource admission
 queueing, remote workers, LL-HLS/CMAF, player UX, hardware tone-map execution,
 HEVC/AV1 output policy, subtitle burn-in, Admin/release reporting, and
