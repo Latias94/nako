@@ -1,0 +1,8 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": "CONTEXT.md", "reason": "Addon vocabulary and domain boundary."}
+{"file": "docs/architecture/LANES.md", "reason": "Addons-automation and control-plane coordination."}
+{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Addon lifecycle, diagnostics, and control-plane map."}
+{"file": ".trellis/spec/nako-addon-protocol/backend/index.md", "reason": "Addon Protocol manifest/install/health guidance."}
+{"file": ".trellis/spec/nako-addon-client/backend/index.md", "reason": "Addon Sidecar client and health check guidance."}
+{"file": ".trellis/spec/nako-official-addon-catalog/backend/index.md", "reason": "Official addon catalog descriptor guidance."}
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Admin/Public DTO redaction guidance if surfaced."}

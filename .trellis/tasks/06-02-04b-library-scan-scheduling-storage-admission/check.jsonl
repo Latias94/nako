@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Check storage health and staging boundaries."}
+{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "Check scan/probe flow."}
+{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "Check VFS compatibility and redaction."}
+{"file": ".trellis/spec/nako-library/backend/index.md", "reason": "Check scan/intake behavior."}

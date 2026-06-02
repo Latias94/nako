@@ -1,0 +1,31 @@
+{
+  "id": "04-product-readiness-parallel-wave",
+  "name": "04-product-readiness-parallel-wave",
+  "title": "Product readiness parallel wave",
+  "description": "Planner parent for the 04a-04d product readiness parallel wave.",
+  "status": "planning",
+  "dev_type": "planning",
+  "scope": "product-readiness",
+  "package": "nako",
+  "priority": "P2",
+  "creator": "Latias94",
+  "assignee": "Latias94",
+  "createdAt": "2026-06-02",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "06-02-04a-media-web-hls-player-ux-hardening",
+    "06-02-04b-library-scan-scheduling-storage-admission",
+    "06-02-04c-provider-governance-audit-undo",
+    "06-02-04d-addon-install-health-guide"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

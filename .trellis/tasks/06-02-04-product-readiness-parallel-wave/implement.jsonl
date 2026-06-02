@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": "docs/architecture/LANES.md", "reason": "Parallel lane ownership and shared scope coordination."}
+{"file": "docs/ARCHITECTURE.md", "reason": "System map and architecture principles for product readiness work."}
+{"file": "docs/ROADMAP.md", "reason": "Current roadmap and follow-on pressure."}
+{"file": "docs/GOALS.md", "reason": "Goal boundaries and product readiness context."}

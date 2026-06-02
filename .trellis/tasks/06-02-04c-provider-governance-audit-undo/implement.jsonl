@@ -1,0 +1,9 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": "docs/architecture/LANES.md", "reason": "Metadata control-plane shared scope routing."}
+{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "Metadata and provider governance pipeline map."}
+{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Durable batch/job and audit/control-plane boundaries."}
+{"file": ".trellis/spec/nako-metadata/backend/index.md", "reason": "Candidate Review and provider mapping guidance."}
+{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "Repository/schema contract guidance if persistence changes."}
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Admin/Public DTO redaction and generated contract guidance."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server route/app-service behavior."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Admin Web route/data-source guidance if UI changes."}

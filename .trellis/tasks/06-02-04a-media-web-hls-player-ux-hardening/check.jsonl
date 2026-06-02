@@ -1,0 +1,4 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": "docs/architecture/PLAYBACK.md", "reason": "Check playback runtime and public URL safety."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Check frontend route/data-source/player tests."}
+{"file": ".trellis/spec/nako-client-protocol/backend/index.md", "reason": "Check public protocol compatibility if touched."}
