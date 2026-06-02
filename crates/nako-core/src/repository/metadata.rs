@@ -12,7 +12,9 @@ use crate::{
     ManagedArtworkIngestProcessingRecord, ManagedArtworkIngestRecord,
     ManagedArtworkIngestRequeueRecord, MediaItem, MediaItemId, MediaSourceId,
     MetadataApplicationPersistenceCommit, MetadataApplicationPersistenceSummary,
-    MetadataAttemptFilter, MetadataCandidateReviewId, MetadataCandidateReviewRecord,
+    MetadataAttemptFilter, MetadataCandidateReviewBatchCommit, MetadataCandidateReviewBatchId,
+    MetadataCandidateReviewBatchItemOutcomeCommit, MetadataCandidateReviewBatchRecord,
+    MetadataCandidateReviewBatchStatus, MetadataCandidateReviewId, MetadataCandidateReviewRecord,
     MetadataCandidateReviewStatus, MetadataCandidateSource, MetadataFieldLock,
     MetadataProviderAttemptRecord, MetadataRefreshPersistenceCommit,
     MetadataRefreshPersistenceSummary, NewArtworkCandidate, NewJob, NewManagedArtworkArtifact,
@@ -302,6 +304,33 @@ pub trait MetadataCandidateReviewRepository: Send + Sync {
         filter: MetadataCandidateReviewQueueFilter,
         page: PageRequest,
     ) -> Result<Vec<MetadataCandidateReviewRecord>>;
+
+    async fn get_metadata_candidate_review_batch(
+        &self,
+        batch_id: MetadataCandidateReviewBatchId,
+    ) -> Result<Option<MetadataCandidateReviewBatchRecord>>;
+
+    async fn find_metadata_candidate_review_batch(
+        &self,
+        idempotency_key: &str,
+    ) -> Result<Option<MetadataCandidateReviewBatchRecord>>;
+
+    async fn commit_metadata_candidate_review_batch(
+        &self,
+        commit: &MetadataCandidateReviewBatchCommit,
+    ) -> Result<MetadataCandidateReviewBatchRecord>;
+
+    async fn commit_metadata_candidate_review_batch_item_outcome(
+        &self,
+        commit: &MetadataCandidateReviewBatchItemOutcomeCommit,
+    ) -> Result<MetadataCandidateReviewBatchRecord>;
+
+    async fn update_metadata_candidate_review_batch_status(
+        &self,
+        batch_id: MetadataCandidateReviewBatchId,
+        expected: MetadataCandidateReviewBatchStatus,
+        status: MetadataCandidateReviewBatchStatus,
+    ) -> Result<MetadataCandidateReviewBatchRecord>;
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

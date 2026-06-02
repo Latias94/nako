@@ -48,22 +48,31 @@ use nako_core::{
     LibraryItemState, LibraryOptions, LibraryPreset, LibraryRepository,
     LibraryScanSourcePersistenceCommit, LocalCredentialRecord, LocalInferenceEvidence,
     LocalInferenceEvidenceId, LocalInferenceEvidenceSource, LocalInferenceRepository,
-    ManagedArtworkAcceptanceRecord, ManagedArtworkArtifactId,
-    ManagedArtworkArtifactLifecycleFilter, ManagedArtworkIngestId, ManagedArtworkIngestStatus,
-    ManagedArtworkRepository, ManagedImportArtifactId, ManagedImportArtifactListFilter,
-    ManagedImportArtifactState, ManagedImportPromotionApplyId, ManagedImportPromotionApplyState,
-    ManagedImportPromotionOperationKind, ManagedImportRepository, ManagedImportSourceKind,
-    MediaColorInfo, MediaHdrMetadata, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
-    MediaProbeResult, MediaRational, MediaRepository, MediaSource, MediaSourceId,
-    MediaStreamDisposition, MediaStreamInfo, MediaStreamKind, MediaStreamTechnicalFacts,
-    MetadataApplicationPersistenceCommit, MetadataAttemptFilter, MetadataField, MetadataFieldLock,
-    MetadataMatchKind, MetadataProviderAttemptId, MetadataProviderAttemptStatus,
-    MetadataRefreshPersistenceCommit, MetadataRefreshProviderMappingCommit, MetadataRepository,
-    MetadataSource, NakoError, NewAcquisitionIntakeCandidate, NewAddonEventDeliveryAttempt,
-    NewAddonGrant, NewAddonRegistration, NewAddonRoutingPlan, NewAddonSideEffect, NewAddonTaskRun,
-    NewAddonToken, NewArtworkCandidate, NewAutomationArtifact, NewAutomationProviderConfig,
-    NewIngestionFailure, NewJob, NewManagedArtworkArtifact, NewManagedArtworkIngest,
-    NewManagedImportArtifact, NewManagedImportPromotionApply, NewMetadataProviderAttempt,
+    METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS, ManagedArtworkAcceptanceRecord,
+    ManagedArtworkArtifactId, ManagedArtworkArtifactLifecycleFilter, ManagedArtworkIngestId,
+    ManagedArtworkIngestStatus, ManagedArtworkRepository, ManagedImportArtifactId,
+    ManagedImportArtifactListFilter, ManagedImportArtifactState, ManagedImportPromotionApplyId,
+    ManagedImportPromotionApplyState, ManagedImportPromotionOperationKind, ManagedImportRepository,
+    ManagedImportSourceKind, MediaColorInfo, MediaHdrMetadata, MediaItem, MediaItemId, MediaKind,
+    MediaProbeRepository, MediaProbeResult, MediaRational, MediaRepository, MediaSource,
+    MediaSourceId, MediaStreamDisposition, MediaStreamInfo, MediaStreamKind,
+    MediaStreamTechnicalFacts, MetadataApplicationPersistenceCommit, MetadataAttemptFilter,
+    MetadataCandidateReviewApplicationAction, MetadataCandidateReviewApplicationPlan,
+    MetadataCandidateReviewApplicationReason, MetadataCandidateReviewBatchCommit,
+    MetadataCandidateReviewBatchId, MetadataCandidateReviewBatchItemCommit,
+    MetadataCandidateReviewBatchItemOutcomeCommit, MetadataCandidateReviewBatchItemStatus,
+    MetadataCandidateReviewBatchPlanSelection, MetadataCandidateReviewBatchPlanSummary,
+    MetadataCandidateReviewBatchStatus, MetadataCandidateReviewId, MetadataCandidateReviewNode,
+    MetadataCandidateReviewPlan, MetadataCandidateReviewRecord, MetadataCandidateReviewRepository,
+    MetadataCandidateReviewStatus, MetadataCandidateSource, MetadataCandidateSubject,
+    MetadataField, MetadataFieldLock, MetadataMatchKind, MetadataProviderAttemptId,
+    MetadataProviderAttemptStatus, MetadataRefreshPersistenceCommit,
+    MetadataRefreshProviderMappingCommit, MetadataRepository, MetadataSource, NakoError,
+    NewAcquisitionIntakeCandidate, NewAddonEventDeliveryAttempt, NewAddonGrant,
+    NewAddonRegistration, NewAddonRoutingPlan, NewAddonSideEffect, NewAddonTaskRun, NewAddonToken,
+    NewArtworkCandidate, NewAutomationArtifact, NewAutomationProviderConfig, NewIngestionFailure,
+    NewJob, NewManagedArtworkArtifact, NewManagedArtworkIngest, NewManagedImportArtifact,
+    NewManagedImportPromotionApply, NewMetadataCandidateReview, NewMetadataProviderAttempt,
     NewNfoSidecarApply, NewOutboxEvent, NewPlaybackSession, NewRendererCommand, NewRendererSession,
     NewStagingManifestRecord, NewTranscodeSession, NewUserPlaylist, NewVfsCacheFailure,
     NewWebhookDeliveryAttempt, NewWebhookEndpoint, NfoImportPersistenceCommit, NfoSidecarApplyId,
@@ -109,6 +118,7 @@ enum ContractFamily {
     LibraryMedia,
     ScanCommit,
     MetadataCatalog,
+    MetadataCandidateReviewBatch,
     ManagedArtwork,
     AcquisitionIntake,
     ManagedImport,
@@ -133,6 +143,7 @@ impl ContractFamily {
             Self::LibraryMedia => "library_media",
             Self::ScanCommit => "scan_commit",
             Self::MetadataCatalog => "metadata_catalog",
+            Self::MetadataCandidateReviewBatch => "metadata_candidate_review_batch",
             Self::ManagedArtwork => "managed_artwork",
             Self::AcquisitionIntake => "acquisition_intake",
             Self::ManagedImport => "managed_import",
@@ -307,6 +318,16 @@ trait GeneratedArtifactMetadataApplyOutcomeContractBackend:
 
 impl<T> GeneratedArtifactMetadataApplyOutcomeContractBackend for T where
     T: MetadataCatalogContractBackend + AutomationRepository
+{
+}
+
+trait MetadataCandidateReviewBatchContractBackend:
+    MetadataCatalogContractBackend + MetadataCandidateReviewRepository
+{
+}
+
+impl<T> MetadataCandidateReviewBatchContractBackend for T where
+    T: MetadataCatalogContractBackend + MetadataCandidateReviewRepository
 {
 }
 
@@ -3390,6 +3411,316 @@ where
             .is_none()
     );
     assert!(store.get_job(conflict.job.id).await.unwrap().is_none());
+}
+
+async fn metadata_candidate_review_batch_is_idempotent_and_atomic_contract<S>(store: S)
+where
+    S: MetadataCandidateReviewBatchContractBackend,
+{
+    let library = seed_contract_library(&store).await;
+    let source = seed_contract_media_item_with_source(
+        &store,
+        library.id,
+        "Metadata Candidate Review Batch",
+        "local:///Contract Movies/metadata-candidate-review-batch.mkv",
+    )
+    .await;
+    let first_review = store
+        .upsert_metadata_candidate_review(contract_metadata_candidate_review(
+            source.item_id,
+            "bangumi:batch:first",
+            "first-subject",
+            "First Candidate Review Batch",
+            1_000,
+        ))
+        .await
+        .unwrap();
+    let first_review = store
+        .set_metadata_candidate_review_status(
+            first_review.id,
+            MetadataCandidateReviewStatus::Accepted,
+            1_100,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    let second_review = store
+        .upsert_metadata_candidate_review(contract_metadata_candidate_review(
+            source.item_id,
+            "bangumi:batch:second",
+            "second-subject",
+            "Second Candidate Review Batch",
+            1_200,
+        ))
+        .await
+        .unwrap();
+    let second_review = store
+        .set_metadata_candidate_review_status(
+            second_review.id,
+            MetadataCandidateReviewStatus::Accepted,
+            1_300,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    let first_plan = contract_metadata_candidate_review_application_plan(
+        &first_review,
+        MetadataCandidateReviewApplicationAction::Apply,
+    );
+    let second_plan = contract_metadata_candidate_review_application_plan(
+        &second_review,
+        MetadataCandidateReviewApplicationAction::Noop,
+    );
+    let batch_id = MetadataCandidateReviewBatchId::new();
+    let commit = contract_metadata_candidate_review_batch_commit(
+        batch_id,
+        "metadata-candidate-review-batch:contract",
+        vec![
+            (first_review.clone(), first_plan.clone()),
+            (second_review.clone(), second_plan.clone()),
+        ],
+    );
+
+    let created = store
+        .commit_metadata_candidate_review_batch(&commit)
+        .await
+        .unwrap();
+
+    assert_eq!(created.id, batch_id);
+    assert_eq!(created.job_id, commit.job.id);
+    let batch_job = store.get_job(created.job_id).await.unwrap().unwrap();
+    assert_eq!(batch_job.kind, JobKind::MetadataCandidateReviewBatchApply);
+    assert_eq!(
+        batch_job.resource_class,
+        METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS
+    );
+    assert_eq!(batch_job.status, JobStatus::Queued);
+    assert_eq!(created.status, MetadataCandidateReviewBatchStatus::Queued);
+    assert_eq!(created.selection.requested_review_count, 2);
+    assert_eq!(created.summary.apply_count, 1);
+    assert_eq!(created.summary.noop_count, 1);
+    assert_eq!(created.items.len(), 2);
+    assert_eq!(created.items[0].position, 0);
+    assert_eq!(created.items[0].review_id, first_review.id);
+    assert_eq!(
+        created.items[0].status,
+        MetadataCandidateReviewBatchItemStatus::Pending
+    );
+    assert_eq!(created.items[0].plan, first_plan);
+    assert_eq!(created.execution_summary.pending_item_count, 2);
+    assert_eq!(
+        store
+            .find_metadata_candidate_review_batch("metadata-candidate-review-batch:contract")
+            .await
+            .unwrap()
+            .unwrap()
+            .id,
+        batch_id
+    );
+
+    let replay = store
+        .commit_metadata_candidate_review_batch(&contract_metadata_candidate_review_batch_commit(
+            MetadataCandidateReviewBatchId::new(),
+            "metadata-candidate-review-batch:contract",
+            vec![(second_review.clone(), second_plan.clone())],
+        ))
+        .await
+        .unwrap();
+    assert_eq!(replay.id, created.id);
+    assert_eq!(replay.items, created.items);
+
+    let running = store
+        .update_metadata_candidate_review_batch_status(
+            batch_id,
+            MetadataCandidateReviewBatchStatus::Queued,
+            MetadataCandidateReviewBatchStatus::Running,
+        )
+        .await
+        .unwrap();
+    assert_eq!(running.status, MetadataCandidateReviewBatchStatus::Running);
+
+    let with_item_outcome = store
+        .commit_metadata_candidate_review_batch_item_outcome(
+            &MetadataCandidateReviewBatchItemOutcomeCommit {
+                batch_id,
+                review_id: created.items[0].review_id,
+                status: MetadataCandidateReviewBatchItemStatus::Applied,
+                provider_subject_id: None,
+                provider_mapping_id: None,
+                error_code: None,
+                error_message: None,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        with_item_outcome.items[0].status,
+        MetadataCandidateReviewBatchItemStatus::Applied
+    );
+    assert_eq!(with_item_outcome.execution_summary.applied_item_count, 1);
+    assert_eq!(with_item_outcome.execution_summary.pending_item_count, 1);
+
+    let invalid_transition = store
+        .update_metadata_candidate_review_batch_status(
+            batch_id,
+            MetadataCandidateReviewBatchStatus::Queued,
+            MetadataCandidateReviewBatchStatus::Completed,
+        )
+        .await
+        .unwrap_err();
+    assert!(invalid_transition.to_string().contains("cannot transition"));
+
+    let conflict_batch_id = MetadataCandidateReviewBatchId::new();
+    let mut conflict = contract_metadata_candidate_review_batch_commit(
+        conflict_batch_id,
+        "metadata-candidate-review-batch:conflict",
+        vec![(first_review, first_plan)],
+    );
+    conflict.items[0].idempotency_key = created.items[0].idempotency_key.clone();
+    let conflict_error = store
+        .commit_metadata_candidate_review_batch(&conflict)
+        .await
+        .unwrap_err();
+    assert!(!conflict_error.to_string().is_empty());
+    assert!(
+        store
+            .get_metadata_candidate_review_batch(conflict_batch_id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(store.get_job(conflict.job.id).await.unwrap().is_none());
+}
+
+fn contract_metadata_candidate_review(
+    item_id: MediaItemId,
+    source_key: &str,
+    subject_key: &str,
+    title: &str,
+    updated_at_ms: i64,
+) -> NewMetadataCandidateReview {
+    let subject = MetadataCandidateSubject {
+        provider: ExternalProvider::Bangumi,
+        subject_kind: ProviderSubjectKind::Series,
+        subject_key: subject_key.to_owned(),
+        title: Some(title.to_owned()),
+        release_year: Some(2026),
+        locale: Some("ja-JP".to_owned()),
+    };
+    NewMetadataCandidateReview {
+        id: MetadataCandidateReviewId::new(),
+        item_id,
+        source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+        source_key: source_key.to_owned(),
+        plan: MetadataCandidateReviewPlan {
+            root: MetadataCandidateReviewNode {
+                source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+                kind: MediaKind::Series,
+                subject: Some(subject),
+                metadata: nako_core::MetadataCandidateRecord {
+                    title: Some(title.to_owned()),
+                    release_date: Some("2026-01-01".to_owned()),
+                    ..nako_core::MetadataCandidateRecord::default()
+                },
+            },
+            related: Vec::new(),
+            relationships: Vec::new(),
+        },
+        expires_at_ms: None,
+        created_at_ms: updated_at_ms,
+        updated_at_ms,
+    }
+}
+
+fn contract_metadata_candidate_review_application_plan(
+    review: &MetadataCandidateReviewRecord,
+    action: MetadataCandidateReviewApplicationAction,
+) -> MetadataCandidateReviewApplicationPlan {
+    MetadataCandidateReviewApplicationPlan {
+        review_id: review.id,
+        item_id: review.item_id,
+        action,
+        reasons: vec![match action {
+            MetadataCandidateReviewApplicationAction::Apply
+            | MetadataCandidateReviewApplicationAction::Noop => {
+                MetadataCandidateReviewApplicationReason::Ready
+            }
+            MetadataCandidateReviewApplicationAction::Skip => {
+                MetadataCandidateReviewApplicationReason::ReviewNotAccepted
+            }
+        }],
+        source: Some(MetadataSource::Provider(ExternalProvider::Bangumi)),
+        root_subject: review.plan.root.subject.clone(),
+        existing_mapping_id: None,
+        existing_mapping_status: None,
+    }
+}
+
+fn contract_metadata_candidate_review_batch_commit(
+    batch_id: MetadataCandidateReviewBatchId,
+    idempotency_key: &str,
+    rows: Vec<(
+        MetadataCandidateReviewRecord,
+        MetadataCandidateReviewApplicationPlan,
+    )>,
+) -> MetadataCandidateReviewBatchCommit {
+    let item_count = rows.len() as u32;
+    let apply_count = rows
+        .iter()
+        .filter(|(_, plan)| plan.action == MetadataCandidateReviewApplicationAction::Apply)
+        .count() as u32;
+    let noop_count = rows
+        .iter()
+        .filter(|(_, plan)| plan.action == MetadataCandidateReviewApplicationAction::Noop)
+        .count() as u32;
+    let skip_count = rows
+        .iter()
+        .filter(|(_, plan)| plan.action == MetadataCandidateReviewApplicationAction::Skip)
+        .count() as u32;
+
+    MetadataCandidateReviewBatchCommit {
+        id: batch_id,
+        job: NewJob {
+            id: JobId::new(),
+            kind: JobKind::MetadataCandidateReviewBatchApply,
+            resource_class: METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS.to_owned(),
+            library_id: None,
+            source_id: None,
+            input_json: Some(format!(r#"{{"batch_id":"{batch_id}"}}"#)),
+        },
+        idempotency_key: idempotency_key.to_owned(),
+        status: MetadataCandidateReviewBatchStatus::Queued,
+        selection: MetadataCandidateReviewBatchPlanSelection {
+            requested_review_count: item_count,
+            selected_review_count: item_count,
+            duplicate_review_count: 0,
+            max_review_count: 100,
+        },
+        summary: MetadataCandidateReviewBatchPlanSummary {
+            planned_review_count: item_count,
+            apply_count,
+            noop_count,
+            skip_count,
+        },
+        items: rows
+            .into_iter()
+            .enumerate()
+            .map(
+                |(index, (review, plan))| MetadataCandidateReviewBatchItemCommit {
+                    review_id: review.id,
+                    item_id: review.item_id,
+                    position: index as u32,
+                    status: MetadataCandidateReviewBatchItemStatus::Pending,
+                    idempotency_key: format!(
+                        "metadata-candidate-review-batch-item:{batch_id}:{}",
+                        review.id
+                    ),
+                    expected_updated_at_ms: Some(review.updated_at_ms),
+                    plan,
+                },
+            )
+            .collect(),
+    }
 }
 
 fn contract_generated_artifact_metadata_apply_plan(
@@ -8370,6 +8701,16 @@ database_contract_pair!(
         "generated_artifact_bulk_metadata_apply_batch_is_idempotent_and_atomic"
     ),
     contract = generated_artifact_bulk_metadata_apply_batch_is_idempotent_and_atomic_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_metadata_candidate_review_batch_contract_is_idempotent_and_atomic,
+    postgres = postgres_metadata_candidate_review_batch_contract_is_idempotent_and_atomic,
+    case = ContractCase::migrated(
+        ContractFamily::MetadataCandidateReviewBatch,
+        "is_idempotent_and_atomic"
+    ),
+    contract = metadata_candidate_review_batch_is_idempotent_and_atomic_contract,
 );
 
 database_contract_pair!(

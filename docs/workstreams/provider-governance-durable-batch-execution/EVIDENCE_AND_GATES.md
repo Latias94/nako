@@ -58,6 +58,36 @@ Acceptance evidence must prove:
 - no Provider Subject, Provider Mapping, Canonical Metadata, Admin API route,
   Web UI, Public Client API, or related hierarchy state changes are introduced.
 
+## PGDBE-020 Evidence
+
+Implemented:
+
+- Candidate Review durable batch IDs, records, statuses, execution summaries,
+  item commits, and item outcome commits in `nako-core`.
+- `JobKind::MetadataCandidateReviewBatchApply` and
+  `metadata.candidate_review_batch_apply` resource-class binding.
+- `MetadataCandidateReviewRepository` batch methods for idempotent commit,
+  lookup, status compare-and-set, and item outcome commit.
+- SQLite and PostgreSQL baseline tables for Candidate Review batches and
+  batch items.
+- SQLite/PostgreSQL repository implementations and `NakoDatabase` facade
+  delegation.
+- Repository contract coverage for idempotent replay, transaction rollback on
+  item idempotency conflict, job persistence/rollback, status transition
+  failure, item order preservation, and per-item outcome summary updates.
+
+Green gates:
+
+- `cargo test -p nako-db metadata_candidate_review_batch -- --nocapture`
+  - Result: passed for SQLite; PostgreSQL contract ignored because
+    `NAKO_TEST_POSTGRES_URL` is not set in this environment.
+- `cargo check -p nako-core -p nako-db --tests`
+  - Result: passed.
+- `cargo fmt --all -- --check`
+  - Result: passed after running `cargo fmt --all`.
+- `git diff --check`
+  - Result: passed; Git emitted CRLF normalization warnings only.
+
 ## Later Gates
 
 `PGDBE-030`:

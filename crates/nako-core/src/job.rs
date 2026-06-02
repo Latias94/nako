@@ -13,6 +13,7 @@ pub enum JobKind {
     NfoExport,
     ManagedArtworkIngest,
     GeneratedArtifactMetadataBulkApply,
+    MetadataCandidateReviewBatchApply,
     Transcode,
     WebhookDelivery,
     Automation,
@@ -31,6 +32,7 @@ impl JobKind {
             Self::NfoExport => "nfo_export",
             Self::ManagedArtworkIngest => "managed_artwork_ingest",
             Self::GeneratedArtifactMetadataBulkApply => "generated_artifact_metadata_bulk_apply",
+            Self::MetadataCandidateReviewBatchApply => "metadata_candidate_review_batch_apply",
             Self::Transcode => "transcode",
             Self::WebhookDelivery => "webhook_delivery",
             Self::Automation => "automation",
@@ -50,6 +52,7 @@ impl JobKind {
             "generated_artifact_metadata_bulk_apply" => {
                 Ok(Self::GeneratedArtifactMetadataBulkApply)
             }
+            "metadata_candidate_review_batch_apply" => Ok(Self::MetadataCandidateReviewBatchApply),
             "transcode" => Ok(Self::Transcode),
             "webhook_delivery" => Ok(Self::WebhookDelivery),
             "automation" => Ok(Self::Automation),
@@ -308,6 +311,18 @@ mod tests {
         assert_eq!(
             JobKind::parse("generated_artifact_metadata_bulk_apply").unwrap(),
             JobKind::GeneratedArtifactMetadataBulkApply
+        );
+    }
+
+    #[test]
+    fn metadata_candidate_review_batch_apply_kind_round_trips() {
+        assert_eq!(
+            JobKind::MetadataCandidateReviewBatchApply.as_str(),
+            "metadata_candidate_review_batch_apply"
+        );
+        assert_eq!(
+            JobKind::parse("metadata_candidate_review_batch_apply").unwrap(),
+            JobKind::MetadataCandidateReviewBatchApply
         );
     }
 

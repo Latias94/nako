@@ -25,7 +25,7 @@ Exit criteria:
   transition, and item outcome commit;
 - SQLite and PostgreSQL implementations pass shared contract tests.
 
-Status: Current.
+Status: Done.
 
 ## M2 - Admin Create And Status Boundary
 
@@ -36,7 +36,7 @@ Exit criteria:
 - status reads return redacted batch/item summaries;
 - no execution occurs during create/status reads.
 
-Status: Pending.
+Status: Current.
 
 ## M3 - Job-Backed Execution
 

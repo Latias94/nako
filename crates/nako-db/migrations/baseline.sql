@@ -941,6 +941,49 @@ CREATE INDEX metadata_candidate_reviews_item_status_idx
 CREATE INDEX metadata_candidate_reviews_source_idx
     ON metadata_candidate_reviews(source, source_kind_key, source_key);
 
+CREATE TABLE metadata_candidate_review_batches (
+    id TEXT PRIMARY KEY NOT NULL,
+    job_id TEXT NOT NULL UNIQUE REFERENCES jobs(id),
+    idempotency_key TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL,
+    selection_json TEXT NOT NULL,
+    summary_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    CHECK (length(idempotency_key) > 0),
+    CHECK (length(selection_json) > 0),
+    CHECK (length(summary_json) > 0)
+);
+
+CREATE INDEX metadata_candidate_review_batches_status_idx
+    ON metadata_candidate_review_batches(status, created_at);
+
+CREATE TABLE metadata_candidate_review_batch_items (
+    batch_id TEXT NOT NULL REFERENCES metadata_candidate_review_batches(id) ON DELETE CASCADE,
+    review_id TEXT NOT NULL REFERENCES metadata_candidate_reviews(id) ON DELETE CASCADE,
+    item_id TEXT NOT NULL REFERENCES media_items(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    idempotency_key TEXT NOT NULL UNIQUE,
+    expected_updated_at_ms INTEGER,
+    provider_subject_id TEXT REFERENCES provider_subjects(id) ON DELETE SET NULL,
+    provider_mapping_id TEXT REFERENCES provider_mappings(id) ON DELETE SET NULL,
+    error_code TEXT,
+    error_message TEXT,
+    plan_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    PRIMARY KEY(batch_id, review_id),
+    UNIQUE(batch_id, position),
+    CHECK (position >= 0),
+    CHECK (length(idempotency_key) > 0),
+    CHECK (expected_updated_at_ms IS NULL OR expected_updated_at_ms >= 0),
+    CHECK (length(plan_json) > 0)
+);
+
+CREATE INDEX metadata_candidate_review_batch_items_status_idx
+    ON metadata_candidate_review_batch_items(batch_id, status, position);
+
 CREATE TABLE source_duplicate_relationships (
     id TEXT PRIMARY KEY NOT NULL,
     source_id TEXT NOT NULL REFERENCES media_sources(id) ON DELETE CASCADE,

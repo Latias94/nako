@@ -56,12 +56,12 @@ authority and PGBR redaction semantics.
 
 Current task:
 
-- `PGDBE-020` adds Candidate Review durable batch state, repository contracts,
-  SQLite/PostgreSQL persistence, and job/resource-class foundation.
+- `PGDBE-030` adds the Admin create/status boundary for queued durable
+  Candidate Review batches.
 
 Non-goals:
 
-- no Admin route, Web UI, or job execution loop in `PGDBE-020`;
+- no Web UI or job execution loop in `PGDBE-030`;
 - no related Provider Subject, child Provider Mapping, or Media Item hierarchy
   application;
 - no Public Client API route;

@@ -378,6 +378,46 @@ CREATE INDEX IF NOT EXISTS metadata_candidate_reviews_item_status_idx
 CREATE INDEX IF NOT EXISTS metadata_candidate_reviews_source_idx
     ON metadata_candidate_reviews(source, source_kind_key, source_key);
 
+CREATE TABLE IF NOT EXISTS metadata_candidate_review_batches (
+    id uuid PRIMARY KEY NOT NULL,
+    job_id uuid NOT NULL UNIQUE REFERENCES jobs(id),
+    idempotency_key text NOT NULL UNIQUE,
+    status text NOT NULL,
+    selection_json jsonb NOT NULL,
+    summary_json jsonb NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+    updated_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+    CHECK (length(idempotency_key) > 0)
+);
+
+CREATE INDEX IF NOT EXISTS metadata_candidate_review_batches_status_idx
+    ON metadata_candidate_review_batches(status, created_at);
+
+CREATE TABLE IF NOT EXISTS metadata_candidate_review_batch_items (
+    batch_id uuid NOT NULL REFERENCES metadata_candidate_review_batches(id) ON DELETE CASCADE,
+    review_id uuid NOT NULL REFERENCES metadata_candidate_reviews(id) ON DELETE CASCADE,
+    item_id uuid NOT NULL REFERENCES media_items(id) ON DELETE CASCADE,
+    position bigint NOT NULL,
+    status text NOT NULL,
+    idempotency_key text NOT NULL UNIQUE,
+    expected_updated_at_ms bigint,
+    provider_subject_id uuid REFERENCES provider_subjects(id) ON DELETE SET NULL,
+    provider_mapping_id uuid REFERENCES provider_mappings(id) ON DELETE SET NULL,
+    error_code text,
+    error_message text,
+    plan_json jsonb NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+    updated_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+    PRIMARY KEY(batch_id, review_id),
+    UNIQUE(batch_id, position),
+    CHECK (position >= 0),
+    CHECK (length(idempotency_key) > 0),
+    CHECK (expected_updated_at_ms IS NULL OR expected_updated_at_ms >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS metadata_candidate_review_batch_items_status_idx
+    ON metadata_candidate_review_batch_items(batch_id, status, position);
+
 CREATE TABLE IF NOT EXISTS metadata_provider_attempts (
     id uuid PRIMARY KEY NOT NULL,
     job_id uuid NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,

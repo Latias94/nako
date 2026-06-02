@@ -2179,6 +2179,53 @@ impl MetadataCandidateReviewRepository for NakoDatabase {
             .list_metadata_candidate_reviews(filter, page)
             .await
     }
+
+    async fn get_metadata_candidate_review_batch(
+        &self,
+        batch_id: MetadataCandidateReviewBatchId,
+    ) -> Result<Option<MetadataCandidateReviewBatchRecord>> {
+        self.backend()
+            .get_metadata_candidate_review_batch(batch_id)
+            .await
+    }
+
+    async fn find_metadata_candidate_review_batch(
+        &self,
+        idempotency_key: &str,
+    ) -> Result<Option<MetadataCandidateReviewBatchRecord>> {
+        self.backend()
+            .find_metadata_candidate_review_batch(idempotency_key)
+            .await
+    }
+
+    async fn commit_metadata_candidate_review_batch(
+        &self,
+        commit: &MetadataCandidateReviewBatchCommit,
+    ) -> Result<MetadataCandidateReviewBatchRecord> {
+        self.backend()
+            .commit_metadata_candidate_review_batch(commit)
+            .await
+    }
+
+    async fn commit_metadata_candidate_review_batch_item_outcome(
+        &self,
+        commit: &MetadataCandidateReviewBatchItemOutcomeCommit,
+    ) -> Result<MetadataCandidateReviewBatchRecord> {
+        self.backend()
+            .commit_metadata_candidate_review_batch_item_outcome(commit)
+            .await
+    }
+
+    async fn update_metadata_candidate_review_batch_status(
+        &self,
+        batch_id: MetadataCandidateReviewBatchId,
+        expected: MetadataCandidateReviewBatchStatus,
+        status: MetadataCandidateReviewBatchStatus,
+    ) -> Result<MetadataCandidateReviewBatchRecord> {
+        self.backend()
+            .update_metadata_candidate_review_batch_status(batch_id, expected, status)
+            .await
+    }
 }
 
 #[async_trait::async_trait]

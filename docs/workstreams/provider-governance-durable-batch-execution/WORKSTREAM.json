@@ -7,7 +7,7 @@
   "scope_kind": "admin_metadata_candidate_review_durable_batch_execution",
   "problem": "Metadata Candidate Review batch apply is currently bounded and synchronous; durable progress, cancellation, retry-ready status, and larger operator selections need an ADR 0053 job-backed control-plane boundary.",
   "task_prefix": "PGDBE",
-  "current_task": "PGDBE-020",
+  "current_task": "PGDBE-030",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -55,6 +55,10 @@
     {
       "task": "PGDBE-010",
       "summary": "Opened the durable Candidate Review batch execution lane after PGBR closeout and selected core/DB durable batch state as the first executable task."
+    },
+    {
+      "task": "PGDBE-020",
+      "summary": "Added Candidate Review durable batch domain records, explicit job kind/resource class, repository methods, SQLite/PostgreSQL schema support, backend implementations, and an idempotency/atomicity contract test."
     }
   ],
   "adr_refs": [
@@ -91,7 +95,7 @@
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
     "default_action": "continue",
-    "current_task": "PGDBE-020",
-    "notes": "Continue with the approved PGDBE-20260602-01 campaign. Stop before Admin routes, Web UI, job execution loop, Public Client API exposure, related hierarchy application, provider endpoint breadth, or audit/undo unless a later task/campaign explicitly owns that scope."
+    "current_task": "PGDBE-030",
+    "notes": "PGDBE-020 is accepted. Continue by activating or approving the backend route/status campaign for PGDBE-030. Stop before Web UI, job execution loop, Public Client API exposure, related hierarchy application, provider endpoint breadth, or audit/undo unless a later task/campaign explicitly owns that scope."
   }
 }

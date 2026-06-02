@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AddonId, AutomationProviderId, MediaItemId, MetadataCandidateReviewId, NakoError,
-    ProviderMappingId, ProviderSubjectId, Result,
+    AddonId, AutomationProviderId, JobId, MediaItemId, MetadataCandidateReviewBatchId,
+    MetadataCandidateReviewId, NakoError, NewJob, ProviderMappingId, ProviderSubjectId, Result,
 };
 
 use super::{
@@ -147,6 +147,9 @@ pub enum MetadataCandidateReviewApplicationReason {
     Ready,
 }
 
+pub const METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS: &str =
+    "metadata.candidate_review_batch_apply";
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct MetadataCandidateReviewApplicationPlan {
     pub review_id: MetadataCandidateReviewId,
@@ -182,6 +185,224 @@ pub struct MetadataCandidateReviewRecord {
     pub expires_at_ms: Option<i64>,
     pub created_at_ms: i64,
     pub updated_at_ms: i64,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataCandidateReviewBatchPlanSelection {
+    pub requested_review_count: u32,
+    pub selected_review_count: u32,
+    pub duplicate_review_count: u32,
+    pub max_review_count: u32,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataCandidateReviewBatchPlanSummary {
+    pub planned_review_count: u32,
+    pub apply_count: u32,
+    pub noop_count: u32,
+    pub skip_count: u32,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MetadataCandidateReviewBatchStatus {
+    Queued,
+    Running,
+    Completed,
+    Failed,
+    Cancelled,
+}
+
+impl MetadataCandidateReviewBatchStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Queued => "queued",
+            Self::Running => "running",
+            Self::Completed => "completed",
+            Self::Failed => "failed",
+            Self::Cancelled => "cancelled",
+        }
+    }
+
+    pub fn parse(value: &str) -> Result<Self> {
+        match value {
+            "queued" => Ok(Self::Queued),
+            "running" => Ok(Self::Running),
+            "completed" => Ok(Self::Completed),
+            "failed" => Ok(Self::Failed),
+            "cancelled" => Ok(Self::Cancelled),
+            _ => Err(NakoError::Database {
+                message: format!(
+                    "unknown metadata candidate review batch status stored in database: {value}"
+                ),
+            }),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MetadataCandidateReviewBatchItemStatus {
+    Pending,
+    Skipped,
+    Blocked,
+    Applied,
+    Noop,
+    Stale,
+    Conflict,
+    Failed,
+}
+
+impl MetadataCandidateReviewBatchItemStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Pending => "pending",
+            Self::Skipped => "skipped",
+            Self::Blocked => "blocked",
+            Self::Applied => "applied",
+            Self::Noop => "noop",
+            Self::Stale => "stale",
+            Self::Conflict => "conflict",
+            Self::Failed => "failed",
+        }
+    }
+
+    pub fn parse(value: &str) -> Result<Self> {
+        match value {
+            "pending" => Ok(Self::Pending),
+            "skipped" => Ok(Self::Skipped),
+            "blocked" => Ok(Self::Blocked),
+            "applied" => Ok(Self::Applied),
+            "noop" => Ok(Self::Noop),
+            "stale" => Ok(Self::Stale),
+            "conflict" => Ok(Self::Conflict),
+            "failed" => Ok(Self::Failed),
+            _ => Err(NakoError::Database {
+                message: format!(
+                    "unknown metadata candidate review batch item status stored in database: {value}"
+                ),
+            }),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataCandidateReviewBatchItemCommit {
+    pub review_id: MetadataCandidateReviewId,
+    pub item_id: MediaItemId,
+    pub position: u32,
+    pub status: MetadataCandidateReviewBatchItemStatus,
+    pub idempotency_key: String,
+    pub expected_updated_at_ms: Option<i64>,
+    pub plan: MetadataCandidateReviewApplicationPlan,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataCandidateReviewBatchCommit {
+    pub id: MetadataCandidateReviewBatchId,
+    pub job: NewJob,
+    pub idempotency_key: String,
+    pub status: MetadataCandidateReviewBatchStatus,
+    pub selection: MetadataCandidateReviewBatchPlanSelection,
+    pub summary: MetadataCandidateReviewBatchPlanSummary,
+    pub items: Vec<MetadataCandidateReviewBatchItemCommit>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataCandidateReviewBatchExecutionSummary {
+    pub total_item_count: u32,
+    pub pending_item_count: u32,
+    pub skipped_item_count: u32,
+    pub blocked_item_count: u32,
+    pub applied_item_count: u32,
+    pub noop_item_count: u32,
+    pub stale_item_count: u32,
+    pub conflict_item_count: u32,
+    pub failed_item_count: u32,
+}
+
+impl MetadataCandidateReviewBatchExecutionSummary {
+    #[must_use]
+    pub fn from_items(items: &[MetadataCandidateReviewBatchItemRecord]) -> Self {
+        let mut summary = Self {
+            total_item_count: items.len() as u32,
+            ..Self::default()
+        };
+        for item in items {
+            match item.status {
+                MetadataCandidateReviewBatchItemStatus::Pending => {
+                    summary.pending_item_count = summary.pending_item_count.saturating_add(1);
+                }
+                MetadataCandidateReviewBatchItemStatus::Skipped => {
+                    summary.skipped_item_count = summary.skipped_item_count.saturating_add(1);
+                }
+                MetadataCandidateReviewBatchItemStatus::Blocked => {
+                    summary.blocked_item_count = summary.blocked_item_count.saturating_add(1);
+                }
+                MetadataCandidateReviewBatchItemStatus::Applied => {
+                    summary.applied_item_count = summary.applied_item_count.saturating_add(1);
+                }
+                MetadataCandidateReviewBatchItemStatus::Noop => {
+                    summary.noop_item_count = summary.noop_item_count.saturating_add(1);
+                }
+                MetadataCandidateReviewBatchItemStatus::Stale => {
+                    summary.stale_item_count = summary.stale_item_count.saturating_add(1);
+                }
+                MetadataCandidateReviewBatchItemStatus::Conflict => {
+                    summary.conflict_item_count = summary.conflict_item_count.saturating_add(1);
+                }
+                MetadataCandidateReviewBatchItemStatus::Failed => {
+                    summary.failed_item_count = summary.failed_item_count.saturating_add(1);
+                }
+            }
+        }
+        summary
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataCandidateReviewBatchItemOutcomeCommit {
+    pub batch_id: MetadataCandidateReviewBatchId,
+    pub review_id: MetadataCandidateReviewId,
+    pub status: MetadataCandidateReviewBatchItemStatus,
+    pub provider_subject_id: Option<ProviderSubjectId>,
+    pub provider_mapping_id: Option<ProviderMappingId>,
+    pub error_code: Option<String>,
+    pub error_message: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataCandidateReviewBatchItemRecord {
+    pub batch_id: MetadataCandidateReviewBatchId,
+    pub review_id: MetadataCandidateReviewId,
+    pub item_id: MediaItemId,
+    pub position: u32,
+    pub status: MetadataCandidateReviewBatchItemStatus,
+    pub idempotency_key: String,
+    pub expected_updated_at_ms: Option<i64>,
+    pub provider_subject_id: Option<ProviderSubjectId>,
+    pub provider_mapping_id: Option<ProviderMappingId>,
+    pub error_code: Option<String>,
+    pub error_message: Option<String>,
+    pub plan: MetadataCandidateReviewApplicationPlan,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataCandidateReviewBatchRecord {
+    pub id: MetadataCandidateReviewBatchId,
+    pub job_id: JobId,
+    pub idempotency_key: String,
+    pub status: MetadataCandidateReviewBatchStatus,
+    pub selection: MetadataCandidateReviewBatchPlanSelection,
+    pub summary: MetadataCandidateReviewBatchPlanSummary,
+    pub execution_summary: MetadataCandidateReviewBatchExecutionSummary,
+    pub items: Vec<MetadataCandidateReviewBatchItemRecord>,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]

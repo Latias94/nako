@@ -15,14 +15,14 @@ Last updated: 2026-06-02
 
 ## M1 - Durable Batch State And Repository Contract
 
-- [ ] PGDBE-020 [owner=codex] [deps=PGDBE-010] [scope=crates/nako-core,crates/nako-db,docs/workstreams/provider-governance-durable-batch-execution]
+- [x] PGDBE-020 [owner=codex] [deps=PGDBE-010] [scope=crates/nako-core,crates/nako-db,docs/workstreams/provider-governance-durable-batch-execution]
   Goal: Add Candidate Review durable batch records, item statuses, execution summary, job kind/resource class, repository trait methods, SQLite/PostgreSQL schema support, and contract tests.
   Validation: `cargo test -p nako-db metadata_candidate_review_batch -- --nocapture`; `cargo check -p nako-core -p nako-db --tests`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: Repository contracts must prove idempotent batch commit, lookup by idempotency key, status transitions, and per-item outcome updates without touching Provider Mapping state.
-  Evidence: `EVIDENCE_AND_GATES.md`, repository contract tests, migration/schema files.
+  Evidence: `EVIDENCE_AND_GATES.md`, `JOURNAL/2026-06-02-PGDBE-020.md`, repository contract tests, migration/schema files.
   Context: `CONTEXT.jsonl`
-  Handoff: Final status must be DONE, DONE_WITH_CONCERNS, BLOCKED, or NEEDS_CONTEXT.
-  State: `TASKS.jsonl` entry `PGDBE-020` records owner, scope, validation, evidence, and handoff status.
+  Handoff: DONE. Continue with `PGDBE-030` after activating or approving the backend route/status campaign.
+  State: `TASKS.jsonl` entry `PGDBE-020` is accepted.
 
 ## M2 - Admin Create And Status Boundary
 

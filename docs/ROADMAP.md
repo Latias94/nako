@@ -12,13 +12,14 @@ milestone.
 ## Current Architecture Focus
 
 Status: Provider Governance Durable Batch Execution is active after
-`PGDBE-010`.
+`PGDBE-020`.
 
 The active workstream is
 `docs/workstreams/provider-governance-durable-batch-execution/`. It follows
-Provider Governance Bulk Review and starts with `PGDBE-020`: Candidate Review
+Provider Governance Bulk Review. `PGDBE-020` has shipped Candidate Review
 durable batch state, repository contracts, SQLite/PostgreSQL persistence, and
-an explicit job/resource-class foundation.
+an explicit job/resource-class foundation; `PGDBE-030` is next for Admin
+create/status boundaries.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
 Operations Repair are both closed as of 2026-06-02. Web Admin Generated
@@ -67,10 +68,17 @@ Current lane and candidate follow-ons:
 
 Latest active architecture slice:
 
+`PGDBE-020` shipped Provider Governance Durable Batch Execution core/DB state
+on 2026-06-02 and selected `PGDBE-030` as the next Admin boundary task.
+
+Latest completed architecture slices:
+
 `PGDBE-010` opened Provider Governance Durable Batch Execution on 2026-06-02
 and selected `PGDBE-020` as the first executable task.
 
-Latest completed architecture slices:
+`PGDBE-020` shipped on 2026-06-02 with Candidate Review durable batch domain
+records, repository contract, SQLite/PostgreSQL persistence, explicit job
+kind/resource class, and idempotency/atomicity contract coverage.
 
 `PGBR-020` shipped on 2026-06-02 with a no-write, redaction-safe Admin API
 batch application plan and generated Admin contract sync.
