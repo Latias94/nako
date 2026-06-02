@@ -143,12 +143,24 @@ function RootRoute() {
 }
 
 function MediaRoute() {
+  return <RoutedMediaSurface />
+}
+
+function RoutedMediaSurface({
+  initialView,
+  routeKey,
+}: {
+  initialView?: MediaSurfaceRouteView
+  routeKey?: string
+}) {
   const mediaSurfaceRef = useContext(MediaSurfaceRefContext)
   const navigate = useNavigate()
 
   return (
     <MediaSurface
       ref={mediaSurfaceRef}
+      initialView={initialView}
+      routeKey={routeKey}
       onRouteNavigate={(view) => {
         void navigate(toMediaRoute(view))
       }}
@@ -157,47 +169,40 @@ function MediaRoute() {
 }
 
 function MediaSearchRoute() {
-  const mediaSurfaceRef = useContext(MediaSurfaceRefContext)
-  const navigate = useNavigate()
   const search = mediaSearchRoute.useSearch()
   const query = typeof search.q === "string" ? search.q : undefined
   const initialView: MediaSurfaceRouteView = { type: "search", query }
 
-  return (
-    <MediaSurface
-      ref={mediaSurfaceRef}
-      initialView={initialView}
-      routeKey={`search:${query ?? ""}`}
-      onRouteNavigate={(view) => {
-        void navigate(toMediaRoute(view))
-      }}
-    />
-  )
+  return <RoutedMediaSurface initialView={initialView} routeKey={`s:${query ?? ""}`} />
 }
 
 function MediaDetailRoute() {
-  const mediaSurfaceRef = useContext(MediaSurfaceRefContext)
-  const navigate = useNavigate()
   const search = mediaDetailRoute.useSearch()
   const mediaId = typeof search.id === "string" && search.id.trim() ? search.id : "1"
   const mediaType = search.type === "series" ? "series" : "movie"
   const initialView: MediaSurfaceRouteView = { type: "detail", mediaId, mediaType }
 
-  return (
-    <MediaSurface
-      ref={mediaSurfaceRef}
-      initialView={initialView}
-      routeKey={`detail:${mediaId}:${mediaType}`}
-      onRouteNavigate={(view) => {
-        void navigate(toMediaRoute(view))
-      }}
-    />
-  )
+  return <RoutedMediaSurface initialView={initialView} routeKey={`d:${mediaId}:${mediaType}`} />
+}
+
+function MediaWatchRoute() {
+  const search = mediaWatchRoute.useSearch()
+  const mediaId = typeof search.id === "string" && search.id.trim() ? search.id : "1"
+  const mediaType = search.type === "series" ? "series" : "movie"
+  const sourceId = typeof search.source_id === "string" && search.source_id.trim()
+    ? search.source_id
+    : undefined
+  const initialView: MediaSurfaceRouteView = {
+    type: "player",
+    mediaId,
+    mediaType,
+    sourceId,
+  }
+
+  return <RoutedMediaSurface initialView={initialView} routeKey={`w:${mediaId}:${mediaType}:${sourceId ?? ""}`} />
 }
 
 function MediaLibraryRoute() {
-  const mediaSurfaceRef = useContext(MediaSurfaceRefContext)
-  const navigate = useNavigate()
   const search = mediaLibraryRoute.useSearch()
   const libraryId = typeof search.id === "string" && search.id.trim() ? search.id : "movies"
   const initialView: MediaSurfaceRouteView = {
@@ -212,20 +217,14 @@ function MediaLibraryRoute() {
   }
 
   return (
-    <MediaSurface
-      ref={mediaSurfaceRef}
+    <RoutedMediaSurface
       initialView={initialView}
-      routeKey={`library:${libraryId}:${search.view ?? "grid"}:${search.filter ?? "all"}:${search.sort ?? "addedAt"}:${search.order ?? "desc"}`}
-      onRouteNavigate={(view) => {
-        void navigate(toMediaRoute(view))
-      }}
+      routeKey={`l:${libraryId}:${search.view ?? "grid"}:${search.filter ?? "all"}:${search.sort ?? "addedAt"}:${search.order ?? "desc"}`}
     />
   )
 }
 
 function MediaMyListRoute() {
-  const mediaSurfaceRef = useContext(MediaSurfaceRefContext)
-  const navigate = useNavigate()
   const search = mediaMyListRoute.useSearch()
   const initialView: MediaSurfaceRouteView = {
     type: "my-list",
@@ -233,16 +232,7 @@ function MediaMyListRoute() {
     viewMode: mediaListView(search.view),
   }
 
-  return (
-    <MediaSurface
-      ref={mediaSurfaceRef}
-      initialView={initialView}
-      routeKey={`my-list:${search.playlist ?? ""}:${search.view ?? "grid"}`}
-      onRouteNavigate={(view) => {
-        void navigate(toMediaRoute(view))
-      }}
-    />
-  )
+  return <RoutedMediaSurface initialView={initialView} routeKey={`m:${search.playlist ?? ""}:${search.view ?? "grid"}`} />
 }
 
 function AdminRoute() {
@@ -606,6 +596,17 @@ const mediaDetailRoute = createRoute({
   component: MediaDetailRoute,
 })
 
+const mediaWatchRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/media/watch",
+  validateSearch: (search: Record<string, unknown>) => ({
+    id: typeof search.id === "string" ? search.id : undefined,
+    type: search.type === "series" ? "series" : "movie",
+    source_id: typeof search.source_id === "string" ? search.source_id : undefined,
+  }),
+  component: MediaWatchRoute,
+})
+
 const mediaLibraryRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/media/library",
@@ -795,6 +796,7 @@ const routeTree = rootRoute.addChildren([
   mediaRoute,
   mediaSearchRoute,
   mediaDetailRoute,
+  mediaWatchRoute,
   mediaLibraryRoute,
   mediaMyListRoute,
   adminRoute,
@@ -839,6 +841,15 @@ function toMediaRoute(view: MediaSurfaceRouteView) {
         search: {
           id: view.mediaId,
           type: view.mediaType,
+        },
+      } as const
+    case "player":
+      return {
+        to: "/media/watch",
+        search: {
+          id: view.mediaId,
+          type: view.mediaType,
+          source_id: view.sourceId,
         },
       } as const
     case "library":
