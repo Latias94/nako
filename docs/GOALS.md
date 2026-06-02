@@ -26,13 +26,57 @@ proposed milestone.
 
 ## Current Goal
 
-No active implementation goal is selected after Provider Review Global Queue
-Search closed on 2026-06-02. Next candidate goals should open focused
-workstreams instead of reopening the closed queue lane.
+### Provider Governance Bulk Review
+
+Status: active as of 2026-06-02.
+
+Objective:
+
+- Add guarded batch governance for durable Metadata Candidate Reviews after
+  global queue discovery shipped.
+- Start with a read-only batch application plan for selected review IDs.
+- Preserve single-review stale guard, idempotency-key fingerprinting, replay
+  visibility, root-only Provider Mapping application, and redaction semantics.
+
+Deliverables:
+
+- `docs/workstreams/provider-governance-bulk-review/`;
+- read-only Admin API batch Candidate Review application plan;
+- generated Admin TypeScript contract sync when the Admin API shape changes;
+- later bounded batch confirmation and Web Admin selection only after the plan
+  semantics are proven.
+
+Non-goals:
+
+- no Public Client API expansion;
+- no related Provider Subject, child Provider Mapping, or Media Item hierarchy
+  application;
+- no provider endpoint breadth such as Douban TV/episode support;
+- no raw provider payload, token, header, proxy URL, local path, image URL,
+  source fingerprint, raw provider body, or raw idempotency-key exposure;
+- no hidden background execution outside the control-plane boundary.
+
+Exit criteria:
+
+- `PGBR-020` proves a no-write, redaction-safe batch plan;
+- subsequent mutation, Web, and closeout tasks preserve the same boundaries or
+  are split explicitly.
+
+Evidence:
+
+- `docs/workstreams/provider-governance-bulk-review/`
+- `docs/workstreams/provider-review-global-queue-search/CLOSEOUT.md`
+- `docs/workstreams/admin-web-provider-depth-governance/CLOSEOUT.md`
+- `docs/architecture/LIBRARY_PIPELINE.md`
+- `docs/architecture/LANES.md`
+
+Current task:
+
+- `PGBR-020`: add a read-only Admin API batch Candidate Review application
+  plan for selected review IDs.
 
 Candidate follow-ons:
 
-- `proposed:provider-governance-bulk-review`;
 - `proposed:provider-review-related-hierarchy-application`;
 - `proposed:douban-tv-episode-endpoint-depth`.
 

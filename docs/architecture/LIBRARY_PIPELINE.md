@@ -28,7 +28,7 @@ Storage event or scheduled scan
 | Local inference | Shipped foundation | `CONTEXT.md`; metadata/catalog lanes | Anime/series path heuristics and confidence reporting. |
 | Media probe | Shipped foundation | playback/transcode lanes | More HDR/audio/subtitle technical facts. |
 | NFO authority | Shipped foundation | `docs/adr/0008-nfo-as-local-metadata-boundary.md` | Round-trip/writeback polish and backup policy. |
-| Metadata merge policy | Shipped foundation; durable candidate review, accepted-review root mapping application, Admin/Web governance, item-scoped Candidate Review list/navigation, and read-only global Candidate Review queue/navigation shipped | `docs/adr/0007-metadata-merge-policy-and-local-authority.md`; `docs/workstreams/metadata-candidate-durable-review/`; `docs/workstreams/accepted-review-provider-mapping-application/`; `docs/workstreams/admin-web-provider-depth-governance/`; `docs/workstreams/admin-candidate-review-list-navigation/`; `docs/workstreams/provider-review-global-queue-search/` | Split provider governance bulk review, related hierarchy application, or provider endpoint depth before broadening mutation scope. |
+| Metadata merge policy | Shipped foundation; durable candidate review, accepted-review root mapping application, Admin/Web governance, item-scoped Candidate Review list/navigation, and read-only global Candidate Review queue/navigation shipped; bulk governance active | `docs/adr/0007-metadata-merge-policy-and-local-authority.md`; `docs/workstreams/metadata-candidate-durable-review/`; `docs/workstreams/accepted-review-provider-mapping-application/`; `docs/workstreams/admin-web-provider-depth-governance/`; `docs/workstreams/admin-candidate-review-list-navigation/`; `docs/workstreams/provider-review-global-queue-search/`; `docs/workstreams/provider-governance-bulk-review/` | Add read-only batch Candidate Review application planning before any batch mutation, related hierarchy application, or provider endpoint depth. |
 | TMDB provider | Shipped movie plus series/season/episode graph preview foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/metadata-provider-depth-and-precision/`; `docs/workstreams/tmdb-season-episode-graph-depth/` | Accepted-review application or Admin/Web governance before preview graph depth becomes accepted hierarchy. |
 | Douban provider | Shipped MVP plus endpoint-backed capability precision | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/douban-subject-kind-precision/` | Accepted-review application, Admin/Web governance, or endpoint-backed TV/episode follow-on. |
 | Bangumi provider | Shipped MVP plus endpoint-backed episode graph preview | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/bangumi-relations-and-episode-depth/` | Accepted-review application or Admin/Web governance before preview graph depth becomes accepted hierarchy. |
@@ -44,6 +44,30 @@ consolidated index for library, metadata, NFO, and artwork workstreams. Keep
 this document focused on intake and asset pipeline capability state.
 
 ## Next Work Lanes
+
+### provider-governance-bulk-review
+
+Status: Active at
+`docs/workstreams/provider-governance-bulk-review/`.
+
+Goal: Add guarded batch governance for durable Metadata Candidate Reviews while
+preserving existing single-review stale guard, idempotency, root-only Provider
+Mapping application, and redaction semantics.
+
+Current task:
+
+- `PGBR-020`: add a read-only Admin API batch Candidate Review application plan
+  for selected review IDs.
+
+Non-goals:
+
+- no batch mutation in the first slice;
+- no Public Client API route;
+- no related graph node hierarchy application;
+- no provider endpoint breadth;
+- no raw provider payloads, secrets, proxy URLs, headers, paths, source
+  fingerprints, raw provider bodies, or raw idempotency keys;
+- no hidden raw background execution outside the control-plane boundary.
 
 ### provider-review-global-queue-search
 
@@ -72,7 +96,7 @@ Non-goals:
 
 Follow-ons:
 
-- `proposed:provider-governance-bulk-review`;
+- `docs/workstreams/provider-governance-bulk-review/` (active);
 - `proposed:provider-review-related-hierarchy-application`;
 - `proposed:douban-tv-episode-endpoint-depth`.
 
@@ -106,7 +130,7 @@ Non-goals:
 Follow-ons:
 
 - `docs/workstreams/provider-review-global-queue-search/` (closed);
-- `proposed:provider-governance-bulk-review`;
+- `docs/workstreams/provider-governance-bulk-review/` (active);
 - `proposed:provider-review-related-hierarchy-application`;
 - `proposed:douban-tv-episode-endpoint-depth`.
 
@@ -142,7 +166,7 @@ Follow-ons:
 
 - `proposed:provider-review-related-hierarchy-application`;
 - `proposed:douban-tv-episode-endpoint-depth`;
-- `proposed:provider-governance-bulk-review`.
+- `docs/workstreams/provider-governance-bulk-review/` (active).
 
 ### accepted-review-provider-mapping-application
 

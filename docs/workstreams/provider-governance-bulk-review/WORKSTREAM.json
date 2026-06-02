@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "slug": "provider-governance-bulk-review",
+  "title": "Provider Governance Bulk Review",
+  "status": "active",
+  "updated": "2026-06-02",
+  "scope_kind": "admin_metadata_candidate_review_bulk_governance",
+  "problem": "Global Metadata Candidate Review discovery now exists, but operators still need batch governance that preserves single-review stale guard, idempotency, root-only application, and redaction semantics.",
+  "task_prefix": "PGBR",
+  "current_task": "PGBR-020",
+  "authoritative_docs": [
+    {
+      "role": "overview",
+      "path": "docs/workstreams/provider-governance-bulk-review/README.md"
+    },
+    {
+      "role": "design",
+      "path": "docs/workstreams/provider-governance-bulk-review/DESIGN.md"
+    },
+    {
+      "role": "execution",
+      "path": "docs/workstreams/provider-governance-bulk-review/TODO.md"
+    },
+    {
+      "role": "task_state",
+      "path": "docs/workstreams/provider-governance-bulk-review/TASKS.jsonl"
+    },
+    {
+      "role": "campaign_state",
+      "path": "docs/workstreams/provider-governance-bulk-review/CAMPAIGNS.jsonl"
+    },
+    {
+      "role": "gates",
+      "path": "docs/workstreams/provider-governance-bulk-review/EVIDENCE_AND_GATES.md"
+    },
+    {
+      "role": "context_manifest",
+      "path": "docs/workstreams/provider-governance-bulk-review/CONTEXT.jsonl"
+    },
+    {
+      "role": "handoff",
+      "path": "docs/workstreams/provider-governance-bulk-review/HANDOFF.md"
+    }
+  ],
+  "context_manifest": "docs/workstreams/provider-governance-bulk-review/CONTEXT.jsonl",
+  "gates": [
+    "python -m json.tool docs/workstreams/provider-governance-bulk-review/WORKSTREAM.json",
+    "JSONL validation for docs/workstreams/provider-governance-bulk-review/TASKS.jsonl, CAMPAIGNS.jsonl, and CONTEXT.jsonl",
+    "cargo nextest run -p nako-api admin_contract --no-fail-fast",
+    "cargo nextest run -p nako-server candidate_review admin --no-fail-fast",
+    "cargo nextest run -p nako-metadata candidate_review_application --no-fail-fast",
+    "cargo fmt --all -- --check",
+    "npm --prefix web run check",
+    "npm --prefix web run test",
+    "npm --prefix web run build:budget",
+    "browser smoke if a route or navigation mode is added",
+    "git diff --check"
+  ],
+  "evidence": [
+    {
+      "task": "PGBR-010",
+      "summary": "Opened the Provider Governance bulk review lane after PRGQ closeout and selected a read-only Admin API batch Candidate Review application plan as the first executable task."
+    }
+  ],
+  "adr_refs": [
+    "docs/adr/0007-metadata-merge-policy-and-local-authority.md",
+    "docs/adr/0018-metadata-provider-runtime-and-diagnostics.md",
+    "docs/adr/0021-video-first-media-server-domain-model.md",
+    "docs/adr/0053-application-control-plane-boundary.md"
+  ],
+  "architecture_refs": [
+    {
+      "path": "docs/architecture/LANES.md",
+      "capability": "library-metadata-control-plane lane ownership"
+    },
+    {
+      "path": "docs/architecture/WORKSTREAM_LINKS.md",
+      "capability": "Provider Governance bulk review active lane"
+    },
+    {
+      "path": "docs/architecture/LIBRARY_PIPELINE.md",
+      "capability": "Metadata Candidate Review bulk governance"
+    }
+  ],
+  "capability_tags": [
+    "library.metadata.candidate-review.admin",
+    "library.metadata.candidate-review.bulk-governance",
+    "web.admin.metadata-governance",
+    "control-plane.batch-application"
+  ],
+  "lane_slug": "library-metadata-control-plane",
+  "continue_policy": {
+    "default_action": "run_current_task",
+    "current_task": "PGBR-020",
+    "notes": "Next add the read-only Admin API batch Candidate Review application plan. Do not add mutation, Web selection, Public Client API changes, related hierarchy application, provider endpoint depth, or durable job execution under PGBR-020."
+  }
+}

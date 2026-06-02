@@ -11,8 +11,9 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: No active implementation workstream is assigned after Provider Review
-Global Queue Search closed in the `library-metadata-control-plane` lane.
+Status: Provider Governance Bulk Review is active in the
+`library-metadata-control-plane` lane after Provider Review Global Queue Search
+closed.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
 Operations Repair are both closed as of 2026-06-02. Web Admin Generated
@@ -25,34 +26,36 @@ Metadata Candidate Durable Review is closed after `MCDR-050`. Accepted Review
 Provider Mapping Application is closed after `ARPMA-050`. Admin/Web Provider
 Depth Governance is closed after `AWPDG-050`. Admin Candidate Review List
 Navigation is closed after `ACRN-040`. Provider Review Global Queue Search is
-closed after `PRGQ-040`.
+closed after `PRGQ-040`. Provider Governance Bulk Review is active at
+`PGBR-020`.
 
-The latest focus shipped:
+The active focus targets:
 
-- a read-only global Admin API queue route for durable Candidate Reviews;
-- Web Admin global queue navigation into the existing Candidate Review
-  detail/apply route;
+- a read-only Admin API batch application plan for selected durable Candidate
+  Reviews;
+- reuse of single-review application planning semantics before batch mutation;
 - preserving ACRN/AWPDG redaction, no-write, stale guard, and root-only
   application boundaries;
-- keeping batch governance, Public Client API, provider endpoint depth, and
-  related hierarchy application split until their own tasks own them.
+- keeping batch confirmation, Web selection, Public Client API, provider
+  endpoint depth, and related hierarchy application split until their own tasks
+  own them.
 
 Authoritative evidence:
 
 - `docs/workstreams/admin-web-provider-depth-governance/`
 - `docs/workstreams/admin-candidate-review-list-navigation/`
 - `docs/workstreams/provider-review-global-queue-search/`
+- `docs/workstreams/provider-governance-bulk-review/`
 - `docs/workstreams/accepted-review-provider-mapping-application/`
 - `docs/workstreams/metadata-candidate-durable-review/CLOSEOUT.md`
 - `docs/workstreams/metadata-provider-depth-and-precision/FOLLOW_ONS.md`
 - `docs/architecture/LIBRARY_PIPELINE.md`
 - `docs/architecture/LANES.md`
 
-Next candidate focus:
+Next task:
 
-- select a focused follow-on for provider governance bulk review, provider
-  review related hierarchy application, Douban TV/episode endpoint depth, or a
-  different architecture lane.
+- `PGBR-020`: add a read-only Admin API batch Candidate Review application
+  plan for selected review IDs.
 
 Latest completed architecture focus:
 
@@ -225,8 +228,8 @@ Follow-ons:
 - `docs/workstreams/admin-web-provider-depth-governance/` (closed);
 - `docs/workstreams/admin-candidate-review-list-navigation/` (closed);
 - `docs/workstreams/provider-review-global-queue-search/` (closed);
+- `docs/workstreams/provider-governance-bulk-review/` (active);
 - `proposed:provider-review-related-hierarchy-application`;
-- `proposed:provider-governance-bulk-review`;
 - `proposed:douban-tv-episode-endpoint-depth`.
 
 Previous architecture focus:

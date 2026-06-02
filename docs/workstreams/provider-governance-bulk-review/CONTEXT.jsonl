@@ -1,0 +1,13 @@
+{"role":"domain-glossary","path":"CONTEXT.md","reason":"Use Nako terms such as Metadata Candidate Review, Provider Subject, Provider Mapping, Media Item, Admin API, and Public Client API."}
+{"role":"adr","path":"docs/adr/0007-metadata-merge-policy-and-local-authority.md","reason":"Batch governance must remain explicit metadata application, not hidden provider overwrite."}
+{"role":"adr","path":"docs/adr/0018-metadata-provider-runtime-and-diagnostics.md","reason":"Provider payloads, secrets, headers, proxy URLs, raw bodies, and paths must stay out of Admin batch plan/result surfaces."}
+{"role":"adr","path":"docs/adr/0021-video-first-media-server-domain-model.md","reason":"Provider-specific subjects map through Provider Mapping rather than replacing Media Item identity."}
+{"role":"adr","path":"docs/adr/0053-application-control-plane-boundary.md","reason":"Batch mutation or durable execution must not hide important control-plane work in ad hoc handlers or raw background tasks."}
+{"role":"architecture","path":"docs/architecture/LIBRARY_PIPELINE.md","reason":"Library metadata candidate review and provider governance capability map."}
+{"role":"architecture","path":"docs/architecture/LANES.md","reason":"library-metadata-control-plane lane routing and shared-scope rules."}
+{"role":"architecture","path":"docs/architecture/WORKSTREAM_LINKS.md","reason":"Workstream evidence index and proposed follow-on naming."}
+{"role":"prior_workstream","path":"docs/workstreams/provider-review-global-queue-search/CLOSEOUT.md","reason":"Global Candidate Review queue shipped and batch governance was split as the residual gap."}
+{"role":"prior_workstream","path":"docs/workstreams/admin-web-provider-depth-governance/CLOSEOUT.md","reason":"Direct detail/apply route and single-review governance boundaries are the target semantic authority."}
+{"role":"prior_workstream","path":"docs/workstreams/accepted-review-provider-mapping-application/CLOSEOUT.md","reason":"Root Provider Mapping application plan and application service boundaries."}
+{"role":"prior_workstream","path":"docs/workstreams/metadata-candidate-durable-review/CLOSEOUT.md","reason":"Durable Candidate Review snapshot and accept/reject status semantics."}
+{"role":"gates","path":"docs/workstreams/provider-governance-bulk-review/EVIDENCE_AND_GATES.md","reason":"Validation commands and evidence ledger."}

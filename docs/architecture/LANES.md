@@ -18,8 +18,9 @@ ledger instead.
 
 ## Active Queue
 
-No active implementation workstream is assigned in this registry after
-`provider-review-global-queue-search` closed at `PRGQ-040`.
+| Lane | Active workstream | Next task | Recommended terminal role |
+| --- | --- | --- | --- |
+| library-metadata-control-plane | provider-governance-bulk-review | PGBR-020 | Candidate Review batch-plan implementer |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
@@ -71,6 +72,10 @@ the read-only global Candidate Review queue Admin API route and Web Admin
 global queue navigation while keeping batch governance, status/apply mutation,
 provider endpoint depth, Public Client API changes, and related hierarchy
 application split.
+`provider-governance-bulk-review` is active at `PGBR-020` to add a read-only
+Admin API batch Candidate Review application plan before any batch mutation,
+Web selection workflow, related hierarchy application, Public Client API
+change, provider endpoint depth, or durable job execution.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
@@ -174,7 +179,9 @@ Closed evidence:
 - `docs/workstreams/admin-candidate-review-list-navigation/`
 - `docs/workstreams/provider-review-global-queue-search/`
 
-Active evidence: none.
+Active evidence:
+
+- `docs/workstreams/provider-governance-bulk-review/`
 
 Owned scopes:
 
@@ -202,6 +209,7 @@ Owned scopes:
 - `docs/workstreams/accepted-review-provider-mapping-application/`
 - `docs/workstreams/admin-web-provider-depth-governance/`
 - `docs/workstreams/admin-candidate-review-list-navigation/`
+- `docs/workstreams/provider-governance-bulk-review/`
 
 Shared scopes requiring planner coordination:
 

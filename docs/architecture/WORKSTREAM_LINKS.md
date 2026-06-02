@@ -168,6 +168,7 @@ Evidence workstreams:
 - `docs/workstreams/admin-web-provider-depth-governance/` (closed)
 - `docs/workstreams/admin-candidate-review-list-navigation/` (closed)
 - `docs/workstreams/provider-review-global-queue-search/` (closed)
+- `docs/workstreams/provider-governance-bulk-review/` (active)
 - `docs/workstreams/metadata-acquisition-pipeline/`
 - `docs/workstreams/metadata-profile-configuration-authority/`
 - `docs/workstreams/metadata-application-policy-seam/`
@@ -205,7 +206,6 @@ Proposed lanes:
 - `proposed:artwork-delivery-cache-placeholder`
 - `proposed:provider-review-related-hierarchy-application`
 - `proposed:douban-tv-episode-endpoint-depth`
-- `proposed:provider-governance-bulk-review`
 - `proposed:provider-identity-mapping-breadth`
 
 ## State, Database, Identity, And Access

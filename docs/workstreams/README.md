@@ -18,14 +18,14 @@ workstreams should record `lane_slug`, `architecture_refs`, and
 
 Last reviewed: 2026-06-02
 
-`provider-review-global-queue-search` is active in the
+`provider-governance-bulk-review` is active in the
 `library-metadata-control-plane` lane after
-`admin-candidate-review-list-navigation` closed.
+`provider-review-global-queue-search` closed.
 
 Next task:
 
-- `PRGQ-020`: add a read-only Admin API global Candidate Review queue route and
-  repository query contract.
+- `PGBR-020`: add a read-only Admin API batch Candidate Review application plan
+  for selected review IDs.
 
 `mvp-release-shape` is closed. Open focused follow-ons for actual release
 artifact publication, one-command release-gate wrapping, official addon smoke,
@@ -53,10 +53,14 @@ pressure should split to `proposed:hls-artifact-io-pressure-enforcement`.
 
 ## Current Workstreams
 
+- [provider-governance-bulk-review](provider-governance-bulk-review/README.md):
+  active library-metadata-control-plane lane for guarded batch Candidate Review
+  governance, starting with a read-only batch application plan before any
+  batch mutation or Web selection workflow.
 - [provider-review-global-queue-search](provider-review-global-queue-search/README.md):
-  active library-metadata-control-plane lane for global Candidate Review
-  queue/search without adding Public Client API, batch governance, status/apply
-  mutation, or related hierarchy application.
+  closed library-metadata-control-plane lane for global Candidate Review
+  queue/filter navigation without adding Public Client API, batch governance,
+  status/apply mutation, or related hierarchy application.
 - [admin-candidate-review-list-navigation](admin-candidate-review-list-navigation/README.md):
   closed library-metadata-control-plane lane for making durable Candidate
   Reviews discoverable from item-scoped Admin/Web navigation without adding
