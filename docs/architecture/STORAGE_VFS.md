@@ -30,7 +30,7 @@ and rclone-like mounts can be slow, stale, or unavailable.
 | Source fingerprint | Shipped first slice | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Optional partial/full hash escalation policy. |
 | Remote probe staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Per-backend staging budgets and diagnostics. |
 | Remote FFmpeg input staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md` | Per-backend staging budgets and diagnostics. |
-| VFS cache | Shipped diagnostics foundation | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Repair diagnostics and cache operator actions. |
+| VFS cache | Shipped diagnostics foundation | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Cache repair operator actions and broader previews. |
 | Library file writes | Partial | addon/library-file-write and NFO workstreams | Capability-specific write/link/backup policy. |
 | Mount hang protection | Shipped durable circuit foundation | `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/` | OS-level mount stalls still need bounded adapters and operator guidance; do not claim syscall preemption. |
 
@@ -71,9 +71,23 @@ Shipped:
 - Admin diagnostics for catalog governance, VFS cache/staging cleanup pressure,
   and storage backend health.
 
+### vfs-cache-repair-diagnostics
+
+Status: Minimal diagnostic slice shipped as of 2026-06-02.
+
+Shipped:
+
+- VFS cache repair diagnostics classify fresh cache, stale fallback repair,
+  retryable refresh failures, operator-action failures, and unknown failures;
+- diagnostics are derived from existing redaction-safe storage failure classes
+  and never include source locators, raw provider errors, etags, fingerprints,
+  or local paths;
+- no storage schema, Admin API, playback artifact pressure, or scan scheduling
+  expansion was added in this slice.
+
 ## Next Work Lanes
 
-- `proposed:vfs-cache-repair-diagnostics`: cache repair previews, refresh
+- `proposed:vfs-cache-repair-operator-actions`: cache repair previews, refresh
   actions, and stale-cache operator remediation.
 - `proposed:hls-artifact-io-pressure-enforcement`: playback/storage follow-on
   for HLS segment read/write pressure, storage health coordination, and

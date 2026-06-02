@@ -471,7 +471,7 @@ mod tests {
         },
     };
 
-    use nako_core::{VfsCacheFailure, VfsCacheSummary};
+    use nako_core::{StorageFailureClass, VfsCacheFailure, VfsCacheSummary};
 
     use super::*;
 
@@ -497,7 +497,17 @@ mod tests {
         let first_listing = backend.list_with_status(&root).await.unwrap();
         let second_listing = backend.list_with_status(&root).await.unwrap();
 
-        assert_eq!(first_stat.cache.unwrap().state, ObjectCacheState::Fresh);
+        let first_stat_cache = first_stat.cache.unwrap();
+        assert_eq!(first_stat_cache.state, ObjectCacheState::Fresh);
+        let first_stat_diagnostic = first_stat_cache.repair_diagnostic();
+        assert_eq!(
+            first_stat_diagnostic.classification,
+            crate::VfsCacheRepairClassification::Healthy
+        );
+        assert_eq!(first_stat_diagnostic.failure_class, None);
+        assert!(!first_stat_diagnostic.retryable);
+        assert_eq!(first_stat_diagnostic.safe_message, None);
+
         assert_eq!(second_stat.cache.unwrap().state, ObjectCacheState::Fresh);
         assert_eq!(first_listing.cache.unwrap().state, ObjectCacheState::Fresh);
         assert_eq!(second_listing.cache.unwrap().state, ObjectCacheState::Fresh);
@@ -532,7 +542,26 @@ mod tests {
             .unwrap();
 
         assert_eq!(fresh.cache.unwrap().state, ObjectCacheState::Fresh);
-        assert_eq!(stale.cache.unwrap().state, ObjectCacheState::StaleFallback);
+        let stale_cache = stale.cache.unwrap();
+        assert_eq!(stale_cache.state, ObjectCacheState::StaleFallback);
+        let stale_diagnostic = stale_cache.repair_diagnostic();
+        assert_eq!(
+            stale_diagnostic.classification,
+            crate::VfsCacheRepairClassification::RepairableStaleFallback
+        );
+        assert_eq!(
+            stale_diagnostic.failure_class,
+            Some(StorageFailureClass::Unavailable)
+        );
+        assert!(stale_diagnostic.retryable);
+        assert_eq!(
+            stale_diagnostic.safe_message.as_deref(),
+            Some("storage backend unavailable")
+        );
+        let stale_diagnostic_body = serde_json::to_string(&stale_diagnostic).unwrap();
+        assert!(!stale_diagnostic_body.contains("Movies"));
+        assert!(!stale_diagnostic_body.contains("Demo.mkv"));
+
         assert_eq!(stale.entries[0].uri.as_str(), "mem:///Movies/Demo.mkv");
         assert_eq!(failure.failure_count, 1);
         assert_eq!(failure.error, "storage backend unavailable");
@@ -574,6 +603,49 @@ mod tests {
         ));
         assert_eq!(failure.failure_count, 1);
         assert_eq!(failure.error, "storage permission failure");
+
+        let failure_diagnostic = crate::VfsCacheRepairDiagnostic::from_failure(&failure);
+        assert_eq!(
+            failure_diagnostic.classification,
+            crate::VfsCacheRepairClassification::OperatorActionRequired
+        );
+        assert_eq!(
+            failure_diagnostic.failure_class,
+            Some(StorageFailureClass::Permission)
+        );
+        assert!(!failure_diagnostic.retryable);
+        assert_eq!(
+            failure_diagnostic.safe_message.as_deref(),
+            Some("storage permission failure")
+        );
+    }
+
+    #[test]
+    fn vfs_cache_failure_diagnostic_redacts_unclassified_raw_failure_payloads() {
+        let failure = VfsCacheFailure {
+            uri: "webdav:///Movies/Private/Demo.mkv?token=secret".to_owned(),
+            scheme: "webdav".to_owned(),
+            operation: VfsCacheOperation::List,
+            failed_at_ms: 1_000,
+            failure_count: 1,
+            error: "token=secret failed at F:\\Media\\Private\\Demo.mkv".to_owned(),
+        };
+
+        let diagnostic = crate::VfsCacheRepairDiagnostic::from_failure(&failure);
+        let body = serde_json::to_string(&diagnostic).unwrap();
+
+        assert_eq!(
+            diagnostic.classification,
+            crate::VfsCacheRepairClassification::UnknownFailure
+        );
+        assert_eq!(diagnostic.failure_class, None);
+        assert_eq!(diagnostic.safe_message.as_deref(), Some("storage failure"));
+        assert!(!body.contains("token"));
+        assert!(!body.contains("secret"));
+        assert!(!body.contains("Private"));
+        assert!(!body.contains("Demo.mkv"));
+        assert!(!body.contains("F:\\Media"));
+        assert!(!body.contains("webdav:///"));
     }
 
     #[derive(Clone)]

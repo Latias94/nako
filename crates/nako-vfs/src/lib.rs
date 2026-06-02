@@ -8,7 +8,9 @@ use async_trait::async_trait;
 use bitflags::bitflags;
 use bytes::Bytes;
 use futures_util::{StreamExt, stream::BoxStream};
-use nako_core::{NakoError, Result, StorageErrorKind};
+use nako_core::{
+    NakoError, Result, StorageErrorKind, StorageFailureClass, VfsCacheFailure, VfsCacheOperation,
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -138,6 +140,172 @@ pub struct ObjectCacheStatus {
     pub fresh_until_ms: i64,
     pub last_failed_at_ms: Option<i64>,
     pub last_error: Option<String>,
+}
+
+impl ObjectCacheStatus {
+    #[must_use]
+    pub fn repair_diagnostic(&self) -> VfsCacheRepairDiagnostic {
+        let failure_class = self
+            .last_error
+            .as_deref()
+            .and_then(storage_failure_class_from_safe_message);
+        VfsCacheRepairDiagnostic::from_parts(
+            Some(self.state),
+            None,
+            failure_class,
+            self.last_failed_at_ms,
+            None,
+            self.last_error.as_deref(),
+        )
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum VfsCacheRepairClassification {
+    Healthy,
+    RepairableStaleFallback,
+    RetryableRefreshFailure,
+    OperatorActionRequired,
+    UnknownFailure,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct VfsCacheRepairDiagnostic {
+    pub classification: VfsCacheRepairClassification,
+    pub state: Option<ObjectCacheState>,
+    pub operation: Option<VfsCacheOperation>,
+    pub failure_class: Option<StorageFailureClass>,
+    pub retryable: bool,
+    pub failed_at_ms: Option<i64>,
+    pub failure_count: Option<u32>,
+    pub safe_message: Option<String>,
+    pub operator_action: String,
+}
+
+impl VfsCacheRepairDiagnostic {
+    #[must_use]
+    pub fn from_failure(failure: &VfsCacheFailure) -> Self {
+        let failure_class = storage_failure_class_from_safe_message(&failure.error);
+        Self::from_parts(
+            None,
+            Some(failure.operation),
+            failure_class,
+            Some(failure.failed_at_ms),
+            Some(failure.failure_count),
+            Some(&failure.error),
+        )
+    }
+
+    fn from_parts(
+        state: Option<ObjectCacheState>,
+        operation: Option<VfsCacheOperation>,
+        failure_class: Option<StorageFailureClass>,
+        failed_at_ms: Option<i64>,
+        failure_count: Option<u32>,
+        safe_message: Option<&str>,
+    ) -> Self {
+        let classification = classify_cache_repair(state, failure_class);
+        let safe_message = redacted_cache_failure_message(safe_message, failure_class);
+
+        Self {
+            classification,
+            state,
+            operation,
+            failure_class,
+            retryable: cache_repair_is_retryable(classification, failure_class),
+            failed_at_ms,
+            failure_count,
+            safe_message,
+            operator_action: cache_repair_operator_action(classification).to_owned(),
+        }
+    }
+}
+
+fn classify_cache_repair(
+    state: Option<ObjectCacheState>,
+    failure_class: Option<StorageFailureClass>,
+) -> VfsCacheRepairClassification {
+    match (state, failure_class) {
+        (Some(ObjectCacheState::Fresh), None) => VfsCacheRepairClassification::Healthy,
+        (Some(ObjectCacheState::StaleFallback), _) => {
+            VfsCacheRepairClassification::RepairableStaleFallback
+        }
+        (
+            _,
+            Some(
+                StorageFailureClass::Timeout
+                | StorageFailureClass::Unavailable
+                | StorageFailureClass::RateLimited
+                | StorageFailureClass::StaleCache
+                | StorageFailureClass::PartialRead
+                | StorageFailureClass::Budget,
+            ),
+        ) => VfsCacheRepairClassification::RetryableRefreshFailure,
+        (_, Some(StorageFailureClass::Permission | StorageFailureClass::Security)) => {
+            VfsCacheRepairClassification::OperatorActionRequired
+        }
+        (_, Some(StorageFailureClass::Unknown) | None) => {
+            VfsCacheRepairClassification::UnknownFailure
+        }
+    }
+}
+
+fn cache_repair_is_retryable(
+    classification: VfsCacheRepairClassification,
+    failure_class: Option<StorageFailureClass>,
+) -> bool {
+    matches!(
+        classification,
+        VfsCacheRepairClassification::RepairableStaleFallback
+    ) || failure_class.is_some_and(StorageFailureClass::is_retryable)
+}
+
+fn cache_repair_operator_action(classification: VfsCacheRepairClassification) -> &'static str {
+    match classification {
+        VfsCacheRepairClassification::Healthy => "cache entry is fresh",
+        VfsCacheRepairClassification::RepairableStaleFallback => {
+            "cache served stale data; refresh after the backend recovers"
+        }
+        VfsCacheRepairClassification::RetryableRefreshFailure => {
+            "cache refresh failed with a retryable storage failure"
+        }
+        VfsCacheRepairClassification::OperatorActionRequired => {
+            "fix backend permissions or security configuration before refreshing the cache"
+        }
+        VfsCacheRepairClassification::UnknownFailure => {
+            "cache refresh failed without a specific safe failure class"
+        }
+    }
+}
+
+fn redacted_cache_failure_message(
+    message: Option<&str>,
+    failure_class: Option<StorageFailureClass>,
+) -> Option<String> {
+    match (message, failure_class) {
+        (None, None) => None,
+        (_, Some(class)) => Some(class.safe_message().to_owned()),
+        (Some(_), None) => Some(StorageFailureClass::Unknown.safe_message().to_owned()),
+    }
+}
+
+fn storage_failure_class_from_safe_message(message: &str) -> Option<StorageFailureClass> {
+    const CLASSES: [StorageFailureClass; 9] = [
+        StorageFailureClass::Timeout,
+        StorageFailureClass::Unavailable,
+        StorageFailureClass::Permission,
+        StorageFailureClass::RateLimited,
+        StorageFailureClass::StaleCache,
+        StorageFailureClass::PartialRead,
+        StorageFailureClass::Budget,
+        StorageFailureClass::Security,
+        StorageFailureClass::Unknown,
+    ];
+
+    CLASSES
+        .into_iter()
+        .find(|class| class.safe_message() == message)
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
