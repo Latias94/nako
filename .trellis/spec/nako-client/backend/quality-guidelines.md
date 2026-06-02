@@ -1,51 +1,33 @@
 # Quality Guidelines
 
-> Code quality standards for backend development.
-
----
-
-## Overview
-
-<!--
-Document your project's quality standards here.
-
-Questions to answer:
-- What patterns are forbidden?
-- What linting rules do you enforce?
-- What are your testing requirements?
-- What code review standards apply?
--->
-
-(To be filled by the team)
-
----
-
-## Forbidden Patterns
-
-<!-- Patterns that should never be used and why -->
-
-(To be filled by the team)
-
----
+SDK changes must preserve mockability, public protocol alignment, and redaction.
 
 ## Required Patterns
 
-<!-- Patterns that must always be used -->
+- Use `MockTransport` tests instead of live network tests.
+- Assert method, URL, headers, body, and decoded DTO for new JSON methods.
+- Assert API version header behavior.
+- Assert streaming builders return requests and do not call transport.
+- Assert Cargo manifest does not gain server/internal dependencies.
 
-(To be filled by the team)
+## Forbidden Patterns
 
----
+- Do not add untested route methods.
+- Do not use real Nako server instances in unit tests.
+- Do not log or print bearer tokens in SDK behavior.
+- Do not add dependencies on server-side crates.
 
-## Testing Requirements
+## Tests Required
 
-<!-- What level of testing is expected -->
+- Health/login/current-user auth behavior tests.
+- Browse/search/playback/user playback/playlist method tests when touched.
+- Streaming direct/head/remux/HLS request builder tests.
+- Error mapping tests.
+- Manifest dependency boundary test.
 
-(To be filled by the team)
+## Gate Selection
 
----
-
-## Code Review Checklist
-
-<!-- What reviewers should check -->
-
-(To be filled by the team)
+- Focused:
+  `cargo nextest run -p nako-client --no-fail-fast`
+- Client stack:
+  `cargo nextest run -p nako-client-protocol -p nako-client-core -p nako-client --no-fail-fast`

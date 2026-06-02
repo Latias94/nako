@@ -1,51 +1,32 @@
 # Error Handling
 
-> How errors are handled in this project.
+CLI errors should be concise for users and safe for terminals.
 
----
+## Required Patterns
 
-## Overview
+- Use `CliError::MissingTokenEnv` when a named token environment variable is not
+  set.
+- Pass through `NakoClientError` with `CliError::Client`.
+- Use `CliError::Serialize` for JSON output serialization failures.
+- In `main`, print `error: {err}` to stderr and return failure exit code.
+- Keep successful output on stdout.
 
-<!--
-Document your project's error handling conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What error types do you define?
-- How are errors propagated?
-- How are errors logged?
-- How are errors returned to clients?
--->
+- Do not print raw tokens or Authorization headers.
+- Do not panic for missing environment variables.
+- Do not unwrap SDK responses outside tests.
+- Do not hide SDK errors behind generic CLI failure strings.
 
-(To be filled by the team)
+## Examples
 
----
+- `health` with a token still sends no Authorization header.
+- `stream remux` prints method, URL, and redacted headers without sending.
+- `stream hls-segment` encodes session and segment path names and uses no
+  transport call.
 
-## Error Types
+## Review Checklist
 
-<!-- Custom error classes/types -->
-
-(To be filled by the team)
-
----
-
-## Error Handling Patterns
-
-<!-- Try-catch patterns, error propagation -->
-
-(To be filled by the team)
-
----
-
-## API Error Responses
-
-<!-- Standard error response format -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Error handling mistakes your team has made -->
-
-(To be filled by the team)
+- Is the user-facing error actionable?
+- Could it leak a token?
+- Does a mock transport test cover the path?

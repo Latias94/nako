@@ -1,38 +1,61 @@
-# Backend Development Guidelines
+# nako-client-cli Backend Guidelines
 
-> Best practices for backend development in this project.
+`nako-client-cli` is the command-line wrapper around the Rust Public Client SDK.
+It parses CLI arguments, resolves an optional token or token environment
+variable, calls `nako-client`, and prints pretty JSON or safe streaming request
+facts.
 
----
+## Current Evidence
 
-## Overview
+- `crates/nako-client-cli/src/lib.rs`
+- `crates/nako-client-cli/src/main.rs`
+- `crates/nako-client-cli/Cargo.toml`
+- `crates/nako-client/src/lib.rs`
 
-This directory contains guidelines for backend development. Fill in each file with your project's specific conventions.
+## Boundaries
 
----
+- Own clap CLI shape.
+- Own token resolution from `--token` or `--token-env`.
+- Use `NakoClient` and `ClientTransport` for execution.
+- Print pretty JSON for JSON API commands.
+- Print redacted method/URL/header facts for streaming builder commands.
+- Keep protocol DTOs and SDK transport behavior in lower crates.
 
-## Guidelines Index
+## Executable Contract Summary
 
-| Guide | Description | Status |
-|-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill |
-| [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
+1. Scope / Trigger: new CLI command, argument, output shape, token resolution,
+   streaming command, or CLI error update belongs here.
+2. Signatures: `Cli`, `Command`, `PageArgs`, `PlaybackCapabilityArgs`,
+   `StreamCommand`, `CliError`, `run`, and `run_with_transport`.
+3. Contracts: default base URL is `http://127.0.0.1:3000`; explicit `--token`
+   wins over `--token-env`; stream commands return safe request facts.
+4. Validation & Error Matrix: missing token env becomes `MissingTokenEnv`;
+   client errors pass through; serialization errors become `Serialize`.
+5. Good/Base/Bad Cases: good stream output redacts Authorization; base health
+   command does not send auth; bad output contains token strings.
+6. Tests Required: clap parse, SDK transport requests, safe streaming output,
+   token env behavior, and dependency boundary tests.
+7. Wrong vs Correct: do not reimplement HTTP; construct `NakoClient` and use SDK
+   methods or request builders.
 
----
+## Required Patterns
 
-## How to Fill These Guidelines
+- Route all execution through `run_with_transport` for testability.
+- Use `ReqwestTransport::default()` only in `run`.
+- Use `serde_json::to_string_pretty` for command output.
+- Redact Authorization as `<redacted>` in streaming command output.
+- Keep stream commands from sending transport requests.
 
-For each guideline file:
+## Forbidden Patterns
 
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
+- Do not log or print raw tokens.
+- Do not depend on server, API, core domain, streaming, or transcode crates.
+- Do not add live network tests.
+- Do not bypass `nako-client` SDK methods.
 
-The goal is to help AI assistants and new team members understand how YOUR project works.
+## Validation
 
----
-
-**Language**: All documentation should be written in **English**.
+- Focused:
+  `cargo nextest run -p nako-client-cli --no-fail-fast`
+- Client stack:
+  `cargo nextest run -p nako-client -p nako-client-cli --no-fail-fast`

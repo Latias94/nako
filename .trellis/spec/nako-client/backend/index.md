@@ -1,38 +1,63 @@
-# Backend Development Guidelines
+# nako-client Backend Guidelines
 
-> Best practices for backend development in this project.
+`nako-client` is the async Rust Public Client SDK. It wraps
+`nako-client-protocol` DTOs and `nako-client-core` builders with a mockable
+transport and a reqwest implementation.
 
----
+## Current Evidence
 
-## Overview
+- `crates/nako-client/src/lib.rs`
+- `crates/nako-client/Cargo.toml`
+- `crates/nako-client-core/src/lib.rs`
+- `crates/nako-client-protocol/src/lib.rs`
 
-This directory contains guidelines for backend development. Fill in each file with your project's specific conventions.
+## Boundaries
 
----
+- Provide `NakoClient` async JSON methods.
+- Provide streaming request builders returning `ClientRequest` without sending.
+- Provide `ClientTransport` and `ReqwestTransport`.
+- Convert core requests/responses to SDK request/response types.
+- Map core runtime failures to `NakoClientError`.
+- Keep CLI and UniFFI wrappers in their own crates.
 
-## Guidelines Index
+## Executable Contract Summary
 
-| Guide | Description | Status |
-|-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill |
-| [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
+1. Scope / Trigger: new Public Client method, streaming request builder, query
+   type, transport behavior, or SDK error mapping updates this crate.
+2. Signatures: `NakoClient`, `ClientTransport`, `ReqwestTransport`,
+   `ClientRequest`, `ClientResponse`, query structs, and `NakoClientError`.
+3. Contracts: JSON methods send requests and decode DTOs; streaming builders
+   produce request facts; API version header must match `API_VERSION`.
+4. Validation & Error Matrix: invalid base URL/path/header, transport error,
+   encode/decode error, API HTTP error, invalid version header, unsupported API
+   version, missing access token, and invalid core response map to
+   `NakoClientError`.
+5. Good/Base/Bad Cases: good SDK calls use mockable transport; base health and
+   login do not require auth; bad calls expose tokens or bypass version checks.
+6. Tests Required: mock transport requests, API error mapping, version checks,
+   JSON encode/decode, streaming builder facts, and Cargo dependency boundaries.
+7. Wrong vs Correct: do not duplicate URL logic in SDK methods; use core builders
+   where the route is shared with CLI/UniFFI.
 
----
+## Required Patterns
 
-## How to Fill These Guidelines
+- Normalize base URL to end with `/` and strip query/fragment.
+- Use `ClientTransport` for testable transport behavior.
+- Use protocol DTOs re-exported from `nako-client`.
+- Add `Authorization` only for methods requiring auth.
+- Validate `x-nako-api-version` on responses.
 
-For each guideline file:
+## Forbidden Patterns
 
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
+- Do not depend on `nako-server`, `nako-api`, database, storage, streaming, or
+  transcode crates.
+- Do not log or expose bearer tokens.
+- Do not send streaming requests in methods that are documented as builders.
+- Do not bypass `ClientTransport` in tests.
 
-The goal is to help AI assistants and new team members understand how YOUR project works.
+## Validation
 
----
-
-**Language**: All documentation should be written in **English**.
+- Focused:
+  `cargo nextest run -p nako-client --no-fail-fast`
+- Full client stack:
+  `cargo nextest run -p nako-client-protocol -p nako-client-core -p nako-client --no-fail-fast`

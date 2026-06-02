@@ -1,54 +1,36 @@
 # Directory Structure
 
-> How backend code is organized in this project.
+`nako-client-uniffi` currently fits in `src/lib.rs` because it is a mirror of
+`nako-client-core`.
 
----
+## Current Layout
 
-## Overview
+- UniFFI records for headers, request inputs, requests, responses, safe previews,
+  failures, and connection probe results.
+- UniFFI enums for playback modes, output containers, failure kinds, and probe
+  outcome kinds.
+- Exported functions delegating to core builders.
+- `From` conversions between UniFFI and core types.
+- `uniffi::setup_scaffolding!()`.
+- Focused tests for exported request builders.
 
-<!--
-Document your project's backend directory structure here.
+## Module Rules
 
-Questions to answer:
-- How are modules/packages organized?
-- Where does business logic live?
-- Where are API endpoints defined?
-- How are utilities and helpers organized?
--->
+- Keep mirror type definitions near exported functions while the file is
+  manageable.
+- Split conversion helpers only if type count becomes hard to review.
+- Keep all route logic in `nako-client-core`.
+- Keep generated binding artifacts out of source unless a release workflow
+  explicitly adds them.
 
-(To be filled by the team)
+## Naming Rules
 
----
+- Use the same `Core*` names as `nako-client-core` mirror types.
+- Use exported function names matching the core builder names.
+- Use `From` conversions rather than ad hoc conversion helpers.
 
-## Directory Layout
+## Anti-Patterns
 
-```
-<!-- Replace with your actual structure -->
-src/
-├── ...
-└── ...
-```
-
----
-
-## Module Organization
-
-<!-- How should new features/modules be organized? -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- File and folder naming rules -->
-
-(To be filled by the team)
-
----
-
-## Examples
-
-<!-- Link to well-organized modules as examples -->
-
-(To be filled by the team)
+- Do not create async client methods here.
+- Do not add CLI or reqwest types.
+- Do not duplicate core request-building implementation.

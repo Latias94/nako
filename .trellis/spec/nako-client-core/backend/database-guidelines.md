@@ -1,51 +1,32 @@
 # Database Guidelines
 
-> Database patterns and conventions for this project.
+`nako-client-core` has no persistence. It only builds requests and interprets
+responses supplied by a caller.
 
----
+## Required Patterns
 
-## Overview
+- Treat IDs as opaque public path segments.
+- Use percent encoding before putting IDs into paths.
+- Use query parameters for page, facets, playback capabilities, and output
+  container choices.
+- Let the server enforce authorization, pagination limits, and persistence.
+- Return request facts rather than mutating client state.
 
-<!--
-Document your project's database conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What ORM/query library do you use?
-- How are migrations managed?
-- What are the naming conventions for tables/columns?
-- How do you handle transactions?
--->
+- Do not import repository traits, SQL adapters, database pools, or migrations.
+- Do not validate IDs by querying storage.
+- Do not persist access tokens or connection probe state.
+- Do not assume server database shape from public DTOs.
 
-(To be filled by the team)
+## Contract Rules
 
----
+- Connection probe first calls unauthenticated `/health`, then authenticated
+  `/libraries?limit=1&offset=0`.
+- Streaming builders for direct/remux/HLS do not attach bearer auth by default.
+- User playback write builders use `PUT` and `Content-Type: application/json`.
 
-## Query Patterns
+## Tests Required
 
-<!-- How should queries be written? Batch operations? -->
-
-(To be filled by the team)
-
----
-
-## Migrations
-
-<!-- How to create and run migrations -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- Table names, column names, index names -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Database-related mistakes your team has made -->
-
-(To be filled by the team)
+- Request-builder tests should assert exact URLs and methods.
+- Persistence and auth policy tests belong in server/API crates.

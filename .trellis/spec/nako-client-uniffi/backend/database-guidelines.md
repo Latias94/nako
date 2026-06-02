@@ -1,51 +1,30 @@
 # Database Guidelines
 
-> Database patterns and conventions for this project.
+`nako-client-uniffi` has no persistence. Foreign clients receive request facts
+and decide how to execute them.
 
----
+## Required Patterns
 
-## Overview
+- Treat IDs and tokens as opaque input strings.
+- Return `CoreHttpRequest` records with safe previews.
+- Return `CoreRuntimeFailure` records for interpreted failures.
+- Let the server and foreign client runtime own persistence and transport.
 
-<!--
-Document your project's database conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What ORM/query library do you use?
-- How are migrations managed?
-- What are the naming conventions for tables/columns?
-- How do you handle transactions?
--->
+- Do not import repository traits, SQL adapters, database pools, or migrations.
+- Do not persist access tokens or connection state.
+- Do not execute requests from bindings.
+- Do not expose database concepts through binding records.
 
-(To be filled by the team)
+## Contract Rules
 
----
+- Connection probe starts with an unauthenticated health request.
+- Auth probe and authenticated route builders include bearer headers in the raw
+  request and redacted bearer headers in `safe_preview`.
+- Streaming builders follow core behavior and do not add database or auth policy.
 
-## Query Patterns
+## Tests Required
 
-<!-- How should queries be written? Batch operations? -->
-
-(To be filled by the team)
-
----
-
-## Migrations
-
-<!-- How to create and run migrations -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- Table names, column names, index names -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Database-related mistakes your team has made -->
-
-(To be filled by the team)
+- Binding request builder tests should compare request IDs, URLs, methods, and
+  safe previews against expected core output.

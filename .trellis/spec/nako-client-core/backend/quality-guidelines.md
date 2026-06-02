@@ -1,51 +1,35 @@
 # Quality Guidelines
 
-> Code quality standards for backend development.
-
----
-
-## Overview
-
-<!--
-Document your project's quality standards here.
-
-Questions to answer:
-- What patterns are forbidden?
-- What linting rules do you enforce?
-- What are your testing requirements?
-- What code review standards apply?
--->
-
-(To be filled by the team)
-
----
-
-## Forbidden Patterns
-
-<!-- Patterns that should never be used and why -->
-
-(To be filled by the team)
-
----
+Core client changes must stay deterministic, transport-neutral, and redaction
+safe.
 
 ## Required Patterns
 
-<!-- Patterns that must always be used -->
+- Assert exact request IDs, methods, URLs, headers, bodies, and safe previews.
+- Test percent encoding for spaces, slashes, colons, commas, and segment names.
+- Test auth header insertion and existing-header behavior when changed.
+- Test streaming builders separately from authenticated JSON builders.
+- Test response interpretation with public error body redaction.
 
-(To be filled by the team)
+## Forbidden Patterns
 
----
+- Do not add network calls, async runtime requirements, or reqwest types.
+- Do not rely on global state.
+- Do not skip safe preview assertions.
+- Do not add a route builder without a focused URL test.
 
-## Testing Requirements
+## Tests Required
 
-<!-- What level of testing is expected -->
+- Connection probe state tests.
+- Generic request builder tests.
+- Browse/search/artwork request tests.
+- Playback target and HLS segment request tests.
+- User playback read/write request tests.
+- Response interpreter tests.
 
-(To be filled by the team)
+## Gate Selection
 
----
-
-## Code Review Checklist
-
-<!-- What reviewers should check -->
-
-(To be filled by the team)
+- Focused:
+  `cargo nextest run -p nako-client-core --no-fail-fast`
+- Consumer compile:
+  `cargo check -p nako-client -p nako-client-uniffi -p nako-client-cli --tests`

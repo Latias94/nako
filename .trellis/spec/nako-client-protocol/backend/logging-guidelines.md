@@ -1,51 +1,26 @@
 # Logging Guidelines
 
-> How logging is done in this project.
+`nako-client-protocol` should not normally log. Public DTOs and route inventory
+are validated by tests.
 
----
+## Required Patterns
 
-## Overview
+- Prefer tests and explicit DTO fields over logs.
+- If diagnostics are added, log only public-safe facts such as route path,
+  route kind, method, API version, DTO family, and error code.
+- Keep public error messages redaction-safe.
 
-<!--
-Document your project's logging conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What logging library do you use?
-- What are the log levels and when to use each?
-- What should be logged?
-- What should NOT be logged (PII, secrets)?
--->
+- Do not log login passwords, session tokens, playback tickets, source locators,
+  renderer transport secrets, or server filesystem paths.
+- Do not log entire response DTOs in protocol tests.
+- Do not use logs to detect public route drift.
 
-(To be filled by the team)
+## Useful Fields
 
----
-
-## Log Levels
-
-<!-- When to use each level: debug, info, warn, error -->
-
-(To be filled by the team)
-
----
-
-## Structured Logging
-
-<!-- Log format, required fields -->
-
-(To be filled by the team)
-
----
-
-## What to Log
-
-<!-- Important events to log -->
-
-(To be filled by the team)
-
----
-
-## What NOT to Log
-
-<!-- Sensitive data, PII, secrets -->
-
-(To be filled by the team)
+- `client_protocol.version`
+- `client_protocol.route`
+- `client_protocol.method`
+- `client_protocol.route_kind`
+- `client_protocol.error_code`

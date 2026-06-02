@@ -1,51 +1,34 @@
 # Error Handling
 
-> How errors are handled in this project.
+`NakoClientError` is the SDK error vocabulary. Preserve clear separation between
+local construction, transport, API, version, encode, and decode failures.
 
----
+## Required Patterns
 
-## Overview
+- Use `InvalidBaseUrl` when client construction cannot parse the base URL.
+- Use `InvalidPath` and `InvalidHeader` for request construction failures.
+- Use `Transport` only for reqwest send/body read failures.
+- Use `Api { status, body }` for non-2xx API responses after public error
+  parsing.
+- Use `UnsupportedApiVersion` when `x-nako-api-version` does not match.
+- Use `Encode` and `Decode` for JSON body issues.
+- Use `MissingAccessToken` for authenticated calls without token.
 
-<!--
-Document your project's error handling conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What error types do you define?
-- How are errors propagated?
-- How are errors logged?
-- How are errors returned to clients?
--->
+- Do not expose bearer token values in error strings.
+- Do not collapse API errors into transport errors.
+- Do not skip API version checks on successful responses.
+- Do not parse JSON with unchecked unwraps outside tests.
 
-(To be filled by the team)
+## Examples
 
----
+- API `403` with public `ErrorResponse` becomes `NakoClientError::Api`.
+- Response header `x-nako-api-version: v2` becomes unsupported API version.
+- Invalid response JSON becomes `Decode`.
 
-## Error Types
+## Review Checklist
 
-<!-- Custom error classes/types -->
-
-(To be filled by the team)
-
----
-
-## Error Handling Patterns
-
-<!-- Try-catch patterns, error propagation -->
-
-(To be filled by the team)
-
----
-
-## API Error Responses
-
-<!-- Standard error response format -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Error handling mistakes your team has made -->
-
-(To be filled by the team)
+- Is this a construction, transport, API, version, encode, or decode failure?
+- Is token material absent from the error?
+- Does the mock transport test cover the path?

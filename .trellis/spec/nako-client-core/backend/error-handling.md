@@ -1,51 +1,34 @@
 # Error Handling
 
-> How errors are handled in this project.
+Core failure handling is transport-neutral and redaction-safe.
 
----
+## Required Patterns
 
-## Overview
+- Return `MissingAccessToken` before starting an auth probe when the token is
+  empty after trimming.
+- Return `HttpError` for non-2xx responses and include sanitized public error
+  body when available.
+- Return `UnsupportedApiVersion` when response header or health body reports a
+  version other than `CLIENT_PROTOCOL_VERSION`.
+- Return `InvalidResponse` for invalid health JSON or unknown probe response ID.
+- Attach safe request previews to failures when available.
 
-<!--
-Document your project's error handling conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What error types do you define?
-- How are errors propagated?
-- How are errors logged?
-- How are errors returned to clients?
--->
+- Do not panic on invalid JSON, unknown request IDs, or missing headers.
+- Do not include raw access tokens in public errors or request previews.
+- Do not require a transport error type in core failures.
+- Do not treat a successful status with unsupported API version as success.
 
-(To be filled by the team)
+## Examples
 
----
+- Health `200` with body version `v2` fails as unsupported API version.
+- Auth probe `401` with message containing a token returns a redacted public
+  error.
+- Unknown probe `request_id` fails as invalid response.
 
-## Error Types
+## Review Checklist
 
-<!-- Custom error classes/types -->
-
-(To be filled by the team)
-
----
-
-## Error Handling Patterns
-
-<!-- Try-catch patterns, error propagation -->
-
-(To be filled by the team)
-
----
-
-## API Error Responses
-
-<!-- Standard error response format -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Error handling mistakes your team has made -->
-
-(To be filled by the team)
+- Is the failure kind specific?
+- Is the token redacted in every returned preview and public error?
+- Does the caller have enough information to retry or report?

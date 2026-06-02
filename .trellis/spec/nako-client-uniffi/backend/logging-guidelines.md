@@ -1,51 +1,24 @@
 # Logging Guidelines
 
-> How logging is done in this project.
+`nako-client-uniffi` should not log. It returns request and failure records to
+foreign-language callers.
 
----
+## Required Patterns
 
-## Overview
+- Use `CoreSafeRequestPreview` for diagnostics.
+- Let mobile/foreign clients own logging policy.
+- Preserve redacted headers and sanitized URLs from core.
 
-<!--
-Document your project's logging conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What logging library do you use?
-- What are the log levels and when to use each?
-- What should be logged?
-- What should NOT be logged (PII, secrets)?
--->
+- Do not log access tokens, bearer headers, playback tickets, raw response
+  bodies, or foreign client secrets.
+- Do not print binding diagnostics during request construction.
+- Do not use logs as a substitute for returned failure records.
 
-(To be filled by the team)
+## Useful Fields
 
----
-
-## Log Levels
-
-<!-- When to use each level: debug, info, warn, error -->
-
-(To be filled by the team)
-
----
-
-## Structured Logging
-
-<!-- Log format, required fields -->
-
-(To be filled by the team)
-
----
-
-## What to Log
-
-<!-- Important events to log -->
-
-(To be filled by the team)
-
----
-
-## What NOT to Log
-
-<!-- Sensitive data, PII, secrets -->
-
-(To be filled by the team)
+- `client_uniffi.request_id`
+- `client_uniffi.method`
+- `client_uniffi.safe_url`
+- `client_uniffi.failure_kind`

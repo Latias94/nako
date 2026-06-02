@@ -1,54 +1,40 @@
 # Directory Structure
 
-> How backend code is organized in this project.
+`nako-client-cli` keeps command parsing and execution in `src/lib.rs`, with a
+small binary entry point in `src/main.rs`.
 
----
+## Current Layout
 
-## Overview
+- `src/main.rs`: parses `Cli`, calls `run`, prints output, maps errors to
+  process exit code.
+- `src/lib.rs`: clap command definitions, token resolution, client construction,
+  command execution, streaming safe output, and tests.
 
-<!--
-Document your project's backend directory structure here.
+## Command Families
 
-Questions to answer:
-- How are modules/packages organized?
-- Where does business logic live?
-- Where are API endpoints defined?
-- How are utilities and helpers organized?
--->
+- `health`
+- `libraries`
+- `items`
+- `search`
+- `source probe`
+- `playback decision/session/cancel`
+- `stream direct/head/remux/hls-playlist/hls-segment`
 
-(To be filled by the team)
+## Module Rules
 
----
+- Keep CLI argument definitions close to execution code while the crate is small.
+- Split command families only if each gets enough options to justify it.
+- Keep `SafeRequestOutput` private.
+- Keep tests in this crate using mock transport.
 
-## Directory Layout
+## Naming Rules
 
-```
-<!-- Replace with your actual structure -->
-src/
-├── ...
-└── ...
-```
+- Use `*Args` for flattened clap arguments.
+- Use `*Command` for clap subcommands.
+- Use `run_with_transport` for test execution.
 
----
+## Anti-Patterns
 
-## Module Organization
-
-<!-- How should new features/modules be organized? -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- File and folder naming rules -->
-
-(To be filled by the team)
-
----
-
-## Examples
-
-<!-- Link to well-organized modules as examples -->
-
-(To be filled by the team)
+- Do not add SDK transport code here.
+- Do not add public client DTO definitions here.
+- Do not make `main.rs` contain command logic.

@@ -1,51 +1,32 @@
 # Error Handling
 
-> How errors are handled in this project.
+Public client errors use `ErrorResponse` plus `ClientErrorCode` strings. This
+crate defines the public vocabulary, not server-side error generation.
 
----
+## Required Patterns
 
-## Overview
+- Add new client-visible error categories to `ClientErrorCode::ALL`.
+- Keep `ClientErrorCode::as_str` aligned with serde snake-case values.
+- Use `ErrorResponse::new` when constructing public errors in tests.
+- Keep client error messages public-safe.
+- Keep storage, provider, FFmpeg, staging, auth, and database categories
+  explicit when they are exposed to public clients.
 
-<!--
-Document your project's error handling conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What error types do you define?
-- How are errors propagated?
-- How are errors logged?
-- How are errors returned to clients?
--->
+- Do not expose raw database or storage errors in public DTOs.
+- Do not encode private exception type names as client error codes.
+- Do not remove an error code without a migration plan.
+- Do not treat unknown playback wire strings as fatal when the enum is additive.
 
-(To be filled by the team)
+## Examples
 
----
+- `"not_found"` maps to `ClientErrorCode::NotFound`.
+- Unknown playback mode strings round-trip through `Other(String)`.
+- A public error body contains `code` and `message`, not stack traces.
 
-## Error Types
+## Review Checklist
 
-<!-- Custom error classes/types -->
-
-(To be filled by the team)
-
----
-
-## Error Handling Patterns
-
-<!-- Try-catch patterns, error propagation -->
-
-(To be filled by the team)
-
----
-
-## API Error Responses
-
-<!-- Standard error response format -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Error handling mistakes your team has made -->
-
-(To be filled by the team)
+- Is the error code stable and public-safe?
+- Does `ClientErrorCode::from_code` still find it?
+- Are unknown additive strings preserved where needed?

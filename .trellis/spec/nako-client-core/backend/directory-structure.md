@@ -1,54 +1,39 @@
 # Directory Structure
 
-> How backend code is organized in this project.
+`nako-client-core` is organized by transport-neutral client responsibility.
 
----
+## Current Layout
 
-## Overview
+- `lib.rs`: re-exports the core API.
+- `ids.rs`: stable request IDs.
+- `encoding.rs`: percent encoding and base URL joining.
+- `redaction.rs`: token and bearer redaction.
+- `request.rs`: request specs, headers, query params, safe previews.
+- `response.rs`: HTTP/API version failure interpretation.
+- `connection.rs`: health and auth probe state machine.
+- `browse.rs`: library, item, people, tag, genre, and search builders.
+- `artwork.rs`: image request builder.
+- `playback.rs`: source probe, playback decision, streaming, HLS, and session
+  builders.
+- `user_playback.rs`: current-user playback state builders.
 
-<!--
-Document your project's backend directory structure here.
+## Module Rules
 
-Questions to answer:
-- How are modules/packages organized?
-- Where does business logic live?
-- Where are API endpoints defined?
-- How are utilities and helpers organized?
--->
+- Add new route builders to the module that matches the public API family.
+- Add reusable request IDs to `ids.rs`.
+- Keep redaction helpers private unless foreign-language clients need the exact
+  behavior.
+- Keep response interpretation generic and transport-neutral.
 
-(To be filled by the team)
+## Naming Rules
 
----
+- Use `Core*Input` for builder inputs.
+- Use `build_*_request` for request builders.
+- Use `Core*Target` for playback target bundles that include optional preflight.
+- Use `CoreRuntimeFailure*` for interpreted failures.
 
-## Directory Layout
+## Anti-Patterns
 
-```
-<!-- Replace with your actual structure -->
-src/
-├── ...
-└── ...
-```
-
----
-
-## Module Organization
-
-<!-- How should new features/modules be organized? -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- File and folder naming rules -->
-
-(To be filled by the team)
-
----
-
-## Examples
-
-<!-- Link to well-organized modules as examples -->
-
-(To be filled by the team)
+- Do not add HTTP client adapters here.
+- Do not duplicate public DTOs from `nako-client-protocol`.
+- Do not create server-specific route modules.

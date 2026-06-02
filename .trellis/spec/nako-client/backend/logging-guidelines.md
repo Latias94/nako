@@ -1,51 +1,27 @@
 # Logging Guidelines
 
-> How logging is done in this project.
+`nako-client` should return typed errors and request facts. Applications decide
+how to log them.
 
----
+## Required Patterns
 
-## Overview
+- Prefer public-safe fields: method, URL without tokens, status, API version,
+  error code, and request kind.
+- Redact Authorization headers and bearer token strings.
+- Use streaming builder request facts for diagnostics, not raw secret logs.
+- Let callers attach trace IDs or app-specific logging context.
 
-<!--
-Document your project's logging conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What logging library do you use?
-- What are the log levels and when to use each?
-- What should be logged?
-- What should NOT be logged (PII, secrets)?
--->
+- Do not log bearer tokens, login passwords, playback tickets, range URLs with
+  credentials, or full response bodies by default.
+- Do not log reqwest errors with sensitive URLs without caller redaction.
+- Do not use logs as a substitute for `NakoClientError`.
 
-(To be filled by the team)
+## Useful Fields
 
----
-
-## Log Levels
-
-<!-- When to use each level: debug, info, warn, error -->
-
-(To be filled by the team)
-
----
-
-## Structured Logging
-
-<!-- Log format, required fields -->
-
-(To be filled by the team)
-
----
-
-## What to Log
-
-<!-- Important events to log -->
-
-(To be filled by the team)
-
----
-
-## What NOT to Log
-
-<!-- Sensitive data, PII, secrets -->
-
-(To be filled by the team)
+- `client.method`
+- `client.path`
+- `client.status`
+- `client.api_version`
+- `client.error_code`

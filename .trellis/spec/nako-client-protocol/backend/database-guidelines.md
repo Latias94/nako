@@ -1,51 +1,34 @@
 # Database Guidelines
 
-> Database patterns and conventions for this project.
+`nako-client-protocol` has no database ownership. It describes public wire
+payloads after server/API layers have mapped domain and persistence records.
 
----
+## Required Patterns
 
-## Overview
+- Represent IDs as public strings.
+- Keep pagination as `PageInfo`.
+- Keep current-user state without principal or account internals.
+- Keep playlist, playback, and renderer state public and user-safe.
+- Let server/API code decide database lookups, authorization, and mapping.
 
-<!--
-Document your project's database conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What ORM/query library do you use?
-- How are migrations managed?
-- What are the naming conventions for tables/columns?
-- How do you handle transactions?
--->
+- Do not import repository traits, SQL adapters, database pools, or migrations.
+- Do not expose raw database IDs beyond public string IDs.
+- Do not expose principal IDs, internal access rows, or private ownership
+  records.
+- Do not leak source locator, filesystem path, or transcode output path fields.
 
-(To be filled by the team)
+## Contract Rules
 
----
+- `UserPlaybackStateDto` hides principal/user identity and exposes item/source
+  playback state only.
+- `UserPlaylistDto` exposes current-user playlist facts without collection or
+  principal internals.
+- `TranscodeSessionDto` exposes state and failure category, not output paths.
 
-## Query Patterns
+## Tests Required
 
-<!-- How should queries be written? Batch operations? -->
-
-(To be filled by the team)
-
----
-
-## Migrations
-
-<!-- How to create and run migrations -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- Table names, column names, index names -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Database-related mistakes your team has made -->
-
-(To be filled by the team)
+- DTO serialization tests proving sensitive fields are absent.
+- Route inventory tests for public paths.
+- Server/API mapping tests should live outside this crate.

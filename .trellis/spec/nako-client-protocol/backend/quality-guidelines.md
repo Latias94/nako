@@ -1,51 +1,37 @@
 # Quality Guidelines
 
-> Code quality standards for backend development.
-
----
-
-## Overview
-
-<!--
-Document your project's quality standards here.
-
-Questions to answer:
-- What patterns are forbidden?
-- What linting rules do you enforce?
-- What are your testing requirements?
-- What code review standards apply?
--->
-
-(To be filled by the team)
-
----
-
-## Forbidden Patterns
-
-<!-- Patterns that should never be used and why -->
-
-(To be filled by the team)
-
----
+Public client protocol changes must preserve stable wire shape, route inventory,
+and client safety.
 
 ## Required Patterns
 
-<!-- Patterns that must always be used -->
+- Add serde tests for each new DTO or public enum.
+- Add route inventory tests when adding or changing a public path.
+- Add sensitive-field absence tests for playback, streaming, renderer,
+  transcode, user playback, and playlist DTOs.
+- Preserve unknown additive string values with `Other(String)` where clients
+  need forward compatibility.
+- Keep Cargo dependencies limited to protocol needs.
 
-(To be filled by the team)
+## Forbidden Patterns
 
----
+- Do not add server, API, database, transport, or core domain dependencies.
+- Do not expose raw locators, bearer tokens, source paths, output paths,
+  principal IDs, or private access records.
+- Do not skip tests for public route and wire-string changes.
+- Do not make a streaming route look like a JSON SDK method.
 
-## Testing Requirements
+## Tests Required
 
-<!-- What level of testing is expected -->
+- `public_route_inventory_is_protocol_owned_and_complete`.
+- Public DTO serialization tests.
+- Unknown wire string round-trip tests.
+- Sensitive field absence tests.
+- Error code conversion tests.
 
-(To be filled by the team)
+## Gate Selection
 
----
-
-## Code Review Checklist
-
-<!-- What reviewers should check -->
-
-(To be filled by the team)
+- Focused:
+  `cargo nextest run -p nako-client-protocol --no-fail-fast`
+- Consumers:
+  `cargo nextest run -p nako-client-protocol -p nako-client-core -p nako-client --no-fail-fast`

@@ -1,51 +1,31 @@
 # Database Guidelines
 
-> Database patterns and conventions for this project.
+`nako-client-cli` has no persistence. It executes public client commands and
+prints results.
 
----
+## Required Patterns
 
-## Overview
+- Treat IDs and tokens as CLI inputs.
+- Let `nako-client` build and send requests.
+- Let server-side APIs enforce persistence, auth, access, and pagination.
+- Keep command outputs as JSON values from SDK responses or safe request facts.
 
-<!--
-Document your project's database conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What ORM/query library do you use?
-- How are migrations managed?
-- What are the naming conventions for tables/columns?
-- How do you handle transactions?
--->
+- Do not import repository traits, SQL adapters, database pools, or migrations.
+- Do not persist tokens, sessions, playback state, or command history.
+- Do not read local configuration files for secrets unless that behavior is
+  explicitly added and tested.
+- Do not infer server database behavior from CLI output.
 
-(To be filled by the team)
+## Contract Rules
 
----
+- `--token` takes precedence over `--token-env`.
+- Missing `--token-env` value returns `CliError::MissingTokenEnv`.
+- Stream commands construct request facts and do not use transport.
 
-## Query Patterns
+## Tests Required
 
-<!-- How should queries be written? Batch operations? -->
-
-(To be filled by the team)
-
----
-
-## Migrations
-
-<!-- How to create and run migrations -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- Table names, column names, index names -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Database-related mistakes your team has made -->
-
-(To be filled by the team)
+- Token resolution tests when behavior changes.
+- Mock transport tests for SDK-backed commands.
+- Safe output tests for streaming commands.

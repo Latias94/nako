@@ -1,51 +1,25 @@
 # Logging Guidelines
 
-> How logging is done in this project.
+`nako-client-core` should return safe previews and failures instead of logging.
 
----
+## Required Patterns
 
-## Overview
+- Use `CoreSafeRequestPreview` for diagnostics.
+- Redact Authorization headers as `Bearer <redacted>`.
+- Sanitize known secrets in URLs and public error messages.
+- Let transport adapters or applications own logging.
 
-<!--
-Document your project's logging conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What logging library do you use?
-- What are the log levels and when to use each?
-- What should be logged?
-- What should NOT be logged (PII, secrets)?
--->
+- Do not log raw access tokens, bearer strings, full request bodies, or playback
+  tickets.
+- Do not expose raw request headers in failures without redaction.
+- Do not use logs as the only source of connection probe state.
 
-(To be filled by the team)
+## Useful Fields
 
----
-
-## Log Levels
-
-<!-- When to use each level: debug, info, warn, error -->
-
-(To be filled by the team)
-
----
-
-## Structured Logging
-
-<!-- Log format, required fields -->
-
-(To be filled by the team)
-
----
-
-## What to Log
-
-<!-- Important events to log -->
-
-(To be filled by the team)
-
----
-
-## What NOT to Log
-
-<!-- Sensitive data, PII, secrets -->
-
-(To be filled by the team)
+- `client_core.request_id`
+- `client_core.method`
+- `client_core.safe_url`
+- `client_core.failure_kind`
+- `client_core.observed_api_version`

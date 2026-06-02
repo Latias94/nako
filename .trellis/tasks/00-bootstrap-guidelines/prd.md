@@ -27,11 +27,11 @@ the rest conversationally.
 - [x] Fill guidelines for nako-api
 - [x] Fill guidelines for nako-automation
 - [x] Fill guidelines for nako-catalog
-- [ ] Fill guidelines for nako-client
-- [ ] Fill guidelines for nako-client-cli
-- [ ] Fill guidelines for nako-client-core
-- [ ] Fill guidelines for nako-client-protocol
-- [ ] Fill guidelines for nako-client-uniffi
+- [x] Fill guidelines for nako-client
+- [x] Fill guidelines for nako-client-cli
+- [x] Fill guidelines for nako-client-core
+- [x] Fill guidelines for nako-client-protocol
+- [x] Fill guidelines for nako-client-uniffi
 - [x] Fill guidelines for nako-core
 - [x] Fill guidelines for nako-db
 - [x] Fill guidelines for nako-events
@@ -60,6 +60,8 @@ Session progress on 2026-06-02:
   `nako-nfo`, `nako-streaming`, `nako-events`, and `nako-automation`.
 - Extended real specs for `nako-addon-protocol`, `nako-addon-client`,
   `nako-official-addon-catalog`, and `nako-reference-addon`.
+- Extended real specs for `nako-client-protocol`, `nako-client-core`,
+  `nako-client`, `nako-client-cli`, and `nako-client-uniffi`.
 - Left remaining package checkboxes open until their own specs are filled with
   real examples.
 

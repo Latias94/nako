@@ -1,51 +1,34 @@
 # Database Guidelines
 
-> Database patterns and conventions for this project.
+`nako-client` has no persistence. It calls the Public Client API and decodes
+public DTOs.
 
----
+## Required Patterns
 
-## Overview
+- Treat all IDs as opaque public strings.
+- Encode IDs before putting them into paths.
+- Let the server enforce access, pagination limits, playlist versions, playback
+  policy, and persistence.
+- Return public DTOs from `nako-client-protocol`.
+- Keep transport responses in memory only.
 
-<!--
-Document your project's database conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What ORM/query library do you use?
-- How are migrations managed?
-- What are the naming conventions for tables/columns?
-- How do you handle transactions?
--->
+- Do not import repository traits, SQL adapters, database pools, or migrations.
+- Do not cache sessions, playlists, playback state, or media metadata here.
+- Do not infer server persistence behavior from public DTOs.
+- Do not persist bearer tokens in the SDK.
 
-(To be filled by the team)
+## Contract Rules
 
----
+- `with_bearer_token` stores token in the client instance for request headers.
+- `health` and `login` are unauthenticated.
+- Authenticated JSON methods require an Authorization header.
+- Streaming request builders return `ClientRequest` so applications can handle
+  byte/range transport themselves.
 
-## Query Patterns
+## Tests Required
 
-<!-- How should queries be written? Batch operations? -->
-
-(To be filled by the team)
-
----
-
-## Migrations
-
-<!-- How to create and run migrations -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- Table names, column names, index names -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Database-related mistakes your team has made -->
-
-(To be filled by the team)
+- Mock transport tests for each new JSON method.
+- Streaming builder tests for path/query/header behavior.
+- Persistence behavior remains server/API test responsibility.

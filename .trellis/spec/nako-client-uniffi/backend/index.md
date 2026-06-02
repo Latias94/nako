@@ -1,38 +1,61 @@
-# Backend Development Guidelines
+# nako-client-uniffi Backend Guidelines
 
-> Best practices for backend development in this project.
+`nako-client-uniffi` exposes the transport-neutral `nako-client-core` builders
+and connection probe state machine through UniFFI records, enums, and exported
+functions. It does not execute network calls.
 
----
+## Current Evidence
 
-## Overview
+- `crates/nako-client-uniffi/src/lib.rs`
+- `crates/nako-client-uniffi/Cargo.toml`
+- `crates/nako-client-core/src/lib.rs`
 
-This directory contains guidelines for backend development. Fill in each file with your project's specific conventions.
+## Boundaries
 
----
+- Define UniFFI-safe mirrors of core records and enums.
+- Export request builder functions for connection probe, browse, artwork,
+  playback, HLS, and user playback.
+- Convert between UniFFI mirror types and `nako-client-core` types.
+- Call `uniffi::setup_scaffolding!()`.
+- Keep reqwest transport, async SDK calls, and CLI behavior outside this crate.
 
-## Guidelines Index
+## Executable Contract Summary
 
-| Guide | Description | Status |
-|-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill |
-| [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
+1. Scope / Trigger: new core builder exported to mobile/foreign clients, new
+   core input/output type, or conversion behavior updates this crate.
+2. Signatures: UniFFI `Record`/`Enum` mirrors and exported functions such as
+   `start_connection_probe`, `build_playback_decision_request`, and browse/user
+   playback builders.
+3. Contracts: exported functions delegate to `nako-client-core` and preserve
+   safe previews, request IDs, URLs, headers, and optional preflight requests.
+4. Validation & Error Matrix: runtime failures are returned as
+   `CoreRuntimeFailure` records, not thrown exceptions.
+5. Good/Base/Bad Cases: good bindings match core output exactly; bad bindings
+   duplicate URL logic or omit redacted safe previews.
+6. Tests Required: exported surface tests for connection probe, playback target,
+   browse, artwork, HLS, and user playback builders.
+7. Wrong vs Correct: do not implement route logic in UniFFI; convert to core
+   inputs and delegate.
 
----
+## Required Patterns
 
-## How to Fill These Guidelines
+- Mirror core types with `uniffi::Record` and `uniffi::Enum`.
+- Add `From` conversions in both directions when callers pass input types.
+- Keep exported functions synchronous request builders.
+- Preserve token redaction in `safe_preview`.
+- Keep crate type as `cdylib` and `rlib`.
 
-For each guideline file:
+## Forbidden Patterns
 
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
+- Do not depend on `nako-client`, reqwest, tokio, server, API, database, or
+  storage crates.
+- Do not perform network IO.
+- Do not expose raw access tokens in safe previews.
+- Do not hand-roll path/query encoding here.
 
-The goal is to help AI assistants and new team members understand how YOUR project works.
+## Validation
 
----
-
-**Language**: All documentation should be written in **English**.
+- Focused:
+  `cargo nextest run -p nako-client-uniffi --no-fail-fast`
+- Binding compile:
+  `cargo check -p nako-client-core -p nako-client-uniffi --tests`

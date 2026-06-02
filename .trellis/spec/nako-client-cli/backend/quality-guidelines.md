@@ -1,51 +1,33 @@
 # Quality Guidelines
 
-> Code quality standards for backend development.
-
----
-
-## Overview
-
-<!--
-Document your project's quality standards here.
-
-Questions to answer:
-- What patterns are forbidden?
-- What linting rules do you enforce?
-- What are your testing requirements?
-- What code review standards apply?
--->
-
-(To be filled by the team)
-
----
-
-## Forbidden Patterns
-
-<!-- Patterns that should never be used and why -->
-
-(To be filled by the team)
-
----
+CLI changes must remain testable without a server and must keep output safe.
 
 ## Required Patterns
 
-<!-- Patterns that must always be used -->
+- Use `Cli::parse_from` in tests for command shape.
+- Use mock `ClientTransport` for SDK-backed commands.
+- Assert exact request method, URL, headers, and output JSON for commands.
+- Assert stream commands do not call transport.
+- Assert token strings are absent from output.
 
-(To be filled by the team)
+## Forbidden Patterns
 
----
+- Do not add live server tests.
+- Do not add non-JSON success output.
+- Do not leak token values in safe request output.
+- Do not add dependencies on server-side crates.
 
-## Testing Requirements
+## Tests Required
 
-<!-- What level of testing is expected -->
+- Health command auth behavior.
+- Search command query and pagination behavior.
+- Stream direct/head/remux/HLS command safe-output behavior.
+- Token env resolution tests when touched.
+- Cargo manifest dependency boundary test.
 
-(To be filled by the team)
+## Gate Selection
 
----
-
-## Code Review Checklist
-
-<!-- What reviewers should check -->
-
-(To be filled by the team)
+- Focused:
+  `cargo nextest run -p nako-client-cli --no-fail-fast`
+- Client stack:
+  `cargo check -p nako-client-cli -p nako-client --tests`

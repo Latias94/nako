@@ -1,51 +1,24 @@
 # Logging Guidelines
 
-> How logging is done in this project.
+The CLI does not use structured logging today. It prints successful JSON to
+stdout and errors to stderr.
 
----
+## Required Patterns
 
-## Overview
+- Keep stdout reserved for command output.
+- Keep stderr reserved for `error: ...` messages.
+- Redact Authorization headers in streaming command output.
+- Prefer JSON fields over ad hoc logs for successful command facts.
 
-<!--
-Document your project's logging conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What logging library do you use?
-- What are the log levels and when to use each?
-- What should be logged?
-- What should NOT be logged (PII, secrets)?
--->
+- Do not print raw tokens, login passwords, bearer headers, or playback tickets.
+- Do not mix debug logs with JSON output on stdout.
+- Do not print full reqwest/debug errors if they include sensitive URLs.
 
-(To be filled by the team)
+## Useful Fields
 
----
-
-## Log Levels
-
-<!-- When to use each level: debug, info, warn, error -->
-
-(To be filled by the team)
-
----
-
-## Structured Logging
-
-<!-- Log format, required fields -->
-
-(To be filled by the team)
-
----
-
-## What to Log
-
-<!-- Important events to log -->
-
-(To be filled by the team)
-
----
-
-## What NOT to Log
-
-<!-- Sensitive data, PII, secrets -->
-
-(To be filled by the team)
+- `cli.command`
+- `cli.method`
+- `cli.url`
+- `cli.error`
