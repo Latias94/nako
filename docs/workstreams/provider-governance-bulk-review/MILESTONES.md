@@ -1,6 +1,6 @@
 # Provider Governance Bulk Review - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 - Lane Opening
@@ -58,7 +58,7 @@ Exit criteria:
 
 ## M4 - Closeout And Follow-On Split
 
-Status: Ready at `PGBR-050`.
+Status: Complete after `PGBR-050`.
 
 Exit criteria:
 

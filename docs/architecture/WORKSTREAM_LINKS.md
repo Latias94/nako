@@ -168,7 +168,7 @@ Evidence workstreams:
 - `docs/workstreams/admin-web-provider-depth-governance/` (closed)
 - `docs/workstreams/admin-candidate-review-list-navigation/` (closed)
 - `docs/workstreams/provider-review-global-queue-search/` (closed)
-- `docs/workstreams/provider-governance-bulk-review/` (active)
+- `docs/workstreams/provider-governance-bulk-review/` (closed)
 - `docs/workstreams/metadata-acquisition-pipeline/`
 - `docs/workstreams/metadata-profile-configuration-authority/`
 - `docs/workstreams/metadata-application-policy-seam/`
@@ -207,6 +207,9 @@ Proposed lanes:
 - `proposed:provider-review-related-hierarchy-application`
 - `proposed:douban-tv-episode-endpoint-depth`
 - `proposed:provider-identity-mapping-breadth`
+- `proposed:provider-governance-durable-batch-execution`
+- `proposed:provider-review-public-client-governance`
+- `proposed:provider-governance-audit-and-undo`
 
 ## State, Database, Identity, And Access
 
@@ -251,6 +254,7 @@ Evidence workstreams:
 - `docs/workstreams/web-admin-generated-artifact-review-mutations/`
 - `docs/workstreams/generated-artifact-metadata-authority-apply/`
 - `docs/workstreams/web-admin-generated-artifact-recovery-ui/` (closed)
+- `docs/workstreams/provider-governance-bulk-review/` (closed)
 - `docs/workstreams/web-mvp-live-smoke/` (closed)
 
 Proposed lanes:

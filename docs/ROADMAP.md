@@ -11,9 +11,9 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: Provider Governance Bulk Review is active in the
-`library-metadata-control-plane` lane after Provider Review Global Queue Search
-closed.
+Status: Provider Governance Bulk Review is closed after `PGBR-050`. No active
+architecture focus is selected; choose the next focused workstream from the
+proposed follow-ons before implementation.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
 Operations Repair are both closed as of 2026-06-02. Web Admin Generated
@@ -26,10 +26,10 @@ Metadata Candidate Durable Review is closed after `MCDR-050`. Accepted Review
 Provider Mapping Application is closed after `ARPMA-050`. Admin/Web Provider
 Depth Governance is closed after `AWPDG-050`. Admin Candidate Review List
 Navigation is closed after `ACRN-040`. Provider Review Global Queue Search is
-closed after `PRGQ-040`. Provider Governance Bulk Review is active at
-`PGBR-040`.
+closed after `PRGQ-040`. Provider Governance Bulk Review is closed after
+`PGBR-050`.
 
-The active focus targets:
+The latest completed focus shipped:
 
 - Web Admin selection, read-only batch plan inspection, explicit confirmation,
   and partial-result rendering for selected durable Candidate Reviews;
@@ -53,10 +53,13 @@ Authoritative evidence:
 - `docs/architecture/LIBRARY_PIPELINE.md`
 - `docs/architecture/LANES.md`
 
-Next task:
+Candidate follow-ons:
 
-- `PGBR-040`: add Web Admin selection, batch plan inspection, confirmation, and
-  partial-result rendering.
+- `proposed:provider-governance-durable-batch-execution`;
+- `proposed:provider-review-related-hierarchy-application`;
+- `proposed:douban-tv-episode-endpoint-depth`;
+- `proposed:provider-review-public-client-governance`;
+- `proposed:provider-governance-audit-and-undo`.
 
 Latest completed architecture slice:
 
@@ -67,7 +70,31 @@ batch application plan and generated Admin contract sync.
 confirmation, redacted partial results, and root-only Provider Mapping mutation
 evidence.
 
+`PGBR-040` shipped on 2026-06-02 with Web Admin global queue selection, batch
+plan inspection, explicit confirmation, route-state coverage, bundle-budget
+evidence, and browser smoke.
+
+`PGBR-050` closed Provider Governance Bulk Review on 2026-06-02 and split
+durable execution, related hierarchy application, provider endpoint depth,
+Public Client API exposure, and audit/undo governance into proposed follow-ons.
+
 Latest completed architecture focus:
+
+Provider Governance Bulk Review closed on 2026-06-02 after `PGBR-050`.
+
+It shipped:
+
+- read-only batch planning;
+- bounded synchronous backend batch apply;
+- Web Admin batch selection, plan inspection, confirmation, and results;
+- explicit split of durable execution, related hierarchy application, provider
+  endpoint depth, Public Client API exposure, and audit/undo governance.
+
+Authoritative lane:
+
+- `docs/workstreams/provider-governance-bulk-review/`
+
+Previous completed architecture focus:
 
 Provider Review Global Queue Search closed on 2026-06-02 after `PRGQ-040`.
 
@@ -238,9 +265,12 @@ Follow-ons:
 - `docs/workstreams/admin-web-provider-depth-governance/` (closed);
 - `docs/workstreams/admin-candidate-review-list-navigation/` (closed);
 - `docs/workstreams/provider-review-global-queue-search/` (closed);
-- `docs/workstreams/provider-governance-bulk-review/` (active);
+- `docs/workstreams/provider-governance-bulk-review/` (closed);
+- `proposed:provider-governance-durable-batch-execution`;
 - `proposed:provider-review-related-hierarchy-application`;
-- `proposed:douban-tv-episode-endpoint-depth`.
+- `proposed:douban-tv-episode-endpoint-depth`;
+- `proposed:provider-review-public-client-governance`;
+- `proposed:provider-governance-audit-and-undo`.
 
 Previous architecture focus:
 

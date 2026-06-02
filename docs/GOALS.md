@@ -26,17 +26,22 @@ proposed milestone.
 
 ## Current Goal
 
+No active implementation goal is selected after Provider Governance Bulk
+Review closeout. Choose the next focused workstream from the proposed follow-on
+lanes before starting new runtime behavior.
+
+## Recent Completed Goals
+
 ### Provider Governance Bulk Review
 
-Status: active as of 2026-06-02.
+Status: completed on 2026-06-02 after `PGBR-050`.
 
 Objective:
 
 - Add guarded batch governance for durable Metadata Candidate Reviews after
   global queue discovery shipped.
-- Read-only batch planning and bounded backend batch confirmation have shipped;
-  next add Web Admin selection, plan inspection, confirmation, and partial
-  result rendering.
+- Read-only batch planning, bounded backend batch confirmation, and Web Admin
+  selection/plan/confirm/result governance have shipped.
 - Preserve single-review stale guard, idempotency-key fingerprinting, replay
   visibility, root-only Provider Mapping application, and redaction semantics.
 
@@ -48,7 +53,9 @@ Deliverables:
 - bounded Admin API batch Candidate Review confirmation (shipped in
   `PGBR-030`);
 - generated Admin TypeScript contract sync when the Admin API shape changes;
-- Web Admin selection and confirmation against the shipped backend semantics.
+- Web Admin selection and confirmation against the shipped backend semantics
+  (shipped in `PGBR-040`);
+- closeout and follow-on split (shipped in `PGBR-050`).
 
 Non-goals:
 
@@ -66,7 +73,7 @@ Exit criteria:
 - `PGBR-030` proves bounded confirmed backend batch apply;
 - `PGBR-040` proves Web Admin selection/confirmation without weakening backend
   boundaries;
-- closeout tasks preserve the same boundaries or split follow-ons explicitly.
+- `PGBR-050` closes the lane and splits follow-ons explicitly.
 
 Evidence:
 
@@ -76,17 +83,21 @@ Evidence:
 - `docs/architecture/LIBRARY_PIPELINE.md`
 - `docs/architecture/LANES.md`
 
-Current task:
+Completed tasks:
 
-- `PGBR-040`: add Web Admin selection, batch plan inspection, confirmation, and
-  partial-result rendering.
+- `PGBR-020`: read-only Admin API batch plan;
+- `PGBR-030`: bounded backend batch apply;
+- `PGBR-040`: Web Admin selection, batch plan inspection, confirmation, and
+  partial-result rendering;
+- `PGBR-050`: closeout and follow-on split.
 
 Candidate follow-ons:
 
+- `proposed:provider-governance-durable-batch-execution`;
 - `proposed:provider-review-related-hierarchy-application`;
-- `proposed:douban-tv-episode-endpoint-depth`.
-
-## Recent Completed Goals
+- `proposed:douban-tv-episode-endpoint-depth`;
+- `proposed:provider-review-public-client-governance`;
+- `proposed:provider-governance-audit-and-undo`.
 
 ### Provider Review Global Queue Search
 

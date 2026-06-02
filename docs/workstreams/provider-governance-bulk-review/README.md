@@ -1,6 +1,6 @@
 # Provider Governance Bulk Review
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 This workstream turns the shipped Metadata Candidate Review queue and direct
@@ -26,9 +26,9 @@ Current execution:
   existing single-review application authority.
 - `PGBR-040` shipped Web Admin selection, plan inspection, confirmation, and
   partial-result rendering.
-- `PGBR-050` is ready: close the lane or split durable job execution, related
-  hierarchy application, provider endpoint depth, and broader provider
-  governance follow-ons.
+- `PGBR-050` closed the lane and split durable job execution, related
+  hierarchy application, provider endpoint depth, Public Client API exposure,
+  and broader provider governance follow-ons.
 
 Boundary:
 

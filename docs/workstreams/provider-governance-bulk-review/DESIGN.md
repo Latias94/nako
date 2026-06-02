@@ -1,6 +1,6 @@
 # Provider Governance Bulk Review - Design
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Why This Lane Exists
@@ -11,12 +11,10 @@ reviews still apply one at a time. A Jellyfin/Plex-class self-hosted server
 needs batch governance for library-scale metadata maintenance without turning
 review acceptance into a hidden mutation path.
 
-The first implementation slice is now a read-only batch application plan. It
-proves which selected reviews are eligible, stale, already applied, blocked, or
-unsafe before confirmed batch mutation is introduced. Bounded backend
-confirmation now also exists through the existing single-review application
-authority. The next correct slice is Web Admin selection, plan inspection, and
-confirmation.
+The lane shipped a read-only batch application plan, bounded backend
+confirmation through the existing single-review application authority, and Web
+Admin selection/plan/confirm/result governance. Remaining expansion is split
+into follow-ons instead of extending this lane.
 
 ## Relevant Authority
 

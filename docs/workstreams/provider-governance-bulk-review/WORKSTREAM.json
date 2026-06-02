@@ -2,12 +2,12 @@
   "schema_version": 1,
   "slug": "provider-governance-bulk-review",
   "title": "Provider Governance Bulk Review",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-06-02",
   "scope_kind": "admin_metadata_candidate_review_bulk_governance",
   "problem": "Global Metadata Candidate Review discovery now exists, but operators still need batch governance that preserves single-review stale guard, idempotency, root-only application, and redaction semantics.",
   "task_prefix": "PGBR",
-  "current_task": "PGBR-050",
+  "current_task": null,
   "authoritative_docs": [
     {
       "role": "overview",
@@ -72,6 +72,10 @@
     {
       "task": "PGBR-040",
       "summary": "Shipped Web Admin global queue selection, read-only batch plan inspection, explicit batch confirmation, redaction-safe partial result rendering, route-state contract coverage, and browser smoke evidence."
+    },
+    {
+      "task": "PGBR-050",
+      "summary": "Closed the lane and split durable execution, related hierarchy application, provider endpoint depth, Public Client API exposure, and broader audit/undo governance into proposed follow-ons."
     }
   ],
   "adr_refs": [
@@ -102,8 +106,8 @@
   ],
   "lane_slug": "web-product",
   "continue_policy": {
-    "default_action": "run_current_task",
-    "current_task": "PGBR-050",
-    "notes": "Next close the Provider Governance Bulk Review lane or split follow-ons for durable job execution, related hierarchy application, provider endpoint depth, Public Client API exposure, and broader provider governance. Do not add new runtime behavior under PGBR-050 unless it is opened as a follow-on task."
+    "default_action": "closed",
+    "current_task": null,
+    "notes": "Provider Governance Bulk Review is closed. Open focused follow-on workstreams before adding durable batch execution, related hierarchy application, provider endpoint depth, Public Client API exposure, or broader audit/undo governance."
   }
 }

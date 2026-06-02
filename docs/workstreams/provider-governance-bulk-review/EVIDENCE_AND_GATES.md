@@ -1,6 +1,6 @@
 # Provider Governance Bulk Review - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Opening Evidence
@@ -174,17 +174,34 @@ Behavior evidence:
 - no Public Client API surface, related hierarchy mutation, provider endpoint
   depth, or backend execution model change was introduced.
 
-## PGBR-050 Gates
+## PGBR-050 Evidence
 
-Implementation gates:
+Closeout evidence:
 
-- fresh gate evidence in this file
-- JSON/JSONL validation
-- `git diff --check`
+- Target state is satisfied by `PGBR-020`, `PGBR-030`, and `PGBR-040`.
+- `DESIGN.md`, `TODO.md`, `TASKS.jsonl`, `CAMPAIGNS.jsonl`,
+  `MILESTONES.md`, `WORKSTREAM.json`, `HANDOFF.md`, and `CLOSEOUT.md`
+  agree that the lane is closed.
+- `docs/architecture/LIBRARY_PIPELINE.md`,
+  `docs/architecture/WORKSTREAM_LINKS.md`, and `docs/architecture/LANES.md`
+  route `provider-governance-bulk-review` as closed evidence, not an active
+  queue item.
+- `docs/GOALS.md` and `docs/ROADMAP.md` move Provider Governance Bulk Review
+  into recent completed goals/focus and list remaining work as proposed
+  follow-ons.
 
-Behavior evidence required:
+Follow-ons split:
 
-- workstream ledgers and architecture maps agree;
-- related hierarchy application, provider endpoint depth, Public Client API,
-  durable job execution, and broader provider governance are closed, split, or
-  deferred explicitly.
+- `proposed:provider-governance-durable-batch-execution`;
+- `proposed:provider-review-related-hierarchy-application`;
+- `proposed:douban-tv-episode-endpoint-depth`;
+- `proposed:provider-review-public-client-governance`;
+- `proposed:provider-governance-audit-and-undo`.
+
+Green closeout gates:
+
+- `python -m json.tool docs/workstreams/provider-governance-bulk-review/WORKSTREAM.json`
+  passed.
+- JSONL validation for `TASKS.jsonl`, `CAMPAIGNS.jsonl`, and `CONTEXT.jsonl`
+  passed.
+- `git diff --check` passed with Git CRLF normalization warnings only.

@@ -20,7 +20,7 @@ ledger instead.
 
 | Lane | Active workstream | Next task | Recommended terminal role |
 | --- | --- | --- | --- |
-| web-product | provider-governance-bulk-review | PGBR-040 | Web Admin batch-governance implementer |
+| _none_ | _none_ | _none_ | Open or select the next approved workstream before implementation. |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
@@ -72,12 +72,11 @@ the read-only global Candidate Review queue Admin API route and Web Admin
 global queue navigation while keeping batch governance, status/apply mutation,
 provider endpoint depth, Public Client API changes, and related hierarchy
 application split.
-`provider-governance-bulk-review` is active at `PGBR-040` after `PGBR-020`
-shipped the read-only Admin API batch Candidate Review application plan and
-`PGBR-030` shipped bounded backend batch apply. The next slice adds Web Admin
-selection, plan inspection, confirmation, and partial-result rendering before
-closeout or any related hierarchy application, Public Client API change,
-provider endpoint depth, or backend execution model change.
+`provider-governance-bulk-review` is closed after `PGBR-050`. It shipped the
+read-only Admin API batch Candidate Review application plan, bounded backend
+batch apply, Web Admin selection/plan/confirm/result governance, and split
+durable execution, related hierarchy application, Public Client API exposure,
+provider endpoint depth, and audit/undo governance into proposed follow-ons.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
@@ -180,9 +179,6 @@ Closed evidence:
 - `docs/workstreams/admin-web-provider-depth-governance/`
 - `docs/workstreams/admin-candidate-review-list-navigation/`
 - `docs/workstreams/provider-review-global-queue-search/`
-
-Active evidence:
-
 - `docs/workstreams/provider-governance-bulk-review/`
 
 Owned scopes:
@@ -229,6 +225,7 @@ bundle-budget gates.
 Closed evidence:
 
 - `docs/workstreams/web-admin-generated-artifact-recovery-ui/`
+- `docs/workstreams/provider-governance-bulk-review/`
 
 Owned scopes:
 

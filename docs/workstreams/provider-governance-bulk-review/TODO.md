@@ -1,6 +1,6 @@
 # Provider Governance Bulk Review - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 - Lane Opening
@@ -45,10 +45,10 @@ Last updated: 2026-06-02
 
 ## M4 - Closeout And Follow-On Split
 
-- [ ] PGBR-050 [owner=planner] [deps=PGBR-040] [scope=docs/workstreams/provider-governance-bulk-review,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
+- [x] PGBR-050 [owner=planner] [deps=PGBR-040] [scope=docs/workstreams/provider-governance-bulk-review,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
   Goal: Close the lane or split durable job execution, related hierarchy application, provider endpoint depth, and broader provider governance follow-ons.
   Validation: fresh gate evidence in `EVIDENCE_AND_GATES.md`; JSON/JSONL validation; `git diff --check`.
   Review: batch governance must not weaken single-review semantics or leak raw provider/local/secret facts.
   Evidence: `EVIDENCE_AND_GATES.md`; `WORKSTREAM.json`; optional `CLOSEOUT.md`.
   Context: `CONTEXT.jsonl`.
-  Handoff: READY.
+  Handoff: DONE.

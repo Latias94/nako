@@ -1,6 +1,6 @@
 # Provider Governance Bulk Review - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Current State
@@ -14,7 +14,7 @@ partial results. Web Admin now supports explicit global queue selection, batch
 plan inspection, confirmed live batch apply, and redaction-safe partial result
 rendering.
 
-## Active Task
+## Final Task
 
 - Task ID: `PGBR-050`
 - Owner: planner
@@ -22,7 +22,7 @@ rendering.
   `docs/architecture`, `docs/GOALS.md`, and `docs/ROADMAP.md`
 - Validation: fresh gate evidence in `EVIDENCE_AND_GATES.md`; JSON/JSONL
   validation; `git diff --check`
-- Status: READY
+- Status: DONE
 - Evidence: `docs/workstreams/provider-governance-bulk-review/EVIDENCE_AND_GATES.md`
 
 ## Decisions Since Opening
@@ -51,11 +51,11 @@ rendering.
 
 ## Blockers
 
-- None for `PGBR-050`.
+- None.
 
 ## Next Recommended Action
 
-Run `PGBR-050`: close the lane or split follow-ons for durable job execution,
-related hierarchy application, provider endpoint depth, Public Client API
-exposure, and broader provider governance. Stop before adding new runtime
-behavior unless it is opened as a follow-on workstream/task.
+Open a focused follow-on before adding durable batch execution, related
+hierarchy application, provider endpoint depth, Public Client API exposure, or
+broader audit/undo governance. This workstream should not be reopened for new
+runtime behavior.
