@@ -43,6 +43,72 @@ crates/nako-server/src/
 - Resource admission belongs in app runtime helpers such as
   `app/playback/resource.rs`, not in pure planner crates.
 
+## Scenario: Playback Remote Stream Admission
+
+### 1. Scope / Trigger
+
+- Trigger: changing remote Direct Play, remote playback storage streams, or
+  playback resource pressure behavior in `nako-server`.
+
+### 2. Signatures
+
+- `LibraryStorageBackend::try_acquire_stream_permit() ->
+  Result<OwnedSemaphorePermit>` is the non-blocking stream budget entry point.
+- `PlaybackAppService::plan_direct_play(...)` attaches that permit to
+  `DirectPlayStreamBody` so the permit lives until the HTTP body is dropped.
+
+### 3. Contracts
+
+- Local Direct Play must not acquire a remote stream permit.
+- Remote Direct Play must remain Direct Play first; resource pressure must not
+  silently fall back to Remux or HLS.
+- The HTTP handler only streams the app service output. It must not implement
+  ad hoc semaphore waiting or fallback selection.
+
+### 4. Validation & Error Matrix
+
+| Condition | Behavior |
+|-----------|----------|
+| Remote stream permit available | `200`/`206` stream response; permit held by body |
+| Remote stream budget exhausted | `NakoError::Conflict`, HTTP `409`, code `conflict` |
+| Remote stream semaphore closed | storage budget closed error |
+| Local source | no remote stream admission |
+
+### 5. Good / Base / Bad Cases
+
+- Good: use `try_acquire_stream_permit()` before opening the remote stream and
+  move the permit into `DirectPlayStreamBody`.
+- Base: a local file response uses `stream_local_file_response` without remote
+  admission.
+- Bad: `await` a stream semaphore inside Direct Play or an HTTP handler until
+  capacity frees up.
+
+### 6. Tests Required
+
+- App test: remote Direct Play holds the stream permit until the body/plan is
+  dropped.
+- HTTP test: a second remote Direct Play request under a one-permit budget
+  returns `409` with redaction-safe `conflict` evidence.
+- Happy-path tests: Direct Play, Remux, and HLS route tests continue to pass.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+let permit = backend.acquire_stream_permit().await?;
+```
+
+This hides playback pressure behind an unbounded wait.
+
+#### Correct
+
+```rust
+let permit = backend.try_acquire_stream_permit()?;
+```
+
+This keeps admission bounded and returns a stable client-safe pressure result.
+
 ## Examples
 
 - `http.rs`: central router assembly, auth, network boundary, and API version

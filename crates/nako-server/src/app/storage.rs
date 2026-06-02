@@ -7,7 +7,7 @@ use std::{
     },
 };
 
-use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore};
+use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore, TryAcquireError};
 
 use crate::config::{
     LocalLibraryConfig, NakoServerConfig, PlaybackConfig, WebDavLibraryConfig,
@@ -389,16 +389,18 @@ impl LibraryStorageBackend {
         self.health.clone()
     }
 
-    pub(super) async fn acquire_stream_permit(&self) -> Result<OwnedSemaphorePermit> {
+    pub(super) fn try_acquire_stream_permit(&self) -> Result<OwnedSemaphorePermit> {
         self.stream_permits
             .clone()
-            .acquire_owned()
-            .await
-            .map_err(|err| {
-                NakoError::storage_resource_budget_closed(
+            .try_acquire_owned()
+            .map_err(|err| match err {
+                TryAcquireError::NoPermits => NakoError::Conflict {
+                    message: "playback resource remote_stream is busy".to_owned(),
+                },
+                TryAcquireError::Closed => NakoError::storage_resource_budget_closed(
                     format!("library:{}", self.library_id),
-                    format!("remote stream resource budget was closed: {err}"),
-                )
+                    "remote stream resource budget was closed",
+                ),
             })
     }
 

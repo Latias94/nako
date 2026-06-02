@@ -3,7 +3,7 @@
   "name": "03b-playback-runtime-resource-admission",
   "title": "Playback runtime resource admission",
   "description": "Playback runtime resource admission and pressure semantics for bounded playback/transcode work.",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": "implementation",
   "scope": "playback-transcode",
   "package": "nako",
