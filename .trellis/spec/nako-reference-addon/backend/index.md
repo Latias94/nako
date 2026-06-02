@@ -1,38 +1,59 @@
-# Backend Development Guidelines
+# nako-reference-addon Backend Guidelines
 
-> Best practices for backend development in this project.
+`nako-reference-addon` is a local reference Addon Sidecar fixture. It provides a
+minimal Axum router and metadata addon manifest for protocol, client, and server
+tests. It is not an official addon catalog and not production sidecar runtime.
 
----
+## Current Evidence
 
-## Overview
+- `crates/nako-reference-addon/src/lib.rs`
+- `crates/nako-reference-addon/Cargo.toml`
+- `crates/nako-addon-protocol/src/lib.rs`
 
-This directory contains guidelines for backend development. Fill in each file with your project's specific conventions.
+## Boundaries
 
----
+- Provide `reference_manifest` for a minimal metadata Addon Sidecar.
+- Provide `build_router` with `/health` and `/metadata` POST routes.
+- Provide deterministic demo metadata and NFO/library-file-write payloads.
+- Keep fixture behavior simple and protocol-valid.
+- Keep production official addon facts in `nako-official-addon-catalog`.
 
-## Guidelines Index
+## Executable Contract Summary
 
-| Guide | Description | Status |
-|-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill |
-| [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
+1. Scope / Trigger: changes to fixture manifest, routes, demo payloads, or
+   protocol response shape update this crate's tests.
+2. Signatures: `reference_manifest`, `build_router`, `demo_metadata_patch`, and
+   `demo_nfo_export_payload`.
+3. Contracts: fixture manifest ID is `nako.reference.metadata`; routes are
+   `/health` and `/metadata`; auth is `AddonAuth::None`.
+4. Validation & Error Matrix: manifest must pass `validate_manifest`; protected
+   write payloads must serialize to protocol shape.
+5. Good/Base/Bad Cases: good fixture echoes request ID/addon/resource facts; base
+   metadata request falls back to `Unknown Title`; bad cases include invalid
+   protocol shape or production-only behavior.
+6. Tests Required: manifest validation, entry point/hosted page/schema checks,
+   and protected write payload shape checks.
+7. Wrong vs Correct: do not grow this into official addon business logic; keep it
+   a deterministic protocol fixture.
 
----
+## Required Patterns
 
-## How to Fill These Guidelines
+- Keep fixture routes POST-only through Axum `Router`.
+- Echo protocol envelope facts in metadata responses.
+- Return one `metadata_suggestion` artifact from `/metadata`.
+- Keep health response manifest facts aligned with `reference_manifest`.
+- Keep demo protected write payloads small and deterministic.
 
-For each guideline file:
+## Forbidden Patterns
 
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
+- Do not add real provider calls.
+- Do not require auth tokens in the reference fixture.
+- Do not use this crate as the official addon catalog.
+- Do not persist metadata, side effects, or library file writes here.
 
-The goal is to help AI assistants and new team members understand how YOUR project works.
+## Validation
 
----
-
-**Language**: All documentation should be written in **English**.
+- Focused:
+  `cargo nextest run -p nako-reference-addon --no-fail-fast`
+- Protocol fixture contract:
+  `cargo check -p nako-reference-addon -p nako-addon-protocol --tests`

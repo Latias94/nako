@@ -1,51 +1,30 @@
 # Logging Guidelines
 
-> How logging is done in this project.
+`nako-addon-protocol` should usually return validation errors instead of
+logging. If diagnostics are added, they must be redaction-safe for addon author
+tooling.
 
----
+## Required Patterns
 
-## Overview
+- Prefer structured validation facts: manifest ID, resource kind, task ID,
+  event subscription ID, protocol version, and route kind.
+- Keep raw payloads and external URLs out of logs.
+- Use custom `Debug` implementations for sensitive payloads.
+- Emit install-guide facts without plaintext secret values.
 
-<!--
-Document your project's logging conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What logging library do you use?
-- What are the log levels and when to use each?
-- What should be logged?
-- What should NOT be logged (PII, secrets)?
--->
+- Do not log Addon Tokens, shared secrets, passwords, magnet links, renderer
+  tickets, local filesystem paths, or full side-effect payloads.
+- Do not log Addon Hosted Page URLs as trusted admin URLs.
+- Do not log full manifests if they can include secret references or private
+  deployment details.
 
-(To be filled by the team)
+## Useful Fields
 
----
-
-## Log Levels
-
-<!-- When to use each level: debug, info, warn, error -->
-
-(To be filled by the team)
-
----
-
-## Structured Logging
-
-<!-- Log format, required fields -->
-
-(To be filled by the team)
-
----
-
-## What to Log
-
-<!-- Important events to log -->
-
-(To be filled by the team)
-
----
-
-## What NOT to Log
-
-<!-- Sensitive data, PII, secrets -->
-
-(To be filled by the team)
+- `addon.manifest_id`
+- `addon.protocol_version`
+- `addon.resource`
+- `addon.task_id`
+- `addon.event_subscription_id`
+- `addon.route_kind`

@@ -1,51 +1,32 @@
 # Logging Guidelines
 
-> How logging is done in this project.
+`nako-addon-client` should expose safe error codes and outcomes to callers
+instead of logging raw HTTP details internally.
 
----
+## Required Patterns
 
-## Overview
+- Prefer safe fields: addon ID, resource, task ID, subscription ID, request ID,
+  status, attempt count, and `safe_code`.
+- Let server/control-plane code attach job IDs, trace IDs, and persistence
+  context.
+- Redact URLs, tokens, shared secrets, query parameters, request bodies, and raw
+  addon responses by default.
+- Use outcome structs for caller-visible diagnostics.
 
-<!--
-Document your project's logging conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What logging library do you use?
-- What are the log levels and when to use each?
-- What should be logged?
-- What should NOT be logged (PII, secrets)?
--->
+- Do not log `authorization`, `x-nako-addon-secret`, Addon Token values, or full
+  request bodies.
+- Do not log reqwest error URLs.
+- Do not log full external acquisition materialized links or subtitle bodies.
+- Do not use logs as a substitute for returned attempt counts.
 
-(To be filled by the team)
+## Useful Fields
 
----
-
-## Log Levels
-
-<!-- When to use each level: debug, info, warn, error -->
-
-(To be filled by the team)
-
----
-
-## Structured Logging
-
-<!-- Log format, required fields -->
-
-(To be filled by the team)
-
----
-
-## What to Log
-
-<!-- Important events to log -->
-
-(To be filled by the team)
-
----
-
-## What NOT to Log
-
-<!-- Sensitive data, PII, secrets -->
-
-(To be filled by the team)
+- `addon.id`
+- `addon.resource`
+- `addon.task_id`
+- `addon.subscription_id`
+- `addon.request_id`
+- `addon.attempts`
+- `addon.error_code`

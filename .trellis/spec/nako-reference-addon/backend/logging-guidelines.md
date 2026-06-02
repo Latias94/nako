@@ -1,51 +1,26 @@
 # Logging Guidelines
 
-> How logging is done in this project.
+The reference addon should not need routine logging. Tests should inspect
+returned protocol payloads directly.
 
----
+## Required Patterns
 
-## Overview
+- Prefer deterministic response payload assertions over logs.
+- If route diagnostics are added, log only fixture-safe fields such as request
+  ID, resource kind, route name, and addon ID.
+- Keep request payloads out of logs unless a test explicitly verifies safe
+  fixture content.
 
-<!--
-Document your project's logging conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What logging library do you use?
-- What are the log levels and when to use each?
-- What should be logged?
-- What should NOT be logged (PII, secrets)?
--->
+- Do not log Addon Tokens or auth headers; this fixture should not require them.
+- Do not log full request bodies from tests by default.
+- Do not log local filesystem paths or generated side-effect payload internals.
+- Do not rely on logs to prove route behavior.
 
-(To be filled by the team)
+## Useful Fields
 
----
-
-## Log Levels
-
-<!-- When to use each level: debug, info, warn, error -->
-
-(To be filled by the team)
-
----
-
-## Structured Logging
-
-<!-- Log format, required fields -->
-
-(To be filled by the team)
-
----
-
-## What to Log
-
-<!-- Important events to log -->
-
-(To be filled by the team)
-
----
-
-## What NOT to Log
-
-<!-- Sensitive data, PII, secrets -->
-
-(To be filled by the team)
+- `reference_addon.id`
+- `reference_addon.route`
+- `reference_addon.request_id`
+- `reference_addon.resource`

@@ -1,54 +1,36 @@
 # Directory Structure
 
-> How backend code is organized in this project.
+`nako-addon-client` currently keeps client orchestration in `src/lib.rs`. Split
+only when transport, resource helpers, task/event helpers, or Nako runtime calls
+grow enough to need private modules.
 
----
+## Current Layout
 
-## Overview
+- HTTP request/response DTOs used by `AddonTransport`.
+- `AddonClientError`, result aliases, and safe diagnostics.
+- Outcome/failure structs for resource, specialized resource, task, and event
+  calls.
+- `AddonTransport` and `ReqwestAddonTransport`.
+- Resource, task, event, health, and `NakoRuntimeClient` call helpers.
+- Private schema, retry, URL, and unsafe-body helpers.
+- Mock transport tests.
 
-<!--
-Document your project's backend directory structure here.
+## Module Split Rules
 
-Questions to answer:
-- How are modules/packages organized?
-- Where does business logic live?
-- Where are API endpoints defined?
-- How are utilities and helpers organized?
--->
+- Keep `AddonTransport` close to request/response structs.
+- Move reqwest-only code to a transport module before adding another transport.
+- Keep specialized resource helpers next to schema constants they enforce.
+- Keep Nako runtime side-effect calls separate from sidecar resource calls if
+  the file is split.
 
-(To be filled by the team)
+## Naming Rules
 
----
+- Use `call_addon_*_with_outcome` when attempts and HTTP status matter.
+- Use `Addon*CallOutcome` and `Addon*CallFailure` for delivery result wrappers.
+- Use `NakoRuntimeClient` only for Addon Sidecar calls back to Nako runtime APIs.
 
-## Directory Layout
+## Anti-Patterns
 
-```
-<!-- Replace with your actual structure -->
-src/
-├── ...
-└── ...
-```
-
----
-
-## Module Organization
-
-<!-- How should new features/modules be organized? -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- File and folder naming rules -->
-
-(To be filled by the team)
-
----
-
-## Examples
-
-<!-- Link to well-organized modules as examples -->
-
-(To be filled by the team)
+- Do not add server job scheduler code here.
+- Do not put manifest builder facts here.
+- Do not create hidden global reqwest clients in helper functions.

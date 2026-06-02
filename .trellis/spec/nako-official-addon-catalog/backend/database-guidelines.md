@@ -1,51 +1,33 @@
 # Database Guidelines
 
-> Database patterns and conventions for this project.
+`nako-official-addon-catalog` has no persistence. It supplies typed facts that
+server/admin code can store or present elsewhere.
 
----
+## Required Patterns
 
-## Overview
+- Return `AddonManifest` and `AddonInstallDescriptor` values only.
+- Let server/admin workflows decide registration, grants, token rotation, and
+  installed-addon state.
+- Use `AddonInstallGuide` through protocol helpers when tests need operator
+  guidance output.
+- Keep official addon facts deterministic and side-effect free.
 
-<!--
-Document your project's database conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What ORM/query library do you use?
-- How are migrations managed?
-- What are the naming conventions for tables/columns?
-- How do you handle transactions?
--->
+- Do not import repository traits, SQL adapters, database pools, or migrations.
+- Do not write installed addon rows from this crate.
+- Do not resolve or store secret values here.
+- Do not treat catalog descriptors as accepted grants.
 
-(To be filled by the team)
+## Contract Rules
 
----
+- Official manifests declare scopes; accepted grants are still server-owned.
+- Secret reference fields describe expected references, not secret values.
+- Binary and container descriptors are install guidance, not lifecycle
+  automation.
 
-## Query Patterns
+## Tests Required
 
-<!-- How should queries be written? Batch operations? -->
-
-(To be filled by the team)
-
----
-
-## Migrations
-
-<!-- How to create and run migrations -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- Table names, column names, index names -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Database-related mistakes your team has made -->
-
-(To be filled by the team)
+- Manifest validation tests for every official module.
+- Descriptor validation tests for binary/container paths.
+- Install guide tests for declared resources, tasks, events, and redaction.

@@ -22,8 +22,8 @@ the rest conversationally.
 ## Status (update the checkboxes as you complete each item)
 
 - [ ] Fill guidelines for nako
-- [ ] Fill guidelines for nako-addon-client
-- [ ] Fill guidelines for nako-addon-protocol
+- [x] Fill guidelines for nako-addon-client
+- [x] Fill guidelines for nako-addon-protocol
 - [x] Fill guidelines for nako-api
 - [x] Fill guidelines for nako-automation
 - [x] Fill guidelines for nako-catalog
@@ -40,9 +40,9 @@ the rest conversationally.
 - [x] Fill guidelines for nako-metadata
 - [ ] Fill guidelines for nako-naming
 - [x] Fill guidelines for nako-nfo
-- [ ] Fill guidelines for nako-official-addon-catalog
+- [x] Fill guidelines for nako-official-addon-catalog
 - [x] Fill guidelines for nako-playback
-- [ ] Fill guidelines for nako-reference-addon
+- [x] Fill guidelines for nako-reference-addon
 - [x] Fill guidelines for nako-search
 - [x] Fill guidelines for nako-server
 - [x] Fill guidelines for nako-streaming
@@ -58,6 +58,8 @@ Session progress on 2026-06-02:
   and `nako-transcode`.
 - Extended real specs for `nako-library`, `nako-catalog`, `nako-search`,
   `nako-nfo`, `nako-streaming`, `nako-events`, and `nako-automation`.
+- Extended real specs for `nako-addon-protocol`, `nako-addon-client`,
+  `nako-official-addon-catalog`, and `nako-reference-addon`.
 - Left remaining package checkboxes open until their own specs are filled with
   real examples.
 

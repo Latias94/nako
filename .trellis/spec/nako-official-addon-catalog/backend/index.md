@@ -1,38 +1,67 @@
-# Backend Development Guidelines
+# nako-official-addon-catalog Backend Guidelines
 
-> Best practices for backend development in this project.
+`nako-official-addon-catalog` is the shared source of truth for official addon
+manifest and install descriptor facts. It prevents drift between Nako's addon
+catalog, admin surfaces, and official sidecar runtimes.
 
----
+## Current Evidence
 
-## Overview
+- `crates/nako-official-addon-catalog/src/lib.rs`
+- `crates/nako-official-addon-catalog/README.md`
+- `crates/nako-addon-protocol/src/lib.rs`
+- `CONTEXT.md`
 
-This directory contains guidelines for backend development. Fill in each file with your project's specific conventions.
+## Boundaries
 
----
+- Build official addon manifests and install descriptors.
+- Keep official addon IDs, versions, base URLs, container base URLs, runtime
+  image names, binary names, resource paths, scopes, tasks, events, hosted pages,
+  and configuration schema facts in one place.
+- Validate facts through `nako-addon-protocol`.
+- Keep actual sidecar implementation outside this crate.
+- Keep operator lifecycle automation outside this crate.
 
-## Guidelines Index
+## Executable Contract Summary
 
-| Guide | Description | Status |
-|-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill |
-| [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
+1. Scope / Trigger: any official addon fact, resource, scope, schema, runtime
+   image, base URL, task, event, or install descriptor change updates this crate.
+2. Signatures: module functions such as `default_manifest`,
+   `container_manifest`, `manifest_with_version`,
+   `binary_install_descriptor`, and `container_install_descriptor`.
+3. Contracts: official modules declare metadata scraper, resource search,
+   external acquisition runner, subtitle provider, DLNA renderer, Chromecast
+   renderer, and notification bridge facts.
+4. Validation & Error Matrix: every manifest and descriptor must pass
+   `validate_manifest` or `validate_install_descriptor`; missing scopes or
+   invalid secret references are protocol errors.
+5. Good/Base/Bad Cases: good facts match constants and protocol schemas; base
+   descriptors use binary or container runtime references; bad cases include
+   schema drift, missing scopes, or raw secret values.
+6. Tests Required: one manifest shape test per official addon plus descriptor
+   tests for binary/container install guides.
+7. Wrong vs Correct: do not duplicate official addon manifest facts in server or
+   docs; import these builders and test against protocol validation.
 
----
+## Required Patterns
 
-## How to Fill These Guidelines
+- Keep addon module constants stable and explicit.
+- Use `ADDON_PROTOCOL_VERSION` from `nako-addon-protocol`.
+- Use protocol schema constants for resource search, link check, external
+  acquisition, and subtitle resources.
+- Build diagnostics entry points and hosted pages through protocol declaration
+  types.
+- Use `AddonInstallDescriptor` for binary and container install paths.
 
-For each guideline file:
+## Forbidden Patterns
 
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
+- Do not copy official addon facts into server code.
+- Do not include plaintext secret values in install descriptors.
+- Do not treat official addon catalog as an Addon Manager.
+- Do not change official resource/scope shape without protocol validation tests.
 
-The goal is to help AI assistants and new team members understand how YOUR project works.
+## Validation
 
----
-
-**Language**: All documentation should be written in **English**.
+- Focused:
+  `cargo nextest run -p nako-official-addon-catalog --no-fail-fast`
+- Protocol contract:
+  `cargo nextest run -p nako-addon-protocol -p nako-official-addon-catalog --no-fail-fast`

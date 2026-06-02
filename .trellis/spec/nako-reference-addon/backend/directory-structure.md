@@ -1,54 +1,33 @@
 # Directory Structure
 
-> How backend code is organized in this project.
+`nako-reference-addon` is intentionally small and currently lives in
+`src/lib.rs`.
 
----
+## Current Layout
 
-## Overview
+- `REFERENCE_ADDON_ID`: fixture manifest ID.
+- `reference_manifest`: protocol-valid metadata addon manifest.
+- `build_router`: Axum router with `/health` and `/metadata`.
+- `demo_metadata_patch`: deterministic metadata patch payload.
+- `demo_nfo_export_payload`: deterministic library file write payload.
+- Private route handlers and focused tests.
 
-<!--
-Document your project's backend directory structure here.
+## Module Rules
 
-Questions to answer:
-- How are modules/packages organized?
-- Where does business logic live?
-- Where are API endpoints defined?
-- How are utilities and helpers organized?
--->
+- Keep the fixture in one file while it remains minimal.
+- Split routes into a private module only if more protocol fixture endpoints are
+  added.
+- Keep tests next to fixture behavior.
+- Keep protocol types imported from `nako-addon-protocol`.
 
-(To be filled by the team)
+## Naming Rules
 
----
+- Use `reference_*` for fixture manifest/router concepts.
+- Use `demo_*` for deterministic payload helpers.
+- Use `REFERENCE_ADDON_ID` for the manifest ID.
 
-## Directory Layout
+## Anti-Patterns
 
-```
-<!-- Replace with your actual structure -->
-src/
-├── ...
-└── ...
-```
-
----
-
-## Module Organization
-
-<!-- How should new features/modules be organized? -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- File and folder naming rules -->
-
-(To be filled by the team)
-
----
-
-## Examples
-
-<!-- Link to well-organized modules as examples -->
-
-(To be filled by the team)
+- Do not create official addon modules here.
+- Do not create provider-specific fixture logic.
+- Do not add database or storage modules.

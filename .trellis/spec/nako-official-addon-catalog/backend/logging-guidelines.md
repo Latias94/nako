@@ -1,51 +1,28 @@
 # Logging Guidelines
 
-> How logging is done in this project.
+`nako-official-addon-catalog` should not normally log. It provides deterministic
+facts for callers and tests.
 
----
+## Required Patterns
 
-## Overview
+- Prefer returned manifest/descriptor values over logs.
+- If diagnostics are added, log addon ID, version, runtime kind, resource count,
+  task count, event subscription count, and hosted page count.
+- Keep install notes and secret reference names redaction-safe.
+- Let server/admin code own operator-facing audit logs.
 
-<!--
-Document your project's logging conventions here.
+## Forbidden Patterns
 
-Questions to answer:
-- What logging library do you use?
-- What are the log levels and when to use each?
-- What should be logged?
-- What should NOT be logged (PII, secrets)?
--->
+- Do not log secret reference values.
+- Do not log local runtime paths as accepted facts.
+- Do not log full generated JSON schema bodies in normal operation.
+- Do not use logs to detect catalog drift.
 
-(To be filled by the team)
+## Useful Fields
 
----
-
-## Log Levels
-
-<!-- When to use each level: debug, info, warn, error -->
-
-(To be filled by the team)
-
----
-
-## Structured Logging
-
-<!-- Log format, required fields -->
-
-(To be filled by the team)
-
----
-
-## What to Log
-
-<!-- Important events to log -->
-
-(To be filled by the team)
-
----
-
-## What NOT to Log
-
-<!-- Sensitive data, PII, secrets -->
-
-(To be filled by the team)
+- `official_addon.id`
+- `official_addon.version`
+- `official_addon.runtime_kind`
+- `official_addon.resource_count`
+- `official_addon.task_count`
+- `official_addon.event_subscription_count`

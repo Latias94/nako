@@ -1,38 +1,67 @@
-# Backend Development Guidelines
+# nako-addon-client Backend Guidelines
 
-> Best practices for backend development in this project.
+`nako-addon-client` is the Rust HTTP caller helper for Addon Sidecars. It builds
+on `nako-addon-protocol`, keeps transport mockable, validates protocol
+envelopes, and redacts unsafe request/transport details.
 
----
+## Current Evidence
 
-## Overview
+- `crates/nako-addon-client/src/lib.rs`
+- `crates/nako-addon-client/README.md`
+- `crates/nako-addon-protocol/src/lib.rs`
 
-This directory contains guidelines for backend development. Fill in each file with your project's specific conventions.
+## Boundaries
 
----
+- Build outbound addon HTTP requests and parse addon responses.
+- Expose `AddonTransport` for fake and reqwest-backed transports.
+- Handle resource, resource-search, resource-link-check, subtitle, task, event,
+  health, and Nako runtime side-effect calls.
+- Keep durable job persistence, addon registration, and permission storage
+  outside this crate.
+- Keep protocol wire definitions in `nako-addon-protocol`.
 
-## Guidelines Index
+## Executable Contract Summary
 
-| Guide | Description | Status |
-|-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill |
-| [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
+1. Scope / Trigger: any new addon runtime call, specialized resource helper, or
+   retry/redaction behavior update belongs here.
+2. Signatures: public calls such as `call_addon_resource_with_outcome`,
+   `call_addon_task_with_outcome`, `call_addon_event_with_outcome`,
+   `check_addon_health`, and `NakoRuntimeClient`.
+3. Contracts: requests include protocol, addon ID, resource/task/event facts,
+   request ID, `x-nako-attempt`, and auth headers based on `AddonAuth`.
+4. Validation & Error Matrix: invalid manifest, missing scope, missing token,
+   invalid schema, non-2xx HTTP, invalid response, and unsafe request body map to
+   `AddonClientError` or outcome failures.
+5. Good/Base/Bad Cases: good calls return outcome with status and attempts; base
+   calls use manifest or declaration timeout/defaults; bad calls never expose
+   token material in errors.
+6. Tests Required: mock transport request assertions, retry attempts, schema
+   validation, unsafe body rejection, health checks, and safe error messages.
+7. Wrong vs Correct: do not call reqwest directly from server workflows; call
+   through `AddonTransport` so protocol checks and redaction run.
 
----
+## Required Patterns
 
-## How to Fill These Guidelines
+- Validate manifests and scope grants before dispatch.
+- Resolve timeout and max attempts from declaration first, then manifest
+  defaults, then safe crate defaults.
+- Retry only transport errors and retryable statuses: 408, 429, and 5xx.
+- Validate specialized request/response schemas for resource-search,
+  resource-link-check, subtitle, and external acquisition materialization.
+- Use `safe_code`, `kind`, and outcome attempt counts for caller diagnostics.
 
-For each guideline file:
+## Forbidden Patterns
 
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
+- Do not expose bearer tokens, shared secrets, request URLs, query tokens, or
+  unsafe bodies in errors.
+- Do not bypass `validate_resource_response`, `validate_task_response`,
+  `validate_event_response`, or `validate_health_check_response`.
+- Do not persist jobs or attempts here.
+- Do not make reqwest the only testable transport path.
 
-The goal is to help AI assistants and new team members understand how YOUR project works.
+## Validation
 
----
-
-**Language**: All documentation should be written in **English**.
+- Focused:
+  `cargo nextest run -p nako-addon-client --no-fail-fast`
+- Protocol contract:
+  `cargo check -p nako-addon-client -p nako-addon-protocol --tests`

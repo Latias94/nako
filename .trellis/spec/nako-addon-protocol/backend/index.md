@@ -1,38 +1,66 @@
-# Backend Development Guidelines
+# nako-addon-protocol Backend Guidelines
 
-> Best practices for backend development in this project.
+`nako-addon-protocol` is the permissive wire-contract crate for Addon Sidecar
+authors and integration tools. It must stay independent from Nako server
+internals and expose explicit manifest, runtime, resource, task, event, health,
+side-effect, and install-guide contracts.
 
----
+## Current Evidence
 
-## Overview
+- `crates/nako-addon-protocol/src/lib.rs`
+- `crates/nako-addon-protocol/README.md`
+- `CONTEXT.md`
+- `AGENTS.md`
 
-This directory contains guidelines for backend development. Fill in each file with your project's specific conventions.
+## Boundaries
 
----
+- Define Addon Protocol Version and supported wire shapes.
+- Validate manifests, install descriptors, resource/task/event/health response
+  envelopes, scope grants, secret references, and runtime requirements.
+- Keep Addon Sidecars out of process. Do not model native plugin execution here.
+- Keep server persistence, HTTP routing, and grant storage outside this crate.
+- Keep this crate suitable for addon authors through a permissive license.
 
-## Guidelines Index
+## Executable Contract Summary
 
-| Guide | Description | Status |
-|-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill |
-| [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
+1. Scope / Trigger: any manifest, route, schema, scope, side-effect, task, event,
+   or health wire shape change updates this crate first.
+2. Signatures: public types such as `AddonManifest`, `AddonResourceRequest`,
+   `AddonTaskRequest`, `AddonEventRequest`, `AddonHealthCheckRequest`, and
+   validation helpers are the contract.
+3. Contracts: current protocol version is `0.1.0-alpha.1`; runtime routes use
+   `POST`; paths are constants under `/addon/v1/...`.
+4. Validation & Error Matrix: invalid base URL, empty manifest surface,
+   unsupported protocol version, duplicate resources, missing scopes, invalid
+   runtime references, and secret-looking bindings return `AddonManifestError`.
+5. Good/Base/Bad Cases: good manifests declare resources/tasks/events with
+   scopes; base case uses HTTP sidecar runtime; bad cases include local binary
+   paths, duplicate resources, and plaintext secret values.
+6. Tests Required: serialization, validation, redaction-safe `Debug`, install
+   guide, grant checks, and response-envelope matching.
+7. Wrong vs Correct: do not infer server grants from manifest declarations;
+   validate declarations here and enforce accepted grants in callers.
 
----
+## Required Patterns
 
-## How to Fill These Guidelines
+- Use `ADDON_PROTOCOL_VERSION` and `SUPPORTED_ADDON_PROTOCOL_VERSIONS` for
+  compatibility checks.
+- Add new runtime paths to `ADDON_RUNTIME_ROUTES`.
+- Use `serde(rename_all = "snake_case")` for public enum wire values.
+- Keep sensitive payloads out of custom `Debug` implementations.
+- Validate response envelopes against manifest ID, protocol version, resource or
+  task ID, job ID, event ID, and request ID.
 
-For each guideline file:
+## Forbidden Patterns
 
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
+- Do not depend on `nako-server`, database crates, or storage adapters.
+- Do not store plaintext secrets in install descriptors.
+- Do not treat Addon Package or Addon Suite as the permission unit.
+- Do not make breaking wire changes without a new Addon Protocol Version.
 
-The goal is to help AI assistants and new team members understand how YOUR project works.
+## Validation
 
----
-
-**Language**: All documentation should be written in **English**.
+- Focused:
+  `cargo nextest run -p nako-addon-protocol --no-fail-fast`
+- Cross-layer contract:
+  `cargo check -p nako-addon-protocol -p nako-addon-client -p nako-api --tests`

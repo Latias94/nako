@@ -1,54 +1,37 @@
 # Directory Structure
 
-> How backend code is organized in this project.
+`nako-addon-protocol` currently keeps the protocol in `src/lib.rs`. Split only
+when a contract family becomes too large to review safely in one file.
 
----
+## Current Layout
 
-## Overview
+- Protocol constants and runtime route inventory.
+- Manifest, install descriptor, install guide, runtime, secret-reference, and
+  scope types.
+- Resource, resource-search, resource-link-check, subtitle, renderer-adapter,
+  external-acquisition, task, event, health, artifact, and side-effect payloads.
+- `AddonManifestError` and validation helpers.
+- Tests covering wire shape, validation, and redaction.
 
-<!--
-Document your project's backend directory structure here.
+## Module Split Rules
 
-Questions to answer:
-- How are modules/packages organized?
-- Where does business logic live?
-- Where are API endpoints defined?
-- How are utilities and helpers organized?
--->
+- Keep version and route constants near runtime route inventory.
+- Keep wire structs and their validation helpers close enough to review
+  together.
+- Split by contract family only when the public API remains re-exported from
+  `lib.rs`.
+- Keep tests next to the contract family they protect.
 
-(To be filled by the team)
+## Naming Rules
 
----
+- Use `Addon*` prefixes for public protocol types.
+- Use `*Request` and `*Response` for wire envelopes.
+- Use `*Declaration` for manifest-declared capabilities.
+- Use `*Payload` for protected side-effect payloads.
+- Use `*Schema` constants for typed payload schema identifiers.
 
-## Directory Layout
+## Anti-Patterns
 
-```
-<!-- Replace with your actual structure -->
-src/
-├── ...
-└── ...
-```
-
----
-
-## Module Organization
-
-<!-- How should new features/modules be organized? -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- File and folder naming rules -->
-
-(To be filled by the team)
-
----
-
-## Examples
-
-<!-- Link to well-organized modules as examples -->
-
-(To be filled by the team)
+- Do not create server-specific protocol modules.
+- Do not put official addon catalog builders in this crate.
+- Do not hide route path literals in callers when a protocol constant exists.

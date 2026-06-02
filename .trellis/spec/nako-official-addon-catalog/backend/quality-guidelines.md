@@ -1,51 +1,36 @@
 # Quality Guidelines
 
-> Code quality standards for backend development.
-
----
-
-## Overview
-
-<!--
-Document your project's quality standards here.
-
-Questions to answer:
-- What patterns are forbidden?
-- What linting rules do you enforce?
-- What are your testing requirements?
-- What code review standards apply?
--->
-
-(To be filled by the team)
-
----
-
-## Forbidden Patterns
-
-<!-- Patterns that should never be used and why -->
-
-(To be filled by the team)
-
----
+Official addon catalog changes must prevent fact drift and keep install guidance
+redaction-safe.
 
 ## Required Patterns
 
-<!-- Patterns that must always be used -->
+- Test each module's default manifest against its constants.
+- Test container descriptors through `addon_install_guide`.
+- Test resource order when callers rely on deterministic declared resource
+  lists.
+- Test configuration schema defaults for provider toggles, limits, timeouts, and
+  runner profiles.
+- Keep official addon versions aligned with runtime image and install command
+  facts.
 
-(To be filled by the team)
+## Forbidden Patterns
 
----
+- Do not update `ADDON_VERSION` without matching runtime image/install facts.
+- Do not put real external API secrets in config schema defaults.
+- Do not add official addon scopes without manifest and descriptor tests.
+- Do not make tests depend on running sidecar services.
 
-## Testing Requirements
+## Tests Required
 
-<!-- What level of testing is expected -->
+- One default manifest test per official addon module.
+- Binary and container install descriptor tests.
+- Schema default tests for provider and runner configuration.
+- Secret reference redaction tests when a module declares secret fields.
 
-(To be filled by the team)
+## Gate Selection
 
----
-
-## Code Review Checklist
-
-<!-- What reviewers should check -->
-
-(To be filled by the team)
+- Focused:
+  `cargo nextest run -p nako-official-addon-catalog --no-fail-fast`
+- Official addon protocol:
+  `cargo nextest run -p nako-addon-protocol -p nako-official-addon-catalog --no-fail-fast`
