@@ -1,6 +1,6 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 66] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 67] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -125,6 +125,10 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 66] = [
     (
         "catalogGovernanceProviderMappingReview",
         "catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review",
+    ),
+    (
+        "metadataCandidateReviewsForItem",
+        "metadata/items/{item_id}/candidate-reviews",
     ),
     (
         "metadataCandidateReview",
@@ -1693,6 +1697,30 @@ export interface AdminMetadataCandidateReviewProviderMapping {
   source: AdminMetadataSource;
 }
 
+export interface AdminMetadataCandidateReviewListEntry {
+  review_id: string;
+  item_id: string;
+  source: AdminMetadataCandidateReviewSource;
+  source_key: string;
+  status: AdminMetadataCandidateReviewStatus;
+  root: AdminMetadataCandidateReviewNode;
+  related_count: number;
+  relationship_count: number;
+  application_plan: AdminMetadataCandidateReviewApplicationPlan;
+  boundary: AdminMetadataCandidateReviewApplicationBoundary;
+  expires_at_ms: number | null;
+  created_at_ms: number;
+  updated_at_ms: number;
+}
+
+export interface AdminMetadataCandidateReviewListResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  item_id: string;
+  reviews: AdminMetadataCandidateReviewListEntry[];
+  page: PageInfo;
+}
+
 export interface AdminMetadataCandidateReviewResponse {
   admin_api_version: string;
   public_api_version: string;
@@ -3071,6 +3099,8 @@ mod tests {
             "AdminCatalogGovernanceProviderMappingReviewPlanResponse",
             "AdminCatalogGovernanceProviderMappingReviewResponse",
             "AdminCatalogGovernanceRepairBoundary",
+            "AdminMetadataCandidateReviewListResponse",
+            "AdminMetadataCandidateReviewListEntry",
             "AdminMetadataCandidateReviewResponse",
             "AdminMetadataCandidateReviewDetail",
             "AdminMetadataCandidateReviewNode",

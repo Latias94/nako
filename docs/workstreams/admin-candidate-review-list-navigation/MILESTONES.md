@@ -17,7 +17,7 @@ Exit criteria:
 
 ## M1 - Item-Scoped Admin API List
 
-Status: Ready at `ACRN-020`.
+Status: Complete after `ACRN-020`.
 
 Exit criteria:
 
@@ -29,7 +29,7 @@ Exit criteria:
 
 ## M2 - Web Admin List And Navigation
 
-Status: Pending `ACRN-020`.
+Status: Ready at `ACRN-030`.
 
 Exit criteria:
 

@@ -1,3 +1,4 @@
+use nako_client_protocol::PageInfo;
 use nako_core::{
     MediaItemId, MediaKind, MetadataCandidateRecord, MetadataCandidateReviewApplicationAction,
     MetadataCandidateReviewApplicationPlan, MetadataCandidateReviewApplicationReason,
@@ -5,8 +6,8 @@ use nako_core::{
     MetadataCandidateReviewRecord,
     MetadataCandidateReviewRelationship as CoreMetadataCandidateReviewRelationship,
     MetadataCandidateReviewStatus, MetadataCandidateSource, MetadataCandidateSubject,
-    MetadataSource, ProviderMapping, ProviderMappingId, ProviderMappingStatus, ProviderSubject,
-    ProviderSubjectId,
+    MetadataSource, PageRequest, ProviderMapping, ProviderMappingId, ProviderMappingStatus,
+    ProviderSubject, ProviderSubjectId,
 };
 use serde::{Deserialize, Serialize};
 
@@ -20,6 +21,90 @@ pub struct AdminMetadataCandidateReviewResponse {
     pub review: AdminMetadataCandidateReviewDetail,
     pub application_plan: AdminMetadataCandidateReviewApplicationPlan,
     pub boundary: AdminMetadataCandidateReviewApplicationBoundary,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewListResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub item_id: MediaItemId,
+    pub reviews: Vec<AdminMetadataCandidateReviewListEntry>,
+    pub page: PageInfo,
+}
+
+impl AdminMetadataCandidateReviewListResponse {
+    #[must_use]
+    pub fn new(
+        item_id: MediaItemId,
+        reviews: Vec<(
+            MetadataCandidateReviewRecord,
+            MetadataCandidateReviewApplicationPlan,
+        )>,
+        page: PageRequest,
+    ) -> Self {
+        let reviews: Vec<_> = reviews
+            .into_iter()
+            .map(|(review, application_plan)| {
+                AdminMetadataCandidateReviewListEntry::from_record(review, application_plan)
+            })
+            .collect();
+
+        Self {
+            admin_api_version: ADMIN_API_VERSION.to_owned(),
+            public_api_version: API_VERSION.to_owned(),
+            item_id,
+            page: PageInfo::new(page.limit, page.offset, saturating_u32_len(reviews.len())),
+            reviews,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewListEntry {
+    pub review_id: MetadataCandidateReviewId,
+    pub item_id: MediaItemId,
+    pub source: MetadataCandidateSource,
+    pub source_key: String,
+    pub status: MetadataCandidateReviewStatus,
+    pub root: AdminMetadataCandidateReviewNode,
+    pub related_count: u32,
+    pub relationship_count: u32,
+    pub application_plan: AdminMetadataCandidateReviewApplicationPlan,
+    pub boundary: AdminMetadataCandidateReviewApplicationBoundary,
+    pub expires_at_ms: Option<i64>,
+    pub created_at_ms: i64,
+    pub updated_at_ms: i64,
+}
+
+impl AdminMetadataCandidateReviewListEntry {
+    #[must_use]
+    pub fn from_record(
+        review: MetadataCandidateReviewRecord,
+        application_plan: MetadataCandidateReviewApplicationPlan,
+    ) -> Self {
+        let related_count = saturating_u32_len(review.plan.related.len());
+        let relationship_count = saturating_u32_len(review.plan.relationships.len());
+        let boundary =
+            AdminMetadataCandidateReviewApplicationBoundary::from_plan(&application_plan);
+
+        Self {
+            review_id: review.id,
+            item_id: review.item_id,
+            source: review.source,
+            source_key: review.source_key,
+            status: review.status,
+            root: AdminMetadataCandidateReviewNode::from_node(review.plan.root),
+            related_count,
+            relationship_count,
+            application_plan: AdminMetadataCandidateReviewApplicationPlan::from_plan(
+                application_plan,
+            ),
+            boundary,
+            expires_at_ms: review.expires_at_ms,
+            created_at_ms: review.created_at_ms,
+            updated_at_ms: review.updated_at_ms,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

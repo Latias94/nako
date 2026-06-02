@@ -78,3 +78,32 @@ Green checks:
 - JSONL validation for `TASKS.jsonl`, `CAMPAIGNS.jsonl`, and `CONTEXT.jsonl`
   passed.
 - `git diff --check` passed with Git CRLF normalization warnings only.
+
+## ACRN-020 Evidence
+
+Implemented behavior:
+
+- added `GET /admin/v1/metadata/items/{item_id}/candidate-reviews`;
+- returned item-scoped Candidate Review summaries with pagination, root metadata
+  summary, related/relationship counts, application plan, and read-only boundary;
+- synchronized `crates/nako-api` Admin contract source plus generated contracts
+  under `apps/admin-web` and `web`;
+- proved the list route does not create Provider Subjects, Provider Mappings,
+  Canonical Metadata, or related hierarchy writes on read;
+- proved response bodies omit other-item reviews, raw overviews/tags, source
+  locators, local paths, tokens, and fingerprints.
+
+Green checks:
+
+- `cargo nextest` was attempted first and failed because `cargo-nextest` is not
+  installed in this environment.
+- `cargo test -p nako-server admin_v1_metadata_candidate_review_list_is_item_scoped_redacted_and_read_only -- --nocapture`
+  passed: 1 test.
+- `cargo test -p nako-api admin_contract -- --nocapture` passed: 5 tests.
+- `cargo test -p nako-server candidate_review -- --nocapture` passed: 4 tests.
+- `cargo fmt --all -- --check` passed.
+- `python -m json.tool docs/workstreams/admin-candidate-review-list-navigation/WORKSTREAM.json`
+  passed.
+- JSONL validation for `TASKS.jsonl`, `CAMPAIGNS.jsonl`, and `CONTEXT.jsonl`
+  passed.
+- `git diff --check` passed with Git CRLF normalization warnings only.

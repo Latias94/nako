@@ -202,6 +202,10 @@ pub(super) fn routes() -> Router<NakoApp> {
             post(review_admin_catalog_governance_provider_mapping),
         )
         .route(
+            "/admin/v1/metadata/items/{item_id}/candidate-reviews",
+            get(list_admin_metadata_candidate_reviews_for_item),
+        )
+        .route(
             "/admin/v1/metadata/candidate-reviews/{review_id}",
             get(get_admin_metadata_candidate_review),
         )
@@ -1067,6 +1071,20 @@ pub(super) async fn get_admin_metadata_candidate_review(
     Ok(Json(
         app.metadata()
             .get_admin_metadata_candidate_review(review_id)
+            .await?,
+    ))
+}
+
+pub(super) async fn list_admin_metadata_candidate_reviews_for_item(
+    State(app): State<NakoApp>,
+    Path(item_id): Path<MediaItemId>,
+    Query(query): Query<PageQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let page: PageRequest = query.try_into()?;
+
+    Ok(Json(
+        app.metadata()
+            .list_admin_metadata_candidate_reviews_for_item(item_id, page)
             .await?,
     ))
 }

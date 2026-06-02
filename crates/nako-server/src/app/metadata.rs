@@ -3,7 +3,7 @@ use std::{collections::HashSet, sync::Arc, time::Duration};
 use nako_api::{
     admin::{
         AdminMetadataCandidateReviewApplyRequest, AdminMetadataCandidateReviewApplyResponse,
-        AdminMetadataCandidateReviewResponse,
+        AdminMetadataCandidateReviewListResponse, AdminMetadataCandidateReviewResponse,
     },
     metadata_diagnostics::{
         EnqueueMetadataMaintenanceRequest, MetadataCandidateReviewDecision,
@@ -497,6 +497,38 @@ impl MetadataAppService {
         Ok(AdminMetadataCandidateReviewResponse::new(
             review,
             application_plan,
+        ))
+    }
+
+    pub async fn list_admin_metadata_candidate_reviews_for_item(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<AdminMetadataCandidateReviewListResponse> {
+        self.workflow_store
+            .get_media_item(item_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "media_item",
+                id: item_id.to_string(),
+            })?;
+
+        let reviews = MetadataCandidateReviewRepository::list_metadata_candidate_reviews_for_item(
+            &self.execution_store.store,
+            item_id,
+            page,
+        )
+        .await?;
+        let mut rows = Vec::with_capacity(reviews.len());
+        for review in reviews {
+            let application_plan =
+                build_candidate_review_application_plan(&self.execution_store.store, &review)
+                    .await?;
+            rows.push((review, application_plan));
+        }
+
+        Ok(AdminMetadataCandidateReviewListResponse::new(
+            item_id, rows, page,
         ))
     }
 

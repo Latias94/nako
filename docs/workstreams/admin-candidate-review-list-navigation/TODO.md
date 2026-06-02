@@ -13,11 +13,11 @@ Last updated: 2026-06-02
 
 ## M1 - Item-Scoped Admin API List
 
-- [ ] ACRN-020 [owner=codex] [deps=ACRN-010] [scope=crates/nako-api,crates/nako-server,crates/nako-metadata,docs/workstreams/admin-candidate-review-list-navigation]
+- [x] ACRN-020 [owner=codex] [deps=ACRN-010] [scope=crates/nako-api,crates/nako-server,crates/nako-metadata,docs/workstreams/admin-candidate-review-list-navigation]
   Goal: Add a redaction-safe Admin API list route for durable Metadata Candidate Reviews scoped to one Media Item.
   Validation: `cargo nextest run -p nako-api admin_contract --no-fail-fast`; `cargo nextest run -p nako-server candidate_review admin --no-fail-fast`; `cargo fmt --all -- --check`; `git diff --check`.
   Review: list entries must not expose raw provider payloads, local paths, source locators, tokens, image URLs, raw idempotency keys, or related hierarchy mutations.
-  Evidence: `EVIDENCE_AND_GATES.md` (`ACRN-020 Evidence`).
+  Evidence: `EVIDENCE_AND_GATES.md` (`ACRN-020 Evidence`); `cargo test -p nako-server candidate_review -- --nocapture`; `cargo test -p nako-api admin_contract -- --nocapture`.
   Handoff: Continue to `ACRN-030`.
 
 ## M2 - Web Admin List And Navigation

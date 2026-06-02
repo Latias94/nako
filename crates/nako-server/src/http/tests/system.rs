@@ -3,8 +3,8 @@ use nako_api::admin::{
     AdminGeneratedArtifactMetadataApplyRecoveryResponse,
     AdminMetadataCandidateReviewApplicationAction, AdminMetadataCandidateReviewApplicationReason,
     AdminMetadataCandidateReviewApplyRequest, AdminMetadataCandidateReviewApplyResponse,
-    AdminMetadataCandidateReviewResponse, AdminStorageBackendHealthDiagnosticsResponse,
-    AdminStorageBackendHealthResetResponse,
+    AdminMetadataCandidateReviewListResponse, AdminMetadataCandidateReviewResponse,
+    AdminStorageBackendHealthDiagnosticsResponse, AdminStorageBackendHealthResetResponse,
 };
 use nako_core::{
     MetadataCandidateRecord, MetadataCandidateRelationshipKind, MetadataCandidateReviewId,
@@ -800,6 +800,335 @@ async fn admin_v1_catalog_governance_provider_mapping_review_mutates_idempotentl
     assert_eq!(replay.current_status, ProviderMappingStatus::Accepted);
     assert!(!replay.changed);
     assert!(replay.idempotent_replay);
+}
+
+#[tokio::test]
+async fn admin_v1_metadata_candidate_review_list_is_item_scoped_redacted_and_read_only() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("nako-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Series,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "List Candidate".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let other_item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Other Candidate".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: "local:///Private/List.Candidate.S01E01.mkv?token=secret".to_owned(),
+        file_name: "List.Candidate.S01E01.mkv".to_owned(),
+        size_bytes: Some(42),
+        fingerprint: Some("sha256-private-list-review".to_owned()),
+    };
+    let newer_subject = MetadataCandidateSubject {
+        provider: ExternalProvider::Bangumi,
+        subject_kind: ProviderSubjectKind::Subject,
+        subject_key: "newer".to_owned(),
+        title: Some("Newer Candidate".to_owned()),
+        release_year: Some(2026),
+        locale: Some("zh-CN".to_owned()),
+    };
+    let older_subject = MetadataCandidateSubject {
+        provider: ExternalProvider::Bangumi,
+        subject_kind: ProviderSubjectKind::Subject,
+        subject_key: "older".to_owned(),
+        title: Some("Older Candidate".to_owned()),
+        release_year: Some(2025),
+        locale: Some("zh-CN".to_owned()),
+    };
+    let related_subject = MetadataCandidateSubject {
+        provider: ExternalProvider::Bangumi,
+        subject_kind: ProviderSubjectKind::Episode,
+        subject_key: "newer/1".to_owned(),
+        title: Some("Episode One".to_owned()),
+        release_year: Some(2026),
+        locale: Some("zh-CN".to_owned()),
+    };
+    let other_subject = MetadataCandidateSubject {
+        provider: ExternalProvider::Tmdb,
+        subject_kind: ProviderSubjectKind::Movie,
+        subject_key: "other-secret-subject".to_owned(),
+        title: Some("Other Candidate".to_owned()),
+        release_year: Some(2024),
+        locale: Some("en-US".to_owned()),
+    };
+
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_item(&other_item).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id,
+            item_id: item.id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id,
+            item_id: other_item.id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+
+    let newer_review = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+            source_key: "bangumi:newer".to_owned(),
+            plan: MetadataCandidateReviewPlan {
+                root: MetadataCandidateReviewNode {
+                    source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+                    kind: MediaKind::Series,
+                    subject: Some(newer_subject.clone()),
+                    metadata: MetadataCandidateRecord {
+                        title: Some("Newer Candidate".to_owned()),
+                        overview: Some("newer secret overview".to_owned()),
+                        release_date: Some("2026-06-02".to_owned()),
+                        tags: vec!["newer-secret-tag".to_owned()],
+                        ..MetadataCandidateRecord::default()
+                    },
+                },
+                related: vec![MetadataCandidateReviewNode {
+                    source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+                    kind: MediaKind::Episode,
+                    subject: Some(related_subject.clone()),
+                    metadata: MetadataCandidateRecord {
+                        title: Some("Episode One".to_owned()),
+                        overview: Some("related secret overview".to_owned()),
+                        ..MetadataCandidateRecord::default()
+                    },
+                }],
+                relationships: vec![MetadataCandidateReviewRelationship {
+                    parent_subject: newer_subject.clone(),
+                    child_subject: related_subject,
+                    kind: MetadataCandidateRelationshipKind::Contains,
+                }],
+            },
+            expires_at_ms: None,
+            created_at_ms: 100,
+            updated_at_ms: 200,
+        })
+        .await
+        .unwrap();
+    let older_review = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+            source_key: "bangumi:older".to_owned(),
+            plan: MetadataCandidateReviewPlan {
+                root: MetadataCandidateReviewNode {
+                    source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+                    kind: MediaKind::Series,
+                    subject: Some(older_subject),
+                    metadata: MetadataCandidateRecord {
+                        title: Some("Older Candidate".to_owned()),
+                        overview: Some("older secret overview".to_owned()),
+                        release_date: Some("2025-01-01".to_owned()),
+                        ..MetadataCandidateRecord::default()
+                    },
+                },
+                related: vec![],
+                relationships: vec![],
+            },
+            expires_at_ms: None,
+            created_at_ms: 90,
+            updated_at_ms: 100,
+        })
+        .await
+        .unwrap();
+    let other_review = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: other_item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+            source_key: "tmdb:other".to_owned(),
+            plan: MetadataCandidateReviewPlan {
+                root: MetadataCandidateReviewNode {
+                    source: MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+                    kind: MediaKind::Movie,
+                    subject: Some(other_subject),
+                    metadata: MetadataCandidateRecord {
+                        title: Some("Other Candidate".to_owned()),
+                        overview: Some("other item secret overview".to_owned()),
+                        ..MetadataCandidateRecord::default()
+                    },
+                },
+                related: vec![],
+                relationships: vec![],
+            },
+            expires_at_ms: None,
+            created_at_ms: 80,
+            updated_at_ms: 700,
+        })
+        .await
+        .unwrap();
+    store
+        .set_metadata_candidate_review_status(
+            newer_review.id,
+            DurableMetadataCandidateReviewStatus::Pending,
+            500,
+        )
+        .await
+        .unwrap();
+    store
+        .set_metadata_candidate_review_status(
+            older_review.id,
+            DurableMetadataCandidateReviewStatus::Accepted,
+            300,
+        )
+        .await
+        .unwrap();
+    store
+        .set_metadata_candidate_review_status(
+            other_review.id,
+            DurableMetadataCandidateReviewStatus::Accepted,
+            700,
+        )
+        .await
+        .unwrap();
+
+    let router = build_router(app);
+    let path = format!(
+        "/admin/v1/metadata/items/{}/candidate-reviews?limit=2",
+        item.id
+    );
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let list: AdminMetadataCandidateReviewListResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(list.item_id, item.id);
+    assert_eq!(list.page.limit, 2);
+    assert_eq!(list.page.offset, 0);
+    assert_eq!(list.page.returned, 2);
+    assert_eq!(list.reviews.len(), 2);
+    assert_eq!(list.reviews[0].review_id, newer_review.id);
+    assert_eq!(
+        list.reviews[0].status,
+        DurableMetadataCandidateReviewStatus::Pending
+    );
+    assert_eq!(
+        list.reviews[0].root.metadata.title.as_deref(),
+        Some("Newer Candidate")
+    );
+    assert_eq!(list.reviews[0].related_count, 1);
+    assert_eq!(list.reviews[0].relationship_count, 1);
+    assert_eq!(
+        list.reviews[0].application_plan.action,
+        AdminMetadataCandidateReviewApplicationAction::Skip
+    );
+    assert!(!list.reviews[0].boundary.apply_mutation_required);
+    assert_eq!(list.reviews[1].review_id, older_review.id);
+    assert_eq!(
+        list.reviews[1].application_plan.action,
+        AdminMetadataCandidateReviewApplicationAction::Apply
+    );
+    assert_eq!(
+        list.reviews[1].application_plan.reasons,
+        vec![AdminMetadataCandidateReviewApplicationReason::Ready]
+    );
+    assert!(list.reviews[1].boundary.read_only);
+    assert!(!list.reviews[1].boundary.applies_on_read);
+    assert!(list.reviews[1].boundary.apply_mutation_required);
+    assert!(!list.reviews[1].boundary.updates_hierarchy);
+    assert!(
+        store
+            .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .find_provider_subject(
+                &ExternalProvider::Bangumi,
+                &ProviderSubjectKind::Subject,
+                "newer"
+            )
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(!body.contains(&other_review.id.to_string()));
+    assert!(!body.contains("other-secret-subject"));
+    assert!(!body.contains("overview"));
+    assert!(!body.contains("newer secret overview"));
+    assert!(!body.contains("older secret overview"));
+    assert!(!body.contains("related secret overview"));
+    assert!(!body.contains("newer-secret-tag"));
+    assert!(!body.contains("local:///"));
+    assert!(!body.contains("token=secret"));
+    assert!(!body.contains("sha256-private-list-review"));
+    assert!(!body.contains(&temp.path().display().to_string()));
 }
 
 #[tokio::test]

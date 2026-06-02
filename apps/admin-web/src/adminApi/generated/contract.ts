@@ -51,6 +51,7 @@ export const NAKO_ADMIN_ROUTES = {
   catalogGovernanceItemDetail: "/admin/v1/catalog/governance/items/{item_id}",
   catalogGovernanceProviderMappingReviewPlan: "/admin/v1/catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review-plan",
   catalogGovernanceProviderMappingReview: "/admin/v1/catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review",
+  metadataCandidateReviewsForItem: "/admin/v1/metadata/items/{item_id}/candidate-reviews",
   metadataCandidateReview: "/admin/v1/metadata/candidate-reviews/{review_id}",
   metadataCandidateReviewApply: "/admin/v1/metadata/candidate-reviews/{review_id}/apply",
   events: "/admin/v1/events",
@@ -1577,6 +1578,30 @@ export interface AdminMetadataCandidateReviewProviderMapping {
   status: AdminProviderMappingStatus;
   confidence_milli: number | null;
   source: AdminMetadataSource;
+}
+
+export interface AdminMetadataCandidateReviewListEntry {
+  review_id: string;
+  item_id: string;
+  source: AdminMetadataCandidateReviewSource;
+  source_key: string;
+  status: AdminMetadataCandidateReviewStatus;
+  root: AdminMetadataCandidateReviewNode;
+  related_count: number;
+  relationship_count: number;
+  application_plan: AdminMetadataCandidateReviewApplicationPlan;
+  boundary: AdminMetadataCandidateReviewApplicationBoundary;
+  expires_at_ms: number | null;
+  created_at_ms: number;
+  updated_at_ms: number;
+}
+
+export interface AdminMetadataCandidateReviewListResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  item_id: string;
+  reviews: AdminMetadataCandidateReviewListEntry[];
+  page: PageInfo;
 }
 
 export interface AdminMetadataCandidateReviewResponse {
