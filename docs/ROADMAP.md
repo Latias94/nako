@@ -11,9 +11,8 @@ milestone.
 
 ## Current Architecture Focus
 
-Status: Provider Review Global Queue Search is active in the
-`library-metadata-control-plane` lane after Admin Candidate Review List
-Navigation closed.
+Status: No active implementation workstream is assigned after Provider Review
+Global Queue Search closed in the `library-metadata-control-plane` lane.
 
 Generated Artifact Provider Mapping Breadth and Generated Artifact Apply
 Operations Repair are both closed as of 2026-06-02. Web Admin Generated
@@ -26,16 +25,17 @@ Metadata Candidate Durable Review is closed after `MCDR-050`. Accepted Review
 Provider Mapping Application is closed after `ARPMA-050`. Admin/Web Provider
 Depth Governance is closed after `AWPDG-050`. Admin Candidate Review List
 Navigation is closed after `ACRN-040`. Provider Review Global Queue Search is
-active at `PRGQ-020`.
+closed after `PRGQ-040`.
 
-The active focus targets:
+The latest focus shipped:
 
-- adding a read-only global Admin API queue route for durable Candidate
-  Reviews;
+- a read-only global Admin API queue route for durable Candidate Reviews;
+- Web Admin global queue navigation into the existing Candidate Review
+  detail/apply route;
 - preserving ACRN/AWPDG redaction, no-write, stale guard, and root-only
   application boundaries;
-- keeping Web queue UI, batch governance, Public Client API, and related
-  hierarchy application split until their own tasks own them.
+- keeping batch governance, Public Client API, provider endpoint depth, and
+  related hierarchy application split until their own tasks own them.
 
 Authoritative evidence:
 
@@ -48,12 +48,32 @@ Authoritative evidence:
 - `docs/architecture/LIBRARY_PIPELINE.md`
 - `docs/architecture/LANES.md`
 
-Next task:
+Next candidate focus:
 
-- `PRGQ-020`: add a read-only Admin API global Candidate Review queue route
-  and repository query contract.
+- select a focused follow-on for provider governance bulk review, provider
+  review related hierarchy application, Douban TV/episode endpoint depth, or a
+  different architecture lane.
 
 Latest completed architecture focus:
+
+Provider Review Global Queue Search closed on 2026-06-02 after `PRGQ-040`.
+
+It shipped:
+
+- redaction-safe global Admin API queue reads for durable Metadata Candidate
+  Reviews;
+- Web Admin global queue navigation with status/provider filters into the
+  existing Candidate Review detail/apply route;
+- route-state, data-source, no-write, redaction, bundle-budget, and Playwright
+  smoke evidence;
+- explicit split of provider governance bulk review, related hierarchy
+  application, and provider endpoint depth follow-ons.
+
+Authoritative lane:
+
+- `docs/workstreams/provider-review-global-queue-search/`
+
+Previous completed architecture focus:
 
 Admin Candidate Review List Navigation closed on 2026-06-02 after `ACRN-040`.
 
@@ -204,7 +224,7 @@ Follow-ons:
 - `docs/workstreams/accepted-review-provider-mapping-application/` (closed);
 - `docs/workstreams/admin-web-provider-depth-governance/` (closed);
 - `docs/workstreams/admin-candidate-review-list-navigation/` (closed);
-- `docs/workstreams/provider-review-global-queue-search/` (active);
+- `docs/workstreams/provider-review-global-queue-search/` (closed);
 - `proposed:provider-review-related-hierarchy-application`;
 - `proposed:provider-governance-bulk-review`;
 - `proposed:douban-tv-episode-endpoint-depth`.

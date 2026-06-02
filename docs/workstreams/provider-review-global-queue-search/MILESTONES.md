@@ -1,6 +1,6 @@
 # Provider Review Global Queue Search - Milestones
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 - Lane Opening
@@ -37,12 +37,12 @@ Exit criteria:
 - Web shows global Candidate Review rows with status, source, item, root
   summary, application action, and safe navigation to the existing detail/apply
   route;
-- route-state and data-source tests prove filter/search transitions;
+- route-state and data-source tests prove filter transitions;
 - type-check, tests, bundle, and browser smoke gates pass.
 
 ## M3 - Closeout And Follow-On Split
 
-Status: Ready at `PRGQ-040`.
+Status: Complete after `PRGQ-040`.
 
 Exit criteria:
 

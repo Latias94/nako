@@ -1,6 +1,6 @@
 # Provider Review Global Queue Search - Evidence And Gates
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Opening Gates
@@ -147,3 +147,22 @@ Environment note:
 
 - Port 3000 was already occupied, so the smoke dev server was started from
   `web/` on port 3001.
+
+## PRGQ-040 Evidence
+
+Closeout behavior:
+
+- closed this lane after the Admin API global queue and Web Admin queue
+  navigation shipped;
+- updated workstream ledgers, handoff, milestones, roadmap, goal map, and
+  architecture lane links from active to closed;
+- kept provider governance bulk review, provider review related hierarchy
+  application, and Douban TV/episode endpoint depth split as follow-ons.
+
+Green checks:
+
+- `python -m json.tool docs/workstreams/provider-review-global-queue-search/WORKSTREAM.json`
+  passed.
+- JSONL validation for `TASKS.jsonl`, `CAMPAIGNS.jsonl`, and `CONTEXT.jsonl`
+  passed.
+- `git diff --check` passed with Git CRLF normalization warnings only.

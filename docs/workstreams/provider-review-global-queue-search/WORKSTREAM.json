@@ -2,12 +2,12 @@
   "schema_version": 1,
   "slug": "provider-review-global-queue-search",
   "title": "Provider Review Global Queue Search",
-  "status": "active",
+  "status": "closed",
   "updated": "2026-06-02",
   "scope_kind": "admin_metadata_candidate_review_global_queue",
-  "problem": "Durable Metadata Candidate Reviews are now discoverable from item context, but operators still need a global Admin queue/search surface for cross-item triage before batch governance or hierarchy application.",
+  "problem": "Durable Metadata Candidate Reviews are now discoverable from item context, but operators still need a global Admin queue/filter surface for cross-item triage before batch governance or hierarchy application.",
   "task_prefix": "PRGQ",
-  "current_task": "PRGQ-040",
+  "current_task": "DONE",
   "authoritative_docs": [
     {
       "role": "overview",
@@ -67,6 +67,10 @@
     {
       "task": "PRGQ-030",
       "summary": "Added Web Admin global Candidate Review queue navigation with status/provider filters, route-state preservation into existing detail/apply, Admin client/read-model coverage, full Web gates, and Playwright smoke evidence."
+    },
+    {
+      "task": "PRGQ-040",
+      "summary": "Closed the lane after Admin API and Web global queue target state shipped, and kept batch governance, related hierarchy application, and provider endpoint depth split as explicit follow-ons."
     }
   ],
   "adr_refs": [
@@ -81,11 +85,11 @@
     },
     {
       "path": "docs/architecture/WORKSTREAM_LINKS.md",
-      "capability": "Provider Review global queue/search active lane"
+      "capability": "Provider Review global queue/filter closed lane"
     },
     {
       "path": "docs/architecture/LIBRARY_PIPELINE.md",
-      "capability": "Metadata Candidate Review global Admin queue/search"
+      "capability": "Metadata Candidate Review global Admin queue/filter"
     }
   ],
   "capability_tags": [
@@ -95,8 +99,8 @@
   ],
   "lane_slug": "library-metadata-control-plane",
   "continue_policy": {
-    "default_action": "run_current_task",
-    "current_task": "PRGQ-040",
-    "notes": "Next close this lane or split explicit follow-ons for batch governance, related hierarchy application, and provider endpoint depth. Do not add runtime behavior under PRGQ-040."
+    "default_action": "closed",
+    "current_task": "DONE",
+    "notes": "Lane closed at PRGQ-040. Open focused follow-ons for provider governance bulk review, provider review related hierarchy application, or provider endpoint depth instead of reopening this lane."
   }
 }

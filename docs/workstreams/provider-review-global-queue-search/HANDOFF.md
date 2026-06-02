@@ -1,13 +1,13 @@
 # Provider Review Global Queue Search - Handoff
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Current State
 
 The lane is opened from `admin-candidate-review-list-navigation` closeout.
 Item-scoped Candidate Review discovery/navigation exists, but operators still
-need a global Admin queue/search surface for cross-item triage.
+need a global Admin queue/filter surface for cross-item triage.
 
 `PRGQ-020` added the read-only Admin API global Candidate Review queue route:
 `GET /admin/v1/metadata/candidate-reviews`. The route supports `status`,
@@ -20,14 +20,9 @@ pagination in route state, and navigate into the existing detail/apply page.
 
 ## Active Task
 
-- Task ID: `PRGQ-040`
-- Owner: planner
-- Files: `docs/workstreams/provider-review-global-queue-search`,
-  `docs/architecture`, `docs/GOALS.md`, and `docs/ROADMAP.md`
-- Validation: fresh gate evidence in `EVIDENCE_AND_GATES.md`; JSON/JSONL
-  validation; `git diff --check`
-- Status: READY
-- Evidence: `docs/workstreams/provider-review-global-queue-search/EVIDENCE_AND_GATES.md`
+- Task ID: DONE
+- Status: CLOSED
+- Evidence: `docs/workstreams/provider-review-global-queue-search/CLOSEOUT.md`
 
 ## Decisions Since Opening
 
@@ -47,9 +42,10 @@ pagination in route state, and navigate into the existing detail/apply page.
 
 ## Blockers
 
-- None for `PRGQ-040`.
+- None.
 
 ## Next Recommended Action
 
-- Run `PRGQ-040`: close this lane or split follow-ons. Do not add runtime
-  behavior under the closeout task.
+- Do not reopen this lane for runtime work. Open focused follow-ons for
+  provider governance bulk review, provider review related hierarchy
+  application, or provider endpoint depth.

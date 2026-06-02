@@ -26,13 +26,25 @@ proposed milestone.
 
 ## Current Goal
 
+No active implementation goal is selected after Provider Review Global Queue
+Search closed on 2026-06-02. Next candidate goals should open focused
+workstreams instead of reopening the closed queue lane.
+
+Candidate follow-ons:
+
+- `proposed:provider-governance-bulk-review`;
+- `proposed:provider-review-related-hierarchy-application`;
+- `proposed:douban-tv-episode-endpoint-depth`.
+
+## Recent Completed Goals
+
 ### Provider Review Global Queue Search
 
-Status: active as of 2026-06-02.
+Status: completed on 2026-06-02 after `PRGQ-040`.
 
 Objective:
 
-- Add a read-only global Metadata Candidate Review queue/search surface for
+- Add a read-only global Metadata Candidate Review queue/filter surface for
   Admin operators triaging review work across items.
 - Route global queue rows into the existing Candidate Review detail/apply
   governance page.
@@ -44,8 +56,8 @@ Deliverables:
 - `docs/workstreams/provider-review-global-queue-search/`;
 - repository query contract for global Candidate Review queue reads;
 - read-only Admin API global queue route and generated Admin contract;
-- Web Admin global queue/search navigation into the existing detail/apply page;
-- redaction, pagination, filter/search, no-write, route-state, bundle-budget,
+- Web Admin global queue/filter navigation into the existing detail/apply page;
+- redaction, pagination, filters, no-write, route-state, bundle-budget,
   and browser-smoke evidence.
 
 Non-goals:
@@ -67,16 +79,18 @@ Exit criteria:
 Evidence:
 
 - `docs/workstreams/provider-review-global-queue-search/`
+- `docs/workstreams/provider-review-global-queue-search/CLOSEOUT.md`
 - `docs/workstreams/admin-candidate-review-list-navigation/CLOSEOUT.md`
 - `docs/architecture/LIBRARY_PIPELINE.md`
 - `docs/architecture/LANES.md`
 
-Current task:
+Completed tasks:
 
-- `PRGQ-020`: add a read-only Admin API global Candidate Review queue route
-  and repository query contract.
-
-## Recent Completed Goals
+- `PRGQ-020`: added the read-only Admin API global Candidate Review queue
+  route and repository query contract.
+- `PRGQ-030`: added Web Admin global queue navigation into the existing
+  detail/apply page.
+- `PRGQ-040`: closed the lane and split follow-ons.
 
 ### Admin Candidate Review List Navigation
 

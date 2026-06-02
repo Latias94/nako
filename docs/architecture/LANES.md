@@ -18,9 +18,8 @@ ledger instead.
 
 ## Active Queue
 
-| Lane | Active workstream | Next task | Recommended terminal role |
-| --- | --- | --- | --- |
-| library-metadata-control-plane | provider-review-global-queue-search | PRGQ-020 | Candidate Review queue implementer |
+No active implementation workstream is assigned in this registry after
+`provider-review-global-queue-search` closed at `PRGQ-040`.
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.
@@ -67,9 +66,11 @@ item-scoped Admin API/Web Candidate Review discovery and navigation into the
 existing detail/apply page. Future work should open a focused follow-on for
 global queue/search, provider governance bulk review, related hierarchy
 application, Douban TV/episode depth, or broader provider governance.
-`provider-review-global-queue-search` is active at `PRGQ-020` to add a
-read-only global Candidate Review queue/search Admin API surface before any Web
-queue UI, batch governance, status/apply mutation, or hierarchy application.
+`provider-review-global-queue-search` is closed after `PRGQ-040`. It shipped
+the read-only global Candidate Review queue Admin API route and Web Admin
+global queue navigation while keeping batch governance, status/apply mutation,
+provider endpoint depth, Public Client API changes, and related hierarchy
+application split.
 
 The `mvp-release-convergence` lane is idle after `mvp-release-shape` closeout.
 
@@ -171,10 +172,9 @@ Closed evidence:
 - `docs/workstreams/accepted-review-provider-mapping-application/`
 - `docs/workstreams/admin-web-provider-depth-governance/`
 - `docs/workstreams/admin-candidate-review-list-navigation/`
-
-Active evidence:
-
 - `docs/workstreams/provider-review-global-queue-search/`
+
+Active evidence: none.
 
 Owned scopes:
 
@@ -202,7 +202,6 @@ Owned scopes:
 - `docs/workstreams/accepted-review-provider-mapping-application/`
 - `docs/workstreams/admin-web-provider-depth-governance/`
 - `docs/workstreams/admin-candidate-review-list-navigation/`
-- `docs/workstreams/provider-review-global-queue-search/`
 
 Shared scopes requiring planner coordination:
 

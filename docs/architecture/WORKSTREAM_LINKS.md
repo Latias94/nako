@@ -167,7 +167,7 @@ Evidence workstreams:
 - `docs/workstreams/accepted-review-provider-mapping-application/` (closed)
 - `docs/workstreams/admin-web-provider-depth-governance/` (closed)
 - `docs/workstreams/admin-candidate-review-list-navigation/` (closed)
-- `docs/workstreams/provider-review-global-queue-search/` (active)
+- `docs/workstreams/provider-review-global-queue-search/` (closed)
 - `docs/workstreams/metadata-acquisition-pipeline/`
 - `docs/workstreams/metadata-profile-configuration-authority/`
 - `docs/workstreams/metadata-application-policy-seam/`

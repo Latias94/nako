@@ -1,13 +1,13 @@
 # Provider Review Global Queue Search - Design
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## Why This Lane Exists
 
 `admin-candidate-review-list-navigation` made durable Metadata Candidate
 Reviews discoverable from a Media Item context. Operators still need a global
-queue/search surface when they are triaging provider review work across a
+queue/filter surface when they are triaging provider review work across a
 library and do not already know the item ID.
 
 The next correct slice is a read-only Admin queue before batch governance or
@@ -44,9 +44,9 @@ review work at library scale.
 When this lane closes:
 
 1. Admin API exposes a paginated global Metadata Candidate Review queue route.
-2. Queue filters include at least status and source, with an explicit search
-   policy for review ID, item ID, source key, and redaction-safe root summary
-   fields.
+2. Queue filters include status and provider/source. Broader search across
+   review ID, item ID, source key, or root summaries remains a follow-on until
+   a redaction-safe projection/index owns that scope.
 3. Queue entries remain summaries for triage/navigation and link to the
    existing detail/apply route for full evidence.
 4. Web Admin can browse the global queue and route into the existing
@@ -61,7 +61,7 @@ When this lane closes:
 - Admin DTOs and route inventory for the global queue.
 - Server HTTP read path using the repository query.
 - Generated Admin TypeScript contract sync.
-- Web Admin queue/search route-state and data-source mapping.
+- Web Admin queue/filter route-state and data-source mapping.
 - Redaction, pagination, filter, no-write, and browser smoke tests.
 
 ## Out Of Scope
@@ -119,8 +119,10 @@ claiming queue search complete. Do not search raw provider JSON.
 
 This lane can close when:
 
-- global queue/search target state is implemented;
+- global queue target state is implemented;
 - Admin API/Web gates pass with fresh evidence;
 - docs reflect shipped behavior;
 - and batch governance, related hierarchy application, and provider endpoint
   depth remain split or explicitly deferred.
+
+Closeout status: met at `PRGQ-040`.

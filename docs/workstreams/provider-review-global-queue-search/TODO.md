@@ -1,6 +1,6 @@
 # Provider Review Global Queue Search - TODO
 
-Status: Active
+Status: Closed
 Last updated: 2026-06-02
 
 ## M0 - Lane Opening
@@ -24,7 +24,7 @@ Last updated: 2026-06-02
 ## M2 - Web Admin Global Queue Navigation
 
 - [x] PRGQ-030 [owner=codex] [deps=PRGQ-020] [scope=web/src/api/admin,web/src/features/admin,web/src/shell,web/src/test,docs/workstreams/provider-review-global-queue-search]
-  Goal: Add Web Admin global Candidate Review queue/search navigation that routes into the existing detail/apply page.
+  Goal: Add Web Admin global Candidate Review queue/filter navigation that routes into the existing detail/apply page.
   Validation: `npm --prefix web run test`; `npm --prefix web run check`; `npm --prefix web run build:budget`; browser smoke if a route or navigation mode is added; `git diff --check`.
   Review: Web must present queue rows as discovery/triage only, not as batch apply, status mutation, or hierarchy application.
   Evidence: `EVIDENCE_AND_GATES.md` (`PRGQ-030 Evidence`).
@@ -32,7 +32,7 @@ Last updated: 2026-06-02
 
 ## M3 - Closeout And Follow-On Split
 
-- [ ] PRGQ-040 [owner=planner] [deps=PRGQ-030] [scope=docs/workstreams/provider-review-global-queue-search,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
+- [x] PRGQ-040 [owner=planner] [deps=PRGQ-030] [scope=docs/workstreams/provider-review-global-queue-search,docs/architecture,docs/GOALS.md,docs/ROADMAP.md]
   Goal: Close the lane or split batch governance, related hierarchy application, and provider endpoint depth follow-ons.
   Validation: fresh gate evidence in `EVIDENCE_AND_GATES.md`; JSON/JSONL validation; `git diff --check`.
   Review: Admin/Web can triage global Candidate Reviews without broadening Public Client API, hierarchy mutation, or bulk apply.
