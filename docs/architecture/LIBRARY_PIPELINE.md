@@ -368,6 +368,10 @@ Shipped MVP foundation:
 - Intake candidates remain `Inspecting` on the first observation, become
   `Stable` after the same redaction-safe observation key is seen twice
   consecutively, and reset when the key changes.
+- Admin overview reports redaction-safe watch-folder runtime coverage so
+  operators can see which configured libraries started a supervised watcher and
+  which were skipped because monitoring was disabled, unsupported, or missing a
+  parseable root.
 - This slice does not add an OS watcher daemon, storage-pressure admission, or
   scan scheduler behavior; those remain follow-on productization work.
 

@@ -1,0 +1,9 @@
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared code reuse and cross-layer thinking guide for the server/API DTO boundary."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server package guideline index for app/runtime/Admin route work."}
+{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Server startup, app service, runtime, and HTTP module placement."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused server test and gate expectations."}
+{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "Background runtime diagnostics must remain redaction-safe."}
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "API package guideline index for Admin DTO changes."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Admin DTO ownership, generated contract, and redaction rules."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "API contract and redaction test expectations."}
+{"file": ".trellis/tasks/06-04-06-04-watch-folder-runtime-coverage-diagnostics/research/current-watch-folder-runtime-coverage.md", "reason": "Current watch-folder runtime coverage seam and constraints."}

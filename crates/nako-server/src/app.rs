@@ -113,7 +113,10 @@ pub(crate) use storage::{
 };
 use user_playback::UserPlaybackAppService;
 use user_playlist::UserPlaylistAppService;
-use watch_folder_runtime::WatchFolderRuntimeAppService;
+pub(crate) use watch_folder_runtime::{
+    WatchFolderRuntimeAppService, WatchFolderRuntimeCoverageDiagnostic,
+    WatchFolderRuntimeCoverageReport, WatchFolderRuntimeCoverageStatus,
+};
 pub(crate) use watch_folder_suppression::{
     BeginPlannedWatchFolderWriteSuppressionRequest, PlannedWatchFolderWriteCompletion,
     PlannedWatchFolderWriteSuppressionDiagnostic, WatchFolderSuppressionAppService,

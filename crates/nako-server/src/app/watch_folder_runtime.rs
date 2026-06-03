@@ -30,6 +30,51 @@ pub(crate) struct WatchFolderRuntimeTickDiagnostic {
     pub(crate) enqueued_job_id: Option<JobId>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum WatchFolderRuntimeCoverageStatus {
+    Started,
+    Disabled,
+    UnsupportedRoot,
+    MissingRoot,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct WatchFolderRuntimeCoverageDiagnostic {
+    pub(crate) library_id: LibraryId,
+    pub(crate) library_name: String,
+    pub(crate) root_scheme: Option<String>,
+    pub(crate) root_ref_redacted: String,
+    pub(crate) status: WatchFolderRuntimeCoverageStatus,
+    pub(crate) safe_reason: String,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub(crate) struct WatchFolderRuntimeCoverageReport {
+    pub(crate) diagnostics: Vec<WatchFolderRuntimeCoverageDiagnostic>,
+}
+
+impl WatchFolderRuntimeCoverageReport {
+    pub(crate) fn started_libraries(&self) -> usize {
+        self.diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.status == WatchFolderRuntimeCoverageStatus::Started)
+            .count()
+    }
+
+    pub(crate) fn realtime_enabled_libraries(&self) -> usize {
+        self.diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.status != WatchFolderRuntimeCoverageStatus::Disabled)
+            .count()
+    }
+
+    pub(crate) fn skipped_libraries(&self) -> usize {
+        self.diagnostics
+            .len()
+            .saturating_sub(self.started_libraries())
+    }
+}
+
 impl WatchFolderRuntimeAppService {
     pub(crate) fn new(
         store: NakoDatabase,
@@ -46,12 +91,16 @@ impl WatchFolderRuntimeAppService {
     pub(super) async fn start_enabled_watchers(
         &self,
         runtime: &RuntimeSupervisor,
-    ) -> Result<usize> {
-        let libraries = self.list_monitored_libraries().await?;
+    ) -> Result<WatchFolderRuntimeCoverageReport> {
+        let coverage = self.runtime_coverage_report().await?;
 
-        for library in &libraries {
+        for diagnostic in coverage
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.status == WatchFolderRuntimeCoverageStatus::Started)
+        {
             let service = self.clone();
-            let library_id = library.id;
+            let library_id = diagnostic.library_id;
             let shutdown = runtime.shutdown_token();
             runtime.spawn(
                 "watch_folder_runtime",
@@ -89,7 +138,13 @@ impl WatchFolderRuntimeAppService {
             );
         }
 
-        Ok(libraries.len())
+        Ok(coverage)
+    }
+
+    pub(crate) async fn runtime_coverage_report(&self) -> Result<WatchFolderRuntimeCoverageReport> {
+        Ok(WatchFolderRuntimeCoverageReport {
+            diagnostics: watch_folder_runtime_coverage_for_libraries(&self.list_libraries().await?),
+        })
     }
 
     pub(crate) async fn tick_library(
@@ -139,7 +194,7 @@ impl WatchFolderRuntimeAppService {
         })
     }
 
-    async fn list_monitored_libraries(&self) -> Result<Vec<Library>> {
+    async fn list_libraries(&self) -> Result<Vec<Library>> {
         let mut libraries = Vec::new();
         let mut offset = 0_u64;
 
@@ -147,9 +202,6 @@ impl WatchFolderRuntimeAppService {
             let page = PageRequest::new(PageRequest::MAX_LIMIT, offset);
             let mut batch = self.store.list_libraries(page).await?;
             let returned = batch.len();
-            batch.retain(|library| {
-                library.options.scan.realtime_monitor && is_local_watch_folder_root(library)
-            });
             libraries.append(&mut batch);
 
             if returned < PageRequest::MAX_LIMIT as usize {
@@ -161,10 +213,122 @@ impl WatchFolderRuntimeAppService {
     }
 }
 
+fn watch_folder_runtime_coverage_for_libraries(
+    libraries: &[Library],
+) -> Vec<WatchFolderRuntimeCoverageDiagnostic> {
+    libraries
+        .iter()
+        .map(watch_folder_runtime_coverage_for_library)
+        .collect()
+}
+
+fn watch_folder_runtime_coverage_for_library(
+    library: &Library,
+) -> WatchFolderRuntimeCoverageDiagnostic {
+    let root = library
+        .roots
+        .first()
+        .and_then(|root| StorageUri::parse(root).ok());
+    let root_scheme = root.as_ref().map(|root| root.scheme().to_owned());
+    let root_ref_redacted = root_scheme
+        .as_deref()
+        .map(redact_storage_scheme)
+        .unwrap_or_else(|| "<redacted>".to_owned());
+
+    let (status, safe_reason) = if !library.options.scan.realtime_monitor {
+        (
+            WatchFolderRuntimeCoverageStatus::Disabled,
+            "realtime monitoring is disabled",
+        )
+    } else {
+        match root.as_ref().map(StorageUri::scheme) {
+            Some("local") => (
+                WatchFolderRuntimeCoverageStatus::Started,
+                "local watch-folder runtime started",
+            ),
+            Some(_) => (
+                WatchFolderRuntimeCoverageStatus::UnsupportedRoot,
+                "watch-folder runtime requires a local root",
+            ),
+            None => (
+                WatchFolderRuntimeCoverageStatus::MissingRoot,
+                "library has no parseable root",
+            ),
+        }
+    };
+
+    WatchFolderRuntimeCoverageDiagnostic {
+        library_id: library.id,
+        library_name: library.name.clone(),
+        root_scheme,
+        root_ref_redacted,
+        status,
+        safe_reason: safe_reason.to_owned(),
+    }
+}
+
 fn is_local_watch_folder_root(library: &Library) -> bool {
     library
         .roots
         .first()
         .and_then(|root| StorageUri::parse(root).ok())
         .is_some_and(|root| root.scheme() == "local")
+}
+
+fn redact_storage_scheme(scheme: &str) -> String {
+    format!("{scheme}://<redacted>")
+}
+
+#[cfg(test)]
+mod tests {
+    use nako_core::{LibraryOptions, LibraryPreset};
+
+    use super::*;
+
+    #[test]
+    fn watch_folder_runtime_coverage_reports_started_and_skipped_reasons() {
+        let diagnostics = watch_folder_runtime_coverage_for_libraries(&[
+            library("Started", vec!["local:///Movies"], true),
+            library("Disabled", vec!["local:///Disabled"], false),
+            library("Remote", vec!["webdav:///Movies"], true),
+            library("Missing", Vec::new(), true),
+        ]);
+
+        assert_eq!(diagnostics.len(), 4);
+        assert_eq!(
+            diagnostics[0].status,
+            WatchFolderRuntimeCoverageStatus::Started
+        );
+        assert_eq!(diagnostics[0].root_scheme.as_deref(), Some("local"));
+        assert_eq!(diagnostics[0].root_ref_redacted, "local://<redacted>");
+        assert_eq!(
+            diagnostics[1].status,
+            WatchFolderRuntimeCoverageStatus::Disabled
+        );
+        assert_eq!(
+            diagnostics[2].status,
+            WatchFolderRuntimeCoverageStatus::UnsupportedRoot
+        );
+        assert_eq!(diagnostics[2].root_ref_redacted, "webdav://<redacted>");
+        assert_eq!(
+            diagnostics[3].status,
+            WatchFolderRuntimeCoverageStatus::MissingRoot
+        );
+        assert_eq!(diagnostics[3].root_ref_redacted, "<redacted>");
+        assert!(
+            !format!("{diagnostics:?}").contains("local:///Movies"),
+            "coverage diagnostics must not leak raw roots"
+        );
+    }
+
+    fn library(name: &str, roots: Vec<&str>, realtime_monitor: bool) -> Library {
+        let mut options = LibraryOptions::from_preset(LibraryPreset::Movies);
+        options.scan.realtime_monitor = realtime_monitor;
+        Library {
+            id: LibraryId::new(),
+            name: name.to_owned(),
+            roots: roots.into_iter().map(str::to_owned).collect(),
+            options,
+        }
+    }
 }

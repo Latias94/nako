@@ -22,6 +22,7 @@ use super::{
     },
     metadata::MetadataAppService,
     staging::cleanup_expired_staging_inputs,
+    watch_folder_runtime::WatchFolderRuntimeCoverageReport,
 };
 use crate::config::{LocalLibraryConfig, NakoServerConfig, libraries_from_config};
 
@@ -39,6 +40,7 @@ pub(crate) struct ServerStartupReport {
     pub artwork_ingest_worker_started: bool,
     pub addon_event_scheduler_started: bool,
     pub watch_folder_runtimes_started: usize,
+    pub watch_folder_runtime_coverage: WatchFolderRuntimeCoverageReport,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -104,6 +106,7 @@ impl<'a> ServerStartupWorkflow<'a> {
             artwork_ingest_worker_started: false,
             addon_event_scheduler_started: false,
             watch_folder_runtimes_started: 0,
+            watch_folder_runtime_coverage: WatchFolderRuntimeCoverageReport::default(),
         })
     }
 

@@ -1359,6 +1359,8 @@ export interface PageInfo {
 
 export type AdminOverviewStatus = "healthy" | "degraded";
 
+export type AdminWatchFolderRuntimeCoverageStatus = "started" | "disabled" | "unsupported_root" | "missing_root";
+
 export interface AdminOverviewResponse {
   admin_api_version: string;
   public_api_version: string;
@@ -1412,6 +1414,20 @@ export interface AdminOverviewResponse {
     artwork_ingest_worker_started: boolean;
     addon_event_scheduler_started: boolean;
     watch_folder_runtimes_started: number;
+    watch_folder_runtime: {
+      configured_libraries: number;
+      realtime_enabled_libraries: number;
+      started_libraries: number;
+      skipped_libraries: number;
+      diagnostics: Array<{
+        library_id: string;
+        library_name: string;
+        root_scheme: string | null;
+        root_ref_redacted: string;
+        status: AdminWatchFolderRuntimeCoverageStatus;
+        safe_reason: string;
+      }>;
+    };
   };
 }
 

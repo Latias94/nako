@@ -12,6 +12,7 @@ use nako_api::admin::{
     AdminMetadataCandidateReviewResponse, AdminMetadataCandidateReviewUndoMode,
     AdminMetadataCandidateReviewUndoReason, AdminStorageBackendHealthDiagnosticsResponse,
     AdminStorageBackendHealthResetResponse, AdminStorageStagingPressureStatus,
+    AdminWatchFolderRuntimeCoverageStatus,
 };
 use nako_core::{
     JobKind, JobRepository, JobStatus, METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS,
@@ -173,6 +174,27 @@ async fn admin_v1_overview_composes_safe_read_only_diagnostics() {
     assert_eq!(overview.startup.configured_libraries, 1);
     assert_eq!(overview.startup.recovered_jobs, 0);
     assert_eq!(overview.startup.recovered_transcode_sessions, 0);
+    assert_eq!(
+        overview.startup.watch_folder_runtime.configured_libraries,
+        1
+    );
+    assert_eq!(
+        overview
+            .startup
+            .watch_folder_runtime
+            .realtime_enabled_libraries,
+        0
+    );
+    assert_eq!(overview.startup.watch_folder_runtime.started_libraries, 0);
+    assert_eq!(overview.startup.watch_folder_runtime.skipped_libraries, 1);
+    assert_eq!(
+        overview.startup.watch_folder_runtime.diagnostics[0].status,
+        AdminWatchFolderRuntimeCoverageStatus::Disabled
+    );
+    assert_eq!(
+        overview.startup.watch_folder_runtime.diagnostics[0].root_ref_redacted,
+        "local://<redacted>"
+    );
 
     assert!(!body.contains(&temp.path().display().to_string()));
     assert!(!body.contains("secret"));

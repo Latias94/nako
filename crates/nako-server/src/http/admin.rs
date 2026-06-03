@@ -51,19 +51,20 @@ use nako_api::{
         AdminOverviewMetadataProviderSummary, AdminOverviewMetadataSummary, AdminOverviewResponse,
         AdminOverviewRuntimeSummary, AdminOverviewStartupSummary, AdminOverviewStatus,
         AdminOverviewStorageBackendSummary, AdminOverviewStorageSummary,
-        AdminPlaybackArtifactLifecycleDiagnostics, AdminPlaybackFfmpegDiagnostics,
-        AdminPlaybackHardwareCapability, AdminPlaybackHardwareCapabilityReason,
-        AdminPlaybackHardwareDeviceInitialization, AdminPlaybackHardwareDeviceInitializationStatus,
-        AdminPlaybackHardwareDiagnostics, AdminPlaybackHardwareEncoderDiscovery,
-        AdminPlaybackHardwareEncoderDiscoveryStatus, AdminPlaybackHardwareSmokeProbe,
-        AdminPlaybackHardwareSmokeProbeStatus, AdminPlaybackHardwareStageCapability,
-        AdminPlaybackPolicyDiagnostics, AdminPlaybackReadinessCheck,
-        AdminPlaybackReadinessCheckName, AdminPlaybackReadinessDiagnostics,
-        AdminPlaybackReadinessReason, AdminPlaybackRemoteBudgetDiagnostics,
-        AdminPlaybackRemuxRuntimeDiagnostics, AdminPlaybackResourceClass,
-        AdminPlaybackResourceClassPressure, AdminPlaybackResourceEnforcement,
-        AdminPlaybackResourcePressureDiagnostics, AdminPlaybackRuntimeDiagnosticsResponse,
-        AdminPlaybackRuntimeStatus, AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
+        AdminOverviewWatchFolderRuntimeSummary, AdminPlaybackArtifactLifecycleDiagnostics,
+        AdminPlaybackFfmpegDiagnostics, AdminPlaybackHardwareCapability,
+        AdminPlaybackHardwareCapabilityReason, AdminPlaybackHardwareDeviceInitialization,
+        AdminPlaybackHardwareDeviceInitializationStatus, AdminPlaybackHardwareDiagnostics,
+        AdminPlaybackHardwareEncoderDiscovery, AdminPlaybackHardwareEncoderDiscoveryStatus,
+        AdminPlaybackHardwareSmokeProbe, AdminPlaybackHardwareSmokeProbeStatus,
+        AdminPlaybackHardwareStageCapability, AdminPlaybackPolicyDiagnostics,
+        AdminPlaybackReadinessCheck, AdminPlaybackReadinessCheckName,
+        AdminPlaybackReadinessDiagnostics, AdminPlaybackReadinessReason,
+        AdminPlaybackRemoteBudgetDiagnostics, AdminPlaybackRemuxRuntimeDiagnostics,
+        AdminPlaybackResourceClass, AdminPlaybackResourceClassPressure,
+        AdminPlaybackResourceEnforcement, AdminPlaybackResourcePressureDiagnostics,
+        AdminPlaybackRuntimeDiagnosticsResponse, AdminPlaybackRuntimeStatus,
+        AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
         AdminPlaybackStagingDiagnostics, AdminPlaybackSupportEvidenceResponse,
         AdminPlaybackSupportHardwareCapabilityEvidence, AdminPlaybackSupportHardwareEvidence,
         AdminPlaybackSupportRedactionEvidence, AdminPlaybackSupportRuntimeEvidence,
@@ -87,6 +88,7 @@ use nako_api::{
         AdminUpsertLibraryAccessPolicyRequest, AdminVfsCacheRepairClassification,
         AdminVfsCacheRepairDiagnostic, AdminVfsCacheSummary, AdminWatchFolderDiscoveryFailure,
         AdminWatchFolderDiscoveryRequest, AdminWatchFolderDiscoveryResponse,
+        AdminWatchFolderRuntimeCoverageDiagnostic, AdminWatchFolderRuntimeCoverageStatus,
         AdminWatchFolderSuppression, JobResponse, StorageBackendDiagnosticsResponse,
         StorageBackendKind, StorageBackendRuntimeStateScope, StorageBackendStatus,
     },
@@ -119,7 +121,8 @@ use crate::{
     },
     app::{
         NakoApp, RuntimeSupervisorDiagnostics, StagingBudgetPolicySlice,
-        StorageStagingPressureStatus,
+        StorageStagingPressureStatus, WatchFolderRuntimeCoverageDiagnostic,
+        WatchFolderRuntimeCoverageReport, WatchFolderRuntimeCoverageStatus,
         storage_staging_pressure_status as app_storage_staging_pressure_status,
     },
     config::{
@@ -1283,6 +1286,9 @@ pub(super) async fn get_admin_overview(State(app): State<NakoApp>) -> ApiResult<
         artwork_ingest_worker_started: startup.artwork_ingest_worker_started,
         addon_event_scheduler_started: startup.addon_event_scheduler_started,
         watch_folder_runtimes_started: usize_to_u32(startup.watch_folder_runtimes_started),
+        watch_folder_runtime: admin_watch_folder_runtime_summary(
+            startup.watch_folder_runtime_coverage,
+        ),
     };
     let status = overview_status(&storage, &metadata, &runtime);
 
@@ -2482,6 +2488,52 @@ pub(super) async fn get_admin_playback_support_evidence(
             credentials_redacted: true,
         },
     }))
+}
+
+fn admin_watch_folder_runtime_summary(
+    report: WatchFolderRuntimeCoverageReport,
+) -> AdminOverviewWatchFolderRuntimeSummary {
+    AdminOverviewWatchFolderRuntimeSummary {
+        configured_libraries: usize_to_u32(report.diagnostics.len()),
+        realtime_enabled_libraries: usize_to_u32(report.realtime_enabled_libraries()),
+        started_libraries: usize_to_u32(report.started_libraries()),
+        skipped_libraries: usize_to_u32(report.skipped_libraries()),
+        diagnostics: report
+            .diagnostics
+            .into_iter()
+            .map(admin_watch_folder_runtime_coverage_diagnostic)
+            .collect(),
+    }
+}
+
+fn admin_watch_folder_runtime_coverage_diagnostic(
+    diagnostic: WatchFolderRuntimeCoverageDiagnostic,
+) -> AdminWatchFolderRuntimeCoverageDiagnostic {
+    AdminWatchFolderRuntimeCoverageDiagnostic {
+        library_id: diagnostic.library_id,
+        library_name: diagnostic.library_name,
+        root_scheme: diagnostic.root_scheme,
+        root_ref_redacted: diagnostic.root_ref_redacted,
+        status: admin_watch_folder_runtime_coverage_status(diagnostic.status),
+        safe_reason: diagnostic.safe_reason,
+    }
+}
+
+fn admin_watch_folder_runtime_coverage_status(
+    status: WatchFolderRuntimeCoverageStatus,
+) -> AdminWatchFolderRuntimeCoverageStatus {
+    match status {
+        WatchFolderRuntimeCoverageStatus::Started => AdminWatchFolderRuntimeCoverageStatus::Started,
+        WatchFolderRuntimeCoverageStatus::Disabled => {
+            AdminWatchFolderRuntimeCoverageStatus::Disabled
+        }
+        WatchFolderRuntimeCoverageStatus::UnsupportedRoot => {
+            AdminWatchFolderRuntimeCoverageStatus::UnsupportedRoot
+        }
+        WatchFolderRuntimeCoverageStatus::MissingRoot => {
+            AdminWatchFolderRuntimeCoverageStatus::MissingRoot
+        }
+    }
 }
 
 fn storage_summary(diagnostics: StorageBackendDiagnosticsResponse) -> AdminOverviewStorageSummary {

@@ -256,7 +256,8 @@ runnable candidates to proceed.
 ### 2. Signatures
 
 - `WatchFolderRuntimeAppService::start_enabled_watchers(&RuntimeSupervisor) ->
-  Result<usize>` is the startup hook for supervised watch-folder runtimes.
+  Result<WatchFolderRuntimeCoverageReport>` is the startup hook for supervised
+  watch-folder runtimes and the coverage diagnostic authority.
 - `WatchFolderRuntimeAppService::tick_library(LibraryId) ->
   Result<WatchFolderRuntimeTickDiagnostic>` is the bounded per-library polling
   unit used by tests and runtime loops.
@@ -280,6 +281,9 @@ runnable candidates to proceed.
 - Start runtimes only for persisted libraries whose
   `library.options.scan.realtime_monitor` is true and whose first root is a
   local `StorageUri`.
+- Startup must preserve redaction-safe watch-folder runtime coverage
+  diagnostics for started, disabled, unsupported-root, and missing-root
+  libraries instead of only returning a started count.
 - Configured-library reconciliation must preserve persisted scan options so
   operator-controlled `realtime_monitor` and scan depth settings survive config
   replay.
@@ -343,6 +347,8 @@ runnable candidates to proceed.
 
 - App test: supervised watch-folder runtime starts for a persisted realtime
   local library and stops when `NakoApp::shutdown_runtime()` is called.
+- App/API/HTTP test: watch-folder runtime coverage diagnostics expose started
+  and skipped status with redacted root references in Admin overview.
 - App test: first tick records inspecting candidates and enqueues no scan job.
 - App test: second identical tick reports newly ready candidates and enqueues a
   `JobKind::LibraryScan` job with resource class `disk.scan`.

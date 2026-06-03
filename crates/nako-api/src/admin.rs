@@ -389,6 +389,35 @@ pub struct AdminOverviewStartupSummary {
     pub artwork_ingest_worker_started: bool,
     pub addon_event_scheduler_started: bool,
     pub watch_folder_runtimes_started: u32,
+    pub watch_folder_runtime: AdminOverviewWatchFolderRuntimeSummary,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOverviewWatchFolderRuntimeSummary {
+    pub configured_libraries: u32,
+    pub realtime_enabled_libraries: u32,
+    pub started_libraries: u32,
+    pub skipped_libraries: u32,
+    pub diagnostics: Vec<AdminWatchFolderRuntimeCoverageDiagnostic>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminWatchFolderRuntimeCoverageDiagnostic {
+    pub library_id: LibraryId,
+    pub library_name: String,
+    pub root_scheme: Option<String>,
+    pub root_ref_redacted: String,
+    pub status: AdminWatchFolderRuntimeCoverageStatus,
+    pub safe_reason: String,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminWatchFolderRuntimeCoverageStatus {
+    Started,
+    Disabled,
+    UnsupportedRoot,
+    MissingRoot,
 }
 
 #[cfg(test)]
@@ -455,6 +484,20 @@ mod tests {
                 artwork_ingest_worker_started: false,
                 addon_event_scheduler_started: false,
                 watch_folder_runtimes_started: 0,
+                watch_folder_runtime: AdminOverviewWatchFolderRuntimeSummary {
+                    configured_libraries: 2,
+                    realtime_enabled_libraries: 1,
+                    started_libraries: 1,
+                    skipped_libraries: 1,
+                    diagnostics: vec![AdminWatchFolderRuntimeCoverageDiagnostic {
+                        library_id,
+                        library_name: "Movies".to_owned(),
+                        root_scheme: Some("local".to_owned()),
+                        root_ref_redacted: "local://<redacted>".to_owned(),
+                        status: AdminWatchFolderRuntimeCoverageStatus::Started,
+                        safe_reason: "local watch-folder runtime started".to_owned(),
+                    }],
+                },
             },
         };
 
@@ -469,6 +512,14 @@ mod tests {
         assert_eq!(value["catalog"]["governed_items"], 2);
         assert_eq!(value["catalog"]["items_with_duplicate_relationships"], 1);
         assert_eq!(value["metadata"]["providers"][0]["provider"], "tmdb");
+        assert_eq!(
+            value["startup"]["watch_folder_runtime"]["diagnostics"][0]["status"],
+            "started"
+        );
+        assert_eq!(
+            value["startup"]["watch_folder_runtime"]["diagnostics"][0]["root_ref_redacted"],
+            "local://<redacted>"
+        );
         assert!(!body.contains("secret"));
         assert!(!body.contains("token"));
         assert!(!body.contains("root_uri"));

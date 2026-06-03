@@ -76,10 +76,11 @@ impl NakoAppComposition {
         let addon_event_scheduler_started = services
             .addons
             .start_addon_event_scheduler(config.addon_event_scheduler);
-        let watch_folder_runtimes_started = services
+        let watch_folder_runtime_coverage = services
             .watch_folder_runtime
             .start_enabled_watchers(&runtime)
             .await?;
+        let watch_folder_runtimes_started = watch_folder_runtime_coverage.started_libraries();
 
         Ok(Self {
             config,
@@ -91,6 +92,7 @@ impl NakoAppComposition {
                 artwork_ingest_worker_started,
                 addon_event_scheduler_started,
                 watch_folder_runtimes_started,
+                watch_folder_runtime_coverage,
                 ..startup_report
             },
         })

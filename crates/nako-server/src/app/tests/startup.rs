@@ -2370,6 +2370,18 @@ async fn watch_folder_runtime_task_is_supervised_and_stops_on_shutdown() {
         .unwrap();
 
     assert_eq!(app.startup_report().watch_folder_runtimes_started, 1);
+    let coverage = &app.startup_report().watch_folder_runtime_coverage;
+    assert_eq!(coverage.started_libraries(), 1);
+    assert_eq!(coverage.skipped_libraries(), 0);
+    assert_eq!(coverage.diagnostics.len(), 1);
+    assert_eq!(
+        coverage.diagnostics[0].status,
+        crate::app::WatchFolderRuntimeCoverageStatus::Started
+    );
+    assert_eq!(
+        coverage.diagnostics[0].root_ref_redacted,
+        "local://<redacted>"
+    );
     let diagnostics = app.runtime_diagnostics();
     assert_eq!(diagnostics.active_tasks, 1);
     assert_eq!(diagnostics.tasks[0].name, "watch_folder_runtime");
