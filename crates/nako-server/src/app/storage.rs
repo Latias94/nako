@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     path::PathBuf,
     sync::{
         Arc,
@@ -50,6 +50,157 @@ pub(crate) struct StagingManifestPressureSummary {
     pub(crate) active_leases: u64,
     pub(crate) ffmpeg_input_records: usize,
     pub(crate) probe_input_records: usize,
+}
+
+impl StagingManifestPressureSummary {
+    fn record(&mut self, record: &StagingManifestRecord) {
+        self.total_records = self.total_records.saturating_add(1);
+        self.active_leases = self
+            .active_leases
+            .saturating_add(u64::from(record.active_leases));
+        if record.size_bytes.is_none() {
+            self.unknown_size_records = self.unknown_size_records.saturating_add(1);
+        }
+        match record.state {
+            StagingState::Reserved | StagingState::Staging | StagingState::Leased => {
+                self.in_flight_records = self.in_flight_records.saturating_add(1);
+            }
+            StagingState::Failed => {
+                self.failed_records = self.failed_records.saturating_add(1);
+            }
+            StagingState::Ready | StagingState::Expired | StagingState::Deleted => {}
+        }
+        match record.purpose {
+            StagingPurpose::FfmpegInput => {
+                self.ffmpeg_input_records = self.ffmpeg_input_records.saturating_add(1);
+            }
+            StagingPurpose::ProbeInput => {
+                self.probe_input_records = self.probe_input_records.saturating_add(1);
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct StagingBudgetPolicySlice {
+    pub(crate) backend_key: String,
+    pub(crate) library_id: Option<LibraryId>,
+    pub(crate) library_name: Option<String>,
+    pub(crate) backend_kind: Option<StorageBackendKind>,
+    pub(crate) source_scheme: String,
+    pub(crate) configured_max_bytes: u64,
+    pub(crate) used_manifest_bytes: u64,
+    pub(crate) manifest_pressure: StagingManifestPressureSummary,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct StagingBudgetPolicyScope {
+    source_scheme: String,
+    root_path: Option<String>,
+}
+
+impl StagingBudgetPolicyScope {
+    fn from_config(config: &LocalLibraryConfig) -> Self {
+        let root_uri = configured_staging_policy_root(config);
+        let parsed_root = StorageUri::parse(&root_uri).ok();
+        let source_scheme = parsed_root
+            .as_ref()
+            .map(|uri| uri.scheme().to_owned())
+            .unwrap_or_else(|| {
+                if config.webdav.is_some() {
+                    "webdav".to_owned()
+                } else {
+                    "local".to_owned()
+                }
+            });
+        let root_path = parsed_root
+            .as_ref()
+            .map(|uri| normalized_storage_path(uri.path_part()));
+
+        Self {
+            source_scheme,
+            root_path,
+        }
+    }
+
+    fn backend(source_scheme: &str) -> Self {
+        Self {
+            source_scheme: source_scheme.to_owned(),
+            root_path: None,
+        }
+    }
+
+    fn matches_record(&self, source_uri: Option<&StorageUri>, source_scheme: &str) -> bool {
+        if self.source_scheme != source_scheme {
+            return false;
+        }
+
+        let Some(root_path) = self.root_path.as_deref() else {
+            return true;
+        };
+        let Some(source_uri) = source_uri else {
+            return false;
+        };
+
+        storage_path_matches_root(&normalized_storage_path(source_uri.path_part()), root_path)
+    }
+}
+
+struct StagingBudgetPolicyAccumulator {
+    slice: StagingBudgetPolicySlice,
+    scope: StagingBudgetPolicyScope,
+}
+
+impl StagingBudgetPolicyAccumulator {
+    fn configured(config: &LocalLibraryConfig, configured_max_bytes: u64) -> Self {
+        let scope = StagingBudgetPolicyScope::from_config(config);
+
+        Self {
+            slice: StagingBudgetPolicySlice {
+                backend_key: storage_backend_key(config.id, &scope.source_scheme),
+                library_id: Some(config.id),
+                library_name: Some(config.name.clone()),
+                backend_kind: Some(backend_kind(config)),
+                source_scheme: scope.source_scheme.clone(),
+                configured_max_bytes,
+                used_manifest_bytes: 0,
+                manifest_pressure: StagingManifestPressureSummary::default(),
+            },
+            scope,
+        }
+    }
+
+    fn backend(source_scheme: &str, configured_max_bytes: u64) -> Self {
+        Self {
+            slice: StagingBudgetPolicySlice {
+                backend_key: format!("backend:{source_scheme}"),
+                library_id: None,
+                library_name: None,
+                backend_kind: backend_kind_from_scheme(source_scheme),
+                source_scheme: source_scheme.to_owned(),
+                configured_max_bytes,
+                used_manifest_bytes: 0,
+                manifest_pressure: StagingManifestPressureSummary::default(),
+            },
+            scope: StagingBudgetPolicyScope::backend(source_scheme),
+        }
+    }
+
+    fn matches_record(&self, source_uri: Option<&StorageUri>, source_scheme: &str) -> bool {
+        self.scope.matches_record(source_uri, source_scheme)
+    }
+
+    fn record(&mut self, record: &StagingManifestRecord) {
+        self.slice.used_manifest_bytes = self
+            .slice
+            .used_manifest_bytes
+            .saturating_add(record.size_bytes.unwrap_or(0));
+        self.slice.manifest_pressure.record(record);
+    }
+
+    fn into_slice(self) -> StagingBudgetPolicySlice {
+        self.slice
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -212,31 +363,7 @@ impl StorageDiagnosticsAppService {
             let returned = records.len();
 
             for record in &records {
-                summary.total_records = summary.total_records.saturating_add(1);
-                summary.active_leases = summary
-                    .active_leases
-                    .saturating_add(u64::from(record.active_leases));
-                if record.size_bytes.is_none() {
-                    summary.unknown_size_records = summary.unknown_size_records.saturating_add(1);
-                }
-                match record.state {
-                    StagingState::Reserved | StagingState::Staging | StagingState::Leased => {
-                        summary.in_flight_records = summary.in_flight_records.saturating_add(1);
-                    }
-                    StagingState::Failed => {
-                        summary.failed_records = summary.failed_records.saturating_add(1);
-                    }
-                    StagingState::Ready | StagingState::Expired | StagingState::Deleted => {}
-                }
-                match record.purpose {
-                    StagingPurpose::FfmpegInput => {
-                        summary.ffmpeg_input_records =
-                            summary.ffmpeg_input_records.saturating_add(1);
-                    }
-                    StagingPurpose::ProbeInput => {
-                        summary.probe_input_records = summary.probe_input_records.saturating_add(1);
-                    }
-                }
+                summary.record(record);
             }
 
             if returned < PageRequest::MAX_LIMIT as usize {
@@ -252,6 +379,12 @@ impl StorageDiagnosticsAppService {
                                 .to_owned(),
                     })?;
         }
+    }
+
+    pub(crate) async fn summarize_staging_budget_policy(
+        &self,
+    ) -> Result<Vec<StagingBudgetPolicySlice>> {
+        self.registry.summarize_staging_budget_policy().await
     }
 
     #[cfg(test)]
@@ -440,7 +573,17 @@ impl StorageBackendRegistry {
             return Ok(None);
         }
 
-        self.global_staging_pressure_admission_error().await
+        let config = configured_library_config_for(&self.config, library.id)?;
+        let Some(slice) = self.staging_budget_policy_slice_for_config(&config).await? else {
+            return Ok(None);
+        };
+        let status =
+            storage_staging_pressure_status(slice.configured_max_bytes, slice.used_manifest_bytes);
+        if status.blocks_library_scan() {
+            return Ok(Some(storage_staging_pressure_library_scan_error(status)));
+        }
+
+        Ok(None)
     }
 
     async fn global_staging_pressure_admission_error(&self) -> Result<Option<NakoError>> {
@@ -462,6 +605,156 @@ impl StorageBackendRegistry {
             self.config.staging.max_bytes,
             used_manifest_bytes,
         ))
+    }
+
+    async fn summarize_staging_budget_policy(&self) -> Result<Vec<StagingBudgetPolicySlice>> {
+        let mut policy = self
+            .config
+            .libraries
+            .iter()
+            .map(|config| {
+                StagingBudgetPolicyAccumulator::configured(config, self.config.staging.max_bytes)
+            })
+            .collect::<Vec<_>>();
+        let mut backend_policy = BTreeMap::<String, StagingBudgetPolicyAccumulator>::new();
+        for slice in &policy {
+            let source_scheme = slice.slice.source_scheme.clone();
+            backend_policy
+                .entry(source_scheme.clone())
+                .or_insert_with(|| {
+                    StagingBudgetPolicyAccumulator::backend(
+                        &source_scheme,
+                        self.config.staging.max_bytes,
+                    )
+                });
+        }
+        let mut offset = 0;
+
+        loop {
+            let page = PageRequest::new(PageRequest::MAX_LIMIT, offset);
+            let records = self
+                .store
+                .list_staging_manifest_records(None, None, page)
+                .await?;
+            let returned = records.len();
+
+            for record in &records {
+                let source_uri = StorageUri::parse(&record.source_uri).ok();
+                let source_scheme = source_uri
+                    .as_ref()
+                    .map(|uri| uri.scheme().to_owned())
+                    .unwrap_or_else(|| safe_storage_scheme(&record.source_scheme));
+                backend_policy
+                    .entry(source_scheme.clone())
+                    .or_insert_with(|| {
+                        StagingBudgetPolicyAccumulator::backend(
+                            &source_scheme,
+                            self.config.staging.max_bytes,
+                        )
+                    })
+                    .record(record);
+
+                let matching_indices = policy
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(index, slice)| {
+                        slice
+                            .matches_record(source_uri.as_ref(), &source_scheme)
+                            .then_some(index)
+                    })
+                    .collect::<Vec<_>>();
+                if let [index] = matching_indices.as_slice() {
+                    policy[*index].record(record);
+                }
+            }
+
+            if returned < PageRequest::MAX_LIMIT as usize {
+                let mut slices = policy
+                    .into_iter()
+                    .map(StagingBudgetPolicyAccumulator::into_slice)
+                    .chain(
+                        backend_policy
+                            .into_values()
+                            .map(StagingBudgetPolicyAccumulator::into_slice),
+                    )
+                    .collect::<Vec<_>>();
+                slices.sort_by(|left, right| left.backend_key.cmp(&right.backend_key));
+                return Ok(slices);
+            }
+
+            offset =
+                offset
+                    .checked_add(returned as u64)
+                    .ok_or_else(|| NakoError::InvalidInput {
+                        message: "storage staging budget policy pagination offset overflowed"
+                            .to_owned(),
+                    })?;
+        }
+    }
+
+    async fn staging_budget_policy_slice_for_config(
+        &self,
+        config: &LocalLibraryConfig,
+    ) -> Result<Option<StagingBudgetPolicySlice>> {
+        let mut library_policy =
+            StagingBudgetPolicyAccumulator::configured(config, self.config.staging.max_bytes);
+        let library_scope_is_unique = self
+            .config
+            .libraries
+            .iter()
+            .filter(|candidate| {
+                StagingBudgetPolicyScope::from_config(candidate) == library_policy.scope
+            })
+            .count()
+            == 1;
+        let mut backend_policy = StagingBudgetPolicyAccumulator::backend(
+            &library_policy.slice.source_scheme,
+            self.config.staging.max_bytes,
+        );
+        let mut saw_source_scheme_record = false;
+        let mut offset = 0;
+
+        loop {
+            let page = PageRequest::new(PageRequest::MAX_LIMIT, offset);
+            let records = self
+                .store
+                .list_staging_manifest_records(None, None, page)
+                .await?;
+            let returned = records.len();
+
+            for record in &records {
+                let source_uri = StorageUri::parse(&record.source_uri).ok();
+                let source_scheme = source_uri
+                    .as_ref()
+                    .map(|uri| uri.scheme().to_owned())
+                    .unwrap_or_else(|| safe_storage_scheme(&record.source_scheme));
+                if backend_policy.matches_record(source_uri.as_ref(), &source_scheme) {
+                    backend_policy.record(record);
+                    saw_source_scheme_record = true;
+                }
+                if library_scope_is_unique
+                    && library_policy.matches_record(source_uri.as_ref(), &source_scheme)
+                {
+                    library_policy.record(record);
+                }
+            }
+
+            if returned < PageRequest::MAX_LIMIT as usize {
+                let library_slice = library_policy.into_slice();
+                if library_slice.manifest_pressure.total_records > 0 {
+                    return Ok(Some(library_slice));
+                }
+                return Ok(saw_source_scheme_record.then(|| backend_policy.into_slice()));
+            }
+
+            offset =
+                offset
+                    .checked_add(returned as u64)
+                    .ok_or_else(|| NakoError::InvalidInput {
+                        message: "storage staging admission policy pagination offset overflowed"
+                            .to_owned(),
+                    })?;
+        }
     }
 
     fn build_backend(&self, config: &LocalLibraryConfig) -> Result<Arc<dyn StorageBackend>> {
@@ -1019,6 +1312,50 @@ fn backend_kind(config: &LocalLibraryConfig) -> StorageBackendKind {
     }
 }
 
+fn backend_kind_from_scheme(scheme: &str) -> Option<StorageBackendKind> {
+    match scheme {
+        "local" => Some(StorageBackendKind::Local),
+        "webdav" => Some(StorageBackendKind::WebDav),
+        _ => None,
+    }
+}
+
+fn configured_staging_policy_root(config: &LocalLibraryConfig) -> String {
+    config
+        .webdav
+        .as_ref()
+        .map(|webdav| webdav.root.clone())
+        .unwrap_or_else(|| "local:///".to_owned())
+}
+
+fn normalized_storage_path(path: &str) -> String {
+    path.trim_start_matches(['/', '\\'])
+        .replace('\\', "/")
+        .trim_end_matches('/')
+        .to_owned()
+}
+
+fn storage_path_matches_root(path: &str, root: &str) -> bool {
+    root.is_empty()
+        || path == root
+        || path
+            .strip_prefix(root)
+            .is_some_and(|rest| rest.starts_with('/'))
+}
+
+fn safe_storage_scheme(scheme: &str) -> String {
+    let normalized = scheme.trim().to_ascii_lowercase();
+    if normalized.is_empty()
+        || !normalized
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_'))
+    {
+        "unknown".to_owned()
+    } else {
+        normalized
+    }
+}
+
 fn storage_staging_pressure_library_scan_error(status: StorageStagingPressureStatus) -> NakoError {
     NakoError::storage_staging_budget_exhausted(
         "staging://library-scan-admission",
@@ -1207,7 +1544,7 @@ mod tests {
     use async_trait::async_trait;
     use nako_core::{
         DatabaseLifecycle, LibraryOptions, LibraryPreset, MediaItemId, MediaSourceId, NakoError,
-        Result, StorageErrorKind, StorageFailureClass,
+        NewStagingManifestRecord, Result, StagingManifestId, StorageErrorKind, StorageFailureClass,
     };
     use nako_vfs::{
         ByteRange, ObjectMetadata, ReadRange, ReadStream, StageRequest, StagedFile, StorageBackend,
@@ -1387,6 +1724,179 @@ mod tests {
         let store = NakoDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         store
+    }
+
+    fn test_server_config(
+        root: &std::path::Path,
+        libraries: Vec<LocalLibraryConfig>,
+    ) -> NakoServerConfig {
+        NakoServerConfig {
+            database_backend: Default::default(),
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            database_url_env: None,
+            auth: crate::config::AuthConfig::disabled(),
+            network: crate::config::NetworkAccessConfig::default(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path: PathBuf::from("ffmpeg"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            webhook_concurrency: 1,
+            addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+            remux_timeout_ms: 1,
+            remux_staging_root: root.join("cache").join("remux"),
+            metadata: Default::default(),
+            transcode: Default::default(),
+            staging: StagingConfig {
+                max_bytes: 100,
+                ..StagingConfig::default()
+            },
+            playback: PlaybackConfig::default(),
+            artwork: crate::config::ArtworkConfig::default(),
+            libraries,
+        }
+    }
+
+    async fn occupy_test_staging_manifest_bytes(
+        store: &NakoDatabase,
+        source_uri: &str,
+        source_scheme: &str,
+        size_bytes: u64,
+    ) {
+        store
+            .upsert_staging_manifest_record(NewStagingManifestRecord {
+                id: StagingManifestId::new(),
+                source_uri: source_uri.to_owned(),
+                source_scheme: source_scheme.to_owned(),
+                purpose: StagingPurpose::ProbeInput,
+                local_path: format!("/nako/private/staging/{source_scheme}-secret.mkv"),
+                size_bytes: Some(size_bytes),
+                etag: Some("etag-secret".to_owned()),
+                fingerprint: Some("fingerprint-secret".to_owned()),
+                state: StagingState::Ready,
+                created_at_ms: 1_000,
+                updated_at_ms: 1_000,
+                last_accessed_at_ms: 1_000,
+                expires_at_ms: Some(10_000),
+                active_leases: 0,
+                validation_error: Some("raw backend error with token=secret".to_owned()),
+            })
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn webdav_scan_admission_ignores_local_staging_pressure() {
+        let temp = tempdir().unwrap();
+        let library_config = LocalLibraryConfig {
+            id: LibraryId::new(),
+            name: "Remote Movies".to_owned(),
+            root: temp.path().join("unused-local-root"),
+            preset: LibraryPreset::Movies,
+            webdav: Some(WebDavLibraryConfig {
+                root: "webdav:///Movies".to_owned(),
+                base_url: "https://webdav.example.test/dav".to_owned(),
+                username: None,
+                password_env: None,
+                timeout_ms: 5_000,
+                max_attempts: 1,
+            }),
+        };
+        let config = test_server_config(temp.path(), vec![library_config.clone()]);
+        let library = library_from_library_config(&library_config);
+        let store = migrated_store().await;
+        let registry = StorageBackendRegistry::new(&config, store.clone());
+        occupy_test_staging_manifest_bytes(
+            &store,
+            "local:///Private/scan-admission-fixture.mkv?token=secret",
+            "local",
+            95,
+        )
+        .await;
+
+        let admission = registry
+            .library_scan_admission_error(&library)
+            .await
+            .unwrap();
+        let slices = registry.summarize_staging_budget_policy().await.unwrap();
+
+        assert!(admission.is_none());
+        assert_eq!(
+            slices
+                .iter()
+                .find(|slice| slice.backend_key == "backend:local")
+                .map(|slice| slice.used_manifest_bytes),
+            Some(95)
+        );
+        assert_eq!(
+            slices
+                .iter()
+                .find(|slice| slice.backend_key == "backend:webdav")
+                .map(|slice| slice.used_manifest_bytes),
+            Some(0)
+        );
+    }
+
+    #[tokio::test]
+    async fn webdav_scan_admission_blocks_matching_staging_pressure_without_raw_details() {
+        let temp = tempdir().unwrap();
+        let library_config = LocalLibraryConfig {
+            id: LibraryId::new(),
+            name: "Remote Movies".to_owned(),
+            root: temp.path().join("unused-local-root"),
+            preset: LibraryPreset::Movies,
+            webdav: Some(WebDavLibraryConfig {
+                root: "webdav:///Movies".to_owned(),
+                base_url: "https://webdav.example.test/dav".to_owned(),
+                username: None,
+                password_env: None,
+                timeout_ms: 5_000,
+                max_attempts: 1,
+            }),
+        };
+        let config = test_server_config(temp.path(), vec![library_config.clone()]);
+        let library = library_from_library_config(&library_config);
+        let store = migrated_store().await;
+        let registry = StorageBackendRegistry::new(&config, store.clone());
+        occupy_test_staging_manifest_bytes(
+            &store,
+            "webdav:///Movies/Private/scan-admission-fixture.mkv?token=secret",
+            "webdav",
+            95,
+        )
+        .await;
+
+        let error = registry
+            .library_scan_admission_error(&library)
+            .await
+            .unwrap()
+            .expect("matching WebDAV staging pressure should block scan")
+            .to_string();
+        let slices = registry.summarize_staging_budget_policy().await.unwrap();
+
+        assert!(
+            error.contains("library scan admission blocked while staging pressure is critical")
+        );
+        assert!(!error.contains("webdav:///"));
+        assert!(!error.contains("Private"));
+        assert!(!error.contains("token=secret"));
+        assert!(!error.contains("fingerprint-secret"));
+        assert_eq!(
+            slices
+                .iter()
+                .find(|slice| slice.backend_key == format!("library:{}:webdav", library.id))
+                .map(|slice| slice.used_manifest_bytes),
+            Some(95)
+        );
+        assert_eq!(
+            slices
+                .iter()
+                .find(|slice| slice.backend_key == "backend:webdav")
+                .map(|slice| slice.used_manifest_bytes),
+            Some(95)
+        );
     }
 
     #[tokio::test]

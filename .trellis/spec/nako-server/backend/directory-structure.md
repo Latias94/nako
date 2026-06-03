@@ -119,12 +119,16 @@ This keeps admission bounded and returns a stable client-safe pressure result.
 ### 2. Signatures
 
 - `StorageBackendRegistry::library_scan_admission_error(&Library) ->
-  Result<Option<NakoError>>` is the typed scan-entry admission seam.
+  Result<Option<NakoError>>` is the typed scan-entry admission seam. It composes
+  durable backend health admission with scoped staging-pressure admission.
 - `StorageBackendRegistry::queued_library_scan_budget_saturated() ->
   Result<bool>` is the queued scheduler pressure guard.
 - `storage_staging_pressure_status(max_bytes, used_bytes) ->
   StorageStagingPressureStatus` is shared by scan admission and Admin
   diagnostics.
+- `StorageDiagnosticsAppService::summarize_staging_budget_policy() ->
+  Result<Vec<StagingBudgetPolicySlice>>` is the typed per-backend / uniquely
+  attributable per-library staging pressure diagnostic boundary.
 
 ### 3. Contracts
 
@@ -132,13 +136,21 @@ This keeps admission bounded and returns a stable client-safe pressure result.
   admission.
 - Synchronous scan staging admission only blocks libraries that need remote
   probe staging.
+- Synchronous remote scan staging admission uses the matching staging budget
+  policy slice instead of the global manifest total. When manifest records are
+  uniquely attributable to the configured library root, use the library slice;
+  otherwise fall back to the backend-scheme slice rather than inventing an
+  unsafe per-library attribution.
 - Queued background scan scheduling may use global staging pressure to avoid
-  claiming jobs during critical pressure.
+  claiming jobs during critical pressure. Do not add scheduler fairness or
+  mixed local/remote queue bypass behavior in the storage policy slice; that is
+  a scheduler lane.
 - Rejection uses `NakoError::storage_staging_budget_exhausted` with a
   redaction-safe synthetic URI, not a Source Locator, local path, credential, or
   backend URL.
 - Admin staging diagnostics keep their DTO shape and map from the shared
-  classifier.
+  classifier. New policy-slice diagnostics must not expose raw Source Locators,
+  local paths, fingerprints, credentials, backend URLs, or raw backend errors.
 
 ### 4. Validation & Error Matrix
 
@@ -146,23 +158,30 @@ This keeps admission bounded and returns a stable client-safe pressure result.
 |-----------|----------|
 | Staging disabled | Scan admission does not block on staging pressure |
 | Healthy or Elevated pressure | Scan admission proceeds |
-| Critical or Exhausted pressure for remote probe staging | Synchronous scan fails before scan/probe work starts |
+| Critical or Exhausted pressure for the matching remote library/backend staging slice | Synchronous scan fails before scan/probe work starts |
+| Critical pressure from an unrelated backend slice | Synchronous remote scan admission proceeds |
 | Critical or Exhausted global pressure during queued scheduling | Scheduler returns `BudgetSaturated` and leaves jobs queued |
 | Local synchronous scan under remote staging pressure | Proceeds because local probe does not require remote staging |
 
 ### 5. Good / Base / Bad Cases
 
-- Good: compose staging pressure into `library_scan_admission_error` after
-  durable backend health admission.
+- Good: compose scoped staging pressure into `library_scan_admission_error`
+  after durable backend health admission.
 - Base: Admin staging diagnostics call the same pressure classifier used by
-  scan admission.
+  scan admission and expose policy slices from redaction-safe manifest facts.
 - Bad: start a durable queued scan job, then fail it immediately only because
   global staging pressure was already critical.
+- Bad: attribute same-root multi-endpoint WebDAV staging records to a specific
+  library without persisted attribution evidence.
 
 ### 6. Tests Required
 
 - App test: remote synchronous scan rejects critical staging pressure before the
   WebDAV listing/probe pipeline starts.
+- App test: WebDAV scan admission ignores critical local staging pressure.
+- App/Admin test: policy slice attribution covers local and WebDAV records
+  without leaking source locators, local paths, credentials, fingerprints, or raw
+  backend errors.
 - App test: local synchronous scan remains compatible under remote staging
   pressure.
 - App test: queued scan scheduling leaves the job queued under critical staging

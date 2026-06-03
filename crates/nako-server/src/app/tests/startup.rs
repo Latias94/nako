@@ -103,14 +103,31 @@ async fn open_storage_circuit_for_library(
 }
 
 async fn occupy_staging_manifest_bytes(store: &NakoDatabase, size_bytes: u64) -> StagingManifestId {
+    occupy_staging_manifest_bytes_for_source(
+        store,
+        size_bytes,
+        "local:///staging/scan-admission-fixture.mkv",
+        "local",
+        "/nako/staging/scan-admission-fixture.mkv",
+    )
+    .await
+}
+
+async fn occupy_staging_manifest_bytes_for_source(
+    store: &NakoDatabase,
+    size_bytes: u64,
+    source_uri: &str,
+    source_scheme: &str,
+    local_path: &str,
+) -> StagingManifestId {
     let id = StagingManifestId::new();
     store
         .upsert_staging_manifest_record(NewStagingManifestRecord {
             id,
-            source_uri: "local:///staging/scan-admission-fixture.mkv".to_owned(),
-            source_scheme: "local".to_owned(),
+            source_uri: source_uri.to_owned(),
+            source_scheme: source_scheme.to_owned(),
             purpose: StagingPurpose::ProbeInput,
-            local_path: "/nako/staging/scan-admission-fixture.mkv".to_owned(),
+            local_path: local_path.to_owned(),
             size_bytes: Some(size_bytes),
             etag: None,
             fingerprint: None,
@@ -139,6 +156,9 @@ fn assert_staging_pressure_admission_error_is_redacted(error: &str, temp: &Path)
     assert!(error.contains("library scan admission blocked while staging pressure is critical"));
     assert!(!error.contains(&temp.display().to_string()));
     assert!(!error.contains("scan-admission-fixture"));
+    assert!(!error.contains("webdav:///"));
+    assert!(!error.contains("Private"));
+    assert!(!error.contains("token=secret"));
 }
 
 #[tokio::test]
@@ -576,7 +596,14 @@ async fn scan_library_rejects_critical_staging_pressure_before_pipeline() {
     let app = NakoApp::new_with_store(config, store.clone())
         .await
         .unwrap();
-    occupy_staging_manifest_bytes(&store, 95).await;
+    occupy_staging_manifest_bytes_for_source(
+        &store,
+        95,
+        "webdav:///Movies/Private/scan-admission-fixture.mkv?token=secret",
+        "webdav",
+        "/nako/staging/webdav/private-scan-admission-fixture.mkv",
+    )
+    .await;
 
     let err = app
         .library_scan()

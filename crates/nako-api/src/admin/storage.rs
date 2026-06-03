@@ -20,6 +20,8 @@ pub struct AdminStorageStagingSummary {
     pub configured_max_bytes: u64,
     pub used_manifest_bytes: u64,
     pub pressure: AdminStorageStagingPressureSummary,
+    #[serde(default)]
+    pub policy_slices: Vec<AdminStorageStagingPolicySlice>,
     pub cleanup_on_startup: bool,
     pub retention_ms: u64,
     pub startup_deleted_records: u32,
@@ -51,6 +53,18 @@ pub struct AdminStorageStagingPressureSummary {
     pub active_leases: u32,
     pub ffmpeg_input_records: u32,
     pub probe_input_records: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminStorageStagingPolicySlice {
+    pub backend_key: String,
+    pub library_id: Option<LibraryId>,
+    pub library_name: Option<String>,
+    pub backend_kind: Option<StorageBackendKind>,
+    pub source_scheme: String,
+    pub configured_max_bytes: u64,
+    pub used_manifest_bytes: u64,
+    pub pressure: AdminStorageStagingPressureSummary,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -254,6 +268,47 @@ mod tests {
         assert!(!body.contains("etag-secret"));
         assert!(!body.contains("fingerprint-secret"));
         assert!(!body.contains("failed at"));
+    }
+
+    #[test]
+    fn admin_storage_staging_policy_slice_redacts_source_identity() {
+        let library_id = LibraryId::new();
+        let slice = AdminStorageStagingPolicySlice {
+            backend_key: format!("library:{library_id}:webdav"),
+            library_id: Some(library_id),
+            library_name: Some("Remote Movies".to_owned()),
+            backend_kind: Some(StorageBackendKind::WebDav),
+            source_scheme: "webdav".to_owned(),
+            configured_max_bytes: 100,
+            used_manifest_bytes: 95,
+            pressure: AdminStorageStagingPressureSummary {
+                status: AdminStorageStagingPressureStatus::Critical,
+                used_ratio_milli: Some(950),
+                total_records: 1,
+                in_flight_records: 1,
+                failed_records: 0,
+                unknown_size_records: 0,
+                active_leases: 1,
+                ffmpeg_input_records: 0,
+                probe_input_records: 1,
+            },
+        };
+
+        let body = serde_json::to_string(&slice).unwrap();
+
+        assert_eq!(slice.library_id, Some(library_id));
+        assert_eq!(slice.backend_kind, Some(StorageBackendKind::WebDav));
+        assert_eq!(slice.source_scheme, "webdav");
+        assert_eq!(
+            slice.pressure.status,
+            AdminStorageStagingPressureStatus::Critical
+        );
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("local_path"));
+        assert!(!body.contains("webdav:///"));
+        assert!(!body.contains("token"));
+        assert!(!body.contains("password"));
+        assert!(!body.contains("fingerprint"));
     }
 
     #[test]

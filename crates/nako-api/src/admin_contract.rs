@@ -314,6 +314,17 @@ export interface AdminStorageStagingPressureSummary {
   probe_input_records: number;
 }
 
+export interface AdminStorageStagingPolicySlice {
+  backend_key: string;
+  library_id: string | null;
+  library_name: string | null;
+  backend_kind: StorageBackendKind | null;
+  source_scheme: string;
+  configured_max_bytes: number;
+  used_manifest_bytes: number;
+  pressure: AdminStorageStagingPressureSummary;
+}
+
 export type StorageBackendHealthStatus =
   | "healthy"
   | "recovering"
@@ -2937,6 +2948,7 @@ export interface AdminStorageStagingDiagnosticsResponse {
     configured_max_bytes: number;
     used_manifest_bytes: number;
     pressure: AdminStorageStagingPressureSummary;
+    policy_slices: AdminStorageStagingPolicySlice[];
     cleanup_on_startup: boolean;
     retention_ms: number;
     startup_deleted_records: number;
@@ -3508,6 +3520,7 @@ mod tests {
             "AdminStorageStagingQuery",
             "AdminStorageStagingPressureStatus",
             "AdminStorageStagingPressureSummary",
+            "AdminStorageStagingPolicySlice",
             "StorageBackendHealthStatus",
             "StorageCircuitBreakerState",
             "StorageFailureClass",

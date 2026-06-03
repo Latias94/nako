@@ -5231,6 +5231,214 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
 }
 
 #[tokio::test]
+async fn admin_v1_storage_staging_attributes_policy_slices_without_raw_backend_data() {
+    let temp = tempfile::tempdir().unwrap();
+    let local_library_id = LibraryId::new();
+    let remote_library_id = LibraryId::new();
+    let local_root = temp.path().join("private-local-root");
+    fs::create_dir_all(&local_root).unwrap();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("secret-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig {
+            max_bytes: 100,
+            retention_ms: 8_888,
+            cleanup_on_startup: true,
+        },
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![
+            LocalLibraryConfig {
+                id: local_library_id,
+                name: "Local Slice".to_owned(),
+                root: local_root,
+                preset: nako_core::LibraryPreset::Movies,
+                webdav: None,
+            },
+            LocalLibraryConfig {
+                id: remote_library_id,
+                name: "Remote Slice".to_owned(),
+                root: temp.path().join("unused-webdav-local-root"),
+                preset: nako_core::LibraryPreset::Movies,
+                webdav: Some(crate::config::WebDavLibraryConfig {
+                    root: "webdav:///Movies/PrivateRoot".to_owned(),
+                    base_url: "https://dav.example.test/token-secret".to_owned(),
+                    username: Some("webdav-user-secret".to_owned()),
+                    password_env: Some("NAKO_WEBDAV_PASSWORD_SECRET".to_owned()),
+                    timeout_ms: 5_000,
+                    max_attempts: 1,
+                }),
+            },
+        ],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    store
+        .upsert_staging_manifest_record(NewStagingManifestRecord {
+            id: StagingManifestId::new(),
+            source_uri: "local:///PrivateLocal/LocalSecret.mkv".to_owned(),
+            source_scheme: "local".to_owned(),
+            purpose: StagingPurpose::FfmpegInput,
+            local_path: temp
+                .path()
+                .join("secret-cache")
+                .join("local")
+                .join("LocalSecret.mkv")
+                .display()
+                .to_string(),
+            size_bytes: Some(20),
+            etag: Some("local-etag-secret".to_owned()),
+            fingerprint: Some("local-fingerprint-secret".to_owned()),
+            state: StagingState::Ready,
+            created_at_ms: 1_000,
+            updated_at_ms: 1_100,
+            last_accessed_at_ms: 1_200,
+            expires_at_ms: Some(9_000),
+            active_leases: 0,
+            validation_error: None,
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_staging_manifest_record(NewStagingManifestRecord {
+            id: StagingManifestId::new(),
+            source_uri: "webdav:///Movies/PrivateRoot/RemoteSecret.mkv?token=raw-secret".to_owned(),
+            source_scheme: "webdav".to_owned(),
+            purpose: StagingPurpose::ProbeInput,
+            local_path: temp
+                .path()
+                .join("secret-cache")
+                .join("webdav")
+                .join("RemoteSecret.mkv")
+                .display()
+                .to_string(),
+            size_bytes: Some(95),
+            etag: Some("webdav-etag-secret".to_owned()),
+            fingerprint: Some("webdav-fingerprint-secret".to_owned()),
+            state: StagingState::Reserved,
+            created_at_ms: 2_000,
+            updated_at_ms: 2_100,
+            last_accessed_at_ms: 2_200,
+            expires_at_ms: Some(10_000),
+            active_leases: 1,
+            validation_error: Some(
+                "raw backend failure at webdav:///Movies/PrivateRoot/RemoteSecret.mkv".to_owned(),
+            ),
+        })
+        .await
+        .unwrap();
+
+    let response = build_router(app)
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/storage/staging")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let diagnostics: AdminStorageStagingDiagnosticsResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(diagnostics.summary.used_manifest_bytes, 115);
+    assert_eq!(
+        diagnostics.summary.pressure.status,
+        AdminStorageStagingPressureStatus::Exhausted
+    );
+    let local = diagnostics
+        .summary
+        .policy_slices
+        .iter()
+        .find(|slice| slice.library_id == Some(local_library_id))
+        .expect("local staging policy slice");
+    assert_eq!(
+        local.backend_key,
+        format!("library:{local_library_id}:local")
+    );
+    assert_eq!(
+        local.backend_kind,
+        Some(nako_api::admin::StorageBackendKind::Local)
+    );
+    assert_eq!(local.source_scheme, "local");
+    assert_eq!(local.configured_max_bytes, 100);
+    assert_eq!(local.used_manifest_bytes, 20);
+    assert_eq!(
+        local.pressure.status,
+        AdminStorageStagingPressureStatus::Healthy
+    );
+    assert_eq!(local.pressure.ffmpeg_input_records, 1);
+    let webdav = diagnostics
+        .summary
+        .policy_slices
+        .iter()
+        .find(|slice| slice.library_id == Some(remote_library_id))
+        .expect("WebDAV staging policy slice");
+    assert_eq!(
+        webdav.backend_key,
+        format!("library:{remote_library_id}:webdav")
+    );
+    assert_eq!(
+        webdav.backend_kind,
+        Some(nako_api::admin::StorageBackendKind::WebDav)
+    );
+    assert_eq!(webdav.source_scheme, "webdav");
+    assert_eq!(webdav.configured_max_bytes, 100);
+    assert_eq!(webdav.used_manifest_bytes, 95);
+    assert_eq!(
+        webdav.pressure.status,
+        AdminStorageStagingPressureStatus::Critical
+    );
+    assert_eq!(webdav.pressure.in_flight_records, 1);
+    assert_eq!(webdav.pressure.active_leases, 1);
+    assert_eq!(webdav.pressure.probe_input_records, 1);
+
+    assert!(!body.contains("source_uri"));
+    assert!(!body.contains("local_path"));
+    assert!(!body.contains("webdav:///"));
+    assert!(!body.contains("PrivateRoot"));
+    assert!(!body.contains("LocalSecret"));
+    assert!(!body.contains("RemoteSecret"));
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("token-secret"));
+    assert!(!body.contains("raw-secret"));
+    assert!(!body.contains("webdav-user-secret"));
+    assert!(!body.contains("NAKO_WEBDAV_PASSWORD_SECRET"));
+    assert!(!body.contains("local-etag-secret"));
+    assert!(!body.contains("local-fingerprint-secret"));
+    assert!(!body.contains("webdav-etag-secret"));
+    assert!(!body.contains("webdav-fingerprint-secret"));
+    assert!(!body.contains("raw backend failure"));
+}
+
+#[tokio::test]
 async fn admin_v1_storage_backends_lists_durable_health_and_resets_circuit() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();

@@ -77,11 +77,11 @@ use nako_api::{
         AdminRuntimeConfigDiagnostics, AdminServerConfigDiagnosticsResponse,
         AdminSetLocalPasswordRequest, AdminStorageBackendHealthDiagnostic,
         AdminStorageBackendHealthDiagnosticsResponse, AdminStorageBackendHealthResetResponse,
-        AdminStorageStagingDiagnosticsResponse, AdminStorageStagingPressureStatus,
-        AdminStorageStagingPressureSummary, AdminStorageStagingRecord, AdminStorageStagingSummary,
-        AdminTranscodeConfigDiagnostics, AdminTranscodePipelineReadiness,
-        AdminTranscodePipelineReadinessStatus, AdminTrustedProxyDiagnostics,
-        AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
+        AdminStorageStagingDiagnosticsResponse, AdminStorageStagingPolicySlice,
+        AdminStorageStagingPressureStatus, AdminStorageStagingPressureSummary,
+        AdminStorageStagingRecord, AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics,
+        AdminTranscodePipelineReadiness, AdminTranscodePipelineReadinessStatus,
+        AdminTrustedProxyDiagnostics, AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
         AdminUpdateLibraryMetadataProfileRequest, AdminUpdateMetadataRawCacheSettingsRequest,
         AdminUpdatePlaybackRuntimeSettingsRequest, AdminUpdateUserStatusRequest,
         AdminUpsertLibraryAccessPolicyRequest, AdminVfsCacheSummary,
@@ -117,7 +117,8 @@ use crate::{
         admin_transcode_pipeline_readiness,
     },
     app::{
-        NakoApp, RuntimeSupervisorDiagnostics, StorageStagingPressureStatus,
+        NakoApp, RuntimeSupervisorDiagnostics, StagingBudgetPolicySlice,
+        StorageStagingPressureStatus,
         storage_staging_pressure_status as app_storage_staging_pressure_status,
     },
     config::{
@@ -1747,6 +1748,13 @@ pub(super) async fn list_admin_storage_staging(
         .summarize_staging_cleanup_pressure(now_ms)
         .await?;
     let manifest_pressure = app.storage().summarize_staging_manifest_pressure().await?;
+    let policy_slices = app
+        .storage()
+        .summarize_staging_budget_policy()
+        .await?
+        .into_iter()
+        .map(storage_staging_policy_slice)
+        .collect();
     let vfs_cache = app.storage().summarize_vfs_cache(now_ms).await?;
 
     Ok(Json(AdminStorageStagingDiagnosticsResponse {
@@ -1766,6 +1774,7 @@ pub(super) async fn list_admin_storage_staging(
                 manifest_pressure.ffmpeg_input_records,
                 manifest_pressure.probe_input_records,
             ),
+            policy_slices,
             cleanup_on_startup: app.config().staging.cleanup_on_startup,
             retention_ms: app.config().staging.retention_ms,
             startup_deleted_records: startup
@@ -1791,6 +1800,29 @@ pub(super) async fn list_admin_storage_staging(
         records,
         page: page_info_from_request(page, returned),
     }))
+}
+
+fn storage_staging_policy_slice(slice: StagingBudgetPolicySlice) -> AdminStorageStagingPolicySlice {
+    AdminStorageStagingPolicySlice {
+        backend_key: slice.backend_key,
+        library_id: slice.library_id,
+        library_name: slice.library_name,
+        backend_kind: slice.backend_kind,
+        source_scheme: slice.source_scheme,
+        configured_max_bytes: slice.configured_max_bytes,
+        used_manifest_bytes: slice.used_manifest_bytes,
+        pressure: storage_staging_pressure_summary(
+            slice.configured_max_bytes,
+            slice.used_manifest_bytes,
+            slice.manifest_pressure.total_records,
+            slice.manifest_pressure.in_flight_records,
+            slice.manifest_pressure.failed_records,
+            slice.manifest_pressure.unknown_size_records,
+            slice.manifest_pressure.active_leases,
+            slice.manifest_pressure.ffmpeg_input_records,
+            slice.manifest_pressure.probe_input_records,
+        ),
+    }
 }
 
 fn storage_staging_pressure_summary(
