@@ -461,3 +461,38 @@ Added preview-only Admin storage diagnostics for the latest redacted VFS cache r
 ### Next Steps
 
 - None - task complete
+
+
+## Session 11: HLS subtitle strategy planning seam
+
+**Date**: 2026-06-04
+**Task**: HLS subtitle strategy planning seam
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Carried explicit HLS subtitle strategy from playback through server runtime planning into transcode, prevented runtime sidecar inference for burn-in/omit intents, documented the cross-layer contract, and archived the Trellis child task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c2137eea` | (see git log) |
+| `89a4aa70` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
