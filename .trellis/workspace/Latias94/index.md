@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 8
+- **Total Sessions**: 9
 - **Last Active**: 2026-06-03
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~377 | Active |
+| `journal-1.md` | ~413 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 9 | 2026-06-03 | HLS FFmpeg builder seam refactor | `c164377c`, `f890953f`, `4657ef72` | `main` |
 | 8 | 2026-06-03 | Transcode architecture parity slices | `374b7ed2`, `85343bfc`, `146053a5` | `main` |
 | 7 | 2026-06-03 | Planned watcher write suppression | `43e8cc86`, `27b2f670` | `main` |
 | 6 | 2026-06-03 | Close library storage follow-on parent wave | `90d0ae99` | `main` |

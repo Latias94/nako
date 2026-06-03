@@ -375,3 +375,39 @@ Deepened server HLS orchestration into hls_flow, tightened transcode readiness/f
 ### Next Steps
 
 - None - task complete
+
+
+## Session 9: HLS FFmpeg builder seam refactor
+
+**Date**: 2026-06-03
+**Task**: HLS FFmpeg builder seam refactor
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Grouped HLS FFmpeg command assembly into input, primary output, and sidecar output parts; upgraded sidecar ordering to exact argv coverage; fixed transcode clippy warnings; archived the HLS FFmpeg builder parity task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c164377c` | (see git log) |
+| `f890953f` | (see git log) |
+| `4657ef72` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
