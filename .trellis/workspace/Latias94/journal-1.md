@@ -689,3 +689,38 @@ Added redaction-safe HTTP request IDs, CORS request-id support, focused tests, s
 ### Next Steps
 
 - None - task complete
+
+
+## Session 16: Source fingerprint escalation policy first slice
+
+**Date**: 2026-06-04
+**Task**: Source fingerprint escalation policy first slice
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Added a typed advisory source fingerprint escalation decision in core, exposed it on library source observation plans, verified focused tests, synced specs and architecture docs, and archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `200015bf` | (see git log) |
+| `7f558c7f` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
