@@ -415,6 +415,109 @@ app.watch_folder_suppression()
 
 The suppression request uses `StorageUri` scope and stable safe identifiers.
 
+## Scenario: Playback HLS Lifecycle Orchestration
+
+### 1. Scope / Trigger
+
+- Trigger: changing HLS source startup, HLS playlist startup, transcode session
+  reuse, supersede handling, playback resource admission, FFmpeg input staging,
+  or playlist readiness waiting in `nako-server`.
+
+### 2. Signatures
+
+- `PlaybackAppService::hls_source_with_policy(...) ->
+  Result<HlsSourceOutput>` is a thin app-service entry point.
+- `PlaybackAppService::hls_playlist_with_policy(...) ->
+  Result<HlsPlaylistOutput>` is a thin app-service entry point.
+- `app/playback/hls_flow.rs` owns HLS source context construction, input
+  staging, resource admission around playlist start, background HLS execution,
+  and playlist readiness waiting.
+- `app/playback/hls.rs` owns reserved HLS runner execution and transcode
+  session persistence around FFmpeg.
+
+### 3. Contracts
+
+- `nako-playback` remains the pure decision source. Server HLS flow may call the
+  planner but must not encode new compatibility rules.
+- `nako-transcode` remains the typed pipeline, profile identity, and FFmpeg
+  planning source. Server HLS flow must consume typed runtime plans instead of
+  building command fragments.
+- `PlaybackAppService` should delegate HLS source and playlist lifecycle work to
+  `hls_flow`; do not rebuild that lifecycle in broad `mod.rs`.
+- HLS artifacts exposed through playlists or segments must stay manifest-driven
+  through `hls_artifact` and `playlist` helpers.
+- Resource admission must be bounded and must release staged FFmpeg input on
+  rejection or runner error.
+
+### 4. Validation & Error Matrix
+
+| Condition | Behavior |
+|-----------|----------|
+| Active HLS transcode matches the request key | Wait for that session's playlist readiness |
+| Finished HLS transcode matches request key and playlist exists | Reuse completed session |
+| Superseded HLS sessions exist | Request cancellation, acquire bounded supersede admission, then start replacement |
+| Resource admission rejects playlist startup | Release staged FFmpeg input and return the admission error |
+| Running session playlist becomes artifact-ready | Return playlist output without waiting for process exit |
+| Finished session playlist is missing | Return `NakoError::storage_io` |
+| HLS session is cancelled or failed | Return provider error for `ffmpeg_hls` |
+| Playlist readiness timeout expires | Return `NakoError::Conflict` |
+
+### 5. Good / Base / Bad Cases
+
+- Good: a public HLS playlist route reaches
+  `PlaybackAppService::hls_playlist_with_policy`, which immediately delegates
+  to `hls_flow::hls_playlist_with_policy`.
+- Base: a direct HLS source request reaches
+  `PlaybackAppService::hls_source_with_policy`, which delegates to
+  `hls_flow::hls_source_with_policy`.
+- Bad: adding another HLS startup path in `app/playback/mod.rs` that separately
+  handles session lookup, supersede, admission, input staging, or playlist
+  readiness.
+- Bad: moving FFmpeg argv construction or playback compatibility decisions into
+  `hls_flow`.
+
+### 6. Tests Required
+
+- App tests for HLS source runner start, completed-session reuse, duplicate
+  active rejection, supersede, request identity, selected audio/subtitle/HDR
+  facts, timeout/failure persistence, and staged input release.
+- App tests for HLS playlist running-session readiness, seek supersede,
+  cancel-requested permit waiting, resource pressure rejection, and staged input
+  release on admission rejection.
+- HTTP tests for HLS playlist and segment routes, browser ticket protection,
+  query-derived audio/subtitle/seek preferences, and running-session playlist
+  readiness.
+- Gate: `cargo check -p nako-playback -p nako-transcode -p nako-server --tests`
+  plus focused `cargo nextest run -p nako-server hls_source --no-fail-fast` and
+  `cargo nextest run -p nako-server hls_playlist --no-fail-fast`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+async fn hls_playlist_with_policy(&self, request: HlsSourceRequest, policy: Option<_>) {
+    // session lookup, supersede, admission, input staging, background start,
+    // and playlist readiness all live in the broad playback module again.
+}
+```
+
+This makes the app-service root own HLS lifecycle details and encourages future
+HLS feature work to mix server orchestration, playback planning, and transcode
+planning.
+
+#### Correct
+
+```rust
+async fn hls_playlist_with_policy(&self, request: HlsSourceRequest, policy: Option<_>) {
+    hls_flow::hls_playlist_with_policy(self, request, policy).await
+}
+```
+
+The app-service root remains an entry point, while `hls_flow` owns server-side
+HLS lifecycle orchestration and delegates typed planning/execution to the
+existing playback and transcode boundaries.
+
 ## Examples
 
 - `http.rs`: central router assembly, auth, network boundary, and API version

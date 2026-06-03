@@ -16,13 +16,12 @@ use nako_core::{
 use nako_playback::{
     ClientPlaybackCapabilities, EffectivePlaybackPolicy, PlaybackDecision, PlaybackMode,
     PlaybackPlanner, PlaybackPlanningRequest, PlaybackPreferenceContext, PlaybackSelectionContext,
-    PlaybackTarget, PlaybackTargetProfile, PlaybackTranscodeContainer,
+    PlaybackTarget, PlaybackTargetProfile,
 };
 use nako_streaming::{DirectPlayRangeRequest, DirectPlayResponsePlan};
 use nako_transcode::{
-    HlsPlaybackGeneration, PlaybackRemuxProfileRequest, RemuxContainer, TranscodePipelinePlanner,
-    TranscodeRequestIdentity, TranscodeSourceIdentity, TranscodeTrackSelection,
-    build_playback_remux_profile,
+    HlsPlaybackGeneration, PlaybackRemuxProfileRequest, RemuxContainer, TranscodeRequestIdentity,
+    TranscodeSourceIdentity, build_playback_remux_profile,
 };
 use nako_vfs::{StorageBackend as _, StorageUri};
 use serde::{Deserialize, Serialize};
@@ -49,6 +48,7 @@ mod events;
 mod failure;
 mod hls;
 mod hls_artifact;
+mod hls_flow;
 mod input;
 mod paths;
 mod playlist;
@@ -58,9 +58,7 @@ mod selection;
 mod staging_policy;
 mod support;
 
-use control::{
-    PlaybackSessionCancellationRegistry, hls_supersede_candidates, request_hls_session_supersede,
-};
+use control::PlaybackSessionCancellationRegistry;
 pub(crate) use direct::{
     DirectPlaySourceBody, DirectPlaySourcePlan, DirectPlayStreamBody, plan_direct_play_with_backend,
 };
@@ -68,12 +66,11 @@ use direct::{plan_direct_play_response_with_backend, should_budget_remote_stream
 use events::record_playback_session_finished_event;
 use failure::{map_hls_runner_error, map_remux_runner_error, persist_session_failure};
 use hls::HlsAppService;
-use hls_artifact::{HlsArtifactService, hls_artifact_manifest_for_session};
+use hls_artifact::HlsArtifactService;
+use input::FfmpegInputService;
 #[cfg(test)]
 pub(crate) use input::source_path_for_ffmpeg_with_backend;
-use input::{FfmpegInputService, FfmpegSourceInput};
 use paths::{ensure_remux_output_parent, path_exists};
-use playlist::{HlsPlaylistSessionBinding, HlsPlaylistUrlDecoration, author_hls_session_playlist};
 use remux::RemuxAppService;
 pub(crate) use remux::RemuxRequestKey;
 pub(crate) use resource::{
@@ -83,7 +80,7 @@ pub(crate) use resource::{
 };
 #[cfg(test)]
 pub(crate) use resource::{PlaybackResourceAdmissionStatus, PlaybackResourceCapacity};
-use selection::{hls_runtime_plan_request, playback_selection_context, remux_output_container};
+use selection::{playback_selection_context, remux_output_container};
 pub(crate) use staging_policy::{HlsOutputLayout, HlsStagingPolicy, RemuxStagingPolicy};
 pub(crate) use support::{
     PlaybackRuntimeDiagnostics, PlaybackSupportEvidenceContext, PlaybackSupportEvidenceRequest,
@@ -601,9 +598,6 @@ pub(crate) struct PlaybackSessionHeartbeatRequest {
     pub duration_ms: Option<u64>,
 }
 
-const HLS_SUPERSEDE_ADMISSION_WAIT: std::time::Duration = std::time::Duration::from_secs(5);
-const HLS_SUPERSEDE_ADMISSION_RETRY_INTERVAL: std::time::Duration =
-    std::time::Duration::from_millis(50);
 const ACTIVE_PLAYBACK_SESSION_STATES: [PlaybackSessionState; 3] = [
     PlaybackSessionState::Active,
     PlaybackSessionState::Paused,
@@ -1855,292 +1849,7 @@ impl PlaybackAppService {
         request: HlsSourceRequest,
         effective_policy: impl Into<Option<EffectivePlaybackPolicy>>,
     ) -> Result<HlsSourceOutput> {
-        let context = self
-            .hls_source_context(&request, effective_policy.into())
-            .await?;
-        self.run_hls_source_context(context).await
-    }
-
-    async fn hls_source_context(
-        &self,
-        request: &HlsSourceRequest,
-        effective_policy: Option<EffectivePlaybackPolicy>,
-    ) -> Result<HlsSourceContext> {
-        let source = self.get_source_or_not_found(request.source_id).await?;
-        let probe =
-            PlaybackRuntimeStore::get_media_probe(self.runtime_store.as_ref(), source.id).await?;
-        let (uri, backend) = self.storage_backend_for_media_source(&source).await?;
-        let mut context = playback_selection_context(&uri, backend.as_ref()).await;
-        context.preferences = request.preferences.clone();
-        context.preferences.transcode_output_container = Some(PlaybackTranscodeContainer::Hls);
-        let target = playback_target_for_client(request.client.clone());
-        let target_profile = PlaybackTargetProfile::from_target(&target, context.clone());
-        let remote_input = target_profile.storage.remote;
-        let effective_policy =
-            effective_policy.unwrap_or_else(|| default_playback_policy_for_source(&source));
-        let decision = self.planner.plan(PlaybackPlanningRequest {
-            source: &source,
-            probe: probe.as_ref(),
-            target: &target,
-            effective_policy: &effective_policy,
-            context,
-        });
-        ensure_playback_decision_allowed(&decision)?;
-        let hls_runtime_request = hls_runtime_plan_request(
-            &source,
-            &decision,
-            &target_profile,
-            self.config.transcode.hardware_policy(),
-            request.playback_generation,
-            remote_input,
-            probe.clone(),
-        )?;
-        let hls_runtime = TranscodePipelinePlanner::new()
-            .plan_hls_runtime(hls_runtime_request, &self.hls.hardware_report)?;
-        let execution_policy = hls_runtime.execution_policy;
-        let request_identity = hls_runtime.request_identity.clone();
-        let staging = HlsStagingPolicy::new(self.config.remux_staging_root.join("hls"))?;
-        let layout = staging.layout_for_runtime_plan(source.id, &hls_runtime)?;
-
-        Ok(HlsSourceContext {
-            source,
-            decision,
-            uri,
-            backend,
-            layout,
-            track_selection: hls_runtime.track_selection,
-            execution_policy,
-            playback_generation: request.playback_generation,
-            request_identity: request_identity.clone(),
-            request_key: request_identity.persisted_request_key().to_owned(),
-            remote_input,
-        })
-    }
-
-    async fn run_hls_source_context(&self, context: HlsSourceContext) -> Result<HlsSourceOutput> {
-        let input = self
-            .input
-            .source_input_for_ffmpeg(&context.source, &context.uri, &context.backend)
-            .await?;
-        self.run_hls_source_context_with_input(context, input, None)
-            .await
-    }
-
-    async fn run_hls_source_context_with_input(
-        &self,
-        context: HlsSourceContext,
-        input: FfmpegSourceInput,
-        resource_permit: Option<resource::PlaybackResourcePermitSet>,
-    ) -> Result<HlsSourceOutput> {
-        let resource_demand = context.resource_demand();
-        let result = self
-            .hls
-            .run(
-                self.runtime_store.as_ref(),
-                context.source,
-                context.decision,
-                input.path.clone(),
-                context.layout,
-                context.track_selection,
-                context.execution_policy,
-                context.playback_generation,
-                context.request_identity,
-                &self.resource_admission,
-                resource_demand,
-                resource_permit,
-            )
-            .await;
-        match result {
-            Ok(output) => {
-                self.input.release_source_input(input).await?;
-                Ok(output)
-            }
-            Err(err) => {
-                if let Err(release_err) = self.input.release_source_input(input).await {
-                    warn!(
-                        error = %release_err,
-                        "failed to release hls staging lease after error"
-                    );
-                }
-                Err(err)
-            }
-        }
-    }
-
-    async fn start_hls_playlist_with_policy(
-        &self,
-        request: HlsSourceRequest,
-        effective_policy: impl Into<Option<EffectivePlaybackPolicy>>,
-    ) -> Result<HlsPlaylistReadyOutput> {
-        let effective_policy = effective_policy.into();
-        let context = self
-            .hls_source_context(&request, effective_policy.clone())
-            .await?;
-        let resource_demand = context.resource_demand();
-
-        if let Some(active) = PlaybackRuntimeStore::find_active_transcode_session(
-            self.runtime_store.as_ref(),
-            context.source.id,
-            TranscodeSessionKind::HlsTranscode,
-            &context.request_key,
-        )
-        .await?
-        {
-            return self
-                .wait_for_hls_playlist_ready_context(context, active.id)
-                .await;
-        }
-
-        if let Some(latest) = PlaybackRuntimeStore::find_latest_transcode_session(
-            self.runtime_store.as_ref(),
-            context.source.id,
-            TranscodeSessionKind::HlsTranscode,
-            &context.request_key,
-        )
-        .await?
-        {
-            if latest.state == TranscodeSessionState::Finished
-                && latest.output_path == context.layout.playlist_path
-                && path_exists(&context.layout.playlist_path)?
-            {
-                return Ok(context.playlist_ready(latest));
-            }
-        }
-
-        let supersede_candidates = hls_supersede_candidates(
-            self.runtime_store.as_ref(),
-            context.source.id,
-            context.request_key.clone(),
-        )
-        .await?;
-        let resource_permit = if supersede_candidates.is_empty() {
-            None
-        } else {
-            self.resource_admission
-                .ensure_configured_capacity(&resource_demand, "hls supersede")?;
-            let _ = request_hls_session_supersede(
-                self.runtime_store.as_ref(),
-                &self.cancellations,
-                context.source.id,
-                context.request_key.clone(),
-                supersede_candidates,
-            )
-            .await?;
-            Some(
-                self.resource_admission
-                    .try_acquire_until(
-                        &resource_demand,
-                        HLS_SUPERSEDE_ADMISSION_WAIT,
-                        HLS_SUPERSEDE_ADMISSION_RETRY_INTERVAL,
-                    )
-                    .await?,
-            )
-        };
-        let input = self
-            .input
-            .source_input_for_ffmpeg(&context.source, &context.uri, &context.backend)
-            .await?;
-        let resource_permit = match resource_permit {
-            Some(permit) => permit,
-            None => match self.resource_admission.try_acquire(&resource_demand) {
-                Ok(permit) => permit,
-                Err(error) => {
-                    if let Err(release_error) = self.input.release_source_input(input).await {
-                        warn!(
-                            error = %release_error,
-                            "failed to release HLS source input after playback resource admission rejection",
-                        );
-                    }
-                    return Err(error);
-                }
-            },
-        };
-        let wait_context = context.clone();
-        let task_app = self.clone();
-        self.runtime
-            .spawn("playback_hls_start", "playback.hls", async move {
-                if let Err(error) = task_app
-                    .run_hls_source_context_with_input(context, input, Some(resource_permit))
-                    .await
-                {
-                    warn!(error = %error, "background hls start failed");
-                }
-            });
-
-        self.wait_for_hls_playlist_ready_context(wait_context, None)
-            .await
-    }
-
-    async fn wait_for_hls_playlist_ready_context(
-        &self,
-        context: HlsSourceContext,
-        preferred_session_id: impl Into<Option<TranscodeSessionId>>,
-    ) -> Result<HlsPlaylistReadyOutput> {
-        let preferred_session_id = preferred_session_id.into();
-        let deadline = tokio::time::Instant::now()
-            + std::time::Duration::from_millis(self.config.remux_timeout_ms.max(1));
-
-        loop {
-            let session = if let Some(session_id) = preferred_session_id {
-                Some(self.get_transcode_session(session_id).await?)
-            } else {
-                PlaybackRuntimeStore::find_latest_transcode_session(
-                    self.runtime_store.as_ref(),
-                    context.source.id,
-                    TranscodeSessionKind::HlsTranscode,
-                    &context.request_key,
-                )
-                .await?
-            };
-
-            if let Some(session) = session {
-                match session.state {
-                    TranscodeSessionState::Finished => {
-                        if !path_exists(&context.layout.playlist_path)? {
-                            return Err(NakoError::storage_io(
-                                context.layout.playlist_path.display().to_string(),
-                                "finished hls session playlist is missing",
-                            ));
-                        }
-
-                        return Ok(context.playlist_ready(session));
-                    }
-                    TranscodeSessionState::Running => {
-                        if self.hls_artifacts.playlist_is_ready(&session).await? {
-                            return Ok(context.playlist_ready(session));
-                        }
-                    }
-                    TranscodeSessionState::Cancelled => {
-                        return Err(NakoError::Provider {
-                            provider: "ffmpeg_hls".to_owned(),
-                            message: "hls session was cancelled".to_owned(),
-                        });
-                    }
-                    TranscodeSessionState::Failed => {
-                        return Err(NakoError::Provider {
-                            provider: "ffmpeg_hls".to_owned(),
-                            message: session
-                                .failure_message
-                                .unwrap_or_else(|| "hls runner failed".to_owned()),
-                        });
-                    }
-                    TranscodeSessionState::Planned
-                    | TranscodeSessionState::Starting
-                    | TranscodeSessionState::CancelRequested => {}
-                }
-            }
-
-            if tokio::time::Instant::now() >= deadline {
-                return Err(NakoError::Conflict {
-                    message: format!(
-                        "hls playlist for source {} did not become ready before timeout",
-                        context.source.id
-                    ),
-                });
-            }
-
-            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
-        }
+        hls_flow::hls_source_with_policy(self, request, effective_policy).await
     }
 
     pub(crate) async fn hls_playlist(
@@ -2155,33 +1864,7 @@ impl PlaybackAppService {
         request: HlsSourceRequest,
         effective_policy: impl Into<Option<EffectivePlaybackPolicy>>,
     ) -> Result<HlsPlaylistOutput> {
-        let output = self
-            .start_hls_playlist_with_policy(request, effective_policy)
-            .await?;
-
-        let body = tokio::fs::read_to_string(&output.playlist_path)
-            .await
-            .map_err(|err| {
-                NakoError::storage_io(
-                    output.playlist_path.display().to_string(),
-                    format!("failed to read hls playlist: {err}"),
-                )
-            })?;
-
-        let manifest = hls_artifact_manifest_for_session(&output.session)?;
-        let body = author_hls_session_playlist(
-            &body,
-            &manifest,
-            HlsPlaylistSessionBinding::Transcode(output.session.id),
-            HlsPlaylistUrlDecoration::none(),
-        )?;
-
-        Ok(HlsPlaylistOutput {
-            source: output.source,
-            decision: output.decision,
-            body,
-            session: output.session,
-        })
+        hls_flow::hls_playlist_with_policy(self, request, effective_policy).await
     }
 
     pub(crate) async fn plan_hls_segment(
@@ -2606,44 +2289,6 @@ fn playback_policy_forbidden(decision: &PlaybackDecision) -> NakoError {
             denial.reason.as_str()
         ),
     }
-}
-
-#[derive(Clone, Debug)]
-struct HlsSourceContext {
-    source: MediaSource,
-    decision: PlaybackDecision,
-    uri: StorageUri,
-    backend: Arc<super::storage::LibraryStorageBackend>,
-    layout: HlsOutputLayout,
-    track_selection: TranscodeTrackSelection,
-    execution_policy: nako_transcode::TranscodeExecutionPolicy,
-    playback_generation: HlsPlaybackGeneration,
-    request_identity: TranscodeRequestIdentity,
-    request_key: String,
-    remote_input: bool,
-}
-
-impl HlsSourceContext {
-    fn resource_demand(&self) -> PlaybackResourceDemand {
-        PlaybackResourceDemand::hls(self.remote_input, self.execution_policy)
-    }
-
-    fn playlist_ready(self, session: TranscodeSessionRecord) -> HlsPlaylistReadyOutput {
-        HlsPlaylistReadyOutput {
-            source: self.source,
-            decision: self.decision,
-            playlist_path: self.layout.playlist_path,
-            session,
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-struct HlsPlaylistReadyOutput {
-    source: MediaSource,
-    decision: PlaybackDecision,
-    playlist_path: PathBuf,
-    session: TranscodeSessionRecord,
 }
 
 #[derive(Clone, Debug)]

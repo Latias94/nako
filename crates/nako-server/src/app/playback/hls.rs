@@ -23,8 +23,9 @@ use crate::config::NakoServerConfig;
 
 use super::{
     HlsOutputLayout, HlsSourceDisposition, HlsSourceOutput, PlaybackSessionCancellationRegistry,
-    hls_supersede_candidates, map_hls_runner_error, path_exists, persist_session_failure,
-    record_playback_session_finished_event, request_hls_session_supersede,
+    control::{hls_supersede_candidates, request_hls_session_supersede},
+    map_hls_runner_error, path_exists, persist_session_failure,
+    record_playback_session_finished_event,
     resource::{PlaybackResourceDemand, PlaybackResourcePermitSet, PlaybackRuntimeAdmission},
 };
 
