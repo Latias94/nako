@@ -2337,6 +2337,109 @@ async fn addon_event_scheduler_runtime_task_is_supervised_and_stops_on_shutdown(
 }
 
 #[tokio::test]
+async fn watch_folder_runtime_task_is_supervised_and_stops_on_shutdown() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let library = LocalLibraryConfig {
+        id: library_id,
+        name: "Movies".to_owned(),
+        root: temp.path().join("movies"),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    fs::create_dir_all(&library.root).unwrap();
+    fs::write(library.root.join("Ready Movie.mkv"), b"ready").unwrap();
+
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let mut options = LibraryOptions::from_preset(nako_core::LibraryPreset::Movies);
+    options.scan.realtime_monitor = true;
+    store
+        .upsert_library(&Library {
+            id: library_id,
+            name: library.name.clone(),
+            roots: vec!["local:///".to_owned()],
+            options,
+        })
+        .await
+        .unwrap();
+
+    let app = NakoApp::new_with_store(startup_config(temp.path(), vec![library]), store)
+        .await
+        .unwrap();
+
+    assert_eq!(app.startup_report().watch_folder_runtimes_started, 1);
+    let diagnostics = app.runtime_diagnostics();
+    assert_eq!(diagnostics.active_tasks, 1);
+    assert_eq!(diagnostics.tasks[0].name, "watch_folder_runtime");
+    assert_eq!(
+        diagnostics.tasks[0].resource_class,
+        "disk.scan.watch_folder"
+    );
+
+    app.shutdown_runtime();
+    tokio::task::yield_now().await;
+
+    let diagnostics = app.runtime_diagnostics();
+    assert!(diagnostics.shutdown_requested);
+    assert_eq!(diagnostics.active_tasks, 0);
+}
+
+#[tokio::test]
+async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_observation() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let library = LocalLibraryConfig {
+        id: library_id,
+        name: "Movies".to_owned(),
+        root: temp.path().join("movies"),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    fs::create_dir_all(&library.root).unwrap();
+    fs::write(library.root.join("Ready Movie.mkv"), b"ready").unwrap();
+
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let config = startup_config(temp.path(), vec![library]);
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+
+    let mut persisted = store.get_library(library_id).await.unwrap().unwrap();
+    persisted.options.scan.realtime_monitor = true;
+    store.upsert_library(&persisted).await.unwrap();
+
+    let first = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+    assert!(first.monitored);
+    assert_eq!(first.newly_ready_candidates, 0);
+    assert_eq!(first.enqueued_job_id, None);
+
+    let second = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+    assert!(second.monitored);
+    assert_eq!(second.newly_ready_candidates, 1);
+    let Some(job_id) = second.enqueued_job_id else {
+        panic!("expected watch-folder runtime to enqueue a library scan job");
+    };
+    let job = store.get_job(job_id).await.unwrap().unwrap();
+
+    assert_eq!(job.kind, JobKind::LibraryScan);
+    assert_eq!(job.resource_class, "disk.scan");
+    assert_eq!(job.library_id, Some(library_id));
+    assert!(matches!(
+        job.status,
+        JobStatus::Queued | JobStatus::Running | JobStatus::Succeeded
+    ));
+}
+
+#[tokio::test]
 async fn app_startup_rejects_unsupported_configured_webdav_root_scheme() {
     let temp = tempfile::tempdir().unwrap();
     let config = startup_config(

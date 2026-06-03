@@ -241,6 +241,121 @@ for candidate in candidates {
 This preserves durable queue state for blocked libraries while allowing later
 runnable candidates to proceed.
 
+## Scenario: Watch-Folder Runtime Productization
+
+### 1. Scope / Trigger
+
+- Trigger: turning watch-folder discovery, debounce, stable-candidate evidence,
+  or incremental library intake into background server behavior.
+- Apply this before adding local filesystem watcher loops, polling runtimes, or
+  scheduled reconciliation paths that may enqueue library scans.
+
+### 2. Signatures
+
+- `WatchFolderRuntimeAppService::start_enabled_watchers(&RuntimeSupervisor) ->
+  Result<usize>` is the startup hook for supervised watch-folder runtimes.
+- `WatchFolderRuntimeAppService::tick_library(LibraryId) ->
+  Result<WatchFolderRuntimeTickDiagnostic>` is the bounded per-library polling
+  unit used by tests and runtime loops.
+- `AcquisitionIntakeAppService::discover_watch_folder_candidates(...) ->
+  Result<WatchFolderDiscoveryDiagnostic>` remains the stable-candidate
+  observation authority.
+- `LibraryScanAppService::enqueue_library_scan(LibraryId) -> Result<Job>` is
+  the only scan handoff used after candidates become newly ready.
+
+### 3. Contracts
+
+- The runtime belongs under `crates/nako-server/src/app/*runtime*` and must be
+  spawned through `RuntimeSupervisor`, never through a hidden raw
+  `tokio::spawn`.
+- Start runtimes only for persisted libraries whose
+  `library.options.scan.realtime_monitor` is true and whose first root is a
+  local `StorageUri`.
+- Configured-library reconciliation must preserve persisted scan options so
+  operator-controlled `realtime_monitor` and scan depth settings survive config
+  replay.
+- Watch-folder candidate identity must be stable for a locator. Observation
+  keys may include size, modified time, etag, or fingerprint evidence, but those
+  facts must not be folded into the candidate identity key for new candidates.
+- A runtime tick may enqueue a scan only when
+  `newly_ready_candidates > 0`; it must use the existing library scan queue and
+  not execute scan/probe work inline.
+- Diagnostics may include library ID, job ID, counts, resource class, and
+  redacted refs. They must not include raw local paths, Source Locators,
+  fingerprints, etags, credentials, or backend URLs.
+
+### 4. Validation & Error Matrix
+
+| Condition | Behavior |
+|-----------|----------|
+| `realtime_monitor` false | No runtime is started; `tick_library` reports `monitored = false`. |
+| Library root is non-local or unparsable | No runtime is started; remote watch reliability is not assumed. |
+| First supported media observation | Candidate is recorded as `Inspecting`; no scan job is enqueued. |
+| Repeated identical supported media observation | Candidate becomes `Ready`; the runtime enqueues one library scan job through `enqueue_library_scan`. |
+| Observation key changes | Stable evidence resets to inspecting before any scan handoff. |
+| Watch-folder discovery/storage error | Tick returns/logs a redaction-safe failure and backs off without bypassing supervision. |
+
+### 5. Good / Base / Bad Cases
+
+- Good: startup builds one `watch_folder_runtime` task per eligible local
+  realtime library, records stable-candidate diagnostics, and enqueues a
+  `disk.scan` job only after the second unchanged observation.
+- Base: an admin-triggered watch-folder discovery updates intake candidates and
+  returns inspecting/ready/newly-ready counts without mutating library sources.
+- Bad: a runtime directly scans directories and probes media after a filesystem
+  event, or creates another scan executor instead of calling
+  `enqueue_library_scan`.
+- Bad: using `size`, fingerprint, etag, or modified time as part of the new
+  candidate `source_key`, which prevents repeated observations from updating
+  the same candidate.
+
+### 6. Tests Required
+
+- App test: supervised watch-folder runtime starts for a persisted realtime
+  local library and stops when `NakoApp::shutdown_runtime()` is called.
+- App test: first tick records inspecting candidates and enqueues no scan job.
+- App test: second identical tick reports newly ready candidates and enqueues a
+  `JobKind::LibraryScan` job with resource class `disk.scan`.
+- Intake/service test: duplicate discovery updates the same candidate and keeps
+  supported media in `Inspecting` until the stable observation threshold is
+  reached.
+- HTTP/Admin test: watch-folder discovery response exposes
+  `inspecting_candidates` and `newly_ready_candidates` while redacting raw root
+  and source details.
+- Cross-crate check: `cargo check -p nako-api -p nako-server --tests`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+tokio::spawn(async move {
+    scan_directory(root).await?;
+    probe_media_now(source).await?;
+});
+```
+
+This bypasses the control-plane runtime boundary and creates a second scan/probe
+executor.
+
+#### Correct
+
+```rust
+runtime.spawn("watch_folder_runtime", "disk.scan.watch_folder", async move {
+    match service.tick_library(library_id).await {
+        Ok(diagnostic) if diagnostic.newly_ready_candidates > 0 => {
+            info!(library_id = %library_id, "watch-folder runtime queued scan");
+        }
+        Ok(_) => {}
+        Err(err) => warn!(library_id = %library_id, error = %err, "watch-folder tick failed"),
+    }
+});
+```
+
+The tick implementation owns the `enqueue_library_scan` call. The runtime loop
+keeps the watcher under supervision and lets the existing durable scan queue own
+scan execution.
+
 ## Examples
 
 - `http.rs`: central router assembly, auth, network boundary, and API version

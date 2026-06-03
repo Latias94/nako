@@ -58,6 +58,7 @@ mod storage;
 mod subtitle_sidecar;
 pub(crate) mod user_playback;
 pub(crate) mod user_playlist;
+mod watch_folder_runtime;
 mod webhooks;
 
 use acquisition_intake::AcquisitionIntakeAppService;
@@ -111,6 +112,7 @@ pub(crate) use storage::{
 };
 use user_playback::UserPlaybackAppService;
 use user_playlist::UserPlaylistAppService;
+use watch_folder_runtime::WatchFolderRuntimeAppService;
 use webhooks::WebhookAppService;
 
 #[cfg(test)]
@@ -243,6 +245,11 @@ impl NakoApp {
     #[must_use]
     pub(crate) fn library_scan(&self) -> LibraryScanAppService {
         self.services().library_scan.clone()
+    }
+
+    #[must_use]
+    pub(crate) fn watch_folder_runtime(&self) -> WatchFolderRuntimeAppService {
+        self.services().watch_folder_runtime.clone()
     }
 
     #[must_use]

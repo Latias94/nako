@@ -38,6 +38,7 @@ pub(crate) struct ServerStartupReport {
     pub metadata_lifecycle_tasks_started: usize,
     pub artwork_ingest_worker_started: bool,
     pub addon_event_scheduler_started: bool,
+    pub watch_folder_runtimes_started: usize,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -102,6 +103,7 @@ impl<'a> ServerStartupWorkflow<'a> {
             metadata_lifecycle_tasks_started,
             artwork_ingest_worker_started: false,
             addon_event_scheduler_started: false,
+            watch_folder_runtimes_started: 0,
         })
     }
 

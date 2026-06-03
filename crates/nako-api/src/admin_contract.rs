@@ -1511,6 +1511,8 @@ export interface AdminOverviewResponse {
     metadata_raw_cache_deleted: number;
     metadata_lifecycle_tasks_started: number;
     artwork_ingest_worker_started: boolean;
+    addon_event_scheduler_started: boolean;
+    watch_folder_runtimes_started: number;
   };
 }
 
@@ -2179,10 +2181,12 @@ export interface AdminWatchFolderDiscoveryResponse {
   root_scheme: string | null;
   root_ref_redacted: string;
   ready_candidates: number;
+  inspecting_candidates: number;
   blocked_candidates: number;
   incomplete_candidates: number;
   unsupported_candidates: number;
   recorded_candidates: number;
+  newly_ready_candidates: number;
   failures: Array<{
     ref_redacted: string;
     safe_message: string;

@@ -56,6 +56,7 @@ where
         for mut library in desired_libraries {
             if let Some(persisted) = persisted_by_id.get(&library.id) {
                 preserve_admin_metadata_profile_when_config_uses_preset(&mut library, persisted);
+                preserve_persisted_scan_options(&mut library, persisted);
             }
 
             match persisted_by_id.get(&library.id) {
@@ -104,6 +105,10 @@ fn preserve_admin_metadata_profile_when_config_uses_preset(
         desired.options.metadata_profile = persisted.options.metadata_profile.clone();
         desired.options.metadata_profile_source = MetadataProfileSource::Admin;
     }
+}
+
+fn preserve_persisted_scan_options(desired: &mut Library, persisted: &Library) {
+    desired.options.scan = persisted.options.scan.clone();
 }
 
 fn validate_desired_libraries(libraries: &[Library]) -> Result<()> {

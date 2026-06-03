@@ -605,16 +605,21 @@ async fn acquisition_intake_watch_folder_discovery_records_classified_candidates
 
     assert_eq!(first.target_library_id, library.id);
     assert_eq!(first.root_uri_redacted, "local://<redacted>");
-    assert_eq!(first.ready_candidates, 2);
+    assert_eq!(first.ready_candidates, 0);
+    assert_eq!(first.inspecting_candidates, 2);
     assert_eq!(first.blocked_candidates, 2);
     assert_eq!(first.incomplete_candidates, 1);
     assert_eq!(first.unsupported_candidates, 1);
     assert_eq!(first.recorded_candidates, 4);
+    assert_eq!(first.newly_ready_candidates, 0);
     assert_eq!(first.failures.len(), 0);
     assert!(!first.writes_library);
     assert!(!first.managed_import_artifacts_created);
     assert!(!first.promotion_apply);
     assert_eq!(replayed.recorded_candidates, 4);
+    assert_eq!(replayed.ready_candidates, 2);
+    assert_eq!(replayed.inspecting_candidates, 0);
+    assert_eq!(replayed.newly_ready_candidates, 2);
 
     assert_eq!(
         service

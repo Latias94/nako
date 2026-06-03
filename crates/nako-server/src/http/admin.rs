@@ -519,10 +519,12 @@ pub(super) async fn discover_admin_watch_folder_candidates(
         root_scheme: diagnostic.root_scheme,
         root_ref_redacted: diagnostic.root_uri_redacted,
         ready_candidates: diagnostic.ready_candidates,
+        inspecting_candidates: diagnostic.inspecting_candidates,
         blocked_candidates: diagnostic.blocked_candidates,
         incomplete_candidates: diagnostic.incomplete_candidates,
         unsupported_candidates: diagnostic.unsupported_candidates,
         recorded_candidates: diagnostic.recorded_candidates,
+        newly_ready_candidates: diagnostic.newly_ready_candidates,
         failures: diagnostic
             .failures
             .into_iter()
@@ -1252,6 +1254,7 @@ pub(super) async fn get_admin_overview(State(app): State<NakoApp>) -> ApiResult<
         metadata_lifecycle_tasks_started: usize_to_u32(startup.metadata_lifecycle_tasks_started),
         artwork_ingest_worker_started: startup.artwork_ingest_worker_started,
         addon_event_scheduler_started: startup.addon_event_scheduler_started,
+        watch_folder_runtimes_started: usize_to_u32(startup.watch_folder_runtimes_started),
     };
     let status = overview_status(&storage, &metadata, &runtime);
 

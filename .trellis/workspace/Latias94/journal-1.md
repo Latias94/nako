@@ -115,3 +115,56 @@ Selected Option A and opened the wave 06 parent plus three child tasks for watch
   `06a` watcher runtime productization,
   `06b` staging attribution persistence,
   `06c` targeted Jellyfin watcher reference.
+
+
+## Session 3: Implement 06a watcher runtime productization
+
+**Date**: 2026-06-03
+**Task**: 06a library watcher runtime productization
+**Package**: nako-server / nako-api
+**Branch**: `task/06-03-06a-library-watcher-runtime-productization`
+
+### Summary
+
+Productized the watch-folder stable-candidate seam into a supervised server
+runtime that polls eligible local libraries, preserves persisted scan options
+across startup reconciliation, and hands newly stable candidates to the
+existing library scan queue.
+
+### Main Changes
+
+- Added `crates/nako-server/src/app/watch_folder_runtime.rs` and wired it into
+  `NakoApp` composition/startup through `RuntimeSupervisor`.
+- Kept watch-folder candidate identity stable by switching new candidates to a
+  `watch_folder:<uri>` source key while preserving legacy-key lookup for
+  already recorded candidates.
+- Reused `nako-library::observe_stable_intake_candidate()` to classify
+  supported watch-folder files as `Inspecting` on first observation and `Ready`
+  on repeated identical observations.
+- Preserved persisted library scan options during configured-library
+  reconciliation so `realtime_monitor` survives restart and config replay.
+- Extended Admin/system diagnostics to expose
+  `inspecting_candidates`, `newly_ready_candidates`, and
+  `watch_folder_runtimes_started`.
+- Added focused regression tests for runtime supervision/shutdown, second-tick
+  scan enqueue, and the updated watch-folder discovery behavior.
+
+### Testing
+
+- [OK] `cargo fmt --all`
+- [OK] `cargo check -p nako-api -p nako-server --tests`
+- [OK] `cargo nextest run -p nako-library intake --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server watch_folder --no-fail-fast`
+- [OK] `cargo fmt --all -- --check`
+- [OK] `git diff --check`
+
+### Status
+
+[~] **In Progress**
+
+### Next Steps
+
+- Review whether this slice should record an explicit task evidence artifact
+  before commit/closeout.
+- Decide whether any `nako-server` / architecture spec needs a durable update
+  for the new watch-folder runtime startup pattern.

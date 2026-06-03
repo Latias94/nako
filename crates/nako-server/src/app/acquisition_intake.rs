@@ -9,9 +9,13 @@ use nako_core::{
     PageRequest, Result,
 };
 use nako_db::NakoDatabase;
-use nako_library::LibraryScannerOptions;
+use nako_library::{
+    LibraryScannerOptions, STABLE_INTAKE_REQUIRED_OBSERVATIONS, StableIntakeCandidateEvidence,
+    StableIntakeCandidateState, observe_stable_intake_candidate,
+};
 use nako_vfs::{ObjectKind, ObjectMetadata, StorageBackend, StorageUri};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::sync::Arc;
 
 use super::{
@@ -357,10 +361,12 @@ impl AcquisitionIntakeAppService {
         });
         let mut stack = vec![(root_uri.clone(), 0_usize)];
         let mut ready_candidates = 0_u64;
+        let mut inspecting_candidates = 0_u64;
         let mut blocked_candidates = 0_u64;
         let mut incomplete_candidates = 0_u64;
         let mut unsupported_candidates = 0_u64;
         let mut recorded_candidates = 0_u64;
+        let mut newly_ready_candidates = 0_u64;
         let mut failures = Vec::new();
 
         while let Some((uri, depth)) = stack.pop() {
@@ -392,8 +398,13 @@ impl AcquisitionIntakeAppService {
                     }
                 },
                 ObjectKind::File | ObjectKind::Symlink => {
-                    let classification = classify_watch_folder_candidate(&metadata);
+                    let (source_key, existing) = self
+                        .find_existing_watch_folder_candidate(library.id, &metadata)
+                        .await?;
+                    let classification =
+                        classify_watch_folder_candidate(&metadata, existing.as_ref());
                     match classification.reason {
+                        WatchFolderCandidateReason::Inspecting => inspecting_candidates += 1,
                         WatchFolderCandidateReason::Ready => ready_candidates += 1,
                         WatchFolderCandidateReason::Incomplete => {
                             blocked_candidates += 1;
@@ -404,11 +415,14 @@ impl AcquisitionIntakeAppService {
                             unsupported_candidates += 1;
                         }
                     }
+                    if classification.newly_ready {
+                        newly_ready_candidates += 1;
+                    }
                     self.record_candidate(RecordAcquisitionIntakeCandidateRequest {
                         id: None,
                         target_library_id: library.id,
                         source_kind: AcquisitionIntakeSourceKind::WatchFolder,
-                        source_key: watch_folder_source_key(&metadata),
+                        source_key,
                         source_uri: metadata.uri.to_string(),
                         display_name: file_name(&metadata.uri).map(str::to_owned),
                         intended_locator: None,
@@ -430,15 +444,53 @@ impl AcquisitionIntakeAppService {
             root_scheme: Some(root_uri.scheme().to_owned()),
             root_uri_redacted: redact_uri(root_uri.as_str()),
             ready_candidates,
+            inspecting_candidates,
             blocked_candidates,
             incomplete_candidates,
             unsupported_candidates,
             recorded_candidates,
+            newly_ready_candidates,
             failures,
             writes_library: false,
             managed_import_artifacts_created: false,
             promotion_apply: false,
         })
+    }
+
+    async fn find_existing_watch_folder_candidate(
+        &self,
+        library_id: LibraryId,
+        metadata: &ObjectMetadata,
+    ) -> Result<(String, Option<AcquisitionIntakeCandidateRecord>)> {
+        let source_key = watch_folder_candidate_source_key(&metadata.uri);
+        let existing = self
+            .store
+            .find_acquisition_intake_candidate_by_source_key(
+                library_id,
+                &AcquisitionIntakeSourceKind::WatchFolder,
+                &source_key,
+            )
+            .await?;
+        if existing.is_some() {
+            return Ok((source_key, existing));
+        }
+
+        let legacy_source_key = legacy_watch_folder_source_key(metadata);
+        if legacy_source_key != source_key {
+            let existing = self
+                .store
+                .find_acquisition_intake_candidate_by_source_key(
+                    library_id,
+                    &AcquisitionIntakeSourceKind::WatchFolder,
+                    &legacy_source_key,
+                )
+                .await?;
+            if existing.is_some() {
+                return Ok((legacy_source_key, existing));
+            }
+        }
+
+        Ok((source_key, None))
     }
 
     pub(crate) async fn accept_candidate(
@@ -671,10 +723,12 @@ pub(crate) struct WatchFolderDiscoveryDiagnostic {
     pub(crate) root_scheme: Option<String>,
     pub(crate) root_uri_redacted: String,
     pub(crate) ready_candidates: u64,
+    pub(crate) inspecting_candidates: u64,
     pub(crate) blocked_candidates: u64,
     pub(crate) incomplete_candidates: u64,
     pub(crate) unsupported_candidates: u64,
     pub(crate) recorded_candidates: u64,
+    pub(crate) newly_ready_candidates: u64,
     pub(crate) failures: Vec<WatchFolderDiscoveryFailureDiagnostic>,
     pub(crate) writes_library: bool,
     pub(crate) managed_import_artifacts_created: bool,
@@ -723,56 +777,101 @@ impl AcquisitionIntakeCandidateDiagnostic {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 struct WatchFolderCandidateClassification {
     state: AcquisitionIntakeCandidateState,
     reason: WatchFolderCandidateReason,
+    stable_candidate: Option<StableIntakeCandidateEvidence>,
+    newly_ready: bool,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
 enum WatchFolderCandidateReason {
+    Inspecting,
     Ready,
     Incomplete,
     Unsupported,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+struct WatchFolderCandidateDiagnostics {
+    #[serde(default)]
+    schema: Option<String>,
+    #[serde(default)]
+    watch_folder: bool,
+    classification: WatchFolderCandidateReason,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    stable_candidate: Option<StableIntakeCandidateEvidence>,
+    #[serde(default)]
+    writes_library: bool,
+    #[serde(default)]
+    managed_import_artifact_created: bool,
+    #[serde(default)]
+    promotion_apply: bool,
+}
+
 impl WatchFolderCandidateClassification {
     fn diagnostics_json(self) -> String {
-        let reason = match self.reason {
-            WatchFolderCandidateReason::Ready => "ready",
-            WatchFolderCandidateReason::Incomplete => "incomplete",
-            WatchFolderCandidateReason::Unsupported => "unsupported",
-        };
-        serde_json::json!({
-            "watch_folder": true,
-            "classification": reason,
-            "writes_library": false,
-            "managed_import_artifact_created": false,
-            "promotion_apply": false
+        serde_json::to_string(&WatchFolderCandidateDiagnostics {
+            schema: Some("nako.watch_folder_candidate.v2".to_owned()),
+            watch_folder: true,
+            classification: self.reason,
+            stable_candidate: self.stable_candidate,
+            writes_library: false,
+            managed_import_artifact_created: false,
+            promotion_apply: false,
         })
-        .to_string()
+        .expect("watch-folder diagnostics should serialize")
     }
 }
 
 fn classify_watch_folder_candidate(
     metadata: &ObjectMetadata,
+    existing: Option<&AcquisitionIntakeCandidateRecord>,
 ) -> WatchFolderCandidateClassification {
     if is_incomplete_candidate(metadata.uri.as_str()) {
         return WatchFolderCandidateClassification {
             state: AcquisitionIntakeCandidateState::Blocked,
             reason: WatchFolderCandidateReason::Incomplete,
+            stable_candidate: None,
+            newly_ready: false,
         };
     }
 
     if is_supported_media(metadata.uri.as_str()) {
+        let previous = previous_watch_folder_stable_candidate(existing, metadata);
+        let decision = observe_stable_intake_candidate(
+            previous.as_ref(),
+            watch_folder_observation_key(metadata),
+        );
+        let state = match decision.state {
+            StableIntakeCandidateState::Inspecting => AcquisitionIntakeCandidateState::Inspecting,
+            StableIntakeCandidateState::Stable => AcquisitionIntakeCandidateState::Ready,
+        };
         WatchFolderCandidateClassification {
-            state: AcquisitionIntakeCandidateState::Ready,
-            reason: WatchFolderCandidateReason::Ready,
+            state,
+            reason: match state {
+                AcquisitionIntakeCandidateState::Inspecting => {
+                    WatchFolderCandidateReason::Inspecting
+                }
+                AcquisitionIntakeCandidateState::Ready => WatchFolderCandidateReason::Ready,
+                _ => unreachable!(
+                    "supported watch-folder candidates only classify as inspecting or ready"
+                ),
+            },
+            stable_candidate: Some(decision.evidence),
+            newly_ready: state == AcquisitionIntakeCandidateState::Ready
+                && existing.is_none_or(|candidate| {
+                    candidate.state != AcquisitionIntakeCandidateState::Ready
+                }),
         }
     } else {
         WatchFolderCandidateClassification {
             state: AcquisitionIntakeCandidateState::Blocked,
             reason: WatchFolderCandidateReason::Unsupported,
+            stable_candidate: None,
+            newly_ready: false,
         }
     }
 }
@@ -793,7 +892,11 @@ fn is_incomplete_candidate(value: &str) -> bool {
     })
 }
 
-fn watch_folder_source_key(metadata: &ObjectMetadata) -> String {
+fn watch_folder_candidate_source_key(uri: &StorageUri) -> String {
+    format!("watch_folder:{}", uri)
+}
+
+fn legacy_watch_folder_source_key(metadata: &ObjectMetadata) -> String {
     match (&metadata.fingerprint, metadata.len) {
         (Some(fingerprint), Some(size_bytes)) => {
             format!(
@@ -805,6 +908,65 @@ fn watch_folder_source_key(metadata: &ObjectMetadata) -> String {
         (None, Some(size_bytes)) => format!("{}|size={size_bytes}", metadata.uri),
         (None, None) => metadata.uri.to_string(),
     }
+}
+
+fn watch_folder_observation_key(metadata: &ObjectMetadata) -> String {
+    let mut hasher = Sha256::new();
+    update_watch_folder_hash_part(&mut hasher, "watch-folder-observation-v1");
+    update_watch_folder_hash_part(&mut hasher, metadata.uri.as_str());
+    update_watch_folder_hash_part(
+        &mut hasher,
+        match metadata.kind {
+            ObjectKind::File => "file",
+            ObjectKind::Directory => "directory",
+            ObjectKind::Symlink => "symlink",
+            ObjectKind::Other => "other",
+        },
+    );
+    update_watch_folder_hash_part(
+        &mut hasher,
+        &metadata
+            .len
+            .map_or_else(String::new, |value| value.to_string()),
+    );
+    update_watch_folder_hash_part(&mut hasher, metadata.modified_at.as_deref().unwrap_or(""));
+    update_watch_folder_hash_part(&mut hasher, metadata.etag.as_deref().unwrap_or(""));
+    update_watch_folder_hash_part(&mut hasher, metadata.fingerprint.as_deref().unwrap_or(""));
+
+    format!("watch_folder_observation:v1:sha256:{:x}", hasher.finalize())
+}
+
+fn previous_watch_folder_stable_candidate(
+    existing: Option<&AcquisitionIntakeCandidateRecord>,
+    metadata: &ObjectMetadata,
+) -> Option<StableIntakeCandidateEvidence> {
+    let parsed = existing.and_then(parse_watch_folder_candidate_diagnostics);
+    parsed
+        .and_then(|diagnostics| diagnostics.stable_candidate)
+        .or_else(|| {
+            existing
+                .filter(|candidate| candidate.state == AcquisitionIntakeCandidateState::Ready)
+                .map(|_| StableIntakeCandidateEvidence {
+                    observation_key: watch_folder_observation_key(metadata),
+                    consecutive_stable_observations: STABLE_INTAKE_REQUIRED_OBSERVATIONS,
+                })
+        })
+}
+
+fn parse_watch_folder_candidate_diagnostics(
+    candidate: &AcquisitionIntakeCandidateRecord,
+) -> Option<WatchFolderCandidateDiagnostics> {
+    candidate
+        .diagnostics_json
+        .as_deref()
+        .and_then(|value| serde_json::from_str(value).ok())
+}
+
+fn update_watch_folder_hash_part(hasher: &mut Sha256, value: &str) {
+    hasher.update(value.len().to_string().as_bytes());
+    hasher.update([0]);
+    hasher.update(value.as_bytes());
+    hasher.update([0xff]);
 }
 
 fn file_name(uri: &StorageUri) -> Option<&str> {

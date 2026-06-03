@@ -40,6 +40,7 @@ use super::{
     storage::{StorageBackendRegistry, StorageDiagnosticsAppService},
     user_playback::UserPlaybackAppService,
     user_playlist::UserPlaylistAppService,
+    watch_folder_runtime::WatchFolderRuntimeAppService,
     webhooks::WebhookAppService,
 };
 
@@ -74,6 +75,10 @@ impl NakoAppComposition {
         let addon_event_scheduler_started = services
             .addons
             .start_addon_event_scheduler(config.addon_event_scheduler);
+        let watch_folder_runtimes_started = services
+            .watch_folder_runtime
+            .start_enabled_watchers(&runtime)
+            .await?;
 
         Ok(Self {
             config,
@@ -84,6 +89,7 @@ impl NakoAppComposition {
             startup_report: ServerStartupReport {
                 artwork_ingest_worker_started,
                 addon_event_scheduler_started,
+                watch_folder_runtimes_started,
                 ..startup_report
             },
         })
@@ -172,6 +178,7 @@ pub(super) struct NakoAppServices {
     pub(super) renderer: RendererAppService,
     pub(super) user_playlist: UserPlaylistAppService,
     pub(super) user_playback: UserPlaybackAppService,
+    pub(super) watch_folder_runtime: WatchFolderRuntimeAppService,
 }
 
 impl NakoAppServices {
@@ -238,7 +245,12 @@ impl NakoAppServices {
         let renderer = RendererAppService::new(store.clone());
         let casting = CastingAppService::new(renderer.clone(), playback.clone());
         let user_playlist = UserPlaylistAppService::new(store.clone());
-        let user_playback = UserPlaybackAppService::new(store);
+        let user_playback = UserPlaybackAppService::new(store.clone());
+        let watch_folder_runtime = WatchFolderRuntimeAppService::new(
+            store,
+            acquisition_intake.clone(),
+            library_scan.clone(),
+        );
 
         Ok(Self {
             acquisition_intake,
@@ -263,6 +275,7 @@ impl NakoAppServices {
             renderer,
             user_playlist,
             user_playback,
+            watch_folder_runtime,
         })
     }
 }

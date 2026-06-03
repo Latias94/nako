@@ -5625,6 +5625,42 @@ async fn admin_v1_acquisition_intake_exposes_redacted_diagnostics_and_watch_fold
         root_uri: Some("local:///watch".to_owned()),
         max_depth: Some(4),
     };
+    let first_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/admin/v1/acquisition/intake/watch-folder-discovery")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(serde_json::to_vec(&discovery_request).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let status = first_response.status();
+    let body = String::from_utf8(
+        to_bytes(first_response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let first_discovery: AdminWatchFolderDiscoveryResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(first_discovery.target_library_id, library_id);
+    assert_eq!(first_discovery.root_scheme.as_deref(), Some("local"));
+    assert_eq!(first_discovery.root_ref_redacted, "local://<redacted>");
+    assert_eq!(first_discovery.ready_candidates, 0);
+    assert_eq!(first_discovery.inspecting_candidates, 2);
+    assert_eq!(first_discovery.blocked_candidates, 2);
+    assert_eq!(first_discovery.incomplete_candidates, 1);
+    assert_eq!(first_discovery.unsupported_candidates, 1);
+    assert_eq!(first_discovery.recorded_candidates, 4);
+    assert_eq!(first_discovery.newly_ready_candidates, 0);
+    assert!(first_discovery.failures.is_empty());
+
     let response = router
         .clone()
         .oneshot(
@@ -5653,10 +5689,12 @@ async fn admin_v1_acquisition_intake_exposes_redacted_diagnostics_and_watch_fold
     assert_eq!(discovery.root_scheme.as_deref(), Some("local"));
     assert_eq!(discovery.root_ref_redacted, "local://<redacted>");
     assert_eq!(discovery.ready_candidates, 2);
+    assert_eq!(discovery.inspecting_candidates, 0);
     assert_eq!(discovery.blocked_candidates, 2);
     assert_eq!(discovery.incomplete_candidates, 1);
     assert_eq!(discovery.unsupported_candidates, 1);
     assert_eq!(discovery.recorded_candidates, 4);
+    assert_eq!(discovery.newly_ready_candidates, 2);
     assert!(discovery.failures.is_empty());
     assert!(!discovery.writes_library);
     assert!(!discovery.managed_import_artifacts_created);
