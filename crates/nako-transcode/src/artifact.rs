@@ -244,7 +244,6 @@ impl HlsMediaRenditionPlan {
         Ok(self)
     }
 
-    #[must_use]
     pub fn selected_from_probe(
         probe: Option<&MediaProbeResult>,
         source: Option<&TranscodePipelineSourceFacts>,
@@ -254,7 +253,6 @@ impl HlsMediaRenditionPlan {
             .with_audio_renditions(hls_audio_renditions_from_probe(probe, source))
     }
 
-    #[must_use]
     pub fn selected_from_source_facts(
         source: Option<&TranscodePipelineSourceFacts>,
         track_selection: TranscodeTrackSelection,
@@ -921,7 +919,7 @@ impl HlsArtifactSpec {
                 .request_variant
                 .adaptive_ladder
                 .clone()
-                .unwrap_or_else(HlsAdaptiveLadderPlan::default);
+                .unwrap_or_default();
             HlsArtifactManifest::adaptive_fmp4_with_audio(
                 output_dir,
                 primary_playlist_path,
@@ -1189,7 +1187,7 @@ impl HlsArtifactManifest {
             }
 
             if hls_artifact_name_matches_sequence_pattern(
-                &audio.segment_pattern_file_name(),
+                audio.segment_pattern_file_name(),
                 artifact_name,
             ) {
                 return Some(HlsArtifactDescriptor {
@@ -1218,7 +1216,7 @@ impl HlsArtifactManifest {
             }
 
             if hls_artifact_name_matches_sequence_pattern(
-                &subtitle.segment_pattern_file_name(),
+                subtitle.segment_pattern_file_name(),
                 artifact_name,
             ) {
                 return Some(HlsArtifactDescriptor {

@@ -352,21 +352,21 @@ impl TranscodeProfile {
                 "adaptive hls profile currently requires fmp4 segment output",
             ));
         }
-        if let Some(codec) = self.video_codec.as_deref() {
-            if !matches!(codec, "h264") {
-                return Err(TranscodeProfileValidationError::new(
-                    TranscodeProfileValidationReason::HlsVideoCodecUnsupported,
-                    "hls transcode profile currently supports h264 video output",
-                ));
-            }
+        if let Some(codec) = self.video_codec.as_deref()
+            && !matches!(codec, "h264")
+        {
+            return Err(TranscodeProfileValidationError::new(
+                TranscodeProfileValidationReason::HlsVideoCodecUnsupported,
+                "hls transcode profile currently supports h264 video output",
+            ));
         }
-        if let Some(codec) = self.audio_codec.as_deref() {
-            if !matches!(codec, "aac") {
-                return Err(TranscodeProfileValidationError::new(
-                    TranscodeProfileValidationReason::HlsAudioCodecUnsupported,
-                    "hls transcode profile currently supports aac audio output",
-                ));
-            }
+        if let Some(codec) = self.audio_codec.as_deref()
+            && !matches!(codec, "aac")
+        {
+            return Err(TranscodeProfileValidationError::new(
+                TranscodeProfileValidationReason::HlsAudioCodecUnsupported,
+                "hls transcode profile currently supports aac audio output",
+            ));
         }
         if self
             .execution_policy

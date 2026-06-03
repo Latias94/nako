@@ -210,34 +210,24 @@ pub enum LocalMetadataReader {
     Other(String),
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MetadataRefreshMode {
     None,
     ValidationOnly,
+    #[default]
     Default,
     MissingOnly,
     FullRefresh,
 }
 
-impl Default for MetadataRefreshMode {
-    fn default() -> Self {
-        Self::Default
-    }
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LocalMetadataPolicy {
     Disabled,
     ReadOnly,
+    #[default]
     LocalFirst,
     RemoteFirst,
     WriteSidecar,
-}
-
-impl Default for LocalMetadataPolicy {
-    fn default() -> Self {
-        Self::LocalFirst
-    }
 }
