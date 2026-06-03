@@ -1,0 +1,6 @@
+{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Verify staging-pressure behavior stays inside storage-vfs boundaries."}
+{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "Verify scan admission still respects library pipeline ownership."}
+{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "Verify storage/VFS compatibility and redaction."}
+{"file": ".trellis/spec/nako-library/backend/index.md", "reason": "Verify scan behavior and follow-on scope."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Verify app-service/test gates and route boundary if diagnostics change."}
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Verify generated/Admin contract obligations if diagnostics DTOs expand."}
