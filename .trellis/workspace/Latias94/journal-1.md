@@ -642,3 +642,50 @@ Added redaction-safe watch-folder runtime coverage diagnostics to Admin overview
 ### Next Steps
 
 - None - task complete
+
+
+## Session 15: Control-plane HTTP trace context first slice
+
+**Date**: 2026-06-04
+**Task**: Control-plane HTTP trace context first slice
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Added redaction-safe HTTP request IDs, CORS request-id support, focused tests, specs, architecture notes, and archived the Trellis task.
+
+### Main Changes
+
+- Added HTTP trace context middleware that accepts safe `x-request-id` values,
+  generates redaction-safe request IDs when missing or invalid, stores a typed
+  context in request extensions, and returns the safe ID in response headers.
+- Mounted the middleware at the root router boundary so health, protected auth
+  rejection, and network/CORS short-circuit responses carry `x-request-id`.
+- Allowed `x-request-id` in CORS preflight request headers for browser clients.
+- Added focused unit and root-router tests; updated server HTTP spec and the
+  control-plane architecture map with the new convention.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `78a3cb41` | `feat(server): add HTTP trace context request ids` |
+| `1a0e6dc2` | `chore(task): archive 06-04-06-04-control-plane-trace-context-first-slice` |
+
+### Testing
+
+- [OK] `cargo fmt --all`
+- [OK] `cargo check -p nako-server --tests`
+- [OK] `cargo nextest run -p nako-server trace_context health_and_libraries_routes_work bearer_auth_protects_non_health_routes_and_keeps_health_public network_boundary_enforces_origin_policy_and_preserves_auth_order --no-fail-fast`
+- [OK] `cargo fmt --all -- --check`
+- [OK] `git diff --check`
+- [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-04-06-04-control-plane-trace-context-first-slice`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

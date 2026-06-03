@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 14
+- **Total Sessions**: 15
 - **Last Active**: 2026-06-04
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~644 | Active |
+| `journal-1.md` | ~691 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 15 | 2026-06-04 | Control-plane HTTP trace context first slice | `78a3cb41`, `1a0e6dc2` | `main` |
 | 14 | 2026-06-04 | Watch folder runtime coverage diagnostics | `88e84d91`, `6cb3eb99` | `main` |
 | 13 | 2026-06-04 | HLS seek command identity | `011e2d7e`, `936b8ff5` | `main` |
 | 12 | 2026-06-04 | HLS text subtitle burn-in FFmpeg planning | `4ea990be`, `d866b82f` | `main` |
