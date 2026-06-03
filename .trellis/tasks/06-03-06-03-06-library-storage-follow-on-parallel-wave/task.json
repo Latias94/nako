@@ -19,7 +19,6 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "06-03-06b-storage-staging-attribution-persistence",
     "06-03-06c-targeted-jellyfin-watcher-reference"
   ],
   "parent": null,

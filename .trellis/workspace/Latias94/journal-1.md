@@ -202,3 +202,37 @@ Productized watch-folder stable-candidate intake into a supervised server runtim
 ### Next Steps
 
 - None - task complete
+
+
+## Session 4: Storage staging attribution persistence
+
+**Date**: 2026-06-03
+**Task**: Storage staging attribution persistence
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Persisted authoritative staging attribution across core, DB migrations, server policy, Admin DTOs/contracts, and focused tests; archived 06b after passing fmt, check, nextest, and diff gates.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8d9daa184e2dfe247cc55bd24ec513c1f295300d` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
