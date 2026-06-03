@@ -312,6 +312,14 @@ impl LibraryScanAppService {
     }
 
     pub(crate) async fn schedule_queued_library_scans(&self) -> Result<LibraryScanScheduleOutcome> {
+        if self
+            .storage_backends
+            .queued_library_scan_budget_saturated()
+            .await?
+        {
+            return Ok(LibraryScanScheduleOutcome::BudgetSaturated);
+        }
+
         let Some(permit) = self.try_acquire_scan_permit()? else {
             return Ok(LibraryScanScheduleOutcome::BudgetSaturated);
         };

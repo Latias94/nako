@@ -3,7 +3,7 @@
   "name": "scan-staging-pressure-admission",
   "title": "Scan staging pressure admission",
   "description": "Follow-on storage-vfs slice for staging-pressure-based library scan admission.",
-  "status": "planning",
+  "status": "completed",
   "dev_type": "implementation",
   "scope": "storage-vfs",
   "package": "nako",
@@ -11,7 +11,7 @@
   "creator": "Latias94",
   "assignee": "Latias94",
   "createdAt": "2026-06-03",
-  "completedAt": null,
+  "completedAt": "2026-06-03",
   "branch": "task/06-03-scan-staging-pressure-admission",
   "base_branch": "main",
   "worktree_path": "F:/SourceCodes/Rust/nako-worktrees/06-03-scan-staging-pressure-admission",
@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "Seeded from 04b follow-on recommendation after product-readiness wave closeout. MVP locked to scan-entry staging-pressure admission without new Admin DTO surface.",
+  "notes": "Completed scan-entry staging-pressure admission without a new Admin DTO surface; see evidence.md.",
   "meta": {}
 }

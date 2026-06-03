@@ -116,7 +116,10 @@ use crate::{
         admin_hardware_acceleration, admin_hardware_pipeline_stage, admin_hardware_policy,
         admin_transcode_pipeline_readiness,
     },
-    app::{NakoApp, RuntimeSupervisorDiagnostics},
+    app::{
+        NakoApp, RuntimeSupervisorDiagnostics, StorageStagingPressureStatus,
+        storage_staging_pressure_status as app_storage_staging_pressure_status,
+    },
     config::{
         LocalLibraryConfig, MetadataProviderConfig, MetadataProviderRuntimeConfig,
         NetworkAccessConfig, NetworkExposureMode as ConfigNetworkExposureMode,
@@ -1821,21 +1824,12 @@ fn storage_staging_pressure_status(
     configured_max_bytes: u64,
     used_manifest_bytes: u64,
 ) -> AdminStorageStagingPressureStatus {
-    if configured_max_bytes == 0 {
-        return AdminStorageStagingPressureStatus::Disabled;
-    }
-
-    let configured = u128::from(configured_max_bytes);
-    let used = u128::from(used_manifest_bytes);
-
-    if used >= configured {
-        AdminStorageStagingPressureStatus::Exhausted
-    } else if used.saturating_mul(100) >= configured.saturating_mul(90) {
-        AdminStorageStagingPressureStatus::Critical
-    } else if used.saturating_mul(100) >= configured.saturating_mul(75) {
-        AdminStorageStagingPressureStatus::Elevated
-    } else {
-        AdminStorageStagingPressureStatus::Healthy
+    match app_storage_staging_pressure_status(configured_max_bytes, used_manifest_bytes) {
+        StorageStagingPressureStatus::Disabled => AdminStorageStagingPressureStatus::Disabled,
+        StorageStagingPressureStatus::Healthy => AdminStorageStagingPressureStatus::Healthy,
+        StorageStagingPressureStatus::Elevated => AdminStorageStagingPressureStatus::Elevated,
+        StorageStagingPressureStatus::Critical => AdminStorageStagingPressureStatus::Critical,
+        StorageStagingPressureStatus::Exhausted => AdminStorageStagingPressureStatus::Exhausted,
     }
 }
 

@@ -13,8 +13,9 @@ use nako_core::{
     IdentityAccessRepository, ImageKind, Library, LibraryItemRepository, LibraryItemState,
     LibraryOptions, LibraryRepository, ManagedArtworkAcceptanceRecord, ManagedArtworkIngestId,
     ManagedArtworkIngestStatus, ManagedArtworkRepository, NewAddonRegistration, NewAddonSideEffect,
-    NewAddonToken, NewArtworkCandidate, NewManagedArtworkIngest, UserPrincipalId, UserRole,
-    bootstrap_admin_user_id,
+    NewAddonToken, NewArtworkCandidate, NewManagedArtworkIngest, NewStagingManifestRecord,
+    StagingManifestId, StagingManifestRepository, StagingPurpose, StagingState, UserPrincipalId,
+    UserRole, bootstrap_admin_user_id,
 };
 use nako_core::{
     StorageBackendHealthRecord, StorageBackendHealthRepository, StorageBackendHealthStatus,
@@ -101,12 +102,43 @@ async fn open_storage_circuit_for_library(
         .unwrap();
 }
 
+async fn occupy_staging_manifest_bytes(store: &NakoDatabase, size_bytes: u64) -> StagingManifestId {
+    let id = StagingManifestId::new();
+    store
+        .upsert_staging_manifest_record(NewStagingManifestRecord {
+            id,
+            source_uri: "local:///staging/scan-admission-fixture.mkv".to_owned(),
+            source_scheme: "local".to_owned(),
+            purpose: StagingPurpose::ProbeInput,
+            local_path: "/nako/staging/scan-admission-fixture.mkv".to_owned(),
+            size_bytes: Some(size_bytes),
+            etag: None,
+            fingerprint: None,
+            state: StagingState::Ready,
+            created_at_ms: 1_000,
+            updated_at_ms: 1_000,
+            last_accessed_at_ms: 1_000,
+            expires_at_ms: Some(10_000),
+            active_leases: 0,
+            validation_error: None,
+        })
+        .await
+        .unwrap();
+    id
+}
+
 fn assert_storage_admission_error_is_redacted(error: &str, temp: &Path, base_url: &str) {
     assert!(error.contains("storage circuit breaker is open"));
     assert!(!error.contains(&temp.display().to_string()));
     assert!(!error.contains("webdav:///Movies"));
     assert!(!error.contains(base_url));
     assert!(!error.contains("Demo.mkv"));
+}
+
+fn assert_staging_pressure_admission_error_is_redacted(error: &str, temp: &Path) {
+    assert!(error.contains("library scan admission blocked while staging pressure is critical"));
+    assert!(!error.contains(&temp.display().to_string()));
+    assert!(!error.contains("scan-admission-fixture"));
 }
 
 #[tokio::test]
@@ -515,6 +547,90 @@ async fn scan_library_rejects_open_storage_circuit_before_pipeline() {
         &server.base_url(),
     );
     assert_eq!(server.control().propfinds(), 0);
+}
+
+#[tokio::test]
+async fn scan_library_rejects_critical_staging_pressure_before_pipeline() {
+    let server = BlockingWebDavServer::start(BlockingWebDavControl::new()).await;
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let mut config = startup_config(
+        temp.path(),
+        vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Pressure Movies".to_owned(),
+            root: temp.path().join("unused-local-root"),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: Some(WebDavLibraryConfig {
+                root: "webdav:///Movies".to_owned(),
+                base_url: server.base_url(),
+                username: None,
+                password_env: None,
+                timeout_ms: 5_000,
+                max_attempts: 1,
+            }),
+        }],
+    );
+    config.staging.max_bytes = 100;
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    occupy_staging_manifest_bytes(&store, 95).await;
+
+    let err = app
+        .library_scan()
+        .scan_library(library_id)
+        .await
+        .unwrap_err();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+    let persisted = jobs
+        .iter()
+        .find(|job| job.kind == JobKind::LibraryScan)
+        .expect("scan command should persist a library scan job");
+    let error = err.to_string();
+
+    assert_staging_pressure_admission_error_is_redacted(&error, temp.path());
+    assert_eq!(persisted.status, JobStatus::Failed);
+    assert_eq!(persisted.summary_json, None);
+    assert_staging_pressure_admission_error_is_redacted(
+        persisted.error.as_deref().expect("job error"),
+        temp.path(),
+    );
+    assert_eq!(server.control().propfinds(), 0);
+}
+
+#[tokio::test]
+async fn scan_library_allows_local_library_during_remote_staging_pressure() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_root = temp.path().join("movies");
+    fs::create_dir_all(&library_root).unwrap();
+    let library_id = LibraryId::new();
+    let mut config = startup_config(
+        temp.path(),
+        vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Local Pressure Movies".to_owned(),
+            root: library_root,
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    );
+    config.staging.max_bytes = 100;
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    occupy_staging_manifest_bytes(&store, 95).await;
+
+    let output = app.library_scan().scan_library(library_id).await.unwrap();
+
+    assert_eq!(output.job.status, JobStatus::Succeeded);
+    assert_eq!(output.index.discovered_files, 0);
+    assert_eq!(output.probe.probed_sources, 0);
 }
 
 #[tokio::test]
@@ -1131,6 +1247,76 @@ async fn background_scan_job_failure_releases_budget_and_schedules_next_queued_s
         events[0].subject,
         DomainEventSubject::Library(healthy_library_id)
     );
+}
+
+#[tokio::test]
+async fn job_scheduler_keeps_background_scan_jobs_queued_while_staging_pressure_is_critical() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_root = temp.path().join("movies");
+    fs::create_dir_all(&library_root).unwrap();
+    let library_id = LibraryId::new();
+    let mut config = startup_config(
+        temp.path(),
+        vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Queued Pressure Movies".to_owned(),
+            root: library_root,
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    );
+    config.staging.max_bytes = 100;
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let staging_record_id = occupy_staging_manifest_bytes(&store, 95).await;
+
+    let queued_job = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::LibraryScan,
+            resource_class: "disk.scan".to_owned(),
+            priority: nako_core::JobPriority::Normal,
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+
+    let blocked = app
+        .library_scan()
+        .schedule_queued_library_scans()
+        .await
+        .unwrap();
+    let queued = app.jobs().get_job(queued_job.id).await.unwrap();
+
+    assert_eq!(blocked, LibraryScanScheduleOutcome::BudgetSaturated);
+    assert_eq!(queued.status, JobStatus::Queued);
+    assert_eq!(app.runtime_diagnostics().active_tasks, 0);
+    assert_eq!(app.runtime_diagnostics().failed_jobs, 0);
+    assert_eq!(app.runtime_diagnostics().succeeded_jobs, 0);
+
+    store
+        .delete_staging_manifest_record(staging_record_id)
+        .await
+        .unwrap();
+
+    let scheduled = app
+        .library_scan()
+        .schedule_queued_library_scans()
+        .await
+        .unwrap();
+    let diagnostics = wait_for_runtime_jobs(&app, 1, 0, 0).await;
+    let persisted = app.jobs().get_job(queued_job.id).await.unwrap();
+
+    assert_eq!(
+        scheduled,
+        LibraryScanScheduleOutcome::Scheduled(queued_job.id)
+    );
+    assert_eq!(diagnostics.failed_jobs, 0);
+    assert_eq!(persisted.status, JobStatus::Succeeded);
 }
 
 #[tokio::test]

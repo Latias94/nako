@@ -50,15 +50,15 @@ exhaustion.
 
 ## Acceptance Criteria (evolving)
 
-* [ ] The selected slice is documented with the reason it is the smallest useful
+* [x] The selected slice is documented with the reason it is the smallest useful
   follow-on after `04b`.
-* [ ] Scan admission reacts to existing staging-pressure state through a typed
+* [x] Scan admission reacts to existing staging-pressure state through a typed
   boundary before scan/probe work starts.
-* [ ] Existing local/WebDAV scan behavior remains compatible when staging
+* [x] Existing local/WebDAV scan behavior remains compatible when staging
   pressure is healthy.
-* [ ] Existing operator-visible diagnostics remain compatible without adding a
+* [x] Existing operator-visible diagnostics remain compatible without adding a
   new staging-admission-specific DTO.
-* [ ] Deferred follow-ons are recorded for PostgreSQL runtime parity, scheduler
+* [x] Deferred follow-ons are recorded for PostgreSQL runtime parity, scheduler
   fairness, watcher/debounce, or broader pressure policies.
 
 ## Definition of Done (team quality bar)

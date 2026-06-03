@@ -106,6 +106,7 @@ pub(crate) use runtime::{RuntimeResourceClassDiagnostics, RuntimeSupervisorDiagn
 use staging::cleanup_expired_staging_inputs;
 use startup::ServerStartupReport;
 use storage::StorageDiagnosticsAppService;
+pub(crate) use storage::{StorageStagingPressureStatus, storage_staging_pressure_status};
 use user_playback::UserPlaybackAppService;
 use user_playlist::UserPlaylistAppService;
 use webhooks::WebhookAppService;

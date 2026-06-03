@@ -52,6 +52,56 @@ pub(crate) struct StagingManifestPressureSummary {
     pub(crate) probe_input_records: usize,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum StorageStagingPressureStatus {
+    Disabled,
+    Healthy,
+    Elevated,
+    Critical,
+    Exhausted,
+}
+
+impl StorageStagingPressureStatus {
+    #[must_use]
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self {
+            Self::Disabled => "disabled",
+            Self::Healthy => "healthy",
+            Self::Elevated => "elevated",
+            Self::Critical => "critical",
+            Self::Exhausted => "exhausted",
+        }
+    }
+
+    #[must_use]
+    pub(crate) const fn blocks_library_scan(self) -> bool {
+        matches!(self, Self::Critical | Self::Exhausted)
+    }
+}
+
+#[must_use]
+pub(crate) const fn storage_staging_pressure_status(
+    configured_max_bytes: u64,
+    used_manifest_bytes: u64,
+) -> StorageStagingPressureStatus {
+    if configured_max_bytes == 0 {
+        return StorageStagingPressureStatus::Disabled;
+    }
+
+    let configured = configured_max_bytes as u128;
+    let used = used_manifest_bytes as u128;
+
+    if used >= configured {
+        StorageStagingPressureStatus::Exhausted
+    } else if used.saturating_mul(100) >= configured.saturating_mul(90) {
+        StorageStagingPressureStatus::Critical
+    } else if used.saturating_mul(100) >= configured.saturating_mul(75) {
+        StorageStagingPressureStatus::Elevated
+    } else {
+        StorageStagingPressureStatus::Healthy
+    }
+}
+
 impl StorageDiagnosticsAppService {
     pub(super) fn new(registry: StorageBackendRegistry) -> Self {
         Self { registry }
@@ -255,7 +305,19 @@ impl StorageBackendRegistry {
         library: &Library,
     ) -> Result<Option<NakoError>> {
         let backend = self.backend_for_library_root(library).await?;
-        backend.library_scan_admission_error().await
+        if let Some(err) = backend.library_scan_admission_error().await? {
+            return Ok(Some(err));
+        }
+
+        self.library_scan_staging_pressure_admission_error(library)
+            .await
+    }
+
+    pub(super) async fn queued_library_scan_budget_saturated(&self) -> Result<bool> {
+        Ok(self
+            .global_staging_pressure_admission_error()
+            .await?
+            .is_some())
     }
 
     pub(super) async fn backend_for_media_source(
@@ -368,6 +430,38 @@ impl StorageBackendRegistry {
                             .to_owned(),
                     })?;
         }
+    }
+
+    async fn library_scan_staging_pressure_admission_error(
+        &self,
+        library: &Library,
+    ) -> Result<Option<NakoError>> {
+        if remote_probe_staging_root(library, &self.config).is_none() {
+            return Ok(None);
+        }
+
+        self.global_staging_pressure_admission_error().await
+    }
+
+    async fn global_staging_pressure_admission_error(&self) -> Result<Option<NakoError>> {
+        let status = self.current_staging_pressure_status().await?;
+        if status.blocks_library_scan() {
+            return Ok(Some(storage_staging_pressure_library_scan_error(status)));
+        }
+
+        Ok(None)
+    }
+
+    async fn current_staging_pressure_status(&self) -> Result<StorageStagingPressureStatus> {
+        if self.config.staging.max_bytes == 0 {
+            return Ok(StorageStagingPressureStatus::Disabled);
+        }
+
+        let used_manifest_bytes = self.store.sum_staging_manifest_bytes().await?;
+        Ok(storage_staging_pressure_status(
+            self.config.staging.max_bytes,
+            used_manifest_bytes,
+        ))
     }
 
     fn build_backend(&self, config: &LocalLibraryConfig) -> Result<Arc<dyn StorageBackend>> {
@@ -923,6 +1017,16 @@ fn backend_kind(config: &LocalLibraryConfig) -> StorageBackendKind {
     } else {
         StorageBackendKind::Local
     }
+}
+
+fn storage_staging_pressure_library_scan_error(status: StorageStagingPressureStatus) -> NakoError {
+    NakoError::storage_staging_budget_exhausted(
+        "staging://library-scan-admission",
+        format!(
+            "library scan admission blocked while staging pressure is {}",
+            status.as_str()
+        ),
+    )
 }
 
 fn unavailable_backend_diagnostic(

@@ -109,6 +109,88 @@ let permit = backend.try_acquire_stream_permit()?;
 
 This keeps admission bounded and returns a stable client-safe pressure result.
 
+## Scenario: Library Scan Staging Pressure Admission
+
+### 1. Scope / Trigger
+
+- Trigger: changing library scan start, queued scan scheduling, remote probe
+  staging pressure, or storage admission behavior in `nako-server`.
+
+### 2. Signatures
+
+- `StorageBackendRegistry::library_scan_admission_error(&Library) ->
+  Result<Option<NakoError>>` is the typed scan-entry admission seam.
+- `StorageBackendRegistry::queued_library_scan_budget_saturated() ->
+  Result<bool>` is the queued scheduler pressure guard.
+- `storage_staging_pressure_status(max_bytes, used_bytes) ->
+  StorageStagingPressureStatus` is shared by scan admission and Admin
+  diagnostics.
+
+### 3. Contracts
+
+- Durable `Storage Circuit Breaker` admission runs before staging pressure
+  admission.
+- Synchronous scan staging admission only blocks libraries that need remote
+  probe staging.
+- Queued background scan scheduling may use global staging pressure to avoid
+  claiming jobs during critical pressure.
+- Rejection uses `NakoError::storage_staging_budget_exhausted` with a
+  redaction-safe synthetic URI, not a Source Locator, local path, credential, or
+  backend URL.
+- Admin staging diagnostics keep their DTO shape and map from the shared
+  classifier.
+
+### 4. Validation & Error Matrix
+
+| Condition | Behavior |
+|-----------|----------|
+| Staging disabled | Scan admission does not block on staging pressure |
+| Healthy or Elevated pressure | Scan admission proceeds |
+| Critical or Exhausted pressure for remote probe staging | Synchronous scan fails before scan/probe work starts |
+| Critical or Exhausted global pressure during queued scheduling | Scheduler returns `BudgetSaturated` and leaves jobs queued |
+| Local synchronous scan under remote staging pressure | Proceeds because local probe does not require remote staging |
+
+### 5. Good / Base / Bad Cases
+
+- Good: compose staging pressure into `library_scan_admission_error` after
+  durable backend health admission.
+- Base: Admin staging diagnostics call the same pressure classifier used by
+  scan admission.
+- Bad: start a durable queued scan job, then fail it immediately only because
+  global staging pressure was already critical.
+
+### 6. Tests Required
+
+- App test: remote synchronous scan rejects critical staging pressure before the
+  WebDAV listing/probe pipeline starts.
+- App test: local synchronous scan remains compatible under remote staging
+  pressure.
+- App test: queued scan scheduling leaves the job queued under critical staging
+  pressure and schedules it after pressure clears.
+- Admin test: existing staging pressure threshold mapping continues to pass.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+let leased = runtime.claim_next_job_lease(filter).await?;
+// Run then fail only after discovering staging pressure.
+```
+
+This drains queued scan jobs while pressure is known in advance.
+
+#### Correct
+
+```rust
+if storage_backends.queued_library_scan_budget_saturated().await? {
+    return Ok(LibraryScanScheduleOutcome::BudgetSaturated);
+}
+```
+
+This preserves durable queue state until staging pressure is healthy enough to
+claim work.
+
 ## Examples
 
 - `http.rs`: central router assembly, auth, network boundary, and API version
