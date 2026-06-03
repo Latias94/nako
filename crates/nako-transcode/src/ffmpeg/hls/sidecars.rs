@@ -44,8 +44,8 @@ pub(super) fn hls_subtitle_args(
         TranscodeSubtitleStrategy::SidecarSelected => {
             hls_sidecar_subtitle_args(artifacts, segment_time_seconds)
         }
-        TranscodeSubtitleStrategy::PreserveInContainer
-        | TranscodeSubtitleStrategy::BurnInSelected => unreachable!(
+        TranscodeSubtitleStrategy::BurnInSelected => Vec::new(),
+        TranscodeSubtitleStrategy::PreserveInContainer => unreachable!(
             "unsupported hls subtitle strategy must be rejected before command construction"
         ),
     }

@@ -208,6 +208,7 @@ mod tests {
             ),
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection::default(),
+            subtitle_burn_in: None,
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -269,6 +270,7 @@ mod tests {
                     ),
                     segment_time_seconds: 6,
                     track_selection: TranscodeTrackSelection::default(),
+                    subtitle_burn_in: None,
                     execution_policy: hls_policy(HardwareAcceleration::None),
                 },
             )
@@ -302,6 +304,7 @@ mod tests {
             ),
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection::default(),
+            subtitle_burn_in: None,
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -350,6 +353,7 @@ mod tests {
                 audio_stream: Some(2),
                 subtitle_stream: None,
             },
+            subtitle_burn_in: None,
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -387,6 +391,7 @@ mod tests {
             ),
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection::default(),
+            subtitle_burn_in: None,
             execution_policy,
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -426,6 +431,7 @@ mod tests {
             ),
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection::default(),
+            subtitle_burn_in: None,
             execution_policy,
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -465,6 +471,7 @@ mod tests {
             ),
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection::default(),
+            subtitle_burn_in: None,
             execution_policy,
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -495,6 +502,7 @@ mod tests {
             ),
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection::default(),
+            subtitle_burn_in: None,
             execution_policy,
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -518,6 +526,42 @@ mod tests {
     }
 
     #[test]
+    fn ffmpeg_builder_composes_hls_hdr_tone_mapping_before_subtitle_burn_in() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let mut execution_policy = hls_policy(HardwareAcceleration::None);
+        execution_policy.color_pipeline = TranscodeColorPipelineRequirement::hdr_to_sdr_required();
+        execution_policy.subtitle_strategy = TranscodeSubtitleStrategy::BurnInSelected;
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
+            artifacts: hls_artifacts(
+                "hls",
+                "hls/playlist.m3u8",
+                "hls/segment_%05d.ts",
+                HlsOutputRequirement::default(),
+            ),
+            segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection {
+                audio_stream: None,
+                subtitle_stream: Some(2),
+            },
+            subtitle_burn_in: Some(HlsSubtitleBurnInPlan::new(2, 0)),
+            execution_policy,
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+
+        assert!(argv.windows(2).any(|args| {
+            args[0] == "-vf"
+                && args[1]
+                    == "zscale=transfer=linear:npl=100,tonemap=tonemap=hable:desat=0,zscale=transfer=bt709:matrix=bt709:primaries=bt709:range=tv,format=yuv420p,subtitles='input.mkv':si=0"
+        }));
+        assert_eq!(argv.iter().filter(|arg| *arg == "-vf").count(), 1);
+    }
+
+    #[test]
     fn ffmpeg_builder_plans_hls_fmp4_single_variant() {
         let builder = FfmpegCommandBuilder::new("ffmpeg");
         let request = HlsRequest {
@@ -535,6 +579,7 @@ mod tests {
             ),
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection::default(),
+            subtitle_burn_in: None,
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -577,6 +622,7 @@ mod tests {
             artifacts,
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection::default(),
+            subtitle_burn_in: None,
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -602,6 +648,7 @@ mod tests {
             artifacts,
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection::default(),
+            subtitle_burn_in: None,
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -655,6 +702,7 @@ mod tests {
                 audio_stream: Some(2),
                 subtitle_stream: None,
             },
+            subtitle_burn_in: None,
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -693,6 +741,7 @@ mod tests {
                 audio_stream: Some(2),
                 subtitle_stream: None,
             },
+            subtitle_burn_in: None,
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -781,6 +830,7 @@ mod tests {
             artifacts,
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection::default(),
+            subtitle_burn_in: None,
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -803,6 +853,7 @@ mod tests {
             ),
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection::default(),
+            subtitle_burn_in: None,
             execution_policy: hls_policy(HardwareAcceleration::Nvenc),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -830,6 +881,7 @@ mod tests {
             ),
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection::default(),
+            subtitle_burn_in: None,
             execution_policy: hls_policy(HardwareAcceleration::Vaapi),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -869,6 +921,7 @@ mod tests {
             ),
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection::default(),
+            subtitle_burn_in: None,
             execution_policy: hls_policy(HardwareAcceleration::QuickSync),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -911,6 +964,7 @@ mod tests {
                 ),
                 segment_time_seconds: 6,
                 track_selection: TranscodeTrackSelection::default(),
+                subtitle_burn_in: None,
                 execution_policy: hls_policy(acceleration),
                 overwrite: FfmpegOverwritePolicy::Allow,
             };
@@ -941,6 +995,7 @@ mod tests {
             ),
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection::default(),
+            subtitle_burn_in: None,
             execution_policy,
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -974,6 +1029,7 @@ mod tests {
             ),
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection::default(),
+            subtitle_burn_in: None,
             execution_policy,
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -987,6 +1043,126 @@ mod tests {
             argv.windows(2)
                 .any(|args| args[0] == "-c:a" && args[1] == "aac")
         );
+    }
+
+    #[test]
+    fn ffmpeg_builder_plans_hls_selected_text_subtitle_burn_in_filter() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let mut execution_policy = hls_policy(HardwareAcceleration::None);
+        execution_policy.subtitle_strategy = TranscodeSubtitleStrategy::BurnInSelected;
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
+            artifacts: hls_artifacts(
+                "hls",
+                "hls/playlist.m3u8",
+                "hls/segment_%05d.ts",
+                HlsOutputRequirement::default(),
+            ),
+            segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection {
+                audio_stream: None,
+                subtitle_stream: Some(2),
+            },
+            subtitle_burn_in: Some(HlsSubtitleBurnInPlan::new(2, 0)),
+            execution_policy,
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let command = builder.hls(&request).unwrap();
+
+        assert_eq!(
+            command.argv_lossy(),
+            vec![
+                "ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                "warning",
+                "-nostats",
+                "-progress",
+                "pipe:1",
+                "-y",
+                "-i",
+                "input.mkv",
+                "-map",
+                "0:v:0",
+                "-map",
+                "0:a:0?",
+                "-vf",
+                "subtitles='input.mkv':si=0",
+                "-c:v",
+                "libx264",
+                "-c:a",
+                "aac",
+                "-f",
+                "hls",
+                "-hls_time",
+                "6",
+                "-hls_playlist_type",
+                "vod",
+                "-hls_segment_filename",
+                "hls/segment_%05d.ts",
+                "hls/playlist.m3u8",
+            ]
+        );
+    }
+
+    #[test]
+    fn ffmpeg_builder_rejects_hls_burn_in_without_selected_subtitle_stream() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let mut execution_policy = hls_policy(HardwareAcceleration::None);
+        execution_policy.subtitle_strategy = TranscodeSubtitleStrategy::BurnInSelected;
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
+            artifacts: hls_artifacts(
+                "hls",
+                "hls/playlist.m3u8",
+                "hls/segment_%05d.ts",
+                HlsOutputRequirement::default(),
+            ),
+            segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
+            subtitle_burn_in: None,
+            execution_policy,
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let err = builder.hls(&request).unwrap_err();
+
+        assert!(err.to_string().contains("selected subtitle stream"));
+    }
+
+    #[test]
+    fn ffmpeg_builder_rejects_hls_burn_in_on_hardware_filter_pipeline() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let mut execution_policy = hls_policy(HardwareAcceleration::Vaapi);
+        execution_policy.subtitle_strategy = TranscodeSubtitleStrategy::BurnInSelected;
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
+            artifacts: hls_artifacts(
+                "hls",
+                "hls/playlist.m3u8",
+                "hls/segment_%05d.ts",
+                HlsOutputRequirement::default(),
+            ),
+            segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection {
+                audio_stream: None,
+                subtitle_stream: Some(2),
+            },
+            subtitle_burn_in: Some(HlsSubtitleBurnInPlan::new(2, 0)),
+            execution_policy,
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let err = builder.hls(&request).unwrap_err();
+
+        assert!(err.to_string().contains("software transcode pipeline"));
     }
 
     #[test]
@@ -1016,6 +1192,7 @@ mod tests {
             artifacts,
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection::default(),
+            subtitle_burn_in: None,
             execution_policy,
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -1063,6 +1240,7 @@ mod tests {
             artifacts,
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection::default(),
+            subtitle_burn_in: None,
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -1131,6 +1309,7 @@ mod tests {
                 audio_stream: Some(2),
                 subtitle_stream: None,
             },
+            subtitle_burn_in: None,
             execution_policy,
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -1182,6 +1361,7 @@ mod tests {
                 audio_stream: Some(2),
                 subtitle_stream: None,
             },
+            subtitle_burn_in: None,
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -1222,6 +1402,7 @@ mod tests {
                 audio_stream: Some(2),
                 subtitle_stream: None,
             },
+            subtitle_burn_in: None,
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -1267,6 +1448,7 @@ mod tests {
             artifacts,
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection::default(),
+            subtitle_burn_in: None,
             execution_policy,
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -1345,6 +1527,7 @@ mod tests {
             ),
             segment_time_seconds: 0,
             track_selection: TranscodeTrackSelection::default(),
+            subtitle_burn_in: None,
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -1361,10 +1544,10 @@ mod tests {
     }
 
     #[test]
-    fn ffmpeg_builder_rejects_unimplemented_hls_subtitle_strategies() {
+    fn ffmpeg_builder_rejects_hls_preserve_in_container_subtitle_strategy() {
         let builder = FfmpegCommandBuilder::new("ffmpeg");
         let mut execution_policy = hls_policy(HardwareAcceleration::None);
-        execution_policy.subtitle_strategy = TranscodeSubtitleStrategy::BurnInSelected;
+        execution_policy.subtitle_strategy = TranscodeSubtitleStrategy::PreserveInContainer;
         let request = HlsRequest {
             source_id: MediaSourceId::new(),
             input_path: PathBuf::from("input.mkv"),
@@ -1377,6 +1560,7 @@ mod tests {
             ),
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection::default(),
+            subtitle_burn_in: None,
             execution_policy,
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -3056,6 +3240,7 @@ h264_mp4toannexb
             ),
             segment_time_seconds: 6,
             track_selection: TranscodeTrackSelection::default(),
+            subtitle_burn_in: None,
             execution_policy: hls_policy(HardwareAcceleration::None),
             overwrite: FfmpegOverwritePolicy::Allow,
         };
@@ -3441,6 +3626,7 @@ h264_mp4toannexb
                 ),
                 segment_time_seconds: 6,
                 track_selection: TranscodeTrackSelection::default(),
+                subtitle_burn_in: None,
                 execution_policy: hls_policy(HardwareAcceleration::None),
                 overwrite: FfmpegOverwritePolicy::Allow,
             },

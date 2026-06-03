@@ -4,8 +4,8 @@ use nako_core::{MediaSourceId, NakoError, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    HlsArtifactManifest, HlsPlaybackGeneration, HlsVariantPolicy, TranscodeExecutionPolicy,
-    TranscodeSubtitleStrategy, TranscodeTrackSelection,
+    HlsArtifactManifest, HlsPlaybackGeneration, HlsSubtitleBurnInPlan, HlsVariantPolicy,
+    TranscodeExecutionPolicy, TranscodeSubtitleStrategy, TranscodeTrackSelection,
 };
 
 use super::{FfmpegArg, FfmpegCommandPlan, FfmpegOverwritePolicy, common::command_plan};
@@ -25,6 +25,7 @@ pub(crate) struct HlsRequest {
     pub(crate) artifacts: HlsArtifactManifest,
     pub(crate) segment_time_seconds: u32,
     pub(crate) track_selection: TranscodeTrackSelection,
+    pub(crate) subtitle_burn_in: Option<HlsSubtitleBurnInPlan>,
     pub(crate) execution_policy: TranscodeExecutionPolicy,
     pub(crate) overwrite: FfmpegOverwritePolicy,
 }
@@ -243,7 +244,11 @@ fn single_variant_primary_output_parts(
             request.track_selection,
             output.main_output_has_audio,
         ),
-        filter_graph: filters::hls_filter_graph_args(request.execution_policy)?,
+        filter_graph: filters::hls_filter_graph_args(
+            request.execution_policy,
+            &request.input_path,
+            request.subtitle_burn_in,
+        )?,
         audio_filter: filters::hls_audio_filter_args(
             output.main_output_has_audio,
             output.audio_filter_graph(),
@@ -274,7 +279,11 @@ fn adaptive_primary_output_parts(
             output.main_output_has_audio,
             request.track_selection,
         ),
-        filter_graph: filters::hls_filter_graph_args(request.execution_policy)?,
+        filter_graph: filters::hls_filter_graph_args(
+            request.execution_policy,
+            &request.input_path,
+            request.subtitle_burn_in,
+        )?,
         audio_filter: filters::hls_audio_filter_args(
             output.main_output_has_audio,
             output.audio_filter_graph(),
@@ -318,8 +327,42 @@ fn validate_hls_subtitle_strategy(request: &HlsRequest) -> Result<()> {
                 })
             }
         }
-        TranscodeSubtitleStrategy::PreserveInContainer
-        | TranscodeSubtitleStrategy::BurnInSelected => Err(NakoError::Unsupported(
+        TranscodeSubtitleStrategy::BurnInSelected => {
+            if request.artifacts.media_renditions().has_subtitles() {
+                return Err(NakoError::InvalidInput {
+                    message: "hls subtitle artifacts require sidecar-selected subtitle strategy"
+                        .to_owned(),
+                });
+            }
+            if request.track_selection.subtitle_stream.is_none() {
+                return Err(NakoError::InvalidInput {
+                    message: "hls subtitle burn-in requires a selected subtitle stream".to_owned(),
+                });
+            }
+            let Some(subtitle_burn_in) = request.subtitle_burn_in else {
+                return Err(NakoError::InvalidInput {
+                    message: "hls subtitle burn-in requires a filter stream plan".to_owned(),
+                });
+            };
+            if subtitle_burn_in.source_stream_index
+                != request
+                    .track_selection
+                    .subtitle_stream
+                    .expect("selected subtitle was checked above")
+            {
+                return Err(NakoError::InvalidInput {
+                    message: "hls subtitle burn-in filter stream does not match selected subtitle"
+                        .to_owned(),
+                });
+            }
+            if !request.execution_policy.acceleration.is_software_only() {
+                return Err(NakoError::Unsupported(
+                    "hls subtitle burn-in requires the software transcode pipeline",
+                ));
+            }
+            Ok(())
+        }
+        TranscodeSubtitleStrategy::PreserveInContainer => Err(NakoError::Unsupported(
             "hls subtitle strategy is not implemented by the ffmpeg adapter",
         )),
     }

@@ -5,7 +5,8 @@ pub use nako_core::{TranscodeSessionId, TranscodeSessionKind};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    HlsArtifactManifest, HlsPlaybackGeneration, TranscodeExecutionPolicy, TranscodeTrackSelection,
+    HlsArtifactManifest, HlsPlaybackGeneration, HlsSubtitleBurnInPlan, TranscodeExecutionPolicy,
+    TranscodeTrackSelection,
     ffmpeg::{
         FfmpegCommandBuilder, FfmpegCommandPlan, FfmpegOverwritePolicy, HlsRequest, RemuxContainer,
         RemuxRequest,
@@ -28,6 +29,7 @@ pub struct HlsExecutionPlanRequest {
     pub artifacts: HlsArtifactManifest,
     pub segment_time_seconds: u32,
     pub track_selection: TranscodeTrackSelection,
+    pub subtitle_burn_in: Option<HlsSubtitleBurnInPlan>,
     pub execution_policy: TranscodeExecutionPolicy,
 }
 
@@ -93,6 +95,7 @@ impl FfmpegExecutionPlanner {
                 artifacts: request.artifacts,
                 segment_time_seconds: request.segment_time_seconds,
                 track_selection: request.track_selection,
+                subtitle_burn_in: request.subtitle_burn_in,
                 execution_policy: request.execution_policy,
                 overwrite: FfmpegOverwritePolicy::Allow,
             },

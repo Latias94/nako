@@ -1,18 +1,24 @@
+use std::path::Path;
+
 use nako_core::{NakoError, Result};
 
+use crate::HlsSubtitleBurnInPlan;
 use crate::{
     HardwareAcceleration, TranscodeAccelerationPlan, TranscodeAudioDownmixRequirement,
     TranscodeAudioNormalizationRequirement, TranscodeAudioOutputRequirement,
-    TranscodeColorPipelineRequirement, TranscodeExecutionPolicy,
+    TranscodeColorPipelineRequirement, TranscodeExecutionPolicy, TranscodeSubtitleStrategy,
 };
 
 use crate::ffmpeg::FfmpegArg;
 
 const HLS_HDR_TO_SDR_TONE_MAPPING_FILTER: &str = "zscale=transfer=linear:npl=100,tonemap=tonemap=hable:desat=0,zscale=transfer=bt709:matrix=bt709:primaries=bt709:range=tv,format=yuv420p";
 
-pub(super) fn hls_filter_graph_args(policy: TranscodeExecutionPolicy) -> Result<Vec<FfmpegArg>> {
-    if let Some(filter_graph) = hls_color_filter_graph(policy.color_pipeline, policy.acceleration)?
-    {
+pub(super) fn hls_filter_graph_args(
+    policy: TranscodeExecutionPolicy,
+    input_path: &Path,
+    subtitle_burn_in: Option<HlsSubtitleBurnInPlan>,
+) -> Result<Vec<FfmpegArg>> {
+    if let Some(filter_graph) = hls_video_filter_graph(policy, input_path, subtitle_burn_in)? {
         return Ok(vec![FfmpegArg::raw("-vf"), FfmpegArg::raw(filter_graph)]);
     }
 
@@ -89,6 +95,66 @@ fn hls_color_filter_graph(
     }
 
     Ok(Some(HLS_HDR_TO_SDR_TONE_MAPPING_FILTER.to_owned()))
+}
+
+fn hls_video_filter_graph(
+    policy: TranscodeExecutionPolicy,
+    input_path: &Path,
+    subtitle_burn_in: Option<HlsSubtitleBurnInPlan>,
+) -> Result<Option<String>> {
+    let mut filters = Vec::new();
+    if let Some(filter) = hls_color_filter_graph(policy.color_pipeline, policy.acceleration)? {
+        filters.push(filter);
+    }
+    if let Some(filter) = hls_subtitle_burn_in_filter(
+        policy.subtitle_strategy,
+        input_path,
+        subtitle_burn_in,
+        policy.acceleration,
+    )? {
+        filters.push(filter);
+    }
+
+    if filters.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(filters.join(",")))
+    }
+}
+
+fn hls_subtitle_burn_in_filter(
+    subtitle_strategy: TranscodeSubtitleStrategy,
+    input_path: &Path,
+    subtitle_burn_in: Option<HlsSubtitleBurnInPlan>,
+    acceleration: TranscodeAccelerationPlan,
+) -> Result<Option<String>> {
+    if subtitle_strategy != TranscodeSubtitleStrategy::BurnInSelected {
+        return Ok(None);
+    }
+    if !acceleration.is_software_only() {
+        return Err(NakoError::Unsupported(
+            "hls subtitle burn-in requires the software transcode pipeline",
+        ));
+    }
+    let Some(subtitle_burn_in) = subtitle_burn_in else {
+        return Err(NakoError::InvalidInput {
+            message: "hls subtitle burn-in requires a filter stream plan".to_owned(),
+        });
+    };
+
+    Ok(Some(format!(
+        "subtitles='{}':si={}",
+        escaped_subtitles_filter_path(input_path),
+        subtitle_burn_in.filter_stream_index
+    )))
+}
+
+fn escaped_subtitles_filter_path(path: &Path) -> String {
+    path.to_string_lossy()
+        .replace('\\', "\\\\")
+        .replace('\'', "\\'")
+        .replace(':', "\\:")
+        .replace(',', "\\,")
 }
 
 fn hls_audio_downmix_filter(audio_output: TranscodeAudioOutputRequirement) -> Result<String> {

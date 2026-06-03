@@ -1,6 +1,8 @@
 use std::path::{Path, PathBuf};
 
-use nako_core::{MediaProbeResult, MediaStreamKind, NakoError, Result};
+use nako_core::{
+    MediaProbeResult, MediaStreamInfo, MediaStreamKind, MediaStreamOrigin, NakoError, Result,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -31,6 +33,8 @@ const HLS_ADAPTIVE_LADDER_CANDIDATES: &[(u32, u32, u64)] = &[
 ];
 const HLS_ADAPTIVE_DEFAULT_LADDER_CANDIDATES: &[(u32, u32, u64)] =
     &[(1280, 720, 3_000_000), (854, 480, 1_200_000)];
+const HLS_BURN_IN_TEXT_SUBTITLE_CODECS: &[&str] =
+    &["ass", "mov_text", "ssa", "srt", "subrip", "text", "webvtt"];
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
@@ -211,6 +215,99 @@ impl HlsSubtitleRendition {
             self.source_stream_index,
             self.language.as_deref().unwrap_or("und")
         )
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct HlsSubtitleBurnInPlan {
+    pub source_stream_index: u32,
+    pub filter_stream_index: u32,
+}
+
+impl HlsSubtitleBurnInPlan {
+    #[must_use]
+    pub const fn new(source_stream_index: u32, filter_stream_index: u32) -> Self {
+        Self {
+            source_stream_index,
+            filter_stream_index,
+        }
+    }
+
+    pub fn selected_from_probe(
+        probe: Option<&MediaProbeResult>,
+        track_selection: TranscodeTrackSelection,
+    ) -> Result<Option<Self>> {
+        let Some(selected_subtitle_stream) = track_selection.subtitle_stream else {
+            return Ok(None);
+        };
+        let Some(probe) = probe else {
+            return Err(NakoError::InvalidInput {
+                message: "hls subtitle burn-in requires media probe subtitle stream facts"
+                    .to_owned(),
+            });
+        };
+
+        for (filter_stream_index, stream) in probe
+            .streams
+            .iter()
+            .filter(|stream| matches!(stream.kind, MediaStreamKind::Subtitle))
+            .enumerate()
+        {
+            if stream.index == selected_subtitle_stream {
+                validate_hls_burn_in_subtitle_stream(stream)?;
+                let filter_stream_index =
+                    u32::try_from(filter_stream_index).map_err(|_| NakoError::InvalidInput {
+                        message: "hls subtitle burn-in stream index exceeds ffmpeg filter range"
+                            .to_owned(),
+                    })?;
+                return Ok(Some(Self::new(stream.index, filter_stream_index)));
+            }
+        }
+
+        Err(NakoError::InvalidInput {
+            message: format!(
+                "selected subtitle stream {selected_subtitle_stream} was not found in media probe"
+            ),
+        })
+    }
+}
+
+fn validate_hls_burn_in_subtitle_stream(stream: &MediaStreamInfo) -> Result<()> {
+    if !matches!(stream.kind, MediaStreamKind::Subtitle) {
+        return Err(NakoError::InvalidInput {
+            message: "hls subtitle burn-in requires a subtitle stream".to_owned(),
+        });
+    }
+    if stream
+        .technical
+        .origin
+        .as_ref()
+        .is_some_and(|origin| !matches!(origin, MediaStreamOrigin::Embedded))
+    {
+        return Err(NakoError::Unsupported(
+            "hls subtitle burn-in supports only embedded subtitle streams",
+        ));
+    }
+
+    let Some(codec) = stream
+        .codec
+        .as_deref()
+        .map(str::trim)
+        .filter(|codec| !codec.is_empty())
+    else {
+        return Err(NakoError::InvalidInput {
+            message: "hls subtitle burn-in requires subtitle codec facts".to_owned(),
+        });
+    };
+    if HLS_BURN_IN_TEXT_SUBTITLE_CODECS
+        .iter()
+        .any(|supported| codec.eq_ignore_ascii_case(supported))
+    {
+        Ok(())
+    } else {
+        Err(NakoError::Unsupported(
+            "hls subtitle burn-in supports only text subtitle codecs",
+        ))
     }
 }
 
@@ -1880,9 +1977,85 @@ fn validate_hls_artifact_name(artifact_name: &str) -> Result<()> {
 mod tests {
     use std::path::PathBuf;
 
+    use nako_core::MediaStreamTechnicalFacts;
+
     use crate::policy::HlsSegmentContainer;
 
     use super::*;
+
+    #[test]
+    fn hls_subtitle_burn_in_plan_uses_subtitle_ordinal_not_source_stream_index() {
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("matroska,webm".to_owned()),
+            bit_rate: None,
+            streams: vec![
+                media_stream(0, MediaStreamKind::Video, "h264"),
+                media_stream(2, MediaStreamKind::Subtitle, "subrip"),
+                media_stream(3, MediaStreamKind::Audio, "aac"),
+                media_stream(5, MediaStreamKind::Subtitle, "webvtt"),
+            ],
+        };
+
+        let plan = HlsSubtitleBurnInPlan::selected_from_probe(
+            Some(&probe),
+            TranscodeTrackSelection {
+                audio_stream: None,
+                subtitle_stream: Some(5),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(plan, Some(HlsSubtitleBurnInPlan::new(5, 1)));
+    }
+
+    #[test]
+    fn hls_subtitle_burn_in_plan_rejects_image_subtitle_codec() {
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("matroska,webm".to_owned()),
+            bit_rate: None,
+            streams: vec![media_stream(
+                2,
+                MediaStreamKind::Subtitle,
+                "hdmv_pgs_subtitle",
+            )],
+        };
+
+        let err = HlsSubtitleBurnInPlan::selected_from_probe(
+            Some(&probe),
+            TranscodeTrackSelection {
+                audio_stream: None,
+                subtitle_stream: Some(2),
+            },
+        )
+        .unwrap_err();
+
+        assert!(err.to_string().contains("text subtitle codecs"));
+    }
+
+    #[test]
+    fn hls_subtitle_burn_in_plan_rejects_external_subtitle_origin() {
+        let mut subtitle = media_stream(2, MediaStreamKind::Subtitle, "subrip");
+        subtitle.technical.origin = Some(MediaStreamOrigin::External);
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("matroska,webm".to_owned()),
+            bit_rate: None,
+            streams: vec![subtitle],
+        };
+
+        let err = HlsSubtitleBurnInPlan::selected_from_probe(
+            Some(&probe),
+            TranscodeTrackSelection {
+                audio_stream: None,
+                subtitle_stream: Some(2),
+            },
+        )
+        .unwrap_err();
+
+        assert!(err.to_string().contains("embedded subtitle streams"));
+    }
 
     #[test]
     fn hls_request_variant_identity_round_trips_full_artifact_authority_components() {
@@ -2019,6 +2192,22 @@ mod tests {
         assert_not_manifest_artifact(&fmp4, "audio_0_final.aac");
         assert_not_manifest_artifact(&fmp4, "subtitle_0_final.vtt");
         assert_not_manifest_artifact(&fmp4, "../segment_00000.m4s");
+    }
+
+    fn media_stream(index: u32, kind: MediaStreamKind, codec: &str) -> MediaStreamInfo {
+        MediaStreamInfo {
+            index,
+            kind,
+            codec: Some(codec.to_owned()),
+            language: None,
+            duration_ms: None,
+            bit_rate: None,
+            width: None,
+            height: None,
+            channels: None,
+            sample_rate: None,
+            technical: MediaStreamTechnicalFacts::default(),
+        }
     }
 
     fn single_rendition_ladder(has_audio: bool) -> HlsAdaptiveLadderPlan {

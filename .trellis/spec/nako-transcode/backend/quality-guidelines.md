@@ -68,7 +68,13 @@ Transcode changes must keep FFmpeg behavior typed, bounded, and testable.
 | Input path equals primary playlist path | reject command plan |
 | Subtitle artifacts without sidecar-selected strategy | invalid input planning error |
 | Sidecar-selected strategy without subtitle artifacts | invalid input planning error |
-| Burn-in/preserve-in-container subtitles | unsupported FFmpeg adapter error |
+| Burn-in-selected strategy without selected subtitle stream | invalid input planning error |
+| Burn-in-selected strategy without probe-confirmed text subtitle codec facts | invalid input or unsupported planning error |
+| Burn-in-selected strategy with external or image subtitle facts | unsupported planning error |
+| Burn-in-selected strategy with subtitle sidecar artifacts | invalid input planning error |
+| Burn-in-selected strategy on hardware filter pipeline | unsupported FFmpeg adapter error |
+| Burn-in-selected strategy with selected subtitle and software pipeline | primary `-vf subtitles=...:si=<subtitle-ordinal>` filter, no sidecar output |
+| Preserve-in-container subtitles | unsupported FFmpeg adapter error |
 
 ### 5. Good / Base / Bad Cases
 
@@ -84,6 +90,9 @@ Transcode changes must keep FFmpeg behavior typed, bounded, and testable.
 - Exact argv test when changing HLS command-part ordering.
 - Include at least one path with primary output plus audio/subtitle sidecar
   outputs when touching sidecar locality.
+- Include exact argv coverage for subtitle burn-in filters when changing
+  burn-in or video filter graph planning. The FFmpeg `si` value is an ordinal
+  among subtitle streams, not Nako's global source stream index.
 - Run `cargo nextest run -p nako-transcode hls --no-fail-fast` for HLS command
   part changes.
 
@@ -224,8 +233,10 @@ summary embedded in the execution plan.
 - Transcode profile identity must include `subtitle_strategy`; request variant
   identity should include subtitle media renditions only when sidecar artifacts
   are actually planned.
-- The FFmpeg HLS adapter may reject `BurnInSelected` until burn-in execution is
-  implemented; the runtime planner still preserves the strategy.
+- The FFmpeg HLS adapter supports `BurnInSelected` only for selected embedded
+  text subtitles on the software filter pipeline. It must keep image subtitle,
+  external subtitle, and hardware-filter burn-in behavior explicit rather than
+  silently falling back.
 
 ### 4. Validation & Error Matrix
 
@@ -235,7 +246,8 @@ summary embedded in the execution plan.
 | HLS selected subtitle and target does not support subtitle delivery | `BurnInSelected`; no subtitle sidecar rendition |
 | `OmitSelected` with `track_selection.subtitle_stream = Some(_)` | keep `OmitSelected`; no subtitle sidecar rendition |
 | Multi-audio probe with non-sidecar subtitle strategy | audio renditions still appear; subtitle renditions do not |
-| FFmpeg HLS request with `BurnInSelected` before burn-in support | unsupported adapter error |
+| FFmpeg HLS request with executable text-subtitle `BurnInSelected` | primary subtitle burn-in filter, no subtitle sidecar output |
+| FFmpeg HLS request with unsupported burn-in shape | invalid input or unsupported adapter error |
 
 ### 5. Good / Base / Bad Cases
 
@@ -257,6 +269,8 @@ summary embedded in the execution plan.
   and creates no subtitle media renditions.
 - Transcode runtime test proving `OmitSelected` is not upgraded to sidecar from
   track selection, while audio renditions are preserved.
+- FFmpeg HLS command test proving `BurnInSelected` emits a primary subtitle
+  burn-in filter and no subtitle sidecar output.
 - Server HLS flow test proving supported subtitle delivery still publishes
   sidecar playlists and WebVTT artifacts.
 

@@ -5,7 +5,7 @@ use super::{
     HardwareAcceleration, HardwareAccelerationCapability, HardwareAccelerationFallback,
     HardwareAccelerationPolicy, HardwareAccelerationReport, HardwarePipelineStage,
     HlsAdaptiveLadderPlan, HlsMediaRenditionPlan, HlsOutputRequirement, HlsPlaybackGeneration,
-    HlsRequestVariantPlan, HlsVariantPolicy, PlaybackHlsProfileRequest,
+    HlsRequestVariantPlan, HlsSubtitleBurnInPlan, HlsVariantPolicy, PlaybackHlsProfileRequest,
     TranscodeAccelerationFallbackPlan, TranscodeAccelerationPlan, TranscodeAudioOutputRequirement,
     TranscodeColorPipelineRequirement, TranscodeExecutionPolicy, TranscodeOutputConstraints,
     TranscodePlan, TranscodeProfile, TranscodeProfileIdentity, TranscodeRequestIdentity,
@@ -223,6 +223,7 @@ pub struct HlsRuntimePlan {
     pub execution_policy: TranscodeExecutionPolicy,
     pub hls_output: HlsOutputRequirement,
     pub track_selection: TranscodeTrackSelection,
+    pub subtitle_burn_in: Option<HlsSubtitleBurnInPlan>,
 }
 
 impl TranscodePipelinePlan {
@@ -320,6 +321,21 @@ impl TranscodePipelinePlanner {
         };
         let pipeline = self.plan_hls_single_variant(pipeline_request, report)?;
         let execution_policy = pipeline.execution_policy();
+        let subtitle_burn_in = if request.subtitle_strategy
+            == TranscodeSubtitleStrategy::BurnInSelected
+        {
+            Some(
+                HlsSubtitleBurnInPlan::selected_from_probe(
+                    request.media_probe.as_ref(),
+                    request.track_selection,
+                )?
+                .ok_or_else(|| NakoError::InvalidInput {
+                    message: "hls subtitle burn-in requires a selected subtitle stream".to_owned(),
+                })?,
+            )
+        } else {
+            None
+        };
         let profile = build_playback_hls_profile(PlaybackHlsProfileRequest {
             plan: request.plan,
             execution_policy,
@@ -361,6 +377,7 @@ impl TranscodePipelinePlanner {
             execution_policy,
             hls_output,
             track_selection: request.track_selection,
+            subtitle_burn_in,
         })
     }
 }
@@ -989,6 +1006,10 @@ mod tests {
         assert_eq!(
             runtime.execution_policy.subtitle_strategy,
             TranscodeSubtitleStrategy::BurnInSelected
+        );
+        assert_eq!(
+            runtime.subtitle_burn_in,
+            Some(HlsSubtitleBurnInPlan::new(3, 0))
         );
         assert!(runtime.request_variant.media_renditions.is_empty());
         assert!(runtime.request_variant.identity_key().is_none());
