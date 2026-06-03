@@ -88,6 +88,12 @@ mod tests {
         path.split('/').collect::<PathBuf>().display().to_string()
     }
 
+    macro_rules! argv {
+        ($($arg:expr),* $(,)?) => {
+            vec![$($arg.to_string()),*]
+        };
+    }
+
     fn demo_transcode_source() -> nako_core::MediaSource {
         nako_core::MediaSource {
             id: MediaSourceId::new(),
@@ -1266,26 +1272,62 @@ mod tests {
         };
 
         let argv = builder.hls(&request).unwrap().argv_lossy();
-        let audio_playlist = path_arg("hls/audio_0.m3u8");
-        let subtitle_playlist = path_arg("hls/subtitle_0.m3u8");
-        let primary_playlist_index = argv
-            .iter()
-            .position(|arg| arg == "hls/playlist.m3u8")
-            .unwrap();
-        let audio_playlist_index = argv
-            .windows(2)
-            .position(|args| args[0] == "-segment_list" && args[1] == audio_playlist)
-            .unwrap();
-        let subtitle_playlist_index = argv
-            .windows(2)
-            .position(|args| args[0] == "-segment_list" && args[1] == subtitle_playlist)
-            .unwrap();
 
-        assert!(primary_playlist_index < audio_playlist_index);
-        assert!(audio_playlist_index < subtitle_playlist_index);
-        assert!(argv.windows(2).any(|args| {
-            args[0] == "-hls_segment_filename" && args[1] == "hls/segment_%05d.ts"
-        }));
+        assert_eq!(
+            argv,
+            argv![
+                "ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                "warning",
+                "-nostats",
+                "-progress",
+                "pipe:1",
+                "-y",
+                "-i",
+                "input.mkv",
+                "-map",
+                "0:v:0",
+                "-c:v",
+                "libx264",
+                "-f",
+                "hls",
+                "-hls_time",
+                "6",
+                "-hls_playlist_type",
+                "vod",
+                "-hls_segment_filename",
+                "hls/segment_%05d.ts",
+                "hls/playlist.m3u8",
+                "-map",
+                "0:1",
+                "-vn",
+                "-c:a",
+                "aac",
+                "-f",
+                "segment",
+                "-segment_time",
+                "6",
+                "-segment_list",
+                path_arg("hls/audio_0.m3u8"),
+                "-segment_format",
+                "adts",
+                path_arg("hls/audio_0_%05d.aac"),
+                "-map",
+                "0:2",
+                "-c:s",
+                "webvtt",
+                "-f",
+                "segment",
+                "-segment_time",
+                "6",
+                "-segment_list",
+                path_arg("hls/subtitle_0.m3u8"),
+                "-segment_format",
+                "webvtt",
+                path_arg("hls/subtitle_0_%05d.vtt"),
+            ]
+        );
     }
 
     #[test]
