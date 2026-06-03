@@ -181,6 +181,9 @@ Shipped control-plane behavior:
 
 ### control-plane-observability-and-trace-context
 
+Status: HTTP request ID first slice shipped as of 2026-06-04; cross-runtime
+propagation remains a follow-on.
+
 Goal: Make operator-visible diagnostics and developer traces follow one request
 from API entry through policy, database, VFS, FFmpeg, addon, and job runtime
 work.
@@ -193,6 +196,15 @@ Scope:
 - Tokio task/runtime diagnostics;
 - safe incident bundle export for operators;
 - no opt-out-hostile telemetry from self-hosted installs.
+
+Shipped behavior:
+
+- root HTTP middleware assigns or normalizes a redaction-safe `x-request-id`;
+- `x-request-id` is returned on public, protected, auth-rejected, and
+  network/CORS short-circuit responses;
+- CORS preflight allows browser clients to send `x-request-id`;
+- the typed HTTP trace context is available to handlers through request
+  extensions.
 
 Exit criteria:
 

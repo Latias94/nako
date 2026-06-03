@@ -21,6 +21,7 @@ mod playback;
 mod query;
 mod renderer;
 mod system;
+mod trace_context;
 mod user_playback;
 mod user_playlist;
 mod webhooks;
@@ -63,6 +64,9 @@ fn build_router_with_auth(app: NakoApp, auth: auth::InboundAuthState) -> Router 
         .merge(addons::runtime_routes())
         .layer(middleware::map_response(add_api_version_header))
         .layer(middleware::from_fn(network::annotate_external_origin))
+        .layer(middleware::from_fn(
+            trace_context::attach_http_trace_context,
+        ))
         .layer(Extension(network))
         .with_state(app)
 }

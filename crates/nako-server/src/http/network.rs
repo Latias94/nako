@@ -152,7 +152,7 @@ fn annotate_preflight_headers(response: &mut Response) {
     );
     response.headers_mut().insert(
         header::ACCESS_CONTROL_ALLOW_HEADERS,
-        HeaderValue::from_static("authorization,content-type,range"),
+        HeaderValue::from_static("authorization,content-type,range,x-request-id"),
     );
     response.headers_mut().insert(
         header::ACCESS_CONTROL_MAX_AGE,

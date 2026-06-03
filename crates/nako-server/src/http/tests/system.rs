@@ -54,6 +54,13 @@ async fn health_and_libraries_routes_work() {
         health_response.headers()[nako_api::public_client::API_VERSION_HEADER],
         nako_api::public_client::API_VERSION
     );
+    let request_id = health_response
+        .headers()
+        .get(&crate::http::trace_context::X_REQUEST_ID_HEADER)
+        .unwrap()
+        .to_str()
+        .unwrap();
+    assert!(request_id.starts_with("req_"));
     let health = body_json::<HealthResponse>(health_response).await;
     let libraries = request_json::<LibraryListResponse>(&router, Method::GET, "/libraries").await;
     let library =
@@ -68,6 +75,56 @@ async fn health_and_libraries_routes_work() {
     assert_eq!(libraries.page.limit, nako_core::PageRequest::DEFAULT_LIMIT);
     assert_eq!(libraries.page.offset, 0);
     assert_eq!(libraries.page.returned, 1);
+}
+
+#[tokio::test]
+async fn http_trace_context_echoes_safe_request_id_and_replaces_unsafe_input() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let router = test_router(temp.path().to_path_buf(), library_id).await;
+
+    let echoed = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/health")
+                .header(
+                    &crate::http::trace_context::X_REQUEST_ID_HEADER,
+                    "REQ-ABC_123.trace",
+                )
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        echoed.headers()[crate::http::trace_context::X_REQUEST_ID_HEADER],
+        "req-abc_123.trace"
+    );
+
+    let replaced = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/health")
+                .header(
+                    &crate::http::trace_context::X_REQUEST_ID_HEADER,
+                    "https://secret.example/path?token=private",
+                )
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let request_id = replaced.headers()[crate::http::trace_context::X_REQUEST_ID_HEADER]
+        .to_str()
+        .unwrap();
+    assert!(request_id.starts_with("req_"));
+    assert!(!request_id.contains("secret"));
+    assert!(!request_id.contains("token"));
+    assert_ne!(request_id, "https://secret.example/path?token=private");
 }
 
 #[tokio::test]
@@ -8408,6 +8465,13 @@ async fn bearer_auth_protects_non_health_routes_and_keeps_health_public() {
         missing.headers()[nako_api::public_client::API_VERSION_HEADER],
         nako_api::public_client::API_VERSION
     );
+    let missing_request_id = missing
+        .headers()
+        .get(&crate::http::trace_context::X_REQUEST_ID_HEADER)
+        .unwrap()
+        .to_str()
+        .unwrap();
+    assert!(missing_request_id.starts_with("req_"));
     assert_eq!(missing.headers()[header::WWW_AUTHENTICATE], "Bearer");
     let missing_error = body_json::<ErrorResponse>(missing).await;
     assert_eq!(
@@ -8739,8 +8803,15 @@ async fn network_boundary_enforces_origin_policy_and_preserves_auth_order() {
     );
     assert_eq!(
         preflight.headers()[header::ACCESS_CONTROL_ALLOW_HEADERS],
-        "authorization,content-type,range"
+        "authorization,content-type,range,x-request-id"
     );
+    let preflight_request_id = preflight
+        .headers()
+        .get(&crate::http::trace_context::X_REQUEST_ID_HEADER)
+        .unwrap()
+        .to_str()
+        .unwrap();
+    assert!(preflight_request_id.starts_with("req_"));
 
     let rejected_preflight = router
         .clone()
@@ -8756,6 +8827,13 @@ async fn network_boundary_enforces_origin_policy_and_preserves_auth_order() {
         .await
         .unwrap();
     assert_eq!(rejected_preflight.status(), StatusCode::FORBIDDEN);
+    let rejected_preflight_request_id = rejected_preflight
+        .headers()
+        .get(&crate::http::trace_context::X_REQUEST_ID_HEADER)
+        .unwrap()
+        .to_str()
+        .unwrap();
+    assert!(rejected_preflight_request_id.starts_with("req_"));
     let rejected_preflight_body =
         serde_json::to_string(&body_json::<ErrorResponse>(rejected_preflight).await).unwrap();
     assert!(!rejected_preflight_body.contains("evil.example.test"));

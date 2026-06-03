@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server pre-development index for HTTP and diagnostics work."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Root router, Axum middleware, auth, and HTTP test patterns."}
+{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "Trace/request diagnostics must stay redaction-safe."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused server gate and nextest expectations."}
+{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "HTTP module placement and control-plane boundary rules."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Trace context is a boundary value that must stay narrow in this slice."}
+{"file": ".trellis/tasks/06-04-06-04-control-plane-trace-context-first-slice/research/current-http-trace-context.md", "reason": "Task-specific router and trace-context scope research."}

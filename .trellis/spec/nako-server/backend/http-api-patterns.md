@@ -104,3 +104,92 @@ pub(super) fn routes() -> Router<NakoApp> {
 
 For a new route in an existing admin module, add it to the existing
 `admin::routes()` chain so it inherits the admin principal check.
+
+## Scenario: HTTP Request Trace Context
+
+### 1. Scope / Trigger
+
+- Trigger: changing root router middleware, request identity, CORS request
+  headers, or handler-visible trace context in `crates/nako-server`.
+- Code evidence: `src/http.rs`, `src/http/trace_context.rs`,
+  `src/http/network.rs`, `src/http/tests/system.rs`.
+- Architecture authority: ADR 0053 and
+  `docs/architecture/CONTROL_PLANE.md`.
+
+### 2. Signatures
+
+- `trace_context::attach_http_trace_context(Request, Next) -> Response` is the
+  root HTTP trace-context middleware.
+- `trace_context::HttpTraceContext` is inserted into request extensions for
+  future handlers that need request identity.
+- `trace_context::X_REQUEST_ID_HEADER` is the canonical `x-request-id`
+  response/request header.
+
+### 3. Contracts
+
+- Root router assembly must keep trace context outside middleware that can
+  short-circuit, such as network boundary and auth rejection, so all responses
+  get `x-request-id`.
+- A valid inbound `x-request-id` is bounded, uses only ASCII alphanumeric,
+  dash, underscore, or dot, and is normalized to lowercase.
+- Missing or invalid inbound IDs are replaced with generated opaque IDs.
+- CORS preflight allow headers include `x-request-id` so browser clients can
+  provide a safe request ID.
+- Request IDs are response headers and handler extensions only in the first
+  slice. Do not add them to public/Admin DTOs, generated contracts, durable
+  job rows, database schema, or response bodies without a dedicated task.
+
+### 4. Validation & Error Matrix
+
+| Condition | Behavior |
+|-----------|----------|
+| No inbound request ID | Generate a safe opaque `req_...` ID and return it in `x-request-id`. |
+| Valid inbound request ID | Normalize to lowercase, insert typed context, and echo it in `x-request-id`. |
+| Inbound request ID contains whitespace, slash, comma, semicolon, URL/path characters, or is too long | Reject the inbound value, generate a safe opaque replacement, and do not echo the unsafe value. |
+| Network/CORS middleware returns preflight or forbidden response | Response still includes generated or accepted `x-request-id`. |
+| Auth middleware rejects a protected request | `401` keeps `WWW-Authenticate`, `x-nako-api-version`, and `x-request-id`. |
+
+### 5. Good / Base / Bad Cases
+
+- Good: add request-scoped diagnostics by extracting
+  `Extension<HttpTraceContext>` and logging only `request_id`.
+- Base: a route ignores trace context; root middleware still returns
+  `x-request-id` for client/operator correlation.
+- Bad: use raw URL, local path, bearer token, playback ticket, provider payload,
+  or arbitrary user text as a request ID.
+- Bad: mount trace context only on protected routes, which misses `/health`,
+  CORS preflight, addon runtime routes, or auth/network rejections.
+
+### 6. Tests Required
+
+- Unit test: safe inbound request IDs normalize and unsafe values are rejected.
+- Middleware test: typed context is available to an Axum handler and response
+  header matches.
+- Root router test: `/health` returns generated `x-request-id`.
+- Root router test: valid inbound IDs are echoed and unsafe inbound IDs are
+  replaced without leaking the unsafe string.
+- Root router test: auth rejection and network/preflight short-circuit
+  responses still include `x-request-id`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+let request_id = request.uri().to_string();
+```
+
+This can expose raw paths, query strings, playback tickets, or other sensitive
+operator data.
+
+#### Correct
+
+```rust
+let context = request
+    .extensions()
+    .get::<HttpTraceContext>()
+    .expect("trace context middleware should run before handlers");
+tracing::info!(request_id = %context.request_id(), "request accepted");
+```
+
+Handlers use the typed context and log only the sanitized request ID.
