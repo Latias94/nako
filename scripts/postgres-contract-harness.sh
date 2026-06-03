@@ -9,7 +9,7 @@ require_tooling="false"
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/postgres-contract-harness.sh [--suite managed-artwork|all-contracts] [--database-url URL] [--port PORT] [--keep-data] [--require-tooling]
+Usage: scripts/postgres-contract-harness.sh [--suite managed-artwork|storage-runtime|all-contracts] [--database-url URL] [--port PORT] [--keep-data] [--require-tooling]
 
 Runs Nako's ignored PostgreSQL contract tests. If a database URL is supplied,
 the harness uses it directly. Without a URL, it starts a temporary local
@@ -54,8 +54,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$suite" in
-  managed-artwork) test_filter="postgres_managed_artwork_contract" ;;
-  all-contracts) test_filter="postgres_" ;;
+  managed-artwork) test_filters=("postgres_managed_artwork_contract") ;;
+  storage-runtime) test_filters=("postgres_storage_backend_health_contract" "postgres_vfs_staging_contract") ;;
+  all-contracts) test_filters=("postgres_") ;;
   *)
     echo "Invalid suite: $suite" >&2
     usage >&2
@@ -129,7 +130,7 @@ if [[ -z "$database_url" ]]; then
   mkdir -p "$harness_root"
 
   step initdb -D "$data_dir" -U "$user_name" -A trust -E UTF8 --no-locale
-  step pg_ctl start -D "$data_dir" -l "$log_path" -w -t 60 -o "-p $port -h 127.0.0.1 -k \"$harness_root\""
+  step pg_ctl start -D "$data_dir" -l "$log_path" -w -t 60 -o "-p $port -h 127.0.0.1"
   started_local_server="true"
 
   step createdb -h 127.0.0.1 -p "$port" -U "$user_name" "$database_name"
@@ -139,4 +140,4 @@ else
 fi
 
 export NAKO_TEST_POSTGRES_URL="$database_url"
-step cargo nextest run -p nako-db "$test_filter" --run-ignored ignored-only --no-fail-fast
+step cargo nextest run -p nako-db "${test_filters[@]}" --run-ignored ignored-only --no-fail-fast

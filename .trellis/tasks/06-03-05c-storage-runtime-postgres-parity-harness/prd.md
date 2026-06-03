@@ -25,12 +25,12 @@ tests.
 
 ## Acceptance Criteria
 
-- [ ] PostgreSQL parity coverage exists for the selected storage runtime path,
+- [x] PostgreSQL parity coverage exists for the selected storage runtime path,
   or evidence records why the local environment cannot run it.
-- [ ] SQLite coverage remains passing.
-- [ ] Tests prove storage admission/staging behavior has the same contract
+- [x] SQLite coverage remains passing.
+- [x] Tests prove storage admission/staging behavior has the same contract
   across backends where applicable.
-- [ ] Follow-ons are recorded for broader PostgreSQL runtime harness work.
+- [x] Follow-ons are recorded for broader PostgreSQL runtime harness work.
 
 ## Suggested Gates
 
@@ -39,3 +39,15 @@ tests.
 - Any existing PostgreSQL-gated command documented by the repo
 - `cargo fmt --all -- --check`
 - `git diff --check`
+
+## Result
+
+- Selected the existing PostgreSQL contract boundary instead of widening into a
+  runtime rewrite.
+- Added a focused `storage-runtime` suite to the existing PostgreSQL harness
+  scripts for storage backend health and staging manifest parity.
+- Fixed the local Windows temporary PostgreSQL harness startup path so long
+  worktree directories no longer fail on Unix-domain socket path length.
+- Recorded task evidence in `evidence.md`, including the successful PowerShell
+  PostgreSQL harness run, the SQLite/server focused gates, and the remaining
+  cross-shell PATH follow-on for `bash` on Windows.
