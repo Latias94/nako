@@ -794,3 +794,38 @@ Added explicit playback mode to release-gate scripts, checking FFmpeg and FFprob
 ### Next Steps
 
 - None - task complete
+
+
+## Session 19: Playback HLS trace context propagation
+
+**Date**: 2026-06-04
+**Task**: Playback HLS trace context propagation
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Shipped HLS playlist request-id propagation from HTTP trace context into playback app trace context and HLS completion outbox payloads; updated server trace spec, control-plane architecture, task evidence, and archived the child task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `885ba686` | (see git log) |
+| `df6a48cf` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
