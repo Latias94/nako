@@ -173,6 +173,11 @@ export type AdminStorageStagingPressureStatus =
   | "critical"
   | "exhausted";
 
+export type AdminStorageStagingAttributionKind =
+  | "attributed"
+  | "ambiguous"
+  | "unknown";
+
 export interface AdminStorageStagingPressureSummary {
   status: AdminStorageStagingPressureStatus;
   used_ratio_milli: number | null;
@@ -2842,6 +2847,8 @@ export interface AdminStorageStagingDiagnosticsResponse {
   };
   records: Array<{
     id: string;
+    attribution_kind: AdminStorageStagingAttributionKind;
+    attribution_library_id: string | null;
     source_scheme: string;
     purpose: string;
     state: string;

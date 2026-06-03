@@ -1904,6 +1904,8 @@ export const mockStorageStaging: AdminStorageStagingDiagnosticsResponse = {
   records: [
     {
       id: "staging-hls",
+      attribution_kind: "attributed",
+      attribution_library_id: "018f0000-0000-7000-8000-000000000101",
       source_scheme: "webdav",
       purpose: "ffmpeg_input",
       state: "ready",
@@ -1919,6 +1921,8 @@ export const mockStorageStaging: AdminStorageStagingDiagnosticsResponse = {
     },
     {
       id: "staging-old",
+      attribution_kind: "unknown",
+      attribution_library_id: null,
       source_scheme: "local",
       purpose: "ffmpeg_input",
       state: "failed",

@@ -7,7 +7,7 @@ use nako_core::{
     JobLeaseHeartbeat, JobLeaseRepository, JobListFilter, JobPriority, JobRepository, LeasedJob,
     Library, LibraryId, LibraryRepository, MediaProbeResult, MediaSource, NakoError,
     NewIngestionFailure, NewJob, NewOutboxEvent, OutboxEventRecord, PageRequest,
-    RequestJobCancellation, Result, StagingPurpose,
+    RequestJobCancellation, Result, StagingAttribution, StagingPurpose,
 };
 use nako_db::NakoDatabase;
 use nako_library::{
@@ -707,6 +707,7 @@ impl LibraryScanAppService {
         let probe_backend = ManifestRecordingStorageBackend::new(
             storage_backend.clone(),
             Arc::new(self.execution_store.store.clone()),
+            StagingAttribution::attributed(library.id),
             StagingPurpose::ProbeInput,
             self.config.staging.max_bytes,
             self.config.staging.retention_ms,

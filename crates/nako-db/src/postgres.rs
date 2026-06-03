@@ -40,6 +40,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "durable_job_priority",
         include_str!("../migrations/postgres/0002_durable_job_priority.sql"),
     ),
+    (
+        3,
+        "staging_attribution",
+        include_str!("../migrations/postgres/0003_staging_attribution.sql"),
+    ),
 ];
 
 #[derive(Clone, Debug)]

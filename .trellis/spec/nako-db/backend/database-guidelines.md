@@ -24,6 +24,10 @@ database-specific SQL and row mapping stay inside `nako-db`.
   - `crates/nako-db/src/sqlite/migrations.rs`
   - `crates/nako-db/src/postgres.rs`
 - Keep version numbers and descriptions aligned across SQLite and Postgres.
+- When an incremental SQLite migration must enforce a cross-column invariant
+  that cannot be added through `ALTER TABLE ... ADD COLUMN`, add the SQLite-side
+  enforcement in the migration itself (for example trigger-based guards) so the
+  migrated-store contract matches PostgreSQL checks.
 - Keep baseline migrations as direct schema shape. Do not replay historical
   `ALTER TABLE` fragments in baseline SQL.
 - After a schema change, update row mappers, insert/update SQL, list filters,
@@ -128,6 +132,8 @@ NewJob {
 
 - Adding a column to SQLite only.
 - Registering migration files but forgetting the `MIGRATIONS` array.
+- Adding a PostgreSQL `CHECK` for a new persisted invariant but leaving
+  migrated SQLite stores able to write the illegal combination.
 - Updating row inserts but not row readers.
 - Adding a repository trait method without a contract test.
 - Returning a raw SQLx error type through a `nako-core` repository trait.

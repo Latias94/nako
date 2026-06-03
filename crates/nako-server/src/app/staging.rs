@@ -7,8 +7,9 @@ use std::{
 
 use async_trait::async_trait;
 use nako_core::{
-    NakoError, NewStagingManifestRecord, PageRequest, Result, StagingManifestId,
-    StagingManifestRecord, StagingManifestRepository, StagingPurpose, StagingState,
+    NakoError, NewStagingManifestRecord, PageRequest, Result, StagingAttribution,
+    StagingManifestId, StagingManifestRecord, StagingManifestRepository, StagingPurpose,
+    StagingState,
 };
 use nako_vfs::{
     ByteRange, ObjectListing, ObjectMetadata, ReadRange, ReadStream, StageRequest, StagedFile,
@@ -21,6 +22,7 @@ use super::{current_time_ms, runtime::RuntimeSupervisor};
 
 pub(super) async fn record_staged_input(
     store: &dyn StagingManifestRepository,
+    attribution: StagingAttribution,
     purpose: StagingPurpose,
     uri: &StorageUri,
     staged: &StagedFile,
@@ -44,6 +46,7 @@ pub(super) async fn record_staged_input(
     store
         .complete_staging_manifest_record(NewStagingManifestRecord {
             id,
+            attribution,
             source_uri: uri.to_string(),
             source_scheme: uri.scheme().to_owned(),
             purpose,
@@ -150,6 +153,7 @@ pub(super) async fn cleanup_expired_staging_inputs(
 pub(super) struct ManifestRecordingStorageBackend {
     inner: Arc<dyn StorageBackend>,
     store: Arc<dyn StagingManifestRepository>,
+    attribution: StagingAttribution,
     purpose: StagingPurpose,
     max_bytes: u64,
     retention_ms: u64,
@@ -165,6 +169,7 @@ impl ManifestRecordingStorageBackend {
     pub(super) fn new(
         inner: Arc<dyn StorageBackend>,
         store: Arc<dyn StagingManifestRepository>,
+        attribution: StagingAttribution,
         purpose: StagingPurpose,
         max_bytes: u64,
         retention_ms: u64,
@@ -173,6 +178,7 @@ impl ManifestRecordingStorageBackend {
         Self {
             inner,
             store,
+            attribution,
             purpose,
             max_bytes,
             retention_ms,
@@ -204,6 +210,7 @@ impl ManifestRecordingStorageBackend {
             .reserve_staging_manifest_record(
                 NewStagingManifestRecord {
                     id: StagingManifestId::new(),
+                    attribution: self.attribution,
                     source_uri: request.uri.to_string(),
                     source_scheme: request.uri.scheme().to_owned(),
                     purpose: self.purpose,
@@ -245,6 +252,7 @@ impl ManifestRecordingStorageBackend {
 
         record_staged_input(
             self.store.as_ref(),
+            self.attribution,
             self.purpose,
             &staged.uri,
             staged,

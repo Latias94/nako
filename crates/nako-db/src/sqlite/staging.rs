@@ -9,15 +9,20 @@ impl StagingManifestRepository for SqliteStore {
         &self,
         record: NewStagingManifestRecord,
     ) -> Result<StagingManifestRecord> {
+        let (attribution_kind, attribution_library_id) = record.attribution.as_parts();
+        let attribution_library_id = attribution_library_id.map(|id| id.to_string());
         sqlx::query(
             r#"
             INSERT INTO staging_manifest_records (
-                id, source_uri, source_scheme, purpose, local_path, size_bytes,
+                id, attribution_kind, attribution_library_id,
+                source_uri, source_scheme, purpose, local_path, size_bytes,
                 etag, fingerprint, state, created_at_ms, updated_at_ms,
                 last_accessed_at_ms, expires_at_ms, active_leases, validation_error
             )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
             ON CONFLICT(id) DO UPDATE SET
+                attribution_kind = excluded.attribution_kind,
+                attribution_library_id = excluded.attribution_library_id,
                 source_uri = excluded.source_uri,
                 source_scheme = excluded.source_scheme,
                 purpose = excluded.purpose,
@@ -34,6 +39,8 @@ impl StagingManifestRepository for SqliteStore {
             "#,
         )
         .bind(record.id.to_string())
+        .bind(attribution_kind.as_str())
+        .bind(attribution_library_id)
         .bind(&record.source_uri)
         .bind(&record.source_scheme)
         .bind(record.purpose.as_str())
@@ -500,8 +507,14 @@ impl StagingManifestRepository for SqliteStore {
 }
 
 fn row_to_staging_manifest_record(row: SqliteRow) -> Result<StagingManifestRecord> {
+    let attribution_kind =
+        StagingAttributionKind::parse(&row_get::<String>(&row, "attribution_kind")?)?;
+    let attribution_library_id =
+        parse_optional_id(row_get::<Option<String>>(&row, "attribution_library_id")?)?;
+
     Ok(StagingManifestRecord {
         id: parse_id(row_get::<String>(&row, "id")?)?,
+        attribution: StagingAttribution::from_parts(attribution_kind, attribution_library_id)?,
         source_uri: row_get(&row, "source_uri")?,
         source_scheme: row_get(&row, "source_scheme")?,
         purpose: StagingPurpose::parse(&row_get::<String>(&row, "purpose")?)?,
@@ -523,15 +536,20 @@ async fn upsert_staging_manifest_record_in_transaction(
     transaction: &mut Transaction<'_, Sqlite>,
     record: NewStagingManifestRecord,
 ) -> Result<StagingManifestRecord> {
+    let (attribution_kind, attribution_library_id) = record.attribution.as_parts();
+    let attribution_library_id = attribution_library_id.map(|id| id.to_string());
     sqlx::query(
         r#"
         INSERT INTO staging_manifest_records (
-            id, source_uri, source_scheme, purpose, local_path, size_bytes,
+            id, attribution_kind, attribution_library_id,
+            source_uri, source_scheme, purpose, local_path, size_bytes,
             etag, fingerprint, state, created_at_ms, updated_at_ms,
             last_accessed_at_ms, expires_at_ms, active_leases, validation_error
         )
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
         ON CONFLICT(id) DO UPDATE SET
+            attribution_kind = excluded.attribution_kind,
+            attribution_library_id = excluded.attribution_library_id,
             source_uri = excluded.source_uri,
             source_scheme = excluded.source_scheme,
             purpose = excluded.purpose,
@@ -548,6 +566,8 @@ async fn upsert_staging_manifest_record_in_transaction(
         "#,
     )
     .bind(record.id.to_string())
+    .bind(attribution_kind.as_str())
+    .bind(attribution_library_id)
     .bind(&record.source_uri)
     .bind(&record.source_scheme)
     .bind(record.purpose.as_str())
@@ -627,8 +647,8 @@ fn staging_state_counts_toward_budget(state: StagingState) -> bool {
 #[cfg(test)]
 mod tests {
     use nako_core::{
-        DatabaseLifecycle, NewStagingManifestRecord, PageRequest, StagingManifestId,
-        StagingManifestRepository, StagingPurpose, StagingState,
+        DatabaseLifecycle, NakoError, NewStagingManifestRecord, PageRequest, StagingAttribution,
+        StagingManifestId, StagingManifestRepository, StagingPurpose, StagingState,
     };
 
     use crate::sqlite::SqliteStore;
@@ -640,6 +660,7 @@ mod tests {
         let id = StagingManifestId::new();
         let record = NewStagingManifestRecord {
             id,
+            attribution: StagingAttribution::unknown(),
             source_uri: "webdav:///Movies/Demo.mkv".to_owned(),
             source_scheme: "webdav".to_owned(),
             purpose: StagingPurpose::FfmpegInput,
@@ -661,6 +682,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(saved.id, id);
+        assert_eq!(saved.attribution, StagingAttribution::unknown());
         assert_eq!(saved.size_bytes, Some(12));
         assert!(saved.is_cleanup_candidate_at(2_000));
 
@@ -749,6 +771,7 @@ mod tests {
         let id = StagingManifestId::new();
         let record = NewStagingManifestRecord {
             id,
+            attribution: StagingAttribution::unknown(),
             source_uri: "webdav:///Movies/Demo.mkv".to_owned(),
             source_scheme: "webdav".to_owned(),
             purpose: StagingPurpose::FfmpegInput,
@@ -785,5 +808,34 @@ mod tests {
             .release_staging_manifest_lease(id, 2_100)
             .await
             .unwrap();
+    }
+
+    #[tokio::test]
+    async fn sqlite_store_rejects_invalid_staging_attribution_shape() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+        let id = StagingManifestId::new();
+
+        let err = sqlx::query(
+            r#"
+            INSERT INTO staging_manifest_records (
+                id, attribution_kind, attribution_library_id,
+                source_uri, source_scheme, purpose, local_path, size_bytes,
+                etag, fingerprint, state, created_at_ms, updated_at_ms,
+                last_accessed_at_ms, expires_at_ms, active_leases, validation_error
+            )
+            VALUES (?1, 'attributed', NULL, ?2, 'webdav', 'probe_input', ?3, 12,
+                NULL, NULL, 'ready', 1, 1, 1, NULL, 0, NULL)
+            "#,
+        )
+        .bind(id.to_string())
+        .bind("webdav:///Movies/Demo.mkv")
+        .bind("/var/cache/nako/staging/invalid-attribution.mkv")
+        .execute(store.pool())
+        .await
+        .unwrap_err();
+
+        let err = crate::sqlite::codec::database_error(err);
+        assert!(matches!(err, NakoError::Database { .. }));
     }
 }

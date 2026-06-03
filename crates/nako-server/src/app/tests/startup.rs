@@ -124,6 +124,7 @@ async fn occupy_staging_manifest_bytes_for_source(
     store
         .upsert_staging_manifest_record(NewStagingManifestRecord {
             id,
+            attribution: StagingAttribution::unknown(),
             source_uri: source_uri.to_owned(),
             source_scheme: source_scheme.to_owned(),
             purpose: StagingPurpose::ProbeInput,

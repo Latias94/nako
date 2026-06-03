@@ -1,6 +1,8 @@
 use std::{fmt, path::PathBuf, sync::Arc};
 
-use nako_core::{MediaSource, NakoError, Result, StagingManifestRepository, StagingPurpose};
+use nako_core::{
+    MediaSource, NakoError, Result, StagingAttribution, StagingManifestRepository, StagingPurpose,
+};
 use nako_vfs::{StageRequest, StorageBackend, StorageUri};
 
 use crate::config::NakoServerConfig;
@@ -55,6 +57,7 @@ impl FfmpegInputService {
         let backend = ManifestRecordingStorageBackend::new(
             backend.clone_backend(),
             self.store.clone(),
+            StagingAttribution::attributed(source.library_id),
             StagingPurpose::FfmpegInput,
             self.config.staging.max_bytes,
             self.config.staging.retention_ms,

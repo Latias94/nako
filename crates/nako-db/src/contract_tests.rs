@@ -89,13 +89,13 @@ use nako_core::{
     RendererSessionId, RendererSessionListFilter, RendererSessionRepository, RendererSessionState,
     RequestJobCancellation, RoleAssignment, ScanRepository, ScanSnapshotId, ScanStatus,
     SourceDuplicateEvidenceKind, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
-    SourceDuplicateRelationshipStatus, SourceDuplicateRepository, SourceState, StagingManifestId,
-    StagingManifestRepository, StagingPurpose, StagingState, StorageBackendHealthListFilter,
-    StorageBackendHealthRecord, StorageBackendHealthRepository, StorageBackendHealthStatus,
-    StorageCircuitBreakerState, StorageFailureClass, Studio, StudioId, Tag, TagId,
-    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
-    TranscodeSessionRepository, TranscodeSessionState, User, UserId, UserInvitationId,
-    UserInvitationRecord, UserInvitationStatus, UserPlaybackStateRepository,
+    SourceDuplicateRelationshipStatus, SourceDuplicateRepository, SourceState, StagingAttribution,
+    StagingManifestId, StagingManifestRepository, StagingPurpose, StagingState,
+    StorageBackendHealthListFilter, StorageBackendHealthRecord, StorageBackendHealthRepository,
+    StorageBackendHealthStatus, StorageCircuitBreakerState, StorageFailureClass, Studio, StudioId,
+    Tag, TagId, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
+    TranscodeSessionListFilter, TranscodeSessionRepository, TranscodeSessionState, User, UserId,
+    UserInvitationId, UserInvitationRecord, UserInvitationStatus, UserPlaybackStateRepository,
     UserPlaybackStateWrite, UserPlaylistId, UserPlaylistItemRemoval, UserPlaylistItemWrite,
     UserPlaylistReorder, UserPlaylistRepository, UserPrincipalId, UserRole, UserSessionId,
     UserSessionRecord, UserStatus, VfsCacheOperation, VfsCacheRepository, VfsCachedListing,
@@ -7321,9 +7321,11 @@ async fn staging_manifest_contract_preserves_reservation_budget_and_leases<S>(st
 where
     S: VfsStagingContractBackend,
 {
+    let library_id = LibraryId::new();
     let id = StagingManifestId::new();
     let base_record = NewStagingManifestRecord {
         id,
+        attribution: StagingAttribution::attributed(library_id),
         source_uri: "webdav:///Contract/Movies/Demo.mkv".to_owned(),
         source_scheme: "webdav".to_owned(),
         purpose: StagingPurpose::FfmpegInput,
@@ -7345,6 +7347,10 @@ where
         .await
         .unwrap();
     assert_eq!(reserved.id, id);
+    assert_eq!(
+        reserved.attribution,
+        StagingAttribution::attributed(library_id)
+    );
     assert_eq!(reserved.state, StagingState::Reserved);
     assert_eq!(store.sum_staging_manifest_bytes().await.unwrap(), 40);
 
@@ -7460,6 +7466,7 @@ where
     let failed_ready = store
         .complete_staging_manifest_record(NewStagingManifestRecord {
             id: failed_id,
+            attribution: StagingAttribution::ambiguous(),
             source_uri: "webdav:///Contract/Movies/Corrupt.mkv".to_owned(),
             local_path: "/var/cache/nako/staging/corrupt.mkv".to_owned(),
             state: StagingState::Ready,
@@ -7473,6 +7480,7 @@ where
         .await
         .unwrap();
     assert_eq!(failed_ready.state, StagingState::Ready);
+    assert_eq!(failed_ready.attribution, StagingAttribution::ambiguous());
 
     let failed = store
         .fail_staging_manifest_record(failed_id, 7_100, "checksum mismatch".to_owned())
@@ -7510,6 +7518,7 @@ where
     let staging_manifest_id = StagingManifestId::new();
     let staging_manifest = NewStagingManifestRecord {
         id: staging_manifest_id,
+        attribution: StagingAttribution::unknown(),
         source_uri: "local:///incoming/Demo.mkv".to_owned(),
         source_scheme: "local".to_owned(),
         purpose: StagingPurpose::ProbeInput,

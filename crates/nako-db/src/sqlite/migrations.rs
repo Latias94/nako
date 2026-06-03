@@ -12,6 +12,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "durable_job_priority",
         include_str!("../../migrations/0002_durable_job_priority.sql"),
     ),
+    (
+        3,
+        "staging_attribution",
+        include_str!("../../migrations/0003_staging_attribution.sql"),
+    ),
 ];
 
 #[async_trait::async_trait]
@@ -94,7 +99,7 @@ mod tests {
                 .await
                 .unwrap();
 
-        assert_eq!(applied_versions, vec![1, 2]);
+        assert_eq!(applied_versions, vec![1, 2, 3]);
 
         for table in [
             "users",

@@ -156,12 +156,12 @@ use nako_core::{
     PlaybackSessionRepository, PlaybackSessionState, ProviderMapping, ProviderMappingId,
     ProviderMappingRepository, ProviderRawResponse, ProviderRawResponseFilter, ProviderSubject,
     ProviderSubjectId, ProviderSubjectKind, RoleAssignment, SourceDuplicateRepository,
-    StagingManifestId, StagingManifestRepository, StagingPurpose, StagingState, StorageErrorKind,
-    Tag, TagId, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
-    TranscodeSessionListFilter, TranscodeSessionRepository, TranscodeSessionState, User, UserId,
-    UserPlaybackStateRepository, UserPlaybackStateWrite, UserPrincipalId, UserRole, UserStatus,
-    VfsCacheOperation, VfsCacheRepository, VfsCachedObject, VfsCachedObjectKind,
-    WebhookEndpointStatus,
+    StagingAttribution, StagingManifestId, StagingManifestRepository, StagingPurpose, StagingState,
+    StorageErrorKind, Tag, TagId, TranscodeFailureCategory, TranscodeSessionId,
+    TranscodeSessionKind, TranscodeSessionListFilter, TranscodeSessionRepository,
+    TranscodeSessionState, User, UserId, UserPlaybackStateRepository, UserPlaybackStateWrite,
+    UserPrincipalId, UserRole, UserStatus, VfsCacheOperation, VfsCacheRepository, VfsCachedObject,
+    VfsCachedObjectKind, WebhookEndpointStatus,
 };
 use nako_db::NakoDatabase;
 use nako_playback::{

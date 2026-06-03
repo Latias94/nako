@@ -2,7 +2,7 @@ use sqlx::{PgPool, Postgres, postgres::PgRow};
 
 use super::{
     PostgresStore, database_error, i64_to_u32, i64_to_u64, optional_i64_to_u64,
-    optional_u64_to_i64, parse_id, row_get, u32_to_i64, u64_to_i64,
+    optional_u64_to_i64, parse_id, parse_optional_id, row_get, u32_to_i64, u64_to_i64,
 };
 use nako_core::*;
 
@@ -24,6 +24,8 @@ const VFS_CACHE_OBJECT_SELECT: &str = r#"
 const STAGING_MANIFEST_RECORD_SELECT: &str = r#"
             SELECT
                 id::text AS id,
+                attribution_kind,
+                attribution_library_id::text AS attribution_library_id,
                 source_uri,
                 source_scheme,
                 purpose,
@@ -762,8 +764,11 @@ async fn upsert_staging_manifest_record(
     pool: &PgPool,
     record: NewStagingManifestRecord,
 ) -> Result<StagingManifestRecord> {
+    let (attribution_kind, attribution_library_id) = record.attribution.as_parts();
     sqlx::query(staging_manifest_record_upsert_sql())
         .bind(record.id.as_uuid())
+        .bind(attribution_kind.as_str())
+        .bind(attribution_library_id.map(|id| id.as_uuid()))
         .bind(&record.source_uri)
         .bind(&record.source_scheme)
         .bind(record.purpose.as_str())
@@ -794,8 +799,11 @@ async fn upsert_staging_manifest_record_tx(
     transaction: &mut sqlx::Transaction<'_, Postgres>,
     record: NewStagingManifestRecord,
 ) -> Result<StagingManifestRecord> {
+    let (attribution_kind, attribution_library_id) = record.attribution.as_parts();
     sqlx::query(staging_manifest_record_upsert_sql())
         .bind(record.id.as_uuid())
+        .bind(attribution_kind.as_str())
+        .bind(attribution_library_id.map(|id| id.as_uuid()))
         .bind(&record.source_uri)
         .bind(&record.source_scheme)
         .bind(record.purpose.as_str())
@@ -825,12 +833,15 @@ async fn upsert_staging_manifest_record_tx(
 fn staging_manifest_record_upsert_sql() -> &'static str {
     r#"
     INSERT INTO staging_manifest_records (
-        id, source_uri, source_scheme, purpose, local_path, size_bytes,
+        id, attribution_kind, attribution_library_id,
+        source_uri, source_scheme, purpose, local_path, size_bytes,
         etag, fingerprint, state, created_at_ms, updated_at_ms,
         last_accessed_at_ms, expires_at_ms, active_leases, validation_error
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
     ON CONFLICT(id) DO UPDATE SET
+        attribution_kind = excluded.attribution_kind,
+        attribution_library_id = excluded.attribution_library_id,
         source_uri = excluded.source_uri,
         source_scheme = excluded.source_scheme,
         purpose = excluded.purpose,
@@ -941,8 +952,14 @@ fn row_to_vfs_cache_failure(row: PgRow) -> Result<VfsCacheFailure> {
 }
 
 fn row_to_staging_manifest_record(row: PgRow) -> Result<StagingManifestRecord> {
+    let attribution_kind =
+        StagingAttributionKind::parse(&row_get::<String>(&row, "attribution_kind")?)?;
+    let attribution_library_id =
+        parse_optional_id(row_get::<Option<String>>(&row, "attribution_library_id")?)?;
+
     Ok(StagingManifestRecord {
         id: parse_id(row_get::<String>(&row, "id")?)?,
+        attribution: StagingAttribution::from_parts(attribution_kind, attribution_library_id)?,
         source_uri: row_get(&row, "source_uri")?,
         source_scheme: row_get(&row, "source_scheme")?,
         purpose: StagingPurpose::parse(&row_get::<String>(&row, "purpose")?)?,

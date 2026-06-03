@@ -28,9 +28,9 @@ use nako_core::{
     MetadataRepository, MetadataSource, NewJob, NewStagingManifestRecord, NewTranscodeSession,
     PageRequest, PlaybackPermissionPolicy, PlaybackPolicy, PlaybackPolicyRepository,
     PlaybackSessionListFilter, PlaybackSessionRepository, PlaybackSessionState,
-    ProviderRawResponse, RoleAssignment, StagingManifestId, StagingManifestRepository,
-    StagingPurpose, StagingState, TranscodeFailureCategory, TranscodeSessionId,
-    TranscodeSessionKind, TranscodeSessionListFilter, TranscodeSessionRecord,
+    ProviderRawResponse, RoleAssignment, StagingAttribution, StagingManifestId,
+    StagingManifestRepository, StagingPurpose, StagingState, TranscodeFailureCategory,
+    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter, TranscodeSessionRecord,
     TranscodeSessionRepository, TranscodeSessionState, User, UserId, UserPrincipalId, UserRole,
     UserStatus,
 };
@@ -110,6 +110,7 @@ fn staging_manifest_record(
 ) -> NewStagingManifestRecord {
     NewStagingManifestRecord {
         id,
+        attribution: StagingAttribution::unknown(),
         source_uri: "webdav:///Movies/Demo.mkv".to_owned(),
         source_scheme: "webdav".to_owned(),
         purpose: StagingPurpose::ProbeInput,

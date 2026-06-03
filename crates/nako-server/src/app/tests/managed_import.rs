@@ -8,8 +8,8 @@ use nako_core::{
     ManagedImportPromotionBlockedReason, ManagedImportPromotionOperationKind,
     ManagedImportPromotionOperationStatus, ManagedImportRepository, ManagedImportSourceKind,
     MediaItem, MediaItemId, MediaKind, MediaRepository, MediaSource, MediaSourceId,
-    NewStagingManifestRecord, PageRequest, SourceDuplicateRepository, StagingManifestId,
-    StagingManifestRepository, StagingPurpose, StagingState, UserPrincipalId,
+    NewStagingManifestRecord, PageRequest, SourceDuplicateRepository, StagingAttribution,
+    StagingManifestId, StagingManifestRepository, StagingPurpose, StagingState, UserPrincipalId,
 };
 use nako_db::NakoDatabase;
 
@@ -37,6 +37,7 @@ async fn managed_import_service_creates_redacted_artifact_diagnostics_without_li
     store
         .upsert_staging_manifest_record(NewStagingManifestRecord {
             id: staging_manifest_id,
+            attribution: StagingAttribution::unknown(),
             source_uri: "file:///incoming/private/Demo.mkv?token=secret".to_owned(),
             source_scheme: "file".to_owned(),
             purpose: StagingPurpose::ProbeInput,

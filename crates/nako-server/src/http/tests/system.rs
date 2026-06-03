@@ -5046,6 +5046,7 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
     store
         .upsert_staging_manifest_record(NewStagingManifestRecord {
             id: staging_id,
+            attribution: StagingAttribution::unknown(),
             source_uri: "webdav:///Movies/Private/Demo.mkv".to_owned(),
             source_scheme: "webdav".to_owned(),
             purpose: StagingPurpose::FfmpegInput,
@@ -5097,6 +5098,7 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
     store
         .upsert_staging_manifest_record(NewStagingManifestRecord {
             id: StagingManifestId::new(),
+            attribution: StagingAttribution::unknown(),
             source_uri: "webdav:///Movies/Other.mkv".to_owned(),
             source_scheme: "webdav".to_owned(),
             purpose: StagingPurpose::ProbeInput,
@@ -5123,6 +5125,7 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
     store
         .upsert_staging_manifest_record(NewStagingManifestRecord {
             id: StagingManifestId::new(),
+            attribution: StagingAttribution::unknown(),
             source_uri: "webdav:///Movies/Private/Failed.mkv".to_owned(),
             source_scheme: "webdav".to_owned(),
             purpose: StagingPurpose::ProbeInput,
@@ -5294,6 +5297,7 @@ async fn admin_v1_storage_staging_attributes_policy_slices_without_raw_backend_d
     store
         .upsert_staging_manifest_record(NewStagingManifestRecord {
             id: StagingManifestId::new(),
+            attribution: StagingAttribution::attributed(local_library_id),
             source_uri: "local:///PrivateLocal/LocalSecret.mkv".to_owned(),
             source_scheme: "local".to_owned(),
             purpose: StagingPurpose::FfmpegInput,
@@ -5320,6 +5324,7 @@ async fn admin_v1_storage_staging_attributes_policy_slices_without_raw_backend_d
     store
         .upsert_staging_manifest_record(NewStagingManifestRecord {
             id: StagingManifestId::new(),
+            attribution: StagingAttribution::attributed(remote_library_id),
             source_uri: "webdav:///Movies/PrivateRoot/RemoteSecret.mkv?token=raw-secret".to_owned(),
             source_scheme: "webdav".to_owned(),
             purpose: StagingPurpose::ProbeInput,

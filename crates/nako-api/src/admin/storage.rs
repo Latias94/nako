@@ -1,8 +1,10 @@
 use nako_client_protocol::PageInfo;
+#[cfg(test)]
+use nako_core::StagingAttribution;
 use nako_core::{
-    LibraryId, StagingManifestId, StagingManifestRecord, StagingPurpose, StagingState,
-    StorageBackendHealthRecord, StorageBackendHealthStatus, StorageCircuitBreakerState,
-    StorageFailureClass,
+    LibraryId, StagingAttributionKind, StagingManifestId, StagingManifestRecord, StagingPurpose,
+    StagingState, StorageBackendHealthRecord, StorageBackendHealthStatus,
+    StorageCircuitBreakerState, StorageFailureClass,
 };
 use serde::{Deserialize, Serialize};
 
@@ -80,6 +82,8 @@ pub struct AdminVfsCacheSummary {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminStorageStagingRecord {
     pub id: StagingManifestId,
+    pub attribution_kind: StagingAttributionKind,
+    pub attribution_library_id: Option<LibraryId>,
     pub source_scheme: String,
     pub purpose: StagingPurpose,
     pub state: StagingState,
@@ -99,6 +103,8 @@ impl AdminStorageStagingRecord {
     pub fn from_record(record: StagingManifestRecord) -> Self {
         Self {
             id: record.id,
+            attribution_kind: record.attribution.kind(),
+            attribution_library_id: record.attribution.library_id(),
             source_scheme: record.source_scheme,
             purpose: record.purpose,
             state: record.state,
@@ -235,6 +241,7 @@ mod tests {
     fn admin_storage_staging_record_redacts_paths_source_uri_and_errors() {
         let record = StagingManifestRecord {
             id: StagingManifestId::new(),
+            attribution: StagingAttribution::attributed(LibraryId::new()),
             source_uri: "webdav:///Movies/Private/Demo.mkv".to_owned(),
             source_scheme: "webdav".to_owned(),
             purpose: StagingPurpose::FfmpegInput,
@@ -257,6 +264,8 @@ mod tests {
         assert_eq!(item.source_scheme, "webdav");
         assert_eq!(item.purpose, StagingPurpose::FfmpegInput);
         assert_eq!(item.state, StagingState::Failed);
+        assert_eq!(item.attribution_kind, StagingAttributionKind::Attributed);
+        assert!(item.attribution_library_id.is_some());
         assert_eq!(item.size_bytes, Some(42));
         assert!(item.has_etag);
         assert!(item.has_fingerprint);
