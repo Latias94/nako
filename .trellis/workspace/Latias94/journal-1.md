@@ -304,3 +304,38 @@ Archived the 06-03-06 parent coordination task after 06a, 06b, and 06c were arch
 ### Next Steps
 
 - None - task complete
+
+
+## Session 7: Planned watcher write suppression
+
+**Date**: 2026-06-03
+**Task**: Planned watcher write suppression
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Implemented process-local planned-write suppression for watch-folder discovery and runtime ticks; exposed redaction-safe Admin discovery suppression diagnostics; regenerated Admin TypeScript contracts; archived the Trellis task after focused Rust, Admin API, and Admin Web checks passed.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `43e8cc86` | (see git log) |
+| `27b2f670` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
