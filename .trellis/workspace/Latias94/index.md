@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 12
+- **Total Sessions**: 13
 - **Last Active**: 2026-06-04
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~543 | Active |
+| `journal-1.md` | ~578 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 13 | 2026-06-04 | HLS seek command identity | `011e2d7e`, `936b8ff5` | `main` |
 | 12 | 2026-06-04 | HLS text subtitle burn-in FFmpeg planning | `4ea990be`, `d866b82f` | `main` |
 | 11 | 2026-06-04 | HLS subtitle strategy planning seam | `c2137eea`, `89a4aa70` | `main` |
 | 10 | 2026-06-04 | Storage VFS cache repair preview | `70a756d2` | `main` |

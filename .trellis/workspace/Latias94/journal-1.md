@@ -541,3 +541,50 @@ Implemented HLS embedded text subtitle burn-in command planning with FFmpeg subt
 ### Next Steps
 
 - None - task complete
+
+
+## Session 13: HLS seek command identity
+
+**Date**: 2026-06-04
+**Task**: HLS seek command identity
+**Package**: nako-transcode
+**Branch**: `main`
+
+### Summary
+
+Unified HLS seek/restart FFmpeg args behind a single typed command plan, added default/adaptive exact argv coverage, updated transcode guidance, and archived the task.
+
+### Main Changes
+
+- Added `HlsSeekCommandPlan` as the request-derived authority for non-default
+  HLS seek command args.
+- Routed HLS input `-ss`, encoder `-force_key_frames`, muxer
+  `-avoid_negative_ts`, and HLS `independent_segments` flags through the shared
+  plan for single-variant and adaptive commands.
+- Added exact argv coverage for default-start omission and adaptive HLS seek
+  planning.
+- Updated transcode quality guidance and archived the Trellis task.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `011e2d7e` | (see git log) |
+| `936b8ff5` | (see git log) |
+
+### Testing
+
+- [OK] `cargo check -p nako-transcode --tests`
+- [OK] `cargo fmt --all -- --check`
+- [OK] `git diff --check`
+- [OK] `cargo nextest run -p nako-transcode hls --no-fail-fast` - 71 passed,
+  45 skipped.
+- [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-04-06-04-hls-seek-restart-command-identity`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
