@@ -1,4 +1,4 @@
-use std::{collections::HashSet, path::PathBuf, sync::Arc, time::Duration};
+use std::{collections::HashSet, path::PathBuf, sync::Arc};
 
 use nako_core::{
     MediaSource, MediaSourceId, NakoError, NewTranscodeSession, Result, TranscodeFailureCategory,
@@ -26,7 +26,10 @@ use super::{
     control::{hls_supersede_candidates, request_hls_session_supersede},
     map_hls_runner_error, path_exists, persist_session_failure,
     record_playback_session_finished_event,
-    resource::{PlaybackResourceDemand, PlaybackResourcePermitSet, PlaybackRuntimeAdmission},
+    resource::{
+        PlaybackResourceAdmissionPolicy, PlaybackResourceDemand, PlaybackResourcePermitSet,
+        PlaybackRuntimeAdmission,
+    },
 };
 
 #[derive(Clone, Debug)]
@@ -285,9 +288,10 @@ impl HlsAppService {
         }
 
         if resource_permit.is_none() && !supersede_candidates.is_empty() {
-            if let Err(error) =
-                resource_admission.ensure_configured_capacity(resource_demand, "hls supersede")
-            {
+            if let Err(error) = resource_admission.ensure_capacity_for_policy(
+                resource_demand,
+                PlaybackResourceAdmissionPolicy::HlsSupersede,
+            ) {
                 self.release(key).await;
                 return Err(error);
             }
@@ -315,20 +319,14 @@ impl HlsAppService {
 
         let permit = match resource_permit {
             Some(permit) => permit,
-            None if superseded.is_empty() => {
-                match resource_admission.try_acquire(resource_demand) {
-                    Ok(permit) => permit,
-                    Err(error) => {
-                        self.release(key).await;
-                        return Err(error);
-                    }
-                }
-            }
             None => match resource_admission
-                .try_acquire_until(
+                .acquire_for_policy(
                     resource_demand,
-                    HLS_SUPERSEDE_ADMISSION_WAIT,
-                    HLS_SUPERSEDE_ADMISSION_RETRY_INTERVAL,
+                    if superseded.is_empty() {
+                        PlaybackResourceAdmissionPolicy::Immediate
+                    } else {
+                        PlaybackResourceAdmissionPolicy::HlsSupersede
+                    },
                 )
                 .await
             {
@@ -512,6 +510,3 @@ enum HlsRequestAdmission {
         session: TranscodeSessionRecord,
     },
 }
-
-const HLS_SUPERSEDE_ADMISSION_WAIT: Duration = Duration::from_secs(5);
-const HLS_SUPERSEDE_ADMISSION_RETRY_INTERVAL: Duration = Duration::from_millis(50);

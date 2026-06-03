@@ -15,6 +15,9 @@ Use these gates for `crates/nako-server` feature work.
   shape, including `WWW-Authenticate: Bearer` for `401`.
 - ADR 0053 requires new list surfaces to stay bounded and paginated rather than
   returning unbounded JSON.
+- When playback admission policy is changed, cover both immediate rejection and
+  bounded wait paths with focused app or unit tests; keep wait constants and
+  capacity checks in the resource helper layer.
 
 ## Gate Selection
 

@@ -1,0 +1,28 @@
+{
+  "id": "06-03-long-horizon-architecture-queue",
+  "name": "06-03-long-horizon-architecture-queue",
+  "title": "long horizon architecture and refactor queue",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "nako",
+  "priority": "P2",
+  "creator": "Latias94",
+  "assignee": "Latias94",
+  "createdAt": "2026-06-03",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "06-04-playback-hls-admission-policy-seam"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

@@ -215,6 +215,33 @@ pub(crate) enum PlaybackResourceAdmissionStatus {
     Rejected,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum PlaybackResourceAdmissionPolicy {
+    Immediate,
+    HlsSupersede,
+}
+
+impl PlaybackResourceAdmissionPolicy {
+    #[must_use]
+    fn wait_policy(self) -> Option<PlaybackResourceWaitPolicy> {
+        match self {
+            Self::Immediate => None,
+            Self::HlsSupersede => Some(PlaybackResourceWaitPolicy {
+                operation: "hls supersede",
+                timeout: HLS_SUPERSEDE_ADMISSION_WAIT,
+                retry_interval: HLS_SUPERSEDE_ADMISSION_RETRY_INTERVAL,
+            }),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct PlaybackResourceWaitPolicy {
+    operation: &'static str,
+    timeout: Duration,
+    retry_interval: Duration,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct PlaybackResourceClassAdmission {
     pub(crate) class: PlaybackResourceClass,
@@ -329,6 +356,32 @@ impl PlaybackRuntimeAdmission {
                 Err(error) => return Err(error),
             }
         }
+    }
+
+    pub(crate) fn ensure_capacity_for_policy(
+        &self,
+        demand: &PlaybackResourceDemand,
+        policy: PlaybackResourceAdmissionPolicy,
+    ) -> Result<()> {
+        let Some(wait_policy) = policy.wait_policy() else {
+            return Ok(());
+        };
+
+        self.ensure_configured_capacity(demand, wait_policy.operation)
+    }
+
+    pub(crate) async fn acquire_for_policy(
+        &self,
+        demand: &PlaybackResourceDemand,
+        policy: PlaybackResourceAdmissionPolicy,
+    ) -> Result<PlaybackResourcePermitSet> {
+        let Some(wait_policy) = policy.wait_policy() else {
+            return self.try_acquire(demand);
+        };
+
+        self.ensure_configured_capacity(demand, wait_policy.operation)?;
+        self.try_acquire_until(demand, wait_policy.timeout, wait_policy.retry_interval)
+            .await
     }
 
     pub(crate) fn ensure_configured_capacity(
@@ -536,4 +589,104 @@ struct PlaybackResourcePermit {
     #[allow(dead_code)]
     class: PlaybackResourceClass,
     _permit: OwnedSemaphorePermit,
+}
+
+const HLS_SUPERSEDE_ADMISSION_WAIT: Duration = Duration::from_secs(5);
+const HLS_SUPERSEDE_ADMISSION_RETRY_INTERVAL: Duration = Duration::from_millis(50);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nako_transcode::{
+        TranscodeAccelerationPlan, TranscodeExecutionPolicy, TranscodeOutputConstraints,
+        TranscodeTrackSelection,
+    };
+
+    fn hls_demand() -> PlaybackResourceDemand {
+        PlaybackResourceDemand::hls(
+            false,
+            TranscodeExecutionPolicy::hls_single_variant(
+                TranscodeAccelerationPlan::software(),
+                TranscodeTrackSelection::default(),
+                TranscodeOutputConstraints::default(),
+            ),
+        )
+    }
+
+    #[tokio::test]
+    async fn playback_resource_admission_immediate_policy_uses_non_waiting_acquire_path() {
+        let admission = PlaybackRuntimeAdmission::new(PlaybackResourceCapacity {
+            remote_streams: 1,
+            remote_stages: 1,
+            remux_processes: 1,
+            cpu_transcodes: 1,
+            gpu_transcodes: 1,
+            hls_artifact_io: 1,
+        });
+
+        let permit = admission
+            .acquire_for_policy(
+                &PlaybackResourceDemand::remux(false),
+                PlaybackResourceAdmissionPolicy::Immediate,
+            )
+            .await
+            .unwrap();
+
+        drop(permit);
+    }
+
+    #[tokio::test]
+    async fn playback_resource_admission_hls_supersede_policy_rejects_unconfigured_capacity_before_waiting()
+     {
+        let admission = PlaybackRuntimeAdmission::new(PlaybackResourceCapacity {
+            remote_streams: 1,
+            remote_stages: 1,
+            remux_processes: 1,
+            cpu_transcodes: 0,
+            gpu_transcodes: 1,
+            hls_artifact_io: 1,
+        });
+
+        let err = admission
+            .acquire_for_policy(&hls_demand(), PlaybackResourceAdmissionPolicy::HlsSupersede)
+            .await
+            .unwrap_err();
+        let NakoError::Conflict { message } = err else {
+            panic!("expected conflict");
+        };
+        assert!(message.contains("hls supersede"));
+        assert!(message.contains("unavailable"));
+    }
+
+    #[tokio::test]
+    async fn playback_resource_admission_hls_supersede_policy_waits_for_permit_release() {
+        let admission = PlaybackRuntimeAdmission::new(PlaybackResourceCapacity {
+            remote_streams: 1,
+            remote_stages: 1,
+            remux_processes: 1,
+            cpu_transcodes: 1,
+            gpu_transcodes: 1,
+            hls_artifact_io: 1,
+        });
+        let demand = hls_demand();
+        let first_permit = admission
+            .acquire_for_policy(&demand, PlaybackResourceAdmissionPolicy::HlsSupersede)
+            .await
+            .unwrap();
+
+        let release = tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(25)).await;
+            drop(first_permit);
+        });
+
+        let started = std::time::Instant::now();
+        let second_permit = admission
+            .acquire_for_policy(&demand, PlaybackResourceAdmissionPolicy::HlsSupersede)
+            .await
+            .unwrap();
+
+        assert!(started.elapsed() >= Duration::from_millis(20));
+        drop(second_permit);
+        release.await.unwrap();
+    }
 }

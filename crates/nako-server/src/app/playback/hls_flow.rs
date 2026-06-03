@@ -24,6 +24,7 @@ use super::{
     playlist::HlsPlaylistSessionBinding,
     playlist::HlsPlaylistUrlDecoration,
     playlist::author_hls_session_playlist,
+    resource::PlaybackResourceAdmissionPolicy,
     resource::PlaybackResourceDemand,
     resource::PlaybackResourcePermitSet,
     selection::hls_runtime_plan_request,
@@ -266,8 +267,10 @@ async fn start_hls_playlist_with_policy(
     let resource_permit = if supersede_candidates.is_empty() {
         None
     } else {
-        app.resource_admission
-            .ensure_configured_capacity(&resource_demand, "hls supersede")?;
+        app.resource_admission.ensure_capacity_for_policy(
+            &resource_demand,
+            PlaybackResourceAdmissionPolicy::HlsSupersede,
+        )?;
         let _ = request_hls_session_supersede(
             app.runtime_store.as_ref(),
             &app.cancellations,
@@ -278,10 +281,9 @@ async fn start_hls_playlist_with_policy(
         .await?;
         Some(
             app.resource_admission
-                .try_acquire_until(
+                .acquire_for_policy(
                     &resource_demand,
-                    HLS_SUPERSEDE_ADMISSION_WAIT,
-                    HLS_SUPERSEDE_ADMISSION_RETRY_INTERVAL,
+                    PlaybackResourceAdmissionPolicy::HlsSupersede,
                 )
                 .await?,
         )
@@ -292,7 +294,11 @@ async fn start_hls_playlist_with_policy(
         .await?;
     let resource_permit = match resource_permit {
         Some(permit) => permit,
-        None => match app.resource_admission.try_acquire(&resource_demand) {
+        None => match app
+            .resource_admission
+            .acquire_for_policy(&resource_demand, PlaybackResourceAdmissionPolicy::Immediate)
+            .await
+        {
             Ok(permit) => permit,
             Err(error) => {
                 if let Err(release_error) = app.input.release_source_input(input).await {
@@ -391,7 +397,3 @@ async fn wait_for_hls_playlist_ready_context(
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
     }
 }
-
-const HLS_SUPERSEDE_ADMISSION_WAIT: std::time::Duration = std::time::Duration::from_secs(5);
-const HLS_SUPERSEDE_ADMISSION_RETRY_INTERVAL: std::time::Duration =
-    std::time::Duration::from_millis(50);

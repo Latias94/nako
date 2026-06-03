@@ -42,6 +42,9 @@ crates/nako-server/src/
   must use durable job/runtime boundaries instead of raw `tokio::spawn`.
 - Resource admission belongs in app runtime helpers such as
   `app/playback/resource.rs`, not in pure planner crates.
+- Bounded resource-admission policy (for example immediate vs HLS supersede
+  wait) should live in the resource helper layer and be reused by orchestration
+  code instead of being duplicated in HLS/remux flow modules.
 
 ## Scenario: Playback Remote Stream Admission
 
