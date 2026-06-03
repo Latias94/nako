@@ -365,6 +365,64 @@ where
 
 #[async_trait::async_trait]
 impl JobLeaseRepository for SqliteStore {
+    async fn list_claimable_jobs_for_lease(
+        &self,
+        filter: JobLeaseClaimFilter,
+        page: PageRequest,
+    ) -> Result<Vec<Job>> {
+        let page = page.clamped();
+        let kind = filter.kind.map(|kind| kind.as_str().to_owned());
+        let resource_class = filter.resource_class;
+        let requested_job_id = filter.job_id.map(|id| id.to_string());
+        let library_id = filter.library_id.map(|id| id.to_string());
+        let source_id = filter.source_id.map(|id| id.to_string());
+        let rows = sqlx::query(&format!(
+            r#"
+            {JOB_SELECT}
+            WHERE status = ?1
+                AND (?2 IS NULL OR kind = ?2)
+                AND (?3 IS NULL OR resource_class = ?3)
+                AND (?4 IS NULL OR id = ?4)
+                AND (?5 IS NULL OR library_id = ?5)
+                AND (?6 IS NULL OR source_id = ?6)
+                AND (next_attempt_at IS NULL OR next_attempt_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+            ORDER BY
+                CASE
+                    WHEN queued_at <= strftime(
+                        '%Y-%m-%dT%H:%M:%fZ',
+                        'now',
+                        '-' || (CAST(?7 AS REAL) / 1000.0) || ' seconds'
+                    ) THEN 1 ELSE 0
+                END DESC,
+                CASE
+                    WHEN queued_at <= strftime(
+                        '%Y-%m-%dT%H:%M:%fZ',
+                        'now',
+                        '-' || (CAST(?7 AS REAL) / 1000.0) || ' seconds'
+                    ) THEN queued_at ELSE NULL
+                END ASC,
+                priority DESC,
+                queued_at ASC,
+                id ASC
+            LIMIT ?8 OFFSET ?9
+            "#
+        ))
+        .bind(JobStatus::Queued.as_str())
+        .bind(kind.as_deref())
+        .bind(resource_class.as_deref())
+        .bind(requested_job_id.as_deref())
+        .bind(library_id.as_deref())
+        .bind(source_id.as_deref())
+        .bind(JOB_PRIORITY_STARVATION_GUARD_MS)
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_job).collect()
+    }
+
     async fn claim_next_job_lease(
         &self,
         request: JobLeaseClaimRequest,

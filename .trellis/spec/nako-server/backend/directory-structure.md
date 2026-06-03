@@ -119,9 +119,14 @@ This keeps admission bounded and returns a stable client-safe pressure result.
 ### 2. Signatures
 
 - `StorageBackendRegistry::library_scan_admission_error(&Library) ->
-  Result<Option<NakoError>>` is the typed scan-entry admission seam.
-- `StorageBackendRegistry::queued_library_scan_budget_saturated() ->
-  Result<bool>` is the queued scheduler pressure guard.
+  Result<Option<NakoError>>` is the typed scan-entry and queued-candidate
+  admission seam.
+- `JobLeaseRepository::list_claimable_jobs_for_lease(filter, page) ->
+  Result<Vec<Job>>` previews queued candidates in the same aged-fairness /
+  priority / FIFO order used by durable lease claiming.
+- `DurableJobRuntime::claim_next_job_lease(JobLeaseClaimFilter { job_id:
+  Some(...), .. }) -> Result<Option<LeasedJob>>` is the exact-claim seam after
+  a candidate passes admission.
 - `storage_staging_pressure_status(max_bytes, used_bytes) ->
   StorageStagingPressureStatus` is shared by scan admission and Admin
   diagnostics.
@@ -132,8 +137,14 @@ This keeps admission bounded and returns a stable client-safe pressure result.
   admission.
 - Synchronous scan staging admission only blocks libraries that need remote
   probe staging.
-- Queued background scan scheduling may use global staging pressure to avoid
-  claiming jobs during critical pressure.
+- Queued background scan scheduling must inspect claimable candidates in durable
+  queue order, evaluate per-library storage admission, skip blocked candidates,
+  and claim only a runnable candidate by exact job ID.
+- Queued scheduling must not claim-and-fail a blocked library scan only because
+  another queued library is healthy and runnable.
+- If every currently claimable scan candidate is blocked by storage or staging
+  pressure, the scheduler returns `BudgetSaturated` and leaves those jobs
+  queued.
 - Rejection uses `NakoError::storage_staging_budget_exhausted` with a
   redaction-safe synthetic URI, not a Source Locator, local path, credential, or
   backend URL.
@@ -147,17 +158,20 @@ This keeps admission bounded and returns a stable client-safe pressure result.
 | Staging disabled | Scan admission does not block on staging pressure |
 | Healthy or Elevated pressure | Scan admission proceeds |
 | Critical or Exhausted pressure for remote probe staging | Synchronous scan fails before scan/probe work starts |
-| Critical or Exhausted global pressure during queued scheduling | Scheduler returns `BudgetSaturated` and leaves jobs queued |
-| Local synchronous scan under remote staging pressure | Proceeds because local probe does not require remote staging |
+| Critical or Exhausted pressure for one remote queued scan while another queued scan is runnable | Blocked remote job stays queued; scheduler continues to the runnable candidate |
+| Critical or Exhausted pressure for all currently claimable remote queued scans | Scheduler returns `BudgetSaturated` and leaves jobs queued |
+| Local synchronous or queued scan under remote staging pressure | Proceeds because local probe does not require remote staging |
 
 ### 5. Good / Base / Bad Cases
 
 - Good: compose staging pressure into `library_scan_admission_error` after
-  durable backend health admission.
+  durable backend health admission, then claim the selected queued job by exact
+  ID.
 - Base: Admin staging diagnostics call the same pressure classifier used by
   scan admission.
-- Bad: start a durable queued scan job, then fail it immediately only because
-  global staging pressure was already critical.
+- Bad: claim the first queued scan job and fail it immediately after discovering
+  storage admission would have blocked it, or stop scheduling after the first
+  blocked candidate without checking later runnable candidates.
 
 ### 6. Tests Required
 
@@ -165,8 +179,10 @@ This keeps admission bounded and returns a stable client-safe pressure result.
   WebDAV listing/probe pipeline starts.
 - App test: local synchronous scan remains compatible under remote staging
   pressure.
-- App test: queued scan scheduling leaves the job queued under critical staging
-  pressure and schedules it after pressure clears.
+- App test: queued scan scheduling skips a blocked remote library and schedules
+  a runnable healthy/local queued scan without failing the blocked job.
+- App test: queued scan scheduling leaves a blocked remote job queued under
+  critical staging pressure and schedules it after pressure clears.
 - Admin test: existing staging pressure threshold mapping continues to pass.
 
 ### 7. Wrong vs Correct
@@ -175,21 +191,38 @@ This keeps admission bounded and returns a stable client-safe pressure result.
 
 ```rust
 let leased = runtime.claim_next_job_lease(filter).await?;
-// Run then fail only after discovering staging pressure.
+// Run then fail only after discovering library admission would block.
 ```
 
-This drains queued scan jobs while pressure is known in advance.
+This drains queued scan jobs and hides runnable later work behind a blocked
+candidate.
 
 #### Correct
 
 ```rust
-if storage_backends.queued_library_scan_budget_saturated().await? {
-    return Ok(LibraryScanScheduleOutcome::BudgetSaturated);
+let candidates = store
+    .list_claimable_jobs_for_lease(filter, PageRequest::new(500, 0))
+    .await?;
+for candidate in candidates {
+    if storage_backends
+        .library_scan_admission_error(&library_for(candidate)?)
+        .await?
+        .is_some()
+    {
+        continue;
+    }
+
+    return runtime
+        .claim_next_job_lease(JobLeaseClaimFilter {
+            job_id: Some(candidate.id),
+            ..filter
+        })
+        .await;
 }
 ```
 
-This preserves durable queue state until staging pressure is healthy enough to
-claim work.
+This preserves durable queue state for blocked libraries while allowing later
+runnable candidates to proceed.
 
 ## Examples
 

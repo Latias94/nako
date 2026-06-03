@@ -1150,7 +1150,7 @@ async fn background_scan_job_uses_runtime_job_supervision() {
 }
 
 #[tokio::test]
-async fn background_scan_job_failure_releases_budget_and_schedules_next_queued_scan() {
+async fn background_scan_scheduler_skips_blocked_library_and_schedules_runnable_scan() {
     let server = BlockingWebDavServer::start(BlockingWebDavControl::new()).await;
     let temp = tempfile::tempdir().unwrap();
     let blocked_library_id = LibraryId::new();
@@ -1219,7 +1219,7 @@ async fn background_scan_job_failure_releases_budget_and_schedules_next_queued_s
         .schedule_queued_library_scans()
         .await
         .unwrap();
-    let diagnostics = wait_for_runtime_jobs(&app, 1, 0, 1).await;
+    let diagnostics = wait_for_runtime_jobs(&app, 1, 0, 0).await;
     let blocked = app.jobs().get_job(blocked_job.id).await.unwrap();
     let healthy = app.jobs().get_job(healthy_job.id).await.unwrap();
     let events = store
@@ -1229,16 +1229,12 @@ async fn background_scan_job_failure_releases_budget_and_schedules_next_queued_s
 
     assert_eq!(
         outcome,
-        LibraryScanScheduleOutcome::Scheduled(blocked_job.id)
+        LibraryScanScheduleOutcome::Scheduled(healthy_job.id)
     );
-    assert_eq!(diagnostics.failed_jobs, 1);
+    assert_eq!(diagnostics.failed_jobs, 0);
     assert_eq!(diagnostics.succeeded_jobs, 1);
-    assert_eq!(blocked.status, JobStatus::Failed);
-    assert_storage_admission_error_is_redacted(
-        blocked.error.as_deref().expect("blocked job error"),
-        temp.path(),
-        &server.base_url(),
-    );
+    assert_eq!(blocked.status, JobStatus::Queued);
+    assert_eq!(blocked.error, None);
     assert_eq!(blocked.summary_json, None);
     assert_eq!(healthy.status, JobStatus::Succeeded);
     assert_eq!(server.control().propfinds(), 0);
@@ -1250,19 +1246,25 @@ async fn background_scan_job_failure_releases_budget_and_schedules_next_queued_s
 }
 
 #[tokio::test]
-async fn job_scheduler_keeps_background_scan_jobs_queued_while_staging_pressure_is_critical() {
+async fn job_scheduler_keeps_remote_scan_jobs_queued_while_staging_pressure_is_critical() {
+    let server = BlockingWebDavServer::start(BlockingWebDavControl::new()).await;
     let temp = tempfile::tempdir().unwrap();
-    let library_root = temp.path().join("movies");
-    fs::create_dir_all(&library_root).unwrap();
     let library_id = LibraryId::new();
     let mut config = startup_config(
         temp.path(),
         vec![LocalLibraryConfig {
             id: library_id,
             name: "Queued Pressure Movies".to_owned(),
-            root: library_root,
+            root: temp.path().join("unused-local-root"),
             preset: nako_core::LibraryPreset::Movies,
-            webdav: None,
+            webdav: Some(WebDavLibraryConfig {
+                root: "webdav:///Movies".to_owned(),
+                base_url: server.base_url(),
+                username: None,
+                password_env: None,
+                timeout_ms: 5_000,
+                max_attempts: 1,
+            }),
         }],
     );
     config.staging.max_bytes = 100;
@@ -1297,6 +1299,7 @@ async fn job_scheduler_keeps_background_scan_jobs_queued_while_staging_pressure_
     assert_eq!(app.runtime_diagnostics().active_tasks, 0);
     assert_eq!(app.runtime_diagnostics().failed_jobs, 0);
     assert_eq!(app.runtime_diagnostics().succeeded_jobs, 0);
+    assert_eq!(server.control().propfinds(), 0);
 
     store
         .delete_staging_manifest_record(staging_record_id)
@@ -1308,6 +1311,13 @@ async fn job_scheduler_keeps_background_scan_jobs_queued_while_staging_pressure_
         .schedule_queued_library_scans()
         .await
         .unwrap();
+    tokio::time::timeout(
+        Duration::from_secs(5),
+        server.control().wait_for_first_propfind(),
+    )
+    .await
+    .unwrap();
+    server.control().release_first_propfind();
     let diagnostics = wait_for_runtime_jobs(&app, 1, 0, 0).await;
     let persisted = app.jobs().get_job(queued_job.id).await.unwrap();
 

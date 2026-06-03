@@ -326,6 +326,58 @@ impl JobRepository for PostgresStore {
 
 #[async_trait::async_trait]
 impl JobLeaseRepository for PostgresStore {
+    async fn list_claimable_jobs_for_lease(
+        &self,
+        filter: JobLeaseClaimFilter,
+        page: PageRequest,
+    ) -> Result<Vec<Job>> {
+        let page = page.clamped();
+        let kind = filter.kind.map(|kind| kind.as_str().to_owned());
+        let resource_class = filter.resource_class;
+        let requested_job_id = filter.job_id.map(|id| id.as_uuid());
+        let library_id = filter.library_id.map(|id| id.as_uuid());
+        let source_id = filter.source_id.map(|id| id.as_uuid());
+        let rows = sqlx::query(&format!(
+            r#"
+            {JOB_SELECT}
+            WHERE status = $1
+                AND ($2::text IS NULL OR kind = $2)
+                AND ($3::text IS NULL OR resource_class = $3)
+                AND ($4::uuid IS NULL OR id = $4)
+                AND ($5::uuid IS NULL OR library_id = $5)
+                AND ($6::uuid IS NULL OR source_id = $6)
+                AND (next_attempt_at IS NULL OR next_attempt_at <= statement_timestamp())
+            ORDER BY
+                CASE
+                    WHEN queued_at <= statement_timestamp() - ($7::double precision * INTERVAL '1 millisecond')
+                    THEN 1 ELSE 0
+                END DESC,
+                CASE
+                    WHEN queued_at <= statement_timestamp() - ($7::double precision * INTERVAL '1 millisecond')
+                    THEN queued_at ELSE NULL
+                END ASC,
+                priority DESC,
+                queued_at ASC,
+                id ASC
+            LIMIT $8 OFFSET $9
+            "#
+        ))
+        .bind(JobStatus::Queued.as_str())
+        .bind(kind.as_deref())
+        .bind(resource_class.as_deref())
+        .bind(requested_job_id)
+        .bind(library_id)
+        .bind(source_id)
+        .bind(JOB_PRIORITY_STARVATION_GUARD_MS)
+        .bind(i64::from(page.limit))
+        .bind(u64_to_i64(page.offset)?)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_job).collect()
+    }
+
     async fn claim_next_job_lease(
         &self,
         request: JobLeaseClaimRequest,

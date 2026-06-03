@@ -780,6 +780,20 @@ where
     )
     .await;
     let worker_id = JobWorkerId::new();
+    let priority_candidates = store
+        .list_claimable_jobs_for_lease(
+            JobLeaseClaimFilter {
+                kind: Some(JobKind::LibraryScan),
+                resource_class: Some("disk.scan".to_owned()),
+                ..JobLeaseClaimFilter::default()
+            },
+            PageRequest::new(10, 0),
+        )
+        .await
+        .unwrap();
+    assert_eq!(priority_candidates[0].id, high.id);
+    assert_eq!(priority_candidates[1].id, low.id);
+
     let high_claim = claim_next(
         &store,
         worker_id,
@@ -827,6 +841,20 @@ where
         Some(r#"{"slot":"fresh-high"}"#),
     )
     .await;
+    let fairness_candidates = store
+        .list_claimable_jobs_for_lease(
+            JobLeaseClaimFilter {
+                kind: Some(JobKind::LibraryScan),
+                resource_class: Some("disk.scan".to_owned()),
+                ..JobLeaseClaimFilter::default()
+            },
+            PageRequest::new(10, 0),
+        )
+        .await
+        .unwrap();
+    assert_eq!(fairness_candidates[0].id, aged_low.id);
+    assert_eq!(fairness_candidates[1].id, fresh_high.id);
+
     let fairness_claim = claim_next(
         &store,
         worker_id,
