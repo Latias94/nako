@@ -183,7 +183,15 @@ Productized watch-folder stable-candidate intake into a supervised server runtim
 
 ### Main Changes
 
-(Add details)
+- Added `VfsCacheRepository::get_latest_vfs_cache_failure` across the core
+  trait, SQLite/Postgres adapters, database facade, and in-memory VFS test
+  cache.
+- Surfaced `AdminVfsCacheSummary.repair` in `/admin/v1/storage/staging` using
+  `VfsCacheRepairDiagnostic::from_failure` so raw cache failure payloads remain
+  redacted.
+- Updated Admin Rust DTOs, generated TypeScript contracts, route tests, DB
+  contract coverage, and the API code-spec scenario for the preview-only
+  repair contract.
 
 ### Git Commits
 
@@ -403,6 +411,48 @@ Grouped HLS FFmpeg command assembly into input, primary output, and sidecar outp
 ### Testing
 
 - [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 10: Storage VFS cache repair preview
+
+**Date**: 2026-06-04
+**Task**: Storage VFS cache repair preview
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Added preview-only Admin storage diagnostics for the latest redacted VFS cache repair posture, including repository latest-failure lookup, DTO/contract updates, route mapping, focused tests, and spec documentation.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `70a756d2` | `feat(storage): expose vfs cache repair preview` |
+
+### Testing
+
+- [OK] `cargo fmt --all -- --check`
+- [OK] `git diff --check`
+- [OK] `cargo check -p nako-core -p nako-vfs -p nako-db -p nako-api -p nako-server --tests`
+- [OK] `cargo nextest run -p nako-db vfs_cache --no-fail-fast`
+- [OK] `cargo nextest run -p nako-db sqlite_vfs_staging_contract_round_trips_listing_failures_and_summary --no-fail-fast`
+- [OK] `cargo nextest run -p nako-api admin_vfs_cache --no-fail-fast`
+- [OK] `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server admin_v1_storage_staging_lists_filters_and_redacts_paths --no-fail-fast`
+- [OK] `cargo nextest run -p nako-vfs cache --no-fail-fast`
 
 ### Status
 
