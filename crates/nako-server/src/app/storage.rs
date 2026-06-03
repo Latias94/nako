@@ -579,27 +579,6 @@ impl StorageBackendRegistry {
         Ok(None)
     }
 
-    async fn global_staging_pressure_admission_error(&self) -> Result<Option<NakoError>> {
-        let status = self.current_staging_pressure_status().await?;
-        if status.blocks_library_scan() {
-            return Ok(Some(storage_staging_pressure_library_scan_error(status)));
-        }
-
-        Ok(None)
-    }
-
-    async fn current_staging_pressure_status(&self) -> Result<StorageStagingPressureStatus> {
-        if self.config.staging.max_bytes == 0 {
-            return Ok(StorageStagingPressureStatus::Disabled);
-        }
-
-        let used_manifest_bytes = self.store.sum_staging_manifest_bytes().await?;
-        Ok(storage_staging_pressure_status(
-            self.config.staging.max_bytes,
-            used_manifest_bytes,
-        ))
-    }
-
     async fn summarize_staging_budget_policy(&self) -> Result<Vec<StagingBudgetPolicySlice>> {
         let mut policy = self
             .config

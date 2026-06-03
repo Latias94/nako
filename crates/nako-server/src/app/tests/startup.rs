@@ -1299,7 +1299,14 @@ async fn job_scheduler_keeps_remote_scan_jobs_queued_while_staging_pressure_is_c
     let app = NakoApp::new_with_store(config, store.clone())
         .await
         .unwrap();
-    let staging_record_id = occupy_staging_manifest_bytes(&store, 95).await;
+    let staging_record_id = occupy_staging_manifest_bytes_for_source(
+        &store,
+        95,
+        "webdav:///Movies/Private/queued-scan-fixture.mkv?token=secret",
+        "webdav",
+        "/nako/staging/queued-scan-fixture.mkv",
+    )
+    .await;
 
     let queued_job = store
         .enqueue_job(NewJob {
