@@ -25,11 +25,32 @@ small, durable, testable intake stability slice.
 
 ## Acceptance Criteria
 
-- [ ] The watcher/debounce MVP boundary is documented and implemented or
+- [x] The watcher/debounce MVP boundary is documented and implemented or
   explicitly deferred with evidence.
-- [ ] Intake remains bounded and redaction-safe.
-- [ ] Tests cover rapid duplicate events or stable candidate behavior.
-- [ ] Follow-ons are recorded for full watcher productization.
+- [x] Intake remains bounded and redaction-safe.
+- [x] Tests cover rapid duplicate events or stable candidate behavior.
+- [x] Follow-ons are recorded for full watcher productization.
+
+## MVP Closeout
+
+- Implemented `crates/nako-library/src/intake.rs` as the smallest useful
+  debounce/intake primitive: repeated watch observations are reduced to stable
+  intake candidate evidence.
+- Stable candidate readiness now requires two consecutive identical
+  redaction-safe observation keys. A changed observation key resets the counter
+  back to the initial inspecting state.
+- The slice intentionally stops before storage pressure admission, queued scan
+  scheduling, or any OS-specific watcher runtime integration.
+
+## Follow-Ons
+
+- Wire the stable-candidate seam into a real watcher/runtime path once product
+  ownership and control-plane boundaries are chosen.
+- Add remote-storage-oriented stable-size evidence beyond a single observation
+  key when the productized watcher path exists.
+- Reconcile stable candidates with scheduled scans and source tombstone repair
+  without moving scheduler fairness or storage pressure policy into
+  `nako-library`.
 
 ## Suggested Gates
 
