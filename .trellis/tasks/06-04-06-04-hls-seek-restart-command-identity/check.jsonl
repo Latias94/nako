@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking guide for reviewing boundary and reuse risks."}
+{"file": ".trellis/spec/nako-transcode/backend/index.md", "reason": "Transcode package quality context."}
+{"file": ".trellis/spec/nako-transcode/backend/error-handling.md", "reason": "Validate invalid-input vs unsupported behavior."}
+{"file": ".trellis/spec/nako-transcode/backend/quality-guidelines.md", "reason": "HLS exact argv and command part review checklist."}
+{"file": ".trellis/tasks/06-04-06-04-hls-seek-restart-command-identity/research/current-hls-seek-command-state.md", "reason": "Expected seek command-plan seam for checker validation."}

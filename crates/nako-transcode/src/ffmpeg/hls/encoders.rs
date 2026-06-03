@@ -1,13 +1,12 @@
-use crate::{HardwareAcceleration, HlsPlaybackGeneration, HlsRendition, TranscodeExecutionPolicy};
+use crate::{HardwareAcceleration, HlsRendition, TranscodeExecutionPolicy};
 
 use crate::ffmpeg::FfmpegArg;
 
-use super::seek::hls_seek_keyframe_args;
+use super::seek::HlsSeekCommandPlan;
 
 pub(super) fn hls_video_encoder_args(
     policy: TranscodeExecutionPolicy,
-    playback_generation: HlsPlaybackGeneration,
-    segment_time_seconds: u32,
+    seek: HlsSeekCommandPlan,
 ) -> Vec<FfmpegArg> {
     let encoder = hls_video_encoder_name(policy.acceleration.encode.accelerator);
     let mut args = vec![FfmpegArg::raw("-c:v"), FfmpegArg::raw(encoder)];
@@ -21,18 +20,14 @@ pub(super) fn hls_video_encoder_args(
         ));
     }
 
-    args.extend(hls_seek_keyframe_args(
-        playback_generation,
-        segment_time_seconds,
-    ));
+    args.extend(seek.keyframe_args());
     args
 }
 
 pub(super) fn hls_adaptive_video_encoder_args(
     policy: TranscodeExecutionPolicy,
     renditions: &[HlsRendition],
-    playback_generation: HlsPlaybackGeneration,
-    segment_time_seconds: u32,
+    seek: HlsSeekCommandPlan,
 ) -> Vec<FfmpegArg> {
     let encoder = hls_video_encoder_name(policy.acceleration.encode.accelerator);
     let mut args = vec![FfmpegArg::raw("-c:v"), FfmpegArg::raw(encoder)];
@@ -56,10 +51,7 @@ pub(super) fn hls_adaptive_video_encoder_args(
         ]);
     }
 
-    args.extend(hls_seek_keyframe_args(
-        playback_generation,
-        segment_time_seconds,
-    ));
+    args.extend(seek.keyframe_args());
     args
 }
 

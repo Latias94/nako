@@ -17,6 +17,8 @@ mod muxer;
 mod seek;
 mod sidecars;
 
+use seek::HlsSeekCommandPlan;
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(crate) struct HlsRequest {
     pub(crate) source_id: MediaSourceId,
@@ -78,11 +80,11 @@ impl FfmpegHlsCommandParts {
 
 impl FfmpegHlsInputParts {
     #[must_use]
-    fn from_request(request: &HlsRequest) -> Self {
+    fn from_request(request: &HlsRequest, context: &HlsCommandAssemblyContext) -> Self {
         Self {
             global: input::hls_global_args(request.overwrite),
             device_input: input::hls_device_input_args(request.execution_policy.acceleration),
-            input: input::hls_input_args(&request.input_path, request.playback_generation),
+            input: input::hls_input_args(&request.input_path, context.seek),
         }
     }
 
@@ -140,12 +142,12 @@ struct FfmpegHlsSidecarOutputParts {
 
 impl FfmpegHlsSidecarOutputParts {
     #[must_use]
-    fn from_request(request: &HlsRequest, output: &HlsOutputAssemblyContext) -> Self {
+    fn from_request(request: &HlsRequest, context: &HlsCommandAssemblyContext) -> Self {
         Self {
             audio_sidecar: sidecars::hls_audio_sidecar_args(
                 &request.artifacts,
                 request.segment_time_seconds,
-                output.audio_filter_graph(),
+                context.audio_filter_graph(),
             ),
             subtitle: sidecars::hls_subtitle_args(
                 request.execution_policy.subtitle_strategy,
@@ -171,18 +173,23 @@ impl FfmpegHlsSidecarOutputParts {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-struct HlsOutputAssemblyContext {
+struct HlsCommandAssemblyContext {
     main_output_has_audio: bool,
     audio_filter_graph: Option<String>,
+    seek: HlsSeekCommandPlan,
 }
 
-impl HlsOutputAssemblyContext {
+impl HlsCommandAssemblyContext {
     fn from_request(request: &HlsRequest) -> Result<Self> {
         Ok(Self {
             main_output_has_audio: request.artifacts.main_output_has_audio(),
             audio_filter_graph: filters::hls_audio_filter_graph(
                 request.execution_policy.audio_output,
             )?,
+            seek: HlsSeekCommandPlan::new(
+                request.playback_generation,
+                request.segment_time_seconds,
+            ),
         })
     }
 
@@ -218,31 +225,31 @@ fn plan_hls_command_parts(request: &HlsRequest) -> Result<FfmpegHlsCommandParts>
 }
 
 fn plan_single_variant_hls_command_parts(request: &HlsRequest) -> Result<FfmpegHlsCommandParts> {
-    let output = HlsOutputAssemblyContext::from_request(request)?;
+    let context = HlsCommandAssemblyContext::from_request(request)?;
     Ok(FfmpegHlsCommandParts {
-        input: FfmpegHlsInputParts::from_request(request),
-        primary_output: single_variant_primary_output_parts(request, &output)?,
-        sidecar_outputs: FfmpegHlsSidecarOutputParts::from_request(request, &output),
+        input: FfmpegHlsInputParts::from_request(request, &context),
+        primary_output: single_variant_primary_output_parts(request, &context)?,
+        sidecar_outputs: FfmpegHlsSidecarOutputParts::from_request(request, &context),
     })
 }
 
 fn plan_adaptive_hls_command_parts(request: &HlsRequest) -> Result<FfmpegHlsCommandParts> {
-    let output = HlsOutputAssemblyContext::from_request(request)?;
+    let context = HlsCommandAssemblyContext::from_request(request)?;
     Ok(FfmpegHlsCommandParts {
-        input: FfmpegHlsInputParts::from_request(request),
-        primary_output: adaptive_primary_output_parts(request, &output)?,
-        sidecar_outputs: FfmpegHlsSidecarOutputParts::from_request(request, &output),
+        input: FfmpegHlsInputParts::from_request(request, &context),
+        primary_output: adaptive_primary_output_parts(request, &context)?,
+        sidecar_outputs: FfmpegHlsSidecarOutputParts::from_request(request, &context),
     })
 }
 
 fn single_variant_primary_output_parts(
     request: &HlsRequest,
-    output: &HlsOutputAssemblyContext,
+    context: &HlsCommandAssemblyContext,
 ) -> Result<FfmpegHlsPrimaryOutputParts> {
     Ok(FfmpegHlsPrimaryOutputParts {
         stream_map: input::hls_stream_map_args(
             request.track_selection,
-            output.main_output_has_audio,
+            context.main_output_has_audio,
         ),
         filter_graph: filters::hls_filter_graph_args(
             request.execution_policy,
@@ -250,33 +257,29 @@ fn single_variant_primary_output_parts(
             request.subtitle_burn_in,
         )?,
         audio_filter: filters::hls_audio_filter_args(
-            output.main_output_has_audio,
-            output.audio_filter_graph(),
+            context.main_output_has_audio,
+            context.audio_filter_graph(),
         ),
-        video_encoder: encoders::hls_video_encoder_args(
-            request.execution_policy,
-            request.playback_generation,
-            request.segment_time_seconds,
-        ),
-        audio_encoder: encoders::hls_audio_encoder_args(output.main_output_has_audio),
+        video_encoder: encoders::hls_video_encoder_args(request.execution_policy, context.seek),
+        audio_encoder: encoders::hls_audio_encoder_args(context.main_output_has_audio),
         muxer: muxer::hls_muxer_args(
             request.segment_time_seconds,
             request.artifacts.media_segment_pattern(),
             request.artifacts.primary_playlist_path(),
             request.artifacts.output().segment_container,
-            request.playback_generation,
+            context.seek,
         ),
     })
 }
 
 fn adaptive_primary_output_parts(
     request: &HlsRequest,
-    output: &HlsOutputAssemblyContext,
+    context: &HlsCommandAssemblyContext,
 ) -> Result<FfmpegHlsPrimaryOutputParts> {
     Ok(FfmpegHlsPrimaryOutputParts {
         stream_map: input::hls_adaptive_stream_map_args(
             request.artifacts.renditions().len(),
-            output.main_output_has_audio,
+            context.main_output_has_audio,
             request.track_selection,
         ),
         filter_graph: filters::hls_filter_graph_args(
@@ -285,23 +288,22 @@ fn adaptive_primary_output_parts(
             request.subtitle_burn_in,
         )?,
         audio_filter: filters::hls_audio_filter_args(
-            output.main_output_has_audio,
-            output.audio_filter_graph(),
+            context.main_output_has_audio,
+            context.audio_filter_graph(),
         ),
         video_encoder: encoders::hls_adaptive_video_encoder_args(
             request.execution_policy,
             request.artifacts.renditions(),
-            request.playback_generation,
-            request.segment_time_seconds,
+            context.seek,
         ),
         audio_encoder: encoders::hls_adaptive_audio_encoder_args(
             request.artifacts.renditions(),
-            output.main_output_has_audio,
+            context.main_output_has_audio,
         ),
         muxer: muxer::hls_adaptive_muxer_args(
             request.segment_time_seconds,
             &request.artifacts,
-            request.playback_generation,
+            context.seek,
         ),
     })
 }

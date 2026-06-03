@@ -1,21 +1,19 @@
 use std::path::Path;
 
-use crate::{
-    HLS_ADAPTIVE_FMP4_INIT_PATTERN, HlsArtifactManifest, HlsPlaybackGeneration, HlsSegmentContainer,
-};
+use crate::{HLS_ADAPTIVE_FMP4_INIT_PATTERN, HlsArtifactManifest, HlsSegmentContainer};
 
 use crate::ffmpeg::FfmpegArg;
 
-use super::seek::hls_seek_timestamp_args;
+use super::seek::HlsSeekCommandPlan;
 
 pub(super) fn hls_muxer_args(
     segment_time_seconds: u32,
     segment_pattern: &Path,
     playlist_path: &Path,
     segment_container: HlsSegmentContainer,
-    playback_generation: HlsPlaybackGeneration,
+    seek: HlsSeekCommandPlan,
 ) -> Vec<FfmpegArg> {
-    let mut args = hls_seek_timestamp_args(playback_generation);
+    let mut args = seek.timestamp_args();
     args.extend([
         FfmpegArg::raw("-f"),
         FfmpegArg::raw("hls"),
@@ -25,12 +23,7 @@ pub(super) fn hls_muxer_args(
         FfmpegArg::raw("vod"),
     ]);
 
-    if !playback_generation.is_default_start() {
-        args.extend([
-            FfmpegArg::raw("-hls_flags"),
-            FfmpegArg::raw("independent_segments"),
-        ]);
-    }
+    args.extend(seek.hls_flags_args());
 
     if segment_container == HlsSegmentContainer::Fmp4 {
         args.extend([
@@ -52,7 +45,7 @@ pub(super) fn hls_muxer_args(
 pub(super) fn hls_adaptive_muxer_args(
     segment_time_seconds: u32,
     artifacts: &HlsArtifactManifest,
-    playback_generation: HlsPlaybackGeneration,
+    seek: HlsSeekCommandPlan,
 ) -> Vec<FfmpegArg> {
     let master_playlist_name = artifacts
         .primary_playlist_path()
@@ -77,7 +70,7 @@ pub(super) fn hls_adaptive_muxer_args(
         .collect::<Vec<_>>()
         .join(" ");
 
-    let mut args = hls_seek_timestamp_args(playback_generation);
+    let mut args = seek.timestamp_args();
     args.extend([
         FfmpegArg::raw("-f"),
         FfmpegArg::raw("hls"),
@@ -87,12 +80,7 @@ pub(super) fn hls_adaptive_muxer_args(
         FfmpegArg::raw("vod"),
     ]);
 
-    if !playback_generation.is_default_start() {
-        args.extend([
-            FfmpegArg::raw("-hls_flags"),
-            FfmpegArg::raw("independent_segments"),
-        ]);
-    }
+    args.extend(seek.hls_flags_args());
 
     args.extend([
         FfmpegArg::raw("-hls_segment_type"),

@@ -336,6 +336,84 @@ mod tests {
     }
 
     #[test]
+    fn ffmpeg_builder_omits_hls_seek_args_for_default_generation() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::default(),
+            artifacts: hls_artifacts(
+                "hls",
+                "hls/playlist.m3u8",
+                "hls/segment_%05d.ts",
+                HlsOutputRequirement::default(),
+            ),
+            segment_time_seconds: 6,
+            track_selection: TranscodeTrackSelection::default(),
+            subtitle_burn_in: None,
+            execution_policy: hls_policy(HardwareAcceleration::None),
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+
+        for seek_arg in [
+            "-ss",
+            "-avoid_negative_ts",
+            "-force_key_frames",
+            "-hls_flags",
+        ] {
+            assert!(!argv.iter().any(|arg| arg == seek_arg));
+        }
+    }
+
+    #[test]
+    fn ffmpeg_builder_plans_adaptive_hls_seek_generation_from_shared_plan() {
+        let builder = FfmpegCommandBuilder::new("ffmpeg");
+        let artifacts = HlsArtifactManifest::adaptive_fmp4(
+            "hls",
+            "hls/master.m3u8",
+            HlsRendition::default_adaptive_ladder(),
+        )
+        .unwrap();
+        let request = HlsRequest {
+            source_id: MediaSourceId::new(),
+            input_path: PathBuf::from("input.mkv"),
+            playback_generation: HlsPlaybackGeneration::from_start_position_ms(90_005),
+            artifacts,
+            segment_time_seconds: 4,
+            track_selection: TranscodeTrackSelection::default(),
+            subtitle_burn_in: None,
+            execution_policy: hls_policy(HardwareAcceleration::None),
+            overwrite: FfmpegOverwritePolicy::Allow,
+        };
+
+        let argv = builder.hls(&request).unwrap().argv_lossy();
+
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-ss" && args[1] == "90.005")
+        );
+        assert!(
+            argv.iter().position(|arg| arg == "-ss").unwrap()
+                < argv.iter().position(|arg| arg == "-i").unwrap()
+        );
+        assert!(
+            argv.windows(2).any(|args| {
+                args[0] == "-force_key_frames" && args[1] == "expr:gte(t,n_forced*4)"
+            })
+        );
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-avoid_negative_ts" && args[1] == "make_zero")
+        );
+        assert!(
+            argv.windows(2)
+                .any(|args| args[0] == "-hls_flags" && args[1] == "independent_segments")
+        );
+    }
+
+    #[test]
     fn ffmpeg_builder_plans_hls_selected_audio_stream_map() {
         let builder = FfmpegCommandBuilder::new("ffmpeg");
         let request = HlsRequest {

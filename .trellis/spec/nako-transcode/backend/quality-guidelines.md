@@ -55,6 +55,9 @@ Transcode changes must keep FFmpeg behavior typed, bounded, and testable.
   sidecar outputs.
 - Single-variant and adaptive HLS should share request-derived output facts
   such as `main_output_has_audio` and the planned audio filter graph.
+- Seek/restart FFmpeg args for a given HLS request should derive from a single
+  typed seek command plan, not from repeated `HlsPlaybackGeneration` checks in
+  input, encoder, and muxer builders.
 - Single-variant and adaptive HLS should branch only where their primary output
   command differs: stream maps, encoder args, and muxer args.
 - Playback planning, server HLS lifecycle, and artifact publication authority
@@ -93,6 +96,8 @@ Transcode changes must keep FFmpeg behavior typed, bounded, and testable.
 - Include exact argv coverage for subtitle burn-in filters when changing
   burn-in or video filter graph planning. The FFmpeg `si` value is an ordinal
   among subtitle streams, not Nako's global source stream index.
+- Include exact argv coverage for default and non-default HLS seek generations
+  when changing seek input, keyframe, timestamp, or HLS flag planning.
 - Run `cargo nextest run -p nako-transcode hls --no-fail-fast` for HLS command
   part changes.
 
