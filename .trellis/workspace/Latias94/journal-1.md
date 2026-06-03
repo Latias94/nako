@@ -168,3 +168,37 @@ existing library scan queue.
   before commit/closeout.
 - Decide whether any `nako-server` / architecture spec needs a durable update
   for the new watch-folder runtime startup pattern.
+
+
+## Session 3: Implement 06a watcher runtime productization
+
+**Date**: 2026-06-03
+**Task**: Implement 06a watcher runtime productization
+**Package**: nako-server
+**Branch**: `task/06-03-06a-library-watcher-runtime-productization`
+
+### Summary
+
+Productized watch-folder stable-candidate intake into a supervised server runtime and synchronized Admin diagnostics/contracts.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `22456e17` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

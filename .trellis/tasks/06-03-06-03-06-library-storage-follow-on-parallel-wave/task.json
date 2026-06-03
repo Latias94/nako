@@ -19,7 +19,6 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "06-03-06a-library-watcher-runtime-productization",
     "06-03-06b-storage-staging-attribution-persistence",
     "06-03-06c-targeted-jellyfin-watcher-reference"
   ],
