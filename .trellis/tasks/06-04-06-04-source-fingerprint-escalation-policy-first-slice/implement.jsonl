@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/nako-core/backend/index.md", "reason": "Core domain contract index for source fingerprint policy types."}
+{"file": ".trellis/spec/nako-core/backend/quality-guidelines.md", "reason": "Core serializable domain contract and cross-crate safety rules."}
+{"file": ".trellis/spec/nako-library/backend/index.md", "reason": "Library ingestion package context."}
+{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "Source identity and duplicate-evidence behavior constraints."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Policy flows from core evidence into library commit plans."}
+{"file": ".trellis/tasks/06-04-06-04-source-fingerprint-escalation-policy-first-slice/research/current-source-fingerprint-policy.md", "reason": "Task-specific current policy research and bounded implementation seam."}

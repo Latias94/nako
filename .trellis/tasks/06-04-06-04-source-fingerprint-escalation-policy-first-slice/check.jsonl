@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/nako-core/backend/index.md", "reason": "Core quality review index."}
+{"file": ".trellis/spec/nako-core/backend/quality-guidelines.md", "reason": "Verify new policy types are safe cross-crate contracts."}
+{"file": ".trellis/spec/nako-library/backend/index.md", "reason": "Library ingestion review context."}
+{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "Verify duplicate evidence remains separate from source identity."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Review cross-layer policy flow without schema/API expansion."}
+{"file": ".trellis/tasks/06-04-06-04-source-fingerprint-escalation-policy-first-slice/research/current-source-fingerprint-policy.md", "reason": "Verify implementation matches bounded research."}

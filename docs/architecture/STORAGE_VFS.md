@@ -1,6 +1,6 @@
 # Storage And VFS Architecture
 
-Last updated: 2026-05-31
+Last updated: 2026-06-04
 
 This document maps Nako's storage and VFS architecture for agents working on
 scan, probe, playback, imports, sidecar writes, and remote storage.
@@ -27,7 +27,7 @@ and rclone-like mounts can be slow, stale, or unavailable.
 | Remote storage boundary | Shipped durable health foundation | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/` | Open follow-ons for cache repair, fingerprint escalation, playback artifact I/O pressure, scan scheduling, or PostgreSQL runtime harness work. |
 | WebDAV read path | Partial | `docs/workstreams/storage-vfs/`; remote storage lanes | Harden retries, cache, and operator diagnostics. |
 | Source locator | Shipped foundation | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Watcher/debounce productization and repair workflows. |
-| Source fingerprint | Shipped first slice | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Optional partial/full hash escalation policy. |
+| Source fingerprint | Shipped escalation policy seam | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/06-04-06-04-source-fingerprint-escalation-policy-first-slice/` | Optional hash execution, operator queue, and diagnostics remain follow-ons. |
 | Remote probe staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Per-backend staging budgets and diagnostics. |
 | Remote FFmpeg input staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md` | Per-backend staging budgets and diagnostics. |
 | VFS cache | Shipped diagnostics foundation | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Cache repair operator actions and broader previews. |
@@ -93,8 +93,10 @@ Shipped:
   for HLS segment read/write pressure, storage health coordination, and
   redaction-safe diagnostics. Open only after HLS progressive-readiness gates
   are stable.
-- `proposed:source-fingerprint-escalation-policy`: opt-in partial/full hash
-  escalation for ambiguous source identity cases.
+- `proposed:source-fingerprint-hash-execution`: opt-in partial/full hash
+  execution, operator queueing, and diagnostics for ambiguous source identity
+  cases. The current escalation policy seam is advisory only and does not read
+  source bytes.
 - `proposed:storage-vfs-postgresql-runtime-harness`: runtime parity evidence
   for PostgreSQL storage/source identity query paths.
 
@@ -121,7 +123,8 @@ Mitigation:
 
 - prefer layered evidence: size, mtime, path, duration, stream facts, partial
   hash, then full hash only when needed;
-- record confidence instead of forcing exact identity for every source.
+- record confidence and escalation recommendations instead of forcing exact
+  identity for every source.
 
 ### Remote Staging Can Leak Disk
 

@@ -1,6 +1,6 @@
 # Library And Asset Pipeline Architecture
 
-Last updated: 2026-06-03
+Last updated: 2026-06-04
 
 This document maps the media lifecycle after files become visible through VFS.
 It covers scan, watcher, probe, metadata, artwork, and addon-assisted intake.
@@ -354,6 +354,9 @@ Shipped behavior:
 - layered source fingerprint evidence without mandatory full-file hashing;
 - strong-evidence move/rename reconciliation;
 - duplicate-source suggestions instead of automatic weak-evidence merges;
+- typed source fingerprint escalation decisions on source observation plans,
+  recommending no escalation, partial hash, or full hash without executing hash
+  work;
 - source-scoped storage failure diagnostics.
 
 ### library-watcher-and-media-intake-stability

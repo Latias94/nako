@@ -13,6 +13,10 @@ Use these rules when changing shared domain contracts.
   helpers when the database representation is numeric.
 - Keep resource policy generic at the core layer. For example, durable job
   priority is a generic scheduler policy, not a metadata-review shortcut.
+- Keep source fingerprint escalation as a pure domain decision. The decision can
+  expose action, reason, evidence kind, confidence, stale state, and candidate
+  count, but must not expose raw locators, etags, fingerprints, paths, or
+  backend URLs.
 - When a core change crosses crate boundaries, update the relevant Trellis spec,
   ADR, architecture map, or task context before considering the work complete.
 
@@ -31,6 +35,9 @@ Use these rules when changing shared domain contracts.
 ## Tests Required
 
 - Pure domain behavior should use unit tests in the owning crate.
+- Source fingerprint escalation policy tests should cover no escalation,
+  partial-hash recommendation, and full-hash recommendation without requiring
+  storage, VFS, repository, or runtime work.
 - Repository contract changes must be covered in `nako-db/src/contract_tests.rs`
   or the focused adapter tests.
 - Cross-crate contract changes should run at least:

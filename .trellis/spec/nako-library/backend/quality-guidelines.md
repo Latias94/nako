@@ -9,6 +9,10 @@ Library workflow changes must preserve deterministic, bounded intake behavior.
 - Sort discovered media sources and returned failures deterministically.
 - Propagate stale-cache evidence from VFS metadata/listing into summaries.
 - Use source fingerprint evidence as duplicate evidence, not source identity.
+- Expose source fingerprint escalation decisions on in-memory source observation
+  plans only. The decision can recommend partial/full hashing later, but this
+  must not execute hashing, merge sources, change repository schema, or add API
+  fields in the same slice.
 - Persist local inference evidence so provisional hierarchy decisions are
   explainable.
 - Require repeated unchanged intake observation evidence before a watcher
@@ -43,6 +47,79 @@ Library workflow changes must preserve deterministic, bounded intake behavior.
   `cargo nextest run -p nako-library <filter> --no-fail-fast`
 - Cross-crate intake:
   `cargo check -p nako-library -p nako-vfs -p nako-db --tests`
+
+## Scenario: Source Fingerprint Escalation Plans
+
+### 1. Scope / Trigger
+
+- Trigger: source observation planning has fingerprint evidence plus zero or
+  more reconciliation candidates and needs a redaction-safe recommendation for
+  future hash escalation.
+- Scope: `nako-core` owns the pure policy; `nako-library` attaches the decision
+  to the in-memory source observation persistence plan.
+
+### 2. Signatures
+
+- Core:
+  `SourceFingerprintEvidence::escalation_decision(existing_locator: bool, candidate_count: usize) -> SourceFingerprintEscalationDecision`.
+- Library: `SourceObservationPersistencePlan::fingerprint_escalation` has type
+  `SourceFingerprintEscalationDecision`.
+
+### 3. Contracts
+
+- Actions are `none`, `partial_hash`, or `full_hash`.
+- Reasons are redaction-safe enums such as existing locator, strong evidence, no
+  ambiguous candidate, confirm one weak candidate, disambiguate multiple
+  candidates, and refresh stale ambiguous evidence.
+- Decision fields may include evidence kind, confidence, stale state, and
+  candidate count.
+- Decision fields must not include raw source locators, paths, etags,
+  fingerprints, backend URLs, storage credentials, or provider payloads.
+- The plan decision is advisory only. It does not persist new fields, call VFS
+  reads, schedule jobs, change Admin/Public API contracts, or change source
+  identity behavior.
+
+### 4. Validation & Error Matrix
+
+- Existing locator -> `none` / existing locator.
+- Strong non-stale evidence -> `none` / strong evidence.
+- No reconciliation candidates -> `none` / no ambiguous candidate.
+- One weak non-stale candidate -> `partial_hash` / confirm single weak
+  candidate.
+- Multiple weak non-stale candidates -> `full_hash` / disambiguate multiple
+  candidates.
+- Any stale ambiguous candidate set -> `full_hash` / refresh stale ambiguous
+  evidence.
+
+### 5. Good / Base / Bad Cases
+
+- Good: a new locator with one weak duplicate candidate records a partial-hash
+  recommendation and still creates a duplicate suggestion.
+- Base: an existing locator update records no escalation and keeps update
+  disposition unchanged.
+- Bad: weak source fingerprint evidence automatically merges media sources or
+  starts hashing during scan planning.
+
+### 6. Tests Required
+
+- Core unit tests for every action class: no escalation, partial hash, full
+  hash.
+- Library ingestion tests that assert the decision is present while
+  disposition, source IDs, and duplicate relationship counts remain unchanged.
+- Focused gate:
+  `cargo nextest run -p nako-library source_observation_plan_recommends --no-fail-fast`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+Use weak evidence as source identity or run a file hash from source commit
+planning.
+
+#### Correct
+
+Keep the source commit behavior unchanged and expose only a typed advisory
+decision for later hash scheduling or operator diagnostics.
 
 ## Review Checklist
 

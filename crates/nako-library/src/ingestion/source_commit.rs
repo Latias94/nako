@@ -6,8 +6,8 @@ use nako_core::{
     LibraryScanSourcePersistenceCommit, MediaItem, MediaItemId, MediaKind, MediaRepository,
     MediaSource, MediaSourceId, NakoError, PageRequest, Person, Result, ScanRepository, SortKey,
     SortKeyKind, SourceDuplicateEvidenceKind, SourceDuplicateRelationship,
-    SourceDuplicateRelationshipId, SourceDuplicateRelationshipStatus, SourceFingerprintEvidence,
-    SourceState, Studio, Tag,
+    SourceDuplicateRelationshipId, SourceDuplicateRelationshipStatus,
+    SourceFingerprintEscalationDecision, SourceFingerprintEvidence, SourceState, Studio, Tag,
 };
 
 use crate::{
@@ -22,6 +22,7 @@ use crate::{
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct SourceObservationPersistencePlan {
     pub(crate) disposition: SourceObservationDisposition,
+    pub(crate) fingerprint_escalation: SourceFingerprintEscalationDecision,
     pub(crate) commit: LibraryScanSourcePersistenceCommit,
 }
 
@@ -195,6 +196,10 @@ where
         } else {
             Vec::new()
         };
+    let fingerprint_escalation = fingerprint_evidence.escalation_decision(
+        existing_by_locator.is_some(),
+        reconciliation_candidates.len(),
+    );
     let relocation = if fingerprint_evidence.can_preserve_source_identity() {
         find_strong_relocation_candidate(&observation, reconciliation_candidates.as_slice())
     } else {
@@ -265,6 +270,7 @@ where
 
     Ok(SourceObservationPersistencePlan {
         disposition,
+        fingerprint_escalation,
         commit: LibraryScanSourcePersistenceCommit {
             items,
             source,
@@ -640,7 +646,8 @@ mod tests {
     use nako_core::{
         BrowseFacet, BrowseFacetKind, CanonicalMetadata, Genre, GenreId, ItemCredit, ItemGenre,
         ItemStudio, ItemTag, LibraryId, LibraryItemState, MediaItem, MediaItemId, MediaKind,
-        MediaSource, MediaSourceId, Person, PersonId, ScanSnapshotId, SourceState, Studio,
+        MediaSource, MediaSourceId, Person, PersonId, ScanSnapshotId,
+        SourceFingerprintEscalationAction, SourceFingerprintEscalationReason, SourceState, Studio,
         StudioId, Tag, TagId,
     };
     use nako_vfs::StorageUri;
@@ -677,6 +684,14 @@ mod tests {
         assert_eq!(plan.commit.library_item_states.len(), 3);
         assert_eq!(plan.commit.local_inference_evidence.len(), 1);
         assert_eq!(plan.commit.search_projections.len(), 1);
+        assert_eq!(
+            plan.fingerprint_escalation.action,
+            SourceFingerprintEscalationAction::None
+        );
+        assert_eq!(
+            plan.fingerprint_escalation.reason,
+            SourceFingerprintEscalationReason::NoAmbiguousCandidate
+        );
 
         let item = plan
             .commit
@@ -754,6 +769,86 @@ mod tests {
         assert_eq!(plan.commit.library_item_states.len(), 1);
         assert!(!plan.commit.library_item_states[0].provisional);
         assert_eq!(plan.commit.search_projections[0].title, "The Matrix");
+        assert_eq!(
+            plan.fingerprint_escalation.reason,
+            SourceFingerprintEscalationReason::ExistingLocator
+        );
+    }
+
+    #[tokio::test]
+    async fn source_observation_plan_recommends_partial_hash_for_single_weak_candidate() {
+        let library_id = LibraryId::new();
+        let scan_id = ScanSnapshotId::new();
+        let (candidate_source, candidate_state) =
+            duplicate_candidate(library_id, "local:///Movies/Existing.Matrix.mkv", "fp:test");
+        let store = FixtureSourceCommitRepository {
+            sources: vec![candidate_source],
+            source_states: vec![candidate_state],
+            ..FixtureSourceCommitRepository::default()
+        };
+
+        let plan = plan_source_observation_commit(
+            &store,
+            LibrarySourceObservationCommit {
+                library_id,
+                scan_id,
+                discovered: discovered("local:///Movies/New.Matrix.mkv"),
+                scan_source_locators: vec!["local:///Movies/New.Matrix.mkv".to_owned()],
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(plan.disposition, SourceObservationDisposition::Inserted);
+        assert_eq!(
+            plan.fingerprint_escalation.action,
+            SourceFingerprintEscalationAction::PartialHash
+        );
+        assert_eq!(
+            plan.fingerprint_escalation.reason,
+            SourceFingerprintEscalationReason::ConfirmSingleWeakCandidate
+        );
+        assert_eq!(plan.fingerprint_escalation.candidate_count, 1);
+        assert_eq!(plan.commit.source_duplicate_relationships.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn source_observation_plan_recommends_full_hash_for_multiple_weak_candidates() {
+        let library_id = LibraryId::new();
+        let scan_id = ScanSnapshotId::new();
+        let (first_source, first_state) =
+            duplicate_candidate(library_id, "local:///Movies/Existing.One.mkv", "fp:test");
+        let (second_source, second_state) =
+            duplicate_candidate(library_id, "local:///Movies/Existing.Two.mkv", "fp:test");
+        let store = FixtureSourceCommitRepository {
+            sources: vec![first_source, second_source],
+            source_states: vec![first_state, second_state],
+            ..FixtureSourceCommitRepository::default()
+        };
+
+        let plan = plan_source_observation_commit(
+            &store,
+            LibrarySourceObservationCommit {
+                library_id,
+                scan_id,
+                discovered: discovered("local:///Movies/New.Matrix.mkv"),
+                scan_source_locators: vec!["local:///Movies/New.Matrix.mkv".to_owned()],
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(plan.disposition, SourceObservationDisposition::Inserted);
+        assert_eq!(
+            plan.fingerprint_escalation.action,
+            SourceFingerprintEscalationAction::FullHash
+        );
+        assert_eq!(
+            plan.fingerprint_escalation.reason,
+            SourceFingerprintEscalationReason::DisambiguateMultipleCandidates
+        );
+        assert_eq!(plan.fingerprint_escalation.candidate_count, 2);
+        assert_eq!(plan.commit.source_duplicate_relationships.len(), 2);
     }
 
     #[derive(Default)]
@@ -886,5 +981,40 @@ mod tests {
             fingerprint_confidence_milli: 700,
             stale: false,
         }
+    }
+
+    fn duplicate_candidate(
+        library_id: LibraryId,
+        locator: &str,
+        fingerprint: &str,
+    ) -> (MediaSource, SourceState) {
+        let source_id = MediaSourceId::new();
+        let item_id = MediaItemId::new();
+        (
+            MediaSource {
+                id: source_id,
+                library_id,
+                item_id,
+                locator: locator.to_owned(),
+                file_name: locator
+                    .rsplit_once('/')
+                    .map(|(_parent, file_name)| file_name)
+                    .unwrap_or(locator)
+                    .to_owned(),
+                size_bytes: Some(10),
+                fingerprint: Some(fingerprint.to_owned()),
+            },
+            SourceState {
+                library_id,
+                source_id: Some(source_id),
+                uri: locator.to_owned(),
+                size_bytes: Some(10),
+                modified_at: None,
+                etag: None,
+                fingerprint: Some(fingerprint.to_owned()),
+                last_seen_scan_id: ScanSnapshotId::new(),
+                tombstoned: false,
+            },
+        )
     }
 }

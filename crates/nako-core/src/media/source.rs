@@ -59,6 +59,35 @@ pub struct SourceFingerprintEvidence {
     pub stale: bool,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceFingerprintEscalationAction {
+    None,
+    PartialHash,
+    FullHash,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceFingerprintEscalationReason {
+    ExistingLocator,
+    StrongEvidence,
+    NoAmbiguousCandidate,
+    ConfirmSingleWeakCandidate,
+    DisambiguateMultipleCandidates,
+    RefreshStaleAmbiguousEvidence,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SourceFingerprintEscalationDecision {
+    pub action: SourceFingerprintEscalationAction,
+    pub reason: SourceFingerprintEscalationReason,
+    pub evidence_kind: SourceFingerprintEvidenceKind,
+    pub confidence_milli: u16,
+    pub stale: bool,
+    pub candidate_count: u32,
+}
+
 impl SourceFingerprintEvidence {
     #[must_use]
     pub fn from_scan_metadata(input: SourceFingerprintPolicyInput<'_>) -> Self {
@@ -120,6 +149,55 @@ impl SourceFingerprintEvidence {
     #[must_use]
     pub fn can_suggest_duplicate(&self) -> bool {
         self.confidence_milli >= 500 && self.fingerprint.is_some()
+    }
+
+    #[must_use]
+    pub fn escalation_decision(
+        &self,
+        existing_locator: bool,
+        candidate_count: usize,
+    ) -> SourceFingerprintEscalationDecision {
+        let candidate_count = usize_to_u32_saturating(candidate_count);
+        let (action, reason) = if existing_locator {
+            (
+                SourceFingerprintEscalationAction::None,
+                SourceFingerprintEscalationReason::ExistingLocator,
+            )
+        } else if self.can_preserve_source_identity() {
+            (
+                SourceFingerprintEscalationAction::None,
+                SourceFingerprintEscalationReason::StrongEvidence,
+            )
+        } else if candidate_count == 0 {
+            (
+                SourceFingerprintEscalationAction::None,
+                SourceFingerprintEscalationReason::NoAmbiguousCandidate,
+            )
+        } else if self.stale {
+            (
+                SourceFingerprintEscalationAction::FullHash,
+                SourceFingerprintEscalationReason::RefreshStaleAmbiguousEvidence,
+            )
+        } else if candidate_count == 1 {
+            (
+                SourceFingerprintEscalationAction::PartialHash,
+                SourceFingerprintEscalationReason::ConfirmSingleWeakCandidate,
+            )
+        } else {
+            (
+                SourceFingerprintEscalationAction::FullHash,
+                SourceFingerprintEscalationReason::DisambiguateMultipleCandidates,
+            )
+        };
+
+        SourceFingerprintEscalationDecision {
+            action,
+            reason,
+            evidence_kind: self.kind,
+            confidence_milli: self.confidence_milli,
+            stale: self.stale,
+            candidate_count,
+        }
     }
 
     fn from_parts(
@@ -313,6 +391,10 @@ fn stale_adjusted_confidence(confidence_milli: u16, stale: bool) -> u16 {
     }
 }
 
+fn usize_to_u32_saturating(value: usize) -> u32 {
+    u32::try_from(value).unwrap_or(u32::MAX)
+}
+
 fn redacted_source_fingerprint(kind: SourceFingerprintEvidenceKind, parts: &[&str]) -> String {
     let mut hasher = Sha256::new();
     update_fingerprint_part(&mut hasher, "source-fingerprint-v1");
@@ -444,5 +526,113 @@ mod tests {
         );
         assert_eq!(locator_only.fingerprint, None);
         assert!(!locator_only.can_suggest_duplicate());
+    }
+
+    #[test]
+    fn source_fingerprint_escalation_skips_existing_strong_and_unmatched_evidence() {
+        let strong = SourceFingerprintEvidence::from_scan_metadata(SourceFingerprintPolicyInput {
+            scheme: "local",
+            size_bytes: Some(42),
+            modified_at: None,
+            etag: None,
+            backend_fingerprint: Some(
+                "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            ),
+            stale: false,
+        });
+        let weak = SourceFingerprintEvidence::from_scan_metadata(SourceFingerprintPolicyInput {
+            scheme: "webdav",
+            size_bytes: Some(42),
+            modified_at: None,
+            etag: Some("private-etag"),
+            backend_fingerprint: None,
+            stale: false,
+        });
+
+        assert_eq!(
+            weak.escalation_decision(true, 1),
+            SourceFingerprintEscalationDecision {
+                action: SourceFingerprintEscalationAction::None,
+                reason: SourceFingerprintEscalationReason::ExistingLocator,
+                evidence_kind: SourceFingerprintEvidenceKind::SizeAndEtag,
+                confidence_milli: 800,
+                stale: false,
+                candidate_count: 1,
+            }
+        );
+        assert_eq!(
+            strong.escalation_decision(false, 1).reason,
+            SourceFingerprintEscalationReason::StrongEvidence
+        );
+        assert_eq!(
+            weak.escalation_decision(false, 0).reason,
+            SourceFingerprintEscalationReason::NoAmbiguousCandidate
+        );
+    }
+
+    #[test]
+    fn source_fingerprint_escalation_recommends_partial_hash_for_single_weak_candidate() {
+        let evidence =
+            SourceFingerprintEvidence::from_scan_metadata(SourceFingerprintPolicyInput {
+                scheme: "remote",
+                size_bytes: None,
+                modified_at: None,
+                etag: None,
+                backend_fingerprint: Some("backend-fingerprint"),
+                stale: false,
+            });
+
+        let decision = evidence.escalation_decision(false, 1);
+
+        assert_eq!(
+            decision.action,
+            SourceFingerprintEscalationAction::PartialHash
+        );
+        assert_eq!(
+            decision.reason,
+            SourceFingerprintEscalationReason::ConfirmSingleWeakCandidate
+        );
+        assert_eq!(decision.candidate_count, 1);
+        assert_eq!(
+            decision.evidence_kind,
+            SourceFingerprintEvidenceKind::BackendFingerprint
+        );
+        assert_eq!(decision.confidence_milli, 700);
+    }
+
+    #[test]
+    fn source_fingerprint_escalation_recommends_full_hash_for_ambiguous_or_stale_candidates() {
+        let fresh = SourceFingerprintEvidence::from_scan_metadata(SourceFingerprintPolicyInput {
+            scheme: "webdav",
+            size_bytes: Some(42),
+            modified_at: None,
+            etag: Some("private-etag"),
+            backend_fingerprint: None,
+            stale: false,
+        });
+        let stale = SourceFingerprintEvidence::from_scan_metadata(SourceFingerprintPolicyInput {
+            scheme: "webdav",
+            size_bytes: Some(42),
+            modified_at: None,
+            etag: Some("private-etag"),
+            backend_fingerprint: None,
+            stale: true,
+        });
+
+        assert_eq!(
+            fresh.escalation_decision(false, 2).reason,
+            SourceFingerprintEscalationReason::DisambiguateMultipleCandidates
+        );
+        assert_eq!(
+            stale.escalation_decision(false, 1),
+            SourceFingerprintEscalationDecision {
+                action: SourceFingerprintEscalationAction::FullHash,
+                reason: SourceFingerprintEscalationReason::RefreshStaleAmbiguousEvidence,
+                evidence_kind: SourceFingerprintEvidenceKind::SizeAndEtag,
+                confidence_milli: 600,
+                stale: true,
+                candidate_count: 1,
+            }
+        );
     }
 }
