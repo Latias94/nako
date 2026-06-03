@@ -236,3 +236,37 @@ Persisted authoritative staging attribution across core, DB migrations, server p
 ### Next Steps
 
 - None - task complete
+
+
+## Session 5: Targeted Jellyfin watcher reference
+
+**Date**: 2026-06-03
+**Task**: Targeted Jellyfin watcher reference
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Captured scoped behavior-level Jellyfin watcher lifecycle, debounce, suppression, fallback, configuration, and no-copy licensing findings for 06c; archived the research lane.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d13de0258e0c56bc9c6310a113db1029c4d8b9a6` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
