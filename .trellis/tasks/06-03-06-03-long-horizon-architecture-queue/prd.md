@@ -173,6 +173,10 @@ already mapped denial behavior and follow-ons.
   context, and HLS completion outbox events include only the normalized
   `request_id`. Broader job, VFS, FFmpeg, addon, remux/direct, and library scan
   propagation remain follow-ons.
+* `06-04-06-04-hls-artifact-cache-control-headers-first-slice` shipped a
+  conservative HTTP cache baseline for session-scoped HLS artifacts:
+  playlist and segment responses now include `Cache-Control: no-store`, while
+  ETag, immutable segment caching, and token-aware cache keys remain follow-ons.
 
 ## Verification Plan
 

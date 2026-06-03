@@ -700,12 +700,14 @@ pub(super) async fn hls_segment(
         .plan_hls_segment(target.transcode_session_id, &segment_name)
         .await?;
 
-    stream_local_file_response(
+    let mut response = stream_local_file_response(
         &segment.path,
         &segment.path.display().to_string(),
         &segment.response,
     )
-    .await
+    .await?;
+    apply_hls_artifact_cache_headers(&mut response);
+    Ok(response)
 }
 
 #[instrument(skip(app))]
@@ -1260,6 +1262,7 @@ fn hls_playlist_response(body: String, session_id: Option<PlaybackSessionId>) ->
                 .expect("session id is a valid header value"),
         );
     }
+    apply_hls_artifact_cache_headers(&mut response);
     response
 }
 
@@ -1342,6 +1345,12 @@ fn apply_direct_play_headers(response: &mut Response, plan: &DirectPlayResponseP
             HeaderValue::from_str(content_range).expect("content range is a valid header"),
         );
     }
+}
+
+fn apply_hls_artifact_cache_headers(response: &mut Response) {
+    response
+        .headers_mut()
+        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
 }
 
 fn direct_play_status_code(status: DirectPlayResponseStatus) -> StatusCode {

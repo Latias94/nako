@@ -241,3 +241,88 @@ async fn handler(Extension(context): Extension<HttpTraceContext>) {
 ```
 
 HTTP owns extraction and validation; app code receives only the safe request ID.
+
+## Scenario: HLS Artifact Cache-Control
+
+### 1. Scope / Trigger
+
+- Trigger: changing HLS playlist or HLS segment HTTP responses in
+  `crates/nako-server`.
+- Code evidence: `src/http/playback.rs`,
+  `src/http/tests/playback.rs`.
+- Architecture authority: ADR 0053 and
+  `docs/architecture/CONTROL_PLANE.md`.
+
+### 2. Signatures
+
+- `hls_playlist_response(body, session_id) -> Response` owns playlist response
+  headers.
+- `hls_segment(...) -> ApiResult<Response>` owns segment route response headers
+  after the app service returns a manifest-approved segment plan.
+- `apply_hls_artifact_cache_headers(&mut Response)` is the HLS-only helper for
+  session artifact cache policy.
+
+### 3. Contracts
+
+- HLS playlist responses must include `Cache-Control: no-store`.
+- HLS segment responses must include `Cache-Control: no-store`.
+- Keep this policy HLS-only. Do not add it through
+  `apply_direct_play_headers`, because that would change Direct Play and Remux
+  behavior.
+- Preserve existing content type, content length, byte range, playback session
+  id, auth, ticket, and status behavior.
+- Do not add ETags, Last-Modified, immutable segment caching, public/Admin DTOs,
+  generated contracts, or schema changes without a dedicated cache-contract
+  task.
+
+### 4. Validation & Error Matrix
+
+| Condition | Behavior |
+|-----------|----------|
+| HLS playlist response is authored | Includes `Cache-Control: no-store` plus existing playlist headers. |
+| HLS segment response is served | Includes `Cache-Control: no-store` plus existing byte response headers. |
+| Direct Play or Remux response is served | Cache behavior is unchanged by the HLS helper. |
+| Segment is missing, unauthorized, unfinished, or invalid | Existing error/status behavior is unchanged. |
+
+### 5. Good / Base / Bad Cases
+
+- Good: call `apply_hls_artifact_cache_headers` only from HLS playlist and
+  segment response construction.
+- Base: no-store is conservative until token-aware cache keys, immutable
+  artifact identity, and conditional GET behavior are specified.
+- Bad: adding cache headers in `apply_direct_play_headers` for an HLS-only task.
+- Bad: adding `ETag` or immutable `max-age` for session artifacts without
+  access-control and invalidation tests.
+
+### 6. Tests Required
+
+- HTTP route test: HLS playlist response includes `Cache-Control: no-store`.
+- HTTP route test: HLS segment response includes `Cache-Control: no-store`.
+- Focused gate: `cargo nextest run -p nako-server hls_playlist --no-fail-fast`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+fn apply_direct_play_headers(response: &mut Response, plan: &DirectPlayResponsePlan) {
+    response
+        .headers_mut()
+        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+}
+```
+
+This changes Direct Play and Remux cache semantics while trying to fix HLS.
+
+#### Correct
+
+```rust
+fn apply_hls_artifact_cache_headers(response: &mut Response) {
+    response
+        .headers_mut()
+        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+}
+```
+
+HLS session artifacts get an explicit conservative cache policy without
+changing other playback response types.

@@ -51,7 +51,7 @@ Deployment Endpoint Config
 | Built-in tunnel provider | Deferred | ADR 0053 | Do not make core depend on a central relay. |
 | Endpoint discovery | Not started | This document | LAN/remote endpoint model for clients. |
 | API version/error/page contracts | Shipped foundation | ADR 0023; Public/Admin API lanes | Cursor pagination and large-library contracts. |
-| HTTP cache/ETag contracts | Narrow shipped partial | managed artwork thumbnail/serving lanes; this document | Systematize image, artifact, and catalog cache semantics. |
+| HTTP cache/ETag contracts | Narrow shipped partial plus HLS no-store baseline | managed artwork thumbnail/serving lanes; this document | Systematize image, immutable artifact, and catalog cache semantics. |
 | N+1/list projection discipline | Partial | catalog projection lanes | API scale tests for large libraries. |
 
 ## Workstream Evidence
@@ -259,6 +259,13 @@ Scope:
 - `Cache-Control`, `ETag`, and immutable artifact headers;
 - image/artwork derivative cache behavior;
 - N+1 query regression tests for common list/detail surfaces.
+
+Current shipped artifact-cache baseline:
+
+- HLS playlist and HLS segment responses are explicitly `Cache-Control:
+  no-store` because they are session/ticket scoped playback artifacts. Immutable
+  segment caching, ETags, and conditional GET behavior remain follow-ons until
+  token-aware cache keys and artifact invalidation are specified.
 
 Exit criteria:
 

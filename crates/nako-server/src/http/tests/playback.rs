@@ -2214,6 +2214,13 @@ async fn hls_playlist_and_segment_routes_work() {
             .and_then(|value| value.to_str().ok()),
         Some("application/vnd.apple.mpegurl")
     );
+    assert_eq!(
+        playlist_response
+            .headers()
+            .get(header::CACHE_CONTROL)
+            .and_then(|value| value.to_str().ok()),
+        Some("no-store")
+    );
     let session_header = playlist_response
         .headers()
         .get(PLAYBACK_SESSION_ID_HEADER)
@@ -2264,6 +2271,13 @@ async fn hls_playlist_and_segment_routes_work() {
             .get(header::CONTENT_TYPE)
             .and_then(|value| value.to_str().ok()),
         Some("video/mp2t")
+    );
+    assert_eq!(
+        segment_response
+            .headers()
+            .get(header::CACHE_CONTROL)
+            .and_then(|value| value.to_str().ok()),
+        Some("no-store")
     );
     let segment = to_bytes(segment_response.into_body(), usize::MAX)
         .await
