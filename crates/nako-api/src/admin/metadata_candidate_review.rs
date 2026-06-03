@@ -25,6 +25,7 @@ pub struct AdminMetadataCandidateReviewResponse {
     pub review: AdminMetadataCandidateReviewDetail,
     pub application_plan: AdminMetadataCandidateReviewApplicationPlan,
     pub boundary: AdminMetadataCandidateReviewApplicationBoundary,
+    pub governance: AdminMetadataCandidateReviewGovernance,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -244,6 +245,7 @@ pub struct AdminMetadataCandidateReviewBatchItem {
     pub error: Option<AdminMetadataCandidateReviewBatchApplyError>,
     pub plan: AdminMetadataCandidateReviewApplicationPlan,
     pub boundary: AdminMetadataCandidateReviewApplicationBoundary,
+    pub governance: AdminMetadataCandidateReviewGovernance,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -252,6 +254,7 @@ impl AdminMetadataCandidateReviewBatchItem {
     #[must_use]
     pub fn from_item(item: MetadataCandidateReviewBatchItemRecord) -> Self {
         let boundary = AdminMetadataCandidateReviewApplicationBoundary::from_plan(&item.plan);
+        let governance = AdminMetadataCandidateReviewGovernance::from_batch_item(&item);
 
         Self {
             review_id: item.review_id,
@@ -265,6 +268,7 @@ impl AdminMetadataCandidateReviewBatchItem {
             error: batch_item_error(item.error_code, item.error_message),
             plan: AdminMetadataCandidateReviewApplicationPlan::from_plan(item.plan),
             boundary,
+            governance,
             created_at: item.created_at,
             updated_at: item.updated_at,
         }
@@ -375,6 +379,7 @@ pub struct AdminMetadataCandidateReviewBatchApplyResult {
     pub provider_subject: Option<AdminMetadataCandidateReviewProviderSubject>,
     pub provider_mapping: Option<AdminMetadataCandidateReviewProviderMapping>,
     pub boundary: Option<AdminMetadataCandidateReviewApplicationBoundary>,
+    pub governance: Option<AdminMetadataCandidateReviewGovernance>,
     pub error: Option<AdminMetadataCandidateReviewBatchApplyError>,
 }
 
@@ -421,6 +426,7 @@ impl AdminMetadataCandidateReviewBatchApplyResult {
             provider_subject: response.provider_subject,
             provider_mapping: response.provider_mapping,
             boundary: Some(response.boundary),
+            governance: Some(response.governance),
             error: None,
         }
     }
@@ -440,6 +446,7 @@ impl AdminMetadataCandidateReviewBatchApplyResult {
             AdminMetadataCandidateReviewBatchApplyResultStatus::Blocked
         };
         let boundary = AdminMetadataCandidateReviewApplicationBoundary::from_plan(&plan);
+        let governance = AdminMetadataCandidateReviewGovernance::from_review_plan(&review, &plan);
 
         Self {
             review_id: review.id,
@@ -453,6 +460,7 @@ impl AdminMetadataCandidateReviewBatchApplyResult {
             provider_subject: None,
             provider_mapping: None,
             boundary: Some(boundary),
+            governance: Some(governance),
             error: None,
         }
     }
@@ -477,6 +485,7 @@ impl AdminMetadataCandidateReviewBatchApplyResult {
             provider_subject: None,
             provider_mapping: None,
             boundary: None,
+            governance: None,
             error: Some(error),
         }
     }
@@ -513,6 +522,7 @@ pub struct AdminMetadataCandidateReviewListEntry {
     pub relationship_count: u32,
     pub application_plan: AdminMetadataCandidateReviewApplicationPlan,
     pub boundary: AdminMetadataCandidateReviewApplicationBoundary,
+    pub governance: AdminMetadataCandidateReviewGovernance,
     pub expires_at_ms: Option<i64>,
     pub created_at_ms: i64,
     pub updated_at_ms: i64,
@@ -528,6 +538,8 @@ impl AdminMetadataCandidateReviewListEntry {
         let relationship_count = saturating_u32_len(review.plan.relationships.len());
         let boundary =
             AdminMetadataCandidateReviewApplicationBoundary::from_plan(&application_plan);
+        let governance =
+            AdminMetadataCandidateReviewGovernance::from_review_plan(&review, &application_plan);
 
         Self {
             review_id: review.id,
@@ -542,6 +554,7 @@ impl AdminMetadataCandidateReviewListEntry {
                 application_plan,
             ),
             boundary,
+            governance,
             expires_at_ms: review.expires_at_ms,
             created_at_ms: review.created_at_ms,
             updated_at_ms: review.updated_at_ms,
@@ -570,6 +583,7 @@ pub struct AdminMetadataCandidateReviewApplyResponse {
     pub provider_subject: Option<AdminMetadataCandidateReviewProviderSubject>,
     pub provider_mapping: Option<AdminMetadataCandidateReviewProviderMapping>,
     pub boundary: AdminMetadataCandidateReviewApplicationBoundary,
+    pub governance: AdminMetadataCandidateReviewGovernance,
 }
 
 impl AdminMetadataCandidateReviewApplyResponse {
@@ -585,6 +599,13 @@ impl AdminMetadataCandidateReviewApplyResponse {
         let applied = provider_mapping.is_some();
         let idempotent_replay = applied && !changed;
         let boundary = AdminMetadataCandidateReviewApplicationBoundary::from_plan(&plan);
+        let governance = AdminMetadataCandidateReviewGovernance::from_application_result(
+            &review,
+            &plan,
+            provider_mapping.as_ref(),
+            changed,
+            idempotent_replay,
+        );
 
         Self {
             admin_api_version: ADMIN_API_VERSION.to_owned(),
@@ -601,6 +622,7 @@ impl AdminMetadataCandidateReviewApplyResponse {
             provider_mapping: provider_mapping
                 .map(AdminMetadataCandidateReviewProviderMapping::from_mapping),
             boundary,
+            governance,
         }
     }
 }
@@ -655,6 +677,296 @@ impl AdminMetadataCandidateReviewProviderMapping {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewGovernance {
+    pub audit_timeline: AdminMetadataCandidateReviewAuditTimeline,
+    pub undo_plan: AdminMetadataCandidateReviewUndoPlan,
+}
+
+impl AdminMetadataCandidateReviewGovernance {
+    #[must_use]
+    pub fn from_review_plan(
+        review: &MetadataCandidateReviewRecord,
+        plan: &MetadataCandidateReviewApplicationPlan,
+    ) -> Self {
+        Self {
+            audit_timeline: AdminMetadataCandidateReviewAuditTimeline {
+                read_only: true,
+                replay_safe: true,
+                events: review_plan_audit_events(review, plan),
+            },
+            undo_plan: AdminMetadataCandidateReviewUndoPlan::from_plan(
+                plan,
+                Some(review.updated_at_ms),
+                plan.existing_mapping_id,
+                plan.existing_mapping_status,
+                false,
+            ),
+        }
+    }
+
+    #[must_use]
+    pub fn from_application_result(
+        review: &MetadataCandidateReviewRecord,
+        plan: &MetadataCandidateReviewApplicationPlan,
+        provider_mapping: Option<&ProviderMapping>,
+        changed: bool,
+        idempotent_replay: bool,
+    ) -> Self {
+        let target_mapping_id = provider_mapping
+            .map(|mapping| mapping.id)
+            .or(plan.existing_mapping_id);
+        let target_mapping_status = provider_mapping
+            .map(|mapping| mapping.status)
+            .or(plan.existing_mapping_status);
+        let mut events = review_plan_audit_events(review, plan);
+        events.push(AdminMetadataCandidateReviewAuditEvent {
+            kind: AdminMetadataCandidateReviewAuditEventKind::ApplicationResult,
+            at_ms: None,
+            status: Some(review.status),
+            batch_item_status: None,
+            action: Some(AdminMetadataCandidateReviewApplicationAction::from(
+                plan.action,
+            )),
+            changed: Some(changed),
+            idempotent_replay: Some(idempotent_replay),
+            provider_mapping_id: target_mapping_id,
+        });
+
+        Self {
+            audit_timeline: AdminMetadataCandidateReviewAuditTimeline {
+                read_only: true,
+                replay_safe: true,
+                events,
+            },
+            undo_plan: AdminMetadataCandidateReviewUndoPlan::from_plan(
+                plan,
+                Some(review.updated_at_ms),
+                target_mapping_id,
+                target_mapping_status,
+                true,
+            ),
+        }
+    }
+
+    #[must_use]
+    pub fn from_batch_item(item: &MetadataCandidateReviewBatchItemRecord) -> Self {
+        let target_mapping_id = item.provider_mapping_id.or(item.plan.existing_mapping_id);
+        let target_mapping_status = if item.provider_mapping_id.is_some() {
+            Some(ProviderMappingStatus::Accepted)
+        } else {
+            item.plan.existing_mapping_status
+        };
+        let application_result_observed = matches!(
+            item.status,
+            MetadataCandidateReviewBatchItemStatus::Applied
+                | MetadataCandidateReviewBatchItemStatus::Noop
+        ) && item.provider_mapping_id.is_some();
+
+        Self {
+            audit_timeline: AdminMetadataCandidateReviewAuditTimeline {
+                read_only: true,
+                replay_safe: true,
+                events: vec![
+                    AdminMetadataCandidateReviewAuditEvent {
+                        kind: AdminMetadataCandidateReviewAuditEventKind::ApplicationPlanRead,
+                        at_ms: None,
+                        status: None,
+                        batch_item_status: Some(item.status),
+                        action: Some(AdminMetadataCandidateReviewApplicationAction::from(
+                            item.plan.action,
+                        )),
+                        changed: None,
+                        idempotent_replay: None,
+                        provider_mapping_id: item.plan.existing_mapping_id,
+                    },
+                    AdminMetadataCandidateReviewAuditEvent {
+                        kind: AdminMetadataCandidateReviewAuditEventKind::BatchItemStatus,
+                        at_ms: None,
+                        status: None,
+                        batch_item_status: Some(item.status),
+                        action: Some(AdminMetadataCandidateReviewApplicationAction::from(
+                            item.plan.action,
+                        )),
+                        changed: None,
+                        idempotent_replay: None,
+                        provider_mapping_id: item.provider_mapping_id,
+                    },
+                ],
+            },
+            undo_plan: AdminMetadataCandidateReviewUndoPlan::from_plan(
+                &item.plan,
+                item.expected_updated_at_ms,
+                target_mapping_id,
+                target_mapping_status,
+                application_result_observed,
+            ),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewAuditTimeline {
+    pub read_only: bool,
+    pub replay_safe: bool,
+    pub events: Vec<AdminMetadataCandidateReviewAuditEvent>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewAuditEvent {
+    pub kind: AdminMetadataCandidateReviewAuditEventKind,
+    pub at_ms: Option<i64>,
+    pub status: Option<MetadataCandidateReviewStatus>,
+    pub batch_item_status: Option<MetadataCandidateReviewBatchItemStatus>,
+    pub action: Option<AdminMetadataCandidateReviewApplicationAction>,
+    pub changed: Option<bool>,
+    pub idempotent_replay: Option<bool>,
+    pub provider_mapping_id: Option<ProviderMappingId>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminMetadataCandidateReviewAuditEventKind {
+    ReviewCreated,
+    ReviewStatusCurrent,
+    ApplicationPlanRead,
+    ApplicationResult,
+    BatchItemStatus,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewUndoPlan {
+    pub read_only: bool,
+    pub undo_mutation_available: bool,
+    pub replay_safe: bool,
+    pub stale_state_guard_updated_at_ms: Option<i64>,
+    pub target_mapping_id: Option<ProviderMappingId>,
+    pub target_mapping_status: Option<ProviderMappingStatus>,
+    pub mode: AdminMetadataCandidateReviewUndoMode,
+    pub reasons: Vec<AdminMetadataCandidateReviewUndoReason>,
+}
+
+impl AdminMetadataCandidateReviewUndoPlan {
+    fn from_plan(
+        plan: &MetadataCandidateReviewApplicationPlan,
+        stale_state_guard_updated_at_ms: Option<i64>,
+        target_mapping_id: Option<ProviderMappingId>,
+        target_mapping_status: Option<ProviderMappingStatus>,
+        application_result_observed: bool,
+    ) -> Self {
+        let mode = if target_mapping_id.is_some()
+            && (application_result_observed
+                || matches!(plan.action, MetadataCandidateReviewApplicationAction::Noop))
+        {
+            AdminMetadataCandidateReviewUndoMode::ManualRootProviderMappingReview
+        } else if matches!(plan.action, MetadataCandidateReviewApplicationAction::Apply) {
+            AdminMetadataCandidateReviewUndoMode::DeferredUntilApplyOutcomeAudit
+        } else {
+            AdminMetadataCandidateReviewUndoMode::NoMutationObserved
+        };
+        let mut reasons = vec![
+            AdminMetadataCandidateReviewUndoReason::ReadOnlyTrustSlice,
+            AdminMetadataCandidateReviewUndoReason::RootOnlyProviderMappingBoundary,
+            AdminMetadataCandidateReviewUndoReason::RelatedHierarchyUndoDeferred,
+            AdminMetadataCandidateReviewUndoReason::PublicClientContractUnchanged,
+        ];
+
+        match mode {
+            AdminMetadataCandidateReviewUndoMode::ManualRootProviderMappingReview => {
+                reasons
+                    .push(AdminMetadataCandidateReviewUndoReason::MissingPersistedPreApplySnapshot);
+                reasons
+                    .push(AdminMetadataCandidateReviewUndoReason::ProviderMappingMayPreexistReview);
+                reasons.push(AdminMetadataCandidateReviewUndoReason::StaleStateGuardRequired);
+            }
+            AdminMetadataCandidateReviewUndoMode::DeferredUntilApplyOutcomeAudit => {
+                reasons.push(AdminMetadataCandidateReviewUndoReason::ApplyOutcomeAuditRequired);
+                reasons
+                    .push(AdminMetadataCandidateReviewUndoReason::MissingPersistedPreApplySnapshot);
+                reasons.push(AdminMetadataCandidateReviewUndoReason::StaleStateGuardRequired);
+            }
+            AdminMetadataCandidateReviewUndoMode::NoMutationObserved => {
+                reasons.push(
+                    AdminMetadataCandidateReviewUndoReason::NoProviderMappingMutationObserved,
+                );
+            }
+        }
+
+        Self {
+            read_only: true,
+            undo_mutation_available: false,
+            replay_safe: true,
+            stale_state_guard_updated_at_ms,
+            target_mapping_id,
+            target_mapping_status,
+            mode,
+            reasons,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminMetadataCandidateReviewUndoMode {
+    NoMutationObserved,
+    DeferredUntilApplyOutcomeAudit,
+    ManualRootProviderMappingReview,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminMetadataCandidateReviewUndoReason {
+    ReadOnlyTrustSlice,
+    NoProviderMappingMutationObserved,
+    ApplyOutcomeAuditRequired,
+    MissingPersistedPreApplySnapshot,
+    ProviderMappingMayPreexistReview,
+    RootOnlyProviderMappingBoundary,
+    RelatedHierarchyUndoDeferred,
+    PublicClientContractUnchanged,
+    StaleStateGuardRequired,
+}
+
+fn review_plan_audit_events(
+    review: &MetadataCandidateReviewRecord,
+    plan: &MetadataCandidateReviewApplicationPlan,
+) -> Vec<AdminMetadataCandidateReviewAuditEvent> {
+    vec![
+        AdminMetadataCandidateReviewAuditEvent {
+            kind: AdminMetadataCandidateReviewAuditEventKind::ReviewCreated,
+            at_ms: Some(review.created_at_ms),
+            status: None,
+            batch_item_status: None,
+            action: None,
+            changed: None,
+            idempotent_replay: None,
+            provider_mapping_id: None,
+        },
+        AdminMetadataCandidateReviewAuditEvent {
+            kind: AdminMetadataCandidateReviewAuditEventKind::ReviewStatusCurrent,
+            at_ms: Some(review.updated_at_ms),
+            status: Some(review.status),
+            batch_item_status: None,
+            action: None,
+            changed: None,
+            idempotent_replay: None,
+            provider_mapping_id: None,
+        },
+        AdminMetadataCandidateReviewAuditEvent {
+            kind: AdminMetadataCandidateReviewAuditEventKind::ApplicationPlanRead,
+            at_ms: None,
+            status: Some(review.status),
+            batch_item_status: None,
+            action: Some(AdminMetadataCandidateReviewApplicationAction::from(
+                plan.action,
+            )),
+            changed: None,
+            idempotent_replay: None,
+            provider_mapping_id: plan.existing_mapping_id,
+        },
+    ]
+}
+
 impl AdminMetadataCandidateReviewResponse {
     #[must_use]
     pub fn new(
@@ -663,6 +975,8 @@ impl AdminMetadataCandidateReviewResponse {
     ) -> Self {
         let boundary =
             AdminMetadataCandidateReviewApplicationBoundary::from_plan(&application_plan);
+        let governance =
+            AdminMetadataCandidateReviewGovernance::from_review_plan(&review, &application_plan);
 
         Self {
             admin_api_version: ADMIN_API_VERSION.to_owned(),
@@ -672,6 +986,7 @@ impl AdminMetadataCandidateReviewResponse {
                 application_plan,
             ),
             boundary,
+            governance,
         }
     }
 }

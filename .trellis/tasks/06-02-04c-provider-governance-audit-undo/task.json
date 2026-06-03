@@ -3,7 +3,7 @@
   "name": "04c-provider-governance-audit-undo",
   "title": "Provider governance audit undo",
   "description": "Provider governance audit and undo trust slice.",
-  "status": "planning",
+  "status": "completed",
   "dev_type": "implementation",
   "scope": "library-metadata-control-plane",
   "package": "nako",
@@ -11,7 +11,7 @@
   "creator": "Latias94",
   "assignee": "Latias94",
   "createdAt": "2026-06-02",
-  "completedAt": null,
+  "completedAt": "2026-06-03",
   "branch": "task/06-02-04c-provider-governance-audit-undo",
   "base_branch": "main",
   "worktree_path": "F:/SourceCodes/Rust/nako-worktrees/04c-provider-governance-audit-undo",
@@ -21,6 +21,6 @@
   "children": [],
   "parent": "06-02-04-product-readiness-parallel-wave",
   "relatedFiles": [],
-  "notes": "",
+  "notes": "Evidence recorded in evidence.md. Admin Web TypeScript checks were skipped locally because tsc was unavailable in this worktree.",
   "meta": {}
 }
