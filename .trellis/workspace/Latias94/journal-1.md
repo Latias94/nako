@@ -496,3 +496,48 @@ Carried explicit HLS subtitle strategy from playback through server runtime plan
 ### Next Steps
 
 - None - task complete
+
+
+## Session 12: HLS text subtitle burn-in FFmpeg planning
+
+**Date**: 2026-06-04
+**Task**: HLS text subtitle burn-in FFmpeg planning
+**Package**: nako-transcode
+**Branch**: `main`
+
+### Summary
+
+Implemented HLS embedded text subtitle burn-in command planning with FFmpeg subtitle ordinal mapping, server execution passthrough, focused regression coverage, and archived the Trellis task.
+
+### Main Changes
+
+- Added `HlsSubtitleBurnInPlan` with source stream index plus FFmpeg subtitle ordinal mapping.
+- Validated burn-in candidates from probe facts: embedded text subtitle codecs only; image, external, and missing-codec facts are rejected.
+- Threaded optional burn-in planning through HLS runtime, execution request, and server HLS execution without changing public routes.
+- Updated FFmpeg HLS filters to compose HDR tone mapping before subtitle burn-in and avoid subtitle sidecar outputs for burn-in.
+- Archived `.trellis/tasks/06-04-hls-text-subtitle-burn-in-ffmpeg-planning`.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4ea990be` | feat(transcode): plan hls text subtitle burn-in |
+| `d866b82f` | chore(task): archive hls text subtitle burn-in planning |
+
+### Testing
+
+- [OK] `cargo nextest run -p nako-transcode hls_subtitle_burn_in_plan --no-fail-fast`
+- [OK] `cargo nextest run -p nako-transcode hls --no-fail-fast`
+- [OK] `cargo check -p nako-transcode -p nako-server --tests`
+- [OK] `cargo nextest run -p nako-server hls_source_selected_subtitle_uses_sidecar_rendition_identity_and_artifacts --no-fail-fast`
+- [OK] `cargo fmt --all -- --check`
+- [OK] `git diff --check`
+- [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-04-hls-text-subtitle-burn-in-ffmpeg-planning`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
