@@ -3,13 +3,14 @@ use nako_api::admin::{
     AdminGeneratedArtifactMetadataApplyRecoveryResponse,
     AdminMetadataCandidateReviewApplicationAction, AdminMetadataCandidateReviewApplicationReason,
     AdminMetadataCandidateReviewApplyRequest, AdminMetadataCandidateReviewApplyResponse,
-    AdminMetadataCandidateReviewBatchApplyItemRequest,
+    AdminMetadataCandidateReviewAuditEventKind, AdminMetadataCandidateReviewBatchApplyItemRequest,
     AdminMetadataCandidateReviewBatchApplyRequest, AdminMetadataCandidateReviewBatchApplyResponse,
     AdminMetadataCandidateReviewBatchApplyResultStatus,
     AdminMetadataCandidateReviewBatchCreateRequest, AdminMetadataCandidateReviewBatchPlanRequest,
     AdminMetadataCandidateReviewBatchPlanResponse, AdminMetadataCandidateReviewBatchResponse,
     AdminMetadataCandidateReviewListResponse, AdminMetadataCandidateReviewQueueResponse,
-    AdminMetadataCandidateReviewResponse, AdminStorageBackendHealthDiagnosticsResponse,
+    AdminMetadataCandidateReviewResponse, AdminMetadataCandidateReviewUndoMode,
+    AdminMetadataCandidateReviewUndoReason, AdminStorageBackendHealthDiagnosticsResponse,
     AdminStorageBackendHealthResetResponse, AdminStorageStagingPressureStatus,
 };
 use nako_core::{
@@ -1094,6 +1095,23 @@ async fn admin_v1_metadata_candidate_review_list_is_item_scoped_redacted_and_rea
         AdminMetadataCandidateReviewApplicationAction::Skip
     );
     assert!(!list.reviews[0].boundary.apply_mutation_required);
+    assert!(list.reviews[0].governance.audit_timeline.read_only);
+    assert!(list.reviews[0].governance.audit_timeline.replay_safe);
+    assert_eq!(
+        list.reviews[0].governance.audit_timeline.events[0].kind,
+        AdminMetadataCandidateReviewAuditEventKind::ReviewCreated
+    );
+    assert_eq!(
+        list.reviews[0].governance.undo_plan.mode,
+        AdminMetadataCandidateReviewUndoMode::NoMutationObserved
+    );
+    assert!(
+        list.reviews[0]
+            .governance
+            .undo_plan
+            .reasons
+            .contains(&AdminMetadataCandidateReviewUndoReason::NoProviderMappingMutationObserved)
+    );
     assert_eq!(list.reviews[1].review_id, older_review.id);
     assert_eq!(
         list.reviews[1].application_plan.action,
@@ -1107,6 +1125,28 @@ async fn admin_v1_metadata_candidate_review_list_is_item_scoped_redacted_and_rea
     assert!(!list.reviews[1].boundary.applies_on_read);
     assert!(list.reviews[1].boundary.apply_mutation_required);
     assert!(!list.reviews[1].boundary.updates_hierarchy);
+    assert_eq!(
+        list.reviews[1].governance.audit_timeline.events[1].kind,
+        AdminMetadataCandidateReviewAuditEventKind::ReviewStatusCurrent
+    );
+    assert_eq!(
+        list.reviews[1].governance.undo_plan.mode,
+        AdminMetadataCandidateReviewUndoMode::DeferredUntilApplyOutcomeAudit
+    );
+    assert_eq!(
+        list.reviews[1]
+            .governance
+            .undo_plan
+            .stale_state_guard_updated_at_ms,
+        Some(300)
+    );
+    assert!(
+        list.reviews[1]
+            .governance
+            .undo_plan
+            .reasons
+            .contains(&AdminMetadataCandidateReviewUndoReason::ApplyOutcomeAuditRequired)
+    );
     assert!(
         store
             .list_provider_mappings_for_item(item.id, PageRequest::first_page())
@@ -1625,6 +1665,21 @@ async fn admin_v1_metadata_candidate_review_batch_plan_is_bounded_redacted_and_r
         vec![AdminMetadataCandidateReviewApplicationReason::ReviewNotAccepted]
     );
     assert!(plan.reviews.iter().all(|review| review.boundary.read_only));
+    assert_eq!(
+        plan.reviews[0].governance.audit_timeline.events[0].kind,
+        AdminMetadataCandidateReviewAuditEventKind::ReviewCreated
+    );
+    assert_eq!(
+        plan.reviews[0].governance.undo_plan.mode,
+        AdminMetadataCandidateReviewUndoMode::DeferredUntilApplyOutcomeAudit
+    );
+    assert!(
+        plan.reviews[1]
+            .governance
+            .undo_plan
+            .reasons
+            .contains(&AdminMetadataCandidateReviewUndoReason::NoProviderMappingMutationObserved)
+    );
     assert!(
         store
             .list_provider_mappings_for_item(item.id, PageRequest::first_page())
@@ -2452,9 +2507,44 @@ async fn admin_v1_metadata_candidate_review_batch_apply_reports_partial_results_
         AdminMetadataCandidateReviewBatchApplyResultStatus::Failed
     );
     assert!(batch.results[0].provider_mapping.is_some());
+    assert!(batch.results[0].governance.is_some());
     assert!(batch.results[1].idempotent_replay);
+    assert!(batch.results[1].governance.is_some());
     assert!(batch.results[2].plan.is_some());
+    assert!(batch.results[2].governance.is_some());
     assert!(batch.results[3].plan.is_some());
+    assert!(batch.results[3].governance.is_some());
+    assert_eq!(
+        batch.results[0]
+            .governance
+            .as_ref()
+            .unwrap()
+            .audit_timeline
+            .events
+            .last()
+            .unwrap()
+            .kind,
+        AdminMetadataCandidateReviewAuditEventKind::ApplicationResult
+    );
+    assert_eq!(
+        batch.results[0]
+            .governance
+            .as_ref()
+            .unwrap()
+            .audit_timeline
+            .events
+            .last()
+            .unwrap()
+            .changed,
+        Some(true)
+    );
+    assert_eq!(
+        batch.results[1].governance.as_ref().unwrap().undo_plan.mode,
+        AdminMetadataCandidateReviewUndoMode::ManualRootProviderMappingReview
+    );
+    assert_eq!(batch.results[4].governance, None);
+    assert_eq!(batch.results[5].governance, None);
+    assert_eq!(batch.results[6].governance, None);
     assert!(
         batch.results[4]
             .error
@@ -2793,6 +2883,42 @@ async fn admin_v1_metadata_candidate_review_detail_is_redacted_and_read_only() {
     assert!(!detail.boundary.updates_hierarchy);
     assert!(!detail.boundary.writes_nfo);
     assert!(!detail.boundary.writes_library_files);
+    assert!(detail.governance.audit_timeline.read_only);
+    assert!(detail.governance.audit_timeline.replay_safe);
+    assert_eq!(
+        detail.governance.audit_timeline.events[0].kind,
+        AdminMetadataCandidateReviewAuditEventKind::ReviewCreated
+    );
+    assert_eq!(
+        detail.governance.audit_timeline.events[1].kind,
+        AdminMetadataCandidateReviewAuditEventKind::ReviewStatusCurrent
+    );
+    assert_eq!(
+        detail.governance.audit_timeline.events[1].status,
+        Some(DurableMetadataCandidateReviewStatus::Accepted)
+    );
+    assert_eq!(
+        detail.governance.undo_plan.mode,
+        AdminMetadataCandidateReviewUndoMode::DeferredUntilApplyOutcomeAudit
+    );
+    assert_eq!(
+        detail.governance.undo_plan.stale_state_guard_updated_at_ms,
+        Some(300)
+    );
+    assert!(
+        detail
+            .governance
+            .undo_plan
+            .reasons
+            .contains(&AdminMetadataCandidateReviewUndoReason::ApplyOutcomeAuditRequired)
+    );
+    assert!(
+        detail
+            .governance
+            .undo_plan
+            .reasons
+            .contains(&AdminMetadataCandidateReviewUndoReason::StaleStateGuardRequired)
+    );
     assert!(
         store
             .list_provider_mappings_for_item(item.id, PageRequest::first_page())
@@ -3043,6 +3169,70 @@ async fn admin_v1_metadata_candidate_review_apply_commits_root_mapping_and_repla
     assert!(applied.boundary.apply_updates_root_provider_mapping);
     assert!(!applied.boundary.apply_updates_related_provider_subjects);
     assert!(!applied.boundary.updates_hierarchy);
+    assert!(applied.governance.audit_timeline.read_only);
+    assert_eq!(
+        applied
+            .governance
+            .audit_timeline
+            .events
+            .last()
+            .unwrap()
+            .kind,
+        AdminMetadataCandidateReviewAuditEventKind::ApplicationResult
+    );
+    assert_eq!(
+        applied
+            .governance
+            .audit_timeline
+            .events
+            .last()
+            .unwrap()
+            .changed,
+        Some(true)
+    );
+    assert_eq!(
+        applied
+            .governance
+            .audit_timeline
+            .events
+            .last()
+            .unwrap()
+            .idempotent_replay,
+        Some(false)
+    );
+    assert_eq!(
+        applied.governance.undo_plan.mode,
+        AdminMetadataCandidateReviewUndoMode::ManualRootProviderMappingReview
+    );
+    assert_eq!(
+        applied.governance.undo_plan.target_mapping_status,
+        Some(ProviderMappingStatus::Accepted)
+    );
+    assert_eq!(
+        applied.governance.undo_plan.stale_state_guard_updated_at_ms,
+        Some(300)
+    );
+    assert!(
+        applied
+            .governance
+            .undo_plan
+            .reasons
+            .contains(&AdminMetadataCandidateReviewUndoReason::MissingPersistedPreApplySnapshot)
+    );
+    assert!(
+        applied
+            .governance
+            .undo_plan
+            .reasons
+            .contains(&AdminMetadataCandidateReviewUndoReason::ProviderMappingMayPreexistReview)
+    );
+    assert!(
+        applied
+            .governance
+            .undo_plan
+            .reasons
+            .contains(&AdminMetadataCandidateReviewUndoReason::StaleStateGuardRequired)
+    );
 
     let provider_mappings = store
         .list_provider_mappings_for_item(item.id, PageRequest::first_page())
@@ -3083,6 +3273,40 @@ async fn admin_v1_metadata_candidate_review_apply_commits_root_mapping_and_repla
     assert_eq!(
         replayed.plan.action,
         AdminMetadataCandidateReviewApplicationAction::Noop
+    );
+    assert_eq!(
+        replayed
+            .governance
+            .audit_timeline
+            .events
+            .last()
+            .unwrap()
+            .kind,
+        AdminMetadataCandidateReviewAuditEventKind::ApplicationResult
+    );
+    assert_eq!(
+        replayed
+            .governance
+            .audit_timeline
+            .events
+            .last()
+            .unwrap()
+            .changed,
+        Some(false)
+    );
+    assert_eq!(
+        replayed
+            .governance
+            .audit_timeline
+            .events
+            .last()
+            .unwrap()
+            .idempotent_replay,
+        Some(true)
+    );
+    assert_eq!(
+        replayed.governance.undo_plan.mode,
+        AdminMetadataCandidateReviewUndoMode::ManualRootProviderMappingReview
     );
     assert_eq!(
         store

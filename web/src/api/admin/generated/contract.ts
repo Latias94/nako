@@ -1609,6 +1609,62 @@ export interface AdminMetadataCandidateReviewProviderMapping {
   source: AdminMetadataSource;
 }
 
+export interface AdminMetadataCandidateReviewGovernance {
+  audit_timeline: AdminMetadataCandidateReviewAuditTimeline;
+  undo_plan: AdminMetadataCandidateReviewUndoPlan;
+}
+
+export interface AdminMetadataCandidateReviewAuditTimeline {
+  read_only: boolean;
+  replay_safe: boolean;
+  events: AdminMetadataCandidateReviewAuditEvent[];
+}
+
+export type AdminMetadataCandidateReviewAuditEventKind =
+  | "review_created"
+  | "review_status_current"
+  | "application_plan_read"
+  | "application_result"
+  | "batch_item_status";
+
+export interface AdminMetadataCandidateReviewAuditEvent {
+  kind: AdminMetadataCandidateReviewAuditEventKind;
+  at_ms: number | null;
+  status: AdminMetadataCandidateReviewStatus | null;
+  batch_item_status: string | null;
+  action: AdminMetadataCandidateReviewApplicationAction | null;
+  changed: boolean | null;
+  idempotent_replay: boolean | null;
+  provider_mapping_id: string | null;
+}
+
+export type AdminMetadataCandidateReviewUndoMode =
+  | "no_mutation_observed"
+  | "deferred_until_apply_outcome_audit"
+  | "manual_root_provider_mapping_review";
+
+export type AdminMetadataCandidateReviewUndoReason =
+  | "read_only_trust_slice"
+  | "no_provider_mapping_mutation_observed"
+  | "apply_outcome_audit_required"
+  | "missing_persisted_pre_apply_snapshot"
+  | "provider_mapping_may_preexist_review"
+  | "root_only_provider_mapping_boundary"
+  | "related_hierarchy_undo_deferred"
+  | "public_client_contract_unchanged"
+  | "stale_state_guard_required";
+
+export interface AdminMetadataCandidateReviewUndoPlan {
+  read_only: boolean;
+  undo_mutation_available: boolean;
+  replay_safe: boolean;
+  stale_state_guard_updated_at_ms: number | null;
+  target_mapping_id: string | null;
+  target_mapping_status: AdminProviderMappingStatus | null;
+  mode: AdminMetadataCandidateReviewUndoMode;
+  reasons: AdminMetadataCandidateReviewUndoReason[];
+}
+
 export interface AdminMetadataCandidateReviewListEntry {
   review_id: string;
   item_id: string;
@@ -1620,6 +1676,7 @@ export interface AdminMetadataCandidateReviewListEntry {
   relationship_count: number;
   application_plan: AdminMetadataCandidateReviewApplicationPlan;
   boundary: AdminMetadataCandidateReviewApplicationBoundary;
+  governance: AdminMetadataCandidateReviewGovernance;
   expires_at_ms: number | null;
   created_at_ms: number;
   updated_at_ms: number;
@@ -1726,6 +1783,7 @@ export interface AdminMetadataCandidateReviewBatchItem {
   error: AdminMetadataCandidateReviewBatchApplyError | null;
   plan: AdminMetadataCandidateReviewApplicationPlan;
   boundary: AdminMetadataCandidateReviewApplicationBoundary;
+  governance: AdminMetadataCandidateReviewGovernance;
   created_at: string;
   updated_at: string;
 }
@@ -1772,6 +1830,7 @@ export interface AdminMetadataCandidateReviewBatchApplyResult {
   provider_subject: AdminMetadataCandidateReviewProviderSubject | null;
   provider_mapping: AdminMetadataCandidateReviewProviderMapping | null;
   boundary: AdminMetadataCandidateReviewApplicationBoundary | null;
+  governance: AdminMetadataCandidateReviewGovernance | null;
   error: AdminMetadataCandidateReviewBatchApplyError | null;
 }
 
@@ -1789,6 +1848,7 @@ export interface AdminMetadataCandidateReviewResponse {
   review: AdminMetadataCandidateReviewDetail;
   application_plan: AdminMetadataCandidateReviewApplicationPlan;
   boundary: AdminMetadataCandidateReviewApplicationBoundary;
+  governance: AdminMetadataCandidateReviewGovernance;
 }
 
 export interface AdminMetadataCandidateReviewApplyResponse {
@@ -1804,6 +1864,7 @@ export interface AdminMetadataCandidateReviewApplyResponse {
   provider_subject: AdminMetadataCandidateReviewProviderSubject | null;
   provider_mapping: AdminMetadataCandidateReviewProviderMapping | null;
   boundary: AdminMetadataCandidateReviewApplicationBoundary;
+  governance: AdminMetadataCandidateReviewGovernance;
 }
 
 export interface AdminCatalogGovernanceProviderMappingReviewRequest {
