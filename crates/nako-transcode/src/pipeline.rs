@@ -46,6 +46,74 @@ pub struct TranscodePipelineReadiness {
     pub fallback_used: bool,
 }
 
+impl TranscodePipelineReadiness {
+    const fn cpu_requested() -> Self {
+        Self::ready(
+            HardwareAcceleration::None,
+            TranscodePipelineReadinessReason::CpuRequested,
+        )
+    }
+
+    const fn requested_pipeline_ready(policy: HardwareAccelerationPolicy) -> Self {
+        Self::ready(
+            policy.requested,
+            TranscodePipelineReadinessReason::RequestedPipelineReady,
+        )
+    }
+
+    const fn ready(
+        selected: HardwareAcceleration,
+        reason: TranscodePipelineReadinessReason,
+    ) -> Self {
+        Self {
+            status: TranscodePipelineReadinessStatus::Ready,
+            reason,
+            requested: selected,
+            selected,
+            fallback_used: false,
+        }
+    }
+
+    const fn degraded_to_cpu(
+        policy: HardwareAccelerationPolicy,
+        reason: TranscodePipelineReadinessReason,
+    ) -> Self {
+        Self {
+            status: TranscodePipelineReadinessStatus::Degraded,
+            reason,
+            requested: policy.requested,
+            selected: HardwareAcceleration::None,
+            fallback_used: true,
+        }
+    }
+
+    const fn unavailable(
+        policy: HardwareAccelerationPolicy,
+        reason: TranscodePipelineReadinessReason,
+        selected: HardwareAcceleration,
+    ) -> Self {
+        Self {
+            status: TranscodePipelineReadinessStatus::Unavailable,
+            reason,
+            requested: policy.requested,
+            selected,
+            fallback_used: false,
+        }
+    }
+
+    const fn acceleration_fallback_plan(
+        self,
+        fallback: HardwareAccelerationFallback,
+    ) -> TranscodeAccelerationFallbackPlan {
+        TranscodeAccelerationFallbackPlan {
+            requested: self.requested,
+            selected: self.selected,
+            fallback,
+            fallback_used: self.fallback_used,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TranscodePipelineRequest {
     pub hardware_policy: HardwareAccelerationPolicy,
@@ -200,12 +268,7 @@ impl TranscodePipelinePlanner {
             request.source.as_ref(),
             request.color_pipeline,
         )?;
-        let fallback = TranscodeAccelerationFallbackPlan {
-            requested: request.hardware_policy.requested,
-            selected: selection.selected,
-            fallback: request.hardware_policy.fallback,
-            fallback_used: selection.fallback_used,
-        };
+        let fallback = selection.acceleration_fallback_plan(request.hardware_policy.fallback);
 
         Ok(TranscodePipelinePlan {
             acceleration: TranscodeAccelerationPlan::from_pipeline_selection(
@@ -308,13 +371,7 @@ fn select_pipeline_acceleration(
             ));
         }
 
-        return Ok(TranscodePipelineReadiness {
-            status: TranscodePipelineReadinessStatus::Ready,
-            reason: TranscodePipelineReadinessReason::CpuRequested,
-            requested: HardwareAcceleration::None,
-            selected: HardwareAcceleration::None,
-            fallback_used: false,
-        });
+        return Ok(TranscodePipelineReadiness::cpu_requested());
     }
 
     if report.is_available(policy.requested) {
@@ -326,13 +383,7 @@ fn select_pipeline_acceleration(
             return source_incompatible_readiness(policy, report, reason);
         }
 
-        return Ok(TranscodePipelineReadiness {
-            status: TranscodePipelineReadinessStatus::Ready,
-            reason: TranscodePipelineReadinessReason::RequestedPipelineReady,
-            requested: policy.requested,
-            selected: policy.requested,
-            fallback_used: false,
-        });
+        return Ok(TranscodePipelineReadiness::requested_pipeline_ready(policy));
     }
 
     let reason = unavailable_reason(policy, report);
@@ -344,13 +395,7 @@ fn select_pipeline_acceleration(
                 ));
             }
 
-            Ok(TranscodePipelineReadiness {
-                status: TranscodePipelineReadinessStatus::Degraded,
-                reason,
-                requested: policy.requested,
-                selected: HardwareAcceleration::None,
-                fallback_used: true,
-            })
+            Ok(TranscodePipelineReadiness::degraded_to_cpu(policy, reason))
         }
         HardwareAccelerationFallback::Fail => Err(NakoError::Unsupported(
             "requested hardware pipeline is unavailable",
@@ -395,23 +440,14 @@ fn select_software_hdr_tone_mapping_pipeline(
     }
 
     if policy.requested == HardwareAcceleration::None {
-        return Ok(TranscodePipelineReadiness {
-            status: TranscodePipelineReadinessStatus::Ready,
-            reason: TranscodePipelineReadinessReason::CpuRequested,
-            requested: HardwareAcceleration::None,
-            selected: HardwareAcceleration::None,
-            fallback_used: false,
-        });
+        return Ok(TranscodePipelineReadiness::cpu_requested());
     }
 
     match policy.fallback {
-        HardwareAccelerationFallback::Cpu => Ok(TranscodePipelineReadiness {
-            status: TranscodePipelineReadinessStatus::Degraded,
-            reason: TranscodePipelineReadinessReason::RequestedPipelineUnavailableFallbackToCpu,
-            requested: policy.requested,
-            selected: HardwareAcceleration::None,
-            fallback_used: true,
-        }),
+        HardwareAccelerationFallback::Cpu => Ok(TranscodePipelineReadiness::degraded_to_cpu(
+            policy,
+            TranscodePipelineReadinessReason::RequestedPipelineUnavailableFallbackToCpu,
+        )),
         HardwareAccelerationFallback::Fail => Err(NakoError::Unsupported(
             "hdr-to-sdr tone mapping requires software fallback",
         )),
@@ -431,13 +467,7 @@ fn source_incompatible_readiness(
                 ));
             }
 
-            Ok(TranscodePipelineReadiness {
-                status: TranscodePipelineReadinessStatus::Degraded,
-                reason,
-                requested: policy.requested,
-                selected: HardwareAcceleration::None,
-                fallback_used: true,
-            })
+            Ok(TranscodePipelineReadiness::degraded_to_cpu(policy, reason))
         }
         HardwareAccelerationFallback::Fail => Err(NakoError::Unsupported(
             "requested hardware pipeline is incompatible with source media",
@@ -572,13 +602,7 @@ fn unavailable_pipeline_readiness(
         _ => policy.requested,
     };
 
-    TranscodePipelineReadiness {
-        status: TranscodePipelineReadinessStatus::Unavailable,
-        reason,
-        requested: policy.requested,
-        selected,
-        fallback_used: false,
-    }
+    TranscodePipelineReadiness::unavailable(policy, reason, selected)
 }
 
 fn unavailable_reason(
@@ -759,6 +783,55 @@ mod tests {
             .unwrap_err();
 
         assert!(err.to_string().contains("deferred dynamic hdr"));
+    }
+
+    #[test]
+    fn hls_pipeline_source_fallback_plan_mirrors_readiness() {
+        let request = TranscodePipelineRequest::hls_single_variant(
+            HardwareAccelerationPolicy {
+                requested: HardwareAcceleration::Vaapi,
+                fallback: HardwareAccelerationFallback::Cpu,
+            },
+            TranscodeTrackSelection::default(),
+            TranscodeOutputConstraints::default(),
+        )
+        .with_source(TranscodePipelineSourceFacts {
+            video: Some(media_stream(0, MediaStreamKind::Video, "hevc", None)),
+            ..TranscodePipelineSourceFacts::default()
+        });
+        let report = HardwareAccelerationReport::with_available([
+            HardwareAcceleration::None,
+            HardwareAcceleration::Vaapi,
+        ]);
+
+        let plan = TranscodePipelinePlanner::new()
+            .plan_hls_single_variant(request, &report)
+            .unwrap();
+
+        assert_eq!(
+            plan.readiness.status,
+            TranscodePipelineReadinessStatus::Degraded
+        );
+        assert_eq!(
+            plan.readiness.reason,
+            TranscodePipelineReadinessReason::SourceVideoCodecUnsupportedByRequestedPipeline
+        );
+        assert_eq!(plan.readiness.requested, HardwareAcceleration::Vaapi);
+        assert_eq!(plan.readiness.selected, HardwareAcceleration::None);
+        assert!(plan.readiness.fallback_used);
+        assert_eq!(
+            plan.acceleration.fallback.requested,
+            plan.readiness.requested
+        );
+        assert_eq!(plan.acceleration.fallback.selected, plan.readiness.selected);
+        assert_eq!(
+            plan.acceleration.fallback.fallback,
+            HardwareAccelerationFallback::Cpu
+        );
+        assert_eq!(
+            plan.acceleration.fallback.fallback_used,
+            plan.readiness.fallback_used
+        );
     }
 
     #[test]

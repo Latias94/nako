@@ -94,3 +94,13 @@ Verification:
 - `cargo nextest run -p nako-server hls_source --no-fail-fast`
 - `cargo nextest run -p nako-server hls_playlist --no-fail-fast`
 - `cargo fmt --all -- --check`
+
+An additional bounded slice from the second candidate was implemented in
+`crates/nako-transcode/src/pipeline.rs`.
+
+- `TranscodePipelineReadiness` now owns private constructors for ready,
+  degraded-to-CPU, and unavailable states.
+- `TranscodeAccelerationFallbackPlan` is derived from the selected readiness
+  state so `requested`, `selected`, and `fallback_used` cannot drift.
+- `hls_pipeline_source_fallback_plan_mirrors_readiness` covers the source-aware
+  hardware decode fallback path where readiness/fallback drift would matter.
