@@ -247,7 +247,7 @@ impl RemuxAppService {
                         None,
                     )
                     .await?;
-                record_playback_session_finished_event(sessions, &session).await;
+                record_playback_session_finished_event(sessions, &session, None).await;
 
                 Ok(RemuxSourceOutput {
                     source,

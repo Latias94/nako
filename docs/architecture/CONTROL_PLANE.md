@@ -1,6 +1,6 @@
 # Control Plane Architecture
 
-Last updated: 2026-06-02
+Last updated: 2026-06-04
 
 This document maps Nako's application control plane: the cross-cutting systems
 that keep the media data plane safe, observable, extensible, and operable.
@@ -44,7 +44,7 @@ Deployment Endpoint Config
 | Durable jobs | Shipped foundation plus schedulable partial; generic priority policy added | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/` | Broader job-kind scheduler migration remains a follow-on. |
 | Runtime supervisor | Shipped resource-accounted foundation | ADR 0019; server runtime deepening; durable job queue/resource lane | Unified trace context and broader scheduler migration remain follow-ons. |
 | Resource classes and budgets | Shipped process-local foundation | ADR 0005; playback/runtime lanes; durable job queue/resource lane | Continue migrating job kinds onto typed budget-admitted scheduler paths. |
-| Tracing/request identity | Partial | diagnostics and playback identity lanes | Unified trace context across HTTP/jobs/FFmpeg/VFS/addons. |
+| Tracing/request identity | Partial with HLS event propagation | diagnostics and playback identity lanes | Continue unified trace context across jobs/FFmpeg/VFS/addons and library scan. |
 | Admin diagnostics | Good partial | Admin API and diagnostics lanes | Safe realtime diagnostics and incident bundles. |
 | Crash/fault bundles | Not started | This document | Redacted operator export for hard bugs. |
 | Remote access cookbook | Planned | operations/release architecture | Reverse proxy, HTTPS, DDNS, Tailscale, Cloudflare Tunnel guidance. |
@@ -181,8 +181,9 @@ Shipped control-plane behavior:
 
 ### control-plane-observability-and-trace-context
 
-Status: HTTP request ID first slice shipped as of 2026-06-04; cross-runtime
-propagation remains a follow-on.
+Status: HTTP request ID first slice shipped as of 2026-06-04; HLS playlist
+startup now propagates the typed request ID into playback completion outbox
+events; broader cross-runtime propagation remains a follow-on.
 
 Goal: Make operator-visible diagnostics and developer traces follow one request
 from API entry through policy, database, VFS, FFmpeg, addon, and job runtime
@@ -205,10 +206,13 @@ Shipped behavior:
 - CORS preflight allows browser clients to send `x-request-id`;
 - the typed HTTP trace context is available to handlers through request
   extensions.
+- HLS playlist routes convert the typed HTTP trace context into a playback app
+  trace context, and HLS `PlaybackSessionFinished` outbox payloads include only
+  the normalized `request_id` when the HLS work came from a traced request.
 
 Exit criteria:
 
-- playback and library scan paths emit correlated trace IDs;
+- library scan paths emit correlated trace IDs;
 - Admin diagnostics can show safe recent failures without raw paths, tokens, or
   provider payloads;
 - tests cover redaction for diagnostic DTOs.

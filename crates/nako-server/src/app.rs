@@ -85,9 +85,9 @@ pub(crate) use playback::{
     BrowserPlaybackTicketValidationRequest, DirectPlaySourceBody, DirectPlaybackPreflightRequest,
     DirectPlaybackSessionStreamRequest, DirectPlaybackStreamRequest, HlsPlaylistPlaybackRequest,
     HlsPlaylistSessionRequest, HlsSourceRequest, PlaybackSessionHeartbeatRequest,
-    RemuxPlaybackPreflightRequest, RemuxPlaybackSessionStreamRequest, RemuxPlaybackStreamRequest,
-    RemuxSourceRequest, RendererPlaybackTransportPlan, StartPlaybackSessionRequest,
-    SubtitlePlaybackRequest,
+    PlaybackTraceContext, RemuxPlaybackPreflightRequest, RemuxPlaybackSessionStreamRequest,
+    RemuxPlaybackStreamRequest, RemuxSourceRequest, RendererPlaybackTransportPlan,
+    StartPlaybackSessionRequest, SubtitlePlaybackRequest,
 };
 pub(crate) use playback_ticket::{
     BrowserPlaybackTicketMode, BrowserPlaybackTicketService, IssuedBrowserPlaybackTicket,

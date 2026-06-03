@@ -436,6 +436,7 @@ async fn hls_playback_policy_denial_does_not_create_sessions_or_artifacts() {
             client: ClientPlaybackCapabilities::default(),
             preferences: PlaybackPreferenceContext::default(),
             playback_generation: HlsPlaybackGeneration::default(),
+            trace_context: None,
             transport_query: None,
         })
         .await
@@ -861,6 +862,62 @@ async fn hls_source_runs_runner_and_reuses_completed_session() {
 }
 
 #[tokio::test]
+async fn hls_playlist_completion_event_includes_trace_request_id() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_trace_context");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let principal = local_playback_viewer(&store, source.library_id).await;
+    let request_id = "req-hls-trace-123";
+
+    let playlist = app
+        .playback()
+        .hls_playlist_playback(HlsPlaylistPlaybackRequest {
+            principal,
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            preferences: PlaybackPreferenceContext::default(),
+            playback_generation: HlsPlaybackGeneration::default(),
+            trace_context: Some(PlaybackTraceContext::from_request_id(request_id)),
+            transport_query: None,
+        })
+        .await
+        .unwrap();
+    let transcode_session_id = playlist
+        .session
+        .transcode_session_id
+        .expect("hls playback session should link a transcode session");
+
+    wait_for_transcode_state(
+        &store,
+        transcode_session_id,
+        TranscodeSessionState::Finished,
+    )
+    .await;
+
+    let events = store
+        .list_outbox_events(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+    let event = events
+        .iter()
+        .find(|event| {
+            event.kind == DomainEventKind::PlaybackSessionFinished
+                && event.subject == DomainEventSubject::PlaybackSession(transcode_session_id)
+                && event.source_id == Some(source.id)
+        })
+        .expect("finished HLS session should emit an outbox event");
+    let payload: serde_json::Value = serde_json::from_str(&event.payload_json).unwrap();
+
+    assert_eq!(payload["request_id"].as_str(), Some(request_id));
+    assert!(!event.payload_json.contains("ticket="));
+    assert!(
+        !event
+            .payload_json
+            .contains(&app.config().remux_staging_root.display().to_string())
+    );
+}
+
+#[tokio::test]
 async fn hls_playlist_playback_returns_when_playlist_is_ready_before_runner_finishes() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_running_hls_ffmpeg_script(script_root.path(), "hls_running_playlist");
@@ -876,6 +933,7 @@ async fn hls_playlist_playback_returns_when_playlist_is_ready_before_runner_fini
                 client: ClientPlaybackCapabilities::default(),
                 preferences: PlaybackPreferenceContext::default(),
                 playback_generation: HlsPlaybackGeneration::default(),
+                trace_context: None,
                 transport_query: None,
             }),
     )
@@ -958,6 +1016,7 @@ async fn hls_playlist_playback_seek_supersedes_running_session_without_admission
                 client: ClientPlaybackCapabilities::default(),
                 preferences: PlaybackPreferenceContext::default(),
                 playback_generation: HlsPlaybackGeneration::default(),
+                trace_context: None,
                 transport_query: None,
             }),
     )
@@ -985,6 +1044,7 @@ async fn hls_playlist_playback_seek_supersedes_running_session_without_admission
                 client: ClientPlaybackCapabilities::default(),
                 preferences: PlaybackPreferenceContext::default(),
                 playback_generation: HlsPlaybackGeneration::from_start_position_ms(45_000),
+                trace_context: None,
                 transport_query: None,
             }),
     )
@@ -1040,6 +1100,7 @@ async fn hls_playlist_playback_seek_waits_for_cancel_requested_runner_permit() {
                 client: ClientPlaybackCapabilities::default(),
                 preferences: PlaybackPreferenceContext::default(),
                 playback_generation: HlsPlaybackGeneration::default(),
+                trace_context: None,
                 transport_query: None,
             }),
     )
@@ -1069,6 +1130,7 @@ async fn hls_playlist_playback_seek_waits_for_cancel_requested_runner_permit() {
                 client: ClientPlaybackCapabilities::default(),
                 preferences: PlaybackPreferenceContext::default(),
                 playback_generation: HlsPlaybackGeneration::from_start_position_ms(45_000),
+                trace_context: None,
                 transport_query: None,
             }),
     )
@@ -1129,6 +1191,7 @@ async fn hls_playlist_playback_rejects_when_playback_resource_permit_is_busy() {
             client: ClientPlaybackCapabilities::default(),
             preferences: PlaybackPreferenceContext::default(),
             playback_generation: HlsPlaybackGeneration::default(),
+            trace_context: None,
             transport_query: None,
         })
         .await
@@ -1147,6 +1210,7 @@ async fn hls_playlist_playback_rejects_when_playback_resource_permit_is_busy() {
                 client: ClientPlaybackCapabilities::default(),
                 preferences: PlaybackPreferenceContext::default(),
                 playback_generation: HlsPlaybackGeneration::default(),
+                trace_context: None,
                 transport_query: None,
             }),
     )
@@ -2510,6 +2574,7 @@ async fn hls_playlist_releases_remote_staged_input_after_admission_rejection() {
             client: ClientPlaybackCapabilities::default(),
             preferences: PlaybackPreferenceContext::default(),
             playback_generation: HlsPlaybackGeneration::default(),
+            trace_context: None,
             transport_query: None,
         })
         .await

@@ -167,6 +167,12 @@ already mapped denial behavior and follow-ons.
   playback release-gate mode for FFmpeg/FFprobe presence, transcode HLS tests,
   and self-host playback smoke coverage while leaving GPU hardware matrix smoke
   as a follow-on.
+* `06-04-06-04-playback-hls-trace-context-first-slice` shipped the first
+  playback runtime propagation of the HTTP request ID: HLS playlist route
+  handlers convert the typed `HttpTraceContext` into an app-layer playback trace
+  context, and HLS completion outbox events include only the normalized
+  `request_id`. Broader job, VFS, FFmpeg, addon, remux/direct, and library scan
+  propagation remain follow-ons.
 
 ## Verification Plan
 

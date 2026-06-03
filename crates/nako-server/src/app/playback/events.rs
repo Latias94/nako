@@ -3,17 +3,23 @@ use nako_core::{
 };
 use tracing::warn;
 
+use super::PlaybackTraceContext;
+
 pub(super) async fn record_playback_session_finished_event(
     store: &dyn super::PlaybackRuntimeStore,
     session: &TranscodeSessionRecord,
+    trace_context: Option<&PlaybackTraceContext>,
 ) {
-    let payload = serde_json::json!({
+    let mut payload = serde_json::json!({
         "session_id": session.id,
         "source_id": session.source_id,
         "kind": session.kind,
         "request_key": &session.request_key,
         "state": session.state,
     });
+    if let Some(trace_context) = trace_context {
+        payload["request_id"] = serde_json::json!(trace_context.request_id());
+    }
     let idempotency_key = format!("playback.session_finished:{}", session.id);
     if let Err(err) = store
         .enqueue_outbox_event(NewOutboxEvent {

@@ -138,6 +138,14 @@ For a new route in an existing admin module, add it to the existing
 - Request IDs are response headers and handler extensions only in the first
   slice. Do not add them to public/Admin DTOs, generated contracts, durable
   job rows, database schema, or response bodies without a dedicated task.
+- When a handler needs request correlation in app/runtime diagnostics, convert
+  `HttpTraceContext` at the HTTP boundary into an app-layer trace context that
+  carries only the normalized safe `request_id`. App services must not parse
+  HTTP headers or know the `x-request-id` header name.
+- Internal diagnostic payloads may include `request_id` only when the value came
+  from the typed trace context. They must not include raw paths, URLs, playback
+  tickets, bearer tokens, Source Locators, FFmpeg argv, provider payloads, or
+  arbitrary user text.
 
 ### 4. Validation & Error Matrix
 
@@ -153,12 +161,18 @@ For a new route in an existing admin module, add it to the existing
 
 - Good: add request-scoped diagnostics by extracting
   `Extension<HttpTraceContext>` and logging only `request_id`.
+- Good: pass a sanitized app-layer trace context into HLS/playback runtime
+  orchestration and include only `request_id` in internal outbox event payloads.
 - Base: a route ignores trace context; root middleware still returns
   `x-request-id` for client/operator correlation.
+- Base: a non-HTTP or test-only app-service call passes no trace context and
+  preserves existing event payloads.
 - Bad: use raw URL, local path, bearer token, playback ticket, provider payload,
   or arbitrary user text as a request ID.
 - Bad: mount trace context only on protected routes, which misses `/health`,
   CORS preflight, addon runtime routes, or auth/network rejections.
+- Bad: make app services depend on `HeaderMap`, raw header strings, or
+  `x-request-id` parsing.
 
 ### 6. Tests Required
 
@@ -170,6 +184,9 @@ For a new route in an existing admin module, add it to the existing
   replaced without leaking the unsafe string.
 - Root router test: auth rejection and network/preflight short-circuit
   responses still include `x-request-id`.
+- App/route test: when HLS playlist startup receives a safe inbound
+  `x-request-id`, the resulting `PlaybackSessionFinished` outbox payload
+  includes the normalized `request_id` and no ticket/path-sensitive material.
 
 ### 7. Wrong vs Correct
 
@@ -193,3 +210,34 @@ tracing::info!(request_id = %context.request_id(), "request accepted");
 ```
 
 Handlers use the typed context and log only the sanitized request ID.
+
+#### Wrong
+
+```rust
+async fn handler(headers: HeaderMap) {
+    app.playback().start(headers.get("x-request-id").unwrap().to_str().unwrap()).await;
+}
+```
+
+This pushes raw HTTP headers and unvalidated user input into app logic.
+
+#### Correct
+
+```rust
+async fn handler(Extension(context): Extension<HttpTraceContext>) {
+    let trace = PlaybackTraceContext::from_request_id(context.request_id().to_owned());
+    app.playback()
+        .hls_playlist_playback(HlsPlaylistPlaybackRequest {
+            principal,
+            source_id,
+            client,
+            preferences,
+            playback_generation,
+            trace_context: Some(trace),
+            transport_query,
+        })
+        .await;
+}
+```
+
+HTTP owns extraction and validation; app code receives only the safe request ID.

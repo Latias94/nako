@@ -16,7 +16,7 @@ use crate::app::storage::LibraryStorageBackend;
 
 use super::{
     HlsOutputLayout, HlsPlaylistOutput, HlsSourceOutput, HlsSourceRequest, PlaybackAppService,
-    PlaybackRuntimeStore,
+    PlaybackRuntimeStore, PlaybackTraceContext,
     control::{hls_supersede_candidates, request_hls_session_supersede},
     hls_artifact::hls_artifact_manifest_for_session,
     input::FfmpegSourceInput,
@@ -48,6 +48,7 @@ struct HlsSourceContext {
     playback_generation: HlsPlaybackGeneration,
     request_identity: TranscodeRequestIdentity,
     request_key: String,
+    trace_context: Option<PlaybackTraceContext>,
     remote_input: bool,
 }
 
@@ -79,7 +80,7 @@ pub(super) async fn hls_source_with_policy(
     request: HlsSourceRequest,
     effective_policy: impl Into<Option<EffectivePlaybackPolicy>>,
 ) -> Result<HlsSourceOutput> {
-    let context = hls_source_context(app, &request, effective_policy.into()).await?;
+    let context = hls_source_context(app, &request, effective_policy.into(), None).await?;
     run_hls_source_context(app, context).await
 }
 
@@ -87,8 +88,10 @@ pub(super) async fn hls_playlist_with_policy(
     app: &PlaybackAppService,
     request: HlsSourceRequest,
     effective_policy: impl Into<Option<EffectivePlaybackPolicy>>,
+    trace_context: Option<PlaybackTraceContext>,
 ) -> Result<HlsPlaylistOutput> {
-    let output = start_hls_playlist_with_policy(app, request, effective_policy).await?;
+    let output =
+        start_hls_playlist_with_policy(app, request, effective_policy, trace_context).await?;
 
     let body = tokio::fs::read_to_string(&output.playlist_path)
         .await
@@ -119,6 +122,7 @@ async fn hls_source_context(
     app: &PlaybackAppService,
     request: &HlsSourceRequest,
     effective_policy: Option<EffectivePlaybackPolicy>,
+    trace_context: Option<PlaybackTraceContext>,
 ) -> Result<HlsSourceContext> {
     let source = app.get_source_or_not_found(request.source_id).await?;
     let probe =
@@ -168,6 +172,7 @@ async fn hls_source_context(
         playback_generation: request.playback_generation,
         request_identity: request_identity.clone(),
         request_key: request_identity.persisted_request_key().to_owned(),
+        trace_context,
         remote_input,
     })
 }
@@ -203,6 +208,7 @@ async fn run_hls_source_context_with_input(
             context.execution_policy,
             context.playback_generation,
             context.request_identity,
+            context.trace_context,
             &app.resource_admission,
             resource_demand,
             resource_permit,
@@ -229,9 +235,11 @@ async fn start_hls_playlist_with_policy(
     app: &PlaybackAppService,
     request: HlsSourceRequest,
     effective_policy: impl Into<Option<EffectivePlaybackPolicy>>,
+    trace_context: Option<PlaybackTraceContext>,
 ) -> Result<HlsPlaylistReadyOutput> {
     let effective_policy = effective_policy.into();
-    let context = hls_source_context(app, &request, effective_policy.clone()).await?;
+    let context =
+        hls_source_context(app, &request, effective_policy.clone(), trace_context).await?;
     let resource_demand = context.resource_demand();
 
     if let Some(active) = PlaybackRuntimeStore::find_active_transcode_session(

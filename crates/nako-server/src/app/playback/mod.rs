@@ -399,6 +399,25 @@ pub struct HlsSourceRequest {
     pub playback_generation: HlsPlaybackGeneration,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct PlaybackTraceContext {
+    request_id: String,
+}
+
+impl PlaybackTraceContext {
+    #[must_use]
+    pub(crate) fn from_request_id(request_id: impl Into<String>) -> Self {
+        Self {
+            request_id: request_id.into(),
+        }
+    }
+
+    #[must_use]
+    pub(crate) fn request_id(&self) -> &str {
+        &self.request_id
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum HlsSourceDisposition {
@@ -498,6 +517,7 @@ pub(crate) struct HlsPlaylistPlaybackRequest {
     pub client: ClientPlaybackCapabilities,
     pub preferences: PlaybackPreferenceContext,
     pub playback_generation: HlsPlaybackGeneration,
+    pub trace_context: Option<PlaybackTraceContext>,
     pub transport_query: Option<String>,
 }
 
@@ -558,6 +578,7 @@ pub(crate) struct HlsPlaylistSessionRequest {
     pub playback_session_id: PlaybackSessionId,
     pub source_id: MediaSourceId,
     pub playback_generation: HlsPlaybackGeneration,
+    pub trace_context: Option<PlaybackTraceContext>,
     pub transport_query: Option<String>,
 }
 
@@ -883,6 +904,7 @@ impl PlaybackAppService {
                             playback_generation: HlsPlaybackGeneration::default(),
                         },
                         effective_policy.clone(),
+                        None,
                     )
                     .await?;
                 let session = self
@@ -1363,6 +1385,7 @@ impl PlaybackAppService {
                     playback_generation: request.playback_generation,
                 },
                 effective_policy,
+                request.trace_context.clone(),
             )
             .await?;
         let playback_session = self
@@ -1423,6 +1446,7 @@ impl PlaybackAppService {
                         playback_generation: request.playback_generation,
                     },
                     effective_policy,
+                    request.trace_context.clone(),
                 )
                 .await?;
             playback_session = self
@@ -1856,15 +1880,16 @@ impl PlaybackAppService {
         &self,
         request: HlsSourceRequest,
     ) -> Result<HlsPlaylistOutput> {
-        self.hls_playlist_with_policy(request, None).await
+        self.hls_playlist_with_policy(request, None, None).await
     }
 
     async fn hls_playlist_with_policy(
         &self,
         request: HlsSourceRequest,
         effective_policy: impl Into<Option<EffectivePlaybackPolicy>>,
+        trace_context: Option<PlaybackTraceContext>,
     ) -> Result<HlsPlaylistOutput> {
-        hls_flow::hls_playlist_with_policy(self, request, effective_policy).await
+        hls_flow::hls_playlist_with_policy(self, request, effective_policy, trace_context).await
     }
 
     pub(crate) async fn plan_hls_segment(

@@ -2183,6 +2183,8 @@ async fn playback_session_cancel_route_rejects_process_local_stale_active_sessio
 async fn hls_playlist_and_segment_routes_work() {
     let (_temp, router, source, store) = router_with_hls_source().await;
     let playlist_path = format!("/sources/{}/stream/hls/playlist.m3u8", source.id);
+    let request_id = "REQ-HLS-TRACE-ROUTE";
+    let normalized_request_id = "req-hls-trace-route";
 
     let playlist_response = router
         .clone()
@@ -2190,6 +2192,7 @@ async fn hls_playlist_and_segment_routes_work() {
             Request::builder()
                 .method(Method::GET)
                 .uri(&playlist_path)
+                .header(crate::http::trace_context::X_REQUEST_ID_HEADER, request_id)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -2197,6 +2200,13 @@ async fn hls_playlist_and_segment_routes_work() {
         .unwrap();
 
     assert_eq!(playlist_response.status(), StatusCode::OK);
+    assert_eq!(
+        playlist_response
+            .headers()
+            .get(crate::http::trace_context::X_REQUEST_ID_HEADER)
+            .and_then(|value| value.to_str().ok()),
+        Some(normalized_request_id)
+    );
     assert_eq!(
         playlist_response
             .headers()
@@ -2261,6 +2271,21 @@ async fn hls_playlist_and_segment_routes_work() {
     assert_eq!(&segment[..], b"segment");
 
     wait_for_transcode_state(&store, session.id, TranscodeSessionState::Finished).await;
+    let events = store
+        .list_outbox_events(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+    let finished_event = events
+        .iter()
+        .find(|event| {
+            event.kind == DomainEventKind::PlaybackSessionFinished
+                && event.subject == DomainEventSubject::PlaybackSession(session.id)
+                && event.source_id == Some(source.id)
+        })
+        .expect("finished HLS route should emit an outbox event");
+    let payload: serde_json::Value = serde_json::from_str(&finished_event.payload_json).unwrap();
+    assert_eq!(payload["request_id"].as_str(), Some(normalized_request_id));
+    assert!(!finished_event.payload_json.contains(request_id));
 
     let legacy_segment_path = format!(
         "/playback/sessions/{}/hls/segments/segment_00000.ts",

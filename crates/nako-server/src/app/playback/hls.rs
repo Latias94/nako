@@ -23,6 +23,7 @@ use crate::config::NakoServerConfig;
 
 use super::{
     HlsOutputLayout, HlsSourceDisposition, HlsSourceOutput, PlaybackSessionCancellationRegistry,
+    PlaybackTraceContext,
     control::{hls_supersede_candidates, request_hls_session_supersede},
     map_hls_runner_error, path_exists, persist_session_failure,
     record_playback_session_finished_event,
@@ -151,6 +152,7 @@ impl HlsAppService {
         execution_policy: TranscodeExecutionPolicy,
         playback_generation: HlsPlaybackGeneration,
         request_identity: TranscodeRequestIdentity,
+        trace_context: Option<PlaybackTraceContext>,
         resource_admission: &PlaybackRuntimeAdmission,
         resource_demand: PlaybackResourceDemand,
         resource_permit: Option<PlaybackResourcePermitSet>,
@@ -192,6 +194,7 @@ impl HlsAppService {
                         subtitle_burn_in,
                         execution_policy,
                         playback_generation,
+                        trace_context,
                         permit,
                     )
                     .await;
@@ -220,6 +223,7 @@ impl HlsAppService {
                         subtitle_burn_in,
                         execution_policy,
                         playback_generation,
+                        trace_context,
                         permit,
                     )
                     .await;
@@ -382,6 +386,7 @@ impl HlsAppService {
         subtitle_burn_in: Option<HlsSubtitleBurnInPlan>,
         execution_policy: TranscodeExecutionPolicy,
         playback_generation: HlsPlaybackGeneration,
+        trace_context: Option<PlaybackTraceContext>,
         _permit: PlaybackResourcePermitSet,
     ) -> Result<HlsSourceOutput> {
         let session_id = persisted_session.id;
@@ -446,7 +451,8 @@ impl HlsAppService {
                         None,
                     )
                     .await?;
-                record_playback_session_finished_event(sessions, &session).await;
+                record_playback_session_finished_event(sessions, &session, trace_context.as_ref())
+                    .await;
 
                 Ok(HlsSourceOutput {
                     source,

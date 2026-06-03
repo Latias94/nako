@@ -40,7 +40,7 @@ use crate::app::{
     DirectPlaybackPreflightRequest, DirectPlaybackSessionStreamRequest,
     DirectPlaybackStreamRequest, HlsPlaylistPlaybackRequest, HlsPlaylistSessionRequest,
     IssuedBrowserPlaybackTicket, NakoApp,
-    PlaybackSessionHeartbeatRequest as AppPlaybackSessionHeartbeatRequest,
+    PlaybackSessionHeartbeatRequest as AppPlaybackSessionHeartbeatRequest, PlaybackTraceContext,
     RemuxPlaybackPreflightRequest, RemuxPlaybackSessionStreamRequest, RemuxPlaybackStreamRequest,
     RendererTransportTicketScope, StartPlaybackSessionRequest, SubtitlePlaybackRequest,
     ValidateRendererTransportTicketRequest,
@@ -49,6 +49,7 @@ use crate::app::{
 use super::{
     access::{RequiredLibraryAccess, has_library_access, require_source_access},
     error::ApiResult,
+    trace_context::HttpTraceContext,
 };
 
 pub(super) fn routes() -> Router<NakoApp> {
@@ -537,13 +538,16 @@ pub(super) async fn head_remux_stream_source(
     }
 }
 
-#[instrument(skip(app, principal, query))]
+#[instrument(skip(app, principal, query, http_trace_context))]
 pub(super) async fn hls_playlist_source(
     State(app): State<NakoApp>,
     principal: Option<Extension<AuthenticatedPrincipal>>,
+    Extension(http_trace_context): Extension<HttpTraceContext>,
     Path(source_id): Path<MediaSourceId>,
     Query(query): Query<HlsPlaybackQuery>,
 ) -> ApiResult<Response> {
+    let trace_context =
+        PlaybackTraceContext::from_request_id(http_trace_context.request_id().to_owned());
     if let Some(renderer_transport) = resolve_renderer_transport_principal(
         &app,
         source_id,
@@ -561,6 +565,7 @@ pub(super) async fn hls_playlist_source(
                 playback_session_id: renderer_transport.playback_session_id,
                 source_id,
                 playback_generation: query.playback_generation(),
+                trace_context: Some(trace_context.clone()),
                 transport_query: Some(format!(
                     "renderer_session_id={}&renderer_ticket={}",
                     renderer_transport.renderer_session_id,
@@ -595,6 +600,7 @@ pub(super) async fn hls_playlist_source(
                 playback_session_id,
                 source_id,
                 playback_generation: query.playback_generation(),
+                trace_context: Some(trace_context.clone()),
                 transport_query: ticket.as_deref().map(|ticket| format!("ticket={ticket}")),
             })
             .await?
@@ -607,6 +613,7 @@ pub(super) async fn hls_playlist_source(
                 client,
                 preferences: query.preferences(),
                 playback_generation: query.playback_generation(),
+                trace_context: Some(trace_context.clone()),
                 transport_query: ticket.as_deref().map(|ticket| format!("ticket={ticket}")),
             })
             .await?
