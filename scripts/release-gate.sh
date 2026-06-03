@@ -8,7 +8,7 @@ redaction_inventory_pattern='storage_uri|managed-artwork://|source_uri|cache_uri
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/release-gate.sh [--mode docs|fast|db|api|postgres|container|workspace|all] [--postgres-url URL] [--skip-redaction-inventory]
+Usage: scripts/release-gate.sh [--mode docs|fast|db|api|playback|postgres|container|workspace|all] [--postgres-url URL] [--skip-redaction-inventory]
 
 Runs Nako's local release gate without deleting user data or assuming Docker.
 USAGE
@@ -41,7 +41,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$mode" in
-  docs|fast|db|api|postgres|container|workspace|all) ;;
+  docs|fast|db|api|playback|postgres|container|workspace|all) ;;
   *)
     echo "Invalid mode: $mode" >&2
     usage >&2
@@ -107,6 +107,14 @@ api_sdk_gate() {
   step git diff --check
 }
 
+playback_gate() {
+  step ffmpeg -version
+  step ffprobe -version
+  step cargo check -p nako-transcode -p nako-server --tests
+  step cargo nextest run -p nako-transcode hls --no-fail-fast
+  step cargo nextest run -p nako-server self_host_smoke --no-fail-fast
+}
+
 container_gate() {
   local media_root="$repo_root/target/release-gate/media/movies"
   mkdir -p "$media_root"
@@ -155,6 +163,10 @@ if contains_mode "fast" || contains_mode "api"; then
   step cargo nextest run -p nako-api managed_artwork --no-fail-fast
   step cargo nextest run -p nako-server managed_artwork --no-fail-fast
   step cargo nextest run -p nako-server self_host_smoke --no-fail-fast
+fi
+
+if contains_mode "playback"; then
+  playback_gate
 fi
 
 if contains_mode "container"; then

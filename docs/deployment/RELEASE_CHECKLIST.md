@@ -136,7 +136,23 @@ Diagnostics should be redacted. They may show schemes, counts, booleans, env var
 names, and capability summaries; they must not expose raw tokens, DB passwords,
 provider secrets, artifact paths, or source locators.
 
-## 5a. Official Addon Alpha Smoke
+## 5a. Playback Release Gate
+
+Before claiming a package or host is playback-ready, run the focused playback
+release gate. It verifies FFmpeg/FFprobe availability and reuses existing HLS
+and self-host playback smoke coverage without requiring GPU devices:
+
+```bash
+bash scripts/release-gate.sh --mode playback
+```
+
+On Windows:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode playback
+```
+
+## 5b. Official Addon Alpha Smoke
 
 Run the official alpha host/addon loop after the release artifacts are ready:
 

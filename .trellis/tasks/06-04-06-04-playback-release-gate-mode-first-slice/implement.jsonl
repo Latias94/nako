@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server playback smoke and release-gate test context."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify server playback tests and diagnostics remain bounded."}
+{"file": ".trellis/spec/nako-transcode/backend/index.md", "reason": "Transcode HLS gate context."}
+{"file": ".trellis/spec/nako-transcode/backend/quality-guidelines.md", "reason": "Typed HLS/FFmpeg planning and validation gate expectations."}
+{"file": ".trellis/tasks/06-04-06-04-playback-release-gate-mode-first-slice/research/current-release-gate-shape.md", "reason": "Task-specific script shape and bounded playback mode recommendation."}

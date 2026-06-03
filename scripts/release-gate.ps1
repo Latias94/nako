@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
 [CmdletBinding()]
 param(
-    [ValidateSet('docs', 'fast', 'db', 'api', 'postgres', 'container', 'workspace', 'all')]
+    [ValidateSet('docs', 'fast', 'db', 'api', 'playback', 'postgres', 'container', 'workspace', 'all')]
     [string]$Mode = 'fast',
 
     [string]$PostgresUrl = $env:NAKO_TEST_POSTGRES_URL,
@@ -188,6 +188,28 @@ function Invoke-ApiSdkGate {
     }
 }
 
+function Invoke-PlaybackGate {
+    Invoke-Step 'ffmpeg -version' {
+        ffmpeg -version
+    }
+
+    Invoke-Step 'ffprobe -version' {
+        ffprobe -version
+    }
+
+    Invoke-Step 'cargo check -p nako-transcode -p nako-server --tests' {
+        cargo check -p nako-transcode -p nako-server --tests
+    }
+
+    Invoke-Step 'cargo nextest run -p nako-transcode hls --no-fail-fast' {
+        cargo nextest run -p nako-transcode hls --no-fail-fast
+    }
+
+    Invoke-Step 'cargo nextest run -p nako-server self_host_smoke --no-fail-fast' {
+        cargo nextest run -p nako-server self_host_smoke --no-fail-fast
+    }
+}
+
 Write-Host "Nako release gate"
 Write-Host "Mode: $Mode"
 Write-Host "Repository: $RepoRoot"
@@ -241,6 +263,10 @@ if (Test-Mode @('fast', 'api')) {
     Invoke-Step 'cargo nextest run -p nako-server self_host_smoke --no-fail-fast' {
         cargo nextest run -p nako-server self_host_smoke --no-fail-fast
     }
+}
+
+if (Test-Mode @('playback')) {
+    Invoke-PlaybackGate
 }
 
 if (Test-Mode @('container')) {

@@ -307,6 +307,7 @@ For local release confidence:
 
 ```bash
 bash scripts/release-gate.sh --mode fast
+bash scripts/release-gate.sh --mode playback
 bash scripts/release-gate.sh --mode postgres
 ```
 
@@ -314,6 +315,7 @@ On Windows:
 
 ```powershell
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode fast
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode playback
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode postgres
 ```
 

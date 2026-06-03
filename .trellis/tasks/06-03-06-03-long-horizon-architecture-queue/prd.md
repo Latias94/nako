@@ -163,6 +163,10 @@ already mapped denial behavior and follow-ons.
   source fingerprint policy had already been archived. It shipped typed HLS
   output codec policy vocabulary for H264, HEVC/H265, and AV1 while keeping
   H264/AAC as the only executable HLS output.
+* `06-04-06-04-playback-release-gate-mode-first-slice` shipped an explicit
+  playback release-gate mode for FFmpeg/FFprobe presence, transcode HLS tests,
+  and self-host playback smoke coverage while leaving GPU hardware matrix smoke
+  as a follow-on.
 
 ## Verification Plan
 
