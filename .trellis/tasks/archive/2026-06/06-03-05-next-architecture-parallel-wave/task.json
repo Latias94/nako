@@ -3,7 +3,7 @@
   "name": "06-03-05-next-architecture-parallel-wave",
   "title": "Next architecture parallel wave",
   "description": "Planner parent for the next four-way architecture parallel wave.",
-  "status": "planning",
+  "status": "completed",
   "dev_type": "planning",
   "scope": "architecture-parallel-wave",
   "package": "nako",
@@ -11,21 +11,16 @@
   "creator": "Latias94",
   "assignee": "Latias94",
   "createdAt": "2026-06-03",
-  "completedAt": null,
+  "completedAt": "2026-06-03",
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [
-    "06-03-05a-staging-budget-per-backend-policy",
-    "06-03-05b-scan-scheduler-library-fairness",
-    "06-03-05c-storage-runtime-postgres-parity-harness",
-    "06-03-05d-library-watcher-debounce-intake-stability"
-  ],
+  "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "Next four-way wave seeded after scan staging pressure admission closeout.",
+  "notes": "Completed and integrated 05a/05b/05c/05d architecture wave into main with fresh aggregate verification.",
   "meta": {}
 }
