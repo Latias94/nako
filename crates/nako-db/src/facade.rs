@@ -1312,6 +1312,16 @@ impl JobLeaseRepository for NakoDatabase {
         self.backend().claim_next_job_lease(request).await
     }
 
+    async fn list_claimable_jobs_for_lease(
+        &self,
+        filter: JobLeaseClaimFilter,
+        page: PageRequest,
+    ) -> Result<Vec<Job>> {
+        self.backend()
+            .list_claimable_jobs_for_lease(filter, page)
+            .await
+    }
+
     async fn heartbeat_job_lease(&self, heartbeat: JobLeaseHeartbeat) -> Result<LeasedJob> {
         self.backend().heartbeat_job_lease(heartbeat).await
     }

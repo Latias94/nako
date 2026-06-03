@@ -56,6 +56,8 @@ pub(crate) enum LibraryScanScheduleOutcome {
     BudgetSaturated,
 }
 
+const LIBRARY_SCAN_SCHEDULER_CANDIDATE_LIMIT: u32 = PageRequest::MAX_LIMIT;
+
 #[derive(Clone, Debug)]
 pub(crate) struct JobAppService {
     store: NakoDatabase,
@@ -312,36 +314,76 @@ impl LibraryScanAppService {
     }
 
     pub(crate) async fn schedule_queued_library_scans(&self) -> Result<LibraryScanScheduleOutcome> {
-        if self
-            .storage_backends
-            .queued_library_scan_budget_saturated()
-            .await?
-        {
-            return Ok(LibraryScanScheduleOutcome::BudgetSaturated);
-        }
-
         let Some(permit) = self.try_acquire_scan_permit()? else {
             return Ok(LibraryScanScheduleOutcome::BudgetSaturated);
         };
 
-        let runtime = DurableJobRuntime::new(self.execution_store.clone());
-        let Some(leased) = runtime
-            .claim_next_job_lease(JobLeaseClaimFilter {
-                kind: Some(JobKind::LibraryScan),
-                resource_class: Some("disk.scan".to_owned()),
-                ..JobLeaseClaimFilter::default()
-            })
-            .await?
-        else {
+        let candidates = self
+            .execution_store
+            .store
+            .list_claimable_jobs_for_lease(
+                JobLeaseClaimFilter {
+                    kind: Some(JobKind::LibraryScan),
+                    resource_class: Some("disk.scan".to_owned()),
+                    ..JobLeaseClaimFilter::default()
+                },
+                PageRequest::new(LIBRARY_SCAN_SCHEDULER_CANDIDATE_LIMIT, 0),
+            )
+            .await?;
+        if candidates.is_empty() {
             return Ok(LibraryScanScheduleOutcome::NoQueuedJob);
-        };
+        }
+
+        let runtime = DurableJobRuntime::new(self.execution_store.clone());
+        let mut blocked_candidates = 0_u32;
+        for candidate in candidates {
+            let job_id = candidate.id;
+            let library_id = candidate
+                .library_id
+                .ok_or_else(|| NakoError::InvalidInput {
+                    message: format!("library scan job {job_id} does not include library_id"),
+                })?;
+            let library = self.library_for_scan(library_id).await?;
+            if self
+                .storage_backends
+                .library_scan_admission_error(&library)
+                .await?
+                .is_some()
+            {
+                blocked_candidates = blocked_candidates.saturating_add(1);
+                continue;
+            }
+
+            let Some(leased) = runtime
+                .claim_next_job_lease(JobLeaseClaimFilter {
+                    job_id: Some(job_id),
+                    kind: Some(JobKind::LibraryScan),
+                    resource_class: Some("disk.scan".to_owned()),
+                    library_id: Some(library_id),
+                    ..JobLeaseClaimFilter::default()
+                })
+                .await?
+            else {
+                continue;
+            };
+
+            return self.spawn_claimed_library_scan_job(leased, library_id, permit);
+        }
+
+        if blocked_candidates > 0 {
+            return Ok(LibraryScanScheduleOutcome::BudgetSaturated);
+        }
+
+        Ok(LibraryScanScheduleOutcome::NoQueuedJob)
+    }
+
+    fn spawn_claimed_library_scan_job(
+        &self,
+        leased: LeasedJob,
+        library_id: LibraryId,
+        permit: OwnedSemaphorePermit,
+    ) -> Result<LibraryScanScheduleOutcome> {
         let job_id = leased.job.id;
-        let library_id = leased
-            .job
-            .library_id
-            .ok_or_else(|| NakoError::InvalidInput {
-                message: format!("library scan job {job_id} does not include library_id"),
-            })?;
         let budget_class = runtime_budget_class_for_job_resource_class(
             leased.job.kind,
             &leased.job.resource_class,

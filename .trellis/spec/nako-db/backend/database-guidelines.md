@@ -53,6 +53,8 @@ database-specific SQL and row mapping stay inside `nako-db`.
 
 - `NewJob { priority: JobPriority, ... }`
 - `Job { priority: JobPriority, ... }`
+- `JobLeaseRepository::list_claimable_jobs_for_lease(filter, page) ->
+  Result<Vec<Job>>`
 - `JobPriority::{Low, Normal, High}` maps to persisted scores
   `0`, `50`, and `100`.
 - `jobs.priority` is `INTEGER NOT NULL DEFAULT 50` on SQLite and
@@ -63,6 +65,9 @@ database-specific SQL and row mapping stay inside `nako-db`.
 - Every enqueue path must set a priority explicitly. Existing work should use
   `JobPriority::Normal` unless a generic durable-job policy says otherwise.
 - `enqueue_job_retry` must copy the source job priority to the retry row.
+- `list_claimable_jobs_for_lease` must use the same filter semantics and aged
+  fairness / priority / FIFO ordering as `claim_next_job_lease`, but it must
+  not mutate job state.
 - `claim_next_job_lease` orders eligible queued jobs by aged fairness first,
   then priority, then FIFO tie-breakers.
 - API/Admin diagnostics should not expose a priority field unless a separate
@@ -74,6 +79,8 @@ database-specific SQL and row mapping stay inside `nako-db`.
 - Missing migration registration -> migrated stores lack `jobs.priority` and
   job repository tests must fail.
 - Retry row priority differs from source -> contract violation.
+- Claimable preview ordering differs from lease claim ordering -> scheduler
+  fairness contract violation.
 - Business-specific scheduler branch -> architecture violation against ADR 0053.
 
 ### 5. Good/Base/Bad Cases
@@ -88,6 +95,8 @@ database-specific SQL and row mapping stay inside `nako-db`.
 
 - Contract test for priority ordering.
 - Contract test for starvation guard/fairness.
+- Contract test that claimable preview ordering matches later lease claim
+  ordering.
 - Contract test that retry and lease recovery preserve priority.
 - Migration tests must assert the new migration version is applied.
 

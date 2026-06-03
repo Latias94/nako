@@ -3,9 +3,9 @@ use async_trait::async_trait;
 use super::PageRequest;
 use crate::{
     CancelLeasedJob, CompleteLeasedJob, DomainEventKind, EnqueueJobRetry, EventId, FailLeasedJob,
-    Job, JobCancellationRequestRecord, JobId, JobKind, JobLeaseClaimRequest, JobLeaseHeartbeat,
-    JobQueuePressureSummary, JobStatus, LeasedJob, LibraryId, MediaSourceId, NewJob,
-    NewOutboxEvent, OutboxEventRecord, OutboxEventStatus, RecoverExpiredJobLeases,
+    Job, JobCancellationRequestRecord, JobId, JobKind, JobLeaseClaimFilter, JobLeaseClaimRequest,
+    JobLeaseHeartbeat, JobQueuePressureSummary, JobStatus, LeasedJob, LibraryId, MediaSourceId,
+    NewJob, NewOutboxEvent, OutboxEventRecord, OutboxEventStatus, RecoverExpiredJobLeases,
     RequestJobCancellation, Result,
 };
 
@@ -53,6 +53,12 @@ pub trait JobLeaseRepository: Send + Sync {
         &self,
         request: JobLeaseClaimRequest,
     ) -> Result<Option<LeasedJob>>;
+
+    async fn list_claimable_jobs_for_lease(
+        &self,
+        filter: JobLeaseClaimFilter,
+        page: PageRequest,
+    ) -> Result<Vec<Job>>;
 
     async fn heartbeat_job_lease(&self, heartbeat: JobLeaseHeartbeat) -> Result<LeasedJob>;
 

@@ -3,7 +3,7 @@
   "name": "05c-storage-runtime-postgres-parity-harness",
   "title": "Storage runtime PostgreSQL parity harness",
   "description": "Focused PostgreSQL runtime parity harness for storage admission and staging behavior.",
-  "status": "planning",
+  "status": "completed",
   "dev_type": "implementation",
   "scope": "storage-db-runtime-parity",
   "package": "nako",
@@ -11,7 +11,7 @@
   "creator": "Latias94",
   "assignee": "Latias94",
   "createdAt": "2026-06-03",
-  "completedAt": null,
+  "completedAt": "2026-06-03",
   "branch": "task/06-03-05c-storage-runtime-postgres-parity-harness",
   "base_branch": "main",
   "worktree_path": "F:/SourceCodes/Rust/nako-worktrees/06-03-05c-storage-runtime-postgres-parity-harness",
@@ -20,7 +20,12 @@
   "subtasks": [],
   "children": [],
   "parent": "06-03-05-next-architecture-parallel-wave",
-  "relatedFiles": [],
-  "notes": "Parallel lane C. Focus parity harness/evidence; avoid changing runtime policy unless tests expose a real mismatch.",
+  "relatedFiles": [
+    "scripts/postgres-contract-harness.ps1",
+    "scripts/postgres-contract-harness.sh",
+    ".trellis/tasks/06-03-05c-storage-runtime-postgres-parity-harness/prd.md",
+    ".trellis/tasks/06-03-05c-storage-runtime-postgres-parity-harness/evidence.md"
+  ],
+  "notes": "Parallel lane C. Completed by adding a focused storage-runtime PostgreSQL harness suite and a local Windows harness startup fix; runtime policy was not changed.",
   "meta": {}
 }

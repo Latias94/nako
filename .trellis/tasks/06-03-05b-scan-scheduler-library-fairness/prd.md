@@ -24,12 +24,12 @@ proceed safely.
 
 ## Acceptance Criteria
 
-- [ ] Scheduler does not claim-and-fail a job only because another queued scan is
+- [x] Scheduler does not claim-and-fail a job only because another queued scan is
   blocked by storage/staging pressure.
-- [ ] A runnable queued library scan can proceed while a blocked one remains
+- [x] A runnable queued library scan can proceed while a blocked one remains
   queued or deferred.
-- [ ] Durable job state remains redaction-safe and bounded.
-- [ ] Tests cover budget saturation, blocked storage admission, and follow-up
+- [x] Durable job state remains redaction-safe and bounded.
+- [x] Tests cover budget saturation, blocked storage admission, and follow-up
   scheduling.
 
 ## Suggested Gates

@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
 [CmdletBinding()]
 param(
-    [ValidateSet('managed-artwork', 'all-contracts')]
+    [ValidateSet('managed-artwork', 'storage-runtime', 'all-contracts')]
     [string]$Suite = 'managed-artwork',
 
     [string]$DatabaseUrl = $env:NAKO_TEST_POSTGRES_URL,
@@ -83,6 +83,12 @@ function Remove-HarnessData {
 function Get-TestFilter {
     switch ($Suite) {
         'managed-artwork' { return 'postgres_managed_artwork_contract' }
+        'storage-runtime' {
+            return @(
+                'postgres_storage_backend_health_contract',
+                'postgres_vfs_staging_contract'
+            )
+        }
         'all-contracts' { return 'postgres_' }
         default { throw "Unsupported suite: $Suite" }
     }
@@ -113,7 +119,7 @@ try {
             '-l', $LogPath,
             '-w',
             '-t', '60',
-            '-o', "-p $Port -h 127.0.0.1 -k `"$HarnessRoot`""
+            '-o', "-p $Port -h 127.0.0.1"
         )
         $StartedLocalServer = $true
 
@@ -126,13 +132,16 @@ try {
     $env:NAKO_TEST_POSTGRES_URL = $DatabaseUrl
     $testFilter = Get-TestFilter
 
-    Invoke-Native 'cargo' @(
+    $nextestArgs = @(
         'nextest', 'run',
-        '-p', 'nako-db',
-        $testFilter,
+        '-p', 'nako-db'
+    )
+    $nextestArgs += $testFilter
+    $nextestArgs += @(
         '--run-ignored', 'ignored-only',
         '--no-fail-fast'
     )
+    Invoke-Native 'cargo' $nextestArgs
 } finally {
     Stop-LocalPostgres
     Remove-HarnessData

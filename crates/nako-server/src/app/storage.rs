@@ -446,13 +446,6 @@ impl StorageBackendRegistry {
             .await
     }
 
-    pub(super) async fn queued_library_scan_budget_saturated(&self) -> Result<bool> {
-        Ok(self
-            .global_staging_pressure_admission_error()
-            .await?
-            .is_some())
-    }
-
     pub(super) async fn backend_for_media_source(
         &self,
         source: &MediaSource,
