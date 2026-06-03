@@ -155,6 +155,15 @@ already mapped denial behavior and follow-ons.
 * [`research/playback-transcode-next-candidates.md`](research/playback-transcode-next-candidates.md) - playback/transcode lane: recommends the HLS admission policy seam as the next implementation task.
 * [`research/storage-library-control-plane-next-candidates.md`](research/storage-library-control-plane-next-candidates.md) - storage/library/control-plane lanes: recommends `vfs-cache-repair-operator-actions` as the next bounded follow-on.
 
+## Child Task Outcomes
+
+* `06-04-06-04-hevc-av1-hls-output-policy-first-slice` selected the next
+  playback/transcode follow-on after HLS admission, cache repair preview,
+  subtitle burn-in, seek identity, trace context, watcher diagnostics, and
+  source fingerprint policy had already been archived. It shipped typed HLS
+  output codec policy vocabulary for H264, HEVC/H265, and AV1 while keeping
+  H264/AAC as the only executable HLS output.
+
 ## Verification Plan
 
 Each child task must choose focused gates from this ladder:

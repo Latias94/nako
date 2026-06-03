@@ -120,6 +120,91 @@ pub struct HlsTranscodeProfile {
     pub playback_profile_key: String,
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HlsVideoOutputCodec {
+    #[default]
+    H264,
+    Hevc,
+    Av1,
+}
+
+impl HlsVideoOutputCodec {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::H264 => "h264",
+            Self::Hevc => "hevc",
+            Self::Av1 => "av1",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HlsVideoOutputPolicyStatus {
+    Executable,
+    DeferredUnsupported,
+    Unsupported,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HlsVideoOutputPolicyReason {
+    H264Baseline,
+    HevcDeferred,
+    Av1Deferred,
+    UnknownCodec,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub struct HlsVideoOutputPolicyDecision {
+    pub codec: Option<HlsVideoOutputCodec>,
+    pub status: HlsVideoOutputPolicyStatus,
+    pub reason: HlsVideoOutputPolicyReason,
+}
+
+impl HlsVideoOutputPolicyDecision {
+    #[must_use]
+    pub fn from_requested_codec(codec: Option<&str>) -> Self {
+        if codec_is_auto(codec) {
+            return Self {
+                codec: Some(HlsVideoOutputCodec::H264),
+                status: HlsVideoOutputPolicyStatus::Executable,
+                reason: HlsVideoOutputPolicyReason::H264Baseline,
+            };
+        }
+
+        match codec.and_then(hls_video_output_codec) {
+            Some(HlsVideoOutputCodec::H264) => Self {
+                codec: Some(HlsVideoOutputCodec::H264),
+                status: HlsVideoOutputPolicyStatus::Executable,
+                reason: HlsVideoOutputPolicyReason::H264Baseline,
+            },
+            Some(HlsVideoOutputCodec::Hevc) => Self {
+                codec: Some(HlsVideoOutputCodec::Hevc),
+                status: HlsVideoOutputPolicyStatus::DeferredUnsupported,
+                reason: HlsVideoOutputPolicyReason::HevcDeferred,
+            },
+            Some(HlsVideoOutputCodec::Av1) => Self {
+                codec: Some(HlsVideoOutputCodec::Av1),
+                status: HlsVideoOutputPolicyStatus::DeferredUnsupported,
+                reason: HlsVideoOutputPolicyReason::Av1Deferred,
+            },
+            None => Self {
+                codec: None,
+                status: HlsVideoOutputPolicyStatus::Unsupported,
+                reason: HlsVideoOutputPolicyReason::UnknownCodec,
+            },
+        }
+    }
+
+    #[must_use]
+    pub const fn is_executable(self) -> bool {
+        matches!(self.status, HlsVideoOutputPolicyStatus::Executable)
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct PlaybackRemuxProfileRequest {
     pub output_container: RemuxContainer,
@@ -160,6 +245,7 @@ pub enum TranscodeProfileValidationReason {
     RemuxMustNotSetHdrPreference,
     HlsAdaptiveRequiresFmp4,
     HlsVideoCodecUnsupported,
+    HlsVideoCodecDeferredUnsupported,
     HlsAudioCodecUnsupported,
     HlsVideoBitrateMustBePositive,
     PlaybackProfileKeyRequired,
@@ -352,13 +438,22 @@ impl TranscodeProfile {
                 "adaptive hls profile currently requires fmp4 segment output",
             ));
         }
-        if let Some(codec) = self.video_codec.as_deref()
-            && !matches!(codec, "h264")
-        {
-            return Err(TranscodeProfileValidationError::new(
-                TranscodeProfileValidationReason::HlsVideoCodecUnsupported,
-                "hls transcode profile currently supports h264 video output",
-            ));
+        let video_output =
+            HlsVideoOutputPolicyDecision::from_requested_codec(self.video_codec.as_deref());
+        match video_output.status {
+            HlsVideoOutputPolicyStatus::Executable => {}
+            HlsVideoOutputPolicyStatus::DeferredUnsupported => {
+                return Err(TranscodeProfileValidationError::new(
+                    TranscodeProfileValidationReason::HlsVideoCodecDeferredUnsupported,
+                    "hls hevc and av1 video output policy is recognized but not executable yet",
+                ));
+            }
+            HlsVideoOutputPolicyStatus::Unsupported => {
+                return Err(TranscodeProfileValidationError::new(
+                    TranscodeProfileValidationReason::HlsVideoCodecUnsupported,
+                    "hls transcode profile currently supports h264 video output",
+                ));
+            }
         }
         if let Some(codec) = self.audio_codec.as_deref()
             && !matches!(codec, "aac")
@@ -611,6 +706,27 @@ fn normalized_optional(value: Option<String>) -> Option<String> {
         .filter(|value| !value.is_empty())
 }
 
+fn codec_is_auto(codec: Option<&str>) -> bool {
+    codec.is_none_or(|codec| codec.trim().is_empty())
+}
+
+fn hls_video_output_codec(codec: &str) -> Option<HlsVideoOutputCodec> {
+    match codec_key(codec).as_str() {
+        "" => Some(HlsVideoOutputCodec::H264),
+        "h264" | "avc" => Some(HlsVideoOutputCodec::H264),
+        "h265" | "hevc" => Some(HlsVideoOutputCodec::Hevc),
+        "av1" | "av01" => Some(HlsVideoOutputCodec::Av1),
+        _ => None,
+    }
+}
+
+fn codec_key(codec: &str) -> String {
+    codec
+        .trim()
+        .to_ascii_lowercase()
+        .replace(['.', '-', '_'], "")
+}
+
 fn canonical_value(value: &str) -> String {
     value.trim().to_ascii_lowercase()
 }
@@ -811,5 +927,89 @@ mod tests {
         .unwrap_err();
 
         assert!(matches!(err, NakoError::InvalidInput { .. }));
+    }
+
+    #[test]
+    fn hls_video_output_policy_recognizes_baseline_and_future_codecs() {
+        assert_eq!(
+            HlsVideoOutputPolicyDecision::from_requested_codec(None),
+            HlsVideoOutputPolicyDecision {
+                codec: Some(HlsVideoOutputCodec::H264),
+                status: HlsVideoOutputPolicyStatus::Executable,
+                reason: HlsVideoOutputPolicyReason::H264Baseline,
+            }
+        );
+        assert_eq!(
+            HlsVideoOutputPolicyDecision::from_requested_codec(Some("H.265")),
+            HlsVideoOutputPolicyDecision {
+                codec: Some(HlsVideoOutputCodec::Hevc),
+                status: HlsVideoOutputPolicyStatus::DeferredUnsupported,
+                reason: HlsVideoOutputPolicyReason::HevcDeferred,
+            }
+        );
+        assert_eq!(
+            HlsVideoOutputPolicyDecision::from_requested_codec(Some("AV1")),
+            HlsVideoOutputPolicyDecision {
+                codec: Some(HlsVideoOutputCodec::Av1),
+                status: HlsVideoOutputPolicyStatus::DeferredUnsupported,
+                reason: HlsVideoOutputPolicyReason::Av1Deferred,
+            }
+        );
+        assert_eq!(
+            HlsVideoOutputPolicyDecision::from_requested_codec(Some("vp9")),
+            HlsVideoOutputPolicyDecision {
+                codec: None,
+                status: HlsVideoOutputPolicyStatus::Unsupported,
+                reason: HlsVideoOutputPolicyReason::UnknownCodec,
+            }
+        );
+    }
+
+    #[test]
+    fn transcode_profile_validation_accepts_omitted_and_h264_hls_output_codecs() {
+        for video_codec in [None, Some("h264".to_owned()), Some("H.264".to_owned())] {
+            let profile = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
+                video_codec,
+                audio_codec: Some("aac".to_owned()),
+                execution_policy: TranscodeExecutionPolicy::hls_single_variant(
+                    TranscodeAccelerationPlan::software(),
+                    TranscodeTrackSelection::default(),
+                    TranscodeOutputConstraints::default(),
+                ),
+                hls_output: HlsOutputRequirement::default(),
+                track_selection: TranscodeTrackSelection::default(),
+                remote_input: false,
+                playback_profile_key: "playback-target-profile:v1;demo=true".to_owned(),
+            });
+
+            profile.validate().unwrap();
+        }
+    }
+
+    #[test]
+    fn transcode_profile_validation_rejects_hevc_and_av1_as_deferred_outputs() {
+        for video_codec in ["hevc", "h265", "av1"] {
+            let profile = TranscodeProfile::hls_single_variant(HlsTranscodeProfile {
+                video_codec: Some(video_codec.to_owned()),
+                audio_codec: Some("aac".to_owned()),
+                execution_policy: TranscodeExecutionPolicy::hls_single_variant(
+                    TranscodeAccelerationPlan::software(),
+                    TranscodeTrackSelection::default(),
+                    TranscodeOutputConstraints::default(),
+                ),
+                hls_output: HlsOutputRequirement::default(),
+                track_selection: TranscodeTrackSelection::default(),
+                remote_input: false,
+                playback_profile_key: "playback-target-profile:v1;demo=true".to_owned(),
+            });
+
+            let err = profile.validate().unwrap_err();
+
+            assert_eq!(
+                err.reason,
+                TranscodeProfileValidationReason::HlsVideoCodecDeferredUnsupported
+            );
+            assert!(err.operator_message.contains("recognized"));
+        }
     }
 }

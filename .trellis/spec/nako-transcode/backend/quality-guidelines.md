@@ -10,6 +10,10 @@ Transcode changes must keep FFmpeg behavior typed, bounded, and testable.
 - Keep overwrite policy explicit.
 - Keep hardware acceleration policy and capability reports explicit; do not
   probe GPU support for every playback request.
+- Keep HLS output codec policy typed before enabling new FFmpeg encoder paths.
+  H264 is the executable baseline; HEVC/H265 and AV1 are recognized future
+  policy values until a dedicated execution slice wires encoder args and
+  compatibility gates.
 - Keep runtime limits bounded with concurrency and timeout values.
 
 ## Forbidden Patterns
@@ -206,6 +210,81 @@ let fallback = selection.acceleration_fallback_plan(policy.fallback);
 
 The selected readiness remains the single source of truth for the fallback
 summary embedded in the execution plan.
+
+## Scenario: HLS Output Codec Policy
+
+### 1. Scope / Trigger
+
+- Trigger: changing HLS transcode profile video codec validation or preparing
+  future HEVC/AV1 HLS output behavior.
+
+### 2. Signatures
+
+- `HlsVideoOutputPolicyDecision::from_requested_codec(Option<&str>) ->
+  HlsVideoOutputPolicyDecision`.
+- `TranscodeProfile::validate_hls(...)` consumes the decision before profile
+  identity or FFmpeg command planning is allowed.
+
+### 3. Contracts
+
+- Omitted HLS video codec means the H264 baseline.
+- Explicit H264/AVC is executable.
+- Explicit HEVC/H265 and AV1 are recognized but deferred unsupported.
+- Unknown HLS video codecs are unsupported.
+- AAC remains the only executable HLS audio codec in this slice.
+- Recognizing HEVC/AV1 must not change playback defaults, public API DTOs,
+  server routes, HLS artifacts, or FFmpeg encoder argv.
+
+### 4. Validation & Error Matrix
+
+| Condition | Behavior |
+|-----------|----------|
+| HLS video codec omitted | valid H264 baseline |
+| HLS video codec H264/AVC | valid executable profile |
+| HLS video codec HEVC/H265 | validation error: deferred unsupported |
+| HLS video codec AV1 | validation error: deferred unsupported |
+| HLS video codec unknown | validation error: unsupported |
+| HLS audio codec not AAC | validation error: audio unsupported |
+
+### 5. Good / Base / Bad Cases
+
+- Good: add typed policy vocabulary first, then future execution slices can
+  choose encoder args with explicit compatibility gates.
+- Base: HLS profile validation accepts H264/AAC and exact HLS FFmpeg argv tests
+  continue to prove H264 encoder behavior.
+- Bad: add `hevc_*` or `av1_*` encoder names to the FFmpeg HLS builder without
+  profile validation, client compatibility, segment/container, and hardware
+  availability tests.
+
+### 6. Tests Required
+
+- Unit tests for HLS output codec classification.
+- Profile validation tests for omitted/H264 accepted, HEVC/AV1 deferred, and
+  unknown codec unsupported.
+- Run `cargo nextest run -p nako-transcode hls --no-fail-fast` when changing
+  this policy to prove command planning did not drift accidentally.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+if codec == "hevc" {
+    encoder = "hevc_nvenc";
+}
+```
+
+#### Correct
+
+```rust
+let output = HlsVideoOutputPolicyDecision::from_requested_codec(video_codec);
+if !output.is_executable() {
+    return Err(deferred_or_unsupported_output_error(output));
+}
+```
+
+Keep output codec policy explicit before wiring hardware-specific encoder
+execution.
 
 ## Scenario: HLS Runtime Subtitle Strategy Boundary
 
