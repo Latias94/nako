@@ -26,6 +26,7 @@ pub(crate) struct WatchFolderRuntimeTickDiagnostic {
     pub(crate) library_id: LibraryId,
     pub(crate) monitored: bool,
     pub(crate) newly_ready_candidates: u64,
+    pub(crate) suppressed_candidates: u64,
     pub(crate) enqueued_job_id: Option<JobId>,
 }
 
@@ -100,6 +101,7 @@ impl WatchFolderRuntimeAppService {
                 library_id,
                 monitored: false,
                 newly_ready_candidates: 0,
+                suppressed_candidates: 0,
                 enqueued_job_id: None,
             });
         };
@@ -109,6 +111,7 @@ impl WatchFolderRuntimeAppService {
                 library_id,
                 monitored: false,
                 newly_ready_candidates: 0,
+                suppressed_candidates: 0,
                 enqueued_job_id: None,
             });
         }
@@ -131,6 +134,7 @@ impl WatchFolderRuntimeAppService {
             library_id,
             monitored: true,
             newly_ready_candidates: discovery.newly_ready_candidates,
+            suppressed_candidates: discovery.suppressed_candidates,
             enqueued_job_id,
         })
     }

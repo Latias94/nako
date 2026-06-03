@@ -54,12 +54,25 @@ pub struct AdminWatchFolderDiscoveryResponse {
     pub blocked_candidates: u64,
     pub incomplete_candidates: u64,
     pub unsupported_candidates: u64,
+    pub suppressed_candidates: u64,
     pub recorded_candidates: u64,
     pub newly_ready_candidates: u64,
+    pub active_suppressions: Vec<AdminWatchFolderSuppression>,
     pub failures: Vec<AdminWatchFolderDiscoveryFailure>,
     pub writes_library: bool,
     pub managed_import_artifacts_created: bool,
     pub promotion_apply: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminWatchFolderSuppression {
+    pub target_library_id: LibraryId,
+    pub scope_scheme: String,
+    pub scope_ref_redacted: String,
+    pub owner: String,
+    pub reason: String,
+    pub expires_at_ms: i64,
+    pub completion: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -141,8 +154,18 @@ mod tests {
             blocked_candidates: 1,
             incomplete_candidates: 1,
             unsupported_candidates: 0,
+            suppressed_candidates: 1,
             recorded_candidates: 3,
             newly_ready_candidates: 2,
+            active_suppressions: vec![AdminWatchFolderSuppression {
+                target_library_id: LibraryId::new(),
+                scope_scheme: "local".to_owned(),
+                scope_ref_redacted: "local://<redacted>".to_owned(),
+                owner: "nfo".to_owned(),
+                reason: "sidecar_write".to_owned(),
+                expires_at_ms: 1_000,
+                completion: "suppress_only".to_owned(),
+            }],
             failures: vec![AdminWatchFolderDiscoveryFailure {
                 ref_redacted: "local://<redacted>".to_owned(),
                 safe_message: "storage error: NotFound".to_owned(),
@@ -159,12 +182,25 @@ mod tests {
         assert_eq!(value["ready_candidates"], 2);
         assert_eq!(value["inspecting_candidates"], 0);
         assert_eq!(value["newly_ready_candidates"], 2);
+        assert_eq!(value["suppressed_candidates"], 1);
+        assert_eq!(
+            value["active_suppressions"][0]["scope_ref_redacted"],
+            "local://<redacted>"
+        );
+        assert_eq!(value["active_suppressions"][0]["owner"], "nfo");
+        assert_eq!(value["active_suppressions"][0]["reason"], "sidecar_write");
+        assert_eq!(
+            value["active_suppressions"][0]["completion"],
+            "suppress_only"
+        );
         assert_eq!(value["failures"][0]["ref_redacted"], "local://<redacted>");
         assert_eq!(value["writes_library"], false);
         assert_eq!(value["managed_import_artifacts_created"], false);
         assert_eq!(value["promotion_apply"], false);
         assert!(!body.contains("root_uri"));
         assert!(!body.contains("uri_redacted"));
+        assert!(!body.contains("scope_uri"));
+        assert!(!body.contains("token"));
         assert!(!body.contains("local:///"));
         assert!(!body.contains("Private"));
         assert!(!body.contains("token"));

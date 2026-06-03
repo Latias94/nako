@@ -41,6 +41,7 @@ use super::{
     user_playback::UserPlaybackAppService,
     user_playlist::UserPlaylistAppService,
     watch_folder_runtime::WatchFolderRuntimeAppService,
+    watch_folder_suppression::WatchFolderSuppressionAppService,
     webhooks::WebhookAppService,
 };
 
@@ -179,6 +180,7 @@ pub(super) struct NakoAppServices {
     pub(super) user_playlist: UserPlaylistAppService,
     pub(super) user_playback: UserPlaybackAppService,
     pub(super) watch_folder_runtime: WatchFolderRuntimeAppService,
+    pub(super) watch_folder_suppression: WatchFolderSuppressionAppService,
 }
 
 impl NakoAppServices {
@@ -188,9 +190,11 @@ impl NakoAppServices {
         runtime: NakoRuntimeResources,
     ) -> Result<Self> {
         let jobs = JobAppService::new(store.clone());
-        let acquisition_intake = AcquisitionIntakeAppService::new_with_storage(
+        let watch_folder_suppression = WatchFolderSuppressionAppService::new();
+        let acquisition_intake = AcquisitionIntakeAppService::new_with_storage_and_suppression(
             store.clone(),
             runtime.storage_backends.clone(),
+            watch_folder_suppression.clone(),
         );
         let artwork = ManagedArtworkAppService::new(config.artwork.clone(), store.clone())?;
         let addons = AddonAppService::new(
@@ -276,6 +280,7 @@ impl NakoAppServices {
             user_playlist,
             user_playback,
             watch_folder_runtime,
+            watch_folder_suppression,
         })
     }
 }

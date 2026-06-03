@@ -21,6 +21,9 @@ use std::sync::Arc;
 use super::{
     managed_import::{CreateManagedImportArtifactRequest, ManagedImportAppService},
     storage::StorageBackendRegistry,
+    watch_folder_suppression::{
+        PlannedWatchFolderWriteSuppressionDiagnostic, WatchFolderSuppressionAppService,
+    },
 };
 
 #[async_trait]
@@ -167,6 +170,7 @@ pub(crate) struct AcquisitionIntakeAppService {
     store: Arc<dyn AcquisitionIntakeWorkflowStore>,
     managed_import: ManagedImportAppService,
     storage_backends: Option<StorageBackendRegistry>,
+    watch_folder_suppression: WatchFolderSuppressionAppService,
 }
 
 impl AcquisitionIntakeAppService {
@@ -174,10 +178,23 @@ impl AcquisitionIntakeAppService {
         store: NakoDatabase,
         storage_backends: StorageBackendRegistry,
     ) -> Self {
+        Self::new_with_storage_and_suppression(
+            store,
+            storage_backends,
+            WatchFolderSuppressionAppService::new(),
+        )
+    }
+
+    pub(super) fn new_with_storage_and_suppression(
+        store: NakoDatabase,
+        storage_backends: StorageBackendRegistry,
+        watch_folder_suppression: WatchFolderSuppressionAppService,
+    ) -> Self {
         let managed_import = ManagedImportAppService::new(store.clone());
         Self {
             managed_import,
             storage_backends: Some(storage_backends),
+            watch_folder_suppression,
             store: Arc::new(store),
         }
     }
@@ -365,6 +382,7 @@ impl AcquisitionIntakeAppService {
         let mut blocked_candidates = 0_u64;
         let mut incomplete_candidates = 0_u64;
         let mut unsupported_candidates = 0_u64;
+        let mut suppressed_candidates = 0_u64;
         let mut recorded_candidates = 0_u64;
         let mut newly_ready_candidates = 0_u64;
         let mut failures = Vec::new();
@@ -381,6 +399,16 @@ impl AcquisitionIntakeAppService {
                     continue;
                 }
             };
+
+            if self
+                .watch_folder_suppression
+                .match_suppression(library.id, &metadata.uri)
+                .await?
+                .is_some()
+            {
+                suppressed_candidates += 1;
+                continue;
+            }
 
             match metadata.kind {
                 ObjectKind::Directory => match backend.list(&metadata.uri).await {
@@ -448,8 +476,13 @@ impl AcquisitionIntakeAppService {
             blocked_candidates,
             incomplete_candidates,
             unsupported_candidates,
+            suppressed_candidates,
             recorded_candidates,
             newly_ready_candidates,
+            active_suppressions: self
+                .watch_folder_suppression
+                .list_active_for_library(library.id)
+                .await?,
             failures,
             writes_library: false,
             managed_import_artifacts_created: false,
@@ -727,8 +760,10 @@ pub(crate) struct WatchFolderDiscoveryDiagnostic {
     pub(crate) blocked_candidates: u64,
     pub(crate) incomplete_candidates: u64,
     pub(crate) unsupported_candidates: u64,
+    pub(crate) suppressed_candidates: u64,
     pub(crate) recorded_candidates: u64,
     pub(crate) newly_ready_candidates: u64,
+    pub(crate) active_suppressions: Vec<PlannedWatchFolderWriteSuppressionDiagnostic>,
     pub(crate) failures: Vec<WatchFolderDiscoveryFailureDiagnostic>,
     pub(crate) writes_library: bool,
     pub(crate) managed_import_artifacts_created: bool,

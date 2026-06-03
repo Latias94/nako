@@ -197,6 +197,7 @@ pub struct StorageBackendDiagnostic {
 #[serde(rename_all = "snake_case")]
 pub enum StorageBackendKind {
     Local,
+    #[serde(rename = "webdav")]
     WebDav,
 }
 

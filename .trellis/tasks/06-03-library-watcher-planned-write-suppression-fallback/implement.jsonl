@@ -1,0 +1,13 @@
+{"file": ".trellis/tasks/archive/2026-06/06-03-06a-library-watcher-runtime-productization/prd.md", "reason": "Carries the shipped watcher runtime productization boundary and non-goals this follow-up must preserve."}
+{"file": ".trellis/tasks/archive/2026-06/06-03-06c-targeted-jellyfin-watcher-reference/evidence.md", "reason": "Behavior-level reference conclusions for planned-write suppression, coalescing, debounce, fallback, and licensing hygiene."}
+{"file": ".trellis/spec/nako-library/backend/directory-structure.md", "reason": "Defines where stable-candidate intake evidence belongs and what library runtime scheduling must not own."}
+{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "Preserves repeated observation evidence, source identity, tombstone, and watcher debounce quality rules."}
+{"file": ".trellis/spec/nako-library/backend/logging-guidelines.md", "reason": "Redaction-safe library intake and watcher diagnostics guidance."}
+{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Contains the watch-folder runtime productization scenario and ADR 0053 server runtime boundary."}
+{"file": ".trellis/spec/nako-server/backend/database-guidelines.md", "reason": "Server persistence usage constraints if suppression or fallback state becomes durable."}
+{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "Secret-safe server runtime and background diagnostic logging guidance."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Admin discovery DTO exposes redaction-safe suppression diagnostics and generated contract artifacts."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Generated Admin TypeScript contracts and diagnostic DTO redaction gates."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Admin Web generated contract and mock data consistency rules."}
+{"file": ".trellis/spec/nako-vfs/backend/quality-guidelines.md", "reason": "StorageUri, backend capability, cache fallback, and write safety constraints for watcher-visible scopes."}
+{"file": ".trellis/spec/nako-vfs/backend/logging-guidelines.md", "reason": "Storage/VFS redaction rules for source locators, backend errors, and diagnostics."}

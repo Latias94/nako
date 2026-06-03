@@ -695,6 +695,90 @@ async fn acquisition_intake_watch_folder_discovery_records_classified_candidates
     assert!(!body.contains("Notes.txt"));
 }
 
+#[tokio::test]
+async fn acquisition_intake_watch_folder_discovery_suppresses_planned_host_writes_without_raw_scope()
+ {
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let temp = tempfile::tempdir().unwrap();
+    let watch = temp.path().join("watch");
+    fs::create_dir_all(&watch).unwrap();
+    fs::write(watch.join("Suppressed Movie.mkv"), b"generated").unwrap();
+    fs::write(watch.join("Visible Movie.mkv"), b"visible").unwrap();
+    let library_id = LibraryId::new();
+    let app = acquisition_app_with_store(store.clone(), library_id, temp.path()).await;
+    let library = store.get_library(library_id).await.unwrap().unwrap();
+    let service = app.acquisition_intake();
+    let root_uri = StorageUri::from_parts("local", "watch").unwrap();
+    app.watch_folder_suppression()
+        .begin_planned_write_suppression(BeginPlannedWatchFolderWriteSuppressionRequest {
+            target_library_id: library.id,
+            scope_uri: StorageUri::from_parts("local", "watch/Suppressed Movie.mkv").unwrap(),
+            owner: "nfo".to_owned(),
+            reason: "sidecar_write".to_owned(),
+            ttl_ms: Some(60_000),
+            completion: PlannedWatchFolderWriteCompletion::SuppressOnly,
+        })
+        .await
+        .unwrap();
+
+    let first = service
+        .discover_watch_folder_candidates(DiscoverWatchFolderCandidatesRequest {
+            target_library_id: library.id,
+            root_uri: Some(root_uri.clone()),
+            max_depth: Some(1),
+        })
+        .await
+        .unwrap();
+    let replayed = service
+        .discover_watch_folder_candidates(DiscoverWatchFolderCandidatesRequest {
+            target_library_id: library.id,
+            root_uri: Some(root_uri),
+            max_depth: Some(1),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(first.suppressed_candidates, 1);
+    assert_eq!(first.recorded_candidates, 1);
+    assert_eq!(first.inspecting_candidates, 1);
+    assert_eq!(first.newly_ready_candidates, 0);
+    assert_eq!(first.active_suppressions.len(), 1);
+    assert_eq!(first.active_suppressions[0].scope_scheme, "local");
+    assert_eq!(
+        first.active_suppressions[0].scope_ref_redacted,
+        "local://<redacted>"
+    );
+    assert_eq!(first.active_suppressions[0].owner, "nfo");
+    assert_eq!(first.active_suppressions[0].reason, "sidecar_write");
+    assert_eq!(replayed.suppressed_candidates, 1);
+    assert_eq!(replayed.recorded_candidates, 1);
+    assert_eq!(replayed.ready_candidates, 1);
+    assert_eq!(replayed.newly_ready_candidates, 1);
+
+    let listed = service
+        .list_candidates(
+            AcquisitionIntakeCandidateListFilter {
+                target_library_id: Some(library.id),
+                state: None,
+                source_kind: Some(AcquisitionIntakeSourceKind::WatchFolder),
+                managed_import_artifact_id: None,
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(listed.returned, 1);
+
+    let body = serde_json::to_string(&first).unwrap();
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("Suppressed Movie"));
+    assert!(!body.contains("Visible Movie"));
+    assert!(!body.contains("scope_uri"));
+    assert!(!body.contains("token"));
+    assert!(!body.contains("local:///"));
+}
+
 async fn acquisition_app_with_store(
     store: NakoDatabase,
     library_id: LibraryId,

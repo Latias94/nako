@@ -86,8 +86,9 @@ use nako_api::{
         AdminUpdatePlaybackRuntimeSettingsRequest, AdminUpdateUserStatusRequest,
         AdminUpsertLibraryAccessPolicyRequest, AdminVfsCacheSummary,
         AdminWatchFolderDiscoveryFailure, AdminWatchFolderDiscoveryRequest,
-        AdminWatchFolderDiscoveryResponse, JobResponse, StorageBackendDiagnosticsResponse,
-        StorageBackendKind, StorageBackendRuntimeStateScope, StorageBackendStatus,
+        AdminWatchFolderDiscoveryResponse, AdminWatchFolderSuppression, JobResponse,
+        StorageBackendDiagnosticsResponse, StorageBackendKind, StorageBackendRuntimeStateScope,
+        StorageBackendStatus,
     },
     metadata_diagnostics::{MetadataProviderDiagnosticStatus, MetadataProviderDiagnosticsResponse},
     public_client::{API_VERSION, ClientErrorCode, ErrorResponse, page_info_from_request},
@@ -523,8 +524,14 @@ pub(super) async fn discover_admin_watch_folder_candidates(
         blocked_candidates: diagnostic.blocked_candidates,
         incomplete_candidates: diagnostic.incomplete_candidates,
         unsupported_candidates: diagnostic.unsupported_candidates,
+        suppressed_candidates: diagnostic.suppressed_candidates,
         recorded_candidates: diagnostic.recorded_candidates,
         newly_ready_candidates: diagnostic.newly_ready_candidates,
+        active_suppressions: diagnostic
+            .active_suppressions
+            .into_iter()
+            .map(admin_watch_folder_suppression)
+            .collect(),
         failures: diagnostic
             .failures
             .into_iter()
@@ -537,6 +544,27 @@ pub(super) async fn discover_admin_watch_folder_candidates(
         managed_import_artifacts_created: diagnostic.managed_import_artifacts_created,
         promotion_apply: diagnostic.promotion_apply,
     }))
+}
+
+fn admin_watch_folder_suppression(
+    suppression: crate::app::PlannedWatchFolderWriteSuppressionDiagnostic,
+) -> AdminWatchFolderSuppression {
+    AdminWatchFolderSuppression {
+        target_library_id: suppression.target_library_id,
+        scope_scheme: suppression.scope_scheme,
+        scope_ref_redacted: suppression.scope_ref_redacted,
+        owner: suppression.owner,
+        reason: suppression.reason,
+        expires_at_ms: suppression.expires_at_ms,
+        completion: match suppression.completion {
+            crate::app::PlannedWatchFolderWriteCompletion::SuppressOnly => {
+                "suppress_only".to_owned()
+            }
+            crate::app::PlannedWatchFolderWriteCompletion::ReconcileScope => {
+                "reconcile_scope".to_owned()
+            }
+        },
+    }
 }
 
 pub(super) async fn list_admin_generated_artifact_proposals(

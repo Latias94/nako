@@ -2441,6 +2441,67 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
 }
 
 #[tokio::test]
+async fn watch_folder_runtime_tick_suppresses_planned_host_write_without_enqueuing_scan() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let library = LocalLibraryConfig {
+        id: library_id,
+        name: "Movies".to_owned(),
+        root: temp.path().join("movies"),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    fs::create_dir_all(&library.root).unwrap();
+    fs::write(library.root.join("Generated Movie.mkv"), b"generated").unwrap();
+
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let config = startup_config(temp.path(), vec![library]);
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+
+    let mut persisted = store.get_library(library_id).await.unwrap().unwrap();
+    persisted.options.scan.realtime_monitor = true;
+    store.upsert_library(&persisted).await.unwrap();
+    app.watch_folder_suppression()
+        .begin_planned_write_suppression(BeginPlannedWatchFolderWriteSuppressionRequest {
+            target_library_id: library_id,
+            scope_uri: StorageUri::from_parts("local", "Generated Movie.mkv").unwrap(),
+            owner: "managed_import".to_owned(),
+            reason: "library_write".to_owned(),
+            ttl_ms: Some(60_000),
+            completion: PlannedWatchFolderWriteCompletion::ReconcileScope,
+        })
+        .await
+        .unwrap();
+
+    let first = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+    let second = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert!(first.monitored);
+    assert_eq!(first.suppressed_candidates, 1);
+    assert_eq!(first.newly_ready_candidates, 0);
+    assert_eq!(first.enqueued_job_id, None);
+    assert!(second.monitored);
+    assert_eq!(second.suppressed_candidates, 1);
+    assert_eq!(second.newly_ready_candidates, 0);
+    assert_eq!(second.enqueued_job_id, None);
+    assert!(jobs.iter().all(|job| job.kind != JobKind::LibraryScan));
+}
+
+#[tokio::test]
 async fn app_startup_rejects_unsupported_configured_webdav_root_scheme() {
     let temp = tempfile::tempdir().unwrap();
     let config = startup_config(

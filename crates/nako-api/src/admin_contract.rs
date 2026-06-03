@@ -288,6 +288,16 @@ export interface AdminWatchFolderDiscoveryRequest {
   max_depth?: number;
 }
 
+export interface AdminWatchFolderSuppression {
+  target_library_id: string;
+  scope_scheme: string;
+  scope_ref_redacted: string;
+  owner: string;
+  reason: string;
+  expires_at_ms: number;
+  completion: string;
+}
+
 export interface AdminStorageStagingQuery extends AdminPageQuery {
   purpose?: string;
   state?: string;
@@ -306,6 +316,10 @@ export type AdminStorageStagingAttributionKind =
   | "attributed"
   | "ambiguous"
   | "unknown";
+
+export type StorageBackendKind =
+  | "local"
+  | "webdav";
 
 export interface AdminStorageStagingPressureSummary {
   status: AdminStorageStagingPressureStatus;
@@ -2190,8 +2204,10 @@ export interface AdminWatchFolderDiscoveryResponse {
   blocked_candidates: number;
   incomplete_candidates: number;
   unsupported_candidates: number;
+  suppressed_candidates: number;
   recorded_candidates: number;
   newly_ready_candidates: number;
+  active_suppressions: AdminWatchFolderSuppression[];
   failures: Array<{
     ref_redacted: string;
     safe_message: string;
@@ -3493,6 +3509,7 @@ mod tests {
             "AdminItemArtworkGalleryQuery",
             "AdminSelectItemArtworkRequest",
             "AdminAcquisitionIntakeCandidateListResponse",
+            "AdminWatchFolderSuppression",
             "AdminWatchFolderDiscoveryResponse",
             "AdminGeneratedArtifactProposalListResponse",
             "AdminGeneratedArtifactReviewPlanResponse",

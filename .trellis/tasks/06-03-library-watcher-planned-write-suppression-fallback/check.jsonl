@@ -1,0 +1,10 @@
+{"file": ".trellis/tasks/archive/2026-06/06-03-06a-library-watcher-runtime-productization/prd.md", "reason": "Check follow-up behavior against the shipped watcher runtime scope and non-goals."}
+{"file": ".trellis/tasks/archive/2026-06/06-03-06c-targeted-jellyfin-watcher-reference/evidence.md", "reason": "Verify behavior-level decisions stay within approved reference scope and licensing constraints."}
+{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "Check stable-candidate and source-identity safety for watcher-triggered intake."}
+{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Check watch-folder runtime supervision, existing scan/intake handoff, and no hidden executor bypass."}
+{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "Check runtime diagnostics and logs are redaction-safe."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Check Admin DTO and generated TypeScript contract drift."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Check redaction-sensitive Admin diagnostic DTO changes and generator gates."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Check Admin Web generated contract and mock fallback data stay consistent."}
+{"file": ".trellis/spec/nako-vfs/backend/quality-guidelines.md", "reason": "Check StorageUri/backend capability and write safety semantics for suppression scopes."}
+{"file": ".trellis/spec/nako-vfs/backend/logging-guidelines.md", "reason": "Check VFS/storage diagnostics do not expose raw locators, paths, credentials, fingerprints, or backend errors."}
