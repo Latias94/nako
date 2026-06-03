@@ -64,3 +64,54 @@ Integrated and verified 05a/05b/05c/05d into main, archived the Trellis wave, pu
 - Three empty physical directories under `F:\SourceCodes\Rust\nako-worktrees\`
   remained locked by an external Windows process and can be removed after the
   handle is released.
+
+
+## Session 2: Plan wave 06 library storage follow-ons
+
+**Date**: 2026-06-03
+**Task**: Plan wave 06 library storage follow-ons
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Selected Option A and opened the wave 06 parent plus three child tasks for watcher runtime productization, staging attribution persistence, and targeted Jellyfin watcher reference.
+
+### Main Changes
+
+- Opened the parent planning task
+  `06-03-06-03-06-library-storage-follow-on-parallel-wave`.
+- Locked the wave shape to Option A after the user selected it.
+- Created three child tasks:
+  `06-03-06a-library-watcher-runtime-productization`,
+  `06-03-06b-storage-staging-attribution-persistence`, and
+  `06-03-06c-targeted-jellyfin-watcher-reference`.
+- Curated `prd.md`, `task.json`, `implement.jsonl`, and `check.jsonl` for the
+  parent and all three child lanes.
+- Validated all four task directories with `python ./.trellis/scripts/task.py validate`.
+- Committed and pushed the planning bundle to `main`.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `751c8add` | (see git log) |
+
+### Testing
+
+- [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-03-06-03-06-library-storage-follow-on-parallel-wave`
+- [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-03-06a-library-watcher-runtime-productization`
+- [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-03-06b-storage-staging-attribution-persistence`
+- [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-03-06c-targeted-jellyfin-watcher-reference`
+- [OK] `git diff --check`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Next implementation choices are ready:
+  `06a` watcher runtime productization,
+  `06b` staging attribution persistence,
+  `06c` targeted Jellyfin watcher reference.
