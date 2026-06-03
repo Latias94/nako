@@ -193,6 +193,100 @@ let fallback = selection.acceleration_fallback_plan(policy.fallback);
 The selected readiness remains the single source of truth for the fallback
 summary embedded in the execution plan.
 
+## Scenario: HLS Runtime Subtitle Strategy Boundary
+
+### 1. Scope / Trigger
+
+- Trigger: changing playback-to-transcode HLS runtime planning fields,
+  especially `TranscodeRequirement.subtitle_strategy`,
+  `HlsRuntimePlanRequest.subtitle_strategy`, or HLS media rendition selection.
+
+### 2. Signatures
+
+- Playback emits `nako_playback::TranscodeRequirement.subtitle_strategy`.
+- Server maps it through `playback_subtitle_strategy_to_transcode(...)`.
+- Transcode consumes it through
+  `nako_transcode::HlsRuntimePlanRequest.subtitle_strategy`.
+
+### 3. Contracts
+
+- Playback is the authority for subtitle intent. For HLS with a selected
+  subtitle, supported subtitle delivery maps to `SidecarSelected`; unsupported
+  delivery maps to `BurnInSelected`; no selected subtitle maps to `None`.
+- Non-HLS transcode output may continue using `OmitSelected` until that output
+  shape gets an explicit executable contract.
+- HLS runtime planning must generate subtitle media renditions only when the
+  request strategy is `SidecarSelected`.
+- `BurnInSelected`, `OmitSelected`, and `None` must not create subtitle
+  sidecar artifacts from `track_selection.subtitle_stream`.
+- Audio media renditions are independent of subtitle strategy and must still be
+  planned from probe/source facts when multi-audio HLS needs them.
+- Transcode profile identity must include `subtitle_strategy`; request variant
+  identity should include subtitle media renditions only when sidecar artifacts
+  are actually planned.
+- The FFmpeg HLS adapter may reject `BurnInSelected` until burn-in execution is
+  implemented; the runtime planner still preserves the strategy.
+
+### 4. Validation & Error Matrix
+
+| Condition | Behavior |
+|-----------|----------|
+| HLS selected subtitle and target supports subtitle delivery | `SidecarSelected`; subtitle media rendition may be planned |
+| HLS selected subtitle and target does not support subtitle delivery | `BurnInSelected`; no subtitle sidecar rendition |
+| `OmitSelected` with `track_selection.subtitle_stream = Some(_)` | keep `OmitSelected`; no subtitle sidecar rendition |
+| Multi-audio probe with non-sidecar subtitle strategy | audio renditions still appear; subtitle renditions do not |
+| FFmpeg HLS request with `BurnInSelected` before burn-in support | unsupported adapter error |
+
+### 5. Good / Base / Bad Cases
+
+- Good: server copies playback's typed subtitle strategy into
+  `HlsRuntimePlanRequest`, and transcode branches media-rendition planning on
+  that strategy.
+- Base: `SidecarSelected` plus source subtitle facts yields subtitle sidecar
+  media rendition identity.
+- Bad: any HLS runtime code sees `track_selection.subtitle_stream.is_some()`
+  and upgrades the execution policy to `SidecarSelected`.
+
+### 6. Tests Required
+
+- Playback unit test proving unsupported subtitle delivery selects
+  `BurnInSelected`.
+- Playback or server test proving supported HLS subtitle delivery reaches
+  `SidecarSelected`.
+- Transcode runtime test proving `BurnInSelected` preserves profile identity
+  and creates no subtitle media renditions.
+- Transcode runtime test proving `OmitSelected` is not upgraded to sidecar from
+  track selection, while audio renditions are preserved.
+- Server HLS flow test proving supported subtitle delivery still publishes
+  sidecar playlists and WebVTT artifacts.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+let mut pipeline = self.plan_hls_single_variant(pipeline_request, report)?;
+if media_renditions.has_subtitles() {
+    pipeline.subtitle_strategy = TranscodeSubtitleStrategy::SidecarSelected;
+}
+```
+
+This rebuilds intent from planned artifacts and loses the distinction between
+burn-in, omit, and sidecar requests.
+
+#### Correct
+
+```rust
+pipeline_request.subtitle_strategy = request.subtitle_strategy;
+let media_renditions = match request.subtitle_strategy {
+    TranscodeSubtitleStrategy::SidecarSelected => selected_subtitle_and_audio_renditions()?,
+    _ => selected_audio_renditions_only()?,
+};
+```
+
+The playback decision stays the source of truth, and HLS runtime planning only
+materializes artifacts allowed by that strategy.
+
 ## Gate Selection
 
 - Focused transcode:

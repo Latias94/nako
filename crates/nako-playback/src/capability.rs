@@ -5,8 +5,8 @@ use crate::{
     ClientPlaybackCapabilities, PlaybackAudioOutputRequirement, PlaybackColorPipelineRequirement,
     PlaybackColorPipelineSource, PlaybackDenial, PlaybackHlsOutputRequirement, PlaybackMode,
     PlaybackOutputConstraints, PlaybackPreferenceContext, PlaybackRemuxContainer,
-    PlaybackSelectionContext, PlaybackStorageContext, PlaybackTarget, PlaybackTrackSelection,
-    PlaybackTranscodeContainer,
+    PlaybackSelectionContext, PlaybackStorageContext, PlaybackSubtitleStrategy, PlaybackTarget,
+    PlaybackTrackSelection, PlaybackTranscodeContainer,
 };
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -218,6 +218,23 @@ impl PlaybackTargetProfile {
     }
 
     #[must_use]
+    pub fn subtitle_strategy_for_track_selection(
+        &self,
+        output_container: PlaybackTranscodeContainer,
+        track_selection: PlaybackTrackSelection,
+    ) -> PlaybackSubtitleStrategy {
+        if track_selection.subtitle_stream.is_none() {
+            PlaybackSubtitleStrategy::None
+        } else if output_container != PlaybackTranscodeContainer::Hls {
+            PlaybackSubtitleStrategy::OmitSelected
+        } else if self.supports_subtitles() {
+            PlaybackSubtitleStrategy::SidecarSelected
+        } else {
+            PlaybackSubtitleStrategy::BurnInSelected
+        }
+    }
+
+    #[must_use]
     pub fn output_constraints(&self) -> PlaybackOutputConstraints {
         PlaybackOutputConstraints {
             max_video_bitrate: min_optional_u64(
@@ -273,6 +290,13 @@ impl PlaybackTargetProfile {
         self.direct_play_profiles
             .iter()
             .all(|profile| profile.supports_hdr)
+    }
+
+    #[must_use]
+    pub fn supports_subtitles(&self) -> bool {
+        self.direct_play_profiles
+            .iter()
+            .all(|profile| profile.supports_subtitles)
     }
 
     #[must_use]

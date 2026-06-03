@@ -204,6 +204,7 @@ pub struct HlsRuntimePlanRequest {
     pub output_constraints: TranscodeOutputConstraints,
     pub audio_output: TranscodeAudioOutputRequirement,
     pub color_pipeline: TranscodeColorPipelineRequirement,
+    pub subtitle_strategy: TranscodeSubtitleStrategy,
     pub hls_output: HlsOutputRequirement,
     pub source_facts: Option<TranscodePipelineSourceFacts>,
     pub media_probe: Option<MediaProbeResult>,
@@ -295,19 +296,29 @@ impl TranscodePipelinePlanner {
             request.audio_output,
         )
         .with_color_pipeline(request.color_pipeline);
+        pipeline_request.subtitle_strategy = request.subtitle_strategy;
         if let Some(source_facts) = request.source_facts.clone() {
             pipeline_request = pipeline_request.with_source(source_facts);
         }
 
-        let media_renditions = HlsMediaRenditionPlan::selected_from_probe(
-            request.media_probe.as_ref(),
-            request.source_facts.as_ref(),
-            request.track_selection,
-        )?;
-        let mut pipeline = self.plan_hls_single_variant(pipeline_request, report)?;
-        if media_renditions.has_subtitles() {
-            pipeline.subtitle_strategy = TranscodeSubtitleStrategy::SidecarSelected;
-        }
+        let media_renditions = match request.subtitle_strategy {
+            TranscodeSubtitleStrategy::SidecarSelected => {
+                HlsMediaRenditionPlan::selected_from_probe(
+                    request.media_probe.as_ref(),
+                    request.source_facts.as_ref(),
+                    request.track_selection,
+                )?
+            }
+            _ => HlsMediaRenditionPlan::selected_from_probe(
+                request.media_probe.as_ref(),
+                request.source_facts.as_ref(),
+                TranscodeTrackSelection {
+                    audio_stream: request.track_selection.audio_stream,
+                    subtitle_stream: None,
+                },
+            )?,
+        };
+        let pipeline = self.plan_hls_single_variant(pipeline_request, report)?;
         let execution_policy = pipeline.execution_policy();
         let profile = build_playback_hls_profile(PlaybackHlsProfileRequest {
             plan: request.plan,
@@ -881,6 +892,7 @@ mod tests {
             },
             audio_output,
             color_pipeline: TranscodeColorPipelineRequirement::none(),
+            subtitle_strategy: TranscodeSubtitleStrategy::SidecarSelected,
             hls_output: HlsOutputRequirement {
                 variant_policy: HlsVariantPolicy::Adaptive,
                 segment_container: HlsSegmentContainer::Fmp4,
@@ -930,6 +942,126 @@ mod tests {
     }
 
     #[test]
+    fn hls_runtime_plan_preserves_burn_in_strategy_without_subtitle_renditions() {
+        let source = demo_source();
+        let video = video_stream(1920, 1080, 4_000_000);
+        let subtitle = media_stream(3, MediaStreamKind::Subtitle, "subrip", Some("jpn"));
+        let track_selection = TranscodeTrackSelection {
+            audio_stream: None,
+            subtitle_stream: Some(3),
+        };
+        let request = HlsRuntimePlanRequest {
+            source,
+            plan: TranscodePlan {
+                input_locator: "local:///Movies/Demo.mkv".to_owned(),
+                output_container: OutputContainer::Hls,
+                video_codec: Some("h264".to_owned()),
+                audio_codec: Some("aac".to_owned()),
+            },
+            hardware_policy: HardwareAccelerationPolicy::default(),
+            track_selection,
+            output_constraints: TranscodeOutputConstraints::default(),
+            audio_output: TranscodeAudioOutputRequirement::none(),
+            color_pipeline: TranscodeColorPipelineRequirement::none(),
+            subtitle_strategy: TranscodeSubtitleStrategy::BurnInSelected,
+            hls_output: HlsOutputRequirement::default(),
+            source_facts: Some(TranscodePipelineSourceFacts {
+                video: Some(video.clone()),
+                audio: None,
+                subtitle: Some(subtitle.clone()),
+            }),
+            media_probe: Some(MediaProbeResult {
+                duration_ms: Some(1_000),
+                container: Some("matroska,webm".to_owned()),
+                bit_rate: None,
+                streams: vec![video, subtitle],
+            }),
+            playback_generation: HlsPlaybackGeneration::default(),
+            remote_input: false,
+            playback_profile_key: "playback-target-profile:v1;demo=true".to_owned(),
+        };
+        let report = HardwareAccelerationReport::with_available([HardwareAcceleration::None]);
+
+        let runtime = TranscodePipelinePlanner::new()
+            .plan_hls_runtime(request, &report)
+            .unwrap();
+
+        assert_eq!(
+            runtime.execution_policy.subtitle_strategy,
+            TranscodeSubtitleStrategy::BurnInSelected
+        );
+        assert!(runtime.request_variant.media_renditions.is_empty());
+        assert!(runtime.request_variant.identity_key().is_none());
+        assert!(
+            runtime
+                .profile_identity
+                .persisted_request_key()
+                .contains("subtitle_strategy=burn_in_selected")
+        );
+    }
+
+    #[test]
+    fn hls_runtime_plan_does_not_infer_sidecar_from_omitted_subtitle_selection() {
+        let source = demo_source();
+        let video = video_stream(1920, 1080, 4_000_000);
+        let selected_audio = media_stream(1, MediaStreamKind::Audio, "aac", Some("eng"));
+        let alternate_audio = media_stream(2, MediaStreamKind::Audio, "aac", Some("jpn"));
+        let subtitle = media_stream(3, MediaStreamKind::Subtitle, "subrip", Some("jpn"));
+        let track_selection = TranscodeTrackSelection {
+            audio_stream: Some(1),
+            subtitle_stream: Some(3),
+        };
+        let request = HlsRuntimePlanRequest {
+            source,
+            plan: TranscodePlan {
+                input_locator: "local:///Movies/Demo.mkv".to_owned(),
+                output_container: OutputContainer::Hls,
+                video_codec: Some("h264".to_owned()),
+                audio_codec: Some("aac".to_owned()),
+            },
+            hardware_policy: HardwareAccelerationPolicy::default(),
+            track_selection,
+            output_constraints: TranscodeOutputConstraints::default(),
+            audio_output: TranscodeAudioOutputRequirement::none(),
+            color_pipeline: TranscodeColorPipelineRequirement::none(),
+            subtitle_strategy: TranscodeSubtitleStrategy::OmitSelected,
+            hls_output: HlsOutputRequirement::default(),
+            source_facts: Some(TranscodePipelineSourceFacts {
+                video: Some(video.clone()),
+                audio: Some(selected_audio.clone()),
+                subtitle: Some(subtitle.clone()),
+            }),
+            media_probe: Some(MediaProbeResult {
+                duration_ms: Some(1_000),
+                container: Some("matroska,webm".to_owned()),
+                bit_rate: None,
+                streams: vec![video, selected_audio, alternate_audio, subtitle],
+            }),
+            playback_generation: HlsPlaybackGeneration::default(),
+            remote_input: false,
+            playback_profile_key: "playback-target-profile:v1;demo=true".to_owned(),
+        };
+        let report = HardwareAccelerationReport::with_available([HardwareAcceleration::None]);
+
+        let runtime = TranscodePipelinePlanner::new()
+            .plan_hls_runtime(request, &report)
+            .unwrap();
+
+        assert_eq!(
+            runtime.execution_policy.subtitle_strategy,
+            TranscodeSubtitleStrategy::OmitSelected
+        );
+        assert!(runtime.request_variant.media_renditions.has_audios());
+        assert!(!runtime.request_variant.media_renditions.has_subtitles());
+        assert!(
+            runtime
+                .profile_identity
+                .persisted_request_key()
+                .contains("subtitle_strategy=omit_selected")
+        );
+    }
+
+    #[test]
     fn hls_runtime_plan_carries_hdr_color_pipeline_into_profile_identity() {
         let source = demo_source();
         let color_pipeline = TranscodeColorPipelineRequirement::hdr_to_sdr_required();
@@ -946,6 +1078,7 @@ mod tests {
             output_constraints: TranscodeOutputConstraints::default(),
             audio_output: TranscodeAudioOutputRequirement::none(),
             color_pipeline,
+            subtitle_strategy: TranscodeSubtitleStrategy::None,
             hls_output: HlsOutputRequirement::default(),
             source_facts: None,
             media_probe: None,
@@ -981,6 +1114,7 @@ mod tests {
             output_constraints: TranscodeOutputConstraints::default(),
             audio_output: TranscodeAudioOutputRequirement::none(),
             color_pipeline: TranscodeColorPipelineRequirement::none(),
+            subtitle_strategy: TranscodeSubtitleStrategy::None,
             hls_output: HlsOutputRequirement::default(),
             source_facts: None,
             media_probe: None,

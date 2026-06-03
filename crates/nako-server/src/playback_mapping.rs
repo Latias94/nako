@@ -4,8 +4,8 @@ use nako_playback::{
     PlaybackColorCompatibilityReason, PlaybackColorPipelineRequirement,
     PlaybackColorPipelineTarget, PlaybackHdrToneMappingRequirement, PlaybackHlsOutputRequirement,
     PlaybackHlsSegmentContainer, PlaybackHlsVariantPolicy, PlaybackOutputConstraints,
-    PlaybackRemuxContainer, PlaybackTrackSelection, PlaybackTranscodeContainer,
-    PlaybackTranscodePlan,
+    PlaybackRemuxContainer, PlaybackSubtitleStrategy, PlaybackTrackSelection,
+    PlaybackTranscodeContainer, PlaybackTranscodePlan,
 };
 use nako_transcode::{
     HlsOutputRequirement, HlsSegmentContainer, HlsVariantPolicy, OutputContainer, RemuxContainer,
@@ -13,7 +13,7 @@ use nako_transcode::{
     TranscodeAudioNormalizationRequirement, TranscodeAudioOutputRequirement,
     TranscodeColorCompatibilityReasons, TranscodeColorPipelineRequirement,
     TranscodeColorPipelineTarget, TranscodeHdrToneMappingRequirement, TranscodeOutputConstraints,
-    TranscodePlan, TranscodeTrackSelection,
+    TranscodePlan, TranscodeSubtitleStrategy, TranscodeTrackSelection,
 };
 
 pub(crate) const fn playback_remux_container_to_transcode(
@@ -77,6 +77,20 @@ pub(crate) const fn playback_track_selection_to_transcode(
     TranscodeTrackSelection {
         audio_stream: value.audio_stream,
         subtitle_stream: value.subtitle_stream,
+    }
+}
+
+pub(crate) const fn playback_subtitle_strategy_to_transcode(
+    value: PlaybackSubtitleStrategy,
+) -> TranscodeSubtitleStrategy {
+    match value {
+        PlaybackSubtitleStrategy::None => TranscodeSubtitleStrategy::None,
+        PlaybackSubtitleStrategy::PreserveInContainer => {
+            TranscodeSubtitleStrategy::PreserveInContainer
+        }
+        PlaybackSubtitleStrategy::OmitSelected => TranscodeSubtitleStrategy::OmitSelected,
+        PlaybackSubtitleStrategy::BurnInSelected => TranscodeSubtitleStrategy::BurnInSelected,
+        PlaybackSubtitleStrategy::SidecarSelected => TranscodeSubtitleStrategy::SidecarSelected,
     }
 }
 

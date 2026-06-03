@@ -1,0 +1,9 @@
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking guide for cross-layer planning and validation."}
+{"file": ".trellis/spec/nako-playback/backend/index.md", "reason": "Playback planner tests should validate subtitle strategy selection and identity drift."}
+{"file": ".trellis/spec/nako-playback/backend/quality-guidelines.md", "reason": "Playback planner quality gates for deterministic decision and reason coverage."}
+{"file": ".trellis/spec/nako-transcode/backend/index.md", "reason": "Transcode runtime tests should validate HLS subtitle strategy propagation."}
+{"file": ".trellis/spec/nako-transcode/backend/quality-guidelines.md", "reason": "FFmpeg argv and HLS artifact checks are the primary transcode quality gate."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server tests should cover HLS orchestration and runtime mapping boundaries."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server test patterns and focused nextest gates for playback orchestration changes."}
+{"file": ".trellis/tasks/06-04-playback-hls-subtitle-burn-in-planning/research/current-hls-subtitle-flow.md", "reason": "Current subtitle reconstruction seam and runtime split point."}
+{"file": ".trellis/tasks/06-04-playback-hls-subtitle-burn-in-planning/research/ffmpeg-subtitles-filter.md", "reason": "Filter facts needed to evaluate the eventual burn-in execution path."}

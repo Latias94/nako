@@ -17,7 +17,8 @@ use crate::playback_mapping::{
     playback_audio_output_requirement_to_transcode,
     playback_color_pipeline_requirement_to_transcode, playback_hls_output_requirement_to_transcode,
     playback_output_constraints_to_transcode, playback_remux_container_to_transcode,
-    playback_track_selection_to_transcode, playback_transcode_plan_to_transcode,
+    playback_subtitle_strategy_to_transcode, playback_track_selection_to_transcode,
+    playback_transcode_plan_to_transcode,
 };
 
 use super::super::storage::LibraryStorageBackend;
@@ -112,6 +113,9 @@ pub(super) fn hls_runtime_plan_request(
         ),
         audio_output: playback_audio_output_requirement_to_transcode(
             &transcode_requirement.audio_output,
+        ),
+        subtitle_strategy: playback_subtitle_strategy_to_transcode(
+            transcode_requirement.subtitle_strategy,
         ),
         color_pipeline: playback_color_pipeline_requirement_to_transcode(
             &transcode_requirement.color_pipeline,
@@ -217,6 +221,7 @@ mod tests {
     };
     use nako_transcode::{
         HardwareAccelerationPolicy, HlsPlaybackGeneration, HlsSegmentContainer, HlsVariantPolicy,
+        TranscodeSubtitleStrategy,
     };
 
     use super::hls_runtime_plan_request;
@@ -257,7 +262,7 @@ mod tests {
             output_audio_codec: Some("aac".to_owned()),
             track_selection: PlaybackTrackSelection {
                 audio_stream: Some(2),
-                subtitle_stream: None,
+                subtitle_stream: Some(3),
             },
             output_constraints: PlaybackOutputConstraints {
                 max_video_bitrate: Some(8_000_000),
@@ -271,7 +276,7 @@ mod tests {
                 variant_policy: PlaybackHlsVariantPolicy::Adaptive,
                 segment_container: PlaybackHlsSegmentContainer::Fmp4,
             }),
-            subtitle_strategy: PlaybackSubtitleStrategy::None,
+            subtitle_strategy: PlaybackSubtitleStrategy::BurnInSelected,
             selected_streams: TranscodeRequirementStreams {
                 video: Some(TranscodeRequirementStream {
                     index: 0,
@@ -329,7 +334,34 @@ mod tests {
                     forced: false,
                     default: true,
                 }),
-                subtitle: None,
+                subtitle: Some(TranscodeRequirementStream {
+                    index: 3,
+                    kind: MediaStreamKind::Subtitle,
+                    codec: Some("subrip".to_owned()),
+                    language: Some("jpn".to_owned()),
+                    duration_ms: Some(120_000),
+                    bit_rate: None,
+                    width: None,
+                    height: None,
+                    channels: None,
+                    sample_rate: None,
+                    codec_profile: None,
+                    codec_level: None,
+                    pixel_format: None,
+                    bits_per_raw_sample: None,
+                    bits_per_sample: None,
+                    dynamic_range: None,
+                    color_space: None,
+                    color_transfer: None,
+                    color_primaries: None,
+                    mastering_display: false,
+                    content_light_level: false,
+                    dolby_vision: false,
+                    hdr10_plus: false,
+                    channel_layout: None,
+                    forced: false,
+                    default: false,
+                }),
             },
             reasons: Vec::new(),
         };
@@ -390,6 +422,11 @@ mod tests {
         .unwrap();
 
         assert_eq!(request.track_selection.audio_stream, Some(2));
+        assert_eq!(request.track_selection.subtitle_stream, Some(3));
+        assert_eq!(
+            request.subtitle_strategy,
+            TranscodeSubtitleStrategy::BurnInSelected
+        );
         assert_eq!(request.output_constraints.max_width, Some(1280));
         assert_eq!(request.output_constraints.max_height, Some(720));
         assert_eq!(
@@ -412,5 +449,9 @@ mod tests {
         assert_eq!(audio.index, 2);
         assert_eq!(audio.channels, Some(6));
         assert_eq!(audio.technical.channel_layout.as_deref(), Some("5.1(side)"));
+        let subtitle = source_facts.subtitle.expect("subtitle stream facts");
+        assert_eq!(subtitle.index, 3);
+        assert_eq!(subtitle.codec.as_deref(), Some("subrip"));
+        assert_eq!(subtitle.language.as_deref(), Some("jpn"));
     }
 }

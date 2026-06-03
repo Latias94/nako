@@ -695,11 +695,8 @@ fn build_transcode_requirement(
         audio_output,
         hls_output: (output_container == PlaybackTranscodeContainer::Hls)
             .then_some(target_profile.hls_output_requirement()),
-        subtitle_strategy: if track_selection.subtitle_stream.is_some() {
-            PlaybackSubtitleStrategy::OmitSelected
-        } else {
-            PlaybackSubtitleStrategy::None
-        },
+        subtitle_strategy: target_profile
+            .subtitle_strategy_for_track_selection(output_container, track_selection),
         selected_streams,
         reasons: transcode_requirement_reasons(reason, report),
     }
@@ -1271,7 +1268,7 @@ mod tests {
         assert_eq!(requirement.output_constraints.prefer_hdr, Some(false));
         assert_eq!(
             requirement.subtitle_strategy,
-            PlaybackSubtitleStrategy::OmitSelected
+            PlaybackSubtitleStrategy::SidecarSelected
         );
         assert!(
             requirement
@@ -1706,6 +1703,10 @@ mod tests {
             requirement
                 .reasons
                 .contains(&PlaybackCompatibilityCondition::SubtitleDeliveryUnsupported)
+        );
+        assert_eq!(
+            requirement.subtitle_strategy,
+            PlaybackSubtitleStrategy::BurnInSelected
         );
     }
 
