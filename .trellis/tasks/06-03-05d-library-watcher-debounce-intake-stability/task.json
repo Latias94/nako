@@ -3,7 +3,7 @@
   "name": "05d-library-watcher-debounce-intake-stability",
   "title": "Library watcher debounce intake stability",
   "description": "Library pipeline slice for watcher/debounce intake stability planning and MVP implementation.",
-  "status": "planning",
+  "status": "completed",
   "dev_type": "implementation",
   "scope": "library-intake",
   "package": "nako",
@@ -11,7 +11,7 @@
   "creator": "Latias94",
   "assignee": "Latias94",
   "createdAt": "2026-06-03",
-  "completedAt": null,
+  "completedAt": "2026-06-03",
   "branch": "task/06-03-05d-library-watcher-debounce-intake-stability",
   "base_branch": "main",
   "worktree_path": "F:/SourceCodes/Rust/nako-worktrees/06-03-05d-library-watcher-debounce-intake-stability",
@@ -21,6 +21,6 @@
   "children": [],
   "parent": "06-03-05-next-architecture-parallel-wave",
   "relatedFiles": [],
-  "notes": "Parallel lane D. Focus watcher/debounce intake stability; keep storage pressure and scheduler changes out of scope.",
+  "notes": "Completed stable-candidate intake evidence MVP in nako-library; storage pressure and scheduler changes remained out of scope. See evidence.md.",
   "meta": {}
 }

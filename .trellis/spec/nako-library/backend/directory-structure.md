@@ -9,6 +9,7 @@ adapters, or canonical metadata provider refresh.
 ```text
 crates/nako-library/src/
 ├── lib.rs                     # public exports and workflow tests
+├── intake.rs                  # stable candidate intake evidence primitives
 ├── scan.rs                    # VFS library scanner and discovered sources
 ├── ingestion.rs               # repository-backed scan/source commit workflow
 ├── ingestion/source_commit.rs # source observation planning
@@ -22,6 +23,10 @@ crates/nako-library/src/
 ## Module Rules
 
 - Keep VFS traversal in `scan.rs` through `StorageBackend`.
+- Keep stable-candidate intake evidence helpers in `intake.rs`; this module may
+  decide whether repeated watch observations are stable enough for intake but
+  must not own runtime scheduling, filesystem watcher daemons, or storage
+  admission.
 - Keep database-facing writes in `ingestion.rs` through `nako-core` repository
   traits.
 - Keep media technical fact extraction orchestration in `probe.rs` through the
@@ -45,6 +50,8 @@ crates/nako-library/src/
 
 - `scan.rs`: recursive VFS scan with media extension filtering and stale-cache
   propagation.
+- `intake.rs`: repeated watch observations reduced to stable-candidate evidence
+  before any future scan/probe integration.
 - `ingestion.rs`: scan snapshot, source observation, failure, and tombstone
   persistence through traits.
 - `probe.rs`: bounded concurrent probe workflow.
