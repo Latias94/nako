@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 7
+- **Total Sessions**: 8
 - **Last Active**: 2026-06-03
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~341 | Active |
+| `journal-1.md` | ~377 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 8 | 2026-06-03 | Transcode architecture parity slices | `374b7ed2`, `85343bfc`, `146053a5` | `main` |
 | 7 | 2026-06-03 | Planned watcher write suppression | `43e8cc86`, `27b2f670` | `main` |
 | 6 | 2026-06-03 | Close library storage follow-on parent wave | `90d0ae99` | `main` |
 | 5 | 2026-06-03 | Targeted Jellyfin watcher reference | `d13de0258e0c56bc9c6310a113db1029c4d8b9a6` | `main` |

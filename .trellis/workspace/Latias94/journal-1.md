@@ -339,3 +339,39 @@ Implemented process-local planned-write suppression for watch-folder discovery a
 ### Next Steps
 
 - None - task complete
+
+
+## Session 8: Transcode architecture parity slices
+
+**Date**: 2026-06-03
+**Task**: Transcode architecture parity slices
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Deepened server HLS orchestration into hls_flow, tightened transcode readiness/fallback coupling, updated Trellis research and specs, and archived the completed transcode architecture parity task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `374b7ed2` | (see git log) |
+| `85343bfc` | (see git log) |
+| `146053a5` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
