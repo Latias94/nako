@@ -507,6 +507,10 @@ impl BlockingWebDavControl {
         self.release_first_propfind.notify_waiters();
     }
 
+    fn propfinds(&self) -> usize {
+        self.propfind_count.load(Ordering::SeqCst)
+    }
+
     fn movie_gets(&self) -> usize {
         self.movie_get_count.load(Ordering::SeqCst)
     }

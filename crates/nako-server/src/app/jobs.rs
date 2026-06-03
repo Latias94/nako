@@ -616,6 +616,14 @@ impl LibraryScanAppService {
         LibraryScanMetadataSummary,
     )> {
         let library = self.library_for_scan(library_id).await?;
+        if let Some(err) = self
+            .storage_backends
+            .library_scan_admission_error(&library)
+            .await?
+        {
+            return Err(err.into());
+        }
+
         info!(
             job_id = %job_id,
             library_id = %library_id,

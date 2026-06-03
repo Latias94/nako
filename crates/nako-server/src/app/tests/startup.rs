@@ -1,4 +1,5 @@
 use super::*;
+use crate::app::jobs::LibraryScanScheduleOutcome;
 use nako_addon_protocol::{
     ADDON_PROTOCOL_VERSION, AddonScope, AddonTaskRequest, AddonTaskResponse,
 };
@@ -14,6 +15,10 @@ use nako_core::{
     ManagedArtworkIngestStatus, ManagedArtworkRepository, NewAddonRegistration, NewAddonSideEffect,
     NewAddonToken, NewArtworkCandidate, NewManagedArtworkIngest, UserPrincipalId, UserRole,
     bootstrap_admin_user_id,
+};
+use nako_core::{
+    StorageBackendHealthRecord, StorageBackendHealthRepository, StorageBackendHealthStatus,
+    StorageCircuitBreakerState, StorageFailureClass,
 };
 use nako_official_addon_catalog::metadata_scraper;
 use tokio::sync::Mutex;
@@ -66,6 +71,42 @@ async fn wait_for_runtime_jobs(
         "runtime job diagnostics did not reach expected state: {:?}",
         app.runtime_diagnostics()
     );
+}
+
+async fn open_storage_circuit_for_library(
+    store: &NakoDatabase,
+    library_id: LibraryId,
+    scheme: &str,
+) {
+    let opened_at_ms = 1_900_000_000_000_i64;
+    store
+        .upsert_storage_backend_health(StorageBackendHealthRecord {
+            backend_key: format!("library:{library_id}:{scheme}"),
+            library_id: Some(library_id),
+            scheme: scheme.to_owned(),
+            status: StorageBackendHealthStatus::Unavailable,
+            circuit_breaker_state: StorageCircuitBreakerState::Open,
+            consecutive_failures: 3,
+            last_success_at_ms: None,
+            last_failure_at_ms: Some(opened_at_ms),
+            last_failure_class: Some(StorageFailureClass::Unavailable),
+            last_failure_safe_message: Some(
+                StorageFailureClass::Unavailable.safe_message().to_owned(),
+            ),
+            circuit_opened_at_ms: Some(opened_at_ms),
+            backoff_until_ms: Some(opened_at_ms + 60_000),
+            updated_at_ms: opened_at_ms,
+        })
+        .await
+        .unwrap();
+}
+
+fn assert_storage_admission_error_is_redacted(error: &str, temp: &Path, base_url: &str) {
+    assert!(error.contains("storage circuit breaker is open"));
+    assert!(!error.contains(&temp.display().to_string()));
+    assert!(!error.contains("webdav:///Movies"));
+    assert!(!error.contains(base_url));
+    assert!(!error.contains("Demo.mkv"));
 }
 
 #[tokio::test]
@@ -420,6 +461,60 @@ async fn scan_library_persists_job_success() {
             .payload_json
             .contains(&temp.path().display().to_string())
     );
+}
+
+#[tokio::test]
+async fn scan_library_rejects_open_storage_circuit_before_pipeline() {
+    let server = BlockingWebDavServer::start(BlockingWebDavControl::new()).await;
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = startup_config(
+        temp.path(),
+        vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Remote Movies".to_owned(),
+            root: temp.path().join("unused-local-root"),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: Some(WebDavLibraryConfig {
+                root: "webdav:///Movies".to_owned(),
+                base_url: server.base_url(),
+                username: None,
+                password_env: None,
+                timeout_ms: 5_000,
+                max_attempts: 1,
+            }),
+        }],
+    );
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    open_storage_circuit_for_library(&store, library_id, "webdav").await;
+
+    let err = app
+        .library_scan()
+        .scan_library(library_id)
+        .await
+        .unwrap_err();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+    let persisted = jobs
+        .iter()
+        .find(|job| job.kind == JobKind::LibraryScan)
+        .expect("scan command should persist a library scan job");
+    let error = err.to_string();
+
+    assert_storage_admission_error_is_redacted(&error, temp.path(), &server.base_url());
+    assert_eq!(persisted.status, JobStatus::Failed);
+    assert_eq!(persisted.summary_json, None);
+    assert_storage_admission_error_is_redacted(
+        persisted.error.as_deref().expect("job error"),
+        temp.path(),
+        &server.base_url(),
+    );
+    assert_eq!(server.control().propfinds(), 0);
 }
 
 #[tokio::test]
@@ -936,6 +1031,106 @@ async fn background_scan_job_uses_runtime_job_supervision() {
     assert_eq!(persisted.status, JobStatus::Succeeded);
     assert!(diagnostics.completed_tasks >= 1);
     assert_eq!(diagnostics.failed_tasks, 0);
+}
+
+#[tokio::test]
+async fn background_scan_job_failure_releases_budget_and_schedules_next_queued_scan() {
+    let server = BlockingWebDavServer::start(BlockingWebDavControl::new()).await;
+    let temp = tempfile::tempdir().unwrap();
+    let blocked_library_id = LibraryId::new();
+    let healthy_library_id = LibraryId::new();
+    let healthy_root = temp.path().join("healthy-library");
+    fs::create_dir_all(&healthy_root).unwrap();
+    let config = startup_config(
+        temp.path(),
+        vec![
+            LocalLibraryConfig {
+                id: blocked_library_id,
+                name: "Blocked Remote Movies".to_owned(),
+                root: temp.path().join("unused-local-root"),
+                preset: nako_core::LibraryPreset::Movies,
+                webdav: Some(WebDavLibraryConfig {
+                    root: "webdav:///Movies".to_owned(),
+                    base_url: server.base_url(),
+                    username: None,
+                    password_env: None,
+                    timeout_ms: 5_000,
+                    max_attempts: 1,
+                }),
+            },
+            LocalLibraryConfig {
+                id: healthy_library_id,
+                name: "Healthy Movies".to_owned(),
+                root: healthy_root,
+                preset: nako_core::LibraryPreset::Movies,
+                webdav: None,
+            },
+        ],
+    );
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    open_storage_circuit_for_library(&store, blocked_library_id, "webdav").await;
+
+    let blocked_job = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::LibraryScan,
+            resource_class: "disk.scan".to_owned(),
+            priority: nako_core::JobPriority::Normal,
+            library_id: Some(blocked_library_id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+    let healthy_job = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::LibraryScan,
+            resource_class: "disk.scan".to_owned(),
+            priority: nako_core::JobPriority::Normal,
+            library_id: Some(healthy_library_id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+
+    let outcome = app
+        .library_scan()
+        .schedule_queued_library_scans()
+        .await
+        .unwrap();
+    let diagnostics = wait_for_runtime_jobs(&app, 1, 0, 1).await;
+    let blocked = app.jobs().get_job(blocked_job.id).await.unwrap();
+    let healthy = app.jobs().get_job(healthy_job.id).await.unwrap();
+    let events = store
+        .list_outbox_events(Default::default(), PageRequest::new(20, 0))
+        .await
+        .unwrap();
+
+    assert_eq!(
+        outcome,
+        LibraryScanScheduleOutcome::Scheduled(blocked_job.id)
+    );
+    assert_eq!(diagnostics.failed_jobs, 1);
+    assert_eq!(diagnostics.succeeded_jobs, 1);
+    assert_eq!(blocked.status, JobStatus::Failed);
+    assert_storage_admission_error_is_redacted(
+        blocked.error.as_deref().expect("blocked job error"),
+        temp.path(),
+        &server.base_url(),
+    );
+    assert_eq!(blocked.summary_json, None);
+    assert_eq!(healthy.status, JobStatus::Succeeded);
+    assert_eq!(server.control().propfinds(), 0);
+    assert_eq!(events.len(), 1);
+    assert_eq!(
+        events[0].subject,
+        DomainEventSubject::Library(healthy_library_id)
+    );
 }
 
 #[tokio::test]

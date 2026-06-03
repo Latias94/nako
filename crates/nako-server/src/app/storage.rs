@@ -250,6 +250,14 @@ impl StorageBackendRegistry {
         self.backend_for_library_config(config).await
     }
 
+    pub(super) async fn library_scan_admission_error(
+        &self,
+        library: &Library,
+    ) -> Result<Option<NakoError>> {
+        let backend = self.backend_for_library_root(library).await?;
+        backend.library_scan_admission_error().await
+    }
+
     pub(super) async fn backend_for_media_source(
         &self,
         source: &MediaSource,
@@ -456,6 +464,10 @@ impl LibraryStorageBackend {
     #[must_use]
     pub(super) fn health(&self) -> Arc<StorageBackendHealth> {
         self.health.clone()
+    }
+
+    async fn library_scan_admission_error(&self) -> Result<Option<NakoError>> {
+        self.durable_backoff_error().await
     }
 
     pub(super) fn try_acquire_stream_permit(&self) -> Result<OwnedSemaphorePermit> {
@@ -850,12 +862,14 @@ impl LibraryStorageBackend {
         Some(Err(err))
     }
 
-    async fn durable_backoff_error(&self) -> Result<Option<NakoError>> {
-        let Some(record) = self
-            .store
+    async fn durable_health_record(&self) -> Result<Option<StorageBackendHealthRecord>> {
+        self.store
             .get_storage_backend_health(&self.backend_key)
-            .await?
-        else {
+            .await
+    }
+
+    async fn durable_backoff_error(&self) -> Result<Option<NakoError>> {
+        let Some(record) = self.durable_health_record().await? else {
             return Ok(None);
         };
         if record.circuit_breaker_state != StorageCircuitBreakerState::Open {
@@ -868,10 +882,7 @@ impl LibraryStorageBackend {
             return Ok(None);
         }
 
-        Ok(Some(NakoError::storage_rate_limited(
-            format!("library:{}", self.library_id),
-            "storage circuit breaker is open",
-        )))
+        Ok(Some(storage_circuit_breaker_open_error(self.library_id)))
     }
 }
 
@@ -1029,6 +1040,13 @@ fn storage_backoff_ms(consecutive_errors: u64) -> i64 {
 
 fn storage_backend_key(library_id: LibraryId, scheme: &str) -> String {
     format!("library:{library_id}:{scheme}")
+}
+
+fn storage_circuit_breaker_open_error(library_id: LibraryId) -> NakoError {
+    NakoError::storage_rate_limited(
+        format!("library:{library_id}"),
+        "storage circuit breaker is open",
+    )
 }
 
 fn u64_to_u32_saturating(value: u64) -> u32 {
