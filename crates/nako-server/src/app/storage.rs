@@ -26,7 +26,7 @@ use nako_core::{
     StorageFailureClass, VfsCacheRepository, VfsCacheSummary,
 };
 use nako_db::NakoDatabase;
-use nako_vfs::{LocalFsBackend, StorageBackend, StorageUri};
+use nako_vfs::{LocalFsBackend, StorageBackend, StorageUri, VfsCacheRepairDiagnostic};
 
 use super::current_time_ms;
 
@@ -281,6 +281,14 @@ impl StorageDiagnosticsAppService {
 
     pub(crate) async fn summarize_vfs_cache(&self, now_ms: i64) -> Result<VfsCacheSummary> {
         self.registry.store.summarize_vfs_cache(now_ms).await
+    }
+
+    pub(crate) async fn latest_vfs_cache_repair_diagnostic(
+        &self,
+    ) -> Result<Option<VfsCacheRepairDiagnostic>> {
+        let failure = self.registry.store.get_latest_vfs_cache_failure().await?;
+
+        Ok(failure.as_ref().map(VfsCacheRepairDiagnostic::from_failure))
     }
 
     pub(crate) async fn summarize_staging_cleanup_pressure(

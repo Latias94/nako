@@ -1,7 +1,7 @@
 {
-  "id": "06-03-long-horizon-architecture-queue",
-  "name": "06-03-long-horizon-architecture-queue",
-  "title": "long horizon architecture and refactor queue",
+  "id": "storage-vfs-cache-repair-preview",
+  "name": "storage-vfs-cache-repair-preview",
+  "title": "storage vfs cache repair preview",
   "description": "",
   "status": "in_progress",
   "dev_type": null,
@@ -10,7 +10,7 @@
   "priority": "P2",
   "creator": "Latias94",
   "assignee": "Latias94",
-  "createdAt": "2026-06-03",
+  "createdAt": "2026-06-04",
   "completedAt": null,
   "branch": null,
   "base_branch": "main",
@@ -18,10 +18,8 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [
-    "06-04-storage-vfs-cache-repair-preview"
-  ],
-  "parent": null,
+  "children": [],
+  "parent": "06-03-06-03-long-horizon-architecture-queue",
   "relatedFiles": [],
   "notes": "",
   "meta": {}

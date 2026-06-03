@@ -84,11 +84,11 @@ use nako_api::{
         AdminTrustedProxyDiagnostics, AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
         AdminUpdateLibraryMetadataProfileRequest, AdminUpdateMetadataRawCacheSettingsRequest,
         AdminUpdatePlaybackRuntimeSettingsRequest, AdminUpdateUserStatusRequest,
-        AdminUpsertLibraryAccessPolicyRequest, AdminVfsCacheSummary,
-        AdminWatchFolderDiscoveryFailure, AdminWatchFolderDiscoveryRequest,
-        AdminWatchFolderDiscoveryResponse, AdminWatchFolderSuppression, JobResponse,
-        StorageBackendDiagnosticsResponse, StorageBackendKind, StorageBackendRuntimeStateScope,
-        StorageBackendStatus,
+        AdminUpsertLibraryAccessPolicyRequest, AdminVfsCacheRepairClassification,
+        AdminVfsCacheRepairDiagnostic, AdminVfsCacheSummary, AdminWatchFolderDiscoveryFailure,
+        AdminWatchFolderDiscoveryRequest, AdminWatchFolderDiscoveryResponse,
+        AdminWatchFolderSuppression, JobResponse, StorageBackendDiagnosticsResponse,
+        StorageBackendKind, StorageBackendRuntimeStateScope, StorageBackendStatus,
     },
     metadata_diagnostics::{MetadataProviderDiagnosticStatus, MetadataProviderDiagnosticsResponse},
     public_client::{API_VERSION, ClientErrorCode, ErrorResponse, page_info_from_request},
@@ -109,7 +109,7 @@ use nako_transcode::{
     HardwareAccelerationCapability, HardwareDeviceInitializationStatus,
     HardwareEncoderDiscoveryStatus, HardwareSmokeProbeStatus, TranscodeRuntimeInventoryStatus,
 };
-use nako_vfs::StorageUri;
+use nako_vfs::{StorageUri, VfsCacheRepairClassification};
 use serde::Deserialize;
 
 use crate::{
@@ -1787,6 +1787,11 @@ pub(super) async fn list_admin_storage_staging(
         .map(storage_staging_policy_slice)
         .collect();
     let vfs_cache = app.storage().summarize_vfs_cache(now_ms).await?;
+    let vfs_cache_repair = app
+        .storage()
+        .latest_vfs_cache_repair_diagnostic()
+        .await?
+        .map(admin_vfs_cache_repair_diagnostic);
 
     Ok(Json(AdminStorageStagingDiagnosticsResponse {
         admin_api_version: ADMIN_API_VERSION.to_owned(),
@@ -1826,11 +1831,47 @@ pub(super) async fn list_admin_storage_staging(
                 stale_object_count: vfs_cache.stale_object_count,
                 stale_listing_count: vfs_cache.stale_listing_count,
                 last_failure_at_ms: vfs_cache.last_failure_at_ms,
+                repair: vfs_cache_repair,
             },
         },
         records,
         page: page_info_from_request(page, returned),
     }))
+}
+
+fn admin_vfs_cache_repair_diagnostic(
+    diagnostic: nako_vfs::VfsCacheRepairDiagnostic,
+) -> AdminVfsCacheRepairDiagnostic {
+    AdminVfsCacheRepairDiagnostic {
+        classification: admin_vfs_cache_repair_classification(diagnostic.classification),
+        operation: diagnostic.operation,
+        failure_class: diagnostic.failure_class,
+        retryable: diagnostic.retryable,
+        failed_at_ms: diagnostic.failed_at_ms,
+        failure_count: diagnostic.failure_count,
+        safe_message: diagnostic.safe_message,
+        operator_action: diagnostic.operator_action,
+    }
+}
+
+fn admin_vfs_cache_repair_classification(
+    classification: VfsCacheRepairClassification,
+) -> AdminVfsCacheRepairClassification {
+    match classification {
+        VfsCacheRepairClassification::Healthy => AdminVfsCacheRepairClassification::Healthy,
+        VfsCacheRepairClassification::RepairableStaleFallback => {
+            AdminVfsCacheRepairClassification::RepairableStaleFallback
+        }
+        VfsCacheRepairClassification::RetryableRefreshFailure => {
+            AdminVfsCacheRepairClassification::RetryableRefreshFailure
+        }
+        VfsCacheRepairClassification::OperatorActionRequired => {
+            AdminVfsCacheRepairClassification::OperatorActionRequired
+        }
+        VfsCacheRepairClassification::UnknownFailure => {
+            AdminVfsCacheRepairClassification::UnknownFailure
+        }
+    }
 }
 
 fn storage_staging_policy_slice(slice: StagingBudgetPolicySlice) -> AdminStorageStagingPolicySlice {

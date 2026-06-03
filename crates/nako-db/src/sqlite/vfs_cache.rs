@@ -204,6 +204,22 @@ impl VfsCacheRepository for SqliteStore {
         row.map(row_to_vfs_cache_failure).transpose()
     }
 
+    async fn get_latest_vfs_cache_failure(&self) -> Result<Option<VfsCacheFailure>> {
+        let row = sqlx::query(
+            r#"
+            SELECT uri, scheme, operation, failed_at_ms, failure_count, error
+            FROM vfs_cache_failures
+            ORDER BY failed_at_ms DESC, uri ASC, operation ASC
+            LIMIT 1
+            "#,
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_vfs_cache_failure).transpose()
+    }
+
     async fn summarize_vfs_cache(&self, now_ms: i64) -> Result<VfsCacheSummary> {
         let row = sqlx::query(
             r#"

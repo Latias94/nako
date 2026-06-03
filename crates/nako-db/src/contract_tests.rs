@@ -7182,7 +7182,7 @@ where
             .get_vfs_cache_failure("webdav:///Contract/Movies/", VfsCacheOperation::List)
             .await
             .unwrap(),
-        Some(second_failure)
+        Some(second_failure.clone())
     );
 
     let summary = store.summarize_vfs_cache(700).await.unwrap();
@@ -7192,6 +7192,11 @@ where
     assert_eq!(summary.stale_object_count, 2);
     assert_eq!(summary.stale_listing_count, 0);
     assert_eq!(summary.last_failure_at_ms, Some(950));
+
+    assert_eq!(
+        store.get_latest_vfs_cache_failure().await.unwrap(),
+        Some(second_failure)
+    );
 }
 
 async fn storage_backend_health_contract_records_recovery_and_reset<S>(store: S)

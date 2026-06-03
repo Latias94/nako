@@ -4,7 +4,7 @@ use nako_core::StagingAttribution;
 use nako_core::{
     LibraryId, StagingAttributionKind, StagingManifestId, StagingManifestRecord, StagingPurpose,
     StagingState, StorageBackendHealthRecord, StorageBackendHealthStatus,
-    StorageCircuitBreakerState, StorageFailureClass,
+    StorageCircuitBreakerState, StorageFailureClass, VfsCacheOperation,
 };
 use serde::{Deserialize, Serialize};
 
@@ -77,6 +77,30 @@ pub struct AdminVfsCacheSummary {
     pub stale_object_count: u64,
     pub stale_listing_count: u64,
     pub last_failure_at_ms: Option<i64>,
+    #[serde(default)]
+    pub repair: Option<AdminVfsCacheRepairDiagnostic>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminVfsCacheRepairClassification {
+    Healthy,
+    RepairableStaleFallback,
+    RetryableRefreshFailure,
+    OperatorActionRequired,
+    UnknownFailure,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRepairDiagnostic {
+    pub classification: AdminVfsCacheRepairClassification,
+    pub operation: Option<VfsCacheOperation>,
+    pub failure_class: Option<StorageFailureClass>,
+    pub retryable: bool,
+    pub failed_at_ms: Option<i64>,
+    pub failure_count: Option<u32>,
+    pub safe_message: Option<String>,
+    pub operator_action: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -364,6 +388,43 @@ mod tests {
         assert!(!body.contains("Private"));
         assert!(!body.contains("token"));
         assert!(!body.contains("password"));
+    }
+
+    #[test]
+    fn admin_vfs_cache_summary_serializes_redacted_repair_preview() {
+        let summary = AdminVfsCacheSummary {
+            object_count: 10,
+            listing_count: 4,
+            failure_count: 1,
+            stale_object_count: 3,
+            stale_listing_count: 1,
+            last_failure_at_ms: Some(1_000),
+            repair: Some(AdminVfsCacheRepairDiagnostic {
+                classification: AdminVfsCacheRepairClassification::RetryableRefreshFailure,
+                operation: Some(VfsCacheOperation::List),
+                failure_class: Some(StorageFailureClass::Unavailable),
+                retryable: true,
+                failed_at_ms: Some(1_000),
+                failure_count: Some(2),
+                safe_message: Some("storage backend unavailable".to_owned()),
+                operator_action: "cache refresh failed with a retryable storage failure".to_owned(),
+            }),
+        };
+
+        let value = serde_json::to_value(&summary).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(
+            value["repair"]["classification"],
+            "retryable_refresh_failure"
+        );
+        assert_eq!(value["repair"]["operation"], "list");
+        assert_eq!(value["repair"]["failure_class"], "unavailable");
+        assert_eq!(value["repair"]["retryable"], true);
+        assert_eq!(value["repair"]["failed_at_ms"], 1000);
+        assert!(!body.contains("token"));
+        assert!(!body.contains("password"));
+        assert!(!body.contains("Movies/Demo.mkv"));
     }
 
     #[test]

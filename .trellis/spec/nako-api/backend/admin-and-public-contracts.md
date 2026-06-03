@@ -86,3 +86,78 @@ cargo run -p nako-api --example emit-admin-typescript-contract -- --output apps/
 
 Generated contract files are artifacts from `nako-api`; edit the generator and
 DTO source, then regenerate.
+
+## Scenario: Admin VFS Cache Repair Preview
+
+### 1. Scope / Trigger
+
+- Trigger: Admin storage staging diagnostics expose the latest VFS cache repair
+  preview through an existing response field.
+- Scope: `AdminStorageStagingSummary.vfs_cache.repair`,
+  `VfsCacheRepository::get_latest_vfs_cache_failure`, server storage
+  diagnostics mapping, and generated Admin Web contracts.
+- Boundary: this is a read-only operator preview. It must not add cache
+  invalidation, delete, refresh, retry queue, or URI-scoped mutation behavior.
+
+### 2. Signatures
+
+- Repository:
+  `get_latest_vfs_cache_failure() -> Result<Option<VfsCacheFailure>>`.
+- Admin DTO:
+  `AdminVfsCacheSummary { repair: Option<AdminVfsCacheRepairDiagnostic> }`.
+- Repair preview fields:
+  `classification`, `operation`, `failure_class`, `retryable`,
+  `failed_at_ms`, `failure_count`, `safe_message`, and `operator_action`.
+
+### 3. Contracts
+
+- The preview is derived from `nako_vfs::VfsCacheRepairDiagnostic`, not from
+  raw database error strings in the HTTP handler.
+- The preview must not expose cache URI, source locator, local path, etag,
+  fingerprint, token, credential, backend URL, or raw backend error body.
+- `repair: null` means no VFS cache failure is currently recorded.
+- TypeScript contract artifacts under `apps/admin-web` and `web` must be
+  regenerated from `nako-api`; do not hand-edit generated files.
+
+### 4. Validation & Error Matrix
+
+| Condition | Behavior |
+|-----------|----------|
+| No stored cache failure | `vfs_cache.repair` is `null` |
+| Latest failure has a recognized safe message | Use the matching repair classification and storage failure class |
+| Latest failure has an unclassified raw message | Redact to `safe_message: "storage failure"` and `unknown_failure` |
+| Multiple failures exist | Return the highest `failed_at_ms`; tie-break deterministically |
+| Preview contains raw path, token, or source URI | Contract violation |
+
+### 5. Good / Base / Bad Cases
+
+- Good: `/admin/v1/storage/staging` returns a repair preview with operator
+  action text and safe message only.
+- Base: old clients that omit `repair` during deserialization still work through
+  serde defaults.
+- Bad: adding a new Admin mutation route before defining cache invalidation
+  semantics in VFS and DB repository contracts.
+
+### 6. Tests Required
+
+- DB contract test proves latest failure selection.
+- API serialization test proves snake_case classification and redaction-safe
+  repair fields.
+- Admin contract test proves generated TypeScript artifacts match the generator.
+- Server route test proves `/admin/v1/storage/staging` includes the preview and
+  still redacts raw paths, source locators, fingerprints, etags, tokens, and raw
+  backend errors.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+repair.safe_message = Some(failure.error);
+```
+
+#### Correct
+
+```rust
+repair.safe_message = VfsCacheRepairDiagnostic::from_failure(&failure).safe_message;
+```

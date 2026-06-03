@@ -5204,6 +5204,22 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
         diagnostics.summary.vfs_cache.last_failure_at_ms,
         Some(2_000)
     );
+    let repair = diagnostics
+        .summary
+        .vfs_cache
+        .repair
+        .as_ref()
+        .expect("vfs cache repair preview");
+    assert_eq!(
+        repair.classification,
+        nako_api::admin::AdminVfsCacheRepairClassification::UnknownFailure
+    );
+    assert_eq!(repair.operation, Some(VfsCacheOperation::Stat));
+    assert_eq!(repair.failure_class, None);
+    assert!(!repair.retryable);
+    assert_eq!(repair.failed_at_ms, Some(2_000));
+    assert_eq!(repair.failure_count, Some(1));
+    assert_eq!(repair.safe_message.as_deref(), Some("storage failure"));
     assert_eq!(diagnostics.records.len(), 1);
     assert_eq!(diagnostics.records[0].id, staging_id);
     assert_eq!(diagnostics.records[0].source_scheme, "webdav");

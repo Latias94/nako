@@ -836,6 +836,10 @@ mod tests {
                 .cloned())
         }
 
+        async fn get_latest_vfs_cache_failure(&self) -> Result<Option<VfsCacheFailure>> {
+            Ok(self.failure.lock().await.clone())
+        }
+
         async fn summarize_vfs_cache(&self, now_ms: i64) -> Result<VfsCacheSummary> {
             let objects = self.objects.lock().await;
             let listing = self.listing.lock().await;

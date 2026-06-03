@@ -2188,6 +2188,9 @@ async fn nako_database_sqlite_round_trips_vfs_cache_records_and_failures() {
     assert_eq!(summary.stale_object_count, 2);
     assert_eq!(summary.stale_listing_count, 1);
     assert_eq!(summary.last_failure_at_ms, Some(400));
+
+    let latest_failure = store.get_latest_vfs_cache_failure().await.unwrap();
+    assert_eq!(latest_failure, Some(second_failure));
 }
 
 #[tokio::test]

@@ -365,6 +365,15 @@ export type StorageFailureClass =
   | "security"
   | "unknown";
 
+export type VfsCacheOperation = "stat" | "list";
+
+export type AdminVfsCacheRepairClassification =
+  | "healthy"
+  | "repairable_stale_fallback"
+  | "retryable_refresh_failure"
+  | "operator_action_required"
+  | "unknown_failure";
+
 export interface AdminStorageBackendHealthDiagnostic {
   backend_key: string;
   library_id: string | null;
@@ -2988,6 +2997,16 @@ export interface AdminStorageStagingDiagnosticsResponse {
       stale_object_count: number;
       stale_listing_count: number;
       last_failure_at_ms: number | null;
+      repair: {
+        classification: AdminVfsCacheRepairClassification;
+        operation: VfsCacheOperation | null;
+        failure_class: StorageFailureClass | null;
+        retryable: boolean;
+        failed_at_ms: number | null;
+        failure_count: number | null;
+        safe_message: string | null;
+        operator_action: string;
+      } | null;
     };
   };
   records: Array<{
@@ -3553,6 +3572,8 @@ mod tests {
             "StorageBackendHealthStatus",
             "StorageCircuitBreakerState",
             "StorageFailureClass",
+            "VfsCacheOperation",
+            "AdminVfsCacheRepairClassification",
             "AdminStorageBackendHealthDiagnostic",
             "AdminStorageBackendHealthDiagnosticsResponse",
             "AdminStorageBackendHealthResetResponse",
