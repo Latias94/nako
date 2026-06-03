@@ -270,3 +270,37 @@ Captured scoped behavior-level Jellyfin watcher lifecycle, debounce, suppression
 ### Next Steps
 
 - None - task complete
+
+
+## Session 6: Close library storage follow-on parent wave
+
+**Date**: 2026-06-03
+**Task**: Close library storage follow-on parent wave
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Archived the 06-03-06 parent coordination task after 06a, 06b, and 06c were archived; verified parent Trellis context, cargo fmt --all -- --check, cargo check --workspace --tests, and git diff --check.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `90d0ae99` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
