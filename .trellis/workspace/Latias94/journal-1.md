@@ -829,3 +829,37 @@ Shipped HLS playlist request-id propagation from HTTP trace context into playbac
 ### Next Steps
 
 - None - task complete
+
+
+## Session 20: HLS artifact cache-control headers
+
+**Date**: 2026-06-04
+**Task**: HLS artifact cache-control headers
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Shipped conservative Cache-Control no-store headers for HLS playlist and segment responses; updated HTTP route tests, server HTTP spec, control-plane architecture, task evidence, and archived the child task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `317a58e4` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
