@@ -759,3 +759,38 @@ Added a typed HLS video output codec policy seam in nako-transcode, recognized H
 ### Next Steps
 
 - None - task complete
+
+
+## Session 18: Playback release gate mode first slice
+
+**Date**: 2026-06-04
+**Task**: Playback release gate mode first slice
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Added explicit playback mode to release-gate scripts, checking FFmpeg and FFprobe presence plus existing transcode HLS and server self-host playback smoke gates; updated release docs and operations architecture; archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `877edec9` | (see git log) |
+| `93a12dc7` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

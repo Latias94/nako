@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 17
+- **Total Sessions**: 18
 - **Last Active**: 2026-06-04
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~761 | Active |
+| `journal-1.md` | ~796 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 18 | 2026-06-04 | Playback release gate mode first slice | `877edec9`, `93a12dc7` | `main` |
 | 17 | 2026-06-04 | HEVC AV1 HLS output policy first slice | `c8f9ecd1`, `cf6b7198` | `main` |
 | 16 | 2026-06-04 | Source fingerprint escalation policy first slice | `200015bf`, `7f558c7f` | `main` |
 | 15 | 2026-06-04 | Control-plane HTTP trace context first slice | `78a3cb41`, `1a0e6dc2` | `main` |
