@@ -18,9 +18,7 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [
-    "06-04-hls-text-subtitle-burn-in-ffmpeg-planning"
-  ],
+  "children": [],
   "parent": null,
   "relatedFiles": [],
   "notes": "",
