@@ -724,3 +724,38 @@ Added a typed advisory source fingerprint escalation decision in core, exposed i
 ### Next Steps
 
 - None - task complete
+
+
+## Session 17: HEVC AV1 HLS output policy first slice
+
+**Date**: 2026-06-04
+**Task**: HEVC AV1 HLS output policy first slice
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Added a typed HLS video output codec policy seam in nako-transcode, recognized H264 HEVC/H265 and AV1 while keeping H264/AAC as the only executable HLS output, verified focused and HLS tests, synced specs and playback architecture, and archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c8f9ecd1` | (see git log) |
+| `cf6b7198` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
