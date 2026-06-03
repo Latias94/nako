@@ -1,0 +1,5 @@
+{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Verify storage parity boundaries."}
+{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Verify runtime/job lease boundary."}
+{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "Verify repository contract behavior."}
+{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "Verify database gates."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify server gates if touched."}

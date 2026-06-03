@@ -1,0 +1,8 @@
+{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "Watcher/debounce and library intake authority."}
+{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Source locator and storage event implications."}
+{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Durable job/runtime boundary if intake scheduling is added."}
+{"file": ".trellis/spec/nako-library/backend/index.md", "reason": "Library scan/intake guidance."}
+{"file": ".trellis/spec/nako-library/backend/directory-structure.md", "reason": "Library module placement guidance."}
+{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "Bounded intake and source identity test guidance."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server orchestration guidance if MVP lives there."}
+{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Runtime/scheduler boundary guidance."}

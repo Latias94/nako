@@ -1,0 +1,4 @@
+{"file": "docs/architecture/LANES.md", "reason": "Verify child task boundaries remain parallel-safe."}
+{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Verify storage/VFS follow-ons stay within authority."}
+{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "Verify intake follow-ons stay within authority."}
+{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Verify durable runtime/scheduler boundaries."}

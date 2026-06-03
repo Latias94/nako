@@ -1,0 +1,8 @@
+{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "Library scan pipeline and intake authority."}
+{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Durable job scheduler and runtime boundary."}
+{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Storage admission pressure behavior."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server app-service and runtime guidance."}
+{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Library scan staging admission scenario and runtime rules."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused server test gates."}
+{"file": ".trellis/spec/nako-library/backend/index.md", "reason": "Library scan behavior and bounded intake guidance."}
+{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "Durable job lease contract guidance if repository behavior changes."}

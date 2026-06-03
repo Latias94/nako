@@ -1,0 +1,5 @@
+{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Verify storage/VFS boundary and redaction."}
+{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Verify diagnostics and runtime policy boundary."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify server tests and gates."}
+{"file": ".trellis/spec/nako-vfs/backend/error-handling.md", "reason": "Verify storage error and redaction behavior."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Verify Admin contract compatibility if touched."}

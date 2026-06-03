@@ -1,0 +1,8 @@
+{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Storage admission and staging parity authority."}
+{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Runtime/job lease parity authority."}
+{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "Database contract and parity guidance."}
+{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "Repository contract expectations."}
+{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "Focused database test gates."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server integration test guidance if touched."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server test gate guidance."}
+{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "VFS staging/storage behavior guidance."}
