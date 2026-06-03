@@ -588,3 +588,57 @@ Unified HLS seek/restart FFmpeg args behind a single typed command plan, added d
 ### Next Steps
 
 - None - task complete
+
+
+## Session 14: Watch folder runtime coverage diagnostics
+
+**Date**: 2026-06-04
+**Task**: Watch folder runtime coverage diagnostics
+**Package**: nako-server
+**Branch**: `main`
+
+### Summary
+
+Added redaction-safe watch-folder runtime coverage diagnostics to Admin overview, updated generated Admin contracts, documented the server runtime coverage rule, and archived the Trellis task.
+
+### Main Changes
+
+- Added typed watch-folder runtime coverage diagnostics for `started`,
+  `disabled`, `unsupported_root`, and `missing_root` cases.
+- Carried the coverage report through startup/composition and mapped it into
+  the existing Admin overview startup payload without adding routes,
+  mutations, schema changes, or scan behavior changes.
+- Extended Admin overview DTOs and regenerated both Admin TypeScript
+  contracts.
+- Added focused API/server tests for serialization, startup coverage, route
+  mapping, and redaction; updated Trellis specs and the library architecture
+  map with the redaction-safe runtime diagnostics rule.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `88e84d91` | `feat(server): report watch folder runtime coverage` |
+| `6cb3eb99` | `chore(task): archive watch folder runtime coverage diagnostics` |
+
+### Testing
+
+- [OK] `cargo run -q -p nako-api --example emit-admin-typescript-contract -- --output apps/admin-web/src/adminApi/generated/contract.ts`
+- [OK] `cargo run -q -p nako-api --example emit-admin-typescript-contract -- --output web/src/api/admin/generated/contract.ts`
+- [OK] `cargo fmt --all`
+- [OK] `cargo check -p nako-api -p nako-server --tests`
+- [OK] `cargo nextest run -p nako-api admin_overview --no-fail-fast`
+- [OK] `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server watch_folder --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server admin_v1_overview --no-fail-fast`
+- [OK] `cargo fmt --all -- --check`
+- [OK] `git diff --check`
+- [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-04-06-04-watch-folder-runtime-coverage-diagnostics`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
