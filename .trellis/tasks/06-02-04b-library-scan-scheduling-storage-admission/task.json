@@ -3,7 +3,7 @@
   "name": "04b-library-scan-scheduling-storage-admission",
   "title": "Library scan scheduling and storage admission",
   "description": "Large-library scan scheduling and storage health admission slice.",
-  "status": "planning",
+  "status": "completed",
   "dev_type": "implementation",
   "scope": "library-storage-control-plane",
   "package": "nako",
@@ -11,7 +11,7 @@
   "creator": "Latias94",
   "assignee": "Latias94",
   "createdAt": "2026-06-02",
-  "completedAt": null,
+  "completedAt": "2026-06-03",
   "branch": "task/06-02-04b-library-scan-scheduling-storage-admission",
   "base_branch": "main",
   "worktree_path": "F:/SourceCodes/Rust/nako-worktrees/04b-library-scan-scheduling-storage-admission",
@@ -21,6 +21,6 @@
   "children": [],
   "parent": "06-02-04-product-readiness-parallel-wave",
   "relatedFiles": [],
-  "notes": "",
+  "notes": "Fresh integration verification passed on 2026-06-03; see evidence.md.",
   "meta": {}
 }
