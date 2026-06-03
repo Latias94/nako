@@ -1,0 +1,12 @@
+{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "Watcher/debounce productization authority and exit criteria."}
+{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "ADR 0053 runtime supervision, durable job, and diagnostics constraints."}
+{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Storage event, source locator, and remote-backend reliability boundaries."}
+{"file": ".trellis/tasks/archive/2026-06/06-03-05d-library-watcher-debounce-intake-stability/evidence.md", "reason": "Fresh evidence for the stable-candidate intake primitive this lane productizes."}
+{"file": ".trellis/spec/nako-library/backend/index.md", "reason": "Library scan/intake pre-development checklist."}
+{"file": ".trellis/spec/nako-library/backend/directory-structure.md", "reason": "Library module placement guidance for intake/runtime helpers."}
+{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "Bounded intake, source identity, and test expectations."}
+{"file": ".trellis/spec/nako-library/backend/logging-guidelines.md", "reason": "Redaction-safe library diagnostics guidance."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server runtime/control-plane pre-development checklist."}
+{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Server app/runtime module placement guidance."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server-focused tests and gates for runtime behavior."}
+{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "Trace/log redaction guidance for supervised runtime work."}

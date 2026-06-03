@@ -1,0 +1,8 @@
+{"file": "docs/architecture/LANES.md", "reason": "Keep selected Option A child lanes aligned with current architecture ownership and parallel-lane rules."}
+{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "Watcher/debounce runtime productization authority and current capability status."}
+{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Storage/VFS follow-on authority for staging attribution persistence."}
+{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Runtime supervision and durable job/control-plane constraints for watcher productization."}
+{"file": ".trellis/tasks/archive/2026-06/06-03-05-next-architecture-parallel-wave/evidence.md", "reason": "Fresh evidence for wave 05 shipped behavior and unresolved follow-ons."}
+{"file": ".trellis/spec/nako-library/backend/index.md", "reason": "Library package pre-development checklist for future watcher/intake implementation lanes."}
+{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "DB package pre-development checklist for future attribution persistence or parity lanes."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server package pre-development checklist for runtime/control-plane implementation follow-ons."}

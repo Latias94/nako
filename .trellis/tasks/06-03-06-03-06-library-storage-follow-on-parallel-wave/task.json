@@ -1,0 +1,41 @@
+{
+  "id": "06-03-06-library-storage-follow-on-parallel-wave",
+  "name": "06-03-06-library-storage-follow-on-parallel-wave",
+  "title": "Library and storage follow-on parallel wave",
+  "description": "Parent wave for selected Option A: watcher runtime productization, staging attribution persistence, and targeted Jellyfin watcher reference.",
+  "status": "in_progress",
+  "dev_type": "planning",
+  "scope": "architecture-parallel-wave",
+  "package": "nako",
+  "priority": "P2",
+  "creator": "Latias94",
+  "assignee": "Latias94",
+  "createdAt": "2026-06-03",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "06-03-06a-library-watcher-runtime-productization",
+    "06-03-06b-storage-staging-attribution-persistence",
+    "06-03-06c-targeted-jellyfin-watcher-reference"
+  ],
+  "parent": null,
+  "relatedFiles": [
+    "docs/architecture/LANES.md",
+    "docs/architecture/LIBRARY_PIPELINE.md",
+    "docs/architecture/STORAGE_VFS.md",
+    "docs/architecture/CONTROL_PLANE.md",
+    ".trellis/tasks/archive/2026-06/06-03-05-next-architecture-parallel-wave/evidence.md"
+  ],
+  "notes": "Option A selected by the user on 2026-06-03. This is a parent wave only; 06a owns watcher runtime productization, 06b owns staging attribution persistence, and 06c is a narrow Jellyfin watcher reference lane, not a full audit.",
+  "meta": {
+    "selectedOption": "A",
+    "selectedAt": "2026-06-03",
+    "waveKind": "parallel-parent",
+    "childrenReady": true
+  }
+}

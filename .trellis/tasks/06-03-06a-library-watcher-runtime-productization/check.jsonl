@@ -1,0 +1,7 @@
+{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "Verify watcher runtime behavior respects the library pipeline boundary."}
+{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Verify runtime work uses supervised/control-plane boundaries."}
+{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Verify source locator and storage-event assumptions remain honest."}
+{"file": ".trellis/tasks/archive/2026-06/06-03-05d-library-watcher-debounce-intake-stability/evidence.md", "reason": "Verify the lane builds on, rather than rewrites, the stable-candidate foundation."}
+{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "Verify intake/source identity coverage and bounded behavior."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify server runtime tests and validation choices."}
+{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "Verify watcher diagnostics remain redaction-safe."}
