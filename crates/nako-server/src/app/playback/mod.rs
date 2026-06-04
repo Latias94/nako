@@ -790,7 +790,7 @@ impl PlaybackAppService {
         .await
     }
 
-    fn client_capabilities_for_playback_session(
+    pub(super) fn client_capabilities_for_playback_session(
         session: &PlaybackSessionRecord,
     ) -> Result<ClientPlaybackCapabilities> {
         let Some(value) = session.client_capabilities_json.as_deref() else {
@@ -1214,136 +1214,14 @@ impl PlaybackAppService {
         &self,
         request: HlsPlaylistPlaybackRequest,
     ) -> Result<HlsPlaylistPlaybackOutput> {
-        let effective_policy = self
-            .effective_playback_policy_for_source_id(&request.principal, request.source_id)
-            .await?;
-        let playlist = self
-            .hls_playlist_with_policy(
-                HlsSourceRequest {
-                    source_id: request.source_id,
-                    client: request.client.clone(),
-                    preferences: request.preferences.clone(),
-                    playback_generation: request.playback_generation,
-                },
-                effective_policy,
-                request.trace_context.clone(),
-            )
-            .await?;
-        let playback_session = self
-            .start_playback_session(StartPlaybackSessionRequest {
-                principal_id: request.principal.principal_id,
-                source_id: request.source_id,
-                mode: PlaybackSessionMode::Hls,
-                client: Some(request.client.clone()),
-            })
-            .await?;
-        let playback_session = self
-            .link_playback_session_transcode(playback_session.id, playlist.session.id)
-            .await?;
-        self.cancel_superseded_hls_playback_sessions(
-            request.source_id,
-            playlist.session.id,
-            playback_session.id,
-        )
-        .await?;
-        let body = self
-            .hls_artifacts
-            .read_playback_playlist(
-                &playlist.session,
-                playback_session.id,
-                request.transport_query.as_deref(),
-            )
-            .await?;
-
-        Ok(HlsPlaylistPlaybackOutput {
-            session: playback_session,
-            body,
-        })
+        hls_flow::hls_playlist_playback(self, request).await
     }
 
     pub(crate) async fn hls_playlist_for_playback_session(
         &self,
         request: HlsPlaylistSessionRequest,
     ) -> Result<HlsPlaylistPlaybackOutput> {
-        let mut playback_session = self
-            .existing_playback_session_for_media_request(
-                &request.principal,
-                request.playback_session_id,
-                request.source_id,
-                PlaybackSessionMode::Hls,
-            )
-            .await?;
-        if playback_session.transcode_session_id.is_none() {
-            let client = Self::client_capabilities_for_playback_session(&playback_session)?;
-            let effective_policy = self
-                .effective_playback_policy_for_source_id(&request.principal, request.source_id)
-                .await?;
-            let playlist = self
-                .hls_playlist_with_policy(
-                    HlsSourceRequest {
-                        source_id: request.source_id,
-                        client,
-                        preferences: PlaybackPreferenceContext::default(),
-                        playback_generation: request.playback_generation,
-                    },
-                    effective_policy,
-                    request.trace_context.clone(),
-                )
-                .await?;
-            playback_session = self
-                .link_playback_session_transcode(playback_session.id, playlist.session.id)
-                .await?;
-            self.cancel_superseded_hls_playback_sessions(
-                request.source_id,
-                playlist.session.id,
-                playback_session.id,
-            )
-            .await?;
-            let body = self
-                .hls_artifacts
-                .read_playback_playlist(
-                    &playlist.session,
-                    playback_session.id,
-                    request.transport_query.as_deref(),
-                )
-                .await?;
-
-            return Ok(HlsPlaylistPlaybackOutput {
-                session: playback_session,
-                body,
-            });
-        }
-
-        let transcode_session_id = playback_session
-            .transcode_session_id
-            .expect("checked above");
-        let transcode = self.get_transcode_session(transcode_session_id).await?;
-        if transcode.kind != TranscodeSessionKind::HlsTranscode {
-            return Err(NakoError::InvalidInput {
-                message: format!("session {transcode_session_id} is not an hls transcode session"),
-            });
-        }
-        if transcode.source_id != request.source_id {
-            return Err(NakoError::InvalidInput {
-                message: format!(
-                    "hls playback session {} source_id does not match transcode session {}",
-                    playback_session.id, transcode.id
-                ),
-            });
-        }
-        let body = self
-            .hls_artifacts
-            .read_playback_playlist(
-                &transcode,
-                playback_session.id,
-                request.transport_query.as_deref(),
-            )
-            .await?;
-
-        Ok(HlsPlaylistPlaybackOutput {
-            session: playback_session,
-            body,
-        })
+        hls_flow::hls_playlist_for_playback_session(self, request).await
     }
 
     pub(crate) async fn remux_source(
@@ -1488,7 +1366,7 @@ impl PlaybackAppService {
         })
     }
 
-    async fn cancel_superseded_hls_playback_sessions(
+    pub(super) async fn cancel_superseded_hls_playback_sessions(
         &self,
         source_id: MediaSourceId,
         replacement_transcode_session_id: TranscodeSessionId,
@@ -1605,7 +1483,7 @@ impl PlaybackAppService {
             })
     }
 
-    async fn existing_playback_session_for_media_request(
+    pub(super) async fn existing_playback_session_for_media_request(
         &self,
         principal: &AuthenticatedPrincipal,
         session_id: PlaybackSessionId,
@@ -1663,7 +1541,7 @@ impl PlaybackAppService {
         Ok(playback_selection_context(&uri, backend.as_ref()).await)
     }
 
-    async fn effective_playback_policy_for_source_id(
+    pub(super) async fn effective_playback_policy_for_source_id(
         &self,
         principal: &AuthenticatedPrincipal,
         source_id: MediaSourceId,
