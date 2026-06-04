@@ -1,0 +1,32 @@
+{
+  "id": "06-02-02-lane-active-queue-reconciliation",
+  "name": "06-02-02-lane-active-queue-reconciliation",
+  "title": "Lane Active Queue Reconciliation",
+  "description": "Reconcile docs/architecture/LANES.md after 01a-01f completed so planner state no longer lists completed tasks as active.",
+  "status": "completed",
+  "dev_type": "docs",
+  "scope": "architecture-planning",
+  "package": "nako",
+  "priority": "P1",
+  "creator": "Latias94",
+  "assignee": "Latias94",
+  "createdAt": "2026-06-02",
+  "completedAt": "2026-06-04",
+  "branch": "task/02a-lane-active-queue-reconciliation",
+  "base_branch": "main",
+  "worktree_path": "F:\\SourceCodes\\Rust\\nako-worktrees\\02a-lane-active-queue-reconciliation",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "docs/architecture/LANES.md",
+    "docs/ROADMAP.md",
+    "docs/GOALS.md",
+    ".trellis/tasks/06-02-01-parallel-worktree-development-plan/",
+    ".trellis/tasks/00-bootstrap-guidelines/"
+  ],
+  "notes": "Created after 01a-01f completed. Keep scope to planner queue reconciliation; do not open new implementation lanes in this task.",
+  "meta": {}
+}

@@ -317,7 +317,12 @@ Archived the 06-03-06 parent coordination task after 06a, 06b, and 06c were arch
 
 ### Main Changes
 
-(Add details)
+- Archived all remaining completed active Trellis tasks from the 06-02 backlog:
+  `06-02-01*`, `06-02-02`, `06-02-03*`, and `06-02-04*`.
+- Confirmed `.trellis/tasks/` now contains only the `archive/` directory.
+- Confirmed there are no residual `task/*` local branches and no extra
+  worktrees.
+- No code changes were made in this session.
 
 ### Git Commits
 
@@ -327,7 +332,10 @@ Archived the 06-03-06 parent coordination task after 06a, 06b, and 06c were arch
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] `python ./.trellis/scripts/task.py list`
+- [OK] `Get-ChildItem -Path .trellis/tasks -Directory`
+- [OK] `git worktree list`
+- [OK] `git branch --list "task/*" -vv`
 
 ### Status
 
@@ -1427,6 +1435,38 @@ Confirmed stale 06b staging attribution branch is already absorbed on main, adde
 ### Summary
 
 Archived the completed long-horizon architecture queue after confirming no residual worktrees, task branches, children, or dirty git state remained.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+(No commits - planning session)
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 36: Archive completed Trellis backlog
+
+**Date**: 2026-06-04
+**Task**: Archive completed Trellis backlog
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Archived all remaining completed 06-02 Trellis tasks after confirming the active task list was only completed historical backlog, with no residual task branches or extra worktrees.
 
 ### Main Changes
 
