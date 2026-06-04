@@ -545,7 +545,28 @@ fn selected_image_etag_header_value(etag: &str) -> Option<HeaderValue> {
 }
 
 fn selected_image_etag_matches(if_none_match: Option<&HeaderValue>, etag: &HeaderValue) -> bool {
-    if_none_match.is_some_and(|candidate| candidate == etag)
+    let Some(if_none_match) = if_none_match else {
+        return false;
+    };
+    let Ok(if_none_match) = if_none_match.to_str() else {
+        return false;
+    };
+    let Ok(etag) = etag.to_str() else {
+        return false;
+    };
+
+    if_none_match
+        .split(',')
+        .map(str::trim)
+        .any(|candidate| selected_image_entity_tag_matches(candidate, etag))
+}
+
+fn selected_image_entity_tag_matches(candidate: &str, etag: &str) -> bool {
+    if candidate == "*" {
+        return true;
+    }
+
+    candidate.strip_prefix("W/").unwrap_or(candidate) == etag
 }
 
 fn apply_selected_artwork_cache_headers(headers: &mut HeaderMap) {

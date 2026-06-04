@@ -2237,6 +2237,13 @@ image headers such as `Content-Type`, `Content-Length`, and an opaque
 presentation ETag that is not the artifact content hash. `HEAD` returns the
 same presentation headers without a body.
 
+Selected artwork byte responses use `Cache-Control: private, max-age=86400`.
+When the authenticated client sends `If-None-Match` with the current
+presentation ETag, the route returns `304 Not Modified` with the current `ETag`
+and cache header and no body. Matching supports exact quoted tags, weak
+`W/"etag"` tags, comma-separated validator lists, and wildcard `*`. Auth and
+library access checks still run before any 304 response.
+
 After the Selected Artwork slot is unpublished, the old `image_id` no longer
 resolves. `GET` and `HEAD /images/{old_image_id}` return `404`; Nako does not
 fall back to Managed Artwork Artifact IDs or storage locators.

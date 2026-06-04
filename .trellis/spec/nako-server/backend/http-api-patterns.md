@@ -450,12 +450,12 @@ The shared byte response helper covers Direct Play and Remux consistently.
   owns shared selected artwork byte response header assembly and conditional
   response matching.
 - `selected_image_preflight_response(...) -> Option<Response>` owns the
-  metadata-derived exact-match 304 short-circuit after auth and library access
+  metadata-derived conditional 304 short-circuit after auth and library access
   checks.
 - `apply_selected_artwork_cache_headers(&mut HeaderMap)` is the selected
   artwork-only helper for the private client-cache baseline.
 - `selected_image_etag_matches(if_none_match, etag) -> bool` is the route-local
-  exact-match guard for selected artwork conditional responses.
+  selected artwork validator guard for conditional responses.
 
 ### 3. Contracts
 
@@ -463,8 +463,9 @@ The shared byte response helper covers Direct Play and Remux consistently.
   `Cache-Control: private, max-age=86400`.
 - Selected artwork image HEAD responses must include the same cache policy and
   must not include a response body.
-- Selected artwork image GET/HEAD responses with an exact matching
-  `If-None-Match` value must return `304 Not Modified`.
+- Selected artwork image GET/HEAD responses with a matching `If-None-Match`
+  value must return `304 Not Modified`. Matching supports exact quoted tags,
+  weak `W/"etag"` tags, comma-separated validator lists, and wildcard `*`.
 - A selected artwork 304 response must include the current safe `ETag` and
   `Cache-Control: private, max-age=86400`, and must not include a response
   body.
@@ -474,13 +475,13 @@ The shared byte response helper covers Direct Play and Remux consistently.
   library access, selected artwork lookup, and variant query behavior.
 - Auth and library access checks must run before any selected artwork 304
   response.
-- Metadata-derived ETag preflight may short-circuit an exact `If-None-Match`
+- Metadata-derived ETag preflight may short-circuit a matching `If-None-Match`
   match before bytes are read, but only after auth and library access checks
   and only when it proves the same safe ETag that a normal response would
   emit.
-- Do not add weak-validator parsing, wildcard validators, `Last-Modified`,
-  immutable headers, generated DTOs, schema changes, or shared-cache/CDN
-  behavior without a dedicated cache-contract task.
+- Do not add `Last-Modified`, immutable headers, generated DTOs, schema
+  changes, or shared-cache/CDN behavior without a dedicated cache-contract
+  task.
 
 ### 4. Validation & Error Matrix
 
@@ -489,7 +490,9 @@ The shared byte response helper covers Direct Play and Remux consistently.
 | Original selected artwork GET response is authored | Includes `Cache-Control: private, max-age=86400` plus existing content headers and safe ETag. |
 | Original selected artwork HEAD response is authored | Includes the same cache policy, content headers, and safe ETag with an empty body. |
 | Resized selected artwork variant GET/HEAD response is authored | Includes the same cache policy while preserving variant-specific content length and ETag. |
-| `If-None-Match` exactly matches the current original or variant ETag | Returns `304 Not Modified` with current ETag, selected artwork cache policy, and empty body. |
+| `If-None-Match` exactly or weakly matches the current original or variant ETag | Returns `304 Not Modified` with current ETag, selected artwork cache policy, and empty body. |
+| `If-None-Match` is a comma-separated list containing the current ETag | Returns `304 Not Modified` with current ETag, selected artwork cache policy, and empty body. |
+| `If-None-Match` is `*` and the selected artwork exists | Returns `304 Not Modified` with current ETag, selected artwork cache policy, and empty body. |
 | `If-None-Match` is missing, malformed, or does not match | Existing `200` GET/HEAD response behavior is unchanged. |
 | Selected artwork is missing or unauthorized | Existing not-found/forbidden behavior is unchanged. |
 | Variant query is invalid | Existing bad-request behavior is unchanged. |
@@ -502,9 +505,12 @@ The shared byte response helper covers Direct Play and Remux consistently.
 - Good: compare `If-None-Match` against the same quoted ETag `HeaderValue` that
   will be returned on a normal selected artwork response, so matching cannot
   drift from header authoring.
+- Good: parse only selected artwork request validators locally, recognizing
+  weak tags, comma-separated lists, and wildcard `*` without exposing raw
+  source/artifact ETags.
 - Base: safe selected artwork ETags continue to identify original versus
   bounded variants; the cache helper does not change ETag generation.
-- Base: exact-match 304 short-circuiting can happen before bytes are read when
+- Base: matching 304 short-circuiting can happen before bytes are read when
   the route can prove the same safe ETag from selected artwork and artifact
   metadata.
 - Bad: reusing the HLS `no-store` helper for selected artwork, which defeats
@@ -522,8 +528,9 @@ The shared byte response helper covers Direct Play and Remux consistently.
   cache policy and an empty body.
 - HTTP route test: resized selected artwork GET/HEAD responses include the same
   cache policy while preserving variant-specific ETags.
-- HTTP route test: matching `If-None-Match` returns `304 Not Modified` with the
-  current ETag/cache headers and no body.
+- HTTP route test: exact, weak, list, and wildcard matching `If-None-Match`
+  values return `304 Not Modified` with the current ETag/cache headers and no
+  body.
 - HTTP route test: non-matching `If-None-Match` preserves normal `200` image
   response behavior.
 - Focused gates:

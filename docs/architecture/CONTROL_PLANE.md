@@ -275,12 +275,13 @@ Current shipped artifact-cache baseline:
   scoped media transport responses. Media-byte ETags, conditional GET, and
   shared-cache behavior remain follow-ons.
 - Authenticated selected artwork image GET/HEAD responses now use
-  `Cache-Control: private, max-age=86400` with existing safe ETags. Exact
-  matching `If-None-Match` requests return `304 Not Modified` with ETag/cache
-  headers, and metadata-derived selected artwork ETag preflight can short-circuit
-  exact-match 304 responses after auth and library access checks. Weak/wildcard
-  validator support, immutable/public shared caching, CDN semantics, and
-  selected-artwork invalidation policy remain follow-ons.
+  `Cache-Control: private, max-age=86400` with existing safe ETags. Matching
+  `If-None-Match` requests, including exact, weak, validator-list, and wildcard
+  forms, return `304 Not Modified` with ETag/cache headers, and
+  metadata-derived selected artwork ETag preflight can short-circuit matching
+  304 responses after auth and library access checks. Immutable/public shared
+  caching, CDN semantics, and selected-artwork invalidation policy remain
+  follow-ons.
 
 Exit criteria:
 

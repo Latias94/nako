@@ -33,7 +33,7 @@ Storage event or scheduled scan
 | Douban provider | Shipped MVP plus endpoint-backed movie and TV Series subject support | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/douban-subject-kind-precision/`; `.trellis/tasks/archive/2026-06/06-05-douban-tv-episode-endpoint-depth/` | Season/Episode graph depth, accepted-review application, Admin/Web governance, or Public Client API exposure remain follow-ons. |
 | Bangumi provider | Shipped MVP plus endpoint-backed episode graph preview | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/bangumi-relations-and-episode-depth/` | Accepted-review application or Admin/Web governance before preview graph depth becomes accepted hierarchy. |
 | Addon-assisted metadata | Shipped guarded apply, bulk apply, provider mapping breadth, read-only apply recovery foundation, Web recovery UI, and repair seam proof | addon architecture lanes; `docs/workstreams/generated-artifact-metadata-authority-apply/`; `docs/workstreams/generated-artifact-bulk-metadata-apply/`; `docs/workstreams/generated-artifact-provider-mapping-breadth/`; `docs/workstreams/generated-artifact-apply-operations-repair/`; `docs/workstreams/web-admin-generated-artifact-recovery-ui/`; `docs/workstreams/generated-artifact-apply-repair-actions/` | Optional one-click repair wrapper or Web repair copy polish. |
-| Artwork artifact lifecycle | Shipped selection, lifecycle, variant, remediation foundation, selected artwork private cache-control, exact conditional GET baseline, and metadata-derived ETag preflight | managed artwork lanes; `.trellis/tasks/archive/2026-06/06-04-10-hour-media-server-architecture-campaign/implementation/lane-c-artwork-cache.md` | Delivery cache placeholders, weak/wildcard validators, selected-artwork invalidation, and broader derivative policy remain follow-ons. |
+| Artwork artifact lifecycle | Shipped selection, lifecycle, variant, remediation foundation, selected artwork private cache-control, weak/wildcard conditional GET, and metadata-derived ETag preflight | managed artwork lanes; `.trellis/tasks/archive/2026-06/06-04-10-hour-media-server-architecture-campaign/implementation/lane-c-artwork-cache.md` | Delivery cache placeholders, selected-artwork invalidation, and broader derivative policy remain follow-ons. |
 | Watcher/debounce | Weak; stable-candidate evidence foundation shipped | This document | Continue `library-watcher-and-media-intake-stability` toward runtime/product integration. |
 
 ## Workstream Evidence
@@ -441,8 +441,9 @@ Exit criteria:
 ### artwork-delivery-cache-placeholder
 
 Status: Selected artwork byte routes have a private cache-control baseline,
-exact `If-None-Match` / `304 Not Modified` support, and metadata-derived ETag
-preflight as of 2026-06-04; the broader delivery cache lane is still open.
+exact, weak, validator-list, and wildcard `If-None-Match` / `304 Not Modified`
+support, and metadata-derived ETag preflight as of 2026-06-05; the broader
+delivery cache lane is still open.
 
 Goal: Serve artwork in client-appropriate forms instead of sending raw provider
 images everywhere.
@@ -453,7 +454,6 @@ Scope:
 - WebP or other client-appropriate output formats;
 - size presets;
 - Blurhash or placeholder evidence;
-- weak/wildcard validator support;
 - cache invalidation and selected artwork policy.
 
 ### generated-artifact-bulk-metadata-apply

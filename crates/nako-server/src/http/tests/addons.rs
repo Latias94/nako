@@ -11221,6 +11221,7 @@ async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks()
         .await
         .unwrap();
     assert_eq!(image_bytes.as_ref(), expected_bytes.as_slice());
+    let original_weak_etag = format!("W/{original_etag}");
 
     let original_not_modified = router
         .clone()
@@ -11235,6 +11236,51 @@ async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks()
         .await
         .unwrap();
     assert_selected_artwork_not_modified(original_not_modified, &original_etag).await;
+
+    let original_weak_not_modified = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&published.image.url)
+                .header(header::IF_NONE_MATCH, &original_weak_etag)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_selected_artwork_not_modified(original_weak_not_modified, &original_etag).await;
+
+    let original_list_not_modified = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&published.image.url)
+                .header(
+                    header::IF_NONE_MATCH,
+                    format!("\"nako-img-v1-missing\", {original_weak_etag}"),
+                )
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_selected_artwork_not_modified(original_list_not_modified, &original_etag).await;
+
+    let original_wildcard_not_modified = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&published.image.url)
+                .header(header::IF_NONE_MATCH, "*")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_selected_artwork_not_modified(original_wildcard_not_modified, &original_etag).await;
 
     let original_miss = router
         .clone()
@@ -11257,6 +11303,35 @@ async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks()
         .await
         .unwrap();
     assert_eq!(original_miss_body.as_ref(), expected_bytes.as_slice());
+
+    let original_malformed_weak_miss = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&published.image.url)
+                .header(header::IF_NONE_MATCH, format!("W/ {original_etag}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(original_malformed_weak_miss.status(), StatusCode::OK);
+    assert_eq!(
+        original_malformed_weak_miss
+            .headers()
+            .get(header::ETAG)
+            .unwrap(),
+        HeaderValue::from_str(&original_etag).unwrap()
+    );
+    let original_malformed_weak_miss_body =
+        to_bytes(original_malformed_weak_miss.into_body(), usize::MAX)
+            .await
+            .unwrap();
+    assert_eq!(
+        original_malformed_weak_miss_body.as_ref(),
+        expected_bytes.as_slice()
+    );
 
     let head_response = router
         .clone()
@@ -11329,6 +11404,7 @@ async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks()
         .to_owned();
     assert_ne!(variant_etag, original_etag);
     assert!(variant_etag.contains("nako-img-v1-"));
+    let variant_weak_etag = format!("W/{variant_etag}");
     let variant_content_length = variant_response.headers()[header::CONTENT_LENGTH]
         .to_str()
         .unwrap()
@@ -11356,6 +11432,34 @@ async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks()
         .await
         .unwrap();
     assert_selected_artwork_not_modified(variant_not_modified, &variant_etag).await;
+
+    let variant_weak_not_modified = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&variant_url)
+                .header(header::IF_NONE_MATCH, &variant_weak_etag)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_selected_artwork_not_modified(variant_weak_not_modified, &variant_etag).await;
+
+    let variant_wildcard_not_modified = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&variant_url)
+                .header(header::IF_NONE_MATCH, "*")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_selected_artwork_not_modified(variant_wildcard_not_modified, &variant_etag).await;
 
     let variant_original_etag_miss = router
         .clone()
@@ -11440,6 +11544,21 @@ async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks()
         .unwrap();
     assert_selected_artwork_not_modified(original_preflight_not_modified, &original_etag).await;
 
+    let original_preflight_weak_not_modified = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&published.image.url)
+                .header(header::IF_NONE_MATCH, &original_weak_etag)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_selected_artwork_not_modified(original_preflight_weak_not_modified, &original_etag)
+        .await;
+
     let variant_preflight_not_modified = router
         .clone()
         .oneshot(
@@ -11453,6 +11572,21 @@ async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks()
         .await
         .unwrap();
     assert_selected_artwork_not_modified(variant_preflight_not_modified, &variant_etag).await;
+
+    let variant_preflight_wildcard_not_modified = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&variant_url)
+                .header(header::IF_NONE_MATCH, "*")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_selected_artwork_not_modified(variant_preflight_wildcard_not_modified, &variant_etag)
+        .await;
 
     let denied_principal =
         local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::None).await;
