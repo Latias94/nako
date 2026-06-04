@@ -1,0 +1,5 @@
+{"file": "docs/architecture/PLAYBACK.md", "reason": "Playback Web integration follow-on scope and non-goals"}
+{"file": "docs/architecture/STATE_ACCESS.md", "reason": "User playback state and current-user access constraints"}
+{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web route/data/test ownership"}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Media surface React, route, data-source, and Vitest conventions"}
+{"file": ".trellis/spec/nako-client-protocol/backend/index.md", "reason": "Public Client playback DTO redaction and compatibility constraints"}

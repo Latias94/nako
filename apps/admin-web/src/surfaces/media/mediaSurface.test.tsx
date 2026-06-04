@@ -209,9 +209,15 @@ describe("Media Web surface", () => {
 
     await waitFor(() => {
       expect(window.location.search).toContain("source_id=source-episode-1-alt");
-      expect(getPlaybackDecision).toHaveBeenLastCalledWith("source-episode-1-alt", {
-        direct_play: true,
-      });
+      expect(getPlaybackDecision).toHaveBeenLastCalledWith(
+        "source-episode-1-alt",
+        expect.objectContaining({
+          container: expect.arrayContaining(["mp4"]),
+          direct_play: true,
+          hls_variant_policy: "single_variant",
+          video_codec: expect.arrayContaining(["h264"]),
+        }),
+      );
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Mark watched" }));
@@ -233,12 +239,14 @@ describe("Media Web surface", () => {
       "/media/watch/item-episode-1?source_id=source-episode-1-alt",
     );
     const dataSource = createFixtureMediaDataSource();
+    const getPlaybackDecision = vi.fn(dataSource.getPlaybackDecision);
     const createBrowserPlaybackTicket = vi.fn(dataSource.createBrowserPlaybackTicket);
     const factory = vi.fn(
       () =>
         ({
           ...dataSource,
           createBrowserPlaybackTicket,
+          getPlaybackDecision,
         }) as MediaWebDataSource,
     ) satisfies MediaDataSourceFactory;
 
@@ -258,15 +266,66 @@ describe("Media Web surface", () => {
     expect(screen.getByRole("button", { name: /Pilot\.alt\.mp4/ })).toBeInTheDocument();
     expect(screen.getAllByText("direct_play").length).toBeGreaterThan(0);
     await waitFor(() => {
+      expect(getPlaybackDecision).toHaveBeenCalledWith(
+        "source-episode-1-alt",
+        expect.objectContaining({
+          container: expect.arrayContaining(["mp4"]),
+          direct_play: true,
+          hls_variant_policy: "single_variant",
+          video_codec: expect.arrayContaining(["h264"]),
+        }),
+      );
+    });
+    await waitFor(() => {
       expect(createBrowserPlaybackTicket).toHaveBeenCalledWith(
         "source-episode-1-alt",
-        expect.objectContaining({ mode: "direct" }),
+        expect.objectContaining({
+          capabilities: expect.objectContaining({
+            container: expect.arrayContaining(["mp4"]),
+            direct_play: true,
+            output_container: undefined,
+            video_codec: expect.arrayContaining(["h264"]),
+          }),
+          mode: "direct",
+        }),
       );
     });
     expect((player as HTMLVideoElement).getAttribute("src")).toContain("nako_bpt_fixture");
     expect(container.textContent).not.toContain("nako_bpt_fixture");
     expect(container.textContent).not.toContain("/sources/");
     expect(container.textContent).not.toContain("Bearer");
+  });
+
+  it("shows a safe retry state when the browser player reports an error", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/watch/item-episode-1?source_id=source-episode-1-alt",
+    );
+
+    const { container } = render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+      />,
+    );
+
+    const player = await screen.findByLabelText("Pilot player");
+    fireEvent.error(player);
+
+    expect(
+      await screen.findByText("Playback failed before the browser could start the stream."),
+    ).toBeInTheDocument();
+    expect(container.textContent).not.toContain("nako_bpt_fixture");
+    expect(container.textContent).not.toContain("/sources/");
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry playback" }));
+
+    expect(
+      screen.queryByText("Playback failed before the browser could start the stream."),
+    ).not.toBeInTheDocument();
+    expect(await screen.findByLabelText("Pilot player")).toBeInTheDocument();
+    expect(container.textContent).not.toContain("nako_bpt_fixture");
   });
 
   it("writes throttled playback progress only after browser playback starts", async () => {

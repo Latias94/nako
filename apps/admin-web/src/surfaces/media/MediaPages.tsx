@@ -10,12 +10,13 @@ import type {
   LibrarySourcesResponse,
   MediaItemDto,
   MediaSourceDto,
+  PlaybackCapabilitiesQuery,
   PlaybackDecisionResponse,
   SearchResponse,
   UserPlaybackStateResponse,
 } from "@nako/sdk";
-import { ArrowLeft, ArrowRight, Search } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { ArrowLeft, ArrowRight, RefreshCw, Search } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { Button } from "../../components/ui/Button";
 import type {
@@ -365,12 +366,16 @@ function useMediaItemPlayback({
   search,
 }: MediaItemPageProps) {
   const { dataSource } = useMediaSession();
+  const browserCapabilities = useMemo(() => detectBrowserPlaybackCapabilities(), []);
   const result = useMediaLoad(dataSource, (source) => source.getItem(itemId), [itemId]);
   const selectedSourceId = search.source_id ?? result.value?.sources[0]?.id;
   const decision = useMediaLoad(
     selectedSourceId ? dataSource : null,
-    (source) => source.getPlaybackDecision(selectedSourceId!, { direct_play: true }),
-    [selectedSourceId],
+    (source) => source.getPlaybackDecision(
+      selectedSourceId!,
+      playbackCapabilitiesQuery(browserCapabilities),
+    ),
+    [selectedSourceId, browserCapabilities],
   );
   const playbackState = useMediaLoad(
     dataSource,
@@ -382,12 +387,13 @@ function useMediaItemPlayback({
     (source) =>
       source.createBrowserPlaybackTicket(
         selectedSourceId!,
-        browserPlaybackTicketRequest(decision.value!),
+        browserPlaybackTicketRequest(decision.value!, browserCapabilities),
       ),
     [
       selectedSourceId,
       decision.value?.decision.mode,
       decision.value?.decision.transcode_plan?.output_container,
+      browserCapabilities,
     ],
   );
   const [playbackStateOverride, setPlaybackStateOverride] =
@@ -1063,6 +1069,9 @@ function MediaBrowserPlayer({
   result: MediaAsyncState<BrowserPlaybackTicketResponse>;
   title: string;
 }) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+
   if (result.loading) {
     return <div className="mediaSkeleton" />;
   }
@@ -1078,6 +1087,8 @@ function MediaBrowserPlayer({
     return <div className="mediaEmpty">Playback URL unavailable</div>;
   }
 
+  const playerFailed = failedUrl === primaryUrl.url;
+
   return (
     <div className="mediaPlayerFrame">
       <video
@@ -1090,15 +1101,34 @@ function MediaBrowserPlayer({
         onPause={(event) =>
           onPlaybackPaused(mediaPlaybackProgressSnapshot(event.currentTarget, fallbackDurationMs))
         }
+        onError={() => setFailedUrl(primaryUrl.url)}
         onPlay={onPlaybackStarted}
         onPlaying={onPlaybackStarted}
         onTimeUpdate={(event) =>
           onPlaybackProgress(mediaPlaybackProgressSnapshot(event.currentTarget, fallbackDurationMs))
         }
+        key={`${primaryUrl.url}:${retryCount}`}
         playsInline
         preload="metadata"
         src={primaryUrl.url}
       />
+      {playerFailed ? (
+        <div className="mediaError">
+          <span>Playback failed before the browser could start the stream.</span>
+          <Button
+            onClick={() => {
+              setFailedUrl(null);
+              setRetryCount((current) => current + 1);
+            }}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <RefreshCw size={15} />
+            <span>Retry playback</span>
+          </Button>
+        </div>
+      ) : null}
       <div className="mediaPlayerFacts">
         <span>{ticket.mode}</span>
         <span>{primaryUrl.content_type}</span>
@@ -1309,15 +1339,14 @@ function mediaSecondsToMs(value: number) {
 
 function browserPlaybackTicketRequest(
   decision: PlaybackDecisionResponse,
+  capabilities: BrowserPlaybackCapabilityProfile,
 ): BrowserPlaybackTicketRequest {
   const mode = browserPlaybackMode(decision);
   return {
     capabilities: {
-      audio_codec: ["aac", "opus", "mp3", "flac"],
-      container: ["mp4", "matroska", "webm", "mpegts"],
+      ...capabilities,
       direct_play: mode === "direct",
       output_container: mode === "remux" ? "mp4" : undefined,
-      video_codec: ["h264", "hevc", "vp9", "av1"],
     },
     mode,
   };
@@ -1337,4 +1366,102 @@ function browserPlaybackMode(
 
 function sourceSummary(source: MediaSourceDto) {
   return source.size_bytes ? "Local source" : "Source";
+}
+
+type BrowserPlaybackCapabilityProfile = NonNullable<
+  BrowserPlaybackTicketRequest["capabilities"]
+>;
+
+const FALLBACK_BROWSER_PLAYBACK_CAPABILITIES: BrowserPlaybackCapabilityProfile = {
+  audio_codec: ["aac", "opus", "mp3", "flac"],
+  container: ["mp4", "webm", "mpegts"],
+  direct_play: true,
+  hls_segment_container: "fmp4",
+  hls_variant_policy: "single_variant",
+  output_container: "mp4",
+  supports_hdr: false,
+  supports_subtitles: true,
+  video_codec: ["h264", "hevc", "vp9", "av1"],
+};
+
+function detectBrowserPlaybackCapabilities(): BrowserPlaybackCapabilityProfile {
+  if (typeof document === "undefined") {
+    return FALLBACK_BROWSER_PLAYBACK_CAPABILITIES;
+  }
+
+  const video = document.createElement("video");
+  if (typeof video.canPlayType !== "function") {
+    return FALLBACK_BROWSER_PLAYBACK_CAPABILITIES;
+  }
+
+  const supportsMp4H264 = canPlay(video, 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"');
+  const supportsMp4Hevc = canPlay(video, 'video/mp4; codecs="hvc1.1.6.L93.B0, mp4a.40.2"');
+  const supportsWebmVp9 = canPlay(video, 'video/webm; codecs="vp9, opus"');
+  const supportsWebmAv1 = canPlay(video, 'video/webm; codecs="av01.0.05M.08, opus"');
+  const supportsNativeHls =
+    canPlay(video, "application/vnd.apple.mpegurl") ||
+    canPlay(video, "application/x-mpegURL");
+
+  if (
+    !supportsMp4H264 &&
+    !supportsMp4Hevc &&
+    !supportsWebmVp9 &&
+    !supportsWebmAv1 &&
+    !supportsNativeHls
+  ) {
+    return FALLBACK_BROWSER_PLAYBACK_CAPABILITIES;
+  }
+
+  const container = [
+    supportsMp4H264 || supportsMp4Hevc ? "mp4" : null,
+    supportsWebmVp9 || supportsWebmAv1 ? "webm" : null,
+    supportsNativeHls ? "mpegts" : null,
+  ].filter((value): value is string => Boolean(value));
+  const videoCodec = [
+    supportsMp4H264 ? "h264" : null,
+    supportsMp4Hevc ? "hevc" : null,
+    supportsWebmVp9 ? "vp9" : null,
+    supportsWebmAv1 ? "av1" : null,
+  ].filter((value): value is string => Boolean(value));
+  const audioCodec = [
+    supportsMp4H264 || supportsMp4Hevc ? "aac" : null,
+    supportsWebmVp9 || supportsWebmAv1 ? "opus" : null,
+    "mp3",
+  ].filter((value): value is string => Boolean(value));
+
+  return {
+    audio_codec: audioCodec,
+    container,
+    direct_play: container.length > 0 && videoCodec.length > 0,
+    hls_segment_container: supportsNativeHls ? "mpeg_ts" : "fmp4",
+    hls_variant_policy: "single_variant",
+    output_container: "mp4",
+    supports_hdr: false,
+    supports_subtitles: true,
+    video_codec: videoCodec,
+  };
+}
+
+function playbackCapabilitiesQuery(
+  capabilities: BrowserPlaybackCapabilityProfile,
+): PlaybackCapabilitiesQuery {
+  return {
+    audio_codec: capabilities.audio_codec,
+    container: capabilities.container,
+    direct_play: capabilities.direct_play,
+    hls_segment_container: capabilities.hls_segment_container,
+    hls_variant_policy: capabilities.hls_variant_policy,
+    max_audio_channels: capabilities.max_audio_channels,
+    max_height: capabilities.max_height,
+    max_video_bitrate: capabilities.max_video_bitrate,
+    max_width: capabilities.max_width,
+    supports_hdr: capabilities.supports_hdr,
+    supports_subtitles: capabilities.supports_subtitles,
+    video_codec: capabilities.video_codec,
+  };
+}
+
+function canPlay(video: HTMLVideoElement, mimeType: string) {
+  const result = video.canPlayType(mimeType);
+  return result === "maybe" || result === "probably";
 }

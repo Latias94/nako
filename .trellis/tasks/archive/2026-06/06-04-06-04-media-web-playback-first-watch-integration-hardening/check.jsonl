@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Focused Media Web typecheck and Vitest validation gates"}
+{"file": "docs/architecture/PLAYBACK.md", "reason": "Confirm no playback runtime or public contract boundary drift"}

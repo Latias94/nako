@@ -155,6 +155,22 @@ export const mockOverview: AdminOverviewResponse = {
     artwork_ingest_worker_started: true,
     addon_event_scheduler_started: true,
     watch_folder_runtimes_started: 1,
+    watch_folder_runtime: {
+      configured_libraries: 3,
+      realtime_enabled_libraries: 1,
+      started_libraries: 1,
+      skipped_libraries: 2,
+      diagnostics: [
+        {
+          library_id: "library-anime",
+          library_name: "Anime Vault",
+          root_scheme: "local",
+          root_ref_redacted: "local://<redacted>",
+          status: "started",
+          safe_reason: "watch folder runtime started",
+        },
+      ],
+    },
   },
 };
 
@@ -1915,6 +1931,7 @@ export const mockStorageStaging: AdminStorageStagingDiagnosticsResponse = {
       stale_object_count: 3,
       stale_listing_count: 1,
       last_failure_at_ms: 1779180000000,
+      repair: null,
     },
   },
   records: [
