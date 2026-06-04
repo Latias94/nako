@@ -2075,6 +2075,8 @@ mod tests {
             "/metadata/items/{item_id}/candidate-reviews",
             "/metadata/candidate-reviews/{review_id}",
             "/metadata/candidate-reviews/{review_id}/apply",
+            "/metadata/candidate-reviews/{review_id}/related-hierarchy/application-plan",
+            "/metadata/candidate-reviews/{review_id}/related-hierarchy/apply",
         ] {
             assert!(
                 !paths.contains_key(excluded_path),

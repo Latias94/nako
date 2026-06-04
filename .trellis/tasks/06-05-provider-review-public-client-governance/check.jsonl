@@ -1,0 +1,7 @@
+{"file":".trellis/spec/nako-client-protocol/backend/index.md","reason":"Verify protocol route inventory tests against Public Client boundary guidance."}
+{"file":".trellis/spec/nako-client-protocol/backend/quality-guidelines.md","reason":"Verify focused protocol tests and formatting."}
+{"file":".trellis/spec/nako-api/backend/index.md","reason":"Verify API/OpenAPI/Admin contract changes against package guidance."}
+{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Verify Admin-only provider governance surfaces do not drift into Public Client contracts."}
+{"file":".trellis/spec/nako-api/backend/quality-guidelines.md","reason":"Verify generated contract tests and API quality gates."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Verify the same governance boundary across protocol, OpenAPI, SDK, and Admin contracts."}
+{"file":".trellis/tasks/06-05-provider-review-public-client-governance/research/public-client-governance-audit.md","reason":"Check implementation closes the recorded related-hierarchy guard gaps."}

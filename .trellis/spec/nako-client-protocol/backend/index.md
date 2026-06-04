@@ -50,6 +50,10 @@ independent from server internals.
 - Keep `PageInfo { limit, offset, returned }` as the public pagination envelope.
 - Keep public playback URLs safe and ticketed; do not expose source locators.
 - Keep current-user routes under `/users/me`.
+- Keep provider governance, Metadata Candidate Review, batch apply,
+  idempotency, raw provider payload, and related hierarchy application route
+  fragments out of `PUBLIC_CLIENT_ROUTES`; these are Admin API surfaces unless a
+  future PRD explicitly changes the Public Client contract.
 
 ## Forbidden Patterns
 
@@ -58,6 +62,8 @@ independent from server internals.
   output paths, bearer tokens, or transcode internals.
 - Do not change public wire strings without tests.
 - Do not add a route without updating `PUBLIC_CLIENT_ROUTES`.
+- Do not add Candidate Review, Provider Mapping governance, or related
+  hierarchy plan/apply route shapes to the Public Client inventory.
 
 ## Validation
 

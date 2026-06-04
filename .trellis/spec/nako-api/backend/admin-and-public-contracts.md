@@ -87,6 +87,80 @@ cargo run -p nako-api --example emit-admin-typescript-contract -- --output apps/
 Generated contract files are artifacts from `nako-api`; edit the generator and
 DTO source, then regenerate.
 
+## Scenario: Provider Governance Public Client Exclusion
+
+### 1. Scope / Trigger
+
+- Trigger: adding or renaming Admin Provider Mapping governance, Metadata
+  Candidate Review, batch apply, or related hierarchy plan/apply routes.
+- Scope: `nako-client-protocol::PUBLIC_CLIENT_ROUTES`,
+  `crates/nako-api/src/openapi.rs`, `crates/nako-api/src/sdk.rs`, and
+  `crates/nako-api/src/admin_contract.rs`.
+
+### 2. Signatures
+
+- Public Client route inventory remains protocol-owned and must not include
+  `/metadata/candidate-reviews`, `/catalog/governance`, Provider Mapping review,
+  batch application, idempotency, raw provider payload, or related hierarchy
+  application route fragments.
+- Admin route constants may include `/admin/v1/metadata/candidate-reviews/*`
+  and `/admin/v1/catalog/governance/*` through `NAKO_ADMIN_ROUTES`.
+
+### 3. Contracts
+
+- Provider governance mutation and review workflows are Admin API concepts.
+- Public OpenAPI and generated Public SDK outputs must stay free of Admin
+  governance route shapes and DTO terms unless a task explicitly creates a
+  Public Client read contract.
+- Related hierarchy application remains Admin-only even though it is derived
+  from accepted Candidate Reviews.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| New Admin governance route is added | Add it to Admin contract routes and to Public exclusion tests. |
+| Public route inventory contains governance fragments | Contract test fails. |
+| Public OpenAPI/SDK contains governance DTO or route terms | Contract test fails. |
+| A future PRD intentionally exposes public provider metadata | Update this scenario and add explicit Public Client DTO/version tests. |
+
+### 5. Good / Base / Bad Cases
+
+- Good: Admin contract lists Candidate Review related hierarchy plan/apply
+  routes, while Public Client route inventory and OpenAPI exclude the same
+  shapes.
+- Base: adding an Admin-only governance diagnostic extends the shared forbidden
+  term list and explicit excluded-path tests.
+- Bad: adding a Public Client SDK method for review apply or exposing
+  idempotency keys/raw provider payload terms in generated public output.
+
+### 6. Tests Required
+
+- `cargo nextest run -p nako-client-protocol public_route_inventory --no-fail-fast`
+- `cargo nextest run -p nako-api provider_governance --no-fail-fast`
+- `cargo nextest run -p nako-api admin_contract --no-fail-fast` when Admin route
+  constants change.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+PublicClientRoute {
+    path: "/metadata/candidate-reviews/{review_id}/related-hierarchy/apply",
+    // ...
+}
+```
+
+#### Correct
+
+```rust
+("/admin/v1/metadata/candidate-reviews/{review_id}/related-hierarchy/apply")
+```
+
+The correct route belongs to the Admin API inventory and must be paired with
+Public Client exclusion tests.
+
 ## Scenario: Admin VFS Cache Repair Preview, Plan, Targets, And Refresh
 
 ### 1. Scope / Trigger

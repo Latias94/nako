@@ -709,6 +709,40 @@ mod tests {
     }
 
     #[test]
+    fn public_route_inventory_excludes_provider_governance_surfaces() {
+        let serialized = PUBLIC_CLIENT_ROUTES
+            .iter()
+            .map(|route| route.path)
+            .collect::<Vec<_>>()
+            .join("\n")
+            .to_ascii_lowercase();
+
+        for forbidden in [
+            "catalog/governance",
+            "provider-mappings",
+            "provider_mapping",
+            "provider-mapping-review",
+            "metadata/candidate-reviews",
+            "metadata/items/{item_id}/candidate-reviews",
+            "candidate-reviews",
+            "candidate_review",
+            "batch-application-plan",
+            "batch-apply",
+            "related-hierarchy",
+            "related_hierarchy",
+            "idempotency",
+            "raw_provider",
+            "provider_payload",
+            "provider_response",
+        ] {
+            assert!(
+                !serialized.contains(forbidden),
+                "public route inventory leaked provider governance term: {forbidden}"
+            );
+        }
+    }
+
+    #[test]
     fn public_error_codes_are_stable_wire_values() {
         let response = ErrorResponse::new(ClientErrorCode::StorageTimeout, "storage timed out");
         let response_json = serde_json::to_value(&response).unwrap();

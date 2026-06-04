@@ -1,0 +1,7 @@
+{"file":".trellis/spec/nako-client-protocol/backend/index.md","reason":"Public Client route inventory and protocol DTO guardrails live in nako-client-protocol."}
+{"file":".trellis/spec/nako-client-protocol/backend/quality-guidelines.md","reason":"Focused protocol contract tests must follow backend quality expectations."}
+{"file":".trellis/spec/nako-api/backend/index.md","reason":"Public OpenAPI, generated SDK, and Admin contract tests live in nako-api."}
+{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Task is specifically about Admin-only versus Public Client API boundary governance."}
+{"file":".trellis/spec/nako-api/backend/quality-guidelines.md","reason":"Generated contract and OpenAPI guard tests must follow API quality expectations."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"The task verifies cross-surface consistency between protocol, OpenAPI, SDK, and Admin contracts."}
+{"file":".trellis/tasks/06-05-provider-review-public-client-governance/research/public-client-governance-audit.md","reason":"Records existing provider governance guards and the remaining related-hierarchy gaps."}
