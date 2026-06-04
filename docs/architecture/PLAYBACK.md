@@ -1,6 +1,6 @@
 # Playback Architecture
 
-Last updated: 2026-06-04
+Last updated: 2026-06-05
 
 This document is the agent-facing progress map for Nako video playback. It
 links expected media-server capabilities to current implementation state,
@@ -36,7 +36,7 @@ selection.
 | Browser playback tickets | Shipped | `docs/adr/0036-short-lived-browser-playback-tickets.md`; `docs/workstreams/browser-playback-auth-transport/` | Player integration and cross-device resume polish. |
 | Renderer transport tickets | Shipped with `app/playback/renderer_flow.rs` playback-session boundary | `docs/adr/0041-renderer-cast-safe-transport-tickets.md`; `.trellis/spec/nako-server/backend/directory-structure.md#scenario-playback-renderer-transport-flow-orchestration` | Chromecast/DLNA/AirPlay adapter lanes. |
 | FFmpeg command planning | Shipped foundation | `docs/adr/0045-ffmpeg-hardware-pipeline-planner.md`; `docs/adr/0052-hls-runtime-and-media-engine-boundary.md` | Tone mapping, audio filters, seek restart commands. |
-| Hardware detection and fallback | Shipped broader inventory evidence plus HLS output policy seam | `docs/adr/0046-ffmpeg-probe-inventory.md`; `docs/adr/0047-cpu-transcode-readiness.md`; `docs/adr/0048-playback-transcode-startup-degradation.md`; `docs/workstreams/transcode-capability-inventory-matrix/`; `.trellis/tasks/06-04-06-04-hevc-av1-hls-output-policy-first-slice/` | Split hardware tone-map execution, HEVC/AV1 FFmpeg execution, Admin/release reporting, and hardware smoke into follow-ons. |
+| Hardware detection and fallback | Shipped broader inventory evidence, HLS output policy seam, and release hardware report evidence | `docs/adr/0046-ffmpeg-probe-inventory.md`; `docs/adr/0047-cpu-transcode-readiness.md`; `docs/adr/0048-playback-transcode-startup-degradation.md`; `docs/workstreams/transcode-capability-inventory-matrix/`; `.trellis/tasks/archive/2026-06/06-05-06-05-playback-release-hardware-report/` | Split hardware tone-map execution, HEVC/AV1 FFmpeg execution, one-frame GPU smoke, and container device pass-through into follow-ons. |
 | HLS single-variant MPEG-TS | Shipped | `docs/workstreams/transcode-output-shape-hls-manifest-ladder/` | Keep as compatibility baseline. |
 | HLS single-variant fMP4 | Shipped | `docs/workstreams/executable-hls-fmp4-runtime-boundary/` | Player validation and browser compatibility matrix. |
 | Adaptive HLS fMP4 ladder | Shipped first slice | `docs/workstreams/adaptive-hls-source-aware-ladder/` | Bandwidth-aware ABR and variant pruning. |
@@ -52,7 +52,7 @@ selection.
 | Runtime resource scheduler | Shipped first slice plus bounded HLS start admission | `docs/workstreams/playback-runtime-resource-scheduler/`; `docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md`; playback runtime diagnostics lanes | HLS artifact I/O session admission and ordinary HLS start waits are enforced through typed playback resource permits. Add durable queueing, remote workers, OS isolation, per-device tuning, and per-artifact read/write pressure policy only through follow-on lanes. |
 | VFS/remote playback resilience | Partial | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md` | Timeout/circuit-breaker and remote staging hardening. |
 | SQLite/PostgreSQL write pressure | Good foundation | `docs/adr/0029-postgresql-ready-persistence-boundary.md`; `docs/adr/0030-postgresql-ready-sql-dialect-and-migration-policy.md`; PostgreSQL readiness lanes | Playback heartbeat/session-write pressure tests. |
-| Release and packaging | Partial | `docs/deployment/SELF_HOSTED.md`; `docs/deployment/RELEASE_CHECKLIST.md`; `scripts/release-gate.*` | FFmpeg/hardware matrix packaging gate. |
+| Release and packaging | Partial with playback mode and hardware report baseline shipped | `docs/deployment/SELF_HOSTED.md`; `docs/deployment/RELEASE_CHECKLIST.md`; `scripts/release-gate.*`; `docs/architecture/OPERATIONS_RELEASE.md` | Container device pass-through, package artifact matrix, and broader release automation remain follow-ons. |
 | Web player integration | Shipped first slice | Media Web workstreams | Browser HLS playback now prefers native support and lazy-loads `hls.js` fallback while preserving Direct Play and ticket redaction. Follow with capability reporting, richer retry UX, and desktop/native player decisions. |
 
 ## Workstream Evidence

@@ -128,8 +128,10 @@ profiles, UI controls, or operator smoke matrices.
 pressure enforcement is closed after
 `06-02-01d-hls-artifact-io-pressure-enforcement`. Split resource admission
 queueing, remote workers, LL-HLS/CMAF, player UX, hardware tone-map execution,
-HEVC/AV1 output policy, subtitle burn-in, Admin/release reporting, and
-hardware smoke evidence into separate follow-ons.
+HEVC/AV1 output policy, subtitle burn-in, one-frame GPU smoke, and container
+device pass-through evidence into separate follow-ons. Playback release gate
+mode and host hardware report evidence are shipped; do not reopen them as
+generic release-reporting work.
 
 ## Lane Registry
 
