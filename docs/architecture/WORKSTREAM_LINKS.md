@@ -147,6 +147,7 @@ Evidence workstreams:
 - `docs/workstreams/remote-storage-health-and-circuit-breaker/`
 - `.trellis/tasks/archive/2026-06/06-02-01d-hls-artifact-io-pressure-enforcement/`
 - `.trellis/tasks/archive/2026-06/06-04-06-04-source-fingerprint-escalation-policy-first-slice/`
+- `.trellis/tasks/archive/2026-06/06-05-06-05-source-fingerprint-hash-execution-first-slice/`
 
 Proposed lanes:
 
