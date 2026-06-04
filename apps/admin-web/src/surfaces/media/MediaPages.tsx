@@ -16,7 +16,15 @@ import type {
   UserPlaybackStateResponse,
 } from "@nako/sdk";
 import { ArrowLeft, ArrowRight, RefreshCw, Search } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type RefObject,
+} from "react";
 
 import { Button } from "../../components/ui/Button";
 import type {
@@ -347,6 +355,7 @@ export function MediaWatchPage(props: MediaItemPageProps) {
       decision={playback.decision}
       mutationError={playback.mutationError}
       onMarkWatched={playback.onMarkWatched}
+      onBrowserTicketRetry={playback.onBrowserTicketRetry}
       onPlaybackEnded={playback.onPlaybackEnded}
       onPlaybackPaused={playback.onPlaybackPaused}
       onPlaybackProgress={playback.onPlaybackProgress}
@@ -382,6 +391,7 @@ function useMediaItemPlayback({
     (source) => source.getUserPlaybackState(itemId),
     [itemId],
   );
+  const [browserTicketRetryKey, setBrowserTicketRetryKey] = useState(0);
   const browserTicket = useMediaLoad(
     selectedSourceId && decision.value ? dataSource : null,
     (source) =>
@@ -394,6 +404,7 @@ function useMediaItemPlayback({
       decision.value?.decision.mode,
       decision.value?.decision.transcode_plan?.output_container,
       browserCapabilities,
+      browserTicketRetryKey,
     ],
   );
   const [playbackStateOverride, setPlaybackStateOverride] =
@@ -436,6 +447,7 @@ function useMediaItemPlayback({
 
   function selectSource(sourceId: string) {
     onSearchChange({ source_id: sourceId });
+    setBrowserTicketRetryKey(0);
     setPlaybackStateOverride(null);
     setPlaybackMutationError(null);
   }
@@ -446,6 +458,7 @@ function useMediaItemPlayback({
     decision,
     mutationError: playbackMutationError,
     onMarkWatched: markWatched,
+    onBrowserTicketRetry: () => setBrowserTicketRetryKey((current) => current + 1),
     onPlaybackEnded: playbackProgress.onEnded,
     onPlaybackPaused: playbackProgress.onPaused,
     onPlaybackProgress: playbackProgress.onProgress,
@@ -875,6 +888,7 @@ function MediaWatch({
   decision,
   mutationError,
   onMarkWatched,
+  onBrowserTicketRetry,
   onPlaybackEnded,
   onPlaybackPaused,
   onPlaybackProgress,
@@ -889,6 +903,7 @@ function MediaWatch({
   decision: MediaAsyncState<PlaybackDecisionResponse>;
   mutationError: string | null;
   onMarkWatched(watched: boolean): void;
+  onBrowserTicketRetry(): void;
   onPlaybackEnded(snapshot: MediaPlaybackProgressSnapshot): void;
   onPlaybackPaused(snapshot: MediaPlaybackProgressSnapshot): void;
   onPlaybackProgress(snapshot: MediaPlaybackProgressSnapshot): void;
@@ -924,6 +939,7 @@ function MediaWatch({
         </div>
         <MediaBrowserPlayer
           fallbackDurationMs={fallbackDurationMs}
+          onBrowserTicketRetry={onBrowserTicketRetry}
           onPlaybackEnded={onPlaybackEnded}
           onPlaybackPaused={onPlaybackPaused}
           onPlaybackProgress={onPlaybackProgress}
@@ -1054,6 +1070,7 @@ function MediaPlaybackDecision({
 
 function MediaBrowserPlayer({
   fallbackDurationMs,
+  onBrowserTicketRetry,
   onPlaybackEnded,
   onPlaybackPaused,
   onPlaybackProgress,
@@ -1062,6 +1079,7 @@ function MediaBrowserPlayer({
   title,
 }: {
   fallbackDurationMs: number | null;
+  onBrowserTicketRetry(): void;
   onPlaybackEnded(snapshot: MediaPlaybackProgressSnapshot): void;
   onPlaybackPaused(snapshot: MediaPlaybackProgressSnapshot): void;
   onPlaybackProgress(snapshot: MediaPlaybackProgressSnapshot): void;
@@ -1069,55 +1087,120 @@ function MediaBrowserPlayer({
   result: MediaAsyncState<BrowserPlaybackTicketResponse>;
   title: string;
 }) {
-  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [activeCandidateIndex, setActiveCandidateIndex] = useState(0);
+  const [failedCandidateKey, setFailedCandidateKey] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const ticketSignature = result.value ? playbackTicketSignature(result.value) : null;
+
+  useEffect(() => {
+    setActiveCandidateIndex(0);
+    setFailedCandidateKey(null);
+    setRetryCount(0);
+  }, [ticketSignature]);
 
   if (result.loading) {
     return <div className="mediaSkeleton" />;
   }
 
   if (result.error) {
-    return <div className="mediaError">{result.error}</div>;
+    return (
+      <div className="mediaError">
+        <span>Playback ticket could not be issued. Request a fresh ticket and try again.</span>
+        <Button
+          onClick={onBrowserTicketRetry}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          <RefreshCw size={15} />
+          <span>Retry ticket</span>
+        </Button>
+      </div>
+    );
   }
 
   const ticket = result.value;
-  const primaryUrl = ticket?.urls[0];
+  const candidates = ticket ? playbackCandidates(ticket) : [];
+  const activeCandidate =
+    candidates[Math.min(activeCandidateIndex, Math.max(0, candidates.length - 1))];
 
-  if (!ticket || !primaryUrl) {
-    return <div className="mediaEmpty">Playback URL unavailable</div>;
+  if (!ticket || !activeCandidate) {
+    return (
+      <div className="mediaEmpty">
+        <span>Playback URL unavailable</span>
+        <Button
+          onClick={onBrowserTicketRetry}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          <RefreshCw size={15} />
+          <span>Retry ticket</span>
+        </Button>
+      </div>
+    );
   }
 
-  const playerFailed = failedUrl === primaryUrl.url;
+  const adapter = playbackAdapterFor(activeCandidate);
+  const playerFailed = failedCandidateKey === activeCandidate.key;
+  const nextCandidate = nextPlaybackCandidate(candidates, activeCandidateIndex);
+  const attachHlsJs = adapter.kind === "hls-js";
 
   return (
     <div className="mediaPlayerFrame">
-      <video
-        aria-label={`${title} player`}
-        className="mediaPlayer"
-        controls
-        onEnded={(event) =>
-          onPlaybackEnded(mediaPlaybackProgressSnapshot(event.currentTarget, fallbackDurationMs))
-        }
-        onPause={(event) =>
-          onPlaybackPaused(mediaPlaybackProgressSnapshot(event.currentTarget, fallbackDurationMs))
-        }
-        onError={() => setFailedUrl(primaryUrl.url)}
-        onPlay={onPlaybackStarted}
-        onPlaying={onPlaybackStarted}
-        onTimeUpdate={(event) =>
-          onPlaybackProgress(mediaPlaybackProgressSnapshot(event.currentTarget, fallbackDurationMs))
-        }
-        key={`${primaryUrl.url}:${retryCount}`}
-        playsInline
-        preload="metadata"
-        src={primaryUrl.url}
-      />
+      {adapter.kind === "unsupported-hls" ? (
+        <div className="mediaError">
+          <span>
+            This browser cannot open the HLS playlist without a compatible playback adapter.
+          </span>
+          <Button
+            onClick={onBrowserTicketRetry}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <RefreshCw size={15} />
+            <span>Retry ticket</span>
+          </Button>
+        </div>
+      ) : (
+        <MediaVideoElement
+          adapter={adapter}
+          attachHlsJs={attachHlsJs}
+          candidate={activeCandidate}
+          fallbackDurationMs={fallbackDurationMs}
+          onFailure={() => setFailedCandidateKey(activeCandidate.key)}
+          onPlaybackEnded={onPlaybackEnded}
+          onPlaybackPaused={onPlaybackPaused}
+          onPlaybackProgress={onPlaybackProgress}
+          onPlaybackStarted={onPlaybackStarted}
+          retryCount={retryCount}
+          title={title}
+          videoRef={videoRef}
+        />
+      )}
       {playerFailed ? (
         <div className="mediaError">
           <span>Playback failed before the browser could start the stream.</span>
+          {nextCandidate ? (
+            <Button
+              onClick={() => {
+                setActiveCandidateIndex(nextCandidate.index);
+                setFailedCandidateKey(null);
+                setRetryCount((current) => current + 1);
+              }}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <ArrowRight size={15} />
+              <span>Try next path</span>
+            </Button>
+          ) : null}
           <Button
             onClick={() => {
-              setFailedUrl(null);
+              setFailedCandidateKey(null);
               setRetryCount((current) => current + 1);
             }}
             size="sm"
@@ -1131,12 +1214,211 @@ function MediaBrowserPlayer({
       ) : null}
       <div className="mediaPlayerFacts">
         <span>{ticket.mode}</span>
-        <span>{primaryUrl.content_type}</span>
-        <span>{primaryUrl.supports_range_requests ? "range ready" : "playlist"}</span>
+        <span>{activeCandidate.contentType}</span>
+        <span>{adapter.label}</span>
+        <span>{activeCandidate.supportsRangeRequests ? "range ready" : "playlist"}</span>
         <span>expires {ticket.expires_at}</span>
       </div>
     </div>
   );
+}
+
+type MediaPlaybackCandidate = {
+  contentType: string;
+  index: number;
+  key: string;
+  kind: string;
+  supportsRangeRequests: boolean;
+  url: string;
+};
+
+type MediaPlaybackAdapter = {
+  kind: "native-video" | "native-hls" | "hls-js" | "unsupported-hls";
+  label: string;
+};
+
+type HlsJsInstance = {
+  attachMedia(video: HTMLVideoElement): void;
+  destroy(): void;
+  loadSource(url: string): void;
+  on?(event: string, handler: () => void): void;
+};
+
+type HlsJsConstructor = {
+  Events?: {
+    ERROR?: string;
+  };
+  isSupported?: () => boolean;
+  new (): HlsJsInstance;
+};
+
+function MediaVideoElement({
+  adapter,
+  attachHlsJs,
+  candidate,
+  fallbackDurationMs,
+  onFailure,
+  onPlaybackEnded,
+  onPlaybackPaused,
+  onPlaybackProgress,
+  onPlaybackStarted,
+  retryCount,
+  title,
+  videoRef,
+}: {
+  adapter: MediaPlaybackAdapter;
+  attachHlsJs: boolean;
+  candidate: MediaPlaybackCandidate;
+  fallbackDurationMs: number | null;
+  onFailure(): void;
+  onPlaybackEnded(snapshot: MediaPlaybackProgressSnapshot): void;
+  onPlaybackPaused(snapshot: MediaPlaybackProgressSnapshot): void;
+  onPlaybackProgress(snapshot: MediaPlaybackProgressSnapshot): void;
+  onPlaybackStarted(): void;
+  retryCount: number;
+  title: string;
+  videoRef: RefObject<HTMLVideoElement | null>;
+}) {
+  const onFailureRef = useRef(onFailure);
+
+  useEffect(() => {
+    onFailureRef.current = onFailure;
+  }, [onFailure]);
+
+  useEffect(() => {
+    if (!attachHlsJs) {
+      return;
+    }
+
+    const video = videoRef.current;
+    const Hls = getHlsJsConstructor();
+    if (!video || !Hls) {
+      onFailureRef.current();
+      return;
+    }
+
+    const hls = new Hls();
+    const errorEvent = Hls.Events?.ERROR;
+    if (errorEvent && typeof hls.on === "function") {
+      hls.on(errorEvent, () => onFailureRef.current());
+    }
+    hls.loadSource(candidate.url);
+    hls.attachMedia(video);
+
+    return () => {
+      hls.destroy();
+    };
+  }, [attachHlsJs, candidate.url, retryCount, videoRef]);
+
+  return (
+    <video
+      aria-label={`${title} player`}
+      className="mediaPlayer"
+      controls
+      data-playback-adapter={adapter.kind}
+      onEnded={(event) =>
+        onPlaybackEnded(mediaPlaybackProgressSnapshot(event.currentTarget, fallbackDurationMs))
+      }
+      onPause={(event) =>
+        onPlaybackPaused(mediaPlaybackProgressSnapshot(event.currentTarget, fallbackDurationMs))
+      }
+      onError={onFailure}
+      onPlay={onPlaybackStarted}
+      onPlaying={onPlaybackStarted}
+      onTimeUpdate={(event) =>
+        onPlaybackProgress(mediaPlaybackProgressSnapshot(event.currentTarget, fallbackDurationMs))
+      }
+      key={`${candidate.key}:${retryCount}`}
+      playsInline
+      preload="metadata"
+      ref={videoRef}
+      src={attachHlsJs ? undefined : candidate.url}
+    />
+  );
+}
+
+function playbackTicketSignature(ticket: BrowserPlaybackTicketResponse) {
+  return [
+    ticket.item_id,
+    ticket.mode,
+    ticket.source_id,
+    ticket.expires_at,
+    ticket.urls
+      .map(
+        (url, index) =>
+          `${index}:${url.kind}:${url.content_type}:${url.supports_range_requests}`,
+      )
+      .join("|"),
+  ].join(":");
+}
+
+function playbackCandidates(ticket: BrowserPlaybackTicketResponse): MediaPlaybackCandidate[] {
+  return ticket.urls.map((url, index) => ({
+    contentType: url.content_type,
+    index,
+    key: `${ticket.source_id}:${index}:${url.kind}:${url.content_type}:${url.supports_range_requests}`,
+    kind: url.kind,
+    supportsRangeRequests: url.supports_range_requests,
+    url: url.url,
+  }));
+}
+
+function nextPlaybackCandidate(
+  candidates: MediaPlaybackCandidate[],
+  activeCandidateIndex: number,
+) {
+  return candidates.find((candidate) => candidate.index > activeCandidateIndex) ?? null;
+}
+
+function playbackAdapterFor(candidate: MediaPlaybackCandidate): MediaPlaybackAdapter {
+  if (!isHlsCandidate(candidate)) {
+    return { kind: "native-video", label: "browser stream" };
+  }
+
+  if (supportsNativeHlsPlayback()) {
+    return { kind: "native-hls", label: "native HLS" };
+  }
+
+  if (supportsHlsJsPlayback()) {
+    return { kind: "hls-js", label: "hls.js" };
+  }
+
+  return { kind: "unsupported-hls", label: "HLS unavailable" };
+}
+
+function isHlsCandidate(candidate: MediaPlaybackCandidate) {
+  const contentType = candidate.contentType.toLowerCase();
+  return (
+    candidate.kind === "playlist" ||
+    contentType.includes("mpegurl") ||
+    contentType.includes("m3u8")
+  );
+}
+
+function supportsNativeHlsPlayback() {
+  if (typeof document === "undefined") {
+    return false;
+  }
+
+  const video = document.createElement("video");
+  if (typeof video.canPlayType !== "function") {
+    return false;
+  }
+
+  return canPlay(video, "application/vnd.apple.mpegurl") || canPlay(video, "application/x-mpegURL");
+}
+
+function supportsHlsJsPlayback() {
+  const Hls = getHlsJsConstructor();
+  if (!Hls) {
+    return false;
+  }
+
+  return typeof Hls.isSupported === "function" ? Hls.isSupported() : true;
+}
+
+function getHlsJsConstructor() {
+  return (globalThis as typeof globalThis & { Hls?: HlsJsConstructor }).Hls;
 }
 
 function MediaPlaybackState({

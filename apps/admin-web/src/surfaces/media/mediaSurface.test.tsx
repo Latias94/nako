@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { BrowserPlaybackTicketResponse } from "@nako/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../App";
@@ -6,6 +7,8 @@ import type { MediaDataSourceFactory, MediaWebDataSource } from "./mediaDataSour
 import { createFixtureMediaDataSource } from "./mediaDataSource";
 
 afterEach(() => {
+  delete (globalThis as typeof globalThis & { Hls?: unknown }).Hls;
+  vi.restoreAllMocks();
   window.history.pushState(null, "", "/");
 });
 
@@ -296,6 +299,147 @@ describe("Media Web surface", () => {
     expect(container.textContent).not.toContain("Bearer");
   });
 
+  it("shows a safe ticket retry state without exposing ticket issuance internals", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/watch/item-episode-1?source_id=source-episode-1-alt",
+    );
+    const dataSource = createFixtureMediaDataSource();
+    const createBrowserPlaybackTicket = vi
+      .fn<MediaWebDataSource["createBrowserPlaybackTicket"]>()
+      .mockRejectedValueOnce(
+        new Error("ticket failure for /sources/source-episode-1-alt?ticket=nako_bpt_secret"),
+      )
+      .mockImplementation(dataSource.createBrowserPlaybackTicket);
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          createBrowserPlaybackTicket,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    const { container } = render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    expect(await screen.findByText("Playback ticket could not be issued. Request a fresh ticket and try again.")).toBeInTheDocument();
+    expect(container.textContent).not.toContain("nako_bpt_secret");
+    expect(container.textContent).not.toContain("/sources/");
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry ticket" }));
+
+    expect(await screen.findByLabelText("Pilot player")).toBeInTheDocument();
+    expect(createBrowserPlaybackTicket).toHaveBeenCalledTimes(2);
+    expect(container.textContent).not.toContain("nako_bpt_fixture");
+  });
+
+  it("can recover from a failed browser path by trying the next ticket URL", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/watch/item-episode-1?source_id=source-episode-1-alt",
+    );
+    const dataSource = createFixtureMediaDataSource();
+    const createBrowserPlaybackTicket = vi.fn(async () => ({
+      source: "fixture" as const,
+      value: multiplePathTicket,
+    })) satisfies MediaWebDataSource["createBrowserPlaybackTicket"];
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          createBrowserPlaybackTicket,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    const { container } = render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    const player = await screen.findByLabelText("Pilot player");
+    expect(player).toHaveAttribute("src", expect.stringContaining("path=primary"));
+
+    fireEvent.error(player);
+
+    expect(
+      await screen.findByText("Playback failed before the browser could start the stream."),
+    ).toBeInTheDocument();
+    expect(container.textContent).not.toContain("nako_bpt_primary");
+    expect(container.textContent).not.toContain("nako_bpt_secondary");
+
+    fireEvent.click(screen.getByRole("button", { name: "Try next path" }));
+
+    const recoveredPlayer = await screen.findByLabelText("Pilot player");
+    expect(recoveredPlayer).toHaveAttribute("src", expect.stringContaining("path=secondary"));
+    expect(
+      screen.queryByText("Playback failed before the browser could start the stream."),
+    ).not.toBeInTheDocument();
+    expect(container.textContent).not.toContain("nako_bpt_secondary");
+  });
+
+  it("uses an available hls.js adapter for playlist tickets without rendering playlist URLs", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/watch/item-episode-1?source_id=source-episode-1-alt",
+    );
+    vi.spyOn(HTMLMediaElement.prototype, "canPlayType").mockReturnValue("");
+    const loadSource = vi.fn();
+    const attachMedia = vi.fn();
+    const destroy = vi.fn();
+    class TestHls {
+      static Events = { ERROR: "hls-error" };
+      static isSupported() {
+        return true;
+      }
+      attachMedia = attachMedia;
+      destroy = destroy;
+      loadSource = loadSource;
+      on = vi.fn();
+    }
+    (globalThis as typeof globalThis & { Hls?: unknown }).Hls = TestHls;
+    const dataSource = createFixtureMediaDataSource();
+    const createBrowserPlaybackTicket = vi.fn(async () => ({
+      source: "fixture" as const,
+      value: hlsPlaylistTicket,
+    })) satisfies MediaWebDataSource["createBrowserPlaybackTicket"];
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          createBrowserPlaybackTicket,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    const { container } = render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    const player = await screen.findByLabelText("Pilot player");
+    await waitFor(() => {
+      expect(loadSource).toHaveBeenCalledWith(expect.stringContaining("nako_bpt_hls"));
+      expect(attachMedia).toHaveBeenCalledWith(player);
+    });
+    expect(player).not.toHaveAttribute("src");
+    expect(screen.getByText("hls.js")).toBeInTheDocument();
+    expect(container.textContent).not.toContain("nako_bpt_hls");
+    expect(container.textContent).not.toContain("/stream/hls/");
+  });
+
   it("shows a safe retry state when the browser player reports an error", async () => {
     window.history.pushState(
       null,
@@ -450,6 +594,44 @@ function emptyAdminDataSource() {
     },
   };
 }
+
+const multiplePathTicket: BrowserPlaybackTicketResponse = {
+  expires_at: "2026-05-26T12:00:00Z",
+  item_id: "item-episode-1",
+  mode: "direct",
+  playback_session_id: null,
+  source_id: "source-episode-1-alt",
+  urls: [
+    {
+      content_type: "video/mp4",
+      kind: "stream",
+      supports_range_requests: true,
+      url: "https://fixture.nako.test/stream?path=primary&ticket=nako_bpt_primary",
+    },
+    {
+      content_type: "video/mp4",
+      kind: "stream",
+      supports_range_requests: true,
+      url: "https://fixture.nako.test/stream?path=secondary&ticket=nako_bpt_secondary",
+    },
+  ],
+};
+
+const hlsPlaylistTicket: BrowserPlaybackTicketResponse = {
+  expires_at: "2026-05-26T12:00:00Z",
+  item_id: "item-episode-1",
+  mode: "hls",
+  playback_session_id: "playback-session-hls-fixture",
+  source_id: "source-episode-1-alt",
+  urls: [
+    {
+      content_type: "application/vnd.apple.mpegurl",
+      kind: "playlist",
+      supports_range_requests: false,
+      url: "https://fixture.nako.test/stream/hls/playlist.m3u8?ticket=nako_bpt_hls",
+    },
+  ],
+};
 
 function setMediaTiming(player: HTMLElement, currentTimeSeconds: number, durationSeconds: number) {
   Object.defineProperty(player, "currentTime", {
