@@ -27,5 +27,6 @@ axum.workspace = true
 pollster.workspace = true
 nako-db = { path = "../nako-db" }
 nako-search = { path = "../nako-search" }
+serde_json.workspace = true
 tempfile.workspace = true
 tokio.workspace = true

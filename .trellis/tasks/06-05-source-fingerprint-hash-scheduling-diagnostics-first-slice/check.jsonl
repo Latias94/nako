@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "verify hash planning remains advisory and redaction-safe"}
+{"file": "docs/architecture/STORAGE_VFS.md", "reason": "verify shipped/follow-on scope is accurately updated"}
+{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "verify source identity boundaries stay aligned"}
+{"file": ".trellis/spec/guides/index.md", "reason": "shared review guide"}

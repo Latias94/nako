@@ -27,7 +27,7 @@ and rclone-like mounts can be slow, stale, or unavailable.
 | Remote storage boundary | Shipped durable health foundation | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/`; `.trellis/tasks/archive/2026-06/06-02-01d-hls-artifact-io-pressure-enforcement/` | Open follow-ons for cache repair, fingerprint hash scheduling / operator diagnostics, scan scheduling, or PostgreSQL runtime harness work. |
 | WebDAV read path | Partial | `docs/workstreams/storage-vfs/`; remote storage lanes | Harden retries, cache, and operator diagnostics. |
 | Source locator | Shipped foundation | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Watcher/debounce productization and repair workflows. |
-| Source fingerprint | Shipped escalation policy and hash execution kernel | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/archive/2026-06/06-04-06-04-source-fingerprint-escalation-policy-first-slice/`; `.trellis/tasks/archive/2026-06/06-05-06-05-source-fingerprint-hash-execution-first-slice/`; `crates/nako-library/src/source_hash.rs` | Scan/operator scheduling, queueing, and diagnostics remain follow-ons. |
+| Source fingerprint | Shipped escalation policy, hash execution kernel, and scheduling diagnostic planner | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/archive/2026-06/06-04-06-04-source-fingerprint-escalation-policy-first-slice/`; `.trellis/tasks/archive/2026-06/06-05-06-05-source-fingerprint-hash-execution-first-slice/`; `crates/nako-library/src/source_hash.rs` | Queue-backed scan/operator execution, Admin/Public API exposure, persistence, and automatic reconciliation remain follow-ons. |
 | Remote probe staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Per-backend staging budgets and diagnostics. |
 | Remote FFmpeg input staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md` | Per-backend staging budgets and diagnostics. |
 | VFS cache | Shipped diagnostics foundation, action preview, latest-failure refresh, action plan, target-scoped preview, and selected-target refresh execution | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/06-04-06-04-vfs-cache-repair-action-preview-first-slice/`; `.trellis/tasks/06-04-vfs-cache-repair-operator-actions/`; `.trellis/tasks/06-04-vfs-cache-uri-scoped-previews/`; `.trellis/tasks/06-05-vfs-cache-repair-executable-refresh-action/` | Durable repair queues and broader non-destructive remediation planning remain follow-ons. |
@@ -91,6 +91,29 @@ Boundaries:
 - no scan scheduling, operator queue, Admin/Public API, persistence, duplicate
   relationship mutation, or automatic Media Source merge behavior was added.
 
+### source-fingerprint-hash-scheduling-diagnostics-first-slice
+
+Status: Minimal scheduling diagnostic planner shipped as of 2026-06-05.
+
+Shipped:
+
+- `nako-library::source_hash` can map an advisory
+  `SourceFingerprintEscalationDecision` and opt-in scheduling policy into an
+  optional `SourceFingerprintHashRequest`;
+- disabled scheduling and `none` escalation remain diagnostic-only;
+- partial escalation selects the configured prefix-length
+  `SourceFingerprintHashMode::Partial`, while full escalation selects
+  `SourceFingerprintHashMode::Full`;
+- diagnostics expose only source scheme, decision facts, schedule state, and
+  selected mode, keeping raw source locators and local paths out of operator
+  surfaces.
+
+Boundaries:
+
+- no VFS read, durable queue, Admin/Public API, persistence, schema migration,
+  duplicate relationship mutation, or automatic Media Source merge behavior was
+  added.
+
 ### vfs-cache-repair-diagnostics
 
 Status: Minimal diagnostic slice shipped as of 2026-06-02; structured action
@@ -138,10 +161,11 @@ Shipped:
   repair guidance beyond refresh-only target actions.
 - `.trellis/tasks/archive/2026-06/06-02-01d-hls-artifact-io-pressure-enforcement/`
   (closed HLS artifact I/O pressure admission; shipped by `48668afc`).
-- `proposed:source-fingerprint-hash-scheduling-and-diagnostics`: opt-in scan
-  or operator scheduling, queueing, and diagnostics around the shipped partial
-  / full hash execution kernel for ambiguous source identity cases. The current
-  scan escalation policy seam remains advisory and does not read source bytes.
+- `proposed:source-fingerprint-hash-queue-and-operator-integration`: durable
+  scan/operator queueing, persistence, Admin diagnostics, and controlled
+  execution around the shipped advisory planner and partial/full hash execution
+  kernel. The current scan escalation policy seam remains advisory and does
+  not read source bytes.
 - `proposed:storage-vfs-postgresql-runtime-harness`: runtime parity evidence
   for PostgreSQL storage/source identity query paths.
 

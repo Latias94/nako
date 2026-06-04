@@ -407,6 +407,10 @@ Shipped behavior:
 - a bounded source fingerprint hash execution kernel that can compute partial
   `BackendFingerprint` evidence or streaming full `ContentHash` evidence
   through VFS for future scheduler/operator workflows;
+- a redaction-safe source fingerprint hash scheduling diagnostic planner that
+  turns advisory escalation decisions into optional in-process
+  `SourceFingerprintHashRequest` values while exposing only source scheme,
+  decision facts, schedule state, and selected mode in diagnostics;
 - source-scoped storage failure diagnostics.
 
 ### library-watcher-and-media-intake-stability

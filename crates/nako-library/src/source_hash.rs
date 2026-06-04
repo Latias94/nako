@@ -1,6 +1,7 @@
 use futures_util::StreamExt;
 use nako_core::{
-    NakoError, Result, SourceFingerprintEvidence, SourceFingerprintEvidenceKind,
+    NakoError, Result, SourceFingerprintEscalationAction, SourceFingerprintEscalationDecision,
+    SourceFingerprintEscalationReason, SourceFingerprintEvidence, SourceFingerprintEvidenceKind,
     SourceFingerprintPolicyInput,
 };
 use nako_vfs::{ByteRange, StorageBackend, StorageUri};
@@ -25,6 +26,65 @@ pub struct SourceFingerprintHashReport {
     pub mode: SourceFingerprintHashMode,
     pub evidence: SourceFingerprintEvidence,
     pub bytes_hashed: u64,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceFingerprintHashSchedulingPolicy {
+    Disabled,
+    Enabled { partial_prefix_bytes: u64 },
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SourceFingerprintHashSchedulingInput {
+    pub source_uri: StorageUri,
+    pub decision: SourceFingerprintEscalationDecision,
+    pub policy: SourceFingerprintHashSchedulingPolicy,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SourceFingerprintHashSchedulingPlan {
+    pub diagnostic: SourceFingerprintHashSchedulingDiagnostic,
+    pub request: Option<SourceFingerprintHashRequest>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SourceFingerprintHashSchedulingDiagnostic {
+    pub source_scheme: String,
+    pub action: SourceFingerprintEscalationAction,
+    pub reason: SourceFingerprintEscalationReason,
+    pub evidence_kind: SourceFingerprintEvidenceKind,
+    pub confidence_milli: u16,
+    pub stale: bool,
+    pub candidate_count: u32,
+    pub scheduled: bool,
+    pub mode: Option<SourceFingerprintHashMode>,
+}
+
+pub fn plan_source_fingerprint_hash_scheduling(
+    input: SourceFingerprintHashSchedulingInput,
+) -> Result<SourceFingerprintHashSchedulingPlan> {
+    let source_scheme = input.source_uri.scheme().to_owned();
+    let mode = hash_mode_for_decision(input.decision.action, input.policy)?;
+    let request = mode.map(|mode| SourceFingerprintHashRequest {
+        uri: input.source_uri,
+        mode,
+    });
+
+    Ok(SourceFingerprintHashSchedulingPlan {
+        diagnostic: SourceFingerprintHashSchedulingDiagnostic {
+            source_scheme,
+            action: input.decision.action,
+            reason: input.decision.reason,
+            evidence_kind: input.decision.evidence_kind,
+            confidence_milli: input.decision.confidence_milli,
+            stale: input.decision.stale,
+            candidate_count: input.decision.candidate_count,
+            scheduled: request.is_some(),
+            mode,
+        },
+        request,
+    })
 }
 
 #[derive(Debug)]
@@ -145,6 +205,34 @@ fn source_fingerprint_evidence(
     evidence
 }
 
+fn hash_mode_for_decision(
+    action: SourceFingerprintEscalationAction,
+    policy: SourceFingerprintHashSchedulingPolicy,
+) -> Result<Option<SourceFingerprintHashMode>> {
+    let partial_prefix_bytes = match policy {
+        SourceFingerprintHashSchedulingPolicy::Disabled => return Ok(None),
+        SourceFingerprintHashSchedulingPolicy::Enabled {
+            partial_prefix_bytes,
+        } => partial_prefix_bytes,
+    };
+
+    if partial_prefix_bytes == 0 {
+        return Err(NakoError::InvalidInput {
+            message: "source fingerprint hash partial prefix must be greater than zero".to_owned(),
+        });
+    }
+
+    Ok(match action {
+        SourceFingerprintEscalationAction::None => None,
+        SourceFingerprintEscalationAction::PartialHash => {
+            Some(SourceFingerprintHashMode::Partial {
+                prefix_bytes: partial_prefix_bytes,
+            })
+        }
+        SourceFingerprintEscalationAction::FullHash => Some(SourceFingerprintHashMode::Full),
+    })
+}
+
 fn usize_to_u64(value: usize, uri: &StorageUri) -> Result<u64> {
     u64::try_from(value).map_err(|err| {
         NakoError::storage_unknown(
@@ -171,6 +259,152 @@ mod tests {
     };
 
     use super::*;
+
+    #[test]
+    fn hash_scheduling_disabled_reports_decision_without_request() {
+        let uri = StorageUri::from_parts("local", "Movies/Secret Path/Demo.mkv").unwrap();
+        let plan = plan_source_fingerprint_hash_scheduling(SourceFingerprintHashSchedulingInput {
+            source_uri: uri,
+            decision: partial_hash_decision(),
+            policy: SourceFingerprintHashSchedulingPolicy::Disabled,
+        })
+        .unwrap();
+
+        assert_eq!(plan.request, None);
+        assert_eq!(plan.diagnostic.source_scheme, "local");
+        assert_eq!(
+            plan.diagnostic.action,
+            SourceFingerprintEscalationAction::PartialHash
+        );
+        assert_eq!(
+            plan.diagnostic.reason,
+            SourceFingerprintEscalationReason::ConfirmSingleWeakCandidate
+        );
+        assert_eq!(
+            plan.diagnostic.evidence_kind,
+            SourceFingerprintEvidenceKind::BackendFingerprint
+        );
+        assert_eq!(plan.diagnostic.confidence_milli, 700);
+        assert!(!plan.diagnostic.stale);
+        assert_eq!(plan.diagnostic.candidate_count, 1);
+        assert!(!plan.diagnostic.scheduled);
+        assert_eq!(plan.diagnostic.mode, None);
+    }
+
+    #[test]
+    fn hash_scheduling_none_escalation_remains_diagnostic_only() {
+        let uri = StorageUri::from_parts("local", "Movies/Demo.mkv").unwrap();
+        let plan = plan_source_fingerprint_hash_scheduling(SourceFingerprintHashSchedulingInput {
+            source_uri: uri,
+            decision: no_escalation_decision(),
+            policy: SourceFingerprintHashSchedulingPolicy::Enabled {
+                partial_prefix_bytes: 4_096,
+            },
+        })
+        .unwrap();
+
+        assert_eq!(plan.request, None);
+        assert_eq!(
+            plan.diagnostic.action,
+            SourceFingerprintEscalationAction::None
+        );
+        assert_eq!(plan.diagnostic.mode, None);
+        assert!(!plan.diagnostic.scheduled);
+    }
+
+    #[test]
+    fn hash_scheduling_partial_builds_configured_prefix_request() {
+        let uri = StorageUri::from_parts("local", "Movies/Demo.mkv").unwrap();
+        let plan = plan_source_fingerprint_hash_scheduling(SourceFingerprintHashSchedulingInput {
+            source_uri: uri.clone(),
+            decision: partial_hash_decision(),
+            policy: SourceFingerprintHashSchedulingPolicy::Enabled {
+                partial_prefix_bytes: 8_192,
+            },
+        })
+        .unwrap();
+
+        let mode = SourceFingerprintHashMode::Partial {
+            prefix_bytes: 8_192,
+        };
+        assert_eq!(plan.diagnostic.source_scheme, "local");
+        assert_eq!(plan.diagnostic.mode, Some(mode));
+        assert!(plan.diagnostic.scheduled);
+        assert_eq!(
+            plan.request,
+            Some(SourceFingerprintHashRequest { uri, mode })
+        );
+    }
+
+    #[test]
+    fn hash_scheduling_full_builds_full_hash_request() {
+        let uri = StorageUri::from_parts("webdav", "Movies/Demo.mkv").unwrap();
+        let plan = plan_source_fingerprint_hash_scheduling(SourceFingerprintHashSchedulingInput {
+            source_uri: uri.clone(),
+            decision: full_hash_decision(),
+            policy: SourceFingerprintHashSchedulingPolicy::Enabled {
+                partial_prefix_bytes: 8_192,
+            },
+        })
+        .unwrap();
+
+        assert_eq!(plan.diagnostic.source_scheme, "webdav");
+        assert_eq!(plan.diagnostic.mode, Some(SourceFingerprintHashMode::Full));
+        assert!(plan.diagnostic.scheduled);
+        assert_eq!(
+            plan.request,
+            Some(SourceFingerprintHashRequest {
+                uri,
+                mode: SourceFingerprintHashMode::Full,
+            })
+        );
+    }
+
+    #[test]
+    fn hash_scheduling_rejects_zero_partial_prefix_without_locator_leak() {
+        let err = plan_source_fingerprint_hash_scheduling(SourceFingerprintHashSchedulingInput {
+            source_uri: StorageUri::from_parts("local", "Users/Frankorz/Secret Path/Demo.mkv")
+                .unwrap(),
+            decision: partial_hash_decision(),
+            policy: SourceFingerprintHashSchedulingPolicy::Enabled {
+                partial_prefix_bytes: 0,
+            },
+        })
+        .unwrap_err();
+
+        let NakoError::InvalidInput { message } = err else {
+            panic!("expected invalid input");
+        };
+        assert_eq!(
+            message,
+            "source fingerprint hash partial prefix must be greater than zero"
+        );
+        assert!(!message.contains("Secret Path"));
+        assert!(!message.contains("local:///"));
+    }
+
+    #[test]
+    fn hash_scheduling_diagnostic_serialization_redacts_locator_path() {
+        let plan = plan_source_fingerprint_hash_scheduling(SourceFingerprintHashSchedulingInput {
+            source_uri: StorageUri::from_parts(
+                "local",
+                "Users/Frankorz/Secret Path/Hidden Movie.mkv",
+            )
+            .unwrap(),
+            decision: partial_hash_decision(),
+            policy: SourceFingerprintHashSchedulingPolicy::Enabled {
+                partial_prefix_bytes: 16_384,
+            },
+        })
+        .unwrap();
+
+        let diagnostic = serde_json::to_string(&plan.diagnostic).unwrap();
+        assert!(diagnostic.contains(r#""source_scheme":"local""#));
+        assert!(!diagnostic.contains("Hidden Movie"));
+        assert!(!diagnostic.contains("Secret Path"));
+        assert!(!diagnostic.contains("Frankorz"));
+        assert!(!diagnostic.contains("local:///"));
+    }
 
     #[tokio::test]
     async fn partial_hash_reads_configured_prefix_and_returns_redacted_backend_evidence() {
@@ -290,6 +524,39 @@ mod tests {
             .unwrap_err();
 
         assert_eq!(err, expected);
+    }
+
+    fn no_escalation_decision() -> SourceFingerprintEscalationDecision {
+        SourceFingerprintEscalationDecision {
+            action: SourceFingerprintEscalationAction::None,
+            reason: SourceFingerprintEscalationReason::StrongEvidence,
+            evidence_kind: SourceFingerprintEvidenceKind::ContentHash,
+            confidence_milli: 1_000,
+            stale: false,
+            candidate_count: 1,
+        }
+    }
+
+    fn partial_hash_decision() -> SourceFingerprintEscalationDecision {
+        SourceFingerprintEscalationDecision {
+            action: SourceFingerprintEscalationAction::PartialHash,
+            reason: SourceFingerprintEscalationReason::ConfirmSingleWeakCandidate,
+            evidence_kind: SourceFingerprintEvidenceKind::BackendFingerprint,
+            confidence_milli: 700,
+            stale: false,
+            candidate_count: 1,
+        }
+    }
+
+    fn full_hash_decision() -> SourceFingerprintEscalationDecision {
+        SourceFingerprintEscalationDecision {
+            action: SourceFingerprintEscalationAction::FullHash,
+            reason: SourceFingerprintEscalationReason::DisambiguateMultipleCandidates,
+            evidence_kind: SourceFingerprintEvidenceKind::SizeAndEtag,
+            confidence_milli: 800,
+            stale: false,
+            candidate_count: 2,
+        }
     }
 
     #[derive(Clone)]

@@ -18,6 +18,11 @@ Library workflow changes must preserve deterministic, bounded intake behavior.
   `BackendFingerprint` evidence; full hash execution uses streaming reads and
   returns `ContentHash` evidence. Returned evidence must not expose raw hashes,
   paths, locators, etags, backend URLs, or credentials.
+- Convert source fingerprint escalation decisions into schedulable hash
+  requests only through the `source_hash.rs` scheduling planner. Diagnostics
+  must expose source scheme, decision fields, schedule state, and selected mode
+  only; the full `StorageUri` belongs to the in-process execution request, not
+  to the diagnostic surface.
 - Persist local inference evidence so provisional hierarchy decisions are
   explainable.
 - Require repeated unchanged intake observation evidence before a watcher
@@ -178,6 +183,59 @@ decision for later hash scheduling or operator diagnostics.
 - Unsupported and failing backend propagation.
 - Focused gate:
   `cargo nextest run -p nako-library source_hash --no-fail-fast`.
+
+## Scenario: Source Fingerprint Hash Scheduling Diagnostics
+
+### 1. Scope / Trigger
+
+- Trigger: a scan/operator workflow has a prior
+  `SourceFingerprintEscalationDecision` and needs to decide whether to prepare
+  partial/full hash work.
+- Scope: `nako-library::source_hash` maps the advisory decision to an optional
+  `SourceFingerprintHashRequest` plus redaction-safe diagnostics.
+
+### 2. Signatures
+
+- `plan_source_fingerprint_hash_scheduling(SourceFingerprintHashSchedulingInput)
+  -> SourceFingerprintHashSchedulingPlan`.
+- Input carries a `StorageUri`, the advisory
+  `SourceFingerprintEscalationDecision`, and
+  `SourceFingerprintHashSchedulingPolicy`.
+
+### 3. Contracts
+
+- Scheduling is opt-in. Disabled policy returns diagnostics only.
+- `none` escalation returns diagnostics only even when scheduling is enabled.
+- `partial_hash` maps to `SourceFingerprintHashMode::Partial` with the
+  configured prefix length.
+- `full_hash` maps to `SourceFingerprintHashMode::Full`.
+- The diagnostic surface exposes source scheme, action, reason, evidence kind,
+  confidence, stale state, candidate count, scheduled state, and selected mode.
+- The diagnostic surface must not include raw source locators, local paths,
+  etags, fingerprints, backend URLs, credentials, or provider payloads.
+- The optional execution request may carry the full `StorageUri` for future
+  in-process queue/executor code; do not serialize that request as an operator
+  diagnostic.
+- This planner does not execute VFS reads, enqueue durable jobs, persist
+  evidence, change schema, add Admin/Public API fields, mutate duplicate
+  relationships, or automatically merge Media Sources.
+
+### 4. Validation & Error Matrix
+
+- Disabled policy -> no request.
+- `none` action -> no request.
+- Enabled policy with zero partial prefix -> `NakoError::InvalidInput` with a
+  redaction-safe message.
+- `partial_hash` -> request mode `Partial { prefix_bytes }`.
+- `full_hash` -> request mode `Full`.
+
+### 5. Tests Required
+
+- Disabled scheduling remains diagnostic-only.
+- No-escalation remains diagnostic-only.
+- Partial/full actions produce exact execution request modes.
+- Invalid prefix returns a redaction-safe error.
+- Diagnostic serialization does not expose locator/path content.
 
 ## Review Checklist
 

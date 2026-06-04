@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/nako-library/backend/index.md", "reason": "library backend pre-development checklist"}
+{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "source fingerprint escalation and hash execution boundaries"}
+{"file": ".trellis/spec/nako-library/backend/directory-structure.md", "reason": "module placement for library hash planning"}
+{"file": ".trellis/spec/guides/index.md", "reason": "shared thinking guide"}
+{"file": "docs/architecture/STORAGE_VFS.md", "reason": "storage/source fingerprint follow-on scope"}
+{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "source identity foundation and scan boundaries"}
