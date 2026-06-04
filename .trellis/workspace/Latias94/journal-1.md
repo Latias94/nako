@@ -510,7 +510,15 @@ Added preview-only Admin storage diagnostics for the latest redacted VFS cache r
 
 ### Main Changes
 
-(Add details)
+- Added `SourceFingerprintHashSchedulingPolicy`, input/plan/diagnostic records,
+  and `plan_source_fingerprint_hash_scheduling` in `nako-library::source_hash`.
+- Mapped disabled/no-op decisions to diagnostic-only output, partial decisions
+  to configured-prefix hash requests, full decisions to full hash requests, and
+  zero-prefix policy to redaction-safe `NakoError::InvalidInput`.
+- Updated `nako-library` specs and storage/library architecture maps to keep
+  this first slice separate from durable queues, API exposure, persistence,
+  execution integration, and automatic source reconciliation.
+- Archived the Trellis task after verification.
 
 ### Git Commits
 
@@ -848,7 +856,11 @@ Added a typed HLS video output codec policy seam in nako-transcode, recognized H
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] `cargo fmt --all`
+- [OK] `cargo nextest run -p nako-library source_hash --no-fail-fast` — 10 passed
+- [OK] `cargo check -p nako-library --tests`
+- [OK] `git diff --check`
+- [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-05-source-fingerprint-hash-scheduling-diagnostics-first-slice`
 
 ### Status
 
@@ -1859,6 +1871,41 @@ Propagated typed request trace context into public and admin library scan enqueu
 - [OK] `cargo nextest run -p nako-server admin_scan_route_persists_safe_trace_context_without_exposing_input --no-fail-fast`
 - [OK] `git diff --check`
 - [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-05-06-05-http-library-scan-trace-context-first-slice`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 45: Source fingerprint hash scheduling diagnostics
+
+**Date**: 2026-06-05
+**Task**: Source fingerprint hash scheduling diagnostics
+**Package**: nako-library
+**Branch**: `main`
+
+### Summary
+
+Shipped a nako-library planner that maps advisory source fingerprint escalation decisions to redaction-safe diagnostics and optional in-process partial/full hash requests; archived the Trellis task after focused checks.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ed4036e4` | (see git log) |
+| `28d0a9e3` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
 
 ### Status
 
