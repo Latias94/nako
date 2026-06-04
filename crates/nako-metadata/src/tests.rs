@@ -137,7 +137,7 @@ fn built_in_provider_capabilities_are_diagnostics_safe() {
             .contains(&MediaKind::Movie)
     );
     assert!(
-        !douban_capabilities
+        douban_capabilities
             .supported_media_kinds
             .contains(&MediaKind::Series)
     );
@@ -152,7 +152,7 @@ fn built_in_provider_capabilities_are_diagnostics_safe() {
             .contains(&MediaKind::Episode)
     );
     assert!(
-        !douban_capabilities
+        douban_capabilities
             .supported_subject_kinds
             .contains(&ProviderSubjectKind::Series)
     );
@@ -4325,7 +4325,7 @@ async fn douban_provider_uses_api_key_and_maps_http_response() {
 }
 
 #[tokio::test]
-async fn douban_provider_rejects_series_season_episode_until_endpoint_backed() {
+async fn douban_provider_supports_series_subject_endpoint_without_hierarchy() {
     let server = MockMetadataServer::start().await;
     let provider = DoubanMetadataProvider::new(DoubanProviderConfig {
         api_key: Some(fixtures::DOUBAN_API_KEY.into()),
@@ -4338,7 +4338,69 @@ async fn douban_provider_rejects_series_season_episode_until_endpoint_backed() {
     })
     .unwrap();
 
-    for kind in [MediaKind::Series, MediaKind::Season, MediaKind::Episode] {
+    let candidates = provider
+        .search(MetadataLookup {
+            kind: Some(MediaKind::Series),
+            title: "绝命毒师".to_owned(),
+            year: Some(2008),
+            language: Some("zh-CN".to_owned()),
+            external_ids: Vec::new(),
+        })
+        .await
+        .unwrap();
+    let fetched = provider
+        .fetch(MetadataFetchRequest {
+            kind: MediaKind::Series,
+            provider_key: candidates[0].provider_key.clone(),
+            language: Some("zh-CN".to_owned()),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(candidates.len(), 1);
+    assert_eq!(candidates[0].provider, ExternalProvider::Douban);
+    assert_eq!(candidates[0].provider_key, "2131459");
+    assert_eq!(candidates[0].metadata().title, "绝命毒师");
+    let candidate_subject = candidates[0].graph.root.subject.as_ref().unwrap();
+    assert_eq!(candidate_subject.subject_kind, ProviderSubjectKind::Series);
+    assert_eq!(candidate_subject.subject_key, "2131459");
+    assert_eq!(fetched.provider_key, "2131459");
+    assert_eq!(fetched.metadata().title, "绝命毒师");
+    let fetched_subject = fetched.graph.root.subject.as_ref().unwrap();
+    assert_eq!(fetched_subject.subject_kind, ProviderSubjectKind::Series);
+    assert_eq!(fetched_subject.subject_key, "2131459");
+    assert!(fetched.graph.related.is_empty());
+    assert!(fetched.graph.relationships.is_empty());
+    assert!(fetched.raw_json.contains(r#""subtype":"tv""#));
+    assert!(
+        server
+            .uris()
+            .iter()
+            .any(|uri| uri.contains("/movie/search"))
+    );
+    assert!(
+        server
+            .uris()
+            .iter()
+            .any(|uri| uri.contains("/movie/subject/2131459"))
+    );
+}
+
+#[tokio::test]
+async fn douban_provider_rejects_season_episode_until_endpoint_backed() {
+    let server = MockMetadataServer::start().await;
+    let provider = DoubanMetadataProvider::new(DoubanProviderConfig {
+        api_key: Some(fixtures::DOUBAN_API_KEY.into()),
+        api_base_url: server.base_url(),
+        runtime: MetadataHttpRuntimeConfig {
+            min_interval_ms: 0,
+            ..MetadataHttpRuntimeConfig::default()
+        },
+        ..DoubanProviderConfig::default()
+    })
+    .unwrap();
+
+    for kind in [MediaKind::Season, MediaKind::Episode] {
         let search_err = provider
             .search(MetadataLookup {
                 kind: Some(kind),
@@ -4938,6 +5000,7 @@ async fn mock_douban_search(
     Json(json!({
         "subjects": [{
             "id": "1292052",
+            "subtype": "movie",
             "title": "肖申克的救赎",
             "original_title": "The Shawshank Redemption",
             "summary": "Hope is a good thing.",
@@ -4945,6 +5008,16 @@ async fn mock_douban_search(
             "images": {"large": "https://img.doubanio.com/view/photo/l/public/p480747492.webp"},
             "genres": ["剧情", "犯罪"],
             "rating": {"average": 9.7}
+        }, {
+            "id": "2131459",
+            "subtype": "tv",
+            "title": "绝命毒师",
+            "original_title": "Breaking Bad",
+            "summary": "A chemistry teacher turns to crime.",
+            "year": "2008",
+            "images": {"large": "https://img.doubanio.com/view/photo/l/public/breaking-bad.webp"},
+            "genres": ["剧情", "犯罪"],
+            "rating": {"average": 9.5}
         }]
     }))
 }
@@ -4955,8 +5028,29 @@ async fn mock_douban_subject(
     uri: Uri,
 ) -> Json<serde_json::Value> {
     record_request(&state, &headers, &uri);
+    if uri.path().ends_with("/2131459") {
+        return Json(json!({
+            "id": "2131459",
+            "subtype": "tv",
+            "title": "绝命毒师",
+            "original_title": "Breaking Bad",
+            "summary": "A chemistry teacher turns to crime.",
+            "year": "2008",
+            "images": {"large": "https://img.doubanio.com/view/photo/l/public/breaking-bad.webp"},
+            "genres": ["剧情", "犯罪"],
+            "countries": ["美国"],
+            "directors": [{"id": "101", "name": "Vince Gilligan"}],
+            "casts": [{"id": "102", "name": "Bryan Cranston"}],
+            "rating": {"average": 9.5},
+            "seasons_count": 5,
+            "current_season": 1,
+            "episodes_count": 62
+        }));
+    }
+
     Json(json!({
         "id": "1292052",
+        "subtype": "movie",
         "title": "肖申克的救赎",
         "original_title": "The Shawshank Redemption",
         "summary": "Hope is a good thing.",

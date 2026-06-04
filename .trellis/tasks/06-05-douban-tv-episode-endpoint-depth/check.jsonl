@@ -1,0 +1,5 @@
+{"file":".trellis/spec/nako-metadata/backend/index.md","reason":"Verify Douban provider changes against metadata package boundaries."}
+{"file":".trellis/spec/nako-metadata/backend/quality-guidelines.md","reason":"Verify focused provider tests and capability diagnostics."}
+{"file":".trellis/spec/nako-metadata/backend/error-handling.md","reason":"Verify unsupported and parse error behavior stays typed and redaction-safe."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Verify provider capability/search/fetch/candidate graph consistency."}
+{"file":".trellis/tasks/06-05-douban-tv-episode-endpoint-depth/research/douban-tv-endpoint-contract.md","reason":"Check implementation matches the Series-only endpoint evidence."}
