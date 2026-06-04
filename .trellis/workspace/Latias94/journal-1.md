@@ -1308,3 +1308,52 @@ Archived completed Media Web playback polish, HLS subtitle burn-in planning, and
 ### Next Steps
 
 - None - task complete
+
+
+## Session 33: HLS subtitle route regression fix
+
+**Date**: 2026-06-04
+**Task**: HLS subtitle route regression fix
+**Package**: nako-playback
+**Branch**: `main`
+
+### Summary
+
+Fixed HLS sidecar subtitle route regression by recognizing the vtt codec/extension alias as sidecar-capable, verified focused playback/transcode/server gates plus full workspace nextest, archived the repair task, cleaned completed 06-04 worktrees, and pushed main.
+
+### Main Changes
+
+- Restored HLS sidecar subtitle route behavior by treating `vtt` as a
+  sidecar-capable subtitle codec/extension alias alongside `webvtt`.
+- Expanded playback planner coverage so `subrip`, `vtt`, and `webvtt` all stay
+  `SidecarSelected` when HLS transcode is requested.
+- Added a playback spec guardrail documenting that subtitle codec facts may use
+  either FFmpeg codec names or sidecar file-extension aliases.
+- Archived `.trellis/tasks/archive/2026-06/06-04-hls-subtitle-route-regression-fix/`.
+- Removed completed `06-04-*` worktrees and their local task branches after
+  verifying patch-id equivalence with `main`.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8d54f8e8` | (see git log) |
+
+### Testing
+
+- [OK] `cargo nextest run -p nako-playback sidecar_capable_hls_subtitle_format_remains_sidecar_selected --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server http::tests::playback::hls_playlist_route_accepts_preferred_subtitle_language_defaults http::tests::playback::hls_playlist_route_subtitle_stream_overrides_preferred_subtitle_language --no-fail-fast`
+- [OK] `cargo check -p nako-playback -p nako-transcode -p nako-server --tests`
+- [OK] `cargo nextest run -p nako-playback --no-fail-fast`
+- [OK] `cargo nextest run -p nako-transcode hls --no-fail-fast`
+- [OK] `cargo nextest run --workspace --no-fail-fast` (1309 passed, 48 skipped)
+- [OK] `cargo fmt --all -- --check`
+- [OK] `git diff --check`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
