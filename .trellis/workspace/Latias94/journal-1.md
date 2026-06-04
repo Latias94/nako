@@ -994,3 +994,38 @@ Added no-store cache-control headers to Direct Play and Remux byte responses, ve
 ### Next Steps
 
 - None - task complete
+
+
+## Session 24: VFS cache repair action preview
+
+**Date**: 2026-06-04
+**Task**: VFS cache repair action preview
+**Package**: nako-vfs
+**Branch**: `main`
+
+### Summary
+
+Added structured VFS cache repair recommended_action previews across VFS diagnostics, Admin DTOs, server storage diagnostics, and generated Admin TypeScript contracts; verified focused VFS/API/server gates and archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c73a1af1` | (see git log) |
+| `acb7ed88` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
