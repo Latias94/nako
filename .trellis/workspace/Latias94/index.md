@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 22
+- **Total Sessions**: 23
 - **Last Active**: 2026-06-04
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~947 | Active |
+| `journal-1.md` | ~996 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 23 | 2026-06-04 | Playback byte cache-control headers | `0c420371`, `486a24b9` | `main` |
 | 22 | 2026-06-04 | Selected artwork conditional GET | `d78badbc`, `8a3496fe` | `main` |
 | 21 | 2026-06-04 | Selected artwork cache-control headers | `f9d01df4`, `bd7c688e` | `main` |
 | 20 | 2026-06-04 | HLS artifact cache-control headers | `317a58e4` | `main` |

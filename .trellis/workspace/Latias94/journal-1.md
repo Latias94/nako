@@ -959,3 +959,38 @@ Added exact If-None-Match handling for selected artwork image GET/HEAD responses
 ### Next Steps
 
 - None - task complete
+
+
+## Session 23: Playback byte cache-control headers
+
+**Date**: 2026-06-04
+**Task**: Playback byte cache-control headers
+**Package**: nako-server
+**Branch**: `main`
+
+### Summary
+
+Added no-store cache-control headers to Direct Play and Remux byte responses, verified focused playback route coverage, and archived the completed Trellis child task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0c420371` | (see git log) |
+| `486a24b9` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
