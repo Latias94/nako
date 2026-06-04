@@ -1633,3 +1633,37 @@ Ran parallel sub-agent architecture reviews for control-plane/API-DB, Playback R
 ### Next Steps
 
 - None - task complete
+
+
+## Session 40: FFmpeg input staging lease scope
+
+**Date**: 2026-06-04
+**Task**: FFmpeg input staging lease scope
+**Package**: nako-server
+**Branch**: `main`
+
+### Summary
+
+Scoped FFmpeg input staging leases in Playback Runtime, updated focused tests and server spec.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `381f4e1c` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

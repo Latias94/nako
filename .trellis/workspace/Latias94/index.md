@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 39
+- **Total Sessions**: 40
 - **Last Active**: 2026-06-04
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1609 | Active |
+| `journal-1.md` | ~1669 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 40 | 2026-06-04 | FFmpeg input staging lease scope | `381f4e1c` | `main` |
 | 39 | 2026-06-04 | Architecture boundary refactor review | `5f33b850` | `main` |
 | 38 | 2026-06-04 | VFS cache repair target previews | `a6e59dc0` | `main` |
 | 37 | 2026-06-04 | VFS cache repair action plan | `7a293092` | `main` |
