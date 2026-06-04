@@ -146,11 +146,12 @@ Evidence workstreams:
 - `docs/workstreams/storage-vfs-resilience-and-source-identity/`
 - `docs/workstreams/remote-storage-health-and-circuit-breaker/`
 - `.trellis/tasks/archive/2026-06/06-02-01d-hls-artifact-io-pressure-enforcement/`
+- `.trellis/tasks/archive/2026-06/06-04-06-04-source-fingerprint-escalation-policy-first-slice/`
 
 Proposed lanes:
 
 - `proposed:vfs-cache-repair-diagnostics`
-- `proposed:source-fingerprint-escalation-policy`
+- `proposed:source-fingerprint-hash-execution`
 - `proposed:library-watcher-and-media-intake-stability`
 - `proposed:storage-vfs-postgresql-runtime-harness`
 
