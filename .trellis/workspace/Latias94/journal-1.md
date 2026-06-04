@@ -1029,3 +1029,38 @@ Added structured VFS cache repair recommended_action previews across VFS diagnos
 ### Next Steps
 
 - None - task complete
+
+
+## Session 25: Playback HLS start admission bounded wait
+
+**Date**: 2026-06-04
+**Task**: Playback HLS start admission bounded wait
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Implemented a typed bounded HlsStart admission policy for ordinary HLS startup, preserved HlsSupersede and Direct Play admission semantics, verified focused server gates, and archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `974ffc05` | (see git log) |
+| `997d3e7c` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

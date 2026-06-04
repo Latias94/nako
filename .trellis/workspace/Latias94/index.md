@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 24
+- **Total Sessions**: 25
 - **Last Active**: 2026-06-04
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1031 | Active |
+| `journal-1.md` | ~1066 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 25 | 2026-06-04 | Playback HLS start admission bounded wait | `974ffc05`, `997d3e7c` | `main` |
 | 24 | 2026-06-04 | VFS cache repair action preview | `c73a1af1`, `acb7ed88` | `main` |
 | 23 | 2026-06-04 | Playback byte cache-control headers | `0c420371`, `486a24b9` | `main` |
 | 22 | 2026-06-04 | Selected artwork conditional GET | `d78badbc`, `8a3496fe` | `main` |
