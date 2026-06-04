@@ -29,15 +29,15 @@ changing Public Client API, provider endpoint breadth, schema, or Admin Web UI.
 
 ## Acceptance Criteria
 
-- [ ] Plan endpoint returns a read-only related hierarchy plan for an accepted
+- [x] Plan endpoint returns a read-only related hierarchy plan for an accepted
       review with an accepted root Provider Mapping.
-- [ ] Apply endpoint commits safe related Provider Subjects / Provider Mappings
+- [x] Apply endpoint commits safe related Provider Subjects / Provider Mappings
       and marks matched child Library Item State as non-provisional.
-- [ ] Plan/apply reject pending reviews, missing accepted root mappings,
+- [x] Plan/apply reject pending reviews, missing accepted root mappings,
       ambiguous targets, and unsafe relationship shapes without mutation.
-- [ ] Admin contract route inventory and generated Admin Web contract are in
+- [x] Admin contract route inventory and generated Admin Web contract are in
       sync.
-- [ ] Server tests prove Admin-only access, redaction, idempotent replay, and
+- [x] Server tests prove Admin-only access, redaction, idempotent replay, and
       no canonical metadata or parent hierarchy mutation.
 
 ## Definition of Done

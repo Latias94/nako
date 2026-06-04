@@ -1714,3 +1714,47 @@ Completed and archived the media-server architecture campaign implementation sli
 ### Next Steps
 
 - None - task complete
+
+
+## Session 42: Provider hierarchy application admin surface
+
+**Date**: 2026-06-05
+**Task**: Provider hierarchy application admin surface
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Exposed Admin-only related hierarchy plan/apply routes, generated admin contracts, and verified redaction, stale guard, conflict, and replay behavior.
+
+### Main Changes
+
+- Added Admin-only related hierarchy plan/apply routes for accepted Metadata Candidate Reviews.
+- Added related hierarchy plan/action/reason/target domain contracts and Admin DTO/generated contract output.
+- Verified pending reviews and missing accepted root mappings reject with conflict before mutation.
+- Kept the boundary narrow: no Public Client exposure, schema change, Admin Web UI, canonical metadata merge, parent repair, or file/NFO write.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0bcd0526` | (see git log) |
+
+### Testing
+
+- [OK] `cargo fmt --all -- --check`
+- [OK] `cargo nextest run -p nako-metadata related_hierarchy --no-fail-fast`
+- [OK] `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server related_hierarchy --no-fail-fast`
+- [OK] `cargo check -p nako-core -p nako-metadata -p nako-api -p nako-server --tests`
+- [OK] `npm run generate:admin-api --prefix apps/admin-web`
+- [OK] `git diff --check`
+- [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-05-provider-hierarchy-application-admin`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

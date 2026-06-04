@@ -9,7 +9,7 @@
 {"file": ".trellis/spec/nako-metadata/backend/quality-guidelines.md", "reason": "Plan-before-apply and related hierarchy governance rules."}
 {"file": ".trellis/spec/nako-metadata/backend/database-guidelines.md", "reason": "Repository-trait persistence boundary for related hierarchy planning."}
 {"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Cross-layer API-service-contract data flow checklist."}
-{"file": ".trellis/tasks/06-05-provider-hierarchy-application-admin/research/existing-hierarchy-admin-surface.md", "reason": "Current gap, target boundary, and validation notes for implementation."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-provider-hierarchy-application-admin/research/existing-hierarchy-admin-surface.md", "reason": "Current gap, target boundary, and validation notes for implementation."}
 {"file": "crates/nako-core/src/media/candidate.rs", "reason": "Adds provider-neutral related hierarchy application plan, target, action, and reason contracts shared by metadata, API, and server."}
 {"file": "crates/nako-metadata/src/candidate_review.rs", "reason": "Adds read-only related hierarchy planning and makes apply reuse the plan target resolution before mutation."}
 {"file": "crates/nako-metadata/src/lib.rs", "reason": "Re-exports related hierarchy planning service records for downstream server use."}

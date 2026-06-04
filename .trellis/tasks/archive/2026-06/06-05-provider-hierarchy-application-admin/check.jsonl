@@ -5,7 +5,7 @@
 {"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify focused server tests and check commands."}
 {"file": ".trellis/spec/nako-metadata/backend/quality-guidelines.md", "reason": "Verify plan-before-apply, stale guard, and governance behavior."}
 {"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify API/service/data flow consistency."}
-{"file": ".trellis/tasks/06-05-provider-hierarchy-application-admin/research/existing-hierarchy-admin-surface.md", "reason": "Verify implementation matches the scoped related hierarchy boundary."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-provider-hierarchy-application-admin/research/existing-hierarchy-admin-surface.md", "reason": "Verify implementation matches the scoped related hierarchy boundary."}
 {"file": "crates/nako-metadata/src/tests.rs", "reason": "Verified related hierarchy planning reports targets and transitions to noop after replay."}
 {"file": "crates/nako-api/src/admin_contract.rs", "reason": "Verified route inventory, generated Admin Web contract sync, and Public Client route separation."}
 {"file": "crates/nako-server/src/http/tests/system.rs", "reason": "Verified Admin route plan/apply/replay, redaction, stale guard, and non-admin rejection behavior."}
