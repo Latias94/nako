@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/nako-playback/backend/index.md", "reason": "Playback package checklist for capability and requirement changes."}
+{"file": ".trellis/spec/nako-playback/backend/quality-guidelines.md", "reason": "Playback quality expectations for typed planning changes."}
+{"file": ".trellis/spec/nako-transcode/backend/index.md", "reason": "Transcode package checklist for HLS planner changes."}
+{"file": ".trellis/spec/nako-transcode/backend/directory-structure.md", "reason": "Transcode module ownership for FFmpeg/HLS planning seams."}
+{"file": ".trellis/tasks/06-03-06-03-long-horizon-architecture-queue/research/playback-transcode-next-candidates.md", "reason": "Prior queue research selecting subtitle burn-in as a bounded playback follow-on."}

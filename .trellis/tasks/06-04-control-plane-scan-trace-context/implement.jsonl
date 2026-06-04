@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server backend checklist for app/runtime changes."}
+{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Server app boundary and module ownership guidance."}
+{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "Trace/log redaction and diagnostics guidance."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server quality checks for runtime/control-plane work."}
+{"file": ".trellis/tasks/06-03-06-03-long-horizon-architecture-queue/research/storage-library-control-plane-next-candidates.md", "reason": "Prior queue research covering control-plane trace-context follow-ons."}

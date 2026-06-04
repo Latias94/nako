@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server backend review checklist."}
+{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Verify runtime/app ownership boundaries."}
+{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "Review trace/log redaction behavior."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server quality checks for review."}
