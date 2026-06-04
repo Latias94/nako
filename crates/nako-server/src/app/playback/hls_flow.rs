@@ -15,8 +15,8 @@ use tracing::warn;
 use crate::app::storage::LibraryStorageBackend;
 
 use super::{
-    HlsOutputLayout, HlsPlaylistOutput, HlsSourceOutput, HlsSourceRequest, PlaybackAppService,
-    PlaybackRuntimeStore, PlaybackTraceContext,
+    HlsOutputLayout, HlsPlaylistOutput, HlsSourceDisposition, HlsSourceOutput, HlsSourceRequest,
+    PlaybackAppService, PlaybackRuntimeStore, PlaybackTraceContext,
     control::{hls_supersede_candidates, request_hls_session_supersede},
     hls_artifact::hls_artifact_manifest_for_session,
     input::FfmpegSourceInput,
@@ -65,6 +65,21 @@ impl HlsSourceContext {
             session,
         }
     }
+
+    fn source_output(
+        self,
+        disposition: HlsSourceDisposition,
+        session: TranscodeSessionRecord,
+    ) -> HlsSourceOutput {
+        HlsSourceOutput {
+            source: self.source,
+            decision: self.decision,
+            playlist_path: self.layout.playlist_path,
+            segment_dir: self.layout.output_dir,
+            disposition,
+            session,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -73,6 +88,15 @@ struct HlsPlaylistReadyOutput {
     decision: PlaybackDecision,
     playlist_path: std::path::PathBuf,
     session: TranscodeSessionRecord,
+}
+
+enum HlsSourcePreStagingAdmission {
+    ReuseExisting {
+        session: TranscodeSessionRecord,
+    },
+    StartNew {
+        permit: Option<PlaybackResourcePermitSet>,
+    },
 }
 
 pub(super) async fn hls_source_with_policy(
@@ -181,11 +205,19 @@ async fn run_hls_source_context(
     app: &PlaybackAppService,
     context: HlsSourceContext,
 ) -> Result<HlsSourceOutput> {
+    let resource_demand = context.resource_demand();
+    let resource_permit =
+        match prepare_hls_source_before_input_staging(app, &context, &resource_demand).await? {
+            HlsSourcePreStagingAdmission::ReuseExisting { session } => {
+                return Ok(context.source_output(HlsSourceDisposition::ReusedExisting, session));
+            }
+            HlsSourcePreStagingAdmission::StartNew { permit } => permit,
+        };
     let input = app
         .input
         .source_input_for_ffmpeg(&context.source, &context.uri, &context.backend)
         .await?;
-    run_hls_source_context_with_input(app, context, input, None).await
+    run_hls_source_context_with_input(app, context, input, resource_permit).await
 }
 
 async fn run_hls_source_context_with_input(
@@ -229,6 +261,63 @@ async fn run_hls_source_context_with_input(
             Err(err)
         }
     }
+}
+
+async fn prepare_hls_source_before_input_staging(
+    app: &PlaybackAppService,
+    context: &HlsSourceContext,
+    resource_demand: &PlaybackResourceDemand,
+) -> Result<HlsSourcePreStagingAdmission> {
+    if let Some(active) = PlaybackRuntimeStore::find_active_transcode_session(
+        app.runtime_store.as_ref(),
+        context.source.id,
+        TranscodeSessionKind::HlsTranscode,
+        &context.request_key,
+    )
+    .await?
+    {
+        return Err(NakoError::Conflict {
+            message: format!(
+                "hls request for source {} is already in progress in session {}",
+                context.source.id, active.id
+            ),
+        });
+    }
+
+    let supersede_candidates = hls_supersede_candidates(
+        app.runtime_store.as_ref(),
+        context.source.id,
+        context.request_key.clone(),
+    )
+    .await?;
+
+    if let Some(latest) = PlaybackRuntimeStore::find_latest_transcode_session(
+        app.runtime_store.as_ref(),
+        context.source.id,
+        TranscodeSessionKind::HlsTranscode,
+        &context.request_key,
+    )
+    .await?
+    {
+        if latest.state == TranscodeSessionState::Finished
+            && latest.output_path == context.layout.playlist_path
+            && path_exists(&context.layout.playlist_path)?
+        {
+            return Ok(HlsSourcePreStagingAdmission::ReuseExisting { session: latest });
+        }
+    }
+
+    let permit = if supersede_candidates.is_empty() {
+        Some(acquire_hls_start_permit(app, resource_demand).await?)
+    } else {
+        app.resource_admission.ensure_capacity_for_policy(
+            resource_demand,
+            PlaybackResourceAdmissionPolicy::HlsSupersede,
+        )?;
+        None
+    };
+
+    Ok(HlsSourcePreStagingAdmission::StartNew { permit })
 }
 
 async fn start_hls_playlist_with_policy(
@@ -276,7 +365,7 @@ async fn start_hls_playlist_with_policy(
     )
     .await?;
     let resource_permit = if supersede_candidates.is_empty() {
-        None
+        acquire_hls_start_permit(app, &resource_demand).await?
     } else {
         app.resource_admission.ensure_capacity_for_policy(
             &resource_demand,
@@ -290,38 +379,17 @@ async fn start_hls_playlist_with_policy(
             supersede_candidates,
         )
         .await?;
-        Some(
-            app.resource_admission
-                .acquire_for_policy(
-                    &resource_demand,
-                    PlaybackResourceAdmissionPolicy::HlsSupersede,
-                )
-                .await?,
-        )
+        app.resource_admission
+            .acquire_for_policy(
+                &resource_demand,
+                PlaybackResourceAdmissionPolicy::HlsSupersede,
+            )
+            .await?
     };
     let input = app
         .input
         .source_input_for_ffmpeg(&context.source, &context.uri, &context.backend)
         .await?;
-    let resource_permit = match resource_permit {
-        Some(permit) => permit,
-        None => match app
-            .resource_admission
-            .acquire_for_policy(&resource_demand, PlaybackResourceAdmissionPolicy::Immediate)
-            .await
-        {
-            Ok(permit) => permit,
-            Err(error) => {
-                if let Err(release_error) = app.input.release_source_input(input).await {
-                    warn!(
-                        error = %release_error,
-                        "failed to release HLS source input after playback resource admission rejection",
-                    );
-                }
-                return Err(error);
-            }
-        },
-    };
     let wait_context = context.clone();
     let task_app = app.clone();
     app.runtime
@@ -335,6 +403,17 @@ async fn start_hls_playlist_with_policy(
         });
 
     wait_for_hls_playlist_ready_context(app, wait_context, None).await
+}
+
+async fn acquire_hls_start_permit(
+    app: &PlaybackAppService,
+    resource_demand: &PlaybackResourceDemand,
+) -> Result<PlaybackResourcePermitSet> {
+    app.resource_admission
+        .ensure_capacity_for_policy(resource_demand, PlaybackResourceAdmissionPolicy::HlsStart)?;
+    app.resource_admission
+        .acquire_for_policy(resource_demand, PlaybackResourceAdmissionPolicy::HlsStart)
+        .await
 }
 
 async fn wait_for_hls_playlist_ready_context(

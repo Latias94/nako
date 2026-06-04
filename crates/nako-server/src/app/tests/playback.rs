@@ -847,7 +847,8 @@ async fn hls_source_runs_runner_and_reuses_completed_session() {
     assert_eq!(reused.disposition, HlsSourceDisposition::ReusedExisting);
     assert_eq!(reused.session.id, session_id);
 
-    let config = app.config().clone();
+    let mut config = app.config().clone();
+    config.transcode.cpu_concurrency = 0;
     drop(app);
     let restarted = NakoApp::new_with_store(config, store.clone())
         .await
@@ -1170,7 +1171,7 @@ async fn hls_playlist_playback_seek_waits_for_cancel_requested_runner_permit() {
 }
 
 #[tokio::test]
-async fn hls_playlist_playback_rejects_when_playback_resource_permit_is_busy() {
+async fn hls_playlist_playback_waits_for_hls_start_resource_permit_release() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_running_hls_ffmpeg_script(script_root.path(), "hls_resource_busy");
     let (temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
@@ -1201,9 +1202,10 @@ async fn hls_playlist_playback_rejects_when_playback_resource_permit_is_busy() {
         .transcode_session_id
         .expect("hls playback session should link a transcode session");
 
-    let second = tokio::time::timeout(
-        std::time::Duration::from_millis(800),
-        app.playback()
+    let second_playback = app.playback();
+    let started = std::time::Instant::now();
+    let second = tokio::spawn(async move {
+        second_playback
             .hls_playlist_playback(HlsPlaylistPlaybackRequest {
                 principal,
                 source_id: second_source.id,
@@ -1212,9 +1214,11 @@ async fn hls_playlist_playback_rejects_when_playback_resource_permit_is_busy() {
                 playback_generation: HlsPlaybackGeneration::default(),
                 trace_context: None,
                 transport_query: None,
-            }),
-    )
-    .await;
+            })
+            .await
+    });
+
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
     app.playback()
         .cancel_playback_session(first_playlist.session.id)
@@ -1227,11 +1231,31 @@ async fn hls_playlist_playback_rejects_when_playback_resource_permit_is_busy() {
     )
     .await;
 
-    let second = second.expect("busy hls admission should reject promptly");
-    let NakoError::Conflict { message } = second.unwrap_err() else {
-        panic!("expected hls resource pressure conflict");
-    };
-    assert!(message.contains("cpu_transcode"));
+    let second = tokio::time::timeout(process_backed_hls_playlist_readiness_timeout(), second)
+        .await
+        .expect("bounded hls start wait should finish after first permit releases")
+        .unwrap()
+        .unwrap();
+    let second_transcode_session_id = second
+        .session
+        .transcode_session_id
+        .expect("second hls playback session should link a transcode session");
+    assert!(
+        started.elapsed() >= std::time::Duration::from_millis(100),
+        "second HLS start should wait until the first permit is released"
+    );
+    assert!(second.body.contains("#EXTM3U"));
+
+    app.playback()
+        .cancel_playback_session(second.session.id)
+        .await
+        .unwrap();
+    wait_for_transcode_state(
+        &store,
+        second_transcode_session_id,
+        TranscodeSessionState::Cancelled,
+    )
+    .await;
 }
 
 #[tokio::test]
@@ -2252,7 +2276,10 @@ async fn hls_service_degrades_unavailable_gpu_when_fallback_is_fail() {
 async fn hls_source_rejects_persisted_active_duplicate() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_success");
-    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let mut transcode = TranscodeConfig::default();
+    transcode.cpu_concurrency = 0;
+    let (_temp, app, store, source) =
+        remux_app_with_source_and_transcode(ffmpeg_path, transcode).await;
     let staging = HlsStagingPolicy::new(app.config().remux_staging_root.join("hls")).unwrap();
     let request_identity = local_hls_request_identity(&source, HardwareAcceleration::None);
     let layout = staging
@@ -2300,6 +2327,53 @@ async fn hls_source_rejects_persisted_active_duplicate() {
         panic!("expected hls segment readiness conflict");
     };
     assert!(message.contains("is not ready"));
+}
+
+#[tokio::test]
+async fn hls_source_seek_generation_uses_hls_supersede_policy() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_seek_supersede_policy");
+    let mut transcode = TranscodeConfig::default();
+    transcode.cpu_concurrency = 0;
+    let (_temp, app, store, source) =
+        remux_app_with_source_and_transcode(ffmpeg_path, transcode).await;
+    let staging = HlsStagingPolicy::new(app.config().remux_staging_root.join("hls")).unwrap();
+    let request_identity = local_hls_request_identity(&source, HardwareAcceleration::None);
+    let layout = staging
+        .single_variant_layout(
+            source.id,
+            &request_identity,
+            nako_transcode::HlsOutputRequirement::default(),
+        )
+        .unwrap();
+    store
+        .create_transcode_session(NewTranscodeSession {
+            id: TranscodeSessionId::new(),
+            source_id: source.id,
+            kind: TranscodeSessionKind::HlsTranscode,
+            request_key: request_identity.persisted_request_key().to_owned(),
+            output_path: layout.playlist_path,
+            state: TranscodeSessionState::Running,
+        })
+        .await
+        .unwrap();
+
+    let err = app
+        .playback()
+        .hls_source(HlsSourceRequest {
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            preferences: PlaybackPreferenceContext::default(),
+            playback_generation: HlsPlaybackGeneration::from_start_position_ms(45_000),
+        })
+        .await
+        .unwrap_err();
+
+    let NakoError::Conflict { message } = err else {
+        panic!("expected hls supersede admission conflict");
+    };
+    assert!(message.contains("hls supersede"));
+    assert!(message.contains("cpu_transcode"));
 }
 
 #[tokio::test]
@@ -2557,7 +2631,119 @@ async fn hls_source_releases_remote_staged_input_after_runner_error() {
 }
 
 #[tokio::test]
-async fn hls_playlist_releases_remote_staged_input_after_admission_rejection() {
+async fn hls_source_rejects_unconfigured_hls_start_capacity_before_ffmpeg_input_staging() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_remote_source_no_capacity");
+    let mut transcode = TranscodeConfig::default();
+    transcode.cpu_concurrency = 0;
+    let (_server, _temp, app, store, source) =
+        hls_remote_app_with_source(ffmpeg_path, transcode).await;
+
+    let err = app
+        .playback()
+        .hls_source(HlsSourceRequest {
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            preferences: PlaybackPreferenceContext::default(),
+            playback_generation: HlsPlaybackGeneration::default(),
+        })
+        .await
+        .unwrap_err();
+
+    let NakoError::Conflict { message } = err else {
+        panic!("expected hls start admission conflict");
+    };
+    assert!(message.contains("hls start"));
+    assert!(message.contains("cpu_transcode"));
+    assert_no_ffmpeg_input_staging_record(&store).await;
+}
+
+#[tokio::test]
+async fn hls_source_releases_hls_start_permit_after_remote_staging_failure() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_remote_staging_failure");
+    let (_server, _temp, app, store, source) =
+        hls_remote_app_with_source(ffmpeg_path, TranscodeConfig::default()).await;
+    let missing_source = MediaSource {
+        id: MediaSourceId::new(),
+        locator: "webdav:///Movies/Missing.mkv".to_owned(),
+        file_name: "Missing.mkv".to_owned(),
+        fingerprint: Some("missing-fingerprint".to_owned()),
+        ..source.clone()
+    };
+    store.upsert_media_source(&missing_source).await.unwrap();
+    store
+        .upsert_media_probe(
+            missing_source.id,
+            &MediaProbeResult {
+                duration_ms: Some(1_000),
+                container: Some("matroska,webm".to_owned()),
+                bit_rate: None,
+                streams: vec![
+                    MediaStreamInfo {
+                        index: 0,
+                        kind: MediaStreamKind::Video,
+                        codec: Some("h264".to_owned()),
+                        language: None,
+                        duration_ms: None,
+                        bit_rate: None,
+                        width: Some(1920),
+                        height: Some(1080),
+                        channels: None,
+                        sample_rate: None,
+                        technical: Default::default(),
+                    },
+                    MediaStreamInfo {
+                        index: 1,
+                        kind: MediaStreamKind::Audio,
+                        codec: Some("aac".to_owned()),
+                        language: None,
+                        duration_ms: None,
+                        bit_rate: None,
+                        width: None,
+                        height: None,
+                        channels: Some(2),
+                        sample_rate: Some(48_000),
+                        technical: Default::default(),
+                    },
+                ],
+            },
+        )
+        .await
+        .unwrap();
+
+    let err = app
+        .playback()
+        .hls_source(HlsSourceRequest {
+            source_id: missing_source.id,
+            client: ClientPlaybackCapabilities::default(),
+            preferences: PlaybackPreferenceContext::default(),
+            playback_generation: HlsPlaybackGeneration::default(),
+        })
+        .await
+        .unwrap_err();
+    assert!(
+        !matches!(err, NakoError::Conflict { .. }),
+        "remote staging failure should not be reported as resource pressure"
+    );
+
+    let output = app
+        .playback()
+        .hls_source(HlsSourceRequest {
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            preferences: PlaybackPreferenceContext::default(),
+            playback_generation: HlsPlaybackGeneration::default(),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(output.disposition, HlsSourceDisposition::Finished);
+    assert_released_ffmpeg_input_staging_record(&store, &source).await;
+}
+
+#[tokio::test]
+async fn hls_playlist_rejects_unconfigured_hls_start_capacity_before_ffmpeg_input_staging() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_remote_admission_reject");
     let mut transcode = TranscodeConfig::default();
@@ -2583,8 +2769,9 @@ async fn hls_playlist_releases_remote_staged_input_after_admission_rejection() {
     let NakoError::Conflict { message } = err else {
         panic!("expected hls admission conflict");
     };
+    assert!(message.contains("hls start"));
     assert!(message.contains("cpu_transcode"));
-    assert_released_ffmpeg_input_staging_record(&store, &source).await;
+    assert_no_ffmpeg_input_staging_record(&store).await;
 }
 
 #[tokio::test]
@@ -2709,7 +2896,7 @@ async fn source_path_for_ffmpeg_records_manifest_for_remote_staging() {
     let records = store
         .list_staging_manifest_records(
             Some(StagingPurpose::FfmpegInput),
-            Some(StagingState::Ready),
+            None,
             PageRequest::first_page(),
         )
         .await
@@ -3060,6 +3247,22 @@ async fn assert_released_ffmpeg_input_staging_record(store: &NakoDatabase, sourc
     assert_eq!(record.active_leases, 0);
     assert_eq!(record.validation_error, None);
     assert!(PathBuf::from(&record.local_path).exists());
+}
+
+async fn assert_no_ffmpeg_input_staging_record(store: &NakoDatabase) {
+    let records = store
+        .list_staging_manifest_records(
+            Some(StagingPurpose::FfmpegInput),
+            None,
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+
+    assert!(
+        records.is_empty(),
+        "HLS start should reject before creating FFmpeg input staging records"
+    );
 }
 
 async fn local_playback_viewer(

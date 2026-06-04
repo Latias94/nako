@@ -15,9 +15,14 @@ Use these gates for `crates/nako-server` feature work.
   shape, including `WWW-Authenticate: Bearer` for `401`.
 - ADR 0053 requires new list surfaces to stay bounded and paginated rather than
   returning unbounded JSON.
-- When playback admission policy is changed, cover both immediate rejection and
-  bounded wait paths with focused app or unit tests; keep wait constants and
-  capacity checks in the resource helper layer.
+- When playback admission policy is changed, cover immediate rejection, typed
+  bounded wait paths such as `HlsStart`/`HlsSupersede`, and the affected app
+  flow. Keep wait constants and configured-capacity checks in the resource
+  helper layer.
+- HLS admission tests must prove ordinary startup rejects unconfigured capacity
+  before FFmpeg input staging, waits only within the bounded policy when
+  capacity is busy, preserves `HlsSupersede` for replacements, and releases
+  acquired permits when staging or runner work fails.
 
 ## Gate Selection
 

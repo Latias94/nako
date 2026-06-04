@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server app-service and runtime boundary checklist for playback resource changes."}
+{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Resource admission belongs in app/playback/resource.rs and HLS lifecycle in hls_flow/hls."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Playback admission policy changes require immediate rejection and bounded wait coverage."}
+{"file": ".trellis/tasks/06-04-playback-resource-admission-bounded-wait-first-slice/research/playback-resource-admission-current-state.md", "reason": "Current resource admission state, chosen slice, and guardrails."}

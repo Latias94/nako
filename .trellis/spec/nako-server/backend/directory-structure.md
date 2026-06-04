@@ -443,6 +443,9 @@ The suppression request uses `StorageUri` scope and stable safe identifiers.
   and playlist readiness waiting.
 - `app/playback/hls.rs` owns reserved HLS runner execution and transcode
   session persistence around FFmpeg.
+- `PlaybackResourceAdmissionPolicy::HlsStart` is the bounded ordinary HLS
+  startup policy. `PlaybackResourceAdmissionPolicy::HlsSupersede` remains the
+  bounded replacement policy after older generations are cancelled.
 
 ### 3. Contracts
 
@@ -457,6 +460,11 @@ The suppression request uses `StorageUri` scope and stable safe identifiers.
   through `hls_artifact` and `playlist` helpers.
 - Resource admission must be bounded and must release staged FFmpeg input on
   rejection or runner error.
+- Ordinary HLS source and playlist startup must ensure configured capacity and
+  acquire the `HlsStart` permit before FFmpeg input staging. If staging fails
+  after the permit is acquired, the permit must be released by normal RAII drop.
+- HLS supersede must continue to use `HlsSupersede`; do not route supersede
+  through `HlsStart`.
 
 ### 4. Validation & Error Matrix
 
@@ -470,6 +478,10 @@ The suppression request uses `StorageUri` scope and stable safe identifiers.
 | Finished session playlist is missing | Return `NakoError::storage_io` |
 | HLS session is cancelled or failed | Return provider error for `ffmpeg_hls` |
 | Playlist readiness timeout expires | Return `NakoError::Conflict` |
+| Ordinary HLS start has unconfigured resource capacity | Reject before FFmpeg input staging |
+| Ordinary HLS start finds busy resource capacity that releases inside the bounded wait | Start after the permit is released |
+| Ordinary HLS start wait expires | Return resource `NakoError::Conflict` without durable queueing |
+| FFmpeg input staging fails after HLS start permit acquisition | Return staging error and release the permit by drop |
 
 ### 5. Good / Base / Bad Cases
 
@@ -479,11 +491,15 @@ The suppression request uses `StorageUri` scope and stable safe identifiers.
 - Base: a direct HLS source request reaches
   `PlaybackAppService::hls_source_with_policy`, which delegates to
   `hls_flow::hls_source_with_policy`.
+- Good: ordinary HLS startup calls resource admission with `HlsStart` before
+  staging input; supersede calls resource admission with `HlsSupersede`.
 - Bad: adding another HLS startup path in `app/playback/mod.rs` that separately
   handles session lookup, supersede, admission, input staging, or playlist
   readiness.
 - Bad: moving FFmpeg argv construction or playback compatibility decisions into
   `hls_flow`.
+- Bad: staging a remote FFmpeg input before discovering that HLS start capacity
+  is configured as unavailable.
 
 ### 6. Tests Required
 
@@ -491,8 +507,8 @@ The suppression request uses `StorageUri` scope and stable safe identifiers.
   active rejection, supersede, request identity, selected audio/subtitle/HDR
   facts, timeout/failure persistence, and staged input release.
 - App tests for HLS playlist running-session readiness, seek supersede,
-  cancel-requested permit waiting, resource pressure rejection, and staged input
-  release on admission rejection.
+  cancel-requested permit waiting, `HlsStart` bounded wait, resource pressure
+  rejection before input staging, and staged input/permit release on errors.
 - HTTP tests for HLS playlist and segment routes, browser ticket protection,
   query-derived audio/subtitle/seek preferences, and running-session playlist
   readiness.

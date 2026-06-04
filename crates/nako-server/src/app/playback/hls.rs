@@ -330,7 +330,7 @@ impl HlsAppService {
                 .acquire_for_policy(
                     resource_demand,
                     if superseded.is_empty() {
-                        PlaybackResourceAdmissionPolicy::Immediate
+                        PlaybackResourceAdmissionPolicy::HlsStart
                     } else {
                         PlaybackResourceAdmissionPolicy::HlsSupersede
                     },
