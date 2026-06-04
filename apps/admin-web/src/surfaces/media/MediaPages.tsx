@@ -1088,16 +1088,18 @@ function MediaBrowserPlayer({
   title: string;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [activeCandidateIndex, setActiveCandidateIndex] = useState(0);
-  const [failedCandidateKey, setFailedCandidateKey] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
+  const [candidateSelectionState, setCandidateSelectionState] =
+    useState<MediaPlaybackCandidateSelection>({
+      activeCandidateIndex: 0,
+      failedCandidateKey: null,
+      retryCount: 0,
+      ticketSignature: null,
+    });
   const ticketSignature = result.value ? playbackTicketSignature(result.value) : null;
-
-  useEffect(() => {
-    setActiveCandidateIndex(0);
-    setFailedCandidateKey(null);
-    setRetryCount(0);
-  }, [ticketSignature]);
+  const candidateSelection = mediaPlaybackCandidateSelectionFor(
+    candidateSelectionState,
+    ticketSignature,
+  );
 
   if (result.loading) {
     return <div className="mediaSkeleton" />;
@@ -1123,7 +1125,9 @@ function MediaBrowserPlayer({
   const ticket = result.value;
   const candidates = ticket ? playbackCandidates(ticket) : [];
   const activeCandidate =
-    candidates[Math.min(activeCandidateIndex, Math.max(0, candidates.length - 1))];
+    candidates[
+      Math.min(candidateSelection.activeCandidateIndex, Math.max(0, candidates.length - 1))
+    ];
 
   if (!ticket || !activeCandidate) {
     return (
@@ -1143,9 +1147,39 @@ function MediaBrowserPlayer({
   }
 
   const adapter = playbackAdapterFor(activeCandidate);
-  const playerFailed = failedCandidateKey === activeCandidate.key;
-  const nextCandidate = nextPlaybackCandidate(candidates, activeCandidateIndex);
+  const playerFailed = candidateSelection.failedCandidateKey === activeCandidate.key;
+  const nextCandidate = nextPlaybackCandidate(
+    candidates,
+    candidateSelection.activeCandidateIndex,
+  );
   const attachHlsJs = adapter.kind === "hls-js";
+  const markCandidateFailed = () => {
+    setCandidateSelectionState((current) => ({
+      ...mediaPlaybackCandidateSelectionFor(current, ticketSignature),
+      failedCandidateKey: activeCandidate.key,
+    }));
+  };
+  const retryActiveCandidate = () => {
+    setCandidateSelectionState((current) => {
+      const selection = mediaPlaybackCandidateSelectionFor(current, ticketSignature);
+      return {
+        ...selection,
+        failedCandidateKey: null,
+        retryCount: selection.retryCount + 1,
+      };
+    });
+  };
+  const switchToCandidate = (candidate: MediaPlaybackCandidate) => {
+    setCandidateSelectionState((current) => {
+      const selection = mediaPlaybackCandidateSelectionFor(current, ticketSignature);
+      return {
+        ...selection,
+        activeCandidateIndex: candidate.index,
+        failedCandidateKey: null,
+        retryCount: selection.retryCount + 1,
+      };
+    });
+  };
 
   return (
     <div className="mediaPlayerFrame">
@@ -1154,6 +1188,17 @@ function MediaBrowserPlayer({
           <span>
             This browser cannot open the HLS playlist without a compatible playback adapter.
           </span>
+          {nextCandidate ? (
+            <Button
+              onClick={() => switchToCandidate(nextCandidate)}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <ArrowRight size={15} />
+              <span>Try next path</span>
+            </Button>
+          ) : null}
           <Button
             onClick={onBrowserTicketRetry}
             size="sm"
@@ -1170,12 +1215,12 @@ function MediaBrowserPlayer({
           attachHlsJs={attachHlsJs}
           candidate={activeCandidate}
           fallbackDurationMs={fallbackDurationMs}
-          onFailure={() => setFailedCandidateKey(activeCandidate.key)}
+          onFailure={markCandidateFailed}
           onPlaybackEnded={onPlaybackEnded}
           onPlaybackPaused={onPlaybackPaused}
           onPlaybackProgress={onPlaybackProgress}
           onPlaybackStarted={onPlaybackStarted}
-          retryCount={retryCount}
+          retryCount={candidateSelection.retryCount}
           title={title}
           videoRef={videoRef}
         />
@@ -1185,11 +1230,7 @@ function MediaBrowserPlayer({
           <span>Playback failed before the browser could start the stream.</span>
           {nextCandidate ? (
             <Button
-              onClick={() => {
-                setActiveCandidateIndex(nextCandidate.index);
-                setFailedCandidateKey(null);
-                setRetryCount((current) => current + 1);
-              }}
+              onClick={() => switchToCandidate(nextCandidate)}
               size="sm"
               type="button"
               variant="outline"
@@ -1199,10 +1240,7 @@ function MediaBrowserPlayer({
             </Button>
           ) : null}
           <Button
-            onClick={() => {
-              setFailedCandidateKey(null);
-              setRetryCount((current) => current + 1);
-            }}
+            onClick={retryActiveCandidate}
             size="sm"
             type="button"
             variant="outline"
@@ -1230,6 +1268,13 @@ type MediaPlaybackCandidate = {
   kind: string;
   supportsRangeRequests: boolean;
   url: string;
+};
+
+type MediaPlaybackCandidateSelection = {
+  activeCandidateIndex: number;
+  failedCandidateKey: string | null;
+  retryCount: number;
+  ticketSignature: string | null;
 };
 
 type MediaPlaybackAdapter = {
@@ -1368,6 +1413,22 @@ function nextPlaybackCandidate(
   activeCandidateIndex: number,
 ) {
   return candidates.find((candidate) => candidate.index > activeCandidateIndex) ?? null;
+}
+
+function mediaPlaybackCandidateSelectionFor(
+  selection: MediaPlaybackCandidateSelection,
+  ticketSignature: string | null,
+): MediaPlaybackCandidateSelection {
+  if (selection.ticketSignature === ticketSignature) {
+    return selection;
+  }
+
+  return {
+    activeCandidateIndex: 0,
+    failedCandidateKey: null,
+    retryCount: 0,
+    ticketSignature,
+  };
 }
 
 function playbackAdapterFor(candidate: MediaPlaybackCandidate): MediaPlaybackAdapter {

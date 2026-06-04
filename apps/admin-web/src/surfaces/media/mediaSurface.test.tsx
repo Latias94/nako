@@ -387,6 +387,107 @@ describe("Media Web surface", () => {
     expect(container.textContent).not.toContain("nako_bpt_secondary");
   });
 
+  it("can leave an unsupported HLS playlist for the next playable ticket URL", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/watch/item-episode-1?source_id=source-episode-1-alt",
+    );
+    vi.spyOn(HTMLMediaElement.prototype, "canPlayType").mockReturnValue("");
+    const dataSource = createFixtureMediaDataSource();
+    const createBrowserPlaybackTicket = vi.fn(async () => ({
+      source: "fixture" as const,
+      value: hlsThenDirectTicket,
+    })) satisfies MediaWebDataSource["createBrowserPlaybackTicket"];
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          createBrowserPlaybackTicket,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    const { container } = render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    expect(
+      await screen.findByText(
+        "This browser cannot open the HLS playlist without a compatible playback adapter.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try next path" })).toBeInTheDocument();
+    expect(container.textContent).not.toContain("nako_bpt_hls_primary");
+
+    fireEvent.click(screen.getByRole("button", { name: "Try next path" }));
+
+    const player = await screen.findByLabelText("Pilot player");
+    expect(player).toHaveAttribute("src", expect.stringContaining("path=mp4-fallback"));
+    expect(
+      screen.queryByText(
+        "This browser cannot open the HLS playlist without a compatible playback adapter.",
+      ),
+    ).not.toBeInTheDocument();
+    expect(container.textContent).not.toContain("nako_bpt_mp4_fallback");
+  });
+
+  it("starts a new ticket on its first candidate after source changes", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/watch/item-episode-1?source_id=source-episode-1-alt",
+    );
+    const dataSource = createFixtureMediaDataSource();
+    const createBrowserPlaybackTicket = vi.fn(async (sourceId: string) => ({
+      source: "fixture" as const,
+      value: multiplePathTicketForSource(sourceId),
+    })) satisfies MediaWebDataSource["createBrowserPlaybackTicket"];
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          createBrowserPlaybackTicket,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    const player = await screen.findByLabelText("Pilot player");
+    expect(player).toHaveAttribute(
+      "src",
+      expect.stringContaining("source-episode-1-alt-primary"),
+    );
+    fireEvent.error(player);
+    fireEvent.click(await screen.findByRole("button", { name: "Try next path" }));
+    expect(await screen.findByLabelText("Pilot player")).toHaveAttribute(
+      "src",
+      expect.stringContaining("source-episode-1-alt-secondary"),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Pilot\.mkv/ }));
+
+    await waitFor(() => {
+      expect(createBrowserPlaybackTicket).toHaveBeenLastCalledWith(
+        "source-episode-1",
+        expect.anything(),
+      );
+    });
+    expect(await screen.findByLabelText("Pilot player")).toHaveAttribute(
+      "src",
+      expect.stringContaining("source-episode-1-primary"),
+    );
+  });
+
   it("uses an available hls.js adapter for playlist tickets without rendering playlist URLs", async () => {
     window.history.pushState(
       null,
@@ -613,6 +714,52 @@ const multiplePathTicket: BrowserPlaybackTicketResponse = {
       kind: "stream",
       supports_range_requests: true,
       url: "https://fixture.nako.test/stream?path=secondary&ticket=nako_bpt_secondary",
+    },
+  ],
+};
+
+function multiplePathTicketForSource(sourceId: string): BrowserPlaybackTicketResponse {
+  return {
+    expires_at: "2026-05-26T12:00:00Z",
+    item_id: "item-episode-1",
+    mode: "direct",
+    playback_session_id: null,
+    source_id: sourceId,
+    urls: [
+      {
+        content_type: "video/mp4",
+        kind: "stream",
+        supports_range_requests: true,
+        url: `https://fixture.nako.test/stream?path=${sourceId}-primary&ticket=nako_bpt_${sourceId}_primary`,
+      },
+      {
+        content_type: "video/mp4",
+        kind: "stream",
+        supports_range_requests: true,
+        url: `https://fixture.nako.test/stream?path=${sourceId}-secondary&ticket=nako_bpt_${sourceId}_secondary`,
+      },
+    ],
+  };
+}
+
+const hlsThenDirectTicket: BrowserPlaybackTicketResponse = {
+  expires_at: "2026-05-26T12:00:00Z",
+  item_id: "item-episode-1",
+  mode: "hls",
+  playback_session_id: "playback-session-hls-fixture",
+  source_id: "source-episode-1-alt",
+  urls: [
+    {
+      content_type: "application/vnd.apple.mpegurl",
+      kind: "playlist",
+      supports_range_requests: false,
+      url: "https://fixture.nako.test/stream/hls/playlist.m3u8?ticket=nako_bpt_hls_primary",
+    },
+    {
+      content_type: "video/mp4",
+      kind: "stream",
+      supports_range_requests: true,
+      url: "https://fixture.nako.test/stream?path=mp4-fallback&ticket=nako_bpt_mp4_fallback",
     },
   ],
 };
