@@ -32,7 +32,7 @@ documentation/bootstrap task, not as an implementation lane.
 | playback-transcode | Idle after HLS artifact I/O pressure enforcement. | Consider resource admission queueing, LL-HLS/CMAF, player UX, hardware tone-map execution, HEVC/AV1 output policy, subtitle burn-in, or hardware smoke evidence. | Coordinate with storage/VFS and web/native player work. |
 | storage-vfs | Idle after cache repair diagnostics. | Consider source fingerprint escalation, playback artifact/source-read pressure, scan scheduling, or PostgreSQL runtime harness work. | Coordinate with playback input staging and library scan/probe lanes. |
 | web-product | Idle after Admin settings API restoration and previous Web Admin closeouts. | Consider backend/API contract follow-ons, generated SDK work, broader player UX, or desktop/native playback decisions. | Serialize with shared Admin DTO, generated contract, and auth/redaction changes. |
-| control-plane | Idle after durable job priority policy and scheduler migration. | Consider diagnostics, remote access, API cache/scale, or broader durable-job operator surfaces once a Trellis task is opened. | Keep ADR 0053 as the baseline; avoid per-feature hidden runtimes. |
+| control-plane | Idle after the generic durable-job priority policy baseline. | Consider broader job-kind scheduler migration, diagnostics, remote access, API cache/scale, or durable-job operator surfaces once a Trellis task is opened. | Keep ADR 0053 as the baseline; avoid per-feature hidden runtimes. |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.

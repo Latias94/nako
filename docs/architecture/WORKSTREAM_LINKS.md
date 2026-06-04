@@ -331,10 +331,11 @@ Evidence workstreams:
 - `docs/workstreams/addon-notification-provider-live-smoke/`
 - `docs/workstreams/network-access-boundary/`
 - `docs/workstreams/public-client-library-browse-query-contract/`
+- `.trellis/tasks/archive/2026-06/06-02-01f-durable-job-priority-policy-and-scheduler-migration/`
 
 Proposed lanes:
 
-- `proposed:durable-job-priority-policy-and-scheduler-migration`
+- `proposed:durable-job-kind-scheduler-migration`
 - `proposed:control-plane-observability-and-trace-context`
 - `proposed:addon-manager-trust-update-lifecycle`
 - `proposed:api-scale-and-cache-contracts`

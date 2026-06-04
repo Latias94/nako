@@ -98,7 +98,8 @@ follow-ons. The related hierarchy Admin surface is now closed through the
 the Douban Trellis task. Negative Public Client governance guardrails are
 closed by `.trellis/tasks/archive/2026-06/06-05-provider-review-public-client-governance/`;
 future intentional Public Client metadata exposure, Douban Season/Episode graph
-depth, mutation-capable undo, and scheduler migration remain separate.
+depth, mutation-capable undo, and broader job-kind scheduler migration remain
+separate.
 
 `PGDBE-050` shipped on 2026-06-02 with Web Admin durable Candidate Review
 batch creation, status rendering, queued/running polling, data-source and

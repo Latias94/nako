@@ -94,9 +94,11 @@ Closed and candidate follow-ons:
   (closed Douban TV Series subject support);
 - `.trellis/tasks/archive/2026-06/06-05-provider-review-public-client-governance/`
   (closed negative Public Client governance guardrails; shipped by `42869eaf`);
+- `.trellis/tasks/archive/2026-06/06-02-01f-durable-job-priority-policy-and-scheduler-migration/`
+  (closed generic durable-job priority baseline; shipped by `c1608abc`);
 - `proposed:douban-season-episode-graph-depth`;
 - `proposed:provider-governance-mutation-undo`;
-- `proposed:durable-job-priority-policy-and-scheduler-migration`.
+- `proposed:durable-job-kind-scheduler-migration`.
 
 ### Provider Governance Bulk Review
 
