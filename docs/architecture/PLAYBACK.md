@@ -42,7 +42,7 @@ selection.
 | Adaptive HLS fMP4 ladder | Shipped first slice | `docs/workstreams/adaptive-hls-source-aware-ladder/` | Bandwidth-aware ABR and variant pruning. |
 | HLS artifact manifest | Shipped | `docs/workstreams/transcode-output-shape-hls-manifest-ladder/`; `docs/adr/0052-hls-runtime-and-media-engine-boundary.md` | Keep all playlist/media group URLs manifest-backed. |
 | Selected audio stream mapping | Shipped | `docs/workstreams/hls-alternate-audio-renditions/`; `docs/workstreams/hls-selected-main-audio-cleanup/`; `docs/workstreams/playback-audio-language-default-policy/` | Request-scoped language/default policy is shipped; persist user settings later. |
-| HLS subtitle sidecar media group | Shipped first slice | `docs/workstreams/hls-media-renditions-runtime/`; `docs/workstreams/hls-master-renditions-authoring/`; `docs/workstreams/playback-subtitle-language-default-policy/` | Request-scoped subtitle language/default policy is shipped; defer ASS/SSA, PGS, burn-in, and client subtitle capability policy. |
+| HLS subtitle sidecar / burn-in planning | Shipped sidecar plus burn-in planning first slice | `docs/workstreams/hls-media-renditions-runtime/`; `docs/workstreams/hls-master-renditions-authoring/`; `docs/workstreams/playback-subtitle-language-default-policy/`; `.trellis/tasks/06-04-hls-subtitle-burn-in-planning/` | Request-scoped subtitle language/default policy is shipped. Sidecar-capable selected text subtitles remain WebVTT sidecars; known non-sidecar formats now emit typed burn-in intent. Image-subtitle execution and richer client subtitle capability profiles remain follow-ons. |
 | HLS audio sidecar media group | Shipped cleanup slice | `docs/workstreams/hls-audio-sidecar-artifacts/`; `docs/workstreams/hls-selected-main-audio-cleanup/`; `docs/workstreams/playback-audio-language-default-policy/` | Request-scoped language defaults and audio output compatibility are shipped; defer codec-aware sidecars and player-specific fallback. |
 | HLS seek/restart | Shipped first slice | `docs/adr/0052-hls-runtime-and-media-engine-boundary.md`; `docs/workstreams/hls-seek-restart-lifecycle/` | Generation identity, restart admission, FFmpeg seek flags, and public `start_position_ms` playlist query. |
 | HLS progressive runtime | Shipped | `docs/workstreams/hls-progressive-runtime-boundary/`; `docs/adr/0052-hls-runtime-and-media-engine-boundary.md` | Playlist readiness before full FFmpeg completion, running segment serving, typed artifact reconstruction, manifest-aware URL auth, and partial-playlist readiness guard. |
@@ -187,6 +187,13 @@ Exit criteria:
 - selected text subtitles can become sidecars when the client can render them;
 - ASS/SSA and unsupported subtitle formats can trigger burn-in when needed;
 - addon-provided subtitles have a bounded readiness policy.
+
+Current status: first burn-in planning slice is shipped for HLS. Playback owns
+the sidecar-versus-burn-in subtitle intent, transcode carries that intent
+through HLS runtime identity, and the FFmpeg adapter accepts only embedded text
+subtitle burn-in on the software pipeline. PGS/image subtitle burn-in execution,
+external subtitle burn-in, hardware-filter burn-in, and richer client subtitle
+format profiles remain follow-ons.
 
 ### Lane D - HDR / Tone Mapping
 

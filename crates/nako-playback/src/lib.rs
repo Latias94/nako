@@ -695,8 +695,14 @@ fn build_transcode_requirement(
         audio_output,
         hls_output: (output_container == PlaybackTranscodeContainer::Hls)
             .then_some(target_profile.hls_output_requirement()),
-        subtitle_strategy: target_profile
-            .subtitle_strategy_for_track_selection(output_container, track_selection),
+        subtitle_strategy: target_profile.subtitle_strategy_for_track_selection(
+            output_container,
+            track_selection,
+            selected_streams
+                .subtitle
+                .as_ref()
+                .and_then(|stream| stream.codec.as_deref()),
+        ),
         selected_streams,
         reasons: transcode_requirement_reasons(reason, report),
     }
@@ -1707,6 +1713,114 @@ mod tests {
         assert_eq!(
             requirement.subtitle_strategy,
             PlaybackSubtitleStrategy::BurnInSelected
+        );
+    }
+
+    #[test]
+    fn sidecar_capable_hls_subtitle_format_remains_sidecar_selected() {
+        let source = media_source("movie.mp4");
+        let mut video = stream(MediaStreamKind::Video, Some("h264"));
+        video.index = 0;
+        let mut audio = stream(MediaStreamKind::Audio, Some("aac"));
+        audio.index = 1;
+        let mut subtitle = stream(MediaStreamKind::Subtitle, Some("subrip"));
+        subtitle.index = 2;
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned()),
+            bit_rate: None,
+            streams: vec![video, audio, subtitle],
+        };
+
+        let decision = plan_with_policy(
+            &source,
+            Some(&probe),
+            ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext {
+                storage: PlaybackStorageContext::default(),
+                preferences: PlaybackPreferenceContext {
+                    requested_subtitle_stream: Some(2),
+                    transcode_output_container: Some(PlaybackTranscodeContainer::Hls),
+                    ..PlaybackPreferenceContext::default()
+                },
+            },
+            EffectivePlaybackPolicy::from_library_access(
+                source.library_id,
+                nako_core::LibraryAccessLevel::Play,
+            ),
+        );
+
+        let requirement = decision
+            .transcode_requirement()
+            .expect("requested HLS transcode should carry subtitle strategy");
+
+        assert_eq!(
+            requirement.subtitle_strategy,
+            PlaybackSubtitleStrategy::SidecarSelected
+        );
+        assert_eq!(requirement.track_selection.subtitle_stream, Some(2));
+    }
+
+    #[test]
+    fn unsupported_hls_subtitle_format_requires_burn_in_strategy() {
+        let source = media_source("movie.mp4");
+        let mut video = stream(MediaStreamKind::Video, Some("h264"));
+        video.index = 0;
+        let mut audio = stream(MediaStreamKind::Audio, Some("aac"));
+        audio.index = 1;
+        let mut subtitle = stream(MediaStreamKind::Subtitle, Some("ass"));
+        subtitle.index = 2;
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned()),
+            bit_rate: None,
+            streams: vec![video, audio, subtitle],
+        };
+
+        let decision = plan_with_policy(
+            &source,
+            Some(&probe),
+            ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext {
+                storage: PlaybackStorageContext::default(),
+                preferences: PlaybackPreferenceContext {
+                    requested_subtitle_stream: Some(2),
+                    ..PlaybackPreferenceContext::default()
+                },
+            },
+            EffectivePlaybackPolicy::from_library_access(
+                source.library_id,
+                nako_core::LibraryAccessLevel::Play,
+            ),
+        );
+
+        assert_eq!(decision.mode, PlaybackMode::Transcode);
+        assert!(
+            decision
+                .report
+                .direct_play
+                .has(PlaybackCompatibilityCondition::SubtitleDeliveryUnsupported)
+        );
+        let requirement = decision
+            .transcode_requirement()
+            .expect("unsupported subtitle delivery should require transcode planning");
+
+        assert_eq!(
+            requirement.subtitle_strategy,
+            PlaybackSubtitleStrategy::BurnInSelected
+        );
+        assert!(
+            requirement
+                .reasons
+                .contains(&PlaybackCompatibilityCondition::SubtitleDeliveryUnsupported)
+        );
+        assert_eq!(
+            requirement
+                .selected_streams
+                .subtitle
+                .as_ref()
+                .and_then(|stream| stream.codec.as_deref()),
+            Some("ass")
         );
     }
 

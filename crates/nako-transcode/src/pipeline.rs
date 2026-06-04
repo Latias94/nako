@@ -1022,6 +1022,59 @@ mod tests {
     }
 
     #[test]
+    fn hls_runtime_plan_rejects_image_subtitle_burn_in_strategy() {
+        let source = demo_source();
+        let video = video_stream(1920, 1080, 4_000_000);
+        let subtitle = media_stream(
+            3,
+            MediaStreamKind::Subtitle,
+            "hdmv_pgs_subtitle",
+            Some("jpn"),
+        );
+        let track_selection = TranscodeTrackSelection {
+            audio_stream: None,
+            subtitle_stream: Some(3),
+        };
+        let request = HlsRuntimePlanRequest {
+            source,
+            plan: TranscodePlan {
+                input_locator: "local:///Movies/Demo.mkv".to_owned(),
+                output_container: OutputContainer::Hls,
+                video_codec: Some("h264".to_owned()),
+                audio_codec: Some("aac".to_owned()),
+            },
+            hardware_policy: HardwareAccelerationPolicy::default(),
+            track_selection,
+            output_constraints: TranscodeOutputConstraints::default(),
+            audio_output: TranscodeAudioOutputRequirement::none(),
+            color_pipeline: TranscodeColorPipelineRequirement::none(),
+            subtitle_strategy: TranscodeSubtitleStrategy::BurnInSelected,
+            hls_output: HlsOutputRequirement::default(),
+            source_facts: Some(TranscodePipelineSourceFacts {
+                video: Some(video.clone()),
+                audio: None,
+                subtitle: Some(subtitle.clone()),
+            }),
+            media_probe: Some(MediaProbeResult {
+                duration_ms: Some(1_000),
+                container: Some("matroska,webm".to_owned()),
+                bit_rate: None,
+                streams: vec![video, subtitle],
+            }),
+            playback_generation: HlsPlaybackGeneration::default(),
+            remote_input: false,
+            playback_profile_key: "playback-target-profile:v1;demo=true".to_owned(),
+        };
+        let report = HardwareAccelerationReport::with_available([HardwareAcceleration::None]);
+
+        let err = TranscodePipelinePlanner::new()
+            .plan_hls_runtime(request, &report)
+            .unwrap_err();
+
+        assert!(err.to_string().contains("text subtitle codecs"));
+    }
+
+    #[test]
     fn hls_runtime_plan_does_not_infer_sidecar_from_omitted_subtitle_selection() {
         let source = demo_source();
         let video = video_stream(1920, 1080, 4_000_000);

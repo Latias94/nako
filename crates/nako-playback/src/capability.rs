@@ -9,6 +9,8 @@ use crate::{
     PlaybackTrackSelection, PlaybackTranscodeContainer,
 };
 
+const HLS_SIDECAR_SUBTITLE_CODECS: &[&str] = &["mov_text", "srt", "subrip", "text", "webvtt"];
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PlaybackCompatibilityCondition {
@@ -222,12 +224,15 @@ impl PlaybackTargetProfile {
         &self,
         output_container: PlaybackTranscodeContainer,
         track_selection: PlaybackTrackSelection,
+        selected_subtitle_codec: Option<&str>,
     ) -> PlaybackSubtitleStrategy {
         if track_selection.subtitle_stream.is_none() {
             PlaybackSubtitleStrategy::None
         } else if output_container != PlaybackTranscodeContainer::Hls {
             PlaybackSubtitleStrategy::OmitSelected
-        } else if self.supports_subtitles() {
+        } else if self.supports_subtitles()
+            && hls_sidecar_subtitle_delivery_supported(selected_subtitle_codec)
+        {
             PlaybackSubtitleStrategy::SidecarSelected
         } else {
             PlaybackSubtitleStrategy::BurnInSelected
@@ -380,9 +385,7 @@ pub(crate) fn evaluate_direct_play(
         );
     }
 
-    if profile.preferences.requested_subtitle_stream.is_some()
-        && !direct_play_profile.supports_subtitles
-    {
+    if selected_subtitle_delivery_unsupported(probe, profile, direct_play_profile) {
         push_unique(
             &mut reasons,
             PlaybackCompatibilityCondition::SubtitleDeliveryUnsupported,
@@ -530,6 +533,47 @@ fn append_stream_compatibility_reasons(
             MediaStreamKind::Other(_) => {}
         }
     }
+}
+
+fn selected_subtitle_delivery_unsupported(
+    probe: Option<&MediaProbeResult>,
+    profile: &PlaybackTargetProfile,
+    direct_play_profile: &DirectPlayCapabilityProfile,
+) -> bool {
+    let track_selection = profile.track_selection_for_probe(probe);
+    let Some(selected_subtitle_stream) = track_selection.subtitle_stream else {
+        return false;
+    };
+    if !direct_play_profile.supports_subtitles {
+        return true;
+    }
+
+    let Some(probe) = probe else {
+        return false;
+    };
+
+    selected_subtitle_stream_by_index(probe, selected_subtitle_stream)
+        .is_some_and(|stream| !hls_sidecar_subtitle_delivery_supported(stream.codec.as_deref()))
+}
+
+fn selected_subtitle_stream_by_index(
+    probe: &MediaProbeResult,
+    selected_subtitle_stream: u32,
+) -> Option<&nako_core::MediaStreamInfo> {
+    probe.streams.iter().find(|stream| {
+        stream.index == selected_subtitle_stream && matches!(stream.kind, MediaStreamKind::Subtitle)
+    })
+}
+
+pub(crate) fn hls_sidecar_subtitle_delivery_supported(codec: Option<&str>) -> bool {
+    codec
+        .map(str::trim)
+        .filter(|codec| !codec.is_empty())
+        .is_none_or(|codec| {
+            HLS_SIDECAR_SUBTITLE_CODECS
+                .iter()
+                .any(|supported| codec.eq_ignore_ascii_case(supported))
+        })
 }
 
 fn codec_allowed(codec: Option<&str>, allowed: &[String]) -> bool {
