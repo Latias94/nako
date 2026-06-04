@@ -33,6 +33,97 @@ database-specific SQL and row mapping stay inside `nako-db`.
 - After a schema change, update row mappers, insert/update SQL, list filters,
   and contract tests in the same task.
 
+## Scenario: Baseline Plus Incremental Migration Replay
+
+### 1. Scope / Trigger
+
+- Trigger: adding a database schema field through a new migration.
+- Scope: `crates/nako-db/migrations/baseline.sql`, incremental migration files,
+  `sqlite/migrations.rs`, `postgres.rs`, adapter row mappers, and migration
+  tests.
+
+### 2. Signatures
+
+- SQLite migrator registration:
+  `const MIGRATIONS: &[(i64, &str, &str)]`
+- PostgreSQL migrator registration:
+  `const MIGRATIONS: &[(i64, &str, &str)]`
+- New SQLite migration path:
+  `crates/nako-db/migrations/<version>_<description>.sql`
+- New PostgreSQL migration path:
+  `crates/nako-db/migrations/postgres/<version>_<description>.sql`
+
+### 3. Contracts
+
+- A fresh store applies `baseline.sql` first, then every registered incremental
+  migration in order.
+- Do not add the same new column/index to both `baseline.sql` and the new
+  incremental migration unless the incremental migration is explicitly
+  idempotent for already-baselined stores.
+- For the current repository migration model, prefer putting newly added fields
+  in the incremental migration only; keep baseline as version-1 direct schema.
+- Update expected applied migration versions when a new version is registered.
+
+### 4. Validation & Error Matrix
+
+- New column exists in baseline and `ALTER TABLE ... ADD COLUMN` migration ->
+  fresh SQLite migration fails with duplicate column.
+- Migration file exists but is not registered -> migrated stores miss the new
+  schema shape.
+- Row mapper selects a new column before migration registration -> migrated
+  stores fail at runtime.
+- PostgreSQL uses `IF NOT EXISTS` but SQLite does not -> SQLite still needs a
+  replay-safe shape or baseline must not include the new column.
+
+### 5. Good/Base/Bad Cases
+
+- Good: `0004_example.sql` adds `example_column`, both migrators register
+  version 4, row mappers include the field, and migration tests expect
+  `[1, 2, 3, 4]`.
+- Base: `baseline.sql` remains the version-1 direct schema without historical
+  `ALTER TABLE` fragments.
+- Bad: `baseline.sql` includes `example_column` and `0004_example.sql` also
+  runs `ALTER TABLE ... ADD COLUMN example_column`, causing fresh SQLite
+  migration failure.
+
+### 6. Tests Required
+
+- SQLite migration test asserting the full applied version list.
+- SQLite or repository round-trip test that calls `migrate()` on a fresh
+  in-memory store before using the new field.
+- Contract test asserting the new field round-trips through repository traits.
+- PostgreSQL migration registration or baseline-shape tests when a PostgreSQL
+  migration is added.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```sql
+-- baseline.sql
+CREATE TABLE vfs_cache_failures (
+    uri TEXT NOT NULL,
+    library_id TEXT
+);
+
+-- 0004_vfs_cache_failure_authority.sql
+ALTER TABLE vfs_cache_failures
+    ADD COLUMN library_id TEXT;
+```
+
+#### Correct
+
+```sql
+-- baseline.sql remains the version-1 table shape.
+CREATE TABLE vfs_cache_failures (
+    uri TEXT NOT NULL
+);
+
+-- 0004_vfs_cache_failure_authority.sql owns the new field.
+ALTER TABLE vfs_cache_failures
+    ADD COLUMN library_id TEXT;
+```
+
 ## Naming Conventions
 
 - Table and column names use `snake_case`.

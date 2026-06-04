@@ -45,6 +45,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "staging_attribution",
         include_str!("../migrations/postgres/0003_staging_attribution.sql"),
     ),
+    (
+        4,
+        "vfs_cache_failure_authority",
+        include_str!("../migrations/postgres/0004_vfs_cache_failure_authority.sql"),
+    ),
 ];
 
 #[derive(Clone, Debug)]

@@ -23,7 +23,8 @@ use nako_core::{
     StagingAttribution, StagingManifestRecord, StagingManifestRepository, StagingPurpose,
     StagingState, StorageBackendHealthListFilter, StorageBackendHealthRecord,
     StorageBackendHealthRepository, StorageBackendHealthStatus, StorageCircuitBreakerState,
-    StorageFailureClass, VfsCacheFailure, VfsCacheOperation, VfsCacheRepository, VfsCacheSummary,
+    StorageFailureClass, VfsCacheFailure, VfsCacheFailureAuthority, VfsCacheOperation,
+    VfsCacheRepository, VfsCacheSummary,
 };
 use nako_db::NakoDatabase;
 use nako_vfs::{
@@ -509,6 +510,12 @@ impl StorageBackendRegistry {
         failure: &VfsCacheFailure,
     ) -> Result<(StorageUri, Arc<LibraryStorageBackend>)> {
         let uri = parse_vfs_cache_repair_target_uri(&failure.uri)?;
+        if failure.authority.is_present() {
+            return self
+                .backend_for_vfs_cache_failure_authority(failure, uri)
+                .await;
+        }
+
         let mut matches = Vec::new();
 
         for config in &self.config.libraries {
@@ -530,6 +537,48 @@ impl StorageBackendRegistry {
                         .to_owned(),
             }),
         }
+    }
+
+    async fn backend_for_vfs_cache_failure_authority(
+        &self,
+        failure: &VfsCacheFailure,
+        uri: StorageUri,
+    ) -> Result<(StorageUri, Arc<LibraryStorageBackend>)> {
+        let (Some(library_id), Some(backend_key)) = (
+            failure.authority.library_id,
+            failure.authority.backend_key.as_deref(),
+        ) else {
+            return Err(NakoError::InvalidInput {
+                message: "latest VFS cache repair target authority is incomplete".to_owned(),
+            });
+        };
+
+        let Some(config) = self
+            .config
+            .libraries
+            .iter()
+            .find(|config| config.id == library_id)
+            .cloned()
+        else {
+            return Err(NakoError::NotFound {
+                entity: "storage_backend",
+                id: "vfs_cache_repair_target".to_owned(),
+            });
+        };
+
+        let expected_scheme = configured_library_scheme(&config);
+        let expected_backend_key = storage_backend_key(config.id, &expected_scheme);
+        if failure.scheme != expected_scheme
+            || uri.scheme() != expected_scheme
+            || backend_key != expected_backend_key
+        {
+            return Err(NakoError::Conflict {
+                message: "latest VFS cache repair target authority does not match configured storage backend"
+                    .to_owned(),
+            });
+        }
+
+        Ok((uri, self.backend_for_library_config(config).await?))
     }
 
     async fn vfs_cache_failure_resolved_by_cache(&self, failure: &VfsCacheFailure) -> Result<bool> {
@@ -815,20 +864,25 @@ impl StorageBackendRegistry {
 
     fn build_backend(&self, config: &LocalLibraryConfig) -> Result<Arc<dyn StorageBackend>> {
         match config.webdav.as_ref() {
-            Some(webdav) => self.webdav_storage_backend(webdav),
+            Some(webdav) => self.webdav_storage_backend(config, webdav),
             None => Ok(Arc::new(LocalFsBackend::new(&config.root)?)),
         }
     }
 
     fn webdav_storage_backend(
         &self,
+        library: &LocalLibraryConfig,
         config: &WebDavLibraryConfig,
     ) -> Result<Arc<dyn StorageBackend>> {
         let backend = nako_vfs::WebDavBackend::new(webdav_backend_config(config))?;
-        Ok(Arc::new(nako_vfs::CachedStorageBackend::new(
-            backend,
-            self.store.clone(),
-        )))
+        let authority = VfsCacheFailureAuthority::attributed(
+            library.id,
+            storage_backend_key(library.id, backend.scheme()),
+        );
+        Ok(Arc::new(
+            nako_vfs::CachedStorageBackend::new(backend, self.store.clone())
+                .with_failure_authority(authority),
+        ))
     }
 
     #[cfg(test)]
@@ -1378,6 +1432,13 @@ fn backend_kind(config: &LocalLibraryConfig) -> StorageBackendKind {
     } else {
         StorageBackendKind::Local
     }
+}
+
+fn configured_library_scheme(config: &LocalLibraryConfig) -> String {
+    config
+        .webdav
+        .as_ref()
+        .map_or_else(|| "local".to_owned(), |_| "webdav".to_owned())
 }
 
 fn backend_kind_from_scheme(scheme: &str) -> Option<StorageBackendKind> {

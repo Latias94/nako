@@ -1,0 +1,9 @@
+{"file": ".trellis/tasks/06-04-06-04-local-vfs-cache-repair-target-authority/research/target-authority-options.md", "reason": "Chosen persisted failure authority approach and rejected alternatives"}
+{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "VFS cache boundary and pre-development checklist"}
+{"file": ".trellis/spec/nako-vfs/backend/database-guidelines.md", "reason": "VFS persistence record ownership and redaction rules"}
+{"file": ".trellis/spec/nako-vfs/backend/error-handling.md", "reason": "Cache repair diagnostic and storage error classification rules"}
+{"file": ".trellis/spec/nako-vfs/backend/quality-guidelines.md", "reason": "Cache repair action and URI/path authority quality bar"}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server app/HTTP boundary checklist"}
+{"file": ".trellis/spec/nako-server/backend/database-guidelines.md", "reason": "Repository consumption and cross-layer persisted field rules"}
+{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "Database adapter checklist"}
+{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "Migration, row mapping, and contract-test rules"}

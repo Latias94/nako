@@ -1240,6 +1240,10 @@ pub(crate) fn row_to_vfs_cache_failure(row: SqliteRow) -> Result<VfsCacheFailure
         failed_at_ms: row_get(&row, "failed_at_ms")?,
         failure_count: i64_to_u32(row_get(&row, "failure_count")?)?,
         error: row_get(&row, "error")?,
+        authority: VfsCacheFailureAuthority {
+            library_id: parse_optional_id(row_get(&row, "library_id")?)?,
+            backend_key: row_get(&row, "backend_key")?,
+        },
     })
 }
 

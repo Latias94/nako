@@ -17,6 +17,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "staging_attribution",
         include_str!("../../migrations/0003_staging_attribution.sql"),
     ),
+    (
+        4,
+        "vfs_cache_failure_authority",
+        include_str!("../../migrations/0004_vfs_cache_failure_authority.sql"),
+    ),
 ];
 
 #[async_trait::async_trait]
@@ -99,7 +104,7 @@ mod tests {
                 .await
                 .unwrap();
 
-        assert_eq!(applied_versions, vec![1, 2, 3]);
+        assert_eq!(applied_versions, vec![1, 2, 3, 4]);
 
         for table in [
             "users",

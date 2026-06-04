@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{NakoError, Result};
+use crate::{LibraryId, NakoError, Result};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -99,12 +99,48 @@ impl VfsCachedListing {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct VfsCacheFailureAuthority {
+    pub library_id: Option<LibraryId>,
+    pub backend_key: Option<String>,
+}
+
+impl VfsCacheFailureAuthority {
+    #[must_use]
+    pub const fn none() -> Self {
+        Self {
+            library_id: None,
+            backend_key: None,
+        }
+    }
+
+    #[must_use]
+    pub fn attributed(library_id: LibraryId, backend_key: impl Into<String>) -> Self {
+        Self {
+            library_id: Some(library_id),
+            backend_key: Some(backend_key.into()),
+        }
+    }
+
+    #[must_use]
+    pub const fn is_present(&self) -> bool {
+        self.library_id.is_some() || self.backend_key.is_some()
+    }
+}
+
+impl Default for VfsCacheFailureAuthority {
+    fn default() -> Self {
+        Self::none()
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct NewVfsCacheFailure {
     pub uri: String,
     pub scheme: String,
     pub operation: VfsCacheOperation,
     pub failed_at_ms: i64,
     pub error: String,
+    pub authority: VfsCacheFailureAuthority,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -115,6 +151,7 @@ pub struct VfsCacheFailure {
     pub failed_at_ms: i64,
     pub failure_count: u32,
     pub error: String,
+    pub authority: VfsCacheFailureAuthority,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]

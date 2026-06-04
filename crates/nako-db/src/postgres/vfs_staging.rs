@@ -175,14 +175,17 @@ impl VfsCacheRepository for PostgresStore {
         sqlx::query(
             r#"
             INSERT INTO vfs_cache_failures (
-                uri, scheme, operation, failed_at_ms, failure_count, error
+                uri, scheme, operation, failed_at_ms, failure_count, error,
+                library_id, backend_key
             )
-            VALUES ($1, $2, $3, $4, 1, $5)
+            VALUES ($1, $2, $3, $4, 1, $5, $6, $7)
             ON CONFLICT(uri, operation) DO UPDATE SET
                 scheme = excluded.scheme,
                 failed_at_ms = excluded.failed_at_ms,
                 failure_count = vfs_cache_failures.failure_count + 1,
                 error = excluded.error,
+                library_id = excluded.library_id,
+                backend_key = excluded.backend_key,
                 updated_at = statement_timestamp()
             "#,
         )
@@ -191,6 +194,8 @@ impl VfsCacheRepository for PostgresStore {
         .bind(failure.operation.as_str())
         .bind(failure.failed_at_ms)
         .bind(&failure.error)
+        .bind(failure.authority.library_id.map(|id| id.as_uuid()))
+        .bind(&failure.authority.backend_key)
         .execute(&self.pool)
         .await
         .map_err(database_error)?;
@@ -210,7 +215,9 @@ impl VfsCacheRepository for PostgresStore {
     ) -> Result<Option<VfsCacheFailure>> {
         let row = sqlx::query(
             r#"
-            SELECT uri, scheme, operation, failed_at_ms, failure_count, error
+            SELECT
+                uri, scheme, operation, failed_at_ms, failure_count, error,
+                library_id, backend_key
             FROM vfs_cache_failures
             WHERE uri = $1 AND operation = $2
             "#,
@@ -227,7 +234,9 @@ impl VfsCacheRepository for PostgresStore {
     async fn get_latest_vfs_cache_failure(&self) -> Result<Option<VfsCacheFailure>> {
         let row = sqlx::query(
             r#"
-            SELECT uri, scheme, operation, failed_at_ms, failure_count, error
+            SELECT
+                uri, scheme, operation, failed_at_ms, failure_count, error,
+                library_id, backend_key
             FROM vfs_cache_failures
             ORDER BY failed_at_ms DESC, uri ASC, operation ASC
             LIMIT 1
@@ -964,6 +973,10 @@ fn row_to_vfs_cache_failure(row: PgRow) -> Result<VfsCacheFailure> {
         failed_at_ms: row_get(&row, "failed_at_ms")?,
         failure_count: i64_to_u32(row_get(&row, "failure_count")?)?,
         error: row_get(&row, "error")?,
+        authority: VfsCacheFailureAuthority {
+            library_id: parse_optional_id(row_get(&row, "library_id")?)?,
+            backend_key: row_get(&row, "backend_key")?,
+        },
     })
 }
 

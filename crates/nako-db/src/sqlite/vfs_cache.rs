@@ -155,14 +155,17 @@ impl VfsCacheRepository for SqliteStore {
         sqlx::query(
             r#"
             INSERT INTO vfs_cache_failures (
-                uri, scheme, operation, failed_at_ms, failure_count, error
+                uri, scheme, operation, failed_at_ms, failure_count, error,
+                library_id, backend_key
             )
-            VALUES (?1, ?2, ?3, ?4, 1, ?5)
+            VALUES (?1, ?2, ?3, ?4, 1, ?5, ?6, ?7)
             ON CONFLICT(uri, operation) DO UPDATE SET
                 scheme = excluded.scheme,
                 failed_at_ms = excluded.failed_at_ms,
                 failure_count = vfs_cache_failures.failure_count + 1,
                 error = excluded.error,
+                library_id = excluded.library_id,
+                backend_key = excluded.backend_key,
                 updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
             "#,
         )
@@ -171,6 +174,8 @@ impl VfsCacheRepository for SqliteStore {
         .bind(failure.operation.as_str())
         .bind(failure.failed_at_ms)
         .bind(&failure.error)
+        .bind(failure.authority.library_id.map(|id| id.to_string()))
+        .bind(&failure.authority.backend_key)
         .execute(&self.pool)
         .await
         .map_err(database_error)?;
@@ -190,7 +195,9 @@ impl VfsCacheRepository for SqliteStore {
     ) -> Result<Option<VfsCacheFailure>> {
         let row = sqlx::query(
             r#"
-            SELECT uri, scheme, operation, failed_at_ms, failure_count, error
+            SELECT
+                uri, scheme, operation, failed_at_ms, failure_count, error,
+                library_id, backend_key
             FROM vfs_cache_failures
             WHERE uri = ?1 AND operation = ?2
             "#,
@@ -207,7 +214,9 @@ impl VfsCacheRepository for SqliteStore {
     async fn get_latest_vfs_cache_failure(&self) -> Result<Option<VfsCacheFailure>> {
         let row = sqlx::query(
             r#"
-            SELECT uri, scheme, operation, failed_at_ms, failure_count, error
+            SELECT
+                uri, scheme, operation, failed_at_ms, failure_count, error,
+                library_id, backend_key
             FROM vfs_cache_failures
             ORDER BY failed_at_ms DESC, uri ASC, operation ASC
             LIMIT 1

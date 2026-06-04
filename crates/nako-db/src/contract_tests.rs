@@ -98,9 +98,9 @@ use nako_core::{
     UserInvitationId, UserInvitationRecord, UserInvitationStatus, UserPlaybackStateRepository,
     UserPlaybackStateWrite, UserPlaylistId, UserPlaylistItemRemoval, UserPlaylistItemWrite,
     UserPlaylistReorder, UserPlaylistRepository, UserPrincipalId, UserRole, UserSessionId,
-    UserSessionRecord, UserStatus, VfsCacheOperation, VfsCacheRepository, VfsCachedListing,
-    VfsCachedObject, VfsCachedObjectKind, WebhookDeliveryStatus, WebhookEndpointStatus,
-    WebhookRepository,
+    UserSessionRecord, UserStatus, VfsCacheFailureAuthority, VfsCacheOperation, VfsCacheRepository,
+    VfsCachedListing, VfsCachedObject, VfsCachedObjectKind, WebhookDeliveryStatus,
+    WebhookEndpointStatus, WebhookRepository,
 };
 use nako_search::{SearchIndex, SearchQuery};
 
@@ -7152,6 +7152,10 @@ where
         Some(replacement_listing)
     );
 
+    let first_failure_library_id = LibraryId::new();
+    let first_failure_backend_key = format!("library:{first_failure_library_id}:webdav");
+    let second_failure_library_id = LibraryId::new();
+    let second_failure_backend_key = format!("library:{second_failure_library_id}:webdav");
     let first_failure = store
         .record_vfs_cache_failure(NewVfsCacheFailure {
             uri: "webdav:///Contract/Movies/".to_owned(),
@@ -7159,6 +7163,10 @@ where
             operation: VfsCacheOperation::List,
             failed_at_ms: 900,
             error: "timeout".to_owned(),
+            authority: VfsCacheFailureAuthority::attributed(
+                first_failure_library_id,
+                first_failure_backend_key,
+            ),
         })
         .await
         .unwrap();
@@ -7169,14 +7177,26 @@ where
             operation: VfsCacheOperation::List,
             failed_at_ms: 950,
             error: "rate limited".to_owned(),
+            authority: VfsCacheFailureAuthority::attributed(
+                second_failure_library_id,
+                second_failure_backend_key.clone(),
+            ),
         })
         .await
         .unwrap();
 
     assert_eq!(first_failure.failure_count, 1);
+    assert_eq!(
+        first_failure.authority.library_id,
+        Some(first_failure_library_id)
+    );
     assert_eq!(second_failure.failure_count, 2);
     assert_eq!(second_failure.failed_at_ms, 950);
     assert_eq!(second_failure.error, "rate limited");
+    assert_eq!(
+        second_failure.authority,
+        VfsCacheFailureAuthority::attributed(second_failure_library_id, second_failure_backend_key)
+    );
     assert_eq!(
         store
             .get_vfs_cache_failure("webdav:///Contract/Movies/", VfsCacheOperation::List)

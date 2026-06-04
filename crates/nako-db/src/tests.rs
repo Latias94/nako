@@ -2155,6 +2155,10 @@ async fn nako_database_sqlite_round_trips_vfs_cache_records_and_failures() {
     assert_eq!(loaded_object, Some(movie));
     assert_eq!(loaded_listing, Some(listing));
 
+    let first_failure_library_id = LibraryId::new();
+    let first_failure_backend_key = format!("library:{first_failure_library_id}:webdav");
+    let second_failure_library_id = LibraryId::new();
+    let second_failure_backend_key = format!("library:{second_failure_library_id}:webdav");
     let first_failure = store
         .record_vfs_cache_failure(NewVfsCacheFailure {
             uri: "webdav:///Movies/".to_owned(),
@@ -2162,6 +2166,10 @@ async fn nako_database_sqlite_round_trips_vfs_cache_records_and_failures() {
             operation: VfsCacheOperation::List,
             failed_at_ms: 300,
             error: "timeout".to_owned(),
+            authority: VfsCacheFailureAuthority::attributed(
+                first_failure_library_id,
+                first_failure_backend_key,
+            ),
         })
         .await
         .unwrap();
@@ -2172,14 +2180,26 @@ async fn nako_database_sqlite_round_trips_vfs_cache_records_and_failures() {
             operation: VfsCacheOperation::List,
             failed_at_ms: 400,
             error: "rate limited".to_owned(),
+            authority: VfsCacheFailureAuthority::attributed(
+                second_failure_library_id,
+                second_failure_backend_key.clone(),
+            ),
         })
         .await
         .unwrap();
 
     assert_eq!(first_failure.failure_count, 1);
+    assert_eq!(
+        first_failure.authority.library_id,
+        Some(first_failure_library_id)
+    );
     assert_eq!(second_failure.failure_count, 2);
     assert_eq!(second_failure.failed_at_ms, 400);
     assert_eq!(second_failure.error, "rate limited");
+    assert_eq!(
+        second_failure.authority,
+        VfsCacheFailureAuthority::attributed(second_failure_library_id, second_failure_backend_key)
+    );
 
     let summary = store.summarize_vfs_cache(300).await.unwrap();
     assert_eq!(summary.object_count, 2);

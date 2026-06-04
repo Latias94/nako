@@ -24,7 +24,7 @@ use nako_core::{
     MetadataCandidateReviewStatus as DurableMetadataCandidateReviewStatus, MetadataCandidateSource,
     MetadataCandidateSubject, NewMetadataCandidateReview, ProviderMappingStatus,
     StorageBackendHealthRecord, StorageBackendHealthRepository, StorageBackendHealthStatus,
-    StorageCircuitBreakerState, StorageFailureClass,
+    StorageCircuitBreakerState, StorageFailureClass, VfsCacheFailureAuthority,
 };
 
 fn system_process_backed_hls_playlist_readiness_timeout() -> Duration {
@@ -5173,6 +5173,7 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
             operation: VfsCacheOperation::Stat,
             failed_at_ms: 2_000,
             error: "cache failed at secret path".to_owned(),
+            authority: VfsCacheFailureAuthority::default(),
         })
         .await
         .unwrap();
@@ -5390,6 +5391,7 @@ async fn admin_v1_vfs_cache_refresh_action_refreshes_latest_failure_and_redacts_
             )),
         )
         .await;
+    let backend_key = format!("library:{library_id}:local");
     store
         .record_vfs_cache_failure(NewVfsCacheFailure {
             uri: "local:///Movies/Demo.mkv".to_owned(),
@@ -5397,6 +5399,7 @@ async fn admin_v1_vfs_cache_refresh_action_refreshes_latest_failure_and_redacts_
             operation: VfsCacheOperation::Stat,
             failed_at_ms: 1_000,
             error: "storage backend unavailable".to_owned(),
+            authority: VfsCacheFailureAuthority::attributed(library_id, backend_key),
         })
         .await
         .unwrap();

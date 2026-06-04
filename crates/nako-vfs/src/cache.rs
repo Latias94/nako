@@ -2,8 +2,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 use nako_core::{
-    NakoError, NewVfsCacheFailure, Result, StorageErrorKind, VfsCacheOperation, VfsCacheRepository,
-    VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
+    NakoError, NewVfsCacheFailure, Result, StorageErrorKind, VfsCacheFailureAuthority,
+    VfsCacheOperation, VfsCacheRepository, VfsCachedListing, VfsCachedObject, VfsCachedObjectKind,
 };
 
 use crate::{
@@ -38,6 +38,7 @@ pub struct CachedStorageBackend<B, C> {
     inner: B,
     cache: C,
     options: VfsCacheOptions,
+    failure_authority: VfsCacheFailureAuthority,
 }
 
 impl<B, C> CachedStorageBackend<B, C> {
@@ -50,7 +51,14 @@ impl<B, C> CachedStorageBackend<B, C> {
             inner,
             cache,
             options,
+            failure_authority: VfsCacheFailureAuthority::default(),
         }
+    }
+
+    #[must_use]
+    pub fn with_failure_authority(mut self, authority: VfsCacheFailureAuthority) -> Self {
+        self.failure_authority = authority;
+        self
     }
 
     #[must_use]
@@ -341,6 +349,7 @@ where
                 operation,
                 failed_at_ms,
                 error: safe_cache_failure_message(err),
+                authority: self.failure_authority.clone(),
             })
             .await
     }
@@ -569,7 +578,7 @@ mod tests {
         },
     };
 
-    use nako_core::{StorageFailureClass, VfsCacheFailure, VfsCacheSummary};
+    use nako_core::{LibraryId, StorageFailureClass, VfsCacheFailure, VfsCacheSummary};
 
     use super::*;
 
@@ -778,6 +787,9 @@ mod tests {
     async fn cached_backend_refresh_cache_failure_records_failure_without_stale_fallback() {
         let inner = FakeBackend::new();
         let cache = MemoryVfsCache::default();
+        let library_id = LibraryId::new();
+        let authority =
+            VfsCacheFailureAuthority::attributed(library_id, format!("library:{library_id}:mem"));
         let backend = CachedStorageBackend::with_options(
             inner.clone(),
             cache.clone(),
@@ -787,7 +799,8 @@ mod tests {
                 serve_stale_on_error: true,
                 cache_local: true,
             },
-        );
+        )
+        .with_failure_authority(authority.clone());
         let root = StorageUri::from_parts("mem", "Movies").unwrap();
 
         backend.list_with_status(&root).await.unwrap();
@@ -814,6 +827,7 @@ mod tests {
         ));
         assert_eq!(failure.failure_count, 2);
         assert_eq!(failure.error, "storage backend unavailable");
+        assert_eq!(failure.authority, authority);
         assert_eq!(inner.list_calls.load(Ordering::SeqCst), 3);
     }
 
@@ -826,6 +840,7 @@ mod tests {
             failed_at_ms: 1_000,
             failure_count: 2,
             error: "storage backend unavailable".to_owned(),
+            authority: VfsCacheFailureAuthority::default(),
         };
 
         let diagnostic = crate::VfsCacheRepairDiagnostic::from_failure(&failure);
@@ -858,6 +873,7 @@ mod tests {
             failed_at_ms: 1_000,
             failure_count: 1,
             error: "token=secret failed at F:\\Media\\Private\\Demo.mkv".to_owned(),
+            authority: VfsCacheFailureAuthority::default(),
         };
 
         let diagnostic = crate::VfsCacheRepairDiagnostic::from_failure(&failure);
@@ -1060,6 +1076,7 @@ mod tests {
                 failed_at_ms: failure.failed_at_ms,
                 failure_count,
                 error: failure.error,
+                authority: failure.authority,
             };
             *current = Some(record.clone());
             Ok(record)
