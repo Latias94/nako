@@ -4,8 +4,10 @@ use super::*;
 async fn scan_route_queues_background_job() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
-    let router = test_router(temp.path().to_path_buf(), library_id).await;
+    let (router, store) = test_router_with_store(temp.path().to_path_buf(), library_id).await;
     let path = format!("/libraries/{library_id}/scan");
+    let request_id = "REQ-LIBRARY-SCAN_123.Trace";
+    let normalized_request_id = "req-library-scan_123.trace";
 
     let response = router
         .clone()
@@ -13,20 +15,46 @@ async fn scan_route_queues_background_job() {
             Request::builder()
                 .method(Method::POST)
                 .uri(path)
+                .header(crate::http::trace_context::X_REQUEST_ID_HEADER, request_id)
                 .body(Body::empty())
                 .unwrap(),
         )
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::ACCEPTED);
+    assert_eq!(
+        response
+            .headers()
+            .get(&crate::http::trace_context::X_REQUEST_ID_HEADER)
+            .and_then(|value| value.to_str().ok()),
+        Some(normalized_request_id)
+    );
 
-    let job = body_json::<JobResponse>(response).await;
+    let (job, response_text) = decode_job_response(response).await;
     assert_eq!(job.kind, nako_core::JobKind::LibraryScan);
     assert_eq!(job.status, JobStatus::Queued);
     assert_eq!(job.library_id, Some(library_id));
     assert!(job.has_input);
     assert!(!job.has_summary);
     assert!(!job.has_error);
+    assert_job_response_hides_scan_input(
+        &response_text,
+        request_id,
+        normalized_request_id,
+        temp.path(),
+    );
+
+    let persisted = store.get_job(job.id).await.unwrap().unwrap();
+    let input_json = persisted
+        .input_json
+        .as_deref()
+        .expect("scan job should persist input");
+    assert_scan_input_contains_only_safe_trace_context(
+        input_json,
+        request_id,
+        normalized_request_id,
+        temp.path(),
+    );
 
     let loaded_path = format!("/jobs/{}", job.id);
     let loaded_job = request_json::<JobResponse>(&router, Method::GET, &loaded_path).await;
@@ -47,11 +75,12 @@ async fn scan_route_queues_background_job() {
         .await
         .unwrap();
     let loaded_text = String::from_utf8_lossy(&loaded_body);
-    assert!(!loaded_text.contains("\"input\":"));
-    assert!(!loaded_text.contains("\"summary\":"));
-    assert!(!loaded_text.contains("\"error\":"));
-    assert!(!loaded_text.contains("input_json"));
-    assert!(!loaded_text.contains("summary_json"));
+    assert_job_response_hides_scan_input(
+        &loaded_text,
+        request_id,
+        normalized_request_id,
+        temp.path(),
+    );
 }
 
 #[tokio::test]
@@ -148,6 +177,126 @@ async fn admin_library_command_routes_queue_background_jobs() {
         assert!(!job.has_summary);
         assert!(!job.has_error);
     }
+}
+
+#[tokio::test]
+async fn admin_scan_route_persists_safe_trace_context_without_exposing_input() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let (router, store) = test_router_with_store(temp.path().to_path_buf(), library_id).await;
+    let path = format!("/admin/v1/libraries/{library_id}/scan");
+    let request_id = "REQ-ADMIN-SCAN_456.Trace";
+    let normalized_request_id = "req-admin-scan_456.trace";
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(path)
+                .header(crate::http::trace_context::X_REQUEST_ID_HEADER, request_id)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::ACCEPTED);
+    assert_eq!(
+        response
+            .headers()
+            .get(&crate::http::trace_context::X_REQUEST_ID_HEADER)
+            .and_then(|value| value.to_str().ok()),
+        Some(normalized_request_id)
+    );
+    let (job, response_text) = decode_job_response(response).await;
+    assert_eq!(job.kind, JobKind::LibraryScan);
+    assert_eq!(job.status, JobStatus::Queued);
+    assert_eq!(job.resource_class, "disk.scan");
+    assert_eq!(job.library_id, Some(library_id));
+    assert!(job.has_input);
+    assert_job_response_hides_scan_input(
+        &response_text,
+        request_id,
+        normalized_request_id,
+        temp.path(),
+    );
+
+    let persisted = store.get_job(job.id).await.unwrap().unwrap();
+    let input_json = persisted
+        .input_json
+        .as_deref()
+        .expect("admin scan job should persist input");
+    assert_scan_input_contains_only_safe_trace_context(
+        input_json,
+        request_id,
+        normalized_request_id,
+        temp.path(),
+    );
+
+    let loaded_response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/jobs/{}", job.id))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let (_loaded_job, loaded_text) = decode_job_response(loaded_response).await;
+    assert_job_response_hides_scan_input(
+        &loaded_text,
+        request_id,
+        normalized_request_id,
+        temp.path(),
+    );
+}
+
+async fn decode_job_response(response: Response) -> (JobResponse, String) {
+    let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let text = String::from_utf8(body.to_vec()).unwrap();
+    let job = serde_json::from_str::<JobResponse>(&text).unwrap();
+    (job, text)
+}
+
+fn assert_job_response_hides_scan_input(
+    body: &str,
+    raw_request_id: &str,
+    normalized_request_id: &str,
+    local_root: &std::path::Path,
+) {
+    assert!(!body.contains("\"input\":"));
+    assert!(!body.contains("\"summary\":"));
+    assert!(!body.contains("\"error\":"));
+    assert!(!body.contains("input_json"));
+    assert!(!body.contains("summary_json"));
+    assert!(!body.contains("trace_context"));
+    assert!(!body.contains(raw_request_id));
+    assert!(!body.contains(normalized_request_id));
+    assert!(!body.contains(&local_root.display().to_string()));
+}
+
+fn assert_scan_input_contains_only_safe_trace_context(
+    input_json: &str,
+    raw_request_id: &str,
+    normalized_request_id: &str,
+    local_root: &std::path::Path,
+) {
+    let input = serde_json::from_str::<serde_json::Value>(input_json).unwrap();
+    let trace_context = input["trace_context"]
+        .as_object()
+        .expect("scan job input should include trace_context object");
+
+    assert_eq!(trace_context.len(), 1);
+    assert_eq!(
+        trace_context
+            .get("request_id")
+            .and_then(serde_json::Value::as_str),
+        Some(normalized_request_id)
+    );
+    assert!(!input_json.contains(raw_request_id));
+    assert!(!input_json.contains(&local_root.display().to_string()));
 }
 
 #[tokio::test]

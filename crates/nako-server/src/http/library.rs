@@ -9,7 +9,7 @@ use nako_api::admin::{IgnoreIngestionFailureRequest, JobResponse};
 use nako_core::{AuthenticatedPrincipal, IngestionFailureStatus, LibraryId};
 use tracing::instrument;
 
-use crate::app::NakoApp;
+use crate::app::{LibraryScanTraceContext, NakoApp};
 
 use super::{
     access::{
@@ -18,6 +18,7 @@ use super::{
     },
     error::ApiResult,
     query::{IngestionFailureQuery, LibraryItemsQuery, PageQuery},
+    trace_context::HttpTraceContext,
 };
 
 pub(super) fn routes() -> Router<NakoApp> {
@@ -68,15 +69,20 @@ pub(super) async fn get_library(
     Ok(Json(app.library().get_library(library_id).await?))
 }
 
-#[instrument(skip(app))]
+#[instrument(skip(app, principal, http_trace_context))]
 pub(super) async fn scan_library(
     State(app): State<NakoApp>,
     Extension(principal): Extension<AuthenticatedPrincipal>,
+    Extension(http_trace_context): Extension<HttpTraceContext>,
     Path(library_id): Path<LibraryId>,
 ) -> ApiResult<impl IntoResponse> {
     require_library_access(&app, &principal, library_id, RequiredLibraryAccess::Manage).await?;
 
-    let job = app.library_scan().enqueue_library_scan(library_id).await?;
+    let trace_context = LibraryScanTraceContext::from_request_id(http_trace_context.request_id())?;
+    let job = app
+        .library_scan()
+        .enqueue_library_scan_with_trace_context(library_id, trace_context)
+        .await?;
 
     Ok((StatusCode::ACCEPTED, Json(JobResponse::from_job(job))))
 }

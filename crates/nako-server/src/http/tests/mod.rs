@@ -987,6 +987,11 @@ fn fake_hls_ffmpeg_script_with_completion(
 }
 
 async fn test_router(root: PathBuf, library_id: LibraryId) -> Router {
+    let (router, _store) = test_router_with_store(root, library_id).await;
+    router
+}
+
+async fn test_router_with_store(root: PathBuf, library_id: LibraryId) -> (Router, NakoDatabase) {
     let config = NakoServerConfig {
         database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
@@ -1018,8 +1023,10 @@ async fn test_router(root: PathBuf, library_id: LibraryId) -> Router {
         }],
     };
     let store = NakoDatabase::connect_in_memory().await.unwrap();
-    let app = NakoApp::new_with_store(config, store).await.unwrap();
-    build_router(app)
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    (build_router(app), store)
 }
 
 async fn test_router_with_bearer_auth(root: PathBuf, library_id: LibraryId, token: &str) -> Router {

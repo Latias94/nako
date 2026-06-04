@@ -128,7 +128,7 @@ use crate::{
         admin_transcode_pipeline_readiness,
     },
     app::{
-        NakoApp, RuntimeSupervisorDiagnostics, StagingBudgetPolicySlice,
+        LibraryScanTraceContext, NakoApp, RuntimeSupervisorDiagnostics, StagingBudgetPolicySlice,
         StorageStagingPressureStatus, VfsCacheRepairActionBoundary, VfsCacheRepairActionPlanReason,
         VfsCacheRepairActionPlanReport, VfsCacheRepairActionPlanStatus,
         VfsCacheRepairExecutableRoute, VfsCacheRepairRefreshActionReport,
@@ -161,6 +161,7 @@ use super::{
         PlaybackSessionListQuery, PlaybackSupportEvidenceQuery, StorageStagingQuery,
         parse_u32_filter, parse_u64_filter,
     },
+    trace_context::HttpTraceContext,
 };
 
 pub(super) fn routes() -> Router<NakoApp> {
@@ -841,9 +842,14 @@ pub(super) async fn update_admin_library_metadata_profile(
 
 pub(super) async fn scan_admin_library(
     State(app): State<NakoApp>,
+    Extension(http_trace_context): Extension<HttpTraceContext>,
     Path(library_id): Path<LibraryId>,
 ) -> ApiResult<impl IntoResponse> {
-    let job = app.library_scan().enqueue_library_scan(library_id).await?;
+    let trace_context = LibraryScanTraceContext::from_request_id(http_trace_context.request_id())?;
+    let job = app
+        .library_scan()
+        .enqueue_library_scan_with_trace_context(library_id, trace_context)
+        .await?;
 
     Ok((StatusCode::ACCEPTED, Json(JobResponse::from_job(job))))
 }

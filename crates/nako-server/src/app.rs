@@ -73,6 +73,7 @@ use automation::AutomationAppService;
 use casting::CastingAppService;
 use catalog::CatalogAppService;
 use composition::{NakoAppComposition, NakoAppServices};
+pub(crate) use jobs::LibraryScanTraceContext;
 use jobs::{JobAppService, LibraryScanAppService};
 use library::LibraryAppService;
 use management_context::ManagementContextAppService;

@@ -1,6 +1,6 @@
 # Control Plane Architecture
 
-Last updated: 2026-06-04
+Last updated: 2026-06-05
 
 This document maps Nako's application control plane: the cross-cutting systems
 that keep the media data plane safe, observable, extensible, and operable.
@@ -209,9 +209,10 @@ Shipped behavior:
 - HLS playlist routes convert the typed HTTP trace context into a playback app
   trace context, and HLS `PlaybackSessionFinished` outbox payloads include only
   the normalized `request_id` when the HLS work came from a traced request.
-- the library scan app-service enqueue path can attach a typed durable job trace
-  context to queued `disk.scan` work, and completed `LibraryScanned` outbox
-  payloads include only the normalized `request_id` when one was provided.
+- public and Admin library scan routes convert the typed HTTP trace context
+  into the durable job trace context before enqueueing `disk.scan` work, and
+  completed `LibraryScanned` outbox payloads include only the normalized
+  `request_id` when one was provided.
 
 Exit criteria:
 

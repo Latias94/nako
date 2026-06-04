@@ -163,6 +163,8 @@ For a new route in an existing admin module, add it to the existing
   `Extension<HttpTraceContext>` and logging only `request_id`.
 - Good: pass a sanitized app-layer trace context into HLS/playback runtime
   orchestration and include only `request_id` in internal outbox event payloads.
+- Good: do the same at the public/Admin library scan enqueue boundary so queued
+  `disk.scan` jobs carry only the normalized safe `request_id`.
 - Base: a route ignores trace context; root middleware still returns
   `x-request-id` for client/operator correlation.
 - Base: a non-HTTP or test-only app-service call passes no trace context and
@@ -187,6 +189,8 @@ For a new route in an existing admin module, add it to the existing
 - App/route test: when HLS playlist startup receives a safe inbound
   `x-request-id`, the resulting `PlaybackSessionFinished` outbox payload
   includes the normalized `request_id` and no ticket/path-sensitive material.
+- App/route test: public and Admin library scan POST routes persist only the
+  normalized safe `request_id` inside queued `disk.scan` job input.
 
 ### 7. Wrong vs Correct
 
