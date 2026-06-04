@@ -563,7 +563,15 @@ Carried explicit HLS subtitle strategy from playback through server runtime plan
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] `cargo fmt --all -- --check`
+- [OK] `git diff --check`
+- [OK] `cargo check -p nako-core -p nako-vfs -p nako-db -p nako-api -p nako-server --tests`
+- [OK] `cargo nextest run -p nako-db vfs_cache --no-fail-fast`
+- [OK] `cargo nextest run -p nako-db sqlite_vfs_staging_contract_round_trips_listing_failures_and_summary --no-fail-fast`
+- [OK] `cargo nextest run -p nako-api admin_vfs_cache --no-fail-fast`
+- [OK] `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server admin_v1_storage_staging_lists_filters_and_redacts_paths --no-fail-fast`
+- [OK] `cargo nextest run -p nako-vfs cache --no-fail-fast`
 
 ### Status
 
@@ -780,7 +788,16 @@ Added a typed advisory source fingerprint escalation decision in core, exposed i
 
 ### Main Changes
 
-(Add details)
+- Exposed `LibraryScanTraceContext` through `crate::app` so HTTP handlers can
+  reuse the typed durable job trace boundary without touching the internal job
+  module path.
+- Updated public and Admin library scan routes to convert `HttpTraceContext`
+  into `LibraryScanTraceContext` before enqueueing `disk.scan` jobs.
+- Added focused route tests that verify `202 Accepted`, redacted job DTO
+  responses, normalized persisted `trace_context.request_id`, and no raw path
+  leakage.
+- Updated the server HTTP spec and control-plane architecture notes to record
+  the trace-context boundary at the scan enqueue edge.
 
 ### Git Commits
 
@@ -791,7 +808,12 @@ Added a typed advisory source fingerprint escalation decision in core, exposed i
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] `cargo fmt --all -- --check`
+- [OK] `cargo check -p nako-server --tests`
+- [OK] `cargo nextest run -p nako-server scan_route_queues_background_job --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server admin_scan_route_persists_safe_trace_context_without_exposing_input --no-fail-fast`
+- [OK] `git diff --check`
+- [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-05-06-05-http-library-scan-trace-context-first-slice`
 
 ### Status
 
@@ -1789,6 +1811,54 @@ Reconciled current architecture maps after related hierarchy Admin plan/apply sh
 - [OK] `rg -n "proposed:provider-review-related-hierarchy-application|proposed:provider-governance-audit-and-undo" docs/GOALS.md docs/ROADMAP.md docs/architecture/LIBRARY_PIPELINE.md docs/architecture/WORKSTREAM_LINKS.md docs/architecture/LANES.md`
 - [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-05-architecture-related-hierarchy-closeout-reconciliation`
 - [OK] `git diff --check`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 44: HTTP library scan trace context first slice
+
+**Date**: 2026-06-05
+**Task**: HTTP library scan trace context first slice
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Propagated typed request trace context into public and admin library scan enqueue routes, added focused route tests for safe job input persistence and redaction, updated HTTP/control-plane docs, and verified with fmt, check, nextest, diff check, and Trellis validation.
+
+### Main Changes
+
+- Exposed `LibraryScanTraceContext` through `crate::app` so HTTP handlers can
+  reuse the typed durable job trace boundary without touching the internal job
+  module path.
+- Updated public and Admin library scan routes to convert `HttpTraceContext`
+  into `LibraryScanTraceContext` before enqueueing `disk.scan` jobs.
+- Added focused route tests that verify `202 Accepted`, redacted job DTO
+  responses, normalized persisted `trace_context.request_id`, and no raw path
+  leakage.
+- Updated the server HTTP spec and control-plane architecture notes to record
+  the trace-context boundary at the scan enqueue edge.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f5399e20` | (see git log) |
+
+### Testing
+
+- [OK] `cargo fmt --all -- --check`
+- [OK] `cargo check -p nako-server --tests`
+- [OK] `cargo nextest run -p nako-server scan_route_queues_background_job --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server admin_scan_route_persists_safe_trace_context_without_exposing_input --no-fail-fast`
+- [OK] `git diff --check`
+- [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-05-06-05-http-library-scan-trace-context-first-slice`
 
 ### Status
 
