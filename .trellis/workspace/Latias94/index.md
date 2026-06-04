@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 36
+- **Total Sessions**: 37
 - **Last Active**: 2026-06-04
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1481 | Active |
+| `journal-1.md` | ~1523 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 37 | 2026-06-04 | VFS cache repair action plan | `7a293092` | `main` |
 | 36 | 2026-06-04 | Archive completed Trellis backlog | - | `main` |
 | 35 | 2026-06-04 | Archive long horizon queue | - | `main` |
 | 34 | 2026-06-04 | Integrate storage staging attribution branch | `aff9a37e` | `main` |

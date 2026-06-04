@@ -1487,3 +1487,37 @@ Archived all remaining completed 06-02 Trellis tasks after confirming the active
 ### Next Steps
 
 - None - task complete
+
+
+## Session 37: VFS cache repair action plan
+
+**Date**: 2026-06-04
+**Task**: VFS cache repair action plan
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Added a redaction-safe Admin VFS cache repair action plan endpoint, regenerated Admin contracts, updated storage/API guidance, and verified focused API/server gates.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7a293092` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
