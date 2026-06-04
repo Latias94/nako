@@ -1667,3 +1667,50 @@ Scoped FFmpeg input staging leases in Playback Runtime, updated focused tests an
 ### Next Steps
 
 - None - task complete
+
+
+## Session 41: 10-hour media server architecture campaign
+
+**Date**: 2026-06-05
+**Task**: 10-hour media server architecture campaign
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Completed and archived the media-server architecture campaign implementation slices across watch-folder intake, playback runtime, selected artwork caching, startup cleanup, and self-host playback smoke evidence.
+
+### Main Changes
+
+- Implemented watch-folder intake planning, playback session runtime helpers, selected artwork ETag preflight, startup artifact cleanup extraction, and hardware/self-host smoke evidence.
+- Archived Trellis campaign evidence after validation.
+- Final gates: cargo fmt --all -- --check; cargo check -p nako-playback -p nako-transcode -p nako-server --tests; focused nextest for intake, startup, hls, remux, catalog, hardware, and self_host_smoke; git diff --check; Trellis archive validate.
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b52d6594` | (see git log) |
+
+### Testing
+
+- [OK] `cargo fmt --all -- --check`
+- [OK] `cargo check -p nako-playback -p nako-transcode -p nako-server --tests`
+- [OK] `cargo nextest run -p nako-library intake --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server startup --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server hls --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server remux --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server catalog --no-fail-fast`
+- [OK] `cargo nextest run -p nako-transcode hardware --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server self_host_smoke --no-fail-fast`
+- [OK] `git diff --check`
+- [OK] `python ./.trellis/scripts/task.py validate ./.trellis/tasks/archive/2026-06/06-04-10-hour-media-server-architecture-campaign`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
