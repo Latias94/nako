@@ -162,6 +162,55 @@ pub struct MetadataCandidateReviewApplicationPlan {
     pub existing_mapping_status: Option<ProviderMappingStatus>,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MetadataCandidateReviewRelatedHierarchyApplicationAction {
+    Apply,
+    Skip,
+    Noop,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MetadataCandidateReviewRelatedHierarchyApplicationReason {
+    ReviewNotAccepted,
+    MissingRootSubject,
+    UnsupportedSource,
+    MissingAcceptedRootMapping,
+    NoSafeRelatedHierarchyRelationships,
+    Ready,
+    AlreadyApplied,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataCandidateReviewRelatedHierarchyApplicationTargetPlan {
+    pub item_id: MediaItemId,
+    pub library_ids: Vec<crate::LibraryId>,
+    pub subject: MetadataCandidateSubject,
+    pub source: MetadataSource,
+    pub existing_subject_id: Option<ProviderSubjectId>,
+    pub existing_mapping_id: Option<ProviderMappingId>,
+    pub existing_mapping_status: Option<ProviderMappingStatus>,
+    pub mapping_change_required: bool,
+    pub provisional_library_state_count: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataCandidateReviewRelatedHierarchyApplicationPlan {
+    pub review_id: MetadataCandidateReviewId,
+    pub item_id: MediaItemId,
+    pub action: MetadataCandidateReviewRelatedHierarchyApplicationAction,
+    pub reasons: Vec<MetadataCandidateReviewRelatedHierarchyApplicationReason>,
+    pub source: Option<MetadataSource>,
+    pub root_subject: Option<MetadataCandidateSubject>,
+    pub root_mapping_id: Option<ProviderMappingId>,
+    pub root_mapping_status: Option<ProviderMappingStatus>,
+    pub target_count: u32,
+    pub mapping_change_count: u32,
+    pub provisional_state_change_count: u32,
+    pub targets: Vec<MetadataCandidateReviewRelatedHierarchyApplicationTargetPlan>,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct NewMetadataCandidateReview {
     pub id: MetadataCandidateReviewId,

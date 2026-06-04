@@ -11,13 +11,17 @@ use nako_api::admin::{
     AdminMetadataCandidateReviewBatchCreateRequest, AdminMetadataCandidateReviewBatchPlanRequest,
     AdminMetadataCandidateReviewBatchPlanResponse, AdminMetadataCandidateReviewBatchResponse,
     AdminMetadataCandidateReviewListResponse, AdminMetadataCandidateReviewQueueResponse,
-    AdminMetadataCandidateReviewResponse, AdminMetadataCandidateReviewUndoMode,
-    AdminMetadataCandidateReviewUndoReason, AdminStorageBackendHealthDiagnosticsResponse,
-    AdminStorageBackendHealthResetResponse, AdminStorageStagingPressureStatus,
-    AdminVfsCacheRefreshResponse, AdminVfsCacheRepairActionPlanReason,
-    AdminVfsCacheRepairActionPlanResponse, AdminVfsCacheRepairActionPlanStatus,
-    AdminVfsCacheRepairTargetListResponse, AdminVfsCacheRepairTargetPreviewResponse,
-    AdminWatchFolderRuntimeCoverageStatus,
+    AdminMetadataCandidateReviewRelatedHierarchyApplicationAction,
+    AdminMetadataCandidateReviewRelatedHierarchyApplyRequest,
+    AdminMetadataCandidateReviewRelatedHierarchyApplyResponse,
+    AdminMetadataCandidateReviewRelatedHierarchyPlanRequest,
+    AdminMetadataCandidateReviewRelatedHierarchyPlanResponse, AdminMetadataCandidateReviewResponse,
+    AdminMetadataCandidateReviewUndoMode, AdminMetadataCandidateReviewUndoReason,
+    AdminStorageBackendHealthDiagnosticsResponse, AdminStorageBackendHealthResetResponse,
+    AdminStorageStagingPressureStatus, AdminVfsCacheRefreshResponse,
+    AdminVfsCacheRepairActionPlanReason, AdminVfsCacheRepairActionPlanResponse,
+    AdminVfsCacheRepairActionPlanStatus, AdminVfsCacheRepairTargetListResponse,
+    AdminVfsCacheRepairTargetPreviewResponse, AdminWatchFolderRuntimeCoverageStatus,
 };
 use nako_core::{
     JobKind, JobRepository, JobStatus, METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS,
@@ -3404,6 +3408,715 @@ async fn admin_v1_metadata_candidate_review_apply_commits_root_mapping_and_repla
     assert!(!replay_body.contains("secret apply overview"));
     assert!(!replay_body.contains("secret related apply overview"));
     assert!(!replay_body.contains("local:///"));
+}
+
+#[tokio::test]
+async fn admin_v1_metadata_candidate_review_related_hierarchy_plan_apply_and_replay_are_redacted() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("nako-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "TV".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: nako_core::LibraryPreset::Tv,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let root = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Series,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Related Candidate".to_owned(),
+            release_date: Some("2026-05-30".to_owned()),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let child = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Season,
+        parent_id: Some(root.id),
+        metadata: CanonicalMetadata {
+            title: "Season 1".to_owned(),
+            release_date: None,
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: root.id,
+        locator: "local:///Private/Related.Candidate.S01E01.mkv?token=secret".to_owned(),
+        file_name: "Related.Candidate.S01E01.mkv".to_owned(),
+        size_bytes: Some(42),
+        fingerprint: Some("sha256-private-related-hierarchy".to_owned()),
+    };
+    let root_subject = MetadataCandidateSubject {
+        provider: ExternalProvider::Bangumi,
+        subject_kind: ProviderSubjectKind::Subject,
+        subject_key: "2437".to_owned(),
+        title: Some("Related Candidate".to_owned()),
+        release_year: Some(2026),
+        locale: Some("zh-CN".to_owned()),
+    };
+    let related_subject = MetadataCandidateSubject {
+        provider: ExternalProvider::Bangumi,
+        subject_kind: ProviderSubjectKind::Episode,
+        subject_key: "2437/1".to_owned(),
+        title: Some("Season 1".to_owned()),
+        release_year: Some(2026),
+        locale: Some("zh-CN".to_owned()),
+    };
+    let review_id = MetadataCandidateReviewId::new();
+    store.upsert_media_item(&root).await.unwrap();
+    store.upsert_media_item(&child).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id,
+            item_id: root.id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id,
+            item_id: child.id,
+            provisional: true,
+        })
+        .await
+        .unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+    let root_provider_subject = root_subject
+        .clone()
+        .into_provider_subject(ProviderSubjectId::new());
+    store
+        .upsert_provider_subject(&root_provider_subject)
+        .await
+        .unwrap();
+    store
+        .upsert_provider_mapping(&ProviderMapping {
+            id: ProviderMappingId::new(),
+            item_id: root.id,
+            subject_id: root_provider_subject.id,
+            status: ProviderMappingStatus::Accepted,
+            confidence_milli: None,
+            source: MetadataSource::Provider(ExternalProvider::Bangumi),
+        })
+        .await
+        .unwrap();
+    let inserted = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: review_id,
+            item_id: root.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+            source_key: "bangumi:2437".to_owned(),
+            plan: MetadataCandidateReviewPlan {
+                root: MetadataCandidateReviewNode {
+                    source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+                    kind: MediaKind::Series,
+                    subject: Some(root_subject.clone()),
+                    metadata: MetadataCandidateRecord {
+                        title: Some("Related Candidate".to_owned()),
+                        overview: Some("secret related root overview".to_owned()),
+                        release_date: Some("2026-05-30".to_owned()),
+                        tags: vec!["secret-related-root-tag".to_owned()],
+                        ..MetadataCandidateRecord::default()
+                    },
+                },
+                related: vec![MetadataCandidateReviewNode {
+                    source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+                    kind: MediaKind::Season,
+                    subject: Some(related_subject.clone()),
+                    metadata: MetadataCandidateRecord {
+                        title: Some("Season 1".to_owned()),
+                        overview: Some("secret related child overview".to_owned()),
+                        release_date: Some("2026-06-01".to_owned()),
+                        tags: vec!["secret-related-child-tag".to_owned()],
+                        ..MetadataCandidateRecord::default()
+                    },
+                }],
+                relationships: vec![MetadataCandidateReviewRelationship {
+                    parent_subject: root_subject,
+                    child_subject: related_subject,
+                    kind: MetadataCandidateRelationshipKind::Contains,
+                }],
+            },
+            expires_at_ms: None,
+            created_at_ms: 100,
+            updated_at_ms: 200,
+        })
+        .await
+        .unwrap();
+    let accepted = store
+        .set_metadata_candidate_review_status(
+            inserted.id,
+            DurableMetadataCandidateReviewStatus::Accepted,
+            300,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+
+    let router = build_router(app);
+    let plan_path = format!(
+        "/admin/v1/metadata/candidate-reviews/{review_id}/related-hierarchy/application-plan"
+    );
+    let plan_request = AdminMetadataCandidateReviewRelatedHierarchyPlanRequest {
+        item_id: root.id,
+        expected_updated_at_ms: Some(accepted.updated_at_ms),
+    };
+    let stale_plan = response_body_json(
+        &router,
+        Method::POST,
+        &plan_path,
+        &AdminMetadataCandidateReviewRelatedHierarchyPlanRequest {
+            item_id: root.id,
+            expected_updated_at_ms: Some(accepted.updated_at_ms - 1),
+        },
+    )
+    .await;
+    assert_eq!(stale_plan.status(), StatusCode::CONFLICT);
+
+    let plan_response = response_body_json(&router, Method::POST, &plan_path, &plan_request).await;
+    let plan_status = plan_response.status();
+    let plan_body = response_text(plan_response).await;
+    assert_eq!(plan_status, StatusCode::OK, "{plan_body}");
+    let planned: AdminMetadataCandidateReviewRelatedHierarchyPlanResponse =
+        serde_json::from_str(&plan_body).unwrap();
+
+    assert_eq!(planned.review_id, review_id);
+    assert_eq!(planned.item_id, root.id);
+    assert_eq!(
+        planned.plan.action,
+        AdminMetadataCandidateReviewRelatedHierarchyApplicationAction::Apply
+    );
+    assert_eq!(planned.plan.target_count, 1);
+    assert_eq!(planned.plan.mapping_change_count, 1);
+    assert_eq!(planned.plan.provisional_state_change_count, 1);
+    assert_eq!(planned.plan.targets[0].item_id, child.id);
+    assert!(planned.plan.targets[0].mapping_change_required);
+    assert!(planned.boundary.apply_mutation_required);
+    assert!(!planned.boundary.apply_updates_root_provider_subject);
+    assert!(!planned.boundary.apply_updates_root_provider_mapping);
+    assert!(planned.boundary.apply_updates_related_provider_subjects);
+    assert!(planned.boundary.apply_updates_related_provider_mappings);
+    assert!(planned.boundary.apply_confirms_related_library_item_state);
+    assert!(!planned.boundary.updates_parent_hierarchy);
+    assert!(!planned.boundary.updates_canonical_metadata);
+    assert!(
+        store
+            .find_provider_subject(
+                &ExternalProvider::Bangumi,
+                &ProviderSubjectKind::Episode,
+                "2437/1"
+            )
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(!plan_body.contains("secret related root overview"));
+    assert!(!plan_body.contains("secret related child overview"));
+    assert!(!plan_body.contains("secret-related-root-tag"));
+    assert!(!plan_body.contains("secret-related-child-tag"));
+    assert!(!plan_body.contains("local:///"));
+    assert!(!plan_body.contains("token=secret"));
+    assert!(!plan_body.contains("sha256-private-related-hierarchy"));
+    assert!(!plan_body.contains(&temp.path().display().to_string()));
+
+    let apply_path =
+        format!("/admin/v1/metadata/candidate-reviews/{review_id}/related-hierarchy/apply");
+    let apply_request = AdminMetadataCandidateReviewRelatedHierarchyApplyRequest {
+        item_id: root.id,
+        expected_updated_at_ms: Some(accepted.updated_at_ms),
+        idempotency_key: "candidate-review:related-hierarchy:secret".to_owned(),
+    };
+    let empty_key = response_body_json(
+        &router,
+        Method::POST,
+        &apply_path,
+        &AdminMetadataCandidateReviewRelatedHierarchyApplyRequest {
+            item_id: root.id,
+            expected_updated_at_ms: Some(accepted.updated_at_ms),
+            idempotency_key: "  ".to_owned(),
+        },
+    )
+    .await;
+    assert_eq!(empty_key.status(), StatusCode::BAD_REQUEST);
+
+    let apply_response =
+        response_body_json(&router, Method::POST, &apply_path, &apply_request).await;
+    let apply_status = apply_response.status();
+    let apply_body = response_text(apply_response).await;
+    assert_eq!(apply_status, StatusCode::OK, "{apply_body}");
+    let applied: AdminMetadataCandidateReviewRelatedHierarchyApplyResponse =
+        serde_json::from_str(&apply_body).unwrap();
+
+    assert!(applied.applied);
+    assert!(applied.changed);
+    assert!(!applied.idempotent_replay);
+    assert_eq!(
+        applied.plan.action,
+        AdminMetadataCandidateReviewRelatedHierarchyApplicationAction::Apply
+    );
+    assert_eq!(applied.provider_subjects.len(), 1);
+    assert_eq!(applied.provider_subjects[0].subject_key, "2437/1");
+    assert_eq!(applied.provider_mappings.len(), 1);
+    assert_eq!(applied.provider_mappings[0].item_id, child.id);
+    assert_eq!(
+        applied.provider_mappings[0].status,
+        ProviderMappingStatus::Accepted
+    );
+    assert_eq!(applied.confirmed_item_ids, vec![child.id]);
+    assert!(
+        !store
+            .get_library_item_state(library_id, child.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .provisional
+    );
+    let loaded_child = store.get_media_item(child.id).await.unwrap().unwrap();
+    assert_eq!(loaded_child.parent_id, Some(root.id));
+    assert_eq!(loaded_child.metadata.release_date, None);
+    assert!(!apply_body.contains("candidate-review:related-hierarchy:secret"));
+    assert!(!apply_body.contains("secret related child overview"));
+    assert!(!apply_body.contains("local:///"));
+
+    let replay = response_body_json(&router, Method::POST, &apply_path, &apply_request).await;
+    let replay_status = replay.status();
+    let replay_body = response_text(replay).await;
+    assert_eq!(replay_status, StatusCode::OK, "{replay_body}");
+    let replayed: AdminMetadataCandidateReviewRelatedHierarchyApplyResponse =
+        serde_json::from_str(&replay_body).unwrap();
+
+    assert!(replayed.applied);
+    assert!(!replayed.changed);
+    assert!(replayed.idempotent_replay);
+    assert_eq!(
+        replayed.plan.action,
+        AdminMetadataCandidateReviewRelatedHierarchyApplicationAction::Noop
+    );
+    assert_eq!(replayed.plan.mapping_change_count, 0);
+    assert_eq!(replayed.plan.provisional_state_change_count, 0);
+    assert_eq!(
+        store
+            .list_provider_mappings_for_item(child.id, PageRequest::first_page())
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+    assert!(!replay_body.contains("candidate-review:related-hierarchy:secret"));
+}
+
+#[tokio::test]
+async fn admin_v1_metadata_candidate_review_related_hierarchy_plan_and_apply_reject_pending_and_missing_root_mapping()
+ {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("nako-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "TV".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: nako_core::LibraryPreset::Tv,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let root = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Series,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Related Reject Candidate".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let child = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Season,
+        parent_id: Some(root.id),
+        metadata: CanonicalMetadata {
+            title: "Season 1".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let root_subject = MetadataCandidateSubject {
+        provider: ExternalProvider::Bangumi,
+        subject_kind: ProviderSubjectKind::Subject,
+        subject_key: "related-reject-root".to_owned(),
+        title: Some("Related Reject Candidate".to_owned()),
+        release_year: Some(2026),
+        locale: Some("zh-CN".to_owned()),
+    };
+    let related_subject = MetadataCandidateSubject {
+        provider: ExternalProvider::Bangumi,
+        subject_kind: ProviderSubjectKind::Episode,
+        subject_key: "related-reject-root/1".to_owned(),
+        title: Some("Season 1".to_owned()),
+        release_year: Some(2026),
+        locale: Some("zh-CN".to_owned()),
+    };
+
+    store.upsert_media_item(&root).await.unwrap();
+    store.upsert_media_item(&child).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id,
+            item_id: root.id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id,
+            item_id: child.id,
+            provisional: true,
+        })
+        .await
+        .unwrap();
+    let inserted = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: root.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+            source_key: "bangumi:related-reject-root".to_owned(),
+            plan: MetadataCandidateReviewPlan {
+                root: MetadataCandidateReviewNode {
+                    source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+                    kind: MediaKind::Series,
+                    subject: Some(root_subject.clone()),
+                    metadata: MetadataCandidateRecord {
+                        title: Some("Related Reject Candidate".to_owned()),
+                        ..MetadataCandidateRecord::default()
+                    },
+                },
+                related: vec![MetadataCandidateReviewNode {
+                    source: MetadataCandidateSource::Provider(ExternalProvider::Bangumi),
+                    kind: MediaKind::Season,
+                    subject: Some(related_subject.clone()),
+                    metadata: MetadataCandidateRecord {
+                        title: Some("Season 1".to_owned()),
+                        ..MetadataCandidateRecord::default()
+                    },
+                }],
+                relationships: vec![MetadataCandidateReviewRelationship {
+                    parent_subject: root_subject,
+                    child_subject: related_subject,
+                    kind: MetadataCandidateRelationshipKind::Contains,
+                }],
+            },
+            expires_at_ms: None,
+            created_at_ms: 100,
+            updated_at_ms: 200,
+        })
+        .await
+        .unwrap();
+
+    let router = build_router(app);
+    let plan_path = format!(
+        "/admin/v1/metadata/candidate-reviews/{}/related-hierarchy/application-plan",
+        inserted.id
+    );
+    let apply_path = format!(
+        "/admin/v1/metadata/candidate-reviews/{}/related-hierarchy/apply",
+        inserted.id
+    );
+
+    let pending_plan = response_body_json(
+        &router,
+        Method::POST,
+        &plan_path,
+        &AdminMetadataCandidateReviewRelatedHierarchyPlanRequest {
+            item_id: root.id,
+            expected_updated_at_ms: Some(inserted.updated_at_ms),
+        },
+    )
+    .await;
+    let pending_plan_status = pending_plan.status();
+    let pending_plan_body = response_text(pending_plan).await;
+    assert_eq!(pending_plan_status, StatusCode::CONFLICT);
+    let pending_plan_error: ErrorResponse = serde_json::from_str(&pending_plan_body).unwrap();
+    assert_eq!(pending_plan_error.code, "conflict");
+    assert!(pending_plan_body.contains("before it is accepted"));
+
+    let pending_apply = response_body_json(
+        &router,
+        Method::POST,
+        &apply_path,
+        &AdminMetadataCandidateReviewRelatedHierarchyApplyRequest {
+            item_id: root.id,
+            expected_updated_at_ms: Some(inserted.updated_at_ms),
+            idempotency_key: "candidate-review-related-reject-secret".to_owned(),
+        },
+    )
+    .await;
+    let pending_apply_status = pending_apply.status();
+    let pending_apply_body = response_text(pending_apply).await;
+    assert_eq!(pending_apply_status, StatusCode::CONFLICT);
+    let pending_apply_error: ErrorResponse = serde_json::from_str(&pending_apply_body).unwrap();
+    assert_eq!(pending_apply_error.code, "conflict");
+    assert!(pending_apply_body.contains("before it is accepted"));
+    assert!(!pending_apply_body.contains("candidate-review-related-reject-secret"));
+
+    let accepted = store
+        .set_metadata_candidate_review_status(
+            inserted.id,
+            DurableMetadataCandidateReviewStatus::Accepted,
+            300,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+
+    let missing_root_plan = response_body_json(
+        &router,
+        Method::POST,
+        &plan_path,
+        &AdminMetadataCandidateReviewRelatedHierarchyPlanRequest {
+            item_id: root.id,
+            expected_updated_at_ms: Some(accepted.updated_at_ms),
+        },
+    )
+    .await;
+    let missing_root_plan_status = missing_root_plan.status();
+    let missing_root_plan_body = response_text(missing_root_plan).await;
+    assert_eq!(missing_root_plan_status, StatusCode::CONFLICT);
+    let missing_root_plan_error: ErrorResponse =
+        serde_json::from_str(&missing_root_plan_body).unwrap();
+    assert_eq!(missing_root_plan_error.code, "conflict");
+    assert!(missing_root_plan_body.contains("requires an accepted root provider mapping"));
+
+    let missing_root_apply = response_body_json(
+        &router,
+        Method::POST,
+        &apply_path,
+        &AdminMetadataCandidateReviewRelatedHierarchyApplyRequest {
+            item_id: root.id,
+            expected_updated_at_ms: Some(accepted.updated_at_ms),
+            idempotency_key: "candidate-review-related-missing-root-secret".to_owned(),
+        },
+    )
+    .await;
+    let missing_root_apply_status = missing_root_apply.status();
+    let missing_root_apply_body = response_text(missing_root_apply).await;
+    assert_eq!(missing_root_apply_status, StatusCode::CONFLICT);
+    let missing_root_apply_error: ErrorResponse =
+        serde_json::from_str(&missing_root_apply_body).unwrap();
+    assert_eq!(missing_root_apply_error.code, "conflict");
+    assert!(missing_root_apply_body.contains("requires an accepted root provider mapping"));
+    assert!(!missing_root_apply_body.contains("candidate-review-related-missing-root-secret"));
+
+    assert!(
+        store
+            .find_provider_subject(
+                &ExternalProvider::Bangumi,
+                &ProviderSubjectKind::Subject,
+                "related-reject-root",
+            )
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        store
+            .find_provider_subject(
+                &ExternalProvider::Bangumi,
+                &ProviderSubjectKind::Episode,
+                "related-reject-root/1",
+            )
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        store
+            .list_provider_mappings_for_item(root.id, PageRequest::first_page())
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .list_provider_mappings_for_item(child.id, PageRequest::first_page())
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .get_library_item_state(library_id, child.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .provisional
+    );
+}
+
+#[tokio::test]
+async fn admin_v1_metadata_candidate_review_related_hierarchy_routes_reject_non_admin_session() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let token = "test-admin-token";
+    let router = test_router_with_bearer_auth(temp.path().to_path_buf(), library_id, token).await;
+
+    let created = request_body_json_with_bearer::<AdminAccessUserResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/access/users",
+        &AdminCreateUserRequest {
+            username: "candidate-review-related-viewer".to_owned(),
+            display_name: "Candidate Review Related Viewer".to_owned(),
+            roles: vec![UserRole::Viewer],
+        },
+        token,
+    )
+    .await;
+    let password_path = format!(
+        "/admin/v1/access/users/{}/local-password",
+        created.user.user_id
+    );
+    request_body_json_with_bearer::<nako_api::admin::AdminLocalPasswordResponse, _>(
+        &router,
+        Method::PUT,
+        &password_path,
+        &nako_api::admin::AdminSetLocalPasswordRequest {
+            password: "correct horse battery staple".to_owned(),
+        },
+        token,
+    )
+    .await;
+
+    let login = request_body_json::<LoginResponse, _>(
+        &router,
+        Method::POST,
+        "/auth/login",
+        &LoginRequest {
+            username: "candidate-review-related-viewer".to_owned(),
+            password: "correct horse battery staple".to_owned(),
+        },
+    )
+    .await;
+    let review_id = MetadataCandidateReviewId::new();
+    let item_id = MediaItemId::new();
+    let plan_body = serde_json::to_vec(&AdminMetadataCandidateReviewRelatedHierarchyPlanRequest {
+        item_id,
+        expected_updated_at_ms: None,
+    })
+    .unwrap();
+    let plan_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/admin/v1/metadata/candidate-reviews/{review_id}/related-hierarchy/application-plan"
+                ))
+                .header(
+                    header::AUTHORIZATION,
+                    format!("Bearer {}", login.session.token),
+                )
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(plan_body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(plan_response.status(), StatusCode::FORBIDDEN);
+    let plan_error = body_json::<ErrorResponse>(plan_response).await;
+    assert_eq!(
+        plan_error.code,
+        nako_api::public_client::ClientErrorCode::Forbidden.as_str()
+    );
+    assert_eq!(plan_error.message, "administrator role is required");
+
+    let apply_body =
+        serde_json::to_vec(&AdminMetadataCandidateReviewRelatedHierarchyApplyRequest {
+            item_id,
+            expected_updated_at_ms: None,
+            idempotency_key: "candidate-review-related-secret".to_owned(),
+        })
+        .unwrap();
+    let apply_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/admin/v1/metadata/candidate-reviews/{review_id}/related-hierarchy/apply"
+                ))
+                .header(
+                    header::AUTHORIZATION,
+                    format!("Bearer {}", login.session.token),
+                )
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(apply_body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(apply_response.status(), StatusCode::FORBIDDEN);
+    let apply_error = body_json::<ErrorResponse>(apply_response).await;
+    assert_eq!(
+        apply_error.code,
+        nako_api::public_client::ClientErrorCode::Forbidden.as_str()
+    );
+    assert_eq!(apply_error.message, "administrator role is required");
 }
 
 #[tokio::test]

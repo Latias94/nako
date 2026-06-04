@@ -42,29 +42,30 @@ use nako_api::{
         AdminMetadataCandidateReviewApplyRequest, AdminMetadataCandidateReviewBatchApplyRequest,
         AdminMetadataCandidateReviewBatchCreateRequest,
         AdminMetadataCandidateReviewBatchPlanRequest, AdminMetadataCandidateReviewBatchResponse,
-        AdminMetadataConfigDiagnostics, AdminMetadataProviderConfigDiagnostics,
-        AdminMetadataRuntimeConfigDiagnostics, AdminNetworkAccessDiagnostics,
-        AdminNetworkExposureMode, AdminNetworkExternalEndpointDiagnostics,
-        AdminNetworkReadinessCheck, AdminNetworkReadinessCheckName,
-        AdminNetworkReadinessDiagnostics, AdminNetworkReadinessReason,
-        AdminOriginPolicyDiagnostics, AdminOutboxEventListItem, AdminOutboxEventListResponse,
-        AdminOverviewMetadataProviderSummary, AdminOverviewMetadataSummary, AdminOverviewResponse,
-        AdminOverviewRuntimeSummary, AdminOverviewStartupSummary, AdminOverviewStatus,
-        AdminOverviewStorageBackendSummary, AdminOverviewStorageSummary,
-        AdminOverviewWatchFolderRuntimeSummary, AdminPlaybackArtifactLifecycleDiagnostics,
-        AdminPlaybackFfmpegDiagnostics, AdminPlaybackHardwareCapability,
-        AdminPlaybackHardwareCapabilityReason, AdminPlaybackHardwareDeviceInitialization,
-        AdminPlaybackHardwareDeviceInitializationStatus, AdminPlaybackHardwareDiagnostics,
-        AdminPlaybackHardwareEncoderDiscovery, AdminPlaybackHardwareEncoderDiscoveryStatus,
-        AdminPlaybackHardwareSmokeProbe, AdminPlaybackHardwareSmokeProbeStatus,
-        AdminPlaybackHardwareStageCapability, AdminPlaybackPolicyDiagnostics,
-        AdminPlaybackReadinessCheck, AdminPlaybackReadinessCheckName,
-        AdminPlaybackReadinessDiagnostics, AdminPlaybackReadinessReason,
-        AdminPlaybackRemoteBudgetDiagnostics, AdminPlaybackRemuxRuntimeDiagnostics,
-        AdminPlaybackResourceClass, AdminPlaybackResourceClassPressure,
-        AdminPlaybackResourceEnforcement, AdminPlaybackResourcePressureDiagnostics,
-        AdminPlaybackRuntimeDiagnosticsResponse, AdminPlaybackRuntimeStatus,
-        AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
+        AdminMetadataCandidateReviewRelatedHierarchyApplyRequest,
+        AdminMetadataCandidateReviewRelatedHierarchyPlanRequest, AdminMetadataConfigDiagnostics,
+        AdminMetadataProviderConfigDiagnostics, AdminMetadataRuntimeConfigDiagnostics,
+        AdminNetworkAccessDiagnostics, AdminNetworkExposureMode,
+        AdminNetworkExternalEndpointDiagnostics, AdminNetworkReadinessCheck,
+        AdminNetworkReadinessCheckName, AdminNetworkReadinessDiagnostics,
+        AdminNetworkReadinessReason, AdminOriginPolicyDiagnostics, AdminOutboxEventListItem,
+        AdminOutboxEventListResponse, AdminOverviewMetadataProviderSummary,
+        AdminOverviewMetadataSummary, AdminOverviewResponse, AdminOverviewRuntimeSummary,
+        AdminOverviewStartupSummary, AdminOverviewStatus, AdminOverviewStorageBackendSummary,
+        AdminOverviewStorageSummary, AdminOverviewWatchFolderRuntimeSummary,
+        AdminPlaybackArtifactLifecycleDiagnostics, AdminPlaybackFfmpegDiagnostics,
+        AdminPlaybackHardwareCapability, AdminPlaybackHardwareCapabilityReason,
+        AdminPlaybackHardwareDeviceInitialization, AdminPlaybackHardwareDeviceInitializationStatus,
+        AdminPlaybackHardwareDiagnostics, AdminPlaybackHardwareEncoderDiscovery,
+        AdminPlaybackHardwareEncoderDiscoveryStatus, AdminPlaybackHardwareSmokeProbe,
+        AdminPlaybackHardwareSmokeProbeStatus, AdminPlaybackHardwareStageCapability,
+        AdminPlaybackPolicyDiagnostics, AdminPlaybackReadinessCheck,
+        AdminPlaybackReadinessCheckName, AdminPlaybackReadinessDiagnostics,
+        AdminPlaybackReadinessReason, AdminPlaybackRemoteBudgetDiagnostics,
+        AdminPlaybackRemuxRuntimeDiagnostics, AdminPlaybackResourceClass,
+        AdminPlaybackResourceClassPressure, AdminPlaybackResourceEnforcement,
+        AdminPlaybackResourcePressureDiagnostics, AdminPlaybackRuntimeDiagnosticsResponse,
+        AdminPlaybackRuntimeStatus, AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
         AdminPlaybackStagingDiagnostics, AdminPlaybackSupportEvidenceResponse,
         AdminPlaybackSupportHardwareCapabilityEvidence, AdminPlaybackSupportHardwareEvidence,
         AdminPlaybackSupportRedactionEvidence, AdminPlaybackSupportRuntimeEvidence,
@@ -259,6 +260,14 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/metadata/candidate-reviews/{review_id}/apply",
             post(apply_admin_metadata_candidate_review),
+        )
+        .route(
+            "/admin/v1/metadata/candidate-reviews/{review_id}/related-hierarchy/application-plan",
+            post(plan_admin_metadata_candidate_review_related_hierarchy),
+        )
+        .route(
+            "/admin/v1/metadata/candidate-reviews/{review_id}/related-hierarchy/apply",
+            post(apply_admin_metadata_candidate_review_related_hierarchy),
         )
         .route("/admin/v1/events", get(list_admin_outbox_events))
         .route("/admin/v1/jobs", get(list_admin_jobs))
@@ -1285,6 +1294,30 @@ pub(super) async fn apply_admin_metadata_candidate_review(
     Ok(Json(
         app.metadata()
             .apply_admin_metadata_candidate_review(review_id, request)
+            .await?,
+    ))
+}
+
+pub(super) async fn plan_admin_metadata_candidate_review_related_hierarchy(
+    State(app): State<NakoApp>,
+    Path(review_id): Path<MetadataCandidateReviewId>,
+    Json(request): Json<AdminMetadataCandidateReviewRelatedHierarchyPlanRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.metadata()
+            .plan_admin_metadata_candidate_review_related_hierarchy(review_id, request)
+            .await?,
+    ))
+}
+
+pub(super) async fn apply_admin_metadata_candidate_review_related_hierarchy(
+    State(app): State<NakoApp>,
+    Path(review_id): Path<MetadataCandidateReviewId>,
+    Json(request): Json<AdminMetadataCandidateReviewRelatedHierarchyApplyRequest>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(
+        app.metadata()
+            .apply_admin_metadata_candidate_review_related_hierarchy(review_id, request)
             .await?,
     ))
 }

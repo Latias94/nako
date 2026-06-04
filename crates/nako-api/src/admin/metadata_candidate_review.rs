@@ -1,6 +1,6 @@
 use nako_client_protocol::PageInfo;
 use nako_core::{
-    JobId, MediaItemId, MediaKind, MetadataCandidateRecord,
+    JobId, LibraryId, MediaItemId, MediaKind, MetadataCandidateRecord,
     MetadataCandidateReviewApplicationAction, MetadataCandidateReviewApplicationPlan,
     MetadataCandidateReviewApplicationReason, MetadataCandidateReviewBatchExecutionSummary,
     MetadataCandidateReviewBatchId, MetadataCandidateReviewBatchItemRecord,
@@ -8,6 +8,10 @@ use nako_core::{
     MetadataCandidateReviewBatchPlanSummary, MetadataCandidateReviewBatchRecord,
     MetadataCandidateReviewBatchStatus, MetadataCandidateReviewId,
     MetadataCandidateReviewNode as CoreMetadataCandidateReviewNode, MetadataCandidateReviewRecord,
+    MetadataCandidateReviewRelatedHierarchyApplicationAction,
+    MetadataCandidateReviewRelatedHierarchyApplicationPlan,
+    MetadataCandidateReviewRelatedHierarchyApplicationReason,
+    MetadataCandidateReviewRelatedHierarchyApplicationTargetPlan,
     MetadataCandidateReviewRelationship as CoreMetadataCandidateReviewRelationship,
     MetadataCandidateReviewStatus, MetadataCandidateSource, MetadataCandidateSubject,
     MetadataSource, PageRequest, ProviderMapping, ProviderMappingId, ProviderMappingStatus,
@@ -623,6 +627,287 @@ impl AdminMetadataCandidateReviewApplyResponse {
                 .map(AdminMetadataCandidateReviewProviderMapping::from_mapping),
             boundary,
             governance,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewRelatedHierarchyPlanRequest {
+    pub item_id: MediaItemId,
+    pub expected_updated_at_ms: Option<i64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewRelatedHierarchyPlanResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub review_id: MetadataCandidateReviewId,
+    pub item_id: MediaItemId,
+    pub plan: AdminMetadataCandidateReviewRelatedHierarchyApplicationPlan,
+    pub boundary: AdminMetadataCandidateReviewRelatedHierarchyApplicationBoundary,
+}
+
+impl AdminMetadataCandidateReviewRelatedHierarchyPlanResponse {
+    #[must_use]
+    pub fn from_plan(
+        review: MetadataCandidateReviewRecord,
+        plan: MetadataCandidateReviewRelatedHierarchyApplicationPlan,
+    ) -> Self {
+        let boundary =
+            AdminMetadataCandidateReviewRelatedHierarchyApplicationBoundary::from_plan(&plan);
+
+        Self {
+            admin_api_version: ADMIN_API_VERSION.to_owned(),
+            public_api_version: API_VERSION.to_owned(),
+            review_id: review.id,
+            item_id: review.item_id,
+            plan: AdminMetadataCandidateReviewRelatedHierarchyApplicationPlan::from_plan(plan),
+            boundary,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewRelatedHierarchyApplyRequest {
+    pub item_id: MediaItemId,
+    pub expected_updated_at_ms: Option<i64>,
+    pub idempotency_key: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewRelatedHierarchyApplyResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub review_id: MetadataCandidateReviewId,
+    pub item_id: MediaItemId,
+    pub applied: bool,
+    pub changed: bool,
+    pub idempotent_replay: bool,
+    pub idempotency_key_fingerprint: String,
+    pub plan: AdminMetadataCandidateReviewRelatedHierarchyApplicationPlan,
+    pub provider_subjects: Vec<AdminMetadataCandidateReviewProviderSubject>,
+    pub provider_mappings: Vec<AdminMetadataCandidateReviewProviderMapping>,
+    pub confirmed_item_ids: Vec<MediaItemId>,
+    pub boundary: AdminMetadataCandidateReviewRelatedHierarchyApplicationBoundary,
+}
+
+impl AdminMetadataCandidateReviewRelatedHierarchyApplyResponse {
+    #[must_use]
+    pub fn from_application(
+        review: MetadataCandidateReviewRecord,
+        plan: MetadataCandidateReviewRelatedHierarchyApplicationPlan,
+        provider_subjects: Vec<ProviderSubject>,
+        provider_mappings: Vec<ProviderMapping>,
+        confirmed_item_ids: Vec<MediaItemId>,
+        changed: bool,
+        idempotency_key: &str,
+    ) -> Self {
+        let applied = !provider_mappings.is_empty() || !confirmed_item_ids.is_empty();
+        let idempotent_replay = applied && !changed;
+        let boundary =
+            AdminMetadataCandidateReviewRelatedHierarchyApplicationBoundary::from_plan(&plan);
+
+        Self {
+            admin_api_version: ADMIN_API_VERSION.to_owned(),
+            public_api_version: API_VERSION.to_owned(),
+            review_id: review.id,
+            item_id: review.item_id,
+            applied,
+            changed,
+            idempotent_replay,
+            idempotency_key_fingerprint: fingerprint_text(idempotency_key),
+            plan: AdminMetadataCandidateReviewRelatedHierarchyApplicationPlan::from_plan(plan),
+            provider_subjects: provider_subjects
+                .into_iter()
+                .map(AdminMetadataCandidateReviewProviderSubject::from_subject)
+                .collect(),
+            provider_mappings: provider_mappings
+                .into_iter()
+                .map(AdminMetadataCandidateReviewProviderMapping::from_mapping)
+                .collect(),
+            confirmed_item_ids,
+            boundary,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewRelatedHierarchyApplicationPlan {
+    pub review_id: MetadataCandidateReviewId,
+    pub item_id: MediaItemId,
+    pub action: AdminMetadataCandidateReviewRelatedHierarchyApplicationAction,
+    pub reasons: Vec<AdminMetadataCandidateReviewRelatedHierarchyApplicationReason>,
+    pub source: Option<MetadataSource>,
+    pub root_subject: Option<MetadataCandidateSubject>,
+    pub root_mapping_id: Option<ProviderMappingId>,
+    pub root_mapping_status: Option<ProviderMappingStatus>,
+    pub target_count: u32,
+    pub mapping_change_count: u32,
+    pub provisional_state_change_count: u32,
+    pub targets: Vec<AdminMetadataCandidateReviewRelatedHierarchyApplicationTarget>,
+}
+
+impl AdminMetadataCandidateReviewRelatedHierarchyApplicationPlan {
+    #[must_use]
+    pub fn from_plan(plan: MetadataCandidateReviewRelatedHierarchyApplicationPlan) -> Self {
+        Self {
+            review_id: plan.review_id,
+            item_id: plan.item_id,
+            action: AdminMetadataCandidateReviewRelatedHierarchyApplicationAction::from(
+                plan.action,
+            ),
+            reasons: plan
+                .reasons
+                .into_iter()
+                .map(AdminMetadataCandidateReviewRelatedHierarchyApplicationReason::from)
+                .collect(),
+            source: plan.source,
+            root_subject: plan.root_subject,
+            root_mapping_id: plan.root_mapping_id,
+            root_mapping_status: plan.root_mapping_status,
+            target_count: plan.target_count,
+            mapping_change_count: plan.mapping_change_count,
+            provisional_state_change_count: plan.provisional_state_change_count,
+            targets: plan
+                .targets
+                .into_iter()
+                .map(AdminMetadataCandidateReviewRelatedHierarchyApplicationTarget::from_target)
+                .collect(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewRelatedHierarchyApplicationTarget {
+    pub item_id: MediaItemId,
+    pub library_ids: Vec<LibraryId>,
+    pub subject: MetadataCandidateSubject,
+    pub source: MetadataSource,
+    pub existing_subject_id: Option<ProviderSubjectId>,
+    pub existing_mapping_id: Option<ProviderMappingId>,
+    pub existing_mapping_status: Option<ProviderMappingStatus>,
+    pub mapping_change_required: bool,
+    pub provisional_library_state_count: u32,
+}
+
+impl AdminMetadataCandidateReviewRelatedHierarchyApplicationTarget {
+    #[must_use]
+    pub fn from_target(
+        target: MetadataCandidateReviewRelatedHierarchyApplicationTargetPlan,
+    ) -> Self {
+        Self {
+            item_id: target.item_id,
+            library_ids: target.library_ids,
+            subject: target.subject,
+            source: target.source,
+            existing_subject_id: target.existing_subject_id,
+            existing_mapping_id: target.existing_mapping_id,
+            existing_mapping_status: target.existing_mapping_status,
+            mapping_change_required: target.mapping_change_required,
+            provisional_library_state_count: target.provisional_library_state_count,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminMetadataCandidateReviewRelatedHierarchyApplicationAction {
+    Apply,
+    Skip,
+    Noop,
+}
+
+impl From<MetadataCandidateReviewRelatedHierarchyApplicationAction>
+    for AdminMetadataCandidateReviewRelatedHierarchyApplicationAction
+{
+    fn from(value: MetadataCandidateReviewRelatedHierarchyApplicationAction) -> Self {
+        match value {
+            MetadataCandidateReviewRelatedHierarchyApplicationAction::Apply => Self::Apply,
+            MetadataCandidateReviewRelatedHierarchyApplicationAction::Skip => Self::Skip,
+            MetadataCandidateReviewRelatedHierarchyApplicationAction::Noop => Self::Noop,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminMetadataCandidateReviewRelatedHierarchyApplicationReason {
+    ReviewNotAccepted,
+    MissingRootSubject,
+    UnsupportedSource,
+    MissingAcceptedRootMapping,
+    NoSafeRelatedHierarchyRelationships,
+    Ready,
+    AlreadyApplied,
+}
+
+impl From<MetadataCandidateReviewRelatedHierarchyApplicationReason>
+    for AdminMetadataCandidateReviewRelatedHierarchyApplicationReason
+{
+    fn from(value: MetadataCandidateReviewRelatedHierarchyApplicationReason) -> Self {
+        match value {
+            MetadataCandidateReviewRelatedHierarchyApplicationReason::ReviewNotAccepted => {
+                Self::ReviewNotAccepted
+            }
+            MetadataCandidateReviewRelatedHierarchyApplicationReason::MissingRootSubject => {
+                Self::MissingRootSubject
+            }
+            MetadataCandidateReviewRelatedHierarchyApplicationReason::UnsupportedSource => {
+                Self::UnsupportedSource
+            }
+            MetadataCandidateReviewRelatedHierarchyApplicationReason::MissingAcceptedRootMapping => {
+                Self::MissingAcceptedRootMapping
+            }
+            MetadataCandidateReviewRelatedHierarchyApplicationReason::NoSafeRelatedHierarchyRelationships => {
+                Self::NoSafeRelatedHierarchyRelationships
+            }
+            MetadataCandidateReviewRelatedHierarchyApplicationReason::Ready => Self::Ready,
+            MetadataCandidateReviewRelatedHierarchyApplicationReason::AlreadyApplied => {
+                Self::AlreadyApplied
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminMetadataCandidateReviewRelatedHierarchyApplicationBoundary {
+    pub read_only: bool,
+    pub applies_on_read: bool,
+    pub apply_mutation_required: bool,
+    pub apply_updates_root_provider_subject: bool,
+    pub apply_updates_root_provider_mapping: bool,
+    pub apply_updates_related_provider_subjects: bool,
+    pub apply_updates_related_provider_mappings: bool,
+    pub apply_confirms_related_library_item_state: bool,
+    pub updates_parent_hierarchy: bool,
+    pub updates_canonical_metadata: bool,
+    pub writes_nfo: bool,
+    pub writes_library_files: bool,
+}
+
+impl AdminMetadataCandidateReviewRelatedHierarchyApplicationBoundary {
+    #[must_use]
+    pub const fn from_plan(plan: &MetadataCandidateReviewRelatedHierarchyApplicationPlan) -> Self {
+        let would_apply = matches!(
+            plan.action,
+            MetadataCandidateReviewRelatedHierarchyApplicationAction::Apply
+        );
+        let mapping_change_required = would_apply && plan.mapping_change_count > 0;
+
+        Self {
+            read_only: true,
+            applies_on_read: false,
+            apply_mutation_required: would_apply,
+            apply_updates_root_provider_subject: false,
+            apply_updates_root_provider_mapping: false,
+            apply_updates_related_provider_subjects: mapping_change_required,
+            apply_updates_related_provider_mappings: mapping_change_required,
+            apply_confirms_related_library_item_state: would_apply
+                && plan.provisional_state_change_count > 0,
+            updates_parent_hierarchy: false,
+            updates_canonical_metadata: false,
+            writes_nfo: false,
+            writes_library_files: false,
         }
     }
 }

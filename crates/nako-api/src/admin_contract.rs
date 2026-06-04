@@ -1,6 +1,6 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 76] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 78] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -154,6 +154,14 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 76] = [
     (
         "metadataCandidateReviewApply",
         "metadata/candidate-reviews/{review_id}/apply",
+    ),
+    (
+        "metadataCandidateReviewRelatedHierarchyApplicationPlan",
+        "metadata/candidate-reviews/{review_id}/related-hierarchy/application-plan",
+    ),
+    (
+        "metadataCandidateReviewRelatedHierarchyApply",
+        "metadata/candidate-reviews/{review_id}/related-hierarchy/apply",
     ),
     ("events", "events"),
     ("jobs", "jobs"),
@@ -2122,6 +2130,98 @@ export interface AdminMetadataCandidateReviewApplyResponse {
   governance: AdminMetadataCandidateReviewGovernance;
 }
 
+export interface AdminMetadataCandidateReviewRelatedHierarchyPlanRequest {
+  item_id: string;
+  expected_updated_at_ms: number | null;
+}
+
+export interface AdminMetadataCandidateReviewRelatedHierarchyPlanResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  review_id: string;
+  item_id: string;
+  plan: AdminMetadataCandidateReviewRelatedHierarchyApplicationPlan;
+  boundary: AdminMetadataCandidateReviewRelatedHierarchyApplicationBoundary;
+}
+
+export interface AdminMetadataCandidateReviewRelatedHierarchyApplyRequest {
+  item_id: string;
+  expected_updated_at_ms: number | null;
+  idempotency_key: string;
+}
+
+export interface AdminMetadataCandidateReviewRelatedHierarchyApplyResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  review_id: string;
+  item_id: string;
+  applied: boolean;
+  changed: boolean;
+  idempotent_replay: boolean;
+  idempotency_key_fingerprint: string;
+  plan: AdminMetadataCandidateReviewRelatedHierarchyApplicationPlan;
+  provider_subjects: AdminMetadataCandidateReviewProviderSubject[];
+  provider_mappings: AdminMetadataCandidateReviewProviderMapping[];
+  confirmed_item_ids: string[];
+  boundary: AdminMetadataCandidateReviewRelatedHierarchyApplicationBoundary;
+}
+
+export type AdminMetadataCandidateReviewRelatedHierarchyApplicationAction =
+  | "apply"
+  | "skip"
+  | "noop";
+
+export type AdminMetadataCandidateReviewRelatedHierarchyApplicationReason =
+  | "review_not_accepted"
+  | "missing_root_subject"
+  | "unsupported_source"
+  | "missing_accepted_root_mapping"
+  | "no_safe_related_hierarchy_relationships"
+  | "ready"
+  | "already_applied";
+
+export interface AdminMetadataCandidateReviewRelatedHierarchyApplicationPlan {
+  review_id: string;
+  item_id: string;
+  action: AdminMetadataCandidateReviewRelatedHierarchyApplicationAction;
+  reasons: AdminMetadataCandidateReviewRelatedHierarchyApplicationReason[];
+  source: AdminMetadataSource | null;
+  root_subject: AdminMetadataCandidateSubject | null;
+  root_mapping_id: string | null;
+  root_mapping_status: AdminProviderMappingStatus | null;
+  target_count: number;
+  mapping_change_count: number;
+  provisional_state_change_count: number;
+  targets: AdminMetadataCandidateReviewRelatedHierarchyApplicationTarget[];
+}
+
+export interface AdminMetadataCandidateReviewRelatedHierarchyApplicationTarget {
+  item_id: string;
+  library_ids: string[];
+  subject: AdminMetadataCandidateSubject;
+  source: AdminMetadataSource;
+  existing_subject_id: string | null;
+  existing_mapping_id: string | null;
+  existing_mapping_status: AdminProviderMappingStatus | null;
+  mapping_change_required: boolean;
+  provisional_library_state_count: number;
+}
+
+export interface AdminMetadataCandidateReviewRelatedHierarchyApplicationBoundary {
+  read_only: boolean;
+  applies_on_read: boolean;
+  apply_mutation_required: boolean;
+  apply_updates_root_provider_subject: boolean;
+  apply_updates_root_provider_mapping: boolean;
+  apply_updates_related_provider_subjects: boolean;
+  apply_updates_related_provider_mappings: boolean;
+  apply_confirms_related_library_item_state: boolean;
+  updates_parent_hierarchy: boolean;
+  updates_canonical_metadata: boolean;
+  writes_nfo: boolean;
+  writes_library_files: boolean;
+}
+
 export interface AdminCatalogGovernanceProviderMappingReviewRequest {
   decision: AdminCatalogGovernanceProviderMappingReviewDecision;
 }
@@ -3587,6 +3687,15 @@ mod tests {
             "AdminMetadataCandidateReviewUndoReason",
             "AdminMetadataCandidateReviewApplyRequest",
             "AdminMetadataCandidateReviewApplyResponse",
+            "AdminMetadataCandidateReviewRelatedHierarchyPlanRequest",
+            "AdminMetadataCandidateReviewRelatedHierarchyPlanResponse",
+            "AdminMetadataCandidateReviewRelatedHierarchyApplyRequest",
+            "AdminMetadataCandidateReviewRelatedHierarchyApplyResponse",
+            "AdminMetadataCandidateReviewRelatedHierarchyApplicationPlan",
+            "AdminMetadataCandidateReviewRelatedHierarchyApplicationTarget",
+            "AdminMetadataCandidateReviewRelatedHierarchyApplicationBoundary",
+            "AdminMetadataCandidateReviewRelatedHierarchyApplicationAction",
+            "AdminMetadataCandidateReviewRelatedHierarchyApplicationReason",
             "AdminMetadataCandidateReviewProviderSubject",
             "AdminMetadataCandidateReviewProviderMapping",
             "AdminMetadataCandidateReviewApplicationAction",
@@ -3845,6 +3954,8 @@ mod tests {
             "metadata/items/{item_id}/candidate-reviews",
             "metadata/candidate-reviews/{review_id}",
             "metadata/candidate-reviews/{review_id}/apply",
+            "metadata/candidate-reviews/{review_id}/related-hierarchy/application-plan",
+            "metadata/candidate-reviews/{review_id}/related-hierarchy/apply",
         ] {
             let public_shape_path = format!("/{suffix}");
             assert!(

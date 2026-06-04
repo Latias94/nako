@@ -18,8 +18,10 @@ use nako_core::{
     MediaItem, MediaItemId, MediaKind, MediaRepository, MediaSource, MediaSourceId,
     MetadataCandidateGraph, MetadataCandidateNode, MetadataCandidateRecord,
     MetadataCandidateRelationship, MetadataCandidateRelationshipKind, MetadataCandidateReviewId,
-    MetadataCandidateReviewRepository, MetadataCandidateReviewStatus, MetadataCandidateSource,
-    MetadataCandidateSubject, MetadataField, MetadataFieldLock, MetadataMatchKind, MetadataProfile,
+    MetadataCandidateReviewRelatedHierarchyApplicationAction,
+    MetadataCandidateReviewRelatedHierarchyApplicationReason, MetadataCandidateReviewRepository,
+    MetadataCandidateReviewStatus, MetadataCandidateSource, MetadataCandidateSubject,
+    MetadataField, MetadataFieldLock, MetadataMatchKind, MetadataProfile,
     MetadataProviderAttemptStatus, MetadataProviderErrorClass, MetadataRefreshMode,
     MetadataRepository, MetadataSource, NakoError, NewJob, NewMetadataCandidateReview, PageRequest,
     ProviderMapping, ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus,
@@ -2688,6 +2690,24 @@ async fn candidate_review_related_hierarchy_application_requires_accepted_review
         .unwrap();
     let service = MetadataCandidateReviewApplicationService::new(store.clone());
 
+    let pending_plan_err = service
+        .plan_related_hierarchy(
+            MetadataCandidateReviewRelatedHierarchyApplicationPlanRequest {
+                review_id: inserted.id,
+                item_id: item.id,
+                expected_updated_at_ms: Some(inserted.updated_at_ms),
+            },
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(pending_plan_err, NakoError::Conflict { .. }));
+    assert!(
+        pending_plan_err
+            .to_string()
+            .contains("before it is accepted")
+    );
+
     let pending_err = service
         .apply_related_hierarchy(MetadataCandidateReviewRelatedHierarchyApplicationRequest {
             review_id: inserted.id,
@@ -2710,6 +2730,27 @@ async fn candidate_review_related_hierarchy_application_requires_accepted_review
         .await
         .unwrap()
         .unwrap();
+    let missing_root_mapping_plan_err = service
+        .plan_related_hierarchy(
+            MetadataCandidateReviewRelatedHierarchyApplicationPlanRequest {
+                review_id: accepted.id,
+                item_id: item.id,
+                expected_updated_at_ms: Some(accepted.updated_at_ms),
+            },
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(
+        missing_root_mapping_plan_err,
+        NakoError::Conflict { .. }
+    ));
+    assert!(
+        missing_root_mapping_plan_err
+            .to_string()
+            .contains("requires an accepted root provider mapping")
+    );
+
     let missing_root_mapping_err = service
         .apply_related_hierarchy(MetadataCandidateReviewRelatedHierarchyApplicationRequest {
             review_id: accepted.id,
@@ -2874,6 +2915,151 @@ async fn candidate_review_related_hierarchy_application_confirms_existing_child_
             .len(),
         1
     );
+}
+
+#[tokio::test]
+async fn candidate_review_related_hierarchy_application_plan_reports_targets_and_replay() {
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let library = Library {
+        id: LibraryId::new(),
+        name: "TV".to_owned(),
+        roots: vec!["local:///TV".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Tv),
+    };
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Series,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Local Series".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let child = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Season,
+        parent_id: Some(item.id),
+        metadata: CanonicalMetadata {
+            title: "Season 1".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_library(&library).await.unwrap();
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_item(&child).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id: library.id,
+            item_id: item.id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id: library.id,
+            item_id: child.id,
+            provisional: true,
+        })
+        .await
+        .unwrap();
+    let inserted = store
+        .upsert_metadata_candidate_review(NewMetadataCandidateReview {
+            id: MetadataCandidateReviewId::new(),
+            item_id: item.id,
+            source: MetadataCandidateSource::Provider(ExternalProvider::Tmdb),
+            source_key: "tmdb:series:1437-related-plan".to_owned(),
+            plan: sample_candidate_review_plan_with_related_subject(),
+            expires_at_ms: Some(10_000),
+            created_at_ms: 1_000,
+            updated_at_ms: 1_000,
+        })
+        .await
+        .unwrap();
+    let accepted = store
+        .set_metadata_candidate_review_status(
+            inserted.id,
+            MetadataCandidateReviewStatus::Accepted,
+            2_000,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    let service = MetadataCandidateReviewApplicationService::new(store.clone());
+    service
+        .apply(MetadataCandidateReviewApplicationRequest {
+            review_id: accepted.id,
+            item_id: item.id,
+            applied_at_ms: 2_500,
+            expected_updated_at_ms: Some(accepted.updated_at_ms),
+        })
+        .await
+        .unwrap();
+
+    let planned = service
+        .plan_related_hierarchy(
+            MetadataCandidateReviewRelatedHierarchyApplicationPlanRequest {
+                review_id: accepted.id,
+                item_id: item.id,
+                expected_updated_at_ms: Some(accepted.updated_at_ms),
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        planned.plan.action,
+        MetadataCandidateReviewRelatedHierarchyApplicationAction::Apply
+    );
+    assert_eq!(
+        planned.plan.reasons,
+        vec![MetadataCandidateReviewRelatedHierarchyApplicationReason::Ready]
+    );
+    assert_eq!(
+        planned.plan.root_mapping_status,
+        Some(ProviderMappingStatus::Accepted)
+    );
+    assert_eq!(planned.plan.target_count, 1);
+    assert_eq!(planned.plan.mapping_change_count, 1);
+    assert_eq!(planned.plan.provisional_state_change_count, 1);
+    assert_eq!(planned.plan.targets[0].item_id, child.id);
+    assert_eq!(planned.plan.targets[0].library_ids, vec![library.id]);
+    assert!(planned.plan.targets[0].mapping_change_required);
+    assert_eq!(planned.plan.targets[0].provisional_library_state_count, 1);
+
+    service
+        .apply_related_hierarchy(MetadataCandidateReviewRelatedHierarchyApplicationRequest {
+            review_id: accepted.id,
+            item_id: item.id,
+            applied_at_ms: 3_000,
+            expected_updated_at_ms: Some(accepted.updated_at_ms),
+        })
+        .await
+        .unwrap();
+    let replay_plan = service
+        .plan_related_hierarchy(
+            MetadataCandidateReviewRelatedHierarchyApplicationPlanRequest {
+                review_id: accepted.id,
+                item_id: item.id,
+                expected_updated_at_ms: Some(accepted.updated_at_ms),
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        replay_plan.plan.action,
+        MetadataCandidateReviewRelatedHierarchyApplicationAction::Noop
+    );
+    assert_eq!(
+        replay_plan.plan.reasons,
+        vec![MetadataCandidateReviewRelatedHierarchyApplicationReason::AlreadyApplied]
+    );
+    assert_eq!(replay_plan.plan.target_count, 1);
+    assert_eq!(replay_plan.plan.mapping_change_count, 0);
+    assert_eq!(replay_plan.plan.provisional_state_change_count, 0);
+    assert!(!replay_plan.plan.targets[0].mapping_change_required);
 }
 
 #[tokio::test]

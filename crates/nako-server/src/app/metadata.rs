@@ -12,7 +12,12 @@ use nako_api::{
         AdminMetadataCandidateReviewBatchCreateRequest,
         AdminMetadataCandidateReviewBatchPlanRequest,
         AdminMetadataCandidateReviewBatchPlanResponse, AdminMetadataCandidateReviewListResponse,
-        AdminMetadataCandidateReviewQueueResponse, AdminMetadataCandidateReviewResponse,
+        AdminMetadataCandidateReviewQueueResponse,
+        AdminMetadataCandidateReviewRelatedHierarchyApplyRequest,
+        AdminMetadataCandidateReviewRelatedHierarchyApplyResponse,
+        AdminMetadataCandidateReviewRelatedHierarchyPlanRequest,
+        AdminMetadataCandidateReviewRelatedHierarchyPlanResponse,
+        AdminMetadataCandidateReviewResponse,
     },
     metadata_diagnostics::{
         EnqueueMetadataMaintenanceRequest, MetadataCandidateReviewDecision,
@@ -47,10 +52,12 @@ use nako_metadata::{
     MetadataAttemptPort, MetadataCandidateConflictReview, MetadataCandidateConflictReviewStatus,
     MetadataCandidateMatch, MetadataCandidateMatchDecision, MetadataCandidateMatchReason,
     MetadataCandidateReviewApplicationPlanRequest, MetadataCandidateReviewApplicationRequest,
-    MetadataCandidateReviewApplicationService, MetadataProviderRegistry, MetadataRefreshCommit,
-    MetadataRefreshJobInput, MetadataRefreshPort, MetadataRefreshRequest, MetadataRefreshSnapshot,
-    MetadataRefreshSummary, MetadataStrategyExecutor, build_candidate_conflict_review,
-    build_candidate_review_application_plan,
+    MetadataCandidateReviewApplicationService,
+    MetadataCandidateReviewRelatedHierarchyApplicationPlanRequest,
+    MetadataCandidateReviewRelatedHierarchyApplicationRequest, MetadataProviderRegistry,
+    MetadataRefreshCommit, MetadataRefreshJobInput, MetadataRefreshPort, MetadataRefreshRequest,
+    MetadataRefreshSnapshot, MetadataRefreshSummary, MetadataStrategyExecutor,
+    build_candidate_conflict_review, build_candidate_review_application_plan,
 };
 use serde::Serialize;
 use time::OffsetDateTime;
@@ -915,6 +922,63 @@ impl MetadataAppService {
             summary.changed,
             &idempotency_key,
         ))
+    }
+
+    pub async fn plan_admin_metadata_candidate_review_related_hierarchy(
+        &self,
+        review_id: MetadataCandidateReviewId,
+        request: AdminMetadataCandidateReviewRelatedHierarchyPlanRequest,
+    ) -> Result<AdminMetadataCandidateReviewRelatedHierarchyPlanResponse> {
+        let summary =
+            MetadataCandidateReviewApplicationService::new(self.execution_store.store.clone())
+                .plan_related_hierarchy(
+                    MetadataCandidateReviewRelatedHierarchyApplicationPlanRequest {
+                        review_id,
+                        item_id: request.item_id,
+                        expected_updated_at_ms: request.expected_updated_at_ms,
+                    },
+                )
+                .await?;
+
+        Ok(
+            AdminMetadataCandidateReviewRelatedHierarchyPlanResponse::from_plan(
+                summary.review,
+                summary.plan,
+            ),
+        )
+    }
+
+    pub async fn apply_admin_metadata_candidate_review_related_hierarchy(
+        &self,
+        review_id: MetadataCandidateReviewId,
+        request: AdminMetadataCandidateReviewRelatedHierarchyApplyRequest,
+    ) -> Result<AdminMetadataCandidateReviewRelatedHierarchyApplyResponse> {
+        let idempotency_key =
+            normalize_candidate_review_apply_idempotency_key(&request.idempotency_key)?;
+        let applied_at_ms = super::current_time_ms()?;
+        let summary =
+            MetadataCandidateReviewApplicationService::new(self.execution_store.store.clone())
+                .apply_related_hierarchy(
+                    MetadataCandidateReviewRelatedHierarchyApplicationRequest {
+                        review_id,
+                        item_id: request.item_id,
+                        applied_at_ms,
+                        expected_updated_at_ms: request.expected_updated_at_ms,
+                    },
+                )
+                .await?;
+
+        Ok(
+            AdminMetadataCandidateReviewRelatedHierarchyApplyResponse::from_application(
+                summary.review,
+                summary.plan,
+                summary.provider_subjects,
+                summary.provider_mappings,
+                summary.confirmed_item_ids,
+                summary.changed,
+                &idempotency_key,
+            ),
+        )
     }
 
     async fn run_metadata_candidate_review_batch_apply(

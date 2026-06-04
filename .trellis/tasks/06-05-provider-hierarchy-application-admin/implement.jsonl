@@ -1,0 +1,23 @@
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Admin DTO and generated contract entry point for related hierarchy routes."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Admin-only route inventory and generated contract rules."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Admin contract/redaction validation gates."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server Admin route and app-service placement rules."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Admin route auth, handler, and response mapping patterns."}
+{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "HTTP-facing NakoError mapping for plan/apply failures."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused server route test and check gates."}
+{"file": ".trellis/spec/nako-metadata/backend/index.md", "reason": "Metadata Candidate Review service placement rules."}
+{"file": ".trellis/spec/nako-metadata/backend/quality-guidelines.md", "reason": "Plan-before-apply and related hierarchy governance rules."}
+{"file": ".trellis/spec/nako-metadata/backend/database-guidelines.md", "reason": "Repository-trait persistence boundary for related hierarchy planning."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Cross-layer API-service-contract data flow checklist."}
+{"file": ".trellis/tasks/06-05-provider-hierarchy-application-admin/research/existing-hierarchy-admin-surface.md", "reason": "Current gap, target boundary, and validation notes for implementation."}
+{"file": "crates/nako-core/src/media/candidate.rs", "reason": "Adds provider-neutral related hierarchy application plan, target, action, and reason contracts shared by metadata, API, and server."}
+{"file": "crates/nako-metadata/src/candidate_review.rs", "reason": "Adds read-only related hierarchy planning and makes apply reuse the plan target resolution before mutation."}
+{"file": "crates/nako-metadata/src/lib.rs", "reason": "Re-exports related hierarchy planning service records for downstream server use."}
+{"file": "crates/nako-api/src/admin/metadata_candidate_review.rs", "reason": "Adds Admin DTOs for related hierarchy plan/apply requests, responses, targets, reasons, and boundaries."}
+{"file": "crates/nako-api/src/admin_contract.rs", "reason": "Adds Admin route inventory and generated TypeScript contract definitions for related hierarchy plan/apply."}
+{"file": "apps/admin-web/src/adminApi/generated/contract.ts", "reason": "Regenerated Admin Web contract artifact from nako-api generator."}
+{"file": "web/src/api/admin/generated/contract.ts", "reason": "Regenerated secondary Admin contract artifact from nako-api generator."}
+{"file": "crates/nako-server/src/app/metadata.rs", "reason": "Adds app service methods that map Admin related hierarchy plan/apply requests into metadata services."}
+{"file": "crates/nako-server/src/http/admin.rs", "reason": "Adds Admin-only related hierarchy plan/apply routes and handlers under candidate review route space."}
+{"file": "crates/nako-metadata/src/tests.rs", "reason": "Adds metadata service regression coverage for related hierarchy read-only plan and replay plan semantics."}
+{"file": "crates/nako-server/src/http/tests/system.rs", "reason": "Adds Admin route coverage for related hierarchy plan/apply/replay, redaction, stale guard, and non-admin rejection."}

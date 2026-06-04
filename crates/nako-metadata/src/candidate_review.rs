@@ -4,6 +4,10 @@ use nako_core::{
     MetadataCandidateReviewApplicationAction, MetadataCandidateReviewApplicationPlan,
     MetadataCandidateReviewApplicationReason, MetadataCandidateReviewId,
     MetadataCandidateReviewNode, MetadataCandidateReviewPlan, MetadataCandidateReviewRecord,
+    MetadataCandidateReviewRelatedHierarchyApplicationAction,
+    MetadataCandidateReviewRelatedHierarchyApplicationPlan,
+    MetadataCandidateReviewRelatedHierarchyApplicationReason,
+    MetadataCandidateReviewRelatedHierarchyApplicationTargetPlan,
     MetadataCandidateReviewRepository, MetadataCandidateReviewStatus, MetadataCandidateSource,
     MetadataCandidateSubject, MetadataSource, NakoError, PageRequest, ProviderMapping,
     ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus, ProviderSubject,
@@ -142,6 +146,19 @@ pub struct MetadataCandidateReviewApplicationSummary {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataCandidateReviewRelatedHierarchyApplicationPlanRequest {
+    pub review_id: MetadataCandidateReviewId,
+    pub item_id: MediaItemId,
+    pub expected_updated_at_ms: Option<i64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MetadataCandidateReviewRelatedHierarchyApplicationPlanSummary {
+    pub review: MetadataCandidateReviewRecord,
+    pub plan: MetadataCandidateReviewRelatedHierarchyApplicationPlan,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct MetadataCandidateReviewRelatedHierarchyApplicationRequest {
     pub review_id: MetadataCandidateReviewId,
     pub item_id: MediaItemId,
@@ -152,7 +169,7 @@ pub struct MetadataCandidateReviewRelatedHierarchyApplicationRequest {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct MetadataCandidateReviewRelatedHierarchyApplicationSummary {
     pub review: MetadataCandidateReviewRecord,
-    pub plan: MetadataCandidateReviewApplicationPlan,
+    pub plan: MetadataCandidateReviewRelatedHierarchyApplicationPlan,
     pub provider_subjects: Vec<ProviderSubject>,
     pub provider_mappings: Vec<ProviderMapping>,
     pub confirmed_item_ids: Vec<MediaItemId>,
@@ -387,32 +404,52 @@ where
         + MetadataCandidateReviewRepository
         + ProviderMappingRepository,
 {
+    pub async fn plan_related_hierarchy(
+        &self,
+        request: MetadataCandidateReviewRelatedHierarchyApplicationPlanRequest,
+    ) -> Result<MetadataCandidateReviewRelatedHierarchyApplicationPlanSummary> {
+        let (review, plan, _targets) = self.plan_related_hierarchy_with_targets(request).await?;
+
+        Ok(MetadataCandidateReviewRelatedHierarchyApplicationPlanSummary { review, plan })
+    }
+
     pub async fn apply_related_hierarchy(
         &self,
         request: MetadataCandidateReviewRelatedHierarchyApplicationRequest,
     ) -> Result<MetadataCandidateReviewRelatedHierarchyApplicationSummary> {
-        let review = self
-            .repository
-            .get_metadata_candidate_review(request.review_id)
-            .await?
-            .ok_or_else(|| NakoError::NotFound {
-                entity: "metadata_candidate_review",
-                id: request.review_id.to_string(),
-            })?;
+        let (review, plan, targets) = self
+            .plan_related_hierarchy_with_targets(
+                MetadataCandidateReviewRelatedHierarchyApplicationPlanRequest {
+                    review_id: request.review_id,
+                    item_id: request.item_id,
+                    expected_updated_at_ms: request.expected_updated_at_ms,
+                },
+            )
+            .await?;
 
-        reject_stale_review_operation(&review, request.item_id, request.expected_updated_at_ms)?;
-
-        let plan = build_candidate_review_application_plan(&self.repository, &review).await?;
-        reject_related_hierarchy_application_plan(&review, &plan)?;
-
-        let targets = resolve_related_hierarchy_targets(&self.repository, &review, &plan).await?;
-        if targets.is_empty() {
-            return Err(NakoError::Conflict {
-                message: format!(
-                    "metadata candidate review {} has no safe related hierarchy relationships",
-                    review.id
-                ),
-            });
+        match plan.action {
+            MetadataCandidateReviewRelatedHierarchyApplicationAction::Skip => {
+                return Err(NakoError::Conflict {
+                    message: related_hierarchy_skip_message(review.id, &plan.reasons),
+                });
+            }
+            MetadataCandidateReviewRelatedHierarchyApplicationAction::Noop => {
+                return Ok(MetadataCandidateReviewRelatedHierarchyApplicationSummary {
+                    review,
+                    plan,
+                    provider_subjects: targets
+                        .iter()
+                        .filter_map(|target| target.existing_subject.clone())
+                        .collect(),
+                    provider_mappings: targets
+                        .iter()
+                        .filter_map(|target| target.existing_mapping.clone())
+                        .collect(),
+                    confirmed_item_ids: unique_related_item_ids(&targets),
+                    changed: false,
+                });
+            }
+            MetadataCandidateReviewRelatedHierarchyApplicationAction::Apply => {}
         }
 
         let mut summary = MetadataCandidateReviewRelatedHierarchyApplicationSummary {
@@ -453,22 +490,15 @@ where
             }
 
             let mut state_changed = false;
-            for library_id in target.library_ids {
-                if self
-                    .repository
-                    .get_library_item_state(library_id, target.item.id)
-                    .await?
-                    .is_some_and(|state| state.provisional)
-                {
-                    self.repository
-                        .upsert_library_item_state(&nako_core::LibraryItemState {
-                            library_id,
-                            item_id: target.item.id,
-                            provisional: false,
-                        })
-                        .await?;
-                    state_changed = true;
-                }
+            for library_id in target.provisional_library_ids {
+                self.repository
+                    .upsert_library_item_state(&nako_core::LibraryItemState {
+                        library_id,
+                        item_id: target.item.id,
+                        provisional: false,
+                    })
+                    .await?;
+                state_changed = true;
             }
 
             if !summary.confirmed_item_ids.contains(&target.item.id) {
@@ -481,12 +511,90 @@ where
 
         Ok(summary)
     }
+
+    async fn plan_related_hierarchy_with_targets(
+        &self,
+        request: MetadataCandidateReviewRelatedHierarchyApplicationPlanRequest,
+    ) -> Result<(
+        MetadataCandidateReviewRecord,
+        MetadataCandidateReviewRelatedHierarchyApplicationPlan,
+        Vec<RelatedHierarchyTarget>,
+    )> {
+        let review = self
+            .repository
+            .get_metadata_candidate_review(request.review_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "metadata_candidate_review",
+                id: request.review_id.to_string(),
+            })?;
+
+        reject_stale_review_operation(&review, request.item_id, request.expected_updated_at_ms)?;
+
+        let root_plan = build_candidate_review_application_plan(&self.repository, &review).await?;
+        let preflight_reasons = related_hierarchy_preflight_reasons(&review, &root_plan);
+        if !preflight_reasons.is_empty() {
+            reject_related_hierarchy_application_preflight(review.id, &preflight_reasons)?;
+            let plan = build_related_hierarchy_application_plan(
+                &review,
+                &root_plan,
+                MetadataCandidateReviewRelatedHierarchyApplicationAction::Skip,
+                preflight_reasons,
+                Vec::new(),
+            );
+            return Ok((review, plan, Vec::new()));
+        }
+
+        let targets =
+            resolve_related_hierarchy_targets(&self.repository, &review, &root_plan).await?;
+        if targets.is_empty() {
+            let plan = build_related_hierarchy_application_plan(
+                &review,
+                &root_plan,
+                MetadataCandidateReviewRelatedHierarchyApplicationAction::Skip,
+                vec![
+                    MetadataCandidateReviewRelatedHierarchyApplicationReason::NoSafeRelatedHierarchyRelationships,
+                ],
+                Vec::new(),
+            );
+            return Ok((review, plan, Vec::new()));
+        }
+
+        let target_plans = targets
+            .iter()
+            .map(related_hierarchy_target_plan)
+            .collect::<Vec<_>>();
+        let mutation_required = target_plans.iter().any(|target| {
+            target.mapping_change_required || target.provisional_library_state_count > 0
+        });
+        let (action, reasons) = if mutation_required {
+            (
+                MetadataCandidateReviewRelatedHierarchyApplicationAction::Apply,
+                vec![MetadataCandidateReviewRelatedHierarchyApplicationReason::Ready],
+            )
+        } else {
+            (
+                MetadataCandidateReviewRelatedHierarchyApplicationAction::Noop,
+                vec![MetadataCandidateReviewRelatedHierarchyApplicationReason::AlreadyApplied],
+            )
+        };
+        let plan = build_related_hierarchy_application_plan(
+            &review,
+            &root_plan,
+            action,
+            reasons,
+            target_plans,
+        );
+
+        Ok((review, plan, targets))
+    }
 }
 
 #[derive(Clone, Debug)]
 struct RelatedHierarchyTarget {
     item: MediaItem,
     library_ids: Vec<LibraryId>,
+    provisional_library_ids: Vec<LibraryId>,
     subject: MetadataCandidateSubject,
     source: MetadataSource,
     existing_subject: Option<ProviderSubject>,
@@ -521,44 +629,154 @@ fn reject_stale_review_operation(
     Ok(())
 }
 
-fn reject_related_hierarchy_application_plan(
+fn related_hierarchy_preflight_reasons(
     review: &MetadataCandidateReviewRecord,
     plan: &MetadataCandidateReviewApplicationPlan,
-) -> Result<()> {
+) -> Vec<MetadataCandidateReviewRelatedHierarchyApplicationReason> {
+    let mut reasons = Vec::new();
+
     if review.status != MetadataCandidateReviewStatus::Accepted {
-        return Err(NakoError::Conflict {
-            message: format!(
-                "metadata candidate review {} cannot apply related hierarchy before it is accepted",
-                review.id
-            ),
-        });
+        reasons.push(MetadataCandidateReviewRelatedHierarchyApplicationReason::ReviewNotAccepted);
     }
     if plan.source.is_none() {
-        return Err(NakoError::Conflict {
-            message: format!(
-                "metadata candidate review {} has no supported application source",
-                review.id
-            ),
-        });
+        reasons.push(MetadataCandidateReviewRelatedHierarchyApplicationReason::UnsupportedSource);
     }
     if plan.root_subject.is_none() {
-        return Err(NakoError::Conflict {
-            message: format!(
-                "metadata candidate review {} has no root provider subject",
-                review.id
-            ),
-        });
+        reasons.push(MetadataCandidateReviewRelatedHierarchyApplicationReason::MissingRootSubject);
     }
     if plan.existing_mapping_status != Some(ProviderMappingStatus::Accepted) {
+        reasons.push(
+            MetadataCandidateReviewRelatedHierarchyApplicationReason::MissingAcceptedRootMapping,
+        );
+    }
+
+    reasons
+}
+
+fn reject_related_hierarchy_application_preflight(
+    review_id: MetadataCandidateReviewId,
+    reasons: &[MetadataCandidateReviewRelatedHierarchyApplicationReason],
+) -> Result<()> {
+    if reasons
+        .contains(&MetadataCandidateReviewRelatedHierarchyApplicationReason::ReviewNotAccepted)
+        || reasons.contains(
+            &MetadataCandidateReviewRelatedHierarchyApplicationReason::MissingAcceptedRootMapping,
+        )
+    {
         return Err(NakoError::Conflict {
-            message: format!(
-                "metadata candidate review {} requires an accepted root provider mapping before related hierarchy application",
-                review.id
-            ),
+            message: related_hierarchy_skip_message(review_id, reasons),
         });
     }
 
     Ok(())
+}
+
+fn build_related_hierarchy_application_plan(
+    review: &MetadataCandidateReviewRecord,
+    root_plan: &MetadataCandidateReviewApplicationPlan,
+    action: MetadataCandidateReviewRelatedHierarchyApplicationAction,
+    reasons: Vec<MetadataCandidateReviewRelatedHierarchyApplicationReason>,
+    targets: Vec<MetadataCandidateReviewRelatedHierarchyApplicationTargetPlan>,
+) -> MetadataCandidateReviewRelatedHierarchyApplicationPlan {
+    let mapping_change_count = targets
+        .iter()
+        .filter(|target| target.mapping_change_required)
+        .count();
+    let provisional_state_change_count = targets.iter().fold(0_u32, |total, target| {
+        total.saturating_add(target.provisional_library_state_count)
+    });
+
+    MetadataCandidateReviewRelatedHierarchyApplicationPlan {
+        review_id: review.id,
+        item_id: review.item_id,
+        action,
+        reasons,
+        source: root_plan.source.clone(),
+        root_subject: root_plan.root_subject.clone(),
+        root_mapping_id: root_plan.existing_mapping_id,
+        root_mapping_status: root_plan.existing_mapping_status,
+        target_count: saturating_u32_len(targets.len()),
+        mapping_change_count: saturating_u32_len(mapping_change_count),
+        provisional_state_change_count,
+        targets,
+    }
+}
+
+fn related_hierarchy_target_plan(
+    target: &RelatedHierarchyTarget,
+) -> MetadataCandidateReviewRelatedHierarchyApplicationTargetPlan {
+    let existing_mapping_status = target
+        .existing_mapping
+        .as_ref()
+        .map(|mapping| mapping.status);
+
+    MetadataCandidateReviewRelatedHierarchyApplicationTargetPlan {
+        item_id: target.item.id,
+        library_ids: target.library_ids.clone(),
+        subject: target.subject.clone(),
+        source: target.source.clone(),
+        existing_subject_id: target.existing_subject.as_ref().map(|subject| subject.id),
+        existing_mapping_id: target.existing_mapping.as_ref().map(|mapping| mapping.id),
+        existing_mapping_status,
+        mapping_change_required: existing_mapping_status != Some(ProviderMappingStatus::Accepted),
+        provisional_library_state_count: saturating_u32_len(target.provisional_library_ids.len()),
+    }
+}
+
+fn unique_related_item_ids(targets: &[RelatedHierarchyTarget]) -> Vec<MediaItemId> {
+    let mut item_ids = Vec::new();
+    for target in targets {
+        if !item_ids.contains(&target.item.id) {
+            item_ids.push(target.item.id);
+        }
+    }
+
+    item_ids
+}
+
+fn related_hierarchy_skip_message(
+    review_id: MetadataCandidateReviewId,
+    reasons: &[MetadataCandidateReviewRelatedHierarchyApplicationReason],
+) -> String {
+    if reasons
+        .contains(&MetadataCandidateReviewRelatedHierarchyApplicationReason::ReviewNotAccepted)
+    {
+        return format!(
+            "metadata candidate review {review_id} cannot apply related hierarchy before it is accepted"
+        );
+    }
+    if reasons
+        .contains(&MetadataCandidateReviewRelatedHierarchyApplicationReason::UnsupportedSource)
+    {
+        return format!(
+            "metadata candidate review {review_id} has no supported application source"
+        );
+    }
+    if reasons
+        .contains(&MetadataCandidateReviewRelatedHierarchyApplicationReason::MissingRootSubject)
+    {
+        return format!("metadata candidate review {review_id} has no root provider subject");
+    }
+    if reasons.contains(
+        &MetadataCandidateReviewRelatedHierarchyApplicationReason::MissingAcceptedRootMapping,
+    ) {
+        return format!(
+            "metadata candidate review {review_id} requires an accepted root provider mapping before related hierarchy application"
+        );
+    }
+    if reasons.contains(
+        &MetadataCandidateReviewRelatedHierarchyApplicationReason::NoSafeRelatedHierarchyRelationships,
+    ) {
+        return format!(
+            "metadata candidate review {review_id} has no safe related hierarchy relationships"
+        );
+    }
+
+    format!("metadata candidate review {review_id} cannot apply related hierarchy: {reasons:?}")
+}
+
+fn saturating_u32_len(value: usize) -> u32 {
+    u32::try_from(value).unwrap_or(u32::MAX)
 }
 
 async fn resolve_related_hierarchy_targets<R>(
@@ -633,6 +851,8 @@ where
 
         let (item, library_ids) =
             resolve_single_related_item(repository, review, related_node).await?;
+        let provisional_library_ids =
+            provisional_related_library_ids(repository, &library_ids, item.id).await?;
         let existing_subject =
             existing_provider_subject_for_candidate(repository, &relationship.child_subject)
                 .await?;
@@ -648,6 +868,7 @@ where
         targets.push(RelatedHierarchyTarget {
             item,
             library_ids,
+            provisional_library_ids,
             subject: relationship.child_subject.clone(),
             source: source.clone(),
             existing_subject,
@@ -656,6 +877,28 @@ where
     }
 
     Ok(targets)
+}
+
+async fn provisional_related_library_ids<R>(
+    repository: &R,
+    library_ids: &[LibraryId],
+    item_id: MediaItemId,
+) -> Result<Vec<LibraryId>>
+where
+    R: LibraryItemRepository,
+{
+    let mut provisional_library_ids = Vec::new();
+    for library_id in library_ids {
+        if repository
+            .get_library_item_state(*library_id, item_id)
+            .await?
+            .is_some_and(|state| state.provisional)
+        {
+            provisional_library_ids.push(*library_id);
+        }
+    }
+
+    Ok(provisional_library_ids)
 }
 
 fn single_related_node_for_subject<'a>(
