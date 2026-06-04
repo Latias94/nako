@@ -34,7 +34,7 @@ selection.
 | Playback decision model | Shipped with matrix coverage | `docs/adr/0038-playback-planning-and-transcode-policy-seams.md`; `docs/adr/0044-playback-capability-profile-planner.md`; `docs/workstreams/playback-planner-transcode-seam-deepening/`; `docs/workstreams/playback-compatibility-matrix-hardening/` | Split exhaustive device profile matrices, API reporting, or player controls into follow-ons. |
 | Playback-to-transcode Interface | Shipped deeper Interface slice | `docs/adr/0038-playback-planning-and-transcode-policy-seams.md`; `docs/adr/0045-ffmpeg-hardware-pipeline-planner.md`; `docs/workstreams/transcode-interface-and-runtime-plan-deepening/` | Extend the transcode-owned runtime/execution planners in HDR and future filter lanes; do not reintroduce server-side raw FFmpeg request assembly. |
 | Browser playback tickets | Shipped | `docs/adr/0036-short-lived-browser-playback-tickets.md`; `docs/workstreams/browser-playback-auth-transport/` | Player integration and cross-device resume polish. |
-| Renderer transport tickets | Shipped | `docs/adr/0041-renderer-cast-safe-transport-tickets.md` | Chromecast/DLNA/AirPlay adapter lanes. |
+| Renderer transport tickets | Shipped with `app/playback/renderer_flow.rs` playback-session boundary | `docs/adr/0041-renderer-cast-safe-transport-tickets.md`; `.trellis/spec/nako-server/backend/directory-structure.md#scenario-playback-renderer-transport-flow-orchestration` | Chromecast/DLNA/AirPlay adapter lanes. |
 | FFmpeg command planning | Shipped foundation | `docs/adr/0045-ffmpeg-hardware-pipeline-planner.md`; `docs/adr/0052-hls-runtime-and-media-engine-boundary.md` | Tone mapping, audio filters, seek restart commands. |
 | Hardware detection and fallback | Shipped broader inventory evidence plus HLS output policy seam | `docs/adr/0046-ffmpeg-probe-inventory.md`; `docs/adr/0047-cpu-transcode-readiness.md`; `docs/adr/0048-playback-transcode-startup-degradation.md`; `docs/workstreams/transcode-capability-inventory-matrix/`; `.trellis/tasks/06-04-06-04-hevc-av1-hls-output-policy-first-slice/` | Split hardware tone-map execution, HEVC/AV1 FFmpeg execution, Admin/release reporting, and hardware smoke into follow-ons. |
 | HLS single-variant MPEG-TS | Shipped | `docs/workstreams/transcode-output-shape-hls-manifest-ladder/` | Keep as compatibility baseline. |
@@ -93,6 +93,15 @@ admission, background start, playback-session linkage, FFmpeg input
 staging/release, active/completed session reuse, and output waiting stay in the
 focused flow module. Keep public API, DTO, schema, and generated SDK shape
 unchanged for this boundary.
+
+Renderer playback transport orchestration is now a server-side app boundary in
+`crates/nako-server/src/app/playback/renderer_flow.rs`: the playback app root
+keeps a thin renderer entry point, while source/probe context, `RemoteControl`
+policy enforcement, playback decision planning, Direct/Remux/HLS session
+startup, transcode linkage, HLS supersede cleanup, and renderer transport plan
+construction stay in the focused flow module. Renderer ticket issuance and URL
+authoring remain in `http/renderer.rs`; public API, DTO, schema, and generated
+SDK shape stay unchanged.
 
 The HEVC/AV1 HLS output policy first slice recognizes H264, HEVC/H265, and AV1
 as typed profile policy values while keeping H264/AAC as the only executable

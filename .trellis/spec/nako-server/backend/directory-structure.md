@@ -642,6 +642,100 @@ The app-service root remains an entry point, while `remux_flow` owns
 server-side Remux lifecycle orchestration and delegates FFmpeg execution to the
 existing Remux runner boundary.
 
+## Scenario: Playback Renderer Transport Flow Orchestration
+
+### 1. Scope / Trigger
+
+- Trigger: changing renderer playback session startup, renderer transport
+  planning, Direct/Remux/HLS renderer mode selection, renderer playback-session
+  transcode linkage, or renderer playback policy enforcement in `nako-server`.
+
+### 2. Signatures
+
+- `PlaybackAppService::start_renderer_playback_session(...) ->
+  Result<StartRendererPlaybackSessionOutput>` is a thin app-service entry
+  point.
+- `app/playback/renderer_flow.rs` owns renderer playback source/probe context,
+  effective policy lookup, `RemoteControl` permission enforcement, playback
+  planner invocation, mode-specific playback session creation, Remux/HLS
+  transcode linkage, and renderer transport plan construction.
+- `http/renderer.rs` owns renderer command transport ticket and URL authoring.
+
+### 3. Contracts
+
+- `nako-playback` remains the pure decision source. Renderer flow may call the
+  planner but must not encode new compatibility rules.
+- Direct renderer startup creates a Direct playback session and uses the
+  direct plan content type/range facts from the planner decision.
+- Remux renderer startup must delegate Remux startup to `remux_flow` and link
+  the renderer playback session to the selected Remux transcode session.
+- HLS renderer startup must delegate HLS playlist startup to `hls_flow`, link
+  the renderer playback session to the selected HLS transcode session, and
+  preserve superseded HLS playback-session cancellation.
+- Renderer flow returns transport facts only. It must not issue renderer
+  tickets, author renderer URLs, or expose raw local paths, locators, command
+  lines, playback tickets, or renderer ticket tokens.
+- Public renderer route shape, DTOs, generated SDKs, and ticket payloads must
+  not change during a flow extraction.
+
+### 4. Validation & Error Matrix
+
+| Condition | Behavior |
+|-----------|----------|
+| Effective policy denies `RemoteControl` | Return forbidden before starting playback work |
+| Planner returns Direct Play | Create Direct playback session and Direct transport plan |
+| Planner returns Remux | Start/reuse Remux through `remux_flow`, link playback session, return Remux transport plan |
+| Planner returns HLS Transcode | Start/reuse HLS through `hls_flow`, link playback session, cancel superseded HLS playback sessions, return HLS transport plan |
+| Planner denies playback | Return the existing playback policy forbidden error |
+
+### 5. Good / Base / Bad Cases
+
+- Good: renderer HTTP routes call
+  `PlaybackAppService::start_renderer_playback_session`, which immediately
+  delegates to `renderer_flow`.
+- Base: renderer command transport ticket URL construction stays in
+  `http/renderer.rs` because it is HTTP/transport mapping, not playback app
+  orchestration.
+- Bad: duplicating Remux/HLS source lookup, input staging, playlist readiness,
+  or FFmpeg runner behavior inside `renderer_flow`.
+- Bad: moving renderer ticket issuance or URL authoring into playback app code.
+
+### 6. Tests Required
+
+- HTTP renderer tests for Direct, Remux, and HLS renderer play commands must
+  continue to pass without public response shape changes.
+- Focused playback tests for affected Remux/HLS startup paths should run when
+  helper visibility or flow call paths change.
+- Gate: `cargo check -p nako-server --tests` plus focused
+  `cargo nextest run -p nako-server renderer --no-fail-fast`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+async fn start_renderer_playback_session(&self, request: StartRendererPlaybackSessionRequest) {
+    // source lookup, policy, planning, Direct/Remux/HLS startup, linkage,
+    // and renderer transport plan construction all stay in broad mod.rs.
+}
+```
+
+This keeps renderer playback as a broad root-module workflow and encourages
+future renderer features to mix playback planning, transcode startup, and HTTP
+transport concerns.
+
+#### Correct
+
+```rust
+async fn start_renderer_playback_session(&self, request: StartRendererPlaybackSessionRequest) {
+    renderer_flow::start_renderer_playback_session(self, request).await
+}
+```
+
+The app-service root remains an entry point, while `renderer_flow` owns
+server-side renderer playback orchestration and delegates Remux/HLS details to
+their existing focused flow modules.
+
 ## Examples
 
 - `http.rs`: central router assembly, auth, network boundary, and API version
