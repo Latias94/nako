@@ -100,6 +100,58 @@ pub enum AdminVfsCacheRepairAction {
     InspectFailure,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminVfsCacheRepairActionPlanStatus {
+    NoAction,
+    Executable,
+    PlanOnly,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminVfsCacheRepairActionPlanReason {
+    NoRepairDiagnostic,
+    NoActionRequired,
+    RefreshCacheExecutable,
+    BackendConfigurationRequired,
+    ManualFailureInspectionRequired,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRepairActionReadiness {
+    pub status: AdminVfsCacheRepairActionPlanStatus,
+    pub api_executable: bool,
+    pub reasons: Vec<AdminVfsCacheRepairActionPlanReason>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRepairActionBoundary {
+    pub refreshes_vfs_cache: bool,
+    pub changes_backend_configuration: bool,
+    pub requires_manual_failure_inspection: bool,
+    pub deletes_cache_entries: bool,
+    pub writes_library_files: bool,
+    pub starts_durable_job: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRepairExecutableAction {
+    pub method: String,
+    pub route_key: String,
+    pub route_path: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRepairActionPlan {
+    pub status: AdminVfsCacheRepairActionPlanStatus,
+    pub action: AdminVfsCacheRepairAction,
+    pub readiness: AdminVfsCacheRepairActionReadiness,
+    pub boundary: AdminVfsCacheRepairActionBoundary,
+    pub executable_action: Option<AdminVfsCacheRepairExecutableAction>,
+    pub repair: Option<AdminVfsCacheRepairDiagnostic>,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminVfsCacheRepairDiagnostic {
     pub classification: AdminVfsCacheRepairClassification,
@@ -121,6 +173,13 @@ pub struct AdminVfsCacheRefreshResponse {
     pub operation: VfsCacheOperation,
     pub refreshed: bool,
     pub repair: AdminVfsCacheRepairDiagnostic,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRepairActionPlanResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub plan: AdminVfsCacheRepairActionPlan,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -488,6 +547,106 @@ mod tests {
         assert!(!body.contains("cache-etag-secret"));
         assert!(!body.contains("cache-fingerprint-secret"));
         assert!(!body.contains("token=secret"));
+    }
+
+    #[test]
+    fn admin_vfs_cache_repair_action_plan_serializes_redacted_boundaries() {
+        let repair = AdminVfsCacheRepairDiagnostic {
+            classification: AdminVfsCacheRepairClassification::RetryableRefreshFailure,
+            recommended_action: AdminVfsCacheRepairAction::RefreshCache,
+            operation: Some(VfsCacheOperation::Stat),
+            failure_class: Some(StorageFailureClass::Unavailable),
+            retryable: true,
+            failed_at_ms: Some(1_000),
+            failure_count: Some(2),
+            safe_message: Some("storage backend unavailable".to_owned()),
+            operator_action: "cache refresh failed with a retryable storage failure".to_owned(),
+        };
+        let response = AdminVfsCacheRepairActionPlanResponse {
+            admin_api_version: "v1".to_owned(),
+            public_api_version: "2025-01-01".to_owned(),
+            plan: AdminVfsCacheRepairActionPlan {
+                status: AdminVfsCacheRepairActionPlanStatus::Executable,
+                action: AdminVfsCacheRepairAction::RefreshCache,
+                readiness: AdminVfsCacheRepairActionReadiness {
+                    status: AdminVfsCacheRepairActionPlanStatus::Executable,
+                    api_executable: true,
+                    reasons: vec![AdminVfsCacheRepairActionPlanReason::RefreshCacheExecutable],
+                },
+                boundary: AdminVfsCacheRepairActionBoundary {
+                    refreshes_vfs_cache: true,
+                    changes_backend_configuration: false,
+                    requires_manual_failure_inspection: false,
+                    deletes_cache_entries: false,
+                    writes_library_files: false,
+                    starts_durable_job: false,
+                },
+                executable_action: Some(AdminVfsCacheRepairExecutableAction {
+                    method: "POST".to_owned(),
+                    route_key: "storageVfsCacheRepairRefreshCache".to_owned(),
+                    route_path: "/admin/v1/storage/vfs-cache/repair/refresh-cache".to_owned(),
+                }),
+                repair: Some(repair),
+            },
+        };
+
+        let value = serde_json::to_value(&response).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(value["plan"]["status"], "executable");
+        assert_eq!(value["plan"]["action"], "refresh_cache");
+        assert_eq!(value["plan"]["readiness"]["api_executable"], true);
+        assert_eq!(
+            value["plan"]["readiness"]["reasons"][0],
+            "refresh_cache_executable"
+        );
+        assert_eq!(value["plan"]["boundary"]["refreshes_vfs_cache"], true);
+        assert_eq!(
+            value["plan"]["executable_action"]["route_key"],
+            "storageVfsCacheRepairRefreshCache"
+        );
+        assert_eq!(
+            value["plan"]["executable_action"]["route_path"],
+            "/admin/v1/storage/vfs-cache/repair/refresh-cache"
+        );
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("local_path"));
+        assert!(!body.contains("webdav:///"));
+        assert!(!body.contains("Movies/Demo.mkv"));
+        assert!(!body.contains("cache-etag-secret"));
+        assert!(!body.contains("cache-fingerprint-secret"));
+        assert!(!body.contains("token=secret"));
+
+        let plan_only = AdminVfsCacheRepairActionPlan {
+            status: AdminVfsCacheRepairActionPlanStatus::PlanOnly,
+            action: AdminVfsCacheRepairAction::FixBackendConfiguration,
+            readiness: AdminVfsCacheRepairActionReadiness {
+                status: AdminVfsCacheRepairActionPlanStatus::PlanOnly,
+                api_executable: false,
+                reasons: vec![AdminVfsCacheRepairActionPlanReason::BackendConfigurationRequired],
+            },
+            boundary: AdminVfsCacheRepairActionBoundary {
+                refreshes_vfs_cache: false,
+                changes_backend_configuration: true,
+                requires_manual_failure_inspection: false,
+                deletes_cache_entries: false,
+                writes_library_files: false,
+                starts_durable_job: false,
+            },
+            executable_action: None,
+            repair: None,
+        };
+        let value = serde_json::to_value(&plan_only).unwrap();
+
+        assert_eq!(value["status"], "plan_only");
+        assert_eq!(value["action"], "fix_backend_configuration");
+        assert_eq!(value["readiness"]["api_executable"], false);
+        assert_eq!(
+            value["readiness"]["reasons"][0],
+            "backend_configuration_required"
+        );
+        assert_eq!(value["boundary"]["changes_backend_configuration"], true);
+        assert_eq!(value["executable_action"], serde_json::Value::Null);
     }
 
     #[test]

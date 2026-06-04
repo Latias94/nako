@@ -87,17 +87,20 @@ cargo run -p nako-api --example emit-admin-typescript-contract -- --output apps/
 Generated contract files are artifacts from `nako-api`; edit the generator and
 DTO source, then regenerate.
 
-## Scenario: Admin VFS Cache Repair Preview
+## Scenario: Admin VFS Cache Repair Preview, Plan, And Refresh
 
 ### 1. Scope / Trigger
 
 - Trigger: Admin storage staging diagnostics expose the latest VFS cache repair
-  preview through an existing response field.
+  preview, action plan, or latest-failure refresh result.
 - Scope: `AdminStorageStagingSummary.vfs_cache.repair`,
+  `AdminVfsCacheRepairActionPlanResponse`, `AdminVfsCacheRefreshResponse`,
   `VfsCacheRepository::get_latest_vfs_cache_failure`, server storage
-  diagnostics mapping, and generated Admin Web contracts.
-- Boundary: this is a read-only operator preview. It must not add cache
-  invalidation, delete, refresh, retry queue, or URI-scoped mutation behavior.
+  diagnostics/action mapping, and generated Admin Web contracts.
+- Boundary: preview and action plan responses are read-only. The only executable
+  mutation in this boundary is latest unresolved `refresh_cache`; do not add
+  cache purge/delete/invalidation, retry queue, durable job, or URI-scoped
+  mutation behavior without a dedicated task and storage contract.
 
 ### 2. Signatures
 
@@ -105,9 +108,17 @@ DTO source, then regenerate.
   `get_latest_vfs_cache_failure() -> Result<Option<VfsCacheFailure>>`.
 - Admin DTO:
   `AdminVfsCacheSummary { repair: Option<AdminVfsCacheRepairDiagnostic> }`.
+- Admin action plan DTO:
+  `AdminVfsCacheRepairActionPlanResponse { plan:
+  AdminVfsCacheRepairActionPlan }`.
+- Admin refresh DTO:
+  `AdminVfsCacheRefreshResponse`.
 - Repair preview fields:
   `classification`, `operation`, `failure_class`, `retryable`,
   `failed_at_ms`, `failure_count`, `safe_message`, and `operator_action`.
+- Action plan fields:
+  `status`, `action`, `readiness`, `boundary`, `executable_action`, and
+  optional redaction-safe `repair`.
 
 ### 3. Contracts
 
@@ -116,6 +127,13 @@ DTO source, then regenerate.
 - The preview must not expose cache URI, source locator, local path, etag,
   fingerprint, token, credential, backend URL, or raw backend error body.
 - `repair: null` means no VFS cache failure is currently recorded.
+- The action plan must distinguish `no_action`, API-executable
+  `refresh_cache`, and plan-only `fix_backend_configuration` /
+  `inspect_failure` states.
+- `executable_action` may include Admin route key/path guidance for
+  `refresh_cache`; it must not include target cache URI or backend identity.
+- `refresh_cache` execution remains latest-failure scoped and must reuse stored
+  failure authority to avoid ambiguous backend targeting.
 - TypeScript contract artifacts under `apps/admin-web` and `web` must be
   regenerated from `nako-api`; do not hand-edit generated files.
 
@@ -124,29 +142,37 @@ DTO source, then regenerate.
 | Condition | Behavior |
 |-----------|----------|
 | No stored cache failure | `vfs_cache.repair` is `null` |
+| No stored cache failure action plan | `status: "no_action"` with `api_executable: false` |
 | Latest failure has a recognized safe message | Use the matching repair classification and storage failure class |
 | Latest failure has an unclassified raw message | Redact to `safe_message: "storage failure"` and `unknown_failure` |
 | Multiple failures exist | Return the highest `failed_at_ms`; tie-break deterministically |
+| Latest diagnostic recommends refresh | Plan returns `status: "executable"` and points to the existing refresh route |
+| Latest diagnostic recommends backend configuration or inspection | Plan returns `status: "plan_only"` with no executable route |
 | Preview contains raw path, token, or source URI | Contract violation |
 
 ### 5. Good / Base / Bad Cases
 
 - Good: `/admin/v1/storage/staging` returns a repair preview with operator
   action text and safe message only.
+- Good: `/admin/v1/storage/vfs-cache/repair/action-plan` returns a redaction-safe
+  latest action plan that points executable refresh to the existing route.
+- Good: `/admin/v1/storage/vfs-cache/repair/refresh-cache` executes only when
+  the latest unresolved diagnostic recommends `refresh_cache`.
 - Base: old clients that omit `repair` during deserialization still work through
   serde defaults.
-- Bad: adding a new Admin mutation route before defining cache invalidation
-  semantics in VFS and DB repository contracts.
+- Bad: adding a purge/delete, URI-scoped mutation, or retry queue before defining
+  cache invalidation and targeting semantics in VFS and DB repository contracts.
 
 ### 6. Tests Required
 
 - DB contract test proves latest failure selection.
 - API serialization test proves snake_case classification and redaction-safe
-  repair fields.
+  repair/plan fields.
 - Admin contract test proves generated TypeScript artifacts match the generator.
-- Server route test proves `/admin/v1/storage/staging` includes the preview and
-  still redacts raw paths, source locators, fingerprints, etags, tokens, and raw
-  backend errors.
+- Server route tests prove `/admin/v1/storage/staging` includes the preview,
+  action plan/refresh routes preserve Admin-only access, and responses still
+  redact raw paths, source locators, fingerprints, etags, tokens, and raw backend
+  errors.
 
 ### 7. Wrong vs Correct
 

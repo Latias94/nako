@@ -1,0 +1,4 @@
+{"file":"docs/architecture/STORAGE_VFS.md","reason":"Storage/VFS architecture marks cache diagnostics and action preview as shipped and names executable remediation plus URI-scoped previews as the follow-on lane."}
+{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Admin DTO, route inventory, generated contract, and redaction requirements for storage repair surfaces."}
+{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Admin HTTP route, auth, thin handler, and focused route-test requirements."}
+{"file":".trellis/spec/nako-vfs/backend/index.md","reason":"Entry point for VFS cache, backend, and storage failure diagnostic guidelines before implementation."}

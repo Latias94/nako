@@ -30,7 +30,7 @@ and rclone-like mounts can be slow, stale, or unavailable.
 | Source fingerprint | Shipped escalation policy seam | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/06-04-06-04-source-fingerprint-escalation-policy-first-slice/` | Optional hash execution, operator queue, and diagnostics remain follow-ons. |
 | Remote probe staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Per-backend staging budgets and diagnostics. |
 | Remote FFmpeg input staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md` | Per-backend staging budgets and diagnostics. |
-| VFS cache | Shipped diagnostics foundation plus action preview | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/06-04-06-04-vfs-cache-repair-action-preview-first-slice/` | Executable cache refresh/remediation actions and broader previews. |
+| VFS cache | Shipped diagnostics foundation, action preview, latest-failure refresh, and action plan | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/06-04-06-04-vfs-cache-repair-action-preview-first-slice/`; `.trellis/tasks/06-04-vfs-cache-repair-operator-actions/` | URI-scoped previews and broader non-destructive remediation planning. |
 | Library file writes | Partial | addon/library-file-write and NFO workstreams | Capability-specific write/link/backup policy. |
 | Mount hang protection | Shipped durable circuit foundation | `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/` | OS-level mount stalls still need bounded adapters and operator guidance; do not claim syscall preemption. |
 
@@ -74,7 +74,8 @@ Shipped:
 ### vfs-cache-repair-diagnostics
 
 Status: Minimal diagnostic slice shipped as of 2026-06-02; structured action
-preview shipped as of 2026-06-04.
+preview, latest-failure refresh, and latest action plan shipped as of
+2026-06-04.
 
 Shipped:
 
@@ -86,13 +87,21 @@ Shipped:
 - Admin repair previews now include a stable `recommended_action` enum for UI
   and operator routing while preserving display-oriented `operator_action`
   prose;
-- no storage schema, Admin API, playback artifact pressure, or scan scheduling
-  expansion was added in this slice.
+- Admin refresh is executable only through the latest unresolved
+  `refresh_cache` route and is guarded by stored failure authority to avoid
+  ambiguous backend targeting;
+- Admin action plans classify latest repair diagnostics into no-action,
+  API-executable, and plan-only states, with route-key/path guidance only for
+  the existing refresh route;
+- no storage schema, playback artifact pressure, or scan scheduling expansion
+  was added; Admin API changes stayed limited to redaction-safe diagnostics,
+  action planning, and latest-failure refresh.
 
 ## Next Work Lanes
 
-- `proposed:vfs-cache-repair-operator-actions`: executable refresh actions,
-  stale-cache operator remediation, and broader URI-scoped previews.
+- `proposed:vfs-cache-repair-uri-scoped-previews`: explicit URI-scoped previews,
+  stale-cache operator remediation planning, and broader non-destructive repair
+  guidance beyond the latest unresolved failure.
 - `proposed:hls-artifact-io-pressure-enforcement`: playback/storage follow-on
   for HLS segment read/write pressure, storage health coordination, and
   redaction-safe diagnostics. Open only after HLS progressive-readiness gates

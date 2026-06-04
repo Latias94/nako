@@ -64,6 +64,102 @@ pub(crate) struct VfsCacheRepairRefreshActionReport {
     pub(crate) refresh: VfsCacheRefreshReport,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum VfsCacheRepairActionPlanStatus {
+    NoAction,
+    Executable,
+    PlanOnly,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum VfsCacheRepairActionPlanReason {
+    NoRepairDiagnostic,
+    NoActionRequired,
+    RefreshCacheExecutable,
+    BackendConfigurationRequired,
+    ManualFailureInspectionRequired,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) struct VfsCacheRepairActionBoundary {
+    pub(crate) refreshes_vfs_cache: bool,
+    pub(crate) changes_backend_configuration: bool,
+    pub(crate) requires_manual_failure_inspection: bool,
+    pub(crate) deletes_cache_entries: bool,
+    pub(crate) writes_library_files: bool,
+    pub(crate) starts_durable_job: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct VfsCacheRepairActionPlanReport {
+    pub(crate) status: VfsCacheRepairActionPlanStatus,
+    pub(crate) action: VfsCacheRepairAction,
+    pub(crate) api_executable: bool,
+    pub(crate) reasons: Vec<VfsCacheRepairActionPlanReason>,
+    pub(crate) boundary: VfsCacheRepairActionBoundary,
+    pub(crate) repair: Option<VfsCacheRepairDiagnostic>,
+}
+
+impl VfsCacheRepairActionPlanReport {
+    fn from_repair(repair: Option<VfsCacheRepairDiagnostic>) -> Self {
+        let Some(repair) = repair else {
+            return Self {
+                status: VfsCacheRepairActionPlanStatus::NoAction,
+                action: VfsCacheRepairAction::None,
+                api_executable: false,
+                reasons: vec![VfsCacheRepairActionPlanReason::NoRepairDiagnostic],
+                boundary: VfsCacheRepairActionBoundary::default(),
+                repair: None,
+            };
+        };
+
+        let (status, api_executable, reasons, boundary) = match repair.recommended_action {
+            VfsCacheRepairAction::None => (
+                VfsCacheRepairActionPlanStatus::NoAction,
+                false,
+                vec![VfsCacheRepairActionPlanReason::NoActionRequired],
+                VfsCacheRepairActionBoundary::default(),
+            ),
+            VfsCacheRepairAction::RefreshCache => (
+                VfsCacheRepairActionPlanStatus::Executable,
+                true,
+                vec![VfsCacheRepairActionPlanReason::RefreshCacheExecutable],
+                VfsCacheRepairActionBoundary {
+                    refreshes_vfs_cache: true,
+                    ..VfsCacheRepairActionBoundary::default()
+                },
+            ),
+            VfsCacheRepairAction::FixBackendConfiguration => (
+                VfsCacheRepairActionPlanStatus::PlanOnly,
+                false,
+                vec![VfsCacheRepairActionPlanReason::BackendConfigurationRequired],
+                VfsCacheRepairActionBoundary {
+                    changes_backend_configuration: true,
+                    ..VfsCacheRepairActionBoundary::default()
+                },
+            ),
+            VfsCacheRepairAction::InspectFailure => (
+                VfsCacheRepairActionPlanStatus::PlanOnly,
+                false,
+                vec![VfsCacheRepairActionPlanReason::ManualFailureInspectionRequired],
+                VfsCacheRepairActionBoundary {
+                    requires_manual_failure_inspection: true,
+                    ..VfsCacheRepairActionBoundary::default()
+                },
+            ),
+        };
+
+        Self {
+            status,
+            action: repair.recommended_action,
+            api_executable,
+            reasons,
+            boundary,
+            repair: Some(repair),
+        }
+    }
+}
+
 impl StagingManifestPressureSummary {
     fn record(&mut self, record: &StagingManifestRecord) {
         self.total_records = self.total_records.saturating_add(1);
@@ -311,6 +407,14 @@ impl StorageDiagnosticsAppService {
         }
 
         Ok(Some(VfsCacheRepairDiagnostic::from_failure(&failure)))
+    }
+
+    pub(crate) async fn plan_latest_vfs_cache_repair_action(
+        &self,
+    ) -> Result<VfsCacheRepairActionPlanReport> {
+        let repair = self.latest_vfs_cache_repair_diagnostic().await?;
+
+        Ok(VfsCacheRepairActionPlanReport::from_repair(repair))
     }
 
     pub(crate) async fn refresh_latest_vfs_cache_repair(
@@ -1714,6 +1818,101 @@ mod tests {
         LocalLibraryConfig, NakoServerConfig, PlaybackConfig, StagingConfig,
         library_from_library_config,
     };
+
+    #[test]
+    fn vfs_cache_repair_action_plan_reports_no_action_without_repair() {
+        let plan = VfsCacheRepairActionPlanReport::from_repair(None);
+
+        assert_eq!(plan.status, VfsCacheRepairActionPlanStatus::NoAction);
+        assert_eq!(plan.action, VfsCacheRepairAction::None);
+        assert!(!plan.api_executable);
+        assert_eq!(
+            plan.reasons,
+            vec![VfsCacheRepairActionPlanReason::NoRepairDiagnostic]
+        );
+        assert_eq!(plan.boundary, VfsCacheRepairActionBoundary::default());
+        assert!(plan.repair.is_none());
+    }
+
+    #[test]
+    fn vfs_cache_repair_action_plan_reports_executable_refresh() {
+        let repair = repair_diagnostic(VfsCacheRepairAction::RefreshCache);
+        let plan = VfsCacheRepairActionPlanReport::from_repair(Some(repair.clone()));
+
+        assert_eq!(plan.status, VfsCacheRepairActionPlanStatus::Executable);
+        assert_eq!(plan.action, VfsCacheRepairAction::RefreshCache);
+        assert!(plan.api_executable);
+        assert_eq!(
+            plan.reasons,
+            vec![VfsCacheRepairActionPlanReason::RefreshCacheExecutable]
+        );
+        assert!(plan.boundary.refreshes_vfs_cache);
+        assert!(!plan.boundary.changes_backend_configuration);
+        assert!(!plan.boundary.requires_manual_failure_inspection);
+        assert_eq!(plan.repair, Some(repair));
+    }
+
+    #[test]
+    fn vfs_cache_repair_action_plan_reports_backend_configuration_as_plan_only() {
+        let repair = repair_diagnostic(VfsCacheRepairAction::FixBackendConfiguration);
+        let plan = VfsCacheRepairActionPlanReport::from_repair(Some(repair.clone()));
+
+        assert_eq!(plan.status, VfsCacheRepairActionPlanStatus::PlanOnly);
+        assert_eq!(plan.action, VfsCacheRepairAction::FixBackendConfiguration);
+        assert!(!plan.api_executable);
+        assert_eq!(
+            plan.reasons,
+            vec![VfsCacheRepairActionPlanReason::BackendConfigurationRequired]
+        );
+        assert!(!plan.boundary.refreshes_vfs_cache);
+        assert!(plan.boundary.changes_backend_configuration);
+        assert!(!plan.boundary.requires_manual_failure_inspection);
+        assert_eq!(plan.repair, Some(repair));
+    }
+
+    #[test]
+    fn vfs_cache_repair_action_plan_reports_inspect_failure_as_plan_only() {
+        let repair = repair_diagnostic(VfsCacheRepairAction::InspectFailure);
+        let plan = VfsCacheRepairActionPlanReport::from_repair(Some(repair.clone()));
+
+        assert_eq!(plan.status, VfsCacheRepairActionPlanStatus::PlanOnly);
+        assert_eq!(plan.action, VfsCacheRepairAction::InspectFailure);
+        assert!(!plan.api_executable);
+        assert_eq!(
+            plan.reasons,
+            vec![VfsCacheRepairActionPlanReason::ManualFailureInspectionRequired]
+        );
+        assert!(!plan.boundary.refreshes_vfs_cache);
+        assert!(!plan.boundary.changes_backend_configuration);
+        assert!(plan.boundary.requires_manual_failure_inspection);
+        assert_eq!(plan.repair, Some(repair));
+    }
+
+    fn repair_diagnostic(action: VfsCacheRepairAction) -> VfsCacheRepairDiagnostic {
+        VfsCacheRepairDiagnostic {
+            classification: match action {
+                VfsCacheRepairAction::None => nako_vfs::VfsCacheRepairClassification::Healthy,
+                VfsCacheRepairAction::RefreshCache => {
+                    nako_vfs::VfsCacheRepairClassification::RetryableRefreshFailure
+                }
+                VfsCacheRepairAction::FixBackendConfiguration => {
+                    nako_vfs::VfsCacheRepairClassification::OperatorActionRequired
+                }
+                VfsCacheRepairAction::InspectFailure => {
+                    nako_vfs::VfsCacheRepairClassification::UnknownFailure
+                }
+            },
+            recommended_action: action,
+            state: None,
+            operation: Some(VfsCacheOperation::Stat),
+            failure_class: None,
+            retryable: action == VfsCacheRepairAction::RefreshCache,
+            failed_at_ms: Some(1_000),
+            failure_count: Some(1),
+            safe_message: Some("storage failure".to_owned()),
+            operator_action: "operator guidance".to_owned(),
+        }
+    }
 
     #[tokio::test]
     async fn registry_reuses_library_backend_instances() {

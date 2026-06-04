@@ -86,12 +86,16 @@ use nako_api::{
         AdminUpdateLibraryMetadataProfileRequest, AdminUpdateMetadataRawCacheSettingsRequest,
         AdminUpdatePlaybackRuntimeSettingsRequest, AdminUpdateUserStatusRequest,
         AdminUpsertLibraryAccessPolicyRequest, AdminVfsCacheRefreshResponse,
-        AdminVfsCacheRepairAction, AdminVfsCacheRepairClassification,
-        AdminVfsCacheRepairDiagnostic, AdminVfsCacheSummary, AdminWatchFolderDiscoveryFailure,
-        AdminWatchFolderDiscoveryRequest, AdminWatchFolderDiscoveryResponse,
-        AdminWatchFolderRuntimeCoverageDiagnostic, AdminWatchFolderRuntimeCoverageStatus,
-        AdminWatchFolderSuppression, JobResponse, StorageBackendDiagnosticsResponse,
-        StorageBackendKind, StorageBackendRuntimeStateScope, StorageBackendStatus,
+        AdminVfsCacheRepairAction, AdminVfsCacheRepairActionBoundary,
+        AdminVfsCacheRepairActionPlan, AdminVfsCacheRepairActionPlanReason,
+        AdminVfsCacheRepairActionPlanResponse, AdminVfsCacheRepairActionPlanStatus,
+        AdminVfsCacheRepairActionReadiness, AdminVfsCacheRepairClassification,
+        AdminVfsCacheRepairDiagnostic, AdminVfsCacheRepairExecutableAction, AdminVfsCacheSummary,
+        AdminWatchFolderDiscoveryFailure, AdminWatchFolderDiscoveryRequest,
+        AdminWatchFolderDiscoveryResponse, AdminWatchFolderRuntimeCoverageDiagnostic,
+        AdminWatchFolderRuntimeCoverageStatus, AdminWatchFolderSuppression, JobResponse,
+        StorageBackendDiagnosticsResponse, StorageBackendKind, StorageBackendRuntimeStateScope,
+        StorageBackendStatus,
     },
     metadata_diagnostics::{MetadataProviderDiagnosticStatus, MetadataProviderDiagnosticsResponse},
     public_client::{API_VERSION, ClientErrorCode, ErrorResponse, page_info_from_request},
@@ -122,8 +126,10 @@ use crate::{
     },
     app::{
         NakoApp, RuntimeSupervisorDiagnostics, StagingBudgetPolicySlice,
-        StorageStagingPressureStatus, WatchFolderRuntimeCoverageDiagnostic,
-        WatchFolderRuntimeCoverageReport, WatchFolderRuntimeCoverageStatus,
+        StorageStagingPressureStatus, VfsCacheRepairActionBoundary, VfsCacheRepairActionPlanReason,
+        VfsCacheRepairActionPlanReport, VfsCacheRepairActionPlanStatus,
+        WatchFolderRuntimeCoverageDiagnostic, WatchFolderRuntimeCoverageReport,
+        WatchFolderRuntimeCoverageStatus,
         storage_staging_pressure_status as app_storage_staging_pressure_status,
     },
     config::{
@@ -132,6 +138,10 @@ use crate::{
         TunnelProviderConfig, TunnelProviderKind as ConfigTunnelProviderKind,
     },
 };
+
+const STORAGE_VFS_CACHE_REPAIR_REFRESH_CACHE_ROUTE_KEY: &str = "storageVfsCacheRepairRefreshCache";
+const STORAGE_VFS_CACHE_REPAIR_REFRESH_CACHE_ROUTE_PATH: &str =
+    "/admin/v1/storage/vfs-cache/repair/refresh-cache";
 
 use super::{
     error::ApiResult,
@@ -351,6 +361,10 @@ pub(super) fn routes() -> Router<NakoApp> {
             post(reset_admin_storage_backend_circuit_breaker),
         )
         .route("/admin/v1/storage/staging", get(list_admin_storage_staging))
+        .route(
+            "/admin/v1/storage/vfs-cache/repair/action-plan",
+            get(get_admin_vfs_cache_repair_action_plan),
+        )
         .route(
             "/admin/v1/storage/vfs-cache/repair/refresh-cache",
             post(refresh_admin_vfs_cache),
@@ -1863,6 +1877,98 @@ pub(super) async fn refresh_admin_vfs_cache(
         refreshed: report.refresh.operation == report.operation,
         repair: admin_vfs_cache_repair_diagnostic(report.repair),
     }))
+}
+
+pub(super) async fn get_admin_vfs_cache_repair_action_plan(
+    State(app): State<NakoApp>,
+) -> ApiResult<impl IntoResponse> {
+    let report = app.storage().plan_latest_vfs_cache_repair_action().await?;
+
+    Ok(Json(AdminVfsCacheRepairActionPlanResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        plan: admin_vfs_cache_repair_action_plan(report),
+    }))
+}
+
+fn admin_vfs_cache_repair_action_plan(
+    report: VfsCacheRepairActionPlanReport,
+) -> AdminVfsCacheRepairActionPlan {
+    let executable_action = (report.status == VfsCacheRepairActionPlanStatus::Executable
+        && report.action == VfsCacheRepairAction::RefreshCache)
+        .then(admin_vfs_cache_refresh_executable_action);
+
+    AdminVfsCacheRepairActionPlan {
+        status: admin_vfs_cache_repair_action_plan_status(report.status),
+        action: admin_vfs_cache_repair_action(report.action),
+        readiness: AdminVfsCacheRepairActionReadiness {
+            status: admin_vfs_cache_repair_action_plan_status(report.status),
+            api_executable: report.api_executable,
+            reasons: report
+                .reasons
+                .into_iter()
+                .map(admin_vfs_cache_repair_action_plan_reason)
+                .collect(),
+        },
+        boundary: admin_vfs_cache_repair_action_boundary(report.boundary),
+        executable_action,
+        repair: report.repair.map(admin_vfs_cache_repair_diagnostic),
+    }
+}
+
+fn admin_vfs_cache_refresh_executable_action() -> AdminVfsCacheRepairExecutableAction {
+    AdminVfsCacheRepairExecutableAction {
+        method: "POST".to_owned(),
+        route_key: STORAGE_VFS_CACHE_REPAIR_REFRESH_CACHE_ROUTE_KEY.to_owned(),
+        route_path: STORAGE_VFS_CACHE_REPAIR_REFRESH_CACHE_ROUTE_PATH.to_owned(),
+    }
+}
+
+fn admin_vfs_cache_repair_action_plan_status(
+    status: VfsCacheRepairActionPlanStatus,
+) -> AdminVfsCacheRepairActionPlanStatus {
+    match status {
+        VfsCacheRepairActionPlanStatus::NoAction => AdminVfsCacheRepairActionPlanStatus::NoAction,
+        VfsCacheRepairActionPlanStatus::Executable => {
+            AdminVfsCacheRepairActionPlanStatus::Executable
+        }
+        VfsCacheRepairActionPlanStatus::PlanOnly => AdminVfsCacheRepairActionPlanStatus::PlanOnly,
+    }
+}
+
+fn admin_vfs_cache_repair_action_plan_reason(
+    reason: VfsCacheRepairActionPlanReason,
+) -> AdminVfsCacheRepairActionPlanReason {
+    match reason {
+        VfsCacheRepairActionPlanReason::NoRepairDiagnostic => {
+            AdminVfsCacheRepairActionPlanReason::NoRepairDiagnostic
+        }
+        VfsCacheRepairActionPlanReason::NoActionRequired => {
+            AdminVfsCacheRepairActionPlanReason::NoActionRequired
+        }
+        VfsCacheRepairActionPlanReason::RefreshCacheExecutable => {
+            AdminVfsCacheRepairActionPlanReason::RefreshCacheExecutable
+        }
+        VfsCacheRepairActionPlanReason::BackendConfigurationRequired => {
+            AdminVfsCacheRepairActionPlanReason::BackendConfigurationRequired
+        }
+        VfsCacheRepairActionPlanReason::ManualFailureInspectionRequired => {
+            AdminVfsCacheRepairActionPlanReason::ManualFailureInspectionRequired
+        }
+    }
+}
+
+fn admin_vfs_cache_repair_action_boundary(
+    boundary: VfsCacheRepairActionBoundary,
+) -> AdminVfsCacheRepairActionBoundary {
+    AdminVfsCacheRepairActionBoundary {
+        refreshes_vfs_cache: boundary.refreshes_vfs_cache,
+        changes_backend_configuration: boundary.changes_backend_configuration,
+        requires_manual_failure_inspection: boundary.requires_manual_failure_inspection,
+        deletes_cache_entries: boundary.deletes_cache_entries,
+        writes_library_files: boundary.writes_library_files,
+        starts_durable_job: boundary.starts_durable_job,
+    }
 }
 
 fn admin_vfs_cache_repair_diagnostic(

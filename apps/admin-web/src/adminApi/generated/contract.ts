@@ -74,6 +74,7 @@ export const NAKO_ADMIN_ROUTES = {
   storageBackends: "/admin/v1/storage/backends",
   storageBackendCircuitBreakerReset: "/admin/v1/storage/backends/{backend_key}/circuit-breaker/reset",
   storageStaging: "/admin/v1/storage/staging",
+  storageVfsCacheRepairActionPlan: "/admin/v1/storage/vfs-cache/repair/action-plan",
   storageVfsCacheRepairRefreshCache: "/admin/v1/storage/vfs-cache/repair/refresh-cache",
   systemConfig: "/admin/v1/system/config",
   settingsMetadataRawCache: "/admin/v1/settings/metadata/raw-cache",
@@ -251,6 +252,39 @@ export type AdminVfsCacheRepairAction =
   | "refresh_cache"
   | "fix_backend_configuration"
   | "inspect_failure";
+
+export type AdminVfsCacheRepairActionPlanStatus =
+  | "no_action"
+  | "executable"
+  | "plan_only";
+
+export type AdminVfsCacheRepairActionPlanReason =
+  | "no_repair_diagnostic"
+  | "no_action_required"
+  | "refresh_cache_executable"
+  | "backend_configuration_required"
+  | "manual_failure_inspection_required";
+
+export interface AdminVfsCacheRepairActionReadiness {
+  status: AdminVfsCacheRepairActionPlanStatus;
+  api_executable: boolean;
+  reasons: AdminVfsCacheRepairActionPlanReason[];
+}
+
+export interface AdminVfsCacheRepairActionBoundary {
+  refreshes_vfs_cache: boolean;
+  changes_backend_configuration: boolean;
+  requires_manual_failure_inspection: boolean;
+  deletes_cache_entries: boolean;
+  writes_library_files: boolean;
+  starts_durable_job: boolean;
+}
+
+export interface AdminVfsCacheRepairExecutableAction {
+  method: "POST";
+  route_key: AdminApiRouteKey;
+  route_path: string;
+}
 
 export interface AdminStorageBackendHealthDiagnostic {
   backend_key: string;
@@ -2940,6 +2974,29 @@ export interface AdminVfsCacheRefreshResponse {
     failure_count: number | null;
     safe_message: string | null;
     operator_action: string;
+  };
+}
+
+export interface AdminVfsCacheRepairActionPlanResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  plan: {
+    status: AdminVfsCacheRepairActionPlanStatus;
+    action: AdminVfsCacheRepairAction;
+    readiness: AdminVfsCacheRepairActionReadiness;
+    boundary: AdminVfsCacheRepairActionBoundary;
+    executable_action: AdminVfsCacheRepairExecutableAction | null;
+    repair: {
+      classification: AdminVfsCacheRepairClassification;
+      recommended_action: AdminVfsCacheRepairAction;
+      operation: VfsCacheOperation | null;
+      failure_class: StorageFailureClass | null;
+      retryable: boolean;
+      failed_at_ms: number | null;
+      failure_count: number | null;
+      safe_message: string | null;
+      operator_action: string;
+    } | null;
   };
 }
 
