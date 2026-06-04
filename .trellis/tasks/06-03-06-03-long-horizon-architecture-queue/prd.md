@@ -203,6 +203,20 @@ already mapped denial behavior and follow-ons.
   the endpoint read-only. Executable cache refresh/remediation, URI-scoped
   previews, durable jobs, repository changes, and schema changes remain
   follow-ons.
+* `06-04-media-web-playback-polish` shipped Media Web playback recovery
+  hardening after independent review: browser ticket failures, media element
+  errors, unsupported HLS fallback, and ticket/source candidate changes now
+  have deterministic safe recovery states without leaking playback tickets or
+  source paths in visible text.
+* `06-04-hls-subtitle-burn-in-planning` shipped the first typed HLS subtitle
+  burn-in planning slice: unsupported text subtitles such as ASS/SSA can now
+  require `BurnInSelected`, remux is blocked when selected subtitles require
+  burn-in, and unknown subtitle codec facts preserve the legacy sidecar strategy
+  explicitly through tests and documentation.
+* `06-04-control-plane-scan-trace-context` shipped a scan/job trace-context
+  first slice: durable job trace context now normalizes safe request IDs,
+  rejects unsafe values without echoing them, and propagates scan trace identity
+  into `LibraryScanned` outbox payloads while preserving legacy untraced paths.
 
 ## Verification Plan
 
