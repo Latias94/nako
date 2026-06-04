@@ -18,9 +18,7 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [
-    "06-04-playback-resource-admission-bounded-wait-first-slice"
-  ],
+  "children": [],
   "parent": null,
   "relatedFiles": [],
   "notes": "",
