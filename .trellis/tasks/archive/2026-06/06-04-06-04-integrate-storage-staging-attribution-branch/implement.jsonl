@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "Database adapter, migration, and repository contract context for staging attribution."}
+{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "SQLite/PostgreSQL parity and migration rules touched by the 06b branch."}
+{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "VFS staging attribution boundary context."}
+{"file": ".trellis/spec/nako-vfs/backend/database-guidelines.md", "reason": "Persisted staging attribution authority and ambiguity rules."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server storage diagnostics and app-service boundary context."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server focused gates and redaction-safe diagnostics review."}
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Admin DTO and generated contract shape context."}
+{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Generated Admin Web contract/mock update context if API shape remains changed."}

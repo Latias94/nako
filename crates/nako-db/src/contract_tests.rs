@@ -7342,6 +7342,122 @@ where
     );
 }
 
+async fn staging_manifest_contract_round_trips_attribution_variants<S>(store: S)
+where
+    S: VfsStagingContractBackend,
+{
+    let library_id = LibraryId::new();
+    let cases = [
+        (
+            StagingManifestId::new(),
+            "webdav:///Contract/Movies/Attributed.mkv",
+            "webdav",
+            "/var/cache/nako/staging/attributed.mkv",
+            StagingAttribution::attributed(library_id),
+        ),
+        (
+            StagingManifestId::new(),
+            "webdav:///Contract/Shared/Ambiguous.mkv",
+            "webdav",
+            "/var/cache/nako/staging/ambiguous.mkv",
+            StagingAttribution::ambiguous(),
+        ),
+        (
+            StagingManifestId::new(),
+            "local:///Contract/Unknown.mkv",
+            "local",
+            "/var/cache/nako/staging/unknown.mkv",
+            StagingAttribution::unknown(),
+        ),
+    ];
+
+    for (index, (id, source_uri, source_scheme, local_path, attribution)) in
+        cases.iter().enumerate()
+    {
+        let now_ms = 1_000 + index as i64;
+        let saved = store
+            .upsert_staging_manifest_record(NewStagingManifestRecord {
+                id: *id,
+                attribution: *attribution,
+                source_uri: (*source_uri).to_owned(),
+                source_scheme: (*source_scheme).to_owned(),
+                purpose: StagingPurpose::ProbeInput,
+                local_path: (*local_path).to_owned(),
+                size_bytes: Some(10 + index as u64),
+                etag: None,
+                fingerprint: None,
+                state: StagingState::Ready,
+                created_at_ms: now_ms,
+                updated_at_ms: now_ms,
+                last_accessed_at_ms: now_ms,
+                expires_at_ms: Some(10_000),
+                active_leases: 0,
+                validation_error: None,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(saved.attribution, *attribution);
+        assert_eq!(
+            store
+                .get_staging_manifest_record(*id)
+                .await
+                .unwrap()
+                .expect("staging attribution record")
+                .attribution,
+            *attribution
+        );
+    }
+
+    let listed = store
+        .list_staging_manifest_records(
+            Some(StagingPurpose::ProbeInput),
+            Some(StagingState::Ready),
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        listed
+            .iter()
+            .map(|record| record.attribution)
+            .collect::<Vec<_>>(),
+        vec![
+            StagingAttribution::attributed(library_id),
+            StagingAttribution::ambiguous(),
+            StagingAttribution::unknown(),
+        ]
+    );
+
+    let reattributed = store
+        .upsert_staging_manifest_record(NewStagingManifestRecord {
+            id: cases[0].0,
+            attribution: StagingAttribution::ambiguous(),
+            source_uri: cases[0].1.to_owned(),
+            source_scheme: cases[0].2.to_owned(),
+            purpose: StagingPurpose::ProbeInput,
+            local_path: cases[0].3.to_owned(),
+            size_bytes: Some(10),
+            etag: None,
+            fingerprint: None,
+            state: StagingState::Ready,
+            created_at_ms: 1_000,
+            updated_at_ms: 2_000,
+            last_accessed_at_ms: 2_000,
+            expires_at_ms: Some(10_000),
+            active_leases: 0,
+            validation_error: None,
+        })
+        .await
+        .unwrap();
+    assert_eq!(reattributed.attribution, StagingAttribution::ambiguous());
+    assert_eq!(
+        reattributed.attribution.library_id(),
+        None,
+        "ambiguous attribution must not retain a stale library id"
+    );
+}
+
 async fn staging_manifest_contract_preserves_reservation_budget_and_leases<S>(store: S)
 where
     S: VfsStagingContractBackend,
@@ -9162,6 +9278,16 @@ database_contract_pair!(
         "records_recovery_and_reset"
     ),
     contract = storage_backend_health_contract_records_recovery_and_reset,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_vfs_staging_contract_round_trips_attribution_variants,
+    postgres = postgres_vfs_staging_contract_round_trips_attribution_variants,
+    case = ContractCase::migrated(
+        ContractFamily::VfsStaging,
+        "round_trips_attribution_variants"
+    ),
+    contract = staging_manifest_contract_round_trips_attribution_variants,
 );
 
 database_contract_pair!(
