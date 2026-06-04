@@ -275,7 +275,12 @@ Captured scoped behavior-level Jellyfin watcher lifecycle, debounce, suppression
 
 ### Main Changes
 
-(Add details)
+- Archived `.trellis/tasks/06-03-06-03-long-horizon-architecture-queue` into
+  `.trellis/tasks/archive/2026-06/`.
+- Confirmed the queue has no children after the 06b integration task was
+  archived.
+- Confirmed no residual `task/*` branches and no extra worktrees remained.
+- No code changes were made in this session.
 
 ### Git Commits
 
@@ -285,7 +290,10 @@ Captured scoped behavior-level Jellyfin watcher lifecycle, debounce, suppression
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] `git status --short --branch`
+- [OK] `git worktree list`
+- [OK] `git branch --list "task/*" -vv`
+- [OK] `python ./.trellis/scripts/task.py list`
 
 ### Status
 
@@ -1395,6 +1403,38 @@ Confirmed stale 06b staging attribution branch is already absorbed on main, adde
 | Hash | Message |
 |------|---------|
 | `aff9a37e` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 35: Archive long horizon queue
+
+**Date**: 2026-06-04
+**Task**: Archive long horizon queue
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Archived the completed long-horizon architecture queue after confirming no residual worktrees, task branches, children, or dirty git state remained.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+(No commits - planning session)
 
 ### Testing
 

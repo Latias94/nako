@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 34
+- **Total Sessions**: 35
 - **Last Active**: 2026-06-04
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1393 | Active |
+| `journal-1.md` | ~1441 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 35 | 2026-06-04 | Archive long horizon queue | - | `main` |
 | 34 | 2026-06-04 | Integrate storage staging attribution branch | `aff9a37e` | `main` |
 | 33 | 2026-06-04 | HLS subtitle route regression fix | `8d54f8e8` | `main` |
 | 32 | 2026-06-04 | Archive parallel wave tasks | `6f1beae1` | `main` |
