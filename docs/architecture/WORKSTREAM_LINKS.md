@@ -112,6 +112,7 @@ Evidence workstreams:
 - `docs/workstreams/hls-runtime-lifecycle-boundary/`
 - `docs/workstreams/hls-progressive-readiness-test-stability/`
 - `docs/workstreams/playback-transcode-jellyfin-class-hardening/` (closed)
+- `.trellis/tasks/archive/2026-06/06-02-01d-hls-artifact-io-pressure-enforcement/`
 
 Proposed lanes:
 
@@ -122,7 +123,6 @@ Proposed lanes:
 - `proposed:playback-admission-queueing-and-waitlist`
 - `proposed:playback-os-resource-isolation`
 - `proposed:playback-device-capacity-tuning`
-- `proposed:hls-artifact-io-pressure-enforcement`
 - `proposed:player-hls-session-controls-and-recovery`
 - `proposed:playback-release-hardware-matrix`
 - `proposed:hardware-tone-map-execution`
@@ -145,11 +145,11 @@ Evidence workstreams:
 - `docs/workstreams/admin-web-v2-storage-staging-route/`
 - `docs/workstreams/storage-vfs-resilience-and-source-identity/`
 - `docs/workstreams/remote-storage-health-and-circuit-breaker/`
+- `.trellis/tasks/archive/2026-06/06-02-01d-hls-artifact-io-pressure-enforcement/`
 
 Proposed lanes:
 
 - `proposed:vfs-cache-repair-diagnostics`
-- `proposed:hls-artifact-io-pressure-enforcement`
 - `proposed:source-fingerprint-escalation-policy`
 - `proposed:library-watcher-and-media-intake-stability`
 - `proposed:storage-vfs-postgresql-runtime-harness`

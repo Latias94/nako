@@ -24,7 +24,7 @@ and rclone-like mounts can be slow, stale, or unavailable.
 | Capability | Status | Authority | Next Lane |
 | --- | --- | --- | --- |
 | Local storage backend | Shipped | `docs/adr/0002-internal-vfs-before-os-mounting.md` | Keep local behavior as the compatibility baseline. |
-| Remote storage boundary | Shipped durable health foundation | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/` | Open follow-ons for cache repair, fingerprint escalation, playback artifact I/O pressure, scan scheduling, or PostgreSQL runtime harness work. |
+| Remote storage boundary | Shipped durable health foundation | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/`; `.trellis/tasks/archive/2026-06/06-02-01d-hls-artifact-io-pressure-enforcement/` | Open follow-ons for cache repair, fingerprint escalation, scan scheduling, or PostgreSQL runtime harness work. |
 | WebDAV read path | Partial | `docs/workstreams/storage-vfs/`; remote storage lanes | Harden retries, cache, and operator diagnostics. |
 | Source locator | Shipped foundation | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Watcher/debounce productization and repair workflows. |
 | Source fingerprint | Shipped escalation policy seam | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/06-04-06-04-source-fingerprint-escalation-policy-first-slice/` | Optional hash execution, operator queue, and diagnostics remain follow-ons. |
@@ -116,10 +116,8 @@ Shipped:
 - `proposed:vfs-cache-repair-non-destructive-remediation`: stale-cache operator
   remediation planning, durable repair queues, and broader non-destructive
   repair guidance beyond refresh-only target actions.
-- `proposed:hls-artifact-io-pressure-enforcement`: playback/storage follow-on
-  for HLS segment read/write pressure, storage health coordination, and
-  redaction-safe diagnostics. Open only after HLS progressive-readiness gates
-  are stable.
+- `.trellis/tasks/archive/2026-06/06-02-01d-hls-artifact-io-pressure-enforcement/`
+  (closed HLS artifact I/O pressure admission; shipped by `48668afc`).
 - `proposed:source-fingerprint-hash-execution`: opt-in partial/full hash
   execution, operator queueing, and diagnostics for ambiguous source identity
   cases. The current escalation policy seam is advisory only and does not read
