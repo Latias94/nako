@@ -16,6 +16,10 @@ Playback planner changes must remain deterministic and side-effect free.
 - Treat unknown subtitle codec facts as an explicit policy choice. If unknown
   codecs preserve a legacy sidecar path, cover that behavior with a named test
   and document it rather than relying on implicit `None` handling.
+- Treat sidecar-capable subtitle codec facts as a mixed vocabulary. Probe facts
+  may carry FFmpeg codec names such as `webvtt` or sidecar extension aliases
+  such as `vtt`; both must map to sidecar delivery when the client supports
+  subtitles.
 - Keep `PlaybackDecisionReport` useful even when playback is denied.
 - Keep storage facts abstract: remote/range-readable are planning inputs, not
   backend calls.
@@ -38,6 +42,9 @@ Playback planner changes must remain deterministic and side-effect free.
 - Regression tests for container-unsupported/remux-supported sources with
   selected subtitle tracks that require burn-in.
 - Tests that name the chosen behavior for missing or blank subtitle codec facts.
+- Tests for sidecar subtitle codec aliases when changing HLS sidecar-versus-
+  burn-in classification, including both codec-name and file-extension forms
+  such as `webvtt` and `vtt`.
 - Tests for profile identity changes when request facts change.
 - Tests for audio downmix/normalization and HDR/color pipeline requirements
   when those values change.

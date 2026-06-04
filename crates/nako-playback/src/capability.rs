@@ -9,7 +9,8 @@ use crate::{
     PlaybackTrackSelection, PlaybackTranscodeContainer,
 };
 
-const HLS_SIDECAR_SUBTITLE_CODECS: &[&str] = &["mov_text", "srt", "subrip", "text", "webvtt"];
+const HLS_SIDECAR_SUBTITLE_CODECS: &[&str] =
+    &["mov_text", "srt", "subrip", "text", "vtt", "webvtt"];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum HlsSubtitleDeliverySupport {

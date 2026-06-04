@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/nako-playback/backend/index.md", "reason": "Playback planner boundary context for subtitle strategy."}
+{"file": ".trellis/spec/nako-playback/backend/quality-guidelines.md", "reason": "Subtitle/remux guardrails added by the preceding task."}
+{"file": ".trellis/spec/nako-transcode/backend/index.md", "reason": "Transcode HLS strategy context."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server route/app boundary context for HLS playlist tests."}
