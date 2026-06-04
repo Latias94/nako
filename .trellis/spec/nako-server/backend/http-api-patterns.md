@@ -326,3 +326,103 @@ fn apply_hls_artifact_cache_headers(response: &mut Response) {
 
 HLS session artifacts get an explicit conservative cache policy without
 changing other playback response types.
+
+## Scenario: Selected Artwork Image Cache-Control
+
+### 1. Scope / Trigger
+
+- Trigger: changing authenticated Public Client selected artwork image byte
+  responses in `crates/nako-server`.
+- Code evidence: `src/http/catalog.rs`,
+  `src/http/tests/addons.rs`.
+- Architecture authority: ADR 0053,
+  `docs/architecture/CONTROL_PLANE.md`, and
+  `docs/architecture/LIBRARY_PIPELINE.md`.
+
+### 2. Signatures
+
+- `get_image(...) -> ApiResult<impl IntoResponse>` owns public selected artwork
+  GET route translation.
+- `head_image(...) -> ApiResult<impl IntoResponse>` owns public selected
+  artwork HEAD route translation.
+- `selected_image_response(image, include_body) -> Response` owns shared
+  selected artwork byte response header assembly.
+- `apply_selected_artwork_cache_headers(&mut HeaderMap)` is the selected
+  artwork-only helper for the private client-cache baseline.
+
+### 3. Contracts
+
+- Selected artwork image GET responses must include
+  `Cache-Control: private, max-age=86400`.
+- Selected artwork image HEAD responses must include the same cache policy and
+  must not include a response body.
+- Keep this policy selected-artwork-only. Do not apply it to HLS, Direct Play,
+  Remux, Admin JSON routes, or unrelated public JSON catalog routes.
+- Preserve existing `Content-Type`, `Content-Length`, safe `ETag`, auth,
+  library access, selected artwork lookup, and variant query behavior.
+- Do not add `If-None-Match`, `304 Not Modified`, `Last-Modified`, immutable
+  headers, generated DTOs, schema changes, or shared-cache/CDN behavior without
+  a dedicated cache-contract task.
+
+### 4. Validation & Error Matrix
+
+| Condition | Behavior |
+|-----------|----------|
+| Original selected artwork GET response is authored | Includes `Cache-Control: private, max-age=86400` plus existing content headers and safe ETag. |
+| Original selected artwork HEAD response is authored | Includes the same cache policy, content headers, and safe ETag with an empty body. |
+| Resized selected artwork variant GET/HEAD response is authored | Includes the same cache policy while preserving variant-specific content length and ETag. |
+| Selected artwork is missing or unauthorized | Existing not-found/forbidden behavior is unchanged. |
+| Variant query is invalid | Existing bad-request behavior is unchanged. |
+
+### 5. Good / Base / Bad Cases
+
+- Good: call `apply_selected_artwork_cache_headers` only from
+  `selected_image_response`, which is shared by the selected artwork GET and
+  HEAD handlers.
+- Base: safe selected artwork ETags continue to identify original versus
+  bounded variants; the cache helper does not change ETag generation.
+- Bad: reusing the HLS `no-store` helper for selected artwork, which defeats
+  client artwork caching.
+- Bad: applying `private, max-age=86400` through a generic byte-route helper
+  that changes HLS, Direct Play, Remux, or Admin response behavior.
+
+### 6. Tests Required
+
+- HTTP route test: original selected artwork GET response includes
+  `Cache-Control: private, max-age=86400`.
+- HTTP route test: original selected artwork HEAD response includes the same
+  cache policy and an empty body.
+- HTTP route test: resized selected artwork GET/HEAD responses include the same
+  cache policy while preserving variant-specific ETags.
+- Focused gates:
+  `cargo nextest run -p nako-server public_catalog_and_image_routes_serve_selected_artwork_without_locator_leaks --no-fail-fast`
+  and
+  `cargo nextest run -p nako-server managed_artwork_variant_routes_resize_selected_artwork_without_locator_or_hash_leaks --no-fail-fast`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+fn selected_image_response(...) -> Response {
+    let mut response = ...;
+    apply_hls_artifact_cache_headers(&mut response);
+    response
+}
+```
+
+This treats long-lived authenticated artwork like session-scoped HLS playback
+artifacts and disables useful private client caching.
+
+#### Correct
+
+```rust
+fn selected_image_response(...) -> Response {
+    let headers = response.headers_mut();
+    apply_selected_artwork_cache_headers(headers);
+    response
+}
+```
+
+Selected artwork gets a route-specific private cache baseline without changing
+playback artifacts or unrelated routes.

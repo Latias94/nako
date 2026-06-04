@@ -177,6 +177,13 @@ already mapped denial behavior and follow-ons.
   conservative HTTP cache baseline for session-scoped HLS artifacts:
   playlist and segment responses now include `Cache-Control: no-store`, while
   ETag, immutable segment caching, and token-aware cache keys remain follow-ons.
+* `06-04-06-04-selected-artwork-cache-control-headers-first-slice` shipped the
+  next narrow HTTP cache-contract slice for authenticated selected artwork:
+  public selected artwork image GET/HEAD responses now include
+  `Cache-Control: private, max-age=86400` while preserving safe ETags, content
+  headers, auth/access checks, and variant behavior. Conditional GET / 304,
+  immutable or shared-cache semantics, derivative cache persistence, and
+  selected-artwork invalidation remain follow-ons.
 
 ## Verification Plan
 

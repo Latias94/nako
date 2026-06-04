@@ -2,7 +2,7 @@ use axum::{
     Extension, Json, Router,
     body::Body,
     extract::{Path, Query, State},
-    http::{HeaderValue, header},
+    http::{HeaderMap, HeaderValue, header},
     response::IntoResponse,
     routing::get,
 };
@@ -459,6 +459,7 @@ fn selected_image_response(
         HeaderValue::from_str(&image.content_length.to_string())
             .expect("content length is a valid header"),
     );
+    apply_selected_artwork_cache_headers(headers);
     if let Some(etag) = image.etag {
         let quoted = format!("\"{etag}\"");
         if let Ok(value) = HeaderValue::from_str(&quoted) {
@@ -466,4 +467,11 @@ fn selected_image_response(
         }
     }
     response
+}
+
+fn apply_selected_artwork_cache_headers(headers: &mut HeaderMap) {
+    headers.insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, max-age=86400"),
+    );
 }

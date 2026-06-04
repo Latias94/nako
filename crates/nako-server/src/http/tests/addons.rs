@@ -1,6 +1,6 @@
 use super::*;
 use axum::Json;
-use axum::http::HeaderValue;
+use axum::http::{HeaderMap, HeaderValue};
 use nako_addon_client::{NakoRuntimeClient, NakoRuntimeClientConfig};
 use nako_addon_protocol::{
     ADDON_EXTERNAL_ACQUISITION_ACTION_REQUEST_SCHEMA,
@@ -59,6 +59,13 @@ fn png_with_size(width: u32, height: u32) -> Vec<u8> {
         .write_to(&mut cursor, image::ImageFormat::Png)
         .unwrap();
     cursor.into_inner()
+}
+
+fn assert_selected_artwork_cache_control(headers: &HeaderMap) {
+    assert_eq!(
+        headers.get(header::CACHE_CONTROL).unwrap(),
+        HeaderValue::from_static("private, max-age=86400")
+    );
 }
 
 pub(super) async fn tiny_artwork_server() -> (String, u64) {
@@ -11188,6 +11195,7 @@ async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks()
         image_response.headers()[header::CONTENT_LENGTH],
         HeaderValue::from_str(&expected_byte_len.to_string()).unwrap()
     );
+    assert_selected_artwork_cache_control(image_response.headers());
     let original_etag = image_response
         .headers()
         .get(header::ETAG)
@@ -11221,6 +11229,7 @@ async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks()
         head_response.headers()[header::CONTENT_LENGTH],
         HeaderValue::from_str(&expected_byte_len.to_string()).unwrap()
     );
+    assert_selected_artwork_cache_control(head_response.headers());
     assert_eq!(
         head_response.headers().get(header::ETAG).unwrap(),
         HeaderValue::from_str(&original_etag).unwrap()
@@ -11247,6 +11256,7 @@ async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks()
         variant_response.headers()[header::CONTENT_TYPE],
         HeaderValue::from_static("image/png")
     );
+    assert_selected_artwork_cache_control(variant_response.headers());
     let variant_etag = variant_response
         .headers()
         .get(header::ETAG)
@@ -11290,6 +11300,7 @@ async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks()
         variant_head_response.headers()[header::CONTENT_LENGTH],
         HeaderValue::from_str(&variant_content_length.to_string()).unwrap()
     );
+    assert_selected_artwork_cache_control(variant_head_response.headers());
     assert_eq!(
         variant_head_response.headers().get(header::ETAG).unwrap(),
         HeaderValue::from_str(&variant_etag).unwrap()
