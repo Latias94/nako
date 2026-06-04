@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1101 | Active |
+| `journal-1.md` | ~1102 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,7 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
-| 26 | 2026-06-04 | Playback remux lifecycle extraction | `4aba2b1f`, `d1512cb0` | `main` |
+| 26 | 2026-06-04 | Playback remux lifecycle extraction | `4aba2b1f`, `d1512cb0`, `2034e9df` | `main` |
 | 25 | 2026-06-04 | Playback HLS start admission bounded wait | `974ffc05`, `997d3e7c` | `main` |
 | 24 | 2026-06-04 | VFS cache repair action preview | `c73a1af1`, `acb7ed88` | `main` |
 | 23 | 2026-06-04 | Playback byte cache-control headers | `0c420371`, `486a24b9` | `main` |
