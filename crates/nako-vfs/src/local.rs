@@ -1,25 +1,30 @@
 use std::{
     fs,
-    io::ErrorKind,
+    io::{ErrorKind, Read, Seek, SeekFrom},
     path::{Path, PathBuf},
     time::UNIX_EPOCH,
 };
 
 use async_trait::async_trait;
+use bytes::Bytes;
+use futures_util::{StreamExt, stream};
 use nako_core::{NakoError, Result, StorageErrorKind};
+use tokio::io::{AsyncReadExt, AsyncSeekExt};
 
 use crate::{
-    ByteRange, ObjectKind, ObjectMetadata, ReadRange, StageRequest, StagedFile, StorageApplyReport,
-    StorageApplyRequest, StorageBackend, StorageBackupPolicy, StorageBackupReport,
-    StorageCapabilities, StorageCleanupReport, StorageCleanupRequest, StorageLinkPlan,
-    StorageLinkPlanRequest, StorageRestoreReport, StorageRestoreRequest, StorageUri,
-    StorageWriteMode, StorageWriteReport, StorageWriteRequest, VirtualFile,
+    ByteRange, ObjectKind, ObjectMetadata, ReadRange, ReadStream, StageRequest, StagedFile,
+    StorageApplyReport, StorageApplyRequest, StorageBackend, StorageBackupPolicy,
+    StorageBackupReport, StorageCapabilities, StorageCleanupReport, StorageCleanupRequest,
+    StorageLinkPlan, StorageLinkPlanRequest, StorageRestoreReport, StorageRestoreRequest,
+    StorageUri, StorageWriteMode, StorageWriteReport, StorageWriteRequest, VirtualFile,
 };
 
 mod apply_plan;
 mod lifecycle;
 mod path_authority;
 mod write_transaction;
+
+const LOCAL_STREAM_CHUNK_SIZE: usize = 64 * 1024;
 
 #[derive(Clone, Debug)]
 pub struct LocalFsBackend {
@@ -190,42 +195,14 @@ impl StorageBackend for LocalFsBackend {
             });
         }
 
-        let bytes = fs::read(&path).map_err(|err| {
-            NakoError::storage_io(
-                uri.to_string(),
-                format!("failed to read local file range: {err}"),
-            )
-        })?;
         let bytes = match range {
-            Some(range) => {
-                validate_range(uri, range, metadata.len())?;
-                let start = usize::try_from(range.offset).map_err(|err| {
-                    NakoError::storage(
-                        uri.to_string(),
-                        StorageErrorKind::Unknown,
-                        format!("range offset does not fit memory index: {err}"),
-                    )
-                })?;
-                let end = match range.length {
-                    Some(length) => {
-                        let end = range.offset.checked_add(length).ok_or_else(|| {
-                            NakoError::InvalidInput {
-                                message: format!("range overflows file length: {uri}"),
-                            }
-                        })?;
-                        usize::try_from(end).map_err(|err| {
-                            NakoError::storage(
-                                uri.to_string(),
-                                StorageErrorKind::Unknown,
-                                format!("range end does not fit memory index: {err}"),
-                            )
-                        })?
-                    }
-                    None => bytes.len(),
-                };
-                bytes[start..end].to_vec()
-            }
-            None => bytes,
+            Some(range) => read_local_file_range(uri, &path, range, metadata.len())?,
+            None => fs::read(&path).map_err(|err| {
+                NakoError::storage_io(
+                    uri.to_string(),
+                    format!("failed to read local file range: {err}"),
+                )
+            })?,
         };
 
         Ok(ReadRange {
@@ -233,6 +210,83 @@ impl StorageBackend for LocalFsBackend {
             range,
             bytes,
         })
+    }
+
+    async fn stream_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<ReadStream> {
+        let path = self.path_for(uri)?;
+        let metadata = fs::metadata(&path).map_err(|err| {
+            NakoError::storage_io(
+                uri.to_string(),
+                format!("failed to read local file metadata: {err}"),
+            )
+        })?;
+        if !metadata.is_file() {
+            return Err(NakoError::InvalidInput {
+                message: format!("cannot stream non-file local uri: {uri}"),
+            });
+        }
+
+        let (offset, remaining) = match range {
+            Some(range) => {
+                validate_range(uri, range, metadata.len())?;
+                (range.offset, range_length(uri, range, metadata.len())?)
+            }
+            None => (0, metadata.len()),
+        };
+        let mut file = tokio::fs::File::open(&path).await.map_err(|err| {
+            NakoError::storage_io(
+                uri.to_string(),
+                format!("failed to open local file stream: {err}"),
+            )
+        })?;
+        if offset > 0 {
+            file.seek(SeekFrom::Start(offset)).await.map_err(|err| {
+                NakoError::storage_io(
+                    uri.to_string(),
+                    format!("failed to seek local file stream: {err}"),
+                )
+            })?;
+        }
+
+        let stream_uri = uri.to_string();
+        let body = stream::unfold(
+            (file, remaining, stream_uri),
+            |(mut file, remaining, stream_uri)| async move {
+                if remaining == 0 {
+                    return None;
+                }
+
+                let chunk_len = remaining.min(LOCAL_STREAM_CHUNK_SIZE as u64) as usize;
+                let mut bytes = vec![0; chunk_len];
+                match file.read(&mut bytes).await {
+                    Ok(0) => {
+                        let err = NakoError::storage_staging_validation_mismatch(
+                            stream_uri.clone(),
+                            "local stream ended before requested range completed",
+                        );
+                        Some((Err(err), (file, 0, stream_uri)))
+                    }
+                    Ok(read_len) => {
+                        bytes.truncate(read_len);
+                        let read_len = read_len as u64;
+                        Some((
+                            Ok(Bytes::from(bytes)),
+                            (file, remaining.saturating_sub(read_len), stream_uri),
+                        ))
+                    }
+                    Err(err) => {
+                        let err = NakoError::storage_io(
+                            stream_uri.clone(),
+                            format!("failed to stream local file range: {err}"),
+                        );
+                        Some((Err(err), (file, 0, stream_uri)))
+                    }
+                }
+            },
+        )
+        .boxed();
+
+        Ok(ReadStream::new(uri.clone(), range, body))
     }
 
     async fn read_to_string(&self, uri: &StorageUri) -> Result<String> {
@@ -353,6 +407,58 @@ fn local_capabilities(kind: ObjectKind) -> StorageCapabilities {
     }
 }
 
+fn read_local_file_range(
+    uri: &StorageUri,
+    path: &Path,
+    range: ByteRange,
+    len: u64,
+) -> Result<Vec<u8>> {
+    validate_range(uri, range, len)?;
+    let range_len = range_length(uri, range, len)?;
+    let range_len = usize::try_from(range_len).map_err(|err| {
+        NakoError::storage(
+            uri.to_string(),
+            StorageErrorKind::Unknown,
+            format!("range length does not fit memory index: {err}"),
+        )
+    })?;
+    let mut file = fs::File::open(path).map_err(|err| {
+        NakoError::storage_io(
+            uri.to_string(),
+            format!("failed to open local file range: {err}"),
+        )
+    })?;
+    file.seek(SeekFrom::Start(range.offset)).map_err(|err| {
+        NakoError::storage_io(
+            uri.to_string(),
+            format!("failed to seek local file range: {err}"),
+        )
+    })?;
+    let mut bytes = vec![0; range_len];
+    file.read_exact(&mut bytes).map_err(|err| {
+        NakoError::storage_staging_validation_mismatch(
+            uri.to_string(),
+            format!("failed to read exact local file range: {err}"),
+        )
+    })?;
+    Ok(bytes)
+}
+
+fn range_length(uri: &StorageUri, range: ByteRange, len: u64) -> Result<u64> {
+    range.length.map_or_else(
+        || {
+            len.checked_sub(range.offset)
+                .ok_or_else(|| NakoError::InvalidInput {
+                    message: format!(
+                        "range offset {} exceeds file length {len}: {uri}",
+                        range.offset
+                    ),
+                })
+        },
+        Ok,
+    )
+}
+
 fn validate_range(uri: &StorageUri, range: ByteRange, len: u64) -> Result<()> {
     if range.offset > len {
         return Err(NakoError::InvalidInput {
@@ -389,6 +495,8 @@ fn validate_range(uri: &StorageUri, range: ByteRange, len: u64) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use std::fs;
+
+    use futures_util::StreamExt;
 
     use crate::{
         StorageApplyKind, StorageApplyStatus, StorageBackupMode, StorageCleanupStatus,
@@ -443,6 +551,71 @@ mod tests {
                 Some(temp.path().join("demo.mkv").canonicalize().unwrap())
             );
         });
+    }
+
+    #[test]
+    fn local_backend_reads_byte_ranges() {
+        pollster::block_on(async {
+            let temp = tempfile::tempdir().unwrap();
+            fs::write(temp.path().join("demo.mkv"), b"nako-media").unwrap();
+
+            let backend = LocalFsBackend::new(temp.path()).unwrap();
+            let uri = StorageUri::from_parts("local", "demo.mkv").unwrap();
+            let read = backend
+                .read_range(
+                    &uri,
+                    Some(ByteRange {
+                        offset: 5,
+                        length: Some(4),
+                    }),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(read.uri, uri);
+            assert_eq!(
+                read.range,
+                Some(ByteRange {
+                    offset: 5,
+                    length: Some(4)
+                })
+            );
+            assert_eq!(read.bytes, b"medi");
+        });
+    }
+
+    #[tokio::test]
+    async fn local_backend_streams_byte_ranges() {
+        let temp = tempfile::tempdir().unwrap();
+        fs::write(temp.path().join("demo.mkv"), b"nako-media").unwrap();
+
+        let backend = LocalFsBackend::new(temp.path()).unwrap();
+        let uri = StorageUri::from_parts("local", "demo.mkv").unwrap();
+        let mut read = backend
+            .stream_range(
+                &uri,
+                Some(ByteRange {
+                    offset: 5,
+                    length: Some(4),
+                }),
+            )
+            .await
+            .unwrap();
+        let mut bytes = Vec::new();
+
+        while let Some(chunk) = read.body.next().await {
+            bytes.extend_from_slice(&chunk.unwrap());
+        }
+
+        assert_eq!(read.uri, uri);
+        assert_eq!(
+            read.range,
+            Some(ByteRange {
+                offset: 5,
+                length: Some(4)
+            })
+        );
+        assert_eq!(bytes, b"medi");
     }
 
     #[test]

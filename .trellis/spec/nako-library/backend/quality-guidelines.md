@@ -10,9 +10,14 @@ Library workflow changes must preserve deterministic, bounded intake behavior.
 - Propagate stale-cache evidence from VFS metadata/listing into summaries.
 - Use source fingerprint evidence as duplicate evidence, not source identity.
 - Expose source fingerprint escalation decisions on in-memory source observation
-  plans only. The decision can recommend partial/full hashing later, but this
-  must not execute hashing, merge sources, change repository schema, or add API
-  fields in the same slice.
+  plans only. The decision can recommend partial/full hashing later, but scan
+  planning must not execute hashing, merge sources, change repository schema, or
+  add API fields in the same slice.
+- Keep source fingerprint hash execution isolated in `source_hash.rs`. Partial
+  hash execution reads a configured prefix range and returns
+  `BackendFingerprint` evidence; full hash execution uses streaming reads and
+  returns `ContentHash` evidence. Returned evidence must not expose raw hashes,
+  paths, locators, etags, backend URLs, or credentials.
 - Persist local inference evidence so provisional hierarchy decisions are
   explainable.
 - Require repeated unchanged intake observation evidence before a watcher
@@ -120,6 +125,59 @@ planning.
 
 Keep the source commit behavior unchanged and expose only a typed advisory
 decision for later hash scheduling or operator diagnostics.
+
+## Scenario: Source Fingerprint Hash Execution Kernel
+
+### 1. Scope / Trigger
+
+- Trigger: a future scan/operator workflow decides to execute a prior source
+  fingerprint escalation recommendation for one source URI.
+- Scope: `nako-library::source_hash` computes redaction-safe hash evidence
+  through VFS only.
+
+### 2. Signatures
+
+- `SourceFingerprintHashExecutor<B>::execute(SourceFingerprintHashRequest) ->
+  SourceFingerprintHashReport` where `B: StorageBackend`.
+- Modes are explicit: `Partial { prefix_bytes }` or `Full`.
+
+### 3. Contracts
+
+- Partial mode must call `StorageBackend::read_range` with a prefix
+  `ByteRange` and return `SourceFingerprintEvidenceKind::BackendFingerprint`.
+- Full mode must call `StorageBackend::stream_range(uri, None)` and return
+  `SourceFingerprintEvidenceKind::ContentHash`.
+- Reports may include safe execution facts such as mode and bytes hashed.
+- Reports must not include raw SHA-256 digests, source locators, local paths,
+  etags, backend URLs, credentials, or raw backend error bodies.
+- This kernel does not persist evidence, enqueue work, add Admin/Public API
+  fields, mutate duplicate relationships, or automatically merge Media Sources.
+
+### 4. Validation & Error Matrix
+
+- Partial prefix is zero -> `NakoError::InvalidInput`.
+- Backend range read unsupported or failed -> propagate the backend
+  `NakoError`.
+- Backend stream unsupported or failed -> propagate the backend `NakoError`.
+- Stream chunk failure -> propagate the chunk `NakoError`.
+
+### 5. Good / Base / Bad Cases
+
+- Good: a future operator-triggered full hash streams bytes and receives strong
+  redaction-safe `ContentHash` evidence.
+- Base: a single weak candidate can be confirmed with a bounded partial prefix
+  read that remains weaker `BackendFingerprint` evidence.
+- Bad: source observation planning starts hashing during scan commit or uses a
+  raw digest as source identity.
+
+### 6. Tests Required
+
+- Partial range selection and `BackendFingerprint` evidence.
+- Full streaming path with no `read_range(None)` fallback.
+- Raw hash/path/locator redaction assertions.
+- Unsupported and failing backend propagation.
+- Focused gate:
+  `cargo nextest run -p nako-library source_hash --no-fail-fast`.
 
 ## Review Checklist
 

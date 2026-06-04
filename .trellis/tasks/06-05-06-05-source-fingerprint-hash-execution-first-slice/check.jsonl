@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/nako-core/backend/quality-guidelines.md", "reason": "verify source fingerprint evidence remains redaction-safe"}
+{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "verify no source identity behavior or persistence drift"}
+{"file": ".trellis/spec/nako-vfs/backend/quality-guidelines.md", "reason": "verify VFS byte-read authority is respected"}
+{"file": ".trellis/spec/guides/index.md", "reason": "shared review guide"}

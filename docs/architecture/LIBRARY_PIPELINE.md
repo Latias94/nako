@@ -403,7 +403,10 @@ Shipped behavior:
 - duplicate-source suggestions instead of automatic weak-evidence merges;
 - typed source fingerprint escalation decisions on source observation plans,
   recommending no escalation, partial hash, or full hash without executing hash
-  work;
+  work during scan commit;
+- a bounded source fingerprint hash execution kernel that can compute partial
+  `BackendFingerprint` evidence or streaming full `ContentHash` evidence
+  through VFS for future scheduler/operator workflows;
 - source-scoped storage failure diagnostics.
 
 ### library-watcher-and-media-intake-stability

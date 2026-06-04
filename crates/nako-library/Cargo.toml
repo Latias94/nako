@@ -16,6 +16,7 @@ workspace = true
 async-trait.workspace = true
 futures-util.workspace = true
 serde.workspace = true
+sha2.workspace = true
 nako-core = { path = "../nako-core" }
 nako-media-probe = { path = "../nako-media-probe" }
 nako-naming = { path = "../nako-naming" }

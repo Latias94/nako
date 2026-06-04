@@ -16,6 +16,10 @@ cache diagnostics.
 - Keep local writes transactional or planned when the module supports it.
 - Treat remote latency, range readability, rate limits, and writable capability
   as product behavior, not incidental adapter details.
+- Implement explicit byte-range reads without forcing callers to load the whole
+  object when the backend can seek. Full-object consumers that do not need local
+  path hints should prefer `stream_range(uri, None)` over `read_range(uri,
+  None)`.
 
 ## Forbidden Patterns
 
@@ -31,6 +35,7 @@ cache diagnostics.
 
 - URI parsing and path normalization tests for new URI/path behavior.
 - Backend capability tests for new backend adapters.
+- Range and stream tests when changing `read_range` / `stream_range` behavior.
 - Cache stale/failure/repair diagnostic tests for cache changes.
 - Repair action preview tests when cache classifications or operator guidance
   change.

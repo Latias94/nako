@@ -5,6 +5,7 @@ mod intake;
 mod local_inference;
 mod probe;
 mod scan;
+mod source_hash;
 mod summary;
 
 pub use index::*;
@@ -12,6 +13,7 @@ pub use ingestion::*;
 pub use intake::*;
 pub use probe::*;
 pub use scan::*;
+pub use source_hash::*;
 pub use summary::*;
 
 #[cfg(test)]

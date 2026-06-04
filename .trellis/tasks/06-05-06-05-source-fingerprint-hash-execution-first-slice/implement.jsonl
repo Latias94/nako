@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/nako-core/backend/index.md", "reason": "source fingerprint evidence domain contract context"}
+{"file": ".trellis/spec/nako-core/backend/quality-guidelines.md", "reason": "redaction-safe source fingerprint contract rules"}
+{"file": ".trellis/spec/nako-library/backend/index.md", "reason": "library ingestion/source workflow context"}
+{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "source identity, advisory policy, and test requirements"}
+{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "VFS byte-read boundary context"}
+{"file": ".trellis/spec/nako-vfs/backend/quality-guidelines.md", "reason": "storage authority and redaction constraints"}
+{"file": ".trellis/spec/guides/index.md", "reason": "shared thinking guide"}

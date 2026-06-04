@@ -151,7 +151,7 @@ Evidence workstreams:
 Proposed lanes:
 
 - `proposed:vfs-cache-repair-diagnostics`
-- `proposed:source-fingerprint-hash-execution`
+- `proposed:source-fingerprint-hash-scheduling-and-diagnostics`
 - `proposed:library-watcher-and-media-intake-stability`
 - `proposed:storage-vfs-postgresql-runtime-harness`
 
