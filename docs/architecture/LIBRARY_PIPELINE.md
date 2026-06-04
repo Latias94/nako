@@ -30,7 +30,7 @@ Storage event or scheduled scan
 | NFO authority | Shipped foundation | `docs/adr/0008-nfo-as-local-metadata-boundary.md` | Round-trip/writeback polish and backup policy. |
 | Metadata merge policy | Shipped foundation; durable candidate review, accepted-review root mapping application, Admin/Web governance, item-scoped Candidate Review list/navigation, global Candidate Review queue/navigation, read-only batch planning, bounded batch confirmation, Web bulk governance, durable batch execution, and Admin-only related hierarchy plan/apply shipped | `docs/adr/0007-metadata-merge-policy-and-local-authority.md`; `docs/workstreams/metadata-candidate-durable-review/`; `docs/workstreams/accepted-review-provider-mapping-application/`; `docs/workstreams/admin-web-provider-depth-governance/`; `docs/workstreams/admin-candidate-review-list-navigation/`; `docs/workstreams/provider-review-global-queue-search/`; `docs/workstreams/provider-governance-bulk-review/`; `docs/workstreams/provider-governance-durable-batch-execution/`; `.trellis/tasks/archive/2026-06/06-05-provider-hierarchy-application-admin/` | Keep provider endpoint depth, Public Client API exposure, mutation-capable undo, Admin Web UX, and durable/bulk related hierarchy execution in focused follow-ons. |
 | TMDB provider | Shipped movie plus series/season/episode graph preview foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/metadata-provider-depth-and-precision/`; `docs/workstreams/tmdb-season-episode-graph-depth/` | Accepted-review application or Admin/Web governance before preview graph depth becomes accepted hierarchy. |
-| Douban provider | Shipped MVP plus endpoint-backed capability precision | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/douban-subject-kind-precision/` | Accepted-review application, Admin/Web governance, or endpoint-backed TV/episode follow-on. |
+| Douban provider | Shipped MVP plus endpoint-backed movie and TV Series subject support | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/douban-subject-kind-precision/`; `.trellis/tasks/archive/2026-06/06-05-douban-tv-episode-endpoint-depth/` | Season/Episode graph depth, accepted-review application, Admin/Web governance, or Public Client API exposure remain follow-ons. |
 | Bangumi provider | Shipped MVP plus endpoint-backed episode graph preview | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/bangumi-relations-and-episode-depth/` | Accepted-review application or Admin/Web governance before preview graph depth becomes accepted hierarchy. |
 | Addon-assisted metadata | Shipped guarded apply, bulk apply, provider mapping breadth, read-only apply recovery foundation, Web recovery UI, and repair seam proof | addon architecture lanes; `docs/workstreams/generated-artifact-metadata-authority-apply/`; `docs/workstreams/generated-artifact-bulk-metadata-apply/`; `docs/workstreams/generated-artifact-provider-mapping-breadth/`; `docs/workstreams/generated-artifact-apply-operations-repair/`; `docs/workstreams/web-admin-generated-artifact-recovery-ui/`; `docs/workstreams/generated-artifact-apply-repair-actions/` | Optional one-click repair wrapper or Web repair copy polish. |
 | Artwork artifact lifecycle | Shipped selection, lifecycle, variant, remediation foundation, selected artwork private cache-control, and exact conditional GET baseline | managed artwork lanes | Metadata-only ETag preflight, delivery cache placeholders, and broader derivative policy. |
@@ -105,7 +105,9 @@ Follow-ons:
 
 - `.trellis/tasks/archive/2026-06/06-05-provider-hierarchy-application-admin/`
   (closed related hierarchy Admin plan/apply surface);
-- `proposed:douban-tv-episode-endpoint-depth`;
+- `.trellis/tasks/archive/2026-06/06-05-douban-tv-episode-endpoint-depth/`
+  (closed Douban TV Series subject support);
+- `proposed:douban-season-episode-graph-depth`;
 - `proposed:provider-review-public-client-governance`;
 - `proposed:provider-governance-mutation-undo`.
 
@@ -166,7 +168,9 @@ Follow-ons:
 - `docs/workstreams/provider-governance-bulk-review/` (closed);
 - `.trellis/tasks/archive/2026-06/06-05-provider-hierarchy-application-admin/`
   (closed related hierarchy Admin plan/apply surface);
-- `proposed:douban-tv-episode-endpoint-depth`.
+- `.trellis/tasks/archive/2026-06/06-05-douban-tv-episode-endpoint-depth/`
+  (closed Douban TV Series subject support);
+- `proposed:douban-season-episode-graph-depth`.
 
 ### admin-candidate-review-list-navigation
 
@@ -201,7 +205,9 @@ Follow-ons:
 - `docs/workstreams/provider-governance-bulk-review/` (closed);
 - `.trellis/tasks/archive/2026-06/06-05-provider-hierarchy-application-admin/`
   (closed related hierarchy Admin plan/apply surface);
-- `proposed:douban-tv-episode-endpoint-depth`.
+- `.trellis/tasks/archive/2026-06/06-05-douban-tv-episode-endpoint-depth/`
+  (closed Douban TV Series subject support);
+- `proposed:douban-season-episode-graph-depth`.
 
 ### admin-web-provider-depth-governance
 
@@ -235,7 +241,9 @@ Follow-ons:
 
 - `.trellis/tasks/archive/2026-06/06-05-provider-hierarchy-application-admin/`
   (closed related hierarchy Admin plan/apply surface);
-- `proposed:douban-tv-episode-endpoint-depth`;
+- `.trellis/tasks/archive/2026-06/06-05-douban-tv-episode-endpoint-depth/`
+  (closed Douban TV Series subject support);
+- `proposed:douban-season-episode-graph-depth`;
 - `docs/workstreams/provider-governance-bulk-review/` (closed).
 
 ### accepted-review-provider-mapping-application
@@ -275,11 +283,15 @@ Follow-ons:
 
 - `docs/workstreams/admin-web-provider-depth-governance/` (closed);
 - `docs/workstreams/accepted-review-provider-mapping-application/` (closed);
-- `proposed:douban-tv-episode-endpoint-depth`.
+- `.trellis/tasks/archive/2026-06/06-05-douban-tv-episode-endpoint-depth/`
+  (closed Douban TV Series subject support);
+- `proposed:douban-season-episode-graph-depth`.
 
 ### douban-subject-kind-precision
 
-Status: Closed at `docs/workstreams/douban-subject-kind-precision/`.
+Status: Closed at `docs/workstreams/douban-subject-kind-precision/`. The
+TV Series subject-level follow-on is also closed at
+`.trellis/tasks/archive/2026-06/06-05-douban-tv-episode-endpoint-depth/`.
 
 Goal: Make Douban capability claims match its current movie search/detail
 endpoint contract before durable candidate review or Admin/Web governance
@@ -287,10 +299,13 @@ depends on provider diagnostics.
 
 Shipped:
 
-- narrowed Douban media and Provider Subject capability claims to endpoint-backed
-  movie behavior;
-- added unsupported-kind regression coverage for Series, Season, and Episode;
-- preserved current movie search/fetch and root-only candidate graph behavior.
+- narrowed Douban media and Provider Subject capability claims to
+  endpoint-backed movie behavior in the original lane;
+- added endpoint-backed TV Series subject search/fetch through subtype-aware
+  Douban subject payloads;
+- preserved movie behavior and root-only Candidate Graph behavior;
+- kept Season/Episode unsupported before HTTP until endpoint-backed graph depth
+  is proven.
 
 Non-goals:
 
@@ -300,7 +315,7 @@ Non-goals:
 
 Follow-ons:
 
-- `proposed:douban-tv-episode-endpoint-depth`;
+- `proposed:douban-season-episode-graph-depth`;
 - `docs/workstreams/metadata-candidate-durable-review/` (closed);
 - `docs/workstreams/accepted-review-provider-mapping-application/` (closed);
 - `docs/workstreams/admin-web-provider-depth-governance/` (closed).

@@ -70,7 +70,9 @@ Closed lane, completed follow-ons, and candidate follow-ons:
 - `docs/workstreams/provider-governance-durable-batch-execution/` (closed);
 - `.trellis/tasks/archive/2026-06/06-05-provider-hierarchy-application-admin/`
   (closed related hierarchy Admin plan/apply surface);
-- `proposed:douban-tv-episode-endpoint-depth`;
+- `.trellis/tasks/archive/2026-06/06-05-douban-tv-episode-endpoint-depth/`
+  (closed Douban TV Series subject support);
+- `proposed:douban-season-episode-graph-depth`;
 - `proposed:provider-review-public-client-governance`;
 - `proposed:provider-governance-mutation-undo`.
 
@@ -82,12 +84,18 @@ conflict guards for pending reviews and missing accepted root mappings,
 redaction tests, stale guard tests, non-admin rejection, and idempotent replay
 evidence.
 
+`06-05-douban-tv-episode-endpoint-depth` shipped on 2026-06-05 with
+subtype-backed Douban TV Series subject search/fetch, root-only Candidate Graph
+behavior, preserved movie compatibility, and explicit Season/Episode rejection
+before HTTP.
+
 `PGDBE-060` closed Provider Governance Durable Batch Execution on 2026-06-02
 and split related hierarchy application, Public Client API exposure, provider
 endpoint depth, audit/undo, and scheduler priority policy to focused
 follow-ons. The related hierarchy Admin surface is now closed through the
-2026-06-05 Trellis task; Public Client governance, provider endpoint depth,
-mutation-capable undo, and scheduler migration remain separate.
+2026-06-05 Trellis task, and Douban Series subject support is closed through
+the Douban Trellis task; Public Client governance, Douban Season/Episode graph
+depth, mutation-capable undo, and scheduler migration remain separate.
 
 `PGDBE-050` shipped on 2026-06-02 with Web Admin durable Candidate Review
 batch creation, status rendering, queued/running polling, data-source and
@@ -192,8 +200,10 @@ It shipped:
   Subject / Provider Mapping application;
 - Web Admin inspection and two-step apply confirmation for durable Candidate
   Reviews;
-- explicit split of related hierarchy application, Douban TV/episode endpoint
-  depth, Candidate Review list/navigation, and broader provider governance.
+- explicit split of related hierarchy application, Douban provider depth,
+  Candidate Review list/navigation, and broader provider governance. The Douban
+  TV Series subject slice is now closed; Season/Episode graph depth remains a
+  separate follow-on.
 
 Authoritative lane:
 
@@ -244,9 +254,10 @@ It shipped:
 - Douban capability narrowing to endpoint-backed movie search/detail behavior;
 - unsupported-kind guard coverage proving Series, Season, and Episode requests
   fail before provider HTTP;
-- explicit split of Douban TV/episode endpoint depth, durable candidate review,
-  and Admin/Web provider depth governance. Durable candidate review is now
-  closed after `MCDR-050`.
+- explicit split of Douban provider endpoint depth, durable candidate review,
+  and Admin/Web provider depth governance. Durable candidate review and Douban
+  TV Series subject support are now closed; Season/Episode graph depth remains a
+  separate follow-on.
 
 Authoritative lane:
 
@@ -315,7 +326,9 @@ Follow-ons:
 - `docs/workstreams/provider-governance-durable-batch-execution/` (closed);
 - `.trellis/tasks/archive/2026-06/06-05-provider-hierarchy-application-admin/`
   (closed related hierarchy Admin plan/apply surface);
-- `proposed:douban-tv-episode-endpoint-depth`;
+- `.trellis/tasks/archive/2026-06/06-05-douban-tv-episode-endpoint-depth/`
+  (closed Douban TV Series subject support);
+- `proposed:douban-season-episode-graph-depth`;
 - `proposed:provider-review-public-client-governance`;
 - `proposed:provider-governance-mutation-undo`.
 

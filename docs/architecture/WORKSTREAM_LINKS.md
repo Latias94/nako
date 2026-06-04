@@ -207,12 +207,13 @@ Evidence workstreams:
 - `docs/workstreams/metadata-merge-policy-unification/`
 - `docs/workstreams/metadata-application-cross-path-audit/`
 - `docs/workstreams/metadata-refresh-seam/`
+- `.trellis/tasks/archive/2026-06/06-05-douban-tv-episode-endpoint-depth/`
 
 Proposed lanes:
 
 - `proposed:library-watcher-and-media-intake-stability`
 - `proposed:artwork-delivery-cache-placeholder`
-- `proposed:douban-tv-episode-endpoint-depth`
+- `proposed:douban-season-episode-graph-depth`
 - `proposed:provider-identity-mapping-breadth`
 - `proposed:provider-review-public-client-governance`
 - `proposed:provider-governance-mutation-undo`

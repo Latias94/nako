@@ -28,7 +28,7 @@ documentation/bootstrap task, not as an implementation lane.
 | Area | Current state | Candidate next action | Coordination note |
 | --- | --- | --- | --- |
 | architecture-planning | Idle after 01a and 01 parent closeout. | Select the next architecture focus or continue `00-bootstrap-guidelines` spec coverage. | Open a focused Trellis task before starting implementation lanes. |
-| library-metadata-control-plane | Idle after accepted-review related hierarchy application and durable batch execution follow-ons landed. | Consider `provider-review-public-client-governance`, `provider-governance-mutation-undo`, or `douban-tv-episode-endpoint-depth`. | Coordinate with `nako-api`, Admin Web, and schema changes before assigning parallel work. |
+| library-metadata-control-plane | Idle after accepted-review related hierarchy application, durable batch execution, and Douban TV Series subject follow-ons landed. | Consider `provider-review-public-client-governance`, `provider-governance-mutation-undo`, or `douban-season-episode-graph-depth`. | Coordinate with `nako-api`, Admin Web, and schema changes before assigning parallel work. |
 | playback-transcode | Idle after HLS artifact I/O pressure enforcement. | Consider resource admission queueing, LL-HLS/CMAF, player UX, hardware tone-map execution, HEVC/AV1 output policy, subtitle burn-in, or hardware smoke evidence. | Coordinate with storage/VFS and web/native player work. |
 | storage-vfs | Idle after cache repair diagnostics. | Consider source fingerprint escalation, playback artifact/source-read pressure, scan scheduling, or PostgreSQL runtime harness work. | Coordinate with playback input staging and library scan/probe lanes. |
 | web-product | Idle after Admin settings API restoration and previous Web Admin closeouts. | Consider backend/API contract follow-ons, generated SDK work, broader player UX, or desktop/native playback decisions. | Serialize with shared Admin DTO, generated contract, and auth/redaction changes. |
@@ -60,16 +60,18 @@ focused provider-depth work is now `douban-subject-kind-precision`; durable
 candidate review and Admin/Web provider depth governance remain split
 follow-ons.
 `douban-subject-kind-precision` is closed after `DSKP-030`.
-`DSKP-020` narrowed Douban capability claims to movie endpoint-backed behavior
-and rejected Series/Season/Episode requests before HTTP. Future Douban
-TV/episode depth, durable candidate review, and Admin/Web provider governance
-should open focused follow-ons.
+`DSKP-020` narrowed Douban capability claims to movie endpoint-backed behavior.
+`06-05-douban-tv-episode-endpoint-depth` later shipped subtype-backed TV Series
+subject search/fetch with a root-only Candidate Graph while keeping
+Season/Episode unsupported before HTTP. Future Douban Season/Episode graph
+depth, durable candidate review, and Admin/Web provider governance should open
+focused follow-ons.
 `metadata-candidate-durable-review` is closed after `MCDR-050`.
 It shipped redaction-safe Candidate Graph review plans, durable review snapshot
 persistence, and backend-only accept/reject status transitions without Provider
 Mapping writes. Next choose a focused follow-on for Admin/Web provider depth
-governance, accepted-review Provider Mapping application, or Douban TV/episode
-endpoint depth rather than reopening it.
+governance, accepted-review Provider Mapping application, or Douban
+Season/Episode graph depth rather than reopening it.
 `admin-web-provider-depth-governance` is closed after `AWPDG-050`. It shipped
 Admin API read, Admin API apply, and Web Admin read/confirm/apply governance for
 durable Candidate Reviews while keeping Public Client API changes and related
@@ -78,7 +80,7 @@ graph node application split.
 item-scoped Admin API/Web Candidate Review discovery and navigation into the
 existing detail/apply page. Future work should open a focused follow-on for
 global queue/search, provider governance bulk review, related hierarchy
-application, Douban TV/episode depth, or broader provider governance.
+application, Douban Season/Episode graph depth, or broader provider governance.
 `provider-review-global-queue-search` is closed after `PRGQ-040`. It shipped
 the read-only global Candidate Review queue Admin API route and Web Admin
 global queue navigation while keeping batch governance, status/apply mutation,

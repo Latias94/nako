@@ -1,0 +1,4 @@
+{"file":".trellis/spec/nako-metadata/backend/index.md","reason":"Douban capability wording must stay aligned with metadata provider boundaries."}
+{"file":".trellis/spec/nako-metadata/backend/quality-guidelines.md","reason":"Provider capability endpoint precision defines the shipped Series boundary and unsupported Season/Episode behavior."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Architecture and roadmap maps must stay consistent across planning layers."}
+{"file":".trellis/tasks/06-05-douban-series-follow-on-map-reconciliation/research/douban-series-completion-evidence.md","reason":"Records shipped evidence and remaining Douban Season/Episode gap."}

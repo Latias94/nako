@@ -56,7 +56,7 @@ Non-goals:
 - no related Provider Subject, child Provider Mapping, or Media Item hierarchy
   application;
 - no Public Client API route;
-- no Douban TV/episode endpoint depth or provider endpoint breadth;
+- no Douban Season/Episode graph depth or broader provider endpoint breadth;
 - no Generated Artifact apply outcome table reuse;
 - no hidden raw background execution outside ADR 0053 control-plane boundaries;
 - no audit/undo expansion beyond minimal batch/item outcome status evidence.
@@ -90,7 +90,9 @@ Closed and candidate follow-ons:
 
 - `.trellis/tasks/archive/2026-06/06-05-provider-hierarchy-application-admin/`
   (closed related hierarchy Admin plan/apply surface);
-- `proposed:douban-tv-episode-endpoint-depth`;
+- `.trellis/tasks/archive/2026-06/06-05-douban-tv-episode-endpoint-depth/`
+  (closed Douban TV Series subject support);
+- `proposed:douban-season-episode-graph-depth`;
 - `proposed:provider-review-public-client-governance`;
 - `proposed:provider-governance-mutation-undo`;
 - `proposed:durable-job-priority-policy-and-scheduler-migration`.
@@ -125,7 +127,7 @@ Non-goals:
 - no Public Client API expansion;
 - no related Provider Subject, child Provider Mapping, or Media Item hierarchy
   application;
-- no provider endpoint breadth such as Douban TV/episode support;
+- no provider endpoint breadth such as Douban Season/Episode graph support;
 - no raw provider payload, token, header, proxy URL, local path, image URL,
   source fingerprint, raw provider body, or raw idempotency-key exposure;
 - no hidden background execution outside the control-plane boundary.
@@ -159,7 +161,9 @@ Closed and candidate follow-ons:
 - `docs/workstreams/provider-governance-durable-batch-execution/` (closed);
 - `.trellis/tasks/archive/2026-06/06-05-provider-hierarchy-application-admin/`
   (closed related hierarchy Admin plan/apply surface);
-- `proposed:douban-tv-episode-endpoint-depth`;
+- `.trellis/tasks/archive/2026-06/06-05-douban-tv-episode-endpoint-depth/`
+  (closed Douban TV Series subject support);
+- `proposed:douban-season-episode-graph-depth`;
 - `proposed:provider-review-public-client-governance`;
 - `proposed:provider-governance-mutation-undo`.
 
@@ -390,8 +394,10 @@ Evidence:
 - `DSKP-020` narrows Douban capability claims;
 - `DSKP-020` adds unsupported-kind tests proving Series, Season, and Episode
   requests fail before provider HTTP;
-- `DSKP-030` closes the lane and keeps Douban TV/episode endpoint depth,
-  durable review, and Admin/Web governance split.
+- `DSKP-030` closes the lane; the later
+  `.trellis/tasks/archive/2026-06/06-05-douban-tv-episode-endpoint-depth/`
+  task closes Douban TV Series subject support while keeping Douban
+  Season/Episode graph depth, durable review, and Admin/Web governance split.
 
 ### Bangumi Relations And Episode Depth
 
