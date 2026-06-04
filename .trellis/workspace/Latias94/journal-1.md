@@ -1100,3 +1100,38 @@ Extracted Remux playback lifecycle handling into remux_flow, added focused Remux
 ### Next Steps
 
 - None - task complete
+
+
+## Session 27: Playback HLS session playlist flow extraction
+
+**Date**: 2026-06-04
+**Task**: Playback HLS session playlist flow extraction
+**Package**: nako-server
+**Branch**: `main`
+
+### Summary
+
+Moved HLS playback-session playlist orchestration into hls_flow, kept PlaybackAppService entrypoints thin, preserved existing HLS startup/admission behavior, verified focused HLS gates, and archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `75a89093` | (see git log) |
+| `66a9e8f7` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
