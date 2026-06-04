@@ -1135,3 +1135,38 @@ Moved HLS playback-session playlist orchestration into hls_flow, kept PlaybackAp
 ### Next Steps
 
 - None - task complete
+
+
+## Session 28: Playback renderer transport flow extraction
+
+**Date**: 2026-06-04
+**Task**: Playback renderer transport flow extraction
+**Package**: nako-server
+**Branch**: `main`
+
+### Summary
+
+Extracted renderer playback transport orchestration into renderer_flow, kept PlaybackAppService renderer entrypoint thin, documented the new server playback boundary, verified renderer gates, and recorded a parallel research recommendation for VFS cache repair executable refresh action.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7e2102e2` | (see git log) |
+| `1fc82c32` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

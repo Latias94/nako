@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 27
+- **Total Sessions**: 28
 - **Last Active**: 2026-06-04
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1137 | Active |
+| `journal-1.md` | ~1172 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 28 | 2026-06-04 | Playback renderer transport flow extraction | `7e2102e2`, `1fc82c32` | `main` |
 | 27 | 2026-06-04 | Playback HLS session playlist flow extraction | `75a89093`, `66a9e8f7` | `main` |
 | 26 | 2026-06-04 | Playback remux lifecycle extraction | `4aba2b1f`, `d1512cb0`, `2034e9df` | `main` |
 | 25 | 2026-06-04 | Playback HLS start admission bounded wait | `974ffc05`, `997d3e7c` | `main` |
