@@ -5293,6 +5293,10 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
         repair.classification,
         nako_api::admin::AdminVfsCacheRepairClassification::UnknownFailure
     );
+    assert_eq!(
+        repair.recommended_action,
+        nako_api::admin::AdminVfsCacheRepairAction::InspectFailure
+    );
     assert_eq!(repair.operation, Some(VfsCacheOperation::Stat));
     assert_eq!(repair.failure_class, None);
     assert!(!repair.retryable);

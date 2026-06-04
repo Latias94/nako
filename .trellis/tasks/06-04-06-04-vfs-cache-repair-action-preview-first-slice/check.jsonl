@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/nako-vfs/backend/quality-guidelines.md", "reason": "Verify cache repair diagnostics remain redaction-safe and storage-authority preserving."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Verify Admin DTO change stays within read-only repair preview contract."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Verify server mapping and route tests preserve Admin diagnostics behavior."}
+{"file": ".trellis/tasks/06-04-06-04-vfs-cache-repair-action-preview-first-slice/research/vfs-cache-repair-action-preview.md", "reason": "Verify implementation matches bounded action-preview scope."}

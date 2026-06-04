@@ -170,9 +170,19 @@ pub enum VfsCacheRepairClassification {
     UnknownFailure,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum VfsCacheRepairAction {
+    None,
+    RefreshCache,
+    FixBackendConfiguration,
+    InspectFailure,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct VfsCacheRepairDiagnostic {
     pub classification: VfsCacheRepairClassification,
+    pub recommended_action: VfsCacheRepairAction,
     pub state: Option<ObjectCacheState>,
     pub operation: Option<VfsCacheOperation>,
     pub failure_class: Option<StorageFailureClass>,
@@ -210,6 +220,7 @@ impl VfsCacheRepairDiagnostic {
 
         Self {
             classification,
+            recommended_action: cache_repair_recommended_action(classification),
             state,
             operation,
             failure_class,
@@ -259,6 +270,22 @@ fn cache_repair_is_retryable(
         classification,
         VfsCacheRepairClassification::RepairableStaleFallback
     ) || failure_class.is_some_and(StorageFailureClass::is_retryable)
+}
+
+fn cache_repair_recommended_action(
+    classification: VfsCacheRepairClassification,
+) -> VfsCacheRepairAction {
+    match classification {
+        VfsCacheRepairClassification::Healthy => VfsCacheRepairAction::None,
+        VfsCacheRepairClassification::RepairableStaleFallback
+        | VfsCacheRepairClassification::RetryableRefreshFailure => {
+            VfsCacheRepairAction::RefreshCache
+        }
+        VfsCacheRepairClassification::OperatorActionRequired => {
+            VfsCacheRepairAction::FixBackendConfiguration
+        }
+        VfsCacheRepairClassification::UnknownFailure => VfsCacheRepairAction::InspectFailure,
+    }
 }
 
 fn cache_repair_operator_action(classification: VfsCacheRepairClassification) -> &'static str {

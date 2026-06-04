@@ -196,6 +196,13 @@ already mapped denial behavior and follow-ons.
   HEAD/preflight responses that share `apply_direct_play_headers` now include
   `Cache-Control: no-store`, while HLS and selected artwork keep their separate
   cache helpers and semantics.
+* `06-04-06-04-vfs-cache-repair-action-preview-first-slice` shipped the first
+  storage/VFS cache repair operator-action preview: repair diagnostics now
+  expose a stable `recommended_action` enum through VFS, Admin DTOs, server
+  storage diagnostics, and generated Admin TypeScript contracts while keeping
+  the endpoint read-only. Executable cache refresh/remediation, URI-scoped
+  previews, durable jobs, repository changes, and schema changes remain
+  follow-ons.
 
 ## Verification Plan
 

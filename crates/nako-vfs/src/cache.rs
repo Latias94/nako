@@ -504,6 +504,10 @@ mod tests {
             first_stat_diagnostic.classification,
             crate::VfsCacheRepairClassification::Healthy
         );
+        assert_eq!(
+            first_stat_diagnostic.recommended_action,
+            crate::VfsCacheRepairAction::None
+        );
         assert_eq!(first_stat_diagnostic.failure_class, None);
         assert!(!first_stat_diagnostic.retryable);
         assert_eq!(first_stat_diagnostic.safe_message, None);
@@ -548,6 +552,10 @@ mod tests {
         assert_eq!(
             stale_diagnostic.classification,
             crate::VfsCacheRepairClassification::RepairableStaleFallback
+        );
+        assert_eq!(
+            stale_diagnostic.recommended_action,
+            crate::VfsCacheRepairAction::RefreshCache
         );
         assert_eq!(
             stale_diagnostic.failure_class,
@@ -610,6 +618,10 @@ mod tests {
             crate::VfsCacheRepairClassification::OperatorActionRequired
         );
         assert_eq!(
+            failure_diagnostic.recommended_action,
+            crate::VfsCacheRepairAction::FixBackendConfiguration
+        );
+        assert_eq!(
             failure_diagnostic.failure_class,
             Some(StorageFailureClass::Permission)
         );
@@ -617,6 +629,38 @@ mod tests {
         assert_eq!(
             failure_diagnostic.safe_message.as_deref(),
             Some("storage permission failure")
+        );
+    }
+
+    #[test]
+    fn vfs_cache_retryable_failure_recommends_cache_refresh() {
+        let failure = VfsCacheFailure {
+            uri: "webdav:///Movies/Remote/".to_owned(),
+            scheme: "webdav".to_owned(),
+            operation: VfsCacheOperation::List,
+            failed_at_ms: 1_000,
+            failure_count: 2,
+            error: "storage backend unavailable".to_owned(),
+        };
+
+        let diagnostic = crate::VfsCacheRepairDiagnostic::from_failure(&failure);
+
+        assert_eq!(
+            diagnostic.classification,
+            crate::VfsCacheRepairClassification::RetryableRefreshFailure
+        );
+        assert_eq!(
+            diagnostic.recommended_action,
+            crate::VfsCacheRepairAction::RefreshCache
+        );
+        assert_eq!(
+            diagnostic.failure_class,
+            Some(StorageFailureClass::Unavailable)
+        );
+        assert!(diagnostic.retryable);
+        assert_eq!(
+            diagnostic.safe_message.as_deref(),
+            Some("storage backend unavailable")
         );
     }
 
@@ -637,6 +681,10 @@ mod tests {
         assert_eq!(
             diagnostic.classification,
             crate::VfsCacheRepairClassification::UnknownFailure
+        );
+        assert_eq!(
+            diagnostic.recommended_action,
+            crate::VfsCacheRepairAction::InspectFailure
         );
         assert_eq!(diagnostic.failure_class, None);
         assert_eq!(diagnostic.safe_message.as_deref(), Some("storage failure"));

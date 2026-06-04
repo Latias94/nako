@@ -10,6 +10,9 @@ cache diagnostics.
 - Attach accurate `StorageCapabilities` to metadata so playback, scan, and
   staging can make policy decisions.
 - Keep stale fallback explicit through cache status and repair diagnostics.
+- Keep VFS cache repair operator guidance structured and redaction-safe:
+  expose stable action enums for routing, keep display prose separate, and do
+  not make clients parse free-form operator text.
 - Keep local writes transactional or planned when the module supports it.
 - Treat remote latency, range readability, rate limits, and writable capability
   as product behavior, not incidental adapter details.
@@ -29,6 +32,8 @@ cache diagnostics.
 - URI parsing and path normalization tests for new URI/path behavior.
 - Backend capability tests for new backend adapters.
 - Cache stale/failure/repair diagnostic tests for cache changes.
+- Repair action preview tests when cache classifications or operator guidance
+  change.
 - App/server integration tests when playback, scan, or Admin routes consume the
   new VFS behavior.
 

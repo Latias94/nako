@@ -85,12 +85,13 @@ use nako_api::{
         AdminTrustedProxyDiagnostics, AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
         AdminUpdateLibraryMetadataProfileRequest, AdminUpdateMetadataRawCacheSettingsRequest,
         AdminUpdatePlaybackRuntimeSettingsRequest, AdminUpdateUserStatusRequest,
-        AdminUpsertLibraryAccessPolicyRequest, AdminVfsCacheRepairClassification,
-        AdminVfsCacheRepairDiagnostic, AdminVfsCacheSummary, AdminWatchFolderDiscoveryFailure,
-        AdminWatchFolderDiscoveryRequest, AdminWatchFolderDiscoveryResponse,
-        AdminWatchFolderRuntimeCoverageDiagnostic, AdminWatchFolderRuntimeCoverageStatus,
-        AdminWatchFolderSuppression, JobResponse, StorageBackendDiagnosticsResponse,
-        StorageBackendKind, StorageBackendRuntimeStateScope, StorageBackendStatus,
+        AdminUpsertLibraryAccessPolicyRequest, AdminVfsCacheRepairAction,
+        AdminVfsCacheRepairClassification, AdminVfsCacheRepairDiagnostic, AdminVfsCacheSummary,
+        AdminWatchFolderDiscoveryFailure, AdminWatchFolderDiscoveryRequest,
+        AdminWatchFolderDiscoveryResponse, AdminWatchFolderRuntimeCoverageDiagnostic,
+        AdminWatchFolderRuntimeCoverageStatus, AdminWatchFolderSuppression, JobResponse,
+        StorageBackendDiagnosticsResponse, StorageBackendKind, StorageBackendRuntimeStateScope,
+        StorageBackendStatus,
     },
     metadata_diagnostics::{MetadataProviderDiagnosticStatus, MetadataProviderDiagnosticsResponse},
     public_client::{API_VERSION, ClientErrorCode, ErrorResponse, page_info_from_request},
@@ -111,7 +112,7 @@ use nako_transcode::{
     HardwareAccelerationCapability, HardwareDeviceInitializationStatus,
     HardwareEncoderDiscoveryStatus, HardwareSmokeProbeStatus, TranscodeRuntimeInventoryStatus,
 };
-use nako_vfs::{StorageUri, VfsCacheRepairClassification};
+use nako_vfs::{StorageUri, VfsCacheRepairAction, VfsCacheRepairClassification};
 use serde::Deserialize;
 
 use crate::{
@@ -1850,6 +1851,7 @@ fn admin_vfs_cache_repair_diagnostic(
 ) -> AdminVfsCacheRepairDiagnostic {
     AdminVfsCacheRepairDiagnostic {
         classification: admin_vfs_cache_repair_classification(diagnostic.classification),
+        recommended_action: admin_vfs_cache_repair_action(diagnostic.recommended_action),
         operation: diagnostic.operation,
         failure_class: diagnostic.failure_class,
         retryable: diagnostic.retryable,
@@ -1857,6 +1859,17 @@ fn admin_vfs_cache_repair_diagnostic(
         failure_count: diagnostic.failure_count,
         safe_message: diagnostic.safe_message,
         operator_action: diagnostic.operator_action,
+    }
+}
+
+fn admin_vfs_cache_repair_action(action: VfsCacheRepairAction) -> AdminVfsCacheRepairAction {
+    match action {
+        VfsCacheRepairAction::None => AdminVfsCacheRepairAction::None,
+        VfsCacheRepairAction::RefreshCache => AdminVfsCacheRepairAction::RefreshCache,
+        VfsCacheRepairAction::FixBackendConfiguration => {
+            AdminVfsCacheRepairAction::FixBackendConfiguration
+        }
+        VfsCacheRepairAction::InspectFailure => AdminVfsCacheRepairAction::InspectFailure,
     }
 }
 

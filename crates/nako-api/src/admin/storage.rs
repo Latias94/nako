@@ -91,9 +91,19 @@ pub enum AdminVfsCacheRepairClassification {
     UnknownFailure,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminVfsCacheRepairAction {
+    None,
+    RefreshCache,
+    FixBackendConfiguration,
+    InspectFailure,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminVfsCacheRepairDiagnostic {
     pub classification: AdminVfsCacheRepairClassification,
+    pub recommended_action: AdminVfsCacheRepairAction,
     pub operation: Option<VfsCacheOperation>,
     pub failure_class: Option<StorageFailureClass>,
     pub retryable: bool,
@@ -401,6 +411,7 @@ mod tests {
             last_failure_at_ms: Some(1_000),
             repair: Some(AdminVfsCacheRepairDiagnostic {
                 classification: AdminVfsCacheRepairClassification::RetryableRefreshFailure,
+                recommended_action: AdminVfsCacheRepairAction::RefreshCache,
                 operation: Some(VfsCacheOperation::List),
                 failure_class: Some(StorageFailureClass::Unavailable),
                 retryable: true,
@@ -418,6 +429,7 @@ mod tests {
             value["repair"]["classification"],
             "retryable_refresh_failure"
         );
+        assert_eq!(value["repair"]["recommended_action"], "refresh_cache");
         assert_eq!(value["repair"]["operation"], "list");
         assert_eq!(value["repair"]["failure_class"], "unavailable");
         assert_eq!(value["repair"]["retryable"], true);

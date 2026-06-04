@@ -245,6 +245,12 @@ export type AdminVfsCacheRepairClassification =
   | "operator_action_required"
   | "unknown_failure";
 
+export type AdminVfsCacheRepairAction =
+  | "none"
+  | "refresh_cache"
+  | "fix_backend_configuration"
+  | "inspect_failure";
+
 export interface AdminStorageBackendHealthDiagnostic {
   backend_key: string;
   library_id: string | null;
@@ -2886,6 +2892,7 @@ export interface AdminStorageStagingDiagnosticsResponse {
       last_failure_at_ms: number | null;
       repair: {
         classification: AdminVfsCacheRepairClassification;
+        recommended_action: AdminVfsCacheRepairAction;
         operation: VfsCacheOperation | null;
         failure_class: StorageFailureClass | null;
         retryable: boolean;
