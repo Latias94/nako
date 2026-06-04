@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server app-service and runtime boundary checklist for playback refactor work."}
+{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Playback lifecycle logic belongs in focused app/playback modules with thin app-service entrypoints."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server refactor must preserve focused tests and gates."}
+{"file": ".trellis/tasks/06-04-fearless-refactor-candidate-planning/research/refactor-candidate-scan.md", "reason": "Candidate scan and recommended refactor target."}

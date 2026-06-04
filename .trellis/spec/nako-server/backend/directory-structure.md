@@ -543,6 +543,105 @@ The app-service root remains an entry point, while `hls_flow` owns server-side
 HLS lifecycle orchestration and delegates typed planning/execution to the
 existing playback and transcode boundaries.
 
+## Scenario: Playback Remux Lifecycle Orchestration
+
+### 1. Scope / Trigger
+
+- Trigger: changing Remux source startup, Remux playback/preflight entry
+  points, transcode session reuse, playback resource admission, FFmpeg input
+  staging, or Remux output waiting in `nako-server`.
+
+### 2. Signatures
+
+- `PlaybackAppService::remux_source(...) -> Result<RemuxSourceOutput>` is a
+  thin app-service entry point.
+- `PlaybackAppService::remux_playback_stream(...) ->
+  Result<RemuxPlaybackStreamOutput>` is a thin app-service entry point.
+- `PlaybackAppService::remux_playback_preflight(...) ->
+  Result<RemuxPlaybackPreflightOutput>` is a thin app-service entry point.
+- `PlaybackAppService::remux_playback_session_stream(...) ->
+  Result<RemuxPlaybackStreamOutput>` is a thin app-service entry point.
+- `app/playback/remux_flow.rs` owns Remux source context construction,
+  immediate start admission, background start, playback-session linkage,
+  FFmpeg input staging/release, session start waiting, and Remux output waiting.
+- `app/playback/remux.rs` owns reserved Remux runner execution and transcode
+  session persistence around FFmpeg.
+
+### 3. Contracts
+
+- `nako-playback` remains the pure decision source. Server Remux flow may call
+  the planner but must not encode new compatibility rules.
+- `nako-transcode` remains the typed Remux profile identity and FFmpeg planning
+  source. Server Remux flow must consume typed profile/runtime identities.
+- `PlaybackAppService` should delegate Remux lifecycle work to `remux_flow`;
+  do not rebuild source lookup, start admission, background start, input
+  staging, session wait, or output response planning in broad `mod.rs`.
+- Remux startup uses immediate playback resource admission. It must not wait,
+  durable-queue, or silently fall back to HLS/Direct Play under pressure.
+- Active Remux sessions for the same source/request key are reused by playback
+  and preflight entry points; completed matching sessions are reused only when
+  the persisted output path still exists.
+- New Remux playback/preflight sessions must link to the selected transcode
+  session before response data is returned.
+- Remote staged FFmpeg input must be released after Remux success and after
+  runner/admission errors.
+
+### 4. Validation & Error Matrix
+
+| Condition | Behavior |
+|-----------|----------|
+| Active Remux transcode matches request key | Reuse that session and link the playback session |
+| Finished Remux transcode matches request key and output exists | Reuse completed output |
+| Remux process permit is busy or unavailable | Return `NakoError::Conflict` immediately |
+| Remote FFmpeg input was staged and runner succeeds | Release the staging lease after output is persisted |
+| Remote FFmpeg input was staged and runner fails | Release the staging lease and return `ffmpeg_remux` provider error |
+| Finished Remux output is missing while serving output | Return storage I/O error |
+| Linked playback session points at a non-Remux transcode session | Return invalid input |
+| Linked playback session source differs from transcode source | Return invalid input |
+
+### 5. Good / Base / Bad Cases
+
+- Good: Remux HTTP routes call `PlaybackAppService` Remux entry points, which
+  immediately delegate to `remux_flow`.
+- Base: `remux_flow` may use `remux.rs` for reserved FFmpeg execution and
+  persistence; it should not duplicate runner internals.
+- Bad: adding another Remux startup path in `app/playback/mod.rs` that handles
+  session lookup, admission, staging, background start, or output waiting.
+- Bad: making Remux resource pressure wait on the HLS bounded-wait policies.
+
+### 6. Tests Required
+
+- App tests for Remux runner start, completed-session reuse, active-session
+  reuse, playback-session linkage, immediate resource-pressure rejection, and
+  remote staged input release after success and runner error.
+- HTTP tests for Remux GET/range and HEAD/preflight behavior must continue to
+  pass without API/DTO changes.
+- Gate: `cargo check -p nako-server --tests` plus focused
+  `cargo nextest run -p nako-server remux --no-fail-fast`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+async fn remux_playback_stream(&self, request: RemuxPlaybackStreamRequest) {
+    // source lookup, session reuse, admission, staging, background start,
+    // playback-session linkage, and response planning all live in mod.rs.
+}
+```
+
+#### Correct
+
+```rust
+async fn remux_playback_stream(&self, request: RemuxPlaybackStreamRequest) {
+    remux_flow::remux_playback_stream(self, request).await
+}
+```
+
+The app-service root remains an entry point, while `remux_flow` owns
+server-side Remux lifecycle orchestration and delegates FFmpeg execution to the
+existing Remux runner boundary.
+
 ## Examples
 
 - `http.rs`: central router assembly, auth, network boundary, and API version

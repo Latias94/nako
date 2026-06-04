@@ -729,6 +729,78 @@ async fn remux_playback_preflight_rejects_when_playback_resource_permit_is_busy(
 }
 
 #[tokio::test]
+async fn remux_playback_preflight_reuses_active_session_and_links_playback_sessions() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_slow_ffmpeg_script(script_root.path(), "active_reuse_remux_preflight");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let principal = local_playback_viewer(&store, source.library_id).await;
+    let first = app
+        .playback()
+        .remux_playback_preflight(RemuxPlaybackPreflightRequest {
+            principal: principal.clone(),
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            output_container: RemuxContainer::Mp4,
+        })
+        .await
+        .unwrap();
+    let first_linked = store
+        .get_playback_session(first.session.id)
+        .await
+        .unwrap()
+        .unwrap();
+    let transcode_session_id = first_linked
+        .transcode_session_id
+        .expect("first remux playback session should link a transcode session");
+    assert_eq!(
+        store
+            .get_transcode_session(transcode_session_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .state,
+        TranscodeSessionState::Running
+    );
+
+    let second = app
+        .playback()
+        .remux_playback_preflight(RemuxPlaybackPreflightRequest {
+            principal,
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            output_container: RemuxContainer::Mp4,
+        })
+        .await
+        .unwrap();
+    let second_linked = store
+        .get_playback_session(second.session.id)
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert_ne!(first.session.id, second.session.id);
+    assert_eq!(
+        second_linked.transcode_session_id,
+        Some(transcode_session_id)
+    );
+
+    app.playback()
+        .cancel_playback_session(first.session.id)
+        .await
+        .unwrap();
+    wait_for_transcode_state(
+        &store,
+        transcode_session_id,
+        TranscodeSessionState::Cancelled,
+    )
+    .await;
+    app.playback()
+        .cancel_playback_session(second.session.id)
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
 async fn app_startup_marks_stale_transcode_sessions_failed() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "success");
@@ -2580,6 +2652,56 @@ async fn app_startup_marks_stale_hls_transcode_sessions_failed() {
         Some(TranscodeFailureCategory::Stale)
     );
     assert_eq!(restarted.startup_report().recovered_transcode_sessions, 1);
+}
+
+#[tokio::test]
+async fn remux_source_releases_remote_staged_input_after_success() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "remux_remote_success");
+    let (_server, _temp, app, store, source) =
+        hls_remote_app_with_source(ffmpeg_path, TranscodeConfig::default()).await;
+
+    let output = app
+        .playback()
+        .remux_source(RemuxSourceRequest {
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            output_container: RemuxContainer::Mp4,
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(output.disposition, RemuxSourceDisposition::Finished);
+    assert_released_ffmpeg_input_staging_record(&store, &source).await;
+}
+
+#[tokio::test]
+async fn remux_source_releases_remote_staged_input_after_runner_error() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_failing_ffmpeg_script_with_stderr(
+        script_root.path(),
+        "remux_remote_failure",
+        "raw ffmpeg failed while reading webdav:///Movies/secret.mkv",
+    );
+    let (_server, _temp, app, store, source) =
+        hls_remote_app_with_source(ffmpeg_path, TranscodeConfig::default()).await;
+
+    let err = app
+        .playback()
+        .remux_source(RemuxSourceRequest {
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            output_container: RemuxContainer::Mp4,
+        })
+        .await
+        .unwrap_err();
+
+    let NakoError::Provider { provider, message } = err else {
+        panic!("expected remux provider failure");
+    };
+    assert_eq!(provider, "ffmpeg_remux");
+    assert_eq!(message, "remux runner failed");
+    assert_released_ffmpeg_input_staging_record(&store, &source).await;
 }
 
 #[tokio::test]

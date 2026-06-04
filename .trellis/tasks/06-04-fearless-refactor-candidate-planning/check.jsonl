@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Verify refactor keeps lifecycle ownership in focused playback modules and app root thin."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify behavior-preserving tests and server gates are covered."}
+{"file": ".trellis/tasks/06-04-fearless-refactor-candidate-planning/research/refactor-candidate-scan.md", "reason": "Verify implementation stays within the chosen fearless refactor candidate scope."}

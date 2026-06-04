@@ -16,21 +16,14 @@ use nako_core::{
 use nako_playback::{
     ClientPlaybackCapabilities, EffectivePlaybackPolicy, PlaybackDecision, PlaybackMode,
     PlaybackPlanner, PlaybackPlanningRequest, PlaybackPreferenceContext, PlaybackSelectionContext,
-    PlaybackTarget, PlaybackTargetProfile,
+    PlaybackTarget,
 };
 use nako_streaming::{DirectPlayRangeRequest, DirectPlayResponsePlan};
-use nako_transcode::{
-    HlsPlaybackGeneration, PlaybackRemuxProfileRequest, RemuxContainer, TranscodeRequestIdentity,
-    TranscodeSourceIdentity, build_playback_remux_profile,
-};
+use nako_transcode::{HlsPlaybackGeneration, RemuxContainer};
 use nako_vfs::{StorageBackend as _, StorageUri};
 use serde::{Deserialize, Serialize};
-use tracing::warn;
 
 use crate::config::NakoServerConfig;
-use crate::playback_mapping::{
-    playback_track_selection_to_transcode, transcode_remux_container_to_playback,
-};
 
 use super::{
     playback_ticket::BrowserPlaybackTicketMode,
@@ -53,6 +46,7 @@ mod input;
 mod paths;
 mod playlist;
 mod remux;
+mod remux_flow;
 mod resource;
 mod selection;
 mod staging_policy;
@@ -1199,174 +1193,21 @@ impl PlaybackAppService {
         &self,
         request: RemuxPlaybackStreamRequest,
     ) -> Result<RemuxPlaybackStreamOutput> {
-        let effective_policy = self
-            .effective_playback_policy_for_source_id(&request.principal, request.source_id)
-            .await?;
-        let remux_request = RemuxSourceRequest {
-            source_id: request.source_id,
-            client: request.client.clone(),
-            output_container: request.output_container,
-        };
-        let remux_start = self
-            .start_remux_source_with_policy(remux_request, effective_policy)
-            .await?;
-        let playback_session = self
-            .start_playback_session(StartPlaybackSessionRequest {
-                principal_id: request.principal.principal_id,
-                source_id: request.source_id,
-                mode: PlaybackSessionMode::Remux,
-                client: Some(request.client.clone()),
-            })
-            .await?;
-        self.link_playback_session_transcode(playback_session.id, remux_start.session.id)
-            .await?;
-        let remux = self.wait_for_remux_start(remux_start).await?;
-
-        if remux.disposition == RemuxSourceDisposition::Cancelled {
-            return Err(NakoError::Provider {
-                provider: "ffmpeg_remux".to_owned(),
-                message: "remux session was cancelled".to_owned(),
-            });
-        }
-
-        let total_len = tokio::fs::metadata(&remux.output_path)
-            .await
-            .map_err(|err| {
-                NakoError::storage_io(
-                    remux.output_path.display().to_string(),
-                    format!("failed to read remux output length: {err}"),
-                )
-            })?
-            .len();
-        let response = nako_streaming::plan_direct_play_response(
-            total_len,
-            nako_streaming::content_type_for_file_name(&format!(
-                "stream.{}",
-                request.output_container.file_extension()
-            )),
-            request.range_request,
-        );
-
-        Ok(RemuxPlaybackStreamOutput {
-            session: playback_session,
-            output_path: remux.output_path,
-            response,
-        })
+        remux_flow::remux_playback_stream(self, request).await
     }
 
     pub(crate) async fn remux_playback_session_stream(
         &self,
         request: RemuxPlaybackSessionStreamRequest,
     ) -> Result<RemuxPlaybackStreamOutput> {
-        let mut playback_session = self
-            .existing_playback_session_for_media_request(
-                &request.principal,
-                request.playback_session_id,
-                request.source_id,
-                PlaybackSessionMode::Remux,
-            )
-            .await?;
-        let transcode_session_id = match playback_session.transcode_session_id {
-            Some(transcode_session_id) => transcode_session_id,
-            None => {
-                let client = Self::client_capabilities_for_playback_session(&playback_session)?;
-                let effective_policy = self
-                    .effective_playback_policy_for_source_id(&request.principal, request.source_id)
-                    .await?;
-                let remux_start = self
-                    .start_remux_source_with_policy(
-                        RemuxSourceRequest {
-                            source_id: request.source_id,
-                            client,
-                            output_container: request.output_container,
-                        },
-                        effective_policy,
-                    )
-                    .await?;
-                playback_session = self
-                    .link_playback_session_transcode(playback_session.id, remux_start.session.id)
-                    .await?;
-                remux_start.session.id
-            }
-        };
-        let transcode = self
-            .wait_for_remux_transcode_output(transcode_session_id)
-            .await?;
-        if transcode.source_id != request.source_id {
-            return Err(NakoError::InvalidInput {
-                message: format!(
-                    "remux playback session {} source_id does not match transcode session {}",
-                    playback_session.id, transcode.id
-                ),
-            });
-        }
-
-        let total_len = tokio::fs::metadata(&transcode.output_path)
-            .await
-            .map_err(|err| {
-                NakoError::storage_io(
-                    transcode.output_path.display().to_string(),
-                    format!("failed to read remux output length: {err}"),
-                )
-            })?
-            .len();
-        let response = nako_streaming::plan_direct_play_response(
-            total_len,
-            nako_streaming::content_type_for_file_name(&format!(
-                "stream.{}",
-                request.output_container.file_extension()
-            )),
-            request.range_request,
-        );
-
-        Ok(RemuxPlaybackStreamOutput {
-            session: playback_session,
-            output_path: transcode.output_path,
-            response,
-        })
+        remux_flow::remux_playback_session_stream(self, request).await
     }
 
     pub(crate) async fn remux_playback_preflight(
         &self,
         request: RemuxPlaybackPreflightRequest,
     ) -> Result<RemuxPlaybackPreflightOutput> {
-        let effective_policy = self
-            .effective_playback_policy_for_source_id(&request.principal, request.source_id)
-            .await?;
-        let remux = self
-            .start_remux_source_with_policy(
-                RemuxSourceRequest {
-                    source_id: request.source_id,
-                    client: request.client.clone(),
-                    output_container: request.output_container,
-                },
-                effective_policy,
-            )
-            .await?;
-        let playback_session = self
-            .start_playback_session(StartPlaybackSessionRequest {
-                principal_id: request.principal.principal_id,
-                source_id: request.source_id,
-                mode: PlaybackSessionMode::Remux,
-                client: Some(request.client.clone()),
-            })
-            .await?;
-        self.link_playback_session_transcode(playback_session.id, remux.session.id)
-            .await?;
-
-        let response = nako_streaming::plan_direct_play_response(
-            0,
-            nako_streaming::content_type_for_file_name(&format!(
-                "stream.{}",
-                request.output_container.file_extension()
-            )),
-            DirectPlayRangeRequest::None,
-        );
-
-        Ok(RemuxPlaybackPreflightOutput {
-            session: playback_session,
-            response,
-        })
+        remux_flow::remux_playback_preflight(self, request).await
     }
 
     pub(crate) async fn hls_playlist_playback(
@@ -1509,8 +1350,7 @@ impl PlaybackAppService {
         &self,
         request: RemuxSourceRequest,
     ) -> Result<RemuxSourceOutput> {
-        let context = self.remux_source_context(&request, None).await?;
-        self.run_remux_source_context(context, None).await
+        remux_flow::remux_source(self, request).await
     }
 
     async fn start_remux_source_with_policy(
@@ -1518,350 +1358,7 @@ impl PlaybackAppService {
         request: RemuxSourceRequest,
         effective_policy: impl Into<Option<EffectivePlaybackPolicy>>,
     ) -> Result<RemuxSessionStart> {
-        let effective_policy = effective_policy.into();
-        let context = self
-            .remux_source_context(&request, effective_policy)
-            .await?;
-        if let Some(active) = PlaybackRuntimeStore::find_active_transcode_session(
-            self.runtime_store.as_ref(),
-            context.source.id,
-            TranscodeSessionKind::Remux,
-            &context.request_key,
-        )
-        .await?
-        {
-            return Ok(context.session_start(active));
-        }
-
-        if let Some(latest) = PlaybackRuntimeStore::find_latest_transcode_session(
-            self.runtime_store.as_ref(),
-            context.source.id,
-            TranscodeSessionKind::Remux,
-            &context.request_key,
-        )
-        .await?
-        {
-            if latest.state == TranscodeSessionState::Finished
-                && latest.output_path == context.output_path
-                && path_exists(&context.output_path)?
-            {
-                return Ok(context.session_start(latest));
-            }
-        }
-
-        let resource_permit = self
-            .resource_admission
-            .try_acquire(&context.resource_demand())?;
-        let task_app = self.clone();
-        let task_request = request.clone();
-        let task_effective_policy = effective_policy;
-        self.runtime
-            .spawn("playback_remux_start", "playback.remux", async move {
-                if let Err(error) = task_app
-                    .remux_source_with_policy(
-                        task_request,
-                        task_effective_policy,
-                        Some(resource_permit),
-                    )
-                    .await
-                {
-                    warn!(error = %error, "background remux start failed");
-                }
-            });
-
-        self.wait_for_started_remux_source_context(context).await
-    }
-
-    async fn remux_source_with_policy(
-        &self,
-        request: RemuxSourceRequest,
-        effective_policy: Option<EffectivePlaybackPolicy>,
-        resource_permit: Option<resource::PlaybackResourcePermitSet>,
-    ) -> Result<RemuxSourceOutput> {
-        let context = self
-            .remux_source_context(&request, effective_policy)
-            .await?;
-        self.run_remux_source_context(context, resource_permit)
-            .await
-    }
-
-    pub(crate) async fn wait_for_remux_start(
-        &self,
-        start: RemuxSessionStart,
-    ) -> Result<RemuxSourceOutput> {
-        self.wait_for_remux_session_output(
-            start.source,
-            start.decision,
-            start.output_path,
-            start.output_container,
-            start.session.id,
-        )
-        .await
-    }
-
-    async fn run_remux_source_context(
-        &self,
-        context: RemuxSourceContext,
-        resource_permit: Option<resource::PlaybackResourcePermitSet>,
-    ) -> Result<RemuxSourceOutput> {
-        let resource_demand = context.resource_demand();
-        let input = self
-            .input
-            .source_input_for_ffmpeg(&context.source, &context.uri, &context.backend)
-            .await?;
-        let result = self
-            .remux
-            .run(
-                self.runtime_store.as_ref(),
-                context.source,
-                context.decision,
-                input.path.clone(),
-                context.output_path,
-                context.output_container,
-                context.request_identity,
-                &self.resource_admission,
-                resource_demand,
-                resource_permit,
-            )
-            .await;
-        match result {
-            Ok(output) => {
-                self.input.release_source_input(input).await?;
-                Ok(output)
-            }
-            Err(err) => {
-                if let Err(release_err) = self.input.release_source_input(input).await {
-                    warn!(
-                        error = %release_err,
-                        "failed to release remux staging lease after error"
-                    );
-                }
-                Err(err)
-            }
-        }
-    }
-
-    async fn wait_for_started_remux_source_context(
-        &self,
-        context: RemuxSourceContext,
-    ) -> Result<RemuxSessionStart> {
-        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
-        loop {
-            if let Some(active) = PlaybackRuntimeStore::find_active_transcode_session(
-                self.runtime_store.as_ref(),
-                context.source.id,
-                TranscodeSessionKind::Remux,
-                &context.request_key,
-            )
-            .await?
-            {
-                return Ok(context.session_start(active));
-            }
-
-            if let Some(latest) = PlaybackRuntimeStore::find_latest_transcode_session(
-                self.runtime_store.as_ref(),
-                context.source.id,
-                TranscodeSessionKind::Remux,
-                &context.request_key,
-            )
-            .await?
-            {
-                if latest.state.is_terminal() {
-                    return Ok(context.session_start(latest));
-                }
-            }
-
-            if tokio::time::Instant::now() >= deadline {
-                return Err(NakoError::Conflict {
-                    message: format!(
-                        "remux request for source {} did not expose a playback session before timeout",
-                        context.source.id
-                    ),
-                });
-            }
-
-            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
-        }
-    }
-
-    async fn wait_for_remux_session_output(
-        &self,
-        source: MediaSource,
-        decision: PlaybackDecision,
-        output_path: PathBuf,
-        output_container: RemuxContainer,
-        session_id: TranscodeSessionId,
-    ) -> Result<RemuxSourceOutput> {
-        let deadline = tokio::time::Instant::now()
-            + std::time::Duration::from_millis(self.config.remux_timeout_ms.max(1));
-        loop {
-            let session = self.get_transcode_session(session_id).await?;
-            match session.state {
-                TranscodeSessionState::Finished => {
-                    if !path_exists(&output_path)? {
-                        return Err(NakoError::storage_io(
-                            output_path.display().to_string(),
-                            "finished remux session output is missing",
-                        ));
-                    }
-
-                    return Ok(RemuxSourceOutput {
-                        source,
-                        decision,
-                        output_path,
-                        output_container,
-                        disposition: RemuxSourceDisposition::ReusedExisting,
-                        session: Some(session),
-                    });
-                }
-                TranscodeSessionState::Cancelled => {
-                    return Ok(RemuxSourceOutput {
-                        source,
-                        decision,
-                        output_path,
-                        output_container,
-                        disposition: RemuxSourceDisposition::Cancelled,
-                        session: Some(session),
-                    });
-                }
-                TranscodeSessionState::Failed => {
-                    return Err(NakoError::Provider {
-                        provider: "ffmpeg_remux".to_owned(),
-                        message: session
-                            .failure_message
-                            .unwrap_or_else(|| "remux runner failed".to_owned()),
-                    });
-                }
-                TranscodeSessionState::Planned
-                | TranscodeSessionState::Starting
-                | TranscodeSessionState::Running
-                | TranscodeSessionState::CancelRequested => {}
-            }
-
-            if tokio::time::Instant::now() >= deadline {
-                return Err(NakoError::Provider {
-                    provider: "ffmpeg_remux".to_owned(),
-                    message: format!("remux session {session_id} timed out while waiting"),
-                });
-            }
-
-            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-        }
-    }
-
-    async fn wait_for_remux_transcode_output(
-        &self,
-        session_id: TranscodeSessionId,
-    ) -> Result<TranscodeSessionRecord> {
-        let deadline = tokio::time::Instant::now()
-            + std::time::Duration::from_millis(self.config.remux_timeout_ms.max(1));
-        loop {
-            let session = self.get_transcode_session(session_id).await?;
-            if session.kind != TranscodeSessionKind::Remux {
-                return Err(NakoError::InvalidInput {
-                    message: format!("session {session_id} is not a remux session"),
-                });
-            }
-            match session.state {
-                TranscodeSessionState::Finished => {
-                    if !path_exists(&session.output_path)? {
-                        return Err(NakoError::storage_io(
-                            session.output_path.display().to_string(),
-                            "finished remux session output is missing",
-                        ));
-                    }
-
-                    return Ok(session);
-                }
-                TranscodeSessionState::Cancelled => {
-                    return Err(NakoError::Provider {
-                        provider: "ffmpeg_remux".to_owned(),
-                        message: "remux session was cancelled".to_owned(),
-                    });
-                }
-                TranscodeSessionState::Failed => {
-                    return Err(NakoError::Provider {
-                        provider: "ffmpeg_remux".to_owned(),
-                        message: session
-                            .failure_message
-                            .unwrap_or_else(|| "remux runner failed".to_owned()),
-                    });
-                }
-                TranscodeSessionState::Planned
-                | TranscodeSessionState::Starting
-                | TranscodeSessionState::Running
-                | TranscodeSessionState::CancelRequested => {}
-            }
-
-            if tokio::time::Instant::now() >= deadline {
-                return Err(NakoError::Provider {
-                    provider: "ffmpeg_remux".to_owned(),
-                    message: format!("remux session {session_id} timed out while waiting"),
-                });
-            }
-
-            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-        }
-    }
-
-    async fn remux_source_context(
-        &self,
-        request: &RemuxSourceRequest,
-        effective_policy: impl Into<Option<EffectivePlaybackPolicy>>,
-    ) -> Result<RemuxSourceContext> {
-        let source = self.get_source_or_not_found(request.source_id).await?;
-        let probe =
-            PlaybackRuntimeStore::get_media_probe(self.runtime_store.as_ref(), source.id).await?;
-        let (uri, backend) = self.storage_backend_for_media_source(&source).await?;
-        let mut context = playback_selection_context(&uri, backend.as_ref()).await;
-        context.preferences.remux_output_container = Some(transcode_remux_container_to_playback(
-            request.output_container,
-        ));
-        let target = playback_target_for_client(request.client.clone());
-        let target_profile = PlaybackTargetProfile::from_target(&target, context.clone());
-        let remote_input = target_profile.storage.remote;
-        let effective_policy = effective_policy
-            .into()
-            .unwrap_or_else(|| default_playback_policy_for_source(&source));
-        let decision = self.planner.plan(PlaybackPlanningRequest {
-            source: &source,
-            probe: probe.as_ref(),
-            target: &target,
-            effective_policy: &effective_policy,
-            context,
-        });
-        ensure_playback_decision_allowed(&decision)?;
-        let output_container = remux_output_container(&decision)?;
-        let profile_identity = build_playback_remux_profile(PlaybackRemuxProfileRequest {
-            output_container,
-            track_selection: playback_track_selection_to_transcode(
-                target_profile.track_selection(),
-            ),
-            remote_input: target_profile.storage.remote,
-            playback_profile_key: target_profile.identity_key(),
-        })?
-        .identity();
-        let request_identity =
-            profile_identity.bind_source(&TranscodeSourceIdentity::from_media_source(&source));
-        let staging = RemuxStagingPolicy::new(&self.config.remux_staging_root)?;
-        let output_path = staging.output_path(source.id, &request_identity, output_container)?;
-        let request_key = RemuxRequestKey {
-            source_id: source.id,
-            request_identity: request_identity.clone(),
-        }
-        .persisted_request_key();
-
-        Ok(RemuxSourceContext {
-            source,
-            decision,
-            uri,
-            backend,
-            output_path,
-            output_container,
-            request_identity,
-            request_key,
-            remote_input,
-        })
+        remux_flow::start_remux_source_with_policy(self, request, effective_policy).await
     }
 
     pub(crate) async fn hls_source(&self, request: HlsSourceRequest) -> Result<HlsSourceOutput> {
@@ -2313,35 +1810,6 @@ fn playback_policy_forbidden(decision: &PlaybackDecision) -> NakoError {
             denial.permission.as_str(),
             denial.reason.as_str()
         ),
-    }
-}
-
-#[derive(Clone, Debug)]
-struct RemuxSourceContext {
-    source: MediaSource,
-    decision: PlaybackDecision,
-    uri: StorageUri,
-    backend: Arc<super::storage::LibraryStorageBackend>,
-    output_path: PathBuf,
-    output_container: RemuxContainer,
-    request_identity: TranscodeRequestIdentity,
-    request_key: String,
-    remote_input: bool,
-}
-
-impl RemuxSourceContext {
-    fn resource_demand(&self) -> PlaybackResourceDemand {
-        PlaybackResourceDemand::remux(self.remote_input)
-    }
-
-    fn session_start(self, session: TranscodeSessionRecord) -> RemuxSessionStart {
-        RemuxSessionStart {
-            source: self.source,
-            decision: self.decision,
-            output_path: self.output_path,
-            output_container: self.output_container,
-            session,
-        }
     }
 }
 

@@ -30,7 +30,7 @@ selection.
 | Capability | Status | Authority | Next Lane |
 | --- | --- | --- | --- |
 | Direct Play byte ranges | Shipped with no-store cache baseline | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md`; `docs/workstreams/playback-streaming/` | Client/player UX and remote transport polish. |
-| Remux / Direct Stream | Shipped with no-store cache baseline | `docs/workstreams/source-aware-transcode-runtime/`; `docs/adr/0049-source-aware-transcode-runtime.md` | Container-specific compatibility reasons and TV/device profiles. |
+| Remux / Direct Stream | Shipped with no-store cache baseline and `app/playback/remux_flow.rs` lifecycle boundary | `docs/workstreams/source-aware-transcode-runtime/`; `docs/adr/0049-source-aware-transcode-runtime.md`; `.trellis/spec/nako-server/backend/directory-structure.md#scenario-playback-remux-lifecycle-orchestration` | Container-specific compatibility reasons and TV/device profiles. |
 | Playback decision model | Shipped with matrix coverage | `docs/adr/0038-playback-planning-and-transcode-policy-seams.md`; `docs/adr/0044-playback-capability-profile-planner.md`; `docs/workstreams/playback-planner-transcode-seam-deepening/`; `docs/workstreams/playback-compatibility-matrix-hardening/` | Split exhaustive device profile matrices, API reporting, or player controls into follow-ons. |
 | Playback-to-transcode Interface | Shipped deeper Interface slice | `docs/adr/0038-playback-planning-and-transcode-policy-seams.md`; `docs/adr/0045-ffmpeg-hardware-pipeline-planner.md`; `docs/workstreams/transcode-interface-and-runtime-plan-deepening/` | Extend the transcode-owned runtime/execution planners in HDR and future filter lanes; do not reintroduce server-side raw FFmpeg request assembly. |
 | Browser playback tickets | Shipped | `docs/adr/0036-short-lived-browser-playback-tickets.md`; `docs/workstreams/browser-playback-auth-transport/` | Player integration and cross-device resume polish. |
@@ -85,6 +85,14 @@ The playback resource admission first bounded-wait slice is process-local:
 ordinary HLS source and playlist startup use `HlsStart` before FFmpeg input
 staging, supersede continues to use `HlsSupersede`, and Direct Play remote
 stream admission remains non-blocking.
+
+Remux lifecycle orchestration is now a server-side app boundary in
+`crates/nako-server/src/app/playback/remux_flow.rs`: the playback app root keeps
+thin Remux entry points, while source context construction, immediate resource
+admission, background start, playback-session linkage, FFmpeg input
+staging/release, active/completed session reuse, and output waiting stay in the
+focused flow module. Keep public API, DTO, schema, and generated SDK shape
+unchanged for this boundary.
 
 The HEVC/AV1 HLS output policy first slice recognizes H264, HEVC/H265, and AV1
 as typed profile policy values while keeping H264/AAC as the only executable
