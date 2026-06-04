@@ -1064,3 +1064,38 @@ Implemented a typed bounded HlsStart admission policy for ordinary HLS startup, 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 26: Playback remux lifecycle extraction
+
+**Date**: 2026-06-04
+**Task**: Playback remux lifecycle extraction
+**Package**: nako-server
+**Branch**: `main`
+
+### Summary
+
+Extracted Remux playback lifecycle handling into remux_flow, added focused Remux lifecycle tests, updated server/spec playback architecture notes, and archived the completed Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4aba2b1f` | (see git log) |
+| `d1512cb0` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
