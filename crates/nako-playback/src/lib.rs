@@ -983,6 +983,76 @@ mod tests {
     }
 
     #[test]
+    fn unsupported_container_with_burn_in_subtitle_requirement_does_not_remux() {
+        let source = media_source("movie.mkv");
+        let mut video = stream(MediaStreamKind::Video, Some("h264"));
+        video.index = 0;
+        let mut audio = stream(MediaStreamKind::Audio, Some("aac"));
+        audio.index = 1;
+        let mut subtitle = stream(MediaStreamKind::Subtitle, Some("ass"));
+        subtitle.index = 2;
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("matroska,webm".to_owned()),
+            bit_rate: None,
+            streams: vec![video, audio, subtitle],
+        };
+
+        let decision = plan_with_policy(
+            &source,
+            Some(&probe),
+            ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext {
+                storage: PlaybackStorageContext::default(),
+                preferences: PlaybackPreferenceContext {
+                    requested_subtitle_stream: Some(2),
+                    ..PlaybackPreferenceContext::default()
+                },
+            },
+            EffectivePlaybackPolicy::from_library_access(
+                source.library_id,
+                nako_core::LibraryAccessLevel::Play,
+            ),
+        );
+
+        assert_eq!(decision.mode, PlaybackMode::Transcode);
+        assert_eq!(
+            decision.reason,
+            PlaybackDecisionReason::ClientContainerUnsupported
+        );
+        assert!(
+            decision
+                .report
+                .direct_play
+                .has(PlaybackCompatibilityCondition::ContainerUnsupported)
+        );
+        assert!(
+            decision
+                .report
+                .remux
+                .has(PlaybackCompatibilityCondition::SubtitleDeliveryUnsupported)
+        );
+
+        let requirement = decision
+            .transcode_requirement()
+            .expect("burn-in-only subtitle delivery should force HLS transcode");
+        assert_eq!(
+            requirement.subtitle_strategy,
+            PlaybackSubtitleStrategy::BurnInSelected
+        );
+        assert!(
+            requirement
+                .reasons
+                .contains(&PlaybackCompatibilityCondition::ContainerUnsupported)
+        );
+        assert!(
+            requirement
+                .reasons
+                .contains(&PlaybackCompatibilityCondition::SubtitleDeliveryUnsupported)
+        );
+    }
+
+    #[test]
     fn planning_request_can_choose_requested_remux_output_container() {
         let source = media_source("movie.mkv");
         let probe = MediaProbeResult {
@@ -1759,6 +1829,59 @@ mod tests {
             PlaybackSubtitleStrategy::SidecarSelected
         );
         assert_eq!(requirement.track_selection.subtitle_stream, Some(2));
+    }
+
+    #[test]
+    fn unknown_hls_subtitle_codec_facts_preserve_legacy_sidecar_strategy() {
+        for codec in [None, Some("   ")] {
+            let source = media_source("movie.mp4");
+            let mut video = stream(MediaStreamKind::Video, Some("h264"));
+            video.index = 0;
+            let mut audio = stream(MediaStreamKind::Audio, Some("aac"));
+            audio.index = 1;
+            let mut subtitle = stream(MediaStreamKind::Subtitle, codec);
+            subtitle.index = 2;
+            let probe = MediaProbeResult {
+                duration_ms: Some(1_000),
+                container: Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned()),
+                bit_rate: None,
+                streams: vec![video, audio, subtitle],
+            };
+
+            let decision = plan_with_policy(
+                &source,
+                Some(&probe),
+                ClientPlaybackCapabilities::default(),
+                PlaybackSelectionContext {
+                    storage: PlaybackStorageContext::default(),
+                    preferences: PlaybackPreferenceContext {
+                        requested_subtitle_stream: Some(2),
+                        transcode_output_container: Some(PlaybackTranscodeContainer::Hls),
+                        ..PlaybackPreferenceContext::default()
+                    },
+                },
+                EffectivePlaybackPolicy::from_library_access(
+                    source.library_id,
+                    nako_core::LibraryAccessLevel::Play,
+                ),
+            );
+
+            assert!(
+                !decision
+                    .report
+                    .direct_play
+                    .has(PlaybackCompatibilityCondition::SubtitleDeliveryUnsupported),
+                "unknown codec {codec:?} should not be treated as burn-in-only"
+            );
+            let requirement = decision
+                .transcode_requirement()
+                .expect("requested HLS transcode should carry subtitle strategy");
+            assert_eq!(
+                requirement.subtitle_strategy,
+                PlaybackSubtitleStrategy::SidecarSelected,
+                "unknown codec {codec:?} should preserve legacy sidecar behavior"
+            );
+        }
     }
 
     #[test]

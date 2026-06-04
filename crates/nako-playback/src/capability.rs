@@ -11,6 +11,12 @@ use crate::{
 
 const HLS_SIDECAR_SUBTITLE_CODECS: &[&str] = &["mov_text", "srt", "subrip", "text", "webvtt"];
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum HlsSubtitleDeliverySupport {
+    SidecarCapable,
+    BurnInRequired,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PlaybackCompatibilityCondition {
@@ -231,7 +237,8 @@ impl PlaybackTargetProfile {
         } else if output_container != PlaybackTranscodeContainer::Hls {
             PlaybackSubtitleStrategy::OmitSelected
         } else if self.supports_subtitles()
-            && hls_sidecar_subtitle_delivery_supported(selected_subtitle_codec)
+            && hls_subtitle_delivery_support(selected_subtitle_codec)
+                == HlsSubtitleDeliverySupport::SidecarCapable
         {
             PlaybackSubtitleStrategy::SidecarSelected
         } else {
@@ -385,7 +392,11 @@ pub(crate) fn evaluate_direct_play(
         );
     }
 
-    if selected_subtitle_delivery_unsupported(probe, profile, direct_play_profile) {
+    if selected_subtitle_delivery_unsupported(
+        probe,
+        profile,
+        direct_play_profile.supports_subtitles,
+    ) {
         push_unique(
             &mut reasons,
             PlaybackCompatibilityCondition::SubtitleDeliveryUnsupported,
@@ -440,6 +451,13 @@ pub(crate) fn evaluate_remux(
         profile.supports_hdr(),
         &mut reasons,
     );
+
+    if selected_subtitle_delivery_unsupported(Some(probe), profile, profile.supports_subtitles()) {
+        push_unique(
+            &mut reasons,
+            PlaybackCompatibilityCondition::SubtitleDeliveryUnsupported,
+        );
+    }
 
     if reasons.is_empty() {
         PlaybackCapabilityEvaluation::supported()
@@ -538,13 +556,13 @@ fn append_stream_compatibility_reasons(
 fn selected_subtitle_delivery_unsupported(
     probe: Option<&MediaProbeResult>,
     profile: &PlaybackTargetProfile,
-    direct_play_profile: &DirectPlayCapabilityProfile,
+    supports_subtitles: bool,
 ) -> bool {
     let track_selection = profile.track_selection_for_probe(probe);
     let Some(selected_subtitle_stream) = track_selection.subtitle_stream else {
         return false;
     };
-    if !direct_play_profile.supports_subtitles {
+    if !supports_subtitles {
         return true;
     }
 
@@ -552,8 +570,10 @@ fn selected_subtitle_delivery_unsupported(
         return false;
     };
 
-    selected_subtitle_stream_by_index(probe, selected_subtitle_stream)
-        .is_some_and(|stream| !hls_sidecar_subtitle_delivery_supported(stream.codec.as_deref()))
+    selected_subtitle_stream_by_index(probe, selected_subtitle_stream).is_some_and(|stream| {
+        hls_subtitle_delivery_support(stream.codec.as_deref())
+            == HlsSubtitleDeliverySupport::BurnInRequired
+    })
 }
 
 fn selected_subtitle_stream_by_index(
@@ -565,15 +585,19 @@ fn selected_subtitle_stream_by_index(
     })
 }
 
-pub(crate) fn hls_sidecar_subtitle_delivery_supported(codec: Option<&str>) -> bool {
-    codec
-        .map(str::trim)
-        .filter(|codec| !codec.is_empty())
-        .is_none_or(|codec| {
-            HLS_SIDECAR_SUBTITLE_CODECS
-                .iter()
-                .any(|supported| codec.eq_ignore_ascii_case(supported))
-        })
+fn hls_subtitle_delivery_support(codec: Option<&str>) -> HlsSubtitleDeliverySupport {
+    let Some(codec) = codec.map(str::trim).filter(|codec| !codec.is_empty()) else {
+        return HlsSubtitleDeliverySupport::SidecarCapable;
+    };
+
+    if HLS_SIDECAR_SUBTITLE_CODECS
+        .iter()
+        .any(|supported| codec.eq_ignore_ascii_case(supported))
+    {
+        HlsSubtitleDeliverySupport::SidecarCapable
+    } else {
+        HlsSubtitleDeliverySupport::BurnInRequired
+    }
 }
 
 fn codec_allowed(codec: Option<&str>, allowed: &[String]) -> bool {
