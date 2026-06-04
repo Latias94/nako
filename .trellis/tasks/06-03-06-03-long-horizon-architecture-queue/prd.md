@@ -191,6 +191,11 @@ already mapped denial behavior and follow-ons.
   slice deliberately keeps metadata-only ETag preflight, weak/wildcard
   validators, immutable/shared-cache behavior, and derivative cache persistence
   as follow-ons.
+* `06-04-06-04-playback-byte-cache-control-headers-first-slice` shipped the
+  Direct Play/Remux playback-byte cache baseline: media byte GET/range and
+  HEAD/preflight responses that share `apply_direct_play_headers` now include
+  `Cache-Control: no-store`, while HLS and selected artwork keep their separate
+  cache helpers and semantics.
 
 ## Verification Plan
 

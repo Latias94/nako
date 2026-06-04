@@ -266,9 +266,10 @@ HTTP owns extraction and validation; app code receives only the safe request ID.
 
 - HLS playlist responses must include `Cache-Control: no-store`.
 - HLS segment responses must include `Cache-Control: no-store`.
-- Keep this policy HLS-only. Do not add it through
-  `apply_direct_play_headers`, because that would change Direct Play and Remux
-  behavior.
+- Keep HLS response construction separate from Direct Play and Remux response
+  construction. Do not change `apply_direct_play_headers` from an HLS-only task;
+  Direct Play and Remux cache policy belongs to the dedicated playback byte
+  route contract below.
 - Preserve existing content type, content length, byte range, playback session
   id, auth, ticket, and status behavior.
 - Do not add ETags, Last-Modified, immutable segment caching, public/Admin DTOs,
@@ -281,7 +282,7 @@ HTTP owns extraction and validation; app code receives only the safe request ID.
 |-----------|----------|
 | HLS playlist response is authored | Includes `Cache-Control: no-store` plus existing playlist headers. |
 | HLS segment response is served | Includes `Cache-Control: no-store` plus existing byte response headers. |
-| Direct Play or Remux response is served | Cache behavior is unchanged by the HLS helper. |
+| Direct Play or Remux response is served | Cache behavior is controlled by `apply_direct_play_headers`, not by the HLS helper. |
 | Segment is missing, unauthorized, unfinished, or invalid | Existing error/status behavior is unchanged. |
 
 ### 5. Good / Base / Bad Cases
@@ -290,7 +291,8 @@ HTTP owns extraction and validation; app code receives only the safe request ID.
   segment response construction.
 - Base: no-store is conservative until token-aware cache keys, immutable
   artifact identity, and conditional GET behavior are specified.
-- Bad: adding cache headers in `apply_direct_play_headers` for an HLS-only task.
+- Bad: editing `apply_direct_play_headers` while trying to fix an HLS-only
+  response bug.
 - Bad: adding `ETag` or immutable `max-age` for session artifacts without
   access-control and invalidation tests.
 
@@ -305,14 +307,14 @@ HTTP owns extraction and validation; app code receives only the safe request ID.
 #### Wrong
 
 ```rust
-fn apply_direct_play_headers(response: &mut Response, plan: &DirectPlayResponsePlan) {
+fn hls_segment(...) -> Response {
+    let mut response = stream_direct_play_response(...).await?;
     response
-        .headers_mut()
-        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
 }
 ```
 
-This changes Direct Play and Remux cache semantics while trying to fix HLS.
+This routes HLS session artifacts through Direct Play/Remux byte response
+assembly instead of the manifest-backed HLS response path.
 
 #### Correct
 
@@ -326,6 +328,105 @@ fn apply_hls_artifact_cache_headers(response: &mut Response) {
 
 HLS session artifacts get an explicit conservative cache policy without
 changing other playback response types.
+
+## Scenario: Playback Byte Cache-Control
+
+### 1. Scope / Trigger
+
+- Trigger: changing Direct Play or Remux media byte responses in
+  `crates/nako-server`.
+- Code evidence: `src/http/playback.rs`,
+  `src/http/tests/playback.rs`.
+- Architecture authority: ADR 0017, ADR 0036, ADR 0053, and
+  `docs/architecture/CONTROL_PLANE.md`.
+
+### 2. Signatures
+
+- `stream_direct_play_response(body, uri, plan) -> ApiResult<Response>` owns
+  Direct Play streaming response assembly.
+- `stream_local_file_response(path, uri, plan) -> ApiResult<Response>` owns
+  local Direct Play byte response assembly.
+- `empty_direct_play_response(plan) -> Response` owns Direct Play and Remux
+  HEAD/preflight or range-not-satisfiable empty response assembly.
+- `apply_direct_play_headers(&mut Response, &DirectPlayResponsePlan)` owns
+  Direct Play and Remux byte response headers.
+
+### 3. Contracts
+
+- Direct Play and Remux media byte responses must include
+  `Cache-Control: no-store`.
+- This applies to GET, HEAD/preflight, partial content, and
+  range-not-satisfiable responses that use `apply_direct_play_headers`.
+- Preserve existing status, `Accept-Ranges`, `Content-Type`, `Content-Length`,
+  optional `Content-Range`, playback session header, auth, ticket validation,
+  and body/no-body behavior.
+- Keep this policy separate from HLS and selected artwork helpers.
+- Do not add ETags, conditional GET, public/Admin DTOs, generated contracts,
+  schema changes, immutable headers, or shared-cache/CDN behavior without a
+  dedicated cache-contract task.
+
+### 4. Validation & Error Matrix
+
+| Condition | Behavior |
+|-----------|----------|
+| Direct Play GET/range response is served | Includes `Cache-Control: no-store` plus existing byte/range headers. |
+| Direct Play HEAD/preflight response is served | Includes `Cache-Control: no-store` with existing headers and empty body. |
+| Remux GET/range response is served | Includes `Cache-Control: no-store` plus existing byte/range/session headers. |
+| Remux HEAD/preflight response is served | Includes `Cache-Control: no-store` with existing headers and empty body. |
+| HLS playlist/segment response is served | Uses the HLS-specific no-store helper. |
+| Selected artwork image response is served | Uses the selected artwork private cache/ETag contract, not playback byte policy. |
+
+### 5. Good / Base / Bad Cases
+
+- Good: add the header in `apply_direct_play_headers`, because that helper is
+  already shared by Direct Play and Remux byte response paths.
+- Base: Direct Play and Remux remain uncacheable transport responses; they do
+  not get ETags or conditional GET in this slice.
+- Bad: adding playback byte `no-store` by editing individual route handlers,
+  which misses HEAD, range-not-satisfiable, or remux reuse paths.
+- Bad: reusing selected artwork private cache headers for media byte routes.
+
+### 6. Tests Required
+
+- HTTP route test: Direct Play GET/range response includes
+  `Cache-Control: no-store`.
+- HTTP route test: Direct Play HEAD response includes `Cache-Control: no-store`
+  and no body.
+- HTTP route test: Remux GET/range response includes `Cache-Control: no-store`.
+- HTTP route test: Remux HEAD response includes `Cache-Control: no-store` and
+  no body.
+- Focused gates:
+  `cargo nextest run -p nako-server direct_stream_head_returns_headers_without_body --no-fail-fast`,
+  `cargo nextest run -p nako-server direct_stream_route_records_playback_session_without_transcode_artifact --no-fail-fast`,
+  `cargo nextest run -p nako-server remux_stream_route_runs_and_reuses_completed_output --no-fail-fast`, and
+  `cargo nextest run -p nako-server head_remux_stream_route_exposes_session_without_body --no-fail-fast`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+async fn remux_stream_source(...) -> Response {
+    let mut response = stream_local_file_response(...).await?;
+    response
+        .headers_mut()
+        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    response
+}
+```
+
+This misses Direct Play, HEAD/preflight, and empty response paths.
+
+#### Correct
+
+```rust
+fn apply_direct_play_headers(response: &mut Response, plan: &DirectPlayResponsePlan) {
+    let headers = response.headers_mut();
+    headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+}
+```
+
+The shared byte response helper covers Direct Play and Remux consistently.
 
 ## Scenario: Selected Artwork Image Cache-Control
 

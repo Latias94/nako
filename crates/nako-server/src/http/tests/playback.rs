@@ -837,6 +837,13 @@ async fn direct_stream_head_returns_headers_without_body() {
     assert_eq!(
         response
             .headers()
+            .get(header::CACHE_CONTROL)
+            .and_then(|value| value.to_str().ok()),
+        Some("no-store")
+    );
+    assert_eq!(
+        response
+            .headers()
             .get(header::CONTENT_TYPE)
             .and_then(|value| value.to_str().ok()),
         Some("video/mp4")
@@ -863,6 +870,13 @@ async fn direct_stream_route_records_playback_session_without_transcode_artifact
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
+    assert_eq!(
+        response
+            .headers()
+            .get(header::CACHE_CONTROL)
+            .and_then(|value| value.to_str().ok()),
+        Some("no-store")
+    );
     let session_id = response
         .headers()
         .get(PLAYBACK_SESSION_ID_HEADER)
@@ -1572,6 +1586,13 @@ async fn remux_stream_route_runs_and_reuses_completed_output() {
             .and_then(|value| value.to_str().ok()),
         Some("bytes 1-4/7")
     );
+    assert_eq!(
+        response
+            .headers()
+            .get(header::CACHE_CONTROL)
+            .and_then(|value| value.to_str().ok()),
+        Some("no-store")
+    );
     let session_header = response
         .headers()
         .get(PLAYBACK_SESSION_ID_HEADER)
@@ -1698,6 +1719,13 @@ async fn head_remux_stream_route_exposes_session_without_body() {
             .get(header::CONTENT_TYPE)
             .and_then(|value| value.to_str().ok()),
         Some("video/mp4")
+    );
+    assert_eq!(
+        response
+            .headers()
+            .get(header::CACHE_CONTROL)
+            .and_then(|value| value.to_str().ok()),
+        Some("no-store")
     );
     let session =
         latest_playback_session_for_source(&store, source.id, PlaybackSessionMode::Remux).await;

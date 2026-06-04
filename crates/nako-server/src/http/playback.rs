@@ -1338,6 +1338,7 @@ fn apply_direct_play_headers(response: &mut Response, plan: &DirectPlayResponseP
         HeaderValue::from_str(&plan.body_len.to_string())
             .expect("content length is a valid header"),
     );
+    headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
 
     if let Some(content_range) = &plan.content_range {
         headers.insert(

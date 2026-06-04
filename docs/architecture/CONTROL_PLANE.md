@@ -266,6 +266,10 @@ Current shipped artifact-cache baseline:
   no-store` because they are session/ticket scoped playback artifacts. Immutable
   segment caching, ETags, and conditional GET behavior remain follow-ons until
   token-aware cache keys and artifact invalidation are specified.
+- Direct Play and Remux media byte GET/HEAD/range responses are explicitly
+  `Cache-Control: no-store` because they are authenticated or short-lived-ticket
+  scoped media transport responses. Media-byte ETags, conditional GET, and
+  shared-cache behavior remain follow-ons.
 - Authenticated selected artwork image GET/HEAD responses now use
   `Cache-Control: private, max-age=86400` with existing safe ETags. Exact
   matching `If-None-Match` requests return `304 Not Modified` with ETag/cache
