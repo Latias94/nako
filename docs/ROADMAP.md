@@ -360,7 +360,8 @@ Follow-ons:
 - `proposed:generated-artifact-recovery-one-click-wrapper`;
 - `proposed:web-generated-artifact-repair-copy-polish`;
 - `docs/workstreams/metadata-provider-depth-and-precision/` (closed);
-- `proposed:admin-settings-api-backed-restoration`.
+- `.trellis/tasks/archive/2026-06/06-02-01b-admin-settings-api-backed-restoration/`
+  (closed Admin settings API-backed restoration).
 
 Previous architecture focus:
 
@@ -383,7 +384,8 @@ Follow-ons:
 
 - `docs/workstreams/generated-artifact-apply-repair-actions/` (closed);
 - `docs/workstreams/metadata-provider-depth-and-precision/` (closed);
-- `proposed:admin-settings-api-backed-restoration`.
+- `.trellis/tasks/archive/2026-06/06-02-01b-admin-settings-api-backed-restoration/`
+  (closed Admin settings API-backed restoration).
 
 Previous architecture focus:
 
@@ -457,7 +459,8 @@ Follow-ons:
 
 - `docs/workstreams/generated-artifact-apply-operations-repair/` (closed);
 - `docs/workstreams/generated-artifact-apply-repair-actions/` (closed);
-- `proposed:admin-settings-api-backed-restoration`.
+- `.trellis/tasks/archive/2026-06/06-02-01b-admin-settings-api-backed-restoration/`
+  (closed Admin settings API-backed restoration).
 
 Previous architecture focus:
 

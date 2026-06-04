@@ -263,10 +263,10 @@ Evidence workstreams:
 - `docs/workstreams/web-admin-generated-artifact-recovery-ui/` (closed)
 - `docs/workstreams/provider-governance-bulk-review/` (closed)
 - `docs/workstreams/web-mvp-live-smoke/` (closed)
+- `.trellis/tasks/archive/2026-06/06-02-01b-admin-settings-api-backed-restoration/`
 
 Proposed lanes:
 
-- `proposed:admin-settings-api-backed-restoration`
 - `proposed:web-public-client-library-scoped-item-browse`
 - `proposed:web-public-client-release-smoke-script`
 - `proposed:web-player-error-recovery-ux`
@@ -354,11 +354,11 @@ Evidence workstreams:
 - `docs/workstreams/admin-web-v2-system-settings-route/`
 - `docs/workstreams/admin-web-v2-settings-mutation-authority/`
 - `docs/workstreams/admin-operations-read-models/`
+- `.trellis/tasks/archive/2026-06/06-02-01b-admin-settings-api-backed-restoration/`
 
 Proposed lanes:
 
 - `proposed:self-hosted-remote-access-cookbook`
 - `proposed:self-hosted-remote-access-and-endpoint-discovery`
-- `proposed:admin-settings-api-backed-restoration`
 - `proposed:backup-classification-for-generated-artifacts`
 - `proposed:config-hot-apply-and-restart-required-model`
