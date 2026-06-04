@@ -184,6 +184,13 @@ already mapped denial behavior and follow-ons.
   headers, auth/access checks, and variant behavior. Conditional GET / 304,
   immutable or shared-cache semantics, derivative cache persistence, and
   selected-artwork invalidation remain follow-ons.
+* `06-04-06-04-selected-artwork-conditional-get-first-slice` shipped the first
+  selected artwork conditional-response baseline: exact `If-None-Match` matches
+  against the current safe quoted ETag now return `304 Not Modified` with
+  ETag/cache headers and no body for original and variant image routes. The
+  slice deliberately keeps metadata-only ETag preflight, weak/wildcard
+  validators, immutable/shared-cache behavior, and derivative cache persistence
+  as follow-ons.
 
 ## Verification Plan
 

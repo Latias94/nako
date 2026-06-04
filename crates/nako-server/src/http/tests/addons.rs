@@ -68,6 +68,17 @@ fn assert_selected_artwork_cache_control(headers: &HeaderMap) {
     );
 }
 
+async fn assert_selected_artwork_not_modified(response: Response, expected_etag: &str) {
+    assert_eq!(response.status(), StatusCode::NOT_MODIFIED);
+    assert_selected_artwork_cache_control(response.headers());
+    assert_eq!(
+        response.headers().get(header::ETAG).unwrap(),
+        HeaderValue::from_str(expected_etag).unwrap()
+    );
+    let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert!(body.is_empty());
+}
+
 pub(super) async fn tiny_artwork_server() -> (String, u64) {
     artwork_server(StatusCode::OK, "image/png", tiny_png()).await
 }
@@ -11209,6 +11220,42 @@ async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks()
         .unwrap();
     assert_eq!(image_bytes.as_ref(), expected_bytes.as_slice());
 
+    let original_not_modified = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&published.image.url)
+                .header(header::IF_NONE_MATCH, &original_etag)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_selected_artwork_not_modified(original_not_modified, &original_etag).await;
+
+    let original_miss = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&published.image.url)
+                .header(header::IF_NONE_MATCH, "\"nako-img-v1-missing\"")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(original_miss.status(), StatusCode::OK);
+    assert_eq!(
+        original_miss.headers().get(header::ETAG).unwrap(),
+        HeaderValue::from_str(&original_etag).unwrap()
+    );
+    let original_miss_body = to_bytes(original_miss.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    assert_eq!(original_miss_body.as_ref(), expected_bytes.as_slice());
+
     let head_response = router
         .clone()
         .oneshot(
@@ -11238,6 +11285,20 @@ async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks()
         .await
         .unwrap();
     assert!(head_body.is_empty());
+
+    let head_not_modified = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::HEAD)
+                .uri(&published.image.url)
+                .header(header::IF_NONE_MATCH, &original_etag)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_selected_artwork_not_modified(head_not_modified, &original_etag).await;
 
     let variant_url = format!("{}?width=2", published.image.url);
     let variant_response = router
@@ -11279,6 +11340,49 @@ async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks()
     assert_eq!(variant_image.width(), 2);
     assert_eq!(variant_image.height(), 1);
     assert_ne!(variant_bytes.as_ref(), expected_bytes.as_slice());
+
+    let variant_not_modified = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&variant_url)
+                .header(header::IF_NONE_MATCH, &variant_etag)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_selected_artwork_not_modified(variant_not_modified, &variant_etag).await;
+
+    let variant_original_etag_miss = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&variant_url)
+                .header(header::IF_NONE_MATCH, &original_etag)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(variant_original_etag_miss.status(), StatusCode::OK);
+    assert_eq!(
+        variant_original_etag_miss
+            .headers()
+            .get(header::ETAG)
+            .unwrap(),
+        HeaderValue::from_str(&variant_etag).unwrap()
+    );
+    let variant_original_etag_miss_body =
+        to_bytes(variant_original_etag_miss.into_body(), usize::MAX)
+            .await
+            .unwrap();
+    assert_eq!(
+        variant_original_etag_miss_body.as_ref(),
+        variant_bytes.as_ref()
+    );
 
     let variant_head_response = router
         .clone()

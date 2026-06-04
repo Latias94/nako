@@ -345,10 +345,13 @@ changing other playback response types.
   GET route translation.
 - `head_image(...) -> ApiResult<impl IntoResponse>` owns public selected
   artwork HEAD route translation.
-- `selected_image_response(image, include_body) -> Response` owns shared
-  selected artwork byte response header assembly.
+- `selected_image_response(image, include_body, if_none_match) -> Response`
+  owns shared selected artwork byte response header assembly and conditional
+  response matching.
 - `apply_selected_artwork_cache_headers(&mut HeaderMap)` is the selected
   artwork-only helper for the private client-cache baseline.
+- `selected_image_etag_matches(if_none_match, etag) -> bool` is the route-local
+  exact-match guard for selected artwork conditional responses.
 
 ### 3. Contracts
 
@@ -356,13 +359,20 @@ changing other playback response types.
   `Cache-Control: private, max-age=86400`.
 - Selected artwork image HEAD responses must include the same cache policy and
   must not include a response body.
+- Selected artwork image GET/HEAD responses with an exact matching
+  `If-None-Match` value must return `304 Not Modified`.
+- A selected artwork 304 response must include the current safe `ETag` and
+  `Cache-Control: private, max-age=86400`, and must not include a response
+  body.
 - Keep this policy selected-artwork-only. Do not apply it to HLS, Direct Play,
   Remux, Admin JSON routes, or unrelated public JSON catalog routes.
 - Preserve existing `Content-Type`, `Content-Length`, safe `ETag`, auth,
   library access, selected artwork lookup, and variant query behavior.
-- Do not add `If-None-Match`, `304 Not Modified`, `Last-Modified`, immutable
-  headers, generated DTOs, schema changes, or shared-cache/CDN behavior without
-  a dedicated cache-contract task.
+- Auth and library access checks must run before any selected artwork 304
+  response.
+- Do not add metadata-only ETag preflight, weak-validator parsing, wildcard
+  validators, `Last-Modified`, immutable headers, generated DTOs, schema
+  changes, or shared-cache/CDN behavior without a dedicated cache-contract task.
 
 ### 4. Validation & Error Matrix
 
@@ -371,6 +381,8 @@ changing other playback response types.
 | Original selected artwork GET response is authored | Includes `Cache-Control: private, max-age=86400` plus existing content headers and safe ETag. |
 | Original selected artwork HEAD response is authored | Includes the same cache policy, content headers, and safe ETag with an empty body. |
 | Resized selected artwork variant GET/HEAD response is authored | Includes the same cache policy while preserving variant-specific content length and ETag. |
+| `If-None-Match` exactly matches the current original or variant ETag | Returns `304 Not Modified` with current ETag, selected artwork cache policy, and empty body. |
+| `If-None-Match` is missing, malformed, or does not match | Existing `200` GET/HEAD response behavior is unchanged. |
 | Selected artwork is missing or unauthorized | Existing not-found/forbidden behavior is unchanged. |
 | Variant query is invalid | Existing bad-request behavior is unchanged. |
 
@@ -379,12 +391,20 @@ changing other playback response types.
 - Good: call `apply_selected_artwork_cache_headers` only from
   `selected_image_response`, which is shared by the selected artwork GET and
   HEAD handlers.
+- Good: compare `If-None-Match` against the same quoted ETag `HeaderValue` that
+  will be returned on a normal selected artwork response, so matching cannot
+  drift from header authoring.
 - Base: safe selected artwork ETags continue to identify original versus
   bounded variants; the cache helper does not change ETag generation.
+- Base: 304 matching happens after the current image response has been derived.
+  A metadata-only ETag preflight is a performance follow-on, not part of the
+  first conditional-response contract.
 - Bad: reusing the HLS `no-store` helper for selected artwork, which defeats
   client artwork caching.
 - Bad: applying `private, max-age=86400` through a generic byte-route helper
   that changes HLS, Direct Play, Remux, or Admin response behavior.
+- Bad: returning 304 before auth/library access checks or matching against raw
+  user-provided ETag strings instead of the route-authored safe ETag header.
 
 ### 6. Tests Required
 
@@ -394,6 +414,10 @@ changing other playback response types.
   cache policy and an empty body.
 - HTTP route test: resized selected artwork GET/HEAD responses include the same
   cache policy while preserving variant-specific ETags.
+- HTTP route test: matching `If-None-Match` returns `304 Not Modified` with the
+  current ETag/cache headers and no body.
+- HTTP route test: non-matching `If-None-Match` preserves normal `200` image
+  response behavior.
 - Focused gates:
   `cargo nextest run -p nako-server public_catalog_and_image_routes_serve_selected_artwork_without_locator_leaks --no-fail-fast`
   and
@@ -414,10 +438,24 @@ fn selected_image_response(...) -> Response {
 This treats long-lived authenticated artwork like session-scoped HLS playback
 artifacts and disables useful private client caching.
 
+#### Wrong
+
+```rust
+async fn get_image(headers: HeaderMap, ...) -> Response {
+    if headers.contains_key(header::IF_NONE_MATCH) {
+        return StatusCode::NOT_MODIFIED.into_response();
+    }
+    ...
+}
+```
+
+This can bypass auth/access checks and returns 304 without proving the client
+has the current selected artwork ETag.
+
 #### Correct
 
 ```rust
-fn selected_image_response(...) -> Response {
+fn selected_image_response(image: ManagedArtworkImageBytes, if_none_match: Option<&HeaderValue>) -> Response {
     let headers = response.headers_mut();
     apply_selected_artwork_cache_headers(headers);
     response
@@ -426,3 +464,22 @@ fn selected_image_response(...) -> Response {
 
 Selected artwork gets a route-specific private cache baseline without changing
 playback artifacts or unrelated routes.
+
+#### Correct
+
+```rust
+if etag
+    .as_ref()
+    .is_some_and(|etag| selected_image_etag_matches(if_none_match, etag))
+{
+    let mut response = Body::empty().into_response();
+    *response.status_mut() = StatusCode::NOT_MODIFIED;
+    let headers = response.headers_mut();
+    apply_selected_artwork_cache_headers(headers);
+    headers.insert(header::ETAG, etag.clone());
+    return response;
+}
+```
+
+The route matches only against the current safe ETag after normal selected
+artwork lookup and access checks.

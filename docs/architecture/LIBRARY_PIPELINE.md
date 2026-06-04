@@ -33,7 +33,7 @@ Storage event or scheduled scan
 | Douban provider | Shipped MVP plus endpoint-backed capability precision | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/douban-subject-kind-precision/` | Accepted-review application, Admin/Web governance, or endpoint-backed TV/episode follow-on. |
 | Bangumi provider | Shipped MVP plus endpoint-backed episode graph preview | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/bangumi-relations-and-episode-depth/` | Accepted-review application or Admin/Web governance before preview graph depth becomes accepted hierarchy. |
 | Addon-assisted metadata | Shipped guarded apply, bulk apply, provider mapping breadth, read-only apply recovery foundation, Web recovery UI, and repair seam proof | addon architecture lanes; `docs/workstreams/generated-artifact-metadata-authority-apply/`; `docs/workstreams/generated-artifact-bulk-metadata-apply/`; `docs/workstreams/generated-artifact-provider-mapping-breadth/`; `docs/workstreams/generated-artifact-apply-operations-repair/`; `docs/workstreams/web-admin-generated-artifact-recovery-ui/`; `docs/workstreams/generated-artifact-apply-repair-actions/` | Optional one-click repair wrapper or Web repair copy polish. |
-| Artwork artifact lifecycle | Shipped selection, lifecycle, variant, remediation foundation, and selected artwork private cache-control baseline | managed artwork lanes | Conditional GET, delivery cache placeholders, and broader derivative policy. |
+| Artwork artifact lifecycle | Shipped selection, lifecycle, variant, remediation foundation, selected artwork private cache-control, and exact conditional GET baseline | managed artwork lanes | Metadata-only ETag preflight, delivery cache placeholders, and broader derivative policy. |
 | Watcher/debounce | Weak; stable-candidate evidence foundation shipped | This document | Continue `library-watcher-and-media-intake-stability` toward runtime/product integration. |
 
 ## Workstream Evidence
@@ -394,15 +394,16 @@ Exit criteria:
 
 ### artwork-delivery-cache-placeholder
 
-Status: Selected artwork byte routes have a private cache-control baseline as of
-2026-06-04; the broader delivery cache lane is still open.
+Status: Selected artwork byte routes have a private cache-control baseline and
+exact `If-None-Match` / `304 Not Modified` support as of 2026-06-04; the
+broader delivery cache lane is still open.
 
 Goal: Serve artwork in client-appropriate forms instead of sending raw provider
 images everywhere.
 
 Scope:
 
-- conditional GET / 304 behavior for selected artwork;
+- metadata-only ETag preflight for selected artwork conditional responses;
 - derivative generation;
 - WebP or other client-appropriate output formats;
 - size presets;

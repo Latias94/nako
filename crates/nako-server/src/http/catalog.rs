@@ -2,7 +2,7 @@ use axum::{
     Extension, Json, Router,
     body::Body,
     extract::{Path, Query, State},
-    http::{HeaderMap, HeaderValue, header},
+    http::{HeaderMap, HeaderValue, StatusCode, header},
     response::IntoResponse,
     routing::get,
 };
@@ -106,6 +106,7 @@ pub(super) async fn get_image(
     State(app): State<NakoApp>,
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(image_id): Path<SelectedArtworkId>,
+    headers: HeaderMap,
     Query(query): Query<ImageVariantQuery>,
 ) -> ApiResult<impl IntoResponse> {
     require_selected_artwork_access(&app, &principal, image_id, RequiredLibraryAccess::Browse)
@@ -115,7 +116,11 @@ pub(super) async fn get_image(
         .artwork()
         .read_selected_image(image_id, query.into_variant_request()?)
         .await?;
-    Ok(selected_image_response(image, true))
+    Ok(selected_image_response(
+        image,
+        true,
+        headers.get(header::IF_NONE_MATCH),
+    ))
 }
 
 #[instrument(skip(app))]
@@ -123,6 +128,7 @@ pub(super) async fn head_image(
     State(app): State<NakoApp>,
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(image_id): Path<SelectedArtworkId>,
+    headers: HeaderMap,
     Query(query): Query<ImageVariantQuery>,
 ) -> ApiResult<impl IntoResponse> {
     require_selected_artwork_access(&app, &principal, image_id, RequiredLibraryAccess::Browse)
@@ -132,7 +138,11 @@ pub(super) async fn head_image(
         .artwork()
         .read_selected_image(image_id, query.into_variant_request()?)
         .await?;
-    Ok(selected_image_response(image, false))
+    Ok(selected_image_response(
+        image,
+        false,
+        headers.get(header::IF_NONE_MATCH),
+    ))
 }
 
 #[instrument(skip(app))]
@@ -442,7 +452,25 @@ async fn any_public_items_accessible(
 fn selected_image_response(
     image: crate::app::ManagedArtworkImageBytes,
     include_body: bool,
+    if_none_match: Option<&HeaderValue>,
 ) -> axum::response::Response {
+    let etag = image
+        .etag
+        .as_deref()
+        .and_then(selected_image_etag_header_value);
+    if let Some(matched_etag) = etag
+        .as_ref()
+        .filter(|etag| selected_image_etag_matches(if_none_match, etag))
+        .cloned()
+    {
+        let mut response = Body::empty().into_response();
+        *response.status_mut() = StatusCode::NOT_MODIFIED;
+        let headers = response.headers_mut();
+        apply_selected_artwork_cache_headers(headers);
+        headers.insert(header::ETAG, matched_etag);
+        return response;
+    }
+
     let mut response = if include_body {
         Body::from(image.bytes).into_response()
     } else {
@@ -460,13 +488,18 @@ fn selected_image_response(
             .expect("content length is a valid header"),
     );
     apply_selected_artwork_cache_headers(headers);
-    if let Some(etag) = image.etag {
-        let quoted = format!("\"{etag}\"");
-        if let Ok(value) = HeaderValue::from_str(&quoted) {
-            headers.insert(header::ETAG, value);
-        }
+    if let Some(etag) = etag {
+        headers.insert(header::ETAG, etag);
     }
     response
+}
+
+fn selected_image_etag_header_value(etag: &str) -> Option<HeaderValue> {
+    HeaderValue::from_str(&format!("\"{etag}\"")).ok()
+}
+
+fn selected_image_etag_matches(if_none_match: Option<&HeaderValue>, etag: &HeaderValue) -> bool {
+    if_none_match.is_some_and(|candidate| candidate == etag)
 }
 
 fn apply_selected_artwork_cache_headers(headers: &mut HeaderMap) {

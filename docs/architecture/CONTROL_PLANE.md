@@ -267,8 +267,10 @@ Current shipped artifact-cache baseline:
   segment caching, ETags, and conditional GET behavior remain follow-ons until
   token-aware cache keys and artifact invalidation are specified.
 - Authenticated selected artwork image GET/HEAD responses now use
-  `Cache-Control: private, max-age=86400` with existing safe ETags. Conditional
-  GET, immutable/public shared caching, CDN semantics, and selected-artwork
+  `Cache-Control: private, max-age=86400` with existing safe ETags. Exact
+  matching `If-None-Match` requests return `304 Not Modified` with ETag/cache
+  headers. Metadata-only ETag preflight, weak/wildcard validator support,
+  immutable/public shared caching, CDN semantics, and selected-artwork
   invalidation policy remain follow-ons.
 
 Exit criteria:
