@@ -18,9 +18,7 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [
-    "06-04-06-04-selected-artwork-cache-control-headers-first-slice"
-  ],
+  "children": [],
   "parent": null,
   "relatedFiles": [],
   "notes": "",
