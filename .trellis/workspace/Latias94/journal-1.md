@@ -1240,3 +1240,37 @@ Committed Docker-backed PostgreSQL VFS cache failure authority decode/SELECT cle
 ### Next Steps
 
 - None - task complete
+
+
+## Session 31: Parallel playback and control-plane wave
+
+**Date**: 2026-06-04
+**Task**: Parallel playback and control-plane wave
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Opened and executed three parallel Trellis child tasks: Media Web playback recovery polish, HLS subtitle burn-in planning, and control-plane scan trace context. Integrated reviewed worker commits, ran focused frontend/Rust merge gates, recorded evidence, and updated specs for playback subtitle/remux and durable job trace-context guardrails.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `46e5f5c4` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 30
+- **Total Sessions**: 31
 - **Last Active**: 2026-06-04
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1242 | Active |
+| `journal-1.md` | ~1276 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 31 | 2026-06-04 | Parallel playback and control-plane wave | `46e5f5c4` | `main` |
 | 30 | 2026-06-04 | Media first-watch hardening and Postgres contract cleanup | `8e9dee2d`, `a904190a` | `main` |
 | 29 | 2026-06-04 | Local VFS cache repair target authority | `bef63fcc`, `9eba4b9f` | `main` |
 | 28 | 2026-06-04 | Playback renderer transport flow extraction | `7e2102e2`, `1fc82c32` | `main` |
