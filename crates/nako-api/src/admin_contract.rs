@@ -1,6 +1,6 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 72] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 73] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -179,6 +179,10 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 72] = [
         "storage/backends/{backend_key}/circuit-breaker/reset",
     ),
     ("storageStaging", "storage/staging"),
+    (
+        "storageVfsCacheRepairRefreshCache",
+        "storage/vfs-cache/repair/refresh-cache",
+    ),
     ("systemConfig", "system/config"),
     ("settingsMetadataRawCache", "settings/metadata/raw-cache"),
 ];
@@ -3050,6 +3054,25 @@ export interface AdminStorageStagingDiagnosticsResponse {
     expires_at_ms: number | null;
   }>;
   page: PageInfo;
+}
+
+export interface AdminVfsCacheRefreshResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  action: AdminVfsCacheRepairAction;
+  operation: VfsCacheOperation;
+  refreshed: boolean;
+  repair: {
+    classification: AdminVfsCacheRepairClassification;
+    recommended_action: AdminVfsCacheRepairAction;
+    operation: VfsCacheOperation | null;
+    failure_class: StorageFailureClass | null;
+    retryable: boolean;
+    failed_at_ms: number | null;
+    failure_count: number | null;
+    safe_message: string | null;
+    operator_action: string;
+  };
 }
 
 export type AdminNetworkExposureMode =

@@ -114,6 +114,16 @@ pub struct AdminVfsCacheRepairDiagnostic {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRefreshResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub action: AdminVfsCacheRepairAction,
+    pub operation: VfsCacheOperation,
+    pub refreshed: bool,
+    pub repair: AdminVfsCacheRepairDiagnostic,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminStorageStagingRecord {
     pub id: StagingManifestId,
     pub attribution_kind: StagingAttributionKind,
@@ -437,6 +447,47 @@ mod tests {
         assert!(!body.contains("token"));
         assert!(!body.contains("password"));
         assert!(!body.contains("Movies/Demo.mkv"));
+    }
+
+    #[test]
+    fn admin_vfs_cache_refresh_response_serializes_redacted_action_result() {
+        let response = AdminVfsCacheRefreshResponse {
+            admin_api_version: "v1".to_owned(),
+            public_api_version: "2025-01-01".to_owned(),
+            action: AdminVfsCacheRepairAction::RefreshCache,
+            operation: VfsCacheOperation::Stat,
+            refreshed: true,
+            repair: AdminVfsCacheRepairDiagnostic {
+                classification: AdminVfsCacheRepairClassification::RetryableRefreshFailure,
+                recommended_action: AdminVfsCacheRepairAction::RefreshCache,
+                operation: Some(VfsCacheOperation::Stat),
+                failure_class: Some(StorageFailureClass::Unavailable),
+                retryable: true,
+                failed_at_ms: Some(1_000),
+                failure_count: Some(2),
+                safe_message: Some("storage backend unavailable".to_owned()),
+                operator_action: "cache refresh failed with a retryable storage failure".to_owned(),
+            },
+        };
+
+        let value = serde_json::to_value(&response).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(value["action"], "refresh_cache");
+        assert_eq!(value["operation"], "stat");
+        assert_eq!(value["refreshed"], true);
+        assert_eq!(value["repair"]["recommended_action"], "refresh_cache");
+        assert_eq!(
+            value["repair"]["safe_message"],
+            "storage backend unavailable"
+        );
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("local_path"));
+        assert!(!body.contains("webdav:///"));
+        assert!(!body.contains("Movies/Demo.mkv"));
+        assert!(!body.contains("cache-etag-secret"));
+        assert!(!body.contains("cache-fingerprint-secret"));
+        assert!(!body.contains("token=secret"));
     }
 
     #[test]

@@ -85,13 +85,13 @@ use nako_api::{
         AdminTrustedProxyDiagnostics, AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
         AdminUpdateLibraryMetadataProfileRequest, AdminUpdateMetadataRawCacheSettingsRequest,
         AdminUpdatePlaybackRuntimeSettingsRequest, AdminUpdateUserStatusRequest,
-        AdminUpsertLibraryAccessPolicyRequest, AdminVfsCacheRepairAction,
-        AdminVfsCacheRepairClassification, AdminVfsCacheRepairDiagnostic, AdminVfsCacheSummary,
-        AdminWatchFolderDiscoveryFailure, AdminWatchFolderDiscoveryRequest,
-        AdminWatchFolderDiscoveryResponse, AdminWatchFolderRuntimeCoverageDiagnostic,
-        AdminWatchFolderRuntimeCoverageStatus, AdminWatchFolderSuppression, JobResponse,
-        StorageBackendDiagnosticsResponse, StorageBackendKind, StorageBackendRuntimeStateScope,
-        StorageBackendStatus,
+        AdminUpsertLibraryAccessPolicyRequest, AdminVfsCacheRefreshResponse,
+        AdminVfsCacheRepairAction, AdminVfsCacheRepairClassification,
+        AdminVfsCacheRepairDiagnostic, AdminVfsCacheSummary, AdminWatchFolderDiscoveryFailure,
+        AdminWatchFolderDiscoveryRequest, AdminWatchFolderDiscoveryResponse,
+        AdminWatchFolderRuntimeCoverageDiagnostic, AdminWatchFolderRuntimeCoverageStatus,
+        AdminWatchFolderSuppression, JobResponse, StorageBackendDiagnosticsResponse,
+        StorageBackendKind, StorageBackendRuntimeStateScope, StorageBackendStatus,
     },
     metadata_diagnostics::{MetadataProviderDiagnosticStatus, MetadataProviderDiagnosticsResponse},
     public_client::{API_VERSION, ClientErrorCode, ErrorResponse, page_info_from_request},
@@ -351,6 +351,10 @@ pub(super) fn routes() -> Router<NakoApp> {
             post(reset_admin_storage_backend_circuit_breaker),
         )
         .route("/admin/v1/storage/staging", get(list_admin_storage_staging))
+        .route(
+            "/admin/v1/storage/vfs-cache/repair/refresh-cache",
+            post(refresh_admin_vfs_cache),
+        )
         .route("/admin/v1/system/config", get(get_admin_system_config))
         .route(
             "/admin/v1/settings/metadata/raw-cache",
@@ -1843,6 +1847,21 @@ pub(super) async fn list_admin_storage_staging(
         },
         records,
         page: page_info_from_request(page, returned),
+    }))
+}
+
+pub(super) async fn refresh_admin_vfs_cache(
+    State(app): State<NakoApp>,
+) -> ApiResult<impl IntoResponse> {
+    let report = app.storage().refresh_latest_vfs_cache_repair().await?;
+
+    Ok(Json(AdminVfsCacheRefreshResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        action: admin_vfs_cache_repair_action(report.action),
+        operation: report.operation,
+        refreshed: report.refresh.operation == report.operation,
+        repair: admin_vfs_cache_repair_diagnostic(report.repair),
     }))
 }
 

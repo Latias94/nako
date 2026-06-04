@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use super::*;
 use nako_api::admin::{
     AdminGeneratedArtifactMetadataApplyRecoveryResponse,
@@ -12,7 +14,7 @@ use nako_api::admin::{
     AdminMetadataCandidateReviewResponse, AdminMetadataCandidateReviewUndoMode,
     AdminMetadataCandidateReviewUndoReason, AdminStorageBackendHealthDiagnosticsResponse,
     AdminStorageBackendHealthResetResponse, AdminStorageStagingPressureStatus,
-    AdminWatchFolderRuntimeCoverageStatus,
+    AdminVfsCacheRefreshResponse, AdminWatchFolderRuntimeCoverageStatus,
 };
 use nako_core::{
     JobKind, JobRepository, JobStatus, METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS,
@@ -5330,6 +5332,210 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
     assert!(!body.contains("failed at local secret path"));
     assert!(!body.contains("backend raw error"));
     assert!(!body.contains("token=secret"));
+}
+
+#[tokio::test]
+async fn admin_v1_vfs_cache_refresh_action_refreshes_latest_failure_and_redacts_target() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let root = temp.path().join("movies");
+    fs::create_dir_all(root.join("Movies")).unwrap();
+    fs::write(root.join("Movies").join("Demo.mkv"), b"demo").unwrap();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("secret-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: root.clone(),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config.clone(), store.clone())
+        .await
+        .unwrap();
+    app.storage()
+        .replace_backend_for_test(
+            config.libraries[0].clone(),
+            Arc::new(nako_vfs::CachedStorageBackend::with_options(
+                nako_vfs::LocalFsBackend::new(&root).unwrap(),
+                store.clone(),
+                nako_vfs::VfsCacheOptions {
+                    stat_ttl_ms: 60_000,
+                    list_ttl_ms: 60_000,
+                    serve_stale_on_error: true,
+                    cache_local: true,
+                },
+            )),
+        )
+        .await;
+    store
+        .record_vfs_cache_failure(NewVfsCacheFailure {
+            uri: "local:///Movies/Demo.mkv".to_owned(),
+            scheme: "local".to_owned(),
+            operation: VfsCacheOperation::Stat,
+            failed_at_ms: 1_000,
+            error: "storage backend unavailable".to_owned(),
+        })
+        .await
+        .unwrap();
+
+    let router = build_router(app);
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/admin/v1/storage/vfs-cache/repair/refresh-cache")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let refresh: AdminVfsCacheRefreshResponse = serde_json::from_str(&body).unwrap();
+    assert_eq!(
+        refresh.action,
+        nako_api::admin::AdminVfsCacheRepairAction::RefreshCache
+    );
+    assert_eq!(refresh.operation, VfsCacheOperation::Stat);
+    assert!(refresh.refreshed);
+    assert_eq!(
+        refresh.repair.classification,
+        nako_api::admin::AdminVfsCacheRepairClassification::RetryableRefreshFailure
+    );
+    assert_eq!(
+        refresh.repair.safe_message.as_deref(),
+        Some("storage backend unavailable")
+    );
+    let cached = store
+        .get_vfs_cache_object("local:///Movies/Demo.mkv")
+        .await
+        .unwrap()
+        .expect("refresh should update object cache");
+    assert!(cached.fetched_at_ms >= 1_000);
+
+    let staging_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/storage/staging")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let diagnostics = body_json::<AdminStorageStagingDiagnosticsResponse>(staging_response).await;
+
+    assert!(diagnostics.summary.vfs_cache.repair.is_none());
+    assert!(!body.contains("source_uri"));
+    assert!(!body.contains("local_path"));
+    assert!(!body.contains("local:///"));
+    assert!(!body.contains("Movies"));
+    assert!(!body.contains("Demo.mkv"));
+    assert!(!body.contains(&root.display().to_string()));
+    assert!(!body.contains("secret-cache"));
+}
+
+#[tokio::test]
+async fn admin_v1_vfs_cache_refresh_action_rejects_non_admin_session() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let token = "test-admin-token";
+    let router = test_router_with_bearer_auth(temp.path().to_path_buf(), library_id, token).await;
+
+    let created = request_body_json_with_bearer::<AdminAccessUserResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/access/users",
+        &AdminCreateUserRequest {
+            username: "refresh-viewer".to_owned(),
+            display_name: "Refresh Viewer".to_owned(),
+            roles: vec![UserRole::Viewer],
+        },
+        token,
+    )
+    .await;
+    let password_path = format!(
+        "/admin/v1/access/users/{}/local-password",
+        created.user.user_id
+    );
+    request_body_json_with_bearer::<nako_api::admin::AdminLocalPasswordResponse, _>(
+        &router,
+        Method::PUT,
+        &password_path,
+        &nako_api::admin::AdminSetLocalPasswordRequest {
+            password: "correct horse battery staple".to_owned(),
+        },
+        token,
+    )
+    .await;
+
+    let login = request_body_json::<LoginResponse, _>(
+        &router,
+        Method::POST,
+        "/auth/login",
+        &LoginRequest {
+            username: "refresh-viewer".to_owned(),
+            password: "correct horse battery staple".to_owned(),
+        },
+    )
+    .await;
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/admin/v1/storage/vfs-cache/repair/refresh-cache")
+                .header(
+                    header::AUTHORIZATION,
+                    format!("Bearer {}", login.session.token),
+                )
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let error = body_json::<ErrorResponse>(response).await;
+    assert_eq!(
+        error.code,
+        nako_api::public_client::ClientErrorCode::Forbidden.as_str()
+    );
+    assert_eq!(error.message, "administrator role is required");
 }
 
 #[tokio::test]

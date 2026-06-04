@@ -74,6 +74,7 @@ export const NAKO_ADMIN_ROUTES = {
   storageBackends: "/admin/v1/storage/backends",
   storageBackendCircuitBreakerReset: "/admin/v1/storage/backends/{backend_key}/circuit-breaker/reset",
   storageStaging: "/admin/v1/storage/staging",
+  storageVfsCacheRepairRefreshCache: "/admin/v1/storage/vfs-cache/repair/refresh-cache",
   systemConfig: "/admin/v1/system/config",
   settingsMetadataRawCache: "/admin/v1/settings/metadata/raw-cache",
 } as const;
@@ -2921,6 +2922,25 @@ export interface AdminStorageStagingDiagnosticsResponse {
     expires_at_ms: number | null;
   }>;
   page: PageInfo;
+}
+
+export interface AdminVfsCacheRefreshResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  action: AdminVfsCacheRepairAction;
+  operation: VfsCacheOperation;
+  refreshed: boolean;
+  repair: {
+    classification: AdminVfsCacheRepairClassification;
+    recommended_action: AdminVfsCacheRepairAction;
+    operation: VfsCacheOperation | null;
+    failure_class: StorageFailureClass | null;
+    retryable: boolean;
+    failed_at_ms: number | null;
+    failure_count: number | null;
+    safe_message: string | null;
+    operator_action: string;
+  };
 }
 
 export type AdminNetworkExposureMode =

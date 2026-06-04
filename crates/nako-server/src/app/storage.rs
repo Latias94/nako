@@ -23,10 +23,13 @@ use nako_core::{
     StagingAttribution, StagingManifestRecord, StagingManifestRepository, StagingPurpose,
     StagingState, StorageBackendHealthListFilter, StorageBackendHealthRecord,
     StorageBackendHealthRepository, StorageBackendHealthStatus, StorageCircuitBreakerState,
-    StorageFailureClass, VfsCacheRepository, VfsCacheSummary,
+    StorageFailureClass, VfsCacheFailure, VfsCacheOperation, VfsCacheRepository, VfsCacheSummary,
 };
 use nako_db::NakoDatabase;
-use nako_vfs::{LocalFsBackend, StorageBackend, StorageUri, VfsCacheRepairDiagnostic};
+use nako_vfs::{
+    LocalFsBackend, StorageBackend, StorageUri, VfsCacheRefreshReport, VfsCacheRepairAction,
+    VfsCacheRepairDiagnostic,
+};
 
 use super::current_time_ms;
 
@@ -50,6 +53,14 @@ pub(crate) struct StagingManifestPressureSummary {
     pub(crate) active_leases: u64,
     pub(crate) ffmpeg_input_records: usize,
     pub(crate) probe_input_records: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct VfsCacheRepairRefreshActionReport {
+    pub(crate) action: VfsCacheRepairAction,
+    pub(crate) operation: VfsCacheOperation,
+    pub(crate) repair: VfsCacheRepairDiagnostic,
+    pub(crate) refresh: VfsCacheRefreshReport,
 }
 
 impl StagingManifestPressureSummary {
@@ -287,8 +298,62 @@ impl StorageDiagnosticsAppService {
         &self,
     ) -> Result<Option<VfsCacheRepairDiagnostic>> {
         let failure = self.registry.store.get_latest_vfs_cache_failure().await?;
+        let Some(failure) = failure else {
+            return Ok(None);
+        };
+        if self
+            .registry
+            .vfs_cache_failure_resolved_by_cache(&failure)
+            .await?
+        {
+            return Ok(None);
+        }
 
-        Ok(failure.as_ref().map(VfsCacheRepairDiagnostic::from_failure))
+        Ok(Some(VfsCacheRepairDiagnostic::from_failure(&failure)))
+    }
+
+    pub(crate) async fn refresh_latest_vfs_cache_repair(
+        &self,
+    ) -> Result<VfsCacheRepairRefreshActionReport> {
+        let failure = self
+            .registry
+            .store
+            .get_latest_vfs_cache_failure()
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "vfs_cache_failure",
+                id: "latest".to_owned(),
+            })?;
+        if self
+            .registry
+            .vfs_cache_failure_resolved_by_cache(&failure)
+            .await?
+        {
+            return Err(NakoError::NotFound {
+                entity: "vfs_cache_failure",
+                id: "latest".to_owned(),
+            });
+        }
+        let repair = VfsCacheRepairDiagnostic::from_failure(&failure);
+        if repair.recommended_action != VfsCacheRepairAction::RefreshCache {
+            return Err(NakoError::InvalidInput {
+                message: "latest VFS cache repair diagnostic does not recommend refresh_cache"
+                    .to_owned(),
+            });
+        }
+
+        let (uri, backend) = self
+            .registry
+            .backend_for_vfs_cache_failure(&failure)
+            .await?;
+        let refresh = backend.refresh_cache(&uri, failure.operation).await?;
+
+        Ok(VfsCacheRepairRefreshActionReport {
+            action: VfsCacheRepairAction::RefreshCache,
+            operation: failure.operation,
+            repair,
+            refresh,
+        })
     }
 
     pub(crate) async fn summarize_staging_cleanup_pressure(
@@ -437,6 +502,53 @@ impl StorageBackendRegistry {
         let backend = self.backend_for_library_config(library_config).await?;
 
         Ok((uri, backend))
+    }
+
+    async fn backend_for_vfs_cache_failure(
+        &self,
+        failure: &VfsCacheFailure,
+    ) -> Result<(StorageUri, Arc<LibraryStorageBackend>)> {
+        let uri = parse_vfs_cache_repair_target_uri(&failure.uri)?;
+        let mut matches = Vec::new();
+
+        for config in &self.config.libraries {
+            let root = cache_repair_root_uri(config)?;
+            if storage_uri_matches_root(&uri, &root) {
+                matches.push(config.clone());
+            }
+        }
+
+        match matches.as_slice() {
+            [] => Err(NakoError::NotFound {
+                entity: "storage_backend",
+                id: "vfs_cache_repair_target".to_owned(),
+            }),
+            [config] => Ok((uri, self.backend_for_library_config(config.clone()).await?)),
+            _ => Err(NakoError::Conflict {
+                message:
+                    "latest VFS cache repair target matches multiple configured storage backends"
+                        .to_owned(),
+            }),
+        }
+    }
+
+    async fn vfs_cache_failure_resolved_by_cache(&self, failure: &VfsCacheFailure) -> Result<bool> {
+        for candidate in cache_repair_lookup_uris(&failure.uri) {
+            match failure.operation {
+                VfsCacheOperation::Stat => {
+                    if let Some(object) = self.store.get_vfs_cache_object(&candidate).await? {
+                        return Ok(object.fetched_at_ms >= failure.failed_at_ms);
+                    }
+                }
+                VfsCacheOperation::List => {
+                    if let Some(listing) = self.store.get_vfs_cache_listing(&candidate).await? {
+                        return Ok(listing.fetched_at_ms >= failure.failed_at_ms);
+                    }
+                }
+            }
+        }
+
+        Ok(false)
     }
 
     async fn backend_for_library_config(
@@ -1047,6 +1159,18 @@ impl StorageBackend for LibraryStorageBackend {
         result
     }
 
+    async fn refresh_cache(
+        &self,
+        uri: &StorageUri,
+        operation: VfsCacheOperation,
+    ) -> Result<VfsCacheRefreshReport> {
+        // Manual repair refresh is an explicit operator probe. It bypasses
+        // admission backoff for one attempt but still records the outcome.
+        let result = self.inner.refresh_cache(uri, operation).await;
+        self.record_result(result.as_ref().err().cloned()).await;
+        result
+    }
+
     async fn open_range(
         &self,
         uri: &StorageUri,
@@ -1279,6 +1403,52 @@ fn safe_storage_scheme(scheme: &str) -> String {
 
 fn staging_record_source_scheme(record: &StagingManifestRecord) -> String {
     safe_storage_scheme(&record.source_scheme)
+}
+
+fn parse_vfs_cache_repair_target_uri(value: &str) -> Result<StorageUri> {
+    StorageUri::parse(value).map_err(|_err| NakoError::InvalidInput {
+        message: "latest VFS cache repair target URI is invalid".to_owned(),
+    })
+}
+
+fn cache_repair_root_uri(config: &LocalLibraryConfig) -> Result<StorageUri> {
+    match config.webdav.as_ref() {
+        Some(webdav) => StorageUri::parse(&webdav.root).map_err(|_err| NakoError::InvalidInput {
+            message: "configured VFS cache repair backend root URI is invalid".to_owned(),
+        }),
+        None => StorageUri::from_parts("local", ""),
+    }
+}
+
+fn storage_uri_matches_root(uri: &StorageUri, root: &StorageUri) -> bool {
+    if uri.scheme() != root.scheme() {
+        return false;
+    }
+
+    let target_path = uri.path_part().trim_matches('/');
+    let root_path = root.path_part().trim_matches('/');
+    root_path.is_empty()
+        || target_path == root_path
+        || target_path
+            .strip_prefix(root_path)
+            .is_some_and(|remaining| remaining.starts_with('/'))
+}
+
+fn cache_repair_lookup_uris(uri: &str) -> Vec<String> {
+    let mut candidates = vec![uri.to_owned()];
+    let Ok(parsed) = StorageUri::parse(uri) else {
+        return candidates;
+    };
+    if parsed.path_part().trim_matches('/').is_empty() {
+        return candidates;
+    }
+
+    if uri.ends_with('/') {
+        candidates.push(uri.trim_end_matches('/').to_owned());
+    } else {
+        candidates.push(format!("{uri}/"));
+    }
+    candidates
 }
 
 fn storage_staging_pressure_library_scan_error(status: StorageStagingPressureStatus) -> NakoError {

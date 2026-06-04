@@ -193,6 +193,12 @@ pub struct VfsCacheRepairDiagnostic {
     pub operator_action: String,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct VfsCacheRefreshReport {
+    pub operation: VfsCacheOperation,
+    pub cache: Option<ObjectCacheStatus>,
+}
+
 impl VfsCacheRepairDiagnostic {
     #[must_use]
     pub fn from_failure(failure: &VfsCacheFailure) -> Self {
@@ -753,6 +759,19 @@ pub trait StorageBackend: Send + Sync {
         })
     }
 
+    async fn refresh_cache(
+        &self,
+        uri: &StorageUri,
+        operation: VfsCacheOperation,
+    ) -> Result<VfsCacheRefreshReport> {
+        let cache = match operation {
+            VfsCacheOperation::Stat => self.stat(uri).await?.cache,
+            VfsCacheOperation::List => self.list_with_status(uri).await?.cache,
+        };
+
+        Ok(VfsCacheRefreshReport { operation, cache })
+    }
+
     async fn open_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<VirtualFile>;
 
     async fn read_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<ReadRange> {
@@ -874,6 +893,14 @@ where
         self.as_ref().list_with_status(uri).await
     }
 
+    async fn refresh_cache(
+        &self,
+        uri: &StorageUri,
+        operation: VfsCacheOperation,
+    ) -> Result<VfsCacheRefreshReport> {
+        self.as_ref().refresh_cache(uri, operation).await
+    }
+
     async fn open_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<VirtualFile> {
         self.as_ref().open_range(uri, range).await
     }
@@ -938,6 +965,14 @@ where
 
     async fn list_with_status(&self, uri: &StorageUri) -> Result<ObjectListing> {
         self.as_ref().list_with_status(uri).await
+    }
+
+    async fn refresh_cache(
+        &self,
+        uri: &StorageUri,
+        operation: VfsCacheOperation,
+    ) -> Result<VfsCacheRefreshReport> {
+        self.as_ref().refresh_cache(uri, operation).await
     }
 
     async fn open_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<VirtualFile> {

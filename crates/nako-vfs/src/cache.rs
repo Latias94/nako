@@ -11,7 +11,7 @@ use crate::{
     ReadRange, ReadStream, StageRequest, StagedFile, StorageApplyReport, StorageApplyRequest,
     StorageBackend, StorageCapabilities, StorageCleanupReport, StorageCleanupRequest,
     StorageLinkPlan, StorageLinkPlanRequest, StorageUri, StorageWriteReport, StorageWriteRequest,
-    VirtualFile,
+    VfsCacheRefreshReport, VirtualFile,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -223,6 +223,19 @@ where
         }
     }
 
+    async fn refresh_cache(
+        &self,
+        uri: &StorageUri,
+        operation: VfsCacheOperation,
+    ) -> Result<VfsCacheRefreshReport> {
+        let cache = match operation {
+            VfsCacheOperation::Stat => self.refresh_stat_cache(uri).await?,
+            VfsCacheOperation::List => self.refresh_listing_cache(uri).await?,
+        };
+
+        Ok(VfsCacheRefreshReport { operation, cache })
+    }
+
     async fn open_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<VirtualFile> {
         self.inner.open_range(uri, range).await
     }
@@ -330,6 +343,91 @@ where
                 error: safe_cache_failure_message(err),
             })
             .await
+    }
+
+    async fn refresh_stat_cache(&self, uri: &StorageUri) -> Result<Option<ObjectCacheStatus>>
+    where
+        B: StorageBackend,
+    {
+        if !self.should_cache(uri) {
+            self.inner.stat(uri).await?;
+            return Ok(None);
+        }
+
+        let observed_at_ms = now_ms()?;
+        match self.inner.stat(uri).await {
+            Ok(metadata) => {
+                let observed_at_ms = now_ms()?;
+                let record = cached_object_from_metadata(
+                    &metadata,
+                    observed_at_ms,
+                    fresh_until_ms(observed_at_ms, self.options.stat_ttl_ms)?,
+                );
+                self.cache.upsert_vfs_cache_object(&record).await?;
+                Ok(Some(ObjectCacheStatus {
+                    state: ObjectCacheState::Fresh,
+                    fetched_at_ms: record.fetched_at_ms,
+                    fresh_until_ms: record.fresh_until_ms,
+                    last_failed_at_ms: None,
+                    last_error: None,
+                }))
+            }
+            Err(err) => {
+                self.record_failure(uri, VfsCacheOperation::Stat, &err, observed_at_ms)
+                    .await?;
+                Err(err)
+            }
+        }
+    }
+
+    async fn refresh_listing_cache(&self, uri: &StorageUri) -> Result<Option<ObjectCacheStatus>>
+    where
+        B: StorageBackend,
+    {
+        if !self.should_cache(uri) {
+            self.inner.list_with_status(uri).await?;
+            return Ok(None);
+        }
+
+        let observed_at_ms = now_ms()?;
+        match self.inner.list(uri).await {
+            Ok(entries) => {
+                let observed_at_ms = now_ms()?;
+                let directory = self
+                    .cached_or_fetched_directory(uri, observed_at_ms)
+                    .await?;
+                let entry_records = entries
+                    .iter()
+                    .map(|entry| {
+                        Ok(cached_object_from_metadata(
+                            entry,
+                            observed_at_ms,
+                            fresh_until_ms(observed_at_ms, self.options.stat_ttl_ms)?,
+                        ))
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                let listing = VfsCachedListing {
+                    directory,
+                    entries: entry_records,
+                    fetched_at_ms: observed_at_ms,
+                    fresh_until_ms: fresh_until_ms(observed_at_ms, self.options.list_ttl_ms)?,
+                };
+                self.cache.upsert_vfs_cache_listing(&listing).await?;
+
+                Ok(Some(ObjectCacheStatus {
+                    state: ObjectCacheState::Fresh,
+                    fetched_at_ms: listing.fetched_at_ms,
+                    fresh_until_ms: listing.fresh_until_ms,
+                    last_failed_at_ms: None,
+                    last_error: None,
+                }))
+            }
+            Err(err) => {
+                self.record_failure(uri, VfsCacheOperation::List, &err, observed_at_ms)
+                    .await?;
+                Err(err)
+            }
+        }
     }
 }
 
@@ -632,6 +730,93 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn cached_backend_refresh_cache_forces_fresh_stat_and_listing_updates() {
+        let inner = FakeBackend::new();
+        let cache = MemoryVfsCache::default();
+        let backend = CachedStorageBackend::with_options(
+            inner.clone(),
+            cache,
+            VfsCacheOptions {
+                stat_ttl_ms: 60_000,
+                list_ttl_ms: 60_000,
+                serve_stale_on_error: true,
+                cache_local: true,
+            },
+        );
+        let root = StorageUri::from_parts("mem", "Movies").unwrap();
+        let movie = StorageUri::from_parts("mem", "Movies/Demo.mkv").unwrap();
+
+        backend.stat(&movie).await.unwrap();
+        backend.stat(&movie).await.unwrap();
+        let stat_refresh = backend
+            .refresh_cache(&movie, VfsCacheOperation::Stat)
+            .await
+            .unwrap();
+        backend.list_with_status(&root).await.unwrap();
+        backend.list_with_status(&root).await.unwrap();
+        let list_refresh = backend
+            .refresh_cache(&root, VfsCacheOperation::List)
+            .await
+            .unwrap();
+
+        assert_eq!(inner.stat_calls.load(Ordering::SeqCst), 3);
+        assert_eq!(inner.list_calls.load(Ordering::SeqCst), 2);
+        assert_eq!(stat_refresh.operation, VfsCacheOperation::Stat);
+        assert_eq!(
+            stat_refresh.cache.as_ref().map(|cache| cache.state),
+            Some(ObjectCacheState::Fresh)
+        );
+        assert_eq!(list_refresh.operation, VfsCacheOperation::List);
+        assert_eq!(
+            list_refresh.cache.as_ref().map(|cache| cache.state),
+            Some(ObjectCacheState::Fresh)
+        );
+    }
+
+    #[tokio::test]
+    async fn cached_backend_refresh_cache_failure_records_failure_without_stale_fallback() {
+        let inner = FakeBackend::new();
+        let cache = MemoryVfsCache::default();
+        let backend = CachedStorageBackend::with_options(
+            inner.clone(),
+            cache.clone(),
+            VfsCacheOptions {
+                stat_ttl_ms: 0,
+                list_ttl_ms: 0,
+                serve_stale_on_error: true,
+                cache_local: true,
+            },
+        );
+        let root = StorageUri::from_parts("mem", "Movies").unwrap();
+
+        backend.list_with_status(&root).await.unwrap();
+        cache.expire_listing().await;
+        inner.fail_list_with(StorageErrorKind::Network).await;
+        let stale = backend.list_with_status(&root).await.unwrap();
+        let err = backend
+            .refresh_cache(&root, VfsCacheOperation::List)
+            .await
+            .unwrap_err();
+        let failure = cache
+            .get_vfs_cache_failure(root.as_str(), VfsCacheOperation::List)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(stale.cache.unwrap().state, ObjectCacheState::StaleFallback);
+        assert!(matches!(
+            err,
+            NakoError::Storage {
+                kind: StorageErrorKind::Network,
+                ..
+            }
+        ));
+        assert_eq!(failure.failure_count, 2);
+        assert_eq!(failure.error, "storage backend unavailable");
+        assert_eq!(inner.list_calls.load(Ordering::SeqCst), 3);
+    }
+
     #[test]
     fn vfs_cache_retryable_failure_recommends_cache_refresh() {
         let failure = VfsCacheFailure {
@@ -698,6 +883,7 @@ mod tests {
 
     #[derive(Clone)]
     struct FakeBackend {
+        fail_stat_kind: Arc<tokio::sync::Mutex<Option<StorageErrorKind>>>,
         fail_list_kind: Arc<tokio::sync::Mutex<Option<StorageErrorKind>>>,
         stat_calls: Arc<AtomicUsize>,
         list_calls: Arc<AtomicUsize>,
@@ -706,6 +892,7 @@ mod tests {
     impl FakeBackend {
         fn new() -> Self {
             Self {
+                fail_stat_kind: Arc::new(tokio::sync::Mutex::new(None)),
                 fail_list_kind: Arc::new(tokio::sync::Mutex::new(None)),
                 stat_calls: Arc::new(AtomicUsize::new(0)),
                 list_calls: Arc::new(AtomicUsize::new(0)),
@@ -746,6 +933,14 @@ mod tests {
 
         async fn stat(&self, uri: &StorageUri) -> Result<ObjectMetadata> {
             self.stat_calls.fetch_add(1, Ordering::SeqCst);
+            if let Some(kind) = *self.fail_stat_kind.lock().await {
+                return Err(NakoError::storage(
+                    uri.to_string(),
+                    kind,
+                    "temporary stat failure",
+                ));
+            }
+
             Ok(self.metadata(uri))
         }
 

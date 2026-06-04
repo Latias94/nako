@@ -1,11 +1,12 @@
 use super::*;
 use nako_core::{
-    StorageBackendHealthRepository, StorageBackendHealthStatus, StorageCircuitBreakerState,
-    StorageErrorKind, StorageFailureClass,
+    NewVfsCacheFailure, StorageBackendHealthRecord, StorageBackendHealthRepository,
+    StorageBackendHealthStatus, StorageCircuitBreakerState, StorageErrorKind, StorageFailureClass,
+    VfsCacheOperation, VfsCacheRepository,
 };
 use nako_vfs::{
-    StorageApplyKind, StorageApplyRequest, StorageCleanupRequest, StorageLinkKind,
-    StorageLinkPlanRequest,
+    CachedStorageBackend, ObjectCacheState, StorageApplyKind, StorageApplyRequest,
+    StorageCleanupRequest, StorageLinkKind, StorageLinkPlanRequest, VfsCacheOptions,
 };
 
 #[tokio::test]
@@ -457,11 +458,297 @@ async fn storage_health_records_runtime_updates_and_rejects_durable_circuit() {
     assert_eq!(recovered.backoff_until_ms, None);
 }
 
+#[tokio::test]
+async fn vfs_cache_refresh_action_refreshes_retryable_stat_failure_and_resolves_preview() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().join("movies");
+    fs::create_dir_all(&root).unwrap();
+    let library_id = LibraryId::new();
+    let library_config = LocalLibraryConfig {
+        id: library_id,
+        name: "Remote-like Movies".to_owned(),
+        root,
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(
+        NakoServerConfig {
+            database_backend: Default::default(),
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            database_url_env: None,
+            auth: crate::config::AuthConfig::disabled(),
+            network: crate::config::NetworkAccessConfig::default(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path: PathBuf::from("ffmpeg"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            webhook_concurrency: 2,
+            addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+            remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("nako-cache").join("remux"),
+            metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
+            artwork: crate::config::ArtworkConfig::default(),
+            libraries: vec![library_config.clone()],
+        },
+        store.clone(),
+    )
+    .await
+    .unwrap();
+    let backend = Arc::new(CacheRefreshCountingBackend::new());
+    app.storage()
+        .replace_backend_for_test(
+            library_config,
+            Arc::new(CachedStorageBackend::with_options(
+                backend.clone(),
+                store.clone(),
+                VfsCacheOptions {
+                    stat_ttl_ms: 60_000,
+                    list_ttl_ms: 60_000,
+                    serve_stale_on_error: true,
+                    cache_local: true,
+                },
+            )),
+        )
+        .await;
+    let failed_at_ms = 1_000;
+    store
+        .record_vfs_cache_failure(NewVfsCacheFailure {
+            uri: "local:///Movies/Demo.mkv".to_owned(),
+            scheme: "local".to_owned(),
+            operation: VfsCacheOperation::Stat,
+            failed_at_ms,
+            error: "storage backend unavailable".to_owned(),
+        })
+        .await
+        .unwrap();
+    let backend_key = format!("library:{library_id}:local");
+    store
+        .upsert_storage_backend_health(StorageBackendHealthRecord {
+            backend_key: backend_key.clone(),
+            library_id: Some(library_id),
+            scheme: "local".to_owned(),
+            status: StorageBackendHealthStatus::Unavailable,
+            circuit_breaker_state: StorageCircuitBreakerState::Open,
+            consecutive_failures: 1,
+            last_success_at_ms: None,
+            last_failure_at_ms: Some(failed_at_ms),
+            last_failure_class: Some(StorageFailureClass::Timeout),
+            last_failure_safe_message: Some("storage timeout".to_owned()),
+            circuit_opened_at_ms: Some(failed_at_ms),
+            backoff_until_ms: Some(i64::MAX),
+            updated_at_ms: failed_at_ms,
+        })
+        .await
+        .unwrap();
+
+    let preview = app
+        .storage()
+        .latest_vfs_cache_repair_diagnostic()
+        .await
+        .unwrap()
+        .expect("retryable preview");
+    let report = app
+        .storage()
+        .refresh_latest_vfs_cache_repair()
+        .await
+        .unwrap();
+    let refreshed = store
+        .get_vfs_cache_object("local:///Movies/Demo.mkv")
+        .await
+        .unwrap()
+        .expect("refreshed cache object");
+    let resolved = app
+        .storage()
+        .latest_vfs_cache_repair_diagnostic()
+        .await
+        .unwrap();
+    let health = store
+        .get_storage_backend_health(&backend_key)
+        .await
+        .unwrap()
+        .expect("refresh success should record backend health");
+
+    assert_eq!(
+        preview.recommended_action,
+        nako_vfs::VfsCacheRepairAction::RefreshCache
+    );
+    assert_eq!(report.operation, VfsCacheOperation::Stat);
+    assert_eq!(
+        report.refresh.cache.as_ref().map(|cache| cache.state),
+        Some(ObjectCacheState::Fresh)
+    );
+    assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 1);
+    assert!(refreshed.fetched_at_ms >= failed_at_ms);
+    assert!(resolved.is_none());
+    assert_eq!(health.status, StorageBackendHealthStatus::Healthy);
+    assert_eq!(
+        health.circuit_breaker_state,
+        StorageCircuitBreakerState::Closed
+    );
+}
+
+#[tokio::test]
+async fn vfs_cache_refresh_action_rejects_non_refresh_recommendation_without_backend_call() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().join("movies");
+    fs::create_dir_all(&root).unwrap();
+    let library_id = LibraryId::new();
+    let library_config = LocalLibraryConfig {
+        id: library_id,
+        name: "Remote-like Movies".to_owned(),
+        root,
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(
+        NakoServerConfig {
+            database_backend: Default::default(),
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            database_url_env: None,
+            auth: crate::config::AuthConfig::disabled(),
+            network: crate::config::NetworkAccessConfig::default(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path: PathBuf::from("ffmpeg"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            webhook_concurrency: 2,
+            addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+            remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("nako-cache").join("remux"),
+            metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
+            artwork: crate::config::ArtworkConfig::default(),
+            libraries: vec![library_config.clone()],
+        },
+        store.clone(),
+    )
+    .await
+    .unwrap();
+    let backend = Arc::new(CacheRefreshCountingBackend::new());
+    app.storage()
+        .replace_backend_for_test(
+            library_config,
+            Arc::new(CachedStorageBackend::with_options(
+                backend.clone(),
+                store.clone(),
+                VfsCacheOptions {
+                    stat_ttl_ms: 60_000,
+                    list_ttl_ms: 60_000,
+                    serve_stale_on_error: true,
+                    cache_local: true,
+                },
+            )),
+        )
+        .await;
+    store
+        .record_vfs_cache_failure(NewVfsCacheFailure {
+            uri: "local:///Movies/Demo.mkv".to_owned(),
+            scheme: "local".to_owned(),
+            operation: VfsCacheOperation::Stat,
+            failed_at_ms: 1_000,
+            error: "storage permission failure".to_owned(),
+        })
+        .await
+        .unwrap();
+
+    let err = app
+        .storage()
+        .refresh_latest_vfs_cache_repair()
+        .await
+        .unwrap_err();
+
+    assert!(matches!(err, NakoError::InvalidInput { .. }));
+    assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
+}
+
 fn assert_storage_rate_limited(err: NakoError) {
     assert_eq!(
         err.storage_failure_class(),
         Some(StorageFailureClass::RateLimited)
     );
+}
+
+struct CacheRefreshCountingBackend {
+    stat_calls: AtomicUsize,
+    list_calls: AtomicUsize,
+}
+
+impl CacheRefreshCountingBackend {
+    fn new() -> Self {
+        Self {
+            stat_calls: AtomicUsize::new(0),
+            list_calls: AtomicUsize::new(0),
+        }
+    }
+
+    fn metadata(&self, uri: &StorageUri) -> ObjectMetadata {
+        let kind = if uri.as_str().ends_with(".mkv") {
+            ObjectKind::File
+        } else {
+            ObjectKind::Directory
+        };
+        ObjectMetadata {
+            uri: uri.clone(),
+            kind,
+            len: (kind == ObjectKind::File).then_some(4),
+            modified_at: Some("100".to_owned()),
+            etag: Some("safe-test-etag".to_owned()),
+            fingerprint: Some("safe-test-fingerprint".to_owned()),
+            capabilities: StorageCapabilities::SEEKABLE
+                | StorageCapabilities::RANGE_READABLE
+                | StorageCapabilities::REMOTE_LATENCY,
+            cache: None,
+        }
+    }
+}
+
+#[async_trait]
+impl StorageBackend for CacheRefreshCountingBackend {
+    fn scheme(&self) -> &'static str {
+        "local"
+    }
+
+    async fn stat(&self, uri: &StorageUri) -> Result<ObjectMetadata> {
+        self.stat_calls.fetch_add(1, Ordering::SeqCst);
+        Ok(self.metadata(uri))
+    }
+
+    async fn list(&self, uri: &StorageUri) -> Result<Vec<ObjectMetadata>> {
+        self.list_calls.fetch_add(1, Ordering::SeqCst);
+        Ok(vec![self.metadata(
+            &StorageUri::from_parts(uri.scheme(), "Movies/Demo.mkv").unwrap(),
+        )])
+    }
+
+    async fn open_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<VirtualFile> {
+        Ok(VirtualFile {
+            uri: uri.clone(),
+            range,
+            local_path_hint: None,
+        })
+    }
+
+    async fn read_to_string(&self, _uri: &StorageUri) -> Result<String> {
+        Err(NakoError::Unsupported("test backend does not read text"))
+    }
+
+    async fn write_string(&self, _uri: &StorageUri, _content: &str) -> Result<()> {
+        Err(NakoError::Unsupported("test backend does not write text"))
+    }
 }
 
 struct StorageHealthCountingBackend {
