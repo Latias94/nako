@@ -1274,3 +1274,37 @@ Opened and executed three parallel Trellis child tasks: Media Web playback recov
 ### Next Steps
 
 - None - task complete
+
+
+## Session 32: Archive parallel wave tasks
+
+**Date**: 2026-06-04
+**Task**: Archive parallel wave tasks
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Archived completed Media Web playback polish, HLS subtitle burn-in planning, and control-plane scan trace context tasks after verified integration. Long-horizon parent remains in progress for future queue selection.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6f1beae1` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
