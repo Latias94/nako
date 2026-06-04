@@ -72,8 +72,9 @@ Closed lane, completed follow-ons, and candidate follow-ons:
   (closed related hierarchy Admin plan/apply surface);
 - `.trellis/tasks/archive/2026-06/06-05-douban-tv-episode-endpoint-depth/`
   (closed Douban TV Series subject support);
+- `.trellis/tasks/archive/2026-06/06-05-provider-review-public-client-governance/`
+  (closed negative Public Client governance guardrails; shipped by `42869eaf`);
 - `proposed:douban-season-episode-graph-depth`;
-- `proposed:provider-review-public-client-governance`;
 - `proposed:provider-governance-mutation-undo`.
 
 Latest completed architecture slices:
@@ -94,7 +95,9 @@ and split related hierarchy application, Public Client API exposure, provider
 endpoint depth, audit/undo, and scheduler priority policy to focused
 follow-ons. The related hierarchy Admin surface is now closed through the
 2026-06-05 Trellis task, and Douban Series subject support is closed through
-the Douban Trellis task; Public Client governance, Douban Season/Episode graph
+the Douban Trellis task. Negative Public Client governance guardrails are
+closed by `.trellis/tasks/archive/2026-06/06-05-provider-review-public-client-governance/`;
+future intentional Public Client metadata exposure, Douban Season/Episode graph
 depth, mutation-capable undo, and scheduler migration remain separate.
 
 `PGDBE-050` shipped on 2026-06-02 with Web Admin durable Candidate Review
@@ -328,8 +331,9 @@ Follow-ons:
   (closed related hierarchy Admin plan/apply surface);
 - `.trellis/tasks/archive/2026-06/06-05-douban-tv-episode-endpoint-depth/`
   (closed Douban TV Series subject support);
+- `.trellis/tasks/archive/2026-06/06-05-provider-review-public-client-governance/`
+  (closed negative Public Client governance guardrails; shipped by `42869eaf`);
 - `proposed:douban-season-episode-graph-depth`;
-- `proposed:provider-review-public-client-governance`;
 - `proposed:provider-governance-mutation-undo`.
 
 Previous architecture focus:

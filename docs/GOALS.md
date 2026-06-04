@@ -92,8 +92,9 @@ Closed and candidate follow-ons:
   (closed related hierarchy Admin plan/apply surface);
 - `.trellis/tasks/archive/2026-06/06-05-douban-tv-episode-endpoint-depth/`
   (closed Douban TV Series subject support);
+- `.trellis/tasks/archive/2026-06/06-05-provider-review-public-client-governance/`
+  (closed negative Public Client governance guardrails; shipped by `42869eaf`);
 - `proposed:douban-season-episode-graph-depth`;
-- `proposed:provider-review-public-client-governance`;
 - `proposed:provider-governance-mutation-undo`;
 - `proposed:durable-job-priority-policy-and-scheduler-migration`.
 
@@ -163,8 +164,9 @@ Closed and candidate follow-ons:
   (closed related hierarchy Admin plan/apply surface);
 - `.trellis/tasks/archive/2026-06/06-05-douban-tv-episode-endpoint-depth/`
   (closed Douban TV Series subject support);
+- `.trellis/tasks/archive/2026-06/06-05-provider-review-public-client-governance/`
+  (closed negative Public Client governance guardrails; shipped by `42869eaf`);
 - `proposed:douban-season-episode-graph-depth`;
-- `proposed:provider-review-public-client-governance`;
 - `proposed:provider-governance-mutation-undo`.
 
 ### Provider Review Global Queue Search

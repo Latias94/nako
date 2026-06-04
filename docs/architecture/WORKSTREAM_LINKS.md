@@ -208,6 +208,7 @@ Evidence workstreams:
 - `docs/workstreams/metadata-application-cross-path-audit/`
 - `docs/workstreams/metadata-refresh-seam/`
 - `.trellis/tasks/archive/2026-06/06-05-douban-tv-episode-endpoint-depth/`
+- `.trellis/tasks/archive/2026-06/06-05-provider-review-public-client-governance/`
 
 Proposed lanes:
 
@@ -215,7 +216,6 @@ Proposed lanes:
 - `proposed:artwork-delivery-cache-placeholder`
 - `proposed:douban-season-episode-graph-depth`
 - `proposed:provider-identity-mapping-breadth`
-- `proposed:provider-review-public-client-governance`
 - `proposed:provider-governance-mutation-undo`
 
 ## State, Database, Identity, And Access

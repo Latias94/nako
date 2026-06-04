@@ -28,7 +28,7 @@ documentation/bootstrap task, not as an implementation lane.
 | Area | Current state | Candidate next action | Coordination note |
 | --- | --- | --- | --- |
 | architecture-planning | Idle after 01a and 01 parent closeout. | Select the next architecture focus or continue `00-bootstrap-guidelines` spec coverage. | Open a focused Trellis task before starting implementation lanes. |
-| library-metadata-control-plane | Idle after accepted-review related hierarchy application, durable batch execution, and Douban TV Series subject follow-ons landed. | Consider `provider-review-public-client-governance`, `provider-governance-mutation-undo`, or `douban-season-episode-graph-depth`. | Coordinate with `nako-api`, Admin Web, and schema changes before assigning parallel work. |
+| library-metadata-control-plane | Idle after accepted-review related hierarchy application, durable batch execution, Douban TV Series subject support, and negative Public Client governance guardrails landed. | Consider `provider-governance-mutation-undo`, `douban-season-episode-graph-depth`, or future intentional Public Client metadata API exposure as a separate API-design PRD. | Coordinate with `nako-api`, Admin Web, and schema changes before assigning parallel work. |
 | playback-transcode | Idle after HLS artifact I/O pressure enforcement. | Consider resource admission queueing, LL-HLS/CMAF, player UX, hardware tone-map execution, HEVC/AV1 output policy, subtitle burn-in, or hardware smoke evidence. | Coordinate with storage/VFS and web/native player work. |
 | storage-vfs | Idle after cache repair diagnostics. | Consider source fingerprint escalation, playback artifact/source-read pressure, scan scheduling, or PostgreSQL runtime harness work. | Coordinate with playback input staging and library scan/probe lanes. |
 | web-product | Idle after Admin settings API restoration and previous Web Admin closeouts. | Consider backend/API contract follow-ons, generated SDK work, broader player UX, or desktop/native playback decisions. | Serialize with shared Admin DTO, generated contract, and auth/redaction changes. |
@@ -210,6 +210,7 @@ Closed evidence:
 - `docs/workstreams/admin-candidate-review-list-navigation/`
 - `docs/workstreams/provider-review-global-queue-search/`
 - `docs/workstreams/provider-governance-bulk-review/`
+- `.trellis/tasks/archive/2026-06/06-05-provider-review-public-client-governance/`
 
 Owned scopes:
 
