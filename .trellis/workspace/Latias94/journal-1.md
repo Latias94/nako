@@ -225,7 +225,14 @@ Persisted authoritative staging attribution across core, DB migrations, server p
 
 ### Main Changes
 
-(Add details)
+- Added `Cache-Control: private, max-age=86400` for authenticated selected
+  artwork image GET/HEAD responses through a selected-artwork-only HTTP helper.
+- Updated selected artwork route tests to assert the cache policy on original
+  GET, original HEAD, variant GET, and variant HEAD responses.
+- Updated server HTTP spec and architecture maps to distinguish selected
+  artwork private caching from HLS `no-store` session-artifact semantics.
+- Archived
+  `06-04-06-04-selected-artwork-cache-control-headers-first-slice`.
 
 ### Git Commits
 
@@ -235,7 +242,12 @@ Persisted authoritative staging attribution across core, DB migrations, server p
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] `cargo fmt --all -- --check`
+- [OK] `cargo check -p nako-server --tests`
+- [OK] `cargo nextest run -p nako-server public_catalog_and_image_routes_serve_selected_artwork_without_locator_leaks --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server managed_artwork_variant_routes_resize_selected_artwork_without_locator_or_hash_leaks --no-fail-fast`
+- [OK] `git diff --check`
+- [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-04-06-04-selected-artwork-cache-control-headers-first-slice`
 
 ### Status
 
@@ -851,6 +863,41 @@ Shipped conservative Cache-Control no-store headers for HLS playlist and segment
 | Hash | Message |
 |------|---------|
 | `317a58e4` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 21: Selected artwork cache-control headers
+
+**Date**: 2026-06-04
+**Task**: Selected artwork cache-control headers
+**Package**: nako-server
+**Branch**: `main`
+
+### Summary
+
+Added a selected-artwork-only private Cache-Control baseline for authenticated public image GET/HEAD responses, updated focused route tests, specs, architecture maps, and archived the task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f9d01df4` | (see git log) |
+| `bd7c688e` | (see git log) |
 
 ### Testing
 
