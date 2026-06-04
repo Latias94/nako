@@ -1170,3 +1170,38 @@ Extracted renderer playback transport orchestration into renderer_flow, kept Pla
 ### Next Steps
 
 - None - task complete
+
+
+## Session 29: Local VFS cache repair target authority
+
+**Date**: 2026-06-04
+**Task**: Local VFS cache repair target authority
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Persisted optional VFS cache failure authority, wired cached backend recording and authority-first repair resolution, added DB migrations/tests, and archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `bef63fcc` | (see git log) |
+| `9eba4b9f` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
