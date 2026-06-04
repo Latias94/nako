@@ -675,6 +675,118 @@ async fn vfs_cache_refresh_action_rejects_non_refresh_recommendation_without_bac
     assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
 }
 
+#[tokio::test]
+async fn vfs_cache_refresh_action_rejects_ambiguous_local_repair_target_without_backend_call() {
+    let temp = tempfile::tempdir().unwrap();
+    let movies_root = temp.path().join("movies");
+    let shows_root = temp.path().join("shows");
+    fs::create_dir_all(&movies_root).unwrap();
+    fs::create_dir_all(&shows_root).unwrap();
+    let movies_library_id = LibraryId::new();
+    let shows_library_id = LibraryId::new();
+    let movies_config = LocalLibraryConfig {
+        id: movies_library_id,
+        name: "Movies".to_owned(),
+        root: movies_root,
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    let shows_config = LocalLibraryConfig {
+        id: shows_library_id,
+        name: "Shows".to_owned(),
+        root: shows_root,
+        preset: nako_core::LibraryPreset::Tv,
+        webdav: None,
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(
+        NakoServerConfig {
+            database_backend: Default::default(),
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            database_url_env: None,
+            auth: crate::config::AuthConfig::disabled(),
+            network: crate::config::NetworkAccessConfig::default(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path: PathBuf::from("ffmpeg"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            webhook_concurrency: 2,
+            addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+            remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("nako-cache").join("remux"),
+            metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
+            artwork: crate::config::ArtworkConfig::default(),
+            libraries: vec![movies_config.clone(), shows_config.clone()],
+        },
+        store.clone(),
+    )
+    .await
+    .unwrap();
+    let movies_backend = Arc::new(CacheRefreshCountingBackend::new());
+    let shows_backend = Arc::new(CacheRefreshCountingBackend::new());
+    app.storage()
+        .replace_backend_for_test(
+            movies_config,
+            Arc::new(CachedStorageBackend::with_options(
+                movies_backend.clone(),
+                store.clone(),
+                VfsCacheOptions {
+                    stat_ttl_ms: 60_000,
+                    list_ttl_ms: 60_000,
+                    serve_stale_on_error: true,
+                    cache_local: true,
+                },
+            )),
+        )
+        .await;
+    app.storage()
+        .replace_backend_for_test(
+            shows_config,
+            Arc::new(CachedStorageBackend::with_options(
+                shows_backend.clone(),
+                store.clone(),
+                VfsCacheOptions {
+                    stat_ttl_ms: 60_000,
+                    list_ttl_ms: 60_000,
+                    serve_stale_on_error: true,
+                    cache_local: true,
+                },
+            )),
+        )
+        .await;
+    store
+        .record_vfs_cache_failure(NewVfsCacheFailure {
+            uri: "local:///Movies/Demo.mkv".to_owned(),
+            scheme: "local".to_owned(),
+            operation: VfsCacheOperation::Stat,
+            failed_at_ms: 1_000,
+            error: "storage backend unavailable".to_owned(),
+        })
+        .await
+        .unwrap();
+
+    let err = app
+        .storage()
+        .refresh_latest_vfs_cache_repair()
+        .await
+        .unwrap_err();
+
+    assert!(matches!(
+        err,
+        NakoError::Conflict { message } if message == "latest VFS cache repair target matches multiple configured storage backends"
+    ));
+    assert_eq!(movies_backend.stat_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(movies_backend.list_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(shows_backend.stat_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(shows_backend.list_calls.load(Ordering::SeqCst), 0);
+}
+
 fn assert_storage_rate_limited(err: NakoError) {
     assert_eq!(
         err.storage_failure_class(),
