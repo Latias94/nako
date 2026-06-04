@@ -1,3 +1,3 @@
 {"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Verify HLS session lifecycle orchestration lives in hls_flow and app root stays thin."}
 {"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify focused server gates and HLS admission/session coverage remain sufficient."}
-{"file": ".trellis/tasks/06-04-playback-hls-lifecycle-extraction/research/hls-session-lifecycle-scan.md", "reason": "Verify the implementation stays within the selected extraction scope."}
+{"file": ".trellis/tasks/archive/2026-06/06-04-playback-hls-lifecycle-extraction/research/hls-session-lifecycle-scan.md", "reason": "Verify the implementation stays within the selected extraction scope."}
