@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Architecture map reconciliation should keep cross-layer route/API/task status consistent."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-architecture-related-hierarchy-closeout-reconciliation/research/current-map-drift.md", "reason": "Documents the stale current-map entries and the bounded reconciliation scope."}

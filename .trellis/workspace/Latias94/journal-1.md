@@ -1758,3 +1758,42 @@ Exposed Admin-only related hierarchy plan/apply routes, generated admin contract
 ### Next Steps
 
 - None - task complete
+
+
+## Session 43: Architecture related hierarchy closeout reconciliation
+
+**Date**: 2026-06-05
+**Task**: Architecture related hierarchy closeout reconciliation
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Reconciled current architecture maps after related hierarchy Admin plan/apply shipped and narrowed remaining provider governance follow-ons.
+
+### Main Changes
+
+- Removed the completed related hierarchy application lane from current proposed follow-on queues.
+- Linked the archived Admin plan/apply task in roadmap and architecture indexes.
+- Narrowed the remaining provider governance undo follow-on to mutation-capable undo.
+- Preserved legacy workstream closeout wording as historical evidence.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ff317c9a` | (see git log) |
+
+### Testing
+
+- [OK] `rg -n "proposed:provider-review-related-hierarchy-application|proposed:provider-governance-audit-and-undo" docs/GOALS.md docs/ROADMAP.md docs/architecture/LIBRARY_PIPELINE.md docs/architecture/WORKSTREAM_LINKS.md docs/architecture/LANES.md`
+- [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-05-architecture-related-hierarchy-closeout-reconciliation`
+- [OK] `git diff --check`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
