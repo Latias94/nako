@@ -52,7 +52,9 @@ mod artifact_store;
 mod ingest_pipeline;
 mod variant;
 
-pub(crate) use variant::{ImageVariantRequest, ManagedArtworkImageBytes};
+pub(crate) use variant::{
+    ImageVariantRequest, ManagedArtworkImageBytes, ManagedArtworkImagePreflight,
+};
 
 #[async_trait]
 trait ArtworkAcceptanceWorkflowStore: std::fmt::Debug + Send + Sync {
@@ -936,7 +938,27 @@ impl ManagedArtworkAppService {
         variant: ImageVariantRequest,
     ) -> Result<ManagedArtworkImageBytes> {
         let variant = self.variant_policy.validate(variant)?;
+        let (selected, artifact) = self.selected_artwork_artifact(selected_id).await?;
+        let variant = variant.for_artifact(&artifact)?;
+        let bytes = self.artifact_store.read(selected_id, &artifact).await?;
+        variant.derive(selected.id, &artifact, bytes)
+    }
 
+    pub(crate) async fn selected_image_preflight(
+        &self,
+        selected_id: SelectedArtworkId,
+        variant: ImageVariantRequest,
+    ) -> Result<Option<ManagedArtworkImagePreflight>> {
+        let variant = self.variant_policy.validate(variant)?;
+        let (selected, artifact) = self.selected_artwork_artifact(selected_id).await?;
+        let variant = variant.for_artifact(&artifact)?;
+        variant.preflight_etag(selected.id, &artifact)
+    }
+
+    async fn selected_artwork_artifact(
+        &self,
+        selected_id: SelectedArtworkId,
+    ) -> Result<(SelectedArtworkRecord, ManagedArtworkArtifactRecord)> {
         let selected = self
             .lifecycle_store
             .get_selected_artwork(selected_id)
@@ -963,9 +985,7 @@ impl ManagedArtworkAppService {
             });
         }
 
-        let variant = variant.for_artifact(&artifact)?;
-        let bytes = self.artifact_store.read(selected_id, &artifact).await?;
-        variant.derive(selected.id, &artifact, bytes)
+        Ok((selected, artifact))
     }
 
     async fn process_claim(

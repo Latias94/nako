@@ -48,6 +48,7 @@ mod remux;
 mod remux_flow;
 mod renderer_flow;
 mod resource;
+mod runtime_session;
 mod selection;
 mod staging_policy;
 mod support;

@@ -21,13 +21,20 @@ use super::{
     control::{hls_supersede_candidates, request_hls_session_supersede},
     hls_artifact::hls_artifact_manifest_for_session,
     input::FfmpegSourceInputScope,
-    paths::path_exists,
     playlist::HlsPlaylistSessionBinding,
     playlist::HlsPlaylistUrlDecoration,
     playlist::author_hls_session_playlist,
     resource::PlaybackResourceAdmissionPolicy,
     resource::PlaybackResourceDemand,
     resource::PlaybackResourcePermitSet,
+    runtime_session::{
+        PlaybackTranscodeRuntimeBinding, TranscodeRuntimeSessionKey, cancelled_transcode_error,
+        failed_transcode_error, find_active_runtime_session,
+        find_finished_runtime_session_with_output, find_latest_runtime_session,
+        get_bound_transcode_session, link_playback_session_to_transcode,
+        missing_finished_output_error, missing_playback_transcode_error,
+        start_linked_playback_session,
+    },
     selection::hls_runtime_plan_request,
     staging_policy::HlsStagingPolicy,
 };
@@ -162,17 +169,17 @@ pub(super) async fn hls_playlist_playback(
         request.trace_context.clone(),
     )
     .await?;
-    let playback_session = app
-        .start_playback_session(StartPlaybackSessionRequest {
+    let playback_session = start_linked_playback_session(
+        app,
+        StartPlaybackSessionRequest {
             principal_id: request.principal.principal_id,
             source_id: request.source_id,
             mode: PlaybackSessionMode::Hls,
             client: Some(request.client.clone()),
-        })
-        .await?;
-    let playback_session = app
-        .link_playback_session_transcode(playback_session.id, playlist.session.id)
-        .await?;
+        },
+        playlist.session.id,
+    )
+    .await?;
     app.cancel_superseded_hls_playback_sessions(
         request.source_id,
         playlist.session.id,
@@ -224,9 +231,9 @@ pub(super) async fn hls_playlist_for_playback_session(
             request.trace_context.clone(),
         )
         .await?;
-        playback_session = app
-            .link_playback_session_transcode(playback_session.id, playlist.session.id)
-            .await?;
+        playback_session =
+            link_playback_session_to_transcode(app, playback_session.id, playlist.session.id)
+                .await?;
         app.cancel_superseded_hls_playback_sessions(
             request.source_id,
             playlist.session.id,
@@ -250,21 +257,15 @@ pub(super) async fn hls_playlist_for_playback_session(
 
     let transcode_session_id = playback_session
         .transcode_session_id
-        .expect("checked above");
-    let transcode = app.get_transcode_session(transcode_session_id).await?;
-    if transcode.kind != TranscodeSessionKind::HlsTranscode {
-        return Err(NakoError::InvalidInput {
-            message: format!("session {transcode_session_id} is not an hls transcode session"),
-        });
-    }
-    if transcode.source_id != request.source_id {
-        return Err(NakoError::InvalidInput {
-            message: format!(
-                "hls playback session {} source_id does not match transcode session {}",
-                playback_session.id, transcode.id
-            ),
-        });
-    }
+        .ok_or_else(|| missing_playback_transcode_error(playback_session.id, "hls artifact"))?;
+    let transcode = get_bound_transcode_session(
+        app,
+        playback_session.id,
+        request.source_id,
+        transcode_session_id,
+        PlaybackTranscodeRuntimeBinding::HLS,
+    )
+    .await?;
     let body = app
         .hls_artifacts
         .read_playback_playlist(
@@ -395,14 +396,12 @@ async fn prepare_hls_source_before_input_staging(
     context: &HlsSourceContext,
     resource_demand: &PlaybackResourceDemand,
 ) -> Result<HlsSourcePreStagingAdmission> {
-    if let Some(active) = PlaybackRuntimeStore::find_active_transcode_session(
-        app.runtime_store.as_ref(),
+    let key = TranscodeRuntimeSessionKey::new(
         context.source.id,
         TranscodeSessionKind::HlsTranscode,
         &context.request_key,
-    )
-    .await?
-    {
+    );
+    if let Some(active) = find_active_runtime_session(app.runtime_store.as_ref(), key).await? {
         return Err(NakoError::Conflict {
             message: format!(
                 "hls request for source {} is already in progress in session {}",
@@ -418,20 +417,14 @@ async fn prepare_hls_source_before_input_staging(
     )
     .await?;
 
-    if let Some(latest) = PlaybackRuntimeStore::find_latest_transcode_session(
+    if let Some(latest) = find_finished_runtime_session_with_output(
         app.runtime_store.as_ref(),
-        context.source.id,
-        TranscodeSessionKind::HlsTranscode,
-        &context.request_key,
+        key,
+        &context.layout.playlist_path,
     )
     .await?
     {
-        if latest.state == TranscodeSessionState::Finished
-            && latest.output_path == context.layout.playlist_path
-            && path_exists(&context.layout.playlist_path)?
-        {
-            return Ok(HlsSourcePreStagingAdmission::ReuseExisting { session: latest });
-        }
+        return Ok(HlsSourcePreStagingAdmission::ReuseExisting { session: latest });
     }
 
     let permit = if supersede_candidates.is_empty() {
@@ -458,31 +451,23 @@ async fn start_hls_playlist_with_policy(
         hls_source_context(app, &request, effective_policy.clone(), trace_context).await?;
     let resource_demand = context.resource_demand();
 
-    if let Some(active) = PlaybackRuntimeStore::find_active_transcode_session(
-        app.runtime_store.as_ref(),
+    let key = TranscodeRuntimeSessionKey::new(
         context.source.id,
         TranscodeSessionKind::HlsTranscode,
         &context.request_key,
-    )
-    .await?
-    {
+    );
+    if let Some(active) = find_active_runtime_session(app.runtime_store.as_ref(), key).await? {
         return wait_for_hls_playlist_ready_context(app, context, active.id).await;
     }
 
-    if let Some(latest) = PlaybackRuntimeStore::find_latest_transcode_session(
+    if let Some(latest) = find_finished_runtime_session_with_output(
         app.runtime_store.as_ref(),
-        context.source.id,
-        TranscodeSessionKind::HlsTranscode,
-        &context.request_key,
+        key,
+        &context.layout.playlist_path,
     )
     .await?
     {
-        if latest.state == TranscodeSessionState::Finished
-            && latest.output_path == context.layout.playlist_path
-            && path_exists(&context.layout.playlist_path)?
-        {
-            return Ok(context.playlist_ready(latest));
-        }
+        return Ok(context.playlist_ready(latest));
     }
 
     let supersede_candidates = hls_supersede_candidates(
@@ -560,11 +545,13 @@ async fn wait_for_hls_playlist_ready_context(
         let session = if let Some(session_id) = preferred_session_id {
             Some(app.get_transcode_session(session_id).await?)
         } else {
-            PlaybackRuntimeStore::find_latest_transcode_session(
+            find_latest_runtime_session(
                 app.runtime_store.as_ref(),
-                context.source.id,
-                TranscodeSessionKind::HlsTranscode,
-                &context.request_key,
+                TranscodeRuntimeSessionKey::new(
+                    context.source.id,
+                    TranscodeSessionKind::HlsTranscode,
+                    &context.request_key,
+                ),
             )
             .await?
         };
@@ -572,9 +559,9 @@ async fn wait_for_hls_playlist_ready_context(
         if let Some(session) = session {
             match session.state {
                 TranscodeSessionState::Finished => {
-                    if !path_exists(&context.layout.playlist_path)? {
-                        return Err(NakoError::storage_io(
-                            context.layout.playlist_path.display().to_string(),
+                    if !super::path_exists(&context.layout.playlist_path)? {
+                        return Err(missing_finished_output_error(
+                            &context.layout.playlist_path,
                             "finished hls session playlist is missing",
                         ));
                     }
@@ -587,18 +574,17 @@ async fn wait_for_hls_playlist_ready_context(
                     }
                 }
                 TranscodeSessionState::Cancelled => {
-                    return Err(NakoError::Provider {
-                        provider: "ffmpeg_hls".to_owned(),
-                        message: "hls session was cancelled".to_owned(),
-                    });
+                    return Err(cancelled_transcode_error(
+                        "ffmpeg_hls",
+                        "hls session was cancelled",
+                    ));
                 }
                 TranscodeSessionState::Failed => {
-                    return Err(NakoError::Provider {
-                        provider: "ffmpeg_hls".to_owned(),
-                        message: session
-                            .failure_message
-                            .unwrap_or_else(|| "hls runner failed".to_owned()),
-                    });
+                    return Err(failed_transcode_error(
+                        session,
+                        "ffmpeg_hls",
+                        "hls runner failed",
+                    ));
                 }
                 TranscodeSessionState::Planned
                 | TranscodeSessionState::Starting

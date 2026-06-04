@@ -2490,6 +2490,9 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
     assert!(first.monitored);
     assert_eq!(first.newly_ready_candidates, 0);
     assert_eq!(first.enqueued_job_id, None);
+    assert_eq!(first.intake_plan.discover.inspecting_candidates, 1);
+    assert_eq!(first.intake_plan.summary.observed_candidates, 1);
+    assert!(!first.intake_plan.should_enqueue_scan());
 
     let second = app
         .watch_folder_runtime()
@@ -2501,6 +2504,10 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
     let Some(job_id) = second.enqueued_job_id else {
         panic!("expected watch-folder runtime to enqueue a library scan job");
     };
+    assert_eq!(second.intake_plan.discover.ready_candidates, 1);
+    assert_eq!(second.intake_plan.discover.newly_ready_candidates, 1);
+    assert_eq!(second.intake_plan.summary.observed_candidates, 1);
+    assert!(second.intake_plan.should_enqueue_scan());
     let job = store.get_job(job_id).await.unwrap().unwrap();
 
     assert_eq!(job.kind, JobKind::LibraryScan);
@@ -2510,6 +2517,26 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
         job.status,
         JobStatus::Queued | JobStatus::Running | JobStatus::Succeeded
     ));
+
+    let third = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+    assert!(third.monitored);
+    assert_eq!(third.newly_ready_candidates, 0);
+    assert_eq!(third.enqueued_job_id, None);
+    assert_eq!(third.intake_plan.discover.ready_candidates, 1);
+    assert!(!third.intake_plan.should_enqueue_scan());
+
+    let scan_jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap()
+        .into_iter()
+        .filter(|job| job.kind == JobKind::LibraryScan)
+        .count();
+    assert_eq!(scan_jobs, 1);
 }
 
 #[tokio::test]
@@ -2566,11 +2593,21 @@ async fn watch_folder_runtime_tick_suppresses_planned_host_write_without_enqueui
     assert_eq!(first.suppressed_candidates, 1);
     assert_eq!(first.newly_ready_candidates, 0);
     assert_eq!(first.enqueued_job_id, None);
+    assert_eq!(first.intake_plan.suppression.suppressed_candidates, 1);
+    assert_eq!(first.intake_plan.summary.observed_candidates, 1);
+    assert!(!first.intake_plan.should_enqueue_scan());
     assert!(second.monitored);
     assert_eq!(second.suppressed_candidates, 1);
     assert_eq!(second.newly_ready_candidates, 0);
     assert_eq!(second.enqueued_job_id, None);
+    assert_eq!(second.intake_plan.suppression.suppressed_candidates, 1);
+    assert!(!second.intake_plan.should_enqueue_scan());
     assert!(jobs.iter().all(|job| job.kind != JobKind::LibraryScan));
+
+    let body = serde_json::to_string(&first.intake_plan).unwrap();
+    assert!(!body.contains("Generated Movie"));
+    assert!(!body.contains("local:///"));
+    assert!(!body.contains(&temp.path().display().to_string()));
 }
 
 #[tokio::test]
@@ -2858,6 +2895,52 @@ async fn app_startup_cleans_expired_playback_artifacts_inside_transcode_root() {
     assert!(!remux_file.exists());
     assert!(!hls_dir.exists());
     assert!(outside_file.exists());
+}
+
+#[tokio::test]
+async fn app_startup_skips_playback_artifact_cleanup_when_root_is_missing() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "cleanup-missing-root");
+    let (temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let mut config = app.config().clone();
+    config.playback.transcode_artifact_cleanup_on_startup = true;
+    config.playback.transcode_artifact_retention_ms = 0;
+    config.remux_staging_root = temp.path().join("missing-remux-root");
+    let missing_root = config.remux_staging_root.clone();
+    let remux_file = config
+        .remux_staging_root
+        .join("old-remux")
+        .join("stream.mp4");
+
+    store
+        .create_transcode_session(NewTranscodeSession {
+            id: TranscodeSessionId::new(),
+            source_id: source.id,
+            kind: TranscodeSessionKind::Remux,
+            request_key: "startup-cleanup-missing-root".to_owned(),
+            output_path: remux_file.clone(),
+            state: TranscodeSessionState::Finished,
+        })
+        .await
+        .unwrap();
+
+    drop(app);
+    let restarted = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let report = restarted
+        .startup_report()
+        .playback_artifact_cleanup
+        .as_ref()
+        .unwrap();
+
+    assert_eq!(report.examined_artifacts, 0);
+    assert_eq!(report.deleted_artifacts, 0);
+    assert_eq!(report.deleted_files, 0);
+    assert_eq!(report.deleted_directories, 0);
+    assert_eq!(report.deleted_bytes, 0);
+    assert_eq!(report.skipped_security, 0);
+    assert!(!missing_root.exists());
 }
 
 #[tokio::test]

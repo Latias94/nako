@@ -201,6 +201,10 @@ function Invoke-PlaybackGate {
         cargo check -p nako-transcode -p nako-server --tests
     }
 
+    Invoke-Step 'cargo nextest run -p nako-transcode hardware --no-fail-fast' {
+        cargo nextest run -p nako-transcode hardware --no-fail-fast
+    }
+
     Invoke-Step 'cargo nextest run -p nako-transcode hls --no-fail-fast' {
         cargo nextest run -p nako-transcode hls --no-fail-fast
     }

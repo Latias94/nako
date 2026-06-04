@@ -243,7 +243,41 @@ async fn self_host_smoke_sqlite_operator_flow_redacts_sensitive_boundaries() {
         .unwrap();
     let decision_text = smoke_response_text(decision_response).await;
 
-    for text in [&config_text, &decision_text] {
+    let support_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/admin/v1/playback/support?source_id={}",
+                    source.id
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(support_response.status(), StatusCode::OK);
+    let support_text = smoke_response_text(support_response).await;
+    let support: AdminPlaybackSupportEvidenceResponse =
+        serde_json::from_str(&support_text).unwrap();
+    assert_eq!(support.subject.source_id, Some(source.id));
+    assert_eq!(support.source.as_ref().unwrap().source_scheme, "local");
+    assert_eq!(
+        support.runtime.hardware.selected_acceleration,
+        AdminHardwareAcceleration::None
+    );
+    assert_eq!(
+        support.runtime.readiness.status,
+        AdminPlaybackReadinessStatus::Ready
+    );
+    assert!(support.redaction.paths_redacted);
+    assert!(support.redaction.source_references_redacted);
+    assert!(support.redaction.ffmpeg_commands_redacted);
+    assert!(support.redaction.stderr_redacted);
+    assert!(support.redaction.credentials_redacted);
+
+    for text in [&config_text, &decision_text, &support_text] {
         assert!(!text.contains("storage_uri"));
         assert!(!text.contains("source_uri"));
         assert!(!text.contains("cache_uri"));
@@ -251,6 +285,7 @@ async fn self_host_smoke_sqlite_operator_flow_redacts_sensitive_boundaries() {
         assert!(!text.contains("content_hash"));
         assert!(!text.contains("database_url"));
         assert!(!text.contains("token=secret"));
+        assert!(!text.contains(&source.locator));
         assert!(!text.contains(&remote_url));
         assert!(!text.contains(&raw_token));
         assert!(!text.contains(temp.path().to_string_lossy().as_ref()));

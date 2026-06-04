@@ -113,6 +113,42 @@ pub(super) struct SelectedImageVariantPlan {
 }
 
 impl SelectedImageVariantPlan {
+    pub(super) fn preflight_etag(
+        &self,
+        selected_id: SelectedArtworkId,
+        artifact: &ManagedArtworkArtifactRecord,
+    ) -> Result<Option<ManagedArtworkImagePreflight>> {
+        if super::image_format_for_media_type(&self.original_media_type).is_none() {
+            return Err(managed_artwork_variant_storage_error(
+                "media type is unsupported",
+            ));
+        }
+
+        let variant = if self.variant.is_original() {
+            ImageVariantKey::Original
+        } else {
+            let (Some(original_width), Some(original_height)) = (artifact.width, artifact.height)
+            else {
+                return Ok(None);
+            };
+            if original_width == 0 || original_height == 0 {
+                return Ok(None);
+            }
+
+            let (width, height) =
+                variant_dimensions(original_width, original_height, self.variant)?;
+            if width == original_width && height == original_height {
+                ImageVariantKey::Original
+            } else {
+                ImageVariantKey::Bounded { width, height }
+            }
+        };
+
+        Ok(Some(ManagedArtworkImagePreflight {
+            etag: public_selected_image_etag(selected_id, artifact, variant),
+        }))
+    }
+
     pub(super) fn derive(
         self,
         selected_id: SelectedArtworkId,
@@ -272,4 +308,9 @@ pub(crate) struct ManagedArtworkImageBytes {
     pub(crate) media_type: String,
     pub(crate) content_length: u64,
     pub(crate) etag: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ManagedArtworkImagePreflight {
+    pub(crate) etag: String,
 }

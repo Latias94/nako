@@ -11097,7 +11097,9 @@ async fn admin_selected_artwork_unpublish_hides_public_image_without_deleting_ar
 }
 
 async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks() {
-    let (temp, router, source, _store) = router_with_media_source("demo.mkv", b"media").await;
+    let (temp, app, source, store) =
+        app_with_media_source_config("demo.mkv", b"media", |_| {}).await;
+    let router = build_router(app.clone());
     let library_id = source.library_id;
     let expected_bytes = png_with_size(4, 2);
     let expected_byte_len = expected_bytes.len();
@@ -11413,6 +11415,72 @@ async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks()
         .await
         .unwrap();
     assert!(variant_head_body.is_empty());
+
+    let artifact_id = artifact.id.to_string();
+    let artifact_shard = artifact_id.get(0..2).unwrap();
+    let artifact_path = temp
+        .path()
+        .join("nako-cache")
+        .join("artwork")
+        .join(artifact_shard)
+        .join(format!("{artifact_id}.png"));
+    fs::remove_file(&artifact_path).unwrap();
+
+    let original_preflight_not_modified = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&published.image.url)
+                .header(header::IF_NONE_MATCH, &original_etag)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_selected_artwork_not_modified(original_preflight_not_modified, &original_etag).await;
+
+    let variant_preflight_not_modified = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&variant_url)
+                .header(header::IF_NONE_MATCH, &variant_etag)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_selected_artwork_not_modified(variant_preflight_not_modified, &variant_etag).await;
+
+    let denied_principal =
+        local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::None).await;
+    let denied_router = public_client_router_with_principal(app, denied_principal);
+    let denied = denied_router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&published.image.url)
+                .header(header::IF_NONE_MATCH, &original_etag)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let denied_status = denied.status();
+    let denied_body = to_bytes(denied.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(denied_status, StatusCode::FORBIDDEN);
+    let denied_text = String::from_utf8_lossy(&denied_body);
+    assert!(!denied_text.contains(&remote_url));
+    assert!(!denied_text.contains("token=secret"));
+    assert!(!denied_text.contains(&raw_token));
+    assert!(!denied_text.contains("source_uri"));
+    assert!(!denied_text.contains("cache_uri"));
+    assert!(!denied_text.contains("storage_uri"));
+    assert!(!denied_text.contains("managed-artwork://"));
+    assert!(!denied_text.contains(temp.path().to_string_lossy().as_ref()));
+    assert!(!denied_text.contains("\"content_hash\""));
 
     for invalid_url in [
         format!("{}?width=0", published.image.url),

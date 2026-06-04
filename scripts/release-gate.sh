@@ -111,6 +111,7 @@ playback_gate() {
   step ffmpeg -version
   step ffprobe -version
   step cargo check -p nako-transcode -p nako-server --tests
+  step cargo nextest run -p nako-transcode hardware --no-fail-fast
   step cargo nextest run -p nako-transcode hls --no-fail-fast
   step cargo nextest run -p nako-server self_host_smoke --no-fail-fast
 }

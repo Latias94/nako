@@ -1613,6 +1613,7 @@ version = "0.1.0-alpha.2"
 dependencies = [
  "nako-core",
  "serde",
+ "serde_json",
  "sha2",
  "tempfile",
  "tokio",

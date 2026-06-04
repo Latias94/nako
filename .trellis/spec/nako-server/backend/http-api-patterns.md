@@ -449,6 +449,9 @@ The shared byte response helper covers Direct Play and Remux consistently.
 - `selected_image_response(image, include_body, if_none_match) -> Response`
   owns shared selected artwork byte response header assembly and conditional
   response matching.
+- `selected_image_preflight_response(...) -> Option<Response>` owns the
+  metadata-derived exact-match 304 short-circuit after auth and library access
+  checks.
 - `apply_selected_artwork_cache_headers(&mut HeaderMap)` is the selected
   artwork-only helper for the private client-cache baseline.
 - `selected_image_etag_matches(if_none_match, etag) -> bool` is the route-local
@@ -471,9 +474,13 @@ The shared byte response helper covers Direct Play and Remux consistently.
   library access, selected artwork lookup, and variant query behavior.
 - Auth and library access checks must run before any selected artwork 304
   response.
-- Do not add metadata-only ETag preflight, weak-validator parsing, wildcard
-  validators, `Last-Modified`, immutable headers, generated DTOs, schema
-  changes, or shared-cache/CDN behavior without a dedicated cache-contract task.
+- Metadata-derived ETag preflight may short-circuit an exact `If-None-Match`
+  match before bytes are read, but only after auth and library access checks
+  and only when it proves the same safe ETag that a normal response would
+  emit.
+- Do not add weak-validator parsing, wildcard validators, `Last-Modified`,
+  immutable headers, generated DTOs, schema changes, or shared-cache/CDN
+  behavior without a dedicated cache-contract task.
 
 ### 4. Validation & Error Matrix
 
@@ -497,9 +504,9 @@ The shared byte response helper covers Direct Play and Remux consistently.
   drift from header authoring.
 - Base: safe selected artwork ETags continue to identify original versus
   bounded variants; the cache helper does not change ETag generation.
-- Base: 304 matching happens after the current image response has been derived.
-  A metadata-only ETag preflight is a performance follow-on, not part of the
-  first conditional-response contract.
+- Base: exact-match 304 short-circuiting can happen before bytes are read when
+  the route can prove the same safe ETag from selected artwork and artifact
+  metadata.
 - Bad: reusing the HLS `no-store` helper for selected artwork, which defeats
   client artwork caching.
 - Bad: applying `private, max-age=86400` through a generic byte-route helper

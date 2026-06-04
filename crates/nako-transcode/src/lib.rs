@@ -2956,6 +2956,74 @@ h264_mp4toannexb
     }
 
     #[test]
+    fn hardware_report_serializes_cpu_hls_readiness() {
+        let report = hls_probe_report(" V..... libx264\n A..... aac\n");
+        let cpu = report.capability_for(HardwareAcceleration::None).unwrap();
+
+        assert!(cpu.available);
+        assert_eq!(
+            cpu.encoder_discovery.status,
+            HardwareEncoderDiscoveryStatus::Listed
+        );
+        assert_eq!(
+            cpu.encoder_discovery.encoder.as_deref(),
+            Some("libx264,aac")
+        );
+        assert!(cpu.stage_capabilities.iter().any(|stage| {
+            stage.stage == HardwarePipelineStage::Encode
+                && stage.required
+                && stage.available
+                && stage.feature.as_deref() == Some("libx264")
+        }));
+        assert!(cpu.stage_capabilities.iter().any(|stage| {
+            stage.stage == HardwarePipelineStage::Encode
+                && stage.required
+                && stage.available
+                && stage.feature.as_deref() == Some("aac")
+        }));
+
+        let serialized = serde_json::to_string(&report).unwrap();
+        assert!(serialized.contains("\"accelerator\":\"none\""));
+        assert!(serialized.contains("\"encoder\":\"libx264,aac\""));
+        assert!(serialized.contains("\"status\":\"not_required\""));
+        assert!(!serialized.contains("local:///"));
+        assert!(!serialized.contains("webdav://"));
+        assert!(!serialized.contains("C:\\"));
+        assert!(!serialized.contains("F:/"));
+    }
+
+    #[test]
+    fn hardware_probe_failure_report_redacts_paths_locators_and_tokens() {
+        let temp = tempfile::tempdir().unwrap();
+        let ffmpeg_path = fake_probe_ffmpeg_script_with_filter_failure(
+            temp.path(),
+            "probe_redaction_failure",
+            "filters denied F:/Media/private/Demo.mkv local:///Movies/Secret.mkv webdav://nas.example.test/Movies/Secret.mkv?token=secret path=/home/nako/private/Demo.mkv",
+        );
+        let detector = FfmpegHardwareAccelerationDetector::new(ffmpeg_path);
+
+        let report = detector.detect();
+        let serialized = serde_json::to_string(&report).unwrap();
+        let vaapi = report.capability_for(HardwareAcceleration::Vaapi).unwrap();
+        let detail = vaapi.encoder_discovery.detail.as_deref().unwrap();
+
+        assert!(vaapi.has_probe_error());
+        assert!(detail.contains("filters denied"));
+        assert!(detail.contains("<redacted>"));
+        for leaked in [
+            "F:/Media",
+            "local:///",
+            "webdav://",
+            "token=secret",
+            "/home/nako",
+            "Secret.mkv",
+        ] {
+            assert!(!detail.contains(leaked));
+            assert!(!serialized.contains(leaked));
+        }
+    }
+
+    #[test]
     fn ffmpeg_encoder_report_accepts_fake_smoke_probe_results() {
         let smoke_probe = StaticHardwareSmokeProbe::new([
             (
@@ -3740,6 +3808,27 @@ h264_mp4toannexb
     }
 
     fn fake_probe_ffmpeg_script(root: &Path, name: &str, fail_filters: bool) -> PathBuf {
+        let failure = if fail_filters {
+            Some("filters denied")
+        } else {
+            None
+        };
+        fake_probe_ffmpeg_script_with_optional_filter_failure(root, name, failure)
+    }
+
+    fn fake_probe_ffmpeg_script_with_filter_failure(
+        root: &Path,
+        name: &str,
+        failure: &str,
+    ) -> PathBuf {
+        fake_probe_ffmpeg_script_with_optional_filter_failure(root, name, Some(failure))
+    }
+
+    fn fake_probe_ffmpeg_script_with_optional_filter_failure(
+        root: &Path,
+        name: &str,
+        failure: Option<&str>,
+    ) -> PathBuf {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -3758,8 +3847,8 @@ h264_mp4toannexb
             content.push_str("cat <<'EOF'\nvaapi\nqsv\nEOF\n");
             content.push_str("exit 0\n;;\n");
             content.push_str("-filters)\n");
-            if fail_filters {
-                content.push_str("echo filters denied 1>&2\nexit 42\n;;\n");
+            if let Some(failure) = failure {
+                content.push_str(&format!("echo {failure:?} 1>&2\nexit 42\n;;\n"));
             } else {
                 content.push_str("cat <<'EOF'\n ... hwupload\n ... scale_vaapi\nEOF\n");
                 content.push_str("exit 0\n;;\n");
@@ -3804,8 +3893,8 @@ h264_mp4toannexb
             content.push_str("echo qsv\r\n");
             content.push_str("exit /b 0\r\n");
             content.push_str(":filters\r\n");
-            if fail_filters {
-                content.push_str("echo filters denied 1>&2\r\n");
+            if let Some(failure) = failure {
+                content.push_str(&format!("echo {failure} 1>&2\r\n"));
                 content.push_str("exit /b 42\r\n");
             } else {
                 content.push_str("echo  ... hwupload\r\n");

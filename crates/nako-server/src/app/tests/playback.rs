@@ -753,6 +753,10 @@ async fn remux_playback_preflight_reuses_active_session_and_links_playback_sessi
         .transcode_session_id
         .expect("first remux playback session should link a transcode session");
     assert_eq!(
+        first.session.transcode_session_id,
+        Some(transcode_session_id)
+    );
+    assert_eq!(
         store
             .get_transcode_session(transcode_session_id)
             .await
@@ -779,6 +783,10 @@ async fn remux_playback_preflight_reuses_active_session_and_links_playback_sessi
         .unwrap();
 
     assert_ne!(first.session.id, second.session.id);
+    assert_eq!(
+        second.session.transcode_session_id,
+        Some(transcode_session_id)
+    );
     assert_eq!(
         second_linked.transcode_session_id,
         Some(transcode_session_id)

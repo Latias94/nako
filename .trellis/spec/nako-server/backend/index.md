@@ -36,6 +36,8 @@ examples and matching architecture decisions.
 - `crates/nako-server/src/http/access.rs`
 - `crates/nako-server/src/http/error.rs`
 - `crates/nako-server/src/http/tests/mod.rs`
+- `crates/nako-server/src/http/catalog.rs`
 - `crates/nako-server/src/main.rs`
 - `crates/nako-server/src/app/job_runtime.rs`
+- `crates/nako-server/src/app/artwork.rs`
 - `crates/nako-server/src/app/playback/resource.rs`

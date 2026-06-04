@@ -112,10 +112,19 @@ pub(super) async fn get_image(
     require_selected_artwork_access(&app, &principal, image_id, RequiredLibraryAccess::Browse)
         .await?;
 
-    let image = app
-        .artwork()
-        .read_selected_image(image_id, query.into_variant_request()?)
-        .await?;
+    let variant = query.into_variant_request()?;
+    if let Some(response) = selected_image_preflight_response(
+        &app,
+        image_id,
+        variant,
+        headers.get(header::IF_NONE_MATCH),
+    )
+    .await?
+    {
+        return Ok(response);
+    }
+
+    let image = app.artwork().read_selected_image(image_id, variant).await?;
     Ok(selected_image_response(
         image,
         true,
@@ -134,10 +143,19 @@ pub(super) async fn head_image(
     require_selected_artwork_access(&app, &principal, image_id, RequiredLibraryAccess::Browse)
         .await?;
 
-    let image = app
-        .artwork()
-        .read_selected_image(image_id, query.into_variant_request()?)
-        .await?;
+    let variant = query.into_variant_request()?;
+    if let Some(response) = selected_image_preflight_response(
+        &app,
+        image_id,
+        variant,
+        headers.get(header::IF_NONE_MATCH),
+    )
+    .await?
+    {
+        return Ok(response);
+    }
+
+    let image = app.artwork().read_selected_image(image_id, variant).await?;
     Ok(selected_image_response(
         image,
         false,
@@ -449,6 +467,30 @@ async fn any_public_items_accessible(
     Ok(false)
 }
 
+async fn selected_image_preflight_response(
+    app: &NakoApp,
+    image_id: SelectedArtworkId,
+    variant: crate::app::ImageVariantRequest,
+    if_none_match: Option<&HeaderValue>,
+) -> ApiResult<Option<axum::response::Response>> {
+    let Some(if_none_match) = if_none_match else {
+        return Ok(None);
+    };
+    let Some(preflight) = app
+        .artwork()
+        .selected_image_preflight(image_id, variant)
+        .await?
+    else {
+        return Ok(None);
+    };
+    let Some(etag) = selected_image_etag_header_value(&preflight.etag) else {
+        return Ok(None);
+    };
+
+    Ok(selected_image_etag_matches(Some(if_none_match), &etag)
+        .then(|| selected_image_not_modified_response(etag)))
+}
+
 fn selected_image_response(
     image: crate::app::ManagedArtworkImageBytes,
     include_body: bool,
@@ -463,12 +505,7 @@ fn selected_image_response(
         .filter(|etag| selected_image_etag_matches(if_none_match, etag))
         .cloned()
     {
-        let mut response = Body::empty().into_response();
-        *response.status_mut() = StatusCode::NOT_MODIFIED;
-        let headers = response.headers_mut();
-        apply_selected_artwork_cache_headers(headers);
-        headers.insert(header::ETAG, matched_etag);
-        return response;
+        return selected_image_not_modified_response(matched_etag);
     }
 
     let mut response = if include_body {
@@ -491,6 +528,15 @@ fn selected_image_response(
     if let Some(etag) = etag {
         headers.insert(header::ETAG, etag);
     }
+    response
+}
+
+fn selected_image_not_modified_response(etag: HeaderValue) -> axum::response::Response {
+    let mut response = Body::empty().into_response();
+    *response.status_mut() = StatusCode::NOT_MODIFIED;
+    let headers = response.headers_mut();
+    apply_selected_artwork_cache_headers(headers);
+    headers.insert(header::ETAG, etag);
     response
 }
 

@@ -139,8 +139,9 @@ provider secrets, artifact paths, or source locators.
 ## 5a. Playback Release Gate
 
 Before claiming a package or host is playback-ready, run the focused playback
-release gate. It verifies FFmpeg/FFprobe availability and reuses existing HLS
-and self-host playback smoke coverage without requiring GPU devices:
+release gate. It verifies FFmpeg/FFprobe availability, CPU HLS readiness,
+hardware diagnostics serialization, and self-host playback smoke coverage
+without requiring GPU devices:
 
 ```bash
 bash scripts/release-gate.sh --mode playback

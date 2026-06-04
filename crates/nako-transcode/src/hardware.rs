@@ -652,7 +652,10 @@ where
             .output()
             .map_err(|err| NakoError::Provider {
                 provider: "ffmpeg".to_owned(),
-                message: format!("failed to run ffmpeg {label} capability probe: {err}"),
+                message: format!(
+                    "failed to run ffmpeg {label} capability probe: {}",
+                    redacted_hardware_probe_detail(&err.to_string())
+                ),
             })?;
 
         if !output.status.success() {
@@ -660,7 +663,7 @@ where
                 provider: "ffmpeg".to_owned(),
                 message: format!(
                     "ffmpeg {label} capability probe failed: {}",
-                    stderr_message(&output.stderr)
+                    redacted_hardware_probe_detail(&stderr_message(&output.stderr))
                 ),
             });
         }
@@ -846,6 +849,7 @@ fn encoder_capability(
 }
 
 fn hardware_report_with_probe_error(message: String) -> HardwareAccelerationReport {
+    let message = redacted_hardware_probe_detail(&message);
     HardwareAccelerationReport {
         capabilities: vec![
             cpu_capability(),
@@ -856,6 +860,66 @@ fn hardware_report_with_probe_error(message: String) -> HardwareAccelerationRepo
             probe_error_capability(HardwareAcceleration::VideoToolbox, &message),
         ],
     }
+}
+
+fn redacted_hardware_probe_detail(value: &str) -> String {
+    let redacted = value
+        .split_whitespace()
+        .map(|token| {
+            if hardware_probe_detail_token_is_sensitive(token) {
+                "<redacted>".to_owned()
+            } else {
+                token.to_owned()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    if redacted.is_empty() {
+        "<redacted>".to_owned()
+    } else {
+        redacted
+    }
+}
+
+fn hardware_probe_detail_token_is_sensitive(token: &str) -> bool {
+    let token = token.trim_matches(|ch: char| {
+        matches!(
+            ch,
+            '"' | '\'' | '`' | '(' | ')' | '[' | ']' | '{' | '}' | '<' | '>' | ',' | ';'
+        )
+    });
+    let lower = token.to_ascii_lowercase();
+
+    contains_uri_reference(token)
+        || contains_local_path_reference(token)
+        || lower.contains("token=")
+        || lower.contains("secret=")
+        || lower.contains("password=")
+}
+
+fn contains_uri_reference(value: &str) -> bool {
+    let Some(scheme_end) = value.find("://") else {
+        return false;
+    };
+
+    scheme_end > 0
+        && value[..scheme_end]
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '+' | '-' | '.'))
+}
+
+fn contains_local_path_reference(value: &str) -> bool {
+    value.starts_with('/')
+        || value.starts_with('\\')
+        || value.starts_with("~/")
+        || value.contains("=/")
+        || value.contains("=\\")
+        || value.as_bytes().windows(3).any(|window| {
+            window[0].is_ascii_alphabetic()
+                && window[1] == b':'
+                && matches!(window[2], b'/' | b'\\')
+        })
 }
 
 fn probe_error_capability(

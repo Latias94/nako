@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use nako_core::{JobId, Library, LibraryId, LibraryRepository, PageRequest, Result};
 use nako_db::NakoDatabase;
+use nako_library::{WatchFolderIntakePlan, WatchFolderIntakePlanInput, plan_watch_folder_intake};
 use nako_vfs::StorageUri;
 use tracing::{info, warn};
 
@@ -25,6 +26,7 @@ pub(crate) struct WatchFolderRuntimeAppService {
 pub(crate) struct WatchFolderRuntimeTickDiagnostic {
     pub(crate) library_id: LibraryId,
     pub(crate) monitored: bool,
+    pub(crate) intake_plan: WatchFolderIntakePlan,
     pub(crate) newly_ready_candidates: u64,
     pub(crate) suppressed_candidates: u64,
     pub(crate) enqueued_job_id: Option<JobId>,
@@ -152,23 +154,11 @@ impl WatchFolderRuntimeAppService {
         library_id: LibraryId,
     ) -> Result<WatchFolderRuntimeTickDiagnostic> {
         let Some(library) = self.store.get_library(library_id).await? else {
-            return Ok(WatchFolderRuntimeTickDiagnostic {
-                library_id,
-                monitored: false,
-                newly_ready_candidates: 0,
-                suppressed_candidates: 0,
-                enqueued_job_id: None,
-            });
+            return Ok(WatchFolderRuntimeTickDiagnostic::unmonitored(library_id));
         };
 
         if !library.options.scan.realtime_monitor || !is_local_watch_folder_root(&library) {
-            return Ok(WatchFolderRuntimeTickDiagnostic {
-                library_id,
-                monitored: false,
-                newly_ready_candidates: 0,
-                suppressed_candidates: 0,
-                enqueued_job_id: None,
-            });
+            return Ok(WatchFolderRuntimeTickDiagnostic::unmonitored(library_id));
         }
 
         let discovery = self
@@ -179,7 +169,17 @@ impl WatchFolderRuntimeAppService {
                 max_depth: None,
             })
             .await?;
-        let enqueued_job_id = if discovery.newly_ready_candidates > 0 {
+        let intake_plan = plan_watch_folder_intake(WatchFolderIntakePlanInput {
+            ready_candidates: discovery.ready_candidates,
+            inspecting_candidates: discovery.inspecting_candidates,
+            blocked_candidates: discovery.blocked_candidates,
+            recorded_candidates: discovery.recorded_candidates,
+            newly_ready_candidates: discovery.newly_ready_candidates,
+            suppressed_candidates: discovery.suppressed_candidates,
+            active_suppressions: discovery.active_suppressions.len() as u64,
+            failure_count: discovery.failures.len() as u64,
+        });
+        let enqueued_job_id = if intake_plan.should_enqueue_scan() {
             Some(self.library_scan.enqueue_library_scan(library_id).await?.id)
         } else {
             None
@@ -188,6 +188,7 @@ impl WatchFolderRuntimeAppService {
         Ok(WatchFolderRuntimeTickDiagnostic {
             library_id,
             monitored: true,
+            intake_plan,
             newly_ready_candidates: discovery.newly_ready_candidates,
             suppressed_candidates: discovery.suppressed_candidates,
             enqueued_job_id,
@@ -209,6 +210,19 @@ impl WatchFolderRuntimeAppService {
             }
 
             offset = offset.saturating_add(returned as u64);
+        }
+    }
+}
+
+impl WatchFolderRuntimeTickDiagnostic {
+    fn unmonitored(library_id: LibraryId) -> Self {
+        Self {
+            library_id,
+            monitored: false,
+            intake_plan: WatchFolderIntakePlan::idle(),
+            newly_ready_candidates: 0,
+            suppressed_candidates: 0,
+            enqueued_job_id: None,
         }
     }
 }

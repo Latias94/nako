@@ -47,6 +47,7 @@ mod metadata_runtime;
 mod metadata_scan;
 mod nfo;
 pub(crate) mod playback;
+mod playback_artifact_cleanup;
 mod playback_ticket;
 pub(crate) mod renderer;
 pub(crate) mod renderer_adapter;
