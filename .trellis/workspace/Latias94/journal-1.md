@@ -412,7 +412,14 @@ Deepened server HLS orchestration into hls_flow, tightened transcode readiness/f
 
 ### Main Changes
 
-(Add details)
+- Added bounded Admin repair target inventory and target-scoped preview routes.
+- Added opaque per-service HMAC `target_ref` generation so raw URI, authority,
+  backend identity, paths, etags, fingerprints, and raw errors stay out of the
+  Admin contract.
+- Added `list_vfs_cache_failures(PageRequest)` repository parity across core,
+  SQLite, PostgreSQL, facade, contract tests, and VFS test repository support.
+- Regenerated both Admin TypeScript contract artifacts and updated the storage
+  architecture/API spec boundary for read-only selected-target previews.
 
 ### Git Commits
 
@@ -424,7 +431,17 @@ Deepened server HLS orchestration into hls_flow, tightened transcode readiness/f
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] `cargo check -p nako-core -p nako-db -p nako-vfs -p nako-api -p nako-server --tests`
+- [OK] `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+- [OK] `cargo nextest run -p nako-api admin_vfs_cache --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server vfs_cache_repair_target --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server vfs_cache_repair_action_plan --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server vfs_cache_refresh_action --no-fail-fast`
+- [OK] `cargo nextest run -p nako-db vfs_cache --no-fail-fast`
+- [OK] `cargo nextest run -p nako-db vfs_staging --no-fail-fast`
+- [OK] `cargo nextest run -p nako-vfs vfs_cache --no-fail-fast`
+- [OK] `cargo fmt --all -- --check`
+- [OK] `git diff --check`
 
 ### Status
 
@@ -448,7 +465,15 @@ Grouped HLS FFmpeg command assembly into input, primary output, and sidecar outp
 
 ### Main Changes
 
-(Add details)
+- Created a Trellis architecture review task and PRD for read-only refactor
+  discovery.
+- Ran three sub-agent reviews:
+  control-plane/API-DB boundaries, Playback Runtime boundaries, and
+  Addon/automation/metadata workflow boundaries.
+- Added local workspace hotspot notes from architecture maps, crate/file sizes,
+  repository traits, app services, and route concentration.
+- Consolidated findings into a ranked report with workflow scale and next-move
+  recommendations.
 
 ### Git Commits
 
@@ -460,7 +485,8 @@ Grouped HLS FFmpeg command assembly into input, primary output, and sidecar outp
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] `python ./.trellis/scripts/task.py validate ./.trellis/tasks/06-04-architecture-boundary-refactor-review`
+- [OK] `git diff --check`
 
 ### Status
 
@@ -1561,6 +1587,40 @@ Added redaction-safe Admin VFS cache repair target inventory and read-only targe
 | Hash | Message |
 |------|---------|
 | `a6e59dc0` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 39: Architecture boundary refactor review
+
+**Date**: 2026-06-04
+**Task**: Architecture boundary refactor review
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Ran parallel sub-agent architecture reviews for control-plane/API-DB, Playback Runtime, Addon/automation/metadata workflows, consolidated fearless-refactor opportunities, and recorded a ranked report.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5f33b850` | (see git log) |
 
 ### Testing
 
