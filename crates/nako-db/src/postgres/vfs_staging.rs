@@ -21,6 +21,19 @@ const VFS_CACHE_OBJECT_SELECT: &str = r#"
             FROM vfs_cache_objects
             "#;
 
+const VFS_CACHE_FAILURE_SELECT: &str = r#"
+            SELECT
+                uri,
+                scheme,
+                operation,
+                failed_at_ms,
+                failure_count,
+                error,
+                library_id::text AS library_id,
+                backend_key
+            FROM vfs_cache_failures
+            "#;
+
 const STAGING_MANIFEST_RECORD_SELECT: &str = r#"
             SELECT
                 id::text AS id,
@@ -213,15 +226,12 @@ impl VfsCacheRepository for PostgresStore {
         uri: &str,
         operation: VfsCacheOperation,
     ) -> Result<Option<VfsCacheFailure>> {
-        let row = sqlx::query(
+        let row = sqlx::query(&format!(
             r#"
-            SELECT
-                uri, scheme, operation, failed_at_ms, failure_count, error,
-                library_id, backend_key
-            FROM vfs_cache_failures
+            {VFS_CACHE_FAILURE_SELECT}
             WHERE uri = $1 AND operation = $2
-            "#,
-        )
+            "#
+        ))
         .bind(uri)
         .bind(operation.as_str())
         .fetch_optional(&self.pool)
@@ -232,16 +242,13 @@ impl VfsCacheRepository for PostgresStore {
     }
 
     async fn get_latest_vfs_cache_failure(&self) -> Result<Option<VfsCacheFailure>> {
-        let row = sqlx::query(
+        let row = sqlx::query(&format!(
             r#"
-            SELECT
-                uri, scheme, operation, failed_at_ms, failure_count, error,
-                library_id, backend_key
-            FROM vfs_cache_failures
+            {VFS_CACHE_FAILURE_SELECT}
             ORDER BY failed_at_ms DESC, uri ASC, operation ASC
             LIMIT 1
-            "#,
-        )
+            "#
+        ))
         .fetch_optional(&self.pool)
         .await
         .map_err(database_error)?;
@@ -974,7 +981,7 @@ fn row_to_vfs_cache_failure(row: PgRow) -> Result<VfsCacheFailure> {
         failure_count: i64_to_u32(row_get(&row, "failure_count")?)?,
         error: row_get(&row, "error")?,
         authority: VfsCacheFailureAuthority {
-            library_id: parse_optional_id(row_get(&row, "library_id")?)?,
+            library_id: parse_optional_id(row_get::<Option<String>>(&row, "library_id")?)?,
             backend_key: row_get(&row, "backend_key")?,
         },
     })
