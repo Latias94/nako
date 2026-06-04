@@ -1,6 +1,6 @@
 # Architecture Workstream Links
 
-Last updated: 2026-06-02
+Last updated: 2026-06-05
 
 This index links architecture capability areas to workstream evidence and
 candidate follow-on lanes. The top-level architecture map stays concise; this
@@ -175,6 +175,8 @@ Evidence workstreams:
 - `docs/workstreams/provider-review-global-queue-search/` (closed)
 - `docs/workstreams/provider-governance-bulk-review/` (closed)
 - `docs/workstreams/provider-governance-durable-batch-execution/` (closed)
+- `.trellis/tasks/archive/2026-06/06-05-provider-hierarchy-application-admin/`
+  (closed related hierarchy Admin plan/apply surface)
 - `docs/workstreams/metadata-acquisition-pipeline/`
 - `docs/workstreams/metadata-profile-configuration-authority/`
 - `docs/workstreams/metadata-application-policy-seam/`
@@ -210,11 +212,10 @@ Proposed lanes:
 
 - `proposed:library-watcher-and-media-intake-stability`
 - `proposed:artwork-delivery-cache-placeholder`
-- `proposed:provider-review-related-hierarchy-application`
 - `proposed:douban-tv-episode-endpoint-depth`
 - `proposed:provider-identity-mapping-breadth`
 - `proposed:provider-review-public-client-governance`
-- `proposed:provider-governance-audit-and-undo`
+- `proposed:provider-governance-mutation-undo`
 
 ## State, Database, Identity, And Access
 

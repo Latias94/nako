@@ -86,12 +86,13 @@ Completed tasks:
 - `PGDBE-050`: Web Admin durable batch status;
 - `PGDBE-060`: closeout and follow-on split.
 
-Candidate follow-ons:
+Closed and candidate follow-ons:
 
-- `proposed:provider-review-related-hierarchy-application`;
+- `.trellis/tasks/archive/2026-06/06-05-provider-hierarchy-application-admin/`
+  (closed related hierarchy Admin plan/apply surface);
 - `proposed:douban-tv-episode-endpoint-depth`;
 - `proposed:provider-review-public-client-governance`;
-- `proposed:provider-governance-audit-and-undo`;
+- `proposed:provider-governance-mutation-undo`;
 - `proposed:durable-job-priority-policy-and-scheduler-migration`.
 
 ### Provider Governance Bulk Review
@@ -153,13 +154,14 @@ Completed tasks:
   partial-result rendering;
 - `PGBR-050`: closeout and follow-on split.
 
-Candidate follow-ons:
+Closed and candidate follow-ons:
 
 - `docs/workstreams/provider-governance-durable-batch-execution/` (closed);
-- `proposed:provider-review-related-hierarchy-application`;
+- `.trellis/tasks/archive/2026-06/06-05-provider-hierarchy-application-admin/`
+  (closed related hierarchy Admin plan/apply surface);
 - `proposed:douban-tv-episode-endpoint-depth`;
 - `proposed:provider-review-public-client-governance`;
-- `proposed:provider-governance-audit-and-undo`.
+- `proposed:provider-governance-mutation-undo`.
 
 ### Provider Review Global Queue Search
 

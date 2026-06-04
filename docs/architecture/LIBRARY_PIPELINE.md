@@ -1,6 +1,6 @@
 # Library And Asset Pipeline Architecture
 
-Last updated: 2026-06-04
+Last updated: 2026-06-05
 
 This document maps the media lifecycle after files become visible through VFS.
 It covers scan, watcher, probe, metadata, artwork, and addon-assisted intake.
@@ -28,7 +28,7 @@ Storage event or scheduled scan
 | Local inference | Shipped foundation | `CONTEXT.md`; metadata/catalog lanes | Anime/series path heuristics and confidence reporting. |
 | Media probe | Shipped foundation | playback/transcode lanes | More HDR/audio/subtitle technical facts. |
 | NFO authority | Shipped foundation | `docs/adr/0008-nfo-as-local-metadata-boundary.md` | Round-trip/writeback polish and backup policy. |
-| Metadata merge policy | Shipped foundation; durable candidate review, accepted-review root mapping application, Admin/Web governance, item-scoped Candidate Review list/navigation, global Candidate Review queue/navigation, read-only batch planning, bounded batch confirmation, Web bulk governance, and durable batch execution shipped | `docs/adr/0007-metadata-merge-policy-and-local-authority.md`; `docs/workstreams/metadata-candidate-durable-review/`; `docs/workstreams/accepted-review-provider-mapping-application/`; `docs/workstreams/admin-web-provider-depth-governance/`; `docs/workstreams/admin-candidate-review-list-navigation/`; `docs/workstreams/provider-review-global-queue-search/`; `docs/workstreams/provider-governance-bulk-review/`; `docs/workstreams/provider-governance-durable-batch-execution/` | Keep related hierarchy application, provider endpoint depth, Public Client API exposure, and audit/undo governance in focused follow-ons. |
+| Metadata merge policy | Shipped foundation; durable candidate review, accepted-review root mapping application, Admin/Web governance, item-scoped Candidate Review list/navigation, global Candidate Review queue/navigation, read-only batch planning, bounded batch confirmation, Web bulk governance, durable batch execution, and Admin-only related hierarchy plan/apply shipped | `docs/adr/0007-metadata-merge-policy-and-local-authority.md`; `docs/workstreams/metadata-candidate-durable-review/`; `docs/workstreams/accepted-review-provider-mapping-application/`; `docs/workstreams/admin-web-provider-depth-governance/`; `docs/workstreams/admin-candidate-review-list-navigation/`; `docs/workstreams/provider-review-global-queue-search/`; `docs/workstreams/provider-governance-bulk-review/`; `docs/workstreams/provider-governance-durable-batch-execution/`; `.trellis/tasks/archive/2026-06/06-05-provider-hierarchy-application-admin/` | Keep provider endpoint depth, Public Client API exposure, mutation-capable undo, Admin Web UX, and durable/bulk related hierarchy execution in focused follow-ons. |
 | TMDB provider | Shipped movie plus series/season/episode graph preview foundation | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/metadata-provider-depth-and-precision/`; `docs/workstreams/tmdb-season-episode-graph-depth/` | Accepted-review application or Admin/Web governance before preview graph depth becomes accepted hierarchy. |
 | Douban provider | Shipped MVP plus endpoint-backed capability precision | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/douban-subject-kind-precision/` | Accepted-review application, Admin/Web governance, or endpoint-backed TV/episode follow-on. |
 | Bangumi provider | Shipped MVP plus endpoint-backed episode graph preview | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/bangumi-relations-and-episode-depth/` | Accepted-review application or Admin/Web governance before preview graph depth becomes accepted hierarchy. |
@@ -103,10 +103,38 @@ Non-goals:
 
 Follow-ons:
 
-- `proposed:provider-review-related-hierarchy-application`;
+- `.trellis/tasks/archive/2026-06/06-05-provider-hierarchy-application-admin/`
+  (closed related hierarchy Admin plan/apply surface);
 - `proposed:douban-tv-episode-endpoint-depth`;
 - `proposed:provider-review-public-client-governance`;
-- `proposed:provider-governance-audit-and-undo`.
+- `proposed:provider-governance-mutation-undo`.
+
+### provider-review-related-hierarchy-application
+
+Status: Closed through
+`.trellis/tasks/archive/2026-06/06-02-01c-provider-review-related-hierarchy-application/`
+and
+`.trellis/tasks/archive/2026-06/06-05-provider-hierarchy-application-admin/`.
+
+Goal: Apply accepted Metadata Candidate Review related hierarchy facts through
+an explicit Admin-only plan/apply surface without silently mutating hierarchy
+when the root Provider Mapping is accepted.
+
+Shipped:
+
+- backend-only safe related hierarchy application for existing child Media
+  Items;
+- a related-hierarchy-specific read-only plan, separate from the root Provider
+  Mapping application plan;
+- Admin-only plan/apply routes under Candidate Review Admin routes;
+- stale guard, idempotent replay, pending-review conflict, missing accepted
+  root mapping conflict, non-admin rejection, and redaction coverage.
+
+Remaining follow-ons:
+
+- Admin Web UX for displaying and applying the related hierarchy plan;
+- durable/bulk related hierarchy execution if operators need batch workflows;
+- mutation-capable undo with persisted rollback snapshots.
 
 ### provider-review-global-queue-search
 
@@ -136,7 +164,8 @@ Non-goals:
 Follow-ons:
 
 - `docs/workstreams/provider-governance-bulk-review/` (closed);
-- `proposed:provider-review-related-hierarchy-application`;
+- `.trellis/tasks/archive/2026-06/06-05-provider-hierarchy-application-admin/`
+  (closed related hierarchy Admin plan/apply surface);
 - `proposed:douban-tv-episode-endpoint-depth`.
 
 ### admin-candidate-review-list-navigation
@@ -170,7 +199,8 @@ Follow-ons:
 
 - `docs/workstreams/provider-review-global-queue-search/` (closed);
 - `docs/workstreams/provider-governance-bulk-review/` (closed);
-- `proposed:provider-review-related-hierarchy-application`;
+- `.trellis/tasks/archive/2026-06/06-05-provider-hierarchy-application-admin/`
+  (closed related hierarchy Admin plan/apply surface);
 - `proposed:douban-tv-episode-endpoint-depth`.
 
 ### admin-web-provider-depth-governance
@@ -203,7 +233,8 @@ Non-goals:
 
 Follow-ons:
 
-- `proposed:provider-review-related-hierarchy-application`;
+- `.trellis/tasks/archive/2026-06/06-05-provider-hierarchy-application-admin/`
+  (closed related hierarchy Admin plan/apply surface);
 - `proposed:douban-tv-episode-endpoint-depth`;
 - `docs/workstreams/provider-governance-bulk-review/` (closed).
 
