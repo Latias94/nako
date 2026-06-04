@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeMap, HashMap},
+    fmt::Write as _,
     path::PathBuf,
     sync::{
         Arc,
@@ -7,6 +8,8 @@ use std::{
     },
 };
 
+use hmac::{Hmac, Mac};
+use sha2::Sha256;
 use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore, TryAcquireError};
 
 use crate::config::{
@@ -34,9 +37,12 @@ use nako_vfs::{
 
 use super::current_time_ms;
 
+type VfsCacheRepairTargetRefMac = Hmac<Sha256>;
+
 #[derive(Clone, Debug)]
 pub(crate) struct StorageDiagnosticsAppService {
     registry: StorageBackendRegistry,
+    repair_target_ref_secret: Arc<[u8; 32]>,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -76,6 +82,7 @@ pub(crate) enum VfsCacheRepairActionPlanReason {
     NoRepairDiagnostic,
     NoActionRequired,
     RefreshCacheExecutable,
+    TargetScopedExecutionUnavailable,
     BackendConfigurationRequired,
     ManualFailureInspectionRequired,
 }
@@ -158,6 +165,35 @@ impl VfsCacheRepairActionPlanReport {
             repair: Some(repair),
         }
     }
+
+    fn from_target_preview_repair(repair: VfsCacheRepairDiagnostic) -> Self {
+        let mut plan = Self::from_repair(Some(repair));
+        if plan.status == VfsCacheRepairActionPlanStatus::Executable
+            && plan.action == VfsCacheRepairAction::RefreshCache
+        {
+            plan.status = VfsCacheRepairActionPlanStatus::PlanOnly;
+            plan.api_executable = false;
+            plan.reasons = vec![VfsCacheRepairActionPlanReason::TargetScopedExecutionUnavailable];
+        }
+
+        plan
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct VfsCacheRepairTargetReport {
+    pub(crate) target_ref: String,
+    pub(crate) scheme: String,
+    pub(crate) operation: VfsCacheOperation,
+    pub(crate) failed_at_ms: i64,
+    pub(crate) failure_count: u32,
+    pub(crate) repair: VfsCacheRepairDiagnostic,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct VfsCacheRepairTargetPreviewReport {
+    pub(crate) target: VfsCacheRepairTargetReport,
+    pub(crate) plan: VfsCacheRepairActionPlanReport,
 }
 
 impl StagingManifestPressureSummary {
@@ -337,7 +373,10 @@ pub(crate) const fn storage_staging_pressure_status(
 
 impl StorageDiagnosticsAppService {
     pub(super) fn new(registry: StorageBackendRegistry) -> Self {
-        Self { registry }
+        Self {
+            registry,
+            repair_target_ref_secret: Arc::new(vfs_cache_repair_target_ref_secret()),
+        }
     }
 
     pub(crate) async fn list_storage_backend_diagnostics(
@@ -417,6 +456,96 @@ impl StorageDiagnosticsAppService {
         Ok(VfsCacheRepairActionPlanReport::from_repair(repair))
     }
 
+    pub(crate) async fn list_vfs_cache_repair_targets(
+        &self,
+        page: PageRequest,
+    ) -> Result<Vec<VfsCacheRepairTargetReport>> {
+        let page = page.clamped();
+        let mut targets = Vec::new();
+        let mut repair_target_offset = 0_u64;
+        let mut failure_offset = 0_u64;
+
+        loop {
+            let failures = self
+                .registry
+                .store
+                .list_vfs_cache_failures(PageRequest::new(PageRequest::MAX_LIMIT, failure_offset))
+                .await?;
+            let failure_count = failures.len();
+            if failure_count == 0 {
+                break;
+            }
+
+            for failure in failures {
+                let Some(target) = self.vfs_cache_repair_target_from_failure(failure).await? else {
+                    continue;
+                };
+                if repair_target_offset < page.offset {
+                    repair_target_offset += 1;
+                    continue;
+                }
+
+                targets.push(target);
+                if targets.len() >= page.limit as usize {
+                    return Ok(targets);
+                }
+            }
+
+            if failure_count < PageRequest::MAX_LIMIT as usize {
+                break;
+            }
+
+            failure_offset = failure_offset.saturating_add(failure_count as u64);
+        }
+
+        Ok(targets)
+    }
+
+    pub(crate) async fn preview_vfs_cache_repair_target(
+        &self,
+        target_ref: &str,
+    ) -> Result<VfsCacheRepairTargetPreviewReport> {
+        if !vfs_cache_repair_target_ref_is_valid(target_ref) {
+            return Err(vfs_cache_repair_target_not_found());
+        }
+
+        let mut failure_offset = 0_u64;
+
+        loop {
+            let failures = self
+                .registry
+                .store
+                .list_vfs_cache_failures(PageRequest::new(PageRequest::MAX_LIMIT, failure_offset))
+                .await?;
+            let failure_count = failures.len();
+            if failure_count == 0 {
+                break;
+            }
+
+            for failure in failures {
+                let Some(target) = self.vfs_cache_repair_target_from_failure(failure).await? else {
+                    continue;
+                };
+                if target.target_ref == target_ref {
+                    return Ok(VfsCacheRepairTargetPreviewReport {
+                        plan: VfsCacheRepairActionPlanReport::from_target_preview_repair(
+                            target.repair.clone(),
+                        ),
+                        target,
+                    });
+                }
+            }
+
+            if failure_count < PageRequest::MAX_LIMIT as usize {
+                break;
+            }
+
+            failure_offset = failure_offset.saturating_add(failure_count as u64);
+        }
+
+        Err(vfs_cache_repair_target_not_found())
+    }
+
     pub(crate) async fn refresh_latest_vfs_cache_repair(
         &self,
     ) -> Result<VfsCacheRepairRefreshActionReport> {
@@ -459,6 +588,63 @@ impl StorageDiagnosticsAppService {
             repair,
             refresh,
         })
+    }
+
+    async fn vfs_cache_repair_target_from_failure(
+        &self,
+        failure: VfsCacheFailure,
+    ) -> Result<Option<VfsCacheRepairTargetReport>> {
+        if self
+            .registry
+            .vfs_cache_failure_resolved_by_cache(&failure)
+            .await?
+        {
+            return Ok(None);
+        }
+
+        let repair = VfsCacheRepairDiagnostic::from_failure(&failure);
+
+        Ok(Some(VfsCacheRepairTargetReport {
+            target_ref: self.vfs_cache_repair_target_ref(&failure),
+            scheme: safe_storage_scheme(&failure.scheme),
+            operation: failure.operation,
+            failed_at_ms: failure.failed_at_ms,
+            failure_count: failure.failure_count,
+            repair,
+        }))
+    }
+
+    fn vfs_cache_repair_target_ref(&self, failure: &VfsCacheFailure) -> String {
+        let mut mac =
+            VfsCacheRepairTargetRefMac::new_from_slice(self.repair_target_ref_secret.as_ref())
+                .expect("HMAC accepts any key length");
+        mac.update(b"nako:vfs-cache-repair-target:v1");
+        mac_vfs_cache_repair_target_part(&mut mac, &failure.uri);
+        mac_vfs_cache_repair_target_part(&mut mac, &failure.scheme);
+        mac_vfs_cache_repair_target_part(&mut mac, failure.operation.as_str());
+        mac_vfs_cache_repair_target_part(&mut mac, &failure.failed_at_ms.to_string());
+        mac_vfs_cache_repair_target_part(&mut mac, &failure.failure_count.to_string());
+        mac_vfs_cache_repair_target_part(
+            &mut mac,
+            failure
+                .authority
+                .library_id
+                .map(|library_id| library_id.to_string())
+                .as_deref()
+                .unwrap_or_default(),
+        );
+        mac_vfs_cache_repair_target_part(
+            &mut mac,
+            failure.authority.backend_key.as_deref().unwrap_or_default(),
+        );
+
+        let digest = mac.finalize().into_bytes();
+        let mut target_ref = String::with_capacity(38);
+        target_ref.push_str("vfsrt_");
+        for byte in &digest[..16] {
+            let _ = write!(&mut target_ref, "{byte:02x}");
+        }
+        target_ref
     }
 
     pub(crate) async fn summarize_staging_cleanup_pressure(
@@ -1570,6 +1756,36 @@ fn staging_record_source_scheme(record: &StagingManifestRecord) -> String {
     safe_storage_scheme(&record.source_scheme)
 }
 
+fn vfs_cache_repair_target_ref_secret() -> [u8; 32] {
+    let first = uuid::Uuid::new_v4();
+    let second = uuid::Uuid::new_v4();
+    let mut secret = [0_u8; 32];
+    secret[..16].copy_from_slice(first.as_bytes());
+    secret[16..].copy_from_slice(second.as_bytes());
+    secret
+}
+
+fn mac_vfs_cache_repair_target_part(mac: &mut VfsCacheRepairTargetRefMac, value: &str) {
+    mac.update(value.as_bytes());
+    mac.update(&[0]);
+}
+
+fn vfs_cache_repair_target_ref_is_valid(value: &str) -> bool {
+    const PREFIX: &str = "vfsrt_";
+    value.len() == PREFIX.len() + 32
+        && value.starts_with(PREFIX)
+        && value[PREFIX.len()..]
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit())
+}
+
+fn vfs_cache_repair_target_not_found() -> NakoError {
+    NakoError::NotFound {
+        entity: "vfs_cache_repair_target",
+        id: "target_ref".to_owned(),
+    }
+}
+
 fn parse_vfs_cache_repair_target_uri(value: &str) -> Result<StorageUri> {
     StorageUri::parse(value).map_err(|_err| NakoError::InvalidInput {
         message: "latest VFS cache repair target URI is invalid".to_owned(),
@@ -1849,6 +2065,22 @@ mod tests {
         assert!(plan.boundary.refreshes_vfs_cache);
         assert!(!plan.boundary.changes_backend_configuration);
         assert!(!plan.boundary.requires_manual_failure_inspection);
+        assert_eq!(plan.repair, Some(repair));
+    }
+
+    #[test]
+    fn vfs_cache_repair_target_preview_keeps_refresh_plan_read_only() {
+        let repair = repair_diagnostic(VfsCacheRepairAction::RefreshCache);
+        let plan = VfsCacheRepairActionPlanReport::from_target_preview_repair(repair.clone());
+
+        assert_eq!(plan.status, VfsCacheRepairActionPlanStatus::PlanOnly);
+        assert_eq!(plan.action, VfsCacheRepairAction::RefreshCache);
+        assert!(!plan.api_executable);
+        assert_eq!(
+            plan.reasons,
+            vec![VfsCacheRepairActionPlanReason::TargetScopedExecutionUnavailable]
+        );
+        assert!(plan.boundary.refreshes_vfs_cache);
         assert_eq!(plan.repair, Some(repair));
     }
 

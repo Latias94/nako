@@ -30,7 +30,7 @@ and rclone-like mounts can be slow, stale, or unavailable.
 | Source fingerprint | Shipped escalation policy seam | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/06-04-06-04-source-fingerprint-escalation-policy-first-slice/` | Optional hash execution, operator queue, and diagnostics remain follow-ons. |
 | Remote probe staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Per-backend staging budgets and diagnostics. |
 | Remote FFmpeg input staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md` | Per-backend staging budgets and diagnostics. |
-| VFS cache | Shipped diagnostics foundation, action preview, latest-failure refresh, and action plan | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/06-04-06-04-vfs-cache-repair-action-preview-first-slice/`; `.trellis/tasks/06-04-vfs-cache-repair-operator-actions/` | URI-scoped previews and broader non-destructive remediation planning. |
+| VFS cache | Shipped diagnostics foundation, action preview, latest-failure refresh, action plan, and target-scoped preview | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/06-04-06-04-vfs-cache-repair-action-preview-first-slice/`; `.trellis/tasks/06-04-vfs-cache-repair-operator-actions/`; `.trellis/tasks/06-04-vfs-cache-uri-scoped-previews/` | Selected-target execution, durable repair queues, and broader non-destructive remediation planning remain follow-ons. |
 | Library file writes | Partial | addon/library-file-write and NFO workstreams | Capability-specific write/link/backup policy. |
 | Mount hang protection | Shipped durable circuit foundation | `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/` | OS-level mount stalls still need bounded adapters and operator guidance; do not claim syscall preemption. |
 
@@ -93,15 +93,23 @@ Shipped:
 - Admin action plans classify latest repair diagnostics into no-action,
   API-executable, and plan-only states, with route-key/path guidance only for
   the existing refresh route;
+- Admin target inventory and preview routes expose bounded unresolved repair
+  targets through process-keyed opaque `target_ref` values, safe
+  scheme/operation/time/failure scope, and read-only action-plan previews
+  without raw URI, local path, backend URL, etag, fingerprint, credential, or
+  raw backend error body;
+- target-scoped preview is intentionally non-mutating: selected-target refresh,
+  purge/delete/invalidation, durable jobs, and retry queues remain out of this
+  shipped boundary;
 - no storage schema, playback artifact pressure, or scan scheduling expansion
   was added; Admin API changes stayed limited to redaction-safe diagnostics,
-  action planning, and latest-failure refresh.
+  action planning, latest-failure refresh, and read-only target previews.
 
 ## Next Work Lanes
 
-- `proposed:vfs-cache-repair-uri-scoped-previews`: explicit URI-scoped previews,
-  stale-cache operator remediation planning, and broader non-destructive repair
-  guidance beyond the latest unresolved failure.
+- `proposed:vfs-cache-repair-selected-target-actions`: selected-target refresh
+  execution, stale-cache operator remediation planning, and broader
+  non-destructive repair guidance beyond read-only target previews.
 - `proposed:hls-artifact-io-pressure-enforcement`: playback/storage follow-on
   for HLS segment read/write pressure, storage health coordination, and
   redaction-safe diagnostics. Open only after HLS progressive-readiness gates

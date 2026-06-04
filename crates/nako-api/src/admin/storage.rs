@@ -114,6 +114,7 @@ pub enum AdminVfsCacheRepairActionPlanReason {
     NoRepairDiagnostic,
     NoActionRequired,
     RefreshCacheExecutable,
+    TargetScopedExecutionUnavailable,
     BackendConfigurationRequired,
     ManualFailureInspectionRequired,
 }
@@ -179,6 +180,36 @@ pub struct AdminVfsCacheRefreshResponse {
 pub struct AdminVfsCacheRepairActionPlanResponse {
     pub admin_api_version: String,
     pub public_api_version: String,
+    pub plan: AdminVfsCacheRepairActionPlan,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRepairTarget {
+    pub target_ref: String,
+    pub scheme: String,
+    pub operation: VfsCacheOperation,
+    pub failed_at_ms: i64,
+    pub failure_count: u32,
+    pub classification: AdminVfsCacheRepairClassification,
+    pub recommended_action: AdminVfsCacheRepairAction,
+    pub failure_class: Option<StorageFailureClass>,
+    pub retryable: bool,
+    pub safe_message: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRepairTargetListResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub targets: Vec<AdminVfsCacheRepairTarget>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRepairTargetPreviewResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub target: AdminVfsCacheRepairTarget,
     pub plan: AdminVfsCacheRepairActionPlan,
 }
 
@@ -647,6 +678,96 @@ mod tests {
         );
         assert_eq!(value["boundary"]["changes_backend_configuration"], true);
         assert_eq!(value["executable_action"], serde_json::Value::Null);
+    }
+
+    #[test]
+    fn admin_vfs_cache_repair_target_preview_serializes_redacted_scope() {
+        let target = AdminVfsCacheRepairTarget {
+            target_ref: "vfsrt_0123456789abcdef0123456789abcdef".to_owned(),
+            scheme: "webdav".to_owned(),
+            operation: VfsCacheOperation::List,
+            failed_at_ms: 1_000,
+            failure_count: 3,
+            classification: AdminVfsCacheRepairClassification::RetryableRefreshFailure,
+            recommended_action: AdminVfsCacheRepairAction::RefreshCache,
+            failure_class: Some(StorageFailureClass::Unavailable),
+            retryable: true,
+            safe_message: Some("storage backend unavailable".to_owned()),
+        };
+        let plan = AdminVfsCacheRepairActionPlan {
+            status: AdminVfsCacheRepairActionPlanStatus::PlanOnly,
+            action: AdminVfsCacheRepairAction::RefreshCache,
+            readiness: AdminVfsCacheRepairActionReadiness {
+                status: AdminVfsCacheRepairActionPlanStatus::PlanOnly,
+                api_executable: false,
+                reasons: vec![
+                    AdminVfsCacheRepairActionPlanReason::TargetScopedExecutionUnavailable,
+                ],
+            },
+            boundary: AdminVfsCacheRepairActionBoundary {
+                refreshes_vfs_cache: true,
+                changes_backend_configuration: false,
+                requires_manual_failure_inspection: false,
+                deletes_cache_entries: false,
+                writes_library_files: false,
+                starts_durable_job: false,
+            },
+            executable_action: None,
+            repair: Some(AdminVfsCacheRepairDiagnostic {
+                classification: AdminVfsCacheRepairClassification::RetryableRefreshFailure,
+                recommended_action: AdminVfsCacheRepairAction::RefreshCache,
+                operation: Some(VfsCacheOperation::List),
+                failure_class: Some(StorageFailureClass::Unavailable),
+                retryable: true,
+                failed_at_ms: Some(1_000),
+                failure_count: Some(3),
+                safe_message: Some("storage backend unavailable".to_owned()),
+                operator_action: "cache refresh failed with a retryable storage failure".to_owned(),
+            }),
+        };
+        let list = AdminVfsCacheRepairTargetListResponse {
+            admin_api_version: "v1".to_owned(),
+            public_api_version: "2025-01-01".to_owned(),
+            targets: vec![target.clone()],
+            page: PageInfo {
+                limit: 50,
+                offset: 0,
+                returned: 1,
+            },
+        };
+        let preview = AdminVfsCacheRepairTargetPreviewResponse {
+            admin_api_version: "v1".to_owned(),
+            public_api_version: "2025-01-01".to_owned(),
+            target,
+            plan,
+        };
+
+        let list_value = serde_json::to_value(&list).unwrap();
+        let preview_value = serde_json::to_value(&preview).unwrap();
+        let body = format!("{list_value}{preview_value}");
+
+        assert_eq!(
+            list_value["targets"][0]["target_ref"],
+            "vfsrt_0123456789abcdef0123456789abcdef"
+        );
+        assert_eq!(list_value["targets"][0]["scheme"], "webdav");
+        assert_eq!(list_value["targets"][0]["operation"], "list");
+        assert_eq!(preview_value["plan"]["status"], "plan_only");
+        assert_eq!(preview_value["plan"]["readiness"]["api_executable"], false);
+        assert_eq!(
+            preview_value["plan"]["readiness"]["reasons"][0],
+            "target_scoped_execution_unavailable"
+        );
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("source_locator"));
+        assert!(!body.contains("cache_uri"));
+        assert!(!body.contains("storage_uri"));
+        assert!(!body.contains("local_path"));
+        assert!(!body.contains("webdav:///"));
+        assert!(!body.contains("Movies/Demo.mkv"));
+        assert!(!body.contains("cache-etag-secret"));
+        assert!(!body.contains("cache-fingerprint-secret"));
+        assert!(!body.contains("token=secret"));
     }
 
     #[test]

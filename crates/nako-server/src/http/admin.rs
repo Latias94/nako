@@ -90,7 +90,9 @@ use nako_api::{
         AdminVfsCacheRepairActionPlan, AdminVfsCacheRepairActionPlanReason,
         AdminVfsCacheRepairActionPlanResponse, AdminVfsCacheRepairActionPlanStatus,
         AdminVfsCacheRepairActionReadiness, AdminVfsCacheRepairClassification,
-        AdminVfsCacheRepairDiagnostic, AdminVfsCacheRepairExecutableAction, AdminVfsCacheSummary,
+        AdminVfsCacheRepairDiagnostic, AdminVfsCacheRepairExecutableAction,
+        AdminVfsCacheRepairTarget, AdminVfsCacheRepairTargetListResponse,
+        AdminVfsCacheRepairTargetPreviewResponse, AdminVfsCacheSummary,
         AdminWatchFolderDiscoveryFailure, AdminWatchFolderDiscoveryRequest,
         AdminWatchFolderDiscoveryResponse, AdminWatchFolderRuntimeCoverageDiagnostic,
         AdminWatchFolderRuntimeCoverageStatus, AdminWatchFolderSuppression, JobResponse,
@@ -128,6 +130,7 @@ use crate::{
         NakoApp, RuntimeSupervisorDiagnostics, StagingBudgetPolicySlice,
         StorageStagingPressureStatus, VfsCacheRepairActionBoundary, VfsCacheRepairActionPlanReason,
         VfsCacheRepairActionPlanReport, VfsCacheRepairActionPlanStatus,
+        VfsCacheRepairTargetPreviewReport, VfsCacheRepairTargetReport,
         WatchFolderRuntimeCoverageDiagnostic, WatchFolderRuntimeCoverageReport,
         WatchFolderRuntimeCoverageStatus,
         storage_staging_pressure_status as app_storage_staging_pressure_status,
@@ -361,6 +364,14 @@ pub(super) fn routes() -> Router<NakoApp> {
             post(reset_admin_storage_backend_circuit_breaker),
         )
         .route("/admin/v1/storage/staging", get(list_admin_storage_staging))
+        .route(
+            "/admin/v1/storage/vfs-cache/repair/targets",
+            get(list_admin_vfs_cache_repair_targets),
+        )
+        .route(
+            "/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/preview",
+            get(get_admin_vfs_cache_repair_target_preview),
+        )
         .route(
             "/admin/v1/storage/vfs-cache/repair/action-plan",
             get(get_admin_vfs_cache_repair_action_plan),
@@ -1879,6 +1890,37 @@ pub(super) async fn refresh_admin_vfs_cache(
     }))
 }
 
+pub(super) async fn list_admin_vfs_cache_repair_targets(
+    State(app): State<NakoApp>,
+    Query(query): Query<PageQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let page: PageRequest = query.try_into()?;
+    let targets = app.storage().list_vfs_cache_repair_targets(page).await?;
+    let returned = targets.len();
+
+    Ok(Json(AdminVfsCacheRepairTargetListResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        targets: targets
+            .into_iter()
+            .map(admin_vfs_cache_repair_target)
+            .collect(),
+        page: page_info_from_request(page, returned),
+    }))
+}
+
+pub(super) async fn get_admin_vfs_cache_repair_target_preview(
+    State(app): State<NakoApp>,
+    Path(target_ref): Path<String>,
+) -> ApiResult<impl IntoResponse> {
+    let report = app
+        .storage()
+        .preview_vfs_cache_repair_target(&target_ref)
+        .await?;
+
+    Ok(Json(admin_vfs_cache_repair_target_preview(report)))
+}
+
 pub(super) async fn get_admin_vfs_cache_repair_action_plan(
     State(app): State<NakoApp>,
 ) -> ApiResult<impl IntoResponse> {
@@ -1889,6 +1931,32 @@ pub(super) async fn get_admin_vfs_cache_repair_action_plan(
         public_api_version: API_VERSION.to_owned(),
         plan: admin_vfs_cache_repair_action_plan(report),
     }))
+}
+
+fn admin_vfs_cache_repair_target_preview(
+    report: VfsCacheRepairTargetPreviewReport,
+) -> AdminVfsCacheRepairTargetPreviewResponse {
+    AdminVfsCacheRepairTargetPreviewResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        target: admin_vfs_cache_repair_target(report.target),
+        plan: admin_vfs_cache_repair_action_plan(report.plan),
+    }
+}
+
+fn admin_vfs_cache_repair_target(target: VfsCacheRepairTargetReport) -> AdminVfsCacheRepairTarget {
+    AdminVfsCacheRepairTarget {
+        target_ref: target.target_ref,
+        scheme: target.scheme,
+        operation: target.operation,
+        failed_at_ms: target.failed_at_ms,
+        failure_count: target.failure_count,
+        classification: admin_vfs_cache_repair_classification(target.repair.classification),
+        recommended_action: admin_vfs_cache_repair_action(target.repair.recommended_action),
+        failure_class: target.repair.failure_class,
+        retryable: target.repair.retryable,
+        safe_message: target.repair.safe_message,
+    }
 }
 
 fn admin_vfs_cache_repair_action_plan(
@@ -1948,6 +2016,9 @@ fn admin_vfs_cache_repair_action_plan_reason(
         }
         VfsCacheRepairActionPlanReason::RefreshCacheExecutable => {
             AdminVfsCacheRepairActionPlanReason::RefreshCacheExecutable
+        }
+        VfsCacheRepairActionPlanReason::TargetScopedExecutionUnavailable => {
+            AdminVfsCacheRepairActionPlanReason::TargetScopedExecutionUnavailable
         }
         VfsCacheRepairActionPlanReason::BackendConfigurationRequired => {
             AdminVfsCacheRepairActionPlanReason::BackendConfigurationRequired

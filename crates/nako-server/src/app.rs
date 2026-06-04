@@ -111,7 +111,7 @@ use storage::StorageDiagnosticsAppService;
 pub(crate) use storage::{
     StagingBudgetPolicySlice, StorageStagingPressureStatus, VfsCacheRepairActionBoundary,
     VfsCacheRepairActionPlanReason, VfsCacheRepairActionPlanReport, VfsCacheRepairActionPlanStatus,
-    storage_staging_pressure_status,
+    VfsCacheRepairTargetPreviewReport, VfsCacheRepairTargetReport, storage_staging_pressure_status,
 };
 use user_playback::UserPlaybackAppService;
 use user_playlist::UserPlaylistAppService;

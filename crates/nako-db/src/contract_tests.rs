@@ -7184,6 +7184,17 @@ where
         })
         .await
         .unwrap();
+    let older_distinct_failure = store
+        .record_vfs_cache_failure(NewVfsCacheFailure {
+            uri: "webdav:///Contract/Movies/Older.mkv".to_owned(),
+            scheme: "webdav".to_owned(),
+            operation: VfsCacheOperation::Stat,
+            failed_at_ms: 925,
+            error: "storage backend unavailable".to_owned(),
+            authority: VfsCacheFailureAuthority::default(),
+        })
+        .await
+        .unwrap();
 
     assert_eq!(first_failure.failure_count, 1);
     assert_eq!(
@@ -7208,10 +7219,25 @@ where
     let summary = store.summarize_vfs_cache(700).await.unwrap();
     assert_eq!(summary.object_count, 3);
     assert_eq!(summary.listing_count, 1);
-    assert_eq!(summary.failure_count, 1);
+    assert_eq!(summary.failure_count, 2);
     assert_eq!(summary.stale_object_count, 2);
     assert_eq!(summary.stale_listing_count, 0);
     assert_eq!(summary.last_failure_at_ms, Some(950));
+
+    assert_eq!(
+        store
+            .list_vfs_cache_failures(PageRequest::new(10, 0))
+            .await
+            .unwrap(),
+        vec![second_failure.clone(), older_distinct_failure.clone()]
+    );
+    assert_eq!(
+        store
+            .list_vfs_cache_failures(PageRequest::new(1, 1))
+            .await
+            .unwrap(),
+        vec![older_distinct_failure]
+    );
 
     assert_eq!(
         store.get_latest_vfs_cache_failure().await.unwrap(),

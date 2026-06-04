@@ -1,0 +1,7 @@
+{"file":"docs/architecture/STORAGE_VFS.md","reason":"Architecture source for shipped VFS cache repair surfaces and URI-scoped preview follow-on boundary."}
+{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Admin DTO, route inventory, generated contract, and redaction requirements for repair preview/action surfaces."}
+{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Admin HTTP route, auth, thin handler, and focused route-test requirements."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Focused server test and cross-crate gate selection."}
+{"file":".trellis/spec/nako-vfs/backend/index.md","reason":"VFS repair diagnostics, storage failure, and redaction-safe guidance entry point."}
+{"file":".trellis/spec/nako-core/backend/index.md","reason":"Core VFS cache failure record and repository contract boundaries if target refs require domain changes."}
+{"file":".trellis/spec/nako-db/backend/index.md","reason":"Repository parity and query-contract guidance if bounded target listing is added."}

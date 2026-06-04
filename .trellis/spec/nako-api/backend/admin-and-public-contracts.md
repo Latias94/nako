@@ -87,20 +87,25 @@ cargo run -p nako-api --example emit-admin-typescript-contract -- --output apps/
 Generated contract files are artifacts from `nako-api`; edit the generator and
 DTO source, then regenerate.
 
-## Scenario: Admin VFS Cache Repair Preview, Plan, And Refresh
+## Scenario: Admin VFS Cache Repair Preview, Plan, Targets, And Refresh
 
 ### 1. Scope / Trigger
 
 - Trigger: Admin storage staging diagnostics expose the latest VFS cache repair
-  preview, action plan, or latest-failure refresh result.
+  preview, action plan, bounded target inventory, target-scoped preview, or
+  latest-failure refresh result.
 - Scope: `AdminStorageStagingSummary.vfs_cache.repair`,
   `AdminVfsCacheRepairActionPlanResponse`, `AdminVfsCacheRefreshResponse`,
-  `VfsCacheRepository::get_latest_vfs_cache_failure`, server storage
-  diagnostics/action mapping, and generated Admin Web contracts.
+  `AdminVfsCacheRepairTargetListResponse`,
+  `AdminVfsCacheRepairTargetPreviewResponse`,
+  `VfsCacheRepository::get_latest_vfs_cache_failure`,
+  `VfsCacheRepository::list_vfs_cache_failures`, server storage diagnostics /
+  action mapping, and generated Admin Web contracts.
 - Boundary: preview and action plan responses are read-only. The only executable
-  mutation in this boundary is latest unresolved `refresh_cache`; do not add
-  cache purge/delete/invalidation, retry queue, durable job, or URI-scoped
-  mutation behavior without a dedicated task and storage contract.
+  mutation in this boundary is latest unresolved `refresh_cache`; target-scoped
+  preview stays read-only. Do not add cache purge/delete/invalidation, retry
+  queue, durable job, or selected-target mutation behavior without a dedicated
+  task and storage contract.
 
 ### 2. Signatures
 
@@ -111,6 +116,9 @@ DTO source, then regenerate.
 - Admin action plan DTO:
   `AdminVfsCacheRepairActionPlanResponse { plan:
   AdminVfsCacheRepairActionPlan }`.
+- Admin target DTOs:
+  `AdminVfsCacheRepairTargetListResponse { targets, page }` and
+  `AdminVfsCacheRepairTargetPreviewResponse { target, plan }`.
 - Admin refresh DTO:
   `AdminVfsCacheRefreshResponse`.
 - Repair preview fields:
@@ -134,6 +142,19 @@ DTO source, then regenerate.
   `refresh_cache`; it must not include target cache URI or backend identity.
 - `refresh_cache` execution remains latest-failure scoped and must reuse stored
   failure authority to avoid ambiguous backend targeting.
+- Target inventory must be bounded/paginated and must expose only opaque
+  `target_ref`, source scheme, operation, failed time, failure count, and
+  redaction-safe repair classification/action/message fields.
+- Target refs must be deterministic for the current unresolved failure record
+  within the active server instance but opaque to clients. Use a server-side
+  keyed handle such as HMAC; do not expose an unkeyed URI/source fingerprint as
+  the target ref. Unknown, invalid, stale, or resolved target refs return not
+  found without echoing unsafe input.
+- Target-scoped preview may return the same action-plan shape, but it must not
+  expose `executable_action` for selected-target refresh. A refreshable selected
+  target uses plan-only readiness with
+  `target_scoped_execution_unavailable` until selected-target mutation is
+  designed separately.
 - TypeScript contract artifacts under `apps/admin-web` and `web` must be
   regenerated from `nako-api`; do not hand-edit generated files.
 
@@ -148,6 +169,10 @@ DTO source, then regenerate.
 | Multiple failures exist | Return the highest `failed_at_ms`; tie-break deterministically |
 | Latest diagnostic recommends refresh | Plan returns `status: "executable"` and points to the existing refresh route |
 | Latest diagnostic recommends backend configuration or inspection | Plan returns `status: "plan_only"` with no executable route |
+| Multiple unresolved failures exist | Target list returns a bounded deterministic order and each item has a safe `target_ref` |
+| Target preview ref matches an unresolved failure | Returns safe target scope plus a read-only action plan |
+| Target preview ref is unknown, invalid, stale, or already resolved | Returns not found without echoing the supplied ref or raw URI |
+| Target preview recommends refresh | Returns `plan_only` with `target_scoped_execution_unavailable` and no executable route |
 | Preview contains raw path, token, or source URI | Contract violation |
 
 ### 5. Good / Base / Bad Cases
@@ -156,6 +181,11 @@ DTO source, then regenerate.
   action text and safe message only.
 - Good: `/admin/v1/storage/vfs-cache/repair/action-plan` returns a redaction-safe
   latest action plan that points executable refresh to the existing route.
+- Good: `/admin/v1/storage/vfs-cache/repair/targets` returns bounded opaque
+  target refs without raw URI/path/backend details.
+- Good: `/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/preview`
+  resolves refs server-side and remains read-only even when the selected target
+  recommends refresh.
 - Good: `/admin/v1/storage/vfs-cache/repair/refresh-cache` executes only when
   the latest unresolved diagnostic recommends `refresh_cache`.
 - Base: old clients that omit `repair` during deserialization still work through
@@ -170,9 +200,10 @@ DTO source, then regenerate.
   repair/plan fields.
 - Admin contract test proves generated TypeScript artifacts match the generator.
 - Server route tests prove `/admin/v1/storage/staging` includes the preview,
-  action plan/refresh routes preserve Admin-only access, and responses still
-  redact raw paths, source locators, fingerprints, etags, tokens, and raw backend
-  errors.
+  action plan/target/refresh routes preserve Admin-only access, target refs
+  reject stale or unknown selections safely, target preview does not mutate
+  cache state, and responses still redact raw paths, source locators,
+  fingerprints, etags, tokens, and raw backend errors.
 
 ### 7. Wrong vs Correct
 

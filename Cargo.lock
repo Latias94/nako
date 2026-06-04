@@ -1563,6 +1563,7 @@ dependencies = [
  "clap",
  "form_urlencoded",
  "futures-util",
+ "hmac",
  "image",
  "nako-addon-client",
  "nako-addon-protocol",

@@ -30,6 +30,8 @@ pub trait VfsCacheRepository: Send + Sync {
 
     async fn get_latest_vfs_cache_failure(&self) -> Result<Option<VfsCacheFailure>>;
 
+    async fn list_vfs_cache_failures(&self, page: PageRequest) -> Result<Vec<VfsCacheFailure>>;
+
     async fn summarize_vfs_cache(&self, now_ms: i64) -> Result<VfsCacheSummary>;
 }
 

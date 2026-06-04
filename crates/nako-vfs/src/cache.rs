@@ -578,7 +578,9 @@ mod tests {
         },
     };
 
-    use nako_core::{LibraryId, StorageFailureClass, VfsCacheFailure, VfsCacheSummary};
+    use nako_core::{
+        LibraryId, PageRequest, StorageFailureClass, VfsCacheFailure, VfsCacheSummary,
+    };
 
     use super::*;
 
@@ -1098,6 +1100,23 @@ mod tests {
 
         async fn get_latest_vfs_cache_failure(&self) -> Result<Option<VfsCacheFailure>> {
             Ok(self.failure.lock().await.clone())
+        }
+
+        async fn list_vfs_cache_failures(&self, page: PageRequest) -> Result<Vec<VfsCacheFailure>> {
+            let page = page.clamped();
+            let start = usize::try_from(page.offset).unwrap_or(usize::MAX);
+            let limit = usize::try_from(page.limit).unwrap_or(usize::MAX);
+            let failures = self
+                .failure
+                .lock()
+                .await
+                .clone()
+                .into_iter()
+                .skip(start)
+                .take(limit)
+                .collect();
+
+            Ok(failures)
         }
 
         async fn summarize_vfs_cache(&self, now_ms: i64) -> Result<VfsCacheSummary> {

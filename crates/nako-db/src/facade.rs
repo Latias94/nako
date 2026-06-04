@@ -2751,6 +2751,10 @@ impl VfsCacheRepository for NakoDatabase {
         self.backend().get_latest_vfs_cache_failure().await
     }
 
+    async fn list_vfs_cache_failures(&self, page: PageRequest) -> Result<Vec<VfsCacheFailure>> {
+        self.backend().list_vfs_cache_failures(page).await
+    }
+
     async fn summarize_vfs_cache(&self, now_ms: i64) -> Result<VfsCacheSummary> {
         self.backend().summarize_vfs_cache(now_ms).await
     }

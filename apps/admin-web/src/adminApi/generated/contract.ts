@@ -74,6 +74,8 @@ export const NAKO_ADMIN_ROUTES = {
   storageBackends: "/admin/v1/storage/backends",
   storageBackendCircuitBreakerReset: "/admin/v1/storage/backends/{backend_key}/circuit-breaker/reset",
   storageStaging: "/admin/v1/storage/staging",
+  storageVfsCacheRepairTargets: "/admin/v1/storage/vfs-cache/repair/targets",
+  storageVfsCacheRepairTargetPreview: "/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/preview",
   storageVfsCacheRepairActionPlan: "/admin/v1/storage/vfs-cache/repair/action-plan",
   storageVfsCacheRepairRefreshCache: "/admin/v1/storage/vfs-cache/repair/refresh-cache",
   systemConfig: "/admin/v1/system/config",
@@ -262,6 +264,7 @@ export type AdminVfsCacheRepairActionPlanReason =
   | "no_repair_diagnostic"
   | "no_action_required"
   | "refresh_cache_executable"
+  | "target_scoped_execution_unavailable"
   | "backend_configuration_required"
   | "manual_failure_inspection_required";
 
@@ -284,6 +287,19 @@ export interface AdminVfsCacheRepairExecutableAction {
   method: "POST";
   route_key: AdminApiRouteKey;
   route_path: string;
+}
+
+export interface AdminVfsCacheRepairTarget {
+  target_ref: string;
+  scheme: string;
+  operation: VfsCacheOperation;
+  failed_at_ms: number;
+  failure_count: number;
+  classification: AdminVfsCacheRepairClassification;
+  recommended_action: AdminVfsCacheRepairAction;
+  failure_class: StorageFailureClass | null;
+  retryable: boolean;
+  safe_message: string | null;
 }
 
 export interface AdminStorageBackendHealthDiagnostic {
@@ -2998,6 +3014,20 @@ export interface AdminVfsCacheRepairActionPlanResponse {
       operator_action: string;
     } | null;
   };
+}
+
+export interface AdminVfsCacheRepairTargetListResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  targets: AdminVfsCacheRepairTarget[];
+  page: PageInfo;
+}
+
+export interface AdminVfsCacheRepairTargetPreviewResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  target: AdminVfsCacheRepairTarget;
+  plan: AdminVfsCacheRepairActionPlanResponse["plan"];
 }
 
 export type AdminNetworkExposureMode =

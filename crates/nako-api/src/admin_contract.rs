@@ -1,6 +1,6 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 74] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 76] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -179,6 +179,14 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 74] = [
         "storage/backends/{backend_key}/circuit-breaker/reset",
     ),
     ("storageStaging", "storage/staging"),
+    (
+        "storageVfsCacheRepairTargets",
+        "storage/vfs-cache/repair/targets",
+    ),
+    (
+        "storageVfsCacheRepairTargetPreview",
+        "storage/vfs-cache/repair/targets/{target_ref}/preview",
+    ),
     (
         "storageVfsCacheRepairActionPlan",
         "storage/vfs-cache/repair/action-plan",
@@ -397,6 +405,7 @@ export type AdminVfsCacheRepairActionPlanReason =
   | "no_repair_diagnostic"
   | "no_action_required"
   | "refresh_cache_executable"
+  | "target_scoped_execution_unavailable"
   | "backend_configuration_required"
   | "manual_failure_inspection_required";
 
@@ -419,6 +428,19 @@ export interface AdminVfsCacheRepairExecutableAction {
   method: "POST";
   route_key: AdminApiRouteKey;
   route_path: string;
+}
+
+export interface AdminVfsCacheRepairTarget {
+  target_ref: string;
+  scheme: string;
+  operation: VfsCacheOperation;
+  failed_at_ms: number;
+  failure_count: number;
+  classification: AdminVfsCacheRepairClassification;
+  recommended_action: AdminVfsCacheRepairAction;
+  failure_class: StorageFailureClass | null;
+  retryable: boolean;
+  safe_message: string | null;
 }
 
 export interface AdminStorageBackendHealthDiagnostic {
@@ -3135,6 +3157,20 @@ export interface AdminVfsCacheRepairActionPlanResponse {
   };
 }
 
+export interface AdminVfsCacheRepairTargetListResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  targets: AdminVfsCacheRepairTarget[];
+  page: PageInfo;
+}
+
+export interface AdminVfsCacheRepairTargetPreviewResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  target: AdminVfsCacheRepairTarget;
+  plan: AdminVfsCacheRepairActionPlanResponse["plan"];
+}
+
 export type AdminNetworkExposureMode =
   | "local_only"
   | "private_network"
@@ -3685,6 +3721,9 @@ mod tests {
             "AdminVfsCacheRepairActionReadiness",
             "AdminVfsCacheRepairActionBoundary",
             "AdminVfsCacheRepairExecutableAction",
+            "AdminVfsCacheRepairTarget",
+            "AdminVfsCacheRepairTargetListResponse",
+            "AdminVfsCacheRepairTargetPreviewResponse",
             "AdminVfsCacheRepairActionPlanResponse",
             "AdminStorageBackendHealthDiagnostic",
             "AdminStorageBackendHealthDiagnosticsResponse",
