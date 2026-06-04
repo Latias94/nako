@@ -225,14 +225,7 @@ Persisted authoritative staging attribution across core, DB migrations, server p
 
 ### Main Changes
 
-- Added `Cache-Control: private, max-age=86400` for authenticated selected
-  artwork image GET/HEAD responses through a selected-artwork-only HTTP helper.
-- Updated selected artwork route tests to assert the cache policy on original
-  GET, original HEAD, variant GET, and variant HEAD responses.
-- Updated server HTTP spec and architecture maps to distinguish selected
-  artwork private caching from HLS `no-store` session-artifact semantics.
-- Archived
-  `06-04-06-04-selected-artwork-cache-control-headers-first-slice`.
+(Add details)
 
 ### Git Commits
 
@@ -242,12 +235,7 @@ Persisted authoritative staging attribution across core, DB migrations, server p
 
 ### Testing
 
-- [OK] `cargo fmt --all -- --check`
-- [OK] `cargo check -p nako-server --tests`
-- [OK] `cargo nextest run -p nako-server public_catalog_and_image_routes_serve_selected_artwork_without_locator_leaks --no-fail-fast`
-- [OK] `cargo nextest run -p nako-server managed_artwork_variant_routes_resize_selected_artwork_without_locator_or_hash_leaks --no-fail-fast`
-- [OK] `git diff --check`
-- [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-04-06-04-selected-artwork-cache-control-headers-first-slice`
+- [OK] (Add test results)
 
 ### Status
 
@@ -890,7 +878,14 @@ Added a selected-artwork-only private Cache-Control baseline for authenticated p
 
 ### Main Changes
 
-(Add details)
+- Added `Cache-Control: private, max-age=86400` for authenticated selected
+  artwork image GET/HEAD responses through a selected-artwork-only HTTP helper.
+- Updated selected artwork route tests to assert the cache policy on original
+  GET, original HEAD, variant GET, and variant HEAD responses.
+- Updated server HTTP spec and architecture maps to distinguish selected
+  artwork private caching from HLS `no-store` session-artifact semantics.
+- Archived
+  `06-04-06-04-selected-artwork-cache-control-headers-first-slice`.
 
 ### Git Commits
 
@@ -901,7 +896,61 @@ Added a selected-artwork-only private Cache-Control baseline for authenticated p
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] `cargo fmt --all -- --check`
+- [OK] `cargo check -p nako-server --tests`
+- [OK] `cargo nextest run -p nako-server public_catalog_and_image_routes_serve_selected_artwork_without_locator_leaks --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server managed_artwork_variant_routes_resize_selected_artwork_without_locator_or_hash_leaks --no-fail-fast`
+- [OK] `git diff --check`
+- [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-04-06-04-selected-artwork-cache-control-headers-first-slice`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 22: Selected artwork conditional GET
+
+**Date**: 2026-06-04
+**Task**: Selected artwork conditional GET
+**Package**: nako-server
+**Branch**: `main`
+
+### Summary
+
+Added exact If-None-Match handling for selected artwork image GET/HEAD responses, returning 304 with current ETag and private cache headers while preserving normal image behavior on misses.
+
+### Main Changes
+
+- Added exact `If-None-Match` matching for authenticated selected artwork image
+  GET/HEAD responses.
+- Matching original or variant safe ETags now return `304 Not Modified` with
+  the current `ETag`, `Cache-Control: private, max-age=86400`, and no body.
+- Non-matching validators preserve normal 200 image response behavior, and
+  variant ETags remain distinct from original image ETags.
+- Updated server HTTP spec and architecture maps to record the conditional
+  response baseline and keep metadata-only ETag preflight as a follow-on.
+- Archived
+  `06-04-06-04-selected-artwork-conditional-get-first-slice`.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d78badbc` | (see git log) |
+| `8a3496fe` | (see git log) |
+
+### Testing
+
+- [OK] `cargo fmt --all -- --check`
+- [OK] `cargo check -p nako-server --tests`
+- [OK] `cargo nextest run -p nako-server public_catalog_and_image_routes_serve_selected_artwork_without_locator_leaks --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server managed_artwork_variant_routes_resize_selected_artwork_without_locator_or_hash_leaks --no-fail-fast`
+- [OK] `git diff --check`
+- [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-04-06-04-selected-artwork-conditional-get-first-slice`
 
 ### Status
 
