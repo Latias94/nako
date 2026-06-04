@@ -1346,6 +1346,22 @@ impl PlaybackAppService {
             .await
     }
 
+    #[cfg(test)]
+    pub(super) async fn with_source_path_for_ffmpeg<T, Operation, OperationFuture>(
+        &self,
+        source: &MediaSource,
+        operation: Operation,
+    ) -> Result<T>
+    where
+        Operation: FnOnce(PathBuf) -> OperationFuture,
+        OperationFuture: std::future::Future<Output = Result<T>>,
+    {
+        let (uri, backend) = self.storage_backend_for_media_source(source).await?;
+        self.input
+            .with_source_input(source, &uri, &backend, operation)
+            .await
+    }
+
     async fn get_source_or_not_found(&self, source_id: MediaSourceId) -> Result<MediaSource> {
         PlaybackRuntimeStore::get_media_source(self.runtime_store.as_ref(), source_id)
             .await?

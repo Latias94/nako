@@ -1,9 +1,10 @@
-use std::{fmt, path::PathBuf, sync::Arc};
+use std::{fmt, future::Future, path::PathBuf, sync::Arc};
 
 use nako_core::{
     MediaSource, NakoError, Result, StagingAttribution, StagingManifestRepository, StagingPurpose,
 };
 use nako_vfs::{StageRequest, StorageBackend, StorageUri};
+use tracing::warn;
 
 use crate::config::NakoServerConfig;
 
@@ -13,9 +14,13 @@ use super::super::{
     storage::LibraryStorageBackend,
 };
 
-pub(super) struct FfmpegSourceInput {
-    pub(super) path: PathBuf,
+struct FfmpegSourceInput {
+    path: PathBuf,
     lease: Option<StagingLease>,
+}
+
+pub(super) struct FfmpegSourceInputScope {
+    input: FfmpegSourceInput,
 }
 
 #[derive(Clone)]
@@ -48,7 +53,48 @@ impl FfmpegInputService {
         }
     }
 
-    pub(super) async fn source_input_for_ffmpeg(
+    pub(super) async fn with_source_input<T, Operation, OperationFuture>(
+        &self,
+        source: &MediaSource,
+        uri: &StorageUri,
+        backend: &LibraryStorageBackend,
+        operation: Operation,
+    ) -> Result<T>
+    where
+        Operation: FnOnce(PathBuf) -> OperationFuture,
+        OperationFuture: Future<Output = Result<T>>,
+    {
+        let input = self.source_input_scope(source, uri, backend).await?;
+        self.with_prepared_source_input(input, operation).await
+    }
+
+    pub(super) async fn source_input_scope(
+        &self,
+        source: &MediaSource,
+        uri: &StorageUri,
+        backend: &LibraryStorageBackend,
+    ) -> Result<FfmpegSourceInputScope> {
+        self.source_input_for_ffmpeg(source, uri, backend)
+            .await
+            .map(|input| FfmpegSourceInputScope { input })
+    }
+
+    pub(super) async fn with_prepared_source_input<T, Operation, OperationFuture>(
+        &self,
+        scope: FfmpegSourceInputScope,
+        operation: Operation,
+    ) -> Result<T>
+    where
+        Operation: FnOnce(PathBuf) -> OperationFuture,
+        OperationFuture: Future<Output = Result<T>>,
+    {
+        let input = scope.input;
+        let path = input.path.clone();
+        let result = operation(path).await;
+        self.finish_source_input_scope(input, result).await
+    }
+
+    async fn source_input_for_ffmpeg(
         &self,
         source: &MediaSource,
         uri: &StorageUri,
@@ -99,13 +145,33 @@ impl FfmpegInputService {
         uri: &StorageUri,
         backend: &LibraryStorageBackend,
     ) -> Result<PathBuf> {
-        let input = self.source_input_for_ffmpeg(source, uri, backend).await?;
-        let path = input.path.clone();
-        self.release_source_input(input).await?;
-        Ok(path)
+        self.with_source_input(source, uri, backend, |path| async move { Ok(path) })
+            .await
     }
 
-    pub(super) async fn release_source_input(&self, input: FfmpegSourceInput) -> Result<()> {
+    async fn finish_source_input_scope<T>(
+        &self,
+        input: FfmpegSourceInput,
+        result: Result<T>,
+    ) -> Result<T> {
+        match result {
+            Ok(output) => {
+                self.release_source_input(input).await?;
+                Ok(output)
+            }
+            Err(err) => {
+                if let Err(release_err) = self.release_source_input(input).await {
+                    warn!(
+                        error = %release_err,
+                        "failed to release ffmpeg input staging lease after operation error"
+                    );
+                }
+                Err(err)
+            }
+        }
+    }
+
+    async fn release_source_input(&self, input: FfmpegSourceInput) -> Result<()> {
         if let Some(lease) = input.lease {
             lease.release().await?;
         }

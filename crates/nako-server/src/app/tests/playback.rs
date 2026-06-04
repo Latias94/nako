@@ -2753,6 +2753,119 @@ async fn hls_source_releases_remote_staged_input_after_runner_error() {
 }
 
 #[tokio::test]
+async fn ffmpeg_input_scope_uses_local_path_without_staging_record() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "ffmpeg_input_local_scope");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+
+    let input_path = app
+        .playback()
+        .with_source_path_for_ffmpeg(&source, |input_path| async move { Ok(input_path) })
+        .await
+        .unwrap();
+
+    assert!(input_path.exists());
+    assert_no_ffmpeg_input_staging_record(&store).await;
+}
+
+#[tokio::test]
+async fn ffmpeg_input_scope_releases_remote_staged_input_after_success() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "ffmpeg_input_remote_scope_success");
+    let (_server, _temp, app, store, source) =
+        hls_remote_app_with_source(ffmpeg_path, TranscodeConfig::default()).await;
+
+    let input_path = app
+        .playback()
+        .with_source_path_for_ffmpeg(&source, |input_path| async move { Ok(input_path) })
+        .await
+        .unwrap();
+
+    assert!(input_path.starts_with(app.config().remux_staging_root.join("inputs")));
+    assert_released_ffmpeg_input_staging_record(&store, &source).await;
+}
+
+#[tokio::test]
+async fn ffmpeg_input_scope_releases_remote_staged_input_after_operation_error() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "ffmpeg_input_remote_scope_error");
+    let (_server, _temp, app, store, source) =
+        hls_remote_app_with_source(ffmpeg_path, TranscodeConfig::default()).await;
+
+    let err = app
+        .playback()
+        .with_source_path_for_ffmpeg(&source, |_input_path| async move {
+            Err::<(), NakoError>(NakoError::Provider {
+                provider: "ffmpeg_input_test_operation".to_owned(),
+                message: "operation failed".to_owned(),
+            })
+        })
+        .await
+        .unwrap_err();
+
+    let NakoError::Provider { provider, message } = err else {
+        panic!("expected operation provider failure");
+    };
+    assert_eq!(provider, "ffmpeg_input_test_operation");
+    assert_eq!(message, "operation failed");
+    assert_released_ffmpeg_input_staging_record(&store, &source).await;
+}
+
+#[tokio::test]
+async fn ffmpeg_input_scope_returns_release_error_after_success_when_release_fails() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "ffmpeg_input_release_failure");
+    let (_server, _temp, app, store, source) =
+        hls_remote_app_with_source(ffmpeg_path, TranscodeConfig::default()).await;
+
+    let err = app
+        .playback()
+        .with_source_path_for_ffmpeg(&source, |input_path| {
+            let store = store.clone();
+            async move {
+                force_release_ffmpeg_input_record_for_path(&store, &input_path).await;
+                Ok(input_path)
+            }
+        })
+        .await
+        .unwrap_err();
+
+    assert!(
+        err.to_string().contains("has no active lease to release"),
+        "unexpected release error: {err}"
+    );
+}
+
+#[tokio::test]
+async fn ffmpeg_input_scope_preserves_operation_error_when_release_fails() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "ffmpeg_input_operation_failure");
+    let (_server, _temp, app, store, source) =
+        hls_remote_app_with_source(ffmpeg_path, TranscodeConfig::default()).await;
+
+    let err = app
+        .playback()
+        .with_source_path_for_ffmpeg(&source, |input_path| {
+            let store = store.clone();
+            async move {
+                force_release_ffmpeg_input_record_for_path(&store, &input_path).await;
+                Err::<(), NakoError>(NakoError::Provider {
+                    provider: "ffmpeg_input_test_operation".to_owned(),
+                    message: "operation failed".to_owned(),
+                })
+            }
+        })
+        .await
+        .unwrap_err();
+
+    let NakoError::Provider { provider, message } = err else {
+        panic!("expected operation provider failure");
+    };
+    assert_eq!(provider, "ffmpeg_input_test_operation");
+    assert_eq!(message, "operation failed");
+}
+
+#[tokio::test]
 async fn hls_source_rejects_unconfigured_hls_start_capacity_before_ffmpeg_input_staging() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_remote_source_no_capacity");
@@ -3369,6 +3482,18 @@ async fn assert_released_ffmpeg_input_staging_record(store: &NakoDatabase, sourc
     assert_eq!(record.active_leases, 0);
     assert_eq!(record.validation_error, None);
     assert!(PathBuf::from(&record.local_path).exists());
+}
+
+async fn force_release_ffmpeg_input_record_for_path(store: &NakoDatabase, input_path: &Path) {
+    let record = store
+        .find_staging_manifest_record_by_path(&input_path.display().to_string())
+        .await
+        .unwrap()
+        .expect("ffmpeg input staging record");
+    store
+        .release_staging_manifest_lease(record.id, record.updated_at_ms + 1)
+        .await
+        .unwrap();
 }
 
 async fn assert_no_ffmpeg_input_staging_record(store: &NakoDatabase) {

@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server app-service and playback orchestration guidelines."}
+{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Focused app module and runtime-supervision boundaries."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused server testing and playback admission gates."}
+{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Preserve NakoError behavior around release success/error paths."}
+{"file": "docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md", "reason": "Remote playback staging manifest and cleanup boundary."}
+{"file": ".trellis/tasks/archive/2026-06/06-04-architecture-boundary-refactor-review/report.md", "reason": "Selected fearless-refactor candidate and scope."}
+{"file": ".trellis/tasks/archive/2026-06/06-04-architecture-boundary-refactor-review/research/playback-runtime-boundaries.md", "reason": "Detailed playback input staging lease review."}

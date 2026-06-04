@@ -20,7 +20,7 @@ use super::{
     PlaybackAppService, PlaybackRuntimeStore, PlaybackTraceContext, StartPlaybackSessionRequest,
     control::{hls_supersede_candidates, request_hls_session_supersede},
     hls_artifact::hls_artifact_manifest_for_session,
-    input::FfmpegSourceInput,
+    input::FfmpegSourceInputScope,
     paths::path_exists,
     playlist::HlsPlaylistSessionBinding,
     playlist::HlsPlaylistUrlDecoration,
@@ -353,52 +353,41 @@ async fn run_hls_source_context(
         };
     let input = app
         .input
-        .source_input_for_ffmpeg(&context.source, &context.uri, &context.backend)
+        .source_input_scope(&context.source, &context.uri, &context.backend)
         .await?;
-    run_hls_source_context_with_input(app, context, input, resource_permit).await
+    run_hls_source_context_with_input_scope(app, context, input, resource_permit).await
 }
 
-async fn run_hls_source_context_with_input(
+async fn run_hls_source_context_with_input_scope(
     app: &PlaybackAppService,
     context: HlsSourceContext,
-    input: FfmpegSourceInput,
+    input: FfmpegSourceInputScope,
     resource_permit: Option<PlaybackResourcePermitSet>,
 ) -> Result<HlsSourceOutput> {
     let resource_demand = context.resource_demand();
-    let result = app
-        .hls
-        .run(
-            app.runtime_store.as_ref(),
-            context.source,
-            context.decision,
-            input.path.clone(),
-            context.layout,
-            context.track_selection,
-            context.subtitle_burn_in,
-            context.execution_policy,
-            context.playback_generation,
-            context.request_identity,
-            context.trace_context,
-            &app.resource_admission,
-            resource_demand,
-            resource_permit,
-        )
-        .await;
-    match result {
-        Ok(output) => {
-            app.input.release_source_input(input).await?;
-            Ok(output)
-        }
-        Err(err) => {
-            if let Err(release_err) = app.input.release_source_input(input).await {
-                warn!(
-                    error = %release_err,
-                    "failed to release hls staging lease after error"
-                );
-            }
-            Err(err)
-        }
-    }
+    let input_service = app.input.clone();
+    input_service
+        .with_prepared_source_input(input, |input_path| async move {
+            app.hls
+                .run(
+                    app.runtime_store.as_ref(),
+                    context.source,
+                    context.decision,
+                    input_path,
+                    context.layout,
+                    context.track_selection,
+                    context.subtitle_burn_in,
+                    context.execution_policy,
+                    context.playback_generation,
+                    context.request_identity,
+                    context.trace_context,
+                    &app.resource_admission,
+                    resource_demand,
+                    resource_permit,
+                )
+                .await
+        })
+        .await
 }
 
 async fn prepare_hls_source_before_input_staging(
@@ -526,15 +515,19 @@ async fn start_hls_playlist_with_policy(
     };
     let input = app
         .input
-        .source_input_for_ffmpeg(&context.source, &context.uri, &context.backend)
+        .source_input_scope(&context.source, &context.uri, &context.backend)
         .await?;
     let wait_context = context.clone();
     let task_app = app.clone();
     app.runtime
         .spawn("playback_hls_start", "playback.hls", async move {
-            if let Err(error) =
-                run_hls_source_context_with_input(&task_app, context, input, Some(resource_permit))
-                    .await
+            if let Err(error) = run_hls_source_context_with_input_scope(
+                &task_app,
+                context,
+                input,
+                Some(resource_permit),
+            )
+            .await
             {
                 warn!(error = %error, "background hls start failed");
             }

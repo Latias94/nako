@@ -46,6 +46,114 @@ crates/nako-server/src/
   wait) should live in the resource helper layer and be reused by orchestration
   code instead of being duplicated in HLS/remux flow modules.
 
+## Scenario: Playback FFmpeg Input Staging Scope
+
+### 1. Scope / Trigger
+
+- Trigger: changing HLS, Remux, or another server Playback Runtime path that
+  gives FFmpeg an input path for a `Media Source`.
+
+### 2. Signatures
+
+- `FfmpegInputService::with_source_input(source, uri, backend, operation) ->
+  Result<T>` is the normal scoped entry point. The operation receives only the
+  local FFmpeg input `PathBuf`.
+- `FfmpegInputService::source_input_scope(...) -> Result<FfmpegSourceInputScope>`
+  plus `with_prepared_source_input(scope, operation) -> Result<T>` is reserved
+  for flows that must prove staging succeeded before moving execution into a
+  supervised background task, such as HLS playlist startup.
+
+### 3. Contracts
+
+- Local path inputs use the backend local path hint and must not create or
+  release an FFmpeg input staging manifest lease.
+- Remote inputs are staged through `ManifestRecordingStorageBackend`, acquire a
+  staging manifest lease, run the scoped operation, then explicitly release the
+  lease with async release before returning from the scope.
+- On scoped operation success, a release failure is returned to the caller.
+- On scoped operation error, a release failure is logged as cleanup trouble and
+  the original operation error is returned.
+- HLS and Remux flow modules should not call a staging release method directly
+  or inspect whether an FFmpeg input owns a lease.
+- Do not rely on plain `Drop` as the primary async release mechanism. Drop may
+  remain a defensive fallback, but the playback flow must use the scoped async
+  interface.
+
+### 4. Validation & Error Matrix
+
+| Condition | Behavior |
+|-----------|----------|
+| Local backend exposes `local_path_hint` | Operation runs with that path; no `FfmpegInput` staging manifest record is created |
+| Remote backend needs staging and operation succeeds | Staging manifest returns to `Ready` with `active_leases = 0`; operation output is returned |
+| Remote backend needs staging and operation fails | Staging manifest is released; original operation error is returned |
+| Operation succeeds but release fails | Release error is returned |
+| Operation fails and release also fails | Release failure is logged; original operation error is returned |
+| HLS playlist startup stages input before background start | Staging error is returned synchronously before spawning runner work |
+
+### 5. Good / Base / Bad Cases
+
+- Good: Remux source startup calls `with_prepared_source_input` and runs
+  `RemuxAppService::run` inside the closure that receives the input path.
+- Good: HLS playlist startup obtains an opaque `FfmpegSourceInputScope`
+  synchronously, moves it into the supervised background task, and runs the
+  runner through `with_prepared_source_input`.
+- Base: test-only helpers may use `with_source_input` to assert path and lease
+  behavior directly.
+- Bad: returning `FfmpegSourceInput` to HLS or Remux and requiring those modules
+  to match success/error paths and call `release_source_input`.
+- Bad: moving staging into the HLS playlist background task when the public
+  route currently needs staging failures to surface before the task is spawned.
+- Bad: fire-and-forget release that hides release failures after successful
+  runner work.
+
+### 6. Tests Required
+
+- App test: local FFmpeg input scope uses the local path without creating an
+  `FfmpegInput` staging manifest record.
+- App test: remote scoped operation success releases the staged input lease.
+- App test: remote scoped operation error releases the staged input lease and
+  preserves the operation error.
+- App test: release failure after operation success is returned.
+- App test: release failure after operation error preserves the operation error.
+- Flow tests: HLS and Remux remote staged input release tests continue to pass
+  for runner success and runner error.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+let input = app.input.source_input_for_ffmpeg(&source, &uri, &backend).await?;
+let result = app.remux.run(input.path.clone()).await;
+match result {
+    Ok(output) => {
+        app.input.release_source_input(input).await?;
+        Ok(output)
+    }
+    Err(err) => {
+        let _ = app.input.release_source_input(input).await;
+        Err(err)
+    }
+}
+```
+
+This spreads the staging lease invariant across every playback flow and makes
+future early returns easy to leak.
+
+#### Correct
+
+```rust
+let input = app.input.source_input_scope(&source, &uri, &backend).await?;
+app.input
+    .with_prepared_source_input(input, |input_path| async move {
+        app.remux.run(input_path).await
+    })
+    .await
+```
+
+The flow only receives a path inside the scoped operation; staging, leasing,
+release ordering, and release-error priority stay local to `FfmpegInputService`.
+
 ## Scenario: Playback Remote Stream Admission
 
 ### 1. Scope / Trigger

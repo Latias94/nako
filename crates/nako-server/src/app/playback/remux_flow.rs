@@ -285,38 +285,27 @@ async fn run_remux_source_context(
     let resource_demand = context.resource_demand();
     let input = app
         .input
-        .source_input_for_ffmpeg(&context.source, &context.uri, &context.backend)
+        .source_input_scope(&context.source, &context.uri, &context.backend)
         .await?;
-    let result = app
-        .remux
-        .run(
-            app.runtime_store.as_ref(),
-            context.source,
-            context.decision,
-            input.path.clone(),
-            context.output_path,
-            context.output_container,
-            context.request_identity,
-            &app.resource_admission,
-            resource_demand,
-            resource_permit,
-        )
-        .await;
-    match result {
-        Ok(output) => {
-            app.input.release_source_input(input).await?;
-            Ok(output)
-        }
-        Err(err) => {
-            if let Err(release_err) = app.input.release_source_input(input).await {
-                warn!(
-                    error = %release_err,
-                    "failed to release remux staging lease after error"
-                );
-            }
-            Err(err)
-        }
-    }
+    let input_service = app.input.clone();
+    input_service
+        .with_prepared_source_input(input, |input_path| async move {
+            app.remux
+                .run(
+                    app.runtime_store.as_ref(),
+                    context.source,
+                    context.decision,
+                    input_path,
+                    context.output_path,
+                    context.output_container,
+                    context.request_identity,
+                    &app.resource_admission,
+                    resource_demand,
+                    resource_permit,
+                )
+                .await
+        })
+        .await
 }
 
 async fn wait_for_started_remux_source_context(

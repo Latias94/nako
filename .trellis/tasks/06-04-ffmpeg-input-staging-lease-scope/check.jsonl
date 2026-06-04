@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Check focused server gates and playback release regression coverage."}
+{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Check focused app module boundary and no hidden runtime work."}
+{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Check release error semantics preserve existing public behavior."}
+{"file": "docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md", "reason": "Check remote staging lease cleanup boundary."}
+{"file": ".trellis/tasks/archive/2026-06/06-04-architecture-boundary-refactor-review/research/playback-runtime-boundaries.md", "reason": "Check selected architecture-review finding is actually addressed."}
