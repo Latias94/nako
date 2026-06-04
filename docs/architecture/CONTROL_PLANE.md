@@ -44,7 +44,7 @@ Deployment Endpoint Config
 | Durable jobs | Shipped foundation plus schedulable partial; generic priority policy added | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/` | Broader job-kind scheduler migration remains a follow-on. |
 | Runtime supervisor | Shipped resource-accounted foundation | ADR 0019; server runtime deepening; durable job queue/resource lane | Unified trace context and broader scheduler migration remain follow-ons. |
 | Resource classes and budgets | Shipped process-local foundation | ADR 0005; playback/runtime lanes; durable job queue/resource lane | Continue migrating job kinds onto typed budget-admitted scheduler paths. |
-| Tracing/request identity | Partial with HLS event propagation | diagnostics and playback identity lanes | Continue unified trace context across jobs/FFmpeg/VFS/addons and library scan. |
+| Tracing/request identity | Partial with HLS and library scan job propagation | diagnostics and playback identity lanes | Continue unified trace context across jobs/FFmpeg/VFS/addons and broader scan entry points. |
 | Admin diagnostics | Good partial | Admin API and diagnostics lanes | Safe realtime diagnostics and incident bundles. |
 | Crash/fault bundles | Not started | This document | Redacted operator export for hard bugs. |
 | Remote access cookbook | Planned | operations/release architecture | Reverse proxy, HTTPS, DDNS, Tailscale, Cloudflare Tunnel guidance. |
@@ -209,10 +209,14 @@ Shipped behavior:
 - HLS playlist routes convert the typed HTTP trace context into a playback app
   trace context, and HLS `PlaybackSessionFinished` outbox payloads include only
   the normalized `request_id` when the HLS work came from a traced request.
+- the library scan app-service enqueue path can attach a typed durable job trace
+  context to queued `disk.scan` work, and completed `LibraryScanned` outbox
+  payloads include only the normalized `request_id` when one was provided.
 
 Exit criteria:
 
-- library scan paths emit correlated trace IDs;
+- HTTP library scan routes and additional scheduler-originated scan paths emit
+  correlated trace IDs;
 - Admin diagnostics can show safe recent failures without raw paths, tokens, or
   provider payloads;
 - tests cover redaction for diagnostic DTOs.

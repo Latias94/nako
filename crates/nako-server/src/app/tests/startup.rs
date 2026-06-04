@@ -1,5 +1,5 @@
 use super::*;
-use crate::app::jobs::LibraryScanScheduleOutcome;
+use crate::app::jobs::{LibraryScanScheduleOutcome, LibraryScanTraceContext};
 use nako_addon_protocol::{
     ADDON_PROTOCOL_VERSION, AddonScope, AddonTaskRequest, AddonTaskResponse,
 };
@@ -514,6 +514,66 @@ async fn scan_library_persists_job_success() {
             .payload_json
             .contains(&temp.path().display().to_string())
     );
+}
+
+#[tokio::test]
+async fn background_scan_job_propagates_trace_context_to_library_scanned_event() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_root = temp.path().join("movies");
+    fs::create_dir_all(&library_root).unwrap();
+    let library_id = LibraryId::new();
+    let config = startup_config(
+        temp.path(),
+        vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Trace Movies".to_owned(),
+            root: library_root,
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    );
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let trace_context = LibraryScanTraceContext::from_request_id("REQ-SCAN-TRACE_123").unwrap();
+
+    let job = app
+        .library_scan()
+        .enqueue_library_scan_with_trace_context(library_id, trace_context)
+        .await
+        .unwrap();
+    let diagnostics = wait_for_runtime_jobs(&app, 1, 0, 0).await;
+    let persisted = app.jobs().get_job(job.id).await.unwrap();
+    let events = store
+        .list_outbox_events(Default::default(), PageRequest::new(100, 0))
+        .await
+        .unwrap();
+    let event = events
+        .iter()
+        .find(|event| {
+            event.kind == DomainEventKind::LibraryScanned
+                && event.subject == DomainEventSubject::Library(library_id)
+        })
+        .expect("library scanned event should be persisted");
+    let input_json = persisted
+        .input_json
+        .as_deref()
+        .expect("scan job should keep input json");
+    let input = serde_json::from_str::<serde_json::Value>(input_json).unwrap();
+    let payload = serde_json::from_str::<serde_json::Value>(&event.payload_json).unwrap();
+    let diagnostic_body = format!("{input_json}{}", event.payload_json);
+
+    assert_eq!(diagnostics.failed_jobs, 0);
+    assert_eq!(persisted.status, JobStatus::Succeeded);
+    assert_eq!(
+        input["trace_context"]["request_id"].as_str(),
+        Some("req-scan-trace_123")
+    );
+    assert_eq!(payload["request_id"].as_str(), Some("req-scan-trace_123"));
+    assert!(!diagnostic_body.contains("REQ-SCAN-TRACE_123"));
+    assert!(!diagnostic_body.contains(&temp.path().display().to_string()));
+    assert!(!diagnostic_body.contains("token"));
 }
 
 #[tokio::test]

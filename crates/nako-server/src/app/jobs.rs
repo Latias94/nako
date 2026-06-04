@@ -26,6 +26,7 @@ use super::{
     addons::AddonAppService,
     job_runtime::{
         DurableJobContext, DurableJobOperationResult, DurableJobRunOutcome, DurableJobRuntime,
+        DurableJobTraceContext,
     },
     metadata_scan::{
         LibraryScanMetadataSummary, MetadataScanAcquisitionRequest, MetadataScanAcquisitionService,
@@ -34,6 +35,8 @@ use super::{
     staging::ManifestRecordingStorageBackend,
     storage::{StorageBackendRegistry, remote_probe_staging_root},
 };
+
+pub(crate) type LibraryScanTraceContext = DurableJobTraceContext;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct ScanCommandOutput {
@@ -308,7 +311,27 @@ impl LibraryScanAppService {
     }
 
     pub(crate) async fn enqueue_library_scan(&self, library_id: LibraryId) -> Result<Job> {
-        let job = self.create_library_scan_job(library_id).await?;
+        self.enqueue_library_scan_with_optional_trace_context(library_id, None)
+            .await
+    }
+
+    pub(crate) async fn enqueue_library_scan_with_trace_context(
+        &self,
+        library_id: LibraryId,
+        trace_context: LibraryScanTraceContext,
+    ) -> Result<Job> {
+        self.enqueue_library_scan_with_optional_trace_context(library_id, Some(trace_context))
+            .await
+    }
+
+    async fn enqueue_library_scan_with_optional_trace_context(
+        &self,
+        library_id: LibraryId,
+        trace_context: Option<LibraryScanTraceContext>,
+    ) -> Result<Job> {
+        let job = self
+            .create_library_scan_job(library_id, trace_context)
+            .await?;
         self.schedule_queued_library_scans().await?;
         Ok(job)
     }
@@ -344,6 +367,7 @@ impl LibraryScanAppService {
                     message: format!("library scan job {job_id} does not include library_id"),
                 })?;
             let library = self.library_for_scan(library_id).await?;
+            let trace_context = library_scan_trace_context_from_job(&candidate)?;
             if self
                 .storage_backends
                 .library_scan_admission_error(&library)
@@ -367,7 +391,7 @@ impl LibraryScanAppService {
                 continue;
             };
 
-            return self.spawn_claimed_library_scan_job(leased, library_id, permit);
+            return self.spawn_claimed_library_scan_job(leased, library_id, trace_context, permit);
         }
 
         if blocked_candidates > 0 {
@@ -381,6 +405,7 @@ impl LibraryScanAppService {
         &self,
         leased: LeasedJob,
         library_id: LibraryId,
+        trace_context: Option<LibraryScanTraceContext>,
         permit: OwnedSemaphorePermit,
     ) -> Result<LibraryScanScheduleOutcome> {
         let job_id = leased.job.id;
@@ -397,7 +422,7 @@ impl LibraryScanAppService {
             move |_context| {
                 async move {
                     service
-                        .finish_claimed_library_scan_job(leased, library_id, permit)
+                        .finish_claimed_library_scan_job(leased, library_id, trace_context, permit)
                         .await
                 }
                 .instrument(info_span!(
@@ -413,8 +438,9 @@ impl LibraryScanAppService {
     }
 
     pub(crate) async fn scan_library(&self, library_id: LibraryId) -> Result<ScanCommandOutput> {
-        let job = self.create_library_scan_job(library_id).await?;
-        self.execute_library_scan_command(job.id, library_id).await
+        let job = self.create_library_scan_job(library_id, None).await?;
+        self.execute_library_scan_command(job.id, library_id, None)
+            .await
     }
 
     pub(crate) async fn scan_all_configured_libraries(&self) -> Result<Vec<ScanCommandOutput>> {
@@ -433,11 +459,16 @@ impl LibraryScanAppService {
         Ok(outputs)
     }
 
-    async fn create_library_scan_job(&self, library_id: LibraryId) -> Result<Job> {
+    async fn create_library_scan_job(
+        &self,
+        library_id: LibraryId,
+        trace_context: Option<LibraryScanTraceContext>,
+    ) -> Result<Job> {
         self.library_for_scan(library_id).await?;
         let input = LibraryScanJobInput {
             library_id,
             force: false,
+            trace_context,
         };
         let input_json = serde_json::to_string(&input).map_err(|err| NakoError::InvalidInput {
             message: format!("failed to serialize job input: {err}"),
@@ -460,10 +491,11 @@ impl LibraryScanAppService {
         &self,
         leased: LeasedJob,
         library_id: LibraryId,
+        trace_context: Option<LibraryScanTraceContext>,
         permit: OwnedSemaphorePermit,
     ) -> Result<Job> {
         let execution = self
-            .execute_claimed_library_scan_job(leased, library_id, permit)
+            .execute_claimed_library_scan_job(leased, library_id, trace_context, permit)
             .await;
         self.spawn_library_scan_scheduler_followup(library_id);
 
@@ -530,15 +562,18 @@ impl LibraryScanAppService {
         &self,
         job_id: JobId,
         library_id: LibraryId,
+        trace_context: Option<LibraryScanTraceContext>,
     ) -> Result<LibraryScanExecution> {
         let permit = self.acquire_scan_permit().await?;
         let _permit = permit;
 
         let runtime = DurableJobRuntime::new(self.execution_store.clone());
+        let event_trace_context = trace_context.clone();
         let run = runtime
-            .run_job_with_context(
+            .run_job_with_trace_context(
                 job_id,
                 "library scan job",
+                trace_context,
                 |context| async { self.run_library_scan(job_id, library_id, context).await },
                 |(index, probe, metadata)| {
                     let summary = ScanJobSummary {
@@ -554,8 +589,14 @@ impl LibraryScanAppService {
         match run {
             DurableJobRunOutcome::Completed(run) => {
                 let (index, probe, metadata) = run.output;
-                self.record_library_scanned_event(job_id, library_id, &index, &probe)
-                    .await;
+                self.record_library_scanned_event(
+                    job_id,
+                    library_id,
+                    &index,
+                    &probe,
+                    event_trace_context.as_ref(),
+                )
+                .await;
 
                 Ok(LibraryScanExecution::Completed(ScanCommandOutput {
                     job: run.job,
@@ -572,16 +613,19 @@ impl LibraryScanAppService {
         &self,
         leased: LeasedJob,
         library_id: LibraryId,
+        trace_context: Option<LibraryScanTraceContext>,
         permit: OwnedSemaphorePermit,
     ) -> Result<LibraryScanExecution> {
         let job_id = leased.job.id;
         let _permit = permit;
 
         let runtime = DurableJobRuntime::new(self.execution_store.clone());
+        let event_trace_context = trace_context.clone();
         let run = runtime
-            .run_leased_job_with_context(
+            .run_leased_job_with_trace_context(
                 leased,
                 "library scan job",
+                trace_context,
                 |context| async { self.run_library_scan(job_id, library_id, context).await },
                 |(index, probe, metadata)| {
                     let summary = ScanJobSummary {
@@ -597,8 +641,14 @@ impl LibraryScanAppService {
         match run {
             DurableJobRunOutcome::Completed(run) => {
                 let (index, probe, metadata) = run.output;
-                self.record_library_scanned_event(job_id, library_id, &index, &probe)
-                    .await;
+                self.record_library_scanned_event(
+                    job_id,
+                    library_id,
+                    &index,
+                    &probe,
+                    event_trace_context.as_ref(),
+                )
+                .await;
 
                 Ok(LibraryScanExecution::Completed(ScanCommandOutput {
                     job: run.job,
@@ -615,8 +665,12 @@ impl LibraryScanAppService {
         &self,
         job_id: JobId,
         library_id: LibraryId,
+        trace_context: Option<LibraryScanTraceContext>,
     ) -> Result<ScanCommandOutput> {
-        match self.execute_library_scan_job(job_id, library_id).await? {
+        match self
+            .execute_library_scan_job(job_id, library_id, trace_context)
+            .await?
+        {
             LibraryScanExecution::Completed(output) => Ok(output),
             LibraryScanExecution::Cancelled(job) => Err(NakoError::Conflict {
                 message: format!("library scan job {} was cancelled", job.id),
@@ -630,8 +684,9 @@ impl LibraryScanAppService {
         library_id: LibraryId,
         index: &LibraryIndexSummary,
         probe: &LibraryProbeSummary,
+        trace_context: Option<&LibraryScanTraceContext>,
     ) {
-        let payload = serde_json::json!({
+        let mut payload = serde_json::json!({
             "job_id": job_id,
             "library_id": library_id,
             "scan_id": index.scan_id,
@@ -643,6 +698,9 @@ impl LibraryScanAppService {
             "probed_sources": probe.probed_sources,
             "failed_probe_sources": probe.failed_sources,
         });
+        if let Some(trace_context) = trace_context {
+            payload["request_id"] = serde_json::json!(trace_context.request_id());
+        }
         self.record_outbox_event(NewOutboxEvent {
             id: EventId::new(),
             kind: DomainEventKind::LibraryScanned,
@@ -666,6 +724,10 @@ impl LibraryScanAppService {
         LibraryScanMetadataSummary,
     )> {
         let library = self.library_for_scan(library_id).await?;
+        let trace_request_id = context
+            .trace_context()
+            .map(LibraryScanTraceContext::request_id)
+            .unwrap_or("untraced");
         if let Some(err) = self
             .storage_backends
             .library_scan_admission_error(&library)
@@ -677,6 +739,7 @@ impl LibraryScanAppService {
         info!(
             job_id = %job_id,
             library_id = %library_id,
+            request_id = trace_request_id,
             probe_concurrency = self.config.probe_concurrency.max(1),
             "starting library scan pipeline"
         );
@@ -787,5 +850,32 @@ struct ScanJobSummary {
 #[derive(Clone, Debug, Serialize)]
 struct LibraryScanJobInput {
     library_id: LibraryId,
+    #[serde(default)]
     force: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    trace_context: Option<LibraryScanTraceContext>,
+}
+
+fn library_scan_trace_context_from_job(job: &Job) -> Result<Option<LibraryScanTraceContext>> {
+    let Some(input_json) = job.input_json.as_deref() else {
+        return Ok(None);
+    };
+    let Ok(input) = serde_json::from_str::<serde_json::Value>(input_json) else {
+        return Ok(None);
+    };
+    let Some(trace_context) = input.get("trace_context") else {
+        return Ok(None);
+    };
+    if trace_context.is_null() {
+        return Ok(None);
+    }
+
+    serde_json::from_value::<LibraryScanTraceContext>(trace_context.clone())
+        .map(Some)
+        .map_err(|_err| NakoError::InvalidInput {
+            message: format!(
+                "library scan job {} has invalid trace context input",
+                job.id
+            ),
+        })
 }

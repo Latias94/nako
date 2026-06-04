@@ -8,13 +8,15 @@ use nako_core::{
     JobLeaseClaimRequest, JobLeaseGuard, JobLeaseHeartbeat, JobLeaseRepository, JobWorkerId,
     LeasedJob, NakoError, Result,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, warn};
 
 const DEFAULT_LEASE_DURATION_MS: u64 = 30_000;
 const DEFAULT_HEARTBEAT_INTERVAL_MS: u64 = 10_000;
+const MAX_TRACE_REQUEST_ID_LEN: usize = 96;
+const MIN_TRACE_REQUEST_ID_LEN: usize = 8;
 
 #[async_trait::async_trait]
 pub(super) trait DurableJobLeaseStore: std::fmt::Debug + Send + Sync {
@@ -81,12 +83,18 @@ pub(super) struct DurableJobContext {
     guard: JobLeaseGuard,
     lease_duration_ms: u64,
     cancellation: DurableJobCancellation,
+    trace_context: Option<DurableJobTraceContext>,
 }
 
 #[derive(Debug)]
 pub(super) enum DurableJobRunOutcome<T> {
     Completed(DurableJobRun<T>),
     Cancelled(Job),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct DurableJobTraceContext {
+    request_id: String,
 }
 
 #[derive(Debug)]
@@ -98,6 +106,10 @@ pub(super) enum DurableJobOperationError {
 pub(super) type DurableJobOperationResult<T> = std::result::Result<T, DurableJobOperationError>;
 
 impl DurableJobContext {
+    pub(super) fn trace_context(&self) -> Option<&DurableJobTraceContext> {
+        self.trace_context.as_ref()
+    }
+
     pub(super) fn is_cancel_requested(&self) -> bool {
         self.cancellation.is_requested()
     }
@@ -130,6 +142,37 @@ impl DurableJobContext {
             .map_err(DurableJobOperationError::Failed)?;
         self.cancellation.observe_lease(&leased.lease);
         Ok(())
+    }
+}
+
+impl DurableJobTraceContext {
+    #[must_use]
+    pub(crate) fn request_id(&self) -> &str {
+        &self.request_id
+    }
+
+    pub(crate) fn from_request_id(request_id: impl AsRef<str>) -> Result<Self> {
+        let request_id = normalize_trace_request_id(request_id.as_ref()).ok_or_else(|| {
+            NakoError::InvalidInput {
+                message: "invalid durable job trace request_id".to_owned(),
+            }
+        })?;
+        Ok(Self { request_id })
+    }
+}
+
+impl<'de> Deserialize<'de> for DurableJobTraceContext {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct RawTraceContext {
+            request_id: String,
+        }
+
+        let raw = RawTraceContext::deserialize(deserializer)?;
+        Self::from_request_id(raw.request_id).map_err(serde::de::Error::custom)
     }
 }
 
@@ -214,6 +257,23 @@ impl DurableJobRuntime {
         RunFuture: Future<Output = DurableJobOperationResult<T>>,
         Summary: FnOnce(&T) -> Result<Option<String>>,
     {
+        self.run_job_with_trace_context(job_id, operation, None, run, summary_json)
+            .await
+    }
+
+    pub(super) async fn run_job_with_trace_context<T, Run, RunFuture, Summary>(
+        &self,
+        job_id: JobId,
+        operation: &'static str,
+        trace_context: Option<DurableJobTraceContext>,
+        run: Run,
+        summary_json: Summary,
+    ) -> Result<DurableJobRunOutcome<T>>
+    where
+        Run: FnOnce(DurableJobContext) -> RunFuture,
+        RunFuture: Future<Output = DurableJobOperationResult<T>>,
+        Summary: FnOnce(&T) -> Result<Option<String>>,
+    {
         let leased = self
             .claim_next_job_lease(JobLeaseClaimFilter {
                 job_id: Some(job_id),
@@ -224,7 +284,7 @@ impl DurableJobRuntime {
                 message: format!("job {job_id} is not queued and claimable"),
             })?;
 
-        self.run_leased_job_with_context(leased, operation, run, summary_json)
+        self.run_leased_job_with_trace_context(leased, operation, trace_context, run, summary_json)
             .await
     }
 
@@ -241,10 +301,11 @@ impl DurableJobRuntime {
             .await
     }
 
-    pub(super) async fn run_leased_job_with_context<T, Run, RunFuture, Summary>(
+    pub(super) async fn run_leased_job_with_trace_context<T, Run, RunFuture, Summary>(
         &self,
         leased: LeasedJob,
         operation: &'static str,
+        trace_context: Option<DurableJobTraceContext>,
         run: Run,
         summary_json: Summary,
     ) -> Result<DurableJobRunOutcome<T>>
@@ -262,6 +323,7 @@ impl DurableJobRuntime {
             guard,
             lease_duration_ms: self.lease_duration_ms,
             cancellation,
+            trace_context,
         };
 
         let output = match run(context).await {
@@ -397,6 +459,21 @@ impl DurableJobRuntime {
     }
 }
 
+fn normalize_trace_request_id(value: &str) -> Option<String> {
+    if value.len() < MIN_TRACE_REQUEST_ID_LEN || value.len() > MAX_TRACE_REQUEST_ID_LEN {
+        return None;
+    }
+    if !value.bytes().all(is_safe_trace_request_id_byte) {
+        return None;
+    }
+
+    Some(value.to_ascii_lowercase())
+}
+
+fn is_safe_trace_request_id_byte(value: u8) -> bool {
+    value.is_ascii_alphanumeric() || matches!(value, b'-' | b'_' | b'.')
+}
+
 #[derive(Clone, Debug)]
 struct DurableJobCancellation {
     token: CancellationToken,
@@ -481,6 +558,44 @@ mod tests {
         let store = NakoDatabase::connect_in_memory().await.unwrap();
         store.migrate().await.unwrap();
         store
+    }
+
+    #[test]
+    fn durable_job_trace_context_normalizes_safe_request_id() {
+        let context = DurableJobTraceContext::from_request_id("REQ-SCAN_123.Trace").unwrap();
+
+        assert_eq!(context.request_id(), "req-scan_123.trace");
+        assert_eq!(
+            serde_json::to_value(&context).unwrap(),
+            serde_json::json!({ "request_id": "req-scan_123.trace" })
+        );
+    }
+
+    #[test]
+    fn durable_job_trace_context_rejects_unsafe_request_id_without_echoing_it() {
+        let err =
+            DurableJobTraceContext::from_request_id("https://secret.example/path?token=private")
+                .unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("invalid durable job trace request_id"));
+        assert!(!message.contains("secret.example"));
+        assert!(!message.contains("token"));
+        assert!(!message.contains("private"));
+    }
+
+    #[test]
+    fn durable_job_trace_context_deserialization_rejects_unsafe_request_id() {
+        let err = serde_json::from_value::<DurableJobTraceContext>(serde_json::json!({
+            "request_id": "C:\\Users\\secret\\Movies"
+        }))
+        .unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("invalid durable job trace request_id"));
+        assert!(!message.contains("Users"));
+        assert!(!message.contains("secret"));
+        assert!(!message.contains("Movies"));
     }
 
     #[tokio::test]
