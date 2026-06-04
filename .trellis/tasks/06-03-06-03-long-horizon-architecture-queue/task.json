@@ -19,7 +19,6 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "06-04-media-web-playback-polish",
     "06-04-hls-subtitle-burn-in-planning",
     "06-04-control-plane-scan-trace-context"
   ],
