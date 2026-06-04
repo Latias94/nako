@@ -13,3 +13,6 @@
 - `git diff --check` passed.
 - `python .\.trellis\scripts\task.py validate 06-05-06-05-provider-review-public-client-guards`
   passed.
+- Spec update review: no `.trellis/spec/` update needed because this docs-only
+  reconciliation did not introduce or change executable API, command, database,
+  infra, or cross-layer contracts.
