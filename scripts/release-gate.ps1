@@ -17,6 +17,7 @@ Set-Location $RepoRoot
 
 $ReleaseGateOutput = Join-Path $RepoRoot 'target/release-gate'
 $RedactionInventoryPath = Join-Path $ReleaseGateOutput 'redaction-inventory.txt'
+$PlaybackHardwareReportPath = Join-Path $ReleaseGateOutput 'playback-hardware-report.json'
 $RedactionInventoryPattern = 'storage_uri|managed-artwork://|source_uri|cache_uri|content_hash|artifact_root|local_path|database_url|token|secret'
 
 function Invoke-Step {
@@ -203,6 +204,10 @@ function Invoke-PlaybackGate {
 
     Invoke-Step 'cargo nextest run -p nako-transcode hardware --no-fail-fast' {
         cargo nextest run -p nako-transcode hardware --no-fail-fast
+    }
+
+    Invoke-Step 'cargo run -p nako-transcode --example hardware-report -- --ffmpeg ffmpeg --output target/release-gate/playback-hardware-report.json' {
+        cargo run -p nako-transcode --example hardware-report -- --ffmpeg ffmpeg --output $PlaybackHardwareReportPath
     }
 
     Invoke-Step 'cargo nextest run -p nako-transcode hls --no-fail-fast' {

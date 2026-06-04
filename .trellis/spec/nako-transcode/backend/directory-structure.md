@@ -23,6 +23,8 @@ crates/nako-transcode/src/
 ├── progress.rs            # progress parsing/state
 ├── runner_util.rs         # command helper utilities
 └── ffmpeg/                # FFmpeg command builders and HLS/remux modules
+crates/nako-transcode/examples/
+└── hardware-report.rs     # release-gate hardware capability report evidence
 ```
 
 ## Module Rules
@@ -35,6 +37,9 @@ crates/nako-transcode/src/
   builders.
 - Re-export public planning values from `lib.rs`; keep test-only FFmpeg command
   internals behind `#[cfg(test)]`.
+- Keep release-gate examples thin: they may serialize public diagnostic types,
+  but must reuse `hardware.rs` detectors instead of duplicating FFmpeg probe
+  parsing or hardware policy decisions.
 
 ## Forbidden Placement
 
@@ -51,4 +56,6 @@ crates/nako-transcode/src/
 - `ffmpeg/hls.rs`: HLS command planning through typed request values.
 - `runtime.rs`: `TranscodeRuntimeGuard` with concurrency and timeout limits.
 - `plan.rs`: HLS codec validation for playback transcode plans.
+- `examples/hardware-report.rs`: release-gate JSON evidence for the existing
+  `HardwareAccelerationReport`.
 - `lib.rs` tests: command argv assertions for remux/HLS planning.

@@ -54,6 +54,7 @@ cd "$repo_root"
 
 release_gate_output="target/release-gate"
 redaction_inventory_path="$release_gate_output/redaction-inventory.txt"
+playback_hardware_report_path="$release_gate_output/playback-hardware-report.json"
 
 step() {
   echo
@@ -112,6 +113,7 @@ playback_gate() {
   step ffprobe -version
   step cargo check -p nako-transcode -p nako-server --tests
   step cargo nextest run -p nako-transcode hardware --no-fail-fast
+  step cargo run -p nako-transcode --example hardware-report -- --ffmpeg ffmpeg --output "$playback_hardware_report_path"
   step cargo nextest run -p nako-transcode hls --no-fail-fast
   step cargo nextest run -p nako-server self_host_smoke --no-fail-fast
 }

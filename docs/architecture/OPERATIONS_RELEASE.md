@@ -1,6 +1,6 @@
 # Operations And Release Architecture
 
-Last updated: 2026-06-04
+Last updated: 2026-06-05
 
 This document maps deployment, release, diagnostics, backup, and operational
 readiness for a self-hosted media server.
@@ -23,11 +23,11 @@ Config
 | --- | --- | --- | --- |
 | Self-hosted install docs | Shipped foundation | `docs/deployment/SELF_HOSTED.md` | HTTPS/tunnel/reverse proxy cookbook. |
 | Backup/restore docs | Shipped foundation | `docs/deployment/BACKUP_RESTORE_UPGRADE.md` | Include future offline sync/artifact classes. |
-| Release checklist | Shipped foundation | `docs/deployment/RELEASE_CHECKLIST.md` | Hardware/FFmpeg matrix evidence. |
-| Release gate scripts | Shipped playback mode foundation | `scripts/release-gate.*`; `.trellis/tasks/06-04-06-04-playback-release-gate-mode-first-slice/` | Hardware diagnostics matrix and container device pass-through evidence. |
+| Release checklist | Shipped foundation plus playback hardware report evidence | `docs/deployment/RELEASE_CHECKLIST.md` | Container device pass-through evidence. |
+| Release gate scripts | Shipped playback mode plus hardware report baseline | `scripts/release-gate.*`; `.trellis/tasks/06-04-06-04-playback-release-gate-mode-first-slice/`; `.trellis/tasks/06-05-06-05-playback-release-hardware-report/` | Container device pass-through evidence. |
 | PostgreSQL contract harness | Shipped foundation | `scripts/postgres-contract-harness.*` | Keep new persistence contracts covered. |
 | FFmpeg/ffprobe config | Shipped foundation | self-hosted docs; playback diagnostics lanes | Packaging and container device diagnostics. |
-| Hardware readiness diagnostics | Partial | ADR 0045-0048; admin playback runtime diagnostics | Per-host FFmpeg/hardware smoke matrix. |
+| Hardware readiness diagnostics | Shipped report baseline | ADR 0045-0048; admin playback runtime diagnostics; `target/release-gate/playback-hardware-report.json` | Optional one-frame device smoke and container pass-through matrix. |
 | Runtime budgets | Partial | `docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md` | Unified playback resource scheduler. |
 | Config mutation authority | Partial | admin settings lanes | Hot-apply/restart-required model. |
 | Observability | Partial | diagnostics lanes | Metrics/tracing/export profile. |
@@ -45,7 +45,8 @@ workstreams. Keep this document focused on operator readiness.
 Goal: Make release gates prove playback dependencies are present and
 diagnosable across supported deployment modes.
 
-Status: Playback release-gate mode first slice shipped as of 2026-06-04.
+Status: Playback release-gate mode and host hardware report evidence shipped as
+of 2026-06-05.
 
 Scope:
 
@@ -53,14 +54,18 @@ Scope:
   `playback` mode;
 - CPU fallback smoke is covered through existing HLS and self-host playback
   gates;
-- optional VAAPI/NVENC/QSV diagnostics when devices are present;
+- FFmpeg hardware capability reports are written to
+  `target/release-gate/playback-hardware-report.json` without requiring GPU
+  devices;
+- optional VAAPI/NVENC/QSV one-frame smoke probes when devices are present;
 - Docker device/pass-through documentation;
 - operator-safe failure messages.
 
 Exit criteria:
 
 - release gate has a playback smoke mode;
-- docs explain how to verify hardware acceleration;
+- docs explain how to verify hardware acceleration and find the generated
+  report;
 - missing acceleration degrades or fails according to configured policy.
 
 ### self-hosted-remote-access-cookbook

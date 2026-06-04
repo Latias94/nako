@@ -319,6 +319,11 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode pla
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode postgres
 ```
 
+`playback` mode writes `target/release-gate/playback-hardware-report.json`.
+Review that report before enabling `vaapi`, `nvenc`, or `quick_sync`; the
+default release gate can pass without GPU devices, but the report shows whether
+the host FFmpeg build lists the hardware pipeline pieces Nako can use.
+
 ## Example Inventory
 
 - SQLite config: `deploy/sqlite/nako.toml`

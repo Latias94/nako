@@ -141,7 +141,8 @@ provider secrets, artifact paths, or source locators.
 Before claiming a package or host is playback-ready, run the focused playback
 release gate. It verifies FFmpeg/FFprobe availability, CPU HLS readiness,
 hardware diagnostics serialization, and self-host playback smoke coverage
-without requiring GPU devices:
+without requiring GPU devices. It also writes the host hardware capability
+matrix to `target/release-gate/playback-hardware-report.json`:
 
 ```bash
 bash scripts/release-gate.sh --mode playback
@@ -152,6 +153,11 @@ On Windows:
 ```powershell
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode playback
 ```
+
+Review the generated hardware report before enabling `vaapi`, `nvenc`, or
+`quick_sync` in production. Missing optional GPU acceleration should not fail
+the default playback gate, but it must be understood before choosing a
+non-CPU hardware policy.
 
 ## 5b. Official Addon Alpha Smoke
 
