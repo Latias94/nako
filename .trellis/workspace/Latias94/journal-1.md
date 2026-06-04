@@ -1205,3 +1205,38 @@ Persisted optional VFS cache failure authority, wired cached backend recording a
 ### Next Steps
 
 - None - task complete
+
+
+## Session 30: Media first-watch hardening and Postgres contract cleanup
+
+**Date**: 2026-06-04
+**Task**: Media first-watch hardening and Postgres contract cleanup
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Committed Docker-backed PostgreSQL VFS cache failure authority decode/SELECT cleanup, then implemented Media Web browser playback capability reporting and safe retry state with focused Admin Web validation.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8e9dee2d` | (see git log) |
+| `a904190a` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
