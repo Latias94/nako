@@ -359,7 +359,14 @@ Implemented process-local planned-write suppression for watch-folder discovery a
 
 ### Main Changes
 
-(Add details)
+- Added bounded Admin repair target inventory and target-scoped preview routes.
+- Added opaque per-service HMAC `target_ref` generation so raw URI, authority,
+  backend identity, paths, etags, fingerprints, and raw errors stay out of the
+  Admin contract.
+- Added `list_vfs_cache_failures(PageRequest)` repository parity across core,
+  SQLite, PostgreSQL, facade, contract tests, and VFS test repository support.
+- Regenerated both Admin TypeScript contract artifacts and updated the storage
+  architecture/API spec boundary for read-only selected-target previews.
 
 ### Git Commits
 
@@ -370,7 +377,18 @@ Implemented process-local planned-write suppression for watch-folder discovery a
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] `cargo check -p nako-core -p nako-db -p nako-vfs -p nako-api -p nako-server --tests`
+- [OK] `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+- [OK] `cargo nextest run -p nako-api admin_vfs_cache --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server vfs_cache_repair_target --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server vfs_cache_repair_action_plan --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server vfs_cache_refresh_action --no-fail-fast`
+- [OK] `cargo nextest run -p nako-db vfs_cache --no-fail-fast`
+- [OK] `cargo nextest run -p nako-db vfs_staging --no-fail-fast`
+- [OK] `cargo nextest run -p nako-vfs vfs_cache --no-fail-fast`
+- [OK] `cargo fmt --all -- --check`
+- [OK] `git diff --check`
+- [OK] `python ./.trellis/scripts/task.py validate ./.trellis/tasks/06-04-vfs-cache-uri-scoped-previews`
 
 ### Status
 
@@ -1509,6 +1527,40 @@ Added a redaction-safe Admin VFS cache repair action plan endpoint, regenerated 
 | Hash | Message |
 |------|---------|
 | `7a293092` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 38: VFS cache repair target previews
+
+**Date**: 2026-06-04
+**Task**: VFS cache repair target previews
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Added redaction-safe Admin VFS cache repair target inventory and read-only target-scoped previews with HMAC target refs, repository parity, generated contracts, focused tests, and updated storage/API specs.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a6e59dc0` | (see git log) |
 
 ### Testing
 
