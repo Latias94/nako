@@ -225,7 +225,14 @@ Persisted authoritative staging attribution across core, DB migrations, server p
 
 ### Main Changes
 
-(Add details)
+- Confirmed `8d9daa18` and `644ecc52` on `main` already absorbed the stale
+  `task/06-03-06b-storage-staging-attribution-persistence` feature and task
+  archive semantics.
+- Added a focused `nako-db` repository contract test for staging attribution
+  variants so `attributed`, `ambiguous`, and `unknown` all round-trip, and
+  re-attributing to `ambiguous` clears the library id.
+- Archived the Trellis integration task with evidence explaining why the stale
+  06b branch should not be directly merged.
 
 ### Git Commits
 
@@ -235,7 +242,16 @@ Persisted authoritative staging attribution across core, DB migrations, server p
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] `cargo check -p nako-db -p nako-server -p nako-api --tests`
+- [OK] `cargo nextest run -p nako-core staging_attribution_rejects_invalid_persisted_combinations --no-fail-fast`
+- [OK] `cargo nextest run -p nako-db round_trips_attribution_variants --no-fail-fast`
+- [OK] `cargo nextest run -p nako-db vfs_staging --no-fail-fast`
+- [OK] `cargo nextest run -p nako-db sqlite_store_rejects_invalid_staging_attribution_shape --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server webdav_scan_admission ambiguous_same_root --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server admin_v1_storage_staging_lists_filters_and_redacts_paths admin_v1_storage_staging_attributes_policy_slices_without_raw_backend_data --no-fail-fast`
+- [OK] `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+- [OK] `cargo fmt --all -- --check`
+- [OK] `git diff --check`
 
 ### Status
 
@@ -1349,6 +1365,40 @@ Fixed HLS sidecar subtitle route regression by recognizing the vtt codec/extensi
 - [OK] `cargo nextest run --workspace --no-fail-fast` (1309 passed, 48 skipped)
 - [OK] `cargo fmt --all -- --check`
 - [OK] `git diff --check`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 34: Integrate storage staging attribution branch
+
+**Date**: 2026-06-04
+**Task**: Integrate storage staging attribution branch
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Confirmed stale 06b staging attribution branch is already absorbed on main, added explicit DB contract coverage for attributed/ambiguous/unknown staging attribution variants, archived the integration task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `aff9a37e` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
 
 ### Status
 
