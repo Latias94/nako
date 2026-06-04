@@ -78,6 +78,7 @@ export const NAKO_ADMIN_ROUTES = {
   storageStaging: "/admin/v1/storage/staging",
   storageVfsCacheRepairTargets: "/admin/v1/storage/vfs-cache/repair/targets",
   storageVfsCacheRepairTargetPreview: "/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/preview",
+  storageVfsCacheRepairTargetRefreshCache: "/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/refresh-cache",
   storageVfsCacheRepairActionPlan: "/admin/v1/storage/vfs-cache/repair/action-plan",
   storageVfsCacheRepairRefreshCache: "/admin/v1/storage/vfs-cache/repair/refresh-cache",
   systemConfig: "/admin/v1/system/config",

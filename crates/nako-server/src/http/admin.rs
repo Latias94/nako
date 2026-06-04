@@ -131,6 +131,7 @@ use crate::{
         NakoApp, RuntimeSupervisorDiagnostics, StagingBudgetPolicySlice,
         StorageStagingPressureStatus, VfsCacheRepairActionBoundary, VfsCacheRepairActionPlanReason,
         VfsCacheRepairActionPlanReport, VfsCacheRepairActionPlanStatus,
+        VfsCacheRepairExecutableRoute, VfsCacheRepairRefreshActionReport,
         VfsCacheRepairTargetPreviewReport, VfsCacheRepairTargetReport,
         WatchFolderRuntimeCoverageDiagnostic, WatchFolderRuntimeCoverageReport,
         WatchFolderRuntimeCoverageStatus,
@@ -146,6 +147,10 @@ use crate::{
 const STORAGE_VFS_CACHE_REPAIR_REFRESH_CACHE_ROUTE_KEY: &str = "storageVfsCacheRepairRefreshCache";
 const STORAGE_VFS_CACHE_REPAIR_REFRESH_CACHE_ROUTE_PATH: &str =
     "/admin/v1/storage/vfs-cache/repair/refresh-cache";
+const STORAGE_VFS_CACHE_REPAIR_TARGET_REFRESH_CACHE_ROUTE_KEY: &str =
+    "storageVfsCacheRepairTargetRefreshCache";
+const STORAGE_VFS_CACHE_REPAIR_TARGET_REFRESH_CACHE_ROUTE_PATH: &str =
+    "/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/refresh-cache";
 
 use super::{
     error::ApiResult,
@@ -380,6 +385,10 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/preview",
             get(get_admin_vfs_cache_repair_target_preview),
+        )
+        .route(
+            "/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/refresh-cache",
+            post(refresh_admin_vfs_cache_repair_target),
         )
         .route(
             "/admin/v1/storage/vfs-cache/repair/action-plan",
@@ -1913,14 +1922,7 @@ pub(super) async fn refresh_admin_vfs_cache(
 ) -> ApiResult<impl IntoResponse> {
     let report = app.storage().refresh_latest_vfs_cache_repair().await?;
 
-    Ok(Json(AdminVfsCacheRefreshResponse {
-        admin_api_version: ADMIN_API_VERSION.to_owned(),
-        public_api_version: API_VERSION.to_owned(),
-        action: admin_vfs_cache_repair_action(report.action),
-        operation: report.operation,
-        refreshed: report.refresh.operation == report.operation,
-        repair: admin_vfs_cache_repair_diagnostic(report.repair),
-    }))
+    Ok(Json(admin_vfs_cache_refresh_response(report)))
 }
 
 pub(super) async fn list_admin_vfs_cache_repair_targets(
@@ -1954,6 +1956,18 @@ pub(super) async fn get_admin_vfs_cache_repair_target_preview(
     Ok(Json(admin_vfs_cache_repair_target_preview(report)))
 }
 
+pub(super) async fn refresh_admin_vfs_cache_repair_target(
+    State(app): State<NakoApp>,
+    Path(target_ref): Path<String>,
+) -> ApiResult<impl IntoResponse> {
+    let report = app
+        .storage()
+        .refresh_vfs_cache_repair_target(&target_ref)
+        .await?;
+
+    Ok(Json(admin_vfs_cache_refresh_response(report)))
+}
+
 pub(super) async fn get_admin_vfs_cache_repair_action_plan(
     State(app): State<NakoApp>,
 ) -> ApiResult<impl IntoResponse> {
@@ -1964,6 +1978,19 @@ pub(super) async fn get_admin_vfs_cache_repair_action_plan(
         public_api_version: API_VERSION.to_owned(),
         plan: admin_vfs_cache_repair_action_plan(report),
     }))
+}
+
+fn admin_vfs_cache_refresh_response(
+    report: VfsCacheRepairRefreshActionReport,
+) -> AdminVfsCacheRefreshResponse {
+    AdminVfsCacheRefreshResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        action: admin_vfs_cache_repair_action(report.action),
+        operation: report.operation,
+        refreshed: report.refresh.operation == report.operation,
+        repair: admin_vfs_cache_repair_diagnostic(report.repair),
+    }
 }
 
 fn admin_vfs_cache_repair_target_preview(
@@ -1997,7 +2024,9 @@ fn admin_vfs_cache_repair_action_plan(
 ) -> AdminVfsCacheRepairActionPlan {
     let executable_action = (report.status == VfsCacheRepairActionPlanStatus::Executable
         && report.action == VfsCacheRepairAction::RefreshCache)
-        .then(admin_vfs_cache_refresh_executable_action);
+        .then(|| report.executable_route)
+        .flatten()
+        .map(admin_vfs_cache_refresh_executable_action);
 
     AdminVfsCacheRepairActionPlan {
         status: admin_vfs_cache_repair_action_plan_status(report.status),
@@ -2017,11 +2046,24 @@ fn admin_vfs_cache_repair_action_plan(
     }
 }
 
-fn admin_vfs_cache_refresh_executable_action() -> AdminVfsCacheRepairExecutableAction {
+fn admin_vfs_cache_refresh_executable_action(
+    route: VfsCacheRepairExecutableRoute,
+) -> AdminVfsCacheRepairExecutableAction {
+    let (route_key, route_path) = match route {
+        VfsCacheRepairExecutableRoute::LatestRefreshCache => (
+            STORAGE_VFS_CACHE_REPAIR_REFRESH_CACHE_ROUTE_KEY,
+            STORAGE_VFS_CACHE_REPAIR_REFRESH_CACHE_ROUTE_PATH,
+        ),
+        VfsCacheRepairExecutableRoute::TargetRefreshCache => (
+            STORAGE_VFS_CACHE_REPAIR_TARGET_REFRESH_CACHE_ROUTE_KEY,
+            STORAGE_VFS_CACHE_REPAIR_TARGET_REFRESH_CACHE_ROUTE_PATH,
+        ),
+    };
+
     AdminVfsCacheRepairExecutableAction {
         method: "POST".to_owned(),
-        route_key: STORAGE_VFS_CACHE_REPAIR_REFRESH_CACHE_ROUTE_KEY.to_owned(),
-        route_path: STORAGE_VFS_CACHE_REPAIR_REFRESH_CACHE_ROUTE_PATH.to_owned(),
+        route_key: route_key.to_owned(),
+        route_path: route_path.to_owned(),
     }
 }
 
@@ -2049,9 +2091,6 @@ fn admin_vfs_cache_repair_action_plan_reason(
         }
         VfsCacheRepairActionPlanReason::RefreshCacheExecutable => {
             AdminVfsCacheRepairActionPlanReason::RefreshCacheExecutable
-        }
-        VfsCacheRepairActionPlanReason::TargetScopedExecutionUnavailable => {
-            AdminVfsCacheRepairActionPlanReason::TargetScopedExecutionUnavailable
         }
         VfsCacheRepairActionPlanReason::BackendConfigurationRequired => {
             AdminVfsCacheRepairActionPlanReason::BackendConfigurationRequired

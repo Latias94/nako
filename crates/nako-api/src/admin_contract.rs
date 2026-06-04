@@ -1,6 +1,6 @@
 use crate::admin::ADMIN_API_VERSION;
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 78] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 79] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -194,6 +194,10 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 78] = [
     (
         "storageVfsCacheRepairTargetPreview",
         "storage/vfs-cache/repair/targets/{target_ref}/preview",
+    ),
+    (
+        "storageVfsCacheRepairTargetRefreshCache",
+        "storage/vfs-cache/repair/targets/{target_ref}/refresh-cache",
     ),
     (
         "storageVfsCacheRepairActionPlan",

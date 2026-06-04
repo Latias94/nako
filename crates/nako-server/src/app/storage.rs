@@ -82,9 +82,14 @@ pub(crate) enum VfsCacheRepairActionPlanReason {
     NoRepairDiagnostic,
     NoActionRequired,
     RefreshCacheExecutable,
-    TargetScopedExecutionUnavailable,
     BackendConfigurationRequired,
     ManualFailureInspectionRequired,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum VfsCacheRepairExecutableRoute {
+    LatestRefreshCache,
+    TargetRefreshCache,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -104,6 +109,7 @@ pub(crate) struct VfsCacheRepairActionPlanReport {
     pub(crate) api_executable: bool,
     pub(crate) reasons: Vec<VfsCacheRepairActionPlanReason>,
     pub(crate) boundary: VfsCacheRepairActionBoundary,
+    pub(crate) executable_route: Option<VfsCacheRepairExecutableRoute>,
     pub(crate) repair: Option<VfsCacheRepairDiagnostic>,
 }
 
@@ -116,45 +122,51 @@ impl VfsCacheRepairActionPlanReport {
                 api_executable: false,
                 reasons: vec![VfsCacheRepairActionPlanReason::NoRepairDiagnostic],
                 boundary: VfsCacheRepairActionBoundary::default(),
+                executable_route: None,
                 repair: None,
             };
         };
 
-        let (status, api_executable, reasons, boundary) = match repair.recommended_action {
-            VfsCacheRepairAction::None => (
-                VfsCacheRepairActionPlanStatus::NoAction,
-                false,
-                vec![VfsCacheRepairActionPlanReason::NoActionRequired],
-                VfsCacheRepairActionBoundary::default(),
-            ),
-            VfsCacheRepairAction::RefreshCache => (
-                VfsCacheRepairActionPlanStatus::Executable,
-                true,
-                vec![VfsCacheRepairActionPlanReason::RefreshCacheExecutable],
-                VfsCacheRepairActionBoundary {
-                    refreshes_vfs_cache: true,
-                    ..VfsCacheRepairActionBoundary::default()
-                },
-            ),
-            VfsCacheRepairAction::FixBackendConfiguration => (
-                VfsCacheRepairActionPlanStatus::PlanOnly,
-                false,
-                vec![VfsCacheRepairActionPlanReason::BackendConfigurationRequired],
-                VfsCacheRepairActionBoundary {
-                    changes_backend_configuration: true,
-                    ..VfsCacheRepairActionBoundary::default()
-                },
-            ),
-            VfsCacheRepairAction::InspectFailure => (
-                VfsCacheRepairActionPlanStatus::PlanOnly,
-                false,
-                vec![VfsCacheRepairActionPlanReason::ManualFailureInspectionRequired],
-                VfsCacheRepairActionBoundary {
-                    requires_manual_failure_inspection: true,
-                    ..VfsCacheRepairActionBoundary::default()
-                },
-            ),
-        };
+        let (status, api_executable, reasons, boundary, executable_route) =
+            match repair.recommended_action {
+                VfsCacheRepairAction::None => (
+                    VfsCacheRepairActionPlanStatus::NoAction,
+                    false,
+                    vec![VfsCacheRepairActionPlanReason::NoActionRequired],
+                    VfsCacheRepairActionBoundary::default(),
+                    None,
+                ),
+                VfsCacheRepairAction::RefreshCache => (
+                    VfsCacheRepairActionPlanStatus::Executable,
+                    true,
+                    vec![VfsCacheRepairActionPlanReason::RefreshCacheExecutable],
+                    VfsCacheRepairActionBoundary {
+                        refreshes_vfs_cache: true,
+                        ..VfsCacheRepairActionBoundary::default()
+                    },
+                    Some(VfsCacheRepairExecutableRoute::LatestRefreshCache),
+                ),
+                VfsCacheRepairAction::FixBackendConfiguration => (
+                    VfsCacheRepairActionPlanStatus::PlanOnly,
+                    false,
+                    vec![VfsCacheRepairActionPlanReason::BackendConfigurationRequired],
+                    VfsCacheRepairActionBoundary {
+                        changes_backend_configuration: true,
+                        ..VfsCacheRepairActionBoundary::default()
+                    },
+                    None,
+                ),
+                VfsCacheRepairAction::InspectFailure => (
+                    VfsCacheRepairActionPlanStatus::PlanOnly,
+                    false,
+                    vec![VfsCacheRepairActionPlanReason::ManualFailureInspectionRequired],
+                    VfsCacheRepairActionBoundary {
+                        requires_manual_failure_inspection: true,
+                        ..VfsCacheRepairActionBoundary::default()
+                    },
+                    None,
+                ),
+            };
 
         Self {
             status,
@@ -162,18 +174,15 @@ impl VfsCacheRepairActionPlanReport {
             api_executable,
             reasons,
             boundary,
+            executable_route,
             repair: Some(repair),
         }
     }
 
     fn from_target_preview_repair(repair: VfsCacheRepairDiagnostic) -> Self {
         let mut plan = Self::from_repair(Some(repair));
-        if plan.status == VfsCacheRepairActionPlanStatus::Executable
-            && plan.action == VfsCacheRepairAction::RefreshCache
-        {
-            plan.status = VfsCacheRepairActionPlanStatus::PlanOnly;
-            plan.api_executable = false;
-            plan.reasons = vec![VfsCacheRepairActionPlanReason::TargetScopedExecutionUnavailable];
+        if plan.executable_route == Some(VfsCacheRepairExecutableRoute::LatestRefreshCache) {
+            plan.executable_route = Some(VfsCacheRepairExecutableRoute::TargetRefreshCache);
         }
 
         plan
@@ -505,45 +514,12 @@ impl StorageDiagnosticsAppService {
         &self,
         target_ref: &str,
     ) -> Result<VfsCacheRepairTargetPreviewReport> {
-        if !vfs_cache_repair_target_ref_is_valid(target_ref) {
-            return Err(vfs_cache_repair_target_not_found());
-        }
+        let (_failure, target) = self.vfs_cache_repair_target_failure(target_ref).await?;
 
-        let mut failure_offset = 0_u64;
-
-        loop {
-            let failures = self
-                .registry
-                .store
-                .list_vfs_cache_failures(PageRequest::new(PageRequest::MAX_LIMIT, failure_offset))
-                .await?;
-            let failure_count = failures.len();
-            if failure_count == 0 {
-                break;
-            }
-
-            for failure in failures {
-                let Some(target) = self.vfs_cache_repair_target_from_failure(failure).await? else {
-                    continue;
-                };
-                if target.target_ref == target_ref {
-                    return Ok(VfsCacheRepairTargetPreviewReport {
-                        plan: VfsCacheRepairActionPlanReport::from_target_preview_repair(
-                            target.repair.clone(),
-                        ),
-                        target,
-                    });
-                }
-            }
-
-            if failure_count < PageRequest::MAX_LIMIT as usize {
-                break;
-            }
-
-            failure_offset = failure_offset.saturating_add(failure_count as u64);
-        }
-
-        Err(vfs_cache_repair_target_not_found())
+        Ok(VfsCacheRepairTargetPreviewReport {
+            plan: VfsCacheRepairActionPlanReport::from_target_preview_repair(target.repair.clone()),
+            target,
+        })
     }
 
     pub(crate) async fn refresh_latest_vfs_cache_repair(
@@ -568,11 +544,93 @@ impl StorageDiagnosticsAppService {
                 id: "latest".to_owned(),
             });
         }
+        self.refresh_vfs_cache_repair_failure(
+            failure,
+            "vfs_cache_failure",
+            "latest",
+            "latest VFS cache repair diagnostic does not recommend refresh_cache",
+        )
+        .await
+    }
+
+    pub(crate) async fn refresh_vfs_cache_repair_target(
+        &self,
+        target_ref: &str,
+    ) -> Result<VfsCacheRepairRefreshActionReport> {
+        let (failure, _target) = self.vfs_cache_repair_target_failure(target_ref).await?;
+        self.refresh_vfs_cache_repair_failure(
+            failure,
+            "vfs_cache_repair_target",
+            "target_ref",
+            "selected VFS cache repair target diagnostic does not recommend refresh_cache",
+        )
+        .await
+    }
+
+    async fn vfs_cache_repair_target_failure(
+        &self,
+        target_ref: &str,
+    ) -> Result<(VfsCacheFailure, VfsCacheRepairTargetReport)> {
+        if !vfs_cache_repair_target_ref_is_valid(target_ref) {
+            return Err(vfs_cache_repair_target_not_found());
+        }
+
+        let mut failure_offset = 0_u64;
+
+        loop {
+            let failures = self
+                .registry
+                .store
+                .list_vfs_cache_failures(PageRequest::new(PageRequest::MAX_LIMIT, failure_offset))
+                .await?;
+            let failure_count = failures.len();
+            if failure_count == 0 {
+                break;
+            }
+
+            for failure in failures {
+                let Some(target) = self
+                    .vfs_cache_repair_target_from_failure(failure.clone())
+                    .await?
+                else {
+                    continue;
+                };
+                if target.target_ref == target_ref {
+                    return Ok((failure, target));
+                }
+            }
+
+            if failure_count < PageRequest::MAX_LIMIT as usize {
+                break;
+            }
+
+            failure_offset = failure_offset.saturating_add(failure_count as u64);
+        }
+
+        Err(vfs_cache_repair_target_not_found())
+    }
+
+    async fn refresh_vfs_cache_repair_failure(
+        &self,
+        failure: VfsCacheFailure,
+        not_found_entity: &'static str,
+        not_found_id: &'static str,
+        invalid_action_message: &'static str,
+    ) -> Result<VfsCacheRepairRefreshActionReport> {
+        if self
+            .registry
+            .vfs_cache_failure_resolved_by_cache(&failure)
+            .await?
+        {
+            return Err(NakoError::NotFound {
+                entity: not_found_entity,
+                id: not_found_id.to_owned(),
+            });
+        }
         let repair = VfsCacheRepairDiagnostic::from_failure(&failure);
         if repair.recommended_action != VfsCacheRepairAction::RefreshCache {
             return Err(NakoError::InvalidInput {
-                message: "latest VFS cache repair diagnostic does not recommend refresh_cache"
-                    .to_owned(),
+                message: invalid_action_message.to_owned(),
             });
         }
 
@@ -2047,6 +2105,7 @@ mod tests {
             vec![VfsCacheRepairActionPlanReason::NoRepairDiagnostic]
         );
         assert_eq!(plan.boundary, VfsCacheRepairActionBoundary::default());
+        assert_eq!(plan.executable_route, None);
         assert!(plan.repair.is_none());
     }
 
@@ -2065,22 +2124,30 @@ mod tests {
         assert!(plan.boundary.refreshes_vfs_cache);
         assert!(!plan.boundary.changes_backend_configuration);
         assert!(!plan.boundary.requires_manual_failure_inspection);
+        assert_eq!(
+            plan.executable_route,
+            Some(VfsCacheRepairExecutableRoute::LatestRefreshCache)
+        );
         assert_eq!(plan.repair, Some(repair));
     }
 
     #[test]
-    fn vfs_cache_repair_target_preview_keeps_refresh_plan_read_only() {
+    fn vfs_cache_repair_target_preview_reports_target_scoped_refresh_route() {
         let repair = repair_diagnostic(VfsCacheRepairAction::RefreshCache);
         let plan = VfsCacheRepairActionPlanReport::from_target_preview_repair(repair.clone());
 
-        assert_eq!(plan.status, VfsCacheRepairActionPlanStatus::PlanOnly);
+        assert_eq!(plan.status, VfsCacheRepairActionPlanStatus::Executable);
         assert_eq!(plan.action, VfsCacheRepairAction::RefreshCache);
-        assert!(!plan.api_executable);
+        assert!(plan.api_executable);
         assert_eq!(
             plan.reasons,
-            vec![VfsCacheRepairActionPlanReason::TargetScopedExecutionUnavailable]
+            vec![VfsCacheRepairActionPlanReason::RefreshCacheExecutable]
         );
         assert!(plan.boundary.refreshes_vfs_cache);
+        assert_eq!(
+            plan.executable_route,
+            Some(VfsCacheRepairExecutableRoute::TargetRefreshCache)
+        );
         assert_eq!(plan.repair, Some(repair));
     }
 
@@ -2099,6 +2166,7 @@ mod tests {
         assert!(!plan.boundary.refreshes_vfs_cache);
         assert!(plan.boundary.changes_backend_configuration);
         assert!(!plan.boundary.requires_manual_failure_inspection);
+        assert_eq!(plan.executable_route, None);
         assert_eq!(plan.repair, Some(repair));
     }
 
@@ -2117,6 +2185,7 @@ mod tests {
         assert!(!plan.boundary.refreshes_vfs_cache);
         assert!(!plan.boundary.changes_backend_configuration);
         assert!(plan.boundary.requires_manual_failure_inspection);
+        assert_eq!(plan.executable_route, None);
         assert_eq!(plan.repair, Some(repair));
     }
 

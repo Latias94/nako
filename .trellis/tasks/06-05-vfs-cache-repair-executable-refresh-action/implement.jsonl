@@ -1,0 +1,13 @@
+{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "VFS cache repair target refresh touches VFS repair diagnostics and cache semantics."}
+{"file": ".trellis/spec/nako-vfs/backend/error-handling.md", "reason": "Refresh execution must preserve redaction-safe failure classification and operator diagnostics."}
+{"file": ".trellis/spec/nako-vfs/backend/quality-guidelines.md", "reason": "Target-scoped repair must preserve URI authority and non-destructive cache behavior."}
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Admin API route and generated contract work must follow API contract rules."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "New Admin VFS cache repair mutation extends the Admin-only repair contract."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Generated Admin TypeScript contracts and redaction-sensitive DTO behavior must stay in sync."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server route and app service changes must follow HTTP/app boundary rules."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "New Admin route must inherit auth/admin route layering and thin handler style."}
+{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Target ref errors must map through existing NakoError HTTP behavior without leaks."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused server tests and gate selection for Admin storage route changes."}
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking guide index is required before implementation."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Task spans VFS/app/API/HTTP/generated contract layers."}
+{"file": ".trellis/tasks/06-05-vfs-cache-repair-executable-refresh-action/research/vfs-cache-selected-target-refresh.md", "reason": "Local audit records the selected-target refresh boundary and risks."}

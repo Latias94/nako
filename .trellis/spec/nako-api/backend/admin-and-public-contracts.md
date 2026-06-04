@@ -167,7 +167,7 @@ Public Client exclusion tests.
 
 - Trigger: Admin storage staging diagnostics expose the latest VFS cache repair
   preview, action plan, bounded target inventory, target-scoped preview, or
-  latest-failure refresh result.
+  latest-failure / target-scoped refresh result.
 - Scope: `AdminStorageStagingSummary.vfs_cache.repair`,
   `AdminVfsCacheRepairActionPlanResponse`, `AdminVfsCacheRefreshResponse`,
   `AdminVfsCacheRepairTargetListResponse`,
@@ -176,10 +176,11 @@ Public Client exclusion tests.
   `VfsCacheRepository::list_vfs_cache_failures`, server storage diagnostics /
   action mapping, and generated Admin Web contracts.
 - Boundary: preview and action plan responses are read-only. The only executable
-  mutation in this boundary is latest unresolved `refresh_cache`; target-scoped
-  preview stays read-only. Do not add cache purge/delete/invalidation, retry
-  queue, durable job, or selected-target mutation behavior without a dedicated
-  task and storage contract.
+  mutations in this boundary are latest unresolved `refresh_cache` and
+  selected-target `refresh_cache` through an opaque `target_ref`. Do not add
+  cache purge/delete/invalidation, retry queue, durable job, backend
+  configuration mutation, or library file writes without a dedicated task and
+  storage contract.
 
 ### 2. Signatures
 
@@ -195,6 +196,9 @@ Public Client exclusion tests.
   `AdminVfsCacheRepairTargetPreviewResponse { target, plan }`.
 - Admin refresh DTO:
   `AdminVfsCacheRefreshResponse`.
+- Admin refresh routes:
+  `POST /admin/v1/storage/vfs-cache/repair/refresh-cache` and
+  `POST /admin/v1/storage/vfs-cache/repair/targets/{target_ref}/refresh-cache`.
 - Repair preview fields:
   `classification`, `operation`, `failure_class`, `retryable`,
   `failed_at_ms`, `failure_count`, `safe_message`, and `operator_action`.
@@ -212,10 +216,12 @@ Public Client exclusion tests.
 - The action plan must distinguish `no_action`, API-executable
   `refresh_cache`, and plan-only `fix_backend_configuration` /
   `inspect_failure` states.
-- `executable_action` may include Admin route key/path guidance for
-  `refresh_cache`; it must not include target cache URI or backend identity.
-- `refresh_cache` execution remains latest-failure scoped and must reuse stored
-  failure authority to avoid ambiguous backend targeting.
+- `executable_action` may include Admin route key/path guidance for latest or
+  target-scoped `refresh_cache`; it must not include target cache URI or backend
+  identity. Target-scoped route paths must stay templated as `{target_ref}`, not
+  a concrete target value.
+- Latest `refresh_cache` execution remains latest-failure scoped and must reuse
+  stored failure authority to avoid ambiguous backend targeting.
 - Target inventory must be bounded/paginated and must expose only opaque
   `target_ref`, source scheme, operation, failed time, failure count, and
   redaction-safe repair classification/action/message fields.
@@ -224,11 +230,14 @@ Public Client exclusion tests.
   keyed handle such as HMAC; do not expose an unkeyed URI/source fingerprint as
   the target ref. Unknown, invalid, stale, or resolved target refs return not
   found without echoing unsafe input.
-- Target-scoped preview may return the same action-plan shape, but it must not
-  expose `executable_action` for selected-target refresh. A refreshable selected
-  target uses plan-only readiness with
-  `target_scoped_execution_unavailable` until selected-target mutation is
-  designed separately.
+- Target-scoped preview may return the same action-plan shape and may expose an
+  executable `refresh_cache` action when the selected unresolved diagnostic
+  recommends refresh. The preview itself remains non-mutating.
+- Target-scoped refresh must resolve the supplied `target_ref` server-side,
+  verify the matched failure is still unresolved, verify the diagnostic
+  recommends `refresh_cache`, and then reuse the same stored failure authority
+  and backend resolution used by latest refresh. Invalid, unknown, stale, or
+  already resolved target refs return not found without echoing unsafe input.
 - TypeScript contract artifacts under `apps/admin-web` and `web` must be
   regenerated from `nako-api`; do not hand-edit generated files.
 
@@ -244,9 +253,13 @@ Public Client exclusion tests.
 | Latest diagnostic recommends refresh | Plan returns `status: "executable"` and points to the existing refresh route |
 | Latest diagnostic recommends backend configuration or inspection | Plan returns `status: "plan_only"` with no executable route |
 | Multiple unresolved failures exist | Target list returns a bounded deterministic order and each item has a safe `target_ref` |
-| Target preview ref matches an unresolved failure | Returns safe target scope plus a read-only action plan |
+| Target preview ref matches an unresolved refreshable failure | Returns safe target scope plus an executable action plan pointing to the target refresh route |
+| Target preview ref matches an unresolved non-refresh failure | Returns safe target scope plus a plan-only action plan |
 | Target preview ref is unknown, invalid, stale, or already resolved | Returns not found without echoing the supplied ref or raw URI |
-| Target preview recommends refresh | Returns `plan_only` with `target_scoped_execution_unavailable` and no executable route |
+| Target refresh ref matches an unresolved refreshable failure | Executes `refresh_cache` against the matched target and returns `AdminVfsCacheRefreshResponse` |
+| Target refresh ref matches a non-refresh diagnostic | Returns invalid input without calling a backend |
+| Target refresh ref is unknown, invalid, stale, or already resolved | Returns not found without echoing the supplied ref or raw URI |
+| Target refresh authority is ambiguous or mismatched | Returns the existing conflict before backend refresh |
 | Preview contains raw path, token, or source URI | Contract violation |
 
 ### 5. Good / Base / Bad Cases
@@ -258,8 +271,11 @@ Public Client exclusion tests.
 - Good: `/admin/v1/storage/vfs-cache/repair/targets` returns bounded opaque
   target refs without raw URI/path/backend details.
 - Good: `/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/preview`
-  resolves refs server-side and remains read-only even when the selected target
-  recommends refresh.
+  resolves refs server-side, remains read-only, and points refreshable targets
+  to the target-scoped refresh route.
+- Good: `/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/refresh-cache`
+  resolves refs server-side and refreshes only the selected unresolved cache
+  target.
 - Good: `/admin/v1/storage/vfs-cache/repair/refresh-cache` executes only when
   the latest unresolved diagnostic recommends `refresh_cache`.
 - Base: old clients that omit `repair` during deserialization still work through
@@ -276,8 +292,10 @@ Public Client exclusion tests.
 - Server route tests prove `/admin/v1/storage/staging` includes the preview,
   action plan/target/refresh routes preserve Admin-only access, target refs
   reject stale or unknown selections safely, target preview does not mutate
-  cache state, and responses still redact raw paths, source locators,
-  fingerprints, etags, tokens, and raw backend errors.
+  cache state, target refresh mutates only the selected cache entry,
+  non-refresh target diagnostics avoid backend calls, and responses still
+  redact raw paths, source locators, fingerprints, etags, tokens, and raw
+  backend errors.
 
 ### 7. Wrong vs Correct
 

@@ -30,7 +30,7 @@ and rclone-like mounts can be slow, stale, or unavailable.
 | Source fingerprint | Shipped escalation policy seam | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/06-04-06-04-source-fingerprint-escalation-policy-first-slice/` | Optional hash execution, operator queue, and diagnostics remain follow-ons. |
 | Remote probe staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Per-backend staging budgets and diagnostics. |
 | Remote FFmpeg input staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md` | Per-backend staging budgets and diagnostics. |
-| VFS cache | Shipped diagnostics foundation, action preview, latest-failure refresh, action plan, and target-scoped preview | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/06-04-06-04-vfs-cache-repair-action-preview-first-slice/`; `.trellis/tasks/06-04-vfs-cache-repair-operator-actions/`; `.trellis/tasks/06-04-vfs-cache-uri-scoped-previews/` | Selected-target execution, durable repair queues, and broader non-destructive remediation planning remain follow-ons. |
+| VFS cache | Shipped diagnostics foundation, action preview, latest-failure refresh, action plan, target-scoped preview, and selected-target refresh execution | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/06-04-06-04-vfs-cache-repair-action-preview-first-slice/`; `.trellis/tasks/06-04-vfs-cache-repair-operator-actions/`; `.trellis/tasks/06-04-vfs-cache-uri-scoped-previews/`; `.trellis/tasks/06-05-vfs-cache-repair-executable-refresh-action/` | Durable repair queues and broader non-destructive remediation planning remain follow-ons. |
 | Library file writes | Partial | addon/library-file-write and NFO workstreams | Capability-specific write/link/backup policy. |
 | Mount hang protection | Shipped durable circuit foundation | `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/` | OS-level mount stalls still need bounded adapters and operator guidance; do not claim syscall preemption. |
 
@@ -74,8 +74,8 @@ Shipped:
 ### vfs-cache-repair-diagnostics
 
 Status: Minimal diagnostic slice shipped as of 2026-06-02; structured action
-preview, latest-failure refresh, and latest action plan shipped as of
-2026-06-04.
+preview, latest-failure refresh, latest action plan, target-scoped previews, and
+selected-target refresh execution shipped as of 2026-06-05.
 
 Shipped:
 
@@ -98,18 +98,24 @@ Shipped:
   scheme/operation/time/failure scope, and read-only action-plan previews
   without raw URI, local path, backend URL, etag, fingerprint, credential, or
   raw backend error body;
-- target-scoped preview is intentionally non-mutating: selected-target refresh,
-  purge/delete/invalidation, durable jobs, and retry queues remain out of this
-  shipped boundary;
+- target-scoped preview is intentionally non-mutating while refreshable targets
+  can point to the selected-target refresh route;
+- selected-target refresh resolves opaque `target_ref` values server-side,
+  refreshes only unresolved diagnostics that recommend `refresh_cache`, and
+  reuses stored failure authority so ambiguous or mismatched backend targeting
+  fails before a backend call;
+- purge/delete/invalidation, durable jobs, backend configuration mutation,
+  library file writes, and retry queues remain out of this shipped boundary;
 - no storage schema, playback artifact pressure, or scan scheduling expansion
   was added; Admin API changes stayed limited to redaction-safe diagnostics,
-  action planning, latest-failure refresh, and read-only target previews.
+  action planning, latest-failure refresh, target previews, and selected-target
+  refresh.
 
 ## Next Work Lanes
 
-- `proposed:vfs-cache-repair-selected-target-actions`: selected-target refresh
-  execution, stale-cache operator remediation planning, and broader
-  non-destructive repair guidance beyond read-only target previews.
+- `proposed:vfs-cache-repair-non-destructive-remediation`: stale-cache operator
+  remediation planning, durable repair queues, and broader non-destructive
+  repair guidance beyond refresh-only target actions.
 - `proposed:hls-artifact-io-pressure-enforcement`: playback/storage follow-on
   for HLS segment read/write pressure, storage health coordination, and
   redaction-safe diagnostics. Open only after HLS progressive-readiness gates

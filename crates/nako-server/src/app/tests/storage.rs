@@ -596,6 +596,126 @@ async fn vfs_cache_refresh_action_refreshes_retryable_stat_failure_and_resolves_
 }
 
 #[tokio::test]
+async fn vfs_cache_target_refresh_action_refreshes_selected_failure_not_latest() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().join("movies");
+    fs::create_dir_all(&root).unwrap();
+    let library_id = LibraryId::new();
+    let library_config = LocalLibraryConfig {
+        id: library_id,
+        name: "Remote-like Movies".to_owned(),
+        root,
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(
+        NakoServerConfig {
+            database_backend: Default::default(),
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            database_url_env: None,
+            auth: crate::config::AuthConfig::disabled(),
+            network: crate::config::NetworkAccessConfig::default(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path: PathBuf::from("ffmpeg"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            webhook_concurrency: 2,
+            addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+            remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("nako-cache").join("remux"),
+            metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
+            artwork: crate::config::ArtworkConfig::default(),
+            libraries: vec![library_config.clone()],
+        },
+        store.clone(),
+    )
+    .await
+    .unwrap();
+    let backend = Arc::new(CacheRefreshCountingBackend::new());
+    app.storage()
+        .replace_backend_for_test(
+            library_config,
+            Arc::new(CachedStorageBackend::with_options(
+                backend.clone(),
+                store.clone(),
+                VfsCacheOptions {
+                    stat_ttl_ms: 60_000,
+                    list_ttl_ms: 60_000,
+                    serve_stale_on_error: true,
+                    cache_local: true,
+                },
+            )),
+        )
+        .await;
+    let backend_key = format!("library:{library_id}:local");
+    store
+        .record_vfs_cache_failure(NewVfsCacheFailure {
+            uri: "local:///Movies/Latest.mkv".to_owned(),
+            scheme: "local".to_owned(),
+            operation: VfsCacheOperation::Stat,
+            failed_at_ms: 2_000,
+            error: "storage backend unavailable".to_owned(),
+            authority: VfsCacheFailureAuthority::attributed(library_id, backend_key.clone()),
+        })
+        .await
+        .unwrap();
+    store
+        .record_vfs_cache_failure(NewVfsCacheFailure {
+            uri: "local:///Movies/Selected.mkv".to_owned(),
+            scheme: "local".to_owned(),
+            operation: VfsCacheOperation::Stat,
+            failed_at_ms: 1_000,
+            error: "storage backend unavailable".to_owned(),
+            authority: VfsCacheFailureAuthority::attributed(library_id, backend_key),
+        })
+        .await
+        .unwrap();
+
+    let targets = app
+        .storage()
+        .list_vfs_cache_repair_targets(PageRequest::new(10, 0))
+        .await
+        .unwrap();
+    let selected = targets
+        .iter()
+        .find(|target| target.failed_at_ms == 1_000)
+        .expect("selected target");
+    let report = app
+        .storage()
+        .refresh_vfs_cache_repair_target(&selected.target_ref)
+        .await
+        .unwrap();
+
+    assert_eq!(report.operation, VfsCacheOperation::Stat);
+    assert_eq!(
+        report.refresh.cache.as_ref().map(|cache| cache.state),
+        Some(ObjectCacheState::Fresh)
+    );
+    assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 1);
+    assert!(
+        store
+            .get_vfs_cache_object("local:///Movies/Selected.mkv")
+            .await
+            .unwrap()
+            .is_some()
+    );
+    assert!(
+        store
+            .get_vfs_cache_object("local:///Movies/Latest.mkv")
+            .await
+            .unwrap()
+            .is_none()
+    );
+}
+
+#[tokio::test]
 async fn vfs_cache_refresh_action_rejects_non_refresh_recommendation_without_backend_call() {
     let temp = tempfile::tempdir().unwrap();
     let root = temp.path().join("movies");
@@ -669,6 +789,99 @@ async fn vfs_cache_refresh_action_rejects_non_refresh_recommendation_without_bac
     let err = app
         .storage()
         .refresh_latest_vfs_cache_repair()
+        .await
+        .unwrap_err();
+
+    assert!(matches!(err, NakoError::InvalidInput { .. }));
+    assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn vfs_cache_target_refresh_action_rejects_non_refresh_recommendation_without_backend_call() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().join("movies");
+    fs::create_dir_all(&root).unwrap();
+    let library_id = LibraryId::new();
+    let library_config = LocalLibraryConfig {
+        id: library_id,
+        name: "Movies".to_owned(),
+        root,
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(
+        NakoServerConfig {
+            database_backend: Default::default(),
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            database_url_env: None,
+            auth: crate::config::AuthConfig::disabled(),
+            network: crate::config::NetworkAccessConfig::default(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path: PathBuf::from("ffmpeg"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            webhook_concurrency: 2,
+            addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+            remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("nako-cache").join("remux"),
+            metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
+            artwork: crate::config::ArtworkConfig::default(),
+            libraries: vec![library_config.clone()],
+        },
+        store.clone(),
+    )
+    .await
+    .unwrap();
+    let backend = Arc::new(CacheRefreshCountingBackend::new());
+    app.storage()
+        .replace_backend_for_test(
+            library_config,
+            Arc::new(CachedStorageBackend::with_options(
+                backend.clone(),
+                store.clone(),
+                VfsCacheOptions {
+                    stat_ttl_ms: 60_000,
+                    list_ttl_ms: 60_000,
+                    serve_stale_on_error: true,
+                    cache_local: true,
+                },
+            )),
+        )
+        .await;
+    store
+        .record_vfs_cache_failure(NewVfsCacheFailure {
+            uri: "local:///Movies/Demo.mkv".to_owned(),
+            scheme: "local".to_owned(),
+            operation: VfsCacheOperation::Stat,
+            failed_at_ms: 1_000,
+            error: "storage permission failure".to_owned(),
+            authority: VfsCacheFailureAuthority::attributed(
+                library_id,
+                format!("library:{library_id}:local"),
+            ),
+        })
+        .await
+        .unwrap();
+    let target = app
+        .storage()
+        .list_vfs_cache_repair_targets(PageRequest::new(10, 0))
+        .await
+        .unwrap()
+        .into_iter()
+        .next()
+        .expect("target");
+
+    let err = app
+        .storage()
+        .refresh_vfs_cache_repair_target(&target.target_ref)
         .await
         .unwrap_err();
 

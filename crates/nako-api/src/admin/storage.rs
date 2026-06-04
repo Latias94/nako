@@ -695,14 +695,12 @@ mod tests {
             safe_message: Some("storage backend unavailable".to_owned()),
         };
         let plan = AdminVfsCacheRepairActionPlan {
-            status: AdminVfsCacheRepairActionPlanStatus::PlanOnly,
+            status: AdminVfsCacheRepairActionPlanStatus::Executable,
             action: AdminVfsCacheRepairAction::RefreshCache,
             readiness: AdminVfsCacheRepairActionReadiness {
-                status: AdminVfsCacheRepairActionPlanStatus::PlanOnly,
-                api_executable: false,
-                reasons: vec![
-                    AdminVfsCacheRepairActionPlanReason::TargetScopedExecutionUnavailable,
-                ],
+                status: AdminVfsCacheRepairActionPlanStatus::Executable,
+                api_executable: true,
+                reasons: vec![AdminVfsCacheRepairActionPlanReason::RefreshCacheExecutable],
             },
             boundary: AdminVfsCacheRepairActionBoundary {
                 refreshes_vfs_cache: true,
@@ -712,7 +710,12 @@ mod tests {
                 writes_library_files: false,
                 starts_durable_job: false,
             },
-            executable_action: None,
+            executable_action: Some(AdminVfsCacheRepairExecutableAction {
+                method: "POST".to_owned(),
+                route_key: "storageVfsCacheRepairTargetRefreshCache".to_owned(),
+                route_path: "/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/refresh-cache"
+                    .to_owned(),
+            }),
             repair: Some(AdminVfsCacheRepairDiagnostic {
                 classification: AdminVfsCacheRepairClassification::RetryableRefreshFailure,
                 recommended_action: AdminVfsCacheRepairAction::RefreshCache,
@@ -752,11 +755,19 @@ mod tests {
         );
         assert_eq!(list_value["targets"][0]["scheme"], "webdav");
         assert_eq!(list_value["targets"][0]["operation"], "list");
-        assert_eq!(preview_value["plan"]["status"], "plan_only");
-        assert_eq!(preview_value["plan"]["readiness"]["api_executable"], false);
+        assert_eq!(preview_value["plan"]["status"], "executable");
+        assert_eq!(preview_value["plan"]["readiness"]["api_executable"], true);
         assert_eq!(
             preview_value["plan"]["readiness"]["reasons"][0],
-            "target_scoped_execution_unavailable"
+            "refresh_cache_executable"
+        );
+        assert_eq!(
+            preview_value["plan"]["executable_action"]["route_key"],
+            "storageVfsCacheRepairTargetRefreshCache"
+        );
+        assert_eq!(
+            preview_value["plan"]["executable_action"]["route_path"],
+            "/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/refresh-cache"
         );
         assert!(!body.contains("source_uri"));
         assert!(!body.contains("source_locator"));
