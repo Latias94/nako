@@ -111,6 +111,17 @@ where fearless refactor cleanup is justified by real shallow-module evidence.
   automatic source duplicate behavior.
 - [`research/synthesis.md`](research/synthesis.md) ranks the cross-lane queue
   and parallelization risks.
+- [`research/next-parallel-contract-gates.md`](research/next-parallel-contract-gates.md)
+  records shared contract gates that must serialize the next parallel wave.
+- [`research/next-product-development-lanes.md`](research/next-product-development-lanes.md)
+  re-ranks product-facing lanes after the first two child tasks completed.
+- [`research/next-architecture-refactor-lanes.md`](research/next-architecture-refactor-lanes.md)
+  audits whether more fearless refactor should precede feature work.
+- [`research/next-operations-release-lanes.md`](research/next-operations-release-lanes.md)
+  confirms the remote access cookbook/config gate task is the highest-value
+  operator-facing slice.
+- [`research/next-lane-synthesis.md`](research/next-lane-synthesis.md)
+  consolidates the post-child-task recommendation.
 
 ## Decision (ADR-lite)
 
@@ -140,6 +151,46 @@ contract, playback capability, Addon resource-flow, or source identity changes.
    implementation.
 4. `06-05-addon-resource-flow-pattern-audit` — architecture audit.
 5. `06-05-source-hash-triggering-reconciliation-policy` — architecture audit.
+
+## Post-Child-Audit Update (ADR-lite)
+
+**Context**: The Admin route inventory parity gate and the playback
+output/profile device capability audit are now complete. Follow-up research in
+the parent task reviewed product lanes, architecture/refactor lanes, contract
+gates, and operations/release readiness.
+
+**Decision**: Keep the mixed plan, but update the queue. Do not start a broad
+fearless refactor campaign. Treat Admin route parity as a standing gate and
+make `public-client-playback-capability-contract-parity-gate` the next
+serial-first contract task. In parallel, run
+`06-05-remote-access-cookbook-config-gates` as the operator-visible docs/ops
+implementation lane, and continue
+`06-05-addon-resource-flow-pattern-audit` plus
+`06-05-source-hash-triggering-reconciliation-policy` as architecture/research
+lanes.
+
+**Consequences**: Playback profile-v2, HEVC/AV1 execution, hardware tone-map
+execution, image subtitle burn-in, Public Client endpoint discovery, built-in
+tunnel runtime, automatic duplicate mutation, and Addon Manager process
+lifecycle remain deferred until their shared contracts are owned. Generated
+Admin contracts, Public Client playback DTOs/SDKs, shared identity/config,
+Addon manifest/protocol, and durable-job/runtime policy must not be changed as
+side effects of parallel feature lanes.
+
+## Current Recommended Next Queue
+
+1. `public-client-playback-capability-contract-parity-gate` — new serial-first
+   shared contract task to create.
+2. `06-05-remote-access-cookbook-config-gates` — low-conflict docs/ops
+   implementation, safe to run in parallel if it avoids config-shape,
+   Admin DTO, endpoint discovery, and tunnel-runtime changes.
+3. `06-05-addon-resource-flow-pattern-audit` — architecture audit, safe as
+   docs/research while avoiding Admin DTO and Addon Protocol wire-shape edits.
+4. `06-05-source-hash-triggering-reconciliation-policy` — architecture audit,
+   safe as docs/research while avoiding durable job scheduler, schema,
+   source identity, and Admin DTO edits.
+5. Admin contract generator deepening — defer unless the next wave is
+   Admin-heavy enough to justify a serial refactor owner.
 
 ## Created Subtasks
 
