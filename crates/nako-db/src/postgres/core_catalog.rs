@@ -1288,9 +1288,7 @@ where
                 confidence_milli
             )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            ON CONFLICT(id) DO UPDATE SET
-                source_id = excluded.source_id,
-                duplicate_source_id = excluded.duplicate_source_id,
+            ON CONFLICT(source_id, duplicate_source_id) DO UPDATE SET
                 evidence_kind = excluded.evidence_kind,
                 evidence_kind_key = excluded.evidence_kind_key,
                 evidence_value = excluded.evidence_value,

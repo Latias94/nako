@@ -246,9 +246,11 @@ CREATE TABLE IF NOT EXISTS source_duplicate_relationships (
     confidence_milli bigint,
     created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
     updated_at timestamptz NOT NULL DEFAULT statement_timestamp(),
-    CHECK (source_id <> duplicate_source_id)
+    CHECK (source_id < duplicate_source_id)
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS source_duplicate_relationships_pair_idx
+    ON source_duplicate_relationships(source_id, duplicate_source_id);
 CREATE INDEX IF NOT EXISTS source_duplicate_relationships_source_idx
     ON source_duplicate_relationships(source_id, duplicate_source_id, status);
 CREATE INDEX IF NOT EXISTS source_duplicate_relationships_duplicate_idx

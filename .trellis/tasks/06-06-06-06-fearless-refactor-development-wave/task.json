@@ -19,7 +19,8 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "06-06-admin-source-fingerprint-hash-trigger-first-slice"
+    "06-06-admin-source-fingerprint-hash-trigger-first-slice",
+    "06-06-source-duplicate-relationship-idempotent-pair-upsert"
   ],
   "parent": null,
   "relatedFiles": [],

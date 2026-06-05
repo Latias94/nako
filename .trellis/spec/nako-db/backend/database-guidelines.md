@@ -134,6 +134,98 @@ ALTER TABLE vfs_cache_failures
   surrounding table; do not mix both styles inside one table without a reason.
 - Index names should describe table plus key or access pattern.
 
+## Scenario: Source Duplicate Relationship Pair Identity
+
+### 1. Scope / Trigger
+
+- Trigger: changing `SourceDuplicateRelationship` persistence, source identity
+  reconciliation, source fingerprint evidence, or any writer that may suggest
+  duplicate media sources.
+- Scope: `SourceDuplicateRepository`, SQLite/PostgreSQL source duplicate
+  adapters, migrations, scan commit persistence, and repository contract tests.
+- Boundary: this contract records reviewable duplicate evidence. It must not
+  merge `MediaSource` or `MediaItem` identity.
+
+### 2. Signatures
+
+- `SourceDuplicateRelationship { id, source_id, duplicate_source_id,
+  evidence_kind, evidence_value, status, confidence_milli }`
+- `SourceDuplicateRelationship::canonicalized()` orders the source pair before
+  persistence.
+- `SourceDuplicateRepository::upsert_source_duplicate_relationship(
+  relationship
+) -> Result<()>`
+- SQLite stores source ids as `TEXT`; PostgreSQL stores source ids as `uuid`.
+
+### 3. Contracts
+
+- `(source_id, duplicate_source_id)` is the repository identity for an upsert.
+  The generated `SourceDuplicateRelationshipId` is stable once the canonical
+  pair exists.
+- Writers must canonicalize the pair before persistence and must reject or fail
+  non-distinct source ids through schema constraints.
+- Re-upserting the same canonical pair with a different relationship id updates
+  only mutable payload fields: `evidence_kind`, `evidence_kind_key`,
+  `evidence_value`, `status`, `confidence_milli`, and `updated_at`.
+- Re-upserting the same canonical pair must not update the stored `id`,
+  `source_id`, or `duplicate_source_id`.
+- SQLite and PostgreSQL must both enforce unique canonical pairs through schema
+  and use `ON CONFLICT(source_id, duplicate_source_id)` for upsert behavior.
+
+### 4. Validation & Error Matrix
+
+- Same canonical pair with different id -> update existing row payload and keep
+  original id.
+- Reversed pair input -> canonicalize to the same stored row.
+- Same source used twice -> database constraint failure; do not silently create
+  a self-duplicate relationship.
+- Missing PostgreSQL pair unique index -> `ON CONFLICT(source_id,
+  duplicate_source_id)` cannot be the durable upsert contract.
+- SQLite/PostgreSQL migration version drift -> contract parity failure.
+
+### 5. Good/Base/Bad Cases
+
+- Good: source hash reconciliation retries the same pair and refreshes evidence
+  without creating duplicate rows.
+- Base: a manually suggested duplicate pair remains addressable by its original
+  relationship id after stronger evidence arrives.
+- Bad: a writer conflicts only on `id`, so retries with new ids create
+  duplicate rows or fail on a pair unique constraint.
+
+### 6. Tests Required
+
+- Backend-agnostic contract test under `ContractFamily::SourceDuplicate` proving
+  pair-idempotent upsert, reversed input canonicalization, latest payload, one
+  listed row, and stable original id.
+- SQLite focused gate:
+  `cargo nextest run -p nako-db source_duplicate --no-fail-fast`
+- PostgreSQL ignored contract must use the same contract under
+  `NAKO_TEST_POSTGRES_URL`.
+- Migration tests must assert the source duplicate pair identity migration is
+  registered and that fresh SQLite stores apply the new version list.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```sql
+ON CONFLICT(id) DO UPDATE SET
+    source_id = excluded.source_id,
+    duplicate_source_id = excluded.duplicate_source_id,
+    evidence_kind = excluded.evidence_kind;
+```
+
+#### Correct
+
+```sql
+ON CONFLICT(source_id, duplicate_source_id) DO UPDATE SET
+    evidence_kind = excluded.evidence_kind,
+    evidence_kind_key = excluded.evidence_kind_key,
+    evidence_value = excluded.evidence_value,
+    status = excluded.status,
+    confidence_milli = excluded.confidence_milli;
+```
+
 ## Scenario: Durable Job Priority Policy
 
 ### 1. Scope / Trigger

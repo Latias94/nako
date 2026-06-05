@@ -50,6 +50,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "vfs_cache_failure_authority",
         include_str!("../migrations/postgres/0004_vfs_cache_failure_authority.sql"),
     ),
+    (
+        5,
+        "source_duplicate_pair_identity",
+        include_str!("../migrations/postgres/0005_source_duplicate_pair_identity.sql"),
+    ),
 ];
 
 #[derive(Clone, Debug)]
@@ -495,5 +500,30 @@ mod tests {
                 "PostgreSQL baseline still contains historical replay fragment: {fragment}"
             );
         }
+    }
+
+    #[test]
+    fn postgres_source_duplicate_pair_identity_migration_is_registered() {
+        let migration = MIGRATIONS
+            .iter()
+            .find(|(version, _, _)| *version == 5)
+            .expect("PostgreSQL source duplicate pair migration should be registered");
+
+        assert_eq!(migration.1, "source_duplicate_pair_identity");
+        assert!(
+            migration
+                .2
+                .contains("source_duplicate_relationships_pair_idx")
+        );
+        assert!(migration.2.contains("source_id, duplicate_source_id"));
+        assert!(
+            migration
+                .2
+                .contains("source_duplicate_relationships_canonical_pair_check")
+        );
+
+        let baseline_sql = MIGRATIONS[0].2;
+        assert!(baseline_sql.contains("CHECK (source_id < duplicate_source_id)"));
+        assert!(baseline_sql.contains("source_duplicate_relationships_pair_idx"));
     }
 }

@@ -126,6 +126,7 @@ enum ContractFamily {
     PlaybackRuntime,
     RendererRuntime,
     EventAddonAutomation,
+    SourceDuplicate,
     RuntimePromotion,
     VfsStaging,
     StorageBackendHealth,
@@ -151,6 +152,7 @@ impl ContractFamily {
             Self::PlaybackRuntime => "playback_runtime",
             Self::RendererRuntime => "renderer_runtime",
             Self::EventAddonAutomation => "event_addon_automation",
+            Self::SourceDuplicate => "source_duplicate",
             Self::RuntimePromotion => "runtime_promotion",
             Self::VfsStaging => "vfs_staging",
             Self::StorageBackendHealth => "storage_backend_health",
@@ -438,6 +440,16 @@ impl<T> RuntimePromotionContractBackend for T where
         + SourceDuplicateRepository
         + UserPlaybackStateRepository
         + TranscodeSessionRepository
+{
+}
+
+trait SourceDuplicateContractBackend:
+    LifecycleContractBackend + LibraryRepository + MediaRepository + SourceDuplicateRepository
+{
+}
+
+impl<T> SourceDuplicateContractBackend for T where
+    T: LifecycleContractBackend + LibraryRepository + MediaRepository + SourceDuplicateRepository
 {
 }
 
@@ -7075,6 +7087,86 @@ where
     assert_eq!(duplicate_only.best_local_inference, None);
 }
 
+async fn source_duplicate_contract_upsert_is_idempotent_by_canonical_pair<S>(store: S)
+where
+    S: SourceDuplicateContractBackend,
+{
+    let library = seed_contract_library(&store).await;
+    let first_source = seed_contract_media_item_with_source(
+        &store,
+        library.id,
+        "Duplicate Pair A",
+        "local:///Contract/duplicate-pair-a.mkv",
+    )
+    .await;
+    let second_source = seed_contract_media_item_with_source(
+        &store,
+        library.id,
+        "Duplicate Pair B",
+        "local:///Contract/duplicate-pair-b.mkv",
+    )
+    .await;
+
+    let initial = SourceDuplicateRelationship {
+        id: SourceDuplicateRelationshipId::new(),
+        source_id: second_source.id,
+        duplicate_source_id: first_source.id,
+        evidence_kind: SourceDuplicateEvidenceKind::SizeAndEtag,
+        evidence_value: Some("size=19;etag=weak-contract".to_owned()),
+        status: SourceDuplicateRelationshipStatus::Suggested,
+        confidence_milli: Some(720),
+    };
+    let replacement = SourceDuplicateRelationship {
+        id: SourceDuplicateRelationshipId::new(),
+        source_id: first_source.id,
+        duplicate_source_id: second_source.id,
+        evidence_kind: SourceDuplicateEvidenceKind::StrongFingerprint,
+        evidence_value: Some("sha256:source-duplicate-contract".to_owned()),
+        status: SourceDuplicateRelationshipStatus::Confirmed,
+        confidence_milli: Some(995),
+    };
+    let mut expected = replacement.canonicalized();
+    expected.id = initial.id;
+
+    store
+        .upsert_source_duplicate_relationship(&initial)
+        .await
+        .unwrap();
+    store
+        .upsert_source_duplicate_relationship(&replacement)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        store
+            .get_source_duplicate_relationship(initial.id)
+            .await
+            .unwrap(),
+        Some(expected.clone())
+    );
+    assert_eq!(
+        store
+            .get_source_duplicate_relationship(replacement.id)
+            .await
+            .unwrap(),
+        None
+    );
+    assert_eq!(
+        store
+            .list_source_duplicate_relationships(first_source.id, PageRequest::first_page())
+            .await
+            .unwrap(),
+        vec![expected.clone()]
+    );
+    assert_eq!(
+        store
+            .list_source_duplicate_relationships(second_source.id, PageRequest::first_page())
+            .await
+            .unwrap(),
+        vec![expected]
+    );
+}
+
 async fn vfs_cache_contract_round_trips_listing_failures_and_summary<S>(store: S)
 where
     S: VfsStagingContractBackend,
@@ -9292,6 +9384,16 @@ database_contract_pair!(
         "covers_facade_dispatch_gap_surfaces"
     ),
     contract = runtime_promotion_contract_covers_facade_dispatch_gap_surfaces,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_source_duplicate_contract_upsert_is_idempotent_by_canonical_pair,
+    postgres = postgres_source_duplicate_contract_upsert_is_idempotent_by_canonical_pair,
+    case = ContractCase::migrated(
+        ContractFamily::SourceDuplicate,
+        "upsert_is_idempotent_by_canonical_pair"
+    ),
+    contract = source_duplicate_contract_upsert_is_idempotent_by_canonical_pair,
 );
 
 database_contract_pair!(
