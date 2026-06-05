@@ -43,20 +43,20 @@ catalog mutation.
 
 ## Acceptance Criteria
 
-- [ ] Admin can request a duplicate reconciliation plan for a library/source.
-- [ ] Non-admin callers are rejected.
-- [ ] The route rejects or errors safely for missing source, cross-library
+- [x] Admin can request a duplicate reconciliation plan for a library/source.
+- [x] Non-admin callers are rejected.
+- [x] The route rejects or errors safely for missing source, cross-library
       source, missing fingerprint evidence, and unsupported raw fingerprint
       evidence.
-- [ ] Same-library duplicate candidates are returned with existing relationship
+- [x] Same-library duplicate candidates are returned with existing relationship
       status and recommended action.
-- [ ] Pagination is candidate-oriented: the target source is excluded before
+- [x] Pagination is candidate-oriented: the target source is excluded before
       `limit`/`offset`.
-- [ ] The response and error body do not contain Source Locators, local paths,
+- [x] The response and error body do not contain Source Locators, local paths,
       raw fingerprints, raw hashes, etags, backend URLs, credentials, or
       durable job input JSON.
-- [ ] The route does not mutate duplicate relationships.
-- [ ] Admin contract generation/tests cover the new route and DTOs.
+- [x] The route does not mutate duplicate relationships.
+- [x] Admin contract generation/tests cover the new route and DTOs.
 
 ## Definition Of Done
 

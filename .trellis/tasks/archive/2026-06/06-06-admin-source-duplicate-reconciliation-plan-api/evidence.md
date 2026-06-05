@@ -56,3 +56,11 @@
   requires explicit user authorization for delegation. Equivalent Trellis
   context loading, spec review, implementation, and focused verification were
   performed in the main session.
+- 2026-06-06 closeout sync: PRD acceptance criteria were marked complete and
+  the task was archived after the route implementation had already landed in
+  `4c1f735b feat(admin): expose source duplicate plan route`.
+- 2026-06-06 closeout sync validation:
+  - `cargo nextest run -p nako-api admin_contract source_duplicate --no-fail-fast`
+    passed: 9 tests.
+  - `cargo nextest run -p nako-server admin_v1_source_duplicate_reconciliation_plan implemented_admin_routes_are_generated_or_explicitly_excluded --no-fail-fast`
+    passed: 5 tests.
