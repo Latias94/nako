@@ -153,3 +153,38 @@ Added a redaction-safe app-service planner that validates queued source fingerpr
 ### Next Steps
 
 - None - task complete
+
+
+## Session 51: Source fingerprint hash job summary contract
+
+**Date**: 2026-06-05
+**Task**: Source fingerprint hash job summary contract
+**Package**: nako-library
+**Branch**: `main`
+
+### Summary
+
+Added SourceFingerprintHashJobSummary as a redaction-safe projection of hash reports for future durable job summary_json, covered partial/full serialization redaction, updated specs and architecture maps, and archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ee3b9ec0` | (see git log) |
+| `a771a67d` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
