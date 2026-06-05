@@ -20,6 +20,11 @@ relationship reconciliation from hash evidence.
 
 - Internal enqueue:
   `SourceFingerprintHashAppService::enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest) -> Result<Job>`.
+- Admin manual enqueue:
+  `POST /admin/v1/source-fingerprint-hashes` with
+  `AdminSourceFingerprintHashEnqueueRequest { library_id, source_id, mode,
+  partial_prefix_bytes, priority }`, returning the redacted
+  `AdminJobListItem` shape with `202 Accepted`.
 - Execution:
   `SourceFingerprintHashAppService::execute_source_fingerprint_hash_job(JobId)
   -> Result<SourceFingerprintHashCommandOutput>`.
@@ -31,9 +36,10 @@ relationship reconciliation from hash evidence.
 - Admin job list:
   `GET /admin/v1/jobs` may filter by `kind`, `resource_class`,
   `library_id`, and `source_id`.
-- Future Admin trigger:
-  an Admin command may accept only `library_id`, `source_id`,
-  `SourceFingerprintHashMode`, and optional priority.
+- Admin trigger request mode is `full` or `partial`. `partial_prefix_bytes`
+  is required only for `partial`, must be greater than zero, and is rejected
+  for `full`. Optional priority maps to durable job priority `low`,
+  `normal`, or `high`.
 
 ### 3. Contracts
 
@@ -45,11 +51,19 @@ relationship reconciliation from hash evidence.
 - Scan-originated scheduling, if added later, must run after a successful scan
   source commit through a server app service and must be policy-backed,
   idempotent, and visible through Admin jobs.
-- Admin manual enqueue is the preferred first trigger because it reuses the
-  shipped internal enqueue and disk-scan scheduler execution path.
+- Admin manual enqueue reuses the shipped internal enqueue and disk-scan
+  scheduler execution path. The HTTP handler must translate the Admin request
+  into `EnqueueSourceFingerprintHashRequest` and delegate to
+  `SourceFingerprintHashAppService`; it must not create durable jobs directly.
 - Persisted source fingerprint hash jobs must use
   `SourceFingerprintHashJobInput`; do not persist `StorageUri`, Source Locator,
   path, etag, backend URL, credential, raw digest, or fingerprint material.
+- Admin enqueue responses must use the existing redacted Admin job DTO surface:
+  job id, kind, status, resource class, optional library/source bindings,
+  timestamps, and `has_input`/`has_summary`/`has_error` booleans only. They
+  must not expose durable input JSON, summary JSON, raw errors, Source
+  Locators, local paths, etags, backend URLs, credentials, raw hashes, or
+  fingerprints.
 - Source hash job completion may persist redacted fingerprint evidence back to
   `MediaSource` and matching `SourceState`.
 - Source hash job completion must not directly write
@@ -70,6 +84,9 @@ relationship reconciliation from hash evidence.
 
 | Condition | Behavior |
 | --- | --- |
+| Admin trigger uses `partial` without `partial_prefix_bytes` | Return invalid input before enqueue. |
+| Admin trigger uses `partial_prefix_bytes = 0` | Return invalid input before enqueue. |
+| Admin trigger uses `full` with `partial_prefix_bytes` | Return invalid input before enqueue. |
 | Admin trigger uses missing source id | Return not found; do not enqueue. |
 | Admin trigger source belongs to a different library | Return invalid input without locator/path details. |
 | Source locator is malformed | Return invalid input without echoing the locator. |
@@ -89,6 +106,9 @@ relationship reconciliation from hash evidence.
 - Good: an Admin command enqueues a full source hash job by library/source id,
   the existing scheduler executes it under `disk.scan`, and Admin jobs show a
   redacted row with `has_input`/`has_summary` booleans only.
+- Good: an Admin command enqueues a partial source hash job only when the
+  request includes a positive `partial_prefix_bytes`; the persisted durable
+  input stores mode and source scheme but not a Source Locator.
 - Good: a later read-only reconciliation plan reports that two sources share a
   non-stale content hash and recommends a Suggested relationship without
   writing anything.

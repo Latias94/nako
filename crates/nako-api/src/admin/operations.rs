@@ -2,8 +2,8 @@ use nako_client_protocol::PageInfo;
 use nako_core::{
     DomainEventKind, DomainEventSubject, EventId, IngestionFailureClass, IngestionFailurePhase,
     IngestionFailureRecord, IngestionFailureStatus, Job, JobCancellationRequestRecord, JobId,
-    JobKind, JobStatus, LibraryId, MediaSourceId, OutboxEventRecord, OutboxEventStatus,
-    ScanSnapshotId,
+    JobKind, JobPriority, JobStatus, LibraryId, MediaSourceId, OutboxEventRecord,
+    OutboxEventStatus, ScanSnapshotId,
 };
 use serde::{Deserialize, Serialize};
 
@@ -103,6 +103,40 @@ impl AdminJobListItem {
             completed_at: job.completed_at,
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminSourceFingerprintHashMode {
+    Full,
+    Partial,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminJobPriority {
+    Low,
+    Normal,
+    High,
+}
+
+impl From<AdminJobPriority> for JobPriority {
+    fn from(priority: AdminJobPriority) -> Self {
+        match priority {
+            AdminJobPriority::Low => Self::Low,
+            AdminJobPriority::Normal => Self::Normal,
+            AdminJobPriority::High => Self::High,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminSourceFingerprintHashEnqueueRequest {
+    pub library_id: LibraryId,
+    pub source_id: MediaSourceId,
+    pub mode: AdminSourceFingerprintHashMode,
+    pub partial_prefix_bytes: Option<u64>,
+    pub priority: Option<AdminJobPriority>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -224,7 +258,6 @@ pub struct IgnoreIngestionFailureRequest {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nako_core::JobPriority;
 
     #[test]
     fn ingestion_failure_diagnostic_serializes_explicit_dto_fields() {
@@ -370,6 +403,31 @@ mod tests {
         assert!(!body.contains("input_json"));
         assert!(!body.contains("summary_json"));
         assert!(!body.contains("error\":\"token"));
+    }
+
+    #[test]
+    fn admin_source_fingerprint_hash_enqueue_request_serializes_safe_fields() {
+        let request = AdminSourceFingerprintHashEnqueueRequest {
+            library_id: LibraryId::new(),
+            source_id: MediaSourceId::new(),
+            mode: AdminSourceFingerprintHashMode::Partial,
+            partial_prefix_bytes: Some(4096),
+            priority: Some(AdminJobPriority::High),
+        };
+
+        let value = serde_json::to_value(&request).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(value["mode"], "partial");
+        assert_eq!(value["partial_prefix_bytes"], 4096);
+        assert_eq!(value["priority"], "high");
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("locator"));
+        assert!(!body.contains("fingerprint"));
+        assert!(!body.contains("hash"));
+        assert!(!body.contains("path"));
+        assert!(!body.contains("etag"));
+        assert!(!body.contains("token"));
     }
 
     #[test]

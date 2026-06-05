@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Check API/server/jobs/source hash data flow."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Check server route/app-service/runtime compliance."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Check Admin route and handler conventions."}
+{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Check safe error mapping."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Check server tests and gates."}
+{"file": ".trellis/spec/nako-server/backend/source-fingerprint-hash-policy.md", "reason": "Check source hash trigger and reconciliation boundaries."}
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Check Admin DTO and generated contract changes."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Check Admin/Public separation and generated contract rules."}
+{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "Check source fingerprint redaction constraints."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-source-hash-triggering-reconciliation-policy/research/source-hash-triggering-reconciliation-policy.md", "reason": "Check against predecessor audit scope."}

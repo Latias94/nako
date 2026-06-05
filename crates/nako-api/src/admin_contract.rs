@@ -18,7 +18,7 @@ struct AdminRouteExclusionSuffix {
     reason: &'static str,
 }
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 79] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 80] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -183,6 +183,7 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 79] = [
     ),
     ("events", "events"),
     ("jobs", "jobs"),
+    ("sourceFingerprintHashes", "source-fingerprint-hashes"),
     (
         "libraryMetadataProfile",
         "libraries/{library_id}/metadata-profile",
@@ -463,6 +464,18 @@ export interface AdminJobsQuery extends AdminPageQuery {
   resource_class?: string;
   library_id?: string;
   source_id?: string;
+}
+
+export type AdminSourceFingerprintHashMode = "full" | "partial";
+
+export type AdminJobPriority = "low" | "normal" | "high";
+
+export interface AdminSourceFingerprintHashEnqueueRequest {
+  library_id: string;
+  source_id: string;
+  mode: AdminSourceFingerprintHashMode;
+  partial_prefix_bytes?: number | null;
+  priority?: AdminJobPriority | null;
 }
 
 export interface AdminPlaybackSessionsQuery extends AdminPageQuery {
@@ -3897,6 +3910,9 @@ mod tests {
             "AdminMetadataCandidateReviewApplicationReason",
             "AdminOutboxEventsQuery",
             "AdminJobsQuery",
+            "AdminSourceFingerprintHashMode",
+            "AdminJobPriority",
+            "AdminSourceFingerprintHashEnqueueRequest",
             "AdminPlaybackSessionsQuery",
             "AdminPlaybackSupportQuery",
             "AdminAddonsQuery",

@@ -77,7 +77,8 @@ use nako_api::{
         AdminRendererReadinessDiagnostics, AdminRendererRuntimeDiagnosticsResponse,
         AdminRendererSessionDiagnostics, AdminRendererSessionSummary, AdminReplaceUserRolesRequest,
         AdminRuntimeConfigDiagnostics, AdminServerConfigDiagnosticsResponse,
-        AdminSetLocalPasswordRequest, AdminStorageBackendHealthDiagnostic,
+        AdminSetLocalPasswordRequest, AdminSourceFingerprintHashEnqueueRequest,
+        AdminSourceFingerprintHashMode, AdminStorageBackendHealthDiagnostic,
         AdminStorageBackendHealthDiagnosticsResponse, AdminStorageBackendHealthResetResponse,
         AdminStorageStagingDiagnosticsResponse, AdminStorageStagingPolicySlice,
         AdminStorageStagingPressureStatus, AdminStorageStagingPressureSummary,
@@ -115,6 +116,7 @@ use nako_core::{
     RoleAssignment, User, UserId, UserInvitationId, UserPrincipalId, UserRole, UserStatus,
 };
 use nako_db::DatabaseBackendCapabilities;
+use nako_library::SourceFingerprintHashMode;
 use nako_transcode::{
     HardwareAccelerationCapability, HardwareDeviceInitializationStatus,
     HardwareEncoderDiscoveryStatus, HardwareSmokeProbeStatus, TranscodeRuntimeInventoryStatus,
@@ -128,8 +130,9 @@ use crate::{
         admin_transcode_pipeline_readiness,
     },
     app::{
-        LibraryScanTraceContext, NakoApp, RuntimeSupervisorDiagnostics, StagingBudgetPolicySlice,
-        StorageStagingPressureStatus, VfsCacheRepairActionBoundary, VfsCacheRepairActionPlanReason,
+        EnqueueSourceFingerprintHashRequest, LibraryScanTraceContext, NakoApp,
+        RuntimeSupervisorDiagnostics, StagingBudgetPolicySlice, StorageStagingPressureStatus,
+        VfsCacheRepairActionBoundary, VfsCacheRepairActionPlanReason,
         VfsCacheRepairActionPlanReport, VfsCacheRepairActionPlanStatus,
         VfsCacheRepairExecutableRoute, VfsCacheRepairRefreshActionReport,
         VfsCacheRepairTargetPreviewReport, VfsCacheRepairTargetReport,
@@ -278,6 +281,10 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route("/admin/v1/events", get(list_admin_outbox_events))
         .route("/admin/v1/jobs", get(list_admin_jobs))
         .route("/admin/v1/jobs/{job_id}/cancel", post(cancel_admin_job))
+        .route(
+            "/admin/v1/source-fingerprint-hashes",
+            post(enqueue_admin_source_fingerprint_hash),
+        )
         .route("/admin/v1/access/summary", get(get_admin_access_summary))
         .route(
             "/admin/v1/access/users",
@@ -2694,6 +2701,58 @@ pub(super) async fn cancel_admin_job(
     Ok(Json(AdminJobCancelRequestResponse::from_record(
         cancellation,
     )))
+}
+
+pub(super) async fn enqueue_admin_source_fingerprint_hash(
+    State(app): State<NakoApp>,
+    Json(request): Json<AdminSourceFingerprintHashEnqueueRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let mode = admin_source_fingerprint_hash_mode(request.mode, request.partial_prefix_bytes)?;
+    let job = app
+        .source_hash()
+        .enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
+            library_id: request.library_id,
+            source_id: request.source_id,
+            mode,
+            priority: request.priority.map(Into::into),
+        })
+        .await?;
+
+    Ok((StatusCode::ACCEPTED, Json(AdminJobListItem::from_job(job))))
+}
+
+fn admin_source_fingerprint_hash_mode(
+    mode: AdminSourceFingerprintHashMode,
+    partial_prefix_bytes: Option<u64>,
+) -> Result<SourceFingerprintHashMode, NakoError> {
+    match mode {
+        AdminSourceFingerprintHashMode::Full => {
+            if partial_prefix_bytes.is_some() {
+                return Err(NakoError::InvalidInput {
+                    message:
+                        "partial_prefix_bytes is only valid for partial source fingerprint hash mode"
+                            .to_owned(),
+                });
+            }
+
+            Ok(SourceFingerprintHashMode::Full)
+        }
+        AdminSourceFingerprintHashMode::Partial => {
+            let prefix_bytes = partial_prefix_bytes.ok_or_else(|| NakoError::InvalidInput {
+                message: "partial source fingerprint hash mode requires partial_prefix_bytes"
+                    .to_owned(),
+            })?;
+
+            if prefix_bytes == 0 {
+                return Err(NakoError::InvalidInput {
+                    message: "partial source fingerprint hash prefix must be greater than zero"
+                        .to_owned(),
+                });
+            }
+
+            Ok(SourceFingerprintHashMode::Partial { prefix_bytes })
+        }
+    }
 }
 
 pub(super) async fn list_admin_playback_sessions(

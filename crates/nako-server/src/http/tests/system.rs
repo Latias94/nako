@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use super::*;
 use nako_api::admin::{
-    AdminGeneratedArtifactMetadataApplyRecoveryResponse,
+    AdminGeneratedArtifactMetadataApplyRecoveryResponse, AdminJobListItem, AdminJobPriority,
     AdminMetadataCandidateReviewApplicationAction, AdminMetadataCandidateReviewApplicationReason,
     AdminMetadataCandidateReviewApplyRequest, AdminMetadataCandidateReviewApplyResponse,
     AdminMetadataCandidateReviewAuditEventKind, AdminMetadataCandidateReviewBatchApplyItemRequest,
@@ -17,6 +17,7 @@ use nako_api::admin::{
     AdminMetadataCandidateReviewRelatedHierarchyPlanRequest,
     AdminMetadataCandidateReviewRelatedHierarchyPlanResponse, AdminMetadataCandidateReviewResponse,
     AdminMetadataCandidateReviewUndoMode, AdminMetadataCandidateReviewUndoReason,
+    AdminSourceFingerprintHashEnqueueRequest, AdminSourceFingerprintHashMode,
     AdminStorageBackendHealthDiagnosticsResponse, AdminStorageBackendHealthResetResponse,
     AdminStorageStagingPressureStatus, AdminVfsCacheRefreshResponse,
     AdminVfsCacheRepairActionPlanReason, AdminVfsCacheRepairActionPlanResponse,
@@ -24,8 +25,9 @@ use nako_api::admin::{
     AdminVfsCacheRepairTargetPreviewResponse, AdminWatchFolderRuntimeCoverageStatus,
 };
 use nako_core::{
-    JobKind, JobRepository, JobStatus, METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS,
-    MetadataCandidateRecord, MetadataCandidateRelationshipKind, MetadataCandidateReviewBatchStatus,
+    JobKind, JobPriority, JobRepository, JobStatus,
+    METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS, MetadataCandidateRecord,
+    MetadataCandidateRelationshipKind, MetadataCandidateReviewBatchStatus,
     MetadataCandidateReviewId, MetadataCandidateReviewNode, MetadataCandidateReviewPlan,
     MetadataCandidateReviewRelationship, MetadataCandidateReviewRepository,
     MetadataCandidateReviewStatus as DurableMetadataCandidateReviewStatus, MetadataCandidateSource,
@@ -33,7 +35,10 @@ use nako_core::{
     StorageBackendHealthRecord, StorageBackendHealthRepository, StorageBackendHealthStatus,
     StorageCircuitBreakerState, StorageFailureClass, VfsCacheFailureAuthority,
 };
-use nako_library::SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS;
+use nako_library::{
+    SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS, SourceFingerprintHashJobInput,
+    SourceFingerprintHashMode,
+};
 
 fn system_process_backed_hls_playlist_readiness_timeout() -> Duration {
     // Full-suite HLS gates on Windows start many fake FFmpeg processes at once.
@@ -5678,6 +5683,338 @@ async fn admin_v1_jobs_lists_source_fingerprint_hash_filters_without_payload_lea
     assert!(!body.contains("source_uri"));
     assert!(!body.contains("input_json"));
     assert!(!body.contains("summary_json"));
+}
+
+#[tokio::test]
+async fn admin_v1_source_fingerprint_hash_enqueue_queues_full_and_partial_jobs_without_payload_leaks()
+ {
+    let (_temp, router, source, store) =
+        router_with_media_source("source_hash_secret_locator.mkv", b"0123456789abcdef").await;
+
+    let full_response = response_body_json(
+        &router,
+        Method::POST,
+        "/admin/v1/source-fingerprint-hashes",
+        &AdminSourceFingerprintHashEnqueueRequest {
+            library_id: source.library_id,
+            source_id: source.id,
+            mode: AdminSourceFingerprintHashMode::Full,
+            partial_prefix_bytes: None,
+            priority: Some(AdminJobPriority::High),
+        },
+    )
+    .await;
+    let full_status = full_response.status();
+    let full_body = response_text(full_response).await;
+    assert_eq!(full_status, StatusCode::ACCEPTED, "{full_body}");
+    let full_job: AdminJobListItem = serde_json::from_str(&full_body).unwrap();
+    let persisted_full = store.get_job(full_job.id).await.unwrap().unwrap();
+    let full_input: SourceFingerprintHashJobInput =
+        serde_json::from_str(persisted_full.input_json.as_deref().unwrap()).unwrap();
+
+    assert_eq!(full_job.kind, JobKind::SourceFingerprintHash);
+    assert_eq!(full_job.status, JobStatus::Queued);
+    assert_eq!(
+        full_job.resource_class,
+        SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS
+    );
+    assert_eq!(full_job.library_id, Some(source.library_id));
+    assert_eq!(full_job.source_id, Some(source.id));
+    assert!(full_job.has_input);
+    assert!(!full_job.has_summary);
+    assert!(!full_job.has_error);
+    assert_eq!(persisted_full.priority, JobPriority::High);
+    assert_eq!(persisted_full.library_id, Some(source.library_id));
+    assert_eq!(persisted_full.source_id, Some(source.id));
+    assert_eq!(full_input.library_id, source.library_id);
+    assert_eq!(full_input.source_id, source.id);
+    assert_eq!(full_input.source_scheme, "local");
+    assert_eq!(full_input.mode, SourceFingerprintHashMode::Full);
+    assert_source_hash_admin_body_redacted(&full_body);
+    assert_source_hash_job_input_redacted(persisted_full.input_json.as_deref().unwrap());
+
+    let partial_response = response_body_json(
+        &router,
+        Method::POST,
+        "/admin/v1/source-fingerprint-hashes",
+        &AdminSourceFingerprintHashEnqueueRequest {
+            library_id: source.library_id,
+            source_id: source.id,
+            mode: AdminSourceFingerprintHashMode::Partial,
+            partial_prefix_bytes: Some(7),
+            priority: None,
+        },
+    )
+    .await;
+    let partial_status = partial_response.status();
+    let partial_body = response_text(partial_response).await;
+    assert_eq!(partial_status, StatusCode::ACCEPTED, "{partial_body}");
+    let partial_job: AdminJobListItem = serde_json::from_str(&partial_body).unwrap();
+    let persisted_partial = store.get_job(partial_job.id).await.unwrap().unwrap();
+    let partial_input: SourceFingerprintHashJobInput =
+        serde_json::from_str(persisted_partial.input_json.as_deref().unwrap()).unwrap();
+
+    assert_ne!(partial_job.id, full_job.id);
+    assert_eq!(partial_job.kind, JobKind::SourceFingerprintHash);
+    assert_eq!(partial_job.status, JobStatus::Queued);
+    assert_eq!(
+        partial_job.resource_class,
+        SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS
+    );
+    assert_eq!(partial_job.library_id, Some(source.library_id));
+    assert_eq!(partial_job.source_id, Some(source.id));
+    assert_eq!(persisted_partial.priority, JobPriority::Normal);
+    assert_eq!(
+        partial_input.mode,
+        SourceFingerprintHashMode::Partial { prefix_bytes: 7 }
+    );
+    assert_source_hash_admin_body_redacted(&partial_body);
+    assert_source_hash_job_input_redacted(persisted_partial.input_json.as_deref().unwrap());
+}
+
+#[tokio::test]
+async fn admin_v1_source_fingerprint_hash_enqueue_rejects_invalid_requests_without_leaks() {
+    let (_temp, router, mut source, store) =
+        router_with_media_source("Hidden Movie.mkv", b"secret source").await;
+
+    let missing_source_id = MediaSourceId::new();
+    let missing_response = response_body_json(
+        &router,
+        Method::POST,
+        "/admin/v1/source-fingerprint-hashes",
+        &AdminSourceFingerprintHashEnqueueRequest {
+            library_id: source.library_id,
+            source_id: missing_source_id,
+            mode: AdminSourceFingerprintHashMode::Full,
+            partial_prefix_bytes: None,
+            priority: None,
+        },
+    )
+    .await;
+    let missing_status = missing_response.status();
+    let missing_body = response_text(missing_response).await;
+    assert_eq!(missing_status, StatusCode::NOT_FOUND, "{missing_body}");
+    assert_eq!(
+        serde_json::from_str::<ErrorResponse>(&missing_body)
+            .unwrap()
+            .code,
+        nako_api::public_client::ClientErrorCode::NotFound.as_str()
+    );
+
+    let cross_library_response = response_body_json(
+        &router,
+        Method::POST,
+        "/admin/v1/source-fingerprint-hashes",
+        &AdminSourceFingerprintHashEnqueueRequest {
+            library_id: LibraryId::new(),
+            source_id: source.id,
+            mode: AdminSourceFingerprintHashMode::Full,
+            partial_prefix_bytes: None,
+            priority: None,
+        },
+    )
+    .await;
+    let cross_library_status = cross_library_response.status();
+    let cross_library_body = response_text(cross_library_response).await;
+    assert_eq!(
+        cross_library_status,
+        StatusCode::BAD_REQUEST,
+        "{cross_library_body}"
+    );
+    assert_eq!(
+        serde_json::from_str::<ErrorResponse>(&cross_library_body)
+            .unwrap()
+            .message,
+        "invalid input: source fingerprint hash job source does not belong to requested library"
+    );
+    assert_source_hash_admin_body_redacted(&cross_library_body);
+
+    source.locator = "Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret".to_owned();
+    store.upsert_media_source(&source).await.unwrap();
+    let invalid_locator_response = response_body_json(
+        &router,
+        Method::POST,
+        "/admin/v1/source-fingerprint-hashes",
+        &AdminSourceFingerprintHashEnqueueRequest {
+            library_id: source.library_id,
+            source_id: source.id,
+            mode: AdminSourceFingerprintHashMode::Full,
+            partial_prefix_bytes: None,
+            priority: None,
+        },
+    )
+    .await;
+    let invalid_locator_status = invalid_locator_response.status();
+    let invalid_locator_body = response_text(invalid_locator_response).await;
+    assert_eq!(
+        invalid_locator_status,
+        StatusCode::BAD_REQUEST,
+        "{invalid_locator_body}"
+    );
+    assert_eq!(
+        serde_json::from_str::<ErrorResponse>(&invalid_locator_body)
+            .unwrap()
+            .message,
+        "invalid input: source fingerprint hash job source locator is not a valid storage URI"
+    );
+    assert_source_hash_admin_body_redacted(&invalid_locator_body);
+
+    let invalid_prefix_response = response_body_json(
+        &router,
+        Method::POST,
+        "/admin/v1/source-fingerprint-hashes",
+        &AdminSourceFingerprintHashEnqueueRequest {
+            library_id: source.library_id,
+            source_id: source.id,
+            mode: AdminSourceFingerprintHashMode::Partial,
+            partial_prefix_bytes: Some(0),
+            priority: None,
+        },
+    )
+    .await;
+    let invalid_prefix_status = invalid_prefix_response.status();
+    let invalid_prefix_body = response_text(invalid_prefix_response).await;
+    assert_eq!(
+        invalid_prefix_status,
+        StatusCode::BAD_REQUEST,
+        "{invalid_prefix_body}"
+    );
+    assert_eq!(
+        serde_json::from_str::<ErrorResponse>(&invalid_prefix_body)
+            .unwrap()
+            .message,
+        "invalid input: partial source fingerprint hash prefix must be greater than zero"
+    );
+    assert_source_hash_admin_body_redacted(&invalid_prefix_body);
+
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+    assert!(jobs.is_empty());
+}
+
+#[tokio::test]
+async fn admin_v1_source_fingerprint_hash_enqueue_rejects_non_admin_session() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let source_id = MediaSourceId::new();
+    let token = "test-admin-token";
+    let router = test_router_with_bearer_auth(temp.path().to_path_buf(), library_id, token).await;
+
+    let created = request_body_json_with_bearer::<AdminAccessUserResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/access/users",
+        &AdminCreateUserRequest {
+            username: "source-hash-viewer".to_owned(),
+            display_name: "Source Hash Viewer".to_owned(),
+            roles: vec![UserRole::Viewer],
+        },
+        token,
+    )
+    .await;
+    let password_path = format!(
+        "/admin/v1/access/users/{}/local-password",
+        created.user.user_id
+    );
+    request_body_json_with_bearer::<nako_api::admin::AdminLocalPasswordResponse, _>(
+        &router,
+        Method::PUT,
+        &password_path,
+        &nako_api::admin::AdminSetLocalPasswordRequest {
+            password: "correct horse battery staple".to_owned(),
+        },
+        token,
+    )
+    .await;
+
+    let login = request_body_json::<LoginResponse, _>(
+        &router,
+        Method::POST,
+        "/auth/login",
+        &LoginRequest {
+            username: "source-hash-viewer".to_owned(),
+            password: "correct horse battery staple".to_owned(),
+        },
+    )
+    .await;
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/admin/v1/source-fingerprint-hashes")
+                .header(
+                    header::AUTHORIZATION,
+                    format!("Bearer {}", login.session.token),
+                )
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_vec(&AdminSourceFingerprintHashEnqueueRequest {
+                        library_id,
+                        source_id,
+                        mode: AdminSourceFingerprintHashMode::Full,
+                        partial_prefix_bytes: None,
+                        priority: None,
+                    })
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let error = body_json::<ErrorResponse>(response).await;
+    assert_eq!(
+        error.code,
+        nako_api::public_client::ClientErrorCode::Forbidden.as_str()
+    );
+    assert_eq!(error.message, "administrator role is required");
+}
+
+fn assert_source_hash_admin_body_redacted(body: &str) {
+    for forbidden in [
+        "source_hash_secret_locator",
+        "Hidden Movie",
+        "Secret Path",
+        "Frankorz",
+        "local:///",
+        "source_uri",
+        "source_scheme",
+        "input_json",
+        "summary_json",
+        "partial_prefix_bytes",
+        "token",
+        "sha256",
+        "fingerprint\":\"",
+    ] {
+        assert!(
+            !body.contains(forbidden),
+            "source hash Admin response leaked forbidden term: {forbidden}"
+        );
+    }
+}
+
+fn assert_source_hash_job_input_redacted(input_json: &str) {
+    for forbidden in [
+        "source_hash_secret_locator",
+        "Hidden Movie",
+        "Secret Path",
+        "Frankorz",
+        "local:///",
+        "source_uri",
+        "token",
+        "sha256",
+        "fingerprint",
+        "etag",
+    ] {
+        assert!(
+            !input_json.contains(forbidden),
+            "source hash job input leaked forbidden term: {forbidden}"
+        );
+    }
 }
 
 #[tokio::test]

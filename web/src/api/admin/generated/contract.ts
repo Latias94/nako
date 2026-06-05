@@ -63,6 +63,7 @@ export const NAKO_ADMIN_ROUTES = {
   metadataCandidateReviewRelatedHierarchyApply: "/admin/v1/metadata/candidate-reviews/{review_id}/related-hierarchy/apply",
   events: "/admin/v1/events",
   jobs: "/admin/v1/jobs",
+  sourceFingerprintHashes: "/admin/v1/source-fingerprint-hashes",
   libraryMetadataProfile: "/admin/v1/libraries/{library_id}/metadata-profile",
   libraryScan: "/admin/v1/libraries/{library_id}/scan",
   libraryNfoImport: "/admin/v1/libraries/{library_id}/nfo/import",
@@ -140,6 +141,18 @@ export interface AdminJobsQuery extends AdminPageQuery {
   resource_class?: string;
   library_id?: string;
   source_id?: string;
+}
+
+export type AdminSourceFingerprintHashMode = "full" | "partial";
+
+export type AdminJobPriority = "low" | "normal" | "high";
+
+export interface AdminSourceFingerprintHashEnqueueRequest {
+  library_id: string;
+  source_id: string;
+  mode: AdminSourceFingerprintHashMode;
+  partial_prefix_bytes?: number | null;
+  priority?: AdminJobPriority | null;
 }
 
 export interface AdminPlaybackSessionsQuery extends AdminPageQuery {
