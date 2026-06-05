@@ -13,6 +13,7 @@ use crate::config::NakoServerConfig;
 use super::apply_playback_runtime_settings;
 
 use super::{
+    SourceFingerprintHashAppService,
     acquisition_intake::AcquisitionIntakeAppService,
     addons::AddonAppService,
     artwork::ManagedArtworkAppService,
@@ -162,6 +163,7 @@ pub(super) struct NakoAppServices {
     pub(super) acquisition_intake: AcquisitionIntakeAppService,
     pub(super) jobs: JobAppService,
     pub(super) library_scan: LibraryScanAppService,
+    pub(super) source_hash: SourceFingerprintHashAppService,
     pub(super) artwork: ManagedArtworkAppService,
     pub(super) addons: AddonAppService,
     pub(super) automation: AutomationAppService,
@@ -192,6 +194,7 @@ impl NakoAppServices {
         runtime: NakoRuntimeResources,
     ) -> Result<Self> {
         let jobs = JobAppService::new(store.clone());
+        let source_hash = SourceFingerprintHashAppService::new(store.clone());
         let watch_folder_suppression = WatchFolderSuppressionAppService::new();
         let acquisition_intake = AcquisitionIntakeAppService::new_with_storage_and_suppression(
             store.clone(),
@@ -262,6 +265,7 @@ impl NakoAppServices {
             acquisition_intake,
             jobs,
             library_scan,
+            source_hash,
             artwork,
             addons,
             automation,

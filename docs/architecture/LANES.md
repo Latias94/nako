@@ -30,7 +30,7 @@ documentation/bootstrap task, not as an implementation lane.
 | architecture-planning | Idle after 01a and 01 parent closeout. | Select the next architecture focus or continue `00-bootstrap-guidelines` spec coverage. | Open a focused Trellis task before starting implementation lanes. |
 | library-metadata-control-plane | Idle after accepted-review related hierarchy application, durable batch execution, Douban TV Series subject support, and negative Public Client governance guardrails landed. | Consider `provider-governance-mutation-undo`, `douban-season-episode-graph-depth`, or future intentional Public Client metadata API exposure as a separate API-design PRD. | Coordinate with `nako-api`, Admin Web, and schema changes before assigning parallel work. |
 | playback-transcode | Idle after HLS artifact I/O pressure enforcement. | Consider resource admission queueing, LL-HLS/CMAF, player UX, hardware tone-map execution, HEVC/AV1 output policy, subtitle burn-in, or hardware smoke evidence. | Coordinate with storage/VFS and web/native player work. |
-| storage-vfs | Idle after cache repair diagnostics and source fingerprint escalation, hash execution, scheduling diagnostics, and durable job contract first slices. | Consider source fingerprint hash queue/operator integration, playback artifact/source-read pressure, scan scheduling, or PostgreSQL runtime harness work. | Coordinate with playback input staging, library scan/probe lanes, and control-plane durable job policy before queue-backed work. |
+| storage-vfs | Idle after cache repair diagnostics and source fingerprint escalation, hash execution, scheduling diagnostics, durable job contract, and internal enqueue first slices. | Consider source fingerprint hash scheduler/executor/operator integration, playback artifact/source-read pressure, scan scheduling, or PostgreSQL runtime harness work. | Coordinate with playback input staging, library scan/probe lanes, and control-plane durable job policy before queue-backed work. |
 | web-product | Idle after Admin settings API restoration and previous Web Admin closeouts. | Consider backend/API contract follow-ons, generated SDK work, broader player UX, or desktop/native playback decisions. | Serialize with shared Admin DTO, generated contract, and auth/redaction changes. |
 | control-plane | Idle after the generic durable-job priority policy baseline. | Consider broader job-kind scheduler migration, diagnostics, remote access, API cache/scale, or durable-job operator surfaces once a Trellis task is opened. | Keep ADR 0053 as the baseline; avoid per-feature hidden runtimes. |
 
@@ -113,10 +113,10 @@ player UX, or desktop/native playback decisions.
 The `storage-vfs` lane is idle after
 `remote-storage-health-and-circuit-breaker` closeout and the source fingerprint
 escalation policy, hash execution, scheduling diagnostics, and durable job
-contract first slices.
-Open a Trellis task before starting cache repair, source fingerprint hash
-queue/operator integration, playback artifact I/O pressure, scan scheduling, or
-PostgreSQL runtime harness work.
+contract/internal enqueue first slices. Open a Trellis task before starting
+cache repair, source fingerprint hash scheduler/executor/operator integration,
+playback artifact I/O pressure, scan scheduling, or PostgreSQL runtime harness
+work.
 
 `audio-compatibility-downmix-normalization`,
 `transcode-interface-and-runtime-plan-deepening`, and

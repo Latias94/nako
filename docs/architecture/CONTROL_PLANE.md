@@ -41,7 +41,7 @@ Deployment Endpoint Config
 | HTTP addon protocol | Shipped foundation | ADR 0003; ADR 0015; ADR 0020 | Addon Manager lifecycle is still deferred. |
 | Addon capability and token scopes | Shipped foundation | addon token/grant workstreams | Stronger hosted surface and route policy. |
 | Addon process supervision | Deferred | ADR 0020; ADR 0053 | `addon-manager-process-lifecycle`. |
-| Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/` | Broader job-kind scheduler migration and source fingerprint hash execution remain follow-ons. |
+| Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract/internal enqueue, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/` | Broader job-kind scheduler migration and source fingerprint hash execution remain follow-ons. |
 | Runtime supervisor | Shipped resource-accounted foundation | ADR 0019; server runtime deepening; durable job queue/resource lane | Unified trace context and broader scheduler migration remain follow-ons. |
 | Resource classes and budgets | Shipped process-local foundation plus source fingerprint hash-to-`disk.scan` mapping | ADR 0005; playback/runtime lanes; durable job queue/resource lane | Continue migrating job kinds onto typed budget-admitted scheduler paths. |
 | Tracing/request identity | Partial with HLS and library scan job propagation | diagnostics and playback identity lanes | Continue unified trace context across jobs/FFmpeg/VFS/addons and broader scan entry points. |
@@ -63,12 +63,13 @@ capabilities and risks.
 
 ## Next Work Lanes
 
-### source-fingerprint-hash-durable-job-contract
+### source-fingerprint-hash-durable-job-contract-and-enqueue
 
-Status: First contract slice shipped as of 2026-06-05.
+Status: First contract and internal enqueue slices shipped as of 2026-06-05.
 
 Goal: Prepare future source fingerprint hash queue/operator integration without
-adding execution, API, schema, source lookup, or reconciliation behavior.
+adding execution, API, schema, evidence persistence, or reconciliation
+behavior.
 
 Shipped control-plane behavior:
 
@@ -78,11 +79,14 @@ Shipped control-plane behavior:
   hash mode;
 - `disk.scan.source_fingerprint_hash` is the persisted job resource class and
   maps to the existing `disk.scan` runtime budget class.
+- `nako-server::app::source_hash` can persist queued source fingerprint hash
+  jobs for an existing Media Source after verifying library ownership and
+  deriving only the current source scheme from the Source Locator.
 
 Follow-ons:
 
-- scan/operator enqueueing;
-- source lookup and VFS hash execution under durable leases;
+- scan/operator/API triggering beyond the internal app service;
+- scheduling and VFS hash execution under durable leases;
 - evidence persistence and redaction-safe Admin diagnostics;
 - any automatic duplicate reconciliation policy.
 

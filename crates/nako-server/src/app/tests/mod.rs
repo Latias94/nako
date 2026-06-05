@@ -84,6 +84,7 @@ mod managed_import;
 mod metadata;
 mod nfo;
 mod playback;
+mod source_hash;
 mod staging;
 mod startup;
 mod storage;

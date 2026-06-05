@@ -415,6 +415,8 @@ Shipped behavior:
   `JobKind::SourceFingerprintHash`, redaction-safe
   `SourceFingerprintHashJobInput`, and a `disk.scan` budget mapping for future
   queue-backed execution;
+- an internal server enqueue seam that persists source fingerprint hash jobs for
+  known Media Sources without scheduling or executing hash work;
 - source-scoped storage failure diagnostics.
 
 ### library-watcher-and-media-intake-stability

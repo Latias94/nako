@@ -43,8 +43,11 @@ crates/nako-server/src/
 - Source fingerprint hash durable jobs use
   `JobKind::SourceFingerprintHash` with
   `disk.scan.source_fingerprint_hash` as the persisted job resource class. Map
-  that class to the existing `disk.scan` runtime budget class; do not create a
-  separate hidden runtime or VFS executor during a contract-only slice.
+  that class to the existing `disk.scan` runtime budget class. The internal
+  enqueue service may load the current Media Source, derive only source scheme
+  from its locator, and persist `SourceFingerprintHashJobInput`; do not create
+  a separate hidden runtime, scheduler, API route, evidence writer, or VFS
+  executor during enqueue-only slices.
 - Resource admission belongs in app runtime helpers such as
   `app/playback/resource.rs`, not in pure planner crates.
 - Bounded resource-admission policy (for example immediate vs HLS supersede

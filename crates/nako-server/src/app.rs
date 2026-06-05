@@ -53,6 +53,7 @@ pub(crate) mod renderer;
 pub(crate) mod renderer_adapter;
 mod renderer_transport_ticket;
 mod runtime;
+mod source_hash;
 mod staging;
 mod startup;
 mod storage;
@@ -106,6 +107,9 @@ pub(crate) use renderer_transport_ticket::{
     RendererTransportTicketService, ValidateRendererTransportTicketRequest,
 };
 pub(crate) use runtime::{RuntimeResourceClassDiagnostics, RuntimeSupervisorDiagnostics};
+pub(crate) use source_hash::{
+    EnqueueSourceFingerprintHashRequest, SourceFingerprintHashAppService,
+};
 #[cfg(test)]
 use staging::cleanup_expired_staging_inputs;
 use startup::ServerStartupReport;
@@ -258,6 +262,11 @@ impl NakoApp {
     #[must_use]
     pub(crate) fn library_scan(&self) -> LibraryScanAppService {
         self.services().library_scan.clone()
+    }
+
+    #[must_use]
+    pub(crate) fn source_hash(&self) -> SourceFingerprintHashAppService {
+        self.services().source_hash.clone()
     }
 
     #[must_use]

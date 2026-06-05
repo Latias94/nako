@@ -27,6 +27,9 @@ Use these gates for `crates/nako-server` feature work.
   `runtime_budget_class_for_job_resource_class` with focused server tests,
   especially when a feature-specific persisted resource class maps onto an
   existing runtime budget such as `disk.scan`.
+- Internal source fingerprint hash enqueue changes must prove safe job input
+  serialization, missing-source rejection, cross-library rejection, and
+  locator/path/error-message redaction with focused app tests.
 
 ## Gate Selection
 
