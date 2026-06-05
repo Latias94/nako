@@ -160,7 +160,15 @@ Added a redaction-safe app-service planner that validates queued source fingerpr
 
 ### Main Changes
 
-(Add details)
+- Added `docs/deployment/REMOTE_ACCESS.md` with supported remote access shapes,
+  caveats, and explicit non-goals.
+- Added reverse-proxy and tunnel-provider config-check fixtures under
+  `deploy/remote-access/`.
+- Added PowerShell and Bash remote-access config gates that assert required
+  network checks pass and fixture-sensitive values stay redacted.
+- Linked the cookbook/gate from self-hosted docs and the release checklist.
+- Captured the remote access config gate contract in the nako-server quality
+  spec and marked the Trellis task completed.
 
 ### Git Commits
 
@@ -171,7 +179,11 @@ Added a redaction-safe app-service planner that validates queued source fingerpr
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\remote-access-config-gate.ps1
+- [OK] bash -n scripts/remote-access-config-gate.sh
+- [OK] python .trellis\scripts\task.py validate .trellis\tasks\06-05-remote-access-cookbook-config-gates
+- [OK] git diff --check
+- [INFO] Bash gate actual execution was not completed in WSL: non-login Bash lacked cargo; login Bash found cargo but WSL rustc 1.95.0 ICE'd before fixture assertions.
 
 ### Status
 
@@ -418,6 +430,40 @@ Implemented Public Client playback capability flat-field parity gates across pro
 | Hash | Message |
 |------|---------|
 | `c6fd77cd` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 58: Remote access cookbook config gate
+
+**Date**: 2026-06-05
+**Task**: Remote access cookbook config gate
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Added remote access cookbook docs, reverse-proxy and tunnel-provider config-check fixtures, cross-platform fixture gates, and the matching Trellis/server spec evidence.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8d37692c` | (see git log) |
 
 ### Testing
 

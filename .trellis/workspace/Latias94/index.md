@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 57
+- **Total Sessions**: 58
 - **Last Active**: 2026-06-05
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~410 | Active |
+| `journal-2.md` | ~466 | Active |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 58 | 2026-06-05 | Remote access cookbook config gate | `8d37692c` | `main` |
 | 57 | 2026-06-05 | Public playback capability parity gate | `c6fd77cd` | `main` |
 | 56 | 2026-06-05 | Open playback capability parity gate | `f959e70d` | `main` |
 | 55 | 2026-06-05 | Source hash job drilldown filters | `a4bbcb3f` | `main` |
