@@ -1,0 +1,13 @@
+{"file": ".trellis/spec/nako-core/backend/index.md", "reason": "Review source fingerprint domain and repository contract boundaries."}
+{"file": ".trellis/spec/nako-core/backend/database-guidelines.md", "reason": "Check persistence contract changes and adapter leakage."}
+{"file": ".trellis/spec/nako-core/backend/quality-guidelines.md", "reason": "Check cross-crate contract tests and domain consistency."}
+{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "Review persistence adapter behavior if touched."}
+{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "Check SQLite/PostgreSQL parity and migration discipline."}
+{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "Check focused DB/contract-test coverage if touched."}
+{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "Verify hash evidence redaction contract remains intact."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Review app-service execution/persistence boundary."}
+{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Verify no API/runtime scope creep."}
+{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "Verify no raw locator/hash material leaks."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify focused tests and command gates."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Check data flow from VFS hash report into persisted source/state evidence."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Check helper reuse and avoid duplicating scan reconciliation logic."}
