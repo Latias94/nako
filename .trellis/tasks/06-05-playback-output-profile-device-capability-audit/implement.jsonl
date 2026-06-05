@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Playback capability contracts span client API, playback planning, transcode planning, and Admin diagnostics."}
+{"file": ".trellis/spec/nako-playback/backend/index.md", "reason": "Playback planning boundary."}
+{"file": ".trellis/spec/nako-transcode/backend/index.md", "reason": "Transcode and FFmpeg planning boundary."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server playback runtime and diagnostics boundary."}
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Public/Admin DTO boundary if capability contracts are discussed."}
+{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/playback-decoding-transcode.md", "reason": "Parent playback/decoding/transcode audit findings."}
+{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/synthesis.md", "reason": "Cross-lane priority and parallelization constraints."}

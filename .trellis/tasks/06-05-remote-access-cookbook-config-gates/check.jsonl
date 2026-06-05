@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Check docs/fixtures against config and HTTP policy boundaries."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Check config/preflight and network redaction expectations."}
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Check Admin diagnostics contract only if touched."}
+{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/remote-access-network-operations.md", "reason": "Check output against parent remote access audit."}
+{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/synthesis.md", "reason": "Check output against cross-lane constraints."}

@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Addon resource flows span protocol, server app policy, Admin/API, and automation."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Evaluate repeated resource-flow patterns without inventing hypothetical seams."}
+{"file": ".trellis/spec/nako-addon-protocol/backend/index.md", "reason": "Addon Protocol boundary and permissive contract rules."}
+{"file": ".trellis/spec/nako-addon-client/backend/index.md", "reason": "Addon Sidecar client boundary."}
+{"file": ".trellis/spec/nako-automation/backend/index.md", "reason": "Generated Artifact and Automation Provider governance."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server app and HTTP boundary for host-owned Addon side effects."}
+{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/addon-boundary-automation.md", "reason": "Parent Addon boundary audit findings."}
+{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/synthesis.md", "reason": "Cross-lane priority and parallelization constraints."}

@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Remote access docs and config gates span config, HTTP policy, deployment, and Admin diagnostics."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server config/preflight and network policy conventions."}
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Admin diagnostics contract if config-check output or DTOs are touched."}
+{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/remote-access-network-operations.md", "reason": "Parent remote access/network operations audit findings."}
+{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/synthesis.md", "reason": "Cross-lane priority and parallelization constraints."}

@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Check resource-flow recommendations across protocol/server/Admin layers."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Check refactor/deepening recommendations for real duplication."}
+{"file": ".trellis/spec/nako-addon-protocol/backend/index.md", "reason": "Check protocol boundary recommendations."}
+{"file": ".trellis/spec/nako-addon-client/backend/index.md", "reason": "Check sidecar client implications."}
+{"file": ".trellis/spec/nako-automation/backend/index.md", "reason": "Check Automation/Generated Artifact governance implications."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Check server host-owned side-effect boundary."}
+{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/addon-boundary-automation.md", "reason": "Check output against parent Addon audit."}
+{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/synthesis.md", "reason": "Check output against cross-lane constraints."}
