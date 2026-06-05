@@ -1533,3 +1533,125 @@ fn csv_or_default(value: Option<String>, default: Vec<String>) -> Vec<String> {
 
     if values.is_empty() { default } else { values }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_flat_capabilities(capabilities: ClientPlaybackCapabilities) {
+        assert!(!capabilities.direct_play);
+        assert_eq!(
+            capabilities.containers,
+            vec!["mp4".to_owned(), "webm".to_owned()]
+        );
+        assert_eq!(
+            capabilities.video_codecs,
+            vec!["h264".to_owned(), "hevc".to_owned()]
+        );
+        assert_eq!(
+            capabilities.audio_codecs,
+            vec!["aac".to_owned(), "opus".to_owned()]
+        );
+        assert_eq!(capabilities.max_video_bitrate, Some(8_000_000));
+        assert_eq!(capabilities.max_width, Some(1920));
+        assert_eq!(capabilities.max_height, Some(1080));
+        assert_eq!(capabilities.max_audio_channels, Some(2));
+        assert!(!capabilities.supports_hdr);
+        assert!(capabilities.supports_subtitles);
+        assert_eq!(
+            capabilities.hls_variant_policy,
+            PlaybackHlsVariantPolicy::Adaptive
+        );
+        assert_eq!(
+            capabilities.hls_segment_container,
+            PlaybackHlsSegmentContainer::Fmp4
+        );
+    }
+
+    #[test]
+    fn playback_capability_queries_map_all_current_flat_fields() {
+        let query = PlaybackCapabilitiesQuery {
+            direct_play: Some(false),
+            container: Some("mp4,webm".to_owned()),
+            video_codec: Some("h264,hevc".to_owned()),
+            audio_codec: Some("aac,opus".to_owned()),
+            max_video_bitrate: Some(8_000_000),
+            max_width: Some(1920),
+            max_height: Some(1080),
+            max_audio_channels: Some(2),
+            supports_hdr: Some(false),
+            supports_subtitles: Some(true),
+            hls_variant_policy: Some(PlaybackHlsVariantPolicy::Adaptive),
+            hls_segment_container: Some(PlaybackHlsSegmentContainer::Fmp4),
+        };
+
+        assert_flat_capabilities(ClientPlaybackCapabilities::from(query.clone()));
+
+        let remux = RemuxPlaybackQuery {
+            direct_play: query.direct_play,
+            container: query.container.clone(),
+            video_codec: query.video_codec.clone(),
+            audio_codec: query.audio_codec.clone(),
+            max_video_bitrate: query.max_video_bitrate,
+            max_width: query.max_width,
+            max_height: query.max_height,
+            max_audio_channels: query.max_audio_channels,
+            supports_hdr: query.supports_hdr,
+            supports_subtitles: query.supports_subtitles,
+            hls_variant_policy: query.hls_variant_policy,
+            hls_segment_container: query.hls_segment_container,
+            output_container: Some(RemuxContainer::Mkv),
+            ticket: None,
+            renderer_session_id: None,
+            playback_session_id: None,
+            renderer_ticket: None,
+        };
+        assert_flat_capabilities(ClientPlaybackCapabilities::from(remux.capabilities()));
+
+        let hls = HlsPlaybackQuery {
+            direct_play: query.direct_play,
+            container: query.container,
+            video_codec: query.video_codec,
+            audio_codec: query.audio_codec,
+            max_video_bitrate: query.max_video_bitrate,
+            max_width: query.max_width,
+            max_height: query.max_height,
+            max_audio_channels: query.max_audio_channels,
+            supports_hdr: query.supports_hdr,
+            supports_subtitles: query.supports_subtitles,
+            hls_variant_policy: query.hls_variant_policy,
+            hls_segment_container: query.hls_segment_container,
+            start_position_ms: Some(120_000),
+            audio_stream: Some(1),
+            preferred_audio_language: Some("eng,jpn".to_owned()),
+            subtitle_stream: Some(2),
+            preferred_subtitle_language: Some("eng".to_owned()),
+            ticket: None,
+            renderer_session_id: None,
+            playback_session_id: None,
+            renderer_ticket: None,
+        };
+        assert_flat_capabilities(ClientPlaybackCapabilities::from(hls.capabilities()));
+    }
+
+    #[test]
+    fn browser_playback_ticket_capabilities_map_all_current_flat_fields() {
+        let capabilities = BrowserPlaybackCapabilitiesDto {
+            direct_play: Some(false),
+            container: Some(vec!["mp4".to_owned(), "webm".to_owned()]),
+            video_codec: Some(vec!["h264".to_owned(), "hevc".to_owned()]),
+            audio_codec: Some(vec!["aac".to_owned(), "opus".to_owned()]),
+            max_video_bitrate: Some(8_000_000),
+            max_width: Some(1920),
+            max_height: Some(1080),
+            max_audio_channels: Some(2),
+            supports_hdr: Some(false),
+            supports_subtitles: Some(true),
+            hls_variant_policy: Some(ClientHlsVariantPolicy::Adaptive),
+            hls_segment_container: Some(ClientHlsSegmentContainer::Fmp4),
+            output_container: Some(BrowserPlaybackOutputContainer::Mkv),
+        };
+
+        assert_flat_capabilities(browser_capabilities_to_client(Some(&capabilities)).unwrap());
+    }
+}

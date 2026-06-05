@@ -1,20 +1,23 @@
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct CorePlaybackCapabilities {
     pub direct_play: Option<bool>,
     pub containers: Vec<String>,
     pub video_codecs: Vec<String>,
     pub audio_codecs: Vec<String>,
+    pub max_video_bitrate: Option<u64>,
+    pub max_width: Option<u32>,
+    pub max_height: Option<u32>,
+    pub max_audio_channels: Option<u32>,
+    pub supports_hdr: Option<bool>,
+    pub supports_subtitles: Option<bool>,
+    pub hls_variant_policy: Option<CoreHlsVariantPolicy>,
+    pub hls_segment_container: Option<CoreHlsSegmentContainer>,
 }
 
 impl CorePlaybackCapabilities {
     #[must_use]
     pub fn empty() -> Self {
-        Self {
-            direct_play: None,
-            containers: Vec::new(),
-            video_codecs: Vec::new(),
-            audio_codecs: Vec::new(),
-        }
+        Self::default()
     }
 }
 
@@ -53,6 +56,20 @@ pub enum CoreOutputContainer {
     Hls,
     Mp4,
     Mkv,
+    Unknown,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CoreHlsVariantPolicy {
+    SingleVariant,
+    Adaptive,
+    Unknown,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CoreHlsSegmentContainer {
+    MpegTs,
+    Fmp4,
     Unknown,
 }
 
@@ -365,6 +382,54 @@ fn playback_capability_query(
             capabilities.audio_codecs.join(","),
         ));
     }
+    if let Some(max_video_bitrate) = capabilities.max_video_bitrate {
+        query.push(crate::CoreQueryParam::new(
+            "max_video_bitrate",
+            max_video_bitrate.to_string(),
+        ));
+    }
+    if let Some(max_width) = capabilities.max_width {
+        query.push(crate::CoreQueryParam::new(
+            "max_width",
+            max_width.to_string(),
+        ));
+    }
+    if let Some(max_height) = capabilities.max_height {
+        query.push(crate::CoreQueryParam::new(
+            "max_height",
+            max_height.to_string(),
+        ));
+    }
+    if let Some(max_audio_channels) = capabilities.max_audio_channels {
+        query.push(crate::CoreQueryParam::new(
+            "max_audio_channels",
+            max_audio_channels.to_string(),
+        ));
+    }
+    if let Some(supports_hdr) = capabilities.supports_hdr {
+        query.push(crate::CoreQueryParam::new(
+            "supports_hdr",
+            supports_hdr.to_string(),
+        ));
+    }
+    if let Some(supports_subtitles) = capabilities.supports_subtitles {
+        query.push(crate::CoreQueryParam::new(
+            "supports_subtitles",
+            supports_subtitles.to_string(),
+        ));
+    }
+    if let Some(value) = capabilities
+        .hls_variant_policy
+        .and_then(hls_variant_policy_wire_value)
+    {
+        query.push(crate::CoreQueryParam::new("hls_variant_policy", value));
+    }
+    if let Some(value) = capabilities
+        .hls_segment_container
+        .and_then(hls_segment_container_wire_value)
+    {
+        query.push(crate::CoreQueryParam::new("hls_segment_container", value));
+    }
     query
 }
 
@@ -392,5 +457,21 @@ fn output_container_wire_value(value: CoreOutputContainer) -> Option<&'static st
         CoreOutputContainer::Hls | CoreOutputContainer::Unknown => None,
         CoreOutputContainer::Mp4 => Some("mp4"),
         CoreOutputContainer::Mkv => Some("mkv"),
+    }
+}
+
+fn hls_variant_policy_wire_value(value: CoreHlsVariantPolicy) -> Option<&'static str> {
+    match value {
+        CoreHlsVariantPolicy::SingleVariant => Some("single_variant"),
+        CoreHlsVariantPolicy::Adaptive => Some("adaptive"),
+        CoreHlsVariantPolicy::Unknown => None,
+    }
+}
+
+fn hls_segment_container_wire_value(value: CoreHlsSegmentContainer) -> Option<&'static str> {
+    match value {
+        CoreHlsSegmentContainer::MpegTs => Some("mpeg_ts"),
+        CoreHlsSegmentContainer::Fmp4 => Some("fmp4"),
+        CoreHlsSegmentContainer::Unknown => None,
     }
 }

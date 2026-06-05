@@ -18,3 +18,4 @@
 {"file": ".trellis/tasks/06-05-playback-output-profile-device-capability-audit/prd.md", "reason": "Check against completed playback audit prerequisite and out-of-scope decisions."}
 {"file": ".trellis/tasks/06-05-playback-output-profile-device-capability-audit/research/public-client-admin-capability-contract.md", "reason": "Check current capability field drift and Public/Admin capability boundary."}
 {"file": ".trellis/tasks/06-05-playback-output-profile-device-capability-audit/research/playback-transcode-profile-boundary.md", "reason": "Check playback/transcode/server boundaries and unsafe parallel work."}
+{"file": ".trellis/tasks/06-05-public-client-playback-capability-contract-parity-gate/research/public-client-playback-capability-field-inventory.md", "reason": "Check the final flat field inventory, parity surface list, public boundary, and deferred follow-on."}

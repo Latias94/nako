@@ -10,6 +10,14 @@ pub struct CorePlaybackCapabilities {
     pub containers: Vec<String>,
     pub video_codecs: Vec<String>,
     pub audio_codecs: Vec<String>,
+    pub max_video_bitrate: Option<u64>,
+    pub max_width: Option<u32>,
+    pub max_height: Option<u32>,
+    pub max_audio_channels: Option<u32>,
+    pub supports_hdr: Option<bool>,
+    pub supports_subtitles: Option<bool>,
+    pub hls_variant_policy: Option<CoreHlsVariantPolicy>,
+    pub hls_segment_container: Option<CoreHlsSegmentContainer>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, uniffi::Record)]
@@ -93,6 +101,20 @@ pub enum CoreOutputContainer {
     Hls,
     Mp4,
     Mkv,
+    Unknown,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, uniffi::Enum)]
+pub enum CoreHlsVariantPolicy {
+    SingleVariant,
+    Adaptive,
+    Unknown,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, uniffi::Enum)]
+pub enum CoreHlsSegmentContainer {
+    MpegTs,
+    Fmp4,
     Unknown,
 }
 
@@ -562,6 +584,14 @@ impl From<CorePlaybackCapabilities> for nako_client_core::CorePlaybackCapabiliti
             containers: value.containers,
             video_codecs: value.video_codecs,
             audio_codecs: value.audio_codecs,
+            max_video_bitrate: value.max_video_bitrate,
+            max_width: value.max_width,
+            max_height: value.max_height,
+            max_audio_channels: value.max_audio_channels,
+            supports_hdr: value.supports_hdr,
+            supports_subtitles: value.supports_subtitles,
+            hls_variant_policy: value.hls_variant_policy.map(Into::into),
+            hls_segment_container: value.hls_segment_container.map(Into::into),
         }
     }
 }
@@ -606,6 +636,26 @@ impl From<CoreOutputContainer> for nako_client_core::CoreOutputContainer {
             CoreOutputContainer::Mp4 => Self::Mp4,
             CoreOutputContainer::Mkv => Self::Mkv,
             CoreOutputContainer::Unknown => Self::Unknown,
+        }
+    }
+}
+
+impl From<CoreHlsVariantPolicy> for nako_client_core::CoreHlsVariantPolicy {
+    fn from(value: CoreHlsVariantPolicy) -> Self {
+        match value {
+            CoreHlsVariantPolicy::SingleVariant => Self::SingleVariant,
+            CoreHlsVariantPolicy::Adaptive => Self::Adaptive,
+            CoreHlsVariantPolicy::Unknown => Self::Unknown,
+        }
+    }
+}
+
+impl From<CoreHlsSegmentContainer> for nako_client_core::CoreHlsSegmentContainer {
+    fn from(value: CoreHlsSegmentContainer) -> Self {
+        match value {
+            CoreHlsSegmentContainer::MpegTs => Self::MpegTs,
+            CoreHlsSegmentContainer::Fmp4 => Self::Fmp4,
+            CoreHlsSegmentContainer::Unknown => Self::Unknown,
         }
     }
 }
@@ -796,6 +846,14 @@ mod tests {
                 containers: Vec::new(),
                 video_codecs: Vec::new(),
                 audio_codecs: Vec::new(),
+                max_video_bitrate: None,
+                max_width: None,
+                max_height: None,
+                max_audio_channels: None,
+                supports_hdr: None,
+                supports_subtitles: None,
+                hls_variant_policy: None,
+                hls_segment_container: None,
             },
         )
         .unwrap();
@@ -818,12 +876,48 @@ mod tests {
                 containers: Vec::new(),
                 video_codecs: Vec::new(),
                 audio_codecs: Vec::new(),
+                max_video_bitrate: None,
+                max_width: None,
+                max_height: None,
+                max_audio_channels: None,
+                supports_hdr: None,
+                supports_subtitles: None,
+                hls_variant_policy: None,
+                hls_segment_container: None,
             },
             Some(CoreOutputContainer::Hls),
         );
         assert_eq!(
             explicit.request.url,
             "https://nako.example/api/sources/source%201/stream/remux"
+        );
+    }
+
+    #[test]
+    fn uniffi_surface_preserves_full_playback_capability_query_fields() {
+        let request = build_playback_decision_request(
+            "https://nako.example/api".to_owned(),
+            "secret-token".to_owned(),
+            "source 1".to_owned(),
+            CorePlaybackCapabilities {
+                direct_play: Some(false),
+                containers: vec!["mp4".to_owned(), "webm".to_owned()],
+                video_codecs: vec!["h264".to_owned()],
+                audio_codecs: vec!["aac".to_owned()],
+                max_video_bitrate: Some(8_000_000),
+                max_width: Some(1920),
+                max_height: Some(1080),
+                max_audio_channels: Some(2),
+                supports_hdr: Some(false),
+                supports_subtitles: Some(true),
+                hls_variant_policy: Some(CoreHlsVariantPolicy::Adaptive),
+                hls_segment_container: Some(CoreHlsSegmentContainer::Fmp4),
+            },
+        );
+
+        assert_eq!(
+            request.url,
+            "https://nako.example/api/sources/source%201/playback/decision?direct_play=false&container=mp4%2Cwebm&video_codec=h264&audio_codec=aac&max_video_bitrate=8000000&max_width=1920&max_height=1080&max_audio_channels=2&supports_hdr=false&supports_subtitles=true&hls_variant_policy=adaptive&hls_segment_container=fmp4"
         );
     }
 

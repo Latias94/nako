@@ -499,3 +499,54 @@ fn renderer_command_state_from_client(
         message: format!("unsupported renderer command state: {}", state.wire_value()),
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn renderer_media_capabilities_map_all_current_flat_fields() {
+        let capabilities = client_playback_capabilities(ClientPlaybackCapabilitiesDto {
+            direct_play: false,
+            containers: vec!["mp4".to_owned(), "webm".to_owned()],
+            video_codecs: vec!["h264".to_owned(), "hevc".to_owned()],
+            audio_codecs: vec!["aac".to_owned(), "opus".to_owned()],
+            max_video_bitrate: Some(8_000_000),
+            max_width: Some(1920),
+            max_height: Some(1080),
+            max_audio_channels: Some(2),
+            supports_hdr: Some(false),
+            supports_subtitles: Some(true),
+            hls_variant_policy: Some(ClientHlsVariantPolicy::Adaptive),
+            hls_segment_container: Some(ClientHlsSegmentContainer::Fmp4),
+        });
+
+        assert!(!capabilities.direct_play);
+        assert_eq!(
+            capabilities.containers,
+            vec!["mp4".to_owned(), "webm".to_owned()]
+        );
+        assert_eq!(
+            capabilities.video_codecs,
+            vec!["h264".to_owned(), "hevc".to_owned()]
+        );
+        assert_eq!(
+            capabilities.audio_codecs,
+            vec!["aac".to_owned(), "opus".to_owned()]
+        );
+        assert_eq!(capabilities.max_video_bitrate, Some(8_000_000));
+        assert_eq!(capabilities.max_width, Some(1920));
+        assert_eq!(capabilities.max_height, Some(1080));
+        assert_eq!(capabilities.max_audio_channels, Some(2));
+        assert!(!capabilities.supports_hdr);
+        assert!(capabilities.supports_subtitles);
+        assert_eq!(
+            capabilities.hls_variant_policy,
+            PlaybackHlsVariantPolicy::Adaptive
+        );
+        assert_eq!(
+            capabilities.hls_segment_container,
+            PlaybackHlsSegmentContainer::Fmp4
+        );
+    }
+}

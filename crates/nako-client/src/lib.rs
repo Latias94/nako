@@ -1906,7 +1906,7 @@ mod tests {
                     direct_play: Some(true),
                     container: Some("mp4,webm"),
                     video_codec: Some("h264"),
-                    audio_codec: None,
+                    audio_codec: Some("aac"),
                     max_video_bitrate: Some(8_000_000),
                     max_width: Some(1920),
                     max_height: Some(1080),
@@ -1951,7 +1951,7 @@ mod tests {
         let requests = transport.requests();
         assert_eq!(
             requests[0].url.as_str(),
-            "http://localhost:3000/sources/source%201/playback/decision?direct_play=true&container=mp4%2Cwebm&video_codec=h264&max_video_bitrate=8000000&max_width=1920&max_height=1080&max_audio_channels=2&supports_hdr=false&supports_subtitles=false&hls_variant_policy=adaptive&hls_segment_container=fmp4"
+            "http://localhost:3000/sources/source%201/playback/decision?direct_play=true&container=mp4%2Cwebm&video_codec=h264&audio_codec=aac&max_video_bitrate=8000000&max_width=1920&max_height=1080&max_audio_channels=2&supports_hdr=false&supports_subtitles=false&hls_variant_policy=adaptive&hls_segment_container=fmp4"
         );
         assert_eq!(
             requests[1].url.as_str(),
@@ -2330,6 +2330,14 @@ mod tests {
                         container: Some("mp4,mkv"),
                         video_codec: Some("h264"),
                         audio_codec: Some("aac"),
+                        max_video_bitrate: Some(8_000_000),
+                        max_width: Some(1920),
+                        max_height: Some(1080),
+                        max_audio_channels: Some(2),
+                        supports_hdr: Some(false),
+                        supports_subtitles: Some(false),
+                        hls_variant_policy: Some(ClientHlsVariantPolicy::SingleVariant),
+                        hls_segment_container: Some(ClientHlsSegmentContainer::MpegTs),
                         ..PlaybackCapabilitiesQuery::default()
                     },
                     output_container: Some(ClientOutputContainer::Mkv),
@@ -2346,6 +2354,14 @@ mod tests {
                         container: Some("mp4,mkv"),
                         video_codec: Some("h264"),
                         audio_codec: Some("aac"),
+                        max_video_bitrate: Some(8_000_000),
+                        max_width: Some(1920),
+                        max_height: Some(1080),
+                        max_audio_channels: Some(2),
+                        supports_hdr: Some(false),
+                        supports_subtitles: Some(false),
+                        hls_variant_policy: Some(ClientHlsVariantPolicy::SingleVariant),
+                        hls_segment_container: Some(ClientHlsSegmentContainer::MpegTs),
                         ..PlaybackCapabilitiesQuery::default()
                     },
                     output_container: Some(ClientOutputContainer::Mkv),
@@ -2359,7 +2375,15 @@ mod tests {
                     direct_play: None,
                     container: Some("hls"),
                     video_codec: Some("h264"),
-                    audio_codec: None,
+                    audio_codec: Some("aac"),
+                    max_video_bitrate: Some(4_000_000),
+                    max_width: Some(1280),
+                    max_height: Some(720),
+                    max_audio_channels: Some(2),
+                    supports_hdr: Some(false),
+                    supports_subtitles: Some(true),
+                    hls_variant_policy: Some(ClientHlsVariantPolicy::Adaptive),
+                    hls_segment_container: Some(ClientHlsSegmentContainer::Fmp4),
                     ..PlaybackCapabilitiesQuery::default()
                 }),
             )
@@ -2404,15 +2428,15 @@ mod tests {
         );
         assert_eq!(
             remux.url.as_str(),
-            "http://localhost:3000/api/sources/source%201/stream/remux?direct_play=false&container=mp4%2Cmkv&video_codec=h264&audio_codec=aac&output_container=mkv"
+            "http://localhost:3000/api/sources/source%201/stream/remux?direct_play=false&container=mp4%2Cmkv&video_codec=h264&audio_codec=aac&max_video_bitrate=8000000&max_width=1920&max_height=1080&max_audio_channels=2&supports_hdr=false&supports_subtitles=false&hls_variant_policy=single_variant&hls_segment_container=mpeg_ts&output_container=mkv"
         );
         assert_eq!(
             remux_head.url.as_str(),
-            "http://localhost:3000/api/sources/source%201/stream/remux?direct_play=false&container=mp4%2Cmkv&video_codec=h264&audio_codec=aac&output_container=mkv"
+            "http://localhost:3000/api/sources/source%201/stream/remux?direct_play=false&container=mp4%2Cmkv&video_codec=h264&audio_codec=aac&max_video_bitrate=8000000&max_width=1920&max_height=1080&max_audio_channels=2&supports_hdr=false&supports_subtitles=false&hls_variant_policy=single_variant&hls_segment_container=mpeg_ts&output_container=mkv"
         );
         assert_eq!(
             playlist.url.as_str(),
-            "http://localhost:3000/api/sources/source%201/stream/hls/playlist.m3u8?container=hls&video_codec=h264"
+            "http://localhost:3000/api/sources/source%201/stream/hls/playlist.m3u8?container=hls&video_codec=h264&audio_codec=aac&max_video_bitrate=4000000&max_width=1280&max_height=720&max_audio_channels=2&supports_hdr=false&supports_subtitles=true&hls_variant_policy=adaptive&hls_segment_container=fmp4"
         );
         assert_eq!(
             segment.url.as_str(),

@@ -160,11 +160,20 @@ If the route is intentionally server-only for the slice, add it to
 - Browser ticket body:
   `BrowserPlaybackTicketRequest { capabilities:
   Option<BrowserPlaybackCapabilitiesDto> }`.
+- Flat v1 Public Client playback capability query/body fields:
+  `direct_play`, `container`, `video_codec`, `audio_codec`,
+  `max_video_bitrate`, `max_width`, `max_height`, `max_audio_channels`,
+  `supports_hdr`, `supports_subtitles`, `hls_variant_policy`, and
+  `hls_segment_container`.
+- Remux stream query and browser ticket remux planning may additionally carry
+  `output_container`.
 - Renderer body:
   `RendererRegistrationRequest.media_capabilities` and
   `RendererHeartbeatRequest.media_capabilities`.
 - Public client capability response/session shape:
-  `ClientPlaybackCapabilitiesDto`.
+  `ClientPlaybackCapabilitiesDto`, where `container`, `video_codec`, and
+  `audio_codec` are represented as response/body fields `containers`,
+  `video_codecs`, and `audio_codecs`.
 - Server query mapping:
   `PlaybackCapabilitiesQuery -> ClientPlaybackCapabilities`.
 - Server browser body mapping:
@@ -180,6 +189,9 @@ If the route is intentionally server-only for the slice, add it to
   OpenAPI schemas/query parameters, Rust client query builders,
   `nako-client-core`, generated SDK query surfaces, server query/body mapping,
   and HTTP API docs.
+- Query wire values are singular snake_case request-preference names. Renderer
+  and session capability DTO collection fields are pluralized because they
+  describe accepted capability sets.
 - Public Client capability DTOs describe client/player facts and request
   preferences only. They must not expose Admin-only diagnostics, FFmpeg command
   facts, hardware probe facts, GPU/device paths, resource pressure, or operator
@@ -197,6 +209,8 @@ If the route is intentionally server-only for the slice, add it to
 | Field only belongs to Admin diagnostics | Keep it out of Public Client DTOs and expose it through Admin DTOs with redaction tests |
 | Field changes planner output | Include it in playback profile identity and add planner tests |
 | Field is optional additive profile data | Preserve existing flat-field behavior when it is absent |
+| Client/core/UniFFI/Kotlin query builder omits a supported flat field | Builder round-trip tests must fail until the query renderer is updated |
+| Renderer or browser ticket body omits a supported flat field | Server private mapping tests must fail until body mapping is updated |
 | Generated contract drift | Focused `nako-api` contract/OpenAPI/SDK tests must fail until regenerated or updated |
 | HTTP docs omit a supported query/body field | Treat as contract drift and update `docs/api/HTTP_API.md` |
 
@@ -219,13 +233,19 @@ If the route is intentionally server-only for the slice, add it to
 
 - API/OpenAPI/SDK contract tests:
   `cargo nextest run -p nako-api --no-fail-fast`.
+- Protocol field-set gate:
+  `cargo nextest run -p nako-client-protocol public_playback_capability_dtos_keep_current_flat_field_contract --no-fail-fast`.
 - Rust client/client-core tests when query/body builders change:
   `cargo nextest run -p nako-client -p nako-client-core --no-fail-fast`.
+- UniFFI mirror tests when `CorePlaybackCapabilities` changes:
+  `cargo nextest run -p nako-client-uniffi --no-fail-fast`.
 - Server route tests for query/body mapping when HTTP handlers change:
   focused `nako-server` playback or renderer route tests.
 - Playback planner tests when new capability facts can affect decision output
   or profile identity.
 - Generated SDK/doc checks appropriate to the changed generated artifacts.
+  Kotlin generated output must be refreshed with
+  `cargo run -q -p nako-api --example emit-kotlin-sdk -- --output sdk/kotlin/src/main/kotlin/dev/nako/sdk/NakoClientSdk.kt`.
 - Formatting and whitespace:
   `cargo fmt --all -- --check` and `git diff --check`.
 

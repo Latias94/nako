@@ -102,6 +102,14 @@ public data class PlaybackCapabilitiesQuery(
     public val containers: List<String> = emptyList(),
     public val videoCodecs: List<String> = emptyList(),
     public val audioCodecs: List<String> = emptyList(),
+    public val maxVideoBitrate: Long? = null,
+    public val maxWidth: Int? = null,
+    public val maxHeight: Int? = null,
+    public val maxAudioChannels: Int? = null,
+    public val supportsHdr: Boolean? = null,
+    public val supportsSubtitles: Boolean? = null,
+    public val hlsVariantPolicy: ClientHlsVariantPolicy? = null,
+    public val hlsSegmentContainer: ClientHlsSegmentContainer? = null,
 )
 
 @JvmInline
@@ -128,6 +136,14 @@ public data class RemuxPlaybackQuery(
     public val containers: List<String> = emptyList(),
     public val videoCodecs: List<String> = emptyList(),
     public val audioCodecs: List<String> = emptyList(),
+    public val maxVideoBitrate: Long? = null,
+    public val maxWidth: Int? = null,
+    public val maxHeight: Int? = null,
+    public val maxAudioChannels: Int? = null,
+    public val supportsHdr: Boolean? = null,
+    public val supportsSubtitles: Boolean? = null,
+    public val hlsVariantPolicy: ClientHlsVariantPolicy? = null,
+    public val hlsSegmentContainer: ClientHlsSegmentContainer? = null,
     public val outputContainer: RemuxOutputContainer? = null,
 )
 
@@ -136,6 +152,14 @@ public data class HlsPlaybackQuery(
     public val containers: List<String> = emptyList(),
     public val videoCodecs: List<String> = emptyList(),
     public val audioCodecs: List<String> = emptyList(),
+    public val maxVideoBitrate: Long? = null,
+    public val maxWidth: Int? = null,
+    public val maxHeight: Int? = null,
+    public val maxAudioChannels: Int? = null,
+    public val supportsHdr: Boolean? = null,
+    public val supportsSubtitles: Boolean? = null,
+    public val hlsVariantPolicy: ClientHlsVariantPolicy? = null,
+    public val hlsSegmentContainer: ClientHlsSegmentContainer? = null,
     public val preferredAudioLanguages: List<String> = emptyList(),
     public val preferredSubtitleLanguages: List<String> = emptyList(),
     public val startPositionMs: Long? = null,
@@ -612,6 +636,30 @@ public object NakoPublicClientRequests {
             addCsv("container", capabilities.containers)
             addCsv("video_codec", capabilities.videoCodecs)
             addCsv("audio_codec", capabilities.audioCodecs)
+            capabilities.maxVideoBitrate?.let {
+                add("max_video_bitrate" to it.toString())
+            }
+            capabilities.maxWidth?.let {
+                add("max_width" to it.toString())
+            }
+            capabilities.maxHeight?.let {
+                add("max_height" to it.toString())
+            }
+            capabilities.maxAudioChannels?.let {
+                add("max_audio_channels" to it.toString())
+            }
+            capabilities.supportsHdr?.let {
+                add("supports_hdr" to it.toString())
+            }
+            capabilities.supportsSubtitles?.let {
+                add("supports_subtitles" to it.toString())
+            }
+            capabilities.hlsVariantPolicy?.let {
+                add("hls_variant_policy" to it.wireValue)
+            }
+            capabilities.hlsSegmentContainer?.let {
+                add("hls_segment_container" to it.wireValue)
+            }
         }
 
     private fun remuxPlaybackQuery(
@@ -624,6 +672,30 @@ public object NakoPublicClientRequests {
             addCsv("container", query.containers)
             addCsv("video_codec", query.videoCodecs)
             addCsv("audio_codec", query.audioCodecs)
+            query.maxVideoBitrate?.let {
+                add("max_video_bitrate" to it.toString())
+            }
+            query.maxWidth?.let {
+                add("max_width" to it.toString())
+            }
+            query.maxHeight?.let {
+                add("max_height" to it.toString())
+            }
+            query.maxAudioChannels?.let {
+                add("max_audio_channels" to it.toString())
+            }
+            query.supportsHdr?.let {
+                add("supports_hdr" to it.toString())
+            }
+            query.supportsSubtitles?.let {
+                add("supports_subtitles" to it.toString())
+            }
+            query.hlsVariantPolicy?.let {
+                add("hls_variant_policy" to it.wireValue)
+            }
+            query.hlsSegmentContainer?.let {
+                add("hls_segment_container" to it.wireValue)
+            }
             query.outputContainer?.let {
                 add("output_container" to it.wireValue)
             }
@@ -639,6 +711,30 @@ public object NakoPublicClientRequests {
             addCsv("container", query.containers)
             addCsv("video_codec", query.videoCodecs)
             addCsv("audio_codec", query.audioCodecs)
+            query.maxVideoBitrate?.let {
+                add("max_video_bitrate" to it.toString())
+            }
+            query.maxWidth?.let {
+                add("max_width" to it.toString())
+            }
+            query.maxHeight?.let {
+                add("max_height" to it.toString())
+            }
+            query.maxAudioChannels?.let {
+                add("max_audio_channels" to it.toString())
+            }
+            query.supportsHdr?.let {
+                add("supports_hdr" to it.toString())
+            }
+            query.supportsSubtitles?.let {
+                add("supports_subtitles" to it.toString())
+            }
+            query.hlsVariantPolicy?.let {
+                add("hls_variant_policy" to it.wireValue)
+            }
+            query.hlsSegmentContainer?.let {
+                add("hls_segment_container" to it.wireValue)
+            }
             addCsv("preferred_audio_language", query.preferredAudioLanguages)
             addCsv("preferred_subtitle_language", query.preferredSubtitleLanguages)
             query.startPositionMs?.let {

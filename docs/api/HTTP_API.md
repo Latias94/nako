@@ -1044,7 +1044,26 @@ direct_play=true
 container=mp4,webm
 video_codec=h264,hevc
 audio_codec=aac,opus
+max_video_bitrate=8000000
+max_width=1920
+max_height=1080
+max_audio_channels=2
+supports_hdr=false
+supports_subtitles=true
+hls_variant_policy=single_variant|adaptive
+hls_segment_container=mpeg_ts|fmp4
 ```
+
+The same flat Public Client playback capability fields are accepted by remux
+and HLS playback query builders. Browser playback tickets accept the same
+capability fields in `capabilities`, plus `output_container=mp4|mkv` for
+explicit remux ticket planning. Renderer registration and heartbeat bodies use
+the response/session capability field names `containers`, `video_codecs`, and
+`audio_codecs` with the same bitrate, resolution, audio-channel, HDR,
+subtitle, and HLS policy fields. These fields describe client/player facts and
+request preferences only; FFmpeg, hardware/GPU, operator policy, resource
+pressure, bearer token, principal, source locator, and local path facts remain
+outside the Public Client playback capability contract.
 
 `POST /sources/{source_id}/playback/browser-ticket` issues token-safe browser
 media URLs. `BrowserPlaybackTicketResponse.playback_session_id` is a required

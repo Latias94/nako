@@ -573,6 +573,14 @@ public data class PlaybackCapabilitiesQuery(
     public val containers: List<String> = emptyList(),
     public val videoCodecs: List<String> = emptyList(),
     public val audioCodecs: List<String> = emptyList(),
+    public val maxVideoBitrate: Long? = null,
+    public val maxWidth: Int? = null,
+    public val maxHeight: Int? = null,
+    public val maxAudioChannels: Int? = null,
+    public val supportsHdr: Boolean? = null,
+    public val supportsSubtitles: Boolean? = null,
+    public val hlsVariantPolicy: ClientHlsVariantPolicy? = null,
+    public val hlsSegmentContainer: ClientHlsSegmentContainer? = null,
 )
 
 @JvmInline
@@ -599,6 +607,14 @@ public data class RemuxPlaybackQuery(
     public val containers: List<String> = emptyList(),
     public val videoCodecs: List<String> = emptyList(),
     public val audioCodecs: List<String> = emptyList(),
+    public val maxVideoBitrate: Long? = null,
+    public val maxWidth: Int? = null,
+    public val maxHeight: Int? = null,
+    public val maxAudioChannels: Int? = null,
+    public val supportsHdr: Boolean? = null,
+    public val supportsSubtitles: Boolean? = null,
+    public val hlsVariantPolicy: ClientHlsVariantPolicy? = null,
+    public val hlsSegmentContainer: ClientHlsSegmentContainer? = null,
     public val outputContainer: RemuxOutputContainer? = null,
 )
 
@@ -607,6 +623,14 @@ public data class HlsPlaybackQuery(
     public val containers: List<String> = emptyList(),
     public val videoCodecs: List<String> = emptyList(),
     public val audioCodecs: List<String> = emptyList(),
+    public val maxVideoBitrate: Long? = null,
+    public val maxWidth: Int? = null,
+    public val maxHeight: Int? = null,
+    public val maxAudioChannels: Int? = null,
+    public val supportsHdr: Boolean? = null,
+    public val supportsSubtitles: Boolean? = null,
+    public val hlsVariantPolicy: ClientHlsVariantPolicy? = null,
+    public val hlsSegmentContainer: ClientHlsSegmentContainer? = null,
     public val preferredAudioLanguages: List<String> = emptyList(),
     public val preferredSubtitleLanguages: List<String> = emptyList(),
     public val startPositionMs: Long? = null,
@@ -1083,6 +1107,30 @@ public object NakoPublicClientRequests {
             addCsv("container", capabilities.containers)
             addCsv("video_codec", capabilities.videoCodecs)
             addCsv("audio_codec", capabilities.audioCodecs)
+            capabilities.maxVideoBitrate?.let {
+                add("max_video_bitrate" to it.toString())
+            }
+            capabilities.maxWidth?.let {
+                add("max_width" to it.toString())
+            }
+            capabilities.maxHeight?.let {
+                add("max_height" to it.toString())
+            }
+            capabilities.maxAudioChannels?.let {
+                add("max_audio_channels" to it.toString())
+            }
+            capabilities.supportsHdr?.let {
+                add("supports_hdr" to it.toString())
+            }
+            capabilities.supportsSubtitles?.let {
+                add("supports_subtitles" to it.toString())
+            }
+            capabilities.hlsVariantPolicy?.let {
+                add("hls_variant_policy" to it.wireValue)
+            }
+            capabilities.hlsSegmentContainer?.let {
+                add("hls_segment_container" to it.wireValue)
+            }
         }
 
     private fun remuxPlaybackQuery(
@@ -1095,6 +1143,30 @@ public object NakoPublicClientRequests {
             addCsv("container", query.containers)
             addCsv("video_codec", query.videoCodecs)
             addCsv("audio_codec", query.audioCodecs)
+            query.maxVideoBitrate?.let {
+                add("max_video_bitrate" to it.toString())
+            }
+            query.maxWidth?.let {
+                add("max_width" to it.toString())
+            }
+            query.maxHeight?.let {
+                add("max_height" to it.toString())
+            }
+            query.maxAudioChannels?.let {
+                add("max_audio_channels" to it.toString())
+            }
+            query.supportsHdr?.let {
+                add("supports_hdr" to it.toString())
+            }
+            query.supportsSubtitles?.let {
+                add("supports_subtitles" to it.toString())
+            }
+            query.hlsVariantPolicy?.let {
+                add("hls_variant_policy" to it.wireValue)
+            }
+            query.hlsSegmentContainer?.let {
+                add("hls_segment_container" to it.wireValue)
+            }
             query.outputContainer?.let {
                 add("output_container" to it.wireValue)
             }
@@ -1110,6 +1182,30 @@ public object NakoPublicClientRequests {
             addCsv("container", query.containers)
             addCsv("video_codec", query.videoCodecs)
             addCsv("audio_codec", query.audioCodecs)
+            query.maxVideoBitrate?.let {
+                add("max_video_bitrate" to it.toString())
+            }
+            query.maxWidth?.let {
+                add("max_width" to it.toString())
+            }
+            query.maxHeight?.let {
+                add("max_height" to it.toString())
+            }
+            query.maxAudioChannels?.let {
+                add("max_audio_channels" to it.toString())
+            }
+            query.supportsHdr?.let {
+                add("supports_hdr" to it.toString())
+            }
+            query.supportsSubtitles?.let {
+                add("supports_subtitles" to it.toString())
+            }
+            query.hlsVariantPolicy?.let {
+                add("hls_variant_policy" to it.wireValue)
+            }
+            query.hlsSegmentContainer?.let {
+                add("hls_segment_container" to it.wireValue)
+            }
             addCsv("preferred_audio_language", query.preferredAudioLanguages)
             addCsv("preferred_subtitle_language", query.preferredSubtitleLanguages)
             query.startPositionMs?.let {
@@ -1640,6 +1736,35 @@ type QueryInput = object;
 mod tests {
     use super::*;
 
+    const PLAYBACK_CAPABILITY_QUERY_FIELDS: &[&str] = &[
+        "direct_play",
+        "container",
+        "video_codec",
+        "audio_codec",
+        "max_video_bitrate",
+        "max_width",
+        "max_height",
+        "max_audio_channels",
+        "supports_hdr",
+        "supports_subtitles",
+        "hls_variant_policy",
+        "hls_segment_container",
+    ];
+    const KOTLIN_PLAYBACK_CAPABILITY_FIELDS: &[&str] = &[
+        "directPlay",
+        "containers",
+        "videoCodecs",
+        "audioCodecs",
+        "maxVideoBitrate",
+        "maxWidth",
+        "maxHeight",
+        "maxAudioChannels",
+        "supportsHdr",
+        "supportsSubtitles",
+        "hlsVariantPolicy",
+        "hlsSegmentContainer",
+    ];
+
     fn assert_sdk_excludes_provider_governance_routes_and_types(sdk: &str, surface: &str) {
         let sdk = sdk.to_ascii_lowercase();
 
@@ -1647,6 +1772,26 @@ mod tests {
             assert!(
                 !sdk.contains(forbidden),
                 "{surface} SDK leaked provider governance term: {forbidden}"
+            );
+        }
+    }
+
+    fn text_section<'a>(source: &'a str, start: &str, end: &str) -> &'a str {
+        let start_index = source
+            .find(start)
+            .unwrap_or_else(|| panic!("section start not found: {start}"));
+        let rest = &source[start_index..];
+        let end_index = rest
+            .find(end)
+            .unwrap_or_else(|| panic!("section end not found: {end}"));
+        &rest[..end_index]
+    }
+
+    fn assert_contains_all(source: &str, expected: &[&str], surface: &str) {
+        for value in expected {
+            assert!(
+                source.contains(value),
+                "{surface} missing Public Client playback capability field {value}"
             );
         }
     }
@@ -1754,6 +1899,166 @@ mod tests {
             assert!(
                 sdk.contains(expected),
                 "SDK missing runtime detail {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn public_sdk_playback_capability_queries_match_current_flat_contract() {
+        let typescript = typescript_sdk();
+        let kotlin = kotlin_sdk();
+
+        let ts_query = text_section(
+            &typescript,
+            "export interface PlaybackCapabilitiesQuery",
+            "export interface RemuxPlaybackQuery",
+        );
+        let ts_remux = text_section(
+            &typescript,
+            "export interface RemuxPlaybackQuery",
+            "export interface HlsPlaybackQuery",
+        );
+        let ts_hls = text_section(
+            &typescript,
+            "export interface HlsPlaybackQuery",
+            "export interface ImageVariantQuery",
+        );
+        assert_contains_all(
+            ts_query,
+            PLAYBACK_CAPABILITY_QUERY_FIELDS,
+            "TypeScript playback query",
+        );
+        assert_contains_all(ts_remux, &["output_container"], "TypeScript remux query");
+        assert_contains_all(
+            ts_hls,
+            &[
+                "preferred_audio_language",
+                "preferred_subtitle_language",
+                "start_position_ms",
+            ],
+            "TypeScript HLS query",
+        );
+
+        let kotlin_query = text_section(
+            &kotlin,
+            "public data class PlaybackCapabilitiesQuery",
+            "@JvmInline",
+        );
+        let kotlin_remux = text_section(
+            &kotlin,
+            "public data class RemuxPlaybackQuery",
+            "public data class HlsPlaybackQuery",
+        );
+        let kotlin_hls = text_section(
+            &kotlin,
+            "public data class HlsPlaybackQuery",
+            "public object NakoPublicClientRequests",
+        );
+        assert_contains_all(
+            kotlin_query,
+            KOTLIN_PLAYBACK_CAPABILITY_FIELDS,
+            "Kotlin playback query",
+        );
+        assert_contains_all(
+            kotlin_remux,
+            KOTLIN_PLAYBACK_CAPABILITY_FIELDS,
+            "Kotlin remux query",
+        );
+        assert_contains_all(kotlin_remux, &["outputContainer"], "Kotlin remux query");
+        assert_contains_all(
+            kotlin_hls,
+            KOTLIN_PLAYBACK_CAPABILITY_FIELDS,
+            "Kotlin HLS query",
+        );
+        assert_contains_all(
+            kotlin_hls,
+            &[
+                "preferredAudioLanguages",
+                "preferredSubtitleLanguages",
+                "startPositionMs",
+            ],
+            "Kotlin HLS query",
+        );
+
+        let kotlin_runtime = text_section(
+            &kotlin,
+            "private fun playbackCapabilitiesQuery",
+            "private fun encodeQueryValue",
+        );
+        assert_contains_all(
+            kotlin_runtime,
+            PLAYBACK_CAPABILITY_QUERY_FIELDS,
+            "Kotlin request renderer",
+        );
+        assert_contains_all(
+            kotlin_runtime,
+            &[
+                "output_container",
+                "preferred_audio_language",
+                "preferred_subtitle_language",
+            ],
+            "Kotlin request renderer",
+        );
+    }
+
+    #[test]
+    fn generated_public_sdk_playback_capability_surfaces_exclude_host_runtime_facts() {
+        let typescript = typescript_sdk();
+        let kotlin = kotlin_sdk();
+        let capability_sections = [
+            text_section(
+                &typescript,
+                "export interface BrowserPlaybackCapabilitiesDto",
+                "export interface BrowserPlaybackTicketRequest",
+            ),
+            text_section(
+                &typescript,
+                "export interface ClientPlaybackCapabilitiesDto",
+                "export interface ClientPlaybackDecision",
+            ),
+            text_section(
+                &typescript,
+                "export interface PlaybackCapabilitiesQuery",
+                "export interface ImageVariantQuery",
+            ),
+            text_section(
+                &kotlin,
+                "public data class BrowserPlaybackCapabilitiesDto",
+                "public data class BrowserPlaybackTicketRequest",
+            ),
+            text_section(
+                &kotlin,
+                "public data class ClientPlaybackCapabilitiesDto",
+                "public data class ClientPlaybackCapabilityEvaluation",
+            ),
+            text_section(
+                &kotlin,
+                "public data class PlaybackCapabilitiesQuery",
+                "public object NakoPublicClientRequests",
+            ),
+        ]
+        .join("\n")
+        .to_ascii_lowercase();
+
+        for forbidden in [
+            "ffmpeg",
+            "gpu",
+            "device_path",
+            "hardware",
+            "operator",
+            "resource_pressure",
+            "bearer",
+            "token",
+            "principal",
+            "source_locator",
+            "source_uri",
+            "local_path",
+            "output_path",
+            "raw_locator",
+        ] {
+            assert!(
+                !capability_sections.contains(forbidden),
+                "generated Public Client playback capability SDK surface leaked forbidden term: {forbidden}"
             );
         }
     }

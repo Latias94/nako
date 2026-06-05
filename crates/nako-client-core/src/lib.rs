@@ -32,15 +32,15 @@ pub use ids::{
     PLAYBACK_SESSION_REQUEST_ID, PLAYBACK_SOURCE_PROBE_REQUEST_ID,
 };
 pub use playback::{
-    CoreDirectPlaybackTargetInput, CoreHlsPlaylistTargetInput, CoreOutputContainer,
-    CorePlaybackCapabilities, CorePlaybackDecisionRequestInput, CorePlaybackDecisionSummary,
-    CorePlaybackMode, CorePlaybackSegmentInput, CorePlaybackSessionRequestInput,
-    CorePlaybackSourceRequestInput, CorePlaybackTarget, CorePlaybackTargetInput,
-    CoreRemuxPlaybackTargetInput, build_cancel_playback_session_request,
-    build_direct_playback_target, build_get_playback_session_request,
-    build_head_direct_playback_target, build_hls_playlist_target, build_hls_segment_request,
-    build_playback_decision_request, build_recommended_playback_target,
-    build_remux_playback_target, build_source_probe_request,
+    CoreDirectPlaybackTargetInput, CoreHlsPlaylistTargetInput, CoreHlsSegmentContainer,
+    CoreHlsVariantPolicy, CoreOutputContainer, CorePlaybackCapabilities,
+    CorePlaybackDecisionRequestInput, CorePlaybackDecisionSummary, CorePlaybackMode,
+    CorePlaybackSegmentInput, CorePlaybackSessionRequestInput, CorePlaybackSourceRequestInput,
+    CorePlaybackTarget, CorePlaybackTargetInput, CoreRemuxPlaybackTargetInput,
+    build_cancel_playback_session_request, build_direct_playback_target,
+    build_get_playback_session_request, build_head_direct_playback_target,
+    build_hls_playlist_target, build_hls_segment_request, build_playback_decision_request,
+    build_recommended_playback_target, build_remux_playback_target, build_source_probe_request,
 };
 pub use request::{
     CoreHttpHeader, CoreHttpRequest, CoreHttpRequestSpec, CoreQueryParam, CoreSafeRequestPreview,
@@ -172,13 +172,21 @@ mod tests {
                 containers: vec!["mp4".to_owned(), "webm".to_owned()],
                 video_codecs: vec!["h264".to_owned()],
                 audio_codecs: vec!["aac".to_owned(), "opus".to_owned()],
+                max_video_bitrate: Some(8_000_000),
+                max_width: Some(1920),
+                max_height: Some(1080),
+                max_audio_channels: Some(2),
+                supports_hdr: Some(false),
+                supports_subtitles: Some(true),
+                hls_variant_policy: Some(CoreHlsVariantPolicy::Adaptive),
+                hls_segment_container: Some(CoreHlsSegmentContainer::Fmp4),
             },
         });
 
         assert_eq!(request.request_id, PLAYBACK_DECISION_REQUEST_ID);
         assert_eq!(
             request.url,
-            "https://nako.example/api/sources/source%201/playback/decision?direct_play=true&container=mp4%2Cwebm&video_codec=h264&audio_codec=aac%2Copus"
+            "https://nako.example/api/sources/source%201/playback/decision?direct_play=true&container=mp4%2Cwebm&video_codec=h264&audio_codec=aac%2Copus&max_video_bitrate=8000000&max_width=1920&max_height=1080&max_audio_channels=2&supports_hdr=false&supports_subtitles=true&hls_variant_policy=adaptive&hls_segment_container=fmp4"
         );
         assert_eq!(
             request.headers,
@@ -264,6 +272,14 @@ mod tests {
                 containers: vec!["mp4".to_owned(), "mkv".to_owned()],
                 video_codecs: vec!["h264".to_owned()],
                 audio_codecs: vec!["aac".to_owned()],
+                max_video_bitrate: Some(4_000_000),
+                max_width: Some(1280),
+                max_height: Some(720),
+                max_audio_channels: Some(2),
+                supports_hdr: Some(false),
+                supports_subtitles: Some(false),
+                hls_variant_policy: Some(CoreHlsVariantPolicy::SingleVariant),
+                hls_segment_container: Some(CoreHlsSegmentContainer::MpegTs),
             },
         };
 
@@ -272,7 +288,7 @@ mod tests {
         assert_eq!(target.request.request_id, PLAYBACK_REMUX_STREAM_REQUEST_ID);
         assert_eq!(
             target.request.url,
-            "https://nako.example/api/sources/source%201/stream/remux?direct_play=false&container=mp4%2Cmkv&video_codec=h264&audio_codec=aac&output_container=mkv"
+            "https://nako.example/api/sources/source%201/stream/remux?direct_play=false&container=mp4%2Cmkv&video_codec=h264&audio_codec=aac&max_video_bitrate=4000000&max_width=1280&max_height=720&max_audio_channels=2&supports_hdr=false&supports_subtitles=false&hls_variant_policy=single_variant&hls_segment_container=mpeg_ts&output_container=mkv"
         );
         assert!(target.request.headers.is_empty());
         let preflight = target.session_probe_request.unwrap();

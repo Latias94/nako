@@ -1941,6 +1941,89 @@ mod tests {
     use nako_addon_protocol::addon_runtime_paths;
     use nako_client_protocol::public_client_paths;
 
+    const PLAYBACK_CAPABILITY_QUERY_FIELDS: &[&str] = &[
+        "direct_play",
+        "container",
+        "video_codec",
+        "audio_codec",
+        "max_video_bitrate",
+        "max_width",
+        "max_height",
+        "max_audio_channels",
+        "supports_hdr",
+        "supports_subtitles",
+        "hls_variant_policy",
+        "hls_segment_container",
+    ];
+    const BROWSER_PLAYBACK_CAPABILITY_FIELDS: &[&str] = &[
+        "direct_play",
+        "container",
+        "video_codec",
+        "audio_codec",
+        "max_video_bitrate",
+        "max_width",
+        "max_height",
+        "max_audio_channels",
+        "supports_hdr",
+        "supports_subtitles",
+        "hls_variant_policy",
+        "hls_segment_container",
+        "output_container",
+    ];
+    const CLIENT_PLAYBACK_CAPABILITY_FIELDS: &[&str] = &[
+        "direct_play",
+        "containers",
+        "video_codecs",
+        "audio_codecs",
+        "max_video_bitrate",
+        "max_width",
+        "max_height",
+        "max_audio_channels",
+        "supports_hdr",
+        "supports_subtitles",
+        "hls_variant_policy",
+        "hls_segment_container",
+    ];
+
+    fn sorted_schema_properties(document: &Value, schema_name: &str) -> Vec<String> {
+        let mut names = document["components"]["schemas"][schema_name]["properties"]
+            .as_object()
+            .unwrap_or_else(|| panic!("{schema_name} schema has properties"))
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>();
+        names.sort();
+        names
+    }
+
+    fn operation_parameter_names(document: &Value, path: &str, method: &str) -> Vec<String> {
+        document["paths"][path][method]["parameters"]
+            .as_array()
+            .unwrap_or_else(|| panic!("{method} {path} has parameters"))
+            .iter()
+            .filter_map(|parameter| parameter["name"].as_str())
+            .map(ToOwned::to_owned)
+            .collect()
+    }
+
+    fn assert_contains_all(actual: &[String], expected: &[&str], surface: &str) {
+        for expected_name in expected {
+            assert!(
+                actual.iter().any(|name| name == expected_name),
+                "{surface} missing Public Client playback capability field {expected_name}"
+            );
+        }
+    }
+
+    fn assert_eq_sorted_fields(actual: Vec<String>, expected: &[&str], surface: &str) {
+        let mut expected = expected
+            .iter()
+            .map(|value| (*value).to_owned())
+            .collect::<Vec<_>>();
+        expected.sort();
+        assert_eq!(actual, expected, "{surface} field set drifted");
+    }
+
     #[test]
     fn public_openapi_paths_match_public_client_scope() {
         let document = public_openapi_v1();
@@ -2018,6 +2101,104 @@ mod tests {
         let libraries = &document["paths"]["/libraries"]["get"];
         assert_eq!(libraries["security"][0]["BearerAuth"], json!([]));
         assert!(libraries["responses"].get("401").is_some());
+    }
+
+    #[test]
+    fn public_openapi_playback_capability_fields_match_current_flat_contract() {
+        let document = public_openapi_v1();
+
+        assert_eq_sorted_fields(
+            sorted_schema_properties(&document, "BrowserPlaybackCapabilitiesDto"),
+            BROWSER_PLAYBACK_CAPABILITY_FIELDS,
+            "BrowserPlaybackCapabilitiesDto",
+        );
+        assert_eq_sorted_fields(
+            sorted_schema_properties(&document, "ClientPlaybackCapabilitiesDto"),
+            CLIENT_PLAYBACK_CAPABILITY_FIELDS,
+            "ClientPlaybackCapabilitiesDto",
+        );
+
+        let decision =
+            operation_parameter_names(&document, "/sources/{source_id}/playback/decision", "get");
+        let remux_get =
+            operation_parameter_names(&document, "/sources/{source_id}/stream/remux", "get");
+        let remux_head =
+            operation_parameter_names(&document, "/sources/{source_id}/stream/remux", "head");
+        let hls = operation_parameter_names(
+            &document,
+            "/sources/{source_id}/stream/hls/playlist.m3u8",
+            "get",
+        );
+
+        assert_contains_all(
+            &decision,
+            PLAYBACK_CAPABILITY_QUERY_FIELDS,
+            "playback decision query",
+        );
+        assert_contains_all(
+            &remux_get,
+            PLAYBACK_CAPABILITY_QUERY_FIELDS,
+            "remux GET query",
+        );
+        assert_contains_all(
+            &remux_head,
+            PLAYBACK_CAPABILITY_QUERY_FIELDS,
+            "remux HEAD query",
+        );
+        assert_contains_all(&hls, PLAYBACK_CAPABILITY_QUERY_FIELDS, "HLS playlist query");
+        assert!(remux_get.iter().any(|name| name == "output_container"));
+        assert!(remux_head.iter().any(|name| name == "output_container"));
+        assert!(hls.iter().any(|name| name == "start_position_ms"));
+        assert!(hls.iter().any(|name| name == "preferred_audio_language"));
+        assert!(hls.iter().any(|name| name == "preferred_subtitle_language"));
+
+        let docs = include_str!("../../../docs/api/HTTP_API.md");
+        for field in PLAYBACK_CAPABILITY_QUERY_FIELDS
+            .iter()
+            .copied()
+            .chain(["output_container"])
+        {
+            assert!(
+                docs.contains(field),
+                "HTTP API docs missing Public Client playback capability field {field}"
+            );
+        }
+    }
+
+    #[test]
+    fn public_openapi_playback_capability_contract_excludes_host_runtime_facts() {
+        let document = public_openapi_v1();
+        let capability_contract = serde_json::to_string(&json!({
+            "browser": document["components"]["schemas"]["BrowserPlaybackCapabilitiesDto"],
+            "client": document["components"]["schemas"]["ClientPlaybackCapabilitiesDto"],
+            "decision_query": document["paths"]["/sources/{source_id}/playback/decision"]["get"]["parameters"],
+            "remux_query": document["paths"]["/sources/{source_id}/stream/remux"]["get"]["parameters"],
+            "hls_query": document["paths"]["/sources/{source_id}/stream/hls/playlist.m3u8"]["get"]["parameters"]
+        }))
+        .unwrap()
+        .to_ascii_lowercase();
+
+        for forbidden in [
+            "ffmpeg",
+            "gpu",
+            "device_path",
+            "hardware",
+            "operator",
+            "resource_pressure",
+            "bearer",
+            "token",
+            "principal",
+            "source_locator",
+            "source_uri",
+            "local_path",
+            "output_path",
+            "raw_locator",
+        ] {
+            assert!(
+                !capability_contract.contains(forbidden),
+                "Public Client playback capability OpenAPI contract leaked forbidden term: {forbidden}"
+            );
+        }
     }
 
     #[test]

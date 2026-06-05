@@ -18,3 +18,4 @@
 {"file": ".trellis/tasks/06-05-playback-output-profile-device-capability-audit/prd.md", "reason": "Completed playback audit PRD records the prerequisite relationship and deferred execution scope."}
 {"file": ".trellis/tasks/06-05-playback-output-profile-device-capability-audit/research/public-client-admin-capability-contract.md", "reason": "Identifies current Public Client/Admin capability boundaries and known flat-field drift."}
 {"file": ".trellis/tasks/06-05-playback-output-profile-device-capability-audit/research/playback-transcode-profile-boundary.md", "reason": "Documents playback/transcode/server profile boundaries that this parity gate must preserve."}
+{"file": ".trellis/tasks/06-05-public-client-playback-capability-contract-parity-gate/research/public-client-playback-capability-field-inventory.md", "reason": "Records the implemented flat field inventory, parity surfaces, public audience boundary, and allowed follow-on."}

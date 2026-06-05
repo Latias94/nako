@@ -54,6 +54,13 @@ independent from server internals.
   idempotency, raw provider payload, and related hierarchy application route
   fragments out of `PUBLIC_CLIENT_ROUTES`; these are Admin API surfaces unless a
   future PRD explicitly changes the Public Client contract.
+- Keep Public Client playback capabilities on the flat v1 field set until a
+  dedicated profile contract task changes it:
+  `direct_play`, `container`, `video_codec`, `audio_codec`,
+  `max_video_bitrate`, `max_width`, `max_height`, `max_audio_channels`,
+  `supports_hdr`, `supports_subtitles`, `hls_variant_policy`, and
+  `hls_segment_container`. Remux query/browser ticket remux planning may also
+  carry `output_container`.
 
 ## Forbidden Patterns
 
@@ -69,5 +76,7 @@ independent from server internals.
 
 - Focused:
   `cargo nextest run -p nako-client-protocol --no-fail-fast`
+- Playback capability field set:
+  `cargo nextest run -p nako-client-protocol public_playback_capability_dtos_keep_current_flat_field_contract --no-fail-fast`
 - Public client contract:
   `cargo check -p nako-client-protocol -p nako-client-core -p nako-client --tests`

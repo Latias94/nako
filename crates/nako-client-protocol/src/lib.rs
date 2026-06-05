@@ -971,6 +971,108 @@ mod tests {
     }
 
     #[test]
+    fn public_playback_capability_dtos_keep_current_flat_field_contract() {
+        fn sorted_object_keys(value: &serde_json::Value) -> Vec<String> {
+            let mut keys = value
+                .as_object()
+                .expect("value is an object")
+                .keys()
+                .cloned()
+                .collect::<Vec<_>>();
+            keys.sort();
+            keys
+        }
+
+        let browser = serde_json::to_value(BrowserPlaybackCapabilitiesDto {
+            direct_play: Some(true),
+            container: Some(vec!["mp4".to_owned()]),
+            video_codec: Some(vec!["h264".to_owned()]),
+            audio_codec: Some(vec!["aac".to_owned()]),
+            max_video_bitrate: Some(8_000_000),
+            max_width: Some(1920),
+            max_height: Some(1080),
+            max_audio_channels: Some(2),
+            supports_hdr: Some(false),
+            supports_subtitles: Some(true),
+            hls_variant_policy: Some(ClientHlsVariantPolicy::Adaptive),
+            hls_segment_container: Some(ClientHlsSegmentContainer::Fmp4),
+            output_container: Some(BrowserPlaybackOutputContainer::Mp4),
+        })
+        .unwrap();
+        let client = serde_json::to_value(ClientPlaybackCapabilitiesDto {
+            direct_play: true,
+            containers: vec!["mp4".to_owned()],
+            video_codecs: vec!["h264".to_owned()],
+            audio_codecs: vec!["aac".to_owned()],
+            max_video_bitrate: Some(8_000_000),
+            max_width: Some(1920),
+            max_height: Some(1080),
+            max_audio_channels: Some(2),
+            supports_hdr: Some(false),
+            supports_subtitles: Some(true),
+            hls_variant_policy: Some(ClientHlsVariantPolicy::Adaptive),
+            hls_segment_container: Some(ClientHlsSegmentContainer::Fmp4),
+        })
+        .unwrap();
+
+        assert_eq!(
+            sorted_object_keys(&browser),
+            [
+                "audio_codec",
+                "container",
+                "direct_play",
+                "hls_segment_container",
+                "hls_variant_policy",
+                "max_audio_channels",
+                "max_height",
+                "max_video_bitrate",
+                "max_width",
+                "output_container",
+                "supports_hdr",
+                "supports_subtitles",
+                "video_codec",
+            ]
+        );
+        assert_eq!(
+            sorted_object_keys(&client),
+            [
+                "audio_codecs",
+                "containers",
+                "direct_play",
+                "hls_segment_container",
+                "hls_variant_policy",
+                "max_audio_channels",
+                "max_height",
+                "max_video_bitrate",
+                "max_width",
+                "supports_hdr",
+                "supports_subtitles",
+                "video_codecs",
+            ]
+        );
+
+        let public_capability_contract = format!("{browser}\n{client}").to_ascii_lowercase();
+        for forbidden in [
+            "ffmpeg",
+            "gpu",
+            "operator",
+            "resource_pressure",
+            "bearer",
+            "token",
+            "principal",
+            "source_locator",
+            "source_uri",
+            "local_path",
+            "output_path",
+        ] {
+            assert!(
+                !public_capability_contract.contains(forbidden),
+                "Public Client playback capability DTO leaked forbidden term: {forbidden}"
+            );
+        }
+    }
+
+    #[test]
     fn public_renderer_command_transport_uses_typed_safe_envelope() {
         let command = RendererCommandDto {
             id: "command-1".to_owned(),

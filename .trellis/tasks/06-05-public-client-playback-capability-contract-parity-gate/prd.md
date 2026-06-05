@@ -49,26 +49,45 @@ evidence.
 
 ## Acceptance Criteria
 
-- [ ] A field inventory identifies the current Public Client playback
+- [x] A field inventory identifies the current Public Client playback
       capability/request-preference fields and the surfaces that expose,
       generate, send, parse, document, or map them.
-- [ ] Current supported fields are aligned across protocol DTOs,
+- [x] Current supported fields are aligned across protocol DTOs,
       OpenAPI/SDK generation, Rust client/client-core builders, server
       playback/renderer mapping, and HTTP API docs, or any intentionally
       unsupported generated surface is explicitly documented and protected by a
       failing/guarding test.
-- [ ] Parity tests or generator assertions fail when a server-accepted playback
+- [x] Parity tests or generator assertions fail when a server-accepted playback
       capability field is missing from protocol/OpenAPI/client/docs surfaces.
-- [ ] Public Client route inventory and generated public outputs remain free of
+- [x] Public Client route inventory and generated public outputs remain free of
       Admin-only routes, DTOs, diagnostics, and governance concepts.
-- [ ] Tests prove no Public Client playback capability DTO or generated public
+- [x] Tests prove no Public Client playback capability DTO or generated public
       output exposes FFmpeg, GPU/device, operator policy, resource pressure,
       bearer token, principal/source identity, local path, or raw locator facts.
-- [ ] Existing playback decision, ticket, remux, HLS, renderer, and client
+- [x] Existing playback decision, ticket, remux, HLS, renderer, and client
       request behavior remains stable except for the intended contract parity
       coverage.
-- [ ] The task result records the next allowed follow-on:
+- [x] The task result records the next allowed follow-on:
       `playback-output-profile-v2-skeleton-contract-only`.
+
+## Implementation Evidence
+
+- Field inventory:
+  `research/public-client-playback-capability-field-inventory.md`.
+- Protocol DTO gate:
+  `public_playback_capability_dtos_keep_current_flat_field_contract`.
+- OpenAPI gate:
+  `public_openapi_playback_capability_fields_match_current_flat_contract`.
+- SDK generator gates:
+  `public_sdk_playback_capability_queries_match_current_flat_contract` and
+  `generated_public_sdk_playback_capability_surfaces_exclude_host_runtime_facts`.
+- Client/client-core/UniFFI gates cover full query rendering for decision,
+  remux, HLS, and UniFFI exported request builders.
+- Server mapping gates cover playback query, browser ticket capability body,
+  and renderer media capability body mapping.
+- Specs updated:
+  `.trellis/spec/nako-api/backend/quality-guidelines.md` and
+  `.trellis/spec/nako-client-protocol/backend/index.md`.
 
 ## Definition Of Done
 
