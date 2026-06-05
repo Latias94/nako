@@ -9,6 +9,8 @@ API contract work must keep generated artifacts and route inventories honest.
   generated TypeScript directly.
 - Keep Admin `/admin/v1/*` routes out of Public Client/OpenAPI/SDK outputs
   unless the task explicitly changes the public contract.
+- Keep Public Client playback capability fields in sync across protocol,
+  OpenAPI, SDK/client builders, server query mapping, and HTTP docs.
 - Add tests for route inventory, DTO generation, redaction, and Public/Admin
   separation.
 - Use snake_case serde wire fields to match existing contracts.
@@ -29,6 +31,8 @@ API contract work must keep generated artifacts and route inventories honest.
 - Do not expose internal database/domain records directly as wire responses.
 - Do not add route strings in Admin Web instead of the generated contract.
 - Do not make Public Client contracts depend on Admin-only concepts.
+- Do not put FFmpeg, hardware, resource pressure, or operator policy facts into
+  Public Client playback capability DTOs.
 - Do not add a DTO field before deciding redaction and audience.
 
 ## Review Checklist
@@ -37,6 +41,8 @@ API contract work must keep generated artifacts and route inventories honest.
 - Is the generated output updated by the generator?
 - Are route inventory tests updated?
 - Are sensitive fields redacted or omitted?
+- For Public Client playback capabilities, are protocol DTOs, OpenAPI,
+  generated/client builders, server query mapping, and HTTP docs still aligned?
 
 ## Scenario: Admin Route Inventory Parity Gate
 
@@ -135,6 +141,120 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); N] = [
 Generate Admin Web contracts from `nako-api` when the generated output changes.
 If the route is intentionally server-only for the slice, add it to
 `admin_contract_route_exclusions()` with a specific reason instead.
+
+## Scenario: Public Client Playback Capability Contract Parity
+
+### 1. Scope / Trigger
+
+- Trigger: adding, renaming, deleting, or changing a Public Client playback
+  capability field, HLS playback capability query parameter, browser playback
+  ticket capability field, renderer media capability field, or generated client
+  builder that carries these fields.
+- Scope:
+  `nako-client-protocol` playback DTOs, `nako-api` OpenAPI/SDK generation,
+  `nako-client`, `nako-client-core`, server playback/renderer HTTP mapping,
+  generated SDK query surfaces, and `docs/api/HTTP_API.md`.
+
+### 2. Signatures
+
+- Browser ticket body:
+  `BrowserPlaybackTicketRequest { capabilities:
+  Option<BrowserPlaybackCapabilitiesDto> }`.
+- Renderer body:
+  `RendererRegistrationRequest.media_capabilities` and
+  `RendererHeartbeatRequest.media_capabilities`.
+- Public client capability response/session shape:
+  `ClientPlaybackCapabilitiesDto`.
+- Server query mapping:
+  `PlaybackCapabilitiesQuery -> ClientPlaybackCapabilities`.
+- Server browser body mapping:
+  `BrowserPlaybackCapabilitiesDto -> ClientPlaybackCapabilities`.
+- Server renderer body mapping:
+  `ClientPlaybackCapabilitiesDto -> ClientPlaybackCapabilities`.
+
+### 3. Contracts
+
+- `nako-client-protocol` owns the Public Client wire DTOs. `nako-api` maps
+  domain decisions into those DTOs and emits OpenAPI/SDK artifacts from them.
+- Current flat capability fields must remain aligned across protocol DTOs,
+  OpenAPI schemas/query parameters, Rust client query builders,
+  `nako-client-core`, generated SDK query surfaces, server query/body mapping,
+  and HTTP API docs.
+- Public Client capability DTOs describe client/player facts and request
+  preferences only. They must not expose Admin-only diagnostics, FFmpeg command
+  facts, hardware probe facts, GPU/device paths, resource pressure, or operator
+  fallback policy.
+- New output/device profile fields must be additive unless the task explicitly
+  performs a versioned breaking contract change.
+- If a new capability field changes playback planning output, the corresponding
+  `nako-playback` profile identity and planner tests must be updated.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| New Public playback capability field is added | Update protocol DTOs, OpenAPI schema/query params, Rust client/client-core builders, generated SDK surfaces, server mapping, docs, and tests |
+| Field only belongs to Admin diagnostics | Keep it out of Public Client DTOs and expose it through Admin DTOs with redaction tests |
+| Field changes planner output | Include it in playback profile identity and add planner tests |
+| Field is optional additive profile data | Preserve existing flat-field behavior when it is absent |
+| Generated contract drift | Focused `nako-api` contract/OpenAPI/SDK tests must fail until regenerated or updated |
+| HTTP docs omit a supported query/body field | Treat as contract drift and update `docs/api/HTTP_API.md` |
+
+### 5. Good/Base/Bad Cases
+
+- Good: adding a `device_family` field updates protocol DTOs, OpenAPI schemas,
+  client query/body builders, server mapping, playback profile identity tests,
+  SDK output, and HTTP docs in the same task.
+- Good: adding Admin support evidence for selected acceleration keeps the field
+  in Admin DTOs and does not add it to `ClientPlaybackCapabilitiesDto`.
+- Base: current flat fields such as `max_video_bitrate`, `supports_hdr`,
+  `hls_variant_policy`, and `hls_segment_container` are consistently available
+  in every supported Public Client query/body builder.
+- Bad: server accepts a new query parameter that no generated client or docs can
+  send.
+- Bad: Public Client DTOs expose FFmpeg encoder names, GPU device paths, or
+  operator hardware fallback policy.
+
+### 6. Tests Required
+
+- API/OpenAPI/SDK contract tests:
+  `cargo nextest run -p nako-api --no-fail-fast`.
+- Rust client/client-core tests when query/body builders change:
+  `cargo nextest run -p nako-client -p nako-client-core --no-fail-fast`.
+- Server route tests for query/body mapping when HTTP handlers change:
+  focused `nako-server` playback or renderer route tests.
+- Playback planner tests when new capability facts can affect decision output
+  or profile identity.
+- Generated SDK/doc checks appropriate to the changed generated artifacts.
+- Formatting and whitespace:
+  `cargo fmt --all -- --check` and `git diff --check`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+pub struct ClientPlaybackCapabilitiesDto {
+    pub hardware_acceleration: Option<String>,
+    pub ffmpeg_encoder: Option<String>,
+}
+```
+
+This turns Public Client capability into a host/runtime diagnostic surface and
+mixes client facts with operator policy.
+
+#### Correct
+
+```rust
+pub struct ClientPlaybackCapabilitiesDto {
+    pub device_family: Option<ClientPlaybackDeviceFamily>,
+    pub profile_version: Option<u32>,
+}
+```
+
+Client profile fields describe what the player can do. Server hardware,
+fallback, and stage readiness remain in Admin diagnostics and transcode runtime
+records.
 
 ## Scenario: Admin Diagnostic Summary DTO
 

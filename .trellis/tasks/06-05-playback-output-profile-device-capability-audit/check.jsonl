@@ -5,3 +5,6 @@
 {"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Check Public/Admin DTO implications."}
 {"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/playback-decoding-transcode.md", "reason": "Check audit result against parent playback findings."}
 {"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/synthesis.md", "reason": "Check audit result against cross-lane constraints."}
+{"file": ".trellis/tasks/06-05-playback-output-profile-device-capability-audit/research/public-client-admin-capability-contract.md", "reason": "Check Public/Admin capability contract conclusions and follow-on boundaries."}
+{"file": ".trellis/tasks/06-05-playback-output-profile-device-capability-audit/research/playback-transcode-profile-boundary.md", "reason": "Check Playback/Transcode/operator policy boundary conclusions."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Check Public Client playback capability contract parity guidance."}
