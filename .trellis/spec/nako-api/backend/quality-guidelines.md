@@ -38,6 +38,104 @@ API contract work must keep generated artifacts and route inventories honest.
 - Are route inventory tests updated?
 - Are sensitive fields redacted or omitted?
 
+## Scenario: Admin Route Inventory Parity Gate
+
+### 1. Scope / Trigger
+
+- Trigger: adding, renaming, or deleting an implemented `/admin/v1/*` server
+  route in `crates/nako-server/src/http/admin.rs` or
+  `crates/nako-server/src/http/addons.rs`, or changing generated Admin route
+  constants in `crates/nako-api/src/admin_contract.rs`.
+- Purpose: prevent silent drift between implemented Admin HTTP routes, generated
+  Admin Web route constants, and intentionally server-only Admin routes.
+
+### 2. Signatures
+
+- Generated routes:
+  `admin_contract_routes() -> Vec<AdminContractRoute>`.
+- Explicit exclusions:
+  `admin_contract_route_exclusions() -> Vec<AdminContractRouteExclusion>`.
+- Path normalization:
+  `normalize_admin_route_path(path: &str) -> String`, converting Axum
+  `:param` syntax into generated `{param}` syntax before comparison.
+- Server route inventory test:
+  `http::tests::admin_route_inventory::implemented_admin_routes_are_generated_or_explicitly_excluded`.
+
+### 3. Contracts
+
+- Every implemented `/admin/v1/*` literal route in the Admin HTTP and Addon
+  Admin route modules must be either generated in `NAKO_ADMIN_ROUTES` or listed
+  in `admin_contract_route_exclusions()` with a non-empty reason.
+- Generated Admin route constants must map back to implemented server routes.
+- Exclusions are for implemented Admin routes only; stale exclusions must fail
+  the gate.
+- Generated and excluded Admin routes must remain outside Public Client route
+  inventories and generated Public SDK output.
+- Do not satisfy the gate by adding Public Client routes or by hand-editing
+  generated Admin Web TypeScript artifacts.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| New implemented `/admin/v1/*` route is Admin Web-facing | Add it to `ADMIN_ROUTE_SUFFIXES`, regenerate generated Admin Web contracts if output changes, and keep the route implemented server-side |
+| New implemented `/admin/v1/*` route is server/operator-only for now | Add an explicit `AdminContractRouteExclusion` suffix and reason |
+| Generated route has no implemented server route | `implemented_admin_routes_are_generated_or_explicitly_excluded` fails |
+| Implemented route is neither generated nor excluded | `implemented_admin_routes_are_generated_or_explicitly_excluded` fails |
+| Exclusion points to a removed server route | `implemented_admin_routes_are_generated_or_explicitly_excluded` fails |
+| Axum uses `:id` while generated route uses `{id}` | `normalize_admin_route_path` treats them as the same path |
+| Public Client inventory contains an Admin path | `admin_contract_routes_stay_out_of_public_client_inventory` fails |
+
+### 5. Good/Base/Bad Cases
+
+- Good: a new Admin Web route is added to the server route module and to
+  `ADMIN_ROUTE_SUFFIXES`, then generated contracts are refreshed through the
+  generator.
+- Good: a server-only maintenance route is added to the server route module and
+  to `admin_contract_route_exclusions()` with a reason explaining why it is not
+  generated in this slice.
+- Base: existing generated Admin routes and explicit exclusions continue to
+  cover all implemented Admin HTTP and Addon Admin routes.
+- Bad: adding a server route and relying on Admin Web string literals or mock
+  fallback data instead of generated `NAKO_ADMIN_ROUTES`.
+- Bad: adding an Admin route to the Public Client route inventory to make a
+  parity test pass.
+
+### 6. Tests Required
+
+- Focused API contract:
+  `cargo nextest run -p nako-api admin_contract --no-fail-fast`.
+- Focused server inventory:
+  `cargo nextest run -p nako-server implemented_admin_routes_are_generated_or_explicitly_excluded --no-fail-fast`.
+- Cross-crate compile when route inventory helpers or server route tests change:
+  `cargo check -p nako-api --tests` and
+  `cargo check -p nako-server --tests`.
+- Formatting and whitespace:
+  `cargo fmt --all -- --check` and `git diff --check`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+Router::new().route("/admin/v1/example", get(handler))
+```
+
+Adding the route without updating the generated Admin route inventory or an
+explicit exclusion leaves Admin Web and server contracts free to drift.
+
+#### Correct
+
+```rust
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); N] = [
+    ("example", "example"),
+];
+```
+
+Generate Admin Web contracts from `nako-api` when the generated output changes.
+If the route is intentionally server-only for the slice, add it to
+`admin_contract_route_exclusions()` with a specific reason instead.
+
 ## Scenario: Admin Diagnostic Summary DTO
 
 ### 1. Scope / Trigger

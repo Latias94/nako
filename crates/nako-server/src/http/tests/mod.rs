@@ -195,6 +195,7 @@ use crate::playback_mapping::{
 };
 
 mod addons;
+mod admin_route_inventory;
 mod automation;
 mod catalog;
 mod library;

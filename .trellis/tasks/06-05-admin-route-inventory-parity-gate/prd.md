@@ -18,13 +18,13 @@ clients without silent route drift.
 
 ## Acceptance Criteria
 
-- [ ] Generated Admin route constants map to implemented server routes.
-- [ ] Implemented Admin routes that are not generated are explicitly excluded
+- [x] Generated Admin route constants map to implemented server routes.
+- [x] Implemented Admin routes that are not generated are explicitly excluded
       with a reason.
-- [ ] Placeholder syntax differences do not produce false drift failures.
-- [ ] Existing generated Admin TypeScript contract checks still pass.
-- [ ] The gate covers routes from both Admin HTTP and Addon Admin route modules.
-- [ ] No Public Client route is added to the Admin route inventory.
+- [x] Placeholder syntax differences do not produce false drift failures.
+- [x] Existing generated Admin TypeScript contract checks still pass.
+- [x] The gate covers routes from both Admin HTTP and Addon Admin route modules.
+- [x] No Public Client route is added to the Admin route inventory.
 
 ## Definition of Done
 

@@ -1,5 +1,23 @@
 use crate::admin::ADMIN_API_VERSION;
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AdminContractRoute {
+    pub key: &'static str,
+    pub path: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AdminContractRouteExclusion {
+    pub path: String,
+    pub reason: &'static str,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct AdminRouteExclusionSuffix {
+    suffix: &'static str,
+    reason: &'static str,
+}
+
 const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 79] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
@@ -211,6 +229,109 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 79] = [
     ("settingsMetadataRawCache", "settings/metadata/raw-cache"),
 ];
 
+const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 25] = [
+    AdminRouteExclusionSuffix {
+        suffix: "access/invitations",
+        reason: "Invitation lifecycle routes are implemented for Admin operators but are not generated as Admin Web route constants in this slice.",
+    },
+    AdminRouteExclusionSuffix {
+        suffix: "access/invitations/{invitation_id}/revoke",
+        reason: "Invitation lifecycle routes are implemented for Admin operators but are not generated as Admin Web route constants in this slice.",
+    },
+    AdminRouteExclusionSuffix {
+        suffix: "addons/install-guide-preview",
+        reason: "Install guide preview is a planning helper and does not have a stable generated Admin Web route key yet.",
+    },
+    AdminRouteExclusionSuffix {
+        suffix: "addons/{addon_id}/task-runs",
+        reason: "Addon task-run operator workflows are implemented server-side but are not generated as Admin Web route constants in this slice.",
+    },
+    AdminRouteExclusionSuffix {
+        suffix: "addons/{addon_id}/task-runs/{job_id}",
+        reason: "Addon task-run operator workflows are implemented server-side but are not generated as Admin Web route constants in this slice.",
+    },
+    AdminRouteExclusionSuffix {
+        suffix: "addons/{addon_id}/task-runs/{job_id}/retry",
+        reason: "Addon task-run operator workflows are implemented server-side but are not generated as Admin Web route constants in this slice.",
+    },
+    AdminRouteExclusionSuffix {
+        suffix: "addons/{addon_id}/tokens",
+        reason: "Addon credential routes are derived from addonDetail in Admin Web until credential route keys are stabilized.",
+    },
+    AdminRouteExclusionSuffix {
+        suffix: "addons/{addon_id}/tokens/{token_id}/rotate",
+        reason: "Addon credential routes are derived from addonDetail in Admin Web until credential route keys are stabilized.",
+    },
+    AdminRouteExclusionSuffix {
+        suffix: "addons/{addon_id}/tokens/{token_id}/revoke",
+        reason: "Addon credential routes are derived from addonDetail in Admin Web until credential route keys are stabilized.",
+    },
+    AdminRouteExclusionSuffix {
+        suffix: "addons/{addon_id}/grants",
+        reason: "Addon grant routes are derived from addonDetail in Admin Web until grant route keys are stabilized.",
+    },
+    AdminRouteExclusionSuffix {
+        suffix: "artwork/candidates/{candidate_id}/accept",
+        reason: "Managed artwork maintenance commands are server-side operator workflows not generated as Admin Web route constants in this slice.",
+    },
+    AdminRouteExclusionSuffix {
+        suffix: "artwork/ingests/process-next",
+        reason: "Managed artwork maintenance commands are server-side operator workflows not generated as Admin Web route constants in this slice.",
+    },
+    AdminRouteExclusionSuffix {
+        suffix: "artwork/ingests/{ingest_id}/requeue",
+        reason: "Managed artwork maintenance commands are server-side operator workflows not generated as Admin Web route constants in this slice.",
+    },
+    AdminRouteExclusionSuffix {
+        suffix: "artwork/artifacts/{artifact_id}/publish",
+        reason: "Managed artwork maintenance commands are server-side operator workflows not generated as Admin Web route constants in this slice.",
+    },
+    AdminRouteExclusionSuffix {
+        suffix: "artwork/artifacts/lifecycle",
+        reason: "Managed artwork maintenance diagnostics are server-side operator workflows not generated as Admin Web route constants in this slice.",
+    },
+    AdminRouteExclusionSuffix {
+        suffix: "artwork/artifacts/storage-drift",
+        reason: "Managed artwork maintenance diagnostics are server-side operator workflows not generated as Admin Web route constants in this slice.",
+    },
+    AdminRouteExclusionSuffix {
+        suffix: "artwork/artifacts/remediation-plan",
+        reason: "Managed artwork maintenance diagnostics are server-side operator workflows not generated as Admin Web route constants in this slice.",
+    },
+    AdminRouteExclusionSuffix {
+        suffix: "artwork/artifacts/remediate-stray-files",
+        reason: "Managed artwork maintenance commands are server-side operator workflows not generated as Admin Web route constants in this slice.",
+    },
+    AdminRouteExclusionSuffix {
+        suffix: "artwork/artifacts/cleanup",
+        reason: "Managed artwork maintenance commands are server-side operator workflows not generated as Admin Web route constants in this slice.",
+    },
+    AdminRouteExclusionSuffix {
+        suffix: "events/{event_id}/addon-event-attempts",
+        reason: "Addon event delivery control routes are server-side operator workflows not generated as Admin Web route constants in this slice.",
+    },
+    AdminRouteExclusionSuffix {
+        suffix: "events/{event_id}/addon-event-scheduler/work",
+        reason: "Addon event delivery control routes are server-side operator workflows not generated as Admin Web route constants in this slice.",
+    },
+    AdminRouteExclusionSuffix {
+        suffix: "events/{event_id}/addon-events/deliver",
+        reason: "Addon event delivery control routes are server-side operator workflows not generated as Admin Web route constants in this slice.",
+    },
+    AdminRouteExclusionSuffix {
+        suffix: "events/{event_id}/addon-events/replay",
+        reason: "Addon event delivery control routes are server-side operator workflows not generated as Admin Web route constants in this slice.",
+    },
+    AdminRouteExclusionSuffix {
+        suffix: "jobs/{job_id}/cancel",
+        reason: "Job cancellation is an Admin command endpoint and is not generated as an Admin Web route constant in this slice.",
+    },
+    AdminRouteExclusionSuffix {
+        suffix: "settings/playback/runtime",
+        reason: "Playback runtime settings mutation is not generated as an Admin Web route constant until the settings UI owns this workflow.",
+    },
+];
+
 #[must_use]
 pub fn admin_typescript_contract() -> String {
     let mut output = String::new();
@@ -229,6 +350,58 @@ pub fn admin_typescript_contract() -> String {
     output.push_str("} as const;\n\n");
     output.push_str(CONTRACT_BODY);
     output
+}
+
+#[must_use]
+pub fn admin_contract_routes() -> Vec<AdminContractRoute> {
+    ADMIN_ROUTE_SUFFIXES
+        .iter()
+        .map(|(key, suffix)| AdminContractRoute {
+            key,
+            path: admin_route_path(suffix),
+        })
+        .collect()
+}
+
+#[must_use]
+pub fn admin_contract_route_exclusions() -> Vec<AdminContractRouteExclusion> {
+    ADMIN_ROUTE_EXCLUSION_SUFFIXES
+        .iter()
+        .map(|exclusion| AdminContractRouteExclusion {
+            path: admin_route_path(exclusion.suffix),
+            reason: exclusion.reason,
+        })
+        .collect()
+}
+
+#[must_use]
+pub fn normalize_admin_route_path(path: &str) -> String {
+    let mut normalized = String::with_capacity(path.len());
+    let mut chars = path.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        if ch != ':' {
+            normalized.push(ch);
+            continue;
+        }
+
+        let mut parameter = String::new();
+        while let Some(next) =
+            chars.next_if(|next| next.is_ascii_alphanumeric() || *next == '_' || *next == '-')
+        {
+            parameter.push(next);
+        }
+
+        if parameter.is_empty() {
+            normalized.push(ch);
+        } else {
+            normalized.push('{');
+            normalized.push_str(&parameter);
+            normalized.push('}');
+        }
+    }
+
+    normalized
 }
 
 fn admin_route_path(suffix: &str) -> String {
@@ -3649,6 +3822,8 @@ export interface AdminMetadataRawCacheSettingsResponse {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
     use nako_client_protocol::public_client_paths;
 
     use super::*;
@@ -3891,6 +4066,74 @@ mod tests {
     }
 
     #[test]
+    fn admin_route_normalization_treats_axum_and_generated_params_as_same() {
+        assert_eq!(
+            normalize_admin_route_path("/admin/v1/addons/:addon_id/status"),
+            "/admin/v1/addons/{addon_id}/status"
+        );
+        assert_eq!(
+            normalize_admin_route_path("/admin/v1/addons/{addon_id}/status"),
+            "/admin/v1/addons/{addon_id}/status"
+        );
+        assert_eq!(
+            normalize_admin_route_path("/admin/v1/addons/:addon_id/tokens/:token_id/revoke"),
+            "/admin/v1/addons/{addon_id}/tokens/{token_id}/revoke"
+        );
+    }
+
+    #[test]
+    fn admin_route_inventory_exclusions_are_explicit_and_disjoint() {
+        let admin_prefix = format!("/admin/{ADMIN_API_VERSION}/");
+        let mut route_keys = BTreeSet::new();
+        let mut generated_paths = BTreeSet::new();
+
+        for route in admin_contract_routes() {
+            assert!(
+                route.path.starts_with(&admin_prefix),
+                "Admin route constant {} must stay under {admin_prefix}: {}",
+                route.key,
+                route.path
+            );
+            assert!(
+                route_keys.insert(route.key),
+                "Duplicate Admin route key: {}",
+                route.key
+            );
+            assert!(
+                generated_paths.insert(normalize_admin_route_path(&route.path)),
+                "Duplicate normalized generated Admin route path: {}",
+                route.path
+            );
+        }
+
+        let mut excluded_paths = BTreeSet::new();
+        for exclusion in admin_contract_route_exclusions() {
+            assert!(
+                exclusion.path.starts_with(&admin_prefix),
+                "Excluded Admin route must stay under {admin_prefix}: {}",
+                exclusion.path
+            );
+            assert!(
+                !exclusion.reason.trim().is_empty(),
+                "Excluded Admin route must have an explicit reason: {}",
+                exclusion.path
+            );
+
+            let normalized = normalize_admin_route_path(&exclusion.path);
+            assert!(
+                !generated_paths.contains(&normalized),
+                "Excluded Admin route is also generated: {}",
+                exclusion.path
+            );
+            assert!(
+                excluded_paths.insert(normalized),
+                "Duplicate excluded Admin route path: {}",
+                exclusion.path
+            );
+        }
+    }
+
+    #[test]
     fn admin_contract_excludes_generated_fetch_runtime_and_raw_sensitive_fields() {
         let contract = admin_typescript_contract().to_ascii_lowercase();
 
@@ -3948,12 +4191,19 @@ mod tests {
     fn admin_contract_routes_stay_out_of_public_client_inventory() {
         let public_paths = public_client_paths().collect::<Vec<_>>();
 
-        for (_key, suffix) in ADMIN_ROUTE_SUFFIXES {
-            let admin_path = admin_route_path(suffix);
-
+        for route in admin_contract_routes() {
             assert!(
-                !public_paths.contains(&admin_path.as_str()),
-                "Public Client route inventory leaked Admin API path: {admin_path}"
+                !public_paths.contains(&route.path.as_str()),
+                "Public Client route inventory leaked Admin API path: {}",
+                route.path
+            );
+        }
+
+        for exclusion in admin_contract_route_exclusions() {
+            assert!(
+                !public_paths.contains(&exclusion.path.as_str()),
+                "Public Client route inventory leaked excluded Admin API path: {}",
+                exclusion.path
             );
         }
     }
