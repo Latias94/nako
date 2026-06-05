@@ -21,13 +21,38 @@ runtime work begins.
 
 ## Acceptance Criteria
 
-- [ ] Cookbook docs explain supported remote access shapes and non-goals.
-- [ ] At least one reverse-proxy fixture and one tunnel-provider fixture are
+- [x] Cookbook docs explain supported remote access shapes and non-goals.
+- [x] At least one reverse-proxy fixture and one tunnel-provider fixture are
       validated by config-check or release-gate tooling.
-- [ ] Fixture output assertions prove sensitive network fields stay redacted.
-- [ ] Existing local-only/private-network examples remain conservative.
-- [ ] No Public Client endpoint discovery route is added.
-- [ ] No built-in tunnel provider runtime is added.
+- [x] Fixture output assertions prove sensitive network fields stay redacted.
+- [x] Existing local-only/private-network examples remain conservative.
+- [x] No Public Client endpoint discovery route is added.
+- [x] No built-in tunnel provider runtime is added.
+
+## Implementation Evidence
+
+- Cookbook:
+  `docs/deployment/REMOTE_ACCESS.md`.
+- Self-hosted and release links:
+  `docs/deployment/SELF_HOSTED.md` and
+  `docs/deployment/RELEASE_CHECKLIST.md`.
+- Reverse-proxy fixture:
+  `deploy/remote-access/reverse-proxy.nako.toml`.
+- Tunnel-provider fixture:
+  `deploy/remote-access/tunnel-provider.nako.toml`.
+- Config gates:
+  `scripts/remote-access-config-gate.ps1` and
+  `scripts/remote-access-config-gate.sh`.
+- Spec update:
+  `.trellis/spec/nako-server/backend/quality-guidelines.md`.
+- PowerShell gate passed and verified `network.access`, `network.proxy`,
+  `network.origins`, and `network.tunnel_providers` report `pass` while raw
+  URLs, token values, proxy sources, forwarded header names, and `127.0.0.1`
+  are absent from reports.
+- Bash syntax gate passed. Actual Bash gate did not complete in the available
+  WSL environment because non-login Bash lacked `cargo`; login Bash found
+  Cargo but WSL `rustc 1.95.0` ICE'd while compiling `nako-server`, before the
+  fixture assertions ran. Windows/PowerShell Cargo execution passed.
 
 ## Definition of Done
 

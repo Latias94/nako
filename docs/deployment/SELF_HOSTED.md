@@ -114,6 +114,12 @@ token_env = "NAKO_TUNNEL_TOKEN"
 tunnel credentials, and secret query strings from diagnostics. Avoid wildcard
 browser origins; list exact HTTPS origins instead.
 
+For concrete Caddy, Nginx, DDNS, Tailscale Funnel, Cloudflare Tunnel, ngrok,
+and generic external tunnel guidance, see
+[`REMOTE_ACCESS.md`](./REMOTE_ACCESS.md). The cookbook also explains playback
+ticket caveats, trusted proxy source review, exact CORS origins, tunnel token
+handling, and the remote-access fixture gate.
+
 ## Database Configuration
 
 ### SQLite
@@ -309,6 +315,7 @@ For local release confidence:
 bash scripts/release-gate.sh --mode fast
 bash scripts/release-gate.sh --mode playback
 bash scripts/release-gate.sh --mode postgres
+bash scripts/remote-access-config-gate.sh
 ```
 
 On Windows:
@@ -317,6 +324,7 @@ On Windows:
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode fast
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode playback
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode postgres
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/remote-access-config-gate.ps1
 ```
 
 `playback` mode writes `target/release-gate/playback-hardware-report.json`.
@@ -339,5 +347,7 @@ the host FFmpeg build lists the hardware pipeline pieces Nako can use.
 - Release artifact scripts: `scripts/package-release.ps1` and
   `scripts/package-release.sh`
 - Release gate: `scripts/release-gate.ps1` and `scripts/release-gate.sh`
+- Remote access config gate: `scripts/remote-access-config-gate.ps1` and
+  `scripts/remote-access-config-gate.sh`
 - PostgreSQL contract harness: `scripts/postgres-contract-harness.ps1` and
   `scripts/postgres-contract-harness.sh`

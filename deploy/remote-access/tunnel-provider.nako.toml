@@ -1,0 +1,69 @@
+# Nako remote access tunnel-provider config-check fixture.
+#
+# This fixture records operator-managed tunnel readiness only. It does not
+# start cloudflared, Tailscale, ngrok, or any other tunnel process.
+
+listen_addr = "127.0.0.1:3000"
+database_backend = "sqlite"
+database_url = "sqlite://target/release-gate/remote-access/tunnel-provider/nako.db"
+ffprobe_path = "ffprobe"
+ffmpeg_path = "ffmpeg"
+scan_concurrency = 1
+probe_concurrency = 1
+metadata_concurrency = 1
+remux_concurrency = 1
+webhook_concurrency = 1
+remux_timeout_ms = 1800000
+remux_staging_root = "target/release-gate/remote-access/tunnel-provider/remux"
+
+[auth]
+enabled = true
+token_env = "NAKO_ADMIN_TOKEN"
+
+[network]
+exposure_mode = "tunnel_provider"
+external_base_url = "https://nako-tunnel.redaction.invalid"
+allowed_origins = ["https://player-tunnel.redaction.invalid"]
+
+[[network.tunnel_providers]]
+id = "cloudflared-fixture"
+kind = "cloudflare_tunnel"
+public_url = "https://cloudflare-tunnel.redaction.invalid/private?token=tunnel-url-token"
+token_env = "NAKO_REMOTE_ACCESS_GATE_TUNNEL_TOKEN"
+
+[transcode]
+hardware_acceleration = "none"
+hardware_fallback = "cpu"
+cpu_concurrency = 1
+gpu_concurrency = 1
+
+[staging]
+max_bytes = 1073741824
+retention_ms = 604800000
+cleanup_on_startup = true
+
+[playback]
+remote_stream_concurrency = 2
+remote_stage_concurrency = 1
+
+[artwork]
+artifact_root = "target/release-gate/remote-access/tunnel-provider/artwork"
+fetch_timeout_ms = 10000
+fetch_max_attempts = 1
+fetch_max_bytes = 1048576
+fetch_concurrency = 1
+ingest_worker_enabled = false
+ingest_worker_idle_ms = 1000
+fetch_user_agent = "nako-remote-access-fixture/0.1"
+max_width = 20000
+max_height = 20000
+
+[[libraries]]
+id = "018f0000-0000-7000-8000-000000000102"
+name = "Tunnel Provider Fixture"
+root = "unused"
+preset = "movies"
+
+[libraries.webdav]
+root = "webdav:///TunnelProviderFixture"
+base_url = "https://webdav-tunnel.redaction.invalid/dav?token=tunnel-library-token"

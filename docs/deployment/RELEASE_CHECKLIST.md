@@ -159,7 +159,27 @@ Review the generated hardware report before enabling `vaapi`, `nvenc`, or
 the default playback gate, but it must be understood before choosing a
 non-CPU hardware policy.
 
-## 5b. Official Addon Alpha Smoke
+## 5b. Remote Access Config Gate
+
+Before publishing remote-access cookbook examples or support guidance, run the
+fixture gate:
+
+```bash
+bash scripts/remote-access-config-gate.sh
+```
+
+On Windows:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/remote-access-config-gate.ps1
+```
+
+The gate validates one reverse-proxy fixture and one tunnel-provider fixture
+with `config-check --json --create-dirs`. It also asserts the reports do not
+leak raw URLs, private origins, trusted proxy sources, forwarded header names,
+or token values.
+
+## 5c. Official Addon Alpha Smoke
 
 Run the official alpha host/addon loop after the release artifacts are ready:
 

@@ -1,0 +1,66 @@
+# Nako remote access reverse-proxy config-check fixture.
+#
+# This fixture is intentionally synthetic. It proves config-check accepts a
+# reviewed reverse-proxy declaration while redacting raw URLs, origins, proxy
+# sources, and token values from JSON diagnostics.
+
+listen_addr = "127.0.0.1:3000"
+database_backend = "sqlite"
+database_url = "sqlite://target/release-gate/remote-access/reverse-proxy/nako.db"
+ffprobe_path = "ffprobe"
+ffmpeg_path = "ffmpeg"
+scan_concurrency = 1
+probe_concurrency = 1
+metadata_concurrency = 1
+remux_concurrency = 1
+webhook_concurrency = 1
+remux_timeout_ms = 1800000
+remux_staging_root = "target/release-gate/remote-access/reverse-proxy/remux"
+
+[auth]
+enabled = true
+token_env = "NAKO_ADMIN_TOKEN"
+
+[network]
+exposure_mode = "reverse_proxy"
+external_base_url = "https://nako-reverse.redaction.invalid"
+trusted_proxy_headers = true
+trusted_proxy_sources = ["10.66.10.5"]
+allowed_origins = ["https://player-reverse.redaction.invalid"]
+
+[transcode]
+hardware_acceleration = "none"
+hardware_fallback = "cpu"
+cpu_concurrency = 1
+gpu_concurrency = 1
+
+[staging]
+max_bytes = 1073741824
+retention_ms = 604800000
+cleanup_on_startup = true
+
+[playback]
+remote_stream_concurrency = 2
+remote_stage_concurrency = 1
+
+[artwork]
+artifact_root = "target/release-gate/remote-access/reverse-proxy/artwork"
+fetch_timeout_ms = 10000
+fetch_max_attempts = 1
+fetch_max_bytes = 1048576
+fetch_concurrency = 1
+ingest_worker_enabled = false
+ingest_worker_idle_ms = 1000
+fetch_user_agent = "nako-remote-access-fixture/0.1"
+max_width = 20000
+max_height = 20000
+
+[[libraries]]
+id = "018f0000-0000-7000-8000-000000000101"
+name = "Reverse Proxy Fixture"
+root = "unused"
+preset = "movies"
+
+[libraries.webdav]
+root = "webdav:///ReverseProxyFixture"
+base_url = "https://webdav-reverse.redaction.invalid/dav?token=reverse-url-token"

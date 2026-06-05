@@ -3,3 +3,12 @@
 {"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Check Admin diagnostics contract only if touched."}
 {"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/remote-access-network-operations.md", "reason": "Check output against parent remote access audit."}
 {"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/synthesis.md", "reason": "Check output against cross-lane constraints."}
+{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/next-operations-release-lanes.md", "reason": "Check implementation against latest operations/release audit and fixture boundary decisions."}
+{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/next-lane-synthesis.md", "reason": "Check output against updated parent queue: docs/ops only, no endpoint discovery or tunnel runtime."}
+{"file": "docs/deployment/REMOTE_ACCESS.md", "reason": "Check cookbook coverage, remote access non-goals, and sensitive field caveats."}
+{"file": "deploy/remote-access/reverse-proxy.nako.toml", "reason": "Check reverse-proxy fixture remains conservative and redaction-safe."}
+{"file": "deploy/remote-access/tunnel-provider.nako.toml", "reason": "Check tunnel-provider fixture remains external-runtime-only and redaction-safe."}
+{"file": "scripts/remote-access-config-gate.ps1", "reason": "Check PowerShell gate validates config-check JSON and sensitive field redaction."}
+{"file": "scripts/remote-access-config-gate.sh", "reason": "Check shell gate validates config-check JSON and sensitive field redaction."}
+{"file": "docs/deployment/SELF_HOSTED.md", "reason": "Check self-hosted docs point operators to the cookbook and fixture gate."}
+{"file": "docs/deployment/RELEASE_CHECKLIST.md", "reason": "Check release checklist includes remote access fixture gate evidence."}

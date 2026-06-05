@@ -61,6 +61,101 @@ Use these gates for `crates/nako-server` feature work.
   `cargo fmt --all -- --check`, `cargo check --workspace --tests`,
   `cargo nextest run --workspace --no-fail-fast`.
 
+## Scenario: Remote Access Config Gate Fixtures
+
+### 1. Scope / Trigger
+
+- Trigger: changing remote access cookbook docs, `deploy/remote-access/*.toml`,
+  `scripts/remote-access-config-gate.*`, or `config-check` network readiness
+  output.
+- Purpose: prove reverse-proxy and external tunnel-provider examples are
+  accepted by `nako-server config-check --json --create-dirs` while raw network
+  facts remain redacted.
+
+### 2. Signatures
+
+- PowerShell gate:
+  `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/remote-access-config-gate.ps1`.
+- Bash gate:
+  `bash scripts/remote-access-config-gate.sh`.
+- Fixtures:
+  `deploy/remote-access/reverse-proxy.nako.toml` and
+  `deploy/remote-access/tunnel-provider.nako.toml`.
+- Output reports:
+  `target/release-gate/remote-access/<fixture>-config-check.json`.
+- Expected network check IDs:
+  `network.access`, `network.proxy`, `network.origins`, and
+  `network.tunnel_providers`.
+
+### 3. Contracts
+
+- Fixtures must keep auth enabled and use loopback/private listener defaults.
+- `reverse_proxy` fixtures must use HTTPS `external_base_url`, exact
+  `allowed_origins`, and explicit reviewed `trusted_proxy_sources`.
+- `tunnel_provider` fixtures must declare external provider metadata only; they
+  must not start, supervise, or configure tunnel processes.
+- Gate scripts must set fixture-only environment variables for auth/tunnel
+  tokens and restore the caller environment afterward.
+- JSON reports must not contain raw fixture URLs, tunnel token values, bearer
+  token values, private origins, trusted proxy sources, forwarded header names,
+  or local host details such as `127.0.0.1`.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Config-check exits non-zero | Gate fails and leaves no successful report for that fixture |
+| Overall report status is not `pass` | Gate fails |
+| Expected network check is missing or not `pass` | Gate fails |
+| Report contains fixture URL, origin, proxy source, header name, token, or local host detail | Gate fails |
+| Tunnel provider config implies process/runtime ownership | Reject the docs/fixture change or move it to a dedicated architecture task |
+| Bash cannot run in the current environment | At least `bash -n` must pass and the reason actual execution could not run must be recorded |
+
+### 5. Good/Base/Bad Cases
+
+- Good: add a new Cloudflare Tunnel fixture that declares provider kind and
+  `token_env`, then update both gate scripts with the expected checks and
+  redaction assertions.
+- Base: cookbook docs add provider guidance without changing fixtures; run
+  `git diff --check` and the PowerShell gate.
+- Bad: adding a tunnel supervisor, endpoint discovery route, wildcard CORS
+  origin, or raw `public_url` echo in config-check output.
+
+### 6. Tests Required
+
+- `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/remote-access-config-gate.ps1`.
+- `bash -n scripts/remote-access-config-gate.sh`.
+- Actual Bash gate when the shell environment has working Cargo/Rust.
+- `python .trellis/scripts/task.py validate <remote-access-task-dir>`.
+- `git diff --check`.
+- `cargo fmt --all -- --check` only when Rust code changes.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```toml
+[network]
+exposure_mode = "tunnel_provider"
+external_base_url = "https://nako.example.com?token=secret"
+```
+
+Embedding provider or bearer secrets in URLs makes config-check, logs, and
+support bundles harder to redact.
+
+#### Correct
+
+```toml
+[[network.tunnel_providers]]
+id = "cloudflared"
+kind = "cloudflare_tunnel"
+public_url = "https://nako.example.com"
+token_env = "NAKO_TUNNEL_TOKEN"
+```
+
+Tunnel credentials stay in environment-backed operator secrets; Nako records
+only readiness declarations and redacted diagnostics.
+
 ## Forbidden Patterns
 
 - Do not add unauthenticated sensitive routes outside the explicit public route
