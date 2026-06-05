@@ -63,7 +63,10 @@ Added the source fingerprint hash durable job contract with persisted JobKind, r
 
 ### Main Changes
 
-(Add details)
+- Created the Public Client playback capability parity Trellis task.
+- Linked the new task from the cross-lane architecture audit parent.
+- Added implement/check context files for the future contract gate worker.
+- Confirmed no production Rust, TypeScript, or generated code changed.
 
 ### Git Commits
 
@@ -74,7 +77,9 @@ Added the source fingerprint hash durable job contract with persisted JobKind, r
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] python .trellis\scripts\task.py validate .trellis\tasks\06-05-public-client-playback-capability-contract-parity-gate
+- [OK] python .trellis\scripts\task.py validate .trellis\tasks\06-05-06-05-cross-lane-architecture-audit
+- [OK] git diff --check
 
 ### Status
 
@@ -327,6 +332,40 @@ Added Admin Jobs source fingerprint hash drill-down filters, frontend route cove
 - [OK] npm run build --prefix apps/admin-web
 - [OK] git diff --check
 - [OK] Playwright desktop and mobile Jobs route smoke checks
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 56: Open playback capability parity gate
+
+**Date**: 2026-06-05
+**Task**: Open playback capability parity gate
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Created the Public Client playback capability parity Trellis task, linked it from the cross-lane audit parent, and validated task context.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f959e70d` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
 
 ### Status
 
