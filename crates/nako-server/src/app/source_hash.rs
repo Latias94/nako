@@ -1,12 +1,12 @@
 use nako_core::{
     Job, JobId, JobKind, JobPriority, JobRepository, LeasedJob, LibraryId, MediaRepository,
-    MediaSource, MediaSourceId, NakoError, NewJob, Result,
+    MediaSource, MediaSourceId, NakoError, NewJob, Result, ScanRepository,
 };
 use nako_db::NakoDatabase;
 use nako_library::{
     SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS, SourceFingerprintHashExecutor,
     SourceFingerprintHashJobInput, SourceFingerprintHashJobSummary, SourceFingerprintHashMode,
-    SourceFingerprintHashRequest,
+    SourceFingerprintHashReport, SourceFingerprintHashRequest,
 };
 use nako_vfs::StorageUri;
 
@@ -209,8 +209,53 @@ impl SourceFingerprintHashAppService {
             .execute(prepared.request)
             .await
             .map_err(|err| redact_source_fingerprint_hash_execution_error(err, &source_scheme))?;
+        self.persist_source_fingerprint_hash_evidence(&source, &report)
+            .await?;
 
         Ok(SourceFingerprintHashJobSummary::from_report(&report))
+    }
+
+    async fn persist_source_fingerprint_hash_evidence(
+        &self,
+        source: &MediaSource,
+        report: &SourceFingerprintHashReport,
+    ) -> Result<()> {
+        let fingerprint = report
+            .evidence
+            .fingerprint
+            .clone()
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| NakoError::Conflict {
+                message: "source fingerprint hash report did not include fingerprint evidence"
+                    .to_owned(),
+            })?;
+
+        let mut source = source.clone();
+        source.fingerprint = Some(fingerprint.clone());
+
+        if let Some(mut state) = self
+            .store
+            .get_source_state(source.library_id, &source.locator)
+            .await?
+        {
+            state.fingerprint = Some(fingerprint);
+            self.store
+                .commit_library_scan_source(&nako_core::LibraryScanSourcePersistenceCommit {
+                    items: Vec::new(),
+                    source,
+                    source_state: state,
+                    library_item_states: Vec::new(),
+                    local_inference_evidence: Vec::new(),
+                    search_projections: Vec::new(),
+                    source_duplicate_relationships: Vec::new(),
+                    resolved_ingestion_failures: Vec::new(),
+                })
+                .await?;
+        } else {
+            self.store.upsert_media_source(&source).await?;
+        }
+
+        Ok(())
     }
 
     async fn source_for_hash(&self, source_id: MediaSourceId) -> Result<MediaSource> {

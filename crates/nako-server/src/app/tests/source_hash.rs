@@ -1,6 +1,6 @@
 use super::*;
 use crate::app::jobs::LibraryScanScheduleOutcome;
-use nako_core::JobPriority;
+use nako_core::{JobPriority, ScanRepository, ScanSnapshotId, ScanStatus, SourceState};
 use nako_library::{
     SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS, SourceFingerprintHashJobInput,
     SourceFingerprintHashJobSummary, SourceFingerprintHashMode,
@@ -126,6 +126,7 @@ async fn source_fingerprint_hash_execute_claims_job_and_persists_safe_summary() 
     )
     .await;
     fs::write(temp.path().join("Hidden Movie.mkv"), b"abcdef").unwrap();
+    let existing_state = seed_source_hash_state(&store, library_id, &source).await;
     let job = app
         .source_hash()
         .enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
@@ -158,6 +159,9 @@ async fn source_fingerprint_hash_execute_claims_job_and_persists_safe_summary() 
     )
     .await
     .unwrap();
+    let persisted_fingerprint =
+        assert_source_hash_evidence_persisted(&store, &source, Some(&existing_state), "abcdef")
+            .await;
 
     assert_eq!(output.job.id, job.id);
     assert_eq!(output.job.status, JobStatus::Succeeded);
@@ -179,6 +183,7 @@ async fn source_fingerprint_hash_execute_claims_job_and_persists_safe_summary() 
     assert!(!summary_json.contains("sha256"));
     assert!(!summary_json.contains("aaaaaaaa"));
     assert!(!summary_json.contains(r#""fingerprint""#));
+    assert!(!summary_json.contains(&persisted_fingerprint));
 }
 
 #[tokio::test]
@@ -191,6 +196,7 @@ async fn source_fingerprint_hash_scheduler_executes_claimed_job_and_persists_saf
     )
     .await;
     fs::write(temp.path().join("Hidden Movie.mkv"), b"abcdef").unwrap();
+    let existing_state = seed_source_hash_state(&store, library_id, &source).await;
     let job = app
         .source_hash()
         .enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
@@ -224,6 +230,9 @@ async fn source_fingerprint_hash_scheduler_executes_claimed_job_and_persists_saf
     )
     .await
     .unwrap();
+    let persisted_fingerprint =
+        assert_source_hash_evidence_persisted(&store, &source, Some(&existing_state), "abcdef")
+            .await;
 
     assert_eq!(outcome, LibraryScanScheduleOutcome::Scheduled(job.id));
     assert_eq!(persisted.status, JobStatus::Succeeded);
@@ -244,6 +253,7 @@ async fn source_fingerprint_hash_scheduler_executes_claimed_job_and_persists_saf
     assert!(!summary_json.contains("aaaaaaaa"));
     assert!(!summary_json.contains("abcdef"));
     assert!(!summary_json.contains(r#""fingerprint""#));
+    assert!(!summary_json.contains(&persisted_fingerprint));
 }
 
 #[tokio::test]
@@ -816,6 +826,72 @@ async fn wait_for_source_hash_runtime_failure(app: &NakoApp) {
         "source hash scheduler job did not fail as expected: {:?}",
         app.runtime_diagnostics()
     );
+}
+
+async fn seed_source_hash_state(
+    store: &NakoDatabase,
+    library_id: LibraryId,
+    source: &MediaSource,
+) -> SourceState {
+    let scan_id = ScanSnapshotId::new();
+    store
+        .begin_scan_snapshot(scan_id, library_id, "local:///")
+        .await
+        .unwrap();
+    let state = SourceState {
+        library_id,
+        source_id: None,
+        uri: source.locator.clone(),
+        size_bytes: Some(123_456),
+        modified_at: Some("2026-05-16T00:00:00Z".to_owned()),
+        etag: Some("existing-private-etag".to_owned()),
+        fingerprint: Some("existing-source-state-fingerprint".to_owned()),
+        last_seen_scan_id: scan_id,
+        tombstoned: true,
+    };
+
+    store.upsert_source_state(&state).await.unwrap();
+    store
+        .complete_scan_snapshot(scan_id, ScanStatus::Succeeded, None)
+        .await
+        .unwrap();
+
+    state
+}
+
+async fn assert_source_hash_evidence_persisted(
+    store: &NakoDatabase,
+    source: &MediaSource,
+    existing_state: Option<&SourceState>,
+    forbidden_content: &str,
+) -> String {
+    let persisted_source = store.get_media_source(source.id).await.unwrap().unwrap();
+    let fingerprint = persisted_source
+        .fingerprint
+        .clone()
+        .expect("persisted source fingerprint");
+    let mut expected_source = source.clone();
+    expected_source.fingerprint = Some(fingerprint.clone());
+
+    assert_eq!(persisted_source, expected_source);
+    assert!(fingerprint.starts_with("source:v1:content_hash:sha256:"));
+    assert!(!fingerprint.contains(&source.locator));
+    assert!(!fingerprint.contains(forbidden_content));
+
+    if let Some(existing_state) = existing_state {
+        let persisted_state = store
+            .get_source_state(source.library_id, &source.locator)
+            .await
+            .unwrap()
+            .unwrap();
+        let mut expected_state = existing_state.clone();
+        expected_state.fingerprint = Some(fingerprint.clone());
+
+        assert_ne!(persisted_state.fingerprint, existing_state.fingerprint);
+        assert_eq!(persisted_state, expected_state);
+    }
+
+    fingerprint
 }
 
 async fn source_hash_app_with_source(
