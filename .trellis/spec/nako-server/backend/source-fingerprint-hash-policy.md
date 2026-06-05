@@ -10,7 +10,8 @@ relationship reconciliation from hash evidence.
 
 - Trigger: adding Admin/API source fingerprint hash enqueue, retry/requeue,
   scan-originated hash scheduling, source hash evidence detail diagnostics, or
-  duplicate relationship reconciliation from persisted source hash evidence.
+  duplicate relationship reconciliation from persisted source hash evidence,
+  including read-only Admin reconciliation plan routes.
 - Scope: `nako-server` owns app-service orchestration and Admin/HTTP mapping;
   `nako-library::source_hash` owns hash request/input/summary and execution
   contracts; `nako-library::ingestion` owns source observation advisory
@@ -35,6 +36,10 @@ relationship reconciliation from hash evidence.
   `SourceDuplicateReconciliationAppService::plan_source_duplicate_reconciliation(
   SourceDuplicateReconciliationPlanRequest { library_id, source_id, page }
   ) -> Result<SourceDuplicateReconciliationPlan>`.
+- Admin read-only duplicate reconciliation:
+  `GET /admin/v1/libraries/{library_id}/sources/{source_id}/duplicate-reconciliation-plan`
+  with `limit` / `offset` pagination, returning
+  `AdminSourceDuplicateReconciliationPlanResponse`.
 - Durable input:
   `SourceFingerprintHashJobInput { library_id, source_id, source_scheme, mode }`.
 - Admin job list:
@@ -82,14 +87,18 @@ relationship reconciliation from hash evidence.
 - Duplicate reconciliation must canonicalize source pairs and require pair-level
   idempotency across SQLite and PostgreSQL before any repeated or automatic
   writer is enabled.
-- Reconciliation plans may expose source ids, evidence kind, confidence, stale
-  state, existing relationship status, and recommended action. They must not
+- Reconciliation plans and Admin reconciliation DTOs may expose `library_id`,
+  target `source_id`, fingerprint evidence kind, confidence, stale state,
+  candidate `source_id`, candidate `duplicate_source_id`, candidate evidence
+  kind, candidate confidence, candidate stale state, relationship id, existing
+  relationship status, recommended action, and page metadata. They must not
   expose raw Source Locators, local paths, etags, backend URLs, credentials, raw
-  hashes, raw fingerprints, evidence values, or job input JSON.
-- Future Admin reconciliation DTOs may expose source ids, evidence kind,
-  confidence, stale state, existing relationship status, and recommended
-  action. They must not expose raw Source Locators, local paths, etags,
-  backend URLs, credentials, raw hashes, raw fingerprints, or job input JSON.
+  hashes, raw fingerprints, evidence values, source fingerprint material, or
+  job input JSON.
+- The Admin reconciliation HTTP handler must remain thin: parse path IDs and
+  bounded pagination, delegate to `SourceDuplicateReconciliationAppService`,
+  and map through explicit `nako_api::admin` DTO conversion. It must not read
+  repositories directly or mutate duplicate relationships.
 - Reconciliation apply may create or update Suggested relationships. It must
   not auto-confirm duplicates, merge sources, change Playback Source Selection,
   or mutate Library Access.
@@ -113,6 +122,8 @@ relationship reconciliation from hash evidence.
 | Reconciliation source belongs to a different library | Return invalid input without locator/path details. |
 | Reconciliation source has no fingerprint | Return invalid input without locator/path details. |
 | Reconciliation source has a raw or unsupported fingerprint string | Return invalid input without echoing the fingerprint. |
+| Admin reconciliation caller is non-admin | Return forbidden through the existing Admin route guard. |
+| Admin reconciliation uses `limit` or `offset` | Apply existing Admin bounded pagination before candidate response mapping. |
 | Reconciliation sees stale evidence | Recommend hash refresh; do not write duplicate relationships. |
 | Reconciliation sees non-stale content hash match | Plan a Suggested StrongFingerprint relationship, not a confirmed merge. |
 | Reconciliation sees partial/backend fingerprint match | Plan a weaker Suggested relationship and label the evidence kind/confidence. |
@@ -134,6 +145,9 @@ relationship reconciliation from hash evidence.
 - Good: a read-only reconciliation plan preserves existing Suggested,
   Confirmed, and Rejected relationship statuses while recommending refresh for
   stale fingerprint evidence.
+- Good: the Admin reconciliation route exposes the same read-only plan with
+  `AdminSourceDuplicateReconciliationPlanResponse`, generated Admin contract
+  route key, and no raw fingerprint/locator material.
 - Base: scan commit records a partial/full hash advisory decision but leaves
   scheduling disabled.
 - Bad: `persist_source_fingerprint_hash_evidence` also calls
@@ -164,11 +178,18 @@ relationship reconciliation from hash evidence.
   stale source-state projection, pagination, and canonical pair lookup.
 - App-service tests proving read-only reconciliation does not mutate
   relationships and redacts locator/path/etag/raw fingerprint material.
+- Admin route tests proving success, admin guard, safe missing/cross-library/
+  missing-fingerprint/raw-fingerprint errors, candidate-oriented pagination,
+  read-only relationship state, and response redaction.
 - Gate for Admin trigger:
   `cargo check -p nako-api -p nako-server --tests` plus focused
   `cargo nextest run -p nako-server source_fingerprint_hash --no-fail-fast`
   and `cargo nextest run -p nako-api admin_contract --no-fail-fast` when route
   inventory changes.
+- Gate for Admin reconciliation route:
+  `cargo nextest run -p nako-server admin_v1_source_duplicate_reconciliation_plan --no-fail-fast`,
+  `cargo nextest run -p nako-server implemented_admin_routes_are_generated_or_explicitly_excluded --no-fail-fast`,
+  and `cargo nextest run -p nako-api admin_contract --no-fail-fast`.
 
 ### 7. Wrong vs Correct
 

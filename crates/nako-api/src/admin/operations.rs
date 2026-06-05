@@ -3,7 +3,10 @@ use nako_core::{
     DomainEventKind, DomainEventSubject, EventId, IngestionFailureClass, IngestionFailurePhase,
     IngestionFailureRecord, IngestionFailureStatus, Job, JobCancellationRequestRecord, JobId,
     JobKind, JobPriority, JobStatus, LibraryId, MediaSourceId, OutboxEventRecord,
-    OutboxEventStatus, ScanSnapshotId,
+    OutboxEventStatus, ScanSnapshotId, SourceDuplicateEvidenceKind,
+    SourceDuplicateReconciliationAction, SourceDuplicateReconciliationCandidate,
+    SourceDuplicateReconciliationPlan, SourceDuplicateRelationshipId,
+    SourceDuplicateRelationshipStatus, SourceFingerprintEvidenceKind,
 };
 use serde::{Deserialize, Serialize};
 
@@ -137,6 +140,66 @@ pub struct AdminSourceFingerprintHashEnqueueRequest {
     pub mode: AdminSourceFingerprintHashMode,
     pub partial_prefix_bytes: Option<u64>,
     pub priority: Option<AdminJobPriority>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminSourceDuplicateReconciliationPlanResponse {
+    pub admin_api_version: String,
+    pub library_id: LibraryId,
+    pub source_id: MediaSourceId,
+    pub fingerprint_evidence_kind: SourceFingerprintEvidenceKind,
+    pub confidence_milli: u16,
+    pub stale: bool,
+    pub candidates: Vec<AdminSourceDuplicateReconciliationCandidate>,
+    pub page: PageInfo,
+}
+
+impl AdminSourceDuplicateReconciliationPlanResponse {
+    #[must_use]
+    pub fn from_plan(plan: SourceDuplicateReconciliationPlan, page: PageInfo) -> Self {
+        Self {
+            admin_api_version: super::ADMIN_API_VERSION.to_owned(),
+            library_id: plan.library_id,
+            source_id: plan.source_id,
+            fingerprint_evidence_kind: plan.fingerprint_evidence_kind,
+            confidence_milli: plan.confidence_milli,
+            stale: plan.stale,
+            candidates: plan
+                .candidates
+                .into_iter()
+                .map(AdminSourceDuplicateReconciliationCandidate::from_candidate)
+                .collect(),
+            page,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminSourceDuplicateReconciliationCandidate {
+    pub source_id: MediaSourceId,
+    pub duplicate_source_id: MediaSourceId,
+    pub evidence_kind: SourceDuplicateEvidenceKind,
+    pub confidence_milli: Option<u16>,
+    pub stale: bool,
+    pub relationship_id: Option<SourceDuplicateRelationshipId>,
+    pub existing_status: Option<SourceDuplicateRelationshipStatus>,
+    pub recommended_action: SourceDuplicateReconciliationAction,
+}
+
+impl AdminSourceDuplicateReconciliationCandidate {
+    #[must_use]
+    pub fn from_candidate(candidate: SourceDuplicateReconciliationCandidate) -> Self {
+        Self {
+            source_id: candidate.source_id,
+            duplicate_source_id: candidate.duplicate_source_id,
+            evidence_kind: candidate.evidence_kind,
+            confidence_milli: candidate.confidence_milli,
+            stale: candidate.stale,
+            relationship_id: candidate.relationship_id,
+            existing_status: candidate.existing_status,
+            recommended_action: candidate.recommended_action,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -428,6 +491,59 @@ mod tests {
         assert!(!body.contains("path"));
         assert!(!body.contains("etag"));
         assert!(!body.contains("token"));
+    }
+
+    #[test]
+    fn admin_source_duplicate_reconciliation_plan_serializes_safe_fields() {
+        let source_id = MediaSourceId::new();
+        let duplicate_source_id = MediaSourceId::new();
+        let response = AdminSourceDuplicateReconciliationPlanResponse::from_plan(
+            SourceDuplicateReconciliationPlan {
+                library_id: LibraryId::new(),
+                source_id,
+                fingerprint_evidence_kind: SourceFingerprintEvidenceKind::ContentHash,
+                confidence_milli: 1_000,
+                stale: false,
+                candidates: vec![SourceDuplicateReconciliationCandidate {
+                    source_id,
+                    duplicate_source_id,
+                    evidence_kind: SourceDuplicateEvidenceKind::StrongFingerprint,
+                    confidence_milli: Some(1_000),
+                    stale: false,
+                    relationship_id: Some(SourceDuplicateRelationshipId::new()),
+                    existing_status: Some(SourceDuplicateRelationshipStatus::Suggested),
+                    recommended_action: SourceDuplicateReconciliationAction::PreserveSuggested,
+                }],
+            },
+            PageInfo::new(20, 0, 1),
+        );
+
+        let value = serde_json::to_value(&response).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(value["admin_api_version"], "v1");
+        assert_eq!(value["fingerprint_evidence_kind"], "content_hash");
+        assert_eq!(value["confidence_milli"], 1_000);
+        assert_eq!(
+            value["candidates"][0]["evidence_kind"],
+            "strong_fingerprint"
+        );
+        assert_eq!(value["candidates"][0]["existing_status"], "suggested");
+        assert_eq!(
+            value["candidates"][0]["recommended_action"],
+            "preserve_suggested"
+        );
+        assert_eq!(value["page"]["returned"], 1);
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("source_locator"));
+        assert!(!body.contains("local:///"));
+        assert!(!body.contains("path"));
+        assert!(!body.contains("etag"));
+        assert!(!body.contains("token"));
+        assert!(!body.contains("sha256"));
+        assert!(!body.contains("fingerprint\":\""));
+        assert!(!body.contains("evidence_value"));
+        assert!(!body.contains("input_json"));
     }
 
     #[test]

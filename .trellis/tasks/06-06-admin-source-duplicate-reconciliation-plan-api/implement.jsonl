@@ -1,0 +1,12 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Admin DTO, server route, app-service delegation, generated contract, and redaction flow span multiple layers."}
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Admin DTO and contract generation ownership."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Admin route inventory, generated TypeScript contract, and DTO redaction rules."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Admin contract test and generated output quality gates."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server route/app-service boundary ownership."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Axum Admin route, auth, pagination, and handler patterns."}
+{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "HTTP error envelope and redaction-safe error behavior."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused server route test and check guidance."}
+{"file": ".trellis/spec/nako-server/backend/source-fingerprint-hash-policy.md", "reason": "Read-only duplicate reconciliation plan contract and redaction boundaries."}
+{"file": ".trellis/spec/nako-core/backend/index.md", "reason": "Core Source Duplicate plan vocabulary and domain records used by DTO mapping."}
+{"file": ".trellis/tasks/archive/2026-06/06-06-source-duplicate-reconciliation-plan-first-slice/prd.md", "reason": "Predecessor internal app-service contract."}
+{"file": ".trellis/tasks/archive/2026-06/06-06-source-duplicate-reconciliation-plan-first-slice/evidence.md", "reason": "Predecessor validation and redaction evidence."}

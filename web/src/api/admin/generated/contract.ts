@@ -64,6 +64,7 @@ export const NAKO_ADMIN_ROUTES = {
   events: "/admin/v1/events",
   jobs: "/admin/v1/jobs",
   sourceFingerprintHashes: "/admin/v1/source-fingerprint-hashes",
+  sourceDuplicateReconciliationPlan: "/admin/v1/libraries/{library_id}/sources/{source_id}/duplicate-reconciliation-plan",
   libraryMetadataProfile: "/admin/v1/libraries/{library_id}/metadata-profile",
   libraryScan: "/admin/v1/libraries/{library_id}/scan",
   libraryNfoImport: "/admin/v1/libraries/{library_id}/nfo/import",
@@ -153,6 +154,57 @@ export interface AdminSourceFingerprintHashEnqueueRequest {
   mode: AdminSourceFingerprintHashMode;
   partial_prefix_bytes?: number | null;
   priority?: AdminJobPriority | null;
+}
+
+export interface AdminSourceDuplicateReconciliationPlanQuery extends AdminPageQuery {}
+
+export type AdminSourceFingerprintEvidenceKind =
+  | "content_hash"
+  | "backend_fingerprint"
+  | "size_etag"
+  | "size_modified_time"
+  | "locator_only";
+
+export type AdminSourceDuplicateEvidenceKind =
+  | "strong_fingerprint"
+  | "size_and_etag"
+  | "path_evidence"
+  | "filesystem_link"
+  | "manual"
+  | { other: string };
+
+export type AdminSourceDuplicateRelationshipStatus =
+  | "suggested"
+  | "confirmed"
+  | "rejected";
+
+export type AdminSourceDuplicateReconciliationAction =
+  | "suggest_relationship"
+  | "preserve_suggested"
+  | "preserve_confirmed"
+  | "preserve_rejected"
+  | "refresh_source_fingerprint";
+
+export interface AdminSourceDuplicateReconciliationCandidate {
+  source_id: string;
+  duplicate_source_id: string;
+  evidence_kind: AdminSourceDuplicateEvidenceKind;
+  confidence_milli: number | null;
+  stale: boolean;
+  relationship_id: string | null;
+  existing_status: AdminSourceDuplicateRelationshipStatus | null;
+  recommended_action: AdminSourceDuplicateReconciliationAction;
+}
+
+export interface AdminSourceDuplicateReconciliationPlanResponse {
+  admin_api_version: string;
+  library_id: string;
+  source_id: string;
+  fingerprint_evidence_kind: AdminSourceFingerprintEvidenceKind;
+  confidence_milli: number;
+  stale: boolean;
+  candidates: AdminSourceDuplicateReconciliationCandidate[];
+  page: PageInfo;
 }
 
 export interface AdminPlaybackSessionsQuery extends AdminPageQuery {

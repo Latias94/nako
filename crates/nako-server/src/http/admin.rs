@@ -77,14 +77,15 @@ use nako_api::{
         AdminRendererReadinessDiagnostics, AdminRendererRuntimeDiagnosticsResponse,
         AdminRendererSessionDiagnostics, AdminRendererSessionSummary, AdminReplaceUserRolesRequest,
         AdminRuntimeConfigDiagnostics, AdminServerConfigDiagnosticsResponse,
-        AdminSetLocalPasswordRequest, AdminSourceFingerprintHashEnqueueRequest,
-        AdminSourceFingerprintHashMode, AdminStorageBackendHealthDiagnostic,
-        AdminStorageBackendHealthDiagnosticsResponse, AdminStorageBackendHealthResetResponse,
-        AdminStorageStagingDiagnosticsResponse, AdminStorageStagingPolicySlice,
-        AdminStorageStagingPressureStatus, AdminStorageStagingPressureSummary,
-        AdminStorageStagingRecord, AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics,
-        AdminTranscodePipelineReadiness, AdminTranscodePipelineReadinessStatus,
-        AdminTrustedProxyDiagnostics, AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
+        AdminSetLocalPasswordRequest, AdminSourceDuplicateReconciliationPlanResponse,
+        AdminSourceFingerprintHashEnqueueRequest, AdminSourceFingerprintHashMode,
+        AdminStorageBackendHealthDiagnostic, AdminStorageBackendHealthDiagnosticsResponse,
+        AdminStorageBackendHealthResetResponse, AdminStorageStagingDiagnosticsResponse,
+        AdminStorageStagingPolicySlice, AdminStorageStagingPressureStatus,
+        AdminStorageStagingPressureSummary, AdminStorageStagingRecord, AdminStorageStagingSummary,
+        AdminTranscodeConfigDiagnostics, AdminTranscodePipelineReadiness,
+        AdminTranscodePipelineReadinessStatus, AdminTrustedProxyDiagnostics,
+        AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
         AdminUpdateLibraryMetadataProfileRequest, AdminUpdateMetadataRawCacheSettingsRequest,
         AdminUpdatePlaybackRuntimeSettingsRequest, AdminUpdateUserStatusRequest,
         AdminUpsertLibraryAccessPolicyRequest, AdminVfsCacheRefreshResponse,
@@ -109,7 +110,7 @@ use nako_core::{
     GeneratedArtifactMetadataApplyOutcomeId, GeneratedArtifactMetadataApplyRecoveryAttention,
     GeneratedArtifactMetadataApplyRecoveryFilter, GeneratedArtifactMetadataBulkApplyBatchId,
     ImageKind, JobId, LibraryAccessPolicy, LibraryAccessPolicyFilter, LibraryAccessPolicyScope,
-    LibraryId, ManagedArtworkArtifactId, ManagedArtworkIngestId, MediaItemId,
+    LibraryId, ManagedArtworkArtifactId, ManagedArtworkIngestId, MediaItemId, MediaSourceId,
     MetadataCandidateReviewBatchId, MetadataCandidateReviewId, MetadataCandidateReviewQueueFilter,
     MetadataCandidateReviewStatus, NakoError, PageRequest, PlaybackTargetKind,
     PlaybackTargetTransportAuth, ProviderMappingId, RendererSessionRecord, RendererSessionState,
@@ -131,13 +132,13 @@ use crate::{
     },
     app::{
         EnqueueSourceFingerprintHashRequest, LibraryScanTraceContext, NakoApp,
-        RuntimeSupervisorDiagnostics, StagingBudgetPolicySlice, StorageStagingPressureStatus,
-        VfsCacheRepairActionBoundary, VfsCacheRepairActionPlanReason,
-        VfsCacheRepairActionPlanReport, VfsCacheRepairActionPlanStatus,
-        VfsCacheRepairExecutableRoute, VfsCacheRepairRefreshActionReport,
-        VfsCacheRepairTargetPreviewReport, VfsCacheRepairTargetReport,
-        WatchFolderRuntimeCoverageDiagnostic, WatchFolderRuntimeCoverageReport,
-        WatchFolderRuntimeCoverageStatus,
+        RuntimeSupervisorDiagnostics, SourceDuplicateReconciliationPlanRequest,
+        StagingBudgetPolicySlice, StorageStagingPressureStatus, VfsCacheRepairActionBoundary,
+        VfsCacheRepairActionPlanReason, VfsCacheRepairActionPlanReport,
+        VfsCacheRepairActionPlanStatus, VfsCacheRepairExecutableRoute,
+        VfsCacheRepairRefreshActionReport, VfsCacheRepairTargetPreviewReport,
+        VfsCacheRepairTargetReport, WatchFolderRuntimeCoverageDiagnostic,
+        WatchFolderRuntimeCoverageReport, WatchFolderRuntimeCoverageStatus,
         storage_staging_pressure_status as app_storage_staging_pressure_status,
     },
     config::{
@@ -284,6 +285,10 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/source-fingerprint-hashes",
             post(enqueue_admin_source_fingerprint_hash),
+        )
+        .route(
+            "/admin/v1/libraries/{library_id}/sources/{source_id}/duplicate-reconciliation-plan",
+            get(get_admin_source_duplicate_reconciliation_plan),
         )
         .route("/admin/v1/access/summary", get(get_admin_access_summary))
         .route(
@@ -2719,6 +2724,30 @@ pub(super) async fn enqueue_admin_source_fingerprint_hash(
         .await?;
 
     Ok((StatusCode::ACCEPTED, Json(AdminJobListItem::from_job(job))))
+}
+
+pub(super) async fn get_admin_source_duplicate_reconciliation_plan(
+    State(app): State<NakoApp>,
+    Path((library_id, source_id)): Path<(LibraryId, MediaSourceId)>,
+    Query(query): Query<PageQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let page: PageRequest = query.try_into()?;
+    let plan = app
+        .source_duplicate_reconciliation()
+        .plan_source_duplicate_reconciliation(SourceDuplicateReconciliationPlanRequest {
+            library_id,
+            source_id,
+            page,
+        })
+        .await?;
+    let returned = plan.candidates.len();
+
+    Ok(Json(
+        AdminSourceDuplicateReconciliationPlanResponse::from_plan(
+            plan,
+            page_info_from_request(page, returned),
+        ),
+    ))
 }
 
 fn admin_source_fingerprint_hash_mode(

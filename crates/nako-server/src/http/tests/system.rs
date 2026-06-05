@@ -17,12 +17,13 @@ use nako_api::admin::{
     AdminMetadataCandidateReviewRelatedHierarchyPlanRequest,
     AdminMetadataCandidateReviewRelatedHierarchyPlanResponse, AdminMetadataCandidateReviewResponse,
     AdminMetadataCandidateReviewUndoMode, AdminMetadataCandidateReviewUndoReason,
-    AdminSourceFingerprintHashEnqueueRequest, AdminSourceFingerprintHashMode,
-    AdminStorageBackendHealthDiagnosticsResponse, AdminStorageBackendHealthResetResponse,
-    AdminStorageStagingPressureStatus, AdminVfsCacheRefreshResponse,
-    AdminVfsCacheRepairActionPlanReason, AdminVfsCacheRepairActionPlanResponse,
-    AdminVfsCacheRepairActionPlanStatus, AdminVfsCacheRepairTargetListResponse,
-    AdminVfsCacheRepairTargetPreviewResponse, AdminWatchFolderRuntimeCoverageStatus,
+    AdminSourceDuplicateReconciliationPlanResponse, AdminSourceFingerprintHashEnqueueRequest,
+    AdminSourceFingerprintHashMode, AdminStorageBackendHealthDiagnosticsResponse,
+    AdminStorageBackendHealthResetResponse, AdminStorageStagingPressureStatus,
+    AdminVfsCacheRefreshResponse, AdminVfsCacheRepairActionPlanReason,
+    AdminVfsCacheRepairActionPlanResponse, AdminVfsCacheRepairActionPlanStatus,
+    AdminVfsCacheRepairTargetListResponse, AdminVfsCacheRepairTargetPreviewResponse,
+    AdminWatchFolderRuntimeCoverageStatus,
 };
 use nako_core::{
     JobKind, JobPriority, JobRepository, JobStatus,
@@ -5972,6 +5973,533 @@ async fn admin_v1_source_fingerprint_hash_enqueue_rejects_non_admin_session() {
         nako_api::public_client::ClientErrorCode::Forbidden.as_str()
     );
     assert_eq!(error.message, "administrator role is required");
+}
+
+const ADMIN_SOURCE_DUPLICATE_CONTENT_FINGERPRINT: &str = "source:v1:content_hash:sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+#[tokio::test]
+async fn admin_v1_source_duplicate_reconciliation_plan_returns_read_only_safe_plan() {
+    let (_temp, router, mut target, store) =
+        router_with_media_source("source_duplicate_secret_locator.mkv", b"media").await;
+    target.locator =
+        "local:///Users/Frankorz/Secret Target.mkv?token=source-duplicate-token".to_owned();
+    target.fingerprint = Some(ADMIN_SOURCE_DUPLICATE_CONTENT_FINGERPRINT.to_owned());
+    store.upsert_media_source(&target).await.unwrap();
+
+    let suggested = seed_admin_source_duplicate_source(
+        &store,
+        target.library_id,
+        "Suggested",
+        "local:///Users/Frankorz/Suggested.mkv",
+        Some(ADMIN_SOURCE_DUPLICATE_CONTENT_FINGERPRINT),
+    )
+    .await;
+    let confirmed = seed_admin_source_duplicate_source(
+        &store,
+        target.library_id,
+        "Confirmed",
+        "local:///Users/Frankorz/Confirmed.mkv",
+        Some(ADMIN_SOURCE_DUPLICATE_CONTENT_FINGERPRINT),
+    )
+    .await;
+    let rejected = seed_admin_source_duplicate_source(
+        &store,
+        target.library_id,
+        "Rejected",
+        "local:///Users/Frankorz/Rejected.mkv",
+        Some(ADMIN_SOURCE_DUPLICATE_CONTENT_FINGERPRINT),
+    )
+    .await;
+    let stale = seed_admin_source_duplicate_source(
+        &store,
+        target.library_id,
+        "Stale",
+        "local:///Users/Frankorz/Stale.mkv",
+        Some(ADMIN_SOURCE_DUPLICATE_CONTENT_FINGERPRINT),
+    )
+    .await;
+    let fresh = seed_admin_source_duplicate_source(
+        &store,
+        target.library_id,
+        "Fresh",
+        "local:///Users/Frankorz/Fresh.mkv",
+        Some(ADMIN_SOURCE_DUPLICATE_CONTENT_FINGERPRINT),
+    )
+    .await;
+
+    seed_admin_source_duplicate_relationship(
+        &store,
+        target.id,
+        suggested.id,
+        nako_core::SourceDuplicateRelationshipStatus::Suggested,
+    )
+    .await;
+    seed_admin_source_duplicate_relationship(
+        &store,
+        target.id,
+        confirmed.id,
+        nako_core::SourceDuplicateRelationshipStatus::Confirmed,
+    )
+    .await;
+    seed_admin_source_duplicate_relationship(
+        &store,
+        target.id,
+        rejected.id,
+        nako_core::SourceDuplicateRelationshipStatus::Rejected,
+    )
+    .await;
+    seed_admin_source_duplicate_stale_state(&store, target.library_id, &stale).await;
+
+    let before = store
+        .list_source_duplicate_relationships(target.id, PageRequest::new(20, 0))
+        .await
+        .unwrap();
+    let response = get_admin_source_duplicate_reconciliation_plan(
+        &router,
+        target.library_id,
+        target.id,
+        "?limit=10",
+    )
+    .await;
+    let status = response.status();
+    let body = response_text(response).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let plan: AdminSourceDuplicateReconciliationPlanResponse = serde_json::from_str(&body).unwrap();
+    let after = store
+        .list_source_duplicate_relationships(target.id, PageRequest::new(20, 0))
+        .await
+        .unwrap();
+
+    assert_eq!(before, after);
+    assert_eq!(before.len(), 3);
+    assert_eq!(plan.admin_api_version, nako_api::admin::ADMIN_API_VERSION);
+    assert_eq!(plan.library_id, target.library_id);
+    assert_eq!(plan.source_id, target.id);
+    assert_eq!(
+        plan.fingerprint_evidence_kind,
+        nako_core::SourceFingerprintEvidenceKind::ContentHash
+    );
+    assert_eq!(plan.confidence_milli, 1_000);
+    assert!(!plan.stale);
+    assert_eq!(plan.page.limit, 10);
+    assert_eq!(plan.page.offset, 0);
+    assert_eq!(plan.page.returned, 5);
+    assert_eq!(plan.candidates.len(), 5);
+
+    let assert_candidate =
+        |duplicate_source_id: MediaSourceId,
+         expected_action: nako_core::SourceDuplicateReconciliationAction,
+         expected_status: Option<nako_core::SourceDuplicateRelationshipStatus>,
+         stale: bool,
+         confidence_milli: Option<u16>| {
+            let candidate = plan
+                .candidates
+                .iter()
+                .find(|candidate| candidate.duplicate_source_id == duplicate_source_id)
+                .expect("candidate should be returned");
+
+            assert_eq!(candidate.source_id, target.id);
+            assert_eq!(
+                candidate.evidence_kind,
+                nako_core::SourceDuplicateEvidenceKind::StrongFingerprint
+            );
+            assert_eq!(candidate.recommended_action, expected_action);
+            assert_eq!(candidate.existing_status, expected_status);
+            assert_eq!(candidate.stale, stale);
+            assert_eq!(candidate.confidence_milli, confidence_milli);
+            if expected_status.is_some() {
+                assert!(candidate.relationship_id.is_some());
+            } else {
+                assert_eq!(candidate.relationship_id, None);
+            }
+        };
+
+    assert_candidate(
+        suggested.id,
+        nako_core::SourceDuplicateReconciliationAction::PreserveSuggested,
+        Some(nako_core::SourceDuplicateRelationshipStatus::Suggested),
+        false,
+        Some(1_000),
+    );
+    assert_candidate(
+        confirmed.id,
+        nako_core::SourceDuplicateReconciliationAction::PreserveConfirmed,
+        Some(nako_core::SourceDuplicateRelationshipStatus::Confirmed),
+        false,
+        Some(1_000),
+    );
+    assert_candidate(
+        rejected.id,
+        nako_core::SourceDuplicateReconciliationAction::PreserveRejected,
+        Some(nako_core::SourceDuplicateRelationshipStatus::Rejected),
+        false,
+        Some(1_000),
+    );
+    assert_candidate(
+        stale.id,
+        nako_core::SourceDuplicateReconciliationAction::RefreshSourceFingerprint,
+        None,
+        true,
+        Some(800),
+    );
+    assert_candidate(
+        fresh.id,
+        nako_core::SourceDuplicateReconciliationAction::SuggestRelationship,
+        None,
+        false,
+        Some(1_000),
+    );
+    assert_source_duplicate_plan_body_redacted(&body);
+}
+
+#[tokio::test]
+async fn admin_v1_source_duplicate_reconciliation_plan_paginates_after_excluding_target() {
+    let (_temp, router, mut target, store) =
+        router_with_media_source("source_duplicate_pagination_target.mkv", b"media").await;
+    target.fingerprint = Some(ADMIN_SOURCE_DUPLICATE_CONTENT_FINGERPRINT.to_owned());
+    store.upsert_media_source(&target).await.unwrap();
+    let first = seed_admin_source_duplicate_source(
+        &store,
+        target.library_id,
+        "First",
+        "local:///Users/Frankorz/First.mkv",
+        Some(ADMIN_SOURCE_DUPLICATE_CONTENT_FINGERPRINT),
+    )
+    .await;
+    let second = seed_admin_source_duplicate_source(
+        &store,
+        target.library_id,
+        "Second",
+        "local:///Users/Frankorz/Second.mkv",
+        Some(ADMIN_SOURCE_DUPLICATE_CONTENT_FINGERPRINT),
+    )
+    .await;
+
+    let first_page_response = get_admin_source_duplicate_reconciliation_plan(
+        &router,
+        target.library_id,
+        target.id,
+        "?limit=1",
+    )
+    .await;
+    let first_status = first_page_response.status();
+    let first_body = response_text(first_page_response).await;
+    assert_eq!(first_status, StatusCode::OK, "{first_body}");
+    let first_page: AdminSourceDuplicateReconciliationPlanResponse =
+        serde_json::from_str(&first_body).unwrap();
+
+    let second_page_response = get_admin_source_duplicate_reconciliation_plan(
+        &router,
+        target.library_id,
+        target.id,
+        "?limit=1&offset=1",
+    )
+    .await;
+    let second_status = second_page_response.status();
+    let second_body = response_text(second_page_response).await;
+    assert_eq!(second_status, StatusCode::OK, "{second_body}");
+    let second_page: AdminSourceDuplicateReconciliationPlanResponse =
+        serde_json::from_str(&second_body).unwrap();
+
+    assert_eq!(first_page.page.limit, 1);
+    assert_eq!(first_page.page.offset, 0);
+    assert_eq!(first_page.page.returned, 1);
+    assert_eq!(second_page.page.limit, 1);
+    assert_eq!(second_page.page.offset, 1);
+    assert_eq!(second_page.page.returned, 1);
+    assert_eq!(first_page.candidates.len(), 1);
+    assert_eq!(second_page.candidates.len(), 1);
+    assert_ne!(
+        first_page.candidates[0].duplicate_source_id,
+        second_page.candidates[0].duplicate_source_id
+    );
+    assert_ne!(first_page.candidates[0].duplicate_source_id, target.id);
+    assert_ne!(second_page.candidates[0].duplicate_source_id, target.id);
+    assert!([first.id, second.id].contains(&first_page.candidates[0].duplicate_source_id));
+    assert!([first.id, second.id].contains(&second_page.candidates[0].duplicate_source_id));
+    assert_source_duplicate_plan_body_redacted(&first_body);
+    assert_source_duplicate_plan_body_redacted(&second_body);
+}
+
+#[tokio::test]
+async fn admin_v1_source_duplicate_reconciliation_plan_rejects_unsafe_inputs_without_leaks() {
+    let (_temp, router, mut source, store) =
+        router_with_media_source("Hidden Duplicate.mkv", b"secret source").await;
+    source.locator =
+        "local:///Users/Frankorz/Secret Path/Hidden Duplicate.mkv?token=secret".to_owned();
+    source.fingerprint = None;
+    store.upsert_media_source(&source).await.unwrap();
+
+    let missing_response = get_admin_source_duplicate_reconciliation_plan(
+        &router,
+        source.library_id,
+        MediaSourceId::new(),
+        "",
+    )
+    .await;
+    let missing_status = missing_response.status();
+    let missing_body = response_text(missing_response).await;
+    assert_eq!(missing_status, StatusCode::NOT_FOUND, "{missing_body}");
+    assert_eq!(
+        serde_json::from_str::<ErrorResponse>(&missing_body)
+            .unwrap()
+            .code,
+        nako_api::public_client::ClientErrorCode::NotFound.as_str()
+    );
+    assert_source_duplicate_plan_body_redacted(&missing_body);
+
+    let missing_fingerprint_response =
+        get_admin_source_duplicate_reconciliation_plan(&router, source.library_id, source.id, "")
+            .await;
+    let missing_fingerprint_status = missing_fingerprint_response.status();
+    let missing_fingerprint_body = response_text(missing_fingerprint_response).await;
+    assert_eq!(
+        missing_fingerprint_status,
+        StatusCode::BAD_REQUEST,
+        "{missing_fingerprint_body}"
+    );
+    assert_eq!(
+        serde_json::from_str::<ErrorResponse>(&missing_fingerprint_body)
+            .unwrap()
+            .message,
+        "invalid input: source duplicate reconciliation requires source fingerprint evidence"
+    );
+    assert_source_duplicate_plan_body_redacted(&missing_fingerprint_body);
+
+    source.fingerprint = Some("sha256:private-raw-fingerprint".to_owned());
+    store.upsert_media_source(&source).await.unwrap();
+    let raw_fingerprint_response =
+        get_admin_source_duplicate_reconciliation_plan(&router, source.library_id, source.id, "")
+            .await;
+    let raw_fingerprint_status = raw_fingerprint_response.status();
+    let raw_fingerprint_body = response_text(raw_fingerprint_response).await;
+    assert_eq!(
+        raw_fingerprint_status,
+        StatusCode::BAD_REQUEST,
+        "{raw_fingerprint_body}"
+    );
+    assert_eq!(
+        serde_json::from_str::<ErrorResponse>(&raw_fingerprint_body)
+            .unwrap()
+            .message,
+        "invalid input: source duplicate reconciliation requires redacted source fingerprint evidence"
+    );
+    assert_source_duplicate_plan_body_redacted(&raw_fingerprint_body);
+
+    source.fingerprint = Some(ADMIN_SOURCE_DUPLICATE_CONTENT_FINGERPRINT.to_owned());
+    store.upsert_media_source(&source).await.unwrap();
+    let cross_library_response =
+        get_admin_source_duplicate_reconciliation_plan(&router, LibraryId::new(), source.id, "")
+            .await;
+    let cross_library_status = cross_library_response.status();
+    let cross_library_body = response_text(cross_library_response).await;
+    assert_eq!(
+        cross_library_status,
+        StatusCode::BAD_REQUEST,
+        "{cross_library_body}"
+    );
+    assert_eq!(
+        serde_json::from_str::<ErrorResponse>(&cross_library_body)
+            .unwrap()
+            .message,
+        "invalid input: source duplicate reconciliation source does not belong to requested library"
+    );
+    assert_source_duplicate_plan_body_redacted(&cross_library_body);
+}
+
+#[tokio::test]
+async fn admin_v1_source_duplicate_reconciliation_plan_rejects_non_admin_session() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let source_id = MediaSourceId::new();
+    let token = "test-admin-token";
+    let router = test_router_with_bearer_auth(temp.path().to_path_buf(), library_id, token).await;
+
+    let created = request_body_json_with_bearer::<AdminAccessUserResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/access/users",
+        &AdminCreateUserRequest {
+            username: "source-duplicate-viewer".to_owned(),
+            display_name: "Source Duplicate Viewer".to_owned(),
+            roles: vec![UserRole::Viewer],
+        },
+        token,
+    )
+    .await;
+    let password_path = format!(
+        "/admin/v1/access/users/{}/local-password",
+        created.user.user_id
+    );
+    request_body_json_with_bearer::<nako_api::admin::AdminLocalPasswordResponse, _>(
+        &router,
+        Method::PUT,
+        &password_path,
+        &nako_api::admin::AdminSetLocalPasswordRequest {
+            password: "correct horse battery staple".to_owned(),
+        },
+        token,
+    )
+    .await;
+
+    let login = request_body_json::<LoginResponse, _>(
+        &router,
+        Method::POST,
+        "/auth/login",
+        &LoginRequest {
+            username: "source-duplicate-viewer".to_owned(),
+            password: "correct horse battery staple".to_owned(),
+        },
+    )
+    .await;
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/admin/v1/libraries/{library_id}/sources/{source_id}/duplicate-reconciliation-plan"
+                ))
+                .header(
+                    header::AUTHORIZATION,
+                    format!("Bearer {}", login.session.token),
+                )
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let error = body_json::<ErrorResponse>(response).await;
+    assert_eq!(
+        error.code,
+        nako_api::public_client::ClientErrorCode::Forbidden.as_str()
+    );
+    assert_eq!(error.message, "administrator role is required");
+}
+
+async fn get_admin_source_duplicate_reconciliation_plan(
+    router: &Router,
+    library_id: LibraryId,
+    source_id: MediaSourceId,
+    query: &str,
+) -> Response {
+    response_for(
+        router,
+        Method::GET,
+        &format!(
+            "/admin/v1/libraries/{library_id}/sources/{source_id}/duplicate-reconciliation-plan{query}"
+        ),
+    )
+    .await
+}
+
+async fn seed_admin_source_duplicate_source(
+    store: &NakoDatabase,
+    library_id: LibraryId,
+    title: &str,
+    locator: &str,
+    fingerprint: Option<&str>,
+) -> MediaSource {
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: title.to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: locator.to_owned(),
+        file_name: format!("{title}.mkv"),
+        size_bytes: Some(42),
+        fingerprint: fingerprint.map(ToOwned::to_owned),
+    };
+
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+
+    source
+}
+
+async fn seed_admin_source_duplicate_relationship(
+    store: &NakoDatabase,
+    source_id: MediaSourceId,
+    duplicate_source_id: MediaSourceId,
+    status: nako_core::SourceDuplicateRelationshipStatus,
+) {
+    store
+        .upsert_source_duplicate_relationship(&nako_core::SourceDuplicateRelationship {
+            id: nako_core::SourceDuplicateRelationshipId::new(),
+            source_id,
+            duplicate_source_id,
+            evidence_kind: nako_core::SourceDuplicateEvidenceKind::StrongFingerprint,
+            evidence_value: Some("redacted-existing-evidence".to_owned()),
+            status,
+            confidence_milli: Some(1_000),
+        })
+        .await
+        .unwrap();
+}
+
+async fn seed_admin_source_duplicate_stale_state(
+    store: &NakoDatabase,
+    library_id: LibraryId,
+    source: &MediaSource,
+) {
+    let scan_id = ScanSnapshotId::new();
+    store
+        .begin_scan_snapshot(scan_id, library_id, "local:///Users/Frankorz")
+        .await
+        .unwrap();
+    store
+        .upsert_source_state(&SourceState {
+            library_id,
+            source_id: Some(source.id),
+            uri: source.locator.clone(),
+            size_bytes: source.size_bytes,
+            modified_at: Some("2026-06-06T00:00:00Z".to_owned()),
+            etag: Some("private-etag".to_owned()),
+            fingerprint: source.fingerprint.clone(),
+            last_seen_scan_id: scan_id,
+            tombstoned: true,
+        })
+        .await
+        .unwrap();
+    store
+        .complete_scan_snapshot(scan_id, ScanStatus::Succeeded, None)
+        .await
+        .unwrap();
+}
+
+fn assert_source_duplicate_plan_body_redacted(body: &str) {
+    for forbidden in [
+        "source_duplicate_secret_locator",
+        "Hidden Duplicate",
+        "Secret Target",
+        "Secret Path",
+        "Frankorz",
+        "local:///",
+        "source-duplicate-token",
+        "private-raw-fingerprint",
+        "private-etag",
+        "source_uri",
+        "source_locator",
+        "input_json",
+        "summary_json",
+        "evidence_value",
+        "sha256:",
+    ] {
+        assert!(
+            !body.contains(forbidden),
+            "source duplicate Admin response leaked forbidden term: {forbidden}"
+        );
+    }
 }
 
 fn assert_source_hash_admin_body_redacted(body: &str) {
