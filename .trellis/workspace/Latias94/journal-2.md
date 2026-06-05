@@ -118,3 +118,38 @@ Added an internal server app service to enqueue source fingerprint hash jobs for
 ### Next Steps
 
 - None - task complete
+
+
+## Session 50: Source fingerprint hash queued execution planner
+
+**Date**: 2026-06-05
+**Task**: Source fingerprint hash queued execution planner
+**Package**: nako-server
+**Branch**: `main`
+
+### Summary
+
+Added a redaction-safe app-service planner that validates queued source fingerprint hash jobs, rebuilds only an in-memory SourceFingerprintHashRequest from the current Media Source locator, updated focused tests, specs, and architecture maps, and archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `bb0a4f06` | (see git log) |
+| `fb5b5618` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
