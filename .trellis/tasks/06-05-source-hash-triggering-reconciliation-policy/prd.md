@@ -22,14 +22,14 @@ more queue, Admin/API mutation, or automatic reconciliation behavior.
 
 ## Acceptance Criteria
 
-- [ ] The audit recommends a trigger policy for source fingerprint hash work.
-- [ ] The audit recommends whether duplicate relationship mutation is in scope
+- [x] The audit recommends a trigger policy for source fingerprint hash work.
+- [x] The audit recommends whether duplicate relationship mutation is in scope
       for the next implementation slice.
-- [ ] Automatic reconciliation risks, rollback/undo needs, and operator
+- [x] Automatic reconciliation risks, rollback/undo needs, and operator
       visibility are documented.
-- [ ] Parallel conflict surfaces with scan scheduling, durable jobs, Admin DTOs,
+- [x] Parallel conflict surfaces with scan scheduling, durable jobs, Admin DTOs,
       and source identity repositories are listed.
-- [ ] A first bounded follow-on task is recommended.
+- [x] A first bounded follow-on task is recommended.
 
 ## Definition of Done
 

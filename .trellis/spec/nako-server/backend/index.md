@@ -9,6 +9,10 @@ examples and matching architecture decisions.
 - Read [Error Handling](./error-handling.md) before returning new `NakoError` variants through HTTP.
 - Read [Logging Guidelines](./logging-guidelines.md) before adding request spans or background task logs.
 - Read [Quality Guidelines](./quality-guidelines.md) before adding server tests or choosing test commands.
+- Read [Source Fingerprint Hash Triggering And Reconciliation](./source-fingerprint-hash-policy.md)
+  before changing source fingerprint hash Admin commands, scan-originated hash
+  scheduling, retry/requeue behavior, source hash evidence diagnostics, or
+  duplicate relationship reconciliation from hash evidence.
 - Read [Addon Resource Flow Patterns](./addon-resource-flow-patterns.md) before
   changing Addon resource search selections, subtitle import, external
   acquisition materialization, or similar host-owned Addon resource flows.
@@ -23,6 +27,7 @@ examples and matching architecture decisions.
 | [Quality Guidelines](./quality-guidelines.md) | Server-focused Rust test patterns and gates | Filled from code and repo gates |
 | [Directory Structure](./directory-structure.md) | App service, HTTP route, runtime, config, and test module layout | Filled from code and ADR 0019/0053 |
 | [Database Guidelines](./database-guidelines.md) | Server persistence usage through repositories and app services | Filled as SQL non-ownership boundary |
+| [Source Fingerprint Hash Triggering And Reconciliation](./source-fingerprint-hash-policy.md) | Source hash trigger policy, Admin command, scheduler, redaction, and duplicate reconciliation boundaries | Filled from source hash queue/executor/evidence persistence audit |
 | [Addon Resource Flow Patterns](./addon-resource-flow-patterns.md) | Host-owned Addon selection, planning, materialization, and redaction patterns | Filled from Addon resource/search/subtitle/external acquisition flows |
 
 ## Authority / Evidence
