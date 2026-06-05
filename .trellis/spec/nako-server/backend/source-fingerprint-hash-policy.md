@@ -31,6 +31,10 @@ relationship reconciliation from hash evidence.
 - Scheduler execution:
   `LibraryScanAppService::schedule_queued_library_scans() ->
   Result<LibraryScanScheduleOutcome>`.
+- Internal read-only duplicate reconciliation:
+  `SourceDuplicateReconciliationAppService::plan_source_duplicate_reconciliation(
+  SourceDuplicateReconciliationPlanRequest { library_id, source_id, page }
+  ) -> Result<SourceDuplicateReconciliationPlan>`.
 - Durable input:
   `SourceFingerprintHashJobInput { library_id, source_id, source_scheme, mode }`.
 - Admin job list:
@@ -69,9 +73,19 @@ relationship reconciliation from hash evidence.
 - Source hash job completion must not directly write
   `SourceDuplicateRelationship` records. Duplicate reconciliation belongs to a
   separate plan/apply service.
-- Future duplicate reconciliation must canonicalize source pairs and require
-  pair-level idempotency across SQLite and PostgreSQL before any repeated or
-  automatic writer is enabled.
+- Read-only duplicate reconciliation must load the requested Media Source,
+  recover the persisted redacted fingerprint evidence kind, read bounded
+  same-library fingerprint matches excluding the target source before
+  pagination, read existing canonical pair relationships, and return
+  `SourceDuplicateReconciliationPlan` without writing
+  `SourceDuplicateRelationship` records.
+- Duplicate reconciliation must canonicalize source pairs and require pair-level
+  idempotency across SQLite and PostgreSQL before any repeated or automatic
+  writer is enabled.
+- Reconciliation plans may expose source ids, evidence kind, confidence, stale
+  state, existing relationship status, and recommended action. They must not
+  expose raw Source Locators, local paths, etags, backend URLs, credentials, raw
+  hashes, raw fingerprints, evidence values, or job input JSON.
 - Future Admin reconciliation DTOs may expose source ids, evidence kind,
   confidence, stale state, existing relationship status, and recommended
   action. They must not expose raw Source Locators, local paths, etags,
@@ -95,9 +109,14 @@ relationship reconciliation from hash evidence.
 | Scan escalation action is partial/full but automatic policy is disabled | Keep diagnostics/advisory only. |
 | Hash execution succeeds | Persist redacted source fingerprint evidence and redacted job summary. |
 | Hash execution fails with a storage error | Persist a redacted durable job error using only a synthetic scheme URI. |
+| Reconciliation uses missing source id | Return not found without locator/path details. |
+| Reconciliation source belongs to a different library | Return invalid input without locator/path details. |
+| Reconciliation source has no fingerprint | Return invalid input without locator/path details. |
+| Reconciliation source has a raw or unsupported fingerprint string | Return invalid input without echoing the fingerprint. |
 | Reconciliation sees stale evidence | Recommend hash refresh; do not write duplicate relationships. |
 | Reconciliation sees non-stale content hash match | Plan a Suggested StrongFingerprint relationship, not a confirmed merge. |
 | Reconciliation sees partial/backend fingerprint match | Plan a weaker Suggested relationship and label the evidence kind/confidence. |
+| Existing relationship is Suggested or Confirmed | Preserve existing status in the read-only plan. |
 | Existing relationship is Rejected | Preserve Rejected unless an explicit reopen/apply request is provided. |
 | PostgreSQL lacks pair-level uniqueness for relationships | Do not enable automatic reconciliation writers. |
 
@@ -112,6 +131,9 @@ relationship reconciliation from hash evidence.
 - Good: a later read-only reconciliation plan reports that two sources share a
   non-stale content hash and recommends a Suggested relationship without
   writing anything.
+- Good: a read-only reconciliation plan preserves existing Suggested,
+  Confirmed, and Rejected relationship statuses while recommending refresh for
+  stale fingerprint evidence.
 - Base: scan commit records a partial/full hash advisory decision but leaves
   scheduling disabled.
 - Bad: `persist_source_fingerprint_hash_evidence` also calls
@@ -138,6 +160,10 @@ relationship reconciliation from hash evidence.
 - SQLite and PostgreSQL repository tests for idempotent pair-level duplicate
   relationship upsert before any automatic or repeated reconciliation writer is
   enabled.
+- Repository contract tests for bounded same-library fingerprint match reads,
+  stale source-state projection, pagination, and canonical pair lookup.
+- App-service tests proving read-only reconciliation does not mutate
+  relationships and redacts locator/path/etag/raw fingerprint material.
 - Gate for Admin trigger:
   `cargo check -p nako-api -p nako-server --tests` plus focused
   `cargo nextest run -p nako-server source_fingerprint_hash --no-fail-fast`

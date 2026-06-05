@@ -37,6 +37,37 @@ impl SourceDuplicateRepository for SqliteStore {
         row.map(row_to_source_duplicate_relationship).transpose()
     }
 
+    async fn get_source_duplicate_relationship_by_pair(
+        &self,
+        source_id: MediaSourceId,
+        duplicate_source_id: MediaSourceId,
+    ) -> Result<Option<SourceDuplicateRelationship>> {
+        let (source_id, duplicate_source_id) =
+            SourceDuplicateRelationship::canonical_pair(source_id, duplicate_source_id);
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id,
+                source_id,
+                duplicate_source_id,
+                evidence_kind,
+                evidence_kind_key,
+                evidence_value,
+                status,
+                confidence_milli
+            FROM source_duplicate_relationships
+            WHERE source_id = ?1 AND duplicate_source_id = ?2
+            "#,
+        )
+        .bind(source_id.to_string())
+        .bind(duplicate_source_id.to_string())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_source_duplicate_relationship).transpose()
+    }
+
     async fn list_source_duplicate_relationships(
         &self,
         source_id: MediaSourceId,

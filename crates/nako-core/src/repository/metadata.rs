@@ -357,6 +357,12 @@ pub trait SourceDuplicateRepository: Send + Sync {
         id: SourceDuplicateRelationshipId,
     ) -> Result<Option<SourceDuplicateRelationship>>;
 
+    async fn get_source_duplicate_relationship_by_pair(
+        &self,
+        source_id: MediaSourceId,
+        duplicate_source_id: MediaSourceId,
+    ) -> Result<Option<SourceDuplicateRelationship>>;
+
     async fn list_source_duplicate_relationships(
         &self,
         source_id: MediaSourceId,

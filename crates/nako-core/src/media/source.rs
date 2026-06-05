@@ -39,6 +39,35 @@ impl SourceFingerprintEvidenceKind {
             Self::LocatorOnly => "locator_only",
         }
     }
+
+    #[must_use]
+    pub fn parse_redacted_fingerprint(value: &str) -> Option<Self> {
+        let rest = value.strip_prefix("source:v1:")?;
+        let (kind, digest) = rest.split_once(":sha256:")?;
+        if digest.len() != 64 || !digest.chars().all(|c| c.is_ascii_hexdigit()) {
+            return None;
+        }
+
+        match kind {
+            "content_hash" => Some(Self::ContentHash),
+            "backend_fingerprint" => Some(Self::BackendFingerprint),
+            "size_etag" => Some(Self::SizeAndEtag),
+            "size_modified_time" => Some(Self::SizeAndModifiedTime),
+            "locator_only" => Some(Self::LocatorOnly),
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub const fn default_confidence_milli(self) -> u16 {
+        match self {
+            Self::ContentHash => 1_000,
+            Self::SizeAndEtag => 800,
+            Self::BackendFingerprint => 700,
+            Self::SizeAndModifiedTime => 500,
+            Self::LocatorOnly => 250,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -89,6 +118,18 @@ pub struct SourceFingerprintEscalationDecision {
 }
 
 impl SourceFingerprintEvidence {
+    #[must_use]
+    pub fn from_persisted_fingerprint(value: &str, stale: bool) -> Option<Self> {
+        let kind = SourceFingerprintEvidenceKind::parse_redacted_fingerprint(value)?;
+
+        Some(Self {
+            kind,
+            fingerprint: Some(value.to_owned()),
+            confidence_milli: stale_adjusted_confidence(kind.default_confidence_milli(), stale),
+            stale,
+        })
+    }
+
     #[must_use]
     pub fn from_scan_metadata(input: SourceFingerprintPolicyInput<'_>) -> Self {
         let etag = non_empty(input.etag);
@@ -251,6 +292,19 @@ impl SourceDuplicateEvidenceKind {
             _ => Self::Other(kind.to_owned()),
         }
     }
+
+    #[must_use]
+    pub fn from_source_fingerprint_evidence_kind(kind: SourceFingerprintEvidenceKind) -> Self {
+        match kind {
+            SourceFingerprintEvidenceKind::ContentHash => Self::StrongFingerprint,
+            SourceFingerprintEvidenceKind::SizeAndEtag => Self::SizeAndEtag,
+            SourceFingerprintEvidenceKind::SizeAndModifiedTime
+            | SourceFingerprintEvidenceKind::LocatorOnly => Self::PathEvidence,
+            SourceFingerprintEvidenceKind::BackendFingerprint => {
+                Self::Other("backend_fingerprint".to_owned())
+            }
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -298,6 +352,18 @@ pub struct SourceDuplicateRelationship {
 
 impl SourceDuplicateRelationship {
     #[must_use]
+    pub fn canonical_pair(
+        source_id: MediaSourceId,
+        duplicate_source_id: MediaSourceId,
+    ) -> (MediaSourceId, MediaSourceId) {
+        if source_id <= duplicate_source_id {
+            (source_id, duplicate_source_id)
+        } else {
+            (duplicate_source_id, source_id)
+        }
+    }
+
+    #[must_use]
     pub fn canonicalized(&self) -> Self {
         let mut relationship = self.clone();
         if relationship.source_id > relationship.duplicate_source_id {
@@ -308,6 +374,44 @@ impl SourceDuplicateRelationship {
         }
         relationship
     }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MediaSourceFingerprintMatch {
+    pub source: MediaSource,
+    pub stale: bool,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceDuplicateReconciliationAction {
+    SuggestRelationship,
+    PreserveSuggested,
+    PreserveConfirmed,
+    PreserveRejected,
+    RefreshSourceFingerprint,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SourceDuplicateReconciliationCandidate {
+    pub source_id: MediaSourceId,
+    pub duplicate_source_id: MediaSourceId,
+    pub evidence_kind: SourceDuplicateEvidenceKind,
+    pub confidence_milli: Option<u16>,
+    pub stale: bool,
+    pub relationship_id: Option<SourceDuplicateRelationshipId>,
+    pub existing_status: Option<SourceDuplicateRelationshipStatus>,
+    pub recommended_action: SourceDuplicateReconciliationAction,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SourceDuplicateReconciliationPlan {
+    pub library_id: LibraryId,
+    pub source_id: MediaSourceId,
+    pub fingerprint_evidence_kind: SourceFingerprintEvidenceKind,
+    pub confidence_milli: u16,
+    pub stale: bool,
+    pub candidates: Vec<SourceDuplicateReconciliationCandidate>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -470,6 +574,23 @@ mod tests {
         assert_eq!(evidence.confidence_milli, 1_000);
         assert!(evidence.can_suggest_duplicate());
         assert!(evidence.can_preserve_source_identity());
+    }
+
+    #[test]
+    fn source_fingerprint_policy_recovers_kind_from_persisted_redacted_fingerprint() {
+        let evidence = SourceFingerprintEvidence::from_persisted_fingerprint(
+            "source:v1:content_hash:sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            true,
+        )
+        .unwrap();
+
+        assert_eq!(evidence.kind, SourceFingerprintEvidenceKind::ContentHash);
+        assert_eq!(evidence.confidence_milli, 800);
+        assert!(evidence.stale);
+        assert_eq!(
+            SourceFingerprintEvidence::from_persisted_fingerprint("sha256:0123456789abcdef", false),
+            None
+        );
     }
 
     #[test]

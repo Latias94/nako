@@ -495,6 +495,55 @@ impl MediaRepository for PostgresStore {
         rows.into_iter().map(row_to_media_source).collect()
     }
 
+    async fn list_media_sources_by_fingerprint(
+        &self,
+        library_id: LibraryId,
+        fingerprint: &str,
+        exclude_source_id: Option<MediaSourceId>,
+        page: PageRequest,
+    ) -> Result<Vec<MediaSourceFingerprintMatch>> {
+        let page = page.clamped();
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                id::text AS id,
+                library_id::text AS library_id,
+                item_id::text AS item_id,
+                locator,
+                file_name,
+                size_bytes,
+                fingerprint,
+                EXISTS (
+                    SELECT 1
+                    FROM source_states
+                    WHERE source_states.library_id = media_sources.library_id
+                      AND source_states.source_id = media_sources.id
+                      AND source_states.tombstoned
+                ) AS stale
+            FROM media_sources
+            WHERE library_id = $1
+              AND fingerprint = $2
+              AND fingerprint IS NOT NULL
+              AND fingerprint != ''
+              AND ($3::uuid IS NULL OR id != $3)
+            ORDER BY id ASC
+            LIMIT $4 OFFSET $5
+            "#,
+        )
+        .bind(library_id.as_uuid())
+        .bind(fingerprint)
+        .bind(exclude_source_id.map(MediaSourceId::as_uuid))
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter()
+            .map(row_to_media_source_fingerprint_match)
+            .collect()
+    }
+
     async fn summarize_media_source_fingerprints(&self) -> Result<MediaSourceFingerprintSummary> {
         let row = sqlx::query(
             r#"
@@ -1224,6 +1273,37 @@ impl SourceDuplicateRepository for PostgresStore {
             .fetch_optional(&self.pool)
             .await
             .map_err(database_error)?;
+
+        row.map(row_to_source_duplicate_relationship).transpose()
+    }
+
+    async fn get_source_duplicate_relationship_by_pair(
+        &self,
+        source_id: MediaSourceId,
+        duplicate_source_id: MediaSourceId,
+    ) -> Result<Option<SourceDuplicateRelationship>> {
+        let (source_id, duplicate_source_id) =
+            SourceDuplicateRelationship::canonical_pair(source_id, duplicate_source_id);
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id::text AS id,
+                source_id::text AS source_id,
+                duplicate_source_id::text AS duplicate_source_id,
+                evidence_kind,
+                evidence_kind_key,
+                evidence_value,
+                status,
+                confidence_milli
+            FROM source_duplicate_relationships
+            WHERE source_id = $1 AND duplicate_source_id = $2
+            "#,
+        )
+        .bind(source_id.as_uuid())
+        .bind(duplicate_source_id.as_uuid())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
 
         row.map(row_to_source_duplicate_relationship).transpose()
     }
@@ -2021,6 +2101,13 @@ fn row_to_media_source(row: PgRow) -> Result<MediaSource> {
             .transpose()?,
         fingerprint: row_get(&row, "fingerprint")?,
     })
+}
+
+fn row_to_media_source_fingerprint_match(row: PgRow) -> Result<MediaSourceFingerprintMatch> {
+    let stale = row_get(&row, "stale")?;
+    let source = row_to_media_source(row)?;
+
+    Ok(MediaSourceFingerprintMatch { source, stale })
 }
 
 fn row_to_stream_info(row: PgRow) -> Result<MediaStreamInfo> {

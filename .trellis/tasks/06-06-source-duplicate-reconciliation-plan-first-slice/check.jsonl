@@ -1,0 +1,12 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Check core -> DB -> server app-service flow and redaction boundaries."}
+{"file": ".trellis/spec/nako-core/backend/index.md", "reason": "Check core domain/repository ownership."}
+{"file": ".trellis/spec/nako-core/backend/database-guidelines.md", "reason": "Check repository trait shape and persistence-neutral contracts."}
+{"file": ".trellis/spec/nako-core/backend/error-handling.md", "reason": "Check unsupported evidence and validation errors."}
+{"file": ".trellis/spec/nako-core/backend/quality-guidelines.md", "reason": "Check cross-crate domain test requirements."}
+{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "Check DB adapter responsibilities."}
+{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "Check SQL, pagination, row mapping, stale projection, and pair lookup contracts."}
+{"file": ".trellis/spec/nako-db/backend/error-handling.md", "reason": "Check SQLx/parse error conversion."}
+{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "Check contract-test and SQLite/PostgreSQL parity gates."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Check server app-service placement and quality guidance."}
+{"file": ".trellis/spec/nako-server/backend/source-fingerprint-hash-policy.md", "reason": "Check read-only reconciliation plan behavior and redaction requirements."}
+{"file": ".trellis/tasks/06-06-source-duplicate-relationship-idempotent-pair-upsert/prd.md", "reason": "Check this slice relies on completed pair-idempotency prerequisite."}

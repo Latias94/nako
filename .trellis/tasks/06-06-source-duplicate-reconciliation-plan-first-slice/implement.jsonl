@@ -1,0 +1,12 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "The slice spans core domain records, repository traits, SQLite/PostgreSQL adapters, and a server app service."}
+{"file": ".trellis/spec/nako-core/backend/index.md", "reason": "Core owns Source Fingerprint and Source Duplicate domain records plus repository traits."}
+{"file": ".trellis/spec/nako-core/backend/database-guidelines.md", "reason": "Repository contract changes must remain persistence-neutral and avoid DB leakage."}
+{"file": ".trellis/spec/nako-core/backend/error-handling.md", "reason": "Input validation and unsupported persisted evidence must use stable domain errors."}
+{"file": ".trellis/spec/nako-core/backend/quality-guidelines.md", "reason": "Cross-crate contract changes require focused tests and boundary discipline."}
+{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "DB adapter and contract-test ownership."}
+{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "SQL, row mapping, pagination, SQLite/PostgreSQL parity, and Source Duplicate pair identity rules."}
+{"file": ".trellis/spec/nako-db/backend/error-handling.md", "reason": "SQLx conversion and stored value parsing behavior."}
+{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "Repository contract and migration/parity gates."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server app-service boundary and quality checklist."}
+{"file": ".trellis/spec/nako-server/backend/source-fingerprint-hash-policy.md", "reason": "Defines read-only duplicate reconciliation plan contract and redaction boundaries."}
+{"file": ".trellis/tasks/06-06-source-duplicate-relationship-idempotent-pair-upsert/prd.md", "reason": "Predecessor task proving pair idempotency before reconciliation writers."}

@@ -53,6 +53,7 @@ pub(crate) mod renderer;
 pub(crate) mod renderer_adapter;
 mod renderer_transport_ticket;
 mod runtime;
+mod source_duplicate;
 mod source_hash;
 mod staging;
 mod startup;
@@ -107,6 +108,9 @@ pub(crate) use renderer_transport_ticket::{
     RendererTransportTicketService, ValidateRendererTransportTicketRequest,
 };
 pub(crate) use runtime::{RuntimeResourceClassDiagnostics, RuntimeSupervisorDiagnostics};
+pub(crate) use source_duplicate::{
+    SourceDuplicateReconciliationAppService, SourceDuplicateReconciliationPlanRequest,
+};
 pub(crate) use source_hash::{
     EnqueueSourceFingerprintHashRequest, SourceFingerprintHashAppService,
 };
@@ -267,6 +271,13 @@ impl NakoApp {
     #[must_use]
     pub(crate) fn source_hash(&self) -> SourceFingerprintHashAppService {
         self.services().source_hash.clone()
+    }
+
+    #[must_use]
+    pub(crate) fn source_duplicate_reconciliation(
+        &self,
+    ) -> SourceDuplicateReconciliationAppService {
+        self.services().source_duplicate_reconciliation.clone()
     }
 
     #[must_use]

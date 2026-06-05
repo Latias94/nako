@@ -444,12 +444,20 @@ impl<T> RuntimePromotionContractBackend for T where
 }
 
 trait SourceDuplicateContractBackend:
-    LifecycleContractBackend + LibraryRepository + MediaRepository + SourceDuplicateRepository
+    LifecycleContractBackend
+    + LibraryRepository
+    + MediaRepository
+    + ScanRepository
+    + SourceDuplicateRepository
 {
 }
 
 impl<T> SourceDuplicateContractBackend for T where
-    T: LifecycleContractBackend + LibraryRepository + MediaRepository + SourceDuplicateRepository
+    T: LifecycleContractBackend
+        + LibraryRepository
+        + MediaRepository
+        + ScanRepository
+        + SourceDuplicateRepository
 {
 }
 
@@ -7167,6 +7175,184 @@ where
     );
 }
 
+async fn source_duplicate_contract_lists_fingerprint_matches_and_pair_lookup<S>(store: S)
+where
+    S: SourceDuplicateContractBackend,
+{
+    let library = seed_contract_library(&store).await;
+    let other_library = seed_contract_library(&store).await;
+    let fingerprint = "source:v1:content_hash:sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    let mut target_source = seed_contract_media_item_with_source(
+        &store,
+        library.id,
+        "Duplicate Plan Target",
+        "local:///Contract/duplicate-plan-target.mkv",
+    )
+    .await;
+    let mut stale_source = seed_contract_media_item_with_source(
+        &store,
+        library.id,
+        "Duplicate Plan Stale Candidate",
+        "local:///Contract/duplicate-plan-stale.mkv",
+    )
+    .await;
+    let mut fresh_source = seed_contract_media_item_with_source(
+        &store,
+        library.id,
+        "Duplicate Plan Fresh Candidate",
+        "local:///Contract/duplicate-plan-fresh.mkv",
+    )
+    .await;
+    let mut another_source = seed_contract_media_item_with_source(
+        &store,
+        library.id,
+        "Duplicate Plan Another Candidate",
+        "local:///Contract/duplicate-plan-another.mkv",
+    )
+    .await;
+    let mut other_library_source = seed_contract_media_item_with_source(
+        &store,
+        other_library.id,
+        "Duplicate Plan Other Library",
+        "local:///Contract/duplicate-plan-other-library.mkv",
+    )
+    .await;
+    let other_fingerprint_source = seed_contract_media_item_with_source(
+        &store,
+        library.id,
+        "Duplicate Plan Other Fingerprint",
+        "local:///Contract/duplicate-plan-other-fingerprint.mkv",
+    )
+    .await;
+
+    target_source.fingerprint = Some(fingerprint.to_owned());
+    stale_source.fingerprint = Some(fingerprint.to_owned());
+    fresh_source.fingerprint = Some(fingerprint.to_owned());
+    another_source.fingerprint = Some(fingerprint.to_owned());
+    other_library_source.fingerprint = Some(fingerprint.to_owned());
+
+    for source in [
+        &target_source,
+        &stale_source,
+        &fresh_source,
+        &another_source,
+        &other_library_source,
+    ] {
+        store.upsert_media_source(source).await.unwrap();
+    }
+
+    let scan_id = ScanSnapshotId::new();
+    store
+        .begin_scan_snapshot(scan_id, library.id, "local:///Contract")
+        .await
+        .unwrap();
+    let mut stale_state =
+        contract_source_state(library.id, stale_source.id, scan_id, &stale_source.locator);
+    stale_state.fingerprint = Some(fingerprint.to_owned());
+    stale_state.tombstoned = true;
+    store.upsert_source_state(&stale_state).await.unwrap();
+    store
+        .complete_scan_snapshot(scan_id, ScanStatus::Succeeded, None)
+        .await
+        .unwrap();
+
+    let first_page = store
+        .list_media_sources_by_fingerprint(
+            library.id,
+            fingerprint,
+            Some(target_source.id),
+            PageRequest::new(2, 0),
+        )
+        .await
+        .unwrap();
+    let second_page = store
+        .list_media_sources_by_fingerprint(
+            library.id,
+            fingerprint,
+            Some(target_source.id),
+            PageRequest::new(2, 2),
+        )
+        .await
+        .unwrap();
+    let all_matches = store
+        .list_media_sources_by_fingerprint(
+            library.id,
+            fingerprint,
+            Some(target_source.id),
+            PageRequest::new(10, 0),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(first_page.len(), 2);
+    assert_eq!(second_page.len(), 1);
+    assert_eq!(all_matches.len(), 3);
+    assert!(
+        all_matches
+            .iter()
+            .all(|matched| matched.source.library_id == library.id)
+    );
+    assert!(
+        !all_matches
+            .iter()
+            .any(|matched| matched.source.id == target_source.id)
+    );
+    assert!(
+        !all_matches
+            .iter()
+            .any(|matched| matched.source.id == other_library_source.id)
+    );
+    assert!(
+        !all_matches
+            .iter()
+            .any(|matched| matched.source.id == other_fingerprint_source.id)
+    );
+    assert!(
+        all_matches
+            .iter()
+            .find(|matched| matched.source.id == stale_source.id)
+            .expect("stale source match")
+            .stale
+    );
+    assert!(
+        !all_matches
+            .iter()
+            .find(|matched| matched.source.id == fresh_source.id)
+            .expect("fresh source match")
+            .stale
+    );
+
+    let relationship = SourceDuplicateRelationship {
+        id: SourceDuplicateRelationshipId::new(),
+        source_id: fresh_source.id,
+        duplicate_source_id: stale_source.id,
+        evidence_kind: SourceDuplicateEvidenceKind::StrongFingerprint,
+        evidence_value: Some("redacted-contract-evidence".to_owned()),
+        status: SourceDuplicateRelationshipStatus::Suggested,
+        confidence_milli: Some(1_000),
+    };
+    let expected = relationship.canonicalized();
+    store
+        .upsert_source_duplicate_relationship(&relationship)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        store
+            .get_source_duplicate_relationship_by_pair(stale_source.id, fresh_source.id)
+            .await
+            .unwrap(),
+        Some(expected.clone())
+    );
+    assert_eq!(
+        store
+            .get_source_duplicate_relationship_by_pair(target_source.id, fresh_source.id)
+            .await
+            .unwrap(),
+        None
+    );
+}
+
 async fn vfs_cache_contract_round_trips_listing_failures_and_summary<S>(store: S)
 where
     S: VfsStagingContractBackend,
@@ -9394,6 +9580,16 @@ database_contract_pair!(
         "upsert_is_idempotent_by_canonical_pair"
     ),
     contract = source_duplicate_contract_upsert_is_idempotent_by_canonical_pair,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_source_duplicate_contract_lists_fingerprint_matches_and_pair_lookup,
+    postgres = postgres_source_duplicate_contract_lists_fingerprint_matches_and_pair_lookup,
+    case = ContractCase::migrated(
+        ContractFamily::SourceDuplicate,
+        "lists_fingerprint_matches_and_pair_lookup"
+    ),
+    contract = source_duplicate_contract_lists_fingerprint_matches_and_pair_lookup,
 );
 
 database_contract_pair!(

@@ -255,6 +255,55 @@ impl MediaRepository for SqliteStore {
         rows.into_iter().map(row_to_media_source).collect()
     }
 
+    async fn list_media_sources_by_fingerprint(
+        &self,
+        library_id: LibraryId,
+        fingerprint: &str,
+        exclude_source_id: Option<MediaSourceId>,
+        page: PageRequest,
+    ) -> Result<Vec<MediaSourceFingerprintMatch>> {
+        let page = page.clamped();
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                id,
+                library_id,
+                item_id,
+                locator,
+                file_name,
+                size_bytes,
+                fingerprint,
+                EXISTS (
+                    SELECT 1
+                    FROM source_states
+                    WHERE source_states.library_id = media_sources.library_id
+                      AND source_states.source_id = media_sources.id
+                      AND source_states.tombstoned != 0
+                ) AS stale
+            FROM media_sources
+            WHERE library_id = ?1
+              AND fingerprint = ?2
+              AND fingerprint IS NOT NULL
+              AND fingerprint != ''
+              AND (?3 IS NULL OR id != ?3)
+            ORDER BY id ASC
+            LIMIT ?4 OFFSET ?5
+            "#,
+        )
+        .bind(library_id.to_string())
+        .bind(fingerprint)
+        .bind(exclude_source_id.map(|id| id.to_string()))
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.into_iter()
+            .map(row_to_media_source_fingerprint_match)
+            .collect()
+    }
+
     async fn summarize_media_source_fingerprints(&self) -> Result<MediaSourceFingerprintSummary> {
         let row = sqlx::query(
             r#"
@@ -285,6 +334,15 @@ impl MediaRepository for SqliteStore {
             content_hash_sources: i64_to_u64(row_get(&row, "content_hash_sources")?)?,
         })
     }
+}
+
+fn row_to_media_source_fingerprint_match(
+    row: sqlx::sqlite::SqliteRow,
+) -> Result<MediaSourceFingerprintMatch> {
+    let stale = i64_to_bool(row_get(&row, "stale")?)?;
+    let source = row_to_media_source(row)?;
+
+    Ok(MediaSourceFingerprintMatch { source, stale })
 }
 
 pub(crate) async fn upsert_media_item_in_transaction(

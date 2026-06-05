@@ -1560,6 +1560,18 @@ impl MediaRepository for NakoDatabase {
         self.backend().list_media_sources(library_id, page).await
     }
 
+    async fn list_media_sources_by_fingerprint(
+        &self,
+        library_id: LibraryId,
+        fingerprint: &str,
+        exclude_source_id: Option<MediaSourceId>,
+        page: PageRequest,
+    ) -> Result<Vec<MediaSourceFingerprintMatch>> {
+        self.backend()
+            .list_media_sources_by_fingerprint(library_id, fingerprint, exclude_source_id, page)
+            .await
+    }
+
     async fn summarize_media_source_fingerprints(&self) -> Result<MediaSourceFingerprintSummary> {
         self.backend().summarize_media_source_fingerprints().await
     }
@@ -2268,6 +2280,16 @@ impl SourceDuplicateRepository for NakoDatabase {
         id: SourceDuplicateRelationshipId,
     ) -> Result<Option<SourceDuplicateRelationship>> {
         self.backend().get_source_duplicate_relationship(id).await
+    }
+
+    async fn get_source_duplicate_relationship_by_pair(
+        &self,
+        source_id: MediaSourceId,
+        duplicate_source_id: MediaSourceId,
+    ) -> Result<Option<SourceDuplicateRelationship>> {
+        self.backend()
+            .get_source_duplicate_relationship_by_pair(source_id, duplicate_source_id)
+            .await
     }
 
     async fn list_source_duplicate_relationships(

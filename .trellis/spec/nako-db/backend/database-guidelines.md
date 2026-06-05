@@ -155,6 +155,12 @@ ALTER TABLE vfs_cache_failures
 - `SourceDuplicateRepository::upsert_source_duplicate_relationship(
   relationship
 ) -> Result<()>`
+- `SourceDuplicateRepository::get_source_duplicate_relationship_by_pair(
+  source_id, duplicate_source_id
+) -> Result<Option<SourceDuplicateRelationship>>`
+- `MediaRepository::list_media_sources_by_fingerprint(
+  library_id, fingerprint, exclude_source_id, PageRequest
+) -> Result<Vec<MediaSourceFingerprintMatch>>`
 - SQLite stores source ids as `TEXT`; PostgreSQL stores source ids as `uuid`.
 
 ### 3. Contracts
@@ -171,12 +177,27 @@ ALTER TABLE vfs_cache_failures
   `source_id`, or `duplicate_source_id`.
 - SQLite and PostgreSQL must both enforce unique canonical pairs through schema
   and use `ON CONFLICT(source_id, duplicate_source_id)` for upsert behavior.
+- Pair lookup must canonicalize input order before querying so callers can
+  check existing relationships without knowing stored order.
+- Fingerprint match queries must be same-library and bounded by `PageRequest`.
+  When used for reconciliation planning, they must exclude the target source
+  before applying `LIMIT/OFFSET` so pagination is candidate-oriented. They may
+  project redaction-safe stale state from `source_states.tombstoned` but must
+  not return raw source locators beyond the existing internal `MediaSource`
+  repository record.
 
 ### 4. Validation & Error Matrix
 
 - Same canonical pair with different id -> update existing row payload and keep
   original id.
 - Reversed pair input -> canonicalize to the same stored row.
+- Pair lookup with reversed input -> return the stored canonical row.
+- Fingerprint match query with a cross-library matching fingerprint -> exclude
+  the other-library source.
+- Fingerprint match query with an excluded target source -> exclude it before
+  pagination.
+- Fingerprint match query sees a tombstoned source state -> mark the candidate
+  `stale = true`.
 - Same source used twice -> database constraint failure; do not silently create
   a self-duplicate relationship.
 - Missing PostgreSQL pair unique index -> `ON CONFLICT(source_id,
@@ -187,6 +208,10 @@ ALTER TABLE vfs_cache_failures
 
 - Good: source hash reconciliation retries the same pair and refreshes evidence
   without creating duplicate rows.
+- Good: read-only reconciliation finds same-library fingerprint matches through
+  `list_media_sources_by_fingerprint`, reads existing pair status through
+  `get_source_duplicate_relationship_by_pair`, and leaves duplicate rows
+  unchanged.
 - Base: a manually suggested duplicate pair remains addressable by its original
   relationship id after stronger evidence arrives.
 - Bad: a writer conflicts only on `id`, so retries with new ids create
@@ -197,6 +222,9 @@ ALTER TABLE vfs_cache_failures
 - Backend-agnostic contract test under `ContractFamily::SourceDuplicate` proving
   pair-idempotent upsert, reversed input canonicalization, latest payload, one
   listed row, and stable original id.
+- Backend-agnostic contract test under `ContractFamily::SourceDuplicate` proving
+  bounded same-library fingerprint matching, pagination, stale source-state
+  projection, and canonical pair lookup.
 - SQLite focused gate:
   `cargo nextest run -p nako-db source_duplicate --no-fail-fast`
 - PostgreSQL ignored contract must use the same contract under

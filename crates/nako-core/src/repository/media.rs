@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use super::PageRequest;
 use crate::{
     LibraryId, LibraryItemAddedAt, MediaItem, MediaItemId, MediaProbeResult, MediaSource,
-    MediaSourceId, Result,
+    MediaSourceFingerprintMatch, MediaSourceId, Result,
 };
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -53,6 +53,14 @@ pub trait MediaRepository: Send + Sync {
         library_id: LibraryId,
         page: PageRequest,
     ) -> Result<Vec<MediaSource>>;
+
+    async fn list_media_sources_by_fingerprint(
+        &self,
+        library_id: LibraryId,
+        fingerprint: &str,
+        exclude_source_id: Option<MediaSourceId>,
+        page: PageRequest,
+    ) -> Result<Vec<MediaSourceFingerprintMatch>>;
 
     async fn summarize_media_source_fingerprints(&self) -> Result<MediaSourceFingerprintSummary>;
 }
