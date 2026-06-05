@@ -29,6 +29,13 @@ Library workflow changes must preserve deterministic, bounded intake behavior.
   `SourceFingerprintHashMode`; raw `StorageUri`, Source Locator, path, etag,
   fingerprint, backend URL, credential, and hash material must remain outside
   durable input and diagnostics.
+- Future durable source fingerprint hash job summaries must use
+  `SourceFingerprintHashJobSummary`, a narrow projection of
+  `SourceFingerprintHashReport` that carries mode, evidence kind, confidence,
+  stale state, and bytes hashed only. Do not serialize
+  `SourceFingerprintEvidence::fingerprint`, raw digest, `StorageUri`, Source
+  Locator, path, etag, backend URL, credential, or input JSON content into job
+  summaries.
 - Persist local inference evidence so provisional hierarchy decisions are
   explainable.
 - Require repeated unchanged intake observation evidence before a watcher
@@ -292,6 +299,8 @@ decision for later hash scheduling or operator diagnostics.
 - `SourceFingerprintHashJobInput` serialization/redaction and mode coverage in
   `nako-library`.
 - Runtime budget mapping coverage in `nako-server`.
+- `SourceFingerprintHashJobSummary` serialization coverage in `nako-library`
+  for partial and full reports, proving fingerprint/hash material is omitted.
 
 ## Review Checklist
 

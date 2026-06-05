@@ -65,6 +65,28 @@ pub struct SourceFingerprintHashReport {
     pub bytes_hashed: u64,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SourceFingerprintHashJobSummary {
+    pub mode: SourceFingerprintHashMode,
+    pub evidence_kind: SourceFingerprintEvidenceKind,
+    pub confidence_milli: u16,
+    pub stale: bool,
+    pub bytes_hashed: u64,
+}
+
+impl SourceFingerprintHashJobSummary {
+    #[must_use]
+    pub fn from_report(report: &SourceFingerprintHashReport) -> Self {
+        Self {
+            mode: report.mode,
+            evidence_kind: report.evidence.kind,
+            confidence_milli: report.evidence.confidence_milli,
+            stale: report.evidence.stale,
+            bytes_hashed: report.bytes_hashed,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SourceFingerprintHashSchedulingPolicy {
@@ -555,6 +577,68 @@ mod tests {
         assert!(!message.contains("Secret Path"));
         assert!(!message.contains("Frankorz"));
         assert!(!message.contains("local:///"));
+    }
+
+    #[test]
+    fn source_hash_job_summary_serializes_partial_report_without_fingerprint() {
+        let report = SourceFingerprintHashReport {
+            mode: SourceFingerprintHashMode::Partial { prefix_bytes: 3 },
+            evidence: SourceFingerprintEvidence {
+                kind: SourceFingerprintEvidenceKind::BackendFingerprint,
+                fingerprint: Some("partial-sha256:SECRET_DIGEST:bytes=3:prefix=3".to_owned()),
+                confidence_milli: 700,
+                stale: false,
+            },
+            bytes_hashed: 3,
+        };
+
+        let summary = SourceFingerprintHashJobSummary::from_report(&report);
+        let serialized = serde_json::to_string(&summary).unwrap();
+
+        assert_eq!(
+            summary,
+            SourceFingerprintHashJobSummary {
+                mode: SourceFingerprintHashMode::Partial { prefix_bytes: 3 },
+                evidence_kind: SourceFingerprintEvidenceKind::BackendFingerprint,
+                confidence_milli: 700,
+                stale: false,
+                bytes_hashed: 3,
+            }
+        );
+        assert!(serialized.contains("backend_fingerprint"));
+        assert!(serialized.contains("prefix_bytes"));
+        assert!(!serialized.contains(r#""fingerprint""#));
+        assert!(!serialized.contains("SECRET_DIGEST"));
+        assert!(!serialized.contains("partial-sha256"));
+        assert!(!serialized.contains("local:///"));
+        assert!(!serialized.contains("token"));
+    }
+
+    #[test]
+    fn source_hash_job_summary_serializes_full_report_without_hash_material() {
+        let report = SourceFingerprintHashReport {
+            mode: SourceFingerprintHashMode::Full,
+            evidence: SourceFingerprintEvidence {
+                kind: SourceFingerprintEvidenceKind::ContentHash,
+                fingerprint: Some("sha256:SECRET_FULL_DIGEST".to_owned()),
+                confidence_milli: 1_000,
+                stale: false,
+            },
+            bytes_hashed: 6,
+        };
+
+        let summary = SourceFingerprintHashJobSummary::from_report(&report);
+        let serialized = serde_json::to_string(&summary).unwrap();
+
+        assert_eq!(
+            serialized,
+            r#"{"mode":"full","evidence_kind":"content_hash","confidence_milli":1000,"stale":false,"bytes_hashed":6}"#
+        );
+        assert!(!serialized.contains(r#""fingerprint""#));
+        assert!(!serialized.contains("SECRET_FULL_DIGEST"));
+        assert!(!serialized.contains("sha256"));
+        assert!(!serialized.contains("webdav:///"));
+        assert!(!serialized.contains("etag"));
     }
 
     #[tokio::test]

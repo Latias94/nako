@@ -14,7 +14,7 @@ crates/nako-library/src/
 ├── ingestion.rs               # repository-backed scan/source commit workflow
 ├── ingestion/source_commit.rs # source observation planning
 ├── probe.rs                   # media probe orchestration
-├── source_hash.rs             # source fingerprint hash job input, scheduling diagnostics, and execution kernel
+├── source_hash.rs             # source fingerprint hash job input, scheduling diagnostics, job summary, and execution kernel
 ├── local_inference/           # parser-backed provisional hierarchy planning
 ├── failure.rs                 # ingestion failure classification helpers
 ├── index.rs                   # index service orchestration
@@ -32,14 +32,16 @@ crates/nako-library/src/
   traits.
 - Keep media technical fact extraction orchestration in `probe.rs` through the
   `nako-media-probe` trait.
-- Keep source fingerprint hash durable input, scheduling diagnostics, and
-  execution in `source_hash.rs`. The durable job input may carry only Media
-  Library ID, Media Source ID, source scheme, and hash mode. The planner may
-  turn advisory escalation decisions into optional in-process hash requests
-  with redaction-safe diagnostics. The execution kernel may compute evidence
-  through `StorageBackend` `read_range` / `stream_range`. None of these paths
-  may schedule scans, write repositories, add API fields, or merge Media
-  Sources.
+- Keep source fingerprint hash durable input, scheduling diagnostics, job
+  summary, and execution in `source_hash.rs`. The durable job input may carry
+  only Media Library ID, Media Source ID, source scheme, and hash mode. The
+  planner may turn advisory escalation decisions into optional in-process hash
+  requests with redaction-safe diagnostics. The job summary may project
+  execution reports into mode, evidence kind, confidence, stale state, and bytes
+  hashed, but must not carry raw fingerprint/hash material. The execution
+  kernel may compute evidence through `StorageBackend` `read_range` /
+  `stream_range`. None of these paths may schedule scans, write repositories,
+  add API fields, or merge Media Sources.
 - Keep path/name-derived provisional hierarchy in `local_inference/`.
 - Keep user/operator summaries in `summary.rs`; do not leak raw backend errors
   into summaries without classification.
@@ -65,8 +67,8 @@ crates/nako-library/src/
   persistence through traits.
 - `probe.rs`: bounded concurrent probe workflow.
 - `source_hash.rs`: source fingerprint hash job input contract, advisory
-  escalation decision to optional hash request planning, plus bounded partial
-  hash and streaming full hash evidence execution for future source fingerprint
-  escalation workflows.
+  escalation decision to optional hash request planning, redaction-safe durable
+  job summary projection, plus bounded partial hash and streaming full hash
+  evidence execution for future source fingerprint escalation workflows.
 - `local_inference/plan.rs`: local name parsing to provisional item/source
   records.

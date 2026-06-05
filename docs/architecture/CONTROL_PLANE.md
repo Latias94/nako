@@ -41,7 +41,7 @@ Deployment Endpoint Config
 | HTTP addon protocol | Shipped foundation | ADR 0003; ADR 0015; ADR 0020 | Addon Manager lifecycle is still deferred. |
 | Addon capability and token scopes | Shipped foundation | addon token/grant workstreams | Stronger hosted surface and route policy. |
 | Addon process supervision | Deferred | ADR 0020; ADR 0053 | `addon-manager-process-lifecycle`. |
-| Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract/internal enqueue/queued planner, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/` | Broader job-kind scheduler migration and source fingerprint hash execution remain follow-ons. |
+| Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract/summary/internal enqueue/queued planner, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/` | Broader job-kind scheduler migration and source fingerprint hash execution remain follow-ons. |
 | Runtime supervisor | Shipped resource-accounted foundation | ADR 0019; server runtime deepening; durable job queue/resource lane | Unified trace context and broader scheduler migration remain follow-ons. |
 | Resource classes and budgets | Shipped process-local foundation plus source fingerprint hash-to-`disk.scan` mapping | ADR 0005; playback/runtime lanes; durable job queue/resource lane | Continue migrating job kinds onto typed budget-admitted scheduler paths. |
 | Tracing/request identity | Partial with HLS and library scan job propagation | diagnostics and playback identity lanes | Continue unified trace context across jobs/FFmpeg/VFS/addons and broader scan entry points. |
@@ -65,8 +65,8 @@ capabilities and risks.
 
 ### source-fingerprint-hash-durable-job-contract-and-enqueue
 
-Status: First contract, internal enqueue, and queued planner slices shipped as
-of 2026-06-05.
+Status: First contract, summary, internal enqueue, and queued planner slices
+shipped as of 2026-06-05.
 
 Goal: Prepare future source fingerprint hash queue/operator integration without
 adding execution, API, schema, evidence persistence, or reconciliation
@@ -87,6 +87,9 @@ Shipped control-plane behavior:
   job for future execution by validating the persisted job contract, reloading
   the current Media Source, and rebuilding only an in-memory
   `SourceFingerprintHashRequest` from the current Source Locator.
+- `SourceFingerprintHashJobSummary` provides a narrow future `summary_json`
+  shape with mode, evidence kind, confidence, stale state, and bytes hashed,
+  excluding raw fingerprint/hash material and locator content.
 
 Follow-ons:
 

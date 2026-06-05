@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/nako-library/backend/index.md", "reason": "Library source hash contract and focused tests live in nako-library."}
+{"file": ".trellis/spec/nako-library/backend/directory-structure.md", "reason": "Keep source hash summary contract in the existing source_hash module."}
+{"file": ".trellis/spec/nako-library/backend/error-handling.md", "reason": "Maintain redaction-safe failure and serialization behavior."}
+{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "Source fingerprint hash report/job-input contracts and required focused gates."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse existing source hash report/evidence types instead of duplicating raw hash handling."}

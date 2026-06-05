@@ -415,6 +415,9 @@ Shipped behavior:
   `JobKind::SourceFingerprintHash`, redaction-safe
   `SourceFingerprintHashJobInput`, and a `disk.scan` budget mapping for future
   queue-backed execution;
+- a source fingerprint hash durable job summary contract that can summarize
+  future execution reports without serializing raw fingerprint/hash material or
+  locator content;
 - an internal server enqueue seam that persists source fingerprint hash jobs for
   known Media Sources without scheduling or executing hash work;
 - an internal server queued execution planner that validates persisted
