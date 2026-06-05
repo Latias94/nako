@@ -83,3 +83,38 @@ Added the source fingerprint hash durable job contract with persisted JobKind, r
 ### Next Steps
 
 - None - task complete
+
+
+## Session 49: Source fingerprint hash enqueue service
+
+**Date**: 2026-06-05
+**Task**: Source fingerprint hash enqueue service
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Added an internal server app service to enqueue source fingerprint hash jobs for existing Media Sources with safe job input, library ownership checks, redaction-focused tests, specs, and architecture updates; archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `98404238` | (see git log) |
+| `d0c0d156` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
