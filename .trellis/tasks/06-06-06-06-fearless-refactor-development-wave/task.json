@@ -20,7 +20,8 @@
   "subtasks": [],
   "children": [
     "06-06-admin-source-fingerprint-hash-trigger-first-slice",
-    "06-06-source-duplicate-relationship-idempotent-pair-upsert"
+    "06-06-source-duplicate-relationship-idempotent-pair-upsert",
+    "06-06-06-06-public-client-playback-capability-contract-parity-gate"
   ],
   "parent": null,
   "relatedFiles": [],

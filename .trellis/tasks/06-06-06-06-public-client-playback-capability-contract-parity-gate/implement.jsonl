@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Playback capability parity spans protocol, API generation, clients, server mapping, and docs."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Avoid duplicate parity helpers or tests when existing gates already cover the contract."}
+{"file": ".trellis/spec/nako-client-protocol/backend/index.md", "reason": "Protocol DTO and Public Client route inventory boundary for playback capability fields."}
+{"file": ".trellis/spec/nako-client-core/backend/index.md", "reason": "Transport-neutral playback request builder query rendering rules."}
+{"file": ".trellis/spec/nako-client/backend/index.md", "reason": "Rust SDK streaming builder and transport boundary rules."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Public Client versus Admin contract separation and generated SDK/OpenAPI expectations."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Public Client playback capability parity and generated surface redaction gates."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "HTTP query/body mapping and auth boundary for playback routes."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server route test and gate selection guidance."}
+{"file": ".trellis/tasks/06-06-06-06-public-client-playback-capability-contract-parity-gate/research/parity-gate-resume-inventory.md", "reason": "Task-local inventory of existing parity gates and the current flat v1 field baseline."}
