@@ -2,7 +2,7 @@ use super::*;
 use nako_core::JobPriority;
 use nako_library::{
     SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS, SourceFingerprintHashJobInput,
-    SourceFingerprintHashMode,
+    SourceFingerprintHashJobSummary, SourceFingerprintHashMode,
 };
 
 #[tokio::test]
@@ -113,6 +113,71 @@ async fn source_fingerprint_hash_prepare_recovers_in_memory_execution_request() 
     assert_eq!(persisted.status, JobStatus::Queued);
     assert!(persisted.started_at.is_none());
     assert!(persisted.completed_at.is_none());
+}
+
+#[tokio::test]
+async fn source_fingerprint_hash_execute_claims_job_and_persists_safe_summary() {
+    let library_id = LibraryId::new();
+    let (temp, app, store, source) = source_hash_app_with_source(
+        library_id,
+        "local:///Hidden Movie.mkv",
+        Some("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned()),
+    )
+    .await;
+    fs::write(temp.path().join("Hidden Movie.mkv"), b"abcdef").unwrap();
+    let job = app
+        .source_hash()
+        .enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
+            library_id,
+            source_id: source.id,
+            mode: SourceFingerprintHashMode::Full,
+            priority: None,
+        })
+        .await
+        .unwrap();
+
+    let output = app
+        .source_hash()
+        .execute_source_fingerprint_hash_job(job.id)
+        .await
+        .unwrap();
+    let persisted = store.get_job(job.id).await.unwrap().unwrap();
+    let summary_json = persisted.summary_json.as_deref().expect("summary json");
+    let summary: SourceFingerprintHashJobSummary = serde_json::from_str(summary_json).unwrap();
+    let claim = nako_core::JobLeaseRepository::claim_next_job_lease(
+        &store,
+        nako_core::JobLeaseClaimRequest {
+            worker_id: nako_core::JobWorkerId::new(),
+            lease_duration_ms: 10_000,
+            filter: nako_core::JobLeaseClaimFilter {
+                job_id: Some(job.id),
+                ..nako_core::JobLeaseClaimFilter::default()
+            },
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(output.job.id, job.id);
+    assert_eq!(output.job.status, JobStatus::Succeeded);
+    assert_eq!(persisted.status, JobStatus::Succeeded);
+    assert_eq!(output.summary, summary);
+    assert_eq!(summary.mode, SourceFingerprintHashMode::Full);
+    assert_eq!(
+        summary.evidence_kind,
+        nako_core::SourceFingerprintEvidenceKind::ContentHash
+    );
+    assert_eq!(summary.confidence_milli, 1_000);
+    assert!(!summary.stale);
+    assert_eq!(summary.bytes_hashed, 6);
+    assert!(persisted.started_at.is_some());
+    assert!(persisted.completed_at.is_some());
+    assert!(claim.is_none());
+    assert!(!summary_json.contains("Hidden Movie"));
+    assert!(!summary_json.contains("local:///"));
+    assert!(!summary_json.contains("sha256"));
+    assert!(!summary_json.contains("aaaaaaaa"));
+    assert!(!summary_json.contains(r#""fingerprint""#));
 }
 
 #[tokio::test]

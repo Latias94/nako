@@ -27,7 +27,7 @@ and rclone-like mounts can be slow, stale, or unavailable.
 | Remote storage boundary | Shipped durable health foundation | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/`; `.trellis/tasks/archive/2026-06/06-02-01d-hls-artifact-io-pressure-enforcement/` | Open follow-ons for cache repair, fingerprint hash queue/operator integration, scan scheduling, or PostgreSQL runtime harness work. |
 | WebDAV read path | Partial | `docs/workstreams/storage-vfs/`; remote storage lanes | Harden retries, cache, and operator diagnostics. |
 | Source locator | Shipped foundation | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Watcher/debounce productization and repair workflows. |
-| Source fingerprint | Shipped escalation policy, hash execution kernel, scheduling diagnostic planner, durable job contract, job summary contract, internal enqueue seam, and queued execution planner | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/archive/2026-06/06-04-06-04-source-fingerprint-escalation-policy-first-slice/`; `.trellis/tasks/archive/2026-06/06-05-06-05-source-fingerprint-hash-execution-first-slice/`; `crates/nako-core/src/job.rs`; `crates/nako-library/src/source_hash.rs`; `crates/nako-server/src/app/source_hash.rs`; `crates/nako-server/src/app/runtime.rs` | Queue-backed scheduler/execution, operator/Admin/Public API triggering, evidence persistence, and automatic reconciliation remain follow-ons. |
+| Source fingerprint | Shipped escalation policy, hash execution kernel, scheduling diagnostic planner, durable job contract, job summary contract, internal enqueue seam, queued execution planner, and single-job executor command | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/archive/2026-06/06-04-06-04-source-fingerprint-escalation-policy-first-slice/`; `.trellis/tasks/archive/2026-06/06-05-06-05-source-fingerprint-hash-execution-first-slice/`; `crates/nako-core/src/job.rs`; `crates/nako-library/src/source_hash.rs`; `crates/nako-server/src/app/source_hash.rs`; `crates/nako-server/src/app/runtime.rs` | Automatic scheduler/operator/Admin/Public API triggering, evidence persistence, and automatic reconciliation remain follow-ons. |
 | Remote probe staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Per-backend staging budgets and diagnostics. |
 | Remote FFmpeg input staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md` | Per-backend staging budgets and diagnostics. |
 | VFS cache | Shipped diagnostics foundation, action preview, latest-failure refresh, action plan, target-scoped preview, and selected-target refresh execution | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/06-04-06-04-vfs-cache-repair-action-preview-first-slice/`; `.trellis/tasks/06-04-vfs-cache-repair-operator-actions/`; `.trellis/tasks/06-04-vfs-cache-uri-scoped-previews/`; `.trellis/tasks/06-05-vfs-cache-repair-executable-refresh-action/` | Durable repair queues and broader non-destructive remediation planning remain follow-ons. |
@@ -202,6 +202,29 @@ Boundaries:
 - no durable scheduler loop, lease executor, runtime worker, VFS behavior
   change, Admin/Public API, schema migration, evidence persistence, duplicate
   relationship mutation, or automatic Media Source merge behavior was added.
+
+### source-fingerprint-hash-durable-executor-command-first-slice
+
+Status: Internal single-job durable executor command shipped as of 2026-06-05.
+
+Shipped:
+
+- `nako-server::app::source_hash` can execute one explicit
+  `JobKind::SourceFingerprintHash` job id through `DurableJobRuntime`;
+- the command claims the durable job, reuses the queued execution planner,
+  resolves the configured VFS backend for the current Media Source, runs
+  `SourceFingerprintHashExecutor`, and persists
+  `SourceFingerprintHashJobSummary` in `summary_json`;
+- focused tests prove successful execution marks the job succeeded, makes it no
+  longer claimable, and keeps summary JSON free of Source Locators, `StorageUri`,
+  raw digests, fingerprints, and hash material.
+
+Boundaries:
+
+- no automatic scheduler loop, startup worker, runtime-supervisor background
+  spawn, Admin/Public API, schema migration, evidence persistence outside job
+  summary JSON, duplicate relationship mutation, or automatic Media Source merge
+  behavior was added.
 
 ### vfs-cache-repair-diagnostics
 

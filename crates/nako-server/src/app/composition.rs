@@ -194,7 +194,8 @@ impl NakoAppServices {
         runtime: NakoRuntimeResources,
     ) -> Result<Self> {
         let jobs = JobAppService::new(store.clone());
-        let source_hash = SourceFingerprintHashAppService::new(store.clone());
+        let source_hash =
+            SourceFingerprintHashAppService::new(store.clone(), runtime.storage_backends.clone());
         let watch_folder_suppression = WatchFolderSuppressionAppService::new();
         let acquisition_intake = AcquisitionIntakeAppService::new_with_storage_and_suppression(
             store.clone(),

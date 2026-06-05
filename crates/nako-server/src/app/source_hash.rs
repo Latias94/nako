@@ -4,14 +4,18 @@ use nako_core::{
 };
 use nako_db::NakoDatabase;
 use nako_library::{
-    SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS, SourceFingerprintHashJobInput,
-    SourceFingerprintHashMode, SourceFingerprintHashRequest,
+    SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS, SourceFingerprintHashExecutor,
+    SourceFingerprintHashJobInput, SourceFingerprintHashJobSummary, SourceFingerprintHashMode,
+    SourceFingerprintHashRequest,
 };
 use nako_vfs::StorageUri;
+
+use super::{job_runtime::DurableJobRuntime, storage::StorageBackendRegistry};
 
 #[derive(Clone, Debug)]
 pub(crate) struct SourceFingerprintHashAppService {
     store: NakoDatabase,
+    storage_backends: StorageBackendRegistry,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -32,9 +36,18 @@ pub(crate) struct PreparedSourceFingerprintHashExecution {
     pub(crate) request: SourceFingerprintHashRequest,
 }
 
+#[derive(Clone, Debug)]
+pub(crate) struct SourceFingerprintHashCommandOutput {
+    pub(crate) job: Job,
+    pub(crate) summary: SourceFingerprintHashJobSummary,
+}
+
 impl SourceFingerprintHashAppService {
-    pub(crate) fn new(store: NakoDatabase) -> Self {
-        Self { store }
+    pub(super) fn new(store: NakoDatabase, storage_backends: StorageBackendRegistry) -> Self {
+        Self {
+            store,
+            storage_backends,
+        }
     }
 
     pub(crate) async fn enqueue_source_fingerprint_hash(
@@ -71,6 +84,41 @@ impl SourceFingerprintHashAppService {
         &self,
         job: &Job,
     ) -> Result<PreparedSourceFingerprintHashExecution> {
+        let (prepared, _source) = self
+            .prepare_source_fingerprint_hash_execution_with_source(job)
+            .await?;
+        Ok(prepared)
+    }
+
+    pub(crate) async fn execute_source_fingerprint_hash_job(
+        &self,
+        job_id: JobId,
+    ) -> Result<SourceFingerprintHashCommandOutput> {
+        let runtime = DurableJobRuntime::new(self.store.clone());
+        let run = runtime
+            .run_job(
+                job_id,
+                "source fingerprint hash job",
+                || async { self.run_source_fingerprint_hash_job(job_id).await },
+                |summary| {
+                    DurableJobRuntime::serialize_summary(
+                        summary,
+                        "source fingerprint hash job summary",
+                    )
+                },
+            )
+            .await?;
+
+        Ok(SourceFingerprintHashCommandOutput {
+            job: run.job,
+            summary: run.output,
+        })
+    }
+
+    async fn prepare_source_fingerprint_hash_execution_with_source(
+        &self,
+        job: &Job,
+    ) -> Result<(PreparedSourceFingerprintHashExecution, MediaSource)> {
         validate_source_fingerprint_hash_job_contract(job)?;
         let input = source_fingerprint_hash_job_input_from_job(job)?;
         validate_source_fingerprint_hash_job_bindings(job, &input)?;
@@ -91,17 +139,38 @@ impl SourceFingerprintHashAppService {
             });
         }
 
-        Ok(PreparedSourceFingerprintHashExecution {
-            job_id: job.id,
-            library_id: input.library_id,
-            source_id: input.source_id,
-            source_scheme: input.source_scheme,
-            mode: input.mode,
-            request: SourceFingerprintHashRequest {
-                uri: source_uri,
+        Ok((
+            PreparedSourceFingerprintHashExecution {
+                job_id: job.id,
+                library_id: input.library_id,
+                source_id: input.source_id,
+                source_scheme: input.source_scheme,
                 mode: input.mode,
+                request: SourceFingerprintHashRequest {
+                    uri: source_uri,
+                    mode: input.mode,
+                },
             },
-        })
+            source,
+        ))
+    }
+
+    async fn run_source_fingerprint_hash_job(
+        &self,
+        job_id: JobId,
+    ) -> Result<SourceFingerprintHashJobSummary> {
+        let job = self.job_for_hash(job_id).await?;
+        let (prepared, source) = self
+            .prepare_source_fingerprint_hash_execution_with_source(&job)
+            .await?;
+        let (_uri, backend) = self
+            .storage_backends
+            .backend_for_media_source(&source)
+            .await?;
+        let executor = SourceFingerprintHashExecutor::new(backend);
+        let report = executor.execute(prepared.request).await?;
+
+        Ok(SourceFingerprintHashJobSummary::from_report(&report))
     }
 
     async fn source_for_hash(&self, source_id: MediaSourceId) -> Result<MediaSource> {
@@ -111,6 +180,16 @@ impl SourceFingerprintHashAppService {
             .ok_or_else(|| NakoError::NotFound {
                 entity: "media_source",
                 id: source_id.to_string(),
+            })
+    }
+
+    async fn job_for_hash(&self, job_id: JobId) -> Result<Job> {
+        self.store
+            .get_job(job_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "job",
+                id: job_id.to_string(),
             })
     }
 }

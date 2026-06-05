@@ -1,0 +1,9 @@
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Review server app-service command and focused tests."}
+{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Verify no scheduler/API/runtime worker scope creep."}
+{"file": ".trellis/spec/nako-server/backend/database-guidelines.md", "reason": "Verify repository-only persistence and no schema changes."}
+{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Verify durable job failures stay redaction-safe."}
+{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "Verify no raw locators/hash material in output/log surfaces."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify command tests and focused gates."}
+{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "Verify executor/report/summary contracts are used safely."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Review job-to-VFS-to-summary data flow."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Review reuse of existing source hash helpers."}

@@ -35,6 +35,11 @@ Use these gates for `crates/nako-server` feature work.
   malformed or unsafe input rejection, binding mismatch rejection, locator
   scheme drift rejection, queued job non-mutation, and locator/path/input
   redaction with focused app tests.
+- Internal source fingerprint hash durable executor command changes must prove
+  a job is claimed through durable lease runtime, completed with a redaction-safe
+  `SourceFingerprintHashJobSummary`, no longer claimable after success, and no
+  summary JSON contains locator/path/fingerprint/hash material. Keep automatic
+  scheduling and API routes out of command-only slices.
 
 ## Gate Selection
 

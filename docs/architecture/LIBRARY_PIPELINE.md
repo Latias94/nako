@@ -424,6 +424,9 @@ Shipped behavior:
   `SourceFingerprintHashJobInput`, reloads the current Media Source, and
   rebuilds only an in-memory `SourceFingerprintHashRequest` for future
   executor wiring;
+- an internal server single-job executor command that claims one source
+  fingerprint hash job, runs VFS-backed hashing, and writes redaction-safe job
+  summary JSON without adding automatic scheduling;
 - source-scoped storage failure diagnostics.
 
 ### library-watcher-and-media-intake-stability

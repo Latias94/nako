@@ -53,6 +53,12 @@ crates/nako-server/src/
   Source, and rebuild an in-memory `SourceFingerprintHashRequest`. It must not
   claim leases, mark jobs terminal, read VFS bytes, expose an API route, persist
   evidence, or log/return raw locator and input JSON content.
+- The source fingerprint hash durable executor command may claim one explicit
+  job id through `DurableJobRuntime`, reuse the queued execution planner,
+  execute the hash through the configured `StorageBackendRegistry`, and persist
+  `SourceFingerprintHashJobSummary` as job `summary_json`. This command is not
+  a scheduler, startup worker, runtime-supervisor loop, API route, evidence
+  writer, or duplicate reconciliation mechanism.
 - Resource admission belongs in app runtime helpers such as
   `app/playback/resource.rs`, not in pure planner crates.
 - Bounded resource-admission policy (for example immediate vs HLS supersede
