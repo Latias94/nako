@@ -517,3 +517,42 @@ diagnostics, redaction, and host-owned side-effect handoff.
 ### Next Steps
 
 - Continue `06-05-source-hash-triggering-reconciliation-policy` to finish the parent cross-lane architecture audit.
+
+
+## Session 60: Source hash reconciliation policy audit
+
+**Date**: 2026-06-05
+**Task**: Source hash reconciliation policy audit
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Completed the source fingerprint hash triggering and duplicate reconciliation policy audit, added the source hash trigger/reconciliation research note, codified server spec guardrails, and closed the cross-lane audit parent at 6/6.
+
+### Main Changes
+
+- Added the source hash triggering/reconciliation policy research artifact.
+- Added `nako-server` backend spec guardrails for source hash Admin triggers,
+  scan-originated scheduling, retry/requeue, redaction, and duplicate
+  reconciliation.
+- Marked the source hash child task and cross-lane parent task completed.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `91201775` | (see git log) |
+
+### Testing
+
+- [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-05-source-hash-triggering-reconciliation-policy`
+- [OK] `git diff --check`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
