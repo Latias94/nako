@@ -1831,6 +1831,32 @@ td {
   line-height: 1.12;
 }
 
+.overviewDiagnosticGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.overviewDiagnosticStat {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.overviewDiagnosticStat span,
+.overviewDiagnosticStat small {
+  color: var(--nako-admin-muted);
+  font-size: 0.82rem;
+  font-weight: 720;
+}
+
+.overviewDiagnosticStat strong {
+  color: var(--nako-admin-ink);
+  font-size: 1.18rem;
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+}
+
 .settingsSummaryGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2774,11 +2800,12 @@ td {
   .routeNav,
   .filterBar,
   .overviewMetricGrid,
-    .settingsSummaryGrid,
-    .accessSummaryGrid,
-    .artworkSummaryGrid,
-    .artworkGalleryGrid,
-    .libraryPlanGrid,
+  .overviewDiagnosticGrid,
+  .settingsSummaryGrid,
+  .accessSummaryGrid,
+  .artworkSummaryGrid,
+  .artworkGalleryGrid,
+  .libraryPlanGrid,
   .libraryOperationGrid,
   .addonsSummaryGrid,
   .addonsCountGrid {

@@ -66,6 +66,94 @@ async fn source_fingerprint_hash_enqueue_persists_safe_job_input() {
 }
 
 #[tokio::test]
+async fn source_fingerprint_hash_admin_overview_summary_aggregates_redacted_counts() {
+    let library_id = LibraryId::new();
+    let (_temp, app, store, source) = source_hash_app_with_source(
+        library_id,
+        "local:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret",
+        Some("source:v1:content_hash:sha256:private-content-hash".to_owned()),
+    )
+    .await;
+    store
+        .upsert_media_source(&MediaSource {
+            id: MediaSourceId::new(),
+            library_id,
+            item_id: source.item_id,
+            locator: "webdav://private-host.example.test/private/alternate.mkv?token=secret"
+                .to_owned(),
+            file_name: "Alternate.mkv".to_owned(),
+            size_bytes: Some(84),
+            fingerprint: Some("webdav:etag=private-etag".to_owned()),
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_media_source(&MediaSource {
+            id: MediaSourceId::new(),
+            library_id,
+            item_id: source.item_id,
+            locator: "local:///Users/Frankorz/Secret Path/No Fingerprint.mkv".to_owned(),
+            file_name: "No Fingerprint.mkv".to_owned(),
+            size_bytes: Some(21),
+            fingerprint: None,
+        })
+        .await
+        .unwrap();
+
+    app.source_hash()
+        .enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
+            library_id,
+            source_id: source.id,
+            mode: SourceFingerprintHashMode::Full,
+            priority: Some(JobPriority::High),
+        })
+        .await
+        .unwrap();
+    let succeeded = store
+        .enqueue_job(new_source_hash_job(library_id, source.id))
+        .await
+        .unwrap();
+    store.start_job(succeeded.id).await.unwrap();
+    store
+        .succeed_job(succeeded.id, Some(r#"{"safe":"summary"}"#.to_owned()))
+        .await
+        .unwrap();
+    let failed = store
+        .enqueue_job(new_source_hash_job(library_id, source.id))
+        .await
+        .unwrap();
+    store.start_job(failed.id).await.unwrap();
+    store
+        .fail_job(
+            failed.id,
+            "source fingerprint hash execution failed".to_owned(),
+        )
+        .await
+        .unwrap();
+
+    let summary = app.source_hash().admin_overview_summary().await.unwrap();
+    let body = serde_json::to_string(&summary).unwrap();
+
+    assert_eq!(summary.total_sources, 3);
+    assert_eq!(summary.fingerprinted_sources, 2);
+    assert_eq!(summary.content_hash_sources, 1);
+    assert_eq!(summary.queued_jobs, 1);
+    assert_eq!(summary.claimable_jobs, 1);
+    assert_eq!(summary.delayed_retry_jobs, 0);
+    assert_eq!(summary.succeeded_jobs, 1);
+    assert_eq!(summary.failed_jobs, 1);
+    assert!(summary.oldest_queued_at.is_some());
+    assert_eq!(summary.next_retry_at, None);
+    assert!(!body.contains("Frankorz"));
+    assert!(!body.contains("Secret Path"));
+    assert!(!body.contains("private-content-hash"));
+    assert!(!body.contains("private-etag"));
+    assert!(!body.contains("private-host"));
+    assert!(!body.contains("token=secret"));
+    assert!(!body.contains("source:v1:content_hash"));
+}
+
+#[tokio::test]
 async fn source_fingerprint_hash_prepare_recovers_in_memory_execution_request() {
     let library_id = LibraryId::new();
     let (_temp, app, store, source) = source_hash_app_with_source(
@@ -927,6 +1015,23 @@ async fn source_hash_app_with_source(
     store.upsert_media_source(&source).await.unwrap();
 
     (temp, app, store, source)
+}
+
+fn new_source_hash_job(library_id: LibraryId, source_id: MediaSourceId) -> NewJob {
+    NewJob {
+        id: JobId::new(),
+        kind: JobKind::SourceFingerprintHash,
+        resource_class: SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned(),
+        priority: JobPriority::default(),
+        library_id: Some(library_id),
+        source_id: Some(source_id),
+        input_json: Some(source_hash_job_input_json(
+            library_id,
+            source_id,
+            "local",
+            SourceFingerprintHashMode::Full,
+        )),
+    }
 }
 
 fn source_hash_job_input_json(

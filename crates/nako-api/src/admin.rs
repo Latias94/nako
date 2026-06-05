@@ -315,6 +315,7 @@ pub struct AdminOverviewResponse {
     pub catalog: AdminOverviewCatalogSummary,
     pub metadata: AdminOverviewMetadataSummary,
     pub runtime: AdminOverviewRuntimeSummary,
+    pub source_fingerprint_hash: AdminOverviewSourceFingerprintHashSummary,
     pub startup: AdminOverviewStartupSummary,
 }
 
@@ -375,6 +376,22 @@ pub struct AdminOverviewRuntimeSummary {
     pub cancelled_jobs: u64,
     pub failed_jobs: u64,
     pub shutdown_requested: bool,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOverviewSourceFingerprintHashSummary {
+    pub total_sources: u64,
+    pub fingerprinted_sources: u64,
+    pub content_hash_sources: u64,
+    pub queued_jobs: u64,
+    pub running_jobs: u64,
+    pub succeeded_jobs: u64,
+    pub failed_jobs: u64,
+    pub cancelled_jobs: u64,
+    pub claimable_jobs: u64,
+    pub delayed_retry_jobs: u64,
+    pub oldest_queued_at: Option<String>,
+    pub next_retry_at: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -473,6 +490,20 @@ mod tests {
                 failed_jobs: 0,
                 shutdown_requested: false,
             },
+            source_fingerprint_hash: AdminOverviewSourceFingerprintHashSummary {
+                total_sources: 3,
+                fingerprinted_sources: 2,
+                content_hash_sources: 1,
+                queued_jobs: 4,
+                running_jobs: 1,
+                succeeded_jobs: 8,
+                failed_jobs: 1,
+                cancelled_jobs: 0,
+                claimable_jobs: 2,
+                delayed_retry_jobs: 1,
+                oldest_queued_at: Some("2026-06-05T00:00:00.000Z".to_owned()),
+                next_retry_at: Some("2026-06-05T00:05:00.000Z".to_owned()),
+            },
             startup: AdminOverviewStartupSummary {
                 configured_libraries: 1,
                 recovered_transcode_sessions: 0,
@@ -520,10 +551,19 @@ mod tests {
             value["startup"]["watch_folder_runtime"]["diagnostics"][0]["root_ref_redacted"],
             "local://<redacted>"
         );
+        assert_eq!(value["source_fingerprint_hash"]["fingerprinted_sources"], 2);
+        assert_eq!(value["source_fingerprint_hash"]["content_hash_sources"], 1);
+        assert_eq!(value["source_fingerprint_hash"]["claimable_jobs"], 2);
+        assert_eq!(
+            value["source_fingerprint_hash"]["oldest_queued_at"],
+            "2026-06-05T00:00:00.000Z"
+        );
         assert!(!body.contains("secret"));
         assert!(!body.contains("token"));
         assert!(!body.contains("root_uri"));
         assert!(!body.contains("output_path"));
         assert!(!body.contains("ProviderRawResponse"));
+        assert!(!body.contains("source:v1:content_hash"));
+        assert!(!body.contains("locator"));
     }
 }

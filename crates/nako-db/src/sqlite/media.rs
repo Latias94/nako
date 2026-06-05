@@ -254,6 +254,37 @@ impl MediaRepository for SqliteStore {
 
         rows.into_iter().map(row_to_media_source).collect()
     }
+
+    async fn summarize_media_source_fingerprints(&self) -> Result<MediaSourceFingerprintSummary> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                COUNT(*) AS total_sources,
+                COALESCE(SUM(
+                    CASE
+                        WHEN fingerprint IS NOT NULL AND fingerprint != '' THEN 1
+                        ELSE 0
+                    END
+                ), 0) AS fingerprinted_sources,
+                COALESCE(SUM(
+                    CASE
+                        WHEN fingerprint LIKE 'source:v1:content_hash:%' THEN 1
+                        ELSE 0
+                    END
+                ), 0) AS content_hash_sources
+            FROM media_sources
+            "#,
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        Ok(MediaSourceFingerprintSummary {
+            total_sources: i64_to_u64(row_get(&row, "total_sources")?)?,
+            fingerprinted_sources: i64_to_u64(row_get(&row, "fingerprinted_sources")?)?,
+            content_hash_sources: i64_to_u64(row_get(&row, "content_hash_sources")?)?,
+        })
+    }
 }
 
 pub(crate) async fn upsert_media_item_in_transaction(

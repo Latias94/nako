@@ -1559,6 +1559,10 @@ impl MediaRepository for NakoDatabase {
     ) -> Result<Vec<MediaSource>> {
         self.backend().list_media_sources(library_id, page).await
     }
+
+    async fn summarize_media_source_fingerprints(&self) -> Result<MediaSourceFingerprintSummary> {
+        self.backend().summarize_media_source_fingerprints().await
+    }
 }
 
 #[async_trait::async_trait]

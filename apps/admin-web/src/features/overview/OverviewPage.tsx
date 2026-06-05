@@ -53,6 +53,7 @@ export function OverviewPage({ dataSource }: OverviewPageProps) {
     value: mockOverview,
     source: "mock" as const,
   };
+  const sourceFingerprintHash = result.value.source_fingerprint_hash;
   const storageColumns = createStorageColumns(t);
   const metadataColumns = createMetadataColumns(t);
   const storageTable = useReactTable({
@@ -143,6 +144,51 @@ export function OverviewPage({ dataSource }: OverviewPageProps) {
           </div>
 
           <DataPanel
+            description={t("overview.sourceFingerprint.description", {
+              fingerprinted: sourceFingerprintHash.fingerprinted_sources,
+              total: sourceFingerprintHash.total_sources,
+              contentHash: sourceFingerprintHash.content_hash_sources,
+            })}
+            title={t("overview.sourceFingerprint.title")}
+          >
+            <div className="overviewDiagnosticGrid">
+              <OverviewDiagnosticStat
+                detail={t("overview.sourceFingerprint.coverage.detail", {
+                  contentHash: sourceFingerprintHash.content_hash_sources,
+                })}
+                label={t("overview.sourceFingerprint.coverage.label")}
+                value={t("overview.sourceFingerprint.coverage.value", {
+                  fingerprinted: sourceFingerprintHash.fingerprinted_sources,
+                  total: sourceFingerprintHash.total_sources,
+                })}
+              />
+              <OverviewDiagnosticStat
+                detail={t("overview.sourceFingerprint.queue.detail", {
+                  claimable: sourceFingerprintHash.claimable_jobs,
+                  delayed: sourceFingerprintHash.delayed_retry_jobs,
+                })}
+                label={t("overview.sourceFingerprint.queue.label")}
+                value={sourceFingerprintHash.queued_jobs.toString()}
+              />
+              <OverviewDiagnosticStat
+                detail={t("overview.sourceFingerprint.failures.detail", {
+                  running: sourceFingerprintHash.running_jobs,
+                  succeeded: sourceFingerprintHash.succeeded_jobs,
+                })}
+                label={t("overview.sourceFingerprint.failures.label")}
+                value={sourceFingerprintHash.failed_jobs.toString()}
+              />
+              <OverviewDiagnosticStat
+                detail={t("overview.sourceFingerprint.retry.detail", {
+                  oldest: formatOptionalTimestamp(sourceFingerprintHash.oldest_queued_at, t),
+                })}
+                label={t("overview.sourceFingerprint.retry.label")}
+                value={formatOptionalTimestamp(sourceFingerprintHash.next_retry_at, t)}
+              />
+            </div>
+          </DataPanel>
+
+          <DataPanel
             description={t("overview.storage.description", {
               ready: result.value.storage.ready_backends,
               degraded: result.value.storage.degraded_backends,
@@ -204,6 +250,24 @@ function OverviewMetric({
   );
 }
 
+function OverviewDiagnosticStat({
+  detail,
+  label,
+  value,
+}: {
+  detail: string;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="overviewDiagnosticStat">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{detail}</small>
+    </div>
+  );
+}
+
 function storageTone(
   overview: AdminOverviewResponse,
 ): "success" | "warning" | "danger" {
@@ -216,6 +280,10 @@ function storageTone(
   }
 
   return "success";
+}
+
+function formatOptionalTimestamp(value: string | null, t: Translate): string {
+  return value ?? t("overview.sourceFingerprint.timestamp.none");
 }
 
 function storageBadge(overview: AdminOverviewResponse, t: Translate) {

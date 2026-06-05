@@ -1,0 +1,12 @@
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Admin overview DTO and generated Admin contract changes"}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Admin/Public API boundary, generated contract, and redaction rules"}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Admin diagnostic DTO test and generated contract quality gates"}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server HTTP overview implementation guidance"}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Existing Admin overview route and auth boundary"}
+{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "HTTP-safe error handling while composing diagnostics"}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server focused tests and source fingerprint hash quality expectations"}
+{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web generated contract and overview consumer guidance"}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Admin Web data-source, mock, route, and test conventions"}
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking guide index"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Feature spans database aggregate, API DTO, server route, and frontend display"}
+{"file": ".trellis/tasks/06-05-source-fingerprint-hash-admin-diagnostics-first-slice/prd.md", "reason": "Task requirements and acceptance criteria"}

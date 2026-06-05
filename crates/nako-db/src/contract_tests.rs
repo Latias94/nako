@@ -1451,7 +1451,7 @@ where
         locator: "local:///Movies/Contract Series/Episode 1.mkv".to_owned(),
         file_name: "Episode 1.mkv".to_owned(),
         size_bytes: Some(42),
-        fingerprint: Some("fingerprint-local".to_owned()),
+        fingerprint: Some("source:v1:content_hash:sha256:contract-content-hash".to_owned()),
     };
     let anime_source = MediaSource {
         id: MediaSourceId::new(),
@@ -1524,6 +1524,14 @@ where
             .await
             .unwrap(),
         vec![movie_source.clone()]
+    );
+    assert_eq!(
+        store.summarize_media_source_fingerprints().await.unwrap(),
+        nako_core::MediaSourceFingerprintSummary {
+            total_sources: 2,
+            fingerprinted_sources: 2,
+            content_hash_sources: 1,
+        }
     );
     assert_eq!(
         store

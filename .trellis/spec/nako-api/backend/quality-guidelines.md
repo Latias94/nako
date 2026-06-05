@@ -133,3 +133,94 @@ pub struct AdminStorageDiagnostic {
 The correct DTO gives operators useful pressure and failure signals without
 leaking Source Locators, Source Fingerprints, local paths, or raw backend
 payloads.
+
+## Scenario: Admin Overview Source Fingerprint Hash Diagnostic
+
+### 1. Scope / Trigger
+
+- Trigger: changing the Admin overview source fingerprint hash diagnostic block,
+  source fingerprint coverage counters, or source-hash job queue counters.
+- Scope: `AdminOverviewResponse.source_fingerprint_hash`,
+  `AdminOverviewSourceFingerprintHashSummary`,
+  `MediaRepository::summarize_media_source_fingerprints`,
+  `SourceFingerprintHashAppService::admin_overview_summary`, generated Admin
+  TypeScript contracts, and Admin Web overview rendering.
+
+### 2. Signatures
+
+- API DTO:
+  `AdminOverviewResponse { source_fingerprint_hash:
+  AdminOverviewSourceFingerprintHashSummary }`.
+- Repository aggregate:
+  `summarize_media_source_fingerprints() ->
+  Result<MediaSourceFingerprintSummary>`.
+- Server app service:
+  `admin_overview_summary() ->
+  Result<AdminOverviewSourceFingerprintHashSummary>`.
+
+### 3. Contracts
+
+- Source coverage counters are exact aggregate counts from the repository, not
+  HTTP-layer pagination or Admin Web calculations.
+- Job counters are derived from `summarize_job_queue_pressure()` filtered to
+  `JobKind::SourceFingerprintHash` and
+  `SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS`.
+- The DTO may expose counts and safe queued/retry timestamps only. It must not
+  expose Source Locator, local path, raw Source Fingerprint, raw content hash,
+  job input JSON, job summary JSON, or raw job error body.
+- Admin Web generated contracts under `apps/admin-web` and `web` must be
+  refreshed from `nako-api`; do not hand-edit generated artifacts.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| No media sources or source hash jobs exist | Return zero counters and `null` timestamps |
+| Sources have raw fingerprints or locator-like strings | Count them without returning the values |
+| Source hash jobs exist in multiple statuses | Aggregate queued/running/succeeded/failed/cancelled counts by status |
+| Queued source hash retries are delayed | Include delayed retry count and safe next retry timestamp |
+| Other job kinds share the same queue | Exclude them from source fingerprint hash counters |
+| Generated contract drift | `cargo nextest run -p nako-api admin_contract --no-fail-fast` fails until regenerated |
+
+### 5. Good/Base/Bad Cases
+
+- Good: add a repository SQL aggregate that returns total/fingerprinted/content
+  hash source counts and map it into the Admin overview summary.
+- Good: use existing job queue pressure summaries for job status counters.
+- Base: Admin Web renders only counts and timestamps from the generated
+  contract.
+- Bad: scanning every media source inside the HTTP overview handler.
+- Bad: exposing `fingerprint`, `source_uri`, `locator`, `path`, `hash`, or raw
+  job JSON fields in the DTO or Admin Web.
+
+### 6. Tests Required
+
+- API serialization test asserts the new fields and rejects sensitive terms.
+- DB contract test proves source fingerprint aggregate counts on persisted
+  `media_sources` rows.
+- Server app/route test proves source-hash queue counters and overview response
+  remain redaction-safe.
+- Admin contract test proves generated TypeScript artifacts match the
+  generator.
+- Admin Web tests prove the overview route renders only aggregate fields and
+  omits unsafe extra fields.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+let sources = store.list_media_sources(library_id, PageRequest::new(PageRequest::MAX_LIMIT, 0)).await?;
+```
+
+This makes Admin overview coverage depend on a bounded page and will undercount
+larger libraries.
+
+#### Correct
+
+```rust
+let coverage = store.summarize_media_source_fingerprints().await?;
+```
+
+The repository owns exact aggregate counting, while the Admin overview service
+maps only safe counters into the DTO.

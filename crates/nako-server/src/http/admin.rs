@@ -1342,6 +1342,7 @@ pub(super) async fn get_admin_overview(State(app): State<NakoApp>) -> ApiResult<
     let catalog = app.catalog().catalog_governance_summary().await?;
     let metadata = app.metadata().list_metadata_provider_diagnostics();
     let runtime = app.runtime_diagnostics();
+    let source_fingerprint_hash = app.source_hash().admin_overview_summary().await?;
     let startup = app.startup_report().clone();
 
     let storage = storage_summary(storage);
@@ -1378,6 +1379,7 @@ pub(super) async fn get_admin_overview(State(app): State<NakoApp>) -> ApiResult<
         catalog,
         metadata,
         runtime,
+        source_fingerprint_hash,
         startup,
     }))
 }

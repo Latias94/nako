@@ -237,6 +237,15 @@ async fn admin_v1_overview_composes_safe_read_only_diagnostics() {
     assert_eq!(overview.runtime.cancelled_jobs, 0);
     assert_eq!(overview.runtime.failed_jobs, 0);
     assert!(!overview.runtime.shutdown_requested);
+    assert_eq!(overview.source_fingerprint_hash.total_sources, 0);
+    assert_eq!(overview.source_fingerprint_hash.fingerprinted_sources, 0);
+    assert_eq!(overview.source_fingerprint_hash.content_hash_sources, 0);
+    assert_eq!(overview.source_fingerprint_hash.queued_jobs, 0);
+    assert_eq!(overview.source_fingerprint_hash.claimable_jobs, 0);
+    assert_eq!(overview.source_fingerprint_hash.delayed_retry_jobs, 0);
+    assert_eq!(overview.source_fingerprint_hash.failed_jobs, 0);
+    assert_eq!(overview.source_fingerprint_hash.oldest_queued_at, None);
+    assert_eq!(overview.source_fingerprint_hash.next_retry_at, None);
     assert_eq!(overview.startup.configured_libraries, 1);
     assert_eq!(overview.startup.recovered_jobs, 0);
     assert_eq!(overview.startup.recovered_transcode_sessions, 0);

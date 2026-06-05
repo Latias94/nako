@@ -1421,6 +1421,21 @@ export type AdminOverviewStatus = "healthy" | "degraded";
 
 export type AdminWatchFolderRuntimeCoverageStatus = "started" | "disabled" | "unsupported_root" | "missing_root";
 
+export interface AdminOverviewSourceFingerprintHashSummary {
+  total_sources: number;
+  fingerprinted_sources: number;
+  content_hash_sources: number;
+  queued_jobs: number;
+  running_jobs: number;
+  succeeded_jobs: number;
+  failed_jobs: number;
+  cancelled_jobs: number;
+  claimable_jobs: number;
+  delayed_retry_jobs: number;
+  oldest_queued_at: string | null;
+  next_retry_at: string | null;
+}
+
 export interface AdminOverviewResponse {
   admin_api_version: string;
   public_api_version: string;
@@ -1463,6 +1478,7 @@ export interface AdminOverviewResponse {
     failed_jobs: number;
     shutdown_requested: boolean;
   };
+  source_fingerprint_hash: AdminOverviewSourceFingerprintHashSummary;
   startup: {
     configured_libraries: number;
     recovered_transcode_sessions: number;

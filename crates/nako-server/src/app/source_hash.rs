@@ -1,6 +1,7 @@
 use nako_core::{
-    Job, JobId, JobKind, JobPriority, JobRepository, LeasedJob, LibraryId, MediaRepository,
-    MediaSource, MediaSourceId, NakoError, NewJob, Result, ScanRepository,
+    Job, JobId, JobKind, JobPriority, JobQueuePressureSummary, JobRepository, JobStatus, LeasedJob,
+    LibraryId, MediaRepository, MediaSource, MediaSourceId, NakoError, NewJob, Result,
+    ScanRepository,
 };
 use nako_db::NakoDatabase;
 use nako_library::{
@@ -144,6 +145,54 @@ impl SourceFingerprintHashAppService {
         }
     }
 
+    pub(crate) async fn admin_overview_summary(
+        &self,
+    ) -> Result<nako_api::admin::AdminOverviewSourceFingerprintHashSummary> {
+        let source_summary = self.store.summarize_media_source_fingerprints().await?;
+        let queue_pressure = self.store.summarize_job_queue_pressure().await?;
+        let mut summary = nako_api::admin::AdminOverviewSourceFingerprintHashSummary {
+            total_sources: source_summary.total_sources,
+            fingerprinted_sources: source_summary.fingerprinted_sources,
+            content_hash_sources: source_summary.content_hash_sources,
+            ..Default::default()
+        };
+
+        for pressure in queue_pressure
+            .iter()
+            .filter(|pressure| source_fingerprint_hash_queue_pressure(pressure))
+        {
+            match pressure.status {
+                JobStatus::Queued => {
+                    summary.queued_jobs += pressure.count;
+                    summary.claimable_jobs += pressure.claimable_count;
+                    summary.delayed_retry_jobs += pressure.delayed_retry_count;
+                    update_earliest_timestamp(
+                        &mut summary.oldest_queued_at,
+                        &pressure.oldest_queued_at,
+                    );
+                    update_earliest_timestamp(
+                        &mut summary.next_retry_at,
+                        &pressure.next_attempt_at,
+                    );
+                }
+                JobStatus::Running => {
+                    summary.running_jobs += pressure.count;
+                }
+                JobStatus::Succeeded => {
+                    summary.succeeded_jobs += pressure.count;
+                }
+                JobStatus::Failed => {
+                    summary.failed_jobs += pressure.count;
+                }
+                JobStatus::Cancelled => {
+                    summary.cancelled_jobs += pressure.count;
+                }
+            }
+        }
+
+        Ok(summary)
+    }
+
     async fn prepare_source_fingerprint_hash_execution_with_source(
         &self,
         job: &Job,
@@ -283,6 +332,20 @@ fn source_fingerprint_hash_job_summary_json(
     summary: &SourceFingerprintHashJobSummary,
 ) -> Result<Option<String>> {
     DurableJobRuntime::serialize_summary(summary, "source fingerprint hash job summary")
+}
+
+fn source_fingerprint_hash_queue_pressure(pressure: &JobQueuePressureSummary) -> bool {
+    pressure.kind == JobKind::SourceFingerprintHash
+        && pressure.resource_class == SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS
+}
+
+fn update_earliest_timestamp(current: &mut Option<String>, candidate: &Option<String>) {
+    if let Some(candidate) = candidate {
+        match current {
+            Some(existing) if existing.as_str() <= candidate.as_str() => {}
+            _ => *current = Some(candidate.clone()),
+        }
+    }
 }
 
 fn redact_source_fingerprint_hash_execution_error(

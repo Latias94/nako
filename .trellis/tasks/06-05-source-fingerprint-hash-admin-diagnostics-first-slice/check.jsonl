@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Check Admin DTO/generated contract boundary and Public API exclusion"}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Check redaction-sensitive DTO and generated artifact gates"}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Check Admin overview route remains protected and thin"}
+{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Check diagnostic composition errors remain safe"}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Check focused server test coverage and gates"}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Check generated contract usage, mock fallback, and overview page tests"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Check database-to-frontend contract consistency"}
+{"file": ".trellis/tasks/06-05-source-fingerprint-hash-admin-diagnostics-first-slice/prd.md", "reason": "Check implementation against task acceptance criteria"}

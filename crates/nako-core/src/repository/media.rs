@@ -6,6 +6,13 @@ use crate::{
     MediaSourceId, Result,
 };
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct MediaSourceFingerprintSummary {
+    pub total_sources: u64,
+    pub fingerprinted_sources: u64,
+    pub content_hash_sources: u64,
+}
+
 #[async_trait]
 pub trait MediaRepository: Send + Sync {
     async fn upsert_media_item(&self, item: &MediaItem) -> Result<()>;
@@ -46,6 +53,8 @@ pub trait MediaRepository: Send + Sync {
         library_id: LibraryId,
         page: PageRequest,
     ) -> Result<Vec<MediaSource>>;
+
+    async fn summarize_media_source_fingerprints(&self) -> Result<MediaSourceFingerprintSummary>;
 }
 
 #[async_trait]

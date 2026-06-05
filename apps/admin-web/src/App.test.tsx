@@ -70,6 +70,8 @@ describe("Admin Web V2 route shell", () => {
     expect((await screen.findAllByText("Live Admin API")).length).toBeGreaterThan(0);
     expect(screen.getAllByText("Storage backends").length).toBeGreaterThan(0);
     expect(screen.getByText("2/3 ready")).toBeInTheDocument();
+    expect(screen.getByText("Source fingerprint hash")).toBeInTheDocument();
+    expect(screen.getByText("109/128")).toBeInTheDocument();
     expect(screen.getByText("Metadata providers")).toBeInTheDocument();
     expect(screen.getByText("Anime Vault")).toBeInTheDocument();
     expect(loadOverview).toHaveBeenCalledTimes(1);
@@ -239,6 +241,11 @@ describe("Admin Web V2 route shell", () => {
           provider_secret: "secret-provider-token",
         })),
       },
+      source_fingerprint_hash: {
+        ...mockOverview.source_fingerprint_hash,
+        raw_fingerprint: "source:v1:content_hash:sha256:secret-content",
+        raw_locator: "local:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret",
+      },
     } as unknown as typeof mockOverview;
     window.history.pushState(null, "", "/overview");
     const { container } = render(<App dataSource={overviewDataSource(unsafeOverview)} />);
@@ -257,6 +264,10 @@ describe("Admin Web V2 route shell", () => {
     expect(renderedText).not.toContain("TMDB_API_KEY");
     expect(renderedText).not.toContain("provider_secret");
     expect(renderedText).not.toContain("secret-provider-token");
+    expect(renderedText).not.toContain("raw_fingerprint");
+    expect(renderedText).not.toContain("source:v1:content_hash:sha256:secret-content");
+    expect(renderedText).not.toContain("raw_locator");
+    expect(renderedText).not.toContain("Hidden Movie.mkv");
     expect(renderedText).not.toContain("C:\\");
     expect(renderedText).not.toContain("F:\\");
     expect(renderedText).not.toContain("/Users/");
