@@ -1894,7 +1894,15 @@ Shipped a nako-library planner that maps advisory source fingerprint escalation 
 
 ### Main Changes
 
-(Add details)
+- Added `SourceFingerprintHashSchedulingPolicy`, input/plan/diagnostic records,
+  and `plan_source_fingerprint_hash_scheduling` in `nako-library::source_hash`.
+- Mapped disabled/no-op decisions to diagnostic-only output, partial decisions
+  to configured-prefix hash requests, full decisions to full hash requests, and
+  zero-prefix policy to redaction-safe `NakoError::InvalidInput`.
+- Updated `nako-library` specs and storage/library architecture maps to keep
+  this first slice separate from durable queues, API exposure, persistence,
+  execution integration, and automatic source reconciliation.
+- Archived the Trellis task after verification.
 
 ### Git Commits
 
@@ -1905,7 +1913,55 @@ Shipped a nako-library planner that maps advisory source fingerprint escalation 
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] `cargo fmt --all`
+- [OK] `cargo nextest run -p nako-library source_hash --no-fail-fast` — 10 passed
+- [OK] `cargo check -p nako-library --tests`
+- [OK] `git diff --check`
+- [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-05-source-fingerprint-hash-scheduling-diagnostics-first-slice`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 46: Source fingerprint scheduling map reconciliation
+
+**Date**: 2026-06-05
+**Task**: Source fingerprint scheduling map reconciliation
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Reconciled architecture lane and workstream maps so source fingerprint scheduling diagnostics are marked shipped and the remaining follow-on is queue/operator integration.
+
+### Main Changes
+
+- Updated `docs/architecture/LANES.md` so the storage-vfs lane recognizes
+  source fingerprint escalation policy, hash execution, and scheduling
+  diagnostics as shipped first slices.
+- Updated `docs/architecture/WORKSTREAM_LINKS.md` to link the archived
+  scheduling diagnostics task and replace the stale proposed scheduling lane
+  with `proposed:source-fingerprint-hash-queue-and-operator-integration`.
+- Archived the Trellis map reconciliation task.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2b7e1ab9` | (see git log) |
+| `61f189ec` | (see git log) |
+
+### Testing
+
+- [OK] stale scheduling-diagnostics slug search returned no matches
+- [OK] queue/operator follow-on wording search found the expected aligned maps
+- [OK] `git diff --check`
+- [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-05-source-fingerprint-scheduling-map-reconciliation`
 
 ### Status
 
