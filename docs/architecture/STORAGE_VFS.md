@@ -24,7 +24,7 @@ and rclone-like mounts can be slow, stale, or unavailable.
 | Capability | Status | Authority | Next Lane |
 | --- | --- | --- | --- |
 | Local storage backend | Shipped | `docs/adr/0002-internal-vfs-before-os-mounting.md` | Keep local behavior as the compatibility baseline. |
-| Remote storage boundary | Shipped durable health foundation | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/`; `.trellis/tasks/archive/2026-06/06-02-01d-hls-artifact-io-pressure-enforcement/` | Open follow-ons for cache repair, fingerprint hash scheduling / operator diagnostics, scan scheduling, or PostgreSQL runtime harness work. |
+| Remote storage boundary | Shipped durable health foundation | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/`; `.trellis/tasks/archive/2026-06/06-02-01d-hls-artifact-io-pressure-enforcement/` | Open follow-ons for cache repair, fingerprint hash queue/operator integration, scan scheduling, or PostgreSQL runtime harness work. |
 | WebDAV read path | Partial | `docs/workstreams/storage-vfs/`; remote storage lanes | Harden retries, cache, and operator diagnostics. |
 | Source locator | Shipped foundation | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Watcher/debounce productization and repair workflows. |
 | Source fingerprint | Shipped escalation policy, hash execution kernel, and scheduling diagnostic planner | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/archive/2026-06/06-04-06-04-source-fingerprint-escalation-policy-first-slice/`; `.trellis/tasks/archive/2026-06/06-05-06-05-source-fingerprint-hash-execution-first-slice/`; `crates/nako-library/src/source_hash.rs` | Queue-backed scan/operator execution, Admin/Public API exposure, persistence, and automatic reconciliation remain follow-ons. |
@@ -53,9 +53,9 @@ Shipped:
 - redaction-safe Admin diagnostics and operator reset;
 - generated Admin TypeScript contract refresh for the new DTOs and routes.
 
-Follow-ons remain separate: cache repair, source fingerprint hash scheduling /
-operator diagnostics, playback artifact I/O scheduling, scan scheduling, and
-PostgreSQL runtime harness evidence.
+Follow-ons remain separate: cache repair, source fingerprint hash
+queue/operator integration, playback artifact I/O scheduling, scan scheduling,
+and PostgreSQL runtime harness evidence.
 
 ### storage-vfs-resilience-and-source-identity
 
