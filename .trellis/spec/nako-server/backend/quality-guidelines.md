@@ -30,6 +30,11 @@ Use these gates for `crates/nako-server` feature work.
 - Internal source fingerprint hash enqueue changes must prove safe job input
   serialization, missing-source rejection, cross-library rejection, and
   locator/path/error-message redaction with focused app tests.
+- Internal source fingerprint hash queued execution planner changes must prove
+  successful in-memory request recovery, wrong job kind/resource rejection,
+  malformed or unsafe input rejection, binding mismatch rejection, locator
+  scheme drift rejection, queued job non-mutation, and locator/path/input
+  redaction with focused app tests.
 
 ## Gate Selection
 

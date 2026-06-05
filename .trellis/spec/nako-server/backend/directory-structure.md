@@ -48,6 +48,11 @@ crates/nako-server/src/
   from its locator, and persist `SourceFingerprintHashJobInput`; do not create
   a separate hidden runtime, scheduler, API route, evidence writer, or VFS
   executor during enqueue-only slices.
+- The source fingerprint hash queued execution planner may validate a persisted
+  `Job`, deserialize `SourceFingerprintHashJobInput`, reload the current Media
+  Source, and rebuild an in-memory `SourceFingerprintHashRequest`. It must not
+  claim leases, mark jobs terminal, read VFS bytes, expose an API route, persist
+  evidence, or log/return raw locator and input JSON content.
 - Resource admission belongs in app runtime helpers such as
   `app/playback/resource.rs`, not in pure planner crates.
 - Bounded resource-admission policy (for example immediate vs HLS supersede

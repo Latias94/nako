@@ -270,6 +270,11 @@ decision for later hash scheduling or operator diagnostics.
   strings.
 - A future executor must resolve the current source locator by `source_id`
   before VFS reads; do not persist the raw locator in the job input.
+- The server queued execution planner may rebuild an in-memory
+  `SourceFingerprintHashRequest` from that current locator after validating
+  `JobKind::SourceFingerprintHash`, resource class, job/input bindings, library
+  ownership, and source scheme continuity. That request remains in-process and
+  must not be serialized as durable input or diagnostics.
 - This contract does not enqueue jobs, claim leases, execute VFS reads, persist
   new hash evidence, add Admin/Public API fields, mutate duplicate
   relationships, or automatically merge Media Sources.

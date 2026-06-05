@@ -417,6 +417,10 @@ Shipped behavior:
   queue-backed execution;
 - an internal server enqueue seam that persists source fingerprint hash jobs for
   known Media Sources without scheduling or executing hash work;
+- an internal server queued execution planner that validates persisted
+  `SourceFingerprintHashJobInput`, reloads the current Media Source, and
+  rebuilds only an in-memory `SourceFingerprintHashRequest` for future
+  executor wiring;
 - source-scoped storage failure diagnostics.
 
 ### library-watcher-and-media-intake-stability

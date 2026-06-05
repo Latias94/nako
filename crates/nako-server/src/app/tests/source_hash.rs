@@ -65,6 +65,57 @@ async fn source_fingerprint_hash_enqueue_persists_safe_job_input() {
 }
 
 #[tokio::test]
+async fn source_fingerprint_hash_prepare_recovers_in_memory_execution_request() {
+    let library_id = LibraryId::new();
+    let (_temp, app, store, source) = source_hash_app_with_source(
+        library_id,
+        "local:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret",
+        Some("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned()),
+    )
+    .await;
+
+    let job = app
+        .source_hash()
+        .enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
+            library_id,
+            source_id: source.id,
+            mode: SourceFingerprintHashMode::Partial {
+                prefix_bytes: 65_536,
+            },
+            priority: None,
+        })
+        .await
+        .unwrap();
+    let prepared = app
+        .source_hash()
+        .prepare_source_fingerprint_hash_execution(&job)
+        .await
+        .unwrap();
+    let persisted = store.get_job(job.id).await.unwrap().unwrap();
+
+    assert_eq!(prepared.job_id, job.id);
+    assert_eq!(prepared.library_id, library_id);
+    assert_eq!(prepared.source_id, source.id);
+    assert_eq!(prepared.source_scheme, "local");
+    assert_eq!(
+        prepared.mode,
+        SourceFingerprintHashMode::Partial {
+            prefix_bytes: 65_536,
+        }
+    );
+    assert_eq!(
+        prepared.request.mode,
+        SourceFingerprintHashMode::Partial {
+            prefix_bytes: 65_536,
+        }
+    );
+    assert_eq!(prepared.request.uri.as_str(), source.locator);
+    assert_eq!(persisted.status, JobStatus::Queued);
+    assert!(persisted.started_at.is_none());
+    assert!(persisted.completed_at.is_none());
+}
+
+#[tokio::test]
 async fn source_fingerprint_hash_enqueue_rejects_missing_source_without_job() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
@@ -175,6 +226,293 @@ async fn source_fingerprint_hash_enqueue_rejects_invalid_locator_without_leaking
     assert!(!message.contains("private-fingerprint"));
 }
 
+#[tokio::test]
+async fn source_fingerprint_hash_prepare_rejects_wrong_kind_or_resource_class() {
+    let library_id = LibraryId::new();
+    let (_temp, app, store, source) =
+        source_hash_app_with_source(library_id, "local:///Movies/Hidden Movie.mkv", None).await;
+    let input_json = source_hash_job_input_json(
+        library_id,
+        source.id,
+        "local",
+        SourceFingerprintHashMode::Full,
+    );
+    let wrong_kind = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::LibraryScan,
+            resource_class: "disk.scan".to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(library_id),
+            source_id: Some(source.id),
+            input_json: Some(input_json.clone()),
+        })
+        .await
+        .unwrap();
+    let wrong_resource = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::SourceFingerprintHash,
+            resource_class: "disk.scan.secret.path".to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(library_id),
+            source_id: Some(source.id),
+            input_json: Some(input_json),
+        })
+        .await
+        .unwrap();
+
+    let wrong_kind_err = app
+        .source_hash()
+        .prepare_source_fingerprint_hash_execution(&wrong_kind)
+        .await
+        .unwrap_err();
+    let wrong_resource_err = app
+        .source_hash()
+        .prepare_source_fingerprint_hash_execution(&wrong_resource)
+        .await
+        .unwrap_err();
+
+    assert_eq!(
+        wrong_kind_err.to_string(),
+        "invalid input: job is not a source fingerprint hash job"
+    );
+    assert_eq!(
+        wrong_resource_err.to_string(),
+        "invalid input: source fingerprint hash job uses unsupported resource class"
+    );
+    assert!(!wrong_resource_err.to_string().contains("secret.path"));
+}
+
+#[tokio::test]
+async fn source_fingerprint_hash_prepare_rejects_missing_or_unsafe_input_without_leak() {
+    let library_id = LibraryId::new();
+    let (_temp, app, store, source) = source_hash_app_with_source(
+        library_id,
+        "local:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret",
+        Some("private-fingerprint".to_owned()),
+    )
+    .await;
+    let missing_input = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::SourceFingerprintHash,
+            resource_class: SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(library_id),
+            source_id: Some(source.id),
+            input_json: None,
+        })
+        .await
+        .unwrap();
+    let malformed_input = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::SourceFingerprintHash,
+            resource_class: SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(library_id),
+            source_id: Some(source.id),
+            input_json: Some(
+                "{\"secret\":\"local:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret\""
+                    .to_owned(),
+            ),
+        })
+        .await
+        .unwrap();
+    let unsafe_input_json = serde_json::json!({
+        "library_id": library_id,
+        "source_id": source.id,
+        "source_scheme": "local:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret",
+        "mode": "full",
+    })
+    .to_string();
+    let unsafe_input = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::SourceFingerprintHash,
+            resource_class: SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(library_id),
+            source_id: Some(source.id),
+            input_json: Some(unsafe_input_json),
+        })
+        .await
+        .unwrap();
+
+    let missing_err = app
+        .source_hash()
+        .prepare_source_fingerprint_hash_execution(&missing_input)
+        .await
+        .unwrap_err();
+    let malformed_err = app
+        .source_hash()
+        .prepare_source_fingerprint_hash_execution(&malformed_input)
+        .await
+        .unwrap_err();
+    let unsafe_err = app
+        .source_hash()
+        .prepare_source_fingerprint_hash_execution(&unsafe_input)
+        .await
+        .unwrap_err();
+    let unsafe_message = unsafe_err.to_string();
+
+    assert_eq!(
+        missing_err.to_string(),
+        "invalid input: source fingerprint hash job input is missing"
+    );
+    assert_eq!(
+        malformed_err.to_string(),
+        "invalid input: source fingerprint hash job input is invalid"
+    );
+    assert!(!malformed_err.to_string().contains("Hidden Movie"));
+    assert!(!malformed_err.to_string().contains("Secret Path"));
+    assert!(!malformed_err.to_string().contains("Frankorz"));
+    assert!(!malformed_err.to_string().contains("token"));
+    assert!(!malformed_err.to_string().contains("local:///"));
+    assert!(unsafe_message.contains(
+        "source fingerprint hash job source scheme must contain only scheme-safe ASCII characters"
+    ));
+    assert!(!unsafe_message.contains("Hidden Movie"));
+    assert!(!unsafe_message.contains("Secret Path"));
+    assert!(!unsafe_message.contains("Frankorz"));
+    assert!(!unsafe_message.contains("token"));
+    assert!(!unsafe_message.contains("private-fingerprint"));
+    assert!(!unsafe_message.contains("local:///"));
+}
+
+#[tokio::test]
+async fn source_fingerprint_hash_prepare_rejects_binding_mismatch_without_leak() {
+    let library_id = LibraryId::new();
+    let other_library_id = LibraryId::new();
+    let (_temp, app, store, source) = source_hash_app_with_source(
+        library_id,
+        "local:///Users/Frankorz/Secret Path/Hidden Movie.mkv",
+        None,
+    )
+    .await;
+    store
+        .upsert_library(&Library {
+            id: other_library_id,
+            name: "Other".to_owned(),
+            roots: vec!["local:///Other".to_owned()],
+            options: LibraryOptions::from_preset(nako_core::LibraryPreset::Movies),
+        })
+        .await
+        .unwrap();
+    let mut other_source = source.clone();
+    other_source.id = MediaSourceId::new();
+    other_source.locator = "local:///Other/Hidden Movie.mkv".to_owned();
+    store.upsert_media_source(&other_source).await.unwrap();
+    let library_mismatch = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::SourceFingerprintHash,
+            resource_class: SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(other_library_id),
+            source_id: Some(source.id),
+            input_json: Some(source_hash_job_input_json(
+                library_id,
+                source.id,
+                "local",
+                SourceFingerprintHashMode::Full,
+            )),
+        })
+        .await
+        .unwrap();
+    let source_mismatch = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::SourceFingerprintHash,
+            resource_class: SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(library_id),
+            source_id: Some(other_source.id),
+            input_json: Some(source_hash_job_input_json(
+                library_id,
+                source.id,
+                "local",
+                SourceFingerprintHashMode::Full,
+            )),
+        })
+        .await
+        .unwrap();
+
+    let library_err = app
+        .source_hash()
+        .prepare_source_fingerprint_hash_execution(&library_mismatch)
+        .await
+        .unwrap_err();
+    let source_err = app
+        .source_hash()
+        .prepare_source_fingerprint_hash_execution(&source_mismatch)
+        .await
+        .unwrap_err();
+    let library_message = library_err.to_string();
+    let source_message = source_err.to_string();
+
+    assert_eq!(
+        library_message,
+        "invalid input: source fingerprint hash job library binding does not match input"
+    );
+    assert_eq!(
+        source_message,
+        "invalid input: source fingerprint hash job source binding does not match input"
+    );
+    assert!(!library_message.contains("Hidden Movie"));
+    assert!(!library_message.contains("Secret Path"));
+    assert!(!library_message.contains("Frankorz"));
+    assert!(!library_message.contains("local:///"));
+    assert!(!source_message.contains("Hidden Movie"));
+    assert!(!source_message.contains("Secret Path"));
+    assert!(!source_message.contains("Frankorz"));
+    assert!(!source_message.contains("local:///"));
+}
+
+#[tokio::test]
+async fn source_fingerprint_hash_prepare_rejects_changed_locator_scheme_without_leak() {
+    let library_id = LibraryId::new();
+    let (_temp, app, store, mut source) = source_hash_app_with_source(
+        library_id,
+        "local:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret",
+        Some("private-fingerprint".to_owned()),
+    )
+    .await;
+    let job = app
+        .source_hash()
+        .enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
+            library_id,
+            source_id: source.id,
+            mode: SourceFingerprintHashMode::Full,
+            priority: None,
+        })
+        .await
+        .unwrap();
+    source.locator =
+        "webdav:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret".to_owned();
+    store.upsert_media_source(&source).await.unwrap();
+
+    let err = app
+        .source_hash()
+        .prepare_source_fingerprint_hash_execution(&job)
+        .await
+        .unwrap_err();
+    let message = err.to_string();
+
+    assert_eq!(
+        message,
+        "conflict: source fingerprint hash job source locator scheme changed since enqueue"
+    );
+    assert!(!message.contains("Hidden Movie"));
+    assert!(!message.contains("Secret Path"));
+    assert!(!message.contains("Frankorz"));
+    assert!(!message.contains("token"));
+    assert!(!message.contains("private-fingerprint"));
+    assert!(!message.contains("webdav:///"));
+    assert!(!message.contains("local:///"));
+}
+
 async fn source_hash_app_with_source(
     library_id: LibraryId,
     locator: &str,
@@ -208,6 +546,18 @@ async fn source_hash_app_with_source(
     store.upsert_media_source(&source).await.unwrap();
 
     (temp, app, store, source)
+}
+
+fn source_hash_job_input_json(
+    library_id: LibraryId,
+    source_id: MediaSourceId,
+    source_scheme: &str,
+    mode: SourceFingerprintHashMode,
+) -> String {
+    serde_json::to_string(
+        &SourceFingerprintHashJobInput::new(library_id, source_id, source_scheme, mode).unwrap(),
+    )
+    .unwrap()
 }
 
 fn source_hash_config(root: &Path, library_id: LibraryId) -> NakoServerConfig {

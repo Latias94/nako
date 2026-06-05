@@ -27,7 +27,7 @@ and rclone-like mounts can be slow, stale, or unavailable.
 | Remote storage boundary | Shipped durable health foundation | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/`; `.trellis/tasks/archive/2026-06/06-02-01d-hls-artifact-io-pressure-enforcement/` | Open follow-ons for cache repair, fingerprint hash queue/operator integration, scan scheduling, or PostgreSQL runtime harness work. |
 | WebDAV read path | Partial | `docs/workstreams/storage-vfs/`; remote storage lanes | Harden retries, cache, and operator diagnostics. |
 | Source locator | Shipped foundation | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Watcher/debounce productization and repair workflows. |
-| Source fingerprint | Shipped escalation policy, hash execution kernel, scheduling diagnostic planner, durable job contract, and internal enqueue seam | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/archive/2026-06/06-04-06-04-source-fingerprint-escalation-policy-first-slice/`; `.trellis/tasks/archive/2026-06/06-05-06-05-source-fingerprint-hash-execution-first-slice/`; `crates/nako-core/src/job.rs`; `crates/nako-library/src/source_hash.rs`; `crates/nako-server/src/app/source_hash.rs`; `crates/nako-server/src/app/runtime.rs` | Queue-backed scheduler/execution, operator/Admin/Public API triggering, evidence persistence, and automatic reconciliation remain follow-ons. |
+| Source fingerprint | Shipped escalation policy, hash execution kernel, scheduling diagnostic planner, durable job contract, internal enqueue seam, and queued execution planner | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/archive/2026-06/06-04-06-04-source-fingerprint-escalation-policy-first-slice/`; `.trellis/tasks/archive/2026-06/06-05-06-05-source-fingerprint-hash-execution-first-slice/`; `crates/nako-core/src/job.rs`; `crates/nako-library/src/source_hash.rs`; `crates/nako-server/src/app/source_hash.rs`; `crates/nako-server/src/app/runtime.rs` | Queue-backed scheduler/execution, operator/Admin/Public API triggering, evidence persistence, and automatic reconciliation remain follow-ons. |
 | Remote probe staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Per-backend staging budgets and diagnostics. |
 | Remote FFmpeg input staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md` | Per-backend staging budgets and diagnostics. |
 | VFS cache | Shipped diagnostics foundation, action preview, latest-failure refresh, action plan, target-scoped preview, and selected-target refresh execution | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/06-04-06-04-vfs-cache-repair-action-preview-first-slice/`; `.trellis/tasks/06-04-vfs-cache-repair-operator-actions/`; `.trellis/tasks/06-04-vfs-cache-uri-scoped-previews/`; `.trellis/tasks/06-05-vfs-cache-repair-executable-refresh-action/` | Durable repair queues and broader non-destructive remediation planning remain follow-ons. |
@@ -159,6 +159,29 @@ Boundaries:
   automatic Media Source merge behavior was added.
 - Missing sources, cross-library requests, and invalid source locators reject
   before enqueueing without echoing raw locator/path/fingerprint values.
+
+### source-fingerprint-hash-queued-execution-planner-first-slice
+
+Status: Internal queued execution planner seam shipped as of 2026-06-05.
+
+Shipped:
+
+- `nako-server::app::source_hash` can prepare a persisted
+  `JobKind::SourceFingerprintHash` job for future execution by validating the
+  job kind, resource class, redaction-safe input, and job/source bindings;
+- the planner reloads the current Media Source by ID, verifies library
+  ownership, parses the current Source Locator only into an in-memory
+  `SourceFingerprintHashRequest`, and confirms the locator scheme still matches
+  the persisted source scheme;
+- malformed input, wrong job contracts, mismatched bindings, invalid locators,
+  and scheme drift fail with messages that do not echo raw locator, path,
+  query, fingerprint, or input JSON content.
+
+Boundaries:
+
+- no durable scheduler loop, lease executor, runtime worker, VFS read,
+  Admin/Public API, schema migration, evidence persistence, duplicate
+  relationship mutation, or automatic Media Source merge behavior was added.
 
 ### vfs-cache-repair-diagnostics
 
