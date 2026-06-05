@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "Check changed harness behavior against nako-db contract-test ownership."}
+{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "Check validation gates and optional PostgreSQL contract behavior."}
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking guide index required for quality review."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Check that changed suite constants remain consistent across harnesses and docs."}

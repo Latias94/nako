@@ -24,6 +24,77 @@ Persistence work must prove repository behavior, not only compile.
 - Docs-only spec update:
   `git diff --check`
 
+## Scenario: PostgreSQL Contract Harness Suite Selection
+
+### 1. Scope / Trigger
+
+- Trigger: adding or changing backend-neutral repository contracts that should
+  run against PostgreSQL, or changing the PostgreSQL contract harness command
+  surface.
+- Scope: `crates/nako-db/src/contract_tests.rs`,
+  `scripts/postgres-contract-harness.ps1`,
+  `scripts/postgres-contract-harness.sh`, and durable docs that enumerate
+  harness suites.
+
+### 2. Signatures
+
+- PowerShell:
+  `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/postgres-contract-harness.ps1 -Suite <suite>`
+- Bash:
+  `bash scripts/postgres-contract-harness.sh --suite <suite>`
+- Current suites:
+  `managed-artwork`, `storage-runtime`, `source-identity`, `all-contracts`.
+
+### 3. Contracts
+
+- Focused suites must map to explicit nextest filters for their risk area.
+- `all-contracts` is the broad escape hatch and should remain the only suite
+  that uses the generic `postgres_` filter.
+- PowerShell and Bash suite names must stay in parity.
+- Harness behavior for caller-provided database URLs, temporary local clusters,
+  safe skip, `RequireTooling` / `--require-tooling`, and cleanup must remain
+  unchanged when adding a suite.
+
+### 4. Validation & Error Matrix
+
+- Suite added only to one shell -> cross-platform release gate drift.
+- Focused suite uses `postgres_` -> loses the intended narrow risk boundary.
+- Suite filter typo -> nextest runs zero or the wrong ignored contracts.
+- Harness cleanup change -> risk of leaving local PostgreSQL state or deleting
+  outside `target/postgres-contract/`.
+
+### 5. Good/Base/Bad Cases
+
+- Good: source identity work runs `source-identity` and proves the existing
+  PostgreSQL ignored contracts for media source identity, scan source-unit
+  writes, source duplicate relationships, and VFS attribution.
+- Base: release-critical Managed Artwork parity keeps using
+  `managed-artwork`.
+- Bad: a new persistence contract is documented as "run all contracts" without
+  considering whether a focused suite should cover the risk area.
+
+### 6. Tests Required
+
+- Parse/check both harness scripts after command-surface changes.
+- Run matching SQLite contract filters for the selected risk area.
+- Run the PowerShell PostgreSQL harness suite when local tooling or
+  `NAKO_TEST_POSTGRES_URL` is available; otherwise record the safe skip.
+- Run `git diff --check` after script or docs changes.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```powershell
+pwsh -File scripts/postgres-contract-harness.ps1 -Suite all-contracts
+```
+
+#### Correct
+
+```powershell
+pwsh -File scripts/postgres-contract-harness.ps1 -Suite source-identity
+```
+
 ## Forbidden Patterns
 
 - Do not skip Postgres adapter updates by hiding new behavior behind SQLite

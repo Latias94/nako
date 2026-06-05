@@ -121,6 +121,11 @@ Harness suites:
 
 - `managed-artwork`: the release-critical PostgreSQL Managed Artwork contract
   subset.
+- `storage-runtime`: storage backend health and VFS staging contracts used by
+  runtime admission and staging pressure checks.
+- `source-identity`: library-scoped Media Source identity, scan source-unit
+  writes, source duplicate relationships, fingerprint match lookup, and VFS
+  staging attribution/source-reservation contracts.
 - `all-contracts`: every ignored `postgres_` contract test in `nako-db`.
 
 The harness never removes paths outside `target/postgres-contract/`; the

@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
 [CmdletBinding()]
 param(
-    [ValidateSet('managed-artwork', 'storage-runtime', 'all-contracts')]
+    [ValidateSet('managed-artwork', 'storage-runtime', 'source-identity', 'all-contracts')]
     [string]$Suite = 'managed-artwork',
 
     [string]$DatabaseUrl = $env:NAKO_TEST_POSTGRES_URL,
@@ -87,6 +87,15 @@ function Get-TestFilter {
             return @(
                 'postgres_storage_backend_health_contract',
                 'postgres_vfs_staging_contract'
+            )
+        }
+        'source-identity' {
+            return @(
+                'postgres_library_media_contract_preserves_library_scoped_source_identity',
+                'postgres_scan_commit_contract_writes_full_source_unit_and_resolves_failure',
+                'postgres_source_duplicate_contract',
+                'postgres_vfs_staging_contract_round_trips_attribution_variants',
+                'postgres_vfs_staging_contract_preserves_reservation_budget_and_leases'
             )
         }
         'all-contracts' { return 'postgres_' }
