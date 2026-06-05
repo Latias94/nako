@@ -188,3 +188,38 @@ Added SourceFingerprintHashJobSummary as a redaction-safe projection of hash rep
 ### Next Steps
 
 - None - task complete
+
+
+## Session 52: Source fingerprint hash executor command
+
+**Date**: 2026-06-05
+**Task**: Source fingerprint hash executor command
+**Package**: nako-server
+**Branch**: `main`
+
+### Summary
+
+Added an internal single-job source fingerprint hash executor command using durable leases, storage registry VFS execution, redaction-safe job summary persistence, focused tests, and task archival.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a49fa1a4` | (see git log) |
+| `1e32d047` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
