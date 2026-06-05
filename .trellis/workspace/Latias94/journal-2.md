@@ -223,3 +223,38 @@ Added an internal single-job source fingerprint hash executor command using dura
 ### Next Steps
 
 - None - task complete
+
+
+## Session 53: Source fingerprint hash scheduler integration
+
+**Date**: 2026-06-05
+**Task**: Source fingerprint hash scheduler integration
+**Package**: nako-server
+**Branch**: `main`
+
+### Summary
+
+Scheduled queued source fingerprint hash durable jobs through the existing disk-scan scheduler, added claimed-job execution to avoid double-claim, preserved redaction-safe summaries/errors, updated specs/docs, verified focused gates, and archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `58749fc7` | (see git log) |
+| `19cc66ef` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
