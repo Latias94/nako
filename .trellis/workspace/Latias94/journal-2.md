@@ -258,3 +258,37 @@ Scheduled queued source fingerprint hash durable jobs through the existing disk-
 ### Next Steps
 
 - None - task complete
+
+
+## Session 54: Source fingerprint hash admin diagnostics
+
+**Date**: 2026-06-05
+**Task**: Source fingerprint hash admin diagnostics
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Added redaction-safe source fingerprint hash diagnostics to Admin overview, generated Admin Web contracts, tests, and Trellis spec coverage.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0a77b197` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
