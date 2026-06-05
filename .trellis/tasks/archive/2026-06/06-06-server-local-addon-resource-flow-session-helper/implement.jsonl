@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "The slice extracts duplicated session-store mechanics and must avoid a shallow abstraction."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Ensure the refactor stays server-local and does not drift into API/protocol/UI contracts."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server package checklist and Addon resource-flow spec routing."}
+{"file": ".trellis/spec/nako-server/backend/addon-resource-flow-patterns.md", "reason": "Host-owned Addon selection session, selected reference, planning, handoff, and redaction contracts."}
+{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Place helper under server app/addons and keep HTTP handlers thin."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused server test and nextest gate selection."}
+{"file": ".trellis/tasks/06-05-addon-resource-flow-pattern-audit/research/host-owned-addon-resource-flow-pattern.md", "reason": "Architecture audit that recommends the bounded helper extraction and defines first-slice scope."}
+{"file": ".trellis/tasks/archive/2026-06/06-06-server-local-addon-resource-flow-session-helper/prd.md", "reason": "Task requirements, acceptance criteria, and out-of-scope boundaries."}

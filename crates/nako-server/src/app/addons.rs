@@ -27,6 +27,7 @@ mod intake;
 mod library_file_write;
 mod metadata_write;
 mod principal;
+mod resource_flow;
 mod resource_search;
 mod routing;
 mod runtime;

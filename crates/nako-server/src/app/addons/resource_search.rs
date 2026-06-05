@@ -29,22 +29,16 @@ use super::{
     diagnostics::{
         resource_diagnostic_status_for_client_error, safe_resource_diagnostic_error_code,
     },
-    fingerprint_key, optional_non_empty, redact_uri, sha256_hex, stored_granted_scopes,
+    fingerprint_key, optional_non_empty, redact_uri,
+    resource_flow::{SelectionSession, SelectionSessionLookup, SelectionSessionStore},
+    sha256_hex, stored_granted_scopes,
 };
 const RESOURCE_SEARCH_DIAGNOSTIC_DEFAULT_LIMIT: usize = 20;
 const RESOURCE_SEARCH_DIAGNOSTIC_MAX_LIMIT: usize = 50;
-const RESOURCE_SEARCH_SESSION_TTL_MS: i64 = 15 * 60 * 1_000;
-const RESOURCE_SEARCH_SESSION_MAX_COUNT: usize = 64;
 
 #[derive(Clone, Debug)]
-struct ResourceSearchSession {
-    search_id: String,
-    addon_id: AddonId,
-    manifest_id: String,
+struct ResourceSearchSessionContext {
     query: String,
-    created_at_ms: i64,
-    expires_at_ms: i64,
-    selections: HashMap<String, ResourceSearchSelection>,
 }
 
 #[derive(Clone, Debug)]
@@ -62,53 +56,53 @@ struct ResourceSearchSelectionHandoff {
 
 #[derive(Debug, Default)]
 pub(super) struct ResourceSearchSessionStore {
-    sessions: HashMap<String, ResourceSearchSession>,
+    sessions: SelectionSessionStore<ResourceSearchSelection, ResourceSearchSessionContext>,
 }
 
 impl ResourceSearchSessionStore {
-    fn insert(&mut self, session: ResourceSearchSession) {
-        self.prune(session.created_at_ms);
-        self.sessions.insert(session.search_id.clone(), session);
-        self.enforce_max_count();
+    fn insert(
+        &mut self,
+        search_id: String,
+        addon_id: AddonId,
+        manifest_id: String,
+        query: String,
+        created_at_ms: i64,
+        selections: HashMap<String, ResourceSearchSelection>,
+    ) {
+        self.sessions.insert(SelectionSession::new(
+            search_id,
+            addon_id,
+            manifest_id,
+            ResourceSearchSessionContext { query },
+            created_at_ms,
+            selections,
+        ));
     }
 
     fn get_selection(
         &mut self,
         addon_id: AddonId,
+        manifest_id: &str,
         search_id: &str,
         selection_id: &str,
         now_ms: i64,
-    ) -> Option<ResourceSearchSelectionHandoff> {
-        self.prune(now_ms);
-        let session = self.sessions.get(search_id)?;
-        if session.addon_id != addon_id {
-            return None;
-        }
-        let selection = session.selections.get(selection_id)?.clone();
-
-        Some(ResourceSearchSelectionHandoff {
-            manifest_id: session.manifest_id.clone(),
-            query: session.query.clone(),
-            selection,
-        })
-    }
-
-    fn prune(&mut self, now_ms: i64) {
-        self.sessions
-            .retain(|_, session| session.expires_at_ms > now_ms);
-    }
-
-    fn enforce_max_count(&mut self) {
-        while self.sessions.len() > RESOURCE_SEARCH_SESSION_MAX_COUNT {
-            let Some(oldest_search_id) = self
-                .sessions
-                .iter()
-                .min_by_key(|(_, session)| session.created_at_ms)
-                .map(|(search_id, _)| search_id.clone())
-            else {
-                break;
-            };
-            self.sessions.remove(&oldest_search_id);
+    ) -> Result<ResourceSearchSelectionHandoff> {
+        match self
+            .sessions
+            .get_selection(addon_id, manifest_id, search_id, selection_id, now_ms)
+        {
+            SelectionSessionLookup::Found(handoff) => Ok(ResourceSearchSelectionHandoff {
+                manifest_id: handoff.manifest_id,
+                query: handoff.context.query,
+                selection: handoff.selection,
+            }),
+            SelectionSessionLookup::Missing => Err(NakoError::NotFound {
+                entity: "resource_search_selection",
+                id: selection_id.to_owned(),
+            }),
+            SelectionSessionLookup::ManifestMismatch => Err(NakoError::Conflict {
+                message: "resource search session belongs to a different addon manifest".to_owned(),
+            }),
         }
     }
 }
@@ -262,18 +256,14 @@ impl AddonAppService {
                     safe_resource_search_results(&search_id, response.results);
                 let result_count = results.len();
                 let now_ms = crate::app::current_time_ms()?;
-                self.resource_search_sessions
-                    .lock()
-                    .await
-                    .insert(ResourceSearchSession {
-                        search_id: search_id.clone(),
-                        addon_id,
-                        manifest_id: addon.manifest_id.clone(),
-                        query,
-                        created_at_ms: now_ms,
-                        expires_at_ms: now_ms.saturating_add(RESOURCE_SEARCH_SESSION_TTL_MS),
-                        selections,
-                    });
+                self.resource_search_sessions.lock().await.insert(
+                    search_id.clone(),
+                    addon_id,
+                    addon.manifest_id.clone(),
+                    query,
+                    now_ms,
+                    selections,
+                );
 
                 Ok(AdminAddonResourceSearchResponse {
                     addon_id,
@@ -325,25 +315,13 @@ impl AddonAppService {
                 message: format!("addon registration {addon_id} is unregistered"),
             });
         }
-        let handoff = self
-            .resource_search_sessions
-            .lock()
-            .await
-            .get_selection(
-                addon_id,
-                &search_id,
-                &selection_id,
-                crate::app::current_time_ms()?,
-            )
-            .ok_or_else(|| NakoError::NotFound {
-                entity: "resource_search_selection",
-                id: selection_id.clone(),
-            })?;
-        if handoff.manifest_id != addon.manifest_id {
-            return Err(NakoError::Conflict {
-                message: "resource search session belongs to a different addon manifest".to_owned(),
-            });
-        }
+        let handoff = self.resource_search_sessions.lock().await.get_selection(
+            addon_id,
+            &addon.manifest_id,
+            &search_id,
+            &selection_id,
+            crate::app::current_time_ms()?,
+        )?;
 
         let diagnostic =
             crate::app::acquisition_intake::AcquisitionIntakeAppService::new_with_storage(
@@ -383,25 +361,13 @@ impl AddonAppService {
                 message: format!("addon registration {addon_id} is unregistered"),
             });
         }
-        let handoff = self
-            .resource_search_sessions
-            .lock()
-            .await
-            .get_selection(
-                addon_id,
-                &search_id,
-                &selection_id,
-                crate::app::current_time_ms()?,
-            )
-            .ok_or_else(|| NakoError::NotFound {
-                entity: "resource_search_selection",
-                id: selection_id.clone(),
-            })?;
-        if handoff.manifest_id != addon.manifest_id {
-            return Err(NakoError::Conflict {
-                message: "resource search session belongs to a different addon manifest".to_owned(),
-            });
-        }
+        let handoff = self.resource_search_sessions.lock().await.get_selection(
+            addon_id,
+            &addon.manifest_id,
+            &search_id,
+            &selection_id,
+            crate::app::current_time_ms()?,
+        )?;
 
         let manifest = self.stored_manifest(&addon)?;
         let granted_scopes = stored_granted_scopes(&addon)?;

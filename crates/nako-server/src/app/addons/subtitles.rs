@@ -36,24 +36,14 @@ use super::{
     diagnostics::{
         resource_diagnostic_status_for_client_error, safe_resource_diagnostic_error_code,
     },
-    fingerprint_key, library_file_write, optional_non_empty, sha256_hex, stored_granted_scopes,
+    fingerprint_key, library_file_write, optional_non_empty,
+    resource_flow::{SelectionSession, SelectionSessionLookup, SelectionSessionStore},
+    sha256_hex, stored_granted_scopes,
 };
 const SUBTITLE_SEARCH_DEFAULT_LIMIT: usize = 10;
 const SUBTITLE_SEARCH_MAX_LIMIT: usize = 50;
-const SUBTITLE_SEARCH_SESSION_TTL_MS: i64 = 15 * 60 * 1_000;
-const SUBTITLE_SEARCH_SESSION_MAX_COUNT: usize = 64;
 const SUBTITLE_IMPORT_MAX_BYTES: usize = 2 * 1024 * 1024;
 const SUBTITLE_IMPORT_DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(30);
-
-#[derive(Clone, Debug)]
-struct SubtitleSearchSession {
-    search_id: String,
-    addon_id: AddonId,
-    manifest_id: String,
-    created_at_ms: i64,
-    expires_at_ms: i64,
-    selections: HashMap<String, SubtitleSearchSelection>,
-}
 
 #[derive(Clone, Debug)]
 struct SubtitleSearchSelection {
@@ -77,52 +67,51 @@ struct SubtitleImportPlanContext {
 
 #[derive(Debug, Default)]
 pub(super) struct SubtitleSearchSessionStore {
-    sessions: HashMap<String, SubtitleSearchSession>,
+    sessions: SelectionSessionStore<SubtitleSearchSelection, ()>,
 }
 
 impl SubtitleSearchSessionStore {
-    fn insert(&mut self, session: SubtitleSearchSession) {
-        self.prune(session.created_at_ms);
-        self.sessions.insert(session.search_id.clone(), session);
-        self.enforce_max_count();
+    fn insert(
+        &mut self,
+        search_id: String,
+        addon_id: AddonId,
+        manifest_id: String,
+        created_at_ms: i64,
+        selections: HashMap<String, SubtitleSearchSelection>,
+    ) {
+        self.sessions.insert(SelectionSession::new(
+            search_id,
+            addon_id,
+            manifest_id,
+            (),
+            created_at_ms,
+            selections,
+        ));
     }
 
     fn get_selection(
         &mut self,
         addon_id: AddonId,
+        manifest_id: &str,
         search_id: &str,
         selection_id: &str,
         now_ms: i64,
-    ) -> Option<SubtitleSearchSelectionHandoff> {
-        self.prune(now_ms);
-        let session = self.sessions.get(search_id)?;
-        if session.addon_id != addon_id {
-            return None;
-        }
-        let selection = session.selections.get(selection_id)?.clone();
-
-        Some(SubtitleSearchSelectionHandoff {
-            manifest_id: session.manifest_id.clone(),
-            selection,
-        })
-    }
-
-    fn prune(&mut self, now_ms: i64) {
-        self.sessions
-            .retain(|_, session| session.expires_at_ms > now_ms);
-    }
-
-    fn enforce_max_count(&mut self) {
-        while self.sessions.len() > SUBTITLE_SEARCH_SESSION_MAX_COUNT {
-            let Some(oldest_search_id) = self
-                .sessions
-                .iter()
-                .min_by_key(|(_, session)| session.created_at_ms)
-                .map(|(search_id, _)| search_id.clone())
-            else {
-                break;
-            };
-            self.sessions.remove(&oldest_search_id);
+    ) -> Result<SubtitleSearchSelectionHandoff> {
+        match self
+            .sessions
+            .get_selection(addon_id, manifest_id, search_id, selection_id, now_ms)
+        {
+            SelectionSessionLookup::Found(handoff) => Ok(SubtitleSearchSelectionHandoff {
+                manifest_id: handoff.manifest_id,
+                selection: handoff.selection,
+            }),
+            SelectionSessionLookup::Missing => Err(NakoError::NotFound {
+                entity: "subtitle_search_selection",
+                id: selection_id.to_owned(),
+            }),
+            SelectionSessionLookup::ManifestMismatch => Err(NakoError::Conflict {
+                message: "subtitle search session belongs to a different addon manifest".to_owned(),
+            }),
         }
     }
 }
@@ -182,17 +171,13 @@ impl AddonAppService {
                     safe_subtitle_search_candidates(&search_id, response.subtitles);
                 let result_count = subtitles.len();
                 let now_ms = crate::app::current_time_ms()?;
-                self.subtitle_search_sessions
-                    .lock()
-                    .await
-                    .insert(SubtitleSearchSession {
-                        search_id: search_id.clone(),
-                        addon_id,
-                        manifest_id: addon.manifest_id.clone(),
-                        created_at_ms: now_ms,
-                        expires_at_ms: now_ms.saturating_add(SUBTITLE_SEARCH_SESSION_TTL_MS),
-                        selections,
-                    });
+                self.subtitle_search_sessions.lock().await.insert(
+                    search_id.clone(),
+                    addon_id,
+                    addon.manifest_id.clone(),
+                    now_ms,
+                    selections,
+                );
 
                 Ok(AdminAddonSubtitleSearchResponse {
                     addon_id,
@@ -244,25 +229,13 @@ impl AddonAppService {
                 message: format!("addon registration {addon_id} is unregistered"),
             });
         }
-        let handoff = self
-            .subtitle_search_sessions
-            .lock()
-            .await
-            .get_selection(
-                addon_id,
-                &search_id,
-                &selection_id,
-                crate::app::current_time_ms()?,
-            )
-            .ok_or_else(|| NakoError::NotFound {
-                entity: "subtitle_search_selection",
-                id: selection_id.clone(),
-            })?;
-        if handoff.manifest_id != addon.manifest_id {
-            return Err(NakoError::Conflict {
-                message: "subtitle search session belongs to a different addon manifest".to_owned(),
-            });
-        }
+        let handoff = self.subtitle_search_sessions.lock().await.get_selection(
+            addon_id,
+            &addon.manifest_id,
+            &search_id,
+            &selection_id,
+            crate::app::current_time_ms()?,
+        )?;
 
         let candidate =
             admin_subtitle_candidate_summary(&selection_id, &handoff.selection.candidate);
@@ -401,25 +374,13 @@ impl AddonAppService {
                 message: format!("addon registration {addon_id} is unregistered"),
             });
         }
-        let handoff = self
-            .subtitle_search_sessions
-            .lock()
-            .await
-            .get_selection(
-                addon_id,
-                &search_id,
-                &selection_id,
-                crate::app::current_time_ms()?,
-            )
-            .ok_or_else(|| NakoError::NotFound {
-                entity: "subtitle_search_selection",
-                id: selection_id.clone(),
-            })?;
-        if handoff.manifest_id != addon.manifest_id {
-            return Err(NakoError::Conflict {
-                message: "subtitle search session belongs to a different addon manifest".to_owned(),
-            });
-        }
+        let handoff = self.subtitle_search_sessions.lock().await.get_selection(
+            addon_id,
+            &addon.manifest_id,
+            &search_id,
+            &selection_id,
+            crate::app::current_time_ms()?,
+        )?;
 
         let item = self
             .store
