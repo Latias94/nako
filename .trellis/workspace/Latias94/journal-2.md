@@ -48,3 +48,38 @@ Cleaned the last STORAGE_VFS follow-on wording so source fingerprint scheduling 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 48: Source fingerprint hash durable job contract
+
+**Date**: 2026-06-05
+**Task**: Source fingerprint hash durable job contract
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Added the source fingerprint hash durable job contract with persisted JobKind, redaction-safe job input, disk.scan runtime budget mapping, focused tests, specs, and architecture updates; archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8ee9fed0` | (see git log) |
+| `abe457c6` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

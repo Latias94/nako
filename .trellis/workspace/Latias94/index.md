@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 47
+- **Total Sessions**: 48
 - **Last Active**: 2026-06-05
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~42 | Active |
+| `journal-2.md` | ~85 | Active |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 48 | 2026-06-05 | Source fingerprint hash durable job contract | `8ee9fed0`, `abe457c6` | `main` |
 | 47 | 2026-06-05 | Source fingerprint storage follow-on wording cleanup | `5eb87902`, `176f56e3` | `main` |
 | 46 | 2026-06-05 | Source fingerprint scheduling map reconciliation | `2b7e1ab9`, `61f189ec` | `main` |
 | 45 | 2026-06-05 | Source fingerprint hash scheduling diagnostics | `ed4036e4`, `28d0a9e3` | `main` |
