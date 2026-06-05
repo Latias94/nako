@@ -79,13 +79,13 @@ use nako_api::{
         AdminRuntimeConfigDiagnostics, AdminServerConfigDiagnosticsResponse,
         AdminSetLocalPasswordRequest, AdminSourceDuplicateReconciliationPlanResponse,
         AdminSourceFingerprintHashEnqueueRequest, AdminSourceFingerprintHashMode,
-        AdminStorageBackendHealthDiagnostic, AdminStorageBackendHealthDiagnosticsResponse,
-        AdminStorageBackendHealthResetResponse, AdminStorageStagingDiagnosticsResponse,
-        AdminStorageStagingPolicySlice, AdminStorageStagingPressureStatus,
-        AdminStorageStagingPressureSummary, AdminStorageStagingRecord, AdminStorageStagingSummary,
-        AdminTranscodeConfigDiagnostics, AdminTranscodePipelineReadiness,
-        AdminTranscodePipelineReadinessStatus, AdminTrustedProxyDiagnostics,
-        AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
+        AdminSourceFingerprintHashRetryRequest, AdminStorageBackendHealthDiagnostic,
+        AdminStorageBackendHealthDiagnosticsResponse, AdminStorageBackendHealthResetResponse,
+        AdminStorageStagingDiagnosticsResponse, AdminStorageStagingPolicySlice,
+        AdminStorageStagingPressureStatus, AdminStorageStagingPressureSummary,
+        AdminStorageStagingRecord, AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics,
+        AdminTranscodePipelineReadiness, AdminTranscodePipelineReadinessStatus,
+        AdminTrustedProxyDiagnostics, AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
         AdminUpdateLibraryMetadataProfileRequest, AdminUpdateMetadataRawCacheSettingsRequest,
         AdminUpdatePlaybackRuntimeSettingsRequest, AdminUpdateUserStatusRequest,
         AdminUpsertLibraryAccessPolicyRequest, AdminVfsCacheRefreshResponse,
@@ -132,13 +132,14 @@ use crate::{
     },
     app::{
         EnqueueSourceFingerprintHashRequest, LibraryScanTraceContext, NakoApp,
-        RuntimeSupervisorDiagnostics, SourceDuplicateReconciliationPlanRequest,
-        StagingBudgetPolicySlice, StorageStagingPressureStatus, VfsCacheRepairActionBoundary,
-        VfsCacheRepairActionPlanReason, VfsCacheRepairActionPlanReport,
-        VfsCacheRepairActionPlanStatus, VfsCacheRepairExecutableRoute,
-        VfsCacheRepairRefreshActionReport, VfsCacheRepairTargetPreviewReport,
-        VfsCacheRepairTargetReport, WatchFolderRuntimeCoverageDiagnostic,
-        WatchFolderRuntimeCoverageReport, WatchFolderRuntimeCoverageStatus,
+        RetrySourceFingerprintHashRequest, RuntimeSupervisorDiagnostics,
+        SourceDuplicateReconciliationPlanRequest, StagingBudgetPolicySlice,
+        StorageStagingPressureStatus, VfsCacheRepairActionBoundary, VfsCacheRepairActionPlanReason,
+        VfsCacheRepairActionPlanReport, VfsCacheRepairActionPlanStatus,
+        VfsCacheRepairExecutableRoute, VfsCacheRepairRefreshActionReport,
+        VfsCacheRepairTargetPreviewReport, VfsCacheRepairTargetReport,
+        WatchFolderRuntimeCoverageDiagnostic, WatchFolderRuntimeCoverageReport,
+        WatchFolderRuntimeCoverageStatus,
         storage_staging_pressure_status as app_storage_staging_pressure_status,
     },
     config::{
@@ -285,6 +286,10 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/source-fingerprint-hashes",
             post(enqueue_admin_source_fingerprint_hash),
+        )
+        .route(
+            "/admin/v1/source-fingerprint-hashes/jobs/{job_id}/retry",
+            post(retry_admin_source_fingerprint_hash_job),
         )
         .route(
             "/admin/v1/libraries/{library_id}/sources/{source_id}/duplicate-reconciliation-plan",
@@ -2720,6 +2725,23 @@ pub(super) async fn enqueue_admin_source_fingerprint_hash(
             source_id: request.source_id,
             mode,
             priority: request.priority.map(Into::into),
+        })
+        .await?;
+
+    Ok((StatusCode::ACCEPTED, Json(AdminJobListItem::from_job(job))))
+}
+
+pub(super) async fn retry_admin_source_fingerprint_hash_job(
+    State(app): State<NakoApp>,
+    Path(job_id): Path<JobId>,
+    Json(request): Json<AdminSourceFingerprintHashRetryRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let job = app
+        .source_hash()
+        .retry_source_fingerprint_hash_job(RetrySourceFingerprintHashRequest {
+            job_id,
+            max_attempts: request.max_attempts,
+            next_attempt_at: request.next_attempt_at,
         })
         .await?;
 

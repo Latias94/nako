@@ -18,12 +18,12 @@ use nako_api::admin::{
     AdminMetadataCandidateReviewRelatedHierarchyPlanResponse, AdminMetadataCandidateReviewResponse,
     AdminMetadataCandidateReviewUndoMode, AdminMetadataCandidateReviewUndoReason,
     AdminSourceDuplicateReconciliationPlanResponse, AdminSourceFingerprintHashEnqueueRequest,
-    AdminSourceFingerprintHashMode, AdminStorageBackendHealthDiagnosticsResponse,
-    AdminStorageBackendHealthResetResponse, AdminStorageStagingPressureStatus,
-    AdminVfsCacheRefreshResponse, AdminVfsCacheRepairActionPlanReason,
-    AdminVfsCacheRepairActionPlanResponse, AdminVfsCacheRepairActionPlanStatus,
-    AdminVfsCacheRepairTargetListResponse, AdminVfsCacheRepairTargetPreviewResponse,
-    AdminWatchFolderRuntimeCoverageStatus,
+    AdminSourceFingerprintHashMode, AdminSourceFingerprintHashRetryRequest,
+    AdminStorageBackendHealthDiagnosticsResponse, AdminStorageBackendHealthResetResponse,
+    AdminStorageStagingPressureStatus, AdminVfsCacheRefreshResponse,
+    AdminVfsCacheRepairActionPlanReason, AdminVfsCacheRepairActionPlanResponse,
+    AdminVfsCacheRepairActionPlanStatus, AdminVfsCacheRepairTargetListResponse,
+    AdminVfsCacheRepairTargetPreviewResponse, AdminWatchFolderRuntimeCoverageStatus,
 };
 use nako_core::{
     JobKind, JobPriority, JobRepository, JobStatus,
@@ -5774,6 +5774,202 @@ async fn admin_v1_source_fingerprint_hash_enqueue_queues_full_and_partial_jobs_w
 }
 
 #[tokio::test]
+async fn admin_v1_source_fingerprint_hash_retry_requeues_failed_job_without_payload_leaks() {
+    let (_temp, router, source, store) =
+        router_with_media_source("source_hash_secret_locator.mkv", b"0123456789abcdef").await;
+    let enqueue_response = response_body_json(
+        &router,
+        Method::POST,
+        "/admin/v1/source-fingerprint-hashes",
+        &AdminSourceFingerprintHashEnqueueRequest {
+            library_id: source.library_id,
+            source_id: source.id,
+            mode: AdminSourceFingerprintHashMode::Full,
+            partial_prefix_bytes: None,
+            priority: Some(AdminJobPriority::High),
+        },
+    )
+    .await;
+    assert_eq!(enqueue_response.status(), StatusCode::ACCEPTED);
+    let source_job = body_json::<AdminJobListItem>(enqueue_response).await;
+    store.start_job(source_job.id).await.unwrap();
+    let failed = store
+        .fail_job(
+            source_job.id,
+            "source hash failed for local:///Movies/Private/source_hash_secret_locator.mkv sha256-private-source-hash".to_owned(),
+        )
+        .await
+        .unwrap();
+
+    let retry_response = response_body_json(
+        &router,
+        Method::POST,
+        &format!(
+            "/admin/v1/source-fingerprint-hashes/jobs/{}/retry",
+            source_job.id
+        ),
+        &AdminSourceFingerprintHashRetryRequest {
+            max_attempts: Some(3),
+            next_attempt_at: Some("9999-01-01T00:00:00Z".to_owned()),
+        },
+    )
+    .await;
+    let retry_status = retry_response.status();
+    let retry_body = response_text(retry_response).await;
+    assert_eq!(retry_status, StatusCode::ACCEPTED, "{retry_body}");
+    let retry_job: AdminJobListItem = serde_json::from_str(&retry_body).unwrap();
+    let persisted_retry = store.get_job(retry_job.id).await.unwrap().unwrap();
+    let retry_input: SourceFingerprintHashJobInput =
+        serde_json::from_str(persisted_retry.input_json.as_deref().unwrap()).unwrap();
+
+    assert_ne!(retry_job.id, source_job.id);
+    assert_eq!(retry_job.kind, JobKind::SourceFingerprintHash);
+    assert_eq!(retry_job.status, JobStatus::Queued);
+    assert_eq!(
+        retry_job.resource_class,
+        SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS
+    );
+    assert_eq!(retry_job.library_id, Some(source.library_id));
+    assert_eq!(retry_job.source_id, Some(source.id));
+    assert!(retry_job.has_input);
+    assert!(!retry_job.has_summary);
+    assert!(!retry_job.has_error);
+    assert_eq!(persisted_retry.retry_of_job_id, Some(failed.id));
+    assert_eq!(persisted_retry.attempt, 2);
+    assert_eq!(persisted_retry.max_attempts, 3);
+    assert_eq!(
+        persisted_retry.next_attempt_at.as_deref(),
+        Some("9999-01-01T00:00:00Z")
+    );
+    assert_eq!(persisted_retry.input_json, failed.input_json);
+    assert_eq!(retry_input.library_id, source.library_id);
+    assert_eq!(retry_input.source_id, source.id);
+    assert_eq!(retry_input.source_scheme, "local");
+    assert_eq!(retry_input.mode, SourceFingerprintHashMode::Full);
+    assert_source_hash_admin_body_redacted(&retry_body);
+    assert_source_hash_job_input_redacted(persisted_retry.input_json.as_deref().unwrap());
+}
+
+#[tokio::test]
+async fn admin_v1_source_fingerprint_hash_retry_rejects_invalid_states_without_leaks() {
+    let (_temp, router, mut source, store) =
+        router_with_media_source("source_hash_secret_locator.mkv", b"0123456789abcdef").await;
+    let enqueue_response = response_body_json(
+        &router,
+        Method::POST,
+        "/admin/v1/source-fingerprint-hashes",
+        &AdminSourceFingerprintHashEnqueueRequest {
+            library_id: source.library_id,
+            source_id: source.id,
+            mode: AdminSourceFingerprintHashMode::Full,
+            partial_prefix_bytes: None,
+            priority: None,
+        },
+    )
+    .await;
+    assert_eq!(enqueue_response.status(), StatusCode::ACCEPTED);
+    let source_job = body_json::<AdminJobListItem>(enqueue_response).await;
+
+    let not_failed_response = response_body_json(
+        &router,
+        Method::POST,
+        &format!(
+            "/admin/v1/source-fingerprint-hashes/jobs/{}/retry",
+            source_job.id
+        ),
+        &AdminSourceFingerprintHashRetryRequest {
+            max_attempts: Some(3),
+            next_attempt_at: None,
+        },
+    )
+    .await;
+    let not_failed_status = not_failed_response.status();
+    let not_failed_body = response_text(not_failed_response).await;
+    assert_eq!(not_failed_status, StatusCode::CONFLICT, "{not_failed_body}");
+    assert_eq!(
+        serde_json::from_str::<ErrorResponse>(&not_failed_body)
+            .unwrap()
+            .message,
+        "conflict: only failed jobs can be retried"
+    );
+    assert_source_hash_admin_body_redacted(&not_failed_body);
+
+    let invalid_timestamp_response = response_body_json(
+        &router,
+        Method::POST,
+        &format!(
+            "/admin/v1/source-fingerprint-hashes/jobs/{}/retry",
+            source_job.id
+        ),
+        &AdminSourceFingerprintHashRetryRequest {
+            max_attempts: Some(3),
+            next_attempt_at: Some("local:///Secret Path/not-a-timestamp?token=secret".to_owned()),
+        },
+    )
+    .await;
+    let invalid_timestamp_status = invalid_timestamp_response.status();
+    let invalid_timestamp_body = response_text(invalid_timestamp_response).await;
+    assert_eq!(
+        invalid_timestamp_status,
+        StatusCode::BAD_REQUEST,
+        "{invalid_timestamp_body}"
+    );
+    assert_eq!(
+        serde_json::from_str::<ErrorResponse>(&invalid_timestamp_body)
+            .unwrap()
+            .message,
+        "invalid input: source fingerprint hash retry next_attempt_at must be an RFC3339 timestamp"
+    );
+    assert_source_hash_admin_body_redacted(&invalid_timestamp_body);
+    assert!(!invalid_timestamp_body.contains("not-a-timestamp"));
+
+    store.start_job(source_job.id).await.unwrap();
+    let failed = store
+        .fail_job(source_job.id, "source hash failed".to_owned())
+        .await
+        .unwrap();
+    source.locator =
+        "webdav:///Users/Frankorz/Secret Path/source_hash_secret_locator.mkv?token=secret"
+            .to_owned();
+    store.upsert_media_source(&source).await.unwrap();
+
+    let scheme_drift_response = response_body_json(
+        &router,
+        Method::POST,
+        &format!(
+            "/admin/v1/source-fingerprint-hashes/jobs/{}/retry",
+            failed.id
+        ),
+        &AdminSourceFingerprintHashRetryRequest {
+            max_attempts: Some(3),
+            next_attempt_at: None,
+        },
+    )
+    .await;
+    let scheme_drift_status = scheme_drift_response.status();
+    let scheme_drift_body = response_text(scheme_drift_response).await;
+    assert_eq!(
+        scheme_drift_status,
+        StatusCode::CONFLICT,
+        "{scheme_drift_body}"
+    );
+    assert_eq!(
+        serde_json::from_str::<ErrorResponse>(&scheme_drift_body)
+            .unwrap()
+            .message,
+        "conflict: source fingerprint hash retry source locator scheme changed since enqueue"
+    );
+    assert_source_hash_admin_body_redacted(&scheme_drift_body);
+    assert!(!scheme_drift_body.contains("webdav:///"));
+
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(jobs.len(), 1);
+}
+
+#[tokio::test]
 async fn admin_v1_source_fingerprint_hash_enqueue_rejects_invalid_requests_without_leaks() {
     let (_temp, router, mut source, store) =
         router_with_media_source("Hidden Movie.mkv", b"secret source").await;
@@ -5958,6 +6154,85 @@ async fn admin_v1_source_fingerprint_hash_enqueue_rejects_non_admin_session() {
                         mode: AdminSourceFingerprintHashMode::Full,
                         partial_prefix_bytes: None,
                         priority: None,
+                    })
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let error = body_json::<ErrorResponse>(response).await;
+    assert_eq!(
+        error.code,
+        nako_api::public_client::ClientErrorCode::Forbidden.as_str()
+    );
+    assert_eq!(error.message, "administrator role is required");
+}
+
+#[tokio::test]
+async fn admin_v1_source_fingerprint_hash_retry_rejects_non_admin_session() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let job_id = JobId::new();
+    let token = "test-admin-token";
+    let router = test_router_with_bearer_auth(temp.path().to_path_buf(), library_id, token).await;
+
+    let created = request_body_json_with_bearer::<AdminAccessUserResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/access/users",
+        &AdminCreateUserRequest {
+            username: "source-hash-retry-viewer".to_owned(),
+            display_name: "Source Hash Retry Viewer".to_owned(),
+            roles: vec![UserRole::Viewer],
+        },
+        token,
+    )
+    .await;
+    let password_path = format!(
+        "/admin/v1/access/users/{}/local-password",
+        created.user.user_id
+    );
+    request_body_json_with_bearer::<nako_api::admin::AdminLocalPasswordResponse, _>(
+        &router,
+        Method::PUT,
+        &password_path,
+        &nako_api::admin::AdminSetLocalPasswordRequest {
+            password: "correct horse battery staple".to_owned(),
+        },
+        token,
+    )
+    .await;
+
+    let login = request_body_json::<LoginResponse, _>(
+        &router,
+        Method::POST,
+        "/auth/login",
+        &LoginRequest {
+            username: "source-hash-retry-viewer".to_owned(),
+            password: "correct horse battery staple".to_owned(),
+        },
+    )
+    .await;
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/admin/v1/source-fingerprint-hashes/jobs/{job_id}/retry"
+                ))
+                .header(
+                    header::AUTHORIZATION,
+                    format!("Bearer {}", login.session.token),
+                )
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_vec(&AdminSourceFingerprintHashRetryRequest {
+                        max_attempts: Some(3),
+                        next_attempt_at: None,
                     })
                     .unwrap(),
                 ))

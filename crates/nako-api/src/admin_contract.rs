@@ -18,7 +18,7 @@ struct AdminRouteExclusionSuffix {
     reason: &'static str,
 }
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 81] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 82] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -184,6 +184,10 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 81] = [
     ("events", "events"),
     ("jobs", "jobs"),
     ("sourceFingerprintHashes", "source-fingerprint-hashes"),
+    (
+        "sourceFingerprintHashJobRetry",
+        "source-fingerprint-hashes/jobs/{job_id}/retry",
+    ),
     (
         "sourceDuplicateReconciliationPlan",
         "libraries/{library_id}/sources/{source_id}/duplicate-reconciliation-plan",
@@ -480,6 +484,11 @@ export interface AdminSourceFingerprintHashEnqueueRequest {
   mode: AdminSourceFingerprintHashMode;
   partial_prefix_bytes?: number | null;
   priority?: AdminJobPriority | null;
+}
+
+export interface AdminSourceFingerprintHashRetryRequest {
+  max_attempts?: number | null;
+  next_attempt_at?: string | null;
 }
 
 export interface AdminSourceDuplicateReconciliationPlanQuery extends AdminPageQuery {}
@@ -3968,6 +3977,7 @@ mod tests {
             "AdminSourceFingerprintHashMode",
             "AdminJobPriority",
             "AdminSourceFingerprintHashEnqueueRequest",
+            "AdminSourceFingerprintHashRetryRequest",
             "AdminSourceDuplicateReconciliationPlanQuery",
             "AdminSourceFingerprintEvidenceKind",
             "AdminSourceDuplicateEvidenceKind",

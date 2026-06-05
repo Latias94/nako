@@ -64,6 +64,7 @@ export const NAKO_ADMIN_ROUTES = {
   events: "/admin/v1/events",
   jobs: "/admin/v1/jobs",
   sourceFingerprintHashes: "/admin/v1/source-fingerprint-hashes",
+  sourceFingerprintHashJobRetry: "/admin/v1/source-fingerprint-hashes/jobs/{job_id}/retry",
   sourceDuplicateReconciliationPlan: "/admin/v1/libraries/{library_id}/sources/{source_id}/duplicate-reconciliation-plan",
   libraryMetadataProfile: "/admin/v1/libraries/{library_id}/metadata-profile",
   libraryScan: "/admin/v1/libraries/{library_id}/scan",
@@ -154,6 +155,11 @@ export interface AdminSourceFingerprintHashEnqueueRequest {
   mode: AdminSourceFingerprintHashMode;
   partial_prefix_bytes?: number | null;
   priority?: AdminJobPriority | null;
+}
+
+export interface AdminSourceFingerprintHashRetryRequest {
+  max_attempts?: number | null;
+  next_attempt_at?: string | null;
 }
 
 export interface AdminSourceDuplicateReconciliationPlanQuery extends AdminPageQuery {}

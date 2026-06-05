@@ -112,7 +112,8 @@ pub(crate) use source_duplicate::{
     SourceDuplicateReconciliationAppService, SourceDuplicateReconciliationPlanRequest,
 };
 pub(crate) use source_hash::{
-    EnqueueSourceFingerprintHashRequest, SourceFingerprintHashAppService,
+    EnqueueSourceFingerprintHashRequest, RetrySourceFingerprintHashRequest,
+    SourceFingerprintHashAppService,
 };
 #[cfg(test)]
 use staging::cleanup_expired_staging_inputs;

@@ -143,6 +143,12 @@ pub struct AdminSourceFingerprintHashEnqueueRequest {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminSourceFingerprintHashRetryRequest {
+    pub max_attempts: Option<u32>,
+    pub next_attempt_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminSourceDuplicateReconciliationPlanResponse {
     pub admin_api_version: String,
     pub library_id: LibraryId,
@@ -491,6 +497,29 @@ mod tests {
         assert!(!body.contains("path"));
         assert!(!body.contains("etag"));
         assert!(!body.contains("token"));
+    }
+
+    #[test]
+    fn admin_source_fingerprint_hash_retry_request_serializes_safe_fields() {
+        let request = AdminSourceFingerprintHashRetryRequest {
+            max_attempts: Some(3),
+            next_attempt_at: Some("2026-06-06T00:00:00Z".to_owned()),
+        };
+
+        let value = serde_json::to_value(&request).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(value["max_attempts"], 3);
+        assert_eq!(value["next_attempt_at"], "2026-06-06T00:00:00Z");
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("locator"));
+        assert!(!body.contains("fingerprint"));
+        assert!(!body.contains("hash\":\""));
+        assert!(!body.contains("path"));
+        assert!(!body.contains("etag"));
+        assert!(!body.contains("token"));
+        assert!(!body.contains("input_json"));
+        assert!(!body.contains("summary_json"));
     }
 
     #[test]

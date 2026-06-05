@@ -154,6 +154,511 @@ async fn source_fingerprint_hash_admin_overview_summary_aggregates_redacted_coun
 }
 
 #[tokio::test]
+async fn source_fingerprint_hash_retry_creates_safe_delayed_retry_job() {
+    let library_id = LibraryId::new();
+    let (_temp, app, store, source) = source_hash_app_with_source(
+        library_id,
+        "local:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret",
+        Some("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned()),
+    )
+    .await;
+    let source_job = app
+        .source_hash()
+        .enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
+            library_id,
+            source_id: source.id,
+            mode: SourceFingerprintHashMode::Partial {
+                prefix_bytes: 65_536,
+            },
+            priority: Some(JobPriority::High),
+        })
+        .await
+        .unwrap();
+    store.start_job(source_job.id).await.unwrap();
+    let failed = store
+        .fail_job(
+            source_job.id,
+            "source hash failed for local:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret sha256-private-source-hash".to_owned(),
+        )
+        .await
+        .unwrap();
+
+    let retry = app
+        .source_hash()
+        .retry_source_fingerprint_hash_job(RetrySourceFingerprintHashRequest {
+            job_id: failed.id,
+            max_attempts: Some(3),
+            next_attempt_at: Some("9999-01-01T08:00:00+08:00".to_owned()),
+        })
+        .await
+        .unwrap();
+    let retry_input_json = retry.input_json.as_deref().expect("retry input json");
+    let retry_input: SourceFingerprintHashJobInput =
+        serde_json::from_str(retry_input_json).unwrap();
+    let claim = nako_core::JobLeaseRepository::claim_next_job_lease(
+        &store,
+        nako_core::JobLeaseClaimRequest {
+            worker_id: nako_core::JobWorkerId::new(),
+            lease_duration_ms: 10_000,
+            filter: nako_core::JobLeaseClaimFilter {
+                job_id: Some(retry.id),
+                kind: Some(JobKind::SourceFingerprintHash),
+                resource_class: Some(SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned()),
+                ..nako_core::JobLeaseClaimFilter::default()
+            },
+        },
+    )
+    .await
+    .unwrap();
+    let summary = app.source_hash().admin_overview_summary().await.unwrap();
+    let summary_body = serde_json::to_string(&summary).unwrap();
+
+    assert_ne!(retry.id, failed.id);
+    assert_eq!(retry.kind, JobKind::SourceFingerprintHash);
+    assert_eq!(retry.status, JobStatus::Queued);
+    assert_eq!(
+        retry.resource_class,
+        SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS
+    );
+    assert_eq!(retry.priority, JobPriority::High);
+    assert_eq!(retry.library_id, Some(library_id));
+    assert_eq!(retry.source_id, Some(source.id));
+    assert_eq!(retry.input_json, failed.input_json);
+    assert_eq!(retry.attempt, 2);
+    assert_eq!(retry.max_attempts, 3);
+    assert_eq!(retry.retry_of_job_id, Some(failed.id));
+    assert_eq!(
+        retry.next_attempt_at.as_deref(),
+        Some("9999-01-01T00:00:00Z")
+    );
+    assert_eq!(
+        retry_input,
+        SourceFingerprintHashJobInput {
+            library_id,
+            source_id: source.id,
+            source_scheme: "local".to_owned(),
+            mode: SourceFingerprintHashMode::Partial {
+                prefix_bytes: 65_536,
+            },
+        }
+    );
+    assert!(claim.is_none(), "future retry must not be claimable");
+    assert_eq!(summary.queued_jobs, 1);
+    assert_eq!(summary.claimable_jobs, 0);
+    assert_eq!(summary.delayed_retry_jobs, 1);
+    assert_eq!(
+        summary.next_retry_at.as_deref(),
+        Some("9999-01-01T00:00:00Z")
+    );
+    assert!(!retry_input_json.contains("Hidden Movie"));
+    assert!(!retry_input_json.contains("Secret Path"));
+    assert!(!retry_input_json.contains("Frankorz"));
+    assert!(!retry_input_json.contains("token"));
+    assert!(!retry_input_json.contains("local:///"));
+    assert!(!retry_input_json.contains("sha256"));
+    assert!(!summary_body.contains("Hidden Movie"));
+    assert!(!summary_body.contains("Secret Path"));
+    assert!(!summary_body.contains("sha256-private-source-hash"));
+    assert!(!summary_body.contains("token=secret"));
+    assert!(!summary_body.contains("input_json"));
+}
+
+#[tokio::test]
+async fn source_fingerprint_hash_retry_scheduler_executes_due_job() {
+    let library_id = LibraryId::new();
+    let (temp, app, store, source) =
+        source_hash_app_with_source(library_id, "local:///Hidden Movie.mkv", None).await;
+    fs::write(temp.path().join("Hidden Movie.mkv"), b"abcdef").unwrap();
+    let source_job = app
+        .source_hash()
+        .enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
+            library_id,
+            source_id: source.id,
+            mode: SourceFingerprintHashMode::Full,
+            priority: Some(JobPriority::Normal),
+        })
+        .await
+        .unwrap();
+    store.start_job(source_job.id).await.unwrap();
+    let failed = store
+        .fail_job(source_job.id, "source hash failed".to_owned())
+        .await
+        .unwrap();
+
+    let retry = app
+        .source_hash()
+        .retry_source_fingerprint_hash_job(RetrySourceFingerprintHashRequest {
+            job_id: failed.id,
+            max_attempts: Some(3),
+            next_attempt_at: Some("0001-01-01T00:00:00Z".to_owned()),
+        })
+        .await
+        .unwrap();
+
+    let outcome = app
+        .library_scan()
+        .schedule_queued_library_scans()
+        .await
+        .unwrap();
+    wait_for_source_hash_runtime_job(&app).await;
+    let persisted = store.get_job(retry.id).await.unwrap().unwrap();
+    let summary_json = persisted.summary_json.as_deref().expect("summary json");
+    let summary: SourceFingerprintHashJobSummary = serde_json::from_str(summary_json).unwrap();
+    let claim = nako_core::JobLeaseRepository::claim_next_job_lease(
+        &store,
+        nako_core::JobLeaseClaimRequest {
+            worker_id: nako_core::JobWorkerId::new(),
+            lease_duration_ms: 10_000,
+            filter: nako_core::JobLeaseClaimFilter {
+                job_id: Some(retry.id),
+                ..nako_core::JobLeaseClaimFilter::default()
+            },
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(outcome, LibraryScanScheduleOutcome::Scheduled(retry.id));
+    assert_eq!(persisted.status, JobStatus::Succeeded);
+    assert_eq!(persisted.retry_of_job_id, Some(failed.id));
+    assert_eq!(persisted.next_attempt_at, None);
+    assert_eq!(summary.mode, SourceFingerprintHashMode::Full);
+    assert_eq!(
+        summary.evidence_kind,
+        nako_core::SourceFingerprintEvidenceKind::ContentHash
+    );
+    assert_eq!(summary.bytes_hashed, 6);
+    assert!(claim.is_none());
+    assert!(!summary_json.contains("Hidden Movie"));
+    assert!(!summary_json.contains("local:///"));
+    assert!(!summary_json.contains("abcdef"));
+    assert!(!summary_json.contains(r#""fingerprint""#));
+}
+
+#[tokio::test]
+async fn source_fingerprint_hash_retry_rejects_job_contract_drift_without_leak() {
+    let library_id = LibraryId::new();
+    let (_temp, app, store, source) = source_hash_app_with_source(
+        library_id,
+        "local:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret",
+        Some("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned()),
+    )
+    .await;
+    let input_json = source_hash_job_input_json(
+        library_id,
+        source.id,
+        "local",
+        SourceFingerprintHashMode::Full,
+    );
+    let wrong_kind = fail_source_hash_retry_source_job(
+        &store,
+        NewJob {
+            id: JobId::new(),
+            kind: JobKind::LibraryScan,
+            resource_class: SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(library_id),
+            source_id: Some(source.id),
+            input_json: Some(input_json.clone()),
+        },
+    )
+    .await;
+    let wrong_resource = fail_source_hash_retry_source_job(
+        &store,
+        NewJob {
+            id: JobId::new(),
+            kind: JobKind::SourceFingerprintHash,
+            resource_class: "disk.scan.secret.path".to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(library_id),
+            source_id: Some(source.id),
+            input_json: Some(input_json),
+        },
+    )
+    .await;
+
+    let wrong_kind_message =
+        retry_source_hash_job_expect_err_without_retry(&app, &store, wrong_kind.id, None).await;
+    let wrong_resource_message =
+        retry_source_hash_job_expect_err_without_retry(&app, &store, wrong_resource.id, None).await;
+
+    assert_eq!(
+        wrong_kind_message,
+        "invalid input: job is not a source fingerprint hash job"
+    );
+    assert_eq!(
+        wrong_resource_message,
+        "invalid input: source fingerprint hash job uses unsupported resource class"
+    );
+    assert!(!wrong_resource_message.contains("secret.path"));
+}
+
+#[tokio::test]
+async fn source_fingerprint_hash_retry_rejects_input_contract_drift_without_leak() {
+    let library_id = LibraryId::new();
+    let (_temp, app, store, source) = source_hash_app_with_source(
+        library_id,
+        "local:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret",
+        Some("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned()),
+    )
+    .await;
+    let missing_input = fail_source_hash_retry_source_job(
+        &store,
+        NewJob {
+            input_json: None,
+            ..new_source_hash_job(library_id, source.id)
+        },
+    )
+    .await;
+    let malformed_input = fail_source_hash_retry_source_job(
+        &store,
+        NewJob {
+            input_json: Some(
+                "{\"input_json\":\"local:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret sha256-private-source-hash\""
+                    .to_owned(),
+            ),
+            ..new_source_hash_job(library_id, source.id)
+        },
+    )
+    .await;
+    let unsafe_input = fail_source_hash_retry_source_job(
+        &store,
+        NewJob {
+            input_json: Some(
+                serde_json::json!({
+                    "library_id": library_id,
+                    "source_id": source.id,
+                    "source_scheme": "local:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret",
+                    "mode": "full",
+                })
+                .to_string(),
+            ),
+            ..new_source_hash_job(library_id, source.id)
+        },
+    )
+    .await;
+
+    let missing_message =
+        retry_source_hash_job_expect_err_without_retry(&app, &store, missing_input.id, None).await;
+    let malformed_message =
+        retry_source_hash_job_expect_err_without_retry(&app, &store, malformed_input.id, None)
+            .await;
+    let unsafe_message =
+        retry_source_hash_job_expect_err_without_retry(&app, &store, unsafe_input.id, None).await;
+
+    assert_eq!(
+        missing_message,
+        "invalid input: source fingerprint hash job input is missing"
+    );
+    assert_eq!(
+        malformed_message,
+        "invalid input: source fingerprint hash job input is invalid"
+    );
+    assert!(unsafe_message.contains(
+        "source fingerprint hash job source scheme must contain only scheme-safe ASCII characters"
+    ));
+}
+
+#[tokio::test]
+async fn source_fingerprint_hash_retry_rejects_binding_mismatch_without_leak() {
+    let library_id = LibraryId::new();
+    let other_library_id = LibraryId::new();
+    let (_temp, app, store, source) = source_hash_app_with_source(
+        library_id,
+        "local:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret",
+        Some("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned()),
+    )
+    .await;
+    store
+        .upsert_library(&Library {
+            id: other_library_id,
+            name: "Other".to_owned(),
+            roots: vec!["local:///Other".to_owned()],
+            options: LibraryOptions::from_preset(nako_core::LibraryPreset::Movies),
+        })
+        .await
+        .unwrap();
+    let mut other_source = source.clone();
+    other_source.id = MediaSourceId::new();
+    other_source.locator = "local:///Other/Hidden Movie.mkv".to_owned();
+    store.upsert_media_source(&other_source).await.unwrap();
+    let library_mismatch = fail_source_hash_retry_source_job(
+        &store,
+        NewJob {
+            library_id: Some(other_library_id),
+            ..new_source_hash_job(library_id, source.id)
+        },
+    )
+    .await;
+    let source_mismatch = fail_source_hash_retry_source_job(
+        &store,
+        NewJob {
+            source_id: Some(other_source.id),
+            ..new_source_hash_job(library_id, source.id)
+        },
+    )
+    .await;
+
+    let library_message =
+        retry_source_hash_job_expect_err_without_retry(&app, &store, library_mismatch.id, None)
+            .await;
+    let source_message =
+        retry_source_hash_job_expect_err_without_retry(&app, &store, source_mismatch.id, None)
+            .await;
+
+    assert_eq!(
+        library_message,
+        "invalid input: source fingerprint hash job library binding does not match input"
+    );
+    assert_eq!(
+        source_message,
+        "invalid input: source fingerprint hash job source binding does not match input"
+    );
+}
+
+#[tokio::test]
+async fn source_fingerprint_hash_retry_rejects_source_drift_without_leak() {
+    let library_id = LibraryId::new();
+    let other_library_id = LibraryId::new();
+    let (_temp, app, store, mut source) = source_hash_app_with_source(
+        library_id,
+        "local:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret",
+        Some("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned()),
+    )
+    .await;
+    store
+        .upsert_library(&Library {
+            id: other_library_id,
+            name: "Other".to_owned(),
+            roots: vec!["webdav:///Other".to_owned()],
+            options: LibraryOptions::from_preset(nako_core::LibraryPreset::Movies),
+        })
+        .await
+        .unwrap();
+    let missing_source_id = MediaSourceId::new();
+    let missing_source = fail_source_hash_retry_source_job(
+        &store,
+        NewJob {
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: Some(source_hash_job_input_json(
+                library_id,
+                missing_source_id,
+                "local",
+                SourceFingerprintHashMode::Full,
+            )),
+            ..new_source_hash_job(library_id, source.id)
+        },
+    )
+    .await;
+    let library_drift =
+        fail_source_hash_retry_source_job(&store, new_source_hash_job(library_id, source.id)).await;
+    source.library_id = other_library_id;
+    store.upsert_media_source(&source).await.unwrap();
+
+    let missing_message =
+        retry_source_hash_job_expect_err_without_retry(&app, &store, missing_source.id, None).await;
+    let library_drift_message =
+        retry_source_hash_job_expect_err_without_retry(&app, &store, library_drift.id, None).await;
+
+    assert_eq!(
+        missing_message,
+        format!("not found: media_source {missing_source_id}")
+    );
+    assert_eq!(
+        library_drift_message,
+        "conflict: source fingerprint hash retry source no longer belongs to input library"
+    );
+}
+
+#[tokio::test]
+async fn source_fingerprint_hash_retry_rejects_locator_drift_without_leak() {
+    let library_id = LibraryId::new();
+    let (_temp, app, store, mut source) = source_hash_app_with_source(
+        library_id,
+        "local:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret",
+        Some("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned()),
+    )
+    .await;
+    let malformed_locator =
+        fail_source_hash_retry_source_job(&store, new_source_hash_job(library_id, source.id)).await;
+    source.locator = "Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret".to_owned();
+    store.upsert_media_source(&source).await.unwrap();
+    let malformed_message =
+        retry_source_hash_job_expect_err_without_retry(&app, &store, malformed_locator.id, None)
+            .await;
+
+    source.locator =
+        "webdav:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret".to_owned();
+    store.upsert_media_source(&source).await.unwrap();
+    let scheme_drift =
+        fail_source_hash_retry_source_job(&store, new_source_hash_job(library_id, source.id)).await;
+    let scheme_message =
+        retry_source_hash_job_expect_err_without_retry(&app, &store, scheme_drift.id, None).await;
+
+    assert_eq!(
+        malformed_message,
+        "invalid input: source fingerprint hash job source locator is not a valid storage URI"
+    );
+    assert_eq!(
+        scheme_message,
+        "conflict: source fingerprint hash retry source locator scheme changed since enqueue"
+    );
+}
+
+#[tokio::test]
+async fn source_fingerprint_hash_retry_rejects_durable_retry_invalid_input_without_leak() {
+    let library_id = LibraryId::new();
+    let (_temp, app, store, source) = source_hash_app_with_source(
+        library_id,
+        "local:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret",
+        Some("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned()),
+    )
+    .await;
+    let exhausted =
+        fail_source_hash_retry_source_job(&store, new_source_hash_job(library_id, source.id)).await;
+    let invalid_max_attempts =
+        fail_source_hash_retry_source_job(&store, new_source_hash_job(library_id, source.id)).await;
+    let invalid_next_attempt_at =
+        fail_source_hash_retry_source_job(&store, new_source_hash_job(library_id, source.id)).await;
+
+    let exhausted_message =
+        retry_source_hash_job_expect_err_without_retry(&app, &store, exhausted.id, Some(1)).await;
+    let invalid_max_attempts_message = retry_source_hash_job_expect_err_without_retry(
+        &app,
+        &store,
+        invalid_max_attempts.id,
+        Some(0),
+    )
+    .await;
+    let invalid_next_attempt_at_message = retry_source_hash_job_request_expect_err_without_retry(
+        &app,
+        &store,
+        RetrySourceFingerprintHashRequest {
+            job_id: invalid_next_attempt_at.id,
+            max_attempts: Some(3),
+            next_attempt_at: Some(
+                "local:///Users/Frankorz/Secret Path/not-a-time?token=secret".to_owned(),
+            ),
+        },
+    )
+    .await;
+
+    assert_eq!(
+        exhausted_message,
+        "conflict: job retry attempts are exhausted"
+    );
+    assert_eq!(
+        invalid_max_attempts_message,
+        "invalid input: retry max_attempts must be greater than zero"
+    );
+    assert_eq!(
+        invalid_next_attempt_at_message,
+        "invalid input: source fingerprint hash retry next_attempt_at must be an RFC3339 timestamp"
+    );
+}
+
+#[tokio::test]
 async fn source_fingerprint_hash_prepare_recovers_in_memory_execution_request() {
     let library_id = LibraryId::new();
     let (_temp, app, store, source) = source_hash_app_with_source(
@@ -980,6 +1485,83 @@ async fn assert_source_hash_evidence_persisted(
     }
 
     fingerprint
+}
+
+async fn fail_source_hash_retry_source_job(store: &NakoDatabase, job: NewJob) -> nako_core::Job {
+    let job = store.enqueue_job(job).await.unwrap();
+    store.start_job(job.id).await.unwrap();
+    store
+        .fail_job(
+            job.id,
+            "source hash failed for local:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret sha256-private-source-hash input_json private-fingerprint".to_owned(),
+        )
+        .await
+        .unwrap()
+}
+
+async fn retry_source_hash_job_expect_err_without_retry(
+    app: &NakoApp,
+    store: &NakoDatabase,
+    job_id: JobId,
+    max_attempts: Option<u32>,
+) -> String {
+    retry_source_hash_job_request_expect_err_without_retry(
+        app,
+        store,
+        RetrySourceFingerprintHashRequest {
+            job_id,
+            max_attempts,
+            next_attempt_at: None,
+        },
+    )
+    .await
+}
+
+async fn retry_source_hash_job_request_expect_err_without_retry(
+    app: &NakoApp,
+    store: &NakoDatabase,
+    request: RetrySourceFingerprintHashRequest,
+) -> String {
+    let job_id = request.job_id;
+    let err = app
+        .source_hash()
+        .retry_source_fingerprint_hash_job(request)
+        .await
+        .unwrap_err();
+    let message = err.to_string();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert!(
+        jobs.iter().all(|job| job.retry_of_job_id != Some(job_id)),
+        "retry error must not create retry job: {message}"
+    );
+    assert_source_hash_retry_error_redacted(&message);
+
+    message
+}
+
+fn assert_source_hash_retry_error_redacted(message: &str) {
+    for forbidden in [
+        "Hidden Movie",
+        "Secret Path",
+        "Frankorz",
+        "token",
+        "local:///",
+        "webdav:///",
+        "sha256:",
+        "private-source-hash",
+        "private-fingerprint",
+        "aaaaaaaaaaaaaaaa",
+        "input_json",
+    ] {
+        assert!(
+            !message.contains(forbidden),
+            "retry error leaked {forbidden:?}: {message}"
+        );
+    }
 }
 
 async fn source_hash_app_with_source(

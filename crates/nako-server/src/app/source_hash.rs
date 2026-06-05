@@ -1,7 +1,7 @@
 use nako_core::{
-    Job, JobId, JobKind, JobPriority, JobQueuePressureSummary, JobRepository, JobStatus, LeasedJob,
-    LibraryId, MediaRepository, MediaSource, MediaSourceId, NakoError, NewJob, Result,
-    ScanRepository,
+    EnqueueJobRetry, Job, JobId, JobKind, JobPriority, JobQueuePressureSummary, JobRepository,
+    JobStatus, LeasedJob, LibraryId, MediaRepository, MediaSource, MediaSourceId, NakoError,
+    NewJob, Result, ScanRepository,
 };
 use nako_db::NakoDatabase;
 use nako_library::{
@@ -10,6 +10,7 @@ use nako_library::{
     SourceFingerprintHashReport, SourceFingerprintHashRequest,
 };
 use nako_vfs::StorageUri;
+use time::{OffsetDateTime, UtcOffset, format_description::well_known::Rfc3339};
 
 use super::{
     job_runtime::{DurableJobOperationError, DurableJobRunOutcome, DurableJobRuntime},
@@ -28,6 +29,13 @@ pub(crate) struct EnqueueSourceFingerprintHashRequest {
     pub(crate) source_id: MediaSourceId,
     pub(crate) mode: SourceFingerprintHashMode,
     pub(crate) priority: Option<JobPriority>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct RetrySourceFingerprintHashRequest {
+    pub(crate) job_id: JobId,
+    pub(crate) max_attempts: Option<u32>,
+    pub(crate) next_attempt_at: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -80,6 +88,32 @@ impl SourceFingerprintHashAppService {
                 library_id: Some(request.library_id),
                 source_id: Some(request.source_id),
                 input_json: Some(input_json),
+            })
+            .await
+    }
+
+    pub(crate) async fn retry_source_fingerprint_hash_job(
+        &self,
+        request: RetrySourceFingerprintHashRequest,
+    ) -> Result<Job> {
+        let next_attempt_at =
+            canonical_source_fingerprint_hash_retry_next_attempt(&request.next_attempt_at)?;
+        let source = self.job_for_hash(request.job_id).await?;
+        validate_source_fingerprint_hash_job_contract(&source)?;
+        let input = source_fingerprint_hash_job_input_from_job(&source)?;
+        validate_source_fingerprint_hash_job_bindings(&source, &input)?;
+        self.validate_source_fingerprint_hash_retry_source(&input)
+            .await?;
+        let max_attempts = request
+            .max_attempts
+            .unwrap_or_else(|| source.max_attempts.max(source.attempt.saturating_add(1)));
+
+        self.store
+            .enqueue_job_retry(EnqueueJobRetry {
+                source_job_id: source.id,
+                retry_job_id: JobId::new(),
+                max_attempts,
+                next_attempt_at,
             })
             .await
     }
@@ -317,6 +351,30 @@ impl SourceFingerprintHashAppService {
             })
     }
 
+    async fn validate_source_fingerprint_hash_retry_source(
+        &self,
+        input: &SourceFingerprintHashJobInput,
+    ) -> Result<()> {
+        let source = self.source_for_hash(input.source_id).await?;
+        if source.library_id != input.library_id {
+            return Err(NakoError::Conflict {
+                message: "source fingerprint hash retry source no longer belongs to input library"
+                    .to_owned(),
+            });
+        }
+
+        let source_uri = source_fingerprint_hash_storage_uri(&source)?;
+        if source_uri.scheme() != input.source_scheme {
+            return Err(NakoError::Conflict {
+                message:
+                    "source fingerprint hash retry source locator scheme changed since enqueue"
+                        .to_owned(),
+            });
+        }
+
+        Ok(())
+    }
+
     async fn job_for_hash(&self, job_id: JobId) -> Result<Job> {
         self.store
             .get_job(job_id)
@@ -346,6 +404,30 @@ fn update_earliest_timestamp(current: &mut Option<String>, candidate: &Option<St
             _ => *current = Some(candidate.clone()),
         }
     }
+}
+
+fn canonical_source_fingerprint_hash_retry_next_attempt(
+    next_attempt_at: &Option<String>,
+) -> Result<Option<String>> {
+    let Some(next_attempt_at) = next_attempt_at else {
+        return Ok(None);
+    };
+
+    let parsed = OffsetDateTime::parse(next_attempt_at, &Rfc3339).map_err(|_err| {
+        NakoError::InvalidInput {
+            message: "source fingerprint hash retry next_attempt_at must be an RFC3339 timestamp"
+                .to_owned(),
+        }
+    })?;
+    let canonical = parsed
+        .to_offset(UtcOffset::UTC)
+        .format(&Rfc3339)
+        .map_err(|_err| NakoError::InvalidInput {
+            message: "source fingerprint hash retry next_attempt_at could not be canonicalized"
+                .to_owned(),
+        })?;
+
+    Ok(Some(canonical))
 }
 
 fn redact_source_fingerprint_hash_execution_error(

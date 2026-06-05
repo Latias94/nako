@@ -1,0 +1,12 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Check Admin DTO -> server route -> app-service -> durable job retry -> scheduler flow."}
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Check Admin DTO and contract boundary."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Check Admin route inventory, generated contract, and Public Client exclusion rules."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Check contract generation/test gates."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Check server route/app-service placement."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Check Admin auth, route handler, and response mapping."}
+{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Check HTTP error status and redaction behavior."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Check focused source hash validation gates."}
+{"file": ".trellis/spec/nako-server/backend/source-fingerprint-hash-policy.md", "reason": "Check retry/requeue source hash command, durable input, scheduler, and redaction boundaries."}
+{"file": ".trellis/spec/nako-core/backend/index.md", "reason": "Check durable job retry semantics and Source Fingerprint vocabulary."}
+{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "Check durable job retry repository behavior remains unchanged."}
+{"file": ".trellis/tasks/archive/2026-06/06-06-admin-source-fingerprint-hash-trigger-first-slice/evidence.md", "reason": "Check predecessor source hash Admin validation and redaction coverage."}
