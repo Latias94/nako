@@ -103,7 +103,16 @@ Added an internal server app service to enqueue source fingerprint hash jobs for
 
 ### Main Changes
 
-(Add details)
+- Added Public Client playback capability flat-field parity gates across
+  protocol DTOs, OpenAPI, SDK generation, client-core, Rust client, UniFFI,
+  server playback/browser ticket mapping, server renderer mapping, and HTTP
+  docs.
+- Regenerated the Kotlin SDK from `nako-api` after extending playback
+  capability query support.
+- Recorded the implemented field inventory and updated Trellis specs with the
+  executable flat v1 capability contract.
+- Marked the Trellis task completed and kept the parent audit at 3/6 completed
+  child tasks.
 
 ### Git Commits
 
@@ -114,7 +123,20 @@ Added an internal server app service to enqueue source fingerprint hash jobs for
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] cargo nextest run -p nako-client-protocol public_route_inventory --no-fail-fast
+- [OK] cargo nextest run -p nako-client-protocol public_playback_capability_dtos_keep_current_flat_field_contract --no-fail-fast
+- [OK] cargo nextest run -p nako-api --no-fail-fast
+- [OK] cargo nextest run -p nako-client-core -p nako-client --no-fail-fast
+- [OK] cargo nextest run -p nako-client-uniffi --no-fail-fast
+- [OK] cargo nextest run -p nako-server playback_capability --no-fail-fast
+- [OK] cargo nextest run -p nako-server renderer_media_capabilities_map_all_current_flat_fields --no-fail-fast
+- [OK] cargo nextest run -p nako-server browser_playback_ticket_capabilities_map_all_current_flat_fields --no-fail-fast
+- [OK] cargo check -p nako-client-protocol -p nako-client-core -p nako-client -p nako-client-uniffi --tests
+- [OK] cargo check -p nako-api -p nako-server --tests
+- [OK] cargo fmt --all -- --check
+- [OK] cargo run -q -p nako-api --example emit-kotlin-sdk -- --output sdk\kotlin\src\main\kotlin\dev\nako\sdk\NakoClientSdk.kt
+- [OK] python .trellis\scripts\task.py validate .trellis\tasks\06-05-public-client-playback-capability-contract-parity-gate
+- [OK] git diff --check
 
 ### Status
 
@@ -362,6 +384,40 @@ Created the Public Client playback capability parity Trellis task, linked it fro
 | Hash | Message |
 |------|---------|
 | `f959e70d` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 57: Public playback capability parity gate
+
+**Date**: 2026-06-05
+**Task**: Public playback capability parity gate
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Implemented Public Client playback capability flat-field parity gates across protocol DTOs, OpenAPI/SDK generation, client builders, server mapping, docs, and Trellis specs.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c6fd77cd` | (see git log) |
 
 ### Testing
 
