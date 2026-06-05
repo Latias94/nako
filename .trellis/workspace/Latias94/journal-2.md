@@ -596,3 +596,37 @@ Completed and archived the 06-06 fearless refactor/development wave, including s
 ### Next Steps
 
 - None - task complete
+
+
+## Session 62: PostgreSQL source identity contract harness suite
+
+**Date**: 2026-06-06
+**Task**: PostgreSQL source identity contract harness suite
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Added focused source-identity PostgreSQL contract harness suite, documented suite selection contract, verified SQLite filters, PowerShell PostgreSQL harness, shell syntax, cargo check, and archived Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `16af62df` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
