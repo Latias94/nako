@@ -9,6 +9,9 @@ examples and matching architecture decisions.
 - Read [Error Handling](./error-handling.md) before returning new `NakoError` variants through HTTP.
 - Read [Logging Guidelines](./logging-guidelines.md) before adding request spans or background task logs.
 - Read [Quality Guidelines](./quality-guidelines.md) before adding server tests or choosing test commands.
+- Read [Addon Resource Flow Patterns](./addon-resource-flow-patterns.md) before
+  changing Addon resource search selections, subtitle import, external
+  acquisition materialization, or similar host-owned Addon resource flows.
 
 ## Guidelines Index
 
@@ -20,6 +23,7 @@ examples and matching architecture decisions.
 | [Quality Guidelines](./quality-guidelines.md) | Server-focused Rust test patterns and gates | Filled from code and repo gates |
 | [Directory Structure](./directory-structure.md) | App service, HTTP route, runtime, config, and test module layout | Filled from code and ADR 0019/0053 |
 | [Database Guidelines](./database-guidelines.md) | Server persistence usage through repositories and app services | Filled as SQL non-ownership boundary |
+| [Addon Resource Flow Patterns](./addon-resource-flow-patterns.md) | Host-owned Addon selection, planning, materialization, and redaction patterns | Filled from Addon resource/search/subtitle/external acquisition flows |
 
 ## Authority / Evidence
 
@@ -29,6 +33,8 @@ examples and matching architecture decisions.
 - ADR 0027: versioned Admin API boundary.
 - ADR 0036: short-lived browser playback ticket exception.
 - ADR 0037: local credential and session auth.
+- ADR 0050: acquisition resource action boundaries.
+- ADR 0051: host-owned subtitle import chain.
 - ADR 0053: control-plane boundary, diagnostics, pagination, redaction.
 - `crates/nako-server/src/http.rs`
 - `crates/nako-server/src/http/auth.rs`

@@ -21,13 +21,13 @@ side-effect handoff without letting Addon Sidecars mutate host state directly.
 
 ## Acceptance Criteria
 
-- [ ] The audit identifies duplicated or divergent host-owned resource-flow
+- [x] The audit identifies duplicated or divergent host-owned resource-flow
       behavior across current Addon flows.
-- [ ] The audit proposes a server-local pattern and names what should remain in
+- [x] The audit proposes a server-local pattern and names what should remain in
       the permissive Addon Protocol.
-- [ ] Safe diagnostic and redaction requirements are listed.
-- [ ] Product decisions blocking Addon Manager implementation are listed.
-- [ ] A first bounded implementation/refactor follow-on is recommended or
+- [x] Safe diagnostic and redaction requirements are listed.
+- [x] Product decisions blocking Addon Manager implementation are listed.
+- [x] A first bounded implementation/refactor follow-on is recommended or
       explicitly deferred.
 
 ## Definition of Done
