@@ -1,6 +1,6 @@
 use nako_core::{
-    Job, JobId, JobKind, JobPriority, JobRepository, LibraryId, MediaRepository, MediaSource,
-    MediaSourceId, NakoError, NewJob, Result,
+    Job, JobId, JobKind, JobPriority, JobRepository, LeasedJob, LibraryId, MediaRepository,
+    MediaSource, MediaSourceId, NakoError, NewJob, Result,
 };
 use nako_db::NakoDatabase;
 use nako_library::{
@@ -10,7 +10,10 @@ use nako_library::{
 };
 use nako_vfs::StorageUri;
 
-use super::{job_runtime::DurableJobRuntime, storage::StorageBackendRegistry};
+use super::{
+    job_runtime::{DurableJobOperationError, DurableJobRunOutcome, DurableJobRuntime},
+    storage::StorageBackendRegistry,
+};
 
 #[derive(Clone, Debug)]
 pub(crate) struct SourceFingerprintHashAppService {
@@ -100,12 +103,7 @@ impl SourceFingerprintHashAppService {
                 job_id,
                 "source fingerprint hash job",
                 || async { self.run_source_fingerprint_hash_job(job_id).await },
-                |summary| {
-                    DurableJobRuntime::serialize_summary(
-                        summary,
-                        "source fingerprint hash job summary",
-                    )
-                },
+                source_fingerprint_hash_job_summary_json,
             )
             .await?;
 
@@ -113,6 +111,37 @@ impl SourceFingerprintHashAppService {
             job: run.job,
             summary: run.output,
         })
+    }
+
+    pub(crate) async fn execute_claimed_source_fingerprint_hash_job(
+        &self,
+        leased: LeasedJob,
+    ) -> Result<SourceFingerprintHashCommandOutput> {
+        let job = leased.job.clone();
+        let runtime = DurableJobRuntime::new(self.store.clone());
+        let run = runtime
+            .run_leased_job_with_trace_context(
+                leased,
+                "source fingerprint hash job",
+                None,
+                |_context| async {
+                    self.run_source_fingerprint_hash_job_from_job(&job)
+                        .await
+                        .map_err(DurableJobOperationError::from)
+                },
+                source_fingerprint_hash_job_summary_json,
+            )
+            .await?;
+
+        match run {
+            DurableJobRunOutcome::Completed(run) => Ok(SourceFingerprintHashCommandOutput {
+                job: run.job,
+                summary: run.output,
+            }),
+            DurableJobRunOutcome::Cancelled(job) => Err(NakoError::Conflict {
+                message: format!("job {} was cancelled", job.id),
+            }),
+        }
     }
 
     async fn prepare_source_fingerprint_hash_execution_with_source(
@@ -160,15 +189,26 @@ impl SourceFingerprintHashAppService {
         job_id: JobId,
     ) -> Result<SourceFingerprintHashJobSummary> {
         let job = self.job_for_hash(job_id).await?;
+        self.run_source_fingerprint_hash_job_from_job(&job).await
+    }
+
+    async fn run_source_fingerprint_hash_job_from_job(
+        &self,
+        job: &Job,
+    ) -> Result<SourceFingerprintHashJobSummary> {
         let (prepared, source) = self
-            .prepare_source_fingerprint_hash_execution_with_source(&job)
+            .prepare_source_fingerprint_hash_execution_with_source(job)
             .await?;
         let (_uri, backend) = self
             .storage_backends
             .backend_for_media_source(&source)
             .await?;
         let executor = SourceFingerprintHashExecutor::new(backend);
-        let report = executor.execute(prepared.request).await?;
+        let source_scheme = prepared.source_scheme.clone();
+        let report = executor
+            .execute(prepared.request)
+            .await
+            .map_err(|err| redact_source_fingerprint_hash_execution_error(err, &source_scheme))?;
 
         Ok(SourceFingerprintHashJobSummary::from_report(&report))
     }
@@ -191,6 +231,28 @@ impl SourceFingerprintHashAppService {
                 entity: "job",
                 id: job_id.to_string(),
             })
+    }
+}
+
+fn source_fingerprint_hash_job_summary_json(
+    summary: &SourceFingerprintHashJobSummary,
+) -> Result<Option<String>> {
+    DurableJobRuntime::serialize_summary(summary, "source fingerprint hash job summary")
+}
+
+fn redact_source_fingerprint_hash_execution_error(
+    err: NakoError,
+    source_scheme: &str,
+) -> NakoError {
+    match err {
+        NakoError::Storage { kind, .. } => NakoError::Storage {
+            uri: format!("{source_scheme}://<redacted>"),
+            kind,
+            message: kind.failure_class().safe_message().to_owned(),
+        },
+        _ => NakoError::Conflict {
+            message: "source fingerprint hash execution failed".to_owned(),
+        },
     }
 }
 

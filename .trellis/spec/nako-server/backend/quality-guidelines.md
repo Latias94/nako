@@ -40,6 +40,13 @@ Use these gates for `crates/nako-server` feature work.
   `SourceFingerprintHashJobSummary`, no longer claimable after success, and no
   summary JSON contains locator/path/fingerprint/hash material. Keep automatic
   scheduling and API routes out of command-only slices.
+- Source fingerprint hash scheduler integration changes must prove
+  scheduler-originated execution succeeds through a claimed-job helper,
+  unrelated claimable jobs cannot hide disk-scan candidates, cross-kind
+  starvation ordering is preserved, execution failures persist redaction-safe
+  durable job errors, and existing background scan scheduler behavior remains
+  green. Keep API routes, schema changes, evidence persistence, and duplicate
+  reconciliation out of scheduler-only slices.
 
 ## Gate Selection
 

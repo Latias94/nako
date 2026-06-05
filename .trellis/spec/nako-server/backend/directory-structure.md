@@ -59,11 +59,119 @@ crates/nako-server/src/
   `SourceFingerprintHashJobSummary` as job `summary_json`. This command is not
   a scheduler, startup worker, runtime-supervisor loop, API route, evidence
   writer, or duplicate reconciliation mechanism.
+- Source fingerprint hash scheduler integration belongs in the existing disk
+  scan scheduler path. It may dispatch already queued
+  `JobKind::SourceFingerprintHash` jobs through a claimed-job executor helper,
+  but must not create a source-hash-specific runtime loop or re-claim an already
+  leased job.
 - Resource admission belongs in app runtime helpers such as
   `app/playback/resource.rs`, not in pure planner crates.
 - Bounded resource-admission policy (for example immediate vs HLS supersede
   wait) should live in the resource helper layer and be reused by orchestration
   code instead of being duplicated in HLS/remux flow modules.
+
+## Scenario: Source Fingerprint Hash Disk Scan Scheduler
+
+### 1. Scope / Trigger
+
+- Trigger: queued `JobKind::SourceFingerprintHash` work needs automatic
+  execution by the server scheduler.
+- Scope: `nako-server::app::jobs` owns disk-scan scheduling and
+  `nako-server::app::source_hash` owns source hash job execution.
+
+### 2. Signatures
+
+- `LibraryScanAppService::schedule_queued_library_scans() ->
+  Result<LibraryScanScheduleOutcome>` is the current disk-scan scheduler tick.
+- `SourceFingerprintHashAppService::execute_claimed_source_fingerprint_hash_job(LeasedJob)
+  -> Result<SourceFingerprintHashCommandOutput>` is the scheduler-safe
+  claimed-job execution entry point.
+- `SourceFingerprintHashAppService::execute_source_fingerprint_hash_job(JobId)
+  -> Result<SourceFingerprintHashCommandOutput>` remains the manual command
+  entry point that claims by explicit job id.
+
+### 3. Contracts
+
+- The scheduler may consider both `JobKind::LibraryScan` with `disk.scan` and
+  `JobKind::SourceFingerprintHash` with
+  `disk.scan.source_fingerprint_hash`.
+- Candidate preview must not use an unfiltered all-job window that can be filled
+  by unrelated metadata, addon, webhook, or artifact jobs.
+- Cross-kind disk-scan candidate ordering must preserve durable queue priority,
+  FIFO, and starvation-guard semantics closely enough that an aged low-priority
+  disk-scan job can run before fresh high-priority disk-scan work.
+- The scheduler must claim the selected source hash job once, by exact job id,
+  kind, resource class, and available bindings, then pass the `LeasedJob` into
+  the claimed-job helper. Do not call the id-claiming command after the
+  scheduler has already leased the job.
+- The supervised job must use `RuntimeSupervisor::spawn_job` and the mapped
+  `disk.scan` runtime budget. Keep the scan permit alive until source hashing
+  has completed or failed.
+- Execution failures must be persisted with redaction-safe errors. Do not let
+  raw `StorageUri`, Source Locator, local path, backend URL, credential, etag,
+  raw digest, fingerprint, or hash material reach durable job errors, summaries,
+  diagnostics, or logs.
+
+### 4. Validation & Error Matrix
+
+| Condition | Behavior |
+|-----------|----------|
+| Claimable source hash job and scan budget available | Scheduler returns `Scheduled(job_id)`, supervised execution succeeds, and `summary_json` is redaction-safe |
+| Source hash job already claimed by another worker | Scheduler skips it and continues looking for another runnable disk-scan candidate |
+| First disk-scan scan candidates are storage-admission blocked but source hash work is runnable | Blocked scan jobs stay queued; source hash job may be scheduled |
+| Unrelated claimable jobs fill the durable queue preview window | Disk-scan scheduler still finds source hash candidates through filtered disk-scan candidate queries |
+| Aged low-priority source hash and fresh high-priority library scan compete | The aged candidate follows starvation-guard ordering |
+| VFS execution fails with a path-bearing storage error | Persist a redacted source-hash error; do not echo locator/path/hash material |
+
+### 5. Good / Base / Bad Cases
+
+- Good: list disk-scan candidates by supported kind/resource windows, merge them
+  with durable queue ordering, claim the selected job once, and spawn a
+  supervised source hash job that calls the claimed executor.
+- Base: the manual app command can still execute one explicit source hash job by
+  id and claim internally.
+- Bad: query all claimable durable jobs with `JobLeaseClaimFilter::default()`
+  and hope non-disk jobs do not fill the scheduler candidate limit.
+- Bad: scheduler claims a source hash job, then calls a command that tries to
+  claim the same job id again.
+- Bad: persist backend storage errors that contain local paths, locators,
+  credentials, raw hashes, or file names.
+
+### 6. Tests Required
+
+- App test: scheduler-originated source hash execution succeeds, marks the job
+  succeeded, persists redaction-safe `summary_json`, and leaves the job no
+  longer claimable.
+- App test: unrelated claimable jobs cannot fill the preview window and hide a
+  queued source hash job.
+- App test: cross-kind disk-scan ordering preserves starvation behavior.
+- App test: execution failure persists a redaction-safe durable job error.
+- Regression tests: existing background scan scheduler tests for blocked
+  libraries and budget saturation remain green.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+let candidates = store
+    .list_claimable_jobs_for_lease(JobLeaseClaimFilter::default(), page)
+    .await?;
+```
+
+This lets unrelated durable jobs occupy the scheduler candidate window and can
+hide runnable disk-scan work.
+
+#### Correct
+
+```rust
+let scans = store.list_claimable_jobs_for_lease(scan_filter, page).await?;
+let hashes = store.list_claimable_jobs_for_lease(source_hash_filter, page).await?;
+let candidates = merge_disk_scan_candidates(scans, hashes);
+```
+
+The disk-scan scheduler owns only disk-scan work while preserving queue ordering
+inside its own resource budget.
 
 ## Scenario: Playback FFmpeg Input Staging Scope
 

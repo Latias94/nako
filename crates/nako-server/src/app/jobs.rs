@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{cmp::Ordering, sync::Arc};
 
 use nako_core::{
     CancelLeasedJob, CompleteLeasedJob, DomainEventKind, DomainEventSubject, EventId,
@@ -13,10 +13,11 @@ use nako_db::NakoDatabase;
 use nako_library::{
     LibraryIndexRequest, LibraryIndexService, LibraryIndexSummary, LibraryIngestionWorkflow,
     LibraryProbeOptions, LibraryProbeRequest, LibraryProbeService, LibraryProbeSummary,
-    LibraryProbeWorkflow, LibraryScannerOptions,
+    LibraryProbeWorkflow, LibraryScannerOptions, SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS,
 };
 use nako_media_probe::FfprobeMediaProbe;
 use serde::Serialize;
+use time::{Duration as TimeDuration, OffsetDateTime, format_description::well_known::Rfc3339};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore, TryAcquireError};
 use tracing::{Instrument, info, info_span, warn};
 
@@ -32,6 +33,7 @@ use super::{
         LibraryScanMetadataSummary, MetadataScanAcquisitionRequest, MetadataScanAcquisitionService,
     },
     runtime::{RuntimeSupervisor, runtime_budget_class_for_job_resource_class},
+    source_hash::SourceFingerprintHashAppService,
     staging::ManifestRecordingStorageBackend,
     storage::{StorageBackendRegistry, remote_probe_staging_root},
 };
@@ -60,6 +62,51 @@ pub(crate) enum LibraryScanScheduleOutcome {
 }
 
 const LIBRARY_SCAN_SCHEDULER_CANDIDATE_LIMIT: u32 = PageRequest::MAX_LIMIT;
+#[cfg(test)]
+const DISK_SCAN_SCHEDULER_STARVATION_GUARD_MS: i64 = 250;
+#[cfg(not(test))]
+const DISK_SCAN_SCHEDULER_STARVATION_GUARD_MS: i64 = 300_000;
+
+fn compare_disk_scan_scheduler_candidates(
+    left: &Job,
+    right: &Job,
+    starvation_cutoff: OffsetDateTime,
+) -> Ordering {
+    let left_starved = disk_scan_scheduler_candidate_is_starved(left, starvation_cutoff);
+    let right_starved = disk_scan_scheduler_candidate_is_starved(right, starvation_cutoff);
+
+    right_starved
+        .cmp(&left_starved)
+        .then_with(|| {
+            if left_starved && right_starved {
+                left.queued_at.cmp(&right.queued_at)
+            } else {
+                Ordering::Equal
+            }
+        })
+        .then_with(|| right.priority.score().cmp(&left.priority.score()))
+        .then_with(|| left.queued_at.cmp(&right.queued_at))
+        .then_with(|| left.id.to_string().cmp(&right.id.to_string()))
+}
+
+fn disk_scan_scheduler_candidate_is_starved(
+    candidate: &Job,
+    starvation_cutoff: OffsetDateTime,
+) -> bool {
+    OffsetDateTime::parse(&candidate.queued_at, &Rfc3339)
+        .is_ok_and(|queued_at| queued_at <= starvation_cutoff)
+}
+
+fn disk_scan_scheduler_starvation_cutoff() -> OffsetDateTime {
+    OffsetDateTime::now_utc() - TimeDuration::milliseconds(DISK_SCAN_SCHEDULER_STARVATION_GUARD_MS)
+}
+
+fn sort_disk_scan_scheduler_candidates(candidates: &mut [Job]) {
+    let starvation_cutoff = disk_scan_scheduler_starvation_cutoff();
+    candidates.sort_by(|left, right| {
+        compare_disk_scan_scheduler_candidates(left, right, starvation_cutoff)
+    });
+}
 
 #[derive(Clone, Debug)]
 pub(crate) struct JobAppService {
@@ -284,6 +331,7 @@ pub(crate) struct LibraryScanAppService {
     storage_backends: StorageBackendRegistry,
     runtime: RuntimeSupervisor,
     metadata_scan: MetadataScanAcquisitionService,
+    source_hash: SourceFingerprintHashAppService,
 }
 
 impl LibraryScanAppService {
@@ -297,6 +345,8 @@ impl LibraryScanAppService {
     ) -> Self {
         let workflow_store = Arc::new(store.clone());
         let execution_store = LibraryScanExecutionStore::new(store.clone());
+        let source_hash =
+            SourceFingerprintHashAppService::new(store.clone(), storage_backends.clone());
         let metadata_scan =
             MetadataScanAcquisitionService::new(store, storage_backends.clone(), addons);
         Self {
@@ -307,6 +357,7 @@ impl LibraryScanAppService {
             storage_backends,
             runtime,
             metadata_scan,
+            source_hash,
         }
     }
 
@@ -341,18 +392,7 @@ impl LibraryScanAppService {
             return Ok(LibraryScanScheduleOutcome::BudgetSaturated);
         };
 
-        let candidates = self
-            .execution_store
-            .store
-            .list_claimable_jobs_for_lease(
-                JobLeaseClaimFilter {
-                    kind: Some(JobKind::LibraryScan),
-                    resource_class: Some("disk.scan".to_owned()),
-                    ..JobLeaseClaimFilter::default()
-                },
-                PageRequest::new(LIBRARY_SCAN_SCHEDULER_CANDIDATE_LIMIT, 0),
-            )
-            .await?;
+        let candidates = self.list_disk_scan_scheduler_candidates().await?;
         if candidates.is_empty() {
             return Ok(LibraryScanScheduleOutcome::NoQueuedJob);
         }
@@ -361,37 +401,70 @@ impl LibraryScanAppService {
         let mut blocked_candidates = 0_u32;
         for candidate in candidates {
             let job_id = candidate.id;
-            let library_id = candidate
-                .library_id
-                .ok_or_else(|| NakoError::InvalidInput {
-                    message: format!("library scan job {job_id} does not include library_id"),
-                })?;
-            let library = self.library_for_scan(library_id).await?;
-            let trace_context = library_scan_trace_context_from_job(&candidate)?;
-            if self
-                .storage_backends
-                .library_scan_admission_error(&library)
-                .await?
-                .is_some()
-            {
-                blocked_candidates = blocked_candidates.saturating_add(1);
-                continue;
+            match candidate.kind {
+                JobKind::LibraryScan if candidate.resource_class == "disk.scan" => {
+                    let library_id =
+                        candidate
+                            .library_id
+                            .ok_or_else(|| NakoError::InvalidInput {
+                                message: format!(
+                                    "library scan job {job_id} does not include library_id"
+                                ),
+                            })?;
+                    let library = self.library_for_scan(library_id).await?;
+                    let trace_context = library_scan_trace_context_from_job(&candidate)?;
+                    if self
+                        .storage_backends
+                        .library_scan_admission_error(&library)
+                        .await?
+                        .is_some()
+                    {
+                        blocked_candidates = blocked_candidates.saturating_add(1);
+                        continue;
+                    }
+
+                    let Some(leased) = runtime
+                        .claim_next_job_lease(JobLeaseClaimFilter {
+                            job_id: Some(job_id),
+                            kind: Some(JobKind::LibraryScan),
+                            resource_class: Some("disk.scan".to_owned()),
+                            library_id: Some(library_id),
+                            ..JobLeaseClaimFilter::default()
+                        })
+                        .await?
+                    else {
+                        continue;
+                    };
+
+                    return self.spawn_claimed_library_scan_job(
+                        leased,
+                        library_id,
+                        trace_context,
+                        permit,
+                    );
+                }
+                JobKind::SourceFingerprintHash
+                    if candidate.resource_class == SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS =>
+                {
+                    let Some(leased) = runtime
+                        .claim_next_job_lease(JobLeaseClaimFilter {
+                            job_id: Some(job_id),
+                            kind: Some(JobKind::SourceFingerprintHash),
+                            resource_class: Some(
+                                SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned(),
+                            ),
+                            library_id: candidate.library_id,
+                            source_id: candidate.source_id,
+                        })
+                        .await?
+                    else {
+                        continue;
+                    };
+
+                    return self.spawn_claimed_source_fingerprint_hash_job(leased, permit);
+                }
+                _ => continue,
             }
-
-            let Some(leased) = runtime
-                .claim_next_job_lease(JobLeaseClaimFilter {
-                    job_id: Some(job_id),
-                    kind: Some(JobKind::LibraryScan),
-                    resource_class: Some("disk.scan".to_owned()),
-                    library_id: Some(library_id),
-                    ..JobLeaseClaimFilter::default()
-                })
-                .await?
-            else {
-                continue;
-            };
-
-            return self.spawn_claimed_library_scan_job(leased, library_id, trace_context, permit);
         }
 
         if blocked_candidates > 0 {
@@ -399,6 +472,38 @@ impl LibraryScanAppService {
         }
 
         Ok(LibraryScanScheduleOutcome::NoQueuedJob)
+    }
+
+    async fn list_disk_scan_scheduler_candidates(&self) -> Result<Vec<Job>> {
+        let page = PageRequest::new(LIBRARY_SCAN_SCHEDULER_CANDIDATE_LIMIT, 0);
+        let mut candidates = self
+            .execution_store
+            .store
+            .list_claimable_jobs_for_lease(
+                JobLeaseClaimFilter {
+                    kind: Some(JobKind::LibraryScan),
+                    resource_class: Some("disk.scan".to_owned()),
+                    ..JobLeaseClaimFilter::default()
+                },
+                page,
+            )
+            .await?;
+        candidates.extend(
+            self.execution_store
+                .store
+                .list_claimable_jobs_for_lease(
+                    JobLeaseClaimFilter {
+                        kind: Some(JobKind::SourceFingerprintHash),
+                        resource_class: Some(SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned()),
+                        ..JobLeaseClaimFilter::default()
+                    },
+                    page,
+                )
+                .await?,
+        );
+        sort_disk_scan_scheduler_candidates(&mut candidates);
+        candidates.truncate(LIBRARY_SCAN_SCHEDULER_CANDIDATE_LIMIT as usize);
+        Ok(candidates)
     }
 
     fn spawn_claimed_library_scan_job(
@@ -430,6 +535,43 @@ impl LibraryScanAppService {
                     job_id = %job_id,
                     library_id = %library_id,
                     resource_class = "disk.scan"
+                ))
+            },
+        );
+
+        Ok(LibraryScanScheduleOutcome::Scheduled(job_id))
+    }
+
+    fn spawn_claimed_source_fingerprint_hash_job(
+        &self,
+        leased: LeasedJob,
+        permit: OwnedSemaphorePermit,
+    ) -> Result<LibraryScanScheduleOutcome> {
+        let job_id = leased.job.id;
+        let library_id = leased.job.library_id;
+        let source_id = leased.job.source_id;
+        let budget_class = runtime_budget_class_for_job_resource_class(
+            leased.job.kind,
+            &leased.job.resource_class,
+        )?;
+        let service = self.clone();
+
+        self.runtime.spawn_job(
+            "source_fingerprint_hash_background_job",
+            budget_class,
+            job_id,
+            move |_context| {
+                async move {
+                    service
+                        .finish_claimed_source_fingerprint_hash_job(leased, permit)
+                        .await
+                }
+                .instrument(info_span!(
+                    "source_fingerprint_hash_background_job",
+                    job_id = %job_id,
+                    library_id = ?library_id,
+                    source_id = ?source_id,
+                    resource_class = SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS
                 ))
             },
         );
@@ -497,7 +639,7 @@ impl LibraryScanAppService {
         let execution = self
             .execute_claimed_library_scan_job(leased, library_id, trace_context, permit)
             .await;
-        self.spawn_library_scan_scheduler_followup(library_id);
+        self.spawn_disk_scan_scheduler_followup(Some(library_id));
 
         match execution? {
             LibraryScanExecution::Completed(output) => {
@@ -521,17 +663,45 @@ impl LibraryScanAppService {
         }
     }
 
-    fn spawn_library_scan_scheduler_followup(&self, library_id: LibraryId) {
+    async fn finish_claimed_source_fingerprint_hash_job(
+        &self,
+        leased: LeasedJob,
+        permit: OwnedSemaphorePermit,
+    ) -> Result<Job> {
+        let job_id = leased.job.id;
+        let library_id = leased.job.library_id;
+        let source_id = leased.job.source_id;
+        let _permit = permit;
+        let execution = self
+            .source_hash
+            .execute_claimed_source_fingerprint_hash_job(leased)
+            .await;
+        self.spawn_disk_scan_scheduler_followup(library_id);
+
+        let output = execution?;
+        info!(
+            job_id = %output.job.id,
+            library_id = ?library_id,
+            source_id = ?source_id,
+            status = ?output.job.status,
+            "source fingerprint hash job completed"
+        );
+        debug_assert_eq!(output.job.id, job_id);
+
+        Ok(output.job)
+    }
+
+    fn spawn_disk_scan_scheduler_followup(&self, library_id: Option<LibraryId>) {
         let service = self.clone();
         self.runtime.spawn(
-            "library_scan_scheduler_followup",
+            "disk_scan_scheduler_followup",
             "disk.scan.scheduler",
             async move {
                 if let Err(err) = service.schedule_queued_library_scans().await {
                     warn!(
-                        library_id = %library_id,
+                        library_id = ?library_id,
                         error = %err,
-                        "failed to schedule next queued library scan job"
+                        "failed to schedule next queued disk scan job"
                     );
                 }
             },

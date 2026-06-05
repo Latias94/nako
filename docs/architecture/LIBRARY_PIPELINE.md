@@ -427,6 +427,9 @@ Shipped behavior:
 - an internal server single-job executor command that claims one source
   fingerprint hash job, runs VFS-backed hashing, and writes redaction-safe job
   summary JSON without adding automatic scheduling;
+- disk-scan scheduler integration that can claim queued source fingerprint hash
+  jobs under the existing `disk.scan` budget and execute them through the
+  claimed-job helper;
 - source-scoped storage failure diagnostics.
 
 ### library-watcher-and-media-intake-stability

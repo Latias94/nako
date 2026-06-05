@@ -41,7 +41,7 @@ Deployment Endpoint Config
 | HTTP addon protocol | Shipped foundation | ADR 0003; ADR 0015; ADR 0020 | Addon Manager lifecycle is still deferred. |
 | Addon capability and token scopes | Shipped foundation | addon token/grant workstreams | Stronger hosted surface and route policy. |
 | Addon process supervision | Deferred | ADR 0020; ADR 0053 | `addon-manager-process-lifecycle`. |
-| Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract/summary/internal enqueue/queued planner/single-job executor command, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/` | Broader job-kind scheduler migration and source fingerprint hash automatic scheduling remain follow-ons. |
+| Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract/summary/internal enqueue/queued planner/single-job executor command/scheduler integration, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/` | Broader job-kind scheduler migration and source fingerprint hash operator/API surfaces remain follow-ons. |
 | Runtime supervisor | Shipped resource-accounted foundation | ADR 0019; server runtime deepening; durable job queue/resource lane | Unified trace context and broader scheduler migration remain follow-ons. |
 | Resource classes and budgets | Shipped process-local foundation plus source fingerprint hash-to-`disk.scan` mapping | ADR 0005; playback/runtime lanes; durable job queue/resource lane | Continue migrating job kinds onto typed budget-admitted scheduler paths. |
 | Tracing/request identity | Partial with HLS and library scan job propagation | diagnostics and playback identity lanes | Continue unified trace context across jobs/FFmpeg/VFS/addons and broader scan entry points. |
@@ -65,8 +65,8 @@ capabilities and risks.
 
 ### source-fingerprint-hash-durable-job-contract-and-enqueue
 
-Status: First contract, summary, internal enqueue, queued planner, and
-single-job executor command slices shipped as of 2026-06-05.
+Status: First contract, summary, internal enqueue, queued planner, single-job
+executor command, and scheduler integration slices shipped as of 2026-06-05.
 
 Goal: Prepare future source fingerprint hash queue/operator integration without
 adding execution, API, schema, evidence persistence, or reconciliation
@@ -93,11 +93,13 @@ Shipped control-plane behavior:
 - the internal executor command can claim one explicit source fingerprint hash
   job id through `DurableJobRuntime`, execute VFS-backed hashing, and persist
   the redaction-safe summary JSON.
+- the existing disk-scan scheduler can claim queued source fingerprint hash jobs
+  under the `disk.scan` budget, run them through the claimed-job executor, and
+  keep durable errors/summaries redaction-safe.
 
 Follow-ons:
 
 - scan/operator/API triggering beyond the internal app service;
-- automatic scheduling under durable leases;
 - evidence persistence and redaction-safe Admin diagnostics;
 - any automatic duplicate reconciliation policy.
 

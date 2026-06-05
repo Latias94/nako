@@ -1,4 +1,5 @@
 use super::*;
+use crate::app::jobs::LibraryScanScheduleOutcome;
 use nako_core::JobPriority;
 use nako_library::{
     SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS, SourceFingerprintHashJobInput,
@@ -178,6 +179,209 @@ async fn source_fingerprint_hash_execute_claims_job_and_persists_safe_summary() 
     assert!(!summary_json.contains("sha256"));
     assert!(!summary_json.contains("aaaaaaaa"));
     assert!(!summary_json.contains(r#""fingerprint""#));
+}
+
+#[tokio::test]
+async fn source_fingerprint_hash_scheduler_executes_claimed_job_and_persists_safe_summary() {
+    let library_id = LibraryId::new();
+    let (temp, app, store, source) = source_hash_app_with_source(
+        library_id,
+        "local:///Hidden Movie.mkv",
+        Some("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned()),
+    )
+    .await;
+    fs::write(temp.path().join("Hidden Movie.mkv"), b"abcdef").unwrap();
+    let job = app
+        .source_hash()
+        .enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
+            library_id,
+            source_id: source.id,
+            mode: SourceFingerprintHashMode::Full,
+            priority: None,
+        })
+        .await
+        .unwrap();
+
+    let outcome = app
+        .library_scan()
+        .schedule_queued_library_scans()
+        .await
+        .unwrap();
+    wait_for_source_hash_runtime_job(&app).await;
+    let persisted = store.get_job(job.id).await.unwrap().unwrap();
+    let summary_json = persisted.summary_json.as_deref().expect("summary json");
+    let summary: SourceFingerprintHashJobSummary = serde_json::from_str(summary_json).unwrap();
+    let claim = nako_core::JobLeaseRepository::claim_next_job_lease(
+        &store,
+        nako_core::JobLeaseClaimRequest {
+            worker_id: nako_core::JobWorkerId::new(),
+            lease_duration_ms: 10_000,
+            filter: nako_core::JobLeaseClaimFilter {
+                job_id: Some(job.id),
+                ..nako_core::JobLeaseClaimFilter::default()
+            },
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(outcome, LibraryScanScheduleOutcome::Scheduled(job.id));
+    assert_eq!(persisted.status, JobStatus::Succeeded);
+    assert_eq!(summary.mode, SourceFingerprintHashMode::Full);
+    assert_eq!(
+        summary.evidence_kind,
+        nako_core::SourceFingerprintEvidenceKind::ContentHash
+    );
+    assert_eq!(summary.confidence_milli, 1_000);
+    assert!(!summary.stale);
+    assert_eq!(summary.bytes_hashed, 6);
+    assert!(persisted.started_at.is_some());
+    assert!(persisted.completed_at.is_some());
+    assert!(claim.is_none());
+    assert!(!summary_json.contains("Hidden Movie"));
+    assert!(!summary_json.contains("local:///"));
+    assert!(!summary_json.contains("sha256"));
+    assert!(!summary_json.contains("aaaaaaaa"));
+    assert!(!summary_json.contains("abcdef"));
+    assert!(!summary_json.contains(r#""fingerprint""#));
+}
+
+#[tokio::test]
+async fn source_fingerprint_hash_scheduler_ignores_unrelated_claimable_job_window() {
+    let library_id = LibraryId::new();
+    let (temp, app, store, source) = source_hash_app_with_source(
+        library_id,
+        "local:///Hidden Movie.mkv",
+        Some("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned()),
+    )
+    .await;
+    fs::write(temp.path().join("Hidden Movie.mkv"), b"abcdef").unwrap();
+
+    for _ in 0..PageRequest::MAX_LIMIT {
+        store
+            .enqueue_job(NewJob {
+                id: JobId::new(),
+                kind: JobKind::MetadataRefresh,
+                resource_class: "metadata.tmdb".to_owned(),
+                priority: JobPriority::High,
+                library_id: None,
+                source_id: None,
+                input_json: None,
+            })
+            .await
+            .unwrap();
+    }
+    let job = app
+        .source_hash()
+        .enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
+            library_id,
+            source_id: source.id,
+            mode: SourceFingerprintHashMode::Full,
+            priority: Some(JobPriority::Normal),
+        })
+        .await
+        .unwrap();
+
+    let outcome = app
+        .library_scan()
+        .schedule_queued_library_scans()
+        .await
+        .unwrap();
+    wait_for_source_hash_runtime_job(&app).await;
+    let persisted = store.get_job(job.id).await.unwrap().unwrap();
+
+    assert_eq!(outcome, LibraryScanScheduleOutcome::Scheduled(job.id));
+    assert_eq!(persisted.status, JobStatus::Succeeded);
+    assert!(persisted.summary_json.is_some());
+}
+
+#[tokio::test]
+async fn source_fingerprint_hash_scheduler_preserves_starved_disk_scan_order_across_job_kinds() {
+    let library_id = LibraryId::new();
+    let (temp, app, store, source) = source_hash_app_with_source(
+        library_id,
+        "local:///Hidden Movie.mkv",
+        Some("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned()),
+    )
+    .await;
+    fs::write(temp.path().join("Hidden Movie.mkv"), b"abcdef").unwrap();
+    let hash_job = app
+        .source_hash()
+        .enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
+            library_id,
+            source_id: source.id,
+            mode: SourceFingerprintHashMode::Full,
+            priority: Some(JobPriority::Low),
+        })
+        .await
+        .unwrap();
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let scan_job = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::LibraryScan,
+            resource_class: "disk.scan".to_owned(),
+            priority: JobPriority::High,
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+
+    let outcome = app
+        .library_scan()
+        .schedule_queued_library_scans()
+        .await
+        .unwrap();
+    wait_for_source_hash_runtime_job(&app).await;
+    let persisted_hash = store.get_job(hash_job.id).await.unwrap().unwrap();
+
+    assert_eq!(outcome, LibraryScanScheduleOutcome::Scheduled(hash_job.id));
+    assert_eq!(persisted_hash.status, JobStatus::Succeeded);
+    assert!(persisted_hash.summary_json.is_some());
+    assert_ne!(scan_job.id, hash_job.id);
+}
+
+#[tokio::test]
+async fn source_fingerprint_hash_scheduler_persists_redacted_execution_failure() {
+    let library_id = LibraryId::new();
+    let (_temp, app, store, source) = source_hash_app_with_source(
+        library_id,
+        "local:///Users/Frankorz/Secret Path/Missing Movie.mkv?token=secret",
+        Some("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned()),
+    )
+    .await;
+    let job = app
+        .source_hash()
+        .enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
+            library_id,
+            source_id: source.id,
+            mode: SourceFingerprintHashMode::Full,
+            priority: None,
+        })
+        .await
+        .unwrap();
+
+    let outcome = app
+        .library_scan()
+        .schedule_queued_library_scans()
+        .await
+        .unwrap();
+    wait_for_source_hash_runtime_failure(&app).await;
+    let persisted = store.get_job(job.id).await.unwrap().unwrap();
+    let error = persisted.error.as_deref().expect("job error");
+
+    assert_eq!(outcome, LibraryScanScheduleOutcome::Scheduled(job.id));
+    assert_eq!(persisted.status, JobStatus::Failed);
+    assert_eq!(persisted.summary_json, None);
+    assert!(!error.contains("Missing Movie"));
+    assert!(!error.contains("Secret Path"));
+    assert!(!error.contains("Frankorz"));
+    assert!(!error.contains("token"));
+    assert!(!error.contains("sha256"));
+    assert!(!error.contains("aaaaaaaa"));
+    assert!(!error.contains("local:///"));
 }
 
 #[tokio::test]
@@ -576,6 +780,42 @@ async fn source_fingerprint_hash_prepare_rejects_changed_locator_scheme_without_
     assert!(!message.contains("private-fingerprint"));
     assert!(!message.contains("webdav:///"));
     assert!(!message.contains("local:///"));
+}
+
+async fn wait_for_source_hash_runtime_job(app: &NakoApp) {
+    for _ in 0..500 {
+        let diagnostics = app.runtime_diagnostics();
+        if diagnostics.succeeded_jobs == 1
+            && diagnostics.cancelled_jobs == 0
+            && diagnostics.failed_jobs == 0
+        {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+
+    panic!(
+        "source hash scheduler job did not finish successfully: {:?}",
+        app.runtime_diagnostics()
+    );
+}
+
+async fn wait_for_source_hash_runtime_failure(app: &NakoApp) {
+    for _ in 0..500 {
+        let diagnostics = app.runtime_diagnostics();
+        if diagnostics.succeeded_jobs == 0
+            && diagnostics.cancelled_jobs == 0
+            && diagnostics.failed_jobs == 1
+        {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+
+    panic!(
+        "source hash scheduler job did not fail as expected: {:?}",
+        app.runtime_diagnostics()
+    );
 }
 
 async fn source_hash_app_with_source(

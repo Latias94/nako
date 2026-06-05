@@ -41,15 +41,15 @@ operator/API surfaces or evidence persistence.
 
 ## Acceptance Criteria
 
-- [ ] Scheduler-originated source fingerprint hash execution marks the job
+- [x] Scheduler-originated source fingerprint hash execution marks the job
   succeeded and persists redaction-safe `summary_json`.
-- [ ] A succeeded source fingerprint hash job is no longer claimable.
-- [ ] The scheduler does not start a new source-hash-specific runtime loop,
+- [x] A succeeded source fingerprint hash job is no longer claimable.
+- [x] The scheduler does not start a new source-hash-specific runtime loop,
   API route, schema migration, evidence writer, duplicate reconciliation, or
   automatic Media Source merge behavior.
-- [ ] Focused `nako-server` scheduler/source-hash tests pass under nextest.
-- [ ] `cargo check -p nako-server --tests` passes.
-- [ ] Docs/specs are updated if the scheduler contract changes.
+- [x] Focused `nako-server` scheduler/source-hash tests pass under nextest.
+- [x] `cargo check -p nako-server --tests` passes.
+- [x] Docs/specs are updated if the scheduler contract changes.
 
 ## Out Of Scope
 
