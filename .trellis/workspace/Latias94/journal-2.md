@@ -292,3 +292,46 @@ Added redaction-safe source fingerprint hash diagnostics to Admin overview, gene
 ### Next Steps
 
 - None - task complete
+
+
+## Session 55: Source hash job drilldown filters
+
+**Date**: 2026-06-05
+**Task**: Source hash job drilldown filters
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Added Admin Jobs source fingerprint hash drill-down filters, frontend route coverage, backend redaction regression coverage, and codified the reusable Jobs drill-down contract.
+
+### Main Changes
+
+- Added a Media Source filter and source fingerprint hash quick filter on Admin Web Jobs.
+- Added backend route coverage for source hash job filtering and payload redaction.
+- Captured the reusable source hash Jobs drill-down contract in the nako-api quality spec.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a4bbcb3f` | (see git log) |
+
+### Testing
+
+- [OK] cargo fmt --all -- --check
+- [OK] cargo nextest run -p nako-server admin_v1_jobs_lists_source_fingerprint_hash_filters_without_payload_leaks --no-fail-fast
+- [OK] cargo check -p nako-server --tests
+- [OK] npm run check --prefix apps/admin-web
+- [OK] npm run test --prefix apps/admin-web -- App.test.tsx
+- [OK] npm run build --prefix apps/admin-web
+- [OK] git diff --check
+- [OK] Playwright desktop and mobile Jobs route smoke checks
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
