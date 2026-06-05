@@ -476,3 +476,44 @@ Added remote access cookbook docs, reverse-proxy and tunnel-provider config-chec
 ### Next Steps
 
 - None - task complete
+
+
+## Session 59: Addon resource flow pattern audit
+
+**Date**: 2026-06-05
+**Task**: Host-owned Addon resource flow pattern audit
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Completed the host-owned Addon resource flow audit. Compared Resource Search,
+Subtitle Import, and External Acquisition flows; documented the server-local
+pattern for selection sessions, selected references, apply plans, safe
+diagnostics, redaction, and host-owned side-effect handoff.
+
+### Main Changes
+
+- Added task research for the Host-Owned Addon Resource Flow pattern.
+- Added `nako-server` backend spec guidance for Addon resource flow changes.
+- Marked the Trellis child task completed and updated its context files.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `01a4bc9c` | docs(task): audit addon resource flow pattern |
+
+### Testing
+
+- [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-05-addon-resource-flow-pattern-audit`
+- [OK] `git diff --check`
+- [OK] `git diff --cached --check`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Continue `06-05-source-hash-triggering-reconciliation-policy` to finish the parent cross-lane architecture audit.
