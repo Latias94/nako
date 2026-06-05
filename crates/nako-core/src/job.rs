@@ -7,6 +7,7 @@ use crate::{JobId, JobRunToken, JobWorkerId, LibraryId, MediaSourceId, NakoError
 pub enum JobKind {
     LibraryScan,
     LibraryProbe,
+    SourceFingerprintHash,
     MetadataRefresh,
     MetadataMaintenance,
     NfoImport,
@@ -26,6 +27,7 @@ impl JobKind {
         match self {
             Self::LibraryScan => "library_scan",
             Self::LibraryProbe => "library_probe",
+            Self::SourceFingerprintHash => "source_fingerprint_hash",
             Self::MetadataRefresh => "metadata_refresh",
             Self::MetadataMaintenance => "metadata_maintenance",
             Self::NfoImport => "nfo_import",
@@ -44,6 +46,7 @@ impl JobKind {
         match value {
             "library_scan" => Ok(Self::LibraryScan),
             "library_probe" => Ok(Self::LibraryProbe),
+            "source_fingerprint_hash" => Ok(Self::SourceFingerprintHash),
             "metadata_refresh" => Ok(Self::MetadataRefresh),
             "metadata_maintenance" => Ok(Self::MetadataMaintenance),
             "nfo_import" => Ok(Self::NfoImport),
@@ -369,6 +372,18 @@ mod tests {
     fn addon_task_kind_round_trips() {
         assert_eq!(JobKind::AddonTask.as_str(), "addon_task");
         assert_eq!(JobKind::parse("addon_task").unwrap(), JobKind::AddonTask);
+    }
+
+    #[test]
+    fn source_fingerprint_hash_kind_round_trips() {
+        assert_eq!(
+            JobKind::SourceFingerprintHash.as_str(),
+            "source_fingerprint_hash"
+        );
+        assert_eq!(
+            JobKind::parse("source_fingerprint_hash").unwrap(),
+            JobKind::SourceFingerprintHash
+        );
     }
 
     #[test]

@@ -13,6 +13,7 @@ use nako_core::{
     GENERATED_ARTIFACT_METADATA_BULK_APPLY_JOB_RESOURCE_CLASS, Job, JobId, JobKind, JobStatus,
     METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS, NakoError, Result,
 };
+use nako_library::SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS;
 use tokio::{
     sync::{OwnedSemaphorePermit, Semaphore},
     task::AbortHandle,
@@ -190,6 +191,11 @@ pub(crate) fn runtime_budget_class_for_job_resource_class(
     let budget_class = match kind {
         JobKind::LibraryScan | JobKind::LibraryProbe
             if resource_class == RUNTIME_RESOURCE_CLASS_DISK_SCAN =>
+        {
+            Some(RUNTIME_RESOURCE_CLASS_DISK_SCAN)
+        }
+        JobKind::SourceFingerprintHash
+            if resource_class == SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS =>
         {
             Some(RUNTIME_RESOURCE_CLASS_DISK_SCAN)
         }
@@ -566,6 +572,11 @@ mod tests {
             (
                 JobKind::LibraryProbe,
                 "disk.scan",
+                RUNTIME_RESOURCE_CLASS_DISK_SCAN,
+            ),
+            (
+                JobKind::SourceFingerprintHash,
+                SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS,
                 RUNTIME_RESOURCE_CLASS_DISK_SCAN,
             ),
             (

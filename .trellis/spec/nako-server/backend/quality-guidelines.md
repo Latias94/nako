@@ -23,6 +23,10 @@ Use these gates for `crates/nako-server` feature work.
   before FFmpeg input staging, waits only within the bounded policy when
   capacity is busy, preserves `HlsSupersede` for replacements, and releases
   acquired permits when staging or runner work fails.
+- Durable job resource-class mapping changes must cover
+  `runtime_budget_class_for_job_resource_class` with focused server tests,
+  especially when a feature-specific persisted resource class maps onto an
+  existing runtime budget such as `disk.scan`.
 
 ## Gate Selection
 

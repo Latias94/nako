@@ -40,6 +40,11 @@ crates/nako-server/src/
   0053 before adding hidden per-feature helpers.
 - Long-running scan, metadata, playback, addon, webhook, or artifact workflows
   must use durable job/runtime boundaries instead of raw `tokio::spawn`.
+- Source fingerprint hash durable jobs use
+  `JobKind::SourceFingerprintHash` with
+  `disk.scan.source_fingerprint_hash` as the persisted job resource class. Map
+  that class to the existing `disk.scan` runtime budget class; do not create a
+  separate hidden runtime or VFS executor during a contract-only slice.
 - Resource admission belongs in app runtime helpers such as
   `app/playback/resource.rs`, not in pure planner crates.
 - Bounded resource-admission policy (for example immediate vs HLS supersede

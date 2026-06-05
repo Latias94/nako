@@ -411,6 +411,10 @@ Shipped behavior:
   turns advisory escalation decisions into optional in-process
   `SourceFingerprintHashRequest` values while exposing only source scheme,
   decision facts, schedule state, and selected mode in diagnostics;
+- a source fingerprint hash durable job contract with persisted
+  `JobKind::SourceFingerprintHash`, redaction-safe
+  `SourceFingerprintHashJobInput`, and a `disk.scan` budget mapping for future
+  queue-backed execution;
 - source-scoped storage failure diagnostics.
 
 ### library-watcher-and-media-intake-stability

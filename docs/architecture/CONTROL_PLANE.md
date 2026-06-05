@@ -41,9 +41,9 @@ Deployment Endpoint Config
 | HTTP addon protocol | Shipped foundation | ADR 0003; ADR 0015; ADR 0020 | Addon Manager lifecycle is still deferred. |
 | Addon capability and token scopes | Shipped foundation | addon token/grant workstreams | Stronger hosted surface and route policy. |
 | Addon process supervision | Deferred | ADR 0020; ADR 0053 | `addon-manager-process-lifecycle`. |
-| Durable jobs | Shipped foundation plus schedulable partial; generic priority policy added | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/` | Broader job-kind scheduler migration remains a follow-on. |
+| Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/` | Broader job-kind scheduler migration and source fingerprint hash execution remain follow-ons. |
 | Runtime supervisor | Shipped resource-accounted foundation | ADR 0019; server runtime deepening; durable job queue/resource lane | Unified trace context and broader scheduler migration remain follow-ons. |
-| Resource classes and budgets | Shipped process-local foundation | ADR 0005; playback/runtime lanes; durable job queue/resource lane | Continue migrating job kinds onto typed budget-admitted scheduler paths. |
+| Resource classes and budgets | Shipped process-local foundation plus source fingerprint hash-to-`disk.scan` mapping | ADR 0005; playback/runtime lanes; durable job queue/resource lane | Continue migrating job kinds onto typed budget-admitted scheduler paths. |
 | Tracing/request identity | Partial with HLS and library scan job propagation | diagnostics and playback identity lanes | Continue unified trace context across jobs/FFmpeg/VFS/addons and broader scan entry points. |
 | Admin diagnostics | Good partial | Admin API and diagnostics lanes | Safe realtime diagnostics and incident bundles. |
 | Crash/fault bundles | Not started | This document | Redacted operator export for hard bugs. |
@@ -62,6 +62,29 @@ API scale workstreams. Keep this document focused on shared control-plane
 capabilities and risks.
 
 ## Next Work Lanes
+
+### source-fingerprint-hash-durable-job-contract
+
+Status: First contract slice shipped as of 2026-06-05.
+
+Goal: Prepare future source fingerprint hash queue/operator integration without
+adding execution, API, schema, source lookup, or reconciliation behavior.
+
+Shipped control-plane behavior:
+
+- `JobKind::SourceFingerprintHash` is a persisted durable job kind string;
+- `SourceFingerprintHashJobInput` is the only durable input contract for this
+  work and carries only Media Library ID, Media Source ID, source scheme, and
+  hash mode;
+- `disk.scan.source_fingerprint_hash` is the persisted job resource class and
+  maps to the existing `disk.scan` runtime budget class.
+
+Follow-ons:
+
+- scan/operator enqueueing;
+- source lookup and VFS hash execution under durable leases;
+- evidence persistence and redaction-safe Admin diagnostics;
+- any automatic duplicate reconciliation policy.
 
 ### provider-governance-durable-batch-execution
 

@@ -1,12 +1,14 @@
 use futures_util::StreamExt;
 use nako_core::{
-    NakoError, Result, SourceFingerprintEscalationAction, SourceFingerprintEscalationDecision,
-    SourceFingerprintEscalationReason, SourceFingerprintEvidence, SourceFingerprintEvidenceKind,
-    SourceFingerprintPolicyInput,
+    LibraryId, MediaSourceId, NakoError, Result, SourceFingerprintEscalationAction,
+    SourceFingerprintEscalationDecision, SourceFingerprintEscalationReason,
+    SourceFingerprintEvidence, SourceFingerprintEvidenceKind, SourceFingerprintPolicyInput,
 };
 use nako_vfs::{ByteRange, StorageBackend, StorageUri};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+
+pub const SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS: &str = "disk.scan.source_fingerprint_hash";
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -19,6 +21,41 @@ pub enum SourceFingerprintHashMode {
 pub struct SourceFingerprintHashRequest {
     pub uri: StorageUri,
     pub mode: SourceFingerprintHashMode,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SourceFingerprintHashJobInput {
+    pub library_id: LibraryId,
+    pub source_id: MediaSourceId,
+    pub source_scheme: String,
+    pub mode: SourceFingerprintHashMode,
+}
+
+impl SourceFingerprintHashJobInput {
+    pub fn new(
+        library_id: LibraryId,
+        source_id: MediaSourceId,
+        source_scheme: impl Into<String>,
+        mode: SourceFingerprintHashMode,
+    ) -> Result<Self> {
+        let source_scheme = source_scheme.into();
+        validate_source_scheme(&source_scheme)?;
+
+        Ok(Self {
+            library_id,
+            source_id,
+            source_scheme,
+            mode,
+        })
+    }
+
+    pub fn from_request(
+        library_id: LibraryId,
+        source_id: MediaSourceId,
+        request: &SourceFingerprintHashRequest,
+    ) -> Result<Self> {
+        Self::new(library_id, source_id, request.uri.scheme(), request.mode)
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -233,6 +270,33 @@ fn hash_mode_for_decision(
     })
 }
 
+fn validate_source_scheme(source_scheme: &str) -> Result<()> {
+    if source_scheme.is_empty() || source_scheme.trim() != source_scheme {
+        return Err(NakoError::InvalidInput {
+            message: "source fingerprint hash job source scheme must be non-empty and trimmed"
+                .to_owned(),
+        });
+    }
+    if !source_scheme
+        .chars()
+        .next()
+        .is_some_and(|value| value.is_ascii_alphabetic())
+        || !source_scheme.chars().all(is_storage_scheme_character)
+    {
+        return Err(NakoError::InvalidInput {
+            message:
+                "source fingerprint hash job source scheme must contain only scheme-safe ASCII characters"
+                    .to_owned(),
+        });
+    }
+
+    Ok(())
+}
+
+fn is_storage_scheme_character(value: char) -> bool {
+    value.is_ascii_alphanumeric() || matches!(value, '+' | '-' | '.' | '_')
+}
+
 fn usize_to_u64(value: usize, uri: &StorageUri) -> Result<u64> {
     u64::try_from(value).map_err(|err| {
         NakoError::storage_unknown(
@@ -404,6 +468,93 @@ mod tests {
         assert!(!diagnostic.contains("Secret Path"));
         assert!(!diagnostic.contains("Frankorz"));
         assert!(!diagnostic.contains("local:///"));
+    }
+
+    #[test]
+    fn hash_job_input_from_request_serializes_without_locator_path() {
+        let library_id = LibraryId::new();
+        let source_id = MediaSourceId::new();
+        let request = SourceFingerprintHashRequest {
+            uri: StorageUri::from_parts("local", "Users/Frankorz/Secret Path/Hidden Movie.mkv")
+                .unwrap(),
+            mode: SourceFingerprintHashMode::Full,
+        };
+
+        let input =
+            SourceFingerprintHashJobInput::from_request(library_id, source_id, &request).unwrap();
+
+        assert_eq!(
+            input,
+            SourceFingerprintHashJobInput {
+                library_id,
+                source_id,
+                source_scheme: "local".to_owned(),
+                mode: SourceFingerprintHashMode::Full,
+            }
+        );
+
+        let serialized = serde_json::to_string(&input).unwrap();
+        let round_trip: SourceFingerprintHashJobInput = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(round_trip, input);
+        assert!(serialized.contains(r#""source_scheme":"local""#));
+        assert!(serialized.contains(r#""mode":"full""#));
+        assert!(!serialized.contains("Hidden Movie"));
+        assert!(!serialized.contains("Secret Path"));
+        assert!(!serialized.contains("Frankorz"));
+        assert!(!serialized.contains("local:///"));
+        assert!(!serialized.contains(r#""uri""#));
+        assert!(!serialized.contains("sha256"));
+        assert!(!serialized.contains("etag"));
+    }
+
+    #[test]
+    fn hash_job_input_carries_partial_mode() {
+        let input = SourceFingerprintHashJobInput::new(
+            LibraryId::new(),
+            MediaSourceId::new(),
+            "webdav",
+            SourceFingerprintHashMode::Partial {
+                prefix_bytes: 65_536,
+            },
+        )
+        .unwrap();
+
+        let serialized = serde_json::to_string(&input).unwrap();
+        let round_trip: SourceFingerprintHashJobInput = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(round_trip, input);
+        assert_eq!(round_trip.source_scheme, "webdav");
+        assert_eq!(
+            round_trip.mode,
+            SourceFingerprintHashMode::Partial {
+                prefix_bytes: 65_536,
+            }
+        );
+        assert!(serialized.contains(r#""partial""#));
+        assert!(serialized.contains(r#""prefix_bytes":65536"#));
+    }
+
+    #[test]
+    fn hash_job_input_rejects_locator_like_source_scheme_without_leaking_value() {
+        let err = SourceFingerprintHashJobInput::new(
+            LibraryId::new(),
+            MediaSourceId::new(),
+            "local:///Users/Frankorz/Secret Path/Hidden Movie.mkv",
+            SourceFingerprintHashMode::Full,
+        )
+        .unwrap_err();
+
+        let NakoError::InvalidInput { message } = err else {
+            panic!("expected invalid input");
+        };
+        assert_eq!(
+            message,
+            "source fingerprint hash job source scheme must contain only scheme-safe ASCII characters"
+        );
+        assert!(!message.contains("Hidden Movie"));
+        assert!(!message.contains("Secret Path"));
+        assert!(!message.contains("Frankorz"));
+        assert!(!message.contains("local:///"));
     }
 
     #[tokio::test]

@@ -23,6 +23,12 @@ Library workflow changes must preserve deterministic, bounded intake behavior.
   must expose source scheme, decision fields, schedule state, and selected mode
   only; the full `StorageUri` belongs to the in-process execution request, not
   to the diagnostic surface.
+- Persisted source fingerprint hash job input must use
+  `SourceFingerprintHashJobInput`, not `SourceFingerprintHashRequest`. The job
+  input may carry only Media Library ID, Media Source ID, source scheme, and
+  `SourceFingerprintHashMode`; raw `StorageUri`, Source Locator, path, etag,
+  fingerprint, backend URL, credential, and hash material must remain outside
+  durable input and diagnostics.
 - Persist local inference evidence so provisional hierarchy decisions are
   explainable.
 - Require repeated unchanged intake observation evidence before a watcher
@@ -236,6 +242,51 @@ decision for later hash scheduling or operator diagnostics.
 - Partial/full actions produce exact execution request modes.
 - Invalid prefix returns a redaction-safe error.
 - Diagnostic serialization does not expose locator/path content.
+
+## Scenario: Source Fingerprint Hash Durable Job Contract
+
+### 1. Scope / Trigger
+
+- Trigger: a future scan/operator workflow needs to persist source fingerprint
+  hash work for later queue-backed execution.
+- Scope: `nako-core` owns the persisted `JobKind::SourceFingerprintHash`;
+  `nako-library::source_hash` owns the redaction-safe job input contract and
+  source hash resource class string.
+
+### 2. Signatures
+
+- `SourceFingerprintHashJobInput::new(library_id, source_id, source_scheme, mode)
+  -> Result<SourceFingerprintHashJobInput>`.
+- `SourceFingerprintHashJobInput::from_request(library_id, source_id,
+  &SourceFingerprintHashRequest) -> Result<SourceFingerprintHashJobInput>`.
+- `SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS` is
+  `disk.scan.source_fingerprint_hash`.
+
+### 3. Contracts
+
+- Durable input carries `library_id`, `source_id`, `source_scheme`, and
+  `SourceFingerprintHashMode` only.
+- `source_scheme` must be scheme-shaped and must not accept locator/path-shaped
+  strings.
+- A future executor must resolve the current source locator by `source_id`
+  before VFS reads; do not persist the raw locator in the job input.
+- This contract does not enqueue jobs, claim leases, execute VFS reads, persist
+  new hash evidence, add Admin/Public API fields, mutate duplicate
+  relationships, or automatically merge Media Sources.
+
+### 4. Validation & Error Matrix
+
+- Full mode serializes and round-trips without a locator/path field.
+- Partial mode serializes and round-trips with the configured prefix length.
+- Locator-like `source_scheme` input returns `NakoError::InvalidInput` with a
+  message that does not echo the rejected value.
+
+### 5. Tests Required
+
+- `JobKind::SourceFingerprintHash` round-trip coverage in `nako-core`.
+- `SourceFingerprintHashJobInput` serialization/redaction and mode coverage in
+  `nako-library`.
+- Runtime budget mapping coverage in `nako-server`.
 
 ## Review Checklist
 

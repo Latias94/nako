@@ -17,6 +17,11 @@ Use these rules when changing shared domain contracts.
   expose action, reason, evidence kind, confidence, stale state, and candidate
   count, but must not expose raw locators, etags, fingerprints, paths, or
   backend URLs.
+- `JobKind::SourceFingerprintHash` is the persisted queue kind for future
+  source fingerprint hash work only. Keep its redaction-safe input contract in
+  `nako-library::source_hash` and its runtime budget mapping in `nako-server`;
+  do not move VFS execution, source lookup, or operator diagnostics into
+  `nako-core`.
 - When a core change crosses crate boundaries, update the relevant Trellis spec,
   ADR, architecture map, or task context before considering the work complete.
 
@@ -38,6 +43,8 @@ Use these rules when changing shared domain contracts.
 - Source fingerprint escalation policy tests should cover no escalation,
   partial-hash recommendation, and full-hash recommendation without requiring
   storage, VFS, repository, or runtime work.
+- New persisted `JobKind` values must cover `as_str` / `parse` round trips in
+  `nako-core`.
 - Repository contract changes must be covered in `nako-db/src/contract_tests.rs`
   or the focused adapter tests.
 - Cross-crate contract changes should run at least:
