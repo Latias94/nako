@@ -556,3 +556,43 @@ Completed the source fingerprint hash triggering and duplicate reconciliation po
 ### Next Steps
 
 - None - task complete
+
+
+## Session 61: 06-06 fearless refactor development wave
+
+**Date**: 2026-06-06
+**Task**: 06-06 fearless refactor development wave
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Completed and archived the 06-06 fearless refactor/development wave, including source fingerprint hash trigger, source duplicate pair idempotency, playback capability parity verification, and read-only duplicate reconciliation planning.
+
+### Main Changes
+
+- Completed the 06-06 fearless refactor/development wave and archived its parent plus four completed child tasks.
+- Shipped Admin source fingerprint hash enqueue, pair-idempotent Source Duplicate Relationship upsert, Public Client playback capability parity verification, and read-only Source Duplicate reconciliation planning.
+- Final source duplicate planning gates passed: `cargo check -p nako-core -p nako-db -p nako-server --tests`, focused nextest gates for `nako-core source_fingerprint`, `nako-db source_duplicate`, and `nako-server source_duplicate`, plus `cargo fmt --all -- --check`, `git diff --check`, and Trellis context validation.
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f453342f` | (see git log) |
+| `6b5e06f7` | (see git log) |
+| `f98d1d87` | (see git log) |
+| `5271d19a` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
