@@ -23,7 +23,8 @@
     "06-05-playback-output-profile-device-capability-audit",
     "06-05-remote-access-cookbook-config-gates",
     "06-05-addon-resource-flow-pattern-audit",
-    "06-05-source-hash-triggering-reconciliation-policy"
+    "06-05-source-hash-triggering-reconciliation-policy",
+    "06-05-public-client-playback-capability-contract-parity-gate"
   ],
   "parent": null,
   "relatedFiles": [],

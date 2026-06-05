@@ -1,0 +1,20 @@
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking guide index for cross-layer contract planning."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Playback capability parity spans protocol, API generation, clients, server mapping, renderer mapping, and docs."}
+{"file": ".trellis/spec/nako-client-protocol/backend/index.md", "reason": "Public Client wire DTO and route inventory ownership rules."}
+{"file": ".trellis/spec/nako-client-core/backend/index.md", "reason": "Transport-neutral request builder and safe preview rules for playback requests."}
+{"file": ".trellis/spec/nako-client/backend/index.md", "reason": "Async Rust SDK boundary and mockable transport rules."}
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "API contract, OpenAPI, SDK, and generated artifact guidance."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Public/Admin audience split and generator ownership rules."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Public Client playback capability parity scenario and contract quality gates."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server HTTP mapping, auth, and test guidance index."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Server playback and renderer route mapping must stay thin and contract-owned."}
+{"file": ".trellis/spec/nako-playback/backend/index.md", "reason": "Playback planner boundary and profile identity authority."}
+{"file": ".trellis/spec/nako-playback/backend/quality-guidelines.md", "reason": "Planner purity and profile identity rules if current fields affect decisions."}
+{"file": ".trellis/spec/nako-transcode/backend/index.md", "reason": "Transcode runtime boundary to keep FFmpeg/hardware facts out of Public Client DTOs."}
+{"file": ".trellis/spec/nako-transcode/backend/quality-guidelines.md", "reason": "HEVC/AV1, hardware, HLS, and FFmpeg execution are out of scope for this parity gate."}
+{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/next-lane-synthesis.md", "reason": "Parent synthesis names this task as the next serial-first contract gate."}
+{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/next-parallel-contract-gates.md", "reason": "Defines Public Client playback capability parity owner scope, validation, and stop conditions."}
+{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/next-product-development-lanes.md", "reason": "Ranks this task as the first product-facing contract lane and lists likely surfaces."}
+{"file": ".trellis/tasks/06-05-playback-output-profile-device-capability-audit/prd.md", "reason": "Completed playback audit PRD records the prerequisite relationship and deferred execution scope."}
+{"file": ".trellis/tasks/06-05-playback-output-profile-device-capability-audit/research/public-client-admin-capability-contract.md", "reason": "Identifies current Public Client/Admin capability boundaries and known flat-field drift."}
+{"file": ".trellis/tasks/06-05-playback-output-profile-device-capability-audit/research/playback-transcode-profile-boundary.md", "reason": "Documents playback/transcode/server profile boundaries that this parity gate must preserve."}

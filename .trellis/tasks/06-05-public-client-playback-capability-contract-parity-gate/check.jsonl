@@ -1,0 +1,20 @@
+{"file": ".trellis/spec/guides/index.md", "reason": "Check that review considers the shared cross-layer thinking guidance."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Check field flow across protocol, API, clients, server mapping, renderer mapping, and docs."}
+{"file": ".trellis/spec/nako-client-protocol/backend/index.md", "reason": "Check Public Client DTO and route inventory boundaries."}
+{"file": ".trellis/spec/nako-client-core/backend/index.md", "reason": "Check request builder, query encoding, and safe preview consistency."}
+{"file": ".trellis/spec/nako-client/backend/index.md", "reason": "Check async SDK surface and transport boundary consistency."}
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Check OpenAPI/SDK generation and public contract conventions."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Check Public/Admin separation and generator ownership."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Check Public Client playback capability parity scenario and required gates."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Check server HTTP mapping and route test expectations."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Check server query/body mapping stays thin and API-owned."}
+{"file": ".trellis/spec/nako-playback/backend/index.md", "reason": "Check planner boundary and identity implications."}
+{"file": ".trellis/spec/nako-playback/backend/quality-guidelines.md", "reason": "Check no unintended planner behavior or profile identity drift."}
+{"file": ".trellis/spec/nako-transcode/backend/index.md", "reason": "Check transcode runtime facts remain outside Public Client capability DTOs."}
+{"file": ".trellis/spec/nako-transcode/backend/quality-guidelines.md", "reason": "Check HEVC/AV1, hardware tone-map, and FFmpeg execution remain out of scope."}
+{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/next-lane-synthesis.md", "reason": "Check output against the parent mixed-plan recommendation."}
+{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/next-parallel-contract-gates.md", "reason": "Check owner scope, validation, and stop conditions for Gate 2."}
+{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/next-product-development-lanes.md", "reason": "Check product-lane rationale and conflict surfaces."}
+{"file": ".trellis/tasks/06-05-playback-output-profile-device-capability-audit/prd.md", "reason": "Check against completed playback audit prerequisite and out-of-scope decisions."}
+{"file": ".trellis/tasks/06-05-playback-output-profile-device-capability-audit/research/public-client-admin-capability-contract.md", "reason": "Check current capability field drift and Public/Admin capability boundary."}
+{"file": ".trellis/tasks/06-05-playback-output-profile-device-capability-audit/research/playback-transcode-profile-boundary.md", "reason": "Check playback/transcode/server boundaries and unsafe parallel work."}

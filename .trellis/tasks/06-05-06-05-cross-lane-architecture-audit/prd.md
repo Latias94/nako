@@ -179,8 +179,8 @@ side effects of parallel feature lanes.
 
 ## Current Recommended Next Queue
 
-1. `public-client-playback-capability-contract-parity-gate` — new serial-first
-   shared contract task to create.
+1. `public-client-playback-capability-contract-parity-gate` — created
+   serial-first shared contract task to start.
 2. `06-05-remote-access-cookbook-config-gates` — low-conflict docs/ops
    implementation, safe to run in parallel if it avoids config-shape,
    Admin DTO, endpoint discovery, and tunnel-runtime changes.
@@ -199,6 +199,7 @@ side effects of parallel feature lanes.
 - `.trellis/tasks/06-05-remote-access-cookbook-config-gates/`
 - `.trellis/tasks/06-05-addon-resource-flow-pattern-audit/`
 - `.trellis/tasks/06-05-source-hash-triggering-reconciliation-policy/`
+- `.trellis/tasks/06-05-public-client-playback-capability-contract-parity-gate/`
 
 The parent task remains the cross-lane audit record. Start child tasks
 individually when assigning implementation or architecture-audit lanes.
