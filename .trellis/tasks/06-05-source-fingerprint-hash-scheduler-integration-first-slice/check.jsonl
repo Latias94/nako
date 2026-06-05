@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Review scheduler/runtime and app-service integration."}
+{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Verify no scheduler/API/runtime scope creep beyond existing durable scheduler path."}
+{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "Verify no raw locators or hash material in logs/diagnostics."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify focused tests and required server gates."}
+{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "Verify executor/summary redaction contracts remain intact."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Check job-to-scheduler-to-summary flow."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Check reuse of existing scheduler and executor command."}
