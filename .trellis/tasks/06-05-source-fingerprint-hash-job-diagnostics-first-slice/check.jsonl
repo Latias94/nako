@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Check server package rules before validating Admin Jobs route tests."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Verify Admin route/query behavior stays within existing HTTP patterns."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Select and evaluate focused Rust checks for route diagnostics."}
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Check API contract boundary if generated Admin contract assumptions are relevant."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Ensure Admin-only diagnostics do not leak into Public Client API."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Verify redaction and generated artifact expectations."}
+{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Check Admin Web route/filter/test conventions."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Validate Jobs filter controls, route search behavior, and Vitest coverage."}
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared guide index for final cross-layer review."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Check end-to-end data flow from route query to rendered filter state."}

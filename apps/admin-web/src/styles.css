@@ -1674,7 +1674,7 @@ td {
 
 .filterBar {
   display: grid;
-  grid-template-columns: repeat(4, minmax(160px, 1fr)) auto;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 10px;
   align-items: end;
   border: 1px solid var(--nako-admin-line);
@@ -1712,6 +1712,7 @@ td {
 .filterActions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   min-height: 36px;
 }

@@ -1576,8 +1576,22 @@ export const mockJobs: AdminJobListResponse = {
       started_at: "2026-05-19T08:01:00Z",
       completed_at: "2026-05-19T08:04:00Z",
     },
+    {
+      id: "job-source-hash",
+      kind: "source_fingerprint_hash",
+      status: "failed",
+      resource_class: "disk.scan.source_fingerprint_hash",
+      library_id: "library-films",
+      source_id: "source-hash-1",
+      has_input: true,
+      has_summary: false,
+      has_error: true,
+      queued_at: "2026-05-19T08:10:00Z",
+      started_at: "2026-05-19T08:11:00Z",
+      completed_at: "2026-05-19T08:12:00Z",
+    },
   ],
-  page: { limit: 20, offset: 0, returned: 3 },
+  page: { limit: 20, offset: 0, returned: 4 },
 };
 
 export const mockPlaybackSessions: AdminPlaybackSessionListResponse = {

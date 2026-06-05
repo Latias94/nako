@@ -224,3 +224,95 @@ let coverage = store.summarize_media_source_fingerprints().await?;
 
 The repository owns exact aggregate counting, while the Admin overview service
 maps only safe counters into the DTO.
+
+## Scenario: Admin Jobs Source Fingerprint Hash Drilldown
+
+### 1. Scope / Trigger
+
+- Trigger: changing source fingerprint hash job diagnostics, Admin Jobs filters,
+  Admin Web Jobs filter controls, or any route that lets operators inspect
+  source-hash durable jobs.
+- Scope: `GET /admin/v1/jobs`, `AdminJobsQuery`, `AdminJobListItem`,
+  `JobListFilter`, Admin Web Jobs route search state, and generated Admin
+  contracts.
+
+### 2. Signatures
+
+- Query filters:
+  `kind=source_fingerprint_hash`,
+  `resource_class=disk.scan.source_fingerprint_hash`, optional `status`,
+  `library_id`, `source_id`, `limit`, and `offset`.
+- Response:
+  `AdminJobListResponse { jobs: AdminJobListItem[], page: PageInfo }`.
+- Job item fields remain safe metadata:
+  `id`, `kind`, `status`, `resource_class`, `library_id`, `source_id`,
+  input/summary/error presence booleans, and timestamps.
+
+### 3. Contracts
+
+- Source fingerprint hash job drilldown reuses the existing Admin Jobs list
+  before adding any source-hash-specific endpoint.
+- Admin Web shortcuts may prefill the exact `kind` and `resource_class` values,
+  but URL search params remain authoritative.
+- `source_id` is a Media Source identifier filter, not a Source Locator or
+  storage URI.
+- Admin Jobs responses expose only presence booleans for input, summary, and
+  error payloads. They must not expose job `input_json`, `summary_json`, raw
+  error bodies, Source Locators, local paths, Source Fingerprints, content
+  hashes, storage URIs, tokens, or backend payloads.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Source hash jobs exist with other job kinds in the queue | `kind` and `resource_class` filters return only source hash jobs |
+| `source_id` is present | Parse as `MediaSourceId` and narrow results through `JobListFilter.source_id` |
+| `source_id` is malformed | Return the existing invalid-input error without echoing unsafe payload details |
+| Job input/summary/error contains raw paths, locators, or hashes | Response body omits those payloads and returns only `has_input`, `has_summary`, and `has_error` |
+| Admin Web quick filter is clicked | Route search receives the exact kind/resource-class values and resets `offset` to `0` |
+
+### 5. Good/Base/Bad Cases
+
+- Good: `/admin/v1/jobs?kind=source_fingerprint_hash&resource_class=disk.scan.source_fingerprint_hash&source_id=...`
+  returns the safe generic job row for that Media Source.
+- Good: Admin Web renders a quick filter that writes existing Jobs route search
+  params instead of filtering rows in memory.
+- Base: generic Jobs route still works for library scans, metadata jobs, addon
+  tasks, and source hash jobs through the same DTO.
+- Bad: adding a source-hash-specific job detail route merely to show the same
+  generic job fields.
+- Bad: rendering raw source-hash job payloads, locators, fingerprints, or
+  content hashes in Admin Web.
+
+### 6. Tests Required
+
+- Server route test seeds source hash jobs with sensitive input/error payloads,
+  filters by `kind`, `resource_class`, and `source_id`, and asserts only safe
+  job metadata is returned.
+- Admin Web route test proves URL-owned search maps `source_id`, the quick
+  filter writes exact source hash filters, and localized controls render.
+- Admin Web redaction/rendering test must continue to reject raw job payload,
+  locator, path, token, and hash terms.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```typescript
+const jobs = result.value.jobs.filter((job) => job.kind === "source_fingerprint_hash");
+```
+
+This hides rows client-side while leaving the authoritative URL/query contract
+unusable for operator links and refreshes.
+
+#### Correct
+
+```typescript
+onSearchChange({
+  kind: "source_fingerprint_hash",
+  resource_class: "disk.scan.source_fingerprint_hash",
+  offset: 0,
+});
+```
+
+The Admin Jobs route owns filtering, and the UI only writes safe query params.

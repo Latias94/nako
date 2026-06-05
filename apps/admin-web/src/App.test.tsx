@@ -101,7 +101,7 @@ describe("Admin Web V2 route shell", () => {
     window.history.pushState(
       null,
       "",
-      "/jobs?status=failed&kind=metadata_refresh&resource_class=metadata&library_id=library-films&limit=10&offset=20",
+      "/jobs?status=failed&kind=metadata_refresh&resource_class=metadata&library_id=library-films&source_id=source-hash-1&limit=10&offset=20",
     );
 
     render(<App dataSource={{ load: async () => emptyConsoleData(), loadJobs }} />);
@@ -112,7 +112,7 @@ describe("Admin Web V2 route shell", () => {
         kind: "metadata_refresh",
         resource_class: "metadata",
         library_id: "library-films",
-        source_id: undefined,
+        source_id: "source-hash-1",
         limit: 10,
         offset: 20,
       });
@@ -139,6 +139,35 @@ describe("Admin Web V2 route shell", () => {
         expect.objectContaining({ status: "failed", limit: 20, offset: 0 }),
       );
     });
+
+    fireEvent.change(screen.getByLabelText("Job media source filter"), {
+      target: { value: "source-hash-1" },
+    });
+
+    await waitFor(() => {
+      expect(window.location.search).toContain("source_id=source-hash-1");
+      expect(loadJobs).toHaveBeenLastCalledWith(
+        expect.objectContaining({ source_id: "source-hash-1", limit: 20, offset: 0 }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Source hash jobs/ }));
+
+    await waitFor(() => {
+      expect(window.location.search).toContain("kind=source_fingerprint_hash");
+      expect(window.location.search).toContain(
+        "resource_class=disk.scan.source_fingerprint_hash",
+      );
+      expect(loadJobs).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          kind: "source_fingerprint_hash",
+          resource_class: "disk.scan.source_fingerprint_hash",
+          source_id: "source-hash-1",
+          limit: 20,
+          offset: 0,
+        }),
+      );
+    });
   });
 
   it("renders localized Jobs route copy", async () => {
@@ -149,6 +178,8 @@ describe("Admin Web V2 route shell", () => {
     expect(await screen.findByRole("heading", { name: "任务" })).toBeInTheDocument();
     expect(await screen.findByText("任务队列")).toBeInTheDocument();
     expect(screen.getByLabelText("任务状态过滤器")).toBeInTheDocument();
+    expect(screen.getByLabelText("任务媒体源过滤器")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Source Hash 任务/ })).toBeInTheDocument();
     expect(screen.getByText("URL 过滤条件具有权威性")).toBeInTheDocument();
     expect(screen.getByText("实时 Admin API")).toBeInTheDocument();
   });

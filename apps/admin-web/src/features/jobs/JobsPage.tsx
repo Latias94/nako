@@ -4,7 +4,7 @@ import {
   useReactTable,
   type ColumnDef,
 } from "@tanstack/react-table";
-import { RefreshCw, Search, X } from "lucide-react";
+import { Fingerprint, RefreshCw, Search, X } from "lucide-react";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -58,6 +58,9 @@ type JobsResult = {
   error?: string;
 };
 
+const SOURCE_FINGERPRINT_HASH_JOB_KIND = "source_fingerprint_hash";
+const SOURCE_FINGERPRINT_HASH_RESOURCE_CLASS = "disk.scan.source_fingerprint_hash";
+
 export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) {
   const { locale, t } = useI18n();
   const query = useQuery({
@@ -86,6 +89,9 @@ export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) 
       ].filter(Boolean).length,
     [search],
   );
+  const sourceHashFilterActive =
+    search.kind === SOURCE_FINGERPRINT_HASH_JOB_KIND &&
+    search.resource_class === SOURCE_FINGERPRINT_HASH_RESOURCE_CLASS;
 
   return (
     <RoutePage
@@ -152,7 +158,29 @@ export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) 
             onChange={(event) => onSearchChange({ library_id: event.target.value || undefined, offset: 0 })}
           />
         </FilterField>
+        <FilterField label={t("jobs.filter.source")}>
+          <input
+            aria-label={t("jobs.filter.sourceAria")}
+            placeholder="source-id"
+            value={search.source_id ?? ""}
+            onChange={(event) => onSearchChange({ source_id: event.target.value || undefined, offset: 0 })}
+          />
+        </FilterField>
         <FilterActions>
+          <Button
+            aria-pressed={sourceHashFilterActive}
+            onClick={() =>
+              onSearchChange({
+                kind: SOURCE_FINGERPRINT_HASH_JOB_KIND,
+                resource_class: SOURCE_FINGERPRINT_HASH_RESOURCE_CLASS,
+                offset: 0,
+              })
+            }
+            variant={sourceHashFilterActive ? "default" : "outline"}
+          >
+            <Fingerprint size={16} />
+            {t("jobs.filter.sourceHash")}
+          </Button>
           <Badge tone={activeFilterCount > 0 ? "info" : "neutral"}>
             {t("jobs.filter.active", { count: activeFilterCount })}
           </Badge>
