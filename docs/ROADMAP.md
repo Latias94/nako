@@ -37,15 +37,25 @@ shipped. This section is the current reading path for deciding what to do next.
 
 ### M1 Release Convergence Queue
 
-Open focused Trellis tasks from this queue. Do not reopen closed workstreams.
+Open focused Trellis tasks from this queue. Do not reopen closed workstreams or
+archived Trellis tasks.
+
+Completed convergence evidence:
+
+| Completed slice | Evidence |
+| --- | --- |
+| `m1-operator-journey-smoke` | `.trellis/tasks/archive/2026-06/06-06-m1-operator-journey-smoke/` |
+| `scan-originated-source-hash-triggering` | `.trellis/tasks/archive/2026-06/06-06-scan-originated-source-hash-triggering/` |
+| Source duplicate reconciliation plan/apply backend | `.trellis/tasks/archive/2026-06/06-06-admin-source-duplicate-reconciliation-plan-api/`; `.trellis/tasks/archive/2026-06/06-06-admin-source-duplicate-reconciliation-apply-first-slice/` |
+| `source-duplicate-reconciliation-operator-flow` | `.trellis/tasks/archive/2026-06/06-06-source-duplicate-reconciliation-operator-flow/` |
+
+Next executable queue after source duplicate operator flow:
 
 | Order | Candidate task | Owner lane | Outcome |
 | --- | --- | --- | --- |
-| 1 | `m1-operator-journey-smoke` | web-product + operations-release | Prove the end-to-end operator journey from config to scan, browse, playback, and diagnostics using existing APIs where possible. |
-| 2 | `scan-originated-source-hash-triggering` | storage-vfs + control-plane | Decide and implement the first policy-backed source hash trigger after successful scan source commit, with durable job visibility and redacted diagnostics. |
-| 3 | `source-duplicate-reconciliation-operator-flow` | storage-vfs + web-product | Turn existing plan/apply source duplicate reconciliation into an operator-visible Admin/Web flow without automatic merges. |
-| 4 | `media-web-library-browse-and-player-smoke` | web-product + playback-transcode | Harden the Media Web browse/play path and player error recovery around the M1 release journey. |
-| 5 | `m1-release-ladder-runner` | operations-release + control-plane | Package the existing release validation ladder into a documented or scripted runner once the operator journey scope is stable. |
+| 1 | `m1-release-ladder-runner` | operations-release + control-plane | Package the M1 validation ladder into a documented/scripted runner with explicit docs, server, Admin Web, playback, container/config, PostgreSQL, and optional live-browser modes. |
+| 2 | `media-web-library-browse-and-player-smoke` | web-product + playback-transcode | Harden Media Web browse/play route and player error recovery only where the release ladder or current smoke exposes a concrete M1 blocker. |
+| 3 | `admin-web-feature-data-adapter-deepening` | web-product + architecture-planning | Start from source duplicate reconciliation if needed and extract feature-owned Admin data adapters for high-churn operator workflows without a broad frontend rewrite. |
 
 ### M1 Quality Gate
 

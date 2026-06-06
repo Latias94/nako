@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Docs queue refresh crosses roadmap, goal map, lane routing, and Trellis task context."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Search completed task evidence before changing current queue wording."}
+{"file": ".trellis/tasks/archive/2026-06/06-06-06-06-current-function-architecture-audit/prd.md", "reason": "Current audit ranked the post-source-duplicate roadmap refresh and next M1 queue."}
+{"file": ".trellis/tasks/archive/2026-06/06-06-source-duplicate-reconciliation-operator-flow/prd.md", "reason": "Confirms the source duplicate operator flow is completed and should leave the candidate queue."}

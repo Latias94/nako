@@ -30,6 +30,19 @@ proposed milestone.
 
 Status: in progress as of 2026-06-06.
 
+Post-source-duplicate queue refresh:
+
+- `m1-operator-journey-smoke`,
+  `scan-originated-source-hash-triggering`, source duplicate reconciliation
+  plan/apply backend routes, and `source-duplicate-reconciliation-operator-flow`
+  are completed Trellis evidence, not next candidates.
+- The immediate next executable M1 task is `m1-release-ladder-runner`.
+- `media-web-library-browse-and-player-smoke` should stay targeted to concrete
+  browser/player blockers exposed by the runner or current smoke.
+- `admin-web-feature-data-adapter-deepening` is an architecture follow-on for
+  operator-flow locality, starting with source duplicate reconciliation only if
+  another flow needs the same pattern.
+
 Objective:
 
 - Reconcile Nako's top-level roadmap, goal map, and architecture lane routing
@@ -49,7 +62,10 @@ Deliverables:
 - concise current-plan entry in `docs/ROADMAP.md`;
 - updated goal entry in `docs/GOALS.md`;
 - updated active queue and lane routing in `docs/architecture/LANES.md`;
-- 3-5 concrete M1 candidate Trellis tasks with owner lanes and outcomes.
+- 3-5 concrete M1 candidate Trellis tasks with owner lanes and outcomes;
+- post-source-duplicate queue refresh that removes completed M1 smoke,
+  scan-originated hash, and source duplicate operator slices from the candidate
+  queue.
 
 Non-goals:
 
@@ -70,6 +86,8 @@ Exit criteria:
 - `docs/architecture/LANES.md` routes the next active planning focus to M1
   release convergence and names the immediate candidate queue.
 - Proposed follow-on task names are concrete enough to become Trellis tasks.
+- Completed source hash and source duplicate M1 slices remain linked as
+  evidence rather than candidate work.
 - Historical evidence links remain available and are not deleted.
 - Docs validation gates pass.
 
@@ -80,6 +98,9 @@ Evidence:
 - `docs/workstreams/mvp-release-shape/CLOSEOUT.md`
 - `docs/architecture/LANES.md`
 - `docs/ROADMAP.md`
+- `.trellis/tasks/archive/2026-06/06-06-m1-operator-journey-smoke/`
+- `.trellis/tasks/archive/2026-06/06-06-scan-originated-source-hash-triggering/`
+- `.trellis/tasks/archive/2026-06/06-06-source-duplicate-reconciliation-operator-flow/`
 
 ## Recent Completed Goals
 
