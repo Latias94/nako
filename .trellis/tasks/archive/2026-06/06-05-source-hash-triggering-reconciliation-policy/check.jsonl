@@ -3,5 +3,5 @@
 {"file": ".trellis/spec/nako-library/backend/index.md", "reason": "Check Source Fingerprint and duplicate evidence policy."}
 {"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Check durable job and scheduler implications."}
 {"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Check Admin/API implications."}
-{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/storage-library-control-plane.md", "reason": "Check output against parent storage/control-plane audit."}
-{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/synthesis.md", "reason": "Check output against cross-lane constraints."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-06-05-cross-lane-architecture-audit/research/storage-library-control-plane.md", "reason": "Check output against parent storage/control-plane audit."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-06-05-cross-lane-architecture-audit/research/synthesis.md", "reason": "Check output against cross-lane constraints."}

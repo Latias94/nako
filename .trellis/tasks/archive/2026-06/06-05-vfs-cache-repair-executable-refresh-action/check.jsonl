@@ -6,4 +6,4 @@
 {"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Verify not-found/invalid target ref responses do not leak input."}
 {"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify focused nextest and check gates."}
 {"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify VFS/app/API/HTTP/generated-contract flow stays consistent."}
-{"file": ".trellis/tasks/06-05-vfs-cache-repair-executable-refresh-action/research/vfs-cache-selected-target-refresh.md", "reason": "Verify implementation matches the local audit boundary."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-vfs-cache-repair-executable-refresh-action/research/vfs-cache-selected-target-refresh.md", "reason": "Verify implementation matches the local audit boundary."}

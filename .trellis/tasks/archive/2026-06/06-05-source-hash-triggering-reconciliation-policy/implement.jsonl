@@ -3,5 +3,5 @@
 {"file": ".trellis/spec/nako-library/backend/index.md", "reason": "Source Fingerprint, scan, and source identity policy."}
 {"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Durable jobs, scheduler, runtime, and app service boundary."}
 {"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Admin/API implications if triggering or diagnostics are proposed."}
-{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/storage-library-control-plane.md", "reason": "Parent storage/library/control-plane audit findings."}
-{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/synthesis.md", "reason": "Cross-lane priority and parallelization constraints."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-06-05-cross-lane-architecture-audit/research/storage-library-control-plane.md", "reason": "Parent storage/library/control-plane audit findings."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-06-05-cross-lane-architecture-audit/research/synthesis.md", "reason": "Cross-lane priority and parallelization constraints."}

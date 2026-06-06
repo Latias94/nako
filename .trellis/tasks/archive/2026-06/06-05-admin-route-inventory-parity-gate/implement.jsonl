@@ -4,5 +4,5 @@
 {"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Generated contract and redaction quality gates."}
 {"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Server Admin route registration and HTTP boundary patterns."}
 {"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Generated Admin route constants and Admin Web route usage."}
-{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/admin-api-web-contracts.md", "reason": "Parent audit finding that route inventory parity is the first contract gate."}
-{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/synthesis.md", "reason": "Cross-lane parallelization rationale for making this the contract-owner lane."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-06-05-cross-lane-architecture-audit/research/admin-api-web-contracts.md", "reason": "Parent audit finding that route inventory parity is the first contract gate."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-06-05-cross-lane-architecture-audit/research/synthesis.md", "reason": "Cross-lane parallelization rationale for making this the contract-owner lane."}

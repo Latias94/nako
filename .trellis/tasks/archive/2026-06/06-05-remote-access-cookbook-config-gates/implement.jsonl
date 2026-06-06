@@ -1,10 +1,10 @@
 {"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Remote access docs and config gates span config, HTTP policy, deployment, and Admin diagnostics."}
 {"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server config/preflight and network policy conventions."}
 {"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Admin diagnostics contract if config-check output or DTOs are touched."}
-{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/remote-access-network-operations.md", "reason": "Parent remote access/network operations audit findings."}
-{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/synthesis.md", "reason": "Cross-lane priority and parallelization constraints."}
-{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/next-operations-release-lanes.md", "reason": "Latest operations/release audit confirms remote access cookbook/config fixtures are implementation-ready and defines fixture options."}
-{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/next-lane-synthesis.md", "reason": "Updated parent synthesis: remote access can run as low-conflict docs/ops implementation while endpoint discovery and tunnel runtime stay deferred."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-06-05-cross-lane-architecture-audit/research/remote-access-network-operations.md", "reason": "Parent remote access/network operations audit findings."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-06-05-cross-lane-architecture-audit/research/synthesis.md", "reason": "Cross-lane priority and parallelization constraints."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-06-05-cross-lane-architecture-audit/research/next-operations-release-lanes.md", "reason": "Latest operations/release audit confirms remote access cookbook/config fixtures are implementation-ready and defines fixture options."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-06-05-cross-lane-architecture-audit/research/next-lane-synthesis.md", "reason": "Updated parent synthesis: remote access can run as low-conflict docs/ops implementation while endpoint discovery and tunnel runtime stay deferred."}
 {"file": "docs/deployment/REMOTE_ACCESS.md", "reason": "Operator cookbook for remote access shapes, caveats, non-goals, and fixture gate usage."}
 {"file": "deploy/remote-access/reverse-proxy.nako.toml", "reason": "Reverse-proxy config-check fixture used by remote access config gate."}
 {"file": "deploy/remote-access/tunnel-provider.nako.toml", "reason": "Tunnel-provider config-check fixture used by remote access config gate."}

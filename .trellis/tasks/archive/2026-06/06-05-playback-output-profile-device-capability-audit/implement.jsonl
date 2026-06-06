@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Playback capability contracts span client API, playback planning, transcode planning, and Admin diagnostics."}
+{"file": ".trellis/spec/nako-playback/backend/index.md", "reason": "Playback planning boundary."}
+{"file": ".trellis/spec/nako-transcode/backend/index.md", "reason": "Transcode and FFmpeg planning boundary."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server playback runtime and diagnostics boundary."}
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Public/Admin DTO boundary if capability contracts are discussed."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-06-05-cross-lane-architecture-audit/research/playback-decoding-transcode.md", "reason": "Parent playback/decoding/transcode audit findings."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-06-05-cross-lane-architecture-audit/research/synthesis.md", "reason": "Cross-lane priority and parallelization constraints."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-playback-output-profile-device-capability-audit/research/public-client-admin-capability-contract.md", "reason": "Public Client and Admin capability contract audit outcome."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-playback-output-profile-device-capability-audit/research/playback-transcode-profile-boundary.md", "reason": "Playback, Transcode, Server, and operator policy boundary audit outcome."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Public Client playback capability contract parity gate captured from the audit."}

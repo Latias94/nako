@@ -1,5 +1,5 @@
 {"file": ".trellis/spec/nako-server/backend/addon-resource-flow-patterns.md", "reason": "Verify selected-reference behavior, redaction, and resource-specific logic remain intact."}
 {"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Choose focused cargo check and nextest gates."}
 {"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Confirm duplicated mechanics are reduced without inventing a broad protocol abstraction."}
-{"file": ".trellis/tasks/06-05-addon-resource-flow-pattern-audit/research/host-owned-addon-resource-flow-pattern.md", "reason": "Check implementation matches the audit's first follow-on recommendation."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-addon-resource-flow-pattern-audit/research/host-owned-addon-resource-flow-pattern.md", "reason": "Check implementation matches the audit's first follow-on recommendation."}
 {"file": ".trellis/tasks/archive/2026-06/06-06-server-local-addon-resource-flow-session-helper/prd.md", "reason": "Validate completion against acceptance criteria and out-of-scope list."}

@@ -12,10 +12,10 @@
 {"file": ".trellis/spec/nako-playback/backend/quality-guidelines.md", "reason": "Check no unintended planner behavior or profile identity drift."}
 {"file": ".trellis/spec/nako-transcode/backend/index.md", "reason": "Check transcode runtime facts remain outside Public Client capability DTOs."}
 {"file": ".trellis/spec/nako-transcode/backend/quality-guidelines.md", "reason": "Check HEVC/AV1, hardware tone-map, and FFmpeg execution remain out of scope."}
-{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/next-lane-synthesis.md", "reason": "Check output against the parent mixed-plan recommendation."}
-{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/next-parallel-contract-gates.md", "reason": "Check owner scope, validation, and stop conditions for Gate 2."}
-{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/next-product-development-lanes.md", "reason": "Check product-lane rationale and conflict surfaces."}
-{"file": ".trellis/tasks/06-05-playback-output-profile-device-capability-audit/prd.md", "reason": "Check against completed playback audit prerequisite and out-of-scope decisions."}
-{"file": ".trellis/tasks/06-05-playback-output-profile-device-capability-audit/research/public-client-admin-capability-contract.md", "reason": "Check current capability field drift and Public/Admin capability boundary."}
-{"file": ".trellis/tasks/06-05-playback-output-profile-device-capability-audit/research/playback-transcode-profile-boundary.md", "reason": "Check playback/transcode/server boundaries and unsafe parallel work."}
-{"file": ".trellis/tasks/06-05-public-client-playback-capability-contract-parity-gate/research/public-client-playback-capability-field-inventory.md", "reason": "Check the final flat field inventory, parity surface list, public boundary, and deferred follow-on."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-06-05-cross-lane-architecture-audit/research/next-lane-synthesis.md", "reason": "Check output against the parent mixed-plan recommendation."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-06-05-cross-lane-architecture-audit/research/next-parallel-contract-gates.md", "reason": "Check owner scope, validation, and stop conditions for Gate 2."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-06-05-cross-lane-architecture-audit/research/next-product-development-lanes.md", "reason": "Check product-lane rationale and conflict surfaces."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-playback-output-profile-device-capability-audit/prd.md", "reason": "Check against completed playback audit prerequisite and out-of-scope decisions."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-playback-output-profile-device-capability-audit/research/public-client-admin-capability-contract.md", "reason": "Check current capability field drift and Public/Admin capability boundary."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-playback-output-profile-device-capability-audit/research/playback-transcode-profile-boundary.md", "reason": "Check playback/transcode/server boundaries and unsafe parallel work."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-public-client-playback-capability-contract-parity-gate/research/public-client-playback-capability-field-inventory.md", "reason": "Check the final flat field inventory, parity surface list, public boundary, and deferred follow-on."}

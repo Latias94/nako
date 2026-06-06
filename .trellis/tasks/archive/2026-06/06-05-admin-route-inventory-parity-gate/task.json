@@ -1,7 +1,7 @@
 {
-  "id": "public-client-playback-capability-contract-parity-gate",
-  "name": "public-client-playback-capability-contract-parity-gate",
-  "title": "Public Client playback capability contract parity gate",
+  "id": "admin-route-inventory-parity-gate",
+  "name": "admin-route-inventory-parity-gate",
+  "title": "Admin route inventory parity gate",
   "description": "",
   "status": "completed",
   "dev_type": null,
@@ -11,7 +11,7 @@
   "creator": "Latias94",
   "assignee": "Latias94",
   "createdAt": "2026-06-05",
-  "completedAt": "2026-06-05",
+  "completedAt": "2026-06-06",
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
@@ -19,7 +19,7 @@
   "pr_url": null,
   "subtasks": [],
   "children": [],
-  "parent": "06-05-06-05-cross-lane-architecture-audit",
+  "parent": null,
   "relatedFiles": [],
   "notes": "",
   "meta": {}

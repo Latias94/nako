@@ -4,5 +4,5 @@
 {"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Check contract tests and redaction expectations."}
 {"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Check server route registration assumptions."}
 {"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Check Admin Web generated route usage expectations."}
-{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/admin-api-web-contracts.md", "reason": "Check task output against parent Admin/API audit."}
-{"file": ".trellis/tasks/06-05-06-05-cross-lane-architecture-audit/research/synthesis.md", "reason": "Check task output against cross-lane queue constraints."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-06-05-cross-lane-architecture-audit/research/admin-api-web-contracts.md", "reason": "Check task output against parent Admin/API audit."}
+{"file": ".trellis/tasks/archive/2026-06/06-05-06-05-cross-lane-architecture-audit/research/synthesis.md", "reason": "Check task output against cross-lane queue constraints."}
