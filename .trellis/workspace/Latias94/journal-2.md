@@ -751,3 +751,39 @@ Recorded roadmap reconciliation evidence, archived the Trellis task, and confirm
 ### Next Steps
 
 - None - task complete
+
+
+## Session 66: M1 operator journey smoke
+
+**Date**: 2026-06-06
+**Task**: M1 operator journey smoke
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Opened and completed the first Product-Operator M1 smoke task, added a repeatable smoke script, captured its spec contract, and archived the task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2fb4399c` | (see git log) |
+| `41573f1d` | (see git log) |
+| `9930dff6` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
