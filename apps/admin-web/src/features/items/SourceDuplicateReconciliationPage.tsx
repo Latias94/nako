@@ -3,13 +3,10 @@ import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 
-import type { AdminDataSource, DataSourceMode } from "../../adminApi/dataSource";
 import type {
   AdminSourceDuplicateReconciliationApplyResponse,
   AdminSourceDuplicateReconciliationCandidate,
-  AdminSourceDuplicateReconciliationPlanResponse,
 } from "../../adminApi/types";
-import { mockSourceDuplicateReconciliationPlan } from "../../adminApi/mockData";
 import { SourceLabel } from "../../components/SourceLabel";
 import { EmptyRouteState, RouteNotice, RoutePage } from "../../components/layout/RoutePage";
 import { Badge } from "../../components/ui/Badge";
@@ -19,6 +16,7 @@ import { FilterActions, FilterBar, FilterField } from "../../components/ui/Filte
 import { RowsSkeleton } from "../../components/ui/RowsSkeleton";
 import { useI18n } from "../../i18n/I18nProvider";
 import type { MessageId } from "../../i18n/messages";
+import type { SourceDuplicateReconciliationDataAdapter } from "./sourceDuplicateReconciliationData";
 
 export type SourceDuplicateReconciliationSearch = {
   library_id?: string;
@@ -27,24 +25,18 @@ export type SourceDuplicateReconciliationSearch = {
 };
 
 export type SourceDuplicateReconciliationPageProps = {
-  dataSource: AdminDataSource;
+  dataAdapter: SourceDuplicateReconciliationDataAdapter;
   itemId: string;
   sourceId: string;
   search: SourceDuplicateReconciliationSearch;
   onSearchChange(next: Partial<SourceDuplicateReconciliationSearch>): void;
 };
 
-type PlanResult = {
-  value: AdminSourceDuplicateReconciliationPlanResponse;
-  source: DataSourceMode;
-  error?: string;
-};
-
 type BadgeTone = "neutral" | "success" | "warning" | "danger" | "info";
 type Translate = (id: MessageId, values?: Record<string, number | string>) => string;
 
 export function SourceDuplicateReconciliationPage({
-  dataSource,
+  dataAdapter,
   itemId,
   sourceId,
   search,
@@ -63,19 +55,16 @@ export function SourceDuplicateReconciliationPage({
       locale,
     ],
     queryFn: () =>
-      loadPlan(
-        dataSource,
-        libraryId ?? "",
-        sourceId,
-        { limit: search.limit, offset: search.offset },
-        t("sourceDuplicate.planUnavailable"),
-      ),
+      dataAdapter.loadPlan(libraryId ?? "", sourceId, {
+        limit: search.limit,
+        offset: search.offset,
+      }),
   });
   const result =
     query.data ??
     (libraryId
       ? {
-          value: mockSourceDuplicateReconciliationPlan(libraryId, sourceId),
+          value: dataAdapter.createFallbackPlan(libraryId, sourceId),
           source: "mock" as const,
         }
       : null);
@@ -91,15 +80,7 @@ export function SourceDuplicateReconciliationPage({
         throw new Error(t("sourceDuplicate.missingLibrary"));
       }
 
-      if (!dataSource.applySourceDuplicateReconciliation) {
-        throw new Error(t("sourceDuplicate.applyUnavailable"));
-      }
-
-      return dataSource.applySourceDuplicateReconciliation(
-        libraryId,
-        sourceId,
-        duplicateSourceId,
-      );
+      return dataAdapter.applySuggestion(libraryId, sourceId, duplicateSourceId);
     },
     onError(error: unknown) {
       setApplyResult(null);
@@ -272,24 +253,6 @@ export function SourceDuplicateReconciliationPage({
       ) : null}
     </RoutePage>
   );
-}
-
-async function loadPlan(
-  dataSource: AdminDataSource,
-  libraryId: string,
-  sourceId: string,
-  search: { limit: number; offset: number },
-  unavailableMessage: string,
-): Promise<PlanResult> {
-  if (!dataSource.loadSourceDuplicateReconciliationPlan) {
-    return {
-      value: mockSourceDuplicateReconciliationPlan(libraryId, sourceId),
-      source: "mock",
-      error: unavailableMessage,
-    };
-  }
-
-  return dataSource.loadSourceDuplicateReconciliationPlan(libraryId, sourceId, search);
 }
 
 function CandidateRow({

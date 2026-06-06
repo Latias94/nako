@@ -64,6 +64,7 @@ import {
   SourceDuplicateReconciliationPage,
   type SourceDuplicateReconciliationSearch,
 } from "./features/items/SourceDuplicateReconciliationPage";
+import { createSourceDuplicateReconciliationDataAdapter } from "./features/items/sourceDuplicateReconciliationData";
 import { LibraryDetailPage } from "./features/libraries/LibraryDetailPage";
 import { LibrariesPage } from "./features/libraries/LibrariesPage";
 import { OverviewPage } from "./features/overview/OverviewPage";
@@ -524,10 +525,19 @@ function SourceDuplicateReconciliationRoute() {
   const { itemId, sourceId } = sourceDuplicateReconciliationRoute.useParams();
   const search = sourceDuplicateReconciliationRoute.useSearch();
   const navigate = sourceDuplicateReconciliationRoute.useNavigate();
+  const { t } = useI18n();
+  const dataAdapter = useMemo(
+    () =>
+      createSourceDuplicateReconciliationDataAdapter(dataSource, {
+        applyUnavailableMessage: t("sourceDuplicate.applyUnavailable"),
+        planUnavailableMessage: t("sourceDuplicate.planUnavailable"),
+      }),
+    [dataSource, t],
+  );
 
   return (
     <SourceDuplicateReconciliationPage
-      dataSource={dataSource}
+      dataAdapter={dataAdapter}
       itemId={itemId}
       onSearchChange={(next) => {
         void navigate({

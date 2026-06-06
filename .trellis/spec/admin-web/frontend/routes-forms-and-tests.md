@@ -110,3 +110,70 @@ const mutation = useMutation({
 
 Keep network behavior behind the typed data source and generated Admin API
 client, then assert it through route tests.
+
+## Scenario: Feature-Owned Data Adapter
+
+### 1. Scope / Trigger
+
+- Trigger: an Admin Web feature page needs only a narrow subset of the broad
+  `AdminDataSource`, has feature-specific fallback behavior, or owns a
+  confirmation/mutation workflow that should not leak generated route details
+  into UI components.
+- Evidence:
+  `src/features/items/sourceDuplicateReconciliationData.ts` and
+  `SourceDuplicateReconciliationPage.tsx`.
+
+### 2. Signatures
+
+- Define a small feature adapter interface next to the feature page, for
+  example `SourceDuplicateReconciliationDataAdapter`.
+- Route wiring in `App.tsx` may create the adapter from the broad
+  `AdminDataSource` and localized messages, then pass the adapter to the page.
+- The page depends on the feature adapter, URL-owned search props, and event
+  callbacks; it should not import the broad `AdminDataSource` for that feature.
+
+### 3. Contracts
+
+- Feature adapters must delegate live network behavior to existing
+  `AdminDataSource` methods. Do not call `fetch` or generated routes directly
+  from the adapter unless the broad data-source boundary has deliberately moved.
+- Adapter-owned fallback must use existing mock data helpers and preserve
+  redaction-safe behavior.
+- Mutations that have no safe mock success path must reject when the live
+  method is unavailable rather than fabricating success.
+- Keep localized copy at the route/page boundary. Pass messages into adapter
+  factories instead of importing i18n providers into data modules.
+- Use `useMemo` in route components when creating adapters from stable route
+  context and locale-dependent messages, so query/mutation props do not churn
+  unnecessarily.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Live plan/read method exists | Adapter delegates with the same route args and query payload |
+| Live plan/read method missing | Adapter returns deterministic mock fallback with visible error |
+| Live mutation method exists | Adapter delegates without changing the command payload |
+| Live mutation method missing | Adapter rejects with the localized unavailable message |
+| Page renders unsafe extra fields in response | Treat as redaction failure and fix page rendering |
+
+### 5. Good / Base / Bad Cases
+
+- Good: source duplicate reconciliation route creates a feature adapter, page
+  calls `loadPlan`/`applySuggestion`, and adapter tests prove fallback and
+  unavailable mutation behavior.
+- Base: keep one-off simple pages on `AdminDataSource` until a feature has a
+  real workflow boundary or repeated mapping logic.
+- Bad: broad rewrites of `AdminDataSource`, duplicated generated route strings,
+  direct page-level `fetch`, or adapter modules that import React hooks.
+
+### 6. Tests Required
+
+- Add feature adapter tests for delegation, fallback, and mutation unavailable
+  behavior.
+- Keep route tests for URL search, confirmation, i18n, and redaction.
+- Run:
+  - `npm run check --prefix apps/admin-web`
+  - focused Vitest files for the adapter and affected routes
+  - `npm run test --prefix apps/admin-web`
+  - `npm run build --prefix apps/admin-web` when route/page code changes.
