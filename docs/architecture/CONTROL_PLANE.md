@@ -1,6 +1,6 @@
 # Control Plane Architecture
 
-Last updated: 2026-06-05
+Last updated: 2026-06-06
 
 This document maps Nako's application control plane: the cross-cutting systems
 that keep the media data plane safe, observable, extensible, and operable.
@@ -41,7 +41,7 @@ Deployment Endpoint Config
 | HTTP addon protocol | Shipped foundation | ADR 0003; ADR 0015; ADR 0020 | Addon Manager lifecycle is still deferred. |
 | Addon capability and token scopes | Shipped foundation | addon token/grant workstreams | Stronger hosted surface and route policy. |
 | Addon process supervision | Deferred | ADR 0020; ADR 0053 | `addon-manager-process-lifecycle`. |
-| Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract/summary/internal enqueue/queued planner/single-job executor command/scheduler integration/evidence persistence, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/` | Broader job-kind scheduler migration and source fingerprint hash operator/API surfaces remain follow-ons. |
+| Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract/summary/internal enqueue/queued planner/single-job executor command/scheduler integration/evidence persistence/Admin manual commands, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/` | Broader job-kind scheduler migration, scan-originated source hash triggering, and automatic Source Duplicate Relationship reconciliation remain follow-ons. |
 | Runtime supervisor | Shipped resource-accounted foundation | ADR 0019; server runtime deepening; durable job queue/resource lane | Unified trace context and broader scheduler migration remain follow-ons. |
 | Resource classes and budgets | Shipped process-local foundation plus source fingerprint hash-to-`disk.scan` mapping | ADR 0005; playback/runtime lanes; durable job queue/resource lane | Continue migrating job kinds onto typed budget-admitted scheduler paths. |
 | Tracing/request identity | Partial with HLS and library scan job propagation | diagnostics and playback identity lanes | Continue unified trace context across jobs/FFmpeg/VFS/addons and broader scan entry points. |
@@ -66,10 +66,12 @@ capabilities and risks.
 ### source-fingerprint-hash-durable-job-contract-and-enqueue
 
 Status: First contract, summary, internal enqueue, queued planner, single-job
-executor command, and scheduler integration slices shipped as of 2026-06-05.
+executor command, scheduler integration, evidence persistence, Admin manual
+enqueue, and source-hash retry/requeue slices shipped as of 2026-06-06.
 
-Goal: Prepare future source fingerprint hash queue/operator integration without
-adding execution, API, schema, or reconciliation behavior.
+Goal: Keep source fingerprint hash durable work behind redaction-safe job and
+Admin command boundaries while leaving scan-originated triggering and automatic
+reconciliation policy explicit.
 
 Shipped control-plane behavior:
 
@@ -98,12 +100,25 @@ Shipped control-plane behavior:
 - the successful executor command persists the redacted Source Fingerprint
   evidence back onto the current Media Source and matching Source State, if one
   exists.
+- Admin overview and Jobs diagnostics expose source fingerprint hash pressure
+  without raw Source Locator, fingerprint, hash, or job input material.
+- Admin manual enqueue can create full or partial source fingerprint hash jobs
+  for one known Media Source while preserving the existing disk-scan scheduler
+  execution path.
+- Admin source-hash retry/requeue can create a new queued retry for a failed
+  source fingerprint hash job without exposing or resubmitting unsafe durable
+  input.
 
 Follow-ons:
 
-- scan/operator/API triggering beyond the internal app service;
-- redaction-safe Admin diagnostics for persisted evidence;
-- any automatic duplicate reconciliation policy.
+- scan-originated triggering policy that decides when library intake should
+  enqueue source fingerprint hash jobs;
+- source hash evidence detail or duplicate-suggestion diagnostics, if needed,
+  with the same redaction boundary as the shipped Admin surfaces;
+- automatic Source Duplicate Relationship reconciliation policy and apply
+  semantics;
+- broader job-kind scheduler migration beyond the current disk-scan admitted
+  source hash path.
 
 ### provider-governance-durable-batch-execution
 

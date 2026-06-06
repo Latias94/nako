@@ -1,6 +1,6 @@
 # Storage And VFS Architecture
 
-Last updated: 2026-06-05
+Last updated: 2026-06-06
 
 This document maps Nako's storage and VFS architecture for agents working on
 scan, probe, playback, imports, sidecar writes, and remote storage.
@@ -27,10 +27,10 @@ and rclone-like mounts can be slow, stale, or unavailable.
 | Remote storage boundary | Shipped durable health foundation | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/`; `.trellis/tasks/archive/2026-06/06-02-01d-hls-artifact-io-pressure-enforcement/` | Open follow-ons for cache repair, fingerprint hash queue/operator integration, scan scheduling, or PostgreSQL runtime harness work. |
 | WebDAV read path | Partial | `docs/workstreams/storage-vfs/`; remote storage lanes | Harden retries, cache, and operator diagnostics. |
 | Source locator | Shipped foundation | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Watcher/debounce productization and repair workflows. |
-| Source fingerprint | Shipped escalation policy, hash execution kernel, scheduling diagnostic planner, durable job contract, job summary contract, internal enqueue seam, queued execution planner, single-job executor command, scheduler integration, and evidence persistence | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/archive/2026-06/06-04-06-04-source-fingerprint-escalation-policy-first-slice/`; `.trellis/tasks/archive/2026-06/06-05-06-05-source-fingerprint-hash-execution-first-slice/`; `crates/nako-core/src/job.rs`; `crates/nako-library/src/source_hash.rs`; `crates/nako-server/src/app/source_hash.rs`; `crates/nako-server/src/app/jobs.rs`; `crates/nako-server/src/app/runtime.rs` | Operator/Admin/Public API triggering and automatic reconciliation remain follow-ons. |
+| Source fingerprint | Shipped escalation policy, hash execution kernel, scheduling diagnostic planner, durable job contract, job summary contract, internal enqueue seam, queued execution planner, single-job executor command, scheduler integration, evidence persistence, Admin overview/Jobs diagnostics, Admin manual enqueue, and source-hash retry/requeue | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/archive/2026-06/06-04-06-04-source-fingerprint-escalation-policy-first-slice/`; `.trellis/tasks/archive/2026-06/06-05-06-05-source-fingerprint-hash-execution-first-slice/`; `.trellis/tasks/archive/2026-06/06-06-admin-source-fingerprint-hash-trigger-first-slice/`; `.trellis/tasks/archive/2026-06/06-06-source-hash-retry-requeue-admin-command/`; `crates/nako-core/src/job.rs`; `crates/nako-library/src/source_hash.rs`; `crates/nako-server/src/app/source_hash.rs`; `crates/nako-server/src/app/jobs.rs`; `crates/nako-server/src/app/runtime.rs` | Scan-originated triggering, automatic Source Duplicate Relationship reconciliation, broader scheduler migration, and PostgreSQL runtime harness work remain follow-ons. |
 | Remote probe staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Per-backend staging budgets and diagnostics. |
 | Remote FFmpeg input staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md` | Per-backend staging budgets and diagnostics. |
-| VFS cache | Shipped diagnostics foundation, action preview, latest-failure refresh, action plan, target-scoped preview, selected-target refresh execution, and read-only remediation plan | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/06-04-06-04-vfs-cache-repair-action-preview-first-slice/`; `.trellis/tasks/06-04-vfs-cache-repair-operator-actions/`; `.trellis/tasks/06-04-vfs-cache-uri-scoped-previews/`; `.trellis/tasks/06-05-vfs-cache-repair-executable-refresh-action/`; `.trellis/tasks/06-06-vfs-cache-repair-non-destructive-remediation-plan-first-slice/` | Durable repair queues, cache purge/delete/invalidation, backend configuration mutation, and automated repair workers remain follow-ons. |
+| VFS cache | Shipped diagnostics foundation, action preview, latest-failure refresh, action plan, target-scoped preview, selected-target refresh execution, and read-only remediation plan | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/archive/2026-06/06-04-06-04-vfs-cache-repair-action-preview-first-slice/`; `.trellis/tasks/archive/2026-06/06-04-vfs-cache-repair-operator-actions/`; `.trellis/tasks/archive/2026-06/06-04-vfs-cache-uri-scoped-previews/`; `.trellis/tasks/archive/2026-06/06-04-vfs-cache-repair-executable-refresh-action/`; `.trellis/tasks/archive/2026-06/06-06-vfs-cache-repair-non-destructive-remediation-plan-first-slice/` | Durable repair queues, cache purge/delete/invalidation, backend configuration mutation, and automated repair workers remain follow-ons. |
 | Library file writes | Partial | addon/library-file-write and NFO workstreams | Capability-specific write/link/backup policy. |
 | Mount hang protection | Shipped durable circuit foundation | `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/` | OS-level mount stalls still need bounded adapters and operator guidance; do not claim syscall preemption. |
 
@@ -326,11 +326,12 @@ Shipped:
 - `.trellis/tasks/archive/2026-06/06-02-01d-hls-artifact-io-pressure-enforcement/`
   (closed HLS artifact I/O pressure admission; shipped by `48668afc`).
 - `proposed:source-fingerprint-hash-queue-and-operator-integration`: durable
-  scan/operator scheduling, lease execution, Admin diagnostics/API triggering,
-  and controlled execution around the shipped advisory planner, durable job
-  contract, internal enqueue seam, partial/full hash execution kernel, and
-  scheduler integration. The current scan escalation policy seam remains
-  advisory and does not read source bytes.
+  scan-originated triggering, automatic reconciliation policy, duplicate
+  suggestion/apply semantics, broader scheduler migration, and controlled
+  execution around the shipped advisory planner, durable job contract, Admin
+  manual commands, partial/full hash execution kernel, scheduler integration,
+  and redaction-safe diagnostics. The current scan escalation policy seam
+  remains advisory and does not read source bytes.
 - `proposed:storage-vfs-postgresql-runtime-harness`: runtime parity evidence
   for PostgreSQL storage/source identity query paths.
 

@@ -1,6 +1,6 @@
 # Architecture Lanes
 
-Last updated: 2026-06-05
+Last updated: 2026-06-06
 
 This registry routes long-lived Codex terminals and worktrees by capability
 area. It is an ownership map for parallel development, not a replacement for
@@ -30,7 +30,7 @@ documentation/bootstrap task, not as an implementation lane.
 | architecture-planning | Idle after 01a and 01 parent closeout. | Select the next architecture focus or continue `00-bootstrap-guidelines` spec coverage. | Open a focused Trellis task before starting implementation lanes. |
 | library-metadata-control-plane | Idle after accepted-review related hierarchy application, durable batch execution, Douban TV Series subject support, and negative Public Client governance guardrails landed. | Consider `provider-governance-mutation-undo`, `douban-season-episode-graph-depth`, or future intentional Public Client metadata API exposure as a separate API-design PRD. | Coordinate with `nako-api`, Admin Web, and schema changes before assigning parallel work. |
 | playback-transcode | Idle after HLS artifact I/O pressure enforcement. | Consider resource admission queueing, LL-HLS/CMAF, player UX, hardware tone-map execution, HEVC/AV1 output policy, subtitle burn-in, or hardware smoke evidence. | Coordinate with storage/VFS and web/native player work. |
-| storage-vfs | Idle after cache repair diagnostics and source fingerprint escalation, hash execution, scheduling diagnostics, durable job contract/summary, internal enqueue, queued planner, single-job executor command, scheduler integration, and evidence persistence first slices. | Consider source fingerprint hash operator/Admin diagnostics, playback artifact/source-read pressure, scan scheduling, or PostgreSQL runtime harness work. | Coordinate with playback input staging, library scan/probe lanes, and control-plane durable job policy before queue-backed work. |
+| storage-vfs | Idle after cache repair diagnostics, read-only VFS cache remediation planning, source fingerprint escalation, hash execution, scheduling diagnostics, durable job contract/summary, internal enqueue, queued planner, single-job executor command, scheduler integration, evidence persistence, Admin overview/Jobs diagnostics, Admin manual enqueue, and source-hash retry/requeue first slices. | Consider scan-originated source hash triggering policy, automatic Source Duplicate Relationship reconciliation, playback artifact/source-read pressure, watcher/scan scheduling, durable VFS cache remediation workers, or PostgreSQL runtime harness work. | Coordinate with playback input staging, library scan/probe lanes, and control-plane durable job policy before queue-backed work. |
 | web-product | Idle after Admin settings API restoration and previous Web Admin closeouts. | Consider backend/API contract follow-ons, generated SDK work, broader player UX, or desktop/native playback decisions. | Serialize with shared Admin DTO, generated contract, and auth/redaction changes. |
 | control-plane | Idle after the generic durable-job priority policy baseline. | Consider broader job-kind scheduler migration, diagnostics, remote access, API cache/scale, or durable-job operator surfaces once a Trellis task is opened. | Keep ADR 0053 as the baseline; avoid per-feature hidden runtimes. |
 
@@ -114,10 +114,12 @@ The `storage-vfs` lane is idle after
 `remote-storage-health-and-circuit-breaker` closeout and the source fingerprint
 escalation policy, hash execution, scheduling diagnostics, durable job
 contract/summary, internal enqueue, queued planner, single-job executor command,
-scheduler integration, and evidence persistence first slices. Open a Trellis
-task before starting cache repair, source fingerprint hash operator/Admin
-diagnostics, playback artifact I/O pressure, scan scheduling, or PostgreSQL
-runtime harness work.
+scheduler integration, evidence persistence, Admin overview/Jobs diagnostics,
+Admin manual enqueue, and source-hash retry/requeue first slices. Open a
+Trellis task before starting durable VFS cache repair workers,
+scan-originated source hash triggering, automatic Source Duplicate
+Relationship reconciliation, playback artifact I/O pressure, watcher/scan
+scheduling, or PostgreSQL runtime harness work.
 
 `audio-compatibility-downmix-normalization`,
 `transcode-interface-and-runtime-plan-deepening`, and
