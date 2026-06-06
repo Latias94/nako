@@ -1031,3 +1031,38 @@ Ran Product-Operator M1 PostgreSQL ladder evidence and the broader all-contracts
 ### Next Steps
 
 - None - task complete
+
+
+## Session 74: M1 workspace evidence run
+
+**Date**: 2026-06-06
+**Task**: M1 workspace evidence run
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Ran the Product-Operator M1 workspace ladder. The initial workspace nextest exposed playback/transcode timing instability under full-suite Windows load; stabilized bounded polling in HLS/remux tests, reran focused gates, and the final workspace ladder passed with 1433 tests passed and 51 skipped.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7769bc47` | (see git log) |
+| `5f85723d` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
