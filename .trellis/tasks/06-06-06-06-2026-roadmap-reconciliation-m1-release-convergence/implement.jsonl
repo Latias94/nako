@@ -1,0 +1,3 @@
+{"file": ".trellis/tasks/06-06-06-06-2026-roadmap-reconciliation-m1-release-convergence/research/current-roadmap-state.md", "reason": "Summarizes current roadmap, goal, lane, and MVP release evidence for the planning docs update."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Roadmap update crosses product milestones, architecture lanes, release gates, and Trellis task routing."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Roadmap follow-on names and lane patterns should reuse existing proposed capability names instead of inventing duplicates."}

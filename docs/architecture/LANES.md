@@ -18,21 +18,30 @@ instead.
 
 ## Active Queue
 
-No active implementation lane is selected as of 2026-06-02. The 01a-01f
-parallel Trellis queue has completed and merged; do not spawn new terminals
-from that completed queue.
+M1 release convergence is the selected planning focus as of 2026-06-06. The
+next implementation queue should optimize for Product-Operator M1: one
+self-hosted, video-first, single-admin/operator journey from library
+configuration through scan, catalog browse, playback, and Admin
+diagnostics/repair. The release ladder remains the quality gate for that
+journey.
+
+No implementation lane is currently assigned. Do not spawn lane terminals until
+a focused Trellis task is opened from the M1 queue below. The 01a-01f parallel
+Trellis queue has completed and merged; do not spawn new terminals from that
+completed queue.
 
 `00-bootstrap-guidelines` remains active as Trellis spec setup. Treat it as a
 documentation/bootstrap task, not as an implementation lane.
 
 | Area | Current state | Candidate next action | Coordination note |
 | --- | --- | --- | --- |
-| architecture-planning | Idle after 01a and 01 parent closeout. | Select the next architecture focus or continue `00-bootstrap-guidelines` spec coverage. | Open a focused Trellis task before starting implementation lanes. |
-| library-metadata-control-plane | Idle after accepted-review related hierarchy application, durable batch execution, Douban TV Series subject support, and negative Public Client governance guardrails landed. | Consider `provider-governance-mutation-undo`, `douban-season-episode-graph-depth`, or future intentional Public Client metadata API exposure as a separate API-design PRD. | Coordinate with `nako-api`, Admin Web, and schema changes before assigning parallel work. |
-| playback-transcode | Idle after HLS artifact I/O pressure enforcement. | Consider resource admission queueing, LL-HLS/CMAF, player UX, hardware tone-map execution, HEVC/AV1 output policy, subtitle burn-in, or hardware smoke evidence. | Coordinate with storage/VFS and web/native player work. |
-| storage-vfs | Idle after cache repair diagnostics, read-only VFS cache remediation planning, source fingerprint escalation, hash execution, scheduling diagnostics, durable job contract/summary, internal enqueue, queued planner, single-job executor command, scheduler integration, evidence persistence, Admin overview/Jobs diagnostics, Admin manual enqueue, and source-hash retry/requeue first slices. | Consider scan-originated source hash triggering policy, automatic Source Duplicate Relationship reconciliation, playback artifact/source-read pressure, watcher/scan scheduling, durable VFS cache remediation workers, or PostgreSQL runtime harness work. | Coordinate with playback input staging, library scan/probe lanes, and control-plane durable job policy before queue-backed work. |
-| web-product | Idle after Admin settings API restoration and previous Web Admin closeouts. | Consider backend/API contract follow-ons, generated SDK work, broader player UX, or desktop/native playback decisions. | Serialize with shared Admin DTO, generated contract, and auth/redaction changes. |
-| control-plane | Idle after the generic durable-job priority policy baseline. | Consider broader job-kind scheduler migration, diagnostics, remote access, API cache/scale, or durable-job operator surfaces once a Trellis task is opened. | Keep ADR 0053 as the baseline; avoid per-feature hidden runtimes. |
+| architecture-planning | Active for `06-06-2026-roadmap-reconciliation-m1-release-convergence`. | Finish roadmap/goal/lane reconciliation and then open the first focused M1 Trellis task. | Docs-only planning until the M1 queue is accepted. |
+| storage-vfs | Idle after source hash execution, evidence persistence, Admin diagnostics, manual enqueue, retry/requeue, and source duplicate apply first slices. | Candidate M1 tasks: `scan-originated-source-hash-triggering`; `source-duplicate-reconciliation-operator-flow`. | Coordinate with scan/probe commits, durable jobs, Admin diagnostics, and playback input staging. |
+| web-product | Idle after Admin settings API restoration and previous Web Admin closeouts. | Candidate M1 tasks: `m1-operator-journey-smoke`; `media-web-library-browse-and-player-smoke`; Admin/Web source duplicate reconciliation flow. | Serialize generated Admin/Public contracts, auth/redaction behavior, and player route-state changes. |
+| playback-transcode | Idle after HLS artifact I/O pressure enforcement. | Candidate M1 task: player-facing browse/play smoke and error recovery. Defer LL-HLS/CMAF, hardware tone-map execution, HEVC/AV1 policy, and subtitle burn-in unless they block M1 playback. | Coordinate with storage/VFS source reads and Web player UX. |
+| operations-release | Idle after MVP release-shape closeout and remote-access/config-gate slices. | Candidate M1 task: `m1-release-ladder-runner` after the operator journey scope is stable. | Keep package/container/config-check evidence aligned with the Product-Operator journey. |
+| control-plane | Idle after the generic durable-job priority policy baseline. | Support M1 source hash scheduling, diagnostics, repair visibility, and release ladder gates. Defer broad job-kind scheduler migration unless required by an M1 task. | Keep ADR 0053 as the baseline; avoid per-feature hidden runtimes. |
+| library-metadata-control-plane | Idle after accepted-review related hierarchy application, durable batch execution, Douban TV Series subject support, and negative Public Client governance guardrails landed. | Keep provider-governance mutation undo and Douban Season/Episode graph depth deferred unless the M1 operator journey exposes a blocking metadata gap. | Coordinate with `nako-api`, Admin Web, and schema changes before assigning parallel work. |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.
 `generated-artifact-bulk-metadata-apply` is closed after `GABMA-070`.

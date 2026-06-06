@@ -24,6 +24,63 @@ reuse earlier gaps such as M10-M12 or M17 for new work. New implementation
 goals should use the next number after the highest documented completed or
 proposed milestone.
 
+## Current Goal
+
+### 2026 Roadmap Reconciliation And M1 Release Convergence
+
+Status: in progress as of 2026-06-06.
+
+Objective:
+
+- Reconcile Nako's top-level roadmap, goal map, and architecture lane routing
+  around a product-release-oriented plan.
+- Select Product-Operator M1 as the next roadmap anchor: a self-hosted,
+  video-first, single-admin/operator journey where a real operator can
+  configure one Media Library, scan and index media, browse catalog entries,
+  play video, and diagnose or repair common failures from Admin surfaces.
+- Use the backend release ladder as the M1 quality gate rather than the product
+  definition.
+- Preserve historical workstream evidence while making the current plan easy to
+  find before historical closeout logs.
+
+Deliverables:
+
+- `.trellis/tasks/06-06-06-06-2026-roadmap-reconciliation-m1-release-convergence/`;
+- concise current-plan entry in `docs/ROADMAP.md`;
+- updated goal entry in `docs/GOALS.md`;
+- updated active queue and lane routing in `docs/architecture/LANES.md`;
+- 3-5 concrete M1 candidate Trellis tasks with owner lanes and outcomes.
+
+Non-goals:
+
+- no Rust, TypeScript, schema, API, generated contract, or runtime behavior
+  changes;
+- no release artifact publication;
+- no new workstream directories;
+- no Public Client API design;
+- no Addon Manager implementation;
+- no cleanup, restore, or commit of unrelated existing Trellis archive moves.
+
+Exit criteria:
+
+- `docs/ROADMAP.md` exposes the M0-M5 milestone ladder and M1 queue before
+  historical sections.
+- `docs/GOALS.md` records this planning goal with objective, deliverables,
+  non-goals, exit criteria, and evidence.
+- `docs/architecture/LANES.md` routes the next active planning focus to M1
+  release convergence and names the immediate candidate queue.
+- Proposed follow-on task names are concrete enough to become Trellis tasks.
+- Historical evidence links remain available and are not deleted.
+- Docs validation gates pass.
+
+Evidence:
+
+- `.trellis/tasks/06-06-06-06-2026-roadmap-reconciliation-m1-release-convergence/prd.md`
+- `.trellis/tasks/06-06-06-06-2026-roadmap-reconciliation-m1-release-convergence/research/current-roadmap-state.md`
+- `docs/workstreams/mvp-release-shape/CLOSEOUT.md`
+- `docs/architecture/LANES.md`
+- `docs/ROADMAP.md`
+
 ## Recent Completed Goals
 
 ### Provider Governance Durable Batch Execution

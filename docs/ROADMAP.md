@@ -9,11 +9,64 @@ Goal numbers are historical identifiers. Earlier gaps such as M10-M12 and M17
 are not reused; new work uses the next number after the highest documented
 milestone.
 
+## Current Product Roadmap
+
+Status: M1 release convergence is selected as the next roadmap anchor as of
+2026-06-06.
+
+M1 is **Product-Operator first**: the next coherent release target is a
+self-hosted, video-first, single-admin/operator journey where a real operator
+can configure one Media Library, scan and index media, browse catalog entries,
+play video, and diagnose or repair common failures from Admin surfaces. The
+existing backend release ladder remains the quality gate for that journey; it
+is not the product definition.
+
+Historical workstream and Trellis evidence remains authoritative for what has
+shipped. This section is the current reading path for deciding what to do next.
+
+### Milestone Ladder
+
+| Milestone | Product target | Success signal | Deferred breadth |
+| --- | --- | --- | --- |
+| M0: Roadmap hygiene | Roadmap, goals, and lane routing agree on the next release cut. | Agents can identify the current focus, owner lanes, and next task queue without scanning historical closeouts first. | Implementation work. |
+| M1: Video-first operator release | One self-hosted operator can configure a library, scan, browse, play, and recover from common failures. | A documented smoke ladder proves install/config, scan, catalog, playback, Admin diagnostics, redaction, packaging/container, and focused browser/API flows. | Addon Manager, Public Client metadata governance, broad mobile/TV clients, LL-HLS/CMAF, metadata undo. |
+| M2: Large-library reliability | Nako survives larger libraries, remote storage, retries, restarts, and long-running jobs predictably. | Watcher/incremental scan, source hash scheduling, VFS repair, job priority/retry, SQLite/PostgreSQL parity, and backup/recovery gates are bounded and observable. | New media-domain breadth beyond video-first reliability. |
+| M3: Playback/transcode maturity | Playback feels dependable across common browsers/devices and constrained hosts. | Device profiles, subtitle policy, HDR/tone-map execution, HEVC/AV1 policy, seek/resume recovery, and resource admission are typed and tested. | DRM, remote transcode workers, TV-native polish unless split into focused tasks. |
+| M4: Metadata governance maturity | Local, NFO, provider, and addon metadata can be reviewed, applied, audited, and repaired without losing local authority. | Candidate Review queues, provider mapping undo/audit, hierarchy confirmation/repair, NFO round trip, and provider depth are operator-governed and redaction-safe. | Public Client mutation APIs unless separately designed. |
+| M5: Addon ecosystem maturity | Addons are discoverable, installable by guide, health-checked, and safely mediated as out-of-process capabilities. | Official catalog, token rotation, health checks, hosted settings, resource search selection, Nako-managed artifact materialization, addon tasks, and event subscriptions are bounded by grants. | In-process plugin ABI and Nako-owned addon process supervision. |
+
+### M1 Release Convergence Queue
+
+Open focused Trellis tasks from this queue. Do not reopen closed workstreams.
+
+| Order | Candidate task | Owner lane | Outcome |
+| --- | --- | --- | --- |
+| 1 | `m1-operator-journey-smoke` | web-product + operations-release | Prove the end-to-end operator journey from config to scan, browse, playback, and diagnostics using existing APIs where possible. |
+| 2 | `scan-originated-source-hash-triggering` | storage-vfs + control-plane | Decide and implement the first policy-backed source hash trigger after successful scan source commit, with durable job visibility and redacted diagnostics. |
+| 3 | `source-duplicate-reconciliation-operator-flow` | storage-vfs + web-product | Turn existing plan/apply source duplicate reconciliation into an operator-visible Admin/Web flow without automatic merges. |
+| 4 | `media-web-library-browse-and-player-smoke` | web-product + playback-transcode | Harden the Media Web browse/play path and player error recovery around the M1 release journey. |
+| 5 | `m1-release-ladder-runner` | operations-release + control-plane | Package the existing release validation ladder into a documented or scripted runner once the operator journey scope is stable. |
+
+### M1 Quality Gate
+
+M1 should inherit the validated release-shape ladder and adapt it to the
+operator journey:
+
+- install/config readiness;
+- library scan and source identity evidence;
+- metadata/catalog browse readiness;
+- Direct Play, Remux, or HLS playback readiness;
+- Admin diagnostics and repair action coverage;
+- redaction and auth/access checks;
+- package/container/config-check evidence;
+- focused Web/API smoke coverage.
+
 ## Current Architecture Focus
 
-Status: no active architecture focus is selected after
-`06-05-provider-hierarchy-application-admin`. Provider Governance Durable Batch
-Execution remains the latest completed long-lived focus.
+Status: M1 release convergence is the selected planning focus after
+`06-06-2026-roadmap-reconciliation-m1-release-convergence`. Provider
+Governance Durable Batch Execution remains the latest completed long-lived
+metadata-control-plane focus.
 
 The now-closed workstream is
 `docs/workstreams/provider-governance-durable-batch-execution/`. It follows
