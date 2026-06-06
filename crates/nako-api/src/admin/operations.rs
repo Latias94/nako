@@ -4,9 +4,10 @@ use nako_core::{
     IngestionFailureRecord, IngestionFailureStatus, Job, JobCancellationRequestRecord, JobId,
     JobKind, JobPriority, JobStatus, LibraryId, MediaSourceId, OutboxEventRecord,
     OutboxEventStatus, ScanSnapshotId, SourceDuplicateEvidenceKind,
-    SourceDuplicateReconciliationAction, SourceDuplicateReconciliationCandidate,
-    SourceDuplicateReconciliationPlan, SourceDuplicateRelationshipId,
-    SourceDuplicateRelationshipStatus, SourceFingerprintEvidenceKind,
+    SourceDuplicateReconciliationAction, SourceDuplicateReconciliationApplyResult,
+    SourceDuplicateReconciliationCandidate, SourceDuplicateReconciliationPlan,
+    SourceDuplicateRelationshipId, SourceDuplicateRelationshipStatus,
+    SourceFingerprintEvidenceKind,
 };
 use serde::{Deserialize, Serialize};
 
@@ -146,6 +147,58 @@ pub struct AdminSourceFingerprintHashEnqueueRequest {
 pub struct AdminSourceFingerprintHashRetryRequest {
     pub max_attempts: Option<u32>,
     pub next_attempt_at: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminSourceDuplicateReconciliationApplyExpectedAction {
+    SuggestRelationship,
+}
+
+impl From<AdminSourceDuplicateReconciliationApplyExpectedAction>
+    for SourceDuplicateReconciliationAction
+{
+    fn from(action: AdminSourceDuplicateReconciliationApplyExpectedAction) -> Self {
+        match action {
+            AdminSourceDuplicateReconciliationApplyExpectedAction::SuggestRelationship => {
+                Self::SuggestRelationship
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminSourceDuplicateReconciliationApplyRequest {
+    pub duplicate_source_id: MediaSourceId,
+    pub expected_action: AdminSourceDuplicateReconciliationApplyExpectedAction,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminSourceDuplicateReconciliationApplyResponse {
+    pub admin_api_version: String,
+    pub library_id: LibraryId,
+    pub source_id: MediaSourceId,
+    pub duplicate_source_id: MediaSourceId,
+    pub relationship_id: SourceDuplicateRelationshipId,
+    pub relationship_status: SourceDuplicateRelationshipStatus,
+    pub applied_action: SourceDuplicateReconciliationAction,
+    pub created: bool,
+}
+
+impl AdminSourceDuplicateReconciliationApplyResponse {
+    #[must_use]
+    pub fn from_result(result: SourceDuplicateReconciliationApplyResult) -> Self {
+        Self {
+            admin_api_version: super::ADMIN_API_VERSION.to_owned(),
+            library_id: result.library_id,
+            source_id: result.source_id,
+            duplicate_source_id: result.duplicate_source_id,
+            relationship_id: result.relationship_id,
+            relationship_status: result.relationship_status,
+            applied_action: result.applied_action,
+            created: result.created,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -571,6 +624,48 @@ mod tests {
         assert!(!body.contains("token"));
         assert!(!body.contains("sha256"));
         assert!(!body.contains("fingerprint\":\""));
+        assert!(!body.contains("evidence_value"));
+        assert!(!body.contains("input_json"));
+    }
+
+    #[test]
+    fn admin_source_duplicate_reconciliation_apply_serializes_safe_fields() {
+        let source_id = MediaSourceId::new();
+        let duplicate_source_id = MediaSourceId::new();
+        let request = AdminSourceDuplicateReconciliationApplyRequest {
+            duplicate_source_id,
+            expected_action:
+                AdminSourceDuplicateReconciliationApplyExpectedAction::SuggestRelationship,
+        };
+        let response = AdminSourceDuplicateReconciliationApplyResponse::from_result(
+            SourceDuplicateReconciliationApplyResult {
+                library_id: LibraryId::new(),
+                source_id,
+                duplicate_source_id,
+                relationship_id: SourceDuplicateRelationshipId::new(),
+                relationship_status: SourceDuplicateRelationshipStatus::Suggested,
+                applied_action: SourceDuplicateReconciliationAction::SuggestRelationship,
+                created: true,
+            },
+        );
+
+        let request_value = serde_json::to_value(&request).unwrap();
+        let response_value = serde_json::to_value(&response).unwrap();
+        let body = format!("{}{}", request_value, response_value);
+
+        assert_eq!(request_value["expected_action"], "suggest_relationship");
+        assert_eq!(response_value["admin_api_version"], "v1");
+        assert_eq!(response_value["relationship_status"], "suggested");
+        assert_eq!(response_value["applied_action"], "suggest_relationship");
+        assert_eq!(response_value["created"], true);
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("source_locator"));
+        assert!(!body.contains("local:///"));
+        assert!(!body.contains("path"));
+        assert!(!body.contains("etag"));
+        assert!(!body.contains("token"));
+        assert!(!body.contains("sha256"));
+        assert!(!body.contains("fingerprint"));
         assert!(!body.contains("evidence_value"));
         assert!(!body.contains("input_json"));
     }

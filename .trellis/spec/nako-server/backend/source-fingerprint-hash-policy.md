@@ -11,7 +11,8 @@ relationship reconciliation from hash evidence.
 - Trigger: adding Admin/API source fingerprint hash enqueue, retry/requeue,
   scan-originated hash scheduling, source hash evidence detail diagnostics, or
   duplicate relationship reconciliation from persisted source hash evidence,
-  including read-only Admin reconciliation plan routes.
+  including read-only Admin reconciliation plan routes and explicit Admin
+  reconciliation apply routes.
 - Scope: `nako-server` owns app-service orchestration and Admin/HTTP mapping;
   `nako-library::source_hash` owns hash request/input/summary and execution
   contracts; `nako-library::ingestion` owns source observation advisory
@@ -48,6 +49,17 @@ relationship reconciliation from hash evidence.
   `GET /admin/v1/libraries/{library_id}/sources/{source_id}/duplicate-reconciliation-plan`
   with `limit` / `offset` pagination, returning
   `AdminSourceDuplicateReconciliationPlanResponse`.
+- Internal duplicate reconciliation apply:
+  `SourceDuplicateReconciliationAppService::apply_source_duplicate_reconciliation(
+  SourceDuplicateReconciliationApplyRequest { library_id, source_id,
+  duplicate_source_id, expected_action }
+  ) -> Result<SourceDuplicateReconciliationApplyResult>`.
+- Admin duplicate reconciliation apply:
+  `POST /admin/v1/libraries/{library_id}/sources/{source_id}/duplicate-reconciliation-apply`
+  with `AdminSourceDuplicateReconciliationApplyRequest {
+  duplicate_source_id, expected_action }`, where `expected_action` is limited
+  to `suggest_relationship`, returning
+  `AdminSourceDuplicateReconciliationApplyResponse`.
 - Durable input:
   `SourceFingerprintHashJobInput { library_id, source_id, source_scheme, mode }`.
 - Admin job list:
@@ -68,6 +80,11 @@ relationship reconciliation from hash evidence.
 - Generated Admin contract key:
   `sourceFingerprintHashJobRetry` maps to
   `/admin/v1/source-fingerprint-hashes/jobs/{job_id}/retry`.
+- Generated Admin contract keys:
+  `sourceDuplicateReconciliationPlan` maps to
+  `/admin/v1/libraries/{library_id}/sources/{source_id}/duplicate-reconciliation-plan`;
+  `sourceDuplicateReconciliationApply` maps to
+  `/admin/v1/libraries/{library_id}/sources/{source_id}/duplicate-reconciliation-apply`.
 
 ### 3. Contracts
 
@@ -151,9 +168,27 @@ relationship reconciliation from hash evidence.
   bounded pagination, delegate to `SourceDuplicateReconciliationAppService`,
   and map through explicit `nako_api::admin` DTO conversion. It must not read
   repositories directly or mutate duplicate relationships.
-- Reconciliation apply may create or update Suggested relationships. It must
-  not auto-confirm duplicates, merge sources, change Playback Source Selection,
-  or mutate Library Access.
+- The Admin reconciliation apply HTTP handler must remain thin: parse path IDs
+  and the Admin request body, delegate to
+  `SourceDuplicateReconciliationAppService::apply_source_duplicate_reconciliation`,
+  and map through explicit `nako_api::admin` DTO conversion. It must not inspect
+  repositories directly or decide candidate freshness in HTTP.
+- Explicit reconciliation apply may create a new
+  `SourceDuplicateRelationshipStatus::Suggested` relationship only when the
+  current fresh plan action for the exact source pair is
+  `suggest_relationship`. Replaying the same apply may return the existing
+  Suggested relationship with `created: false`; it must not create a second row
+  or overwrite the existing pair.
+- Explicit reconciliation apply must not overwrite existing Suggested,
+  Confirmed, or Rejected relationships, auto-confirm duplicates, merge sources,
+  change Playback Source Selection, or mutate Library Access. Existing
+  Confirmed and Rejected pairs remain preserved until a separate reopen/undo
+  workflow is specified.
+- Admin reconciliation apply responses may expose Admin API version, library id,
+  source id, duplicate source id, relationship id/status, applied action, and
+  `created`. They must not expose raw Source Locators, local paths, etags,
+  backend URLs, credentials, raw hashes, raw fingerprints, evidence values,
+  source fingerprint material, or job input JSON.
 
 ### 4. Validation & Error Matrix
 
@@ -201,6 +236,20 @@ relationship reconciliation from hash evidence.
 | Reconciliation sees partial/backend fingerprint match | Plan a weaker Suggested relationship and label the evidence kind/confidence. |
 | Existing relationship is Suggested or Confirmed | Preserve existing status in the read-only plan. |
 | Existing relationship is Rejected | Preserve Rejected unless an explicit reopen/apply request is provided. |
+| Admin apply request uses an `expected_action` other than `suggest_relationship` | Return invalid input and do not write a relationship. |
+| Admin apply target and duplicate source are the same Media Source | Return invalid input and do not write a relationship. |
+| Admin apply target source is missing | Return not found without locator/path details. |
+| Admin apply candidate source is missing | Return not found without locator/path details. |
+| Admin apply target source belongs to another library | Return invalid input without locator/path details. |
+| Admin apply candidate source belongs to another library | Return invalid input without locator/path details. |
+| Admin apply target or candidate has no fingerprint | Return invalid input without locator/path details. |
+| Admin apply target or candidate has a raw or unsupported fingerprint string | Return invalid input without echoing the fingerprint. |
+| Admin apply target and candidate fingerprints do not match | Return invalid input without echoing either fingerprint. |
+| Admin apply target or candidate evidence is stale | Return conflict recommending `refresh_source_fingerprint`; do not write a relationship. |
+| Admin apply current pair already has Suggested status | Return the existing relationship with `created: false`; do not insert or update a row. |
+| Admin apply current pair already has Confirmed status | Return conflict preserving `preserve_confirmed`; do not update the row. |
+| Admin apply current pair already has Rejected status | Return conflict preserving `preserve_rejected`; do not update the row. |
+| Admin apply caller is non-admin | Return forbidden through the existing Admin route guard. |
 | PostgreSQL lacks pair-level uniqueness for relationships | Do not enable automatic reconciliation writers. |
 
 ### 5. Good / Base / Bad Cases
@@ -232,6 +281,13 @@ relationship reconciliation from hash evidence.
 - Good: the Admin reconciliation route exposes the same read-only plan with
   `AdminSourceDuplicateReconciliationPlanResponse`, generated Admin contract
   route key, and no raw fingerprint/locator material.
+- Good: the Admin reconciliation apply route explicitly applies one fresh
+  `suggest_relationship` candidate and returns a redaction-safe
+  `AdminSourceDuplicateReconciliationApplyResponse` with `created: true`.
+- Good: replaying the same Admin apply returns the existing Suggested
+  relationship with `created: false` and does not insert another row.
+- Good: applying against stale evidence or an existing Confirmed/Rejected
+  relationship returns a safe conflict and preserves stored relationship state.
 - Base: scan commit records a partial/full hash advisory decision but leaves
   scheduling disabled.
 - Bad: `persist_source_fingerprint_hash_evidence` also calls
@@ -239,6 +295,10 @@ relationship reconciliation from hash evidence.
 - Bad: source commit planning starts a VFS full hash read during scan commit.
 - Bad: Admin DTOs expose job input JSON, Source Locators, raw fingerprints, or
   raw hash material.
+- Bad: the Admin apply handler queries repositories directly or duplicates
+  fingerprint freshness/action policy instead of delegating to the app service.
+- Bad: explicit apply relies on repository upsert to overwrite an existing
+  Confirmed or Rejected relationship.
 - Bad: the Admin retry handler calls generic durable retry directly and skips
   source-hash kind/resource/input/binding/source-scheme validation.
 - Bad: retry resets the failed job in place instead of creating a new queued
@@ -286,6 +346,17 @@ relationship reconciliation from hash evidence.
 - Admin route tests proving success, admin guard, safe missing/cross-library/
   missing-fingerprint/raw-fingerprint errors, candidate-oriented pagination,
   read-only relationship state, and response redaction.
+- Reconciliation apply app-service tests proving fresh apply creates one
+  Suggested relationship with canonical source pair ordering, replay preserves
+  the existing Suggested row with `created: false`, existing Confirmed and
+  Rejected relationships are not overwritten, stale evidence recommends refresh
+  without writing, mismatched fingerprints are rejected, and all errors/results
+  remain redaction-safe.
+- Admin apply route tests proving success, replay idempotency, Admin guard,
+  generated route key coverage, safe missing/cross-library/missing-fingerprint/
+  raw-fingerprint/mismatched-fingerprint/stale errors, existing
+  Suggested/Confirmed/Rejected preservation, no duplicate row creation, and
+  response redaction.
 - Gate for Admin trigger:
   `cargo check -p nako-api -p nako-server --tests` plus focused
   `cargo nextest run -p nako-server source_fingerprint_hash --no-fail-fast`
@@ -299,7 +370,7 @@ relationship reconciliation from hash evidence.
   `cargo fmt --all -- --check`, `git diff --check`, and Trellis task
   validation.
 - Gate for Admin reconciliation route:
-  `cargo nextest run -p nako-server admin_v1_source_duplicate_reconciliation_plan --no-fail-fast`,
+  `cargo nextest run -p nako-server admin_v1_source_duplicate_reconciliation --no-fail-fast`,
   `cargo nextest run -p nako-server implemented_admin_routes_are_generated_or_explicitly_excluded --no-fail-fast`,
   and `cargo nextest run -p nako-api admin_contract --no-fail-fast`.
 

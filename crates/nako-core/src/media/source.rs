@@ -414,6 +414,17 @@ pub struct SourceDuplicateReconciliationPlan {
     pub candidates: Vec<SourceDuplicateReconciliationCandidate>,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SourceDuplicateReconciliationApplyResult {
+    pub library_id: LibraryId,
+    pub source_id: MediaSourceId,
+    pub duplicate_source_id: MediaSourceId,
+    pub relationship_id: SourceDuplicateRelationshipId,
+    pub relationship_status: SourceDuplicateRelationshipStatus,
+    pub applied_action: SourceDuplicateReconciliationAction,
+    pub created: bool,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LocalInferenceEvidenceSource {

@@ -66,6 +66,7 @@ export const NAKO_ADMIN_ROUTES = {
   sourceFingerprintHashes: "/admin/v1/source-fingerprint-hashes",
   sourceFingerprintHashJobRetry: "/admin/v1/source-fingerprint-hashes/jobs/{job_id}/retry",
   sourceDuplicateReconciliationPlan: "/admin/v1/libraries/{library_id}/sources/{source_id}/duplicate-reconciliation-plan",
+  sourceDuplicateReconciliationApply: "/admin/v1/libraries/{library_id}/sources/{source_id}/duplicate-reconciliation-apply",
   libraryMetadataProfile: "/admin/v1/libraries/{library_id}/metadata-profile",
   libraryScan: "/admin/v1/libraries/{library_id}/scan",
   libraryNfoImport: "/admin/v1/libraries/{library_id}/nfo/import",
@@ -165,6 +166,13 @@ export interface AdminSourceFingerprintHashRetryRequest {
 
 export interface AdminSourceDuplicateReconciliationPlanQuery extends AdminPageQuery {}
 
+export type AdminSourceDuplicateReconciliationApplyExpectedAction = "suggest_relationship";
+
+export interface AdminSourceDuplicateReconciliationApplyRequest {
+  duplicate_source_id: string;
+  expected_action: AdminSourceDuplicateReconciliationApplyExpectedAction;
+}
+
 export type AdminSourceFingerprintEvidenceKind =
   | "content_hash"
   | "backend_fingerprint"
@@ -212,6 +220,17 @@ export interface AdminSourceDuplicateReconciliationPlanResponse {
   stale: boolean;
   candidates: AdminSourceDuplicateReconciliationCandidate[];
   page: PageInfo;
+}
+
+export interface AdminSourceDuplicateReconciliationApplyResponse {
+  admin_api_version: string;
+  library_id: string;
+  source_id: string;
+  duplicate_source_id: string;
+  relationship_id: string;
+  relationship_status: AdminSourceDuplicateRelationshipStatus;
+  applied_action: AdminSourceDuplicateReconciliationAction;
+  created: boolean;
 }
 
 export interface AdminPlaybackSessionsQuery extends AdminPageQuery {

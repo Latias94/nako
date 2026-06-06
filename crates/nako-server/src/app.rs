@@ -109,7 +109,8 @@ pub(crate) use renderer_transport_ticket::{
 };
 pub(crate) use runtime::{RuntimeResourceClassDiagnostics, RuntimeSupervisorDiagnostics};
 pub(crate) use source_duplicate::{
-    SourceDuplicateReconciliationAppService, SourceDuplicateReconciliationPlanRequest,
+    SourceDuplicateReconciliationAppService, SourceDuplicateReconciliationApplyRequest,
+    SourceDuplicateReconciliationPlanRequest,
 };
 pub(crate) use source_hash::{
     EnqueueSourceFingerprintHashRequest, RetrySourceFingerprintHashRequest,

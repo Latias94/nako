@@ -1,6 +1,6 @@
 use super::*;
 use nako_core::{
-    ScanRepository, ScanSnapshotId, ScanStatus, SourceDuplicateEvidenceKind,
+    NakoError, ScanRepository, ScanSnapshotId, ScanStatus, SourceDuplicateEvidenceKind,
     SourceDuplicateReconciliationAction, SourceDuplicateRelationship,
     SourceDuplicateRelationshipId, SourceDuplicateRelationshipStatus, SourceDuplicateRepository,
     SourceFingerprintEvidenceKind, SourceState,
@@ -179,6 +179,267 @@ async fn source_duplicate_reconciliation_plans_read_only_redacted_actions() {
 }
 
 #[tokio::test]
+async fn source_duplicate_reconciliation_apply_creates_suggested_and_replays_idempotently() {
+    let library_id = LibraryId::new();
+    let other_library_id = LibraryId::new();
+    let (_temp, app, store) = source_duplicate_app(library_id, other_library_id).await;
+    let target = seed_source(
+        &store,
+        library_id,
+        "Target",
+        "local:///Users/Frankorz/Secret Target.mkv?token=secret",
+        Some(CONTENT_FINGERPRINT.to_owned()),
+    )
+    .await;
+    let duplicate = seed_source(
+        &store,
+        library_id,
+        "Duplicate",
+        "local:///Users/Frankorz/Duplicate.mkv",
+        Some(CONTENT_FINGERPRINT.to_owned()),
+    )
+    .await;
+
+    let applied = app
+        .source_duplicate_reconciliation()
+        .apply_source_duplicate_reconciliation(SourceDuplicateReconciliationApplyRequest {
+            library_id,
+            source_id: target.id,
+            duplicate_source_id: duplicate.id,
+            expected_action: SourceDuplicateReconciliationAction::SuggestRelationship,
+        })
+        .await
+        .unwrap();
+    let relationship = store
+        .get_source_duplicate_relationship_by_pair(target.id, duplicate.id)
+        .await
+        .unwrap()
+        .expect("relationship should be persisted");
+
+    assert!(applied.created);
+    assert_eq!(applied.library_id, library_id);
+    assert_eq!(applied.source_id, target.id);
+    assert_eq!(applied.duplicate_source_id, duplicate.id);
+    assert_eq!(applied.relationship_id, relationship.id);
+    assert_eq!(
+        applied.relationship_status,
+        SourceDuplicateRelationshipStatus::Suggested
+    );
+    assert_eq!(
+        applied.applied_action,
+        SourceDuplicateReconciliationAction::SuggestRelationship
+    );
+    assert_eq!(
+        relationship.status,
+        SourceDuplicateRelationshipStatus::Suggested
+    );
+    assert_eq!(
+        (relationship.source_id, relationship.duplicate_source_id),
+        SourceDuplicateRelationship::canonical_pair(target.id, duplicate.id)
+    );
+    assert_eq!(
+        relationship.evidence_kind,
+        SourceDuplicateEvidenceKind::StrongFingerprint
+    );
+    assert_eq!(relationship.evidence_value, None);
+    assert_eq!(relationship.confidence_milli, Some(1_000));
+
+    let replayed = app
+        .source_duplicate_reconciliation()
+        .apply_source_duplicate_reconciliation(SourceDuplicateReconciliationApplyRequest {
+            library_id,
+            source_id: target.id,
+            duplicate_source_id: duplicate.id,
+            expected_action: SourceDuplicateReconciliationAction::SuggestRelationship,
+        })
+        .await
+        .unwrap();
+    let relationships = store
+        .list_source_duplicate_relationships(target.id, PageRequest::new(20, 0))
+        .await
+        .unwrap();
+    let applied_json = serde_json::to_string(&applied).unwrap();
+    let replayed_json = serde_json::to_string(&replayed).unwrap();
+
+    assert!(!replayed.created);
+    assert_eq!(replayed.relationship_id, relationship.id);
+    assert_eq!(
+        replayed.relationship_status,
+        SourceDuplicateRelationshipStatus::Suggested
+    );
+    assert_eq!(
+        replayed.applied_action,
+        SourceDuplicateReconciliationAction::PreserveSuggested
+    );
+    assert_eq!(relationships.len(), 1);
+    assert_source_duplicate_apply_body_redacted(&applied_json);
+    assert_source_duplicate_apply_body_redacted(&replayed_json);
+}
+
+#[tokio::test]
+async fn source_duplicate_reconciliation_apply_rejects_non_suggest_without_writing() {
+    let library_id = LibraryId::new();
+    let other_library_id = LibraryId::new();
+    let (_temp, app, store) = source_duplicate_app(library_id, other_library_id).await;
+    let target = seed_source(
+        &store,
+        library_id,
+        "Target",
+        "local:///Users/Frankorz/Secret Target.mkv?token=secret",
+        Some(CONTENT_FINGERPRINT.to_owned()),
+    )
+    .await;
+    let confirmed = seed_source(
+        &store,
+        library_id,
+        "Confirmed",
+        "local:///Users/Frankorz/Confirmed.mkv",
+        Some(CONTENT_FINGERPRINT.to_owned()),
+    )
+    .await;
+    let rejected = seed_source(
+        &store,
+        library_id,
+        "Rejected",
+        "local:///Users/Frankorz/Rejected.mkv",
+        Some(CONTENT_FINGERPRINT.to_owned()),
+    )
+    .await;
+    let stale = seed_source(
+        &store,
+        library_id,
+        "Stale",
+        "local:///Users/Frankorz/Stale.mkv",
+        Some(CONTENT_FINGERPRINT.to_owned()),
+    )
+    .await;
+    let mismatch = seed_source(
+        &store,
+        library_id,
+        "Mismatch",
+        "local:///Users/Frankorz/Mismatch.mkv",
+        Some(
+            "source:v1:content_hash:sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                .to_owned(),
+        ),
+    )
+    .await;
+    let missing_fingerprint = seed_source(
+        &store,
+        library_id,
+        "Missing Fingerprint",
+        "local:///Users/Frankorz/Missing.mkv?token=secret",
+        None,
+    )
+    .await;
+    let other_library = seed_source(
+        &store,
+        other_library_id,
+        "Other Library",
+        "local:///Users/Frankorz/Other Library.mkv",
+        Some(CONTENT_FINGERPRINT.to_owned()),
+    )
+    .await;
+
+    seed_relationship(
+        &store,
+        target.id,
+        confirmed.id,
+        SourceDuplicateRelationshipStatus::Confirmed,
+    )
+    .await;
+    seed_relationship(
+        &store,
+        target.id,
+        rejected.id,
+        SourceDuplicateRelationshipStatus::Rejected,
+    )
+    .await;
+    seed_stale_source_state(&store, library_id, &stale).await;
+    let before = store
+        .list_source_duplicate_relationships(target.id, PageRequest::new(20, 0))
+        .await
+        .unwrap();
+
+    let confirmed_error = apply_duplicate(&app, library_id, target.id, confirmed.id)
+        .await
+        .unwrap_err();
+    let rejected_error = apply_duplicate(&app, library_id, target.id, rejected.id)
+        .await
+        .unwrap_err();
+    let stale_error = apply_duplicate(&app, library_id, target.id, stale.id)
+        .await
+        .unwrap_err();
+    let mismatch_error = apply_duplicate(&app, library_id, target.id, mismatch.id)
+        .await
+        .unwrap_err();
+    let missing_fingerprint_error =
+        apply_duplicate(&app, library_id, target.id, missing_fingerprint.id)
+            .await
+            .unwrap_err();
+    let cross_library_error = apply_duplicate(&app, library_id, target.id, other_library.id)
+        .await
+        .unwrap_err();
+    let wrong_expected_action_error = app
+        .source_duplicate_reconciliation()
+        .apply_source_duplicate_reconciliation(SourceDuplicateReconciliationApplyRequest {
+            library_id,
+            source_id: target.id,
+            duplicate_source_id: stale.id,
+            expected_action: SourceDuplicateReconciliationAction::PreserveSuggested,
+        })
+        .await
+        .unwrap_err();
+    let self_pair_error = apply_duplicate(&app, library_id, target.id, target.id)
+        .await
+        .unwrap_err();
+    let after = store
+        .list_source_duplicate_relationships(target.id, PageRequest::new(20, 0))
+        .await
+        .unwrap();
+
+    assert_eq!(before, after);
+    assert_eq!(before.len(), 2);
+    assert_conflict_recommendation(&confirmed_error, "preserve_confirmed");
+    assert_conflict_recommendation(&rejected_error, "preserve_rejected");
+    assert_conflict_recommendation(&stale_error, "refresh_source_fingerprint");
+    assert_eq!(
+        mismatch_error.to_string(),
+        "invalid input: source duplicate reconciliation candidate fingerprint does not match source fingerprint evidence"
+    );
+    assert_eq!(
+        missing_fingerprint_error.to_string(),
+        "invalid input: source duplicate reconciliation requires source fingerprint evidence"
+    );
+    assert_eq!(
+        cross_library_error.to_string(),
+        "invalid input: source duplicate reconciliation candidate does not belong to requested library"
+    );
+    assert_eq!(
+        wrong_expected_action_error.to_string(),
+        "invalid input: source duplicate reconciliation apply supports only suggest_relationship"
+    );
+    assert_eq!(
+        self_pair_error.to_string(),
+        "invalid input: source duplicate reconciliation candidate must differ from source"
+    );
+
+    for error in [
+        confirmed_error,
+        rejected_error,
+        stale_error,
+        mismatch_error,
+        missing_fingerprint_error,
+        cross_library_error,
+        wrong_expected_action_error,
+        self_pair_error,
+    ] {
+        let message = error.to_string();
+        assert_source_duplicate_apply_body_redacted(&message);
+    }
+}
+
+#[tokio::test]
 async fn source_duplicate_reconciliation_paginates_candidates_after_excluding_target() {
     let library_id = LibraryId::new();
     let other_library_id = LibraryId::new();
@@ -308,6 +569,35 @@ async fn source_duplicate_reconciliation_rejects_unsafe_inputs_without_leak() {
     assert!(!cross_library_error.contains("token"));
 }
 
+async fn apply_duplicate(
+    app: &NakoApp,
+    library_id: LibraryId,
+    source_id: MediaSourceId,
+    duplicate_source_id: MediaSourceId,
+) -> std::result::Result<nako_core::SourceDuplicateReconciliationApplyResult, NakoError> {
+    app.source_duplicate_reconciliation()
+        .apply_source_duplicate_reconciliation(SourceDuplicateReconciliationApplyRequest {
+            library_id,
+            source_id,
+            duplicate_source_id,
+            expected_action: SourceDuplicateReconciliationAction::SuggestRelationship,
+        })
+        .await
+}
+
+fn assert_conflict_recommendation(error: &NakoError, expected_recommendation: &str) {
+    let NakoError::Conflict { message } = error else {
+        panic!("expected conflict error, got {error:?}");
+    };
+
+    assert_eq!(
+        message,
+        &format!(
+            "source duplicate reconciliation apply expected suggest_relationship but current recommendation is {expected_recommendation}"
+        )
+    );
+}
+
 fn assert_candidate(
     plan: &nako_core::SourceDuplicateReconciliationPlan,
     duplicate_source_id: MediaSourceId,
@@ -335,6 +625,31 @@ fn assert_candidate(
         assert!(candidate.relationship_id.is_some());
     } else {
         assert_eq!(candidate.relationship_id, None);
+    }
+}
+
+fn assert_source_duplicate_apply_body_redacted(body: &str) {
+    for forbidden in [
+        CONTENT_FINGERPRINT,
+        "ffffffffffffffff",
+        "local:///",
+        "Frankorz",
+        "Secret Target",
+        "Secret Path",
+        "private-etag",
+        "token",
+        "source_uri",
+        "source_locator",
+        "input_json",
+        "summary_json",
+        "evidence_value",
+        "sha256:",
+        "fingerprint\":\"",
+    ] {
+        assert!(
+            !body.contains(forbidden),
+            "source duplicate apply surface leaked forbidden term: {forbidden}"
+        );
     }
 }
 

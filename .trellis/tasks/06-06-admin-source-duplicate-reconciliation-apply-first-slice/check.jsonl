@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify API/server/repository behavior stays aligned."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Check Admin route inventory, generated contract, redaction, and Public Client exclusion gates."}
+{"file": ".trellis/spec/nako-server/backend/source-fingerprint-hash-policy.md", "reason": "Check source duplicate reconciliation apply boundary and forbidden automatic mutation paths."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Check focused server tests and Rust gates."}
+{"file": ".trellis/tasks/archive/2026-06/06-06-source-duplicate-reconciliation-plan-first-slice/evidence.md", "reason": "Verify apply builds on the read-only plan without regressing redaction or read-only tests."}
+{"file": ".trellis/tasks/archive/2026-06/06-06-admin-source-duplicate-reconciliation-plan-api/evidence.md", "reason": "Verify Admin plan API redaction and route inventory remain consistent."}

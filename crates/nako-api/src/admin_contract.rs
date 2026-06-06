@@ -18,7 +18,7 @@ struct AdminRouteExclusionSuffix {
     reason: &'static str,
 }
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 83] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 84] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -191,6 +191,10 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 83] = [
     (
         "sourceDuplicateReconciliationPlan",
         "libraries/{library_id}/sources/{source_id}/duplicate-reconciliation-plan",
+    ),
+    (
+        "sourceDuplicateReconciliationApply",
+        "libraries/{library_id}/sources/{source_id}/duplicate-reconciliation-apply",
     ),
     (
         "libraryMetadataProfile",
@@ -497,6 +501,13 @@ export interface AdminSourceFingerprintHashRetryRequest {
 
 export interface AdminSourceDuplicateReconciliationPlanQuery extends AdminPageQuery {}
 
+export type AdminSourceDuplicateReconciliationApplyExpectedAction = "suggest_relationship";
+
+export interface AdminSourceDuplicateReconciliationApplyRequest {
+  duplicate_source_id: string;
+  expected_action: AdminSourceDuplicateReconciliationApplyExpectedAction;
+}
+
 export type AdminSourceFingerprintEvidenceKind =
   | "content_hash"
   | "backend_fingerprint"
@@ -544,6 +555,17 @@ export interface AdminSourceDuplicateReconciliationPlanResponse {
   stale: boolean;
   candidates: AdminSourceDuplicateReconciliationCandidate[];
   page: PageInfo;
+}
+
+export interface AdminSourceDuplicateReconciliationApplyResponse {
+  admin_api_version: string;
+  library_id: string;
+  source_id: string;
+  duplicate_source_id: string;
+  relationship_id: string;
+  relationship_status: AdminSourceDuplicateRelationshipStatus;
+  applied_action: AdminSourceDuplicateReconciliationAction;
+  created: boolean;
 }
 
 export interface AdminPlaybackSessionsQuery extends AdminPageQuery {
@@ -4016,12 +4038,15 @@ mod tests {
             "AdminSourceFingerprintHashEnqueueRequest",
             "AdminSourceFingerprintHashRetryRequest",
             "AdminSourceDuplicateReconciliationPlanQuery",
+            "AdminSourceDuplicateReconciliationApplyExpectedAction",
+            "AdminSourceDuplicateReconciliationApplyRequest",
             "AdminSourceFingerprintEvidenceKind",
             "AdminSourceDuplicateEvidenceKind",
             "AdminSourceDuplicateRelationshipStatus",
             "AdminSourceDuplicateReconciliationAction",
             "AdminSourceDuplicateReconciliationCandidate",
             "AdminSourceDuplicateReconciliationPlanResponse",
+            "AdminSourceDuplicateReconciliationApplyResponse",
             "AdminPlaybackSessionsQuery",
             "AdminPlaybackSupportQuery",
             "AdminAddonsQuery",

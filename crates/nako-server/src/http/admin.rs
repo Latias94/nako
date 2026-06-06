@@ -77,15 +77,17 @@ use nako_api::{
         AdminRendererReadinessDiagnostics, AdminRendererRuntimeDiagnosticsResponse,
         AdminRendererSessionDiagnostics, AdminRendererSessionSummary, AdminReplaceUserRolesRequest,
         AdminRuntimeConfigDiagnostics, AdminServerConfigDiagnosticsResponse,
-        AdminSetLocalPasswordRequest, AdminSourceDuplicateReconciliationPlanResponse,
-        AdminSourceFingerprintHashEnqueueRequest, AdminSourceFingerprintHashMode,
-        AdminSourceFingerprintHashRetryRequest, AdminStorageBackendHealthDiagnostic,
-        AdminStorageBackendHealthDiagnosticsResponse, AdminStorageBackendHealthResetResponse,
-        AdminStorageStagingDiagnosticsResponse, AdminStorageStagingPolicySlice,
-        AdminStorageStagingPressureStatus, AdminStorageStagingPressureSummary,
-        AdminStorageStagingRecord, AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics,
-        AdminTranscodePipelineReadiness, AdminTranscodePipelineReadinessStatus,
-        AdminTrustedProxyDiagnostics, AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
+        AdminSetLocalPasswordRequest, AdminSourceDuplicateReconciliationApplyRequest,
+        AdminSourceDuplicateReconciliationApplyResponse,
+        AdminSourceDuplicateReconciliationPlanResponse, AdminSourceFingerprintHashEnqueueRequest,
+        AdminSourceFingerprintHashMode, AdminSourceFingerprintHashRetryRequest,
+        AdminStorageBackendHealthDiagnostic, AdminStorageBackendHealthDiagnosticsResponse,
+        AdminStorageBackendHealthResetResponse, AdminStorageStagingDiagnosticsResponse,
+        AdminStorageStagingPolicySlice, AdminStorageStagingPressureStatus,
+        AdminStorageStagingPressureSummary, AdminStorageStagingRecord, AdminStorageStagingSummary,
+        AdminTranscodeConfigDiagnostics, AdminTranscodePipelineReadiness,
+        AdminTranscodePipelineReadinessStatus, AdminTrustedProxyDiagnostics,
+        AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
         AdminUpdateLibraryMetadataProfileRequest, AdminUpdateMetadataRawCacheSettingsRequest,
         AdminUpdatePlaybackRuntimeSettingsRequest, AdminUpdateUserStatusRequest,
         AdminUpsertLibraryAccessPolicyRequest, AdminVfsCacheRefreshResponse,
@@ -135,6 +137,7 @@ use crate::{
     app::{
         EnqueueSourceFingerprintHashRequest, LibraryScanTraceContext, NakoApp,
         RetrySourceFingerprintHashRequest, RuntimeSupervisorDiagnostics,
+        SourceDuplicateReconciliationApplyRequest as AppSourceDuplicateReconciliationApplyRequest,
         SourceDuplicateReconciliationPlanRequest, StagingBudgetPolicySlice,
         StorageStagingPressureStatus, VfsCacheRepairActionBoundary, VfsCacheRepairActionPlanReason,
         VfsCacheRepairActionPlanReport, VfsCacheRepairActionPlanStatus,
@@ -299,6 +302,10 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/libraries/{library_id}/sources/{source_id}/duplicate-reconciliation-plan",
             get(get_admin_source_duplicate_reconciliation_plan),
+        )
+        .route(
+            "/admin/v1/libraries/{library_id}/sources/{source_id}/duplicate-reconciliation-apply",
+            post(apply_admin_source_duplicate_reconciliation),
         )
         .route("/admin/v1/access/summary", get(get_admin_access_summary))
         .route(
@@ -2861,6 +2868,26 @@ pub(super) async fn get_admin_source_duplicate_reconciliation_plan(
             plan,
             page_info_from_request(page, returned),
         ),
+    ))
+}
+
+pub(super) async fn apply_admin_source_duplicate_reconciliation(
+    State(app): State<NakoApp>,
+    Path((library_id, source_id)): Path<(LibraryId, MediaSourceId)>,
+    Json(request): Json<AdminSourceDuplicateReconciliationApplyRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let result = app
+        .source_duplicate_reconciliation()
+        .apply_source_duplicate_reconciliation(AppSourceDuplicateReconciliationApplyRequest {
+            library_id,
+            source_id,
+            duplicate_source_id: request.duplicate_source_id,
+            expected_action: request.expected_action.into(),
+        })
+        .await?;
+
+    Ok(Json(
+        AdminSourceDuplicateReconciliationApplyResponse::from_result(result),
     ))
 }
 
