@@ -178,6 +178,9 @@ assertions, and redaction behavior.
 - `all` sequences fast, release-fast, playback, container, postgres, and
   workspace; after the first docs gate it skips repeated redaction inventory
   scans.
+- `docs/deployment/M1_LADDER_EVIDENCE_MATRIX.md` records the release-facing
+  evidence meaning, tooling requirements, skipped-gate rules, and follow-up
+  routing for every runner mode.
 
 ### 3. Contracts
 
@@ -192,6 +195,10 @@ assertions, and redaction behavior.
   content hashes, or secret environment values.
 - Adding live-browser, package-publication, or release-artifact validation must
   be explicit new scope. Do not hide those steps under `fast`.
+- Any runner mode addition, removal, rename, or semantic change must update
+  `docs/deployment/M1_LADDER_EVIDENCE_MATRIX.md`,
+  `docs/deployment/RELEASE_CHECKLIST.md`, and
+  `docs/architecture/OPERATIONS_RELEASE.md` in the same task.
 
 ### 4. Validation & Error Matrix
 
@@ -219,6 +226,8 @@ assertions, and redaction behavior.
 - PowerShell parser validation for `scripts/m1-release-ladder.ps1`.
 - `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/m1-release-ladder.ps1 -Mode docs -SkipRedactionInventory`.
 - `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/m1-release-ladder.ps1 -Mode fast -SkipRedactionInventory` for closeout when local Rust, Node, and Admin Web tooling are available.
+- `rg -n "docs|smoke|fast|release-fast|playback|container|postgres|workspace|all" scripts/m1-release-ladder.ps1 docs/deployment/M1_LADDER_EVIDENCE_MATRIX.md`
+  or an equivalent review proving the matrix covers every runner mode.
 - `python ./.trellis/scripts/task.py validate <m1-release-ladder-task-dir>`.
 - `git diff --check`.
 

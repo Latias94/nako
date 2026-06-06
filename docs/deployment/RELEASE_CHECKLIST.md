@@ -159,6 +159,10 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/m1-release-ladder.ps1 -Mod
 It should be reserved for release-candidate validation or CI-style evidence,
 not every local edit.
 
+Use `docs/deployment/M1_LADDER_EVIDENCE_MATRIX.md` to record which M1 ladder
+dimensions passed, failed, or were skipped. Skipped environment-dependent gates
+must be recorded with a reason and follow-up owner; skipped is not passed.
+
 ## 5b. Playback Release Gate
 
 Before claiming a package or host is playback-ready, run the focused playback

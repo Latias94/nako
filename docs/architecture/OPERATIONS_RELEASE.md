@@ -23,8 +23,8 @@ Config
 | --- | --- | --- | --- |
 | Self-hosted install docs | Shipped foundation | `docs/deployment/SELF_HOSTED.md` | HTTPS/tunnel/reverse proxy cookbook. |
 | Backup/restore docs | Shipped foundation | `docs/deployment/BACKUP_RESTORE_UPGRADE.md` | Include future offline sync/artifact classes. |
-| Release checklist | Shipped foundation plus playback hardware report evidence and Product-Operator M1 ladder entry | `docs/deployment/RELEASE_CHECKLIST.md` | Optional live-browser M1 ladder mode and container device pass-through evidence. |
-| Release gate scripts | Shipped playback mode, hardware report baseline, and Product-Operator M1 ladder runner | `scripts/release-gate.*`; `scripts/m1-release-ladder.ps1`; `.trellis/tasks/06-04-06-04-playback-release-gate-mode-first-slice/`; `.trellis/tasks/06-05-06-05-playback-release-hardware-report/`; `.trellis/tasks/archive/2026-06/06-06-m1-release-ladder-runner/` | Optional live-browser M1 ladder mode and container device pass-through evidence. |
+| Release checklist | Shipped foundation plus playback hardware report evidence, Product-Operator M1 ladder entry, and M1 ladder evidence matrix | `docs/deployment/RELEASE_CHECKLIST.md`; `docs/deployment/M1_LADDER_EVIDENCE_MATRIX.md` | Optional live-browser M1 ladder mode and container device pass-through evidence. |
+| Release gate scripts | Shipped playback mode, hardware report baseline, Product-Operator M1 ladder runner, and release evidence matrix | `scripts/release-gate.*`; `scripts/m1-release-ladder.ps1`; `docs/deployment/M1_LADDER_EVIDENCE_MATRIX.md`; `.trellis/tasks/06-04-06-04-playback-release-gate-mode-first-slice/`; `.trellis/tasks/06-05-06-05-playback-release-hardware-report/`; `.trellis/tasks/archive/2026-06/06-06-m1-release-ladder-runner/` | Optional live-browser M1 ladder mode and container device pass-through evidence. |
 | PostgreSQL contract harness | Shipped foundation | `scripts/postgres-contract-harness.*` | Keep new persistence contracts covered. |
 | FFmpeg/ffprobe config | Shipped foundation | self-hosted docs; playback diagnostics lanes | Packaging and container device diagnostics. |
 | Hardware readiness diagnostics | Shipped report baseline | ADR 0045-0048; admin playback runtime diagnostics; `target/release-gate/playback-hardware-report.json` | Optional one-frame device smoke and container pass-through matrix. |
@@ -47,7 +47,8 @@ diagnosable across supported deployment modes.
 
 Status: Playback release-gate mode and host hardware report evidence shipped as
 of 2026-06-05. Product-Operator M1 ladder orchestration is shipped through
-`scripts/m1-release-ladder.ps1`.
+`scripts/m1-release-ladder.ps1`, and M1 ladder evidence recording is documented
+in `docs/deployment/M1_LADDER_EVIDENCE_MATRIX.md`.
 
 Scope:
 
@@ -64,6 +65,8 @@ Scope:
 - Product-Operator M1 default ladder that composes docs-safe hygiene and the
   focused M1 operator journey smoke while leaving playback, container,
   PostgreSQL, workspace, and all-mode validation explicit.
+- M1 ladder evidence matrix that records required tooling, current evidence,
+  skipped-gate rules, and follow-up routing for each ladder mode.
 
 Exit criteria:
 
