@@ -664,3 +664,55 @@ Synchronized completed Admin source duplicate reconciliation plan task acceptanc
 ### Next Steps
 
 - None - task complete
+
+
+## Session 64: Admin source duplicate reconciliation apply
+
+**Date**: 2026-06-06
+**Task**: Admin source duplicate reconciliation apply
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Added and verified the Admin source duplicate reconciliation apply route, archived the completed Trellis task, and preserved unrelated existing archive moves.
+
+### Main Changes
+
+- Added the Admin-only duplicate reconciliation apply endpoint:
+  `POST /admin/v1/libraries/{library_id}/sources/{source_id}/duplicate-reconciliation-apply`.
+- Kept apply validation and mutation in
+  `SourceDuplicateReconciliationAppService::apply_source_duplicate_reconciliation`.
+- Added Admin DTOs, generated Admin contract entries, Admin route wiring, app
+  tests, HTTP tests, route inventory coverage, and task evidence.
+- Updated the source fingerprint hash/reconciliation spec with the explicit
+  apply boundary and error matrix.
+- Archived the completed Trellis task in a separate commit while leaving
+  unrelated existing archive moves untouched.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f4fe68fe` | (see git log) |
+| `ae6de819` | (see git log) |
+
+### Testing
+
+- [OK] `npm run generate:admin-api --prefix apps/admin-web`
+- [OK] `cargo fmt --all -- --check`
+- [OK] `git diff --check -- <current apply slice paths>`
+- [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-06-admin-source-duplicate-reconciliation-apply-first-slice`
+- [OK] `cargo check -p nako-core -p nako-api -p nako-server --tests`
+- [OK] `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server source_duplicate --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server admin_v1_source_duplicate_reconciliation --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server implemented_admin_routes_are_generated_or_explicitly_excluded --no-fail-fast`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
