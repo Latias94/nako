@@ -821,3 +821,42 @@ Implemented scan-originated source fingerprint hash durable triggering, focused 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 68: Source duplicate reconciliation operator flow
+
+**Date**: 2026-06-06
+**Task**: Source duplicate reconciliation operator flow
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Added Admin Web source duplicate reconciliation operator flow with guarded apply and tests.
+
+### Main Changes
+
+- Implemented Admin Web source duplicate reconciliation route at `/items/$itemId/sources/$sourceId/duplicates`.
+- Added typed AdminApiClient/AdminDataSource plan and apply methods using generated Admin routes.
+- Added redaction-safe operator UI with explicit prepare/confirm apply flow and non-suggestion read-only handling.
+- Added mock data, English/zh-Hans copy, and UI/client/data-source tests for route calls, apply payload, i18n, and unsafe-field redaction.
+- Verification passed: npm check, focused tests, full Admin Web tests, build, Trellis validate, git diff --check, HTTP 200 dev-server smoke check.
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d0e02560` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

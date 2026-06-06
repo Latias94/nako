@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 67
+- **Total Sessions**: 68
 - **Last Active**: 2026-06-06
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~823 | Active |
+| `journal-2.md` | ~862 | Active |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 68 | 2026-06-06 | Source duplicate reconciliation operator flow | `d0e02560` | `main` |
 | 67 | 2026-06-06 | Scan-originated source hash triggering | `550e430e858db8d9daa65cf40016bb14f838a446` | `main` |
 | 66 | 2026-06-06 | M1 operator journey smoke | `2fb4399c`, `41573f1d`, `9930dff6` | `main` |
 | 65 | 2026-06-06 | Roadmap reconciliation M1 convergence | `1196462f`, `00383718` | `main` |
