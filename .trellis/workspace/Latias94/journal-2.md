@@ -997,3 +997,37 @@ Ran explicit Product-Operator M1 playback gate. FFmpeg/FFprobe were available, h
 ### Next Steps
 
 - None - task complete
+
+
+## Session 73: M1 PostgreSQL evidence run
+
+**Date**: 2026-06-06
+**Task**: M1 PostgreSQL evidence run
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Ran Product-Operator M1 PostgreSQL ladder evidence and the broader all-contracts PostgreSQL harness. The ladder postgres mode passed its managed-artwork suite, the all-contracts harness passed 51 PostgreSQL contracts, and no implementation blocker was opened.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6980a462` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
