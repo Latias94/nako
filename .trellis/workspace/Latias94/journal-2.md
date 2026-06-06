@@ -895,3 +895,37 @@ Added Product-Operator M1 Admin diagnostics/repair coverage matrix, refreshed ro
 ### Next Steps
 
 - None - task complete
+
+
+## Session 70: M1 ladder fast evidence run
+
+**Date**: 2026-06-06
+**Task**: M1 ladder fast evidence run
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Ran Product-Operator M1 fast ladder after the Admin diagnostics/repair coverage audit. The docs gate, self-host smoke, and Admin Web/Media Web M1 smoke passed; no blocker implementation task was opened from this run.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `830f0c2b` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
