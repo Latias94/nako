@@ -32,12 +32,13 @@ use nako_core::{
 use nako_db::NakoDatabase;
 use nako_vfs::{
     LocalFsBackend, StorageBackend, StorageUri, VfsCacheRefreshReport, VfsCacheRepairAction,
-    VfsCacheRepairDiagnostic,
+    VfsCacheRepairClassification, VfsCacheRepairDiagnostic,
 };
 
 use super::current_time_ms;
 
 type VfsCacheRepairTargetRefMac = Hmac<Sha256>;
+const VFS_CACHE_REPAIR_REMEDIATION_SAMPLE_LIMIT: usize = 3;
 
 #[derive(Clone, Debug)]
 pub(crate) struct StorageDiagnosticsAppService {
@@ -203,6 +204,225 @@ pub(crate) struct VfsCacheRepairTargetReport {
 pub(crate) struct VfsCacheRepairTargetPreviewReport {
     pub(crate) target: VfsCacheRepairTargetReport,
     pub(crate) plan: VfsCacheRepairActionPlanReport,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct VfsCacheRepairRemediationPlanBoundary {
+    pub(crate) read_only: bool,
+    pub(crate) refreshes_vfs_cache: bool,
+    pub(crate) changes_backend_configuration: bool,
+    pub(crate) deletes_cache_entries: bool,
+    pub(crate) writes_library_files: bool,
+    pub(crate) starts_durable_job: bool,
+}
+
+impl Default for VfsCacheRepairRemediationPlanBoundary {
+    fn default() -> Self {
+        Self {
+            read_only: true,
+            refreshes_vfs_cache: false,
+            changes_backend_configuration: false,
+            deletes_cache_entries: false,
+            writes_library_files: false,
+            starts_durable_job: false,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct VfsCacheRepairRemediationActionGroupReport {
+    pub(crate) action: VfsCacheRepairAction,
+    pub(crate) count: u32,
+    pub(crate) status: VfsCacheRepairActionPlanStatus,
+    pub(crate) api_executable: bool,
+    pub(crate) reasons: Vec<VfsCacheRepairActionPlanReason>,
+    pub(crate) boundary: VfsCacheRepairActionBoundary,
+    pub(crate) executable_route: Option<VfsCacheRepairExecutableRoute>,
+    pub(crate) sample_targets: Vec<VfsCacheRepairTargetReport>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct VfsCacheRepairRemediationClassificationCountReport {
+    pub(crate) classification: VfsCacheRepairClassification,
+    pub(crate) count: u32,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct VfsCacheRepairRemediationPlanReport {
+    pub(crate) total_unresolved_targets: u32,
+    pub(crate) action_groups: Vec<VfsCacheRepairRemediationActionGroupReport>,
+    pub(crate) classification_counts: Vec<VfsCacheRepairRemediationClassificationCountReport>,
+    pub(crate) boundary: VfsCacheRepairRemediationPlanBoundary,
+}
+
+#[derive(Default)]
+struct VfsCacheRepairRemediationPlanAccumulator {
+    total_unresolved_targets: u32,
+    none: VfsCacheRepairRemediationActionAccumulator,
+    refresh_cache: VfsCacheRepairRemediationActionAccumulator,
+    fix_backend_configuration: VfsCacheRepairRemediationActionAccumulator,
+    inspect_failure: VfsCacheRepairRemediationActionAccumulator,
+    healthy: u32,
+    repairable_stale_fallback: u32,
+    retryable_refresh_failure: u32,
+    operator_action_required: u32,
+    unknown_failure: u32,
+}
+
+#[derive(Default)]
+struct VfsCacheRepairRemediationActionAccumulator {
+    count: u32,
+    sample_targets: Vec<VfsCacheRepairTargetReport>,
+}
+
+impl VfsCacheRepairRemediationPlanAccumulator {
+    fn record(&mut self, target: VfsCacheRepairTargetReport) {
+        self.total_unresolved_targets = self.total_unresolved_targets.saturating_add(1);
+        match target.repair.classification {
+            VfsCacheRepairClassification::Healthy => {
+                self.healthy = self.healthy.saturating_add(1);
+            }
+            VfsCacheRepairClassification::RepairableStaleFallback => {
+                self.repairable_stale_fallback = self.repairable_stale_fallback.saturating_add(1);
+            }
+            VfsCacheRepairClassification::RetryableRefreshFailure => {
+                self.retryable_refresh_failure = self.retryable_refresh_failure.saturating_add(1);
+            }
+            VfsCacheRepairClassification::OperatorActionRequired => {
+                self.operator_action_required = self.operator_action_required.saturating_add(1);
+            }
+            VfsCacheRepairClassification::UnknownFailure => {
+                self.unknown_failure = self.unknown_failure.saturating_add(1);
+            }
+        }
+
+        let action = target.repair.recommended_action;
+        let accumulator = match action {
+            VfsCacheRepairAction::None => &mut self.none,
+            VfsCacheRepairAction::RefreshCache => &mut self.refresh_cache,
+            VfsCacheRepairAction::FixBackendConfiguration => &mut self.fix_backend_configuration,
+            VfsCacheRepairAction::InspectFailure => &mut self.inspect_failure,
+        };
+        accumulator.record(target);
+    }
+
+    fn into_report(self) -> VfsCacheRepairRemediationPlanReport {
+        let mut action_groups = Vec::new();
+        push_remediation_action_group(
+            &mut action_groups,
+            VfsCacheRepairAction::RefreshCache,
+            self.refresh_cache,
+        );
+        push_remediation_action_group(
+            &mut action_groups,
+            VfsCacheRepairAction::FixBackendConfiguration,
+            self.fix_backend_configuration,
+        );
+        push_remediation_action_group(
+            &mut action_groups,
+            VfsCacheRepairAction::InspectFailure,
+            self.inspect_failure,
+        );
+        push_remediation_action_group(&mut action_groups, VfsCacheRepairAction::None, self.none);
+
+        VfsCacheRepairRemediationPlanReport {
+            total_unresolved_targets: self.total_unresolved_targets,
+            action_groups,
+            classification_counts: vec![
+                VfsCacheRepairRemediationClassificationCountReport {
+                    classification: VfsCacheRepairClassification::Healthy,
+                    count: self.healthy,
+                },
+                VfsCacheRepairRemediationClassificationCountReport {
+                    classification: VfsCacheRepairClassification::RepairableStaleFallback,
+                    count: self.repairable_stale_fallback,
+                },
+                VfsCacheRepairRemediationClassificationCountReport {
+                    classification: VfsCacheRepairClassification::RetryableRefreshFailure,
+                    count: self.retryable_refresh_failure,
+                },
+                VfsCacheRepairRemediationClassificationCountReport {
+                    classification: VfsCacheRepairClassification::OperatorActionRequired,
+                    count: self.operator_action_required,
+                },
+                VfsCacheRepairRemediationClassificationCountReport {
+                    classification: VfsCacheRepairClassification::UnknownFailure,
+                    count: self.unknown_failure,
+                },
+            ],
+            boundary: VfsCacheRepairRemediationPlanBoundary::default(),
+        }
+    }
+}
+
+impl VfsCacheRepairRemediationActionAccumulator {
+    fn record(&mut self, target: VfsCacheRepairTargetReport) {
+        self.count = self.count.saturating_add(1);
+        if self.sample_targets.len() < VFS_CACHE_REPAIR_REMEDIATION_SAMPLE_LIMIT {
+            self.sample_targets.push(target);
+        }
+    }
+}
+
+fn push_remediation_action_group(
+    action_groups: &mut Vec<VfsCacheRepairRemediationActionGroupReport>,
+    action: VfsCacheRepairAction,
+    accumulator: VfsCacheRepairRemediationActionAccumulator,
+) {
+    if accumulator.count == 0 {
+        return;
+    }
+
+    let (status, api_executable, reasons, boundary, executable_route) = match action {
+        VfsCacheRepairAction::None => (
+            VfsCacheRepairActionPlanStatus::NoAction,
+            false,
+            vec![VfsCacheRepairActionPlanReason::NoActionRequired],
+            VfsCacheRepairActionBoundary::default(),
+            None,
+        ),
+        VfsCacheRepairAction::RefreshCache => (
+            VfsCacheRepairActionPlanStatus::Executable,
+            true,
+            vec![VfsCacheRepairActionPlanReason::RefreshCacheExecutable],
+            VfsCacheRepairActionBoundary {
+                refreshes_vfs_cache: true,
+                ..VfsCacheRepairActionBoundary::default()
+            },
+            Some(VfsCacheRepairExecutableRoute::TargetRefreshCache),
+        ),
+        VfsCacheRepairAction::FixBackendConfiguration => (
+            VfsCacheRepairActionPlanStatus::PlanOnly,
+            false,
+            vec![VfsCacheRepairActionPlanReason::BackendConfigurationRequired],
+            VfsCacheRepairActionBoundary {
+                changes_backend_configuration: true,
+                ..VfsCacheRepairActionBoundary::default()
+            },
+            None,
+        ),
+        VfsCacheRepairAction::InspectFailure => (
+            VfsCacheRepairActionPlanStatus::PlanOnly,
+            false,
+            vec![VfsCacheRepairActionPlanReason::ManualFailureInspectionRequired],
+            VfsCacheRepairActionBoundary {
+                requires_manual_failure_inspection: true,
+                ..VfsCacheRepairActionBoundary::default()
+            },
+            None,
+        ),
+    };
+
+    action_groups.push(VfsCacheRepairRemediationActionGroupReport {
+        action,
+        count: accumulator.count,
+        status,
+        api_executable,
+        reasons,
+        boundary,
+        executable_route,
+        sample_targets: accumulator.sample_targets,
+    });
 }
 
 impl StagingManifestPressureSummary {
@@ -508,6 +728,40 @@ impl StorageDiagnosticsAppService {
         }
 
         Ok(targets)
+    }
+
+    pub(crate) async fn plan_vfs_cache_repair_remediation(
+        &self,
+    ) -> Result<VfsCacheRepairRemediationPlanReport> {
+        let mut accumulator = VfsCacheRepairRemediationPlanAccumulator::default();
+        let mut failure_offset = 0_u64;
+
+        loop {
+            let failures = self
+                .registry
+                .store
+                .list_vfs_cache_failures(PageRequest::new(PageRequest::MAX_LIMIT, failure_offset))
+                .await?;
+            let failure_count = failures.len();
+            if failure_count == 0 {
+                break;
+            }
+
+            for failure in failures {
+                let Some(target) = self.vfs_cache_repair_target_from_failure(failure).await? else {
+                    continue;
+                };
+                accumulator.record(target);
+            }
+
+            if failure_count < PageRequest::MAX_LIMIT as usize {
+                break;
+            }
+
+            failure_offset = failure_offset.saturating_add(failure_count as u64);
+        }
+
+        Ok(accumulator.into_report())
     }
 
     pub(crate) async fn preview_vfs_cache_repair_target(

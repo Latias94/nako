@@ -13,6 +13,10 @@ cache diagnostics.
 - Keep VFS cache repair operator guidance structured and redaction-safe:
   expose stable action enums for routing, keep display prose separate, and do
   not make clients parse free-form operator text.
+- Keep read-only VFS cache remediation planning aggregate-only: group unresolved
+  repair pressure by safe action/classification, expose bounded opaque
+  `target_ref` samples, and keep the top-level boundary non-mutating even when
+  a nested refresh group points to the existing selected-target refresh route.
 - Keep local writes transactional or planned when the module supports it.
 - Treat remote latency, range readability, rate limits, and writable capability
   as product behavior, not incidental adapter details.
@@ -39,6 +43,10 @@ cache diagnostics.
 - Cache stale/failure/repair diagnostic tests for cache changes.
 - Repair action preview tests when cache classifications or operator guidance
   change.
+- Remediation plan tests when unresolved repair pressure is grouped for Admin
+  APIs; assert aggregate counts, bounded opaque samples, redaction, Admin guard,
+  and that plan reads do not refresh, purge, delete, enqueue jobs, mutate
+  backend configuration, or write library files.
 - App/server integration tests when playback, scan, or Admin routes consume the
   new VFS behavior.
 

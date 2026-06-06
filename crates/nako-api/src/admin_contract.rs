@@ -18,7 +18,7 @@ struct AdminRouteExclusionSuffix {
     reason: &'static str,
 }
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 82] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 83] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -214,6 +214,10 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 82] = [
         "storage/backends/{backend_key}/circuit-breaker/reset",
     ),
     ("storageStaging", "storage/staging"),
+    (
+        "storageVfsCacheRepairRemediationPlan",
+        "storage/vfs-cache/repair/remediation-plan",
+    ),
     (
         "storageVfsCacheRepairTargets",
         "storage/vfs-cache/repair/targets",
@@ -703,6 +707,30 @@ export interface AdminVfsCacheRepairTarget {
   failure_class: StorageFailureClass | null;
   retryable: boolean;
   safe_message: string | null;
+}
+
+export interface AdminVfsCacheRepairRemediationPlanBoundary {
+  read_only: boolean;
+  refreshes_vfs_cache: boolean;
+  changes_backend_configuration: boolean;
+  deletes_cache_entries: boolean;
+  writes_library_files: boolean;
+  starts_durable_job: boolean;
+}
+
+export interface AdminVfsCacheRepairClassificationCount {
+  classification: AdminVfsCacheRepairClassification;
+  count: number;
+}
+
+export interface AdminVfsCacheRepairRemediationActionGroup {
+  action: AdminVfsCacheRepairAction;
+  count: number;
+  status: AdminVfsCacheRepairActionPlanStatus;
+  readiness: AdminVfsCacheRepairActionReadiness;
+  boundary: AdminVfsCacheRepairActionBoundary;
+  executable_action: AdminVfsCacheRepairExecutableAction | null;
+  sample_targets: AdminVfsCacheRepairTarget[];
 }
 
 export interface AdminStorageBackendHealthDiagnostic {
@@ -3541,6 +3569,15 @@ export interface AdminVfsCacheRepairTargetPreviewResponse {
   plan: AdminVfsCacheRepairActionPlanResponse["plan"];
 }
 
+export interface AdminVfsCacheRepairRemediationPlanResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  total_unresolved_targets: number;
+  action_groups: AdminVfsCacheRepairRemediationActionGroup[];
+  classification_counts: AdminVfsCacheRepairClassificationCount[];
+  boundary: AdminVfsCacheRepairRemediationPlanBoundary;
+}
+
 export type AdminNetworkExposureMode =
   | "local_only"
   | "private_network"
@@ -4117,6 +4154,10 @@ mod tests {
             "AdminVfsCacheRepairTargetListResponse",
             "AdminVfsCacheRepairTargetPreviewResponse",
             "AdminVfsCacheRepairActionPlanResponse",
+            "AdminVfsCacheRepairRemediationPlanBoundary",
+            "AdminVfsCacheRepairClassificationCount",
+            "AdminVfsCacheRepairRemediationActionGroup",
+            "AdminVfsCacheRepairRemediationPlanResponse",
             "AdminStorageBackendHealthDiagnostic",
             "AdminStorageBackendHealthDiagnosticsResponse",
             "AdminStorageBackendHealthResetResponse",

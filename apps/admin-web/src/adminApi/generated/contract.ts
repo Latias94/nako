@@ -79,6 +79,7 @@ export const NAKO_ADMIN_ROUTES = {
   storageBackends: "/admin/v1/storage/backends",
   storageBackendCircuitBreakerReset: "/admin/v1/storage/backends/{backend_key}/circuit-breaker/reset",
   storageStaging: "/admin/v1/storage/staging",
+  storageVfsCacheRepairRemediationPlan: "/admin/v1/storage/vfs-cache/repair/remediation-plan",
   storageVfsCacheRepairTargets: "/admin/v1/storage/vfs-cache/repair/targets",
   storageVfsCacheRepairTargetPreview: "/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/preview",
   storageVfsCacheRepairTargetRefreshCache: "/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/refresh-cache",
@@ -374,6 +375,30 @@ export interface AdminVfsCacheRepairTarget {
   failure_class: StorageFailureClass | null;
   retryable: boolean;
   safe_message: string | null;
+}
+
+export interface AdminVfsCacheRepairRemediationPlanBoundary {
+  read_only: boolean;
+  refreshes_vfs_cache: boolean;
+  changes_backend_configuration: boolean;
+  deletes_cache_entries: boolean;
+  writes_library_files: boolean;
+  starts_durable_job: boolean;
+}
+
+export interface AdminVfsCacheRepairClassificationCount {
+  classification: AdminVfsCacheRepairClassification;
+  count: number;
+}
+
+export interface AdminVfsCacheRepairRemediationActionGroup {
+  action: AdminVfsCacheRepairAction;
+  count: number;
+  status: AdminVfsCacheRepairActionPlanStatus;
+  readiness: AdminVfsCacheRepairActionReadiness;
+  boundary: AdminVfsCacheRepairActionBoundary;
+  executable_action: AdminVfsCacheRepairExecutableAction | null;
+  sample_targets: AdminVfsCacheRepairTarget[];
 }
 
 export interface AdminStorageBackendHealthDiagnostic {
@@ -3210,6 +3235,15 @@ export interface AdminVfsCacheRepairTargetPreviewResponse {
   public_api_version: string;
   target: AdminVfsCacheRepairTarget;
   plan: AdminVfsCacheRepairActionPlanResponse["plan"];
+}
+
+export interface AdminVfsCacheRepairRemediationPlanResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  total_unresolved_targets: number;
+  action_groups: AdminVfsCacheRepairRemediationActionGroup[];
+  classification_counts: AdminVfsCacheRepairClassificationCount[];
+  boundary: AdminVfsCacheRepairRemediationPlanBoundary;
 }
 
 export type AdminNetworkExposureMode =

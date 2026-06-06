@@ -123,6 +123,8 @@ pub(crate) use storage::{
     StagingBudgetPolicySlice, StorageStagingPressureStatus, VfsCacheRepairActionBoundary,
     VfsCacheRepairActionPlanReason, VfsCacheRepairActionPlanReport, VfsCacheRepairActionPlanStatus,
     VfsCacheRepairExecutableRoute, VfsCacheRepairRefreshActionReport,
+    VfsCacheRepairRemediationActionGroupReport, VfsCacheRepairRemediationClassificationCountReport,
+    VfsCacheRepairRemediationPlanBoundary, VfsCacheRepairRemediationPlanReport,
     VfsCacheRepairTargetPreviewReport, VfsCacheRepairTargetReport, storage_staging_pressure_status,
 };
 use user_playback::UserPlaybackAppService;

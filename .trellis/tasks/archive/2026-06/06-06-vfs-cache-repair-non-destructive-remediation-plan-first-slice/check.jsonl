@@ -1,0 +1,9 @@
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Verify server route/app-service changes against server guidance."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Check Admin route/auth/handler consistency."}
+{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Check redaction-safe error surfaces."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Select focused server validation commands."}
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Verify API DTO and generated Admin contract changes."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Check Admin-only contract and route inventory parity."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Check generated contract and redaction DTO gates."}
+{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "Verify VFS cache boundary remains read-only and non-destructive."}
+{"file": ".trellis/spec/guides/index.md", "reason": "Review cross-layer and reuse considerations."}

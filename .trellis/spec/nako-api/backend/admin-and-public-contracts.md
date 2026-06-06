@@ -166,21 +166,22 @@ Public Client exclusion tests.
 ### 1. Scope / Trigger
 
 - Trigger: Admin storage staging diagnostics expose the latest VFS cache repair
-  preview, action plan, bounded target inventory, target-scoped preview, or
-  latest-failure / target-scoped refresh result.
+  preview, action plan, bounded target inventory, target-scoped preview,
+  read-only remediation plan, or latest-failure / target-scoped refresh result.
 - Scope: `AdminStorageStagingSummary.vfs_cache.repair`,
   `AdminVfsCacheRepairActionPlanResponse`, `AdminVfsCacheRefreshResponse`,
   `AdminVfsCacheRepairTargetListResponse`,
   `AdminVfsCacheRepairTargetPreviewResponse`,
+  `AdminVfsCacheRepairRemediationPlanResponse`,
   `VfsCacheRepository::get_latest_vfs_cache_failure`,
   `VfsCacheRepository::list_vfs_cache_failures`, server storage diagnostics /
   action mapping, and generated Admin Web contracts.
-- Boundary: preview and action plan responses are read-only. The only executable
-  mutations in this boundary are latest unresolved `refresh_cache` and
-  selected-target `refresh_cache` through an opaque `target_ref`. Do not add
-  cache purge/delete/invalidation, retry queue, durable job, backend
-  configuration mutation, or library file writes without a dedicated task and
-  storage contract.
+- Boundary: preview, action plan, and remediation plan responses are read-only.
+  The only executable mutations in this boundary are latest unresolved
+  `refresh_cache` and selected-target `refresh_cache` through an opaque
+  `target_ref`. Do not add cache purge/delete/invalidation, retry queue,
+  durable job, backend configuration mutation, or library file writes without a
+  dedicated task and storage contract.
 
 ### 2. Signatures
 
@@ -194,8 +195,13 @@ Public Client exclusion tests.
 - Admin target DTOs:
   `AdminVfsCacheRepairTargetListResponse { targets, page }` and
   `AdminVfsCacheRepairTargetPreviewResponse { target, plan }`.
+- Admin remediation DTO:
+  `AdminVfsCacheRepairRemediationPlanResponse { total_unresolved_targets,
+  action_groups, classification_counts, boundary }`.
 - Admin refresh DTO:
   `AdminVfsCacheRefreshResponse`.
+- Admin read-only remediation route:
+  `GET /admin/v1/storage/vfs-cache/repair/remediation-plan`.
 - Admin refresh routes:
   `POST /admin/v1/storage/vfs-cache/repair/refresh-cache` and
   `POST /admin/v1/storage/vfs-cache/repair/targets/{target_ref}/refresh-cache`.
@@ -205,6 +211,9 @@ Public Client exclusion tests.
 - Action plan fields:
   `status`, `action`, `readiness`, `boundary`, `executable_action`, and
   optional redaction-safe `repair`.
+- Remediation plan fields:
+  `total_unresolved_targets`, grouped `action_groups` with bounded
+  `sample_targets`, `classification_counts`, and top-level `boundary`.
 
 ### 3. Contracts
 
@@ -238,6 +247,18 @@ Public Client exclusion tests.
   recommends `refresh_cache`, and then reuse the same stored failure authority
   and backend resolution used by latest refresh. Invalid, unknown, stale, or
   already resolved target refs return not found without echoing unsafe input.
+- Remediation plan must page through unresolved targets using the same safe
+  target inventory semantics, group by `recommended_action`, count
+  classifications, and expose only aggregate counts plus bounded sample targets.
+- Remediation plan top-level boundary must remain read-only:
+  `read_only: true`, `refreshes_vfs_cache: false`,
+  `changes_backend_configuration: false`, `deletes_cache_entries: false`,
+  `writes_library_files: false`, and `starts_durable_job: false`.
+- Remediation action groups may describe an executable `refresh_cache` group,
+  but executable route guidance must point only to the existing selected-target
+  refresh route with templated `{target_ref}`. Plan-only groups such as
+  `fix_backend_configuration` and `inspect_failure` must not expose executable
+  route metadata.
 - TypeScript contract artifacts under `apps/admin-web` and `web` must be
   regenerated from `nako-api`; do not hand-edit generated files.
 
@@ -260,7 +281,11 @@ Public Client exclusion tests.
 | Target refresh ref matches a non-refresh diagnostic | Returns invalid input without calling a backend |
 | Target refresh ref is unknown, invalid, stale, or already resolved | Returns not found without echoing the supplied ref or raw URI |
 | Target refresh authority is ambiguous or mismatched | Returns the existing conflict before backend refresh |
-| Preview contains raw path, token, or source URI | Contract violation |
+| Remediation plan has no unresolved failures | Returns `total_unresolved_targets: 0`, empty action groups, zero classification counts, and a read-only top boundary |
+| Remediation plan has refreshable failures | Returns a `refresh_cache` executable group with bounded opaque samples and the templated selected-target refresh route |
+| Remediation plan has operator-action failures | Returns plan-only groups with no executable route metadata |
+| Remediation plan is requested by a non-admin caller | Returns forbidden through the existing Admin route guard |
+| Preview, plan, target, refresh, or remediation response contains raw path, token, source URI, etag, fingerprint, backend URL, or raw backend error | Contract violation |
 
 ### 5. Good / Base / Bad Cases
 
@@ -273,6 +298,10 @@ Public Client exclusion tests.
 - Good: `/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/preview`
   resolves refs server-side, remains read-only, and points refreshable targets
   to the target-scoped refresh route.
+- Good: `/admin/v1/storage/vfs-cache/repair/remediation-plan` returns a
+  read-only aggregate plan with per-action and per-classification counts,
+  bounded opaque samples, and selected-target refresh route guidance only for
+  refreshable groups.
 - Good: `/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/refresh-cache`
   resolves refs server-side and refreshes only the selected unresolved cache
   target.
@@ -282,15 +311,19 @@ Public Client exclusion tests.
   serde defaults.
 - Bad: adding a purge/delete, URI-scoped mutation, or retry queue before defining
   cache invalidation and targeting semantics in VFS and DB repository contracts.
+- Bad: treating the remediation plan top-level boundary as executable because a
+  nested `refresh_cache` action group points to the selected-target refresh
+  route.
 
 ### 6. Tests Required
 
 - DB contract test proves latest failure selection.
 - API serialization test proves snake_case classification and redaction-safe
-  repair/plan fields.
+  repair/plan/remediation fields.
 - Admin contract test proves generated TypeScript artifacts match the generator.
 - Server route tests prove `/admin/v1/storage/staging` includes the preview,
-  action plan/target/refresh routes preserve Admin-only access, target refs
+  action plan/remediation/target/refresh routes preserve Admin-only access,
+  remediation plan groups unresolved targets without mutation, target refs
   reject stale or unknown selections safely, target preview does not mutate
   cache state, target refresh mutates only the selected cache entry,
   non-refresh target diagnostics avoid backend calls, and responses still

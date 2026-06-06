@@ -22,8 +22,9 @@ use nako_api::admin::{
     AdminStorageBackendHealthDiagnosticsResponse, AdminStorageBackendHealthResetResponse,
     AdminStorageStagingPressureStatus, AdminVfsCacheRefreshResponse,
     AdminVfsCacheRepairActionPlanReason, AdminVfsCacheRepairActionPlanResponse,
-    AdminVfsCacheRepairActionPlanStatus, AdminVfsCacheRepairTargetListResponse,
-    AdminVfsCacheRepairTargetPreviewResponse, AdminWatchFolderRuntimeCoverageStatus,
+    AdminVfsCacheRepairActionPlanStatus, AdminVfsCacheRepairRemediationPlanResponse,
+    AdminVfsCacheRepairTargetListResponse, AdminVfsCacheRepairTargetPreviewResponse,
+    AdminWatchFolderRuntimeCoverageStatus,
 };
 use nako_core::{
     JobKind, JobPriority, JobRepository, JobStatus,
@@ -7901,6 +7902,104 @@ async fn admin_v1_vfs_cache_repair_targets_list_and_preview_redact_targets_witho
         nako_api::admin::AdminVfsCacheRepairAction::RefreshCache
     );
 
+    let plan_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/storage/vfs-cache/repair/remediation-plan")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = plan_response.status();
+    let plan_body = response_text(plan_response).await;
+    assert_eq!(status, StatusCode::OK, "{plan_body}");
+    let remediation: AdminVfsCacheRepairRemediationPlanResponse =
+        serde_json::from_str(&plan_body).unwrap();
+
+    assert_eq!(remediation.total_unresolved_targets, 3);
+    assert!(remediation.boundary.read_only);
+    assert!(!remediation.boundary.refreshes_vfs_cache);
+    assert!(!remediation.boundary.changes_backend_configuration);
+    assert!(!remediation.boundary.deletes_cache_entries);
+    assert!(!remediation.boundary.writes_library_files);
+    assert!(!remediation.boundary.starts_durable_job);
+    let refresh_group = remediation
+        .action_groups
+        .iter()
+        .find(|group| group.action == nako_api::admin::AdminVfsCacheRepairAction::RefreshCache)
+        .expect("refresh group");
+    assert_eq!(refresh_group.count, 2);
+    assert_eq!(
+        refresh_group.status,
+        AdminVfsCacheRepairActionPlanStatus::Executable
+    );
+    assert!(refresh_group.readiness.api_executable);
+    assert!(refresh_group.boundary.refreshes_vfs_cache);
+    assert_eq!(refresh_group.sample_targets.len(), 2);
+    let executable = refresh_group
+        .executable_action
+        .as_ref()
+        .expect("target refresh executable route");
+    assert_eq!(executable.method, "POST");
+    assert_eq!(
+        executable.route_key,
+        "storageVfsCacheRepairTargetRefreshCache"
+    );
+    assert_eq!(
+        executable.route_path,
+        "/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/refresh-cache"
+    );
+    let config_group = remediation
+        .action_groups
+        .iter()
+        .find(|group| {
+            group.action == nako_api::admin::AdminVfsCacheRepairAction::FixBackendConfiguration
+        })
+        .expect("backend configuration group");
+    assert_eq!(config_group.count, 1);
+    assert_eq!(
+        config_group.status,
+        AdminVfsCacheRepairActionPlanStatus::PlanOnly
+    );
+    assert!(!config_group.readiness.api_executable);
+    assert!(config_group.boundary.changes_backend_configuration);
+    assert!(config_group.executable_action.is_none());
+    assert_eq!(
+        remediation
+            .classification_counts
+            .iter()
+            .find(|count| {
+                count.classification
+                    == nako_api::admin::AdminVfsCacheRepairClassification::RetryableRefreshFailure
+            })
+            .expect("retryable count")
+            .count,
+        2
+    );
+    assert_eq!(
+        remediation
+            .classification_counts
+            .iter()
+            .find(|count| {
+                count.classification
+                    == nako_api::admin::AdminVfsCacheRepairClassification::OperatorActionRequired
+            })
+            .expect("operator count")
+            .count,
+        1
+    );
+    assert_eq!(
+        store
+            .list_vfs_cache_failures(PageRequest::new(10, 0))
+            .await
+            .unwrap()
+            .len(),
+        3
+    );
+
     let preview_path = format!(
         "/admin/v1/storage/vfs-cache/repair/targets/{}/preview",
         list.targets[0].target_ref
@@ -7968,7 +8067,7 @@ async fn admin_v1_vfs_cache_repair_targets_list_and_preview_redact_targets_witho
         3
     );
 
-    let body = format!("{list_body}{preview_body}");
+    let body = format!("{list_body}{plan_body}{preview_body}");
     assert!(!body.contains("source_uri"));
     assert!(!body.contains("source_locator"));
     assert!(!body.contains("cache_uri"));
@@ -8329,6 +8428,7 @@ async fn admin_v1_vfs_cache_repair_targets_reject_non_admin_session() {
     .await;
 
     for uri in [
+        "/admin/v1/storage/vfs-cache/repair/remediation-plan",
         "/admin/v1/storage/vfs-cache/repair/targets",
         "/admin/v1/storage/vfs-cache/repair/targets/vfsrt_00000000000000000000000000000000/preview",
     ] {

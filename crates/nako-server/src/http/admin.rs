@@ -93,7 +93,9 @@ use nako_api::{
         AdminVfsCacheRepairActionPlan, AdminVfsCacheRepairActionPlanReason,
         AdminVfsCacheRepairActionPlanResponse, AdminVfsCacheRepairActionPlanStatus,
         AdminVfsCacheRepairActionReadiness, AdminVfsCacheRepairClassification,
-        AdminVfsCacheRepairDiagnostic, AdminVfsCacheRepairExecutableAction,
+        AdminVfsCacheRepairClassificationCount, AdminVfsCacheRepairDiagnostic,
+        AdminVfsCacheRepairExecutableAction, AdminVfsCacheRepairRemediationActionGroup,
+        AdminVfsCacheRepairRemediationPlanBoundary, AdminVfsCacheRepairRemediationPlanResponse,
         AdminVfsCacheRepairTarget, AdminVfsCacheRepairTargetListResponse,
         AdminVfsCacheRepairTargetPreviewResponse, AdminVfsCacheSummary,
         AdminWatchFolderDiscoveryFailure, AdminWatchFolderDiscoveryRequest,
@@ -137,9 +139,12 @@ use crate::{
         StorageStagingPressureStatus, VfsCacheRepairActionBoundary, VfsCacheRepairActionPlanReason,
         VfsCacheRepairActionPlanReport, VfsCacheRepairActionPlanStatus,
         VfsCacheRepairExecutableRoute, VfsCacheRepairRefreshActionReport,
-        VfsCacheRepairTargetPreviewReport, VfsCacheRepairTargetReport,
-        WatchFolderRuntimeCoverageDiagnostic, WatchFolderRuntimeCoverageReport,
-        WatchFolderRuntimeCoverageStatus,
+        VfsCacheRepairRemediationActionGroupReport,
+        VfsCacheRepairRemediationClassificationCountReport,
+        VfsCacheRepairRemediationPlanBoundary as AppVfsCacheRepairRemediationPlanBoundary,
+        VfsCacheRepairRemediationPlanReport, VfsCacheRepairTargetPreviewReport,
+        VfsCacheRepairTargetReport, WatchFolderRuntimeCoverageDiagnostic,
+        WatchFolderRuntimeCoverageReport, WatchFolderRuntimeCoverageStatus,
         storage_staging_pressure_status as app_storage_staging_pressure_status,
     },
     config::{
@@ -396,6 +401,10 @@ pub(super) fn routes() -> Router<NakoApp> {
             post(reset_admin_storage_backend_circuit_breaker),
         )
         .route("/admin/v1/storage/staging", get(list_admin_storage_staging))
+        .route(
+            "/admin/v1/storage/vfs-cache/repair/remediation-plan",
+            get(get_admin_vfs_cache_repair_remediation_plan),
+        )
         .route(
             "/admin/v1/storage/vfs-cache/repair/targets",
             get(list_admin_vfs_cache_repair_targets),
@@ -1950,6 +1959,14 @@ pub(super) async fn refresh_admin_vfs_cache(
     Ok(Json(admin_vfs_cache_refresh_response(report)))
 }
 
+pub(super) async fn get_admin_vfs_cache_repair_remediation_plan(
+    State(app): State<NakoApp>,
+) -> ApiResult<impl IntoResponse> {
+    let report = app.storage().plan_vfs_cache_repair_remediation().await?;
+
+    Ok(Json(admin_vfs_cache_repair_remediation_plan(report)))
+}
+
 pub(super) async fn list_admin_vfs_cache_repair_targets(
     State(app): State<NakoApp>,
     Query(query): Query<PageQuery>,
@@ -2041,6 +2058,81 @@ fn admin_vfs_cache_repair_target(target: VfsCacheRepairTargetReport) -> AdminVfs
         failure_class: target.repair.failure_class,
         retryable: target.repair.retryable,
         safe_message: target.repair.safe_message,
+    }
+}
+
+fn admin_vfs_cache_repair_remediation_plan(
+    report: VfsCacheRepairRemediationPlanReport,
+) -> AdminVfsCacheRepairRemediationPlanResponse {
+    AdminVfsCacheRepairRemediationPlanResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        total_unresolved_targets: report.total_unresolved_targets,
+        action_groups: report
+            .action_groups
+            .into_iter()
+            .map(admin_vfs_cache_repair_remediation_action_group)
+            .collect(),
+        classification_counts: report
+            .classification_counts
+            .into_iter()
+            .map(admin_vfs_cache_repair_classification_count)
+            .collect(),
+        boundary: admin_vfs_cache_repair_remediation_plan_boundary(report.boundary),
+    }
+}
+
+fn admin_vfs_cache_repair_remediation_action_group(
+    group: VfsCacheRepairRemediationActionGroupReport,
+) -> AdminVfsCacheRepairRemediationActionGroup {
+    let executable_action = (group.status == VfsCacheRepairActionPlanStatus::Executable
+        && group.action == VfsCacheRepairAction::RefreshCache)
+        .then(|| group.executable_route)
+        .flatten()
+        .map(admin_vfs_cache_refresh_executable_action);
+
+    AdminVfsCacheRepairRemediationActionGroup {
+        action: admin_vfs_cache_repair_action(group.action),
+        count: group.count,
+        status: admin_vfs_cache_repair_action_plan_status(group.status),
+        readiness: AdminVfsCacheRepairActionReadiness {
+            status: admin_vfs_cache_repair_action_plan_status(group.status),
+            api_executable: group.api_executable,
+            reasons: group
+                .reasons
+                .into_iter()
+                .map(admin_vfs_cache_repair_action_plan_reason)
+                .collect(),
+        },
+        boundary: admin_vfs_cache_repair_action_boundary(group.boundary),
+        executable_action,
+        sample_targets: group
+            .sample_targets
+            .into_iter()
+            .map(admin_vfs_cache_repair_target)
+            .collect(),
+    }
+}
+
+fn admin_vfs_cache_repair_classification_count(
+    count: VfsCacheRepairRemediationClassificationCountReport,
+) -> AdminVfsCacheRepairClassificationCount {
+    AdminVfsCacheRepairClassificationCount {
+        classification: admin_vfs_cache_repair_classification(count.classification),
+        count: count.count,
+    }
+}
+
+fn admin_vfs_cache_repair_remediation_plan_boundary(
+    boundary: AppVfsCacheRepairRemediationPlanBoundary,
+) -> AdminVfsCacheRepairRemediationPlanBoundary {
+    AdminVfsCacheRepairRemediationPlanBoundary {
+        read_only: boundary.read_only,
+        refreshes_vfs_cache: boundary.refreshes_vfs_cache,
+        changes_backend_configuration: boundary.changes_backend_configuration,
+        deletes_cache_entries: boundary.deletes_cache_entries,
+        writes_library_files: boundary.writes_library_files,
+        starts_durable_job: boundary.starts_durable_job,
     }
 }
 
