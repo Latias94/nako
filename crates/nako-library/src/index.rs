@@ -1,4 +1,4 @@
-use nako_core::{Result, ScanSnapshotId, ScanStatus};
+use nako_core::{Result, ScanSnapshotId, ScanStatus, SourceFingerprintEscalationAction};
 use nako_vfs::StorageUri;
 
 use super::{
@@ -7,7 +7,11 @@ use super::{
         LibrarySourceIngestionDisposition, LibrarySourceObservationCommit,
     },
     scan::LibraryScanner,
-    summary::{LibraryIndexRequest, LibraryIndexSummary, LibraryScanRequest},
+    source_hash::SourceFingerprintHashMode,
+    summary::{
+        LibraryIndexRequest, LibraryIndexSummary, LibraryScanRequest,
+        ScanSourceFingerprintHashTrigger,
+    },
 };
 
 #[derive(Debug)]
@@ -56,6 +60,7 @@ where
             updated_sources: 0,
             tombstoned_sources: 0,
             failed_entries: 0,
+            source_fingerprint_hash_triggers: Vec::new(),
         };
 
         let first_root = request
@@ -165,6 +170,15 @@ where
                         summary.updated_sources += 1;
                     }
                 }
+
+                let decision = source_summary.fingerprint_escalation;
+                summary
+                    .source_fingerprint_hash_triggers
+                    .push(ScanSourceFingerprintHashTrigger {
+                        source_id: source_summary.persistence.source_id,
+                        mode: source_hash_mode_for_escalation(decision.action),
+                        decision,
+                    });
             }
         }
 
@@ -177,6 +191,20 @@ struct IndexRootsOutcome {
     complete: bool,
 }
 
+fn source_hash_mode_for_escalation(
+    action: SourceFingerprintEscalationAction,
+) -> Option<SourceFingerprintHashMode> {
+    match action {
+        SourceFingerprintEscalationAction::None => None,
+        SourceFingerprintEscalationAction::PartialHash => {
+            Some(SourceFingerprintHashMode::Partial {
+                prefix_bytes: crate::DEFAULT_SCAN_SOURCE_FINGERPRINT_HASH_PARTIAL_PREFIX_BYTES,
+            })
+        }
+        SourceFingerprintEscalationAction::FullHash => Some(SourceFingerprintHashMode::Full),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::{Arc, Mutex};
@@ -185,7 +213,8 @@ mod tests {
     use nako_core::{
         JobId, Library, LibraryId, LibraryOptions, LibraryPreset,
         LibraryScanSourcePersistenceSummary, MediaSourceId, Result, ScanSnapshot, ScanSnapshotId,
-        ScanStatus,
+        ScanStatus, SourceFingerprintEscalationAction, SourceFingerprintEscalationDecision,
+        SourceFingerprintEscalationReason, SourceFingerprintEvidenceKind,
     };
     use nako_vfs::StorageUri;
 
@@ -235,6 +264,59 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn index_service_returns_redacted_source_hash_trigger_facts() {
+        let scanner = SingleSourceScanner;
+        let workflow = RecordingIngestionWorkflow::with_source_escalation(
+            SourceFingerprintEscalationDecision {
+                action: SourceFingerprintEscalationAction::PartialHash,
+                reason: SourceFingerprintEscalationReason::ConfirmSingleWeakCandidate,
+                evidence_kind: SourceFingerprintEvidenceKind::BackendFingerprint,
+                confidence_milli: 700,
+                stale: false,
+                candidate_count: 1,
+            },
+        );
+        let service = LibraryIndexService::new(scanner, workflow.clone());
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Users/Frankorz/Secret Path".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        };
+
+        let summary = service
+            .index_library(LibraryIndexRequest {
+                job_id: JobId::new(),
+                library,
+                force: false,
+            })
+            .await
+            .unwrap();
+        let trigger_body = serde_json::to_string(&summary.source_fingerprint_hash_triggers)
+            .expect("trigger serialization");
+        let public_summary = serde_json::to_string(&summary).expect("summary serialization");
+
+        assert_eq!(summary.source_fingerprint_hash_triggers.len(), 1);
+        let trigger = &summary.source_fingerprint_hash_triggers[0];
+        assert_eq!(
+            trigger.decision.action,
+            SourceFingerprintEscalationAction::PartialHash
+        );
+        assert_eq!(
+            trigger.mode,
+            Some(SourceFingerprintHashMode::Partial {
+                prefix_bytes: crate::DEFAULT_SCAN_SOURCE_FINGERPRINT_HASH_PARTIAL_PREFIX_BYTES,
+            })
+        );
+        assert!(trigger_body.contains("partial_hash"));
+        assert!(!trigger_body.contains("The Matrix"));
+        assert!(!trigger_body.contains("Secret Path"));
+        assert!(!trigger_body.contains("Frankorz"));
+        assert!(!trigger_body.contains("local:///"));
+        assert!(!public_summary.contains("source_fingerprint_hash_triggers"));
+    }
+
     struct SingleSourceScanner;
 
     #[async_trait]
@@ -273,6 +355,16 @@ mod tests {
     #[derive(Clone, Default)]
     struct RecordingIngestionWorkflow {
         calls: Arc<Mutex<RecordedCalls>>,
+        source_escalation: Option<SourceFingerprintEscalationDecision>,
+    }
+
+    impl RecordingIngestionWorkflow {
+        fn with_source_escalation(escalation: SourceFingerprintEscalationDecision) -> Self {
+            Self {
+                calls: Arc::new(Mutex::new(RecordedCalls::default())),
+                source_escalation: Some(escalation),
+            }
+        }
     }
 
     #[derive(Clone, Debug, Default)]
@@ -362,6 +454,16 @@ mod tests {
                     source_duplicate_relationships: 0,
                     resolved_ingestion_failures: 0,
                 },
+                fingerprint_escalation: self.source_escalation.clone().unwrap_or(
+                    SourceFingerprintEscalationDecision {
+                        action: SourceFingerprintEscalationAction::None,
+                        reason: SourceFingerprintEscalationReason::NoAmbiguousCandidate,
+                        evidence_kind: SourceFingerprintEvidenceKind::LocatorOnly,
+                        confidence_milli: 250,
+                        stale: false,
+                        candidate_count: 0,
+                    },
+                ),
             })
         }
 

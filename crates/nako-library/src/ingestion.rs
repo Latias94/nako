@@ -3,7 +3,7 @@ use nako_core::{
     CatalogRepository, DirectorySnapshot, IngestionFailurePhase, IngestionFailureRepository, JobId,
     Library, LibraryId, LibraryItemRepository, LibraryRepository,
     LibraryScanSourcePersistenceSummary, MediaRepository, NewIngestionFailure, PageRequest, Result,
-    ScanRepository, ScanSnapshot, ScanSnapshotId, ScanStatus,
+    ScanRepository, ScanSnapshot, ScanSnapshotId, ScanStatus, SourceFingerprintEscalationDecision,
 };
 
 use super::{
@@ -80,6 +80,7 @@ pub struct LibrarySourceObservationCommit {
 pub struct LibrarySourceIngestionSummary {
     pub disposition: LibrarySourceIngestionDisposition,
     pub persistence: LibraryScanSourcePersistenceSummary,
+    pub fingerprint_escalation: SourceFingerprintEscalationDecision,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -196,6 +197,7 @@ where
         Ok(LibrarySourceIngestionSummary {
             disposition: plan.disposition.into(),
             persistence,
+            fingerprint_escalation: plan.fingerprint_escalation,
         })
     }
 

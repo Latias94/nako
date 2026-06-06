@@ -1,6 +1,11 @@
-use nako_core::{IngestionFailureClass, JobId, Library, LibraryId, MediaSourceId, ScanSnapshotId};
+use nako_core::{
+    IngestionFailureClass, JobId, Library, LibraryId, MediaSourceId, ScanSnapshotId,
+    SourceFingerprintEscalationDecision,
+};
 use nako_vfs::StorageUri;
 use serde::{Deserialize, Serialize};
+
+use super::source_hash::SourceFingerprintHashMode;
 
 use super::scan::{DiscoveredMediaSource, ScannedDirectory};
 
@@ -42,6 +47,15 @@ pub struct LibraryIndexSummary {
     pub updated_sources: u64,
     pub tombstoned_sources: u64,
     pub failed_entries: u64,
+    #[serde(skip)]
+    pub source_fingerprint_hash_triggers: Vec<ScanSourceFingerprintHashTrigger>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ScanSourceFingerprintHashTrigger {
+    pub source_id: MediaSourceId,
+    pub decision: SourceFingerprintEscalationDecision,
+    pub mode: Option<SourceFingerprintHashMode>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

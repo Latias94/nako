@@ -5,9 +5,10 @@ use nako_core::{
 };
 use nako_db::NakoDatabase;
 use nako_library::{
-    SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS, SourceFingerprintHashExecutor,
-    SourceFingerprintHashJobInput, SourceFingerprintHashJobSummary, SourceFingerprintHashMode,
-    SourceFingerprintHashReport, SourceFingerprintHashRequest,
+    DEFAULT_SCAN_SOURCE_FINGERPRINT_HASH_PARTIAL_PREFIX_BYTES,
+    SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS, ScanSourceFingerprintHashTrigger,
+    SourceFingerprintHashExecutor, SourceFingerprintHashJobInput, SourceFingerprintHashJobSummary,
+    SourceFingerprintHashMode, SourceFingerprintHashReport, SourceFingerprintHashRequest,
 };
 use nako_vfs::StorageUri;
 use time::{OffsetDateTime, UtcOffset, format_description::well_known::Rfc3339};
@@ -36,6 +37,30 @@ pub(crate) struct RetrySourceFingerprintHashRequest {
     pub(crate) job_id: JobId,
     pub(crate) max_attempts: Option<u32>,
     pub(crate) next_attempt_at: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct ScanOriginatedSourceFingerprintHashPolicy {
+    pub(crate) enabled: bool,
+    pub(crate) partial_prefix_bytes: u64,
+    pub(crate) priority: JobPriority,
+}
+
+impl Default for ScanOriginatedSourceFingerprintHashPolicy {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            partial_prefix_bytes: DEFAULT_SCAN_SOURCE_FINGERPRINT_HASH_PARTIAL_PREFIX_BYTES,
+            priority: JobPriority::Normal,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum ScanOriginatedSourceFingerprintHashOutcome {
+    AdvisoryOnly,
+    Enqueued(Job),
+    AlreadyQueued(Job),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -90,6 +115,41 @@ impl SourceFingerprintHashAppService {
                 input_json: Some(input_json),
             })
             .await
+    }
+
+    pub(crate) async fn enqueue_scan_originated_source_fingerprint_hash(
+        &self,
+        library_id: LibraryId,
+        trigger: &ScanSourceFingerprintHashTrigger,
+        policy: ScanOriginatedSourceFingerprintHashPolicy,
+    ) -> Result<ScanOriginatedSourceFingerprintHashOutcome> {
+        if !policy.enabled {
+            return Ok(ScanOriginatedSourceFingerprintHashOutcome::AdvisoryOnly);
+        }
+
+        let Some(mode) =
+            scan_originated_source_fingerprint_hash_mode(trigger, policy.partial_prefix_bytes)?
+        else {
+            return Ok(ScanOriginatedSourceFingerprintHashOutcome::AdvisoryOnly);
+        };
+
+        if let Some(existing) = self
+            .existing_incomplete_source_fingerprint_hash_job(library_id, trigger.source_id, mode)
+            .await?
+        {
+            return Ok(ScanOriginatedSourceFingerprintHashOutcome::AlreadyQueued(
+                existing,
+            ));
+        }
+
+        self.enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
+            library_id,
+            source_id: trigger.source_id,
+            mode,
+            priority: Some(policy.priority),
+        })
+        .await
+        .map(ScanOriginatedSourceFingerprintHashOutcome::Enqueued)
     }
 
     pub(crate) async fn retry_source_fingerprint_hash_job(
@@ -384,6 +444,39 @@ impl SourceFingerprintHashAppService {
                 id: job_id.to_string(),
             })
     }
+
+    async fn existing_incomplete_source_fingerprint_hash_job(
+        &self,
+        library_id: LibraryId,
+        source_id: MediaSourceId,
+        mode: SourceFingerprintHashMode,
+    ) -> Result<Option<Job>> {
+        for status in [JobStatus::Queued, JobStatus::Running] {
+            let jobs = self
+                .store
+                .list_jobs(
+                    nako_core::JobListFilter {
+                        status: Some(status),
+                        kind: Some(JobKind::SourceFingerprintHash),
+                        resource_class: Some(SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned()),
+                        library_id: Some(library_id),
+                        source_id: Some(source_id),
+                    },
+                    nako_core::PageRequest::new(nako_core::PageRequest::MAX_LIMIT, 0),
+                )
+                .await?;
+
+            for job in jobs {
+                if source_fingerprint_hash_job_input_from_job(&job)
+                    .is_ok_and(|input| input.mode == mode)
+                {
+                    return Ok(Some(job));
+                }
+            }
+        }
+
+        Ok(None)
+    }
 }
 
 fn source_fingerprint_hash_job_summary_json(
@@ -453,6 +546,28 @@ fn source_fingerprint_hash_job_input(
     let source_uri = source_fingerprint_hash_storage_uri(source)?;
 
     SourceFingerprintHashJobInput::new(source.library_id, source.id, source_uri.scheme(), mode)
+}
+
+fn scan_originated_source_fingerprint_hash_mode(
+    trigger: &ScanSourceFingerprintHashTrigger,
+    partial_prefix_bytes: u64,
+) -> Result<Option<SourceFingerprintHashMode>> {
+    Ok(match trigger.mode {
+        None => None,
+        Some(SourceFingerprintHashMode::Full) => Some(SourceFingerprintHashMode::Full),
+        Some(SourceFingerprintHashMode::Partial { .. }) => {
+            if partial_prefix_bytes == 0 {
+                return Err(NakoError::InvalidInput {
+                    message:
+                        "scan-originated source fingerprint hash partial prefix must be greater than zero"
+                            .to_owned(),
+                });
+            }
+            Some(SourceFingerprintHashMode::Partial {
+                prefix_bytes: partial_prefix_bytes,
+            })
+        }
+    })
 }
 
 fn source_fingerprint_hash_storage_uri(source: &MediaSource) -> Result<StorageUri> {

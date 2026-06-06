@@ -10,16 +10,23 @@ use nako_core::{
     AddonId, AddonPermission, AddonRepository, AddonSideEffectTarget,
     AddonSideEffectValidationStatus, AddonStatus, AddonTaskRunRepository, ArtworkCandidateId,
     ArtworkCandidateRepository, ArtworkCandidateSourceKind, EnqueueJobRetry,
-    IdentityAccessRepository, ImageKind, Library, LibraryItemRepository, LibraryItemState,
-    LibraryOptions, LibraryRepository, ManagedArtworkAcceptanceRecord, ManagedArtworkIngestId,
-    ManagedArtworkIngestStatus, ManagedArtworkRepository, NewAddonRegistration, NewAddonSideEffect,
-    NewAddonToken, NewArtworkCandidate, NewManagedArtworkIngest, NewStagingManifestRecord,
-    StagingManifestId, StagingManifestRepository, StagingPurpose, StagingState, UserPrincipalId,
-    UserRole, bootstrap_admin_user_id,
+    IdentityAccessRepository, ImageKind, JobPriority, Library, LibraryItemRepository,
+    LibraryItemState, LibraryOptions, LibraryRepository, ManagedArtworkAcceptanceRecord,
+    ManagedArtworkIngestId, ManagedArtworkIngestStatus, ManagedArtworkRepository, MediaRepository,
+    NewAddonRegistration, NewAddonSideEffect, NewAddonToken, NewArtworkCandidate,
+    NewManagedArtworkIngest, NewStagingManifestRecord, ScanRepository, ScanSnapshotId, ScanStatus,
+    SourceFingerprintEvidence, SourceFingerprintPolicyInput, SourceState, StagingManifestId,
+    StagingManifestRepository, StagingPurpose, StagingState, UserPrincipalId, UserRole,
+    bootstrap_admin_user_id,
 };
 use nako_core::{
     StorageBackendHealthRecord, StorageBackendHealthRepository, StorageBackendHealthStatus,
     StorageCircuitBreakerState, StorageFailureClass,
+};
+use nako_library::{
+    DEFAULT_SCAN_SOURCE_FINGERPRINT_HASH_PARTIAL_PREFIX_BYTES,
+    SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS, SourceFingerprintHashJobInput,
+    SourceFingerprintHashMode,
 };
 use nako_official_addon_catalog::metadata_scraper;
 use tokio::sync::Mutex;
@@ -514,6 +521,135 @@ async fn scan_library_persists_job_success() {
             .payload_json
             .contains(&temp.path().display().to_string())
     );
+}
+
+#[tokio::test]
+async fn scan_library_enqueues_scan_originated_source_hash_after_weak_match() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_root = temp.path().join("library");
+    fs::create_dir_all(&library_root).unwrap();
+    write_fixture_mp4(&library_root.join("demo.mp4"));
+    let metadata = fs::metadata(library_root.join("demo.mp4")).unwrap();
+    let modified_at = metadata
+        .modified()
+        .unwrap()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis()
+        .to_string();
+    let fingerprint = SourceFingerprintEvidence::from_scan_metadata(SourceFingerprintPolicyInput {
+        scheme: "local",
+        size_bytes: Some(metadata.len()),
+        modified_at: Some(&modified_at),
+        etag: None,
+        backend_fingerprint: None,
+        stale: false,
+    })
+    .fingerprint
+    .expect("local size and mtime should produce weak fingerprint evidence");
+    let library_id = LibraryId::new();
+    let config = startup_config(
+        temp.path(),
+        vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: library_root.clone(),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    );
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let prior_scan_id = ScanSnapshotId::new();
+    let prior_item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Prior Demo".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let prior_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: prior_item.id,
+        locator: "local:///archive/prior-demo.mp4".to_owned(),
+        file_name: "prior-demo.mp4".to_owned(),
+        size_bytes: Some(metadata.len()),
+        fingerprint: Some(fingerprint.clone()),
+    };
+
+    store.upsert_media_item(&prior_item).await.unwrap();
+    store.upsert_media_source(&prior_source).await.unwrap();
+    store
+        .begin_scan_snapshot(prior_scan_id, library_id, "local:///archive")
+        .await
+        .unwrap();
+    store
+        .complete_scan_snapshot(prior_scan_id, ScanStatus::Succeeded, None)
+        .await
+        .unwrap();
+    store
+        .upsert_source_state(&SourceState {
+            library_id,
+            source_id: Some(prior_source.id),
+            uri: prior_source.locator.clone(),
+            size_bytes: Some(metadata.len()),
+            modified_at: Some(modified_at),
+            etag: None,
+            fingerprint: Some(fingerprint),
+            last_seen_scan_id: prior_scan_id,
+            tombstoned: false,
+        })
+        .await
+        .unwrap();
+
+    let output = app.library_scan().scan_library(library_id).await.unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+    let source_hash_jobs = jobs
+        .iter()
+        .filter(|job| job.kind == JobKind::SourceFingerprintHash)
+        .collect::<Vec<_>>();
+
+    assert_eq!(output.job.status, JobStatus::Succeeded);
+    assert_eq!(output.index.discovered_files, 1);
+    assert_eq!(source_hash_jobs.len(), 1);
+    let job = source_hash_jobs[0];
+    let input_json = job.input_json.as_deref().expect("source hash input json");
+    let input: SourceFingerprintHashJobInput = serde_json::from_str(input_json).unwrap();
+
+    assert_eq!(job.status, JobStatus::Queued);
+    assert_eq!(
+        job.resource_class,
+        SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS
+    );
+    assert_eq!(job.priority, JobPriority::Normal);
+    assert_eq!(job.library_id, Some(library_id));
+    assert_ne!(job.source_id, Some(prior_source.id));
+    assert_eq!(input.library_id, library_id);
+    assert_eq!(
+        input.source_id,
+        job.source_id.expect("source hash source id")
+    );
+    assert_eq!(input.source_scheme, "local");
+    assert_eq!(
+        input.mode,
+        SourceFingerprintHashMode::Partial {
+            prefix_bytes: DEFAULT_SCAN_SOURCE_FINGERPRINT_HASH_PARTIAL_PREFIX_BYTES,
+        }
+    );
+    assert!(!input_json.contains("archive"));
+    assert!(!input_json.contains("demo.mp4"));
+    assert!(!input_json.contains("local:///"));
+    assert!(!input_json.contains(&temp.path().display().to_string()));
+    assert!(!input_json.contains("source:v1:"));
+    assert!(!input_json.contains("sha256"));
 }
 
 #[tokio::test]

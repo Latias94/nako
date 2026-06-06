@@ -433,6 +433,10 @@ Shipped behavior:
 - disk-scan scheduler integration that can claim queued source fingerprint hash
   jobs under the existing `disk.scan` budget and execute them through the
   claimed-job helper;
+- scan-originated source hash triggering that turns committed partial/full
+  source fingerprint escalation decisions into durable source hash jobs through
+  the server source-hash app service, while keeping scan planning pure and
+  public scan summaries free of trigger facts;
 - source-scoped storage failure diagnostics.
 
 ### library-watcher-and-media-intake-stability

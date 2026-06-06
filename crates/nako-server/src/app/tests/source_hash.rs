@@ -1,9 +1,16 @@
 use super::*;
 use crate::app::jobs::LibraryScanScheduleOutcome;
-use nako_core::{JobPriority, ScanRepository, ScanSnapshotId, ScanStatus, SourceState};
+use crate::app::source_hash::{
+    ScanOriginatedSourceFingerprintHashOutcome, ScanOriginatedSourceFingerprintHashPolicy,
+};
+use nako_core::{
+    JobPriority, ScanRepository, ScanSnapshotId, ScanStatus, SourceFingerprintEscalationAction,
+    SourceFingerprintEscalationDecision, SourceFingerprintEscalationReason,
+    SourceFingerprintEvidenceKind, SourceState,
+};
 use nako_library::{
-    SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS, SourceFingerprintHashJobInput,
-    SourceFingerprintHashJobSummary, SourceFingerprintHashMode,
+    SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS, ScanSourceFingerprintHashTrigger,
+    SourceFingerprintHashJobInput, SourceFingerprintHashJobSummary, SourceFingerprintHashMode,
 };
 
 #[tokio::test]
@@ -63,6 +70,164 @@ async fn source_fingerprint_hash_enqueue_persists_safe_job_input() {
     assert!(!input_json.contains("local:///"));
     assert!(!input_json.contains("sha256"));
     assert!(!input_json.contains("etag"));
+}
+
+#[tokio::test]
+async fn scan_originated_source_fingerprint_hash_enqueue_respects_policy_and_decision() {
+    let library_id = LibraryId::new();
+    let (_temp, app, store, source) = source_hash_app_with_source(
+        library_id,
+        "local:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret",
+        Some("source:v1:backend_fingerprint:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned()),
+    )
+    .await;
+    let partial_trigger = scan_source_hash_trigger(
+        source.id,
+        SourceFingerprintEscalationAction::PartialHash,
+        Some(SourceFingerprintHashMode::Partial { prefix_bytes: 1 }),
+    );
+    let none_trigger =
+        scan_source_hash_trigger(source.id, SourceFingerprintEscalationAction::None, None);
+
+    let disabled = app
+        .source_hash()
+        .enqueue_scan_originated_source_fingerprint_hash(
+            library_id,
+            &partial_trigger,
+            ScanOriginatedSourceFingerprintHashPolicy {
+                enabled: false,
+                partial_prefix_bytes: 131_072,
+                priority: JobPriority::Low,
+            },
+        )
+        .await
+        .unwrap();
+    let advisory = app
+        .source_hash()
+        .enqueue_scan_originated_source_fingerprint_hash(
+            library_id,
+            &none_trigger,
+            ScanOriginatedSourceFingerprintHashPolicy::default(),
+        )
+        .await
+        .unwrap();
+    let enqueued = app
+        .source_hash()
+        .enqueue_scan_originated_source_fingerprint_hash(
+            library_id,
+            &partial_trigger,
+            ScanOriginatedSourceFingerprintHashPolicy {
+                enabled: true,
+                partial_prefix_bytes: 131_072,
+                priority: JobPriority::Low,
+            },
+        )
+        .await
+        .unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert_eq!(
+        disabled,
+        ScanOriginatedSourceFingerprintHashOutcome::AdvisoryOnly
+    );
+    assert_eq!(
+        advisory,
+        ScanOriginatedSourceFingerprintHashOutcome::AdvisoryOnly
+    );
+    let ScanOriginatedSourceFingerprintHashOutcome::Enqueued(job) = enqueued else {
+        panic!("expected scan-originated source hash job");
+    };
+    let input_json = job.input_json.as_deref().expect("job input json");
+    let input: SourceFingerprintHashJobInput = serde_json::from_str(input_json).unwrap();
+
+    assert_eq!(jobs.len(), 1);
+    assert_eq!(job.kind, JobKind::SourceFingerprintHash);
+    assert_eq!(job.status, JobStatus::Queued);
+    assert_eq!(job.priority, JobPriority::Low);
+    assert_eq!(job.library_id, Some(library_id));
+    assert_eq!(job.source_id, Some(source.id));
+    assert_eq!(
+        input.mode,
+        SourceFingerprintHashMode::Partial {
+            prefix_bytes: 131_072,
+        }
+    );
+    assert!(!input_json.contains("Hidden Movie"));
+    assert!(!input_json.contains("Secret Path"));
+    assert!(!input_json.contains("Frankorz"));
+    assert!(!input_json.contains("token"));
+    assert!(!input_json.contains("local:///"));
+    assert!(!input_json.contains("sha256"));
+}
+
+#[tokio::test]
+async fn scan_originated_source_fingerprint_hash_enqueue_is_idempotent_for_incomplete_same_mode() {
+    let library_id = LibraryId::new();
+    let (_temp, app, store, source) =
+        source_hash_app_with_source(library_id, "local:///Movies/Hidden Movie.mkv", None).await;
+    let trigger = scan_source_hash_trigger(
+        source.id,
+        SourceFingerprintEscalationAction::FullHash,
+        Some(SourceFingerprintHashMode::Full),
+    );
+
+    let first = app
+        .source_hash()
+        .enqueue_scan_originated_source_fingerprint_hash(
+            library_id,
+            &trigger,
+            ScanOriginatedSourceFingerprintHashPolicy::default(),
+        )
+        .await
+        .unwrap();
+    let second = app
+        .source_hash()
+        .enqueue_scan_originated_source_fingerprint_hash(
+            library_id,
+            &trigger,
+            ScanOriginatedSourceFingerprintHashPolicy::default(),
+        )
+        .await
+        .unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    let ScanOriginatedSourceFingerprintHashOutcome::Enqueued(first_job) = first else {
+        panic!("expected initial enqueue");
+    };
+    let ScanOriginatedSourceFingerprintHashOutcome::AlreadyQueued(second_job) = second else {
+        panic!("expected existing queued job");
+    };
+
+    assert_eq!(first_job.id, second_job.id);
+    assert_eq!(jobs.len(), 1);
+    assert_eq!(jobs[0].id, first_job.id);
+
+    store.start_job(first_job.id).await.unwrap();
+    let third = app
+        .source_hash()
+        .enqueue_scan_originated_source_fingerprint_hash(
+            library_id,
+            &trigger,
+            ScanOriginatedSourceFingerprintHashPolicy::default(),
+        )
+        .await
+        .unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    let ScanOriginatedSourceFingerprintHashOutcome::AlreadyQueued(third_job) = third else {
+        panic!("expected running job to block duplicate enqueue");
+    };
+    assert_eq!(third_job.id, first_job.id);
+    assert_eq!(jobs.len(), 1);
 }
 
 #[tokio::test]
@@ -1626,6 +1791,39 @@ fn source_hash_job_input_json(
         &SourceFingerprintHashJobInput::new(library_id, source_id, source_scheme, mode).unwrap(),
     )
     .unwrap()
+}
+
+fn scan_source_hash_trigger(
+    source_id: MediaSourceId,
+    action: SourceFingerprintEscalationAction,
+    mode: Option<SourceFingerprintHashMode>,
+) -> ScanSourceFingerprintHashTrigger {
+    ScanSourceFingerprintHashTrigger {
+        source_id,
+        decision: SourceFingerprintEscalationDecision {
+            action,
+            reason: match action {
+                SourceFingerprintEscalationAction::None => {
+                    SourceFingerprintEscalationReason::NoAmbiguousCandidate
+                }
+                SourceFingerprintEscalationAction::PartialHash => {
+                    SourceFingerprintEscalationReason::ConfirmSingleWeakCandidate
+                }
+                SourceFingerprintEscalationAction::FullHash => {
+                    SourceFingerprintEscalationReason::DisambiguateMultipleCandidates
+                }
+            },
+            evidence_kind: SourceFingerprintEvidenceKind::BackendFingerprint,
+            confidence_milli: 700,
+            stale: false,
+            candidate_count: if action == SourceFingerprintEscalationAction::None {
+                0
+            } else {
+                1
+            },
+        },
+        mode,
+    }
 }
 
 fn source_hash_config(root: &Path, library_id: LibraryId) -> NakoServerConfig {

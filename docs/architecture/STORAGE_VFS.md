@@ -24,10 +24,10 @@ and rclone-like mounts can be slow, stale, or unavailable.
 | Capability | Status | Authority | Next Lane |
 | --- | --- | --- | --- |
 | Local storage backend | Shipped | `docs/adr/0002-internal-vfs-before-os-mounting.md` | Keep local behavior as the compatibility baseline. |
-| Remote storage boundary | Shipped durable health foundation | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/`; `.trellis/tasks/archive/2026-06/06-02-01d-hls-artifact-io-pressure-enforcement/` | Open follow-ons for cache repair, fingerprint hash queue/operator integration, scan scheduling, or PostgreSQL runtime harness work. |
+| Remote storage boundary | Shipped durable health foundation | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/`; `.trellis/tasks/archive/2026-06/06-02-01d-hls-artifact-io-pressure-enforcement/` | Open follow-ons for cache repair, broader scan scheduling, or PostgreSQL runtime harness work. |
 | WebDAV read path | Partial | `docs/workstreams/storage-vfs/`; remote storage lanes | Harden retries, cache, and operator diagnostics. |
 | Source locator | Shipped foundation | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Watcher/debounce productization and repair workflows. |
-| Source fingerprint | Shipped escalation policy, hash execution kernel, scheduling diagnostic planner, durable job contract, job summary contract, internal enqueue seam, queued execution planner, single-job executor command, scheduler integration, evidence persistence, Admin overview/Jobs diagnostics, Admin manual enqueue, and source-hash retry/requeue | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/archive/2026-06/06-04-06-04-source-fingerprint-escalation-policy-first-slice/`; `.trellis/tasks/archive/2026-06/06-05-06-05-source-fingerprint-hash-execution-first-slice/`; `.trellis/tasks/archive/2026-06/06-06-admin-source-fingerprint-hash-trigger-first-slice/`; `.trellis/tasks/archive/2026-06/06-06-source-hash-retry-requeue-admin-command/`; `crates/nako-core/src/job.rs`; `crates/nako-library/src/source_hash.rs`; `crates/nako-server/src/app/source_hash.rs`; `crates/nako-server/src/app/jobs.rs`; `crates/nako-server/src/app/runtime.rs` | Scan-originated triggering, automatic Source Duplicate Relationship reconciliation, broader scheduler migration, and PostgreSQL runtime harness work remain follow-ons. |
+| Source fingerprint | Shipped escalation policy, hash execution kernel, scheduling diagnostic planner, durable job contract, job summary contract, internal enqueue seam, queued execution planner, single-job executor command, scheduler integration, evidence persistence, Admin overview/Jobs diagnostics, Admin manual enqueue, source-hash retry/requeue, and scan-originated durable triggering | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/archive/2026-06/06-04-06-04-source-fingerprint-escalation-policy-first-slice/`; `.trellis/tasks/archive/2026-06/06-05-06-05-source-fingerprint-hash-execution-first-slice/`; `.trellis/tasks/archive/2026-06/06-06-admin-source-fingerprint-hash-trigger-first-slice/`; `.trellis/tasks/archive/2026-06/06-06-source-hash-retry-requeue-admin-command/`; `.trellis/tasks/06-06-scan-originated-source-hash-triggering/`; `crates/nako-core/src/job.rs`; `crates/nako-library/src/source_hash.rs`; `crates/nako-server/src/app/source_hash.rs`; `crates/nako-server/src/app/jobs.rs`; `crates/nako-server/src/app/runtime.rs` | Automatic Source Duplicate Relationship reconciliation, broader scheduler migration, and PostgreSQL runtime harness work remain follow-ons. |
 | Remote probe staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Per-backend staging budgets and diagnostics. |
 | Remote FFmpeg input staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md` | Per-backend staging budgets and diagnostics. |
 | VFS cache | Shipped diagnostics foundation, action preview, latest-failure refresh, action plan, target-scoped preview, selected-target refresh execution, and read-only remediation plan | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/archive/2026-06/06-04-06-04-vfs-cache-repair-action-preview-first-slice/`; `.trellis/tasks/archive/2026-06/06-04-vfs-cache-repair-operator-actions/`; `.trellis/tasks/archive/2026-06/06-04-vfs-cache-uri-scoped-previews/`; `.trellis/tasks/archive/2026-06/06-04-vfs-cache-repair-executable-refresh-action/`; `.trellis/tasks/archive/2026-06/06-06-vfs-cache-repair-non-destructive-remediation-plan-first-slice/` | Durable repair queues, cache purge/delete/invalidation, backend configuration mutation, and automated repair workers remain follow-ons. |
@@ -53,9 +53,8 @@ Shipped:
 - redaction-safe Admin diagnostics and operator reset;
 - generated Admin TypeScript contract refresh for the new DTOs and routes.
 
-Follow-ons remain separate: cache repair, source fingerprint hash
-queue/operator integration, playback artifact I/O scheduling, scan scheduling,
-and PostgreSQL runtime harness evidence.
+Follow-ons remain separate: cache repair, playback artifact I/O scheduling,
+broader scan scheduling, and PostgreSQL runtime harness evidence.
 
 ### storage-vfs-resilience-and-source-identity
 
@@ -272,6 +271,33 @@ Boundaries:
 - no Admin/Public API, schema migration, duplicate relationship mutation, or
   automatic Media Source merge behavior was added.
 
+### scan-originated-source-hash-triggering
+
+Status: Scan-originated durable triggering shipped as of 2026-06-06.
+
+Shipped:
+
+- `nako-library::ingestion` returns the committed source's advisory
+  `SourceFingerprintEscalationDecision` after source persistence succeeds;
+- `LibraryIndexSummary` carries redaction-safe
+  `ScanSourceFingerprintHashTrigger` facts in-process only, with the trigger
+  channel skipped from public summary serialization;
+- `nako-server::app::jobs` consumes those committed trigger facts after index
+  success and delegates all durable enqueue work to
+  `SourceFingerprintHashAppService`;
+- scan-originated partial escalation defaults to
+  `DEFAULT_SCAN_SOURCE_FINGERPRINT_HASH_PARTIAL_PREFIX_BYTES`, full escalation
+  maps to full mode, disabled or `none` policy stays advisory-only;
+- queued/running source hash jobs for the same library/source/mode make
+  scan-originated enqueue idempotent, while terminal jobs do not block future
+  queued work.
+
+Boundaries:
+
+- no VFS read, raw hash execution, duplicate relationship mutation, Admin/Public
+  API change, schema migration, source-hash-specific runtime loop, or automatic
+  Media Source merge behavior was added to scan commit.
+
 ### vfs-cache-repair-diagnostics
 
 Status: Minimal diagnostic slice shipped as of 2026-06-02; structured action
@@ -325,13 +351,13 @@ Shipped:
   shipped read-only remediation plan.
 - `.trellis/tasks/archive/2026-06/06-02-01d-hls-artifact-io-pressure-enforcement/`
   (closed HLS artifact I/O pressure admission; shipped by `48668afc`).
-- `proposed:source-fingerprint-hash-queue-and-operator-integration`: durable
-  scan-originated triggering, automatic reconciliation policy, duplicate
-  suggestion/apply semantics, broader scheduler migration, and controlled
-  execution around the shipped advisory planner, durable job contract, Admin
-  manual commands, partial/full hash execution kernel, scheduler integration,
-  and redaction-safe diagnostics. The current scan escalation policy seam
-  remains advisory and does not read source bytes.
+- `proposed:source-fingerprint-hash-reconciliation-productization`: automatic
+  reconciliation policy, duplicate suggestion/operator flow deepening, broader
+  scheduler migration, and controlled execution around the shipped advisory
+  planner, scan-originated trigger, durable job contract, Admin manual commands,
+  partial/full hash execution kernel, scheduler integration, and
+  redaction-safe diagnostics. The current scan escalation policy seam still
+  does not read source bytes.
 - `proposed:storage-vfs-postgresql-runtime-harness`: runtime parity evidence
   for PostgreSQL storage/source identity query paths.
 

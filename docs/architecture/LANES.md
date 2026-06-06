@@ -36,7 +36,7 @@ documentation/bootstrap task, not as an implementation lane.
 | Area | Current state | Candidate next action | Coordination note |
 | --- | --- | --- | --- |
 | architecture-planning | Active for `06-06-2026-roadmap-reconciliation-m1-release-convergence`. | Finish roadmap/goal/lane reconciliation and then open the first focused M1 Trellis task. | Docs-only planning until the M1 queue is accepted. |
-| storage-vfs | Idle after source hash execution, evidence persistence, Admin diagnostics, manual enqueue, retry/requeue, and source duplicate apply first slices. | Candidate M1 tasks: `scan-originated-source-hash-triggering`; `source-duplicate-reconciliation-operator-flow`. | Coordinate with scan/probe commits, durable jobs, Admin diagnostics, and playback input staging. |
+| storage-vfs | Idle after source hash execution, evidence persistence, Admin diagnostics, manual enqueue, retry/requeue, scan-originated triggering, and source duplicate apply first slices. | Candidate M1 task: `source-duplicate-reconciliation-operator-flow`. | Coordinate with scan/probe commits, durable jobs, Admin diagnostics, and playback input staging. |
 | web-product | Idle after Admin settings API restoration and previous Web Admin closeouts. | Candidate M1 tasks: `m1-operator-journey-smoke`; `media-web-library-browse-and-player-smoke`; Admin/Web source duplicate reconciliation flow. | Serialize generated Admin/Public contracts, auth/redaction behavior, and player route-state changes. |
 | playback-transcode | Idle after HLS artifact I/O pressure enforcement. | Candidate M1 task: player-facing browse/play smoke and error recovery. Defer LL-HLS/CMAF, hardware tone-map execution, HEVC/AV1 policy, and subtitle burn-in unless they block M1 playback. | Coordinate with storage/VFS source reads and Web player UX. |
 | operations-release | Idle after MVP release-shape closeout and remote-access/config-gate slices. | Candidate M1 task: `m1-release-ladder-runner` after the operator journey scope is stable. | Keep package/container/config-check evidence aligned with the Product-Operator journey. |
@@ -124,11 +124,11 @@ The `storage-vfs` lane is idle after
 escalation policy, hash execution, scheduling diagnostics, durable job
 contract/summary, internal enqueue, queued planner, single-job executor command,
 scheduler integration, evidence persistence, Admin overview/Jobs diagnostics,
-Admin manual enqueue, and source-hash retry/requeue first slices. Open a
+Admin manual enqueue, source-hash retry/requeue, and scan-originated triggering
+first slices. Open a
 Trellis task before starting durable VFS cache repair workers,
-scan-originated source hash triggering, automatic Source Duplicate
-Relationship reconciliation, playback artifact I/O pressure, watcher/scan
-scheduling, or PostgreSQL runtime harness work.
+automatic Source Duplicate Relationship reconciliation, playback artifact I/O
+pressure, watcher/scan scheduling, or PostgreSQL runtime harness work.
 
 `audio-compatibility-downmix-normalization`,
 `transcode-interface-and-runtime-plan-deepening`, and

@@ -33,7 +33,10 @@ use super::{
         LibraryScanMetadataSummary, MetadataScanAcquisitionRequest, MetadataScanAcquisitionService,
     },
     runtime::{RuntimeSupervisor, runtime_budget_class_for_job_resource_class},
-    source_hash::SourceFingerprintHashAppService,
+    source_hash::{
+        ScanOriginatedSourceFingerprintHashOutcome, ScanOriginatedSourceFingerprintHashPolicy,
+        SourceFingerprintHashAppService,
+    },
     staging::ManifestRecordingStorageBackend,
     storage::{StorageBackendRegistry, remote_probe_staging_root},
 };
@@ -931,6 +934,8 @@ impl LibraryScanAppService {
                 force: false,
             })
             .await?;
+        self.enqueue_scan_originated_source_fingerprint_hashes(&index)
+            .await?;
 
         context.check_cancelled().await?;
         let storage_backend = self
@@ -998,6 +1003,47 @@ impl LibraryScanAppService {
                 entity: "library",
                 id: library_id.to_string(),
             })
+    }
+
+    async fn enqueue_scan_originated_source_fingerprint_hashes(
+        &self,
+        index: &LibraryIndexSummary,
+    ) -> Result<()> {
+        for trigger in &index.source_fingerprint_hash_triggers {
+            match self
+                .source_hash
+                .enqueue_scan_originated_source_fingerprint_hash(
+                    index.library_id,
+                    trigger,
+                    ScanOriginatedSourceFingerprintHashPolicy::default(),
+                )
+                .await?
+            {
+                ScanOriginatedSourceFingerprintHashOutcome::AdvisoryOnly => {}
+                ScanOriginatedSourceFingerprintHashOutcome::Enqueued(job) => {
+                    info!(
+                        job_id = %job.id,
+                        library_id = %index.library_id,
+                        source_id = %trigger.source_id,
+                        action = ?trigger.decision.action,
+                        mode = ?trigger.mode,
+                        "scan-originated source fingerprint hash job enqueued"
+                    );
+                }
+                ScanOriginatedSourceFingerprintHashOutcome::AlreadyQueued(job) => {
+                    info!(
+                        job_id = %job.id,
+                        library_id = %index.library_id,
+                        source_id = %trigger.source_id,
+                        action = ?trigger.decision.action,
+                        mode = ?trigger.mode,
+                        "scan-originated source fingerprint hash job already queued"
+                    );
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 

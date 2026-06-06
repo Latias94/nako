@@ -22,6 +22,11 @@ relationship reconciliation from hash evidence.
 
 - Internal enqueue:
   `SourceFingerprintHashAppService::enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest) -> Result<Job>`.
+- Scan-originated internal enqueue:
+  `SourceFingerprintHashAppService::enqueue_scan_originated_source_fingerprint_hash(
+  library_id, &ScanSourceFingerprintHashTrigger,
+  ScanOriginatedSourceFingerprintHashPolicy
+  ) -> Result<ScanOriginatedSourceFingerprintHashOutcome>`.
 - Internal retry:
   `SourceFingerprintHashAppService::retry_source_fingerprint_hash_job(
   RetrySourceFingerprintHashRequest { job_id, max_attempts, next_attempt_at }
@@ -41,6 +46,11 @@ relationship reconciliation from hash evidence.
 - Scheduler execution:
   `LibraryScanAppService::schedule_queued_library_scans() ->
   Result<LibraryScanScheduleOutcome>`.
+- Scan source trigger fact:
+  `ScanSourceFingerprintHashTrigger { source_id, decision, mode }`.
+- Scan summary internal trigger channel:
+  `LibraryIndexSummary.source_fingerprint_hash_triggers:
+  Vec<ScanSourceFingerprintHashTrigger>` with `#[serde(skip)]`.
 - Internal read-only duplicate reconciliation:
   `SourceDuplicateReconciliationAppService::plan_source_duplicate_reconciliation(
   SourceDuplicateReconciliationPlanRequest { library_id, source_id, page }
@@ -93,9 +103,33 @@ relationship reconciliation from hash evidence.
 - Source observation planning may produce
   `SourceFingerprintEscalationDecision`; it must not perform VFS reads or
   enqueue durable jobs inside the pure planning function.
-- Scan-originated scheduling, if added later, must run after a successful scan
-  source commit through a server app service and must be policy-backed,
-  idempotent, and visible through Admin jobs.
+- Library indexing may aggregate committed source trigger facts in
+  `LibraryIndexSummary.source_fingerprint_hash_triggers`, but that field is an
+  in-process server channel only and must stay `#[serde(skip)]`. Public scan
+  command summaries and event payloads must not expose trigger facts, Source
+  Locators, fingerprints, or job input.
+- Scan-originated scheduling runs only after `nako-library::ingestion`
+  successfully commits a source observation and returns a stable
+  `MediaSourceId`. `nako-server::app::jobs` must call the source-hash app
+  service after indexing succeeds and before probe/metadata work; scan planning
+  itself remains pure.
+- Scan-originated policy is explicit:
+  `ScanOriginatedSourceFingerprintHashPolicy { enabled, partial_prefix_bytes,
+  priority }` returns advisory-only when `enabled = false`; otherwise it maps
+  partial/full decisions to durable source hash jobs. A zero partial prefix is
+  invalid input.
+- The default scan-originated policy is enabled with
+  `DEFAULT_SCAN_SOURCE_FINGERPRINT_HASH_PARTIAL_PREFIX_BYTES` and
+  `JobPriority::Normal`.
+- Scan-originated enqueue must delegate to
+  `SourceFingerprintHashAppService::enqueue_source_fingerprint_hash` after its
+  own policy and idempotency checks. It must not insert durable jobs directly
+  from library scan code.
+- Scan-originated idempotency must check existing queued and running
+  `JobKind::SourceFingerprintHash` jobs for the same library, source, resource
+  class, and hash mode. If one exists, return `AlreadyQueued(job)` and do not
+  enqueue another job. Terminal jobs may be followed by a new scan-originated
+  enqueue.
 - Admin manual enqueue reuses the shipped internal enqueue and disk-scan
   scheduler execution path. The HTTP handler must translate the Admin request
   into `EnqueueSourceFingerprintHashRequest` and delegate to
@@ -200,7 +234,11 @@ relationship reconciliation from hash evidence.
 | Admin trigger uses missing source id | Return not found; do not enqueue. |
 | Admin trigger source belongs to a different library | Return invalid input without locator/path details. |
 | Source locator is malformed | Return invalid input without echoing the locator. |
-| Existing queued/running source hash job for same source/mode exists in a future dedupe policy | Return the existing job or an idempotent conflict; do not enqueue duplicates silently. |
+| Scan escalation action is `none` | Return advisory-only; do not enqueue source hash work. |
+| Scan escalation action is partial/full but automatic policy is disabled | Return advisory-only; do not enqueue source hash work. |
+| Scan partial escalation uses an enabled policy with `partial_prefix_bytes = 0` | Return invalid input before enqueue. |
+| Scan partial/full escalation has an equivalent queued/running source hash job for the same source/mode | Return `AlreadyQueued(job)`; do not enqueue a duplicate job. |
+| Scan partial/full escalation has only terminal prior source hash jobs for the same source/mode | A new scan-originated enqueue may create fresh queued work. |
 | Admin retry caller is non-admin | Return forbidden through the existing Admin route guard. |
 | Admin retry uses missing job id | Return not found without job input, locator, path, or raw error details. |
 | Admin retry job kind is not `SourceFingerprintHash` | Return invalid input; do not create a retry job. |
@@ -221,8 +259,6 @@ relationship reconciliation from hash evidence.
 | Admin retry omits `max_attempts` | Use `max(source.max_attempts, source.attempt + 1)`. |
 | Admin retry supplies future `next_attempt_at` | Create a queued retry job that is visible in overview as delayed and cannot be claimed until due. |
 | Admin retry supplies due or past `next_attempt_at` | Create a queued retry job that the existing scheduler may execute through the disk-scan source-hash path. |
-| Scan escalation action is `none` | Do not enqueue source hash work. |
-| Scan escalation action is partial/full but automatic policy is disabled | Keep diagnostics/advisory only. |
 | Hash execution succeeds | Persist redacted source fingerprint evidence and redacted job summary. |
 | Hash execution fails with a storage error | Persist a redacted durable job error using only a synthetic scheme URI. |
 | Reconciliation uses missing source id | Return not found without locator/path details. |
@@ -272,6 +308,13 @@ relationship reconciliation from hash evidence.
 - Good: an immediate retry is executed by
   `LibraryScanAppService::schedule_queued_library_scans` through the same
   disk-scan source-hash path as a freshly queued source hash job.
+- Good: a successful scan source commit returns a partial escalation trigger;
+  `LibraryIndexSummary` carries the redaction-safe trigger in-process only;
+  the server enqueues exactly one partial source hash job with safe durable
+  input, source/library bindings, and `disk.scan.source_fingerprint_hash`.
+- Good: replaying the same scan while the same source/mode hash job is queued
+  or running returns an idempotent `AlreadyQueued` outcome and leaves only one
+  incomplete source hash job.
 - Good: a later read-only reconciliation plan reports that two sources share a
   non-stale content hash and recommends a Suggested relationship without
   writing anything.
@@ -289,10 +332,17 @@ relationship reconciliation from hash evidence.
 - Good: applying against stale evidence or an existing Confirmed/Rejected
   relationship returns a safe conflict and preserves stored relationship state.
 - Base: scan commit records a partial/full hash advisory decision but leaves
-  scheduling disabled.
+  scheduling disabled, returning advisory-only and creating no job.
+- Base: scan command JSON and `LibraryScanned` event payloads omit
+  `source_fingerprint_hash_triggers`; operators observe scan-originated work
+  through the existing Admin Jobs/source hash surfaces.
 - Bad: `persist_source_fingerprint_hash_evidence` also calls
   `upsert_source_duplicate_relationship`.
 - Bad: source commit planning starts a VFS full hash read during scan commit.
+- Bad: library indexing serializes `source_fingerprint_hash_triggers` into a
+  public scan summary or durable event payload.
+- Bad: `LibraryScanAppService` inserts `NewJob` rows directly instead of
+  delegating to the source-hash app service.
 - Bad: Admin DTOs expose job input JSON, Source Locators, raw fingerprints, or
   raw hash material.
 - Bad: the Admin apply handler queries repositories directly or duplicates
@@ -312,6 +362,16 @@ relationship reconciliation from hash evidence.
 - Admin trigger app/HTTP tests for enqueue success, auth/admin guard,
   cross-library rejection, invalid locator redaction, mode selection, priority,
   and job-list filter visibility.
+- Library index tests proving committed source observations aggregate
+  redaction-safe `ScanSourceFingerprintHashTrigger` facts and that public
+  summary serialization skips the trigger channel.
+- Scan-originated app-service tests proving disabled policy, `none` advisory
+  decisions, partial/full enqueue, configured partial prefix/priority, queued
+  and running idempotency, and durable input redaction.
+- Server scan integration tests proving a successful scan with a weak
+  same-library fingerprint match enqueues exactly one source fingerprint hash
+  job through the scan pipeline without exposing locators, paths, raw
+  fingerprints, or job input in scan-facing surfaces.
 - Scheduler regression tests proving queued source hash jobs still execute
   through `schedule_queued_library_scans` and keep the `disk.scan` budget.
 - Source hash retry app-service tests proving safe retry creation from a failed
@@ -362,6 +422,15 @@ relationship reconciliation from hash evidence.
   `cargo nextest run -p nako-server source_fingerprint_hash --no-fail-fast`
   and `cargo nextest run -p nako-api admin_contract --no-fail-fast` when route
   inventory changes.
+- Gate for scan-originated triggering:
+  `cargo check -p nako-library --tests`,
+  `cargo check -p nako-server --bin nako-server --tests`,
+  `cargo nextest run -p nako-library index_service_returns_redacted_source_hash_trigger_facts --no-fail-fast`,
+  `cargo nextest run -p nako-server scan_originated_source_fingerprint_hash --no-fail-fast`,
+  `cargo nextest run -p nako-server scan_library_enqueues_scan_originated_source_hash_after_weak_match --no-fail-fast`,
+  `cargo nextest run -p nako-server source_fingerprint_hash --no-fail-fast`,
+  `cargo fmt --all -- --check`, `git diff --check`, and Trellis task
+  validation.
 - Gate for Admin retry route:
   `cargo check -p nako-api -p nako-server --tests`,
   `cargo nextest run -p nako-server source_fingerprint_hash --no-fail-fast`,

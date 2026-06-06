@@ -41,7 +41,7 @@ Deployment Endpoint Config
 | HTTP addon protocol | Shipped foundation | ADR 0003; ADR 0015; ADR 0020 | Addon Manager lifecycle is still deferred. |
 | Addon capability and token scopes | Shipped foundation | addon token/grant workstreams | Stronger hosted surface and route policy. |
 | Addon process supervision | Deferred | ADR 0020; ADR 0053 | `addon-manager-process-lifecycle`. |
-| Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract/summary/internal enqueue/queued planner/single-job executor command/scheduler integration/evidence persistence/Admin manual commands, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/` | Broader job-kind scheduler migration, scan-originated source hash triggering, and automatic Source Duplicate Relationship reconciliation remain follow-ons. |
+| Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract/summary/internal enqueue/queued planner/single-job executor command/scheduler integration/evidence persistence/Admin manual commands, scan-originated source hash triggering, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/` | Broader job-kind scheduler migration and automatic Source Duplicate Relationship reconciliation remain follow-ons. |
 | Runtime supervisor | Shipped resource-accounted foundation | ADR 0019; server runtime deepening; durable job queue/resource lane | Unified trace context and broader scheduler migration remain follow-ons. |
 | Resource classes and budgets | Shipped process-local foundation plus source fingerprint hash-to-`disk.scan` mapping | ADR 0005; playback/runtime lanes; durable job queue/resource lane | Continue migrating job kinds onto typed budget-admitted scheduler paths. |
 | Tracing/request identity | Partial with HLS and library scan job propagation | diagnostics and playback identity lanes | Continue unified trace context across jobs/FFmpeg/VFS/addons and broader scan entry points. |
@@ -67,11 +67,11 @@ capabilities and risks.
 
 Status: First contract, summary, internal enqueue, queued planner, single-job
 executor command, scheduler integration, evidence persistence, Admin manual
-enqueue, and source-hash retry/requeue slices shipped as of 2026-06-06.
+enqueue, source-hash retry/requeue, and scan-originated triggering slices
+shipped as of 2026-06-06.
 
 Goal: Keep source fingerprint hash durable work behind redaction-safe job and
-Admin command boundaries while leaving scan-originated triggering and automatic
-reconciliation policy explicit.
+Admin command boundaries while leaving automatic reconciliation policy explicit.
 
 Shipped control-plane behavior:
 
@@ -108,11 +108,16 @@ Shipped control-plane behavior:
 - Admin source-hash retry/requeue can create a new queued retry for a failed
   source fingerprint hash job without exposing or resubmitting unsafe durable
   input.
+- successful library indexing can pass committed, redaction-safe source hash
+  trigger facts to the server app service; enabled scan-originated policy
+  enqueues matching source fingerprint hash jobs through the existing durable
+  job and disk-scan scheduler path.
+- scan-originated enqueue is idempotent for queued/running jobs with the same
+  library, source, resource class, and hash mode; terminal jobs do not block
+  future scan-originated work.
 
 Follow-ons:
 
-- scan-originated triggering policy that decides when library intake should
-  enqueue source fingerprint hash jobs;
 - source hash evidence detail or duplicate-suggestion diagnostics, if needed,
   with the same redaction boundary as the shipped Admin surfaces;
 - automatic Source Duplicate Relationship reconciliation policy and apply
