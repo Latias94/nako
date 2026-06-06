@@ -1,0 +1,6 @@
+{"file": "docs/deployment/M1_LADDER_EVIDENCE_MATRIX.md", "reason": "Defines playback mode evidence requirements and failure routing."}
+{"file": "docs/architecture/PLAYBACK.md", "reason": "Playback/transcode capability map and deferred blocker boundaries."}
+{"file": "docs/architecture/OPERATIONS_RELEASE.md", "reason": "Playback hardware report and release gate evidence context."}
+{"file": "docs/architecture/LANES.md", "reason": "Owner lane mapping for playback gate failures."}
+{"file": ".trellis/spec/nako-transcode/backend/index.md", "reason": "Transcode package guidance for playback gate failures."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server self-host smoke and release ladder quality gate guidance."}
