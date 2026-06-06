@@ -860,3 +860,38 @@ Added Admin Web source duplicate reconciliation operator flow with guarded apply
 ### Next Steps
 
 - None - task complete
+
+
+## Session 69: M1 Admin diagnostics repair coverage audit
+
+**Date**: 2026-06-06
+**Task**: M1 Admin diagnostics repair coverage audit
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Added Product-Operator M1 Admin diagnostics/repair coverage matrix, refreshed roadmap/goal/lane routing to treat M1 ladder evidence as completed, archived the Trellis task, and pushed main.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0f098b2d` | (see git log) |
+| `33c932fb` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
