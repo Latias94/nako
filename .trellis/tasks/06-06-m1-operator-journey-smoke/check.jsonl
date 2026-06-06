@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/06-06-m1-operator-journey-smoke/prd.md", "reason": "Verify implementation against the task acceptance criteria and out-of-scope boundaries."}
+{"file": ".trellis/tasks/06-06-m1-operator-journey-smoke/research/operator-journey-smoke-assets.md", "reason": "Check the implemented smoke against the current asset inventory and existing evidence."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Check Admin Web route, data-source, redaction, and test conventions if frontend smoke files changed."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Check focused server gates and nextest usage if server tests or scripts changed."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify the journey mapping remains coherent across config, scan, browse, playback, diagnostics, and release gates."}
