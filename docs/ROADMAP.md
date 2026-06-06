@@ -48,14 +48,16 @@ Completed convergence evidence:
 | `scan-originated-source-hash-triggering` | `.trellis/tasks/archive/2026-06/06-06-scan-originated-source-hash-triggering/` |
 | Source duplicate reconciliation plan/apply backend | `.trellis/tasks/archive/2026-06/06-06-admin-source-duplicate-reconciliation-plan-api/`; `.trellis/tasks/archive/2026-06/06-06-admin-source-duplicate-reconciliation-apply-first-slice/` |
 | `source-duplicate-reconciliation-operator-flow` | `.trellis/tasks/archive/2026-06/06-06-source-duplicate-reconciliation-operator-flow/` |
+| `m1-release-ladder-runner` | `.trellis/tasks/archive/2026-06/06-06-m1-release-ladder-runner/` |
+| `admin-web-feature-data-adapter-deepening` | `.trellis/tasks/archive/2026-06/06-06-admin-web-feature-data-adapter-deepening/` |
 
-Next executable queue after source duplicate operator flow:
+Next executable queue after release ladder and adapter refresh:
 
 | Order | Candidate task | Owner lane | Outcome |
 | --- | --- | --- | --- |
-| 1 | `m1-release-ladder-runner` | operations-release + control-plane | Package the M1 validation ladder into a documented/scripted runner with explicit docs, server, Admin Web, playback, container/config, PostgreSQL, and optional live-browser modes. |
-| 2 | `media-web-library-browse-and-player-smoke` | web-product + playback-transcode | Harden Media Web browse/play route and player error recovery only where the release ladder or current smoke exposes a concrete M1 blocker. |
-| 3 | `admin-web-feature-data-adapter-deepening` | web-product + architecture-planning | Start from source duplicate reconciliation if needed and extract feature-owned Admin data adapters for high-churn operator workflows without a broad frontend rewrite. |
+| 1 | `m1-ladder-evidence-matrix` | operations-release + web-product + playback-transcode | Turn the M1 ladder runner modes and archived smoke evidence into a release-readiness matrix across docs, fast smoke, playback, container/config, PostgreSQL, workspace, redaction, and focused Web/API proof. |
+| 2 | `media-web-library-browse-and-player-smoke` | web-product + playback-transcode | Harden Media Web browse/play route and player error recovery only when the evidence matrix or runner exposes a concrete browser/player blocker. |
+| 3 | `m1-admin-diagnostics-repair-coverage-audit` | operations-release + web-product + control-plane | Audit Admin diagnostics and repair coverage against the M1 quality gate, then name concrete missing repair or visibility tasks instead of broad frontend/backend rewrites. |
 
 ### M1 Quality Gate
 

@@ -30,18 +30,20 @@ proposed milestone.
 
 Status: in progress as of 2026-06-06.
 
-Post-source-duplicate queue refresh:
+Post-runner queue refresh:
 
 - `m1-operator-journey-smoke`,
   `scan-originated-source-hash-triggering`, source duplicate reconciliation
-  plan/apply backend routes, and `source-duplicate-reconciliation-operator-flow`
-  are completed Trellis evidence, not next candidates.
-- The immediate next executable M1 task is `m1-release-ladder-runner`.
+  plan/apply backend routes, `source-duplicate-reconciliation-operator-flow`,
+  `m1-release-ladder-runner`, and
+  `admin-web-feature-data-adapter-deepening` are completed Trellis evidence,
+  not next candidates.
+- The immediate next executable M1 task is `m1-ladder-evidence-matrix`.
 - `media-web-library-browse-and-player-smoke` should stay targeted to concrete
-  browser/player blockers exposed by the runner or current smoke.
-- `admin-web-feature-data-adapter-deepening` is an architecture follow-on for
-  operator-flow locality, starting with source duplicate reconciliation only if
-  another flow needs the same pattern.
+  browser/player blockers exposed by the evidence matrix or release ladder.
+- `m1-admin-diagnostics-repair-coverage-audit` is the next diagnostics/repair
+  readiness candidate if the evidence matrix shows Admin coverage is the
+  weakest remaining M1 gap.
 
 Objective:
 
@@ -65,7 +67,9 @@ Deliverables:
 - 3-5 concrete M1 candidate Trellis tasks with owner lanes and outcomes;
 - post-source-duplicate queue refresh that removes completed M1 smoke,
   scan-originated hash, and source duplicate operator slices from the candidate
-  queue.
+  queue;
+- post-runner queue refresh that removes the completed release ladder runner
+  and Admin Web feature adapter follow-on from the candidate queue.
 
 Non-goals:
 
@@ -88,6 +92,8 @@ Exit criteria:
 - Proposed follow-on task names are concrete enough to become Trellis tasks.
 - Completed source hash and source duplicate M1 slices remain linked as
   evidence rather than candidate work.
+- Completed release ladder runner and Admin Web adapter slices remain linked as
+  evidence rather than candidate work.
 - Historical evidence links remain available and are not deleted.
 - Docs validation gates pass.
 
@@ -101,6 +107,8 @@ Evidence:
 - `.trellis/tasks/archive/2026-06/06-06-m1-operator-journey-smoke/`
 - `.trellis/tasks/archive/2026-06/06-06-scan-originated-source-hash-triggering/`
 - `.trellis/tasks/archive/2026-06/06-06-source-duplicate-reconciliation-operator-flow/`
+- `.trellis/tasks/archive/2026-06/06-06-m1-release-ladder-runner/`
+- `.trellis/tasks/archive/2026-06/06-06-admin-web-feature-data-adapter-deepening/`
 
 ## Recent Completed Goals
 

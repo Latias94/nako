@@ -1,0 +1,5 @@
+{"file":".trellis/spec/guides/index.md","reason":"Shared quality checklist for planning-layer consistency."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Check that roadmap, goals, and lanes describe the same next queue."}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Check that completed evidence is linked rather than duplicated as new work."}
+{"file":".trellis/tasks/archive/2026-06/06-06-m1-release-ladder-runner/prd.md","reason":"Verify completed runner evidence is represented accurately."}
+{"file":".trellis/tasks/archive/2026-06/06-06-admin-web-feature-data-adapter-deepening/prd.md","reason":"Verify completed adapter evidence is represented accurately."}
