@@ -1,6 +1,6 @@
 # Nako Architecture
 
-Last updated: 2026-05-29
+Last updated: 2026-06-06
 
 Nako is a self-hosted media server backend. The long-term target is a
 Jellyfin/Plex-class system that remains self-hostable, inspectable, and easy to
@@ -30,6 +30,8 @@ Deep dives:
   backup, and packaging map.
 - `docs/architecture/CONTROL_PLANE.md`: addon lifecycle, observability, durable
   jobs, remote access, API scale, and cache-contract map.
+- `docs/architecture/M1_ADMIN_DIAGNOSTICS_REPAIR_COVERAGE.md`: Product-Operator
+  M1 Admin diagnostics and repair coverage matrix.
 - `docs/architecture/WORKSTREAM_LINKS.md`: architecture capability to
   workstream evidence index.
 

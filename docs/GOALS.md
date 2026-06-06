@@ -30,7 +30,7 @@ proposed milestone.
 
 Status: in progress as of 2026-06-06.
 
-Post-runner queue refresh:
+Post-runner and post-matrix queue refresh:
 
 - `m1-operator-journey-smoke`,
   `scan-originated-source-hash-triggering`, source duplicate reconciliation
@@ -38,12 +38,15 @@ Post-runner queue refresh:
   `m1-release-ladder-runner`, and
   `admin-web-feature-data-adapter-deepening` are completed Trellis evidence,
   not next candidates.
-- The immediate next executable M1 task is `m1-ladder-evidence-matrix`.
+- `m1-ladder-evidence-matrix` is completed release evidence, not a next
+  candidate.
+- `m1-admin-diagnostics-repair-coverage-audit` records current Admin
+  diagnostics/repair coverage and routes follow-ons from evidence-backed gaps.
 - `media-web-library-browse-and-player-smoke` should stay targeted to concrete
   browser/player blockers exposed by the evidence matrix or release ladder.
-- `m1-admin-diagnostics-repair-coverage-audit` is the next diagnostics/repair
-  readiness candidate if the evidence matrix shows Admin coverage is the
-  weakest remaining M1 gap.
+- New Admin repair, VFS repair, durable-job drilldown, or provider-governance
+  undo tasks should open only when the M1 ladder or Admin coverage matrix
+  proves the gap blocks the Product-Operator journey.
 
 Objective:
 
@@ -69,7 +72,10 @@ Deliverables:
   scan-originated hash, and source duplicate operator slices from the candidate
   queue;
 - post-runner queue refresh that removes the completed release ladder runner
-  and Admin Web feature adapter follow-on from the candidate queue.
+  and Admin Web feature adapter follow-on from the candidate queue;
+- post-matrix queue refresh that removes the completed M1 ladder evidence
+  matrix from the candidate queue and routes Admin diagnostics/repair follow-ons
+  through `docs/architecture/M1_ADMIN_DIAGNOSTICS_REPAIR_COVERAGE.md`.
 
 Non-goals:
 
@@ -94,6 +100,10 @@ Exit criteria:
   evidence rather than candidate work.
 - Completed release ladder runner and Admin Web adapter slices remain linked as
   evidence rather than candidate work.
+- Completed M1 ladder evidence matrix and Admin diagnostics/repair coverage
+  audit remain linked as evidence rather than candidate work.
+- Future implementation candidates are tied to failed ladder modes or explicit
+  coverage-matrix opening conditions.
 - Historical evidence links remain available and are not deleted.
 - Docs validation gates pass.
 
@@ -109,6 +119,10 @@ Evidence:
 - `.trellis/tasks/archive/2026-06/06-06-source-duplicate-reconciliation-operator-flow/`
 - `.trellis/tasks/archive/2026-06/06-06-m1-release-ladder-runner/`
 - `.trellis/tasks/archive/2026-06/06-06-admin-web-feature-data-adapter-deepening/`
+- `.trellis/tasks/archive/2026-06/06-06-m1-ladder-evidence-matrix/`
+- `.trellis/tasks/archive/2026-06/06-06-m1-admin-diagnostics-repair-coverage-audit/`
+- `docs/deployment/M1_LADDER_EVIDENCE_MATRIX.md`
+- `docs/architecture/M1_ADMIN_DIAGNOSTICS_REPAIR_COVERAGE.md`
 
 ## Recent Completed Goals
 

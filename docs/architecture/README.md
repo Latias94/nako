@@ -1,6 +1,6 @@
 # Architecture Deep Dives
 
-Last updated: 2026-05-29
+Last updated: 2026-06-06
 
 This directory contains agent-oriented architecture maps that break the
 top-level `docs/ARCHITECTURE.md` system map into functional progress trackers.
@@ -32,6 +32,9 @@ workstream evidence or Trellis follow-on notes in the deep dives below.
 - [Control plane architecture](CONTROL_PLANE.md): addon lifecycle,
   observability, durable jobs, remote access, API scale, and cache-contract
   map.
+- [M1 Admin diagnostics and repair coverage](M1_ADMIN_DIAGNOSTICS_REPAIR_COVERAGE.md):
+  Product-Operator M1 matrix for completed Admin diagnostics/repair evidence
+  and evidence-driven follow-on routing.
 
 ## Linkage Policy
 

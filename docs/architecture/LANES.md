@@ -27,25 +27,27 @@ journey.
 
 The first M1 smoke, scan-originated source hash triggering, source duplicate
 backend plan/apply, source duplicate Admin Web operator flow, Product-Operator
-M1 release ladder runner, and source duplicate feature data adapter deepening
-are completed and archived. The next implementation lane should start with
-`m1-ladder-evidence-matrix` so remaining work is selected from current ladder
-evidence instead of stale candidate lists. Media Web/player work should open
-only when the matrix or runner exposes a concrete browse/play blocker. The
-01a-01f parallel Trellis queue has completed and merged; do not spawn new
-terminals from that completed queue.
+M1 release ladder runner, source duplicate feature data adapter deepening, and
+M1 ladder evidence matrix are completed and archived. Admin diagnostics/repair
+coverage is now routed through
+`docs/architecture/M1_ADMIN_DIAGNOSTICS_REPAIR_COVERAGE.md`. The next
+implementation lane should open only from a concrete failed ladder mode or a
+coverage-matrix opening condition, not from stale candidate lists. Media
+Web/player work should open only when the matrix or runner exposes a concrete
+browse/play blocker. The 01a-01f parallel Trellis queue has completed and
+merged; do not spawn new terminals from that completed queue.
 
 `00-bootstrap-guidelines` remains active as Trellis spec setup. Treat it as a
 documentation/bootstrap task, not as an implementation lane.
 
 | Area | Current state | Candidate next action | Coordination note |
 | --- | --- | --- | --- |
-| architecture-planning | Active for `m1-queue-refresh-after-release-ladder-and-adapter`. | Keep current M1 queue synchronized with archived Trellis evidence and then hand off to the next focused implementation task. | Docs-only planning unless queue refresh reveals a stale architecture map that blocks task selection. |
+| architecture-planning | Active for `m1-admin-diagnostics-repair-coverage-audit`. | Keep current M1 queue synchronized with archived Trellis evidence and the Admin diagnostics/repair coverage matrix. | Docs-only planning unless coverage evidence reveals a stale architecture map that blocks task selection. |
 | storage-vfs | Idle after source hash execution, evidence persistence, Admin diagnostics, manual enqueue, retry/requeue, scan-originated triggering, source duplicate backend plan/apply, and source duplicate operator flow support. | No immediate M1 storage task; support release ladder failures or concrete scan/source identity regressions. | Do not reopen source duplicate operator flow or automatic duplicate reconciliation unless new evidence proves a release blocker. |
-| web-product | Idle after Admin settings API restoration, M1 operator smoke, Media Web route coverage, source duplicate operator flow, and source duplicate feature adapter deepening. | Candidate M1 task: `media-web-library-browse-and-player-smoke` only if the evidence matrix or release ladder exposes a concrete browser/player blocker; otherwise support `m1-admin-diagnostics-repair-coverage-audit`. | Serialize generated Admin/Public contracts, auth/redaction behavior, player route-state changes, and feature data-adapter refactors. |
-| playback-transcode | Idle after HLS artifact I/O pressure enforcement. | Support `m1-ladder-evidence-matrix` and open player-facing browse/play smoke or error recovery only from observed blocker evidence. Defer LL-HLS/CMAF, hardware tone-map execution, HEVC/AV1 policy, and subtitle burn-in unless they block M1 playback. | Coordinate with storage/VFS source reads and Web player UX. |
-| operations-release | Idle after MVP release-shape closeout, remote-access/config-gate slices, the first composed M1 smoke, and the Product-Operator M1 release ladder runner. | Candidate M1 task: `m1-ladder-evidence-matrix`. | Keep package/container/config-check evidence aligned with the Product-Operator journey and make expensive gates explicit. |
-| control-plane | Idle after the generic durable-job priority policy baseline and scan-originated source hash triggering. | Support `m1-ladder-evidence-matrix`, source hash/job diagnostics, and repair visibility only where the release ladder needs proof. Defer broad job-kind scheduler migration unless required by an M1 task. | Keep ADR 0053 as the baseline; avoid per-feature hidden runtimes. |
+| web-product | Idle after Admin settings API restoration, M1 operator smoke, Media Web route coverage, source duplicate operator flow, and source duplicate feature adapter deepening. | Candidate M1 task: `media-web-library-browse-and-player-smoke` only if the evidence matrix or release ladder exposes a concrete browser/player blocker; otherwise open `admin-web-repair-flow-gap-<surface>` only for a proven unreachable shipped repair route. | Serialize generated Admin/Public contracts, auth/redaction behavior, player route-state changes, and feature data-adapter refactors. |
+| playback-transcode | Idle after HLS artifact I/O pressure enforcement. | Open player-facing browse/play smoke or error recovery only from observed blocker evidence. Defer LL-HLS/CMAF, hardware tone-map execution, HEVC/AV1 policy, and subtitle burn-in unless they block M1 playback. | Coordinate with storage/VFS source reads and Web player UX. |
+| operations-release | Idle after MVP release-shape closeout, remote-access/config-gate slices, the first composed M1 smoke, Product-Operator M1 release ladder runner, and M1 ladder evidence matrix. | Run the ladder modes needed for the change and route failures through the evidence matrix; no standalone release-planning task is queued. | Keep package/container/config-check evidence aligned with the Product-Operator journey and make expensive gates explicit. |
+| control-plane | Idle after the generic durable-job priority policy baseline and scan-originated source hash triggering. | Support source hash/job diagnostics, repair visibility, and Admin Jobs drilldown only where the release ladder or coverage matrix needs proof. Defer broad job-kind scheduler migration unless required by an M1 task. | Keep ADR 0053 as the baseline; avoid per-feature hidden runtimes. |
 | library-metadata-control-plane | Idle after accepted-review related hierarchy application, durable batch execution, Douban TV Series subject support, and negative Public Client governance guardrails landed. | Keep provider-governance mutation undo and Douban Season/Episode graph depth deferred unless the M1 operator journey exposes a blocking metadata gap. | Coordinate with `nako-api`, Admin Web, and schema changes before assigning parallel work. |
 
 `architecture-roadmap-reconciliation` is closed after `ARR-050`.

@@ -50,14 +50,23 @@ Completed convergence evidence:
 | `source-duplicate-reconciliation-operator-flow` | `.trellis/tasks/archive/2026-06/06-06-source-duplicate-reconciliation-operator-flow/` |
 | `m1-release-ladder-runner` | `.trellis/tasks/archive/2026-06/06-06-m1-release-ladder-runner/` |
 | `admin-web-feature-data-adapter-deepening` | `.trellis/tasks/archive/2026-06/06-06-admin-web-feature-data-adapter-deepening/` |
+| `m1-ladder-evidence-matrix` | `.trellis/tasks/archive/2026-06/06-06-m1-ladder-evidence-matrix/`; `docs/deployment/M1_LADDER_EVIDENCE_MATRIX.md` |
+| `m1-admin-diagnostics-repair-coverage-audit` | `.trellis/tasks/archive/2026-06/06-06-m1-admin-diagnostics-repair-coverage-audit/`; `docs/architecture/M1_ADMIN_DIAGNOSTICS_REPAIR_COVERAGE.md` |
 
-Next executable queue after release ladder and adapter refresh:
+Evidence-driven candidate routing after the ladder evidence matrix and Admin
+diagnostics/repair coverage audit:
 
-| Order | Candidate task | Owner lane | Outcome |
+Open focused Trellis tasks only when release ladder evidence or the Admin
+coverage matrix exposes a concrete blocker. Do not reopen completed evidence
+slices as implementation work.
+
+| Condition | Candidate task | Owner lane | Outcome |
 | --- | --- | --- | --- |
-| 1 | `m1-ladder-evidence-matrix` | operations-release + web-product + playback-transcode | Turn the M1 ladder runner modes and archived smoke evidence into a release-readiness matrix across docs, fast smoke, playback, container/config, PostgreSQL, workspace, redaction, and focused Web/API proof. |
-| 2 | `media-web-library-browse-and-player-smoke` | web-product + playback-transcode | Harden Media Web browse/play route and player error recovery only when the evidence matrix or runner exposes a concrete browser/player blocker. |
-| 3 | `m1-admin-diagnostics-repair-coverage-audit` | operations-release + web-product + control-plane | Audit Admin diagnostics and repair coverage against the M1 quality gate, then name concrete missing repair or visibility tasks instead of broad frontend/backend rewrites. |
+| M1 ladder or playback mode exposes a concrete browser/player failure | `media-web-library-browse-and-player-smoke` | web-product + playback-transcode | Harden browse/play route behavior or player error recovery for the observed failure only. |
+| A shipped Admin repair route is not discoverable or executable from the operator journey | `admin-web-repair-flow-gap-<surface>` | web-product + owning backend lane | Add the narrow Admin Web route/adapter/confirmation flow for that existing repair surface. |
+| VFS cache failures remain unrecoverable with selected-target refresh and read-only remediation planning | `vfs-cache-durable-repair-queue-first-slice` | storage-vfs + control-plane | Add the first non-destructive durable repair queue only if release evidence proves selected refresh is insufficient. |
+| A failed durable job class cannot be triaged through Admin Jobs plus feature-specific retry/requeue | `admin-jobs-retry-and-drilldown-gap-<job-kind>` | control-plane + owning feature lane | Add safe retry, cancellation, or drilldown details for the proven stuck job class. |
+| Provider governance undo becomes necessary for M1 catalog correctness | `provider-governance-mutation-undo` | library-metadata-control-plane | Keep post-M1 unless M1 evidence proves local authority can be harmed without undo. |
 
 ### M1 Quality Gate
 
