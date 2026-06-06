@@ -787,3 +787,37 @@ Opened and completed the first Product-Operator M1 smoke task, added a repeatabl
 ### Next Steps
 
 - None - task complete
+
+
+## Session 67: Scan-originated source hash triggering
+
+**Date**: 2026-06-06
+**Task**: Scan-originated source hash triggering
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Implemented scan-originated source fingerprint hash durable triggering, focused verification gates, and spec/architecture updates.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `550e430e858db8d9daa65cf40016bb14f838a446` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
