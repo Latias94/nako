@@ -136,7 +136,30 @@ Diagnostics should be redacted. They may show schemes, counts, booleans, env var
 names, and capability summaries; they must not expose raw tokens, DB passwords,
 provider secrets, artifact paths, or source locators.
 
-## 5a. Playback Release Gate
+## 5a. Product-Operator M1 Release Ladder
+
+Before claiming the M1 operator journey is release-ready, run the Product-
+Operator M1 ladder. The default `fast` mode runs docs-safe release hygiene and
+the focused M1 operator journey smoke without publishing artifacts:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/m1-release-ladder.ps1
+```
+
+Use explicit modes for heavier release dimensions:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/m1-release-ladder.ps1 -Mode playback
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/m1-release-ladder.ps1 -Mode container
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/m1-release-ladder.ps1 -Mode postgres
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/m1-release-ladder.ps1 -Mode workspace
+```
+
+`-Mode all` sequences all M1 ladder dimensions and is intentionally expensive.
+It should be reserved for release-candidate validation or CI-style evidence,
+not every local edit.
+
+## 5b. Playback Release Gate
 
 Before claiming a package or host is playback-ready, run the focused playback
 release gate. It verifies FFmpeg/FFprobe availability, CPU HLS readiness,
@@ -159,7 +182,7 @@ Review the generated hardware report before enabling `vaapi`, `nvenc`, or
 the default playback gate, but it must be understood before choosing a
 non-CPU hardware policy.
 
-## 5b. Remote Access Config Gate
+## 5c. Remote Access Config Gate
 
 Before publishing remote-access cookbook examples or support guidance, run the
 fixture gate:
@@ -179,7 +202,7 @@ with `config-check --json --create-dirs`. It also asserts the reports do not
 leak raw URLs, private origins, trusted proxy sources, forwarded header names,
 or token values.
 
-## 5c. Official Addon Alpha Smoke
+## 5d. Official Addon Alpha Smoke
 
 Run the official alpha host/addon loop after the release artifacts are ready:
 

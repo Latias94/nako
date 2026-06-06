@@ -155,6 +155,96 @@ Invoke-Step 'scripts/self-host-smoke.ps1' {
 Delegate to an existing focused gate and let that gate own its detailed setup,
 assertions, and redaction behavior.
 
+## Scenario: M1 Release Ladder Runner
+
+### 1. Scope / Trigger
+
+- Trigger: changing `scripts/m1-release-ladder.ps1`, changing the meaning of
+  Product-Operator M1 release confidence, or changing how M1 composes
+  release-gate and operator-smoke scripts.
+- Purpose: provide one product-level validation entry point while preserving
+  `scripts/release-gate.ps1` and `scripts/m1-operator-journey-smoke.ps1` as
+  the owners of detailed gate logic.
+
+### 2. Signatures
+
+- PowerShell runner:
+  `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/m1-release-ladder.ps1 [-Mode docs|smoke|fast|release-fast|playback|container|postgres|workspace|all] [-PostgresUrl <url>] [-SkipRedactionInventory]`.
+- Default mode: `fast`.
+- `fast` runs `release-gate.ps1 -Mode docs` once, then runs
+  `m1-operator-journey-smoke.ps1 -Mode fast -SkipDocsGate`.
+- `release-fast`, `playback`, `container`, `postgres`, and `workspace`
+  delegate to the matching `release-gate.ps1` mode.
+- `all` sequences fast, release-fast, playback, container, postgres, and
+  workspace; after the first docs gate it skips repeated redaction inventory
+  scans.
+
+### 3. Contracts
+
+- The runner is an orchestrator only. It must not copy the command list from
+  `release-gate.ps1`, `self-host-smoke.ps1`, Admin Web tests, or playback
+  release gates.
+- Default `fast` mode must remain suitable for local M1 confidence. Expensive
+  modes must stay explicit.
+- The runner may print mode names, safe command names, and coverage categories.
+  It must not print PostgreSQL URLs, bearer tokens, playback tickets, local
+  media paths, Source Locators, playback output paths, raw fingerprints,
+  content hashes, or secret environment values.
+- Adding live-browser, package-publication, or release-artifact validation must
+  be explicit new scope. Do not hide those steps under `fast`.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Invalid `-Mode` value | PowerShell parameter validation rejects it before any gate runs |
+| Docs release gate fails | Runner exits non-zero before M1 smoke in `fast` mode |
+| M1 operator smoke fails | Runner exits non-zero and reports the failed step name |
+| Expensive release-gate mode fails | Runner exits non-zero and reports the delegated mode |
+| PostgreSQL URL is provided | Runner passes it to `release-gate.ps1` but prints only `<provided>` |
+| Output includes unsafe URL/token/path/locator/secret material | Treat as a redaction failure and fix before closeout |
+
+### 5. Good/Base/Bad Cases
+
+- Good: add a future `live-browser` mode that invokes a dedicated browser smoke
+  script and keeps default `fast` unchanged.
+- Base: update the runner to call a renamed M1 smoke script and validate
+  `-Mode docs` plus parser checks.
+- Bad: paste the `release-gate.ps1` command list into the ladder, echo
+  `$PostgresUrl`, publish artifacts, or add live browser work to default
+  `fast`.
+
+### 6. Tests Required
+
+- PowerShell parser validation for `scripts/m1-release-ladder.ps1`.
+- `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/m1-release-ladder.ps1 -Mode docs -SkipRedactionInventory`.
+- `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/m1-release-ladder.ps1 -Mode fast -SkipRedactionInventory` for closeout when local Rust, Node, and Admin Web tooling are available.
+- `python ./.trellis/scripts/task.py validate <m1-release-ladder-task-dir>`.
+- `git diff --check`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```powershell
+Write-Host "Postgres: $PostgresUrl"
+cargo nextest run -p nako-server self_host_smoke --no-fail-fast
+```
+
+The runner must not print sensitive URLs or copy a detailed gate that already
+has an owning script.
+
+#### Correct
+
+```powershell
+Invoke-Step 'scripts/release-gate.ps1 -Mode playback' {
+    pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode playback
+}
+```
+
+Delegate to the existing release gate and keep M1 ladder logic at the product
+orchestration layer.
+
 ## Scenario: Remote Access Config Gate Fixtures
 
 ### 1. Scope / Trigger
