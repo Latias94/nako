@@ -4182,7 +4182,7 @@ h264_mp4toannexb
     }
 
     async fn wait_until_path_exists(path: &Path) {
-        time::timeout(Duration::from_millis(800), async {
+        time::timeout(Duration::from_secs(5), async {
             while !path.exists() {
                 time::sleep(Duration::from_millis(10)).await;
             }

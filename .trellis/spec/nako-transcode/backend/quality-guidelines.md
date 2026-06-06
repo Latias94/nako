@@ -38,6 +38,11 @@ Transcode changes must keep FFmpeg behavior typed, bounded, and testable.
   those behaviors change.
 - Server integration tests when admission, playback route, or artifact serving
   behavior changes.
+- Process-backed HLS runner tests that assert serve-while-running artifacts
+  must wait with a bounded polling helper rather than immediately checking the
+  filesystem. Full workspace nextest can schedule many fake FFmpeg processes at
+  once, especially on Windows, so artifact-readiness waits should cover normal
+  process startup jitter without hiding a real hang.
 
 ## Scenario: HLS FFmpeg Command Part Locality
 

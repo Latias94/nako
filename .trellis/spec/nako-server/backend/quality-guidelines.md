@@ -23,6 +23,11 @@ Use these gates for `crates/nako-server` feature work.
   before FFmpeg input staging, waits only within the bounded policy when
   capacity is busy, preserves `HlsSupersede` for replacements, and releases
   acquired permits when staging or runner work fails.
+- Process-backed HLS and remux tests must use bounded polling helpers for
+  transcode state and artifact readiness instead of immediate assertions. Full
+  workspace nextest on Windows can start many fake FFmpeg processes
+  concurrently; readiness budgets should cover that startup tail while still
+  bounding hangs.
 - Durable job resource-class mapping changes must cover
   `runtime_budget_class_for_job_resource_class` with focused server tests,
   especially when a feature-specific persisted resource class maps onto an

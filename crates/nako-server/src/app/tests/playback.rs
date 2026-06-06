@@ -3,7 +3,7 @@ use super::*;
 fn process_backed_hls_playlist_readiness_timeout() -> std::time::Duration {
     // Full-suite HLS gates on Windows start many fake FFmpeg processes at once.
     // Keep this guard above that startup tail while still bounding a hang.
-    let seconds = if cfg!(windows) { 180 } else { 60 };
+    let seconds = if cfg!(windows) { 300 } else { 120 };
     std::time::Duration::from_secs(seconds)
 }
 
@@ -756,15 +756,7 @@ async fn remux_playback_preflight_reuses_active_session_and_links_playback_sessi
         first.session.transcode_session_id,
         Some(transcode_session_id)
     );
-    assert_eq!(
-        store
-            .get_transcode_session(transcode_session_id)
-            .await
-            .unwrap()
-            .unwrap()
-            .state,
-        TranscodeSessionState::Running
-    );
+    wait_for_transcode_state(&store, transcode_session_id, TranscodeSessionState::Running).await;
 
     let second = app
         .playback()
@@ -3644,7 +3636,7 @@ async fn wait_for_active_transcode_session(
     kind: TranscodeSessionKind,
     request_key: &str,
 ) -> TranscodeSessionRecord {
-    tokio::time::timeout(std::time::Duration::from_millis(800), async {
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
         loop {
             if let Some(session) = store
                 .find_active_transcode_session(source_id, kind, request_key)
@@ -3665,7 +3657,7 @@ async fn wait_for_transcode_state(
     session_id: TranscodeSessionId,
     expected: TranscodeSessionState,
 ) {
-    tokio::time::timeout(std::time::Duration::from_millis(800), async {
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
         loop {
             let state = store
                 .get_transcode_session(session_id)
