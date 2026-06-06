@@ -1,0 +1,3 @@
+{"file": ".trellis/tasks/06-06-06-06-current-function-architecture-audit/prd.md", "reason": "Audit findings, evidence summary, and recommended next-work queue"}
+{"file": "docs/ROADMAP.md", "reason": "Check recommendations against current roadmap queue"}
+{"file": "docs/architecture/LANES.md", "reason": "Check recommendations against lane routing and ownership"}
