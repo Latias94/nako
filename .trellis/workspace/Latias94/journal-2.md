@@ -929,3 +929,37 @@ Ran Product-Operator M1 fast ladder after the Admin diagnostics/repair coverage 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 71: M1 release-fast evidence run
+
+**Date**: 2026-06-06
+**Task**: M1 release-fast evidence run
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Ran Product-Operator M1 release-fast technical preflight. DB managed-artwork contracts, API/OpenAPI/SDK/Admin contract gates, client/client-protocol tests, SDK/Admin Web generation and checks, managed-artwork tests, and self-host smoke passed; no blocker implementation task was opened.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `70e4fe40` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
