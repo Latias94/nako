@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 71
+- **Total Sessions**: 72
 - **Last Active**: 2026-06-06
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~965 | Active |
+| `journal-2.md` | ~999 | Active |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 72 | 2026-06-06 | M1 playback evidence run | `2a092bcb` | `main` |
 | 71 | 2026-06-06 | M1 release-fast evidence run | `70e4fe40` | `main` |
 | 70 | 2026-06-06 | M1 ladder fast evidence run | `830f0c2b` | `main` |
 | 69 | 2026-06-06 | M1 Admin diagnostics repair coverage audit | `0f098b2d`, `33c932fb` | `main` |

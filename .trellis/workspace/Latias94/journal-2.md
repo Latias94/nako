@@ -963,3 +963,37 @@ Ran Product-Operator M1 release-fast technical preflight. DB managed-artwork con
 ### Next Steps
 
 - None - task complete
+
+
+## Session 72: M1 playback evidence run
+
+**Date**: 2026-06-06
+**Task**: M1 playback evidence run
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Ran explicit Product-Operator M1 playback gate. FFmpeg/FFprobe were available, hardware report generation passed, nako-transcode hardware and HLS tests passed, and server self-host smoke passed; no playback blocker implementation task was opened.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2a092bcb` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
