@@ -1,0 +1,5 @@
+{"file": "docs/deployment/M1_LADDER_EVIDENCE_MATRIX.md", "reason": "Check container mode command, skip rules, and failure routing."}
+{"file": "docs/deployment/RELEASE_CHECKLIST.md", "reason": "Check release checklist alignment for container evidence."}
+{"file": "docs/architecture/OPERATIONS_RELEASE.md", "reason": "Check operations/release classification."}
+{"file": "docs/architecture/LANES.md", "reason": "Check owner lane for any container blocker."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Check release/config gate expectations."}
