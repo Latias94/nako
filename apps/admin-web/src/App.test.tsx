@@ -11,6 +11,7 @@ import type {
   AdminJobListResponse,
   AdminJobsQuery,
   AdminPlaybackSessionsQuery,
+  AdminSourceDuplicateReconciliationPlanResponse,
   AdminStorageStagingQuery,
   AddonsRouteSummary,
   AdminMetadataProfile,
@@ -43,6 +44,8 @@ import {
   mockMetadataRawCacheSettings,
   mockOverview,
   mockPlaybackSessions,
+  mockSourceDuplicateReconciliationApply,
+  mockSourceDuplicateReconciliationPlan,
   mockStorageStaging,
   mockSystemConfig,
 } from "./adminApi/mockData";
@@ -1673,6 +1676,12 @@ describe("Admin Web V2 route shell", () => {
       "href",
       "/items/item-unknown-1/artwork?limit=20&offset=0",
     );
+    expect(
+      screen.getByRole("link", { name: "Review duplicates for source-unknown-1" }),
+    ).toHaveAttribute(
+      "href",
+      "/items/item-unknown-1/sources/source-unknown-1/duplicates?library_id=library-anime&limit=20&offset=0",
+    );
     expect(screen.getByRole("link", { name: "Back to Catalog" })).toHaveAttribute(
       "href",
       "/catalog?limit=20&offset=0",
@@ -1694,6 +1703,10 @@ describe("Admin Web V2 route shell", () => {
     expect(screen.getByRole("link", { name: "打开 Artwork Gallery" })).toHaveAttribute(
       "href",
       "/items/item-unknown-1/artwork?limit=20&offset=0",
+    );
+    expect(screen.getByRole("link", { name: "审查 source-unknown-1 的重复来源" })).toHaveAttribute(
+      "href",
+      "/items/item-unknown-1/sources/source-unknown-1/duplicates?library_id=library-anime&limit=20&offset=0",
     );
     expect(screen.getByText("实时 Admin API")).toBeInTheDocument();
   });
@@ -1725,6 +1738,205 @@ describe("Admin Web V2 route shell", () => {
     expect(renderedText).not.toContain("artifact_storage_handle");
     expect(renderedText).not.toContain("playback_output_path");
     expect(renderedText).not.toContain("raw_token");
+    expect(renderedText).not.toContain("C:\\");
+    expect(renderedText).not.toContain("F:\\");
+    expect(renderedText).not.toContain("/Users/");
+  });
+
+  it("renders source duplicate reconciliation and maps URL search into plan calls", async () => {
+    const loadSourceDuplicateReconciliationPlan = vi.fn(
+      async (
+        libraryId: string,
+        sourceId: string,
+        query?: { limit?: number; offset?: number },
+      ) => ({
+        value: mockSourceDuplicateReconciliationPlan(libraryId, sourceId),
+        source: "live" as const,
+        query,
+      }),
+    );
+    window.history.pushState(
+      null,
+      "",
+      "/items/item-unknown-1/sources/source-unknown-1/duplicates?library_id=library-anime&limit=5&offset=10",
+    );
+
+    render(
+      <App
+        dataSource={{
+          load: async () => emptyConsoleData(),
+          loadSourceDuplicateReconciliationPlan,
+        }}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Source duplicate reconciliation" })).toBeInTheDocument();
+    expect(await screen.findByText("Plan summary")).toBeInTheDocument();
+    expect(screen.getByText("source-unknown-2")).toBeInTheDocument();
+    expect(screen.getByText("source-extra-3")).toBeInTheDocument();
+    expect(screen.getByText("Live Admin API")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to Item" })).toHaveAttribute(
+      "href",
+      "/items/item-unknown-1",
+    );
+    expect(loadSourceDuplicateReconciliationPlan).toHaveBeenCalledWith(
+      "library-anime",
+      "source-unknown-1",
+      { limit: 5, offset: 10 },
+    );
+  });
+
+  it("applies source duplicate suggestions only after explicit confirmation", async () => {
+    const applySourceDuplicateReconciliation = vi.fn(
+      async (libraryId: string, sourceId: string, duplicateSourceId: string) =>
+        mockSourceDuplicateReconciliationApply(libraryId, sourceId, duplicateSourceId),
+    );
+    window.history.pushState(
+      null,
+      "",
+      "/items/item-unknown-1/sources/source-unknown-1/duplicates?library_id=library-anime",
+    );
+
+    render(
+      <App
+        dataSource={{
+          load: async () => emptyConsoleData(),
+          loadSourceDuplicateReconciliationPlan: async (libraryId, sourceId, query) => ({
+            value: mockSourceDuplicateReconciliationPlan(libraryId, sourceId),
+            source: "live",
+            query,
+          }),
+          applySourceDuplicateReconciliation,
+        }}
+      />,
+    );
+
+    expect(await screen.findByText("source-unknown-2")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Prepare suggestion" }));
+    expect(applySourceDuplicateReconciliation).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm suggestion" }));
+
+    await waitFor(() => {
+      expect(applySourceDuplicateReconciliation).toHaveBeenCalledWith(
+        "library-anime",
+        "source-unknown-1",
+        "source-unknown-2",
+      );
+    });
+    expect(await screen.findByText("Suggested relationship")).toBeInTheDocument();
+    expect(screen.getByText("source-dup-suggested")).toBeInTheDocument();
+  });
+
+  it("keeps non-suggestion source duplicate candidates read-only", async () => {
+    const plan = {
+      ...mockSourceDuplicateReconciliationPlan("library-anime", "source-unknown-1"),
+      candidates: [
+        {
+          ...mockSourceDuplicateReconciliationPlan("library-anime", "source-unknown-1").candidates[0],
+          duplicate_source_id: "source-refresh-required",
+          recommended_action: "refresh_source_fingerprint",
+        },
+      ],
+      page: { limit: 20, offset: 0, returned: 1 },
+    } satisfies AdminSourceDuplicateReconciliationPlanResponse;
+    const applySourceDuplicateReconciliation = vi.fn();
+    window.history.pushState(
+      null,
+      "",
+      "/items/item-unknown-1/sources/source-unknown-1/duplicates?library_id=library-anime",
+    );
+
+    render(
+      <App
+        dataSource={{
+          load: async () => emptyConsoleData(),
+          loadSourceDuplicateReconciliationPlan: async () => ({
+            value: plan,
+            source: "live",
+          }),
+          applySourceDuplicateReconciliation,
+        }}
+      />,
+    );
+
+    expect(await screen.findByText("source-refresh-required")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "No mutation" })).toBeDisabled();
+    expect(applySourceDuplicateReconciliation).not.toHaveBeenCalled();
+  });
+
+  it("renders localized source duplicate reconciliation copy", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/items/item-unknown-1/sources/source-unknown-1/duplicates?library_id=library-anime",
+    );
+
+    render(
+      <App
+        dataSource={{
+          load: async () => emptyConsoleData(),
+          loadSourceDuplicateReconciliationPlan: async (libraryId, sourceId) => ({
+            value: mockSourceDuplicateReconciliationPlan(libraryId, sourceId),
+            source: "live",
+          }),
+        }}
+        initialLocale="zh-Hans"
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Source duplicate 调和" })).toBeInTheDocument();
+    expect(await screen.findByText("计划摘要")).toBeInTheDocument();
+    expect(screen.getByText("重复候选")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "准备建议" })).toBeInTheDocument();
+    expect(screen.getByText("实时 Admin API")).toBeInTheDocument();
+  });
+
+  it("keeps unsafe fields out of the source duplicate reconciliation rendering", async () => {
+    const unsafePlan = {
+      ...mockSourceDuplicateReconciliationPlan("library-anime", "source-unknown-1"),
+      raw_fingerprint: "source:v1:content_hash:sha256:secret-content",
+      raw_locator: "local:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret",
+      token_env: "TMDB_API_KEY",
+      candidates: mockSourceDuplicateReconciliationPlan("library-anime", "source-unknown-1").candidates.map(
+        (candidate) => ({
+          ...candidate,
+          source_uri: "file:///Users/frank/media/private.mkv",
+          local_path: "F:\\media\\private.mkv",
+          raw_token: "nako_at_one_time_raw_token",
+        }),
+      ),
+    } as unknown as AdminSourceDuplicateReconciliationPlanResponse;
+    window.history.pushState(
+      null,
+      "",
+      "/items/item-unknown-1/sources/source-unknown-1/duplicates?library_id=library-anime",
+    );
+
+    const { container } = render(
+      <App
+        dataSource={{
+          load: async () => emptyConsoleData(),
+          loadSourceDuplicateReconciliationPlan: async () => ({
+            value: unsafePlan,
+            source: "live",
+          }),
+        }}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "Source duplicate reconciliation" });
+    const renderedText = container.textContent ?? "";
+
+    expect(renderedText).not.toContain("raw_fingerprint");
+    expect(renderedText).not.toContain("source:v1:content_hash:sha256:secret-content");
+    expect(renderedText).not.toContain("raw_locator");
+    expect(renderedText).not.toContain("Hidden Movie.mkv");
+    expect(renderedText).not.toContain("TMDB_API_KEY");
+    expect(renderedText).not.toContain("source_uri");
+    expect(renderedText).not.toContain("file:///Users/frank/media/private.mkv");
+    expect(renderedText).not.toContain("local_path");
+    expect(renderedText).not.toContain("raw_token");
+    expect(renderedText).not.toContain("one_time_raw_token");
     expect(renderedText).not.toContain("C:\\");
     expect(renderedText).not.toContain("F:\\");
     expect(renderedText).not.toContain("/Users/");

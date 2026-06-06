@@ -32,6 +32,8 @@ import {
   mockPublicCatalogSearch,
   mockPublicItemDetail,
   mockPublicSourceProbe,
+  mockSourceDuplicateReconciliationApply,
+  mockSourceDuplicateReconciliationPlan,
   mockStorageStaging,
   mockSystemConfig,
   mockWatchFolderDiscovery,
@@ -467,6 +469,75 @@ describe("AdminApiClient", () => {
           .replace("{kind}", "poster"),
         {
           method: "DELETE",
+        },
+      ],
+    ]);
+  });
+
+  it("uses generated source duplicate reconciliation routes for plan and apply", async () => {
+    const fetcher = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input.toString(), "http://127.0.0.1");
+
+      if (init?.method === "POST") {
+        return Response.json(
+          mockSourceDuplicateReconciliationApply(
+            "library/unsafe id",
+            "source/unsafe id",
+            "duplicate/source id",
+          ),
+        );
+      }
+
+      expect(url.search).toBe("?limit=5&offset=10");
+      return Response.json(
+        mockSourceDuplicateReconciliationPlan("library/unsafe id", "source/unsafe id"),
+      );
+    });
+    const client = new AdminApiClient({ fetcher });
+
+    await expect(
+      client.getSourceDuplicateReconciliationPlan(
+        "library/unsafe id",
+        "source/unsafe id",
+        { limit: 5, offset: 10 },
+      ),
+    ).resolves.toEqual(
+      mockSourceDuplicateReconciliationPlan("library/unsafe id", "source/unsafe id"),
+    );
+    await expect(
+      client.applySourceDuplicateReconciliation(
+        "library/unsafe id",
+        "source/unsafe id",
+        {
+          duplicate_source_id: "duplicate/source id",
+          expected_action: "suggest_relationship",
+        },
+      ),
+    ).resolves.toEqual(
+      mockSourceDuplicateReconciliationApply(
+        "library/unsafe id",
+        "source/unsafe id",
+        "duplicate/source id",
+      ),
+    );
+
+    expect(fetcher.mock.calls).toMatchObject([
+      [
+        `${NAKO_ADMIN_ROUTES.sourceDuplicateReconciliationPlan
+          .replace("{library_id}", encodeURIComponent("library/unsafe id"))
+          .replace("{source_id}", encodeURIComponent("source/unsafe id"))}?limit=5&offset=10`,
+        {},
+      ],
+      [
+        NAKO_ADMIN_ROUTES.sourceDuplicateReconciliationApply
+          .replace("{library_id}", encodeURIComponent("library/unsafe id"))
+          .replace("{source_id}", encodeURIComponent("source/unsafe id")),
+        {
+          method: "POST",
+          body: JSON.stringify({
+            duplicate_source_id: "duplicate/source id",
+            expected_action: "suggest_relationship",
+          }),
         },
       ],
     ]);

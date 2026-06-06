@@ -32,6 +32,8 @@ import {
   mockPublicCatalogSearch,
   mockPublicItemDetail,
   mockPublicSourceProbe,
+  mockSourceDuplicateReconciliationApply,
+  mockSourceDuplicateReconciliationPlan,
   mockStorageStaging,
   mockSystemConfig,
 } from "./mockData";
@@ -1907,6 +1909,115 @@ describe("Admin data source", () => {
       value: mockPlaybackSessions,
       error: expect.stringContaining("HTTP 503"),
     });
+  });
+
+  it("loads source duplicate reconciliation plans with generated query params and section fallback", async () => {
+    const seenRequests: string[] = [];
+    const liveSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        seenRequests.push(`${url.pathname}${url.search}`);
+        return Response.json(
+          mockSourceDuplicateReconciliationPlan("library/unsafe id", "source/unsafe id"),
+        );
+      },
+    });
+
+    const liveResult = await liveSource.loadSourceDuplicateReconciliationPlan?.(
+      "library/unsafe id",
+      "source/unsafe id",
+      { limit: 5, offset: 10 },
+    );
+
+    expect(liveResult).toMatchObject({
+      source: "live",
+      value: {
+        library_id: "library/unsafe id",
+        source_id: "source/unsafe id",
+        candidates: expect.arrayContaining([
+          expect.objectContaining({
+            duplicate_source_id: "source-unknown-2",
+            recommended_action: "suggest_relationship",
+          }),
+        ]),
+      },
+    });
+    expect(seenRequests).toEqual([
+      "/admin/v1/libraries/library%2Funsafe%20id/sources/source%2Funsafe%20id/duplicate-reconciliation-plan?limit=5&offset=10",
+    ]);
+
+    const fallbackSource = createAdminDataSource({
+      fetcher: async () => new Response("offline", { status: 503 }),
+    });
+
+    const fallbackResult = await fallbackSource.loadSourceDuplicateReconciliationPlan?.(
+      "library-anime",
+      "source-unknown-1",
+    );
+
+    expect(fallbackResult).toMatchObject({
+      source: "mock",
+      value: mockSourceDuplicateReconciliationPlan("library-anime", "source-unknown-1"),
+      error: expect.stringContaining("HTTP 503"),
+    });
+  });
+
+  it("applies source duplicate reconciliation without mock success fallback", async () => {
+    const seenRequests: Array<{ body: unknown; method: string; path: string }> = [];
+    const liveSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request, init?: RequestInit) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        seenRequests.push({
+          body: init?.body ? JSON.parse(String(init.body)) : null,
+          method: init?.method ?? "GET",
+          path: url.pathname,
+        });
+        return Response.json(
+          mockSourceDuplicateReconciliationApply(
+            "library/unsafe id",
+            "source/unsafe id",
+            "duplicate/source id",
+          ),
+        );
+      },
+    });
+
+    await expect(
+      liveSource.applySourceDuplicateReconciliation?.(
+        "library/unsafe id",
+        "source/unsafe id",
+        "duplicate/source id",
+      ),
+    ).resolves.toMatchObject({
+      library_id: "library/unsafe id",
+      source_id: "source/unsafe id",
+      duplicate_source_id: "duplicate/source id",
+      relationship_status: "suggested",
+      applied_action: "suggest_relationship",
+    });
+
+    expect(seenRequests).toEqual([
+      {
+        path: "/admin/v1/libraries/library%2Funsafe%20id/sources/source%2Funsafe%20id/duplicate-reconciliation-apply",
+        method: "POST",
+        body: {
+          duplicate_source_id: "duplicate/source id",
+          expected_action: "suggest_relationship",
+        },
+      },
+    ]);
+
+    const fallbackSource = createAdminDataSource({
+      fetcher: async () => new Response("offline", { status: 503 }),
+    });
+
+    await expect(
+      fallbackSource.applySourceDuplicateReconciliation?.(
+        "library-anime",
+        "source-unknown-1",
+        "source-unknown-2",
+      ),
+    ).rejects.toThrow("HTTP 503");
   });
 
   it("loads route-local Storage Staging with generated query params and section fallback", async () => {

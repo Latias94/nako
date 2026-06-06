@@ -60,6 +60,10 @@ import {
   type ItemArtworkGallerySearch,
 } from "./features/items/ItemArtworkGalleryPage";
 import { ItemDetailPage } from "./features/items/ItemDetailPage";
+import {
+  SourceDuplicateReconciliationPage,
+  type SourceDuplicateReconciliationSearch,
+} from "./features/items/SourceDuplicateReconciliationPage";
 import { LibraryDetailPage } from "./features/libraries/LibraryDetailPage";
 import { LibrariesPage } from "./features/libraries/LibrariesPage";
 import { OverviewPage } from "./features/overview/OverviewPage";
@@ -169,6 +173,12 @@ const itemArtworkGalleryRoute = createRoute({
   validateSearch: validateItemArtworkGallerySearch,
   component: ItemArtworkGalleryRoute,
 });
+const sourceDuplicateReconciliationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/items/$itemId/sources/$sourceId/duplicates",
+  validateSearch: validateSourceDuplicateReconciliationSearch,
+  component: SourceDuplicateReconciliationRoute,
+});
 const acquisitionIntakeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/acquisition/intake",
@@ -276,6 +286,7 @@ const routeTree = rootRoute.addChildren([
   catalogGovernanceRepairRoute,
   itemDetailRoute,
   itemArtworkGalleryRoute,
+  sourceDuplicateReconciliationRoute,
   acquisitionIntakeRoute,
   generatedArtifactsRoute,
   generatedArtifactReviewRoute,
@@ -504,6 +515,28 @@ function ItemArtworkGalleryRoute() {
         });
       }}
       search={search}
+    />
+  );
+}
+
+function SourceDuplicateReconciliationRoute() {
+  const { dataSource } = sourceDuplicateReconciliationRoute.useRouteContext();
+  const { itemId, sourceId } = sourceDuplicateReconciliationRoute.useParams();
+  const search = sourceDuplicateReconciliationRoute.useSearch();
+  const navigate = sourceDuplicateReconciliationRoute.useNavigate();
+
+  return (
+    <SourceDuplicateReconciliationPage
+      dataSource={dataSource}
+      itemId={itemId}
+      onSearchChange={(next) => {
+        void navigate({
+          search: (current) =>
+            normalizeSourceDuplicateReconciliationSearch({ ...current, ...next }),
+        });
+      }}
+      search={search}
+      sourceId={sourceId}
     />
   );
 }
@@ -913,6 +946,26 @@ function normalizeItemArtworkGallerySearch(
   search: Partial<ItemArtworkGallerySearch>,
 ): ItemArtworkGallerySearch {
   return {
+    limit: positiveIntSearch(search.limit, 20),
+    offset: nonNegativeIntSearch(search.offset, 0),
+  };
+}
+
+function validateSourceDuplicateReconciliationSearch(
+  search: Record<string, unknown>,
+): SourceDuplicateReconciliationSearch {
+  return normalizeSourceDuplicateReconciliationSearch({
+    library_id: stringSearch(search.library_id),
+    limit: positiveIntSearch(search.limit, 20),
+    offset: nonNegativeIntSearch(search.offset, 0),
+  });
+}
+
+function normalizeSourceDuplicateReconciliationSearch(
+  search: Partial<SourceDuplicateReconciliationSearch>,
+): SourceDuplicateReconciliationSearch {
+  return {
+    library_id: emptyToUndefined(search.library_id),
     limit: positiveIntSearch(search.limit, 20),
     offset: nonNegativeIntSearch(search.offset, 0),
   };

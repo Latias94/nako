@@ -50,6 +50,10 @@ import type {
   AdminPlaybackSupportEvidenceResponse,
   AdminPlaybackSupportQuery,
   AdminServerConfigDiagnosticsResponse,
+  AdminSourceDuplicateReconciliationApplyRequest,
+  AdminSourceDuplicateReconciliationApplyResponse,
+  AdminSourceDuplicateReconciliationPlanQuery,
+  AdminSourceDuplicateReconciliationPlanResponse,
   AdminStorageStagingQuery,
   AdminStorageStagingDiagnosticsResponse,
   IssueAddonTokenRequest,
@@ -370,6 +374,35 @@ export class AdminApiClient {
     );
   }
 
+  async getSourceDuplicateReconciliationPlan(
+    libraryId: string,
+    sourceId: string,
+    query: AdminSourceDuplicateReconciliationPlanQuery = {},
+  ): Promise<AdminSourceDuplicateReconciliationPlanResponse> {
+    return this.getJson<AdminSourceDuplicateReconciliationPlanResponse>(
+      withQuery(sourceDuplicateReconciliationPath(
+        NAKO_ADMIN_ROUTES.sourceDuplicateReconciliationPlan,
+        libraryId,
+        sourceId,
+      ), query),
+    );
+  }
+
+  async applySourceDuplicateReconciliation(
+    libraryId: string,
+    sourceId: string,
+    request: AdminSourceDuplicateReconciliationApplyRequest,
+  ): Promise<AdminSourceDuplicateReconciliationApplyResponse> {
+    return this.postJson<AdminSourceDuplicateReconciliationApplyResponse>(
+      sourceDuplicateReconciliationPath(
+        NAKO_ADMIN_ROUTES.sourceDuplicateReconciliationApply,
+        libraryId,
+        sourceId,
+      ),
+      request,
+    );
+  }
+
   async getAddonRuntimeReadiness(addonId: string): Promise<AdminAddonRuntimeReadinessResponse> {
     return this.postJson<AdminAddonRuntimeReadinessResponse>(
       routeWithParam(NAKO_ADMIN_ROUTES.addonRuntimeReadiness, "addon_id", addonId),
@@ -599,6 +632,14 @@ function routeWithParam(path: string, name: string, value: string) {
 
 function itemArtworkPath(path: string, itemId: string, kind: string) {
   return routeWithParam(routeWithParam(path, "item_id", itemId), "kind", kind);
+}
+
+function sourceDuplicateReconciliationPath(path: string, libraryId: string, sourceId: string) {
+  return routeWithParam(
+    routeWithParam(path, "library_id", libraryId),
+    "source_id",
+    sourceId,
+  );
 }
 
 function withQuery(path: string, query: object) {

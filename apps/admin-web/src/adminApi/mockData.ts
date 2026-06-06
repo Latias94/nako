@@ -28,6 +28,8 @@ import type {
   AdminPlaybackSessionListResponse,
   AdminPlaybackSupportEvidenceResponse,
   AdminServerConfigDiagnosticsResponse,
+  AdminSourceDuplicateReconciliationApplyResponse,
+  AdminSourceDuplicateReconciliationPlanResponse,
   AdminStorageStagingDiagnosticsResponse,
   AdminWatchFolderDiscoveryResponse,
 } from "./generated/contract";
@@ -506,6 +508,60 @@ export function mockPublicItemDetail(itemId = "item-unknown-1"): PublicItemDetai
         etag: "poster-etag",
       },
     ],
+  };
+}
+
+export function mockSourceDuplicateReconciliationPlan(
+  libraryId = "library-anime",
+  sourceId = "source-unknown-1",
+): AdminSourceDuplicateReconciliationPlanResponse {
+  return {
+    admin_api_version: "v1",
+    library_id: libraryId,
+    source_id: sourceId,
+    fingerprint_evidence_kind: "content_hash",
+    confidence_milli: 960,
+    stale: false,
+    candidates: [
+      {
+        source_id: sourceId,
+        duplicate_source_id: "source-unknown-2",
+        evidence_kind: "strong_fingerprint",
+        confidence_milli: 960,
+        stale: false,
+        relationship_id: null,
+        existing_status: null,
+        recommended_action: "suggest_relationship",
+      },
+      {
+        source_id: sourceId,
+        duplicate_source_id: "source-extra-3",
+        evidence_kind: "path_evidence",
+        confidence_milli: 640,
+        stale: true,
+        relationship_id: "source-dup-existing",
+        existing_status: "suggested",
+        recommended_action: "preserve_suggested",
+      },
+    ],
+    page: { limit: 20, offset: 0, returned: 2 },
+  };
+}
+
+export function mockSourceDuplicateReconciliationApply(
+  libraryId = "library-anime",
+  sourceId = "source-unknown-1",
+  duplicateSourceId = "source-unknown-2",
+): AdminSourceDuplicateReconciliationApplyResponse {
+  return {
+    admin_api_version: "v1",
+    library_id: libraryId,
+    source_id: sourceId,
+    duplicate_source_id: duplicateSourceId,
+    relationship_id: "source-dup-suggested",
+    relationship_status: "suggested",
+    applied_action: "suggest_relationship",
+    created: true,
   };
 }
 

@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Admin Web route, data-source, mutation confirmation, and test requirements"}
+{"file": ".trellis/spec/nako-server/backend/source-fingerprint-hash-policy.md", "reason": "Source duplicate reconciliation plan/apply contracts and redaction rules"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Feature crosses generated Admin contract, data-source mapping, route UI, and tests"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Follow existing Admin Web route/data-source patterns instead of duplicating ad hoc fetch/mutation logic"}
+{"file": ".trellis/tasks/archive/2026-06/06-06-06-06-current-function-architecture-audit/prd.md", "reason": "Audit finding that source duplicate backend exists but operator UI is missing"}

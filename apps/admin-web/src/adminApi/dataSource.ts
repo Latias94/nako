@@ -27,6 +27,7 @@ import {
   mockOverview,
   mockPlaybackRuntime,
   mockPlaybackSessions,
+  mockSourceDuplicateReconciliationPlan,
   mockStorageStaging,
   mockSystemConfig,
 } from "./mockData";
@@ -71,6 +72,9 @@ import type {
   AdminPlaybackRuntimeDiagnosticsResponse,
   AdminPlaybackSessionsQuery,
   AdminPlaybackSessionListResponse,
+  AdminSourceDuplicateReconciliationApplyResponse,
+  AdminSourceDuplicateReconciliationPlanQuery,
+  AdminSourceDuplicateReconciliationPlanResponse,
   PublishSelectedArtworkResponse,
   AdminServerConfigDiagnosticsResponse,
   AdminStorageStagingQuery,
@@ -196,6 +200,16 @@ export type AdminDataSource = {
   loadPlaybackSessions?(
     query?: AdminPlaybackSessionsQuery,
   ): Promise<AdminSectionResult<AdminPlaybackSessionListResponse>>;
+  loadSourceDuplicateReconciliationPlan?(
+    libraryId: string,
+    sourceId: string,
+    query?: AdminSourceDuplicateReconciliationPlanQuery,
+  ): Promise<AdminSectionResult<AdminSourceDuplicateReconciliationPlanResponse>>;
+  applySourceDuplicateReconciliation?(
+    libraryId: string,
+    sourceId: string,
+    duplicateSourceId: string,
+  ): Promise<AdminSourceDuplicateReconciliationApplyResponse>;
   loadStorageStaging?(
     query?: AdminStorageStagingQuery,
   ): Promise<AdminSectionResult<AdminStorageStagingDiagnosticsResponse>>;
@@ -446,6 +460,18 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
     },
     async loadPlaybackSessions(query = {}) {
       return loadSection(() => client.getPlaybackSessions(query), mockPlaybackSessions);
+    },
+    async loadSourceDuplicateReconciliationPlan(libraryId, sourceId, query = {}) {
+      return loadSection(
+        () => client.getSourceDuplicateReconciliationPlan(libraryId, sourceId, query),
+        mockSourceDuplicateReconciliationPlan(libraryId, sourceId),
+      );
+    },
+    async applySourceDuplicateReconciliation(libraryId, sourceId, duplicateSourceId) {
+      return client.applySourceDuplicateReconciliation(libraryId, sourceId, {
+        duplicate_source_id: duplicateSourceId,
+        expected_action: "suggest_relationship",
+      });
     },
     async loadStorageStaging(query = {}) {
       return loadSection(() => client.getStorageStaging(query), mockStorageStaging);

@@ -139,7 +139,7 @@ export function ItemDetailPage({ dataSource, itemId }: ItemDetailPageProps) {
           >
             <div className="librarySourceSamples">
               {detail.sources.map((source) => (
-                <SourceRow key={source.id} source={source} t={t} />
+                <SourceRow itemId={detail.item.id} key={source.id} source={source} t={t} />
               ))}
             </div>
           </DataPanel>
@@ -283,7 +283,15 @@ function TokenRow({ label, t, values }: { label: string; t: Translate; values: s
   );
 }
 
-function SourceRow({ source, t }: { source: ItemSourceSummary; t: Translate }) {
+function SourceRow({
+  itemId,
+  source,
+  t,
+}: {
+  itemId: string;
+  source: ItemSourceSummary;
+  t: Translate;
+}) {
   return (
     <div className="librarySourceSample">
       <div>
@@ -296,6 +304,18 @@ function SourceRow({ source, t }: { source: ItemSourceSummary; t: Translate }) {
       <Badge tone={source.hasFingerprint ? "success" : "warning"}>
         {source.hasFingerprint ? t("itemDetail.sources.fingerprinted") : t("itemDetail.sources.noFingerprint")}
       </Badge>
+      <Link
+        aria-label={t("itemDetail.sources.openDuplicateReviewAria", {
+          sourceId: source.id,
+        })}
+        className="routeTextLink"
+        params={{ itemId, sourceId: source.id }}
+        search={{ library_id: source.libraryId, limit: 20, offset: 0 }}
+        to="/items/$itemId/sources/$sourceId/duplicates"
+      >
+        {t("itemDetail.sources.openDuplicateReview")}
+        <ExternalLink size={14} />
+      </Link>
     </div>
   );
 }
