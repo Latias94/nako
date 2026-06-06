@@ -61,6 +61,100 @@ Use these gates for `crates/nako-server` feature work.
   `cargo fmt --all -- --check`, `cargo check --workspace --tests`,
   `cargo nextest run --workspace --no-fail-fast`.
 
+## Scenario: M1 Operator Journey Smoke Gate
+
+### 1. Scope / Trigger
+
+- Trigger: changing `scripts/m1-operator-journey-smoke.ps1`, changing the
+  meaning of Product-Operator M1 smoke coverage, or moving the focused server,
+  Admin Web, or docs-safe gates that script composes.
+- Purpose: provide one repeatable M1 smoke entry point that maps the operator
+  journey to existing deterministic gates without publishing release artifacts
+  or adding runtime behavior.
+
+### 2. Signatures
+
+- PowerShell gate:
+  `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/m1-operator-journey-smoke.ps1 [-Mode docs|server|admin-web|fast] [-SkipDocsGate]`.
+- Default mode: `fast`.
+- `docs` mode runs only the docs-safe release gate.
+- `server` mode runs docs-safe release gate plus `scripts/self-host-smoke.ps1`.
+- `admin-web` mode runs docs-safe release gate plus the focused Admin Web
+  route/media smoke tests.
+- `fast` mode runs docs-safe release gate, server self-host smoke, and focused
+  Admin Web route/media smoke tests.
+
+### 3. Contracts
+
+- The script composes existing gates; it must not duplicate server smoke,
+  release-gate, or Admin Web route/media test logic inline.
+- The smoke maps Product-Operator M1 to concrete checks for configured Media
+  Library visibility, scan/index visibility, browse/source inventory, playback
+  readiness, Admin diagnostics/repair, and redaction.
+- The script must not introduce schema changes, generated contract changes,
+  API route shape changes, hidden runtime behavior, release artifact
+  publication, automatic source hash scheduling, or automatic duplicate merge
+  behavior.
+- `-SkipDocsGate` is for focused local iteration only. Task evidence must state
+  when it was used, and closeout should run a mode that includes the docs gate.
+- Script output may print safe command names and coverage categories, but must
+  not print bearer tokens, playback tickets, local paths, source locators,
+  playback output paths, database URLs, source fingerprints, content hashes, or
+  secret environment values.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Invalid `-Mode` value | PowerShell parameter validation rejects it before any gate runs |
+| Docs-safe release gate fails | Script exits non-zero and does not run later gates in that mode |
+| Server self-host smoke fails | Script exits non-zero and reports the failed step name |
+| Admin Web route/media smoke fails | Script exits non-zero and reports the failed step name |
+| A future change needs API/schema/generated-contract/runtime behavior | Stop and open a focused Trellis task instead of expanding the smoke script |
+| A future gate needs live browser/manual evidence | Document it as an additional mode or follow-on; do not hide it under `fast` without explicit evidence |
+| Output includes unsafe token/path/locator/secret material | Treat as a redaction failure and fix before closeout |
+
+### 5. Good/Base/Bad Cases
+
+- Good: add a focused `playback` mode that invokes an existing playback gate
+  script and updates the coverage map, while keeping `fast` deterministic.
+- Base: update the script to point at a renamed Admin Web focused test and run
+  `-Mode fast` plus task validation.
+- Bad: copy `self_host_smoke` setup into the script, call a live server with an
+  inline token, publish package/container artifacts, or add route/schema
+  behavior to make the smoke pass.
+
+### 6. Tests Required
+
+- `python ./.trellis/scripts/task.py validate <m1-smoke-task-dir>`.
+- `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/m1-operator-journey-smoke.ps1 -Mode docs`.
+- `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/m1-operator-journey-smoke.ps1 -Mode fast` for closeout when local Rust, Node, and Admin Web tooling are available.
+- PowerShell parser check if a focused environment cannot run the full script.
+- `git diff --check` after script, docs, task, or spec changes.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```powershell
+Write-Host "Token: $env:NAKO_ADMIN_TOKEN"
+cargo run -p nako-server -- serve --publish-artifacts
+```
+
+The M1 smoke must not echo credentials or turn a validation gate into a release
+publication command.
+
+#### Correct
+
+```powershell
+Invoke-Step 'scripts/self-host-smoke.ps1' {
+    pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/self-host-smoke.ps1
+}
+```
+
+Delegate to an existing focused gate and let that gate own its detailed setup,
+assertions, and redaction behavior.
+
 ## Scenario: Remote Access Config Gate Fixtures
 
 ### 1. Scope / Trigger
