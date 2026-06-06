@@ -33,7 +33,15 @@
 - `git diff --check -- .trellis/tasks/06-06-06-06-2026-roadmap-reconciliation-m1-release-convergence docs/ROADMAP.md docs/GOALS.md docs/architecture/LANES.md` passed.
 - `rg -n "Product-Operator M1|M1 release convergence|scan-originated-source-hash-triggering|m1-operator-journey-smoke|backend release ladder|release ladder" docs/ROADMAP.md docs/GOALS.md docs/architecture/LANES.md .trellis/tasks/06-06-06-06-2026-roadmap-reconciliation-m1-release-convergence/prd.md` confirmed cross-document alignment.
 
+## Spec Update
+
+- Phase 3 spec-update review completed.
+- No `.trellis/spec/` update was needed because this task did not add or
+  change API signatures, command contracts, schema behavior, runtime wiring, or
+  reusable implementation conventions.
+
 ## Remaining External Dirty State
 
-- Existing unrelated `.trellis/tasks/06-05-*` archive moves remain dirty and
-  were intentionally left untouched.
+- None observed during the 2026-06-06 follow-up implementation check.
+- `git status --short --branch` reported `## main...origin/main [ahead 20]`
+  with no dirty working-tree entries.
