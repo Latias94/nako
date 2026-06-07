@@ -30,7 +30,7 @@ and rclone-like mounts can be slow, stale, or unavailable.
 | Source fingerprint | Shipped escalation policy, hash execution kernel, scheduling diagnostic planner, durable job contract, job summary contract, internal enqueue seam, queued execution planner, single-job executor command, scheduler integration, evidence persistence, Admin overview/Jobs diagnostics, Admin manual enqueue, source-hash retry/requeue, and scan-originated durable triggering | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/archive/2026-06/06-04-06-04-source-fingerprint-escalation-policy-first-slice/`; `.trellis/tasks/archive/2026-06/06-05-06-05-source-fingerprint-hash-execution-first-slice/`; `.trellis/tasks/archive/2026-06/06-06-admin-source-fingerprint-hash-trigger-first-slice/`; `.trellis/tasks/archive/2026-06/06-06-source-hash-retry-requeue-admin-command/`; `.trellis/tasks/06-06-scan-originated-source-hash-triggering/`; `crates/nako-core/src/job.rs`; `crates/nako-library/src/source_hash.rs`; `crates/nako-server/src/app/source_hash.rs`; `crates/nako-server/src/app/jobs.rs`; `crates/nako-server/src/app/runtime.rs` | Automatic Source Duplicate Relationship reconciliation, broader scheduler migration, and PostgreSQL runtime harness work remain follow-ons. |
 | Remote probe staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Per-backend staging budgets and diagnostics. |
 | Remote FFmpeg input staging | Shipped foundation | `docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md` | Per-backend staging budgets and diagnostics. |
-| VFS cache | Shipped diagnostics foundation, action preview, latest-failure refresh, action plan, target-scoped preview, selected-target refresh execution, and read-only remediation plan | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/archive/2026-06/06-04-06-04-vfs-cache-repair-action-preview-first-slice/`; `.trellis/tasks/archive/2026-06/06-04-vfs-cache-repair-operator-actions/`; `.trellis/tasks/archive/2026-06/06-04-vfs-cache-uri-scoped-previews/`; `.trellis/tasks/archive/2026-06/06-04-vfs-cache-repair-executable-refresh-action/`; `.trellis/tasks/archive/2026-06/06-06-vfs-cache-repair-non-destructive-remediation-plan-first-slice/` | Durable repair queues, cache purge/delete/invalidation, backend configuration mutation, and automated repair workers remain follow-ons. |
+| VFS cache | Shipped diagnostics foundation, action preview, latest-failure refresh, action plan, target-scoped preview, selected-target refresh execution, read-only remediation plan, durable job contract, and internal target enqueue seam | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/archive/2026-06/06-04-06-04-vfs-cache-repair-action-preview-first-slice/`; `.trellis/tasks/archive/2026-06/06-04-vfs-cache-repair-operator-actions/`; `.trellis/tasks/archive/2026-06/06-04-vfs-cache-uri-scoped-previews/`; `.trellis/tasks/archive/2026-06/06-04-vfs-cache-repair-executable-refresh-action/`; `.trellis/tasks/archive/2026-06/06-06-vfs-cache-repair-non-destructive-remediation-plan-first-slice/`; `.trellis/tasks/06-06-06-06-overnight-fearless-refactor-development-plan/`; `crates/nako-core/src/vfs_cache.rs`; `crates/nako-server/src/app/storage.rs`; `crates/nako-server/src/app/runtime.rs` | Durable repair executor/scheduler, Admin enqueue route, cache purge/delete/invalidation, backend configuration mutation, and automated repair workers remain follow-ons. |
 | Library file writes | Partial | addon/library-file-write and NFO workstreams | Capability-specific write/link/backup policy. |
 | Mount hang protection | Shipped durable circuit foundation | `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/` | OS-level mount stalls still need bounded adapters and operator guidance; do not claim syscall preemption. |
 
@@ -303,7 +303,8 @@ Boundaries:
 Status: Minimal diagnostic slice shipped as of 2026-06-02; structured action
 preview, latest-failure refresh, latest action plan, target-scoped previews, and
 selected-target refresh execution shipped as of 2026-06-05; read-only
-remediation planning shipped as of 2026-06-06.
+remediation planning shipped as of 2026-06-06; durable repair job contract and
+internal target enqueue seam shipped as of 2026-06-07.
 
 Shipped:
 
@@ -336,8 +337,21 @@ Shipped:
   recommended action and classification, exposes only aggregate counts and
   bounded opaque target samples, and points refreshable groups to the existing
   selected-target refresh route without executing it;
-- purge/delete/invalidation, durable jobs, backend configuration mutation,
-  library file writes, and retry queues remain out of this shipped boundary;
+- `JobKind::VfsCacheRepair` and
+  `VfsCacheRepairJobInput` define the first durable repair queue contract with
+  action, source scheme, operation, failure timestamp/count, URI digest, and
+  stored failure authority, without raw URI, local path, backend URL,
+  credential, raw backend error, etag, fingerprint, or cache payload material;
+- internal target enqueue accepts only unresolved targets whose diagnostic
+  recommends `refresh_cache`, writes `storage.vfs.cache_repair` jobs under the
+  existing `disk.scan` runtime budget, and does not refresh cache entries or
+  touch backend configuration during enqueue;
+- enqueue is idempotent for queued/running jobs with the same validated input,
+  scanning paginated durable job results so large queues cannot hide an existing
+  duplicate, while terminal jobs do not block future enqueue;
+- purge/delete/invalidation, durable executor/scheduler execution, Admin API
+  enqueue routes, backend configuration mutation, library file writes, and retry
+  queues remain out of this shipped boundary;
 - no storage schema, playback artifact pressure, or scan scheduling expansion
   was added; Admin API changes stayed limited to redaction-safe diagnostics,
   action planning, latest-failure refresh, target previews, selected-target
@@ -345,10 +359,11 @@ Shipped:
 
 ## Next Work Lanes
 
-- `proposed:vfs-cache-repair-durable-remediation`: durable repair queues,
+- `proposed:vfs-cache-repair-durable-remediation`: durable repair
+  executor/scheduler execution, Admin enqueue and retry/requeue routes,
   automated execution policy, cache purge/delete/invalidation semantics,
   backend configuration workflows, and broader repair workers beyond the
-  shipped read-only remediation plan.
+  shipped internal enqueue seam.
 - `.trellis/tasks/archive/2026-06/06-02-01d-hls-artifact-io-pressure-enforcement/`
   (closed HLS artifact I/O pressure admission; shipped by `48668afc`).
 - `proposed:source-fingerprint-hash-reconciliation-productization`: automatic

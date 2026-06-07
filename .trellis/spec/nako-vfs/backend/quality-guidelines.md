@@ -17,6 +17,11 @@ cache diagnostics.
   repair pressure by safe action/classification, expose bounded opaque
   `target_ref` samples, and keep the top-level boundary non-mutating even when
   a nested refresh group points to the existing selected-target refresh route.
+- Keep durable VFS cache repair enqueue separate from repair execution:
+  enqueue may create redaction-safe jobs from opaque unresolved targets, but it
+  must not refresh, purge, delete, invalidate, mutate backend configuration, or
+  write library files. Backend-touching repair work belongs in a future
+  executor boundary.
 - Keep local writes transactional or planned when the module supports it.
 - Treat remote latency, range readability, rate limits, and writable capability
   as product behavior, not incidental adapter details.
@@ -55,6 +60,10 @@ cache diagnostics.
   APIs; assert aggregate counts, bounded opaque samples, redaction, Admin guard,
   and that plan reads do not refresh, purge, delete, enqueue jobs, mutate
   backend configuration, or write library files.
+- Durable repair enqueue tests must assert the persisted job input is
+  redaction-safe, non-refresh targets reject without backend calls, queued and
+  running duplicates are idempotent across paginated job results, and terminal
+  jobs can be re-enqueued later.
 - App/server integration tests when playback, scan, or Admin routes consume the
   new VFS behavior.
 

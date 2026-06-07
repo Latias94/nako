@@ -52,6 +52,115 @@ Use these gates for `crates/nako-server` feature work.
   durable job errors, and existing background scan scheduler behavior remains
   green. Keep API routes, schema changes, evidence persistence, and duplicate
   reconciliation out of scheduler-only slices.
+- Internal VFS cache repair durable enqueue changes must prove safe job input
+  serialization, non-refresh target rejection, queued/running idempotency,
+  duplicate detection beyond the first paginated job page, terminal jobs not
+  blocking future enqueue, and no backend refresh/list calls during enqueue.
+  Keep Admin routes, durable executor/scheduler execution, cache
+  purge/delete/invalidation, backend configuration mutation, and library file
+  writes out of enqueue-only slices.
+
+## Scenario: VFS Cache Repair Durable Enqueue
+
+### 1. Scope / Trigger
+
+- Trigger: adding or changing internal VFS cache repair durable job enqueue
+  behavior in `nako-server::app::storage`.
+- Purpose: create repair jobs from opaque unresolved repair targets while
+  preserving redaction, stored failure authority, and ADR 0053 durable job
+  resource policy.
+
+### 2. Signatures
+
+- Service command:
+  `StorageDiagnosticsAppService::enqueue_vfs_cache_repair_target(target_ref: &str, priority: Option<JobPriority>) -> Result<EnqueueVfsCacheRepairTargetOutcome>`.
+- Outcome:
+  `Enqueued(Job)` or `AlreadyQueued(Job)`.
+- Durable job:
+  `JobKind::VfsCacheRepair`,
+  `resource_class = VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS`
+  (`storage.vfs.cache_repair`), mapped to the existing `disk.scan` runtime
+  budget.
+- Input:
+  `VfsCacheRepairJobInput { action, source_scheme, operation, failed_at_ms, failure_count, uri_digest, authority }`.
+
+### 3. Contracts
+
+- `target_ref` is an opaque process-keyed repair target reference produced by
+  the existing target inventory flow; callers must not submit raw URI/path
+  material.
+- Enqueue accepts only unresolved targets whose diagnostic recommends
+  `refresh_cache`.
+- Enqueue persists digest- and authority-based input only. It must not persist
+  raw `StorageUri`, local paths, backend URLs, credentials, raw backend errors,
+  etags, fingerprints, or cache payloads.
+- Enqueue is non-mutating for storage backends: no cache refresh, purge, delete,
+  invalidation, backend configuration change, or library file write may happen
+  in the enqueue command.
+- Idempotency is based on validated input equality for queued/running jobs and
+  must scan all paginated durable job results. Terminal jobs do not block future
+  enqueue.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Unknown or malformed `target_ref` | Return `NakoError::NotFound` for `vfs_cache_repair_target` |
+| Target no longer unresolved | Do not enqueue; target lookup fails through the existing unresolved-target path |
+| Diagnostic recommends `refresh_cache` | Persist one queued `VfsCacheRepair` job |
+| Diagnostic recommends backend configuration or manual inspection | Return fixed `InvalidInput` text without backend calls |
+| Existing queued/running job has matching validated input | Return `AlreadyQueued(existing)` |
+| Matching job exists beyond the first `PageRequest::MAX_LIMIT` page | Return `AlreadyQueued(existing)` |
+| Existing matching job is terminal | Allow a new enqueue |
+| Stored duplicate candidate has malformed input | Ignore it for idempotency; do not echo malformed JSON |
+
+### 5. Good/Base/Bad Cases
+
+- Good: enqueue a retryable `Stat` failure target, persist only the source
+  scheme and URI digest, and assert backend stat/list counters stay at zero.
+- Base: enqueue the same target twice while the first job is queued or running;
+  return the existing job both times.
+- Bad: call `refresh_vfs_cache_repair_target` from the enqueue path, persist the
+  raw target URI in `input_json`, or check only the first durable job page for
+  duplicates.
+
+### 6. Tests Required
+
+- `cargo nextest run -p nako-server vfs_cache_repair_target_enqueue --no-fail-fast`.
+- Assert persisted job kind, resource class, priority, library binding,
+  source-id absence, and redaction-safe JSON input.
+- Assert non-refresh targets return fixed `InvalidInput` text, create no jobs,
+  and make no backend calls.
+- Assert queued and running jobs block duplicate enqueue, terminal jobs do not,
+  and duplicates beyond the first paginated job page are still found.
+- Also run the runtime mapping test whenever the resource class mapping changes:
+  `cargo nextest run -p nako-server runtime_job_resource_class_mapping_maps_known_jobs_to_budget_classes --no-fail-fast`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+let input_json = serde_json::to_string(&failure)?;
+backend.refresh_stat_cache(&uri).await?;
+```
+
+This persists raw URI/error authority and turns enqueue into execution.
+
+#### Correct
+
+```rust
+let input = VfsCacheRepairJobInput::from_failure(&failure)?;
+store.enqueue_job(NewJob {
+    kind: JobKind::VfsCacheRepair,
+    resource_class: VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS.to_owned(),
+    input_json: Some(serde_json::to_string(&input)?),
+    // ...
+}).await?;
+```
+
+The durable input stays redaction-safe and backend mutation remains in a future
+executor boundary.
 
 ## Gate Selection
 

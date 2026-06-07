@@ -12,6 +12,7 @@ use futures_util::FutureExt;
 use nako_core::{
     GENERATED_ARTIFACT_METADATA_BULK_APPLY_JOB_RESOURCE_CLASS, Job, JobId, JobKind, JobStatus,
     METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS, NakoError, Result,
+    VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS,
 };
 use nako_library::SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS;
 use tokio::{
@@ -197,6 +198,9 @@ pub(crate) fn runtime_budget_class_for_job_resource_class(
         JobKind::SourceFingerprintHash
             if resource_class == SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS =>
         {
+            Some(RUNTIME_RESOURCE_CLASS_DISK_SCAN)
+        }
+        JobKind::VfsCacheRepair if resource_class == VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS => {
             Some(RUNTIME_RESOURCE_CLASS_DISK_SCAN)
         }
         JobKind::MetadataRefresh | JobKind::MetadataMaintenance
@@ -577,6 +581,11 @@ mod tests {
             (
                 JobKind::SourceFingerprintHash,
                 SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS,
+                RUNTIME_RESOURCE_CLASS_DISK_SCAN,
+            ),
+            (
+                JobKind::VfsCacheRepair,
+                VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS,
                 RUNTIME_RESOURCE_CLASS_DISK_SCAN,
             ),
             (

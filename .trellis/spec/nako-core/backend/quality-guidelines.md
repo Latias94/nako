@@ -22,6 +22,16 @@ Use these rules when changing shared domain contracts.
   `nako-library::source_hash` and its runtime budget mapping in `nako-server`;
   do not move VFS execution, source lookup, or operator diagnostics into
   `nako-core`.
+- `JobKind::VfsCacheRepair` is the persisted queue kind for future VFS cache
+  repair work only. Keep its redaction-safe input contract in
+  `nako-core::vfs_cache` because the input is derived from core cache failure
+  records, but keep backend execution, target lookup, operator routes, and
+  scheduler policy in `nako-server` / `nako-vfs`.
+- Durable VFS cache repair input must be digest- and authority-based: it may
+  carry action, source scheme, cache operation, failed-at timestamp, failure
+  count, URI digest, and `VfsCacheFailureAuthority`, but not raw `StorageUri`,
+  local path, backend URL, credential, raw backend error, etag, fingerprint, or
+  cache payload material.
 - When a core change crosses crate boundaries, update the relevant Trellis spec,
   ADR, architecture map, or task context before considering the work complete.
 
@@ -45,6 +55,10 @@ Use these rules when changing shared domain contracts.
   storage, VFS, repository, or runtime work.
 - New persisted `JobKind` values must cover `as_str` / `parse` round trips in
   `nako-core`.
+- New durable job input records in `nako-core` must cover serialization
+  round-trip, validation rejection, and redaction assertions proving unsafe
+  storage/provider material is absent from serialized JSON and fixed error
+  messages.
 - Repository contract changes must be covered in `nako-db/src/contract_tests.rs`
   or the focused adapter tests.
 - Cross-crate contract changes should run at least:

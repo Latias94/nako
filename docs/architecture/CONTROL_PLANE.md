@@ -41,9 +41,9 @@ Deployment Endpoint Config
 | HTTP addon protocol | Shipped foundation | ADR 0003; ADR 0015; ADR 0020 | Addon Manager lifecycle is still deferred. |
 | Addon capability and token scopes | Shipped foundation | addon token/grant workstreams | Stronger hosted surface and route policy. |
 | Addon process supervision | Deferred | ADR 0020; ADR 0053 | `addon-manager-process-lifecycle`. |
-| Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract/summary/internal enqueue/queued planner/single-job executor command/scheduler integration/evidence persistence/Admin manual commands, scan-originated source hash triggering, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/` | Broader job-kind scheduler migration and automatic Source Duplicate Relationship reconciliation remain follow-ons. |
+| Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract/summary/internal enqueue/queued planner/single-job executor command/scheduler integration/evidence persistence/Admin manual commands, scan-originated source hash triggering, VFS cache repair durable contract/internal enqueue, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/`; `.trellis/tasks/06-06-06-06-overnight-fearless-refactor-development-plan/` | Broader job-kind scheduler migration, VFS cache repair executor/scheduler/API productization, and automatic Source Duplicate Relationship reconciliation remain follow-ons. |
 | Runtime supervisor | Shipped resource-accounted foundation | ADR 0019; server runtime deepening; durable job queue/resource lane | Unified trace context and broader scheduler migration remain follow-ons. |
-| Resource classes and budgets | Shipped process-local foundation plus source fingerprint hash-to-`disk.scan` mapping | ADR 0005; playback/runtime lanes; durable job queue/resource lane | Continue migrating job kinds onto typed budget-admitted scheduler paths. |
+| Resource classes and budgets | Shipped process-local foundation plus source fingerprint hash and VFS cache repair mappings to `disk.scan` | ADR 0005; playback/runtime lanes; durable job queue/resource lane | Continue migrating job kinds onto typed budget-admitted scheduler paths. |
 | Tracing/request identity | Partial with HLS and library scan job propagation | diagnostics and playback identity lanes | Continue unified trace context across jobs/FFmpeg/VFS/addons and broader scan entry points. |
 | Admin diagnostics | Good partial | Admin API and diagnostics lanes | Safe realtime diagnostics and incident bundles. |
 | Crash/fault bundles | Not started | This document | Redacted operator export for hard bugs. |
@@ -124,6 +124,41 @@ Follow-ons:
   semantics;
 - broader job-kind scheduler migration beyond the current disk-scan admitted
   source hash path.
+
+### vfs-cache-repair-durable-job-contract-and-enqueue
+
+Status: Durable job contract and internal target enqueue seam shipped as of
+2026-06-07.
+
+Goal: Move VFS cache repair from read-only remediation planning toward durable,
+resource-admitted repair work without exposing raw storage identity or widening
+the shipped Admin API surface.
+
+Shipped control-plane behavior:
+
+- `JobKind::VfsCacheRepair` is a persisted durable job kind string.
+- `VfsCacheRepairJobInput` is the durable input contract for this first slice
+  and carries only repair action, source scheme, cache operation, failed-at
+  timestamp, failure count, URI digest, and stored failure authority.
+- raw `StorageUri`, local paths, backend URLs, credentials, raw backend errors,
+  etags, fingerprints, and cache payloads stay out of persisted job input.
+- `storage.vfs.cache_repair` is the persisted job resource class and maps to
+  the existing `disk.scan` runtime budget class.
+- `nako-server::app::storage` can enqueue a repair job for one opaque
+  unresolved target whose diagnostic recommends `refresh_cache`.
+- enqueue is non-mutating for storage backends: it does not refresh cache,
+  purge/delete/invalidate cache entries, change backend configuration, or write
+  library files.
+- enqueue is idempotent for queued/running jobs with the same validated input,
+  including matches beyond the first paginated durable job page; terminal jobs
+  do not block future enqueue.
+
+Follow-ons:
+
+- Admin enqueue route and DTOs;
+- durable repair executor/scheduler execution;
+- retry/requeue and operator diagnostics for repair jobs;
+- purge/delete/invalidation and backend configuration workflows.
 
 ### provider-governance-durable-batch-execution
 

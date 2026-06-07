@@ -1,8 +1,12 @@
+use super::super::storage::EnqueueVfsCacheRepairTargetOutcome;
 use super::*;
 use nako_core::{
-    NewVfsCacheFailure, StorageBackendHealthRecord, StorageBackendHealthRepository,
-    StorageBackendHealthStatus, StorageCircuitBreakerState, StorageErrorKind, StorageFailureClass,
-    VfsCacheFailureAuthority, VfsCacheOperation, VfsCacheRepository,
+    JobKind, JobListFilter, JobPriority, JobRepository, JobStatus, NewVfsCacheFailure,
+    StorageBackendHealthRecord, StorageBackendHealthRepository, StorageBackendHealthStatus,
+    StorageCircuitBreakerState, StorageErrorKind, StorageFailureClass,
+    VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS, VfsCacheFailure, VfsCacheFailureAuthority,
+    VfsCacheOperation, VfsCacheRepairJobAction, VfsCacheRepairJobInput, VfsCacheRepository,
+    vfs_cache_repair_uri_digest,
 };
 use nako_vfs::{
     CachedStorageBackend, ObjectCacheState, StorageApplyKind, StorageApplyRequest,
@@ -1206,6 +1210,332 @@ async fn vfs_cache_refresh_action_rejects_ambiguous_local_repair_target_without_
     assert_eq!(movies_backend.list_calls.load(Ordering::SeqCst), 0);
     assert_eq!(shows_backend.stat_calls.load(Ordering::SeqCst), 0);
     assert_eq!(shows_backend.list_calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn vfs_cache_repair_target_enqueue_persists_safe_job_input_without_refreshing() {
+    let (_temp, app, store, backend, failure) =
+        vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Unavailable.safe_message())
+            .await;
+    let target = app
+        .storage()
+        .list_vfs_cache_repair_targets(PageRequest::new(10, 0))
+        .await
+        .unwrap()
+        .into_iter()
+        .next()
+        .expect("repair target");
+
+    let outcome = app
+        .storage()
+        .enqueue_vfs_cache_repair_target(&target.target_ref, Some(JobPriority::High))
+        .await
+        .unwrap();
+    let EnqueueVfsCacheRepairTargetOutcome::Enqueued(job) = outcome else {
+        panic!("expected new VFS cache repair job");
+    };
+    let input_json = job.input_json.as_deref().expect("job input json");
+    let input: VfsCacheRepairJobInput = serde_json::from_str(input_json).unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert_eq!(jobs.len(), 1);
+    assert_eq!(jobs[0].id, job.id);
+    assert_eq!(job.kind, JobKind::VfsCacheRepair);
+    assert_eq!(job.status, JobStatus::Queued);
+    assert_eq!(job.resource_class, VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS);
+    assert_eq!(job.priority, JobPriority::High);
+    assert_eq!(job.library_id, failure.authority.library_id);
+    assert_eq!(job.source_id, None);
+    assert_eq!(input.action, VfsCacheRepairJobAction::RefreshCache);
+    assert_eq!(input.source_scheme, failure.scheme);
+    assert_eq!(input.operation, failure.operation);
+    assert_eq!(input.failed_at_ms, failure.failed_at_ms);
+    assert_eq!(input.failure_count, failure.failure_count);
+    assert_eq!(input.uri_digest, vfs_cache_repair_uri_digest(&failure.uri));
+    assert_eq!(input.authority, failure.authority);
+    assert!(input.matches_failure(&failure));
+    assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
+    assert!(!input_json.contains("Hidden Movie"));
+    assert!(!input_json.contains("Secret Path"));
+    assert!(!input_json.contains("ExampleUser"));
+    assert!(!input_json.contains("token=secret"));
+    assert!(!input_json.contains("local:///"));
+    assert!(!input_json.contains("storage backend unavailable"));
+}
+
+#[tokio::test]
+async fn vfs_cache_repair_target_enqueue_is_idempotent_for_incomplete_jobs() {
+    let (_temp, app, store, backend, _failure) =
+        vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Unavailable.safe_message())
+            .await;
+    let target = app
+        .storage()
+        .list_vfs_cache_repair_targets(PageRequest::new(10, 0))
+        .await
+        .unwrap()
+        .into_iter()
+        .next()
+        .expect("repair target");
+
+    let first = app
+        .storage()
+        .enqueue_vfs_cache_repair_target(&target.target_ref, None)
+        .await
+        .unwrap();
+    let EnqueueVfsCacheRepairTargetOutcome::Enqueued(first_job) = first else {
+        panic!("expected initial enqueue");
+    };
+    let second = app
+        .storage()
+        .enqueue_vfs_cache_repair_target(&target.target_ref, Some(JobPriority::High))
+        .await
+        .unwrap();
+    let EnqueueVfsCacheRepairTargetOutcome::AlreadyQueued(second_job) = second else {
+        panic!("expected queued job to block duplicate enqueue");
+    };
+    assert_eq!(first_job.id, second_job.id);
+
+    store.start_job(first_job.id).await.unwrap();
+    let third = app
+        .storage()
+        .enqueue_vfs_cache_repair_target(&target.target_ref, Some(JobPriority::High))
+        .await
+        .unwrap();
+    let EnqueueVfsCacheRepairTargetOutcome::AlreadyQueued(third_job) = third else {
+        panic!("expected running job to block duplicate enqueue");
+    };
+    assert_eq!(first_job.id, third_job.id);
+
+    store.succeed_job(first_job.id, None).await.unwrap();
+    let fourth = app
+        .storage()
+        .enqueue_vfs_cache_repair_target(&target.target_ref, None)
+        .await
+        .unwrap();
+    let EnqueueVfsCacheRepairTargetOutcome::Enqueued(fourth_job) = fourth else {
+        panic!("expected terminal job not to block future enqueue");
+    };
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert_ne!(first_job.id, fourth_job.id);
+    assert_eq!(jobs.len(), 2);
+    assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn vfs_cache_repair_target_enqueue_finds_duplicate_beyond_first_job_page() {
+    let (_temp, app, store, backend, failure) =
+        vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Unavailable.safe_message())
+            .await;
+    let target = app
+        .storage()
+        .list_vfs_cache_repair_targets(PageRequest::new(10, 0))
+        .await
+        .unwrap()
+        .into_iter()
+        .next()
+        .expect("repair target");
+    let duplicate_input = VfsCacheRepairJobInput::from_failure(&failure).unwrap();
+    let duplicate_job = store
+        .enqueue_job(new_vfs_cache_repair_job(&failure, duplicate_input))
+        .await
+        .unwrap();
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    for index in 0..=PageRequest::MAX_LIMIT {
+        let decoy_input = VfsCacheRepairJobInput::new(
+            VfsCacheRepairJobAction::RefreshCache,
+            failure.scheme.clone(),
+            failure.operation,
+            failure.failed_at_ms + i64::from(index) + 1,
+            failure.failure_count,
+            vfs_cache_repair_uri_digest(&format!("local:///Movies/Decoy-{index}.mkv")),
+            failure.authority.clone(),
+        )
+        .unwrap();
+        store
+            .enqueue_job(new_vfs_cache_repair_job(&failure, decoy_input))
+            .await
+            .unwrap();
+    }
+
+    let outcome = app
+        .storage()
+        .enqueue_vfs_cache_repair_target(&target.target_ref, None)
+        .await
+        .unwrap();
+    let EnqueueVfsCacheRepairTargetOutcome::AlreadyQueued(existing) = outcome else {
+        panic!("expected duplicate beyond first job page to block enqueue");
+    };
+    let first_page = store
+        .list_jobs(
+            JobListFilter {
+                status: Some(JobStatus::Queued),
+                kind: Some(JobKind::VfsCacheRepair),
+                resource_class: Some(VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS.to_owned()),
+                library_id: failure.authority.library_id,
+                source_id: None,
+            },
+            PageRequest::new(PageRequest::MAX_LIMIT, 0),
+        )
+        .await
+        .unwrap();
+    let second_page = store
+        .list_jobs(
+            JobListFilter {
+                status: Some(JobStatus::Queued),
+                kind: Some(JobKind::VfsCacheRepair),
+                resource_class: Some(VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS.to_owned()),
+                library_id: failure.authority.library_id,
+                source_id: None,
+            },
+            PageRequest::new(PageRequest::MAX_LIMIT, u64::from(PageRequest::MAX_LIMIT)),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(existing.id, duplicate_job.id);
+    assert!(!first_page.iter().any(|job| job.id == duplicate_job.id));
+    assert!(second_page.iter().any(|job| job.id == duplicate_job.id));
+    assert_eq!(first_page.len(), PageRequest::MAX_LIMIT as usize);
+    assert_eq!(second_page.len(), 2);
+    assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn vfs_cache_repair_target_enqueue_rejects_non_refresh_target_without_backend_call() {
+    let (_temp, app, store, backend, _failure) =
+        vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Permission.safe_message())
+            .await;
+    let target = app
+        .storage()
+        .list_vfs_cache_repair_targets(PageRequest::new(10, 0))
+        .await
+        .unwrap()
+        .into_iter()
+        .next()
+        .expect("repair target");
+
+    let err = app
+        .storage()
+        .enqueue_vfs_cache_repair_target(&target.target_ref, Some(JobPriority::High))
+        .await
+        .unwrap_err();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert!(matches!(
+        err,
+        NakoError::InvalidInput { message }
+            if message == "selected VFS cache repair target diagnostic does not recommend durable refresh_cache"
+    ));
+    assert_eq!(jobs.len(), 0);
+    assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
+}
+
+async fn vfs_cache_repair_enqueue_app_with_failure(
+    error: &str,
+) -> (
+    tempfile::TempDir,
+    NakoApp,
+    NakoDatabase,
+    Arc<CacheRefreshCountingBackend>,
+    VfsCacheFailure,
+) {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().join("movies");
+    fs::create_dir_all(&root).unwrap();
+    let library_id = LibraryId::new();
+    let library_config = LocalLibraryConfig {
+        id: library_id,
+        name: "Movies".to_owned(),
+        root,
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(
+        NakoServerConfig {
+            database_backend: Default::default(),
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            database_url_env: None,
+            auth: crate::config::AuthConfig::disabled(),
+            network: crate::config::NetworkAccessConfig::default(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path: PathBuf::from("ffmpeg"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            webhook_concurrency: 2,
+            addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+            remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("nako-cache").join("remux"),
+            metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
+            artwork: crate::config::ArtworkConfig::default(),
+            libraries: vec![library_config.clone()],
+        },
+        store.clone(),
+    )
+    .await
+    .unwrap();
+    let backend = Arc::new(CacheRefreshCountingBackend::new());
+    app.storage()
+        .replace_backend_for_test(
+            library_config,
+            Arc::new(CachedStorageBackend::with_options(
+                backend.clone(),
+                store.clone(),
+                VfsCacheOptions {
+                    stat_ttl_ms: 60_000,
+                    list_ttl_ms: 60_000,
+                    serve_stale_on_error: true,
+                    cache_local: true,
+                },
+            )),
+        )
+        .await;
+    let backend_key = format!("library:{library_id}:local");
+    let failure = store
+        .record_vfs_cache_failure(NewVfsCacheFailure {
+            uri: "local:///Users/ExampleUser/Secret Path/Hidden Movie.mkv?token=secret".to_owned(),
+            scheme: "local".to_owned(),
+            operation: VfsCacheOperation::Stat,
+            failed_at_ms: 1_000,
+            error: error.to_owned(),
+            authority: VfsCacheFailureAuthority::attributed(library_id, backend_key),
+        })
+        .await
+        .unwrap();
+
+    (temp, app, store, backend, failure)
+}
+
+fn new_vfs_cache_repair_job(failure: &VfsCacheFailure, input: VfsCacheRepairJobInput) -> NewJob {
+    NewJob {
+        id: JobId::new(),
+        kind: JobKind::VfsCacheRepair,
+        resource_class: VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS.to_owned(),
+        priority: JobPriority::Normal,
+        library_id: failure.authority.library_id,
+        source_id: None,
+        input_json: Some(serde_json::to_string(&input).unwrap()),
+    }
 }
 
 fn assert_storage_rate_limited(err: NakoError) {

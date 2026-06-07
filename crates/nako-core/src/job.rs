@@ -8,6 +8,7 @@ pub enum JobKind {
     LibraryScan,
     LibraryProbe,
     SourceFingerprintHash,
+    VfsCacheRepair,
     MetadataRefresh,
     MetadataMaintenance,
     NfoImport,
@@ -28,6 +29,7 @@ impl JobKind {
             Self::LibraryScan => "library_scan",
             Self::LibraryProbe => "library_probe",
             Self::SourceFingerprintHash => "source_fingerprint_hash",
+            Self::VfsCacheRepair => "vfs_cache_repair",
             Self::MetadataRefresh => "metadata_refresh",
             Self::MetadataMaintenance => "metadata_maintenance",
             Self::NfoImport => "nfo_import",
@@ -47,6 +49,7 @@ impl JobKind {
             "library_scan" => Ok(Self::LibraryScan),
             "library_probe" => Ok(Self::LibraryProbe),
             "source_fingerprint_hash" => Ok(Self::SourceFingerprintHash),
+            "vfs_cache_repair" => Ok(Self::VfsCacheRepair),
             "metadata_refresh" => Ok(Self::MetadataRefresh),
             "metadata_maintenance" => Ok(Self::MetadataMaintenance),
             "nfo_import" => Ok(Self::NfoImport),
@@ -383,6 +386,15 @@ mod tests {
         assert_eq!(
             JobKind::parse("source_fingerprint_hash").unwrap(),
             JobKind::SourceFingerprintHash
+        );
+    }
+
+    #[test]
+    fn vfs_cache_repair_kind_round_trips() {
+        assert_eq!(JobKind::VfsCacheRepair.as_str(), "vfs_cache_repair");
+        assert_eq!(
+            JobKind::parse("vfs_cache_repair").unwrap(),
+            JobKind::VfsCacheRepair
         );
     }
 

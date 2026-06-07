@@ -1409,6 +1409,7 @@ version = "0.1.0-alpha.2"
 dependencies = [
  "async-trait",
  "serde",
+ "serde_json",
  "sha2",
  "thiserror",
  "uuid",
