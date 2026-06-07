@@ -353,6 +353,58 @@ pub struct ByteRange {
     pub length: Option<u64>,
 }
 
+impl ByteRange {
+    pub fn validate_for_len(self, uri: &StorageUri, object_len: u64) -> Result<Self> {
+        if self.offset > object_len {
+            return Err(NakoError::InvalidInput {
+                message: format!(
+                    "range offset {} exceeds file length {object_len}: {uri}",
+                    self.offset
+                ),
+            });
+        }
+
+        if let Some(length) = self.length {
+            if length == 0 {
+                return Err(NakoError::InvalidInput {
+                    message: format!("range length must be greater than zero: {uri}"),
+                });
+            }
+
+            let Some(end) = self.offset.checked_add(length) else {
+                return Err(NakoError::InvalidInput {
+                    message: format!("range overflows file length: {uri}"),
+                });
+            };
+
+            if end > object_len {
+                return Err(NakoError::InvalidInput {
+                    message: format!("range end {end} exceeds file length {object_len}: {uri}"),
+                });
+            }
+        }
+
+        Ok(self)
+    }
+
+    pub fn resolved_len(self, uri: &StorageUri, object_len: u64) -> Result<u64> {
+        self.validate_for_len(uri, object_len)?;
+        self.length.map_or_else(
+            || {
+                object_len
+                    .checked_sub(self.offset)
+                    .ok_or_else(|| NakoError::InvalidInput {
+                        message: format!(
+                            "range offset {} exceeds file length {object_len}: {uri}",
+                            self.offset
+                        ),
+                    })
+            },
+            Ok,
+        )
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct VirtualFile {
     pub uri: StorageUri,
@@ -1110,6 +1162,66 @@ mod tests {
                 .unwrap()
                 .as_str(),
             "local:///movies/demo.mkv"
+        );
+    }
+
+    #[test]
+    fn byte_range_validates_explicit_length() {
+        let uri = StorageUri::parse("local:///movies/demo.mkv").unwrap();
+        let range = ByteRange {
+            offset: 2,
+            length: Some(3),
+        };
+
+        assert_eq!(range.resolved_len(&uri, 10).unwrap(), 3);
+    }
+
+    #[test]
+    fn byte_range_resolves_open_ended_length() {
+        let uri = StorageUri::parse("local:///movies/demo.mkv").unwrap();
+        let range = ByteRange {
+            offset: 4,
+            length: None,
+        };
+
+        assert_eq!(range.resolved_len(&uri, 10).unwrap(), 6);
+    }
+
+    #[test]
+    fn byte_range_rejects_invalid_boundaries() {
+        let uri = StorageUri::parse("local:///movies/demo.mkv").unwrap();
+
+        assert!(
+            ByteRange {
+                offset: 11,
+                length: None,
+            }
+            .validate_for_len(&uri, 10)
+            .is_err()
+        );
+        assert!(
+            ByteRange {
+                offset: 1,
+                length: Some(0),
+            }
+            .validate_for_len(&uri, 10)
+            .is_err()
+        );
+        assert!(
+            ByteRange {
+                offset: 9,
+                length: Some(2),
+            }
+            .validate_for_len(&uri, 10)
+            .is_err()
+        );
+        assert!(
+            ByteRange {
+                offset: u64::MAX,
+                length: Some(2),
+            }
+            .validate_for_len(&uri, u64::MAX)
+            .is_err()
         );
     }
 }

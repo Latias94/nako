@@ -171,7 +171,7 @@ impl StorageBackend for LocalFsBackend {
         }
 
         if let Some(range) = range {
-            validate_range(uri, range, metadata.len())?;
+            range.validate_for_len(uri, metadata.len())?;
         }
 
         Ok(VirtualFile {
@@ -227,10 +227,7 @@ impl StorageBackend for LocalFsBackend {
         }
 
         let (offset, remaining) = match range {
-            Some(range) => {
-                validate_range(uri, range, metadata.len())?;
-                (range.offset, range_length(uri, range, metadata.len())?)
-            }
+            Some(range) => (range.offset, range.resolved_len(uri, metadata.len())?),
             None => (0, metadata.len()),
         };
         let mut file = tokio::fs::File::open(&path).await.map_err(|err| {
@@ -413,8 +410,7 @@ fn read_local_file_range(
     range: ByteRange,
     len: u64,
 ) -> Result<Vec<u8>> {
-    validate_range(uri, range, len)?;
-    let range_len = range_length(uri, range, len)?;
+    let range_len = range.resolved_len(uri, len)?;
     let range_len = usize::try_from(range_len).map_err(|err| {
         NakoError::storage(
             uri.to_string(),
@@ -442,54 +438,6 @@ fn read_local_file_range(
         )
     })?;
     Ok(bytes)
-}
-
-fn range_length(uri: &StorageUri, range: ByteRange, len: u64) -> Result<u64> {
-    range.length.map_or_else(
-        || {
-            len.checked_sub(range.offset)
-                .ok_or_else(|| NakoError::InvalidInput {
-                    message: format!(
-                        "range offset {} exceeds file length {len}: {uri}",
-                        range.offset
-                    ),
-                })
-        },
-        Ok,
-    )
-}
-
-fn validate_range(uri: &StorageUri, range: ByteRange, len: u64) -> Result<()> {
-    if range.offset > len {
-        return Err(NakoError::InvalidInput {
-            message: format!(
-                "range offset {} exceeds file length {len}: {uri}",
-                range.offset
-            ),
-        });
-    }
-
-    if let Some(length) = range.length {
-        if length == 0 {
-            return Err(NakoError::InvalidInput {
-                message: format!("range length must be greater than zero: {uri}"),
-            });
-        }
-
-        let Some(end) = range.offset.checked_add(length) else {
-            return Err(NakoError::InvalidInput {
-                message: format!("range overflows file length: {uri}"),
-            });
-        };
-
-        if end > len {
-            return Err(NakoError::InvalidInput {
-                message: format!("range end {end} exceeds file length {len}: {uri}"),
-            });
-        }
-    }
-
-    Ok(())
 }
 
 #[cfg(test)]

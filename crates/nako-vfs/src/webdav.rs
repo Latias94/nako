@@ -346,7 +346,7 @@ impl StorageBackend for WebDavBackend {
         }
         if let Some(range) = range {
             if let Some(len) = metadata.len {
-                validate_range(uri, range, len)?;
+                range.validate_for_len(uri, len)?;
             }
         }
 
@@ -366,7 +366,7 @@ impl StorageBackend for WebDavBackend {
         }
         if let Some(range) = range {
             if let Some(len) = metadata.len {
-                validate_range(uri, range, len)?;
+                range.validate_for_len(uri, len)?;
             }
         }
 
@@ -399,7 +399,7 @@ impl StorageBackend for WebDavBackend {
         }
         if let Some(range) = range {
             if let Some(len) = metadata.len {
-                validate_range(uri, range, len)?;
+                range.validate_for_len(uri, len)?;
             }
         }
 
@@ -758,39 +758,6 @@ fn validate_read_length(
             uri.to_string(),
             format!("WebDAV read returned {actual_len} bytes, expected {expected_len}"),
         ));
-    }
-
-    Ok(())
-}
-
-fn validate_range(uri: &StorageUri, range: ByteRange, len: u64) -> Result<()> {
-    if range.offset > len {
-        return Err(NakoError::InvalidInput {
-            message: format!(
-                "range offset {} exceeds file length {len}: {uri}",
-                range.offset
-            ),
-        });
-    }
-
-    if let Some(length) = range.length {
-        if length == 0 {
-            return Err(NakoError::InvalidInput {
-                message: format!("range length must be greater than zero: {uri}"),
-            });
-        }
-
-        let Some(end) = range.offset.checked_add(length) else {
-            return Err(NakoError::InvalidInput {
-                message: format!("range overflows file length: {uri}"),
-            });
-        };
-
-        if end > len {
-            return Err(NakoError::InvalidInput {
-                message: format!("range end {end} exceeds file length {len}: {uri}"),
-            });
-        }
     }
 
     Ok(())
