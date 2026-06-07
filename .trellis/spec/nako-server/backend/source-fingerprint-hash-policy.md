@@ -71,7 +71,8 @@ relationship reconciliation from hash evidence.
   to `suggest_relationship`, returning
   `AdminSourceDuplicateReconciliationApplyResponse`.
 - Durable input:
-  `SourceFingerprintHashJobInput { library_id, source_id, source_scheme, mode }`.
+  `SourceFingerprintHashJobInput { library_id, source_id, source_scheme, mode,
+  request_id? }`.
 - Admin job list:
   `GET /admin/v1/jobs` may filter by `kind`, `resource_class`,
   `library_id`, and `source_id`.
@@ -124,7 +125,8 @@ relationship reconciliation from hash evidence.
 - Scan-originated enqueue must delegate to
   `SourceFingerprintHashAppService::enqueue_source_fingerprint_hash` after its
   own policy and idempotency checks. It must not insert durable jobs directly
-  from library scan code.
+  from library scan code. When a trace context is present, it should be copied
+  into the durable request_id for correlation.
 - Scan-originated idempotency must check existing queued and running
   `JobKind::SourceFingerprintHash` jobs for the same library, source, resource
   class, and hash mode. If one exists, return `AlreadyQueued(job)` and do not
@@ -132,7 +134,8 @@ relationship reconciliation from hash evidence.
   enqueue.
 - Admin manual enqueue reuses the shipped internal enqueue and disk-scan
   scheduler execution path. The HTTP handler must translate the Admin request
-  into `EnqueueSourceFingerprintHashRequest` and delegate to
+  into `EnqueueSourceFingerprintHashRequest`, normalize the current HTTP trace
+  context into a durable request_id, and delegate to
   `SourceFingerprintHashAppService`; it must not create durable jobs directly.
 - Admin retry is source-hash-specific. The HTTP handler must translate path
   and body fields into `RetrySourceFingerprintHashRequest`, require the

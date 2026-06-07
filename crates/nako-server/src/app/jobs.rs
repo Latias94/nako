@@ -1030,7 +1030,7 @@ impl LibraryScanAppService {
                 force: false,
             })
             .await?;
-        self.enqueue_scan_originated_source_fingerprint_hashes(&index)
+        self.enqueue_scan_originated_source_fingerprint_hashes(&index, context.trace_context())
             .await?;
 
         context.check_cancelled().await?;
@@ -1104,14 +1104,16 @@ impl LibraryScanAppService {
     async fn enqueue_scan_originated_source_fingerprint_hashes(
         &self,
         index: &LibraryIndexSummary,
+        trace_context: Option<&LibraryScanTraceContext>,
     ) -> Result<()> {
         for trigger in &index.source_fingerprint_hash_triggers {
             match self
                 .source_hash
-                .enqueue_scan_originated_source_fingerprint_hash(
+                .enqueue_scan_originated_source_fingerprint_hash_with_trace_context(
                     index.library_id,
                     trigger,
                     ScanOriginatedSourceFingerprintHashPolicy::default(),
+                    trace_context,
                 )
                 .await?
             {

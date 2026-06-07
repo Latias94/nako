@@ -413,8 +413,8 @@ Shipped behavior:
   decision facts, schedule state, and selected mode in diagnostics;
 - a source fingerprint hash durable job contract with persisted
   `JobKind::SourceFingerprintHash`, redaction-safe
-  `SourceFingerprintHashJobInput`, and a `disk.scan` budget mapping for future
-  queue-backed execution;
+  `SourceFingerprintHashJobInput` with optional normalized request_id, and a
+  `disk.scan` budget mapping for future queue-backed execution;
 - a source fingerprint hash durable job summary contract that can summarize
   future execution reports without serializing raw fingerprint/hash material or
   locator content;
@@ -422,8 +422,8 @@ Shipped behavior:
   known Media Sources without scheduling or executing hash work;
 - an internal server queued execution planner that validates persisted
   `SourceFingerprintHashJobInput`, reloads the current Media Source, and
-  rebuilds only an in-memory `SourceFingerprintHashRequest` for future
-  executor wiring;
+  rebuilds only an in-memory `SourceFingerprintHashRequest` plus normalized
+  trace context for future executor wiring;
 - an internal server single-job executor command that claims one source
   fingerprint hash job, runs VFS-backed hashing, and writes redaction-safe job
   summary JSON without adding automatic scheduling;

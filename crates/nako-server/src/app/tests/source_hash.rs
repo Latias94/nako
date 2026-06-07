@@ -1,4 +1,5 @@
 use super::*;
+use crate::app::job_runtime::DurableJobTraceContext;
 use crate::app::jobs::LibraryScanScheduleOutcome;
 use crate::app::source_hash::{
     ScanOriginatedSourceFingerprintHashOutcome, ScanOriginatedSourceFingerprintHashPolicy,
@@ -22,17 +23,21 @@ async fn source_fingerprint_hash_enqueue_persists_safe_job_input() {
         Some("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned()),
     )
     .await;
+    let trace_context = DurableJobTraceContext::from_request_id("REQ-SOURCE_123.Trace").unwrap();
 
     let job = app
         .source_hash()
-        .enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
-            library_id,
-            source_id: source.id,
-            mode: SourceFingerprintHashMode::Partial {
-                prefix_bytes: 65_536,
+        .enqueue_source_fingerprint_hash_with_trace_context(
+            EnqueueSourceFingerprintHashRequest {
+                library_id,
+                source_id: source.id,
+                mode: SourceFingerprintHashMode::Partial {
+                    prefix_bytes: 65_536,
+                },
+                priority: Some(JobPriority::High),
             },
-            priority: Some(JobPriority::High),
-        })
+            Some(&trace_context),
+        )
         .await
         .unwrap();
 
@@ -61,8 +66,10 @@ async fn source_fingerprint_hash_enqueue_persists_safe_job_input() {
             mode: SourceFingerprintHashMode::Partial {
                 prefix_bytes: 65_536,
             },
+            request_id: Some("req-source_123.trace".to_owned()),
         }
     );
+    assert_eq!(input.request_id.as_deref(), Some("req-source_123.trace"));
     assert!(!input_json.contains("Hidden Movie"));
     assert!(!input_json.contains("Secret Path"));
     assert!(!input_json.contains("Frankorz"));
@@ -70,6 +77,7 @@ async fn source_fingerprint_hash_enqueue_persists_safe_job_input() {
     assert!(!input_json.contains("local:///"));
     assert!(!input_json.contains("sha256"));
     assert!(!input_json.contains("etag"));
+    assert!(input_json.contains(r#""request_id":"req-source_123.trace""#));
 }
 
 #[tokio::test]
@@ -88,6 +96,7 @@ async fn scan_originated_source_fingerprint_hash_enqueue_respects_policy_and_dec
     );
     let none_trigger =
         scan_source_hash_trigger(source.id, SourceFingerprintEscalationAction::None, None);
+    let trace_context = DurableJobTraceContext::from_request_id("REQ-SCAN_456.Trace").unwrap();
 
     let disabled = app
         .source_hash()
@@ -113,7 +122,7 @@ async fn scan_originated_source_fingerprint_hash_enqueue_respects_policy_and_dec
         .unwrap();
     let enqueued = app
         .source_hash()
-        .enqueue_scan_originated_source_fingerprint_hash(
+        .enqueue_scan_originated_source_fingerprint_hash_with_trace_context(
             library_id,
             &partial_trigger,
             ScanOriginatedSourceFingerprintHashPolicy {
@@ -121,6 +130,7 @@ async fn scan_originated_source_fingerprint_hash_enqueue_respects_policy_and_dec
                 partial_prefix_bytes: 131_072,
                 priority: JobPriority::Low,
             },
+            Some(&trace_context),
         )
         .await
         .unwrap();
@@ -155,12 +165,14 @@ async fn scan_originated_source_fingerprint_hash_enqueue_respects_policy_and_dec
             prefix_bytes: 131_072,
         }
     );
+    assert_eq!(input.request_id.as_deref(), Some("req-scan_456.trace"));
     assert!(!input_json.contains("Hidden Movie"));
     assert!(!input_json.contains("Secret Path"));
     assert!(!input_json.contains("Frankorz"));
     assert!(!input_json.contains("token"));
     assert!(!input_json.contains("local:///"));
     assert!(!input_json.contains("sha256"));
+    assert!(input_json.contains(r#""request_id":"req-scan_456.trace""#));
 }
 
 #[tokio::test]
@@ -327,16 +339,20 @@ async fn source_fingerprint_hash_retry_creates_safe_delayed_retry_job() {
         Some("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned()),
     )
     .await;
+    let trace_context = DurableJobTraceContext::from_request_id("REQ-RETRY_789.Trace").unwrap();
     let source_job = app
         .source_hash()
-        .enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
-            library_id,
-            source_id: source.id,
-            mode: SourceFingerprintHashMode::Partial {
-                prefix_bytes: 65_536,
+        .enqueue_source_fingerprint_hash_with_trace_context(
+            EnqueueSourceFingerprintHashRequest {
+                library_id,
+                source_id: source.id,
+                mode: SourceFingerprintHashMode::Partial {
+                    prefix_bytes: 65_536,
+                },
+                priority: Some(JobPriority::High),
             },
-            priority: Some(JobPriority::High),
-        })
+            Some(&trace_context),
+        )
         .await
         .unwrap();
     store.start_job(source_job.id).await.unwrap();
@@ -405,7 +421,12 @@ async fn source_fingerprint_hash_retry_creates_safe_delayed_retry_job() {
             mode: SourceFingerprintHashMode::Partial {
                 prefix_bytes: 65_536,
             },
+            request_id: Some("req-retry_789.trace".to_owned()),
         }
+    );
+    assert_eq!(
+        retry_input.request_id.as_deref(),
+        Some("req-retry_789.trace")
     );
     assert!(claim.is_none(), "future retry must not be claimable");
     assert_eq!(summary.queued_jobs, 1);
@@ -434,14 +455,19 @@ async fn source_fingerprint_hash_retry_scheduler_executes_due_job() {
     let (temp, app, store, source) =
         source_hash_app_with_source(library_id, "local:///Hidden Movie.mkv", None).await;
     fs::write(temp.path().join("Hidden Movie.mkv"), b"abcdef").unwrap();
+    let trace_context =
+        DurableJobTraceContext::from_request_id("REQ-RETRY-SCHED_123.Trace").unwrap();
     let source_job = app
         .source_hash()
-        .enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
-            library_id,
-            source_id: source.id,
-            mode: SourceFingerprintHashMode::Full,
-            priority: Some(JobPriority::Normal),
-        })
+        .enqueue_source_fingerprint_hash_with_trace_context(
+            EnqueueSourceFingerprintHashRequest {
+                library_id,
+                source_id: source.id,
+                mode: SourceFingerprintHashMode::Full,
+                priority: Some(JobPriority::Normal),
+            },
+            Some(&trace_context),
+        )
         .await
         .unwrap();
     store.start_job(source_job.id).await.unwrap();
@@ -832,17 +858,21 @@ async fn source_fingerprint_hash_prepare_recovers_in_memory_execution_request() 
         Some("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned()),
     )
     .await;
+    let trace_context = DurableJobTraceContext::from_request_id("REQ-PREPARE_123.Trace").unwrap();
 
     let job = app
         .source_hash()
-        .enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
-            library_id,
-            source_id: source.id,
-            mode: SourceFingerprintHashMode::Partial {
-                prefix_bytes: 65_536,
+        .enqueue_source_fingerprint_hash_with_trace_context(
+            EnqueueSourceFingerprintHashRequest {
+                library_id,
+                source_id: source.id,
+                mode: SourceFingerprintHashMode::Partial {
+                    prefix_bytes: 65_536,
+                },
+                priority: None,
             },
-            priority: None,
-        })
+            Some(&trace_context),
+        )
         .await
         .unwrap();
     let prepared = app
@@ -869,6 +899,13 @@ async fn source_fingerprint_hash_prepare_recovers_in_memory_execution_request() 
         }
     );
     assert_eq!(prepared.request.uri.as_str(), source.locator);
+    assert_eq!(
+        prepared
+            .trace_context
+            .as_ref()
+            .map(DurableJobTraceContext::request_id),
+        Some("req-prepare_123.trace")
+    );
     assert_eq!(persisted.status, JobStatus::Queued);
     assert!(persisted.started_at.is_none());
     assert!(persisted.completed_at.is_none());
@@ -885,14 +922,18 @@ async fn source_fingerprint_hash_execute_claims_job_and_persists_safe_summary() 
     .await;
     fs::write(temp.path().join("Hidden Movie.mkv"), b"abcdef").unwrap();
     let existing_state = seed_source_hash_state(&store, library_id, &source).await;
+    let trace_context = DurableJobTraceContext::from_request_id("REQ-EXECUTE_123.Trace").unwrap();
     let job = app
         .source_hash()
-        .enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
-            library_id,
-            source_id: source.id,
-            mode: SourceFingerprintHashMode::Full,
-            priority: None,
-        })
+        .enqueue_source_fingerprint_hash_with_trace_context(
+            EnqueueSourceFingerprintHashRequest {
+                library_id,
+                source_id: source.id,
+                mode: SourceFingerprintHashMode::Full,
+                priority: None,
+            },
+            Some(&trace_context),
+        )
         .await
         .unwrap();
 
@@ -955,14 +996,18 @@ async fn source_fingerprint_hash_scheduler_executes_claimed_job_and_persists_saf
     .await;
     fs::write(temp.path().join("Hidden Movie.mkv"), b"abcdef").unwrap();
     let existing_state = seed_source_hash_state(&store, library_id, &source).await;
+    let trace_context = DurableJobTraceContext::from_request_id("REQ-SCHEDULE_456.Trace").unwrap();
     let job = app
         .source_hash()
-        .enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
-            library_id,
-            source_id: source.id,
-            mode: SourceFingerprintHashMode::Full,
-            priority: None,
-        })
+        .enqueue_source_fingerprint_hash_with_trace_context(
+            EnqueueSourceFingerprintHashRequest {
+                library_id,
+                source_id: source.id,
+                mode: SourceFingerprintHashMode::Full,
+                priority: None,
+            },
+            Some(&trace_context),
+        )
         .await
         .unwrap();
 
@@ -1376,6 +1421,27 @@ async fn source_fingerprint_hash_prepare_rejects_missing_or_unsafe_input_without
         })
         .await
         .unwrap();
+    let unsafe_trace_context_input = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::SourceFingerprintHash,
+            resource_class: SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(library_id),
+            source_id: Some(source.id),
+            input_json: Some(
+                serde_json::json!({
+                    "library_id": library_id,
+                    "source_id": source.id,
+                    "source_scheme": "local",
+                    "mode": "full",
+                    "request_id": "https://secret.example/path?token=private",
+                })
+                .to_string(),
+            ),
+        })
+        .await
+        .unwrap();
 
     let missing_err = app
         .source_hash()
@@ -1392,7 +1458,13 @@ async fn source_fingerprint_hash_prepare_rejects_missing_or_unsafe_input_without
         .prepare_source_fingerprint_hash_execution(&unsafe_input)
         .await
         .unwrap_err();
+    let unsafe_trace_context_err = app
+        .source_hash()
+        .prepare_source_fingerprint_hash_execution(&unsafe_trace_context_input)
+        .await
+        .unwrap_err();
     let unsafe_message = unsafe_err.to_string();
+    let unsafe_trace_context_message = unsafe_trace_context_err.to_string();
 
     assert_eq!(
         missing_err.to_string(),
@@ -1416,6 +1488,13 @@ async fn source_fingerprint_hash_prepare_rejects_missing_or_unsafe_input_without
     assert!(!unsafe_message.contains("token"));
     assert!(!unsafe_message.contains("private-fingerprint"));
     assert!(!unsafe_message.contains("local:///"));
+    assert_eq!(
+        unsafe_trace_context_message,
+        "invalid input: invalid durable job trace request_id"
+    );
+    assert!(!unsafe_trace_context_message.contains("secret.example"));
+    assert!(!unsafe_trace_context_message.contains("token"));
+    assert!(!unsafe_trace_context_message.contains("private"));
 }
 
 #[tokio::test]

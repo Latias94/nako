@@ -2970,17 +2970,23 @@ pub(super) async fn cancel_admin_job(
 
 pub(super) async fn enqueue_admin_source_fingerprint_hash(
     State(app): State<NakoApp>,
+    Extension(http_trace_context): Extension<HttpTraceContext>,
     Json(request): Json<AdminSourceFingerprintHashEnqueueRequest>,
 ) -> ApiResult<impl IntoResponse> {
     let mode = admin_source_fingerprint_hash_mode(request.mode, request.partial_prefix_bytes)?;
+    let trace_context =
+        crate::app::DurableJobTraceContext::from_request_id(http_trace_context.request_id())?;
     let job = app
         .source_hash()
-        .enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
-            library_id: request.library_id,
-            source_id: request.source_id,
-            mode,
-            priority: request.priority.map(Into::into),
-        })
+        .enqueue_source_fingerprint_hash_with_trace_context(
+            EnqueueSourceFingerprintHashRequest {
+                library_id: request.library_id,
+                source_id: request.source_id,
+                mode,
+                priority: request.priority.map(Into::into),
+            },
+            Some(&trace_context),
+        )
         .await?;
 
     Ok((StatusCode::ACCEPTED, Json(AdminJobListItem::from_job(job))))
@@ -2989,8 +2995,14 @@ pub(super) async fn enqueue_admin_source_fingerprint_hash(
 pub(super) async fn retry_admin_source_fingerprint_hash_job(
     State(app): State<NakoApp>,
     Path(job_id): Path<JobId>,
+    Extension(http_trace_context): Extension<HttpTraceContext>,
     Json(request): Json<AdminSourceFingerprintHashRetryRequest>,
 ) -> ApiResult<impl IntoResponse> {
+    tracing::debug!(
+        request_id = %http_trace_context.request_id(),
+        job_id = %job_id,
+        "retrying source fingerprint hash job"
+    );
     let job = app
         .source_hash()
         .retry_source_fingerprint_hash_job(RetrySourceFingerprintHashRequest {

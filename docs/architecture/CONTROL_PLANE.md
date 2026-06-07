@@ -44,7 +44,7 @@ Deployment Endpoint Config
 | Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract/summary/internal enqueue/queued planner/single-job executor command/scheduler integration/evidence persistence/Admin manual commands, scan-originated source hash triggering, VFS cache repair durable contract/internal enqueue/internal single-job executor/Admin manual enqueue-execute-retry/internal retry commands, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/`; `.trellis/tasks/06-06-06-06-overnight-fearless-refactor-development-plan/` | Broader job-kind scheduler migration, VFS cache repair automated policy, and automatic Source Duplicate Relationship reconciliation remain follow-ons. |
 | Runtime supervisor | Shipped resource-accounted foundation | ADR 0019; server runtime deepening; durable job queue/resource lane | Unified trace context and broader scheduler migration remain follow-ons. |
 | Resource classes and budgets | Shipped process-local foundation plus source fingerprint hash and VFS cache repair mappings to `disk.scan` | ADR 0005; playback/runtime lanes; durable job queue/resource lane | Continue migrating job kinds onto typed budget-admitted scheduler paths. |
-| Tracing/request identity | Partial with HLS and library scan job propagation | diagnostics and playback identity lanes | Continue unified trace context across jobs/FFmpeg/VFS/addons and broader scan entry points. |
+| Tracing/request identity | Partial with HLS, library scan, and source fingerprint hash job propagation | diagnostics and playback identity lanes | Continue unified trace context across jobs/FFmpeg/VFS/addons and broader scan entry points. |
 | Admin diagnostics | Good partial | Admin API and diagnostics lanes | Safe realtime diagnostics and incident bundles. |
 | Crash/fault bundles | Not started | This document | Redacted operator export for hard bugs. |
 | Remote access cookbook | Planned | operations/release architecture | Reverse proxy, HTTPS, DDNS, Tailscale, Cloudflare Tunnel guidance. |
@@ -77,17 +77,19 @@ Shipped control-plane behavior:
 
 - `JobKind::SourceFingerprintHash` is a persisted durable job kind string;
 - `SourceFingerprintHashJobInput` is the only durable input contract for this
-  work and carries only Media Library ID, Media Source ID, source scheme, and
-  hash mode;
+  work and carries only Media Library ID, Media Source ID, source scheme, hash
+  mode, and an optional normalized request_id for trace correlation;
 - `disk.scan.source_fingerprint_hash` is the persisted job resource class and
   maps to the existing `disk.scan` runtime budget class.
 - `nako-server::app::source_hash` can persist queued source fingerprint hash
-  jobs for an existing Media Source after verifying library ownership and
-  deriving only the current source scheme from the Source Locator.
+  jobs for an existing Media Source after verifying library ownership,
+  deriving only the current source scheme from the Source Locator, and copying
+  any safe upstream request_id into durable input for correlation.
 - `nako-server::app::source_hash` can prepare a queued source fingerprint hash
   job for future execution by validating the persisted job contract, reloading
-  the current Media Source, and rebuilding only an in-memory
-  `SourceFingerprintHashRequest` from the current Source Locator.
+  the current Media Source, rebuilding only an in-memory
+  `SourceFingerprintHashRequest` from the current Source Locator, and restoring
+  any normalized durable trace context from the persisted request_id.
 - `SourceFingerprintHashJobSummary` provides a narrow future `summary_json`
   shape with mode, evidence kind, confidence, stale state, and bytes hashed,
   excluding raw fingerprint/hash material and locator content.
@@ -104,14 +106,15 @@ Shipped control-plane behavior:
   without raw Source Locator, fingerprint, hash, or job input material.
 - Admin manual enqueue can create full or partial source fingerprint hash jobs
   for one known Media Source while preserving the existing disk-scan scheduler
-  execution path.
+  execution path and persisting the current request_id for operator correlation.
 - Admin source-hash retry/requeue can create a new queued retry for a failed
   source fingerprint hash job without exposing or resubmitting unsafe durable
   input.
 - successful library indexing can pass committed, redaction-safe source hash
   trigger facts to the server app service; enabled scan-originated policy
   enqueues matching source fingerprint hash jobs through the existing durable
-  job and disk-scan scheduler path.
+  job and disk-scan scheduler path while preserving the scan trace request_id
+  when one was supplied.
 - scan-originated enqueue is idempotent for queued/running jobs with the same
   library, source, resource class, and hash mode; terminal jobs do not block
   future scan-originated work.

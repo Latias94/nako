@@ -5782,6 +5782,59 @@ async fn admin_v1_source_fingerprint_hash_enqueue_queues_full_and_partial_jobs_w
 }
 
 #[tokio::test]
+async fn admin_v1_source_fingerprint_hash_enqueue_propagates_request_id_into_durable_input() {
+    let (_temp, router, source, store) =
+        router_with_media_source("source_hash_secret_locator.mkv", b"0123456789abcdef").await;
+    let request_id = "REQ-SOURCE_123.Trace";
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/admin/v1/source-fingerprint-hashes")
+                .header(crate::http::trace_context::X_REQUEST_ID_HEADER, request_id)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_vec(&AdminSourceFingerprintHashEnqueueRequest {
+                        library_id: source.library_id,
+                        source_id: source.id,
+                        mode: AdminSourceFingerprintHashMode::Full,
+                        partial_prefix_bytes: None,
+                        priority: Some(AdminJobPriority::High),
+                    })
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let echoed_request_id = response
+        .headers()
+        .get(&crate::http::trace_context::X_REQUEST_ID_HEADER)
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_owned();
+    let body = response_text(response).await;
+    assert_eq!(echoed_request_id, "req-source_123.trace");
+    assert_eq!(
+        serde_json::from_str::<AdminJobListItem>(&body)
+            .unwrap()
+            .status,
+        JobStatus::Queued
+    );
+    let job: AdminJobListItem = serde_json::from_str(&body).unwrap();
+    let persisted = store.get_job(job.id).await.unwrap().unwrap();
+    let input: SourceFingerprintHashJobInput =
+        serde_json::from_str(persisted.input_json.as_deref().unwrap()).unwrap();
+
+    assert_eq!(job.kind, JobKind::SourceFingerprintHash);
+    assert_eq!(input.request_id.as_deref(), Some("req-source_123.trace"));
+    assert_source_hash_admin_body_redacted(&body);
+    assert_source_hash_job_input_redacted(persisted.input_json.as_deref().unwrap());
+}
+
+#[tokio::test]
 async fn admin_v1_source_fingerprint_hash_retry_requeues_failed_job_without_payload_leaks() {
     let (_temp, router, source, store) =
         router_with_media_source("source_hash_secret_locator.mkv", b"0123456789abcdef").await;

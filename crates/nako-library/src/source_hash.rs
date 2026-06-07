@@ -30,6 +30,8 @@ pub struct SourceFingerprintHashJobInput {
     pub source_id: MediaSourceId,
     pub source_scheme: String,
     pub mode: SourceFingerprintHashMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
 }
 
 impl SourceFingerprintHashJobInput {
@@ -47,6 +49,7 @@ impl SourceFingerprintHashJobInput {
             source_id,
             source_scheme,
             mode,
+            request_id: None,
         })
     }
 
@@ -513,6 +516,7 @@ mod tests {
                 source_id,
                 source_scheme: "local".to_owned(),
                 mode: SourceFingerprintHashMode::Full,
+                request_id: None,
             }
         );
 
@@ -521,6 +525,7 @@ mod tests {
         assert_eq!(round_trip, input);
         assert!(serialized.contains(r#""source_scheme":"local""#));
         assert!(serialized.contains(r#""mode":"full""#));
+        assert!(!serialized.contains(r#""request_id""#));
         assert!(!serialized.contains("Hidden Movie"));
         assert!(!serialized.contains("Secret Path"));
         assert!(!serialized.contains("Frankorz"));
@@ -555,6 +560,25 @@ mod tests {
         );
         assert!(serialized.contains(r#""partial""#));
         assert!(serialized.contains(r#""prefix_bytes":65536"#));
+        assert!(!serialized.contains(r#""request_id""#));
+    }
+
+    #[test]
+    fn hash_job_input_serializes_safe_request_id_when_present() {
+        let input = SourceFingerprintHashJobInput {
+            library_id: LibraryId::new(),
+            source_id: MediaSourceId::new(),
+            source_scheme: "webdav".to_owned(),
+            mode: SourceFingerprintHashMode::Full,
+            request_id: Some("req-source_123.trace".to_owned()),
+        };
+
+        let serialized = serde_json::to_string(&input).unwrap();
+        let round_trip: SourceFingerprintHashJobInput = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(round_trip, input);
+        assert!(serialized.contains(r#""request_id":"req-source_123.trace""#));
+        assert!(!serialized.contains("secret"));
     }
 
     #[test]

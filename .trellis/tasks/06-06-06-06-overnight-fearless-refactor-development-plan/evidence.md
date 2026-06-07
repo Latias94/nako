@@ -10,6 +10,41 @@
   dependency:
   `c035a813 docs(storage): record OpenDAL adapter spike decision`.
 
+## 2026-06-07 Source Fingerprint Hash Trace Correlation
+
+What changed:
+
+- Added optional normalized `request_id` to `SourceFingerprintHashJobInput`
+  with safe serde round-tripping.
+- Propagated HTTP `x-request-id` into Admin enqueue and scan-originated
+  source-hash jobs, then restored it into durable job trace context during
+  execution.
+- Added trace-aware enqueue wrappers in the source-hash app service and
+  execution-span instrumentation for the durable source-hash path.
+- Updated the source-hash policy and architecture notes to record the
+  correlation contract for trace-safe durable input.
+
+Boundaries:
+
+- No production dependency, schema migration, or API route shape changed.
+- `request_id` is correlation metadata only; unsafe values are rejected and
+  not echoed.
+- Source-hash execution still validates durable input and source bindings
+  before reloading the current Media Source.
+
+Validation:
+
+- `cargo fmt --all`
+  - Result: passed.
+- `cargo check -p nako-library --tests`
+  - Result: passed.
+- `cargo check -p nako-server --tests`
+  - Result: passed.
+- `cargo nextest run -p nako-library source_hash --no-fail-fast`
+  - Result: passed, 17 tests run.
+- `cargo nextest run -p nako-server source_fingerprint_hash --no-fail-fast`
+  - Result: passed, 33 tests run.
+
 ## 2026-06-07 VFS Byte Range Refactor
 
 Commits:
@@ -462,6 +497,16 @@ Boundaries:
 
 Validation:
 
+- `cargo fmt --all`
+  - Result: passed.
+- `cargo check -p nako-library --tests`
+  - Result: passed.
+- `cargo check -p nako-server --tests`
+  - Result: passed.
+- `cargo nextest run -p nako-library source_hash --no-fail-fast`
+  - Result: passed, 17 tests run.
+- `cargo nextest run -p nako-server source_fingerprint_hash --no-fail-fast`
+  - Result: passed, 33 tests run.
 - `npm run check --prefix apps/admin-web`
   - Result: passed.
 - `npm run test --prefix apps/admin-web -- src/adminApi/dataSource.test.ts`

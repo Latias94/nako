@@ -14,9 +14,12 @@ use nako_vfs::StorageUri;
 
 use super::{
     job_retry::canonical_retry_next_attempt,
-    job_runtime::{DurableJobOperationError, DurableJobRunOutcome, DurableJobRuntime},
+    job_runtime::{
+        DurableJobOperationError, DurableJobRunOutcome, DurableJobRuntime, DurableJobTraceContext,
+    },
     storage::StorageBackendRegistry,
 };
+use tracing::Instrument;
 
 #[derive(Clone, Debug)]
 pub(crate) struct SourceFingerprintHashAppService {
@@ -70,6 +73,7 @@ pub(crate) struct PreparedSourceFingerprintHashExecution {
     pub(crate) source_id: MediaSourceId,
     pub(crate) source_scheme: String,
     pub(crate) mode: SourceFingerprintHashMode,
+    pub(crate) trace_context: Option<DurableJobTraceContext>,
     pub(crate) request: SourceFingerprintHashRequest,
 }
 
@@ -91,6 +95,15 @@ impl SourceFingerprintHashAppService {
         &self,
         request: EnqueueSourceFingerprintHashRequest,
     ) -> Result<Job> {
+        self.enqueue_source_fingerprint_hash_with_trace_context(request, None)
+            .await
+    }
+
+    pub(crate) async fn enqueue_source_fingerprint_hash_with_trace_context(
+        &self,
+        request: EnqueueSourceFingerprintHashRequest,
+        trace_context: Option<&DurableJobTraceContext>,
+    ) -> Result<Job> {
         let source = self.source_for_hash(request.source_id).await?;
         if source.library_id != request.library_id {
             return Err(NakoError::InvalidInput {
@@ -99,7 +112,7 @@ impl SourceFingerprintHashAppService {
             });
         }
 
-        let input = source_fingerprint_hash_job_input(&source, request.mode)?;
+        let input = source_fingerprint_hash_job_input(&source, request.mode, trace_context)?;
         let input_json = serde_json::to_string(&input).map_err(|err| NakoError::InvalidInput {
             message: format!("failed to serialize source fingerprint hash job input: {err}"),
         })?;
@@ -123,6 +136,19 @@ impl SourceFingerprintHashAppService {
         trigger: &ScanSourceFingerprintHashTrigger,
         policy: ScanOriginatedSourceFingerprintHashPolicy,
     ) -> Result<ScanOriginatedSourceFingerprintHashOutcome> {
+        self.enqueue_scan_originated_source_fingerprint_hash_with_trace_context(
+            library_id, trigger, policy, None,
+        )
+        .await
+    }
+
+    pub(crate) async fn enqueue_scan_originated_source_fingerprint_hash_with_trace_context(
+        &self,
+        library_id: LibraryId,
+        trigger: &ScanSourceFingerprintHashTrigger,
+        policy: ScanOriginatedSourceFingerprintHashPolicy,
+        trace_context: Option<&DurableJobTraceContext>,
+    ) -> Result<ScanOriginatedSourceFingerprintHashOutcome> {
         if !policy.enabled {
             return Ok(ScanOriginatedSourceFingerprintHashOutcome::AdvisoryOnly);
         }
@@ -142,12 +168,15 @@ impl SourceFingerprintHashAppService {
             ));
         }
 
-        self.enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
-            library_id,
-            source_id: trigger.source_id,
-            mode,
-            priority: Some(policy.priority),
-        })
+        self.enqueue_source_fingerprint_hash_with_trace_context(
+            EnqueueSourceFingerprintHashRequest {
+                library_id,
+                source_id: trigger.source_id,
+                mode,
+                priority: Some(policy.priority),
+            },
+            trace_context,
+        )
         .await
         .map(ScanOriginatedSourceFingerprintHashOutcome::Enqueued)
     }
@@ -192,20 +221,32 @@ impl SourceFingerprintHashAppService {
         &self,
         job_id: JobId,
     ) -> Result<SourceFingerprintHashCommandOutput> {
+        let job = self.job_for_hash(job_id).await?;
+        let trace_context = source_fingerprint_hash_trace_context_from_job(&job);
         let runtime = DurableJobRuntime::new(self.store.clone());
         let run = runtime
-            .run_job(
+            .run_job_with_trace_context(
                 job_id,
                 "source fingerprint hash job",
-                || async { self.run_source_fingerprint_hash_job(job_id).await },
+                trace_context,
+                |context| async move {
+                    self.run_source_fingerprint_hash_job(job_id, context.trace_context())
+                        .await
+                        .map_err(DurableJobOperationError::from)
+                },
                 source_fingerprint_hash_job_summary_json,
             )
             .await?;
 
-        Ok(SourceFingerprintHashCommandOutput {
-            job: run.job,
-            summary: run.output,
-        })
+        match run {
+            DurableJobRunOutcome::Completed(run) => Ok(SourceFingerprintHashCommandOutput {
+                job: run.job,
+                summary: run.output,
+            }),
+            DurableJobRunOutcome::Cancelled(job) => Err(NakoError::Conflict {
+                message: format!("job {} was cancelled", job.id),
+            }),
+        }
     }
 
     pub(crate) async fn execute_claimed_source_fingerprint_hash_job(
@@ -213,14 +254,15 @@ impl SourceFingerprintHashAppService {
         leased: LeasedJob,
     ) -> Result<SourceFingerprintHashCommandOutput> {
         let job = leased.job.clone();
+        let trace_context = source_fingerprint_hash_trace_context_from_job(&job);
         let runtime = DurableJobRuntime::new(self.store.clone());
         let run = runtime
             .run_leased_job_with_trace_context(
                 leased,
                 "source fingerprint hash job",
-                None,
-                |_context| async {
-                    self.run_source_fingerprint_hash_job_from_job(&job)
+                trace_context,
+                |context| async move {
+                    self.run_source_fingerprint_hash_job_from_job(&job, context.trace_context())
                         .await
                         .map_err(DurableJobOperationError::from)
                 },
@@ -311,6 +353,8 @@ impl SourceFingerprintHashAppService {
             });
         }
 
+        let trace_context = source_fingerprint_hash_trace_context(&input.request_id)?;
+
         Ok((
             PreparedSourceFingerprintHashExecution {
                 job_id: job.id,
@@ -318,6 +362,7 @@ impl SourceFingerprintHashAppService {
                 source_id: input.source_id,
                 source_scheme: input.source_scheme,
                 mode: input.mode,
+                trace_context,
                 request: SourceFingerprintHashRequest {
                     uri: source_uri,
                     mode: input.mode,
@@ -330,14 +375,17 @@ impl SourceFingerprintHashAppService {
     async fn run_source_fingerprint_hash_job(
         &self,
         job_id: JobId,
+        trace_context: Option<&DurableJobTraceContext>,
     ) -> Result<SourceFingerprintHashJobSummary> {
         let job = self.job_for_hash(job_id).await?;
-        self.run_source_fingerprint_hash_job_from_job(&job).await
+        self.run_source_fingerprint_hash_job_from_job(&job, trace_context)
+            .await
     }
 
     async fn run_source_fingerprint_hash_job_from_job(
         &self,
         job: &Job,
+        trace_context: Option<&DurableJobTraceContext>,
     ) -> Result<SourceFingerprintHashJobSummary> {
         let (prepared, source) = self
             .prepare_source_fingerprint_hash_execution_with_source(job)
@@ -348,10 +396,25 @@ impl SourceFingerprintHashAppService {
             .await?;
         let executor = SourceFingerprintHashExecutor::new(backend);
         let source_scheme = prepared.source_scheme.clone();
-        let report = executor
-            .execute(prepared.request)
-            .await
-            .map_err(|err| redact_source_fingerprint_hash_execution_error(err, &source_scheme))?;
+        let trace_request_id = trace_context
+            .or(prepared.trace_context.as_ref())
+            .map(DurableJobTraceContext::request_id)
+            .unwrap_or("untraced");
+        let report = async {
+            executor
+                .execute(prepared.request)
+                .await
+                .map_err(|err| redact_source_fingerprint_hash_execution_error(err, &source_scheme))
+        }
+        .instrument(tracing::info_span!(
+            "source_fingerprint_hash_job",
+            job_id = %prepared.job_id,
+            library_id = %prepared.library_id,
+            source_id = %prepared.source_id,
+            request_id = %trace_request_id,
+            mode = ?prepared.mode,
+        ))
+        .await?;
         self.persist_source_fingerprint_hash_evidence(&source, &report)
             .await?;
 
@@ -528,10 +591,17 @@ fn redact_source_fingerprint_hash_execution_error(
 fn source_fingerprint_hash_job_input(
     source: &MediaSource,
     mode: SourceFingerprintHashMode,
+    trace_context: Option<&DurableJobTraceContext>,
 ) -> Result<SourceFingerprintHashJobInput> {
     let source_uri = source_fingerprint_hash_storage_uri(source)?;
-
-    SourceFingerprintHashJobInput::new(source.library_id, source.id, source_uri.scheme(), mode)
+    let mut input = SourceFingerprintHashJobInput::new(
+        source.library_id,
+        source.id,
+        source_uri.scheme(),
+        mode,
+    )?;
+    input.request_id = trace_context.map(|trace_context| trace_context.request_id().to_owned());
+    Ok(input)
 }
 
 fn scan_originated_source_fingerprint_hash_mode(
@@ -588,13 +658,42 @@ fn source_fingerprint_hash_job_input_from_job(job: &Job) -> Result<SourceFingerp
         serde_json::from_str(input_json).map_err(|_err| NakoError::InvalidInput {
             message: "source fingerprint hash job input is invalid".to_owned(),
         })?;
+    let SourceFingerprintHashJobInput {
+        library_id,
+        source_id,
+        source_scheme,
+        mode,
+        request_id,
+    } = input;
+    let validated = SourceFingerprintHashJobInput::new(library_id, source_id, source_scheme, mode)?;
 
-    SourceFingerprintHashJobInput::new(
-        input.library_id,
-        input.source_id,
-        input.source_scheme,
-        input.mode,
-    )
+    Ok(SourceFingerprintHashJobInput {
+        request_id,
+        ..validated
+    })
+}
+
+fn source_fingerprint_hash_trace_context(
+    request_id: &Option<String>,
+) -> Result<Option<DurableJobTraceContext>> {
+    request_id
+        .as_deref()
+        .map(DurableJobTraceContext::from_request_id)
+        .transpose()
+}
+
+fn source_fingerprint_hash_trace_context_from_job(job: &Job) -> Option<DurableJobTraceContext> {
+    let Some(input_json) = job.input_json.as_deref() else {
+        return None;
+    };
+    let Ok(input) = serde_json::from_str::<serde_json::Value>(input_json) else {
+        return None;
+    };
+    let Some(request_id) = input.get("request_id").and_then(serde_json::Value::as_str) else {
+        return None;
+    };
+
+    DurableJobTraceContext::from_request_id(request_id).ok()
 }
 
 fn validate_source_fingerprint_hash_job_bindings(
