@@ -84,6 +84,8 @@ export const NAKO_ADMIN_ROUTES = {
   storageVfsCacheRepairTargets: "/admin/v1/storage/vfs-cache/repair/targets",
   storageVfsCacheRepairTargetPreview: "/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/preview",
   storageVfsCacheRepairTargetRefreshCache: "/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/refresh-cache",
+  storageVfsCacheRepairTargetEnqueue: "/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/jobs",
+  storageVfsCacheRepairJobExecute: "/admin/v1/storage/vfs-cache/repair/jobs/{job_id}/execute",
   storageVfsCacheRepairActionPlan: "/admin/v1/storage/vfs-cache/repair/action-plan",
   storageVfsCacheRepairRefreshCache: "/admin/v1/storage/vfs-cache/repair/refresh-cache",
   systemConfig: "/admin/v1/system/config",
@@ -3254,6 +3256,43 @@ export interface AdminVfsCacheRepairTargetPreviewResponse {
   public_api_version: string;
   target: AdminVfsCacheRepairTarget;
   plan: AdminVfsCacheRepairActionPlanResponse["plan"];
+}
+
+export interface AdminVfsCacheRepairEnqueueRequest {
+  priority?: AdminJobPriority | null;
+}
+
+export type AdminVfsCacheRepairEnqueueOutcome =
+  | "enqueued"
+  | "already_queued";
+
+export interface AdminVfsCacheRepairEnqueueResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  outcome: AdminVfsCacheRepairEnqueueOutcome;
+  job: AdminJobListItem;
+}
+
+export type AdminVfsCacheRepairCacheState =
+  | "fresh"
+  | "stale_fallback";
+
+export interface AdminVfsCacheRepairJobSummary {
+  action: AdminVfsCacheRepairAction;
+  source_scheme: string;
+  operation: VfsCacheOperation;
+  classification: AdminVfsCacheRepairClassification;
+  failure_class: StorageFailureClass | null;
+  failed_at_ms: number;
+  failure_count: number;
+  refreshed_cache_state: AdminVfsCacheRepairCacheState | null;
+}
+
+export interface AdminVfsCacheRepairExecuteResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  job: AdminJobListItem;
+  summary: AdminVfsCacheRepairJobSummary;
 }
 
 export interface AdminVfsCacheRepairRemediationPlanResponse {

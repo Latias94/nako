@@ -160,3 +160,55 @@ Validation:
   - Result: passed, 3 tests run.
 - `cargo nextest run -p nako-server runtime_job_resource_class_mapping_maps_known_jobs_to_budget_classes --no-fail-fast`
   - Result: passed, 1 test run.
+
+## 2026-06-07 VFS Cache Repair Admin Manual Commands
+
+What changed:
+
+- Added Admin-only manual enqueue route:
+  `POST /admin/v1/storage/vfs-cache/repair/targets/{target_ref}/jobs`.
+- Added Admin-only explicit execution route:
+  `POST /admin/v1/storage/vfs-cache/repair/jobs/{job_id}/execute`.
+- Added `nako-api` Admin DTOs for VFS cache repair enqueue requests,
+  enqueue outcome responses, safe repair job summaries, and execution
+  responses.
+- Updated generated Admin TypeScript contracts for `apps/admin-web` and `web`.
+- The enqueue route accepts only an opaque selected-target `target_ref` and
+  optional job priority, then delegates to
+  `StorageDiagnosticsAppService::enqueue_vfs_cache_repair_target`.
+- The execute route accepts only an explicit durable `JobId`, then delegates to
+  `StorageDiagnosticsAppService::execute_vfs_cache_repair_job`.
+- Responses expose only generic `AdminJobListItem` facts, enqueue outcome, and
+  redaction-safe repair summary fields.
+- Updated storage/control-plane architecture docs and Trellis server/API specs
+  with the shipped Admin manual command boundary.
+
+Boundaries:
+
+- No automatic scheduler loop was added.
+- No retry/requeue route was added.
+- No schema migration was added.
+- No purge/delete/invalidation, backend configuration mutation, library file
+  write, or automated repair worker was added.
+- Routes do not accept raw `StorageUri`, local path, backend URL, URI digest,
+  job input JSON, cache payload, etag, fingerprint, credential, or raw backend
+  error material.
+
+Validation:
+
+- `cargo fmt --all -- --check`
+  - Result: passed.
+- `cargo check -p nako-api -p nako-server --tests`
+  - Result: passed.
+- `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+  - Result: passed, 8 tests run.
+- `cargo nextest run -p nako-api admin_vfs_cache_repair_job_commands --no-fail-fast`
+  - Result: passed, 1 test run.
+- `cargo nextest run -p nako-server implemented_admin_routes_are_generated_or_explicitly_excluded --no-fail-fast`
+  - Result: passed, 1 test run.
+- `cargo nextest run -p nako-server admin_v1_vfs_cache --no-fail-fast`
+  - Result: passed, 11 tests run.
+- `python ./.trellis/scripts/task.py validate .trellis/tasks/06-06-06-06-overnight-fearless-refactor-development-plan`
+  - Result: passed.
+- `git diff --check`
+  - Result: passed.

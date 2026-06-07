@@ -18,7 +18,7 @@ struct AdminRouteExclusionSuffix {
     reason: &'static str,
 }
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 84] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 86] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -233,6 +233,14 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 84] = [
     (
         "storageVfsCacheRepairTargetRefreshCache",
         "storage/vfs-cache/repair/targets/{target_ref}/refresh-cache",
+    ),
+    (
+        "storageVfsCacheRepairTargetEnqueue",
+        "storage/vfs-cache/repair/targets/{target_ref}/jobs",
+    ),
+    (
+        "storageVfsCacheRepairJobExecute",
+        "storage/vfs-cache/repair/jobs/{job_id}/execute",
     ),
     (
         "storageVfsCacheRepairActionPlan",
@@ -3591,6 +3599,43 @@ export interface AdminVfsCacheRepairTargetPreviewResponse {
   plan: AdminVfsCacheRepairActionPlanResponse["plan"];
 }
 
+export interface AdminVfsCacheRepairEnqueueRequest {
+  priority?: AdminJobPriority | null;
+}
+
+export type AdminVfsCacheRepairEnqueueOutcome =
+  | "enqueued"
+  | "already_queued";
+
+export interface AdminVfsCacheRepairEnqueueResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  outcome: AdminVfsCacheRepairEnqueueOutcome;
+  job: AdminJobListItem;
+}
+
+export type AdminVfsCacheRepairCacheState =
+  | "fresh"
+  | "stale_fallback";
+
+export interface AdminVfsCacheRepairJobSummary {
+  action: AdminVfsCacheRepairAction;
+  source_scheme: string;
+  operation: VfsCacheOperation;
+  classification: AdminVfsCacheRepairClassification;
+  failure_class: StorageFailureClass | null;
+  failed_at_ms: number;
+  failure_count: number;
+  refreshed_cache_state: AdminVfsCacheRepairCacheState | null;
+}
+
+export interface AdminVfsCacheRepairExecuteResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  job: AdminJobListItem;
+  summary: AdminVfsCacheRepairJobSummary;
+}
+
 export interface AdminVfsCacheRepairRemediationPlanResponse {
   admin_api_version: string;
   public_api_version: string;
@@ -4178,6 +4223,12 @@ mod tests {
             "AdminVfsCacheRepairTarget",
             "AdminVfsCacheRepairTargetListResponse",
             "AdminVfsCacheRepairTargetPreviewResponse",
+            "AdminVfsCacheRepairEnqueueRequest",
+            "AdminVfsCacheRepairEnqueueOutcome",
+            "AdminVfsCacheRepairEnqueueResponse",
+            "AdminVfsCacheRepairCacheState",
+            "AdminVfsCacheRepairJobSummary",
+            "AdminVfsCacheRepairExecuteResponse",
             "AdminVfsCacheRepairActionPlanResponse",
             "AdminVfsCacheRepairRemediationPlanBoundary",
             "AdminVfsCacheRepairClassificationCount",

@@ -121,9 +121,10 @@ use staging::cleanup_expired_staging_inputs;
 use startup::ServerStartupReport;
 use storage::StorageDiagnosticsAppService;
 pub(crate) use storage::{
-    StagingBudgetPolicySlice, StorageStagingPressureStatus, VfsCacheRepairActionBoundary,
-    VfsCacheRepairActionPlanReason, VfsCacheRepairActionPlanReport, VfsCacheRepairActionPlanStatus,
-    VfsCacheRepairExecutableRoute, VfsCacheRepairRefreshActionReport,
+    EnqueueVfsCacheRepairTargetOutcome, StagingBudgetPolicySlice, StorageStagingPressureStatus,
+    VfsCacheRepairActionBoundary, VfsCacheRepairActionPlanReason, VfsCacheRepairActionPlanReport,
+    VfsCacheRepairActionPlanStatus, VfsCacheRepairCommandOutput, VfsCacheRepairExecutableRoute,
+    VfsCacheRepairJobSummary, VfsCacheRepairRefreshActionReport,
     VfsCacheRepairRemediationActionGroupReport, VfsCacheRepairRemediationClassificationCountReport,
     VfsCacheRepairRemediationPlanBoundary, VfsCacheRepairRemediationPlanReport,
     VfsCacheRepairTargetPreviewReport, VfsCacheRepairTargetReport, storage_staging_pressure_status,

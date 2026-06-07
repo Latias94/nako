@@ -25,9 +25,11 @@ use nako_api::admin::{
     AdminStorageBackendHealthDiagnosticsResponse, AdminStorageBackendHealthResetResponse,
     AdminStorageStagingPressureStatus, AdminVfsCacheRefreshResponse,
     AdminVfsCacheRepairActionPlanReason, AdminVfsCacheRepairActionPlanResponse,
-    AdminVfsCacheRepairActionPlanStatus, AdminVfsCacheRepairRemediationPlanResponse,
-    AdminVfsCacheRepairTargetListResponse, AdminVfsCacheRepairTargetPreviewResponse,
-    AdminWatchFolderRuntimeCoverageStatus,
+    AdminVfsCacheRepairActionPlanStatus, AdminVfsCacheRepairCacheState,
+    AdminVfsCacheRepairEnqueueOutcome, AdminVfsCacheRepairEnqueueRequest,
+    AdminVfsCacheRepairEnqueueResponse, AdminVfsCacheRepairExecuteResponse,
+    AdminVfsCacheRepairRemediationPlanResponse, AdminVfsCacheRepairTargetListResponse,
+    AdminVfsCacheRepairTargetPreviewResponse, AdminWatchFolderRuntimeCoverageStatus,
 };
 use nako_core::{
     JobKind, JobPriority, JobRepository, JobStatus,
@@ -38,7 +40,8 @@ use nako_core::{
     MetadataCandidateReviewStatus as DurableMetadataCandidateReviewStatus, MetadataCandidateSource,
     MetadataCandidateSubject, NewMetadataCandidateReview, ProviderMappingStatus,
     StorageBackendHealthRecord, StorageBackendHealthRepository, StorageBackendHealthStatus,
-    StorageCircuitBreakerState, StorageFailureClass, VfsCacheFailureAuthority,
+    StorageCircuitBreakerState, StorageFailureClass, VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS,
+    VfsCacheFailureAuthority,
 };
 use nako_library::{
     SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS, SourceFingerprintHashJobInput,
@@ -7329,6 +7332,84 @@ fn assert_source_hash_job_input_redacted(input_json: &str) {
     }
 }
 
+fn assert_vfs_cache_repair_admin_response_redacted(body: &str) {
+    for forbidden in [
+        "source_uri",
+        "source_locator",
+        "cache_uri",
+        "storage_uri",
+        "local_path",
+        "local:///",
+        "Private",
+        "AdminJob.mkv",
+        "Config.mkv",
+        "backend.example",
+        "secret-cache",
+        "token=secret",
+        "input_json",
+        "summary_json",
+        "uri_digest",
+        "raw backend",
+        "etag",
+        "fingerprint",
+    ] {
+        assert!(
+            !body.contains(forbidden),
+            "VFS cache repair Admin response leaked forbidden term: {forbidden}"
+        );
+    }
+}
+
+fn assert_vfs_cache_repair_job_input_redacted(input_json: &str) {
+    for forbidden in [
+        "source_uri",
+        "source_locator",
+        "cache_uri",
+        "storage_uri",
+        "local_path",
+        "local:///",
+        "Private",
+        "AdminJob.mkv",
+        "backend.example",
+        "secret-cache",
+        "token=secret",
+        "raw backend",
+        "etag",
+        "fingerprint",
+    ] {
+        assert!(
+            !input_json.contains(forbidden),
+            "VFS cache repair job input leaked forbidden term: {forbidden}"
+        );
+    }
+}
+
+fn assert_vfs_cache_repair_job_summary_redacted(summary_json: &str) {
+    for forbidden in [
+        "source_uri",
+        "source_locator",
+        "cache_uri",
+        "storage_uri",
+        "local_path",
+        "local:///",
+        "Private",
+        "AdminJob.mkv",
+        "backend.example",
+        "secret-cache",
+        "token=secret",
+        "input_json",
+        "uri_digest",
+        "raw backend",
+        "etag",
+        "fingerprint",
+    ] {
+        assert!(
+            !summary_json.contains(forbidden),
+            "VFS cache repair job summary leaked forbidden term: {forbidden}"
+        );
+    }
+}
+
 #[tokio::test]
 async fn admin_v1_job_cancel_requests_are_truthful_and_redacted() {
     let temp = tempfile::tempdir().unwrap();
@@ -8146,6 +8227,344 @@ async fn admin_v1_vfs_cache_target_refresh_action_refreshes_selected_target_and_
     assert!(!body.contains("Selected.mkv"));
     assert!(!body.contains(&root.display().to_string()));
     assert!(!body.contains("secret-cache"));
+}
+
+#[tokio::test]
+async fn admin_v1_vfs_cache_repair_job_routes_enqueue_and_execute_without_payload_leaks() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let root = temp.path().join("movies");
+    fs::create_dir_all(root.join("Movies").join("Private")).unwrap();
+    fs::write(
+        root.join("Movies").join("Private").join("AdminJob.mkv"),
+        b"repair-job",
+    )
+    .unwrap();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("secret-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: root.clone(),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config.clone(), store.clone())
+        .await
+        .unwrap();
+    app.storage()
+        .replace_backend_for_test(
+            config.libraries[0].clone(),
+            Arc::new(nako_vfs::CachedStorageBackend::with_options(
+                nako_vfs::LocalFsBackend::new(&root).unwrap(),
+                store.clone(),
+                nako_vfs::VfsCacheOptions {
+                    stat_ttl_ms: 60_000,
+                    list_ttl_ms: 60_000,
+                    serve_stale_on_error: true,
+                    cache_local: true,
+                },
+            )),
+        )
+        .await;
+    store
+        .record_vfs_cache_failure(NewVfsCacheFailure {
+            uri: "local:///Movies/Private/AdminJob.mkv".to_owned(),
+            scheme: "local".to_owned(),
+            operation: VfsCacheOperation::Stat,
+            failed_at_ms: 1_000,
+            error: "storage backend unavailable".to_owned(),
+            authority: VfsCacheFailureAuthority::attributed(
+                library_id,
+                format!("library:{library_id}:local"),
+            ),
+        })
+        .await
+        .unwrap();
+
+    let router = build_router(app);
+    let targets: AdminVfsCacheRepairTargetListResponse = request_json(
+        &router,
+        Method::GET,
+        "/admin/v1/storage/vfs-cache/repair/targets",
+    )
+    .await;
+    let target_ref = targets.targets[0].target_ref.clone();
+
+    let enqueue_response = response_body_json(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/jobs"),
+        &AdminVfsCacheRepairEnqueueRequest {
+            priority: Some(AdminJobPriority::High),
+        },
+    )
+    .await;
+    let enqueue_status = enqueue_response.status();
+    let enqueue_body = response_text(enqueue_response).await;
+    assert_eq!(enqueue_status, StatusCode::ACCEPTED, "{enqueue_body}");
+    let enqueue: AdminVfsCacheRepairEnqueueResponse = serde_json::from_str(&enqueue_body).unwrap();
+    let persisted = store
+        .get_job(enqueue.job.id)
+        .await
+        .unwrap()
+        .expect("enqueued repair job");
+
+    assert_eq!(enqueue.outcome, AdminVfsCacheRepairEnqueueOutcome::Enqueued);
+    assert_eq!(enqueue.job.kind, JobKind::VfsCacheRepair);
+    assert_eq!(enqueue.job.status, JobStatus::Queued);
+    assert_eq!(
+        enqueue.job.resource_class,
+        VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS
+    );
+    assert_eq!(enqueue.job.library_id, Some(library_id));
+    assert_eq!(enqueue.job.source_id, None);
+    assert!(enqueue.job.has_input);
+    assert!(!enqueue.job.has_summary);
+    assert!(!enqueue.job.has_error);
+    assert_eq!(persisted.kind, JobKind::VfsCacheRepair);
+    assert_eq!(
+        persisted.resource_class,
+        VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS
+    );
+    assert_eq!(persisted.priority, JobPriority::High);
+    assert_eq!(persisted.library_id, Some(library_id));
+    assert_eq!(persisted.source_id, None);
+    assert_vfs_cache_repair_admin_response_redacted(&enqueue_body);
+    assert_vfs_cache_repair_job_input_redacted(persisted.input_json.as_deref().unwrap());
+
+    let duplicate_response = response_body_json(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/jobs"),
+        &AdminVfsCacheRepairEnqueueRequest { priority: None },
+    )
+    .await;
+    let duplicate_status = duplicate_response.status();
+    let duplicate_body = response_text(duplicate_response).await;
+    assert_eq!(duplicate_status, StatusCode::ACCEPTED, "{duplicate_body}");
+    let duplicate: AdminVfsCacheRepairEnqueueResponse =
+        serde_json::from_str(&duplicate_body).unwrap();
+    assert_eq!(
+        duplicate.outcome,
+        AdminVfsCacheRepairEnqueueOutcome::AlreadyQueued
+    );
+    assert_eq!(duplicate.job.id, enqueue.job.id);
+    assert_vfs_cache_repair_admin_response_redacted(&duplicate_body);
+
+    let execute_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/admin/v1/storage/vfs-cache/repair/jobs/{}/execute",
+                    enqueue.job.id
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let execute_status = execute_response.status();
+    let execute_body = response_text(execute_response).await;
+    assert_eq!(execute_status, StatusCode::OK, "{execute_body}");
+    let execute: AdminVfsCacheRepairExecuteResponse = serde_json::from_str(&execute_body).unwrap();
+
+    assert_eq!(execute.job.id, enqueue.job.id);
+    assert_eq!(execute.job.kind, JobKind::VfsCacheRepair);
+    assert_eq!(execute.job.status, JobStatus::Succeeded);
+    assert_eq!(
+        execute.job.resource_class,
+        VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS
+    );
+    assert_eq!(execute.job.library_id, Some(library_id));
+    assert_eq!(execute.job.source_id, None);
+    assert!(execute.job.has_input);
+    assert!(execute.job.has_summary);
+    assert!(!execute.job.has_error);
+    assert_eq!(
+        execute.summary.action,
+        nako_api::admin::AdminVfsCacheRepairAction::RefreshCache
+    );
+    assert_eq!(execute.summary.source_scheme, "local");
+    assert_eq!(execute.summary.operation, VfsCacheOperation::Stat);
+    assert_eq!(
+        execute.summary.classification,
+        nako_api::admin::AdminVfsCacheRepairClassification::RetryableRefreshFailure
+    );
+    assert_eq!(
+        execute.summary.failure_class,
+        Some(StorageFailureClass::Unavailable)
+    );
+    assert_eq!(execute.summary.failed_at_ms, 1_000);
+    assert_eq!(execute.summary.failure_count, 1);
+    assert_eq!(
+        execute.summary.refreshed_cache_state,
+        Some(AdminVfsCacheRepairCacheState::Fresh)
+    );
+    assert!(
+        store
+            .get_vfs_cache_object("local:///Movies/Private/AdminJob.mkv")
+            .await
+            .unwrap()
+            .is_some()
+    );
+    let completed = store
+        .get_job(enqueue.job.id)
+        .await
+        .unwrap()
+        .expect("completed repair job");
+    assert_eq!(completed.status, JobStatus::Succeeded);
+    assert!(completed.summary_json.is_some());
+    assert_vfs_cache_repair_admin_response_redacted(&execute_body);
+    assert_vfs_cache_repair_job_summary_redacted(completed.summary_json.as_deref().unwrap());
+    assert!(!enqueue_body.contains(&root.display().to_string()));
+    assert!(!duplicate_body.contains(&root.display().to_string()));
+    assert!(!execute_body.contains(&root.display().to_string()));
+}
+
+#[tokio::test]
+async fn admin_v1_vfs_cache_repair_target_enqueue_rejects_non_refresh_and_unknown_refs_safely() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let root = temp.path().join("movies");
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("secret-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: root.clone(),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    store
+        .record_vfs_cache_failure(NewVfsCacheFailure {
+            uri: "local:///Movies/Private/Config.mkv".to_owned(),
+            scheme: "local".to_owned(),
+            operation: VfsCacheOperation::Stat,
+            failed_at_ms: 1_000,
+            error: "storage permission failure at local:///Movies/Private/Config.mkv".to_owned(),
+            authority: VfsCacheFailureAuthority::attributed(
+                library_id,
+                format!("library:{library_id}:local"),
+            ),
+        })
+        .await
+        .unwrap();
+
+    let router = build_router(app);
+    let targets: AdminVfsCacheRepairTargetListResponse = request_json(
+        &router,
+        Method::GET,
+        "/admin/v1/storage/vfs-cache/repair/targets",
+    )
+    .await;
+    let target_ref = targets.targets[0].target_ref.clone();
+    let non_refresh_response = response_body_json(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/jobs"),
+        &AdminVfsCacheRepairEnqueueRequest {
+            priority: Some(AdminJobPriority::High),
+        },
+    )
+    .await;
+    let non_refresh_status = non_refresh_response.status();
+    let non_refresh_body = response_text(non_refresh_response).await;
+    assert_eq!(
+        non_refresh_status,
+        StatusCode::BAD_REQUEST,
+        "{non_refresh_body}"
+    );
+    let error: ErrorResponse = serde_json::from_str(&non_refresh_body).unwrap();
+    assert_eq!(
+        error.message,
+        "invalid input: selected VFS cache repair target diagnostic does not recommend durable refresh_cache"
+    );
+    assert_vfs_cache_repair_admin_response_redacted(&non_refresh_body);
+    assert!(!non_refresh_body.contains(&target_ref));
+
+    let unsafe_ref = "not_a_target_ref_token_secret";
+    let unsafe_response = response_body_json(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/storage/vfs-cache/repair/targets/{unsafe_ref}/jobs"),
+        &AdminVfsCacheRepairEnqueueRequest { priority: None },
+    )
+    .await;
+    let unsafe_status = unsafe_response.status();
+    let unsafe_body = response_text(unsafe_response).await;
+    assert_eq!(unsafe_status, StatusCode::NOT_FOUND, "{unsafe_body}");
+    assert!(!unsafe_body.contains(unsafe_ref));
+    assert!(!unsafe_body.contains("token_secret"));
+
+    let unknown_ref = "vfsrt_00000000000000000000000000000000";
+    let unknown_response = response_body_json(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/storage/vfs-cache/repair/targets/{unknown_ref}/jobs"),
+        &AdminVfsCacheRepairEnqueueRequest { priority: None },
+    )
+    .await;
+    let unknown_status = unknown_response.status();
+    let unknown_body = response_text(unknown_response).await;
+    assert_eq!(unknown_status, StatusCode::NOT_FOUND, "{unknown_body}");
+    assert!(!unknown_body.contains(unknown_ref));
+    assert_vfs_cache_repair_admin_response_redacted(&unknown_body);
+
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+    assert!(jobs.is_empty());
 }
 
 #[tokio::test]
@@ -9011,10 +9430,15 @@ async fn admin_v1_vfs_cache_refresh_action_rejects_non_admin_session() {
     )
     .await;
 
-    for uri in [
-        "/admin/v1/storage/vfs-cache/repair/refresh-cache",
-        "/admin/v1/storage/vfs-cache/repair/targets/vfsrt_00000000000000000000000000000000/refresh-cache",
-    ] {
+    let job_id = nako_core::JobId::new();
+    let uris = [
+        "/admin/v1/storage/vfs-cache/repair/refresh-cache".to_owned(),
+        "/admin/v1/storage/vfs-cache/repair/targets/vfsrt_00000000000000000000000000000000/refresh-cache".to_owned(),
+        "/admin/v1/storage/vfs-cache/repair/targets/vfsrt_00000000000000000000000000000000/jobs".to_owned(),
+        format!("/admin/v1/storage/vfs-cache/repair/jobs/{job_id}/execute"),
+    ];
+
+    for uri in uris {
         let response = router
             .clone()
             .oneshot(

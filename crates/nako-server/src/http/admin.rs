@@ -94,9 +94,12 @@ use nako_api::{
         AdminVfsCacheRepairAction, AdminVfsCacheRepairActionBoundary,
         AdminVfsCacheRepairActionPlan, AdminVfsCacheRepairActionPlanReason,
         AdminVfsCacheRepairActionPlanResponse, AdminVfsCacheRepairActionPlanStatus,
-        AdminVfsCacheRepairActionReadiness, AdminVfsCacheRepairClassification,
-        AdminVfsCacheRepairClassificationCount, AdminVfsCacheRepairDiagnostic,
-        AdminVfsCacheRepairExecutableAction, AdminVfsCacheRepairRemediationActionGroup,
+        AdminVfsCacheRepairActionReadiness, AdminVfsCacheRepairCacheState,
+        AdminVfsCacheRepairClassification, AdminVfsCacheRepairClassificationCount,
+        AdminVfsCacheRepairDiagnostic, AdminVfsCacheRepairEnqueueOutcome,
+        AdminVfsCacheRepairEnqueueRequest, AdminVfsCacheRepairEnqueueResponse,
+        AdminVfsCacheRepairExecutableAction, AdminVfsCacheRepairExecuteResponse,
+        AdminVfsCacheRepairJobSummary, AdminVfsCacheRepairRemediationActionGroup,
         AdminVfsCacheRepairRemediationPlanBoundary, AdminVfsCacheRepairRemediationPlanResponse,
         AdminVfsCacheRepairTarget, AdminVfsCacheRepairTargetListResponse,
         AdminVfsCacheRepairTargetPreviewResponse, AdminVfsCacheSummary,
@@ -126,7 +129,7 @@ use nako_transcode::{
     HardwareAccelerationCapability, HardwareDeviceInitializationStatus,
     HardwareEncoderDiscoveryStatus, HardwareSmokeProbeStatus, TranscodeRuntimeInventoryStatus,
 };
-use nako_vfs::{StorageUri, VfsCacheRepairAction, VfsCacheRepairClassification};
+use nako_vfs::{ObjectCacheState, StorageUri, VfsCacheRepairAction, VfsCacheRepairClassification};
 use serde::Deserialize;
 
 use crate::{
@@ -135,13 +138,15 @@ use crate::{
         admin_transcode_pipeline_readiness,
     },
     app::{
-        EnqueueSourceFingerprintHashRequest, LibraryScanTraceContext, NakoApp,
-        RetrySourceFingerprintHashRequest, RuntimeSupervisorDiagnostics,
+        EnqueueSourceFingerprintHashRequest, EnqueueVfsCacheRepairTargetOutcome,
+        LibraryScanTraceContext, NakoApp, RetrySourceFingerprintHashRequest,
+        RuntimeSupervisorDiagnostics,
         SourceDuplicateReconciliationApplyRequest as AppSourceDuplicateReconciliationApplyRequest,
         SourceDuplicateReconciliationPlanRequest, StagingBudgetPolicySlice,
         StorageStagingPressureStatus, VfsCacheRepairActionBoundary, VfsCacheRepairActionPlanReason,
         VfsCacheRepairActionPlanReport, VfsCacheRepairActionPlanStatus,
-        VfsCacheRepairExecutableRoute, VfsCacheRepairRefreshActionReport,
+        VfsCacheRepairCommandOutput, VfsCacheRepairExecutableRoute,
+        VfsCacheRepairJobSummary as AppVfsCacheRepairJobSummary, VfsCacheRepairRefreshActionReport,
         VfsCacheRepairRemediationActionGroupReport,
         VfsCacheRepairRemediationClassificationCountReport,
         VfsCacheRepairRemediationPlanBoundary as AppVfsCacheRepairRemediationPlanBoundary,
@@ -423,6 +428,14 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/refresh-cache",
             post(refresh_admin_vfs_cache_repair_target),
+        )
+        .route(
+            "/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/jobs",
+            post(enqueue_admin_vfs_cache_repair_target),
+        )
+        .route(
+            "/admin/v1/storage/vfs-cache/repair/jobs/{job_id}/execute",
+            post(execute_admin_vfs_cache_repair_job),
         )
         .route(
             "/admin/v1/storage/vfs-cache/repair/action-plan",
@@ -2017,6 +2030,31 @@ pub(super) async fn refresh_admin_vfs_cache_repair_target(
     Ok(Json(admin_vfs_cache_refresh_response(report)))
 }
 
+pub(super) async fn enqueue_admin_vfs_cache_repair_target(
+    State(app): State<NakoApp>,
+    Path(target_ref): Path<String>,
+    Json(request): Json<AdminVfsCacheRepairEnqueueRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let outcome = app
+        .storage()
+        .enqueue_vfs_cache_repair_target(&target_ref, request.priority.map(Into::into))
+        .await?;
+
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(admin_vfs_cache_repair_enqueue_response(outcome)),
+    ))
+}
+
+pub(super) async fn execute_admin_vfs_cache_repair_job(
+    State(app): State<NakoApp>,
+    Path(job_id): Path<JobId>,
+) -> ApiResult<impl IntoResponse> {
+    let output = app.storage().execute_vfs_cache_repair_job(job_id).await?;
+
+    Ok(Json(admin_vfs_cache_repair_execute_response(output)))
+}
+
 pub(super) async fn get_admin_vfs_cache_repair_action_plan(
     State(app): State<NakoApp>,
 ) -> ApiResult<impl IntoResponse> {
@@ -2039,6 +2077,61 @@ fn admin_vfs_cache_refresh_response(
         operation: report.operation,
         refreshed: report.refresh.operation == report.operation,
         repair: admin_vfs_cache_repair_diagnostic(report.repair),
+    }
+}
+
+fn admin_vfs_cache_repair_enqueue_response(
+    outcome: EnqueueVfsCacheRepairTargetOutcome,
+) -> AdminVfsCacheRepairEnqueueResponse {
+    let (outcome, job) = match outcome {
+        EnqueueVfsCacheRepairTargetOutcome::Enqueued(job) => {
+            (AdminVfsCacheRepairEnqueueOutcome::Enqueued, job)
+        }
+        EnqueueVfsCacheRepairTargetOutcome::AlreadyQueued(job) => {
+            (AdminVfsCacheRepairEnqueueOutcome::AlreadyQueued, job)
+        }
+    };
+
+    AdminVfsCacheRepairEnqueueResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        outcome,
+        job: AdminJobListItem::from_job(job),
+    }
+}
+
+fn admin_vfs_cache_repair_execute_response(
+    output: VfsCacheRepairCommandOutput,
+) -> AdminVfsCacheRepairExecuteResponse {
+    AdminVfsCacheRepairExecuteResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        job: AdminJobListItem::from_job(output.job),
+        summary: admin_vfs_cache_repair_job_summary(output.summary),
+    }
+}
+
+fn admin_vfs_cache_repair_job_summary(
+    summary: AppVfsCacheRepairJobSummary,
+) -> AdminVfsCacheRepairJobSummary {
+    AdminVfsCacheRepairJobSummary {
+        action: admin_vfs_cache_repair_action(summary.action),
+        source_scheme: summary.source_scheme,
+        operation: summary.operation,
+        classification: admin_vfs_cache_repair_classification(summary.classification),
+        failure_class: summary.failure_class,
+        failed_at_ms: summary.failed_at_ms,
+        failure_count: summary.failure_count,
+        refreshed_cache_state: summary
+            .refreshed_cache_state
+            .map(admin_vfs_cache_repair_cache_state),
+    }
+}
+
+fn admin_vfs_cache_repair_cache_state(state: ObjectCacheState) -> AdminVfsCacheRepairCacheState {
+    match state {
+        ObjectCacheState::Fresh => AdminVfsCacheRepairCacheState::Fresh,
+        ObjectCacheState::StaleFallback => AdminVfsCacheRepairCacheState::StaleFallback,
     }
 }
 

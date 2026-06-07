@@ -67,6 +67,11 @@ Use these gates for `crates/nako-server` feature work.
   calls. Keep Admin routes, automatic scheduler loops, retry/requeue routes,
   purge/delete/invalidation, backend configuration mutation, and library file
   writes out of single-job executor slices.
+- Admin VFS cache repair manual command changes must accept only opaque
+  `target_ref` values or explicit durable job IDs, return only safe job facts
+  and summary facts, inherit the existing Admin route guard, and keep automatic
+  schedulers, retry/requeue, purge/delete/invalidation, backend configuration
+  mutation, and library file writes out of the route slice.
 
 ## Scenario: VFS Cache Repair Durable Enqueue
 
@@ -264,6 +269,106 @@ self.refresh_vfs_cache_repair_failure(failure, ...).await?;
 
 The executor uses durable input only to reselect the current unresolved target;
 the existing refresh authority owns backend selection and mutation.
+
+## Scenario: Admin VFS Cache Repair Manual Commands
+
+### 1. Scope / Trigger
+
+- Trigger: adding or changing Admin HTTP routes that enqueue or execute
+  `JobKind::VfsCacheRepair` jobs in `crates/nako-server::http::admin`.
+- Purpose: expose operator-controlled durable repair commands without adding an
+  automatic scheduler, retry path, purge/delete behavior, backend configuration
+  workflow, or raw storage identity surface.
+
+### 2. Signatures
+
+- Enqueue route:
+  `POST /admin/v1/storage/vfs-cache/repair/targets/{target_ref}/jobs`.
+- Execute route:
+  `POST /admin/v1/storage/vfs-cache/repair/jobs/{job_id}/execute`.
+- Enqueue app command:
+  `StorageDiagnosticsAppService::enqueue_vfs_cache_repair_target(target_ref, priority)`.
+- Execute app command:
+  `StorageDiagnosticsAppService::execute_vfs_cache_repair_job(job_id)`.
+
+### 3. Contracts
+
+- Both routes must live under `admin::routes()` so they inherit the existing
+  authenticated Admin principal guard.
+- Enqueue must accept only the opaque selected-target `target_ref` path value
+  and optional priority. It must not accept raw `StorageUri`, URI digests, local
+  paths, backend URLs, errors, etags, fingerprints, cache payloads, or durable
+  job input JSON from the caller.
+- Enqueue delegates to the storage app service, so target lookup, refresh-only
+  recommendation checks, idempotency, safe durable input, and non-mutating
+  behavior stay centralized.
+- Execute accepts only an explicit durable `JobId` and delegates to the storage
+  app service, so claiming, input validation, current target reselection, and
+  selected-target refresh authority stay centralized.
+- Responses may expose only `AdminJobListItem`, enqueue outcome, and
+  `AdminVfsCacheRepairJobSummary`. They must not expose raw job input JSON,
+  summary JSON, storage URIs, local paths, backend URLs, credentials, raw
+  backend errors, etags, fingerprints, URI digests, or cache payloads.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Refreshable unresolved target is enqueued | Return `202 Accepted`, `enqueued`, and safe job facts |
+| Matching queued/running job already exists | Return `202 Accepted`, `already_queued`, and the existing safe job facts |
+| Non-refresh target is enqueued | Return fixed invalid-input error without creating jobs or leaking the target ref |
+| Unknown, malformed, stale, or resolved target ref is enqueued | Return not found without echoing the supplied ref or raw URI |
+| Queued repair job is executed | Return safe job facts plus redaction-safe summary |
+| Non-admin principal calls either route | Return the existing Admin `403` response |
+
+### 5. Good/Base/Bad Cases
+
+- Good: enqueue a refreshable target, return a safe generic job row, then
+  execute that job and return only action, scheme, operation, classification,
+  failure class, failed-at, failure-count, and refreshed cache state.
+- Base: use the generic Admin Jobs route for broader queue drilldown; the manual
+  command routes do not need a raw job detail endpoint.
+- Bad: accept a raw URI or durable input JSON in the request body, execute a job
+  by deserializing input in the HTTP handler, or return raw `summary_json`.
+
+### 6. Tests Required
+
+- `cargo nextest run -p nako-server admin_v1_vfs_cache --no-fail-fast`.
+- Assert enqueue success, duplicate enqueue, non-refresh rejection, and
+  unknown/malformed target rejection.
+- Assert execute success returns only safe summary facts and marks the job
+  succeeded through the durable runtime path.
+- Assert non-admin callers are rejected for both routes.
+- Also run Admin route inventory and API contract checks whenever route
+  constants or DTOs change:
+  `cargo nextest run -p nako-server implemented_admin_routes_are_generated_or_explicitly_excluded --no-fail-fast`
+  and `cargo nextest run -p nako-api admin_contract --no-fail-fast`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+async fn execute(Json(input): Json<VfsCacheRepairJobInput>) -> ApiResult<_> {
+    let uri = StorageUri::parse(&input.uri_digest)?;
+    app.storage().refresh_uri(uri).await
+}
+```
+
+This accepts durable internals from the caller and treats a digest like a
+locator.
+
+#### Correct
+
+```rust
+async fn execute(State(app): State<NakoApp>, Path(job_id): Path<JobId>) -> ApiResult<_> {
+    let output = app.storage().execute_vfs_cache_repair_job(job_id).await?;
+    Ok(Json(admin_vfs_cache_repair_execute_response(output)))
+}
+```
+
+The route is a thin Admin boundary; the app service owns claim, validation,
+target reselection, backend selection, mutation, and summary redaction.
 
 ## Gate Selection
 

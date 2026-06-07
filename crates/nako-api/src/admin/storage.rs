@@ -8,6 +8,8 @@ use nako_core::{
 };
 use serde::{Deserialize, Serialize};
 
+use super::operations::{AdminJobListItem, AdminJobPriority};
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminStorageStagingDiagnosticsResponse {
     pub admin_api_version: String,
@@ -211,6 +213,53 @@ pub struct AdminVfsCacheRepairTargetPreviewResponse {
     pub public_api_version: String,
     pub target: AdminVfsCacheRepairTarget,
     pub plan: AdminVfsCacheRepairActionPlan,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRepairEnqueueRequest {
+    pub priority: Option<AdminJobPriority>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminVfsCacheRepairEnqueueOutcome {
+    Enqueued,
+    AlreadyQueued,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRepairEnqueueResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub outcome: AdminVfsCacheRepairEnqueueOutcome,
+    pub job: AdminJobListItem,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminVfsCacheRepairCacheState {
+    Fresh,
+    StaleFallback,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRepairJobSummary {
+    pub action: AdminVfsCacheRepairAction,
+    pub source_scheme: String,
+    pub operation: VfsCacheOperation,
+    pub classification: AdminVfsCacheRepairClassification,
+    pub failure_class: Option<StorageFailureClass>,
+    pub failed_at_ms: i64,
+    pub failure_count: u32,
+    pub refreshed_cache_state: Option<AdminVfsCacheRepairCacheState>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRepairExecuteResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub job: AdminJobListItem,
+    pub summary: AdminVfsCacheRepairJobSummary,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -969,6 +1018,81 @@ mod tests {
         assert!(!body.contains("cache-etag-secret"));
         assert!(!body.contains("cache-fingerprint-secret"));
         assert!(!body.contains("token=secret"));
+    }
+
+    #[test]
+    fn admin_vfs_cache_repair_job_commands_serialize_safe_job_facts_and_summary() {
+        let job_id = nako_core::JobId::new();
+        let library_id = LibraryId::new();
+        let job = AdminJobListItem {
+            id: job_id,
+            kind: nako_core::JobKind::VfsCacheRepair,
+            status: nako_core::JobStatus::Queued,
+            resource_class: "storage.vfs.cache_repair".to_owned(),
+            library_id: Some(library_id),
+            source_id: None,
+            has_input: true,
+            has_summary: false,
+            has_error: false,
+            queued_at: "2026-06-07T00:00:00Z".to_owned(),
+            started_at: None,
+            completed_at: None,
+        };
+        let enqueue = AdminVfsCacheRepairEnqueueResponse {
+            admin_api_version: "v1".to_owned(),
+            public_api_version: "2025-01-01".to_owned(),
+            outcome: AdminVfsCacheRepairEnqueueOutcome::Enqueued,
+            job: job.clone(),
+        };
+        let execute = AdminVfsCacheRepairExecuteResponse {
+            admin_api_version: "v1".to_owned(),
+            public_api_version: "2025-01-01".to_owned(),
+            job: AdminJobListItem {
+                status: nako_core::JobStatus::Succeeded,
+                has_summary: true,
+                ..job
+            },
+            summary: AdminVfsCacheRepairJobSummary {
+                action: AdminVfsCacheRepairAction::RefreshCache,
+                source_scheme: "webdav".to_owned(),
+                operation: VfsCacheOperation::Stat,
+                classification: AdminVfsCacheRepairClassification::RetryableRefreshFailure,
+                failure_class: Some(StorageFailureClass::Unavailable),
+                failed_at_ms: 1_000,
+                failure_count: 2,
+                refreshed_cache_state: Some(AdminVfsCacheRepairCacheState::Fresh),
+            },
+        };
+
+        let enqueue_value = serde_json::to_value(&enqueue).unwrap();
+        let execute_value = serde_json::to_value(&execute).unwrap();
+        let body = format!("{enqueue_value}{execute_value}");
+
+        assert_eq!(enqueue_value["outcome"], "enqueued");
+        assert_eq!(enqueue_value["job"]["id"], job_id.to_string());
+        assert_eq!(enqueue_value["job"]["kind"], "vfs_cache_repair");
+        assert_eq!(enqueue_value["job"]["has_input"], true);
+        assert_eq!(execute_value["job"]["status"], "succeeded");
+        assert_eq!(execute_value["summary"]["action"], "refresh_cache");
+        assert_eq!(execute_value["summary"]["source_scheme"], "webdav");
+        assert_eq!(execute_value["summary"]["operation"], "stat");
+        assert_eq!(
+            execute_value["summary"]["classification"],
+            "retryable_refresh_failure"
+        );
+        assert_eq!(execute_value["summary"]["refreshed_cache_state"], "fresh");
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("storage_uri"));
+        assert!(!body.contains("cache_uri"));
+        assert!(!body.contains("local_path"));
+        assert!(!body.contains("webdav:///"));
+        assert!(!body.contains("Movies/Demo.mkv"));
+        assert!(!body.contains("backend.example"));
+        assert!(!body.contains("token=secret"));
+        assert!(!body.contains("input_json"));
+        assert!(!body.contains("summary_json"));
+        assert!(!body.contains("uri_digest"));
+        assert!(!body.contains("raw backend"));
     }
 
     #[test]

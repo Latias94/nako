@@ -167,21 +167,27 @@ Public Client exclusion tests.
 
 - Trigger: Admin storage staging diagnostics expose the latest VFS cache repair
   preview, action plan, bounded target inventory, target-scoped preview,
-  read-only remediation plan, or latest-failure / target-scoped refresh result.
+  read-only remediation plan, latest-failure / target-scoped refresh result, or
+  Admin manual durable repair enqueue/execute commands.
 - Scope: `AdminStorageStagingSummary.vfs_cache.repair`,
   `AdminVfsCacheRepairActionPlanResponse`, `AdminVfsCacheRefreshResponse`,
   `AdminVfsCacheRepairTargetListResponse`,
   `AdminVfsCacheRepairTargetPreviewResponse`,
   `AdminVfsCacheRepairRemediationPlanResponse`,
+  `AdminVfsCacheRepairEnqueueRequest`,
+  `AdminVfsCacheRepairEnqueueResponse`,
+  `AdminVfsCacheRepairExecuteResponse`,
   `VfsCacheRepository::get_latest_vfs_cache_failure`,
   `VfsCacheRepository::list_vfs_cache_failures`, server storage diagnostics /
   action mapping, and generated Admin Web contracts.
 - Boundary: preview, action plan, and remediation plan responses are read-only.
   The only executable mutations in this boundary are latest unresolved
-  `refresh_cache` and selected-target `refresh_cache` through an opaque
-  `target_ref`. Do not add cache purge/delete/invalidation, retry queue,
-  durable job, backend configuration mutation, or library file writes without a
-  dedicated task and storage contract.
+  `refresh_cache`, selected-target `refresh_cache` through an opaque
+  `target_ref`, selected-target durable enqueue through an opaque `target_ref`,
+  and explicit durable job execution by job ID. Do not add cache
+  purge/delete/invalidation, retry queue, automatic scheduler behavior, backend
+  configuration mutation, or library file writes without a dedicated task and
+  storage contract.
 
 ### 2. Signatures
 
@@ -200,11 +206,23 @@ Public Client exclusion tests.
   action_groups, classification_counts, boundary }`.
 - Admin refresh DTO:
   `AdminVfsCacheRefreshResponse`.
+- Admin durable enqueue DTO:
+  `AdminVfsCacheRepairEnqueueRequest { priority }` and
+  `AdminVfsCacheRepairEnqueueResponse { outcome, job }`.
+- Admin durable execute DTO:
+  `AdminVfsCacheRepairExecuteResponse { job, summary }`.
+- Admin durable summary DTO:
+  `AdminVfsCacheRepairJobSummary { action, source_scheme, operation,
+  classification, failure_class, failed_at_ms, failure_count,
+  refreshed_cache_state }`.
 - Admin read-only remediation route:
   `GET /admin/v1/storage/vfs-cache/repair/remediation-plan`.
 - Admin refresh routes:
   `POST /admin/v1/storage/vfs-cache/repair/refresh-cache` and
   `POST /admin/v1/storage/vfs-cache/repair/targets/{target_ref}/refresh-cache`.
+- Admin durable command routes:
+  `POST /admin/v1/storage/vfs-cache/repair/targets/{target_ref}/jobs` and
+  `POST /admin/v1/storage/vfs-cache/repair/jobs/{job_id}/execute`.
 - Repair preview fields:
   `classification`, `operation`, `failure_class`, `retryable`,
   `failed_at_ms`, `failure_count`, `safe_message`, and `operator_action`.
@@ -247,6 +265,17 @@ Public Client exclusion tests.
   recommends `refresh_cache`, and then reuse the same stored failure authority
   and backend resolution used by latest refresh. Invalid, unknown, stale, or
   already resolved target refs return not found without echoing unsafe input.
+- Target-scoped durable enqueue must resolve the supplied `target_ref`
+  server-side, accept only optional priority in the request body, verify the
+  selected unresolved diagnostic recommends `refresh_cache`, and return
+  `enqueued` or `already_queued` plus generic safe job facts. It must not expose
+  or accept raw job input JSON, cache URI, source locator, local path, backend
+  URL, etag, fingerprint, credential, URI digest, or raw backend error body.
+- Explicit durable execution must accept only a job ID path parameter and return
+  generic safe job facts plus `AdminVfsCacheRepairJobSummary`. It must not
+  expose raw persisted `input_json`, raw persisted `summary_json`, raw durable
+  error bodies, cache URI, source locator, local path, backend URL, etag,
+  fingerprint, credential, URI digest, or cache payload material.
 - Remediation plan must page through unresolved targets using the same safe
   target inventory semantics, group by `recommended_action`, count
   classifications, and expose only aggregate counts plus bounded sample targets.
@@ -281,6 +310,11 @@ Public Client exclusion tests.
 | Target refresh ref matches a non-refresh diagnostic | Returns invalid input without calling a backend |
 | Target refresh ref is unknown, invalid, stale, or already resolved | Returns not found without echoing the supplied ref or raw URI |
 | Target refresh authority is ambiguous or mismatched | Returns the existing conflict before backend refresh |
+| Target enqueue ref matches an unresolved refreshable failure | Returns `202 Accepted`, safe job metadata, and `enqueued` or `already_queued` |
+| Target enqueue ref matches a non-refresh diagnostic | Returns invalid input without creating a job or leaking target material |
+| Target enqueue ref is unknown, invalid, stale, or already resolved | Returns not found without echoing the supplied ref or raw URI |
+| Explicit repair job execution succeeds | Returns safe job metadata and a redaction-safe summary |
+| Explicit repair job execution cannot claim the job | Returns the existing conflict without raw job payloads |
 | Remediation plan has no unresolved failures | Returns `total_unresolved_targets: 0`, empty action groups, zero classification counts, and a read-only top boundary |
 | Remediation plan has refreshable failures | Returns a `refresh_cache` executable group with bounded opaque samples and the templated selected-target refresh route |
 | Remediation plan has operator-action failures | Returns plan-only groups with no executable route metadata |
@@ -307,6 +341,12 @@ Public Client exclusion tests.
   target.
 - Good: `/admin/v1/storage/vfs-cache/repair/refresh-cache` executes only when
   the latest unresolved diagnostic recommends `refresh_cache`.
+- Good: `/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/jobs` enqueues
+  durable repair work from the opaque target reference and returns only generic
+  job facts.
+- Good: `/admin/v1/storage/vfs-cache/repair/jobs/{job_id}/execute` executes one
+  explicitly selected queued job and returns only generic job facts plus a safe
+  repair summary.
 - Base: old clients that omit `repair` during deserialization still work through
   serde defaults.
 - Bad: adding a purge/delete, URI-scoped mutation, or retry queue before defining
@@ -314,6 +354,8 @@ Public Client exclusion tests.
 - Bad: treating the remediation plan top-level boundary as executable because a
   nested `refresh_cache` action group points to the selected-target refresh
   route.
+- Bad: exposing raw durable `input_json`/`summary_json` or accepting raw storage
+  identity in Admin command request bodies.
 
 ### 6. Tests Required
 
@@ -325,10 +367,11 @@ Public Client exclusion tests.
   action plan/remediation/target/refresh routes preserve Admin-only access,
   remediation plan groups unresolved targets without mutation, target refs
   reject stale or unknown selections safely, target preview does not mutate
-  cache state, target refresh mutates only the selected cache entry,
-  non-refresh target diagnostics avoid backend calls, and responses still
-  redact raw paths, source locators, fingerprints, etags, tokens, and raw
-  backend errors.
+  cache state, target refresh mutates only the selected cache entry, target
+  durable enqueue creates only safe queued jobs, explicit job execution returns
+  only safe summary facts, non-refresh target diagnostics avoid backend calls,
+  and responses still redact raw paths, source locators, fingerprints, etags,
+  tokens, and raw backend errors.
 
 ### 7. Wrong vs Correct
 
