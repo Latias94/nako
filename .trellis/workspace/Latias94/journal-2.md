@@ -1309,3 +1309,55 @@ Promoted Addon token/grant Admin routes into generated Admin Web contracts, repl
 ### Next Steps
 
 - None - task complete
+
+
+## Session 82: Playback runtime settings generated route contract
+
+**Date**: 2026-06-08
+**Task**: Playback runtime settings generated route contract
+**Package**: admin-web
+**Branch**: `main`
+
+### Summary
+
+Promoted settings/playback/runtime into the generated Admin route contract, wired Admin Web live read/write workflow with full-payload confirmation, refreshed generated contracts, and passed API/server/Admin Web gates.
+
+### Main Changes
+
+- Added `settingsPlaybackRuntime` to generated Admin route constants and removed
+  the `settings/playback/runtime` route exclusion.
+- Regenerated Admin TypeScript contract copies for `apps/admin-web` and `web`.
+- Wired `AdminApiClient` and `AdminDataSource` read/write methods for playback
+  runtime settings.
+- Added a Settings page live edit/prepare/confirm workflow that submits the
+  complete playback runtime settings payload and disables fake mock mutations.
+- Added Admin Web client, data-source, route workflow, full-payload, fallback,
+  and redaction tests.
+- Recorded the full-replacement Settings mutation rule in the Admin Web Trellis
+  frontend spec.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `cc9336ab` | feat(admin): wire playback runtime settings route |
+
+### Testing
+
+- [OK] `cargo check -p nako-api --tests`
+- [OK] `cargo check -p nako-server --tests`
+- [OK] `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server implemented_admin_routes_are_generated_or_explicitly_excluded --no-fail-fast`
+- [OK] `npm run check --prefix apps/admin-web`
+- [OK] `npm run test --prefix apps/admin-web` (190 passed)
+- [OK] `cargo fmt --all -- --check`
+- [OK] `git diff --check` (line-ending warnings only)
+- [OK] `python ./.trellis/scripts/task.py validate 06-08-06-08-playback-runtime-settings-generated-route-contract`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

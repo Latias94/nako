@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "The slice crosses generated route inventory, AdminApiClient/DataSource, Settings page state, and route tests."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "The Settings page should reuse the existing confirmed mutation pattern instead of inventing another form stack."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Promoting playback runtime settings must preserve the Admin-only generated contract boundary."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Generated Admin Web contracts must be refreshed from nako-api after route inventory changes."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Settings mutations must go through AdminDataSource, generated routes, mock honesty, native forms, and route tests."}
+{"file": ".trellis/tasks/06-08-06-08-playback-runtime-settings-generated-route-contract/research/jellyfin-configuration-and-task-management.md", "reason": "Records why Nako keeps a narrow typed runtime settings route instead of copying Jellyfin's broad configuration model."}
