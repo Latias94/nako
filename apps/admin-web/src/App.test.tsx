@@ -2732,8 +2732,15 @@ describe("Admin Web V2 route shell", () => {
     expect(
       screen.getByText("2 purpose/state groups from the staging manifest."),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Cleanup candidate purpose/state summary" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("2 purpose/state groups from cleanup candidates."),
+    ).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Manifest bytes" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Unknown size records" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Cleanup candidate bytes" })).toBeInTheDocument();
+    expect(screen.getAllByRole("columnheader", { name: "Unknown size records" }).length).toBeGreaterThan(0);
     expect(screen.getAllByText("ffmpeg_input").length).toBeGreaterThan(0);
     expect(screen.getByText("Live Admin API")).toBeInTheDocument();
     expect(loadStorageStaging).toHaveBeenCalledWith({
@@ -2752,6 +2759,7 @@ describe("Admin Web V2 route shell", () => {
     expect(await screen.findByRole("heading", { name: "Storage Staging" })).toBeInTheDocument();
     expect(await screen.findByText("Staging 记录")).toBeInTheDocument();
     expect(screen.getByText("用途/状态汇总")).toBeInTheDocument();
+    expect(screen.getByText("清理候选用途/状态汇总")).toBeInTheDocument();
     expect(screen.getByLabelText("Storage 状态过滤器")).toBeInTheDocument();
     expect(screen.getByText("URL 过滤条件具有权威性")).toBeInTheDocument();
     expect(screen.getByText("实时 Admin API")).toBeInTheDocument();

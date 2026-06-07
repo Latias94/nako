@@ -8019,6 +8019,41 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
     assert_eq!(diagnostics.summary.retention_ms, 8_888);
     assert_eq!(diagnostics.summary.cleanup_candidate_records, 2);
     assert_eq!(diagnostics.summary.cleanup_candidate_bytes, 52);
+    assert_eq!(diagnostics.summary.cleanup_purpose_state_summaries.len(), 2);
+    let cleanup_ffmpeg_ready = diagnostics
+        .summary
+        .cleanup_purpose_state_summaries
+        .iter()
+        .find(|summary| {
+            summary.purpose == StagingPurpose::FfmpegInput && summary.state == StagingState::Ready
+        })
+        .expect("ffmpeg ready cleanup candidate summary");
+    assert_eq!(cleanup_ffmpeg_ready.record_count, 1);
+    assert_eq!(cleanup_ffmpeg_ready.cleanup_candidate_bytes, 42);
+    assert_eq!(cleanup_ffmpeg_ready.active_leases, 0);
+    assert_eq!(cleanup_ffmpeg_ready.unknown_size_records, 0);
+    let cleanup_probe_reserved = diagnostics
+        .summary
+        .cleanup_purpose_state_summaries
+        .iter()
+        .find(|summary| {
+            summary.purpose == StagingPurpose::ProbeInput && summary.state == StagingState::Reserved
+        })
+        .expect("probe reserved cleanup candidate summary");
+    assert_eq!(cleanup_probe_reserved.record_count, 1);
+    assert_eq!(cleanup_probe_reserved.cleanup_candidate_bytes, 10);
+    assert_eq!(cleanup_probe_reserved.active_leases, 0);
+    assert_eq!(cleanup_probe_reserved.unknown_size_records, 0);
+    assert!(
+        !diagnostics
+            .summary
+            .cleanup_purpose_state_summaries
+            .iter()
+            .any(|summary| {
+                summary.purpose == StagingPurpose::ProbeInput
+                    && summary.state == StagingState::Failed
+            })
+    );
     assert_eq!(diagnostics.summary.vfs_cache.object_count, 1);
     assert_eq!(diagnostics.summary.vfs_cache.failure_count, 1);
     assert_eq!(

@@ -51,10 +51,11 @@ pub(crate) struct StorageDiagnosticsAppService {
     repair_target_ref_secret: Arc<[u8; 32]>,
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct StagingCleanupPressureSummary {
     pub(crate) cleanup_candidate_records: usize,
     pub(crate) cleanup_candidate_bytes: u64,
+    pub(crate) cleanup_purpose_state_summaries: Vec<StagingCleanupPurposeStateSummary>,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -75,6 +76,16 @@ pub(crate) struct StagingPurposeStateSummary {
     pub(crate) state: StagingState,
     pub(crate) record_count: u32,
     pub(crate) used_manifest_bytes: u64,
+    pub(crate) active_leases: u32,
+    pub(crate) unknown_size_records: u32,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct StagingCleanupPurposeStateSummary {
+    pub(crate) purpose: StagingPurpose,
+    pub(crate) state: StagingState,
+    pub(crate) record_count: u32,
+    pub(crate) cleanup_candidate_bytes: u64,
     pub(crate) active_leases: u32,
     pub(crate) unknown_size_records: u32,
 }
@@ -538,6 +549,34 @@ impl StagingManifestPressureSummary {
     }
 }
 
+impl StagingCleanupPressureSummary {
+    fn record(&mut self, record: &StagingManifestRecord) {
+        self.cleanup_candidate_records = self.cleanup_candidate_records.saturating_add(1);
+        self.cleanup_candidate_bytes = self
+            .cleanup_candidate_bytes
+            .saturating_add(record.size_bytes.unwrap_or(0));
+        if let Some(summary) = self
+            .cleanup_purpose_state_summaries
+            .iter_mut()
+            .find(|summary| summary.purpose == record.purpose && summary.state == record.state)
+        {
+            summary.record(record);
+        } else {
+            self.cleanup_purpose_state_summaries
+                .push(StagingCleanupPurposeStateSummary::new(record));
+        }
+    }
+
+    fn finish(&mut self) {
+        self.cleanup_purpose_state_summaries.sort_by(|left, right| {
+            left.purpose
+                .as_str()
+                .cmp(right.purpose.as_str())
+                .then_with(|| left.state.as_str().cmp(right.state.as_str()))
+        });
+    }
+}
+
 impl StagingPurposeStateSummary {
     fn new(record: &StagingManifestRecord) -> Self {
         let mut summary = Self {
@@ -556,6 +595,32 @@ impl StagingPurposeStateSummary {
         self.record_count = self.record_count.saturating_add(1);
         self.used_manifest_bytes = self
             .used_manifest_bytes
+            .saturating_add(record.size_bytes.unwrap_or(0));
+        self.active_leases = self.active_leases.saturating_add(record.active_leases);
+        if record.size_bytes.is_none() {
+            self.unknown_size_records = self.unknown_size_records.saturating_add(1);
+        }
+    }
+}
+
+impl StagingCleanupPurposeStateSummary {
+    fn new(record: &StagingManifestRecord) -> Self {
+        let mut summary = Self {
+            purpose: record.purpose,
+            state: record.state,
+            record_count: 0,
+            cleanup_candidate_bytes: 0,
+            active_leases: 0,
+            unknown_size_records: 0,
+        };
+        summary.record(record);
+        summary
+    }
+
+    fn record(&mut self, record: &StagingManifestRecord) {
+        self.record_count = self.record_count.saturating_add(1);
+        self.cleanup_candidate_bytes = self
+            .cleanup_candidate_bytes
             .saturating_add(record.size_bytes.unwrap_or(0));
         self.active_leases = self.active_leases.saturating_add(record.active_leases);
         if record.size_bytes.is_none() {
@@ -1335,14 +1400,11 @@ impl StorageDiagnosticsAppService {
             let returned = records.len();
 
             for record in &records {
-                summary.cleanup_candidate_records =
-                    summary.cleanup_candidate_records.saturating_add(1);
-                summary.cleanup_candidate_bytes = summary
-                    .cleanup_candidate_bytes
-                    .saturating_add(record.size_bytes.unwrap_or(0));
+                summary.record(record);
             }
 
             if returned < PageRequest::MAX_LIMIT as usize {
+                summary.finish();
                 return Ok(summary);
             }
 

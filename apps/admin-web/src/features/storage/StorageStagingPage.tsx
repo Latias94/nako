@@ -65,6 +65,8 @@ type StorageStagingResult = {
 type StorageRecord = AdminStorageStagingDiagnosticsResponse["records"][number];
 type StoragePurposeStateSummary =
   AdminStorageStagingDiagnosticsResponse["summary"]["purpose_state_summaries"][number];
+type StorageCleanupPurposeStateSummary =
+  AdminStorageStagingDiagnosticsResponse["summary"]["cleanup_purpose_state_summaries"][number];
 type VfsCacheRepairActionPlanResult = {
   value: AdminVfsCacheRepairActionPlanResponse;
   source: DataSourceMode;
@@ -526,6 +528,18 @@ export function StorageStagingPage({
       </DataPanel>
 
       <DataPanel
+        description={t("storage.cleanupPurposeState.description", {
+          count: result.value.summary.cleanup_purpose_state_summaries.length,
+        })}
+        title={t("storage.cleanupPurposeState.title")}
+      >
+        <CleanupPurposeStateSummaryTable
+          summaries={result.value.summary.cleanup_purpose_state_summaries}
+          t={t}
+        />
+      </DataPanel>
+
+      <DataPanel
         description={t("storage.records.description", {
           returned: result.value.page.returned,
           used: formatBytes(result.value.summary.used_manifest_bytes, t),
@@ -700,6 +714,51 @@ function PurposeStateSummaryTable({
               </TableCell>
               <TableCell>{summary.record_count}</TableCell>
               <TableCell>{formatBytes(summary.used_manifest_bytes, t)}</TableCell>
+              <TableCell>{summary.active_leases}</TableCell>
+              <TableCell>{summary.unknown_size_records}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function CleanupPurposeStateSummaryTable({
+  summaries,
+  t,
+}: {
+  summaries: StorageCleanupPurposeStateSummary[];
+  t: Translate;
+}) {
+  if (summaries.length === 0) {
+    return <EmptyRouteState>{t("storage.cleanupPurposeState.empty")}</EmptyRouteState>;
+  }
+
+  return (
+    <div className="tableScroll">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>{t("storage.cleanupPurposeState.column.purpose")}</TableHead>
+            <TableHead>{t("storage.cleanupPurposeState.column.state")}</TableHead>
+            <TableHead>{t("storage.cleanupPurposeState.column.records")}</TableHead>
+            <TableHead>{t("storage.cleanupPurposeState.column.size")}</TableHead>
+            <TableHead>{t("storage.cleanupPurposeState.column.leases")}</TableHead>
+            <TableHead>{t("storage.cleanupPurposeState.column.unknownSize")}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {summaries.map((summary) => (
+            <TableRow key={`${summary.purpose}-${summary.state}`}>
+              <TableCell>
+                <strong>{summary.purpose}</strong>
+              </TableCell>
+              <TableCell>
+                <Badge tone={storageStateTone(summary.state)}>{summary.state}</Badge>
+              </TableCell>
+              <TableCell>{summary.record_count}</TableCell>
+              <TableCell>{formatBytes(summary.cleanup_candidate_bytes, t)}</TableCell>
               <TableCell>{summary.active_leases}</TableCell>
               <TableCell>{summary.unknown_size_records}</TableCell>
             </TableRow>

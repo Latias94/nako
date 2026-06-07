@@ -82,10 +82,11 @@ use nako_api::{
         AdminSourceDuplicateReconciliationPlanResponse, AdminSourceFingerprintHashEnqueueRequest,
         AdminSourceFingerprintHashMode, AdminSourceFingerprintHashRetryRequest,
         AdminStorageBackendHealthDiagnostic, AdminStorageBackendHealthDiagnosticsResponse,
-        AdminStorageBackendHealthResetResponse, AdminStorageStagingDiagnosticsResponse,
-        AdminStorageStagingPolicySlice, AdminStorageStagingPressureStatus,
-        AdminStorageStagingPressureSummary, AdminStorageStagingPurposeStateSummary,
-        AdminStorageStagingRecord, AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics,
+        AdminStorageBackendHealthResetResponse, AdminStorageStagingCleanupPurposeStateSummary,
+        AdminStorageStagingDiagnosticsResponse, AdminStorageStagingPolicySlice,
+        AdminStorageStagingPressureStatus, AdminStorageStagingPressureSummary,
+        AdminStorageStagingPurposeStateSummary, AdminStorageStagingRecord,
+        AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics,
         AdminTranscodePipelineReadiness, AdminTranscodePipelineReadinessStatus,
         AdminTrustedProxyDiagnostics, AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
         AdminUpdateLibraryMetadataProfileRequest, AdminUpdateMetadataRawCacheSettingsRequest,
@@ -143,9 +144,10 @@ use crate::{
         RetryVfsCacheRepairJobRequest, RuntimeSupervisorDiagnostics,
         SourceDuplicateReconciliationApplyRequest as AppSourceDuplicateReconciliationApplyRequest,
         SourceDuplicateReconciliationPlanRequest, StagingBudgetPolicySlice,
-        StagingPurposeStateSummary, StorageStagingPressureStatus, VfsCacheRepairActionBoundary,
-        VfsCacheRepairActionPlanReason, VfsCacheRepairActionPlanReport,
-        VfsCacheRepairActionPlanStatus, VfsCacheRepairCommandOutput, VfsCacheRepairExecutableRoute,
+        StagingCleanupPurposeStateSummary, StagingPurposeStateSummary,
+        StorageStagingPressureStatus, VfsCacheRepairActionBoundary, VfsCacheRepairActionPlanReason,
+        VfsCacheRepairActionPlanReport, VfsCacheRepairActionPlanStatus,
+        VfsCacheRepairCommandOutput, VfsCacheRepairExecutableRoute,
         VfsCacheRepairJobSummary as AppVfsCacheRepairJobSummary, VfsCacheRepairRefreshActionReport,
         VfsCacheRepairRemediationActionGroupReport,
         VfsCacheRepairRemediationClassificationCountReport,
@@ -1928,6 +1930,12 @@ pub(super) async fn list_admin_storage_staging(
         .copied()
         .map(storage_staging_purpose_state_summary)
         .collect();
+    let cleanup_purpose_state_summaries = cleanup_pressure
+        .cleanup_purpose_state_summaries
+        .iter()
+        .copied()
+        .map(storage_staging_cleanup_purpose_state_summary)
+        .collect();
     let vfs_cache = app.storage().summarize_vfs_cache(now_ms).await?;
     let vfs_cache_repair = app
         .storage()
@@ -1954,6 +1962,7 @@ pub(super) async fn list_admin_storage_staging(
             ),
             policy_slices,
             purpose_state_summaries,
+            cleanup_purpose_state_summaries,
             cleanup_on_startup: app.config().staging.cleanup_on_startup,
             retention_ms: app.config().staging.retention_ms,
             startup_deleted_records: startup
@@ -2437,6 +2446,19 @@ fn storage_staging_purpose_state_summary(
         state: summary.state,
         record_count: summary.record_count,
         used_manifest_bytes: summary.used_manifest_bytes,
+        active_leases: summary.active_leases,
+        unknown_size_records: summary.unknown_size_records,
+    }
+}
+
+fn storage_staging_cleanup_purpose_state_summary(
+    summary: StagingCleanupPurposeStateSummary,
+) -> AdminStorageStagingCleanupPurposeStateSummary {
+    AdminStorageStagingCleanupPurposeStateSummary {
+        purpose: summary.purpose,
+        state: summary.state,
+        record_count: summary.record_count,
+        cleanup_candidate_bytes: summary.cleanup_candidate_bytes,
         active_leases: summary.active_leases,
         unknown_size_records: summary.unknown_size_records,
     }

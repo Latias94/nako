@@ -325,6 +325,15 @@ export interface AdminStorageStagingPurposeStateSummary {
   unknown_size_records: number;
 }
 
+export interface AdminStorageStagingCleanupPurposeStateSummary {
+  purpose: string;
+  state: string;
+  record_count: number;
+  cleanup_candidate_bytes: number;
+  active_leases: number;
+  unknown_size_records: number;
+}
+
 export type StorageBackendHealthStatus =
   | "healthy"
   | "recovering"
@@ -3166,6 +3175,7 @@ export interface AdminStorageStagingDiagnosticsResponse {
     pressure: AdminStorageStagingPressureSummary;
     policy_slices: AdminStorageStagingPolicySlice[];
     purpose_state_summaries: AdminStorageStagingPurposeStateSummary[];
+    cleanup_purpose_state_summaries: AdminStorageStagingCleanupPurposeStateSummary[];
     cleanup_on_startup: boolean;
     retention_ms: number;
     startup_deleted_records: number;
