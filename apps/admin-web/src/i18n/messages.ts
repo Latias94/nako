@@ -690,6 +690,33 @@ export const enMessages = {
   "jobs.column.mediaLibrary": "Media Library",
   "jobs.column.mediaSource": "Media Source",
   "jobs.column.queued": "Queued",
+  "jobs.column.actions": "Actions",
+  "jobs.vfsCacheRepair.actionsDisabled":
+    "VFS cache repair job actions require live Admin API data.",
+  "jobs.vfsCacheRepair.notApplicable": "No repair action",
+  "jobs.vfsCacheRepair.noStateAction": "No action for this status",
+  "jobs.vfsCacheRepair.execute": "Execute",
+  "jobs.vfsCacheRepair.executing": "Executing",
+  "jobs.vfsCacheRepair.retry": "Retry",
+  "jobs.vfsCacheRepair.retrying": "Retrying",
+  "jobs.vfsCacheRepair.executeAria": "Execute VFS cache repair job {jobId}",
+  "jobs.vfsCacheRepair.retryAria": "Retry VFS cache repair job {jobId}",
+  "jobs.vfsCacheRepair.notLiveError":
+    "VFS cache repair job actions are not backed by a live Admin API response.",
+  "jobs.vfsCacheRepair.notRepairJob": "Job is not a VFS cache repair job.",
+  "jobs.vfsCacheRepair.executeInvalidState":
+    "Only queued VFS cache repair jobs can be executed manually.",
+  "jobs.vfsCacheRepair.retryInvalidState":
+    "Only failed VFS cache repair jobs can be retried.",
+  "jobs.vfsCacheRepair.executeUnavailable":
+    "VFS cache repair execute action is unavailable.",
+  "jobs.vfsCacheRepair.retryUnavailable":
+    "VFS cache repair retry action is unavailable.",
+  "jobs.vfsCacheRepair.executeSucceeded":
+    "Executed VFS cache repair job {jobId}, status {status}.",
+  "jobs.vfsCacheRepair.retrySucceeded":
+    "Queued VFS cache repair retry job {jobId}, status {status}.",
+  "jobs.vfsCacheRepair.operationFailed": "VFS cache repair job action failed.",
   "jobs.none": "none",
   "playback.title": "Playback Sessions",
   "playback.kicker": "Playback operations",
@@ -1856,6 +1883,33 @@ export const zhHansMessages = {
   "jobs.column.mediaLibrary": "媒体库",
   "jobs.column.mediaSource": "媒体源",
   "jobs.column.queued": "排队时间",
+  "jobs.column.actions": "操作",
+  "jobs.vfsCacheRepair.actionsDisabled":
+    "VFS cache repair 任务操作需要实时 Admin API 数据。",
+  "jobs.vfsCacheRepair.notApplicable": "无 repair 操作",
+  "jobs.vfsCacheRepair.noStateAction": "当前状态无操作",
+  "jobs.vfsCacheRepair.execute": "执行",
+  "jobs.vfsCacheRepair.executing": "执行中",
+  "jobs.vfsCacheRepair.retry": "重试",
+  "jobs.vfsCacheRepair.retrying": "重试中",
+  "jobs.vfsCacheRepair.executeAria": "执行 VFS cache repair 任务 {jobId}",
+  "jobs.vfsCacheRepair.retryAria": "重试 VFS cache repair 任务 {jobId}",
+  "jobs.vfsCacheRepair.notLiveError":
+    "VFS cache repair 任务操作没有实时 Admin API 响应支撑。",
+  "jobs.vfsCacheRepair.notRepairJob": "该任务不是 VFS cache repair 任务。",
+  "jobs.vfsCacheRepair.executeInvalidState":
+    "只有排队中的 VFS cache repair 任务可以手动执行。",
+  "jobs.vfsCacheRepair.retryInvalidState":
+    "只有失败的 VFS cache repair 任务可以重试。",
+  "jobs.vfsCacheRepair.executeUnavailable":
+    "VFS cache repair 执行动作不可用。",
+  "jobs.vfsCacheRepair.retryUnavailable":
+    "VFS cache repair 重试动作不可用。",
+  "jobs.vfsCacheRepair.executeSucceeded":
+    "已执行 VFS cache repair 任务 {jobId}，状态 {status}。",
+  "jobs.vfsCacheRepair.retrySucceeded":
+    "已入队 VFS cache repair 重试任务 {jobId}，状态 {status}。",
+  "jobs.vfsCacheRepair.operationFailed": "VFS cache repair 任务操作失败。",
   "jobs.none": "无",
   "playback.title": "Playback Sessions",
   "playback.kicker": "播放运维",

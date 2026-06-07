@@ -774,6 +774,78 @@ Residual risk:
 - Full workspace Rust nextest was not run. Focused API contract, server route,
   Admin Web typecheck/test/build, formatting, and whitespace gates passed.
 
+## 2026-06-07 Admin Web VFS Cache Repair Job Commands
+
+What changed:
+
+- Added live-only row actions to the Jobs route for VFS cache repair jobs.
+- Queued `vfs_cache_repair` jobs with resource class
+  `storage.vfs.cache_repair` can now call the existing
+  `executeVfsCacheRepairJob` Admin Web data-source command.
+- Failed `vfs_cache_repair` jobs with resource class
+  `storage.vfs.cache_repair` can now call the existing
+  `retryVfsCacheRepairJob` Admin Web data-source command.
+- Non-repair jobs render an explicit no-action label, and repair jobs in other
+  states render a no-state-action label instead of an unsafe command.
+- Mock/fallback Jobs data disables repair job commands and shows a visible
+  live-data requirement notice.
+- Success and error notices expose only safe job id/status facts and invalidate
+  the route-local Jobs query group after successful commands.
+- Added English and zh-Hans copy for the new Jobs actions column, command
+  labels, live-data requirement, success notices, and errors.
+- Added App route tests for live execute/retry delegation, disabled mock
+  fallback commands, localized action-column copy, and the existing VFS repair
+  filter copy after the new row action aria labels were introduced.
+
+Boundaries:
+
+- This is a frontend-only operator command reachability slice over existing
+  Admin Web data-source methods.
+- No backend route, API DTO, generated contract, schema migration, production
+  dependency, runtime behavior, cache purge/delete/invalidation behavior,
+  backend configuration mutation, library file write, or automated repair
+  policy changed.
+- The Jobs route still does not render durable input JSON, summary JSON,
+  retry linkage, raw durable errors, raw `StorageUri`, local paths, backend
+  URLs, credentials, URI digests, etags, fingerprints, or cache payloads.
+- Commands remain unavailable unless the Jobs read model is live and the
+  corresponding data-source method exists.
+
+Spec update review:
+
+- `.trellis/spec/admin-web/frontend/routes-forms-and-tests.md` already covers
+  this pattern: route/page data goes through `AdminDataSource`, mutations are
+  live-only, visible errors are rendered for unavailable commands, route tests
+  assert command payloads, localized copy, and mock fallback behavior.
+- No new reusable convention or gotcha was discovered, so no code-spec update
+  was needed for this slice.
+
+Validation:
+
+- `npm run check --prefix apps/admin-web`
+  - Result: passed.
+- `npm run test --prefix apps/admin-web -- App.test.tsx`
+  - Result: passed, 103 tests run.
+- `npm run test --prefix apps/admin-web`
+  - Result: passed, 7 test files and 184 tests run.
+- `npm run build --prefix apps/admin-web`
+  - Result: passed; Vite reported the existing chunk-size warning.
+- `python ./.trellis/scripts/task.py validate .trellis/tasks/06-06-06-06-overnight-fearless-refactor-development-plan`
+  - Result: passed.
+- `git diff --check`
+  - Result: passed with only Git LF/CRLF working-copy warnings.
+- Independent check agent `Einstein`
+  - Result: no blocking findings; confirmed the route still delegates through
+    `AdminDataSource`, execute/retry are live-only, execute and retry response
+    shapes are handled separately, and the page does not render durable input,
+    summary, raw error, URI/path, credential, or cache payload fields.
+
+Residual risk:
+
+- Full workspace Rust nextest was not run because this slice only changes
+  Admin Web route command reachability and localized copy over existing Admin
+  API contracts.
+
 ## 2026-06-07 Admin Web VFS Cache Repair Job Filter
 
 What changed:

@@ -4,9 +4,9 @@ import {
   useReactTable,
   type ColumnDef,
 } from "@tanstack/react-table";
-import { Fingerprint, RefreshCw, Search, Wrench, X } from "lucide-react";
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { Fingerprint, Play, RefreshCw, RotateCcw, Search, Wrench, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type {
   AdminDataSource,
@@ -58,6 +58,12 @@ type JobsResult = {
   error?: string;
 };
 
+type VfsCacheRepairJobAction = "execute" | "retry";
+type VfsCacheRepairJobCommand = {
+  action: VfsCacheRepairJobAction;
+  job: AdminJobListItem;
+};
+
 const SOURCE_FINGERPRINT_HASH_JOB_KIND = "source_fingerprint_hash";
 const SOURCE_FINGERPRINT_HASH_RESOURCE_CLASS = "disk.scan.source_fingerprint_hash";
 const VFS_CACHE_REPAIR_JOB_KIND = "vfs_cache_repair";
@@ -65,6 +71,9 @@ const VFS_CACHE_REPAIR_RESOURCE_CLASS = "storage.vfs.cache_repair";
 
 export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) {
   const { locale, t } = useI18n();
+  const queryClient = useQueryClient();
+  const [commandMessage, setCommandMessage] = useState<string | null>(null);
+  const [commandError, setCommandError] = useState<string | null>(null);
   const query = useQuery({
     queryKey: ["admin-jobs", search, locale],
     queryFn: () => loadJobs(dataSource, search, t("jobs.dataSourceUnavailable")),
@@ -73,7 +82,75 @@ export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) 
     value: mockJobs,
     source: "mock" as const,
   };
-  const columns = createColumns(t);
+  const commandMutation = useMutation({
+    mutationFn: async (command: VfsCacheRepairJobCommand) => {
+      if (result.source !== "live") {
+        throw new Error(t("jobs.vfsCacheRepair.notLiveError"));
+      }
+      if (!isVfsCacheRepairJob(command.job)) {
+        throw new Error(t("jobs.vfsCacheRepair.notRepairJob"));
+      }
+
+      if (command.action === "execute") {
+        if (command.job.status !== "queued") {
+          throw new Error(t("jobs.vfsCacheRepair.executeInvalidState"));
+        }
+        if (!dataSource.executeVfsCacheRepairJob) {
+          throw new Error(t("jobs.vfsCacheRepair.executeUnavailable"));
+        }
+
+        return {
+          action: command.action,
+          job: await dataSource.executeVfsCacheRepairJob(command.job.id),
+        };
+      }
+
+      if (command.job.status !== "failed") {
+        throw new Error(t("jobs.vfsCacheRepair.retryInvalidState"));
+      }
+      if (!dataSource.retryVfsCacheRepairJob) {
+        throw new Error(t("jobs.vfsCacheRepair.retryUnavailable"));
+      }
+
+      return {
+        action: command.action,
+        job: await dataSource.retryVfsCacheRepairJob(command.job.id),
+      };
+    },
+    onMutate: () => {
+      setCommandMessage(null);
+      setCommandError(null);
+    },
+    onSuccess: (response) => {
+      if (response.action === "execute") {
+        setCommandMessage(
+          t("jobs.vfsCacheRepair.executeSucceeded", {
+            jobId: response.job.job.id,
+            status: response.job.job.status,
+          }),
+        );
+      } else {
+        setCommandMessage(
+          t("jobs.vfsCacheRepair.retrySucceeded", {
+            jobId: response.job.id,
+            status: response.job.status,
+          }),
+        );
+      }
+      void queryClient.invalidateQueries({ queryKey: ["admin-jobs"] });
+    },
+    onError: (error) => {
+      setCommandError(errorMessage(error, t("jobs.vfsCacheRepair.operationFailed")));
+    },
+  });
+  const columns = createColumns(t, {
+    canExecute: result.source === "live" && Boolean(dataSource.executeVfsCacheRepairJob),
+    canRetry: result.source === "live" && Boolean(dataSource.retryVfsCacheRepairJob),
+    isPending: commandMutation.isPending,
+    pendingAction: commandMutation.variables?.action ?? null,
+    pendingJobId: commandMutation.variables?.job.id ?? null,
+    runCommand: (command) => commandMutation.mutate(command),
+  });
 
   const table = useReactTable({
     data: result.value.jobs,
@@ -121,6 +198,11 @@ export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) 
           {t("jobs.fallback", { error: result.error })}
         </RouteNotice>
       ) : null}
+      {!query.isLoading && result.source !== "live" ? (
+        <RouteNotice>{t("jobs.vfsCacheRepair.actionsDisabled")}</RouteNotice>
+      ) : null}
+      {commandError ? <RouteNotice>{commandError}</RouteNotice> : null}
+      {commandMessage ? <RouteNotice>{commandMessage}</RouteNotice> : null}
 
       <FilterBar label={t("jobs.filters")}>
         <FilterField label={t("jobs.filter.status")}>
@@ -281,7 +363,10 @@ export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) 
 
 type Translate = (id: MessageId, values?: Record<string, number | string>) => string;
 
-function createColumns(t: Translate): Array<ColumnDef<AdminJobListItem>> {
+function createColumns(
+  t: Translate,
+  actions: JobActionColumnOptions,
+): Array<ColumnDef<AdminJobListItem>> {
   return [
     {
       accessorKey: "kind",
@@ -316,6 +401,11 @@ function createColumns(t: Translate): Array<ColumnDef<AdminJobListItem>> {
       accessorKey: "queued_at",
       header: t("jobs.column.queued"),
     },
+    {
+      id: "actions",
+      header: t("jobs.column.actions"),
+      cell: ({ row }) => <JobActions job={row.original} actions={actions} t={t} />,
+    },
   ];
 }
 
@@ -347,6 +437,70 @@ function toAdminJobsQuery(search: JobsSearch): AdminJobsQuery {
   };
 }
 
+type JobActionColumnOptions = {
+  canExecute: boolean;
+  canRetry: boolean;
+  isPending: boolean;
+  pendingAction: VfsCacheRepairJobAction | null;
+  pendingJobId: string | null;
+  runCommand(command: VfsCacheRepairJobCommand): void;
+};
+
+function JobActions({
+  actions,
+  job,
+  t,
+}: {
+  actions: JobActionColumnOptions;
+  job: AdminJobListItem;
+  t: Translate;
+}) {
+  if (!isVfsCacheRepairJob(job)) {
+    return <span>{t("jobs.vfsCacheRepair.notApplicable")}</span>;
+  }
+
+  if (job.status === "queued") {
+    const pending =
+      actions.isPending &&
+      actions.pendingAction === "execute" &&
+      actions.pendingJobId === job.id;
+
+    return (
+      <Button
+        aria-label={t("jobs.vfsCacheRepair.executeAria", { jobId: job.id })}
+        disabled={!actions.canExecute || actions.isPending}
+        onClick={() => actions.runCommand({ action: "execute", job })}
+        size="sm"
+      >
+        <Play size={14} />
+        {pending ? t("jobs.vfsCacheRepair.executing") : t("jobs.vfsCacheRepair.execute")}
+      </Button>
+    );
+  }
+
+  if (job.status === "failed") {
+    const pending =
+      actions.isPending &&
+      actions.pendingAction === "retry" &&
+      actions.pendingJobId === job.id;
+
+    return (
+      <Button
+        aria-label={t("jobs.vfsCacheRepair.retryAria", { jobId: job.id })}
+        disabled={!actions.canRetry || actions.isPending}
+        onClick={() => actions.runCommand({ action: "retry", job })}
+        size="sm"
+        variant="outline"
+      >
+        <RotateCcw size={14} />
+        {pending ? t("jobs.vfsCacheRepair.retrying") : t("jobs.vfsCacheRepair.retry")}
+      </Button>
+    );
+  }
+
+  return <span>{t("jobs.vfsCacheRepair.noStateAction")}</span>;
+}
+
 function JobStatusBadge({ status, hasError }: { status: string; hasError: boolean }) {
   if (hasError || status === "failed") {
     return <Badge tone="danger">{status}</Badge>;
@@ -361,4 +515,15 @@ function JobStatusBadge({ status, hasError }: { status: string; hasError: boolea
   }
 
   return <Badge tone="success">{status}</Badge>;
+}
+
+function isVfsCacheRepairJob(job: AdminJobListItem) {
+  return (
+    job.kind === VFS_CACHE_REPAIR_JOB_KIND &&
+    job.resource_class === VFS_CACHE_REPAIR_RESOURCE_CLASS
+  );
+}
+
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback;
 }

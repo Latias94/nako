@@ -28,6 +28,7 @@ import type {
   LibraryCommandAction,
   LibraryManagementDetail,
   AdminAccessSummaryResponse,
+  AdminJobListItem,
 } from "./adminApi/types";
 import {
   mockAdminConsoleData,
@@ -51,7 +52,9 @@ import {
   mockVfsCacheRefreshResponse,
   mockVfsCacheRepairActionPlan,
   mockVfsCacheRepairEnqueueResponse,
+  mockVfsCacheRepairExecuteResponse,
   mockVfsCacheRepairRemediationPlan,
+  mockVfsCacheRepairRetryJob,
   mockVfsCacheRepairTargets,
 } from "./adminApi/mockData";
 
@@ -213,9 +216,10 @@ describe("Admin Web V2 route shell", () => {
     expect(screen.getByLabelText("任务状态过滤器")).toBeInTheDocument();
     expect(screen.getByLabelText("任务媒体源过滤器")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Source Hash 任务/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /VFS cache repair 任务/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "VFS cache repair 任务" })).toBeInTheDocument();
     expect(screen.getByText("URL 过滤条件具有权威性")).toBeInTheDocument();
     expect(screen.getByText("实时 Admin API")).toBeInTheDocument();
+    expect(screen.getByText("操作")).toBeInTheDocument();
   });
 
   it("shows deterministic mock fallback when the Jobs read model is unavailable", async () => {
@@ -238,6 +242,93 @@ describe("Admin Web V2 route shell", () => {
     expect(await screen.findByText(/HTTP 503/)).toBeInTheDocument();
     expect(screen.getByText("Mock fallback")).toBeInTheDocument();
     expect(screen.getByText("job-scan")).toBeInTheDocument();
+    expect(screen.getByText("VFS cache repair job actions require live Admin API data.")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Execute VFS cache repair job job-vfs-cache-repair",
+      }),
+    ).toBeDisabled();
+  });
+
+  it("runs live VFS cache repair job execute and retry actions from the Jobs route", async () => {
+    const queuedRepairJob = {
+      ...mockVfsCacheRepairRetryJob,
+      id: "job-vfs-cache-repair-queued-action",
+      status: "queued",
+      has_error: false,
+      completed_at: null,
+    } satisfies AdminJobListItem;
+    const failedRepairJob = {
+      ...mockVfsCacheRepairRetryJob,
+      id: "job-vfs-cache-repair-failed-action",
+      status: "failed",
+      has_error: true,
+      completed_at: "2026-06-05T00:08:00.000Z",
+    } satisfies AdminJobListItem;
+    const jobs: AdminJobListResponse = {
+      ...mockJobs,
+      jobs: [queuedRepairJob, failedRepairJob, mockJobs.jobs[0]],
+      page: { limit: 20, offset: 0, returned: 3 },
+    };
+    const loadJobs = vi.fn(async () => ({
+      value: jobs,
+      source: "live" as const,
+    }));
+    const executeVfsCacheRepairJob = vi.fn(async () => ({
+      ...mockVfsCacheRepairExecuteResponse,
+      job: {
+        ...mockVfsCacheRepairExecuteResponse.job,
+        id: queuedRepairJob.id,
+      },
+    }));
+    const retryVfsCacheRepairJob = vi.fn(async () => mockVfsCacheRepairRetryJob);
+    window.history.pushState(null, "", "/jobs?kind=vfs_cache_repair&resource_class=storage.vfs.cache_repair");
+
+    render(
+      <App
+        dataSource={{
+          load: async () => emptyConsoleData(),
+          loadJobs,
+          executeVfsCacheRepairJob,
+          retryVfsCacheRepairJob,
+        }}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Execute VFS cache repair job job-vfs-cache-repair-queued-action",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(executeVfsCacheRepairJob).toHaveBeenCalledWith(
+        "job-vfs-cache-repair-queued-action",
+      );
+    });
+    expect(
+      await screen.findByText(
+        "Executed VFS cache repair job job-vfs-cache-repair-queued-action, status succeeded.",
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Retry VFS cache repair job job-vfs-cache-repair-failed-action",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(retryVfsCacheRepairJob).toHaveBeenCalledWith(
+        "job-vfs-cache-repair-failed-action",
+      );
+    });
+    expect(
+      await screen.findByText(
+        "Queued VFS cache repair retry job job-vfs-cache-repair-retry, status queued.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("No repair action")).toBeInTheDocument();
   });
 
   it("shows deterministic mock fallback when the Overview read model is unavailable", async () => {
