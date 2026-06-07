@@ -1101,3 +1101,37 @@ Shared VFS cache repair action-plan semantics in nako-server, preserved context-
 ### Next Steps
 
 - None - task complete
+
+
+## Session 76: Storage VFS OpenDAL proof adapter
+
+**Date**: 2026-06-07
+**Task**: Storage VFS OpenDAL proof adapter
+**Package**: nako-vfs
+**Branch**: `main`
+
+### Summary
+
+Added the feature-gated OpenDAL memory proof backend for nako-vfs, recorded adapter boundary specs, archived the Trellis task, and verified default builds do not pull OpenDAL.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4cd58595` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
