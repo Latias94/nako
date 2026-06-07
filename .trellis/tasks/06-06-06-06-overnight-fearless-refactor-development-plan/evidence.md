@@ -695,3 +695,81 @@ Validation policy:
 - This closeout is docs-only. No Rust/TypeScript code, generated contract,
   dependency, `Cargo.toml`, or `Cargo.lock` change is required or allowed.
 - Rust tests are intentionally skipped because no code changed.
+
+## 2026-06-07 Storage Staging Purpose/State Diagnostics
+
+What changed:
+
+- Added redaction-safe `purpose_state_summaries` to Admin Storage Staging
+  diagnostics.
+- Each summary groups staging manifest records by `purpose` and `state` and
+  exposes only aggregate facts:
+  - `record_count`;
+  - `used_manifest_bytes`;
+  - `active_leases`;
+  - `unknown_size_records`.
+- The aggregation is folded into the existing staging manifest pressure scan,
+  so the Admin staging request does not add a second full manifest pagination
+  pass for this summary.
+- Updated `nako-api` Admin DTOs and `admin_contract.rs`, then regenerated both
+  Admin TypeScript contract outputs:
+  - `apps/admin-web/src/adminApi/generated/contract.ts`;
+  - `web/src/api/admin/generated/contract.ts`.
+- Added a Storage Staging page purpose/state summary table with English and
+  zh-Hans copy, deterministic mock data, and route test coverage.
+- Added backend route assertions proving the summary is computed from the full
+  manifest set, not just the filtered page records.
+
+Boundaries:
+
+- This is a read-only diagnostics slice.
+- No schema migration, public API route, production dependency, OpenDAL
+  dependency, backend configuration mutation, cache purge/delete/invalidation,
+  library file write, or automated repair policy was added.
+- The new payload does not expose raw paths, Source Locators, `source_uri`,
+  etags, fingerprints, raw backend errors, credentials, tokens, or durable input
+  JSON.
+- `web/src/api/admin/generated/contract.ts` was regenerated because the
+  `nako-api` Admin contract tests compare both generated Admin contract copies.
+
+Validation:
+
+- `npm run generate:admin-api --prefix apps/admin-web`
+  - Result: passed.
+- `cargo run -q -p nako-api --example emit-admin-typescript-contract -- --output web/src/api/admin/generated/contract.ts`
+  - Result: passed.
+- `cargo fmt --all`
+  - Result: completed formatting.
+- `cargo fmt --all -- --check`
+  - Result: passed.
+- `cargo check -p nako-api --tests`
+  - Result: passed.
+- `cargo check -p nako-server --tests`
+  - Result: passed.
+- `cargo check -p nako-api -p nako-server --tests`
+  - Result: passed.
+- `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+  - Result: passed, 8 tests run.
+- `cargo nextest run -p nako-server admin_v1_storage_staging_lists_filters_and_redacts_paths --no-fail-fast`
+  - Result: passed, 1 test run.
+- `npm run check --prefix apps/admin-web`
+  - Result: passed.
+- `npm run test --prefix apps/admin-web -- App.test.tsx`
+  - Result: passed, 102 tests run.
+- `npm run test --prefix apps/admin-web`
+  - Result: passed, 7 test files and 183 tests run.
+- `npm run build --prefix apps/admin-web`
+  - Result: passed; Vite reported the existing chunk-size warning.
+- `python ./.trellis/scripts/task.py validate .trellis/tasks/06-06-06-06-overnight-fearless-refactor-development-plan`
+  - Result: passed.
+- `git diff --check`
+  - Result: passed with only Git LF/CRLF working-copy warnings.
+- Independent check agent `Kepler`
+  - Result: no blocking findings; confirmed the slice is read-only,
+    redaction-safe, contract-synchronized, and reuses the existing manifest
+    pressure scan instead of adding a second full scan.
+
+Residual risk:
+
+- Full workspace Rust nextest was not run. Focused API contract, server route,
+  Admin Web typecheck/test/build, formatting, and whitespace gates passed.

@@ -123,12 +123,13 @@ use startup::ServerStartupReport;
 use storage::StorageDiagnosticsAppService;
 pub(crate) use storage::{
     EnqueueVfsCacheRepairTargetOutcome, RetryVfsCacheRepairJobRequest, StagingBudgetPolicySlice,
-    StorageStagingPressureStatus, VfsCacheRepairActionBoundary, VfsCacheRepairActionPlanReason,
-    VfsCacheRepairActionPlanReport, VfsCacheRepairActionPlanStatus, VfsCacheRepairCommandOutput,
-    VfsCacheRepairExecutableRoute, VfsCacheRepairJobSummary, VfsCacheRepairRefreshActionReport,
-    VfsCacheRepairRemediationActionGroupReport, VfsCacheRepairRemediationClassificationCountReport,
-    VfsCacheRepairRemediationPlanBoundary, VfsCacheRepairRemediationPlanReport,
-    VfsCacheRepairTargetPreviewReport, VfsCacheRepairTargetReport, storage_staging_pressure_status,
+    StagingPurposeStateSummary, StorageStagingPressureStatus, VfsCacheRepairActionBoundary,
+    VfsCacheRepairActionPlanReason, VfsCacheRepairActionPlanReport, VfsCacheRepairActionPlanStatus,
+    VfsCacheRepairCommandOutput, VfsCacheRepairExecutableRoute, VfsCacheRepairJobSummary,
+    VfsCacheRepairRefreshActionReport, VfsCacheRepairRemediationActionGroupReport,
+    VfsCacheRepairRemediationClassificationCountReport, VfsCacheRepairRemediationPlanBoundary,
+    VfsCacheRepairRemediationPlanReport, VfsCacheRepairTargetPreviewReport,
+    VfsCacheRepairTargetReport, storage_staging_pressure_status,
 };
 use user_playback::UserPlaybackAppService;
 use user_playlist::UserPlaylistAppService;

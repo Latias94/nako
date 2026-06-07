@@ -84,10 +84,10 @@ use nako_api::{
         AdminStorageBackendHealthDiagnostic, AdminStorageBackendHealthDiagnosticsResponse,
         AdminStorageBackendHealthResetResponse, AdminStorageStagingDiagnosticsResponse,
         AdminStorageStagingPolicySlice, AdminStorageStagingPressureStatus,
-        AdminStorageStagingPressureSummary, AdminStorageStagingRecord, AdminStorageStagingSummary,
-        AdminTranscodeConfigDiagnostics, AdminTranscodePipelineReadiness,
-        AdminTranscodePipelineReadinessStatus, AdminTrustedProxyDiagnostics,
-        AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
+        AdminStorageStagingPressureSummary, AdminStorageStagingPurposeStateSummary,
+        AdminStorageStagingRecord, AdminStorageStagingSummary, AdminTranscodeConfigDiagnostics,
+        AdminTranscodePipelineReadiness, AdminTranscodePipelineReadinessStatus,
+        AdminTrustedProxyDiagnostics, AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
         AdminUpdateLibraryMetadataProfileRequest, AdminUpdateMetadataRawCacheSettingsRequest,
         AdminUpdatePlaybackRuntimeSettingsRequest, AdminUpdateUserStatusRequest,
         AdminUpsertLibraryAccessPolicyRequest, AdminVfsCacheRefreshResponse,
@@ -143,9 +143,9 @@ use crate::{
         RetryVfsCacheRepairJobRequest, RuntimeSupervisorDiagnostics,
         SourceDuplicateReconciliationApplyRequest as AppSourceDuplicateReconciliationApplyRequest,
         SourceDuplicateReconciliationPlanRequest, StagingBudgetPolicySlice,
-        StorageStagingPressureStatus, VfsCacheRepairActionBoundary, VfsCacheRepairActionPlanReason,
-        VfsCacheRepairActionPlanReport, VfsCacheRepairActionPlanStatus,
-        VfsCacheRepairCommandOutput, VfsCacheRepairExecutableRoute,
+        StagingPurposeStateSummary, StorageStagingPressureStatus, VfsCacheRepairActionBoundary,
+        VfsCacheRepairActionPlanReason, VfsCacheRepairActionPlanReport,
+        VfsCacheRepairActionPlanStatus, VfsCacheRepairCommandOutput, VfsCacheRepairExecutableRoute,
         VfsCacheRepairJobSummary as AppVfsCacheRepairJobSummary, VfsCacheRepairRefreshActionReport,
         VfsCacheRepairRemediationActionGroupReport,
         VfsCacheRepairRemediationClassificationCountReport,
@@ -1922,6 +1922,12 @@ pub(super) async fn list_admin_storage_staging(
         .into_iter()
         .map(storage_staging_policy_slice)
         .collect();
+    let purpose_state_summaries = manifest_pressure
+        .purpose_state_summaries
+        .iter()
+        .copied()
+        .map(storage_staging_purpose_state_summary)
+        .collect();
     let vfs_cache = app.storage().summarize_vfs_cache(now_ms).await?;
     let vfs_cache_repair = app
         .storage()
@@ -1947,6 +1953,7 @@ pub(super) async fn list_admin_storage_staging(
                 manifest_pressure.probe_input_records,
             ),
             policy_slices,
+            purpose_state_summaries,
             cleanup_on_startup: app.config().staging.cleanup_on_startup,
             retention_ms: app.config().staging.retention_ms,
             startup_deleted_records: startup
@@ -2419,6 +2426,19 @@ fn storage_staging_policy_slice(slice: StagingBudgetPolicySlice) -> AdminStorage
             slice.manifest_pressure.ffmpeg_input_records,
             slice.manifest_pressure.probe_input_records,
         ),
+    }
+}
+
+fn storage_staging_purpose_state_summary(
+    summary: StagingPurposeStateSummary,
+) -> AdminStorageStagingPurposeStateSummary {
+    AdminStorageStagingPurposeStateSummary {
+        purpose: summary.purpose,
+        state: summary.state,
+        record_count: summary.record_count,
+        used_manifest_bytes: summary.used_manifest_bytes,
+        active_leases: summary.active_leases,
+        unknown_size_records: summary.unknown_size_records,
     }
 }
 

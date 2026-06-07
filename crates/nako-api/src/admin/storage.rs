@@ -26,6 +26,8 @@ pub struct AdminStorageStagingSummary {
     pub pressure: AdminStorageStagingPressureSummary,
     #[serde(default)]
     pub policy_slices: Vec<AdminStorageStagingPolicySlice>,
+    #[serde(default)]
+    pub purpose_state_summaries: Vec<AdminStorageStagingPurposeStateSummary>,
     pub cleanup_on_startup: bool,
     pub retention_ms: u64,
     pub startup_deleted_records: u32,
@@ -69,6 +71,16 @@ pub struct AdminStorageStagingPolicySlice {
     pub configured_max_bytes: u64,
     pub used_manifest_bytes: u64,
     pub pressure: AdminStorageStagingPressureSummary,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminStorageStagingPurposeStateSummary {
+    pub purpose: StagingPurpose,
+    pub state: StagingState,
+    pub record_count: u32,
+    pub used_manifest_bytes: u64,
+    pub active_leases: u32,
+    pub unknown_size_records: u32,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -545,6 +557,34 @@ mod tests {
         assert!(!body.contains("token"));
         assert!(!body.contains("password"));
         assert!(!body.contains("fingerprint"));
+    }
+
+    #[test]
+    fn admin_storage_staging_purpose_state_summary_is_aggregate_only() {
+        let summary = AdminStorageStagingPurposeStateSummary {
+            purpose: StagingPurpose::ProbeInput,
+            state: StagingState::Failed,
+            record_count: 2,
+            used_manifest_bytes: 95,
+            active_leases: 1,
+            unknown_size_records: 1,
+        };
+
+        let value = serde_json::to_value(&summary).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(value["purpose"], "probe_input");
+        assert_eq!(value["state"], "failed");
+        assert_eq!(value["record_count"], 2);
+        assert_eq!(value["used_manifest_bytes"], 95);
+        assert_eq!(value["active_leases"], 1);
+        assert_eq!(value["unknown_size_records"], 1);
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("local_path"));
+        assert!(!body.contains("etag"));
+        assert!(!body.contains("fingerprint"));
+        assert!(!body.contains("token"));
+        assert!(!body.contains("password"));
     }
 
     #[test]

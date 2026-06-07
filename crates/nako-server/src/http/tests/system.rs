@@ -7978,6 +7978,43 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
     assert_eq!(diagnostics.summary.pressure.active_leases, 2);
     assert_eq!(diagnostics.summary.pressure.ffmpeg_input_records, 1);
     assert_eq!(diagnostics.summary.pressure.probe_input_records, 2);
+    assert_eq!(diagnostics.summary.purpose_state_summaries.len(), 3);
+    let ffmpeg_ready = diagnostics
+        .summary
+        .purpose_state_summaries
+        .iter()
+        .find(|summary| {
+            summary.purpose == StagingPurpose::FfmpegInput && summary.state == StagingState::Ready
+        })
+        .expect("ffmpeg ready staging summary");
+    assert_eq!(ffmpeg_ready.record_count, 1);
+    assert_eq!(ffmpeg_ready.used_manifest_bytes, 42);
+    assert_eq!(ffmpeg_ready.active_leases, 0);
+    assert_eq!(ffmpeg_ready.unknown_size_records, 0);
+    let probe_reserved = diagnostics
+        .summary
+        .purpose_state_summaries
+        .iter()
+        .find(|summary| {
+            summary.purpose == StagingPurpose::ProbeInput && summary.state == StagingState::Reserved
+        })
+        .expect("probe reserved staging summary");
+    assert_eq!(probe_reserved.record_count, 1);
+    assert_eq!(probe_reserved.used_manifest_bytes, 10);
+    assert_eq!(probe_reserved.active_leases, 0);
+    assert_eq!(probe_reserved.unknown_size_records, 0);
+    let probe_failed = diagnostics
+        .summary
+        .purpose_state_summaries
+        .iter()
+        .find(|summary| {
+            summary.purpose == StagingPurpose::ProbeInput && summary.state == StagingState::Failed
+        })
+        .expect("probe failed staging summary");
+    assert_eq!(probe_failed.record_count, 1);
+    assert_eq!(probe_failed.used_manifest_bytes, 0);
+    assert_eq!(probe_failed.active_leases, 2);
+    assert_eq!(probe_failed.unknown_size_records, 1);
     assert!(diagnostics.summary.cleanup_on_startup);
     assert_eq!(diagnostics.summary.retention_ms, 8_888);
     assert_eq!(diagnostics.summary.cleanup_candidate_records, 2);

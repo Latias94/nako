@@ -57,7 +57,7 @@ pub(crate) struct StagingCleanupPressureSummary {
     pub(crate) cleanup_candidate_bytes: u64,
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct StagingManifestPressureSummary {
     pub(crate) total_records: usize,
     pub(crate) in_flight_records: usize,
@@ -66,6 +66,17 @@ pub(crate) struct StagingManifestPressureSummary {
     pub(crate) active_leases: u64,
     pub(crate) ffmpeg_input_records: usize,
     pub(crate) probe_input_records: usize,
+    pub(crate) purpose_state_summaries: Vec<StagingPurposeStateSummary>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct StagingPurposeStateSummary {
+    pub(crate) purpose: StagingPurpose,
+    pub(crate) state: StagingState,
+    pub(crate) record_count: u32,
+    pub(crate) used_manifest_bytes: u64,
+    pub(crate) active_leases: u32,
+    pub(crate) unknown_size_records: u32,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -504,6 +515,51 @@ impl StagingManifestPressureSummary {
             StagingPurpose::ProbeInput => {
                 self.probe_input_records = self.probe_input_records.saturating_add(1);
             }
+        }
+        if let Some(summary) = self
+            .purpose_state_summaries
+            .iter_mut()
+            .find(|summary| summary.purpose == record.purpose && summary.state == record.state)
+        {
+            summary.record(record);
+        } else {
+            self.purpose_state_summaries
+                .push(StagingPurposeStateSummary::new(record));
+        }
+    }
+
+    fn finish(&mut self) {
+        self.purpose_state_summaries.sort_by(|left, right| {
+            left.purpose
+                .as_str()
+                .cmp(right.purpose.as_str())
+                .then_with(|| left.state.as_str().cmp(right.state.as_str()))
+        });
+    }
+}
+
+impl StagingPurposeStateSummary {
+    fn new(record: &StagingManifestRecord) -> Self {
+        let mut summary = Self {
+            purpose: record.purpose,
+            state: record.state,
+            record_count: 0,
+            used_manifest_bytes: 0,
+            active_leases: 0,
+            unknown_size_records: 0,
+        };
+        summary.record(record);
+        summary
+    }
+
+    fn record(&mut self, record: &StagingManifestRecord) {
+        self.record_count = self.record_count.saturating_add(1);
+        self.used_manifest_bytes = self
+            .used_manifest_bytes
+            .saturating_add(record.size_bytes.unwrap_or(0));
+        self.active_leases = self.active_leases.saturating_add(record.active_leases);
+        if record.size_bytes.is_none() {
+            self.unknown_size_records = self.unknown_size_records.saturating_add(1);
         }
     }
 }
@@ -1320,6 +1376,7 @@ impl StorageDiagnosticsAppService {
             }
 
             if returned < PageRequest::MAX_LIMIT as usize {
+                summary.finish();
                 return Ok(summary);
             }
 

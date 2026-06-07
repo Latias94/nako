@@ -660,6 +660,15 @@ export interface AdminStorageStagingPolicySlice {
   pressure: AdminStorageStagingPressureSummary;
 }
 
+export interface AdminStorageStagingPurposeStateSummary {
+  purpose: string;
+  state: string;
+  record_count: number;
+  used_manifest_bytes: number;
+  active_leases: number;
+  unknown_size_records: number;
+}
+
 export type StorageBackendHealthStatus =
   | "healthy"
   | "recovering"
@@ -3500,6 +3509,7 @@ export interface AdminStorageStagingDiagnosticsResponse {
     used_manifest_bytes: number;
     pressure: AdminStorageStagingPressureSummary;
     policy_slices: AdminStorageStagingPolicySlice[];
+    purpose_state_summaries: AdminStorageStagingPurposeStateSummary[];
     cleanup_on_startup: boolean;
     retention_ms: number;
     startup_deleted_records: number;
@@ -4219,6 +4229,7 @@ mod tests {
             "AdminStorageStagingAttributionKind",
             "AdminStorageStagingPressureSummary",
             "AdminStorageStagingPolicySlice",
+            "AdminStorageStagingPurposeStateSummary",
             "StorageBackendHealthStatus",
             "StorageCircuitBreakerState",
             "StorageFailureClass",

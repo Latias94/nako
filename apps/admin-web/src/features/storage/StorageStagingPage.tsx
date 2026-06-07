@@ -63,6 +63,8 @@ type StorageStagingResult = {
 };
 
 type StorageRecord = AdminStorageStagingDiagnosticsResponse["records"][number];
+type StoragePurposeStateSummary =
+  AdminStorageStagingDiagnosticsResponse["summary"]["purpose_state_summaries"][number];
 type VfsCacheRepairActionPlanResult = {
   value: AdminVfsCacheRepairActionPlanResponse;
   source: DataSourceMode;
@@ -512,6 +514,18 @@ export function StorageStagingPage({
       </DataPanel>
 
       <DataPanel
+        description={t("storage.purposeState.description", {
+          count: result.value.summary.purpose_state_summaries.length,
+        })}
+        title={t("storage.purposeState.title")}
+      >
+        <PurposeStateSummaryTable
+          summaries={result.value.summary.purpose_state_summaries}
+          t={t}
+        />
+      </DataPanel>
+
+      <DataPanel
         description={t("storage.records.description", {
           returned: result.value.page.returned,
           used: formatBytes(result.value.summary.used_manifest_bytes, t),
@@ -649,6 +663,51 @@ function StorageStateBadge({ record }: { record: StorageRecord }) {
   }
 
   return <Badge tone="warning">{record.state}</Badge>;
+}
+
+function PurposeStateSummaryTable({
+  summaries,
+  t,
+}: {
+  summaries: StoragePurposeStateSummary[];
+  t: Translate;
+}) {
+  if (summaries.length === 0) {
+    return <EmptyRouteState>{t("storage.purposeState.empty")}</EmptyRouteState>;
+  }
+
+  return (
+    <div className="tableScroll">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>{t("storage.purposeState.column.purpose")}</TableHead>
+            <TableHead>{t("storage.purposeState.column.state")}</TableHead>
+            <TableHead>{t("storage.purposeState.column.records")}</TableHead>
+            <TableHead>{t("storage.purposeState.column.size")}</TableHead>
+            <TableHead>{t("storage.purposeState.column.leases")}</TableHead>
+            <TableHead>{t("storage.purposeState.column.unknownSize")}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {summaries.map((summary) => (
+            <TableRow key={`${summary.purpose}-${summary.state}`}>
+              <TableCell>
+                <strong>{summary.purpose}</strong>
+              </TableCell>
+              <TableCell>
+                <Badge tone={storageStateTone(summary.state)}>{summary.state}</Badge>
+              </TableCell>
+              <TableCell>{summary.record_count}</TableCell>
+              <TableCell>{formatBytes(summary.used_manifest_bytes, t)}</TableCell>
+              <TableCell>{summary.active_leases}</TableCell>
+              <TableCell>{summary.unknown_size_records}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
 }
 
 function RepairRow({
@@ -1015,4 +1074,16 @@ function classificationTone(classification: string): BadgeTone {
   }
 
   return "neutral";
+}
+
+function storageStateTone(state: string): BadgeTone {
+  if (state === "ready") {
+    return "success";
+  }
+
+  if (state === "failed") {
+    return "danger";
+  }
+
+  return "warning";
 }
