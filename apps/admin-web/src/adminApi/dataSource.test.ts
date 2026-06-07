@@ -37,6 +37,8 @@ import {
   mockStorageStaging,
   mockSystemConfig,
   mockVfsCacheRefreshResponse,
+  mockVfsCacheRepairAutomationEnqueueResponse,
+  mockVfsCacheRepairAutomationPlan,
   mockVfsCacheRepairActionPlan,
   mockVfsCacheRepairEnqueueResponse,
   mockVfsCacheRepairExecuteResponse,
@@ -2084,6 +2086,9 @@ describe("Admin data source", () => {
         if (url.pathname === NAKO_ADMIN_ROUTES.storageVfsCacheRepairRemediationPlan) {
           return Response.json(mockVfsCacheRepairRemediationPlan);
         }
+        if (url.pathname === NAKO_ADMIN_ROUTES.storageVfsCacheRepairAutomationPlan) {
+          return Response.json(mockVfsCacheRepairAutomationPlan);
+        }
         if (url.pathname === NAKO_ADMIN_ROUTES.storageVfsCacheRepairTargets) {
           return Response.json(mockVfsCacheRepairTargets);
         }
@@ -2149,6 +2154,36 @@ describe("Admin data source", () => {
       },
     });
     await expect(
+      liveSource.loadVfsCacheRepairAutomationPlan?.({ enabled: true }),
+    ).resolves.toMatchObject({
+      source: "live",
+      value: {
+        policy: {
+          enabled: true,
+          total_unresolved_targets: 2,
+          eligible_targets: [
+            {
+              target: {
+                target_ref: mockVfsCacheRepairTarget.target_ref,
+                recommended_action: "refresh_cache",
+              },
+            },
+          ],
+          blocked_targets: [
+            {
+              reason: "backend_configuration_required",
+            },
+          ],
+          boundary: {
+            reads_repair_targets: true,
+            may_start_durable_jobs: true,
+            refreshes_vfs_cache: false,
+            writes_library_files: false,
+          },
+        },
+      },
+    });
+    await expect(
       liveSource.loadVfsCacheRepairTargets?.({ limit: 5, offset: 10 }),
     ).resolves.toMatchObject({
       source: "live",
@@ -2177,6 +2212,7 @@ describe("Admin data source", () => {
     expect(seenRequests).toEqual([
       NAKO_ADMIN_ROUTES.storageVfsCacheRepairActionPlan,
       NAKO_ADMIN_ROUTES.storageVfsCacheRepairRemediationPlan,
+      NAKO_ADMIN_ROUTES.storageVfsCacheRepairAutomationPlan,
       `${NAKO_ADMIN_ROUTES.storageVfsCacheRepairTargets}?limit=5&offset=10`,
       NAKO_ADMIN_ROUTES.storageVfsCacheRepairTargetPreview.replace(
         "{target_ref}",
@@ -2196,6 +2232,11 @@ describe("Admin data source", () => {
     await expect(fallbackSource.loadVfsCacheRepairRemediationPlan?.()).resolves.toMatchObject({
       source: "mock",
       value: mockVfsCacheRepairRemediationPlan,
+      error: expect.stringContaining("HTTP 503"),
+    });
+    await expect(fallbackSource.loadVfsCacheRepairAutomationPlan?.()).resolves.toMatchObject({
+      source: "mock",
+      value: mockVfsCacheRepairAutomationPlan,
       error: expect.stringContaining("HTTP 503"),
     });
     await expect(fallbackSource.loadVfsCacheRepairTargets?.()).resolves.toMatchObject({
@@ -2248,6 +2289,9 @@ describe("Admin data source", () => {
         ) {
           return Response.json(mockVfsCacheRepairEnqueueResponse);
         }
+        if (url.pathname === NAKO_ADMIN_ROUTES.storageVfsCacheRepairAutomationJobs) {
+          return Response.json(mockVfsCacheRepairAutomationEnqueueResponse);
+        }
         if (
           url.pathname ===
           NAKO_ADMIN_ROUTES.storageVfsCacheRepairJobExecute.replace(
@@ -2288,6 +2332,18 @@ describe("Admin data source", () => {
       job: {
         id: "job-vfs-cache-repair-queued",
       },
+    });
+    await expect(
+      liveSource.enqueueVfsCacheRepairAutomation?.({ enabled: true, priority: "normal" }),
+    ).resolves.toMatchObject({
+      enqueued_count: 1,
+      already_queued_count: 0,
+      jobs: [
+        {
+          job_id: "job-vfs-cache-repair-queued",
+          priority: "normal",
+        },
+      ],
     });
     await expect(liveSource.executeVfsCacheRepairJob?.(jobId)).resolves.toMatchObject({
       job: {
@@ -2330,6 +2386,11 @@ describe("Admin data source", () => {
         body: { priority: "high" },
       },
       {
+        path: NAKO_ADMIN_ROUTES.storageVfsCacheRepairAutomationJobs,
+        method: "POST",
+        body: { enabled: true, priority: "normal" },
+      },
+      {
         path: NAKO_ADMIN_ROUTES.storageVfsCacheRepairJobExecute.replace(
           "{job_id}",
           encodedJobId,
@@ -2360,6 +2421,9 @@ describe("Admin data source", () => {
     );
     await expect(
       fallbackSource.enqueueVfsCacheRepairTarget?.(targetRef),
+    ).rejects.toThrow("HTTP 503");
+    await expect(
+      fallbackSource.enqueueVfsCacheRepairAutomation?.({ enabled: true }),
     ).rejects.toThrow("HTTP 503");
     await expect(fallbackSource.executeVfsCacheRepairJob?.(jobId)).rejects.toThrow("HTTP 503");
     await expect(fallbackSource.retryVfsCacheRepairJob?.(jobId)).rejects.toThrow("HTTP 503");

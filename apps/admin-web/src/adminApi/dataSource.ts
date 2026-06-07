@@ -30,6 +30,7 @@ import {
   mockSourceDuplicateReconciliationPlan,
   mockStorageStaging,
   mockSystemConfig,
+  mockVfsCacheRepairAutomationPlan,
   mockVfsCacheRepairActionPlan,
   mockVfsCacheRepairRemediationPlan,
   mockVfsCacheRepairTargetPreview,
@@ -86,6 +87,10 @@ import type {
   AdminStorageStagingDiagnosticsResponse,
   AdminVfsCacheRefreshResponse,
   AdminVfsCacheRepairActionPlanResponse,
+  AdminVfsCacheRepairAutomationEnqueueRequest,
+  AdminVfsCacheRepairAutomationEnqueueResponse,
+  AdminVfsCacheRepairAutomationPlanResponse,
+  AdminVfsCacheRepairAutomationPolicyRequest,
   AdminVfsCacheRepairEnqueueRequest,
   AdminVfsCacheRepairEnqueueResponse,
   AdminVfsCacheRepairExecuteResponse,
@@ -229,6 +234,9 @@ export type AdminDataSource = {
   ): Promise<AdminSectionResult<AdminStorageStagingDiagnosticsResponse>>;
   loadVfsCacheRepairActionPlan?(): Promise<AdminSectionResult<AdminVfsCacheRepairActionPlanResponse>>;
   loadVfsCacheRepairRemediationPlan?(): Promise<AdminSectionResult<AdminVfsCacheRepairRemediationPlanResponse>>;
+  loadVfsCacheRepairAutomationPlan?(
+    request?: AdminVfsCacheRepairAutomationPolicyRequest,
+  ): Promise<AdminSectionResult<AdminVfsCacheRepairAutomationPlanResponse>>;
   loadVfsCacheRepairTargets?(
     query?: { limit?: number; offset?: number },
   ): Promise<AdminSectionResult<AdminVfsCacheRepairTargetListResponse>>;
@@ -241,6 +249,9 @@ export type AdminDataSource = {
     targetRef: string,
     request?: AdminVfsCacheRepairEnqueueRequest,
   ): Promise<AdminVfsCacheRepairEnqueueResponse>;
+  enqueueVfsCacheRepairAutomation?(
+    request?: AdminVfsCacheRepairAutomationEnqueueRequest,
+  ): Promise<AdminVfsCacheRepairAutomationEnqueueResponse>;
   executeVfsCacheRepairJob?(jobId: string): Promise<AdminVfsCacheRepairExecuteResponse>;
   retryVfsCacheRepairJob?(
     jobId: string,
@@ -521,6 +532,12 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
         mockVfsCacheRepairRemediationPlan,
       );
     },
+    async loadVfsCacheRepairAutomationPlan(request = { enabled: true }) {
+      return loadSection(
+        () => client.planVfsCacheRepairAutomation(request),
+        mockVfsCacheRepairAutomationPlan,
+      );
+    },
     async loadVfsCacheRepairTargets(query = {}) {
       return loadSection(
         () => client.getVfsCacheRepairTargets(query),
@@ -541,6 +558,9 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
     },
     async enqueueVfsCacheRepairTarget(targetRef, request = {}) {
       return client.enqueueVfsCacheRepairTarget(targetRef, request);
+    },
+    async enqueueVfsCacheRepairAutomation(request = { enabled: true }) {
+      return client.enqueueVfsCacheRepairAutomation(request);
     },
     async executeVfsCacheRepairJob(jobId) {
       return client.executeVfsCacheRepairJob(jobId);

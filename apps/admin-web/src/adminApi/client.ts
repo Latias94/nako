@@ -59,6 +59,10 @@ import type {
   AdminStorageStagingDiagnosticsResponse,
   AdminVfsCacheRefreshResponse,
   AdminVfsCacheRepairActionPlanResponse,
+  AdminVfsCacheRepairAutomationEnqueueRequest,
+  AdminVfsCacheRepairAutomationEnqueueResponse,
+  AdminVfsCacheRepairAutomationPlanResponse,
+  AdminVfsCacheRepairAutomationPolicyRequest,
   AdminVfsCacheRepairEnqueueRequest,
   AdminVfsCacheRepairEnqueueResponse,
   AdminVfsCacheRepairExecuteResponse,
@@ -444,6 +448,24 @@ export class AdminApiClient {
   async getVfsCacheRepairRemediationPlan(): Promise<AdminVfsCacheRepairRemediationPlanResponse> {
     return this.getJson<AdminVfsCacheRepairRemediationPlanResponse>(
       NAKO_ADMIN_ROUTES.storageVfsCacheRepairRemediationPlan,
+    );
+  }
+
+  async planVfsCacheRepairAutomation(
+    request: AdminVfsCacheRepairAutomationPolicyRequest,
+  ): Promise<AdminVfsCacheRepairAutomationPlanResponse> {
+    return this.postJson<AdminVfsCacheRepairAutomationPlanResponse>(
+      NAKO_ADMIN_ROUTES.storageVfsCacheRepairAutomationPlan,
+      request,
+    );
+  }
+
+  async enqueueVfsCacheRepairAutomation(
+    request: AdminVfsCacheRepairAutomationEnqueueRequest,
+  ): Promise<AdminVfsCacheRepairAutomationEnqueueResponse> {
+    return this.postJson<AdminVfsCacheRepairAutomationEnqueueResponse>(
+      NAKO_ADMIN_ROUTES.storageVfsCacheRepairAutomationJobs,
+      request,
     );
   }
 

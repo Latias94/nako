@@ -506,6 +506,13 @@ export type AdminSourceFingerprintHashMode = "full" | "partial";
 
 export type AdminJobPriority = "low" | "normal" | "high";
 
+export type AdminJobStatus =
+  | "queued"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "cancelled";
+
 export interface AdminSourceFingerprintHashEnqueueRequest {
   library_id: string;
   source_id: string;
@@ -791,6 +798,72 @@ export interface AdminVfsCacheRepairRemediationActionGroup {
   boundary: AdminVfsCacheRepairActionBoundary;
   executable_action: AdminVfsCacheRepairExecutableAction | null;
   sample_targets: AdminVfsCacheRepairTarget[];
+}
+
+export interface AdminVfsCacheRepairAutomationPolicyRequest {
+  enabled: boolean;
+}
+
+export type AdminVfsCacheRepairAutomationBlockReason =
+  | "policy_disabled"
+  | "backend_configuration_required"
+  | "manual_failure_inspection_required"
+  | "no_action_required";
+
+export interface AdminVfsCacheRepairAutomationBoundary {
+  reads_repair_targets: boolean;
+  may_start_durable_jobs: boolean;
+  refreshes_vfs_cache: boolean;
+  changes_backend_configuration: boolean;
+  deletes_cache_entries: boolean;
+  writes_library_files: boolean;
+}
+
+export interface AdminVfsCacheRepairAutomationEligibleTarget {
+  target: AdminVfsCacheRepairTarget;
+}
+
+export interface AdminVfsCacheRepairAutomationBlockedTarget {
+  target: AdminVfsCacheRepairTarget;
+  reason: AdminVfsCacheRepairAutomationBlockReason;
+}
+
+export interface AdminVfsCacheRepairAutomationPolicyReport {
+  enabled: boolean;
+  total_unresolved_targets: number;
+  eligible_targets: AdminVfsCacheRepairAutomationEligibleTarget[];
+  blocked_targets: AdminVfsCacheRepairAutomationBlockedTarget[];
+  boundary: AdminVfsCacheRepairAutomationBoundary;
+}
+
+export interface AdminVfsCacheRepairAutomationPlanResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  policy: AdminVfsCacheRepairAutomationPolicyReport;
+}
+
+export interface AdminVfsCacheRepairAutomationEnqueueRequest {
+  enabled: boolean;
+  priority?: AdminJobPriority | null;
+}
+
+export interface AdminVfsCacheRepairAutomationJob {
+  outcome: AdminVfsCacheRepairEnqueueOutcome;
+  job_id: string;
+  status: AdminJobStatus;
+  priority: AdminJobPriority;
+  resource_class: string;
+  library_id: string | null;
+  source_id: string | null;
+}
+
+export interface AdminVfsCacheRepairAutomationEnqueueResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  policy: AdminVfsCacheRepairAutomationPolicyReport;
+  jobs: AdminVfsCacheRepairAutomationJob[];
+  enqueued_count: number;
+  already_queued_count: number;
 }
 
 export interface AdminStorageBackendHealthDiagnostic {
@@ -4140,6 +4213,7 @@ mod tests {
             "AdminJobsQuery",
             "AdminSourceFingerprintHashMode",
             "AdminJobPriority",
+            "AdminJobStatus",
             "AdminSourceFingerprintHashEnqueueRequest",
             "AdminSourceFingerprintHashRetryRequest",
             "AdminSourceDuplicateReconciliationPlanQuery",
@@ -4301,6 +4375,16 @@ mod tests {
             "AdminVfsCacheRepairClassificationCount",
             "AdminVfsCacheRepairRemediationActionGroup",
             "AdminVfsCacheRepairRemediationPlanResponse",
+            "AdminVfsCacheRepairAutomationPolicyRequest",
+            "AdminVfsCacheRepairAutomationBlockReason",
+            "AdminVfsCacheRepairAutomationBoundary",
+            "AdminVfsCacheRepairAutomationEligibleTarget",
+            "AdminVfsCacheRepairAutomationBlockedTarget",
+            "AdminVfsCacheRepairAutomationPolicyReport",
+            "AdminVfsCacheRepairAutomationPlanResponse",
+            "AdminVfsCacheRepairAutomationEnqueueRequest",
+            "AdminVfsCacheRepairAutomationJob",
+            "AdminVfsCacheRepairAutomationEnqueueResponse",
             "AdminStorageBackendHealthDiagnostic",
             "AdminStorageBackendHealthDiagnosticsResponse",
             "AdminStorageBackendHealthResetResponse",

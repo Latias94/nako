@@ -1,0 +1,8 @@
+{"file":".trellis/spec/admin-web/frontend/index.md","reason":"Admin Web pre-development checklist and route/data-source conventions."}
+{"file":".trellis/spec/admin-web/frontend/routes-forms-and-tests.md","reason":"Storage Staging page, generated Admin API client, mutation, fallback, and RTL test patterns."}
+{"file":".trellis/spec/nako-api/backend/index.md","reason":"Generated Admin contract ownership and pre-development checklist for nako-api changes."}
+{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Admin/Public DTO split, generated Admin contract, and VFS cache repair automation contract."}
+{"file":".trellis/spec/nako-api/backend/quality-guidelines.md","reason":"Admin route inventory and generated contract validation gates."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Backend generated contract to frontend data-source/UI data flow."}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Search and reuse existing Storage Staging repair UI/client patterns."}
+{"file":".trellis/tasks/06-07-06-07-overnight-architecture-refactor-jellyfin-comparison/research/jellyfin-maintenance-comparison.md","reason":"Reference comparison motivating operator-visible maintenance controls."}

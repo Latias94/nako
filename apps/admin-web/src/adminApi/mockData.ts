@@ -34,6 +34,8 @@ import type {
   AdminStorageStagingDiagnosticsResponse,
   AdminVfsCacheRefreshResponse,
   AdminVfsCacheRepairActionPlanResponse,
+  AdminVfsCacheRepairAutomationEnqueueResponse,
+  AdminVfsCacheRepairAutomationPlanResponse,
   AdminVfsCacheRepairEnqueueResponse,
   AdminVfsCacheRepairExecuteResponse,
   AdminVfsCacheRepairRemediationPlanResponse,
@@ -1999,6 +2001,19 @@ export const mockVfsCacheRepairTarget: AdminVfsCacheRepairTarget = {
   safe_message: "Cached listing is serving a stale fallback after a backend read failure.",
 };
 
+export const mockVfsCacheRepairBlockedTarget: AdminVfsCacheRepairTarget = {
+  target_ref: "local-stat-permission",
+  scheme: "local",
+  operation: "stat",
+  failed_at_ms: 1779180100000,
+  failure_count: 1,
+  classification: "operator_action_required",
+  recommended_action: "fix_backend_configuration",
+  failure_class: "permission",
+  retryable: false,
+  safe_message: "Storage backend permissions require operator review.",
+};
+
 export const mockVfsCacheRepairDiagnostic: NonNullable<
   AdminStorageStagingDiagnosticsResponse["summary"]["vfs_cache"]["repair"]
 > = {
@@ -2076,6 +2091,30 @@ export const mockVfsCacheRepairRemediationPlan: AdminVfsCacheRepairRemediationPl
   },
 };
 
+export const mockVfsCacheRepairAutomationPlan: AdminVfsCacheRepairAutomationPlanResponse = {
+  admin_api_version: "v1",
+  public_api_version: "v1",
+  policy: {
+    enabled: true,
+    total_unresolved_targets: 2,
+    eligible_targets: [{ target: mockVfsCacheRepairTarget }],
+    blocked_targets: [
+      {
+        target: mockVfsCacheRepairBlockedTarget,
+        reason: "backend_configuration_required",
+      },
+    ],
+    boundary: {
+      reads_repair_targets: true,
+      may_start_durable_jobs: true,
+      refreshes_vfs_cache: false,
+      changes_backend_configuration: false,
+      deletes_cache_entries: false,
+      writes_library_files: false,
+    },
+  },
+};
+
 export const mockVfsCacheRepairTargets: AdminVfsCacheRepairTargetListResponse = {
   admin_api_version: "v1",
   public_api_version: "v1",
@@ -2119,6 +2158,25 @@ export const mockVfsCacheRepairEnqueueResponse: AdminVfsCacheRepairEnqueueRespon
   public_api_version: "v1",
   outcome: "enqueued",
   job: mockVfsCacheRepairQueuedJob,
+};
+
+export const mockVfsCacheRepairAutomationEnqueueResponse: AdminVfsCacheRepairAutomationEnqueueResponse = {
+  admin_api_version: "v1",
+  public_api_version: "v1",
+  policy: mockVfsCacheRepairAutomationPlan.policy,
+  jobs: [
+    {
+      outcome: "enqueued",
+      job_id: mockVfsCacheRepairQueuedJob.id,
+      status: "queued",
+      priority: "normal",
+      resource_class: mockVfsCacheRepairQueuedJob.resource_class,
+      library_id: mockVfsCacheRepairQueuedJob.library_id,
+      source_id: mockVfsCacheRepairQueuedJob.source_id,
+    },
+  ],
+  enqueued_count: 1,
+  already_queued_count: 0,
 };
 
 export const mockVfsCacheRepairExecuteSummary: AdminVfsCacheRepairExecuteResponse["summary"] = {

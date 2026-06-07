@@ -50,6 +50,8 @@ import {
   mockStorageStaging,
   mockSystemConfig,
   mockVfsCacheRefreshResponse,
+  mockVfsCacheRepairAutomationEnqueueResponse,
+  mockVfsCacheRepairAutomationPlan,
   mockVfsCacheRepairActionPlan,
   mockVfsCacheRepairEnqueueResponse,
   mockVfsCacheRepairExecuteResponse,
@@ -2918,6 +2920,10 @@ describe("Admin Web V2 route shell", () => {
       value: mockVfsCacheRepairRemediationPlan,
       source: "live" as const,
     }));
+    const loadVfsCacheRepairAutomationPlan = vi.fn(async () => ({
+      value: mockVfsCacheRepairAutomationPlan,
+      source: "live" as const,
+    }));
     const loadVfsCacheRepairTargets = vi.fn(async () => ({
       value: mockVfsCacheRepairTargets,
       source: "live" as const,
@@ -2931,6 +2937,7 @@ describe("Admin Web V2 route shell", () => {
           loadStorageStaging,
           loadVfsCacheRepairActionPlan,
           loadVfsCacheRepairRemediationPlan,
+          loadVfsCacheRepairAutomationPlan,
           loadVfsCacheRepairTargets,
         }}
       />,
@@ -2939,6 +2946,13 @@ describe("Admin Web V2 route shell", () => {
     expect(await screen.findByRole("heading", { name: "Storage Staging" })).toBeInTheDocument();
     expect(await screen.findByText("VFS cache repair")).toBeInTheDocument();
     expect(await screen.findByText("Plan status")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Automation dry-run plan" })).toBeInTheDocument();
+    expect(screen.getByText("Automation policy")).toBeInTheDocument();
+    expect(screen.getAllByText("Eligible targets").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Blocked targets").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("backend_configuration_required").length).toBeGreaterThan(0);
+    expect(screen.getByText("Reads repair targets")).toBeInTheDocument();
+    expect(screen.getByText("May start durable jobs")).toBeInTheDocument();
     expect(screen.getAllByText("Readiness").length).toBeGreaterThan(0);
     expect(screen.getByText("Unresolved targets")).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Action group" })).toBeInTheDocument();
@@ -2951,6 +2965,7 @@ describe("Admin Web V2 route shell", () => {
     ).toBeInTheDocument();
     expect(loadVfsCacheRepairActionPlan).toHaveBeenCalledTimes(1);
     expect(loadVfsCacheRepairRemediationPlan).toHaveBeenCalledTimes(1);
+    expect(loadVfsCacheRepairAutomationPlan).toHaveBeenCalledWith({ enabled: true });
     expect(loadVfsCacheRepairTargets).toHaveBeenCalledWith({ limit: 20, offset: 0 });
   });
 
@@ -2970,15 +2985,19 @@ describe("Admin Web V2 route shell", () => {
       screen.getByText(/VFS cache repair remediation-plan data source is unavailable/),
     ).toBeInTheDocument();
     expect(
+      screen.getByText(/VFS cache repair automation dry-run data source is unavailable/),
+    ).toBeInTheDocument();
+    expect(
       screen.getByText(/VFS cache repair targets data source is unavailable/),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Repair actions are disabled. Refresh requires live repair action-plan data. Enqueue requires live repair targets data.",
+        "Repair actions are disabled. Refresh requires live repair action-plan data. Enqueue requires live repair targets data. Automation enqueue requires live automation dry-run data.",
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Refresh latest cache" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Enqueue first repair target" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Enqueue automation batch" })).toBeDisabled();
     expect(screen.getAllByText("webdav-list-stale-anime").length).toBeGreaterThan(0);
   });
 
@@ -2995,12 +3014,19 @@ describe("Admin Web V2 route shell", () => {
       value: mockVfsCacheRepairRemediationPlan,
       source: "live" as const,
     }));
+    const loadVfsCacheRepairAutomationPlan = vi.fn(async () => ({
+      value: mockVfsCacheRepairAutomationPlan,
+      source: "live" as const,
+    }));
     const loadVfsCacheRepairTargets = vi.fn(async () => ({
       value: mockVfsCacheRepairTargets,
       source: "live" as const,
     }));
     const refreshLatestVfsCacheRepair = vi.fn(async () => mockVfsCacheRefreshResponse);
     const enqueueVfsCacheRepairTarget = vi.fn(async () => mockVfsCacheRepairEnqueueResponse);
+    const enqueueVfsCacheRepairAutomation = vi.fn(
+      async () => mockVfsCacheRepairAutomationEnqueueResponse,
+    );
     window.history.pushState(null, "", "/storage/staging");
 
     render(
@@ -3010,9 +3036,11 @@ describe("Admin Web V2 route shell", () => {
           loadStorageStaging,
           loadVfsCacheRepairActionPlan,
           loadVfsCacheRepairRemediationPlan,
+          loadVfsCacheRepairAutomationPlan,
           loadVfsCacheRepairTargets,
           refreshLatestVfsCacheRepair,
           enqueueVfsCacheRepairTarget,
+          enqueueVfsCacheRepairAutomation,
         }}
       />,
     );
@@ -3046,6 +3074,22 @@ describe("Admin Web V2 route shell", () => {
       await screen.findByText(
         "Queued VFS cache repair job job-vfs-cache-repair-queued, status queued.",
       ),
+    ).toBeInTheDocument();
+
+    const automationButton = screen.getByRole("button", { name: "Enqueue automation batch" });
+    await waitFor(() => {
+      expect(automationButton).not.toBeDisabled();
+    });
+    fireEvent.click(automationButton);
+
+    await waitFor(() => {
+      expect(enqueueVfsCacheRepairAutomation).toHaveBeenCalledWith({
+        enabled: true,
+        priority: "normal",
+      });
+    });
+    expect(
+      await screen.findByText("Queued 1 VFS cache repair automation jobs; 0 already queued."),
     ).toBeInTheDocument();
   });
 

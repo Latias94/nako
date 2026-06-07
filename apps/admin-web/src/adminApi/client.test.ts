@@ -36,6 +36,8 @@ import {
   mockSourceDuplicateReconciliationPlan,
   mockStorageStaging,
   mockSystemConfig,
+  mockVfsCacheRepairAutomationEnqueueResponse,
+  mockVfsCacheRepairAutomationPlan,
   mockWatchFolderDiscovery,
 } from "./mockData";
 
@@ -538,6 +540,46 @@ describe("AdminApiClient", () => {
             duplicate_source_id: "duplicate/source id",
             expected_action: "suggest_relationship",
           }),
+        },
+      ],
+    ]);
+  });
+
+  it("uses generated VFS cache repair automation routes for dry-run and enqueue", async () => {
+    const fetcher = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input.toString(), "http://127.0.0.1");
+
+      if (url.pathname === NAKO_ADMIN_ROUTES.storageVfsCacheRepairAutomationPlan) {
+        return Response.json(mockVfsCacheRepairAutomationPlan);
+      }
+      if (url.pathname === NAKO_ADMIN_ROUTES.storageVfsCacheRepairAutomationJobs) {
+        return Response.json(mockVfsCacheRepairAutomationEnqueueResponse);
+      }
+
+      return new Response("not found", { status: 404 });
+    });
+    const client = new AdminApiClient({ token: "redacted-test-token", fetcher });
+
+    await expect(client.planVfsCacheRepairAutomation({ enabled: true })).resolves.toEqual(
+      mockVfsCacheRepairAutomationPlan,
+    );
+    await expect(
+      client.enqueueVfsCacheRepairAutomation({ enabled: true, priority: "high" }),
+    ).resolves.toEqual(mockVfsCacheRepairAutomationEnqueueResponse);
+
+    expect(fetcher.mock.calls).toMatchObject([
+      [
+        NAKO_ADMIN_ROUTES.storageVfsCacheRepairAutomationPlan,
+        {
+          method: "POST",
+          body: JSON.stringify({ enabled: true }),
+        },
+      ],
+      [
+        NAKO_ADMIN_ROUTES.storageVfsCacheRepairAutomationJobs,
+        {
+          method: "POST",
+          body: JSON.stringify({ enabled: true, priority: "high" }),
         },
       ],
     ]);

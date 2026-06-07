@@ -16,12 +16,14 @@ import type {
   AdminStorageStagingDiagnosticsResponse,
   AdminStorageStagingQuery,
   AdminVfsCacheRepairActionPlanResponse,
+  AdminVfsCacheRepairAutomationPlanResponse,
   AdminVfsCacheRepairRemediationPlanResponse,
   AdminVfsCacheRepairTargetListResponse,
 } from "../../adminApi/types";
 import {
   mockStorageStaging,
   mockVfsCacheRepairActionPlan,
+  mockVfsCacheRepairAutomationPlan,
   mockVfsCacheRepairRemediationPlan,
   mockVfsCacheRepairTargets,
 } from "../../adminApi/mockData";
@@ -77,6 +79,11 @@ type VfsCacheRepairRemediationPlanResult = {
   source: DataSourceMode;
   error?: string;
 };
+type VfsCacheRepairAutomationPlanResult = {
+  value: AdminVfsCacheRepairAutomationPlanResponse;
+  source: DataSourceMode;
+  error?: string;
+};
 type VfsCacheRepairTargetsResult = {
   value: AdminVfsCacheRepairTargetListResponse;
   source: DataSourceMode;
@@ -85,6 +92,10 @@ type VfsCacheRepairTargetsResult = {
 type VfsCacheRepairTarget = AdminVfsCacheRepairTargetListResponse["targets"][number];
 type VfsCacheRepairActionGroup =
   AdminVfsCacheRepairRemediationPlanResponse["action_groups"][number];
+type VfsCacheRepairAutomationEligibleTarget =
+  AdminVfsCacheRepairAutomationPlanResponse["policy"]["eligible_targets"][number];
+type VfsCacheRepairAutomationBlockedTarget =
+  AdminVfsCacheRepairAutomationPlanResponse["policy"]["blocked_targets"][number];
 type BadgeTone = "danger" | "info" | "neutral" | "success" | "warning";
 
 export function StorageStagingPage({
@@ -116,6 +127,14 @@ export function StorageStagingPage({
         t("storage.repair.remediationPlanUnavailable"),
       ),
   });
+  const automationPlanQuery = useQuery({
+    queryKey: ["admin-storage-staging", "vfs-cache-repair", "automation-plan", locale],
+    queryFn: () =>
+      loadVfsCacheRepairAutomationPlan(
+        dataSource,
+        t("storage.repair.automationPlanUnavailable"),
+      ),
+  });
   const repairTargetsQuery = useQuery({
     queryKey: ["admin-storage-staging", "vfs-cache-repair", "targets", locale],
     queryFn: () =>
@@ -136,13 +155,22 @@ export function StorageStagingPage({
     value: mockVfsCacheRepairRemediationPlan,
     source: "mock" as const,
   };
+  const automationPlanResult = automationPlanQuery.data ?? {
+    value: mockVfsCacheRepairAutomationPlan,
+    source: "mock" as const,
+  };
   const repairTargetsResult = repairTargetsQuery.data ?? {
     value: mockVfsCacheRepairTargets,
     source: "mock" as const,
   };
   const firstEnqueueableRepairTarget =
     repairTargetsResult.value.targets.find(isEnqueueableRepairTarget) ?? null;
-  const repairReadQueries = [actionPlanQuery, remediationPlanQuery, repairTargetsQuery];
+  const repairReadQueries = [
+    actionPlanQuery,
+    remediationPlanQuery,
+    automationPlanQuery,
+    repairTargetsQuery,
+  ];
   const repairReadLoading = repairReadQueries.some((repairQuery) => repairQuery.isLoading);
   const routeReadFetching =
     query.isFetching || repairReadQueries.some((repairQuery) => repairQuery.isFetching);
@@ -150,6 +178,7 @@ export function StorageStagingPage({
   const repairSource = combineSources([
     actionPlanResult.source,
     remediationPlanResult.source,
+    automationPlanResult.source,
     repairTargetsResult.source,
   ]);
   const canRefreshLatest =
@@ -161,13 +190,26 @@ export function StorageStagingPage({
     repairTargetsResult.source === "live" &&
     Boolean(dataSource.enqueueVfsCacheRepairTarget) &&
     firstEnqueueableRepairTarget !== null;
+  const automationEligibleCount = automationPlanResult.value.policy.eligible_targets.length;
+  const automationBlockedCount = automationPlanResult.value.policy.blocked_targets.length;
+  const canEnqueueAutomation =
+    result.source === "live" &&
+    automationPlanResult.source === "live" &&
+    automationPlanResult.value.policy.enabled &&
+    automationEligibleCount > 0 &&
+    Boolean(dataSource.enqueueVfsCacheRepairAutomation);
   const repairMutationDisabledReason = mutationReadLoading
     ? null
     : mutationDisabledReason(
         {
           actionPlanLive: actionPlanResult.source === "live",
+          automationPlanLive: automationPlanResult.source === "live",
+          automationPolicyEnabled: automationPlanResult.value.policy.enabled,
+          canEnqueueAutomation,
           canEnqueueFirstTarget,
           canRefreshLatest,
+          hasAutomationEligibleTarget: automationEligibleCount > 0,
+          hasAutomationEnqueueRoute: Boolean(dataSource.enqueueVfsCacheRepairAutomation),
           hasEnqueueRoute: Boolean(dataSource.enqueueVfsCacheRepairTarget),
           hasEnqueueableTarget: firstEnqueueableRepairTarget !== null,
           hasRefreshRoute: Boolean(dataSource.refreshLatestVfsCacheRepair),
@@ -204,6 +246,43 @@ export function StorageStagingPage({
       setMutationMessage(
         t("storage.repair.refreshSucceeded", {
           refreshed: response.refreshed ? t("storage.repair.yes") : t("storage.repair.no"),
+        }),
+      );
+      void queryClient.invalidateQueries({ queryKey: ["admin-storage-staging"] });
+    },
+    onError: (error) => {
+      setMutationError(errorMessage(error, t("storage.repair.operationFailed")));
+    },
+  });
+  const automationMutation = useMutation({
+    mutationFn: async () => {
+      if (result.source !== "live" || automationPlanResult.source !== "live") {
+        throw new Error(t("storage.repair.notLiveError"));
+      }
+      if (!automationPlanResult.value.policy.enabled) {
+        throw new Error(t("storage.repair.automationPolicyDisabled"));
+      }
+      if (automationEligibleCount === 0) {
+        throw new Error(t("storage.repair.noAutomationEligibleTargets"));
+      }
+      if (!dataSource.enqueueVfsCacheRepairAutomation) {
+        throw new Error(t("storage.repair.automationEnqueueUnavailable"));
+      }
+
+      return dataSource.enqueueVfsCacheRepairAutomation({
+        enabled: true,
+        priority: "normal",
+      });
+    },
+    onMutate: () => {
+      setMutationMessage(null);
+      setMutationError(null);
+    },
+    onSuccess: (response) => {
+      setMutationMessage(
+        t("storage.repair.automationEnqueueSucceeded", {
+          alreadyQueued: response.already_queued_count,
+          enqueued: response.enqueued_count,
         }),
       );
       void queryClient.invalidateQueries({ queryKey: ["admin-storage-staging"] });
@@ -255,6 +334,7 @@ export function StorageStagingPage({
             void query.refetch();
             void actionPlanQuery.refetch();
             void remediationPlanQuery.refetch();
+            void automationPlanQuery.refetch();
             void repairTargetsQuery.refetch();
           }}
           variant="outline"
@@ -356,6 +436,16 @@ export function StorageStagingPage({
                 ? t("storage.repair.enqueueing")
                 : t("storage.repair.enqueueFirstTarget")}
             </Button>
+            <Button
+              disabled={!canEnqueueAutomation || automationMutation.isPending}
+              onClick={() => automationMutation.mutate()}
+              size="sm"
+            >
+              <Wrench size={14} />
+              {automationMutation.isPending
+                ? t("storage.repair.automationEnqueueing")
+                : t("storage.repair.enqueueAutomation")}
+            </Button>
           </div>
         }
         title={t("storage.repair.title")}
@@ -371,6 +461,13 @@ export function StorageStagingPage({
           <RouteNotice>
             {t("storage.repair.remediationPlanFallback", {
               error: remediationPlanResult.error,
+            })}
+          </RouteNotice>
+        ) : null}
+        {automationPlanResult.error ? (
+          <RouteNotice>
+            {t("storage.repair.automationPlanFallback", {
+              error: automationPlanResult.error,
             })}
           </RouteNotice>
         ) : null}
@@ -507,9 +604,91 @@ export function StorageStagingPage({
                   t={t}
                 />
               </section>
+
+              <section
+                aria-label={t("storage.repair.automationPlan")}
+                className="settingsRowList"
+              >
+                <div className="settingsRowList">
+                  <RepairRow
+                    badge={
+                      automationPlanResult.value.policy.enabled
+                        ? t("storage.repair.automationEnabled")
+                        : t("storage.repair.automationDisabled")
+                    }
+                    detail={t("storage.repair.totalTargets", {
+                      count: automationPlanResult.value.policy.total_unresolved_targets,
+                    })}
+                    label={t("storage.repair.automationPolicy")}
+                    tone={automationPlanResult.value.policy.enabled ? "success" : "neutral"}
+                    value={
+                      automationPlanResult.value.policy.enabled
+                        ? t("storage.repair.automationEnabled")
+                        : t("storage.repair.automationDisabled")
+                    }
+                  />
+                  <RepairRow
+                    badge={t("storage.repair.targetsReturned", {
+                      count: automationEligibleCount,
+                    })}
+                    label={t("storage.repair.eligibleTargets")}
+                    tone={automationEligibleCount > 0 ? "success" : "neutral"}
+                    value={String(automationEligibleCount)}
+                  />
+                  <RepairRow
+                    badge={t("storage.repair.targetsReturned", {
+                      count: automationBlockedCount,
+                    })}
+                    detail={blockedReasonLabel(
+                      automationPlanResult.value.policy.blocked_targets,
+                      t,
+                    )}
+                    label={t("storage.repair.blockedTargets")}
+                    tone={automationBlockedCount > 0 ? "warning" : "success"}
+                    value={String(automationBlockedCount)}
+                  />
+                </div>
+                <BoundaryList
+                  rows={[
+                    {
+                      enabled: automationPlanResult.value.policy.boundary.reads_repair_targets,
+                      label: t("storage.repair.boundary.readsTargets"),
+                    },
+                    {
+                      enabled:
+                        automationPlanResult.value.policy.boundary.may_start_durable_jobs,
+                      label: t("storage.repair.boundary.mayStartJobs"),
+                    },
+                    {
+                      enabled: automationPlanResult.value.policy.boundary.refreshes_vfs_cache,
+                      label: t("storage.repair.boundary.refreshesCache"),
+                    },
+                    {
+                      enabled:
+                        automationPlanResult.value.policy.boundary
+                          .changes_backend_configuration,
+                      label: t("storage.repair.boundary.backendConfig"),
+                    },
+                    {
+                      enabled: automationPlanResult.value.policy.boundary.deletes_cache_entries,
+                      label: t("storage.repair.boundary.deletesCache"),
+                    },
+                    {
+                      enabled: automationPlanResult.value.policy.boundary.writes_library_files,
+                      label: t("storage.repair.boundary.writesFiles"),
+                    },
+                  ]}
+                  t={t}
+                />
+              </section>
             </div>
 
             <RepairActionGroups groups={remediationPlanResult.value.action_groups} t={t} />
+            <AutomationTargetTables
+              blockedTargets={automationPlanResult.value.policy.blocked_targets}
+              eligibleTargets={automationPlanResult.value.policy.eligible_targets}
+              t={t}
+            />
             <RepairTargetsTable targets={repairTargetsResult.value.targets} t={t} />
           </>
         ) : null}
@@ -880,6 +1059,56 @@ function RepairActionGroups({
   );
 }
 
+function AutomationTargetTables({
+  blockedTargets,
+  eligibleTargets,
+  t,
+}: {
+  blockedTargets: VfsCacheRepairAutomationBlockedTarget[];
+  eligibleTargets: VfsCacheRepairAutomationEligibleTarget[];
+  t: Translate;
+}) {
+  return (
+    <section aria-label={t("storage.repair.automationTargets")}>
+      <div className="settingsPanelGrid">
+        <div className="settingsRowList">
+          <h3>{t("storage.repair.eligibleTargets")}</h3>
+          {eligibleTargets.length === 0 ? (
+            <EmptyRouteState>{t("storage.repair.noAutomationEligibleTargets")}</EmptyRouteState>
+          ) : (
+            <div className="issueBadgeList">
+              {eligibleTargets.map(({ target }) => (
+                <Badge key={target.target_ref} tone={classificationTone(target.classification)}>
+                  {target.target_ref}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="settingsRowList">
+          <h3>{t("storage.repair.blockedTargets")}</h3>
+          {blockedTargets.length === 0 ? (
+            <EmptyRouteState>{t("storage.repair.noAutomationBlockedTargets")}</EmptyRouteState>
+          ) : (
+            <div className="settingsRowList">
+              {blockedTargets.map(({ reason, target }) => (
+                <RepairRow
+                  key={`${target.target_ref}-${reason}`}
+                  badge={reason}
+                  detail={target.safe_message ?? t("storage.repair.none")}
+                  label={target.target_ref}
+                  tone={automationBlockReasonTone(reason)}
+                  value={target.recommended_action}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function RepairTargetsTable({ targets, t }: { targets: VfsCacheRepairTarget[]; t: Translate }) {
   return (
     <section aria-label={t("storage.repair.targetsTitle")}>
@@ -964,6 +1193,21 @@ async function loadVfsCacheRepairRemediationPlan(
   return dataSource.loadVfsCacheRepairRemediationPlan();
 }
 
+async function loadVfsCacheRepairAutomationPlan(
+  dataSource: AdminDataSource,
+  unavailableMessage: string,
+): Promise<VfsCacheRepairAutomationPlanResult> {
+  if (!dataSource.loadVfsCacheRepairAutomationPlan) {
+    return {
+      value: mockVfsCacheRepairAutomationPlan,
+      source: "mock",
+      error: unavailableMessage,
+    };
+  }
+
+  return dataSource.loadVfsCacheRepairAutomationPlan({ enabled: true });
+}
+
 async function loadVfsCacheRepairTargets(
   dataSource: AdminDataSource,
   unavailableMessage: string,
@@ -1025,11 +1269,24 @@ function listLabel(values: string[], t: Translate) {
   return values.length > 0 ? values.join(", ") : t("storage.repair.none");
 }
 
+function blockedReasonLabel(
+  blockedTargets: VfsCacheRepairAutomationBlockedTarget[],
+  t: Translate,
+) {
+  const reasons = Array.from(new Set(blockedTargets.map((target) => target.reason)));
+  return listLabel(reasons, t);
+}
+
 function mutationDisabledReason(
   readiness: {
     actionPlanLive: boolean;
+    automationPlanLive: boolean;
+    automationPolicyEnabled: boolean;
+    canEnqueueAutomation: boolean;
     canEnqueueFirstTarget: boolean;
     canRefreshLatest: boolean;
+    hasAutomationEligibleTarget: boolean;
+    hasAutomationEnqueueRoute: boolean;
     hasEnqueueRoute: boolean;
     hasEnqueueableTarget: boolean;
     hasRefreshRoute: boolean;
@@ -1039,7 +1296,9 @@ function mutationDisabledReason(
   t: Translate,
 ) {
   if (readiness.canRefreshLatest && readiness.canEnqueueFirstTarget) {
-    return null;
+    if (readiness.canEnqueueAutomation) {
+      return null;
+    }
   }
 
   const reasons = new Set<string>();
@@ -1059,6 +1318,18 @@ function mutationDisabledReason(
       reasons.add(t("storage.repair.disabled.enqueueRouteMissing"));
     } else if (!readiness.hasEnqueueableTarget) {
       reasons.add(t("storage.repair.disabled.noEnqueueableTarget"));
+    }
+  }
+
+  if (!readiness.canEnqueueAutomation) {
+    if (!readiness.stagingLive || !readiness.automationPlanLive) {
+      reasons.add(t("storage.repair.disabled.automationNotLive"));
+    } else if (!readiness.hasAutomationEnqueueRoute) {
+      reasons.add(t("storage.repair.disabled.automationRouteMissing"));
+    } else if (!readiness.automationPolicyEnabled) {
+      reasons.add(t("storage.repair.disabled.automationPolicyDisabled"));
+    } else if (!readiness.hasAutomationEligibleTarget) {
+      reasons.add(t("storage.repair.disabled.noAutomationEligibleTarget"));
     }
   }
 
@@ -1130,6 +1401,21 @@ function classificationTone(classification: string): BadgeTone {
 
   if (classification === "operator_action_required" || classification === "unknown_failure") {
     return "danger";
+  }
+
+  return "neutral";
+}
+
+function automationBlockReasonTone(reason: string): BadgeTone {
+  if (reason === "policy_disabled" || reason === "no_action_required") {
+    return "neutral";
+  }
+
+  if (
+    reason === "backend_configuration_required" ||
+    reason === "manual_failure_inspection_required"
+  ) {
+    return "warning";
   }
 
   return "neutral";

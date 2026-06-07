@@ -1,0 +1,4 @@
+{"file":".trellis/spec/admin-web/frontend/routes-forms-and-tests.md","reason":"Quality check for route/data-source/generated contract/test patterns."}
+{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Quality check for generated Admin contract and VFS repair automation DTO coverage."}
+{"file":".trellis/spec/nako-api/backend/quality-guidelines.md","reason":"Admin route inventory, generated artifact, and public/admin separation gates."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Verify cross-layer data flow from generated DTOs to UI rendering."}
