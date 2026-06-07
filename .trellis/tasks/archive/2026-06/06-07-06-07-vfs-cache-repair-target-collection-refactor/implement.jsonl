@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Entry point for nako-server backend guidelines before touching app services and tests."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server test and validation guidance for focused Rust checks."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "This task intentionally removes duplicated target scanning logic."}
+{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Storage/VFS capability map and redaction/automation follow-on boundaries."}
+{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Durable job and control-plane boundaries for VFS cache repair automation."}
+{"file": ".trellis/tasks/06-07-06-07-overnight-architecture-refactor-jellyfin-comparison/research/jellyfin-maintenance-comparison.md", "reason": "Campaign research translating Jellyfin maintenance patterns into Nako-native policy planners."}

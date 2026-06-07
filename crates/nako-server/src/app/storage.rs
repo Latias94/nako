@@ -361,6 +361,12 @@ struct VfsCacheRepairAutomationPolicyAccumulator {
     blocked_targets: Vec<VfsCacheRepairAutomationBlockedTargetReport>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum VfsCacheRepairTargetVisit {
+    Continue,
+    Stop,
+}
+
 impl VfsCacheRepairAutomationPolicyAccumulator {
     fn new(policy: VfsCacheRepairAutomationPolicy) -> Self {
         Self {
@@ -966,40 +972,21 @@ impl StorageDiagnosticsAppService {
         let page = page.clamped();
         let mut targets = Vec::new();
         let mut repair_target_offset = 0_u64;
-        let mut failure_offset = 0_u64;
 
-        loop {
-            let failures = self
-                .registry
-                .store
-                .list_vfs_cache_failures(PageRequest::new(PageRequest::MAX_LIMIT, failure_offset))
-                .await?;
-            let failure_count = failures.len();
-            if failure_count == 0 {
-                break;
+        self.visit_unresolved_vfs_cache_repair_targets(|_failure, target| {
+            if repair_target_offset < page.offset {
+                repair_target_offset += 1;
+                return Ok(VfsCacheRepairTargetVisit::Continue);
             }
 
-            for failure in failures {
-                let Some(target) = self.vfs_cache_repair_target_from_failure(failure).await? else {
-                    continue;
-                };
-                if repair_target_offset < page.offset {
-                    repair_target_offset += 1;
-                    continue;
-                }
-
-                targets.push(target);
-                if targets.len() >= page.limit as usize {
-                    return Ok(targets);
-                }
+            targets.push(target);
+            if targets.len() >= page.limit as usize {
+                Ok(VfsCacheRepairTargetVisit::Stop)
+            } else {
+                Ok(VfsCacheRepairTargetVisit::Continue)
             }
-
-            if failure_count < PageRequest::MAX_LIMIT as usize {
-                break;
-            }
-
-            failure_offset = failure_offset.saturating_add(failure_count as u64);
-        }
+        })
+        .await?;
 
         Ok(targets)
     }
@@ -1008,32 +995,12 @@ impl StorageDiagnosticsAppService {
         &self,
     ) -> Result<VfsCacheRepairRemediationPlanReport> {
         let mut accumulator = VfsCacheRepairRemediationPlanAccumulator::default();
-        let mut failure_offset = 0_u64;
 
-        loop {
-            let failures = self
-                .registry
-                .store
-                .list_vfs_cache_failures(PageRequest::new(PageRequest::MAX_LIMIT, failure_offset))
-                .await?;
-            let failure_count = failures.len();
-            if failure_count == 0 {
-                break;
-            }
-
-            for failure in failures {
-                let Some(target) = self.vfs_cache_repair_target_from_failure(failure).await? else {
-                    continue;
-                };
-                accumulator.record(target);
-            }
-
-            if failure_count < PageRequest::MAX_LIMIT as usize {
-                break;
-            }
-
-            failure_offset = failure_offset.saturating_add(failure_count as u64);
-        }
+        self.visit_unresolved_vfs_cache_repair_targets(|_failure, target| {
+            accumulator.record(target);
+            Ok(VfsCacheRepairTargetVisit::Continue)
+        })
+        .await?;
 
         Ok(accumulator.into_report())
     }
@@ -1043,32 +1010,12 @@ impl StorageDiagnosticsAppService {
         policy: VfsCacheRepairAutomationPolicy,
     ) -> Result<VfsCacheRepairAutomationPolicyReport> {
         let mut accumulator = VfsCacheRepairAutomationPolicyAccumulator::new(policy);
-        let mut failure_offset = 0_u64;
 
-        loop {
-            let failures = self
-                .registry
-                .store
-                .list_vfs_cache_failures(PageRequest::new(PageRequest::MAX_LIMIT, failure_offset))
-                .await?;
-            let failure_count = failures.len();
-            if failure_count == 0 {
-                break;
-            }
-
-            for failure in failures {
-                let Some(target) = self.vfs_cache_repair_target_from_failure(failure).await? else {
-                    continue;
-                };
-                accumulator.record(target);
-            }
-
-            if failure_count < PageRequest::MAX_LIMIT as usize {
-                break;
-            }
-
-            failure_offset = failure_offset.saturating_add(failure_count as u64);
-        }
+        self.visit_unresolved_vfs_cache_repair_targets(|_failure, target| {
+            accumulator.record(target);
+            Ok(VfsCacheRepairTargetVisit::Continue)
+        })
+        .await?;
 
         Ok(accumulator.into_report())
     }
@@ -1352,9 +1299,7 @@ impl StorageDiagnosticsAppService {
                     continue;
                 }
 
-                let Some(target) = self
-                    .vfs_cache_repair_target_from_failure(failure.clone())
-                    .await?
+                let Some(target) = self.vfs_cache_repair_target_from_failure(&failure).await?
                 else {
                     return Err(vfs_cache_repair_job_target_not_found());
                 };
@@ -1387,39 +1332,18 @@ impl StorageDiagnosticsAppService {
             return Err(vfs_cache_repair_target_not_found());
         }
 
-        let mut failure_offset = 0_u64;
-
-        loop {
-            let failures = self
-                .registry
-                .store
-                .list_vfs_cache_failures(PageRequest::new(PageRequest::MAX_LIMIT, failure_offset))
-                .await?;
-            let failure_count = failures.len();
-            if failure_count == 0 {
-                break;
+        let mut matched = None;
+        self.visit_unresolved_vfs_cache_repair_targets(|failure, target| {
+            if target.target_ref == target_ref {
+                matched = Some((failure, target));
+                Ok(VfsCacheRepairTargetVisit::Stop)
+            } else {
+                Ok(VfsCacheRepairTargetVisit::Continue)
             }
+        })
+        .await?;
 
-            for failure in failures {
-                let Some(target) = self
-                    .vfs_cache_repair_target_from_failure(failure.clone())
-                    .await?
-                else {
-                    continue;
-                };
-                if target.target_ref == target_ref {
-                    return Ok((failure, target));
-                }
-            }
-
-            if failure_count < PageRequest::MAX_LIMIT as usize {
-                break;
-            }
-
-            failure_offset = failure_offset.saturating_add(failure_count as u64);
-        }
-
-        Err(vfs_cache_repair_target_not_found())
+        matched.ok_or_else(vfs_cache_repair_target_not_found)
     }
 
     async fn refresh_vfs_cache_repair_failure(
@@ -1462,26 +1386,63 @@ impl StorageDiagnosticsAppService {
 
     async fn vfs_cache_repair_target_from_failure(
         &self,
-        failure: VfsCacheFailure,
+        failure: &VfsCacheFailure,
     ) -> Result<Option<VfsCacheRepairTargetReport>> {
         if self
             .registry
-            .vfs_cache_failure_resolved_by_cache(&failure)
+            .vfs_cache_failure_resolved_by_cache(failure)
             .await?
         {
             return Ok(None);
         }
 
-        let repair = VfsCacheRepairDiagnostic::from_failure(&failure);
+        let repair = VfsCacheRepairDiagnostic::from_failure(failure);
 
         Ok(Some(VfsCacheRepairTargetReport {
-            target_ref: self.vfs_cache_repair_target_ref(&failure),
+            target_ref: self.vfs_cache_repair_target_ref(failure),
             scheme: safe_storage_scheme(&failure.scheme),
             operation: failure.operation,
             failed_at_ms: failure.failed_at_ms,
             failure_count: failure.failure_count,
             repair,
         }))
+    }
+
+    async fn visit_unresolved_vfs_cache_repair_targets<F>(&self, mut visit: F) -> Result<()>
+    where
+        F: FnMut(VfsCacheFailure, VfsCacheRepairTargetReport) -> Result<VfsCacheRepairTargetVisit>,
+    {
+        let mut failure_offset = 0_u64;
+
+        loop {
+            let failures = self
+                .registry
+                .store
+                .list_vfs_cache_failures(PageRequest::new(PageRequest::MAX_LIMIT, failure_offset))
+                .await?;
+            let failure_count = failures.len();
+            if failure_count == 0 {
+                break;
+            }
+
+            for failure in failures {
+                let Some(target) = self.vfs_cache_repair_target_from_failure(&failure).await?
+                else {
+                    continue;
+                };
+                if visit(failure, target)? == VfsCacheRepairTargetVisit::Stop {
+                    return Ok(());
+                }
+            }
+
+            if failure_count < PageRequest::MAX_LIMIT as usize {
+                break;
+            }
+
+            failure_offset = failure_offset.saturating_add(failure_count as u64);
+        }
+
+        Ok(())
     }
 
     fn vfs_cache_repair_target_ref(&self, failure: &VfsCacheFailure) -> String {

@@ -9,7 +9,7 @@ use nako_core::{
     StorageCircuitBreakerState, StorageErrorKind, StorageFailureClass,
     VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS, VfsCacheFailure, VfsCacheFailureAuthority,
     VfsCacheOperation, VfsCacheRepairJobAction, VfsCacheRepairJobInput, VfsCacheRepository,
-    vfs_cache_repair_uri_digest,
+    VfsCachedObject, VfsCachedObjectKind, vfs_cache_repair_uri_digest,
 };
 use nako_library::SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS;
 use nako_vfs::{
@@ -1338,6 +1338,72 @@ async fn vfs_cache_repair_automation_policy_enabled_blocks_backend_config() {
     assert!(!report.boundary.deletes_cache_entries);
     assert!(!report.boundary.writes_library_files);
     assert!(jobs.is_empty());
+    assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn vfs_cache_repair_planners_share_unresolved_target_collection() {
+    let (_temp, app, store, backend, unresolved) =
+        vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Unavailable.safe_message())
+            .await;
+    let resolved = store
+        .record_vfs_cache_failure(NewVfsCacheFailure {
+            uri: "local:///Users/ExampleUser/Secret Path/Already Fresh.mkv?token=secret".to_owned(),
+            scheme: "local".to_owned(),
+            operation: VfsCacheOperation::Stat,
+            failed_at_ms: 2_000,
+            error: StorageFailureClass::Unavailable.safe_message().to_owned(),
+            authority: unresolved.authority.clone(),
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_vfs_cache_object(&VfsCachedObject {
+            uri: resolved.uri.clone(),
+            scheme: resolved.scheme.clone(),
+            kind: VfsCachedObjectKind::File,
+            len: Some(42),
+            modified_at: None,
+            etag: Some("safe-test-etag".to_owned()),
+            fingerprint: Some("safe-test-fingerprint".to_owned()),
+            capabilities_bits: 0,
+            fetched_at_ms: resolved.failed_at_ms + 1,
+            fresh_until_ms: resolved.failed_at_ms + 60_000,
+        })
+        .await
+        .unwrap();
+
+    let targets = app
+        .storage()
+        .list_vfs_cache_repair_targets(PageRequest::new(10, 0))
+        .await
+        .unwrap();
+    let remediation = app
+        .storage()
+        .plan_vfs_cache_repair_remediation()
+        .await
+        .unwrap();
+    let automation = app
+        .storage()
+        .plan_vfs_cache_repair_automation(VfsCacheRepairAutomationPolicy { enabled: true })
+        .await
+        .unwrap();
+    let refresh_group = remediation
+        .action_groups
+        .iter()
+        .find(|group| group.action == nako_vfs::VfsCacheRepairAction::RefreshCache)
+        .expect("refresh cache group");
+
+    assert_eq!(targets.len(), 1);
+    assert_eq!(targets[0].failed_at_ms, unresolved.failed_at_ms);
+    assert_eq!(remediation.total_unresolved_targets, targets.len() as u32);
+    assert_eq!(refresh_group.count, targets.len() as u32);
+    assert_eq!(refresh_group.sample_targets, targets);
+    assert_eq!(automation.total_unresolved_targets, targets.len() as u32);
+    assert_eq!(automation.eligible_targets.len(), targets.len());
+    assert!(automation.blocked_targets.is_empty());
+    assert_eq!(automation.eligible_targets[0].target, targets[0]);
     assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 0);
     assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
 }
