@@ -18,7 +18,7 @@ struct AdminRouteExclusionSuffix {
     reason: &'static str,
 }
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 90] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 94] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -37,6 +37,16 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 90] = [
         "addons/catalog/entries/{entry_id}/resolve",
     ),
     ("addonDetail", "addons/:addon_id"),
+    ("addonTokens", "addons/{addon_id}/tokens"),
+    (
+        "addonTokenRotate",
+        "addons/{addon_id}/tokens/{token_id}/rotate",
+    ),
+    (
+        "addonTokenRevoke",
+        "addons/{addon_id}/tokens/{token_id}/revoke",
+    ),
+    ("addonGrants", "addons/{addon_id}/grants"),
     ("addonStatus", "addons/:addon_id/status"),
     ("addonUnregister", "addons/:addon_id/unregister"),
     ("addonHealthCheck", "addons/:addon_id/health-check"),
@@ -267,7 +277,7 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 90] = [
     ("settingsMetadataRawCache", "settings/metadata/raw-cache"),
 ];
 
-const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 24] = [
+const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 20] = [
     AdminRouteExclusionSuffix {
         suffix: "access/invitations",
         reason: "Invitation lifecycle routes are implemented for Admin operators but are not generated as Admin Web route constants in this slice.",
@@ -291,22 +301,6 @@ const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 24] = [
     AdminRouteExclusionSuffix {
         suffix: "addons/{addon_id}/task-runs/{job_id}/retry",
         reason: "Addon task-run operator workflows are implemented server-side but are not generated as Admin Web route constants in this slice.",
-    },
-    AdminRouteExclusionSuffix {
-        suffix: "addons/{addon_id}/tokens",
-        reason: "Addon credential routes are derived from addonDetail in Admin Web until credential route keys are stabilized.",
-    },
-    AdminRouteExclusionSuffix {
-        suffix: "addons/{addon_id}/tokens/{token_id}/rotate",
-        reason: "Addon credential routes are derived from addonDetail in Admin Web until credential route keys are stabilized.",
-    },
-    AdminRouteExclusionSuffix {
-        suffix: "addons/{addon_id}/tokens/{token_id}/revoke",
-        reason: "Addon credential routes are derived from addonDetail in Admin Web until credential route keys are stabilized.",
-    },
-    AdminRouteExclusionSuffix {
-        suffix: "addons/{addon_id}/grants",
-        reason: "Addon grant routes are derived from addonDetail in Admin Web until grant route keys are stabilized.",
     },
     AdminRouteExclusionSuffix {
         suffix: "artwork/candidates/{candidate_id}/accept",

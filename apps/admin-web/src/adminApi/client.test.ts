@@ -42,6 +42,33 @@ import {
   mockWatchFolderDiscovery,
 } from "./mockData";
 
+const TEST_ADDON_ID = "addon-subtitle-lab";
+const TEST_ADDON_TOKEN_ID = "addon-token-active";
+
+function addonDetailPath(addonId = TEST_ADDON_ID) {
+  return NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", addonId);
+}
+
+function addonTokensPath(addonId = TEST_ADDON_ID) {
+  return NAKO_ADMIN_ROUTES.addonTokens.replace("{addon_id}", addonId);
+}
+
+function addonTokenRotatePath(addonId = TEST_ADDON_ID, tokenId = TEST_ADDON_TOKEN_ID) {
+  return NAKO_ADMIN_ROUTES.addonTokenRotate
+    .replace("{addon_id}", addonId)
+    .replace("{token_id}", tokenId);
+}
+
+function addonTokenRevokePath(addonId = TEST_ADDON_ID, tokenId = TEST_ADDON_TOKEN_ID) {
+  return NAKO_ADMIN_ROUTES.addonTokenRevoke
+    .replace("{addon_id}", addonId)
+    .replace("{token_id}", tokenId);
+}
+
+function addonGrantsPath(addonId = TEST_ADDON_ID) {
+  return NAKO_ADMIN_ROUTES.addonGrants.replace("{addon_id}", addonId);
+}
+
 describe("AdminApiClient", () => {
   it("loads the overview through /admin/v1/overview with optional bearer auth", async () => {
     const fetcher = vi.fn(async () =>
@@ -122,12 +149,12 @@ describe("AdminApiClient", () => {
         mockCatalogGovernanceItemDetail("item-candidate"),
       ],
       [NAKO_ADMIN_ROUTES.addons, mockAddons],
-      [NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab"), mockAddonDetail],
+      [addonDetailPath(), mockAddonDetail],
       [NAKO_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab"), mockAddonHealth],
       [NAKO_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab"), mockAddonSurfaces],
       [NAKO_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab"), mockAddonInstallGuide],
-      [`${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`, mockAddonTokens],
-      [`${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`, mockAddonGrants],
+      [addonTokensPath(), mockAddonTokens],
+      [addonGrantsPath(), mockAddonGrants],
       [NAKO_ADMIN_ROUTES.acquisitionIntakeCandidates, mockAcquisitionIntakeCandidates],
       [NAKO_ADMIN_ROUTES.generatedArtifactProposals, mockGeneratedArtifactProposals],
       [NAKO_ADMIN_ROUTES.events, mockEvents],
@@ -215,12 +242,12 @@ describe("AdminApiClient", () => {
       NAKO_ADMIN_ROUTES.accessSummary,
       NAKO_ADMIN_ROUTES.catalogGovernanceItemDetail.replace("{item_id}", "item-candidate"),
       `${NAKO_ADMIN_ROUTES.addons}?status=enabled`,
-      NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab"),
+      addonDetailPath(),
       NAKO_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab"),
       NAKO_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab"),
       NAKO_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab"),
-      `${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`,
-      `${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`,
+      addonTokensPath(),
+      addonGrantsPath(),
       `${NAKO_ADMIN_ROUTES.acquisitionIntakeCandidates}?library_id=library-anime&state=ready`,
       `${NAKO_ADMIN_ROUTES.generatedArtifactProposals}?limit=5`,
       NAKO_ADMIN_ROUTES.events,
@@ -716,28 +743,28 @@ describe("AdminApiClient", () => {
 
     expect(fetcher.mock.calls).toMatchObject([
       [
-        `${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`,
+        addonTokensPath(),
         {
           method: "POST",
           body: JSON.stringify({ label: "sidecar runtime" }),
         },
       ],
       [
-        `${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens/addon-token-active/rotate`,
+        addonTokenRotatePath(),
         {
           method: "POST",
           body: JSON.stringify({ label: "replacement" }),
         },
       ],
       [
-        `${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens/addon-token-active/revoke`,
+        addonTokenRevokePath(),
         {
           method: "POST",
           body: JSON.stringify({}),
         },
       ],
       [
-        `${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`,
+        addonGrantsPath(),
         {
           method: "PUT",
           body: JSON.stringify({ grants: [{ permission: "metadata_write", library_id: null }] }),

@@ -184,7 +184,9 @@ export class AdminApiClient {
   }
 
   async getAddonTokens(addonId: string): Promise<AddonTokensResponse> {
-    return this.getJson<AddonTokensResponse>(`${addonPath(NAKO_ADMIN_ROUTES.addonDetail, addonId)}/tokens`);
+    return this.getJson<AddonTokensResponse>(
+      routeWithParam(NAKO_ADMIN_ROUTES.addonTokens, "addon_id", addonId),
+    );
   }
 
   async issueAddonToken(
@@ -192,7 +194,7 @@ export class AdminApiClient {
     request: IssueAddonTokenRequest,
   ): Promise<AddonTokenIssuedResponse> {
     return this.postJson<AddonTokenIssuedResponse>(
-      `${addonPath(NAKO_ADMIN_ROUTES.addonDetail, addonId)}/tokens`,
+      routeWithParam(NAKO_ADMIN_ROUTES.addonTokens, "addon_id", addonId),
       request,
     );
   }
@@ -203,20 +205,30 @@ export class AdminApiClient {
     request: IssueAddonTokenRequest,
   ): Promise<AddonTokenRotationResponse> {
     return this.postJson<AddonTokenRotationResponse>(
-      `${addonPath(NAKO_ADMIN_ROUTES.addonDetail, addonId)}/tokens/${encodeURIComponent(tokenId)}/rotate`,
+      routeWithParam(
+        routeWithParam(NAKO_ADMIN_ROUTES.addonTokenRotate, "addon_id", addonId),
+        "token_id",
+        tokenId,
+      ),
       request,
     );
   }
 
   async revokeAddonToken(addonId: string, tokenId: string): Promise<AddonTokenResponse> {
     return this.postJson<AddonTokenResponse>(
-      `${addonPath(NAKO_ADMIN_ROUTES.addonDetail, addonId)}/tokens/${encodeURIComponent(tokenId)}/revoke`,
+      routeWithParam(
+        routeWithParam(NAKO_ADMIN_ROUTES.addonTokenRevoke, "addon_id", addonId),
+        "token_id",
+        tokenId,
+      ),
       {},
     );
   }
 
   async getAddonGrants(addonId: string): Promise<AddonGrantsResponse> {
-    return this.getJson<AddonGrantsResponse>(`${addonPath(NAKO_ADMIN_ROUTES.addonDetail, addonId)}/grants`);
+    return this.getJson<AddonGrantsResponse>(
+      routeWithParam(NAKO_ADMIN_ROUTES.addonGrants, "addon_id", addonId),
+    );
   }
 
   async replaceAddonGrants(
@@ -224,7 +236,7 @@ export class AdminApiClient {
     request: ReplaceAddonGrantsRequest,
   ): Promise<AddonGrantsResponse> {
     return this.putJson<AddonGrantsResponse>(
-      `${addonPath(NAKO_ADMIN_ROUTES.addonDetail, addonId)}/grants`,
+      routeWithParam(NAKO_ADMIN_ROUTES.addonGrants, "addon_id", addonId),
       request,
     );
   }

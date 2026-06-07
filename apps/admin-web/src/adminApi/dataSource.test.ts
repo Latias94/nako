@@ -50,6 +50,33 @@ import {
   mockVfsCacheRepairTargets,
 } from "./mockData";
 
+const TEST_ADDON_ID = "addon-subtitle-lab";
+const TEST_ADDON_TOKEN_ID = "addon-token-active";
+
+function addonDetailPath(addonId = TEST_ADDON_ID) {
+  return NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", addonId);
+}
+
+function addonTokensPath(addonId = TEST_ADDON_ID) {
+  return NAKO_ADMIN_ROUTES.addonTokens.replace("{addon_id}", addonId);
+}
+
+function addonTokenRotatePath(addonId = TEST_ADDON_ID, tokenId = TEST_ADDON_TOKEN_ID) {
+  return NAKO_ADMIN_ROUTES.addonTokenRotate
+    .replace("{addon_id}", addonId)
+    .replace("{token_id}", tokenId);
+}
+
+function addonTokenRevokePath(addonId = TEST_ADDON_ID, tokenId = TEST_ADDON_TOKEN_ID) {
+  return NAKO_ADMIN_ROUTES.addonTokenRevoke
+    .replace("{addon_id}", addonId)
+    .replace("{token_id}", tokenId);
+}
+
+function addonGrantsPath(addonId = TEST_ADDON_ID) {
+  return NAKO_ADMIN_ROUTES.addonGrants.replace("{addon_id}", addonId);
+}
+
 describe("Admin data source", () => {
   it("composes live Admin API read models into console data", async () => {
     const dataSource = createAdminDataSource({
@@ -57,12 +84,12 @@ describe("Admin data source", () => {
         [NAKO_ADMIN_ROUTES.overview]: mockOverview,
         [NAKO_ADMIN_ROUTES.accessSummary]: mockAccessSummary,
         [NAKO_ADMIN_ROUTES.addons]: mockAddons,
-        [NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDetail,
+        [addonDetailPath()]: mockAddonDetail,
         [NAKO_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab")]: mockAddonHealth,
         [NAKO_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab")]: mockAddonSurfaces,
         [NAKO_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab")]: mockAddonInstallGuide,
-        [`${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`]: mockAddonTokens,
-        [`${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`]: mockAddonGrants,
+        [addonTokensPath()]: mockAddonTokens,
+        [addonGrantsPath()]: mockAddonGrants,
         [NAKO_ADMIN_ROUTES.addonResourceCallDiagnostic.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDiagnostic,
         [NAKO_ADMIN_ROUTES.acquisitionIntakeCandidates]: mockAcquisitionIntakeCandidates,
         [NAKO_ADMIN_ROUTES.catalogGovernanceItems]: mockCatalogGovernance,
@@ -172,12 +199,12 @@ describe("Admin data source", () => {
       fetcher: fetcherFor({
         [NAKO_ADMIN_ROUTES.overview]: mockOverview,
         [NAKO_ADMIN_ROUTES.addons]: new Response("offline", { status: 503 }),
-        [NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDetail,
+        [addonDetailPath()]: mockAddonDetail,
         [NAKO_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab")]: mockAddonHealth,
         [NAKO_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab")]: mockAddonSurfaces,
         [NAKO_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab")]: mockAddonInstallGuide,
-        [`${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`]: mockAddonTokens,
-        [`${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`]: mockAddonGrants,
+        [addonTokensPath()]: mockAddonTokens,
+        [addonGrantsPath()]: mockAddonGrants,
         [NAKO_ADMIN_ROUTES.addonResourceCallDiagnostic.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDiagnostic,
         [NAKO_ADMIN_ROUTES.acquisitionIntakeCandidates]: mockAcquisitionIntakeCandidates,
         [NAKO_ADMIN_ROUTES.catalogGovernanceItems]: mockCatalogGovernance,
@@ -1465,7 +1492,7 @@ describe("Admin data source", () => {
         if (url.pathname === NAKO_ADMIN_ROUTES.addons) {
           return Response.json(mockAddons);
         }
-        if (url.pathname === NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")) {
+        if (url.pathname === addonDetailPath()) {
           return Response.json(mockAddonDetail);
         }
         if (url.pathname === NAKO_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab")) {
@@ -1477,10 +1504,10 @@ describe("Admin data source", () => {
         if (url.pathname === NAKO_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab")) {
           return Response.json(mockAddonInstallGuide);
         }
-        if (url.pathname === `${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`) {
+        if (url.pathname === addonTokensPath()) {
           return Response.json(mockAddonTokens);
         }
-        if (url.pathname === `${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`) {
+        if (url.pathname === addonGrantsPath()) {
           return Response.json(mockAddonGrants);
         }
 
@@ -2566,11 +2593,11 @@ describe("Admin data source", () => {
   it("exposes Addon credential and grant onboarding actions without putting raw tokens in load data", async () => {
     const dataSource = createAdminDataSource({
       fetcher: fetcherFor({
-        [`${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`]: {
+        [addonTokensPath()]: {
           token: mockAddonTokens.tokens[0],
           raw_token: "nako_at_one_time_raw_token",
         },
-        [`${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens/addon-token-active/rotate`]: {
+        [addonTokenRotatePath()]: {
           rotated: mockAddonTokens.tokens[0],
           token: {
             ...mockAddonTokens.tokens[0],
@@ -2579,14 +2606,14 @@ describe("Admin data source", () => {
           },
           raw_token: "nako_at_rotated_one_time_raw_token",
         },
-        [`${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens/addon-token-active/revoke`]: {
+        [addonTokenRevokePath()]: {
           token: {
             ...mockAddonTokens.tokens[0],
             status: "revoked",
             revoked_at: "2026-05-22T03:00:00.000Z",
           },
         },
-        [`${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`]: {
+        [addonGrantsPath()]: {
           grants: [
             {
               id: "addon-grant-metadata",
@@ -2631,12 +2658,12 @@ describe("Admin data source", () => {
       fetcher: fetcherFor({
         [NAKO_ADMIN_ROUTES.overview]: mockOverview,
         [NAKO_ADMIN_ROUTES.addons]: mockAddons,
-        [NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDetail,
+        [addonDetailPath()]: mockAddonDetail,
         [NAKO_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab")]: mockAddonHealth,
         [NAKO_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab")]: mockAddonSurfaces,
         [NAKO_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab")]: mockAddonInstallGuide,
-        [`${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/tokens`]: mockAddonTokens,
-        [`${NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", "addon-subtitle-lab")}/grants`]: mockAddonGrants,
+        [addonTokensPath()]: mockAddonTokens,
+        [addonGrantsPath()]: mockAddonGrants,
         [NAKO_ADMIN_ROUTES.addonResourceCallDiagnostic.replace(":addon_id", "addon-subtitle-lab")]: mockAddonDiagnostic,
         [NAKO_ADMIN_ROUTES.acquisitionIntakeCandidates]: mockAcquisitionIntakeCandidates,
         [NAKO_ADMIN_ROUTES.catalogGovernanceItems]: mockCatalogGovernance,
