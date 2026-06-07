@@ -375,3 +375,40 @@ Validation:
   - Result: passed.
 - `git diff --check`
   - Result: passed with only Git LF/CRLF working-copy warnings.
+
+## 2026-06-07 PostgreSQL Storage/Source Runtime Parity Refresh
+
+What changed:
+
+- No production code, schema, migration, API, or harness command surface was
+  changed.
+- Refreshed current-HEAD PostgreSQL runtime evidence after the VFS cache repair
+  durable enqueue, executor, scheduler, and retry/Admin command slices.
+- Exercised the existing focused PostgreSQL contract harness suites for the
+  storage runtime and source identity query paths named in the M2 reliability
+  follow-on pool.
+- Verified the local temporary PostgreSQL 17 cluster starts, runs the focused
+  ignored contracts, stops, and leaves no listener on port `55432`.
+- Updated `docs/architecture/STORAGE_VFS.md` so the focused PostgreSQL
+  storage/source parity evidence is marked refreshed while broader runtime
+  parity remains a follow-on.
+
+Validation:
+
+- Current commit: `57ff4413`.
+- Local tooling:
+  - `initdb.exe`, `pg_ctl.exe`, and `createdb.exe` were available from
+    `F:\MySoftware\PostgreSQL\17\bin`.
+- `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/postgres-contract-harness.ps1 -Suite storage-runtime -RequireTooling`
+  - Result: passed.
+  - PostgreSQL ignored contracts: 4 tests run, 4 passed, 176 skipped.
+  - Covered storage backend health, VFS staging listing/failure/summary,
+    attribution variants, reservation budget, and lease preservation.
+- `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/postgres-contract-harness.ps1 -Suite source-identity -RequireTooling`
+  - Result: passed.
+  - PostgreSQL ignored contracts: 6 tests run, 6 passed, 174 skipped.
+  - Covered library-scoped Media Source identity, scan source-unit writes,
+    Source Duplicate Relationship upsert/pair lookup/fingerprint matching, and
+    VFS staging attribution/budget contracts.
+- `Get-NetTCPConnection -LocalPort 55432 -ErrorAction SilentlyContinue`
+  - Result: no listener reported after harness cleanup.

@@ -24,7 +24,7 @@ and rclone-like mounts can be slow, stale, or unavailable.
 | Capability | Status | Authority | Next Lane |
 | --- | --- | --- | --- |
 | Local storage backend | Shipped | `docs/adr/0002-internal-vfs-before-os-mounting.md` | Keep local behavior as the compatibility baseline. |
-| Remote storage boundary | Shipped durable health foundation | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/`; `.trellis/tasks/archive/2026-06/06-02-01d-hls-artifact-io-pressure-enforcement/` | Open follow-ons for cache repair, broader scan scheduling, or PostgreSQL runtime harness work. |
+| Remote storage boundary | Shipped durable health foundation plus focused PostgreSQL storage/source parity evidence | `docs/adr/0016-remote-storage-and-vfs-cache-boundary.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `docs/workstreams/remote-storage-health-and-circuit-breaker/`; `.trellis/tasks/archive/2026-06/06-02-01d-hls-artifact-io-pressure-enforcement/`; `.trellis/tasks/06-06-06-06-overnight-fearless-refactor-development-plan/` | Open follow-ons for cache repair, broader scan scheduling, or broader PostgreSQL runtime harness work. |
 | WebDAV read path | Partial | `docs/workstreams/storage-vfs/`; remote storage lanes | Harden retries, cache, and operator diagnostics. |
 | Source locator | Shipped foundation | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/` | Watcher/debounce productization and repair workflows. |
 | Source fingerprint | Shipped escalation policy, hash execution kernel, scheduling diagnostic planner, durable job contract, job summary contract, internal enqueue seam, queued execution planner, single-job executor command, scheduler integration, evidence persistence, Admin overview/Jobs diagnostics, Admin manual enqueue, source-hash retry/requeue, and scan-originated durable triggering | `CONTEXT.md`; `docs/workstreams/storage-vfs-resilience-and-source-identity/`; `.trellis/tasks/archive/2026-06/06-04-06-04-source-fingerprint-escalation-policy-first-slice/`; `.trellis/tasks/archive/2026-06/06-05-06-05-source-fingerprint-hash-execution-first-slice/`; `.trellis/tasks/archive/2026-06/06-06-admin-source-fingerprint-hash-trigger-first-slice/`; `.trellis/tasks/archive/2026-06/06-06-source-hash-retry-requeue-admin-command/`; `.trellis/tasks/06-06-scan-originated-source-hash-triggering/`; `crates/nako-core/src/job.rs`; `crates/nako-library/src/source_hash.rs`; `crates/nako-server/src/app/source_hash.rs`; `crates/nako-server/src/app/jobs.rs`; `crates/nako-server/src/app/runtime.rs` | Automatic Source Duplicate Relationship reconciliation, broader scheduler migration, and PostgreSQL runtime harness work remain follow-ons. |
@@ -407,8 +407,10 @@ Shipped:
   partial/full hash execution kernel, scheduler integration, and
   redaction-safe diagnostics. The current scan escalation policy seam still
   does not read source bytes.
-- `proposed:storage-vfs-postgresql-runtime-harness`: runtime parity evidence
-  for PostgreSQL storage/source identity query paths.
+- `proposed:storage-vfs-postgresql-runtime-harness`: focused
+  `storage-runtime` and `source-identity` PostgreSQL contract harness suites
+  passed on current HEAD as of 2026-06-07. Broader runtime parity evidence for
+  future storage/control-plane query paths remains a follow-on.
 - `proposed:storage-opendal-adapter-decision-spike`: evaluate Apache OpenDAL
   as a possible implementation adapter behind `StorageBackend` for future
   backend breadth. Do not replace Nako-owned `StorageUri`, Source Locator
