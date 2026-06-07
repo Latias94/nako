@@ -354,7 +354,27 @@ pub struct ByteRange {
 }
 
 impl ByteRange {
+    pub fn validate_syntax(self, uri: &StorageUri) -> Result<Self> {
+        if let Some(length) = self.length {
+            if length == 0 {
+                return Err(NakoError::InvalidInput {
+                    message: format!("range length must be greater than zero: {uri}"),
+                });
+            }
+
+            if self.offset.checked_add(length).is_none() {
+                return Err(NakoError::InvalidInput {
+                    message: format!("range overflows file length: {uri}"),
+                });
+            }
+        }
+
+        Ok(self)
+    }
+
     pub fn validate_for_len(self, uri: &StorageUri, object_len: u64) -> Result<Self> {
+        self.validate_syntax(uri)?;
+
         if self.offset > object_len {
             return Err(NakoError::InvalidInput {
                 message: format!(
@@ -365,18 +385,10 @@ impl ByteRange {
         }
 
         if let Some(length) = self.length {
-            if length == 0 {
-                return Err(NakoError::InvalidInput {
-                    message: format!("range length must be greater than zero: {uri}"),
-                });
-            }
-
-            let Some(end) = self.offset.checked_add(length) else {
-                return Err(NakoError::InvalidInput {
-                    message: format!("range overflows file length: {uri}"),
-                });
-            };
-
+            let end = self
+                .offset
+                .checked_add(length)
+                .expect("range overflow is checked by validate_syntax");
             if end > object_len {
                 return Err(NakoError::InvalidInput {
                     message: format!("range end {end} exceeds file length {object_len}: {uri}"),
@@ -1188,6 +1200,28 @@ mod tests {
     }
 
     #[test]
+    fn byte_range_rejects_invalid_syntax() {
+        let uri = StorageUri::parse("local:///movies/demo.mkv").unwrap();
+
+        assert!(
+            ByteRange {
+                offset: 1,
+                length: Some(0),
+            }
+            .validate_syntax(&uri)
+            .is_err()
+        );
+        assert!(
+            ByteRange {
+                offset: u64::MAX,
+                length: Some(2),
+            }
+            .validate_syntax(&uri)
+            .is_err()
+        );
+    }
+
+    #[test]
     fn byte_range_rejects_invalid_boundaries() {
         let uri = StorageUri::parse("local:///movies/demo.mkv").unwrap();
 
@@ -1201,26 +1235,10 @@ mod tests {
         );
         assert!(
             ByteRange {
-                offset: 1,
-                length: Some(0),
-            }
-            .validate_for_len(&uri, 10)
-            .is_err()
-        );
-        assert!(
-            ByteRange {
                 offset: 9,
                 length: Some(2),
             }
             .validate_for_len(&uri, 10)
-            .is_err()
-        );
-        assert!(
-            ByteRange {
-                offset: u64::MAX,
-                length: Some(2),
-            }
-            .validate_for_len(&uri, u64::MAX)
             .is_err()
         );
     }

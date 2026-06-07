@@ -143,7 +143,7 @@ impl WebDavBackend {
                     .headers(xml_headers(depth))
                     .body(body.to_owned());
                 request = self.apply_auth(request);
-                request
+                Ok(request)
             })
             .await?;
 
@@ -233,7 +233,7 @@ impl WebDavBackend {
         let response = self
             .send_with_retry(|| {
                 let request = self.client.get(url.clone()).timeout(self.timeout);
-                self.apply_auth(request)
+                Ok(self.apply_auth(request))
             })
             .await?;
 
@@ -258,9 +258,9 @@ impl WebDavBackend {
             .send_with_retry(|| {
                 let mut request = self.client.get(url.clone()).timeout(self.timeout);
                 if let Some(range) = range {
-                    request = request.header(RANGE, http_range_value(range));
+                    request = request.header(RANGE, http_range_value(range, uri)?);
                 }
-                self.apply_auth(request)
+                Ok(self.apply_auth(request))
             })
             .await?;
 
@@ -281,11 +281,11 @@ impl WebDavBackend {
 
     async fn send_with_retry<F>(&self, mut build: F) -> Result<reqwest::Response>
     where
-        F: FnMut() -> reqwest::RequestBuilder,
+        F: FnMut() -> Result<reqwest::RequestBuilder>,
     {
         let mut last_error = None;
         for attempt in 1..=self.max_attempts {
-            match build().send().await {
+            match build()?.send().await {
                 Ok(response) if !is_retryable_status(response.status()) => return Ok(response),
                 Ok(response) => {
                     if attempt == self.max_attempts {
@@ -767,10 +767,15 @@ fn validate_read_length(
     Ok(())
 }
 
-fn http_range_value(range: ByteRange) -> String {
+fn http_range_value(range: ByteRange, uri: &StorageUri) -> Result<String> {
+    range.validate_syntax(uri)?;
     match range.length {
-        Some(length) => format!("bytes={}-{}", range.offset, range.offset + length - 1),
-        None => format!("bytes={}-", range.offset),
+        Some(length) => Ok(format!(
+            "bytes={}-{}",
+            range.offset,
+            range.offset + length - 1
+        )),
+        None => Ok(format!("bytes={}-", range.offset)),
     }
 }
 
