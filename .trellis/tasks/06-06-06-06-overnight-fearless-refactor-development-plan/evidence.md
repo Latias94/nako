@@ -536,3 +536,75 @@ Validation:
     enqueue-target selection, and disabled reason handling; reported missing
     new i18n keys before validation, which were fixed before this evidence was
     finalized.
+
+## 2026-06-07 M1 RC Closeout Audit
+
+Conclusion:
+
+- Product-Operator M1 is RC-ready except publication on current HEAD
+  `5c64f2a6`.
+- No named M1 blocker was found in the authoritative closeout docs reviewed
+  for this audit.
+
+Evidence reviewed:
+
+- `docs/GOALS.md` records the roadmap/goal/lane reconciliation as completed
+  and says follow-on M1 release-candidate evidence passed `release-fast`,
+  `playback`, `container`, `postgres`, and `workspace`.
+- `docs/ROADMAP.md` routes new M1 implementation only from release-ladder or
+  Admin coverage-matrix blockers, and no unconditional M1 candidate remains.
+- `docs/architecture/LANES.md` keeps operations-release and adjacent M1 lanes
+  idle unless a concrete failed ladder mode or coverage-matrix opening
+  condition appears.
+- `docs/deployment/M1_LADDER_EVIDENCE_MATRIX.md` documents all runner modes:
+  `docs`, `smoke`, `fast`, `release-fast`, `playback`, `container`,
+  `postgres`, `workspace`, and `all`.
+- Archived evidence records:
+  - `release-fast` passed in
+    `.trellis/tasks/archive/2026-06/06-06-m1-release-fast-evidence-run/`;
+  - `playback` passed in
+    `.trellis/tasks/archive/2026-06/06-06-m1-playback-evidence-run/`;
+  - `container` passed in
+    `.trellis/tasks/archive/2026-06/06-06-m1-container-evidence-run/`;
+  - `postgres` passed in
+    `.trellis/tasks/archive/2026-06/06-06-m1-postgres-evidence-run/`,
+    including a separate `all-contracts` PostgreSQL harness pass;
+  - `workspace` passed after the timing-gate repair in
+    `.trellis/tasks/archive/2026-06/06-06-m1-workspace-evidence-run/`;
+  - Product-Operator smoke/fast evidence is recorded in
+    `.trellis/tasks/archive/2026-06/06-06-m1-operator-journey-smoke/` and
+    `.trellis/tasks/archive/2026-06/06-06-m1-release-ladder-runner/`.
+
+Ladder policy:
+
+- `scripts/m1-release-ladder.ps1 -Mode all` was not rerun in this closeout
+  audit because it is expensive and environment-dependent.
+- The script proves `Mode all` is an orchestrated sequence of `fast`,
+  `release-fast`, `playback`, `container`, `postgres`, and `workspace`, with
+  repeated redaction inventory skipped only for the later expensive delegated
+  gates.
+- For an actual RC publication run, use `Mode all` without
+  `-SkipRedactionInventory`; skipped environment-dependent gates must be
+  recorded as skipped, not passed, per the evidence matrix.
+
+Packaging dry-run shape:
+
+- Ran
+  `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1 -WhatIf`
+  on current HEAD.
+- Result: passed. The script reported package id
+  `nako-server-v0.1.0-alpha.2-x86_64-pc-windows-msvc-5c64f2a68ac7` and
+  stopped before building or writing release artifacts.
+- `scripts/package-release.ps1` declares `SupportsShouldProcess`; when
+  `$WhatIfPreference` is set, it exits after reporting that it would
+  build/copy release files, write the manifest, archive, and `SHA256SUMS`.
+- No release build, tag, publish, archive, manifest, checksum, or generated
+  contract was created by this audit.
+
+Known non-blocking publication gaps:
+
+- Actual artifact build/package publication was intentionally not run.
+- Crates/image publishing, tags, and release artifacts remain manual
+  publication steps outside this closeout audit.
+- No live-browser manual playback session proof was added beyond the existing
+  smoke, Admin Web, playback, and workspace gate evidence.
