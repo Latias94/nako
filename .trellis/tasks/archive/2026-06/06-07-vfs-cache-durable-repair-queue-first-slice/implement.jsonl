@@ -1,0 +1,20 @@
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared Trellis thinking guides; future follow-on work will cross storage, control-plane, API, and persistence boundaries."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "VFS cache repair follow-ons are cross-layer by default: durable jobs, Admin HTTP, server app services, VFS diagnostics, and DB persistence."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Future work must reuse the shipped enqueue/executor/retry/action-plan helpers instead of duplicating first-slice semantics."}
+{"file": ".trellis/spec/nako-core/backend/index.md", "reason": "Domain and durable job contract boundary for JobKind, repair input validation, IDs, and repository traits."}
+{"file": ".trellis/spec/nako-core/backend/error-handling.md", "reason": "Validation and persisted enum errors for durable job input must stay redaction-safe and domain-owned."}
+{"file": ".trellis/spec/nako-core/backend/quality-guidelines.md", "reason": "Cross-crate durable contract changes need focused tests and dependency discipline."}
+{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "VFS owns storage URI, cache repair diagnostics, backend capability, and redaction-safe storage failure semantics."}
+{"file": ".trellis/spec/nako-vfs/backend/error-handling.md", "reason": "Storage failure classification and operator diagnostics are central to any repair follow-on."}
+{"file": ".trellis/spec/nako-vfs/backend/quality-guidelines.md", "reason": "Future repair work must preserve URI validation, cache fallback, capability narrowing, and write safety."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server app service, Admin HTTP, runtime supervisor, and test layout guidance for storage/control-plane follow-ons."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Any future Admin repair route must follow current Axum route/auth/versioning patterns."}
+{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "HTTP-facing repair failures must map to safe API errors without leaking storage identity."}
+{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "Repair jobs and background execution must keep tracing redaction-safe."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused server checks and nextest gates for app/HTTP/runtime repair behavior."}
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Admin route inventory and DTO contract ownership if a follow-on changes API shape."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Generated Admin contract and DTO redaction guidance for future repair surfaces."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Generated contract and redaction-sensitive DTO validation gates."}
+{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "Durable job queue and repository adapter boundaries for any persistence or parity follow-on."}
+{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "SQLx, migration, row mapping, and durable job priority/retry contracts for future DB work."}
+{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "SQLite/PostgreSQL contract-test parity expectations for storage/control-plane query paths."}

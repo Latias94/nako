@@ -1,0 +1,20 @@
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared verification prompts for cross-layer and reuse risks."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Check whether any future follow-on keeps API, service, VFS, DB, and runtime facts aligned."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Check that shipped VFS cache repair helpers are reused instead of duplicated."}
+{"file": ".trellis/spec/nako-core/backend/index.md", "reason": "Verify durable domain contracts stay in core and remain dependency-light."}
+{"file": ".trellis/spec/nako-core/backend/error-handling.md", "reason": "Verify validation and parse failures stay redaction-safe."}
+{"file": ".trellis/spec/nako-core/backend/quality-guidelines.md", "reason": "Verify cross-crate contract changes have focused tests and no boundary drift."}
+{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "Verify VFS repair semantics remain owned by storage/VFS boundaries."}
+{"file": ".trellis/spec/nako-vfs/backend/error-handling.md", "reason": "Verify storage failure classifications and diagnostics do not leak raw backend facts."}
+{"file": ".trellis/spec/nako-vfs/backend/quality-guidelines.md", "reason": "Verify URI, capability, fallback, and write-safety constraints."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Verify app service, HTTP, runtime, and tests follow server conventions."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Verify Admin route/auth/versioning patterns for any future route work."}
+{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Verify safe HTTP error mapping for storage repair failures."}
+{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "Verify background repair logs and spans avoid sensitive fields."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify focused server gates and tests match changed scope."}
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Verify Admin DTO and contract ownership if API shape changes."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Verify generated Admin contracts, route inventory, and redaction boundaries."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Verify generated contract gates and redaction-sensitive DTO tests."}
+{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "Verify durable job persistence boundaries and adapter ownership."}
+{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "Verify SQL/migration/row mapping and durable priority/retry contracts if DB changes occur."}
+{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "Verify SQLite/PostgreSQL contract-test parity expectations for any DB follow-on."}
