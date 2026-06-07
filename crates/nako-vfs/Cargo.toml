@@ -12,11 +12,16 @@ homepage.workspace = true
 [lints]
 workspace = true
 
+[features]
+default = []
+opendal-proof = ["dep:opendal"]
+
 [dependencies]
 async-trait.workspace = true
 bitflags.workspace = true
 bytes.workspace = true
 futures-util.workspace = true
+opendal = { workspace = true, optional = true }
 reqwest.workspace = true
 roxmltree.workspace = true
 serde.workspace = true

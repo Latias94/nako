@@ -16,10 +16,14 @@ use sha2::{Digest, Sha256};
 
 mod cache;
 mod local;
+#[cfg(feature = "opendal-proof")]
+mod opendal;
 mod webdav;
 
 pub use cache::{CachedStorageBackend, VfsCacheOptions};
 pub use local::LocalFsBackend;
+#[cfg(feature = "opendal-proof")]
+pub use opendal::OpenDalStorageBackend;
 pub use webdav::{
     EnvWebDavSecretResolver, WebDavBackend, WebDavBackendConfig, WebDavSecretResolver,
 };

@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/guides/index.md", "reason": "Verify reuse and cross-layer thinking were applied."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Verify the adapter reuses Nako VFS contracts and avoids duplicate semantics."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify OpenDAL remains contained inside nako-vfs and does not leak across layers."}
+{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "Verify adapter placement and exports match nako-vfs boundaries."}
+{"file": ".trellis/spec/nako-vfs/backend/directory-structure.md", "reason": "Verify module placement follows existing adapter layout."}
+{"file": ".trellis/spec/nako-vfs/backend/database-guidelines.md", "reason": "Verify no persistence or DB behavior was introduced."}
+{"file": ".trellis/spec/nako-vfs/backend/quality-guidelines.md", "reason": "Verify URI, capabilities, range-read, stream, and test requirements."}
+{"file": ".trellis/spec/nako-vfs/backend/error-handling.md", "reason": "Verify error mapping and safe diagnostics."}
+{"file": ".trellis/spec/nako-vfs/backend/logging-guidelines.md", "reason": "Verify no unsafe provider details are logged or exposed."}
+{"file": "docs/adr/0055-opendal-storage-adapter-foundation.md", "reason": "Verify implementation matches the ADR proof-adapter constraints."}

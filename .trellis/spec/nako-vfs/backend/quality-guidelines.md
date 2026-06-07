@@ -37,6 +37,93 @@ cache diagnostics.
   offset, zero-length, overflow, or open-ended length logic in individual
   backend adapters.
 
+## Scenario: Optional OpenDAL Adapter Boundary
+
+### 1. Scope / Trigger
+
+- Trigger: adding or extending an OpenDAL-backed storage adapter in `nako-vfs`.
+- Scope: adapter module placement, feature wiring, URI/path mapping, metadata
+  mapping, list semantics, range reads, stream reads, and error mapping.
+
+### 2. Signatures
+
+- Feature flag: `opendal-proof` or a future explicit backend-specific feature.
+- Public export: an OpenDAL adapter type may be exported only behind that
+  explicit feature.
+- Backend contract: adapter implementations must satisfy `StorageBackend`
+  without exposing `opendal::Operator` outside `nako-vfs`.
+
+### 3. Contracts
+
+- `StorageUri` remains the only external object identity.
+- OpenDAL paths are derived from Nako path-only URI forms such as
+  `scheme:///Movies/Demo.mkv`; authority, credentials, query, fragment,
+  traversal, `.` segments, and backslash separators must be rejected before
+  calling OpenDAL.
+- OpenDAL metadata must be translated into `ObjectMetadata`,
+  `ObjectKind`, `StorageCapabilities`, safe etag/fingerprint fields, and
+  `cache: None` unless the VFS cache wrapper supplies cache state.
+- `list` must narrow prefix-listing results to direct directory children.
+- `read_range` and `stream_range` must validate ranges through `ByteRange`
+  and map OpenDAL range errors into safe Nako storage errors.
+
+### 4. Validation & Error Matrix
+
+| Condition | Behavior |
+|-----------|----------|
+| Wrong scheme | `NakoError::InvalidInput` |
+| URI has authority, credentials, query, or fragment | `NakoError::InvalidInput` |
+| URI path has traversal or backslashes | storage security violation |
+| OpenDAL `NotFound` | `NakoError::NotFound` |
+| OpenDAL `PermissionDenied` | `StorageErrorKind::Unauthorized` |
+| OpenDAL `RateLimited` | `StorageErrorKind::RateLimited` |
+| OpenDAL `RangeNotSatisfied` or short read | `StorageErrorKind::StagingValidationMismatch` |
+
+### 5. Good/Base/Bad Cases
+
+- Good: `opendal:///Movies/Demo.mkv` maps to `Movies/Demo.mkv`, validates a
+  bounded `ByteRange`, and streams through OpenDAL without reading the whole
+  object first.
+- Base: `opendal:///Movies/` lists only direct child files and child
+  directories under `Movies/`.
+- Bad: `opendal://host/Movies/Demo.mkv` or
+  `opendal://user:password@host/Movies/Demo.mkv` is accepted as an object path.
+
+### 6. Tests Required
+
+- Feature-gated compile tests for the OpenDAL adapter and default compile tests
+  proving OpenDAL is not required without the feature.
+- URI rejection tests for credentials, naked authority, query/fragment, path
+  traversal, dot segments, and backslashes.
+- Metadata/capability tests for file and directory entries.
+- Listing tests that include nested files and assert only direct children are
+  returned.
+- Range and stream tests for bounded ranges, full streams, invalid ranges, and
+  short-read or provider range failures when the service can trigger them.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+let path = uri.path_part().trim_start_matches('/');
+operator.read(path).await?;
+```
+
+#### Correct
+
+```rust
+let raw_path = uri.path_part();
+if !raw_path.starts_with('/') || uri.as_str().contains('@') {
+    return Err(NakoError::InvalidInput {
+        message: "OpenDAL uri must not contain authority".to_owned(),
+    });
+}
+let range = range.validate_for_len(uri, object_len)?;
+let end = range.offset + range.resolved_len(uri, object_len)?;
+operator.read_with(path).range(range.offset..end).await?;
+```
+
 ## Forbidden Patterns
 
 - Do not bypass `LocalFsBackend` path authority with direct filesystem access

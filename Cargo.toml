@@ -27,6 +27,7 @@ futures-util = "0.3"
 hmac = "0.12"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
+opendal = { version = "0.57.0", default-features = false, features = ["services-memory"] }
 roxmltree = "0.20"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
