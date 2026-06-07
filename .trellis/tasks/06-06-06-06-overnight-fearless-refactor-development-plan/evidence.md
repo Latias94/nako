@@ -212,3 +212,56 @@ Validation:
   - Result: passed.
 - `git diff --check`
   - Result: passed.
+
+## 2026-06-07 VFS Cache Repair Scheduler Integration
+
+What changed:
+
+- Added `JobKind::VfsCacheRepair` to the existing disk-scan scheduler candidate
+  set through a filtered durable queue window for
+  `storage.vfs.cache_repair`.
+- The scheduler exact-claims the selected VFS cache repair job once, then
+  passes the `LeasedJob` to
+  `StorageDiagnosticsAppService::execute_claimed_vfs_cache_repair_job`.
+- The supervised background task uses the existing `disk.scan` runtime budget
+  and keeps the scan permit alive until repair execution finishes or fails.
+- Successful scheduler execution persists only the redaction-safe
+  `VfsCacheRepairJobSummary`; storage failures persist only the existing
+  redacted durable error shape.
+- Updated `docs/architecture/STORAGE_VFS.md` to mark disk-scan scheduler
+  integration shipped while leaving retry/requeue, purge/delete/invalidation,
+  backend mutation, and automated repair policy as follow-ons.
+
+Boundaries:
+
+- No Admin/Public API route, public DTO, schema migration, config shape, or
+  production dependency changed.
+- No retry/requeue route, purge/delete/invalidation behavior, backend
+  configuration mutation, library file write, or automated repair policy was
+  added.
+- Raw `StorageUri`, local paths, backend URLs, credentials, raw backend errors,
+  etags, fingerprints, cache payloads, and durable input JSON remain outside
+  scheduler summaries, errors, diagnostics, and logs.
+
+Validation:
+
+- `cargo fmt --package nako-server -- --check`
+  - Result: passed.
+- `cargo check -p nako-server --tests`
+  - Result: passed.
+- `cargo nextest run -p nako-server vfs_cache_repair_scheduler --no-fail-fast`
+  - Result: passed, 4 tests run.
+- `cargo nextest run -p nako-server vfs_cache_repair --no-fail-fast`
+  - Result: passed, 24 tests run.
+- `cargo nextest run -p nako-server vfs_cache_repair_job_executor --no-fail-fast`
+  - Result: passed, 3 tests run.
+- `cargo nextest run -p nako-server runtime_job_resource_class_mapping_maps_known_jobs_to_budget_classes --no-fail-fast`
+  - Result: passed, 1 test run.
+- `cargo nextest run -p nako-server source_fingerprint_hash_scheduler --no-fail-fast`
+  - Result: passed, 4 tests run.
+- `cargo nextest run -p nako-server job_scheduler --no-fail-fast`
+  - Result: passed, 2 tests run.
+- `python ./.trellis/scripts/task.py validate .trellis/tasks/06-06-06-06-overnight-fearless-refactor-development-plan`
+  - Result: passed.
+- `git diff --check`
+  - Result: passed with only Git LF/CRLF working-copy warnings.

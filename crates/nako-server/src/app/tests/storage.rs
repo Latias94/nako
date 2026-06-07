@@ -1,5 +1,6 @@
 use super::super::storage::{EnqueueVfsCacheRepairTargetOutcome, VfsCacheRepairJobSummary};
 use super::*;
+use crate::app::jobs::LibraryScanScheduleOutcome;
 use nako_core::{
     JobKind, JobListFilter, JobPriority, JobRepository, JobStatus, NewVfsCacheFailure,
     StorageBackendHealthRecord, StorageBackendHealthRepository, StorageBackendHealthStatus,
@@ -8,6 +9,7 @@ use nako_core::{
     VfsCacheOperation, VfsCacheRepairJobAction, VfsCacheRepairJobInput, VfsCacheRepository,
     vfs_cache_repair_uri_digest,
 };
+use nako_library::SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS;
 use nako_vfs::{
     CachedStorageBackend, ObjectCacheState, StorageApplyKind, StorageApplyRequest,
     StorageCleanupRequest, StorageLinkKind, StorageLinkPlanRequest, VfsCacheOptions,
@@ -1649,6 +1651,345 @@ async fn vfs_cache_repair_job_executor_redacts_backend_failure() {
     assert!(!persisted_error.contains("storage health test failure"));
 }
 
+#[tokio::test]
+async fn vfs_cache_repair_scheduler_executes_queued_job_and_persists_safe_summary() {
+    let (_temp, app, store, backend, failure) =
+        vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Unavailable.safe_message())
+            .await;
+    let stat_started = Arc::new(Notify::new());
+    let release_stat = Arc::new(Notify::new());
+    let gated_backend = Arc::new(CacheRefreshCountingBackend::with_stat_gate(
+        stat_started.clone(),
+        release_stat.clone(),
+    ));
+    let library_id = failure.authority.library_id.expect("library authority");
+    app.storage()
+        .replace_backend_for_test(
+            LocalLibraryConfig {
+                id: library_id,
+                name: "Movies".to_owned(),
+                root: _temp.path().join("movies"),
+                preset: nako_core::LibraryPreset::Movies,
+                webdav: None,
+            },
+            Arc::new(CachedStorageBackend::with_options(
+                gated_backend.clone(),
+                store.clone(),
+                VfsCacheOptions {
+                    stat_ttl_ms: 60_000,
+                    list_ttl_ms: 60_000,
+                    serve_stale_on_error: true,
+                    cache_local: true,
+                },
+            )),
+        )
+        .await;
+    let target = app
+        .storage()
+        .list_vfs_cache_repair_targets(PageRequest::new(10, 0))
+        .await
+        .unwrap()
+        .into_iter()
+        .next()
+        .expect("repair target");
+    let outcome = app
+        .storage()
+        .enqueue_vfs_cache_repair_target(&target.target_ref, Some(JobPriority::High))
+        .await
+        .unwrap();
+    let EnqueueVfsCacheRepairTargetOutcome::Enqueued(job) = outcome else {
+        panic!("expected queued VFS cache repair job");
+    };
+
+    let schedule = app
+        .library_scan()
+        .schedule_queued_library_scans()
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(5), stat_started.notified())
+        .await
+        .unwrap();
+    let disk_scan_budget = app
+        .runtime_resource_class_diagnostics()
+        .into_iter()
+        .find(|class| class.name == "disk.scan")
+        .expect("disk.scan runtime budget");
+    let saturated = app
+        .library_scan()
+        .schedule_queued_library_scans()
+        .await
+        .unwrap();
+
+    assert_eq!(disk_scan_budget.available_permits, 0);
+    assert_eq!(saturated, LibraryScanScheduleOutcome::BudgetSaturated);
+
+    release_stat.notify_one();
+    wait_for_vfs_cache_repair_runtime_job(&app).await;
+    let loaded = store.get_job(job.id).await.unwrap().unwrap();
+    let summary_json = loaded.summary_json.as_deref().expect("job summary");
+    let summary: VfsCacheRepairJobSummary = serde_json::from_str(summary_json).unwrap();
+    let claim = nako_core::JobLeaseRepository::claim_next_job_lease(
+        &store,
+        nako_core::JobLeaseClaimRequest {
+            worker_id: nako_core::JobWorkerId::new(),
+            lease_duration_ms: 10_000,
+            filter: nako_core::JobLeaseClaimFilter {
+                job_id: Some(job.id),
+                ..nako_core::JobLeaseClaimFilter::default()
+            },
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(schedule, LibraryScanScheduleOutcome::Scheduled(job.id));
+    assert_eq!(loaded.status, JobStatus::Succeeded);
+    assert_eq!(summary.action, nako_vfs::VfsCacheRepairAction::RefreshCache);
+    assert_eq!(summary.source_scheme, "local");
+    assert_eq!(summary.operation, VfsCacheOperation::Stat);
+    assert_eq!(
+        summary.classification,
+        nako_vfs::VfsCacheRepairClassification::RetryableRefreshFailure
+    );
+    assert_eq!(
+        summary.failure_class,
+        Some(StorageFailureClass::Unavailable)
+    );
+    assert_eq!(summary.failed_at_ms, failure.failed_at_ms);
+    assert_eq!(summary.failure_count, failure.failure_count);
+    assert_eq!(summary.refreshed_cache_state, Some(ObjectCacheState::Fresh));
+    assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(gated_backend.stat_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(gated_backend.list_calls.load(Ordering::SeqCst), 0);
+    assert!(claim.is_none());
+    assert!(!summary_json.contains("Hidden Movie"));
+    assert!(!summary_json.contains("Secret Path"));
+    assert!(!summary_json.contains("ExampleUser"));
+    assert!(!summary_json.contains("token=secret"));
+    assert!(!summary_json.contains("local:///"));
+    assert!(!summary_json.contains("storage backend unavailable"));
+    assert!(!summary_json.contains("safe-test-etag"));
+    assert!(!summary_json.contains("safe-test-fingerprint"));
+}
+
+#[tokio::test]
+async fn vfs_cache_repair_scheduler_ignores_unrelated_claimable_job_window() {
+    let (_temp, app, store, backend, _failure) =
+        vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Unavailable.safe_message())
+            .await;
+    for _ in 0..PageRequest::MAX_LIMIT {
+        store
+            .enqueue_job(NewJob {
+                id: JobId::new(),
+                kind: JobKind::MetadataRefresh,
+                resource_class: "metadata.tmdb".to_owned(),
+                priority: JobPriority::High,
+                library_id: None,
+                source_id: None,
+                input_json: None,
+            })
+            .await
+            .unwrap();
+    }
+    let target = app
+        .storage()
+        .list_vfs_cache_repair_targets(PageRequest::new(10, 0))
+        .await
+        .unwrap()
+        .into_iter()
+        .next()
+        .expect("repair target");
+    let outcome = app
+        .storage()
+        .enqueue_vfs_cache_repair_target(&target.target_ref, Some(JobPriority::Normal))
+        .await
+        .unwrap();
+    let EnqueueVfsCacheRepairTargetOutcome::Enqueued(job) = outcome else {
+        panic!("expected queued VFS cache repair job");
+    };
+
+    let schedule = app
+        .library_scan()
+        .schedule_queued_library_scans()
+        .await
+        .unwrap();
+    wait_for_vfs_cache_repair_runtime_job(&app).await;
+    let loaded = store.get_job(job.id).await.unwrap().unwrap();
+
+    assert_eq!(schedule, LibraryScanScheduleOutcome::Scheduled(job.id));
+    assert_eq!(loaded.status, JobStatus::Succeeded);
+    assert!(loaded.summary_json.is_some());
+    assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn vfs_cache_repair_scheduler_preserves_starved_disk_scan_order_across_job_kinds() {
+    let (_temp, app, store, _backend, failure) =
+        vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Unavailable.safe_message())
+            .await;
+    let target = app
+        .storage()
+        .list_vfs_cache_repair_targets(PageRequest::new(10, 0))
+        .await
+        .unwrap()
+        .into_iter()
+        .next()
+        .expect("repair target");
+    let repair = app
+        .storage()
+        .enqueue_vfs_cache_repair_target(&target.target_ref, Some(JobPriority::Low))
+        .await
+        .unwrap();
+    let EnqueueVfsCacheRepairTargetOutcome::Enqueued(repair_job) = repair else {
+        panic!("expected queued VFS cache repair job");
+    };
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let library_id = failure.authority.library_id.expect("library authority");
+    let scan_job = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::LibraryScan,
+            resource_class: "disk.scan".to_owned(),
+            priority: JobPriority::High,
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+    let source_hash_job = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::SourceFingerprintHash,
+            resource_class: SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned(),
+            priority: JobPriority::High,
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+
+    let schedule = app
+        .library_scan()
+        .schedule_queued_library_scans()
+        .await
+        .unwrap();
+
+    assert_eq!(
+        schedule,
+        LibraryScanScheduleOutcome::Scheduled(repair_job.id)
+    );
+    assert_ne!(scan_job.id, repair_job.id);
+    assert_ne!(source_hash_job.id, repair_job.id);
+}
+
+#[tokio::test]
+async fn vfs_cache_repair_scheduler_persists_redacted_backend_failure() {
+    let (temp, app, store, _backend, failure) =
+        vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Unavailable.safe_message())
+            .await;
+    let target = app
+        .storage()
+        .list_vfs_cache_repair_targets(PageRequest::new(10, 0))
+        .await
+        .unwrap()
+        .into_iter()
+        .next()
+        .expect("repair target");
+    let outcome = app
+        .storage()
+        .enqueue_vfs_cache_repair_target(&target.target_ref, None)
+        .await
+        .unwrap();
+    let EnqueueVfsCacheRepairTargetOutcome::Enqueued(job) = outcome else {
+        panic!("expected queued VFS cache repair job");
+    };
+    let failing_backend = Arc::new(StorageHealthCountingBackend::new(StorageErrorKind::Network));
+    let library_id = failure.authority.library_id.expect("library authority");
+    app.storage()
+        .replace_backend_for_test(
+            LocalLibraryConfig {
+                id: library_id,
+                name: "Movies".to_owned(),
+                root: temp.path().join("movies"),
+                preset: nako_core::LibraryPreset::Movies,
+                webdav: None,
+            },
+            Arc::new(CachedStorageBackend::with_options(
+                failing_backend.clone(),
+                store.clone(),
+                VfsCacheOptions {
+                    stat_ttl_ms: 60_000,
+                    list_ttl_ms: 60_000,
+                    serve_stale_on_error: true,
+                    cache_local: true,
+                },
+            )),
+        )
+        .await;
+
+    let schedule = app
+        .library_scan()
+        .schedule_queued_library_scans()
+        .await
+        .unwrap();
+    wait_for_vfs_cache_repair_runtime_failure(&app).await;
+    let loaded = store.get_job(job.id).await.unwrap().unwrap();
+    let persisted_error = loaded.error.as_deref().expect("durable job error");
+
+    assert_eq!(schedule, LibraryScanScheduleOutcome::Scheduled(job.id));
+    assert_eq!(loaded.status, JobStatus::Failed);
+    assert_eq!(loaded.summary_json, None);
+    assert_eq!(
+        persisted_error,
+        "storage error at local://<redacted>: storage backend unavailable"
+    );
+    assert_eq!(failing_backend.stat_calls.load(Ordering::SeqCst), 1);
+    assert!(!persisted_error.contains("Hidden Movie"));
+    assert!(!persisted_error.contains("Secret Path"));
+    assert!(!persisted_error.contains("ExampleUser"));
+    assert!(!persisted_error.contains("token=secret"));
+    assert!(!persisted_error.contains("local:///"));
+    assert!(!persisted_error.contains("storage health test failure"));
+}
+
+async fn wait_for_vfs_cache_repair_runtime_job(app: &NakoApp) {
+    for _ in 0..500 {
+        let diagnostics = app.runtime_diagnostics();
+        if diagnostics.succeeded_jobs == 1
+            && diagnostics.cancelled_jobs == 0
+            && diagnostics.failed_jobs == 0
+        {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+
+    panic!(
+        "VFS cache repair scheduler job did not finish successfully: {:?}",
+        app.runtime_diagnostics()
+    );
+}
+
+async fn wait_for_vfs_cache_repair_runtime_failure(app: &NakoApp) {
+    for _ in 0..500 {
+        let diagnostics = app.runtime_diagnostics();
+        if diagnostics.succeeded_jobs == 0
+            && diagnostics.cancelled_jobs == 0
+            && diagnostics.failed_jobs == 1
+        {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+
+    panic!(
+        "VFS cache repair scheduler job did not fail as expected: {:?}",
+        app.runtime_diagnostics()
+    );
+}
+
 async fn vfs_cache_repair_enqueue_app_with_failure(
     error: &str,
 ) -> (
@@ -1753,6 +2094,8 @@ fn assert_storage_rate_limited(err: NakoError) {
 struct CacheRefreshCountingBackend {
     stat_calls: AtomicUsize,
     list_calls: AtomicUsize,
+    stat_started: Option<Arc<Notify>>,
+    release_stat: Option<Arc<Notify>>,
 }
 
 impl CacheRefreshCountingBackend {
@@ -1760,6 +2103,16 @@ impl CacheRefreshCountingBackend {
         Self {
             stat_calls: AtomicUsize::new(0),
             list_calls: AtomicUsize::new(0),
+            stat_started: None,
+            release_stat: None,
+        }
+    }
+
+    fn with_stat_gate(stat_started: Arc<Notify>, release_stat: Arc<Notify>) -> Self {
+        Self {
+            stat_started: Some(stat_started),
+            release_stat: Some(release_stat),
+            ..Self::new()
         }
     }
 
@@ -1792,6 +2145,12 @@ impl StorageBackend for CacheRefreshCountingBackend {
 
     async fn stat(&self, uri: &StorageUri) -> Result<ObjectMetadata> {
         self.stat_calls.fetch_add(1, Ordering::SeqCst);
+        if let Some(stat_started) = &self.stat_started {
+            stat_started.notify_one();
+        }
+        if let Some(release_stat) = &self.release_stat {
+            release_stat.notified().await;
+        }
         Ok(self.metadata(uri))
     }
 

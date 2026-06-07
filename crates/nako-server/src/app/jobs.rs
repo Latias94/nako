@@ -8,6 +8,7 @@ use nako_core::{
     Library, LibraryId, LibraryRepository, MediaProbeResult, MediaSource, NakoError,
     NewIngestionFailure, NewJob, NewOutboxEvent, OutboxEventRecord, PageRequest,
     RequestJobCancellation, Result, StagingAttribution, StagingPurpose,
+    VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS,
 };
 use nako_db::NakoDatabase;
 use nako_library::{
@@ -38,7 +39,7 @@ use super::{
         SourceFingerprintHashAppService,
     },
     staging::ManifestRecordingStorageBackend,
-    storage::{StorageBackendRegistry, remote_probe_staging_root},
+    storage::{StorageBackendRegistry, StorageDiagnosticsAppService, remote_probe_staging_root},
 };
 
 pub(crate) type LibraryScanTraceContext = DurableJobTraceContext;
@@ -335,6 +336,7 @@ pub(crate) struct LibraryScanAppService {
     runtime: RuntimeSupervisor,
     metadata_scan: MetadataScanAcquisitionService,
     source_hash: SourceFingerprintHashAppService,
+    storage: StorageDiagnosticsAppService,
 }
 
 impl LibraryScanAppService {
@@ -350,6 +352,7 @@ impl LibraryScanAppService {
         let execution_store = LibraryScanExecutionStore::new(store.clone());
         let source_hash =
             SourceFingerprintHashAppService::new(store.clone(), storage_backends.clone());
+        let storage = StorageDiagnosticsAppService::new(storage_backends.clone());
         let metadata_scan =
             MetadataScanAcquisitionService::new(store, storage_backends.clone(), addons);
         Self {
@@ -361,6 +364,7 @@ impl LibraryScanAppService {
             runtime,
             metadata_scan,
             source_hash,
+            storage,
         }
     }
 
@@ -466,6 +470,24 @@ impl LibraryScanAppService {
 
                     return self.spawn_claimed_source_fingerprint_hash_job(leased, permit);
                 }
+                JobKind::VfsCacheRepair
+                    if candidate.resource_class == VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS =>
+                {
+                    let Some(leased) = runtime
+                        .claim_next_job_lease(JobLeaseClaimFilter {
+                            job_id: Some(job_id),
+                            kind: Some(JobKind::VfsCacheRepair),
+                            resource_class: Some(VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS.to_owned()),
+                            library_id: candidate.library_id,
+                            source_id: candidate.source_id,
+                        })
+                        .await?
+                    else {
+                        continue;
+                    };
+
+                    return self.spawn_claimed_vfs_cache_repair_job(leased, permit);
+                }
                 _ => continue,
             }
         }
@@ -498,6 +520,19 @@ impl LibraryScanAppService {
                     JobLeaseClaimFilter {
                         kind: Some(JobKind::SourceFingerprintHash),
                         resource_class: Some(SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned()),
+                        ..JobLeaseClaimFilter::default()
+                    },
+                    page,
+                )
+                .await?,
+        );
+        candidates.extend(
+            self.execution_store
+                .store
+                .list_claimable_jobs_for_lease(
+                    JobLeaseClaimFilter {
+                        kind: Some(JobKind::VfsCacheRepair),
+                        resource_class: Some(VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS.to_owned()),
                         ..JobLeaseClaimFilter::default()
                     },
                     page,
@@ -575,6 +610,41 @@ impl LibraryScanAppService {
                     library_id = ?library_id,
                     source_id = ?source_id,
                     resource_class = SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS
+                ))
+            },
+        );
+
+        Ok(LibraryScanScheduleOutcome::Scheduled(job_id))
+    }
+
+    fn spawn_claimed_vfs_cache_repair_job(
+        &self,
+        leased: LeasedJob,
+        permit: OwnedSemaphorePermit,
+    ) -> Result<LibraryScanScheduleOutcome> {
+        let job_id = leased.job.id;
+        let library_id = leased.job.library_id;
+        let budget_class = runtime_budget_class_for_job_resource_class(
+            leased.job.kind,
+            &leased.job.resource_class,
+        )?;
+        let service = self.clone();
+
+        self.runtime.spawn_job(
+            "vfs_cache_repair_background_job",
+            budget_class,
+            job_id,
+            move |_context| {
+                async move {
+                    service
+                        .finish_claimed_vfs_cache_repair_job(leased, permit)
+                        .await
+                }
+                .instrument(info_span!(
+                    "vfs_cache_repair_background_job",
+                    job_id = %job_id,
+                    library_id = ?library_id,
+                    resource_class = VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS
                 ))
             },
         );
@@ -688,6 +758,32 @@ impl LibraryScanAppService {
             source_id = ?source_id,
             status = ?output.job.status,
             "source fingerprint hash job completed"
+        );
+        debug_assert_eq!(output.job.id, job_id);
+
+        Ok(output.job)
+    }
+
+    async fn finish_claimed_vfs_cache_repair_job(
+        &self,
+        leased: LeasedJob,
+        permit: OwnedSemaphorePermit,
+    ) -> Result<Job> {
+        let job_id = leased.job.id;
+        let library_id = leased.job.library_id;
+        let _permit = permit;
+        let execution = self
+            .storage
+            .execute_claimed_vfs_cache_repair_job(leased)
+            .await;
+        self.spawn_disk_scan_scheduler_followup(library_id);
+
+        let output = execution?;
+        info!(
+            job_id = %output.job.id,
+            library_id = ?library_id,
+            status = ?output.job.status,
+            "VFS cache repair job completed"
         );
         debug_assert_eq!(output.job.id, job_id);
 
