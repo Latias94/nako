@@ -4,7 +4,7 @@ import {
   useReactTable,
   type ColumnDef,
 } from "@tanstack/react-table";
-import { Fingerprint, RefreshCw, Search, X } from "lucide-react";
+import { Fingerprint, RefreshCw, Search, Wrench, X } from "lucide-react";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -60,6 +60,8 @@ type JobsResult = {
 
 const SOURCE_FINGERPRINT_HASH_JOB_KIND = "source_fingerprint_hash";
 const SOURCE_FINGERPRINT_HASH_RESOURCE_CLASS = "disk.scan.source_fingerprint_hash";
+const VFS_CACHE_REPAIR_JOB_KIND = "vfs_cache_repair";
+const VFS_CACHE_REPAIR_RESOURCE_CLASS = "storage.vfs.cache_repair";
 
 export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) {
   const { locale, t } = useI18n();
@@ -92,6 +94,9 @@ export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) 
   const sourceHashFilterActive =
     search.kind === SOURCE_FINGERPRINT_HASH_JOB_KIND &&
     search.resource_class === SOURCE_FINGERPRINT_HASH_RESOURCE_CLASS;
+  const vfsCacheRepairFilterActive =
+    search.kind === VFS_CACHE_REPAIR_JOB_KIND &&
+    search.resource_class === VFS_CACHE_REPAIR_RESOURCE_CLASS;
 
   return (
     <RoutePage
@@ -180,6 +185,21 @@ export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) 
           >
             <Fingerprint size={16} />
             {t("jobs.filter.sourceHash")}
+          </Button>
+          <Button
+            aria-pressed={vfsCacheRepairFilterActive}
+            onClick={() =>
+              onSearchChange({
+                kind: VFS_CACHE_REPAIR_JOB_KIND,
+                resource_class: VFS_CACHE_REPAIR_RESOURCE_CLASS,
+                source_id: undefined,
+                offset: 0,
+              })
+            }
+            variant={vfsCacheRepairFilterActive ? "default" : "outline"}
+          >
+            <Wrench size={16} />
+            {t("jobs.filter.vfsCacheRepair")}
           </Button>
           <Badge tone={activeFilterCount > 0 ? "info" : "neutral"}>
             {t("jobs.filter.active", { count: activeFilterCount })}

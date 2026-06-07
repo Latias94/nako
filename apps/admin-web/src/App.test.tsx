@@ -176,6 +176,31 @@ describe("Admin Web V2 route shell", () => {
         }),
       );
     });
+
+    const vfsCacheRepairButton = screen.getByRole("button", {
+      name: /VFS cache repair jobs/,
+    });
+    expect(vfsCacheRepairButton).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(vfsCacheRepairButton);
+
+    await waitFor(() => {
+      expect(window.location.search).toContain("kind=vfs_cache_repair");
+      expect(window.location.search).toContain("resource_class=storage.vfs.cache_repair");
+      expect(window.location.search).not.toContain("source_id=source-hash-1");
+      expect(
+        screen.getByRole("button", { name: /VFS cache repair jobs/ }),
+      ).toHaveAttribute("aria-pressed", "true");
+      expect(loadJobs).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          kind: "vfs_cache_repair",
+          resource_class: "storage.vfs.cache_repair",
+          source_id: undefined,
+          limit: 20,
+          offset: 0,
+        }),
+      );
+    });
   });
 
   it("renders localized Jobs route copy", async () => {
@@ -188,6 +213,7 @@ describe("Admin Web V2 route shell", () => {
     expect(screen.getByLabelText("任务状态过滤器")).toBeInTheDocument();
     expect(screen.getByLabelText("任务媒体源过滤器")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Source Hash 任务/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /VFS cache repair 任务/ })).toBeInTheDocument();
     expect(screen.getByText("URL 过滤条件具有权威性")).toBeInTheDocument();
     expect(screen.getByText("实时 Admin API")).toBeInTheDocument();
   });

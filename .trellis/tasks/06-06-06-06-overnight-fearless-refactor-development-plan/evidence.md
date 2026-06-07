@@ -774,6 +774,68 @@ Residual risk:
 - Full workspace Rust nextest was not run. Focused API contract, server route,
   Admin Web typecheck/test/build, formatting, and whitespace gates passed.
 
+## 2026-06-07 Admin Web VFS Cache Repair Job Filter
+
+What changed:
+
+- Added a Jobs page quick filter for VFS cache repair jobs.
+- The button applies:
+  - `kind=vfs_cache_repair`;
+  - `resource_class=storage.vfs.cache_repair`;
+  - `offset=0`;
+  - `source_id=undefined`.
+- The filter preserves any existing `library_id` filter through the route-owned
+  partial search update pattern.
+- Added English and zh-Hans Jobs filter copy.
+- Added route test coverage for URL search params, data-source payload, active
+  button state, and localized copy.
+- Updated deterministic Admin Web mock Jobs data so the VFS cache repair job is
+  visible in local/mock mode.
+- Corrected the mock queued VFS cache repair job `resource_class` from
+  `storage.vfs_cache.repair` to `storage.vfs.cache_repair`.
+
+Boundaries:
+
+- This is a frontend-only operator navigation slice.
+- No backend DTO, Admin API route, generated contract, schema migration,
+  production dependency, runtime behavior, repair execution, cache mutation, or
+  deletion behavior changed.
+- The filter only narrows existing Jobs reads; it does not enqueue, retry,
+  cancel, repair, purge, or inspect raw job input.
+
+Spec update review:
+
+- `.trellis/spec/admin-web/frontend/routes-forms-and-tests.md` already covers
+  this pattern: URL-owned route filters, filter changes resetting `offset`,
+  i18n copy, mock fallback data, and route tests asserting URL params plus
+  data-source payloads.
+- No new reusable convention or gotcha was discovered, so no code-spec update
+  was needed for this slice.
+
+Validation:
+
+- `npm run check --prefix apps/admin-web`
+  - Result: passed.
+- `npm run test --prefix apps/admin-web -- App.test.tsx`
+  - Result: passed, 102 tests run.
+- `npm run test --prefix apps/admin-web`
+  - Result: passed, 7 test files and 183 tests run.
+- `npm run build --prefix apps/admin-web`
+  - Result: passed; Vite reported the existing chunk-size warning.
+- `python ./.trellis/scripts/task.py validate .trellis/tasks/06-06-06-06-overnight-fearless-refactor-development-plan`
+  - Result: passed.
+- `git diff --check`
+  - Result: passed with only Git LF/CRLF working-copy warnings.
+- Independent check agent `Parfit`
+  - Result: no blocking findings; confirmed the slice is frontend-only,
+    redaction-safe, and does not require backend/API/generated/schema/dependency
+    changes.
+
+Residual risk:
+
+- Full workspace Rust nextest was not run because this slice only changes
+  Admin Web route/filter behavior and mock data.
+
 ## 2026-06-07 Storage Staging Cleanup Candidate Purpose/State Diagnostics
 
 What changed:

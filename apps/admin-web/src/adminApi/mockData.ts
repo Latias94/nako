@@ -1656,8 +1656,22 @@ export const mockJobs: AdminJobListResponse = {
       started_at: "2026-05-19T08:11:00Z",
       completed_at: "2026-05-19T08:12:00Z",
     },
+    {
+      id: "job-vfs-cache-repair",
+      kind: "vfs_cache_repair",
+      status: "queued",
+      resource_class: "storage.vfs.cache_repair",
+      library_id: null,
+      source_id: null,
+      has_input: false,
+      has_summary: false,
+      has_error: false,
+      queued_at: "2026-06-05T00:01:00.000Z",
+      started_at: null,
+      completed_at: null,
+    },
   ],
-  page: { limit: 20, offset: 0, returned: 4 },
+  page: { limit: 20, offset: 0, returned: 5 },
 };
 
 export const mockPlaybackSessions: AdminPlaybackSessionListResponse = {
@@ -2089,7 +2103,7 @@ export const mockVfsCacheRepairQueuedJob: AdminJobListItem = {
   id: "job-vfs-cache-repair-queued",
   kind: "vfs_cache_repair",
   status: "queued",
-  resource_class: "storage.vfs_cache.repair",
+  resource_class: "storage.vfs.cache_repair",
   library_id: null,
   source_id: null,
   has_input: true,
