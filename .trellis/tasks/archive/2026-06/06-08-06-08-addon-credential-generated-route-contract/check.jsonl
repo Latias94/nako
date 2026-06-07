@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Check Addon credential routes remain Admin-only generated contract entries."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Check route exclusions, generated contract drift, and route inventory parity gates."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Check Admin Web uses generated route constants and keeps token handling redaction-safe."}
+{"file": ".trellis/tasks/06-08-06-08-addon-credential-generated-route-contract/research/jellyfin-addon-credential-routes.md", "reason": "Check implementation remains a contract consolidation rather than a credential semantics rewrite."}
