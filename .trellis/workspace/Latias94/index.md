@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 74
-- **Last Active**: 2026-06-06
+- **Total Sessions**: 75
+- **Last Active**: 2026-06-07
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~1068 | Active |
+| `journal-2.md` | ~1103 | Active |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 75 | 2026-06-07 | VFS cache repair action-plan refactor | `baa2e4e8`, `e0a4f2ee` | `main` |
 | 74 | 2026-06-06 | M1 workspace evidence run | `7769bc47`, `5f85723d` | `main` |
 | 73 | 2026-06-06 | M1 PostgreSQL evidence run | `6980a462` | `main` |
 | 72 | 2026-06-06 | M1 playback evidence run | `2a092bcb` | `main` |

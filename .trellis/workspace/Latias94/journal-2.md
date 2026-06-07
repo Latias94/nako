@@ -1066,3 +1066,38 @@ Ran the Product-Operator M1 workspace ladder. The initial workspace nextest expo
 ### Next Steps
 
 - None - task complete
+
+
+## Session 75: VFS cache repair action-plan refactor
+
+**Date**: 2026-06-07
+**Task**: VFS cache repair action-plan refactor
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Shared VFS cache repair action-plan semantics in nako-server, preserved context-specific refresh routes, added a remediation route regression test, and verified with cargo fmt, focused nextest, git diff --check, and task validation.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `baa2e4e8` | (see git log) |
+| `e0a4f2ee` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
