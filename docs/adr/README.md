@@ -73,3 +73,4 @@ evidence has been reviewed.
 - [0052: HLS Runtime And Media Engine Boundary](0052-hls-runtime-and-media-engine-boundary.md)
 - [0053: Treat The Application Control Plane As A First-Class Boundary](0053-application-control-plane-boundary.md)
 - [0054: External Acquisition Materialization Boundary](0054-external-acquisition-materialization-boundary.md)
+- [0055: Use Apache OpenDAL As An Optional Storage Adapter Foundation](0055-opendal-storage-adapter-foundation.md)

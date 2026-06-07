@@ -1,6 +1,6 @@
 # Storage And VFS Architecture
 
-Last updated: 2026-06-06
+Last updated: 2026-06-07
 
 This document maps Nako's storage and VFS architecture for agents working on
 scan, probe, playback, imports, sidecar writes, and remote storage.
@@ -412,11 +412,13 @@ Shipped:
   harness suites passed on current HEAD as of 2026-06-07. Broader runtime
   parity evidence for future storage/control-plane query paths remains a
   follow-on.
-- `proposed:storage-opendal-adapter-decision-spike`: evaluate Apache OpenDAL
-  as a possible implementation adapter behind `StorageBackend` for future
-  backend breadth. Do not replace Nako-owned `StorageUri`, Source Locator
-  redaction, source fingerprint, cache repair authority, storage health, or
-  deterministic staging semantics with a generic storage operator.
+- `proposed:storage-opendal-proof-adapter`: ADR 0055 accepts Apache OpenDAL as
+  a future optional implementation foundation behind `StorageBackend`, not as a
+  replacement for Nako-owned `StorageUri`, Source Locator redaction, source
+  fingerprint, cache repair authority, storage health, or deterministic staging
+  semantics. The next code slice should prove a low-risk OpenDAL-backed adapter
+  preserves Nako directory-list, range-read, capability, error, and redaction
+  semantics before any production backend rollout.
 
 ## Risk Register
 
