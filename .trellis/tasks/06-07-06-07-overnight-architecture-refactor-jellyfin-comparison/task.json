@@ -18,9 +18,7 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [
-    "06-08-addon-task-runs-generated-route-contract"
-  ],
+  "children": [],
   "parent": null,
   "relatedFiles": [],
   "notes": "",
