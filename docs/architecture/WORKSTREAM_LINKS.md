@@ -149,10 +149,12 @@ Evidence workstreams:
 - `.trellis/tasks/archive/2026-06/06-04-06-04-source-fingerprint-escalation-policy-first-slice/`
 - `.trellis/tasks/archive/2026-06/06-05-06-05-source-fingerprint-hash-execution-first-slice/`
 - `.trellis/tasks/archive/2026-06/06-05-source-fingerprint-hash-scheduling-diagnostics-first-slice/`
+- `.trellis/tasks/archive/2026-06/06-07-vfs-cache-durable-repair-queue-first-slice/`
+- `.trellis/tasks/archive/2026-06/06-07-vfs-cache-repair-job-diagnostics-projection/`
 
 Proposed lanes:
 
-- `proposed:vfs-cache-repair-diagnostics`
+- `proposed:vfs-cache-repair-automation-and-mutation-policy`
 - `proposed:source-fingerprint-hash-queue-and-operator-integration`
 - `proposed:library-watcher-and-media-intake-stability`
 - `proposed:storage-vfs-postgresql-runtime-harness`

@@ -1,6 +1,6 @@
 # Control Plane Architecture
 
-Last updated: 2026-06-06
+Last updated: 2026-06-07
 
 This document maps Nako's application control plane: the cross-cutting systems
 that keep the media data plane safe, observable, extensible, and operable.
@@ -41,7 +41,7 @@ Deployment Endpoint Config
 | HTTP addon protocol | Shipped foundation | ADR 0003; ADR 0015; ADR 0020 | Addon Manager lifecycle is still deferred. |
 | Addon capability and token scopes | Shipped foundation | addon token/grant workstreams | Stronger hosted surface and route policy. |
 | Addon process supervision | Deferred | ADR 0020; ADR 0053 | `addon-manager-process-lifecycle`. |
-| Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract/summary/internal enqueue/queued planner/single-job executor command/scheduler integration/evidence persistence/Admin manual commands, scan-originated source hash triggering, VFS cache repair durable contract/internal enqueue/internal single-job executor/Admin manual enqueue-execute-retry/internal retry commands, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/`; `.trellis/tasks/06-06-06-06-overnight-fearless-refactor-development-plan/` | Broader job-kind scheduler migration, VFS cache repair automated policy, and automatic Source Duplicate Relationship reconciliation remain follow-ons. |
+| Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract/summary/internal enqueue/queued planner/single-job executor command/scheduler integration/evidence persistence/Admin manual commands, scan-originated source hash triggering, VFS cache repair durable contract/internal enqueue/internal single-job executor/Admin manual enqueue-execute-retry/internal retry commands, Admin Jobs diagnostics projection, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/`; `.trellis/tasks/archive/2026-06/06-06-06-06-overnight-fearless-refactor-development-plan/`; `.trellis/tasks/archive/2026-06/06-07-vfs-cache-repair-job-diagnostics-projection/` | Broader job-kind scheduler migration, VFS cache repair automated policy, and automatic Source Duplicate Relationship reconciliation remain follow-ons. |
 | Runtime supervisor | Shipped resource-accounted foundation | ADR 0019; server runtime deepening; durable job queue/resource lane | Unified trace context and broader scheduler migration remain follow-ons. |
 | Resource classes and budgets | Shipped process-local foundation plus source fingerprint hash and VFS cache repair mappings to `disk.scan` | ADR 0005; playback/runtime lanes; durable job queue/resource lane | Continue migrating job kinds onto typed budget-admitted scheduler paths. |
 | Tracing/request identity | Partial with HLS, library scan, and source fingerprint hash job propagation | diagnostics and playback identity lanes | Continue unified trace context across jobs/FFmpeg/VFS/addons and broader scan entry points. |
@@ -132,7 +132,8 @@ Follow-ons:
 
 Status: Durable job contract, internal target enqueue seam, internal single-job
 executor command, Admin manual enqueue/execute/retry routes, scheduler
-integration, and internal retry seam shipped as of 2026-06-07.
+integration, internal retry seam, and Admin Jobs diagnostics projection shipped
+as of 2026-06-07.
 
 Goal: Move VFS cache repair from read-only remediation planning toward durable,
 resource-admitted repair work without exposing raw storage identity.
@@ -176,11 +177,17 @@ Shipped control-plane behavior:
   the existing disk-scan scheduler execution path.
 - Admin manual retry can create a new queued retry for one explicit failed VFS
   cache repair job id and returns only safe job metadata.
+- Admin Job list/detail/cancel responses project optional
+  `AdminJobDiagnostics` for `JobKind::VfsCacheRepair` only, parsing safe
+  summary JSON into the typed repair summary when available and exposing only
+  stable redacted failure facts for failed jobs.
 
 Follow-ons:
 
-- broader operator diagnostics for repair jobs;
-- purge/delete/invalidation and backend configuration workflows.
+- automated repair policy beyond explicit manual commands;
+- purge/delete/invalidation and backend configuration workflows;
+- safe realtime diagnostics or incident bundles if future operator workflows
+  need more than the shipped Admin Jobs projection.
 
 ### provider-governance-durable-batch-execution
 
