@@ -480,3 +480,59 @@ Validation:
 - Independent check agent `Godel`
   - Result: no findings after the remediation-plan seam and executable-action
     fixture fixes.
+
+## 2026-06-07 VFS Cache Repair Storage Staging UI Actions
+
+What changed:
+
+- Added a Storage Staging route panel for VFS cache repair operator context.
+- The panel reads the VFS cache repair action plan, remediation plan, and
+  target list through `AdminDataSource` page seams and preserves deterministic
+  mock fallback when those read methods are unavailable.
+- Added bounded live-only actions for:
+  - latest VFS cache refresh;
+  - enqueueing the first returned `refresh_cache` repair target with normal
+    priority.
+- Added visible success/error notices for the repair mutations and invalidated
+  the route-local Storage Staging query group after successful commands.
+- The route-level refresh action now reloads both Storage Staging and VFS cache
+  repair read models.
+- The repair panel shows its own source label so hybrid staging-live/
+  repair-fallback states are visible.
+- Mutation disabled notices now wait for read loading to finish and include the
+  specific missing live data, route, or enqueueable-target reason.
+- Rendered repair action groups, target rows, readiness, boundary facts,
+  classification counts, retryability, and safe repair messages without raw
+  storage locators or backend paths.
+- Added English and zh-Hans `storage.repair.*` route copy.
+- Added App route tests covering repair context rendering, mock fallback and
+  disabled mutation state, and live refresh/enqueue command calls.
+
+Boundaries:
+
+- No generated Admin API contract files, backend route, schema, migration,
+  public API, config shape, production dependency, cache purge/delete/
+  invalidation behavior, backend configuration mutation, library file write, or
+  automated repair policy was changed.
+- The page only exposes redaction-safe Admin repair facts already available via
+  typed Admin Web fixtures and data-source methods.
+- Mutations remain disabled unless the relevant read models are live and the
+  corresponding command method exists.
+
+Validation:
+
+- `npm run check --prefix apps/admin-web`
+  - Result: passed.
+- `npm run test --prefix apps/admin-web -- App.test.tsx`
+  - Result: passed, 102 tests run.
+- `npm run test --prefix apps/admin-web`
+  - Result: passed, 7 test files and 183 tests run.
+- `npm run build --prefix apps/admin-web`
+  - Result: passed; Vite reported the existing chunk-size warning.
+- `git diff --check`
+  - Result: passed with only Git LF/CRLF working-copy warnings.
+- Independent implementation review agent `Ramanujan`
+  - Result: improved route refresh coverage, repair source labeling,
+    enqueue-target selection, and disabled reason handling; reported missing
+    new i18n keys before validation, which were fixed before this evidence was
+    finalized.

@@ -48,6 +48,11 @@ import {
   mockSourceDuplicateReconciliationPlan,
   mockStorageStaging,
   mockSystemConfig,
+  mockVfsCacheRefreshResponse,
+  mockVfsCacheRepairActionPlan,
+  mockVfsCacheRepairEnqueueResponse,
+  mockVfsCacheRepairRemediationPlan,
+  mockVfsCacheRepairTargets,
 } from "./adminApi/mockData";
 
 afterEach(() => {
@@ -2765,6 +2770,151 @@ describe("Admin Web V2 route shell", () => {
         expect.objectContaining({ state: "ready", limit: 20, offset: 0 }),
       );
     });
+  });
+
+  it("renders VFS cache repair context on the Storage Staging route", async () => {
+    const loadStorageStaging = vi.fn(async (query?: AdminStorageStagingQuery) => ({
+      value: mockStorageStaging,
+      source: "live" as const,
+      query,
+    }));
+    const loadVfsCacheRepairActionPlan = vi.fn(async () => ({
+      value: mockVfsCacheRepairActionPlan,
+      source: "live" as const,
+    }));
+    const loadVfsCacheRepairRemediationPlan = vi.fn(async () => ({
+      value: mockVfsCacheRepairRemediationPlan,
+      source: "live" as const,
+    }));
+    const loadVfsCacheRepairTargets = vi.fn(async () => ({
+      value: mockVfsCacheRepairTargets,
+      source: "live" as const,
+    }));
+    window.history.pushState(null, "", "/storage/staging");
+
+    render(
+      <App
+        dataSource={{
+          load: async () => emptyConsoleData(),
+          loadStorageStaging,
+          loadVfsCacheRepairActionPlan,
+          loadVfsCacheRepairRemediationPlan,
+          loadVfsCacheRepairTargets,
+        }}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Storage Staging" })).toBeInTheDocument();
+    expect(await screen.findByText("VFS cache repair")).toBeInTheDocument();
+    expect(await screen.findByText("Plan status")).toBeInTheDocument();
+    expect(screen.getAllByText("Readiness").length).toBeGreaterThan(0);
+    expect(screen.getByText("Unresolved targets")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Action group" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Recommended action" })).toBeInTheDocument();
+    expect(screen.getAllByText("refresh_cache").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("repairable_stale_fallback").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("webdav-list-stale-anime").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText("Cached listing is serving a stale fallback after a backend read failure."),
+    ).toBeInTheDocument();
+    expect(loadVfsCacheRepairActionPlan).toHaveBeenCalledTimes(1);
+    expect(loadVfsCacheRepairRemediationPlan).toHaveBeenCalledTimes(1);
+    expect(loadVfsCacheRepairTargets).toHaveBeenCalledWith({ limit: 20, offset: 0 });
+  });
+
+  it("shows deterministic mock VFS cache repair fallback on the Storage Staging route", async () => {
+    const loadStorageStaging = vi.fn(async () => ({
+      value: mockStorageStaging,
+      source: "live" as const,
+    }));
+    window.history.pushState(null, "", "/storage/staging");
+
+    render(<App dataSource={{ load: async () => emptyConsoleData(), loadStorageStaging }} />);
+
+    expect(
+      await screen.findByText(/VFS cache repair action-plan data source is unavailable/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/VFS cache repair remediation-plan data source is unavailable/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/VFS cache repair targets data source is unavailable/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Repair actions are disabled. Refresh requires live repair action-plan data. Enqueue requires live repair targets data.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Refresh latest cache" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Enqueue first repair target" })).toBeDisabled();
+    expect(screen.getAllByText("webdav-list-stale-anime").length).toBeGreaterThan(0);
+  });
+
+  it("runs Storage Staging VFS cache repair refresh and enqueue actions", async () => {
+    const loadStorageStaging = vi.fn(async () => ({
+      value: mockStorageStaging,
+      source: "live" as const,
+    }));
+    const loadVfsCacheRepairActionPlan = vi.fn(async () => ({
+      value: mockVfsCacheRepairActionPlan,
+      source: "live" as const,
+    }));
+    const loadVfsCacheRepairRemediationPlan = vi.fn(async () => ({
+      value: mockVfsCacheRepairRemediationPlan,
+      source: "live" as const,
+    }));
+    const loadVfsCacheRepairTargets = vi.fn(async () => ({
+      value: mockVfsCacheRepairTargets,
+      source: "live" as const,
+    }));
+    const refreshLatestVfsCacheRepair = vi.fn(async () => mockVfsCacheRefreshResponse);
+    const enqueueVfsCacheRepairTarget = vi.fn(async () => mockVfsCacheRepairEnqueueResponse);
+    window.history.pushState(null, "", "/storage/staging");
+
+    render(
+      <App
+        dataSource={{
+          load: async () => emptyConsoleData(),
+          loadStorageStaging,
+          loadVfsCacheRepairActionPlan,
+          loadVfsCacheRepairRemediationPlan,
+          loadVfsCacheRepairTargets,
+          refreshLatestVfsCacheRepair,
+          enqueueVfsCacheRepairTarget,
+        }}
+      />,
+    );
+
+    const refreshButton = await screen.findByRole("button", { name: "Refresh latest cache" });
+    await waitFor(() => {
+      expect(refreshButton).not.toBeDisabled();
+    });
+    fireEvent.click(refreshButton);
+
+    await waitFor(() => {
+      expect(refreshLatestVfsCacheRepair).toHaveBeenCalledTimes(1);
+    });
+    expect(
+      await screen.findByText("Latest VFS cache refresh completed. Refreshed: yes."),
+    ).toBeInTheDocument();
+
+    const enqueueButton = screen.getByRole("button", { name: "Enqueue first repair target" });
+    await waitFor(() => {
+      expect(enqueueButton).not.toBeDisabled();
+    });
+    fireEvent.click(enqueueButton);
+
+    await waitFor(() => {
+      expect(enqueueVfsCacheRepairTarget).toHaveBeenCalledWith(
+        mockVfsCacheRepairTargets.targets[0].target_ref,
+        { priority: "normal" },
+      );
+    });
+    expect(
+      await screen.findByText(
+        "Queued VFS cache repair job job-vfs-cache-repair-queued, status queued.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("keeps unsafe fields out of the Storage Staging route rendering", async () => {
