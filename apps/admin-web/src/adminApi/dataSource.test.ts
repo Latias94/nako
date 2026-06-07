@@ -36,6 +36,15 @@ import {
   mockSourceDuplicateReconciliationPlan,
   mockStorageStaging,
   mockSystemConfig,
+  mockVfsCacheRefreshResponse,
+  mockVfsCacheRepairActionPlan,
+  mockVfsCacheRepairEnqueueResponse,
+  mockVfsCacheRepairExecuteResponse,
+  mockVfsCacheRepairRemediationPlan,
+  mockVfsCacheRepairRetryJob,
+  mockVfsCacheRepairTarget,
+  mockVfsCacheRepairTargetPreview,
+  mockVfsCacheRepairTargets,
 } from "./mockData";
 
 describe("Admin data source", () => {
@@ -2058,6 +2067,302 @@ describe("Admin data source", () => {
       value: mockStorageStaging,
       error: expect.stringContaining("HTTP 503"),
     });
+  });
+
+  it("loads VFS Cache repair read models with generated query params and section fallback", async () => {
+    const targetRef = "webdav/list stale";
+    const encodedTargetRef = "webdav%2Flist%20stale";
+    const seenRequests: string[] = [];
+    const liveSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        seenRequests.push(`${url.pathname}${url.search}`);
+
+        if (url.pathname === NAKO_ADMIN_ROUTES.storageVfsCacheRepairActionPlan) {
+          return Response.json(mockVfsCacheRepairActionPlan);
+        }
+        if (url.pathname === NAKO_ADMIN_ROUTES.storageVfsCacheRepairRemediationPlan) {
+          return Response.json(mockVfsCacheRepairRemediationPlan);
+        }
+        if (url.pathname === NAKO_ADMIN_ROUTES.storageVfsCacheRepairTargets) {
+          return Response.json(mockVfsCacheRepairTargets);
+        }
+        if (
+          url.pathname ===
+          NAKO_ADMIN_ROUTES.storageVfsCacheRepairTargetPreview.replace(
+            "{target_ref}",
+            encodedTargetRef,
+          )
+        ) {
+          return Response.json({
+            ...mockVfsCacheRepairTargetPreview,
+            target: {
+              ...mockVfsCacheRepairTarget,
+              target_ref: targetRef,
+            },
+          });
+        }
+
+        return new Response("not found", { status: 404 });
+      },
+    });
+
+    await expect(liveSource.loadVfsCacheRepairActionPlan?.()).resolves.toMatchObject({
+      source: "live",
+      value: {
+        plan: {
+          status: "executable",
+          action: "refresh_cache",
+          readiness: {
+            api_executable: true,
+          },
+          boundary: {
+            refreshes_vfs_cache: true,
+            writes_library_files: false,
+          },
+          executable_action: {
+            route_key: "storageVfsCacheRepairRefreshCache",
+            route_path: NAKO_ADMIN_ROUTES.storageVfsCacheRepairRefreshCache,
+          },
+        },
+      },
+    });
+    await expect(liveSource.loadVfsCacheRepairRemediationPlan?.()).resolves.toMatchObject({
+      source: "live",
+      value: {
+        total_unresolved_targets: 1,
+        boundary: {
+          read_only: true,
+          refreshes_vfs_cache: false,
+          writes_library_files: false,
+        },
+        action_groups: [
+          {
+            action: "refresh_cache",
+            status: "executable",
+            executable_action: {
+              route_key: "storageVfsCacheRepairTargetRefreshCache",
+              route_path: NAKO_ADMIN_ROUTES.storageVfsCacheRepairTargetRefreshCache,
+            },
+          },
+        ],
+      },
+    });
+    await expect(
+      liveSource.loadVfsCacheRepairTargets?.({ limit: 5, offset: 10 }),
+    ).resolves.toMatchObject({
+      source: "live",
+      value: {
+        targets: [
+          {
+            target_ref: mockVfsCacheRepairTarget.target_ref,
+            classification: "repairable_stale_fallback",
+            recommended_action: "refresh_cache",
+          },
+        ],
+      },
+    });
+    await expect(liveSource.loadVfsCacheRepairTargetPreview?.(targetRef)).resolves.toMatchObject({
+      source: "live",
+      value: {
+        target: {
+          target_ref: targetRef,
+        },
+        plan: {
+          status: "executable",
+        },
+      },
+    });
+
+    expect(seenRequests).toEqual([
+      NAKO_ADMIN_ROUTES.storageVfsCacheRepairActionPlan,
+      NAKO_ADMIN_ROUTES.storageVfsCacheRepairRemediationPlan,
+      `${NAKO_ADMIN_ROUTES.storageVfsCacheRepairTargets}?limit=5&offset=10`,
+      NAKO_ADMIN_ROUTES.storageVfsCacheRepairTargetPreview.replace(
+        "{target_ref}",
+        encodedTargetRef,
+      ),
+    ]);
+
+    const fallbackSource = createAdminDataSource({
+      fetcher: async () => new Response("offline", { status: 503 }),
+    });
+
+    await expect(fallbackSource.loadVfsCacheRepairActionPlan?.()).resolves.toMatchObject({
+      source: "mock",
+      value: mockVfsCacheRepairActionPlan,
+      error: expect.stringContaining("HTTP 503"),
+    });
+    await expect(fallbackSource.loadVfsCacheRepairRemediationPlan?.()).resolves.toMatchObject({
+      source: "mock",
+      value: mockVfsCacheRepairRemediationPlan,
+      error: expect.stringContaining("HTTP 503"),
+    });
+    await expect(fallbackSource.loadVfsCacheRepairTargets?.()).resolves.toMatchObject({
+      source: "mock",
+      value: mockVfsCacheRepairTargets,
+      error: expect.stringContaining("HTTP 503"),
+    });
+    await expect(
+      fallbackSource.loadVfsCacheRepairTargetPreview?.("missing-target"),
+    ).resolves.toMatchObject({
+      source: "mock",
+      value: mockVfsCacheRepairTargetPreview,
+      error: expect.stringContaining("HTTP 503"),
+    });
+  });
+
+  it("posts VFS Cache repair mutations without mock success fallback", async () => {
+    const targetRef = "webdav/list stale";
+    const encodedTargetRef = "webdav%2Flist%20stale";
+    const jobId = "job/vfs repair";
+    const encodedJobId = "job%2Fvfs%20repair";
+    const seenRequests: Array<{ body: unknown; method: string; path: string }> = [];
+    const liveSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request, init?: RequestInit) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        seenRequests.push({
+          body: init?.body ? JSON.parse(String(init.body)) : null,
+          method: init?.method ?? "GET",
+          path: url.pathname,
+        });
+
+        if (url.pathname === NAKO_ADMIN_ROUTES.storageVfsCacheRepairRefreshCache) {
+          return Response.json(mockVfsCacheRefreshResponse);
+        }
+        if (
+          url.pathname ===
+          NAKO_ADMIN_ROUTES.storageVfsCacheRepairTargetRefreshCache.replace(
+            "{target_ref}",
+            encodedTargetRef,
+          )
+        ) {
+          return Response.json(mockVfsCacheRefreshResponse);
+        }
+        if (
+          url.pathname ===
+          NAKO_ADMIN_ROUTES.storageVfsCacheRepairTargetEnqueue.replace(
+            "{target_ref}",
+            encodedTargetRef,
+          )
+        ) {
+          return Response.json(mockVfsCacheRepairEnqueueResponse);
+        }
+        if (
+          url.pathname ===
+          NAKO_ADMIN_ROUTES.storageVfsCacheRepairJobExecute.replace(
+            "{job_id}",
+            encodedJobId,
+          )
+        ) {
+          return Response.json(mockVfsCacheRepairExecuteResponse);
+        }
+        if (
+          url.pathname ===
+          NAKO_ADMIN_ROUTES.storageVfsCacheRepairJobRetry.replace(
+            "{job_id}",
+            encodedJobId,
+          )
+        ) {
+          return Response.json(mockVfsCacheRepairRetryJob);
+        }
+
+        return new Response("not found", { status: 404 });
+      },
+    });
+
+    await expect(liveSource.refreshLatestVfsCacheRepair?.()).resolves.toMatchObject({
+      refreshed: true,
+      action: "refresh_cache",
+    });
+    await expect(liveSource.refreshVfsCacheRepairTarget?.(targetRef)).resolves.toMatchObject({
+      refreshed: true,
+      repair: {
+        classification: "repairable_stale_fallback",
+      },
+    });
+    await expect(
+      liveSource.enqueueVfsCacheRepairTarget?.(targetRef, { priority: "high" }),
+    ).resolves.toMatchObject({
+      outcome: "enqueued",
+      job: {
+        id: "job-vfs-cache-repair-queued",
+      },
+    });
+    await expect(liveSource.executeVfsCacheRepairJob?.(jobId)).resolves.toMatchObject({
+      job: {
+        status: "succeeded",
+      },
+      summary: {
+        refreshed_cache_state: "fresh",
+      },
+    });
+    await expect(
+      liveSource.retryVfsCacheRepairJob?.(jobId, {
+        max_attempts: 5,
+        next_attempt_at: "2026-06-05T00:10:00.000Z",
+      }),
+    ).resolves.toMatchObject({
+      id: "job-vfs-cache-repair-retry",
+      status: "queued",
+    });
+
+    expect(seenRequests).toEqual([
+      {
+        path: NAKO_ADMIN_ROUTES.storageVfsCacheRepairRefreshCache,
+        method: "POST",
+        body: {},
+      },
+      {
+        path: NAKO_ADMIN_ROUTES.storageVfsCacheRepairTargetRefreshCache.replace(
+          "{target_ref}",
+          encodedTargetRef,
+        ),
+        method: "POST",
+        body: {},
+      },
+      {
+        path: NAKO_ADMIN_ROUTES.storageVfsCacheRepairTargetEnqueue.replace(
+          "{target_ref}",
+          encodedTargetRef,
+        ),
+        method: "POST",
+        body: { priority: "high" },
+      },
+      {
+        path: NAKO_ADMIN_ROUTES.storageVfsCacheRepairJobExecute.replace(
+          "{job_id}",
+          encodedJobId,
+        ),
+        method: "POST",
+        body: {},
+      },
+      {
+        path: NAKO_ADMIN_ROUTES.storageVfsCacheRepairJobRetry.replace(
+          "{job_id}",
+          encodedJobId,
+        ),
+        method: "POST",
+        body: {
+          max_attempts: 5,
+          next_attempt_at: "2026-06-05T00:10:00.000Z",
+        },
+      },
+    ]);
+
+    const fallbackSource = createAdminDataSource({
+      fetcher: async () => new Response("offline", { status: 503 }),
+    });
+
+    await expect(fallbackSource.refreshLatestVfsCacheRepair?.()).rejects.toThrow("HTTP 503");
+    await expect(fallbackSource.refreshVfsCacheRepairTarget?.(targetRef)).rejects.toThrow(
+      "HTTP 503",
+    );
+    await expect(
+      fallbackSource.enqueueVfsCacheRepairTarget?.(targetRef),
+    ).rejects.toThrow("HTTP 503");
+    await expect(fallbackSource.executeVfsCacheRepairJob?.(jobId)).rejects.toThrow("HTTP 503");
+    await expect(fallbackSource.retryVfsCacheRepairJob?.(jobId)).rejects.toThrow("HTTP 503");
   });
 
   it("exposes safe Addon action methods through the data-source seam", async () => {

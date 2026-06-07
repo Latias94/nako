@@ -30,6 +30,10 @@ import {
   mockSourceDuplicateReconciliationPlan,
   mockStorageStaging,
   mockSystemConfig,
+  mockVfsCacheRepairActionPlan,
+  mockVfsCacheRepairRemediationPlan,
+  mockVfsCacheRepairTargetPreview,
+  mockVfsCacheRepairTargets,
 } from "./mockData";
 import type {
   AddonGrantsResponse,
@@ -62,6 +66,7 @@ import type {
   AdminItemArtworkGalleryQuery,
   AdminManagedArtworkGalleryResponse,
   AdminJobCommandResponse,
+  AdminJobListItem,
   AdminJobListResponse,
   AdminJobsQuery,
   AdminLibraryMetadataProfileResponse,
@@ -79,6 +84,15 @@ import type {
   AdminServerConfigDiagnosticsResponse,
   AdminStorageStagingQuery,
   AdminStorageStagingDiagnosticsResponse,
+  AdminVfsCacheRefreshResponse,
+  AdminVfsCacheRepairActionPlanResponse,
+  AdminVfsCacheRepairEnqueueRequest,
+  AdminVfsCacheRepairEnqueueResponse,
+  AdminVfsCacheRepairExecuteResponse,
+  AdminVfsCacheRepairRemediationPlanResponse,
+  AdminVfsCacheRepairRetryRequest,
+  AdminVfsCacheRepairTargetListResponse,
+  AdminVfsCacheRepairTargetPreviewResponse,
   UnpublishSelectedArtworkResponse,
 } from "./generated/contract";
 import type {
@@ -213,6 +227,25 @@ export type AdminDataSource = {
   loadStorageStaging?(
     query?: AdminStorageStagingQuery,
   ): Promise<AdminSectionResult<AdminStorageStagingDiagnosticsResponse>>;
+  loadVfsCacheRepairActionPlan?(): Promise<AdminSectionResult<AdminVfsCacheRepairActionPlanResponse>>;
+  loadVfsCacheRepairRemediationPlan?(): Promise<AdminSectionResult<AdminVfsCacheRepairRemediationPlanResponse>>;
+  loadVfsCacheRepairTargets?(
+    query?: { limit?: number; offset?: number },
+  ): Promise<AdminSectionResult<AdminVfsCacheRepairTargetListResponse>>;
+  loadVfsCacheRepairTargetPreview?(
+    targetRef: string,
+  ): Promise<AdminSectionResult<AdminVfsCacheRepairTargetPreviewResponse>>;
+  refreshLatestVfsCacheRepair?(): Promise<AdminVfsCacheRefreshResponse>;
+  refreshVfsCacheRepairTarget?(targetRef: string): Promise<AdminVfsCacheRefreshResponse>;
+  enqueueVfsCacheRepairTarget?(
+    targetRef: string,
+    request?: AdminVfsCacheRepairEnqueueRequest,
+  ): Promise<AdminVfsCacheRepairEnqueueResponse>;
+  executeVfsCacheRepairJob?(jobId: string): Promise<AdminVfsCacheRepairExecuteResponse>;
+  retryVfsCacheRepairJob?(
+    jobId: string,
+    request?: AdminVfsCacheRepairRetryRequest,
+  ): Promise<AdminJobListItem>;
   updateLibraryMetadataProfile?(
     libraryId: string,
     profile: AdminMetadataProfile,
@@ -475,6 +508,45 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
     },
     async loadStorageStaging(query = {}) {
       return loadSection(() => client.getStorageStaging(query), mockStorageStaging);
+    },
+    async loadVfsCacheRepairActionPlan() {
+      return loadSection(
+        () => client.getVfsCacheRepairActionPlan(),
+        mockVfsCacheRepairActionPlan,
+      );
+    },
+    async loadVfsCacheRepairRemediationPlan() {
+      return loadSection(
+        () => client.getVfsCacheRepairRemediationPlan(),
+        mockVfsCacheRepairRemediationPlan,
+      );
+    },
+    async loadVfsCacheRepairTargets(query = {}) {
+      return loadSection(
+        () => client.getVfsCacheRepairTargets(query),
+        mockVfsCacheRepairTargets,
+      );
+    },
+    async loadVfsCacheRepairTargetPreview(targetRef) {
+      return loadSection(
+        () => client.getVfsCacheRepairTargetPreview(targetRef),
+        mockVfsCacheRepairTargetPreview,
+      );
+    },
+    async refreshLatestVfsCacheRepair() {
+      return client.refreshLatestVfsCacheRepair();
+    },
+    async refreshVfsCacheRepairTarget(targetRef) {
+      return client.refreshVfsCacheRepairTarget(targetRef);
+    },
+    async enqueueVfsCacheRepairTarget(targetRef, request = {}) {
+      return client.enqueueVfsCacheRepairTarget(targetRef, request);
+    },
+    async executeVfsCacheRepairJob(jobId) {
+      return client.executeVfsCacheRepairJob(jobId);
+    },
+    async retryVfsCacheRepairJob(jobId, request = {}) {
+      return client.retryVfsCacheRepairJob(jobId, request);
     },
     async setAddonStatus(addonId, status) {
       const updated = await client.updateAddonStatus(addonId, { status });

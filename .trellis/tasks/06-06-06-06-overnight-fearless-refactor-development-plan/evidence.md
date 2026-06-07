@@ -412,3 +412,71 @@ Validation:
     VFS staging attribution/budget contracts.
 - `Get-NetTCPConnection -LocalPort 55432 -ErrorAction SilentlyContinue`
   - Result: no listener reported after harness cleanup.
+
+## 2026-06-07 VFS Cache Repair Admin Web Seam
+
+What changed:
+
+- Added typed Admin Web client methods for the VFS cache repair read and
+  command routes:
+  - `GET /admin/v1/storage/vfs-cache/repair/action-plan`
+  - `GET /admin/v1/storage/vfs-cache/repair/remediation-plan`
+  - `GET /admin/v1/storage/vfs-cache/repair/targets`
+  - `GET /admin/v1/storage/vfs-cache/repair/targets/{target_ref}/preview`
+  - `POST /admin/v1/storage/vfs-cache/repair/refresh-cache`
+  - `POST /admin/v1/storage/vfs-cache/repair/targets/{target_ref}/refresh-cache`
+  - `POST /admin/v1/storage/vfs-cache/repair/targets/{target_ref}/jobs`
+  - `POST /admin/v1/storage/vfs-cache/repair/jobs/{job_id}/execute`
+  - `POST /admin/v1/storage/vfs-cache/repair/jobs/{job_id}/retry`
+- Exported the generated VFS cache repair response/request types through the
+  Admin Web API type facade.
+- Added deterministic contract-level mock fixtures for action plans,
+  remediation plans, repair targets, target previews, refresh responses,
+  enqueue responses, execution summaries, queued jobs, and retry jobs.
+- Updated the Storage Staging mock summary so `vfs_cache.repair` carries the
+  same redaction-safe repair diagnostic used by the route fixtures.
+- Added `AdminDataSource` read-model fallback methods for action plan,
+  remediation plan, targets, and target preview.
+- Added `AdminDataSource` mutation methods for latest refresh, target refresh,
+  enqueue, execute, and retry. Mutations delegate directly to the live client
+  and do not fabricate mock success.
+- Added data-source regression tests for route/query generation, `{target_ref}`
+  and `{job_id}` URL encoding, command request bodies, read-model fallback, and
+  mutation failure propagation.
+- Corrected mock executable-action route metadata to match the backend
+  contract: latest action-plan uses
+  `storageVfsCacheRepairRefreshCache`, while remediation groups keep the
+  target-scoped `{target_ref}` route template.
+
+Boundaries:
+
+- No generated Admin API contract files were edited by hand.
+- No backend route, schema, migration, public API, page/UI, config shape,
+  production dependency, cache purge/delete/invalidation behavior, backend
+  configuration mutation, library file write, or automated repair policy was
+  changed.
+- Fixtures and test assertions expose only Admin-safe job and repair facts; no
+  raw `StorageUri`, local path, backend URL, credentials, raw backend errors,
+  etags, fingerprints, URI digest, durable input JSON, or cache payload
+  material was added.
+
+Validation:
+
+- `npm run check --prefix apps/admin-web`
+  - Result: passed.
+- `npm run test --prefix apps/admin-web -- src/adminApi/dataSource.test.ts`
+  - Result: passed, 33 tests run.
+- `npm run test --prefix apps/admin-web -- src/adminApi/client.test.ts`
+  - Result: passed, 20 tests run.
+- `npm run test --prefix apps/admin-web`
+  - Result: passed, 7 test files and 180 tests run.
+- `npm run build --prefix apps/admin-web`
+  - Result: passed; Vite reported the existing chunk-size warning.
+- `git diff --check -- apps/admin-web/src/adminApi/client.ts apps/admin-web/src/adminApi/types.ts apps/admin-web/src/adminApi/mockData.ts apps/admin-web/src/adminApi/dataSource.ts apps/admin-web/src/adminApi/dataSource.test.ts`
+  - Result: passed with only Git LF/CRLF working-copy warnings.
+- Independent check agent `Darwin`
+  - Result: found missing remediation-plan seam and a fixture route-key drift;
+    both were fixed before commit.
+- Independent check agent `Godel`
+  - Result: no findings after the remediation-plan seam and executable-action
+    fixture fixes.

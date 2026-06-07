@@ -22,6 +22,7 @@ import type {
   AdminManagedArtworkGalleryResponse,
   AdminLibraryMetadataProfileResponse,
   AdminJobListResponse,
+  AdminJobListItem,
   AdminOutboxEventListResponse,
   AdminOverviewResponse,
   AdminPlaybackRuntimeDiagnosticsResponse,
@@ -31,8 +32,17 @@ import type {
   AdminSourceDuplicateReconciliationApplyResponse,
   AdminSourceDuplicateReconciliationPlanResponse,
   AdminStorageStagingDiagnosticsResponse,
+  AdminVfsCacheRefreshResponse,
+  AdminVfsCacheRepairActionPlanResponse,
+  AdminVfsCacheRepairEnqueueResponse,
+  AdminVfsCacheRepairExecuteResponse,
+  AdminVfsCacheRepairRemediationPlanResponse,
+  AdminVfsCacheRepairTarget,
+  AdminVfsCacheRepairTargetListResponse,
+  AdminVfsCacheRepairTargetPreviewResponse,
   AdminWatchFolderDiscoveryResponse,
 } from "./generated/contract";
+import { NAKO_ADMIN_ROUTES } from "./generated/contract";
 import type {
   AdminConsoleData,
   AdminSourceMap,
@@ -1962,6 +1972,171 @@ export const mockPlaybackSupport: AdminPlaybackSupportEvidenceResponse = {
   },
 };
 
+export const mockVfsCacheRepairTarget: AdminVfsCacheRepairTarget = {
+  target_ref: "webdav-list-stale-anime",
+  scheme: "webdav",
+  operation: "list",
+  failed_at_ms: 1779180000000,
+  failure_count: 2,
+  classification: "repairable_stale_fallback",
+  recommended_action: "refresh_cache",
+  failure_class: "stale_cache",
+  retryable: true,
+  safe_message: "Cached listing is serving a stale fallback after a backend read failure.",
+};
+
+export const mockVfsCacheRepairDiagnostic: NonNullable<
+  AdminStorageStagingDiagnosticsResponse["summary"]["vfs_cache"]["repair"]
+> = {
+  classification: mockVfsCacheRepairTarget.classification,
+  recommended_action: mockVfsCacheRepairTarget.recommended_action,
+  operation: mockVfsCacheRepairTarget.operation,
+  failure_class: mockVfsCacheRepairTarget.failure_class,
+  retryable: mockVfsCacheRepairTarget.retryable,
+  failed_at_ms: mockVfsCacheRepairTarget.failed_at_ms,
+  failure_count: mockVfsCacheRepairTarget.failure_count,
+  safe_message: mockVfsCacheRepairTarget.safe_message,
+  operator_action: "Refresh the cached VFS listing for the affected backend target.",
+};
+
+export const mockVfsCacheRepairActionPlan: AdminVfsCacheRepairActionPlanResponse = {
+  admin_api_version: "v1",
+  public_api_version: "v1",
+  plan: {
+    status: "executable",
+    action: "refresh_cache",
+    readiness: {
+      status: "executable",
+      api_executable: true,
+      reasons: ["refresh_cache_executable"],
+    },
+    boundary: {
+      refreshes_vfs_cache: true,
+      changes_backend_configuration: false,
+      requires_manual_failure_inspection: false,
+      deletes_cache_entries: false,
+      writes_library_files: false,
+      starts_durable_job: false,
+    },
+    executable_action: {
+      method: "POST",
+      route_key: "storageVfsCacheRepairRefreshCache",
+      route_path: NAKO_ADMIN_ROUTES.storageVfsCacheRepairRefreshCache,
+    },
+    repair: mockVfsCacheRepairDiagnostic,
+  },
+};
+
+export const mockVfsCacheRepairRemediationPlan: AdminVfsCacheRepairRemediationPlanResponse = {
+  admin_api_version: "v1",
+  public_api_version: "v1",
+  total_unresolved_targets: 1,
+  action_groups: [
+    {
+      action: "refresh_cache",
+      count: 1,
+      status: "executable",
+      readiness: mockVfsCacheRepairActionPlan.plan.readiness,
+      boundary: mockVfsCacheRepairActionPlan.plan.boundary,
+      executable_action: {
+        method: "POST",
+        route_key: "storageVfsCacheRepairTargetRefreshCache",
+        route_path: NAKO_ADMIN_ROUTES.storageVfsCacheRepairTargetRefreshCache,
+      },
+      sample_targets: [mockVfsCacheRepairTarget],
+    },
+  ],
+  classification_counts: [
+    {
+      classification: mockVfsCacheRepairTarget.classification,
+      count: 1,
+    },
+  ],
+  boundary: {
+    read_only: true,
+    refreshes_vfs_cache: false,
+    changes_backend_configuration: false,
+    deletes_cache_entries: false,
+    writes_library_files: false,
+    starts_durable_job: false,
+  },
+};
+
+export const mockVfsCacheRepairTargets: AdminVfsCacheRepairTargetListResponse = {
+  admin_api_version: "v1",
+  public_api_version: "v1",
+  targets: [mockVfsCacheRepairTarget],
+  page: { limit: 20, offset: 0, returned: 1 },
+};
+
+export const mockVfsCacheRepairTargetPreview: AdminVfsCacheRepairTargetPreviewResponse = {
+  admin_api_version: "v1",
+  public_api_version: "v1",
+  target: mockVfsCacheRepairTarget,
+  plan: mockVfsCacheRepairActionPlan.plan,
+};
+
+export const mockVfsCacheRefreshResponse: AdminVfsCacheRefreshResponse = {
+  admin_api_version: "v1",
+  public_api_version: "v1",
+  action: "refresh_cache",
+  operation: mockVfsCacheRepairTarget.operation,
+  refreshed: true,
+  repair: mockVfsCacheRepairDiagnostic,
+};
+
+export const mockVfsCacheRepairQueuedJob: AdminJobListItem = {
+  id: "job-vfs-cache-repair-queued",
+  kind: "vfs_cache_repair",
+  status: "queued",
+  resource_class: "storage.vfs_cache.repair",
+  library_id: null,
+  source_id: null,
+  has_input: true,
+  has_summary: false,
+  has_error: false,
+  queued_at: "2026-06-05T00:01:00.000Z",
+  started_at: null,
+  completed_at: null,
+};
+
+export const mockVfsCacheRepairEnqueueResponse: AdminVfsCacheRepairEnqueueResponse = {
+  admin_api_version: "v1",
+  public_api_version: "v1",
+  outcome: "enqueued",
+  job: mockVfsCacheRepairQueuedJob,
+};
+
+export const mockVfsCacheRepairExecuteSummary: AdminVfsCacheRepairExecuteResponse["summary"] = {
+  action: "refresh_cache",
+  source_scheme: mockVfsCacheRepairTarget.scheme,
+  operation: mockVfsCacheRepairTarget.operation,
+  classification: mockVfsCacheRepairTarget.classification,
+  failure_class: mockVfsCacheRepairTarget.failure_class,
+  failed_at_ms: mockVfsCacheRepairTarget.failed_at_ms,
+  failure_count: mockVfsCacheRepairTarget.failure_count,
+  refreshed_cache_state: "fresh",
+};
+
+export const mockVfsCacheRepairExecuteResponse: AdminVfsCacheRepairExecuteResponse = {
+  admin_api_version: "v1",
+  public_api_version: "v1",
+  job: {
+    ...mockVfsCacheRepairQueuedJob,
+    status: "succeeded",
+    has_summary: true,
+    started_at: "2026-06-05T00:02:00.000Z",
+    completed_at: "2026-06-05T00:02:05.000Z",
+  },
+  summary: mockVfsCacheRepairExecuteSummary,
+};
+
+export const mockVfsCacheRepairRetryJob: AdminJobListItem = {
+  ...mockVfsCacheRepairQueuedJob,
+  id: "job-vfs-cache-repair-retry",
+  queued_at: "2026-06-05T00:07:00.000Z",
+};
+
 export const mockStorageStaging: AdminStorageStagingDiagnosticsResponse = {
   admin_api_version: "v1",
   public_api_version: "v1",
@@ -2015,7 +2190,7 @@ export const mockStorageStaging: AdminStorageStagingDiagnosticsResponse = {
       stale_object_count: 3,
       stale_listing_count: 1,
       last_failure_at_ms: 1779180000000,
-      repair: null,
+      repair: mockVfsCacheRepairDiagnostic,
     },
   },
   records: [

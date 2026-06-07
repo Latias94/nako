@@ -34,6 +34,7 @@ import type {
   AdminManagedArtworkGalleryResponse,
   AdminSelectItemArtworkRequest,
   AdminJobCommandResponse,
+  AdminJobListItem,
   AdminLibraryMetadataProfileResponse,
   AdminMetadataRawCacheSettingsResponse,
   AdminMetadataProfile,
@@ -56,6 +57,15 @@ import type {
   AdminSourceDuplicateReconciliationPlanResponse,
   AdminStorageStagingQuery,
   AdminStorageStagingDiagnosticsResponse,
+  AdminVfsCacheRefreshResponse,
+  AdminVfsCacheRepairActionPlanResponse,
+  AdminVfsCacheRepairEnqueueRequest,
+  AdminVfsCacheRepairEnqueueResponse,
+  AdminVfsCacheRepairExecuteResponse,
+  AdminVfsCacheRepairRemediationPlanResponse,
+  AdminVfsCacheRepairRetryRequest,
+  AdminVfsCacheRepairTargetListResponse,
+  AdminVfsCacheRepairTargetPreviewResponse,
   IssueAddonTokenRequest,
   RegisterAddonRequest,
   ReplaceAddonGrantsRequest,
@@ -422,6 +432,89 @@ export class AdminApiClient {
   ): Promise<AdminStorageStagingDiagnosticsResponse> {
     return this.getJson<AdminStorageStagingDiagnosticsResponse>(
       withQuery(NAKO_ADMIN_ROUTES.storageStaging, query),
+    );
+  }
+
+  async getVfsCacheRepairActionPlan(): Promise<AdminVfsCacheRepairActionPlanResponse> {
+    return this.getJson<AdminVfsCacheRepairActionPlanResponse>(
+      NAKO_ADMIN_ROUTES.storageVfsCacheRepairActionPlan,
+    );
+  }
+
+  async getVfsCacheRepairRemediationPlan(): Promise<AdminVfsCacheRepairRemediationPlanResponse> {
+    return this.getJson<AdminVfsCacheRepairRemediationPlanResponse>(
+      NAKO_ADMIN_ROUTES.storageVfsCacheRepairRemediationPlan,
+    );
+  }
+
+  async getVfsCacheRepairTargets(
+    query: { limit?: number; offset?: number } = {},
+  ): Promise<AdminVfsCacheRepairTargetListResponse> {
+    return this.getJson<AdminVfsCacheRepairTargetListResponse>(
+      withQuery(NAKO_ADMIN_ROUTES.storageVfsCacheRepairTargets, query),
+    );
+  }
+
+  async getVfsCacheRepairTargetPreview(
+    targetRef: string,
+  ): Promise<AdminVfsCacheRepairTargetPreviewResponse> {
+    return this.getJson<AdminVfsCacheRepairTargetPreviewResponse>(
+      routeWithParam(
+        NAKO_ADMIN_ROUTES.storageVfsCacheRepairTargetPreview,
+        "target_ref",
+        targetRef,
+      ),
+    );
+  }
+
+  async refreshLatestVfsCacheRepair(): Promise<AdminVfsCacheRefreshResponse> {
+    return this.postJson<AdminVfsCacheRefreshResponse>(
+      NAKO_ADMIN_ROUTES.storageVfsCacheRepairRefreshCache,
+      {},
+    );
+  }
+
+  async refreshVfsCacheRepairTarget(
+    targetRef: string,
+  ): Promise<AdminVfsCacheRefreshResponse> {
+    return this.postJson<AdminVfsCacheRefreshResponse>(
+      routeWithParam(
+        NAKO_ADMIN_ROUTES.storageVfsCacheRepairTargetRefreshCache,
+        "target_ref",
+        targetRef,
+      ),
+      {},
+    );
+  }
+
+  async enqueueVfsCacheRepairTarget(
+    targetRef: string,
+    request: AdminVfsCacheRepairEnqueueRequest = {},
+  ): Promise<AdminVfsCacheRepairEnqueueResponse> {
+    return this.postJson<AdminVfsCacheRepairEnqueueResponse>(
+      routeWithParam(
+        NAKO_ADMIN_ROUTES.storageVfsCacheRepairTargetEnqueue,
+        "target_ref",
+        targetRef,
+      ),
+      request,
+    );
+  }
+
+  async executeVfsCacheRepairJob(jobId: string): Promise<AdminVfsCacheRepairExecuteResponse> {
+    return this.postJson<AdminVfsCacheRepairExecuteResponse>(
+      routeWithParam(NAKO_ADMIN_ROUTES.storageVfsCacheRepairJobExecute, "job_id", jobId),
+      {},
+    );
+  }
+
+  async retryVfsCacheRepairJob(
+    jobId: string,
+    request: AdminVfsCacheRepairRetryRequest = {},
+  ): Promise<AdminJobListItem> {
+    return this.postJson<AdminJobListItem>(
+      routeWithParam(NAKO_ADMIN_ROUTES.storageVfsCacheRepairJobRetry, "job_id", jobId),
+      request,
     );
   }
 
