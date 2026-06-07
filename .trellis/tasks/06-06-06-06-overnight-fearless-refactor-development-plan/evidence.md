@@ -608,3 +608,90 @@ Known non-blocking publication gaps:
   publication steps outside this closeout audit.
 - No live-browser manual playback session proof was added beyond the existing
   smoke, Admin Web, playback, and workspace gate evidence.
+
+## 2026-06-07 OpenDAL Adapter Decision Spike Closeout
+
+Exit signal:
+
+- Decision: defer `storage-opendal-adapter-first-slice`.
+- Do not add OpenDAL as a production dependency in the current M1/M2 wave.
+- Keep Nako `StorageBackend` as the product boundary for storage authority,
+  Source Locator redaction, source fingerprint evidence, cache repair
+  authority, storage health, deterministic staging, and Admin-safe diagnostics.
+- If a future task opens `storage-opendal-adapter-first-slice`, the first slice
+  must be a feature-gated or test-only adapter harness behind `StorageBackend`.
+  It must not replace Nako's storage product model, widen WebDAV capability, or
+  change production config/API/schema/dependency shape before tests prove the
+  boundary is safe.
+
+Evidence reviewed:
+
+- `research/opendal-storage-layer.md` records OpenDAL 0.57.0 as a credible
+  Rust storage operator with local filesystem, WebDAV, S3-compatible storage,
+  retry, timeout, tracing/metrics, throttle, and capability layers.
+- `docs/architecture/STORAGE_VFS.md` defines Nako-owned VFS semantics:
+  `StorageUri`, Source Locator redaction, Source Fingerprint evidence, storage
+  health, VFS cache repair authority, deterministic staging, range/stream
+  behavior, and redaction-safe Admin diagnostics.
+- `crates/nako-vfs/src/lib.rs` shows `StorageBackend` is a domain contract,
+  not a generic object-store facade: it includes storage capabilities, object
+  metadata, byte-range reads, streaming reads, staging reports, local mutation
+  planning, default unsupported mutation reports, and cache repair facts.
+- `crates/nako-vfs/src/local.rs` keeps local path authority, escape
+  prevention, atomic write/backup/restore/cleanup behavior, link planning, and
+  local staging under Nako control.
+- `crates/nako-vfs/src/webdav.rs` keeps endpoint validation, credential
+  redaction, bounded retry/timeout behavior, PROPFIND parsing, range reads,
+  streaming reads, deterministic staging, and intentionally read-only product
+  behavior under Nako control.
+
+Alternatives considered:
+
+- Continue hand-written local/WebDAV backends for now.
+  - Pros: preserves known M1 behavior, avoids dependency churn, keeps current
+    redaction/capability/range/cache-repair semantics directly testable.
+  - Cons: backend breadth remains slower to add; repeated remote adapter
+    plumbing can accumulate.
+  - Decision: chosen for the current wave.
+- Replace `nako-vfs` backend implementations directly with OpenDAL.
+  - Pros: could reduce bespoke filesystem/WebDAV/S3 operation code.
+  - Cons: would blur Nako-owned storage semantics, risks widening WebDAV
+    write/delete/copy/rename behavior, and would force error/range/runtime
+    policy remapping before product value is proven.
+  - Decision: rejected for M1/M2.
+- Add a narrow OpenDAL adapter behind `StorageBackend`.
+  - Pros: may prove future backend breadth, especially S3-compatible storage,
+    while preserving Nako's product boundary.
+  - Cons: still needs explicit mapping for redaction, capability narrowing,
+    range/stream behavior, storage failure classes, and runtime policy; adding
+    the dependency before a committed backend target is premature.
+  - Decision: deferred. Reopen only as
+    `storage-opendal-adapter-first-slice` with a feature-gated/test-only
+    harness and no production behavior change.
+
+Risk and verification requirements for any future first slice:
+
+- Redaction: adapter tests must prove raw `StorageUri`, local paths, backend
+  URLs, credentials, headers, raw provider errors, etags, fingerprints, URI
+  digests, durable input JSON, and cache payloads do not cross API,
+  diagnostic, log, or durable job summary boundaries.
+- Capability narrowing: tests must prove OpenDAL-advertised write/delete/copy/
+  rename support cannot widen Nako's backend capabilities or WebDAV read-only
+  product policy.
+- Range reads and streaming: tests must prove bounded ranges, open-ended
+  ranges, invalid range syntax, full-object streams, unknown-length objects,
+  and non-seekable backends map to existing `ByteRange`, `read_range`, and
+  `stream_range` behavior without forcing whole-object loads where streaming
+  is required.
+- Error mapping: tests must map OpenDAL failures into Nako storage failure
+  classes and cache repair diagnostics without leaking raw backend messages or
+  turning permission/security failures into retry loops.
+- Runtime policy: retry/timeout/throttle/tracing layers must remain subordinate
+  to Nako's runtime budgets, storage health/circuit-breaker policy, scan/probe/
+  playback admission, and deterministic staging cleanup.
+
+Validation policy:
+
+- This closeout is docs-only. No Rust/TypeScript code, generated contract,
+  dependency, `Cargo.toml`, or `Cargo.lock` change is required or allowed.
+- Rust tests are intentionally skipped because no code changed.
