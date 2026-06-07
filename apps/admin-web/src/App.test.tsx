@@ -220,6 +220,9 @@ describe("Admin Web V2 route shell", () => {
     expect(screen.getByRole("button", { name: /Source Hash 任务/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "VFS cache repair 任务" })).toBeInTheDocument();
     expect(screen.getByText("URL 过滤条件具有权威性")).toBeInTheDocument();
+    expect(screen.getByText("队列压力")).toBeInTheDocument();
+    expect(screen.getByText("4 组，2 个排队任务")).toBeInTheDocument();
+    expect(screen.getByText("2 个可领取")).toBeInTheDocument();
     expect(screen.getByText("实时 Admin API")).toBeInTheDocument();
     expect(screen.getByText("生命周期")).toBeInTheDocument();
     expect(screen.getAllByText("优先级 normal").length).toBeGreaterThan(0);
@@ -247,6 +250,10 @@ describe("Admin Web V2 route shell", () => {
     expect(screen.getByText("Mock fallback")).toBeInTheDocument();
     expect(screen.getByText("job-scan")).toBeInTheDocument();
     expect(screen.getByText("Lifecycle")).toBeInTheDocument();
+    expect(screen.getByText("Queue pressure")).toBeInTheDocument();
+    expect(screen.getByText("4 groups, 2 queued jobs")).toBeInTheDocument();
+    expect(screen.getByText("2 claimable")).toBeInTheDocument();
+    expect(screen.getAllByText("storage.vfs.cache_repair").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Priority normal").length).toBeGreaterThan(0);
     expect(screen.getByText("Attempt 2/3")).toBeInTheDocument();
     expect(screen.getByText("Retry of job-source-hash-original")).toBeInTheDocument();

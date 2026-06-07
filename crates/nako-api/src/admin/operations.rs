@@ -2,8 +2,8 @@ use nako_client_protocol::PageInfo;
 use nako_core::{
     DomainEventKind, DomainEventSubject, EventId, IngestionFailureClass, IngestionFailurePhase,
     IngestionFailureRecord, IngestionFailureStatus, Job, JobCancellationRequestRecord, JobId,
-    JobKind, JobPriority, JobStatus, LibraryId, MediaSourceId, OutboxEventRecord,
-    OutboxEventStatus, ScanSnapshotId, SourceDuplicateEvidenceKind,
+    JobKind, JobPriority, JobQueuePressureSummary, JobStatus, LibraryId, MediaSourceId,
+    OutboxEventRecord, OutboxEventStatus, ScanSnapshotId, SourceDuplicateEvidenceKind,
     SourceDuplicateReconciliationAction, SourceDuplicateReconciliationApplyResult,
     SourceDuplicateReconciliationCandidate, SourceDuplicateReconciliationPlan,
     SourceDuplicateRelationshipId, SourceDuplicateRelationshipStatus,
@@ -66,7 +66,35 @@ impl JobResponse {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminJobListResponse {
     pub jobs: Vec<AdminJobListItem>,
+    pub queue_pressure: Vec<AdminJobQueuePressureSummary>,
     pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminJobQueuePressureSummary {
+    pub kind: JobKind,
+    pub status: JobStatus,
+    pub resource_class: String,
+    pub count: u64,
+    pub claimable_count: u64,
+    pub delayed_retry_count: u64,
+    pub oldest_queued_at: Option<String>,
+    pub next_attempt_at: Option<String>,
+}
+
+impl From<JobQueuePressureSummary> for AdminJobQueuePressureSummary {
+    fn from(summary: JobQueuePressureSummary) -> Self {
+        Self {
+            kind: summary.kind,
+            status: summary.status,
+            resource_class: summary.resource_class,
+            count: summary.count,
+            claimable_count: summary.claimable_count,
+            delayed_retry_count: summary.delayed_retry_count,
+            oldest_queued_at: summary.oldest_queued_at,
+            next_attempt_at: summary.next_attempt_at,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -605,6 +633,42 @@ mod tests {
         assert!(!body.contains("private.nfo"));
         assert!(!body.contains("output_path"));
         assert!(!body.contains("secret"));
+    }
+
+    #[test]
+    fn admin_job_queue_pressure_summary_serializes_safe_aggregate_fields() {
+        let summary = AdminJobQueuePressureSummary::from(JobQueuePressureSummary {
+            kind: JobKind::VfsCacheRepair,
+            status: JobStatus::Queued,
+            resource_class: "storage.vfs.cache_repair".to_owned(),
+            count: 3,
+            claimable_count: 2,
+            delayed_retry_count: 1,
+            oldest_queued_at: Some("2026-06-08T00:00:00Z".to_owned()),
+            next_attempt_at: Some("2026-06-08T00:05:00Z".to_owned()),
+        });
+
+        let value = serde_json::to_value(&summary).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(value["kind"], "vfs_cache_repair");
+        assert_eq!(value["status"], "queued");
+        assert_eq!(value["resource_class"], "storage.vfs.cache_repair");
+        assert_eq!(value["count"], 3);
+        assert_eq!(value["claimable_count"], 2);
+        assert_eq!(value["delayed_retry_count"], 1);
+        assert_eq!(value["oldest_queued_at"], "2026-06-08T00:00:00Z");
+        assert_eq!(value["next_attempt_at"], "2026-06-08T00:05:00Z");
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("storage_uri"));
+        assert!(!body.contains("local_path"));
+        assert!(!body.contains("uri_digest"));
+        assert!(!body.contains("etag"));
+        assert!(!body.contains("fingerprint"));
+        assert!(!body.contains("token"));
+        assert!(!body.contains("input_json"));
+        assert!(!body.contains("summary_json"));
+        assert!(!body.contains("\"error\""));
     }
 
     #[test]

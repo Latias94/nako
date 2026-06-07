@@ -41,7 +41,7 @@ Deployment Endpoint Config
 | HTTP addon protocol | Shipped foundation | ADR 0003; ADR 0015; ADR 0020 | Addon Manager lifecycle is still deferred. |
 | Addon capability and token scopes | Shipped foundation | addon token/grant workstreams | Stronger hosted surface and route policy. |
 | Addon process supervision | Deferred | ADR 0020; ADR 0053 | `addon-manager-process-lifecycle`. |
-| Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract/summary/internal enqueue/queued planner/single-job executor command/scheduler integration/evidence persistence/Admin manual commands, scan-originated source hash triggering, VFS cache repair durable contract/internal enqueue/internal single-job executor/Admin manual enqueue-execute-retry/internal retry commands, Admin Jobs diagnostics projection, VFS repair automation policy dry-run planner, explicit internal/Admin automation enqueue commands, Admin automation plan/enqueue routes, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/`; `.trellis/tasks/archive/2026-06/06-06-06-06-overnight-fearless-refactor-development-plan/`; `.trellis/tasks/archive/2026-06/06-07-vfs-cache-repair-job-diagnostics-projection/`; `.trellis/tasks/archive/2026-06/06-07-06-07-vfs-cache-repair-automation-policy-planner/`; `.trellis/tasks/archive/2026-06/06-08-06-07-admin-vfs-cache-repair-automation-commands/` | Broader job-kind scheduler migration, recurring VFS cache repair scheduling/execution policy, and automatic Source Duplicate Relationship reconciliation remain follow-ons. |
+| Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract/summary/internal enqueue/queued planner/single-job executor command/scheduler integration/evidence persistence/Admin manual commands, scan-originated source hash triggering, VFS cache repair durable contract/internal enqueue/internal single-job executor/Admin manual enqueue-execute-retry/internal retry commands, Admin Jobs diagnostics projection and queue-pressure summary, VFS repair automation policy dry-run planner, explicit internal/Admin automation enqueue commands, Admin automation plan/enqueue routes, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/`; `.trellis/tasks/archive/2026-06/06-06-06-06-overnight-fearless-refactor-development-plan/`; `.trellis/tasks/archive/2026-06/06-07-vfs-cache-repair-job-diagnostics-projection/`; `.trellis/tasks/archive/2026-06/06-07-06-07-vfs-cache-repair-automation-policy-planner/`; `.trellis/tasks/archive/2026-06/06-08-06-07-admin-vfs-cache-repair-automation-commands/` | Broader job-kind scheduler migration, recurring VFS cache repair scheduling/execution policy, and automatic Source Duplicate Relationship reconciliation remain follow-ons. |
 | Runtime supervisor | Shipped resource-accounted foundation | ADR 0019; server runtime deepening; durable job queue/resource lane | Unified trace context and broader scheduler migration remain follow-ons. |
 | Resource classes and budgets | Shipped process-local foundation plus source fingerprint hash and VFS cache repair mappings to `disk.scan` | ADR 0005; playback/runtime lanes; durable job queue/resource lane | Continue migrating job kinds onto typed budget-admitted scheduler paths. |
 | Tracing/request identity | Partial with HLS, library scan, and source fingerprint hash job propagation | diagnostics and playback identity lanes | Continue unified trace context across jobs/FFmpeg/VFS/addons and broader scan entry points. |
@@ -104,6 +104,10 @@ Shipped control-plane behavior:
   exists.
 - Admin overview and Jobs diagnostics expose source fingerprint hash pressure
   without raw Source Locator, fingerprint, hash, or job input material.
+- Admin Jobs list responses expose route-level durable queue-pressure groups
+  with kind, status, resource class, counts, claimable/delayed retry counts, and
+  safe retry timestamps, without raw durable payload or storage/source identity
+  material.
 - Admin manual enqueue can create full or partial source fingerprint hash jobs
   for one known Media Source while preserving the existing disk-scan scheduler
   execution path and persisting the current request_id for operator correlation.
@@ -183,6 +187,9 @@ Shipped control-plane behavior:
   `AdminJobDiagnostics` for `JobKind::VfsCacheRepair` only, parsing safe
   summary JSON into the typed repair summary when available and exposing only
   stable redacted failure facts for failed jobs.
+- Admin Jobs list responses include the repository-owned durable queue-pressure
+  summary so operators can scan backlog, claimable work, and delayed retries
+  without reading raw durable job payloads.
 - the internal automation policy dry-run planner classifies unresolved repair
   targets into eligible and blocked groups under an explicit enabled/disabled
   policy without enqueueing jobs, refreshing cache, or changing storage state.

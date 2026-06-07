@@ -2790,8 +2790,20 @@ export interface AdminJobListItem {
 
 export type AdminJobCommandResponse = AdminJobListItem;
 
+export interface AdminJobQueuePressureSummary {
+  kind: string;
+  status: string;
+  resource_class: string;
+  count: number;
+  claimable_count: number;
+  delayed_retry_count: number;
+  oldest_queued_at: string | null;
+  next_attempt_at: string | null;
+}
+
 export interface AdminJobListResponse {
   jobs: AdminJobListItem[];
+  queue_pressure: AdminJobQueuePressureSummary[];
   page: PageInfo;
 }
 
@@ -4346,6 +4358,7 @@ mod tests {
             "AdminVfsCacheRepairJobDiagnostics",
             "AdminVfsCacheRepairJobDiagnosticStatus",
             "AdminVfsCacheRepairJobFailureDiagnostic",
+            "AdminJobQueuePressureSummary",
             "AdminJobCommandResponse",
             "AdminStorageBackendsQuery",
             "AdminStorageStagingQuery",

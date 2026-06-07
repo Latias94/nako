@@ -1792,6 +1792,49 @@ td {
   gap: 3px;
 }
 
+.jobQueuePressureGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px;
+}
+
+.jobQueuePressureTile {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  min-height: 148px;
+  padding: 12px;
+  border: 1px solid var(--nako-admin-line);
+  border-radius: var(--nako-admin-radius);
+  background: var(--nako-admin-surface-raised);
+}
+
+.jobQueuePressureHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.jobQueuePressureHeader strong {
+  overflow-wrap: anywhere;
+  color: var(--nako-admin-ink);
+  font-size: 0.92rem;
+}
+
+.jobQueuePressureTile span,
+.jobQueuePressureTile small {
+  overflow-wrap: anywhere;
+  color: var(--nako-admin-muted);
+  font-size: 0.78rem;
+}
+
+.jobQueuePressureCounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .jobsPrimaryCell span,
 .jobsLifecycleCell span,
 .routePrimaryCell span {

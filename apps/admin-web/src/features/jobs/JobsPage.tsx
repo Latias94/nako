@@ -14,6 +14,7 @@ import type {
 } from "../../adminApi/dataSource";
 import type {
   AdminJobListItem,
+  AdminJobQueuePressureSummary,
   AdminJobListResponse,
   AdminJobsQuery,
 } from "../../adminApi/types";
@@ -306,6 +307,11 @@ export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) 
         </FilterActions>
       </FilterBar>
 
+      <QueuePressureSummary
+        pressure={result.value.queue_pressure}
+        t={t}
+      />
+
       <DataPanel
         description={t("jobs.queue.description", {
           returned: result.value.page.returned,
@@ -363,6 +369,90 @@ export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) 
 
 type Translate = (id: MessageId, values?: Record<string, number | string>) => string;
 type BadgeTone = "danger" | "info" | "neutral" | "success" | "warning";
+
+function QueuePressureSummary({
+  pressure,
+  t,
+}: {
+  pressure: AdminJobQueuePressureSummary[];
+  t: Translate;
+}) {
+  const queuedCount = pressure
+    .filter((item) => item.status === "queued")
+    .reduce((total, item) => total + item.count, 0);
+  const claimableCount = pressure.reduce(
+    (total, item) => total + item.claimable_count,
+    0,
+  );
+  const delayedRetryCount = pressure.reduce(
+    (total, item) => total + item.delayed_retry_count,
+    0,
+  );
+
+  return (
+    <DataPanel
+      description={t("jobs.queuePressure.description", {
+        groups: pressure.length,
+        queued: queuedCount,
+      })}
+      headerAccessory={
+        <div className="issueBadgeList">
+          <Badge tone={claimableCount > 0 ? "warning" : "neutral"}>
+            {t("jobs.queuePressure.claimable", { count: claimableCount })}
+          </Badge>
+          <Badge tone={delayedRetryCount > 0 ? "info" : "neutral"}>
+            {t("jobs.queuePressure.delayed", { count: delayedRetryCount })}
+          </Badge>
+        </div>
+      }
+      title={t("jobs.queuePressure.title")}
+    >
+      {pressure.length === 0 ? (
+        <EmptyRouteState>{t("jobs.queuePressure.empty")}</EmptyRouteState>
+      ) : (
+        <div className="jobQueuePressureGrid">
+          {pressure.map((item) => (
+            <div
+              className="jobQueuePressureTile"
+              key={`${item.kind}:${item.status}:${item.resource_class}`}
+            >
+              <div className="jobQueuePressureHeader">
+                <strong>{item.kind}</strong>
+                <Badge tone={jobStatusTone(item.status)}>{item.status}</Badge>
+              </div>
+              <span>{item.resource_class}</span>
+              <div className="jobQueuePressureCounts">
+                <Badge tone="info">
+                  {t("jobs.queuePressure.count", { count: item.count })}
+                </Badge>
+                <Badge tone={item.claimable_count > 0 ? "warning" : "neutral"}>
+                  {t("jobs.queuePressure.claimableShort", {
+                    count: item.claimable_count,
+                  })}
+                </Badge>
+                <Badge tone={item.delayed_retry_count > 0 ? "info" : "neutral"}>
+                  {t("jobs.queuePressure.delayedShort", {
+                    count: item.delayed_retry_count,
+                  })}
+                </Badge>
+              </div>
+              <small>
+                {t("jobs.queuePressure.oldestQueued", {
+                  time: item.oldest_queued_at ?? t("jobs.queuePressure.none"),
+                })}
+              </small>
+              <small>
+                {t("jobs.queuePressure.nextAttempt", {
+                  time: item.next_attempt_at ?? t("jobs.queuePressure.none"),
+                })}
+              </small>
+            </div>
+          ))}
+        </div>
+      )}
+    </DataPanel>
+  );
+}
 
 function createColumns(
   t: Translate,
@@ -541,6 +631,22 @@ function jobPriorityTone(priority: string): BadgeTone {
   }
 
   return "info";
+}
+
+function jobStatusTone(status: string): BadgeTone {
+  if (status === "failed") {
+    return "danger";
+  }
+
+  if (status === "running") {
+    return "info";
+  }
+
+  if (status === "queued") {
+    return "warning";
+  }
+
+  return "success";
 }
 
 function JobStatusBadge({ status, hasError }: { status: string; hasError: boolean }) {

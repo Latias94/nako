@@ -171,6 +171,8 @@ Public Client exclusion tests.
   Admin manual durable repair enqueue/execute/retry commands, or Admin Jobs
   list/detail/cancel responses project VFS cache repair job diagnostics.
 - Scope: `AdminStorageStagingSummary.vfs_cache.repair`,
+  `AdminJobListResponse.queue_pressure`,
+  `AdminJobQueuePressureSummary`,
   `AdminJobListItem.diagnostics`, `JobResponse.diagnostics`,
   `AdminVfsCacheRepairActionPlanResponse`, `AdminVfsCacheRefreshResponse`,
   `AdminVfsCacheRepairTargetListResponse`,
@@ -240,6 +242,11 @@ Public Client exclusion tests.
   refreshed_cache_state }`.
 - Admin job diagnostics DTO:
   `AdminJobDiagnostics { vfs_cache_repair }`.
+- Admin Jobs list response:
+  `AdminJobListResponse { jobs, queue_pressure, page }`.
+- Admin queue pressure DTO:
+  `AdminJobQueuePressureSummary { kind, status, resource_class, count,
+  claimable_count, delayed_retry_count, oldest_queued_at, next_attempt_at }`.
 - Generic Admin job lifecycle fields:
   `priority`, `attempt`, `max_attempts`, `retry_of_job_id`, and
   `next_attempt_at` on `AdminJobListItem` and `JobResponse`.
@@ -347,6 +354,15 @@ Public Client exclusion tests.
 - `AdminJobListItem` and `JobResponse` may include
   `diagnostics: AdminJobDiagnostics` only for `JobKind::VfsCacheRepair`.
   Non-VFS jobs must keep this field absent or null.
+- `AdminJobListResponse.queue_pressure` is a route-level durable queue
+  aggregate derived from the repository-owned `JobQueuePressureSummary`. It is
+  not computed by Admin Web from the visible job page and is not narrowed by the
+  current row filters in this contract.
+- Queue pressure may expose only grouped kind, status, resource class, counts,
+  claimable count, delayed retry count, oldest queued timestamp, and next retry
+  timestamp. It must not expose raw durable input JSON, summary JSON, raw error
+  bodies, storage identity, source locators, paths, backend URLs, credentials,
+  etags, fingerprints, URI digests, or cache payloads.
 - VFS cache repair job diagnostics may parse safe `summary_json` only into
   `AdminVfsCacheRepairJobSummary`; they must never expose raw `summary_json`.
 - Failed VFS cache repair job diagnostics may derive only stable redacted facts
@@ -396,6 +412,9 @@ Public Client exclusion tests.
 | Admin Jobs response contains a succeeded VFS repair job with valid safe summary JSON | `status: "summary_available"` and `summary: AdminVfsCacheRepairJobSummary` |
 | Admin Jobs response contains a failed VFS repair job with raw error text | `status: "failed"` and only redacted failure facts; raw error text is omitted |
 | Admin Jobs response contains a non-VFS job | `diagnostics` is absent or null |
+| Admin Jobs response is requested with row filters | `jobs` is filtered/paged, while `queue_pressure` remains the safe route-level durable queue aggregate |
+| Queue pressure contains delayed retries | Expose only delayed count and safe next retry timestamp |
+| Queue pressure source rows contain raw durable payloads, paths, locators, tokens, etags, fingerprints, URI digests, or raw errors | Response omits those values and exposes only grouped safe aggregate fields |
 
 ### 5. Good / Base / Bad Cases
 
@@ -433,6 +452,9 @@ Public Client exclusion tests.
   execution to the existing scheduler/runtime path.
 - Good: `/admin/v1/jobs?kind=vfs_cache_repair` returns VFS repair diagnostics
   on each VFS repair job row without exposing raw durable payloads.
+- Good: `/admin/v1/jobs?status=succeeded` returns the filtered job page plus
+  `queue_pressure` groups for the durable queue, exposing only counts and safe
+  retry timestamps.
 - Base: old clients that omit `repair` during deserialization still work through
   serde defaults.
 - Base: old clients that omit `diagnostics` during deserialization still work
@@ -472,9 +494,14 @@ Public Client exclusion tests.
 - API serialization tests prove `JobResponse` and `AdminJobListItem` VFS repair
   diagnostics project safe summary/failure fields and omit raw
   `input_json`, `summary_json`, and `error`.
+- API serialization tests prove `AdminJobQueuePressureSummary` serializes safe
+  aggregate fields and omits raw durable payload and storage/source identity
+  terms.
 - Server route tests prove enqueue/execute/Admin Jobs list responses carry
   pending, summary, and failed VFS repair diagnostics without leaking raw job
   payloads.
+- Server route tests prove Admin Jobs list responses include queue pressure
+  aggregates while preserving row pagination/filtering and redaction.
 
 ### 7. Wrong vs Correct
 

@@ -5522,6 +5522,35 @@ async fn admin_v1_jobs_lists_filters_and_redacts_raw_payloads() {
     assert!(!jobs.jobs[0].has_error);
     assert_eq!(jobs.page.limit, 5);
     assert_eq!(jobs.page.returned, 1);
+    assert_eq!(jobs.queue_pressure.len(), 2);
+    let scan_pressure = jobs
+        .queue_pressure
+        .iter()
+        .find(|pressure| {
+            pressure.kind == JobKind::LibraryScan
+                && pressure.status == JobStatus::Succeeded
+                && pressure.resource_class == "disk.scan"
+        })
+        .expect("library scan queue pressure");
+    assert_eq!(scan_pressure.count, 1);
+    assert_eq!(scan_pressure.claimable_count, 0);
+    assert_eq!(scan_pressure.delayed_retry_count, 0);
+    assert_eq!(scan_pressure.oldest_queued_at, None);
+    assert_eq!(scan_pressure.next_attempt_at, None);
+    let metadata_pressure = jobs
+        .queue_pressure
+        .iter()
+        .find(|pressure| {
+            pressure.kind == JobKind::MetadataRefresh
+                && pressure.status == JobStatus::Queued
+                && pressure.resource_class == "metadata.tmdb"
+        })
+        .expect("metadata queue pressure");
+    assert_eq!(metadata_pressure.count, 1);
+    assert_eq!(metadata_pressure.claimable_count, 1);
+    assert_eq!(metadata_pressure.delayed_retry_count, 0);
+    assert!(metadata_pressure.oldest_queued_at.is_some());
+    assert_eq!(metadata_pressure.next_attempt_at, None);
     assert!(!body.contains("admin-token"));
     assert!(!body.contains("private.nfo"));
     assert!(!body.contains(&temp.path().display().to_string()));

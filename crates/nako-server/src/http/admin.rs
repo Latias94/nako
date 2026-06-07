@@ -3104,11 +3104,14 @@ pub(super) async fn list_admin_jobs(
 ) -> ApiResult<impl IntoResponse> {
     let (filter, page) = query.into_filter_and_page()?;
     let jobs = app.jobs().list_jobs(filter, page).await?;
+    let queue_pressure = app.job_queue_pressure_diagnostics().await?;
     let returned = jobs.len();
     let jobs = jobs.into_iter().map(AdminJobListItem::from_job).collect();
+    let queue_pressure = queue_pressure.into_iter().map(Into::into).collect();
 
     Ok(Json(AdminJobListResponse {
         jobs,
+        queue_pressure,
         page: page_info_from_request(page, returned),
     }))
 }

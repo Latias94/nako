@@ -1601,6 +1601,48 @@ export const mockEvents: AdminOutboxEventListResponse = {
 };
 
 export const mockJobs: AdminJobListResponse = {
+  queue_pressure: [
+    {
+      kind: "library_scan",
+      status: "running",
+      resource_class: "library",
+      count: 1,
+      claimable_count: 0,
+      delayed_retry_count: 0,
+      oldest_queued_at: null,
+      next_attempt_at: null,
+    },
+    {
+      kind: "managed_artwork_ingest",
+      status: "queued",
+      resource_class: "artwork",
+      count: 1,
+      claimable_count: 1,
+      delayed_retry_count: 0,
+      oldest_queued_at: "2026-05-19T10:02:00Z",
+      next_attempt_at: null,
+    },
+    {
+      kind: "source_fingerprint_hash",
+      status: "failed",
+      resource_class: "disk.scan.source_fingerprint_hash",
+      count: 1,
+      claimable_count: 0,
+      delayed_retry_count: 0,
+      oldest_queued_at: null,
+      next_attempt_at: null,
+    },
+    {
+      kind: "vfs_cache_repair",
+      status: "queued",
+      resource_class: "storage.vfs.cache_repair",
+      count: 1,
+      claimable_count: 1,
+      delayed_retry_count: 0,
+      oldest_queued_at: "2026-06-05T00:01:00.000Z",
+      next_attempt_at: null,
+    },
+  ],
   jobs: [
     {
       id: "job-scan",

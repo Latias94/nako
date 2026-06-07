@@ -56,6 +56,7 @@ export type {
   AdminJobPriority,
   AdminJobListItem,
   AdminJobListResponse,
+  AdminJobQueuePressureSummary,
   AdminJobsQuery,
   AdminJobCommandResponse,
   AdminLocalInferenceSummary,
