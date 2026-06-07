@@ -6,6 +6,7 @@ import type {
   AdminCatalogGovernanceProviderMappingReviewRequest,
   AdminProviderMappingStatus,
   AdminGeneratedArtifactReviewRequest,
+  AdminJobStatus,
   AdminLibraryMetadataProfileResponse,
   AdminServerConfigDiagnosticsResponse,
   AddonPermission,
@@ -16,6 +17,9 @@ import type {
 
 export type {
   AddonGrantsResponse,
+  AddonTaskRunResponse,
+  AddonTaskRunsQuery,
+  AddonTaskRunsResponse,
   AddonPermission,
   AddonResource,
   AddonScope,
@@ -60,6 +64,7 @@ export type {
   AdminJobQueuePressureSummary,
   AdminJobsQuery,
   AdminJobCommandResponse,
+  AdminJobStatus,
   AdminLocalInferenceSummary,
   AdminMetadataProfile,
   AdminMetadataRawCacheSettingsResponse,
@@ -630,6 +635,7 @@ export type AddonsRouteSummary = {
   installBoundary: AddonsRouteInstallBoundary | null;
   tokens: AddonTokenSummaryRow[];
   grants: AddonGrantSummaryRow[];
+  taskRuns: AddonTaskRunRow[];
 };
 
 export type AddonsRouteRow = {
@@ -668,6 +674,27 @@ export type AddonsRouteInstallBoundary = {
   secretReferenceCount: number;
   healthCheckStepCount: number;
   registrationVerificationStepCount: number;
+};
+
+export type AddonTaskRunRow = {
+  jobId: string;
+  addonId: string;
+  declarationId: string;
+  declarationName: string;
+  status: AdminJobStatus;
+  resourceClass: string;
+  libraryId: string | null;
+  sourceId: string | null;
+  attempt: number;
+  maxAttempts: number | null;
+  retryOfJobId: string | null;
+  retryable: boolean;
+  hasInput: boolean;
+  safeErrorCode: string | null;
+  queuedAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  updatedAt: string;
 };
 
 export type AddonOnboardingResult =

@@ -1,5 +1,8 @@
 import type {
   AddonGrantsResponse,
+  AddonTaskRunResponse,
+  AddonTaskRunsQuery,
+  AddonTaskRunsResponse,
   AddonTokenIssuedResponse,
   AddonTokenResponse,
   AddonTokenRotationResponse,
@@ -72,6 +75,7 @@ import type {
   AdminVfsCacheRepairRetryRequest,
   AdminVfsCacheRepairTargetListResponse,
   AdminVfsCacheRepairTargetPreviewResponse,
+  RetryAddonTaskRunRequest,
   IssueAddonTokenRequest,
   RegisterAddonRequest,
   ReplaceAddonGrantsRequest,
@@ -230,6 +234,35 @@ export class AdminApiClient {
   async getAddonGrants(addonId: string): Promise<AddonGrantsResponse> {
     return this.getJson<AddonGrantsResponse>(
       routeWithParam(NAKO_ADMIN_ROUTES.addonGrants, "addon_id", addonId),
+    );
+  }
+
+  async getAddonTaskRuns(
+    addonId: string,
+    query: AddonTaskRunsQuery = {},
+  ): Promise<AddonTaskRunsResponse> {
+    return this.getJson<AddonTaskRunsResponse>(
+      withQuery(
+        routeWithParam(NAKO_ADMIN_ROUTES.addonTaskRuns, "addon_id", addonId),
+        query,
+      ),
+    );
+  }
+
+  async getAddonTaskRun(addonId: string, jobId: string): Promise<AddonTaskRunResponse> {
+    return this.getJson<AddonTaskRunResponse>(
+      addonTaskRunPath(NAKO_ADMIN_ROUTES.addonTaskRun, addonId, jobId),
+    );
+  }
+
+  async retryAddonTaskRun(
+    addonId: string,
+    jobId: string,
+    request: RetryAddonTaskRunRequest,
+  ): Promise<AddonTaskRunResponse> {
+    return this.postJson<AddonTaskRunResponse>(
+      addonTaskRunPath(NAKO_ADMIN_ROUTES.addonTaskRunRetry, addonId, jobId),
+      request,
     );
   }
 
@@ -791,6 +824,14 @@ function sourceDuplicateReconciliationPath(path: string, libraryId: string, sour
     routeWithParam(path, "library_id", libraryId),
     "source_id",
     sourceId,
+  );
+}
+
+function addonTaskRunPath(path: string, addonId: string, jobId: string) {
+  return routeWithParam(
+    routeWithParam(path, "addon_id", addonId),
+    "job_id",
+    jobId,
   );
 }
 

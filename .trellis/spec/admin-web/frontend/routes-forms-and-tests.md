@@ -117,6 +117,102 @@ const mutation = useMutation({
 Keep network behavior behind the typed data source and generated Admin API
 client, then assert it through route tests.
 
+## Scenario: Addon Task Run Operator Projection
+
+### 1. Scope / Trigger
+
+- Trigger: Admin Web renders, lists, details, or retries Addon Task Runs through
+  generated Admin API routes.
+- Evidence: `src/features/addons/AddonsPage.tsx`, `src/adminApi/client.ts`,
+  `src/adminApi/dataSource.ts`, `src/adminApi/types.ts`,
+  `src/adminApi/mockData.ts`, and route tests.
+- Authority: ADR 0027 and ADR 0053.
+
+### 2. Signatures
+
+- Generated route keys:
+  `addonTaskRuns`, `addonTaskRun`, and `addonTaskRunRetry`.
+- Client methods:
+  `getAddonTaskRuns(addonId, query)`,
+  `getAddonTaskRun(addonId, jobId)`, and
+  `retryAddonTaskRun(addonId, jobId, request)`.
+- Data source methods:
+  `loadAddonTaskRuns(addonId, query)`,
+  `loadAddonTaskRun(addonId, jobId)`, and
+  `retryAddonTaskRun(addonId, jobId)`.
+- Page rows use `AddonTaskRunRow`, not the generated raw
+  `AddonTaskRunSummary`.
+
+### 3. Contracts
+
+- Admin Web may receive `AddonTaskRunSummary` fields such as `progress`,
+  `result`, `declaration_path`, and `manifest_fingerprint` from the generated
+  contract, but must not render or pass those fields to route components.
+- `AddonTaskRunRow` may expose only job ID, addon ID, declaration ID/name,
+  status, resource class, library/source scope IDs, attempt counters,
+  retry linkage, retryability, `hasInput`, safe error code, and timestamps.
+- Addons route summary may show a bounded recent task-run panel for the selected
+  Addon. It is not a generic scheduler UI.
+- Retry is available only when the route load source is `live`, the data source
+  exposes `retryAddonTaskRun`, and the row is `status === "failed"` with
+  `retryable === true`.
+- Retry requires an explicit prepare step followed by a second confirm action.
+- Mock fallback may show safe read rows, but must never fabricate a successful
+  retry mutation.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Live task-run list succeeds | Map generated response into `AddonTaskRunRow[]` and render safe facts |
+| Live task-run read fails | Use deterministic safe mock fallback with visible error |
+| Route source is mock or hybrid without mutation | Disable retry and show unavailable copy |
+| Row is not failed or not retryable | Render a no-retry state, not an action |
+| Retry confirm succeeds | Show queued retry job ID/status and invalidate the Addons query |
+| Retry HTTP request fails | Surface the error without changing the task-run list to success |
+| Generated response contains raw payload, progress/result, URLs, paths, tokens, fingerprints, or declaration paths | Data source/page projection omits them and tests reject rendering |
+
+### 5. Good / Base / Bad Cases
+
+- Good: client builds generated route paths with encoded `addon_id` and
+  `job_id`, data source maps to `AddonTaskRunRow`, page renders safe row facts,
+  and tests cover confirmation plus redaction.
+- Base: read-only task-run list panel with disabled retry when source is not
+  live.
+- Bad: page imports `AddonTaskRunSummary`, renders `progress` or `result`, calls
+  generated routes directly, or lets mock fallback report a successful retry.
+
+### 6. Tests Required
+
+- Client tests assert generated list/detail/retry routes, encoded path params,
+  query params, and POST body.
+- Data source tests assert safe mapping, fallback reads, and retry rejection on
+  live HTTP failure.
+- Route tests assert the panel renders, retry needs explicit confirmation, mock
+  retry is disabled, and unsafe task-run fields/secrets are absent from
+  rendered text.
+- Run:
+  - `npm run check --prefix apps/admin-web`
+  - focused Vitest files for `client`, `dataSource`, and `App`
+  - `npm run test --prefix apps/admin-web`
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```tsx
+run.progress ? <pre>{JSON.stringify(run.progress)}</pre> : null;
+```
+
+#### Correct
+
+```tsx
+<span>{taskRunInput(run, t)}</span>
+```
+
+Keep Addon Task Run pages on the route-local safe projection, not the raw
+generated wire DTO.
+
 ## Scenario: Feature-Owned Data Adapter
 
 ### 1. Scope / Trigger

@@ -12,6 +12,8 @@ import {
   mockAddonInstallGuide,
   mockAddons,
   mockAddonsRouteSummary,
+  mockAddonTaskRunRetryResponse,
+  mockAddonTaskRuns,
   mockAddonSurfaces,
   mockAddonTokens,
   mockCatalogGovernance,
@@ -76,6 +78,22 @@ function addonTokenRevokePath(addonId = TEST_ADDON_ID, tokenId = TEST_ADDON_TOKE
 
 function addonGrantsPath(addonId = TEST_ADDON_ID) {
   return NAKO_ADMIN_ROUTES.addonGrants.replace("{addon_id}", addonId);
+}
+
+function addonTaskRunsPath(addonId = TEST_ADDON_ID) {
+  return NAKO_ADMIN_ROUTES.addonTaskRuns.replace("{addon_id}", addonId);
+}
+
+function addonTaskRunPath(addonId = TEST_ADDON_ID, jobId = "job-addon-task-run-failed") {
+  return NAKO_ADMIN_ROUTES.addonTaskRun
+    .replace("{addon_id}", addonId)
+    .replace("{job_id}", jobId);
+}
+
+function addonTaskRunRetryPath(addonId = TEST_ADDON_ID, jobId = "job-addon-task-run-failed") {
+  return NAKO_ADMIN_ROUTES.addonTaskRunRetry
+    .replace("{addon_id}", addonId)
+    .replace("{job_id}", jobId);
 }
 
 describe("Admin data source", () => {
@@ -1587,6 +1605,9 @@ describe("Admin data source", () => {
         if (url.pathname === addonGrantsPath()) {
           return Response.json(mockAddonGrants);
         }
+        if (url.pathname === addonTaskRunsPath()) {
+          return Response.json(mockAddonTaskRuns);
+        }
 
         return new Response("not found", { status: 404 });
       },
@@ -1616,13 +1637,30 @@ describe("Admin data source", () => {
           secretReferenceCount: 1,
           nakoManagesContainers: false,
         },
+        taskRuns: expect.arrayContaining([
+          expect.objectContaining({
+            jobId: "job-addon-task-run-failed",
+            declarationName: "Scan missing subtitles",
+            status: "failed",
+            retryable: true,
+            safeErrorCode: "retryable_http_failure",
+          }),
+        ]),
       },
     });
-    expect(seenRequests[0]).toBe(`${NAKO_ADMIN_ROUTES.addons}?status=enabled`);
-    expect(JSON.stringify(liveResult?.value)).not.toContain("http://subtitle-lab:9100");
-    expect(JSON.stringify(liveResult?.value)).not.toContain("ADDON_SECRET_SUBTITLE_PROVIDER_KEY");
-    expect(JSON.stringify(liveResult?.value)).not.toContain("/pages/diagnostics");
-    expect(JSON.stringify(liveResult?.value)).not.toContain("docker_compose");
+    expect(seenRequests).toContain(`${NAKO_ADMIN_ROUTES.addons}?status=enabled`);
+    expect(seenRequests).toContain(`${addonTaskRunsPath()}?limit=5`);
+    const projectedText = JSON.stringify(liveResult?.value);
+    expect(projectedText).not.toContain("http://subtitle-lab:9100");
+    expect(projectedText).not.toContain("ADDON_SECRET_SUBTITLE_PROVIDER_KEY");
+    expect(projectedText).not.toContain("/pages/diagnostics");
+    expect(projectedText).not.toContain("/tasks/missing-subtitles");
+    expect(projectedText).not.toContain("manifest_fingerprint");
+    expect(projectedText).not.toContain("progress");
+    expect(projectedText).not.toContain("result");
+    expect(projectedText).not.toContain("raw_path");
+    expect(projectedText).not.toContain("raw_token");
+    expect(projectedText).not.toContain("docker_compose");
 
     const fallbackSource = createAdminDataSource({
       fetcher: async () => new Response("offline", { status: 503 }),
@@ -1634,9 +1672,104 @@ describe("Admin data source", () => {
       source: "mock",
       value: {
         addons: [mockAddonsRouteSummary.addons[0]],
+        taskRuns: expect.arrayContaining([
+          expect.objectContaining({
+            jobId: "job-addon-task-run-failed",
+          }),
+        ]),
       },
       error: expect.stringContaining("HTTP 503"),
     });
+  });
+
+  it("loads Addon Task Runs through safe route-local data-source methods", async () => {
+    const seenRequests: string[] = [];
+    const liveSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        seenRequests.push(`${url.pathname}${url.search}`);
+
+        if (url.pathname === addonTaskRunsPath()) {
+          return Response.json(mockAddonTaskRuns);
+        }
+        if (url.pathname === addonTaskRunPath()) {
+          return Response.json({
+            run: mockAddonTaskRuns.runs[0],
+            idempotent_replay: false,
+          });
+        }
+
+        return new Response("not found", { status: 404 });
+      },
+    });
+
+    await expect(
+      liveSource.loadAddonTaskRuns?.("addon-subtitle-lab", {
+        limit: 5,
+        offset: 10,
+      }),
+    ).resolves.toMatchObject({
+      source: "live",
+      value: expect.arrayContaining([
+        expect.objectContaining({
+          jobId: "job-addon-task-run-failed",
+          declarationId: "scan-missing-subtitles",
+          resourceClass: "addon.task.subtitle",
+          libraryId: "library-anime",
+          sourceId: null,
+          retryable: true,
+          hasInput: true,
+        }),
+      ]),
+    });
+    await expect(
+      liveSource.loadAddonTaskRun?.("addon-subtitle-lab", "job-addon-task-run-failed"),
+    ).resolves.toMatchObject({
+      source: "live",
+      value: {
+        jobId: "job-addon-task-run-failed",
+        status: "failed",
+        safeErrorCode: "retryable_http_failure",
+      },
+    });
+    expect(seenRequests).toEqual([
+      `${addonTaskRunsPath()}?limit=5&offset=10`,
+      addonTaskRunPath(),
+    ]);
+
+    const fallbackSource = createAdminDataSource({
+      fetcher: async () => new Response("offline", { status: 503 }),
+    });
+    const fallbackList = await fallbackSource.loadAddonTaskRuns?.("addon-subtitle-lab");
+    const fallbackDetail = await fallbackSource.loadAddonTaskRun?.(
+      "addon-subtitle-lab",
+      "job-addon-task-run-failed",
+    );
+    const projectedText = JSON.stringify({ fallbackList, fallbackDetail });
+
+    expect(fallbackList).toMatchObject({
+      source: "mock",
+      value: expect.arrayContaining([
+        expect.objectContaining({
+          jobId: "job-addon-task-run-failed",
+        }),
+      ]),
+      error: expect.stringContaining("HTTP 503"),
+    });
+    expect(fallbackDetail).toMatchObject({
+      source: "mock",
+      value: {
+        jobId: "job-addon-task-run-failed",
+      },
+      error: expect.stringContaining("HTTP 503"),
+    });
+    expect(projectedText).not.toContain("http://subtitle-lab:9100");
+    expect(projectedText).not.toContain("/tasks/missing-subtitles");
+    expect(projectedText).not.toContain("manifest_fingerprint");
+    expect(projectedText).not.toContain("progress");
+    expect(projectedText).not.toContain("result");
+    expect(projectedText).not.toContain("raw_path");
+    expect(projectedText).not.toContain("raw_token");
   });
 
   it("loads route-local Catalog Governance with generated query params and section fallback", async () => {
@@ -2600,6 +2733,53 @@ describe("Admin data source", () => {
       httpStatus: 503,
       safeErrorCode: "upstream_unavailable",
     });
+  });
+
+  it("retries Addon Task Runs through the live generated route without mock success fallback", async () => {
+    const seenRequests: Array<{ body: unknown; method: string; path: string }> = [];
+    const liveSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request, init?: RequestInit) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        seenRequests.push({
+          body: init?.body ? JSON.parse(String(init.body)) : null,
+          method: init?.method ?? "GET",
+          path: url.pathname,
+        });
+
+        if (url.pathname === addonTaskRunRetryPath()) {
+          return Response.json(mockAddonTaskRunRetryResponse);
+        }
+
+        return new Response("not found", { status: 404 });
+      },
+    });
+
+    await expect(
+      liveSource.retryAddonTaskRun?.("addon-subtitle-lab", "job-addon-task-run-failed"),
+    ).resolves.toMatchObject({
+      jobId: "job-addon-task-run-retry",
+      status: "queued",
+      retryOfJobId: "job-addon-task-run-failed",
+      retryable: false,
+    });
+
+    expect(seenRequests).toEqual([
+      {
+        path: addonTaskRunRetryPath(),
+        method: "POST",
+        body: {
+          idempotency_key: "admin-web-retry-job-addon-task-run-failed",
+        },
+      },
+    ]);
+
+    const fallbackSource = createAdminDataSource({
+      fetcher: async () => new Response("offline", { status: 503 }),
+    });
+
+    await expect(
+      fallbackSource.retryAddonTaskRun?.("addon-subtitle-lab", "job-addon-task-run-failed"),
+    ).rejects.toThrow("HTTP 503");
   });
 
   it("registers pasted Addon manifest JSON as a disabled Addon and returns onboarding handoff state", async () => {

@@ -26,6 +26,9 @@ export const NAKO_ADMIN_ROUTES = {
   addonSurfaces: "/admin/v1/addons/:addon_id/surfaces",
   addonInstallGuide: "/admin/v1/addons/:addon_id/install-guide",
   addonManagerPlan: "/admin/v1/addons/:addon_id/manager-plan",
+  addonTaskRuns: "/admin/v1/addons/{addon_id}/task-runs",
+  addonTaskRun: "/admin/v1/addons/{addon_id}/task-runs/{job_id}",
+  addonTaskRunRetry: "/admin/v1/addons/{addon_id}/task-runs/{job_id}/retry",
   addonResourceCallDiagnostic: "/admin/v1/addons/:addon_id/diagnostics/resource-call",
   addonResourceSearchDiagnostic: "/admin/v1/addons/:addon_id/diagnostics/resource-search",
   addonResourceSearch: "/admin/v1/addons/:addon_id/resource-search",
@@ -1530,6 +1533,60 @@ export interface AdminAddonInstallGuideResponse {
   health_check_steps: AdminAddonInstallGuideStep[];
   registration_verification_steps: AdminAddonInstallGuideStep[];
   lifecycle_boundary: AdminAddonInstallGuideLifecycleBoundary;
+}
+
+export interface AddonTaskRunsQuery extends AdminPageQuery {}
+
+export type AddonTaskRunDispatchMode = "sidecar_claim" | "direct";
+
+export interface CreateAddonTaskRunRequest {
+  declaration_id: string;
+  idempotency_key: string;
+  dispatch?: AddonTaskRunDispatchMode;
+  library_id?: string | null;
+  source_id?: string | null;
+  payload?: Record<string, unknown>;
+}
+
+export interface RetryAddonTaskRunRequest {
+  idempotency_key: string;
+}
+
+export interface AddonTaskRunSummary {
+  job_id: string;
+  addon_id: string;
+  manifest_id: string;
+  manifest_version: string;
+  manifest_fingerprint: string;
+  declaration_id: string;
+  declaration_name: string;
+  declaration_path: string;
+  status: AdminJobStatus;
+  resource_class: string;
+  library_id: string | null;
+  source_id: string | null;
+  attempt: number;
+  max_attempts: number | null;
+  retry_of_job_id: string | null;
+  retryable: boolean;
+  has_input: boolean;
+  progress: Record<string, unknown> | null;
+  result: Record<string, unknown> | null;
+  safe_error_code: string | null;
+  cancel_requested_at: string | null;
+  queued_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  updated_at: string;
+}
+
+export interface AddonTaskRunResponse {
+  run: AddonTaskRunSummary;
+  idempotent_replay: boolean;
+}
+
+export interface AddonTaskRunsResponse {
+  runs: AddonTaskRunSummary[];
 }
 
 export interface AdminAddonManagerPlanResponse {

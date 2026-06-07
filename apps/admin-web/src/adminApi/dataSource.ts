@@ -7,6 +7,7 @@ import {
   mockAddonGrants,
   mockAddonHealth,
   mockAddonInstallGuide,
+  mockAddonTaskRuns,
   mockAccessSummary,
   mockAddons,
   mockAddonSurfaces,
@@ -39,6 +40,9 @@ import {
 } from "./mockData";
 import type {
   AddonGrantsResponse,
+  AddonTaskRunResponse,
+  AddonTaskRunsQuery,
+  AddonTaskRunsResponse,
   AddonTokensResponse,
   AdminAcquisitionIntakeCandidateListResponse,
   AdminAcquisitionIntakeCandidatesQuery,
@@ -117,6 +121,7 @@ import type {
   AddonInstallGuideSummary,
   AddonOnboardingResult,
   AddonOperationsSummary,
+  AddonTaskRunRow,
   AddonsRouteSummary,
   AddonTokenActionResult,
   AddonTokenSummaryRow,
@@ -167,6 +172,15 @@ export type AdminDataSource = {
   loadAccessSummary?(): Promise<AdminSectionResult<AdminAccessSummaryResponse>>;
   loadOverview?(): Promise<AdminSectionResult<AdminOverviewResponse>>;
   loadAddons?(query?: AdminAddonsQuery): Promise<AdminSectionResult<AddonsRouteSummary>>;
+  loadAddonTaskRuns?(
+    addonId: string,
+    query?: AddonTaskRunsQuery,
+  ): Promise<AdminSectionResult<AddonTaskRunRow[]>>;
+  loadAddonTaskRun?(
+    addonId: string,
+    jobId: string,
+  ): Promise<AdminSectionResult<AddonTaskRunRow>>;
+  retryAddonTaskRun?(addonId: string, jobId: string): Promise<AddonTaskRunRow>;
   loadJobs?(query?: AdminJobsQuery): Promise<AdminSectionResult<AdminJobListResponse>>;
   cancelJob?(jobId: string): Promise<AdminJobCancelRequestResponse>;
   loadLibraries?(): Promise<AdminSectionResult<AdminServerConfigDiagnosticsResponse>>;
@@ -430,6 +444,21 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
     },
     async loadAddons(query = {}) {
       return loadAddonsRouteSummary(client, query);
+    },
+    async loadAddonTaskRuns(addonId, query = {}) {
+      return loadAddonTaskRuns(client, addonId, query);
+    },
+    async loadAddonTaskRun(addonId, jobId) {
+      return loadAddonTaskRun(client, addonId, jobId);
+    },
+    async retryAddonTaskRun(addonId, jobId) {
+      return mapAddonTaskRunRow(
+        (
+          await client.retryAddonTaskRun(addonId, jobId, {
+            idempotency_key: `admin-web-retry-${jobId}`,
+          })
+        ).run,
+      );
     },
     async loadLibraries() {
       return loadSection(() => client.getSystemConfig(), mockSystemConfig);
@@ -1276,22 +1305,23 @@ async function loadAddonsRouteSummary(
 
   if (!selectedSummary) {
     return {
-      value: mapAddonsRouteSummary(registrations.value, null, null, null, null, null, null),
+      value: mapAddonsRouteSummary(registrations.value, null, null, null, null, null, null, null),
       source: registrations.source,
       error: registrations.error,
     };
   }
 
   const fallback = fallbackAddonReadModels(selectedSummary);
-  const [detail, health, surfaces, installGuide, tokens, grants] = await Promise.all([
+  const [detail, health, surfaces, installGuide, tokens, grants, taskRuns] = await Promise.all([
     loadSection(() => client.getAddonDetail(selectedSummary.id), fallback.detail),
     loadSection(() => client.checkAddonHealth(selectedSummary.id), fallback.health),
     loadSection(() => client.getAddonSurfaces(selectedSummary.id), fallback.surfaces),
     loadSection(() => client.getAddonInstallGuide(selectedSummary.id), fallback.installGuide),
     loadSection(() => client.getAddonTokens(selectedSummary.id), fallback.tokens),
     loadSection(() => client.getAddonGrants(selectedSummary.id), fallback.grants),
+    loadSection(() => client.getAddonTaskRuns(selectedSummary.id, { limit: 5 }), fallback.taskRuns),
   ]);
-  const sections = [registrations, detail, health, surfaces, installGuide, tokens, grants];
+  const sections = [registrations, detail, health, surfaces, installGuide, tokens, grants, taskRuns];
 
   return {
     value: mapAddonsRouteSummary(
@@ -1302,6 +1332,7 @@ async function loadAddonsRouteSummary(
       installGuide.value,
       tokens.value,
       grants.value,
+      taskRuns.value,
     ),
     source: combineLoadSources(sections.map((section) => section.source)),
     error: combineLoadErrors(sections),
@@ -1327,6 +1358,7 @@ function fallbackAddonReadModels(summary: AdminAddonRegistrationSummary) {
       installGuide: mockAddonInstallGuide,
       tokens: mockAddonTokens,
       grants: mockAddonGrants,
+      taskRuns: mockAddonTaskRuns,
     };
   }
 
@@ -1337,6 +1369,70 @@ function fallbackAddonReadModels(summary: AdminAddonRegistrationSummary) {
     installGuide: fallbackAddonInstallGuide(summary),
     tokens: { tokens: [] },
     grants: { grants: [] },
+    taskRuns: { runs: [] },
+  };
+}
+
+async function loadAddonTaskRuns(
+  client: AdminApiClient,
+  addonId: string,
+  query: AddonTaskRunsQuery,
+): Promise<AdminSectionResult<AddonTaskRunRow[]>> {
+  const result = await loadSection(
+    () => client.getAddonTaskRuns(addonId, query),
+    fallbackAddonTaskRuns(addonId),
+  );
+
+  return {
+    value: result.value.runs.map(mapAddonTaskRunRow),
+    source: result.source,
+    error: result.error,
+  };
+}
+
+async function loadAddonTaskRun(
+  client: AdminApiClient,
+  addonId: string,
+  jobId: string,
+): Promise<AdminSectionResult<AddonTaskRunRow>> {
+  const result = await loadSection(
+    () => client.getAddonTaskRun(addonId, jobId),
+    fallbackAddonTaskRun(addonId, jobId),
+  );
+
+  return {
+    value: mapAddonTaskRunRow(result.value.run),
+    source: result.source,
+    error: result.error,
+  };
+}
+
+function fallbackAddonTaskRuns(addonId: string): AddonTaskRunsResponse {
+  if (addonId === mockAddonDetail.addon.summary.id) {
+    return mockAddonTaskRuns;
+  }
+
+  return { runs: [] };
+}
+
+function fallbackAddonTaskRun(addonId: string, jobId: string): AddonTaskRunResponse {
+  const firstFallbackRun = mockAddonTaskRuns.runs[0];
+  if (!firstFallbackRun) {
+    throw new Error("Addon task-run mock fallback is empty");
+  }
+
+  const run =
+    mockAddonTaskRuns.runs.find(
+      (candidate) => candidate.addon_id === addonId && candidate.job_id === jobId,
+    ) ?? {
+      ...firstFallbackRun,
+      addon_id: addonId,
+      job_id: jobId,
+    };
+
+  return {
+    run,
+    idempotent_replay: false,
   };
 }
 
@@ -1426,6 +1522,7 @@ function mapAddonsRouteSummary(
   installGuide: AdminAddonInstallGuideResponse | null,
   tokens: AddonTokensResponse | null,
   grants: AddonGrantsResponse | null,
+  taskRuns: AddonTaskRunsResponse | null,
 ): AddonsRouteSummary {
   const selectedAddon = detail?.addon ?? null;
 
@@ -1467,6 +1564,30 @@ function mapAddonsRouteSummary(
       : null,
     tokens: tokens?.tokens.map(mapAddonToken) ?? [],
     grants: grants?.grants.map(mapAddonGrant) ?? [],
+    taskRuns: taskRuns?.runs.map(mapAddonTaskRunRow) ?? [],
+  };
+}
+
+function mapAddonTaskRunRow(run: AddonTaskRunsResponse["runs"][number]): AddonTaskRunRow {
+  return {
+    jobId: run.job_id,
+    addonId: run.addon_id,
+    declarationId: run.declaration_id,
+    declarationName: run.declaration_name,
+    status: run.status,
+    resourceClass: run.resource_class,
+    libraryId: run.library_id,
+    sourceId: run.source_id,
+    attempt: run.attempt,
+    maxAttempts: run.max_attempts,
+    retryOfJobId: run.retry_of_job_id,
+    retryable: run.retryable,
+    hasInput: run.has_input,
+    safeErrorCode: run.safe_error_code,
+    queuedAt: run.queued_at,
+    startedAt: run.started_at,
+    completedAt: run.completed_at,
+    updatedAt: run.updated_at,
   };
 }
 

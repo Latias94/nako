@@ -11,6 +11,8 @@ import {
   mockAddonHealth,
   mockAddonInstallGuide,
   mockAddons,
+  mockAddonTaskRunRetryResponse,
+  mockAddonTaskRuns,
   mockAddonSurfaces,
   mockAddonTokens,
   mockCatalogGovernance,
@@ -68,6 +70,22 @@ function addonTokenRevokePath(addonId = TEST_ADDON_ID, tokenId = TEST_ADDON_TOKE
 
 function addonGrantsPath(addonId = TEST_ADDON_ID) {
   return NAKO_ADMIN_ROUTES.addonGrants.replace("{addon_id}", addonId);
+}
+
+function addonTaskRunsPath(addonId = TEST_ADDON_ID) {
+  return NAKO_ADMIN_ROUTES.addonTaskRuns.replace("{addon_id}", addonId);
+}
+
+function addonTaskRunPath(addonId = TEST_ADDON_ID, jobId = "job-addon-task-run-failed") {
+  return NAKO_ADMIN_ROUTES.addonTaskRun
+    .replace("{addon_id}", addonId)
+    .replace("{job_id}", jobId);
+}
+
+function addonTaskRunRetryPath(addonId = TEST_ADDON_ID, jobId = "job-addon-task-run-failed") {
+  return NAKO_ADMIN_ROUTES.addonTaskRunRetry
+    .replace("{addon_id}", addonId)
+    .replace("{job_id}", jobId);
 }
 
 describe("AdminApiClient", () => {
@@ -156,6 +174,7 @@ describe("AdminApiClient", () => {
       [NAKO_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab"), mockAddonInstallGuide],
       [addonTokensPath(), mockAddonTokens],
       [addonGrantsPath(), mockAddonGrants],
+      [addonTaskRunsPath(), mockAddonTaskRuns],
       [NAKO_ADMIN_ROUTES.acquisitionIntakeCandidates, mockAcquisitionIntakeCandidates],
       [NAKO_ADMIN_ROUTES.generatedArtifactProposals, mockGeneratedArtifactProposals],
       [NAKO_ADMIN_ROUTES.events, mockEvents],
@@ -203,6 +222,9 @@ describe("AdminApiClient", () => {
     await expect(client.getAddonInstallGuide("addon-subtitle-lab")).resolves.toEqual(mockAddonInstallGuide);
     await expect(client.getAddonTokens("addon-subtitle-lab")).resolves.toEqual(mockAddonTokens);
     await expect(client.getAddonGrants("addon-subtitle-lab")).resolves.toEqual(mockAddonGrants);
+    await expect(client.getAddonTaskRuns("addon-subtitle-lab", { limit: 5 })).resolves.toEqual(
+      mockAddonTaskRuns,
+    );
     await expect(
       client.getAcquisitionIntakeCandidates({ library_id: "library-anime", state: "ready" }),
     ).resolves.toEqual(mockAcquisitionIntakeCandidates);
@@ -253,6 +275,7 @@ describe("AdminApiClient", () => {
       NAKO_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab"),
       addonTokensPath(),
       addonGrantsPath(),
+      `${addonTaskRunsPath()}?limit=5`,
       `${NAKO_ADMIN_ROUTES.acquisitionIntakeCandidates}?library_id=library-anime&state=ready`,
       `${NAKO_ADMIN_ROUTES.generatedArtifactProposals}?limit=5`,
       NAKO_ADMIN_ROUTES.events,
@@ -808,6 +831,81 @@ describe("AdminApiClient", () => {
         {
           method: "PUT",
           body: JSON.stringify({ grants: [{ permission: "metadata_write", library_id: null }] }),
+        },
+      ],
+    ]);
+  });
+
+  it("uses generated Addon Task Run routes with encoded identifiers", async () => {
+    const addonId = "addon/with space";
+    const jobId = "job/task run";
+    const encodedAddonId = encodeURIComponent(addonId);
+    const encodedJobId = encodeURIComponent(jobId);
+    const fetcher = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input.toString(), "http://127.0.0.1");
+
+      if (url.pathname.endsWith("/retry")) {
+        expect(init?.method).toBe("POST");
+        return Response.json({
+          ...mockAddonTaskRunRetryResponse,
+          run: {
+            ...mockAddonTaskRunRetryResponse.run,
+            addon_id: addonId,
+            job_id: "job-addon-task-run-retry",
+            retry_of_job_id: jobId,
+          },
+        });
+      }
+
+      if (url.pathname.endsWith(`/${encodedJobId}`)) {
+        return Response.json({
+          run: {
+            ...mockAddonTaskRuns.runs[0],
+            addon_id: addonId,
+            job_id: jobId,
+          },
+          idempotent_replay: false,
+        });
+      }
+
+      return Response.json(mockAddonTaskRuns);
+    });
+    const client = new AdminApiClient({ fetcher });
+
+    await expect(client.getAddonTaskRuns(addonId, { limit: 5, offset: 10 })).resolves.toEqual(
+      mockAddonTaskRuns,
+    );
+    await expect(client.getAddonTaskRun(addonId, jobId)).resolves.toMatchObject({
+      run: {
+        addon_id: addonId,
+        job_id: jobId,
+      },
+    });
+    await expect(
+      client.retryAddonTaskRun(addonId, jobId, {
+        idempotency_key: "retry-task-run-once",
+      }),
+    ).resolves.toMatchObject({
+      run: {
+        job_id: "job-addon-task-run-retry",
+        retry_of_job_id: jobId,
+      },
+    });
+
+    expect(fetcher.mock.calls).toMatchObject([
+      [
+        `${addonTaskRunsPath(encodedAddonId)}?limit=5&offset=10`,
+        {},
+      ],
+      [
+        addonTaskRunPath(encodedAddonId, encodedJobId),
+        {},
+      ],
+      [
+        addonTaskRunRetryPath(encodedAddonId, encodedJobId),
+        {
+          method: "POST",
+          body: JSON.stringify({ idempotency_key: "retry-task-run-once" }),
         },
       ],
     ]);

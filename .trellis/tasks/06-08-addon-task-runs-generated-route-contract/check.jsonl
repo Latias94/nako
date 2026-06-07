@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Generated route inventory gates"}
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Admin route contract quality index"}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Admin contract/public separation review"}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server route quality index"}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Admin Web route/data-source/test quality rules"}
+{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web quality index"}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server tests and route inventory gates"}
+{"file": ".trellis/tasks/06-08-addon-task-runs-generated-route-contract/research/jellyfin-scheduled-tasks-comparison.md", "reason": "Research-backed scope and redaction review"}

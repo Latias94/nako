@@ -18,7 +18,7 @@ struct AdminRouteExclusionSuffix {
     reason: &'static str,
 }
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 95] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 98] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -53,6 +53,12 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 95] = [
     ("addonSurfaces", "addons/:addon_id/surfaces"),
     ("addonInstallGuide", "addons/:addon_id/install-guide"),
     ("addonManagerPlan", "addons/:addon_id/manager-plan"),
+    ("addonTaskRuns", "addons/{addon_id}/task-runs"),
+    ("addonTaskRun", "addons/{addon_id}/task-runs/{job_id}"),
+    (
+        "addonTaskRunRetry",
+        "addons/{addon_id}/task-runs/{job_id}/retry",
+    ),
     (
         "addonResourceCallDiagnostic",
         "addons/:addon_id/diagnostics/resource-call",
@@ -278,7 +284,7 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 95] = [
     ("settingsMetadataRawCache", "settings/metadata/raw-cache"),
 ];
 
-const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 19] = [
+const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 16] = [
     AdminRouteExclusionSuffix {
         suffix: "access/invitations",
         reason: "Invitation lifecycle routes are implemented for Admin operators but are not generated as Admin Web route constants in this slice.",
@@ -290,18 +296,6 @@ const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 19] = [
     AdminRouteExclusionSuffix {
         suffix: "addons/install-guide-preview",
         reason: "Install guide preview is a planning helper and does not have a stable generated Admin Web route key yet.",
-    },
-    AdminRouteExclusionSuffix {
-        suffix: "addons/{addon_id}/task-runs",
-        reason: "Addon task-run operator workflows are implemented server-side but are not generated as Admin Web route constants in this slice.",
-    },
-    AdminRouteExclusionSuffix {
-        suffix: "addons/{addon_id}/task-runs/{job_id}",
-        reason: "Addon task-run operator workflows are implemented server-side but are not generated as Admin Web route constants in this slice.",
-    },
-    AdminRouteExclusionSuffix {
-        suffix: "addons/{addon_id}/task-runs/{job_id}/retry",
-        reason: "Addon task-run operator workflows are implemented server-side but are not generated as Admin Web route constants in this slice.",
     },
     AdminRouteExclusionSuffix {
         suffix: "artwork/candidates/{candidate_id}/accept",
@@ -1862,6 +1856,60 @@ export interface AdminAddonInstallGuideResponse {
   health_check_steps: AdminAddonInstallGuideStep[];
   registration_verification_steps: AdminAddonInstallGuideStep[];
   lifecycle_boundary: AdminAddonInstallGuideLifecycleBoundary;
+}
+
+export interface AddonTaskRunsQuery extends AdminPageQuery {}
+
+export type AddonTaskRunDispatchMode = "sidecar_claim" | "direct";
+
+export interface CreateAddonTaskRunRequest {
+  declaration_id: string;
+  idempotency_key: string;
+  dispatch?: AddonTaskRunDispatchMode;
+  library_id?: string | null;
+  source_id?: string | null;
+  payload?: Record<string, unknown>;
+}
+
+export interface RetryAddonTaskRunRequest {
+  idempotency_key: string;
+}
+
+export interface AddonTaskRunSummary {
+  job_id: string;
+  addon_id: string;
+  manifest_id: string;
+  manifest_version: string;
+  manifest_fingerprint: string;
+  declaration_id: string;
+  declaration_name: string;
+  declaration_path: string;
+  status: AdminJobStatus;
+  resource_class: string;
+  library_id: string | null;
+  source_id: string | null;
+  attempt: number;
+  max_attempts: number | null;
+  retry_of_job_id: string | null;
+  retryable: boolean;
+  has_input: boolean;
+  progress: Record<string, unknown> | null;
+  result: Record<string, unknown> | null;
+  safe_error_code: string | null;
+  cancel_requested_at: string | null;
+  queued_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  updated_at: string;
+}
+
+export interface AddonTaskRunResponse {
+  run: AddonTaskRunSummary;
+  idempotent_replay: boolean;
+}
+
+export interface AddonTaskRunsResponse {
+  runs: AddonTaskRunSummary[];
 }
 
 export interface AdminAddonManagerPlanResponse {

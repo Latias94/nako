@@ -4,15 +4,16 @@ import {
   useReactTable,
   type ColumnDef,
 } from "@tanstack/react-table";
-import { RefreshCw, Search, ShieldCheck, X } from "lucide-react";
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { RefreshCw, RotateCcw, Search, ShieldCheck, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type {
   AdminDataSource,
   DataSourceMode,
 } from "../../adminApi/dataSource";
 import type {
+  AddonTaskRunRow,
   AddonStatus,
   AddonsRouteRow,
   AddonsRouteSummary,
@@ -60,6 +61,10 @@ export function AddonsPage({
   onSearchChange,
 }: AddonsPageProps) {
   const { locale, t } = useI18n();
+  const queryClient = useQueryClient();
+  const [retryCandidateJobId, setRetryCandidateJobId] = useState<string | null>(null);
+  const [taskRunMessage, setTaskRunMessage] = useState<string | null>(null);
+  const [taskRunError, setTaskRunError] = useState<string | null>(null);
   const query = useQuery({
     queryKey: ["admin-addons", search, locale],
     queryFn: () => loadAddons(dataSource, search, t("addons.dataSourceUnavailable")),
@@ -68,7 +73,40 @@ export function AddonsPage({
     value: mockAddonsRouteSummary,
     source: "mock" as const,
   };
+  const retryTaskRunMutation = useMutation<AddonTaskRunRow, Error, AddonTaskRunRow>({
+    mutationFn: async (run) => {
+      if (result.source !== "live") {
+        throw new Error(t("addons.taskRuns.notLiveError"));
+      }
+      if (!dataSource.retryAddonTaskRun) {
+        throw new Error(t("addons.taskRuns.retryUnavailable"));
+      }
+      if (run.status !== "failed" || !run.retryable) {
+        throw new Error(t("addons.taskRuns.retryInvalidState"));
+      }
+
+      return dataSource.retryAddonTaskRun(run.addonId, run.jobId);
+    },
+    onMutate: () => {
+      setTaskRunMessage(null);
+      setTaskRunError(null);
+    },
+    onSuccess: (run) => {
+      setRetryCandidateJobId(null);
+      setTaskRunMessage(
+        t("addons.taskRuns.retryQueued", {
+          jobId: run.jobId,
+          status: run.status,
+        }),
+      );
+      void queryClient.invalidateQueries({ queryKey: ["admin-addons"] });
+    },
+    onError: (error) => {
+      setTaskRunError(error.message);
+    },
+  });
   const summary = result.value;
+  const canRetryTaskRuns = result.source === "live" && Boolean(dataSource.retryAddonTaskRun);
   const activeFilterCount = useMemo(() => (search.status ? 1 : 0), [search.status]);
   const table = useReactTable({
     data: summary.addons,
@@ -309,6 +347,39 @@ export function AddonsPage({
             </DataPanel>
 
             <DataPanel
+              description={t("addons.taskRuns.description", { count: summary.taskRuns.length })}
+              headerAccessory={
+                <div className="searchHint">
+                  <RotateCcw size={15} />
+                  {t("addons.taskRuns.redacted")}
+                </div>
+              }
+              title={t("addons.taskRuns.title")}
+            >
+              <AddonTaskRunsPanel
+                canRetry={canRetryTaskRuns}
+                isPending={retryTaskRunMutation.isPending}
+                message={taskRunMessage}
+                pendingJobId={retryCandidateJobId}
+                runs={summary.taskRuns}
+                source={result.source}
+                t={t}
+                error={taskRunError}
+                onCancel={() => {
+                  setRetryCandidateJobId(null);
+                  retryTaskRunMutation.reset();
+                }}
+                onConfirm={(run) => retryTaskRunMutation.mutate(run)}
+                onPrepare={(run) => {
+                  setRetryCandidateJobId(run.jobId);
+                  setTaskRunMessage(null);
+                  setTaskRunError(null);
+                  retryTaskRunMutation.reset();
+                }}
+              />
+            </DataPanel>
+
+            <DataPanel
               description={t("addons.credentials.description")}
               headerAccessory={
                 <div className="searchHint">
@@ -519,6 +590,166 @@ function SummaryCard({
   );
 }
 
+function AddonTaskRunsPanel({
+  canRetry,
+  error,
+  isPending,
+  message,
+  onCancel,
+  onConfirm,
+  onPrepare,
+  pendingJobId,
+  runs,
+  source,
+  t,
+}: {
+  canRetry: boolean;
+  error: string | null;
+  isPending: boolean;
+  message: string | null;
+  onCancel(): void;
+  onConfirm(run: AddonTaskRunRow): void;
+  onPrepare(run: AddonTaskRunRow): void;
+  pendingJobId: string | null;
+  runs: AddonTaskRunRow[];
+  source: DataSourceMode;
+  t: Translate;
+}) {
+  const unavailableMessage =
+    source !== "live"
+      ? t("addons.taskRuns.notLiveError")
+      : canRetry
+        ? null
+        : t("addons.taskRuns.retryUnavailable");
+
+  return (
+    <>
+      {unavailableMessage ? (
+        <div className="settingsInlineNotice">{unavailableMessage}</div>
+      ) : null}
+      {error ? <div className="settingsInlineNotice danger">{error}</div> : null}
+      {message ? <div className="settingsInlineNotice success">{message}</div> : null}
+
+      {runs.length === 0 ? (
+        <EmptyRouteState>{t("addons.taskRuns.empty")}</EmptyRouteState>
+      ) : (
+        <div className="addonsFactList">
+          {runs.map((run) => (
+            <div className="addonsFactRow" key={run.jobId}>
+              <div>
+                <span>{run.declarationName}</span>
+                <strong>{run.jobId}</strong>
+                <small>
+                  {t("addons.taskRuns.declaration", {
+                    declarationId: run.declarationId,
+                    resourceClass: run.resourceClass,
+                  })}
+                </small>
+                <small>{taskRunScope(run, t)}</small>
+                <small>
+                  {taskRunAttempt(run, t)} / {taskRunInput(run, t)} /{" "}
+                  {t("addons.taskRuns.queued", { time: timestampLabel(run.queuedAt) })} /{" "}
+                  {t("addons.taskRuns.updated", { time: timestampLabel(run.updatedAt) })}
+                </small>
+                {run.startedAt ? (
+                  <small>
+                    {t("addons.taskRuns.started", { time: timestampLabel(run.startedAt) })}
+                  </small>
+                ) : null}
+                {run.completedAt ? (
+                  <small>
+                    {t("addons.taskRuns.completed", { time: timestampLabel(run.completedAt) })}
+                  </small>
+                ) : null}
+                {run.safeErrorCode ? (
+                  <small>
+                    {t("addons.taskRuns.safeErrorCode", { code: run.safeErrorCode })}
+                  </small>
+                ) : null}
+                {run.retryOfJobId ? (
+                  <small>{t("addons.taskRuns.retryOf", { jobId: run.retryOfJobId })}</small>
+                ) : null}
+              </div>
+              <div className="addonsTaskRunActions">
+                <Badge tone={jobStatusTone(run.status)}>{run.status}</Badge>
+                <AddonTaskRunRetryAction
+                  canRetry={canRetry}
+                  isPending={isPending}
+                  onCancel={onCancel}
+                  onConfirm={onConfirm}
+                  onPrepare={onPrepare}
+                  pendingJobId={pendingJobId}
+                  run={run}
+                  t={t}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function AddonTaskRunRetryAction({
+  canRetry,
+  isPending,
+  onCancel,
+  onConfirm,
+  onPrepare,
+  pendingJobId,
+  run,
+  t,
+}: {
+  canRetry: boolean;
+  isPending: boolean;
+  onCancel(): void;
+  onConfirm(run: AddonTaskRunRow): void;
+  onPrepare(run: AddonTaskRunRow): void;
+  pendingJobId: string | null;
+  run: AddonTaskRunRow;
+  t: Translate;
+}) {
+  if (run.status !== "failed" || !run.retryable) {
+    return <Badge tone="neutral">{t("addons.taskRuns.noRetry")}</Badge>;
+  }
+
+  if (pendingJobId === run.jobId) {
+    return (
+      <div className="addonsTaskRunConfirm">
+        <small>{t("addons.taskRuns.confirmCopy", { jobId: run.jobId })}</small>
+        <div className="addonsTaskRunConfirmActions">
+          <Button
+            aria-label={t("addons.taskRuns.confirmRetryAria", { jobId: run.jobId })}
+            disabled={!canRetry || isPending}
+            onClick={() => onConfirm(run)}
+            size="sm"
+          >
+            <RotateCcw size={14} />
+            {isPending ? t("addons.taskRuns.retrying") : t("addons.taskRuns.confirmRetry")}
+          </Button>
+          <Button disabled={isPending} onClick={onCancel} size="sm" variant="ghost">
+            {t("addons.taskRuns.cancel")}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Button
+      aria-label={t("addons.taskRuns.prepareRetryAria", { jobId: run.jobId })}
+      disabled={!canRetry || isPending}
+      onClick={() => onPrepare(run)}
+      size="sm"
+      variant="outline"
+    >
+      <RotateCcw size={14} />
+      {t("addons.taskRuns.prepareRetry")}
+    </Button>
+  );
+}
+
 function FactRow({
   badge,
   detail,
@@ -583,6 +814,62 @@ function healthTone(status: string | undefined): BadgeTone {
   }
 
   return "neutral";
+}
+
+function jobStatusTone(status: AddonTaskRunRow["status"]): BadgeTone {
+  if (status === "failed") {
+    return "danger";
+  }
+
+  if (status === "running") {
+    return "info";
+  }
+
+  if (status === "queued") {
+    return "warning";
+  }
+
+  if (status === "cancelled") {
+    return "neutral";
+  }
+
+  return "success";
+}
+
+function taskRunScope(run: AddonTaskRunRow, t: Translate) {
+  if (run.libraryId && run.sourceId) {
+    return t("addons.taskRuns.scopeLibrarySource", {
+      libraryId: run.libraryId,
+      sourceId: run.sourceId,
+    });
+  }
+
+  if (run.libraryId) {
+    return t("addons.taskRuns.scopeLibrary", { libraryId: run.libraryId });
+  }
+
+  if (run.sourceId) {
+    return t("addons.taskRuns.scopeSource", { sourceId: run.sourceId });
+  }
+
+  return t("addons.taskRuns.scopeAll");
+}
+
+function taskRunAttempt(run: AddonTaskRunRow, t: Translate) {
+  if (run.maxAttempts) {
+    return t("addons.taskRuns.attemptWithMax", {
+      attempt: run.attempt,
+      max: run.maxAttempts,
+    });
+  }
+
+  return t("addons.taskRuns.attempt", { attempt: run.attempt });
+}
+
+function taskRunInput(run: AddonTaskRunRow, t: Translate) {
+  return run.hasInput
+    ? t("addons.taskRuns.inputPresent")
+    : t("addons.taskRuns.inputAbsent");
 }
 
 function runtimePolicy(addon: AddonsRouteSummary["selectedAddon"], t: Translate) {

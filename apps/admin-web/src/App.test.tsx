@@ -13,6 +13,7 @@ import type {
   AdminPlaybackSessionsQuery,
   AdminSourceDuplicateReconciliationPlanResponse,
   AdminStorageStagingQuery,
+  AddonTaskRunRow,
   AddonsRouteSummary,
   AdminMetadataProfile,
   CatalogBrowseQuery,
@@ -1701,6 +1702,9 @@ describe("Admin Web V2 route shell", () => {
     expect(await screen.findByText("Addon registry")).toBeInTheDocument();
     expect(screen.getAllByText("Subtitle Lab").length).toBeGreaterThan(0);
     expect(screen.getByText("Surface declarations")).toBeInTheDocument();
+    expect(screen.getByText("Task runs")).toBeInTheDocument();
+    expect(screen.getByText("job-addon-task-run-failed")).toBeInTheDocument();
+    expect(screen.getByText("Safe error code retryable_http_failure")).toBeInTheDocument();
     expect(screen.getByText("Install boundary")).toBeInTheDocument();
     expect(screen.getByText("Live Admin API")).toBeInTheDocument();
     expect(loadAddons).toHaveBeenCalledWith({
@@ -1726,6 +1730,7 @@ describe("Admin Web V2 route shell", () => {
     expect(await screen.findByText("Addon 注册表")).toBeInTheDocument();
     expect(screen.getByLabelText("Addon 状态过滤器")).toBeInTheDocument();
     expect(screen.getByText("Surface 声明")).toBeInTheDocument();
+    expect(screen.getByText("任务运行")).toBeInTheDocument();
     expect(screen.getByText("安装边界")).toBeInTheDocument();
     expect(screen.getByText("URL 过滤条件具有权威性")).toBeInTheDocument();
     expect(screen.getByText("实时 Admin API")).toBeInTheDocument();
@@ -1773,6 +1778,68 @@ describe("Admin Web V2 route shell", () => {
     expect(await screen.findByText(/HTTP 503/)).toBeInTheDocument();
     expect(screen.getByText("Mock fallback")).toBeInTheDocument();
     expect(screen.getAllByText("Subtitle Lab").length).toBeGreaterThan(0);
+    expect(screen.getByText("Addon Task Run retry requires a live Admin API response.")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Prepare Addon Task Run retry job-addon-task-run-failed",
+      }),
+    ).toBeDisabled();
+  });
+
+  it("retries Addon Task Runs only after explicit confirmation", async () => {
+    const retryAddonTaskRun = vi.fn(async (): Promise<AddonTaskRunRow> => ({
+      ...mockAddonsRouteSummary.taskRuns[0],
+      jobId: "job-addon-task-run-retry",
+      status: "queued",
+      retryOfJobId: "job-addon-task-run-failed",
+      retryable: false,
+      startedAt: null,
+      completedAt: null,
+      safeErrorCode: null,
+      updatedAt: "2026-05-22T02:50:00.000Z",
+    }));
+    const loadAddons = vi.fn(async () => ({
+      value: mockAddonsRouteSummary,
+      source: "live" as const,
+    }));
+    window.history.pushState(null, "", "/addons");
+
+    render(
+      <App
+        dataSource={{
+          load: async () => emptyConsoleData(),
+          loadAddons,
+          retryAddonTaskRun,
+        }}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Prepare Addon Task Run retry job-addon-task-run-failed",
+      }),
+    );
+
+    expect(retryAddonTaskRun).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("Confirm retry for failed run job-addon-task-run-failed."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Confirm Addon Task Run retry job-addon-task-run-failed",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(retryAddonTaskRun).toHaveBeenCalledWith(
+        "addon-subtitle-lab",
+        "job-addon-task-run-failed",
+      );
+    });
+    expect(
+      await screen.findByText("Queued Addon Task Run retry job-addon-task-run-retry, status queued."),
+    ).toBeInTheDocument();
   });
 
   it("keeps unsafe fields out of the Addons route rendering", async () => {
@@ -1794,6 +1861,11 @@ describe("Admin Web V2 route shell", () => {
     expect(renderedText).not.toContain("docker_compose");
     expect(renderedText).not.toContain("curl -fsS");
     expect(renderedText).not.toContain("manifest-secret-payload");
+    expect(renderedText).not.toContain("manifest_fingerprint");
+    expect(renderedText).not.toContain("declaration_path");
+    expect(renderedText).not.toContain("/tasks/missing-subtitles");
+    expect(renderedText).not.toContain("unsafe_sidecar_url");
+    expect(renderedText).not.toContain("secret-output.json");
     expect(renderedText).not.toContain("unsafe lifecycle message");
     expect(renderedText).not.toContain("C:\\");
     expect(renderedText).not.toContain("F:\\");
@@ -3613,6 +3685,18 @@ function unsafeAddonsRouteSummary(): AddonsRouteSummary {
           placeholder: "secret-reference:subtitle-provider-key",
         } as AddonsRouteSummary["installBoundary"])
       : null,
+    taskRuns: mockAddonsRouteSummary.taskRuns.map((run) => ({
+      ...run,
+      declaration_path: "/tasks/missing-subtitles",
+      manifest_fingerprint: "sha256:unsafe-manifest-fingerprint",
+      progress: {
+        unsafe_sidecar_url: "http://subtitle-lab:9100/tasks/missing-subtitles",
+      },
+      result: {
+        raw_path: "F:\\addons\\subtitle-lab\\secret-output.json",
+        raw_token: "one_time_raw_token",
+      },
+    })) as AddonsRouteSummary["taskRuns"],
   };
 }
 

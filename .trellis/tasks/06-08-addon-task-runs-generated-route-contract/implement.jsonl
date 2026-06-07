@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Admin route contract pre-development index"}
+{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web frontend specification index"}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Generated Admin route contract rules"}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Admin HTTP route/auth patterns"}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server HTTP route specification index"}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Route inventory and generated artifact gates"}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Admin Web data-source, route, mutation, and tests rules"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Cross-layer API to Admin Web flow checklist"}
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking guide index"}
+{"file": ".trellis/tasks/06-08-addon-task-runs-generated-route-contract/research/jellyfin-scheduled-tasks-comparison.md", "reason": "Jellyfin task comparison mapped to Nako Addon Task Runs"}
