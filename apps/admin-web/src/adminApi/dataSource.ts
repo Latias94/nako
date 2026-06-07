@@ -26,6 +26,7 @@ import {
   mockMetadataRawCacheSettings,
   mockOverview,
   mockPlaybackRuntime,
+  mockPlaybackRuntimeSettings,
   mockPlaybackSessions,
   mockSourceDuplicateReconciliationPlan,
   mockStorageStaging,
@@ -77,6 +78,7 @@ import type {
   AdminOutboxEventListResponse,
   AdminOverviewResponse,
   AdminPlaybackRuntimeDiagnosticsResponse,
+  AdminPlaybackRuntimeSettingsResponse,
   AdminPlaybackSessionsQuery,
   AdminPlaybackSessionListResponse,
   AdminSourceDuplicateReconciliationApplyResponse,
@@ -86,6 +88,7 @@ import type {
   AdminServerConfigDiagnosticsResponse,
   AdminStorageStagingQuery,
   AdminStorageStagingDiagnosticsResponse,
+  AdminUpdatePlaybackRuntimeSettingsRequest,
   AdminVfsCacheRefreshResponse,
   AdminVfsCacheRepairActionPlanResponse,
   AdminVfsCacheRepairAutomationEnqueueRequest,
@@ -221,6 +224,10 @@ export type AdminDataSource = {
   loadPlaybackSessions?(
     query?: AdminPlaybackSessionsQuery,
   ): Promise<AdminSectionResult<AdminPlaybackSessionListResponse>>;
+  loadPlaybackRuntimeSettings?(): Promise<AdminSectionResult<AdminPlaybackRuntimeSettingsResponse>>;
+  updatePlaybackRuntimeSettings?(
+    request: AdminUpdatePlaybackRuntimeSettingsRequest,
+  ): Promise<AdminPlaybackRuntimeSettingsResponse>;
   loadSourceDuplicateReconciliationPlan?(
     libraryId: string,
     sourceId: string,
@@ -509,6 +516,15 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
     },
     async loadPlaybackSessions(query = {}) {
       return loadSection(() => client.getPlaybackSessions(query), mockPlaybackSessions);
+    },
+    async loadPlaybackRuntimeSettings() {
+      return loadSection(
+        () => client.getPlaybackRuntimeSettings(),
+        mockPlaybackRuntimeSettings,
+      );
+    },
+    async updatePlaybackRuntimeSettings(request) {
+      return client.updatePlaybackRuntimeSettings(request);
     },
     async loadSourceDuplicateReconciliationPlan(libraryId, sourceId, query = {}) {
       return loadSection(

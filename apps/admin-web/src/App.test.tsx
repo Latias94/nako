@@ -45,6 +45,7 @@ import {
   mockLibraryMetadataProfile,
   mockMetadataRawCacheSettings,
   mockOverview,
+  mockPlaybackRuntimeSettings,
   mockPlaybackSessions,
   mockSourceDuplicateReconciliationApply,
   mockSourceDuplicateReconciliationPlan,
@@ -895,7 +896,7 @@ describe("Admin Web V2 route shell", () => {
     fireEvent.change(screen.getByLabelText("Retention milliseconds"), {
       target: { value: "3600000" },
     });
-    fireEvent.click(screen.getByRole("checkbox", { name: /Cleanup on startup/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Cleanup on startup" }));
     fireEvent.click(screen.getByRole("button", { name: /Prepare save/i }));
     expect(updateMetadataRawCacheSettings).not.toHaveBeenCalled();
 
@@ -999,6 +1000,98 @@ describe("Admin Web V2 route shell", () => {
     expect(updateMetadataRawCacheSettings).not.toHaveBeenCalled();
   });
 
+  it("saves playback runtime settings only after confirmation on live Settings data", async () => {
+    const updatePlaybackRuntimeSettings = vi.fn(async (request) => ({
+      ...mockPlaybackRuntimeSettings,
+      settings: request.settings,
+      source: "admin" as const,
+      effect: "requires_restart" as const,
+      updated_at_ms: 1779700000000,
+    }));
+    const dataSource: AdminDataSource = {
+      async load() {
+        return emptyConsoleData();
+      },
+      async loadSettings() {
+        return {
+          value: mockSystemConfig,
+          source: "live",
+        };
+      },
+      async loadMetadataRawCacheSettings() {
+        return {
+          value: mockMetadataRawCacheSettings,
+          source: "live",
+        };
+      },
+      async loadPlaybackRuntimeSettings() {
+        return {
+          value: mockPlaybackRuntimeSettings,
+          source: "live",
+        };
+      },
+      updatePlaybackRuntimeSettings,
+    };
+    window.history.pushState(null, "", "/settings");
+
+    render(<App dataSource={dataSource} />);
+
+    expect(await screen.findByText("Playback runtime settings")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Edit runtime/i }));
+    fireEvent.change(screen.getByLabelText("CPU transcode workers"), {
+      target: { value: "3" },
+    });
+    fireEvent.click(screen.getByRole("checkbox", { name: /Staging cleanup on startup/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Prepare save/i }));
+    expect(updatePlaybackRuntimeSettings).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: /Confirm save/i }));
+
+    await waitFor(() => {
+      expect(updatePlaybackRuntimeSettings).toHaveBeenCalledWith({
+        settings: {
+          ...mockPlaybackRuntimeSettings.settings,
+          cpu_concurrency: 3,
+          staging_cleanup_on_startup: false,
+        },
+      });
+    });
+    expect(await screen.findByText(/Playback runtime settings override saved/)).toBeInTheDocument();
+    expect(await screen.findByText(/requires_restart/)).toBeInTheDocument();
+  });
+
+  it("does not expose a fake save action for playback runtime settings mock fallback", async () => {
+    const updatePlaybackRuntimeSettings = vi.fn();
+    const dataSource: AdminDataSource = {
+      async load() {
+        return emptyConsoleData();
+      },
+      async loadSettings() {
+        return {
+          value: mockSystemConfig,
+          source: "mock",
+          error: "Admin API request failed with HTTP 503",
+        };
+      },
+      async loadPlaybackRuntimeSettings() {
+        return {
+          value: mockPlaybackRuntimeSettings,
+          source: "mock",
+          error: "Admin API request failed with HTTP 503",
+        };
+      },
+      updatePlaybackRuntimeSettings,
+    };
+    window.history.pushState(null, "", "/settings");
+
+    render(<App dataSource={dataSource} />);
+
+    expect(await screen.findByText("Playback runtime settings")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Edit runtime/i })).toBeDisabled();
+    expect(screen.getByText(/Playback runtime changes are disabled/)).toBeInTheDocument();
+    expect(updatePlaybackRuntimeSettings).not.toHaveBeenCalled();
+  });
+
   it("keeps unsafe fields out of the System Settings route rendering", async () => {
     const unsafeSystemConfig = {
       ...mockSystemConfig,
@@ -1043,8 +1136,21 @@ describe("Admin Web V2 route shell", () => {
         fetch_user_agent: "private-artwork-agent",
       },
     } as unknown as typeof mockSystemConfig;
+    const unsafePlaybackRuntimeSettings = {
+      ...mockPlaybackRuntimeSettings,
+      settings: {
+        ...mockPlaybackRuntimeSettings.settings,
+        hardware_acceleration: "file:///Users/frank/render-device",
+        hardware_fallback: "F:\\gpu\\device",
+      },
+    };
+    const dataSource = settingsDataSource(unsafeSystemConfig);
+    dataSource.loadPlaybackRuntimeSettings = async () => ({
+      value: unsafePlaybackRuntimeSettings,
+      source: "live",
+    });
     window.history.pushState(null, "", "/settings");
-    const { container } = render(<App dataSource={settingsDataSource(unsafeSystemConfig)} />);
+    const { container } = render(<App dataSource={dataSource} />);
 
     await screen.findByRole("heading", { name: "System Settings" });
     const renderedText = container.textContent ?? "";
@@ -1064,6 +1170,8 @@ describe("Admin Web V2 route shell", () => {
     expect(renderedText).not.toContain("127.0.0.1:3000");
     expect(renderedText).not.toContain("private-metadata-agent");
     expect(renderedText).not.toContain("private-artwork-agent");
+    expect(renderedText).not.toContain("render-device");
+    expect(renderedText).not.toContain("gpu\\device");
     expect(renderedText).not.toContain("C:\\");
     expect(renderedText).not.toContain("F:\\");
     expect(renderedText).not.toContain("/Users/");

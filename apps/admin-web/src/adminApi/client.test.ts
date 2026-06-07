@@ -27,6 +27,7 @@ import {
   mockMetadataRawCacheSettings,
   mockOverview,
   mockPlaybackRuntime,
+  mockPlaybackRuntimeSettings,
   mockPlaybackSessions,
   mockPlaybackSupport,
   mockPublicCatalogItems,
@@ -165,6 +166,7 @@ describe("AdminApiClient", () => {
       ],
       [NAKO_ADMIN_ROUTES.playbackSessions, mockPlaybackSessions],
       [NAKO_ADMIN_ROUTES.playbackRuntime, mockPlaybackRuntime],
+      [NAKO_ADMIN_ROUTES.settingsPlaybackRuntime, mockPlaybackRuntimeSettings],
       [NAKO_ADMIN_ROUTES.playbackSupport, mockPlaybackSupport],
       [NAKO_ADMIN_ROUTES.storageStaging, mockStorageStaging],
       [NAKO_ADMIN_ROUTES.systemConfig, mockSystemConfig],
@@ -221,6 +223,9 @@ describe("AdminApiClient", () => {
       }),
     ).resolves.toEqual(mockPlaybackSessions);
     await expect(client.getPlaybackRuntime()).resolves.toEqual(mockPlaybackRuntime);
+    await expect(client.getPlaybackRuntimeSettings()).resolves.toEqual(
+      mockPlaybackRuntimeSettings,
+    );
     await expect(client.getPlaybackSupport({ session_id: "session-hls" })).resolves.toEqual(
       mockPlaybackSupport,
     );
@@ -255,6 +260,7 @@ describe("AdminApiClient", () => {
       NAKO_ADMIN_ROUTES.libraryMetadataProfile.replace("{library_id}", "library-anime"),
       `${NAKO_ADMIN_ROUTES.playbackSessions}?source_id=source-hls&state=running&limit=5&offset=0`,
       NAKO_ADMIN_ROUTES.playbackRuntime,
+      NAKO_ADMIN_ROUTES.settingsPlaybackRuntime,
       `${NAKO_ADMIN_ROUTES.playbackSupport}?session_id=session-hls`,
       `${NAKO_ADMIN_ROUTES.storageStaging}?purpose=ffmpeg_input&state=ready&limit=5&offset=0`,
       NAKO_ADMIN_ROUTES.systemConfig,
@@ -295,6 +301,40 @@ describe("AdminApiClient", () => {
           retention_ms: 3_600_000,
           cleanup_on_startup: false,
         }),
+      }),
+    );
+  });
+
+  it("updates playback runtime settings through the generated Admin settings route", async () => {
+    const nextSettings = {
+      ...mockPlaybackRuntimeSettings.settings,
+      cpu_concurrency: 3,
+      staging_cleanup_on_startup: false,
+    };
+    const fetcher = vi.fn(async () =>
+      Response.json({
+        ...mockPlaybackRuntimeSettings,
+        settings: nextSettings,
+        source: "admin",
+        effect: "requires_restart",
+        updated_at_ms: 1779700000000,
+      }),
+    );
+    const client = new AdminApiClient({ fetcher });
+
+    await expect(
+      client.updatePlaybackRuntimeSettings({ settings: nextSettings }),
+    ).resolves.toMatchObject({
+      settings: nextSettings,
+      source: "admin",
+      effect: "requires_restart",
+    });
+
+    expect(fetcher).toHaveBeenCalledWith(
+      NAKO_ADMIN_ROUTES.settingsPlaybackRuntime,
+      expect.objectContaining({
+        method: "PUT",
+        body: JSON.stringify({ settings: nextSettings }),
       }),
     );
   });

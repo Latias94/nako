@@ -44,6 +44,10 @@ Use this spec for `apps/admin-web` changes. It records current patterns only.
 - Admin Web keeps deterministic mock fallback data for unavailable live reads.
 - Mutations are enabled only when the data source is live and the mutation method
   is available.
+- Settings routes that use full-replacement `PUT` requests must keep a complete
+  typed payload draft and submit the whole request object after confirmation.
+  Do not send only the edited fields from a Settings page unless the backend
+  DTO is explicitly a patch request.
 - Sensitive tokens stay in memory. Do not add build-time admin tokens or render
   bearer tokens into page text.
 
@@ -76,6 +80,8 @@ Use this spec for `apps/admin-web` changes. It records current patterns only.
 - Assert:
   - URL search params after filter changes.
   - data-source calls and payloads.
+  - full-replacement Settings mutations submit the complete typed payload, not
+    only field deltas.
   - localized copy for `initialLocale="zh-Hans"` when text changes.
   - mock fallback visibility for unavailable live reads.
   - unsafe fields/secrets are not rendered.

@@ -72,6 +72,8 @@ export type {
   AdminOverviewResponse,
   AdminOverviewStatus,
   AdminPlaybackRuntimeDiagnosticsResponse,
+  AdminPlaybackRuntimeSettingsPayload,
+  AdminPlaybackRuntimeSettingsResponse,
   AdminPlaybackSessionsQuery,
   AdminPlaybackSessionListItem,
   AdminPlaybackSessionListResponse,
@@ -110,6 +112,7 @@ export type {
   AdminWatchFolderDiscoveryRequest,
   AdminWatchFolderDiscoveryResponse,
   AdminUpdateMetadataRawCacheSettingsRequest,
+  AdminUpdatePlaybackRuntimeSettingsRequest,
   PageInfo,
 } from "./generated/contract";
 

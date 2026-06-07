@@ -18,7 +18,7 @@ struct AdminRouteExclusionSuffix {
     reason: &'static str,
 }
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 94] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 95] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -274,10 +274,11 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 94] = [
         "storage/vfs-cache/repair/refresh-cache",
     ),
     ("systemConfig", "system/config"),
+    ("settingsPlaybackRuntime", "settings/playback/runtime"),
     ("settingsMetadataRawCache", "settings/metadata/raw-cache"),
 ];
 
-const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 20] = [
+const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 19] = [
     AdminRouteExclusionSuffix {
         suffix: "access/invitations",
         reason: "Invitation lifecycle routes are implemented for Admin operators but are not generated as Admin Web route constants in this slice.",
@@ -353,10 +354,6 @@ const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 20] = [
     AdminRouteExclusionSuffix {
         suffix: "events/{event_id}/addon-events/replay",
         reason: "Addon event delivery control routes are server-side operator workflows not generated as Admin Web route constants in this slice.",
-    },
-    AdminRouteExclusionSuffix {
-        suffix: "settings/playback/runtime",
-        reason: "Playback runtime settings mutation is not generated as an Admin Web route constant until the settings UI owns this workflow.",
     },
 ];
 

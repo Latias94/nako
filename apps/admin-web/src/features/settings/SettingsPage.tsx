@@ -8,9 +8,15 @@ import type {
 } from "../../adminApi/dataSource";
 import type {
   AdminMetadataRawCacheSettingsResponse,
+  AdminPlaybackRuntimeSettingsPayload,
+  AdminPlaybackRuntimeSettingsResponse,
   AdminServerConfigDiagnosticsResponse,
 } from "../../adminApi/types";
-import { mockMetadataRawCacheSettings, mockSystemConfig } from "../../adminApi/mockData";
+import {
+  mockMetadataRawCacheSettings,
+  mockPlaybackRuntimeSettings,
+  mockSystemConfig,
+} from "../../adminApi/mockData";
 import { SourceLabel } from "../../components/SourceLabel";
 import { RouteNotice, RoutePage } from "../../components/layout/RoutePage";
 import { Badge } from "../../components/ui/Badge";
@@ -34,9 +40,31 @@ type MetadataRawCacheResult = {
   source: DataSourceMode;
   error?: string;
 };
+type PlaybackRuntimeSettingsResult = {
+  value: AdminPlaybackRuntimeSettingsResponse;
+  source: DataSourceMode;
+  error?: string;
+};
 type MetadataRawCacheForm = {
   retentionMs: string;
   cleanupOnStartup: boolean;
+};
+type PlaybackRuntimeSettingsForm = {
+  cpuConcurrency: string;
+  gpuConcurrency: string;
+  remuxConcurrency: string;
+  remuxTimeoutMs: string;
+  remoteStreamConcurrency: string;
+  remoteStageConcurrency: string;
+  stagingMaxBytes: string;
+  stagingRetentionMs: string;
+  stagingCleanupOnStartup: boolean;
+  transcodeArtifactRetentionMs: string;
+  transcodeArtifactCleanupOnStartup: boolean;
+  hlsSegmentCleanupEnabled: boolean;
+  hlsSegmentKeepMs: string;
+  transcodeThrottleEnabled: boolean;
+  transcodeThrottleDelayMs: string;
 };
 
 type BadgeTone = "neutral" | "success" | "warning" | "danger" | "info";
@@ -53,6 +81,14 @@ export function SettingsPage({ dataSource }: SettingsPageProps) {
     queryFn: () =>
       loadMetadataRawCacheSettings(dataSource, t("settings.rawCache.dataSourceUnavailable")),
   });
+  const playbackRuntimeSettingsQuery = useQuery({
+    queryKey: ["admin-settings", "playback-runtime-settings", locale],
+    queryFn: () =>
+      loadPlaybackRuntimeSettings(
+        dataSource,
+        t("settings.playbackRuntime.dataSourceUnavailable"),
+      ),
+  });
   const result = query.data ?? {
     value: mockSystemConfig,
     source: "mock" as const,
@@ -61,14 +97,24 @@ export function SettingsPage({ dataSource }: SettingsPageProps) {
     value: mockMetadataRawCacheSettings,
     source: "mock" as const,
   };
+  const playbackRuntimeSettingsResult = playbackRuntimeSettingsQuery.data ?? {
+    value: mockPlaybackRuntimeSettings,
+    source: "mock" as const,
+  };
   const settings = result.value;
   const rawCacheSettings = metadataRawCacheResult.value;
+  const playbackRuntimeSettings = playbackRuntimeSettingsResult.value;
   const enabledProviders = settings.metadata.providers.filter((provider) => provider.enabled).length;
   const [rawCacheDraft, setRawCacheDraft] = useState(() =>
     metadataRawCacheToForm(rawCacheSettings),
   );
   const [rawCacheEditing, setRawCacheEditing] = useState(false);
   const [rawCacheConfirming, setRawCacheConfirming] = useState(false);
+  const [playbackRuntimeDraft, setPlaybackRuntimeDraft] = useState(() =>
+    playbackRuntimeSettingsToForm(playbackRuntimeSettings.settings),
+  );
+  const [playbackRuntimeEditing, setPlaybackRuntimeEditing] = useState(false);
+  const [playbackRuntimeConfirming, setPlaybackRuntimeConfirming] = useState(false);
   const rawCacheMutation = useMutation({
     mutationFn: async () => {
       if (metadataRawCacheResult.source !== "live") {
@@ -93,6 +139,30 @@ export function SettingsPage({ dataSource }: SettingsPageProps) {
       void query.refetch();
     },
   });
+  const playbackRuntimeMutation = useMutation({
+    mutationFn: async () => {
+      if (playbackRuntimeSettingsResult.source !== "live") {
+        throw new Error(t("settings.playbackRuntime.notLiveError"));
+      }
+      if (!dataSource.updatePlaybackRuntimeSettings) {
+        throw new Error(t("settings.playbackRuntime.mutationUnavailable"));
+      }
+
+      return dataSource.updatePlaybackRuntimeSettings({
+        settings: playbackRuntimeFormToPayload(
+          playbackRuntimeDraft,
+          playbackRuntimeSettings.settings,
+          t("settings.playbackRuntime.invalidPositiveInteger"),
+        ),
+      });
+    },
+    onSuccess: () => {
+      setPlaybackRuntimeEditing(false);
+      setPlaybackRuntimeConfirming(false);
+      void playbackRuntimeSettingsQuery.refetch();
+      void query.refetch();
+    },
+  });
 
   useEffect(() => {
     if (!rawCacheEditing) {
@@ -101,14 +171,35 @@ export function SettingsPage({ dataSource }: SettingsPageProps) {
     }
   }, [rawCacheEditing, rawCacheSettings]);
 
+  useEffect(() => {
+    if (!playbackRuntimeEditing) {
+      const next = playbackRuntimeSettingsToForm(playbackRuntimeSettings.settings);
+      setPlaybackRuntimeDraft((current) =>
+        playbackRuntimeFormEquals(current, next) ? current : next,
+      );
+    }
+  }, [playbackRuntimeEditing, playbackRuntimeSettings]);
+
   const rawCacheCanSave = rawCacheEditing && rawCacheFormIsValid(rawCacheDraft) && metadataRawCacheResult.source === "live";
+  const playbackRuntimeCanSave =
+    playbackRuntimeEditing &&
+    playbackRuntimeFormIsValid(playbackRuntimeDraft) &&
+    playbackRuntimeSettingsResult.source === "live";
 
   return (
     <RoutePage
       actions={
         <Button
-          disabled={query.isFetching}
-          onClick={() => void query.refetch()}
+          disabled={
+            query.isFetching ||
+            metadataRawCacheQuery.isFetching ||
+            playbackRuntimeSettingsQuery.isFetching
+          }
+          onClick={() => {
+            void query.refetch();
+            void metadataRawCacheQuery.refetch();
+            void playbackRuntimeSettingsQuery.refetch();
+          }}
           variant="outline"
         >
           <RefreshCw size={16} />
@@ -434,6 +525,49 @@ export function SettingsPage({ dataSource }: SettingsPageProps) {
                   value={`${settings.artwork.max_width} x ${settings.artwork.max_height}`}
                 />
               </div>
+              <PlaybackRuntimeSettingsEditor
+                canSave={playbackRuntimeCanSave}
+                draft={playbackRuntimeDraft}
+                isConfirming={playbackRuntimeConfirming}
+                isEditing={playbackRuntimeEditing}
+                isPending={playbackRuntimeMutation.isPending}
+                result={playbackRuntimeSettingsResult}
+                settings={playbackRuntimeSettings}
+                t={t}
+                onCancel={() => {
+                  setPlaybackRuntimeDraft(
+                    playbackRuntimeSettingsToForm(playbackRuntimeSettings.settings),
+                  );
+                  setPlaybackRuntimeEditing(false);
+                  setPlaybackRuntimeConfirming(false);
+                  playbackRuntimeMutation.reset();
+                }}
+                onConfirm={() => playbackRuntimeMutation.mutate()}
+                onDraftChange={setPlaybackRuntimeDraft}
+                onEdit={() => {
+                  setPlaybackRuntimeEditing(true);
+                  setPlaybackRuntimeConfirming(false);
+                  playbackRuntimeMutation.reset();
+                }}
+                onPrepare={() => setPlaybackRuntimeConfirming(true)}
+              />
+              {playbackRuntimeSettingsResult.error ? (
+                <div className="settingsInlineNotice">
+                  {t("settings.fallback", { error: playbackRuntimeSettingsResult.error })}
+                </div>
+              ) : null}
+              {playbackRuntimeMutation.error ? (
+                <div className="settingsInlineNotice danger">
+                  {(playbackRuntimeMutation.error as Error).message}
+                </div>
+              ) : null}
+              {playbackRuntimeMutation.data ? (
+                <div className="settingsInlineNotice success">
+                  {t("settings.playbackRuntime.saved", {
+                    effect: playbackRuntimeMutation.data.effect,
+                  })}
+                </div>
+              ) : null}
             </DataPanel>
           </div>
         </>
@@ -470,6 +604,21 @@ async function loadMetadataRawCacheSettings(
   }
 
   return dataSource.loadMetadataRawCacheSettings();
+}
+
+async function loadPlaybackRuntimeSettings(
+  dataSource: AdminDataSource,
+  missingDataSourceMessage: string,
+): Promise<PlaybackRuntimeSettingsResult> {
+  if (!dataSource.loadPlaybackRuntimeSettings) {
+    return {
+      value: mockPlaybackRuntimeSettings,
+      source: "mock",
+      error: missingDataSourceMessage,
+    };
+  }
+
+  return dataSource.loadPlaybackRuntimeSettings();
 }
 
 function MetadataRawCacheEditor({
@@ -607,6 +756,282 @@ function MetadataRawCacheEditor({
   );
 }
 
+function PlaybackRuntimeSettingsEditor({
+  canSave,
+  draft,
+  isConfirming,
+  isEditing,
+  isPending,
+  result,
+  settings,
+  t,
+  onCancel,
+  onConfirm,
+  onDraftChange,
+  onEdit,
+  onPrepare,
+}: {
+  canSave: boolean;
+  draft: PlaybackRuntimeSettingsForm;
+  isConfirming: boolean;
+  isEditing: boolean;
+  isPending: boolean;
+  result: PlaybackRuntimeSettingsResult;
+  settings: AdminPlaybackRuntimeSettingsResponse;
+  t: Translate;
+  onCancel: () => void;
+  onConfirm: () => void;
+  onDraftChange: (draft: PlaybackRuntimeSettingsForm) => void;
+  onEdit: () => void;
+  onPrepare: () => void;
+}) {
+  const payload = settings.settings;
+  const sourceTone = settings.source === "admin" ? "info" : "neutral";
+  const effectTone = settings.effect === "requires_restart" ? "warning" : "success";
+  const disabled = !isEditing || isPending;
+
+  return (
+    <div className="settingsMutationPanel">
+      <div className="settingsMutationHeader">
+        <div>
+          <strong>{t("settings.playbackRuntime.title")}</strong>
+          <span>{t("settings.playbackRuntime.description")}</span>
+        </div>
+        <div className="settingsMutationBadges">
+          <Badge tone={sourceTone}>{settings.source}</Badge>
+          <Badge tone={effectTone}>{settings.effect}</Badge>
+        </div>
+      </div>
+
+      <div className="settingsMutationFacts">
+        <span>
+          {t("settings.playbackRuntime.hardwarePolicy", {
+            requested: safePlaybackRuntimePolicyValue(payload.hardware_acceleration),
+            fallback: safePlaybackRuntimePolicyValue(payload.hardware_fallback),
+          })}
+        </span>
+        <span>
+          {t("settings.playbackRuntime.activeConcurrency", {
+            cpu: payload.cpu_concurrency,
+            gpu: payload.gpu_concurrency,
+            remux: payload.remux_concurrency,
+          })}
+        </span>
+        <span>
+          {t("settings.playbackRuntime.activeStaging", {
+            size: formatBytes(payload.staging_max_bytes),
+            retention: formatDuration(payload.staging_retention_ms),
+          })}
+        </span>
+        <span>
+          {settings.updated_at_ms
+            ? t("settings.playbackRuntime.updated", { updatedAt: settings.updated_at_ms })
+            : t("settings.playbackRuntime.noAdminUpdate")}
+        </span>
+      </div>
+
+      <div className="settingsMutationFields">
+        <PlaybackRuntimeNumberField
+          disabled={disabled}
+          label={t("settings.playbackRuntime.cpuConcurrency")}
+          value={draft.cpuConcurrency}
+          onChange={(value) => onDraftChange({ ...draft, cpuConcurrency: value })}
+        />
+        <PlaybackRuntimeNumberField
+          disabled={disabled}
+          label={t("settings.playbackRuntime.gpuConcurrency")}
+          value={draft.gpuConcurrency}
+          onChange={(value) => onDraftChange({ ...draft, gpuConcurrency: value })}
+        />
+        <PlaybackRuntimeNumberField
+          disabled={disabled}
+          label={t("settings.playbackRuntime.remuxConcurrency")}
+          value={draft.remuxConcurrency}
+          onChange={(value) => onDraftChange({ ...draft, remuxConcurrency: value })}
+        />
+        <PlaybackRuntimeNumberField
+          disabled={disabled}
+          label={t("settings.playbackRuntime.remuxTimeoutMs")}
+          value={draft.remuxTimeoutMs}
+          onChange={(value) => onDraftChange({ ...draft, remuxTimeoutMs: value })}
+        />
+        <PlaybackRuntimeNumberField
+          disabled={disabled}
+          label={t("settings.playbackRuntime.remoteStreamConcurrency")}
+          value={draft.remoteStreamConcurrency}
+          onChange={(value) => onDraftChange({ ...draft, remoteStreamConcurrency: value })}
+        />
+        <PlaybackRuntimeNumberField
+          disabled={disabled}
+          label={t("settings.playbackRuntime.remoteStageConcurrency")}
+          value={draft.remoteStageConcurrency}
+          onChange={(value) => onDraftChange({ ...draft, remoteStageConcurrency: value })}
+        />
+        <PlaybackRuntimeNumberField
+          disabled={disabled}
+          label={t("settings.playbackRuntime.stagingMaxBytes")}
+          value={draft.stagingMaxBytes}
+          onChange={(value) => onDraftChange({ ...draft, stagingMaxBytes: value })}
+        />
+        <PlaybackRuntimeNumberField
+          disabled={disabled}
+          label={t("settings.playbackRuntime.stagingRetentionMs")}
+          value={draft.stagingRetentionMs}
+          onChange={(value) => onDraftChange({ ...draft, stagingRetentionMs: value })}
+        />
+        <label className="settingsToggleField">
+          <input
+            checked={draft.stagingCleanupOnStartup}
+            disabled={disabled}
+            onChange={(event) =>
+              onDraftChange({
+                ...draft,
+                stagingCleanupOnStartup: event.currentTarget.checked,
+              })
+            }
+            type="checkbox"
+          />
+          {t("settings.playbackRuntime.stagingCleanupOnStartup")}
+        </label>
+        <PlaybackRuntimeNumberField
+          disabled={disabled}
+          label={t("settings.playbackRuntime.transcodeArtifactRetentionMs")}
+          value={draft.transcodeArtifactRetentionMs}
+          onChange={(value) =>
+            onDraftChange({ ...draft, transcodeArtifactRetentionMs: value })
+          }
+        />
+        <label className="settingsToggleField">
+          <input
+            checked={draft.transcodeArtifactCleanupOnStartup}
+            disabled={disabled}
+            onChange={(event) =>
+              onDraftChange({
+                ...draft,
+                transcodeArtifactCleanupOnStartup: event.currentTarget.checked,
+              })
+            }
+            type="checkbox"
+          />
+          {t("settings.playbackRuntime.transcodeArtifactCleanupOnStartup")}
+        </label>
+        <label className="settingsToggleField">
+          <input
+            checked={draft.hlsSegmentCleanupEnabled}
+            disabled={disabled}
+            onChange={(event) =>
+              onDraftChange({
+                ...draft,
+                hlsSegmentCleanupEnabled: event.currentTarget.checked,
+              })
+            }
+            type="checkbox"
+          />
+          {t("settings.playbackRuntime.hlsSegmentCleanupEnabled")}
+        </label>
+        <PlaybackRuntimeNumberField
+          disabled={disabled}
+          label={t("settings.playbackRuntime.hlsSegmentKeepMs")}
+          value={draft.hlsSegmentKeepMs}
+          onChange={(value) => onDraftChange({ ...draft, hlsSegmentKeepMs: value })}
+        />
+        <label className="settingsToggleField">
+          <input
+            checked={draft.transcodeThrottleEnabled}
+            disabled={disabled}
+            onChange={(event) =>
+              onDraftChange({
+                ...draft,
+                transcodeThrottleEnabled: event.currentTarget.checked,
+              })
+            }
+            type="checkbox"
+          />
+          {t("settings.playbackRuntime.transcodeThrottleEnabled")}
+        </label>
+        <PlaybackRuntimeNumberField
+          disabled={disabled}
+          label={t("settings.playbackRuntime.transcodeThrottleDelayMs")}
+          value={draft.transcodeThrottleDelayMs}
+          onChange={(value) =>
+            onDraftChange({ ...draft, transcodeThrottleDelayMs: value })
+          }
+        />
+      </div>
+
+      <div className="settingsMutationActions">
+        {!isEditing ? (
+          <Button
+            disabled={result.source !== "live" || isPending}
+            onClick={onEdit}
+            size="sm"
+            variant="outline"
+          >
+            <Save size={14} />
+            {t("settings.playbackRuntime.editRuntime")}
+          </Button>
+        ) : null}
+        {isEditing && !isConfirming ? (
+          <>
+            <Button disabled={isPending} onClick={onCancel} size="sm" variant="ghost">
+              <X size={14} />
+              {t("settings.playbackRuntime.cancel")}
+            </Button>
+            <Button disabled={!canSave || isPending} onClick={onPrepare} size="sm">
+              <Save size={14} />
+              {t("settings.playbackRuntime.prepareSave")}
+            </Button>
+          </>
+        ) : null}
+        {isEditing && isConfirming ? (
+          <>
+            <span>{t("settings.playbackRuntime.saveReplacement")}</span>
+            <Button disabled={isPending} onClick={onCancel} size="sm" variant="ghost">
+              {t("settings.playbackRuntime.cancel")}
+            </Button>
+            <Button disabled={!canSave || isPending} onClick={onConfirm} size="sm">
+              {isPending
+                ? t("settings.playbackRuntime.saving")
+                : t("settings.playbackRuntime.confirmSave")}
+            </Button>
+          </>
+        ) : null}
+      </div>
+      {result.source !== "live" ? (
+        <div className="settingsInlineNotice">
+          {t("settings.playbackRuntime.saveDisabled")}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function PlaybackRuntimeNumberField({
+  disabled,
+  label,
+  value,
+  onChange,
+}: {
+  disabled: boolean;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label>
+      {label}
+      <input
+        disabled={disabled}
+        inputMode="numeric"
+        min={1}
+        onChange={(event) => onChange(event.currentTarget.value)}
+        type="number"
+        value={value}
+      />
+    </label>
+  );
+}
+
 function SummaryCard({
   badge,
   label,
@@ -704,6 +1129,129 @@ function parseRetentionMs(value: string, invalidMessage: string) {
   }
 
   return parsed;
+}
+
+function playbackRuntimeSettingsToForm(
+  settings: AdminPlaybackRuntimeSettingsPayload,
+): PlaybackRuntimeSettingsForm {
+  return {
+    cpuConcurrency: String(settings.cpu_concurrency),
+    gpuConcurrency: String(settings.gpu_concurrency),
+    remuxConcurrency: String(settings.remux_concurrency),
+    remuxTimeoutMs: String(settings.remux_timeout_ms),
+    remoteStreamConcurrency: String(settings.remote_stream_concurrency),
+    remoteStageConcurrency: String(settings.remote_stage_concurrency),
+    stagingMaxBytes: String(settings.staging_max_bytes),
+    stagingRetentionMs: String(settings.staging_retention_ms),
+    stagingCleanupOnStartup: settings.staging_cleanup_on_startup,
+    transcodeArtifactRetentionMs: String(settings.transcode_artifact_retention_ms),
+    transcodeArtifactCleanupOnStartup: settings.transcode_artifact_cleanup_on_startup,
+    hlsSegmentCleanupEnabled: settings.hls_segment_cleanup_enabled,
+    hlsSegmentKeepMs: String(settings.hls_segment_keep_ms),
+    transcodeThrottleEnabled: settings.transcode_throttle_enabled,
+    transcodeThrottleDelayMs: String(settings.transcode_throttle_delay_ms),
+  };
+}
+
+function playbackRuntimeFormToPayload(
+  form: PlaybackRuntimeSettingsForm,
+  current: AdminPlaybackRuntimeSettingsPayload,
+  invalidMessage: string,
+): AdminPlaybackRuntimeSettingsPayload {
+  return {
+    ...current,
+    cpu_concurrency: parsePositiveInteger(form.cpuConcurrency, invalidMessage),
+    gpu_concurrency: parsePositiveInteger(form.gpuConcurrency, invalidMessage),
+    remux_concurrency: parsePositiveInteger(form.remuxConcurrency, invalidMessage),
+    remux_timeout_ms: parsePositiveInteger(form.remuxTimeoutMs, invalidMessage),
+    remote_stream_concurrency: parsePositiveInteger(
+      form.remoteStreamConcurrency,
+      invalidMessage,
+    ),
+    remote_stage_concurrency: parsePositiveInteger(form.remoteStageConcurrency, invalidMessage),
+    staging_max_bytes: parsePositiveInteger(form.stagingMaxBytes, invalidMessage),
+    staging_retention_ms: parsePositiveInteger(form.stagingRetentionMs, invalidMessage),
+    staging_cleanup_on_startup: form.stagingCleanupOnStartup,
+    transcode_artifact_retention_ms: parsePositiveInteger(
+      form.transcodeArtifactRetentionMs,
+      invalidMessage,
+    ),
+    transcode_artifact_cleanup_on_startup: form.transcodeArtifactCleanupOnStartup,
+    hls_segment_cleanup_enabled: form.hlsSegmentCleanupEnabled,
+    hls_segment_keep_ms: parsePositiveInteger(form.hlsSegmentKeepMs, invalidMessage),
+    transcode_throttle_enabled: form.transcodeThrottleEnabled,
+    transcode_throttle_delay_ms: parsePositiveInteger(
+      form.transcodeThrottleDelayMs,
+      invalidMessage,
+    ),
+  };
+}
+
+function playbackRuntimeFormEquals(
+  left: PlaybackRuntimeSettingsForm,
+  right: PlaybackRuntimeSettingsForm,
+) {
+  return (
+    left.cpuConcurrency === right.cpuConcurrency &&
+    left.gpuConcurrency === right.gpuConcurrency &&
+    left.remuxConcurrency === right.remuxConcurrency &&
+    left.remuxTimeoutMs === right.remuxTimeoutMs &&
+    left.remoteStreamConcurrency === right.remoteStreamConcurrency &&
+    left.remoteStageConcurrency === right.remoteStageConcurrency &&
+    left.stagingMaxBytes === right.stagingMaxBytes &&
+    left.stagingRetentionMs === right.stagingRetentionMs &&
+    left.stagingCleanupOnStartup === right.stagingCleanupOnStartup &&
+    left.transcodeArtifactRetentionMs === right.transcodeArtifactRetentionMs &&
+    left.transcodeArtifactCleanupOnStartup === right.transcodeArtifactCleanupOnStartup &&
+    left.hlsSegmentCleanupEnabled === right.hlsSegmentCleanupEnabled &&
+    left.hlsSegmentKeepMs === right.hlsSegmentKeepMs &&
+    left.transcodeThrottleEnabled === right.transcodeThrottleEnabled &&
+    left.transcodeThrottleDelayMs === right.transcodeThrottleDelayMs
+  );
+}
+
+function playbackRuntimeFormIsValid(form: PlaybackRuntimeSettingsForm) {
+  return [
+    form.cpuConcurrency,
+    form.gpuConcurrency,
+    form.remuxConcurrency,
+    form.remuxTimeoutMs,
+    form.remoteStreamConcurrency,
+    form.remoteStageConcurrency,
+    form.stagingMaxBytes,
+    form.stagingRetentionMs,
+    form.transcodeArtifactRetentionMs,
+    form.hlsSegmentKeepMs,
+    form.transcodeThrottleDelayMs,
+  ].every(isPositiveIntegerString);
+}
+
+function parsePositiveInteger(value: string, invalidMessage: string) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(invalidMessage);
+  }
+
+  return parsed;
+}
+
+function isPositiveIntegerString(value: string) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0;
+}
+
+function safePlaybackRuntimePolicyValue(value: string) {
+  return [
+    "none",
+    "cpu",
+    "nvenc",
+    "vaapi",
+    "quick_sync",
+    "video_toolbox",
+    "auto",
+  ].includes(value)
+    ? value
+    : "unknown";
 }
 
 function readinessTone(status: string): BadgeTone {

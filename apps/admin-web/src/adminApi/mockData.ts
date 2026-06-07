@@ -27,6 +27,7 @@ import type {
   AdminOutboxEventListResponse,
   AdminOverviewResponse,
   AdminPlaybackRuntimeDiagnosticsResponse,
+  AdminPlaybackRuntimeSettingsResponse,
   AdminPlaybackSessionListResponse,
   AdminPlaybackSupportEvidenceResponse,
   AdminServerConfigDiagnosticsResponse,
@@ -2603,6 +2604,34 @@ export const mockMetadataRawCacheSettings: AdminMetadataRawCacheSettingsResponse
   admin_api_version: "v1",
   retention_ms: mockSystemConfig.metadata.raw_cache_retention_ms,
   cleanup_on_startup: mockSystemConfig.metadata.raw_cache_cleanup_on_startup,
+  source: "configured",
+  effect: "active",
+  updated_at_ms: null,
+};
+
+export const mockPlaybackRuntimeSettings: AdminPlaybackRuntimeSettingsResponse = {
+  admin_api_version: "v1",
+  settings: {
+    hardware_acceleration: "nvenc",
+    hardware_fallback: "cpu",
+    cpu_concurrency: mockSystemConfig.transcode.cpu_concurrency,
+    gpu_concurrency: mockSystemConfig.transcode.gpu_concurrency,
+    remux_concurrency: mockSystemConfig.runtime.remux_concurrency,
+    remux_timeout_ms: mockSystemConfig.runtime.remux_timeout_ms,
+    remote_stream_concurrency: mockSystemConfig.playback.remote_stream_concurrency,
+    remote_stage_concurrency: mockSystemConfig.playback.remote_stage_concurrency,
+    staging_max_bytes: mockSystemConfig.staging.max_bytes,
+    staging_retention_ms: mockSystemConfig.staging.retention_ms,
+    staging_cleanup_on_startup: mockSystemConfig.staging.cleanup_on_startup,
+    transcode_artifact_retention_ms:
+      mockSystemConfig.playback.transcode_artifact_retention_ms,
+    transcode_artifact_cleanup_on_startup:
+      mockSystemConfig.playback.transcode_artifact_cleanup_on_startup,
+    hls_segment_cleanup_enabled: mockSystemConfig.playback.hls_segment_cleanup_enabled,
+    hls_segment_keep_ms: mockSystemConfig.playback.hls_segment_keep_ms,
+    transcode_throttle_enabled: mockSystemConfig.playback.transcode_throttle_enabled,
+    transcode_throttle_delay_ms: mockSystemConfig.playback.transcode_throttle_delay_ms,
+  },
   source: "configured",
   effect: "active",
   updated_at_ms: null,

@@ -47,6 +47,7 @@ import type {
   AdminOutboxEventListResponse,
   AdminOverviewResponse,
   AdminPlaybackRuntimeDiagnosticsResponse,
+  AdminPlaybackRuntimeSettingsResponse,
   AdminPlaybackSessionsQuery,
   AdminPlaybackSessionListResponse,
   AdminPlaybackSupportEvidenceResponse,
@@ -76,6 +77,7 @@ import type {
   ReplaceAddonGrantsRequest,
   AdminUpdateLibraryMetadataProfileRequest,
   PublishSelectedArtworkResponse,
+  AdminUpdatePlaybackRuntimeSettingsRequest,
   UpdateAddonStatusRequest,
   UnpublishSelectedArtworkResponse,
 } from "./generated/contract";
@@ -398,6 +400,21 @@ export class AdminApiClient {
 
   async getPlaybackRuntime(): Promise<AdminPlaybackRuntimeDiagnosticsResponse> {
     return this.getJson<AdminPlaybackRuntimeDiagnosticsResponse>(NAKO_ADMIN_ROUTES.playbackRuntime);
+  }
+
+  async getPlaybackRuntimeSettings(): Promise<AdminPlaybackRuntimeSettingsResponse> {
+    return this.getJson<AdminPlaybackRuntimeSettingsResponse>(
+      NAKO_ADMIN_ROUTES.settingsPlaybackRuntime,
+    );
+  }
+
+  async updatePlaybackRuntimeSettings(
+    request: AdminUpdatePlaybackRuntimeSettingsRequest,
+  ): Promise<AdminPlaybackRuntimeSettingsResponse> {
+    return this.putJson<AdminPlaybackRuntimeSettingsResponse>(
+      NAKO_ADMIN_ROUTES.settingsPlaybackRuntime,
+      request,
+    );
   }
 
   async getPlaybackSupport(

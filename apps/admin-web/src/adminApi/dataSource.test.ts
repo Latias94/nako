@@ -28,6 +28,7 @@ import {
   mockMetadataRawCacheSettings,
   mockOverview,
   mockPlaybackRuntime,
+  mockPlaybackRuntimeSettings,
   mockPlaybackSessions,
   mockPublicCatalogItems,
   mockPublicCatalogSearch,
@@ -665,6 +666,82 @@ describe("Admin data source", () => {
         retention_ms: 3_600_000,
         cleanup_on_startup: false,
       }),
+    ).rejects.toThrow("HTTP 503");
+  });
+
+  it("loads and updates playback runtime settings without mock mutation fallback", async () => {
+    const seenRequests: Array<{ path: string; method: string; body: unknown }> = [];
+    const nextSettings = {
+      ...mockPlaybackRuntimeSettings.settings,
+      cpu_concurrency: 3,
+      staging_cleanup_on_startup: false,
+    };
+    const dataSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request, init?: RequestInit) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        seenRequests.push({
+          path: url.pathname,
+          method: init?.method ?? "GET",
+          body: init?.body ? JSON.parse(String(init.body)) : null,
+        });
+
+        if (
+          url.pathname === NAKO_ADMIN_ROUTES.settingsPlaybackRuntime &&
+          init?.method === "PUT"
+        ) {
+          return Response.json({
+            ...mockPlaybackRuntimeSettings,
+            settings: nextSettings,
+            source: "admin",
+            effect: "requires_restart",
+            updated_at_ms: 1779700000000,
+          });
+        }
+
+        if (url.pathname === NAKO_ADMIN_ROUTES.settingsPlaybackRuntime) {
+          return Response.json(mockPlaybackRuntimeSettings);
+        }
+
+        return new Response("not found", { status: 404 });
+      },
+    });
+
+    await expect(dataSource.loadPlaybackRuntimeSettings?.()).resolves.toMatchObject({
+      source: "live",
+      value: mockPlaybackRuntimeSettings,
+    });
+    await expect(
+      dataSource.updatePlaybackRuntimeSettings?.({ settings: nextSettings }),
+    ).resolves.toMatchObject({
+      settings: nextSettings,
+      source: "admin",
+      effect: "requires_restart",
+    });
+
+    expect(seenRequests).toEqual([
+      {
+        path: NAKO_ADMIN_ROUTES.settingsPlaybackRuntime,
+        method: "GET",
+        body: null,
+      },
+      {
+        path: NAKO_ADMIN_ROUTES.settingsPlaybackRuntime,
+        method: "PUT",
+        body: { settings: nextSettings },
+      },
+    ]);
+
+    const fallbackSource = createAdminDataSource({
+      fetcher: async () => new Response("offline", { status: 503 }),
+    });
+
+    await expect(fallbackSource.loadPlaybackRuntimeSettings?.()).resolves.toMatchObject({
+      source: "mock",
+      value: mockPlaybackRuntimeSettings,
+      error: expect.stringContaining("HTTP 503"),
+    });
+    await expect(
+      fallbackSource.updatePlaybackRuntimeSettings?.({ settings: nextSettings }),
     ).rejects.toThrow("HTTP 503");
   });
 
