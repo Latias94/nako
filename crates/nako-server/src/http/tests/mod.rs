@@ -161,7 +161,7 @@ use nako_core::{
     TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
     TranscodeSessionRepository, TranscodeSessionState, User, UserId, UserPlaybackStateRepository,
     UserPlaybackStateWrite, UserPrincipalId, UserRole, UserStatus, VfsCacheOperation,
-    VfsCacheRepository, VfsCachedObject, VfsCachedObjectKind, WebhookEndpointStatus,
+    VfsCacheRepository, WebhookEndpointStatus,
 };
 use nako_db::NakoDatabase;
 use nako_playback::{

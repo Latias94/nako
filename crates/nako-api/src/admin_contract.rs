@@ -18,7 +18,7 @@ struct AdminRouteExclusionSuffix {
     reason: &'static str,
 }
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 86] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 87] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -241,6 +241,10 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 86] = [
     (
         "storageVfsCacheRepairJobExecute",
         "storage/vfs-cache/repair/jobs/{job_id}/execute",
+    ),
+    (
+        "storageVfsCacheRepairJobRetry",
+        "storage/vfs-cache/repair/jobs/{job_id}/retry",
     ),
     (
         "storageVfsCacheRepairActionPlan",
@@ -3636,6 +3640,11 @@ export interface AdminVfsCacheRepairExecuteResponse {
   summary: AdminVfsCacheRepairJobSummary;
 }
 
+export interface AdminVfsCacheRepairRetryRequest {
+  max_attempts?: number | null;
+  next_attempt_at?: string | null;
+}
+
 export interface AdminVfsCacheRepairRemediationPlanResponse {
   admin_api_version: string;
   public_api_version: string;
@@ -4229,6 +4238,7 @@ mod tests {
             "AdminVfsCacheRepairCacheState",
             "AdminVfsCacheRepairJobSummary",
             "AdminVfsCacheRepairExecuteResponse",
+            "AdminVfsCacheRepairRetryRequest",
             "AdminVfsCacheRepairActionPlanResponse",
             "AdminVfsCacheRepairRemediationPlanBoundary",
             "AdminVfsCacheRepairClassificationCount",

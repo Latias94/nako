@@ -101,9 +101,9 @@ use nako_api::{
         AdminVfsCacheRepairExecutableAction, AdminVfsCacheRepairExecuteResponse,
         AdminVfsCacheRepairJobSummary, AdminVfsCacheRepairRemediationActionGroup,
         AdminVfsCacheRepairRemediationPlanBoundary, AdminVfsCacheRepairRemediationPlanResponse,
-        AdminVfsCacheRepairTarget, AdminVfsCacheRepairTargetListResponse,
-        AdminVfsCacheRepairTargetPreviewResponse, AdminVfsCacheSummary,
-        AdminWatchFolderDiscoveryFailure, AdminWatchFolderDiscoveryRequest,
+        AdminVfsCacheRepairRetryRequest, AdminVfsCacheRepairTarget,
+        AdminVfsCacheRepairTargetListResponse, AdminVfsCacheRepairTargetPreviewResponse,
+        AdminVfsCacheSummary, AdminWatchFolderDiscoveryFailure, AdminWatchFolderDiscoveryRequest,
         AdminWatchFolderDiscoveryResponse, AdminWatchFolderRuntimeCoverageDiagnostic,
         AdminWatchFolderRuntimeCoverageStatus, AdminWatchFolderSuppression, JobResponse,
         StorageBackendDiagnosticsResponse, StorageBackendKind, StorageBackendRuntimeStateScope,
@@ -140,7 +140,7 @@ use crate::{
     app::{
         EnqueueSourceFingerprintHashRequest, EnqueueVfsCacheRepairTargetOutcome,
         LibraryScanTraceContext, NakoApp, RetrySourceFingerprintHashRequest,
-        RuntimeSupervisorDiagnostics,
+        RetryVfsCacheRepairJobRequest, RuntimeSupervisorDiagnostics,
         SourceDuplicateReconciliationApplyRequest as AppSourceDuplicateReconciliationApplyRequest,
         SourceDuplicateReconciliationPlanRequest, StagingBudgetPolicySlice,
         StorageStagingPressureStatus, VfsCacheRepairActionBoundary, VfsCacheRepairActionPlanReason,
@@ -436,6 +436,10 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/storage/vfs-cache/repair/jobs/{job_id}/execute",
             post(execute_admin_vfs_cache_repair_job),
+        )
+        .route(
+            "/admin/v1/storage/vfs-cache/repair/jobs/{job_id}/retry",
+            post(retry_admin_vfs_cache_repair_job),
         )
         .route(
             "/admin/v1/storage/vfs-cache/repair/action-plan",
@@ -2053,6 +2057,23 @@ pub(super) async fn execute_admin_vfs_cache_repair_job(
     let output = app.storage().execute_vfs_cache_repair_job(job_id).await?;
 
     Ok(Json(admin_vfs_cache_repair_execute_response(output)))
+}
+
+pub(super) async fn retry_admin_vfs_cache_repair_job(
+    State(app): State<NakoApp>,
+    Path(job_id): Path<JobId>,
+    Json(request): Json<AdminVfsCacheRepairRetryRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let job = app
+        .storage()
+        .retry_vfs_cache_repair_job(RetryVfsCacheRepairJobRequest {
+            job_id,
+            max_attempts: request.max_attempts,
+            next_attempt_at: request.next_attempt_at,
+        })
+        .await?;
+
+    Ok((StatusCode::ACCEPTED, Json(AdminJobListItem::from_job(job))))
 }
 
 pub(super) async fn get_admin_vfs_cache_repair_action_plan(

@@ -263,6 +263,12 @@ pub struct AdminVfsCacheRepairExecuteResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRepairRetryRequest {
+    pub max_attempts: Option<u32>,
+    pub next_attempt_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminVfsCacheRepairRemediationPlanResponse {
     pub admin_api_version: String,
     pub public_api_version: String,
@@ -1093,6 +1099,33 @@ mod tests {
         assert!(!body.contains("summary_json"));
         assert!(!body.contains("uri_digest"));
         assert!(!body.contains("raw backend"));
+    }
+
+    #[test]
+    fn admin_vfs_cache_repair_retry_request_serializes_safe_fields() {
+        let request = AdminVfsCacheRepairRetryRequest {
+            max_attempts: Some(3),
+            next_attempt_at: Some("2026-06-07T00:00:00Z".to_owned()),
+        };
+
+        let value = serde_json::to_value(&request).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(value["max_attempts"], 3);
+        assert_eq!(value["next_attempt_at"], "2026-06-07T00:00:00Z");
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("source_locator"));
+        assert!(!body.contains("cache_uri"));
+        assert!(!body.contains("storage_uri"));
+        assert!(!body.contains("local_path"));
+        assert!(!body.contains("webdav:///"));
+        assert!(!body.contains("Movies/Demo.mkv"));
+        assert!(!body.contains("cache-etag-secret"));
+        assert!(!body.contains("cache-fingerprint-secret"));
+        assert!(!body.contains("token=secret"));
+        assert!(!body.contains("input_json"));
+        assert!(!body.contains("summary_json"));
+        assert!(!body.contains("uri_digest"));
     }
 
     #[test]

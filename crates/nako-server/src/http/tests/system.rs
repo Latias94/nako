@@ -28,8 +28,9 @@ use nako_api::admin::{
     AdminVfsCacheRepairActionPlanStatus, AdminVfsCacheRepairCacheState,
     AdminVfsCacheRepairEnqueueOutcome, AdminVfsCacheRepairEnqueueRequest,
     AdminVfsCacheRepairEnqueueResponse, AdminVfsCacheRepairExecuteResponse,
-    AdminVfsCacheRepairRemediationPlanResponse, AdminVfsCacheRepairTargetListResponse,
-    AdminVfsCacheRepairTargetPreviewResponse, AdminWatchFolderRuntimeCoverageStatus,
+    AdminVfsCacheRepairRemediationPlanResponse, AdminVfsCacheRepairRetryRequest,
+    AdminVfsCacheRepairTargetListResponse, AdminVfsCacheRepairTargetPreviewResponse,
+    AdminWatchFolderRuntimeCoverageStatus,
 };
 use nako_core::{
     JobKind, JobPriority, JobRepository, JobStatus,
@@ -38,10 +39,10 @@ use nako_core::{
     MetadataCandidateReviewId, MetadataCandidateReviewNode, MetadataCandidateReviewPlan,
     MetadataCandidateReviewRelationship, MetadataCandidateReviewRepository,
     MetadataCandidateReviewStatus as DurableMetadataCandidateReviewStatus, MetadataCandidateSource,
-    MetadataCandidateSubject, NewMetadataCandidateReview, ProviderMappingStatus,
+    MetadataCandidateSubject, NewJob, NewMetadataCandidateReview, ProviderMappingStatus,
     StorageBackendHealthRecord, StorageBackendHealthRepository, StorageBackendHealthStatus,
     StorageCircuitBreakerState, StorageFailureClass, VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS,
-    VfsCacheFailureAuthority,
+    VfsCacheFailureAuthority, VfsCacheRepairJobInput, VfsCachedObject, VfsCachedObjectKind,
 };
 use nako_library::{
     SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS, SourceFingerprintHashJobInput,
@@ -7410,6 +7411,84 @@ fn assert_vfs_cache_repair_job_summary_redacted(summary_json: &str) {
     }
 }
 
+async fn vfs_cache_repair_retry_http_fixture()
+-> (tempfile::TempDir, Router, NakoDatabase, LibraryId, PathBuf) {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let root = temp.path().join("movies");
+    fs::create_dir_all(root.join("Movies").join("Private")).unwrap();
+    fs::write(
+        root.join("Movies").join("Private").join("AdminJob.mkv"),
+        b"repair-job",
+    )
+    .unwrap();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("secret-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: root.clone(),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config.clone(), store.clone())
+        .await
+        .unwrap();
+    app.storage()
+        .replace_backend_for_test(
+            config.libraries[0].clone(),
+            Arc::new(nako_vfs::CachedStorageBackend::with_options(
+                nako_vfs::LocalFsBackend::new(&root).unwrap(),
+                store.clone(),
+                nako_vfs::VfsCacheOptions {
+                    stat_ttl_ms: 60_000,
+                    list_ttl_ms: 60_000,
+                    serve_stale_on_error: true,
+                    cache_local: true,
+                },
+            )),
+        )
+        .await;
+    store
+        .record_vfs_cache_failure(NewVfsCacheFailure {
+            uri: "local:///Movies/Private/AdminJob.mkv".to_owned(),
+            scheme: "local".to_owned(),
+            operation: VfsCacheOperation::Stat,
+            failed_at_ms: 1_000,
+            error: StorageFailureClass::Unavailable.safe_message().to_owned(),
+            authority: VfsCacheFailureAuthority::attributed(
+                library_id,
+                format!("library:{library_id}:local"),
+            ),
+        })
+        .await
+        .unwrap();
+
+    (temp, build_router(app), store, library_id, root)
+}
+
 #[tokio::test]
 async fn admin_v1_job_cancel_requests_are_truthful_and_redacted() {
     let temp = tempfile::tempdir().unwrap();
@@ -8447,6 +8526,298 @@ async fn admin_v1_vfs_cache_repair_job_routes_enqueue_and_execute_without_payloa
 }
 
 #[tokio::test]
+async fn admin_v1_vfs_cache_repair_retry_requeues_failed_job_without_payload_leaks() {
+    let (_temp, router, store, library_id, root) = vfs_cache_repair_retry_http_fixture().await;
+    let targets: AdminVfsCacheRepairTargetListResponse = request_json(
+        &router,
+        Method::GET,
+        "/admin/v1/storage/vfs-cache/repair/targets",
+    )
+    .await;
+    let target_ref = targets.targets[0].target_ref.clone();
+    let enqueue_response = response_body_json(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/jobs"),
+        &AdminVfsCacheRepairEnqueueRequest {
+            priority: Some(AdminJobPriority::High),
+        },
+    )
+    .await;
+    let enqueue_body = response_text(enqueue_response).await;
+    let source_job: AdminVfsCacheRepairEnqueueResponse =
+        serde_json::from_str(&enqueue_body).unwrap();
+    let source_persisted = store
+        .get_job(source_job.job.id)
+        .await
+        .unwrap()
+        .expect("enqueued source repair job");
+    let source_input: VfsCacheRepairJobInput =
+        serde_json::from_str(source_persisted.input_json.as_deref().unwrap()).unwrap();
+    store.start_job(source_job.job.id).await.unwrap();
+    let failed = store
+        .fail_job(
+            source_job.job.id,
+            "VFS repair failed at local:///Movies/Private/AdminJob.mkv with token=secret etag cache-etag-secret fingerprint cache-fingerprint-secret"
+                .to_owned(),
+        )
+        .await
+        .unwrap();
+
+    let retry_response = response_body_json(
+        &router,
+        Method::POST,
+        &format!(
+            "/admin/v1/storage/vfs-cache/repair/jobs/{}/retry",
+            failed.id
+        ),
+        &AdminVfsCacheRepairRetryRequest {
+            max_attempts: Some(3),
+            next_attempt_at: Some("9999-01-01T08:00:00+08:00".to_owned()),
+        },
+    )
+    .await;
+    let retry_status = retry_response.status();
+    let retry_body = response_text(retry_response).await;
+    assert_eq!(retry_status, StatusCode::ACCEPTED, "{retry_body}");
+    let retry_job: AdminJobListItem = serde_json::from_str(&retry_body).unwrap();
+    let persisted_retry = store
+        .get_job(retry_job.id)
+        .await
+        .unwrap()
+        .expect("persisted retry job");
+    let retry_input: VfsCacheRepairJobInput =
+        serde_json::from_str(persisted_retry.input_json.as_deref().unwrap()).unwrap();
+
+    assert_ne!(retry_job.id, failed.id);
+    assert_eq!(retry_job.kind, JobKind::VfsCacheRepair);
+    assert_eq!(retry_job.status, JobStatus::Queued);
+    assert_eq!(
+        retry_job.resource_class,
+        VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS
+    );
+    assert_eq!(retry_job.library_id, Some(library_id));
+    assert_eq!(retry_job.source_id, None);
+    assert!(retry_job.has_input);
+    assert!(!retry_job.has_summary);
+    assert!(!retry_job.has_error);
+    assert_eq!(persisted_retry.retry_of_job_id, Some(failed.id));
+    assert_eq!(persisted_retry.attempt, 2);
+    assert_eq!(persisted_retry.max_attempts, 3);
+    assert_eq!(
+        persisted_retry.next_attempt_at.as_deref(),
+        Some("9999-01-01T00:00:00Z")
+    );
+    assert_eq!(persisted_retry.priority, JobPriority::High);
+    assert_eq!(persisted_retry.library_id, Some(library_id));
+    assert_eq!(persisted_retry.source_id, None);
+    assert_eq!(persisted_retry.input_json, failed.input_json);
+    assert_eq!(retry_input, source_input);
+    assert_vfs_cache_repair_admin_response_redacted(&retry_body);
+    assert_vfs_cache_repair_job_input_redacted(persisted_retry.input_json.as_deref().unwrap());
+    assert!(!retry_body.contains(&root.display().to_string()));
+}
+
+#[tokio::test]
+async fn admin_v1_vfs_cache_repair_retry_rejects_invalid_states_without_leaks() {
+    let (_temp, router, store, library_id, _root) = vfs_cache_repair_retry_http_fixture().await;
+    let targets: AdminVfsCacheRepairTargetListResponse = request_json(
+        &router,
+        Method::GET,
+        "/admin/v1/storage/vfs-cache/repair/targets",
+    )
+    .await;
+    let target_ref = targets.targets[0].target_ref.clone();
+    let enqueue_response = response_body_json(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/jobs"),
+        &AdminVfsCacheRepairEnqueueRequest { priority: None },
+    )
+    .await;
+    let enqueue_body = response_text(enqueue_response).await;
+    let source_job: AdminVfsCacheRepairEnqueueResponse =
+        serde_json::from_str(&enqueue_body).unwrap();
+    let source_persisted = store
+        .get_job(source_job.job.id)
+        .await
+        .unwrap()
+        .expect("enqueued repair job");
+    let input: VfsCacheRepairJobInput =
+        serde_json::from_str(source_persisted.input_json.as_deref().unwrap()).unwrap();
+
+    let not_failed_response = response_body_json(
+        &router,
+        Method::POST,
+        &format!(
+            "/admin/v1/storage/vfs-cache/repair/jobs/{}/retry",
+            source_job.job.id
+        ),
+        &AdminVfsCacheRepairRetryRequest {
+            max_attempts: Some(3),
+            next_attempt_at: None,
+        },
+    )
+    .await;
+    let not_failed_status = not_failed_response.status();
+    let not_failed_body = response_text(not_failed_response).await;
+    assert_eq!(not_failed_status, StatusCode::CONFLICT, "{not_failed_body}");
+    assert_eq!(
+        serde_json::from_str::<ErrorResponse>(&not_failed_body)
+            .unwrap()
+            .message,
+        "conflict: only failed VFS cache repair jobs can be retried"
+    );
+    assert_vfs_cache_repair_admin_response_redacted(&not_failed_body);
+
+    let invalid_timestamp_response = response_body_json(
+        &router,
+        Method::POST,
+        &format!(
+            "/admin/v1/storage/vfs-cache/repair/jobs/{}/retry",
+            source_job.job.id
+        ),
+        &AdminVfsCacheRepairRetryRequest {
+            max_attempts: Some(3),
+            next_attempt_at: Some("local:///Movies/Private/not-a-time?token=secret".to_owned()),
+        },
+    )
+    .await;
+    let invalid_timestamp_status = invalid_timestamp_response.status();
+    let invalid_timestamp_body = response_text(invalid_timestamp_response).await;
+    assert_eq!(
+        invalid_timestamp_status,
+        StatusCode::BAD_REQUEST,
+        "{invalid_timestamp_body}"
+    );
+    assert_eq!(
+        serde_json::from_str::<ErrorResponse>(&invalid_timestamp_body)
+            .unwrap()
+            .message,
+        "invalid input: VFS cache repair retry next_attempt_at must be an RFC3339 timestamp"
+    );
+    assert_vfs_cache_repair_admin_response_redacted(&invalid_timestamp_body);
+    assert!(!invalid_timestamp_body.contains("not-a-time"));
+
+    let wrong_kind = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::LibraryScan,
+            resource_class: VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS.to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: source_persisted.input_json.clone(),
+        })
+        .await
+        .unwrap();
+    store.start_job(wrong_kind.id).await.unwrap();
+    let wrong_kind = store
+        .fail_job(
+            wrong_kind.id,
+            "wrong kind failed at local:///Movies/Private/AdminJob.mkv token=secret".to_owned(),
+        )
+        .await
+        .unwrap();
+    let wrong_kind_response = response_body_json(
+        &router,
+        Method::POST,
+        &format!(
+            "/admin/v1/storage/vfs-cache/repair/jobs/{}/retry",
+            wrong_kind.id
+        ),
+        &AdminVfsCacheRepairRetryRequest {
+            max_attempts: Some(3),
+            next_attempt_at: None,
+        },
+    )
+    .await;
+    let wrong_kind_status = wrong_kind_response.status();
+    let wrong_kind_body = response_text(wrong_kind_response).await;
+    assert_eq!(
+        wrong_kind_status,
+        StatusCode::BAD_REQUEST,
+        "{wrong_kind_body}"
+    );
+    assert_eq!(
+        serde_json::from_str::<ErrorResponse>(&wrong_kind_body)
+            .unwrap()
+            .message,
+        "invalid input: job is not a VFS cache repair job"
+    );
+    assert_vfs_cache_repair_admin_response_redacted(&wrong_kind_body);
+
+    let stale_input = VfsCacheRepairJobInput::new(
+        input.action,
+        input.source_scheme.clone(),
+        input.operation,
+        input.failed_at_ms + 1,
+        input.failure_count,
+        input.uri_digest.clone(),
+        input.authority.clone(),
+    )
+    .unwrap();
+    let stale = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::VfsCacheRepair,
+            resource_class: VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS.to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: Some(serde_json::to_string(&stale_input).unwrap()),
+        })
+        .await
+        .unwrap();
+    store.start_job(stale.id).await.unwrap();
+    let stale = store
+        .fail_job(
+            stale.id,
+            "stale repair failed at local:///Movies/Private/AdminJob.mkv token=secret".to_owned(),
+        )
+        .await
+        .unwrap();
+    let stale_response = response_body_json(
+        &router,
+        Method::POST,
+        &format!("/admin/v1/storage/vfs-cache/repair/jobs/{}/retry", stale.id),
+        &AdminVfsCacheRepairRetryRequest {
+            max_attempts: Some(3),
+            next_attempt_at: None,
+        },
+    )
+    .await;
+    let stale_status = stale_response.status();
+    let stale_body = response_text(stale_response).await;
+    assert_eq!(stale_status, StatusCode::NOT_FOUND, "{stale_body}");
+    assert_eq!(
+        serde_json::from_str::<ErrorResponse>(&stale_body)
+            .unwrap()
+            .message,
+        "not found: vfs_cache_repair_target job_input"
+    );
+    assert_vfs_cache_repair_admin_response_redacted(&stale_body);
+
+    let retry_jobs = store
+        .list_jobs(
+            nako_core::JobListFilter {
+                status: Some(JobStatus::Queued),
+                kind: Some(JobKind::VfsCacheRepair),
+                resource_class: Some(VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS.to_owned()),
+                library_id: Some(library_id),
+                source_id: None,
+            },
+            PageRequest::new(PageRequest::MAX_LIMIT, 0),
+        )
+        .await
+        .unwrap()
+        .into_iter()
+        .filter(|job| job.retry_of_job_id.is_some())
+        .collect::<Vec<_>>();
+    assert!(retry_jobs.is_empty());
+}
+
+#[tokio::test]
 async fn admin_v1_vfs_cache_repair_target_enqueue_rejects_non_refresh_and_unknown_refs_safely() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
@@ -9436,6 +9807,7 @@ async fn admin_v1_vfs_cache_refresh_action_rejects_non_admin_session() {
         "/admin/v1/storage/vfs-cache/repair/targets/vfsrt_00000000000000000000000000000000/refresh-cache".to_owned(),
         "/admin/v1/storage/vfs-cache/repair/targets/vfsrt_00000000000000000000000000000000/jobs".to_owned(),
         format!("/admin/v1/storage/vfs-cache/repair/jobs/{job_id}/execute"),
+        format!("/admin/v1/storage/vfs-cache/repair/jobs/{job_id}/retry"),
     ];
 
     for uri in uris {

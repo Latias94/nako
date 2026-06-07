@@ -41,7 +41,7 @@ Deployment Endpoint Config
 | HTTP addon protocol | Shipped foundation | ADR 0003; ADR 0015; ADR 0020 | Addon Manager lifecycle is still deferred. |
 | Addon capability and token scopes | Shipped foundation | addon token/grant workstreams | Stronger hosted surface and route policy. |
 | Addon process supervision | Deferred | ADR 0020; ADR 0053 | `addon-manager-process-lifecycle`. |
-| Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract/summary/internal enqueue/queued planner/single-job executor command/scheduler integration/evidence persistence/Admin manual commands, scan-originated source hash triggering, VFS cache repair durable contract/internal enqueue/internal single-job executor/Admin manual enqueue-execute/internal retry commands, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/`; `.trellis/tasks/06-06-06-06-overnight-fearless-refactor-development-plan/` | Broader job-kind scheduler migration, VFS cache repair Admin retry productization, and automatic Source Duplicate Relationship reconciliation remain follow-ons. |
+| Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract/summary/internal enqueue/queued planner/single-job executor command/scheduler integration/evidence persistence/Admin manual commands, scan-originated source hash triggering, VFS cache repair durable contract/internal enqueue/internal single-job executor/Admin manual enqueue-execute-retry/internal retry commands, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/`; `.trellis/tasks/06-06-06-06-overnight-fearless-refactor-development-plan/` | Broader job-kind scheduler migration, VFS cache repair automated policy, and automatic Source Duplicate Relationship reconciliation remain follow-ons. |
 | Runtime supervisor | Shipped resource-accounted foundation | ADR 0019; server runtime deepening; durable job queue/resource lane | Unified trace context and broader scheduler migration remain follow-ons. |
 | Resource classes and budgets | Shipped process-local foundation plus source fingerprint hash and VFS cache repair mappings to `disk.scan` | ADR 0005; playback/runtime lanes; durable job queue/resource lane | Continue migrating job kinds onto typed budget-admitted scheduler paths. |
 | Tracing/request identity | Partial with HLS and library scan job propagation | diagnostics and playback identity lanes | Continue unified trace context across jobs/FFmpeg/VFS/addons and broader scan entry points. |
@@ -128,8 +128,8 @@ Follow-ons:
 ### vfs-cache-repair-durable-job-contract-and-execution
 
 Status: Durable job contract, internal target enqueue seam, internal single-job
-executor command, Admin manual enqueue/execute routes, scheduler integration,
-and internal retry seam shipped as of 2026-06-07.
+executor command, Admin manual enqueue/execute/retry routes, scheduler
+integration, and internal retry seam shipped as of 2026-06-07.
 
 Goal: Move VFS cache repair from read-only remediation planning toward durable,
 resource-admitted repair work without exposing raw storage identity.
@@ -171,10 +171,12 @@ Shipped control-plane behavior:
 - delayed VFS cache repair retries store canonical UTC RFC3339
   `next_attempt_at` values and remain unclaimable until due; due retries reuse
   the existing disk-scan scheduler execution path.
+- Admin manual retry can create a new queued retry for one explicit failed VFS
+  cache repair job id and returns only safe job metadata.
 
 Follow-ons:
 
-- Admin retry/requeue routes and operator diagnostics for repair jobs;
+- broader operator diagnostics for repair jobs;
 - purge/delete/invalidation and backend configuration workflows.
 
 ### provider-governance-durable-batch-execution

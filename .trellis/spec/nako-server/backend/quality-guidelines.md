@@ -81,8 +81,8 @@ Use these gates for `crates/nako-server` feature work.
 - Admin VFS cache repair manual command changes must accept only opaque
   `target_ref` values or explicit durable job IDs, return only safe job facts
   and summary facts, inherit the existing Admin route guard, and keep automatic
-  schedulers, retry/requeue, purge/delete/invalidation, backend configuration
-  mutation, and library file writes out of the route slice.
+  schedulers, purge/delete/invalidation, backend configuration mutation, and
+  library file writes out of the route slice.
 
 ## Scenario: VFS Cache Repair Durable Enqueue
 
@@ -402,8 +402,9 @@ target reselection, backend selection, mutation, and summary redaction.
 
 ### 3. Contracts
 
-- Retry is internal until a separate Admin route slice explicitly owns the
-  public DTO, route inventory, auth guard, and response redaction contract.
+- Retry may be exposed through a dedicated Admin route slice only after that
+  slice owns the public DTO, route inventory, auth guard, and response
+  redaction contract.
 - The source job must be `JobKind::VfsCacheRepair`, use
   `VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS`, contain a valid
   `VfsCacheRepairJobInput`, have no source binding, and have a library binding

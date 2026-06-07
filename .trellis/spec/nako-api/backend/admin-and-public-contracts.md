@@ -168,7 +168,7 @@ Public Client exclusion tests.
 - Trigger: Admin storage staging diagnostics expose the latest VFS cache repair
   preview, action plan, bounded target inventory, target-scoped preview,
   read-only remediation plan, latest-failure / target-scoped refresh result, or
-  Admin manual durable repair enqueue/execute commands.
+  Admin manual durable repair enqueue/execute/retry commands.
 - Scope: `AdminStorageStagingSummary.vfs_cache.repair`,
   `AdminVfsCacheRepairActionPlanResponse`, `AdminVfsCacheRefreshResponse`,
   `AdminVfsCacheRepairTargetListResponse`,
@@ -177,6 +177,7 @@ Public Client exclusion tests.
   `AdminVfsCacheRepairEnqueueRequest`,
   `AdminVfsCacheRepairEnqueueResponse`,
   `AdminVfsCacheRepairExecuteResponse`,
+  `AdminVfsCacheRepairRetryRequest`,
   `VfsCacheRepository::get_latest_vfs_cache_failure`,
   `VfsCacheRepository::list_vfs_cache_failures`, server storage diagnostics /
   action mapping, and generated Admin Web contracts.
@@ -184,8 +185,8 @@ Public Client exclusion tests.
   The only executable mutations in this boundary are latest unresolved
   `refresh_cache`, selected-target `refresh_cache` through an opaque
   `target_ref`, selected-target durable enqueue through an opaque `target_ref`,
-  and explicit durable job execution by job ID. Do not add cache
-  purge/delete/invalidation, retry queue, automatic scheduler behavior, backend
+  explicit durable job execution by job ID, and explicit durable retry by job
+  ID. Do not add cache purge/delete/invalidation, automatic scheduler behavior, backend
   configuration mutation, or library file writes without a dedicated task and
   storage contract.
 
@@ -211,6 +212,8 @@ Public Client exclusion tests.
   `AdminVfsCacheRepairEnqueueResponse { outcome, job }`.
 - Admin durable execute DTO:
   `AdminVfsCacheRepairExecuteResponse { job, summary }`.
+- Admin durable retry DTO:
+  `AdminVfsCacheRepairRetryRequest { max_attempts, next_attempt_at }`.
 - Admin durable summary DTO:
   `AdminVfsCacheRepairJobSummary { action, source_scheme, operation,
   classification, failure_class, failed_at_ms, failure_count,
@@ -221,8 +224,9 @@ Public Client exclusion tests.
   `POST /admin/v1/storage/vfs-cache/repair/refresh-cache` and
   `POST /admin/v1/storage/vfs-cache/repair/targets/{target_ref}/refresh-cache`.
 - Admin durable command routes:
-  `POST /admin/v1/storage/vfs-cache/repair/targets/{target_ref}/jobs` and
-  `POST /admin/v1/storage/vfs-cache/repair/jobs/{job_id}/execute`.
+  `POST /admin/v1/storage/vfs-cache/repair/targets/{target_ref}/jobs`,
+  `POST /admin/v1/storage/vfs-cache/repair/jobs/{job_id}/execute`, and
+  `POST /admin/v1/storage/vfs-cache/repair/jobs/{job_id}/retry`.
 - Repair preview fields:
   `classification`, `operation`, `failure_class`, `retryable`,
   `failed_at_ms`, `failure_count`, `safe_message`, and `operator_action`.
@@ -276,6 +280,13 @@ Public Client exclusion tests.
   expose raw persisted `input_json`, raw persisted `summary_json`, raw durable
   error bodies, cache URI, source locator, local path, backend URL, etag,
   fingerprint, credential, URI digest, or cache payload material.
+- Explicit durable retry must accept only a job ID path parameter plus
+  `max_attempts` and `next_attempt_at`, delegate VFS repair contract validation
+  to the storage app service, and return only generic safe job facts. It must
+  not expose retry linkage, attempt counters, raw persisted `input_json`, raw
+  persisted `summary_json`, raw durable error bodies, cache URI, source
+  locator, local path, backend URL, etag, fingerprint, credential, URI digest,
+  or cache payload material.
 - Remediation plan must page through unresolved targets using the same safe
   target inventory semantics, group by `recommended_action`, count
   classifications, and expose only aggregate counts plus bounded sample targets.
@@ -315,6 +326,8 @@ Public Client exclusion tests.
 | Target enqueue ref is unknown, invalid, stale, or already resolved | Returns not found without echoing the supplied ref or raw URI |
 | Explicit repair job execution succeeds | Returns safe job metadata and a redaction-safe summary |
 | Explicit repair job execution cannot claim the job | Returns the existing conflict without raw job payloads |
+| Explicit repair job retry succeeds | Returns `202 Accepted` and safe job metadata for the new queued retry |
+| Explicit repair job retry is not failed, has stale input, wrong kind, invalid retry attempts, or invalid retry timestamp | Returns the existing safe error without creating a retry job or leaking raw job payloads |
 | Remediation plan has no unresolved failures | Returns `total_unresolved_targets: 0`, empty action groups, zero classification counts, and a read-only top boundary |
 | Remediation plan has refreshable failures | Returns a `refresh_cache` executable group with bounded opaque samples and the templated selected-target refresh route |
 | Remediation plan has operator-action failures | Returns plan-only groups with no executable route metadata |
@@ -347,6 +360,8 @@ Public Client exclusion tests.
 - Good: `/admin/v1/storage/vfs-cache/repair/jobs/{job_id}/execute` executes one
   explicitly selected queued job and returns only generic job facts plus a safe
   repair summary.
+- Good: `/admin/v1/storage/vfs-cache/repair/jobs/{job_id}/retry` creates a new
+  queued retry from one failed repair job and returns only generic job facts.
 - Base: old clients that omit `repair` during deserialization still work through
   serde defaults.
 - Bad: adding a purge/delete, URI-scoped mutation, or retry queue before defining
@@ -369,9 +384,10 @@ Public Client exclusion tests.
   reject stale or unknown selections safely, target preview does not mutate
   cache state, target refresh mutates only the selected cache entry, target
   durable enqueue creates only safe queued jobs, explicit job execution returns
-  only safe summary facts, non-refresh target diagnostics avoid backend calls,
-  and responses still redact raw paths, source locators, fingerprints, etags,
-  tokens, and raw backend errors.
+  only safe summary facts, explicit job retry returns only safe job facts,
+  retry invalid states create no retry job, non-refresh target diagnostics
+  avoid backend calls, and responses still redact raw paths, source locators,
+  fingerprints, etags, tokens, and raw backend errors.
 
 ### 7. Wrong vs Correct
 

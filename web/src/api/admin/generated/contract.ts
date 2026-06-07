@@ -86,6 +86,7 @@ export const NAKO_ADMIN_ROUTES = {
   storageVfsCacheRepairTargetRefreshCache: "/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/refresh-cache",
   storageVfsCacheRepairTargetEnqueue: "/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/jobs",
   storageVfsCacheRepairJobExecute: "/admin/v1/storage/vfs-cache/repair/jobs/{job_id}/execute",
+  storageVfsCacheRepairJobRetry: "/admin/v1/storage/vfs-cache/repair/jobs/{job_id}/retry",
   storageVfsCacheRepairActionPlan: "/admin/v1/storage/vfs-cache/repair/action-plan",
   storageVfsCacheRepairRefreshCache: "/admin/v1/storage/vfs-cache/repair/refresh-cache",
   systemConfig: "/admin/v1/system/config",
@@ -3293,6 +3294,11 @@ export interface AdminVfsCacheRepairExecuteResponse {
   public_api_version: string;
   job: AdminJobListItem;
   summary: AdminVfsCacheRepairJobSummary;
+}
+
+export interface AdminVfsCacheRepairRetryRequest {
+  max_attempts?: number | null;
+  next_attempt_at?: string | null;
 }
 
 export interface AdminVfsCacheRepairRemediationPlanResponse {

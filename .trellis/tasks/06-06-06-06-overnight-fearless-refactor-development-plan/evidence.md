@@ -322,3 +322,56 @@ Validation:
 - Independent check agent `Leibniz`
   - Result: no blocking or non-blocking issues; recommended committing the
     internal VFS cache repair retry seam.
+
+## 2026-06-07 VFS Cache Repair Admin Retry Route
+
+What changed:
+
+- Added the Admin manual retry route
+  `POST /admin/v1/storage/vfs-cache/repair/jobs/{job_id}/retry` with route key
+  `storageVfsCacheRepairJobRetry`.
+- Added `AdminVfsCacheRepairRetryRequest { max_attempts, next_attempt_at }` to
+  the Admin API contract and regenerated both Admin TypeScript contract copies.
+- The HTTP handler is a thin boundary: it parses the durable `JobId` and retry
+  request body, delegates to
+  `StorageDiagnosticsAppService::retry_vfs_cache_repair_job`, and returns
+  `202 Accepted` with only `AdminJobListItem` safe job facts.
+- Added route tests proving successful retry creation, invalid retry states
+  without retry rows, non-admin rejection, response redaction, route inventory
+  parity, and API contract parity.
+- Updated architecture and Trellis specs to mark Admin manual retry as shipped
+  while leaving purge/delete/invalidation, backend configuration mutation,
+  library file writes, broader operator diagnostics, and automated repair
+  policy as follow-ons.
+
+Boundaries:
+
+- No generic durable job retry route was added.
+- No cache purge/delete/invalidation behavior, backend configuration mutation,
+  library file write, automated repair policy, schema migration, config shape,
+  or production dependency changed.
+- Retry responses expose no retry linkage, attempt counters, durable
+  `input_json`, durable `summary_json`, raw durable errors, URI/path/token,
+  etag, fingerprint, URI digest, backend URL, credential, or cache payload
+  material.
+
+Validation:
+
+- `cargo fmt --package nako-api --package nako-server -- --check`
+  - Result: passed.
+- `cargo check -p nako-api -p nako-server --tests`
+  - Result: passed.
+- `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+  - Result: passed, 8 tests run.
+- `cargo nextest run -p nako-server implemented_admin_routes_are_generated_or_explicitly_excluded --no-fail-fast`
+  - Result: passed, 1 test run.
+- `cargo nextest run -p nako-server admin_v1_vfs_cache --no-fail-fast`
+  - Result: passed, 13 tests run.
+- `cargo nextest run -p nako-server vfs_cache_repair_retry --no-fail-fast`
+  - Result: passed, 5 tests run.
+- `cargo nextest run -p nako-api admin_vfs_cache_repair --no-fail-fast`
+  - Result: passed, 5 tests run.
+- `python ./.trellis/scripts/task.py validate .trellis/tasks/06-06-06-06-overnight-fearless-refactor-development-plan`
+  - Result: passed.
+- `git diff --check`
+  - Result: passed with only Git LF/CRLF working-copy warnings.
