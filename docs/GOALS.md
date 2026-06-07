@@ -28,7 +28,11 @@ proposed milestone.
 
 ### 2026 Roadmap Reconciliation And M1 Release Convergence
 
-Status: in progress as of 2026-06-06.
+Status: completed on 2026-06-06 for roadmap, goal-map, and lane-routing
+reconciliation. Follow-on M1 release-candidate evidence later passed the
+`release-fast`, `playback`, `container`, `postgres`, and `workspace` ladder
+modes, so new M1 implementation work should stay evidence-driven rather than
+queue-driven.
 
 Post-runner and post-matrix queue refresh:
 
@@ -121,6 +125,11 @@ Evidence:
 - `.trellis/tasks/archive/2026-06/06-06-admin-web-feature-data-adapter-deepening/`
 - `.trellis/tasks/archive/2026-06/06-06-m1-ladder-evidence-matrix/`
 - `.trellis/tasks/archive/2026-06/06-06-m1-admin-diagnostics-repair-coverage-audit/`
+- `.trellis/tasks/archive/2026-06/06-06-m1-release-fast-evidence-run/`
+- `.trellis/tasks/archive/2026-06/06-06-m1-playback-evidence-run/`
+- `.trellis/tasks/archive/2026-06/06-06-m1-container-evidence-run/`
+- `.trellis/tasks/archive/2026-06/06-06-m1-postgres-evidence-run/`
+- `.trellis/tasks/archive/2026-06/06-06-m1-workspace-evidence-run/`
 - `docs/deployment/M1_LADDER_EVIDENCE_MATRIX.md`
 - `docs/architecture/M1_ADMIN_DIAGNOSTICS_REPAIR_COVERAGE.md`
 
