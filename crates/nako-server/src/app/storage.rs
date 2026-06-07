@@ -206,6 +206,56 @@ pub(crate) enum EnqueueVfsCacheRepairTargetOutcome {
     AlreadyQueued(Job),
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum VfsCacheRepairAutomationEnqueueOutcome {
+    Enqueued,
+    AlreadyQueued,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct VfsCacheRepairAutomationJobReport {
+    pub(crate) outcome: VfsCacheRepairAutomationEnqueueOutcome,
+    pub(crate) job_id: JobId,
+    pub(crate) status: JobStatus,
+    pub(crate) priority: JobPriority,
+    pub(crate) resource_class: String,
+    pub(crate) library_id: Option<LibraryId>,
+    pub(crate) source_id: Option<nako_core::MediaSourceId>,
+}
+
+impl VfsCacheRepairAutomationJobReport {
+    fn from_outcome(outcome: EnqueueVfsCacheRepairTargetOutcome) -> Self {
+        match outcome {
+            EnqueueVfsCacheRepairTargetOutcome::Enqueued(job) => {
+                Self::from_job(VfsCacheRepairAutomationEnqueueOutcome::Enqueued, job)
+            }
+            EnqueueVfsCacheRepairTargetOutcome::AlreadyQueued(job) => {
+                Self::from_job(VfsCacheRepairAutomationEnqueueOutcome::AlreadyQueued, job)
+            }
+        }
+    }
+
+    fn from_job(outcome: VfsCacheRepairAutomationEnqueueOutcome, job: Job) -> Self {
+        Self {
+            outcome,
+            job_id: job.id,
+            status: job.status,
+            priority: job.priority,
+            resource_class: job.resource_class,
+            library_id: job.library_id,
+            source_id: job.source_id,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct VfsCacheRepairAutomationEnqueueReport {
+    pub(crate) policy_report: VfsCacheRepairAutomationPolicyReport,
+    pub(crate) jobs: Vec<VfsCacheRepairAutomationJobReport>,
+    pub(crate) enqueued_count: u32,
+    pub(crate) already_queued_count: u32,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct RetryVfsCacheRepairJobRequest {
     pub(crate) job_id: JobId,
@@ -1018,6 +1068,40 @@ impl StorageDiagnosticsAppService {
         .await?;
 
         Ok(accumulator.into_report())
+    }
+
+    pub(crate) async fn enqueue_vfs_cache_repair_automation(
+        &self,
+        policy: VfsCacheRepairAutomationPolicy,
+        priority: Option<JobPriority>,
+    ) -> Result<VfsCacheRepairAutomationEnqueueReport> {
+        let policy_report = self.plan_vfs_cache_repair_automation(policy).await?;
+        let mut jobs = Vec::new();
+        let mut enqueued_count = 0_u32;
+        let mut already_queued_count = 0_u32;
+
+        for eligible in &policy_report.eligible_targets {
+            let report = VfsCacheRepairAutomationJobReport::from_outcome(
+                self.enqueue_vfs_cache_repair_target(&eligible.target.target_ref, priority)
+                    .await?,
+            );
+            match report.outcome {
+                VfsCacheRepairAutomationEnqueueOutcome::Enqueued => {
+                    enqueued_count = enqueued_count.saturating_add(1);
+                }
+                VfsCacheRepairAutomationEnqueueOutcome::AlreadyQueued => {
+                    already_queued_count = already_queued_count.saturating_add(1);
+                }
+            }
+            jobs.push(report);
+        }
+
+        Ok(VfsCacheRepairAutomationEnqueueReport {
+            policy_report,
+            jobs,
+            enqueued_count,
+            already_queued_count,
+        })
     }
 
     pub(crate) async fn preview_vfs_cache_repair_target(

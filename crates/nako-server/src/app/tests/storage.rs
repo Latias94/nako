@@ -1,5 +1,6 @@
 use super::super::storage::{
-    EnqueueVfsCacheRepairTargetOutcome, RetryVfsCacheRepairJobRequest, VfsCacheRepairJobSummary,
+    EnqueueVfsCacheRepairTargetOutcome, RetryVfsCacheRepairJobRequest,
+    VfsCacheRepairAutomationEnqueueOutcome, VfsCacheRepairJobSummary,
 };
 use super::*;
 use crate::app::jobs::LibraryScanScheduleOutcome;
@@ -1404,6 +1405,143 @@ async fn vfs_cache_repair_planners_share_unresolved_target_collection() {
     assert_eq!(automation.eligible_targets.len(), targets.len());
     assert!(automation.blocked_targets.is_empty());
     assert_eq!(automation.eligible_targets[0].target, targets[0]);
+    assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn vfs_cache_repair_automation_enqueue_disabled_does_not_create_jobs() {
+    let (_temp, app, store, backend, _failure) =
+        vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Unavailable.safe_message())
+            .await;
+
+    let report = app
+        .storage()
+        .enqueue_vfs_cache_repair_automation(
+            VfsCacheRepairAutomationPolicy { enabled: false },
+            Some(JobPriority::High),
+        )
+        .await
+        .unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert!(!report.policy_report.policy.enabled);
+    assert_eq!(report.policy_report.total_unresolved_targets, 1);
+    assert!(report.policy_report.eligible_targets.is_empty());
+    assert_eq!(report.policy_report.blocked_targets.len(), 1);
+    assert_eq!(
+        report.policy_report.blocked_targets[0].reason,
+        VfsCacheRepairAutomationBlockReason::PolicyDisabled
+    );
+    assert!(report.jobs.is_empty());
+    assert_eq!(report.enqueued_count, 0);
+    assert_eq!(report.already_queued_count, 0);
+    assert!(jobs.is_empty());
+    assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn vfs_cache_repair_automation_enqueue_creates_safe_repair_job() {
+    let (_temp, app, store, backend, failure) =
+        vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Unavailable.safe_message())
+            .await;
+
+    let report = app
+        .storage()
+        .enqueue_vfs_cache_repair_automation(
+            VfsCacheRepairAutomationPolicy { enabled: true },
+            Some(JobPriority::High),
+        )
+        .await
+        .unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+    let persisted = jobs.first().expect("persisted repair job");
+    let input_json = persisted.input_json.as_deref().expect("job input");
+
+    assert!(report.policy_report.policy.enabled);
+    assert_eq!(report.policy_report.total_unresolved_targets, 1);
+    assert_eq!(report.policy_report.eligible_targets.len(), 1);
+    assert!(report.policy_report.blocked_targets.is_empty());
+    assert_eq!(report.enqueued_count, 1);
+    assert_eq!(report.already_queued_count, 0);
+    assert_eq!(report.jobs.len(), 1);
+    assert_eq!(
+        report.jobs[0].outcome,
+        VfsCacheRepairAutomationEnqueueOutcome::Enqueued
+    );
+    assert_eq!(report.jobs[0].job_id, persisted.id);
+    assert_eq!(report.jobs[0].status, JobStatus::Queued);
+    assert_eq!(report.jobs[0].priority, JobPriority::High);
+    assert_eq!(
+        report.jobs[0].resource_class,
+        VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS
+    );
+    assert_eq!(report.jobs[0].library_id, failure.authority.library_id);
+    assert_eq!(report.jobs[0].source_id, None);
+    assert_eq!(jobs.len(), 1);
+    assert_eq!(persisted.kind, JobKind::VfsCacheRepair);
+    assert_eq!(
+        persisted.resource_class,
+        VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS
+    );
+    assert_eq!(persisted.priority, JobPriority::High);
+    assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
+    assert!(!input_json.contains("Hidden Movie"));
+    assert!(!input_json.contains("Secret Path"));
+    assert!(!input_json.contains("ExampleUser"));
+    assert!(!input_json.contains("token=secret"));
+    assert!(!input_json.contains("local:///"));
+    assert!(!input_json.contains("storage backend unavailable"));
+}
+
+#[tokio::test]
+async fn vfs_cache_repair_automation_enqueue_reuses_existing_incomplete_job() {
+    let (_temp, app, store, backend, _failure) =
+        vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Unavailable.safe_message())
+            .await;
+
+    let first = app
+        .storage()
+        .enqueue_vfs_cache_repair_automation(
+            VfsCacheRepairAutomationPolicy { enabled: true },
+            Some(JobPriority::Low),
+        )
+        .await
+        .unwrap();
+    let second = app
+        .storage()
+        .enqueue_vfs_cache_repair_automation(
+            VfsCacheRepairAutomationPolicy { enabled: true },
+            Some(JobPriority::High),
+        )
+        .await
+        .unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert_eq!(first.enqueued_count, 1);
+    assert_eq!(first.already_queued_count, 0);
+    assert_eq!(second.enqueued_count, 0);
+    assert_eq!(second.already_queued_count, 1);
+    assert_eq!(second.jobs.len(), 1);
+    assert_eq!(
+        second.jobs[0].outcome,
+        VfsCacheRepairAutomationEnqueueOutcome::AlreadyQueued
+    );
+    assert_eq!(second.jobs[0].job_id, first.jobs[0].job_id);
+    assert_eq!(second.jobs[0].priority, JobPriority::Low);
+    assert_eq!(jobs.len(), 1);
+    assert_eq!(jobs[0].priority, JobPriority::Low);
     assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 0);
     assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
 }

@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Check server app-service exports and test placement."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Check VFS cache repair automation remains explicit, non-executing, and redaction-safe."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Check command reuses existing planner/enqueue seams."}
+{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Check shipped/follow-on capability map is updated accurately."}
+{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Check no hidden background control-plane work was introduced."}

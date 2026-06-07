@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Entry point for server app-service and test guidance."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "VFS cache repair automation, enqueue, and validation expectations."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Command should reuse planner and target enqueue authority instead of duplicating logic."}
+{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Storage/VFS repair capability state and follow-on boundaries."}
+{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Durable job and scheduler boundaries for automatic maintenance work."}
+{"file": ".trellis/tasks/06-07-06-07-overnight-architecture-refactor-jellyfin-comparison/research/jellyfin-maintenance-comparison.md", "reason": "Jellyfin maintenance comparison translated into Nako-native durable job policy steps."}
