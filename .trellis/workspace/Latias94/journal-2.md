@@ -1135,3 +1135,37 @@ Added the feature-gated OpenDAL memory proof backend for nako-vfs, recorded adap
 ### Next Steps
 
 - None - task complete
+
+
+## Session 77: VFS cache repair job diagnostics
+
+**Date**: 2026-06-07
+**Task**: VFS cache repair job diagnostics
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Added redaction-safe VFS cache repair diagnostics to Admin job responses, regenerated Admin contracts, updated specs, and archived the task evidence.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4ede5924` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
