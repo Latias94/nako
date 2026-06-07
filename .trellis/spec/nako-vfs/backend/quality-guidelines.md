@@ -24,6 +24,12 @@ cache diagnostics.
   object when the backend can seek. Full-object consumers that do not need local
   path hints should prefer `stream_range(uri, None)` over `read_range(uri,
   None)`.
+- Keep byte-range validation centralized on `ByteRange`. Backends should use
+  `ByteRange::validate_syntax` before constructing protocol range headers when
+  object length is unknown, and `ByteRange::validate_for_len` /
+  `ByteRange::resolved_len` when object length is known. Do not duplicate
+  offset, zero-length, overflow, or open-ended length logic in individual
+  backend adapters.
 
 ## Forbidden Patterns
 
@@ -40,6 +46,8 @@ cache diagnostics.
 - URI parsing and path normalization tests for new URI/path behavior.
 - Backend capability tests for new backend adapters.
 - Range and stream tests when changing `read_range` / `stream_range` behavior.
+  Include explicit tests for bounded ranges, open-ended ranges, invalid syntax,
+  and backend-specific range header/request construction.
 - Cache stale/failure/repair diagnostic tests for cache changes.
 - Repair action preview tests when cache classifications or operator guidance
   change.
@@ -63,3 +71,5 @@ cache diagnostics.
 - Are capabilities accurate and tested?
 - Is remote behavior bounded and observable?
 - Are diagnostics redaction-safe?
+- Do range-reading backends reuse `ByteRange` validation instead of carrying
+  private range math?
