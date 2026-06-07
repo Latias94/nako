@@ -16,6 +16,9 @@ import type {
   AddonTaskRunRow,
   AddonsRouteSummary,
   AdminMetadataProfile,
+  AccessInvitationCreateResult,
+  AccessInvitationRow,
+  AccessInvitationSummary,
   CatalogBrowseQuery,
   CatalogBrowseSummary,
   CatalogGovernanceItemDetailSummary,
@@ -34,6 +37,9 @@ import type {
 import {
   mockAdminConsoleData,
   mockAcquisitionIntakeCandidates,
+  mockAccessInvitationCreated,
+  mockAccessInvitationRevoked,
+  mockAccessInvitationSummary,
   mockAccessSummary,
   mockAddonsRouteSummary,
   mockCatalogBrowse,
@@ -752,18 +758,33 @@ describe("Admin Web V2 route shell", () => {
       value: mockAccessSummary,
       source: "live" as const,
     }));
+    const loadAccessInvitations = vi.fn(async () => ({
+      value: mockAccessInvitationSummary,
+      source: "live" as const,
+    }));
     window.history.pushState(null, "", "/access");
 
-    render(<App dataSource={{ load: async () => emptyConsoleData(), loadAccessSummary }} />);
+    render(
+      <App
+        dataSource={{
+          load: async () => emptyConsoleData(),
+          loadAccessSummary,
+          loadAccessInvitations,
+        }}
+      />,
+    );
 
     expect(await screen.findByRole("heading", { name: "Users & Access" })).toBeInTheDocument();
     expect((await screen.findAllByText("Single-Admin Mode")).length).toBeGreaterThan(0);
     expect(screen.getByText("local-admin")).toBeInTheDocument();
     expect(screen.getByText("Effective Library Access")).toBeInTheDocument();
     expect(screen.getByText("Anime Vault")).toBeInTheDocument();
+    expect(screen.getByText("Access invitations")).toBeInTheDocument();
+    expect(screen.getByText("viewer@example.test")).toBeInTheDocument();
     expect(screen.getByText("Backend edit contracts are available.")).toBeInTheDocument();
-    expect(screen.getByText("Live Admin API")).toBeInTheDocument();
+    expect((await screen.findAllByText("Live Admin API")).length).toBeGreaterThan(0);
     expect(loadAccessSummary).toHaveBeenCalledTimes(1);
+    expect(loadAccessInvitations).toHaveBeenCalledWith({ limit: 20, offset: 0 });
   });
 
   it("shows deterministic mock fallback when Users & Access is unavailable", async () => {
@@ -778,14 +799,25 @@ describe("Admin Web V2 route shell", () => {
           error: "Admin API request failed with HTTP 503",
         };
       },
+      async loadAccessInvitations() {
+        return {
+          value: mockAccessInvitationSummary,
+          source: "mock",
+          error: "Admin API request failed with HTTP 503",
+        };
+      },
     };
     window.history.pushState(null, "", "/access");
 
     render(<App dataSource={dataSource} />);
 
-    expect(await screen.findByText(/HTTP 503/)).toBeInTheDocument();
-    expect(screen.getByText("Mock fallback")).toBeInTheDocument();
+    expect((await screen.findAllByText(/HTTP 503/)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Mock fallback").length).toBeGreaterThan(0);
     expect(screen.getByText("Effective Library Access")).toBeInTheDocument();
+    expect(screen.getByText("Access invitations")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Prepare invitation revoke invitation-viewer-pending" }),
+    ).toBeDisabled();
   });
 
   it("renders localized Users & Access route copy", async () => {
@@ -793,11 +825,15 @@ describe("Admin Web V2 route shell", () => {
       value: mockAccessSummary,
       source: "live" as const,
     }));
+    const loadAccessInvitations = vi.fn(async () => ({
+      value: mockAccessInvitationSummary,
+      source: "live" as const,
+    }));
     window.history.pushState(null, "", "/access");
 
     render(
       <App
-        dataSource={{ load: async () => emptyConsoleData(), loadAccessSummary }}
+        dataSource={{ load: async () => emptyConsoleData(), loadAccessSummary, loadAccessInvitations }}
         initialLocale="zh-Hans"
       />,
     );
@@ -805,9 +841,152 @@ describe("Admin Web V2 route shell", () => {
     expect(await screen.findByRole("heading", { name: "用户与访问" })).toBeInTheDocument();
     expect(await screen.findByText("当前主体")).toBeInTheDocument();
     expect(await screen.findByText("有效 Library Access")).toBeInTheDocument();
+    expect(await screen.findByText("访问邀请")).toBeInTheDocument();
+    expect(await screen.findByText("创建邀请")).toBeInTheDocument();
     expect(await screen.findByText("后端编辑契约已经可用。")).toBeInTheDocument();
     expect(await screen.findByText("本地管理员")).toBeInTheDocument();
     expect((await screen.findAllByText("实时 Admin API")).length).toBeGreaterThan(0);
+  });
+
+  it("creates Access invitations and shows the one-time token only after live mutation", async () => {
+    const createAccessInvitation = vi.fn(async (): Promise<AccessInvitationCreateResult> => ({
+      invitation: mockAccessInvitationSummary.invitations[0],
+      token: "nako_inv_one_time_created_token",
+    }));
+    window.history.pushState(null, "", "/access");
+
+    render(
+      <App
+        dataSource={{
+          ...accessDataSource(),
+          createAccessInvitation,
+        }}
+      />,
+    );
+
+    expect(await screen.findByText("Access invitations")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Email or username"), {
+      target: { value: "created@example.test" },
+    });
+    fireEvent.change(screen.getByLabelText("Role"), {
+      target: { value: "administrator" },
+    });
+    fireEvent.change(screen.getByLabelText("Expires"), {
+      target: { value: "24h" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create invitation" }));
+
+    await waitFor(() => {
+      expect(createAccessInvitation).toHaveBeenCalledWith({
+        emailOrUsername: "created@example.test",
+        roles: ["administrator"],
+        expiresInMs: 86_400_000,
+      });
+    });
+    expect(await screen.findByText("One-time invitation token")).toBeInTheDocument();
+    expect(screen.getByText("nako_inv_one_time_created_token")).toBeInTheDocument();
+  });
+
+  it("revokes Access invitations only after explicit confirmation", async () => {
+    const revokeAccessInvitation = vi.fn(async (): Promise<AccessInvitationRow> => ({
+      ...mockAccessInvitationRevoked("invitation-viewer-pending").invitation,
+      invitationId: "invitation-viewer-pending",
+      createdByUserId: "local-admin",
+      emailOrUsername: "viewer@example.test",
+      status: "revoked",
+      roles: ["viewer"],
+      expiresAtMs: 1780952400000,
+      redeemedAtMs: null,
+      redeemedByUserId: null,
+      revokedAtMs: 1780876900000,
+      createdAtMs: 1780866000000,
+      updatedAtMs: 1780876900000,
+    }));
+    window.history.pushState(null, "", "/access");
+
+    render(
+      <App
+        dataSource={{
+          ...accessDataSource(),
+          revokeAccessInvitation,
+        }}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Prepare invitation revoke invitation-viewer-pending",
+      }),
+    );
+
+    expect(revokeAccessInvitation).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("Confirm revoke for invitation invitation-viewer-pending."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Confirm invitation revoke invitation-viewer-pending",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(revokeAccessInvitation).toHaveBeenCalledWith("invitation-viewer-pending");
+    });
+    expect(
+      await screen.findByText("Revoked invitation invitation-viewer-pending, status Revoked."),
+    ).toBeInTheDocument();
+  });
+
+  it("disables Access invitation mutations when the panel is backed by mock data", async () => {
+    const createAccessInvitation = vi.fn(async (): Promise<AccessInvitationCreateResult> => ({
+      invitation: mockAccessInvitationSummary.invitations[0],
+      token: mockAccessInvitationCreated().token,
+    }));
+    const revokeAccessInvitation = vi.fn(async (): Promise<AccessInvitationRow> => ({
+      ...mockAccessInvitationSummary.invitations[0],
+      status: "revoked",
+      revokedAtMs: 1780876900000,
+    }));
+    window.history.pushState(null, "", "/access");
+
+    render(
+      <App
+        dataSource={{
+          async load() {
+            return emptyConsoleData();
+          },
+          async loadAccessSummary() {
+            return {
+              value: mockAccessSummary,
+              source: "live",
+            };
+          },
+          async loadAccessInvitations() {
+            return {
+              value: mockAccessInvitationSummary,
+              source: "mock",
+              error: "Admin API request failed with HTTP 503",
+            };
+          },
+          createAccessInvitation,
+          revokeAccessInvitation,
+        }}
+      />,
+    );
+
+    expect(await screen.findByText("Access invitations")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create invitation" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Prepare invitation revoke invitation-viewer-pending" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByText(
+        "Invitation mutations are disabled until this panel is backed by live Admin API data.",
+      ),
+    ).toBeInTheDocument();
+    expect(createAccessInvitation).not.toHaveBeenCalled();
+    expect(revokeAccessInvitation).not.toHaveBeenCalled();
   });
 
   it("keeps unsafe fields out of the Users & Access route rendering", async () => {
@@ -833,16 +1012,32 @@ describe("Admin Web V2 route shell", () => {
         })),
       },
     } as unknown as AdminAccessSummaryResponse;
+    const unsafeInvitations = {
+      ...mockAccessInvitationSummary,
+      invitations: mockAccessInvitationSummary.invitations.map((invitation) => ({
+        ...invitation,
+        token: "nako_inv_unsafe_raw_token",
+        token_hash: "unsafe_invitation_token_hash",
+        local_path: "F:\\nako\\invitation.json",
+        source_uri: "file:///Users/frank/private/invitation",
+        url: "https://user:secret@example.test/access/invitations",
+      })),
+    } as unknown as AccessInvitationSummary;
     window.history.pushState(null, "", "/access");
-    const { container } = render(<App dataSource={accessDataSource(unsafeAccessSummary)} />);
+    const { container } = render(
+      <App dataSource={accessDataSource(unsafeAccessSummary, unsafeInvitations)} />,
+    );
 
     await screen.findByRole("heading", { name: "Users & Access" });
     const renderedText = container.textContent ?? "";
 
     expect(renderedText).not.toContain("NAKO_ADMIN_TOKEN");
     expect(renderedText).not.toContain("nako_secret_token");
+    expect(renderedText).not.toContain("nako_inv_unsafe_raw_token");
+    expect(renderedText).not.toContain("unsafe_invitation_token_hash");
     expect(renderedText).not.toContain("token_env");
     expect(renderedText).not.toContain("raw_token");
+    expect(renderedText).not.toContain("token_hash");
     expect(renderedText).not.toContain("local_path");
     expect(renderedText).not.toContain("source_uri");
     expect(renderedText).not.toContain("root_ref");
@@ -3395,7 +3590,10 @@ function librariesDataSource(): AdminDataSource {
   };
 }
 
-function accessDataSource(summary = mockAccessSummary): AdminDataSource {
+function accessDataSource(
+  summary = mockAccessSummary,
+  invitations = mockAccessInvitationSummary,
+): AdminDataSource {
   return {
     async load() {
       return emptyConsoleData();
@@ -3403,6 +3601,12 @@ function accessDataSource(summary = mockAccessSummary): AdminDataSource {
     async loadAccessSummary() {
       return {
         value: summary,
+        source: "live",
+      };
+    },
+    async loadAccessInvitations() {
+      return {
+        value: invitations,
         source: "live",
       };
     },

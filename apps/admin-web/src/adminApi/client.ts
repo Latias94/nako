@@ -16,6 +16,10 @@ import type {
   AdminAddonResourceCallDiagnosticRequest,
   AdminAddonResourceCallDiagnosticResponse,
   AdminAccessSummaryResponse,
+  AdminCreateInvitationRequest,
+  AdminCreateInvitationResponse,
+  AdminInvitationListResponse,
+  AdminInvitationResponse,
   AdminAddonRoutingPlansResponse,
   AdminAddonRuntimeReadinessResponse,
   AdminAddonSurfacesResponse,
@@ -47,6 +51,7 @@ import type {
   AdminWatchFolderDiscoveryResponse,
   AdminJobListResponse,
   AdminJobsQuery,
+  AdminPageQuery,
   AdminOutboxEventListResponse,
   AdminOverviewResponse,
   AdminPlaybackRuntimeDiagnosticsResponse,
@@ -121,6 +126,34 @@ export class AdminApiClient {
 
   async getAccessSummary(): Promise<AdminAccessSummaryResponse> {
     return this.getJson<AdminAccessSummaryResponse>(NAKO_ADMIN_ROUTES.accessSummary);
+  }
+
+  async getAccessInvitations(
+    query: AdminPageQuery = {},
+  ): Promise<AdminInvitationListResponse> {
+    return this.getJson<AdminInvitationListResponse>(
+      withQuery(NAKO_ADMIN_ROUTES.accessInvitations, query),
+    );
+  }
+
+  async createAccessInvitation(
+    request: AdminCreateInvitationRequest,
+  ): Promise<AdminCreateInvitationResponse> {
+    return this.postJson<AdminCreateInvitationResponse>(
+      NAKO_ADMIN_ROUTES.accessInvitations,
+      request,
+    );
+  }
+
+  async revokeAccessInvitation(invitationId: string): Promise<AdminInvitationResponse> {
+    return this.postJson<AdminInvitationResponse>(
+      routeWithParam(
+        NAKO_ADMIN_ROUTES.accessInvitationRevoke,
+        "invitation_id",
+        invitationId,
+      ),
+      {},
+    );
   }
 
   async getAddons(query: AdminAddonsQuery = {}): Promise<AdminAddonRegistrationsResponse> {

@@ -11,6 +11,9 @@ import type {
   AdminAddonResourceCallDiagnosticResponse,
   AdminAddonSurfacesResponse,
   AdminAccessSummaryResponse,
+  AdminCreateInvitationResponse,
+  AdminInvitationListResponse,
+  AdminInvitationResponse,
   AdminCatalogGovernanceItemDetailResponse,
   AdminCatalogGovernanceItemListResponse,
   AdminCatalogGovernanceProviderMappingReviewDecision,
@@ -50,6 +53,7 @@ import type {
 } from "./generated/contract";
 import { NAKO_ADMIN_ROUTES } from "./generated/contract";
 import type {
+  AccessInvitationSummary,
   AdminConsoleData,
   AdminSourceMap,
   AddonsRouteSummary,
@@ -103,6 +107,90 @@ export const mockAccessSummary: AdminAccessSummaryResponse = {
     ],
   },
 };
+
+export const mockAccessInvitations: AdminInvitationListResponse = {
+  admin_api_version: "v1",
+  public_api_version: "v1",
+  invitations: [
+    {
+      invitation_id: "invitation-viewer-pending",
+      created_by_user_id: "local-admin",
+      email_or_username: "viewer@example.test",
+      status: "pending",
+      roles: ["viewer"],
+      expires_at_ms: 1780952400000,
+      redeemed_at_ms: null,
+      redeemed_by_user_id: null,
+      revoked_at_ms: null,
+      created_at_ms: 1780866000000,
+      updated_at_ms: 1780866000000,
+    },
+    {
+      invitation_id: "invitation-library-manager-redeemed",
+      created_by_user_id: "local-admin",
+      email_or_username: "library-manager@example.test",
+      status: "redeemed",
+      roles: ["library_manager"],
+      expires_at_ms: 1780952400000,
+      redeemed_at_ms: 1780873200000,
+      redeemed_by_user_id: "user-library-manager",
+      revoked_at_ms: null,
+      created_at_ms: 1780862400000,
+      updated_at_ms: 1780873200000,
+    },
+  ],
+  page: { limit: 20, offset: 0, returned: 2 },
+};
+
+export const mockAccessInvitationSummary: AccessInvitationSummary = {
+  invitations: mockAccessInvitations.invitations.map((invitation) => ({
+    invitationId: invitation.invitation_id,
+    createdByUserId: invitation.created_by_user_id,
+    emailOrUsername: invitation.email_or_username,
+    status: invitation.status,
+    roles: invitation.roles,
+    expiresAtMs: invitation.expires_at_ms,
+    redeemedAtMs: invitation.redeemed_at_ms,
+    redeemedByUserId: invitation.redeemed_by_user_id,
+    revokedAtMs: invitation.revoked_at_ms,
+    createdAtMs: invitation.created_at_ms,
+    updatedAtMs: invitation.updated_at_ms,
+  })),
+  page: mockAccessInvitations.page,
+};
+
+export function mockAccessInvitationCreated(
+  invitationId = "invitation-created-viewer",
+): AdminCreateInvitationResponse {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    invitation: {
+      ...mockAccessInvitations.invitations[0],
+      invitation_id: invitationId,
+      email_or_username: "created@example.test",
+      created_at_ms: 1780876800000,
+      updated_at_ms: 1780876800000,
+    },
+    token: "nako_inv_one_time_created_token",
+  };
+}
+
+export function mockAccessInvitationRevoked(
+  invitationId = "invitation-viewer-pending",
+): AdminInvitationResponse {
+  return {
+    admin_api_version: "v1",
+    public_api_version: "v1",
+    invitation: {
+      ...mockAccessInvitations.invitations[0],
+      invitation_id: invitationId,
+      status: "revoked",
+      revoked_at_ms: 1780876900000,
+      updated_at_ms: 1780876900000,
+    },
+  };
+}
 
 export const mockOverview: AdminOverviewResponse = {
   admin_api_version: "v1",

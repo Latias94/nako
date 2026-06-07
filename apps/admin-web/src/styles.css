@@ -2092,6 +2092,140 @@ td {
   line-height: 1.5;
 }
 
+.accessInvitationForm {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  gap: 10px;
+  align-items: end;
+  border-bottom: 1px solid var(--nako-admin-line-soft);
+  padding: 16px;
+}
+
+.accessInvitationForm label {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  color: oklch(35% 0.025 94);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.accessInvitationForm input,
+.accessInvitationForm select {
+  min-height: 36px;
+  width: 100%;
+  border: 1px solid var(--nako-admin-line);
+  border-radius: var(--nako-admin-radius);
+  background: var(--nako-admin-surface-field);
+  color: var(--nako-admin-ink);
+  padding: 0 10px;
+}
+
+.accessInvitationForm input:focus-visible,
+.accessInvitationForm select:focus-visible {
+  border-color: var(--nako-admin-brand);
+  outline: 2px solid var(--nako-admin-focus);
+  outline-offset: 1px;
+}
+
+.accessInlineNotice {
+  margin: 12px 16px 0;
+  border: 1px solid var(--nako-admin-line);
+  border-radius: var(--nako-admin-radius);
+  background: var(--nako-admin-attention-bg);
+  color: var(--nako-admin-attention-ink);
+  padding: 10px 12px;
+  font-size: 0.86rem;
+  font-weight: 720;
+}
+
+.accessInvitationToken {
+  display: grid;
+  gap: 10px;
+  margin: 14px 16px 0;
+  border: 1px solid var(--nako-admin-line);
+  border-radius: var(--nako-admin-radius);
+  background: var(--nako-admin-surface-raised);
+  padding: 12px;
+}
+
+.accessInvitationToken div {
+  display: grid;
+  gap: 3px;
+}
+
+.accessInvitationToken strong {
+  color: var(--nako-admin-ink);
+}
+
+.accessInvitationToken span {
+  color: var(--nako-admin-muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.accessInvitationToken code {
+  display: block;
+  min-width: 0;
+  border: 1px solid var(--nako-admin-line-soft);
+  border-radius: var(--nako-admin-radius);
+  background: var(--nako-admin-surface-field);
+  color: var(--nako-admin-ink);
+  padding: 10px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.accessInvitationList {
+  display: grid;
+  padding: 4px 16px 12px;
+}
+
+.accessInvitationRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  min-width: 0;
+  border-top: 1px solid var(--nako-admin-line-soft);
+  padding: 14px 0;
+}
+
+.accessInvitationIdentity,
+.accessInvitationFacts {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.accessInvitationIdentity strong {
+  color: var(--nako-admin-ink);
+  overflow-wrap: anywhere;
+}
+
+.accessInvitationIdentity span,
+.accessInvitationFacts span,
+.accessInvitationConfirm small {
+  color: var(--nako-admin-muted);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.accessInvitationBadges,
+.accessInvitationConfirmActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.accessInvitationConfirm {
+  display: grid;
+  justify-items: end;
+  min-width: min(260px, 100%);
+  gap: 8px;
+}
+
 .settingsRowList {
   display: grid;
   padding: 4px 16px 8px;

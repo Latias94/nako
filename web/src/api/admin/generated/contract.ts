@@ -6,6 +6,8 @@ export const NAKO_ADMIN_API_VERSION = "v1" as const;
 export const NAKO_ADMIN_ROUTES = {
   overview: "/admin/v1/overview",
   accessSummary: "/admin/v1/access/summary",
+  accessInvitations: "/admin/v1/access/invitations",
+  accessInvitationRevoke: "/admin/v1/access/invitations/{invitation_id}/revoke",
   accessUsers: "/admin/v1/access/users",
   accessUserLocalPassword: "/admin/v1/access/users/{user_id}/local-password",
   accessUserRoles: "/admin/v1/access/users/{user_id}/roles",

@@ -213,6 +213,113 @@ run.progress ? <pre>{JSON.stringify(run.progress)}</pre> : null;
 Keep Addon Task Run pages on the route-local safe projection, not the raw
 generated wire DTO.
 
+## Scenario: Access Invitation Operator Projection
+
+### 1. Scope / Trigger
+
+- Trigger: Admin Web lists, creates, or revokes Access Invitations through
+  generated Admin API routes.
+- Evidence: `src/features/access/AccessPage.tsx`, `src/adminApi/client.ts`,
+  `src/adminApi/dataSource.ts`, `src/adminApi/types.ts`,
+  `src/adminApi/mockData.ts`, generated Admin API contracts, and route tests.
+- Authority: ADR 0027 and ADR 0053.
+
+### 2. Signatures
+
+- Generated route keys:
+  `accessInvitations` and `accessInvitationRevoke`.
+- Client methods:
+  `getAccessInvitations(query)`, `createAccessInvitation(request)`, and
+  `revokeAccessInvitation(invitationId)`.
+- Data source methods:
+  `loadAccessInvitations(query)`, `createAccessInvitation(input)`, and
+  `revokeAccessInvitation(invitationId)`.
+- Page rows use `AccessInvitationRow`, not the generated raw
+  `AdminInvitationRecord`.
+- Create results use `AccessInvitationCreateResult`, where the raw
+  one-time token may appear only as `rawToken`.
+
+### 3. Contracts
+
+- Access Invitations are an invitation-first operator workflow. Do not expand
+  this projection into Jellyfin-style full user creation, password reset,
+  session, lockout, or policy editing without a dedicated task.
+- List/read projection may expose only invitation ID, creator/redeemer user
+  IDs, recipient label, status, roles, timestamps, and page facts.
+- List/read projection must not expose raw tokens, token hashes, local paths,
+  backend URLs, credentials, source URIs, fingerprints, arbitrary raw payloads,
+  or generated DTO fields that are not explicitly mapped into
+  `AccessInvitationRow`.
+- The raw invitation token is one-time material from create only. Keep it in
+  page state from the create mutation result and never add it to list rows,
+  mock summaries, query cache rows, or durable frontend storage.
+- Revoke is available only when the invitation list source is `live`, the data
+  source exposes `revokeAccessInvitation`, and the row is `status === "pending"`.
+- Create is available only when the invitation list source is `live` and the
+  data source exposes `createAccessInvitation`.
+- Revoke requires an explicit prepare step followed by a second confirm action.
+- Mock fallback may show deterministic safe read rows, but must never fabricate
+  a successful create or revoke mutation.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Live invitation list succeeds | Map generated response into `AccessInvitationRow[]` and render safe facts |
+| Live invitation list fails or method is unavailable | Show deterministic safe mock fallback with visible fallback copy |
+| Generated list row contains token, token hash, path, URL, credential, source URI, fingerprint, or raw payload material | Data source/page projection omits it and tests reject rendering |
+| Create confirm succeeds | Show the one-time raw token only from the mutation result and invalidate/refetch the invitation list |
+| Create HTTP request fails | Surface the error without adding a fake invitation row or token |
+| Route source is mock or hybrid without mutation | Disable create/revoke and show unavailable copy |
+| Revoke prepare is clicked | Store only the candidate invitation ID and render the confirm action |
+| Revoke confirm succeeds | Show the returned safe row status and invalidate/refetch the invitation list |
+| Revoke HTTP request fails | Surface the error without changing the visible list to revoked |
+
+### 5. Good / Base / Bad Cases
+
+- Good: client builds generated paths with encoded `invitation_id`, data source
+  maps to `AccessInvitationRow`, page renders safe invitation facts, create
+  keeps the one-time token in local mutation state, and revoke requires
+  prepare/confirm.
+- Base: read-only invitation list panel with disabled mutations when source is
+  not live.
+- Bad: page imports `AdminInvitationRecord`, renders token hash or raw token
+  from a list response, calls generated routes directly, or lets mock fallback
+  report a successful create/revoke.
+
+### 6. Tests Required
+
+- Client tests assert generated list/create/revoke routes, encoded
+  `invitation_id` path params, query params, and POST bodies.
+- Data source tests assert safe row mapping, fallback reads, create token
+  isolation, and mutation rejection on live HTTP failure.
+- Route tests assert the panel renders, create/revoke are disabled for mock
+  fallback, revoke needs explicit confirmation, zh-Hans copy is present, and
+  unsafe invitation fields/secrets are absent from rendered text.
+- Run:
+  - `npm run check --prefix apps/admin-web`
+  - focused Vitest files for `client`, `dataSource`, and `App`
+  - `npm run test --prefix apps/admin-web`
+  - `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+  - `cargo nextest run -p nako-server implemented_admin_routes_are_generated_or_explicitly_excluded --no-fail-fast`
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```tsx
+<code>{invitation.token_hash}</code>
+```
+
+#### Correct
+
+```tsx
+<span>{invitationStatusLabel(invitation.status, t)}</span>
+```
+
+Keep Access Invitation pages on the route-local safe projection. Raw one-time
+tokens are create-result material only, not list/read row material.
+
 ## Scenario: Feature-Owned Data Adapter
 
 ### 1. Scope / Trigger

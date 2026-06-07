@@ -8,10 +8,12 @@ import type {
   AdminGeneratedArtifactReviewRequest,
   AdminJobStatus,
   AdminLibraryMetadataProfileResponse,
+  AdminInvitationRecord,
   AdminServerConfigDiagnosticsResponse,
   AddonPermission,
   AddonResource,
   AdminAddonManifest,
+  AdminUserRole,
   PageInfo,
 } from "./generated/contract";
 
@@ -41,6 +43,8 @@ export type {
   AdminAddonSurfacesResponse,
   AdminAddonsQuery,
   AdminAccessSummaryResponse,
+  AdminCreateInvitationRequest,
+  AdminCreateInvitationResponse,
   AdminArtworkKind,
   AdminCatalogGovernanceItem,
   AdminCatalogGovernanceItemDetailResponse,
@@ -72,6 +76,9 @@ export type {
   AdminLocalMetadataPolicy,
   AdminMetadataScanPolicy,
   AdminNetworkAccessDiagnostics,
+  AdminInvitationListResponse,
+  AdminInvitationRecord,
+  AdminInvitationResponse,
   AdminOutboxEventListItem,
   AdminOutboxEventListResponse,
   AdminOverviewResponse,
@@ -118,6 +125,7 @@ export type {
   AdminWatchFolderDiscoveryResponse,
   AdminUpdateMetadataRawCacheSettingsRequest,
   AdminUpdatePlaybackRuntimeSettingsRequest,
+  AdminUserRole,
   PageInfo,
 } from "./generated/contract";
 
@@ -474,6 +482,41 @@ export type ItemReadinessSummary = {
   label: string;
   status: "ready" | "planned" | "split";
   detail: string;
+};
+
+export type AccessInvitationListQuery = {
+  limit?: number;
+  offset?: number;
+};
+
+export type AccessInvitationSummary = {
+  invitations: AccessInvitationRow[];
+  page: PageInfo;
+};
+
+export type AccessInvitationRow = {
+  invitationId: string;
+  createdByUserId: string;
+  emailOrUsername: string | null;
+  status: AdminInvitationRecord["status"];
+  roles: AdminUserRole[];
+  expiresAtMs: number;
+  redeemedAtMs: number | null;
+  redeemedByUserId: string | null;
+  revokedAtMs: number | null;
+  createdAtMs: number;
+  updatedAtMs: number;
+};
+
+export type AccessInvitationCreateInput = {
+  emailOrUsername: string | null;
+  roles: AdminUserRole[];
+  expiresInMs: number | null;
+};
+
+export type AccessInvitationCreateResult = {
+  invitation: AccessInvitationRow;
+  token: string;
 };
 
 export type ItemArtworkGalleryQuery = AdminItemArtworkGalleryQuery;

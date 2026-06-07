@@ -5,6 +5,9 @@ import { NAKO_ADMIN_ROUTES } from "./generated/contract";
 import {
   mockAcquisitionIntakeCandidates,
   mockAccessSummary,
+  mockAccessInvitationCreated,
+  mockAccessInvitationRevoked,
+  mockAccessInvitations,
   mockAddonDetail,
   mockAddonDiagnostic,
   mockAddonGrants,
@@ -360,6 +363,63 @@ describe("AdminApiClient", () => {
         body: JSON.stringify({ settings: nextSettings }),
       }),
     );
+  });
+
+  it("uses generated Access invitation routes for list, create, and revoke", async () => {
+    const created = mockAccessInvitationCreated("invitation/unsafe id");
+    const revoked = mockAccessInvitationRevoked("invitation/unsafe id");
+    const fetcher = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input.toString(), "http://127.0.0.1");
+
+      if (init?.method === "POST" && url.pathname.endsWith("/revoke")) {
+        return Response.json(revoked);
+      }
+      if (init?.method === "POST") {
+        return Response.json(created);
+      }
+
+      return Response.json(mockAccessInvitations);
+    });
+    const client = new AdminApiClient({ fetcher });
+
+    await expect(client.getAccessInvitations({ limit: 5, offset: 10 })).resolves.toEqual(
+      mockAccessInvitations,
+    );
+    await expect(
+      client.createAccessInvitation({
+        email_or_username: "invitee@example.test",
+        roles: ["viewer"],
+        expires_in_ms: 3_600_000,
+      }),
+    ).resolves.toEqual(created);
+    await expect(client.revokeAccessInvitation("invitation/unsafe id")).resolves.toEqual(
+      revoked,
+    );
+
+    expect(fetcher.mock.calls).toMatchObject([
+      [`${NAKO_ADMIN_ROUTES.accessInvitations}?limit=5&offset=10`, {}],
+      [
+        NAKO_ADMIN_ROUTES.accessInvitations,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            email_or_username: "invitee@example.test",
+            roles: ["viewer"],
+            expires_in_ms: 3_600_000,
+          }),
+        },
+      ],
+      [
+        NAKO_ADMIN_ROUTES.accessInvitationRevoke.replace(
+          "{invitation_id}",
+          encodeURIComponent("invitation/unsafe id"),
+        ),
+        {
+          method: "POST",
+          body: JSON.stringify({}),
+        },
+      ],
+    ]);
   });
 
   it("posts Catalog Governance Provider Mapping review-plan decisions through Admin-only routes", async () => {

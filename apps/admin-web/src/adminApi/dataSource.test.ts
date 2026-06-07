@@ -5,6 +5,10 @@ import { NAKO_ADMIN_ROUTES } from "./generated/contract";
 import {
   mockAcquisitionIntakeCandidates,
   mockAccessSummary,
+  mockAccessInvitationCreated,
+  mockAccessInvitationRevoked,
+  mockAccessInvitationSummary,
+  mockAccessInvitations,
   mockAddonDetail,
   mockAddonDiagnostic,
   mockAddonGrants,
@@ -309,6 +313,132 @@ describe("Admin data source", () => {
       value: mockAccessSummary,
       error: expect.stringContaining("HTTP 503"),
     });
+  });
+
+  it("loads route-local Access invitations through safe row projection", async () => {
+    const unsafeInvitations = {
+      ...mockAccessInvitations,
+      invitations: mockAccessInvitations.invitations.map((invitation) => ({
+        ...invitation,
+        token: "raw_access_invitation_token",
+        token_hash: "hashed_access_invitation_token",
+        local_path: "F:\\nako\\access-invitation.json",
+        url: "https://user:secret@example.test/access/invitations",
+      })),
+    };
+    const seenSearchParams: string[] = [];
+    const liveSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        seenSearchParams.push(url.search);
+        return Response.json(unsafeInvitations);
+      },
+    });
+
+    const liveResult = await liveSource.loadAccessInvitations?.({
+      limit: 5,
+      offset: 10,
+    });
+
+    expect(liveResult?.source).toBe("live");
+    expect(liveResult?.value.page).toEqual(mockAccessInvitations.page);
+    expect(liveResult?.value.invitations[0]).toMatchObject({
+      invitationId: "invitation-viewer-pending",
+      emailOrUsername: "viewer@example.test",
+      status: "pending",
+      roles: ["viewer"],
+    });
+    expect(seenSearchParams).toEqual(["?limit=5&offset=10"]);
+    expect(JSON.stringify(liveResult?.value)).not.toContain("raw_access_invitation_token");
+    expect(JSON.stringify(liveResult?.value)).not.toContain("hashed_access_invitation_token");
+    expect(JSON.stringify(liveResult?.value)).not.toContain("local_path");
+    expect(JSON.stringify(liveResult?.value)).not.toContain("F:\\");
+    expect(JSON.stringify(liveResult?.value)).not.toContain("https://user:secret@example.test");
+
+    const fallbackSource = createAdminDataSource({
+      fetcher: async () => new Response("offline", { status: 503 }),
+    });
+
+    const fallbackResult = await fallbackSource.loadAccessInvitations?.({ limit: 5 });
+
+    expect(fallbackResult).toMatchObject({
+      source: "mock",
+      value: mockAccessInvitationSummary,
+      error: expect.stringContaining("HTTP 503"),
+    });
+  });
+
+  it("keeps Access invitation raw token only in create mutation result", async () => {
+    const created = mockAccessInvitationCreated("invitation-created-viewer");
+    const seenBodies: string[] = [];
+    const dataSource = createAdminDataSource({
+      fetcher: async (_input: string | URL | Request, init?: RequestInit) => {
+        if (init?.body) {
+          seenBodies.push(String(init.body));
+        }
+
+        return Response.json(created);
+      },
+    });
+
+    const result = await dataSource.createAccessInvitation?.({
+      emailOrUsername: "created@example.test",
+      roles: ["viewer"],
+      expiresInMs: 3_600_000,
+    });
+
+    expect(result).toMatchObject({
+      token: "nako_inv_one_time_created_token",
+      invitation: {
+        invitationId: "invitation-created-viewer",
+        emailOrUsername: "created@example.test",
+        status: "pending",
+      },
+    });
+    expect(JSON.stringify(result?.invitation)).not.toContain("nako_inv_one_time_created_token");
+    expect(seenBodies).toEqual([
+      JSON.stringify({
+        email_or_username: "created@example.test",
+        roles: ["viewer"],
+        expires_in_ms: 3_600_000,
+      }),
+    ]);
+
+    const listSource = createAdminDataSource({
+      fetcher: async () => Response.json(mockAccessInvitations),
+    });
+    const listResult = await listSource.loadAccessInvitations?.();
+
+    expect(JSON.stringify(listResult?.value)).not.toContain("nako_inv_one_time_created_token");
+  });
+
+  it("revokes Access invitations through live mutations and does not fabricate failures", async () => {
+    const revoked = mockAccessInvitationRevoked("invitation-viewer-pending");
+    const dataSource = createAdminDataSource({
+      fetcher: async () => Response.json(revoked),
+    });
+
+    await expect(
+      dataSource.revokeAccessInvitation?.("invitation-viewer-pending"),
+    ).resolves.toMatchObject({
+      invitationId: "invitation-viewer-pending",
+      status: "revoked",
+    });
+
+    const failingSource = createAdminDataSource({
+      fetcher: async () => new Response("offline", { status: 503 }),
+    });
+
+    await expect(
+      failingSource.createAccessInvitation?.({
+        emailOrUsername: null,
+        roles: ["viewer"],
+        expiresInMs: null,
+      }),
+    ).rejects.toThrow("HTTP 503");
+    await expect(
+      failingSource.revokeAccessInvitation?.("invitation-viewer-pending"),
+    ).rejects.toThrow("HTTP 503");
   });
 
   it("loads route-local Jobs with generated query params and section fallback", async () => {

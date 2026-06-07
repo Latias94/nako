@@ -8,6 +8,7 @@ import {
   mockAddonHealth,
   mockAddonInstallGuide,
   mockAddonTaskRuns,
+  mockAccessInvitations,
   mockAccessSummary,
   mockAddons,
   mockAddonSurfaces,
@@ -55,6 +56,8 @@ import type {
   AdminAddonResourceCallDiagnosticResponse,
   AdminAddonSurfacesResponse,
   AdminAccessSummaryResponse,
+  AdminInvitationListResponse,
+  AdminInvitationRecord,
   AdminCatalogGovernanceItem,
   AdminCatalogGovernanceItemDetailResponse,
   AdminCatalogGovernanceItemListResponse,
@@ -115,6 +118,11 @@ import type {
   AdminSectionKey,
   AdminSourceMap,
   AddonManifestPreview,
+  AccessInvitationCreateInput,
+  AccessInvitationCreateResult,
+  AccessInvitationListQuery,
+  AccessInvitationRow,
+  AccessInvitationSummary,
   AddonGrantAssignmentInput,
   AddonDiagnosticSummary,
   AddonHealthSummary,
@@ -170,6 +178,13 @@ export type { AdminConsoleData, AdminSourceMap, DataSourceMode };
 export type AdminDataSource = {
   load(): Promise<AdminConsoleData>;
   loadAccessSummary?(): Promise<AdminSectionResult<AdminAccessSummaryResponse>>;
+  loadAccessInvitations?(
+    query?: AccessInvitationListQuery,
+  ): Promise<AdminSectionResult<AccessInvitationSummary>>;
+  createAccessInvitation?(
+    input: AccessInvitationCreateInput,
+  ): Promise<AccessInvitationCreateResult>;
+  revokeAccessInvitation?(invitationId: string): Promise<AccessInvitationRow>;
   loadOverview?(): Promise<AdminSectionResult<AdminOverviewResponse>>;
   loadAddons?(query?: AdminAddonsQuery): Promise<AdminSectionResult<AddonsRouteSummary>>;
   loadAddonTaskRuns?(
@@ -441,6 +456,23 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
     },
     async loadAccessSummary() {
       return loadSection(() => client.getAccessSummary(), mockAccessSummary);
+    },
+    async loadAccessInvitations(query = {}) {
+      return loadAccessInvitations(client, query);
+    },
+    async createAccessInvitation(input) {
+      const response = await client.createAccessInvitation({
+        email_or_username: input.emailOrUsername,
+        roles: input.roles,
+        expires_in_ms: input.expiresInMs,
+      });
+      return {
+        invitation: mapAccessInvitation(response.invitation),
+        token: response.token,
+      };
+    },
+    async revokeAccessInvitation(invitationId) {
+      return mapAccessInvitation((await client.revokeAccessInvitation(invitationId)).invitation);
     },
     async loadAddons(query = {}) {
       return loadAddonsRouteSummary(client, query);
@@ -1235,6 +1267,47 @@ function mapLibraryJob(job: AdminJobCommandResponse | AdminJobListResponse["jobs
     queuedAt: job.queued_at,
     completedAt: job.completed_at,
     hasError: job.has_error,
+  };
+}
+
+async function loadAccessInvitations(
+  client: AdminApiClient,
+  query: AccessInvitationListQuery,
+): Promise<AdminSectionResult<AccessInvitationSummary>> {
+  const result = await loadSection(
+    () => client.getAccessInvitations(query),
+    mockAccessInvitations,
+  );
+
+  return {
+    value: mapAccessInvitationSummary(result.value),
+    source: result.source,
+    error: result.error,
+  };
+}
+
+function mapAccessInvitationSummary(
+  response: AdminInvitationListResponse,
+): AccessInvitationSummary {
+  return {
+    invitations: response.invitations.map(mapAccessInvitation),
+    page: response.page,
+  };
+}
+
+function mapAccessInvitation(invitation: AdminInvitationRecord): AccessInvitationRow {
+  return {
+    invitationId: invitation.invitation_id,
+    createdByUserId: invitation.created_by_user_id,
+    emailOrUsername: invitation.email_or_username,
+    status: invitation.status,
+    roles: invitation.roles,
+    expiresAtMs: invitation.expires_at_ms,
+    redeemedAtMs: invitation.redeemed_at_ms,
+    redeemedByUserId: invitation.redeemed_by_user_id,
+    revokedAtMs: invitation.revoked_at_ms,
+    createdAtMs: invitation.created_at_ms,
+    updatedAtMs: invitation.updated_at_ms,
   };
 }
 

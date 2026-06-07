@@ -18,9 +18,14 @@ struct AdminRouteExclusionSuffix {
     reason: &'static str,
 }
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 98] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 100] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
+    ("accessInvitations", "access/invitations"),
+    (
+        "accessInvitationRevoke",
+        "access/invitations/{invitation_id}/revoke",
+    ),
     ("accessUsers", "access/users"),
     (
         "accessUserLocalPassword",
@@ -284,15 +289,7 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 98] = [
     ("settingsMetadataRawCache", "settings/metadata/raw-cache"),
 ];
 
-const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 16] = [
-    AdminRouteExclusionSuffix {
-        suffix: "access/invitations",
-        reason: "Invitation lifecycle routes are implemented for Admin operators but are not generated as Admin Web route constants in this slice.",
-    },
-    AdminRouteExclusionSuffix {
-        suffix: "access/invitations/{invitation_id}/revoke",
-        reason: "Invitation lifecycle routes are implemented for Admin operators but are not generated as Admin Web route constants in this slice.",
-    },
+const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 14] = [
     AdminRouteExclusionSuffix {
         suffix: "addons/install-guide-preview",
         reason: "Install guide preview is a planning helper and does not have a stable generated Admin Web route key yet.",
