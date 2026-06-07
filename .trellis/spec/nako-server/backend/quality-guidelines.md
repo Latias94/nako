@@ -56,9 +56,17 @@ Use these gates for `crates/nako-server` feature work.
   serialization, non-refresh target rejection, queued/running idempotency,
   duplicate detection beyond the first paginated job page, terminal jobs not
   blocking future enqueue, and no backend refresh/list calls during enqueue.
-  Keep Admin routes, durable executor/scheduler execution, cache
+  Keep Admin routes, durable scheduler execution, cache purge/delete/
+  invalidation, backend configuration mutation, and library file writes out of
+  enqueue-only slices.
+- Internal VFS cache repair durable executor changes must claim an explicit job
+  id through `DurableJobRuntime`, validate kind/resource/input/bindings, reload
+  the current unresolved failure by `VfsCacheRepairJobInput::matches_failure`,
+  reuse selected-target refresh authority for backend-touching work, persist
+  redaction-safe summary/error state, and reject stale inputs without backend
+  calls. Keep Admin routes, automatic scheduler loops, retry/requeue routes,
   purge/delete/invalidation, backend configuration mutation, and library file
-  writes out of enqueue-only slices.
+  writes out of single-job executor slices.
 
 ## Scenario: VFS Cache Repair Durable Enqueue
 
@@ -161,6 +169,101 @@ store.enqueue_job(NewJob {
 
 The durable input stays redaction-safe and backend mutation remains in a future
 executor boundary.
+
+## Scenario: VFS Cache Repair Durable Executor Command
+
+### 1. Scope / Trigger
+
+- Trigger: adding or changing internal execution for queued
+  `JobKind::VfsCacheRepair` jobs in `nako-server::app::storage`.
+- Purpose: execute one explicit durable repair job without adding an Admin API
+  route, scheduler loop, retry path, purge/delete behavior, or backend
+  configuration workflow.
+
+### 2. Signatures
+
+- Service command:
+  `StorageDiagnosticsAppService::execute_vfs_cache_repair_job(job_id: JobId) -> Result<VfsCacheRepairCommandOutput>`.
+- Claimed-job helper:
+  `StorageDiagnosticsAppService::execute_claimed_vfs_cache_repair_job(LeasedJob) -> Result<VfsCacheRepairCommandOutput>`.
+- Summary:
+  `VfsCacheRepairJobSummary { action, source_scheme, operation, classification, failure_class, failed_at_ms, failure_count, refreshed_cache_state }`.
+
+### 3. Contracts
+
+- The command claims by exact `job_id`, `JobKind::VfsCacheRepair`, and
+  `VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS` through `DurableJobRuntime`.
+- Execution validates the persisted input through
+  `vfs_cache_repair_job_input_from_job` and verifies the job library/source
+  bindings still match the input contract.
+- Execution must not reconstruct a raw target URI from durable input. It must
+  reload current unresolved cache failures and find the target through
+  `VfsCacheRepairJobInput::matches_failure`.
+- Backend-touching work reuses the selected-target refresh authority path so
+  stored failure authority, backend ambiguity handling, and `refresh_cache`
+  recommendation checks stay centralized.
+- Successful execution persists a redaction-safe summary JSON. The summary must
+  not include raw `StorageUri`, local paths, backend URLs, credentials, raw
+  backend errors, etags, fingerprints, cache payloads, or job input JSON.
+- If the durable input no longer matches an unresolved repair target, execution
+  fails without backend calls and persists only a safe not-found error.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Queued VFS cache repair job has matching unresolved `refresh_cache` target | Claim once, refresh cache through selected-target authority, mark job succeeded, persist safe summary |
+| Job kind is not `VfsCacheRepair` | Reject before backend calls |
+| Job resource class is not `storage.vfs.cache_repair` | Reject before backend calls |
+| Input JSON is missing or malformed | Reject without echoing input JSON |
+| Job library binding differs from input authority | Reject without backend calls |
+| Job carries a source binding | Reject without backend calls |
+| Input no longer matches a current unresolved failure | Mark job failed with safe `vfs_cache_repair_target job_input` not-found error; no backend calls |
+| Refresh returns a storage error | Persist redacted storage error using only scheme plus `<redacted>` target |
+
+### 5. Good/Base/Bad Cases
+
+- Good: execute one explicit queued repair job and assert the summary contains
+  action, scheme, operation, classification, failure class, failed-at,
+  failure-count, and cache state only.
+- Base: a future scheduler may pass an already claimed `LeasedJob` to the
+  claimed-job helper without re-claiming by id.
+- Bad: deserialize `input_json` and synthesize `StorageUri` from the digest,
+  call backend refresh directly from the scheduler, or persist backend etag /
+  fingerprint / raw URI in `summary_json`.
+
+### 6. Tests Required
+
+- `cargo nextest run -p nako-server vfs_cache_repair_job_executor --no-fail-fast`.
+- Assert successful execution marks the job succeeded, makes it no longer
+  claimable, refreshes the selected target exactly once, and persists a
+  redaction-safe summary.
+- Assert stale input fails without backend calls and persists only a safe
+  durable error.
+- `cargo check -p nako-server --tests`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+let input: VfsCacheRepairJobInput = serde_json::from_str(job.input_json.as_ref().unwrap())?;
+let uri = StorageUri::parse(&input.uri_digest)?;
+backend.refresh_cache(&uri, input.operation).await?;
+```
+
+This treats a digest like a locator and bypasses the selected-target authority.
+
+#### Correct
+
+```rust
+let input = vfs_cache_repair_job_input_from_job(job)?;
+let failure = self.vfs_cache_repair_failure_for_job_input(&input).await?;
+self.refresh_vfs_cache_repair_failure(failure, ...).await?;
+```
+
+The executor uses durable input only to reselect the current unresolved target;
+the existing refresh authority owns backend selection and mutation.
 
 ## Gate Selection
 

@@ -22,21 +22,24 @@ use nako_api::admin::{
     StorageBackendStatus,
 };
 use nako_core::{
-    Job, JobKind, JobListFilter, JobPriority, JobRepository, JobStatus, Library, LibraryId,
-    LibraryRepository, MediaSource, NakoError, NewJob, PageRequest, Result, StagingAttribution,
-    StagingManifestRecord, StagingManifestRepository, StagingPurpose, StagingState,
-    StorageBackendHealthListFilter, StorageBackendHealthRecord, StorageBackendHealthRepository,
-    StorageBackendHealthStatus, StorageCircuitBreakerState, StorageFailureClass,
-    VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS, VfsCacheFailure, VfsCacheFailureAuthority,
-    VfsCacheOperation, VfsCacheRepairJobInput, VfsCacheRepository, VfsCacheSummary,
+    Job, JobId, JobKind, JobLeaseClaimFilter, JobListFilter, JobPriority, JobRepository, JobStatus,
+    LeasedJob, Library, LibraryId, LibraryRepository, MediaSource, NakoError, NewJob, PageRequest,
+    Result, StagingAttribution, StagingManifestRecord, StagingManifestRepository, StagingPurpose,
+    StagingState, StorageBackendHealthListFilter, StorageBackendHealthRecord,
+    StorageBackendHealthRepository, StorageBackendHealthStatus, StorageCircuitBreakerState,
+    StorageFailureClass, VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS, VfsCacheFailure,
+    VfsCacheFailureAuthority, VfsCacheOperation, VfsCacheRepairJobInput, VfsCacheRepository,
+    VfsCacheSummary,
 };
 use nako_db::NakoDatabase;
 use nako_vfs::{
-    LocalFsBackend, StorageBackend, StorageUri, VfsCacheRefreshReport, VfsCacheRepairAction,
-    VfsCacheRepairClassification, VfsCacheRepairDiagnostic,
+    LocalFsBackend, ObjectCacheState, StorageBackend, StorageUri, VfsCacheRefreshReport,
+    VfsCacheRepairAction, VfsCacheRepairClassification, VfsCacheRepairDiagnostic,
 };
+use serde::{Deserialize, Serialize};
 
 use super::current_time_ms;
+use super::job_runtime::{DurableJobOperationError, DurableJobRunOutcome, DurableJobRuntime};
 
 type VfsCacheRepairTargetRefMac = Hmac<Sha256>;
 const VFS_CACHE_REPAIR_REMEDIATION_SAMPLE_LIMIT: usize = 3;
@@ -211,6 +214,42 @@ pub(crate) struct VfsCacheRepairTargetPreviewReport {
 pub(crate) enum EnqueueVfsCacheRepairTargetOutcome {
     Enqueued(Job),
     AlreadyQueued(Job),
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub(crate) struct VfsCacheRepairJobSummary {
+    pub(crate) action: VfsCacheRepairAction,
+    pub(crate) source_scheme: String,
+    pub(crate) operation: VfsCacheOperation,
+    pub(crate) classification: VfsCacheRepairClassification,
+    pub(crate) failure_class: Option<StorageFailureClass>,
+    pub(crate) failed_at_ms: i64,
+    pub(crate) failure_count: u32,
+    pub(crate) refreshed_cache_state: Option<ObjectCacheState>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct VfsCacheRepairCommandOutput {
+    pub(crate) job: Job,
+    pub(crate) summary: VfsCacheRepairJobSummary,
+}
+
+impl VfsCacheRepairJobSummary {
+    fn from_refresh_report(
+        input: &VfsCacheRepairJobInput,
+        report: &VfsCacheRepairRefreshActionReport,
+    ) -> Self {
+        Self {
+            action: report.action,
+            source_scheme: input.source_scheme.clone(),
+            operation: report.operation,
+            classification: report.repair.classification,
+            failure_class: report.repair.failure_class,
+            failed_at_ms: input.failed_at_ms,
+            failure_count: input.failure_count,
+            refreshed_cache_state: report.refresh.cache.as_ref().map(|cache| cache.state),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -868,6 +907,57 @@ impl StorageDiagnosticsAppService {
             .map(EnqueueVfsCacheRepairTargetOutcome::Enqueued)
     }
 
+    pub(crate) async fn execute_vfs_cache_repair_job(
+        &self,
+        job_id: JobId,
+    ) -> Result<VfsCacheRepairCommandOutput> {
+        let runtime = DurableJobRuntime::new(self.registry.store.clone());
+        let leased = runtime
+            .claim_next_job_lease(JobLeaseClaimFilter {
+                job_id: Some(job_id),
+                kind: Some(JobKind::VfsCacheRepair),
+                resource_class: Some(VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS.to_owned()),
+                ..JobLeaseClaimFilter::default()
+            })
+            .await?
+            .ok_or_else(|| NakoError::Conflict {
+                message: format!("job {job_id} is not queued and claimable"),
+            })?;
+
+        self.execute_claimed_vfs_cache_repair_job(leased).await
+    }
+
+    pub(crate) async fn execute_claimed_vfs_cache_repair_job(
+        &self,
+        leased: LeasedJob,
+    ) -> Result<VfsCacheRepairCommandOutput> {
+        let job = leased.job.clone();
+        let runtime = DurableJobRuntime::new(self.registry.store.clone());
+        let run = runtime
+            .run_leased_job_with_trace_context(
+                leased,
+                "VFS cache repair job",
+                None,
+                |_context| async {
+                    self.run_vfs_cache_repair_job_from_job(&job)
+                        .await
+                        .map_err(DurableJobOperationError::from)
+                },
+                vfs_cache_repair_job_summary_json,
+            )
+            .await?;
+
+        match run {
+            DurableJobRunOutcome::Completed(run) => Ok(VfsCacheRepairCommandOutput {
+                job: run.job,
+                summary: run.output,
+            }),
+            DurableJobRunOutcome::Cancelled(job) => Err(NakoError::Conflict {
+                message: format!("job {} was cancelled", job.id),
+            }),
+        }
+    }
+
     async fn existing_incomplete_vfs_cache_repair_job(
         &self,
         input: &VfsCacheRepairJobInput,
@@ -911,6 +1001,77 @@ impl StorageDiagnosticsAppService {
         }
 
         Ok(None)
+    }
+
+    async fn run_vfs_cache_repair_job_from_job(
+        &self,
+        job: &Job,
+    ) -> Result<VfsCacheRepairJobSummary> {
+        let input = vfs_cache_repair_job_input_from_job(job)?;
+        validate_vfs_cache_repair_job_bindings(job, &input)?;
+        let failure = self.vfs_cache_repair_failure_for_job_input(&input).await?;
+        let report = self
+            .refresh_vfs_cache_repair_failure(
+                failure,
+                "vfs_cache_repair_target",
+                "job_input",
+                "VFS cache repair job target diagnostic does not recommend refresh_cache",
+            )
+            .await
+            .map_err(|err| redact_vfs_cache_repair_execution_error(err, &input.source_scheme))?;
+
+        Ok(VfsCacheRepairJobSummary::from_refresh_report(
+            &input, &report,
+        ))
+    }
+
+    async fn vfs_cache_repair_failure_for_job_input(
+        &self,
+        input: &VfsCacheRepairJobInput,
+    ) -> Result<VfsCacheFailure> {
+        let mut failure_offset = 0_u64;
+
+        loop {
+            let failures = self
+                .registry
+                .store
+                .list_vfs_cache_failures(PageRequest::new(PageRequest::MAX_LIMIT, failure_offset))
+                .await?;
+            let failure_count = failures.len();
+            if failure_count == 0 {
+                break;
+            }
+
+            for failure in failures {
+                if !input.matches_failure(&failure) {
+                    continue;
+                }
+
+                let Some(target) = self
+                    .vfs_cache_repair_target_from_failure(failure.clone())
+                    .await?
+                else {
+                    return Err(vfs_cache_repair_job_target_not_found());
+                };
+                if target.repair.recommended_action != VfsCacheRepairAction::RefreshCache {
+                    return Err(NakoError::InvalidInput {
+                        message:
+                            "VFS cache repair job target diagnostic does not recommend refresh_cache"
+                                .to_owned(),
+                    });
+                }
+
+                return Ok(failure);
+            }
+
+            if failure_count < PageRequest::MAX_LIMIT as usize {
+                break;
+            }
+
+            failure_offset = failure_offset.saturating_add(failure_count as u64);
+        }
+
+        Err(vfs_cache_repair_job_target_not_found())
     }
 
     async fn vfs_cache_repair_target_failure(
@@ -2190,6 +2351,17 @@ fn vfs_cache_repair_target_not_found() -> NakoError {
     }
 }
 
+fn vfs_cache_repair_job_target_not_found() -> NakoError {
+    NakoError::NotFound {
+        entity: "vfs_cache_repair_target",
+        id: "job_input".to_owned(),
+    }
+}
+
+fn vfs_cache_repair_job_summary_json(summary: &VfsCacheRepairJobSummary) -> Result<Option<String>> {
+    DurableJobRuntime::serialize_summary(summary, "VFS cache repair job summary")
+}
+
 fn vfs_cache_repair_job_input_from_job(job: &Job) -> Result<VfsCacheRepairJobInput> {
     if job.kind != JobKind::VfsCacheRepair {
         return Err(NakoError::InvalidInput {
@@ -2222,6 +2394,32 @@ fn vfs_cache_repair_job_input_from_job(job: &Job) -> Result<VfsCacheRepairJobInp
         input.uri_digest,
         input.authority,
     )
+}
+
+fn validate_vfs_cache_repair_job_bindings(job: &Job, input: &VfsCacheRepairJobInput) -> Result<()> {
+    if job.library_id != input.authority.library_id {
+        return Err(NakoError::InvalidInput {
+            message: "VFS cache repair job library binding does not match input".to_owned(),
+        });
+    }
+    if job.source_id.is_some() {
+        return Err(NakoError::InvalidInput {
+            message: "VFS cache repair job must not include a source binding".to_owned(),
+        });
+    }
+
+    Ok(())
+}
+
+fn redact_vfs_cache_repair_execution_error(err: NakoError, source_scheme: &str) -> NakoError {
+    match err {
+        NakoError::Storage { kind, .. } => NakoError::Storage {
+            uri: format!("{source_scheme}://<redacted>"),
+            kind,
+            message: kind.failure_class().safe_message().to_owned(),
+        },
+        err => err,
+    }
 }
 
 fn parse_vfs_cache_repair_target_uri(value: &str) -> Result<StorageUri> {

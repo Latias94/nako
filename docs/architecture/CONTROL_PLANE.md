@@ -41,7 +41,7 @@ Deployment Endpoint Config
 | HTTP addon protocol | Shipped foundation | ADR 0003; ADR 0015; ADR 0020 | Addon Manager lifecycle is still deferred. |
 | Addon capability and token scopes | Shipped foundation | addon token/grant workstreams | Stronger hosted surface and route policy. |
 | Addon process supervision | Deferred | ADR 0020; ADR 0053 | `addon-manager-process-lifecycle`. |
-| Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract/summary/internal enqueue/queued planner/single-job executor command/scheduler integration/evidence persistence/Admin manual commands, scan-originated source hash triggering, VFS cache repair durable contract/internal enqueue, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/`; `.trellis/tasks/06-06-06-06-overnight-fearless-refactor-development-plan/` | Broader job-kind scheduler migration, VFS cache repair executor/scheduler/API productization, and automatic Source Duplicate Relationship reconciliation remain follow-ons. |
+| Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract/summary/internal enqueue/queued planner/single-job executor command/scheduler integration/evidence persistence/Admin manual commands, scan-originated source hash triggering, VFS cache repair durable contract/internal enqueue/internal single-job executor, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/`; `.trellis/tasks/06-06-06-06-overnight-fearless-refactor-development-plan/` | Broader job-kind scheduler migration, VFS cache repair scheduler/API productization, and automatic Source Duplicate Relationship reconciliation remain follow-ons. |
 | Runtime supervisor | Shipped resource-accounted foundation | ADR 0019; server runtime deepening; durable job queue/resource lane | Unified trace context and broader scheduler migration remain follow-ons. |
 | Resource classes and budgets | Shipped process-local foundation plus source fingerprint hash and VFS cache repair mappings to `disk.scan` | ADR 0005; playback/runtime lanes; durable job queue/resource lane | Continue migrating job kinds onto typed budget-admitted scheduler paths. |
 | Tracing/request identity | Partial with HLS and library scan job propagation | diagnostics and playback identity lanes | Continue unified trace context across jobs/FFmpeg/VFS/addons and broader scan entry points. |
@@ -125,10 +125,10 @@ Follow-ons:
 - broader job-kind scheduler migration beyond the current disk-scan admitted
   source hash path.
 
-### vfs-cache-repair-durable-job-contract-and-enqueue
+### vfs-cache-repair-durable-job-contract-and-execution
 
-Status: Durable job contract and internal target enqueue seam shipped as of
-2026-06-07.
+Status: Durable job contract, internal target enqueue seam, and internal
+single-job executor command shipped as of 2026-06-07.
 
 Goal: Move VFS cache repair from read-only remediation planning toward durable,
 resource-admitted repair work without exposing raw storage identity or widening
@@ -152,11 +152,17 @@ Shipped control-plane behavior:
 - enqueue is idempotent for queued/running jobs with the same validated input,
   including matches beyond the first paginated durable job page; terminal jobs
   do not block future enqueue.
+- the internal executor command can claim one explicit VFS cache repair job id
+  through `DurableJobRuntime`, reload the current unresolved failure by
+  redaction-safe input match, reuse the existing selected-target refresh
+  authority, and persist a redaction-safe summary JSON.
+- stale durable inputs that no longer match an unresolved failure fail without
+  a backend call and without exposing raw target material.
 
 Follow-ons:
 
 - Admin enqueue route and DTOs;
-- durable repair executor/scheduler execution;
+- durable repair scheduler execution;
 - retry/requeue and operator diagnostics for repair jobs;
 - purge/delete/invalidation and backend configuration workflows.
 

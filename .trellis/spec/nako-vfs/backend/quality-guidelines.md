@@ -20,8 +20,9 @@ cache diagnostics.
 - Keep durable VFS cache repair enqueue separate from repair execution:
   enqueue may create redaction-safe jobs from opaque unresolved targets, but it
   must not refresh, purge, delete, invalidate, mutate backend configuration, or
-  write library files. Backend-touching repair work belongs in a future
-  executor boundary.
+  write library files. Backend-touching refresh repair work must go through the
+  storage app durable executor boundary, revalidate current unresolved failure
+  authority before backend calls, and keep summaries/errors redaction-safe.
 - Keep local writes transactional or planned when the module supports it.
 - Treat remote latency, range readability, rate limits, and writable capability
   as product behavior, not incidental adapter details.
@@ -64,6 +65,10 @@ cache diagnostics.
   redaction-safe, non-refresh targets reject without backend calls, queued and
   running duplicates are idempotent across paginated job results, and terminal
   jobs can be re-enqueued later.
+- Durable repair executor tests must assert explicit-job lease claiming,
+  current unresolved failure revalidation, selected-target refresh authority,
+  stale-input rejection without backend calls, redaction-safe summary JSON, and
+  redacted storage failure persistence.
 - App/server integration tests when playback, scan, or Admin routes consume the
   new VFS behavior.
 

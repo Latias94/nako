@@ -79,3 +79,84 @@ Validation:
   - Result: passed, 5 tests run.
 - `cargo nextest run -p nako-server runtime_job_resource_class_mapping_maps_known_jobs_to_budget_classes --no-fail-fast`
   - Result: passed, 1 test run.
+
+## 2026-06-07 VFS Cache Repair Internal Executor
+
+What changed:
+
+- Added internal `StorageDiagnosticsAppService::execute_vfs_cache_repair_job`
+  for one explicit `JobKind::VfsCacheRepair` job id.
+- Added a claimed-job helper for future scheduler integration without
+  re-claiming already leased work.
+- The executor claims through `DurableJobRuntime`, validates kind/resource/input
+  and bindings, reloads the current unresolved cache failure by
+  `VfsCacheRepairJobInput::matches_failure`, and then reuses the existing
+  selected-target refresh authority.
+- Added `VfsCacheRepairJobSummary` with only action, source scheme, operation,
+  classification, failure class, failed-at timestamp, failure count, and
+  refreshed cache state.
+- Stale durable input that no longer matches an unresolved failure fails without
+  a backend call and persists only a safe durable job error.
+- Updated `docs/architecture/STORAGE_VFS.md`,
+  `docs/architecture/CONTROL_PLANE.md`, and Trellis code-specs with the shipped
+  internal executor boundary.
+
+Boundaries:
+
+- No Admin/Public API route or DTO was added.
+- No automatic scheduler loop, retry/requeue route, schema migration,
+  purge/delete/invalidation, backend configuration mutation, library file
+  write, or automated repair worker was added.
+- Raw `StorageUri`, local paths, backend URLs, credentials, raw backend errors,
+  etags, fingerprints, cache payloads, and job input JSON remain outside job
+  summary JSON and persisted execution errors.
+
+Validation:
+
+- `cargo check -p nako-server --tests`
+  - Result: passed.
+- `cargo nextest run -p nako-server vfs_cache_repair_job_executor --no-fail-fast`
+  - Result: passed, 2 tests run.
+
+## 2026-06-07 VFS Cache Repair Durable Executor
+
+What changed:
+
+- Added internal `StorageDiagnosticsAppService::execute_vfs_cache_repair_job`
+  and `execute_claimed_vfs_cache_repair_job` for one explicit
+  `JobKind::VfsCacheRepair` job.
+- The executor claims through `DurableJobRuntime` with exact job kind/resource
+  filters, validates safe durable input, and reselects the current unresolved
+  repair target through `VfsCacheRepairJobInput::matches_failure`.
+- Backend-touching refresh reuses the existing selected-target refresh
+  authority, preserving stored failure authority, ambiguous-backend rejection,
+  and `refresh_cache` recommendation checks.
+- Added `VfsCacheRepairJobSummary` with only action, scheme, operation,
+  classification, failure class, failure timestamp/count, and refreshed cache
+  state.
+- Storage execution errors are persisted with only the source scheme and a
+  redacted target marker.
+- Updated storage/control-plane architecture docs and Trellis code-specs to
+  mark internal single-job execution shipped while keeping scheduler/API work
+  as follow-on scope.
+
+Boundaries:
+
+- No Admin/Public API route or DTO was added.
+- No durable scheduler loop, retry/requeue route, schema migration,
+  purge/delete/invalidation, backend configuration mutation, library file
+  write, or automated repair worker was added.
+- Raw `StorageUri`, local paths, backend URLs, credentials, raw backend errors,
+  etags, fingerprints, cache payloads, and job input JSON remain outside
+  durable summary/error surfaces.
+
+Validation:
+
+- `cargo fmt --all -- --check`
+  - Result: passed.
+- `cargo check -p nako-server --tests`
+  - Result: passed.
+- `cargo nextest run -p nako-server vfs_cache_repair_job_executor --no-fail-fast`
+  - Result: passed, 3 tests run.
+- `cargo nextest run -p nako-server runtime_job_resource_class_mapping_maps_known_jobs_to_budget_classes --no-fail-fast`
+  - Result: passed, 1 test run.

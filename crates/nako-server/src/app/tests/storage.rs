@@ -1,4 +1,4 @@
-use super::super::storage::EnqueueVfsCacheRepairTargetOutcome;
+use super::super::storage::{EnqueueVfsCacheRepairTargetOutcome, VfsCacheRepairJobSummary};
 use super::*;
 use nako_core::{
     JobKind, JobListFilter, JobPriority, JobRepository, JobStatus, NewVfsCacheFailure,
@@ -1442,6 +1442,211 @@ async fn vfs_cache_repair_target_enqueue_rejects_non_refresh_target_without_back
     assert_eq!(jobs.len(), 0);
     assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 0);
     assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn vfs_cache_repair_job_executor_refreshes_target_and_persists_safe_summary() {
+    let (_temp, app, store, backend, failure) =
+        vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Unavailable.safe_message())
+            .await;
+    let target = app
+        .storage()
+        .list_vfs_cache_repair_targets(PageRequest::new(10, 0))
+        .await
+        .unwrap()
+        .into_iter()
+        .next()
+        .expect("repair target");
+    let outcome = app
+        .storage()
+        .enqueue_vfs_cache_repair_target(&target.target_ref, Some(JobPriority::High))
+        .await
+        .unwrap();
+    let EnqueueVfsCacheRepairTargetOutcome::Enqueued(job) = outcome else {
+        panic!("expected queued VFS cache repair job");
+    };
+
+    let output = app
+        .storage()
+        .execute_vfs_cache_repair_job(job.id)
+        .await
+        .unwrap();
+    let loaded = store.get_job(job.id).await.unwrap().unwrap();
+    let summary_json = loaded.summary_json.as_deref().expect("job summary");
+    let summary: VfsCacheRepairJobSummary = serde_json::from_str(summary_json).unwrap();
+
+    assert_eq!(output.job.status, JobStatus::Succeeded);
+    assert_eq!(loaded.status, JobStatus::Succeeded);
+    assert_eq!(summary, output.summary);
+    assert_eq!(summary.action, nako_vfs::VfsCacheRepairAction::RefreshCache);
+    assert_eq!(summary.source_scheme, "local");
+    assert_eq!(summary.operation, VfsCacheOperation::Stat);
+    assert_eq!(
+        summary.classification,
+        nako_vfs::VfsCacheRepairClassification::RetryableRefreshFailure
+    );
+    assert_eq!(
+        summary.failure_class,
+        Some(StorageFailureClass::Unavailable)
+    );
+    assert_eq!(summary.failed_at_ms, failure.failed_at_ms);
+    assert_eq!(summary.failure_count, failure.failure_count);
+    assert_eq!(summary.refreshed_cache_state, Some(ObjectCacheState::Fresh));
+    assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
+    assert!(
+        store
+            .get_vfs_cache_object(&failure.uri)
+            .await
+            .unwrap()
+            .is_some()
+    );
+    assert!(
+        nako_core::JobLeaseRepository::claim_next_job_lease(
+            &store,
+            nako_core::JobLeaseClaimRequest {
+                worker_id: nako_core::JobWorkerId::new(),
+                lease_duration_ms: 10_000,
+                filter: nako_core::JobLeaseClaimFilter {
+                    job_id: Some(job.id),
+                    ..nako_core::JobLeaseClaimFilter::default()
+                },
+            },
+        )
+        .await
+        .unwrap()
+        .is_none()
+    );
+    assert!(!summary_json.contains("Hidden Movie"));
+    assert!(!summary_json.contains("Secret Path"));
+    assert!(!summary_json.contains("ExampleUser"));
+    assert!(!summary_json.contains("token=secret"));
+    assert!(!summary_json.contains("local:///"));
+    assert!(!summary_json.contains("storage backend unavailable"));
+    assert!(!summary_json.contains("safe-test-etag"));
+    assert!(!summary_json.contains("safe-test-fingerprint"));
+}
+
+#[tokio::test]
+async fn vfs_cache_repair_job_executor_rejects_stale_input_without_backend_call() {
+    let (_temp, app, store, backend, failure) =
+        vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Unavailable.safe_message())
+            .await;
+    let input = VfsCacheRepairJobInput::from_failure(&failure).unwrap();
+    let job = store
+        .enqueue_job(new_vfs_cache_repair_job(&failure, input))
+        .await
+        .unwrap();
+    store
+        .record_vfs_cache_failure(NewVfsCacheFailure {
+            uri: failure.uri.clone(),
+            scheme: failure.scheme.clone(),
+            operation: failure.operation,
+            failed_at_ms: failure.failed_at_ms + 1_000,
+            error: StorageFailureClass::Unavailable.safe_message().to_owned(),
+            authority: failure.authority.clone(),
+        })
+        .await
+        .unwrap();
+
+    let err = app
+        .storage()
+        .execute_vfs_cache_repair_job(job.id)
+        .await
+        .unwrap_err();
+    let loaded = store.get_job(job.id).await.unwrap().unwrap();
+
+    assert!(matches!(
+        err,
+        NakoError::NotFound { entity, id }
+            if entity == "vfs_cache_repair_target" && id == "job_input"
+    ));
+    assert_eq!(loaded.status, JobStatus::Failed);
+    assert_eq!(
+        loaded.error.as_deref(),
+        Some("not found: vfs_cache_repair_target job_input")
+    );
+    assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
+
+    let error = loaded.error.unwrap_or_default();
+    assert!(!error.contains("Hidden Movie"));
+    assert!(!error.contains("Secret Path"));
+    assert!(!error.contains("ExampleUser"));
+    assert!(!error.contains("token=secret"));
+    assert!(!error.contains("local:///"));
+}
+
+#[tokio::test]
+async fn vfs_cache_repair_job_executor_redacts_backend_failure() {
+    let (temp, app, store, _backend, failure) =
+        vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Unavailable.safe_message())
+            .await;
+    let target = app
+        .storage()
+        .list_vfs_cache_repair_targets(PageRequest::new(10, 0))
+        .await
+        .unwrap()
+        .into_iter()
+        .next()
+        .expect("repair target");
+    let outcome = app
+        .storage()
+        .enqueue_vfs_cache_repair_target(&target.target_ref, None)
+        .await
+        .unwrap();
+    let EnqueueVfsCacheRepairTargetOutcome::Enqueued(job) = outcome else {
+        panic!("expected queued VFS cache repair job");
+    };
+    let failing_backend = Arc::new(StorageHealthCountingBackend::new(StorageErrorKind::Network));
+    let library_id = failure.authority.library_id.expect("library authority");
+    app.storage()
+        .replace_backend_for_test(
+            LocalLibraryConfig {
+                id: library_id,
+                name: "Movies".to_owned(),
+                root: temp.path().join("movies"),
+                preset: nako_core::LibraryPreset::Movies,
+                webdav: None,
+            },
+            Arc::new(CachedStorageBackend::with_options(
+                failing_backend.clone(),
+                store.clone(),
+                VfsCacheOptions {
+                    stat_ttl_ms: 60_000,
+                    list_ttl_ms: 60_000,
+                    serve_stale_on_error: true,
+                    cache_local: true,
+                },
+            )),
+        )
+        .await;
+
+    let err = app
+        .storage()
+        .execute_vfs_cache_repair_job(job.id)
+        .await
+        .unwrap_err();
+    let loaded = store.get_job(job.id).await.unwrap().unwrap();
+    let persisted_error = loaded.error.as_deref().expect("durable job error");
+
+    assert!(matches!(err, NakoError::Storage { uri, kind, message }
+        if uri == "local://<redacted>"
+            && kind == StorageErrorKind::Network
+            && message == StorageFailureClass::Unavailable.safe_message()
+    ));
+    assert_eq!(loaded.status, JobStatus::Failed);
+    assert_eq!(
+        persisted_error,
+        "storage error at local://<redacted>: storage backend unavailable"
+    );
+    assert_eq!(failing_backend.stat_calls.load(Ordering::SeqCst), 1);
+    assert!(!persisted_error.contains("Hidden Movie"));
+    assert!(!persisted_error.contains("Secret Path"));
+    assert!(!persisted_error.contains("ExampleUser"));
+    assert!(!persisted_error.contains("token=secret"));
+    assert!(!persisted_error.contains("local:///"));
+    assert!(!persisted_error.contains("storage health test failure"));
 }
 
 async fn vfs_cache_repair_enqueue_app_with_failure(
