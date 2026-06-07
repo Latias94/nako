@@ -11,9 +11,9 @@ use nako_library::{
     SourceFingerprintHashMode, SourceFingerprintHashReport, SourceFingerprintHashRequest,
 };
 use nako_vfs::StorageUri;
-use time::{OffsetDateTime, UtcOffset, format_description::well_known::Rfc3339};
 
 use super::{
+    job_retry::canonical_retry_next_attempt,
     job_runtime::{DurableJobOperationError, DurableJobRunOutcome, DurableJobRuntime},
     storage::StorageBackendRegistry,
 };
@@ -502,25 +502,11 @@ fn update_earliest_timestamp(current: &mut Option<String>, candidate: &Option<St
 fn canonical_source_fingerprint_hash_retry_next_attempt(
     next_attempt_at: &Option<String>,
 ) -> Result<Option<String>> {
-    let Some(next_attempt_at) = next_attempt_at else {
-        return Ok(None);
-    };
-
-    let parsed = OffsetDateTime::parse(next_attempt_at, &Rfc3339).map_err(|_err| {
-        NakoError::InvalidInput {
-            message: "source fingerprint hash retry next_attempt_at must be an RFC3339 timestamp"
-                .to_owned(),
-        }
-    })?;
-    let canonical = parsed
-        .to_offset(UtcOffset::UTC)
-        .format(&Rfc3339)
-        .map_err(|_err| NakoError::InvalidInput {
-            message: "source fingerprint hash retry next_attempt_at could not be canonicalized"
-                .to_owned(),
-        })?;
-
-    Ok(Some(canonical))
+    canonical_retry_next_attempt(
+        next_attempt_at,
+        "source fingerprint hash retry next_attempt_at must be an RFC3339 timestamp",
+        "source fingerprint hash retry next_attempt_at could not be canonicalized",
+    )
 }
 
 fn redact_source_fingerprint_hash_execution_error(

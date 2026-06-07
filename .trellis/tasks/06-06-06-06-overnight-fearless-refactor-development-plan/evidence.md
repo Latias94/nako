@@ -265,3 +265,60 @@ Validation:
   - Result: passed.
 - `git diff --check`
   - Result: passed with only Git LF/CRLF working-copy warnings.
+
+## 2026-06-07 VFS Cache Repair Internal Retry Seam
+
+What changed:
+
+- Added an internal
+  `StorageDiagnosticsAppService::retry_vfs_cache_repair_job` command that
+  creates a new queued durable retry from a failed `JobKind::VfsCacheRepair`
+  job while preserving the failed source job as audit history.
+- The retry command validates the failed job kind, resource class, durable
+  input, library/source bindings, failed status, and a current unresolved
+  `refresh_cache` target before delegating row creation to
+  `JobRepository::enqueue_job_retry`.
+- Delayed retry timestamps are parsed as RFC3339 and persisted as canonical UTC
+  RFC3339 through a shared `app::job_retry` helper also used by source
+  fingerprint hash retry.
+- Due VFS cache repair retries continue through the existing disk-scan
+  scheduler and executor path; future retries remain queued and unclaimable
+  until due.
+- Updated `docs/architecture/STORAGE_VFS.md`,
+  `docs/architecture/CONTROL_PLANE.md`, and
+  `.trellis/spec/nako-server/backend/quality-guidelines.md` to mark only the
+  internal retry seam shipped while keeping Admin retry/requeue routes,
+  purge/delete/invalidation, backend mutation, library file writes, and
+  automated repair policy as follow-ons.
+
+Boundaries:
+
+- No Admin/Public API route, public DTO, schema migration, config shape,
+  production dependency, cache purge/delete/invalidation behavior, backend
+  configuration mutation, library file write, or automated repair policy was
+  added.
+- The retry seam does not accept raw `StorageUri`, target refs, local paths,
+  backend URLs, URI digests, durable input JSON, cache payloads, etags,
+  fingerprints, credentials, or raw backend error material from callers.
+- Failed source jobs remain failed; retries are new queued jobs linked by
+  `retry_of_job_id`.
+
+Validation:
+
+- `cargo fmt --package nako-server -- --check`
+  - Result: passed.
+- `git diff --check`
+  - Result: passed with only Git LF/CRLF working-copy warnings.
+- `python ./.trellis/scripts/task.py validate .trellis/tasks/06-06-06-06-overnight-fearless-refactor-development-plan`
+  - Result: passed.
+- `cargo check -p nako-server --tests`
+  - Result: passed.
+- `cargo nextest run -p nako-server vfs_cache_repair_retry --no-fail-fast`
+  - Result: passed, 3 tests run.
+- `cargo nextest run -p nako-server source_fingerprint_hash_retry --no-fail-fast`
+  - Result: passed, 11 tests run.
+- `cargo nextest run -p nako-server vfs_cache_repair --no-fail-fast`
+  - Result: passed, 27 tests run.
+- Independent check agent `Leibniz`
+  - Result: no blocking or non-blocking issues; recommended committing the
+    internal VFS cache repair retry seam.

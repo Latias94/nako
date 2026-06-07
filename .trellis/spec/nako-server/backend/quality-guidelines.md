@@ -67,6 +67,17 @@ Use these gates for `crates/nako-server` feature work.
   calls. Keep Admin routes, automatic scheduler loops, retry/requeue routes,
   purge/delete/invalidation, backend configuration mutation, and library file
   writes out of single-job executor slices.
+- Internal VFS cache repair retry changes must create a new queued retry from
+  a failed `JobKind::VfsCacheRepair` job only after validating kind, resource
+  class, redaction-safe input, library/source bindings, failed status, and a
+  current unresolved `refresh_cache` target. The original failed job remains
+  audit history, delayed `next_attempt_at` values are canonical UTC RFC3339,
+  future retries are not claimable, due retries keep using the existing
+  disk-scan scheduler path, and errors/responses must not leak raw URI, path,
+  target ref, input JSON, etag, fingerprint, credential, or backend error
+  material. Keep Admin routes, purge/delete/invalidation, backend
+  configuration mutation, library file writes, and automated repair policy out
+  of retry-only slices.
 - Admin VFS cache repair manual command changes must accept only opaque
   `target_ref` values or explicit durable job IDs, return only safe job facts
   and summary facts, inherit the existing Admin route guard, and keep automatic
@@ -369,6 +380,63 @@ async fn execute(State(app): State<NakoApp>, Path(job_id): Path<JobId>) -> ApiRe
 
 The route is a thin Admin boundary; the app service owns claim, validation,
 target reselection, backend selection, mutation, and summary redaction.
+
+## Scenario: Internal VFS Cache Repair Retry Seam
+
+### 1. Scope / Trigger
+
+- Trigger: adding or changing internal app-service retry behavior for failed
+  `JobKind::VfsCacheRepair` jobs in `nako-server::app::storage`.
+- Purpose: preserve failed repair jobs as audit history while creating a new
+  durable queued retry that keeps all VFS cache repair redaction and current
+  target validation rules.
+
+### 2. Signatures
+
+- Service command:
+  `StorageDiagnosticsAppService::retry_vfs_cache_repair_job(RetryVfsCacheRepairJobRequest) -> Result<Job>`.
+- Request:
+  `RetryVfsCacheRepairJobRequest { job_id, max_attempts, next_attempt_at }`.
+- Durable retry:
+  `JobRepository::enqueue_job_retry(EnqueueJobRetry { source_job_id, retry_job_id, max_attempts, next_attempt_at })`.
+
+### 3. Contracts
+
+- Retry is internal until a separate Admin route slice explicitly owns the
+  public DTO, route inventory, auth guard, and response redaction contract.
+- The source job must be `JobKind::VfsCacheRepair`, use
+  `VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS`, contain a valid
+  `VfsCacheRepairJobInput`, have no source binding, and have a library binding
+  matching the input authority when the input is library-scoped.
+- Only failed VFS cache repair jobs can be retried. Queued, running, canceled,
+  or succeeded jobs must not create retry rows.
+- Retry must reselect a current unresolved failure with
+  `VfsCacheRepairJobInput::matches_failure`; stale durable inputs fail without
+  backend calls.
+- Retry delegates durable row creation to `JobRepository::enqueue_job_retry`.
+  It must not reset the failed source job in place or bypass generic durable
+  retry attempt validation.
+- Omitted `max_attempts` uses `max(source.max_attempts, source.attempt + 1)`.
+- `next_attempt_at`, when present, must parse as RFC3339 and be persisted as
+  canonical UTC RFC3339 so queue ordering remains lexicographic.
+- Future-dated retries remain queued but are not claimable until due. Due
+  retries continue through the existing disk-scan scheduler path.
+
+### 4. Tests Required
+
+- `cargo nextest run -p nako-server vfs_cache_repair_retry --no-fail-fast`.
+- Assert a delayed retry copies safe input/resource/priority/library binding,
+  points `retry_of_job_id` at the failed source job, increments attempt, stores
+  canonical UTC `next_attempt_at`, and is not claimable before it is due.
+- Assert a due retry is scheduled through `schedule_queued_library_scans`,
+  executes through the VFS cache repair executor, and persists only the
+  redaction-safe summary.
+- Assert queued/non-failed, wrong-kind, malformed-input, stale-input,
+  exhausted-attempt, invalid-`max_attempts`, and invalid-`next_attempt_at`
+  cases create no retry row and do not leak raw URI, path, target ref, input
+  JSON, etag, fingerprint, credential, or backend error material.
+- Also run source-hash retry tests when touching shared retry timestamp
+  helpers: `cargo nextest run -p nako-server source_fingerprint_hash_retry --no-fail-fast`.
 
 ## Gate Selection
 

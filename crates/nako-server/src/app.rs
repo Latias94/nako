@@ -35,6 +35,7 @@ mod automation;
 pub(crate) mod casting;
 mod catalog;
 mod composition;
+mod job_retry;
 mod job_runtime;
 mod jobs;
 mod library;

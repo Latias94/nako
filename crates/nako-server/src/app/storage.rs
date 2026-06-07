@@ -22,14 +22,14 @@ use nako_api::admin::{
     StorageBackendStatus,
 };
 use nako_core::{
-    Job, JobId, JobKind, JobLeaseClaimFilter, JobListFilter, JobPriority, JobRepository, JobStatus,
-    LeasedJob, Library, LibraryId, LibraryRepository, MediaSource, NakoError, NewJob, PageRequest,
-    Result, StagingAttribution, StagingManifestRecord, StagingManifestRepository, StagingPurpose,
-    StagingState, StorageBackendHealthListFilter, StorageBackendHealthRecord,
-    StorageBackendHealthRepository, StorageBackendHealthStatus, StorageCircuitBreakerState,
-    StorageFailureClass, VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS, VfsCacheFailure,
-    VfsCacheFailureAuthority, VfsCacheOperation, VfsCacheRepairJobInput, VfsCacheRepository,
-    VfsCacheSummary,
+    EnqueueJobRetry, Job, JobId, JobKind, JobLeaseClaimFilter, JobListFilter, JobPriority,
+    JobRepository, JobStatus, LeasedJob, Library, LibraryId, LibraryRepository, MediaSource,
+    NakoError, NewJob, PageRequest, Result, StagingAttribution, StagingManifestRecord,
+    StagingManifestRepository, StagingPurpose, StagingState, StorageBackendHealthListFilter,
+    StorageBackendHealthRecord, StorageBackendHealthRepository, StorageBackendHealthStatus,
+    StorageCircuitBreakerState, StorageFailureClass, VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS,
+    VfsCacheFailure, VfsCacheFailureAuthority, VfsCacheOperation, VfsCacheRepairJobInput,
+    VfsCacheRepository, VfsCacheSummary,
 };
 use nako_db::NakoDatabase;
 use nako_vfs::{
@@ -39,6 +39,7 @@ use nako_vfs::{
 use serde::{Deserialize, Serialize};
 
 use super::current_time_ms;
+use super::job_retry::canonical_retry_next_attempt;
 use super::job_runtime::{DurableJobOperationError, DurableJobRunOutcome, DurableJobRuntime};
 
 type VfsCacheRepairTargetRefMac = Hmac<Sha256>;
@@ -214,6 +215,13 @@ pub(crate) struct VfsCacheRepairTargetPreviewReport {
 pub(crate) enum EnqueueVfsCacheRepairTargetOutcome {
     Enqueued(Job),
     AlreadyQueued(Job),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct RetryVfsCacheRepairJobRequest {
+    pub(crate) job_id: JobId,
+    pub(crate) max_attempts: Option<u32>,
+    pub(crate) next_attempt_at: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -907,6 +915,37 @@ impl StorageDiagnosticsAppService {
             .map(EnqueueVfsCacheRepairTargetOutcome::Enqueued)
     }
 
+    pub(crate) async fn retry_vfs_cache_repair_job(
+        &self,
+        request: RetryVfsCacheRepairJobRequest,
+    ) -> Result<Job> {
+        let next_attempt_at =
+            canonical_vfs_cache_repair_retry_next_attempt(&request.next_attempt_at)?;
+        let source = self.vfs_cache_repair_job(request.job_id).await?;
+        let input = vfs_cache_repair_job_input_from_job(&source)?;
+        validate_vfs_cache_repair_job_bindings(&source, &input)?;
+        if source.status != JobStatus::Failed {
+            return Err(NakoError::Conflict {
+                message: "only failed VFS cache repair jobs can be retried".to_owned(),
+            });
+        }
+
+        self.vfs_cache_repair_failure_for_job_input(&input).await?;
+        let max_attempts = request
+            .max_attempts
+            .unwrap_or_else(|| source.max_attempts.max(source.attempt.saturating_add(1)));
+
+        self.registry
+            .store
+            .enqueue_job_retry(EnqueueJobRetry {
+                source_job_id: source.id,
+                retry_job_id: JobId::new(),
+                max_attempts,
+                next_attempt_at,
+            })
+            .await
+    }
+
     pub(crate) async fn execute_vfs_cache_repair_job(
         &self,
         job_id: JobId,
@@ -1001,6 +1040,17 @@ impl StorageDiagnosticsAppService {
         }
 
         Ok(None)
+    }
+
+    async fn vfs_cache_repair_job(&self, job_id: JobId) -> Result<Job> {
+        self.registry
+            .store
+            .get_job(job_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "job",
+                id: job_id.to_string(),
+            })
     }
 
     async fn run_vfs_cache_repair_job_from_job(
@@ -2360,6 +2410,16 @@ fn vfs_cache_repair_job_target_not_found() -> NakoError {
 
 fn vfs_cache_repair_job_summary_json(summary: &VfsCacheRepairJobSummary) -> Result<Option<String>> {
     DurableJobRuntime::serialize_summary(summary, "VFS cache repair job summary")
+}
+
+fn canonical_vfs_cache_repair_retry_next_attempt(
+    next_attempt_at: &Option<String>,
+) -> Result<Option<String>> {
+    canonical_retry_next_attempt(
+        next_attempt_at,
+        "VFS cache repair retry next_attempt_at must be an RFC3339 timestamp",
+        "VFS cache repair retry next_attempt_at could not be canonicalized",
+    )
 }
 
 fn vfs_cache_repair_job_input_from_job(job: &Job) -> Result<VfsCacheRepairJobInput> {

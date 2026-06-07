@@ -1,4 +1,6 @@
-use super::super::storage::{EnqueueVfsCacheRepairTargetOutcome, VfsCacheRepairJobSummary};
+use super::super::storage::{
+    EnqueueVfsCacheRepairTargetOutcome, RetryVfsCacheRepairJobRequest, VfsCacheRepairJobSummary,
+};
 use super::*;
 use crate::app::jobs::LibraryScanScheduleOutcome;
 use nako_core::{
@@ -1652,6 +1654,248 @@ async fn vfs_cache_repair_job_executor_redacts_backend_failure() {
 }
 
 #[tokio::test]
+async fn vfs_cache_repair_retry_creates_safe_delayed_retry_job() {
+    let (_temp, app, store, backend, failure) =
+        vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Unavailable.safe_message())
+            .await;
+    let input = VfsCacheRepairJobInput::from_failure(&failure).unwrap();
+    let failed = fail_vfs_cache_repair_retry_source_job(
+        &store,
+        new_vfs_cache_repair_job(&failure, input.clone()),
+    )
+    .await;
+
+    let retry = app
+        .storage()
+        .retry_vfs_cache_repair_job(RetryVfsCacheRepairJobRequest {
+            job_id: failed.id,
+            max_attempts: Some(3),
+            next_attempt_at: Some("9999-01-01T08:00:00+08:00".to_owned()),
+        })
+        .await
+        .unwrap();
+    let retry_input_json = retry.input_json.as_deref().expect("retry input json");
+    let retry_input: VfsCacheRepairJobInput = serde_json::from_str(retry_input_json).unwrap();
+    let claim = nako_core::JobLeaseRepository::claim_next_job_lease(
+        &store,
+        nako_core::JobLeaseClaimRequest {
+            worker_id: nako_core::JobWorkerId::new(),
+            lease_duration_ms: 10_000,
+            filter: nako_core::JobLeaseClaimFilter {
+                job_id: Some(retry.id),
+                kind: Some(JobKind::VfsCacheRepair),
+                resource_class: Some(VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS.to_owned()),
+                ..nako_core::JobLeaseClaimFilter::default()
+            },
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_ne!(retry.id, failed.id);
+    assert_eq!(retry.kind, JobKind::VfsCacheRepair);
+    assert_eq!(retry.status, JobStatus::Queued);
+    assert_eq!(retry.resource_class, VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS);
+    assert_eq!(retry.priority, JobPriority::Normal);
+    assert_eq!(retry.library_id, failure.authority.library_id);
+    assert_eq!(retry.source_id, None);
+    assert_eq!(retry.input_json, failed.input_json);
+    assert_eq!(retry_input, input);
+    assert_eq!(retry.attempt, 2);
+    assert_eq!(retry.max_attempts, 3);
+    assert_eq!(retry.retry_of_job_id, Some(failed.id));
+    assert_eq!(
+        retry.next_attempt_at.as_deref(),
+        Some("9999-01-01T00:00:00Z")
+    );
+    assert!(claim.is_none(), "future retry must not be claimable");
+    assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
+    assert_vfs_cache_repair_retry_payload_redacted(retry_input_json);
+}
+
+#[tokio::test]
+async fn vfs_cache_repair_retry_scheduler_executes_due_job() {
+    let (_temp, app, store, backend, failure) =
+        vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Unavailable.safe_message())
+            .await;
+    let input = VfsCacheRepairJobInput::from_failure(&failure).unwrap();
+    let failed =
+        fail_vfs_cache_repair_retry_source_job(&store, new_vfs_cache_repair_job(&failure, input))
+            .await;
+
+    let retry = app
+        .storage()
+        .retry_vfs_cache_repair_job(RetryVfsCacheRepairJobRequest {
+            job_id: failed.id,
+            max_attempts: Some(3),
+            next_attempt_at: Some("0001-01-01T00:00:00Z".to_owned()),
+        })
+        .await
+        .unwrap();
+
+    let schedule = app
+        .library_scan()
+        .schedule_queued_library_scans()
+        .await
+        .unwrap();
+    wait_for_vfs_cache_repair_runtime_job(&app).await;
+    let loaded = store.get_job(retry.id).await.unwrap().unwrap();
+    let summary_json = loaded.summary_json.as_deref().expect("job summary");
+    let summary: VfsCacheRepairJobSummary = serde_json::from_str(summary_json).unwrap();
+    let claim = nako_core::JobLeaseRepository::claim_next_job_lease(
+        &store,
+        nako_core::JobLeaseClaimRequest {
+            worker_id: nako_core::JobWorkerId::new(),
+            lease_duration_ms: 10_000,
+            filter: nako_core::JobLeaseClaimFilter {
+                job_id: Some(retry.id),
+                ..nako_core::JobLeaseClaimFilter::default()
+            },
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(schedule, LibraryScanScheduleOutcome::Scheduled(retry.id));
+    assert_eq!(loaded.status, JobStatus::Succeeded);
+    assert_eq!(loaded.retry_of_job_id, Some(failed.id));
+    assert_eq!(loaded.next_attempt_at, None);
+    assert_eq!(summary.action, nako_vfs::VfsCacheRepairAction::RefreshCache);
+    assert_eq!(summary.source_scheme, "local");
+    assert_eq!(summary.operation, VfsCacheOperation::Stat);
+    assert_eq!(
+        summary.classification,
+        nako_vfs::VfsCacheRepairClassification::RetryableRefreshFailure
+    );
+    assert_eq!(
+        summary.failure_class,
+        Some(StorageFailureClass::Unavailable)
+    );
+    assert_eq!(summary.failed_at_ms, failure.failed_at_ms);
+    assert_eq!(summary.failure_count, failure.failure_count);
+    assert_eq!(summary.refreshed_cache_state, Some(ObjectCacheState::Fresh));
+    assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
+    assert!(claim.is_none());
+    assert_vfs_cache_repair_retry_payload_redacted(summary_json);
+    assert!(!summary_json.contains("safe-test-etag"));
+    assert!(!summary_json.contains("safe-test-fingerprint"));
+}
+
+#[tokio::test]
+async fn vfs_cache_repair_retry_rejects_invalid_states_without_retry_or_leak() {
+    let (_temp, app, store, _backend, failure) =
+        vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Unavailable.safe_message())
+            .await;
+    let input = VfsCacheRepairJobInput::from_failure(&failure).unwrap();
+    let queued = store
+        .enqueue_job(new_vfs_cache_repair_job(&failure, input.clone()))
+        .await
+        .unwrap();
+    let exhausted = fail_vfs_cache_repair_retry_source_job(
+        &store,
+        new_vfs_cache_repair_job(&failure, input.clone()),
+    )
+    .await;
+    let wrong_kind = fail_vfs_cache_repair_retry_source_job(
+        &store,
+        NewJob {
+            kind: JobKind::LibraryScan,
+            ..new_vfs_cache_repair_job(&failure, input.clone())
+        },
+    )
+    .await;
+    let malformed_input = fail_vfs_cache_repair_retry_source_job(
+        &store,
+        NewJob {
+            input_json: Some(
+                "{\"uri\":\"local:///Users/ExampleUser/Secret Path/Hidden Movie.mkv?token=secret\""
+                    .to_owned(),
+            ),
+            ..new_vfs_cache_repair_job(&failure, input.clone())
+        },
+    )
+    .await;
+    let stale = fail_vfs_cache_repair_retry_source_job(
+        &store,
+        NewJob {
+            input_json: Some(
+                serde_json::to_string(
+                    &VfsCacheRepairJobInput::new(
+                        VfsCacheRepairJobAction::RefreshCache,
+                        failure.scheme.clone(),
+                        failure.operation,
+                        failure.failed_at_ms + 10_000,
+                        failure.failure_count,
+                        vfs_cache_repair_uri_digest(
+                            "local:///Users/ExampleUser/Secret Path/Hidden Movie.mkv?token=secret",
+                        ),
+                        failure.authority.clone(),
+                    )
+                    .unwrap(),
+                )
+                .unwrap(),
+            ),
+            ..new_vfs_cache_repair_job(&failure, input)
+        },
+    )
+    .await;
+
+    let queued_message =
+        retry_vfs_cache_repair_job_expect_err_without_retry(&app, &store, queued.id, None).await;
+    let exhausted_message =
+        retry_vfs_cache_repair_job_expect_err_without_retry(&app, &store, exhausted.id, Some(1))
+            .await;
+    let wrong_kind_message =
+        retry_vfs_cache_repair_job_expect_err_without_retry(&app, &store, wrong_kind.id, None)
+            .await;
+    let malformed_input_message =
+        retry_vfs_cache_repair_job_expect_err_without_retry(&app, &store, malformed_input.id, None)
+            .await;
+    let invalid_next_attempt_at_message =
+        retry_vfs_cache_repair_job_request_expect_err_without_retry(
+            &app,
+            &store,
+            RetryVfsCacheRepairJobRequest {
+                job_id: stale.id,
+                max_attempts: Some(3),
+                next_attempt_at: Some(
+                    "local:///Users/ExampleUser/Secret Path/not-a-time?token=secret".to_owned(),
+                ),
+            },
+        )
+        .await;
+    let stale_message =
+        retry_vfs_cache_repair_job_expect_err_without_retry(&app, &store, stale.id, None).await;
+
+    assert_eq!(
+        queued_message,
+        "conflict: only failed VFS cache repair jobs can be retried"
+    );
+    assert_eq!(
+        exhausted_message,
+        "conflict: job retry attempts are exhausted"
+    );
+    assert_eq!(
+        wrong_kind_message,
+        "invalid input: job is not a VFS cache repair job"
+    );
+    assert_eq!(
+        malformed_input_message,
+        "invalid input: VFS cache repair job input is invalid"
+    );
+    assert_eq!(
+        invalid_next_attempt_at_message,
+        "invalid input: VFS cache repair retry next_attempt_at must be an RFC3339 timestamp"
+    );
+    assert_eq!(
+        stale_message,
+        "not found: vfs_cache_repair_target job_input"
+    );
+}
+
+#[tokio::test]
 async fn vfs_cache_repair_scheduler_executes_queued_job_and_persists_safe_summary() {
     let (_temp, app, store, backend, failure) =
         vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Unavailable.safe_message())
@@ -1988,6 +2232,86 @@ async fn wait_for_vfs_cache_repair_runtime_failure(app: &NakoApp) {
         "VFS cache repair scheduler job did not fail as expected: {:?}",
         app.runtime_diagnostics()
     );
+}
+
+async fn fail_vfs_cache_repair_retry_source_job(
+    store: &NakoDatabase,
+    job: NewJob,
+) -> nako_core::Job {
+    let job = store.enqueue_job(job).await.unwrap();
+    store.start_job(job.id).await.unwrap();
+    store
+        .fail_job(
+            job.id,
+            "VFS cache repair failed for local:///Users/ExampleUser/Secret Path/Hidden Movie.mkv?token=secret input_json safe-test-etag safe-test-fingerprint".to_owned(),
+        )
+        .await
+        .unwrap()
+}
+
+async fn retry_vfs_cache_repair_job_expect_err_without_retry(
+    app: &NakoApp,
+    store: &NakoDatabase,
+    job_id: JobId,
+    max_attempts: Option<u32>,
+) -> String {
+    retry_vfs_cache_repair_job_request_expect_err_without_retry(
+        app,
+        store,
+        RetryVfsCacheRepairJobRequest {
+            job_id,
+            max_attempts,
+            next_attempt_at: None,
+        },
+    )
+    .await
+}
+
+async fn retry_vfs_cache_repair_job_request_expect_err_without_retry(
+    app: &NakoApp,
+    store: &NakoDatabase,
+    request: RetryVfsCacheRepairJobRequest,
+) -> String {
+    let job_id = request.job_id;
+    let err = app
+        .storage()
+        .retry_vfs_cache_repair_job(request)
+        .await
+        .unwrap_err();
+    let message = err.to_string();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert!(
+        jobs.iter().all(|job| job.retry_of_job_id != Some(job_id)),
+        "VFS cache repair retry error must not create retry job: {message}"
+    );
+    assert_vfs_cache_repair_retry_payload_redacted(&message);
+
+    message
+}
+
+fn assert_vfs_cache_repair_retry_payload_redacted(payload: &str) {
+    for forbidden in [
+        "Hidden Movie",
+        "Secret Path",
+        "ExampleUser",
+        "token",
+        "local:///",
+        "webdav:///",
+        "input_json",
+        "safe-test-etag",
+        "safe-test-fingerprint",
+        "storage health test failure",
+        "storage backend unavailable",
+    ] {
+        assert!(
+            !payload.contains(forbidden),
+            "VFS cache repair retry payload leaked {forbidden:?}: {payload}"
+        );
+    }
 }
 
 async fn vfs_cache_repair_enqueue_app_with_failure(
