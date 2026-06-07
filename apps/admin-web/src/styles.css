@@ -1835,6 +1835,13 @@ td {
   gap: 6px;
 }
 
+.jobActionList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
 .jobsPrimaryCell span,
 .jobsLifecycleCell span,
 .routePrimaryCell span {

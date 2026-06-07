@@ -54,6 +54,7 @@ export type {
   AdminGeneratedArtifactReviewResponse,
   AdminItemArtworkGalleryQuery,
   AdminJobPriority,
+  AdminJobCancelRequestResponse,
   AdminJobListItem,
   AdminJobListResponse,
   AdminJobQueuePressureSummary,

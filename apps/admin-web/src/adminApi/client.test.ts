@@ -21,6 +21,7 @@ import {
   mockGeneratedArtifactProposals,
   mockGeneratedArtifactReviewPlan,
   mockGeneratedArtifactReviewResponse,
+  mockJobCancelRequestResponse,
   mockJobs,
   mockLibraryMetadataProfile,
   mockMetadataRawCacheSettings,
@@ -583,6 +584,39 @@ describe("AdminApiClient", () => {
         },
       ],
     ]);
+  });
+
+  it("posts Job cancellation through the generated route with encoded job IDs", async () => {
+    const fetcher = vi.fn(async () =>
+      Response.json({
+        ...mockJobCancelRequestResponse,
+        job: {
+          ...mockJobCancelRequestResponse.job,
+          id: "job/unsafe id",
+        },
+      }),
+    );
+    const client = new AdminApiClient({ fetcher });
+
+    await expect(client.cancelJob("job/unsafe id")).resolves.toMatchObject({
+      requested: true,
+      terminal: true,
+      job: {
+        id: "job/unsafe id",
+        status: "cancelled",
+      },
+    });
+
+    expect(fetcher).toHaveBeenCalledWith(
+      NAKO_ADMIN_ROUTES.jobCancel.replace(
+        "{job_id}",
+        encodeURIComponent("job/unsafe id"),
+      ),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
+    );
   });
 
   it("sends Addon lifecycle and diagnostic mutations through Admin-only routes", async () => {

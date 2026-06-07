@@ -33,6 +33,7 @@ import type {
   AdminItemArtworkGalleryQuery,
   AdminManagedArtworkGalleryResponse,
   AdminSelectItemArtworkRequest,
+  AdminJobCancelRequestResponse,
   AdminJobCommandResponse,
   AdminJobListItem,
   AdminLibraryMetadataProfileResponse,
@@ -366,6 +367,13 @@ export class AdminApiClient {
 
   async getJobs(query: AdminJobsQuery = {}): Promise<AdminJobListResponse> {
     return this.getJson<AdminJobListResponse>(withQuery(NAKO_ADMIN_ROUTES.jobs, query));
+  }
+
+  async cancelJob(jobId: string): Promise<AdminJobCancelRequestResponse> {
+    return this.postJson<AdminJobCancelRequestResponse>(
+      routeWithParam(NAKO_ADMIN_ROUTES.jobCancel, "job_id", jobId),
+      {},
+    );
   }
 
   async getPlaybackSessions(

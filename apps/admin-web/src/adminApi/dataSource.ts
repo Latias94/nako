@@ -66,6 +66,7 @@ import type {
   AdminArtworkKind,
   AdminItemArtworkGalleryQuery,
   AdminManagedArtworkGalleryResponse,
+  AdminJobCancelRequestResponse,
   AdminJobCommandResponse,
   AdminJobListItem,
   AdminJobListResponse,
@@ -164,6 +165,7 @@ export type AdminDataSource = {
   loadOverview?(): Promise<AdminSectionResult<AdminOverviewResponse>>;
   loadAddons?(query?: AdminAddonsQuery): Promise<AdminSectionResult<AddonsRouteSummary>>;
   loadJobs?(query?: AdminJobsQuery): Promise<AdminSectionResult<AdminJobListResponse>>;
+  cancelJob?(jobId: string): Promise<AdminJobCancelRequestResponse>;
   loadLibraries?(): Promise<AdminSectionResult<AdminServerConfigDiagnosticsResponse>>;
   loadLibraryDetail?(libraryId: string): Promise<AdminSectionResult<LibraryManagementDetail>>;
   loadSettings?(): Promise<AdminSectionResult<AdminServerConfigDiagnosticsResponse>>;
@@ -409,6 +411,9 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
     },
     async loadJobs(query = {}) {
       return loadSection(() => client.getJobs(query), mockJobs);
+    },
+    async cancelJob(jobId) {
+      return client.cancelJob(jobId);
     },
     async loadOverview() {
       return loadSection(() => client.getOverview(), mockOverview);

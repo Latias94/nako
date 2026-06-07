@@ -63,6 +63,7 @@ export const NAKO_ADMIN_ROUTES = {
   metadataCandidateReviewRelatedHierarchyApply: "/admin/v1/metadata/candidate-reviews/{review_id}/related-hierarchy/apply",
   events: "/admin/v1/events",
   jobs: "/admin/v1/jobs",
+  jobCancel: "/admin/v1/jobs/{job_id}/cancel",
   sourceFingerprintHashes: "/admin/v1/source-fingerprint-hashes",
   sourceFingerprintHashJobRetry: "/admin/v1/source-fingerprint-hashes/jobs/{job_id}/retry",
   sourceDuplicateReconciliationPlan: "/admin/v1/libraries/{library_id}/sources/{source_id}/duplicate-reconciliation-plan",
@@ -2455,6 +2456,13 @@ export interface AdminJobListResponse {
   jobs: AdminJobListItem[];
   queue_pressure: AdminJobQueuePressureSummary[];
   page: PageInfo;
+}
+
+export interface AdminJobCancelRequestResponse {
+  job: AdminJobListItem;
+  requested: boolean;
+  terminal: boolean;
+  cancel_requested_at: string | null;
 }
 
 export interface AdminPlaybackSessionListItem {

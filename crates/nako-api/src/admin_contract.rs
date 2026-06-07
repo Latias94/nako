@@ -18,7 +18,7 @@ struct AdminRouteExclusionSuffix {
     reason: &'static str,
 }
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 89] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 90] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -183,6 +183,7 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 89] = [
     ),
     ("events", "events"),
     ("jobs", "jobs"),
+    ("jobCancel", "jobs/{job_id}/cancel"),
     ("sourceFingerprintHashes", "source-fingerprint-hashes"),
     (
         "sourceFingerprintHashJobRetry",
@@ -266,7 +267,7 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 89] = [
     ("settingsMetadataRawCache", "settings/metadata/raw-cache"),
 ];
 
-const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 25] = [
+const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 24] = [
     AdminRouteExclusionSuffix {
         suffix: "access/invitations",
         reason: "Invitation lifecycle routes are implemented for Admin operators but are not generated as Admin Web route constants in this slice.",
@@ -358,10 +359,6 @@ const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 25] = [
     AdminRouteExclusionSuffix {
         suffix: "events/{event_id}/addon-events/replay",
         reason: "Addon event delivery control routes are server-side operator workflows not generated as Admin Web route constants in this slice.",
-    },
-    AdminRouteExclusionSuffix {
-        suffix: "jobs/{job_id}/cancel",
-        reason: "Job cancellation is an Admin command endpoint and is not generated as an Admin Web route constant in this slice.",
     },
     AdminRouteExclusionSuffix {
         suffix: "settings/playback/runtime",
@@ -2807,6 +2804,13 @@ export interface AdminJobListResponse {
   page: PageInfo;
 }
 
+export interface AdminJobCancelRequestResponse {
+  job: AdminJobListItem;
+  requested: boolean;
+  terminal: boolean;
+  cancel_requested_at: string | null;
+}
+
 export interface AdminPlaybackSessionListItem {
   id: string;
   principal_id: string;
@@ -4360,6 +4364,7 @@ mod tests {
             "AdminVfsCacheRepairJobFailureDiagnostic",
             "AdminJobQueuePressureSummary",
             "AdminJobCommandResponse",
+            "AdminJobCancelRequestResponse",
             "AdminStorageBackendsQuery",
             "AdminStorageStagingQuery",
             "AdminStorageStagingPressureStatus",

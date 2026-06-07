@@ -22,6 +22,7 @@ import {
   mockGeneratedArtifactProposals,
   mockGeneratedArtifactReviewPlan,
   mockGeneratedArtifactReviewResponse,
+  mockJobCancelRequestResponse,
   mockJobs,
   mockLibraryMetadataProfile,
   mockMetadataRawCacheSettings,
@@ -2253,9 +2254,11 @@ describe("Admin data source", () => {
     });
   });
 
-  it("posts VFS Cache repair mutations without mock success fallback", async () => {
+  it("posts Job cancellation and VFS Cache repair mutations without mock success fallback", async () => {
     const targetRef = "webdav/list stale";
     const encodedTargetRef = "webdav%2Flist%20stale";
+    const cancelJobId = "job/cancel me";
+    const encodedCancelJobId = "job%2Fcancel%20me";
     const jobId = "job/vfs repair";
     const encodedJobId = "job%2Fvfs%20repair";
     const seenRequests: Array<{ body: unknown; method: string; path: string }> = [];
@@ -2268,6 +2271,15 @@ describe("Admin data source", () => {
           path: url.pathname,
         });
 
+        if (url.pathname === NAKO_ADMIN_ROUTES.jobCancel.replace("{job_id}", encodedCancelJobId)) {
+          return Response.json({
+            ...mockJobCancelRequestResponse,
+            job: {
+              ...mockJobCancelRequestResponse.job,
+              id: cancelJobId,
+            },
+          });
+        }
         if (url.pathname === NAKO_ADMIN_ROUTES.storageVfsCacheRepairRefreshCache) {
           return Response.json(mockVfsCacheRefreshResponse);
         }
@@ -2315,6 +2327,14 @@ describe("Admin data source", () => {
       },
     });
 
+    await expect(liveSource.cancelJob?.(cancelJobId)).resolves.toMatchObject({
+      requested: true,
+      terminal: true,
+      job: {
+        id: cancelJobId,
+        status: "cancelled",
+      },
+    });
     await expect(liveSource.refreshLatestVfsCacheRepair?.()).resolves.toMatchObject({
       refreshed: true,
       action: "refresh_cache",
@@ -2364,6 +2384,11 @@ describe("Admin data source", () => {
     });
 
     expect(seenRequests).toEqual([
+      {
+        path: NAKO_ADMIN_ROUTES.jobCancel.replace("{job_id}", encodedCancelJobId),
+        method: "POST",
+        body: {},
+      },
       {
         path: NAKO_ADMIN_ROUTES.storageVfsCacheRepairRefreshCache,
         method: "POST",
@@ -2415,6 +2440,7 @@ describe("Admin data source", () => {
       fetcher: async () => new Response("offline", { status: 503 }),
     });
 
+    await expect(fallbackSource.cancelJob?.(cancelJobId)).rejects.toThrow("HTTP 503");
     await expect(fallbackSource.refreshLatestVfsCacheRepair?.()).rejects.toThrow("HTTP 503");
     await expect(fallbackSource.refreshVfsCacheRepairTarget?.(targetRef)).rejects.toThrow(
       "HTTP 503",

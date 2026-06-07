@@ -4,8 +4,8 @@ import {
   useReactTable,
   type ColumnDef,
 } from "@tanstack/react-table";
-import { Fingerprint, Play, RefreshCw, RotateCcw, Search, Wrench, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Ban, Fingerprint, Play, RefreshCw, RotateCcw, Search, Wrench, X } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type {
@@ -13,6 +13,7 @@ import type {
   DataSourceMode,
 } from "../../adminApi/dataSource";
 import type {
+  AdminJobCancelRequestResponse,
   AdminJobListItem,
   AdminJobQueuePressureSummary,
   AdminJobListResponse,
@@ -59,11 +60,24 @@ type JobsResult = {
   error?: string;
 };
 
-type VfsCacheRepairJobAction = "execute" | "retry";
-type VfsCacheRepairJobCommand = {
-  action: VfsCacheRepairJobAction;
+type JobCommandAction = "cancel" | "execute" | "retry";
+type JobCommand = {
+  action: JobCommandAction;
   job: AdminJobListItem;
 };
+type JobCommandResult =
+  | {
+      action: "cancel";
+      response: AdminJobCancelRequestResponse;
+    }
+  | {
+      action: "execute";
+      job: Awaited<ReturnType<NonNullable<AdminDataSource["executeVfsCacheRepairJob"]>>>;
+    }
+  | {
+      action: "retry";
+      job: AdminJobListItem;
+    };
 
 const SOURCE_FINGERPRINT_HASH_JOB_KIND = "source_fingerprint_hash";
 const SOURCE_FINGERPRINT_HASH_RESOURCE_CLASS = "disk.scan.source_fingerprint_hash";
@@ -83,11 +97,26 @@ export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) 
     value: mockJobs,
     source: "mock" as const,
   };
-  const commandMutation = useMutation({
-    mutationFn: async (command: VfsCacheRepairJobCommand) => {
+  const commandMutation = useMutation<JobCommandResult, Error, JobCommand>({
+    mutationFn: async (command) => {
       if (result.source !== "live") {
-        throw new Error(t("jobs.vfsCacheRepair.notLiveError"));
+        throw new Error(t("jobs.command.notLiveError"));
       }
+
+      if (command.action === "cancel") {
+        if (!isCancellableJob(command.job)) {
+          throw new Error(t("jobs.cancel.invalidState"));
+        }
+        if (!dataSource.cancelJob) {
+          throw new Error(t("jobs.cancel.unavailable"));
+        }
+
+        return {
+          action: command.action,
+          response: await dataSource.cancelJob(command.job.id),
+        };
+      }
+
       if (!isVfsCacheRepairJob(command.job)) {
         throw new Error(t("jobs.vfsCacheRepair.notRepairJob"));
       }
@@ -123,7 +152,15 @@ export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) 
       setCommandError(null);
     },
     onSuccess: (response) => {
-      if (response.action === "execute") {
+      if (response.action === "cancel") {
+        setCommandMessage(
+          t("jobs.cancel.succeeded", {
+            jobId: response.response.job.id,
+            status: response.response.job.status,
+            terminal: String(response.response.terminal),
+          }),
+        );
+      } else if (response.action === "execute") {
         setCommandMessage(
           t("jobs.vfsCacheRepair.executeSucceeded", {
             jobId: response.job.job.id,
@@ -141,10 +178,11 @@ export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) 
       void queryClient.invalidateQueries({ queryKey: ["admin-jobs"] });
     },
     onError: (error) => {
-      setCommandError(errorMessage(error, t("jobs.vfsCacheRepair.operationFailed")));
+      setCommandError(errorMessage(error, t("jobs.command.operationFailed")));
     },
   });
   const columns = createColumns(t, {
+    canCancel: result.source === "live" && Boolean(dataSource.cancelJob),
     canExecute: result.source === "live" && Boolean(dataSource.executeVfsCacheRepairJob),
     canRetry: result.source === "live" && Boolean(dataSource.retryVfsCacheRepairJob),
     isPending: commandMutation.isPending,
@@ -200,7 +238,7 @@ export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) 
         </RouteNotice>
       ) : null}
       {!query.isLoading && result.source !== "live" ? (
-        <RouteNotice>{t("jobs.vfsCacheRepair.actionsDisabled")}</RouteNotice>
+        <RouteNotice>{t("jobs.command.actionsDisabled")}</RouteNotice>
       ) : null}
       {commandError ? <RouteNotice>{commandError}</RouteNotice> : null}
       {commandMessage ? <RouteNotice>{commandMessage}</RouteNotice> : null}
@@ -534,12 +572,13 @@ function toAdminJobsQuery(search: JobsSearch): AdminJobsQuery {
 }
 
 type JobActionColumnOptions = {
+  canCancel: boolean;
   canExecute: boolean;
   canRetry: boolean;
   isPending: boolean;
-  pendingAction: VfsCacheRepairJobAction | null;
+  pendingAction: JobCommandAction | null;
   pendingJobId: string | null;
-  runCommand(command: VfsCacheRepairJobCommand): void;
+  runCommand(command: JobCommand): void;
 };
 
 function JobActions({
@@ -551,18 +590,17 @@ function JobActions({
   job: AdminJobListItem;
   t: Translate;
 }) {
-  if (!isVfsCacheRepairJob(job)) {
-    return <span>{t("jobs.vfsCacheRepair.notApplicable")}</span>;
-  }
+  const actionsForJob: ReactNode[] = [];
 
-  if (job.status === "queued") {
+  if (isVfsCacheRepairJob(job) && job.status === "queued") {
     const pending =
       actions.isPending &&
       actions.pendingAction === "execute" &&
       actions.pendingJobId === job.id;
 
-    return (
+    actionsForJob.push(
       <Button
+        key="execute"
         aria-label={t("jobs.vfsCacheRepair.executeAria", { jobId: job.id })}
         disabled={!actions.canExecute || actions.isPending}
         onClick={() => actions.runCommand({ action: "execute", job })}
@@ -574,14 +612,15 @@ function JobActions({
     );
   }
 
-  if (job.status === "failed") {
+  if (isVfsCacheRepairJob(job) && job.status === "failed") {
     const pending =
       actions.isPending &&
       actions.pendingAction === "retry" &&
       actions.pendingJobId === job.id;
 
-    return (
+    actionsForJob.push(
       <Button
+        key="retry"
         aria-label={t("jobs.vfsCacheRepair.retryAria", { jobId: job.id })}
         disabled={!actions.canRetry || actions.isPending}
         onClick={() => actions.runCommand({ action: "retry", job })}
@@ -594,7 +633,32 @@ function JobActions({
     );
   }
 
-  return <span>{t("jobs.vfsCacheRepair.noStateAction")}</span>;
+  if (isCancellableJob(job)) {
+    const pending =
+      actions.isPending &&
+      actions.pendingAction === "cancel" &&
+      actions.pendingJobId === job.id;
+
+    actionsForJob.push(
+      <Button
+        key="cancel"
+        aria-label={t("jobs.cancel.aria", { jobId: job.id })}
+        disabled={!actions.canCancel || actions.isPending}
+        onClick={() => actions.runCommand({ action: "cancel", job })}
+        size="sm"
+        variant="outline"
+      >
+        <Ban size={14} />
+        {pending ? t("jobs.cancel.cancelling") : t("jobs.cancel.label")}
+      </Button>,
+    );
+  }
+
+  if (actionsForJob.length === 0) {
+    return <span>{t("jobs.command.noStateAction")}</span>;
+  }
+
+  return <div className="jobActionList">{actionsForJob}</div>;
 }
 
 function JobLifecycle({ job, t }: { job: AdminJobListItem; t: Translate }) {
@@ -670,6 +734,10 @@ function isVfsCacheRepairJob(job: AdminJobListItem) {
     job.kind === VFS_CACHE_REPAIR_JOB_KIND &&
     job.resource_class === VFS_CACHE_REPAIR_RESOURCE_CLASS
   );
+}
+
+function isCancellableJob(job: AdminJobListItem) {
+  return job.status === "queued" || job.status === "running";
 }
 
 function errorMessage(error: unknown, fallback: string) {

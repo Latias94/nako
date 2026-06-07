@@ -40,6 +40,7 @@ import {
   mockGeneratedArtifactProposals,
   mockItemArtworkGallerySummary,
   mockItemDetailSummary,
+  mockJobCancelRequestResponse,
   mockJobs,
   mockLibraryMetadataProfile,
   mockMetadataRawCacheSettings,
@@ -257,10 +258,15 @@ describe("Admin Web V2 route shell", () => {
     expect(screen.getAllByText("Priority normal").length).toBeGreaterThan(0);
     expect(screen.getByText("Attempt 2/3")).toBeInTheDocument();
     expect(screen.getByText("Retry of job-source-hash-original")).toBeInTheDocument();
-    expect(screen.getByText("VFS cache repair job actions require live Admin API data.")).toBeInTheDocument();
+    expect(screen.getByText("Job actions require live Admin API data.")).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
         name: "Execute VFS cache repair job job-vfs-cache-repair",
+      }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", {
+        name: "Cancel job job-vfs-cache-repair",
       }),
     ).toBeDisabled();
   });
@@ -282,7 +288,7 @@ describe("Admin Web V2 route shell", () => {
     } satisfies AdminJobListItem;
     const jobs: AdminJobListResponse = {
       ...mockJobs,
-      jobs: [queuedRepairJob, failedRepairJob, mockJobs.jobs[0]],
+      jobs: [queuedRepairJob, failedRepairJob, mockJobs.jobs[2]],
       page: { limit: 20, offset: 0, returned: 3 },
     };
     const loadJobs = vi.fn(async () => ({
@@ -297,6 +303,15 @@ describe("Admin Web V2 route shell", () => {
       },
     }));
     const retryVfsCacheRepairJob = vi.fn(async () => mockVfsCacheRepairRetryJob);
+    const cancelJob = vi.fn(async () => ({
+      ...mockJobCancelRequestResponse,
+      job: {
+        ...mockJobCancelRequestResponse.job,
+        id: queuedRepairJob.id,
+        status: "cancelled" as const,
+      },
+      terminal: true,
+    }));
     window.history.pushState(null, "", "/jobs?kind=vfs_cache_repair&resource_class=storage.vfs.cache_repair");
 
     render(
@@ -304,6 +319,7 @@ describe("Admin Web V2 route shell", () => {
         dataSource={{
           load: async () => emptyConsoleData(),
           loadJobs,
+          cancelJob,
           executeVfsCacheRepairJob,
           retryVfsCacheRepairJob,
         }}
@@ -329,6 +345,21 @@ describe("Admin Web V2 route shell", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
+        name: "Cancel job job-vfs-cache-repair-queued-action",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(cancelJob).toHaveBeenCalledWith("job-vfs-cache-repair-queued-action");
+    });
+    expect(
+      await screen.findByText(
+        "Cancellation requested for job job-vfs-cache-repair-queued-action, status cancelled, terminal true.",
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", {
         name: "Retry VFS cache repair job job-vfs-cache-repair-failed-action",
       }),
     );
@@ -343,7 +374,7 @@ describe("Admin Web V2 route shell", () => {
         "Queued VFS cache repair retry job job-vfs-cache-repair-retry, status queued.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText("No repair action")).toBeInTheDocument();
+    expect(screen.getByText("No action for this status")).toBeInTheDocument();
   });
 
   it("shows deterministic mock fallback when the Overview read model is unavailable", async () => {

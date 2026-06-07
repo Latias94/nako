@@ -21,6 +21,7 @@ import type {
   AdminMetadataRawCacheSettingsResponse,
   AdminManagedArtworkGalleryResponse,
   AdminLibraryMetadataProfileResponse,
+  AdminJobCancelRequestResponse,
   AdminJobListResponse,
   AdminJobListItem,
   AdminOutboxEventListResponse,
@@ -1741,6 +1742,17 @@ export const mockJobs: AdminJobListResponse = {
     },
   ],
   page: { limit: 20, offset: 0, returned: 5 },
+};
+
+export const mockJobCancelRequestResponse: AdminJobCancelRequestResponse = {
+  job: {
+    ...mockJobs.jobs[1],
+    status: "cancelled",
+    completed_at: "2026-05-19T10:04:00Z",
+  },
+  requested: true,
+  terminal: true,
+  cancel_requested_at: "2026-05-19T10:04:00Z",
 };
 
 export const mockPlaybackSessions: AdminPlaybackSessionListResponse = {
