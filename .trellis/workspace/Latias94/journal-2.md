@@ -1204,3 +1204,38 @@ Archived the VFS repair diagnostics architecture reconciliation task and updated
 ### Next Steps
 
 - None - task complete
+
+
+## Session 79: Admin Jobs queue pressure diagnostics
+
+**Date**: 2026-06-08
+**Task**: Admin Jobs queue pressure diagnostics
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Archived the queue pressure task and exposed durable job queue-pressure summaries through Admin Jobs API and Admin Web with generated contracts, redaction tests, and docs updates.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `873adbe1` | (see git log) |
+| `15a0371d` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
