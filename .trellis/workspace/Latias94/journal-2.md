@@ -1274,3 +1274,38 @@ Promoted the existing Admin job cancel route into generated Admin contracts and 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 81: Addon credential generated route contract
+
+**Date**: 2026-06-08
+**Task**: Addon credential generated route contract
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Promoted Addon token/grant Admin routes into generated Admin Web contracts, replaced frontend derived credential paths with generated route constants, refreshed generated artifacts, and archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1b2216c2` | (see git log) |
+| `7df09a36` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
