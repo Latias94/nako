@@ -1169,3 +1169,38 @@ Added redaction-safe VFS cache repair diagnostics to Admin job responses, regene
 ### Next Steps
 
 - None - task complete
+
+
+## Session 78: Reconcile VFS repair diagnostics architecture status
+
+**Date**: 2026-06-07
+**Task**: Reconcile VFS repair diagnostics architecture status
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Archived the VFS repair diagnostics architecture reconciliation task and updated Storage/VFS, Control Plane, and Workstream Links so shipped Admin Jobs diagnostics projection is no longer listed as an open VFS repair follow-on.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4554402e` | (see git log) |
+| `e90dbeb1` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
