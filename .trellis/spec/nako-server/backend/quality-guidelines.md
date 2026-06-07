@@ -78,6 +78,13 @@ Use these gates for `crates/nako-server` feature work.
   material. Keep Admin routes, purge/delete/invalidation, backend
   configuration mutation, library file writes, and automated repair policy out
   of retry-only slices.
+- Internal VFS cache repair automation policy planner changes must stay dry-run
+  and classify existing unresolved repair targets into eligible/blocked groups
+  under an explicit policy. Disabled policy reports zero eligible targets;
+  enabled policy may mark only `refresh_cache` targets eligible. Planner code
+  must not enqueue jobs, refresh cache, purge/delete/invalidate cache entries,
+  mutate backend configuration, write library files, or expose raw target
+  material.
 - Admin VFS cache repair manual command changes must accept only opaque
   `target_ref` values or explicit durable job IDs, return only safe job facts
   and summary facts, inherit the existing Admin route guard, and keep automatic

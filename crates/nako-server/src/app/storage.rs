@@ -298,6 +298,121 @@ pub(crate) struct VfsCacheRepairRemediationPlanReport {
     pub(crate) boundary: VfsCacheRepairRemediationPlanBoundary,
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) struct VfsCacheRepairAutomationPolicy {
+    pub(crate) enabled: bool,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum VfsCacheRepairAutomationBlockReason {
+    PolicyDisabled,
+    BackendConfigurationRequired,
+    ManualFailureInspectionRequired,
+    NoActionRequired,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct VfsCacheRepairAutomationBoundary {
+    pub(crate) reads_repair_targets: bool,
+    pub(crate) may_start_durable_jobs: bool,
+    pub(crate) refreshes_vfs_cache: bool,
+    pub(crate) changes_backend_configuration: bool,
+    pub(crate) deletes_cache_entries: bool,
+    pub(crate) writes_library_files: bool,
+}
+
+impl VfsCacheRepairAutomationBoundary {
+    fn for_policy(policy: VfsCacheRepairAutomationPolicy) -> Self {
+        Self {
+            reads_repair_targets: true,
+            may_start_durable_jobs: policy.enabled,
+            refreshes_vfs_cache: false,
+            changes_backend_configuration: false,
+            deletes_cache_entries: false,
+            writes_library_files: false,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct VfsCacheRepairAutomationEligibleTargetReport {
+    pub(crate) target: VfsCacheRepairTargetReport,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct VfsCacheRepairAutomationBlockedTargetReport {
+    pub(crate) target: VfsCacheRepairTargetReport,
+    pub(crate) reason: VfsCacheRepairAutomationBlockReason,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct VfsCacheRepairAutomationPolicyReport {
+    pub(crate) policy: VfsCacheRepairAutomationPolicy,
+    pub(crate) total_unresolved_targets: u32,
+    pub(crate) eligible_targets: Vec<VfsCacheRepairAutomationEligibleTargetReport>,
+    pub(crate) blocked_targets: Vec<VfsCacheRepairAutomationBlockedTargetReport>,
+    pub(crate) boundary: VfsCacheRepairAutomationBoundary,
+}
+
+struct VfsCacheRepairAutomationPolicyAccumulator {
+    policy: VfsCacheRepairAutomationPolicy,
+    total_unresolved_targets: u32,
+    eligible_targets: Vec<VfsCacheRepairAutomationEligibleTargetReport>,
+    blocked_targets: Vec<VfsCacheRepairAutomationBlockedTargetReport>,
+}
+
+impl VfsCacheRepairAutomationPolicyAccumulator {
+    fn new(policy: VfsCacheRepairAutomationPolicy) -> Self {
+        Self {
+            policy,
+            total_unresolved_targets: 0,
+            eligible_targets: Vec::new(),
+            blocked_targets: Vec::new(),
+        }
+    }
+
+    fn record(&mut self, target: VfsCacheRepairTargetReport) {
+        self.total_unresolved_targets = self.total_unresolved_targets.saturating_add(1);
+        if let Some(reason) = vfs_cache_repair_automation_block_reason(self.policy, &target) {
+            self.blocked_targets
+                .push(VfsCacheRepairAutomationBlockedTargetReport { target, reason });
+        } else {
+            self.eligible_targets
+                .push(VfsCacheRepairAutomationEligibleTargetReport { target });
+        }
+    }
+
+    fn into_report(self) -> VfsCacheRepairAutomationPolicyReport {
+        VfsCacheRepairAutomationPolicyReport {
+            policy: self.policy,
+            total_unresolved_targets: self.total_unresolved_targets,
+            eligible_targets: self.eligible_targets,
+            blocked_targets: self.blocked_targets,
+            boundary: VfsCacheRepairAutomationBoundary::for_policy(self.policy),
+        }
+    }
+}
+
+fn vfs_cache_repair_automation_block_reason(
+    policy: VfsCacheRepairAutomationPolicy,
+    target: &VfsCacheRepairTargetReport,
+) -> Option<VfsCacheRepairAutomationBlockReason> {
+    if !policy.enabled {
+        return Some(VfsCacheRepairAutomationBlockReason::PolicyDisabled);
+    }
+
+    match target.repair.recommended_action {
+        VfsCacheRepairAction::RefreshCache => None,
+        VfsCacheRepairAction::FixBackendConfiguration => {
+            Some(VfsCacheRepairAutomationBlockReason::BackendConfigurationRequired)
+        }
+        VfsCacheRepairAction::InspectFailure => {
+            Some(VfsCacheRepairAutomationBlockReason::ManualFailureInspectionRequired)
+        }
+        VfsCacheRepairAction::None => Some(VfsCacheRepairAutomationBlockReason::NoActionRequired),
+    }
+}
+
 #[derive(Default)]
 struct VfsCacheRepairRemediationPlanAccumulator {
     total_unresolved_targets: u32,
@@ -893,6 +1008,41 @@ impl StorageDiagnosticsAppService {
         &self,
     ) -> Result<VfsCacheRepairRemediationPlanReport> {
         let mut accumulator = VfsCacheRepairRemediationPlanAccumulator::default();
+        let mut failure_offset = 0_u64;
+
+        loop {
+            let failures = self
+                .registry
+                .store
+                .list_vfs_cache_failures(PageRequest::new(PageRequest::MAX_LIMIT, failure_offset))
+                .await?;
+            let failure_count = failures.len();
+            if failure_count == 0 {
+                break;
+            }
+
+            for failure in failures {
+                let Some(target) = self.vfs_cache_repair_target_from_failure(failure).await? else {
+                    continue;
+                };
+                accumulator.record(target);
+            }
+
+            if failure_count < PageRequest::MAX_LIMIT as usize {
+                break;
+            }
+
+            failure_offset = failure_offset.saturating_add(failure_count as u64);
+        }
+
+        Ok(accumulator.into_report())
+    }
+
+    pub(crate) async fn plan_vfs_cache_repair_automation(
+        &self,
+        policy: VfsCacheRepairAutomationPolicy,
+    ) -> Result<VfsCacheRepairAutomationPolicyReport> {
+        let mut accumulator = VfsCacheRepairAutomationPolicyAccumulator::new(policy);
         let mut failure_offset = 0_u64;
 
         loop {

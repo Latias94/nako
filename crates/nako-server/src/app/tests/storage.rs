@@ -1217,6 +1217,132 @@ async fn vfs_cache_refresh_action_rejects_ambiguous_local_repair_target_without_
 }
 
 #[tokio::test]
+async fn vfs_cache_repair_automation_policy_disabled_blocks_refreshable() {
+    let (_temp, app, store, backend, _failure) =
+        vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Unavailable.safe_message())
+            .await;
+
+    let report = app
+        .storage()
+        .plan_vfs_cache_repair_automation(VfsCacheRepairAutomationPolicy { enabled: false })
+        .await
+        .unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert!(!report.policy.enabled);
+    assert_eq!(report.total_unresolved_targets, 1);
+    assert!(report.eligible_targets.is_empty());
+    assert_eq!(report.blocked_targets.len(), 1);
+    assert_eq!(
+        report.blocked_targets[0].reason,
+        VfsCacheRepairAutomationBlockReason::PolicyDisabled
+    );
+    assert_eq!(
+        report.blocked_targets[0].target.repair.recommended_action,
+        nako_vfs::VfsCacheRepairAction::RefreshCache
+    );
+    assert!(report.boundary.reads_repair_targets);
+    assert!(!report.boundary.may_start_durable_jobs);
+    assert!(!report.boundary.refreshes_vfs_cache);
+    assert!(!report.boundary.changes_backend_configuration);
+    assert!(!report.boundary.deletes_cache_entries);
+    assert!(!report.boundary.writes_library_files);
+    assert!(jobs.is_empty());
+    assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn vfs_cache_repair_automation_policy_enabled_allows_refreshable() {
+    let (_temp, app, store, backend, failure) =
+        vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Unavailable.safe_message())
+            .await;
+
+    let report = app
+        .storage()
+        .plan_vfs_cache_repair_automation(VfsCacheRepairAutomationPolicy { enabled: true })
+        .await
+        .unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert!(report.policy.enabled);
+    assert_eq!(report.total_unresolved_targets, 1);
+    assert_eq!(report.eligible_targets.len(), 1);
+    assert!(report.blocked_targets.is_empty());
+    assert_eq!(
+        report.eligible_targets[0].target.repair.recommended_action,
+        nako_vfs::VfsCacheRepairAction::RefreshCache
+    );
+    assert_eq!(report.eligible_targets[0].target.scheme, failure.scheme);
+    assert_eq!(
+        report.eligible_targets[0].target.operation,
+        failure.operation
+    );
+    assert_eq!(
+        report.eligible_targets[0].target.failed_at_ms,
+        failure.failed_at_ms
+    );
+    assert_eq!(
+        report.eligible_targets[0].target.failure_count,
+        failure.failure_count
+    );
+    assert!(report.boundary.reads_repair_targets);
+    assert!(report.boundary.may_start_durable_jobs);
+    assert!(!report.boundary.refreshes_vfs_cache);
+    assert!(!report.boundary.changes_backend_configuration);
+    assert!(!report.boundary.deletes_cache_entries);
+    assert!(!report.boundary.writes_library_files);
+    assert!(jobs.is_empty());
+    assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn vfs_cache_repair_automation_policy_enabled_blocks_backend_config() {
+    let (_temp, app, store, backend, _failure) =
+        vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Permission.safe_message())
+            .await;
+
+    let report = app
+        .storage()
+        .plan_vfs_cache_repair_automation(VfsCacheRepairAutomationPolicy { enabled: true })
+        .await
+        .unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert!(report.policy.enabled);
+    assert_eq!(report.total_unresolved_targets, 1);
+    assert!(report.eligible_targets.is_empty());
+    assert_eq!(report.blocked_targets.len(), 1);
+    assert_eq!(
+        report.blocked_targets[0].reason,
+        VfsCacheRepairAutomationBlockReason::BackendConfigurationRequired
+    );
+    assert_eq!(
+        report.blocked_targets[0].target.repair.recommended_action,
+        nako_vfs::VfsCacheRepairAction::FixBackendConfiguration
+    );
+    assert!(report.boundary.reads_repair_targets);
+    assert!(report.boundary.may_start_durable_jobs);
+    assert!(!report.boundary.refreshes_vfs_cache);
+    assert!(!report.boundary.changes_backend_configuration);
+    assert!(!report.boundary.deletes_cache_entries);
+    assert!(!report.boundary.writes_library_files);
+    assert!(jobs.is_empty());
+    assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
 async fn vfs_cache_repair_target_enqueue_persists_safe_job_input_without_refreshing() {
     let (_temp, app, store, backend, failure) =
         vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Unavailable.safe_message())

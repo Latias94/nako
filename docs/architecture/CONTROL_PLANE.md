@@ -41,7 +41,7 @@ Deployment Endpoint Config
 | HTTP addon protocol | Shipped foundation | ADR 0003; ADR 0015; ADR 0020 | Addon Manager lifecycle is still deferred. |
 | Addon capability and token scopes | Shipped foundation | addon token/grant workstreams | Stronger hosted surface and route policy. |
 | Addon process supervision | Deferred | ADR 0020; ADR 0053 | `addon-manager-process-lifecycle`. |
-| Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract/summary/internal enqueue/queued planner/single-job executor command/scheduler integration/evidence persistence/Admin manual commands, scan-originated source hash triggering, VFS cache repair durable contract/internal enqueue/internal single-job executor/Admin manual enqueue-execute-retry/internal retry commands, Admin Jobs diagnostics projection, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/`; `.trellis/tasks/archive/2026-06/06-06-06-06-overnight-fearless-refactor-development-plan/`; `.trellis/tasks/archive/2026-06/06-07-vfs-cache-repair-job-diagnostics-projection/` | Broader job-kind scheduler migration, VFS cache repair automated policy, and automatic Source Duplicate Relationship reconciliation remain follow-ons. |
+| Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract/summary/internal enqueue/queued planner/single-job executor command/scheduler integration/evidence persistence/Admin manual commands, scan-originated source hash triggering, VFS cache repair durable contract/internal enqueue/internal single-job executor/Admin manual enqueue-execute-retry/internal retry commands, Admin Jobs diagnostics projection, VFS repair automation policy dry-run planner, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/`; `.trellis/tasks/archive/2026-06/06-06-06-06-overnight-fearless-refactor-development-plan/`; `.trellis/tasks/archive/2026-06/06-07-vfs-cache-repair-job-diagnostics-projection/`; `.trellis/tasks/archive/2026-06/06-07-06-07-vfs-cache-repair-automation-policy-planner/` | Broader job-kind scheduler migration, VFS cache repair automatic enqueue/execution policy, and automatic Source Duplicate Relationship reconciliation remain follow-ons. |
 | Runtime supervisor | Shipped resource-accounted foundation | ADR 0019; server runtime deepening; durable job queue/resource lane | Unified trace context and broader scheduler migration remain follow-ons. |
 | Resource classes and budgets | Shipped process-local foundation plus source fingerprint hash and VFS cache repair mappings to `disk.scan` | ADR 0005; playback/runtime lanes; durable job queue/resource lane | Continue migrating job kinds onto typed budget-admitted scheduler paths. |
 | Tracing/request identity | Partial with HLS, library scan, and source fingerprint hash job propagation | diagnostics and playback identity lanes | Continue unified trace context across jobs/FFmpeg/VFS/addons and broader scan entry points. |
@@ -132,8 +132,8 @@ Follow-ons:
 
 Status: Durable job contract, internal target enqueue seam, internal single-job
 executor command, Admin manual enqueue/execute/retry routes, scheduler
-integration, internal retry seam, and Admin Jobs diagnostics projection shipped
-as of 2026-06-07.
+integration, internal retry seam, Admin Jobs diagnostics projection, and
+automation policy dry-run planner shipped as of 2026-06-07.
 
 Goal: Move VFS cache repair from read-only remediation planning toward durable,
 resource-admitted repair work without exposing raw storage identity.
@@ -181,10 +181,14 @@ Shipped control-plane behavior:
   `AdminJobDiagnostics` for `JobKind::VfsCacheRepair` only, parsing safe
   summary JSON into the typed repair summary when available and exposing only
   stable redacted failure facts for failed jobs.
+- the internal automation policy dry-run planner classifies unresolved repair
+  targets into eligible and blocked groups under an explicit enabled/disabled
+  policy without enqueueing jobs, refreshing cache, or changing storage state.
 
 Follow-ons:
 
-- automated repair policy beyond explicit manual commands;
+- automatic repair enqueue/execution policy beyond explicit manual commands and
+  the dry-run planner;
 - purge/delete/invalidation and backend configuration workflows;
 - safe realtime diagnostics or incident bundles if future operator workflows
   need more than the shipped Admin Jobs projection.
