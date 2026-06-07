@@ -41,7 +41,7 @@ Deployment Endpoint Config
 | HTTP addon protocol | Shipped foundation | ADR 0003; ADR 0015; ADR 0020 | Addon Manager lifecycle is still deferred. |
 | Addon capability and token scopes | Shipped foundation | addon token/grant workstreams | Stronger hosted surface and route policy. |
 | Addon process supervision | Deferred | ADR 0020; ADR 0053 | `addon-manager-process-lifecycle`. |
-| Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract/summary/internal enqueue/queued planner/single-job executor command/scheduler integration/evidence persistence/Admin manual commands, scan-originated source hash triggering, VFS cache repair durable contract/internal enqueue/internal single-job executor/Admin manual enqueue-execute-retry/internal retry commands, Admin Jobs diagnostics projection, VFS repair automation policy dry-run planner, explicit internal automation enqueue command, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/`; `.trellis/tasks/archive/2026-06/06-06-06-06-overnight-fearless-refactor-development-plan/`; `.trellis/tasks/archive/2026-06/06-07-vfs-cache-repair-job-diagnostics-projection/`; `.trellis/tasks/archive/2026-06/06-07-06-07-vfs-cache-repair-automation-policy-planner/` | Broader job-kind scheduler migration, recurring VFS cache repair scheduling/execution policy, and automatic Source Duplicate Relationship reconciliation remain follow-ons. |
+| Durable jobs | Shipped foundation plus schedulable partial, source fingerprint hash contract/summary/internal enqueue/queued planner/single-job executor command/scheduler integration/evidence persistence/Admin manual commands, scan-originated source hash triggering, VFS cache repair durable contract/internal enqueue/internal single-job executor/Admin manual enqueue-execute-retry/internal retry commands, Admin Jobs diagnostics projection, VFS repair automation policy dry-run planner, explicit internal/Admin automation enqueue commands, Admin automation plan/enqueue routes, and generic priority policy | ADR 0006; ADR 0053; runtime deepening lanes; durable job queue/resource lane; `docs/workstreams/provider-governance-durable-batch-execution/`; `.trellis/tasks/archive/2026-06/06-06-06-06-overnight-fearless-refactor-development-plan/`; `.trellis/tasks/archive/2026-06/06-07-vfs-cache-repair-job-diagnostics-projection/`; `.trellis/tasks/archive/2026-06/06-07-06-07-vfs-cache-repair-automation-policy-planner/`; `.trellis/tasks/archive/2026-06/06-08-06-07-admin-vfs-cache-repair-automation-commands/` | Broader job-kind scheduler migration, recurring VFS cache repair scheduling/execution policy, and automatic Source Duplicate Relationship reconciliation remain follow-ons. |
 | Runtime supervisor | Shipped resource-accounted foundation | ADR 0019; server runtime deepening; durable job queue/resource lane | Unified trace context and broader scheduler migration remain follow-ons. |
 | Resource classes and budgets | Shipped process-local foundation plus source fingerprint hash and VFS cache repair mappings to `disk.scan` | ADR 0005; playback/runtime lanes; durable job queue/resource lane | Continue migrating job kinds onto typed budget-admitted scheduler paths. |
 | Tracing/request identity | Partial with HLS, library scan, and source fingerprint hash job propagation | diagnostics and playback identity lanes | Continue unified trace context across jobs/FFmpeg/VFS/addons and broader scan entry points. |
@@ -132,9 +132,10 @@ Follow-ons:
 
 Status: Durable job contract, internal target enqueue seam, internal single-job
 executor command, Admin manual enqueue/execute/retry routes, scheduler
-integration, internal retry seam, Admin Jobs diagnostics projection, and
-automation policy dry-run planner and explicit internal automation enqueue
-command shipped as of 2026-06-07.
+integration, internal retry seam, Admin Jobs diagnostics projection,
+automation policy dry-run planner, explicit internal automation enqueue
+command, and explicit Admin automation plan/enqueue routes shipped as of
+2026-06-08.
 
 Goal: Move VFS cache repair from read-only remediation planning toward durable,
 resource-admitted repair work without exposing raw storage identity.
@@ -189,11 +190,20 @@ Shipped control-plane behavior:
   report and target-scoped durable enqueue authority to queue eligible repair
   jobs, reporting only safe job facts and leaving execution to the existing
   disk-scan scheduler path.
+- `POST /admin/v1/storage/vfs-cache/repair/automation/plan` exposes the
+  automation policy dry-run as an explicit Admin command surface. It reads
+  current repair targets and returns eligible/blocked groups plus boundary
+  booleans without enqueueing durable jobs or mutating storage.
+- `POST /admin/v1/storage/vfs-cache/repair/automation/jobs` exposes explicit
+  Admin enqueue for policy-eligible repair targets. It returns only safe job
+  facts and enqueued/already-queued counts, and job execution remains delegated
+  to the existing disk-scan scheduler path.
 
 Follow-ons:
 
 - recurring automatic repair scheduling/execution policy beyond explicit manual
-  commands, the dry-run planner, and the explicit internal enqueue command;
+  commands, the dry-run planner, the explicit internal enqueue command, and the
+  explicit Admin automation commands;
 - purge/delete/invalidation and backend configuration workflows;
 - safe realtime diagnostics or incident bundles if future operator workflows
   need more than the shipped Admin Jobs projection.

@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Admin DTO, route inventory, and generated contract rules."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "API contract gates, generated artifact rules, and redaction checks."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Admin route handler, auth guard, and HTTP test conventions."}
+{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "HTTP error mapping and redaction behavior."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "VFS cache repair command test and validation expectations."}
+{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Storage/VFS repair automation capability boundaries."}
+{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Durable job and control-plane boundaries for maintenance work."}
+{"file": ".trellis/tasks/06-07-06-07-overnight-architecture-refactor-jellyfin-comparison/research/jellyfin-maintenance-comparison.md", "reason": "Jellyfin maintenance comparison translated into Nako Admin/durable-job control surface."}

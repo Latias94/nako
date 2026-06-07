@@ -746,6 +746,8 @@ contract for the first read-model routes above:
 `GET /admin/v1/automation/generated-artifacts/metadata-apply-batches/{batch_id}`,
 `POST /admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply-plan`,
 `POST /admin/v1/automation/generated-artifacts/{artifact_id}/metadata-apply`,
+`POST /admin/v1/storage/vfs-cache/repair/automation/plan`,
+`POST /admin/v1/storage/vfs-cache/repair/automation/jobs`,
 `GET /admin/v1/catalog/governance/items`,
 `GET /admin/v1/catalog/governance/items/{item_id}`,
 `POST /admin/v1/catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review-plan`,
@@ -834,6 +836,42 @@ The staging/cache diagnostics route never returns staging `local_path`, full
 fingerprint values, validation error text, cache error text, WebDAV
 credentials, or secret values. It is an Admin API route and is not part of
 Public Client OpenAPI or generated SDK artifacts.
+
+`POST /admin/v1/storage/vfs-cache/repair/automation/plan` returns an explicit
+Admin dry-run report for VFS cache repair automation:
+
+```json
+{ "enabled": true }
+```
+
+The response groups current unresolved repair targets into eligible and blocked
+sets and returns boundary flags that state whether the command reads repair
+targets, may start durable jobs, refreshes VFS cache, changes backend
+configuration, deletes cache entries, or writes library files. The plan route
+is read-only: it does not create durable jobs, refresh cache, purge/delete
+entries, change backend configuration, or write library files.
+
+`POST /admin/v1/storage/vfs-cache/repair/automation/jobs` confirms the same
+policy boundary and explicitly enqueues durable repair jobs for eligible
+targets:
+
+```json
+{
+  "enabled": true,
+  "priority": "high"
+}
+```
+
+It returns `202 Accepted` with the dry-run policy report, per-target safe job
+facts, and `enqueued_count` / `already_queued_count`. The route enqueues only;
+it does not execute repair jobs. Execution remains behind the durable job
+runtime and the existing scheduler path.
+
+VFS cache repair automation Admin responses never return raw `StorageUri`,
+local paths, backend URLs, credentials, etags, fingerprints, URI digests, raw
+backend errors, durable input JSON, or cache payloads. These routes are Admin
+API routes and are not part of Public Client OpenAPI or generated SDK
+artifacts.
 
 `GET /admin/v1/access/summary` returns the current access boundary for Admin
 Web. In the first implementation this reports Single-Admin Mode, the resolved

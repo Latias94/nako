@@ -18,7 +18,7 @@ struct AdminRouteExclusionSuffix {
     reason: &'static str,
 }
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 87] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 89] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessUsers", "access/users"),
@@ -221,6 +221,14 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 87] = [
     (
         "storageVfsCacheRepairRemediationPlan",
         "storage/vfs-cache/repair/remediation-plan",
+    ),
+    (
+        "storageVfsCacheRepairAutomationPlan",
+        "storage/vfs-cache/repair/automation/plan",
+    ),
+    (
+        "storageVfsCacheRepairAutomationJobs",
+        "storage/vfs-cache/repair/automation/jobs",
     ),
     (
         "storageVfsCacheRepairTargets",

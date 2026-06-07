@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Check Admin routes and DTOs are generated from API sources."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Check admin_contract, generated artifacts, and Public/Admin separation gates."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Check Admin route guard and handler shape."}
+{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Check errors remain stable and redacted."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Check VFS cache repair automation remains explicit and non-executing."}
+{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Check storage/VFS docs do not overclaim recurring automation."}
+{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Check control-plane docs keep durable job and scheduler boundaries accurate."}

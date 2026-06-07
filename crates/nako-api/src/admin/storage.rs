@@ -2,9 +2,10 @@ use nako_client_protocol::PageInfo;
 #[cfg(test)]
 use nako_core::StagingAttribution;
 use nako_core::{
-    LibraryId, StagingAttributionKind, StagingManifestId, StagingManifestRecord, StagingPurpose,
-    StagingState, StorageBackendHealthRecord, StorageBackendHealthStatus,
-    StorageCircuitBreakerState, StorageFailureClass, VfsCacheOperation,
+    JobId, JobPriority, JobStatus, LibraryId, MediaSourceId, StagingAttributionKind,
+    StagingManifestId, StagingManifestRecord, StagingPurpose, StagingState,
+    StorageBackendHealthRecord, StorageBackendHealthStatus, StorageCircuitBreakerState,
+    StorageFailureClass, VfsCacheOperation,
 };
 use serde::{Deserialize, Serialize};
 
@@ -257,6 +258,84 @@ pub struct AdminVfsCacheRepairEnqueueResponse {
     pub public_api_version: String,
     pub outcome: AdminVfsCacheRepairEnqueueOutcome,
     pub job: AdminJobListItem,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRepairAutomationPolicyRequest {
+    pub enabled: bool,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminVfsCacheRepairAutomationBlockReason {
+    PolicyDisabled,
+    BackendConfigurationRequired,
+    ManualFailureInspectionRequired,
+    NoActionRequired,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRepairAutomationBoundary {
+    pub reads_repair_targets: bool,
+    pub may_start_durable_jobs: bool,
+    pub refreshes_vfs_cache: bool,
+    pub changes_backend_configuration: bool,
+    pub deletes_cache_entries: bool,
+    pub writes_library_files: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRepairAutomationEligibleTarget {
+    pub target: AdminVfsCacheRepairTarget,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRepairAutomationBlockedTarget {
+    pub target: AdminVfsCacheRepairTarget,
+    pub reason: AdminVfsCacheRepairAutomationBlockReason,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRepairAutomationPolicyReport {
+    pub enabled: bool,
+    pub total_unresolved_targets: u32,
+    pub eligible_targets: Vec<AdminVfsCacheRepairAutomationEligibleTarget>,
+    pub blocked_targets: Vec<AdminVfsCacheRepairAutomationBlockedTarget>,
+    pub boundary: AdminVfsCacheRepairAutomationBoundary,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRepairAutomationPlanResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub policy: AdminVfsCacheRepairAutomationPolicyReport,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRepairAutomationEnqueueRequest {
+    pub enabled: bool,
+    pub priority: Option<AdminJobPriority>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRepairAutomationJob {
+    pub outcome: AdminVfsCacheRepairEnqueueOutcome,
+    pub job_id: JobId,
+    pub status: JobStatus,
+    pub priority: JobPriority,
+    pub resource_class: String,
+    pub library_id: Option<LibraryId>,
+    pub source_id: Option<MediaSourceId>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRepairAutomationEnqueueResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub policy: AdminVfsCacheRepairAutomationPolicyReport,
+    pub jobs: Vec<AdminVfsCacheRepairAutomationJob>,
+    pub enqueued_count: u32,
+    pub already_queued_count: u32,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]

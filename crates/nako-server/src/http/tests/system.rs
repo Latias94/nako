@@ -25,7 +25,9 @@ use nako_api::admin::{
     AdminStorageBackendHealthDiagnosticsResponse, AdminStorageBackendHealthResetResponse,
     AdminStorageStagingPressureStatus, AdminVfsCacheRefreshResponse,
     AdminVfsCacheRepairActionPlanReason, AdminVfsCacheRepairActionPlanResponse,
-    AdminVfsCacheRepairActionPlanStatus, AdminVfsCacheRepairCacheState,
+    AdminVfsCacheRepairActionPlanStatus, AdminVfsCacheRepairAutomationEnqueueRequest,
+    AdminVfsCacheRepairAutomationEnqueueResponse, AdminVfsCacheRepairAutomationPlanResponse,
+    AdminVfsCacheRepairAutomationPolicyRequest, AdminVfsCacheRepairCacheState,
     AdminVfsCacheRepairEnqueueOutcome, AdminVfsCacheRepairEnqueueRequest,
     AdminVfsCacheRepairEnqueueResponse, AdminVfsCacheRepairExecuteResponse,
     AdminVfsCacheRepairJobDiagnosticStatus, AdminVfsCacheRepairRemediationPlanResponse,
@@ -8672,6 +8674,106 @@ async fn admin_v1_vfs_cache_repair_job_routes_enqueue_and_execute_without_payloa
     assert!(!enqueue_body.contains(&root.display().to_string()));
     assert!(!duplicate_body.contains(&root.display().to_string()));
     assert!(!execute_body.contains(&root.display().to_string()));
+}
+
+#[tokio::test]
+async fn admin_v1_vfs_cache_repair_automation_plan_and_enqueue_without_payload_leaks() {
+    let (_temp, router, store, library_id, _root) = vfs_cache_repair_retry_http_fixture().await;
+
+    let plan_response = response_body_json(
+        &router,
+        Method::POST,
+        "/admin/v1/storage/vfs-cache/repair/automation/plan",
+        &AdminVfsCacheRepairAutomationPolicyRequest { enabled: true },
+    )
+    .await;
+    let plan_status = plan_response.status();
+    let plan_body = response_text(plan_response).await;
+    assert_eq!(plan_status, StatusCode::OK, "{plan_body}");
+    let plan: AdminVfsCacheRepairAutomationPlanResponse = serde_json::from_str(&plan_body).unwrap();
+    let jobs_before = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert!(plan.policy.enabled);
+    assert_eq!(plan.policy.total_unresolved_targets, 1);
+    assert_eq!(plan.policy.eligible_targets.len(), 1);
+    assert!(plan.policy.blocked_targets.is_empty());
+    assert!(plan.policy.boundary.reads_repair_targets);
+    assert!(plan.policy.boundary.may_start_durable_jobs);
+    assert!(!plan.policy.boundary.refreshes_vfs_cache);
+    assert!(!plan.policy.boundary.changes_backend_configuration);
+    assert!(!plan.policy.boundary.deletes_cache_entries);
+    assert!(!plan.policy.boundary.writes_library_files);
+    assert!(jobs_before.is_empty());
+    assert_vfs_cache_repair_admin_response_redacted(&plan_body);
+
+    let enqueue_response = response_body_json(
+        &router,
+        Method::POST,
+        "/admin/v1/storage/vfs-cache/repair/automation/jobs",
+        &AdminVfsCacheRepairAutomationEnqueueRequest {
+            enabled: true,
+            priority: Some(AdminJobPriority::High),
+        },
+    )
+    .await;
+    let enqueue_status = enqueue_response.status();
+    let enqueue_body = response_text(enqueue_response).await;
+    assert_eq!(enqueue_status, StatusCode::ACCEPTED, "{enqueue_body}");
+    let enqueue: AdminVfsCacheRepairAutomationEnqueueResponse =
+        serde_json::from_str(&enqueue_body).unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert_eq!(enqueue.enqueued_count, 1);
+    assert_eq!(enqueue.already_queued_count, 0);
+    assert_eq!(enqueue.jobs.len(), 1);
+    assert_eq!(
+        enqueue.jobs[0].outcome,
+        AdminVfsCacheRepairEnqueueOutcome::Enqueued
+    );
+    assert_eq!(enqueue.jobs[0].status, JobStatus::Queued);
+    assert_eq!(enqueue.jobs[0].priority, JobPriority::High);
+    assert_eq!(
+        enqueue.jobs[0].resource_class,
+        VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS
+    );
+    assert_eq!(enqueue.jobs[0].library_id, Some(library_id));
+    assert_eq!(enqueue.jobs[0].source_id, None);
+    assert_eq!(jobs.len(), 1);
+    assert_eq!(jobs[0].id, enqueue.jobs[0].job_id);
+    assert_eq!(jobs[0].kind, JobKind::VfsCacheRepair);
+    assert_eq!(jobs[0].priority, JobPriority::High);
+    assert_vfs_cache_repair_admin_response_redacted(&enqueue_body);
+    assert_vfs_cache_repair_job_input_redacted(jobs[0].input_json.as_deref().unwrap());
+
+    let duplicate_response = response_body_json(
+        &router,
+        Method::POST,
+        "/admin/v1/storage/vfs-cache/repair/automation/jobs",
+        &AdminVfsCacheRepairAutomationEnqueueRequest {
+            enabled: true,
+            priority: None,
+        },
+    )
+    .await;
+    let duplicate_status = duplicate_response.status();
+    let duplicate_body = response_text(duplicate_response).await;
+    assert_eq!(duplicate_status, StatusCode::ACCEPTED, "{duplicate_body}");
+    let duplicate: AdminVfsCacheRepairAutomationEnqueueResponse =
+        serde_json::from_str(&duplicate_body).unwrap();
+    assert_eq!(duplicate.enqueued_count, 0);
+    assert_eq!(duplicate.already_queued_count, 1);
+    assert_eq!(
+        duplicate.jobs[0].outcome,
+        AdminVfsCacheRepairEnqueueOutcome::AlreadyQueued
+    );
+    assert_eq!(duplicate.jobs[0].job_id, enqueue.jobs[0].job_id);
+    assert_vfs_cache_repair_admin_response_redacted(&duplicate_body);
 }
 
 #[tokio::test]

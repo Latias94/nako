@@ -180,6 +180,10 @@ Public Client exclusion tests.
   `AdminVfsCacheRepairEnqueueResponse`,
   `AdminVfsCacheRepairExecuteResponse`,
   `AdminVfsCacheRepairRetryRequest`,
+  `AdminVfsCacheRepairAutomationPolicyRequest`,
+  `AdminVfsCacheRepairAutomationPlanResponse`,
+  `AdminVfsCacheRepairAutomationEnqueueRequest`,
+  `AdminVfsCacheRepairAutomationEnqueueResponse`,
   `VfsCacheRepository::get_latest_vfs_cache_failure`,
   `VfsCacheRepository::list_vfs_cache_failures`, server storage diagnostics /
   action mapping, and generated Admin Web contracts.
@@ -188,9 +192,10 @@ Public Client exclusion tests.
   `refresh_cache`, selected-target `refresh_cache` through an opaque
   `target_ref`, selected-target durable enqueue through an opaque `target_ref`,
   explicit durable job execution by job ID, and explicit durable retry by job
-  ID. Do not add cache purge/delete/invalidation, automatic scheduler behavior, backend
-  configuration mutation, or library file writes without a dedicated task and
-  storage contract.
+  ID. VFS repair automation is exposed only as explicit Admin plan/enqueue
+  commands in this boundary. Do not add cache purge/delete/invalidation,
+  automatic scheduler behavior, backend configuration mutation, or library file
+  writes without a dedicated task and storage contract.
 
 ### 2. Signatures
 
@@ -216,6 +221,19 @@ Public Client exclusion tests.
   `AdminVfsCacheRepairExecuteResponse { job, summary }`.
 - Admin durable retry DTO:
   `AdminVfsCacheRepairRetryRequest { max_attempts, next_attempt_at }`.
+- Admin automation dry-run request DTO:
+  `AdminVfsCacheRepairAutomationPolicyRequest { enabled }`.
+- Admin automation dry-run response DTO:
+  `AdminVfsCacheRepairAutomationPlanResponse { admin_api_version,
+  public_api_version, policy }`.
+- Admin automation enqueue request DTO:
+  `AdminVfsCacheRepairAutomationEnqueueRequest { enabled, priority }`.
+- Admin automation enqueue response DTO:
+  `AdminVfsCacheRepairAutomationEnqueueResponse { admin_api_version,
+  public_api_version, policy, jobs, enqueued_count, already_queued_count }`.
+- Admin automation job facts DTO:
+  `AdminVfsCacheRepairAutomationJob { outcome, job_id, status, priority,
+  resource_class, library_id, source_id }`.
 - Admin durable summary DTO:
   `AdminVfsCacheRepairJobSummary { action, source_scheme, operation,
   classification, failure_class, failed_at_ms, failure_count,
@@ -236,6 +254,9 @@ Public Client exclusion tests.
   `POST /admin/v1/storage/vfs-cache/repair/targets/{target_ref}/jobs`,
   `POST /admin/v1/storage/vfs-cache/repair/jobs/{job_id}/execute`, and
   `POST /admin/v1/storage/vfs-cache/repair/jobs/{job_id}/retry`.
+- Admin automation command routes:
+  `POST /admin/v1/storage/vfs-cache/repair/automation/plan` and
+  `POST /admin/v1/storage/vfs-cache/repair/automation/jobs`.
 - Repair preview fields:
   `classification`, `operation`, `failure_class`, `retryable`,
   `failed_at_ms`, `failure_count`, `safe_message`, and `operator_action`.
@@ -296,6 +317,15 @@ Public Client exclusion tests.
   persisted `summary_json`, raw durable error bodies, cache URI, source
   locator, local path, backend URL, etag, fingerprint, credential, URI digest,
   or cache payload material.
+- Automation plan must accept only `{ enabled }`, delegate policy evaluation to
+  the storage app service, and return eligible/blocked target groups plus
+  explicit boundary booleans. It must not enqueue durable jobs, refresh cache,
+  change backend configuration, delete cache entries, or write library files.
+- Automation enqueue must accept only `{ enabled, priority }`, delegate
+  eligible-target selection and idempotent enqueue to the storage app service,
+  and return only safe job facts plus aggregate enqueued/already-queued counts.
+  It must not execute repair jobs, expose complete `Job` records, expose raw
+  durable input JSON, or accept raw target identity.
 - Remediation plan must page through unresolved targets using the same safe
   target inventory semantics, group by `recommended_action`, count
   classifications, and expose only aggregate counts plus bounded sample targets.
@@ -347,6 +377,12 @@ Public Client exclusion tests.
 | Explicit repair job execution cannot claim the job | Returns the existing conflict without raw job payloads |
 | Explicit repair job retry succeeds | Returns `202 Accepted` and safe job metadata for the new queued retry |
 | Explicit repair job retry is not failed, has stale input, wrong kind, invalid retry attempts, or invalid retry timestamp | Returns the existing safe error without creating a retry job or leaking raw job payloads |
+| Automation plan policy is disabled | Returns blocked targets with `policy_disabled` and creates no durable jobs |
+| Automation plan policy is enabled with refreshable targets | Returns eligible target wrappers and boundary booleans without creating durable jobs |
+| Automation enqueue policy is disabled | Returns `202 Accepted`, zero enqueued jobs, and no raw target material |
+| Automation enqueue policy is enabled with refreshable targets | Returns `202 Accepted`, safe per-job facts, and enqueues or reuses durable repair jobs |
+| Automation enqueue sees queued/running matching jobs | Returns `already_queued` facts without creating duplicate durable jobs |
+| Automation response contains raw target URI, path, backend URL, credential, etag, fingerprint, URI digest, raw error, durable input JSON, or cache payload | Contract violation |
 | Remediation plan has no unresolved failures | Returns `total_unresolved_targets: 0`, empty action groups, zero classification counts, and a read-only top boundary |
 | Remediation plan has refreshable failures | Returns a `refresh_cache` executable group with bounded opaque samples and the templated selected-target refresh route |
 | Remediation plan has operator-action failures | Returns plan-only groups with no executable route metadata |
@@ -385,6 +421,12 @@ Public Client exclusion tests.
   repair summary.
 - Good: `/admin/v1/storage/vfs-cache/repair/jobs/{job_id}/retry` creates a new
   queued retry from one failed repair job and returns only generic job facts.
+- Good: `/admin/v1/storage/vfs-cache/repair/automation/plan` returns a
+  redaction-safe dry-run policy report and leaves the durable job store
+  unchanged.
+- Good: `/admin/v1/storage/vfs-cache/repair/automation/jobs` enqueues only
+  policy-eligible durable repair jobs, returns safe job facts, and leaves
+  execution to the existing scheduler/runtime path.
 - Good: `/admin/v1/jobs?kind=vfs_cache_repair` returns VFS repair diagnostics
   on each VFS repair job row without exposing raw durable payloads.
 - Base: old clients that omit `repair` during deserialization still work through
@@ -400,6 +442,8 @@ Public Client exclusion tests.
   identity in Admin command request bodies.
 - Bad: rendering `job.error` or raw persisted `summary_json` inside
   `AdminJobDiagnostics`.
+- Bad: wiring VFS repair automation as a startup worker, recurring scheduler,
+  raw `tokio::spawn`, or direct job executor inside the Admin enqueue route.
 
 ### 6. Tests Required
 
@@ -417,6 +461,10 @@ Public Client exclusion tests.
   retry invalid states create no retry job, non-refresh target diagnostics
   avoid backend calls, and responses still redact raw paths, source locators,
   fingerprints, etags, tokens, and raw backend errors.
+- Server route tests prove automation plan creates no jobs, automation enqueue
+  creates or reuses only safe durable repair jobs, duplicate enqueue remains
+  idempotent, execution is not performed by the Admin enqueue route, and plan /
+  enqueue responses redact raw target and durable payload material.
 - API serialization tests prove `JobResponse` and `AdminJobListItem` VFS repair
   diagnostics project safe summary/failure fields and omit raw
   `input_json`, `summary_json`, and `error`.

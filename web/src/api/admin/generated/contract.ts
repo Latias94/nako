@@ -81,6 +81,8 @@ export const NAKO_ADMIN_ROUTES = {
   storageBackendCircuitBreakerReset: "/admin/v1/storage/backends/{backend_key}/circuit-breaker/reset",
   storageStaging: "/admin/v1/storage/staging",
   storageVfsCacheRepairRemediationPlan: "/admin/v1/storage/vfs-cache/repair/remediation-plan",
+  storageVfsCacheRepairAutomationPlan: "/admin/v1/storage/vfs-cache/repair/automation/plan",
+  storageVfsCacheRepairAutomationJobs: "/admin/v1/storage/vfs-cache/repair/automation/jobs",
   storageVfsCacheRepairTargets: "/admin/v1/storage/vfs-cache/repair/targets",
   storageVfsCacheRepairTargetPreview: "/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/preview",
   storageVfsCacheRepairTargetRefreshCache: "/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/refresh-cache",

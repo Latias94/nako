@@ -95,7 +95,12 @@ use nako_api::{
         AdminVfsCacheRepairAction, AdminVfsCacheRepairActionBoundary,
         AdminVfsCacheRepairActionPlan, AdminVfsCacheRepairActionPlanReason,
         AdminVfsCacheRepairActionPlanResponse, AdminVfsCacheRepairActionPlanStatus,
-        AdminVfsCacheRepairActionReadiness, AdminVfsCacheRepairCacheState,
+        AdminVfsCacheRepairActionReadiness, AdminVfsCacheRepairAutomationBlockReason,
+        AdminVfsCacheRepairAutomationBlockedTarget, AdminVfsCacheRepairAutomationBoundary,
+        AdminVfsCacheRepairAutomationEligibleTarget, AdminVfsCacheRepairAutomationEnqueueRequest,
+        AdminVfsCacheRepairAutomationEnqueueResponse, AdminVfsCacheRepairAutomationJob,
+        AdminVfsCacheRepairAutomationPlanResponse, AdminVfsCacheRepairAutomationPolicyReport,
+        AdminVfsCacheRepairAutomationPolicyRequest, AdminVfsCacheRepairCacheState,
         AdminVfsCacheRepairClassification, AdminVfsCacheRepairClassificationCount,
         AdminVfsCacheRepairDiagnostic, AdminVfsCacheRepairEnqueueOutcome,
         AdminVfsCacheRepairEnqueueRequest, AdminVfsCacheRepairEnqueueResponse,
@@ -147,6 +152,10 @@ use crate::{
         StagingCleanupPurposeStateSummary, StagingPurposeStateSummary,
         StorageStagingPressureStatus, VfsCacheRepairActionBoundary, VfsCacheRepairActionPlanReason,
         VfsCacheRepairActionPlanReport, VfsCacheRepairActionPlanStatus,
+        VfsCacheRepairAutomationBlockReason as AppVfsCacheRepairAutomationBlockReason,
+        VfsCacheRepairAutomationEnqueueOutcome as AppVfsCacheRepairAutomationEnqueueOutcome,
+        VfsCacheRepairAutomationEnqueueReport, VfsCacheRepairAutomationJobReport,
+        VfsCacheRepairAutomationPolicy, VfsCacheRepairAutomationPolicyReport,
         VfsCacheRepairCommandOutput, VfsCacheRepairExecutableRoute,
         VfsCacheRepairJobSummary as AppVfsCacheRepairJobSummary, VfsCacheRepairRefreshActionReport,
         VfsCacheRepairRemediationActionGroupReport,
@@ -418,6 +427,14 @@ pub(super) fn routes() -> Router<NakoApp> {
         .route(
             "/admin/v1/storage/vfs-cache/repair/remediation-plan",
             get(get_admin_vfs_cache_repair_remediation_plan),
+        )
+        .route(
+            "/admin/v1/storage/vfs-cache/repair/automation/plan",
+            post(plan_admin_vfs_cache_repair_automation),
+        )
+        .route(
+            "/admin/v1/storage/vfs-cache/repair/automation/jobs",
+            post(enqueue_admin_vfs_cache_repair_automation),
         )
         .route(
             "/admin/v1/storage/vfs-cache/repair/targets",
@@ -2007,6 +2024,40 @@ pub(super) async fn get_admin_vfs_cache_repair_remediation_plan(
     Ok(Json(admin_vfs_cache_repair_remediation_plan(report)))
 }
 
+pub(super) async fn plan_admin_vfs_cache_repair_automation(
+    State(app): State<NakoApp>,
+    Json(request): Json<AdminVfsCacheRepairAutomationPolicyRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let report = app
+        .storage()
+        .plan_vfs_cache_repair_automation(VfsCacheRepairAutomationPolicy {
+            enabled: request.enabled,
+        })
+        .await?;
+
+    Ok(Json(admin_vfs_cache_repair_automation_plan(report)))
+}
+
+pub(super) async fn enqueue_admin_vfs_cache_repair_automation(
+    State(app): State<NakoApp>,
+    Json(request): Json<AdminVfsCacheRepairAutomationEnqueueRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let report = app
+        .storage()
+        .enqueue_vfs_cache_repair_automation(
+            VfsCacheRepairAutomationPolicy {
+                enabled: request.enabled,
+            },
+            request.priority.map(Into::into),
+        )
+        .await?;
+
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(admin_vfs_cache_repair_automation_enqueue(report)),
+    ))
+}
+
 pub(super) async fn list_admin_vfs_cache_repair_targets(
     State(app): State<NakoApp>,
     Query(query): Query<PageQuery>,
@@ -2145,6 +2196,111 @@ fn admin_vfs_cache_repair_execute_response(
         public_api_version: API_VERSION.to_owned(),
         job: AdminJobListItem::from_job(output.job),
         summary: admin_vfs_cache_repair_job_summary(output.summary),
+    }
+}
+
+fn admin_vfs_cache_repair_automation_plan(
+    report: VfsCacheRepairAutomationPolicyReport,
+) -> AdminVfsCacheRepairAutomationPlanResponse {
+    AdminVfsCacheRepairAutomationPlanResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        policy: admin_vfs_cache_repair_automation_policy(report),
+    }
+}
+
+fn admin_vfs_cache_repair_automation_enqueue(
+    report: VfsCacheRepairAutomationEnqueueReport,
+) -> AdminVfsCacheRepairAutomationEnqueueResponse {
+    AdminVfsCacheRepairAutomationEnqueueResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        policy: admin_vfs_cache_repair_automation_policy(report.policy_report),
+        jobs: report
+            .jobs
+            .into_iter()
+            .map(admin_vfs_cache_repair_automation_job)
+            .collect(),
+        enqueued_count: report.enqueued_count,
+        already_queued_count: report.already_queued_count,
+    }
+}
+
+fn admin_vfs_cache_repair_automation_policy(
+    report: VfsCacheRepairAutomationPolicyReport,
+) -> AdminVfsCacheRepairAutomationPolicyReport {
+    AdminVfsCacheRepairAutomationPolicyReport {
+        enabled: report.policy.enabled,
+        total_unresolved_targets: report.total_unresolved_targets,
+        eligible_targets: report
+            .eligible_targets
+            .into_iter()
+            .map(|target| AdminVfsCacheRepairAutomationEligibleTarget {
+                target: admin_vfs_cache_repair_target(target.target),
+            })
+            .collect(),
+        blocked_targets: report
+            .blocked_targets
+            .into_iter()
+            .map(|target| AdminVfsCacheRepairAutomationBlockedTarget {
+                target: admin_vfs_cache_repair_target(target.target),
+                reason: admin_vfs_cache_repair_automation_block_reason(target.reason),
+            })
+            .collect(),
+        boundary: AdminVfsCacheRepairAutomationBoundary {
+            reads_repair_targets: report.boundary.reads_repair_targets,
+            may_start_durable_jobs: report.boundary.may_start_durable_jobs,
+            refreshes_vfs_cache: report.boundary.refreshes_vfs_cache,
+            changes_backend_configuration: report.boundary.changes_backend_configuration,
+            deletes_cache_entries: report.boundary.deletes_cache_entries,
+            writes_library_files: report.boundary.writes_library_files,
+        },
+    }
+}
+
+fn admin_vfs_cache_repair_automation_block_reason(
+    reason: AppVfsCacheRepairAutomationBlockReason,
+) -> AdminVfsCacheRepairAutomationBlockReason {
+    match reason {
+        AppVfsCacheRepairAutomationBlockReason::PolicyDisabled => {
+            AdminVfsCacheRepairAutomationBlockReason::PolicyDisabled
+        }
+        AppVfsCacheRepairAutomationBlockReason::BackendConfigurationRequired => {
+            AdminVfsCacheRepairAutomationBlockReason::BackendConfigurationRequired
+        }
+        AppVfsCacheRepairAutomationBlockReason::ManualFailureInspectionRequired => {
+            AdminVfsCacheRepairAutomationBlockReason::ManualFailureInspectionRequired
+        }
+        AppVfsCacheRepairAutomationBlockReason::NoActionRequired => {
+            AdminVfsCacheRepairAutomationBlockReason::NoActionRequired
+        }
+    }
+}
+
+fn admin_vfs_cache_repair_automation_job(
+    report: VfsCacheRepairAutomationJobReport,
+) -> AdminVfsCacheRepairAutomationJob {
+    AdminVfsCacheRepairAutomationJob {
+        outcome: admin_vfs_cache_repair_automation_enqueue_outcome(report.outcome),
+        job_id: report.job_id,
+        status: report.status,
+        priority: report.priority,
+        resource_class: report.resource_class,
+        library_id: report.library_id,
+        source_id: report.source_id,
+    }
+}
+
+fn admin_vfs_cache_repair_automation_enqueue_outcome(
+    outcome: AppVfsCacheRepairAutomationEnqueueOutcome,
+) -> AdminVfsCacheRepairEnqueueOutcome {
+    match outcome {
+        AppVfsCacheRepairAutomationEnqueueOutcome::Enqueued => {
+            AdminVfsCacheRepairEnqueueOutcome::Enqueued
+        }
+        AppVfsCacheRepairAutomationEnqueueOutcome::AlreadyQueued => {
+            AdminVfsCacheRepairEnqueueOutcome::AlreadyQueued
+        }
     }
 }
 
