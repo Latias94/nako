@@ -1239,3 +1239,38 @@ Archived the queue pressure task and exposed durable job queue-pressure summarie
 ### Next Steps
 
 - None - task complete
+
+
+## Session 80: Admin Jobs cancel command UI
+
+**Date**: 2026-06-08
+**Task**: Admin Jobs cancel command UI
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Promoted the existing Admin job cancel route into generated Admin contracts and wired Admin Web Jobs queued/running cancellation through AdminApiClient, AdminDataSource, i18n, tests, and generated artifacts.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `73716b24` | (see git log) |
+| `1a78db80` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
