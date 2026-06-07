@@ -741,9 +741,13 @@ fn validate_read_length(
     total_len: Option<u64>,
     actual_len: usize,
 ) -> Result<()> {
-    let expected_len = match range.and_then(|range| range.length).or(total_len) {
-        Some(expected_len) => expected_len,
-        None => return Ok(()),
+    let expected_len = match (range, total_len) {
+        (Some(range), Some(total_len)) => Some(range.resolved_len(uri, total_len)?),
+        (Some(range), None) => range.length,
+        (None, total_len) => total_len,
+    };
+    let Some(expected_len) = expected_len else {
+        return Ok(());
     };
     let actual_len = u64::try_from(actual_len).map_err(|err| {
         NakoError::storage(
@@ -884,6 +888,34 @@ mod tests {
         );
         assert_eq!(read.bytes, b"ar");
         assert_eq!(server.last_range().as_deref(), Some("bytes=1-2"));
+    }
+
+    #[tokio::test]
+    async fn webdav_backend_reads_open_ended_byte_ranges_with_resolved_length() {
+        let server = MockWebDavServer::start().await;
+        let backend = WebDavBackend::new(WebDavBackendConfig::new(server.base_url())).unwrap();
+        let movie = StorageUri::from_parts("webdav", "Movies/Demo.mkv").unwrap();
+
+        let read = backend
+            .read_range(
+                &movie,
+                Some(ByteRange {
+                    offset: 1,
+                    length: None,
+                }),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            read.range,
+            Some(ByteRange {
+                offset: 1,
+                length: None
+            })
+        );
+        assert_eq!(read.bytes, b"ako");
+        assert_eq!(server.last_range().as_deref(), Some("bytes=1-"));
     }
 
     #[tokio::test]
@@ -1206,6 +1238,20 @@ mod tests {
                         (header::CONTENT_LENGTH, "2"),
                     ],
                     "ar",
+                )
+                    .into_response();
+            }
+            if headers
+                .get(header::RANGE)
+                .is_some_and(|value| value == "bytes=1-")
+            {
+                return (
+                    AxumStatusCode::PARTIAL_CONTENT,
+                    [
+                        (header::CONTENT_RANGE, "bytes 1-3/4"),
+                        (header::CONTENT_LENGTH, "3"),
+                    ],
+                    "ako",
                 )
                     .into_response();
             }
