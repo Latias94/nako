@@ -1,7 +1,7 @@
 # Self-Hosted Release Readiness Design
 
 Status: Completed
-Last updated: 2026-05-21
+Last updated: 2026-06-07
 
 ## Problem
 
@@ -126,6 +126,10 @@ Harness suites:
 - `source-identity`: library-scoped Media Source identity, scan source-unit
   writes, source duplicate relationships, fingerprint match lookup, and VFS
   staging attribution/source-reservation contracts.
+- `storage-source-parity`: combined M2 storage-VFS reliability slice that runs
+  the existing `storage-runtime` and `source-identity` filters in sequence so
+  backend health, staging, and source identity parity are exercised in one
+  first-class harness entry.
 - `all-contracts`: every ignored `postgres_` contract test in `nako-db`.
 
 The harness never removes paths outside `target/postgres-contract/`; the

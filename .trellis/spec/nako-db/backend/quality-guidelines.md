@@ -43,13 +43,17 @@ Persistence work must prove repository behavior, not only compile.
 - Bash:
   `bash scripts/postgres-contract-harness.sh --suite <suite>`
 - Current suites:
-  `managed-artwork`, `storage-runtime`, `source-identity`, `all-contracts`.
+  `managed-artwork`, `storage-runtime`, `source-identity`,
+  `storage-source-parity`, `all-contracts`.
 
 ### 3. Contracts
 
 - Focused suites must map to explicit nextest filters for their risk area.
 - `all-contracts` is the broad escape hatch and should remain the only suite
   that uses the generic `postgres_` filter.
+- `storage-source-parity` is the combined M2 storage-VFS reliability suite;
+  it should stay explicit rather than silently replacing the focused
+  `storage-runtime` and `source-identity` suites.
 - PowerShell and Bash suite names must stay in parity.
 - Harness behavior for caller-provided database URLs, temporary local clusters,
   safe skip, `RequireTooling` / `--require-tooling`, and cleanup must remain

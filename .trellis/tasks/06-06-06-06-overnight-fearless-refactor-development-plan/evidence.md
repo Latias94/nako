@@ -448,6 +448,42 @@ Validation:
 - `Get-NetTCPConnection -LocalPort 55432 -ErrorAction SilentlyContinue`
   - Result: no listener reported after harness cleanup.
 
+## 2026-06-07 PostgreSQL Storage/Source Parity Harness Alias
+
+What changed:
+
+- Added a first-class `storage-source-parity` PostgreSQL harness suite in both
+  `scripts/postgres-contract-harness.ps1` and
+  `scripts/postgres-contract-harness.sh`.
+- The new suite is a combined M2 storage-VFS reliability entry point that runs
+  the existing `storage-runtime` and `source-identity` filters in one harness
+  pass.
+- Updated `docs/workstreams/self-hosted-release-readiness/DESIGN.md` and
+  `docs/workstreams/self-hosted-release-readiness/EVIDENCE_AND_GATES.md` so the
+  combined suite is discoverable.
+- Updated `.trellis/spec/nako-db/backend/quality-guidelines.md` so the suite
+  list and harness-selection guidance stay in sync with the scripts.
+
+Boundaries:
+
+- No production Rust code, schema, migration, API route, or generated contract
+  changed.
+- Existing `managed-artwork`, `storage-runtime`, `source-identity`, and
+  `all-contracts` suite behavior stayed intact.
+
+Validation:
+
+- `bash -n scripts/postgres-contract-harness.sh`
+  - Result: passed, though the WSL shim printed its usual environment noise.
+- `git diff --check`
+  - Result: passed with only Git LF/CRLF working-copy warnings.
+- `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/postgres-contract-harness.ps1 -Suite storage-source-parity -RequireTooling`
+  - Result: passed.
+  - PostgreSQL ignored contracts: 8 tests run, 8 passed, 172 skipped.
+  - Covered storage backend health, VFS staging listing/failure/summary,
+    library-scoped Media Source identity, scan source-unit writes, source
+    duplicate lookup, and VFS staging attribution/reservation contracts.
+
 ## 2026-06-07 VFS Cache Repair Admin Web Seam
 
 What changed:

@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
 [CmdletBinding()]
 param(
-    [ValidateSet('managed-artwork', 'storage-runtime', 'source-identity', 'all-contracts')]
+    [ValidateSet('managed-artwork', 'storage-runtime', 'source-identity', 'storage-source-parity', 'all-contracts')]
     [string]$Suite = 'managed-artwork',
 
     [string]$DatabaseUrl = $env:NAKO_TEST_POSTGRES_URL,
@@ -48,6 +48,41 @@ function Test-CommandAvailable {
     return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
 }
 
+function Get-StorageRuntimeFilters {
+    return @(
+        'postgres_storage_backend_health_contract',
+        'postgres_vfs_staging_contract'
+    )
+}
+
+function Get-SourceIdentityFilters {
+    return @(
+        'postgres_library_media_contract_preserves_library_scoped_source_identity',
+        'postgres_scan_commit_contract_writes_full_source_unit_and_resolves_failure',
+        'postgres_source_duplicate_contract',
+        'postgres_vfs_staging_contract_round_trips_attribution_variants',
+        'postgres_vfs_staging_contract_preserves_reservation_budget_and_leases'
+    )
+}
+
+function Invoke-ContractRun {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$TestFilters
+    )
+
+    $nextestArgs = @(
+        'nextest', 'run',
+        '-p', 'nako-db'
+    )
+    $nextestArgs += $TestFilters
+    $nextestArgs += @(
+        '--run-ignored', 'ignored-only',
+        '--no-fail-fast'
+    )
+    Invoke-Native 'cargo' $nextestArgs
+}
+
 function Stop-LocalPostgres {
     if ($script:StartedLocalServer) {
         try {
@@ -83,21 +118,9 @@ function Remove-HarnessData {
 function Get-TestFilter {
     switch ($Suite) {
         'managed-artwork' { return 'postgres_managed_artwork_contract' }
-        'storage-runtime' {
-            return @(
-                'postgres_storage_backend_health_contract',
-                'postgres_vfs_staging_contract'
-            )
-        }
-        'source-identity' {
-            return @(
-                'postgres_library_media_contract_preserves_library_scoped_source_identity',
-                'postgres_scan_commit_contract_writes_full_source_unit_and_resolves_failure',
-                'postgres_source_duplicate_contract',
-                'postgres_vfs_staging_contract_round_trips_attribution_variants',
-                'postgres_vfs_staging_contract_preserves_reservation_budget_and_leases'
-            )
-        }
+        'storage-runtime' { return Get-StorageRuntimeFilters }
+        'source-identity' { return Get-SourceIdentityFilters }
+        'storage-source-parity' { return @(Get-StorageRuntimeFilters) + @(Get-SourceIdentityFilters) }
         'all-contracts' { return 'postgres_' }
         default { throw "Unsupported suite: $Suite" }
     }
@@ -139,18 +162,13 @@ try {
     }
 
     $env:NAKO_TEST_POSTGRES_URL = $DatabaseUrl
-    $testFilter = Get-TestFilter
-
-    $nextestArgs = @(
-        'nextest', 'run',
-        '-p', 'nako-db'
-    )
-    $nextestArgs += $testFilter
-    $nextestArgs += @(
-        '--run-ignored', 'ignored-only',
-        '--no-fail-fast'
-    )
-    Invoke-Native 'cargo' $nextestArgs
+    if ($Suite -eq 'storage-source-parity') {
+        Invoke-ContractRun (Get-StorageRuntimeFilters)
+        Invoke-ContractRun (Get-SourceIdentityFilters)
+    } else {
+        $testFilter = Get-TestFilter
+        Invoke-ContractRun $testFilter
+    }
 } finally {
     Stop-LocalPostgres
     Remove-HarnessData

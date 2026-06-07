@@ -7,9 +7,18 @@ port="55432"
 keep_data="false"
 require_tooling="false"
 
+storage_runtime_filters=("postgres_storage_backend_health_contract" "postgres_vfs_staging_contract")
+source_identity_filters=(
+  "postgres_library_media_contract_preserves_library_scoped_source_identity"
+  "postgres_scan_commit_contract_writes_full_source_unit_and_resolves_failure"
+  "postgres_source_duplicate_contract"
+  "postgres_vfs_staging_contract_round_trips_attribution_variants"
+  "postgres_vfs_staging_contract_preserves_reservation_budget_and_leases"
+)
+
 usage() {
   cat <<'USAGE'
-Usage: scripts/postgres-contract-harness.sh [--suite managed-artwork|storage-runtime|source-identity|all-contracts] [--database-url URL] [--port PORT] [--keep-data] [--require-tooling]
+Usage: scripts/postgres-contract-harness.sh [--suite managed-artwork|storage-runtime|source-identity|storage-source-parity|all-contracts] [--database-url URL] [--port PORT] [--keep-data] [--require-tooling]
 
 Runs Nako's ignored PostgreSQL contract tests. If a database URL is supplied,
 the harness uses it directly. Without a URL, it starts a temporary local
@@ -55,16 +64,11 @@ done
 
 case "$suite" in
   managed-artwork) test_filters=("postgres_managed_artwork_contract") ;;
-  storage-runtime) test_filters=("postgres_storage_backend_health_contract" "postgres_vfs_staging_contract") ;;
+  storage-runtime) test_filters=("${storage_runtime_filters[@]}") ;;
   source-identity)
-    test_filters=(
-      "postgres_library_media_contract_preserves_library_scoped_source_identity"
-      "postgres_scan_commit_contract_writes_full_source_unit_and_resolves_failure"
-      "postgres_source_duplicate_contract"
-      "postgres_vfs_staging_contract_round_trips_attribution_variants"
-      "postgres_vfs_staging_contract_preserves_reservation_budget_and_leases"
-    )
+    test_filters=("${source_identity_filters[@]}")
     ;;
+  storage-source-parity) test_filters=() ;;
   all-contracts) test_filters=("postgres_") ;;
   *)
     echo "Invalid suite: $suite" >&2
@@ -87,6 +91,11 @@ step() {
   echo
   echo "==> $*"
   "$@"
+}
+
+run_nextest() {
+  local -a filters=("$@")
+  step cargo nextest run -p nako-db "${filters[@]}" --run-ignored ignored-only --no-fail-fast
 }
 
 cleanup_data() {
@@ -149,4 +158,9 @@ else
 fi
 
 export NAKO_TEST_POSTGRES_URL="$database_url"
-step cargo nextest run -p nako-db "${test_filters[@]}" --run-ignored ignored-only --no-fail-fast
+if [[ "$suite" == "storage-source-parity" ]]; then
+  run_nextest "${storage_runtime_filters[@]}"
+  run_nextest "${source_identity_filters[@]}"
+else
+  run_nextest "${test_filters[@]}"
+fi

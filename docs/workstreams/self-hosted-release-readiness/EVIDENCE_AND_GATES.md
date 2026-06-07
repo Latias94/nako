@@ -1,7 +1,7 @@
 # Self-Hosted Release Readiness — Evidence And Gates
 
 Status: Completed
-Last updated: 2026-05-21
+Last updated: 2026-06-07
 
 ## Baseline Gates
 
@@ -42,17 +42,24 @@ SHR-030 PostgreSQL harness:
 ```powershell
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/postgres-contract-harness.ps1 -Suite managed-artwork
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/postgres-contract-harness.ps1 -Suite all-contracts
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/postgres-contract-harness.ps1 -Suite storage-source-parity
 ```
 
 ```bash
 bash scripts/postgres-contract-harness.sh --suite managed-artwork
 bash scripts/postgres-contract-harness.sh --suite all-contracts
+bash scripts/postgres-contract-harness.sh --suite storage-source-parity
 ```
 
 Without `NAKO_TEST_POSTGRES_URL`, the harness starts a temporary local cluster
 under `target/postgres-contract/` when `initdb`, `pg_ctl`, and `createdb` are
 available. If tooling is unavailable, it prints a clear skip and exits
 successfully unless `--require-tooling` / `-RequireTooling` is set.
+
+`storage-source-parity` is the combined M2 storage-VFS reliability slice. It
+reuses the existing `storage-runtime` and `source-identity` contract filters in
+sequence under one harness entry, while the narrower suites remain available
+when you want a smaller focus area.
 
 ## Redaction Inventory Gate
 
@@ -147,6 +154,7 @@ ingest contracts without inspecting private SQL from the HTTP smoke.
 | 2026-05-21 | SHR-080 closeout | `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode fast` | Pass. Format/diff gates passed; redaction inventory wrote 3208 matches; SQLite Managed Artwork contracts passed 6/6; API/OpenAPI/Admin contract/client/protocol/TypeScript/Admin Web gates passed; Managed Artwork API tests passed 12/12; Managed Artwork server tests passed 13/13; SQLite self-host smoke passed 1/1. |
 | 2026-05-21 | SHR-080 closeout | `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode postgres -SkipRedactionInventory` | Pass. PostgreSQL Managed Artwork contracts passed 6/6 through the local PostgreSQL 17 harness. |
 | 2026-05-21 | SHR-080 closeout | `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode workspace -SkipRedactionInventory` | Pass. `cargo check --workspace --tests` passed; `cargo nextest run --workspace --no-fail-fast` passed 506/506 with 25 skipped. |
+| 2026-06-07 | SHR-030 PostgreSQL harness | `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/postgres-contract-harness.ps1 -Suite storage-source-parity -Port 55434` | Pass. Local PostgreSQL 17 tooling started an isolated cluster under `target/postgres-contract`, ran the storage-runtime suite 4/4 and the source-identity suite 6/6 in sequence, stopped PostgreSQL, and removed the harness data directory. |
 
 ## Follow-On Gaps
 
