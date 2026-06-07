@@ -1,0 +1,14 @@
+{"file": ".trellis/spec/guides/index.md", "reason": "Verify cross-layer and reuse thinking were applied."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Verify existing DTOs/builders are reused."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify API/server/generated contract consistency."}
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Verify API contract rules."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Verify Admin DTO and generated contract shape."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Verify generated contract/redaction tests."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Verify server boundary."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Verify route response mapping patterns."}
+{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Verify raw errors remain private."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify focused server gate selection."}
+{"file": ".trellis/spec/nako-core/backend/index.md", "reason": "Verify job domain record privacy."}
+{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Verify implementation matches VFS follow-on boundary."}
+{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Verify implementation matches control-plane diagnostics boundary."}
+{"file": ".trellis/tasks/archive/2026-06/06-07-vfs-cache-repair-job-diagnostics-projection/prd.md", "reason": "Verify acceptance criteria and out-of-scope boundaries."}

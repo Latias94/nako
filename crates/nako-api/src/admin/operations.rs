@@ -7,9 +7,11 @@ use nako_core::{
     SourceDuplicateReconciliationAction, SourceDuplicateReconciliationApplyResult,
     SourceDuplicateReconciliationCandidate, SourceDuplicateReconciliationPlan,
     SourceDuplicateRelationshipId, SourceDuplicateRelationshipStatus,
-    SourceFingerprintEvidenceKind,
+    SourceFingerprintEvidenceKind, StorageFailureClass,
 };
 use serde::{Deserialize, Serialize};
+
+use super::storage::AdminVfsCacheRepairJobSummary;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct JobResponse {
@@ -25,11 +27,14 @@ pub struct JobResponse {
     pub queued_at: String,
     pub started_at: Option<String>,
     pub completed_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diagnostics: Option<AdminJobDiagnostics>,
 }
 
 impl JobResponse {
     #[must_use]
     pub fn from_job(job: Job) -> Self {
+        let diagnostics = AdminJobDiagnostics::from_job(&job);
         Self {
             id: job.id,
             kind: job.kind,
@@ -43,6 +48,7 @@ impl JobResponse {
             queued_at: job.queued_at,
             started_at: job.started_at,
             completed_at: job.completed_at,
+            diagnostics,
         }
     }
 }
@@ -87,11 +93,14 @@ pub struct AdminJobListItem {
     pub queued_at: String,
     pub started_at: Option<String>,
     pub completed_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diagnostics: Option<AdminJobDiagnostics>,
 }
 
 impl AdminJobListItem {
     #[must_use]
     pub fn from_job(job: Job) -> Self {
+        let diagnostics = AdminJobDiagnostics::from_job(&job);
         Self {
             id: job.id,
             kind: job.kind,
@@ -105,6 +114,79 @@ impl AdminJobListItem {
             queued_at: job.queued_at,
             started_at: job.started_at,
             completed_at: job.completed_at,
+            diagnostics,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminJobDiagnostics {
+    pub vfs_cache_repair: Option<AdminVfsCacheRepairJobDiagnostics>,
+}
+
+impl AdminJobDiagnostics {
+    fn from_job(job: &Job) -> Option<Self> {
+        match job.kind {
+            JobKind::VfsCacheRepair => Some(Self {
+                vfs_cache_repair: Some(AdminVfsCacheRepairJobDiagnostics::from_job(job)),
+            }),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRepairJobDiagnostics {
+    pub status: AdminVfsCacheRepairJobDiagnosticStatus,
+    pub summary: Option<AdminVfsCacheRepairJobSummary>,
+    pub failure: Option<AdminVfsCacheRepairJobFailureDiagnostic>,
+}
+
+impl AdminVfsCacheRepairJobDiagnostics {
+    fn from_job(job: &Job) -> Self {
+        let summary = job.summary_json.as_deref().and_then(|summary| {
+            serde_json::from_str::<AdminVfsCacheRepairJobSummary>(summary).ok()
+        });
+        let failure = job
+            .error
+            .as_ref()
+            .map(|_error| AdminVfsCacheRepairJobFailureDiagnostic::redacted(job.status));
+
+        Self {
+            status: match (&summary, &failure) {
+                (Some(_), _) => AdminVfsCacheRepairJobDiagnosticStatus::SummaryAvailable,
+                (None, Some(_)) => AdminVfsCacheRepairJobDiagnosticStatus::Failed,
+                (None, None) => AdminVfsCacheRepairJobDiagnosticStatus::Pending,
+            },
+            summary,
+            failure,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminVfsCacheRepairJobDiagnosticStatus {
+    Pending,
+    SummaryAvailable,
+    Failed,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminVfsCacheRepairJobFailureDiagnostic {
+    pub status: JobStatus,
+    pub failure_class: StorageFailureClass,
+    pub safe_message: String,
+    pub retryable: bool,
+}
+
+impl AdminVfsCacheRepairJobFailureDiagnostic {
+    fn redacted(status: JobStatus) -> Self {
+        Self {
+            status,
+            failure_class: StorageFailureClass::Unknown,
+            safe_message: StorageFailureClass::Unknown.safe_message().to_owned(),
+            retryable: StorageFailureClass::Unknown.is_retryable(),
         }
     }
 }
@@ -380,6 +462,9 @@ pub struct IgnoreIngestionFailureRequest {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::admin::{
+        AdminVfsCacheRepairAction, AdminVfsCacheRepairCacheState, AdminVfsCacheRepairClassification,
+    };
 
     #[test]
     fn ingestion_failure_diagnostic_serializes_explicit_dto_fields() {
@@ -525,6 +610,125 @@ mod tests {
         assert!(!body.contains("input_json"));
         assert!(!body.contains("summary_json"));
         assert!(!body.contains("error\":\"token"));
+    }
+
+    #[test]
+    fn vfs_cache_repair_job_response_projects_safe_summary_diagnostics() {
+        let summary = AdminVfsCacheRepairJobSummary {
+            action: AdminVfsCacheRepairAction::RefreshCache,
+            source_scheme: "webdav".to_owned(),
+            operation: nako_core::VfsCacheOperation::Stat,
+            classification: AdminVfsCacheRepairClassification::RetryableRefreshFailure,
+            failure_class: Some(StorageFailureClass::Unavailable),
+            failed_at_ms: 1_000,
+            failure_count: 2,
+            refreshed_cache_state: Some(AdminVfsCacheRepairCacheState::Fresh),
+        };
+        let job = Job {
+            id: JobId::new(),
+            kind: JobKind::VfsCacheRepair,
+            status: JobStatus::Succeeded,
+            resource_class: "storage.vfs.cache_repair".to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(LibraryId::new()),
+            source_id: None,
+            input_json: Some(
+                r#"{"uri_digest":"raw digest must-not-leak","source_uri":"local:///Hidden Movie.mkv"}"#
+                    .to_owned(),
+            ),
+            summary_json: Some(serde_json::to_string(&summary).unwrap()),
+            error: None,
+            attempt: 1,
+            max_attempts: 1,
+            retry_of_job_id: None,
+            next_attempt_at: None,
+            queued_at: "2026-06-07T00:00:00Z".to_owned(),
+            started_at: Some("2026-06-07T00:00:01Z".to_owned()),
+            completed_at: Some("2026-06-07T00:00:02Z".to_owned()),
+        };
+
+        let response = JobResponse::from_job(job);
+        let value = serde_json::to_value(&response).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(
+            value["diagnostics"]["vfs_cache_repair"]["status"],
+            "summary_available"
+        );
+        assert_eq!(
+            value["diagnostics"]["vfs_cache_repair"]["summary"]["action"],
+            "refresh_cache"
+        );
+        assert_eq!(
+            value["diagnostics"]["vfs_cache_repair"]["summary"]["source_scheme"],
+            "webdav"
+        );
+        assert_eq!(
+            value["diagnostics"]["vfs_cache_repair"]["failure"],
+            serde_json::Value::Null
+        );
+        assert!(!body.contains("raw digest"));
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("local:///"));
+        assert!(!body.contains("Hidden Movie"));
+        assert!(!body.contains("input_json"));
+        assert!(!body.contains("summary_json"));
+    }
+
+    #[test]
+    fn vfs_cache_repair_job_list_item_projects_only_safe_failure_diagnostics() {
+        let job = Job {
+            id: JobId::new(),
+            kind: JobKind::VfsCacheRepair,
+            status: JobStatus::Failed,
+            resource_class: "storage.vfs.cache_repair".to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(LibraryId::new()),
+            source_id: None,
+            input_json: Some(r#"{"uri_digest":"raw digest must-not-leak"}"#.to_owned()),
+            summary_json: None,
+            error: Some(
+                "storage error at local:///Hidden Movie.mkv: token=secret safe-test-etag"
+                    .to_owned(),
+            ),
+            attempt: 1,
+            max_attempts: 2,
+            retry_of_job_id: None,
+            next_attempt_at: None,
+            queued_at: "2026-06-07T00:00:00Z".to_owned(),
+            started_at: Some("2026-06-07T00:00:01Z".to_owned()),
+            completed_at: Some("2026-06-07T00:00:02Z".to_owned()),
+        };
+
+        let item = AdminJobListItem::from_job(job);
+        let value = serde_json::to_value(&item).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(value["diagnostics"]["vfs_cache_repair"]["status"], "failed");
+        assert_eq!(
+            value["diagnostics"]["vfs_cache_repair"]["failure"]["failure_class"],
+            "unknown"
+        );
+        assert_eq!(
+            value["diagnostics"]["vfs_cache_repair"]["failure"]["safe_message"],
+            "storage failure"
+        );
+        assert_eq!(
+            value["diagnostics"]["vfs_cache_repair"]["failure"]["retryable"],
+            false
+        );
+        assert_eq!(
+            value["diagnostics"]["vfs_cache_repair"]["summary"],
+            serde_json::Value::Null
+        );
+        assert!(!body.contains("raw digest"));
+        assert!(!body.contains("local:///"));
+        assert!(!body.contains("Hidden Movie"));
+        assert!(!body.contains("token=secret"));
+        assert!(!body.contains("safe-test-etag"));
+        assert!(!body.contains("input_json"));
+        assert!(!body.contains("summary_json"));
+        assert!(!body.contains("error\":\"storage"));
     }
 
     #[test]

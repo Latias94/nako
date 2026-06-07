@@ -1129,6 +1129,7 @@ mod tests {
             queued_at: "2026-06-07T00:00:00Z".to_owned(),
             started_at: None,
             completed_at: None,
+            diagnostics: None,
         };
         let enqueue = AdminVfsCacheRepairEnqueueResponse {
             admin_api_version: "v1".to_owned(),

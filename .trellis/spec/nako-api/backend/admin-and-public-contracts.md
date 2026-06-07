@@ -168,8 +168,10 @@ Public Client exclusion tests.
 - Trigger: Admin storage staging diagnostics expose the latest VFS cache repair
   preview, action plan, bounded target inventory, target-scoped preview,
   read-only remediation plan, latest-failure / target-scoped refresh result, or
-  Admin manual durable repair enqueue/execute/retry commands.
+  Admin manual durable repair enqueue/execute/retry commands, or Admin Jobs
+  list/detail/cancel responses project VFS cache repair job diagnostics.
 - Scope: `AdminStorageStagingSummary.vfs_cache.repair`,
+  `AdminJobListItem.diagnostics`, `JobResponse.diagnostics`,
   `AdminVfsCacheRepairActionPlanResponse`, `AdminVfsCacheRefreshResponse`,
   `AdminVfsCacheRepairTargetListResponse`,
   `AdminVfsCacheRepairTargetPreviewResponse`,
@@ -218,6 +220,13 @@ Public Client exclusion tests.
   `AdminVfsCacheRepairJobSummary { action, source_scheme, operation,
   classification, failure_class, failed_at_ms, failure_count,
   refreshed_cache_state }`.
+- Admin job diagnostics DTO:
+  `AdminJobDiagnostics { vfs_cache_repair }`.
+- Admin VFS repair job diagnostics DTO:
+  `AdminVfsCacheRepairJobDiagnostics { status, summary, failure }`.
+- Admin VFS repair job failure diagnostic DTO:
+  `AdminVfsCacheRepairJobFailureDiagnostic { status, failure_class,
+  safe_message, retryable }`.
 - Admin read-only remediation route:
   `GET /admin/v1/storage/vfs-cache/repair/remediation-plan`.
 - Admin refresh routes:
@@ -301,6 +310,16 @@ Public Client exclusion tests.
   route metadata.
 - TypeScript contract artifacts under `apps/admin-web` and `web` must be
   regenerated from `nako-api`; do not hand-edit generated files.
+- `AdminJobListItem` and `JobResponse` may include
+  `diagnostics: AdminJobDiagnostics` only for `JobKind::VfsCacheRepair`.
+  Non-VFS jobs must keep this field absent or null.
+- VFS cache repair job diagnostics may parse safe `summary_json` only into
+  `AdminVfsCacheRepairJobSummary`; they must never expose raw `summary_json`.
+- Failed VFS cache repair job diagnostics may derive only stable redacted facts
+  from the presence of `job.error`: `failure_class: unknown`,
+  `safe_message: "storage failure"`, retryability, and job status. They must
+  not copy raw `job.error`, paths, URIs, tokens, backend URLs, etags,
+  fingerprints, or URI digests.
 
 ### 4. Validation & Error Matrix
 
@@ -333,6 +352,10 @@ Public Client exclusion tests.
 | Remediation plan has operator-action failures | Returns plan-only groups with no executable route metadata |
 | Remediation plan is requested by a non-admin caller | Returns forbidden through the existing Admin route guard |
 | Preview, plan, target, refresh, or remediation response contains raw path, token, source URI, etag, fingerprint, backend URL, or raw backend error | Contract violation |
+| Admin Jobs response contains a queued VFS repair job without summary/error | `diagnostics.vfs_cache_repair.status: "pending"` with null summary and failure |
+| Admin Jobs response contains a succeeded VFS repair job with valid safe summary JSON | `status: "summary_available"` and `summary: AdminVfsCacheRepairJobSummary` |
+| Admin Jobs response contains a failed VFS repair job with raw error text | `status: "failed"` and only redacted failure facts; raw error text is omitted |
+| Admin Jobs response contains a non-VFS job | `diagnostics` is absent or null |
 
 ### 5. Good / Base / Bad Cases
 
@@ -362,8 +385,12 @@ Public Client exclusion tests.
   repair summary.
 - Good: `/admin/v1/storage/vfs-cache/repair/jobs/{job_id}/retry` creates a new
   queued retry from one failed repair job and returns only generic job facts.
+- Good: `/admin/v1/jobs?kind=vfs_cache_repair` returns VFS repair diagnostics
+  on each VFS repair job row without exposing raw durable payloads.
 - Base: old clients that omit `repair` during deserialization still work through
   serde defaults.
+- Base: old clients that omit `diagnostics` during deserialization still work
+  through serde defaults.
 - Bad: adding a purge/delete, URI-scoped mutation, or retry queue before defining
   cache invalidation and targeting semantics in VFS and DB repository contracts.
 - Bad: treating the remediation plan top-level boundary as executable because a
@@ -371,6 +398,8 @@ Public Client exclusion tests.
   route.
 - Bad: exposing raw durable `input_json`/`summary_json` or accepting raw storage
   identity in Admin command request bodies.
+- Bad: rendering `job.error` or raw persisted `summary_json` inside
+  `AdminJobDiagnostics`.
 
 ### 6. Tests Required
 
@@ -388,6 +417,12 @@ Public Client exclusion tests.
   retry invalid states create no retry job, non-refresh target diagnostics
   avoid backend calls, and responses still redact raw paths, source locators,
   fingerprints, etags, tokens, and raw backend errors.
+- API serialization tests prove `JobResponse` and `AdminJobListItem` VFS repair
+  diagnostics project safe summary/failure fields and omit raw
+  `input_json`, `summary_json`, and `error`.
+- Server route tests prove enqueue/execute/Admin Jobs list responses carry
+  pending, summary, and failed VFS repair diagnostics without leaking raw job
+  payloads.
 
 ### 7. Wrong vs Correct
 
@@ -401,4 +436,16 @@ repair.safe_message = Some(failure.error);
 
 ```rust
 repair.safe_message = VfsCacheRepairDiagnostic::from_failure(&failure).safe_message;
+```
+
+#### Wrong
+
+```rust
+diagnostics.failure.safe_message = job.error.clone();
+```
+
+#### Correct
+
+```rust
+diagnostics.failure.safe_message = StorageFailureClass::Unknown.safe_message().to_owned();
 ```

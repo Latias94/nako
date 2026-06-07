@@ -2664,6 +2664,28 @@ export interface AdminOutboxEventListItem {
   next_attempt_at: string | null;
 }
 
+export interface AdminJobDiagnostics {
+  vfs_cache_repair: AdminVfsCacheRepairJobDiagnostics | null;
+}
+
+export type AdminVfsCacheRepairJobDiagnosticStatus =
+  | "pending"
+  | "summary_available"
+  | "failed";
+
+export interface AdminVfsCacheRepairJobDiagnostics {
+  status: AdminVfsCacheRepairJobDiagnosticStatus;
+  summary: AdminVfsCacheRepairJobSummary | null;
+  failure: AdminVfsCacheRepairJobFailureDiagnostic | null;
+}
+
+export interface AdminVfsCacheRepairJobFailureDiagnostic {
+  status: string;
+  failure_class: StorageFailureClass;
+  safe_message: string;
+  retryable: boolean;
+}
+
 export interface AdminJobListItem {
   id: string;
   kind: string;
@@ -2677,6 +2699,7 @@ export interface AdminJobListItem {
   queued_at: string;
   started_at: string | null;
   completed_at: string | null;
+  diagnostics?: AdminJobDiagnostics | null;
 }
 
 export type AdminJobCommandResponse = AdminJobListItem;
@@ -4232,6 +4255,10 @@ mod tests {
             "AdminMetadataScanPolicy",
             "AdminUpdateLibraryMetadataProfileRequest",
             "AdminLibraryMetadataProfileResponse",
+            "AdminJobDiagnostics",
+            "AdminVfsCacheRepairJobDiagnostics",
+            "AdminVfsCacheRepairJobDiagnosticStatus",
+            "AdminVfsCacheRepairJobFailureDiagnostic",
             "AdminJobCommandResponse",
             "AdminStorageBackendsQuery",
             "AdminStorageStagingQuery",

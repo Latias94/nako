@@ -28,9 +28,9 @@ use nako_api::admin::{
     AdminVfsCacheRepairActionPlanStatus, AdminVfsCacheRepairCacheState,
     AdminVfsCacheRepairEnqueueOutcome, AdminVfsCacheRepairEnqueueRequest,
     AdminVfsCacheRepairEnqueueResponse, AdminVfsCacheRepairExecuteResponse,
-    AdminVfsCacheRepairRemediationPlanResponse, AdminVfsCacheRepairRetryRequest,
-    AdminVfsCacheRepairTargetListResponse, AdminVfsCacheRepairTargetPreviewResponse,
-    AdminWatchFolderRuntimeCoverageStatus,
+    AdminVfsCacheRepairJobDiagnosticStatus, AdminVfsCacheRepairRemediationPlanResponse,
+    AdminVfsCacheRepairRetryRequest, AdminVfsCacheRepairTargetListResponse,
+    AdminVfsCacheRepairTargetPreviewResponse, AdminWatchFolderRuntimeCoverageStatus,
 };
 use nako_core::{
     JobKind, JobPriority, JobRepository, JobStatus,
@@ -8548,6 +8548,18 @@ async fn admin_v1_vfs_cache_repair_job_routes_enqueue_and_execute_without_payloa
     assert!(enqueue.job.has_input);
     assert!(!enqueue.job.has_summary);
     assert!(!enqueue.job.has_error);
+    let enqueue_diagnostics = enqueue
+        .job
+        .diagnostics
+        .as_ref()
+        .and_then(|diagnostics| diagnostics.vfs_cache_repair.as_ref())
+        .expect("queued repair job diagnostics");
+    assert_eq!(
+        enqueue_diagnostics.status,
+        AdminVfsCacheRepairJobDiagnosticStatus::Pending
+    );
+    assert!(enqueue_diagnostics.summary.is_none());
+    assert!(enqueue_diagnostics.failure.is_none());
     assert_eq!(persisted.kind, JobKind::VfsCacheRepair);
     assert_eq!(
         persisted.resource_class,
@@ -8609,6 +8621,18 @@ async fn admin_v1_vfs_cache_repair_job_routes_enqueue_and_execute_without_payloa
     assert!(execute.job.has_input);
     assert!(execute.job.has_summary);
     assert!(!execute.job.has_error);
+    let execute_diagnostics = execute
+        .job
+        .diagnostics
+        .as_ref()
+        .and_then(|diagnostics| diagnostics.vfs_cache_repair.as_ref())
+        .expect("completed repair job diagnostics");
+    assert_eq!(
+        execute_diagnostics.status,
+        AdminVfsCacheRepairJobDiagnosticStatus::SummaryAvailable
+    );
+    assert_eq!(execute_diagnostics.summary.as_ref(), Some(&execute.summary));
+    assert!(execute_diagnostics.failure.is_none());
     assert_eq!(
         execute.summary.action,
         nako_api::admin::AdminVfsCacheRepairAction::RefreshCache
@@ -8689,6 +8713,51 @@ async fn admin_v1_vfs_cache_repair_retry_requeues_failed_job_without_payload_lea
         .await
         .unwrap();
 
+    let failed_jobs_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/jobs?kind=vfs_cache_repair&limit=10")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(failed_jobs_response.status(), StatusCode::OK);
+    let failed_jobs_body = response_text(failed_jobs_response).await;
+    let failed_jobs: AdminJobListResponse = serde_json::from_str(&failed_jobs_body).unwrap();
+    let failed_job = failed_jobs
+        .jobs
+        .iter()
+        .find(|job| job.id == failed.id)
+        .expect("failed repair job in Admin Jobs list");
+    assert_eq!(failed_job.kind, JobKind::VfsCacheRepair);
+    assert_eq!(failed_job.status, JobStatus::Failed);
+    assert!(failed_job.has_error);
+    let failed_diagnostics = failed_job
+        .diagnostics
+        .as_ref()
+        .and_then(|diagnostics| diagnostics.vfs_cache_repair.as_ref())
+        .expect("failed repair job diagnostics");
+    assert_eq!(
+        failed_diagnostics.status,
+        AdminVfsCacheRepairJobDiagnosticStatus::Failed
+    );
+    assert!(failed_diagnostics.summary.is_none());
+    let failed_diagnostic = failed_diagnostics
+        .failure
+        .as_ref()
+        .expect("failed repair job failure diagnostic");
+    assert_eq!(failed_diagnostic.status, JobStatus::Failed);
+    assert_eq!(
+        failed_diagnostic.failure_class,
+        StorageFailureClass::Unknown
+    );
+    assert_eq!(failed_diagnostic.safe_message, "storage failure");
+    assert!(!failed_diagnostic.retryable);
+    assert_vfs_cache_repair_admin_response_redacted(&failed_jobs_body);
+
     let retry_response = response_body_json(
         &router,
         Method::POST,
@@ -8726,6 +8795,17 @@ async fn admin_v1_vfs_cache_repair_retry_requeues_failed_job_without_payload_lea
     assert!(retry_job.has_input);
     assert!(!retry_job.has_summary);
     assert!(!retry_job.has_error);
+    let retry_diagnostics = retry_job
+        .diagnostics
+        .as_ref()
+        .and_then(|diagnostics| diagnostics.vfs_cache_repair.as_ref())
+        .expect("retry repair job diagnostics");
+    assert_eq!(
+        retry_diagnostics.status,
+        AdminVfsCacheRepairJobDiagnosticStatus::Pending
+    );
+    assert!(retry_diagnostics.summary.is_none());
+    assert!(retry_diagnostics.failure.is_none());
     assert_eq!(persisted_retry.retry_of_job_id, Some(failed.id));
     assert_eq!(persisted_retry.attempt, 2);
     assert_eq!(persisted_retry.max_attempts, 3);
