@@ -360,6 +360,11 @@ Shipped:
   does not read source bytes.
 - `proposed:storage-vfs-postgresql-runtime-harness`: runtime parity evidence
   for PostgreSQL storage/source identity query paths.
+- `proposed:storage-opendal-adapter-decision-spike`: evaluate Apache OpenDAL
+  as a possible implementation adapter behind `StorageBackend` for future
+  backend breadth. Do not replace Nako-owned `StorageUri`, Source Locator
+  redaction, source fingerprint, cache repair authority, storage health, or
+  deterministic staging semantics with a generic storage operator.
 
 ## Risk Register
 

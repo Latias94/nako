@@ -57,6 +57,31 @@ OpenDAL does not replace Nako's domain-owned storage model:
 - Admin-safe diagnostics
 - playback/probe/scan resource policy
 
+## Local Code Inspection
+
+`crates/nako-vfs/src/lib.rs` shows that `StorageBackend` is already a
+domain-level contract, not only an object-store operation facade. It includes:
+
+- scheme ownership through `StorageUri`;
+- object metadata with Nako capabilities, cache status, etag, and fingerprint;
+- byte-range reads and streaming reads;
+- deterministic staging reports;
+- local write, atomic replace, backup, restore, cleanup, apply, hardlink, and
+  symlink planning semantics;
+- default unsupported reports for backends that do not support mutation.
+
+`LocalFsBackend` currently owns path authority, local path escape prevention,
+direct and atomic writes, backup retention, restore, cleanup, link planning,
+and local staging by returning an existing path hint.
+
+`WebDavBackend` currently owns credential redaction, endpoint validation,
+manual retry/timeout policy, PROPFIND parsing, range reads, streaming reads,
+deterministic staging, and deliberately read-only write behavior.
+
+This means OpenDAL could reduce backend-specific HTTP/filesystem operation
+code, but only after Nako defines an adapter layer that maps OpenDAL behavior
+back into Nako's stricter product contract.
+
 ## Recommended Decision
 
 Do not add OpenDAL as an immediate production dependency.
