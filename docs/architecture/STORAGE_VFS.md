@@ -408,9 +408,10 @@ Shipped:
   redaction-safe diagnostics. The current scan escalation policy seam still
   does not read source bytes.
 - `proposed:storage-vfs-postgresql-runtime-harness`: focused
-  `storage-runtime` and `source-identity` PostgreSQL contract harness suites
-  passed on current HEAD as of 2026-06-07. Broader runtime parity evidence for
-  future storage/control-plane query paths remains a follow-on.
+  `storage-runtime`, `source-identity`, and `job-runtime` PostgreSQL contract
+  harness suites passed on current HEAD as of 2026-06-07. Broader runtime
+  parity evidence for future storage/control-plane query paths remains a
+  follow-on.
 - `proposed:storage-opendal-adapter-decision-spike`: evaluate Apache OpenDAL
   as a possible implementation adapter behind `StorageBackend` for future
   backend breadth. Do not replace Nako-owned `StorageUri`, Source Locator

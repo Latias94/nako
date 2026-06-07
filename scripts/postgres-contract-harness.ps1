@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
 [CmdletBinding()]
 param(
-    [ValidateSet('managed-artwork', 'storage-runtime', 'source-identity', 'storage-source-parity', 'all-contracts')]
+    [ValidateSet('managed-artwork', 'storage-runtime', 'source-identity', 'job-runtime', 'storage-source-parity', 'all-contracts')]
     [string]$Suite = 'managed-artwork',
 
     [string]$DatabaseUrl = $env:NAKO_TEST_POSTGRES_URL,
@@ -25,6 +25,7 @@ $LogPath = Join-Path $HarnessRoot 'postgres.log'
 $DatabaseName = 'nako_contract'
 $UserName = 'nako'
 $StartedLocalServer = $false
+$LocalPostgresStopped = $true
 
 function Invoke-Native {
     param(
@@ -65,6 +66,17 @@ function Get-SourceIdentityFilters {
     )
 }
 
+function Get-JobRuntimeFilters {
+    return @(
+        'postgres_job_lease_contract_claims_next_with_worker_token_and_filter',
+        'postgres_job_lease_contract_heartbeats_and_completes_with_run_token_fence',
+        'postgres_job_lease_contract_cancel_requests_are_durable_and_acknowledged_by_owner',
+        'postgres_job_lease_contract_recovers_only_expired_running_leases',
+        'postgres_job_retry_contract_persists_backoff_and_redacted_queue_pressure',
+        'postgres_job_retry_contract_priority_policy_orders_fairly_and_recovers'
+    )
+}
+
 function Invoke-ContractRun {
     param(
         [Parameter(Mandatory = $true)]
@@ -86,8 +98,10 @@ function Invoke-ContractRun {
 function Stop-LocalPostgres {
     if ($script:StartedLocalServer) {
         try {
-            Invoke-Native 'pg_ctl' @('stop', '-D', $DataDir, '-m', 'fast', '-w', '-t', '30')
+            Invoke-Native 'pg_ctl' @('stop', '-D', $DataDir, '-m', 'fast', '-w', '-t', '90')
+            $script:LocalPostgresStopped = $true
         } catch {
+            $script:LocalPostgresStopped = $false
             Write-Warning "Failed to stop local PostgreSQL cleanly: $_"
         }
     }
@@ -97,6 +111,11 @@ function Remove-HarnessData {
     if ($KeepData) {
         Write-Host ""
         Write-Host "Keeping PostgreSQL harness data at $HarnessRoot."
+        return
+    }
+
+    if ($StartedLocalServer -and -not $LocalPostgresStopped) {
+        Write-Warning "Keeping PostgreSQL harness data at $HarnessRoot because the local server did not confirm shutdown."
         return
     }
 
@@ -120,6 +139,7 @@ function Get-TestFilter {
         'managed-artwork' { return 'postgres_managed_artwork_contract' }
         'storage-runtime' { return Get-StorageRuntimeFilters }
         'source-identity' { return Get-SourceIdentityFilters }
+        'job-runtime' { return Get-JobRuntimeFilters }
         'storage-source-parity' { return @(Get-StorageRuntimeFilters) + @(Get-SourceIdentityFilters) }
         'all-contracts' { return 'postgres_' }
         default { throw "Unsupported suite: $Suite" }
@@ -154,6 +174,7 @@ try {
             '-o', "-p $Port -h 127.0.0.1"
         )
         $StartedLocalServer = $true
+        $LocalPostgresStopped = $false
 
         Invoke-Native 'createdb' @('-h', '127.0.0.1', '-p', "$Port", '-U', $UserName, $DatabaseName)
         $DatabaseUrl = "postgres://$UserName@127.0.0.1:$Port/$DatabaseName"

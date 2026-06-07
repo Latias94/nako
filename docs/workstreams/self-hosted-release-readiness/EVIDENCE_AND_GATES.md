@@ -43,12 +43,14 @@ SHR-030 PostgreSQL harness:
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/postgres-contract-harness.ps1 -Suite managed-artwork
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/postgres-contract-harness.ps1 -Suite all-contracts
 pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/postgres-contract-harness.ps1 -Suite storage-source-parity
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/postgres-contract-harness.ps1 -Suite job-runtime
 ```
 
 ```bash
 bash scripts/postgres-contract-harness.sh --suite managed-artwork
 bash scripts/postgres-contract-harness.sh --suite all-contracts
 bash scripts/postgres-contract-harness.sh --suite storage-source-parity
+bash scripts/postgres-contract-harness.sh --suite job-runtime
 ```
 
 Without `NAKO_TEST_POSTGRES_URL`, the harness starts a temporary local cluster
@@ -60,6 +62,11 @@ successfully unless `--require-tooling` / `-RequireTooling` is set.
 reuses the existing `storage-runtime` and `source-identity` contract filters in
 sequence under one harness entry, while the narrower suites remain available
 when you want a smaller focus area.
+
+`job-runtime` is the focused durable job runtime slice. It runs the existing
+PostgreSQL job lease and retry contracts for claim filters, run-token fencing,
+cancellation acknowledgement, expired lease recovery, redacted queue pressure,
+priority ordering, and retry preservation without widening to `all-contracts`.
 
 ## Redaction Inventory Gate
 
@@ -155,6 +162,7 @@ ingest contracts without inspecting private SQL from the HTTP smoke.
 | 2026-05-21 | SHR-080 closeout | `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode postgres -SkipRedactionInventory` | Pass. PostgreSQL Managed Artwork contracts passed 6/6 through the local PostgreSQL 17 harness. |
 | 2026-05-21 | SHR-080 closeout | `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-gate.ps1 -Mode workspace -SkipRedactionInventory` | Pass. `cargo check --workspace --tests` passed; `cargo nextest run --workspace --no-fail-fast` passed 506/506 with 25 skipped. |
 | 2026-06-07 | SHR-030 PostgreSQL harness | `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/postgres-contract-harness.ps1 -Suite storage-source-parity -Port 55434` | Pass. Local PostgreSQL 17 tooling started an isolated cluster under `target/postgres-contract`, ran the storage-runtime suite 4/4 and the source-identity suite 6/6 in sequence, stopped PostgreSQL, and removed the harness data directory. |
+| 2026-06-07 | SHR-030 PostgreSQL harness | `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/postgres-contract-harness.ps1 -Suite job-runtime -Port 55436` | Pass. Local PostgreSQL 17 tooling started an isolated cluster under `target/postgres-contract`, ran the durable job runtime suite 6/6, stopped PostgreSQL within the 90s cleanup window, and removed the harness data directory. |
 
 ## Follow-On Gaps
 

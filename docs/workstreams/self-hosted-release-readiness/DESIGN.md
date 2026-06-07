@@ -126,6 +126,9 @@ Harness suites:
 - `source-identity`: library-scoped Media Source identity, scan source-unit
   writes, source duplicate relationships, fingerprint match lookup, and VFS
   staging attribution/source-reservation contracts.
+- `job-runtime`: durable job lease, cancellation, retry/backoff, queue-pressure,
+  priority, and expired lease recovery contracts used by the control-plane
+  scheduler and storage repair runtime paths.
 - `storage-source-parity`: combined M2 storage-VFS reliability slice that runs
   the existing `storage-runtime` and `source-identity` filters in sequence so
   backend health, staging, and source identity parity are exercised in one

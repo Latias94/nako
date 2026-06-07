@@ -15,10 +15,18 @@ source_identity_filters=(
   "postgres_vfs_staging_contract_round_trips_attribution_variants"
   "postgres_vfs_staging_contract_preserves_reservation_budget_and_leases"
 )
+job_runtime_filters=(
+  "postgres_job_lease_contract_claims_next_with_worker_token_and_filter"
+  "postgres_job_lease_contract_heartbeats_and_completes_with_run_token_fence"
+  "postgres_job_lease_contract_cancel_requests_are_durable_and_acknowledged_by_owner"
+  "postgres_job_lease_contract_recovers_only_expired_running_leases"
+  "postgres_job_retry_contract_persists_backoff_and_redacted_queue_pressure"
+  "postgres_job_retry_contract_priority_policy_orders_fairly_and_recovers"
+)
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/postgres-contract-harness.sh [--suite managed-artwork|storage-runtime|source-identity|storage-source-parity|all-contracts] [--database-url URL] [--port PORT] [--keep-data] [--require-tooling]
+Usage: scripts/postgres-contract-harness.sh [--suite managed-artwork|storage-runtime|source-identity|job-runtime|storage-source-parity|all-contracts] [--database-url URL] [--port PORT] [--keep-data] [--require-tooling]
 
 Runs Nako's ignored PostgreSQL contract tests. If a database URL is supplied,
 the harness uses it directly. Without a URL, it starts a temporary local
@@ -68,6 +76,9 @@ case "$suite" in
   source-identity)
     test_filters=("${source_identity_filters[@]}")
     ;;
+  job-runtime)
+    test_filters=("${job_runtime_filters[@]}")
+    ;;
   storage-source-parity) test_filters=() ;;
   all-contracts) test_filters=("postgres_") ;;
   *)
@@ -86,6 +97,7 @@ log_path="$harness_root/postgres.log"
 database_name="nako_contract"
 user_name="nako"
 started_local_server="false"
+local_postgres_stopped="true"
 
 step() {
   echo
@@ -105,6 +117,11 @@ cleanup_data() {
     return 0
   fi
 
+  if [[ "$started_local_server" == "true" && "$local_postgres_stopped" != "true" ]]; then
+    echo "WARNING: Keeping PostgreSQL harness data at $harness_root because the local server did not confirm shutdown." >&2
+    return 0
+  fi
+
   if [[ -e "$harness_root" ]]; then
     case "$(cd "$harness_root/.." && pwd -P)/$(basename "$harness_root")" in
       "$(cd target && pwd -P)"/*) rm -rf "$harness_root" ;;
@@ -118,7 +135,12 @@ cleanup_data() {
 
 stop_postgres() {
   if [[ "$started_local_server" == "true" ]]; then
-    pg_ctl stop -D "$data_dir" -m fast -w -t 30 || true
+    if pg_ctl stop -D "$data_dir" -m fast -w -t 90; then
+      local_postgres_stopped="true"
+    else
+      local_postgres_stopped="false"
+      echo "WARNING: Failed to stop local PostgreSQL cleanly." >&2
+    fi
   fi
 }
 
@@ -150,6 +172,7 @@ if [[ -z "$database_url" ]]; then
   step initdb -D "$data_dir" -U "$user_name" -A trust -E UTF8 --no-locale
   step pg_ctl start -D "$data_dir" -l "$log_path" -w -t 60 -o "-p $port -h 127.0.0.1"
   started_local_server="true"
+  local_postgres_stopped="false"
 
   step createdb -h 127.0.0.1 -p "$port" -U "$user_name" "$database_name"
   database_url="postgres://$user_name@127.0.0.1:$port/$database_name"

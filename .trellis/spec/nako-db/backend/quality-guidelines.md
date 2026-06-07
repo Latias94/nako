@@ -43,7 +43,7 @@ Persistence work must prove repository behavior, not only compile.
 - Bash:
   `bash scripts/postgres-contract-harness.sh --suite <suite>`
 - Current suites:
-  `managed-artwork`, `storage-runtime`, `source-identity`,
+  `managed-artwork`, `storage-runtime`, `source-identity`, `job-runtime`,
   `storage-source-parity`, `all-contracts`.
 
 ### 3. Contracts
@@ -54,6 +54,10 @@ Persistence work must prove repository behavior, not only compile.
 - `storage-source-parity` is the combined M2 storage-VFS reliability suite;
   it should stay explicit rather than silently replacing the focused
   `storage-runtime` and `source-identity` suites.
+- `job-runtime` is the focused durable job runtime suite. It covers job lease,
+  cancellation, retry/backoff, queue-pressure, priority, and lease recovery
+  contracts without pulling every ignored PostgreSQL contract through
+  `all-contracts`.
 - PowerShell and Bash suite names must stay in parity.
 - Harness behavior for caller-provided database URLs, temporary local clusters,
   safe skip, `RequireTooling` / `--require-tooling`, and cleanup must remain
@@ -72,6 +76,9 @@ Persistence work must prove repository behavior, not only compile.
 - Good: source identity work runs `source-identity` and proves the existing
   PostgreSQL ignored contracts for media source identity, scan source-unit
   writes, source duplicate relationships, and VFS attribution.
+- Good: control-plane or storage repair runtime work runs `job-runtime` and
+  proves the existing PostgreSQL ignored contracts for durable job lease,
+  cancellation, retry, queue-pressure, priority, and recovery behavior.
 - Base: release-critical Managed Artwork parity keeps using
   `managed-artwork`.
 - Bad: a new persistence contract is documented as "run all contracts" without

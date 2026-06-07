@@ -367,6 +367,9 @@ Closeout:
 - generic durable job priority is persisted with queued work, inherited by
   retries, used by lease claiming, and bounded by a starvation guard so aged
   lower-priority work can still run;
+- the focused PostgreSQL `job-runtime` contract harness suite covers existing
+  job lease, cancellation, retry/backoff, queue-pressure, priority, and expired
+  lease recovery contracts without widening to all ignored PostgreSQL contracts;
 - broader job-kind scheduler migration remains a follow-on after the generic
   priority policy baseline.
 
