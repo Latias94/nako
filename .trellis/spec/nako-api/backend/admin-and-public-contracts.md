@@ -240,6 +240,9 @@ Public Client exclusion tests.
   refreshed_cache_state }`.
 - Admin job diagnostics DTO:
   `AdminJobDiagnostics { vfs_cache_repair }`.
+- Generic Admin job lifecycle fields:
+  `priority`, `attempt`, `max_attempts`, `retry_of_job_id`, and
+  `next_attempt_at` on `AdminJobListItem` and `JobResponse`.
 - Admin VFS repair job diagnostics DTO:
   `AdminVfsCacheRepairJobDiagnostics { status, summary, failure }`.
 - Admin VFS repair job failure diagnostic DTO:
@@ -312,11 +315,12 @@ Public Client exclusion tests.
   fingerprint, credential, URI digest, or cache payload material.
 - Explicit durable retry must accept only a job ID path parameter plus
   `max_attempts` and `next_attempt_at`, delegate VFS repair contract validation
-  to the storage app service, and return only generic safe job facts. It must
-  not expose retry linkage, attempt counters, raw persisted `input_json`, raw
-  persisted `summary_json`, raw durable error bodies, cache URI, source
-  locator, local path, backend URL, etag, fingerprint, credential, URI digest,
-  or cache payload material.
+  to the storage app service, and return only generic safe job facts. Generic
+  Admin Jobs lifecycle fields may expose retry linkage, attempt counters,
+  priority, and delayed retry time. The response must not expose raw persisted
+  `input_json`, raw persisted `summary_json`, raw durable error bodies, cache
+  URI, source locator, local path, backend URL, etag, fingerprint, credential,
+  URI digest, or cache payload material.
 - Automation plan must accept only `{ enabled }`, delegate policy evaluation to
   the storage app service, and return eligible/blocked target groups plus
   explicit boundary booleans. It must not enqueue durable jobs, refresh cache,

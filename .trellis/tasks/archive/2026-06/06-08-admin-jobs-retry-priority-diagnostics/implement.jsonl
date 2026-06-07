@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "The lifecycle fields flow from core job records through API contracts into Admin Web rendering."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "The DTO and generated TypeScript contract must be updated consistently instead of creating parallel frontend-only shapes."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Admin Jobs is an Admin API wire contract with redaction-sensitive durable job facts."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Generated Admin Web contracts must come from the nako-api generator."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Route tests deserialize Admin API DTOs and must preserve thin HTTP boundaries."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Durable retry and VFS repair route tests must continue to prove redaction."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Admin Web Jobs must consume generated contracts, mock data, i18n, and route tests."}
+{"file": ".trellis/tasks/archive/2026-06/06-08-admin-jobs-retry-priority-diagnostics/research/jellyfin-admin-jobs-lifecycle-diagnostics.md", "reason": "Records the Jellyfin comparison and why this slice deepens durable job diagnostics instead of adding a scheduled-task framework."}

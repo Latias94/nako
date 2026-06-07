@@ -19,11 +19,16 @@ pub struct JobResponse {
     pub kind: JobKind,
     pub status: JobStatus,
     pub resource_class: String,
+    pub priority: JobPriority,
     pub library_id: Option<LibraryId>,
     pub source_id: Option<MediaSourceId>,
     pub has_input: bool,
     pub has_summary: bool,
     pub has_error: bool,
+    pub attempt: u32,
+    pub max_attempts: u32,
+    pub retry_of_job_id: Option<JobId>,
+    pub next_attempt_at: Option<String>,
     pub queued_at: String,
     pub started_at: Option<String>,
     pub completed_at: Option<String>,
@@ -40,11 +45,16 @@ impl JobResponse {
             kind: job.kind,
             status: job.status,
             resource_class: job.resource_class,
+            priority: job.priority,
             library_id: job.library_id,
             source_id: job.source_id,
             has_input: job.input_json.is_some(),
             has_summary: job.summary_json.is_some(),
             has_error: job.error.is_some(),
+            attempt: job.attempt,
+            max_attempts: job.max_attempts,
+            retry_of_job_id: job.retry_of_job_id,
+            next_attempt_at: job.next_attempt_at,
             queued_at: job.queued_at,
             started_at: job.started_at,
             completed_at: job.completed_at,
@@ -85,11 +95,16 @@ pub struct AdminJobListItem {
     pub kind: JobKind,
     pub status: JobStatus,
     pub resource_class: String,
+    pub priority: JobPriority,
     pub library_id: Option<LibraryId>,
     pub source_id: Option<MediaSourceId>,
     pub has_input: bool,
     pub has_summary: bool,
     pub has_error: bool,
+    pub attempt: u32,
+    pub max_attempts: u32,
+    pub retry_of_job_id: Option<JobId>,
+    pub next_attempt_at: Option<String>,
     pub queued_at: String,
     pub started_at: Option<String>,
     pub completed_at: Option<String>,
@@ -106,11 +121,16 @@ impl AdminJobListItem {
             kind: job.kind,
             status: job.status,
             resource_class: job.resource_class,
+            priority: job.priority,
             library_id: job.library_id,
             source_id: job.source_id,
             has_input: job.input_json.is_some(),
             has_summary: job.summary_json.is_some(),
             has_error: job.error.is_some(),
+            attempt: job.attempt,
+            max_attempts: job.max_attempts,
+            retry_of_job_id: job.retry_of_job_id,
+            next_attempt_at: job.next_attempt_at,
             queued_at: job.queued_at,
             started_at: job.started_at,
             completed_at: job.completed_at,
@@ -500,21 +520,22 @@ mod tests {
 
     #[test]
     fn job_response_redacts_raw_payloads_summaries_and_errors() {
+        let retry_of_job_id = JobId::new();
         let job = Job {
             id: JobId::new(),
             kind: JobKind::LibraryScan,
             status: JobStatus::Failed,
             resource_class: "disk.scan".to_owned(),
-            priority: JobPriority::Normal,
+            priority: JobPriority::High,
             library_id: Some(LibraryId::new()),
             source_id: Some(MediaSourceId::new()),
             input_json: Some(r#"{"secret":"admin-token"}"#.to_owned()),
             summary_json: Some(r#"{"output_path":"C:\\media\\private.nfo"}"#.to_owned()),
             error: Some("token admin-token failed at C:\\media\\private.nfo".to_owned()),
-            attempt: 1,
-            max_attempts: 1,
-            retry_of_job_id: None,
-            next_attempt_at: None,
+            attempt: 2,
+            max_attempts: 3,
+            retry_of_job_id: Some(retry_of_job_id),
+            next_attempt_at: Some("2026-05-17T00:10:00Z".to_owned()),
             queued_at: "2026-05-17T00:00:00Z".to_owned(),
             started_at: Some("2026-05-17T00:00:01Z".to_owned()),
             completed_at: Some("2026-05-17T00:00:02Z".to_owned()),
@@ -526,6 +547,14 @@ mod tests {
         assert!(response.has_input);
         assert!(response.has_summary);
         assert!(response.has_error);
+        assert_eq!(response.priority, JobPriority::High);
+        assert_eq!(response.attempt, 2);
+        assert_eq!(response.max_attempts, 3);
+        assert_eq!(response.retry_of_job_id, Some(retry_of_job_id));
+        assert_eq!(
+            response.next_attempt_at.as_deref(),
+            Some("2026-05-17T00:10:00Z")
+        );
         assert!(!body.contains("admin-token"));
         assert!(!body.contains("private.nfo"));
         assert!(!body.contains("output_path"));
@@ -537,21 +566,22 @@ mod tests {
 
     #[test]
     fn admin_job_list_item_redacts_raw_payloads_and_errors() {
+        let retry_of_job_id = JobId::new();
         let job = Job {
             id: JobId::new(),
             kind: JobKind::LibraryScan,
             status: JobStatus::Failed,
             resource_class: "disk.scan".to_owned(),
-            priority: JobPriority::Normal,
+            priority: JobPriority::Low,
             library_id: Some(LibraryId::new()),
             source_id: Some(MediaSourceId::new()),
             input_json: Some(r#"{"secret":"admin-token"}"#.to_owned()),
             summary_json: Some(r#"{"output_path":"C:\\media\\private.nfo"}"#.to_owned()),
             error: Some("token admin-token failed at C:\\media\\private.nfo".to_owned()),
-            attempt: 1,
-            max_attempts: 1,
-            retry_of_job_id: None,
-            next_attempt_at: None,
+            attempt: 3,
+            max_attempts: 4,
+            retry_of_job_id: Some(retry_of_job_id),
+            next_attempt_at: Some("2026-05-17T00:15:00Z".to_owned()),
             queued_at: "2026-05-17T00:00:00Z".to_owned(),
             started_at: Some("2026-05-17T00:00:01Z".to_owned()),
             completed_at: Some("2026-05-17T00:00:02Z".to_owned()),
@@ -563,6 +593,14 @@ mod tests {
         assert!(item.has_input);
         assert!(item.has_summary);
         assert!(item.has_error);
+        assert_eq!(item.priority, JobPriority::Low);
+        assert_eq!(item.attempt, 3);
+        assert_eq!(item.max_attempts, 4);
+        assert_eq!(item.retry_of_job_id, Some(retry_of_job_id));
+        assert_eq!(
+            item.next_attempt_at.as_deref(),
+            Some("2026-05-17T00:15:00Z")
+        );
         assert!(!body.contains("admin-token"));
         assert!(!body.contains("private.nfo"));
         assert!(!body.contains("output_path"));
@@ -604,6 +642,11 @@ mod tests {
         assert!(response.job.has_input);
         assert!(response.job.has_summary);
         assert!(response.job.has_error);
+        assert_eq!(response.job.priority, JobPriority::Normal);
+        assert_eq!(response.job.attempt, 1);
+        assert_eq!(response.job.max_attempts, 1);
+        assert_eq!(response.job.retry_of_job_id, None);
+        assert_eq!(response.job.next_attempt_at, None);
         assert!(!body.contains("admin-token"));
         assert!(!body.contains("private.nfo"));
         assert!(!body.contains("output_path"));

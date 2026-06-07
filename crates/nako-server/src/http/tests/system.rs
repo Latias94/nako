@@ -5897,6 +5897,14 @@ async fn admin_v1_source_fingerprint_hash_retry_requeues_failed_job_without_payl
     assert!(retry_job.has_input);
     assert!(!retry_job.has_summary);
     assert!(!retry_job.has_error);
+    assert_eq!(retry_job.priority, JobPriority::High);
+    assert_eq!(retry_job.retry_of_job_id, Some(failed.id));
+    assert_eq!(retry_job.attempt, 2);
+    assert_eq!(retry_job.max_attempts, 3);
+    assert_eq!(
+        retry_job.next_attempt_at.as_deref(),
+        Some("9999-01-01T00:00:00Z")
+    );
     assert_eq!(persisted_retry.retry_of_job_id, Some(failed.id));
     assert_eq!(persisted_retry.attempt, 2);
     assert_eq!(persisted_retry.max_attempts, 3);
@@ -8897,6 +8905,14 @@ async fn admin_v1_vfs_cache_repair_retry_requeues_failed_job_without_payload_lea
     assert!(retry_job.has_input);
     assert!(!retry_job.has_summary);
     assert!(!retry_job.has_error);
+    assert_eq!(retry_job.priority, JobPriority::High);
+    assert_eq!(retry_job.retry_of_job_id, Some(failed.id));
+    assert_eq!(retry_job.attempt, 2);
+    assert_eq!(retry_job.max_attempts, 3);
+    assert_eq!(
+        retry_job.next_attempt_at.as_deref(),
+        Some("9999-01-01T00:00:00Z")
+    );
     let retry_diagnostics = retry_job
         .diagnostics
         .as_ref()

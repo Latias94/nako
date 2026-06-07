@@ -2422,11 +2422,16 @@ export interface AdminJobListItem {
   kind: string;
   status: string;
   resource_class: string;
+  priority: AdminJobPriority;
   library_id: string | null;
   source_id: string | null;
   has_input: boolean;
   has_summary: boolean;
   has_error: boolean;
+  attempt: number;
+  max_attempts: number;
+  retry_of_job_id: string | null;
+  next_attempt_at: string | null;
   queued_at: string;
   started_at: string | null;
   completed_at: string | null;

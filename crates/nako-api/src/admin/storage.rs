@@ -1200,11 +1200,16 @@ mod tests {
             kind: nako_core::JobKind::VfsCacheRepair,
             status: nako_core::JobStatus::Queued,
             resource_class: "storage.vfs.cache_repair".to_owned(),
+            priority: nako_core::JobPriority::Normal,
             library_id: Some(library_id),
             source_id: None,
             has_input: true,
             has_summary: false,
             has_error: false,
+            attempt: 1,
+            max_attempts: 1,
+            retry_of_job_id: None,
+            next_attempt_at: None,
             queued_at: "2026-06-07T00:00:00Z".to_owned(),
             started_at: None,
             completed_at: None,
@@ -1243,7 +1248,18 @@ mod tests {
         assert_eq!(enqueue_value["outcome"], "enqueued");
         assert_eq!(enqueue_value["job"]["id"], job_id.to_string());
         assert_eq!(enqueue_value["job"]["kind"], "vfs_cache_repair");
+        assert_eq!(enqueue_value["job"]["priority"], "normal");
         assert_eq!(enqueue_value["job"]["has_input"], true);
+        assert_eq!(enqueue_value["job"]["attempt"], 1);
+        assert_eq!(enqueue_value["job"]["max_attempts"], 1);
+        assert_eq!(
+            enqueue_value["job"]["retry_of_job_id"],
+            serde_json::Value::Null
+        );
+        assert_eq!(
+            enqueue_value["job"]["next_attempt_at"],
+            serde_json::Value::Null
+        );
         assert_eq!(execute_value["job"]["status"], "succeeded");
         assert_eq!(execute_value["summary"]["action"], "refresh_cache");
         assert_eq!(execute_value["summary"]["source_scheme"], "webdav");

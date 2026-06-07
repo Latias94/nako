@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Check safe lifecycle fields are documented separately from forbidden raw durable payloads."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Check generated Admin Web contracts are refreshed and contract tests cover drift."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Check retry route tests assert response facts and redaction."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Check Admin Web rendering, mock fallback, i18n, and redaction tests."}

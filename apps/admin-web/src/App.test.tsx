@@ -221,6 +221,8 @@ describe("Admin Web V2 route shell", () => {
     expect(screen.getByRole("button", { name: "VFS cache repair 任务" })).toBeInTheDocument();
     expect(screen.getByText("URL 过滤条件具有权威性")).toBeInTheDocument();
     expect(screen.getByText("实时 Admin API")).toBeInTheDocument();
+    expect(screen.getByText("生命周期")).toBeInTheDocument();
+    expect(screen.getAllByText("优先级 normal").length).toBeGreaterThan(0);
     expect(screen.getByText("操作")).toBeInTheDocument();
   });
 
@@ -244,6 +246,10 @@ describe("Admin Web V2 route shell", () => {
     expect(await screen.findByText(/HTTP 503/)).toBeInTheDocument();
     expect(screen.getByText("Mock fallback")).toBeInTheDocument();
     expect(screen.getByText("job-scan")).toBeInTheDocument();
+    expect(screen.getByText("Lifecycle")).toBeInTheDocument();
+    expect(screen.getAllByText("Priority normal").length).toBeGreaterThan(0);
+    expect(screen.getByText("Attempt 2/3")).toBeInTheDocument();
+    expect(screen.getByText("Retry of job-source-hash-original")).toBeInTheDocument();
     expect(screen.getByText("VFS cache repair job actions require live Admin API data.")).toBeInTheDocument();
     expect(
       screen.getByRole("button", {

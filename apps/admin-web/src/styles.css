@@ -1786,12 +1786,14 @@ td {
 }
 
 .jobsPrimaryCell,
+.jobsLifecycleCell,
 .routePrimaryCell {
   display: grid;
   gap: 3px;
 }
 
 .jobsPrimaryCell span,
+.jobsLifecycleCell span,
 .routePrimaryCell span {
   color: oklch(50% 0.02 94);
   font-size: 0.78rem;

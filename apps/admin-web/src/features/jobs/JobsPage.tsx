@@ -362,6 +362,7 @@ export function JobsPage({ dataSource, search, onSearchChange }: JobsPageProps) 
 }
 
 type Translate = (id: MessageId, values?: Record<string, number | string>) => string;
+type BadgeTone = "danger" | "info" | "neutral" | "success" | "warning";
 
 function createColumns(
   t: Translate,
@@ -382,6 +383,11 @@ function createColumns(
       accessorKey: "status",
       header: t("jobs.column.status"),
       cell: ({ row }) => <JobStatusBadge status={row.original.status} hasError={row.original.has_error} />,
+    },
+    {
+      id: "lifecycle",
+      header: t("jobs.column.lifecycle"),
+      cell: ({ row }) => <JobLifecycle job={row.original} t={t} />,
     },
     {
       accessorKey: "resource_class",
@@ -499,6 +505,42 @@ function JobActions({
   }
 
   return <span>{t("jobs.vfsCacheRepair.noStateAction")}</span>;
+}
+
+function JobLifecycle({ job, t }: { job: AdminJobListItem; t: Translate }) {
+  return (
+    <div className="jobsLifecycleCell">
+      <div className="issueBadgeList">
+        <Badge tone={jobPriorityTone(job.priority)}>
+          {t("jobs.lifecycle.priority", { priority: job.priority })}
+        </Badge>
+        <Badge tone={job.attempt > 1 ? "warning" : "neutral"}>
+          {t("jobs.lifecycle.attempts", {
+            attempt: job.attempt,
+            max: job.max_attempts,
+          })}
+        </Badge>
+      </div>
+      {job.retry_of_job_id ? (
+        <span>{t("jobs.lifecycle.retryOf", { jobId: job.retry_of_job_id })}</span>
+      ) : null}
+      {job.next_attempt_at ? (
+        <span>{t("jobs.lifecycle.nextAttemptAt", { time: job.next_attempt_at })}</span>
+      ) : null}
+    </div>
+  );
+}
+
+function jobPriorityTone(priority: string): BadgeTone {
+  if (priority === "high") {
+    return "warning";
+  }
+
+  if (priority === "low") {
+    return "neutral";
+  }
+
+  return "info";
 }
 
 function JobStatusBadge({ status, hasError }: { status: string; hasError: boolean }) {
