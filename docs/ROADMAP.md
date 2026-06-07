@@ -52,6 +52,7 @@ Completed convergence evidence:
 | `admin-web-feature-data-adapter-deepening` | `.trellis/tasks/archive/2026-06/06-06-admin-web-feature-data-adapter-deepening/` |
 | `m1-ladder-evidence-matrix` | `.trellis/tasks/archive/2026-06/06-06-m1-ladder-evidence-matrix/`; `docs/deployment/M1_LADDER_EVIDENCE_MATRIX.md` |
 | `m1-admin-diagnostics-repair-coverage-audit` | `.trellis/tasks/archive/2026-06/06-06-m1-admin-diagnostics-repair-coverage-audit/`; `docs/architecture/M1_ADMIN_DIAGNOSTICS_REPAIR_COVERAGE.md` |
+| `m1-rc-closeout-evidence` | `.trellis/tasks/archive/2026-06/06-07-m1-rc-closeout-evidence/`; docs ladder passed without `-SkipRedactionInventory` |
 
 Evidence-driven candidate routing after the ladder evidence matrix and Admin
 diagnostics/repair coverage audit:

@@ -30,9 +30,9 @@ proposed milestone.
 
 Status: completed on 2026-06-06 for roadmap, goal-map, and lane-routing
 reconciliation. Follow-on M1 release-candidate evidence later passed the
-`release-fast`, `playback`, `container`, `postgres`, and `workspace` ladder
-modes, so new M1 implementation work should stay evidence-driven rather than
-queue-driven.
+`docs` ladder without `-SkipRedactionInventory`, plus the `release-fast`,
+`playback`, `container`, `postgres`, and `workspace` ladder modes, so new M1
+implementation work should stay evidence-driven rather than queue-driven.
 
 Post-runner and post-matrix queue refresh:
 
@@ -46,6 +46,9 @@ Post-runner and post-matrix queue refresh:
   candidate.
 - `m1-admin-diagnostics-repair-coverage-audit` records current Admin
   diagnostics/repair coverage and routes follow-ons from evidence-backed gaps.
+- `m1-rc-closeout-evidence` closes the release-candidate docs/redaction
+  evidence gap; publication and intentionally deferred live-browser proof remain
+  outside the M1 implementation queue.
 - `media-web-library-browse-and-player-smoke` should stay targeted to concrete
   browser/player blockers exposed by the evidence matrix or release ladder.
 - New Admin repair, VFS repair, durable-job drilldown, or provider-governance
