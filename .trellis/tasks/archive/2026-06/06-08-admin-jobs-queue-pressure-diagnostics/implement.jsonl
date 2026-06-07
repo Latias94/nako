@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Queue pressure flows from persisted durable job aggregates through server mapping, API DTOs, generated TypeScript contracts, and Admin Web rendering."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "The slice should reuse existing job pressure aggregation and generated contract patterns instead of creating frontend-only shapes or duplicate queries."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Admin Jobs is an Admin API wire contract with redaction-sensitive durable job diagnostics."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Generated Admin Web contracts must come from the nako-api generator and route/DTO drift must be tested."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "The Admin Jobs handler must remain a thin HTTP boundary that maps app-service output into nako-api DTOs."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server route tests must prove queue pressure mapping and redaction without unbounded diagnostics."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Admin Web Jobs must consume generated contracts, mock fallback data, localized copy, and route tests."}
+{"file": ".trellis/tasks/06-08-admin-jobs-queue-pressure-diagnostics/research/jellyfin-admin-jobs-queue-pressure.md", "reason": "Records why Nako should deepen durable job queue diagnostics rather than copy Jellyfin scheduled tasks."}

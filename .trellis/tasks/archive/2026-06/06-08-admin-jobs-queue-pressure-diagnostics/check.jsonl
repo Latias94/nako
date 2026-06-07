@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Check the new DTO stays Admin-only and redaction-safe."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Check generated Admin Web contracts are refreshed from the generator and contract tests cover drift."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Check Admin Jobs route tests cover queue pressure and redaction."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Check Jobs page rendering, mock fallback, i18n, and redaction tests."}
+{"file": ".trellis/tasks/06-08-admin-jobs-queue-pressure-diagnostics/research/jellyfin-admin-jobs-queue-pressure.md", "reason": "Check implementation remains aligned with the Jellyfin comparison decision and does not add a scheduled-task framework."}
