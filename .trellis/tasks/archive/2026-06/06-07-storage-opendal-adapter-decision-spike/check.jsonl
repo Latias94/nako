@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "Check storage/VFS backend contract, redaction, capability, and range-read policy implications."}
+{"file": ".trellis/spec/nako-vfs/backend/quality-guidelines.md", "reason": "Check the decision against the VFS quality gates for capability narrowing and write safety."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Check storage diagnostics and runtime-boundary implications of any adapter decision."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Check server-side validation and verification expectations for the storage adapter decision."}
+{"file": ".trellis/tasks/06-07-storage-opendal-adapter-decision-spike/research/opendal-storage-layer.md", "reason": "Use the OpenDAL evaluation as the shared decision evidence during verification."}
