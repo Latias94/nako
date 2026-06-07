@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Cancel command flows from generated route inventory through AdminApiClient/DataSource into the Jobs page mutation workflow."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "The slice should reuse the existing cancel route and generated route constants instead of hard-coded frontend paths."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Promoting an Admin command route into generated contracts must preserve Admin-only and redaction boundaries."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Generated Admin Web contracts must be refreshed from the nako-api generator."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Jobs page command mutations must use AdminDataSource, generated routes, mock honesty, i18n, and route tests."}
+{"file": ".trellis/tasks/06-08-admin-jobs-cancel-command-ui/research/jellyfin-admin-jobs-cancel-command.md", "reason": "Records why Nako maps Jellyfin stop-task behavior to durable job cancellation instead of scheduled-task copying."}

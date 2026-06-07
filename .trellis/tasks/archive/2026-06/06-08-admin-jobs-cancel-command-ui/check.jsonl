@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Check the cancel route remains Admin-only and generated contract drift is covered."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Check generated Admin Web contracts are refreshed by the generator."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Check Jobs page mutation behavior, mock fallback, generated route use, i18n, and redaction tests."}
+{"file": ".trellis/tasks/06-08-admin-jobs-cancel-command-ui/research/jellyfin-admin-jobs-cancel-command.md", "reason": "Check implementation remains scoped to existing durable job cancellation."}
