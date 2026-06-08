@@ -18,7 +18,9 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [],
+  "children": [
+    "06-08-06-08-managed-artwork-artifact-publish-generated-route-contract"
+  ],
   "parent": null,
   "relatedFiles": [],
   "notes": "",

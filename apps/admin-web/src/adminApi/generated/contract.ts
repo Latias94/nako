@@ -60,6 +60,7 @@ export const NAKO_ADMIN_ROUTES = {
   managedArtworkArtifactLifecycle: "/admin/v1/artwork/artifacts/lifecycle",
   managedArtworkArtifactStorageDrift: "/admin/v1/artwork/artifacts/storage-drift",
   managedArtworkArtifactRemediationPlan: "/admin/v1/artwork/artifacts/remediation-plan",
+  managedArtworkArtifactPublish: "/admin/v1/artwork/artifacts/{artifact_id}/publish",
   catalogGovernanceItems: "/admin/v1/catalog/governance/items",
   catalogGovernanceItemDetail: "/admin/v1/catalog/governance/items/{item_id}",
   catalogGovernanceProviderMappingReviewPlan: "/admin/v1/catalog/governance/items/{item_id}/provider-mappings/{mapping_id}/review-plan",

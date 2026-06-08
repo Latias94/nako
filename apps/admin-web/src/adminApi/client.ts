@@ -468,6 +468,13 @@ export class AdminApiClient {
     );
   }
 
+  async publishManagedArtworkArtifact(artifactId: string): Promise<PublishSelectedArtworkResponse> {
+    return this.postJson<PublishSelectedArtworkResponse>(
+      routeWithParam(NAKO_ADMIN_ROUTES.managedArtworkArtifactPublish, "artifact_id", artifactId),
+      {},
+    );
+  }
+
   async selectItemArtwork(
     itemId: string,
     kind: AdminArtworkKind | string,

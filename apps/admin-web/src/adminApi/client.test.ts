@@ -716,6 +716,53 @@ describe("AdminApiClient", () => {
     ]);
   });
 
+  it("publishes a Managed Artwork Artifact through the generated Admin route", async () => {
+    const published = {
+      selected_artwork: {
+        id: "selected-artwork-1",
+        library_id: "library-anime",
+        item_id: "item-anime-1",
+        kind: "poster",
+        artifact_id: "artifact/unsafe id",
+        created_at: "2026-05-25T10:00:00Z",
+        updated_at: "2026-05-25T10:00:00Z",
+      },
+      image: {
+        id: "selected-artwork-1",
+        owner: { item_id: "item-anime-1" },
+        kind: "poster",
+        url: "/images/selected-artwork-1",
+        width: 800,
+        height: 1200,
+        language: null,
+        media_type: "image/png",
+        etag: null,
+      },
+      changed: true,
+    };
+    const fetcher = vi.fn(async () => Response.json(published));
+    const client = new AdminApiClient({ fetcher });
+
+    await expect(
+      client.publishManagedArtworkArtifact("artifact/unsafe id"),
+    ).resolves.toEqual(published);
+
+    expect(fetcher).toHaveBeenCalledWith(
+      NAKO_ADMIN_ROUTES.managedArtworkArtifactPublish.replace(
+        "{artifact_id}",
+        encodeURIComponent("artifact/unsafe id"),
+      ),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
+    );
+    const responseText = JSON.stringify(published);
+    expect(responseText).not.toContain("managed-artwork://");
+    expect(responseText).not.toContain("storage_uri");
+    expect(responseText).not.toContain("F:\\");
+  });
+
   it("uses generated Managed Artwork maintenance read routes with query params", async () => {
     const fetcher = vi.fn(async (input: string | URL | Request) => {
       const url = new URL(input.toString(), "http://127.0.0.1");

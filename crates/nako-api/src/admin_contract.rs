@@ -18,7 +18,7 @@ struct AdminRouteExclusionSuffix {
     reason: &'static str,
 }
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 108] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 109] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessInvitations", "access/invitations"),
@@ -164,6 +164,10 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 108] = [
     (
         "managedArtworkArtifactRemediationPlan",
         "artwork/artifacts/remediation-plan",
+    ),
+    (
+        "managedArtworkArtifactPublish",
+        "artwork/artifacts/{artifact_id}/publish",
     ),
     ("catalogGovernanceItems", "catalog/governance/items"),
     (
@@ -315,7 +319,7 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 108] = [
     ("settingsMetadataRawCache", "settings/metadata/raw-cache"),
 ];
 
-const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 6] = [
+const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 5] = [
     AdminRouteExclusionSuffix {
         suffix: "artwork/candidates/{candidate_id}/accept",
         reason: "Managed artwork maintenance commands are server-side operator workflows not generated as Admin Web route constants in this slice.",
@@ -326,10 +330,6 @@ const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 6] = [
     },
     AdminRouteExclusionSuffix {
         suffix: "artwork/ingests/{ingest_id}/requeue",
-        reason: "Managed artwork maintenance commands are server-side operator workflows not generated as Admin Web route constants in this slice.",
-    },
-    AdminRouteExclusionSuffix {
-        suffix: "artwork/artifacts/{artifact_id}/publish",
         reason: "Managed artwork maintenance commands are server-side operator workflows not generated as Admin Web route constants in this slice.",
     },
     AdminRouteExclusionSuffix {
