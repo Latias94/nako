@@ -1423,3 +1423,48 @@ Moved library item browse semantics into repository-backed SQLite/Postgres queri
 ### Next Steps
 
 - None - task complete
+
+
+## Session 84: Continue Watching repository projection
+
+**Date**: 2026-06-08
+**Task**: Continue Watching repository projection
+**Package**: nako-db
+**Branch**: `main`
+
+### Summary
+
+Verified and archived the Continue Watching repository projection slice after repository-backed access-before-pagination and DTO-preserving route changes.
+
+### Main Changes
+
+- Archived `.trellis/tasks/06-08-continue-watching-repository-projection`
+  after verifying commit `a818075a`.
+- Confirmed the repository-backed Continue Watching projection keeps filtering,
+  ordering, pagination, and selected artwork hydration inside the DB adapters
+  while preserving the public DTO shape.
+- Confirmed the durable DB spec update for repository-backed browse/list
+  projection fixtures was already included in the implementation commit.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a818075a` | (see git log) |
+
+### Testing
+
+- [OK] `cargo check -p nako-core -p nako-db -p nako-server --tests`
+- [OK] `cargo nextest run -p nako-db continue_watching_projection --no-fail-fast`
+- [OK] `cargo nextest run -p nako-db continue_watching --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server user_playback --no-fail-fast`
+- [OK] `cargo fmt --all -- --check`
+- [OK] `git diff --check`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

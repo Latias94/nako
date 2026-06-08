@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 83
+- **Total Sessions**: 84
 - **Last Active**: 2026-06-08
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~1425 | Active |
+| `journal-2.md` | ~1459 | Active |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 84 | 2026-06-08 | Continue Watching repository projection | `a818075a` | `main` |
 | 83 | 2026-06-08 | Catalog browse repository projection | `7335809b`, `9087dbd0`, `7b40d75d` | `main` |
 | 82 | 2026-06-08 | Playback runtime settings generated route contract | `cc9336ab` | `main` |
 | 81 | 2026-06-08 | Addon credential generated route contract | `1b2216c2`, `7df09a36` | `main` |
