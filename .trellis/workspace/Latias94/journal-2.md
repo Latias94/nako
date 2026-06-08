@@ -1361,3 +1361,65 @@ Promoted settings/playback/runtime into the generated Admin route contract, wire
 ### Next Steps
 
 - None - task complete
+
+
+## Session 83: Catalog browse repository projection
+
+**Date**: 2026-06-08
+**Task**: Catalog browse repository projection
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Moved library item browse semantics into repository-backed SQLite/Postgres queries, added shared contracts, fixed Postgres title collation, and archived the completed Trellis child task.
+
+### Main Changes
+
+### Main Changes
+
+- Added `LibraryItemRepository::list_library_items_for_browse` and wired it through `NakoDatabase`.
+- Moved Public Client library item browse filtering, user playback watch-state filtering, sorting, deduplication, and pagination into SQLite/Postgres repository queries.
+- Removed app-layer full-library loading and per-item `get_user_playback_state` calls from `LibraryAppService::list_library_items`.
+- Added backend-agnostic DB contracts for source-only/state-only membership, duplicate source deduplication, current-principal playback filtering, kind facet AND semantics, optional sort NULL ordering, stable `item_id ASC` tie-breaks, date-added MIN semantics, and title collation edges.
+- Stabilized PostgreSQL title ordering with `COLLATE "C"` to preserve Rust `str::cmp`-like byte ordering across database locales.
+- Captured the repository-backed browse-query convention in `.trellis/spec/nako-db/backend/quality-guidelines.md`.
+- Archived the completed child Trellis task and restored the parent overnight architecture campaign as the active task.
+
+### Testing
+
+- `cargo check -p nako-db --tests`
+- `cargo check -p nako-core -p nako-db -p nako-server --tests`
+- `cargo nextest run -p nako-db sqlite_library_media_contract_browse_query_filters_sorts_and_pages --no-fail-fast`
+- `cargo nextest run -p nako-db sqlite_library_media_contract_browse --no-fail-fast`
+- `cargo nextest run -p nako-db library_media --no-fail-fast`
+- `cargo nextest run -p nako-server library_items_route_applies_kind_watch_state_and_last_played_query --no-fail-fast`
+- `cargo fmt --all -- --check`
+- `python ./.trellis/scripts/task.py validate .trellis/tasks/06-08-06-08-catalog-browse-projection-scale`
+- `git diff --check`
+
+### Follow-ups
+
+- Postgres ignored contracts were compiled but not executed because `NAKO_TEST_POSTGRES_URL` is not set in this environment.
+- The next architecture slice should continue from the active parent task and look for another high-leverage N+1/list projection or catalog/playback seam.
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7335809b` | (see git log) |
+| `9087dbd0` | (see git log) |
+| `7b40d75d` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
