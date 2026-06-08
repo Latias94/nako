@@ -819,6 +819,54 @@ describe("AdminApiClient", () => {
     ]);
   });
 
+  it("cleans up Managed Artwork Artifacts through the generated confirmed Admin route", async () => {
+    const cleanup = {
+      examined_artifacts: 1,
+      cleanup_candidate_artifacts: 1,
+      cleaned_artifacts: [
+        {
+          id: "artifact-orphan",
+          ingest_id: "ingest-orphan",
+          library_id: "library-anime",
+          item_id: "item-anime-1",
+          kind: "poster",
+          byte_len: 68,
+          media_type: "image/png",
+        },
+      ],
+      file_deleted_artifacts: 1,
+      file_missing_artifacts: 0,
+      file_delete_failed_artifacts: 0,
+      dry_run: false,
+    };
+    const fetcher = vi.fn(async () => Response.json(cleanup));
+    const client = new AdminApiClient({ fetcher });
+
+    await expect(
+      client.cleanupManagedArtworkArtifacts({
+        confirm: true,
+        limit: 5,
+        offset: 10,
+      }),
+    ).resolves.toEqual(cleanup);
+
+    expect(fetcher).toHaveBeenCalledWith(
+      `${NAKO_ADMIN_ROUTES.managedArtworkArtifactCleanup}?confirm=true&limit=5&offset=10`,
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
+    );
+    const responseText = JSON.stringify(cleanup);
+    expect(responseText).not.toContain("storage_uri");
+    expect(responseText).not.toContain("managed-artwork://");
+    expect(responseText).not.toContain("source_uri");
+    expect(responseText).not.toContain("cache_uri");
+    expect(responseText).not.toContain("content_hash");
+    expect(responseText).not.toContain("token=secret");
+    expect(responseText).not.toContain("F:\\");
+  });
+
   it("remediates Managed Artwork stray files through the generated confirmed Admin route", async () => {
     const cleanup = {
       summary: {

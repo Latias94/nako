@@ -508,11 +508,11 @@ payloads.
 
 - These three routes are read-only diagnostics and belong in the generated
   Admin Web contract.
-- Mutating routes for candidate accept, ingest processing/requeue, and artifact
-  cleanup remain explicit exclusions until separate mutation policy tasks define
-  confirmation and safety behavior. Artifact publish, stray-file remediation,
-  and addon install-guide preview have separate generated contracts and should
-  not be re-added to the exclusion list.
+- Mutating routes for candidate accept and ingest processing/requeue remain
+  explicit exclusions until separate mutation policy tasks define confirmation
+  and safety behavior. Artifact publish, artifact cleanup, stray-file
+  remediation, and addon install-guide preview have separate generated
+  contracts and should not be re-added to the exclusion list.
 - DTOs may expose counts, booleans, safe enum codes, stable artifact/ingest/item
   IDs, dimensions, byte counts, media type, and timestamps.
 - DTOs and generated TypeScript must not expose raw file names, local paths,
@@ -536,7 +536,7 @@ payloads.
 ### 5. Good/Base/Bad Cases
 
 - Good: generated route inventory includes all three read-only diagnostics while
-  cleanup/process/requeue mutations remain excluded.
+  candidate accept and ingest process/requeue mutations remain excluded.
 - Good: dedicated confirmed mutation tasks generate publish or stray-file
   remediation routes with typed Admin Web client tests and no raw storage
   material in response DTOs.
@@ -656,6 +656,101 @@ client.remediateManagedArtworkArtifactStrayFiles({
 
 The server owns target discovery and deletion authority; the client supplies
 only confirmation and a bounded scan limit.
+
+## Scenario: Managed Artwork Artifact Cleanup Confirmed Admin Contract
+
+### 1. Scope / Trigger
+
+- Trigger: generating or changing the Admin contract for
+  `POST /admin/v1/artwork/artifacts/cleanup`.
+- Scope: `crates/nako-api/src/admin/managed_artwork.rs`,
+  `crates/nako-api/src/admin_contract.rs`,
+  `crates/nako-server/src/http/admin.rs`,
+  `crates/nako-server/src/http/query.rs`, and generated Admin TypeScript
+  contracts under `apps/admin-web` and `web`.
+
+### 2. Signatures
+
+- Generated route key: `managedArtworkArtifactCleanup`.
+- Query:
+  `AdminManagedArtworkArtifactCleanupQuery extends AdminPageQuery { confirm?: boolean }`.
+- Response:
+  `AdminManagedArtworkArtifactCleanupResponse { examined_artifacts, cleanup_candidate_artifacts, cleaned_artifacts, file_deleted_artifacts, file_missing_artifacts, file_delete_failed_artifacts, dry_run }`.
+- Cleaned item:
+  `AdminManagedArtworkArtifactCleanupItem { id, ingest_id, library_id, item_id, kind, byte_len, media_type }`.
+
+### 3. Contracts
+
+- The route is an Admin-only confirmed mutation. It must stay out of Public
+  Client route inventories, OpenAPI public outputs, and generated Public SDKs.
+- Server query parsing requires `confirm=true` before cleanup executes.
+- Cleanup accepts only confirmation and pagination query parameters. Do not
+  reuse read-only lifecycle `cleanup_candidates_only` as an executable cleanup
+  selector.
+- Admin Web client calls must send query parameters and an empty JSON object
+  body; clients must not submit raw artifact IDs, file names, storage paths,
+  artifact roots, URIs, hashes, or backend details in the request body.
+- Cleanup targets stay repository-owned cleanup candidates. HTTP handlers do not
+  decide which artifacts are eligible.
+- Response DTOs and generated TypeScript must not expose raw file names, local
+  paths, artifact roots, `storage_uri`, `managed-artwork://` handles,
+  `source_uri`, `cache_uri`, provider URLs/query strings, tokens, credentials,
+  raw content hashes, etags, or backend payloads.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| `confirm=true` is absent | Server returns invalid input and does not delete artifact rows or files |
+| `confirm=true` is present | Server may delete only repository-owned unselected cleanup candidates |
+| Route becomes generated | Remove only this suffix from `admin_contract_route_exclusions()` and add the generated route key |
+| Generated response contains paths, URIs, hashes, tokens, file names, roots, etags, or provider payloads | Treat as a contract violation |
+| Public Client output contains the route or DTOs | Treat as contract drift and remove them from Public outputs |
+
+### 5. Good/Base/Bad Cases
+
+- Good: Admin Web client calls
+  `managedArtworkArtifactCleanup?confirm=true&limit=5&offset=10` with
+  `POST {}` and deserializes only safe cleanup summary fields.
+- Base: lifecycle diagnostics can preview cleanup candidates without executing
+  cleanup.
+- Bad: accepting `{ artifact_id }`, `{ storage_uri }`, or `{ path }` in the
+  request body, or adding this Admin route to Public Client route inventory.
+
+### 6. Tests Required
+
+- API contract:
+  `cargo nextest run -p nako-api admin_contract --no-fail-fast`.
+- Server route inventory:
+  `cargo nextest run -p nako-server implemented_admin_routes_are_generated_or_explicitly_excluded --no-fail-fast`.
+- Server cleanup behavior:
+  `cargo nextest run -p nako-server admin_managed_artwork_cleanup --no-fail-fast`.
+- Admin Web client:
+  `npm run test --prefix apps/admin-web -- adminApi/client.test.ts` and
+  `npm run check --prefix apps/admin-web`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```typescript
+client.postJson(NAKO_ADMIN_ROUTES.managedArtworkArtifactCleanup, {
+  artifact_id: "artifact-orphan",
+});
+```
+
+#### Correct
+
+```typescript
+client.cleanupManagedArtworkArtifacts({
+  confirm: true,
+  limit: 5,
+  offset: 10,
+});
+```
+
+The repository owns cleanup candidate selection; the client supplies only
+confirmation and pagination.
 
 ## Scenario: Admin Overview Source Fingerprint Hash Diagnostic
 

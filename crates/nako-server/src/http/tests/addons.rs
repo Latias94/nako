@@ -11784,7 +11784,8 @@ async fn admin_managed_artwork_lifecycle_dry_run_protects_selected_artwork_and_r
 }
 
 #[tokio::test]
-async fn admin_managed_artwork_cleanup_removes_only_unselected_artifacts_without_locator_leaks() {
+async fn admin_managed_artwork_cleanup_requires_confirmation_and_removes_unselected_without_leaks()
+{
     let (temp, router, source, store) = router_with_media_source("demo.mkv", b"media").await;
     let library_id = source.library_id;
     let raw_token = register_artwork_addon(&router, library_id).await;
@@ -11834,12 +11835,49 @@ async fn admin_managed_artwork_cleanup_removes_only_unselected_artifacts_without
     .await;
     let orphan_artifact = orphan_processed.artifact.as_ref().unwrap();
 
-    let cleanup_response = router
+    let unconfirmed_cleanup = router
         .clone()
         .oneshot(
             Request::builder()
                 .method(Method::POST)
                 .uri("/admin/v1/artwork/artifacts/cleanup")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let unconfirmed_status = unconfirmed_cleanup.status();
+    let unconfirmed_body = to_bytes(unconfirmed_cleanup.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    assert_eq!(
+        unconfirmed_status,
+        StatusCode::BAD_REQUEST,
+        "{}",
+        String::from_utf8_lossy(&unconfirmed_body)
+    );
+    assert!(String::from_utf8_lossy(&unconfirmed_body).contains("confirm=true"));
+    assert!(
+        store
+            .get_managed_artwork_artifact(selected_artifact.id)
+            .await
+            .unwrap()
+            .is_some()
+    );
+    assert!(
+        store
+            .get_managed_artwork_artifact(orphan_artifact.id)
+            .await
+            .unwrap()
+            .is_some()
+    );
+
+    let cleanup_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/admin/v1/artwork/artifacts/cleanup?confirm=true")
                 .body(Body::empty())
                 .unwrap(),
         )

@@ -18,7 +18,7 @@ struct AdminRouteExclusionSuffix {
     reason: &'static str,
 }
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 110] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 111] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessInvitations", "access/invitations"),
@@ -169,6 +169,7 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 110] = [
         "managedArtworkArtifactRemediateStrayFiles",
         "artwork/artifacts/remediate-stray-files",
     ),
+    ("managedArtworkArtifactCleanup", "artwork/artifacts/cleanup"),
     (
         "managedArtworkArtifactPublish",
         "artwork/artifacts/{artifact_id}/publish",
@@ -323,7 +324,7 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 110] = [
     ("settingsMetadataRawCache", "settings/metadata/raw-cache"),
 ];
 
-const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 4] = [
+const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 3] = [
     AdminRouteExclusionSuffix {
         suffix: "artwork/candidates/{candidate_id}/accept",
         reason: "Managed artwork maintenance commands are server-side operator workflows not generated as Admin Web route constants in this slice.",
@@ -334,10 +335,6 @@ const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 4] = [
     },
     AdminRouteExclusionSuffix {
         suffix: "artwork/ingests/{ingest_id}/requeue",
-        reason: "Managed artwork maintenance commands are server-side operator workflows not generated as Admin Web route constants in this slice.",
-    },
-    AdminRouteExclusionSuffix {
-        suffix: "artwork/artifacts/cleanup",
         reason: "Managed artwork maintenance commands are server-side operator workflows not generated as Admin Web route constants in this slice.",
     },
 ];
@@ -1064,6 +1061,30 @@ export interface AdminManagedArtworkArtifactLifecycleItem {
   has_content_hash: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface AdminManagedArtworkArtifactCleanupQuery extends AdminPageQuery {
+  confirm?: boolean;
+}
+
+export interface AdminManagedArtworkArtifactCleanupResponse {
+  examined_artifacts: number;
+  cleanup_candidate_artifacts: number;
+  cleaned_artifacts: AdminManagedArtworkArtifactCleanupItem[];
+  file_deleted_artifacts: number;
+  file_missing_artifacts: number;
+  file_delete_failed_artifacts: number;
+  dry_run: boolean;
+}
+
+export interface AdminManagedArtworkArtifactCleanupItem {
+  id: string;
+  ingest_id: string;
+  library_id: string;
+  item_id: string;
+  kind: AdminArtworkKind | string;
+  byte_len: number | null;
+  media_type: string | null;
 }
 
 export interface AdminManagedArtworkArtifactStorageDriftQuery extends AdminPageQuery {
@@ -4690,6 +4711,9 @@ mod tests {
             "AdminManagedArtworkArtifactLifecycleResponse",
             "AdminManagedArtworkArtifactLifecycleSummary",
             "AdminManagedArtworkArtifactLifecycleItem",
+            "AdminManagedArtworkArtifactCleanupQuery",
+            "AdminManagedArtworkArtifactCleanupResponse",
+            "AdminManagedArtworkArtifactCleanupItem",
             "AdminManagedArtworkArtifactStorageDriftQuery",
             "AdminManagedArtworkArtifactStorageDriftResponse",
             "AdminManagedArtworkArtifactStorageDriftSummary",

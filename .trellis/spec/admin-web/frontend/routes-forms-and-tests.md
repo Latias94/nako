@@ -606,6 +606,89 @@ return this.postJson(
 The route contract is generated from `nako-api`, and the server owns cleanup
 target discovery.
 
+## Scenario: Managed Artwork Artifact Cleanup Client Command
+
+### 1. Scope / Trigger
+
+- Trigger: changing `AdminApiClient` support for
+  `POST /admin/v1/artwork/artifacts/cleanup`.
+- Evidence: `src/adminApi/client.ts`, `src/adminApi/client.test.ts`, and
+  generated Admin API contracts.
+- Authority: ADR 0027, ADR 0053, and the `nako-api` Managed Artwork artifact
+  cleanup contract.
+
+### 2. Signatures
+
+- Generated route key: `managedArtworkArtifactCleanup`.
+- Client method: `cleanupManagedArtworkArtifacts(query)`.
+- Query: `{ confirm?: boolean; limit?: number; offset?: number }`.
+- Request body: empty JSON object `{}`.
+- Response: `AdminManagedArtworkArtifactCleanupResponse`.
+
+### 3. Contracts
+
+- Client code must build the URL from `NAKO_ADMIN_ROUTES`; do not add literal
+  `/admin/v1/artwork/artifacts/cleanup` strings.
+- Confirmation, `limit`, and `offset` are query parameters, not body fields.
+- The body stays `{}` so Admin Web never accepts raw artifact IDs, file names,
+  local paths, storage URIs, artifact roots, content hashes, tokens, etags, or
+  backend payloads from the caller.
+- This method is a low-level generated client command. Route/page controls that
+  invoke it still require a dedicated UI task with explicit prepare/confirm
+  behavior and live-only mutation availability.
+- Tests must assert unsafe response material is not present in client fixtures.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| `confirm`, `limit`, and `offset` are supplied | Client serializes them into the query string |
+| Mutation request is sent | Client uses `POST` with `JSON.stringify({})` |
+| Generated route key is missing | TypeScript check fails until the generated contract is refreshed |
+| Client fixture contains path, URI, token, raw hash, or file name material | Treat as a redaction failure |
+| A page wants to call this method | Add a dedicated live-only confirmation workflow before wiring UI controls |
+
+### 5. Good / Base / Bad Cases
+
+- Good: `AdminApiClient` calls the generated route with
+  `?confirm=true&limit=5&offset=10` and an empty body.
+- Base: maintenance page remains read-only and can still render lifecycle
+  cleanup candidate diagnostics.
+- Bad: passing `{ artifact_id }` or `{ storage_uri }` in the mutation body, or
+  wiring cleanup into a read-only route without a second confirm action.
+
+### 6. Tests Required
+
+- Client tests assert generated route usage, query serialization, `POST`, empty
+  body, and redaction fixture terms.
+- Run:
+  - `npm run test --prefix apps/admin-web -- adminApi/client.test.ts`
+  - `npm run check --prefix apps/admin-web`
+  - `cargo nextest run -p nako-api admin_contract --no-fail-fast` when generated
+    contract output changes.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```typescript
+return this.postJson(NAKO_ADMIN_ROUTES.managedArtworkArtifactCleanup, {
+  artifact_id,
+});
+```
+
+#### Correct
+
+```typescript
+return this.postJson(
+  withQuery(NAKO_ADMIN_ROUTES.managedArtworkArtifactCleanup, query),
+  {},
+);
+```
+
+The route contract is generated from `nako-api`, and cleanup target discovery
+stays server-owned.
+
 ## Scenario: Feature-Owned Data Adapter
 
 ### 1. Scope / Trigger

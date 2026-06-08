@@ -61,6 +61,7 @@ export const NAKO_ADMIN_ROUTES = {
   managedArtworkArtifactStorageDrift: "/admin/v1/artwork/artifacts/storage-drift",
   managedArtworkArtifactRemediationPlan: "/admin/v1/artwork/artifacts/remediation-plan",
   managedArtworkArtifactRemediateStrayFiles: "/admin/v1/artwork/artifacts/remediate-stray-files",
+  managedArtworkArtifactCleanup: "/admin/v1/artwork/artifacts/cleanup",
   managedArtworkArtifactPublish: "/admin/v1/artwork/artifacts/{artifact_id}/publish",
   catalogGovernanceItems: "/admin/v1/catalog/governance/items",
   catalogGovernanceItemDetail: "/admin/v1/catalog/governance/items/{item_id}",
@@ -762,6 +763,30 @@ export interface AdminManagedArtworkArtifactLifecycleItem {
   has_content_hash: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface AdminManagedArtworkArtifactCleanupQuery extends AdminPageQuery {
+  confirm?: boolean;
+}
+
+export interface AdminManagedArtworkArtifactCleanupResponse {
+  examined_artifacts: number;
+  cleanup_candidate_artifacts: number;
+  cleaned_artifacts: AdminManagedArtworkArtifactCleanupItem[];
+  file_deleted_artifacts: number;
+  file_missing_artifacts: number;
+  file_delete_failed_artifacts: number;
+  dry_run: boolean;
+}
+
+export interface AdminManagedArtworkArtifactCleanupItem {
+  id: string;
+  ingest_id: string;
+  library_id: string;
+  item_id: string;
+  kind: AdminArtworkKind | string;
+  byte_len: number | null;
+  media_type: string | null;
 }
 
 export interface AdminManagedArtworkArtifactStorageDriftQuery extends AdminPageQuery {

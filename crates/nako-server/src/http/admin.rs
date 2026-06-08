@@ -184,11 +184,11 @@ const STORAGE_VFS_CACHE_REPAIR_TARGET_REFRESH_CACHE_ROUTE_PATH: &str =
 use super::{
     error::ApiResult,
     query::{
-        AcquisitionIntakeCandidateListQuery, ArtworkArtifactLifecycleQuery,
-        ArtworkArtifactRemediationQuery, ArtworkArtifactStorageDriftQuery, ArtworkGalleryQuery,
-        CatalogGovernanceItemsQuery, JobListQuery, OutboxEventListQuery, PageQuery,
-        PlaybackSessionListQuery, PlaybackSupportEvidenceQuery, StorageStagingQuery,
-        parse_u32_filter, parse_u64_filter,
+        AcquisitionIntakeCandidateListQuery, ArtworkArtifactCleanupQuery,
+        ArtworkArtifactLifecycleQuery, ArtworkArtifactRemediationQuery,
+        ArtworkArtifactStorageDriftQuery, ArtworkGalleryQuery, CatalogGovernanceItemsQuery,
+        JobListQuery, OutboxEventListQuery, PageQuery, PlaybackSessionListQuery,
+        PlaybackSupportEvidenceQuery, StorageStagingQuery, parse_u32_filter, parse_u64_filter,
     },
     trace_context::HttpTraceContext,
 };
@@ -1217,9 +1217,9 @@ pub(super) async fn remediate_admin_artwork_artifact_stray_files(
 
 pub(super) async fn cleanup_admin_artwork_artifacts(
     State(app): State<NakoApp>,
-    Query(query): Query<ArtworkArtifactLifecycleQuery>,
+    Query(query): Query<ArtworkArtifactCleanupQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    let (_filter, page) = query.into_filter_and_page()?;
+    let page = query.into_confirmed_page()?;
     Ok(Json(
         app.artwork().cleanup_unselected_artifacts(page).await?,
     ))

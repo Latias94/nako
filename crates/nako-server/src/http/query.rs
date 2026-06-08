@@ -447,6 +447,35 @@ impl ArtworkArtifactLifecycleQuery {
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
+pub(super) struct ArtworkArtifactCleanupQuery {
+    pub(super) confirm: Option<bool>,
+    pub(super) limit: Option<String>,
+    pub(super) offset: Option<String>,
+}
+
+impl ArtworkArtifactCleanupQuery {
+    pub(super) fn into_confirmed_page(self) -> Result<PageRequest, NakoError> {
+        if self.confirm != Some(true) {
+            return Err(NakoError::InvalidInput {
+                message: "confirm=true is required for managed artwork artifact cleanup".to_owned(),
+            });
+        }
+
+        PageQuery {
+            limit: self
+                .limit
+                .map(|value| parse_u32_filter("limit", value))
+                .transpose()?,
+            offset: self
+                .offset
+                .map(|value| parse_u64_filter("offset", value))
+                .transpose()?,
+        }
+        .try_into()
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
 pub(super) struct ArtworkGalleryQuery {
     pub(super) limit: Option<String>,
     pub(super) offset: Option<String>,
