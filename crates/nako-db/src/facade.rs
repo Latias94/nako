@@ -1482,6 +1482,17 @@ impl LibraryItemRepository for NakoDatabase {
             .await
     }
 
+    async fn list_library_items_for_browse(
+        &self,
+        library_id: LibraryId,
+        principal_id: &UserPrincipalId,
+        query: &LibraryItemBrowseQuery,
+    ) -> Result<Vec<MediaItem>> {
+        self.backend()
+            .list_library_items_for_browse(library_id, principal_id, query)
+            .await
+    }
+
     async fn find_library_item_by_kind_parent_title(
         &self,
         library_id: LibraryId,

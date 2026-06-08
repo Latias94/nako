@@ -1,0 +1,9 @@
+{"file": ".trellis/spec/nako-core/backend/index.md", "reason": "Check repository contract shape and domain boundary compliance."}
+{"file": ".trellis/spec/nako-core/backend/database-guidelines.md", "reason": "Check PageRequest and repository contract rules."}
+{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "Check adapter parity and contract test expectations."}
+{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "Check SQL safety, row mapping locality, and PostgreSQL-ready behavior."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Check app service and HTTP layering."}
+{"file": ".trellis/spec/nako-server/backend/database-guidelines.md", "reason": "Check server list surfaces stay bounded and delegate persistence."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Check focused validation gates and route test style."}
+{"file": ".trellis/spec/nako-catalog/backend/index.md", "reason": "Check catalog browse direction stays aligned with projection architecture."}
+{"file": ".trellis/spec/guides/index.md", "reason": "Check cross-layer consistency and reuse thinking."}

@@ -45,7 +45,9 @@ use nako_core::{
     JobLeaseGuard, JobLeaseHeartbeat, JobLeaseRepository, JobListFilter, JobPriority,
     JobRepository, JobRunToken, JobStatus, JobWorkerId, Library, LibraryAccessLevel,
     LibraryAccessPolicy, LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId,
-    LibraryItemRepository, LibraryItemState, LibraryOptions, LibraryPreset, LibraryRepository,
+    LibraryItemBrowseFacet, LibraryItemBrowseQuery, LibraryItemBrowseSortKey,
+    LibraryItemBrowseSortOrder, LibraryItemRepository, LibraryItemState,
+    LibraryItemWatchStateFilter, LibraryOptions, LibraryPreset, LibraryRepository,
     LibraryScanSourcePersistenceCommit, LocalCredentialRecord, LocalInferenceEvidence,
     LocalInferenceEvidenceId, LocalInferenceEvidenceSource, LocalInferenceRepository,
     METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS, ManagedArtworkAcceptanceRecord,
@@ -256,6 +258,24 @@ trait LibraryMediaContractBackend:
 
 impl<T> LibraryMediaContractBackend for T where
     T: LifecycleContractBackend + LibraryRepository + LibraryItemRepository + MediaRepository
+{
+}
+
+trait LibraryBrowseContractBackend:
+    LifecycleContractBackend
+    + LibraryRepository
+    + LibraryItemRepository
+    + MediaRepository
+    + UserPlaybackStateRepository
+{
+}
+
+impl<T> LibraryBrowseContractBackend for T where
+    T: LifecycleContractBackend
+        + LibraryRepository
+        + LibraryItemRepository
+        + MediaRepository
+        + UserPlaybackStateRepository
 {
 }
 
@@ -1613,6 +1633,463 @@ where
     assert!(!anime_added_at[0].added_at.is_empty());
 }
 
+async fn library_item_browse_query_contract<S>(store: S)
+where
+    S: LibraryBrowseContractBackend,
+{
+    let library = seed_contract_library(&store).await;
+    let other_library = Library {
+        id: LibraryId::new(),
+        name: "Other Contract Movies".to_owned(),
+        roots: vec!["local:///Other Contract Movies".to_owned()],
+        options: LibraryOptions::from_preset(LibraryPreset::Movies),
+    };
+    store.upsert_library(&other_library).await.unwrap();
+
+    let source_only = browse_contract_item(
+        MediaItemId::new(),
+        MediaKind::Movie,
+        "Zed Source Only",
+        Some("A Source Only"),
+        Some("2025-01-01"),
+    );
+    let state_only = browse_contract_item(
+        MediaItemId::new(),
+        MediaKind::Movie,
+        "Beta State Only",
+        None,
+        Some("2025-03-01"),
+    );
+    let source_and_state = browse_contract_item(
+        MediaItemId::new(),
+        MediaKind::Movie,
+        "Gamma Watched",
+        None,
+        Some("2025-02-01"),
+    );
+    let duplicate_source = browse_contract_item(
+        MediaItemId::new(),
+        MediaKind::Movie,
+        "Delta Duplicate Source",
+        None,
+        None,
+    );
+    let in_progress_episode = browse_contract_item(
+        MediaItemId::new(),
+        MediaKind::Episode,
+        "Episode In Progress",
+        None,
+        None,
+    );
+    let outside_item = browse_contract_item(
+        MediaItemId::new(),
+        MediaKind::Movie,
+        "Outside Library",
+        None,
+        Some("2025-04-01"),
+    );
+
+    for item in [
+        &source_only,
+        &state_only,
+        &source_and_state,
+        &duplicate_source,
+        &in_progress_episode,
+        &outside_item,
+    ] {
+        store.upsert_media_item(item).await.unwrap();
+    }
+
+    insert_browse_source(&store, library.id, source_only.id, "source-only-1").await;
+    sleep_for_distinct_timestamp().await;
+    insert_browse_state(&store, library.id, state_only.id).await;
+    sleep_for_distinct_timestamp().await;
+    insert_browse_source(
+        &store,
+        library.id,
+        source_and_state.id,
+        "source-and-state-1",
+    )
+    .await;
+    sleep_for_distinct_timestamp().await;
+    insert_browse_state(&store, library.id, source_and_state.id).await;
+    sleep_for_distinct_timestamp().await;
+    insert_browse_source(
+        &store,
+        library.id,
+        duplicate_source.id,
+        "duplicate-source-1",
+    )
+    .await;
+    sleep_for_distinct_timestamp().await;
+    insert_browse_source(
+        &store,
+        library.id,
+        duplicate_source.id,
+        "duplicate-source-2",
+    )
+    .await;
+    sleep_for_distinct_timestamp().await;
+    insert_browse_source(
+        &store,
+        library.id,
+        in_progress_episode.id,
+        "in-progress-episode-1",
+    )
+    .await;
+    insert_browse_source(
+        &store,
+        other_library.id,
+        outside_item.id,
+        "outside-library-1",
+    )
+    .await;
+
+    let principal_id = UserPrincipalId::local_admin();
+    let other_principal_id = UserPrincipalId::new("contract-other-viewer").unwrap();
+    store
+        .upsert_user_playback_state(UserPlaybackStateWrite {
+            principal_id: principal_id.clone(),
+            item_id: state_only.id,
+            source_id: None,
+            resume_position_ms: Some(0),
+            duration_ms: Some(100_000),
+            watched: false,
+            watched_at_ms: None,
+            last_played_at_ms: Some(100),
+            updated_at_ms: 100,
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_user_playback_state(UserPlaybackStateWrite {
+            principal_id: principal_id.clone(),
+            item_id: source_and_state.id,
+            source_id: None,
+            resume_position_ms: Some(90_000),
+            duration_ms: Some(100_000),
+            watched: true,
+            watched_at_ms: Some(300),
+            last_played_at_ms: Some(300),
+            updated_at_ms: 300,
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_user_playback_state(UserPlaybackStateWrite {
+            principal_id: principal_id.clone(),
+            item_id: in_progress_episode.id,
+            source_id: None,
+            resume_position_ms: Some(10_000),
+            duration_ms: Some(100_000),
+            watched: false,
+            watched_at_ms: None,
+            last_played_at_ms: Some(500),
+            updated_at_ms: 500,
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_user_playback_state(UserPlaybackStateWrite {
+            principal_id: other_principal_id,
+            item_id: duplicate_source.id,
+            source_id: None,
+            resume_position_ms: Some(25_000),
+            duration_ms: Some(100_000),
+            watched: true,
+            watched_at_ms: Some(9_000),
+            last_played_at_ms: Some(9_000),
+            updated_at_ms: 9_000,
+        })
+        .await
+        .unwrap();
+
+    let date_added_asc = browse_ids(
+        store
+            .list_library_items_for_browse(
+                library.id,
+                &principal_id,
+                &browse_contract_query(
+                    PageRequest::new(10, 0),
+                    LibraryItemBrowseSortKey::DateAdded,
+                    LibraryItemBrowseSortOrder::Asc,
+                ),
+            )
+            .await
+            .unwrap(),
+    );
+    assert_eq!(
+        date_added_asc,
+        vec![
+            source_only.id,
+            state_only.id,
+            source_and_state.id,
+            duplicate_source.id,
+            in_progress_episode.id,
+        ]
+    );
+    assert_eq!(
+        date_added_asc
+            .iter()
+            .filter(|id| **id == duplicate_source.id)
+            .count(),
+        1
+    );
+    assert!(!date_added_asc.contains(&outside_item.id));
+
+    let date_added_page = browse_ids(
+        store
+            .list_library_items_for_browse(
+                library.id,
+                &principal_id,
+                &browse_contract_query(
+                    PageRequest::new(2, 2),
+                    LibraryItemBrowseSortKey::DateAdded,
+                    LibraryItemBrowseSortOrder::Asc,
+                ),
+            )
+            .await
+            .unwrap(),
+    );
+    assert_eq!(
+        date_added_page,
+        vec![source_and_state.id, duplicate_source.id]
+    );
+
+    let title_asc = browse_ids(
+        store
+            .list_library_items_for_browse(
+                library.id,
+                &principal_id,
+                &browse_contract_query(
+                    PageRequest::new(10, 0),
+                    LibraryItemBrowseSortKey::Title,
+                    LibraryItemBrowseSortOrder::Asc,
+                ),
+            )
+            .await
+            .unwrap(),
+    );
+    assert_eq!(
+        title_asc,
+        vec![
+            source_only.id,
+            state_only.id,
+            duplicate_source.id,
+            in_progress_episode.id,
+            source_and_state.id,
+        ]
+    );
+
+    let movie_ids = browse_ids(
+        store
+            .list_library_items_for_browse(
+                library.id,
+                &principal_id,
+                &LibraryItemBrowseQuery {
+                    facets: vec![LibraryItemBrowseFacet::Kind(MediaKind::Movie)],
+                    ..browse_contract_query(
+                        PageRequest::new(10, 0),
+                        LibraryItemBrowseSortKey::Title,
+                        LibraryItemBrowseSortOrder::Asc,
+                    )
+                },
+            )
+            .await
+            .unwrap(),
+    );
+    assert_eq!(
+        movie_ids,
+        vec![
+            source_only.id,
+            state_only.id,
+            duplicate_source.id,
+            source_and_state.id,
+        ]
+    );
+
+    let impossible_kind_ids = browse_ids(
+        store
+            .list_library_items_for_browse(
+                library.id,
+                &principal_id,
+                &LibraryItemBrowseQuery {
+                    facets: vec![
+                        LibraryItemBrowseFacet::Kind(MediaKind::Movie),
+                        LibraryItemBrowseFacet::Kind(MediaKind::Episode),
+                    ],
+                    ..browse_contract_query(
+                        PageRequest::new(10, 0),
+                        LibraryItemBrowseSortKey::Title,
+                        LibraryItemBrowseSortOrder::Asc,
+                    )
+                },
+            )
+            .await
+            .unwrap(),
+    );
+    assert!(impossible_kind_ids.is_empty());
+
+    let watched_ids = browse_ids(
+        store
+            .list_library_items_for_browse(
+                library.id,
+                &principal_id,
+                &LibraryItemBrowseQuery {
+                    watch_state: LibraryItemWatchStateFilter::Watched,
+                    ..browse_contract_query(
+                        PageRequest::new(10, 0),
+                        LibraryItemBrowseSortKey::Title,
+                        LibraryItemBrowseSortOrder::Asc,
+                    )
+                },
+            )
+            .await
+            .unwrap(),
+    );
+    assert_eq!(watched_ids, vec![source_and_state.id]);
+
+    let unwatched_ids = browse_ids(
+        store
+            .list_library_items_for_browse(
+                library.id,
+                &principal_id,
+                &LibraryItemBrowseQuery {
+                    watch_state: LibraryItemWatchStateFilter::Unwatched,
+                    ..browse_contract_query(
+                        PageRequest::new(10, 0),
+                        LibraryItemBrowseSortKey::Title,
+                        LibraryItemBrowseSortOrder::Asc,
+                    )
+                },
+            )
+            .await
+            .unwrap(),
+    );
+    assert_eq!(
+        unwatched_ids,
+        vec![
+            source_only.id,
+            state_only.id,
+            duplicate_source.id,
+            in_progress_episode.id,
+        ]
+    );
+
+    let in_progress_ids = browse_ids(
+        store
+            .list_library_items_for_browse(
+                library.id,
+                &principal_id,
+                &LibraryItemBrowseQuery {
+                    watch_state: LibraryItemWatchStateFilter::InProgress,
+                    ..browse_contract_query(
+                        PageRequest::new(10, 0),
+                        LibraryItemBrowseSortKey::LastPlayed,
+                        LibraryItemBrowseSortOrder::Desc,
+                    )
+                },
+            )
+            .await
+            .unwrap(),
+    );
+    assert_eq!(in_progress_ids, vec![in_progress_episode.id]);
+
+    let release_none_tail = sorted_ids([duplicate_source.id, in_progress_episode.id]);
+    let release_asc = browse_ids(
+        store
+            .list_library_items_for_browse(
+                library.id,
+                &principal_id,
+                &browse_contract_query(
+                    PageRequest::new(10, 0),
+                    LibraryItemBrowseSortKey::ReleaseDate,
+                    LibraryItemBrowseSortOrder::Asc,
+                ),
+            )
+            .await
+            .unwrap(),
+    );
+    assert_eq!(
+        release_asc,
+        [
+            vec![source_only.id, source_and_state.id, state_only.id],
+            release_none_tail.clone(),
+        ]
+        .concat()
+    );
+
+    let release_desc = browse_ids(
+        store
+            .list_library_items_for_browse(
+                library.id,
+                &principal_id,
+                &browse_contract_query(
+                    PageRequest::new(10, 0),
+                    LibraryItemBrowseSortKey::ReleaseDate,
+                    LibraryItemBrowseSortOrder::Desc,
+                ),
+            )
+            .await
+            .unwrap(),
+    );
+    assert_eq!(
+        release_desc,
+        [
+            vec![state_only.id, source_and_state.id, source_only.id],
+            release_none_tail,
+        ]
+        .concat()
+    );
+
+    let last_played_none_tail = sorted_ids([source_only.id, duplicate_source.id]);
+    let last_played_asc = browse_ids(
+        store
+            .list_library_items_for_browse(
+                library.id,
+                &principal_id,
+                &browse_contract_query(
+                    PageRequest::new(10, 0),
+                    LibraryItemBrowseSortKey::LastPlayed,
+                    LibraryItemBrowseSortOrder::Asc,
+                ),
+            )
+            .await
+            .unwrap(),
+    );
+    assert_eq!(
+        last_played_asc,
+        [
+            vec![state_only.id, source_and_state.id, in_progress_episode.id],
+            last_played_none_tail.clone(),
+        ]
+        .concat()
+    );
+
+    let last_played_desc = browse_ids(
+        store
+            .list_library_items_for_browse(
+                library.id,
+                &principal_id,
+                &browse_contract_query(
+                    PageRequest::new(10, 0),
+                    LibraryItemBrowseSortKey::LastPlayed,
+                    LibraryItemBrowseSortOrder::Desc,
+                ),
+            )
+            .await
+            .unwrap(),
+    );
+    assert_eq!(
+        last_played_desc,
+        [
+            vec![in_progress_episode.id, source_and_state.id, state_only.id],
+            last_played_none_tail,
+        ]
+        .concat()
+    );
+}
+
 async fn scan_commit_writes_full_source_unit_and_resolves_failure_contract<S>(store: S)
 where
     S: ScanCommitContractBackend,
@@ -1967,6 +2444,26 @@ fn contract_media_item(id: MediaItemId, title: &str) -> MediaItem {
     }
 }
 
+fn browse_contract_item(
+    id: MediaItemId,
+    kind: MediaKind,
+    title: &str,
+    sort_title: Option<&str>,
+    release_date: Option<&str>,
+) -> MediaItem {
+    MediaItem {
+        id,
+        kind,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: title.to_owned(),
+            sort_title: sort_title.map(str::to_owned),
+            release_date: release_date.map(str::to_owned),
+            ..CanonicalMetadata::default()
+        },
+    }
+}
+
 fn contract_media_source(
     library_id: LibraryId,
     item_id: MediaItemId,
@@ -1986,6 +2483,66 @@ fn contract_media_source(
         size_bytes: Some(19),
         fingerprint: Some("contract-fingerprint".to_owned()),
     }
+}
+
+async fn insert_browse_source<S>(store: &S, library_id: LibraryId, item_id: MediaItemId, key: &str)
+where
+    S: MediaRepository + ?Sized,
+{
+    store
+        .upsert_media_source(&MediaSource {
+            id: MediaSourceId::new(),
+            library_id,
+            item_id,
+            locator: format!("local:///Contract Browse/{key}.mkv"),
+            file_name: format!("{key}.mkv"),
+            size_bytes: Some(19),
+            fingerprint: Some(format!("contract-browse:{key}")),
+        })
+        .await
+        .unwrap();
+}
+
+async fn insert_browse_state<S>(store: &S, library_id: LibraryId, item_id: MediaItemId)
+where
+    S: LibraryItemRepository + ?Sized,
+{
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id,
+            item_id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
+}
+
+async fn sleep_for_distinct_timestamp() {
+    tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+}
+
+fn browse_contract_query(
+    page: PageRequest,
+    sort: LibraryItemBrowseSortKey,
+    order: LibraryItemBrowseSortOrder,
+) -> LibraryItemBrowseQuery {
+    LibraryItemBrowseQuery {
+        page,
+        sort,
+        order,
+        facets: Vec::new(),
+        watch_state: LibraryItemWatchStateFilter::Any,
+    }
+}
+
+fn browse_ids(items: Vec<MediaItem>) -> Vec<MediaItemId> {
+    items.into_iter().map(|item| item.id).collect()
+}
+
+fn sorted_ids<const N: usize>(ids: [MediaItemId; N]) -> Vec<MediaItemId> {
+    let mut ids = ids.to_vec();
+    ids.sort();
+    ids
 }
 
 async fn seed_contract_media_item_with_source<S>(
@@ -9282,6 +9839,16 @@ database_contract_pair!(
         "preserves_library_scoped_source_identity"
     ),
     contract = library_media_identity_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_library_media_contract_browse_query_filters_sorts_and_pages,
+    postgres = postgres_library_media_contract_browse_query_filters_sorts_and_pages,
+    case = ContractCase::migrated(
+        ContractFamily::LibraryMedia,
+        "browse_query_filters_sorts_and_pages"
+    ),
+    contract = library_item_browse_query_contract,
 );
 
 database_contract_pair!(

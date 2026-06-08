@@ -1,7 +1,10 @@
 use async_trait::async_trait;
 
 use super::PageRequest;
-use crate::{Library, LibraryId, LibraryItemState, MediaItem, MediaItemId, MediaKind, Result};
+use crate::{
+    Library, LibraryId, LibraryItemBrowseQuery, LibraryItemState, MediaItem, MediaItemId,
+    MediaKind, Result, UserPrincipalId,
+};
 
 #[async_trait]
 pub trait LibraryRepository: Send + Sync {
@@ -26,6 +29,13 @@ pub trait LibraryItemRepository: Send + Sync {
         &self,
         item_id: MediaItemId,
     ) -> Result<Vec<LibraryItemState>>;
+
+    async fn list_library_items_for_browse(
+        &self,
+        library_id: LibraryId,
+        principal_id: &UserPrincipalId,
+        query: &LibraryItemBrowseQuery,
+    ) -> Result<Vec<MediaItem>>;
 
     async fn find_library_item_by_kind_parent_title(
         &self,

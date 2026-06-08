@@ -24,6 +24,96 @@ Persistence work must prove repository behavior, not only compile.
 - Docs-only spec update:
   `git diff --check`
 
+## Scenario: Repository-Backed Browse Queries
+
+### 1. Scope / Trigger
+
+- Trigger: adding or changing a repository method that powers a Public/Admin
+  browse or list surface from multiple persistence tables.
+- Scope: `nako-core` repository trait signature, SQLite/PostgreSQL adapters,
+  `NakoDatabase` facade forwarding, app-service delegation, and shared
+  `contract_tests.rs` coverage.
+
+### 2. Signatures
+
+- Repository method shape:
+  `fn list_*_for_browse(..., page-or-query) -> Result<Vec<DomainRecord>>`.
+- Query records should use domain enums and `PageRequest`; do not expose SQL,
+  adapter-private row structs, or raw query strings through `nako-core`.
+
+### 3. Contracts
+
+- Filtering, deduplication, ordering, and `LIMIT/OFFSET` happen in the
+  repository query, not by loading every row into an app service.
+- If membership can come from several tables, aggregate to one row per domain
+  record before applying pagination. Multi-source items must not duplicate
+  results or shift page boundaries.
+- User-specific state joins must bind the current principal and must not let
+  another principal's state affect filtering or ordering.
+- Dynamic `ORDER BY` fragments may be generated only from trusted domain enum
+  branches. User-provided values must be parsed before the repository call and
+  never interpolated into SQL.
+- Optional sort keys must define NULL ordering explicitly in both SQLite and
+  PostgreSQL. Preserve existing semantics when replacing app-layer sorting.
+- Stable tie-breaks belong in the query contract and must remain independent of
+  ascending/descending primary sort direction.
+
+### 4. Validation & Error Matrix
+
+- Duplicate membership rows -> result contains one domain record and pagination
+  is applied after deduplication.
+- Source-only and state-only membership -> both are visible if the domain
+  contract says either table grants membership.
+- Other-principal playback state -> ignored for current-principal browse.
+- Optional sort value is missing -> placed according to the explicit contract,
+  not database defaults.
+- Unsupported sort/facet text reaches repository SQL -> contract violation;
+  parse to enums before the repository call.
+
+### 5. Good/Base/Bad Cases
+
+- Good: a library browse query joins membership and playback state once, orders
+  with enum-owned SQL fragments, and returns a bounded page.
+- Base: the server app service checks library existence, clamps `PageRequest`,
+  calls the repository method, and maps domain records to DTOs.
+- Bad: the app service loops over all library items, calls a per-item playback
+  getter, sorts in memory, and slices the requested page.
+
+### 6. Tests Required
+
+- Backend-agnostic repository contract tests for source-only membership,
+  state-only membership, duplicate membership deduplication, current-principal
+  user-state filtering, optional sort NULL ordering, stable tie-breaks, and
+  pagination after filtering/order.
+- Focused SQLite gate:
+  `cargo nextest run -p nako-db <browse-contract-filter> --no-fail-fast`.
+- PostgreSQL ignored contract must compile and should be run with
+  `NAKO_TEST_POSTGRES_URL` when local tooling is available.
+- Server route tests should remain focused on query parsing, access checks, and
+  DTO shape; do not duplicate every repository ordering case in HTTP tests.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+let mut rows = store.list_items(page_all).await?;
+for row in &mut rows {
+    row.state = store.get_user_state(principal, row.id).await?;
+}
+rows.sort_by(...);
+Ok(rows[offset..end].to_vec())
+```
+
+#### Correct
+
+```rust
+let page = query.page.clamped();
+let rows = store
+    .list_library_items_for_browse(library_id, principal, &LibraryItemBrowseQuery { page, ..query })
+    .await?;
+```
+
 ## Scenario: PostgreSQL Contract Harness Suite Selection
 
 ### 1. Scope / Trigger
