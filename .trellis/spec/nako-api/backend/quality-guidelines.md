@@ -508,11 +508,12 @@ payloads.
 
 - These three routes are read-only diagnostics and belong in the generated
   Admin Web contract.
-- Mutating routes for ingest processing/requeue remain explicit exclusions
-  until separate mutation policy tasks define confirmation and safety behavior.
-  Candidate accept, artifact publish, artifact cleanup, stray-file remediation,
-  and addon install-guide preview have separate generated contracts and should
-  not be re-added to the exclusion list.
+- The worker execution route `artwork/ingests/process-next` remains an explicit
+  exclusion until a separate runtime-control policy task defines a stable
+  Admin Web-facing command boundary. Candidate accept, ingest requeue, artifact
+  publish, artifact cleanup, stray-file remediation, and addon install-guide
+  preview have separate generated contracts and should not be re-added to the
+  exclusion list.
 - DTOs may expose counts, booleans, safe enum codes, stable artifact/ingest/item
   IDs, dimensions, byte counts, media type, and timestamps.
 - DTOs and generated TypeScript must not expose raw file names, local paths,
@@ -530,15 +531,16 @@ payloads.
 | Mutating Managed Artwork route remains server/operator-only | Keep an explicit exclusion with a specific reason |
 | Confirmed Managed Artwork mutation becomes Admin Web-facing | Add a dedicated generated mutation contract with route key, query/request semantics, response DTOs, and redaction tests |
 | Candidate accept becomes Admin Web-facing | Add `managedArtworkCandidateAccept`, emit `AcceptManagedArtworkCandidateResponse` and `JobResponse`, and keep the request body empty |
+| Ingest requeue becomes Admin Web-facing | Add `managedArtworkIngestRequeue`, emit `RequeueManagedArtworkIngestResponse` and `ManagedArtworkIngestJobSummary`, and keep the request body empty |
 | Server route inventory changes | `implemented_admin_routes_are_generated_or_explicitly_excluded` must pass with no stale exclusions |
 | Diagnostic source records include paths, URIs, hashes, tokens, roots, etags, or provider payloads | Response/generated contract expose only safe summaries and presence booleans |
 | Public Client contract output contains these Admin diagnostics | Treat as contract drift and remove from Public Client outputs |
 
 ### 5. Good/Base/Bad Cases
 
-- Good: generated route inventory includes all three read-only diagnostics plus
-  the candidate accept selection command, while ingest process/requeue mutations
-  remain excluded.
+- Good: generated route inventory includes all three read-only diagnostics, the
+  candidate accept selection command, and the ingest requeue retry command,
+  while `process-next` remains excluded.
 - Good: dedicated confirmed mutation tasks generate publish or stray-file
   remediation routes with typed Admin Web client tests and no raw storage
   material in response DTOs.
@@ -601,9 +603,8 @@ payloads.
 - Candidate accept is not a destructive cleanup/delete command, so this
   low-level generated contract does not require a `confirm=true` query. Any
   future page workflow still needs a dedicated live-only UI task.
-- Remaining Managed Artwork route exclusions after this contract are
-  `artwork/ingests/process-next` and
-  `artwork/ingests/{ingest_id}/requeue`.
+- Current Managed Artwork route exclusions after generated mutation contracts
+  should contain only `artwork/ingests/process-next`.
 
 ### 4. Validation & Error Matrix
 
@@ -663,6 +664,109 @@ return this.postJson(
 
 The server owns candidate lookup and ingest queueing. Admin Web submits only the
 opaque candidate ID selected by the operator.
+
+## Scenario: Managed Artwork Ingest Requeue Generated Admin Contract
+
+### 1. Scope / Trigger
+
+- Trigger: generating or changing the Admin contract for
+  `POST /admin/v1/artwork/ingests/{ingest_id}/requeue`.
+- Scope: `crates/nako-api/src/admin/managed_artwork.rs`,
+  `crates/nako-api/src/admin_contract.rs`,
+  `crates/nako-server/src/http/admin.rs`, and generated Admin TypeScript
+  contracts under `apps/admin-web` and `web`.
+
+### 2. Signatures
+
+- Generated route key: `managedArtworkIngestRequeue`.
+- Route:
+  `POST /admin/v1/artwork/ingests/{ingest_id}/requeue`.
+- Path parameter: `ingest_id`, encoded by Admin Web path helper.
+- Request body: empty JSON object `{}`.
+- Response:
+  `RequeueManagedArtworkIngestResponse { ingest, job, requeued, had_failure }`.
+- Ingest summary:
+  `ManagedArtworkIngestSummary { id, candidate_id, job_id, library_id, item_id, kind, status, has_artifact, has_failure, failure_code, created_at, updated_at }`.
+- Job summary:
+  `ManagedArtworkIngestJobSummary { id, kind, status, resource_class, library_id, source_id, has_input, has_summary, has_error, queued_at, started_at, completed_at }`.
+
+### 3. Contracts
+
+- The route is an Admin-only operator retry command. It must stay out of Public
+  Client route inventories, OpenAPI public outputs, and generated Public SDKs.
+- The client supplies only `ingest_id` as a path parameter and `{}` as the POST
+  body. It must not submit provider URLs, storage handles, job input JSON,
+  summary JSON, raw errors, paths, hashes, tokens, or artifact handles.
+- Requeue may reset a failed Managed Artwork ingest and its durable job to a
+  queued state. Idempotent replay for an already queued ingest may return
+  `requeued: false`.
+- Requeue is a retry command, not a worker executor. The
+  `artwork/ingests/process-next` worker route must remain explicitly excluded
+  until a separate runtime-control task defines an Admin Web-facing contract.
+- A future page workflow still needs a dedicated live-only task before wiring
+  controls to this low-level generated client method.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Route becomes generated | Remove only `artwork/ingests/{ingest_id}/requeue` from `admin_contract_route_exclusions()` and add the generated route key |
+| Ingest ID contains reserved URL characters | Admin Web path helper URL-encodes `ingest_id` |
+| Mutation request is sent | Client uses `POST` with `JSON.stringify({})` |
+| Failed ingest is requeued | Response exposes safe ingest and job summaries with `requeued: true` and `had_failure: true` |
+| Already queued ingest is replayed | Response may expose `requeued: false` without leaking raw failure or job payload material |
+| Stored/succeeded ingest is requeued | Server returns its existing safe conflict response without provider URL, token, or raw error material |
+| Response/generated contract contains paths, URIs, provider URLs, tokens, file names, roots, etags, hashes, job input/summary JSON, or backend payloads | Treat as a contract violation |
+| Public Client output contains the route or DTOs | Treat as contract drift and remove them from Public outputs |
+
+### 5. Good/Base/Bad Cases
+
+- Good: Admin Web client calls `managedArtworkIngestRequeue` with encoded
+  `ingest_id` and an empty body, then deserializes
+  `RequeueManagedArtworkIngestResponse`.
+- Base: server resets a failed ingest/durable job to queued and leaves actual
+  provider fetch/artifact storage to the worker/runtime path.
+- Bad: accepting `{ input_json }`, `{ summary_json }`, `{ storage_uri }`, or
+  `{ artifact_id }` in the request body, or generating the `process-next`
+  worker route as part of the retry contract.
+
+### 6. Tests Required
+
+- API contract:
+  `cargo nextest run -p nako-api admin_contract --no-fail-fast`.
+- Server route inventory:
+  `cargo nextest run -p nako-server implemented_admin_routes_are_generated_or_explicitly_excluded --no-fail-fast`.
+- Server requeue behavior:
+  `cargo nextest run -p nako-server admin_managed_artwork_ingest_requeue --no-fail-fast`.
+- Admin Web client:
+  `npm run test --prefix apps/admin-web -- adminApi/client.test.ts` and
+  `npm run check --prefix apps/admin-web`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```typescript
+return this.postJson(NAKO_ADMIN_ROUTES.managedArtworkIngestRequeue, {
+  input_json,
+});
+```
+
+#### Correct
+
+```typescript
+return this.postJson(
+  routeWithParam(
+    NAKO_ADMIN_ROUTES.managedArtworkIngestRequeue,
+    "ingest_id",
+    ingestId,
+  ),
+  {},
+);
+```
+
+The server owns retry validation and durable job reset. Admin Web submits only
+the opaque ingest ID selected by the operator.
 
 ## Scenario: Managed Artwork Stray File Cleanup Confirmed Admin Contract
 

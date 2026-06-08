@@ -100,6 +100,7 @@ import type {
   AdminVfsCacheRepairTargetPreviewResponse,
   RetryAddonTaskRunRequest,
   ReplayAddonEventRequest,
+  RequeueManagedArtworkIngestResponse,
   IssueAddonTokenRequest,
   RegisterAddonRequest,
   ReplaceAddonGrantsRequest,
@@ -465,6 +466,19 @@ export class AdminApiClient {
         NAKO_ADMIN_ROUTES.managedArtworkCandidateAccept,
         "candidate_id",
         candidateId,
+      ),
+      {},
+    );
+  }
+
+  async requeueManagedArtworkIngest(
+    ingestId: string,
+  ): Promise<RequeueManagedArtworkIngestResponse> {
+    return this.postJson<RequeueManagedArtworkIngestResponse>(
+      routeWithParam(
+        NAKO_ADMIN_ROUTES.managedArtworkIngestRequeue,
+        "ingest_id",
+        ingestId,
       ),
       {},
     );

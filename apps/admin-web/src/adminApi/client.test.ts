@@ -883,6 +883,69 @@ describe("AdminApiClient", () => {
     expect(responseText).not.toContain("F:\\");
   });
 
+  it("requeues a Managed Artwork Ingest through the generated Admin route", async () => {
+    const requeued = {
+      ingest: {
+        id: "ingest/unsafe id",
+        candidate_id: "candidate/unsafe id",
+        job_id: "job-1",
+        library_id: "library-anime",
+        item_id: "item-anime-1",
+        kind: "poster",
+        status: "queued",
+        has_artifact: false,
+        has_failure: false,
+        failure_code: null,
+        created_at: "2026-05-25T10:00:00Z",
+        updated_at: "2026-05-25T10:00:00Z",
+      },
+      job: {
+        id: "job-1",
+        kind: "managed_artwork_ingest",
+        status: "queued",
+        resource_class: "artwork.ingest",
+        library_id: "library-anime",
+        source_id: null,
+        has_input: true,
+        has_summary: false,
+        has_error: false,
+        queued_at: "2026-05-25T10:00:00Z",
+        started_at: null,
+        completed_at: null,
+      },
+      requeued: true,
+      had_failure: true,
+    };
+    const fetcher = vi.fn(async () => Response.json(requeued));
+    const client = new AdminApiClient({ fetcher });
+
+    await expect(
+      client.requeueManagedArtworkIngest("ingest/unsafe id"),
+    ).resolves.toEqual(requeued);
+
+    expect(fetcher).toHaveBeenCalledWith(
+      NAKO_ADMIN_ROUTES.managedArtworkIngestRequeue.replace(
+        "{ingest_id}",
+        encodeURIComponent("ingest/unsafe id"),
+      ),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
+    );
+    expect(requeued.requeued).toBe(true);
+    expect(requeued.had_failure).toBe(true);
+    const responseText = JSON.stringify(requeued);
+    expect(responseText).not.toContain("storage_uri");
+    expect(responseText).not.toContain("managed-artwork://");
+    expect(responseText).not.toContain("source_uri");
+    expect(responseText).not.toContain("cache_uri");
+    expect(responseText).not.toContain("token=secret");
+    expect(responseText).not.toContain("input_json");
+    expect(responseText).not.toContain("summary_json");
+    expect(responseText).not.toContain("F:\\");
+  });
+
   it("cleans up Managed Artwork Artifacts through the generated confirmed Admin route", async () => {
     const cleanup = {
       examined_artifacts: 1,

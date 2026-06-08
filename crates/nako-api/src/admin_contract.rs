@@ -18,7 +18,7 @@ struct AdminRouteExclusionSuffix {
     reason: &'static str,
 }
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 112] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 113] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessInvitations", "access/invitations"),
@@ -156,6 +156,10 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 112] = [
     (
         "managedArtworkCandidateAccept",
         "artwork/candidates/{candidate_id}/accept",
+    ),
+    (
+        "managedArtworkIngestRequeue",
+        "artwork/ingests/{ingest_id}/requeue",
     ),
     (
         "managedArtworkArtifactLifecycle",
@@ -328,13 +332,9 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 112] = [
     ("settingsMetadataRawCache", "settings/metadata/raw-cache"),
 ];
 
-const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 2] = [
+const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 1] = [
     AdminRouteExclusionSuffix {
         suffix: "artwork/ingests/process-next",
-        reason: "Managed artwork maintenance commands are server-side operator workflows not generated as Admin Web route constants in this slice.",
-    },
-    AdminRouteExclusionSuffix {
-        suffix: "artwork/ingests/{ingest_id}/requeue",
         reason: "Managed artwork maintenance commands are server-side operator workflows not generated as Admin Web route constants in this slice.",
     },
 ];
@@ -925,11 +925,33 @@ export interface ManagedArtworkIngestSummary {
   updated_at: string;
 }
 
+export interface ManagedArtworkIngestJobSummary {
+  id: string;
+  kind: string;
+  status: AdminJobStatus;
+  resource_class: string;
+  library_id: string | null;
+  source_id: string | null;
+  has_input: boolean;
+  has_summary: boolean;
+  has_error: boolean;
+  queued_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
 export interface AcceptManagedArtworkCandidateResponse {
   candidate_id: string;
   candidate_status: string;
   ingest: ManagedArtworkIngestSummary;
   job: JobResponse;
+}
+
+export interface RequeueManagedArtworkIngestResponse {
+  ingest: ManagedArtworkIngestSummary;
+  job: ManagedArtworkIngestJobSummary;
+  requeued: boolean;
+  had_failure: boolean;
 }
 
 export interface SelectedArtworkSummary {
@@ -4732,7 +4754,9 @@ mod tests {
             "AdminManagedArtworkGalleryArtifact",
             "AdminManagedArtworkGallerySelected",
             "ManagedArtworkIngestSummary",
+            "ManagedArtworkIngestJobSummary",
             "AcceptManagedArtworkCandidateResponse",
+            "RequeueManagedArtworkIngestResponse",
             "SelectedArtworkSummary",
             "PublishSelectedArtworkResponse",
             "UnpublishSelectedArtworkResponse",

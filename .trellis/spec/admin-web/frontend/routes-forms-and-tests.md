@@ -607,6 +607,96 @@ return this.postJson(
 The generated route owns the path shape; the client supplies only the opaque
 candidate ID and leaves candidate resolution plus ingest queueing to the server.
 
+## Scenario: Managed Artwork Ingest Requeue Client Command
+
+### 1. Scope / Trigger
+
+- Trigger: changing `AdminApiClient` support for
+  `POST /admin/v1/artwork/ingests/{ingest_id}/requeue`.
+- Evidence: `src/adminApi/client.ts`, `src/adminApi/client.test.ts`, and
+  generated Admin API contracts.
+- Authority: ADR 0027, ADR 0053, and the `nako-api` Managed Artwork ingest
+  requeue contract.
+
+### 2. Signatures
+
+- Generated route key: `managedArtworkIngestRequeue`.
+- Client method: `requeueManagedArtworkIngest(ingestId)`.
+- Path parameter: `ingest_id`, URL-encoded through `routeWithParam`.
+- Request body: empty JSON object `{}`.
+- Response: `RequeueManagedArtworkIngestResponse`.
+
+### 3. Contracts
+
+- Client code must build the URL from `NAKO_ADMIN_ROUTES`; do not add literal
+  `/admin/v1/artwork/ingests/{ingest_id}/requeue` strings.
+- `ingest_id` is the only caller-supplied input and must be encoded as a path
+  parameter.
+- The body stays `{}` so Admin Web never accepts provider URLs, raw file names,
+  local paths, storage URIs, artifact roots, content hashes, tokens, etags, raw
+  job input JSON, summary JSON, errors, or backend payloads from the caller.
+- This method is a low-level generated client command. Route/page controls that
+  invoke it still require a dedicated live-only workflow task and should not be
+  added to the read-only maintenance page by this contract alone.
+- Tests must assert unsafe response material is not present in client fixtures.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| `ingestId` contains reserved URL characters | Client URL-encodes the path parameter |
+| Mutation request is sent | Client uses `POST` with `JSON.stringify({})` |
+| Generated route key is missing | TypeScript check fails until the generated contract is refreshed |
+| Client fixture contains path, URI, token, raw hash, file name, storage handle, input JSON, or summary JSON material | Treat as a redaction failure |
+| A page wants to call this method | Add a dedicated live-only workflow task before wiring UI controls |
+
+### 5. Good / Base / Bad Cases
+
+- Good: `AdminApiClient` calls the generated route with
+  `ingest%2Funsafe%20id` and an empty body.
+- Base: read-only maintenance diagnostics remain read-only while ingest requeue
+  is available as a typed low-level client command.
+- Bad: passing `{ input_json }`, `{ summary_json }`, `{ storage_uri }`, or
+  `{ artifact_id }` in the mutation body, or putting a requeue button into a
+  read-only route without a dedicated workflow task.
+
+### 6. Tests Required
+
+- Client tests assert generated route usage, path parameter encoding, `POST`,
+  empty body, response typing, replay-safe response shape, and redaction fixture
+  terms.
+- Run:
+  - `npm run test --prefix apps/admin-web -- adminApi/client.test.ts`
+  - `npm run check --prefix apps/admin-web`
+  - `cargo nextest run -p nako-api admin_contract --no-fail-fast` when generated
+    contract output changes.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```typescript
+return this.postJson(NAKO_ADMIN_ROUTES.managedArtworkIngestRequeue, {
+  input_json,
+});
+```
+
+#### Correct
+
+```typescript
+return this.postJson(
+  routeWithParam(
+    NAKO_ADMIN_ROUTES.managedArtworkIngestRequeue,
+    "ingest_id",
+    ingestId,
+  ),
+  {},
+);
+```
+
+The generated route owns the path shape; the client supplies only the opaque
+ingest ID and leaves retry validation plus durable job reset to the server.
+
 ## Scenario: Managed Artwork Stray File Cleanup Client Command
 
 ### 1. Scope / Trigger

@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "verify Admin-only route generation and Public Client exclusion"}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "verify route inventory, generated artifacts, Managed Artwork redaction, and remaining exclusion"}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "verify server handler/route boundary remains thin and Admin-only"}
+{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "verify existing conflict/error responses remain redaction-safe"}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "verify focused server tests and gate selection"}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "verify generated route usage, empty-body mutation, and AdminApiClient test conventions"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "verify API/server/frontend data flow consistency"}
+{"file": ".trellis/tasks/06-08-managed-artwork-ingest-requeue-generated-route-contract/research/jellyfin-scheduled-task-command-comparison.md", "reason": "verify process-next remains excluded and requeue is the only generated retry command"}
