@@ -18,9 +18,7 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [
-    "06-08-admin-web-live-only-mutation-guard"
-  ],
+  "children": [],
   "parent": null,
   "relatedFiles": [],
   "notes": "",
