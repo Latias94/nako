@@ -2719,6 +2719,26 @@ impl UserPlaylistRepository for NakoDatabase {
         self.backend().list_user_playlists(principal_id, page).await
     }
 
+    async fn get_user_playlist_summary_projection(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        playlist_id: UserPlaylistId,
+    ) -> Result<Option<UserPlaylistSummaryProjection>> {
+        self.backend()
+            .get_user_playlist_summary_projection(principal, playlist_id)
+            .await
+    }
+
+    async fn list_user_playlist_summary_projections(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<Vec<UserPlaylistSummaryProjection>> {
+        self.backend()
+            .list_user_playlist_summary_projections(principal, page)
+            .await
+    }
+
     async fn update_user_playlist_name(
         &self,
         update: UserPlaylistNameUpdate,

@@ -97,6 +97,51 @@ impl UserPlaylistRepository for SqliteStore {
         rows.into_iter().map(row_to_user_playlist).collect()
     }
 
+    async fn get_user_playlist_summary_projection(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        playlist_id: UserPlaylistId,
+    ) -> Result<Option<UserPlaylistSummaryProjection>> {
+        let mut query = user_playlist_summary_query(principal);
+        query.push(" AND p.id = ");
+        query.push_bind(playlist_id.to_string());
+
+        let row = query
+            .build()
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        row.map(row_to_user_playlist_summary_projection).transpose()
+    }
+
+    async fn list_user_playlist_summary_projections(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<Vec<UserPlaylistSummaryProjection>> {
+        let page = page.clamped();
+        let mut query = user_playlist_summary_query(principal);
+        query.push(
+            r#"
+            ORDER BY p.updated_at_ms DESC, p.id ASC
+            LIMIT "#,
+        );
+        query.push_bind(u32_to_i64(page.limit));
+        query.push(" OFFSET ");
+        query.push_bind(u64_to_i64(page.offset)?);
+
+        let rows = query
+            .build()
+            .fetch_all(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        rows.into_iter()
+            .map(row_to_user_playlist_summary_projection)
+            .collect()
+    }
+
     async fn update_user_playlist_name(
         &self,
         update: UserPlaylistNameUpdate,
@@ -377,6 +422,40 @@ async fn get_user_playlist(
     .map_err(database_error)?;
 
     row.map(row_to_user_playlist).transpose()
+}
+
+fn user_playlist_summary_query(principal: &AuthenticatedPrincipal) -> QueryBuilder<'_, Sqlite> {
+    let mut query = QueryBuilder::<Sqlite>::new(
+        r#"
+            SELECT
+                p.id,
+                p.principal_id,
+                p.name,
+                p.visibility,
+                (
+                    SELECT COUNT(*)
+                    FROM user_playlist_items AS all_items
+                    WHERE all_items.playlist_id = p.id
+                ) AS item_count,
+                p.created_at_ms,
+                p.updated_at_ms,
+                p.version,
+                (
+                    SELECT COUNT(*)
+                    FROM user_playlist_items AS i
+                    INNER JOIN media_items AS items ON items.id = i.item_id
+                    WHERE i.playlist_id = p.id
+        "#,
+    );
+    push_user_playlist_access_filter(&mut query, principal);
+    query.push(
+        r#"
+                ) AS accessible_item_count
+            FROM user_playlists AS p
+            WHERE p.principal_id = "#,
+    );
+    query.push_bind(principal.principal_id.as_str());
+    query
 }
 
 async fn count_accessible_user_playlist_items(
@@ -764,6 +843,17 @@ fn row_to_user_playlist(row: sqlx::sqlite::SqliteRow) -> Result<UserPlaylistReco
         created_at_ms: row_get(&row, "created_at_ms")?,
         updated_at_ms: row_get(&row, "updated_at_ms")?,
         version: i64_to_u64(row_get(&row, "version")?)?,
+    })
+}
+
+fn row_to_user_playlist_summary_projection(
+    row: SqliteRow,
+) -> Result<UserPlaylistSummaryProjection> {
+    let accessible_item_count = i64_to_u32(row_get(&row, "accessible_item_count")?)?;
+    let playlist = row_to_user_playlist(row)?;
+    Ok(UserPlaylistSummaryProjection {
+        playlist,
+        accessible_item_count,
     })
 }
 

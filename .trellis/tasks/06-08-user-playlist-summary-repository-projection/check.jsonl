@@ -1,0 +1,9 @@
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking guide entrypoint for reviewing cross-layer behavior."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Review data flow across HTTP, app, core repository contract, and database adapters."}
+{"file": ".trellis/spec/nako-core/backend/database-guidelines.md", "reason": "Verify repository contract shape and bounded list semantics."}
+{"file": ".trellis/spec/nako-core/backend/quality-guidelines.md", "reason": "Verify core contract quality and cross-crate updates."}
+{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "Verify SQLx, row mapping, and SQLite/PostgreSQL parity."}
+{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "Verify repository contract tests and browse-query behavior."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Verify HTTP handlers remain thin and DTO-compatible."}
+{"file": ".trellis/spec/nako-server/backend/database-guidelines.md", "reason": "Verify server avoids direct persistence coordination."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify focused server gates and route test expectations."}

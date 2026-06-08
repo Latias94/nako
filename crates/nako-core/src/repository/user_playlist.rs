@@ -15,6 +15,12 @@ pub struct UserPlaylistItemsProjection {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct UserPlaylistSummaryProjection {
+    pub playlist: UserPlaylistRecord,
+    pub accessible_item_count: u32,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct UserPlaylistItemEntry {
     pub playlist_item: UserPlaylistItemRecord,
     pub item: MediaItem,
@@ -45,6 +51,18 @@ pub trait UserPlaylistRepository: Send + Sync {
         principal_id: &UserPrincipalId,
         page: PageRequest,
     ) -> Result<Vec<UserPlaylistRecord>>;
+
+    async fn get_user_playlist_summary_projection(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        playlist_id: UserPlaylistId,
+    ) -> Result<Option<UserPlaylistSummaryProjection>>;
+
+    async fn list_user_playlist_summary_projections(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<Vec<UserPlaylistSummaryProjection>>;
 
     async fn update_user_playlist_name(
         &self,

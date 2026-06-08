@@ -5,7 +5,7 @@ use nako_core::{
     AuthenticatedPrincipal, MediaItem, MediaItemId, MediaRepository, NakoError, NewUserPlaylist,
     PageRequest, Result, UserPlaylistId, UserPlaylistItemRecord, UserPlaylistItemRemoval,
     UserPlaylistItemWrite, UserPlaylistItemsProjection, UserPlaylistNameUpdate, UserPlaylistRecord,
-    UserPlaylistReorder, UserPlaylistRepository, UserPrincipalId,
+    UserPlaylistReorder, UserPlaylistRepository, UserPlaylistSummaryProjection, UserPrincipalId,
 };
 use nako_db::NakoDatabase;
 
@@ -116,6 +116,18 @@ pub(crate) trait UserPlaylistStore: Clone + Send + Sync + std::fmt::Debug {
         page: PageRequest,
     ) -> Result<Option<UserPlaylistItemsProjection>>;
 
+    async fn load_user_playlist_summary_projection(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        playlist_id: UserPlaylistId,
+    ) -> Result<Option<UserPlaylistSummaryProjection>>;
+
+    async fn list_user_playlist_summary_projections(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<Vec<UserPlaylistSummaryProjection>>;
+
     async fn load_media_item(&self, item_id: MediaItemId) -> Result<Option<MediaItem>>;
 }
 
@@ -205,6 +217,23 @@ impl UserPlaylistStore for NakoDatabase {
         .await
     }
 
+    async fn load_user_playlist_summary_projection(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        playlist_id: UserPlaylistId,
+    ) -> Result<Option<UserPlaylistSummaryProjection>> {
+        UserPlaylistRepository::get_user_playlist_summary_projection(self, principal, playlist_id)
+            .await
+    }
+
+    async fn list_user_playlist_summary_projections(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<Vec<UserPlaylistSummaryProjection>> {
+        UserPlaylistRepository::list_user_playlist_summary_projections(self, principal, page).await
+    }
+
     async fn load_media_item(&self, item_id: MediaItemId) -> Result<Option<MediaItem>> {
         MediaRepository::get_media_item(self, item_id).await
     }
@@ -258,6 +287,27 @@ where
     ) -> Result<Vec<UserPlaylistRecord>> {
         self.store
             .list_user_playlist_records(principal_id, page)
+            .await
+    }
+
+    pub(crate) async fn get_playlist_summary(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        playlist_id: UserPlaylistId,
+    ) -> Result<UserPlaylistSummaryProjection> {
+        self.store
+            .load_user_playlist_summary_projection(principal, playlist_id)
+            .await?
+            .ok_or_else(|| playlist_not_found(playlist_id))
+    }
+
+    pub(crate) async fn list_playlist_summaries(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<Vec<UserPlaylistSummaryProjection>> {
+        self.store
+            .list_user_playlist_summary_projections(principal, page)
             .await
     }
 

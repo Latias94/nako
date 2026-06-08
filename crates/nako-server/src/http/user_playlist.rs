@@ -12,7 +12,7 @@ use nako_api::public_client::{
     user_playlist_to_dto,
 };
 use nako_core::{
-    AuthenticatedPrincipal, MediaItemId, NakoError, PageRequest, UserPlaylistId, UserPlaylistRecord,
+    AuthenticatedPrincipal, MediaItemId, NakoError, UserPlaylistId, UserPlaylistSummaryProjection,
 };
 use tracing::instrument;
 
@@ -68,13 +68,10 @@ async fn list_user_playlists(
     let page = page.try_into()?;
     let playlists = app
         .user_playlist()
-        .list_playlists(&principal.principal_id, page)
+        .list_playlist_summaries(&principal, page)
         .await?;
-    let mut public_playlists = Vec::with_capacity(playlists.len());
-
-    for playlist in playlists {
-        public_playlists.push(public_playlist_dto(&app, &principal, playlist).await?);
-    }
+    let public_playlists: Vec<UserPlaylistDto> =
+        playlists.into_iter().map(public_playlist_dto).collect();
 
     Ok(Json(UserPlaylistsResponse {
         page: page_info_from_request(page, public_playlists.len()),
@@ -98,7 +95,7 @@ async fn create_user_playlist(
         .await?;
 
     Ok(Json(UserPlaylistResponse {
-        playlist: public_playlist_dto(&app, &principal, playlist).await?,
+        playlist: public_playlist_summary_dto(&app, &principal, playlist.id).await?,
     }))
 }
 
@@ -108,13 +105,13 @@ async fn get_user_playlist(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(playlist_id): Path<UserPlaylistId>,
 ) -> ApiResult<impl IntoResponse> {
-    let playlist = app
+    let summary = app
         .user_playlist()
-        .get_playlist(&principal.principal_id, playlist_id)
+        .get_playlist_summary(&principal, playlist_id)
         .await?;
 
     Ok(Json(UserPlaylistResponse {
-        playlist: public_playlist_dto(&app, &principal, playlist).await?,
+        playlist: public_playlist_dto(summary),
     }))
 }
 
@@ -137,7 +134,7 @@ async fn update_user_playlist(
         .await?;
 
     Ok(Json(UserPlaylistResponse {
-        playlist: public_playlist_dto(&app, &principal, playlist).await?,
+        playlist: public_playlist_summary_dto(&app, &principal, playlist.id).await?,
     }))
 }
 
@@ -218,7 +215,7 @@ async fn add_user_playlist_item(
         .await?;
 
     Ok(Json(UserPlaylistResponse {
-        playlist: public_playlist_dto(&app, &principal, playlist).await?,
+        playlist: public_playlist_summary_dto(&app, &principal, playlist.id).await?,
     }))
 }
 
@@ -242,7 +239,7 @@ async fn remove_user_playlist_item(
         .await?;
 
     Ok(Json(UserPlaylistResponse {
-        playlist: public_playlist_dto(&app, &principal, playlist).await?,
+        playlist: public_playlist_summary_dto(&app, &principal, playlist.id).await?,
     }))
 }
 
@@ -270,23 +267,24 @@ async fn reorder_user_playlist_items(
         .await?;
 
     Ok(Json(UserPlaylistResponse {
-        playlist: public_playlist_dto(&app, &principal, playlist).await?,
+        playlist: public_playlist_summary_dto(&app, &principal, playlist.id).await?,
     }))
 }
 
-async fn public_playlist_dto(
+async fn public_playlist_summary_dto(
     app: &NakoApp,
     principal: &AuthenticatedPrincipal,
-    playlist: UserPlaylistRecord,
+    playlist_id: UserPlaylistId,
 ) -> ApiResult<UserPlaylistDto> {
-    let projection = app
-        .user_playlist()
-        .get_items_projection(principal, playlist.id, PageRequest::new(1, 0))
-        .await?;
-    Ok(user_playlist_to_dto(
-        playlist,
-        projection.accessible_item_count,
+    Ok(public_playlist_dto(
+        app.user_playlist()
+            .get_playlist_summary(principal, playlist_id)
+            .await?,
     ))
+}
+
+fn public_playlist_dto(projection: UserPlaylistSummaryProjection) -> UserPlaylistDto {
+    user_playlist_to_dto(projection.playlist, projection.accessible_item_count)
 }
 
 fn parse_playlist_item_ids(values: Vec<String>) -> Result<Vec<MediaItemId>, NakoError> {
