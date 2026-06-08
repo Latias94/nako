@@ -14,6 +14,8 @@ import type {
   AdminAcquisitionIntakeCandidateListResponse,
   AdminAcquisitionIntakeCandidatesQuery,
   AdminAddonHealthCheckResponse,
+  AdminAddonInstallGuidePreviewRequest,
+  AdminAddonInstallGuidePreviewResponse,
   AdminAddonInstallGuideResponse,
   AdminAddonRegistrationResponse,
   AdminAddonRegistrationsResponse,
@@ -222,6 +224,15 @@ export class AdminApiClient {
 
   async getAddonInstallGuide(addonId: string): Promise<AdminAddonInstallGuideResponse> {
     return this.getJson<AdminAddonInstallGuideResponse>(addonPath(NAKO_ADMIN_ROUTES.addonInstallGuide, addonId));
+  }
+
+  async previewAddonInstallGuide(
+    request: AdminAddonInstallGuidePreviewRequest,
+  ): Promise<AdminAddonInstallGuidePreviewResponse> {
+    return this.postJson<AdminAddonInstallGuidePreviewResponse>(
+      NAKO_ADMIN_ROUTES.addonInstallGuidePreview,
+      request,
+    );
   }
 
   async diagnoseAddonResourceCall(

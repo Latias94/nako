@@ -18,7 +18,7 @@ struct AdminRouteExclusionSuffix {
     reason: &'static str,
 }
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 107] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 108] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessInvitations", "access/invitations"),
@@ -35,6 +35,7 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 107] = [
     ("accessUserStatus", "access/users/{user_id}/status"),
     ("accessLibraryPolicies", "access/library-policies"),
     ("addons", "addons"),
+    ("addonInstallGuidePreview", "addons/install-guide-preview"),
     ("addonCatalogSources", "addons/catalog/sources"),
     ("addonCatalogEntries", "addons/catalog/entries"),
     (
@@ -314,11 +315,7 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 107] = [
     ("settingsMetadataRawCache", "settings/metadata/raw-cache"),
 ];
 
-const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 7] = [
-    AdminRouteExclusionSuffix {
-        suffix: "addons/install-guide-preview",
-        reason: "Install guide preview is a planning helper and does not have a stable generated Admin Web route key yet.",
-    },
+const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 6] = [
     AdminRouteExclusionSuffix {
         suffix: "artwork/candidates/{candidate_id}/accept",
         reason: "Managed artwork maintenance commands are server-side operator workflows not generated as Admin Web route constants in this slice.",
@@ -1526,6 +1523,14 @@ export interface AdminAddonInstallDescriptor {
   runtime: AdminAddonRuntimeRequirement;
   secret_reference_bindings?: AdminAddonSecretReferenceBinding[];
   install_notes?: string[];
+}
+
+export interface AdminAddonInstallGuidePreviewRequest {
+  descriptor: AdminAddonInstallDescriptor;
+}
+
+export interface AdminAddonInstallGuidePreviewResponse {
+  guide: AdminAddonProtocolInstallGuide;
 }
 
 export type AdminAddonRuntimeReferenceKind = "image" | "binary" | "command";
@@ -4555,6 +4560,8 @@ mod tests {
             "UpdateAddonStatusRequest",
             "AdminAddonHealthCheckResponse",
             "AdminAddonSurfacesResponse",
+            "AdminAddonInstallGuidePreviewRequest",
+            "AdminAddonInstallGuidePreviewResponse",
             "AdminAddonInstallGuideResponse",
             "AdminAddonResourceCallDiagnosticRequest",
             "AdminAddonResourceCallDiagnosticResponse",

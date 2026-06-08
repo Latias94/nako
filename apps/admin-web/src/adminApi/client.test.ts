@@ -2,6 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { AdminApiClient } from "./client";
 import { NAKO_ADMIN_ROUTES } from "./generated/contract";
+import type {
+  AdminAddonInstallGuidePreviewRequest,
+  AdminAddonInstallGuidePreviewResponse,
+} from "./generated/contract";
 import {
   mockAcquisitionIntakeCandidates,
   mockAccessSummary,
@@ -374,6 +378,80 @@ describe("AdminApiClient", () => {
         body: JSON.stringify({ settings: nextSettings }),
       }),
     );
+  });
+
+  it("previews an Addon install guide through the generated Admin route", async () => {
+    const previewRequest: AdminAddonInstallGuidePreviewRequest = {
+      descriptor: {
+        manifest: mockAddonDetail.addon.manifest,
+        runtime: {
+          kind: "http_sidecar",
+          image: "ghcr.io/nako/subtitle-lab:0.3.0",
+        },
+        secret_reference_bindings: [
+          {
+            field_id: "subtitle-provider-key",
+            secret_ref: "secret-reference:subtitle-provider-key",
+          },
+        ],
+        install_notes: ["Use secret references only."],
+      },
+    };
+    const previewResponse: AdminAddonInstallGuidePreviewResponse = {
+      guide: {
+        manifest_id: "dev.nako.subtitle-lab",
+        addon_name: "Subtitle Lab",
+        protocol_version: "2026-05-15",
+        runtime_kind: "http_sidecar",
+        runtime_reference: {
+          kind: "image",
+          value: "ghcr.io/nako/subtitle-lab:0.3.0",
+        },
+        base_url_scheme: "http",
+        base_url_configured: true,
+        declared_resources: ["subtitle", "metadata"],
+        declared_scopes: ["subtitle_read", "item_metadata_read"],
+        required_secret_fields: [
+          {
+            id: "subtitle-provider-key",
+            label: "Provider API key",
+            required: false,
+            provided: true,
+          },
+        ],
+        provided_secret_refs: ["secret-reference:subtitle-provider-key"],
+        missing_required_secret_fields: [],
+        has_configuration_schema: false,
+        entry_point_count: 1,
+        hosted_page_count: 0,
+        task_count: 0,
+        event_subscription_count: 0,
+        install_steps: [
+          {
+            kind: "run_sidecar",
+            summary: "Run the Addon Sidecar outside Nako.",
+          },
+        ],
+      },
+    };
+    const fetcher = vi.fn(async () => Response.json(previewResponse));
+    const client = new AdminApiClient({ fetcher });
+
+    await expect(client.previewAddonInstallGuide(previewRequest)).resolves.toEqual(
+      previewResponse,
+    );
+
+    expect(fetcher).toHaveBeenCalledWith(
+      NAKO_ADMIN_ROUTES.addonInstallGuidePreview,
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify(previewRequest),
+      }),
+    );
+    const responseText = JSON.stringify(previewResponse);
+    expect(responseText).not.toContain("raw-addon-secret");
+    expect(responseText).not.toContain("file://");
+    expect(responseText).not.toContain("F:\\");
   });
 
   it("uses generated Access invitation routes for list, create, and revoke", async () => {

@@ -14,6 +14,7 @@ export const NAKO_ADMIN_ROUTES = {
   accessUserStatus: "/admin/v1/access/users/{user_id}/status",
   accessLibraryPolicies: "/admin/v1/access/library-policies",
   addons: "/admin/v1/addons",
+  addonInstallGuidePreview: "/admin/v1/addons/install-guide-preview",
   addonCatalogSources: "/admin/v1/addons/catalog/sources",
   addonCatalogEntries: "/admin/v1/addons/catalog/entries",
   addonCatalogResolve: "/admin/v1/addons/catalog/entries/{entry_id}/resolve",
@@ -1218,6 +1219,14 @@ export interface AdminAddonInstallDescriptor {
   runtime: AdminAddonRuntimeRequirement;
   secret_reference_bindings?: AdminAddonSecretReferenceBinding[];
   install_notes?: string[];
+}
+
+export interface AdminAddonInstallGuidePreviewRequest {
+  descriptor: AdminAddonInstallDescriptor;
+}
+
+export interface AdminAddonInstallGuidePreviewResponse {
+  guide: AdminAddonProtocolInstallGuide;
 }
 
 export type AdminAddonRuntimeReferenceKind = "image" | "binary" | "command";
