@@ -18,9 +18,7 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [
-    "06-08-admin-contract-brace-path-parameters"
-  ],
+  "children": [],
   "parent": null,
   "relatedFiles": [],
   "notes": "",
