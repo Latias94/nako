@@ -1502,3 +1502,38 @@ Moved User Playlist item listing/count into repository-backed projection with SQ
 ### Next Steps
 
 - None - task complete
+
+
+## Session 86: User playlist summary repository projection
+
+**Date**: 2026-06-08
+**Task**: User playlist summary repository projection
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Moved User Playlist accessible item counts into repository-backed summary projections, removed HTTP list/get count N+1, added SQLite/PostgreSQL parity and focused user_playlist checks.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e4a147c5` | (see git log) |
+| `2ea621ed` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

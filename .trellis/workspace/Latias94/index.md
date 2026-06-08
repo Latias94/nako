@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 85
+- **Total Sessions**: 86
 - **Last Active**: 2026-06-08
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~1504 | Active |
+| `journal-2.md` | ~1539 | Active |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 86 | 2026-06-08 | User playlist summary repository projection | `e4a147c5`, `2ea621ed` | `main` |
 | 85 | 2026-06-08 | User Playlist repository projection | `495c6205` | `main` |
 | 84 | 2026-06-08 | Continue Watching repository projection | `a818075a` | `main` |
 | 83 | 2026-06-08 | Catalog browse repository projection | `7335809b`, `9087dbd0`, `7b40d75d` | `main` |
