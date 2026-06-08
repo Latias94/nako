@@ -2,10 +2,10 @@ use std::collections::BTreeSet;
 
 use async_trait::async_trait;
 use nako_core::{
-    MediaItem, MediaItemId, MediaRepository, NakoError, NewUserPlaylist, PageRequest, Result,
-    UserPlaylistId, UserPlaylistItemRecord, UserPlaylistItemRemoval, UserPlaylistItemWrite,
-    UserPlaylistNameUpdate, UserPlaylistRecord, UserPlaylistReorder, UserPlaylistRepository,
-    UserPrincipalId,
+    AuthenticatedPrincipal, MediaItem, MediaItemId, MediaRepository, NakoError, NewUserPlaylist,
+    PageRequest, Result, UserPlaylistId, UserPlaylistItemRecord, UserPlaylistItemRemoval,
+    UserPlaylistItemWrite, UserPlaylistItemsProjection, UserPlaylistNameUpdate, UserPlaylistRecord,
+    UserPlaylistReorder, UserPlaylistRepository, UserPrincipalId,
 };
 use nako_db::NakoDatabase;
 
@@ -109,6 +109,13 @@ pub(crate) trait UserPlaylistStore: Clone + Send + Sync + std::fmt::Debug {
         page: PageRequest,
     ) -> Result<Vec<UserPlaylistItemRecord>>;
 
+    async fn load_user_playlist_items_projection(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        playlist_id: UserPlaylistId,
+        page: PageRequest,
+    ) -> Result<Option<UserPlaylistItemsProjection>>;
+
     async fn load_media_item(&self, item_id: MediaItemId) -> Result<Option<MediaItem>>;
 }
 
@@ -181,6 +188,21 @@ impl UserPlaylistStore for NakoDatabase {
     ) -> Result<Vec<UserPlaylistItemRecord>> {
         UserPlaylistRepository::list_user_playlist_items(self, principal_id, playlist_id, page)
             .await
+    }
+
+    async fn load_user_playlist_items_projection(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        playlist_id: UserPlaylistId,
+        page: PageRequest,
+    ) -> Result<Option<UserPlaylistItemsProjection>> {
+        UserPlaylistRepository::get_user_playlist_items_projection(
+            self,
+            principal,
+            playlist_id,
+            page,
+        )
+        .await
     }
 
     async fn load_media_item(&self, item_id: MediaItemId) -> Result<Option<MediaItem>> {
@@ -369,6 +391,18 @@ where
         self.store
             .list_user_playlist_item_records(principal_id, playlist_id, page)
             .await
+    }
+
+    pub(crate) async fn get_items_projection(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        playlist_id: UserPlaylistId,
+        page: PageRequest,
+    ) -> Result<UserPlaylistItemsProjection> {
+        self.store
+            .load_user_playlist_items_projection(principal, playlist_id, page)
+            .await?
+            .ok_or_else(|| playlist_not_found(playlist_id))
     }
 
     async fn ensure_item_exists(&self, item_id: MediaItemId) -> Result<()> {

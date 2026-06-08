@@ -5652,6 +5652,349 @@ where
     );
 }
 
+async fn user_playlist_projection_filters_access_before_pagination_contract<S>(store: S)
+where
+    S: PlaybackRuntimeContractBackend + ManagedArtworkContractBackend + IdentityAccessRepository,
+{
+    let accessible_library = seed_contract_library(&store).await;
+    let inaccessible_library = seed_contract_library(&store).await;
+
+    let user_id = UserId::new();
+    let principal_id = UserPrincipalId::new(format!("playlist-projection:{user_id}")).unwrap();
+    let user = User {
+        id: user_id,
+        principal_id: principal_id.clone(),
+        username: format!("playlist-projection-{user_id}"),
+        display_name: "Playlist Projection Viewer".to_owned(),
+        status: UserStatus::Active,
+        created_at_ms: 10_000,
+        updated_at_ms: 10_000,
+    };
+    store.upsert_user(&user).await.unwrap();
+    store
+        .replace_role_assignments(
+            user_id,
+            &[RoleAssignment {
+                user_id,
+                role: UserRole::Viewer,
+                granted_at_ms: 10_000,
+            }],
+        )
+        .await
+        .unwrap();
+    store
+        .upsert_library_access_policy(&LibraryAccessPolicy {
+            scope: LibraryAccessPolicyScope::User(user_id),
+            library_id: accessible_library.id,
+            access: LibraryAccessLevel::Browse,
+            created_at_ms: 10_000,
+            updated_at_ms: 10_000,
+        })
+        .await
+        .unwrap();
+
+    let hidden_source = seed_contract_media_item_with_source(
+        &store,
+        inaccessible_library.id,
+        "Hidden Playlist Projection",
+        "local:///Contract Movies/Hidden Playlist Projection.mkv",
+    )
+    .await;
+    let visible_source = seed_contract_media_item_with_source(
+        &store,
+        accessible_library.id,
+        "Visible Playlist Projection",
+        "local:///Contract Movies/Visible Playlist Projection.mkv",
+    )
+    .await;
+    let visible_artwork = seed_published_selected_artwork_for_item(
+        &store,
+        accessible_library.id,
+        visible_source.item_id,
+        "playlist-projection-visible-artwork",
+        ImageKind::Poster,
+        "https://cdn.example.test/playlist-visible.jpg",
+    )
+    .await;
+
+    let playlist_id = UserPlaylistId::new();
+    let playlist = store
+        .create_user_playlist(NewUserPlaylist {
+            id: playlist_id,
+            principal_id: principal_id.clone(),
+            name: "Projection Queue".to_owned(),
+            created_at_ms: 10_100,
+        })
+        .await
+        .unwrap();
+    let first_add = store
+        .add_user_playlist_item(UserPlaylistItemWrite {
+            playlist_id,
+            principal_id: principal_id.clone(),
+            item_id: hidden_source.item_id,
+            position: None,
+            expected_version: Some(playlist.version),
+            added_at_ms: 10_200,
+            updated_at_ms: 10_200,
+        })
+        .await
+        .unwrap()
+        .unwrap();
+    let second_add = store
+        .add_user_playlist_item(UserPlaylistItemWrite {
+            playlist_id,
+            principal_id: principal_id.clone(),
+            item_id: visible_source.item_id,
+            position: None,
+            expected_version: Some(first_add.version),
+            added_at_ms: 10_300,
+            updated_at_ms: 10_300,
+        })
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(second_add.item_count, 2);
+
+    let principal = AuthenticatedPrincipal {
+        user_id,
+        principal_id: principal_id.clone(),
+        roles: vec![UserRole::Viewer],
+        bootstrap: false,
+    };
+    let projection = store
+        .get_user_playlist_items_projection(
+            &principal,
+            playlist_id,
+            PageRequest {
+                limit: 1,
+                offset: 0,
+            },
+        )
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(projection.playlist.id, playlist_id);
+    assert_eq!(projection.playlist.item_count, 2);
+    assert_eq!(projection.accessible_item_count, 1);
+    assert_eq!(projection.items.len(), 1);
+    assert_eq!(
+        projection.items[0].playlist_item.item_id,
+        visible_source.item_id
+    );
+    assert_eq!(projection.items[0].playlist_item.position, 1);
+    assert_eq!(projection.items[0].item.id, visible_source.item_id);
+    assert_eq!(projection.items[0].images.len(), 1);
+    assert_eq!(
+        projection.items[0].images[0].selected.id,
+        visible_artwork.id
+    );
+    assert_eq!(
+        projection.items[0].images[0].artifact.item_id,
+        visible_source.item_id
+    );
+
+    let second_page = store
+        .get_user_playlist_items_projection(
+            &principal,
+            playlist_id,
+            PageRequest {
+                limit: 1,
+                offset: 1,
+            },
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(second_page.accessible_item_count, 1);
+    assert!(second_page.items.is_empty());
+}
+
+async fn user_playlist_projection_honors_role_policy_and_admin_source_less_contract<S>(store: S)
+where
+    S: PlaybackRuntimeContractBackend + IdentityAccessRepository,
+{
+    let role_library = seed_contract_library(&store).await;
+    let role_user_id = UserId::new();
+    let role_principal_id =
+        UserPrincipalId::new(format!("playlist-projection-role:{role_user_id}")).unwrap();
+    let role_user = User {
+        id: role_user_id,
+        principal_id: role_principal_id.clone(),
+        username: format!("playlist-projection-role-{role_user_id}"),
+        display_name: "Playlist Role Viewer".to_owned(),
+        status: UserStatus::Active,
+        created_at_ms: 11_000,
+        updated_at_ms: 11_000,
+    };
+    store.upsert_user(&role_user).await.unwrap();
+    store
+        .replace_role_assignments(
+            role_user_id,
+            &[RoleAssignment {
+                user_id: role_user_id,
+                role: UserRole::Viewer,
+                granted_at_ms: 11_000,
+            }],
+        )
+        .await
+        .unwrap();
+    store
+        .upsert_library_access_policy(&LibraryAccessPolicy {
+            scope: LibraryAccessPolicyScope::Role(UserRole::Viewer),
+            library_id: role_library.id,
+            access: LibraryAccessLevel::Browse,
+            created_at_ms: 11_000,
+            updated_at_ms: 11_000,
+        })
+        .await
+        .unwrap();
+    let role_source = seed_contract_media_item_with_source(
+        &store,
+        role_library.id,
+        "Role Playlist Projection",
+        "local:///Contract Movies/Role Playlist Projection.mkv",
+    )
+    .await;
+    let role_playlist_id = UserPlaylistId::new();
+    let role_playlist = store
+        .create_user_playlist(NewUserPlaylist {
+            id: role_playlist_id,
+            principal_id: role_principal_id.clone(),
+            name: "Role Queue".to_owned(),
+            created_at_ms: 11_100,
+        })
+        .await
+        .unwrap();
+    store
+        .add_user_playlist_item(UserPlaylistItemWrite {
+            playlist_id: role_playlist_id,
+            principal_id: role_principal_id.clone(),
+            item_id: role_source.item_id,
+            position: None,
+            expected_version: Some(role_playlist.version),
+            added_at_ms: 11_200,
+            updated_at_ms: 11_200,
+        })
+        .await
+        .unwrap()
+        .unwrap();
+
+    let role_principal = AuthenticatedPrincipal {
+        user_id: role_user_id,
+        principal_id: role_principal_id.clone(),
+        roles: vec![UserRole::Viewer],
+        bootstrap: false,
+    };
+    let role_projection = store
+        .get_user_playlist_items_projection(
+            &role_principal,
+            role_playlist_id,
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(role_projection.accessible_item_count, 1);
+    assert_eq!(role_projection.items.len(), 1);
+    assert_eq!(role_projection.items[0].item.id, role_source.item_id);
+
+    let admin_item = contract_media_item(MediaItemId::new(), "Admin Source-less Playlist");
+    store.upsert_media_item(&admin_item).await.unwrap();
+    let admin_playlist_id = UserPlaylistId::new();
+    let admin_playlist = store
+        .create_user_playlist(NewUserPlaylist {
+            id: admin_playlist_id,
+            principal_id: UserPrincipalId::local_admin(),
+            name: "Admin Queue".to_owned(),
+            created_at_ms: 12_000,
+        })
+        .await
+        .unwrap();
+    store
+        .add_user_playlist_item(UserPlaylistItemWrite {
+            playlist_id: admin_playlist_id,
+            principal_id: UserPrincipalId::local_admin(),
+            item_id: admin_item.id,
+            position: None,
+            expected_version: Some(admin_playlist.version),
+            added_at_ms: 12_100,
+            updated_at_ms: 12_100,
+        })
+        .await
+        .unwrap()
+        .unwrap();
+    let admin_projection = store
+        .get_user_playlist_items_projection(
+            &AuthenticatedPrincipal::bootstrap_admin(),
+            admin_playlist_id,
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(admin_projection.accessible_item_count, 1);
+    assert_eq!(admin_projection.items.len(), 1);
+    assert_eq!(admin_projection.items[0].item.id, admin_item.id);
+
+    let ordinary_source_less_user_id = UserId::new();
+    let ordinary_source_less_principal_id = UserPrincipalId::new(format!(
+        "playlist-projection-source-less:{ordinary_source_less_user_id}"
+    ))
+    .unwrap();
+    let ordinary_source_less_playlist_id = UserPlaylistId::new();
+    let ordinary_source_less_playlist = store
+        .create_user_playlist(NewUserPlaylist {
+            id: ordinary_source_less_playlist_id,
+            principal_id: ordinary_source_less_principal_id.clone(),
+            name: "Source-less Ordinary Queue".to_owned(),
+            created_at_ms: 13_000,
+        })
+        .await
+        .unwrap();
+    store
+        .add_user_playlist_item(UserPlaylistItemWrite {
+            playlist_id: ordinary_source_less_playlist_id,
+            principal_id: ordinary_source_less_principal_id.clone(),
+            item_id: admin_item.id,
+            position: None,
+            expected_version: Some(ordinary_source_less_playlist.version),
+            added_at_ms: 13_100,
+            updated_at_ms: 13_100,
+        })
+        .await
+        .unwrap()
+        .unwrap();
+    let ordinary_source_less_projection = store
+        .get_user_playlist_items_projection(
+            &AuthenticatedPrincipal {
+                user_id: ordinary_source_less_user_id,
+                principal_id: ordinary_source_less_principal_id,
+                roles: Vec::new(),
+                bootstrap: false,
+            },
+            ordinary_source_less_playlist_id,
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(ordinary_source_less_projection.accessible_item_count, 0);
+    assert!(ordinary_source_less_projection.items.is_empty());
+
+    assert!(
+        store
+            .get_user_playlist_items_projection(
+                &AuthenticatedPrincipal::bootstrap_admin(),
+                role_playlist_id,
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_none()
+    );
+}
+
 async fn transcode_session_lifecycle_filters_cancellation_and_stale_contract<S>(store: S)
 where
     S: PlaybackRuntimeContractBackend,
@@ -10848,6 +11191,26 @@ database_contract_pair!(
         "user_playlist_membership_is_principal_scoped_ordered_and_idempotent"
     ),
     contract = user_playlist_membership_is_principal_scoped_ordered_and_idempotent_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_playback_runtime_contract_user_playlist_projection_filters_access_before_pagination,
+    postgres = postgres_playback_runtime_contract_user_playlist_projection_filters_access_before_pagination,
+    case = ContractCase::migrated(
+        ContractFamily::PlaybackRuntime,
+        "user_playlist_projection_filters_access_before_pagination"
+    ),
+    contract = user_playlist_projection_filters_access_before_pagination_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_playback_runtime_contract_user_playlist_projection_honors_role_policy_and_admin_source_less,
+    postgres = postgres_playback_runtime_contract_user_playlist_projection_honors_role_policy_and_admin_source_less,
+    case = ContractCase::migrated(
+        ContractFamily::PlaybackRuntime,
+        "user_playlist_projection_honors_role_policy_and_admin_source_less"
+    ),
+    contract = user_playlist_projection_honors_role_policy_and_admin_source_less_contract,
 );
 
 database_contract_pair!(

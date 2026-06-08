@@ -2769,6 +2769,17 @@ impl UserPlaylistRepository for NakoDatabase {
             .list_user_playlist_items(principal_id, playlist_id, page)
             .await
     }
+
+    async fn get_user_playlist_items_projection(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        playlist_id: UserPlaylistId,
+        page: PageRequest,
+    ) -> Result<Option<UserPlaylistItemsProjection>> {
+        self.backend()
+            .get_user_playlist_items_projection(principal, playlist_id, page)
+            .await
+    }
 }
 
 #[async_trait::async_trait]

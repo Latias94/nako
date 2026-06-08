@@ -2,9 +2,30 @@ use async_trait::async_trait;
 
 use super::PageRequest;
 use crate::{
-    Result, UserPlaylistId, UserPlaylistItemRecord, UserPlaylistItemRemoval, UserPlaylistItemWrite,
+    AuthenticatedPrincipal, ManagedArtworkArtifactRecord, MediaItem, Result, SelectedArtworkRecord,
+    UserPlaylistId, UserPlaylistItemRecord, UserPlaylistItemRemoval, UserPlaylistItemWrite,
     UserPlaylistNameUpdate, UserPlaylistRecord, UserPlaylistReorder, UserPrincipalId,
 };
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct UserPlaylistItemsProjection {
+    pub playlist: UserPlaylistRecord,
+    pub accessible_item_count: u32,
+    pub items: Vec<UserPlaylistItemEntry>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct UserPlaylistItemEntry {
+    pub playlist_item: UserPlaylistItemRecord,
+    pub item: MediaItem,
+    pub images: Vec<UserPlaylistImageEntry>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct UserPlaylistImageEntry {
+    pub selected: SelectedArtworkRecord,
+    pub artifact: ManagedArtworkArtifactRecord,
+}
 
 #[async_trait]
 pub trait UserPlaylistRepository: Send + Sync {
@@ -57,4 +78,11 @@ pub trait UserPlaylistRepository: Send + Sync {
         playlist_id: UserPlaylistId,
         page: PageRequest,
     ) -> Result<Vec<UserPlaylistItemRecord>>;
+
+    async fn get_user_playlist_items_projection(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        playlist_id: UserPlaylistId,
+        page: PageRequest,
+    ) -> Result<Option<UserPlaylistItemsProjection>>;
 }

@@ -7,12 +7,12 @@ use axum::{
 use nako_api::public_client::{
     AddUserPlaylistItemRequest, CreateUserPlaylistRequest, ReorderUserPlaylistItemsRequest,
     UpdateUserPlaylistRequest, UserPlaylistDeleteResponse, UserPlaylistDto,
-    UserPlaylistItemsResponse, UserPlaylistResponse, UserPlaylistsResponse, page_info_from_request,
-    user_playlist_item_to_dto, user_playlist_to_dto,
+    UserPlaylistItemsResponse, UserPlaylistResponse, UserPlaylistsResponse, media_item_to_dto,
+    page_info_from_request, selected_artwork_to_public_image_ref, user_playlist_item_to_dto,
+    user_playlist_to_dto,
 };
 use nako_core::{
-    AuthenticatedPrincipal, MediaItemId, NakoError, PageRequest, UserPlaylistId,
-    UserPlaylistItemRecord, UserPlaylistRecord,
+    AuthenticatedPrincipal, MediaItemId, NakoError, PageRequest, UserPlaylistId, UserPlaylistRecord,
 };
 use tracing::instrument;
 
@@ -28,7 +28,7 @@ use crate::app::{
 };
 
 use super::{
-    access::{RequiredLibraryAccess, item_has_access, require_item_access},
+    access::{RequiredLibraryAccess, require_item_access},
     error::ApiResult,
     query::PageQuery,
 };
@@ -165,27 +165,32 @@ async fn list_user_playlist_items(
     Query(page): Query<PageQuery>,
 ) -> ApiResult<impl IntoResponse> {
     let page = page.try_into()?;
-    let playlist = app
+    let projection = app
         .user_playlist()
-        .get_playlist(&principal.principal_id, playlist_id)
+        .get_items_projection(&principal, playlist_id, page)
         .await?;
-    let accessible_items = accessible_playlist_item_records(&app, &principal, playlist_id).await?;
-    let accessible_item_count = page_count(accessible_items.len());
-    let visible_page = page_visible_items(accessible_items, page);
-    let mut items = Vec::with_capacity(visible_page.len());
+    let items = projection
+        .items
+        .into_iter()
+        .enumerate()
+        .map(|(index, entry)| {
+            let images = entry
+                .images
+                .into_iter()
+                .map(|image| selected_artwork_to_public_image_ref(image.selected, image.artifact))
+                .collect();
 
-    for (index, item) in visible_page.into_iter().enumerate() {
-        let detail = app.catalog().get_item(item.item_id).await?;
-        items.push(user_playlist_item_to_dto(
-            item,
-            public_position(page.offset, index),
-            detail.item,
-            detail.images,
-        ));
-    }
+            user_playlist_item_to_dto(
+                entry.playlist_item,
+                public_position(page.offset, index),
+                media_item_to_dto(entry.item),
+                images,
+            )
+        })
+        .collect::<Vec<_>>();
 
     Ok(Json(UserPlaylistItemsResponse {
-        playlist: user_playlist_to_dto(playlist, accessible_item_count),
+        playlist: user_playlist_to_dto(projection.playlist, projection.accessible_item_count),
         page: page_info_from_request(page, items.len()),
         items,
     }))
@@ -274,72 +279,14 @@ async fn public_playlist_dto(
     principal: &AuthenticatedPrincipal,
     playlist: UserPlaylistRecord,
 ) -> ApiResult<UserPlaylistDto> {
-    let count = accessible_playlist_item_count(app, principal, playlist.id).await?;
-    Ok(user_playlist_to_dto(playlist, count))
-}
-
-async fn accessible_playlist_item_count(
-    app: &NakoApp,
-    principal: &AuthenticatedPrincipal,
-    playlist_id: UserPlaylistId,
-) -> ApiResult<u32> {
-    Ok(page_count(
-        accessible_playlist_item_records(app, principal, playlist_id)
-            .await?
-            .len(),
+    let projection = app
+        .user_playlist()
+        .get_items_projection(principal, playlist.id, PageRequest::new(1, 0))
+        .await?;
+    Ok(user_playlist_to_dto(
+        playlist,
+        projection.accessible_item_count,
     ))
-}
-
-async fn accessible_playlist_item_records(
-    app: &NakoApp,
-    principal: &AuthenticatedPrincipal,
-    playlist_id: UserPlaylistId,
-) -> ApiResult<Vec<UserPlaylistItemRecord>> {
-    let mut accessible = Vec::new();
-    let mut offset = 0;
-
-    loop {
-        let page = app
-            .user_playlist()
-            .list_items(
-                &principal.principal_id,
-                playlist_id,
-                PageRequest::new(PageRequest::MAX_LIMIT, offset),
-            )
-            .await?;
-        let page_len = page.len();
-
-        for item in page {
-            if item_has_access(app, principal, item.item_id, RequiredLibraryAccess::Browse).await? {
-                accessible.push(item);
-            }
-        }
-
-        if page_len < PageRequest::MAX_LIMIT as usize {
-            break;
-        }
-        offset += u64::from(PageRequest::MAX_LIMIT);
-    }
-
-    Ok(accessible)
-}
-
-fn page_visible_items(
-    items: Vec<UserPlaylistItemRecord>,
-    page: PageRequest,
-) -> Vec<UserPlaylistItemRecord> {
-    let Ok(start) = usize::try_from(page.offset) else {
-        return Vec::new();
-    };
-    let Ok(limit) = usize::try_from(page.limit) else {
-        return Vec::new();
-    };
-    if start >= items.len() {
-        return Vec::new();
-    }
-    let end = start.saturating_add(limit).min(items.len());
-
-    items[start..end].to_vec()
 }
 
 fn parse_playlist_item_ids(values: Vec<String>) -> Result<Vec<MediaItemId>, NakoError> {
@@ -360,8 +307,4 @@ fn public_position(page_offset: u64, page_index: usize) -> u32 {
         .saturating_add(u64::try_from(page_index).unwrap_or(u64::MAX))
         .try_into()
         .unwrap_or(u32::MAX)
-}
-
-fn page_count(len: usize) -> u32 {
-    u32::try_from(len).unwrap_or(u32::MAX)
 }

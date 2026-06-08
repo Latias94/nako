@@ -1,8 +1,8 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 use super::{SqliteStore, codec::*};
 use nako_core::*;
-use sqlx::Sqlite;
+use sqlx::{QueryBuilder, Sqlite, sqlite::SqliteRow};
 
 const USER_PLAYLIST_SELECT: &str = r#"
             SELECT
@@ -319,6 +319,47 @@ impl UserPlaylistRepository for SqliteStore {
 
         rows.into_iter().map(row_to_user_playlist_item).collect()
     }
+
+    async fn get_user_playlist_items_projection(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        playlist_id: UserPlaylistId,
+        page: PageRequest,
+    ) -> Result<Option<UserPlaylistItemsProjection>> {
+        let page = page.clamped();
+        let Some(playlist) =
+            get_user_playlist(&self.pool, &principal.principal_id, playlist_id).await?
+        else {
+            return Ok(None);
+        };
+        let accessible_item_count =
+            count_accessible_user_playlist_items(self, principal, playlist_id).await?;
+        let rows =
+            list_user_playlist_projection_root_rows(self, principal, playlist_id, page).await?;
+        let playlist_items = rows
+            .iter()
+            .map(row_to_user_playlist_item_ref)
+            .collect::<Result<Vec<_>>>()?;
+        let mut items = self.rows_to_media_items(rows).await?;
+        let item_ids = items.iter().map(|item| item.id).collect::<Vec<_>>();
+        let mut images_by_item = list_user_playlist_images(self, &item_ids).await?;
+
+        let items = playlist_items
+            .into_iter()
+            .zip(items.drain(..))
+            .map(|(playlist_item, item)| UserPlaylistItemEntry {
+                playlist_item,
+                images: images_by_item.remove(&item.id).unwrap_or_default(),
+                item,
+            })
+            .collect();
+
+        Ok(Some(UserPlaylistItemsProjection {
+            playlist,
+            accessible_item_count,
+            items,
+        }))
+    }
 }
 
 async fn get_user_playlist(
@@ -336,6 +377,227 @@ async fn get_user_playlist(
     .map_err(database_error)?;
 
     row.map(row_to_user_playlist).transpose()
+}
+
+async fn count_accessible_user_playlist_items(
+    store: &SqliteStore,
+    principal: &AuthenticatedPrincipal,
+    playlist_id: UserPlaylistId,
+) -> Result<u32> {
+    let mut query = QueryBuilder::<Sqlite>::new(
+        r#"
+            SELECT COUNT(*) AS item_count
+            FROM user_playlist_items AS i
+            JOIN user_playlists AS p ON p.id = i.playlist_id
+            INNER JOIN media_items AS items ON items.id = i.item_id
+            WHERE p.principal_id = "#,
+    );
+    query.push_bind(principal.principal_id.as_str());
+    query.push(" AND i.playlist_id = ");
+    query.push_bind(playlist_id.to_string());
+    push_user_playlist_access_filter(&mut query, principal);
+
+    let row = query
+        .build()
+        .fetch_one(&store.pool)
+        .await
+        .map_err(database_error)?;
+
+    i64_to_u32(row_get(&row, "item_count")?)
+}
+
+async fn list_user_playlist_projection_root_rows(
+    store: &SqliteStore,
+    principal: &AuthenticatedPrincipal,
+    playlist_id: UserPlaylistId,
+    page: PageRequest,
+) -> Result<Vec<SqliteRow>> {
+    let mut query = QueryBuilder::<Sqlite>::new(
+        r#"
+            SELECT
+                i.playlist_id,
+                i.item_id,
+                i.position,
+                i.added_at_ms,
+                items.id,
+                items.kind,
+                items.parent_id,
+                items.title,
+                items.original_title,
+                items.sort_title,
+                items.overview,
+                items.release_date,
+                items.metadata_json
+            FROM user_playlist_items AS i
+            JOIN user_playlists AS p ON p.id = i.playlist_id
+            INNER JOIN media_items AS items ON items.id = i.item_id
+            WHERE p.principal_id = "#,
+    );
+    query.push_bind(principal.principal_id.as_str());
+    query.push(" AND i.playlist_id = ");
+    query.push_bind(playlist_id.to_string());
+    push_user_playlist_access_filter(&mut query, principal);
+    query.push(
+        r#"
+            ORDER BY i.position ASC, i.item_id ASC
+            LIMIT "#,
+    );
+    query.push_bind(u32_to_i64(page.limit));
+    query.push(" OFFSET ");
+    query.push_bind(u64_to_i64(page.offset)?);
+
+    query
+        .build()
+        .fetch_all(&store.pool)
+        .await
+        .map_err(database_error)
+}
+
+fn push_user_playlist_access_filter(
+    query: &mut QueryBuilder<'_, Sqlite>,
+    principal: &AuthenticatedPrincipal,
+) {
+    if principal.is_administrator() {
+        return;
+    }
+
+    query.push(
+        r#"
+              AND EXISTS (
+                  SELECT 1
+                  FROM media_sources AS sources
+                  WHERE sources.item_id = i.item_id
+                    AND (
+                        EXISTS (
+                            SELECT 1
+                            FROM user_library_access_policies AS user_policies
+                            WHERE user_policies.user_id = "#,
+    );
+    query.push_bind(principal.user_id.to_string());
+    query.push(
+        r#"
+                              AND user_policies.library_id = sources.library_id
+                              AND user_policies.access IN ('browse', 'play', 'manage')
+                        )
+    "#,
+    );
+
+    if !principal.roles.is_empty() {
+        query.push(
+            r#"
+                        OR EXISTS (
+                            SELECT 1
+                            FROM role_library_access_policies AS role_policies
+                            WHERE role_policies.library_id = sources.library_id
+                              AND role_policies.access IN ('browse', 'play', 'manage')
+                              AND role_policies.role IN ("#,
+        );
+        let mut separated = query.separated(", ");
+        for role in &principal.roles {
+            separated.push_bind(role.as_str());
+        }
+        drop(separated);
+        query.push(
+            r#"
+                              )
+                        )
+        "#,
+        );
+    }
+
+    query.push(
+        r#"
+                    )
+              )
+    "#,
+    );
+}
+
+async fn list_user_playlist_images(
+    store: &SqliteStore,
+    item_ids: &[MediaItemId],
+) -> Result<HashMap<MediaItemId, Vec<UserPlaylistImageEntry>>> {
+    if item_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let mut query = QueryBuilder::<Sqlite>::new(
+        r#"
+            SELECT
+                selected.id AS selected_id,
+                selected.library_id AS selected_library_id,
+                selected.item_id AS selected_item_id,
+                selected.kind AS selected_kind,
+                selected.kind_key AS selected_kind_key,
+                selected.artifact_id AS selected_artifact_id,
+                selected.created_at AS selected_created_at,
+                selected.updated_at AS selected_updated_at,
+                artifacts.id,
+                artifacts.ingest_id,
+                artifacts.library_id,
+                artifacts.item_id,
+                artifacts.kind,
+                artifacts.kind_key,
+                artifacts.storage_uri,
+                artifacts.content_hash,
+                artifacts.width,
+                artifacts.height,
+                artifacts.byte_len,
+                artifacts.media_type,
+                artifacts.created_at,
+                artifacts.updated_at
+            FROM selected_artworks AS selected
+            INNER JOIN managed_artwork_artifacts AS artifacts
+                ON artifacts.id = selected.artifact_id
+            WHERE selected.item_id IN ("#,
+    );
+    let mut separated = query.separated(", ");
+    for item_id in item_ids {
+        separated.push_bind(item_id.to_string());
+    }
+    drop(separated);
+    query.push(
+        r#")
+            ORDER BY selected.item_id ASC,
+                     selected.kind ASC,
+                     selected.kind_key ASC,
+                     selected.id ASC
+        "#,
+    );
+
+    let rows = query
+        .build()
+        .fetch_all(&store.pool)
+        .await
+        .map_err(database_error)?;
+    let mut images_by_item = HashMap::<MediaItemId, Vec<UserPlaylistImageEntry>>::new();
+
+    for row in rows {
+        let selected = selected_artwork_from_prefixed_row(&row)?;
+        let item_id = selected.item_id;
+        let artifact = row_to_managed_artwork_artifact(row)?;
+        images_by_item
+            .entry(item_id)
+            .or_default()
+            .push(UserPlaylistImageEntry { selected, artifact });
+    }
+
+    Ok(images_by_item)
+}
+
+fn selected_artwork_from_prefixed_row(row: &SqliteRow) -> Result<SelectedArtworkRecord> {
+    Ok(SelectedArtworkRecord {
+        id: parse_id(row_get::<String>(row, "selected_id")?)?,
+        library_id: parse_id(row_get::<String>(row, "selected_library_id")?)?,
+        item_id: parse_id(row_get::<String>(row, "selected_item_id")?)?,
+        kind: image_kind_from_parts(
+            row_get(row, "selected_kind")?,
+            row_get(row, "selected_kind_key")?,
+        ),
+        artifact_id: parse_id(row_get::<String>(row, "selected_artifact_id")?)?,
+        created_at: row_get(row, "selected_created_at")?,
+        updated_at: row_get(row, "selected_updated_at")?,
+    })
 }
 
 async fn get_user_playlist_tx(
@@ -506,10 +768,14 @@ fn row_to_user_playlist(row: sqlx::sqlite::SqliteRow) -> Result<UserPlaylistReco
 }
 
 fn row_to_user_playlist_item(row: sqlx::sqlite::SqliteRow) -> Result<UserPlaylistItemRecord> {
+    row_to_user_playlist_item_ref(&row)
+}
+
+fn row_to_user_playlist_item_ref(row: &SqliteRow) -> Result<UserPlaylistItemRecord> {
     Ok(UserPlaylistItemRecord {
-        playlist_id: parse_id(row_get::<String>(&row, "playlist_id")?)?,
-        item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
-        position: i64_to_u32(row_get(&row, "position")?)?,
-        added_at_ms: row_get(&row, "added_at_ms")?,
+        playlist_id: parse_id(row_get::<String>(row, "playlist_id")?)?,
+        item_id: parse_id(row_get::<String>(row, "item_id")?)?,
+        position: i64_to_u32(row_get(row, "position")?)?,
+        added_at_ms: row_get(row, "added_at_ms")?,
     })
 }
