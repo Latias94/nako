@@ -18,9 +18,7 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [
-    "06-08-managed-artwork-artifact-cleanup-confirmed-generated-route-contract"
-  ],
+  "children": [],
   "parent": null,
   "relatedFiles": [],
   "notes": "",
