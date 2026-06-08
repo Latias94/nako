@@ -1468,3 +1468,37 @@ Verified and archived the Continue Watching repository projection slice after re
 ### Next Steps
 
 - None - task complete
+
+
+## Session 85: User Playlist repository projection
+
+**Date**: 2026-06-08
+**Task**: User Playlist repository projection
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Moved User Playlist item listing/count into repository-backed projection with SQLite/PostgreSQL parity and focused contract/server tests.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `495c6205` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
