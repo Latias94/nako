@@ -5,7 +5,7 @@ use sqlx::{Postgres, QueryBuilder, postgres::PgRow};
 use nako_core::*;
 
 use super::{
-    PostgresStore, database_error, i64_to_u32, i64_to_u64, image_kind_from_parts,
+    PostgresStore, access, database_error, i64_to_u32, i64_to_u64, image_kind_from_parts,
     optional_i64_to_u32, optional_i64_to_u64, parse_id, row_get, u32_to_i64, u64_to_i64,
 };
 
@@ -540,60 +540,7 @@ fn push_user_playlist_access_filter(
     query: &mut QueryBuilder<'_, Postgres>,
     principal: &AuthenticatedPrincipal,
 ) {
-    if principal.is_administrator() {
-        return;
-    }
-
-    query.push(
-        r#"
-              AND EXISTS (
-                  SELECT 1
-                  FROM media_sources AS sources
-                  WHERE sources.item_id = i.item_id
-                    AND (
-                        EXISTS (
-                            SELECT 1
-                            FROM user_library_access_policies AS user_policies
-                            WHERE user_policies.user_id = "#,
-    );
-    query.push_bind(principal.user_id.as_uuid());
-    query.push(
-        r#"
-                              AND user_policies.library_id = sources.library_id
-                              AND user_policies.access IN ('browse', 'play', 'manage')
-                        )
-    "#,
-    );
-
-    if !principal.roles.is_empty() {
-        query.push(
-            r#"
-                        OR EXISTS (
-                            SELECT 1
-                            FROM role_library_access_policies AS role_policies
-                            WHERE role_policies.library_id = sources.library_id
-                              AND role_policies.access IN ('browse', 'play', 'manage')
-                              AND role_policies.role IN ("#,
-        );
-        let mut separated = query.separated(", ");
-        for role in &principal.roles {
-            separated.push_bind(role.as_str());
-        }
-        drop(separated);
-        query.push(
-            r#"
-                              )
-                        )
-        "#,
-        );
-    }
-
-    query.push(
-        r#"
-                    )
-              )
-    "#,
-    );
+    access::push_media_item_access_filter(query, principal, "i.item_id");
 }
 
 async fn list_user_playlist_images(

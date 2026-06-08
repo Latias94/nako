@@ -1010,6 +1010,17 @@ impl CatalogRepository for NakoDatabase {
         self.backend().list_person_items(person_id, page).await
     }
 
+    async fn list_accessible_person_items(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        person_id: PersonId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaItem>> {
+        self.backend()
+            .list_accessible_person_items(principal, person_id, page)
+            .await
+    }
+
     async fn upsert_genre(&self, genre: &Genre) -> Result<()> {
         self.backend().upsert_genre(genre).await
     }
@@ -1050,6 +1061,17 @@ impl CatalogRepository for NakoDatabase {
         self.backend().list_genre_items(genre_id, page).await
     }
 
+    async fn list_accessible_genre_items(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        genre_id: GenreId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaItem>> {
+        self.backend()
+            .list_accessible_genre_items(principal, genre_id, page)
+            .await
+    }
+
     async fn upsert_tag(&self, tag: &Tag) -> Result<()> {
         self.backend().upsert_tag(tag).await
     }
@@ -1084,6 +1106,17 @@ impl CatalogRepository for NakoDatabase {
 
     async fn list_tag_items(&self, tag_id: TagId, page: PageRequest) -> Result<Vec<MediaItem>> {
         self.backend().list_tag_items(tag_id, page).await
+    }
+
+    async fn list_accessible_tag_items(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        tag_id: TagId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaItem>> {
+        self.backend()
+            .list_accessible_tag_items(principal, tag_id, page)
+            .await
     }
 
     async fn upsert_collection(&self, collection: &Collection) -> Result<()> {
@@ -1518,6 +1551,26 @@ impl MediaRepository for NakoDatabase {
 
     async fn list_media_items(&self, page: PageRequest) -> Result<Vec<MediaItem>> {
         self.backend().list_media_items(page).await
+    }
+
+    async fn list_accessible_media_items(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<Vec<MediaItem>> {
+        self.backend()
+            .list_accessible_media_items(principal, page)
+            .await
+    }
+
+    async fn list_accessible_media_items_by_ids(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        item_ids: &[MediaItemId],
+    ) -> Result<Vec<MediaItem>> {
+        self.backend()
+            .list_accessible_media_items_by_ids(principal, item_ids)
+            .await
     }
 
     async fn list_media_items_for_library(

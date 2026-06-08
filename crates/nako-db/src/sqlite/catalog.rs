@@ -1,8 +1,8 @@
 use std::fmt::Display;
 
-use super::{SqliteStore, codec::*};
+use super::{SqliteStore, access, codec::*};
 use nako_core::*;
-use sqlx::Sqlite;
+use sqlx::{QueryBuilder, Sqlite, sqlite::SqliteRow};
 
 #[async_trait::async_trait]
 impl CatalogRepository for SqliteStore {
@@ -231,6 +231,26 @@ impl CatalogRepository for SqliteStore {
         self.rows_to_media_items(rows).await
     }
 
+    async fn list_accessible_person_items(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        person_id: PersonId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaItem>> {
+        let page = page.clamped();
+        let rows = list_accessible_catalog_item_rows(
+            self,
+            principal,
+            "item_credits",
+            "person_id",
+            person_id,
+            page,
+        )
+        .await?;
+
+        self.rows_to_media_items(rows).await
+    }
+
     async fn upsert_genre(&self, genre: &Genre) -> Result<()> {
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
@@ -356,6 +376,26 @@ impl CatalogRepository for SqliteStore {
         self.rows_to_media_items(rows).await
     }
 
+    async fn list_accessible_genre_items(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        genre_id: GenreId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaItem>> {
+        let page = page.clamped();
+        let rows = list_accessible_catalog_item_rows(
+            self,
+            principal,
+            "item_genres",
+            "genre_id",
+            genre_id,
+            page,
+        )
+        .await?;
+
+        self.rows_to_media_items(rows).await
+    }
+
     async fn upsert_tag(&self, tag: &Tag) -> Result<()> {
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
@@ -473,6 +513,20 @@ impl CatalogRepository for SqliteStore {
         .fetch_all(&self.pool)
         .await
         .map_err(database_error)?;
+
+        self.rows_to_media_items(rows).await
+    }
+
+    async fn list_accessible_tag_items(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        tag_id: TagId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaItem>> {
+        let page = page.clamped();
+        let rows =
+            list_accessible_catalog_item_rows(self, principal, "item_tags", "tag_id", tag_id, page)
+                .await?;
 
         self.rows_to_media_items(rows).await
     }
@@ -872,6 +926,54 @@ impl CatalogRepository for SqliteStore {
 
         rows.into_iter().map(row_to_image_asset).collect()
     }
+}
+
+async fn list_accessible_catalog_item_rows<T>(
+    store: &SqliteStore,
+    principal: &AuthenticatedPrincipal,
+    relation_table: &'static str,
+    relation_id_column: &'static str,
+    relation_id: T,
+    page: PageRequest,
+) -> Result<Vec<SqliteRow>>
+where
+    T: ToString,
+{
+    let mut query = QueryBuilder::<Sqlite>::new(
+        r#"
+            SELECT DISTINCT
+                mi.id,
+                mi.kind,
+                mi.parent_id,
+                mi.title,
+                mi.original_title,
+                mi.sort_title,
+                mi.overview,
+                mi.release_date,
+                mi.metadata_json
+            FROM media_items mi
+            JOIN "#,
+    );
+    query.push(relation_table);
+    query.push(" relation ON relation.item_id = mi.id\n            WHERE relation.");
+    query.push(relation_id_column);
+    query.push(" = ");
+    query.push_bind(relation_id.to_string());
+    access::push_media_item_access_filter(&mut query, principal, "mi.id");
+    query.push(
+        r#"
+            ORDER BY mi.title ASC, mi.id ASC
+            LIMIT "#,
+    );
+    query.push_bind(u32_to_i64(page.limit));
+    query.push(" OFFSET ");
+    query.push_bind(u64_to_i64(page.offset)?);
+
+    query
+        .build()
+        .fetch_all(&store.pool)
+        .await
+        .map_err(database_error)
 }
 
 pub(crate) async fn replace_item_catalog_graph_tx(

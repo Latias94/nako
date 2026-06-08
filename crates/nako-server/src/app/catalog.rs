@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use nako_api::{
     admin::{
@@ -20,13 +20,13 @@ use nako_api::{
     },
 };
 use nako_core::{
-    CatalogGovernanceItemListFilter, CatalogGovernanceItemRecord, CatalogGovernanceRepository,
-    CatalogRepository, GenreId, LocalInferenceEvidence, LocalInferenceRepository,
-    ManagedArtworkRepository, MediaItemId, MediaProbeRepository, MediaRepository, MediaSource,
-    MediaSourceId, NakoError, PageRequest, PersonId, ProviderMapping, ProviderMappingId,
-    ProviderMappingRepository, ProviderMappingStatus, Result, SourceDuplicateEvidenceKind,
-    SourceDuplicateRelationship, SourceDuplicateRelationshipId, SourceDuplicateRelationshipStatus,
-    SourceDuplicateRepository, TagId,
+    AuthenticatedPrincipal, CatalogGovernanceItemListFilter, CatalogGovernanceItemRecord,
+    CatalogGovernanceRepository, CatalogRepository, GenreId, LocalInferenceEvidence,
+    LocalInferenceRepository, ManagedArtworkRepository, MediaItemId, MediaProbeRepository,
+    MediaRepository, MediaSource, MediaSourceId, NakoError, PageRequest, PersonId, ProviderMapping,
+    ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus, Result,
+    SourceDuplicateEvidenceKind, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
+    SourceDuplicateRelationshipStatus, SourceDuplicateRepository, TagId,
 };
 use nako_db::NakoDatabase;
 use nako_search::{SearchIndex, SearchQuery};
@@ -42,9 +42,16 @@ impl CatalogAppService {
         Self { store }
     }
 
-    pub async fn list_items(&self, page: PageRequest) -> Result<ItemsResponse> {
+    pub async fn list_accessible_items(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<ItemsResponse> {
         let page = page.clamped();
-        let items = self.store.list_media_items(page).await?;
+        let items = self
+            .store
+            .list_accessible_media_items(principal, page)
+            .await?;
 
         Ok(ItemsResponse {
             page: page_info_from_request(page, items.len()),
@@ -499,6 +506,26 @@ impl CatalogAppService {
         })
     }
 
+    pub async fn list_accessible_person_items(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        person_id: PersonId,
+        page: PageRequest,
+    ) -> Result<PersonItemsResponse> {
+        let page = page.clamped();
+        let person = self.get_person_record(person_id).await?;
+        let items = self
+            .store
+            .list_accessible_person_items(principal, person.id, page)
+            .await?;
+
+        Ok(PersonItemsResponse {
+            person: person_to_dto(person),
+            page: page_info_from_request(page, items.len()),
+            items: items.into_iter().map(media_item_to_dto).collect(),
+        })
+    }
+
     pub async fn list_tags(&self, page: PageRequest) -> Result<TagsResponse> {
         let page = page.clamped();
         let tags = self.store.list_tags(page).await?;
@@ -524,6 +551,33 @@ impl CatalogAppService {
                 id: tag_id.to_string(),
             })?;
         let items = self.store.list_tag_items(tag.id, page).await?;
+
+        Ok(TagItemsResponse {
+            tag: tag_to_dto(tag),
+            page: page_info_from_request(page, items.len()),
+            items: items.into_iter().map(media_item_to_dto).collect(),
+        })
+    }
+
+    pub async fn list_accessible_tag_items(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        tag_id: TagId,
+        page: PageRequest,
+    ) -> Result<TagItemsResponse> {
+        let page = page.clamped();
+        let tag = self
+            .store
+            .get_tag(tag_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "tag",
+                id: tag_id.to_string(),
+            })?;
+        let items = self
+            .store
+            .list_accessible_tag_items(principal, tag.id, page)
+            .await?;
 
         Ok(TagItemsResponse {
             tag: tag_to_dto(tag),
@@ -565,39 +619,92 @@ impl CatalogAppService {
         })
     }
 
-    pub async fn search_items(
+    pub async fn list_accessible_genre_items(
         &self,
+        principal: &AuthenticatedPrincipal,
+        genre_id: GenreId,
+        page: PageRequest,
+    ) -> Result<GenreItemsResponse> {
+        let page = page.clamped();
+        let genre = self
+            .store
+            .get_genre(genre_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "genre",
+                id: genre_id.to_string(),
+            })?;
+        let items = self
+            .store
+            .list_accessible_genre_items(principal, genre.id, page)
+            .await?;
+
+        Ok(GenreItemsResponse {
+            genre: genre_to_dto(genre),
+            page: page_info_from_request(page, items.len()),
+            items: items.into_iter().map(media_item_to_dto).collect(),
+        })
+    }
+
+    pub async fn search_accessible_items(
+        &self,
+        principal: &AuthenticatedPrincipal,
         query: String,
         facets: Vec<String>,
         page: PageRequest,
     ) -> Result<SearchResponse> {
         let page = page.clamped();
-        let hits = self
-            .store
-            .search(SearchQuery::from_facet_labels(
-                query,
-                facets,
-                page.limit,
-                u32::try_from(page.offset).map_err(|err| NakoError::InvalidInput {
-                    message: format!("search offset is too large: {err}"),
-                })?,
-            )?)
-            .await?;
-        let mut output_hits = Vec::with_capacity(hits.len());
+        let mut search_offset = 0;
+        let mut skipped_accessible = 0_u64;
+        let mut output_hits = Vec::new();
 
-        for hit in hits {
-            let item = self
+        while output_hits.len() < page.limit as usize {
+            let search_page = SearchQuery::from_facet_labels(
+                query.clone(),
+                facets.clone(),
+                PageRequest::MAX_LIMIT,
+                search_offset,
+            )?;
+            let hits = self.store.search(search_page).await?;
+            if hits.is_empty() {
+                break;
+            }
+
+            let hit_ids = hits.iter().map(|hit| hit.item_id).collect::<Vec<_>>();
+            let visible_items = self
                 .store
-                .get_media_item(hit.item_id)
-                .await?
-                .ok_or_else(|| NakoError::NotFound {
-                    entity: "media_item",
-                    id: hit.item_id.to_string(),
+                .list_accessible_media_items_by_ids(principal, &hit_ids)
+                .await?;
+            let mut visible_items_by_id = visible_items
+                .into_iter()
+                .map(|item| (item.id, item))
+                .collect::<HashMap<_, _>>();
+
+            for hit in hits {
+                let Some(item) = visible_items_by_id.remove(&hit.item_id) else {
+                    continue;
+                };
+
+                if skipped_accessible < page.offset {
+                    skipped_accessible += 1;
+                    continue;
+                }
+
+                output_hits.push(SearchItemHit {
+                    item: media_item_to_dto(item),
+                    score: hit.score,
+                });
+
+                if output_hits.len() >= page.limit as usize {
+                    break;
+                }
+            }
+
+            search_offset = search_offset
+                .checked_add(PageRequest::MAX_LIMIT)
+                .ok_or_else(|| NakoError::InvalidInput {
+                    message: "search pagination offset overflowed".to_owned(),
                 })?;
-            output_hits.push(SearchItemHit {
-                item: media_item_to_dto(item),
-                score: hit.score,
-            });
         }
 
         Ok(SearchResponse {

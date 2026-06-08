@@ -2,10 +2,10 @@ use async_trait::async_trait;
 
 use super::PageRequest;
 use crate::{
-    CatalogItemGraphReplacement, CatalogItemProjectionCommit, CatalogSearchProjection, Collection,
-    CollectionId, CollectionItem, ExternalId, Genre, GenreId, ImageAsset, ImageAssetId, ImageKind,
-    ImageOwner, ItemCredit, ItemGenre, ItemStudio, ItemTag, MediaItem, MediaItemId, MetadataSource,
-    Person, PersonId, Result, Studio, StudioId, Tag, TagId,
+    AuthenticatedPrincipal, CatalogItemGraphReplacement, CatalogItemProjectionCommit,
+    CatalogSearchProjection, Collection, CollectionId, CollectionItem, ExternalId, Genre, GenreId,
+    ImageAsset, ImageAssetId, ImageKind, ImageOwner, ItemCredit, ItemGenre, ItemStudio, ItemTag,
+    MediaItem, MediaItemId, MetadataSource, Person, PersonId, Result, Studio, StudioId, Tag, TagId,
 };
 
 #[async_trait]
@@ -44,6 +44,13 @@ pub trait CatalogRepository: Send + Sync {
         page: PageRequest,
     ) -> Result<Vec<MediaItem>>;
 
+    async fn list_accessible_person_items(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        person_id: PersonId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaItem>>;
+
     async fn upsert_genre(&self, genre: &Genre) -> Result<()>;
 
     async fn get_genre(&self, id: GenreId) -> Result<Option<Genre>>;
@@ -68,6 +75,13 @@ pub trait CatalogRepository: Send + Sync {
         page: PageRequest,
     ) -> Result<Vec<MediaItem>>;
 
+    async fn list_accessible_genre_items(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        genre_id: GenreId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaItem>>;
+
     async fn upsert_tag(&self, tag: &Tag) -> Result<()>;
 
     async fn get_tag(&self, id: TagId) -> Result<Option<Tag>>;
@@ -87,6 +101,13 @@ pub trait CatalogRepository: Send + Sync {
     async fn list_item_tags(&self, item_id: MediaItemId) -> Result<Vec<ItemTag>>;
 
     async fn list_tag_items(&self, tag_id: TagId, page: PageRequest) -> Result<Vec<MediaItem>>;
+
+    async fn list_accessible_tag_items(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        tag_id: TagId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaItem>>;
 
     async fn upsert_collection(&self, collection: &Collection) -> Result<()>;
 

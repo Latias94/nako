@@ -61,6 +61,13 @@ Persistence work must prove repository behavior, not only compile.
   streams or external IDs, apply `LIMIT/OFFSET` to the root domain record first,
   then batch-load child records for that bounded page. Joining child rows before
   pagination shifts page boundaries and duplicates root records.
+- Public Catalog item-list projections that enforce Library Access must apply
+  access filtering, duplicate-source deduplication, stable ordering, and
+  `LIMIT/OFFSET` inside the repository query. Reuse a shared adapter-local
+  access predicate helper when several projections need the same `Media Item`
+  visibility rule. Administrator principals may keep source-less item semantics
+  only when the existing access contract requires it; ordinary principals must
+  see an item only through an accessible `Media Source` and `Media Library`.
 
 ### 4. Validation & Error Matrix
 
@@ -78,6 +85,14 @@ Persistence work must prove repository behavior, not only compile.
   parse to enums before the repository call.
 - One-to-many child rows are joined before root pagination -> contract
   violation; paginate root records first, then batch-hydrate child collections.
+- Inaccessible `Media Item` rows consume page slots before Library Access is
+  applied -> contract violation; access must be part of the root query.
+- A `Media Item` with multiple accessible `Media Source` rows appears more than
+  once or shifts page boundaries -> contract violation; deduplicate before
+  ordering and pagination.
+- Ordinary principal sees source-less `Media Item` rows -> contract violation.
+- Administrator principal cannot see source-less rows on a surface whose
+  existing access contract allows them -> contract regression.
 
 ### 5. Good/Base/Bad Cases
 
@@ -86,6 +101,9 @@ Persistence work must prove repository behavior, not only compile.
 - Good: a source inventory projection pages `Media Source` rows first, then
   batch-loads `Media Item` external IDs and `Media Technical Facts` streams for
   only that page.
+- Good: Public Catalog `/items` and relation item lists (`Person`, `Tag`,
+  `Genre`) use repository methods that include Library Access predicates before
+  `ORDER BY title ASC, id ASC`, `LIMIT`, and `OFFSET`.
 - Base: the server app service checks library existence, clamps `PageRequest`,
   calls the repository method, and maps domain records to DTOs.
 - Bad: the app service loops over all library items, calls a per-item playback
@@ -93,6 +111,9 @@ Persistence work must prove repository behavior, not only compile.
 - Bad: the repository joins `media_streams` directly into the source inventory
   page query and lets multiple stream rows change which sources appear on a
   page.
+- Bad: HTTP receives a page of catalog items and then loops over it with
+  `item_has_access`, because inaccessible rows have already consumed page
+  capacity.
 
 ### 6. Tests Required
 
@@ -100,6 +121,9 @@ Persistence work must prove repository behavior, not only compile.
   state-only membership, duplicate membership deduplication, current-principal
   user-state filtering, optional sort NULL ordering, stable tie-breaks, and
   pagination after filtering/order.
+- Public Catalog Library Access projections need backend-agnostic contracts for
+  ordinary user policy, role policy, duplicate-source deduplication, admin
+  source-less semantics, batch-by-id ordering, and page-hole regression cases.
 - Focused SQLite gate:
   `cargo nextest run -p nako-db <browse-contract-filter> --no-fail-fast`.
 - PostgreSQL ignored contract must compile and should be run with

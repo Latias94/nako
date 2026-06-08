@@ -10,6 +10,7 @@ use nako_core::*;
 #[cfg(test)]
 use sqlx::{Executor, postgres::PgConnectOptions};
 
+mod access;
 mod addon_tasks;
 mod addons_automation;
 mod admin_settings;

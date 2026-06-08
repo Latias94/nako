@@ -49,20 +49,11 @@ pub(super) async fn list_items(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Query(page): Query<PageQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    let mut response = app.catalog().list_items(page.try_into()?).await?;
-    let mut items = Vec::with_capacity(response.items.len());
-
-    for item in response.items {
-        let item_id = parse_public_item_id(&item.id)?;
-        if item_has_access(&app, &principal, item_id, RequiredLibraryAccess::Browse).await? {
-            items.push(item);
-        }
-    }
-
-    response.page.returned = page_returned_len(items.len());
-    response.items = items;
-
-    Ok(Json(response))
+    Ok(Json(
+        app.catalog()
+            .list_accessible_items(&principal, page.try_into()?)
+            .await?,
+    ))
 }
 
 #[instrument(skip(app))]
@@ -214,23 +205,11 @@ pub(super) async fn list_person_items(
     Path(person_id): Path<PersonId>,
     Query(page): Query<PageQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    let mut response = app
-        .catalog()
-        .list_person_items(person_id, page.try_into()?)
-        .await?;
-    let mut items = Vec::with_capacity(response.items.len());
-
-    for item in response.items {
-        let item_id = parse_public_item_id(&item.id)?;
-        if item_has_access(&app, &principal, item_id, RequiredLibraryAccess::Browse).await? {
-            items.push(item);
-        }
-    }
-
-    response.page.returned = page_returned_len(items.len());
-    response.items = items;
-
-    Ok(Json(response))
+    Ok(Json(
+        app.catalog()
+            .list_accessible_person_items(&principal, person_id, page.try_into()?)
+            .await?,
+    ))
 }
 
 #[instrument(skip(app))]
@@ -267,23 +246,11 @@ pub(super) async fn list_tag_items(
     Path(tag_id): Path<TagId>,
     Query(page): Query<PageQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    let mut response = app
-        .catalog()
-        .list_tag_items(tag_id, page.try_into()?)
-        .await?;
-    let mut items = Vec::with_capacity(response.items.len());
-
-    for item in response.items {
-        let item_id = parse_public_item_id(&item.id)?;
-        if item_has_access(&app, &principal, item_id, RequiredLibraryAccess::Browse).await? {
-            items.push(item);
-        }
-    }
-
-    response.page.returned = page_returned_len(items.len());
-    response.items = items;
-
-    Ok(Json(response))
+    Ok(Json(
+        app.catalog()
+            .list_accessible_tag_items(&principal, tag_id, page.try_into()?)
+            .await?,
+    ))
 }
 
 #[instrument(skip(app))]
@@ -321,23 +288,11 @@ pub(super) async fn list_genre_items(
     Path(genre_id): Path<GenreId>,
     Query(page): Query<PageQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    let mut response = app
-        .catalog()
-        .list_genre_items(genre_id, page.try_into()?)
-        .await?;
-    let mut items = Vec::with_capacity(response.items.len());
-
-    for item in response.items {
-        let item_id = parse_public_item_id(&item.id)?;
-        if item_has_access(&app, &principal, item_id, RequiredLibraryAccess::Browse).await? {
-            items.push(item);
-        }
-    }
-
-    response.page.returned = page_returned_len(items.len());
-    response.items = items;
-
-    Ok(Json(response))
+    Ok(Json(
+        app.catalog()
+            .list_accessible_genre_items(&principal, genre_id, page.try_into()?)
+            .await?,
+    ))
 }
 
 #[instrument(skip(app))]
@@ -357,20 +312,11 @@ pub(super) async fn search_items(
         .map(ToOwned::to_owned)
         .collect::<Vec<_>>();
 
-    let mut response = app.catalog().search_items(query.q, facets, page).await?;
-    let mut hits = Vec::with_capacity(response.hits.len());
-
-    for hit in response.hits {
-        let item_id = parse_public_item_id(&hit.item.id)?;
-        if item_has_access(&app, &principal, item_id, RequiredLibraryAccess::Browse).await? {
-            hits.push(hit);
-        }
-    }
-
-    response.page.returned = page_returned_len(hits.len());
-    response.hits = hits;
-
-    Ok(Json(response))
+    Ok(Json(
+        app.catalog()
+            .search_accessible_items(&principal, query.q, facets, page)
+            .await?,
+    ))
 }
 
 #[instrument(skip(app))]

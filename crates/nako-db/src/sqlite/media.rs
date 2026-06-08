@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::{SqliteStore, codec::*};
+use super::{SqliteStore, access, codec::*};
 use nako_core::*;
 use sqlx::{QueryBuilder, Sqlite, sqlite::SqliteRow};
 
@@ -79,6 +79,59 @@ impl MediaRepository for SqliteStore {
         }
 
         Ok(items)
+    }
+
+    async fn list_accessible_media_items(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<Vec<MediaItem>> {
+        let page = page.clamped();
+        let rows = list_accessible_media_item_rows(self, principal, page).await?;
+
+        self.rows_to_media_items(rows).await
+    }
+
+    async fn list_accessible_media_items_by_ids(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        item_ids: &[MediaItemId],
+    ) -> Result<Vec<MediaItem>> {
+        if item_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut query = accessible_media_item_query(principal);
+        access::push_media_item_id_filter(&mut query, item_ids, "items.id");
+        query.push(
+            r#"
+            ORDER BY CASE items.id
+            "#,
+        );
+        for (position, item_id) in item_ids.iter().enumerate() {
+            query.push(" WHEN ");
+            query.push_bind(item_id.to_string());
+            query.push(" THEN ");
+            query.push_bind(
+                i64::try_from(position).map_err(|err| NakoError::InvalidInput {
+                    message: format!("item id position cannot be represented as i64: {err}"),
+                })?,
+            );
+        }
+        query.push("\n                     ELSE ");
+        query.push_bind(
+            i64::try_from(item_ids.len()).map_err(|err| NakoError::InvalidInput {
+                message: format!("item id count cannot be represented as i64: {err}"),
+            })?,
+        );
+        query.push("\n                 END, items.id ASC");
+        let rows = query
+            .build()
+            .fetch_all(&self.pool)
+            .await
+            .map_err(database_error)?;
+
+        self.rows_to_media_items(rows).await
     }
 
     async fn list_media_items_for_library(
@@ -416,6 +469,49 @@ impl MediaRepository for SqliteStore {
             content_hash_sources: i64_to_u64(row_get(&row, "content_hash_sources")?)?,
         })
     }
+}
+
+fn accessible_media_item_query(principal: &AuthenticatedPrincipal) -> QueryBuilder<'_, Sqlite> {
+    let mut query = QueryBuilder::<Sqlite>::new(
+        r#"
+            SELECT DISTINCT
+                items.id,
+                items.kind,
+                items.parent_id,
+                items.title,
+                items.original_title,
+                items.sort_title,
+                items.overview,
+                items.release_date,
+                items.metadata_json
+            FROM media_items AS items
+            WHERE 1 = 1
+        "#,
+    );
+    access::push_media_item_access_filter(&mut query, principal, "items.id");
+    query
+}
+
+async fn list_accessible_media_item_rows(
+    store: &SqliteStore,
+    principal: &AuthenticatedPrincipal,
+    page: PageRequest,
+) -> Result<Vec<SqliteRow>> {
+    let mut query = accessible_media_item_query(principal);
+    query.push(
+        r#"
+            ORDER BY items.title ASC, items.id ASC
+            LIMIT "#,
+    );
+    query.push_bind(u32_to_i64(page.limit));
+    query.push(" OFFSET ");
+    query.push_bind(u64_to_i64(page.offset)?);
+
+    query
+        .build()
+        .fetch_all(&store.pool)
+        .await
+        .map_err(database_error)
 }
 
 fn row_to_media_source_fingerprint_match(

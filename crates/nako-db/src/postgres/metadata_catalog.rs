@@ -1,4 +1,4 @@
-use sqlx::{Postgres, postgres::PgRow};
+use sqlx::{Postgres, QueryBuilder, postgres::PgRow};
 
 use nako_core::*;
 
@@ -7,7 +7,7 @@ use super::core_catalog::{
     upsert_library_item_state_tx, upsert_media_item_tx, upsert_search_projection_tx,
 };
 use super::{
-    PostgresStore, credit_role_from_parts, credit_role_to_parts, database_error,
+    PostgresStore, access, credit_role_from_parts, credit_role_to_parts, database_error,
     image_kind_from_parts, image_kind_to_parts, image_owner_from_parts, image_owner_to_parts,
     metadata_field_from_str, metadata_source_from_parts, metadata_source_to_parts,
     optional_i64_to_i32, optional_i64_to_u16, optional_i64_to_u32, parse_id, provider_from_parts,
@@ -856,6 +856,26 @@ impl CatalogRepository for PostgresStore {
         self.rows_to_media_items(rows).await
     }
 
+    async fn list_accessible_person_items(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        person_id: PersonId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaItem>> {
+        let page = page.clamped();
+        let rows = list_accessible_catalog_item_rows(
+            self,
+            principal,
+            "item_credits",
+            "person_id",
+            person_id.as_uuid(),
+            page,
+        )
+        .await?;
+
+        self.rows_to_media_items(rows).await
+    }
+
     async fn upsert_genre(&self, genre: &Genre) -> Result<()> {
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
         upsert_genre_tx(&mut transaction, genre).await?;
@@ -982,6 +1002,26 @@ impl CatalogRepository for PostgresStore {
         self.rows_to_media_items(rows).await
     }
 
+    async fn list_accessible_genre_items(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        genre_id: GenreId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaItem>> {
+        let page = page.clamped();
+        let rows = list_accessible_catalog_item_rows(
+            self,
+            principal,
+            "item_genres",
+            "genre_id",
+            genre_id.as_uuid(),
+            page,
+        )
+        .await?;
+
+        self.rows_to_media_items(rows).await
+    }
+
     async fn upsert_tag(&self, tag: &Tag) -> Result<()> {
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
         upsert_tag_tx(&mut transaction, tag).await?;
@@ -1104,6 +1144,26 @@ impl CatalogRepository for PostgresStore {
         .fetch_all(&self.pool)
         .await
         .map_err(database_error)?;
+
+        self.rows_to_media_items(rows).await
+    }
+
+    async fn list_accessible_tag_items(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        tag_id: TagId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaItem>> {
+        let page = page.clamped();
+        let rows = list_accessible_catalog_item_rows(
+            self,
+            principal,
+            "item_tags",
+            "tag_id",
+            tag_id.as_uuid(),
+            page,
+        )
+        .await?;
 
         self.rows_to_media_items(rows).await
     }
@@ -1543,6 +1603,51 @@ impl CatalogRepository for PostgresStore {
 
         rows.into_iter().map(row_to_image_asset).collect()
     }
+}
+
+async fn list_accessible_catalog_item_rows(
+    store: &PostgresStore,
+    principal: &AuthenticatedPrincipal,
+    relation_table: &'static str,
+    relation_id_column: &'static str,
+    relation_id: sqlx::types::Uuid,
+    page: PageRequest,
+) -> Result<Vec<PgRow>> {
+    let mut query = QueryBuilder::<Postgres>::new(
+        r#"
+            SELECT DISTINCT
+                mi.id::text AS id,
+                mi.kind,
+                mi.parent_id::text AS parent_id,
+                mi.title,
+                mi.original_title,
+                mi.sort_title,
+                mi.overview,
+                mi.release_date,
+                mi.metadata_json::text AS metadata_json
+            FROM media_items mi
+            JOIN "#,
+    );
+    query.push(relation_table);
+    query.push(" relation ON relation.item_id = mi.id\n            WHERE relation.");
+    query.push(relation_id_column);
+    query.push(" = ");
+    query.push_bind(relation_id);
+    access::push_media_item_access_filter(&mut query, principal, "mi.id");
+    query.push(
+        r#"
+            ORDER BY mi.title ASC, mi.id ASC
+            LIMIT "#,
+    );
+    query.push_bind(u32_to_i64(page.limit));
+    query.push(" OFFSET ");
+    query.push_bind(u64_to_i64(page.offset)?);
+
+    query
+        .build()
+        .fetch_all(&store.pool)
+        .await
+        .map_err(database_error)
 }
 
 async fn upsert_field_lock_tx(

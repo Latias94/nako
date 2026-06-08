@@ -1,6 +1,6 @@
 use std::collections::{BTreeSet, HashMap};
 
-use super::{SqliteStore, codec::*};
+use super::{SqliteStore, access, codec::*};
 use nako_core::*;
 use sqlx::{QueryBuilder, Sqlite, sqlite::SqliteRow};
 
@@ -536,60 +536,7 @@ fn push_user_playlist_access_filter(
     query: &mut QueryBuilder<'_, Sqlite>,
     principal: &AuthenticatedPrincipal,
 ) {
-    if principal.is_administrator() {
-        return;
-    }
-
-    query.push(
-        r#"
-              AND EXISTS (
-                  SELECT 1
-                  FROM media_sources AS sources
-                  WHERE sources.item_id = i.item_id
-                    AND (
-                        EXISTS (
-                            SELECT 1
-                            FROM user_library_access_policies AS user_policies
-                            WHERE user_policies.user_id = "#,
-    );
-    query.push_bind(principal.user_id.to_string());
-    query.push(
-        r#"
-                              AND user_policies.library_id = sources.library_id
-                              AND user_policies.access IN ('browse', 'play', 'manage')
-                        )
-    "#,
-    );
-
-    if !principal.roles.is_empty() {
-        query.push(
-            r#"
-                        OR EXISTS (
-                            SELECT 1
-                            FROM role_library_access_policies AS role_policies
-                            WHERE role_policies.library_id = sources.library_id
-                              AND role_policies.access IN ('browse', 'play', 'manage')
-                              AND role_policies.role IN ("#,
-        );
-        let mut separated = query.separated(", ");
-        for role in &principal.roles {
-            separated.push_bind(role.as_str());
-        }
-        drop(separated);
-        query.push(
-            r#"
-                              )
-                        )
-        "#,
-        );
-    }
-
-    query.push(
-        r#"
-                    )
-              )
-    "#,
-    );
+    access::push_media_item_access_filter(query, principal, "i.item_id");
 }
 
 async fn list_user_playlist_images(

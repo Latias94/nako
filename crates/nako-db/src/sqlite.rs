@@ -1,5 +1,6 @@
 use sqlx::SqlitePool;
 
+pub(crate) mod access;
 pub(crate) mod acquisition_intake;
 pub(crate) mod addon_events;
 pub(crate) mod addon_tasks;

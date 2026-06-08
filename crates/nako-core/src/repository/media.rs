@@ -2,8 +2,8 @@ use async_trait::async_trait;
 
 use super::PageRequest;
 use crate::{
-    LibraryId, LibraryItemAddedAt, MediaItem, MediaItemId, MediaProbeResult, MediaSource,
-    MediaSourceFingerprintMatch, MediaSourceId, Result,
+    AuthenticatedPrincipal, LibraryId, LibraryItemAddedAt, MediaItem, MediaItemId,
+    MediaProbeResult, MediaSource, MediaSourceFingerprintMatch, MediaSourceId, Result,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -27,6 +27,18 @@ pub trait MediaRepository: Send + Sync {
     async fn get_media_item(&self, id: MediaItemId) -> Result<Option<MediaItem>>;
 
     async fn list_media_items(&self, page: PageRequest) -> Result<Vec<MediaItem>>;
+
+    async fn list_accessible_media_items(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<Vec<MediaItem>>;
+
+    async fn list_accessible_media_items_by_ids(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        item_ids: &[MediaItemId],
+    ) -> Result<Vec<MediaItem>>;
 
     async fn list_media_items_for_library(
         &self,

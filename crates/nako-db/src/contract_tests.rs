@@ -122,6 +122,7 @@ enum ContractFamily {
     LibraryMedia,
     ScanCommit,
     MetadataCatalog,
+    CatalogAccess,
     MetadataCandidateReviewBatch,
     ManagedArtwork,
     AcquisitionIntake,
@@ -148,6 +149,7 @@ impl ContractFamily {
             Self::LibraryMedia => "library_media",
             Self::ScanCommit => "scan_commit",
             Self::MetadataCatalog => "metadata_catalog",
+            Self::CatalogAccess => "catalog_access",
             Self::MetadataCandidateReviewBatch => "metadata_candidate_review_batch",
             Self::ManagedArtwork => "managed_artwork",
             Self::AcquisitionIntake => "acquisition_intake",
@@ -340,6 +342,24 @@ impl<T> MetadataCatalogContractBackend for T where
         + MetadataRepository
         + ProviderMappingRepository
         + SearchIndex
+{
+}
+
+trait CatalogAccessContractBackend:
+    LifecycleContractBackend
+    + CatalogRepository
+    + IdentityAccessRepository
+    + LibraryRepository
+    + MediaRepository
+{
+}
+
+impl<T> CatalogAccessContractBackend for T where
+    T: LifecycleContractBackend
+        + CatalogRepository
+        + IdentityAccessRepository
+        + LibraryRepository
+        + MediaRepository
 {
 }
 
@@ -643,6 +663,70 @@ where
     };
     store.upsert_library(&library).await.unwrap();
     library
+}
+
+async fn seed_catalog_access_principal<S>(
+    store: &S,
+    label: &str,
+    roles: Vec<UserRole>,
+    created_at_ms: i64,
+) -> AuthenticatedPrincipal
+where
+    S: IdentityAccessRepository + ?Sized,
+{
+    let user_id = UserId::new();
+    let principal_id = UserPrincipalId::new(format!("catalog-access-{label}:{user_id}")).unwrap();
+    let user = User {
+        id: user_id,
+        principal_id: principal_id.clone(),
+        username: format!("catalog-access-{label}-{user_id}"),
+        display_name: format!("Catalog Access {label}"),
+        status: UserStatus::Active,
+        created_at_ms,
+        updated_at_ms: created_at_ms,
+    };
+    store.upsert_user(&user).await.unwrap();
+    let assignments = roles
+        .iter()
+        .copied()
+        .map(|role| RoleAssignment {
+            user_id,
+            role,
+            granted_at_ms: created_at_ms,
+        })
+        .collect::<Vec<_>>();
+    store
+        .replace_role_assignments(user_id, &assignments)
+        .await
+        .unwrap();
+
+    AuthenticatedPrincipal {
+        user_id,
+        principal_id,
+        roles,
+        bootstrap: false,
+    }
+}
+
+async fn grant_catalog_access_policy<S>(
+    store: &S,
+    scope: LibraryAccessPolicyScope,
+    library_id: LibraryId,
+    access: LibraryAccessLevel,
+    created_at_ms: i64,
+) where
+    S: IdentityAccessRepository + ?Sized,
+{
+    store
+        .upsert_library_access_policy(&LibraryAccessPolicy {
+            scope,
+            library_id,
+            access,
+            created_at_ms,
+            updated_at_ms: created_at_ms,
+        })
+        .await
+        .unwrap();
 }
 
 async fn enqueue_contract_job<S>(
@@ -6264,6 +6348,275 @@ async fn user_playlist_summary_projection_pages_root_playlists_and_counts_access
     assert_eq!(admin_summaries[0].accessible_item_count, 1);
 }
 
+async fn catalog_access_filters_items_before_pagination_contract<S>(store: S)
+where
+    S: CatalogAccessContractBackend,
+{
+    let accessible_library = seed_contract_library(&store).await;
+    let inaccessible_library = seed_contract_library(&store).await;
+
+    let principal =
+        seed_catalog_access_principal(&store, "items-user", vec![UserRole::Viewer], 30_000).await;
+    grant_catalog_access_policy(
+        &store,
+        LibraryAccessPolicyScope::User(principal.user_id),
+        accessible_library.id,
+        LibraryAccessLevel::Browse,
+        30_100,
+    )
+    .await;
+
+    let hidden_source = seed_contract_media_item_with_source(
+        &store,
+        inaccessible_library.id,
+        "A Hidden Catalog Access",
+        "local:///Contract Movies/A Hidden Catalog Access.mkv",
+    )
+    .await;
+    let visible_source = seed_contract_media_item_with_source(
+        &store,
+        accessible_library.id,
+        "B Visible Catalog Access",
+        "local:///Contract Movies/B Visible Catalog Access.mkv",
+    )
+    .await;
+    let duplicate_source = seed_contract_media_item_with_source(
+        &store,
+        accessible_library.id,
+        "C Duplicate Catalog Access",
+        "local:///Contract Movies/C Duplicate Catalog Access.mkv",
+    )
+    .await;
+    store
+        .upsert_media_source(&contract_media_source(
+            accessible_library.id,
+            duplicate_source.item_id,
+            MediaSourceId::new(),
+            "local:///Contract Movies/C Duplicate Catalog Access Alt.mkv",
+        ))
+        .await
+        .unwrap();
+    let source_less_item = contract_media_item(MediaItemId::new(), "D Source-less Catalog Access");
+    store.upsert_media_item(&source_less_item).await.unwrap();
+
+    let first_page = store
+        .list_accessible_media_items(
+            &principal,
+            PageRequest {
+                limit: 2,
+                offset: 0,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        browse_ids(first_page),
+        vec![visible_source.item_id, duplicate_source.item_id]
+    );
+
+    let second_page = store
+        .list_accessible_media_items(
+            &principal,
+            PageRequest {
+                limit: 2,
+                offset: 2,
+            },
+        )
+        .await
+        .unwrap();
+    assert!(second_page.is_empty());
+
+    let ordered_batch = store
+        .list_accessible_media_items_by_ids(
+            &principal,
+            &[
+                duplicate_source.item_id,
+                hidden_source.item_id,
+                visible_source.item_id,
+            ],
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        browse_ids(ordered_batch),
+        vec![duplicate_source.item_id, visible_source.item_id]
+    );
+
+    let role_library = seed_contract_library(&store).await;
+    let role_principal =
+        seed_catalog_access_principal(&store, "items-role", vec![UserRole::LibraryManager], 31_000)
+            .await;
+    grant_catalog_access_policy(
+        &store,
+        LibraryAccessPolicyScope::Role(UserRole::LibraryManager),
+        role_library.id,
+        LibraryAccessLevel::Play,
+        31_100,
+    )
+    .await;
+    let role_source = seed_contract_media_item_with_source(
+        &store,
+        role_library.id,
+        "Role Catalog Access",
+        "local:///Contract Movies/Role Catalog Access.mkv",
+    )
+    .await;
+    let role_items = store
+        .list_accessible_media_items(&role_principal, PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(browse_ids(role_items), vec![role_source.item_id]);
+
+    let admin_batch = store
+        .list_accessible_media_items_by_ids(
+            &AuthenticatedPrincipal::bootstrap_admin(),
+            &[source_less_item.id, hidden_source.item_id],
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        browse_ids(admin_batch),
+        vec![source_less_item.id, hidden_source.item_id]
+    );
+}
+
+async fn catalog_access_filters_relation_items_before_pagination_contract<S>(store: S)
+where
+    S: CatalogAccessContractBackend,
+{
+    let accessible_library = seed_contract_library(&store).await;
+    let inaccessible_library = seed_contract_library(&store).await;
+
+    let principal =
+        seed_catalog_access_principal(&store, "relations", vec![UserRole::Viewer], 32_000).await;
+    grant_catalog_access_policy(
+        &store,
+        LibraryAccessPolicyScope::User(principal.user_id),
+        accessible_library.id,
+        LibraryAccessLevel::Manage,
+        32_100,
+    )
+    .await;
+
+    let person = Person {
+        id: PersonId::new(),
+        name: "Catalog Access Person".to_owned(),
+        sort_name: None,
+        overview: None,
+        external_ids: Vec::new(),
+    };
+    let genre = Genre {
+        id: GenreId::new(),
+        name: "Catalog Access Genre".to_owned(),
+        source: MetadataSource::User,
+    };
+    let tag = Tag {
+        id: TagId::new(),
+        name: "catalog-access".to_owned(),
+        source: MetadataSource::User,
+    };
+    store.upsert_person(&person).await.unwrap();
+    store.upsert_genre(&genre).await.unwrap();
+    store.upsert_tag(&tag).await.unwrap();
+
+    let hidden_source = seed_contract_media_item_with_source(
+        &store,
+        inaccessible_library.id,
+        "A Hidden Relation Access",
+        "local:///Contract Movies/A Hidden Relation Access.mkv",
+    )
+    .await;
+    let visible_source = seed_contract_media_item_with_source(
+        &store,
+        accessible_library.id,
+        "B Visible Relation Access",
+        "local:///Contract Movies/B Visible Relation Access.mkv",
+    )
+    .await;
+    let source_less_item = contract_media_item(MediaItemId::new(), "C Source-less Relation Access");
+    store.upsert_media_item(&source_less_item).await.unwrap();
+
+    for item_id in [
+        hidden_source.item_id,
+        visible_source.item_id,
+        source_less_item.id,
+    ] {
+        store
+            .upsert_item_credit(&ItemCredit {
+                item_id,
+                person_id: person.id,
+                role: CreditRole::Actor,
+                character: None,
+                sort_order: None,
+            })
+            .await
+            .unwrap();
+        store
+            .upsert_item_genre(&ItemGenre {
+                item_id,
+                genre_id: genre.id,
+            })
+            .await
+            .unwrap();
+        store
+            .upsert_item_tag(&ItemTag {
+                item_id,
+                tag_id: tag.id,
+            })
+            .await
+            .unwrap();
+    }
+
+    let page = PageRequest {
+        limit: 1,
+        offset: 0,
+    };
+    assert_eq!(
+        browse_ids(
+            store
+                .list_accessible_person_items(&principal, person.id, page)
+                .await
+                .unwrap()
+        ),
+        vec![visible_source.item_id]
+    );
+    assert_eq!(
+        browse_ids(
+            store
+                .list_accessible_genre_items(&principal, genre.id, page)
+                .await
+                .unwrap()
+        ),
+        vec![visible_source.item_id]
+    );
+    assert_eq!(
+        browse_ids(
+            store
+                .list_accessible_tag_items(&principal, tag.id, page)
+                .await
+                .unwrap()
+        ),
+        vec![visible_source.item_id]
+    );
+
+    let admin_person_items = store
+        .list_accessible_person_items(
+            &AuthenticatedPrincipal::bootstrap_admin(),
+            person.id,
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        browse_ids(admin_person_items),
+        vec![
+            hidden_source.item_id,
+            visible_source.item_id,
+            source_less_item.id
+        ]
+    );
+}
+
 async fn transcode_session_lifecycle_filters_cancellation_and_stale_contract<S>(store: S)
 where
     S: PlaybackRuntimeContractBackend,
@@ -11362,6 +11715,26 @@ database_contract_pair!(
         "generated_artifact_bulk_metadata_apply_batch_is_idempotent_and_atomic"
     ),
     contract = generated_artifact_bulk_metadata_apply_batch_is_idempotent_and_atomic_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_catalog_access_contract_filters_items_before_pagination,
+    postgres = postgres_catalog_access_contract_filters_items_before_pagination,
+    case = ContractCase::migrated(
+        ContractFamily::CatalogAccess,
+        "filters_items_before_pagination"
+    ),
+    contract = catalog_access_filters_items_before_pagination_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_catalog_access_contract_filters_relation_items_before_pagination,
+    postgres = postgres_catalog_access_contract_filters_relation_items_before_pagination,
+    case = ContractCase::migrated(
+        ContractFamily::CatalogAccess,
+        "filters_relation_items_before_pagination"
+    ),
+    contract = catalog_access_filters_relation_items_before_pagination_contract,
 );
 
 database_contract_pair!(
