@@ -700,8 +700,9 @@ opaque candidate ID selected by the operator.
   queued state. Idempotent replay for an already queued ingest may return
   `requeued: false`.
 - Requeue is a retry command, not a worker executor. The
-  `artwork/ingests/process-next` worker route must remain explicitly excluded
-  until a separate runtime-control task defines an Admin Web-facing contract.
+  `artwork/ingests/process-next` worker route has its own generated low-level
+  Admin command contract and must not be implemented by passing worker payload
+  through requeue.
 - A future page workflow still needs a dedicated live-only task before wiring
   controls to this low-level generated client method.
 
@@ -726,8 +727,8 @@ opaque candidate ID selected by the operator.
 - Base: server resets a failed ingest/durable job to queued and leaves actual
   provider fetch/artifact storage to the worker/runtime path.
 - Bad: accepting `{ input_json }`, `{ summary_json }`, `{ storage_uri }`, or
-  `{ artifact_id }` in the request body, or generating the `process-next`
-  worker route as part of the retry contract.
+  `{ artifact_id }` in the request body, or using requeue as a hidden
+  process-next executor.
 
 ### 6. Tests Required
 
