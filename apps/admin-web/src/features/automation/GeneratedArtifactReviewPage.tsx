@@ -3,7 +3,12 @@ import { ArrowLeft, CheckCircle2, RefreshCw, ShieldCheck, XCircle } from "lucide
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 
-import type { AdminDataSource, DataSourceMode } from "../../adminApi/dataSource";
+import {
+  isLiveSectionResult,
+  requireLiveSectionResult,
+  type AdminDataSource,
+  type DataSourceMode,
+} from "../../adminApi/dataSource";
 import type {
   GeneratedArtifactReviewDecision,
   GeneratedArtifactReviewPlanSummary,
@@ -60,11 +65,14 @@ export function GeneratedArtifactReviewPage({
     source: "mock" as const,
   };
   const plan = result.value;
+  const canPrepareReview = isLiveSectionResult(result);
   const [isConfirming, setIsConfirming] = useState(false);
   const [reviewResult, setReviewResult] = useState<GeneratedArtifactReviewResultSummary | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const reviewMutation = useMutation({
     mutationFn: async () => {
+      requireLiveSectionResult(result, t("generatedArtifactReview.notLiveError"));
+
       if (!dataSource.reviewGeneratedArtifact) {
         throw new Error(t("generatedArtifactReview.reviewUnavailable"));
       }
@@ -254,7 +262,7 @@ export function GeneratedArtifactReviewPage({
                     <span>{t("generatedArtifactReview.prepareCopy")}</span>
                   </div>
                   <Button
-                    disabled={query.isLoading || reviewMutation.isPending}
+                    disabled={query.isLoading || reviewMutation.isPending || !canPrepareReview}
                     onClick={() => {
                       setReviewError(null);
                       setIsConfirming(true);
@@ -282,7 +290,7 @@ export function GeneratedArtifactReviewPage({
                       {t("generatedArtifactReview.cancel")}
                     </Button>
                     <Button
-                      disabled={reviewMutation.isPending}
+                      disabled={reviewMutation.isPending || !canPrepareReview}
                       onClick={() => reviewMutation.mutate()}
                     >
                       {search.decision === "accept" ? <CheckCircle2 size={15} /> : <XCircle size={15} />}

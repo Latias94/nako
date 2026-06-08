@@ -3,7 +3,12 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, CheckCircle2, RefreshCw, ShieldCheck, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
-import type { AdminDataSource, DataSourceMode } from "../../adminApi/dataSource";
+import {
+  isLiveDataSource,
+  requireLiveDataSource,
+  type AdminDataSource,
+  type DataSourceMode,
+} from "../../adminApi/dataSource";
 import type {
   CatalogGovernanceItemDetailSummary,
   CatalogGovernanceProviderMappingReviewDecision,
@@ -98,6 +103,7 @@ export function CatalogGovernanceRepairPage({
       : null);
   const plan = planResult?.value ?? null;
   const source = combineSources(detailResult.source, planResult?.source);
+  const canPrepareReview = isLiveDataSource(source);
   const [isConfirming, setIsConfirming] = useState(false);
   const [reviewResult, setReviewResult] =
     useState<CatalogGovernanceProviderMappingReviewResultSummary | null>(null);
@@ -107,6 +113,8 @@ export function CatalogGovernanceRepairPage({
       if (!selectedMappingId) {
         throw new Error(t("catalogGovernance.repair.selectionUnavailable"));
       }
+
+      requireLiveDataSource(source, t("catalogGovernance.repair.notLiveError"));
 
       if (!dataSource.reviewCatalogGovernanceProviderMapping) {
         throw new Error(t("catalogGovernance.repair.reviewUnavailable"));
@@ -387,7 +395,7 @@ export function CatalogGovernanceRepairPage({
                     <span>{t("catalogGovernance.repair.prepareCopy")}</span>
                   </div>
                   <Button
-                    disabled={!plan || planQuery.isLoading || reviewMutation.isPending}
+                    disabled={!plan || planQuery.isLoading || reviewMutation.isPending || !canPrepareReview}
                     onClick={() => {
                       setReviewError(null);
                       setIsConfirming(true);
@@ -420,7 +428,10 @@ export function CatalogGovernanceRepairPage({
                     <Button disabled={reviewMutation.isPending} onClick={() => setIsConfirming(false)} variant="ghost">
                       {t("catalogGovernance.repair.cancel")}
                     </Button>
-                    <Button disabled={reviewMutation.isPending} onClick={() => reviewMutation.mutate()}>
+                    <Button
+                      disabled={reviewMutation.isPending || !canPrepareReview}
+                      onClick={() => reviewMutation.mutate()}
+                    >
                       {search.decision === "accept" ? <CheckCircle2 size={15} /> : <XCircle size={15} />}
                       {t("catalogGovernance.repair.confirmButton", {
                         decision: search.decision,

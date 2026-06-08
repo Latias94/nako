@@ -1,0 +1,4 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Admin Web check gates for live-only mutation behavior"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Cross-layer fallback read to mutation guard verification"}
+{"file": ".trellis/tasks/06-08-admin-web-live-only-mutation-guard/research/live-mutation-fallback-risk.md", "reason": "Candidate page risk inventory"}

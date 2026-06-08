@@ -464,6 +464,8 @@ export const enMessages = {
     "Catalog Governance Provider Mapping review-plan data source is unavailable",
   "catalogGovernance.repair.selectionUnavailable":
     "Catalog Governance Provider Mapping is unavailable",
+  "catalogGovernance.repair.notLiveError":
+    "Catalog Governance Provider Mapping review requires a live Admin API response.",
   "catalogGovernance.repair.reviewUnavailable":
     "Catalog Governance Provider Mapping review action is unavailable",
   "catalogGovernance.repair.reviewFailed":
@@ -589,6 +591,7 @@ export const enMessages = {
   "sourceDuplicate.none": "none",
   "sourceDuplicate.missingLibrary": "Media Library ID is required for source duplicate reconciliation.",
   "sourceDuplicate.planUnavailable": "Source duplicate reconciliation plan data source is unavailable",
+  "sourceDuplicate.notLiveError": "Source duplicate reconciliation apply requires a live Admin API response.",
   "sourceDuplicate.applyUnavailable": "Source duplicate reconciliation apply action is unavailable",
   "sourceDuplicate.applyFailed": "Source duplicate reconciliation apply action failed",
   "itemArtwork.backToItem": "Back to Item",
@@ -643,6 +646,7 @@ export const enMessages = {
     "Select and unpublish commands require a prepared confirmation before Admin API mutation.",
   "itemArtwork.result.empty": "No artwork mutation has been submitted from this route.",
   "itemArtwork.dataSourceUnavailable": "Item artwork gallery route data source is unavailable",
+  "itemArtwork.notLiveError": "Item artwork mutations require a live Admin API response.",
   "itemArtwork.selectUnavailable": "Item artwork select action is unavailable",
   "itemArtwork.unpublishUnavailable": "Item artwork unpublish action is unavailable",
   "itemArtwork.actionFailed": "Item artwork action failed",
@@ -799,6 +803,8 @@ export const enMessages = {
   "generatedArtifactReview.result.notAccepted": "not accepted",
   "generatedArtifactReview.planUnavailable":
     "Generated Artifact review-plan data source is unavailable",
+  "generatedArtifactReview.notLiveError":
+    "Generated Artifact review mutations require a live Admin API response.",
   "generatedArtifactReview.reviewUnavailable":
     "Generated Artifact review action is unavailable",
   "generatedArtifactReview.reviewFailed": "Generated Artifact review action failed",
@@ -2041,6 +2047,7 @@ export const zhHansMessages = {
   "catalogGovernance.repair.itemUnavailable": "Catalog Governance 修复详情数据源不可用",
   "catalogGovernance.repair.planUnavailable": "Catalog Governance Provider Mapping review-plan 数据源不可用",
   "catalogGovernance.repair.selectionUnavailable": "Catalog Governance Provider Mapping 不可用",
+  "catalogGovernance.repair.notLiveError": "Catalog Governance Provider Mapping 审查需要实时 Admin API 响应。",
   "catalogGovernance.repair.reviewUnavailable": "Catalog Governance Provider Mapping 审查动作不可用",
   "catalogGovernance.repair.reviewFailed": "Catalog Governance Provider Mapping 审查动作失败",
   "itemDetail.backToCatalog": "返回目录",
@@ -2151,6 +2158,7 @@ export const zhHansMessages = {
   "sourceDuplicate.none": "无",
   "sourceDuplicate.missingLibrary": "Source duplicate 调和需要媒体库 ID。",
   "sourceDuplicate.planUnavailable": "Source duplicate 调和计划数据源不可用",
+  "sourceDuplicate.notLiveError": "Source duplicate 调和 apply 需要实时 Admin API 响应。",
   "sourceDuplicate.applyUnavailable": "Source duplicate 调和 apply 动作不可用",
   "sourceDuplicate.applyFailed": "Source duplicate 调和 apply 动作失败",
   "itemArtwork.backToItem": "返回条目",
@@ -2200,6 +2208,7 @@ export const zhHansMessages = {
   "itemArtwork.result.description": "Select 和 unpublish 命令需要先准备确认，随后才会发送 Admin API mutation。",
   "itemArtwork.result.empty": "此路由尚未提交 artwork mutation。",
   "itemArtwork.dataSourceUnavailable": "Item artwork gallery 路由数据源不可用",
+  "itemArtwork.notLiveError": "Item artwork mutation 需要实时 Admin API 响应。",
   "itemArtwork.selectUnavailable": "Item artwork select 动作不可用",
   "itemArtwork.unpublishUnavailable": "Item artwork unpublish 动作不可用",
   "itemArtwork.actionFailed": "Item artwork 动作失败",
@@ -2342,6 +2351,7 @@ export const zhHansMessages = {
   "generatedArtifactReview.result.acceptedAt": "接受时间",
   "generatedArtifactReview.result.notAccepted": "未接受",
   "generatedArtifactReview.planUnavailable": "Generated Artifact review-plan 数据源不可用",
+  "generatedArtifactReview.notLiveError": "Generated Artifact 审查 mutation 需要实时 Admin API 响应。",
   "generatedArtifactReview.reviewUnavailable": "Generated Artifact 审查动作不可用",
   "generatedArtifactReview.reviewFailed": "Generated Artifact 审查动作失败",
   "generatedArtifactReview.none": "无",

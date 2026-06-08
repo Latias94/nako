@@ -48,6 +48,11 @@ Use this spec for `apps/admin-web` changes. It records current patterns only.
 - Admin Web keeps deterministic mock fallback data for unavailable live reads.
 - Mutations are enabled only when the data source is live and the mutation method
   is available.
+- New mutation pages should derive write availability with the shared
+  `isLiveDataSource` / `isLiveSectionResult` helpers from
+  `src/adminApi/dataSource.ts`, and mutation functions should use the matching
+  `requireLiveDataSource` / `requireLiveSectionResult` helper as the final
+  guard. This keeps mock and hybrid read fallback from authorizing real writes.
 - Settings routes that use full-replacement `PUT` requests must keep a complete
   typed payload draft and submit the whole request object after confirmation.
   Do not send only the edited fields from a Settings page unless the backend
@@ -61,7 +66,7 @@ Use this spec for `apps/admin-web` changes. It records current patterns only.
 |-----------|------------------|
 | Live read method is unavailable | Return mock value with `source: "mock"` and visible fallback error |
 | Live read returns HTTP failure | Data source surfaces mock fallback and error text |
-| Mutation page is not live | Disable save action or throw a visible not-live error |
+| Mutation page is not live | Disable prepare/save/confirm action and throw a visible not-live error if mutation is invoked programmatically |
 | Mutation requires confirmation | First click prepares/opens confirmation; second explicit confirm calls data source |
 | URL filter changes | Update search params and reset `offset` to `0` |
 | Media connection token entered | Store in session state only; tests assert token is not rendered |
@@ -88,6 +93,8 @@ Use this spec for `apps/admin-web` changes. It records current patterns only.
     only field deltas.
   - localized copy for `initialLocale="zh-Hans"` when text changes.
   - mock fallback visibility for unavailable live reads.
+  - mock or hybrid fallback mutation controls are disabled and the mutation data
+    source method is not called.
   - unsafe fields/secrets are not rendered.
 - Commands:
   - `npm run check --prefix apps/admin-web`
@@ -110,9 +117,12 @@ async function save() {
 ```tsx
 const mutation = useMutation({
   mutationFn: async () => {
-    if (result.source !== "live" || !dataSource.updateMetadataRawCacheSettings) {
-      throw new Error("Mutation unavailable");
+    requireLiveSectionResult(result, t("settings.rawCache.notLiveError"));
+
+    if (!dataSource.updateMetadataRawCacheSettings) {
+      throw new Error(t("settings.rawCache.updateUnavailable"));
     }
+
     return dataSource.updateMetadataRawCacheSettings(request);
   },
 });

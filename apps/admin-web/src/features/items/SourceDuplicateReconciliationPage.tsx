@@ -3,6 +3,10 @@ import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 
+import {
+  isLiveSectionResult,
+  requireLiveSectionResult,
+} from "../../adminApi/dataSource";
 import type {
   AdminSourceDuplicateReconciliationApplyResponse,
   AdminSourceDuplicateReconciliationCandidate,
@@ -69,6 +73,7 @@ export function SourceDuplicateReconciliationPage({
         }
       : null);
   const plan = result?.value ?? null;
+  const canApplySuggestion = isLiveSectionResult(result);
   const hasPaginationDelta = search.limit !== 20 || search.offset !== 0;
   const [pendingDuplicateSourceId, setPendingDuplicateSourceId] = useState<string | null>(null);
   const [applyResult, setApplyResult] =
@@ -79,6 +84,8 @@ export function SourceDuplicateReconciliationPage({
       if (!libraryId) {
         throw new Error(t("sourceDuplicate.missingLibrary"));
       }
+
+      requireLiveSectionResult(result, t("sourceDuplicate.notLiveError"));
 
       return dataAdapter.applySuggestion(libraryId, sourceId, duplicateSourceId);
     },
@@ -221,6 +228,7 @@ export function SourceDuplicateReconciliationPage({
                 {plan.candidates.map((candidate) => (
                   <CandidateRow
                     applyMutationPending={applyMutation.isPending}
+                    canApply={canApplySuggestion}
                     candidate={candidate}
                     isConfirming={pendingDuplicateSourceId === candidate.duplicate_source_id}
                     key={candidate.duplicate_source_id}
@@ -257,6 +265,7 @@ export function SourceDuplicateReconciliationPage({
 
 function CandidateRow({
   applyMutationPending,
+  canApply,
   candidate,
   isConfirming,
   onCancel,
@@ -265,6 +274,7 @@ function CandidateRow({
   t,
 }: {
   applyMutationPending: boolean;
+  canApply: boolean;
   candidate: AdminSourceDuplicateReconciliationCandidate;
   isConfirming: boolean;
   onCancel(): void;
@@ -273,6 +283,7 @@ function CandidateRow({
   t: Translate;
 }) {
   const canSuggest = candidate.recommended_action === "suggest_relationship";
+  const canPrepare = canSuggest && canApply;
 
   return (
     <div className="librarySourceSample">
@@ -300,10 +311,10 @@ function CandidateRow({
         </div>
         {!isConfirming ? (
           <Button
-            disabled={!canSuggest || applyMutationPending}
+            disabled={!canPrepare || applyMutationPending}
             onClick={onPrepare}
             size="sm"
-            variant={canSuggest ? "outline" : "ghost"}
+            variant={canPrepare ? "outline" : "ghost"}
           >
             <CheckCircle2 size={15} />
             {canSuggest
@@ -315,7 +326,7 @@ function CandidateRow({
             <Button disabled={applyMutationPending} onClick={onCancel} size="sm" variant="ghost">
               {t("sourceDuplicate.action.cancel")}
             </Button>
-            <Button disabled={applyMutationPending} onClick={onConfirm} size="sm">
+            <Button disabled={applyMutationPending || !canApply} onClick={onConfirm} size="sm">
               <CheckCircle2 size={15} />
               {t("sourceDuplicate.action.confirmSuggestion")}
             </Button>

@@ -373,6 +373,34 @@ type LoadResult<T> = {
 
 export type AdminSectionResult<T> = LoadResult<T>;
 
+export function isLiveDataSource(source: DataSourceMode | undefined): source is "live" {
+  return source === "live";
+}
+
+export function isLiveSectionResult<T extends { source: DataSourceMode }>(
+  result: T | null | undefined,
+): result is T & { source: "live" } {
+  return isLiveDataSource(result?.source);
+}
+
+export function requireLiveDataSource(
+  source: DataSourceMode | undefined,
+  message: string,
+): asserts source is "live" {
+  if (!isLiveDataSource(source)) {
+    throw new Error(message);
+  }
+}
+
+export function requireLiveSectionResult<T extends { source: DataSourceMode }>(
+  result: T | null | undefined,
+  message: string,
+): asserts result is T & { source: "live" } {
+  if (!isLiveSectionResult(result)) {
+    throw new Error(message);
+  }
+}
+
 export function createAdminDataSource(options: AdminApiClientOptions = {}): AdminDataSource {
   const client = new AdminApiClient(options);
 

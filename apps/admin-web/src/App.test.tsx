@@ -1708,6 +1708,40 @@ describe("Admin Web V2 route shell", () => {
     expect(screen.getByText("stage_metadata_authority_review")).toBeInTheDocument();
   });
 
+  it("disables Generated Artifact review mutation controls for mock review-plan data", async () => {
+    const reviewGeneratedArtifact = vi.fn(async (artifactId: string, decision: "accept" | "reject") =>
+      generatedArtifactReviewResultSummary({ artifactId, decision }),
+    );
+    window.history.pushState(
+      null,
+      "",
+      "/automation/generated-artifacts/artifact-metadata-cleanup/review?decision=accept",
+    );
+
+    render(
+      <App
+        dataSource={{
+          load: async () => emptyConsoleData(),
+          loadGeneratedArtifactReviewPlan: async (artifactId, decision) => ({
+            value: generatedArtifactReviewPlanSummary({ artifactId, decision }),
+            source: "mock",
+            error: "Admin API request failed with HTTP 503",
+          }),
+          reviewGeneratedArtifact,
+        }}
+      />,
+    );
+
+    expect(await screen.findByText(/HTTP 503/)).toBeInTheDocument();
+    const prepare = await screen.findByRole("button", { name: /Prepare accept review/ });
+    expect(prepare).toBeDisabled();
+
+    fireEvent.click(prepare);
+
+    expect(screen.queryByRole("button", { name: /Confirm accept/ })).not.toBeInTheDocument();
+    expect(reviewGeneratedArtifact).not.toHaveBeenCalled();
+  });
+
   it("keeps unsafe fields out of the Generated Artifact review-plan rendering", async () => {
     const unsafePlan = {
       ...generatedArtifactReviewPlanSummary({ decision: "accept" }),
@@ -2545,6 +2579,41 @@ describe("Admin Web V2 route shell", () => {
     expect(screen.getByText("source-dup-suggested")).toBeInTheDocument();
   });
 
+  it("disables source duplicate apply controls for mock reconciliation plans", async () => {
+    const applySourceDuplicateReconciliation = vi.fn(
+      async (libraryId: string, sourceId: string, duplicateSourceId: string) =>
+        mockSourceDuplicateReconciliationApply(libraryId, sourceId, duplicateSourceId),
+    );
+    window.history.pushState(
+      null,
+      "",
+      "/items/item-unknown-1/sources/source-unknown-1/duplicates?library_id=library-anime",
+    );
+
+    render(
+      <App
+        dataSource={{
+          load: async () => emptyConsoleData(),
+          loadSourceDuplicateReconciliationPlan: async (libraryId, sourceId) => ({
+            value: mockSourceDuplicateReconciliationPlan(libraryId, sourceId),
+            source: "mock",
+            error: "Admin API request failed with HTTP 503",
+          }),
+          applySourceDuplicateReconciliation,
+        }}
+      />,
+    );
+
+    expect(await screen.findByText(/HTTP 503/)).toBeInTheDocument();
+    const prepare = screen.getByRole("button", { name: "Prepare suggestion" });
+    expect(prepare).toBeDisabled();
+
+    fireEvent.click(prepare);
+
+    expect(screen.queryByRole("button", { name: "Confirm suggestion" })).not.toBeInTheDocument();
+    expect(applySourceDuplicateReconciliation).not.toHaveBeenCalled();
+  });
+
   it("keeps non-suggestion source duplicate candidates read-only", async () => {
     const plan = {
       ...mockSourceDuplicateReconciliationPlan("library-anime", "source-unknown-1"),
@@ -2884,6 +2953,55 @@ describe("Admin Web V2 route shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Mock fallback")).toBeInTheDocument();
     expect(screen.getByText("candidate-poster-1")).toBeInTheDocument();
+  });
+
+  it("disables item artwork mutations for mock gallery data", async () => {
+    const gallery = mockItemArtworkGallerySummary("item-unknown-1");
+    const selectItemArtwork = vi.fn(async (itemId: string, kind: string, artifactId: string) => ({
+      action: "select" as const,
+      itemId,
+      kind,
+      changed: true,
+      selectedArtworkId: "selected-backdrop-1",
+      artifactId,
+      imageId: "image-backdrop-1",
+      routePath: "/images/image-backdrop-1",
+      width: 1920,
+      height: 1080,
+      language: null,
+      mediaType: "image/webp",
+    }));
+    const unpublishItemArtwork = vi.fn();
+    window.history.pushState(null, "", "/items/item-unknown-1/artwork?limit=20&offset=0");
+
+    render(
+      <App
+        dataSource={{
+          load: async () => emptyConsoleData(),
+          loadItemArtworkGallery: async () => ({
+            value: gallery,
+            source: "mock",
+            error: "Admin API request failed with HTTP 503",
+          }),
+          selectItemArtwork,
+          unpublishItemArtwork,
+        }}
+      />,
+    );
+
+    expect(await screen.findByText(/HTTP 503/)).toBeInTheDocument();
+    const prepareSelect = screen.getByRole("button", { name: "Prepare select artifact-backdrop-1" });
+    const prepareUnpublish = screen.getByRole("button", { name: "Prepare unpublish poster" });
+    expect(prepareSelect).toBeDisabled();
+    expect(prepareUnpublish).toBeDisabled();
+
+    fireEvent.click(prepareSelect);
+    fireEvent.click(prepareUnpublish);
+
+    expect(screen.queryByRole("button", { name: "Confirm select artifact-backdrop-1" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm unpublish poster" })).not.toBeInTheDocument();
+    expect(selectItemArtwork).not.toHaveBeenCalled();
+    expect(unpublishItemArtwork).not.toHaveBeenCalled();
   });
 
   it("keeps unsafe fields out of the item artwork gallery route rendering", async () => {
@@ -3241,6 +3359,54 @@ describe("Admin Web V2 route shell", () => {
         "reject",
       );
     });
+  });
+
+  it("disables Catalog Governance review mutation controls for hybrid repair context", async () => {
+    const reviewCatalogGovernanceProviderMapping = vi.fn(
+      async (itemId: string, mappingId: string, decision: "accept" | "reject") =>
+        catalogGovernanceProviderMappingReviewResultSummary({
+          itemId,
+          mappingId,
+          decision,
+        }),
+    );
+    window.history.pushState(
+      null,
+      "",
+      "/catalog/governance/item-low-confidence?mapping_id=mapping-tmdb-603&decision=accept",
+    );
+
+    render(
+      <App
+        dataSource={{
+          load: async () => emptyConsoleData(),
+          loadCatalogGovernanceItemDetail: async (itemId) => ({
+            value: catalogGovernanceItemDetailSummary(itemId),
+            source: "live",
+          }),
+          loadCatalogGovernanceProviderMappingReviewPlan: async (itemId, mappingId, decision) => ({
+            value: catalogGovernanceProviderMappingReviewPlanSummary({
+              itemId,
+              mappingId,
+              decision,
+            }),
+            source: "mock",
+            error: "Admin API request failed with HTTP 503",
+          }),
+          reviewCatalogGovernanceProviderMapping,
+        }}
+      />,
+    );
+
+    expect(await screen.findByText(/HTTP 503/)).toBeInTheDocument();
+    expect(screen.getByText("Live + fallback")).toBeInTheDocument();
+    const prepare = await screen.findByRole("button", { name: /Prepare accept mapping review/ });
+    expect(prepare).toBeDisabled();
+
+    fireEvent.click(prepare);
+
+    expect(screen.queryByRole("button", { name: /Confirm accept/ })).not.toBeInTheDocument();
+    expect(reviewCatalogGovernanceProviderMapping).not.toHaveBeenCalled();
   });
 
   it("requires explicit confirmation before posting a Catalog Governance Provider Mapping review mutation", async () => {

@@ -3,7 +3,12 @@ import { ArrowLeft, CheckCircle2, RefreshCw, ShieldCheck, Trash2, X } from "luci
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
-import type { AdminDataSource, DataSourceMode } from "../../adminApi/dataSource";
+import {
+  isLiveSectionResult,
+  requireLiveSectionResult,
+  type AdminDataSource,
+  type DataSourceMode,
+} from "../../adminApi/dataSource";
 import type {
   ItemArtworkArtifactSummary,
   ItemArtworkGalleryQuery,
@@ -71,12 +76,15 @@ export function ItemArtworkGalleryPage({
     source: "mock" as const,
   };
   const gallery = result.value;
+  const canMutateArtwork = isLiveSectionResult(result);
   const hasPaginationDelta = search.limit !== 20 || search.offset !== 0;
   const [actionDraft, setActionDraft] = useState<ArtworkActionDraft | null>(null);
   const [mutationResult, setMutationResult] = useState<ItemArtworkMutationResultSummary | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
   const artworkMutation = useMutation({
     mutationFn: async (draft: ArtworkActionDraft) => {
+      requireLiveSectionResult(result, t("itemArtwork.notLiveError"));
+
       if (draft.action === "select") {
         if (!dataSource.selectItemArtwork) {
           throw new Error(t("itemArtwork.selectUnavailable"));
@@ -236,6 +244,7 @@ export function ItemArtworkGalleryPage({
                         </div>
                         <ArtworkActionControls
                           actionDraft={actionDraft}
+                          canMutate={canMutateArtwork}
                           isPending={artworkMutation.isPending}
                           onCancel={() => setActionDraft(null)}
                           onConfirm={(draft) => artworkMutation.mutate(draft)}
@@ -321,6 +330,7 @@ export function ItemArtworkGalleryPage({
                     <ArtworkActionControls
                       actionDraft={actionDraft}
                       artifact={artifact}
+                      canMutate={canMutateArtwork}
                       isPending={artworkMutation.isPending}
                       onCancel={() => setActionDraft(null)}
                       onConfirm={(draft) => artworkMutation.mutate(draft)}
@@ -392,6 +402,7 @@ function SummaryTile({ label, value }: { label: string; value: number | string }
 function ArtworkActionControls({
   actionDraft,
   artifact,
+  canMutate,
   isPending,
   onCancel,
   onConfirm,
@@ -401,6 +412,7 @@ function ArtworkActionControls({
 }: {
   actionDraft: ArtworkActionDraft | null;
   artifact?: ItemArtworkArtifactSummary;
+  canMutate: boolean;
   isPending: boolean;
   onCancel: () => void;
   onConfirm: (draft: ArtworkActionDraft) => void;
@@ -433,7 +445,7 @@ function ArtworkActionControls({
               </Button>
               <Button
                 aria-label={t("itemArtwork.action.confirmSelectAria", { artifactId: artifact.id })}
-                disabled={isPending}
+                disabled={isPending || !canMutate}
                 onClick={() => onConfirm(draft)}
                 size="sm"
               >
@@ -445,7 +457,7 @@ function ArtworkActionControls({
         ) : (
           <Button
             aria-label={t("itemArtwork.action.prepareSelectAria", { artifactId: artifact.id })}
-            disabled={isPending}
+            disabled={isPending || !canMutate}
             onClick={() => onPrepare(draft)}
             size="sm"
             variant="outline"
@@ -487,7 +499,7 @@ function ArtworkActionControls({
               </Button>
               <Button
                 aria-label={t("itemArtwork.action.confirmUnpublishAria", { kind: selection.kind })}
-                disabled={isPending}
+                disabled={isPending || !canMutate}
                 onClick={() => onConfirm(draft)}
                 size="sm"
               >
@@ -499,7 +511,7 @@ function ArtworkActionControls({
         ) : (
           <Button
             aria-label={t("itemArtwork.action.prepareUnpublishAria", { kind: selection.kind })}
-            disabled={isPending}
+            disabled={isPending || !canMutate}
             onClick={() => onPrepare(draft)}
             size="sm"
             variant="outline"
