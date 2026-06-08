@@ -2683,6 +2683,16 @@ impl UserPlaybackStateRepository for NakoDatabase {
             .list_continue_watching_states(principal_id, page)
             .await
     }
+
+    async fn list_continue_watching_entries(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<Vec<ContinueWatchingEntry>> {
+        self.backend()
+            .list_continue_watching_entries(principal, page)
+            .await
+    }
 }
 
 #[async_trait::async_trait]

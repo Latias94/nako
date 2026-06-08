@@ -14,14 +14,15 @@ use nako_core::{
     AdminSettingsDocumentRecord, AdminSettingsEffect, AdminSettingsRepository, AdminSettingsSource,
     ArtworkCandidateId, ArtworkCandidateRecord, ArtworkCandidateRepository,
     ArtworkCandidateSourceKind, ArtworkCandidateStatus, ArtworkTask, ArtworkTaskId,
-    ArtworkTaskKind, ArtworkTaskRepository, AutomationArtifactKind, AutomationArtifactStatus,
-    AutomationCapability, AutomationProviderStatus, AutomationRepository, CancelLeasedJob,
-    CanonicalMetadata, CatalogGovernanceItemListFilter, CatalogGovernanceRepository,
-    CatalogItemGraphReplacement, CatalogItemProjectionCommit, CatalogRepository,
-    CatalogSearchProjection, ClaimAddonEventDeliveryAttempt, Collection, CollectionId,
-    CollectionItem, CompleteLeasedJob, CreditRole, DatabaseLifecycle, DirectorySnapshot,
-    DomainEventKind, DomainEventSubject, EnqueueJobRetry, EventOutboxRepository, ExternalId,
-    ExternalProvider, FailLeasedJob, GENERATED_ARTIFACT_METADATA_BULK_APPLY_JOB_RESOURCE_CLASS,
+    ArtworkTaskKind, ArtworkTaskRepository, AuthenticatedPrincipal, AutomationArtifactKind,
+    AutomationArtifactStatus, AutomationCapability, AutomationProviderStatus, AutomationRepository,
+    CancelLeasedJob, CanonicalMetadata, CatalogGovernanceItemListFilter,
+    CatalogGovernanceRepository, CatalogItemGraphReplacement, CatalogItemProjectionCommit,
+    CatalogRepository, CatalogSearchProjection, ClaimAddonEventDeliveryAttempt, Collection,
+    CollectionId, CollectionItem, CompleteLeasedJob, CreditRole, DatabaseLifecycle,
+    DirectorySnapshot, DomainEventKind, DomainEventSubject, EnqueueJobRetry, EventOutboxRepository,
+    ExternalId, ExternalProvider, FailLeasedJob,
+    GENERATED_ARTIFACT_METADATA_BULK_APPLY_JOB_RESOURCE_CLASS,
     GeneratedArtifactMetadataApplyOutcomeCommit, GeneratedArtifactMetadataApplyOutcomeId,
     GeneratedArtifactMetadataApplyOutcomeStatus, GeneratedArtifactMetadataApplyPlan,
     GeneratedArtifactMetadataApplyPlanReason, GeneratedArtifactMetadataApplyPlanStatus,
@@ -90,14 +91,15 @@ use nako_core::{
     RendererControlCapabilities, RendererControlCommand, RendererSessionHeartbeat,
     RendererSessionId, RendererSessionListFilter, RendererSessionRepository, RendererSessionState,
     RequestJobCancellation, RoleAssignment, ScanRepository, ScanSnapshotId, ScanStatus,
-    SourceDuplicateEvidenceKind, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
-    SourceDuplicateRelationshipStatus, SourceDuplicateRepository, SourceState, StagingAttribution,
-    StagingManifestId, StagingManifestRepository, StagingPurpose, StagingState,
-    StorageBackendHealthListFilter, StorageBackendHealthRecord, StorageBackendHealthRepository,
-    StorageBackendHealthStatus, StorageCircuitBreakerState, StorageFailureClass, Studio, StudioId,
-    Tag, TagId, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
-    TranscodeSessionListFilter, TranscodeSessionRepository, TranscodeSessionState, User, UserId,
-    UserInvitationId, UserInvitationRecord, UserInvitationStatus, UserPlaybackStateRepository,
+    SelectedArtworkRecord, SourceDuplicateEvidenceKind, SourceDuplicateRelationship,
+    SourceDuplicateRelationshipId, SourceDuplicateRelationshipStatus, SourceDuplicateRepository,
+    SourceState, StagingAttribution, StagingManifestId, StagingManifestRepository, StagingPurpose,
+    StagingState, StorageBackendHealthListFilter, StorageBackendHealthRecord,
+    StorageBackendHealthRepository, StorageBackendHealthStatus, StorageCircuitBreakerState,
+    StorageFailureClass, Studio, StudioId, Tag, TagId, TranscodeFailureCategory,
+    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
+    TranscodeSessionRepository, TranscodeSessionState, User, UserId, UserInvitationId,
+    UserInvitationRecord, UserInvitationStatus, UserPlaybackStateRepository,
     UserPlaybackStateWrite, UserPlaylistId, UserPlaylistItemRemoval, UserPlaylistItemWrite,
     UserPlaylistReorder, UserPlaylistRepository, UserPrincipalId, UserRole, UserSessionId,
     UserSessionRecord, UserStatus, VfsCacheFailureAuthority, VfsCacheOperation, VfsCacheRepository,
@@ -5251,6 +5253,238 @@ where
     );
 }
 
+async fn continue_watching_projection_filters_access_before_pagination_contract<S>(store: S)
+where
+    S: PlaybackRuntimeContractBackend + ManagedArtworkContractBackend + IdentityAccessRepository,
+{
+    let accessible_library = seed_contract_library(&store).await;
+    let inaccessible_library = seed_contract_library(&store).await;
+
+    let user_id = UserId::new();
+    let principal_id = UserPrincipalId::new(format!("continue-watching:{user_id}")).unwrap();
+    let user = User {
+        id: user_id,
+        principal_id: principal_id.clone(),
+        username: format!("continue-watching-{user_id}"),
+        display_name: "Continue Watching Viewer".to_owned(),
+        status: UserStatus::Active,
+        created_at_ms: 1_000,
+        updated_at_ms: 1_000,
+    };
+    store.upsert_user(&user).await.unwrap();
+    store
+        .replace_role_assignments(
+            user_id,
+            &[RoleAssignment {
+                user_id,
+                role: UserRole::Viewer,
+                granted_at_ms: 1_000,
+            }],
+        )
+        .await
+        .unwrap();
+    store
+        .upsert_library_access_policy(&LibraryAccessPolicy {
+            scope: LibraryAccessPolicyScope::User(user_id),
+            library_id: accessible_library.id,
+            access: LibraryAccessLevel::Browse,
+            created_at_ms: 1_000,
+            updated_at_ms: 1_000,
+        })
+        .await
+        .unwrap();
+
+    let inaccessible_source = seed_contract_media_item_with_source(
+        &store,
+        inaccessible_library.id,
+        "Blocked Continue",
+        "local:///Contract Movies/Blocked Continue.mkv",
+    )
+    .await;
+    store
+        .upsert_user_playback_state(UserPlaybackStateWrite {
+            principal_id: principal_id.clone(),
+            item_id: inaccessible_source.item_id,
+            source_id: Some(inaccessible_source.id),
+            resume_position_ms: Some(45_000),
+            duration_ms: Some(600_000),
+            watched: false,
+            watched_at_ms: None,
+            last_played_at_ms: Some(2_000),
+            updated_at_ms: 2_000,
+        })
+        .await
+        .unwrap();
+
+    let visible_source = seed_contract_media_item_with_source(
+        &store,
+        accessible_library.id,
+        "Visible Continue",
+        "local:///Contract Movies/Visible Continue.mkv",
+    )
+    .await;
+    store
+        .upsert_user_playback_state(UserPlaybackStateWrite {
+            principal_id: principal_id.clone(),
+            item_id: visible_source.item_id,
+            source_id: Some(visible_source.id),
+            resume_position_ms: Some(60_000),
+            duration_ms: Some(600_000),
+            watched: false,
+            watched_at_ms: None,
+            last_played_at_ms: Some(1_000),
+            updated_at_ms: 1_000,
+        })
+        .await
+        .unwrap();
+    let visible_artwork = seed_published_selected_artwork_for_item(
+        &store,
+        accessible_library.id,
+        visible_source.item_id,
+        "continue-watching-visible-artwork",
+        ImageKind::Poster,
+        "https://cdn.example.test/continue-visible.jpg",
+    )
+    .await;
+
+    let principal = AuthenticatedPrincipal {
+        user_id,
+        principal_id: principal_id.clone(),
+        roles: vec![UserRole::Viewer],
+        bootstrap: false,
+    };
+    let entries = store
+        .list_continue_watching_entries(
+            &principal,
+            PageRequest {
+                limit: 1,
+                offset: 0,
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].state.principal_id, principal_id);
+    assert_eq!(entries[0].state.item_id, visible_source.item_id);
+    assert_eq!(entries[0].item.id, visible_source.item_id);
+    assert_eq!(entries[0].images.len(), 1);
+    assert_eq!(
+        entries[0].images[0].selected.item_id,
+        visible_source.item_id
+    );
+    assert_eq!(entries[0].images[0].selected.id, visible_artwork.id);
+    assert_eq!(
+        entries[0].images[0].artifact.item_id,
+        visible_source.item_id
+    );
+}
+
+async fn continue_watching_projection_honors_role_policy_and_admin_source_less_contract<S>(store: S)
+where
+    S: PlaybackRuntimeContractBackend + IdentityAccessRepository,
+{
+    let role_library = seed_contract_library(&store).await;
+    let role_user_id = UserId::new();
+    let role_principal_id =
+        UserPrincipalId::new(format!("continue-watching-role:{role_user_id}")).unwrap();
+    let role_user = User {
+        id: role_user_id,
+        principal_id: role_principal_id.clone(),
+        username: format!("continue-watching-role-{role_user_id}"),
+        display_name: "Role Policy Viewer".to_owned(),
+        status: UserStatus::Active,
+        created_at_ms: 2_000,
+        updated_at_ms: 2_000,
+    };
+    store.upsert_user(&role_user).await.unwrap();
+    store
+        .replace_role_assignments(
+            role_user_id,
+            &[RoleAssignment {
+                user_id: role_user_id,
+                role: UserRole::Viewer,
+                granted_at_ms: 2_000,
+            }],
+        )
+        .await
+        .unwrap();
+    store
+        .upsert_library_access_policy(&LibraryAccessPolicy {
+            scope: LibraryAccessPolicyScope::Role(UserRole::Viewer),
+            library_id: role_library.id,
+            access: LibraryAccessLevel::Browse,
+            created_at_ms: 2_000,
+            updated_at_ms: 2_000,
+        })
+        .await
+        .unwrap();
+
+    let role_source = seed_contract_media_item_with_source(
+        &store,
+        role_library.id,
+        "Role Continue",
+        "local:///Contract Movies/Role Continue.mkv",
+    )
+    .await;
+    store
+        .upsert_user_playback_state(UserPlaybackStateWrite {
+            principal_id: role_principal_id.clone(),
+            item_id: role_source.item_id,
+            source_id: Some(role_source.id),
+            resume_position_ms: Some(90_000),
+            duration_ms: Some(600_000),
+            watched: false,
+            watched_at_ms: None,
+            last_played_at_ms: Some(4_000),
+            updated_at_ms: 4_000,
+        })
+        .await
+        .unwrap();
+
+    let role_principal = AuthenticatedPrincipal {
+        user_id: role_user_id,
+        principal_id: role_principal_id.clone(),
+        roles: vec![UserRole::Viewer],
+        bootstrap: false,
+    };
+    let role_entries = store
+        .list_continue_watching_entries(&role_principal, PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(role_entries.len(), 1);
+    assert_eq!(role_entries[0].item.id, role_source.item_id);
+    assert_eq!(role_entries[0].state.item_id, role_source.item_id);
+
+    let admin_item = contract_media_item(MediaItemId::new(), "Admin Source-less Continue");
+    store.upsert_media_item(&admin_item).await.unwrap();
+    store
+        .upsert_user_playback_state(UserPlaybackStateWrite {
+            principal_id: UserPrincipalId::local_admin(),
+            item_id: admin_item.id,
+            source_id: None,
+            resume_position_ms: Some(15_000),
+            duration_ms: Some(600_000),
+            watched: false,
+            watched_at_ms: None,
+            last_played_at_ms: Some(5_000),
+            updated_at_ms: 5_000,
+        })
+        .await
+        .unwrap();
+
+    let admin_entries = store
+        .list_continue_watching_entries(
+            &AuthenticatedPrincipal::bootstrap_admin(),
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(admin_entries.len(), 1);
+    assert_eq!(admin_entries[0].item.id, admin_item.id);
+    assert_eq!(admin_entries[0].state.source_id, None);
+}
+
 async fn user_playlist_membership_is_principal_scoped_ordered_and_idempotent_contract<S>(store: S)
 where
     S: PlaybackRuntimeContractBackend,
@@ -7645,6 +7879,60 @@ where
         .unwrap();
 
     (candidate, accepted)
+}
+
+async fn seed_published_selected_artwork_for_item<S>(
+    store: &S,
+    library_id: LibraryId,
+    item_id: MediaItemId,
+    idempotency_key: &str,
+    kind: ImageKind,
+    source_uri: &str,
+) -> SelectedArtworkRecord
+where
+    S: ManagedArtworkContractBackend,
+{
+    let (_, accepted) = seed_accepted_managed_artwork_ingest_for_item(
+        store,
+        library_id,
+        item_id,
+        idempotency_key,
+        kind.clone(),
+        source_uri,
+    )
+    .await;
+    let claim = store
+        .claim_next_queued_managed_artwork_ingest()
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(claim.ingest.id, accepted.ingest.id);
+    let artifact_id = ManagedArtworkArtifactId::new();
+    store
+        .commit_managed_artwork_artifact(
+            claim.ingest.id,
+            NewManagedArtworkArtifact {
+                id: artifact_id,
+                ingest_id: claim.ingest.id,
+                library_id,
+                item_id,
+                kind,
+                storage_uri: format!("managed-artwork://artifact/{artifact_id}"),
+                content_hash: Some(format!("sha256-{artifact_id}")),
+                width: Some(2),
+                height: Some(3),
+                byte_len: Some(64),
+                media_type: Some("image/jpeg".to_owned()),
+            },
+            Some(r#"{"status":"stored"}"#.to_owned()),
+        )
+        .await
+        .unwrap();
+    store
+        .publish_selected_artwork(artifact_id)
+        .await
+        .unwrap()
+        .selected_artwork
 }
 
 fn image_kind_contract_label(kind: &ImageKind) -> &'static str {
@@ -10530,6 +10818,26 @@ database_contract_pair!(
         "user_playback_state_is_principal_scoped_and_continue_watching"
     ),
     contract = user_playback_state_is_principal_scoped_and_continue_watching_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_playback_runtime_contract_continue_watching_projection_filters_access_before_pagination,
+    postgres = postgres_playback_runtime_contract_continue_watching_projection_filters_access_before_pagination,
+    case = ContractCase::migrated(
+        ContractFamily::PlaybackRuntime,
+        "continue_watching_projection_filters_access_before_pagination"
+    ),
+    contract = continue_watching_projection_filters_access_before_pagination_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_playback_runtime_contract_continue_watching_projection_honors_role_policy_and_admin_source_less,
+    postgres = postgres_playback_runtime_contract_continue_watching_projection_honors_role_policy_and_admin_source_less,
+    case = ContractCase::migrated(
+        ContractFamily::PlaybackRuntime,
+        "continue_watching_projection_honors_role_policy_and_admin_source_less"
+    ),
+    contract = continue_watching_projection_honors_role_policy_and_admin_source_less_contract,
 );
 
 database_contract_pair!(

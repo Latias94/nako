@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/guides/index.md", "reason": "shared quality thinking guide index for review"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "verify data flow and boundary contracts across core/db/server"}
+{"file": ".trellis/spec/nako-core/backend/quality-guidelines.md", "reason": "review core repository contract and public domain record changes"}
+{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "review SQL, row mapping, pagination, and backend parity"}
+{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "review repository projection tests and root pagination before child hydration"}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "review route shape, auth, and DTO mapping"}
+{"file": ".trellis/spec/nako-server/backend/database-guidelines.md", "reason": "review that server no longer owns persistence loops"}
+{"file": ".trellis/tasks/06-08-continue-watching-repository-projection/research/continue-watching-jellyfin-comparison.md", "reason": "review implementation against the task-specific architecture comparison"}

@@ -69,6 +69,9 @@ Persistence work must prove repository behavior, not only compile.
 - Source-only and state-only membership -> both are visible if the domain
   contract says either table grants membership.
 - Other-principal playback state -> ignored for current-principal browse.
+- If the schema already enforces parent existence with a foreign key, do not
+  invent an orphan-row fixture for list-projection coverage; use access holes
+  or source-less admin rows instead.
 - Optional sort value is missing -> placed according to the explicit contract,
   not database defaults.
 - Unsupported sort/facet text reaches repository SQL -> contract violation;

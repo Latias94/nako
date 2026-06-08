@@ -6,10 +6,10 @@ use axum::{
 };
 use nako_api::public_client::{
     ContinueWatchingItemDto, ContinueWatchingResponse, SetWatchedStateRequest,
-    UpdatePlaybackProgressRequest, page_info_from_request, user_playback_state_response_from_state,
-    user_playback_state_to_dto,
+    UpdatePlaybackProgressRequest, page_info_from_request, selected_artwork_to_public_image_ref,
+    user_playback_state_response_from_state, user_playback_state_to_dto,
 };
-use nako_core::{AuthenticatedPrincipal, MediaItemId, MediaSourceId, NakoError, UserPlaybackState};
+use nako_core::{AuthenticatedPrincipal, MediaItemId, MediaSourceId, NakoError};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use tracing::instrument;
 
@@ -22,7 +22,7 @@ use crate::app::{
 };
 
 use super::{
-    access::{RequiredLibraryAccess, item_has_access, require_item_access, require_source_access},
+    access::{RequiredLibraryAccess, require_item_access, require_source_access},
     error::ApiResult,
     query::PageQuery,
 };
@@ -69,24 +69,22 @@ async fn list_continue_watching(
     Query(page): Query<PageQuery>,
 ) -> ApiResult<impl IntoResponse> {
     let page = page.try_into()?;
-    let states = app
+    let entries = app
         .user_playback()
-        .list_continue_watching(&principal.principal_id, page)
+        .list_continue_watching_entries(&principal, page)
         .await?;
-    let mut items = Vec::with_capacity(states.len());
-
-    for state in states {
-        if item_has_access(
-            &app,
-            &principal,
-            state.item_id,
-            RequiredLibraryAccess::Browse,
-        )
-        .await?
-        {
-            items.push(continue_watching_item(&app, state).await?);
-        }
-    }
+    let items = entries
+        .into_iter()
+        .map(|entry| ContinueWatchingItemDto {
+            item: nako_api::public_client::media_item_to_dto(entry.item),
+            state: user_playback_state_to_dto(entry.state),
+            images: entry
+                .images
+                .into_iter()
+                .map(|image| selected_artwork_to_public_image_ref(image.selected, image.artifact))
+                .collect(),
+        })
+        .collect::<Vec<_>>();
 
     Ok(Json(ContinueWatchingResponse {
         page: page_info_from_request(page, items.len()),
@@ -147,19 +145,6 @@ async fn set_user_watched_state(
             })
             .await?,
     )))
-}
-
-async fn continue_watching_item(
-    app: &NakoApp,
-    state: UserPlaybackState,
-) -> ApiResult<ContinueWatchingItemDto> {
-    let detail = app.catalog().get_item(state.item_id).await?;
-
-    Ok(ContinueWatchingItemDto {
-        item: detail.item,
-        state: user_playback_state_to_dto(state),
-        images: detail.images,
-    })
 }
 
 fn parse_optional_media_source_id(

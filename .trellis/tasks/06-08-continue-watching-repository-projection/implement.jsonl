@@ -1,0 +1,17 @@
+{"file": ".trellis/spec/guides/index.md", "reason": "shared Trellis thinking guide index for cross-layer repository/API changes"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Continue Watching spans repository, DB adapters, app service, HTTP, and DTO mapping"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "reuse existing catalog/artwork hydration and DTO mapping patterns before adding helpers"}
+{"file": ".trellis/spec/nako-core/backend/index.md", "reason": "repository trait and domain projection changes touch nako-core"}
+{"file": ".trellis/spec/nako-core/backend/directory-structure.md", "reason": "new domain records and repository contracts must stay in core without adapter leakage"}
+{"file": ".trellis/spec/nako-core/backend/database-guidelines.md", "reason": "repository method shape must use domain records, strong IDs, and PageRequest"}
+{"file": ".trellis/spec/nako-core/backend/error-handling.md", "reason": "repository contract errors must use NakoError semantics"}
+{"file": ".trellis/spec/nako-core/backend/quality-guidelines.md", "reason": "cross-crate contract changes need adapter, DTO, and contract test coverage"}
+{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "SQLite/PostgreSQL adapter work touches nako-db"}
+{"file": ".trellis/spec/nako-db/backend/directory-structure.md", "reason": "new adapter code must stay in the correct backend modules"}
+{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "SQL, row mapping, pagination, and hydration rules for repository adapters"}
+{"file": ".trellis/spec/nako-db/backend/error-handling.md", "reason": "SQLx and row decoding errors must be converted consistently"}
+{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "repository-backed browse/projection contract tests and page-root hydration rules"}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "HTTP and app-service changes touch nako-server"}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "route handler should remain thin and preserve auth/access behavior"}
+{"file": ".trellis/spec/nako-server/backend/database-guidelines.md", "reason": "server should call repository/app service, not own SQL or DB loops"}
+{"file": ".trellis/tasks/06-08-continue-watching-repository-projection/research/continue-watching-jellyfin-comparison.md", "reason": "architecture comparison and accepted projection contract for this task"}

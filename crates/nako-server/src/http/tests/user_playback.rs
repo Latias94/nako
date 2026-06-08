@@ -151,6 +151,87 @@ async fn continue_watching_filters_items_without_current_library_access() {
 }
 
 #[tokio::test]
+async fn continue_watching_backfills_visible_items_before_pagination() {
+    let (_temp, app, source, store) =
+        app_with_media_source_config("visible-continue.mkv", b"media", |_| {}).await;
+    let inaccessible_library = Library {
+        id: LibraryId::new(),
+        name: "Hidden Continue".to_owned(),
+        roots: vec!["local:///Hidden Continue".to_owned()],
+        options: LibraryOptions::from_preset(nako_core::LibraryPreset::Movies),
+    };
+    let inaccessible_item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Hidden Continue".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let inaccessible_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: inaccessible_library.id,
+        item_id: inaccessible_item.id,
+        locator: "local:///Hidden Continue/Hidden Continue.mkv".to_owned(),
+        file_name: "Hidden Continue.mkv".to_owned(),
+        size_bytes: Some(64),
+        fingerprint: Some("hidden-continue".to_owned()),
+    };
+
+    store.upsert_library(&inaccessible_library).await.unwrap();
+    store.upsert_media_item(&inaccessible_item).await.unwrap();
+    store
+        .upsert_media_source(&inaccessible_source)
+        .await
+        .unwrap();
+
+    let principal =
+        local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Browse)
+            .await;
+    app.user_playback()
+        .update_progress(
+            crate::app::user_playback::UpdateUserPlaybackProgressRequest {
+                principal_id: principal.principal_id.clone(),
+                item_id: source.item_id,
+                source_id: Some(source.id),
+                position_ms: 120_000,
+                duration_ms: Some(600_000),
+                reported_at_ms: Some(1_000),
+            },
+        )
+        .await
+        .unwrap();
+    app.user_playback()
+        .update_progress(
+            crate::app::user_playback::UpdateUserPlaybackProgressRequest {
+                principal_id: principal.principal_id.clone(),
+                item_id: inaccessible_item.id,
+                source_id: Some(inaccessible_source.id),
+                position_ms: 240_000,
+                duration_ms: Some(600_000),
+                reported_at_ms: Some(2_000),
+            },
+        )
+        .await
+        .unwrap();
+    let router = public_client_router_with_principal(app, principal);
+
+    let continue_watching = request_json::<nako_api::public_client::ContinueWatchingResponse>(
+        &router,
+        Method::GET,
+        "/users/me/playback-state/continue-watching?limit=1&offset=0",
+    )
+    .await;
+
+    assert_eq!(continue_watching.page.returned, 1);
+    assert_eq!(
+        continue_watching.items[0].item.id,
+        source.item_id.to_string()
+    );
+}
+
+#[tokio::test]
 async fn user_playback_route_rejects_source_from_another_item() {
     let (_temp, router, first, store) = router_with_hls_source().await;
     let second_item = MediaItem {

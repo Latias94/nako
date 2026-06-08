@@ -5,24 +5,9 @@ use sqlx::postgres::PgRow;
 use nako_core::*;
 
 use super::{
-    PostgresStore, database_error, i64_to_u64, optional_i64_to_u64, parse_id, parse_optional_id,
-    row_get, u32_to_i64, u64_to_i64,
+    PostgresStore, database_error, optional_i64_to_u64, parse_id, parse_optional_id, row_get,
+    u32_to_i64, u64_to_i64,
 };
-
-const USER_PLAYBACK_STATE_SELECT: &str = r#"
-            SELECT
-                principal_id,
-                item_id::text AS item_id,
-                source_id::text AS source_id,
-                resume_position_ms,
-                duration_ms,
-                watched,
-                watched_at_ms,
-                last_played_at_ms,
-                updated_at_ms,
-                version
-            FROM user_playback_states
-            "#;
 
 const TRANSCODE_SESSION_SELECT: &str = r#"
             SELECT
@@ -272,107 +257,6 @@ impl PlaybackSessionRepository for PostgresStore {
         }
 
         Ok(Some(self.get_playback_session_or_not_found(id).await?))
-    }
-}
-
-#[async_trait::async_trait]
-impl UserPlaybackStateRepository for PostgresStore {
-    async fn upsert_user_playback_state(
-        &self,
-        state: UserPlaybackStateWrite,
-    ) -> Result<UserPlaybackState> {
-        sqlx::query(
-            r#"
-            INSERT INTO user_playback_states (
-                principal_id,
-                item_id,
-                source_id,
-                resume_position_ms,
-                duration_ms,
-                watched,
-                watched_at_ms,
-                last_played_at_ms,
-                updated_at_ms
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-            ON CONFLICT(principal_id, item_id) DO UPDATE SET
-                source_id = excluded.source_id,
-                resume_position_ms = excluded.resume_position_ms,
-                duration_ms = excluded.duration_ms,
-                watched = excluded.watched,
-                watched_at_ms = excluded.watched_at_ms,
-                last_played_at_ms = excluded.last_played_at_ms,
-                updated_at_ms = excluded.updated_at_ms,
-                version = user_playback_states.version + 1,
-                updated_at = statement_timestamp()
-            "#,
-        )
-        .bind(state.principal_id.as_str())
-        .bind(state.item_id.as_uuid())
-        .bind(state.source_id.map(|id| id.as_uuid()))
-        .bind(state.resume_position_ms.map(u64_to_i64).transpose()?)
-        .bind(state.duration_ms.map(u64_to_i64).transpose()?)
-        .bind(state.watched)
-        .bind(state.watched_at_ms)
-        .bind(state.last_played_at_ms)
-        .bind(state.updated_at_ms)
-        .execute(&self.pool)
-        .await
-        .map_err(database_error)?;
-
-        self.get_user_playback_state(&state.principal_id, state.item_id)
-            .await?
-            .ok_or_else(|| NakoError::Database {
-                message: format!(
-                    "user playback state for principal {} and item {} was not found after PostgreSQL upsert",
-                    state.principal_id, state.item_id
-                ),
-            })
-    }
-
-    async fn get_user_playback_state(
-        &self,
-        principal_id: &UserPrincipalId,
-        item_id: MediaItemId,
-    ) -> Result<Option<UserPlaybackState>> {
-        let query =
-            format!("{USER_PLAYBACK_STATE_SELECT} WHERE principal_id = $1 AND item_id = $2");
-        let row = sqlx::query(&query)
-            .bind(principal_id.as_str())
-            .bind(item_id.as_uuid())
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(database_error)?;
-
-        row.map(row_to_user_playback_state).transpose()
-    }
-
-    async fn list_continue_watching_states(
-        &self,
-        principal_id: &UserPrincipalId,
-        page: PageRequest,
-    ) -> Result<Vec<UserPlaybackState>> {
-        let page = page.clamped();
-        let query = format!(
-            r#"
-            {USER_PLAYBACK_STATE_SELECT}
-            WHERE principal_id = $1
-              AND watched = false
-              AND resume_position_ms IS NOT NULL
-              AND resume_position_ms > 0
-            ORDER BY last_played_at_ms DESC, item_id ASC
-            LIMIT $2 OFFSET $3
-            "#
-        );
-        let rows = sqlx::query(&query)
-            .bind(principal_id.as_str())
-            .bind(u32_to_i64(page.limit))
-            .bind(u64_to_i64(page.offset)?)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(database_error)?;
-
-        rows.into_iter().map(row_to_user_playback_state).collect()
     }
 }
 
@@ -663,21 +547,6 @@ fn row_to_playback_session(row: PgRow) -> Result<PlaybackSessionRecord> {
         ended_at_ms: row_get(&row, "ended_at_ms")?,
         created_at: row_get(&row, "created_at")?,
         updated_at: row_get(&row, "updated_at")?,
-    })
-}
-
-fn row_to_user_playback_state(row: PgRow) -> Result<UserPlaybackState> {
-    Ok(UserPlaybackState {
-        principal_id: UserPrincipalId::new(row_get::<String>(&row, "principal_id")?)?,
-        item_id: parse_id(row_get::<String>(&row, "item_id")?)?,
-        source_id: parse_optional_id(row_get::<Option<String>>(&row, "source_id")?)?,
-        resume_position_ms: optional_i64_to_u64(row_get(&row, "resume_position_ms")?)?,
-        duration_ms: optional_i64_to_u64(row_get(&row, "duration_ms")?)?,
-        watched: row_get(&row, "watched")?,
-        watched_at_ms: row_get(&row, "watched_at_ms")?,
-        last_played_at_ms: row_get(&row, "last_played_at_ms")?,
-        updated_at_ms: row_get(&row, "updated_at_ms")?,
-        version: i64_to_u64(row_get(&row, "version")?)?,
     })
 }
 

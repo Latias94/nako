@@ -23,6 +23,7 @@ mod metadata_candidate_review;
 mod metadata_catalog;
 mod playback_runtime;
 mod renderer_runtime;
+mod user_playback;
 mod user_playlist;
 mod vfs_health;
 mod vfs_staging;

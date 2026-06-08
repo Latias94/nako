@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use nako_core::{
-    MediaItemId, MediaRepository, MediaSourceId, NakoError, Result, UserPlaybackState,
-    UserPlaybackStateRepository, UserPlaybackStateWrite, UserPrincipalId,
+    AuthenticatedPrincipal, ContinueWatchingEntry, MediaItemId, MediaRepository, MediaSourceId,
+    NakoError, Result, UserPlaybackState, UserPlaybackStateRepository, UserPlaybackStateWrite,
+    UserPrincipalId,
 };
 use nako_db::NakoDatabase;
 
@@ -47,6 +48,12 @@ pub(crate) trait UserPlaybackStore: Clone + Send + Sync + std::fmt::Debug {
         page: nako_core::PageRequest,
     ) -> Result<Vec<UserPlaybackState>>;
 
+    async fn list_continue_watching_entries(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: nako_core::PageRequest,
+    ) -> Result<Vec<ContinueWatchingEntry>>;
+
     async fn load_media_item(&self, item_id: MediaItemId) -> Result<Option<nako_core::MediaItem>>;
 
     async fn load_media_source(
@@ -78,6 +85,14 @@ impl UserPlaybackStore for NakoDatabase {
         page: nako_core::PageRequest,
     ) -> Result<Vec<UserPlaybackState>> {
         UserPlaybackStateRepository::list_continue_watching_states(self, principal_id, page).await
+    }
+
+    async fn list_continue_watching_entries(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: nako_core::PageRequest,
+    ) -> Result<Vec<ContinueWatchingEntry>> {
+        UserPlaybackStateRepository::list_continue_watching_entries(self, principal, page).await
     }
 
     async fn load_media_item(&self, item_id: MediaItemId) -> Result<Option<nako_core::MediaItem>> {
@@ -221,6 +236,16 @@ where
     ) -> Result<Vec<UserPlaybackState>> {
         self.store
             .list_continue_watching_user_playback_states(principal_id, page)
+            .await
+    }
+
+    pub(crate) async fn list_continue_watching_entries(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: nako_core::PageRequest,
+    ) -> Result<Vec<ContinueWatchingEntry>> {
+        self.store
+            .list_continue_watching_entries(principal, page)
             .await
     }
 

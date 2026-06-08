@@ -1,14 +1,19 @@
 use std::collections::HashMap;
 
-use super::{SqliteStore, codec::*};
+use sqlx::{Postgres, QueryBuilder, postgres::PgRow};
+
 use nako_core::*;
-use sqlx::{QueryBuilder, Sqlite, sqlite::SqliteRow};
+
+use super::{
+    PostgresStore, database_error, i64_to_u64, image_kind_from_parts, optional_i64_to_u32,
+    optional_i64_to_u64, parse_id, parse_optional_id, row_get, u32_to_i64, u64_to_i64,
+};
 
 const USER_PLAYBACK_STATE_SELECT: &str = r#"
             SELECT
                 principal_id,
-                item_id,
-                source_id,
+                item_id::text AS item_id,
+                source_id::text AS source_id,
                 resume_position_ms,
                 duration_ms,
                 watched,
@@ -20,7 +25,7 @@ const USER_PLAYBACK_STATE_SELECT: &str = r#"
             "#;
 
 #[async_trait::async_trait]
-impl UserPlaybackStateRepository for SqliteStore {
+impl UserPlaybackStateRepository for PostgresStore {
     async fn upsert_user_playback_state(
         &self,
         state: UserPlaybackStateWrite,
@@ -38,7 +43,7 @@ impl UserPlaybackStateRepository for SqliteStore {
                 last_played_at_ms,
                 updated_at_ms
             )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             ON CONFLICT(principal_id, item_id) DO UPDATE SET
                 source_id = excluded.source_id,
                 resume_position_ms = excluded.resume_position_ms,
@@ -48,15 +53,15 @@ impl UserPlaybackStateRepository for SqliteStore {
                 last_played_at_ms = excluded.last_played_at_ms,
                 updated_at_ms = excluded.updated_at_ms,
                 version = user_playback_states.version + 1,
-                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                updated_at = statement_timestamp()
             "#,
         )
         .bind(state.principal_id.as_str())
-        .bind(state.item_id.to_string())
-        .bind(state.source_id.map(|id| id.to_string()))
-        .bind(optional_u64_to_i64(state.resume_position_ms)?)
-        .bind(optional_u64_to_i64(state.duration_ms)?)
-        .bind(bool_to_i64(state.watched))
+        .bind(state.item_id.as_uuid())
+        .bind(state.source_id.map(|id| id.as_uuid()))
+        .bind(state.resume_position_ms.map(u64_to_i64).transpose()?)
+        .bind(state.duration_ms.map(u64_to_i64).transpose()?)
+        .bind(state.watched)
         .bind(state.watched_at_ms)
         .bind(state.last_played_at_ms)
         .bind(state.updated_at_ms)
@@ -68,7 +73,7 @@ impl UserPlaybackStateRepository for SqliteStore {
             .await?
             .ok_or_else(|| NakoError::Database {
                 message: format!(
-                    "user playback state for principal {} and item {} was not found after upsert",
+                    "user playback state for principal {} and item {} was not found after PostgreSQL upsert",
                     state.principal_id, state.item_id
                 ),
             })
@@ -79,14 +84,14 @@ impl UserPlaybackStateRepository for SqliteStore {
         principal_id: &UserPrincipalId,
         item_id: MediaItemId,
     ) -> Result<Option<UserPlaybackState>> {
-        let row = sqlx::query(&format!(
-            "{USER_PLAYBACK_STATE_SELECT} WHERE principal_id = ?1 AND item_id = ?2"
-        ))
-        .bind(principal_id.as_str())
-        .bind(item_id.to_string())
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(database_error)?;
+        let query =
+            format!("{USER_PLAYBACK_STATE_SELECT} WHERE principal_id = $1 AND item_id = $2");
+        let row = sqlx::query(&query)
+            .bind(principal_id.as_str())
+            .bind(item_id.as_uuid())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(database_error)?;
 
         row.as_ref().map(row_to_user_playback_state).transpose()
     }
@@ -97,23 +102,24 @@ impl UserPlaybackStateRepository for SqliteStore {
         page: PageRequest,
     ) -> Result<Vec<UserPlaybackState>> {
         let page = page.clamped();
-        let rows = sqlx::query(&format!(
+        let query = format!(
             r#"
             {USER_PLAYBACK_STATE_SELECT}
-            WHERE principal_id = ?1
-              AND watched = 0
+            WHERE principal_id = $1
+              AND watched = false
               AND resume_position_ms IS NOT NULL
               AND resume_position_ms > 0
-            ORDER BY last_played_at_ms DESC, item_id ASC
-            LIMIT ?2 OFFSET ?3
+            ORDER BY last_played_at_ms DESC NULLS LAST, item_id ASC
+            LIMIT $2 OFFSET $3
             "#
-        ))
-        .bind(principal_id.as_str())
-        .bind(u32_to_i64(page.limit))
-        .bind(u64_to_i64(page.offset)?)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(database_error)?;
+        );
+        let rows = sqlx::query(&query)
+            .bind(principal_id.as_str())
+            .bind(u32_to_i64(page.limit))
+            .bind(u64_to_i64(page.offset)?)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(database_error)?;
 
         rows.iter().map(row_to_user_playback_state).collect()
     }
@@ -146,17 +152,17 @@ impl UserPlaybackStateRepository for SqliteStore {
 }
 
 async fn list_continue_watching_root_rows(
-    store: &SqliteStore,
+    store: &PostgresStore,
     principal: &AuthenticatedPrincipal,
     page: PageRequest,
-) -> Result<Vec<SqliteRow>> {
+) -> Result<Vec<PgRow>> {
     if principal.is_administrator() {
         return sqlx::query(
             r#"
             SELECT
                 states.principal_id,
-                states.item_id,
-                states.source_id,
+                states.item_id::text AS item_id,
+                states.source_id::text AS source_id,
                 states.resume_position_ms,
                 states.duration_ms,
                 states.watched,
@@ -164,26 +170,25 @@ async fn list_continue_watching_root_rows(
                 states.last_played_at_ms,
                 states.updated_at_ms,
                 states.version,
-                items.id,
+                items.id::text AS id,
                 items.kind,
-                items.parent_id,
+                items.parent_id::text AS parent_id,
                 items.title,
                 items.original_title,
                 items.sort_title,
                 items.overview,
                 items.release_date,
-                items.metadata_json
+                items.metadata_json::text AS metadata_json
             FROM user_playback_states AS states
             INNER JOIN media_items AS items
                 ON items.id = states.item_id
-            WHERE states.principal_id = ?1
-              AND states.watched = 0
+            WHERE states.principal_id = $1
+              AND states.watched = false
               AND states.resume_position_ms IS NOT NULL
               AND states.resume_position_ms > 0
-            ORDER BY states.last_played_at_ms IS NULL ASC,
-                     states.last_played_at_ms DESC,
+            ORDER BY states.last_played_at_ms DESC NULLS LAST,
                      states.item_id ASC
-            LIMIT ?2 OFFSET ?3
+            LIMIT $2 OFFSET $3
             "#,
         )
         .bind(principal.principal_id.as_str())
@@ -194,12 +199,12 @@ async fn list_continue_watching_root_rows(
         .map_err(database_error);
     }
 
-    let mut query = QueryBuilder::<Sqlite>::new(
+    let mut query = QueryBuilder::<Postgres>::new(
         r#"
             SELECT
                 states.principal_id,
-                states.item_id,
-                states.source_id,
+                states.item_id::text AS item_id,
+                states.source_id::text AS source_id,
                 states.resume_position_ms,
                 states.duration_ms,
                 states.watched,
@@ -207,15 +212,15 @@ async fn list_continue_watching_root_rows(
                 states.last_played_at_ms,
                 states.updated_at_ms,
                 states.version,
-                items.id,
+                items.id::text AS id,
                 items.kind,
-                items.parent_id,
+                items.parent_id::text AS parent_id,
                 items.title,
                 items.original_title,
                 items.sort_title,
                 items.overview,
                 items.release_date,
-                items.metadata_json
+                items.metadata_json::text AS metadata_json
             FROM user_playback_states AS states
             INNER JOIN media_items AS items
                 ON items.id = states.item_id
@@ -224,7 +229,7 @@ async fn list_continue_watching_root_rows(
     query.push_bind(principal.principal_id.as_str());
     query.push(
         r#"
-              AND states.watched = 0
+              AND states.watched = false
               AND states.resume_position_ms IS NOT NULL
               AND states.resume_position_ms > 0
               AND EXISTS (
@@ -237,7 +242,7 @@ async fn list_continue_watching_root_rows(
                             FROM user_library_access_policies AS user_policies
                             WHERE user_policies.user_id = "#,
     );
-    query.push_bind(principal.user_id.to_string());
+    query.push_bind(principal.user_id.as_uuid());
     query.push(
         r#"
                               AND user_policies.library_id = sources.library_id
@@ -273,8 +278,7 @@ async fn list_continue_watching_root_rows(
         r#"
                     )
               )
-            ORDER BY states.last_played_at_ms IS NULL ASC,
-                     states.last_played_at_ms DESC,
+            ORDER BY states.last_played_at_ms DESC NULLS LAST,
                      states.item_id ASC
             LIMIT "#,
     );
@@ -290,28 +294,28 @@ async fn list_continue_watching_root_rows(
 }
 
 async fn list_continue_watching_images(
-    store: &SqliteStore,
+    store: &PostgresStore,
     item_ids: &[MediaItemId],
 ) -> Result<HashMap<MediaItemId, Vec<ContinueWatchingImageEntry>>> {
     if item_ids.is_empty() {
         return Ok(HashMap::new());
     }
 
-    let mut query = QueryBuilder::<Sqlite>::new(
+    let mut query = QueryBuilder::<Postgres>::new(
         r#"
             SELECT
-                selected.id AS selected_id,
-                selected.library_id AS selected_library_id,
-                selected.item_id AS selected_item_id,
+                selected.id::text AS selected_id,
+                selected.library_id::text AS selected_library_id,
+                selected.item_id::text AS selected_item_id,
                 selected.kind AS selected_kind,
                 selected.kind_key AS selected_kind_key,
-                selected.artifact_id AS selected_artifact_id,
-                selected.created_at AS selected_created_at,
-                selected.updated_at AS selected_updated_at,
-                artifacts.id,
-                artifacts.ingest_id,
-                artifacts.library_id,
-                artifacts.item_id,
+                selected.artifact_id::text AS selected_artifact_id,
+                to_char(selected.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS selected_created_at,
+                to_char(selected.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS selected_updated_at,
+                artifacts.id::text AS id,
+                artifacts.ingest_id::text AS ingest_id,
+                artifacts.library_id::text AS library_id,
+                artifacts.item_id::text AS item_id,
                 artifacts.kind,
                 artifacts.kind_key,
                 artifacts.storage_uri,
@@ -320,8 +324,8 @@ async fn list_continue_watching_images(
                 artifacts.height,
                 artifacts.byte_len,
                 artifacts.media_type,
-                artifacts.created_at,
-                artifacts.updated_at
+                to_char(artifacts.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS created_at,
+                to_char(artifacts.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS updated_at
             FROM selected_artworks AS selected
             INNER JOIN managed_artwork_artifacts AS artifacts
                 ON artifacts.id = selected.artifact_id
@@ -329,7 +333,7 @@ async fn list_continue_watching_images(
     );
     let mut separated = query.separated(", ");
     for item_id in item_ids {
-        separated.push_bind(item_id.to_string());
+        separated.push_bind(item_id.as_uuid());
     }
     drop(separated);
     query.push(
@@ -351,7 +355,7 @@ async fn list_continue_watching_images(
     for row in rows {
         let selected = selected_artwork_from_prefixed_row(&row)?;
         let item_id = selected.item_id;
-        let artifact = row_to_managed_artwork_artifact(row)?;
+        let artifact = row_to_managed_artwork_artifact(&row)?;
         images_by_item
             .entry(item_id)
             .or_default()
@@ -361,7 +365,7 @@ async fn list_continue_watching_images(
     Ok(images_by_item)
 }
 
-fn selected_artwork_from_prefixed_row(row: &SqliteRow) -> Result<SelectedArtworkRecord> {
+fn selected_artwork_from_prefixed_row(row: &PgRow) -> Result<SelectedArtworkRecord> {
     Ok(SelectedArtworkRecord {
         id: parse_id(row_get::<String>(row, "selected_id")?)?,
         library_id: parse_id(row_get::<String>(row, "selected_library_id")?)?,
@@ -376,14 +380,32 @@ fn selected_artwork_from_prefixed_row(row: &SqliteRow) -> Result<SelectedArtwork
     })
 }
 
-fn row_to_user_playback_state(row: &SqliteRow) -> Result<UserPlaybackState> {
+fn row_to_managed_artwork_artifact(row: &PgRow) -> Result<ManagedArtworkArtifactRecord> {
+    Ok(ManagedArtworkArtifactRecord {
+        id: parse_id(row_get::<String>(row, "id")?)?,
+        ingest_id: parse_id(row_get::<String>(row, "ingest_id")?)?,
+        library_id: parse_id(row_get::<String>(row, "library_id")?)?,
+        item_id: parse_id(row_get::<String>(row, "item_id")?)?,
+        kind: image_kind_from_parts(row_get(row, "kind")?, row_get(row, "kind_key")?),
+        storage_uri: row_get(row, "storage_uri")?,
+        content_hash: row_get(row, "content_hash")?,
+        width: optional_i64_to_u32(row_get(row, "width")?)?,
+        height: optional_i64_to_u32(row_get(row, "height")?)?,
+        byte_len: optional_i64_to_u64(row_get(row, "byte_len")?)?,
+        media_type: row_get(row, "media_type")?,
+        created_at: row_get(row, "created_at")?,
+        updated_at: row_get(row, "updated_at")?,
+    })
+}
+
+fn row_to_user_playback_state(row: &PgRow) -> Result<UserPlaybackState> {
     Ok(UserPlaybackState {
         principal_id: UserPrincipalId::new(row_get::<String>(row, "principal_id")?)?,
         item_id: parse_id(row_get::<String>(row, "item_id")?)?,
         source_id: parse_optional_id(row_get::<Option<String>>(row, "source_id")?)?,
         resume_position_ms: optional_i64_to_u64(row_get(row, "resume_position_ms")?)?,
         duration_ms: optional_i64_to_u64(row_get(row, "duration_ms")?)?,
-        watched: i64_to_bool(row_get(row, "watched")?)?,
+        watched: row_get(row, "watched")?,
         watched_at_ms: row_get(row, "watched_at_ms")?,
         last_played_at_ms: row_get(row, "last_played_at_ms")?,
         updated_at_ms: row_get(row, "updated_at_ms")?,

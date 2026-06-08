@@ -1,8 +1,8 @@
 use tokio::sync::Mutex;
 
 use nako_core::{
-    DatabaseLifecycle, UserPlaybackState, UserPlaybackStateRepository, UserPlaybackStateWrite,
-    UserPrincipalId,
+    AuthenticatedPrincipal, ContinueWatchingEntry, DatabaseLifecycle, UserPlaybackState,
+    UserPlaybackStateRepository, UserPlaybackStateWrite, UserPrincipalId,
 };
 
 use super::*;
@@ -447,6 +447,26 @@ impl UserPlaybackStore for FakeUserPlaybackStore {
             .collect::<Vec<_>>();
         states.truncate(page.limit as usize);
         Ok(states)
+    }
+
+    async fn list_continue_watching_entries(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: nako_core::PageRequest,
+    ) -> nako_core::Result<Vec<ContinueWatchingEntry>> {
+        let states = self
+            .list_continue_watching_user_playback_states(&principal.principal_id, page)
+            .await?;
+
+        Ok(states
+            .into_iter()
+            .filter(|state| state.item_id == self.item.id)
+            .map(|state| ContinueWatchingEntry {
+                state,
+                item: self.item.clone(),
+                images: Vec::new(),
+            })
+            .collect())
     }
 
     async fn load_media_item(&self, item_id: MediaItemId) -> nako_core::Result<Option<MediaItem>> {

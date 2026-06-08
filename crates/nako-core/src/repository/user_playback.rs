@@ -1,7 +1,23 @@
 use async_trait::async_trait;
 
 use super::PageRequest;
-use crate::{MediaItemId, Result, UserPlaybackState, UserPlaybackStateWrite, UserPrincipalId};
+use crate::{
+    AuthenticatedPrincipal, ManagedArtworkArtifactRecord, MediaItem, MediaItemId, Result,
+    SelectedArtworkRecord, UserPlaybackState, UserPlaybackStateWrite, UserPrincipalId,
+};
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ContinueWatchingEntry {
+    pub state: UserPlaybackState,
+    pub item: MediaItem,
+    pub images: Vec<ContinueWatchingImageEntry>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ContinueWatchingImageEntry {
+    pub selected: SelectedArtworkRecord,
+    pub artifact: ManagedArtworkArtifactRecord,
+}
 
 #[async_trait]
 pub trait UserPlaybackStateRepository: Send + Sync {
@@ -21,4 +37,10 @@ pub trait UserPlaybackStateRepository: Send + Sync {
         principal_id: &UserPrincipalId,
         page: PageRequest,
     ) -> Result<Vec<UserPlaybackState>>;
+
+    async fn list_continue_watching_entries(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<Vec<ContinueWatchingEntry>>;
 }
