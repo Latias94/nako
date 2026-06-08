@@ -819,6 +819,64 @@ describe("AdminApiClient", () => {
     ]);
   });
 
+  it("remediates Managed Artwork stray files through the generated confirmed Admin route", async () => {
+    const cleanup = {
+      summary: {
+        file_scan_limit: 50,
+        scanned_files: 3,
+        cleanable_stray_files: 1,
+        blocked_stray_files: 2,
+        deleted_files: 1,
+        missing_files: 0,
+        failed_files: 0,
+        file_scan_truncated: false,
+      },
+      cleaned_files: [
+        {
+          recognized_artifact_id: "artifact-stray",
+          extension: "png",
+          byte_len: 68,
+          status: "deleted",
+        },
+      ],
+      blocked_files: [
+        {
+          reason: "unrecognized_layout",
+          action: "inspect_manually",
+          recognized_artifact_id: null,
+          extension: null,
+          byte_len: 42,
+        },
+      ],
+      dry_run: false,
+    };
+    const fetcher = vi.fn(async () => Response.json(cleanup));
+    const client = new AdminApiClient({ fetcher });
+
+    await expect(
+      client.remediateManagedArtworkArtifactStrayFiles({
+        confirm: true,
+        file_scan_limit: 50,
+      }),
+    ).resolves.toEqual(cleanup);
+
+    expect(fetcher).toHaveBeenCalledWith(
+      `${NAKO_ADMIN_ROUTES.managedArtworkArtifactRemediateStrayFiles}?confirm=true&file_scan_limit=50`,
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
+    );
+    const responseText = JSON.stringify(cleanup);
+    expect(responseText).not.toContain("storage_uri");
+    expect(responseText).not.toContain("managed-artwork://");
+    expect(responseText).not.toContain("source_uri");
+    expect(responseText).not.toContain("cache_uri");
+    expect(responseText).not.toContain("content_hash");
+    expect(responseText).not.toContain("token=secret");
+    expect(responseText).not.toContain("F:\\");
+  });
+
   it("uses generated source duplicate reconciliation routes for plan and apply", async () => {
     const fetcher = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = new URL(input.toString(), "http://127.0.0.1");

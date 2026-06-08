@@ -18,7 +18,7 @@ struct AdminRouteExclusionSuffix {
     reason: &'static str,
 }
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 109] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 110] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessInvitations", "access/invitations"),
@@ -164,6 +164,10 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 109] = [
     (
         "managedArtworkArtifactRemediationPlan",
         "artwork/artifacts/remediation-plan",
+    ),
+    (
+        "managedArtworkArtifactRemediateStrayFiles",
+        "artwork/artifacts/remediate-stray-files",
     ),
     (
         "managedArtworkArtifactPublish",
@@ -319,7 +323,7 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 109] = [
     ("settingsMetadataRawCache", "settings/metadata/raw-cache"),
 ];
 
-const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 5] = [
+const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 4] = [
     AdminRouteExclusionSuffix {
         suffix: "artwork/candidates/{candidate_id}/accept",
         reason: "Managed artwork maintenance commands are server-side operator workflows not generated as Admin Web route constants in this slice.",
@@ -330,10 +334,6 @@ const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 5] = [
     },
     AdminRouteExclusionSuffix {
         suffix: "artwork/ingests/{ingest_id}/requeue",
-        reason: "Managed artwork maintenance commands are server-side operator workflows not generated as Admin Web route constants in this slice.",
-    },
-    AdminRouteExclusionSuffix {
-        suffix: "artwork/artifacts/remediate-stray-files",
         reason: "Managed artwork maintenance commands are server-side operator workflows not generated as Admin Web route constants in this slice.",
     },
     AdminRouteExclusionSuffix {
@@ -1179,6 +1179,41 @@ export interface AdminManagedArtworkArtifactRemediationStrayFile {
   extension: string | null;
   byte_len: number | null;
 }
+
+export interface AdminManagedArtworkArtifactStrayFileCleanupQuery {
+  confirm?: boolean;
+  file_scan_limit?: number;
+}
+
+export interface AdminManagedArtworkArtifactStrayFileCleanupResponse {
+  summary: AdminManagedArtworkArtifactStrayFileCleanupSummary;
+  cleaned_files: AdminManagedArtworkArtifactStrayFileCleanupItem[];
+  blocked_files: AdminManagedArtworkArtifactRemediationStrayFile[];
+  dry_run: boolean;
+}
+
+export interface AdminManagedArtworkArtifactStrayFileCleanupSummary {
+  file_scan_limit: number;
+  scanned_files: number;
+  cleanable_stray_files: number;
+  blocked_stray_files: number;
+  deleted_files: number;
+  missing_files: number;
+  failed_files: number;
+  file_scan_truncated: boolean;
+}
+
+export interface AdminManagedArtworkArtifactStrayFileCleanupItem {
+  recognized_artifact_id: string;
+  extension: string | null;
+  byte_len: number | null;
+  status: AdminManagedArtworkArtifactStrayFileCleanupStatus;
+}
+
+export type AdminManagedArtworkArtifactStrayFileCleanupStatus =
+  | "deleted"
+  | "missing"
+  | "failed";
 
 export type AdminMetadataRefreshMode =
   | "none"
@@ -4669,6 +4704,11 @@ mod tests {
             "AdminManagedArtworkArtifactRemediationMissingArtifact",
             "AdminManagedArtworkArtifactStrayFileRemediationAction",
             "AdminManagedArtworkArtifactRemediationStrayFile",
+            "AdminManagedArtworkArtifactStrayFileCleanupQuery",
+            "AdminManagedArtworkArtifactStrayFileCleanupResponse",
+            "AdminManagedArtworkArtifactStrayFileCleanupSummary",
+            "AdminManagedArtworkArtifactStrayFileCleanupItem",
+            "AdminManagedArtworkArtifactStrayFileCleanupStatus",
             "AdminMetadataProfile",
             "AdminMetadataScanPolicy",
             "AdminUpdateLibraryMetadataProfileRequest",
@@ -4839,6 +4879,7 @@ mod tests {
             "source_locator",
             "cache_uri",
             "storage_uri",
+            "managed-artwork://",
             "prompt_json",
             "artifact_json",
             "database_url",

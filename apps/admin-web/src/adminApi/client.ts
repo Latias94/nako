@@ -48,6 +48,8 @@ import type {
   AdminManagedArtworkArtifactLifecycleResponse,
   AdminManagedArtworkArtifactRemediationPlanQuery,
   AdminManagedArtworkArtifactRemediationPlanResponse,
+  AdminManagedArtworkArtifactStrayFileCleanupQuery,
+  AdminManagedArtworkArtifactStrayFileCleanupResponse,
   AdminManagedArtworkArtifactStorageDriftQuery,
   AdminManagedArtworkArtifactStorageDriftResponse,
   AdminManagedArtworkGalleryResponse,
@@ -465,6 +467,15 @@ export class AdminApiClient {
   ): Promise<AdminManagedArtworkArtifactRemediationPlanResponse> {
     return this.getJson<AdminManagedArtworkArtifactRemediationPlanResponse>(
       withQuery(NAKO_ADMIN_ROUTES.managedArtworkArtifactRemediationPlan, query),
+    );
+  }
+
+  async remediateManagedArtworkArtifactStrayFiles(
+    query: AdminManagedArtworkArtifactStrayFileCleanupQuery = {},
+  ): Promise<AdminManagedArtworkArtifactStrayFileCleanupResponse> {
+    return this.postJson<AdminManagedArtworkArtifactStrayFileCleanupResponse>(
+      withQuery(NAKO_ADMIN_ROUTES.managedArtworkArtifactRemediateStrayFiles, query),
+      {},
     );
   }
 

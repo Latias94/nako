@@ -60,6 +60,7 @@ export const NAKO_ADMIN_ROUTES = {
   managedArtworkArtifactLifecycle: "/admin/v1/artwork/artifacts/lifecycle",
   managedArtworkArtifactStorageDrift: "/admin/v1/artwork/artifacts/storage-drift",
   managedArtworkArtifactRemediationPlan: "/admin/v1/artwork/artifacts/remediation-plan",
+  managedArtworkArtifactRemediateStrayFiles: "/admin/v1/artwork/artifacts/remediate-stray-files",
   managedArtworkArtifactPublish: "/admin/v1/artwork/artifacts/{artifact_id}/publish",
   catalogGovernanceItems: "/admin/v1/catalog/governance/items",
   catalogGovernanceItemDetail: "/admin/v1/catalog/governance/items/{item_id}",
@@ -876,6 +877,41 @@ export interface AdminManagedArtworkArtifactRemediationStrayFile {
   extension: string | null;
   byte_len: number | null;
 }
+
+export interface AdminManagedArtworkArtifactStrayFileCleanupQuery {
+  confirm?: boolean;
+  file_scan_limit?: number;
+}
+
+export interface AdminManagedArtworkArtifactStrayFileCleanupResponse {
+  summary: AdminManagedArtworkArtifactStrayFileCleanupSummary;
+  cleaned_files: AdminManagedArtworkArtifactStrayFileCleanupItem[];
+  blocked_files: AdminManagedArtworkArtifactRemediationStrayFile[];
+  dry_run: boolean;
+}
+
+export interface AdminManagedArtworkArtifactStrayFileCleanupSummary {
+  file_scan_limit: number;
+  scanned_files: number;
+  cleanable_stray_files: number;
+  blocked_stray_files: number;
+  deleted_files: number;
+  missing_files: number;
+  failed_files: number;
+  file_scan_truncated: boolean;
+}
+
+export interface AdminManagedArtworkArtifactStrayFileCleanupItem {
+  recognized_artifact_id: string;
+  extension: string | null;
+  byte_len: number | null;
+  status: AdminManagedArtworkArtifactStrayFileCleanupStatus;
+}
+
+export type AdminManagedArtworkArtifactStrayFileCleanupStatus =
+  | "deleted"
+  | "missing"
+  | "failed";
 
 export type AdminMetadataRefreshMode =
   | "none"

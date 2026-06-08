@@ -508,10 +508,11 @@ payloads.
 
 - These three routes are read-only diagnostics and belong in the generated
   Admin Web contract.
-- Mutating routes for candidate accept, ingest processing/requeue, artifact
-  publish, stray-file remediation, artifact cleanup, and addon install-guide
-  preview remain explicit exclusions until separate mutation policy tasks
-  define confirmation and safety behavior.
+- Mutating routes for candidate accept, ingest processing/requeue, and artifact
+  cleanup remain explicit exclusions until separate mutation policy tasks define
+  confirmation and safety behavior. Artifact publish, stray-file remediation,
+  and addon install-guide preview have separate generated contracts and should
+  not be re-added to the exclusion list.
 - DTOs may expose counts, booleans, safe enum codes, stable artifact/ingest/item
   IDs, dimensions, byte counts, media type, and timestamps.
 - DTOs and generated TypeScript must not expose raw file names, local paths,
@@ -527,6 +528,7 @@ payloads.
 |-----------|-------------------|
 | Read-only Managed Artwork diagnostic route becomes Admin Web-facing | Add it to `ADMIN_ROUTE_SUFFIXES`, add DTO TypeScript body, and regenerate contracts |
 | Mutating Managed Artwork route remains server/operator-only | Keep an explicit exclusion with a specific reason |
+| Confirmed Managed Artwork mutation becomes Admin Web-facing | Add a dedicated generated mutation contract with route key, query/request semantics, response DTOs, and redaction tests |
 | Server route inventory changes | `implemented_admin_routes_are_generated_or_explicitly_excluded` must pass with no stale exclusions |
 | Diagnostic source records include paths, URIs, hashes, tokens, roots, etags, or provider payloads | Response/generated contract expose only safe summaries and presence booleans |
 | Public Client contract output contains these Admin diagnostics | Treat as contract drift and remove from Public Client outputs |
@@ -534,7 +536,10 @@ payloads.
 ### 5. Good/Base/Bad Cases
 
 - Good: generated route inventory includes all three read-only diagnostics while
-  cleanup/publish/process mutations remain excluded.
+  cleanup/process/requeue mutations remain excluded.
+- Good: dedicated confirmed mutation tasks generate publish or stray-file
+  remediation routes with typed Admin Web client tests and no raw storage
+  material in response DTOs.
 - Good: Admin Web maps generated DTOs into route-local safe rows before
   rendering.
 - Base: Managed Artwork gallery remains item-scoped; maintenance diagnostics
@@ -553,6 +558,104 @@ payloads.
   `cargo check -p nako-api --tests` and `cargo check -p nako-server --tests`.
 - Frontend consumer checks:
   `npm run check --prefix apps/admin-web` and focused Admin Web route tests.
+
+## Scenario: Managed Artwork Stray File Cleanup Confirmed Admin Contract
+
+### 1. Scope / Trigger
+
+- Trigger: generating or changing the Admin contract for
+  `POST /admin/v1/artwork/artifacts/remediate-stray-files`.
+- Scope: `crates/nako-api/src/admin/managed_artwork.rs`,
+  `crates/nako-api/src/admin_contract.rs`,
+  `crates/nako-server/src/http/admin.rs`,
+  `crates/nako-server/src/http/query.rs`, and generated Admin TypeScript
+  contracts under `apps/admin-web` and `web`.
+
+### 2. Signatures
+
+- Generated route key:
+  `managedArtworkArtifactRemediateStrayFiles`.
+- Query:
+  `AdminManagedArtworkArtifactStrayFileCleanupQuery { confirm?: boolean, file_scan_limit?: number }`.
+- Response:
+  `AdminManagedArtworkArtifactStrayFileCleanupResponse { summary, cleaned_files, blocked_files, dry_run }`.
+- Summary:
+  `AdminManagedArtworkArtifactStrayFileCleanupSummary { file_scan_limit, scanned_files, cleanable_stray_files, blocked_stray_files, deleted_files, missing_files, failed_files, file_scan_truncated }`.
+- Cleaned item:
+  `AdminManagedArtworkArtifactStrayFileCleanupItem { recognized_artifact_id, extension, byte_len, status }`.
+- Status:
+  `AdminManagedArtworkArtifactStrayFileCleanupStatus = deleted | missing | failed`.
+
+### 3. Contracts
+
+- The route is an Admin-only confirmed mutation. It must stay out of Public
+  Client route inventories, OpenAPI public outputs, and generated Public SDKs.
+- Server query parsing requires `confirm=true` before cleanup executes.
+- Admin Web client calls must send query parameters and an empty JSON object
+  body; callers must not submit raw file names, storage paths, artifact roots,
+  URIs, hashes, or backend details.
+- Cleanup response DTOs may expose only counts, stable artifact IDs, extension,
+  byte length, safe status/reason/action enum codes, and `dry_run`.
+- Response DTOs and generated TypeScript must not expose raw file names, local
+  paths, artifact roots, `storage_uri`, `managed-artwork://` handles,
+  `source_uri`, `cache_uri`, provider URLs/query strings, tokens, credentials,
+  raw content hashes, etags, or backend payloads.
+- Generated contract artifacts under `apps/admin-web` and `web` must be
+  regenerated from `nako-api`; do not hand-edit generated TypeScript output.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| `confirm=true` is absent | Server returns invalid input and does not delete files |
+| `confirm=true` is present with a bounded `file_scan_limit` | Server may delete only parseable untracked artifact files after rechecking active DB state |
+| Route becomes generated | Remove only this suffix from `admin_contract_route_exclusions()` and add the generated route key |
+| Generated response contains paths, URIs, hashes, tokens, file names, roots, etags, or provider payloads | Treat as a contract violation |
+| Public Client output contains the route or DTOs | Treat as contract drift and remove them from Public outputs |
+
+### 5. Good/Base/Bad Cases
+
+- Good: Admin Web client calls
+  `managedArtworkArtifactRemediateStrayFiles?confirm=true&file_scan_limit=50`
+  with `POST {}` and deserializes only safe cleanup summary fields.
+- Base: read-only maintenance diagnostics still expose remediation plans without
+  executing cleanup.
+- Bad: accepting a raw file path in the request body, returning a raw
+  `storage_uri`, or adding this Admin route to Public Client route inventory.
+
+### 6. Tests Required
+
+- API contract:
+  `cargo nextest run -p nako-api admin_contract --no-fail-fast`.
+- Server route inventory:
+  `cargo nextest run -p nako-server implemented_admin_routes_are_generated_or_explicitly_excluded --no-fail-fast`.
+- Server remediation behavior:
+  `cargo nextest run -p nako-server admin_managed_artwork_remediation --no-fail-fast`.
+- Admin Web client:
+  `npm run test --prefix apps/admin-web -- adminApi/client.test.ts` and
+  `npm run check --prefix apps/admin-web`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```typescript
+client.postJson(NAKO_ADMIN_ROUTES.managedArtworkArtifactRemediateStrayFiles, {
+  path: "F:/media/.nako/artwork/private.png",
+});
+```
+
+#### Correct
+
+```typescript
+client.remediateManagedArtworkArtifactStrayFiles({
+  confirm: true,
+  file_scan_limit: 50,
+});
+```
+
+The server owns target discovery and deletion authority; the client supplies
+only confirmation and a bounded scan limit.
 
 ## Scenario: Admin Overview Source Fingerprint Hash Diagnostic
 
