@@ -2239,10 +2239,10 @@ fn postgres_browse_order_by(
 ) -> &'static str {
     match (sort, order) {
         (LibraryItemBrowseSortKey::Title, LibraryItemBrowseSortOrder::Asc) => {
-            "\n            ORDER BY COALESCE(media_items.sort_title, media_items.title) ASC, media_items.id ASC"
+            "\n            ORDER BY COALESCE(media_items.sort_title, media_items.title) COLLATE \"C\" ASC, media_items.id ASC"
         }
         (LibraryItemBrowseSortKey::Title, LibraryItemBrowseSortOrder::Desc) => {
-            "\n            ORDER BY COALESCE(media_items.sort_title, media_items.title) DESC, media_items.id ASC"
+            "\n            ORDER BY COALESCE(media_items.sort_title, media_items.title) COLLATE \"C\" DESC, media_items.id ASC"
         }
         (LibraryItemBrowseSortKey::ReleaseDate, LibraryItemBrowseSortOrder::Asc) => {
             "\n            ORDER BY media_items.release_date IS NULL ASC, media_items.release_date ASC, media_items.id ASC"

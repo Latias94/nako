@@ -618,13 +618,19 @@ async fn seed_contract_library<S>(store: &S) -> Library
 where
     S: LibraryRepository + ?Sized,
 {
+    seed_named_browse_library(store, "Contract Movies").await
+}
+
+async fn seed_named_browse_library<S>(store: &S, name: &str) -> Library
+where
+    S: LibraryRepository + ?Sized,
+{
     let library = Library {
         id: LibraryId::new(),
-        name: "Contract Movies".to_owned(),
-        roots: vec!["local:///Contract Movies".to_owned()],
+        name: name.to_owned(),
+        roots: vec![format!("local:///{name}")],
         options: LibraryOptions::from_preset(LibraryPreset::Movies),
     };
-
     store.upsert_library(&library).await.unwrap();
     library
 }
@@ -2090,6 +2096,298 @@ where
     );
 }
 
+async fn library_item_browse_sort_edges_contract<S>(store: S)
+where
+    S: LibraryBrowseContractBackend,
+{
+    let title_library = seed_named_browse_library(&store, "Browse Title Sort").await;
+    let title_upper = browse_contract_item(
+        MediaItemId::new(),
+        MediaKind::Movie,
+        "Alpha Title",
+        None,
+        None,
+    );
+    let title_lower = browse_contract_item(
+        MediaItemId::new(),
+        MediaKind::Movie,
+        "alpha Title",
+        None,
+        None,
+    );
+    let title_non_ascii = browse_contract_item(
+        MediaItemId::new(),
+        MediaKind::Movie,
+        "Éclair Title",
+        None,
+        None,
+    );
+    let title_tie_left = browse_contract_item(
+        MediaItemId::new(),
+        MediaKind::Movie,
+        "Tie Title Left",
+        Some("Tie Title"),
+        None,
+    );
+    let title_tie_right = browse_contract_item(
+        MediaItemId::new(),
+        MediaKind::Movie,
+        "Tie Title Right",
+        Some("Tie Title"),
+        None,
+    );
+
+    for (item, key) in [
+        (&title_upper, "title-upper"),
+        (&title_lower, "title-lower"),
+        (&title_non_ascii, "title-non-ascii"),
+        (&title_tie_left, "title-tie-left"),
+        (&title_tie_right, "title-tie-right"),
+    ] {
+        insert_browse_item_with_source(&store, title_library.id, item, key).await;
+    }
+
+    let principal_id = UserPrincipalId::local_admin();
+    let title_ties = sorted_ids([title_tie_left.id, title_tie_right.id]);
+    let title_asc = browse_ids(
+        store
+            .list_library_items_for_browse(
+                title_library.id,
+                &principal_id,
+                &browse_contract_query(
+                    PageRequest::new(10, 0),
+                    LibraryItemBrowseSortKey::Title,
+                    LibraryItemBrowseSortOrder::Asc,
+                ),
+            )
+            .await
+            .unwrap(),
+    );
+    assert_eq!(
+        title_asc,
+        [
+            vec![title_upper.id],
+            title_ties.clone(),
+            vec![title_lower.id, title_non_ascii.id],
+        ]
+        .concat()
+    );
+
+    let title_desc = browse_ids(
+        store
+            .list_library_items_for_browse(
+                title_library.id,
+                &principal_id,
+                &browse_contract_query(
+                    PageRequest::new(10, 0),
+                    LibraryItemBrowseSortKey::Title,
+                    LibraryItemBrowseSortOrder::Desc,
+                ),
+            )
+            .await
+            .unwrap(),
+    );
+    assert_eq!(
+        title_desc,
+        [
+            vec![title_non_ascii.id, title_lower.id],
+            title_ties,
+            vec![title_upper.id],
+        ]
+        .concat()
+    );
+
+    let date_library = seed_named_browse_library(&store, "Browse Date Added Sort").await;
+    let min_source_then_state = browse_contract_item(
+        MediaItemId::new(),
+        MediaKind::Movie,
+        "Min Source Then State",
+        None,
+        None,
+    );
+    let middle_source = browse_contract_item(
+        MediaItemId::new(),
+        MediaKind::Movie,
+        "Middle Source",
+        None,
+        None,
+    );
+    let late_source = browse_contract_item(
+        MediaItemId::new(),
+        MediaKind::Movie,
+        "Late Source",
+        None,
+        None,
+    );
+    insert_browse_item_with_source(
+        &store,
+        date_library.id,
+        &min_source_then_state,
+        "date-min-source",
+    )
+    .await;
+    sleep_for_distinct_timestamp().await;
+    insert_browse_item_with_source(&store, date_library.id, &middle_source, "date-middle").await;
+    sleep_for_distinct_timestamp().await;
+    insert_browse_item_with_source(&store, date_library.id, &late_source, "date-late").await;
+    sleep_for_distinct_timestamp().await;
+    insert_browse_state(&store, date_library.id, min_source_then_state.id).await;
+
+    let date_added_asc = browse_ids(
+        store
+            .list_library_items_for_browse(
+                date_library.id,
+                &principal_id,
+                &browse_contract_query(
+                    PageRequest::new(10, 0),
+                    LibraryItemBrowseSortKey::DateAdded,
+                    LibraryItemBrowseSortOrder::Asc,
+                ),
+            )
+            .await
+            .unwrap(),
+    );
+    assert_eq!(
+        date_added_asc,
+        vec![min_source_then_state.id, middle_source.id, late_source.id]
+    );
+
+    let date_added_desc = browse_ids(
+        store
+            .list_library_items_for_browse(
+                date_library.id,
+                &principal_id,
+                &browse_contract_query(
+                    PageRequest::new(10, 0),
+                    LibraryItemBrowseSortKey::DateAdded,
+                    LibraryItemBrowseSortOrder::Desc,
+                ),
+            )
+            .await
+            .unwrap(),
+    );
+    assert_eq!(
+        date_added_desc,
+        vec![late_source.id, middle_source.id, min_source_then_state.id]
+    );
+
+    let release_library = seed_named_browse_library(&store, "Browse Release Sort").await;
+    let release_tie_left = browse_contract_item(
+        MediaItemId::new(),
+        MediaKind::Movie,
+        "Release Tie Left",
+        None,
+        Some("2026-01-01"),
+    );
+    let release_tie_right = browse_contract_item(
+        MediaItemId::new(),
+        MediaKind::Movie,
+        "Release Tie Right",
+        None,
+        Some("2026-01-01"),
+    );
+    let release_none = browse_contract_item(
+        MediaItemId::new(),
+        MediaKind::Movie,
+        "Release None",
+        None,
+        None,
+    );
+    for (item, key) in [
+        (&release_tie_left, "release-tie-left"),
+        (&release_tie_right, "release-tie-right"),
+        (&release_none, "release-none"),
+    ] {
+        insert_browse_item_with_source(&store, release_library.id, item, key).await;
+    }
+
+    let release_ties = sorted_ids([release_tie_left.id, release_tie_right.id]);
+    let release_tie_asc = browse_ids(
+        store
+            .list_library_items_for_browse(
+                release_library.id,
+                &principal_id,
+                &browse_contract_query(
+                    PageRequest::new(10, 0),
+                    LibraryItemBrowseSortKey::ReleaseDate,
+                    LibraryItemBrowseSortOrder::Asc,
+                ),
+            )
+            .await
+            .unwrap(),
+    );
+    assert_eq!(
+        release_tie_asc,
+        [release_ties, vec![release_none.id]].concat()
+    );
+
+    let last_played_library = seed_named_browse_library(&store, "Browse Last Played Sort").await;
+    let last_played_tie_left = browse_contract_item(
+        MediaItemId::new(),
+        MediaKind::Movie,
+        "Last Played Tie Left",
+        None,
+        None,
+    );
+    let last_played_tie_right = browse_contract_item(
+        MediaItemId::new(),
+        MediaKind::Movie,
+        "Last Played Tie Right",
+        None,
+        None,
+    );
+    let last_played_none = browse_contract_item(
+        MediaItemId::new(),
+        MediaKind::Movie,
+        "Last Played None",
+        None,
+        None,
+    );
+    for (item, key) in [
+        (&last_played_tie_left, "last-played-tie-left"),
+        (&last_played_tie_right, "last-played-tie-right"),
+        (&last_played_none, "last-played-none"),
+    ] {
+        insert_browse_item_with_source(&store, last_played_library.id, item, key).await;
+    }
+    for item_id in [last_played_tie_left.id, last_played_tie_right.id] {
+        store
+            .upsert_user_playback_state(UserPlaybackStateWrite {
+                principal_id: principal_id.clone(),
+                item_id,
+                source_id: None,
+                resume_position_ms: Some(0),
+                duration_ms: Some(100_000),
+                watched: false,
+                watched_at_ms: None,
+                last_played_at_ms: Some(700),
+                updated_at_ms: 700,
+            })
+            .await
+            .unwrap();
+    }
+
+    let last_played_ties = sorted_ids([last_played_tie_left.id, last_played_tie_right.id]);
+    let last_played_tie_desc = browse_ids(
+        store
+            .list_library_items_for_browse(
+                last_played_library.id,
+                &principal_id,
+                &browse_contract_query(
+                    PageRequest::new(10, 0),
+                    LibraryItemBrowseSortKey::LastPlayed,
+                    LibraryItemBrowseSortOrder::Desc,
+                ),
+            )
+            .await
+            .unwrap(),
+    );
+    assert_eq!(
+        last_played_tie_desc,
+        [last_played_ties, vec![last_played_none.id]].concat()
+    );
+}
+
 async fn scan_commit_writes_full_source_unit_and_resolves_failure_contract<S>(store: S)
 where
     S: ScanCommitContractBackend,
@@ -2501,6 +2799,18 @@ where
         })
         .await
         .unwrap();
+}
+
+async fn insert_browse_item_with_source<S>(
+    store: &S,
+    library_id: LibraryId,
+    item: &MediaItem,
+    key: &str,
+) where
+    S: MediaRepository + ?Sized,
+{
+    store.upsert_media_item(item).await.unwrap();
+    insert_browse_source(store, library_id, item.id, key).await;
 }
 
 async fn insert_browse_state<S>(store: &S, library_id: LibraryId, item_id: MediaItemId)
@@ -9849,6 +10159,13 @@ database_contract_pair!(
         "browse_query_filters_sorts_and_pages"
     ),
     contract = library_item_browse_query_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_library_media_contract_browse_sort_edges,
+    postgres = postgres_library_media_contract_browse_sort_edges,
+    case = ContractCase::migrated(ContractFamily::LibraryMedia, "browse_sort_edges"),
+    contract = library_item_browse_sort_edges_contract,
 );
 
 database_contract_pair!(
