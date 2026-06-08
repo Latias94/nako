@@ -946,6 +946,102 @@ describe("AdminApiClient", () => {
     expect(responseText).not.toContain("F:\\");
   });
 
+  it("processes the next Managed Artwork Ingest through the generated Admin route", async () => {
+    const processed = {
+      processed: true,
+      ingest: {
+        id: "ingest-1",
+        candidate_id: "candidate-1",
+        job_id: "job-1",
+        library_id: "library-anime",
+        item_id: "item-anime-1",
+        kind: "poster",
+        status: "stored",
+        has_artifact: true,
+        has_failure: false,
+        failure_code: null,
+        created_at: "2026-05-25T10:00:00Z",
+        updated_at: "2026-05-25T10:00:01Z",
+      },
+      artifact: {
+        id: "artifact-1",
+        ingest_id: "ingest-1",
+        library_id: "library-anime",
+        item_id: "item-anime-1",
+        kind: "poster",
+        has_content_hash: true,
+        width: 1,
+        height: 1,
+        byte_len: 68,
+        media_type: "image/png",
+        created_at: "2026-05-25T10:00:01Z",
+        updated_at: "2026-05-25T10:00:01Z",
+      },
+      job: {
+        id: "job-1",
+        kind: "managed_artwork_ingest",
+        status: "succeeded",
+        resource_class: "artwork.ingest",
+        priority: "normal",
+        library_id: "library-anime",
+        source_id: null,
+        has_input: true,
+        has_summary: true,
+        has_error: false,
+        attempt: 0,
+        max_attempts: 1,
+        retry_of_job_id: null,
+        next_attempt_at: null,
+        queued_at: "2026-05-25T10:00:00Z",
+        started_at: "2026-05-25T10:00:00Z",
+        completed_at: "2026-05-25T10:00:01Z",
+      },
+    };
+    const empty = {
+      processed: false,
+      ingest: null,
+      artifact: null,
+      job: null,
+    };
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(processed))
+      .mockResolvedValueOnce(Response.json(empty));
+    const client = new AdminApiClient({ fetcher });
+
+    await expect(client.processNextManagedArtworkIngest()).resolves.toEqual(processed);
+    await expect(client.processNextManagedArtworkIngest()).resolves.toEqual(empty);
+
+    expect(fetcher).toHaveBeenNthCalledWith(
+      1,
+      NAKO_ADMIN_ROUTES.managedArtworkIngestProcessNext,
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
+    );
+    expect(fetcher).toHaveBeenNthCalledWith(
+      2,
+      NAKO_ADMIN_ROUTES.managedArtworkIngestProcessNext,
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
+    );
+    expect(empty.processed).toBe(false);
+    const responseText = JSON.stringify(processed);
+    expect(responseText).not.toContain("storage_uri");
+    expect(responseText).not.toContain("managed-artwork://");
+    expect(responseText).not.toContain("source_uri");
+    expect(responseText).not.toContain("cache_uri");
+    expect(responseText).not.toContain("token=secret");
+    expect(responseText).not.toContain("input_json");
+    expect(responseText).not.toContain("summary_json");
+    expect(responseText).not.toContain("\"content_hash\"");
+    expect(responseText).not.toContain("sha256-demo");
+    expect(responseText).not.toContain("F:\\");
+  });
+
   it("cleans up Managed Artwork Artifacts through the generated confirmed Admin route", async () => {
     const cleanup = {
       examined_artifacts: 1,

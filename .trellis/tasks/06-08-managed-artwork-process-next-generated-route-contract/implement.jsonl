@@ -1,0 +1,13 @@
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "API contract pre-development checklist for Admin generated route work"}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Admin/Public contract split, generated Admin Web contract, and validation gates"}
+{"file": ".trellis/spec/nako-api/backend/directory-structure.md", "reason": "nako-api generator and DTO ownership boundaries"}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Admin route inventory, Managed Artwork contract, and redaction rules"}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "server HTTP/app-service pre-development checklist"}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Admin Axum route and handler boundary rules"}
+{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "HTTP error redaction and status behavior for existing server tests"}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "focused nextest gates and Admin command route test patterns"}
+{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web pre-development checklist"}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "generated AdminApiClient method and test conventions"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "cross-layer API/server/frontend contract flow"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "route key, DTO, and client method reuse search guidance"}
+{"file": ".trellis/tasks/06-08-managed-artwork-process-next-generated-route-contract/research/jellyfin-scheduled-task-start-comparison.md", "reason": "Jellyfin comparison for elevated scheduled task start versus Nako process-next boundary"}

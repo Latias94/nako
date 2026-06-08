@@ -107,6 +107,7 @@ import type {
   AdminUpdateLibraryMetadataProfileRequest,
   PublishSelectedArtworkResponse,
   AdminUpdatePlaybackRuntimeSettingsRequest,
+  ProcessManagedArtworkIngestResponse,
   UpdateAddonStatusRequest,
   UnpublishSelectedArtworkResponse,
 } from "./generated/contract";
@@ -480,6 +481,13 @@ export class AdminApiClient {
         "ingest_id",
         ingestId,
       ),
+      {},
+    );
+  }
+
+  async processNextManagedArtworkIngest(): Promise<ProcessManagedArtworkIngestResponse> {
+    return this.postJson<ProcessManagedArtworkIngestResponse>(
+      NAKO_ADMIN_ROUTES.managedArtworkIngestProcessNext,
       {},
     );
   }

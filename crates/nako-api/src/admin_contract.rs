@@ -12,13 +12,7 @@ pub struct AdminContractRouteExclusion {
     pub reason: &'static str,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-struct AdminRouteExclusionSuffix {
-    suffix: &'static str,
-    reason: &'static str,
-}
-
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 113] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 114] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessInvitations", "access/invitations"),
@@ -160,6 +154,10 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 113] = [
     (
         "managedArtworkIngestRequeue",
         "artwork/ingests/{ingest_id}/requeue",
+    ),
+    (
+        "managedArtworkIngestProcessNext",
+        "artwork/ingests/process-next",
     ),
     (
         "managedArtworkArtifactLifecycle",
@@ -332,13 +330,6 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 113] = [
     ("settingsMetadataRawCache", "settings/metadata/raw-cache"),
 ];
 
-const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 1] = [
-    AdminRouteExclusionSuffix {
-        suffix: "artwork/ingests/process-next",
-        reason: "Managed artwork maintenance commands are server-side operator workflows not generated as Admin Web route constants in this slice.",
-    },
-];
-
 #[must_use]
 pub fn admin_typescript_contract() -> String {
     let mut output = String::new();
@@ -372,13 +363,7 @@ pub fn admin_contract_routes() -> Vec<AdminContractRoute> {
 
 #[must_use]
 pub fn admin_contract_route_exclusions() -> Vec<AdminContractRouteExclusion> {
-    ADMIN_ROUTE_EXCLUSION_SUFFIXES
-        .iter()
-        .map(|exclusion| AdminContractRouteExclusion {
-            path: admin_route_path(exclusion.suffix),
-            reason: exclusion.reason,
-        })
-        .collect()
+    Vec::new()
 }
 
 #[must_use]
@@ -952,6 +937,28 @@ export interface RequeueManagedArtworkIngestResponse {
   job: ManagedArtworkIngestJobSummary;
   requeued: boolean;
   had_failure: boolean;
+}
+
+export interface ManagedArtworkArtifactSummary {
+  id: string;
+  ingest_id: string;
+  library_id: string;
+  item_id: string;
+  kind: AdminArtworkKind | string;
+  has_content_hash: boolean;
+  width: number | null;
+  height: number | null;
+  byte_len: number | null;
+  media_type: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProcessManagedArtworkIngestResponse {
+  processed: boolean;
+  ingest: ManagedArtworkIngestSummary | null;
+  artifact: ManagedArtworkArtifactSummary | null;
+  job: JobResponse | null;
 }
 
 export interface SelectedArtworkSummary {
@@ -4757,6 +4764,8 @@ mod tests {
             "ManagedArtworkIngestJobSummary",
             "AcceptManagedArtworkCandidateResponse",
             "RequeueManagedArtworkIngestResponse",
+            "ManagedArtworkArtifactSummary",
+            "ProcessManagedArtworkIngestResponse",
             "SelectedArtworkSummary",
             "PublishSelectedArtworkResponse",
             "UnpublishSelectedArtworkResponse",

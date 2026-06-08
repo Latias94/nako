@@ -508,12 +508,10 @@ payloads.
 
 - These three routes are read-only diagnostics and belong in the generated
   Admin Web contract.
-- The worker execution route `artwork/ingests/process-next` remains an explicit
-  exclusion until a separate runtime-control policy task defines a stable
-  Admin Web-facing command boundary. Candidate accept, ingest requeue, artifact
-  publish, artifact cleanup, stray-file remediation, and addon install-guide
-  preview have separate generated contracts and should not be re-added to the
-  exclusion list.
+- Managed Artwork candidate accept, ingest process-next, ingest requeue,
+  artifact publish, artifact cleanup, stray-file remediation, and addon
+  install-guide preview have separate generated contracts and should not be
+  re-added to the exclusion list.
 - DTOs may expose counts, booleans, safe enum codes, stable artifact/ingest/item
   IDs, dimensions, byte counts, media type, and timestamps.
 - DTOs and generated TypeScript must not expose raw file names, local paths,
@@ -532,6 +530,7 @@ payloads.
 | Confirmed Managed Artwork mutation becomes Admin Web-facing | Add a dedicated generated mutation contract with route key, query/request semantics, response DTOs, and redaction tests |
 | Candidate accept becomes Admin Web-facing | Add `managedArtworkCandidateAccept`, emit `AcceptManagedArtworkCandidateResponse` and `JobResponse`, and keep the request body empty |
 | Ingest requeue becomes Admin Web-facing | Add `managedArtworkIngestRequeue`, emit `RequeueManagedArtworkIngestResponse` and `ManagedArtworkIngestJobSummary`, and keep the request body empty |
+| Process-next becomes Admin Web-facing | Add `managedArtworkIngestProcessNext`, emit `ProcessManagedArtworkIngestResponse`, and keep the request body empty |
 | Server route inventory changes | `implemented_admin_routes_are_generated_or_explicitly_excluded` must pass with no stale exclusions |
 | Diagnostic source records include paths, URIs, hashes, tokens, roots, etags, or provider payloads | Response/generated contract expose only safe summaries and presence booleans |
 | Public Client contract output contains these Admin diagnostics | Treat as contract drift and remove from Public Client outputs |
@@ -539,8 +538,8 @@ payloads.
 ### 5. Good/Base/Bad Cases
 
 - Good: generated route inventory includes all three read-only diagnostics, the
-  candidate accept selection command, and the ingest requeue retry command,
-  while `process-next` remains excluded.
+  candidate accept selection command, the ingest process-next command, and the
+  ingest requeue retry command with no explicit exclusions.
 - Good: dedicated confirmed mutation tasks generate publish or stray-file
   remediation routes with typed Admin Web client tests and no raw storage
   material in response DTOs.
@@ -604,7 +603,7 @@ payloads.
   low-level generated contract does not require a `confirm=true` query. Any
   future page workflow still needs a dedicated live-only UI task.
 - Current Managed Artwork route exclusions after generated mutation contracts
-  should contain only `artwork/ingests/process-next`.
+  should be empty.
 
 ### 4. Validation & Error Matrix
 
@@ -767,6 +766,102 @@ return this.postJson(
 
 The server owns retry validation and durable job reset. Admin Web submits only
 the opaque ingest ID selected by the operator.
+
+## Scenario: Managed Artwork Process-Next Generated Admin Contract
+
+### 1. Scope / Trigger
+
+- Trigger: generating or changing the Admin contract for
+  `POST /admin/v1/artwork/ingests/process-next`.
+- Scope: `crates/nako-api/src/admin/managed_artwork.rs`,
+  `crates/nako-api/src/admin_contract.rs`,
+  `crates/nako-server/src/http/admin.rs`, and generated Admin TypeScript
+  contracts under `apps/admin-web` and `web`.
+
+### 2. Signatures
+
+- Generated route key: `managedArtworkIngestProcessNext`.
+- Route:
+  `POST /admin/v1/artwork/ingests/process-next`.
+- Request body: empty JSON object `{}`.
+- Response:
+  `ProcessManagedArtworkIngestResponse { processed, ingest, artifact, job }`.
+- Empty response:
+  `{ processed: false, ingest: null, artifact: null, job: null }`.
+- Processed response:
+  `ingest: ManagedArtworkIngestSummary`,
+  `artifact: ManagedArtworkArtifactSummary | null`, and
+  `job: JobResponse`.
+
+### 3. Contracts
+
+- The route is an Admin-only manual worker command. It must stay out of Public
+  Client route inventories, OpenAPI public outputs, and generated Public SDKs.
+- The client supplies `{}` as the POST body. It must not submit provider URLs,
+  storage handles, job input JSON, summary JSON, raw errors, paths, hashes,
+  tokens, candidate IDs, ingest IDs, or artifact handles.
+- The server owns queue selection and may return `processed: false` when there
+  is no queued Managed Artwork ingest.
+- Process-next may execute one queued ingest step but HTTP remains a thin
+  boundary that delegates to `app.artwork().process_next()`.
+- A future page workflow still needs a dedicated live-only task before wiring
+  controls to this low-level generated client method.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Route becomes generated | Add `managedArtworkIngestProcessNext`, remove the final explicit exclusion, and keep `admin_contract_route_exclusions()` empty |
+| Mutation request is sent | Client uses `POST` with `JSON.stringify({})` |
+| No queued ingest exists | Response is `processed: false` with null `ingest`, `artifact`, and `job` |
+| Ingest stores an artifact | Response exposes safe ingest, artifact summary, and job summary fields |
+| Ingest fails | Response exposes safe ingest/job state and omits raw provider/storage material |
+| Response/generated contract contains paths, URIs, provider URLs, tokens, file names, roots, etags, raw content hashes, job input/summary JSON, or backend payloads | Treat as a contract violation |
+| Public Client output contains the route or DTOs | Treat as contract drift and remove them from Public outputs |
+
+### 5. Good/Base/Bad Cases
+
+- Good: Admin Web client calls `managedArtworkIngestProcessNext` with an empty
+  body and deserializes both processed and empty responses.
+- Base: server decides which queued ingest to process and returns safe summaries
+  only.
+- Bad: accepting `{ ingest_id }`, `{ source_uri }`, `{ input_json }`, or
+  `{ storage_uri }` in the request body, or adding this low-level command to a
+  read-only route without a dedicated workflow task.
+
+### 6. Tests Required
+
+- API contract:
+  `cargo nextest run -p nako-api admin_contract --no-fail-fast`.
+- Server route inventory:
+  `cargo nextest run -p nako-server implemented_admin_routes_are_generated_or_explicitly_excluded --no-fail-fast`.
+- Server process-next behavior:
+  `cargo nextest run -p nako-server admin_process_next_managed_artwork_ingest --no-fail-fast`.
+- Admin Web client:
+  `npm run test --prefix apps/admin-web -- adminApi/client.test.ts` and
+  `npm run check --prefix apps/admin-web`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```typescript
+return this.postJson(NAKO_ADMIN_ROUTES.managedArtworkIngestProcessNext, {
+  ingest_id,
+});
+```
+
+#### Correct
+
+```typescript
+return this.postJson(
+  NAKO_ADMIN_ROUTES.managedArtworkIngestProcessNext,
+  {},
+);
+```
+
+The server owns queue selection and worker execution. Admin Web submits no
+operator-provided target or raw payload.
 
 ## Scenario: Managed Artwork Stray File Cleanup Confirmed Admin Contract
 

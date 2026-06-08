@@ -59,6 +59,7 @@ export const NAKO_ADMIN_ROUTES = {
   itemArtworkSelection: "/admin/v1/items/{item_id}/artwork/{kind}/selection",
   managedArtworkCandidateAccept: "/admin/v1/artwork/candidates/{candidate_id}/accept",
   managedArtworkIngestRequeue: "/admin/v1/artwork/ingests/{ingest_id}/requeue",
+  managedArtworkIngestProcessNext: "/admin/v1/artwork/ingests/process-next",
   managedArtworkArtifactLifecycle: "/admin/v1/artwork/artifacts/lifecycle",
   managedArtworkArtifactStorageDrift: "/admin/v1/artwork/artifacts/storage-drift",
   managedArtworkArtifactRemediationPlan: "/admin/v1/artwork/artifacts/remediation-plan",
@@ -656,6 +657,28 @@ export interface RequeueManagedArtworkIngestResponse {
   job: ManagedArtworkIngestJobSummary;
   requeued: boolean;
   had_failure: boolean;
+}
+
+export interface ManagedArtworkArtifactSummary {
+  id: string;
+  ingest_id: string;
+  library_id: string;
+  item_id: string;
+  kind: AdminArtworkKind | string;
+  has_content_hash: boolean;
+  width: number | null;
+  height: number | null;
+  byte_len: number | null;
+  media_type: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProcessManagedArtworkIngestResponse {
+  processed: boolean;
+  ingest: ManagedArtworkIngestSummary | null;
+  artifact: ManagedArtworkArtifactSummary | null;
+  job: JobResponse | null;
 }
 
 export interface SelectedArtworkSummary {

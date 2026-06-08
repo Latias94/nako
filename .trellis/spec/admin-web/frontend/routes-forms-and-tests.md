@@ -697,6 +697,88 @@ return this.postJson(
 The generated route owns the path shape; the client supplies only the opaque
 ingest ID and leaves retry validation plus durable job reset to the server.
 
+## Scenario: Managed Artwork Process-Next Client Command
+
+### 1. Scope / Trigger
+
+- Trigger: changing `AdminApiClient` support for
+  `POST /admin/v1/artwork/ingests/process-next`.
+- Evidence: `src/adminApi/client.ts`, `src/adminApi/client.test.ts`, and
+  generated Admin API contracts.
+- Authority: ADR 0027, ADR 0053, and the `nako-api` Managed Artwork
+  process-next contract.
+
+### 2. Signatures
+
+- Generated route key: `managedArtworkIngestProcessNext`.
+- Client method: `processNextManagedArtworkIngest()`.
+- Request body: empty JSON object `{}`.
+- Response: `ProcessManagedArtworkIngestResponse`.
+
+### 3. Contracts
+
+- Client code must build the URL from `NAKO_ADMIN_ROUTES`; do not add literal
+  `/admin/v1/artwork/ingests/process-next` strings.
+- The caller supplies no target ID or payload.
+- The body stays `{}` so Admin Web never accepts provider URLs, raw file names,
+  local paths, storage URIs, artifact roots, content hashes, tokens, etags, raw
+  job input JSON, summary JSON, errors, ingest IDs, candidate IDs, or backend
+  payloads from the caller.
+- This method is a low-level generated client command. Route/page controls that
+  invoke it still require a dedicated live-only workflow task and should not be
+  added to the read-only maintenance page by this contract alone.
+- Tests must assert unsafe response material is not present in client fixtures
+  and must cover `processed: false` empty responses.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Mutation request is sent | Client uses `POST` with `JSON.stringify({})` |
+| Generated route key is missing | TypeScript check fails until the generated contract is refreshed |
+| Response is empty queue | Client accepts `processed: false` with null `ingest`, `artifact`, and `job` |
+| Client fixture contains path, URI, token, raw hash, file name, storage handle, input JSON, summary JSON, candidate ID request, or ingest ID request material | Treat as a redaction failure |
+| A page wants to call this method | Add a dedicated live-only workflow task before wiring UI controls |
+
+### 5. Good / Base / Bad Cases
+
+- Good: `AdminApiClient` calls the generated route with an empty body and
+  accepts both processed and empty response shapes.
+- Base: read-only maintenance diagnostics remain read-only while process-next
+  is available as a typed low-level client command.
+- Bad: passing `{ ingest_id }`, `{ source_uri }`, `{ input_json }`, or
+  `{ storage_uri }` in the mutation body, or putting a process button into a
+  read-only route without a dedicated workflow task.
+
+### 6. Tests Required
+
+- Client tests assert generated route usage, `POST`, empty body, processed
+  response typing, empty response typing, and redaction fixture terms.
+- Run:
+  - `npm run test --prefix apps/admin-web -- adminApi/client.test.ts`
+  - `npm run check --prefix apps/admin-web`
+  - `cargo nextest run -p nako-api admin_contract --no-fail-fast` when generated
+    contract output changes.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```typescript
+return this.postJson(NAKO_ADMIN_ROUTES.managedArtworkIngestProcessNext, {
+  ingest_id,
+});
+```
+
+#### Correct
+
+```typescript
+return this.postJson(NAKO_ADMIN_ROUTES.managedArtworkIngestProcessNext, {});
+```
+
+The generated route owns the command shape; the client supplies no queue target
+or raw worker payload.
+
 ## Scenario: Managed Artwork Stray File Cleanup Client Command
 
 ### 1. Scope / Trigger
