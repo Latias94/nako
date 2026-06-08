@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{collections::HashMap, fmt::Display};
 
 use sqlx::{Postgres, QueryBuilder, postgres::PgRow};
 
@@ -571,6 +571,86 @@ impl MediaRepository for PostgresStore {
         .map_err(database_error)?;
 
         rows.into_iter().map(row_to_media_source).collect()
+    }
+
+    async fn list_library_source_inventory(
+        &self,
+        library_id: LibraryId,
+        page: PageRequest,
+    ) -> Result<Vec<LibrarySourceInventoryEntry>> {
+        let page = page.clamped();
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                sources.id::text AS source_id,
+                sources.library_id::text AS source_library_id,
+                sources.item_id::text AS source_item_id,
+                sources.locator AS source_locator,
+                sources.file_name AS source_file_name,
+                sources.size_bytes AS source_size_bytes,
+                sources.fingerprint AS source_fingerprint,
+                items.id::text AS item_id,
+                items.kind AS item_kind,
+                items.parent_id::text AS item_parent_id,
+                items.title AS item_title,
+                items.original_title AS item_original_title,
+                items.sort_title AS item_sort_title,
+                items.overview AS item_overview,
+                items.release_date AS item_release_date,
+                items.metadata_json::text AS item_metadata_json,
+                probes.source_id::text AS probe_source_id,
+                probes.duration_ms AS probe_duration_ms,
+                probes.container AS probe_container,
+                probes.bit_rate AS probe_bit_rate
+            FROM media_sources AS sources
+            LEFT JOIN media_items AS items
+                ON items.id = sources.item_id
+            LEFT JOIN media_source_probes AS probes
+                ON probes.source_id = sources.id
+            WHERE sources.library_id = $1
+            ORDER BY sources.locator ASC
+            LIMIT $2 OFFSET $3
+            "#,
+        )
+        .bind(library_id.as_uuid())
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        let mut entries = rows
+            .into_iter()
+            .map(postgres_inventory_row_to_entry)
+            .collect::<Result<Vec<_>>>()?;
+        let item_ids = entries
+            .iter()
+            .filter_map(|entry| entry.item.as_ref().map(|item| item.id))
+            .collect::<Vec<_>>();
+        let source_ids = entries
+            .iter()
+            .filter(|entry| entry.probe.is_some())
+            .map(|entry| entry.source.id)
+            .collect::<Vec<_>>();
+        let external_ids_by_item = self.list_external_ids_for_items(&item_ids).await?;
+        let streams_by_source = self.list_streams_for_sources(&source_ids).await?;
+
+        for entry in &mut entries {
+            if let Some(item) = entry.item.as_mut() {
+                item.metadata.external_ids = external_ids_by_item
+                    .get(&item.id)
+                    .cloned()
+                    .unwrap_or_default();
+            }
+            if let Some(probe) = entry.probe.as_mut() {
+                probe.streams = streams_by_source
+                    .get(&entry.source.id)
+                    .cloned()
+                    .unwrap_or_default();
+            }
+        }
+
+        Ok(entries)
     }
 
     async fn list_media_sources_by_fingerprint(
@@ -1944,6 +2024,106 @@ impl PostgresStore {
             .collect()
     }
 
+    async fn list_external_ids_for_items(
+        &self,
+        item_ids: &[MediaItemId],
+    ) -> Result<HashMap<MediaItemId, Vec<ExternalId>>> {
+        if item_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let mut query = QueryBuilder::new(
+            r#"
+            SELECT item_id::text AS item_id, provider, provider_key, value
+            FROM media_item_external_ids
+            WHERE item_id IN (
+            "#,
+        );
+        let mut separated = query.separated(", ");
+        for item_id in item_ids {
+            separated.push_bind(item_id.as_uuid());
+        }
+        drop(separated);
+        query
+            .push(")\n            ORDER BY item_id ASC, provider ASC, provider_key ASC, value ASC");
+
+        let rows = query
+            .build()
+            .fetch_all(&self.pool)
+            .await
+            .map_err(database_error)?;
+        let mut external_ids_by_item = HashMap::<MediaItemId, Vec<ExternalId>>::new();
+
+        for row in rows {
+            let item_id = parse_id(row_get::<String>(&row, "item_id")?)?;
+            external_ids_by_item
+                .entry(item_id)
+                .or_default()
+                .push(ExternalId {
+                    provider: provider_from_parts(
+                        row_get(&row, "provider")?,
+                        row_get(&row, "provider_key")?,
+                    ),
+                    value: row_get(&row, "value")?,
+                });
+        }
+
+        Ok(external_ids_by_item)
+    }
+
+    async fn list_streams_for_sources(
+        &self,
+        source_ids: &[MediaSourceId],
+    ) -> Result<HashMap<MediaSourceId, Vec<MediaStreamInfo>>> {
+        if source_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let mut query = QueryBuilder::new(
+            r#"
+            SELECT
+                source_id::text AS source_id,
+                stream_index,
+                kind,
+                kind_key,
+                codec,
+                language,
+                duration_ms,
+                bit_rate,
+                width,
+                height,
+                channels,
+                sample_rate,
+                technical_json::text AS technical_json
+            FROM media_streams
+            WHERE source_id IN (
+            "#,
+        );
+        let mut separated = query.separated(", ");
+        for source_id in source_ids {
+            separated.push_bind(source_id.as_uuid());
+        }
+        drop(separated);
+        query.push(")\n            ORDER BY source_id ASC, stream_index ASC");
+
+        let rows = query
+            .build()
+            .fetch_all(&self.pool)
+            .await
+            .map_err(database_error)?;
+        let mut streams_by_source = HashMap::<MediaSourceId, Vec<MediaStreamInfo>>::new();
+
+        for row in rows {
+            let source_id = parse_id(row_get::<String>(&row, "source_id")?)?;
+            streams_by_source
+                .entry(source_id)
+                .or_default()
+                .push(row_to_stream_info(row)?);
+        }
+
+        Ok(streams_by_source)
+    }
+
     pub(super) async fn list_catalog_external_ids<T>(
         &self,
         table: &str,
@@ -2179,6 +2359,60 @@ fn row_to_media_source(row: PgRow) -> Result<MediaSource> {
             .transpose()?,
         fingerprint: row_get(&row, "fingerprint")?,
     })
+}
+
+fn postgres_inventory_row_to_entry(row: PgRow) -> Result<LibrarySourceInventoryEntry> {
+    let source = MediaSource {
+        id: parse_id(row_get::<String>(&row, "source_id")?)?,
+        library_id: parse_id(row_get::<String>(&row, "source_library_id")?)?,
+        item_id: parse_id(row_get::<String>(&row, "source_item_id")?)?,
+        locator: row_get(&row, "source_locator")?,
+        file_name: row_get(&row, "source_file_name")?,
+        size_bytes: optional_i64_to_u64(row_get(&row, "source_size_bytes")?)?,
+        fingerprint: row_get(&row, "source_fingerprint")?,
+    };
+    let item = postgres_inventory_row_to_item(&row)?;
+    let probe = row_get::<Option<String>>(&row, "probe_source_id")?
+        .map(|_| {
+            Ok(MediaProbeResult {
+                duration_ms: optional_i64_to_u64(row_get(&row, "probe_duration_ms")?)?,
+                container: row_get(&row, "probe_container")?,
+                bit_rate: optional_i64_to_u64(row_get(&row, "probe_bit_rate")?)?,
+                streams: Vec::new(),
+            })
+        })
+        .transpose()?;
+
+    Ok(LibrarySourceInventoryEntry {
+        source,
+        item,
+        probe,
+    })
+}
+
+fn postgres_inventory_row_to_item(row: &PgRow) -> Result<Option<MediaItem>> {
+    let Some(id) = row_get::<Option<String>>(row, "item_id")? else {
+        return Ok(None);
+    };
+    let metadata_json = row_get::<Option<String>>(row, "item_metadata_json")?;
+    let metadata = match metadata_json {
+        Some(value) => serde_json::from_str::<CanonicalMetadata>(&value).map_err(database_error)?,
+        None => CanonicalMetadata {
+            title: row_get(row, "item_title")?,
+            original_title: row_get(row, "item_original_title")?,
+            sort_title: row_get(row, "item_sort_title")?,
+            overview: row_get(row, "item_overview")?,
+            release_date: row_get(row, "item_release_date")?,
+            ..CanonicalMetadata::default()
+        },
+    };
+
+    Ok(Some(MediaItem {
+        id: parse_id(id)?,
+        kind: parse_media_kind(row_get(row, "item_kind")?)?,
+        parent_id: parse_optional_id(row_get(row, "item_parent_id")?)?,
+        metadata,
+    }))
 }
 
 fn row_to_media_source_fingerprint_match(row: PgRow) -> Result<MediaSourceFingerprintMatch> {

@@ -10,8 +10,8 @@ use nako_api::{
 use nako_core::{
     IngestionFailureFilter, IngestionFailurePhase, IngestionFailureRepository,
     IngestionFailureStatus, LibraryId, LibraryItemBrowseQuery, LibraryItemRepository,
-    LibraryRepository, MediaProbeRepository, MediaRepository, MetadataProfileSource, NakoError,
-    PageRequest, Result, UserPrincipalId,
+    LibraryRepository, MediaRepository, MetadataProfileSource, NakoError, PageRequest, Result,
+    UserPrincipalId,
 };
 use nako_db::NakoDatabase;
 
@@ -76,18 +76,18 @@ impl LibraryAppService {
     ) -> Result<LibrarySourcesResponse> {
         let page = page.clamped();
         let library = self.get_library_or_not_found(library_id).await?;
-        let sources = self.store.list_media_sources(library.id, page).await?;
-        let mut output_sources = Vec::with_capacity(sources.len());
-
-        for source in sources {
-            let item = self.store.get_media_item(source.item_id).await?;
-            let probe = self.store.get_media_probe(source.id).await?;
-            output_sources.push(LibrarySourceResponse {
-                source: media_source_to_dto(source),
-                item: item.map(media_item_to_dto),
-                probe: probe.map(media_probe_to_dto),
-            });
-        }
+        let entries = self
+            .store
+            .list_library_source_inventory(library.id, page)
+            .await?;
+        let output_sources = entries
+            .into_iter()
+            .map(|entry| LibrarySourceResponse {
+                source: media_source_to_dto(entry.source),
+                item: entry.item.map(media_item_to_dto),
+                probe: entry.probe.map(media_probe_to_dto),
+            })
+            .collect::<Vec<_>>();
 
         Ok(LibrarySourcesResponse {
             library: library_to_dto(library),

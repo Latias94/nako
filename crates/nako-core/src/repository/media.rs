@@ -6,6 +6,13 @@ use crate::{
     MediaSourceFingerprintMatch, MediaSourceId, Result,
 };
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LibrarySourceInventoryEntry {
+    pub source: MediaSource,
+    pub item: Option<MediaItem>,
+    pub probe: Option<MediaProbeResult>,
+}
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct MediaSourceFingerprintSummary {
     pub total_sources: u64,
@@ -53,6 +60,12 @@ pub trait MediaRepository: Send + Sync {
         library_id: LibraryId,
         page: PageRequest,
     ) -> Result<Vec<MediaSource>>;
+
+    async fn list_library_source_inventory(
+        &self,
+        library_id: LibraryId,
+        page: PageRequest,
+    ) -> Result<Vec<LibrarySourceInventoryEntry>>;
 
     async fn list_media_sources_by_fingerprint(
         &self,

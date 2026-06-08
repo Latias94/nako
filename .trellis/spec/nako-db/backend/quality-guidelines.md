@@ -57,6 +57,10 @@ Persistence work must prove repository behavior, not only compile.
   PostgreSQL. Preserve existing semantics when replacing app-layer sorting.
 - Stable tie-breaks belong in the query contract and must remain independent of
   ascending/descending primary sort direction.
+- When a list projection hydrates one-to-many child records such as media
+  streams or external IDs, apply `LIMIT/OFFSET` to the root domain record first,
+  then batch-load child records for that bounded page. Joining child rows before
+  pagination shifts page boundaries and duplicates root records.
 
 ### 4. Validation & Error Matrix
 
@@ -69,15 +73,23 @@ Persistence work must prove repository behavior, not only compile.
   not database defaults.
 - Unsupported sort/facet text reaches repository SQL -> contract violation;
   parse to enums before the repository call.
+- One-to-many child rows are joined before root pagination -> contract
+  violation; paginate root records first, then batch-hydrate child collections.
 
 ### 5. Good/Base/Bad Cases
 
 - Good: a library browse query joins membership and playback state once, orders
   with enum-owned SQL fragments, and returns a bounded page.
+- Good: a source inventory projection pages `Media Source` rows first, then
+  batch-loads `Media Item` external IDs and `Media Technical Facts` streams for
+  only that page.
 - Base: the server app service checks library existence, clamps `PageRequest`,
   calls the repository method, and maps domain records to DTOs.
 - Bad: the app service loops over all library items, calls a per-item playback
   getter, sorts in memory, and slices the requested page.
+- Bad: the repository joins `media_streams` directly into the source inventory
+  page query and lets multiple stream rows change which sources appear on a
+  page.
 
 ### 6. Tests Required
 

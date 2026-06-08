@@ -1,0 +1,13 @@
+{"file": ".trellis/spec/nako-core/backend/index.md", "reason": "Repository trait and domain projection boundary guidance for adding a core record/method."}
+{"file": ".trellis/spec/nako-core/backend/database-guidelines.md", "reason": "Persistence contract rules for repository-facing domain types without DB leakage."}
+{"file": ".trellis/spec/nako-core/backend/quality-guidelines.md", "reason": "Cross-crate contract expectations for core repository changes."}
+{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "SQLite/PostgreSQL adapter and contract-test checklist."}
+{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "SQLx, row mapping, parameter binding, and no-migration constraints."}
+{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "Repository-backed list projection and contract-test requirements."}
+{"file": ".trellis/spec/nako-db/backend/error-handling.md", "reason": "Adapter error conversion rules for SQLx and row parsing."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server app-service boundary checklist."}
+{"file": ".trellis/spec/nako-server/backend/database-guidelines.md", "reason": "Server persistence usage through repositories and thin app services."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused server validation and paginated list surface guidance."}
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking guide index for cross-layer repository projection work."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "This slice spans core, DB adapter, app service, and HTTP tests."}
+{"file": ".trellis/tasks/06-08-06-08-library-source-inventory-projection/research/source-inventory-jellyfin-comparison.md", "reason": "Task-specific architecture comparison and scope constraints."}

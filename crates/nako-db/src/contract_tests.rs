@@ -252,12 +252,20 @@ impl<T> JobRetryContractBackend for T where
 }
 
 trait LibraryMediaContractBackend:
-    LifecycleContractBackend + LibraryRepository + LibraryItemRepository + MediaRepository
+    LifecycleContractBackend
+    + LibraryRepository
+    + LibraryItemRepository
+    + MediaRepository
+    + MediaProbeRepository
 {
 }
 
 impl<T> LibraryMediaContractBackend for T where
-    T: LifecycleContractBackend + LibraryRepository + LibraryItemRepository + MediaRepository
+    T: LifecycleContractBackend
+        + LibraryRepository
+        + LibraryItemRepository
+        + MediaRepository
+        + MediaProbeRepository
 {
 }
 
@@ -1637,6 +1645,197 @@ where
     assert_eq!(anime_added_at.len(), 1);
     assert_eq!(anime_added_at[0].item_id, episode.id);
     assert!(!anime_added_at[0].added_at.is_empty());
+}
+
+async fn library_source_inventory_projection_contract<S>(store: S)
+where
+    S: LibraryMediaContractBackend,
+{
+    let library = seed_named_browse_library(&store, "Inventory Movies").await;
+    let other_library = seed_named_browse_library(&store, "Other Inventory Movies").await;
+
+    let hydrated_item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Hydrated Source Item".to_owned(),
+            external_ids: vec![
+                ExternalId {
+                    provider: ExternalProvider::Bangumi,
+                    value: "inventory-hydrated-bangumi".to_owned(),
+                },
+                ExternalId {
+                    provider: ExternalProvider::Tmdb,
+                    value: "inventory-hydrated".to_owned(),
+                },
+            ],
+            ..CanonicalMetadata::default()
+        },
+    };
+    let missing_probe_item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Missing Probe Item".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let tail_item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Tail Source Item".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let other_item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Other Library Source Item".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+
+    for item in [&hydrated_item, &missing_probe_item, &tail_item, &other_item] {
+        store.upsert_media_item(item).await.unwrap();
+    }
+
+    let hydrated_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: library.id,
+        item_id: hydrated_item.id,
+        locator: "local:///Inventory Movies/01-hydrated.mkv".to_owned(),
+        file_name: "01-hydrated.mkv".to_owned(),
+        size_bytes: Some(101),
+        fingerprint: Some("source:v1:content_hash:sha256:inventory-hydrated".to_owned()),
+    };
+    let missing_probe_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: library.id,
+        item_id: missing_probe_item.id,
+        locator: "local:///Inventory Movies/02-missing-probe.mkv".to_owned(),
+        file_name: "02-missing-probe.mkv".to_owned(),
+        size_bytes: Some(202),
+        fingerprint: None,
+    };
+    let tail_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: library.id,
+        item_id: tail_item.id,
+        locator: "local:///Inventory Movies/03-tail.mkv".to_owned(),
+        file_name: "03-tail.mkv".to_owned(),
+        size_bytes: Some(303),
+        fingerprint: None,
+    };
+    let other_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: other_library.id,
+        item_id: other_item.id,
+        locator: "local:///Other Inventory Movies/01-other.mkv".to_owned(),
+        file_name: "01-other.mkv".to_owned(),
+        size_bytes: Some(404),
+        fingerprint: None,
+    };
+
+    for source in [
+        &hydrated_source,
+        &missing_probe_source,
+        &tail_source,
+        &other_source,
+    ] {
+        store.upsert_media_source(source).await.unwrap();
+    }
+
+    let hydrated_probe = MediaProbeResult {
+        duration_ms: Some(120_000),
+        container: Some("matroska".to_owned()),
+        bit_rate: Some(8_000),
+        streams: vec![
+            MediaStreamInfo {
+                index: 0,
+                kind: MediaStreamKind::Video,
+                codec: Some("h264".to_owned()),
+                language: None,
+                duration_ms: Some(120_000),
+                bit_rate: Some(7_500),
+                width: Some(1920),
+                height: Some(1080),
+                channels: None,
+                sample_rate: None,
+                technical: MediaStreamTechnicalFacts::default(),
+            },
+            MediaStreamInfo {
+                index: 1,
+                kind: MediaStreamKind::Audio,
+                codec: Some("aac".to_owned()),
+                language: Some("jpn".to_owned()),
+                duration_ms: Some(120_000),
+                bit_rate: Some(384_000),
+                width: None,
+                height: None,
+                channels: Some(2),
+                sample_rate: Some(48_000),
+                technical: MediaStreamTechnicalFacts::default(),
+            },
+        ],
+    };
+    store
+        .upsert_media_probe(hydrated_source.id, &hydrated_probe)
+        .await
+        .unwrap();
+
+    let first_page = store
+        .list_library_source_inventory(
+            library.id,
+            PageRequest {
+                limit: 2,
+                offset: 0,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(first_page.len(), 2);
+    assert_eq!(first_page[0].source, hydrated_source);
+    assert_eq!(first_page[0].item, Some(hydrated_item));
+    assert_eq!(first_page[0].probe, Some(hydrated_probe));
+    assert_eq!(first_page[1].source, missing_probe_source);
+    assert_eq!(first_page[1].item, Some(missing_probe_item));
+    assert_eq!(first_page[1].probe, None);
+
+    let second_page = store
+        .list_library_source_inventory(
+            library.id,
+            PageRequest {
+                limit: 2,
+                offset: 2,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(second_page.len(), 1);
+    assert_eq!(second_page[0].source, tail_source);
+    assert_eq!(second_page[0].item, Some(tail_item));
+    assert_eq!(second_page[0].probe, None);
+
+    let other_page = store
+        .list_library_source_inventory(
+            other_library.id,
+            PageRequest {
+                limit: 10,
+                offset: 0,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(other_page.len(), 1);
+    assert_eq!(other_page[0].source, other_source);
+    assert_eq!(other_page[0].item, Some(other_item));
+    assert_eq!(other_page[0].probe, None);
 }
 
 async fn library_item_browse_query_contract<S>(store: S)
@@ -10149,6 +10348,16 @@ database_contract_pair!(
         "preserves_library_scoped_source_identity"
     ),
     contract = library_media_identity_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_library_media_contract_source_inventory_hydrates_sources_items_and_probes,
+    postgres = postgres_library_media_contract_source_inventory_hydrates_sources_items_and_probes,
+    case = ContractCase::migrated(
+        ContractFamily::LibraryMedia,
+        "source_inventory_hydrates_sources_items_and_probes"
+    ),
+    contract = library_source_inventory_projection_contract,
 );
 
 database_contract_pair!(

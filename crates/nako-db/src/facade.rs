@@ -1571,6 +1571,16 @@ impl MediaRepository for NakoDatabase {
         self.backend().list_media_sources(library_id, page).await
     }
 
+    async fn list_library_source_inventory(
+        &self,
+        library_id: LibraryId,
+        page: PageRequest,
+    ) -> Result<Vec<LibrarySourceInventoryEntry>> {
+        self.backend()
+            .list_library_source_inventory(library_id, page)
+            .await
+    }
+
     async fn list_media_sources_by_fingerprint(
         &self,
         library_id: LibraryId,

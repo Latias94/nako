@@ -18,7 +18,9 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [],
+  "children": [
+    "06-08-06-08-library-source-inventory-projection"
+  ],
   "parent": null,
   "relatedFiles": [],
   "notes": "",
