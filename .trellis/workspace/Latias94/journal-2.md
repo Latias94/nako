@@ -1537,3 +1537,38 @@ Moved User Playlist accessible item counts into repository-backed summary projec
 ### Next Steps
 
 - None - task complete
+
+
+## Session 87: Catalog item access repository projection
+
+**Date**: 2026-06-09
+**Task**: Catalog item access repository projection
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Moved Public Catalog item-list access filtering into repository-backed projections for /items, relation item routes, and bounded search hydration. Added SQLite/PostgreSQL access helpers, backend-neutral catalog_access contracts, HTTP page-hole regression tests, and DB quality spec guidance.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `efcb1976` | (see git log) |
+| `0376d586` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
