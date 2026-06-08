@@ -66,7 +66,46 @@ pub struct WebhookDispatchResponse {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AddonEventDeliveryAttemptsResponse {
     pub event_id: EventId,
-    pub attempts: Vec<AddonEventDeliveryAttemptRecord>,
+    pub attempts: Vec<AddonEventDeliveryAttemptSummary>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AddonEventDeliveryAttemptSummary {
+    pub id: nako_core::AddonEventDeliveryAttemptId,
+    pub addon_id: AddonId,
+    pub event_id: EventId,
+    pub declaration_id: String,
+    pub attempt_number: u32,
+    pub status: AddonEventDeliveryStatus,
+    pub http_status: Option<u16>,
+    pub has_error: bool,
+    pub requested_at: String,
+    pub completed_at: Option<String>,
+    pub next_retry_at: Option<String>,
+    pub lease_expires_at: Option<String>,
+    pub forced_replay: bool,
+    pub replay_reason_code: Option<String>,
+}
+
+impl From<AddonEventDeliveryAttemptRecord> for AddonEventDeliveryAttemptSummary {
+    fn from(record: AddonEventDeliveryAttemptRecord) -> Self {
+        Self {
+            id: record.id,
+            addon_id: record.addon_id,
+            event_id: record.event_id,
+            declaration_id: record.declaration_id,
+            attempt_number: record.attempt_number,
+            status: record.status,
+            http_status: record.http_status,
+            has_error: record.error.is_some(),
+            requested_at: record.requested_at,
+            completed_at: record.completed_at,
+            next_retry_at: record.next_retry_at,
+            lease_expires_at: record.lease_expires_at,
+            forced_replay: record.forced_replay,
+            replay_reason_code: record.replay_reason_code,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -123,8 +162,8 @@ pub struct AddonEventDispatchResponse {
     pub delivered: u32,
     pub failed: u32,
     pub skipped_subscriptions: u32,
-    pub attempts: Vec<AddonEventDeliveryAttemptRecord>,
-    pub errors: Vec<String>,
+    pub attempts: Vec<AddonEventDeliveryAttemptSummary>,
+    pub error_count: u32,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

@@ -5206,7 +5206,7 @@ async fn addon_event_delivery_records_retryable_failure_without_echoing_payload(
     assert_eq!(response.attempted_subscriptions, 1);
     assert_eq!(response.delivered, 0);
     assert_eq!(response.failed, 1);
-    assert_eq!(response.errors, Vec::<String>::new());
+    assert_eq!(response.error_count, 0);
     assert_eq!(response.attempts.len(), 1);
     assert_eq!(response.attempts[0].addon_id, addon_id);
     assert_eq!(response.attempts[0].declaration_id, "library-scanned");
@@ -5215,11 +5215,10 @@ async fn addon_event_delivery_records_retryable_failure_without_echoing_payload(
         nako_core::AddonEventDeliveryStatus::Failed
     );
     assert_eq!(response.attempts[0].http_status, Some(503));
+    assert!(response.attempts[0].has_error);
     assert!(response.attempts[0].next_retry_at.is_some());
-    let error = response.attempts[0].error.as_deref().unwrap();
-    assert!(error.contains("retryable_http_failure"));
-    assert!(error.contains("\"retryable\":true"));
-    assert!(!error.contains("nako_at_should_not_echo"));
+    assert!(!text.contains("retryable_http_failure"));
+    assert!(!text.contains("\"retryable\":true"));
     assert!(!text.contains("nako_at_should_not_echo"));
     assert!(!text.contains("sidecar failed"));
 

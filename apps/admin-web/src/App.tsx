@@ -54,6 +54,7 @@ import {
   CatalogGovernanceRepairPage,
   type CatalogGovernanceRepairSearch,
 } from "./features/catalog/CatalogGovernanceRepairPage";
+import { EventsPage, type EventsSearch } from "./features/events/EventsPage";
 import { JobsPage, type JobsSearch } from "./features/jobs/JobsPage";
 import {
   ItemArtworkGalleryPage,
@@ -122,6 +123,13 @@ const jobsRoute = createRoute({
   path: "/jobs",
   validateSearch: validateJobsSearch,
   component: JobsRoute,
+});
+
+const eventsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/events",
+  validateSearch: validateEventsSearch,
+  component: EventsRoute,
 });
 
 const accessRoute = createRoute({
@@ -278,6 +286,7 @@ const mediaWatchRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   jobsRoute,
+  eventsRoute,
   accessRoute,
   overviewRoute,
   librariesRoute,
@@ -308,6 +317,7 @@ const routeTree = rootRoute.addChildren([
 const adminNavItems = [
   { to: "/overview", labelId: "nav.overview", icon: Activity },
   { to: "/jobs", labelId: "nav.jobs", icon: ListChecks },
+  { to: "/events", labelId: "nav.events", icon: Activity },
   { to: "/access", labelId: "nav.access", icon: UsersRound },
   { to: "/libraries", labelId: "nav.libraries", icon: Library },
   { to: "/catalog", labelId: "nav.catalog", icon: Film },
@@ -409,6 +419,24 @@ function JobsRoute() {
       onSearchChange={(next) => {
         void navigate({
           search: (current) => normalizeJobsSearch({ ...current, ...next }),
+        });
+      }}
+      search={search}
+    />
+  );
+}
+
+function EventsRoute() {
+  const { dataSource } = eventsRoute.useRouteContext();
+  const search = eventsRoute.useSearch();
+  const navigate = eventsRoute.useNavigate();
+
+  return (
+    <EventsPage
+      dataSource={dataSource}
+      onSearchChange={(next) => {
+        void navigate({
+          search: (current) => normalizeEventsSearch({ ...current, ...next }),
         });
       }}
       search={search}
@@ -826,6 +854,28 @@ function normalizeJobsSearch(search: Partial<JobsSearch>): JobsSearch {
     status: emptyToUndefined(search.status),
     kind: emptyToUndefined(search.kind),
     resource_class: emptyToUndefined(search.resource_class),
+    library_id: emptyToUndefined(search.library_id),
+    source_id: emptyToUndefined(search.source_id),
+    limit: positiveIntSearch(search.limit, 20),
+    offset: nonNegativeIntSearch(search.offset, 0),
+  };
+}
+
+function validateEventsSearch(search: Record<string, unknown>): EventsSearch {
+  return normalizeEventsSearch({
+    status: stringSearch(search.status),
+    kind: stringSearch(search.kind),
+    library_id: stringSearch(search.library_id),
+    source_id: stringSearch(search.source_id),
+    limit: positiveIntSearch(search.limit, 20),
+    offset: nonNegativeIntSearch(search.offset, 0),
+  });
+}
+
+function normalizeEventsSearch(search: Partial<EventsSearch>): EventsSearch {
+  return {
+    status: emptyToUndefined(search.status),
+    kind: emptyToUndefined(search.kind),
     library_id: emptyToUndefined(search.library_id),
     source_id: emptyToUndefined(search.source_id),
     limit: positiveIntSearch(search.limit, 20),

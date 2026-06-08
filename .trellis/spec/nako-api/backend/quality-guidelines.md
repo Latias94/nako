@@ -142,6 +142,103 @@ Generate Admin Web contracts from `nako-api` when the generated output changes.
 If the route is intentionally server-only for the slice, add it to
 `admin_contract_route_exclusions()` with a specific reason instead.
 
+## Scenario: Addon Event Delivery Admin DTO Redaction
+
+### 1. Scope / Trigger
+
+- Trigger: changing Admin Addon Event Delivery attempts, scheduler work,
+  deliver, or replay response DTOs, generated Admin contract output, or server
+  mapping for `/admin/v1/events/{event_id}/addon-*` routes.
+- Purpose: keep raw Addon event payloads, stored delivery errors, dispatch
+  errors, sidecar URLs, tokens, paths, and fingerprints out of Admin wire
+  contracts.
+
+### 2. Signatures
+
+- Attempts response:
+  `AddonEventDeliveryAttemptsResponse { event_id, attempts:
+  Vec<AddonEventDeliveryAttemptSummary> }`.
+- Attempt summary:
+  `AddonEventDeliveryAttemptSummary { id, addon_id, event_id, declaration_id,
+  attempt_number, status, http_status, has_error, requested_at, completed_at,
+  next_retry_at, lease_expires_at, forced_replay, replay_reason_code }`.
+- Dispatch response:
+  `AddonEventDispatchResponse { event, attempted_subscriptions, delivered,
+  failed, skipped_subscriptions, attempts, error_count }`.
+- Replay response:
+  `AddonEventReplayResponse { reason_code, dispatch }`.
+
+### 3. Contracts
+
+- `nako-core::AddonEventDeliveryAttemptRecord.error` is persistence/internal
+  retry diagnostic material. Do not expose it directly in Admin DTOs.
+- Admin delivery attempt DTOs expose `has_error: bool`, not `error:
+  Option<String>`.
+- Admin dispatch DTOs expose `error_count: u32`, not `errors: Vec<String>`.
+- `AddonEventDispatchEventSummary.subject` remains part of the wire event
+  summary for server/API callers, but Admin Web route projections must not
+  render it unless a future task defines a redaction-safe subject summary.
+- Generated TypeScript contracts under `apps/admin-web` and `web` must be
+  regenerated from `nako-api`; do not hand-edit generated files.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Stored attempt has raw `error` text | Response summary sets `has_error: true` and omits the text |
+| Attempt has no stored error | Response summary sets `has_error: false` |
+| Dispatch fails before attempt completion | Increment `error_count`; log server-side; do not return raw string |
+| Dispatch worker join fails | Increment `error_count`; log server-side; do not return raw join error |
+| Generated contract contains `error: string`, `errors: string[]`, path, token, URL, or fingerprint fields for this boundary | Treat as contract failure |
+
+### 5. Good/Base/Bad Cases
+
+- Good: map `AddonEventDeliveryAttemptRecord` into
+  `AddonEventDeliveryAttemptSummary` at the app/API boundary.
+- Base: scheduler work exposes safe reason codes and routing plan status/target
+  only.
+- Bad: returning `Vec<AddonEventDeliveryAttemptRecord>` or raw dispatch
+  `errors` from Admin API responses.
+
+### 6. Tests Required
+
+- API contract tests prove generated TypeScript contains `has_error` and
+  `error_count`, and does not contain raw `error/errors` fields for Addon Event
+  Delivery DTOs.
+- Server route tests seed failed delivery attempts with sensitive error
+  material and assert responses omit the raw strings while retaining
+  `has_error`/`error_count`.
+- Admin Web data-source and route tests assert generated raw material is not
+  rendered.
+- Run:
+  - `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+  - `cargo nextest run -p nako-server addon_event --no-fail-fast`
+  - `npm run check --prefix apps/admin-web`
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+pub struct AddonEventDispatchResponse {
+    pub attempts: Vec<AddonEventDeliveryAttemptRecord>,
+    pub errors: Vec<String>,
+}
+```
+
+#### Correct
+
+```rust
+pub struct AddonEventDispatchResponse {
+    pub attempts: Vec<AddonEventDeliveryAttemptSummary>,
+    pub error_count: u32,
+}
+```
+
+Admin API contracts should expose operator-safe facts and counts. Raw delivery
+diagnostics stay in storage/logs unless a dedicated safe diagnostic DTO is
+designed.
+
 ## Scenario: Public Client Playback Capability Contract Parity
 
 ### 1. Scope / Trigger

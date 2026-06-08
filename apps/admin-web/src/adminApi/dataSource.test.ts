@@ -11,6 +11,10 @@ import {
   mockAccessInvitations,
   mockAddonDetail,
   mockAddonDiagnostic,
+  mockAddonEventDeliveryAttempts,
+  mockAddonEventDispatch,
+  mockAddonEventReplay,
+  mockAddonEventSchedulerWork,
   mockAddonGrants,
   mockAddonHealth,
   mockAddonInstallGuide,
@@ -98,6 +102,10 @@ function addonTaskRunRetryPath(addonId = TEST_ADDON_ID, jobId = "job-addon-task-
   return NAKO_ADMIN_ROUTES.addonTaskRunRetry
     .replace("{addon_id}", addonId)
     .replace("{job_id}", jobId);
+}
+
+function eventPath(route: string, eventId = "event-webhook") {
+  return route.replace("{event_id}", eventId);
 }
 
 describe("Admin data source", () => {
@@ -2909,6 +2917,231 @@ describe("Admin data source", () => {
 
     await expect(
       fallbackSource.retryAddonTaskRun?.("addon-subtitle-lab", "job-addon-task-run-failed"),
+    ).rejects.toThrow("HTTP 503");
+  });
+
+  it("loads Addon Event delivery projections safely and rejects failed mutations", async () => {
+    const unsafeEvents = {
+      ...mockEvents,
+      events: mockEvents.events.map((event) => ({
+        ...event,
+        payload: { token: "secret-event-payload" },
+        error: "raw outbox error with http://addon-sidecar:9100",
+        idempotency_key: "unsafe-idempotency-key",
+        local_path: "F:\\nako\\event.json",
+      })),
+    };
+    const unsafeAttempts = {
+      ...mockAddonEventDeliveryAttempts,
+      attempts: mockAddonEventDeliveryAttempts.attempts.map((attempt) => ({
+        ...attempt,
+        error: attempt.has_error ? "raw addon delivery error" : null,
+        request_body: "secret request payload",
+        response_body: "secret response payload",
+        sidecar_url: "http://addon-sidecar:9100/events",
+      })),
+    };
+    const unsafeSchedulerWork = {
+      ...mockAddonEventSchedulerWork,
+      work: mockAddonEventSchedulerWork.work.map((item) => ({
+        ...item,
+        sidecar_url: "http://addon-sidecar:9100/events",
+        manifest_fingerprint: "sha256:unsafe-manifest-fingerprint",
+        declaration_path: "/events/library-scanned",
+      })),
+    };
+    const unsafeDispatch = {
+      ...mockAddonEventDispatch,
+      error_count: 1,
+      errors: ["raw dispatch error with http://addon-sidecar:9100"],
+      attempts: mockAddonEventDispatch.attempts.map((attempt) => ({
+        ...attempt,
+        has_error: true,
+        error: "raw dispatch attempt error",
+      })),
+    };
+    const unsafeReplay = {
+      ...mockAddonEventReplay,
+      dispatch: unsafeDispatch,
+    };
+    const seenRequests: Array<{ body: unknown; method: string; path: string; search: string }> = [];
+    const liveSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request, init?: RequestInit) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        seenRequests.push({
+          body: init?.body ? JSON.parse(String(init.body)) : null,
+          method: init?.method ?? "GET",
+          path: url.pathname,
+          search: url.search,
+        });
+
+        if (url.pathname === NAKO_ADMIN_ROUTES.events) {
+          return Response.json(unsafeEvents);
+        }
+        if (url.pathname === eventPath(NAKO_ADMIN_ROUTES.eventAddonDeliveryAttempts)) {
+          return Response.json(unsafeAttempts);
+        }
+        if (url.pathname === eventPath(NAKO_ADMIN_ROUTES.eventAddonSchedulerWork)) {
+          return Response.json(unsafeSchedulerWork);
+        }
+        if (url.pathname === eventPath(NAKO_ADMIN_ROUTES.eventAddonDeliver)) {
+          return Response.json(unsafeDispatch);
+        }
+        if (url.pathname === eventPath(NAKO_ADMIN_ROUTES.eventAddonReplay)) {
+          return Response.json(unsafeReplay);
+        }
+
+        return new Response("not found", { status: 404 });
+      },
+    });
+
+    await expect(
+      liveSource.loadEvents?.({
+        status: "failed",
+        kind: "library_scanned",
+        limit: 5,
+        offset: 10,
+      }),
+    ).resolves.toMatchObject({
+      source: "live",
+      value: {
+        events: [
+          {
+            id: "event-metadata",
+            hasPayload: true,
+            hasError: false,
+          },
+          {
+            id: "event-webhook",
+            hasPayload: true,
+            hasError: true,
+          },
+        ],
+      },
+    });
+    const deliveryAttempts = await liveSource.loadAddonEventDeliveryAttempts?.("event-webhook");
+    expect(deliveryAttempts?.source).toBe("live");
+    expect(deliveryAttempts?.value[0]).toMatchObject({
+      id: "addon-event-attempt-1",
+      hasError: true,
+      httpStatus: 503,
+    });
+    await expect(liveSource.loadAddonEventSchedulerWork?.("event-webhook")).resolves.toMatchObject({
+      source: "live",
+      value: {
+        dueWorkCount: 1,
+        work: [
+          {
+            addonId: "addon-subtitle-lab",
+            routingPlanStatus: "executable",
+            safeReasonCode: null,
+          },
+        ],
+      },
+    });
+    await expect(liveSource.deliverAddonEvents?.("event-webhook")).resolves.toMatchObject({
+      delivered: 1,
+      errorCount: 1,
+      attempts: [
+        {
+          hasError: true,
+        },
+      ],
+    });
+    await expect(liveSource.replayAddonEvents?.("event-webhook", "operator_requested")).resolves.toMatchObject({
+      reasonCode: "operator_requested",
+      dispatch: {
+        errorCount: 1,
+      },
+    });
+
+    const renderedProjection = JSON.stringify({
+      events: await liveSource.loadEvents?.({ limit: 1 }),
+      attempts: await liveSource.loadAddonEventDeliveryAttempts?.("event-webhook"),
+      work: await liveSource.loadAddonEventSchedulerWork?.("event-webhook"),
+      dispatch: await liveSource.deliverAddonEvents?.("event-webhook"),
+      replay: await liveSource.replayAddonEvents?.("event-webhook", "operator_requested"),
+    });
+
+    expect(renderedProjection).not.toContain("secret-event-payload");
+    expect(renderedProjection).not.toContain("raw outbox error");
+    expect(renderedProjection).not.toContain("unsafe-idempotency-key");
+    expect(renderedProjection).not.toContain("raw addon delivery error");
+    expect(renderedProjection).not.toContain("secret request payload");
+    expect(renderedProjection).not.toContain("secret response payload");
+    expect(renderedProjection).not.toContain("raw dispatch error");
+    expect(renderedProjection).not.toContain("http://addon-sidecar:9100");
+    expect(renderedProjection).not.toContain("manifest_fingerprint");
+    expect(renderedProjection).not.toContain("declaration_path");
+    expect(renderedProjection).not.toContain("F:\\");
+    expect(seenRequests.slice(0, 5)).toEqual([
+      {
+        path: NAKO_ADMIN_ROUTES.events,
+        search: "?status=failed&kind=library_scanned&limit=5&offset=10",
+        method: "GET",
+        body: null,
+      },
+      {
+        path: eventPath(NAKO_ADMIN_ROUTES.eventAddonDeliveryAttempts),
+        search: "",
+        method: "GET",
+        body: null,
+      },
+      {
+        path: eventPath(NAKO_ADMIN_ROUTES.eventAddonSchedulerWork),
+        search: "",
+        method: "GET",
+        body: null,
+      },
+      {
+        path: eventPath(NAKO_ADMIN_ROUTES.eventAddonDeliver),
+        search: "",
+        method: "POST",
+        body: {},
+      },
+      {
+        path: eventPath(NAKO_ADMIN_ROUTES.eventAddonReplay),
+        search: "",
+        method: "POST",
+        body: {
+          reason_code: "operator_requested",
+        },
+      },
+    ]);
+
+    const fallbackSource = createAdminDataSource({
+      fetcher: async () => new Response("offline", { status: 503 }),
+    });
+
+    await expect(fallbackSource.loadEvents?.({ limit: 5 })).resolves.toMatchObject({
+      source: "mock",
+      value: {
+        events: mockEvents.events.map((event) => ({
+          id: event.id,
+          kind: event.kind,
+        })),
+      },
+      error: expect.stringContaining("HTTP 503"),
+    });
+    const fallbackAttempts =
+      await fallbackSource.loadAddonEventDeliveryAttempts?.("event-webhook");
+    expect(fallbackAttempts).toMatchObject({
+      source: "mock",
+      error: expect.stringContaining("HTTP 503"),
+    });
+    expect(fallbackAttempts?.value[0]).toMatchObject({
+      id: "addon-event-attempt-1",
+    });
+    await expect(fallbackSource.loadAddonEventSchedulerWork?.("event-webhook")).resolves.toMatchObject({
+      source: "mock",
+      value: {
+        dueWorkCount: 1,
+      },
+      error: expect.stringContaining("HTTP 503"),
+    });
+    await expect(fallbackSource.deliverAddonEvents?.("event-webhook")).rejects.toThrow("HTTP 503");
+    await expect(
+      fallbackSource.replayAddonEvents?.("event-webhook", "operator_requested"),
     ).rejects.toThrow("HTTP 503");
   });
 

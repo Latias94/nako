@@ -11,6 +11,8 @@ import {
   mockAccessInvitations,
   mockAccessSummary,
   mockAddons,
+  mockAddonEventDeliveryAttempts,
+  mockAddonEventSchedulerWork,
   mockAddonSurfaces,
   mockAddonTokens,
   mockCatalogGovernance,
@@ -40,6 +42,10 @@ import {
   mockVfsCacheRepairTargets,
 } from "./mockData";
 import type {
+  AddonEventDeliveryAttemptsResponse,
+  AddonEventDispatchResponse,
+  AddonEventReplayResponse,
+  AddonEventSchedulerWorkResponse,
   AddonGrantsResponse,
   AddonTaskRunResponse,
   AddonTaskRunsQuery,
@@ -144,6 +150,12 @@ import type {
   CatalogGovernanceProviderMappingReviewResultSummary,
   CatalogGovernanceSummary,
   DataSourceMode,
+  EventDeliveryAttemptRow,
+  EventDispatchSummary,
+  EventListQuery,
+  EventReplaySummary,
+  EventRow,
+  EventSchedulerWorkSummary,
   EventSummary,
   GeneratedArtifactReviewDecision,
   GeneratedArtifactProposalSummary,
@@ -186,6 +198,15 @@ export type AdminDataSource = {
   ): Promise<AccessInvitationCreateResult>;
   revokeAccessInvitation?(invitationId: string): Promise<AccessInvitationRow>;
   loadOverview?(): Promise<AdminSectionResult<AdminOverviewResponse>>;
+  loadEvents?(query?: EventListQuery): Promise<AdminSectionResult<EventSummary>>;
+  loadAddonEventDeliveryAttempts?(
+    eventId: string,
+  ): Promise<AdminSectionResult<EventDeliveryAttemptRow[]>>;
+  loadAddonEventSchedulerWork?(
+    eventId: string,
+  ): Promise<AdminSectionResult<EventSchedulerWorkSummary>>;
+  deliverAddonEvents?(eventId: string): Promise<EventDispatchSummary>;
+  replayAddonEvents?(eventId: string, reasonCode: string): Promise<EventReplaySummary>;
   loadAddons?(query?: AdminAddonsQuery): Promise<AdminSectionResult<AddonsRouteSummary>>;
   loadAddonTaskRuns?(
     addonId: string,
@@ -453,6 +474,25 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
     },
     async loadOverview() {
       return loadSection(() => client.getOverview(), mockOverview);
+    },
+    async loadEvents(query = {}) {
+      return loadEvents(client, query);
+    },
+    async loadAddonEventDeliveryAttempts(eventId) {
+      return loadAddonEventDeliveryAttempts(client, eventId);
+    },
+    async loadAddonEventSchedulerWork(eventId) {
+      return loadAddonEventSchedulerWork(client, eventId);
+    },
+    async deliverAddonEvents(eventId) {
+      return mapEventDispatch(await client.deliverAddonEvents(eventId));
+    },
+    async replayAddonEvents(eventId, reasonCode) {
+      return mapEventReplay(
+        await client.replayAddonEvents(eventId, {
+          reason_code: reasonCode,
+        }),
+      );
     },
     async loadAccessSummary() {
       return loadSection(() => client.getAccessSummary(), mockAccessSummary);
@@ -1311,6 +1351,90 @@ function mapAccessInvitation(invitation: AdminInvitationRecord): AccessInvitatio
   };
 }
 
+async function loadEvents(
+  client: AdminApiClient,
+  query: EventListQuery,
+): Promise<AdminSectionResult<EventSummary>> {
+  const result = await loadSection(() => client.getEvents(query), mockEvents);
+
+  return {
+    value: mapEvents(result.value),
+    source: result.source,
+    error: result.error,
+  };
+}
+
+async function loadAddonEventDeliveryAttempts(
+  client: AdminApiClient,
+  eventId: string,
+): Promise<AdminSectionResult<EventDeliveryAttemptRow[]>> {
+  const result = await loadSection(
+    () => client.getAddonEventDeliveryAttempts(eventId),
+    fallbackAddonEventDeliveryAttempts(eventId),
+  );
+
+  return {
+    value: result.value.attempts.map(mapEventDeliveryAttempt),
+    source: result.source,
+    error: result.error,
+  };
+}
+
+async function loadAddonEventSchedulerWork(
+  client: AdminApiClient,
+  eventId: string,
+): Promise<AdminSectionResult<EventSchedulerWorkSummary>> {
+  const result = await loadSection(
+    () => client.getAddonEventSchedulerWork(eventId),
+    fallbackAddonEventSchedulerWork(eventId),
+  );
+
+  return {
+    value: mapEventSchedulerWork(result.value),
+    source: result.source,
+    error: result.error,
+  };
+}
+
+function fallbackAddonEventDeliveryAttempts(
+  eventId: string,
+): AddonEventDeliveryAttemptsResponse {
+  if (eventId === mockAddonEventDeliveryAttempts.event_id) {
+    return mockAddonEventDeliveryAttempts;
+  }
+
+  return {
+    event_id: eventId,
+    attempts: [],
+  };
+}
+
+function fallbackAddonEventSchedulerWork(eventId: string): AddonEventSchedulerWorkResponse {
+  if (eventId === mockAddonEventSchedulerWork.event.id) {
+    return mockAddonEventSchedulerWork;
+  }
+
+  const event = mockEvents.events.find((candidate) => candidate.id === eventId);
+
+  return {
+    event: {
+      id: eventId,
+      kind: event?.kind ?? "unknown",
+      subject: event?.subject ?? "unknown",
+      library_id: event?.library_id ?? null,
+      source_id: event?.source_id ?? null,
+      status: event?.status ?? "unknown",
+      attempts: event?.attempts ?? 0,
+      occurred_at: event?.occurred_at ?? "",
+      updated_at: event?.updated_at ?? "",
+      next_attempt_at: event?.next_attempt_at ?? null,
+    },
+    due_work_count: 0,
+    blocked_work_count: 0,
+    work: [],
+  };
+}
+
 function previewAddonManifestJson(manifestJson: string): AddonManifestPreview {
   try {
     const manifest = JSON.parse(manifestJson);
@@ -2157,14 +2281,108 @@ function mapGeneratedArtifactReviewResult(
 
 function mapEvents(response: AdminOutboxEventListResponse): EventSummary {
   return {
-    events: response.events.map((event) => ({
-      id: event.id,
-      kind: event.kind,
-      status: event.status,
-      attempts: event.attempts,
-      hasError: event.has_error,
-    })),
+    events: response.events.map(mapEventListRow),
     page: response.page,
+  };
+}
+
+function mapEventListRow(event: AdminOutboxEventListResponse["events"][number]): EventRow {
+  return {
+    id: event.id,
+    kind: event.kind,
+    status: event.status,
+    attempts: event.attempts,
+    hasPayload: event.has_payload,
+    hasError: event.has_error,
+    libraryId: event.library_id,
+    sourceId: event.source_id,
+    occurredAt: event.occurred_at,
+    updatedAt: event.updated_at,
+    nextAttemptAt: event.next_attempt_at,
+  };
+}
+
+function mapDispatchEventRow(event: AddonEventDispatchResponse["event"]): EventRow {
+  return {
+    id: event.id,
+    kind: event.kind,
+    status: event.status,
+    attempts: event.attempts,
+    hasPayload: false,
+    hasError: false,
+    libraryId: event.library_id ?? null,
+    sourceId: event.source_id ?? null,
+    occurredAt: event.occurred_at,
+    updatedAt: event.updated_at,
+    nextAttemptAt: event.next_attempt_at ?? null,
+  };
+}
+
+function mapEventDeliveryAttempt(
+  attempt: AddonEventDeliveryAttemptsResponse["attempts"][number],
+): EventDeliveryAttemptRow {
+  return {
+    id: attempt.id,
+    addonId: attempt.addon_id,
+    eventId: attempt.event_id,
+    declarationId: attempt.declaration_id,
+    attemptNumber: attempt.attempt_number,
+    status: attempt.status,
+    httpStatus: attempt.http_status,
+    hasError: attempt.has_error,
+    requestedAt: attempt.requested_at,
+    completedAt: attempt.completed_at,
+    nextRetryAt: attempt.next_retry_at,
+    leaseExpiresAt: attempt.lease_expires_at,
+    forcedReplay: attempt.forced_replay,
+    replayReasonCode: attempt.replay_reason_code,
+  };
+}
+
+function mapEventSchedulerWork(
+  response: AddonEventSchedulerWorkResponse,
+): EventSchedulerWorkSummary {
+  return {
+    event: mapDispatchEventRow(response.event),
+    dueWorkCount: response.due_work_count,
+    blockedWorkCount: response.blocked_work_count,
+    work: response.work.map((item) => ({
+      addonId: item.addon_id,
+      manifestId: item.manifest_id,
+      manifestVersion: item.manifest_version,
+      declarationId: item.declaration_id,
+      eventKind: item.event_kind,
+      status: item.status,
+      safeReasonCode: item.safe_reason_code ?? null,
+      routingPlanStatus: item.routing_plan_status,
+      routingPlanTarget: item.routing_plan_target,
+      attemptCount: item.attempt_count,
+      nextAttemptNumber: item.next_attempt_number,
+      maxAttempts: item.max_attempts,
+      latestAttemptStatus: item.latest_attempt_status ?? null,
+      latestHttpStatus: item.latest_http_status ?? null,
+      nextRetryAt: item.next_retry_at ?? null,
+      leaseExpiresAt: item.lease_expires_at ?? null,
+    })),
+  };
+}
+
+function mapEventDispatch(response: AddonEventDispatchResponse): EventDispatchSummary {
+  return {
+    event: mapDispatchEventRow(response.event),
+    attemptedSubscriptions: response.attempted_subscriptions,
+    delivered: response.delivered,
+    failed: response.failed,
+    skippedSubscriptions: response.skipped_subscriptions,
+    attempts: response.attempts.map(mapEventDeliveryAttempt),
+    errorCount: response.error_count,
+  };
+}
+
+function mapEventReplay(response: AddonEventReplayResponse): EventReplaySummary {
+  return {
+    reasonCode: response.reason_code,
+    dispatch: mapEventDispatch(response.dispatch),
   };
 }
 

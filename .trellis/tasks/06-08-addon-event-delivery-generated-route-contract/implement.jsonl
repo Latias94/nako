@@ -1,0 +1,9 @@
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Generated Admin API route contract changes touch nako-api"}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Addon Event Delivery routes must be generated from nako-api, not hand-edited in TS"}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Route inventory, generated artifact, and redaction gates"}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server route inventory parity is part of the slice validation"}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Implemented Addon Admin routes must remain thin, authenticated Admin routes"}
+{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web route, data-source, generated contract, form, and test rules"}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Events page must follow route-owned filters, live-only mutations, fallback, and redaction patterns"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Feature spans Rust API contract, generated TS, data source, and UI"}
+{"file": ".trellis/tasks/06-08-addon-event-delivery-generated-route-contract/research/jellyfin-addon-event-delivery-comparison.md", "reason": "Jellyfin comparison informs narrow outbox/Add-on delivery operator scope"}

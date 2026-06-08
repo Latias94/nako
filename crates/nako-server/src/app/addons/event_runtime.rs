@@ -8,9 +8,10 @@ use nako_addon_protocol::{
     AddonAuth, AddonEventSubscriptionDeclaration, AddonScope, validate_manifest,
 };
 use nako_api::extension::{
-    AddonEventDeliveryAttemptsResponse, AddonEventDispatchEventSummary, AddonEventDispatchResponse,
-    AddonEventReplayResponse, AddonEventSchedulerWorkItem, AddonEventSchedulerWorkResponse,
-    AddonEventSchedulerWorkStatus, ReplayAddonEventRequest,
+    AddonEventDeliveryAttemptSummary, AddonEventDeliveryAttemptsResponse,
+    AddonEventDispatchEventSummary, AddonEventDispatchResponse, AddonEventReplayResponse,
+    AddonEventSchedulerWorkItem, AddonEventSchedulerWorkResponse, AddonEventSchedulerWorkStatus,
+    ReplayAddonEventRequest,
 };
 use nako_core::{
     AddonEventDeliveryAttemptId, AddonEventDeliveryRepository, AddonEventDeliveryStatus,
@@ -125,7 +126,10 @@ impl AddonAppService {
         let attempts = self
             .store
             .list_addon_event_delivery_attempts(event_id)
-            .await?;
+            .await?
+            .into_iter()
+            .map(AddonEventDeliveryAttemptSummary::from)
+            .collect();
 
         Ok(AddonEventDeliveryAttemptsResponse { event_id, attempts })
     }
@@ -175,7 +179,7 @@ impl AddonAppService {
         let mut delivered = 0_u32;
         let mut failed = 0_u32;
         let mut attempts = Vec::new();
-        let mut errors = Vec::new();
+        let mut error_count = 0_u32;
 
         for addon in addons {
             let plans = self.store.list_addon_routing_plans(addon.id).await?;
@@ -263,7 +267,7 @@ impl AddonAppService {
                         error = %err,
                         "addon event delivery failed before attempt completion"
                     );
-                    errors.push(err.to_string());
+                    error_count = error_count.saturating_add(1);
                 }
                 Err(err) => {
                     failed += 1;
@@ -272,7 +276,7 @@ impl AddonAppService {
                         error = %err,
                         "addon event delivery worker join failed"
                     );
-                    errors.push(format!("addon event delivery worker join failed: {err}"));
+                    error_count = error_count.saturating_add(1);
                 }
             }
         }
@@ -290,8 +294,11 @@ impl AddonAppService {
             delivered,
             failed,
             skipped_subscriptions,
-            attempts,
-            errors,
+            attempts: attempts
+                .into_iter()
+                .map(AddonEventDeliveryAttemptSummary::from)
+                .collect(),
+            error_count,
         })
     }
 

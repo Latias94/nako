@@ -18,7 +18,7 @@ struct AdminRouteExclusionSuffix {
     reason: &'static str,
 }
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 100] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 104] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessInvitations", "access/invitations"),
@@ -203,6 +203,19 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 100] = [
         "metadata/candidate-reviews/{review_id}/related-hierarchy/apply",
     ),
     ("events", "events"),
+    (
+        "eventAddonDeliveryAttempts",
+        "events/{event_id}/addon-event-attempts",
+    ),
+    (
+        "eventAddonSchedulerWork",
+        "events/{event_id}/addon-event-scheduler/work",
+    ),
+    (
+        "eventAddonDeliver",
+        "events/{event_id}/addon-events/deliver",
+    ),
+    ("eventAddonReplay", "events/{event_id}/addon-events/replay"),
     ("jobs", "jobs"),
     ("jobCancel", "jobs/{job_id}/cancel"),
     ("sourceFingerprintHashes", "source-fingerprint-hashes"),
@@ -289,7 +302,7 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 100] = [
     ("settingsMetadataRawCache", "settings/metadata/raw-cache"),
 ];
 
-const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 14] = [
+const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 10] = [
     AdminRouteExclusionSuffix {
         suffix: "addons/install-guide-preview",
         reason: "Install guide preview is a planning helper and does not have a stable generated Admin Web route key yet.",
@@ -329,22 +342,6 @@ const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 14] = [
     AdminRouteExclusionSuffix {
         suffix: "artwork/artifacts/cleanup",
         reason: "Managed artwork maintenance commands are server-side operator workflows not generated as Admin Web route constants in this slice.",
-    },
-    AdminRouteExclusionSuffix {
-        suffix: "events/{event_id}/addon-event-attempts",
-        reason: "Addon event delivery control routes are server-side operator workflows not generated as Admin Web route constants in this slice.",
-    },
-    AdminRouteExclusionSuffix {
-        suffix: "events/{event_id}/addon-event-scheduler/work",
-        reason: "Addon event delivery control routes are server-side operator workflows not generated as Admin Web route constants in this slice.",
-    },
-    AdminRouteExclusionSuffix {
-        suffix: "events/{event_id}/addon-events/deliver",
-        reason: "Addon event delivery control routes are server-side operator workflows not generated as Admin Web route constants in this slice.",
-    },
-    AdminRouteExclusionSuffix {
-        suffix: "events/{event_id}/addon-events/replay",
-        reason: "Addon event delivery control routes are server-side operator workflows not generated as Admin Web route constants in this slice.",
     },
 ];
 
@@ -2778,6 +2775,101 @@ export interface AdminOutboxEventListItem {
   next_attempt_at: string | null;
 }
 
+export type AddonEventDeliveryStatus =
+  | "pending"
+  | "running"
+  | "succeeded"
+  | "failed";
+
+export interface AddonEventDeliveryAttemptSummary {
+  id: string;
+  addon_id: string;
+  event_id: string;
+  declaration_id: string;
+  attempt_number: number;
+  status: AddonEventDeliveryStatus;
+  http_status: number | null;
+  has_error: boolean;
+  requested_at: string;
+  completed_at: string | null;
+  next_retry_at: string | null;
+  lease_expires_at: string | null;
+  forced_replay: boolean;
+  replay_reason_code: string | null;
+}
+
+export interface AddonEventDeliveryAttemptsResponse {
+  event_id: string;
+  attempts: AddonEventDeliveryAttemptSummary[];
+}
+
+export interface AddonEventDispatchEventSummary {
+  id: string;
+  kind: string;
+  subject: string | Record<string, unknown>;
+  library_id?: string | null;
+  source_id?: string | null;
+  status: string;
+  attempts: number;
+  occurred_at: string;
+  updated_at: string;
+  next_attempt_at?: string | null;
+}
+
+export interface AddonEventDispatchResponse {
+  event: AddonEventDispatchEventSummary;
+  attempted_subscriptions: number;
+  delivered: number;
+  failed: number;
+  skipped_subscriptions: number;
+  attempts: AddonEventDeliveryAttemptSummary[];
+  error_count: number;
+}
+
+export interface ReplayAddonEventRequest {
+  reason_code: string;
+}
+
+export interface AddonEventReplayResponse {
+  reason_code: string;
+  dispatch: AddonEventDispatchResponse;
+}
+
+export type AddonEventSchedulerWorkStatus =
+  | "due"
+  | "retry_due"
+  | "waiting_retry"
+  | "already_succeeded"
+  | "exhausted"
+  | "in_flight"
+  | "deferred";
+
+export interface AddonEventSchedulerWorkItem {
+  addon_id: string;
+  manifest_id: string;
+  manifest_version: string;
+  declaration_id: string;
+  event_kind: string;
+  status: AddonEventSchedulerWorkStatus;
+  safe_reason_code?: string | null;
+  routing_plan_status: AdminAddonRoutingPlanStatus;
+  routing_plan_target: AdminAddonRoutingPlanTarget;
+  attempt_count: number;
+  next_attempt_number: number;
+  max_attempts: number;
+  latest_attempt_status?: AddonEventDeliveryStatus | null;
+  latest_http_status?: number | null;
+  next_retry_at?: string | null;
+  lease_expires_at?: string | null;
+}
+
+export interface AddonEventSchedulerWorkResponse {
+  event: AddonEventDispatchEventSummary;
+  due_work_count: number;
+  blocked_work_count: number;
+  work: AddonEventSchedulerWorkItem[];
+}
+
 export interface AdminJobDiagnostics {
   vfs_cache_repair: AdminVfsCacheRepairJobDiagnostics | null;
 }
@@ -4267,6 +4359,16 @@ mod tests {
             "AdminMetadataCandidateReviewApplicationAction",
             "AdminMetadataCandidateReviewApplicationReason",
             "AdminOutboxEventsQuery",
+            "AddonEventDeliveryStatus",
+            "AddonEventDeliveryAttemptSummary",
+            "AddonEventDeliveryAttemptsResponse",
+            "AddonEventDispatchEventSummary",
+            "AddonEventDispatchResponse",
+            "ReplayAddonEventRequest",
+            "AddonEventReplayResponse",
+            "AddonEventSchedulerWorkStatus",
+            "AddonEventSchedulerWorkItem",
+            "AddonEventSchedulerWorkResponse",
             "AdminJobsQuery",
             "AdminSourceFingerprintHashMode",
             "AdminJobPriority",

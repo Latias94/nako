@@ -71,6 +71,10 @@ export const NAKO_ADMIN_ROUTES = {
   metadataCandidateReviewRelatedHierarchyApplicationPlan: "/admin/v1/metadata/candidate-reviews/{review_id}/related-hierarchy/application-plan",
   metadataCandidateReviewRelatedHierarchyApply: "/admin/v1/metadata/candidate-reviews/{review_id}/related-hierarchy/apply",
   events: "/admin/v1/events",
+  eventAddonDeliveryAttempts: "/admin/v1/events/{event_id}/addon-event-attempts",
+  eventAddonSchedulerWork: "/admin/v1/events/{event_id}/addon-event-scheduler/work",
+  eventAddonDeliver: "/admin/v1/events/{event_id}/addon-events/deliver",
+  eventAddonReplay: "/admin/v1/events/{event_id}/addon-events/replay",
   jobs: "/admin/v1/jobs",
   jobCancel: "/admin/v1/jobs/{job_id}/cancel",
   sourceFingerprintHashes: "/admin/v1/source-fingerprint-hashes",
@@ -2458,6 +2462,101 @@ export interface AdminOutboxEventListItem {
   occurred_at: string;
   updated_at: string;
   next_attempt_at: string | null;
+}
+
+export type AddonEventDeliveryStatus =
+  | "pending"
+  | "running"
+  | "succeeded"
+  | "failed";
+
+export interface AddonEventDeliveryAttemptSummary {
+  id: string;
+  addon_id: string;
+  event_id: string;
+  declaration_id: string;
+  attempt_number: number;
+  status: AddonEventDeliveryStatus;
+  http_status: number | null;
+  has_error: boolean;
+  requested_at: string;
+  completed_at: string | null;
+  next_retry_at: string | null;
+  lease_expires_at: string | null;
+  forced_replay: boolean;
+  replay_reason_code: string | null;
+}
+
+export interface AddonEventDeliveryAttemptsResponse {
+  event_id: string;
+  attempts: AddonEventDeliveryAttemptSummary[];
+}
+
+export interface AddonEventDispatchEventSummary {
+  id: string;
+  kind: string;
+  subject: string | Record<string, unknown>;
+  library_id?: string | null;
+  source_id?: string | null;
+  status: string;
+  attempts: number;
+  occurred_at: string;
+  updated_at: string;
+  next_attempt_at?: string | null;
+}
+
+export interface AddonEventDispatchResponse {
+  event: AddonEventDispatchEventSummary;
+  attempted_subscriptions: number;
+  delivered: number;
+  failed: number;
+  skipped_subscriptions: number;
+  attempts: AddonEventDeliveryAttemptSummary[];
+  error_count: number;
+}
+
+export interface ReplayAddonEventRequest {
+  reason_code: string;
+}
+
+export interface AddonEventReplayResponse {
+  reason_code: string;
+  dispatch: AddonEventDispatchResponse;
+}
+
+export type AddonEventSchedulerWorkStatus =
+  | "due"
+  | "retry_due"
+  | "waiting_retry"
+  | "already_succeeded"
+  | "exhausted"
+  | "in_flight"
+  | "deferred";
+
+export interface AddonEventSchedulerWorkItem {
+  addon_id: string;
+  manifest_id: string;
+  manifest_version: string;
+  declaration_id: string;
+  event_kind: string;
+  status: AddonEventSchedulerWorkStatus;
+  safe_reason_code?: string | null;
+  routing_plan_status: AdminAddonRoutingPlanStatus;
+  routing_plan_target: AdminAddonRoutingPlanTarget;
+  attempt_count: number;
+  next_attempt_number: number;
+  max_attempts: number;
+  latest_attempt_status?: AddonEventDeliveryStatus | null;
+  latest_http_status?: number | null;
+  next_retry_at?: string | null;
+  lease_expires_at?: string | null;
+}
+
+export interface AddonEventSchedulerWorkResponse {
+  event: AddonEventDispatchEventSummary;
+  due_work_count: number;
+  blocked_work_count: number;
+  work: AddonEventSchedulerWorkItem[];
 }
 
 export interface AdminJobDiagnostics {

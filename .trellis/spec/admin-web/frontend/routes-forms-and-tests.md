@@ -213,6 +213,118 @@ run.progress ? <pre>{JSON.stringify(run.progress)}</pre> : null;
 Keep Addon Task Run pages on the route-local safe projection, not the raw
 generated wire DTO.
 
+## Scenario: Addon Event Delivery Operator Projection
+
+### 1. Scope / Trigger
+
+- Trigger: Admin Web lists outbox events, inspects Addon Event Delivery
+  attempts/scheduler work, or runs Addon event deliver/replay mutations through
+  generated Admin API routes.
+- Evidence: `src/features/events/EventsPage.tsx`,
+  `src/adminApi/client.ts`, `src/adminApi/dataSource.ts`,
+  `src/adminApi/types.ts`, `src/adminApi/mockData.ts`, generated Admin API
+  contracts, and route tests.
+- Authority: ADR 0027 and ADR 0053.
+
+### 2. Signatures
+
+- Generated route keys:
+  `events`, `eventAddonDeliveryAttempts`, `eventAddonSchedulerWork`,
+  `eventAddonDeliver`, and `eventAddonReplay`.
+- Client methods:
+  `getEvents(query)`, `getAddonEventDeliveryAttempts(eventId)`,
+  `getAddonEventSchedulerWork(eventId)`, `deliverAddonEvents(eventId)`, and
+  `replayAddonEvents(eventId, request)`.
+- Data source methods:
+  `loadEvents(query)`, `loadAddonEventDeliveryAttempts(eventId)`,
+  `loadAddonEventSchedulerWork(eventId)`, `deliverAddonEvents(eventId)`, and
+  `replayAddonEvents(eventId, reasonCode)`.
+- Page rows use `EventRow`, `EventDeliveryAttemptRow`, and
+  `EventSchedulerWorkRow`, not generated raw Addon Event DTOs.
+
+### 3. Contracts
+
+- The Admin API contract must expose Addon delivery attempts as summaries with
+  `has_error`, not raw `error`, and dispatch responses with `error_count`, not
+  raw `errors`.
+- Event list rows may expose only event ID, kind, status, attempt count,
+  `hasPayload`, `hasError`, Library/Source IDs, and timestamps.
+- Addon delivery attempt rows may expose only Addon ID, declaration ID, attempt
+  number, status, HTTP status, `hasError`, replay reason code, replay flag, and
+  timestamps.
+- Scheduler work rows may expose only Addon ID, manifest ID/version,
+  declaration ID, event kind, status, safe reason code, routing plan
+  status/target, attempt counters, latest status/HTTP status, and retry/lease
+  timestamps.
+- Pages must not render raw event subject, payload, idempotency key, raw error,
+  dispatch errors, request/response bodies, URLs, tokens, credentials, local
+  paths, fingerprints, manifest raw payload, or Addon sidecar internals.
+- Deliver and replay are available only when the event list source is `live`
+  and the relevant data-source mutation exists.
+- Replay requires a non-empty operator reason code and an explicit prepare step
+  followed by confirm.
+- Mock fallback may show safe read rows but must never fabricate successful
+  deliver or replay mutations.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Live event list succeeds | Map generated response into `EventRow[]` and render safe facts |
+| Live attempts/work read fails | Use deterministic safe fallback with visible error |
+| Route source is mock or hybrid without mutation | Disable deliver/replay and show unavailable copy |
+| Replay reason code is empty | Do not call mutation; show reason-required copy |
+| Replay prepare is clicked with a reason | Store only selected event ID and reason code, then render confirm |
+| Deliver/replay HTTP request fails | Surface the error without changing visible rows to success |
+| Generated response or route data contains raw payload/error/url/token/path/fingerprint material | Data source/page projection omits it and tests reject rendering |
+
+### 5. Good / Base / Bad Cases
+
+- Good: client builds generated route paths with encoded `event_id`, data
+  source maps into safe Event rows, page renders only counts/booleans/safe
+  codes, and tests cover replay confirmation plus redaction.
+- Base: read-only Events route with disabled deliver/replay when source is not
+  live.
+- Bad: page imports `AddonEventDeliveryAttemptSummary`, renders raw subject or
+  payload, calls generated routes directly, or lets mock fallback report a
+  successful deliver/replay.
+
+### 6. Tests Required
+
+- Client tests assert generated event list/attempts/work/deliver/replay routes,
+  encoded `event_id`, query params, and POST bodies.
+- Data source tests assert safe mapping, fallback reads, live mutation failure
+  behavior, and raw field redaction.
+- Route tests assert `/events` renders, URL-owned pagination/filtering,
+  zh-Hans copy, mock mutation disabled state, deliver live-only behavior,
+  replay prepare/confirm with reason code, and unsafe fields absent from
+  rendered text.
+- Run:
+  - `npm run check --prefix apps/admin-web`
+  - focused Vitest files for `client`, `dataSource`, and `App`
+  - `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+  - `cargo nextest run -p nako-server addon_event --no-fail-fast`
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```tsx
+attempt.error ? <code>{attempt.error}</code> : null;
+```
+
+#### Correct
+
+```tsx
+<Badge tone={attempt.hasError ? "danger" : "neutral"}>
+  {attempt.hasError ? t("events.error.present") : t("events.error.absent")}
+</Badge>
+```
+
+Keep Addon Event Delivery pages on route-local safe projections. Raw delivery
+error material may exist in storage for retry diagnostics, but it must not
+enter Admin Web route rendering.
+
 ## Scenario: Access Invitation Operator Projection
 
 ### 1. Scope / Trigger

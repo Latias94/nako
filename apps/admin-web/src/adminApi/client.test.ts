@@ -10,6 +10,10 @@ import {
   mockAccessInvitations,
   mockAddonDetail,
   mockAddonDiagnostic,
+  mockAddonEventDeliveryAttempts,
+  mockAddonEventDispatch,
+  mockAddonEventReplay,
+  mockAddonEventSchedulerWork,
   mockAddonGrants,
   mockAddonHealth,
   mockAddonInstallGuide,
@@ -89,6 +93,10 @@ function addonTaskRunRetryPath(addonId = TEST_ADDON_ID, jobId = "job-addon-task-
   return NAKO_ADMIN_ROUTES.addonTaskRunRetry
     .replace("{addon_id}", addonId)
     .replace("{job_id}", jobId);
+}
+
+function eventPath(route: string, eventId = "event-webhook") {
+  return route.replace("{event_id}", eventId);
 }
 
 describe("AdminApiClient", () => {
@@ -968,6 +976,114 @@ describe("AdminApiClient", () => {
           body: JSON.stringify({ idempotency_key: "retry-task-run-once" }),
         },
       ],
+    ]);
+  });
+
+  it("uses generated Addon Event delivery routes with encoded identifiers", async () => {
+    const eventId = "event/webhook due";
+    const encodedEventId = encodeURIComponent(eventId);
+    const seenRequests: Array<{ body: unknown; method: string; path: string; search: string }> = [];
+    const fetcher = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input.toString(), "http://127.0.0.1");
+      seenRequests.push({
+        body: init?.body ? JSON.parse(String(init.body)) : null,
+        method: init?.method ?? "GET",
+        path: url.pathname,
+        search: url.search,
+      });
+
+      if (url.pathname === NAKO_ADMIN_ROUTES.events) {
+        return Response.json(mockEvents);
+      }
+      if (
+        url.pathname === eventPath(NAKO_ADMIN_ROUTES.eventAddonDeliveryAttempts, encodedEventId)
+      ) {
+        return Response.json({
+          ...mockAddonEventDeliveryAttempts,
+          event_id: eventId,
+        });
+      }
+      if (
+        url.pathname === eventPath(NAKO_ADMIN_ROUTES.eventAddonSchedulerWork, encodedEventId)
+      ) {
+        return Response.json({
+          ...mockAddonEventSchedulerWork,
+          event: {
+            ...mockAddonEventSchedulerWork.event,
+            id: eventId,
+          },
+        });
+      }
+      if (url.pathname === eventPath(NAKO_ADMIN_ROUTES.eventAddonDeliver, encodedEventId)) {
+        return Response.json(mockAddonEventDispatch);
+      }
+      if (url.pathname === eventPath(NAKO_ADMIN_ROUTES.eventAddonReplay, encodedEventId)) {
+        return Response.json(mockAddonEventReplay);
+      }
+
+      return new Response("not found", { status: 404 });
+    });
+    const client = new AdminApiClient({ fetcher });
+
+    await expect(
+      client.getEvents({
+        kind: "library_scanned",
+        status: "failed",
+        library_id: "library-films",
+        source_id: "source-a",
+        limit: 5,
+        offset: 10,
+      }),
+    ).resolves.toEqual(mockEvents);
+    await expect(client.getAddonEventDeliveryAttempts(eventId)).resolves.toMatchObject({
+      event_id: eventId,
+    });
+    await expect(client.getAddonEventSchedulerWork(eventId)).resolves.toMatchObject({
+      event: {
+        id: eventId,
+      },
+    });
+    await expect(client.deliverAddonEvents(eventId)).resolves.toEqual(mockAddonEventDispatch);
+    await expect(
+      client.replayAddonEvents(eventId, {
+        reason_code: "operator_requested",
+      }),
+    ).resolves.toEqual(mockAddonEventReplay);
+
+    expect(seenRequests).toEqual([
+      {
+        path: NAKO_ADMIN_ROUTES.events,
+        search:
+          "?kind=library_scanned&status=failed&library_id=library-films&source_id=source-a&limit=5&offset=10",
+        method: "GET",
+        body: null,
+      },
+      {
+        path: eventPath(NAKO_ADMIN_ROUTES.eventAddonDeliveryAttempts, encodedEventId),
+        search: "",
+        method: "GET",
+        body: null,
+      },
+      {
+        path: eventPath(NAKO_ADMIN_ROUTES.eventAddonSchedulerWork, encodedEventId),
+        search: "",
+        method: "GET",
+        body: null,
+      },
+      {
+        path: eventPath(NAKO_ADMIN_ROUTES.eventAddonDeliver, encodedEventId),
+        search: "",
+        method: "POST",
+        body: {},
+      },
+      {
+        path: eventPath(NAKO_ADMIN_ROUTES.eventAddonReplay, encodedEventId),
+        search: "",
+        method: "POST",
+        body: {
+          reason_code: "operator_requested",
+        },
+      },
     ]);
   });
 

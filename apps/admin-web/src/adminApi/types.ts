@@ -2,6 +2,7 @@ import type {
   AdminArtworkKind,
   AdminItemArtworkGalleryQuery,
   AdminNetworkAccessDiagnostics,
+  AdminOutboxEventsQuery,
   AdminOverviewResponse,
   AdminCatalogGovernanceProviderMappingReviewRequest,
   AdminProviderMappingStatus,
@@ -81,6 +82,7 @@ export type {
   AdminInvitationResponse,
   AdminOutboxEventListItem,
   AdminOutboxEventListResponse,
+  AdminOutboxEventsQuery,
   AdminOverviewResponse,
   AdminOverviewStatus,
   AdminPlaybackRuntimeDiagnosticsResponse,
@@ -1012,14 +1014,82 @@ export type CatalogGovernanceProviderMappingReviewResultSummary = {
 };
 
 export type EventSummary = {
-  events: Array<{
-    id: string;
-    kind: string;
-    status: string;
-    attempts: number;
-    hasError: boolean;
-  }>;
+  events: EventRow[];
   page: PageInfo;
+};
+
+export type EventListQuery = AdminOutboxEventsQuery;
+
+export type EventRow = {
+  id: string;
+  kind: string;
+  status: string;
+  attempts: number;
+  hasPayload: boolean;
+  hasError: boolean;
+  libraryId: string | null;
+  sourceId: string | null;
+  occurredAt: string;
+  updatedAt: string;
+  nextAttemptAt: string | null;
+};
+
+export type EventDeliveryAttemptRow = {
+  id: string;
+  addonId: string;
+  eventId: string;
+  declarationId: string;
+  attemptNumber: number;
+  status: string;
+  httpStatus: number | null;
+  hasError: boolean;
+  requestedAt: string;
+  completedAt: string | null;
+  nextRetryAt: string | null;
+  leaseExpiresAt: string | null;
+  forcedReplay: boolean;
+  replayReasonCode: string | null;
+};
+
+export type EventSchedulerWorkRow = {
+  addonId: string;
+  manifestId: string;
+  manifestVersion: string;
+  declarationId: string;
+  eventKind: string;
+  status: string;
+  safeReasonCode: string | null;
+  routingPlanStatus: string;
+  routingPlanTarget: string;
+  attemptCount: number;
+  nextAttemptNumber: number;
+  maxAttempts: number;
+  latestAttemptStatus: string | null;
+  latestHttpStatus: number | null;
+  nextRetryAt: string | null;
+  leaseExpiresAt: string | null;
+};
+
+export type EventSchedulerWorkSummary = {
+  event: EventRow;
+  dueWorkCount: number;
+  blockedWorkCount: number;
+  work: EventSchedulerWorkRow[];
+};
+
+export type EventDispatchSummary = {
+  event: EventRow;
+  attemptedSubscriptions: number;
+  delivered: number;
+  failed: number;
+  skippedSubscriptions: number;
+  attempts: EventDeliveryAttemptRow[];
+  errorCount: number;
+};
+
+export type EventReplaySummary = {
+  reasonCode: string;
+  dispatch: EventDispatchSummary;
 };
 
 export type IntakeSummary = {

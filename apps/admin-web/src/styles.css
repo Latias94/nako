@@ -2829,6 +2829,168 @@ td {
   line-height: 1.5;
 }
 
+.eventsSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.eventsSummaryTile {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 96px;
+  border: 1px solid var(--nako-admin-line);
+  border-radius: var(--nako-admin-radius);
+  background: var(--nako-admin-surface-raised);
+  padding: 12px;
+}
+
+.eventsSummaryTile span {
+  color: var(--nako-admin-muted);
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.eventsSummaryTile strong {
+  color: var(--nako-admin-ink);
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.eventsRouteGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.eventsSelectedRow .uiTableCell {
+  background: oklch(96% 0.018 148);
+}
+
+.eventsBadgeStack,
+.eventsRowBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.eventsTimeCell {
+  display: grid;
+  gap: 4px;
+}
+
+.eventsTimeCell span,
+.eventsTimeCell small {
+  overflow-wrap: anywhere;
+}
+
+.eventsTimeCell small {
+  color: var(--nako-admin-muted);
+  font-size: 0.78rem;
+}
+
+.eventsFactList,
+.eventsWorkList,
+.eventsCommandPanel {
+  display: grid;
+  padding: 4px 16px 12px;
+}
+
+.eventsFactRow,
+.eventsCommandRow,
+.eventsWorkRow {
+  min-width: 0;
+  border-top: 1px solid var(--nako-admin-line-soft);
+  padding: 12px 0;
+}
+
+.eventsFactRow,
+.eventsCommandRow,
+.eventsWorkRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.eventsFactRow:first-child,
+.eventsCommandRow:first-child,
+.eventsWorkRow:first-child {
+  border-top: 0;
+}
+
+.eventsFactRow div,
+.eventsCommandRow div:first-child,
+.eventsWorkRow div:first-child {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.eventsFactRow span,
+.eventsFactRow small,
+.eventsCommandRow span,
+.eventsWorkRow span,
+.eventsWorkRow small,
+.eventsReplayConfirm small {
+  color: var(--nako-admin-muted);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.eventsFactRow strong,
+.eventsCommandRow strong,
+.eventsWorkRow strong {
+  color: var(--nako-admin-ink);
+  overflow-wrap: anywhere;
+  font-size: 0.92rem;
+}
+
+.eventsReplayForm {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid var(--nako-admin-line-soft);
+  padding-top: 12px;
+}
+
+.eventsReplayForm label {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  color: oklch(35% 0.025 94);
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.eventsReplayForm input {
+  min-height: 36px;
+  width: 100%;
+  border: 1px solid var(--nako-admin-line);
+  border-radius: var(--nako-admin-radius);
+  background: var(--nako-admin-surface-field);
+  color: var(--nako-admin-ink);
+  padding: 0 10px;
+}
+
+.eventsReplayForm input:focus-visible {
+  border-color: var(--nako-admin-brand);
+  outline: 2px solid var(--nako-admin-focus);
+  outline-offset: 1px;
+}
+
+.eventsReplayConfirm {
+  display: grid;
+  gap: 8px;
+}
+
+.eventsReplayConfirm div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .uiButton {
   display: inline-flex;
   align-items: center;
@@ -2986,7 +3148,9 @@ td {
   .artworkGalleryGrid,
   .addonsSummaryGrid,
   .addonsRouteGrid,
-  .addonsCredentialGrid {
+  .addonsCredentialGrid,
+  .eventsSummaryGrid,
+  .eventsRouteGrid {
     grid-template-columns: 1fr;
   }
 
@@ -3013,18 +3177,26 @@ td {
     padding: 18px 12px 28px;
   }
 
-  .routeNav,
-  .filterBar,
-  .overviewMetricGrid,
-  .overviewDiagnosticGrid,
-  .settingsSummaryGrid,
-  .accessSummaryGrid,
-  .artworkSummaryGrid,
-  .artworkGalleryGrid,
-  .libraryPlanGrid,
-  .libraryOperationGrid,
-  .addonsSummaryGrid,
-  .addonsCountGrid {
+    .routeNav,
+    .filterBar,
+    .overviewMetricGrid,
+    .overviewDiagnosticGrid,
+    .settingsSummaryGrid,
+    .accessSummaryGrid,
+    .artworkSummaryGrid,
+    .artworkGalleryGrid,
+    .libraryPlanGrid,
+    .libraryOperationGrid,
+    .addonsSummaryGrid,
+    .addonsCountGrid,
+    .eventsSummaryGrid {
     grid-template-columns: 1fr;
+  }
+
+  .eventsFactRow,
+  .eventsCommandRow,
+  .eventsWorkRow {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

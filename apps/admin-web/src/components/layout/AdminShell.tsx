@@ -8,6 +8,7 @@ import type { AdminLocale } from "../../i18n/messages";
 export type AdminRouteTo =
   | "/overview"
   | "/jobs"
+  | "/events"
   | "/access"
   | "/libraries"
   | "/catalog"

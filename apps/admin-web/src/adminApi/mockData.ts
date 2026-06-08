@@ -1,4 +1,8 @@
 import type {
+  AddonEventDeliveryAttemptsResponse,
+  AddonEventDispatchResponse,
+  AddonEventReplayResponse,
+  AddonEventSchedulerWorkResponse,
   AddonGrantsResponse,
   AddonTaskRunResponse,
   AddonTaskRunsResponse,
@@ -1796,6 +1800,115 @@ export const mockEvents: AdminOutboxEventListResponse = {
   page: { limit: 20, offset: 0, returned: 2 },
 };
 
+export const mockAddonEventDeliveryAttempts: AddonEventDeliveryAttemptsResponse = {
+  event_id: "event-webhook",
+  attempts: [
+    {
+      id: "addon-event-attempt-1",
+      addon_id: "addon-subtitle-lab",
+      event_id: "event-webhook",
+      declaration_id: "library-scanned",
+      attempt_number: 1,
+      status: "failed",
+      http_status: 503,
+      has_error: true,
+      requested_at: "2026-05-19T09:31:00Z",
+      completed_at: "2026-05-19T09:31:02Z",
+      next_retry_at: "2026-05-19T10:15:00Z",
+      lease_expires_at: null,
+      forced_replay: false,
+      replay_reason_code: null,
+    },
+    {
+      id: "addon-event-attempt-2",
+      addon_id: "addon-subtitle-lab",
+      event_id: "event-webhook",
+      declaration_id: "library-scanned",
+      attempt_number: 2,
+      status: "succeeded",
+      http_status: 202,
+      has_error: false,
+      requested_at: "2026-05-19T10:16:00Z",
+      completed_at: "2026-05-19T10:16:01Z",
+      next_retry_at: null,
+      lease_expires_at: null,
+      forced_replay: true,
+      replay_reason_code: "operator_requested",
+    },
+  ],
+};
+
+export const mockAddonEventSchedulerWork: AddonEventSchedulerWorkResponse = {
+  event: {
+    id: "event-webhook",
+    kind: "library_scanned",
+    subject: "library:library-films",
+    library_id: "library-films",
+    source_id: null,
+    status: "failed",
+    attempts: 3,
+    occurred_at: "2026-05-19T09:30:00Z",
+    updated_at: "2026-05-19T09:45:00Z",
+    next_attempt_at: "2026-05-19T10:15:00Z",
+  },
+  due_work_count: 1,
+  blocked_work_count: 0,
+  work: [
+    {
+      addon_id: "addon-subtitle-lab",
+      manifest_id: "dev.nako.subtitle-lab",
+      manifest_version: "0.3.0",
+      declaration_id: "library-scanned",
+      event_kind: "library_scanned",
+      status: "retry_due",
+      safe_reason_code: null,
+      routing_plan_status: "executable",
+      routing_plan_target: "event_outbox",
+      attempt_count: 1,
+      next_attempt_number: 2,
+      max_attempts: 3,
+      latest_attempt_status: "failed",
+      latest_http_status: 503,
+      next_retry_at: "2026-05-19T10:15:00Z",
+      lease_expires_at: null,
+    },
+  ],
+};
+
+export const mockAddonEventDispatch: AddonEventDispatchResponse = {
+  event: mockAddonEventSchedulerWork.event,
+  attempted_subscriptions: 1,
+  delivered: 1,
+  failed: 0,
+  skipped_subscriptions: 0,
+  attempts: [
+    {
+      ...mockAddonEventDeliveryAttempts.attempts[1],
+      id: "addon-event-attempt-dispatch",
+      attempt_number: 3,
+      forced_replay: false,
+      replay_reason_code: null,
+    },
+  ],
+  error_count: 0,
+};
+
+export const mockAddonEventReplay: AddonEventReplayResponse = {
+  reason_code: "operator_requested",
+  dispatch: {
+    ...mockAddonEventDispatch,
+    attempts: [
+      {
+        ...mockAddonEventDispatch.attempts[0],
+        id: "addon-event-attempt-replay",
+        attempt_number: 4,
+        forced_replay: true,
+        replay_reason_code: "operator_requested",
+      },
+    ],
+  },
+};
+
 export const mockJobs: AdminJobListResponse = {
   queue_pressure: [
     {
@@ -3114,7 +3227,13 @@ export const mockAdminConsoleData: AdminConsoleData = {
       kind: event.kind,
       status: event.status,
       attempts: event.attempts,
+      hasPayload: event.has_payload,
       hasError: event.has_error,
+      libraryId: event.library_id,
+      sourceId: event.source_id,
+      occurredAt: event.occurred_at,
+      updatedAt: event.updated_at,
+      nextAttemptAt: event.next_attempt_at,
     })),
     page: mockEvents.page,
   },

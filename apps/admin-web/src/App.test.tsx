@@ -24,6 +24,12 @@ import type {
   CatalogGovernanceItemDetailSummary,
   CatalogGovernanceProviderMappingReviewPlanSummary,
   CatalogGovernanceProviderMappingReviewResultSummary,
+  EventDeliveryAttemptRow,
+  EventDispatchSummary,
+  EventListQuery,
+  EventReplaySummary,
+  EventSchedulerWorkSummary,
+  EventSummary,
   GeneratedArtifactReviewPlanSummary,
   GeneratedArtifactReviewResultSummary,
   ItemArtworkGallerySummary,
@@ -2067,6 +2073,174 @@ describe("Admin Web V2 route shell", () => {
     expect(renderedText).not.toContain("/Users/");
   });
 
+  it("maps Events URL search params into generated event query fields", async () => {
+    const loadEvents = vi.fn(async (query?: EventListQuery) => ({
+      value: mockAdminConsoleData.events,
+      source: "live" as const,
+      query,
+    }));
+    window.history.pushState(
+      null,
+      "",
+      "/events?kind=library_scanned&status=failed&library_id=library-films&source_id=source-a&limit=5&offset=10",
+    );
+
+    render(
+      <App
+        dataSource={{
+          ...eventsDataSource(),
+          loadEvents,
+        }}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Events" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(loadEvents).toHaveBeenCalledWith({
+        kind: "library_scanned",
+        status: "failed",
+        library_id: "library-films",
+        source_id: "source-a",
+        limit: 5,
+        offset: 10,
+      });
+    });
+
+    fireEvent.change(screen.getByLabelText("Events page offset"), {
+      target: { value: "20" },
+    });
+
+    await waitFor(() => {
+      expect(window.location.search).toContain("offset=20");
+    });
+  });
+
+  it("renders Events zh-Hans copy and disables mutations for mock fallback", async () => {
+    window.history.pushState(null, "", "/events");
+
+    render(
+      <App
+        dataSource={{
+          async load() {
+            return emptyConsoleData();
+          },
+          async loadEvents() {
+            return {
+              value: mockAdminConsoleData.events,
+              source: "mock",
+              error: "Admin API request failed with HTTP 503",
+            };
+          },
+        }}
+        initialLocale="zh-Hans"
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "事件" })).toBeInTheDocument();
+    expect(await screen.findByText(/HTTP 503/)).toBeInTheDocument();
+    expect(screen.getAllByText("Mock 回退").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText("Addon event delivery mutation 需要实时 Admin API 响应。"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Deliver" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "准备 replay" })).toBeDisabled();
+  });
+
+  it("delivers and replays Addon events only after explicit reason confirmation", async () => {
+    const deliverAddonEvents = vi.fn(async (): Promise<EventDispatchSummary> => ({
+      event: mockAdminConsoleData.events.events[1],
+      attemptedSubscriptions: 1,
+      delivered: 1,
+      failed: 0,
+      skippedSubscriptions: 0,
+      attempts: mockEventDeliveryAttempts(),
+      errorCount: 0,
+    }));
+    const replayAddonEvents = vi.fn(async (): Promise<EventReplaySummary> => ({
+      reasonCode: "operator_requested",
+      dispatch: {
+        event: mockAdminConsoleData.events.events[1],
+        attemptedSubscriptions: 1,
+        delivered: 1,
+        failed: 0,
+        skippedSubscriptions: 0,
+        attempts: mockEventDeliveryAttempts().map((attempt) => ({
+          ...attempt,
+          forcedReplay: true,
+          replayReasonCode: "operator_requested",
+        })),
+        errorCount: 0,
+      },
+    }));
+    window.history.pushState(null, "", "/events");
+
+    render(
+      <App
+        dataSource={{
+          ...eventsDataSource(),
+          deliverAddonEvents,
+          replayAddonEvents,
+        }}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Select event event-webhook",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Deliver" }));
+
+    await waitFor(() => {
+      expect(deliverAddonEvents).toHaveBeenCalledWith("event-webhook");
+    });
+    expect(await screen.findByText("Delivered 1 subscriptions, 0 failed.")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Addon event replay reason code"), {
+      target: { value: "operator_requested" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Prepare replay" }));
+
+    expect(replayAddonEvents).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("Confirm replay for event event-webhook with reason operator_requested."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Confirm replay" }));
+
+    await waitFor(() => {
+      expect(replayAddonEvents).toHaveBeenCalledWith("event-webhook", "operator_requested");
+    });
+    expect(
+      await screen.findByText("Replayed with reason operator_requested. Delivered 1, failed 0."),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps unsafe Addon event delivery fields out of the Events route rendering", async () => {
+    window.history.pushState(null, "", "/events");
+    const { container } = render(<App dataSource={unsafeEventsDataSource()} />);
+
+    await screen.findByRole("heading", { name: "Events" });
+    await screen.findByText("library_scanned");
+    const renderedText = container.textContent ?? "";
+
+    expect(renderedText).not.toContain("subject should not render");
+    expect(renderedText).not.toContain("secret event payload");
+    expect(renderedText).not.toContain("secret_raw_payload_marker");
+    expect(renderedText).not.toContain("raw event error");
+    expect(renderedText).not.toContain("raw delivery error");
+    expect(renderedText).not.toContain("raw dispatch error");
+    expect(renderedText).not.toContain("idempotency_key");
+    expect(renderedText).not.toContain("unsafe-idempotency-key");
+    expect(renderedText).not.toContain("token_env");
+    expect(renderedText).not.toContain("ADDON_SECRET_TOKEN");
+    expect(renderedText).not.toContain("http://addon-sidecar:9100");
+    expect(renderedText).not.toContain("manifest_fingerprint");
+    expect(renderedText).not.toContain("declaration_path");
+    expect(renderedText).not.toContain("F:\\");
+    expect(renderedText).not.toContain("/Users/");
+  });
+
   it("maps Media Catalog URL search params into public bridge query fields", async () => {
     const loadCatalog = vi.fn(async (query?: CatalogBrowseQuery) => ({
       value: mockCatalogBrowse,
@@ -3901,6 +4075,168 @@ function unsafeAddonsRouteSummary(): AddonsRouteSummary {
         raw_token: "one_time_raw_token",
       },
     })) as AddonsRouteSummary["taskRuns"],
+  };
+}
+
+function eventsDataSource(summary = mockAdminConsoleData.events): AdminDataSource {
+  return {
+    async load() {
+      return emptyConsoleData();
+    },
+    async loadEvents(query?: EventListQuery) {
+      void query;
+      return {
+        value: summary,
+        source: "live",
+      };
+    },
+    async loadAddonEventDeliveryAttempts(eventId: string) {
+      return {
+        value: eventId === "event-webhook" ? mockEventDeliveryAttempts() : [],
+        source: "live",
+      };
+    },
+    async loadAddonEventSchedulerWork(eventId: string) {
+      const event =
+        mockAdminConsoleData.events.events.find((candidate) => candidate.id === eventId) ??
+        mockAdminConsoleData.events.events[0];
+      return {
+        value: mockEventSchedulerWork(event),
+        source: "live",
+      };
+    },
+  };
+}
+
+function unsafeEventsDataSource(): AdminDataSource {
+  return {
+    ...eventsDataSource(unsafeEventsSummary()),
+    async loadAddonEventDeliveryAttempts() {
+      return {
+        value: mockEventDeliveryAttempts().map((attempt) => ({
+          ...attempt,
+          raw_error: "raw delivery error http://addon-sidecar:9100",
+          request_body: "raw payload",
+          response_body: "secret event payload",
+          token_env: "ADDON_SECRET_TOKEN",
+          local_path: "F:\\nako\\addon-event.json",
+        })) as EventDeliveryAttemptRow[],
+        source: "live",
+      };
+    },
+    async loadAddonEventSchedulerWork() {
+      return {
+        value: {
+          ...mockEventSchedulerWork(mockAdminConsoleData.events.events[1]),
+          work: mockEventSchedulerWork(mockAdminConsoleData.events.events[1]).work.map((work) => ({
+            ...work,
+            manifest_fingerprint: "sha256:unsafe-manifest-fingerprint",
+            declaration_path: "/events/library-scanned",
+            sidecar_url: "http://addon-sidecar:9100/events",
+          })) as EventSchedulerWorkSummary["work"],
+        },
+        source: "live",
+      };
+    },
+    async deliverAddonEvents(): Promise<EventDispatchSummary> {
+      return {
+        event: mockAdminConsoleData.events.events[1],
+        attemptedSubscriptions: 1,
+        delivered: 0,
+        failed: 1,
+        skippedSubscriptions: 0,
+        attempts: mockEventDeliveryAttempts().map((attempt) => ({
+          ...attempt,
+          raw_error: "raw dispatch error",
+        })) as EventDeliveryAttemptRow[],
+        errorCount: 1,
+      };
+    },
+  };
+}
+
+function unsafeEventsSummary(): EventSummary {
+  return {
+    ...mockAdminConsoleData.events,
+    events: mockAdminConsoleData.events.events.map((event) => ({
+      ...event,
+      subject: "subject should not render",
+      payload: "secret event payload",
+      raw_payload: "secret_raw_payload_marker",
+      raw_error: "raw event error",
+      idempotency_key: "unsafe-idempotency-key",
+      token_env: "ADDON_SECRET_TOKEN",
+      local_path: "F:\\nako\\event.json",
+      source_uri: "file:///Users/frank/event.json",
+    })) as EventSummary["events"],
+  };
+}
+
+function mockEventDeliveryAttempts(): EventDeliveryAttemptRow[] {
+  return [
+    {
+      id: "addon-event-attempt-1",
+      addonId: "addon-subtitle-lab",
+      eventId: "event-webhook",
+      declarationId: "library-scanned",
+      attemptNumber: 1,
+      status: "failed",
+      httpStatus: 503,
+      hasError: true,
+      requestedAt: "2026-05-19T09:31:00Z",
+      completedAt: "2026-05-19T09:31:02Z",
+      nextRetryAt: "2026-05-19T10:15:00Z",
+      leaseExpiresAt: null,
+      forcedReplay: false,
+      replayReasonCode: null,
+    },
+    {
+      id: "addon-event-attempt-2",
+      addonId: "addon-subtitle-lab",
+      eventId: "event-webhook",
+      declarationId: "library-scanned",
+      attemptNumber: 2,
+      status: "succeeded",
+      httpStatus: 202,
+      hasError: false,
+      requestedAt: "2026-05-19T10:16:00Z",
+      completedAt: "2026-05-19T10:16:01Z",
+      nextRetryAt: null,
+      leaseExpiresAt: null,
+      forcedReplay: true,
+      replayReasonCode: "operator_requested",
+    },
+  ];
+}
+
+function mockEventSchedulerWork(event: EventSummary["events"][number]): EventSchedulerWorkSummary {
+  return {
+    event,
+    dueWorkCount: event.id === "event-webhook" ? 1 : 0,
+    blockedWorkCount: 0,
+    work:
+      event.id === "event-webhook"
+        ? [
+            {
+              addonId: "addon-subtitle-lab",
+              manifestId: "dev.nako.subtitle-lab",
+              manifestVersion: "0.3.0",
+              declarationId: "library-scanned",
+              eventKind: "library_scanned",
+              status: "retry_due",
+              safeReasonCode: null,
+              routingPlanStatus: "executable",
+              routingPlanTarget: "event_outbox",
+              attemptCount: 1,
+              nextAttemptNumber: 2,
+              maxAttempts: 3,
+              latestAttemptStatus: "failed",
+              latestHttpStatus: 503,
+              nextRetryAt: "2026-05-19T10:15:00Z",
+              leaseExpiresAt: null,
+            },
+          ]
+        : [],
   };
 }
 

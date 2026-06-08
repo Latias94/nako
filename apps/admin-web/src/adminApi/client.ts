@@ -1,5 +1,9 @@
 import type {
   AddonGrantsResponse,
+  AddonEventDeliveryAttemptsResponse,
+  AddonEventDispatchResponse,
+  AddonEventReplayResponse,
+  AddonEventSchedulerWorkResponse,
   AddonTaskRunResponse,
   AddonTaskRunsQuery,
   AddonTaskRunsResponse,
@@ -53,6 +57,7 @@ import type {
   AdminJobsQuery,
   AdminPageQuery,
   AdminOutboxEventListResponse,
+  AdminOutboxEventsQuery,
   AdminOverviewResponse,
   AdminPlaybackRuntimeDiagnosticsResponse,
   AdminPlaybackRuntimeSettingsResponse,
@@ -81,6 +86,7 @@ import type {
   AdminVfsCacheRepairTargetListResponse,
   AdminVfsCacheRepairTargetPreviewResponse,
   RetryAddonTaskRunRequest,
+  ReplayAddonEventRequest,
   IssueAddonTokenRequest,
   RegisterAddonRequest,
   ReplaceAddonGrantsRequest,
@@ -441,8 +447,43 @@ export class AdminApiClient {
     );
   }
 
-  async getEvents(): Promise<AdminOutboxEventListResponse> {
-    return this.getJson<AdminOutboxEventListResponse>(NAKO_ADMIN_ROUTES.events);
+  async getEvents(query: AdminOutboxEventsQuery = {}): Promise<AdminOutboxEventListResponse> {
+    return this.getJson<AdminOutboxEventListResponse>(
+      withQuery(NAKO_ADMIN_ROUTES.events, query),
+    );
+  }
+
+  async getAddonEventDeliveryAttempts(
+    eventId: string,
+  ): Promise<AddonEventDeliveryAttemptsResponse> {
+    return this.getJson<AddonEventDeliveryAttemptsResponse>(
+      eventPath(NAKO_ADMIN_ROUTES.eventAddonDeliveryAttempts, eventId),
+    );
+  }
+
+  async getAddonEventSchedulerWork(
+    eventId: string,
+  ): Promise<AddonEventSchedulerWorkResponse> {
+    return this.getJson<AddonEventSchedulerWorkResponse>(
+      eventPath(NAKO_ADMIN_ROUTES.eventAddonSchedulerWork, eventId),
+    );
+  }
+
+  async deliverAddonEvents(eventId: string): Promise<AddonEventDispatchResponse> {
+    return this.postJson<AddonEventDispatchResponse>(
+      eventPath(NAKO_ADMIN_ROUTES.eventAddonDeliver, eventId),
+      {},
+    );
+  }
+
+  async replayAddonEvents(
+    eventId: string,
+    request: ReplayAddonEventRequest,
+  ): Promise<AddonEventReplayResponse> {
+    return this.postJson<AddonEventReplayResponse>(
+      eventPath(NAKO_ADMIN_ROUTES.eventAddonReplay, eventId),
+      request,
+    );
   }
 
   async getJobs(query: AdminJobsQuery = {}): Promise<AdminJobListResponse> {
@@ -866,6 +907,10 @@ function addonTaskRunPath(path: string, addonId: string, jobId: string) {
     "job_id",
     jobId,
   );
+}
+
+function eventPath(path: string, eventId: string) {
+  return routeWithParam(path, "event_id", eventId);
 }
 
 function withQuery(path: string, query: object) {
