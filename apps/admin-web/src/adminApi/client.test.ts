@@ -62,44 +62,56 @@ import {
 const TEST_ADDON_ID = "addon-subtitle-lab";
 const TEST_ADDON_TOKEN_ID = "addon-token-active";
 
+function routePath(path: string, name: string, value: string) {
+  return path.replace(`{${name}}`, encodeURIComponent(value));
+}
+
 function addonDetailPath(addonId = TEST_ADDON_ID) {
-  return NAKO_ADMIN_ROUTES.addonDetail.replace(":addon_id", addonId);
+  return routePath(NAKO_ADMIN_ROUTES.addonDetail, "addon_id", addonId);
 }
 
 function addonTokensPath(addonId = TEST_ADDON_ID) {
-  return NAKO_ADMIN_ROUTES.addonTokens.replace("{addon_id}", addonId);
+  return routePath(NAKO_ADMIN_ROUTES.addonTokens, "addon_id", addonId);
 }
 
 function addonTokenRotatePath(addonId = TEST_ADDON_ID, tokenId = TEST_ADDON_TOKEN_ID) {
-  return NAKO_ADMIN_ROUTES.addonTokenRotate
-    .replace("{addon_id}", addonId)
-    .replace("{token_id}", tokenId);
+  return routePath(
+    routePath(NAKO_ADMIN_ROUTES.addonTokenRotate, "addon_id", addonId),
+    "token_id",
+    tokenId,
+  );
 }
 
 function addonTokenRevokePath(addonId = TEST_ADDON_ID, tokenId = TEST_ADDON_TOKEN_ID) {
-  return NAKO_ADMIN_ROUTES.addonTokenRevoke
-    .replace("{addon_id}", addonId)
-    .replace("{token_id}", tokenId);
+  return routePath(
+    routePath(NAKO_ADMIN_ROUTES.addonTokenRevoke, "addon_id", addonId),
+    "token_id",
+    tokenId,
+  );
 }
 
 function addonGrantsPath(addonId = TEST_ADDON_ID) {
-  return NAKO_ADMIN_ROUTES.addonGrants.replace("{addon_id}", addonId);
+  return routePath(NAKO_ADMIN_ROUTES.addonGrants, "addon_id", addonId);
 }
 
 function addonTaskRunsPath(addonId = TEST_ADDON_ID) {
-  return NAKO_ADMIN_ROUTES.addonTaskRuns.replace("{addon_id}", addonId);
+  return routePath(NAKO_ADMIN_ROUTES.addonTaskRuns, "addon_id", addonId);
 }
 
 function addonTaskRunPath(addonId = TEST_ADDON_ID, jobId = "job-addon-task-run-failed") {
-  return NAKO_ADMIN_ROUTES.addonTaskRun
-    .replace("{addon_id}", addonId)
-    .replace("{job_id}", jobId);
+  return routePath(
+    routePath(NAKO_ADMIN_ROUTES.addonTaskRun, "addon_id", addonId),
+    "job_id",
+    jobId,
+  );
 }
 
 function addonTaskRunRetryPath(addonId = TEST_ADDON_ID, jobId = "job-addon-task-run-failed") {
-  return NAKO_ADMIN_ROUTES.addonTaskRunRetry
-    .replace("{addon_id}", addonId)
-    .replace("{job_id}", jobId);
+  return routePath(
+    routePath(NAKO_ADMIN_ROUTES.addonTaskRunRetry, "addon_id", addonId),
+    "job_id",
+    jobId,
+  );
 }
 
 function eventPath(route: string, eventId = "event-webhook") {
@@ -187,9 +199,9 @@ describe("AdminApiClient", () => {
       ],
       [NAKO_ADMIN_ROUTES.addons, mockAddons],
       [addonDetailPath(), mockAddonDetail],
-      [NAKO_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab"), mockAddonHealth],
-      [NAKO_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab"), mockAddonSurfaces],
-      [NAKO_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab"), mockAddonInstallGuide],
+      [routePath(NAKO_ADMIN_ROUTES.addonHealthCheck, "addon_id", "addon-subtitle-lab"), mockAddonHealth],
+      [routePath(NAKO_ADMIN_ROUTES.addonSurfaces, "addon_id", "addon-subtitle-lab"), mockAddonSurfaces],
+      [routePath(NAKO_ADMIN_ROUTES.addonInstallGuide, "addon_id", "addon-subtitle-lab"), mockAddonInstallGuide],
       [addonTokensPath(), mockAddonTokens],
       [addonGrantsPath(), mockAddonGrants],
       [addonTaskRunsPath(), mockAddonTaskRuns],
@@ -288,9 +300,9 @@ describe("AdminApiClient", () => {
       NAKO_ADMIN_ROUTES.catalogGovernanceItemDetail.replace("{item_id}", "item-candidate"),
       `${NAKO_ADMIN_ROUTES.addons}?status=enabled`,
       addonDetailPath(),
-      NAKO_ADMIN_ROUTES.addonHealthCheck.replace(":addon_id", "addon-subtitle-lab"),
-      NAKO_ADMIN_ROUTES.addonSurfaces.replace(":addon_id", "addon-subtitle-lab"),
-      NAKO_ADMIN_ROUTES.addonInstallGuide.replace(":addon_id", "addon-subtitle-lab"),
+      routePath(NAKO_ADMIN_ROUTES.addonHealthCheck, "addon_id", "addon-subtitle-lab"),
+      routePath(NAKO_ADMIN_ROUTES.addonSurfaces, "addon_id", "addon-subtitle-lab"),
+      routePath(NAKO_ADMIN_ROUTES.addonInstallGuide, "addon_id", "addon-subtitle-lab"),
       addonTokensPath(),
       addonGrantsPath(),
       `${addonTaskRunsPath()}?limit=5`,
@@ -1291,6 +1303,7 @@ describe("AdminApiClient", () => {
   });
 
   it("sends Addon lifecycle and diagnostic mutations through Admin-only routes", async () => {
+    const addonId = "addon/unsafe id";
     const fetcher = vi.fn(async (input: string | URL | Request) => {
       const url = new URL(input.toString(), "http://127.0.0.1");
       if (url.pathname.endsWith("/diagnostics/resource-call")) {
@@ -1301,11 +1314,11 @@ describe("AdminApiClient", () => {
     const client = new AdminApiClient({ token: "redacted-test-token", fetcher });
 
     await expect(
-      client.updateAddonStatus("addon-subtitle-lab", { status: "disabled" }),
+      client.updateAddonStatus(addonId, { status: "disabled" }),
     ).resolves.toEqual(mockAddonDetail);
-    await expect(client.unregisterAddon("addon-subtitle-lab")).resolves.toEqual(mockAddonDetail);
+    await expect(client.unregisterAddon(addonId)).resolves.toEqual(mockAddonDetail);
     await expect(
-      client.diagnoseAddonResourceCall("addon-subtitle-lab", {
+      client.diagnoseAddonResourceCall(addonId, {
         resource: "subtitle",
         payload: { safe_probe: true },
       }),
@@ -1313,21 +1326,21 @@ describe("AdminApiClient", () => {
 
     expect(fetcher.mock.calls).toMatchObject([
       [
-        NAKO_ADMIN_ROUTES.addonStatus.replace(":addon_id", "addon-subtitle-lab"),
+        routePath(NAKO_ADMIN_ROUTES.addonStatus, "addon_id", addonId),
         {
           method: "PATCH",
           body: JSON.stringify({ status: "disabled" }),
         },
       ],
       [
-        NAKO_ADMIN_ROUTES.addonUnregister.replace(":addon_id", "addon-subtitle-lab"),
+        routePath(NAKO_ADMIN_ROUTES.addonUnregister, "addon_id", addonId),
         {
           method: "POST",
           body: JSON.stringify({}),
         },
       ],
       [
-        NAKO_ADMIN_ROUTES.addonResourceCallDiagnostic.replace(":addon_id", "addon-subtitle-lab"),
+        routePath(NAKO_ADMIN_ROUTES.addonResourceCallDiagnostic, "addon_id", addonId),
         {
           method: "POST",
           body: JSON.stringify({ resource: "subtitle", payload: { safe_probe: true } }),
@@ -1475,15 +1488,15 @@ describe("AdminApiClient", () => {
 
     expect(fetcher.mock.calls).toMatchObject([
       [
-        `${addonTaskRunsPath(encodedAddonId)}?limit=5&offset=10`,
+        `${addonTaskRunsPath(addonId)}?limit=5&offset=10`,
         {},
       ],
       [
-        addonTaskRunPath(encodedAddonId, encodedJobId),
+        addonTaskRunPath(addonId, jobId),
         {},
       ],
       [
-        addonTaskRunRetryPath(encodedAddonId, encodedJobId),
+        addonTaskRunRetryPath(addonId, jobId),
         {
           method: "POST",
           body: JSON.stringify({ idempotency_key: "retry-task-run-once" }),

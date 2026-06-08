@@ -36,7 +36,7 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 114] = [
         "addonCatalogResolve",
         "addons/catalog/entries/{entry_id}/resolve",
     ),
-    ("addonDetail", "addons/:addon_id"),
+    ("addonDetail", "addons/{addon_id}"),
     ("addonTokens", "addons/{addon_id}/tokens"),
     (
         "addonTokenRotate",
@@ -47,12 +47,12 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 114] = [
         "addons/{addon_id}/tokens/{token_id}/revoke",
     ),
     ("addonGrants", "addons/{addon_id}/grants"),
-    ("addonStatus", "addons/:addon_id/status"),
-    ("addonUnregister", "addons/:addon_id/unregister"),
-    ("addonHealthCheck", "addons/:addon_id/health-check"),
-    ("addonSurfaces", "addons/:addon_id/surfaces"),
-    ("addonInstallGuide", "addons/:addon_id/install-guide"),
-    ("addonManagerPlan", "addons/:addon_id/manager-plan"),
+    ("addonStatus", "addons/{addon_id}/status"),
+    ("addonUnregister", "addons/{addon_id}/unregister"),
+    ("addonHealthCheck", "addons/{addon_id}/health-check"),
+    ("addonSurfaces", "addons/{addon_id}/surfaces"),
+    ("addonInstallGuide", "addons/{addon_id}/install-guide"),
+    ("addonManagerPlan", "addons/{addon_id}/manager-plan"),
     ("addonTaskRuns", "addons/{addon_id}/task-runs"),
     ("addonTaskRun", "addons/{addon_id}/task-runs/{job_id}"),
     (
@@ -61,33 +61,33 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 114] = [
     ),
     (
         "addonResourceCallDiagnostic",
-        "addons/:addon_id/diagnostics/resource-call",
+        "addons/{addon_id}/diagnostics/resource-call",
     ),
     (
         "addonResourceSearchDiagnostic",
-        "addons/:addon_id/diagnostics/resource-search",
+        "addons/{addon_id}/diagnostics/resource-search",
     ),
-    ("addonResourceSearch", "addons/:addon_id/resource-search"),
+    ("addonResourceSearch", "addons/{addon_id}/resource-search"),
     (
         "addonResourceSearchSelection",
-        "addons/:addon_id/resource-search/{search_id}/selections/{selection_id}/intake-candidate",
+        "addons/{addon_id}/resource-search/{search_id}/selections/{selection_id}/intake-candidate",
     ),
     (
         "addonResourceSearchSelectionLinkCheck",
-        "addons/:addon_id/resource-search/{search_id}/selections/{selection_id}/link-check",
+        "addons/{addon_id}/resource-search/{search_id}/selections/{selection_id}/link-check",
     ),
-    ("addonSubtitleSearch", "addons/:addon_id/subtitle-search"),
+    ("addonSubtitleSearch", "addons/{addon_id}/subtitle-search"),
     (
         "addonSubtitleSearchSelection",
-        "addons/:addon_id/subtitle-search/{search_id}/selections/{selection_id}/selected-reference",
+        "addons/{addon_id}/subtitle-search/{search_id}/selections/{selection_id}/selected-reference",
     ),
     (
         "addonSubtitleImportPlan",
-        "addons/:addon_id/subtitle-search/{search_id}/selections/{selection_id}/import-plan",
+        "addons/{addon_id}/subtitle-search/{search_id}/selections/{selection_id}/import-plan",
     ),
     (
         "addonSubtitleImportApply",
-        "addons/:addon_id/subtitle-search/{search_id}/selections/{selection_id}/import-apply",
+        "addons/{addon_id}/subtitle-search/{search_id}/selections/{selection_id}/import-apply",
     ),
     (
         "acquisitionIntakeCandidates",
@@ -4889,16 +4889,16 @@ mod tests {
     #[test]
     fn admin_route_normalization_treats_axum_and_generated_params_as_same() {
         assert_eq!(
-            normalize_admin_route_path("/admin/v1/addons/:addon_id/status"),
-            "/admin/v1/addons/{addon_id}/status"
+            normalize_admin_route_path("/admin/v1/example/:resource_id/status"),
+            "/admin/v1/example/{resource_id}/status"
         );
         assert_eq!(
-            normalize_admin_route_path("/admin/v1/addons/{addon_id}/status"),
-            "/admin/v1/addons/{addon_id}/status"
+            normalize_admin_route_path("/admin/v1/example/{resource_id}/status"),
+            "/admin/v1/example/{resource_id}/status"
         );
         assert_eq!(
-            normalize_admin_route_path("/admin/v1/addons/:addon_id/tokens/:token_id/revoke"),
-            "/admin/v1/addons/{addon_id}/tokens/{token_id}/revoke"
+            normalize_admin_route_path("/admin/v1/example/:resource_id/tokens/:token_id/revoke"),
+            "/admin/v1/example/{resource_id}/tokens/{token_id}/revoke"
         );
     }
 
@@ -4912,6 +4912,12 @@ mod tests {
             assert!(
                 route.path.starts_with(&admin_prefix),
                 "Admin route constant {} must stay under {admin_prefix}: {}",
+                route.key,
+                route.path
+            );
+            assert!(
+                !route.path.contains("/:"),
+                "Generated Admin route constant {} must use brace path parameters: {}",
                 route.key,
                 route.path
             );

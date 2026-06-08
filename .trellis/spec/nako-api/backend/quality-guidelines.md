@@ -64,6 +64,9 @@ API contract work must keep generated artifacts and route inventories honest.
 - Path normalization:
   `normalize_admin_route_path(path: &str) -> String`, converting Axum
   `:param` syntax into generated `{param}` syntax before comparison.
+- Generated client-facing route templates:
+  use brace parameters such as `{addon_id}`. Axum `:param` syntax is accepted
+  only as server-route inventory input before normalization.
 - Server route inventory test:
   `http::tests::admin_route_inventory::implemented_admin_routes_are_generated_or_explicitly_excluded`.
 
@@ -73,6 +76,8 @@ API contract work must keep generated artifacts and route inventories honest.
   Admin route modules must be either generated in `NAKO_ADMIN_ROUTES` or listed
   in `admin_contract_route_exclusions()` with a non-empty reason.
 - Generated Admin route constants must map back to implemented server routes.
+- Generated Admin route constants must not contain `/:param` placeholders; use
+  `{param}` so Admin Web can route all path substitution through one helper.
 - Exclusions are for implemented Admin routes only; stale exclusions must fail
   the gate.
 - Generated and excluded Admin routes must remain outside Public Client route
@@ -90,6 +95,7 @@ API contract work must keep generated artifacts and route inventories honest.
 | Implemented route is neither generated nor excluded | `implemented_admin_routes_are_generated_or_explicitly_excluded` fails |
 | Exclusion points to a removed server route | `implemented_admin_routes_are_generated_or_explicitly_excluded` fails |
 | Axum uses `:id` while generated route uses `{id}` | `normalize_admin_route_path` treats them as the same path |
+| Generated Admin route contains `/:id` | `admin_contract` fails until the template is changed to `{id}` |
 | Public Client inventory contains an Admin path | `admin_contract_routes_stay_out_of_public_client_inventory` fails |
 
 ### 5. Good/Base/Bad Cases
@@ -104,6 +110,8 @@ API contract work must keep generated artifacts and route inventories honest.
   cover all implemented Admin HTTP and Addon Admin routes.
 - Bad: adding a server route and relying on Admin Web string literals or mock
   fallback data instead of generated `NAKO_ADMIN_ROUTES`.
+- Bad: adding a generated Admin route suffix such as `addons/:addon_id/status`;
+  generated client-facing templates must use `addons/{addon_id}/status`.
 - Bad: adding an Admin route to the Public Client route inventory to make a
   parity test pass.
 
@@ -111,6 +119,8 @@ API contract work must keep generated artifacts and route inventories honest.
 
 - Focused API contract:
   `cargo nextest run -p nako-api admin_contract --no-fail-fast`.
+- Admin contract route template tests must reject generated `/:param`
+  placeholders while preserving normalization for Axum server-route input.
 - Focused server inventory:
   `cargo nextest run -p nako-server implemented_admin_routes_are_generated_or_explicitly_excluded --no-fail-fast`.
 - Cross-crate compile when route inventory helpers or server route tests change:

@@ -38,6 +38,10 @@ Use this spec for `apps/admin-web` changes. It records current patterns only.
   `emptyToUndefined`.
 - Admin API live calls go through `AdminApiClient`, `NAKO_ADMIN_ROUTES`, and the
   `AdminDataSource` mapping layer. Pages should not call `fetch` directly.
+- Generated Admin API route path parameters use brace templates such as
+  `{addon_id}`. Client code should encode them through the shared
+  `routeWithParam` helper; do not add colon-template helpers such as
+  `addonPath`.
 - Generated Admin API contract output must be refreshed with
   `npm run generate:admin-api`; do not edit `src/adminApi/generated/contract.ts`
   by hand.

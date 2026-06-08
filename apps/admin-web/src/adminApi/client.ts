@@ -182,7 +182,9 @@ export class AdminApiClient {
   }
 
   async getAddonDetail(addonId: string): Promise<AdminAddonRegistrationResponse> {
-    return this.getJson<AdminAddonRegistrationResponse>(addonPath(NAKO_ADMIN_ROUTES.addonDetail, addonId));
+    return this.getJson<AdminAddonRegistrationResponse>(
+      routeWithParam(NAKO_ADMIN_ROUTES.addonDetail, "addon_id", addonId),
+    );
   }
 
   async registerAddon(
@@ -206,31 +208,35 @@ export class AdminApiClient {
     request: UpdateAddonStatusRequest,
   ): Promise<AdminAddonRegistrationResponse> {
     return this.patchJson<AdminAddonRegistrationResponse>(
-      addonPath(NAKO_ADMIN_ROUTES.addonStatus, addonId),
+      routeWithParam(NAKO_ADMIN_ROUTES.addonStatus, "addon_id", addonId),
       request,
     );
   }
 
   async unregisterAddon(addonId: string): Promise<AdminAddonRegistrationResponse> {
     return this.postJson<AdminAddonRegistrationResponse>(
-      addonPath(NAKO_ADMIN_ROUTES.addonUnregister, addonId),
+      routeWithParam(NAKO_ADMIN_ROUTES.addonUnregister, "addon_id", addonId),
       {},
     );
   }
 
   async checkAddonHealth(addonId: string): Promise<AdminAddonHealthCheckResponse> {
     return this.postJson<AdminAddonHealthCheckResponse>(
-      addonPath(NAKO_ADMIN_ROUTES.addonHealthCheck, addonId),
+      routeWithParam(NAKO_ADMIN_ROUTES.addonHealthCheck, "addon_id", addonId),
       {},
     );
   }
 
   async getAddonSurfaces(addonId: string): Promise<AdminAddonSurfacesResponse> {
-    return this.getJson<AdminAddonSurfacesResponse>(addonPath(NAKO_ADMIN_ROUTES.addonSurfaces, addonId));
+    return this.getJson<AdminAddonSurfacesResponse>(
+      routeWithParam(NAKO_ADMIN_ROUTES.addonSurfaces, "addon_id", addonId),
+    );
   }
 
   async getAddonInstallGuide(addonId: string): Promise<AdminAddonInstallGuideResponse> {
-    return this.getJson<AdminAddonInstallGuideResponse>(addonPath(NAKO_ADMIN_ROUTES.addonInstallGuide, addonId));
+    return this.getJson<AdminAddonInstallGuideResponse>(
+      routeWithParam(NAKO_ADMIN_ROUTES.addonInstallGuide, "addon_id", addonId),
+    );
   }
 
   async previewAddonInstallGuide(
@@ -247,7 +253,7 @@ export class AdminApiClient {
     request: AdminAddonResourceCallDiagnosticRequest,
   ): Promise<AdminAddonResourceCallDiagnosticResponse> {
     return this.postJson<AdminAddonResourceCallDiagnosticResponse>(
-      addonPath(NAKO_ADMIN_ROUTES.addonResourceCallDiagnostic, addonId),
+      routeWithParam(NAKO_ADMIN_ROUTES.addonResourceCallDiagnostic, "addon_id", addonId),
       request,
     );
   }
@@ -1030,8 +1036,4 @@ function withQuery(path: string, query: object) {
 
   const suffix = params.toString();
   return suffix ? `${path}?${suffix}` : path;
-}
-
-function addonPath(template: string, addonId: string) {
-  return template.replace(":addon_id", encodeURIComponent(addonId));
 }
