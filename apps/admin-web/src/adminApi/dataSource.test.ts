@@ -35,6 +35,9 @@ import {
   mockJobCancelRequestResponse,
   mockJobs,
   mockLibraryMetadataProfile,
+  mockManagedArtworkArtifactLifecycle,
+  mockManagedArtworkArtifactRemediationPlan,
+  mockManagedArtworkArtifactStorageDrift,
   mockMetadataRawCacheSettings,
   mockOverview,
   mockPlaybackRuntime,
@@ -1573,6 +1576,184 @@ describe("Admin data source", () => {
       error: expect.stringContaining("HTTP 503"),
     });
     expect(fallbackRequests).toEqual(["/admin/v1/items/item-unknown-1/artwork"]);
+  });
+
+  it("loads Managed Artwork maintenance diagnostics through safe generated projections", async () => {
+    const unsafeLifecycle = {
+      ...mockManagedArtworkArtifactLifecycle,
+      artifacts: mockManagedArtworkArtifactLifecycle.artifacts.map((artifact) => ({
+        ...artifact,
+        storage_uri: "managed-artwork://library-anime/private/poster.jpg",
+        source_uri: "https://provider.example/poster.jpg?token=secret",
+        local_path: "F:\\nako\\artwork\\poster.jpg",
+        content_hash: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      })),
+    };
+    const unsafeStorageDrift = {
+      ...mockManagedArtworkArtifactStorageDrift,
+      missing_artifacts: mockManagedArtworkArtifactStorageDrift.missing_artifacts.map((artifact) => ({
+        ...artifact,
+        storage_uri: "managed-artwork://library-anime/missing/poster.jpg",
+        cache_uri: "managed-artwork://cache/private/poster.jpg",
+        content_hash: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      })),
+      stray_files: mockManagedArtworkArtifactStorageDrift.stray_files.map((file) => ({
+        ...file,
+        file_name: "private-poster.jpg",
+        local_path: "F:\\nako\\artwork\\private-poster.jpg",
+        raw_url: "https://provider.example/private-poster.jpg?token=secret",
+      })),
+    };
+    const unsafeRemediationPlan = {
+      ...mockManagedArtworkArtifactRemediationPlan,
+      missing_artifacts: mockManagedArtworkArtifactRemediationPlan.missing_artifacts.map((artifact) => ({
+        ...artifact,
+        storage_uri: "managed-artwork://library-anime/missing/poster.jpg",
+        source_uri: "file:///Users/frank/private/poster.jpg",
+        token: "secret-token",
+      })),
+      stray_files: mockManagedArtworkArtifactRemediationPlan.stray_files.map((file) => ({
+        ...file,
+        path: "/Users/frank/private/poster.webp",
+        artifact_root: "F:\\nako\\artwork",
+      })),
+    };
+    const seenRequests: string[] = [];
+    const liveSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        seenRequests.push(`${url.pathname}${url.search}`);
+
+        if (url.pathname === NAKO_ADMIN_ROUTES.managedArtworkArtifactLifecycle) {
+          return Response.json(unsafeLifecycle);
+        }
+        if (url.pathname === NAKO_ADMIN_ROUTES.managedArtworkArtifactStorageDrift) {
+          return Response.json(unsafeStorageDrift);
+        }
+        if (url.pathname === NAKO_ADMIN_ROUTES.managedArtworkArtifactRemediationPlan) {
+          return Response.json(unsafeRemediationPlan);
+        }
+
+        return new Response("not found", { status: 404 });
+      },
+    });
+
+    const result = await liveSource.loadManagedArtworkMaintenance?.(
+      { cleanup_candidates_only: true, limit: 5, offset: 10 },
+      { file_scan_limit: 50, limit: 5, offset: 10 },
+      { file_scan_limit: 50, limit: 5, offset: 10 },
+    );
+
+    expect(result).toMatchObject({
+      source: "live",
+      value: {
+        lifecycle: {
+          totals: {
+            totalArtifacts: mockManagedArtworkArtifactLifecycle.summary.total_artifacts,
+            cleanupCandidateArtifacts:
+              mockManagedArtworkArtifactLifecycle.summary.cleanup_candidate_artifacts,
+          },
+          artifacts: expect.arrayContaining([
+            expect.objectContaining({
+              id: "artifact-poster-1",
+              hasContentHash: true,
+              cleanupCandidate: false,
+            }),
+          ]),
+        },
+        storageDrift: {
+          missingArtifacts: expect.arrayContaining([
+            expect.objectContaining({
+              id: "artifact-missing-poster",
+              issue: "missing_file",
+            }),
+          ]),
+          strayFiles: expect.arrayContaining([
+            expect.objectContaining({
+              reason: "untracked_artifact_file",
+              recognizedArtifactId: "artifact-deleted-backdrop",
+            }),
+          ]),
+        },
+        remediationPlan: {
+          missingArtifacts: expect.arrayContaining([
+            expect.objectContaining({
+              id: "artifact-missing-poster",
+              recommendation: "restore_or_republish_selected_artwork",
+            }),
+          ]),
+          strayFiles: expect.arrayContaining([
+            expect.objectContaining({
+              reason: "untracked_artifact_file",
+              action: "delete_stray_file",
+            }),
+          ]),
+        },
+      },
+    });
+    expect(seenRequests).toEqual([
+      "/admin/v1/artwork/artifacts/lifecycle?cleanup_candidates_only=true&limit=5&offset=10",
+      "/admin/v1/artwork/artifacts/storage-drift?file_scan_limit=50&limit=5&offset=10",
+      "/admin/v1/artwork/artifacts/remediation-plan?file_scan_limit=50&limit=5&offset=10",
+    ]);
+    const projectedText = JSON.stringify(result?.value);
+    expect(projectedText).not.toContain("storage_uri");
+    expect(projectedText).not.toContain("source_uri");
+    expect(projectedText).not.toContain("cache_uri");
+    expect(projectedText).not.toContain("managed-artwork://");
+    expect(projectedText).not.toContain("provider.example");
+    expect(projectedText).not.toContain("token=secret");
+    expect(projectedText).not.toContain("secret-token");
+    expect(projectedText).not.toContain("content_hash");
+    expect(projectedText).not.toContain("sha256:");
+    expect(projectedText).not.toContain("private-poster.jpg");
+    expect(projectedText).not.toContain("F:\\");
+    expect(projectedText).not.toContain("/Users/");
+
+    const fallbackRequests: string[] = [];
+    const fallbackSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        fallbackRequests.push(`${url.pathname}${url.search}`);
+
+        return new Response("offline", { status: 503 });
+      },
+    });
+
+    const fallbackResult = await fallbackSource.loadManagedArtworkMaintenance?.();
+
+    expect(fallbackResult).toMatchObject({
+      source: "mock",
+      value: {
+        lifecycle: {
+          artifacts: expect.arrayContaining([
+            expect.objectContaining({
+              id: "artifact-poster-1",
+            }),
+          ]),
+        },
+        storageDrift: {
+          missingArtifacts: expect.arrayContaining([
+            expect.objectContaining({
+              id: "artifact-missing-poster",
+            }),
+          ]),
+        },
+        remediationPlan: {
+          strayFiles: expect.arrayContaining([
+            expect.objectContaining({
+              action: "delete_stray_file",
+            }),
+          ]),
+        },
+      },
+      error: expect.stringContaining("HTTP 503"),
+    });
+    expect(fallbackRequests).toEqual([
+      "/admin/v1/artwork/artifacts/lifecycle",
+      "/admin/v1/artwork/artifacts/storage-drift",
+      "/admin/v1/artwork/artifacts/remediation-plan",
+    ]);
   });
 
   it("maps item artwork select and unpublish mutations without mock success fallback", async () => {

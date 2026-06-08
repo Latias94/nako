@@ -469,6 +469,91 @@ The correct DTO gives operators useful pressure and failure signals without
 leaking Source Locators, Source Fingerprints, local paths, or raw backend
 payloads.
 
+## Scenario: Managed Artwork Maintenance Read-Only Admin Contract
+
+### 1. Scope / Trigger
+
+- Trigger: changing Admin Managed Artwork lifecycle, storage drift, remediation
+  plan DTOs, generated Admin route constants, or route exclusions for
+  `/admin/v1/artwork/*` maintenance routes.
+- Scope:
+  `GET /admin/v1/artwork/artifacts/lifecycle`,
+  `GET /admin/v1/artwork/artifacts/storage-drift`,
+  `GET /admin/v1/artwork/artifacts/remediation-plan`,
+  `crates/nako-api/src/admin/managed_artwork.rs`,
+  `crates/nako-api/src/admin_contract.rs`, and generated Admin Web contracts.
+
+### 2. Signatures
+
+- Generated route keys:
+  `managedArtworkArtifactLifecycle`,
+  `managedArtworkArtifactStorageDrift`, and
+  `managedArtworkArtifactRemediationPlan`.
+- Lifecycle DTOs:
+  `AdminManagedArtworkArtifactLifecycleResponse`,
+  `AdminManagedArtworkArtifactLifecycleSummary`, and
+  `AdminManagedArtworkArtifactLifecycleItem`.
+- Storage drift DTOs:
+  `AdminManagedArtworkArtifactStorageDriftResponse`,
+  `AdminManagedArtworkArtifactStorageDriftSummary`,
+  `AdminManagedArtworkArtifactStorageDriftArtifact`, and
+  `AdminManagedArtworkArtifactStorageDriftFile`.
+- Remediation DTOs:
+  `AdminManagedArtworkArtifactRemediationPlanResponse`,
+  `AdminManagedArtworkArtifactRemediationSummary`,
+  `AdminManagedArtworkArtifactRemediationMissingArtifact`, and
+  `AdminManagedArtworkArtifactRemediationStrayFile`.
+
+### 3. Contracts
+
+- These three routes are read-only diagnostics and belong in the generated
+  Admin Web contract.
+- Mutating routes for candidate accept, ingest processing/requeue, artifact
+  publish, stray-file remediation, artifact cleanup, and addon install-guide
+  preview remain explicit exclusions until separate mutation policy tasks
+  define confirmation and safety behavior.
+- DTOs may expose counts, booleans, safe enum codes, stable artifact/ingest/item
+  IDs, dimensions, byte counts, media type, and timestamps.
+- DTOs and generated TypeScript must not expose raw file names, local paths,
+  artifact roots, `storage_uri`, `managed-artwork://` handles, `source_uri`,
+  `cache_uri`, provider URLs/query strings, tokens, credentials, content hashes,
+  etags, or raw backend payloads.
+- Generated contract artifacts under `apps/admin-web` and `web` must be
+  regenerated from `nako-api`; do not hand-edit generated TypeScript output.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Read-only Managed Artwork diagnostic route becomes Admin Web-facing | Add it to `ADMIN_ROUTE_SUFFIXES`, add DTO TypeScript body, and regenerate contracts |
+| Mutating Managed Artwork route remains server/operator-only | Keep an explicit exclusion with a specific reason |
+| Server route inventory changes | `implemented_admin_routes_are_generated_or_explicitly_excluded` must pass with no stale exclusions |
+| Diagnostic source records include paths, URIs, hashes, tokens, roots, etags, or provider payloads | Response/generated contract expose only safe summaries and presence booleans |
+| Public Client contract output contains these Admin diagnostics | Treat as contract drift and remove from Public Client outputs |
+
+### 5. Good/Base/Bad Cases
+
+- Good: generated route inventory includes all three read-only diagnostics while
+  cleanup/publish/process mutations remain excluded.
+- Good: Admin Web maps generated DTOs into route-local safe rows before
+  rendering.
+- Base: Managed Artwork gallery remains item-scoped; maintenance diagnostics
+  are global operator reads.
+- Bad: returning a managed artifact storage record directly or exposing
+  `storage_uri`, a filesystem path, raw file name, or content hash in generated
+  TypeScript.
+
+### 6. Tests Required
+
+- API contract:
+  `cargo nextest run -p nako-api admin_contract --no-fail-fast`.
+- Server route inventory:
+  `cargo nextest run -p nako-server implemented_admin_routes_are_generated_or_explicitly_excluded --no-fail-fast`.
+- Cross-crate compile:
+  `cargo check -p nako-api --tests` and `cargo check -p nako-server --tests`.
+- Frontend consumer checks:
+  `npm run check --prefix apps/admin-web` and focused Admin Web route tests.
+
 ## Scenario: Admin Overview Source Fingerprint Hash Diagnostic
 
 ### 1. Scope / Trigger

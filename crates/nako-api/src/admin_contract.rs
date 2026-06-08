@@ -18,7 +18,7 @@ struct AdminRouteExclusionSuffix {
     reason: &'static str,
 }
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 104] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 107] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessInvitations", "access/invitations"),
@@ -151,6 +151,18 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 104] = [
     (
         "itemArtworkSelection",
         "items/{item_id}/artwork/{kind}/selection",
+    ),
+    (
+        "managedArtworkArtifactLifecycle",
+        "artwork/artifacts/lifecycle",
+    ),
+    (
+        "managedArtworkArtifactStorageDrift",
+        "artwork/artifacts/storage-drift",
+    ),
+    (
+        "managedArtworkArtifactRemediationPlan",
+        "artwork/artifacts/remediation-plan",
     ),
     ("catalogGovernanceItems", "catalog/governance/items"),
     (
@@ -302,7 +314,7 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 104] = [
     ("settingsMetadataRawCache", "settings/metadata/raw-cache"),
 ];
 
-const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 10] = [
+const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 7] = [
     AdminRouteExclusionSuffix {
         suffix: "addons/install-guide-preview",
         reason: "Install guide preview is a planning helper and does not have a stable generated Admin Web route key yet.",
@@ -322,18 +334,6 @@ const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 10] = [
     AdminRouteExclusionSuffix {
         suffix: "artwork/artifacts/{artifact_id}/publish",
         reason: "Managed artwork maintenance commands are server-side operator workflows not generated as Admin Web route constants in this slice.",
-    },
-    AdminRouteExclusionSuffix {
-        suffix: "artwork/artifacts/lifecycle",
-        reason: "Managed artwork maintenance diagnostics are server-side operator workflows not generated as Admin Web route constants in this slice.",
-    },
-    AdminRouteExclusionSuffix {
-        suffix: "artwork/artifacts/storage-drift",
-        reason: "Managed artwork maintenance diagnostics are server-side operator workflows not generated as Admin Web route constants in this slice.",
-    },
-    AdminRouteExclusionSuffix {
-        suffix: "artwork/artifacts/remediation-plan",
-        reason: "Managed artwork maintenance diagnostics are server-side operator workflows not generated as Admin Web route constants in this slice.",
     },
     AdminRouteExclusionSuffix {
         suffix: "artwork/artifacts/remediate-stray-files",
@@ -1029,6 +1029,158 @@ export interface UnpublishSelectedArtworkResponse {
   kind: AdminArtworkKind | string;
   changed: boolean;
   unpublished: UnpublishedSelectedArtworkSummary | null;
+}
+
+export interface AdminManagedArtworkArtifactLifecycleQuery extends AdminPageQuery {
+  cleanup_candidates_only?: boolean;
+}
+
+export interface AdminManagedArtworkArtifactLifecycleResponse {
+  summary: AdminManagedArtworkArtifactLifecycleSummary;
+  artifacts: AdminManagedArtworkArtifactLifecycleItem[];
+  page: PageInfo;
+  dry_run: boolean;
+}
+
+export interface AdminManagedArtworkArtifactLifecycleSummary {
+  total_artifacts: number;
+  protected_artifacts: number;
+  cleanup_candidate_artifacts: number;
+  known_total_bytes: number;
+  known_protected_bytes: number;
+  known_cleanup_candidate_bytes: number;
+  unknown_byte_len_artifacts: number;
+}
+
+export interface AdminManagedArtworkArtifactLifecycleItem {
+  id: string;
+  ingest_id: string;
+  library_id: string;
+  item_id: string;
+  kind: AdminArtworkKind | string;
+  selected_artwork_count: number;
+  cleanup_candidate: boolean;
+  width: number | null;
+  height: number | null;
+  byte_len: number | null;
+  media_type: string | null;
+  has_content_hash: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminManagedArtworkArtifactStorageDriftQuery extends AdminPageQuery {
+  file_scan_limit?: number;
+}
+
+export interface AdminManagedArtworkArtifactStorageDriftResponse {
+  summary: AdminManagedArtworkArtifactStorageDriftSummary;
+  missing_artifacts: AdminManagedArtworkArtifactStorageDriftArtifact[];
+  stray_files: AdminManagedArtworkArtifactStorageDriftFile[];
+  page: PageInfo;
+  dry_run: boolean;
+}
+
+export interface AdminManagedArtworkArtifactStorageDriftSummary {
+  scanned_db_artifacts: number;
+  db_backed_present_artifacts: number;
+  db_backed_missing_artifacts: number;
+  db_backed_unresolvable_artifacts: number;
+  db_backed_metadata_read_failed_artifacts: number;
+  file_scan_limit: number;
+  scanned_files: number;
+  stray_files: number;
+  untracked_artifact_files: number;
+  unexpected_active_artifact_files: number;
+  unsupported_extension_files: number;
+  unrecognized_layout_files: number;
+  file_scan_truncated: boolean;
+}
+
+export type AdminManagedArtworkArtifactStorageDriftArtifactIssue =
+  | "missing_file"
+  | "unresolvable_expected_path"
+  | "metadata_read_failed";
+
+export interface AdminManagedArtworkArtifactStorageDriftArtifact {
+  id: string;
+  ingest_id: string;
+  library_id: string;
+  item_id: string;
+  kind: AdminArtworkKind | string;
+  selected_artwork_count: number;
+  cleanup_candidate: boolean;
+  issue: AdminManagedArtworkArtifactStorageDriftArtifactIssue;
+  byte_len: number | null;
+  media_type: string | null;
+}
+
+export type AdminManagedArtworkArtifactStorageDriftFileReason =
+  | "untracked_artifact_file"
+  | "unexpected_active_artifact_path"
+  | "unsupported_extension"
+  | "unrecognized_layout";
+
+export interface AdminManagedArtworkArtifactStorageDriftFile {
+  reason: AdminManagedArtworkArtifactStorageDriftFileReason;
+  recognized_artifact_id: string | null;
+  extension: string | null;
+  byte_len: number | null;
+}
+
+export interface AdminManagedArtworkArtifactRemediationPlanQuery extends AdminPageQuery {
+  file_scan_limit?: number;
+}
+
+export interface AdminManagedArtworkArtifactRemediationPlanResponse {
+  summary: AdminManagedArtworkArtifactRemediationSummary;
+  missing_artifacts: AdminManagedArtworkArtifactRemediationMissingArtifact[];
+  stray_files: AdminManagedArtworkArtifactRemediationStrayFile[];
+  page: PageInfo;
+  dry_run: boolean;
+}
+
+export interface AdminManagedArtworkArtifactRemediationSummary {
+  scanned_db_artifacts: number;
+  missing_db_backed_artifacts: number;
+  selected_missing_artifacts: number;
+  cleanup_candidate_missing_artifacts: number;
+  file_scan_limit: number;
+  scanned_files: number;
+  cleanable_stray_files: number;
+  blocked_stray_files: number;
+  file_scan_truncated: boolean;
+}
+
+export type AdminManagedArtworkArtifactMissingRemediationRecommendation =
+  | "restore_or_republish_selected_artwork"
+  | "run_artifact_cleanup_or_reingest"
+  | "inspect_storage_configuration";
+
+export interface AdminManagedArtworkArtifactRemediationMissingArtifact {
+  id: string;
+  ingest_id: string;
+  library_id: string;
+  item_id: string;
+  kind: AdminArtworkKind | string;
+  selected_artwork_count: number;
+  cleanup_candidate: boolean;
+  issue: AdminManagedArtworkArtifactStorageDriftArtifactIssue;
+  recommendation: AdminManagedArtworkArtifactMissingRemediationRecommendation;
+  byte_len: number | null;
+  media_type: string | null;
+}
+
+export type AdminManagedArtworkArtifactStrayFileRemediationAction =
+  | "delete_stray_file"
+  | "inspect_manually";
+
+export interface AdminManagedArtworkArtifactRemediationStrayFile {
+  reason: AdminManagedArtworkArtifactStorageDriftFileReason;
+  action: AdminManagedArtworkArtifactStrayFileRemediationAction;
+  recognized_artifact_id: string | null;
+  extension: string | null;
+  byte_len: number | null;
 }
 
 export type AdminMetadataRefreshMode =
@@ -4492,6 +4644,24 @@ mod tests {
             "SelectedArtworkSummary",
             "PublishSelectedArtworkResponse",
             "UnpublishSelectedArtworkResponse",
+            "AdminManagedArtworkArtifactLifecycleQuery",
+            "AdminManagedArtworkArtifactLifecycleResponse",
+            "AdminManagedArtworkArtifactLifecycleSummary",
+            "AdminManagedArtworkArtifactLifecycleItem",
+            "AdminManagedArtworkArtifactStorageDriftQuery",
+            "AdminManagedArtworkArtifactStorageDriftResponse",
+            "AdminManagedArtworkArtifactStorageDriftSummary",
+            "AdminManagedArtworkArtifactStorageDriftArtifactIssue",
+            "AdminManagedArtworkArtifactStorageDriftArtifact",
+            "AdminManagedArtworkArtifactStorageDriftFileReason",
+            "AdminManagedArtworkArtifactStorageDriftFile",
+            "AdminManagedArtworkArtifactRemediationPlanQuery",
+            "AdminManagedArtworkArtifactRemediationPlanResponse",
+            "AdminManagedArtworkArtifactRemediationSummary",
+            "AdminManagedArtworkArtifactMissingRemediationRecommendation",
+            "AdminManagedArtworkArtifactRemediationMissingArtifact",
+            "AdminManagedArtworkArtifactStrayFileRemediationAction",
+            "AdminManagedArtworkArtifactRemediationStrayFile",
             "AdminMetadataProfile",
             "AdminMetadataScanPolicy",
             "AdminUpdateLibraryMetadataProfileRequest",

@@ -2688,6 +2688,87 @@ td {
   display: flex;
 }
 
+.artworkMaintenanceGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.artworkMaintenanceToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  color: var(--nako-admin-ink);
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+
+.artworkMaintenanceToggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--nako-admin-accent);
+}
+
+.artworkMaintenanceMeta {
+  display: block;
+  max-width: 360px;
+  overflow-wrap: anywhere;
+  color: var(--nako-admin-muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.artworkMaintenanceBadgeStack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.artworkMaintenanceList {
+  display: grid;
+  gap: 10px;
+  padding: 0 16px 16px;
+}
+
+.artworkMaintenanceList h3 {
+  margin: 8px 0 0;
+  color: var(--nako-admin-muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.artworkMaintenanceRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--nako-admin-line);
+  border-radius: var(--nako-admin-radius);
+  background: var(--nako-admin-surface-field);
+  padding: 11px 12px;
+}
+
+.artworkMaintenanceRow div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.artworkMaintenanceRow strong,
+.artworkMaintenanceRow span,
+.artworkMaintenanceRow small {
+  overflow-wrap: anywhere;
+}
+
+.artworkMaintenanceRow span,
+.artworkMaintenanceRow small {
+  color: var(--nako-admin-muted);
+  font-size: 0.8rem;
+}
+
 .libraryCommandConfirm {
   display: grid;
   gap: 8px;
@@ -3146,6 +3227,7 @@ td {
   .metadataProfileToggles,
   .artworkSummaryGrid,
   .artworkGalleryGrid,
+  .artworkMaintenanceGrid,
   .addonsSummaryGrid,
   .addonsRouteGrid,
   .addonsCredentialGrid,
@@ -3185,6 +3267,7 @@ td {
     .accessSummaryGrid,
     .artworkSummaryGrid,
     .artworkGalleryGrid,
+    .artworkMaintenanceGrid,
     .libraryPlanGrid,
     .libraryOperationGrid,
     .addonsSummaryGrid,
@@ -3195,7 +3278,8 @@ td {
 
   .eventsFactRow,
   .eventsCommandRow,
-  .eventsWorkRow {
+  .eventsWorkRow,
+  .artworkMaintenanceRow {
     align-items: flex-start;
     flex-direction: column;
   }

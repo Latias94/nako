@@ -1,6 +1,9 @@
 import type {
   AdminArtworkKind,
   AdminItemArtworkGalleryQuery,
+  AdminManagedArtworkArtifactLifecycleQuery,
+  AdminManagedArtworkArtifactRemediationPlanQuery,
+  AdminManagedArtworkArtifactStorageDriftQuery,
   AdminNetworkAccessDiagnostics,
   AdminOutboxEventsQuery,
   AdminOverviewResponse,
@@ -62,6 +65,12 @@ export type {
   AdminGeneratedArtifactReviewRequest,
   AdminGeneratedArtifactReviewResponse,
   AdminItemArtworkGalleryQuery,
+  AdminManagedArtworkArtifactLifecycleQuery,
+  AdminManagedArtworkArtifactLifecycleResponse,
+  AdminManagedArtworkArtifactRemediationPlanQuery,
+  AdminManagedArtworkArtifactRemediationPlanResponse,
+  AdminManagedArtworkArtifactStorageDriftQuery,
+  AdminManagedArtworkArtifactStorageDriftResponse,
   AdminJobPriority,
   AdminJobCancelRequestResponse,
   AdminJobListItem,
@@ -606,6 +615,132 @@ export type ItemArtworkMutationResultSummary = {
   height: number | null;
   language: string | null;
   mediaType: string | null;
+};
+
+export type ManagedArtworkMaintenanceLifecycleQuery =
+  AdminManagedArtworkArtifactLifecycleQuery;
+export type ManagedArtworkMaintenanceStorageDriftQuery =
+  AdminManagedArtworkArtifactStorageDriftQuery;
+export type ManagedArtworkMaintenanceRemediationPlanQuery =
+  AdminManagedArtworkArtifactRemediationPlanQuery;
+
+export type ManagedArtworkMaintenanceSummary = {
+  lifecycle: ManagedArtworkLifecycleSummary;
+  storageDrift: ManagedArtworkStorageDriftSummary;
+  remediationPlan: ManagedArtworkRemediationPlanSummary;
+};
+
+export type ManagedArtworkLifecycleSummary = {
+  totals: {
+    totalArtifacts: number;
+    protectedArtifacts: number;
+    cleanupCandidateArtifacts: number;
+    knownTotalBytes: number;
+    knownProtectedBytes: number;
+    knownCleanupCandidateBytes: number;
+    unknownByteLenArtifacts: number;
+  };
+  artifacts: ManagedArtworkLifecycleArtifactRow[];
+  page: PageInfo;
+  dryRun: boolean;
+};
+
+export type ManagedArtworkLifecycleArtifactRow = {
+  id: string;
+  ingestId: string;
+  libraryId: string;
+  itemId: string;
+  kind: AdminArtworkKind | string;
+  selectedArtworkCount: number;
+  cleanupCandidate: boolean;
+  width: number | null;
+  height: number | null;
+  byteLen: number | null;
+  mediaType: string | null;
+  hasContentHash: boolean;
+  updatedAt: string;
+};
+
+export type ManagedArtworkStorageDriftSummary = {
+  totals: {
+    scannedDbArtifacts: number;
+    dbBackedPresentArtifacts: number;
+    dbBackedMissingArtifacts: number;
+    dbBackedUnresolvableArtifacts: number;
+    dbBackedMetadataReadFailedArtifacts: number;
+    fileScanLimit: number;
+    scannedFiles: number;
+    strayFiles: number;
+    untrackedArtifactFiles: number;
+    unexpectedActiveArtifactFiles: number;
+    unsupportedExtensionFiles: number;
+    unrecognizedLayoutFiles: number;
+    fileScanTruncated: boolean;
+  };
+  missingArtifacts: ManagedArtworkStorageDriftArtifactRow[];
+  strayFiles: ManagedArtworkStorageDriftFileRow[];
+  page: PageInfo;
+  dryRun: boolean;
+};
+
+export type ManagedArtworkStorageDriftArtifactRow = {
+  id: string;
+  ingestId: string;
+  libraryId: string;
+  itemId: string;
+  kind: AdminArtworkKind | string;
+  selectedArtworkCount: number;
+  cleanupCandidate: boolean;
+  issue: string;
+  byteLen: number | null;
+  mediaType: string | null;
+};
+
+export type ManagedArtworkStorageDriftFileRow = {
+  reason: string;
+  recognizedArtifactId: string | null;
+  extension: string | null;
+  byteLen: number | null;
+};
+
+export type ManagedArtworkRemediationPlanSummary = {
+  totals: {
+    scannedDbArtifacts: number;
+    missingDbBackedArtifacts: number;
+    selectedMissingArtifacts: number;
+    cleanupCandidateMissingArtifacts: number;
+    fileScanLimit: number;
+    scannedFiles: number;
+    cleanableStrayFiles: number;
+    blockedStrayFiles: number;
+    fileScanTruncated: boolean;
+  };
+  missingArtifacts: ManagedArtworkRemediationMissingArtifactRow[];
+  strayFiles: ManagedArtworkRemediationStrayFileRow[];
+  page: PageInfo;
+  dryRun: boolean;
+};
+
+export type ManagedArtworkRemediationMissingArtifactRow = {
+  id: string;
+  ingestId: string;
+  libraryId: string;
+  itemId: string;
+  kind: AdminArtworkKind | string;
+  selectedArtworkCount: number;
+  cleanupCandidate: boolean;
+  issue: string;
+  recommendation: string;
+  byteLen: number | null;
+  mediaType: string | null;
+};
+
+export type ManagedArtworkRemediationStrayFileRow = {
+  reason: string;
+  action: string;
+  recognizedArtifactId: string | null;
+  extension: string | null;
+  byteLen: number | null;
 };
 
 export type LibraryJobSummary = {

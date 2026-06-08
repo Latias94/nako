@@ -14,6 +14,7 @@ import {
   Film,
   HardDrive,
   Inbox,
+  Images,
   Library,
   ListChecks,
   PlayCircle,
@@ -56,6 +57,10 @@ import {
 } from "./features/catalog/CatalogGovernanceRepairPage";
 import { EventsPage, type EventsSearch } from "./features/events/EventsPage";
 import { JobsPage, type JobsSearch } from "./features/jobs/JobsPage";
+import {
+  ManagedArtworkMaintenancePage,
+  type ManagedArtworkMaintenanceSearch,
+} from "./features/artwork/ManagedArtworkMaintenancePage";
 import {
   ItemArtworkGalleryPage,
   type ItemArtworkGallerySearch,
@@ -182,6 +187,12 @@ const itemArtworkGalleryRoute = createRoute({
   validateSearch: validateItemArtworkGallerySearch,
   component: ItemArtworkGalleryRoute,
 });
+const managedArtworkMaintenanceRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/artwork/maintenance",
+  validateSearch: validateManagedArtworkMaintenanceSearch,
+  component: ManagedArtworkMaintenanceRoute,
+});
 const sourceDuplicateReconciliationRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/items/$itemId/sources/$sourceId/duplicates",
@@ -296,6 +307,7 @@ const routeTree = rootRoute.addChildren([
   catalogGovernanceRepairRoute,
   itemDetailRoute,
   itemArtworkGalleryRoute,
+  managedArtworkMaintenanceRoute,
   sourceDuplicateReconciliationRoute,
   acquisitionIntakeRoute,
   generatedArtifactsRoute,
@@ -321,6 +333,7 @@ const adminNavItems = [
   { to: "/access", labelId: "nav.access", icon: UsersRound },
   { to: "/libraries", labelId: "nav.libraries", icon: Library },
   { to: "/catalog", labelId: "nav.catalog", icon: Film },
+  { to: "/artwork/maintenance", labelId: "nav.artworkMaintenance", icon: Images },
   { to: "/acquisition/intake", labelId: "nav.intake", icon: Inbox },
   { to: "/automation/generated-artifacts", labelId: "nav.automation", icon: Sparkles },
   { to: "/playback/sessions", labelId: "nav.playback", icon: PlayCircle },
@@ -541,6 +554,25 @@ function ItemArtworkGalleryRoute() {
       onSearchChange={(next) => {
         void navigate({
           search: (current) => normalizeItemArtworkGallerySearch({ ...current, ...next }),
+        });
+      }}
+      search={search}
+    />
+  );
+}
+
+function ManagedArtworkMaintenanceRoute() {
+  const { dataSource } = managedArtworkMaintenanceRoute.useRouteContext();
+  const search = managedArtworkMaintenanceRoute.useSearch();
+  const navigate = managedArtworkMaintenanceRoute.useNavigate();
+
+  return (
+    <ManagedArtworkMaintenancePage
+      dataSource={dataSource}
+      onSearchChange={(next) => {
+        void navigate({
+          search: (current) =>
+            normalizeManagedArtworkMaintenanceSearch({ ...current, ...next }),
         });
       }}
       search={search}
@@ -1011,6 +1043,28 @@ function normalizeItemArtworkGallerySearch(
   };
 }
 
+function validateManagedArtworkMaintenanceSearch(
+  search: Record<string, unknown>,
+): ManagedArtworkMaintenanceSearch {
+  return normalizeManagedArtworkMaintenanceSearch({
+    cleanup_candidates_only: booleanSearch(search.cleanup_candidates_only),
+    file_scan_limit: positiveIntSearch(search.file_scan_limit, 500),
+    limit: positiveIntSearch(search.limit, 20),
+    offset: nonNegativeIntSearch(search.offset, 0),
+  });
+}
+
+function normalizeManagedArtworkMaintenanceSearch(
+  search: Partial<ManagedArtworkMaintenanceSearch>,
+): ManagedArtworkMaintenanceSearch {
+  return {
+    cleanup_candidates_only: booleanSearch(search.cleanup_candidates_only),
+    file_scan_limit: positiveIntSearch(search.file_scan_limit, 500),
+    limit: positiveIntSearch(search.limit, 20),
+    offset: nonNegativeIntSearch(search.offset, 0),
+  };
+}
+
 function validateSourceDuplicateReconciliationSearch(
   search: Record<string, unknown>,
 ): SourceDuplicateReconciliationSearch {
@@ -1083,6 +1137,18 @@ function normalizeAddonsSearch(search: Partial<AddonsSearch>): AddonsSearch {
 
 function stringSearch(value: unknown) {
   return typeof value === "string" ? value : undefined;
+}
+
+function booleanSearch(value: unknown) {
+  if (value === true || value === "true" || value === "1") {
+    return true;
+  }
+
+  if (value === false || value === "false" || value === "0") {
+    return false;
+  }
+
+  return false;
 }
 
 function addonStatusSearch(value: unknown): AddonStatus | undefined {

@@ -432,6 +432,90 @@ enter Admin Web route rendering.
 Keep Access Invitation pages on the route-local safe projection. Raw one-time
 tokens are create-result material only, not list/read row material.
 
+## Scenario: Managed Artwork Maintenance Operator Projection
+
+### 1. Scope / Trigger
+
+- Trigger: Admin Web renders Managed Artwork lifecycle, storage drift, or
+  remediation diagnostics through generated Admin API routes.
+- Evidence: `src/features/artwork/ManagedArtworkMaintenancePage.tsx`,
+  `src/adminApi/client.ts`, `src/adminApi/dataSource.ts`,
+  `src/adminApi/types.ts`, `src/adminApi/mockData.ts`, generated Admin API
+  contracts, and route tests.
+- Authority: ADR 0027 and ADR 0053.
+
+### 2. Signatures
+
+- Generated route keys:
+  `managedArtworkArtifactLifecycle`,
+  `managedArtworkArtifactStorageDrift`, and
+  `managedArtworkArtifactRemediationPlan`.
+- Client methods:
+  `getManagedArtworkArtifactLifecycle(query)`,
+  `getManagedArtworkArtifactStorageDrift(query)`, and
+  `getManagedArtworkArtifactRemediationPlan(query)`.
+- Data source methods:
+  `loadManagedArtworkMaintenance(lifecycleQuery, storageDriftQuery,
+  remediationPlanQuery)`, plus the three single-diagnostic loaders.
+- Page route:
+  `/artwork/maintenance` with URL-owned `limit`, `offset`,
+  `cleanup_candidates_only`, and `file_scan_limit`.
+- Page rows use `ManagedArtworkMaintenanceSummary` and its route-local row
+  types, not generated raw wire DTOs.
+
+### 3. Contracts
+
+- This route is read-only. Do not add accept, ingest process/requeue, publish,
+  cleanup, remediate stray files, or delete actions without a dedicated
+  confirmation and policy task.
+- The lifecycle projection may expose only artifact ID, ingest ID, Media
+  Library ID, Media Item ID, artwork kind, selected count, cleanup-candidate
+  boolean, dimensions, byte count, media type, hash-presence boolean, and
+  timestamps.
+- Storage drift and remediation rows may expose only safe issue/reason/action
+  enum codes, recognized artifact ID, extension, byte count, Media Library ID,
+  Media Item ID, artwork kind, cleanup-candidate boolean, and selected count.
+- Pages must not render raw file names, local paths, artifact roots,
+  `storage_uri`, `managed-artwork://` handles, source/cache URIs, provider URLs,
+  query strings, tokens, credentials, content hashes, etags, or raw backend
+  payloads.
+- Mock fallback may show deterministic safe read rows. It must not fabricate
+  cleanup/remediation mutation success.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Live diagnostics succeed | Map all three generated responses into `ManagedArtworkMaintenanceSummary` |
+| One or more live reads fail | Use deterministic safe fallback with visible fallback copy and combined source state |
+| URL filter changes | Write route search params and reset `offset` to `0` for filters that change result membership |
+| Generated response contains paths, URIs, provider URLs, tokens, hashes, file names, or root paths | Data source/page projection omits them and tests reject rendering |
+| Operator wants cleanup/delete behavior | Open a separate mutation task; keep this route read-only |
+
+### 5. Good / Base / Bad Cases
+
+- Good: generated route constants feed the client, data source maps into safe
+  route-local rows, page renders only counts/booleans/enums/IDs/sizes/times,
+  and tests cover URL filters, fallback, localization, and redaction.
+- Base: read-only diagnostic surface comparable to Storage Staging or Events
+  reads.
+- Bad: page imports generated wire DTOs, renders `storage_uri` or a filesystem
+  path, calls generated routes directly, or adds a cleanup button to this
+  read-only slice.
+
+### 6. Tests Required
+
+- Client tests assert all three generated routes and query params.
+- Data source tests assert safe mapping, deterministic fallback, and raw field
+  redaction.
+- Route tests assert `/artwork/maintenance`, URL-owned filters, zh-Hans copy,
+  fallback, and unsafe fields absent from rendered text.
+- Run:
+  - `npm run check --prefix apps/admin-web`
+  - focused Vitest files for `client`, `dataSource`, and `App`
+  - `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+  - `cargo nextest run -p nako-server implemented_admin_routes_are_generated_or_explicitly_excluded --no-fail-fast`
+
 ## Scenario: Feature-Owned Data Adapter
 
 ### 1. Scope / Trigger

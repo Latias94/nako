@@ -37,6 +37,7 @@ import type {
   ItemDetailSummary,
   LibraryCommandAction,
   LibraryManagementDetail,
+  ManagedArtworkMaintenanceSummary,
   AdminAccessSummaryResponse,
   AdminJobListItem,
 } from "./adminApi/types";
@@ -2905,6 +2906,109 @@ describe("Admin Web V2 route shell", () => {
     expect(renderedText).not.toContain("F:\\");
   });
 
+  it("renders Managed Artwork maintenance as a route-owned read-only page", async () => {
+    const loadManagedArtworkMaintenance = vi.fn(async () => ({
+      value: managedArtworkMaintenanceSummary(),
+      source: "live" as const,
+    }));
+    window.history.pushState(
+      null,
+      "",
+      "/artwork/maintenance?limit=5&offset=10&cleanup_candidates_only=true&file_scan_limit=50",
+    );
+
+    render(
+      <App
+        dataSource={{
+          load: async () => emptyConsoleData(),
+          loadManagedArtworkMaintenance,
+        }}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Artwork Maintenance" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Managed Artwork maintenance page limit")).toHaveValue(5);
+    expect(screen.getByLabelText("Managed Artwork maintenance page offset")).toHaveValue(10);
+    expect(screen.getByRole("checkbox", { name: "Show cleanup candidates only" })).toBeChecked();
+    expect(screen.getByLabelText("Managed Artwork maintenance file scan limit")).toHaveValue(50);
+    expect(await screen.findByText("artifact-poster-1")).toBeInTheDocument();
+    expect(await screen.findByText("restore_or_republish_selected_artwork")).toBeInTheDocument();
+    expect(await screen.findByText("delete_stray_file")).toBeInTheDocument();
+    expect(screen.getByText("Live Admin API")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(loadManagedArtworkMaintenance).toHaveBeenCalledWith(
+        { cleanup_candidates_only: true, limit: 5, offset: 10 },
+        { file_scan_limit: 50, limit: 5, offset: 10 },
+        { file_scan_limit: 50, limit: 5, offset: 10 },
+      );
+    });
+
+    fireEvent.change(screen.getByLabelText("Managed Artwork maintenance file scan limit"), {
+      target: { value: "75" },
+    });
+
+    await waitFor(() => {
+      expect(window.location.search).toContain("file_scan_limit=75");
+      expect(window.location.search).toContain("offset=0");
+      expect(loadManagedArtworkMaintenance).toHaveBeenLastCalledWith(
+        { cleanup_candidates_only: true, limit: 5, offset: 0 },
+        { file_scan_limit: 75, limit: 5, offset: 0 },
+        { file_scan_limit: 75, limit: 5, offset: 0 },
+      );
+    });
+  });
+
+  it("renders localized Managed Artwork maintenance route copy", async () => {
+    window.history.pushState(null, "", "/artwork/maintenance?limit=5&offset=10");
+
+    render(
+      <App
+        dataSource={managedArtworkMaintenanceDataSource()}
+        initialLocale="zh-Hans"
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Artwork 维护" })).toBeInTheDocument();
+    expect(await screen.findByText("Remediation 计划")).toBeInTheDocument();
+    expect(screen.getByLabelText("Managed Artwork 维护页面 limit")).toHaveValue(5);
+    expect(screen.getByText("实时 Admin API")).toBeInTheDocument();
+  });
+
+  it("shows deterministic mock fallback when Managed Artwork maintenance is unavailable", async () => {
+    window.history.pushState(null, "", "/artwork/maintenance");
+
+    render(<App dataSource={{ load: async () => emptyConsoleData() }} />);
+
+    expect(
+      await screen.findByText(/Managed Artwork maintenance data source is unavailable/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Mock fallback")).toBeInTheDocument();
+    expect(screen.getByText("No Managed Artwork artifacts match the current page.")).toBeInTheDocument();
+  });
+
+  it("keeps unsafe fields out of the Managed Artwork maintenance route rendering", async () => {
+    window.history.pushState(null, "", "/artwork/maintenance");
+    const { container } = render(
+      <App dataSource={managedArtworkMaintenanceDataSource(unsafeManagedArtworkMaintenance())} />,
+    );
+
+    expect(await screen.findByText("artifact-poster-1")).toBeInTheDocument();
+    const renderedText = container.textContent ?? "";
+
+    expect(renderedText).not.toContain("storage_uri");
+    expect(renderedText).not.toContain("source_uri");
+    expect(renderedText).not.toContain("cache_uri");
+    expect(renderedText).not.toContain("managed-artwork://");
+    expect(renderedText).not.toContain("provider.example");
+    expect(renderedText).not.toContain("token=secret");
+    expect(renderedText).not.toContain("secret-token");
+    expect(renderedText).not.toContain("content_hash");
+    expect(renderedText).not.toContain("sha256:");
+    expect(renderedText).not.toContain("private-poster.jpg");
+    expect(renderedText).not.toContain("F:\\");
+    expect(renderedText).not.toContain("/Users/");
+  });
+
   it("maps Catalog Governance URL search params into generated query fields", async () => {
     const loadCatalogGovernance = vi.fn(async (query?: AdminCatalogGovernanceItemsQuery) => ({
       value: mockCatalogGovernance,
@@ -4419,6 +4523,194 @@ function itemArtworkGalleryDataSource(
         value: summary,
         source: "live",
       };
+    },
+  };
+}
+
+function managedArtworkMaintenanceDataSource(
+  summary = managedArtworkMaintenanceSummary(),
+): AdminDataSource {
+  return {
+    async load() {
+      return emptyConsoleData();
+    },
+    async loadManagedArtworkMaintenance() {
+      return {
+        value: summary,
+        source: "live",
+      };
+    },
+  };
+}
+
+function managedArtworkMaintenanceSummary(): ManagedArtworkMaintenanceSummary {
+  return {
+    lifecycle: {
+      totals: {
+        totalArtifacts: 3,
+        protectedArtifacts: 1,
+        cleanupCandidateArtifacts: 2,
+        knownTotalBytes: 1_346_000,
+        knownProtectedBytes: 542_000,
+        knownCleanupCandidateBytes: 804_000,
+        unknownByteLenArtifacts: 0,
+      },
+      artifacts: [
+        {
+          id: "artifact-poster-1",
+          ingestId: "ingest-poster-1",
+          libraryId: "library-anime",
+          itemId: "item-unknown-1",
+          kind: "poster",
+          selectedArtworkCount: 1,
+          cleanupCandidate: false,
+          width: 1000,
+          height: 1500,
+          byteLen: 542_000,
+          mediaType: "image/jpeg",
+          hasContentHash: true,
+          updatedAt: "2026-05-25T01:12:00Z",
+        },
+      ],
+      page: {
+        limit: 20,
+        offset: 0,
+        returned: 1,
+      },
+      dryRun: true,
+    },
+    storageDrift: {
+      totals: {
+        scannedDbArtifacts: 3,
+        dbBackedPresentArtifacts: 2,
+        dbBackedMissingArtifacts: 1,
+        dbBackedUnresolvableArtifacts: 0,
+        dbBackedMetadataReadFailedArtifacts: 0,
+        fileScanLimit: 500,
+        scannedFiles: 4,
+        strayFiles: 1,
+        untrackedArtifactFiles: 1,
+        unexpectedActiveArtifactFiles: 0,
+        unsupportedExtensionFiles: 0,
+        unrecognizedLayoutFiles: 0,
+        fileScanTruncated: false,
+      },
+      missingArtifacts: [
+        {
+          id: "artifact-missing-poster",
+          ingestId: "ingest-missing-poster",
+          libraryId: "library-anime",
+          itemId: "item-unknown-2",
+          kind: "poster",
+          selectedArtworkCount: 1,
+          cleanupCandidate: false,
+          issue: "missing_file",
+          byteLen: 512_000,
+          mediaType: "image/jpeg",
+        },
+      ],
+      strayFiles: [
+        {
+          reason: "untracked_artifact_file",
+          recognizedArtifactId: "artifact-deleted-backdrop",
+          extension: "webp",
+          byteLen: 24_000,
+        },
+      ],
+      page: {
+        limit: 20,
+        offset: 0,
+        returned: 1,
+      },
+      dryRun: true,
+    },
+    remediationPlan: {
+      totals: {
+        scannedDbArtifacts: 3,
+        missingDbBackedArtifacts: 1,
+        selectedMissingArtifacts: 1,
+        cleanupCandidateMissingArtifacts: 0,
+        fileScanLimit: 500,
+        scannedFiles: 4,
+        cleanableStrayFiles: 1,
+        blockedStrayFiles: 0,
+        fileScanTruncated: false,
+      },
+      missingArtifacts: [
+        {
+          id: "artifact-missing-poster",
+          ingestId: "ingest-missing-poster",
+          libraryId: "library-anime",
+          itemId: "item-unknown-2",
+          kind: "poster",
+          selectedArtworkCount: 1,
+          cleanupCandidate: false,
+          issue: "missing_file",
+          recommendation: "restore_or_republish_selected_artwork",
+          byteLen: 512_000,
+          mediaType: "image/jpeg",
+        },
+      ],
+      strayFiles: [
+        {
+          reason: "untracked_artifact_file",
+          action: "delete_stray_file",
+          recognizedArtifactId: "artifact-deleted-backdrop",
+          extension: "webp",
+          byteLen: 24_000,
+        },
+      ],
+      page: {
+        limit: 20,
+        offset: 0,
+        returned: 1,
+      },
+      dryRun: true,
+    },
+  };
+}
+
+function unsafeManagedArtworkMaintenance(): ManagedArtworkMaintenanceSummary {
+  const summary = managedArtworkMaintenanceSummary();
+
+  return {
+    ...summary,
+    lifecycle: {
+      ...summary.lifecycle,
+      artifacts: summary.lifecycle.artifacts.map((artifact) => ({
+        ...artifact,
+        storage_uri: "managed-artwork://library-anime/private/poster.jpg",
+        source_uri: "https://provider.example/poster.jpg?token=secret",
+        local_path: "F:\\nako\\artwork\\poster.jpg",
+        content_hash: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      }) as ManagedArtworkMaintenanceSummary["lifecycle"]["artifacts"][number]),
+    },
+    storageDrift: {
+      ...summary.storageDrift,
+      missingArtifacts: summary.storageDrift.missingArtifacts.map((artifact) => ({
+        ...artifact,
+        storage_uri: "managed-artwork://library-anime/missing/poster.jpg",
+        cache_uri: "managed-artwork://cache/private/poster.jpg",
+      }) as ManagedArtworkMaintenanceSummary["storageDrift"]["missingArtifacts"][number]),
+      strayFiles: summary.storageDrift.strayFiles.map((file) => ({
+        ...file,
+        file_name: "private-poster.jpg",
+        local_path: "F:\\nako\\artwork\\private-poster.jpg",
+        raw_url: "https://provider.example/private-poster.jpg?token=secret",
+      }) as ManagedArtworkMaintenanceSummary["storageDrift"]["strayFiles"][number]),
+    },
+    remediationPlan: {
+      ...summary.remediationPlan,
+      missingArtifacts: summary.remediationPlan.missingArtifacts.map((artifact) => ({
+        ...artifact,
+        source_uri: "file:///Users/frank/private/poster.jpg",
+        token: "secret-token",
+      }) as ManagedArtworkMaintenanceSummary["remediationPlan"]["missingArtifacts"][number]),
+      strayFiles: summary.remediationPlan.strayFiles.map((file) => ({
+        ...file,
+        path: "/Users/frank/private/poster.webp",
+        artifact_root: "F:\\nako\\artwork",
+      }) as ManagedArtworkMaintenanceSummary["remediationPlan"]["strayFiles"][number]),
     },
   };
 }

@@ -33,6 +33,9 @@ import {
   mockJobCancelRequestResponse,
   mockJobs,
   mockLibraryMetadataProfile,
+  mockManagedArtworkArtifactLifecycle,
+  mockManagedArtworkArtifactRemediationPlan,
+  mockManagedArtworkArtifactStorageDrift,
   mockMetadataRawCacheSettings,
   mockOverview,
   mockPlaybackRuntime,
@@ -631,6 +634,62 @@ describe("AdminApiClient", () => {
         {
           method: "DELETE",
         },
+      ],
+    ]);
+  });
+
+  it("uses generated Managed Artwork maintenance read routes with query params", async () => {
+    const fetcher = vi.fn(async (input: string | URL | Request) => {
+      const url = new URL(input.toString(), "http://127.0.0.1");
+
+      if (url.pathname === NAKO_ADMIN_ROUTES.managedArtworkArtifactLifecycle) {
+        return Response.json(mockManagedArtworkArtifactLifecycle);
+      }
+      if (url.pathname === NAKO_ADMIN_ROUTES.managedArtworkArtifactStorageDrift) {
+        return Response.json(mockManagedArtworkArtifactStorageDrift);
+      }
+      if (url.pathname === NAKO_ADMIN_ROUTES.managedArtworkArtifactRemediationPlan) {
+        return Response.json(mockManagedArtworkArtifactRemediationPlan);
+      }
+
+      return new Response("not found", { status: 404 });
+    });
+    const client = new AdminApiClient({ fetcher });
+
+    await expect(
+      client.getManagedArtworkArtifactLifecycle({
+        cleanup_candidates_only: true,
+        limit: 5,
+        offset: 10,
+      }),
+    ).resolves.toEqual(mockManagedArtworkArtifactLifecycle);
+    await expect(
+      client.getManagedArtworkArtifactStorageDrift({
+        file_scan_limit: 50,
+        limit: 5,
+        offset: 10,
+      }),
+    ).resolves.toEqual(mockManagedArtworkArtifactStorageDrift);
+    await expect(
+      client.getManagedArtworkArtifactRemediationPlan({
+        file_scan_limit: 50,
+        limit: 5,
+        offset: 10,
+      }),
+    ).resolves.toEqual(mockManagedArtworkArtifactRemediationPlan);
+
+    expect(fetcher.mock.calls).toMatchObject([
+      [
+        `${NAKO_ADMIN_ROUTES.managedArtworkArtifactLifecycle}?cleanup_candidates_only=true&limit=5&offset=10`,
+        {},
+      ],
+      [
+        `${NAKO_ADMIN_ROUTES.managedArtworkArtifactStorageDrift}?file_scan_limit=50&limit=5&offset=10`,
+        {},
+      ],
+      [
+        `${NAKO_ADMIN_ROUTES.managedArtworkArtifactRemediationPlan}?file_scan_limit=50&limit=5&offset=10`,
+        {},
       ],
     ]);
   });

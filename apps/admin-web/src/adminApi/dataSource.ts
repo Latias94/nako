@@ -25,6 +25,9 @@ import {
   mockGeneratedArtifactProposals,
   mockGeneratedArtifactReviewPlan,
   mockAdminItemArtworkGallery,
+  mockManagedArtworkArtifactLifecycle,
+  mockManagedArtworkArtifactRemediationPlan,
+  mockManagedArtworkArtifactStorageDrift,
   mockJobs,
   mockLibraryMetadataProfile,
   mockMetadataRawCacheSettings,
@@ -79,6 +82,12 @@ import type {
   AdminMetadataSource,
   AdminArtworkKind,
   AdminItemArtworkGalleryQuery,
+  AdminManagedArtworkArtifactLifecycleQuery,
+  AdminManagedArtworkArtifactLifecycleResponse,
+  AdminManagedArtworkArtifactRemediationPlanQuery,
+  AdminManagedArtworkArtifactRemediationPlanResponse,
+  AdminManagedArtworkArtifactStorageDriftQuery,
+  AdminManagedArtworkArtifactStorageDriftResponse,
   AdminManagedArtworkGalleryResponse,
   AdminJobCancelRequestResponse,
   AdminJobCommandResponse,
@@ -164,6 +173,10 @@ import type {
   IntakeSummary,
   ItemArtworkGallerySummary,
   ItemArtworkMutationResultSummary,
+  ManagedArtworkMaintenanceLifecycleQuery,
+  ManagedArtworkMaintenanceRemediationPlanQuery,
+  ManagedArtworkMaintenanceStorageDriftQuery,
+  ManagedArtworkMaintenanceSummary,
   ItemDetailSummary,
   JobRow,
   LibraryCommandAction,
@@ -244,6 +257,20 @@ export type AdminDataSource = {
     itemId: string,
     query?: AdminItemArtworkGalleryQuery,
   ): Promise<AdminSectionResult<ItemArtworkGallerySummary>>;
+  loadManagedArtworkMaintenance?(
+    lifecycleQuery?: ManagedArtworkMaintenanceLifecycleQuery,
+    storageDriftQuery?: ManagedArtworkMaintenanceStorageDriftQuery,
+    remediationPlanQuery?: ManagedArtworkMaintenanceRemediationPlanQuery,
+  ): Promise<AdminSectionResult<ManagedArtworkMaintenanceSummary>>;
+  loadManagedArtworkArtifactLifecycle?(
+    query?: ManagedArtworkMaintenanceLifecycleQuery,
+  ): Promise<AdminSectionResult<ManagedArtworkMaintenanceSummary["lifecycle"]>>;
+  loadManagedArtworkArtifactStorageDrift?(
+    query?: ManagedArtworkMaintenanceStorageDriftQuery,
+  ): Promise<AdminSectionResult<ManagedArtworkMaintenanceSummary["storageDrift"]>>;
+  loadManagedArtworkArtifactRemediationPlan?(
+    query?: ManagedArtworkMaintenanceRemediationPlanQuery,
+  ): Promise<AdminSectionResult<ManagedArtworkMaintenanceSummary["remediationPlan"]>>;
   selectItemArtwork?(
     itemId: string,
     kind: AdminArtworkKind | string,
@@ -581,6 +608,54 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
     },
     async loadItemArtworkGallery(itemId, query = {}) {
       return loadItemArtworkGallery(client, itemId, query);
+    },
+    async loadManagedArtworkMaintenance(
+      lifecycleQuery = {},
+      storageDriftQuery = {},
+      remediationPlanQuery = {},
+    ) {
+      return loadManagedArtworkMaintenance(
+        client,
+        lifecycleQuery,
+        storageDriftQuery,
+        remediationPlanQuery,
+      );
+    },
+    async loadManagedArtworkArtifactLifecycle(query = {}) {
+      const lifecycle = await loadSection(
+        () => client.getManagedArtworkArtifactLifecycle(query),
+        mockManagedArtworkArtifactLifecycle,
+      );
+
+      return {
+        value: mapManagedArtworkLifecycle(lifecycle.value),
+        source: lifecycle.source,
+        error: lifecycle.error,
+      };
+    },
+    async loadManagedArtworkArtifactStorageDrift(query = {}) {
+      const storageDrift = await loadSection(
+        () => client.getManagedArtworkArtifactStorageDrift(query),
+        mockManagedArtworkArtifactStorageDrift,
+      );
+
+      return {
+        value: mapManagedArtworkStorageDrift(storageDrift.value),
+        source: storageDrift.source,
+        error: storageDrift.error,
+      };
+    },
+    async loadManagedArtworkArtifactRemediationPlan(query = {}) {
+      const remediationPlan = await loadSection(
+        () => client.getManagedArtworkArtifactRemediationPlan(query),
+        mockManagedArtworkArtifactRemediationPlan,
+      );
+
+      return {
+        value: mapManagedArtworkRemediationPlan(remediationPlan.value),
+        source: remediationPlan.source,
+        error: remediationPlan.error,
+      };
     },
     async selectItemArtwork(itemId, kind, artifactId) {
       return mapPublishSelectedArtwork(
@@ -952,6 +1027,39 @@ async function loadItemArtworkGallery(
   };
 }
 
+async function loadManagedArtworkMaintenance(
+  client: AdminApiClient,
+  lifecycleQuery: AdminManagedArtworkArtifactLifecycleQuery,
+  storageDriftQuery: AdminManagedArtworkArtifactStorageDriftQuery,
+  remediationPlanQuery: AdminManagedArtworkArtifactRemediationPlanQuery,
+): Promise<AdminSectionResult<ManagedArtworkMaintenanceSummary>> {
+  const [lifecycle, storageDrift, remediationPlan] = await Promise.all([
+    loadSection(
+      () => client.getManagedArtworkArtifactLifecycle(lifecycleQuery),
+      mockManagedArtworkArtifactLifecycle,
+    ),
+    loadSection(
+      () => client.getManagedArtworkArtifactStorageDrift(storageDriftQuery),
+      mockManagedArtworkArtifactStorageDrift,
+    ),
+    loadSection(
+      () => client.getManagedArtworkArtifactRemediationPlan(remediationPlanQuery),
+      mockManagedArtworkArtifactRemediationPlan,
+    ),
+  ]);
+  const sections = [lifecycle, storageDrift, remediationPlan];
+
+  return {
+    value: {
+      lifecycle: mapManagedArtworkLifecycle(lifecycle.value),
+      storageDrift: mapManagedArtworkStorageDrift(storageDrift.value),
+      remediationPlan: mapManagedArtworkRemediationPlan(remediationPlan.value),
+    },
+    source: combineLoadSources(sections.map((section) => section.source)),
+    error: combineLoadErrors(sections),
+  };
+}
+
 function isCatalogSearch(query: CatalogBrowseQuery) {
   return Boolean(query.q?.trim() || query.facet?.trim());
 }
@@ -1169,6 +1277,123 @@ function mapItemArtworkGallery(
       updatedAt: selection.selected_artwork.updated_at,
     })),
     page: response.page,
+  };
+}
+
+function mapManagedArtworkLifecycle(
+  response: AdminManagedArtworkArtifactLifecycleResponse,
+): ManagedArtworkMaintenanceSummary["lifecycle"] {
+  return {
+    totals: {
+      totalArtifacts: response.summary.total_artifacts,
+      protectedArtifacts: response.summary.protected_artifacts,
+      cleanupCandidateArtifacts: response.summary.cleanup_candidate_artifacts,
+      knownTotalBytes: response.summary.known_total_bytes,
+      knownProtectedBytes: response.summary.known_protected_bytes,
+      knownCleanupCandidateBytes: response.summary.known_cleanup_candidate_bytes,
+      unknownByteLenArtifacts: response.summary.unknown_byte_len_artifacts,
+    },
+    artifacts: response.artifacts.map((artifact) => ({
+      id: artifact.id,
+      ingestId: artifact.ingest_id,
+      libraryId: artifact.library_id,
+      itemId: artifact.item_id,
+      kind: artifact.kind,
+      selectedArtworkCount: artifact.selected_artwork_count,
+      cleanupCandidate: artifact.cleanup_candidate,
+      width: artifact.width,
+      height: artifact.height,
+      byteLen: artifact.byte_len,
+      mediaType: artifact.media_type,
+      hasContentHash: artifact.has_content_hash,
+      updatedAt: artifact.updated_at,
+    })),
+    page: response.page,
+    dryRun: response.dry_run,
+  };
+}
+
+function mapManagedArtworkStorageDrift(
+  response: AdminManagedArtworkArtifactStorageDriftResponse,
+): ManagedArtworkMaintenanceSummary["storageDrift"] {
+  return {
+    totals: {
+      scannedDbArtifacts: response.summary.scanned_db_artifacts,
+      dbBackedPresentArtifacts: response.summary.db_backed_present_artifacts,
+      dbBackedMissingArtifacts: response.summary.db_backed_missing_artifacts,
+      dbBackedUnresolvableArtifacts: response.summary.db_backed_unresolvable_artifacts,
+      dbBackedMetadataReadFailedArtifacts:
+        response.summary.db_backed_metadata_read_failed_artifacts,
+      fileScanLimit: response.summary.file_scan_limit,
+      scannedFiles: response.summary.scanned_files,
+      strayFiles: response.summary.stray_files,
+      untrackedArtifactFiles: response.summary.untracked_artifact_files,
+      unexpectedActiveArtifactFiles: response.summary.unexpected_active_artifact_files,
+      unsupportedExtensionFiles: response.summary.unsupported_extension_files,
+      unrecognizedLayoutFiles: response.summary.unrecognized_layout_files,
+      fileScanTruncated: response.summary.file_scan_truncated,
+    },
+    missingArtifacts: response.missing_artifacts.map((artifact) => ({
+      id: artifact.id,
+      ingestId: artifact.ingest_id,
+      libraryId: artifact.library_id,
+      itemId: artifact.item_id,
+      kind: artifact.kind,
+      selectedArtworkCount: artifact.selected_artwork_count,
+      cleanupCandidate: artifact.cleanup_candidate,
+      issue: artifact.issue,
+      byteLen: artifact.byte_len,
+      mediaType: artifact.media_type,
+    })),
+    strayFiles: response.stray_files.map((file) => ({
+      reason: file.reason,
+      recognizedArtifactId: file.recognized_artifact_id,
+      extension: file.extension,
+      byteLen: file.byte_len,
+    })),
+    page: response.page,
+    dryRun: response.dry_run,
+  };
+}
+
+function mapManagedArtworkRemediationPlan(
+  response: AdminManagedArtworkArtifactRemediationPlanResponse,
+): ManagedArtworkMaintenanceSummary["remediationPlan"] {
+  return {
+    totals: {
+      scannedDbArtifacts: response.summary.scanned_db_artifacts,
+      missingDbBackedArtifacts: response.summary.missing_db_backed_artifacts,
+      selectedMissingArtifacts: response.summary.selected_missing_artifacts,
+      cleanupCandidateMissingArtifacts:
+        response.summary.cleanup_candidate_missing_artifacts,
+      fileScanLimit: response.summary.file_scan_limit,
+      scannedFiles: response.summary.scanned_files,
+      cleanableStrayFiles: response.summary.cleanable_stray_files,
+      blockedStrayFiles: response.summary.blocked_stray_files,
+      fileScanTruncated: response.summary.file_scan_truncated,
+    },
+    missingArtifacts: response.missing_artifacts.map((artifact) => ({
+      id: artifact.id,
+      ingestId: artifact.ingest_id,
+      libraryId: artifact.library_id,
+      itemId: artifact.item_id,
+      kind: artifact.kind,
+      selectedArtworkCount: artifact.selected_artwork_count,
+      cleanupCandidate: artifact.cleanup_candidate,
+      issue: artifact.issue,
+      recommendation: artifact.recommendation,
+      byteLen: artifact.byte_len,
+      mediaType: artifact.media_type,
+    })),
+    strayFiles: response.stray_files.map((file) => ({
+      reason: file.reason,
+      action: file.action,
+      recognizedArtifactId: file.recognized_artifact_id,
+      extension: file.extension,
+      byteLen: file.byte_len,
+    })),
+    page: response.page,
+    dryRun: response.dry_run,
   };
 }
 

@@ -42,6 +42,12 @@ import type {
   AdminGeneratedArtifactReviewResponse,
   AdminArtworkKind,
   AdminItemArtworkGalleryQuery,
+  AdminManagedArtworkArtifactLifecycleQuery,
+  AdminManagedArtworkArtifactLifecycleResponse,
+  AdminManagedArtworkArtifactRemediationPlanQuery,
+  AdminManagedArtworkArtifactRemediationPlanResponse,
+  AdminManagedArtworkArtifactStorageDriftQuery,
+  AdminManagedArtworkArtifactStorageDriftResponse,
   AdminManagedArtworkGalleryResponse,
   AdminSelectItemArtworkRequest,
   AdminJobCancelRequestResponse,
@@ -424,6 +430,30 @@ export class AdminApiClient {
   ): Promise<AdminManagedArtworkGalleryResponse> {
     return this.getJson<AdminManagedArtworkGalleryResponse>(
       withQuery(routeWithParam(NAKO_ADMIN_ROUTES.itemArtworkGallery, "item_id", itemId), query),
+    );
+  }
+
+  async getManagedArtworkArtifactLifecycle(
+    query: AdminManagedArtworkArtifactLifecycleQuery = {},
+  ): Promise<AdminManagedArtworkArtifactLifecycleResponse> {
+    return this.getJson<AdminManagedArtworkArtifactLifecycleResponse>(
+      withQuery(NAKO_ADMIN_ROUTES.managedArtworkArtifactLifecycle, query),
+    );
+  }
+
+  async getManagedArtworkArtifactStorageDrift(
+    query: AdminManagedArtworkArtifactStorageDriftQuery = {},
+  ): Promise<AdminManagedArtworkArtifactStorageDriftResponse> {
+    return this.getJson<AdminManagedArtworkArtifactStorageDriftResponse>(
+      withQuery(NAKO_ADMIN_ROUTES.managedArtworkArtifactStorageDrift, query),
+    );
+  }
+
+  async getManagedArtworkArtifactRemediationPlan(
+    query: AdminManagedArtworkArtifactRemediationPlanQuery = {},
+  ): Promise<AdminManagedArtworkArtifactRemediationPlanResponse> {
+    return this.getJson<AdminManagedArtworkArtifactRemediationPlanResponse>(
+      withQuery(NAKO_ADMIN_ROUTES.managedArtworkArtifactRemediationPlan, query),
     );
   }
 

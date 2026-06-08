@@ -28,6 +28,9 @@ import type {
   AdminGeneratedArtifactReviewRequest,
   AdminGeneratedArtifactReviewResponse,
   AdminMetadataRawCacheSettingsResponse,
+  AdminManagedArtworkArtifactLifecycleResponse,
+  AdminManagedArtworkArtifactRemediationPlanResponse,
+  AdminManagedArtworkArtifactStorageDriftResponse,
   AdminManagedArtworkGalleryResponse,
   AdminLibraryMetadataProfileResponse,
   AdminJobCancelRequestResponse,
@@ -955,6 +958,148 @@ export function mockItemArtworkGallerySummary(
     },
   };
 }
+
+export const mockManagedArtworkArtifactLifecycle: AdminManagedArtworkArtifactLifecycleResponse = {
+  summary: {
+    total_artifacts: 3,
+    protected_artifacts: 1,
+    cleanup_candidate_artifacts: 2,
+    known_total_bytes: 1_346_000,
+    known_protected_bytes: 542_000,
+    known_cleanup_candidate_bytes: 804_000,
+    unknown_byte_len_artifacts: 0,
+  },
+  artifacts: [
+    {
+      id: "artifact-poster-1",
+      ingest_id: "ingest-poster-1",
+      library_id: "library-anime",
+      item_id: "item-unknown-1",
+      kind: "poster",
+      selected_artwork_count: 1,
+      cleanup_candidate: false,
+      width: 1000,
+      height: 1500,
+      byte_len: 542_000,
+      media_type: "image/jpeg",
+      has_content_hash: true,
+      created_at: "2026-05-25T01:11:00Z",
+      updated_at: "2026-05-25T01:12:00Z",
+    },
+    {
+      id: "artifact-backdrop-1",
+      ingest_id: "ingest-backdrop-1",
+      library_id: "library-anime",
+      item_id: "item-unknown-1",
+      kind: "backdrop",
+      selected_artwork_count: 0,
+      cleanup_candidate: true,
+      width: 1920,
+      height: 1080,
+      byte_len: 804_000,
+      media_type: "image/webp",
+      has_content_hash: true,
+      created_at: "2026-05-25T01:22:00Z",
+      updated_at: "2026-05-25T01:22:00Z",
+    },
+  ],
+  page: {
+    limit: 20,
+    offset: 0,
+    returned: 2,
+  },
+  dry_run: true,
+};
+
+export const mockManagedArtworkArtifactStorageDrift: AdminManagedArtworkArtifactStorageDriftResponse = {
+  summary: {
+    scanned_db_artifacts: 3,
+    db_backed_present_artifacts: 2,
+    db_backed_missing_artifacts: 1,
+    db_backed_unresolvable_artifacts: 0,
+    db_backed_metadata_read_failed_artifacts: 0,
+    file_scan_limit: 500,
+    scanned_files: 4,
+    stray_files: 1,
+    untracked_artifact_files: 1,
+    unexpected_active_artifact_files: 0,
+    unsupported_extension_files: 0,
+    unrecognized_layout_files: 0,
+    file_scan_truncated: false,
+  },
+  missing_artifacts: [
+    {
+      id: "artifact-missing-poster",
+      ingest_id: "ingest-missing-poster",
+      library_id: "library-anime",
+      item_id: "item-unknown-2",
+      kind: "poster",
+      selected_artwork_count: 1,
+      cleanup_candidate: false,
+      issue: "missing_file",
+      byte_len: 512_000,
+      media_type: "image/jpeg",
+    },
+  ],
+  stray_files: [
+    {
+      reason: "untracked_artifact_file",
+      recognized_artifact_id: "artifact-deleted-backdrop",
+      extension: "webp",
+      byte_len: 24_000,
+    },
+  ],
+  page: {
+    limit: 20,
+    offset: 0,
+    returned: 1,
+  },
+  dry_run: true,
+};
+
+export const mockManagedArtworkArtifactRemediationPlan: AdminManagedArtworkArtifactRemediationPlanResponse = {
+  summary: {
+    scanned_db_artifacts: 3,
+    missing_db_backed_artifacts: 1,
+    selected_missing_artifacts: 1,
+    cleanup_candidate_missing_artifacts: 0,
+    file_scan_limit: 500,
+    scanned_files: 4,
+    cleanable_stray_files: 1,
+    blocked_stray_files: 0,
+    file_scan_truncated: false,
+  },
+  missing_artifacts: [
+    {
+      id: "artifact-missing-poster",
+      ingest_id: "ingest-missing-poster",
+      library_id: "library-anime",
+      item_id: "item-unknown-2",
+      kind: "poster",
+      selected_artwork_count: 1,
+      cleanup_candidate: false,
+      issue: "missing_file",
+      recommendation: "restore_or_republish_selected_artwork",
+      byte_len: 512_000,
+      media_type: "image/jpeg",
+    },
+  ],
+  stray_files: [
+    {
+      reason: "untracked_artifact_file",
+      action: "delete_stray_file",
+      recognized_artifact_id: "artifact-deleted-backdrop",
+      extension: "webp",
+      byte_len: 24_000,
+    },
+  ],
+  page: {
+    limit: 20,
+    offset: 0,
+    returned: 1,
+  },
+  dry_run: true,
+};
 
 export function mockPublicSourceProbe(sourceId = "source-unknown-1"): PublicSourceProbeResponse {
   return {

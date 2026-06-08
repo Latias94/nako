@@ -13,6 +13,7 @@ export type AdminRouteTo =
   | "/libraries"
   | "/catalog"
   | "/catalog/governance"
+  | "/artwork/maintenance"
   | "/acquisition/intake"
   | "/automation/generated-artifacts"
   | "/playback/sessions"
