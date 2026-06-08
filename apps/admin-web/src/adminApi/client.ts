@@ -13,6 +13,7 @@ import type {
   AddonTokensResponse,
   AdminAcquisitionIntakeCandidateListResponse,
   AdminAcquisitionIntakeCandidatesQuery,
+  AcceptManagedArtworkCandidateResponse,
   AdminAddonHealthCheckResponse,
   AdminAddonInstallGuidePreviewRequest,
   AdminAddonInstallGuidePreviewResponse,
@@ -453,6 +454,19 @@ export class AdminApiClient {
   ): Promise<AdminManagedArtworkArtifactLifecycleResponse> {
     return this.getJson<AdminManagedArtworkArtifactLifecycleResponse>(
       withQuery(NAKO_ADMIN_ROUTES.managedArtworkArtifactLifecycle, query),
+    );
+  }
+
+  async acceptManagedArtworkCandidate(
+    candidateId: string,
+  ): Promise<AcceptManagedArtworkCandidateResponse> {
+    return this.postJson<AcceptManagedArtworkCandidateResponse>(
+      routeWithParam(
+        NAKO_ADMIN_ROUTES.managedArtworkCandidateAccept,
+        "candidate_id",
+        candidateId,
+      ),
+      {},
     );
   }
 

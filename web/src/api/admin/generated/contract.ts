@@ -57,6 +57,7 @@ export const NAKO_ADMIN_ROUTES = {
   itemArtworkGallery: "/admin/v1/items/{item_id}/artwork",
   itemArtworkSelect: "/admin/v1/items/{item_id}/artwork/{kind}/select",
   itemArtworkSelection: "/admin/v1/items/{item_id}/artwork/{kind}/selection",
+  managedArtworkCandidateAccept: "/admin/v1/artwork/candidates/{candidate_id}/accept",
   managedArtworkArtifactLifecycle: "/admin/v1/artwork/artifacts/lifecycle",
   managedArtworkArtifactStorageDrift: "/admin/v1/artwork/artifacts/storage-drift",
   managedArtworkArtifactRemediationPlan: "/admin/v1/artwork/artifacts/remediation-plan",
@@ -625,6 +626,13 @@ export interface ManagedArtworkIngestSummary {
   failure_code: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface AcceptManagedArtworkCandidateResponse {
+  candidate_id: string;
+  candidate_status: string;
+  ingest: ManagedArtworkIngestSummary;
+  job: JobResponse;
 }
 
 export interface SelectedArtworkSummary {
@@ -2811,6 +2819,27 @@ export interface AdminJobListItem {
   id: string;
   kind: string;
   status: string;
+  resource_class: string;
+  priority: AdminJobPriority;
+  library_id: string | null;
+  source_id: string | null;
+  has_input: boolean;
+  has_summary: boolean;
+  has_error: boolean;
+  attempt: number;
+  max_attempts: number;
+  retry_of_job_id: string | null;
+  next_attempt_at: string | null;
+  queued_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  diagnostics?: AdminJobDiagnostics | null;
+}
+
+export interface JobResponse {
+  id: string;
+  kind: string;
+  status: AdminJobStatus | string;
   resource_class: string;
   priority: AdminJobPriority;
   library_id: string | null;

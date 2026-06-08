@@ -819,6 +819,70 @@ describe("AdminApiClient", () => {
     ]);
   });
 
+  it("accepts a Managed Artwork Candidate through the generated Admin route", async () => {
+    const accepted = {
+      candidate_id: "candidate/unsafe id",
+      candidate_status: "accepted",
+      ingest: {
+        id: "ingest-1",
+        candidate_id: "candidate/unsafe id",
+        job_id: "job-1",
+        library_id: "library-anime",
+        item_id: "item-anime-1",
+        kind: "poster",
+        status: "queued",
+        has_artifact: false,
+        has_failure: false,
+        failure_code: null,
+        created_at: "2026-05-25T10:00:00Z",
+        updated_at: "2026-05-25T10:00:00Z",
+      },
+      job: {
+        id: "job-1",
+        kind: "managed_artwork_ingest",
+        status: "queued",
+        resource_class: "artwork.ingest",
+        priority: "normal",
+        library_id: "library-anime",
+        source_id: null,
+        has_input: true,
+        has_summary: false,
+        has_error: false,
+        attempt: 0,
+        max_attempts: 1,
+        retry_of_job_id: null,
+        next_attempt_at: null,
+        queued_at: "2026-05-25T10:00:00Z",
+        started_at: null,
+        completed_at: null,
+      },
+    };
+    const fetcher = vi.fn(async () => Response.json(accepted));
+    const client = new AdminApiClient({ fetcher });
+
+    await expect(
+      client.acceptManagedArtworkCandidate("candidate/unsafe id"),
+    ).resolves.toEqual(accepted);
+
+    expect(fetcher).toHaveBeenCalledWith(
+      NAKO_ADMIN_ROUTES.managedArtworkCandidateAccept.replace(
+        "{candidate_id}",
+        encodeURIComponent("candidate/unsafe id"),
+      ),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
+    );
+    const responseText = JSON.stringify(accepted);
+    expect(responseText).not.toContain("storage_uri");
+    expect(responseText).not.toContain("managed-artwork://");
+    expect(responseText).not.toContain("source_uri");
+    expect(responseText).not.toContain("cache_uri");
+    expect(responseText).not.toContain("token=secret");
+    expect(responseText).not.toContain("F:\\");
+  });
+
   it("cleans up Managed Artwork Artifacts through the generated confirmed Admin route", async () => {
     const cleanup = {
       examined_artifacts: 1,

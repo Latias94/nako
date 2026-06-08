@@ -508,11 +508,11 @@ payloads.
 
 - These three routes are read-only diagnostics and belong in the generated
   Admin Web contract.
-- Mutating routes for candidate accept and ingest processing/requeue remain
-  explicit exclusions until separate mutation policy tasks define confirmation
-  and safety behavior. Artifact publish, artifact cleanup, stray-file
-  remediation, and addon install-guide preview have separate generated
-  contracts and should not be re-added to the exclusion list.
+- Mutating routes for ingest processing/requeue remain explicit exclusions
+  until separate mutation policy tasks define confirmation and safety behavior.
+  Candidate accept, artifact publish, artifact cleanup, stray-file remediation,
+  and addon install-guide preview have separate generated contracts and should
+  not be re-added to the exclusion list.
 - DTOs may expose counts, booleans, safe enum codes, stable artifact/ingest/item
   IDs, dimensions, byte counts, media type, and timestamps.
 - DTOs and generated TypeScript must not expose raw file names, local paths,
@@ -529,14 +529,16 @@ payloads.
 | Read-only Managed Artwork diagnostic route becomes Admin Web-facing | Add it to `ADMIN_ROUTE_SUFFIXES`, add DTO TypeScript body, and regenerate contracts |
 | Mutating Managed Artwork route remains server/operator-only | Keep an explicit exclusion with a specific reason |
 | Confirmed Managed Artwork mutation becomes Admin Web-facing | Add a dedicated generated mutation contract with route key, query/request semantics, response DTOs, and redaction tests |
+| Candidate accept becomes Admin Web-facing | Add `managedArtworkCandidateAccept`, emit `AcceptManagedArtworkCandidateResponse` and `JobResponse`, and keep the request body empty |
 | Server route inventory changes | `implemented_admin_routes_are_generated_or_explicitly_excluded` must pass with no stale exclusions |
 | Diagnostic source records include paths, URIs, hashes, tokens, roots, etags, or provider payloads | Response/generated contract expose only safe summaries and presence booleans |
 | Public Client contract output contains these Admin diagnostics | Treat as contract drift and remove from Public Client outputs |
 
 ### 5. Good/Base/Bad Cases
 
-- Good: generated route inventory includes all three read-only diagnostics while
-  candidate accept and ingest process/requeue mutations remain excluded.
+- Good: generated route inventory includes all three read-only diagnostics plus
+  the candidate accept selection command, while ingest process/requeue mutations
+  remain excluded.
 - Good: dedicated confirmed mutation tasks generate publish or stray-file
   remediation routes with typed Admin Web client tests and no raw storage
   material in response DTOs.
@@ -558,6 +560,109 @@ payloads.
   `cargo check -p nako-api --tests` and `cargo check -p nako-server --tests`.
 - Frontend consumer checks:
   `npm run check --prefix apps/admin-web` and focused Admin Web route tests.
+
+## Scenario: Managed Artwork Candidate Accept Generated Admin Contract
+
+### 1. Scope / Trigger
+
+- Trigger: generating or changing the Admin contract for
+  `POST /admin/v1/artwork/candidates/{candidate_id}/accept`.
+- Scope: `crates/nako-api/src/admin/managed_artwork.rs`,
+  `crates/nako-api/src/admin/operations.rs`,
+  `crates/nako-api/src/admin_contract.rs`,
+  `crates/nako-server/src/http/admin.rs`, and generated Admin TypeScript
+  contracts under `apps/admin-web` and `web`.
+
+### 2. Signatures
+
+- Generated route key: `managedArtworkCandidateAccept`.
+- Route:
+  `POST /admin/v1/artwork/candidates/{candidate_id}/accept`.
+- Path parameter: `candidate_id`, encoded by Admin Web path helper.
+- Request body: empty JSON object `{}`.
+- Response:
+  `AcceptManagedArtworkCandidateResponse { candidate_id, candidate_status, ingest, job }`.
+- Ingest summary:
+  `ManagedArtworkIngestSummary { id, candidate_id, job_id, library_id, item_id, kind, status, has_artifact, has_failure, failure_code, created_at, updated_at }`.
+- Job summary:
+  `JobResponse { id, kind, status, resource_class, priority, library_id, source_id, has_input, has_summary, has_error, attempt, max_attempts, retry_of_job_id, next_attempt_at, queued_at, started_at, completed_at, diagnostics? }`.
+
+### 3. Contracts
+
+- The route is an Admin-only operator selection command. It must stay out of
+  Public Client route inventories, OpenAPI public outputs, and generated Public
+  SDKs.
+- The client supplies only `candidate_id` as a path parameter and `{}` as the
+  POST body. It must not submit provider URLs, paths, storage handles, hashes,
+  tokens, artifact IDs, or backend payloads.
+- Accepting a candidate queues Managed Artwork ingest and returns safe candidate,
+  ingest, and job summaries. It does not immediately publish selected public
+  artwork.
+- Candidate accept is not a destructive cleanup/delete command, so this
+  low-level generated contract does not require a `confirm=true` query. Any
+  future page workflow still needs a dedicated live-only UI task.
+- Remaining Managed Artwork route exclusions after this contract are
+  `artwork/ingests/process-next` and
+  `artwork/ingests/{ingest_id}/requeue`.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Route becomes generated | Remove only `artwork/candidates/{candidate_id}/accept` from `admin_contract_route_exclusions()` and add the generated route key |
+| Candidate ID contains reserved URL characters | Admin Web path helper URL-encodes `candidate_id` |
+| Mutation request is sent | Client uses `POST` with `JSON.stringify({})` |
+| Candidate accept succeeds | Response exposes safe candidate status, ingest summary, and job summary fields |
+| Response/generated contract contains paths, URIs, provider URLs, tokens, file names, roots, etags, hashes, or backend payloads | Treat as a contract violation |
+| Public Client output contains the route or DTOs | Treat as contract drift and remove them from Public outputs |
+
+### 5. Good/Base/Bad Cases
+
+- Good: Admin Web client calls
+  `managedArtworkCandidateAccept` with encoded `candidate_id` and an empty
+  body, then deserializes `AcceptManagedArtworkCandidateResponse`.
+- Base: server queues a Managed Artwork ingest job and public selected artwork
+  remains unchanged until the ingest/publication workflow completes.
+- Bad: accepting `{ image_url }`, `{ storage_uri }`, or `{ artifact_id }` in
+  the request body, or adding this Admin route to Public Client route inventory.
+
+### 6. Tests Required
+
+- API contract:
+  `cargo nextest run -p nako-api admin_contract --no-fail-fast`.
+- Server route inventory:
+  `cargo nextest run -p nako-server implemented_admin_routes_are_generated_or_explicitly_excluded --no-fail-fast`.
+- Server candidate accept behavior:
+  `cargo nextest run -p nako-server admin_accept_artwork_candidate --no-fail-fast`.
+- Admin Web client:
+  `npm run test --prefix apps/admin-web -- adminApi/client.test.ts` and
+  `npm run check --prefix apps/admin-web`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```typescript
+return this.postJson(NAKO_ADMIN_ROUTES.managedArtworkCandidateAccept, {
+  image_url,
+});
+```
+
+#### Correct
+
+```typescript
+return this.postJson(
+  routeWithParam(
+    NAKO_ADMIN_ROUTES.managedArtworkCandidateAccept,
+    "candidate_id",
+    candidateId,
+  ),
+  {},
+);
+```
+
+The server owns candidate lookup and ingest queueing. Admin Web submits only the
+opaque candidate ID selected by the operator.
 
 ## Scenario: Managed Artwork Stray File Cleanup Confirmed Admin Contract
 

@@ -518,6 +518,95 @@ tokens are create-result material only, not list/read row material.
   - `cargo nextest run -p nako-api admin_contract --no-fail-fast`
   - `cargo nextest run -p nako-server implemented_admin_routes_are_generated_or_explicitly_excluded --no-fail-fast`
 
+## Scenario: Managed Artwork Candidate Accept Client Command
+
+### 1. Scope / Trigger
+
+- Trigger: changing `AdminApiClient` support for
+  `POST /admin/v1/artwork/candidates/{candidate_id}/accept`.
+- Evidence: `src/adminApi/client.ts`, `src/adminApi/client.test.ts`, and
+  generated Admin API contracts.
+- Authority: ADR 0027, ADR 0053, and the `nako-api` Managed Artwork candidate
+  accept contract.
+
+### 2. Signatures
+
+- Generated route key: `managedArtworkCandidateAccept`.
+- Client method: `acceptManagedArtworkCandidate(candidateId)`.
+- Path parameter: `candidate_id`, URL-encoded through `routeWithParam`.
+- Request body: empty JSON object `{}`.
+- Response: `AcceptManagedArtworkCandidateResponse`.
+
+### 3. Contracts
+
+- Client code must build the URL from `NAKO_ADMIN_ROUTES`; do not add literal
+  `/admin/v1/artwork/candidates/{candidate_id}/accept` strings.
+- `candidate_id` is the only caller-supplied input and must be encoded as a
+  path parameter.
+- The body stays `{}` so Admin Web never accepts provider URLs, raw file names,
+  local paths, storage URIs, artifact roots, content hashes, tokens, etags, or
+  backend payloads from the caller.
+- This method is a low-level generated client command. Route/page controls that
+  invoke it still require a dedicated live-only workflow task and should not be
+  added to the read-only maintenance page by this contract alone.
+- Tests must assert unsafe response material is not present in client fixtures.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| `candidateId` contains reserved URL characters | Client URL-encodes the path parameter |
+| Mutation request is sent | Client uses `POST` with `JSON.stringify({})` |
+| Generated route key is missing | TypeScript check fails until the generated contract is refreshed |
+| Client fixture contains path, URI, token, raw hash, file name, or storage handle material | Treat as a redaction failure |
+| A page wants to call this method | Add a dedicated live-only workflow task before wiring UI controls |
+
+### 5. Good / Base / Bad Cases
+
+- Good: `AdminApiClient` calls the generated route with
+  `candidate%2Funsafe%20id` and an empty body.
+- Base: read-only maintenance diagnostics remain read-only while candidate
+  accept is available as a typed low-level client command.
+- Bad: passing `{ image_url }`, `{ storage_uri }`, or `{ artifact_id }` in the
+  mutation body, or putting an accept button into a read-only route without a
+  dedicated workflow task.
+
+### 6. Tests Required
+
+- Client tests assert generated route usage, path parameter encoding, `POST`,
+  empty body, response typing, and redaction fixture terms.
+- Run:
+  - `npm run test --prefix apps/admin-web -- adminApi/client.test.ts`
+  - `npm run check --prefix apps/admin-web`
+  - `cargo nextest run -p nako-api admin_contract --no-fail-fast` when generated
+    contract output changes.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```typescript
+return this.postJson(NAKO_ADMIN_ROUTES.managedArtworkCandidateAccept, {
+  image_url,
+});
+```
+
+#### Correct
+
+```typescript
+return this.postJson(
+  routeWithParam(
+    NAKO_ADMIN_ROUTES.managedArtworkCandidateAccept,
+    "candidate_id",
+    candidateId,
+  ),
+  {},
+);
+```
+
+The generated route owns the path shape; the client supplies only the opaque
+candidate ID and leaves candidate resolution plus ingest queueing to the server.
+
 ## Scenario: Managed Artwork Stray File Cleanup Client Command
 
 ### 1. Scope / Trigger

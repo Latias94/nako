@@ -18,7 +18,7 @@ struct AdminRouteExclusionSuffix {
     reason: &'static str,
 }
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 111] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 112] = [
     ("overview", "overview"),
     ("accessSummary", "access/summary"),
     ("accessInvitations", "access/invitations"),
@@ -152,6 +152,10 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 111] = [
     (
         "itemArtworkSelection",
         "items/{item_id}/artwork/{kind}/selection",
+    ),
+    (
+        "managedArtworkCandidateAccept",
+        "artwork/candidates/{candidate_id}/accept",
     ),
     (
         "managedArtworkArtifactLifecycle",
@@ -324,11 +328,7 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 111] = [
     ("settingsMetadataRawCache", "settings/metadata/raw-cache"),
 ];
 
-const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 3] = [
-    AdminRouteExclusionSuffix {
-        suffix: "artwork/candidates/{candidate_id}/accept",
-        reason: "Managed artwork maintenance commands are server-side operator workflows not generated as Admin Web route constants in this slice.",
-    },
+const ADMIN_ROUTE_EXCLUSION_SUFFIXES: [AdminRouteExclusionSuffix; 2] = [
     AdminRouteExclusionSuffix {
         suffix: "artwork/ingests/process-next",
         reason: "Managed artwork maintenance commands are server-side operator workflows not generated as Admin Web route constants in this slice.",
@@ -923,6 +923,13 @@ export interface ManagedArtworkIngestSummary {
   failure_code: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface AcceptManagedArtworkCandidateResponse {
+  candidate_id: string;
+  candidate_status: string;
+  ingest: ManagedArtworkIngestSummary;
+  job: JobResponse;
 }
 
 export interface SelectedArtworkSummary {
@@ -3126,6 +3133,27 @@ export interface AdminJobListItem {
   diagnostics?: AdminJobDiagnostics | null;
 }
 
+export interface JobResponse {
+  id: string;
+  kind: string;
+  status: AdminJobStatus | string;
+  resource_class: string;
+  priority: AdminJobPriority;
+  library_id: string | null;
+  source_id: string | null;
+  has_input: boolean;
+  has_summary: boolean;
+  has_error: boolean;
+  attempt: number;
+  max_attempts: number;
+  retry_of_job_id: string | null;
+  next_attempt_at: string | null;
+  queued_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  diagnostics?: AdminJobDiagnostics | null;
+}
+
 export type AdminJobCommandResponse = AdminJobListItem;
 
 export interface AdminJobQueuePressureSummary {
@@ -4704,6 +4732,7 @@ mod tests {
             "AdminManagedArtworkGalleryArtifact",
             "AdminManagedArtworkGallerySelected",
             "ManagedArtworkIngestSummary",
+            "AcceptManagedArtworkCandidateResponse",
             "SelectedArtworkSummary",
             "PublishSelectedArtworkResponse",
             "UnpublishSelectedArtworkResponse",
@@ -4741,6 +4770,7 @@ mod tests {
             "AdminVfsCacheRepairJobDiagnostics",
             "AdminVfsCacheRepairJobDiagnosticStatus",
             "AdminVfsCacheRepairJobFailureDiagnostic",
+            "JobResponse",
             "AdminJobQueuePressureSummary",
             "AdminJobCommandResponse",
             "AdminJobCancelRequestResponse",
