@@ -702,7 +702,7 @@ impl PlaybackAppService {
     ) -> Result<()> {
         let source = self.get_source_or_not_found(request.source_id).await?;
         let effective_policy = self
-            .effective_playback_policy_for_source(&request.principal, &source)
+            .effective_playback_policy_for_playable_source(&request.principal, &source)
             .await?;
         let context = self.playback_selection_context_for_source(&source).await?;
         if context.storage.remote {

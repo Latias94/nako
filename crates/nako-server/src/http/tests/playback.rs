@@ -1256,6 +1256,15 @@ async fn browser_playback_ticket_rejects_browse_only_access_and_revocation_at_us
     )
     .await;
     assert_eq!(browse_only.status(), StatusCode::FORBIDDEN);
+    let browse_only: ErrorResponse = body_json(browse_only).await;
+    assert_eq!(browse_only.code, "forbidden");
+    assert!(
+        browse_only
+            .message
+            .contains("required Library Access level 'play'"),
+        "expected library play access denial, got {}",
+        browse_only.message
+    );
 
     let play_principal =
         local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Play).await;

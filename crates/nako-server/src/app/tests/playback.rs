@@ -300,6 +300,47 @@ async fn playback_resource_admission_defers_hls_artifact_io_until_permit_release
 }
 
 #[tokio::test]
+async fn browser_ticket_validation_rejects_browse_only_access_before_playback_policy() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "ticket_browse_only_access");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let principal = local_playback_principal_with_library_access(
+        &store,
+        source.library_id,
+        LibraryAccessLevel::Browse,
+    )
+    .await;
+    let mut permissions = PlaybackPermissionPolicy::current_playback_defaults();
+    permissions.allow_direct_play = false;
+    store
+        .upsert_playback_policy(&PlaybackPolicy::user(
+            principal.user_id,
+            source.library_id,
+            permissions,
+            2,
+        ))
+        .await
+        .unwrap();
+
+    let err = app
+        .playback()
+        .validate_browser_playback_ticket_request(BrowserPlaybackTicketValidationRequest {
+            principal,
+            source_id: source.id,
+            mode: BrowserPlaybackTicketMode::Direct,
+            subtitle_stream_index: None,
+        })
+        .await
+        .unwrap_err();
+
+    let NakoError::Forbidden { message } = err else {
+        panic!("expected library access forbidden error");
+    };
+    assert!(message.contains("required Library Access level 'play'"));
+    assert!(!message.contains("direct_play"));
+}
+
+#[tokio::test]
 async fn direct_playback_policy_denial_does_not_create_session() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "policy_denied_direct");

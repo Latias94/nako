@@ -451,6 +451,114 @@ app.casting()
 The app-service path owns source `Play` access before runtime records are
 created, while HTTP remains a DTO and extractor boundary.
 
+## Scenario: Browser Playback Ticket Access Boundary
+
+### 1. Scope / Trigger
+
+- Trigger: changing Public Client browser playback ticket issuing,
+  `PlaybackAppService::validate_browser_playback_ticket_request`, browser
+  ticket mode validation, or route-local playback ticket source access checks
+  in `crates/nako-server`.
+- Code evidence: `src/http/playback.rs`, `src/app/playback/mod.rs`,
+  `src/http/tests/playback.rs`, `src/app/tests/playback.rs`.
+
+### 2. Signatures
+
+- Browser ticket HTTP handlers take `Extension(AuthenticatedPrincipal)` and
+  pass the full principal into `PlaybackAppService`.
+- `PlaybackAppService::validate_browser_playback_ticket_request(BrowserPlaybackTicketValidationRequest)`
+  carries:
+  - `principal: AuthenticatedPrincipal`
+  - `source_id: MediaSourceId`
+  - `mode: BrowserPlaybackTicketMode`
+  - `subtitle_stream_index: Option<u32>`
+
+### 3. Contracts
+
+- HTTP browser ticket issuing parses the public ticket request, normalizes
+  client capabilities, delegates source/mode validation to the app service, and
+  signs a browser playback ticket only after validation succeeds.
+- Browser ticket issuing must enforce source `Play` Library Access in
+  `PlaybackAppService::validate_browser_playback_ticket_request`, not through
+  route-local `require_source_access`.
+- Source `Play` Library Access denial must happen before playback-policy
+  details such as `direct_play`, `remux`, `video_transcode`,
+  `audio_transcode`, or `media_playback` are exposed.
+- Mode-specific playback-policy checks, remote playback checks, subtitle stream
+  validation, playback session creation, ticket signing, and URL construction
+  keep their existing app-service or route ownership.
+- Direct Play, Remux, HLS byte/session routes can keep route-local source
+  access until they migrate in dedicated tasks.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Ordinary principal has Browse but not Play access for the source library | Browser ticket issue returns `403` with required Library Access level `play` |
+| Ordinary principal has Play access but requested mode is disabled by playback policy | Browser ticket issue returns `403` with the mode-specific playback-policy denial |
+| Subtitle ticket omits `subtitle_stream_index` after source Play access passes | Preserve `NakoError::InvalidInput` for missing subtitle stream index |
+| Subtitle ticket references a missing subtitle stream after source Play access passes | Preserve subtitle stream not-found behavior |
+| Unknown source ID | Preserve `NakoError::NotFound` for `media_source` |
+| Administrator issues a browser ticket | Preserve administrator access and playback-policy semantics |
+
+### 5. Good / Base / Bad Cases
+
+- Good: `/sources/{source_id}/playback/browser-ticket` parses the public body
+  and calls
+  `app.playback().validate_browser_playback_ticket_request(BrowserPlaybackTicketValidationRequest { principal, ... })`
+  before ticket signing.
+- Base: already-issued browser tickets are still rechecked on media byte routes
+  when used, so access revocation after issue remains effective.
+- Bad: route code calls `require_source_access(... Play)` before validation,
+  because non-HTTP callers of the app service could still bypass browser ticket
+  source access.
+- Bad: playback-policy checks run before source `Play` Library Access, because
+  browse-only users would learn policy details for media they cannot play.
+
+### 6. Tests Required
+
+- App-service test proving a browse-only principal cannot validate a browser
+  playback ticket request and receives the standard Library Access `play`
+  message before playback-policy details.
+- HTTP route test proving a browse-only principal cannot issue a browser
+  playback ticket and receives `403` with the same public message.
+- Existing mode-specific playback-policy denial tests must continue proving a
+  principal with source Play access receives the playback-policy denial.
+- Focused gates:
+  `cargo nextest run -p nako-server browser_ticket --no-fail-fast` and
+  `cargo check -p nako-server --tests`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+require_source_access(&app, &principal, source_id, RequiredLibraryAccess::Play).await?;
+app.playback()
+    .validate_browser_playback_ticket_request(request)
+    .await?;
+```
+
+This keeps HTTP as the source access authority and leaves future app-service
+callers able to bypass browser ticket source access.
+
+#### Correct
+
+```rust
+app.playback()
+    .validate_browser_playback_ticket_request(BrowserPlaybackTicketValidationRequest {
+        principal,
+        source_id,
+        mode,
+        subtitle_stream_index,
+    })
+    .await?;
+```
+
+The app-service validation owns source `Play` access first, then mode-specific
+playback-policy checks, while HTTP remains the public request and ticket
+response boundary.
+
 ## Scenario: HTTP Request Trace Context
 
 ### 1. Scope / Trigger

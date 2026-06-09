@@ -118,7 +118,6 @@ pub(super) async fn create_browser_playback_ticket(
 ) -> ApiResult<Json<BrowserPlaybackTicketResponse>> {
     let mode = browser_ticket_mode_from_public(&request.mode)?;
 
-    require_source_access(&app, &principal, source_id, RequiredLibraryAccess::Play).await?;
     let source = app
         .get_media_source_record(source_id)
         .await?
