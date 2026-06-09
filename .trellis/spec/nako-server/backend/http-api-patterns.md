@@ -484,9 +484,8 @@ created, while HTTP remains a DTO and extractor boundary.
 - Client capability query parsing, safe target DTO shaping, locator redaction,
   administrator access, unknown source behavior, and planner output stay
   unchanged.
-- Direct Play, Remux, HLS, and sidecar subtitle playback use paths now delegate
-  source `Play` access to `PlaybackAppService`; renderer transport resolvers
-  remain a dedicated follow-up boundary.
+- Direct Play, Remux, HLS, sidecar subtitle playback, and renderer transport
+  use paths now delegate source `Play` access to `PlaybackAppService`.
 
 ### 4. Validation & Error Matrix
 
@@ -598,9 +597,8 @@ while HTTP remains the query parsing and DTO response boundary.
 - Ticket-backed Direct session stream/preflight use does not re-evaluate
   Direct Play playback policy at use time; mode policy is validated when the
   browser ticket is issued.
-- Remux, HLS, and sidecar subtitle playback routes now delegate source `Play`
-  access to `PlaybackAppService`. Renderer transport routes retain their
-  existing access boundary until a dedicated migration task moves that slice.
+- Remux, HLS, sidecar subtitle playback, and renderer transport routes now
+  delegate source `Play` access to `PlaybackAppService`.
 
 ### 4. Validation & Error Matrix
 
@@ -734,9 +732,8 @@ session use.
 - If a ticket-backed Remux session has not yet linked a transcode session,
   Remux playback policy still applies before artifact startup, but Library
   Access denial must happen first.
-- HLS and sidecar subtitle playback routes now delegate source `Play` access
-  to `PlaybackAppService`. Renderer transport routes retain their existing
-  access boundary until a dedicated migration task moves that slice.
+- HLS, sidecar subtitle playback, and renderer transport routes now delegate
+  source `Play` access to `PlaybackAppService`.
 
 ### 4. Validation & Error Matrix
 
@@ -878,10 +875,10 @@ startup, or session use.
 - `PlaybackAppService::hls_segment_playback` must enforce source `Play`
   Library Access before manifest-backed segment planning or byte response
   serving.
-- `hls_source_with_policy`, `hls_playlist_with_policy`, HLS artifact manifest
-  planning, and renderer transport resolvers keep their existing ownership
-  until dedicated tasks change those boundaries. Sidecar subtitle playback
-  routes delegate source `Play` access to `PlaybackAppService`.
+- `hls_source_with_policy`, `hls_playlist_with_policy`, and HLS artifact
+  manifest planning keep their existing ownership until dedicated tasks change
+  those boundaries. Sidecar subtitle playback and renderer transport use paths
+  delegate source `Play` access to `PlaybackAppService`.
 
 ### 4. Validation & Error Matrix
 
