@@ -1572,3 +1572,37 @@ Moved Public Catalog item-list access filtering into repository-backed projectio
 ### Next Steps
 
 - None - task complete
+
+
+## Session 88: Architecture campaign closeout
+
+**Date**: 2026-06-09
+**Task**: Architecture campaign closeout
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Archived the completed overnight architecture refactor campaign and its library source inventory child task, leaving the Trellis active queue empty before preparing the next repository projection slice.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c6d276aa` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
