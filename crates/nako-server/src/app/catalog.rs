@@ -706,8 +706,20 @@ impl CatalogAppService {
 
     pub async fn get_source_probe(
         &self,
+        principal: &AuthenticatedPrincipal,
         source_id: MediaSourceId,
     ) -> Result<nako_api::public_client::SourceProbeResponse> {
+        let source = self.get_media_source_record(source_id).await?;
+        if !principal.is_administrator() {
+            let effective = self
+                .store
+                .resolve_effective_library_access(principal.user_id, source.library_id)
+                .await?;
+            if !effective.access.allows_browse() {
+                return Err(library_browse_access_forbidden());
+            }
+        }
+
         let probe = self
             .store
             .get_media_probe(source_id)

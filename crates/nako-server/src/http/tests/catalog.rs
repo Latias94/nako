@@ -531,6 +531,53 @@ async fn catalog_item_detail_filters_sources_inside_app_service() {
 }
 
 #[tokio::test]
+async fn catalog_source_probe_route_enforces_access_inside_app_service() {
+    let fixture = catalog_access_route_fixture().await;
+    let hidden_item = seed_catalog_route_item(
+        &fixture.store,
+        fixture.blocked_library_id,
+        "Hidden Source Probe",
+    )
+    .await;
+    let visible_item = seed_catalog_route_item(
+        &fixture.store,
+        fixture.allowed_library_id,
+        "Visible Source Probe",
+    )
+    .await;
+    let hidden_source = catalog_route_item_source(&fixture.store, hidden_item.id).await;
+    let visible_source = catalog_route_item_source(&fixture.store, visible_item.id).await;
+    fixture
+        .store
+        .upsert_media_probe(visible_source.id, &catalog_route_probe())
+        .await
+        .unwrap();
+    fixture
+        .store
+        .upsert_media_probe(hidden_source.id, &catalog_route_probe())
+        .await
+        .unwrap();
+
+    let visible = request_json::<nako_api::public_client::SourceProbeResponse>(
+        &fixture.router,
+        Method::GET,
+        &format!("/sources/{}/probe", visible_source.id),
+    )
+    .await;
+    let hidden = response_for(
+        &fixture.router,
+        Method::GET,
+        &format!("/sources/{}/probe", hidden_source.id),
+    )
+    .await;
+
+    assert_eq!(visible.source_id, visible_source.id.to_string());
+    assert_eq!(visible.probe.duration_ms, Some(90_000));
+    assert_eq!(visible.probe.container.as_deref(), Some("matroska,webm"));
+    assert_eq!(hidden.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
 async fn catalog_relation_item_routes_filter_access_before_pagination() {
     let fixture = catalog_access_route_fixture().await;
     let hidden_item = seed_catalog_route_item(
@@ -1255,6 +1302,37 @@ async fn seed_catalog_route_item(
     store.upsert_media_source(&source).await.unwrap();
 
     item
+}
+
+async fn catalog_route_item_source(store: &NakoDatabase, item_id: MediaItemId) -> MediaSource {
+    store
+        .list_item_sources(item_id, PageRequest::first_page())
+        .await
+        .unwrap()
+        .into_iter()
+        .next()
+        .unwrap()
+}
+
+fn catalog_route_probe() -> MediaProbeResult {
+    MediaProbeResult {
+        duration_ms: Some(90_000),
+        container: Some("matroska,webm".to_owned()),
+        bit_rate: Some(8_000_000),
+        streams: vec![MediaStreamInfo {
+            index: 0,
+            kind: MediaStreamKind::Video,
+            codec: Some("h264".to_owned()),
+            language: None,
+            duration_ms: Some(90_000),
+            bit_rate: Some(8_000_000),
+            width: Some(1920),
+            height: Some(1080),
+            channels: None,
+            sample_rate: None,
+            technical: Default::default(),
+        }],
+    }
 }
 
 async fn link_catalog_route_root_aggregates(

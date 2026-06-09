@@ -15,7 +15,7 @@ use tracing::instrument;
 use crate::app::NakoApp;
 
 use super::{
-    access::{RequiredLibraryAccess, require_selected_artwork_access, require_source_access},
+    access::{RequiredLibraryAccess, require_selected_artwork_access},
     error::ApiResult,
     query::{ImageVariantQuery, PageQuery, SearchPageQuery},
 };
@@ -264,9 +264,11 @@ pub(super) async fn get_source_probe(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(source_id): Path<MediaSourceId>,
 ) -> ApiResult<Json<SourceProbeResponse>> {
-    require_source_access(&app, &principal, source_id, RequiredLibraryAccess::Browse).await?;
-
-    Ok(Json(app.catalog().get_source_probe(source_id).await?))
+    Ok(Json(
+        app.catalog()
+            .get_source_probe(&principal, source_id)
+            .await?,
+    ))
 }
 
 async fn selected_image_preflight_response(

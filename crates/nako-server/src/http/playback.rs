@@ -185,6 +185,7 @@ pub(super) async fn create_browser_playback_ticket(
     };
     let url = browser_playback_url(
         &app,
+        &principal,
         source_id,
         mode,
         request.subtitle_stream_index,
@@ -828,6 +829,7 @@ fn playback_session_state_from_public(
 
 async fn browser_playback_url(
     app: &NakoApp,
+    principal: &AuthenticatedPrincipal,
     source_id: MediaSourceId,
     mode: BrowserPlaybackTicketMode,
     subtitle_stream_index: Option<u32>,
@@ -884,8 +886,13 @@ async fn browser_playback_url(
                     "/sources/{source_id}/subtitles/{stream_index}?ticket={}",
                     issued.token
                 ),
-                content_type: subtitle_content_type_for_browser_url(app, source_id, stream_index)
-                    .await?,
+                content_type: subtitle_content_type_for_browser_url(
+                    app,
+                    principal,
+                    source_id,
+                    stream_index,
+                )
+                .await?,
                 supports_range_requests: false,
             })
         }
@@ -894,10 +901,11 @@ async fn browser_playback_url(
 
 async fn subtitle_content_type_for_browser_url(
     app: &NakoApp,
+    principal: &AuthenticatedPrincipal,
     source_id: MediaSourceId,
     stream_index: u32,
 ) -> ApiResult<String> {
-    let probe = app.catalog().get_source_probe(source_id).await?;
+    let probe = app.catalog().get_source_probe(principal, source_id).await?;
     let stream = probe
         .probe
         .streams
