@@ -20,7 +20,16 @@ Moved browser playback ticket source Play access into PlaybackAppService validat
 
 ### Main Changes
 
-(Add details)
+- Moved HLS playlist source `Play` access into `PlaybackAppService` for new
+  HLS playback and playback-session reuse.
+- Added `hls_segment_playback` so HLS segment serving enforces source `Play`
+  access before manifest-backed segment planning.
+- Simplified `resolve_source_playback_context` into an auth/ticket-only
+  resolver and removed the temporary route source-access flag.
+- Added app and HTTP regressions for browse-only HLS access and HLS browser
+  ticket revocation at playlist and segment use.
+- Documented the HLS Playback Access Boundary in the nako-server HTTP spec and
+  archived the Trellis task.
 
 ### Git Commits
 
@@ -160,6 +169,50 @@ Moved Remux source Play access into PlaybackAppService for GET/HEAD and ticket-b
 - [OK] `cargo check -p nako-server --tests`
 - [OK] `git diff --check`
 - [OK] `python .\.trellis\scripts\task.py validate 06-09-remux-playback-source-access-app`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 103: Move hls playback source access into app service
+
+**Date**: 2026-06-09
+**Task**: Move hls playback source access into app service
+**Package**: nako-server
+**Branch**: `main`
+
+### Summary
+
+Moved HLS source Play access into PlaybackAppService for playlist and segment use, added app and HTTP regressions, documented the HLS access boundary, removed the source resolver access flag, and archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2ee94772` | refactor(server): move hls playback access into app service |
+| `4a09fd60` | chore(task): archive hls playback access task |
+
+### Testing
+
+- [OK] `cargo fmt --all`
+- [OK] `cargo nextest run -p nako-server hls_playback_rejects_browse_only_access_before_policy_details --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server playback_routes_require_play_library_access --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server hls_browser_playback_ticket_rejects_revocation_at_playlist_use --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server hls_browser_playback_ticket_rejects_revocation_at_segment_use --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server hls_playlist --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server hls_segment --no-fail-fast`
+- [OK] `cargo check -p nako-server --tests`
+- [OK] `git diff --check`
+- [OK] `python .\.trellis\scripts\task.py validate 06-09-hls-playback-source-access-app`
 
 ### Status
 
