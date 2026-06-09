@@ -92,6 +92,7 @@ async fn user_playback_write_routes_require_play_library_access() {
     let item_id = source.item_id;
     let state_path = format!("/users/me/playback-state/items/{item_id}");
     let progress_path = format!("/users/me/playback-state/items/{item_id}/progress");
+    let watched_path = format!("/users/me/playback-state/items/{item_id}/watched");
 
     let read = response_for(&router, Method::GET, &state_path).await;
     let progress = response_body_json(
@@ -106,9 +107,23 @@ async fn user_playback_write_routes_require_play_library_access() {
         },
     )
     .await;
+    let watched = response_body_json(
+        &router,
+        Method::PUT,
+        &watched_path,
+        &nako_api::public_client::SetWatchedStateRequest {
+            watched: true,
+            source_id: Some(source.id.to_string()),
+            position_ms: Some(600_000),
+            duration_ms: Some(600_000),
+            marked_at: Some("2026-05-19T00:01:00Z".to_owned()),
+        },
+    )
+    .await;
 
     assert_eq!(read.status(), StatusCode::OK);
     assert_eq!(progress.status(), StatusCode::FORBIDDEN);
+    assert_eq!(watched.status(), StatusCode::FORBIDDEN);
 }
 
 #[tokio::test]
@@ -120,7 +135,7 @@ async fn continue_watching_filters_items_without_current_library_access() {
     app.user_playback()
         .update_progress(
             crate::app::user_playback::UpdateUserPlaybackProgressRequest {
-                principal_id: principal.principal_id.clone(),
+                principal: principal.clone(),
                 item_id: source.item_id,
                 source_id: Some(source.id),
                 position_ms: 120_000,
@@ -182,6 +197,14 @@ async fn continue_watching_backfills_visible_items_before_pagination() {
     store.upsert_library(&inaccessible_library).await.unwrap();
     store.upsert_media_item(&inaccessible_item).await.unwrap();
     store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id: inaccessible_library.id,
+            item_id: inaccessible_item.id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
+    store
         .upsert_media_source(&inaccessible_source)
         .await
         .unwrap();
@@ -189,30 +212,32 @@ async fn continue_watching_backfills_visible_items_before_pagination() {
     let principal =
         local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Browse)
             .await;
-    app.user_playback()
-        .update_progress(
-            crate::app::user_playback::UpdateUserPlaybackProgressRequest {
-                principal_id: principal.principal_id.clone(),
-                item_id: source.item_id,
-                source_id: Some(source.id),
-                position_ms: 120_000,
-                duration_ms: Some(600_000),
-                reported_at_ms: Some(1_000),
-            },
-        )
+    store
+        .upsert_user_playback_state(UserPlaybackStateWrite {
+            principal_id: principal.principal_id.clone(),
+            item_id: source.item_id,
+            source_id: Some(source.id),
+            resume_position_ms: Some(120_000),
+            duration_ms: Some(600_000),
+            watched: false,
+            watched_at_ms: None,
+            last_played_at_ms: Some(1_000),
+            updated_at_ms: 1_000,
+        })
         .await
         .unwrap();
-    app.user_playback()
-        .update_progress(
-            crate::app::user_playback::UpdateUserPlaybackProgressRequest {
-                principal_id: principal.principal_id.clone(),
-                item_id: inaccessible_item.id,
-                source_id: Some(inaccessible_source.id),
-                position_ms: 240_000,
-                duration_ms: Some(600_000),
-                reported_at_ms: Some(2_000),
-            },
-        )
+    store
+        .upsert_user_playback_state(UserPlaybackStateWrite {
+            principal_id: principal.principal_id.clone(),
+            item_id: inaccessible_item.id,
+            source_id: Some(inaccessible_source.id),
+            resume_position_ms: Some(240_000),
+            duration_ms: Some(600_000),
+            watched: false,
+            watched_at_ms: None,
+            last_played_at_ms: Some(2_000),
+            updated_at_ms: 2_000,
+        })
         .await
         .unwrap();
     let router = public_client_router_with_principal(app, principal);
@@ -234,6 +259,12 @@ async fn continue_watching_backfills_visible_items_before_pagination() {
 #[tokio::test]
 async fn user_playback_route_rejects_source_from_another_item() {
     let (_temp, router, first, store) = router_with_hls_source().await;
+    let second_library = Library {
+        id: first.library_id,
+        name: "Second".to_owned(),
+        roots: vec!["local:///Second".to_owned()],
+        options: LibraryOptions::from_preset(nako_core::LibraryPreset::Movies),
+    };
     let second_item = MediaItem {
         id: nako_core::MediaItemId::new(),
         kind: MediaKind::Movie,
@@ -243,7 +274,26 @@ async fn user_playback_route_rejects_source_from_another_item() {
             ..CanonicalMetadata::default()
         },
     };
+    let second_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: second_library.id,
+        item_id: second_item.id,
+        locator: "local:///Second/Second.mkv".to_owned(),
+        file_name: "Second.mkv".to_owned(),
+        size_bytes: Some(64),
+        fingerprint: Some("second".to_owned()),
+    };
+    store.upsert_library(&second_library).await.unwrap();
     store.upsert_media_item(&second_item).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id: second_library.id,
+            item_id: second_item.id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
+    store.upsert_media_source(&second_source).await.unwrap();
 
     let response = router
         .oneshot(

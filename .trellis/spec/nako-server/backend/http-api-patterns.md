@@ -133,8 +133,7 @@ For a new route in an existing admin module, add it to the existing
   DTO construction. Do not filter `ItemDetailResponse.sources` in HTTP after the
   DTO is built.
 - `http::access::require_item_access` remains available for non-catalog routes
-  whose semantics are still owned by their route slice, such as metadata and
-  user playback.
+  whose semantics are still owned by their route slice, such as metadata.
 
 ### 4. Validation & Error Matrix
 
@@ -256,6 +255,99 @@ app.user_playlist()
         position,
         expected_version,
         added_at_ms: None,
+    })
+    .await?;
+```
+
+## Scenario: User Playback State Access Boundary
+
+### 1. Scope / Trigger
+
+- Trigger: changing Public Client user playback state read, progress update,
+  watched update, or continue-watching behavior in `crates/nako-server`.
+- Code evidence: `src/http/user_playback.rs`, `src/app/user_playback.rs`,
+  `src/http/tests/user_playback.rs`, `src/app/tests/user_playback.rs`.
+
+### 2. Signatures
+
+- User playback HTTP handlers take `Extension(AuthenticatedPrincipal)` and
+  pass the full principal into `UserPlaybackAppService`.
+- App-service write request structs carry `AuthenticatedPrincipal`:
+  - `UpdateUserPlaybackProgressRequest`
+  - `SetUserWatchedStateRequest`
+- `UserPlaybackAppService::get_state(&AuthenticatedPrincipal, MediaItemId)`
+  owns read access for default/current playback state.
+
+### 3. Contracts
+
+- HTTP handlers parse path/body/timestamps and return public playback DTOs.
+  They must not run `require_item_access` or `require_source_access` for user
+  playback state routes.
+- `UserPlaybackAppService` enforces Browse access for `get_state`.
+- `UserPlaybackAppService` enforces Play access for progress and watched
+  writes before committing state.
+- If a write includes `source_id`, the app service checks source Play access
+  and preserves source-to-item validation before writing state.
+- Continue-watching list routes continue to use access-aware repository
+  projections; do not turn them into route-local filtering loops.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Ordinary principal has no Browse access for item | `GET /users/me/playback-state/items/{item_id}` returns `403` |
+| Ordinary principal has Browse but not Play access | progress/watched write returns `403` |
+| Write uses source from another item after access passes | `NakoError::InvalidInput` mentioning source/item mismatch |
+| Continue-watching state exists for inaccessible item | list omits it and backfills visible rows before pagination |
+| Administrator reads or writes source-less/multi-source item | Preserve administrator access semantics |
+
+### 5. Good / Base / Bad Cases
+
+- Good: route parses optional `source_id`, then calls
+  `app.user_playback().update_progress(AppUpdateUserPlaybackProgressRequest { principal, ... })`.
+- Base: continue-watching route calls
+  `list_continue_watching_entries(&principal, page)`.
+- Bad: route checks Play access with `require_item_access`, then the app
+  service writes user playback state without knowing the caller principal.
+
+### 6. Tests Required
+
+- App-service test proving no-access reads and browse-only writes are forbidden.
+- HTTP route test proving browse-only principals can read state but cannot
+  update progress or watched state.
+- Route test preserving source-from-another-item `400 invalid_input` behavior.
+- Focused gate:
+  `cargo nextest run -p nako-server user_playback --no-fail-fast`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+require_item_access(&app, &principal, item_id, RequiredLibraryAccess::Play).await?;
+app.user_playback()
+    .update_progress(AppUpdateUserPlaybackProgressRequest {
+        principal_id: principal.principal_id,
+        item_id,
+        source_id,
+        position_ms,
+        duration_ms,
+        reported_at_ms,
+    })
+    .await?;
+```
+
+#### Correct
+
+```rust
+app.user_playback()
+    .update_progress(AppUpdateUserPlaybackProgressRequest {
+        principal,
+        item_id,
+        source_id,
+        position_ms,
+        duration_ms,
+        reported_at_ms,
     })
     .await?;
 ```

@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use nako_core::{
-    AuthenticatedPrincipal, ContinueWatchingEntry, MediaItemId, MediaRepository, MediaSourceId,
-    NakoError, Result, UserPlaybackState, UserPlaybackStateRepository, UserPlaybackStateWrite,
+    AuthenticatedPrincipal, ContinueWatchingEntry, IdentityAccessRepository, LibraryAccessLevel,
+    LibraryId, MediaItemId, MediaRepository, MediaSource, MediaSourceId, NakoError, PageRequest,
+    Result, UserId, UserPlaybackState, UserPlaybackStateRepository, UserPlaybackStateWrite,
     UserPrincipalId,
 };
 use nako_db::NakoDatabase;
@@ -10,7 +11,7 @@ use super::current_time_ms;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct UpdateUserPlaybackProgressRequest {
-    pub principal_id: UserPrincipalId,
+    pub principal: AuthenticatedPrincipal,
     pub item_id: MediaItemId,
     pub source_id: Option<MediaSourceId>,
     pub position_ms: u64,
@@ -20,7 +21,7 @@ pub(crate) struct UpdateUserPlaybackProgressRequest {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct SetUserWatchedStateRequest {
-    pub principal_id: UserPrincipalId,
+    pub principal: AuthenticatedPrincipal,
     pub item_id: MediaItemId,
     pub watched: bool,
     pub source_id: Option<MediaSourceId>,
@@ -60,6 +61,18 @@ pub(crate) trait UserPlaybackStore: Clone + Send + Sync + std::fmt::Debug {
         &self,
         source_id: MediaSourceId,
     ) -> Result<Option<nako_core::MediaSource>>;
+
+    async fn list_item_sources(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaSource>>;
+
+    async fn resolve_library_access_level(
+        &self,
+        user_id: UserId,
+        library_id: LibraryId,
+    ) -> Result<LibraryAccessLevel>;
 }
 
 #[async_trait]
@@ -105,6 +118,24 @@ impl UserPlaybackStore for NakoDatabase {
     ) -> Result<Option<nako_core::MediaSource>> {
         MediaRepository::get_media_source(self, source_id).await
     }
+
+    async fn list_item_sources(
+        &self,
+        item_id: MediaItemId,
+        page: PageRequest,
+    ) -> Result<Vec<MediaSource>> {
+        MediaRepository::list_item_sources(self, item_id, page).await
+    }
+
+    async fn resolve_library_access_level(
+        &self,
+        user_id: UserId,
+        library_id: LibraryId,
+    ) -> Result<LibraryAccessLevel> {
+        IdentityAccessRepository::resolve_effective_library_access(self, user_id, library_id)
+            .await
+            .map(|effective| effective.access)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -122,10 +153,13 @@ where
 
     pub(crate) async fn get_state(
         &self,
-        principal_id: &UserPrincipalId,
+        principal: &AuthenticatedPrincipal,
         item_id: MediaItemId,
     ) -> Result<UserPlaybackState> {
+        self.ensure_item_access(principal, item_id, RequiredLibraryAccess::Browse)
+            .await?;
         self.ensure_item_exists(item_id).await?;
+        let principal_id = &principal.principal_id;
 
         Ok(self
             .store
@@ -138,16 +172,33 @@ where
         &self,
         request: UpdateUserPlaybackProgressRequest,
     ) -> Result<UserPlaybackState> {
+        let principal_id = request.principal.principal_id.clone();
+        self.ensure_item_access(
+            &request.principal,
+            request.item_id,
+            RequiredLibraryAccess::Play,
+        )
+        .await?;
+        let source = match request.source_id {
+            Some(source_id) => Some(
+                self.load_source_with_access(
+                    &request.principal,
+                    source_id,
+                    RequiredLibraryAccess::Play,
+                )
+                .await?,
+            ),
+            None => None,
+        };
         self.ensure_item_exists(request.item_id).await?;
-        if let Some(source_id) = request.source_id {
-            self.ensure_source_belongs_to_item(source_id, request.item_id)
-                .await?;
+        if let Some(source) = &source {
+            ensure_source_belongs_to_item(source, request.item_id)?;
         }
 
         let event_at_ms = request.reported_at_ms.unwrap_or(current_time_ms()?);
         let existing = self
             .store
-            .load_user_playback_state(&request.principal_id, request.item_id)
+            .load_user_playback_state(&principal_id, request.item_id)
             .await?;
         if let Some(existing) = &existing {
             if existing.updated_at_ms > event_at_ms {
@@ -170,7 +221,7 @@ where
         };
         let last_played_at_ms = (request.position_ms > 0).then_some(event_at_ms);
         let write = UserPlaybackStateWrite {
-            principal_id: request.principal_id,
+            principal_id,
             item_id: request.item_id,
             source_id: request.source_id,
             resume_position_ms,
@@ -194,10 +245,27 @@ where
         &self,
         request: SetUserWatchedStateRequest,
     ) -> Result<UserPlaybackState> {
+        let principal_id = request.principal.principal_id.clone();
+        self.ensure_item_access(
+            &request.principal,
+            request.item_id,
+            RequiredLibraryAccess::Play,
+        )
+        .await?;
+        let source = match request.source_id {
+            Some(source_id) => Some(
+                self.load_source_with_access(
+                    &request.principal,
+                    source_id,
+                    RequiredLibraryAccess::Play,
+                )
+                .await?,
+            ),
+            None => None,
+        };
         self.ensure_item_exists(request.item_id).await?;
-        if let Some(source_id) = request.source_id {
-            self.ensure_source_belongs_to_item(source_id, request.item_id)
-                .await?;
+        if let Some(source) = &source {
+            ensure_source_belongs_to_item(source, request.item_id)?;
         }
 
         let event_at_ms = request.marked_at_ms.unwrap_or(current_time_ms()?);
@@ -213,7 +281,7 @@ where
 
         self.store
             .store_user_playback_state(UserPlaybackStateWrite {
-                principal_id: request.principal_id,
+                principal_id,
                 item_id: request.item_id,
                 source_id: request.source_id,
                 resume_position_ms,
@@ -260,11 +328,12 @@ where
             .map(|_| ())
     }
 
-    async fn ensure_source_belongs_to_item(
+    async fn load_source_with_access(
         &self,
+        principal: &AuthenticatedPrincipal,
         source_id: MediaSourceId,
-        item_id: MediaItemId,
-    ) -> Result<()> {
+        required: RequiredLibraryAccess,
+    ) -> Result<MediaSource> {
         let source = self
             .store
             .load_media_source(source_id)
@@ -274,13 +343,90 @@ where
                 id: source_id.to_string(),
             })?;
 
-        if source.item_id != item_id {
-            return Err(NakoError::InvalidInput {
-                message: format!("media source {source_id} does not belong to item {item_id}"),
-            });
+        if principal.is_administrator() {
+            return Ok(source);
         }
 
-        Ok(())
+        let access = self
+            .store
+            .resolve_library_access_level(principal.user_id, source.library_id)
+            .await?;
+        if required.allows(access) {
+            Ok(source)
+        } else {
+            Err(library_access_forbidden(required))
+        }
+    }
+
+    async fn ensure_item_access(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        item_id: MediaItemId,
+        required: RequiredLibraryAccess,
+    ) -> Result<()> {
+        if principal.is_administrator() {
+            return Ok(());
+        }
+
+        let sources = self
+            .store
+            .list_item_sources(item_id, PageRequest::first_page())
+            .await?;
+        for source in sources {
+            let access = self
+                .store
+                .resolve_library_access_level(principal.user_id, source.library_id)
+                .await?;
+            if required.allows(access) {
+                return Ok(());
+            }
+        }
+
+        Err(library_access_forbidden(required))
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum RequiredLibraryAccess {
+    Browse,
+    Play,
+}
+
+impl RequiredLibraryAccess {
+    fn allows(self, access: LibraryAccessLevel) -> bool {
+        match self {
+            Self::Browse => access.allows_browse(),
+            Self::Play => access.allows_play(),
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::Browse => "browse",
+            Self::Play => "play",
+        }
+    }
+}
+
+fn ensure_source_belongs_to_item(source: &MediaSource, item_id: MediaItemId) -> Result<()> {
+    if source.item_id != item_id {
+        return Err(NakoError::InvalidInput {
+            message: format!(
+                "media source {} does not belong to item {item_id}",
+                source.id
+            ),
+        });
+    }
+
+    Ok(())
+}
+
+fn library_access_forbidden(required: RequiredLibraryAccess) -> NakoError {
+    NakoError::Forbidden {
+        message: format!(
+            "required Library Access level '{}' is not available",
+            required.label()
+        ),
     }
 }
 

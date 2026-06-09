@@ -1,0 +1,7 @@
+{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Keep user playback HTTP handlers thin while moving item/source access into app service."}
+{"file":".trellis/spec/nako-server/backend/database-guidelines.md","reason":"UserPlaybackAppService should coordinate repository-backed access and state writes."}
+{"file":".trellis/spec/nako-server/backend/error-handling.md","reason":"Preserve public forbidden/not-found/invalid-input behavior after access ownership moves."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Select focused app and route tests for user playback behavior."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Change spans HTTP route, app service, repository facade calls, and public DTO behavior."}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Reuse existing access helpers/repository queries rather than duplicating route checks."}
+{"file":"docs/architecture/STATE_ACCESS.md","reason":"Playback state changes must enforce access before state mutations."}

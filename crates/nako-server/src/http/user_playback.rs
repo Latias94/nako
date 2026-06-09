@@ -21,11 +21,7 @@ use crate::app::{
     },
 };
 
-use super::{
-    access::{RequiredLibraryAccess, require_item_access, require_source_access},
-    error::ApiResult,
-    query::PageQuery,
-};
+use super::{error::ApiResult, query::PageQuery};
 
 pub(super) fn routes() -> Router<NakoApp> {
     Router::new()
@@ -53,12 +49,8 @@ async fn get_user_playback_state(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(item_id): Path<MediaItemId>,
 ) -> ApiResult<impl IntoResponse> {
-    require_item_access(&app, &principal, item_id, RequiredLibraryAccess::Browse).await?;
-
     Ok(Json(user_playback_state_response_from_state(
-        app.user_playback()
-            .get_state(&principal.principal_id, item_id)
-            .await?,
+        app.user_playback().get_state(&principal, item_id).await?,
     )))
 }
 
@@ -100,15 +92,11 @@ async fn update_user_playback_progress(
     Json(request): Json<UpdatePlaybackProgressRequest>,
 ) -> ApiResult<impl IntoResponse> {
     let source_id = parse_optional_media_source_id(request.source_id)?;
-    require_item_access(&app, &principal, item_id, RequiredLibraryAccess::Play).await?;
-    if let Some(source_id) = source_id {
-        require_source_access(&app, &principal, source_id, RequiredLibraryAccess::Play).await?;
-    }
 
     Ok(Json(user_playback_state_response_from_state(
         app.user_playback()
             .update_progress(AppUpdateUserPlaybackProgressRequest {
-                principal_id: principal.principal_id,
+                principal,
                 item_id,
                 source_id,
                 position_ms: request.position_ms,
@@ -127,15 +115,11 @@ async fn set_user_watched_state(
     Json(request): Json<SetWatchedStateRequest>,
 ) -> ApiResult<impl IntoResponse> {
     let source_id = parse_optional_media_source_id(request.source_id)?;
-    require_item_access(&app, &principal, item_id, RequiredLibraryAccess::Play).await?;
-    if let Some(source_id) = source_id {
-        require_source_access(&app, &principal, source_id, RequiredLibraryAccess::Play).await?;
-    }
 
     Ok(Json(user_playback_state_response_from_state(
         app.user_playback()
             .set_watched_state(AppSetWatchedStateRequest {
-                principal_id: principal.principal_id,
+                principal,
                 item_id,
                 watched: request.watched,
                 source_id,
