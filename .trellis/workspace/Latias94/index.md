@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 90
+- **Total Sessions**: 91
 - **Last Active**: 2026-06-09
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~1679 | Active |
+| `journal-2.md` | ~1713 | Active |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 91 | 2026-06-09 | Catalog access architecture cleanup | `bc5c31b4` | `main` |
 | 90 | 2026-06-09 | Postgres catalog access DISTINCT order fix | `32d66fc5`, `d4739e69`, `269686c` | `main` |
 | 89 | 2026-06-09 | Root catalog aggregate access repository projection | `ff69ad95`, `20873647` | `main` |
 | 88 | 2026-06-09 | Architecture campaign closeout | `c6d276aa` | `main` |

@@ -1677,3 +1677,46 @@ Ran Docker-backed PostgreSQL catalog_access contracts, fixed Postgres DISTINCT/O
 ### Next Steps
 
 - None - task complete
+
+
+## Session 91: Catalog access architecture cleanup
+
+**Date**: 2026-06-09
+**Task**: Catalog access architecture cleanup
+**Package**: nako-server
+**Branch**: `main`
+
+### Summary
+
+Moved person detail access enforcement from the HTTP catalog route into CatalogAppService, reused repository-backed accessible person item probing, removed stale helpers, and verified focused catalog routes.
+
+### Main Changes
+
+- Moved `/people/{person_id}` access enforcement from `http::catalog` into
+  `CatalogAppService::get_person`.
+- Reused `list_accessible_person_items` with a one-row probe so non-admin person
+  detail visibility is repository-backed and bounded.
+- Removed stale HTTP helpers and the now-unused unfiltered app-service
+  `list_person_items` path.
+- Added a catalog HTTP regression for hidden versus visible person detail reads.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `bc5c31b4` | (see git log) |
+
+### Testing
+
+- [OK] `cargo fmt --all`
+- [OK] `cargo check -p nako-server --tests`
+- [OK] `cargo nextest run -p nako-server http::tests::catalog --no-fail-fast`
+- [OK] `git diff --check`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
