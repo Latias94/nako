@@ -388,8 +388,8 @@ app.user_playback()
   Library Access forbidden message before playback-policy details are exposed.
 - Renderer ownership, control capability checks, transport ticket construction,
   and Direct/Remux/HLS transport selection remain app-service responsibilities.
-- `http::access::require_source_access` remains available for playback and
-  other route slices that have not migrated their access boundary yet.
+- Playback route-local source access helpers should not be reintroduced for
+  renderer play command or renderer transport use paths.
 
 ### 4. Validation & Error Matrix
 
@@ -405,8 +405,9 @@ app.user_playback()
 
 - Good: `/renderers/{renderer_session_id}/commands/play` parses source ID and
   delegates to `app.casting().play_on_renderer(AppPlayOnRendererRequest { principal, ... })`.
-- Base: playback byte routes still own route-local access until their broader
-  ticket/session variants migrate in a dedicated task.
+- Base: renderer transport ticket issue and URL authoring stay in HTTP, while
+  renderer transport use delegates current source `Play` rechecks to playback
+  app-service session-use methods.
 - Bad: route code calls `require_source_access(... Play)` before invoking
   `CastingAppService`, because non-HTTP renderer callers could bypass the
   access decision.
@@ -1015,8 +1016,8 @@ existing-session reuse, or segment planning.
 - Subtitle browser ticket issue behavior, subtitle stream scoping, content
   type mapping, sidecar path redaction, byte limits, and text body behavior
   keep their existing route or app-service ownership.
-- Renderer transport resolvers remain a dedicated follow-up boundary and may
-  still use route-local `require_source_access` until that slice migrates.
+- Renderer transport resolvers are auth/ticket-only and delegate source `Play`
+  access to playback app-service session-use methods.
 
 ### 4. Validation & Error Matrix
 
@@ -1115,6 +1116,130 @@ The route owns auth/ticket resolution and subtitle response mechanics, while
 `PlaybackAppService` owns source `Play` access before subtitle policy, probe,
 sidecar, or storage work.
 
+## Scenario: Renderer Transport Access Boundary
+
+### 1. Scope / Trigger
+
+- Trigger: changing renderer transport ticket use on Direct, Remux, HLS
+  playlist, or HLS segment playback routes; changing
+  `resolve_renderer_transport_principal` or
+  `resolve_renderer_transport_principal_for_session` in
+  `crates/nako-server/src/http/playback.rs`.
+- Code evidence: `src/http/playback.rs`, `src/http/renderer.rs`,
+  `src/app/playback/mod.rs`, `src/app/playback/remux_flow.rs`,
+  `src/app/playback/hls_flow.rs`, `src/http/tests/renderer.rs`.
+
+### 2. Signatures
+
+- Renderer transport HTTP query fields are:
+  - `renderer_session_id: Option<String>`
+  - `playback_session_id: Option<String>`
+  - `renderer_ticket: Option<String>`
+- `resolve_renderer_transport_principal(...)` returns
+  `Option<ResolvedRendererTransport>`.
+- `ResolvedRendererTransport` carries:
+  - `principal: AuthenticatedPrincipal`
+  - `renderer_session_id: RendererSessionId`
+  - `playback_session_id: PlaybackSessionId`
+
+### 3. Contracts
+
+- Renderer transport resolvers parse playback-session and renderer-session
+  IDs, validate renderer ticket scope, validate renderer owner identity, and
+  validate renderer network scope.
+- Renderer transport resolvers must not call route-local source `Play` access
+  helpers. They are auth/ticket-only resolvers.
+- Direct renderer transport use must call
+  `PlaybackAppService::direct_playback_session_stream` or
+  `PlaybackAppService::direct_playback_session_preflight`.
+- Remux renderer transport use must call
+  `PlaybackAppService::remux_playback_session_stream`.
+- HLS renderer playlist use must call
+  `PlaybackAppService::hls_playlist_for_playback_session`.
+- HLS renderer segment use must call
+  `PlaybackAppService::hls_segment_playback` after resolving the session
+  target.
+- The playback app-service session-use method must enforce current source
+  `Play` Library Access before playback session reuse, lazy artifact startup,
+  segment planning, byte serving, or playlist response shaping.
+- Renderer transport ticket issue, renderer command payloads, transport URL
+  authoring, public DTOs, and invalid-ticket response behavior remain owned by
+  their existing HTTP/app-service boundaries.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Renderer transport ticket was issued, then source Play access is revoked before Direct use | Ticket-backed Direct transport returns `403` with required Library Access level `play` |
+| Renderer transport ticket was issued, then source Play access is revoked before Remux use | Ticket-backed Remux transport returns `403` with required Library Access level `play` |
+| Renderer transport ticket was issued, then source Play access is revoked before HLS playlist use | Ticket-backed HLS playlist transport returns `403` with required Library Access level `play` |
+| Renderer transport ticket was issued, playlist generated, then source Play access is revoked before segment use | Ticket-backed HLS segment transport returns `403` with required Library Access level `play` |
+| Renderer ticket is missing, empty, malformed, wrong session, wrong renderer, wrong mode, wrong source, wrong network scope, or non-owner principal | Preserve existing unauthorized/forbidden renderer transport behavior |
+| Renderer play command is requested by a Browse-only principal | Preserve app-service renderer play command source `Play` denial before runtime records |
+| Renderer play command is requested by a Play principal without `remote_control` | Preserve playback-policy denial mentioning `remote_control` |
+
+### 5. Good / Base / Bad Cases
+
+- Good: renderer transport resolver validates only ticket, owner, scope, and
+  identity, then route code calls the appropriate playback app-service
+  session-use method.
+- Good: revoked renderer transport use returns the standard Library Access
+  `play` forbidden message from the app-service method.
+- Base: renderer transport URL authoring remains in `http/renderer.rs`
+  because it is a public response assembly concern.
+- Bad: resolver calls a source access helper before returning
+  `ResolvedRendererTransport`, because that makes HTTP the access authority
+  and can drift from app-service use paths.
+- Bad: renderer transport route serves bytes, starts lazy Remux/HLS artifacts,
+  or plans HLS segments before the app-service source `Play` recheck.
+
+### 6. Tests Required
+
+- HTTP renderer test proving Direct renderer transport use returns `403` with
+  the standard Library Access `play` message after source access is revoked.
+- HTTP renderer test proving Remux renderer transport use returns `403` with
+  the same message after source access is revoked.
+- HTTP renderer test proving HLS renderer playlist transport use returns
+  `403` with the same message after source access is revoked.
+- Existing renderer transport tests must continue covering Remux success, HLS
+  playlist/segment success, Direct external adapter transport, invalid
+  renderer ticket rejection, URL redaction, and command payload redaction.
+- Focused gates:
+  `cargo nextest run -p nako-server renderer_transport_direct_rejects_revoked_source_play_access_at_use --no-fail-fast`,
+  `cargo nextest run -p nako-server renderer_transport_remux_rejects_revoked_source_play_access_at_use --no-fail-fast`,
+  `cargo nextest run -p nako-server renderer_transport_hls_rejects_revoked_source_play_access_at_playlist_use --no-fail-fast`,
+  `cargo nextest run -p nako-server renderer_play_command_with_cast_ticket --no-fail-fast`,
+  `cargo nextest run -p nako-server synthetic_external_adapter_play_command_receives_cast_safe_transport_envelope --no-fail-fast`, and
+  `cargo check -p nako-server --tests`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+let validated = app.renderer_transport_tickets().validate(request)?;
+require_source_access(&app, &validated.principal, source_id, RequiredLibraryAccess::Play).await?;
+Ok(Some(ResolvedRendererTransport { principal: validated.principal, ... }))
+```
+
+This makes renderer transport source access route-local and duplicates the
+session-use access checks owned by `PlaybackAppService`.
+
+#### Correct
+
+```rust
+let validated = app.renderer_transport_tickets().validate(request)?;
+Ok(Some(ResolvedRendererTransport {
+    principal: validated.principal,
+    renderer_session_id,
+    playback_session_id,
+}))
+```
+
+The route validates renderer transport identity, then the selected playback
+app-service session-use method enforces current source `Play` access before
+serving transport bytes or playlists.
+
 ## Scenario: Browser Playback Ticket Access Boundary
 
 ### 1. Scope / Trigger
@@ -1151,9 +1276,9 @@ sidecar, or storage work.
 - Mode-specific playback-policy checks, remote playback checks, subtitle stream
   validation, playback session creation, ticket signing, and URL construction
   keep their existing app-service or route ownership.
-- Direct Play, Remux, HLS, and sidecar subtitle playback use paths already
-  recheck current source `Play` access through `PlaybackAppService`; renderer
-  transport remains a dedicated follow-up boundary.
+- Direct Play, Remux, HLS, sidecar subtitle playback, and renderer transport
+  use paths already recheck current source `Play` access through
+  `PlaybackAppService`.
 
 ### 4. Validation & Error Matrix
 

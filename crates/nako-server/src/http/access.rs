@@ -1,6 +1,5 @@
 use nako_core::{
-    AuthenticatedPrincipal, LibraryAccessLevel, LibraryId, MediaItemId, MediaSourceId, NakoError,
-    Result,
+    AuthenticatedPrincipal, LibraryAccessLevel, LibraryId, MediaItemId, NakoError, Result,
 };
 
 use crate::app::NakoApp;
@@ -100,23 +99,6 @@ pub(super) async fn require_item_access(
     }
 
     Err(library_access_forbidden(required).into())
-}
-
-pub(super) async fn require_source_access(
-    app: &NakoApp,
-    principal: &AuthenticatedPrincipal,
-    source_id: MediaSourceId,
-    required: RequiredLibraryAccess,
-) -> ApiResult<()> {
-    let source = app
-        .get_media_source_record(source_id)
-        .await?
-        .ok_or_else(|| NakoError::NotFound {
-            entity: "media_source",
-            id: source_id.to_string(),
-        })?;
-
-    require_library_access(app, principal, source.library_id, required).await
 }
 
 pub(super) fn parse_public_library_id(value: &str) -> Result<LibraryId> {

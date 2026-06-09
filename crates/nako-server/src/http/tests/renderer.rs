@@ -46,6 +46,37 @@ async fn wait_for_hls_segment_ok(router: &Router, uri: &str) -> axum::response::
     panic!("hls segment {uri} did not become OK; last status: {last_status:?}");
 }
 
+async fn assert_source_play_access_forbidden(response: axum::response::Response) {
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let body: ErrorResponse = body_json(response).await;
+    assert_eq!(body.code, "forbidden");
+    assert!(
+        body.message
+            .contains("required Library Access level 'play'"),
+        "expected library play access denial after revocation, got {}",
+        body.message
+    );
+}
+
+async fn grant_renderer_playback_policy(
+    store: &NakoDatabase,
+    principal: &AuthenticatedPrincipal,
+    library_id: LibraryId,
+) {
+    let mut permissions = PlaybackPermissionPolicy::current_playback_defaults();
+    permissions.allow_remote_control = true;
+    permissions.allow_cast = true;
+    store
+        .upsert_playback_policy(&PlaybackPolicy::user(
+            principal.user_id,
+            library_id,
+            permissions,
+            2,
+        ))
+        .await
+        .unwrap();
+}
+
 #[tokio::test]
 async fn nako_renderer_registers_heartbeats_lists_and_polls_commands() {
     let (_temp, app, source, _store) =
@@ -413,6 +444,99 @@ async fn renderer_play_command_with_cast_ticket_remux_returns_ticketed_transport
 }
 
 #[tokio::test]
+async fn renderer_transport_direct_rejects_revoked_source_play_access_at_use() {
+    let (_temp, app, source, store) =
+        app_with_media_source_config("movie.mp4", b"movie bytes", |_| {}).await;
+    let principal =
+        local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Play).await;
+    grant_renderer_playback_policy(&store, &principal, source.library_id).await;
+    let user_id = principal.user_id;
+    let router = public_client_router_with_principal(app, principal);
+    let mut registration = renderer_registration_request("Direct Cast Desktop");
+    registration.transport_auth = ClientPlaybackTargetTransportAuth::CastTicket;
+    let registered: RendererSessionResponse =
+        request_body_json(&router, Method::POST, "/renderers", &registration).await;
+    let renderer_session_id = registered.renderer.id.parse::<RendererSessionId>().unwrap();
+    let play: RendererPlayCommandResponse = request_body_json(
+        &router,
+        Method::POST,
+        &format!("/renderers/{renderer_session_id}/commands/play"),
+        &RendererPlayCommandRequest {
+            source_id: source.id.to_string(),
+            position_ms: None,
+        },
+    )
+    .await;
+    let transport = play
+        .command
+        .transport
+        .as_ref()
+        .expect("cast-ticket direct command includes transport");
+
+    store
+        .delete_library_access_policy(LibraryAccessPolicyScope::User(user_id), source.library_id)
+        .await
+        .unwrap();
+
+    assert_source_play_access_forbidden(
+        response_for(&router, Method::GET, &transport.urls[0].url).await,
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn renderer_transport_remux_rejects_revoked_source_play_access_at_use() {
+    let script_root = tempfile::tempdir().unwrap();
+    let marker = script_root.path().join("renderer-remux-revoked.started");
+    let ffmpeg_path =
+        fake_ffmpeg_script(script_root.path(), "renderer_remux_revoked", false, &marker);
+    let (_temp, app, source, store) =
+        app_with_media_source_config("renderer-remux-revoked.mkv", b"media", |config| {
+            config.ffmpeg_path = ffmpeg_path.clone();
+        })
+        .await;
+    store
+        .upsert_media_probe(source.id, &compatible_probe())
+        .await
+        .unwrap();
+    let principal =
+        local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Play).await;
+    grant_renderer_playback_policy(&store, &principal, source.library_id).await;
+    let user_id = principal.user_id;
+    let router = public_client_router_with_principal(app, principal);
+    let mut registration = renderer_registration_request("Revoked Remux Cast Desktop");
+    registration.transport_auth = ClientPlaybackTargetTransportAuth::CastTicket;
+    let registered: RendererSessionResponse =
+        request_body_json(&router, Method::POST, "/renderers", &registration).await;
+    let renderer_session_id = registered.renderer.id.parse::<RendererSessionId>().unwrap();
+    let play: RendererPlayCommandResponse = request_body_json(
+        &router,
+        Method::POST,
+        &format!("/renderers/{renderer_session_id}/commands/play"),
+        &RendererPlayCommandRequest {
+            source_id: source.id.to_string(),
+            position_ms: None,
+        },
+    )
+    .await;
+    let transport = play
+        .command
+        .transport
+        .as_ref()
+        .expect("cast-ticket remux command includes transport");
+
+    store
+        .delete_library_access_policy(LibraryAccessPolicyScope::User(user_id), source.library_id)
+        .await
+        .unwrap();
+
+    assert_source_play_access_forbidden(
+        response_for(&router, Method::GET, &transport.urls[0].url).await,
+    )
+    .await;
+}
+
+#[tokio::test]
 async fn renderer_play_command_with_cast_ticket_hls_protects_playlist_and_segments() {
     let (_temp, router, source, _store) = router_with_hls_source().await;
     let mut registration = renderer_registration_request("HLS Cast Desktop");
@@ -484,6 +608,63 @@ async fn renderer_play_command_with_cast_ticket_hls_protects_playlist_and_segmen
     )
     .await;
     assert_eq!(invalid.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn renderer_transport_hls_rejects_revoked_source_play_access_at_playlist_use() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "renderer_hls_revoked");
+    let (_temp, app, source, store) =
+        app_with_media_source_config("renderer-hls-revoked.mkv", b"media", |config| {
+            config.ffmpeg_path = ffmpeg_path.clone();
+        })
+        .await;
+    store
+        .upsert_media_probe(source.id, &compatible_probe())
+        .await
+        .unwrap();
+    let principal =
+        local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Play).await;
+    grant_renderer_playback_policy(&store, &principal, source.library_id).await;
+    let user_id = principal.user_id;
+    let router = public_client_router_with_principal(app, principal);
+    let mut registration = renderer_registration_request("Revoked HLS Cast Desktop");
+    registration.transport_auth = ClientPlaybackTargetTransportAuth::CastTicket;
+    registration.media_capabilities = Some(ClientPlaybackCapabilitiesDto {
+        direct_play: false,
+        containers: vec!["mp4".to_owned()],
+        video_codecs: vec!["h264".to_owned()],
+        audio_codecs: vec!["aac".to_owned()],
+        ..ClientPlaybackCapabilitiesDto::default()
+    });
+    let registered: RendererSessionResponse =
+        request_body_json(&router, Method::POST, "/renderers", &registration).await;
+    let renderer_session_id = registered.renderer.id.parse::<RendererSessionId>().unwrap();
+    let play: RendererPlayCommandResponse = request_body_json(
+        &router,
+        Method::POST,
+        &format!("/renderers/{renderer_session_id}/commands/play"),
+        &RendererPlayCommandRequest {
+            source_id: source.id.to_string(),
+            position_ms: None,
+        },
+    )
+    .await;
+    let transport = play
+        .command
+        .transport
+        .as_ref()
+        .expect("cast-ticket hls command includes transport");
+
+    store
+        .delete_library_access_policy(LibraryAccessPolicyScope::User(user_id), source.library_id)
+        .await
+        .unwrap();
+
+    assert_source_play_access_forbidden(
+        response_for(&router, Method::GET, &transport.urls[0].url).await,
+    )
+    .await;
 }
 
 #[tokio::test]

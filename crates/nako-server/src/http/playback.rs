@@ -47,7 +47,7 @@ use crate::app::{
 };
 
 use super::{
-    access::{RequiredLibraryAccess, has_library_access, require_source_access},
+    access::{RequiredLibraryAccess, has_library_access},
     error::ApiResult,
     trace_context::HttpTraceContext,
 };
@@ -1161,14 +1161,6 @@ async fn resolve_renderer_transport_principal_for_session(
     if validated.principal.principal_id != renderer.owner_principal_id {
         return Err(invalid_renderer_transport_ticket().into());
     }
-
-    require_source_access(
-        app,
-        &validated.principal,
-        source_id,
-        RequiredLibraryAccess::Play,
-    )
-    .await?;
 
     Ok(Some(ResolvedRendererTransport {
         principal: validated.principal,
