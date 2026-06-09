@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 103
-- **Last Active**: 2026-06-09
+- **Total Sessions**: 104
+- **Last Active**: 2026-06-10
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~205 | Active |
+| `journal-3.md` | ~258 | Active |
 | `journal-2.md` | ~1991 | Archived |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 104 | 2026-06-10 | Move subtitle playback source access into app service | `bd855bae`, `8c7f3141` | `main` |
 | 103 | 2026-06-09 | Move hls playback source access into app service | `2ee94772`, `4a09fd60` | `main` |
 | 102 | 2026-06-09 | Move remux playback source access into app service | `64ea0754`, `baad19f8` | `main` |
 | 101 | 2026-06-09 | Move direct playback source access into app service | `cfd793e2`, `8f9fc314` | `main` |

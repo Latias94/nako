@@ -221,3 +221,49 @@ Moved HLS source Play access into PlaybackAppService for playlist and segment us
 ### Next Steps
 
 - None - task complete
+
+
+## Session 104: Move subtitle playback source access into app service
+
+**Date**: 2026-06-10
+**Task**: Move subtitle playback source access into app service
+**Package**: nako-server
+**Branch**: `main`
+
+### Summary
+
+Moved subtitle source Play access into PlaybackAppService, made subtitle principal resolution auth/ticket-only, added app and HTTP regressions for browse-only and ticket revocation use, documented the subtitle access boundary, and archived the Trellis task.
+
+### Main Changes
+
+- Moved sidecar subtitle source `Play` access into `PlaybackAppService::subtitle_playback`.
+- Simplified subtitle HTTP principal resolution to auth/ticket identity only.
+- Added app-service and HTTP regressions for Browse-only denial and subtitle ticket revocation at use time.
+- Documented the subtitle playback access boundary in the nako-server HTTP API spec.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `bd855bae` | refactor(server): move subtitle playback access into app service |
+| `8c7f3141` | chore(task): archive subtitle playback access task |
+
+### Testing
+
+- [OK] `cargo fmt --all`
+- [OK] `cargo nextest run -p nako-server subtitle_playback_rejects_browse_only_access_before_policy_details --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server subtitle_route_requires_play_library_access --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server subtitle_browser_playback_ticket_rejects_revocation_at_use --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server subtitle --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server browser_playback_ticket_streams_sidecar_subtitle_without_bearer --no-fail-fast`
+- [OK] `cargo check -p nako-server --tests`
+- [OK] `git diff --check`
+- [OK] `python .\.trellis\scripts\task.py validate 06-09-subtitle-playback-source-access-app`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
