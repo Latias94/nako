@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "nako-server backend spec index and pre-development checklist"}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "HTTP route thin-boundary and renderer/playback access precedents"}
+{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Playback renderer transport and route/app-service ownership expectations"}
+{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Preserve forbidden to HTTP 403 mapping and public Library Access message"}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server focused test and gate selection"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Renderer transport use crosses HTTP resolver and playback app-service boundaries"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse existing app-service source access checks instead of duplicating route policy resolution"}
