@@ -100,8 +100,6 @@ pub(super) async fn get_source_playback_decision(
     Path(source_id): Path<MediaSourceId>,
     Query(query): Query<PlaybackCapabilitiesQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    require_source_access(&app, &principal, source_id, RequiredLibraryAccess::Play).await?;
-
     Ok(Json(
         app.playback()
             .get_source_playback_decision(&principal, source_id, query.into())

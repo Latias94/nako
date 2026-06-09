@@ -451,6 +451,107 @@ app.casting()
 The app-service path owns source `Play` access before runtime records are
 created, while HTTP remains a DTO and extractor boundary.
 
+## Scenario: Playback Decision Access Boundary
+
+### 1. Scope / Trigger
+
+- Trigger: changing Public Client source playback decision lookup,
+  `PlaybackAppService::get_source_playback_decision`, browser capability query
+  mapping, or route-local playback decision source access checks in
+  `crates/nako-server`.
+- Code evidence: `src/http/playback.rs`, `src/app/playback/mod.rs`,
+  `src/http/tests/playback.rs`, `src/app/tests/playback.rs`.
+
+### 2. Signatures
+
+- Playback decision HTTP handlers take `Extension(AuthenticatedPrincipal)` and
+  pass the full principal into `PlaybackAppService`.
+- `PlaybackAppService::get_source_playback_decision(&AuthenticatedPrincipal, MediaSourceId, ClientPlaybackCapabilities)`
+  owns source loading, source `Play` Library Access, effective playback policy
+  resolution, and playback planning.
+
+### 3. Contracts
+
+- HTTP playback decision lookup parses path/query inputs and delegates to the
+  app service. It must not call route-local `require_source_access`.
+- Source `Play` Library Access must be enforced in
+  `PlaybackAppService::get_source_playback_decision` before playback planning,
+  target capability reporting, or playback-policy details are returned.
+- A principal without source `Play` access receives the standard Library Access
+  forbidden message before playback-policy details such as `direct_play`,
+  `remux`, or transcode permissions are exposed.
+- Client capability query parsing, safe target DTO shaping, locator redaction,
+  administrator access, unknown source behavior, and planner output stay
+  unchanged.
+- Direct Play, Remux, HLS byte/session routes can keep route-local source
+  access until they migrate in dedicated tasks.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Ordinary principal has Browse but not Play access for the source library | Playback decision lookup returns `403` with required Library Access level `play` |
+| Ordinary principal has Play access but playback policy denies a candidate mode | Playback decision response is returned with the existing policy-denied decision report |
+| Unknown source ID | Preserve `NakoError::NotFound` for `media_source` |
+| Administrator requests playback decision | Preserve administrator access and playback-policy semantics |
+| Capability query requests remux/transcode preferences | Preserve existing query mapping and safe DTO output |
+
+### 5. Good / Base / Bad Cases
+
+- Good: `/sources/{source_id}/playback/decision` parses public query
+  capabilities and calls
+  `app.playback().get_source_playback_decision(&principal, source_id, client)`.
+- Base: playback policy denial for a Play-authorized principal still returns a
+  safe decision report instead of an HTTP error.
+- Bad: route code calls `require_source_access(... Play)` before invoking the
+  app service, because non-HTTP callers could bypass playback decision access.
+- Bad: playback planning runs before source `Play` Library Access, because
+  browse-only users would learn target compatibility or policy details for
+  media they cannot play.
+
+### 6. Tests Required
+
+- App-service test proving a browse-only principal cannot get a playback
+  decision and receives the standard Library Access `play` message before
+  playback-policy details.
+- HTTP route test proving a browse-only principal receives `403` with the same
+  public message for playback decision lookup.
+- Existing playback decision policy-denial route tests must continue proving a
+  principal with source Play access receives a safe policy-denied decision
+  report.
+- Focused gates:
+  `cargo nextest run -p nako-server playback_decision --no-fail-fast` and
+  `cargo check -p nako-server --tests`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+require_source_access(&app, &principal, source_id, RequiredLibraryAccess::Play).await?;
+Ok(Json(
+    app.playback()
+        .get_source_playback_decision(&principal, source_id, client)
+        .await?,
+))
+```
+
+This makes HTTP the access authority and leaves future app-service callers able
+to bypass playback decision source access.
+
+#### Correct
+
+```rust
+Ok(Json(
+    app.playback()
+        .get_source_playback_decision(&principal, source_id, client)
+        .await?,
+))
+```
+
+The app service owns source `Play` access before planning and policy details,
+while HTTP remains the query parsing and DTO response boundary.
+
 ## Scenario: Browser Playback Ticket Access Boundary
 
 ### 1. Scope / Trigger

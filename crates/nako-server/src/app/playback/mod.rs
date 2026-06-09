@@ -681,7 +681,7 @@ impl PlaybackAppService {
         let context = self.playback_selection_context_for_source(&source).await?;
         let target = playback_target_for_client(client);
         let effective_policy = self
-            .effective_playback_policy_for_source(principal, &source)
+            .effective_playback_policy_for_playable_source(principal, &source)
             .await?;
         let decision = self.planner.plan(PlaybackPlanningRequest {
             source: &source,

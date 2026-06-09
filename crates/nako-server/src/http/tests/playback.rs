@@ -477,6 +477,15 @@ async fn playback_routes_require_play_library_access() {
     .await;
 
     assert_eq!(decision.status(), StatusCode::FORBIDDEN);
+    let decision: ErrorResponse = body_json(decision).await;
+    assert_eq!(decision.code, "forbidden");
+    assert!(
+        decision
+            .message
+            .contains("required Library Access level 'play'"),
+        "expected library play access denial, got {}",
+        decision.message
+    );
     assert_eq!(stream.status(), StatusCode::FORBIDDEN);
 }
 
