@@ -1606,3 +1606,38 @@ Archived the completed overnight architecture refactor campaign and its library 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 89: Root catalog aggregate access repository projection
+
+**Date**: 2026-06-09
+**Task**: Root catalog aggregate access repository projection
+**Package**: nako-db
+**Branch**: `main`
+
+### Summary
+
+Moved Public Catalog root aggregate visibility for /people, /tags, and /genres into repository-backed access-before-pagination projections. Added SQLite/PostgreSQL parity, catalog_access contracts, and HTTP regressions for page-hole filtering.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ff69ad95` | (see git log) |
+| `20873647` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
