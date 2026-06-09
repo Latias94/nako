@@ -1641,3 +1641,39 @@ Moved Public Catalog root aggregate visibility for /people, /tags, and /genres i
 ### Next Steps
 
 - None - task complete
+
+
+## Session 90: Postgres catalog access DISTINCT order fix
+
+**Date**: 2026-06-09
+**Task**: Postgres catalog access DISTINCT order fix
+**Package**: nako-db
+**Branch**: `main`
+
+### Summary
+
+Ran Docker-backed PostgreSQL catalog_access contracts, fixed Postgres DISTINCT/ORDER BY compatibility in accessible catalog projections, captured the SQL gotcha in nako-db database guidelines, and archived the bug task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `32d66fc5` | (see git log) |
+| `d4739e69` | (see git log) |
+| `269686c` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
