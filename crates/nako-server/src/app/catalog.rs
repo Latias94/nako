@@ -478,9 +478,26 @@ impl CatalogAppService {
         })
     }
 
-    pub async fn get_person(&self, person_id: PersonId) -> Result<PersonResponse> {
+    pub async fn get_person(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        person_id: PersonId,
+    ) -> Result<PersonResponse> {
+        let person = self.get_person_record(person_id).await?;
+        if !principal.is_administrator() {
+            let visible_items = self
+                .store
+                .list_accessible_person_items(principal, person.id, PageRequest::new(1, 0))
+                .await?;
+            if visible_items.is_empty() {
+                return Err(NakoError::Forbidden {
+                    message: "required Library Access level 'browse' is not available".to_owned(),
+                });
+            }
+        }
+
         Ok(PersonResponse {
-            person: person_to_dto(self.get_person_record(person_id).await?),
+            person: person_to_dto(person),
         })
     }
 
@@ -492,22 +509,6 @@ impl CatalogAppService {
                 entity: "person",
                 id: person_id.to_string(),
             })
-    }
-
-    pub async fn list_person_items(
-        &self,
-        person_id: PersonId,
-        page: PageRequest,
-    ) -> Result<PersonItemsResponse> {
-        let page = page.clamped();
-        let person = self.get_person_record(person_id).await?;
-        let items = self.store.list_person_items(person.id, page).await?;
-
-        Ok(PersonItemsResponse {
-            person: person_to_dto(person),
-            page: page_info_from_request(page, items.len()),
-            items: items.into_iter().map(media_item_to_dto).collect(),
-        })
     }
 
     pub async fn list_accessible_person_items(

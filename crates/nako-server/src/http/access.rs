@@ -144,14 +144,6 @@ pub(super) fn parse_public_library_id(value: &str) -> Result<LibraryId> {
         })
 }
 
-pub(super) fn parse_public_item_id(value: &str) -> Result<MediaItemId> {
-    value
-        .parse::<MediaItemId>()
-        .map_err(|err| NakoError::InvalidInput {
-            message: format!("invalid item id in public response: {err}"),
-        })
-}
-
 pub(super) fn parse_public_source_id(value: &str) -> Result<MediaSourceId> {
     value
         .parse::<MediaSourceId>()

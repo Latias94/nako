@@ -8,8 +8,7 @@ use axum::{
 };
 use nako_api::public_client::{ItemDetailResponse, SourceProbeResponse};
 use nako_core::{
-    AuthenticatedPrincipal, GenreId, MediaItemId, MediaSourceId, PageRequest, PersonId,
-    SelectedArtworkId, TagId,
+    AuthenticatedPrincipal, GenreId, MediaItemId, MediaSourceId, PersonId, SelectedArtworkId, TagId,
 };
 use tracing::instrument;
 
@@ -17,8 +16,8 @@ use crate::app::NakoApp;
 
 use super::{
     access::{
-        RequiredLibraryAccess, item_has_access, parse_public_item_id, parse_public_source_id,
-        require_item_access, require_selected_artwork_access, require_source_access,
+        RequiredLibraryAccess, parse_public_source_id, require_item_access,
+        require_selected_artwork_access, require_source_access,
     },
     error::ApiResult,
     query::{ImageVariantQuery, PageQuery, SearchPageQuery},
@@ -172,14 +171,7 @@ pub(super) async fn get_person(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(person_id): Path<PersonId>,
 ) -> ApiResult<impl IntoResponse> {
-    if !person_has_accessible_item(&app, &principal, person_id).await? {
-        return Err(nako_core::NakoError::Forbidden {
-            message: "required Library Access level 'browse' is not available".to_owned(),
-        }
-        .into());
-    }
-
-    Ok(Json(app.catalog().get_person(person_id).await?))
+    Ok(Json(app.catalog().get_person(&principal, person_id).await?))
 }
 
 #[instrument(skip(app))]
@@ -311,37 +303,6 @@ async fn filter_item_detail_sources(
     detail.sources = sources;
 
     Ok(detail)
-}
-
-async fn person_has_accessible_item(
-    app: &NakoApp,
-    principal: &AuthenticatedPrincipal,
-    person_id: PersonId,
-) -> ApiResult<bool> {
-    let response = app
-        .catalog()
-        .list_person_items(person_id, PageRequest::new(PageRequest::MAX_LIMIT, 0))
-        .await?;
-    any_public_items_accessible(app, principal, response.items).await
-}
-
-async fn any_public_items_accessible(
-    app: &NakoApp,
-    principal: &AuthenticatedPrincipal,
-    items: Vec<nako_api::public_client::MediaItemDto>,
-) -> ApiResult<bool> {
-    if items.is_empty() {
-        return Ok(principal.is_administrator());
-    }
-
-    for item in items {
-        let item_id = parse_public_item_id(&item.id)?;
-        if item_has_access(app, principal, item_id, RequiredLibraryAccess::Browse).await? {
-            return Ok(true);
-        }
-    }
-
-    Ok(false)
 }
 
 async fn selected_image_preflight_response(

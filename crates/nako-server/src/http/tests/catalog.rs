@@ -672,6 +672,77 @@ async fn catalog_root_aggregate_routes_filter_access_before_pagination() {
 }
 
 #[tokio::test]
+async fn catalog_person_detail_route_requires_accessible_related_item() {
+    let fixture = catalog_access_route_fixture().await;
+    let hidden_item = seed_catalog_route_item(
+        &fixture.store,
+        fixture.blocked_library_id,
+        "A Hidden Person Detail",
+    )
+    .await;
+    let visible_item = seed_catalog_route_item(
+        &fixture.store,
+        fixture.allowed_library_id,
+        "B Visible Person Detail",
+    )
+    .await;
+    let hidden_person = Person {
+        id: PersonId::new(),
+        name: "A Hidden Person Detail".to_owned(),
+        sort_name: None,
+        overview: None,
+        external_ids: Vec::new(),
+    };
+    let visible_person = Person {
+        id: PersonId::new(),
+        name: "B Visible Person Detail".to_owned(),
+        sort_name: None,
+        overview: None,
+        external_ids: Vec::new(),
+    };
+    fixture.store.upsert_person(&hidden_person).await.unwrap();
+    fixture.store.upsert_person(&visible_person).await.unwrap();
+    fixture
+        .store
+        .upsert_item_credit(&ItemCredit {
+            item_id: hidden_item.id,
+            person_id: hidden_person.id,
+            role: CreditRole::Actor,
+            character: None,
+            sort_order: None,
+        })
+        .await
+        .unwrap();
+    fixture
+        .store
+        .upsert_item_credit(&ItemCredit {
+            item_id: visible_item.id,
+            person_id: visible_person.id,
+            role: CreditRole::Actor,
+            character: None,
+            sort_order: None,
+        })
+        .await
+        .unwrap();
+
+    let hidden_response = response_for(
+        &fixture.router,
+        Method::GET,
+        &format!("/people/{}", hidden_person.id),
+    )
+    .await;
+    let visible_response = request_json::<nako_api::public_client::PersonResponse>(
+        &fixture.router,
+        Method::GET,
+        &format!("/people/{}", visible_person.id),
+    )
+    .await;
+
+    assert_eq!(hidden_response.status(), StatusCode::FORBIDDEN);
+    assert_eq!(visible_response.person.id, visible_person.id.to_string());
+}
+
+#[tokio::test]
 async fn catalog_search_route_filters_accessible_batch_without_leaking_hidden_hits() {
     let fixture = catalog_access_route_fixture().await;
     let hidden_item = seed_catalog_route_item(

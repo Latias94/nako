@@ -1,0 +1,9 @@
+{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Public Catalog route handlers must stay thin, parse inputs, and delegate access semantics to app services."}
+{"file":".trellis/spec/nako-server/backend/database-guidelines.md","reason":"Server code must use repository/app-service boundaries rather than SQL or HTTP-owned persistence coordination."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Focused server route regression gates and access-test expectations for public routes."}
+{"file":".trellis/spec/nako-db/backend/database-guidelines.md","reason":"Repository-backed browse/access queries must filter before ordering/pagination and keep PostgreSQL SQL rules in mind."}
+{"file":".trellis/spec/nako-db/backend/quality-guidelines.md","reason":"Shared catalog access behavior is already covered by repository contract tests; use focused gates when changing server use."}
+{"file":".trellis/spec/nako-core/backend/database-guidelines.md","reason":"Repository traits remain domain contracts with strong IDs and bounded PageRequest list surfaces."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"This cleanup crosses HTTP, app-service, and repository boundaries."}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Remove bespoke HTTP helper and reuse the existing repository-backed accessible relation query."}
+{"file":"docs/architecture/STATE_ACCESS.md","reason":"State/access architecture requires policy to run before expensive or broad work and preserve repository parity."}
