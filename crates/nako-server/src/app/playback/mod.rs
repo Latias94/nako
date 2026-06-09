@@ -1038,6 +1038,8 @@ impl PlaybackAppService {
         request: SubtitlePlaybackRequest,
     ) -> Result<SubtitlePlaybackOutput> {
         let source = self.get_source_or_not_found(request.source_id).await?;
+        self.ensure_source_play_access_for_source(&request.principal, &source)
+            .await?;
         self.ensure_subtitle_playback_allowed_for_source(&request.principal, &source)
             .await?;
         let probe = PlaybackRuntimeStore::get_media_probe(self.runtime_store.as_ref(), source.id)
@@ -1515,8 +1517,17 @@ impl PlaybackAppService {
         source_id: MediaSourceId,
     ) -> Result<()> {
         let source = self.get_source_or_not_found(source_id).await?;
+        self.ensure_source_play_access_for_source(principal, &source)
+            .await
+    }
+
+    async fn ensure_source_play_access_for_source(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        source: &MediaSource,
+    ) -> Result<()> {
         let _ = self
-            .effective_playback_policy_for_playable_source(principal, &source)
+            .effective_playback_policy_for_playable_source(principal, source)
             .await?;
 
         Ok(())

@@ -483,8 +483,9 @@ created, while HTTP remains a DTO and extractor boundary.
 - Client capability query parsing, safe target DTO shaping, locator redaction,
   administrator access, unknown source behavior, and planner output stay
   unchanged.
-- Direct Play, Remux, HLS byte/session routes can keep route-local source
-  access until they migrate in dedicated tasks.
+- Direct Play, Remux, HLS, and sidecar subtitle playback use paths now delegate
+  source `Play` access to `PlaybackAppService`; renderer transport resolvers
+  remain a dedicated follow-up boundary.
 
 ### 4. Validation & Error Matrix
 
@@ -596,9 +597,9 @@ while HTTP remains the query parsing and DTO response boundary.
 - Ticket-backed Direct session stream/preflight use does not re-evaluate
   Direct Play playback policy at use time; mode policy is validated when the
   browser ticket is issued.
-- Remux and HLS playback routes now delegate source `Play` access to
-  `PlaybackAppService`. Subtitle and renderer transport routes retain their
-  existing access boundaries until dedicated migration tasks move those slices.
+- Remux, HLS, and sidecar subtitle playback routes now delegate source `Play`
+  access to `PlaybackAppService`. Renderer transport routes retain their
+  existing access boundary until a dedicated migration task moves that slice.
 
 ### 4. Validation & Error Matrix
 
@@ -732,9 +733,9 @@ session use.
 - If a ticket-backed Remux session has not yet linked a transcode session,
   Remux playback policy still applies before artifact startup, but Library
   Access denial must happen first.
-- HLS playback routes now delegate source `Play` access to
-  `PlaybackAppService`. Subtitle and renderer transport routes retain their
-  existing access boundaries until dedicated migration tasks move those slices.
+- HLS and sidecar subtitle playback routes now delegate source `Play` access
+  to `PlaybackAppService`. Renderer transport routes retain their existing
+  access boundary until a dedicated migration task moves that slice.
 
 ### 4. Validation & Error Matrix
 
@@ -877,8 +878,9 @@ startup, or session use.
   Library Access before manifest-backed segment planning or byte response
   serving.
 - `hls_source_with_policy`, `hls_playlist_with_policy`, HLS artifact manifest
-  planning, subtitle routes, and renderer transport resolvers keep their
-  existing ownership until dedicated tasks change those boundaries.
+  planning, and renderer transport resolvers keep their existing ownership
+  until dedicated tasks change those boundaries. Sidecar subtitle playback
+  routes delegate source `Play` access to `PlaybackAppService`.
 
 ### 4. Validation & Error Matrix
 
@@ -971,6 +973,148 @@ The route owns auth/ticket resolution and response mechanics, while
 `PlaybackAppService` owns source `Play` access before HLS playlist startup,
 existing-session reuse, or segment planning.
 
+## Scenario: Subtitle Playback Access Boundary
+
+### 1. Scope / Trigger
+
+- Trigger: changing sidecar subtitle playback route
+  `/sources/{source_id}/subtitles/{stream_index}`,
+  `PlaybackAppService::subtitle_playback`, subtitle browser-ticket-backed use,
+  or subtitle principal/ticket resolution in `crates/nako-server`.
+- Code evidence: `src/http/playback.rs`, `src/app/playback/mod.rs`,
+  `src/http/tests/playback.rs`, `src/app/tests/playback.rs`.
+
+### 2. Signatures
+
+- Subtitle HTTP GET handlers resolve an `AuthenticatedPrincipal` or validated
+  subtitle browser playback ticket principal and call
+  `PlaybackAppService::subtitle_playback(SubtitlePlaybackRequest)`.
+- `SubtitlePlaybackRequest` carries:
+  - `principal: AuthenticatedPrincipal`
+  - `source_id: MediaSourceId`
+  - `stream_index: u32`
+- `resolve_subtitle_playback_principal(...)` is an auth/ticket-only resolver.
+  It validates subtitle ticket identity and stream scope, or returns the
+  ordinary authenticated principal.
+
+### 3. Contracts
+
+- Subtitle HTTP handlers parse source/stream path inputs, validate auth or a
+  subtitle browser playback ticket, assemble text subtitle responses and
+  headers, and delegate source `Play` access to the app service.
+- Subtitle HTTP handlers must not call route-local
+  `require_source_access(... RequiredLibraryAccess::Play)` for ordinary
+  principal or subtitle browser ticket paths.
+- `PlaybackAppService::subtitle_playback` must enforce source `Play` Library
+  Access before subtitle playback-policy details, probe lookup, sidecar
+  stream selection, sidecar file-name resolution, storage backend lookup,
+  sidecar stat/read, or response shaping.
+- Subtitle browser ticket use must recheck current source `Play` Library
+  Access at use time through `PlaybackAppService::subtitle_playback`, so
+  access revocation after ticket issue is effective.
+- Subtitle browser ticket issue behavior, subtitle stream scoping, content
+  type mapping, sidecar path redaction, byte limits, and text body behavior
+  keep their existing route or app-service ownership.
+- Renderer transport resolvers remain a dedicated follow-up boundary and may
+  still use route-local `require_source_access` until that slice migrates.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Ordinary principal has Browse but not Play access for the source library | Subtitle route returns `403` with required Library Access level `play` |
+| Ordinary principal has Play access but media playback or remote playback is disabled by policy | Subtitle app-service flow returns the existing playback-policy denial after source Play access passes |
+| Subtitle browser ticket was issued, then source Play access is revoked before use | Ticket-backed subtitle route returns `403` with required Library Access level `play` |
+| Subtitle browser ticket is missing, malformed, expired, wrong-mode, wrong-source, or wrong-stream | Preserve existing unauthorized/forbidden ticket behavior |
+| Subtitle stream is missing after source Play access passes | Preserve `NakoError::NotFound` for `subtitle_stream` |
+| Subtitle sidecar file is missing after source Play access passes | Preserve redacted subtitle sidecar not-found behavior |
+| Unknown source ID | Preserve `NakoError::NotFound` for `media_source` |
+| Administrator requests subtitle playback | Preserve administrator access and playback-policy semantics |
+
+### 5. Good / Base / Bad Cases
+
+- Good: subtitle route resolves only auth or subtitle ticket identity, then
+  calls `app.playback().subtitle_playback(SubtitlePlaybackRequest { ... })`.
+- Good: subtitle browser ticket use delegates to the same app-service method
+  as ordinary subtitle playback, so current Library Access is rechecked before
+  sidecar details.
+- Base: subtitle ticket issue continues to validate source access and subtitle
+  stream scope in `validate_browser_playback_ticket_request` before signing a
+  ticket.
+- Bad: subtitle route code calls `require_source_access(... Play)` before
+  invoking the app service, because non-HTTP subtitle callers could bypass
+  source access.
+- Bad: subtitle policy checks, probe lookup, sidecar file-name resolution, or
+  storage access run before source `Play` Library Access, because browse-only
+  users would learn playback-policy or sidecar details.
+- Bad: subtitle browser ticket use trusts the issued ticket without a current
+  source `Play` recheck, because revocation after ticket issue would not take
+  effect.
+
+### 6. Tests Required
+
+- App-service test proving a browse-only principal cannot call
+  `subtitle_playback`, receives the standard Library Access `play` message
+  before `media_playback` or subtitle sidecar details, and does not need a
+  subtitle probe/sidecar to be rejected.
+- HTTP route test proving a browse-only subtitle request returns `403` with
+  the same public Library Access message and no subtitle policy or sidecar
+  detail.
+- HTTP route test proving a previously issued subtitle browser ticket is
+  rejected after source `Play` access is revoked.
+- Existing subtitle route and browser-ticket tests must continue covering
+  sidecar subtitle text, content type, sidecar locator redaction, bearer bypass
+  with valid tickets, and wrong-stream ticket rejection.
+- Focused gates:
+  `cargo nextest run -p nako-server subtitle_playback_rejects_browse_only_access_before_policy_details --no-fail-fast`,
+  `cargo nextest run -p nako-server subtitle_route_requires_play_library_access --no-fail-fast`,
+  `cargo nextest run -p nako-server subtitle_browser_playback_ticket_rejects_revocation_at_use --no-fail-fast`,
+  `cargo nextest run -p nako-server subtitle --no-fail-fast`, and
+  `cargo check -p nako-server --tests`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+let principal = resolve_subtitle_playback_principal(
+    &app,
+    principal,
+    source_id,
+    stream_index,
+    ticket.as_deref(),
+)
+.await?;
+require_source_access(&app, &principal, source_id, RequiredLibraryAccess::Play).await?;
+```
+
+This keeps subtitle source `Play` access route-local and leaves future
+app-service callers able to bypass the subtitle sidecar access boundary.
+
+#### Correct
+
+```rust
+let principal = resolve_subtitle_playback_principal(
+    &app,
+    principal,
+    source_id,
+    stream_index,
+    ticket.as_deref(),
+)
+.await?;
+app.playback()
+    .subtitle_playback(SubtitlePlaybackRequest {
+        principal,
+        source_id,
+        stream_index,
+    })
+    .await?;
+```
+
+The route owns auth/ticket resolution and subtitle response mechanics, while
+`PlaybackAppService` owns source `Play` access before subtitle policy, probe,
+sidecar, or storage work.
+
 ## Scenario: Browser Playback Ticket Access Boundary
 
 ### 1. Scope / Trigger
@@ -1007,8 +1151,9 @@ existing-session reuse, or segment planning.
 - Mode-specific playback-policy checks, remote playback checks, subtitle stream
   validation, playback session creation, ticket signing, and URL construction
   keep their existing app-service or route ownership.
-- Direct Play, Remux, HLS byte/session routes can keep route-local source
-  access until they migrate in dedicated tasks.
+- Direct Play, Remux, HLS, and sidecar subtitle playback use paths already
+  recheck current source `Play` access through `PlaybackAppService`; renderer
+  transport remains a dedicated follow-up boundary.
 
 ### 4. Validation & Error Matrix
 

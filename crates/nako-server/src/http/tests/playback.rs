@@ -589,6 +589,17 @@ async fn subtitle_route_requires_play_library_access() {
     let principal =
         local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Browse)
             .await;
+    let mut permissions = PlaybackPermissionPolicy::current_playback_defaults();
+    permissions.allow_media_playback = false;
+    store
+        .upsert_playback_policy(&PlaybackPolicy::user(
+            principal.user_id,
+            source.library_id,
+            permissions,
+            2,
+        ))
+        .await
+        .unwrap();
     let router = public_client_router_with_principal(app, principal);
 
     let response = response_for(
@@ -599,6 +610,17 @@ async fn subtitle_route_requires_play_library_access() {
     .await;
 
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let error = body_json::<ErrorResponse>(response).await;
+    assert_eq!(error.code, "forbidden");
+    assert!(
+        error
+            .message
+            .contains("required Library Access level 'play'"),
+        "expected library play access denial, got {}",
+        error.message
+    );
+    assert!(!error.message.contains("media_playback"));
+    assert!(!error.message.contains("subtitle_sidecar"));
 }
 
 #[tokio::test]
@@ -1173,6 +1195,57 @@ async fn browser_playback_ticket_streams_sidecar_subtitle_without_bearer() {
     )
     .await;
     assert_eq!(wrong_stream.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn subtitle_browser_playback_ticket_rejects_revocation_at_use() {
+    let (temp, app, source, store) =
+        app_with_media_source_config("ticket-subtitle-revoked.mkv", b"media", |_| {}).await;
+    fs::write(
+        temp.path().join("ticket-subtitle-revoked.en.vtt"),
+        "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nHello\n",
+    )
+    .unwrap();
+    let mut probe = compatible_probe();
+    probe.streams.push(sidecar_subtitle_stream(2, "en", "vtt"));
+    store.upsert_media_probe(source.id, &probe).await.unwrap();
+    let play_principal =
+        local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Play).await;
+    let play_user_id = play_principal.user_id;
+    let play_router = public_client_router_with_principal(app, play_principal);
+    let issue_request = nako_api::public_client::BrowserPlaybackTicketRequest {
+        mode: nako_api::public_client::BrowserPlaybackMode::Subtitle,
+        capabilities: None,
+        subtitle_stream_index: Some(2),
+    };
+    let ticket = request_body_json::<nako_api::public_client::BrowserPlaybackTicketResponse, _>(
+        &play_router,
+        Method::POST,
+        &format!("/sources/{}/playback/browser-ticket", source.id),
+        &issue_request,
+    )
+    .await;
+
+    store
+        .delete_library_access_policy(
+            LibraryAccessPolicyScope::User(play_user_id),
+            source.library_id,
+        )
+        .await
+        .unwrap();
+
+    let revoked = response_for(&play_router, Method::GET, &ticket.urls[0].url).await;
+    assert_eq!(revoked.status(), StatusCode::FORBIDDEN);
+    let revoked: ErrorResponse = body_json(revoked).await;
+    assert_eq!(revoked.code, "forbidden");
+    assert!(
+        revoked
+            .message
+            .contains("required Library Access level 'play'"),
+        "expected library play access denial after revocation, got {}",
+        revoked.message
+    );
+    assert!(!revoked.message.contains("subtitle_sidecar"));
 }
 
 #[tokio::test]

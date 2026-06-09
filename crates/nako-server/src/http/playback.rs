@@ -1075,12 +1075,10 @@ async fn resolve_subtitle_playback_principal(
             stream_index,
             crate::app::current_time_ms()?,
         )?;
-        require_source_access(app, &principal, source_id, RequiredLibraryAccess::Play).await?;
         return Ok(principal);
     }
 
     if let Some(Extension(principal)) = principal {
-        require_source_access(app, &principal, source_id, RequiredLibraryAccess::Play).await?;
         return Ok(principal);
     }
 
