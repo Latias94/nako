@@ -1,5 +1,6 @@
 use std::{future::Future, sync::OnceLock};
 
+use crate::accessible_search::AccessibleSearchIndex;
 use nako_core::{
     AcquisitionIntakeCandidateId, AcquisitionIntakeCandidateListFilter,
     AcquisitionIntakeCandidateState, AcquisitionIntakeRepository, AcquisitionIntakeSourceKind,
@@ -106,7 +107,7 @@ use nako_core::{
     VfsCachedListing, VfsCachedObject, VfsCachedObjectKind, WebhookDeliveryStatus,
     WebhookEndpointStatus, WebhookRepository,
 };
-use nako_search::{SearchIndex, SearchQuery};
+use nako_search::{SearchDocument, SearchIndex, SearchQuery};
 
 use crate::{NakoDatabase, postgres::PostgresStore};
 
@@ -351,6 +352,8 @@ trait CatalogAccessContractBackend:
     + IdentityAccessRepository
     + LibraryRepository
     + MediaRepository
+    + SearchIndex
+    + AccessibleSearchIndex
 {
 }
 
@@ -360,6 +363,8 @@ impl<T> CatalogAccessContractBackend for T where
         + IdentityAccessRepository
         + LibraryRepository
         + MediaRepository
+        + SearchIndex
+        + AccessibleSearchIndex
 {
 }
 
@@ -3132,6 +3137,10 @@ fn browse_contract_query(
 
 fn browse_ids(items: Vec<MediaItem>) -> Vec<MediaItemId> {
     items.into_iter().map(|item| item.id).collect()
+}
+
+fn browse_ids_from_hits(hits: Vec<nako_search::SearchHit>) -> Vec<MediaItemId> {
+    hits.into_iter().map(|hit| hit.item_id).collect()
 }
 
 fn person_ids(people: Vec<Person>) -> Vec<PersonId> {
@@ -6489,6 +6498,98 @@ where
     assert_eq!(
         browse_ids(admin_batch),
         vec![source_less_item.id, hidden_source.item_id]
+    );
+}
+
+async fn catalog_access_filters_search_documents_before_pagination_contract<S>(store: S)
+where
+    S: CatalogAccessContractBackend,
+{
+    let accessible_library = seed_contract_library(&store).await;
+    let inaccessible_library = seed_contract_library(&store).await;
+
+    let principal =
+        seed_catalog_access_principal(&store, "search", vec![UserRole::Viewer], 31_500).await;
+    grant_catalog_access_policy(
+        &store,
+        LibraryAccessPolicyScope::User(principal.user_id),
+        accessible_library.id,
+        LibraryAccessLevel::Browse,
+        31_600,
+    )
+    .await;
+
+    let hidden_source = seed_contract_media_item_with_source(
+        &store,
+        inaccessible_library.id,
+        "Needle Hidden Search Access",
+        "local:///Contract Movies/Needle Hidden Search Access.mkv",
+    )
+    .await;
+    let visible_source = seed_contract_media_item_with_source(
+        &store,
+        accessible_library.id,
+        "Visible Search Access",
+        "local:///Contract Movies/Visible Search Access.mkv",
+    )
+    .await;
+
+    store
+        .upsert(
+            SearchDocument::from_facet_labels(
+                hidden_source.item_id,
+                "Needle Hidden Search Access",
+                "hidden overview",
+                Vec::new(),
+            )
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    store
+        .upsert(
+            SearchDocument::from_facet_labels(
+                visible_source.item_id,
+                "Visible Search Access",
+                "needle visible overview",
+                Vec::new(),
+            )
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let first_visible_page = store
+        .search_accessible(
+            &principal,
+            SearchQuery::from_facet_labels("needle", Vec::new(), 1, 0).unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        browse_ids_from_hits(first_visible_page),
+        vec![visible_source.item_id]
+    );
+
+    let second_visible_page = store
+        .search_accessible(
+            &principal,
+            SearchQuery::from_facet_labels("needle", Vec::new(), 1, 1).unwrap(),
+        )
+        .await
+        .unwrap();
+    assert!(second_visible_page.is_empty());
+
+    let admin_hits = store
+        .search_accessible(
+            &AuthenticatedPrincipal::bootstrap_admin(),
+            SearchQuery::from_facet_labels("needle", Vec::new(), 2, 0).unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        browse_ids_from_hits(admin_hits),
+        vec![hidden_source.item_id, visible_source.item_id]
     );
 }
 
@@ -12040,6 +12141,16 @@ database_contract_pair!(
         "filters_items_before_pagination"
     ),
     contract = catalog_access_filters_items_before_pagination_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_catalog_access_contract_filters_search_documents_before_pagination,
+    postgres = postgres_catalog_access_contract_filters_search_documents_before_pagination,
+    case = ContractCase::migrated(
+        ContractFamily::CatalogAccess,
+        "filters_search_documents_before_pagination"
+    ),
+    contract = catalog_access_filters_search_documents_before_pagination_contract,
 );
 
 database_contract_pair!(

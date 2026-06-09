@@ -68,6 +68,10 @@ Persistence work must prove repository behavior, not only compile.
   visibility rule. Administrator principals may keep source-less item semantics
   only when the existing access contract requires it; ordinary principals must
   see an item only through an accessible `Media Source` and `Media Library`.
+- Public Catalog search projections that enforce Library Access must filter the
+  `search_documents` candidate set before calling `nako-search` evaluation and
+  before applying `SearchQuery` pagination. Keep access predicates in
+  `nako-db`; do not add principals or Library Access concepts to `nako-search`.
 
 ### 4. Validation & Error Matrix
 
@@ -87,6 +91,9 @@ Persistence work must prove repository behavior, not only compile.
   violation; paginate root records first, then batch-hydrate child collections.
 - Inaccessible `Media Item` rows consume page slots before Library Access is
   applied -> contract violation; access must be part of the root query.
+- Inaccessible `search_documents` consume search page slots before Library
+  Access is applied -> contract violation; filter candidates before scoring and
+  pagination.
 - A `Media Item` with multiple accessible `Media Source` rows appears more than
   once or shifts page boundaries -> contract violation; deduplicate before
   ordering and pagination.
@@ -104,6 +111,9 @@ Persistence work must prove repository behavior, not only compile.
 - Good: Public Catalog `/items` and relation item lists (`Person`, `Tag`,
   `Genre`) use repository methods that include Library Access predicates before
   `ORDER BY title ASC, id ASC`, `LIMIT`, and `OFFSET`.
+- Good: Public Catalog `/search` asks `nako-db` for accessible search hits;
+  adapters read only Library-Access-visible `search_documents`, then reuse
+  `nako-search` for deterministic scoring and `SearchQuery` pagination.
 - Base: the server app service checks library existence, clamps `PageRequest`,
   calls the repository method, and maps domain records to DTOs.
 - Bad: the app service loops over all library items, calls a per-item playback
@@ -114,6 +124,8 @@ Persistence work must prove repository behavior, not only compile.
 - Bad: HTTP receives a page of catalog items and then loops over it with
   `item_has_access`, because inaccessible rows have already consumed page
   capacity.
+- Bad: the server loops over global search pages and batches access checks to
+  fill holes left by inaccessible high-scoring search hits.
 
 ### 6. Tests Required
 
@@ -124,6 +136,9 @@ Persistence work must prove repository behavior, not only compile.
 - Public Catalog Library Access projections need backend-agnostic contracts for
   ordinary user policy, role policy, duplicate-source deduplication, admin
   source-less semantics, batch-by-id ordering, and page-hole regression cases.
+- Public Catalog search access projections need a backend-agnostic hidden-hit
+  page-hole contract proving a hidden high-scoring search document does not
+  consume the first visible search page.
 - Focused SQLite gate:
   `cargo nextest run -p nako-db <browse-contract-filter> --no-fail-fast`.
 - PostgreSQL ignored contract must compile and should be run with

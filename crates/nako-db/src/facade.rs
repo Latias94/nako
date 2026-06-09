@@ -4,6 +4,7 @@ use nako_core::*;
 use nako_search::{SearchDocument, SearchHit, SearchIndex, SearchQuery};
 
 use crate::{
+    accessible_search::AccessibleSearchIndex,
     backend::{DatabaseBackendKind, DatabaseConnectOptions},
     postgres::PostgresStore,
     sqlite::SqliteStore,
@@ -50,6 +51,7 @@ trait DatabaseBackendAdapter:
     + StagingManifestRepository
     + WebhookRepository
     + SearchIndex
+    + AccessibleSearchIndex
     + std::fmt::Debug
     + Send
     + Sync
@@ -97,6 +99,7 @@ impl<T> DatabaseBackendAdapter for T where
         + StagingManifestRepository
         + WebhookRepository
         + SearchIndex
+        + AccessibleSearchIndex
         + std::fmt::Debug
         + Send
         + Sync
@@ -250,6 +253,25 @@ impl NakoDatabase {
     #[must_use]
     fn backend(&self) -> &dyn DatabaseBackendAdapter {
         self.backend.as_ref()
+    }
+
+    pub async fn search_accessible(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        query: SearchQuery,
+    ) -> Result<Vec<SearchHit>> {
+        self.backend().search_accessible(principal, query).await
+    }
+}
+
+#[async_trait::async_trait]
+impl AccessibleSearchIndex for NakoDatabase {
+    async fn search_accessible(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        query: SearchQuery,
+    ) -> Result<Vec<SearchHit>> {
+        self.backend().search_accessible(principal, query).await
     }
 }
 

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use nako_api::{
     admin::{
@@ -29,7 +29,7 @@ use nako_core::{
     SourceDuplicateRelationshipStatus, SourceDuplicateRepository, TagId,
 };
 use nako_db::NakoDatabase;
-use nako_search::{SearchIndex, SearchQuery};
+use nako_search::SearchQuery;
 use nako_vfs::{StorageLinkKind, StorageLinkPlan, StorageLinkPlanStatus};
 
 #[derive(Clone, Debug)]
@@ -621,58 +621,35 @@ impl CatalogAppService {
         page: PageRequest,
     ) -> Result<SearchResponse> {
         let page = page.clamped();
-        let mut search_offset = 0;
-        let mut skipped_accessible = 0_u64;
-        let mut output_hits = Vec::new();
-
-        while output_hits.len() < page.limit as usize {
-            let search_page = SearchQuery::from_facet_labels(
-                query.clone(),
-                facets.clone(),
-                PageRequest::MAX_LIMIT,
-                search_offset,
-            )?;
-            let hits = self.store.search(search_page).await?;
-            if hits.is_empty() {
-                break;
-            }
-
-            let hit_ids = hits.iter().map(|hit| hit.item_id).collect::<Vec<_>>();
-            let visible_items = self
-                .store
-                .list_accessible_media_items_by_ids(principal, &hit_ids)
-                .await?;
-            let mut visible_items_by_id = visible_items
-                .into_iter()
-                .map(|item| (item.id, item))
-                .collect::<HashMap<_, _>>();
-
-            for hit in hits {
-                let Some(item) = visible_items_by_id.remove(&hit.item_id) else {
-                    continue;
-                };
-
-                if skipped_accessible < page.offset {
-                    skipped_accessible += 1;
-                    continue;
-                }
-
-                output_hits.push(SearchItemHit {
-                    item: media_item_to_dto(item),
-                    score: hit.score,
-                });
-
-                if output_hits.len() >= page.limit as usize {
-                    break;
-                }
-            }
-
-            search_offset = search_offset
-                .checked_add(PageRequest::MAX_LIMIT)
-                .ok_or_else(|| NakoError::InvalidInput {
-                    message: "search pagination offset overflowed".to_owned(),
-                })?;
-        }
+        let search_offset = u32::try_from(page.offset).map_err(|err| NakoError::InvalidInput {
+            message: format!("search pagination offset cannot fit search query offset: {err}"),
+        })?;
+        let search_query =
+            SearchQuery::from_facet_labels(query, facets, page.limit, search_offset)?;
+        let hits = self
+            .store
+            .search_accessible(principal, search_query)
+            .await?;
+        let hit_ids = hits.iter().map(|hit| hit.item_id).collect::<Vec<_>>();
+        let visible_items = self
+            .store
+            .list_accessible_media_items_by_ids(principal, &hit_ids)
+            .await?;
+        let mut visible_items_by_id = visible_items
+            .into_iter()
+            .map(|item| (item.id, item))
+            .collect::<std::collections::HashMap<_, _>>();
+        let output_hits = hits
+            .into_iter()
+            .filter_map(|hit| {
+                visible_items_by_id
+                    .remove(&hit.item_id)
+                    .map(|item| SearchItemHit {
+                        item: media_item_to_dto(item),
+                        score: hit.score,
+                    })
+            })
+            .collect::<Vec<_>>();
 
         Ok(SearchResponse {
             page: page_info_from_request(page, output_hits.len()),

@@ -1,3 +1,4 @@
+mod accessible_search;
 mod automation_proposals;
 mod backend;
 mod facade;
