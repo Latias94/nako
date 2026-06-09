@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Entry point for server backend implementation rules."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Selected artwork route, auth, access, and cache/ETag contracts."}
+{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "HTTP-facing NakoError mapping and public error body behavior."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server test and gate expectations for route/access changes."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Access enforcement moves across HTTP and app-service layers."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Avoid duplicating access helpers or response helpers while refactoring."}

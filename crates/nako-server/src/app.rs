@@ -10,10 +10,10 @@ use argon2::{
 use nako_core::{
     AdminSettingsRepository, EffectiveLibraryAccess, IdentityAccessRepository,
     JobQueuePressureSummary, JobRepository, LibraryAccessPolicy, LibraryAccessPolicyFilter,
-    LibraryAccessPolicyScope, LibraryId, ManagedArtworkRepository, MediaItemId, MediaRepository,
-    MediaSource, MediaSourceId, NakoError, PageRequest, Result, RoleAssignment, SelectedArtworkId,
-    SelectedArtworkRecord, User, UserId, UserInvitationId, UserInvitationRecord,
-    UserInvitationStatus, UserPrincipalId, UserRole, UserSessionId, UserSessionRecord, UserStatus,
+    LibraryAccessPolicyScope, LibraryId, MediaItemId, MediaRepository, MediaSource, MediaSourceId,
+    NakoError, PageRequest, Result, RoleAssignment, User, UserId, UserInvitationId,
+    UserInvitationRecord, UserInvitationStatus, UserPrincipalId, UserRole, UserSessionId,
+    UserSessionRecord, UserStatus,
 };
 use nako_db::{
     DatabaseBackendCapabilities, DatabaseBackendKind, DatabaseConnectOptions, NakoDatabase,
@@ -71,7 +71,9 @@ use addons::AddonAppService;
 #[cfg(test)]
 pub(crate) use addons::set_test_outbound_task_dispatch_secret;
 use artwork::ManagedArtworkAppService;
-pub(crate) use artwork::{ImageVariantRequest, ManagedArtworkImageBytes};
+pub(crate) use artwork::{
+    ImageVariantRequest, ManagedArtworkImageBytes, SelectedArtworkImageAccess,
+};
 use automation::AutomationAppService;
 use casting::CastingAppService;
 use catalog::CatalogAppService;
@@ -755,13 +757,6 @@ impl NakoApp {
     ) -> Result<Vec<MediaSource>> {
         MediaRepository::list_item_sources(&self.inner.store, item_id, PageRequest::first_page())
             .await
-    }
-
-    pub(crate) async fn get_selected_artwork_record(
-        &self,
-        selected_id: SelectedArtworkId,
-    ) -> Result<Option<SelectedArtworkRecord>> {
-        ManagedArtworkRepository::get_selected_artwork(&self.inner.store, selected_id).await
     }
 
     pub(crate) fn shutdown_runtime(&self) {

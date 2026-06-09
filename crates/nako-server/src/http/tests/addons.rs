@@ -11591,6 +11591,7 @@ async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks()
         local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::None).await;
     let denied_router = public_client_router_with_principal(app, denied_principal);
     let denied = denied_router
+        .clone()
         .oneshot(
             Request::builder()
                 .method(Method::GET)
@@ -11614,6 +11615,33 @@ async fn assert_selected_artwork_variant_serving_without_locator_or_hash_leaks()
     assert!(!denied_text.contains("managed-artwork://"));
     assert!(!denied_text.contains(temp.path().to_string_lossy().as_ref()));
     assert!(!denied_text.contains("\"content_hash\""));
+
+    let denied_head = denied_router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::HEAD)
+                .uri(&published.image.url)
+                .header(header::IF_NONE_MATCH, "*")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(denied_head.status(), StatusCode::FORBIDDEN);
+
+    let denied_invalid_variant = denied_router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("{}?width=0", published.image.url))
+                .header(header::IF_NONE_MATCH, "*")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(denied_invalid_variant.status(), StatusCode::FORBIDDEN);
 
     for invalid_url in [
         format!("{}?width=0", published.image.url),

@@ -23,7 +23,8 @@ use nako_api::admin::{
 use nako_api::public_client::page_info_from_request;
 use nako_core::{
     ArtworkCandidateId, ArtworkCandidateRecord, ArtworkCandidateRepository, ArtworkCandidateStatus,
-    JobId, JobKind, JobPriority, LibraryItemRepository, LibraryItemState,
+    AuthenticatedPrincipal, IdentityAccessRepository, JobId, JobKind, JobPriority,
+    LibraryAccessLevel, LibraryId, LibraryItemRepository, LibraryItemState,
     ManagedArtworkAcceptanceRecord, ManagedArtworkArtifactCleanupReport, ManagedArtworkArtifactId,
     ManagedArtworkArtifactLifecycleFilter, ManagedArtworkArtifactLifecycleSnapshot,
     ManagedArtworkArtifactRecord, ManagedArtworkGallerySnapshot, ManagedArtworkIngestClaimRecord,
@@ -32,6 +33,7 @@ use nako_core::{
     MediaItem, MediaItemId, MediaRepository, NakoError, NewJob, NewManagedArtworkArtifact,
     NewManagedArtworkIngest, PageRequest, Result, SelectedArtworkId,
     SelectedArtworkPublicationRecord, SelectedArtworkRecord, SelectedArtworkUnpublicationRecord,
+    UserId,
 };
 use nako_db::NakoDatabase;
 use serde::Serialize;
@@ -157,6 +159,12 @@ trait ArtworkLifecycleWorkflowStore: std::fmt::Debug + Send + Sync {
         &self,
         page: PageRequest,
     ) -> Result<ManagedArtworkArtifactCleanupReport>;
+
+    async fn resolve_library_access_level(
+        &self,
+        user_id: UserId,
+        library_id: LibraryId,
+    ) -> Result<LibraryAccessLevel>;
 }
 
 #[async_trait]
@@ -300,7 +308,7 @@ where
 #[async_trait]
 impl<T> ArtworkLifecycleWorkflowStore for T
 where
-    T: ManagedArtworkRepository + std::fmt::Debug + Send + Sync,
+    T: IdentityAccessRepository + ManagedArtworkRepository + std::fmt::Debug + Send + Sync,
 {
     async fn get_selected_artwork(
         &self,
@@ -338,6 +346,16 @@ where
     ) -> Result<ManagedArtworkArtifactCleanupReport> {
         ManagedArtworkRepository::cleanup_unselected_managed_artwork_artifacts(self, page).await
     }
+
+    async fn resolve_library_access_level(
+        &self,
+        user_id: UserId,
+        library_id: LibraryId,
+    ) -> Result<LibraryAccessLevel> {
+        IdentityAccessRepository::resolve_effective_library_access(self, user_id, library_id)
+            .await
+            .map(|effective| effective.access)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -350,6 +368,11 @@ pub(crate) struct ManagedArtworkAppService {
     artifact_store: LocalManagedArtworkArtifactStore,
     variant_policy: ImageVariantPolicy,
     ingest_worker_idle: Duration,
+}
+
+#[derive(Debug)]
+pub(crate) struct SelectedArtworkImageAccess {
+    selected: SelectedArtworkRecord,
 }
 
 impl ManagedArtworkAppService {
@@ -932,41 +955,65 @@ impl ManagedArtworkAppService {
         Ok(Some(file.into_classified(issue)))
     }
 
+    pub(crate) async fn selected_image_access(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        selected_id: SelectedArtworkId,
+    ) -> Result<SelectedArtworkImageAccess> {
+        let selected = self.selected_artwork_record(selected_id).await?;
+        self.ensure_selected_artwork_browse_access(principal, selected.library_id)
+            .await?;
+
+        Ok(SelectedArtworkImageAccess { selected })
+    }
+
     pub(crate) async fn read_selected_image(
         &self,
-        selected_id: SelectedArtworkId,
+        access: &SelectedArtworkImageAccess,
         variant: ImageVariantRequest,
     ) -> Result<ManagedArtworkImageBytes> {
         let variant = self.variant_policy.validate(variant)?;
-        let (selected, artifact) = self.selected_artwork_artifact(selected_id).await?;
+        let artifact = self
+            .selected_artwork_artifact_for_selected(&access.selected)
+            .await?;
         let variant = variant.for_artifact(&artifact)?;
-        let bytes = self.artifact_store.read(selected_id, &artifact).await?;
-        variant.derive(selected.id, &artifact, bytes)
+        let bytes = self
+            .artifact_store
+            .read(access.selected.id, &artifact)
+            .await?;
+        variant.derive(access.selected.id, &artifact, bytes)
     }
 
     pub(crate) async fn selected_image_preflight(
         &self,
-        selected_id: SelectedArtworkId,
+        access: &SelectedArtworkImageAccess,
         variant: ImageVariantRequest,
     ) -> Result<Option<ManagedArtworkImagePreflight>> {
         let variant = self.variant_policy.validate(variant)?;
-        let (selected, artifact) = self.selected_artwork_artifact(selected_id).await?;
+        let artifact = self
+            .selected_artwork_artifact_for_selected(&access.selected)
+            .await?;
         let variant = variant.for_artifact(&artifact)?;
-        variant.preflight_etag(selected.id, &artifact)
+        variant.preflight_etag(access.selected.id, &artifact)
     }
 
-    async fn selected_artwork_artifact(
+    async fn selected_artwork_record(
         &self,
         selected_id: SelectedArtworkId,
-    ) -> Result<(SelectedArtworkRecord, ManagedArtworkArtifactRecord)> {
-        let selected = self
-            .lifecycle_store
+    ) -> Result<SelectedArtworkRecord> {
+        self.lifecycle_store
             .get_selected_artwork(selected_id)
             .await?
             .ok_or_else(|| NakoError::NotFound {
                 entity: "selected_artwork",
                 id: selected_id.to_string(),
-            })?;
+            })
+    }
+
+    async fn selected_artwork_artifact_for_selected(
+        &self,
+        selected: &SelectedArtworkRecord,
+    ) -> Result<ManagedArtworkArtifactRecord> {
         let artifact = self
             .lifecycle_store
             .get_managed_artwork_artifact(selected.artifact_id)
@@ -985,7 +1032,27 @@ impl ManagedArtworkAppService {
             });
         }
 
-        Ok((selected, artifact))
+        Ok(artifact)
+    }
+
+    async fn ensure_selected_artwork_browse_access(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        library_id: LibraryId,
+    ) -> Result<()> {
+        if principal.is_administrator() {
+            return Ok(());
+        }
+
+        let access = self
+            .lifecycle_store
+            .resolve_library_access_level(principal.user_id, library_id)
+            .await?;
+        if access.allows_browse() {
+            Ok(())
+        } else {
+            Err(library_browse_access_forbidden())
+        }
     }
 
     async fn process_claim(
@@ -1052,6 +1119,12 @@ impl ManagedArtworkAppService {
                     .await
             }
         }
+    }
+}
+
+fn library_browse_access_forbidden() -> NakoError {
+    NakoError::Forbidden {
+        message: "required Library Access level 'browse' is not available".to_owned(),
     }
 }
 

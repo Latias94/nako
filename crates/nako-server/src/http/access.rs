@@ -1,6 +1,6 @@
 use nako_core::{
     AuthenticatedPrincipal, LibraryAccessLevel, LibraryId, MediaItemId, MediaSourceId, NakoError,
-    Result, SelectedArtworkId,
+    Result,
 };
 
 use crate::app::NakoApp;
@@ -117,23 +117,6 @@ pub(super) async fn require_source_access(
         })?;
 
     require_library_access(app, principal, source.library_id, required).await
-}
-
-pub(super) async fn require_selected_artwork_access(
-    app: &NakoApp,
-    principal: &AuthenticatedPrincipal,
-    selected_id: SelectedArtworkId,
-    required: RequiredLibraryAccess,
-) -> ApiResult<()> {
-    let selected = app
-        .get_selected_artwork_record(selected_id)
-        .await?
-        .ok_or_else(|| NakoError::NotFound {
-            entity: "selected_artwork",
-            id: selected_id.to_string(),
-        })?;
-
-    require_library_access(app, principal, selected.library_id, required).await
 }
 
 pub(super) fn parse_public_library_id(value: &str) -> Result<LibraryId> {

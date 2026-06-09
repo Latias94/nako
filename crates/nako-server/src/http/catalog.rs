@@ -15,7 +15,6 @@ use tracing::instrument;
 use crate::app::NakoApp;
 
 use super::{
-    access::{RequiredLibraryAccess, require_selected_artwork_access},
     error::ApiResult,
     query::{ImageVariantQuery, PageQuery, SearchPageQuery},
 };
@@ -90,13 +89,12 @@ pub(super) async fn get_image(
     headers: HeaderMap,
     Query(query): Query<ImageVariantQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    require_selected_artwork_access(&app, &principal, image_id, RequiredLibraryAccess::Browse)
-        .await?;
-
+    let artwork = app.artwork();
+    let image_access = artwork.selected_image_access(&principal, image_id).await?;
     let variant = query.into_variant_request()?;
     if let Some(response) = selected_image_preflight_response(
         &app,
-        image_id,
+        &image_access,
         variant,
         headers.get(header::IF_NONE_MATCH),
     )
@@ -105,7 +103,7 @@ pub(super) async fn get_image(
         return Ok(response);
     }
 
-    let image = app.artwork().read_selected_image(image_id, variant).await?;
+    let image = artwork.read_selected_image(&image_access, variant).await?;
     Ok(selected_image_response(
         image,
         true,
@@ -121,13 +119,12 @@ pub(super) async fn head_image(
     headers: HeaderMap,
     Query(query): Query<ImageVariantQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    require_selected_artwork_access(&app, &principal, image_id, RequiredLibraryAccess::Browse)
-        .await?;
-
+    let artwork = app.artwork();
+    let image_access = artwork.selected_image_access(&principal, image_id).await?;
     let variant = query.into_variant_request()?;
     if let Some(response) = selected_image_preflight_response(
         &app,
-        image_id,
+        &image_access,
         variant,
         headers.get(header::IF_NONE_MATCH),
     )
@@ -136,7 +133,7 @@ pub(super) async fn head_image(
         return Ok(response);
     }
 
-    let image = app.artwork().read_selected_image(image_id, variant).await?;
+    let image = artwork.read_selected_image(&image_access, variant).await?;
     Ok(selected_image_response(
         image,
         false,
@@ -273,7 +270,7 @@ pub(super) async fn get_source_probe(
 
 async fn selected_image_preflight_response(
     app: &NakoApp,
-    image_id: SelectedArtworkId,
+    image_access: &crate::app::SelectedArtworkImageAccess,
     variant: crate::app::ImageVariantRequest,
     if_none_match: Option<&HeaderValue>,
 ) -> ApiResult<Option<axum::response::Response>> {
@@ -282,7 +279,7 @@ async fn selected_image_preflight_response(
     };
     let Some(preflight) = app
         .artwork()
-        .selected_image_preflight(image_id, variant)
+        .selected_image_preflight(image_access, variant)
         .await?
     else {
         return Ok(None);

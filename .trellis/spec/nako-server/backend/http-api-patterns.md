@@ -148,8 +148,9 @@ For a new route in an existing admin module, add it to the existing
 
 - Good: `/items/{item_id}` calls `app.catalog().get_item(&principal, item_id)`
   and the app service returns only browse-visible sources.
-- Base: selected artwork byte routes still use route-local artwork access
-  guards until their own app-service boundary exists.
+- Base: selected artwork byte routes use their own managed-artwork app-service
+  access boundary because their HTTP response cache/ETag helpers remain
+  route-local.
 - Bad: route code calls `require_item_access`, then builds an unfiltered item
   detail response, then removes inaccessible source DTOs afterward.
 
@@ -703,6 +704,15 @@ The shared byte response helper covers Direct Play and Remux consistently.
 - `selected_image_preflight_response(...) -> Option<Response>` owns the
   metadata-derived conditional 304 short-circuit after auth and library access
   checks.
+- `ManagedArtworkAppService::selected_image_access(&AuthenticatedPrincipal, SelectedArtworkId)`
+  owns public selected artwork Browse access enforcement and returns the
+  app-service access context used by preflight and byte reads.
+- `ManagedArtworkAppService::selected_image_preflight(&SelectedArtworkImageAccess, ImageVariantRequest)`
+  owns metadata-derived safe ETag lookup for an already-authorized selected
+  artwork image request.
+- `ManagedArtworkAppService::read_selected_image(&SelectedArtworkImageAccess, ImageVariantRequest)`
+  owns selected artwork byte loading for an already-authorized selected artwork
+  image request.
 - `apply_selected_artwork_cache_headers(&mut HeaderMap)` is the selected
   artwork-only helper for the private client-cache baseline.
 - `selected_image_etag_matches(if_none_match, etag) -> bool` is the route-local
@@ -726,10 +736,20 @@ The shared byte response helper covers Direct Play and Remux consistently.
   library access, selected artwork lookup, and variant query behavior.
 - Auth and library access checks must run before any selected artwork 304
   response.
+- Selected artwork Browse access belongs to `ManagedArtworkAppService`, not
+  `http::access`; HTTP handlers pass the authenticated principal into
+  `selected_image_access` and then pass the returned access context into
+  preflight/read calls.
+- Access checks must still happen before variant query validation so
+  unauthorized selected artwork callers receive `403` instead of image variant
+  validation details.
 - Metadata-derived ETag preflight may short-circuit a matching `If-None-Match`
   match before bytes are read, but only after auth and library access checks
   and only when it proves the same safe ETag that a normal response would
   emit.
+- App services must not parse HTTP `If-None-Match`, own `HeaderMap`, or build
+  HTTP selected artwork responses. HTTP owns conditional request parsing and
+  response header assembly.
 - Do not add `Last-Modified`, immutable headers, generated DTOs, schema
   changes, or shared-cache/CDN behavior without a dedicated cache-contract
   task.
@@ -746,6 +766,8 @@ The shared byte response helper covers Direct Play and Remux consistently.
 | `If-None-Match` is `*` and the selected artwork exists | Returns `304 Not Modified` with current ETag, selected artwork cache policy, and empty body. |
 | `If-None-Match` is missing, malformed, or does not match | Existing `200` GET/HEAD response behavior is unchanged. |
 | Selected artwork is missing or unauthorized | Existing not-found/forbidden behavior is unchanged. |
+| Unauthorized selected artwork GET/HEAD includes matching or wildcard `If-None-Match` | Returns `403` before any `304` response. |
+| Unauthorized selected artwork GET/HEAD includes an invalid variant query | Returns `403` before variant validation details. |
 | Variant query is invalid | Existing bad-request behavior is unchanged. |
 
 ### 5. Good / Base / Bad Cases
@@ -759,6 +781,9 @@ The shared byte response helper covers Direct Play and Remux consistently.
 - Good: parse only selected artwork request validators locally, recognizing
   weak tags, comma-separated lists, and wildcard `*` without exposing raw
   source/artifact ETags.
+- Good: `get_image`/`head_image` call
+  `app.artwork().selected_image_access(&principal, image_id)` before variant
+  parsing, then pass the returned access context to preflight/read helpers.
 - Base: safe selected artwork ETags continue to identify original versus
   bounded variants; the cache helper does not change ETag generation.
 - Base: matching 304 short-circuiting can happen before bytes are read when
@@ -770,6 +795,8 @@ The shared byte response helper covers Direct Play and Remux consistently.
   that changes HLS, Direct Play, Remux, or Admin response behavior.
 - Bad: returning 304 before auth/library access checks or matching against raw
   user-provided ETag strings instead of the route-authored safe ETag header.
+- Bad: calling `require_selected_artwork_access` from `http::catalog` or
+  passing `HeaderMap`/`If-None-Match` into the artwork app service.
 
 ### 6. Tests Required
 
@@ -784,6 +811,10 @@ The shared byte response helper covers Direct Play and Remux consistently.
   body.
 - HTTP route test: non-matching `If-None-Match` preserves normal `200` image
   response behavior.
+- HTTP route test: unauthorized selected artwork GET and HEAD return `403`
+  even with matching or wildcard `If-None-Match` headers.
+- HTTP route test: unauthorized selected artwork requests return `403` before
+  invalid variant query details.
 - Focused gates:
   `cargo nextest run -p nako-server public_catalog_and_image_routes_serve_selected_artwork_without_locator_leaks --no-fail-fast`
   and
