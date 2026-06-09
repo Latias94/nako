@@ -145,6 +145,39 @@ impl CatalogRepository for SqliteStore {
         Ok(people)
     }
 
+    async fn list_accessible_people(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<Vec<Person>> {
+        if principal.is_administrator() {
+            return self.list_people(page).await;
+        }
+
+        let page = page.clamped();
+        let rows = list_accessible_catalog_aggregate_rows(
+            self,
+            principal,
+            "people",
+            "item_credits",
+            "person_id",
+            "root.id, root.name, root.sort_name, root.overview",
+            page,
+        )
+        .await?;
+
+        let mut people = Vec::with_capacity(rows.len());
+        for row in rows {
+            let id: PersonId = parse_id(row_get::<String>(&row, "id")?)?;
+            let external_ids = self
+                .list_entity_external_ids("person_external_ids", "person_id", id)
+                .await?;
+            people.push(row_to_person(row, external_ids)?);
+        }
+
+        Ok(people)
+    }
+
     async fn upsert_item_credit(&self, credit: &ItemCredit) -> Result<()> {
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
@@ -312,6 +345,30 @@ impl CatalogRepository for SqliteStore {
         rows.into_iter().map(row_to_genre).collect()
     }
 
+    async fn list_accessible_genres(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<Vec<Genre>> {
+        if principal.is_administrator() {
+            return self.list_genres(page).await;
+        }
+
+        let page = page.clamped();
+        let rows = list_accessible_catalog_aggregate_rows(
+            self,
+            principal,
+            "genres",
+            "item_genres",
+            "genre_id",
+            "root.id, root.name, root.source, root.source_key",
+            page,
+        )
+        .await?;
+
+        rows.into_iter().map(row_to_genre).collect()
+    }
+
     async fn upsert_item_genre(&self, item_genre: &ItemGenre) -> Result<()> {
         let mut transaction = self.pool.begin().await.map_err(database_error)?;
 
@@ -453,6 +510,30 @@ impl CatalogRepository for SqliteStore {
         .fetch_all(&self.pool)
         .await
         .map_err(database_error)?;
+
+        rows.into_iter().map(row_to_tag).collect()
+    }
+
+    async fn list_accessible_tags(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<Vec<Tag>> {
+        if principal.is_administrator() {
+            return self.list_tags(page).await;
+        }
+
+        let page = page.clamped();
+        let rows = list_accessible_catalog_aggregate_rows(
+            self,
+            principal,
+            "tags",
+            "item_tags",
+            "tag_id",
+            "root.id, root.name, root.source, root.source_key",
+            page,
+        )
+        .await?;
 
         rows.into_iter().map(row_to_tag).collect()
     }
@@ -963,6 +1044,50 @@ where
     query.push(
         r#"
             ORDER BY mi.title ASC, mi.id ASC
+            LIMIT "#,
+    );
+    query.push_bind(u32_to_i64(page.limit));
+    query.push(" OFFSET ");
+    query.push_bind(u64_to_i64(page.offset)?);
+
+    query
+        .build()
+        .fetch_all(&store.pool)
+        .await
+        .map_err(database_error)
+}
+
+async fn list_accessible_catalog_aggregate_rows(
+    store: &SqliteStore,
+    principal: &AuthenticatedPrincipal,
+    root_table: &'static str,
+    relation_table: &'static str,
+    relation_id_column: &'static str,
+    select_columns: &'static str,
+    page: PageRequest,
+) -> Result<Vec<SqliteRow>> {
+    let mut query = QueryBuilder::<Sqlite>::new("\n            SELECT ");
+    query.push(select_columns);
+    query.push("\n            FROM ");
+    query.push(root_table);
+    query.push(
+        r#" root
+            WHERE EXISTS (
+                SELECT 1
+                FROM "#,
+    );
+    query.push(relation_table);
+    query.push(" relation\n                WHERE relation.");
+    query.push(relation_id_column);
+    query.push(
+        r#" = root.id
+                  AND "#,
+    );
+    access::push_media_item_access_exists(&mut query, principal, "relation.item_id");
+    query.push(
+        r#"
+            )
+            ORDER BY root.name ASC, root.id ASC
             LIMIT "#,
     );
     query.push_bind(u32_to_i64(page.limit));

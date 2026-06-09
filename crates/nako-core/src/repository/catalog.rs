@@ -30,6 +30,12 @@ pub trait CatalogRepository: Send + Sync {
 
     async fn list_people(&self, page: PageRequest) -> Result<Vec<Person>>;
 
+    async fn list_accessible_people(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<Vec<Person>>;
+
     async fn upsert_item_credit(&self, credit: &ItemCredit) -> Result<()>;
 
     async fn clear_item_credits(&self, item_id: MediaItemId) -> Result<()>;
@@ -63,6 +69,12 @@ pub trait CatalogRepository: Send + Sync {
 
     async fn list_genres(&self, page: PageRequest) -> Result<Vec<Genre>>;
 
+    async fn list_accessible_genres(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<Vec<Genre>>;
+
     async fn upsert_item_genre(&self, item_genre: &ItemGenre) -> Result<()>;
 
     async fn clear_item_genres(&self, item_id: MediaItemId) -> Result<()>;
@@ -93,6 +105,12 @@ pub trait CatalogRepository: Send + Sync {
     ) -> Result<Option<Tag>>;
 
     async fn list_tags(&self, page: PageRequest) -> Result<Vec<Tag>>;
+
+    async fn list_accessible_tags(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<Vec<Tag>>;
 
     async fn upsert_item_tag(&self, item_tag: &ItemTag) -> Result<()>;
 

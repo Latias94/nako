@@ -986,6 +986,14 @@ impl CatalogRepository for NakoDatabase {
         self.backend().list_people(page).await
     }
 
+    async fn list_accessible_people(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<Vec<Person>> {
+        self.backend().list_accessible_people(principal, page).await
+    }
+
     async fn upsert_item_credit(&self, credit: &ItemCredit) -> Result<()> {
         self.backend().upsert_item_credit(credit).await
     }
@@ -1041,6 +1049,14 @@ impl CatalogRepository for NakoDatabase {
         self.backend().list_genres(page).await
     }
 
+    async fn list_accessible_genres(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<Vec<Genre>> {
+        self.backend().list_accessible_genres(principal, page).await
+    }
+
     async fn upsert_item_genre(&self, item_genre: &ItemGenre) -> Result<()> {
         self.backend().upsert_item_genre(item_genre).await
     }
@@ -1090,6 +1106,14 @@ impl CatalogRepository for NakoDatabase {
 
     async fn list_tags(&self, page: PageRequest) -> Result<Vec<Tag>> {
         self.backend().list_tags(page).await
+    }
+
+    async fn list_accessible_tags(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<Vec<Tag>> {
+        self.backend().list_accessible_tags(principal, page).await
     }
 
     async fn upsert_item_tag(&self, item_tag: &ItemTag) -> Result<()> {

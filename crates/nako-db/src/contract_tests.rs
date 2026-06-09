@@ -3134,6 +3134,18 @@ fn browse_ids(items: Vec<MediaItem>) -> Vec<MediaItemId> {
     items.into_iter().map(|item| item.id).collect()
 }
 
+fn person_ids(people: Vec<Person>) -> Vec<PersonId> {
+    people.into_iter().map(|person| person.id).collect()
+}
+
+fn genre_ids(genres: Vec<Genre>) -> Vec<GenreId> {
+    genres.into_iter().map(|genre| genre.id).collect()
+}
+
+fn tag_ids(tags: Vec<Tag>) -> Vec<TagId> {
+    tags.into_iter().map(|tag| tag.id).collect()
+}
+
 fn sorted_ids<const N: usize>(ids: [MediaItemId; N]) -> Vec<MediaItemId> {
     let mut ids = ids.to_vec();
     ids.sort();
@@ -6615,6 +6627,309 @@ where
             source_less_item.id
         ]
     );
+}
+
+async fn catalog_access_filters_root_aggregates_before_pagination_contract<S>(store: S)
+where
+    S: CatalogAccessContractBackend,
+{
+    let accessible_library = seed_contract_library(&store).await;
+    let inaccessible_library = seed_contract_library(&store).await;
+
+    let principal =
+        seed_catalog_access_principal(&store, "root-aggregates", vec![UserRole::Viewer], 33_000)
+            .await;
+    grant_catalog_access_policy(
+        &store,
+        LibraryAccessPolicyScope::User(principal.user_id),
+        accessible_library.id,
+        LibraryAccessLevel::Browse,
+        33_100,
+    )
+    .await;
+
+    let hidden_source = seed_contract_media_item_with_source(
+        &store,
+        inaccessible_library.id,
+        "A Hidden Root Aggregate Access",
+        "local:///Contract Movies/A Hidden Root Aggregate Access.mkv",
+    )
+    .await;
+    let visible_source = seed_contract_media_item_with_source(
+        &store,
+        accessible_library.id,
+        "B Visible Root Aggregate Access",
+        "local:///Contract Movies/B Visible Root Aggregate Access.mkv",
+    )
+    .await;
+
+    let hidden_person = Person {
+        id: PersonId::new(),
+        name: "A Hidden Root Aggregate Person".to_owned(),
+        sort_name: None,
+        overview: None,
+        external_ids: Vec::new(),
+    };
+    let orphan_person = Person {
+        id: PersonId::new(),
+        name: "B Orphan Root Aggregate Person".to_owned(),
+        sort_name: None,
+        overview: None,
+        external_ids: Vec::new(),
+    };
+    let visible_person = Person {
+        id: PersonId::new(),
+        name: "C Visible Root Aggregate Person".to_owned(),
+        sort_name: None,
+        overview: None,
+        external_ids: Vec::new(),
+    };
+    let hidden_genre = Genre {
+        id: GenreId::new(),
+        name: "A Hidden Root Aggregate Genre".to_owned(),
+        source: MetadataSource::User,
+    };
+    let orphan_genre = Genre {
+        id: GenreId::new(),
+        name: "B Orphan Root Aggregate Genre".to_owned(),
+        source: MetadataSource::User,
+    };
+    let visible_genre = Genre {
+        id: GenreId::new(),
+        name: "C Visible Root Aggregate Genre".to_owned(),
+        source: MetadataSource::User,
+    };
+    let hidden_tag = Tag {
+        id: TagId::new(),
+        name: "a-hidden-root-aggregate-tag".to_owned(),
+        source: MetadataSource::User,
+    };
+    let orphan_tag = Tag {
+        id: TagId::new(),
+        name: "b-orphan-root-aggregate-tag".to_owned(),
+        source: MetadataSource::User,
+    };
+    let visible_tag = Tag {
+        id: TagId::new(),
+        name: "c-visible-root-aggregate-tag".to_owned(),
+        source: MetadataSource::User,
+    };
+
+    for person in [&hidden_person, &orphan_person, &visible_person] {
+        store.upsert_person(person).await.unwrap();
+    }
+    for genre in [&hidden_genre, &orphan_genre, &visible_genre] {
+        store.upsert_genre(genre).await.unwrap();
+    }
+    for tag in [&hidden_tag, &orphan_tag, &visible_tag] {
+        store.upsert_tag(tag).await.unwrap();
+    }
+
+    link_catalog_root_aggregates(
+        &store,
+        hidden_source.item_id,
+        hidden_person.id,
+        hidden_genre.id,
+        hidden_tag.id,
+    )
+    .await;
+    link_catalog_root_aggregates(
+        &store,
+        visible_source.item_id,
+        visible_person.id,
+        visible_genre.id,
+        visible_tag.id,
+    )
+    .await;
+
+    let first_root_page = PageRequest {
+        limit: 1,
+        offset: 0,
+    };
+    assert_eq!(
+        person_ids(
+            store
+                .list_accessible_people(&principal, first_root_page)
+                .await
+                .unwrap()
+        ),
+        vec![visible_person.id]
+    );
+    assert_eq!(
+        genre_ids(
+            store
+                .list_accessible_genres(&principal, first_root_page)
+                .await
+                .unwrap()
+        ),
+        vec![visible_genre.id]
+    );
+    assert_eq!(
+        tag_ids(
+            store
+                .list_accessible_tags(&principal, first_root_page)
+                .await
+                .unwrap()
+        ),
+        vec![visible_tag.id]
+    );
+    assert!(
+        store
+            .list_accessible_people(
+                &principal,
+                PageRequest {
+                    limit: 1,
+                    offset: 1
+                }
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+
+    let role_library = seed_contract_library(&store).await;
+    let role_principal = seed_catalog_access_principal(
+        &store,
+        "root-aggregates-role",
+        vec![UserRole::LibraryManager],
+        34_000,
+    )
+    .await;
+    grant_catalog_access_policy(
+        &store,
+        LibraryAccessPolicyScope::Role(UserRole::LibraryManager),
+        role_library.id,
+        LibraryAccessLevel::Play,
+        34_100,
+    )
+    .await;
+    let role_source = seed_contract_media_item_with_source(
+        &store,
+        role_library.id,
+        "D Role Root Aggregate Access",
+        "local:///Contract Movies/D Role Root Aggregate Access.mkv",
+    )
+    .await;
+    let role_person = Person {
+        id: PersonId::new(),
+        name: "D Role Root Aggregate Person".to_owned(),
+        sort_name: None,
+        overview: None,
+        external_ids: Vec::new(),
+    };
+    let role_genre = Genre {
+        id: GenreId::new(),
+        name: "D Role Root Aggregate Genre".to_owned(),
+        source: MetadataSource::User,
+    };
+    let role_tag = Tag {
+        id: TagId::new(),
+        name: "d-role-root-aggregate-tag".to_owned(),
+        source: MetadataSource::User,
+    };
+    store.upsert_person(&role_person).await.unwrap();
+    store.upsert_genre(&role_genre).await.unwrap();
+    store.upsert_tag(&role_tag).await.unwrap();
+    link_catalog_root_aggregates(
+        &store,
+        role_source.item_id,
+        role_person.id,
+        role_genre.id,
+        role_tag.id,
+    )
+    .await;
+
+    assert_eq!(
+        person_ids(
+            store
+                .list_accessible_people(&role_principal, PageRequest::first_page())
+                .await
+                .unwrap()
+        ),
+        vec![role_person.id]
+    );
+    assert_eq!(
+        genre_ids(
+            store
+                .list_accessible_genres(&role_principal, PageRequest::first_page())
+                .await
+                .unwrap()
+        ),
+        vec![role_genre.id]
+    );
+    assert_eq!(
+        tag_ids(
+            store
+                .list_accessible_tags(&role_principal, PageRequest::first_page())
+                .await
+                .unwrap()
+        ),
+        vec![role_tag.id]
+    );
+
+    let admin = AuthenticatedPrincipal::bootstrap_admin();
+    let admin_people = person_ids(
+        store
+            .list_accessible_people(&admin, PageRequest::first_page())
+            .await
+            .unwrap(),
+    );
+    let admin_genres = genre_ids(
+        store
+            .list_accessible_genres(&admin, PageRequest::first_page())
+            .await
+            .unwrap(),
+    );
+    let admin_tags = tag_ids(
+        store
+            .list_accessible_tags(&admin, PageRequest::first_page())
+            .await
+            .unwrap(),
+    );
+    assert_eq!(
+        admin_people,
+        person_ids(store.list_people(PageRequest::first_page()).await.unwrap())
+    );
+    assert_eq!(
+        admin_genres,
+        genre_ids(store.list_genres(PageRequest::first_page()).await.unwrap())
+    );
+    assert_eq!(
+        admin_tags,
+        tag_ids(store.list_tags(PageRequest::first_page()).await.unwrap())
+    );
+    assert!(admin_people.contains(&orphan_person.id));
+    assert!(admin_genres.contains(&orphan_genre.id));
+    assert!(admin_tags.contains(&orphan_tag.id));
+}
+
+async fn link_catalog_root_aggregates<S>(
+    store: &S,
+    item_id: MediaItemId,
+    person_id: PersonId,
+    genre_id: GenreId,
+    tag_id: TagId,
+) where
+    S: CatalogRepository + ?Sized,
+{
+    store
+        .upsert_item_credit(&ItemCredit {
+            item_id,
+            person_id,
+            role: CreditRole::Actor,
+            character: None,
+            sort_order: None,
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_item_genre(&ItemGenre { item_id, genre_id })
+        .await
+        .unwrap();
+    store
+        .upsert_item_tag(&ItemTag { item_id, tag_id })
+        .await
+        .unwrap();
 }
 
 async fn transcode_session_lifecycle_filters_cancellation_and_stale_contract<S>(store: S)
@@ -11735,6 +12050,16 @@ database_contract_pair!(
         "filters_relation_items_before_pagination"
     ),
     contract = catalog_access_filters_relation_items_before_pagination_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_catalog_access_contract_filters_root_aggregates_before_pagination,
+    postgres = postgres_catalog_access_contract_filters_root_aggregates_before_pagination,
+    case = ContractCase::migrated(
+        ContractFamily::CatalogAccess,
+        "filters_root_aggregates_before_pagination"
+    ),
+    contract = catalog_access_filters_root_aggregates_before_pagination_contract,
 );
 
 database_contract_pair!(

@@ -17,9 +17,8 @@ use crate::app::NakoApp;
 
 use super::{
     access::{
-        RequiredLibraryAccess, item_has_access, page_returned_len, parse_public_item_id,
-        parse_public_source_id, require_item_access, require_selected_artwork_access,
-        require_source_access,
+        RequiredLibraryAccess, item_has_access, parse_public_item_id, parse_public_source_id,
+        require_item_access, require_selected_artwork_access, require_source_access,
     },
     error::ApiResult,
     query::{ImageVariantQuery, PageQuery, SearchPageQuery},
@@ -160,26 +159,11 @@ pub(super) async fn list_people(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Query(page): Query<PageQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    let mut response = app.catalog().list_people(page.try_into()?).await?;
-    let mut people = Vec::with_capacity(response.people.len());
-
-    for person in response.people {
-        let person_id =
-            person
-                .id
-                .parse::<PersonId>()
-                .map_err(|err| nako_core::NakoError::InvalidInput {
-                    message: format!("invalid person id in public response: {err}"),
-                })?;
-        if person_has_accessible_item(&app, &principal, person_id).await? {
-            people.push(person);
-        }
-    }
-
-    response.page.returned = page_returned_len(people.len());
-    response.people = people;
-
-    Ok(Json(response))
+    Ok(Json(
+        app.catalog()
+            .list_accessible_people(&principal, page.try_into()?)
+            .await?,
+    ))
 }
 
 #[instrument(skip(app))]
@@ -218,25 +202,11 @@ pub(super) async fn list_tags(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Query(page): Query<PageQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    let mut response = app.catalog().list_tags(page.try_into()?).await?;
-    let mut tags = Vec::with_capacity(response.tags.len());
-
-    for tag in response.tags {
-        let tag_id = tag
-            .id
-            .parse::<TagId>()
-            .map_err(|err| nako_core::NakoError::InvalidInput {
-                message: format!("invalid tag id in public response: {err}"),
-            })?;
-        if tag_has_accessible_item(&app, &principal, tag_id).await? {
-            tags.push(tag);
-        }
-    }
-
-    response.page.returned = page_returned_len(tags.len());
-    response.tags = tags;
-
-    Ok(Json(response))
+    Ok(Json(
+        app.catalog()
+            .list_accessible_tags(&principal, page.try_into()?)
+            .await?,
+    ))
 }
 
 #[instrument(skip(app))]
@@ -259,26 +229,11 @@ pub(super) async fn list_genres(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Query(page): Query<PageQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    let mut response = app.catalog().list_genres(page.try_into()?).await?;
-    let mut genres = Vec::with_capacity(response.genres.len());
-
-    for genre in response.genres {
-        let genre_id =
-            genre
-                .id
-                .parse::<GenreId>()
-                .map_err(|err| nako_core::NakoError::InvalidInput {
-                    message: format!("invalid genre id in public response: {err}"),
-                })?;
-        if genre_has_accessible_item(&app, &principal, genre_id).await? {
-            genres.push(genre);
-        }
-    }
-
-    response.page.returned = page_returned_len(genres.len());
-    response.genres = genres;
-
-    Ok(Json(response))
+    Ok(Json(
+        app.catalog()
+            .list_accessible_genres(&principal, page.try_into()?)
+            .await?,
+    ))
 }
 
 #[instrument(skip(app))]
@@ -366,30 +321,6 @@ async fn person_has_accessible_item(
     let response = app
         .catalog()
         .list_person_items(person_id, PageRequest::new(PageRequest::MAX_LIMIT, 0))
-        .await?;
-    any_public_items_accessible(app, principal, response.items).await
-}
-
-async fn tag_has_accessible_item(
-    app: &NakoApp,
-    principal: &AuthenticatedPrincipal,
-    tag_id: TagId,
-) -> ApiResult<bool> {
-    let response = app
-        .catalog()
-        .list_tag_items(tag_id, PageRequest::new(PageRequest::MAX_LIMIT, 0))
-        .await?;
-    any_public_items_accessible(app, principal, response.items).await
-}
-
-async fn genre_has_accessible_item(
-    app: &NakoApp,
-    principal: &AuthenticatedPrincipal,
-    genre_id: GenreId,
-) -> ApiResult<bool> {
-    let response = app
-        .catalog()
-        .list_genre_items(genre_id, PageRequest::new(PageRequest::MAX_LIMIT, 0))
         .await?;
     any_public_items_accessible(app, principal, response.items).await
 }

@@ -545,6 +545,133 @@ async fn catalog_relation_item_routes_filter_access_before_pagination() {
 }
 
 #[tokio::test]
+async fn catalog_root_aggregate_routes_filter_access_before_pagination() {
+    let fixture = catalog_access_route_fixture().await;
+    let hidden_item = seed_catalog_route_item(
+        &fixture.store,
+        fixture.blocked_library_id,
+        "A Hidden Catalog Root Aggregate",
+    )
+    .await;
+    let visible_item = seed_catalog_route_item(
+        &fixture.store,
+        fixture.allowed_library_id,
+        "B Visible Catalog Root Aggregate",
+    )
+    .await;
+    let hidden_person = Person {
+        id: PersonId::new(),
+        name: "A Hidden Catalog Root Person".to_owned(),
+        sort_name: None,
+        overview: None,
+        external_ids: Vec::new(),
+    };
+    let orphan_person = Person {
+        id: PersonId::new(),
+        name: "B Orphan Catalog Root Person".to_owned(),
+        sort_name: None,
+        overview: None,
+        external_ids: Vec::new(),
+    };
+    let visible_person = Person {
+        id: PersonId::new(),
+        name: "C Visible Catalog Root Person".to_owned(),
+        sort_name: None,
+        overview: None,
+        external_ids: Vec::new(),
+    };
+    let hidden_genre = Genre {
+        id: GenreId::new(),
+        name: "A Hidden Catalog Root Genre".to_owned(),
+        source: MetadataSource::User,
+    };
+    let orphan_genre = Genre {
+        id: GenreId::new(),
+        name: "B Orphan Catalog Root Genre".to_owned(),
+        source: MetadataSource::User,
+    };
+    let visible_genre = Genre {
+        id: GenreId::new(),
+        name: "C Visible Catalog Root Genre".to_owned(),
+        source: MetadataSource::User,
+    };
+    let hidden_tag = Tag {
+        id: TagId::new(),
+        name: "a-hidden-catalog-root-tag".to_owned(),
+        source: MetadataSource::User,
+    };
+    let orphan_tag = Tag {
+        id: TagId::new(),
+        name: "b-orphan-catalog-root-tag".to_owned(),
+        source: MetadataSource::User,
+    };
+    let visible_tag = Tag {
+        id: TagId::new(),
+        name: "c-visible-catalog-root-tag".to_owned(),
+        source: MetadataSource::User,
+    };
+
+    for person in [&hidden_person, &orphan_person, &visible_person] {
+        fixture.store.upsert_person(person).await.unwrap();
+    }
+    for genre in [&hidden_genre, &orphan_genre, &visible_genre] {
+        fixture.store.upsert_genre(genre).await.unwrap();
+    }
+    for tag in [&hidden_tag, &orphan_tag, &visible_tag] {
+        fixture.store.upsert_tag(tag).await.unwrap();
+    }
+
+    link_catalog_route_root_aggregates(
+        &fixture.store,
+        hidden_item.id,
+        hidden_person.id,
+        hidden_genre.id,
+        hidden_tag.id,
+    )
+    .await;
+    link_catalog_route_root_aggregates(
+        &fixture.store,
+        visible_item.id,
+        visible_person.id,
+        visible_genre.id,
+        visible_tag.id,
+    )
+    .await;
+
+    let people = request_json::<nako_api::public_client::PeopleResponse>(
+        &fixture.router,
+        Method::GET,
+        "/people?limit=1&offset=0",
+    )
+    .await;
+    let genres = request_json::<nako_api::public_client::GenreListResponse>(
+        &fixture.router,
+        Method::GET,
+        "/genres?limit=1&offset=0",
+    )
+    .await;
+    let tags = request_json::<nako_api::public_client::TagsResponse>(
+        &fixture.router,
+        Method::GET,
+        "/tags?limit=1&offset=0",
+    )
+    .await;
+
+    assert_eq!(people.page.returned, 1);
+    assert_eq!(people.people[0].id, visible_person.id.to_string());
+    assert_ne!(people.people[0].id, hidden_person.id.to_string());
+    assert_ne!(people.people[0].id, orphan_person.id.to_string());
+    assert_eq!(genres.page.returned, 1);
+    assert_eq!(genres.genres[0].id, visible_genre.id.to_string());
+    assert_ne!(genres.genres[0].id, hidden_genre.id.to_string());
+    assert_ne!(genres.genres[0].id, orphan_genre.id.to_string());
+    assert_eq!(tags.page.returned, 1);
+    assert_eq!(tags.tags[0].id, visible_tag.id.to_string());
+    assert_ne!(tags.tags[0].id, hidden_tag.id.to_string());
+    assert_ne!(tags.tags[0].id, orphan_tag.id.to_string());
+}
+
+#[tokio::test]
 async fn catalog_search_route_filters_accessible_batch_without_leaking_hidden_hits() {
     let fixture = catalog_access_route_fixture().await;
     let hidden_item = seed_catalog_route_item(
@@ -978,4 +1105,31 @@ async fn seed_catalog_route_item(
     store.upsert_media_source(&source).await.unwrap();
 
     item
+}
+
+async fn link_catalog_route_root_aggregates(
+    store: &NakoDatabase,
+    item_id: MediaItemId,
+    person_id: PersonId,
+    genre_id: GenreId,
+    tag_id: TagId,
+) {
+    store
+        .upsert_item_credit(&ItemCredit {
+            item_id,
+            person_id,
+            role: CreditRole::Actor,
+            character: None,
+            sort_order: None,
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_item_genre(&ItemGenre { item_id, genre_id })
+        .await
+        .unwrap();
+    store
+        .upsert_item_tag(&ItemTag { item_id, tag_id })
+        .await
+        .unwrap();
 }

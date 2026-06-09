@@ -464,9 +464,13 @@ impl CatalogAppService {
         Ok(images)
     }
 
-    pub async fn list_people(&self, page: PageRequest) -> Result<PeopleResponse> {
+    pub async fn list_accessible_people(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<PeopleResponse> {
         let page = page.clamped();
-        let people = self.store.list_people(page).await?;
+        let people = self.store.list_accessible_people(principal, page).await?;
 
         Ok(PeopleResponse {
             page: page_info_from_request(page, people.len()),
@@ -526,36 +530,17 @@ impl CatalogAppService {
         })
     }
 
-    pub async fn list_tags(&self, page: PageRequest) -> Result<TagsResponse> {
+    pub async fn list_accessible_tags(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<TagsResponse> {
         let page = page.clamped();
-        let tags = self.store.list_tags(page).await?;
+        let tags = self.store.list_accessible_tags(principal, page).await?;
 
         Ok(TagsResponse {
             page: page_info_from_request(page, tags.len()),
             tags: tags.into_iter().map(tag_to_dto).collect(),
-        })
-    }
-
-    pub async fn list_tag_items(
-        &self,
-        tag_id: TagId,
-        page: PageRequest,
-    ) -> Result<TagItemsResponse> {
-        let page = page.clamped();
-        let tag = self
-            .store
-            .get_tag(tag_id)
-            .await?
-            .ok_or_else(|| NakoError::NotFound {
-                entity: "tag",
-                id: tag_id.to_string(),
-            })?;
-        let items = self.store.list_tag_items(tag.id, page).await?;
-
-        Ok(TagItemsResponse {
-            tag: tag_to_dto(tag),
-            page: page_info_from_request(page, items.len()),
-            items: items.into_iter().map(media_item_to_dto).collect(),
         })
     }
 
@@ -586,36 +571,17 @@ impl CatalogAppService {
         })
     }
 
-    pub async fn list_genres(&self, page: PageRequest) -> Result<GenreListResponse> {
+    pub async fn list_accessible_genres(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<GenreListResponse> {
         let page = page.clamped();
-        let genres = self.store.list_genres(page).await?;
+        let genres = self.store.list_accessible_genres(principal, page).await?;
 
         Ok(GenreListResponse {
             page: page_info_from_request(page, genres.len()),
             genres: genres.into_iter().map(genre_to_dto).collect(),
-        })
-    }
-
-    pub async fn list_genre_items(
-        &self,
-        genre_id: GenreId,
-        page: PageRequest,
-    ) -> Result<GenreItemsResponse> {
-        let page = page.clamped();
-        let genre = self
-            .store
-            .get_genre(genre_id)
-            .await?
-            .ok_or_else(|| NakoError::NotFound {
-                entity: "genre",
-                id: genre_id.to_string(),
-            })?;
-        let items = self.store.list_genre_items(genre.id, page).await?;
-
-        Ok(GenreItemsResponse {
-            genre: genre_to_dto(genre),
-            page: page_info_from_request(page, items.len()),
-            items: items.into_iter().map(media_item_to_dto).collect(),
         })
     }
 
