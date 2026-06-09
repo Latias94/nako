@@ -1,0 +1,8 @@
+{"file": ".trellis/tasks/06-09-06-09-root-catalog-aggregate-access-repository-projection/research/initial-code-context.md", "reason": "Prepared code inspection summary for the root catalog aggregate access projection slice."}
+{"file": ".trellis/spec/nako-core/backend/database-guidelines.md", "reason": "Repository trait changes must remain persistence contracts without adapter leakage."}
+{"file": ".trellis/spec/nako-core/backend/quality-guidelines.md", "reason": "Cross-crate domain contract changes require focused verification."}
+{"file": ".trellis/spec/nako-db/backend/directory-structure.md", "reason": "SQLite/PostgreSQL adapter changes must follow existing module ownership."}
+{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "SQL builder and row mapping changes must preserve DB adapter conventions."}
+{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "Repository projections require SQLite/PostgreSQL contract coverage and parity."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "HTTP catalog handlers should stay thin and delegate access decisions to app/repository boundaries."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server route regression tests and focused nextest gates should follow server test guidelines."}
