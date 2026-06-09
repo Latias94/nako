@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 93
+- **Total Sessions**: 94
 - **Last Active**: 2026-06-09
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~1807 | Active |
+| `journal-2.md` | ~1842 | Active |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 94 | 2026-06-09 | Move catalog source probe access into app service | `52870be4`, `2338e748` | `main` |
 | 93 | 2026-06-09 | Move catalog item detail access into app service | `70883416`, `851ede79` | `main` |
 | 92 | 2026-06-09 | Catalog search access pagination | `2737d08f`, `4fc269e1` | `main` |
 | 91 | 2026-06-09 | Catalog access architecture cleanup | `bc5c31b4` | `main` |

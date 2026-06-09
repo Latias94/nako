@@ -1805,3 +1805,38 @@ Moved Public Catalog item detail, credits, and images browse access into Catalog
 ### Next Steps
 
 - None - task complete
+
+
+## Session 94: Move catalog source probe access into app service
+
+**Date**: 2026-06-09
+**Task**: Move catalog source probe access into app service
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Moved Public Catalog source probe browse access into CatalogAppService, kept non-catalog source access helpers intact, added focused visible/hidden source probe route coverage, and archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `52870be4` | (see git log) |
+| `2338e748` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
