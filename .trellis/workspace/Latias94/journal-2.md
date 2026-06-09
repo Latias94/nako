@@ -1840,3 +1840,38 @@ Moved Public Catalog source probe browse access into CatalogAppService, kept non
 ### Next Steps
 
 - None - task complete
+
+
+## Session 95: Move playlist item access into app service
+
+**Date**: 2026-06-09
+**Task**: Move playlist item access into app service
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Moved user playlist item add/remove/reorder browse-access checks from HTTP handlers into UserPlaylistAppService, added app and route regressions for hidden item mutations, updated HTTP API spec, and archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `bc7b0403` | (see git log) |
+| `842cff7c` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
