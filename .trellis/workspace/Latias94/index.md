@@ -7,8 +7,8 @@
 ## Current Status
 
 <!-- @@@auto:current-status -->
-- **Active File**: `journal-2.md`
-- **Total Sessions**: 98
+- **Active File**: `journal-3.md`
+- **Total Sessions**: 99
 - **Last Active**: 2026-06-09
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,8 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~1982 | Active |
+| `journal-3.md` | ~42 | Active |
+| `journal-2.md` | ~1991 | Archived |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 99 | 2026-06-09 | Move playback ticket source access into app service | `e8d1b1ec`, `6c81ac57` | `main` |
 | 98 | 2026-06-09 | Renderer source access app boundary | `2489ca3c`, `bfe11af9` | `main` |
 | 97 | 2026-06-09 | Selected artwork access app-service boundary | `ab761f7d`, `ae2e6a41` | `main` |
 | 96 | 2026-06-09 | Move user playback access into app service | `e9ceef47`, `9f72f1df` | `main` |
