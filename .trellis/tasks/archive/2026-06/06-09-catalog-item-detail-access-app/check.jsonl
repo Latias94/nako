@@ -1,0 +1,5 @@
+{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Verify HTTP handlers remain thin and route auth/access patterns are respected."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Run focused catalog route tests and server checks."}
+{"file":".trellis/spec/nako-db/backend/quality-guidelines.md","reason":"Check access filtering is not left as HTTP post-processing for catalog read surfaces."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Review route-to-app-service DTO flow after moving access ownership."}
+{"file":"docs/architecture/STATE_ACCESS.md","reason":"Confirm item read access remains consistent with Library Access boundaries."}
