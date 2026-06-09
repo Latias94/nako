@@ -1,0 +1,3 @@
+{"file": ".trellis/tasks/06-09-06-09-postgres-catalog-access-distinct-order-fix/prd.md", "reason": "Verify the failing Postgres catalog_access contracts now pass."}
+{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "Check SQL builder changes and PostgreSQL compatibility."}
+{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "Check focused contract gate selection and evidence."}
