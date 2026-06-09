@@ -687,6 +687,142 @@ The route still owns auth/ticket resolution and byte response mechanics, while
 `PlaybackAppService` owns source `Play` access before Direct Play planning or
 session use.
 
+## Scenario: Remux Playback Access Boundary
+
+### 1. Scope / Trigger
+
+- Trigger: changing Remux source byte routes,
+  `PlaybackAppService::remux_playback_stream`,
+  `PlaybackAppService::remux_playback_preflight`, or browser-ticket-backed
+  Remux session stream use in `crates/nako-server`.
+- Code evidence: `src/http/playback.rs`,
+  `src/app/playback/remux_flow.rs`, `src/http/tests/playback.rs`,
+  `src/app/tests/playback.rs`.
+
+### 2. Signatures
+
+- Remux HTTP GET/HEAD handlers resolve an `AuthenticatedPrincipal` or
+  validated browser playback ticket principal and call app-service Remux
+  methods.
+- `PlaybackAppService::remux_playback_stream(RemuxPlaybackStreamRequest)` owns
+  source `Play` Library Access, Remux playback policy admission, transcode
+  session startup/reuse, playback-session linkage, and byte response planning.
+- `PlaybackAppService::remux_playback_preflight(RemuxPlaybackPreflightRequest)`
+  owns the same access and policy admission for HEAD/preflight response plans.
+- `PlaybackAppService::remux_playback_session_stream(RemuxPlaybackSessionStreamRequest)`
+  rechecks current source `Play` Library Access when a previously issued Remux
+  browser ticket/session is used.
+
+### 3. Contracts
+
+- Remux `/sources/{source_id}/stream/remux` GET/HEAD HTTP handlers parse query
+  and range inputs, validate auth or tickets, assemble byte responses and
+  headers, and delegate source `Play` access to the app service.
+- Remux HTTP handlers must not call route-local
+  `require_source_access(... RequiredLibraryAccess::Play)` for ordinary
+  principal or Remux browser ticket paths.
+- `PlaybackAppService::remux_playback_stream` and
+  `PlaybackAppService::remux_playback_preflight` must enforce source `Play`
+  Library Access before Remux playback-policy details, transcode session
+  startup, storage staging, byte plans, or playback sessions are exposed.
+- Ticket-backed Remux session stream use must recheck current source `Play`
+  Library Access at use time, so access revocation after ticket issue is
+  effective.
+- If a ticket-backed Remux session has not yet linked a transcode session,
+  Remux playback policy still applies before artifact startup, but Library
+  Access denial must happen first.
+- HLS, subtitle, and renderer transport routes retain their existing access
+  boundaries until dedicated migration tasks move those slices.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Ordinary principal has Browse but not Play access for the source library | Remux GET/HEAD returns `403` with required Library Access level `play` |
+| Ordinary principal has Play access but Remux is disabled by playback policy | Remux app-service flow returns the mode-specific playback-policy denial |
+| Remux browser ticket was issued, then source Play access is revoked before use | Ticket-backed Remux byte route returns `403` with required Library Access level `play` and does not start FFmpeg |
+| Remux browser ticket is missing, malformed, expired, wrong-mode, or has the wrong subject | Preserve existing browser ticket unauthorized/forbidden behavior |
+| Remux process capacity is busy after access and policy pass | Preserve immediate playback resource pressure conflict |
+| Unknown source ID | Preserve `NakoError::NotFound` for `media_source` |
+| Administrator requests Remux | Preserve administrator access and playback-policy semantics |
+
+### 5. Good / Base / Bad Cases
+
+- Good: Remux route code resolves principal/ticket context with route access
+  disabled, then calls `app.playback().remux_playback_stream(...)` or
+  `app.playback().remux_playback_preflight(...)`.
+- Good: Remux browser ticket use calls the session stream app-service method,
+  and that method rechecks Library Access before playback-session lookup or
+  artifact startup.
+- Base: HLS source routes can still pass through route-local
+  `require_source_access(... Play)` until their playlist/segment flows migrate
+  in separate tasks.
+- Bad: Remux route code calls `require_source_access(... Play)` before
+  invoking the app service, because non-HTTP Remux callers could bypass source
+  access.
+- Bad: Remux policy checks run before source `Play` Library Access, because
+  browse-only users would learn policy details such as `remux`.
+- Bad: Remux browser ticket use trusts the issued ticket without a current
+  source `Play` recheck, because revocation after ticket issue would not take
+  effect.
+
+### 6. Tests Required
+
+- App-service test proving a browse-only principal cannot call both
+  `remux_playback_stream` and `remux_playback_preflight`, receives the standard
+  Library Access `play` message before `remux` policy details, and creates no
+  playback or transcode session.
+- HTTP route test proving a browse-only Remux stream request returns `403` with
+  the same public Library Access message.
+- HTTP route test proving a previously issued Remux browser ticket is rejected
+  after source `Play` access is revoked, before FFmpeg starts.
+- Existing Remux route gates must continue covering GET, HEAD/no-body, range
+  handling, active/completed session reuse, cache-control, playback-session
+  headers, resource admission, and ticket validation behavior.
+- Focused gates:
+  `cargo nextest run -p nako-server remux_playback_rejects_browse_only_access_before_policy_details --no-fail-fast`,
+  `cargo nextest run -p nako-server playback_routes_require_play_library_access --no-fail-fast`,
+  `cargo nextest run -p nako-server remux_browser_playback_ticket_rejects_revocation_at_use --no-fail-fast`,
+  `cargo nextest run -p nako-server remux_stream --no-fail-fast`,
+  and `cargo check -p nako-server --tests`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+let resolved = resolve_source_playback_context(
+    &app,
+    principal,
+    source_id,
+    BrowserPlaybackTicketMode::Remux,
+    ticket.as_deref(),
+    true,
+)
+.await?;
+```
+
+This keeps Remux source `Play` access route-local and leaves future
+app-service callers able to bypass the Remux byte access boundary.
+
+#### Correct
+
+```rust
+let resolved = resolve_source_playback_context(
+    &app,
+    principal,
+    source_id,
+    BrowserPlaybackTicketMode::Remux,
+    ticket.as_deref(),
+    false,
+)
+.await?;
+```
+
+The route still owns auth/ticket resolution and byte response mechanics, while
+`PlaybackAppService` owns source `Play` access before Remux planning, artifact
+startup, or session use.
+
 ## Scenario: Browser Playback Ticket Access Boundary
 
 ### 1. Scope / Trigger

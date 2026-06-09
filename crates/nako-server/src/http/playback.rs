@@ -420,7 +420,7 @@ pub(super) async fn remux_stream_source(
         source_id,
         BrowserPlaybackTicketMode::Remux,
         ticket.as_deref(),
-        true,
+        false,
     )
     .await?;
 
@@ -503,7 +503,7 @@ pub(super) async fn head_remux_stream_source(
         source_id,
         BrowserPlaybackTicketMode::Remux,
         ticket.as_deref(),
-        true,
+        false,
     )
     .await?;
 

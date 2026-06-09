@@ -496,6 +496,91 @@ async fn direct_playback_rejects_browse_only_access_before_policy_details() {
 }
 
 #[tokio::test]
+async fn remux_playback_rejects_browse_only_access_before_policy_details() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "remux_browse_only_access");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let principal = local_playback_principal_with_library_access(
+        &store,
+        source.library_id,
+        LibraryAccessLevel::Browse,
+    )
+    .await;
+    let mut permissions = PlaybackPermissionPolicy::current_playback_defaults();
+    permissions.allow_remux = false;
+    store
+        .upsert_playback_policy(&PlaybackPolicy::user(
+            principal.user_id,
+            source.library_id,
+            permissions,
+            2,
+        ))
+        .await
+        .unwrap();
+
+    let stream_err = app
+        .playback()
+        .remux_playback_stream(RemuxPlaybackStreamRequest {
+            principal: principal.clone(),
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            output_container: RemuxContainer::Mp4,
+            range_request: DirectPlayRangeRequest::None,
+        })
+        .await
+        .unwrap_err();
+    let NakoError::Forbidden { message } = stream_err else {
+        panic!("expected library access forbidden error");
+    };
+    assert!(message.contains("required Library Access level 'play'"));
+    assert!(!message.contains("remux"));
+
+    let preflight_err = app
+        .playback()
+        .remux_playback_preflight(RemuxPlaybackPreflightRequest {
+            principal: principal.clone(),
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            output_container: RemuxContainer::Mp4,
+        })
+        .await
+        .unwrap_err();
+    let NakoError::Forbidden { message } = preflight_err else {
+        panic!("expected library access forbidden error");
+    };
+    assert!(message.contains("required Library Access level 'play'"));
+    assert!(!message.contains("remux"));
+    assert!(
+        store
+            .list_playback_sessions(
+                PlaybackSessionListFilter {
+                    principal_id: Some(principal.principal_id),
+                    source_id: Some(source.id),
+                    state: None,
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .list_transcode_sessions(
+                TranscodeSessionListFilter {
+                    source_id: Some(source.id),
+                    kind: Some(TranscodeSessionKind::Remux),
+                    state: None,
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
 async fn remux_playback_policy_denial_does_not_create_sessions_or_artifacts() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "policy_denied_remux");

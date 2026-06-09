@@ -1444,6 +1444,16 @@ impl PlaybackAppService {
             .await
     }
 
+    pub(super) async fn effective_playback_policy_for_playable_source_id(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        source_id: MediaSourceId,
+    ) -> Result<EffectivePlaybackPolicy> {
+        let source = self.get_source_or_not_found(source_id).await?;
+        self.effective_playback_policy_for_playable_source(principal, &source)
+            .await
+    }
+
     async fn effective_playback_policy_for_playable_source(
         &self,
         principal: &AuthenticatedPrincipal,

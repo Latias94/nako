@@ -475,6 +475,12 @@ async fn playback_routes_require_play_library_access() {
         &format!("/sources/{}/stream", source.id),
     )
     .await;
+    let remux = response_for(
+        &router,
+        Method::GET,
+        &format!("/sources/{}/stream/remux?output_container=mp4", source.id),
+    )
+    .await;
 
     assert_eq!(decision.status(), StatusCode::FORBIDDEN);
     let decision: ErrorResponse = body_json(decision).await;
@@ -495,6 +501,16 @@ async fn playback_routes_require_play_library_access() {
             .contains("required Library Access level 'play'"),
         "expected library play access denial, got {}",
         stream.message
+    );
+    assert_eq!(remux.status(), StatusCode::FORBIDDEN);
+    let remux: ErrorResponse = body_json(remux).await;
+    assert_eq!(remux.code, "forbidden");
+    assert!(
+        remux
+            .message
+            .contains("required Library Access level 'play'"),
+        "expected library play access denial, got {}",
+        remux.message
     );
 }
 
@@ -1314,6 +1330,69 @@ async fn browser_playback_ticket_rejects_browse_only_access_and_revocation_at_us
             .contains("required Library Access level 'play'"),
         "expected library play access denial after revocation, got {}",
         revoked.message
+    );
+}
+
+#[tokio::test]
+async fn remux_browser_playback_ticket_rejects_revocation_at_use() {
+    let script_root = tempfile::tempdir().unwrap();
+    let marker = script_root.path().join("remux.started");
+    let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "ticket_remux_revoked", true, &marker);
+    let (_temp, app, source, store) =
+        app_with_media_source_config("ticket-remux.mkv", b"media", |config| {
+            config.ffmpeg_path = ffmpeg_path.clone();
+        })
+        .await;
+    store
+        .upsert_media_probe(source.id, &compatible_probe())
+        .await
+        .unwrap();
+    let play_principal =
+        local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Play).await;
+    let play_user_id = play_principal.user_id;
+    let play_router = public_client_router_with_principal(app, play_principal);
+    let issue_request = nako_api::public_client::BrowserPlaybackTicketRequest {
+        mode: nako_api::public_client::BrowserPlaybackMode::Remux,
+        capabilities: Some(nako_api::public_client::BrowserPlaybackCapabilitiesDto {
+            direct_play: Some(false),
+            container: Some(vec!["mkv".to_owned()]),
+            video_codec: Some(vec!["h264".to_owned()]),
+            audio_codec: Some(vec!["aac".to_owned()]),
+            output_container: Some(nako_api::public_client::BrowserPlaybackOutputContainer::Mp4),
+            ..nako_api::public_client::BrowserPlaybackCapabilitiesDto::default()
+        }),
+        subtitle_stream_index: None,
+    };
+    let ticket = request_body_json::<nako_api::public_client::BrowserPlaybackTicketResponse, _>(
+        &play_router,
+        Method::POST,
+        &format!("/sources/{}/playback/browser-ticket", source.id),
+        &issue_request,
+    )
+    .await;
+
+    store
+        .delete_library_access_policy(
+            LibraryAccessPolicyScope::User(play_user_id),
+            source.library_id,
+        )
+        .await
+        .unwrap();
+
+    let revoked = response_for(&play_router, Method::GET, &ticket.urls[0].url).await;
+    assert_eq!(revoked.status(), StatusCode::FORBIDDEN);
+    let revoked: ErrorResponse = body_json(revoked).await;
+    assert_eq!(revoked.code, "forbidden");
+    assert!(
+        revoked
+            .message
+            .contains("required Library Access level 'play'"),
+        "expected library play access denial after revocation, got {}",
+        revoked.message
+    );
+    assert!(
+        !marker.exists(),
+        "revoked Remux ticket use must reject before starting ffmpeg"
     );
 }
 

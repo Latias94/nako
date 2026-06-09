@@ -50,7 +50,7 @@ pub(super) async fn remux_playback_stream(
     request: RemuxPlaybackStreamRequest,
 ) -> Result<RemuxPlaybackStreamOutput> {
     let effective_policy = app
-        .effective_playback_policy_for_source_id(&request.principal, request.source_id)
+        .effective_playback_policy_for_playable_source_id(&request.principal, request.source_id)
         .await?;
     let remux_request = RemuxSourceRequest {
         source_id: request.source_id,
@@ -96,6 +96,8 @@ pub(super) async fn remux_playback_session_stream(
     app: &PlaybackAppService,
     request: RemuxPlaybackSessionStreamRequest,
 ) -> Result<RemuxPlaybackStreamOutput> {
+    app.ensure_source_play_access(&request.principal, request.source_id)
+        .await?;
     let mut playback_session = app
         .existing_playback_session_for_media_request(
             &request.principal,
@@ -110,7 +112,10 @@ pub(super) async fn remux_playback_session_stream(
             let client =
                 PlaybackAppService::client_capabilities_for_playback_session(&playback_session)?;
             let effective_policy = app
-                .effective_playback_policy_for_source_id(&request.principal, request.source_id)
+                .effective_playback_policy_for_playable_source_id(
+                    &request.principal,
+                    request.source_id,
+                )
                 .await?;
             let remux_start = start_remux_source_with_policy(
                 app,
@@ -158,7 +163,7 @@ pub(super) async fn remux_playback_preflight(
     request: RemuxPlaybackPreflightRequest,
 ) -> Result<RemuxPlaybackPreflightOutput> {
     let effective_policy = app
-        .effective_playback_policy_for_source_id(&request.principal, request.source_id)
+        .effective_playback_policy_for_playable_source_id(&request.principal, request.source_id)
         .await?;
     let remux = start_remux_source_with_policy(
         app,
