@@ -1720,3 +1720,53 @@ Moved person detail access enforcement from the HTTP catalog route into CatalogA
 ### Next Steps
 
 - None - task complete
+
+
+## Session 92: Catalog search access pagination
+
+**Date**: 2026-06-09
+**Task**: Catalog search access pagination
+**Package**: nako-db
+**Branch**: `main`
+
+### Summary
+
+Moved Public Catalog search access filtering into SQLite/PostgreSQL search document projection before scoring and pagination, added catalog_access DB contracts including Postgres verification, and archived the Trellis task.
+
+### Main Changes
+
+- Added a crate-internal accessible search facade in `nako-db` so SQLite and
+  PostgreSQL filter `search_documents` by Library Access before
+  `nako-search` scoring and pagination.
+- Simplified `CatalogAppService::search_accessible_items` from a global search
+  pagination loop into a single accessible search call plus bounded media item
+  hydration.
+- Added a backend-agnostic catalog access contract proving hidden high-scoring
+  search documents do not consume visible search page slots, and verified the
+  PostgreSQL ignored contract with a local temporary cluster.
+- Updated the nako-db quality spec with the Public Catalog search access
+  projection contract.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2737d08f` | (see git log) |
+| `4fc269e1` | (see git log) |
+
+### Testing
+
+- [OK] `cargo fmt --all`
+- [OK] `cargo check -p nako-db -p nako-server --tests`
+- [OK] `cargo nextest run -p nako-db catalog_access --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server http::tests::catalog --no-fail-fast`
+- [OK] `cargo nextest run -p nako-db postgres_catalog_access_contract_filters_search_documents_before_pagination --run-ignored ignored-only --no-fail-fast`
+- [OK] `git diff --check`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
