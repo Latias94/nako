@@ -133,8 +133,8 @@ For a new route in an existing admin module, add it to the existing
   DTO construction. Do not filter `ItemDetailResponse.sources` in HTTP after the
   DTO is built.
 - `http::access::require_item_access` remains available for non-catalog routes
-  whose semantics are still owned by their route slice, such as metadata,
-  playlist, and user playback.
+  whose semantics are still owned by their route slice, such as metadata and
+  user playback.
 
 ### 4. Validation & Error Matrix
 
@@ -176,6 +176,88 @@ Ok(Json(filter_item_detail_sources(&app, &principal, detail).await?))
 
 ```rust
 Ok(Json(app.catalog().get_item(&principal, item_id).await?))
+```
+
+## Scenario: User Playlist Item Mutation Access Boundary
+
+### 1. Scope / Trigger
+
+- Trigger: changing playlist item add, remove, reorder, or visible item
+  projection behavior in `crates/nako-server/src/http/user_playlist.rs` or
+  `crates/nako-server/src/app/user_playlist.rs`.
+- Code evidence: `src/http/user_playlist.rs`, `src/app/user_playlist.rs`,
+  `src/http/tests/user_playlist.rs`, `src/app/tests/user_playlist.rs`.
+
+### 2. Signatures
+
+- Playlist item mutation HTTP handlers take `Extension(AuthenticatedPrincipal)`
+  and pass the full principal into `UserPlaylistAppService`.
+- App-service mutation request structs carry `AuthenticatedPrincipal` for:
+  - `AddUserPlaylistItemRequest`
+  - `RemoveUserPlaylistItemRequest`
+  - `ReorderUserPlaylistItemsRequest`
+
+### 3. Contracts
+
+- HTTP handlers parse path/body data, pass the authenticated principal to the
+  app service, and return public playlist DTOs.
+- `UserPlaylistAppService` owns browse-access enforcement for item add,
+  remove, and reorder before committing playlist item mutations.
+- Use the existing accessible-media-item repository path for item visibility;
+  do not reintroduce `require_item_access` loops in playlist HTTP handlers.
+- Playlist ownership, expected-version handling, duplicate add behavior, and
+  projection filtering remain app-service/repository responsibilities.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Ordinary principal adds a hidden item | `NakoError::Forbidden` with required Library Access level `browse` |
+| Ordinary principal removes a hidden existing playlist item | `NakoError::Forbidden` with required Library Access level `browse` |
+| Ordinary principal reorders a playlist containing a hidden item | `NakoError::Forbidden` with required Library Access level `browse` |
+| Reorder body is malformed, duplicate, or misses existing items | Preserve `NakoError::InvalidInput` validation before mutation |
+| Administrator mutates source-less or multi-source items | Preserve administrator access semantics |
+
+### 5. Good / Base / Bad Cases
+
+- Good: route parses `item_id`, then calls
+  `app.user_playlist().add_item(AppAddUserPlaylistItemRequest { principal, ... })`.
+- Base: playlist read projection filters hidden items and reports accessible
+  item counts through repository projections.
+- Bad: route code loops over reorder item IDs and calls
+  `require_item_access(... Browse)` before calling the app service.
+
+### 6. Tests Required
+
+- App-service test proving hidden add, remove, and reorder are forbidden for an
+  ordinary principal.
+- HTTP route test proving hidden add, remove, and reorder return `403` while
+  visible playlist item mutations still succeed.
+- Focused gate:
+  `cargo nextest run -p nako-server user_playlist --no-fail-fast`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+require_item_access(&app, &principal, item_id, RequiredLibraryAccess::Browse).await?;
+app.user_playlist().add_item(request).await?;
+```
+
+#### Correct
+
+```rust
+app.user_playlist()
+    .add_item(AppAddUserPlaylistItemRequest {
+        principal,
+        playlist_id,
+        item_id,
+        position,
+        expected_version,
+        added_at_ms: None,
+    })
+    .await?;
 ```
 
 ## Scenario: HTTP Request Trace Context

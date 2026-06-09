@@ -1,0 +1,6 @@
+{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Keep playlist HTTP handlers thin while moving item access into app service."}
+{"file":".trellis/spec/nako-server/backend/database-guidelines.md","reason":"Server app services should own persistence and access coordination instead of HTTP handlers."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Select focused user playlist route/app checks."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Change spans HTTP route, app service, database facade calls, and public DTO behavior."}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Reuse existing accessible item repository logic rather than duplicating route helper loops."}
+{"file":"docs/architecture/STATE_ACCESS.md","reason":"Playlist item mutations must respect Library Access before state changes."}

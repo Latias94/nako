@@ -1,4 +1,5 @@
 use super::*;
+use nako_core::{UserPlaylistItemWrite, UserPlaylistRepository};
 
 #[tokio::test]
 async fn user_playlist_routes_mutate_current_principal_private_state() {
@@ -138,7 +139,7 @@ async fn user_playlist_item_routes_filter_and_enforce_effective_library_access()
         .unwrap();
     app.user_playlist()
         .add_item(crate::app::user_playlist::AddUserPlaylistItemRequest {
-            principal_id: principal.principal_id.clone(),
+            principal: principal.clone(),
             playlist_id: playlist.id,
             item_id: visible.item_id,
             position: None,
@@ -147,17 +148,21 @@ async fn user_playlist_item_routes_filter_and_enforce_effective_library_access()
         })
         .await
         .unwrap();
-    app.user_playlist()
-        .add_item(crate::app::user_playlist::AddUserPlaylistItemRequest {
-            principal_id: principal.principal_id.clone(),
+    UserPlaylistRepository::add_user_playlist_item(
+        &store,
+        UserPlaylistItemWrite {
             playlist_id: playlist.id,
+            principal_id: principal.principal_id.clone(),
             item_id: hidden.item_id,
             position: None,
             expected_version: None,
-            added_at_ms: Some(1_774_800_002_000),
-        })
-        .await
-        .unwrap();
+            added_at_ms: 1_774_800_002_000,
+            updated_at_ms: 1_774_800_002_000,
+        },
+    )
+    .await
+    .unwrap()
+    .unwrap();
     let router = public_client_router_with_principal(app, principal);
     let playlist_id = playlist.id.to_string();
 
@@ -193,6 +198,27 @@ async fn user_playlist_item_routes_filter_and_enforce_effective_library_access()
     )
     .await;
     assert_eq!(hidden_add.status(), StatusCode::FORBIDDEN);
+
+    let hidden_remove = response_body_json(
+        &router,
+        Method::DELETE,
+        &format!("/users/me/playlists/{playlist_id}/items/{}", hidden.item_id),
+        &serde_json::json!({}),
+    )
+    .await;
+    assert_eq!(hidden_remove.status(), StatusCode::FORBIDDEN);
+
+    let hidden_reorder = response_body_json(
+        &router,
+        Method::PUT,
+        &format!("/users/me/playlists/{playlist_id}/items/reorder"),
+        &nako_api::public_client::ReorderUserPlaylistItemsRequest {
+            item_ids: vec![hidden.item_id.to_string(), visible.item_id.to_string()],
+            expected_version: None,
+        },
+    )
+    .await;
+    assert_eq!(hidden_reorder.status(), StatusCode::FORBIDDEN);
 }
 
 async fn add_catalog_source(

@@ -31,7 +31,7 @@ pub(crate) struct RenameUserPlaylistRequest {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct AddUserPlaylistItemRequest {
-    pub principal_id: UserPrincipalId,
+    pub principal: AuthenticatedPrincipal,
     pub playlist_id: UserPlaylistId,
     pub item_id: MediaItemId,
     pub position: Option<u32>,
@@ -41,7 +41,7 @@ pub(crate) struct AddUserPlaylistItemRequest {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct RemoveUserPlaylistItemRequest {
-    pub principal_id: UserPrincipalId,
+    pub principal: AuthenticatedPrincipal,
     pub playlist_id: UserPlaylistId,
     pub item_id: MediaItemId,
     pub expected_version: Option<u64>,
@@ -50,7 +50,7 @@ pub(crate) struct RemoveUserPlaylistItemRequest {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct ReorderUserPlaylistItemsRequest {
-    pub principal_id: UserPrincipalId,
+    pub principal: AuthenticatedPrincipal,
     pub playlist_id: UserPlaylistId,
     pub item_ids: Vec<MediaItemId>,
     pub expected_version: Option<u64>,
@@ -129,6 +129,12 @@ pub(crate) trait UserPlaylistStore: Clone + Send + Sync + std::fmt::Debug {
     ) -> Result<Vec<UserPlaylistSummaryProjection>>;
 
     async fn load_media_item(&self, item_id: MediaItemId) -> Result<Option<MediaItem>>;
+
+    async fn list_accessible_media_items_by_ids(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        item_ids: &[MediaItemId],
+    ) -> Result<Vec<MediaItem>>;
 }
 
 #[async_trait]
@@ -236,6 +242,14 @@ impl UserPlaylistStore for NakoDatabase {
 
     async fn load_media_item(&self, item_id: MediaItemId) -> Result<Option<MediaItem>> {
         MediaRepository::get_media_item(self, item_id).await
+    }
+
+    async fn list_accessible_media_items_by_ids(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        item_ids: &[MediaItemId],
+    ) -> Result<Vec<MediaItem>> {
+        MediaRepository::list_accessible_media_items_by_ids(self, principal, item_ids).await
     }
 }
 
@@ -356,17 +370,20 @@ where
         &self,
         request: AddUserPlaylistItemRequest,
     ) -> Result<UserPlaylistRecord> {
+        let principal_id = request.principal.principal_id.clone();
         let playlist = self
-            .get_playlist(&request.principal_id, request.playlist_id)
+            .get_playlist(&principal_id, request.playlist_id)
             .await?;
         ensure_expected_version(&playlist, request.expected_version)?;
+        self.ensure_items_browseable(&request.principal, &[request.item_id])
+            .await?;
         self.ensure_item_exists(request.item_id).await?;
         let event_at_ms = request.added_at_ms.unwrap_or(current_time_ms()?);
         let result = self
             .store
             .add_user_playlist_item_record(UserPlaylistItemWrite {
                 playlist_id: request.playlist_id,
-                principal_id: request.principal_id.clone(),
+                principal_id: principal_id.clone(),
                 item_id: request.item_id,
                 position: request.position,
                 expected_version: request.expected_version,
@@ -375,7 +392,7 @@ where
             })
             .await?;
 
-        self.expect_mutation_result(&request.principal_id, request.playlist_id, result)
+        self.expect_mutation_result(&principal_id, request.playlist_id, result)
             .await
     }
 
@@ -383,23 +400,26 @@ where
         &self,
         request: RemoveUserPlaylistItemRequest,
     ) -> Result<UserPlaylistRecord> {
+        let principal_id = request.principal.principal_id.clone();
         let playlist = self
-            .get_playlist(&request.principal_id, request.playlist_id)
+            .get_playlist(&principal_id, request.playlist_id)
             .await?;
         ensure_expected_version(&playlist, request.expected_version)?;
+        self.ensure_items_browseable(&request.principal, &[request.item_id])
+            .await?;
         let updated_at_ms = request.updated_at_ms.unwrap_or(current_time_ms()?);
         let result = self
             .store
             .remove_user_playlist_item_record(UserPlaylistItemRemoval {
                 playlist_id: request.playlist_id,
-                principal_id: request.principal_id.clone(),
+                principal_id: principal_id.clone(),
                 item_id: request.item_id,
                 expected_version: request.expected_version,
                 updated_at_ms,
             })
             .await?;
 
-        self.expect_mutation_result(&request.principal_id, request.playlist_id, result)
+        self.expect_mutation_result(&principal_id, request.playlist_id, result)
             .await
     }
 
@@ -407,27 +427,30 @@ where
         &self,
         request: ReorderUserPlaylistItemsRequest,
     ) -> Result<UserPlaylistRecord> {
+        let principal_id = request.principal.principal_id.clone();
         let playlist = self
-            .get_playlist(&request.principal_id, request.playlist_id)
+            .get_playlist(&principal_id, request.playlist_id)
             .await?;
         ensure_expected_version(&playlist, request.expected_version)?;
         let current_items = self
-            .list_all_items(&request.principal_id, request.playlist_id)
+            .list_all_items(&principal_id, request.playlist_id)
             .await?;
         validate_reorder_items(&current_items, &request.item_ids)?;
+        self.ensure_items_browseable(&request.principal, &request.item_ids)
+            .await?;
         let updated_at_ms = request.updated_at_ms.unwrap_or(current_time_ms()?);
         let result = self
             .store
             .replace_user_playlist_item_order_record(UserPlaylistReorder {
                 playlist_id: request.playlist_id,
-                principal_id: request.principal_id.clone(),
+                principal_id: principal_id.clone(),
                 item_ids: request.item_ids,
                 expected_version: request.expected_version,
                 updated_at_ms,
             })
             .await?;
 
-        self.expect_mutation_result(&request.principal_id, request.playlist_id, result)
+        self.expect_mutation_result(&principal_id, request.playlist_id, result)
             .await
     }
 
@@ -464,6 +487,31 @@ where
                 id: item_id.to_string(),
             })
             .map(|_| ())
+    }
+
+    async fn ensure_items_browseable(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        item_ids: &[MediaItemId],
+    ) -> Result<()> {
+        if principal.is_administrator() || item_ids.is_empty() {
+            return Ok(());
+        }
+
+        let required = item_ids.iter().copied().collect::<BTreeSet<_>>();
+        let accessible = self
+            .store
+            .list_accessible_media_items_by_ids(principal, item_ids)
+            .await?;
+        let accessible_ids = accessible
+            .into_iter()
+            .map(|item| item.id)
+            .collect::<BTreeSet<_>>();
+        if required.is_subset(&accessible_ids) {
+            Ok(())
+        } else {
+            Err(library_browse_access_forbidden())
+        }
     }
 
     async fn expect_mutation_result(
@@ -587,5 +635,11 @@ fn playlist_not_found(playlist_id: UserPlaylistId) -> NakoError {
     NakoError::NotFound {
         entity: "user_playlist",
         id: playlist_id.to_string(),
+    }
+}
+
+fn library_browse_access_forbidden() -> NakoError {
+    NakoError::Forbidden {
+        message: "required Library Access level 'browse' is not available".to_owned(),
     }
 }

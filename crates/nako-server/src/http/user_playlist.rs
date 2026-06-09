@@ -27,11 +27,7 @@ use crate::app::{
     },
 };
 
-use super::{
-    access::{RequiredLibraryAccess, require_item_access},
-    error::ApiResult,
-    query::PageQuery,
-};
+use super::{error::ApiResult, query::PageQuery};
 
 pub(super) fn routes() -> Router<NakoApp> {
     Router::new()
@@ -200,12 +196,10 @@ async fn add_user_playlist_item(
     Path((playlist_id, item_id)): Path<(UserPlaylistId, MediaItemId)>,
     Json(request): Json<AddUserPlaylistItemRequest>,
 ) -> ApiResult<impl IntoResponse> {
-    require_item_access(&app, &principal, item_id, RequiredLibraryAccess::Browse).await?;
-
     let playlist = app
         .user_playlist()
         .add_item(AppAddUserPlaylistItemRequest {
-            principal_id: principal.principal_id.clone(),
+            principal: principal.clone(),
             playlist_id,
             item_id,
             position: request.position,
@@ -225,12 +219,10 @@ async fn remove_user_playlist_item(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Path((playlist_id, item_id)): Path<(UserPlaylistId, MediaItemId)>,
 ) -> ApiResult<impl IntoResponse> {
-    require_item_access(&app, &principal, item_id, RequiredLibraryAccess::Browse).await?;
-
     let playlist = app
         .user_playlist()
         .remove_item(AppRemoveUserPlaylistItemRequest {
-            principal_id: principal.principal_id.clone(),
+            principal: principal.clone(),
             playlist_id,
             item_id,
             expected_version: None,
@@ -251,14 +243,11 @@ async fn reorder_user_playlist_items(
     Json(request): Json<ReorderUserPlaylistItemsRequest>,
 ) -> ApiResult<impl IntoResponse> {
     let item_ids = parse_playlist_item_ids(request.item_ids)?;
-    for item_id in &item_ids {
-        require_item_access(&app, &principal, *item_id, RequiredLibraryAccess::Browse).await?;
-    }
 
     let playlist = app
         .user_playlist()
         .reorder_items(AppReorderUserPlaylistItemsRequest {
-            principal_id: principal.principal_id.clone(),
+            principal: principal.clone(),
             playlist_id,
             item_ids,
             expected_version: request.expected_version,

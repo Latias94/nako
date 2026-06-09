@@ -1,4 +1,7 @@
-use nako_core::{NakoError, UserPlaylistVisibility, UserPrincipalId};
+use nako_core::{
+    LibraryItemRepository, LibraryItemState, NakoError, UserPlaylistItemWrite,
+    UserPlaylistRepository, UserPlaylistVisibility, UserPrincipalId,
+};
 
 use super::*;
 use crate::app::user_playlist::{
@@ -9,25 +12,25 @@ use crate::app::user_playlist::{
 #[tokio::test]
 async fn user_playlist_service_creates_orders_and_reorders_private_media_state() {
     let (service, _store, first, second) = user_playlist_service_with_items().await;
-    let principal = UserPrincipalId::local_admin();
+    let principal = AuthenticatedPrincipal::bootstrap_admin();
 
     let created = service
         .create_playlist(CreateUserPlaylistRequest {
-            principal_id: principal.clone(),
+            principal_id: principal.principal_id.clone(),
             name: " Weekend queue ".to_owned(),
             created_at_ms: Some(1_000),
         })
         .await
         .unwrap();
 
-    assert_eq!(created.principal_id, principal);
+    assert_eq!(created.principal_id, principal.principal_id);
     assert_eq!(created.name, "Weekend queue");
     assert_eq!(created.visibility, UserPlaylistVisibility::Private);
     assert_eq!(created.item_count, 0);
     assert_eq!(created.version, 1);
     assert_eq!(
         service
-            .list_playlists(&principal, PageRequest::first_page())
+            .list_playlists(&principal.principal_id, PageRequest::first_page())
             .await
             .unwrap(),
         vec![created.clone()]
@@ -35,7 +38,7 @@ async fn user_playlist_service_creates_orders_and_reorders_private_media_state()
 
     let first_add = service
         .add_item(AddUserPlaylistItemRequest {
-            principal_id: principal.clone(),
+            principal: principal.clone(),
             playlist_id: created.id,
             item_id: first.item_id,
             position: None,
@@ -49,7 +52,7 @@ async fn user_playlist_service_creates_orders_and_reorders_private_media_state()
 
     let duplicate_add = service
         .add_item(AddUserPlaylistItemRequest {
-            principal_id: principal.clone(),
+            principal: principal.clone(),
             playlist_id: created.id,
             item_id: first.item_id,
             position: None,
@@ -63,7 +66,7 @@ async fn user_playlist_service_creates_orders_and_reorders_private_media_state()
 
     let second_add = service
         .add_item(AddUserPlaylistItemRequest {
-            principal_id: principal.clone(),
+            principal: principal.clone(),
             playlist_id: created.id,
             item_id: second.item_id,
             position: Some(0),
@@ -76,7 +79,11 @@ async fn user_playlist_service_creates_orders_and_reorders_private_media_state()
 
     assert_eq!(
         service
-            .list_items(&principal, created.id, PageRequest::first_page())
+            .list_items(
+                &principal.principal_id,
+                created.id,
+                PageRequest::first_page()
+            )
             .await
             .unwrap()
             .iter()
@@ -87,7 +94,7 @@ async fn user_playlist_service_creates_orders_and_reorders_private_media_state()
 
     let reordered = service
         .reorder_items(ReorderUserPlaylistItemsRequest {
-            principal_id: principal.clone(),
+            principal: principal.clone(),
             playlist_id: created.id,
             item_ids: vec![first.item_id, second.item_id],
             expected_version: Some(second_add.version),
@@ -98,7 +105,11 @@ async fn user_playlist_service_creates_orders_and_reorders_private_media_state()
     assert_eq!(reordered.version, 4);
     assert_eq!(
         service
-            .list_items(&principal, created.id, PageRequest::first_page())
+            .list_items(
+                &principal.principal_id,
+                created.id,
+                PageRequest::first_page()
+            )
             .await
             .unwrap()
             .iter()
@@ -111,11 +122,11 @@ async fn user_playlist_service_creates_orders_and_reorders_private_media_state()
 #[tokio::test]
 async fn user_playlist_service_rejects_invalid_or_stale_mutations() {
     let (service, _store, first, second) = user_playlist_service_with_items().await;
-    let principal = UserPrincipalId::local_admin();
+    let principal = AuthenticatedPrincipal::bootstrap_admin();
     let other_principal = UserPrincipalId::new("other-profile").unwrap();
     let created = service
         .create_playlist(CreateUserPlaylistRequest {
-            principal_id: principal.clone(),
+            principal_id: principal.principal_id.clone(),
             name: "Queue".to_owned(),
             created_at_ms: Some(1_000),
         })
@@ -123,7 +134,7 @@ async fn user_playlist_service_rejects_invalid_or_stale_mutations() {
         .unwrap();
     let first_add = service
         .add_item(AddUserPlaylistItemRequest {
-            principal_id: principal.clone(),
+            principal: principal.clone(),
             playlist_id: created.id,
             item_id: first.item_id,
             position: None,
@@ -134,7 +145,7 @@ async fn user_playlist_service_rejects_invalid_or_stale_mutations() {
         .unwrap();
     let second_add = service
         .add_item(AddUserPlaylistItemRequest {
-            principal_id: principal.clone(),
+            principal: principal.clone(),
             playlist_id: created.id,
             item_id: second.item_id,
             position: None,
@@ -154,7 +165,7 @@ async fn user_playlist_service_rejects_invalid_or_stale_mutations() {
     assert!(matches!(
         service
             .create_playlist(CreateUserPlaylistRequest {
-                principal_id: principal.clone(),
+                principal_id: principal.principal_id.clone(),
                 name: "   ".to_owned(),
                 created_at_ms: Some(1_300),
             })
@@ -164,7 +175,7 @@ async fn user_playlist_service_rejects_invalid_or_stale_mutations() {
     assert!(matches!(
         service
             .rename_playlist(RenameUserPlaylistRequest {
-                principal_id: principal.clone(),
+                principal_id: principal.principal_id.clone(),
                 playlist_id: created.id,
                 name: "Stale".to_owned(),
                 expected_version: Some(1),
@@ -176,7 +187,7 @@ async fn user_playlist_service_rejects_invalid_or_stale_mutations() {
     assert!(matches!(
         service
             .reorder_items(ReorderUserPlaylistItemsRequest {
-                principal_id: principal.clone(),
+                principal: principal.clone(),
                 playlist_id: created.id,
                 item_ids: vec![first.item_id, first.item_id],
                 expected_version: Some(second_add.version),
@@ -188,7 +199,7 @@ async fn user_playlist_service_rejects_invalid_or_stale_mutations() {
 
     let after_remove = service
         .remove_item(RemoveUserPlaylistItemRequest {
-            principal_id: principal.clone(),
+            principal: principal.clone(),
             playlist_id: created.id,
             item_id: second.item_id,
             expected_version: Some(second_add.version),
@@ -199,11 +210,13 @@ async fn user_playlist_service_rejects_invalid_or_stale_mutations() {
     assert_eq!(after_remove.item_count, 1);
 
     service
-        .delete_playlist(&principal, created.id)
+        .delete_playlist(&principal.principal_id, created.id)
         .await
         .unwrap();
     assert!(matches!(
-        service.get_playlist(&principal, created.id).await,
+        service
+            .get_playlist(&principal.principal_id, created.id)
+            .await,
         Err(NakoError::NotFound {
             entity: "user_playlist",
             ..
@@ -216,12 +229,12 @@ async fn user_playlist_service_is_available_from_app_composition() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "success");
     let (_temp, app, _store, source) = remux_app_with_source(ffmpeg_path).await;
-    let principal = UserPrincipalId::local_admin();
+    let principal = AuthenticatedPrincipal::bootstrap_admin();
     let service = app.user_playlist();
 
     let playlist = service
         .create_playlist(CreateUserPlaylistRequest {
-            principal_id: principal.clone(),
+            principal_id: principal.principal_id.clone(),
             name: "Composed queue".to_owned(),
             created_at_ms: Some(1_000),
         })
@@ -229,7 +242,7 @@ async fn user_playlist_service_is_available_from_app_composition() {
         .unwrap();
     let added = service
         .add_item(AddUserPlaylistItemRequest {
-            principal_id: principal,
+            principal,
             playlist_id: playlist.id,
             item_id: source.item_id,
             position: None,
@@ -240,6 +253,89 @@ async fn user_playlist_service_is_available_from_app_composition() {
         .unwrap();
 
     assert_eq!(added.item_count, 1);
+}
+
+#[tokio::test]
+async fn user_playlist_service_enforces_item_browse_access_for_mutations() {
+    let (service, store, visible, hidden) = user_playlist_service_with_items().await;
+    let principal =
+        local_viewer_with_library_access(&store, visible.library_id, LibraryAccessLevel::Browse)
+            .await;
+    let playlist = service
+        .create_playlist(CreateUserPlaylistRequest {
+            principal_id: principal.principal_id.clone(),
+            name: "Access scoped".to_owned(),
+            created_at_ms: Some(1_000),
+        })
+        .await
+        .unwrap();
+    let added = service
+        .add_item(AddUserPlaylistItemRequest {
+            principal: principal.clone(),
+            playlist_id: playlist.id,
+            item_id: visible.item_id,
+            position: None,
+            expected_version: Some(playlist.version),
+            added_at_ms: Some(1_100),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(added.item_count, 1);
+    assert!(matches!(
+        service
+            .add_item(AddUserPlaylistItemRequest {
+                principal: principal.clone(),
+                playlist_id: playlist.id,
+                item_id: hidden.item_id,
+                position: None,
+                expected_version: Some(added.version),
+                added_at_ms: Some(1_200),
+            })
+            .await,
+        Err(NakoError::Forbidden { .. })
+    ));
+
+    UserPlaylistRepository::add_user_playlist_item(
+        &store,
+        UserPlaylistItemWrite {
+            playlist_id: playlist.id,
+            principal_id: principal.principal_id.clone(),
+            item_id: hidden.item_id,
+            position: None,
+            expected_version: Some(added.version),
+            added_at_ms: 1_300,
+            updated_at_ms: 1_300,
+        },
+    )
+    .await
+    .unwrap()
+    .unwrap();
+
+    assert!(matches!(
+        service
+            .remove_item(RemoveUserPlaylistItemRequest {
+                principal: principal.clone(),
+                playlist_id: playlist.id,
+                item_id: hidden.item_id,
+                expected_version: None,
+                updated_at_ms: Some(1_400),
+            })
+            .await,
+        Err(NakoError::Forbidden { .. })
+    ));
+    assert!(matches!(
+        service
+            .reorder_items(ReorderUserPlaylistItemsRequest {
+                principal,
+                playlist_id: playlist.id,
+                item_ids: vec![hidden.item_id, visible.item_id],
+                expected_version: None,
+                updated_at_ms: Some(1_500),
+            })
+            .await,
+        Err(NakoError::Forbidden { .. })
+    ));
 }
 
 async fn user_playlist_service_with_items() -> (
@@ -258,7 +354,14 @@ async fn user_playlist_service_with_items() -> (
     };
     store.upsert_library(&library).await.unwrap();
     let first = add_playlist_source(&store, library.id, "First").await;
-    let second = add_playlist_source(&store, library.id, "Second").await;
+    let hidden_library = Library {
+        id: LibraryId::new(),
+        name: "Hidden".to_owned(),
+        roots: vec!["local:///Hidden".to_owned()],
+        options: LibraryOptions::from_preset(nako_core::LibraryPreset::Movies),
+    };
+    store.upsert_library(&hidden_library).await.unwrap();
+    let second = add_playlist_source(&store, hidden_library.id, "Second").await;
 
     (
         UserPlaylistAppService::new(store.clone()),
@@ -292,6 +395,63 @@ async fn add_playlist_source(
         fingerprint: Some(title.to_owned()),
     };
     store.upsert_media_item(&item).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id,
+            item_id: item.id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
     store.upsert_media_source(&source).await.unwrap();
     source
+}
+
+async fn local_viewer_with_library_access(
+    store: &NakoDatabase,
+    library_id: LibraryId,
+    access: LibraryAccessLevel,
+) -> AuthenticatedPrincipal {
+    let user_id = UserId::new();
+    let principal_id = UserPrincipalId::new(format!("local-user:{user_id}")).unwrap();
+    let role = UserRole::Viewer;
+    let user = User {
+        id: user_id,
+        principal_id: principal_id.clone(),
+        username: format!("{}-{}", role.as_str(), user_id),
+        display_name: "Library principal".to_owned(),
+        status: UserStatus::Active,
+        created_at_ms: 1,
+        updated_at_ms: 1,
+    };
+
+    store.upsert_user(&user).await.unwrap();
+    store
+        .replace_role_assignments(
+            user_id,
+            &[RoleAssignment {
+                user_id,
+                role,
+                granted_at_ms: 1,
+            }],
+        )
+        .await
+        .unwrap();
+    store
+        .upsert_library_access_policy(&LibraryAccessPolicy {
+            scope: LibraryAccessPolicyScope::User(user_id),
+            library_id,
+            access,
+            created_at_ms: 1,
+            updated_at_ms: 1,
+        })
+        .await
+        .unwrap();
+
+    AuthenticatedPrincipal {
+        user_id,
+        principal_id,
+        roles: vec![role],
+        bootstrap: false,
+    }
 }
