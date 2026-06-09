@@ -267,3 +267,50 @@ Moved subtitle source Play access into PlaybackAppService, made subtitle princip
 ### Next Steps
 
 - None - task complete
+
+
+## Session 105: Move renderer transport source access into app service
+
+**Date**: 2026-06-10
+**Task**: Move renderer transport source access into app service
+**Package**: nako-server
+**Branch**: `main`
+
+### Summary
+
+Moved renderer transport ticket use source Play access out of the HTTP resolver and into existing PlaybackAppService session-use methods, removed the dead route-local source access helper, added Direct/Remux/HLS renderer transport revocation regressions, documented the renderer transport access boundary, and archived the Trellis task.
+
+### Main Changes
+
+- Made renderer transport principal resolution auth/ticket-only for playback use routes.
+- Delegated current source `Play` rechecks to existing Direct, Remux, and HLS playback app-service session-use methods.
+- Removed the now-unused HTTP route-local source access helper.
+- Added renderer transport revocation regressions for Direct, Remux, and HLS playlist use.
+- Documented the renderer transport access boundary in the nako-server HTTP API spec.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c197bdee` | refactor(server): move renderer transport access into app service |
+| `82b38668` | chore(task): archive renderer transport access task |
+
+### Testing
+
+- [OK] `cargo fmt --all`
+- [OK] `cargo nextest run -p nako-server renderer_transport_direct_rejects_revoked_source_play_access_at_use --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server renderer_transport_remux_rejects_revoked_source_play_access_at_use --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server renderer_transport_hls_rejects_revoked_source_play_access_at_playlist_use --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server renderer_play_command_with_cast_ticket --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server synthetic_external_adapter_play_command_receives_cast_safe_transport_envelope --no-fail-fast`
+- [OK] `cargo check -p nako-server --tests`
+- [OK] `git diff --check`
+- [OK] `python .\.trellis\scripts\task.py validate 06-10-renderer-transport-source-access-app`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
