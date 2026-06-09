@@ -15,6 +15,12 @@ database-specific SQL and row mapping stay inside `nako-db`.
 - Use transactions for multi-table commits that must be atomic, such as catalog
   graph replacement, provider mapping commits, artwork lifecycle writes, and
   durable job state transitions.
+- PostgreSQL `SELECT DISTINCT` queries must order only by expressions present in
+  the selected projection. If a query does not join a duplicating relation,
+  prefer removing redundant `DISTINCT`; if `DISTINCT` is required, select a
+  stable typed sort projection and order by that selected expression. SQLite may
+  accept looser `DISTINCT ... ORDER BY` SQL that PostgreSQL rejects, so run the
+  ignored PostgreSQL contract when changing shared access projections.
 
 ## Migrations
 

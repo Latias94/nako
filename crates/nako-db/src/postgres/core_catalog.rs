@@ -790,7 +790,7 @@ impl MediaRepository for PostgresStore {
 fn accessible_media_item_query(principal: &AuthenticatedPrincipal) -> QueryBuilder<'_, Postgres> {
     let mut query = QueryBuilder::<Postgres>::new(
         r#"
-            SELECT DISTINCT
+            SELECT
                 items.id::text AS id,
                 items.kind,
                 items.parent_id::text AS parent_id,

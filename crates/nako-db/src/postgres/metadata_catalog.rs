@@ -1698,6 +1698,7 @@ async fn list_accessible_catalog_item_rows(
         r#"
             SELECT DISTINCT
                 mi.id::text AS id,
+                mi.id AS sort_id,
                 mi.kind,
                 mi.parent_id::text AS parent_id,
                 mi.title,
@@ -1717,7 +1718,7 @@ async fn list_accessible_catalog_item_rows(
     access::push_media_item_access_filter(&mut query, principal, "mi.id");
     query.push(
         r#"
-            ORDER BY mi.title ASC, mi.id ASC
+            ORDER BY title ASC, sort_id ASC
             LIMIT "#,
     );
     query.push_bind(u32_to_i64(page.limit));
