@@ -1910,3 +1910,38 @@ Moved Public Client user playback get/progress/watched access checks from HTTP h
 ### Next Steps
 
 - None - task complete
+
+
+## Session 97: Selected artwork access app-service boundary
+
+**Date**: 2026-06-09
+**Task**: Selected artwork access app-service boundary
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Moved selected artwork GET/HEAD Browse access from route-local http::access into ManagedArtworkAppService selected image access context; preserved selected artwork cache/ETag response helpers, added unauthorized HEAD/variant/preflight assertions, updated server HTTP spec, and archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ab761f7d` | (see git log) |
+| `ae2e6a41` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

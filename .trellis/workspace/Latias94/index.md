@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 96
+- **Total Sessions**: 97
 - **Last Active**: 2026-06-09
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~1912 | Active |
+| `journal-2.md` | ~1947 | Active |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 97 | 2026-06-09 | Selected artwork access app-service boundary | `ab761f7d`, `ae2e6a41` | `main` |
 | 96 | 2026-06-09 | Move user playback access into app service | `e9ceef47`, `9f72f1df` | `main` |
 | 95 | 2026-06-09 | Move playlist item access into app service | `bc7b0403`, `842cff7c` | `main` |
 | 94 | 2026-06-09 | Move catalog source probe access into app service | `52870be4`, `2338e748` | `main` |
