@@ -613,8 +613,8 @@ while HTTP remains the query parsing and DTO response boundary.
 
 ### 5. Good / Base / Bad Cases
 
-- Good: Direct Play route code resolves principal/ticket context with route
-  access disabled, then calls
+- Good: Direct Play route code resolves principal/ticket context with the
+  auth/ticket-only source playback resolver, then calls
   `app.playback().direct_playback_stream(...)` or
   `app.playback().direct_playback_preflight(...)`.
 - Good: Direct browser ticket use calls the session stream/preflight
@@ -662,13 +662,14 @@ let resolved = resolve_source_playback_context(
     source_id,
     BrowserPlaybackTicketMode::Direct,
     ticket.as_deref(),
-    true,
 )
 .await?;
+require_source_access(&app, &resolved.principal, source_id, RequiredLibraryAccess::Play).await?;
 ```
 
-This keeps Direct Play source `Play` access route-local and leaves future
-app-service callers able to bypass the Direct byte access boundary.
+This keeps Direct Play source `Play` access route-local after auth/ticket
+resolution and leaves future app-service callers able to bypass the Direct byte
+access boundary.
 
 #### Correct
 
@@ -679,7 +680,6 @@ let resolved = resolve_source_playback_context(
     source_id,
     BrowserPlaybackTicketMode::Direct,
     ticket.as_deref(),
-    false,
 )
 .await?;
 ```
@@ -750,15 +750,16 @@ session use.
 
 ### 5. Good / Base / Bad Cases
 
-- Good: Remux route code resolves principal/ticket context with route access
-  disabled, then calls `app.playback().remux_playback_stream(...)` or
+- Good: Remux route code resolves principal/ticket context with the
+  auth/ticket-only source playback resolver, then calls
+  `app.playback().remux_playback_stream(...)` or
   `app.playback().remux_playback_preflight(...)`.
 - Good: Remux browser ticket use calls the session stream app-service method,
   and that method rechecks Library Access before playback-session lookup or
   artifact startup.
-- Base: HLS source routes can still pass through route-local
-  `require_source_access(... Play)` until their playlist/segment flows migrate
-  in separate tasks.
+- Base: HLS playlist and segment routes use the same auth/ticket-only source
+  playback resolver and delegate source `Play` access to
+  `PlaybackAppService`.
 - Bad: Remux route code calls `require_source_access(... Play)` before
   invoking the app service, because non-HTTP Remux callers could bypass source
   access.
@@ -799,13 +800,14 @@ let resolved = resolve_source_playback_context(
     source_id,
     BrowserPlaybackTicketMode::Remux,
     ticket.as_deref(),
-    true,
 )
 .await?;
+require_source_access(&app, &resolved.principal, source_id, RequiredLibraryAccess::Play).await?;
 ```
 
-This keeps Remux source `Play` access route-local and leaves future
-app-service callers able to bypass the Remux byte access boundary.
+This keeps Remux source `Play` access route-local after auth/ticket resolution
+and leaves future app-service callers able to bypass the Remux byte access
+boundary.
 
 #### Correct
 
@@ -816,7 +818,6 @@ let resolved = resolve_source_playback_context(
     source_id,
     BrowserPlaybackTicketMode::Remux,
     ticket.as_deref(),
-    false,
 )
 .await?;
 ```
