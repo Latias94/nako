@@ -144,14 +144,6 @@ pub(super) fn parse_public_library_id(value: &str) -> Result<LibraryId> {
         })
 }
 
-pub(super) fn parse_public_source_id(value: &str) -> Result<MediaSourceId> {
-    value
-        .parse::<MediaSourceId>()
-        .map_err(|err| NakoError::InvalidInput {
-            message: format!("invalid source id in public response: {err}"),
-        })
-}
-
 pub(super) fn page_returned_len(len: usize) -> u32 {
     u32::try_from(len).unwrap_or(u32::MAX)
 }

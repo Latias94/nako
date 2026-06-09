@@ -452,6 +452,85 @@ async fn catalog_items_route_filters_access_before_pagination() {
 }
 
 #[tokio::test]
+async fn catalog_item_detail_credits_and_images_require_browse_access() {
+    let fixture = catalog_access_route_fixture().await;
+    let hidden_item = seed_catalog_route_item(
+        &fixture.store,
+        fixture.blocked_library_id,
+        "Hidden Catalog Detail",
+    )
+    .await;
+
+    let detail = response_for(
+        &fixture.router,
+        Method::GET,
+        &format!("/items/{}", hidden_item.id),
+    )
+    .await;
+    let credits = response_for(
+        &fixture.router,
+        Method::GET,
+        &format!("/items/{}/credits", hidden_item.id),
+    )
+    .await;
+    let images = response_for(
+        &fixture.router,
+        Method::GET,
+        &format!("/items/{}/images", hidden_item.id),
+    )
+    .await;
+
+    assert_eq!(detail.status(), StatusCode::FORBIDDEN);
+    assert_eq!(credits.status(), StatusCode::FORBIDDEN);
+    assert_eq!(images.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn catalog_item_detail_filters_sources_inside_app_service() {
+    let fixture = catalog_access_route_fixture().await;
+    let item = seed_catalog_route_item(
+        &fixture.store,
+        fixture.allowed_library_id,
+        "Visible Multi Source Detail",
+    )
+    .await;
+    let visible_source = fixture
+        .store
+        .list_item_sources(item.id, PageRequest::first_page())
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|source| source.library_id == fixture.allowed_library_id)
+        .unwrap();
+    let hidden_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id: fixture.blocked_library_id,
+        item_id: item.id,
+        locator: "local:///Visible Multi Source Detail Hidden.mkv".to_owned(),
+        file_name: "Visible Multi Source Detail Hidden.mkv".to_owned(),
+        size_bytes: Some(5),
+        fingerprint: None,
+    };
+    fixture
+        .store
+        .upsert_media_source(&hidden_source)
+        .await
+        .unwrap();
+
+    let detail = request_json::<nako_api::public_client::ItemDetailResponse>(
+        &fixture.router,
+        Method::GET,
+        &format!("/items/{}", item.id),
+    )
+    .await;
+
+    assert_eq!(detail.item.id, item.id.to_string());
+    assert_eq!(detail.sources.len(), 1);
+    assert_eq!(detail.sources[0].id, visible_source.id.to_string());
+    assert_ne!(detail.sources[0].id, hidden_source.id.to_string());
+}
+
+#[tokio::test]
 async fn catalog_relation_item_routes_filter_access_before_pagination() {
     let fixture = catalog_access_route_fixture().await;
     let hidden_item = seed_catalog_route_item(

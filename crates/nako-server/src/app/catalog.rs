@@ -21,12 +21,13 @@ use nako_api::{
 };
 use nako_core::{
     AuthenticatedPrincipal, CatalogGovernanceItemListFilter, CatalogGovernanceItemRecord,
-    CatalogGovernanceRepository, CatalogRepository, GenreId, LocalInferenceEvidence,
-    LocalInferenceRepository, ManagedArtworkRepository, MediaItemId, MediaProbeRepository,
-    MediaRepository, MediaSource, MediaSourceId, NakoError, PageRequest, PersonId, ProviderMapping,
-    ProviderMappingId, ProviderMappingRepository, ProviderMappingStatus, Result,
-    SourceDuplicateEvidenceKind, SourceDuplicateRelationship, SourceDuplicateRelationshipId,
-    SourceDuplicateRelationshipStatus, SourceDuplicateRepository, TagId,
+    CatalogGovernanceRepository, CatalogRepository, GenreId, IdentityAccessRepository,
+    LocalInferenceEvidence, LocalInferenceRepository, ManagedArtworkRepository, MediaItem,
+    MediaItemId, MediaProbeRepository, MediaRepository, MediaSource, MediaSourceId, NakoError,
+    PageRequest, PersonId, ProviderMapping, ProviderMappingId, ProviderMappingRepository,
+    ProviderMappingStatus, Result, SourceDuplicateEvidenceKind, SourceDuplicateRelationship,
+    SourceDuplicateRelationshipId, SourceDuplicateRelationshipStatus, SourceDuplicateRepository,
+    TagId,
 };
 use nako_db::NakoDatabase;
 use nako_search::SearchQuery;
@@ -366,18 +367,14 @@ impl CatalogAppService {
         Ok(relationship)
     }
 
-    pub async fn get_item(&self, item_id: MediaItemId) -> Result<ItemDetailResponse> {
-        let item =
-            self.store
-                .get_media_item(item_id)
-                .await?
-                .ok_or_else(|| NakoError::NotFound {
-                    entity: "media_item",
-                    id: item_id.to_string(),
-                })?;
+    pub async fn get_item(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        item_id: MediaItemId,
+    ) -> Result<ItemDetailResponse> {
+        let item = self.get_accessible_item(principal, item_id).await?;
         let sources = self
-            .store
-            .list_item_sources(item.id, PageRequest::first_page())
+            .list_accessible_item_sources(principal, item.id)
             .await?;
         let credits = self.store.list_item_credits(item.id).await?;
         let genres = self.store.list_item_genres(item.id).await?;
@@ -401,15 +398,12 @@ impl CatalogAppService {
         })
     }
 
-    pub async fn list_item_credits(&self, item_id: MediaItemId) -> Result<ItemCreditsResponse> {
-        let item =
-            self.store
-                .get_media_item(item_id)
-                .await?
-                .ok_or_else(|| NakoError::NotFound {
-                    entity: "media_item",
-                    id: item_id.to_string(),
-                })?;
+    pub async fn list_item_credits(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        item_id: MediaItemId,
+    ) -> Result<ItemCreditsResponse> {
+        let item = self.get_accessible_item(principal, item_id).await?;
         let credits = self.store.list_item_credits(item.id).await?;
         let mut people = Vec::with_capacity(credits.len());
 
@@ -426,20 +420,75 @@ impl CatalogAppService {
         })
     }
 
-    pub async fn list_item_images(&self, item_id: MediaItemId) -> Result<ImagesResponse> {
-        self.store
-            .get_media_item(item_id)
-            .await?
-            .ok_or_else(|| NakoError::NotFound {
-                entity: "media_item",
-                id: item_id.to_string(),
-            })?;
-        let images = self.list_selected_item_image_refs(item_id).await?;
+    pub async fn list_item_images(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        item_id: MediaItemId,
+    ) -> Result<ImagesResponse> {
+        let item = self.get_accessible_item(principal, item_id).await?;
+        let images = self.list_selected_item_image_refs(item.id).await?;
 
         Ok(ImagesResponse {
-            item_id: item_id.to_string(),
+            item_id: item.id.to_string(),
             images,
         })
+    }
+
+    async fn get_accessible_item(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        item_id: MediaItemId,
+    ) -> Result<MediaItem> {
+        let item =
+            self.store
+                .get_media_item(item_id)
+                .await?
+                .ok_or_else(|| NakoError::NotFound {
+                    entity: "media_item",
+                    id: item_id.to_string(),
+                })?;
+
+        if principal.is_administrator() {
+            return Ok(item);
+        }
+
+        let accessible = self
+            .store
+            .list_accessible_media_items_by_ids(principal, &[item.id])
+            .await?;
+        if accessible.is_empty() {
+            return Err(library_browse_access_forbidden());
+        }
+
+        Ok(item)
+    }
+
+    async fn list_accessible_item_sources(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        item_id: MediaItemId,
+    ) -> Result<Vec<MediaSource>> {
+        let sources = self
+            .store
+            .list_item_sources(item_id, PageRequest::first_page())
+            .await?;
+
+        if principal.is_administrator() {
+            return Ok(sources);
+        }
+
+        let mut visible_sources = Vec::with_capacity(sources.len());
+        for source in sources {
+            let effective = self
+                .store
+                .resolve_effective_library_access(principal.user_id, source.library_id)
+                .await?;
+            if effective.access.allows_browse() {
+                visible_sources.push(source);
+            }
+        }
+
+        Ok(visible_sources)
     }
 
     async fn list_selected_item_image_refs(
@@ -490,9 +539,7 @@ impl CatalogAppService {
                 .list_accessible_person_items(principal, person.id, PageRequest::new(1, 0))
                 .await?;
             if visible_items.is_empty() {
-                return Err(NakoError::Forbidden {
-                    message: "required Library Access level 'browse' is not available".to_owned(),
-                });
+                return Err(library_browse_access_forbidden());
             }
         }
 
@@ -684,6 +731,12 @@ impl CatalogAppService {
                 entity: "media_source",
                 id: source_id.to_string(),
             })
+    }
+}
+
+fn library_browse_access_forbidden() -> NakoError {
+    NakoError::Forbidden {
+        message: "required Library Access level 'browse' is not available".to_owned(),
     }
 }
 

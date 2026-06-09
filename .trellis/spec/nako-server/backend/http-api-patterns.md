@@ -105,6 +105,79 @@ pub(super) fn routes() -> Router<NakoApp> {
 For a new route in an existing admin module, add it to the existing
 `admin::routes()` chain so it inherits the admin principal check.
 
+## Scenario: Public Catalog Read Access Boundary
+
+### 1. Scope / Trigger
+
+- Trigger: changing Public Catalog browse, search, relation, detail, credits,
+  images, or source-shaped read routes in `crates/nako-server/src/http/catalog.rs`.
+- Code evidence: `src/http/catalog.rs`, `src/app/catalog.rs`,
+  `src/http/tests/catalog.rs`.
+
+### 2. Signatures
+
+- Catalog HTTP handlers take `Extension(AuthenticatedPrincipal)` and pass it to
+  `CatalogAppService`.
+- Public item detail surfaces use app-service methods such as:
+  - `CatalogAppService::get_item(&AuthenticatedPrincipal, MediaItemId)`
+  - `CatalogAppService::list_item_credits(&AuthenticatedPrincipal, MediaItemId)`
+  - `CatalogAppService::list_item_images(&AuthenticatedPrincipal, MediaItemId)`
+
+### 3. Contracts
+
+- HTTP handlers parse path/query inputs and return `nako_api::public_client`
+  DTOs only.
+- Public Catalog app services own browse access enforcement before response
+  shaping for catalog read surfaces.
+- Item detail source DTOs must be selected from accessible source records before
+  DTO construction. Do not filter `ItemDetailResponse.sources` in HTTP after the
+  DTO is built.
+- `http::access::require_item_access` remains available for non-catalog routes
+  whose semantics are still owned by their route slice, such as metadata,
+  playlist, and user playback.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Unknown item id | `NakoError::NotFound { entity: "media_item", ... }` |
+| Ordinary principal cannot browse any source for item | `NakoError::Forbidden` with required Library Access level `browse` |
+| Ordinary principal can browse only some sources on visible item | Detail returns the item and only accessible source DTOs |
+| Administrator principal reads source-less or multi-source item | Preserve administrator access semantics |
+
+### 5. Good / Base / Bad Cases
+
+- Good: `/items/{item_id}` calls `app.catalog().get_item(&principal, item_id)`
+  and the app service returns only browse-visible sources.
+- Base: selected artwork byte routes still use route-local artwork access
+  guards until their own app-service boundary exists.
+- Bad: route code calls `require_item_access`, then builds an unfiltered item
+  detail response, then removes inaccessible source DTOs afterward.
+
+### 6. Tests Required
+
+- Focused catalog route tests for hidden item detail, credits, and images
+  returning `403`.
+- Focused catalog route test proving visible item detail omits hidden sources.
+- Focused gate:
+  `cargo nextest run -p nako-server http::tests::catalog --no-fail-fast`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+require_item_access(&app, &principal, item_id, RequiredLibraryAccess::Browse).await?;
+let detail = app.catalog().get_item(item_id).await?;
+Ok(Json(filter_item_detail_sources(&app, &principal, detail).await?))
+```
+
+#### Correct
+
+```rust
+Ok(Json(app.catalog().get_item(&principal, item_id).await?))
+```
+
 ## Scenario: HTTP Request Trace Context
 
 ### 1. Scope / Trigger

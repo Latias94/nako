@@ -6,7 +6,7 @@ use axum::{
     response::IntoResponse,
     routing::get,
 };
-use nako_api::public_client::{ItemDetailResponse, SourceProbeResponse};
+use nako_api::public_client::SourceProbeResponse;
 use nako_core::{
     AuthenticatedPrincipal, GenreId, MediaItemId, MediaSourceId, PersonId, SelectedArtworkId, TagId,
 };
@@ -15,10 +15,7 @@ use tracing::instrument;
 use crate::app::NakoApp;
 
 use super::{
-    access::{
-        RequiredLibraryAccess, parse_public_source_id, require_item_access,
-        require_selected_artwork_access, require_source_access,
-    },
+    access::{RequiredLibraryAccess, require_selected_artwork_access, require_source_access},
     error::ApiResult,
     query::{ImageVariantQuery, PageQuery, SearchPageQuery},
 };
@@ -60,12 +57,7 @@ pub(super) async fn get_item(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(item_id): Path<MediaItemId>,
 ) -> ApiResult<impl IntoResponse> {
-    require_item_access(&app, &principal, item_id, RequiredLibraryAccess::Browse).await?;
-
-    Ok(Json(
-        filter_item_detail_sources(&app, &principal, app.catalog().get_item(item_id).await?)
-            .await?,
-    ))
+    Ok(Json(app.catalog().get_item(&principal, item_id).await?))
 }
 
 #[instrument(skip(app))]
@@ -74,9 +66,9 @@ pub(super) async fn list_item_credits(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(item_id): Path<MediaItemId>,
 ) -> ApiResult<impl IntoResponse> {
-    require_item_access(&app, &principal, item_id, RequiredLibraryAccess::Browse).await?;
-
-    Ok(Json(app.catalog().list_item_credits(item_id).await?))
+    Ok(Json(
+        app.catalog().list_item_credits(&principal, item_id).await?,
+    ))
 }
 
 #[instrument(skip(app))]
@@ -85,9 +77,9 @@ pub(super) async fn list_item_images(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(item_id): Path<MediaItemId>,
 ) -> ApiResult<impl IntoResponse> {
-    require_item_access(&app, &principal, item_id, RequiredLibraryAccess::Browse).await?;
-
-    Ok(Json(app.catalog().list_item_images(item_id).await?))
+    Ok(Json(
+        app.catalog().list_item_images(&principal, item_id).await?,
+    ))
 }
 
 #[instrument(skip(app))]
@@ -275,34 +267,6 @@ pub(super) async fn get_source_probe(
     require_source_access(&app, &principal, source_id, RequiredLibraryAccess::Browse).await?;
 
     Ok(Json(app.catalog().get_source_probe(source_id).await?))
-}
-
-async fn filter_item_detail_sources(
-    app: &NakoApp,
-    principal: &AuthenticatedPrincipal,
-    mut detail: ItemDetailResponse,
-) -> ApiResult<ItemDetailResponse> {
-    let mut sources = Vec::with_capacity(detail.sources.len());
-
-    for source in detail.sources {
-        let source_id = parse_public_source_id(&source.id)?;
-        if let Some(record) = app.get_media_source_record(source_id).await? {
-            if super::access::has_library_access(
-                app,
-                principal,
-                record.library_id,
-                RequiredLibraryAccess::Browse,
-            )
-            .await?
-            {
-                sources.push(source);
-            }
-        }
-    }
-
-    detail.sources = sources;
-
-    Ok(detail)
 }
 
 async fn selected_image_preflight_response(
