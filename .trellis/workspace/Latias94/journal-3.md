@@ -121,3 +121,50 @@ Moved Direct Play source Play access into PlaybackAppService for GET/HEAD and ti
 ### Next Steps
 
 - None - task complete
+
+
+## Session 102: Move remux playback source access into app service
+
+**Date**: 2026-06-09
+**Task**: Move remux playback source access into app service
+**Package**: nako-server
+**Branch**: `main`
+
+### Summary
+
+Moved Remux source Play access into PlaybackAppService for GET/HEAD and ticket-backed use, added app and HTTP regressions, documented the Remux access boundary, and archived the Trellis task.
+
+### Main Changes
+
+- Moved Remux GET/HEAD source `Play` access from route-local checks into `PlaybackAppService`.
+- Added current source `Play` access rechecks for Remux browser-ticket-backed session stream use.
+- Preserved HLS/subtitle/renderer transport route-local access for dedicated follow-up slices.
+- Added app-service and HTTP regressions for browse-only principals and revoked Remux browser tickets.
+- Documented the Remux Playback Access Boundary in the nako-server backend HTTP API spec.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `64ea0754` | (see git log) |
+| `baad19f8` | (see git log) |
+
+### Testing
+
+- [OK] `cargo fmt --all`
+- [OK] `cargo nextest run -p nako-server remux_playback_rejects_browse_only_access_before_policy_details --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server playback_routes_require_play_library_access --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server remux_browser_playback_ticket_rejects_revocation_at_use --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server remux_stream --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server remux --no-fail-fast`
+- [OK] `cargo check -p nako-server --tests`
+- [OK] `git diff --check`
+- [OK] `python .\.trellis\scripts\task.py validate 06-09-remux-playback-source-access-app`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
