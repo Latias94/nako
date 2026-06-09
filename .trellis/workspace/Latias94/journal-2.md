@@ -1770,3 +1770,38 @@ Moved Public Catalog search access filtering into SQLite/PostgreSQL search docum
 ### Next Steps
 
 - None - task complete
+
+
+## Session 93: Move catalog item detail access into app service
+
+**Date**: 2026-06-09
+**Task**: Move catalog item detail access into app service
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Moved Public Catalog item detail, credits, and images browse access into CatalogAppService; filtered detail sources before DTO construction; added focused HTTP regressions and archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `70883416` | (see git log) |
+| `851ede79` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
