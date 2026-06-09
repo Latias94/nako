@@ -1,0 +1,10 @@
+{"file":".trellis/spec/nako-search/backend/index.md","reason":"Keep search scoring and query evaluation transport-free and deterministic."}
+{"file":".trellis/spec/nako-db/backend/database-guidelines.md","reason":"Add adapter-local access predicates and preserve SQLite/PostgreSQL query parity."}
+{"file":".trellis/spec/nako-db/backend/quality-guidelines.md","reason":"Repository-backed browse/search access behavior needs backend-agnostic contract coverage."}
+{"file":".trellis/spec/nako-core/backend/database-guidelines.md","reason":"Keep repository contracts bounded and do not expose SQL-specific shape through core."}
+{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Public `/search` route remains a thin HTTP handler delegating to app service."}
+{"file":".trellis/spec/nako-server/backend/database-guidelines.md","reason":"Server must use repository/database facade methods rather than coordinating persistence itself."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Run focused catalog route tests for public search behavior."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Change crosses database projection, search scoring, and server DTO mapping."}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Reuse existing access predicate helpers and search document mapping logic."}
+{"file":"docs/architecture/STATE_ACCESS.md","reason":"Search access should respect API scale and Library Access boundaries."}
