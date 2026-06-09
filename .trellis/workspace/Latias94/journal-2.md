@@ -207,7 +207,12 @@ Added SourceFingerprintHashJobSummary as a redaction-safe projection of hash rep
 
 ### Main Changes
 
-(Add details)
+- Removed route-local source Play access from renderer play command HTTP.
+- Added renderer playback app-service source Play access guard before runtime
+  records are created.
+- Added app and HTTP regressions for browse-only renderer play denial.
+- Documented renderer play access boundary in the nako-server HTTP spec.
+- Archived Trellis task `06-09-renderer-source-access-app`.
 
 ### Git Commits
 
@@ -218,7 +223,11 @@ Added SourceFingerprintHashJobSummary as a redaction-safe projection of hash rep
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] cargo fmt --all
+- [OK] cargo check -p nako-server --tests
+- [OK] cargo nextest run -p nako-server renderer --no-fail-fast
+- [OK] git diff --check
+- [OK] python ./.trellis/scripts/task.py validate 06-09-renderer-source-access-app
 
 ### Status
 
@@ -1933,6 +1942,41 @@ Moved selected artwork GET/HEAD Browse access from route-local http::access into
 |------|---------|
 | `ab761f7d` | (see git log) |
 | `ae2e6a41` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 98: Renderer source access app boundary
+
+**Date**: 2026-06-09
+**Task**: Renderer source access app boundary
+**Package**: nako-server
+**Branch**: `main`
+
+### Summary
+
+Moved renderer play command source Play access from HTTP route into the app-service playback boundary, added app and route regressions for browse-only denial, updated server HTTP access-boundary spec, and archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2489ca3c` | (see git log) |
+| `bfe11af9` | (see git log) |
 
 ### Testing
 
