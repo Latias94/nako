@@ -951,6 +951,8 @@ impl PlaybackAppService {
         &self,
         request: DirectPlaybackSessionStreamRequest,
     ) -> Result<DirectPlaybackStreamOutput> {
+        self.ensure_source_play_access(&request.principal, request.source_id)
+            .await?;
         let session = self
             .existing_playback_session_for_media_request(
                 &request.principal,
@@ -985,6 +987,8 @@ impl PlaybackAppService {
         &self,
         request: DirectPlaybackSessionStreamRequest,
     ) -> Result<DirectPlaybackPreflightOutput> {
+        self.ensure_source_play_access(&request.principal, request.source_id)
+            .await?;
         let session = self
             .existing_playback_session_for_media_request(
                 &request.principal,
@@ -1475,7 +1479,7 @@ impl PlaybackAppService {
     ) -> Result<()> {
         let source = self.get_source_or_not_found(source_id).await?;
         let effective_policy = self
-            .effective_playback_policy_for_source(principal, &source)
+            .effective_playback_policy_for_playable_source(principal, &source)
             .await?;
         let context = self.playback_selection_context_for_source(&source).await?;
         if context.storage.remote {
@@ -1485,6 +1489,19 @@ impl PlaybackAppService {
             )?;
         }
         ensure_playback_permission_allowed(&effective_policy, PlaybackPermission::DirectPlay)
+    }
+
+    async fn ensure_source_play_access(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        source_id: MediaSourceId,
+    ) -> Result<()> {
+        let source = self.get_source_or_not_found(source_id).await?;
+        let _ = self
+            .effective_playback_policy_for_playable_source(principal, &source)
+            .await?;
+
+        Ok(())
     }
 
     async fn ensure_subtitle_playback_allowed_for_source(

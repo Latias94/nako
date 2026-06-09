@@ -487,6 +487,15 @@ async fn playback_routes_require_play_library_access() {
         decision.message
     );
     assert_eq!(stream.status(), StatusCode::FORBIDDEN);
+    let stream: ErrorResponse = body_json(stream).await;
+    assert_eq!(stream.code, "forbidden");
+    assert!(
+        stream
+            .message
+            .contains("required Library Access level 'play'"),
+        "expected library play access denial, got {}",
+        stream.message
+    );
 }
 
 #[tokio::test]
@@ -1297,6 +1306,15 @@ async fn browser_playback_ticket_rejects_browse_only_access_and_revocation_at_us
 
     let revoked = response_for(&play_router, Method::GET, &ticket.urls[0].url).await;
     assert_eq!(revoked.status(), StatusCode::FORBIDDEN);
+    let revoked: ErrorResponse = body_json(revoked).await;
+    assert_eq!(revoked.code, "forbidden");
+    assert!(
+        revoked
+            .message
+            .contains("required Library Access level 'play'"),
+        "expected library play access denial after revocation, got {}",
+        revoked.message
+    );
 }
 
 #[tokio::test]

@@ -426,6 +426,76 @@ async fn direct_playback_policy_denial_does_not_create_session() {
 }
 
 #[tokio::test]
+async fn direct_playback_rejects_browse_only_access_before_policy_details() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "direct_browse_only_access");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let principal = local_playback_principal_with_library_access(
+        &store,
+        source.library_id,
+        LibraryAccessLevel::Browse,
+    )
+    .await;
+    let mut permissions = PlaybackPermissionPolicy::current_playback_defaults();
+    permissions.allow_direct_play = false;
+    store
+        .upsert_playback_policy(&PlaybackPolicy::user(
+            principal.user_id,
+            source.library_id,
+            permissions,
+            2,
+        ))
+        .await
+        .unwrap();
+
+    let stream_err = app
+        .playback()
+        .direct_playback_stream(DirectPlaybackStreamRequest {
+            principal: principal.clone(),
+            source_id: source.id,
+            range_request: DirectPlayRangeRequest::None,
+            client: ClientPlaybackCapabilities::default(),
+        })
+        .await
+        .unwrap_err();
+    let NakoError::Forbidden { message } = stream_err else {
+        panic!("expected library access forbidden error");
+    };
+    assert!(message.contains("required Library Access level 'play'"));
+    assert!(!message.contains("direct_play"));
+
+    let preflight_err = app
+        .playback()
+        .direct_playback_preflight(DirectPlaybackPreflightRequest {
+            principal: principal.clone(),
+            source_id: source.id,
+            range_request: DirectPlayRangeRequest::None,
+            client: ClientPlaybackCapabilities::default(),
+        })
+        .await
+        .unwrap_err();
+    let NakoError::Forbidden { message } = preflight_err else {
+        panic!("expected library access forbidden error");
+    };
+    assert!(message.contains("required Library Access level 'play'"));
+    assert!(!message.contains("direct_play"));
+    assert!(
+        store
+            .list_playback_sessions(
+                PlaybackSessionListFilter {
+                    principal_id: Some(principal.principal_id),
+                    source_id: Some(source.id),
+                    state: None,
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
 async fn remux_playback_policy_denial_does_not_create_sessions_or_artifacts() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "policy_denied_remux");

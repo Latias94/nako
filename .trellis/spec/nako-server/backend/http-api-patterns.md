@@ -552,6 +552,141 @@ Ok(Json(
 The app service owns source `Play` access before planning and policy details,
 while HTTP remains the query parsing and DTO response boundary.
 
+## Scenario: Direct Playback Access Boundary
+
+### 1. Scope / Trigger
+
+- Trigger: changing Direct Play source byte routes,
+  `PlaybackAppService::direct_playback_stream`,
+  `PlaybackAppService::direct_playback_preflight`, or browser-ticket-backed
+  Direct Play session stream/preflight use in `crates/nako-server`.
+- Code evidence: `src/http/playback.rs`, `src/app/playback/mod.rs`,
+  `src/http/tests/playback.rs`, `src/app/tests/playback.rs`.
+
+### 2. Signatures
+
+- Direct Play HTTP GET/HEAD handlers resolve an
+  `AuthenticatedPrincipal` or validated browser playback ticket principal and
+  call app-service Direct Play methods.
+- `PlaybackAppService::direct_playback_stream(DirectPlaybackStreamRequest)`
+  owns source loading, source `Play` Library Access, Direct Play playback
+  policy admission, and Direct Play response planning.
+- `PlaybackAppService::direct_playback_preflight(DirectPlaybackPreflightRequest)`
+  owns the same access and policy admission for HEAD/preflight response plans.
+- `PlaybackAppService::direct_playback_session_stream(DirectPlaybackSessionStreamRequest)`
+  and `PlaybackAppService::direct_playback_session_preflight(DirectPlaybackSessionStreamRequest)`
+  recheck current source `Play` Library Access when a previously issued Direct
+  browser ticket/session is used.
+
+### 3. Contracts
+
+- Direct Play `/sources/{source_id}/stream` GET/HEAD HTTP handlers parse
+  request ranges, validate auth or tickets, assemble byte responses and
+  headers, and delegate source `Play` access to the app service.
+- Direct Play HTTP handlers must not call route-local
+  `require_source_access(... RequiredLibraryAccess::Play)` for ordinary
+  principal or Direct browser ticket paths.
+- `PlaybackAppService::direct_playback_stream` and
+  `PlaybackAppService::direct_playback_preflight` must enforce source `Play`
+  Library Access before playback policy details, storage capability checks,
+  byte plans, or playback sessions are exposed.
+- Ticket-backed Direct session stream/preflight use must recheck current source
+  `Play` Library Access at use time, so access revocation after ticket issue is
+  effective.
+- Ticket-backed Direct session stream/preflight use does not re-evaluate
+  Direct Play playback policy at use time; mode policy is validated when the
+  browser ticket is issued.
+- Remux, HLS, subtitle, and renderer transport routes retain their existing
+  access boundaries until dedicated migration tasks move those slices.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Ordinary principal has Browse but not Play access for the source library | Direct Play GET/HEAD returns `403` with required Library Access level `play` |
+| Ordinary principal has Play access but Direct Play is disabled by playback policy | Direct Play app-service flow returns the mode-specific playback-policy denial |
+| Direct browser ticket was issued, then source Play access is revoked before use | Ticket-backed Direct byte route returns `403` with required Library Access level `play` |
+| Direct browser ticket is missing, malformed, expired, wrong-mode, or has the wrong subject | Preserve existing browser ticket unauthorized/forbidden behavior |
+| Unknown source ID | Preserve `NakoError::NotFound` for `media_source` |
+| Administrator requests Direct Play | Preserve administrator access and playback-policy semantics |
+
+### 5. Good / Base / Bad Cases
+
+- Good: Direct Play route code resolves principal/ticket context with route
+  access disabled, then calls
+  `app.playback().direct_playback_stream(...)` or
+  `app.playback().direct_playback_preflight(...)`.
+- Good: Direct browser ticket use calls the session stream/preflight
+  app-service methods, and those methods recheck Library Access before looking
+  up reusable playback sessions.
+- Base: Remux and HLS source routes can still pass through route-local
+  `require_source_access(... Play)` until their artifact/session flows migrate
+  in separate tasks.
+- Bad: Direct Play route code calls `require_source_access(... Play)` before
+  invoking the app service, because non-HTTP Direct Play callers could bypass
+  source access.
+- Bad: Direct Play policy checks run before source `Play` Library Access,
+  because browse-only users would learn policy details such as `direct_play`.
+- Bad: Direct browser ticket use trusts the issued ticket without a current
+  source `Play` recheck, because revocation after ticket issue would not take
+  effect.
+
+### 6. Tests Required
+
+- App-service test proving a browse-only principal cannot call both
+  `direct_playback_stream` and `direct_playback_preflight`, receives the
+  standard Library Access `play` message before `direct_play` policy details,
+  and creates no playback session.
+- HTTP route test proving a browse-only Direct Play stream request returns
+  `403` with the same public Library Access message.
+- HTTP route test proving a previously issued Direct browser ticket is rejected
+  after source `Play` access is revoked.
+- Existing Direct Play route gates must continue covering GET, HEAD/no-body,
+  range handling, cache-control, playback-session headers, and ticket
+  validation behavior.
+- Focused gates:
+  `cargo nextest run -p nako-server direct_stream --no-fail-fast`,
+  `cargo nextest run -p nako-server direct_playback_rejects_browse_only_access_before_policy_details --no-fail-fast`,
+  `cargo nextest run -p nako-server browser_playback_ticket_rejects_browse_only_access_and_revocation_at_use --no-fail-fast`,
+  and `cargo check -p nako-server --tests`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+let resolved = resolve_source_playback_context(
+    Extension(principal),
+    &app,
+    source_id,
+    BrowserPlaybackTicketMode::Direct,
+    ticket.as_deref(),
+    true,
+)
+.await?;
+```
+
+This keeps Direct Play source `Play` access route-local and leaves future
+app-service callers able to bypass the Direct byte access boundary.
+
+#### Correct
+
+```rust
+let resolved = resolve_source_playback_context(
+    Extension(principal),
+    &app,
+    source_id,
+    BrowserPlaybackTicketMode::Direct,
+    ticket.as_deref(),
+    false,
+)
+.await?;
+```
+
+The route still owns auth/ticket resolution and byte response mechanics, while
+`PlaybackAppService` owns source `Play` access before Direct Play planning or
+session use.
+
 ## Scenario: Browser Playback Ticket Access Boundary
 
 ### 1. Scope / Trigger
