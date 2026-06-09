@@ -43,11 +43,7 @@ use crate::app::{
     },
 };
 
-use super::{
-    access::{RequiredLibraryAccess, require_source_access},
-    error::ApiResult,
-    query::PageQuery,
-};
+use super::{error::ApiResult, query::PageQuery};
 
 pub(super) fn routes() -> Router<NakoApp> {
     Router::new()
@@ -168,7 +164,6 @@ async fn play_on_renderer(
     Json(request): Json<RendererPlayCommandRequest>,
 ) -> ApiResult<Json<RendererPlayCommandResponse>> {
     let source_id = parse_media_source_id(&request.source_id)?;
-    require_source_access(&app, &principal, source_id, RequiredLibraryAccess::Play).await?;
 
     let output = app
         .casting()

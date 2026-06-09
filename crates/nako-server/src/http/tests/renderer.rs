@@ -288,6 +288,78 @@ async fn renderer_play_command_denied_by_policy_creates_no_runtime_records() {
 }
 
 #[tokio::test]
+async fn renderer_play_command_denied_without_source_play_access_creates_no_runtime_records() {
+    let (_temp, app, source, store) =
+        app_with_media_source_config("movie.mp4", b"movie bytes", |_| {}).await;
+    let principal =
+        local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Browse)
+            .await;
+    let router = public_client_router_with_principal(app, principal);
+    let registered: RendererSessionResponse = request_body_json(
+        &router,
+        Method::POST,
+        "/renderers",
+        &renderer_registration_request("Browse Only Desktop"),
+    )
+    .await;
+    let renderer_session_id = registered.renderer.id.parse::<RendererSessionId>().unwrap();
+
+    let response = response_body_json(
+        &router,
+        Method::POST,
+        &format!("/renderers/{renderer_session_id}/commands/play"),
+        &RendererPlayCommandRequest {
+            source_id: source.id.to_string(),
+            position_ms: None,
+        },
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let body: ErrorResponse = body_json(response).await;
+    assert_eq!(body.code, "forbidden");
+    assert!(
+        body.message
+            .contains("required Library Access level 'play'"),
+        "expected library play access denial, got {}",
+        body.message
+    );
+    assert!(
+        store
+            .list_playback_sessions(
+                PlaybackSessionListFilter::default(),
+                PageRequest::first_page()
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .list_renderer_commands(
+                RendererCommandListFilter {
+                    renderer_session_id: Some(renderer_session_id),
+                    state: None,
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .list_transcode_sessions(
+                TranscodeSessionListFilter::default(),
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
 async fn renderer_play_command_with_cast_ticket_remux_returns_ticketed_transport() {
     let (_temp, router, source, _staging_root, _ffmpeg_path, _marker, store) =
         router_with_remux_source(false).await;

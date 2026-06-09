@@ -95,7 +95,7 @@ pub(crate) use playback::{
     HlsPlaylistSessionRequest, HlsSourceRequest, PlaybackSessionHeartbeatRequest,
     PlaybackTraceContext, RemuxPlaybackPreflightRequest, RemuxPlaybackSessionStreamRequest,
     RemuxPlaybackStreamRequest, RemuxSourceRequest, RendererPlaybackTransportPlan,
-    StartPlaybackSessionRequest, SubtitlePlaybackRequest,
+    StartPlaybackSessionRequest, StartRendererPlaybackSessionRequest, SubtitlePlaybackRequest,
 };
 pub(crate) use playback_ticket::{
     BrowserPlaybackTicketMode, BrowserPlaybackTicketService, IssuedBrowserPlaybackTicket,

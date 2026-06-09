@@ -1,5 +1,7 @@
 use super::*;
 
+use nako_playback::PlaybackTarget;
+
 fn process_backed_hls_playlist_readiness_timeout() -> std::time::Duration {
     // Full-suite HLS gates on Windows start many fake FFmpeg processes at once.
     // Keep this guard above that startup tail while still bounding a hang.
@@ -468,6 +470,60 @@ async fn hls_playback_policy_denial_does_not_create_sessions_or_artifacts() {
                     kind: Some(TranscodeSessionKind::HlsTranscode),
                     state: None,
                 },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn renderer_playback_session_enforces_source_play_access_before_runtime_records() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "renderer_source_access_denied");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let principal = local_playback_principal_with_library_access(
+        &store,
+        source.library_id,
+        LibraryAccessLevel::Browse,
+    )
+    .await;
+
+    let err = app
+        .playback()
+        .start_renderer_playback_session(StartRendererPlaybackSessionRequest {
+            principal,
+            source_id: source.id,
+            target: PlaybackTarget::browser_with_capabilities(
+                "Renderer",
+                ClientPlaybackCapabilities::default(),
+            ),
+        })
+        .await
+        .unwrap_err();
+
+    let NakoError::Forbidden { message } = err else {
+        panic!("expected renderer source access forbidden error");
+    };
+    assert!(
+        message.contains("required Library Access level 'play'"),
+        "expected library play access denial, got {message}"
+    );
+    assert!(
+        store
+            .list_playback_sessions(
+                PlaybackSessionListFilter::default(),
+                PageRequest::first_page()
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .list_transcode_sessions(
+                TranscodeSessionListFilter::default(),
                 PageRequest::first_page(),
             )
             .await
@@ -3516,6 +3572,14 @@ async fn local_playback_viewer(
     store: &NakoDatabase,
     library_id: LibraryId,
 ) -> AuthenticatedPrincipal {
+    local_playback_principal_with_library_access(store, library_id, LibraryAccessLevel::Play).await
+}
+
+async fn local_playback_principal_with_library_access(
+    store: &NakoDatabase,
+    library_id: LibraryId,
+    access: LibraryAccessLevel,
+) -> AuthenticatedPrincipal {
     let user_id = UserId::new();
     let principal_id = UserPrincipalId::new(format!("local-user:{user_id}")).unwrap();
     let user = User {
@@ -3544,7 +3608,7 @@ async fn local_playback_viewer(
         .upsert_library_access_policy(&LibraryAccessPolicy {
             scope: LibraryAccessPolicyScope::User(user_id),
             library_id,
-            access: LibraryAccessLevel::Play,
+            access,
             created_at_ms: 1,
             updated_at_ms: 1,
         })

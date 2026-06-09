@@ -353,6 +353,104 @@ app.user_playback()
     .await?;
 ```
 
+## Scenario: Renderer Play Command Access Boundary
+
+### 1. Scope / Trigger
+
+- Trigger: changing Public Client renderer play command creation, renderer
+  playback-session startup, renderer command runtime records, or renderer
+  source access checks in `crates/nako-server`.
+- Code evidence: `src/http/renderer.rs`, `src/app/casting.rs`,
+  `src/app/playback/renderer_flow.rs`, `src/http/tests/renderer.rs`,
+  `src/app/tests/playback.rs`.
+
+### 2. Signatures
+
+- Renderer play HTTP handlers take `Extension(AuthenticatedPrincipal)` and pass
+  the full principal into `CastingAppService`.
+- `CastingAppService::play_on_renderer(PlayOnRendererRequest)` carries:
+  - `principal: AuthenticatedPrincipal`
+  - `renderer_session_id: RendererSessionId`
+  - `source_id: MediaSourceId`
+  - `position_ms: Option<u64>`
+- `PlaybackAppService::start_renderer_playback_session(StartRendererPlaybackSessionRequest)`
+  owns renderer playback planning after source access is enforced.
+
+### 3. Contracts
+
+- HTTP handlers parse `source_id`, path IDs, and JSON bodies only. They must not
+  call `require_source_access` for renderer play command routes.
+- Renderer play command creation must enforce source `Play` Library Access in
+  the app-service path before playback sessions, renderer commands, transcode
+  sessions, or HLS artifacts are created.
+- Playback policy checks such as `remote_control` remain separate from Library
+  Access. A principal without source `Play` access receives the standard
+  Library Access forbidden message before playback-policy details are exposed.
+- Renderer ownership, control capability checks, transport ticket construction,
+  and Direct/Remux/HLS transport selection remain app-service responsibilities.
+- `http::access::require_source_access` remains available for playback and
+  other route slices that have not migrated their access boundary yet.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Ordinary principal has Browse but not Play access for the source library | Renderer play command returns `403` with required Library Access level `play` |
+| Ordinary principal has Play access but remote-control playback policy is disabled | Renderer play command returns `403` mentioning `remote_control` |
+| Renderer play command is rejected before runtime startup | No playback session, renderer command, transcode session, or HLS artifact is created |
+| Administrator starts renderer playback | Preserve administrator access and playback-policy semantics |
+| Unknown source ID | Preserve `NakoError::NotFound` for `media_source` |
+
+### 5. Good / Base / Bad Cases
+
+- Good: `/renderers/{renderer_session_id}/commands/play` parses source ID and
+  delegates to `app.casting().play_on_renderer(AppPlayOnRendererRequest { principal, ... })`.
+- Base: playback byte routes still own route-local access until their broader
+  ticket/session variants migrate in a dedicated task.
+- Bad: route code calls `require_source_access(... Play)` before invoking
+  `CastingAppService`, because non-HTTP renderer callers could bypass the
+  access decision.
+
+### 6. Tests Required
+
+- App-service test proving a browse-only principal cannot start a renderer
+  playback session and no runtime records are created.
+- HTTP route test proving a browse-only principal receives `403` and no
+  renderer command or playback/transcode runtime record is created.
+- Existing renderer policy-denial route tests must continue proving Play access
+  plus disabled `remote_control` policy still returns the playback-policy
+  denial.
+- Focused gate:
+  `cargo nextest run -p nako-server renderer --no-fail-fast`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+require_source_access(&app, &principal, source_id, RequiredLibraryAccess::Play).await?;
+app.casting().play_on_renderer(request).await?;
+```
+
+This makes HTTP the access authority and leaves future app-service callers able
+to bypass renderer source access.
+
+#### Correct
+
+```rust
+app.casting()
+    .play_on_renderer(AppPlayOnRendererRequest {
+        principal,
+        renderer_session_id,
+        source_id,
+        position_ms,
+    })
+    .await?;
+```
+
+The app-service path owns source `Play` access before runtime records are
+created, while HTTP remains a DTO and extractor boundary.
+
 ## Scenario: HTTP Request Trace Context
 
 ### 1. Scope / Trigger

@@ -15,12 +15,12 @@ pub(super) async fn start_renderer_playback_session(
     request: StartRendererPlaybackSessionRequest,
 ) -> Result<StartRendererPlaybackSessionOutput> {
     let source = app.get_source_or_not_found(request.source_id).await?;
+    let effective_policy = app
+        .effective_playback_policy_for_playable_source(&request.principal, &source)
+        .await?;
     let probe =
         PlaybackRuntimeStore::get_media_probe(app.runtime_store.as_ref(), source.id).await?;
     let context = app.playback_selection_context_for_source(&source).await?;
-    let effective_policy = app
-        .effective_playback_policy_for_source(&request.principal, &source)
-        .await?;
     ensure_playback_permission_allowed(&effective_policy, PlaybackPermission::RemoteControl)?;
 
     let decision = app.planner.plan(PlaybackPlanningRequest {

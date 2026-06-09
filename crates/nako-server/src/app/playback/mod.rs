@@ -1440,6 +1440,21 @@ impl PlaybackAppService {
             .await
     }
 
+    async fn effective_playback_policy_for_playable_source(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        source: &MediaSource,
+    ) -> Result<EffectivePlaybackPolicy> {
+        let effective_policy = self
+            .effective_playback_policy_for_source(principal, source)
+            .await?;
+        if principal.is_administrator() || effective_policy.library_access.allows_play() {
+            Ok(effective_policy)
+        } else {
+            Err(library_play_access_forbidden())
+        }
+    }
+
     async fn effective_playback_policy_for_source(
         &self,
         principal: &AuthenticatedPrincipal,
@@ -1532,6 +1547,12 @@ fn redact_subtitle_sidecar_storage_error(
 
 fn playback_target_for_client(client: ClientPlaybackCapabilities) -> PlaybackTarget {
     PlaybackTarget::browser_with_capabilities("Public Client", client)
+}
+
+fn library_play_access_forbidden() -> NakoError {
+    NakoError::Forbidden {
+        message: "required Library Access level 'play' is not available".to_owned(),
+    }
 }
 
 fn default_playback_policy_for_source(source: &MediaSource) -> EffectivePlaybackPolicy {
