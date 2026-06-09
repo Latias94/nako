@@ -39,7 +39,7 @@ use crate::app::{
     BrowserPlaybackTicketMode, BrowserPlaybackTicketValidationRequest, DirectPlaySourceBody,
     DirectPlaybackPreflightRequest, DirectPlaybackSessionStreamRequest,
     DirectPlaybackStreamRequest, HlsPlaylistPlaybackRequest, HlsPlaylistSessionRequest,
-    IssuedBrowserPlaybackTicket, NakoApp,
+    HlsSegmentPlaybackRequest, IssuedBrowserPlaybackTicket, NakoApp,
     PlaybackSessionHeartbeatRequest as AppPlaybackSessionHeartbeatRequest, PlaybackTraceContext,
     RemuxPlaybackPreflightRequest, RemuxPlaybackSessionStreamRequest, RemuxPlaybackStreamRequest,
     RendererTransportTicketScope, StartPlaybackSessionRequest, SubtitlePlaybackRequest,
@@ -252,7 +252,6 @@ pub(super) async fn stream_source(
         source_id,
         BrowserPlaybackTicketMode::Direct,
         ticket_query.ticket.as_deref(),
-        false,
     )
     .await?;
 
@@ -334,7 +333,6 @@ pub(super) async fn head_stream_source(
         source_id,
         BrowserPlaybackTicketMode::Direct,
         ticket_query.ticket.as_deref(),
-        false,
     )
     .await?;
 
@@ -420,7 +418,6 @@ pub(super) async fn remux_stream_source(
         source_id,
         BrowserPlaybackTicketMode::Remux,
         ticket.as_deref(),
-        false,
     )
     .await?;
 
@@ -503,7 +500,6 @@ pub(super) async fn head_remux_stream_source(
         source_id,
         BrowserPlaybackTicketMode::Remux,
         ticket.as_deref(),
-        false,
     )
     .await?;
 
@@ -592,7 +588,6 @@ pub(super) async fn hls_playlist_source(
         source_id,
         BrowserPlaybackTicketMode::Hls,
         ticket.as_deref(),
-        true,
     )
     .await?;
 
@@ -671,24 +666,25 @@ pub(super) async fn hls_segment(
         .hls_segment_playback_target(session_id)
         .await?;
 
-    if resolve_renderer_transport_principal_for_session(
-        &app,
-        target.source_id,
-        PlaybackSessionMode::Hls,
-        ticket_query.renderer_session_id.as_deref(),
-        session_id,
-        ticket_query.renderer_ticket.as_deref(),
-    )
-    .await?
-    .is_none()
+    let principal = if let Some(renderer_transport) =
+        resolve_renderer_transport_principal_for_session(
+            &app,
+            target.source_id,
+            PlaybackSessionMode::Hls,
+            ticket_query.renderer_session_id.as_deref(),
+            session_id,
+            ticket_query.renderer_ticket.as_deref(),
+        )
+        .await?
     {
+        renderer_transport.principal
+    } else {
         let source_playback = resolve_source_playback_context(
             &app,
             principal,
             target.source_id,
             BrowserPlaybackTicketMode::Hls,
             ticket_query.ticket.as_deref(),
-            true,
         )
         .await?;
         if source_playback
@@ -697,11 +693,17 @@ pub(super) async fn hls_segment(
         {
             return Err(invalid_browser_playback_ticket().into());
         }
-    }
+        source_playback.principal
+    };
 
     let segment = app
         .playback()
-        .plan_hls_segment(target.transcode_session_id, &segment_name)
+        .hls_segment_playback(HlsSegmentPlaybackRequest {
+            principal,
+            source_id: target.source_id,
+            transcode_session_id: target.transcode_session_id,
+            segment_name,
+        })
         .await?;
 
     let mut response = stream_local_file_response(
@@ -1026,7 +1028,6 @@ async fn resolve_source_playback_context(
     source_id: MediaSourceId,
     mode: BrowserPlaybackTicketMode,
     ticket: Option<&str>,
-    require_route_source_access: bool,
 ) -> ApiResult<ResolvedSourcePlayback> {
     if let Some(ticket) = ticket {
         if ticket.trim().is_empty() {
@@ -1038,15 +1039,6 @@ async fn resolve_source_playback_context(
             mode,
             crate::app::current_time_ms()?,
         )?;
-        if require_route_source_access {
-            require_source_access(
-                app,
-                &validated.principal,
-                source_id,
-                RequiredLibraryAccess::Play,
-            )
-            .await?;
-        }
         return Ok(ResolvedSourcePlayback {
             principal: validated.principal,
             playback_session_id: Some(validated.playback_session_id),
@@ -1054,9 +1046,6 @@ async fn resolve_source_playback_context(
     }
 
     if let Some(Extension(principal)) = principal {
-        if require_route_source_access {
-            require_source_access(app, &principal, source_id, RequiredLibraryAccess::Play).await?;
-        }
         return Ok(ResolvedSourcePlayback {
             principal,
             playback_session_id: None,

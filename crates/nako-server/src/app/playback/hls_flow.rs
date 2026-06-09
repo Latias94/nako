@@ -155,7 +155,7 @@ pub(super) async fn hls_playlist_playback(
     request: HlsPlaylistPlaybackRequest,
 ) -> Result<HlsPlaylistPlaybackOutput> {
     let effective_policy = app
-        .effective_playback_policy_for_source_id(&request.principal, request.source_id)
+        .effective_playback_policy_for_playable_source_id(&request.principal, request.source_id)
         .await?;
     let playlist = hls_playlist_with_policy(
         app,
@@ -205,6 +205,8 @@ pub(super) async fn hls_playlist_for_playback_session(
     app: &PlaybackAppService,
     request: HlsPlaylistSessionRequest,
 ) -> Result<HlsPlaylistPlaybackOutput> {
+    app.ensure_source_play_access(&request.principal, request.source_id)
+        .await?;
     let mut playback_session = app
         .existing_playback_session_for_media_request(
             &request.principal,
@@ -217,7 +219,7 @@ pub(super) async fn hls_playlist_for_playback_session(
         let client =
             PlaybackAppService::client_capabilities_for_playback_session(&playback_session)?;
         let effective_policy = app
-            .effective_playback_policy_for_source_id(&request.principal, request.source_id)
+            .effective_playback_policy_for_playable_source_id(&request.principal, request.source_id)
             .await?;
         let playlist = hls_playlist_with_policy(
             app,

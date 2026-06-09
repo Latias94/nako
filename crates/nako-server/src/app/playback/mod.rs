@@ -542,6 +542,14 @@ pub(crate) struct HlsSegmentPlaybackTarget {
     pub transcode_session_id: TranscodeSessionId,
 }
 
+#[derive(Clone, Debug)]
+pub(crate) struct HlsSegmentPlaybackRequest {
+    pub principal: AuthenticatedPrincipal,
+    pub source_id: MediaSourceId,
+    pub transcode_session_id: TranscodeSessionId,
+    pub segment_name: String,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(crate) struct RendererPlaybackTransportPlan {
     pub mode: PlaybackSessionMode,
@@ -1155,6 +1163,16 @@ impl PlaybackAppService {
             .await
     }
 
+    pub(crate) async fn hls_segment_playback(
+        &self,
+        request: HlsSegmentPlaybackRequest,
+    ) -> Result<HlsSegmentPlan> {
+        self.ensure_source_play_access(&request.principal, request.source_id)
+            .await?;
+        self.plan_hls_segment(request.transcode_session_id, &request.segment_name)
+            .await
+    }
+
     pub(crate) async fn hls_segment_playback_target(
         &self,
         session_id: PlaybackSessionId,
@@ -1432,16 +1450,6 @@ impl PlaybackAppService {
     ) -> Result<PlaybackSelectionContext> {
         let (uri, backend) = self.storage_backend_for_media_source(source).await?;
         Ok(playback_selection_context(&uri, backend.as_ref()).await)
-    }
-
-    pub(super) async fn effective_playback_policy_for_source_id(
-        &self,
-        principal: &AuthenticatedPrincipal,
-        source_id: MediaSourceId,
-    ) -> Result<EffectivePlaybackPolicy> {
-        let source = self.get_source_or_not_found(source_id).await?;
-        self.effective_playback_policy_for_source(principal, &source)
-            .await
     }
 
     pub(super) async fn effective_playback_policy_for_playable_source_id(

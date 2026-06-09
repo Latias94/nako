@@ -596,8 +596,9 @@ while HTTP remains the query parsing and DTO response boundary.
 - Ticket-backed Direct session stream/preflight use does not re-evaluate
   Direct Play playback policy at use time; mode policy is validated when the
   browser ticket is issued.
-- Remux, HLS, subtitle, and renderer transport routes retain their existing
-  access boundaries until dedicated migration tasks move those slices.
+- Remux and HLS playback routes now delegate source `Play` access to
+  `PlaybackAppService`. Subtitle and renderer transport routes retain their
+  existing access boundaries until dedicated migration tasks move those slices.
 
 ### 4. Validation & Error Matrix
 
@@ -619,9 +620,9 @@ while HTTP remains the query parsing and DTO response boundary.
 - Good: Direct browser ticket use calls the session stream/preflight
   app-service methods, and those methods recheck Library Access before looking
   up reusable playback sessions.
-- Base: Remux and HLS source routes can still pass through route-local
-  `require_source_access(... Play)` until their artifact/session flows migrate
-  in separate tasks.
+- Base: Remux and HLS source routes use the same auth/ticket resolver without
+  route-local source `Play` access, then delegate access-sensitive work to
+  `PlaybackAppService`.
 - Bad: Direct Play route code calls `require_source_access(... Play)` before
   invoking the app service, because non-HTTP Direct Play callers could bypass
   source access.
@@ -731,8 +732,9 @@ session use.
 - If a ticket-backed Remux session has not yet linked a transcode session,
   Remux playback policy still applies before artifact startup, but Library
   Access denial must happen first.
-- HLS, subtitle, and renderer transport routes retain their existing access
-  boundaries until dedicated migration tasks move those slices.
+- HLS playback routes now delegate source `Play` access to
+  `PlaybackAppService`. Subtitle and renderer transport routes retain their
+  existing access boundaries until dedicated migration tasks move those slices.
 
 ### 4. Validation & Error Matrix
 
@@ -822,6 +824,151 @@ let resolved = resolve_source_playback_context(
 The route still owns auth/ticket resolution and byte response mechanics, while
 `PlaybackAppService` owns source `Play` access before Remux planning, artifact
 startup, or session use.
+
+## Scenario: HLS Playback Access Boundary
+
+### 1. Scope / Trigger
+
+- Trigger: changing HLS playlist routes, HLS segment routes,
+  browser-ticket-backed HLS use, `PlaybackAppService::hls_playlist_playback`,
+  `PlaybackAppService::hls_playlist_for_playback_session`, or
+  `PlaybackAppService::hls_segment_playback` in `crates/nako-server`.
+- Code evidence: `src/http/playback.rs`, `src/app/playback/mod.rs`,
+  `src/app/playback/hls_flow.rs`, `src/app/playback/hls_artifact.rs`,
+  `src/http/tests/playback.rs`, and `src/app/tests/playback.rs`.
+
+### 2. Signatures
+
+- HLS playlist HTTP handlers resolve an `AuthenticatedPrincipal` or validated
+  browser playback ticket principal and call app-service HLS playlist methods.
+- `PlaybackAppService::hls_playlist_playback(HlsPlaylistPlaybackRequest)` owns
+  source `Play` Library Access, HLS playback policy admission, HLS transcode
+  session startup/reuse, playback-session creation/linkage, and playback
+  playlist planning.
+- `PlaybackAppService::hls_playlist_for_playback_session(HlsPlaylistSessionRequest)`
+  rechecks current source `Play` Library Access when a browser-ticket-backed or
+  existing HLS playback session is used.
+- `PlaybackAppService::hls_segment_playback(HlsSegmentPlaybackRequest)` owns
+  source `Play` Library Access before manifest-backed segment planning.
+- `resolve_source_playback_context(...)` is an auth/ticket-only source playback
+  resolver. It must not carry a route-local source-access flag.
+
+### 3. Contracts
+
+- HLS `/sources/{source_id}/stream/hls/playlist.m3u8` HTTP handlers parse query
+  inputs, validate auth or tickets, decorate playlist URLs, assemble playlist
+  responses and headers, and delegate source `Play` access to the app service.
+- HLS `/playback/sessions/{session_id}/hls/segments/{segment_name}` HTTP
+  handlers resolve the playback-session target and auth/ticket context, then
+  delegate source `Play` access and segment planning to the app service.
+- HLS playlist and segment HTTP handlers must not call route-local
+  `require_source_access(... RequiredLibraryAccess::Play)` through
+  `resolve_source_playback_context` for ordinary principal or HLS browser
+  ticket paths.
+- `PlaybackAppService::hls_playlist_playback` must enforce source `Play`
+  Library Access before HLS playback-policy details, resource admission,
+  FFmpeg input staging, transcode session startup, playback session creation,
+  or playlist response planning.
+- `PlaybackAppService::hls_playlist_for_playback_session` must recheck current
+  source `Play` Library Access before existing-session reuse or lazy HLS
+  playlist startup.
+- `PlaybackAppService::hls_segment_playback` must enforce source `Play`
+  Library Access before manifest-backed segment planning or byte response
+  serving.
+- `hls_source_with_policy`, `hls_playlist_with_policy`, HLS artifact manifest
+  planning, subtitle routes, and renderer transport resolvers keep their
+  existing ownership until dedicated tasks change those boundaries.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Ordinary principal has Browse but not Play access for the source library | HLS playlist and segment use returns `403` with required Library Access level `play` |
+| Ordinary principal has Play access but HLS transcode is disabled by playback policy | HLS app-service flow returns the mode-specific playback-policy denial |
+| HLS browser ticket was issued, then source Play access is revoked before playlist use | Ticket-backed HLS playlist route returns `403` with required Library Access level `play` |
+| HLS browser ticket was issued, playlist was generated, then source Play access is revoked before segment use | Ticket-backed HLS segment route returns `403` with required Library Access level `play` |
+| HLS browser ticket is missing, malformed, expired, wrong-mode, or has the wrong playback session subject | Preserve existing browser ticket unauthorized/forbidden behavior |
+| HLS process capacity is busy after access and policy pass | Preserve bounded HLS resource-admission behavior |
+| Unknown source or playback session ID | Preserve existing `NakoError::NotFound` behavior |
+| Administrator requests HLS playback | Preserve administrator access and playback-policy semantics |
+
+### 5. Good / Base / Bad Cases
+
+- Good: HLS playlist route resolves auth/ticket context, then calls
+  `app.playback().hls_playlist_playback(...)` or
+  `app.playback().hls_playlist_for_playback_session(...)`.
+- Good: HLS segment route resolves a target with
+  `hls_segment_playback_target`, validates ticket/session scope, then calls
+  `app.playback().hls_segment_playback(...)`.
+- Base: renderer transport HLS playlist/segment use may still pass through the
+  renderer transport resolver, but the HLS app-service method also owns the
+  source `Play` access boundary for the returned principal.
+- Bad: HLS route code calls `require_source_access(... Play)` before invoking
+  the app service, because non-HTTP HLS callers could bypass source access.
+- Bad: HLS policy checks, resource admission, FFmpeg staging, or segment
+  manifest planning run before source `Play` Library Access, because
+  browse-only users would learn policy or artifact details.
+- Bad: `resolve_source_playback_context` grows another boolean for route-local
+  source access, because that recreates divergent Direct/Remux/HLS behavior.
+
+### 6. Tests Required
+
+- App-service test proving a browse-only principal cannot call
+  `hls_playlist_playback`, receives the standard Library Access `play` message
+  before `video_transcode` or HLS policy details, and creates no playback or
+  HLS transcode session.
+- HTTP route test proving a browse-only HLS playlist request returns `403` with
+  the same public Library Access message.
+- HTTP route tests proving a previously issued HLS browser ticket is rejected
+  after source `Play` access is revoked for both playlist use and segment use.
+- Existing HLS route gates must continue covering playlist startup, running
+  session readiness, segment manifest protection, playlist URL rewriting,
+  cache-control, playback-session headers, resource admission, and ticket
+  validation behavior.
+- Focused gates:
+  `cargo nextest run -p nako-server hls_playback_rejects_browse_only_access_before_policy_details --no-fail-fast`,
+  `cargo nextest run -p nako-server playback_routes_require_play_library_access --no-fail-fast`,
+  `cargo nextest run -p nako-server hls_browser_playback_ticket_rejects_revocation_at_playlist_use --no-fail-fast`,
+  `cargo nextest run -p nako-server hls_browser_playback_ticket_rejects_revocation_at_segment_use --no-fail-fast`,
+  `cargo nextest run -p nako-server hls_playlist --no-fail-fast`,
+  `cargo nextest run -p nako-server hls_segment --no-fail-fast`, and
+  `cargo check -p nako-server --tests`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+let resolved = resolve_source_playback_context(
+    &app,
+    principal,
+    source_id,
+    BrowserPlaybackTicketMode::Hls,
+    ticket.as_deref(),
+    true,
+)
+.await?;
+```
+
+This keeps HLS source `Play` access route-local and leaves future app-service
+callers able to bypass the HLS playlist or segment access boundary.
+
+#### Correct
+
+```rust
+let resolved = resolve_source_playback_context(
+    &app,
+    principal,
+    source_id,
+    BrowserPlaybackTicketMode::Hls,
+    ticket.as_deref(),
+)
+.await?;
+```
+
+The route owns auth/ticket resolution and response mechanics, while
+`PlaybackAppService` owns source `Play` access before HLS playlist startup,
+existing-session reuse, or segment planning.
 
 ## Scenario: Browser Playback Ticket Access Boundary
 

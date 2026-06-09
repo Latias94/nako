@@ -481,6 +481,12 @@ async fn playback_routes_require_play_library_access() {
         &format!("/sources/{}/stream/remux?output_container=mp4", source.id),
     )
     .await;
+    let hls = response_for(
+        &router,
+        Method::GET,
+        &format!("/sources/{}/stream/hls/playlist.m3u8", source.id),
+    )
+    .await;
 
     assert_eq!(decision.status(), StatusCode::FORBIDDEN);
     let decision: ErrorResponse = body_json(decision).await;
@@ -511,6 +517,14 @@ async fn playback_routes_require_play_library_access() {
             .contains("required Library Access level 'play'"),
         "expected library play access denial, got {}",
         remux.message
+    );
+    assert_eq!(hls.status(), StatusCode::FORBIDDEN);
+    let hls: ErrorResponse = body_json(hls).await;
+    assert_eq!(hls.code, "forbidden");
+    assert!(
+        hls.message.contains("required Library Access level 'play'"),
+        "expected library play access denial, got {}",
+        hls.message
     );
 }
 
@@ -2837,6 +2851,131 @@ async fn browser_playback_ticket_protects_hls_playlist_and_segments() {
     )
     .await;
     assert_eq!(invalid.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn hls_browser_playback_ticket_rejects_revocation_at_playlist_use() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_ticket_playlist_revoked");
+    let (_temp, app, source, store) =
+        app_with_media_source_config("ticket-hls-playlist.mkv", b"media", |config| {
+            config.ffmpeg_path = ffmpeg_path.clone();
+        })
+        .await;
+    store
+        .upsert_media_probe(source.id, &compatible_probe())
+        .await
+        .unwrap();
+    let play_principal =
+        local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Play).await;
+    let play_user_id = play_principal.user_id;
+    let play_router = public_client_router_with_principal(app, play_principal);
+    let issue_request = nako_api::public_client::BrowserPlaybackTicketRequest {
+        mode: nako_api::public_client::BrowserPlaybackMode::Hls,
+        capabilities: Some(nako_api::public_client::BrowserPlaybackCapabilitiesDto {
+            direct_play: Some(true),
+            container: Some(vec!["mp4".to_owned()]),
+            video_codec: Some(vec!["h264".to_owned()]),
+            audio_codec: Some(vec!["aac".to_owned()]),
+            output_container: None,
+            ..nako_api::public_client::BrowserPlaybackCapabilitiesDto::default()
+        }),
+        subtitle_stream_index: None,
+    };
+    let ticket = request_body_json::<nako_api::public_client::BrowserPlaybackTicketResponse, _>(
+        &play_router,
+        Method::POST,
+        &format!("/sources/{}/playback/browser-ticket", source.id),
+        &issue_request,
+    )
+    .await;
+
+    store
+        .delete_library_access_policy(
+            LibraryAccessPolicyScope::User(play_user_id),
+            source.library_id,
+        )
+        .await
+        .unwrap();
+
+    let revoked = response_for(&play_router, Method::GET, &ticket.urls[0].url).await;
+    assert_eq!(revoked.status(), StatusCode::FORBIDDEN);
+    let revoked: ErrorResponse = body_json(revoked).await;
+    assert_eq!(revoked.code, "forbidden");
+    assert!(
+        revoked
+            .message
+            .contains("required Library Access level 'play'"),
+        "expected library play access denial after revocation, got {}",
+        revoked.message
+    );
+}
+
+#[tokio::test]
+async fn hls_browser_playback_ticket_rejects_revocation_at_segment_use() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_ticket_segment_revoked");
+    let (_temp, app, source, store) =
+        app_with_media_source_config("ticket-hls-segment.mkv", b"media", |config| {
+            config.ffmpeg_path = ffmpeg_path.clone();
+        })
+        .await;
+    store
+        .upsert_media_probe(source.id, &compatible_probe())
+        .await
+        .unwrap();
+    let play_principal =
+        local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Play).await;
+    let play_user_id = play_principal.user_id;
+    let play_router = public_client_router_with_principal(app, play_principal);
+    let issue_request = nako_api::public_client::BrowserPlaybackTicketRequest {
+        mode: nako_api::public_client::BrowserPlaybackMode::Hls,
+        capabilities: Some(nako_api::public_client::BrowserPlaybackCapabilitiesDto {
+            direct_play: Some(true),
+            container: Some(vec!["mp4".to_owned()]),
+            video_codec: Some(vec!["h264".to_owned()]),
+            audio_codec: Some(vec!["aac".to_owned()]),
+            output_container: None,
+            ..nako_api::public_client::BrowserPlaybackCapabilitiesDto::default()
+        }),
+        subtitle_stream_index: None,
+    };
+    let ticket = request_body_json::<nako_api::public_client::BrowserPlaybackTicketResponse, _>(
+        &play_router,
+        Method::POST,
+        &format!("/sources/{}/playback/browser-ticket", source.id),
+        &issue_request,
+    )
+    .await;
+
+    let playlist_response = response_for(&play_router, Method::GET, &ticket.urls[0].url).await;
+    assert_eq!(playlist_response.status(), StatusCode::OK);
+    let playlist = response_text(playlist_response).await;
+    let segment_uri = playlist
+        .lines()
+        .find(|line| line.starts_with("/playback/sessions/"))
+        .expect("playlist contains ticketed segment URL")
+        .to_owned();
+
+    store
+        .delete_library_access_policy(
+            LibraryAccessPolicyScope::User(play_user_id),
+            source.library_id,
+        )
+        .await
+        .unwrap();
+
+    let revoked = response_for(&play_router, Method::GET, &segment_uri).await;
+    assert_eq!(revoked.status(), StatusCode::FORBIDDEN);
+    let revoked: ErrorResponse = body_json(revoked).await;
+    assert_eq!(revoked.code, "forbidden");
+    assert!(
+        revoked
+            .message
+            .contains("required Library Access level 'play'"),
+        "expected library play access denial after revocation, got {}",
+        revoked.message
+    );
 }
 
 #[tokio::test]

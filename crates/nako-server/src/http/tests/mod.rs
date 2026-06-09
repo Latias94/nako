@@ -230,6 +230,9 @@ fn public_client_router_with_principal(app: NakoApp, principal: AuthenticatedPri
         .merge(super::user_playback::routes())
         .layer(Extension(principal_id))
         .layer(Extension(principal))
+        .layer(axum::middleware::from_fn(
+            super::trace_context::attach_http_trace_context,
+        ))
         .with_state(app)
 }
 

@@ -711,6 +711,79 @@ async fn hls_playback_policy_denial_does_not_create_sessions_or_artifacts() {
 }
 
 #[tokio::test]
+async fn hls_playback_rejects_browse_only_access_before_policy_details() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "hls_browse_only_access");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let principal = local_playback_principal_with_library_access(
+        &store,
+        source.library_id,
+        LibraryAccessLevel::Browse,
+    )
+    .await;
+    let mut permissions = PlaybackPermissionPolicy::current_playback_defaults();
+    permissions.allow_video_transcode = false;
+    store
+        .upsert_playback_policy(&PlaybackPolicy::user(
+            principal.user_id,
+            source.library_id,
+            permissions,
+            2,
+        ))
+        .await
+        .unwrap();
+
+    let err = app
+        .playback()
+        .hls_playlist_playback(HlsPlaylistPlaybackRequest {
+            principal: principal.clone(),
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            preferences: PlaybackPreferenceContext::default(),
+            playback_generation: HlsPlaybackGeneration::default(),
+            trace_context: None,
+            transport_query: None,
+        })
+        .await
+        .unwrap_err();
+
+    let NakoError::Forbidden { message } = err else {
+        panic!("expected library access forbidden error");
+    };
+    assert!(message.contains("required Library Access level 'play'"));
+    assert!(!message.contains("video_transcode"));
+    assert!(!message.contains("hls"));
+    assert!(
+        store
+            .list_playback_sessions(
+                PlaybackSessionListFilter {
+                    principal_id: Some(principal.principal_id),
+                    source_id: Some(source.id),
+                    state: None,
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        store
+            .list_transcode_sessions(
+                TranscodeSessionListFilter {
+                    source_id: Some(source.id),
+                    kind: Some(TranscodeSessionKind::HlsTranscode),
+                    state: None,
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
 async fn renderer_playback_session_enforces_source_play_access_before_runtime_records() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "renderer_source_access_denied");
