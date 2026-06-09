@@ -1875,3 +1875,38 @@ Moved user playlist item add/remove/reorder browse-access checks from HTTP handl
 ### Next Steps
 
 - None - task complete
+
+
+## Session 96: Move user playback access into app service
+
+**Date**: 2026-06-09
+**Task**: Move user playback access into app service
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Moved Public Client user playback get/progress/watched access checks from HTTP handlers into UserPlaybackAppService, preserved source mismatch behavior, added app and route access regressions, updated HTTP API spec, and archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e9ceef47` | (see git log) |
+| `9f72f1df` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
