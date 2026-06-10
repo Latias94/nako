@@ -558,3 +558,37 @@ Implemented the U1 Product-Operator readiness slice from the media-server maturi
 ### Next Steps
 
 - None - task complete
+
+
+## Session 113: Playback selected reasons
+
+**Date**: 2026-06-11
+**Task**: Playback selected reasons
+**Package**: nako
+**Branch**: `feat/operator-readiness-u1`
+
+### Summary
+
+Implemented U2 Server/API first by exposing playback decision selection_reasons through the planner, public API/protocol contracts, OpenAPI, generated SDKs, and playback route tests; updated playback spec guidance and passed focused Rust/SDK checks plus trellis-check.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `37338ed1` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
