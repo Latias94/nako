@@ -26,7 +26,7 @@ use nako_core::{
 use nako_library::{
     DEFAULT_SCAN_SOURCE_FINGERPRINT_HASH_PARTIAL_PREFIX_BYTES,
     SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS, SourceFingerprintHashJobInput,
-    SourceFingerprintHashMode,
+    SourceFingerprintHashMode, WatchFolderIntakeEnqueueReason,
 };
 use nako_official_addon_catalog::metadata_scraper;
 use tokio::sync::Mutex;
@@ -2781,6 +2781,10 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
     assert_eq!(first.enqueued_job_id, None);
     assert_eq!(first.intake_plan.discover.inspecting_candidates, 1);
     assert_eq!(first.intake_plan.summary.observed_candidates, 1);
+    assert_eq!(
+        first.intake_plan.enqueue.reason,
+        WatchFolderIntakeEnqueueReason::WaitingForStability
+    );
     assert!(!first.intake_plan.should_enqueue_scan());
 
     let second = app
@@ -2816,6 +2820,10 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
     assert_eq!(third.newly_ready_candidates, 0);
     assert_eq!(third.enqueued_job_id, None);
     assert_eq!(third.intake_plan.discover.ready_candidates, 1);
+    assert_eq!(
+        third.intake_plan.enqueue.reason,
+        WatchFolderIntakeEnqueueReason::NoNewStableCandidates
+    );
     assert!(!third.intake_plan.should_enqueue_scan());
 
     let scan_jobs = store
@@ -2956,6 +2964,10 @@ async fn watch_folder_runtime_tick_suppresses_planned_host_write_without_enqueui
     assert_eq!(first.enqueued_job_id, None);
     assert_eq!(first.intake_plan.suppression.suppressed_candidates, 1);
     assert_eq!(first.intake_plan.summary.observed_candidates, 1);
+    assert_eq!(
+        first.intake_plan.enqueue.reason,
+        WatchFolderIntakeEnqueueReason::SuppressedCandidates
+    );
     assert!(!first.intake_plan.should_enqueue_scan());
     assert!(second.monitored);
     assert_eq!(second.suppressed_candidates, 1);

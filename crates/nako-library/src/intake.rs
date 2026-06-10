@@ -67,6 +67,10 @@ pub enum WatchFolderIntakeEnqueueAction {
 #[serde(rename_all = "snake_case")]
 pub enum WatchFolderIntakeEnqueueReason {
     NewStableCandidates,
+    WaitingForStability,
+    SuppressedCandidates,
+    BlockedCandidates,
+    DiscoveryFailures,
     NoNewStableCandidates,
 }
 
@@ -211,7 +215,7 @@ pub fn plan_watch_folder_intake(input: WatchFolderIntakePlanInput) -> WatchFolde
     } else {
         WatchFolderIntakeEnqueueDecision {
             action: WatchFolderIntakeEnqueueAction::Skip,
-            reason: WatchFolderIntakeEnqueueReason::NoNewStableCandidates,
+            reason: watch_folder_intake_skip_reason(input),
         }
     };
 
@@ -239,6 +243,22 @@ pub fn plan_watch_folder_intake(input: WatchFolderIntakePlanInput) -> WatchFolde
             failure_count: input.failure_count,
             enqueue_scan: enqueue.action == WatchFolderIntakeEnqueueAction::EnqueueLibraryScan,
         },
+    }
+}
+
+fn watch_folder_intake_skip_reason(
+    input: WatchFolderIntakePlanInput,
+) -> WatchFolderIntakeEnqueueReason {
+    if input.failure_count > 0 {
+        WatchFolderIntakeEnqueueReason::DiscoveryFailures
+    } else if input.blocked_candidates > 0 {
+        WatchFolderIntakeEnqueueReason::BlockedCandidates
+    } else if input.suppressed_candidates > 0 {
+        WatchFolderIntakeEnqueueReason::SuppressedCandidates
+    } else if input.inspecting_candidates > 0 {
+        WatchFolderIntakeEnqueueReason::WaitingForStability
+    } else {
+        WatchFolderIntakeEnqueueReason::NoNewStableCandidates
     }
 }
 
@@ -356,7 +376,7 @@ mod tests {
             inspecting.enqueue,
             WatchFolderIntakeEnqueueDecision {
                 action: WatchFolderIntakeEnqueueAction::Skip,
-                reason: WatchFolderIntakeEnqueueReason::NoNewStableCandidates,
+                reason: WatchFolderIntakeEnqueueReason::WaitingForStability,
             }
         );
 
@@ -374,6 +394,59 @@ mod tests {
                 action: WatchFolderIntakeEnqueueAction::EnqueueLibraryScan,
                 reason: WatchFolderIntakeEnqueueReason::NewStableCandidates,
             }
+        );
+    }
+
+    #[test]
+    fn watch_folder_intake_plan_reports_specific_skip_reasons() {
+        let failures = plan_watch_folder_intake(WatchFolderIntakePlanInput {
+            failure_count: 1,
+            inspecting_candidates: 1,
+            suppressed_candidates: 1,
+            blocked_candidates: 1,
+            ..WatchFolderIntakePlanInput::default()
+        });
+        let blocked = plan_watch_folder_intake(WatchFolderIntakePlanInput {
+            blocked_candidates: 1,
+            inspecting_candidates: 1,
+            suppressed_candidates: 1,
+            ..WatchFolderIntakePlanInput::default()
+        });
+        let suppressed = plan_watch_folder_intake(WatchFolderIntakePlanInput {
+            suppressed_candidates: 1,
+            inspecting_candidates: 1,
+            ..WatchFolderIntakePlanInput::default()
+        });
+        let waiting = plan_watch_folder_intake(WatchFolderIntakePlanInput {
+            inspecting_candidates: 1,
+            recorded_candidates: 1,
+            ..WatchFolderIntakePlanInput::default()
+        });
+        let idle = plan_watch_folder_intake(WatchFolderIntakePlanInput::default());
+
+        assert_eq!(
+            failures.enqueue.reason,
+            WatchFolderIntakeEnqueueReason::DiscoveryFailures
+        );
+        assert_eq!(
+            blocked.enqueue.reason,
+            WatchFolderIntakeEnqueueReason::BlockedCandidates
+        );
+        assert_eq!(
+            suppressed.enqueue.reason,
+            WatchFolderIntakeEnqueueReason::SuppressedCandidates
+        );
+        assert_eq!(
+            waiting.enqueue.reason,
+            WatchFolderIntakeEnqueueReason::WaitingForStability
+        );
+        assert_eq!(
+            serde_json::to_string(&waiting.enqueue.reason).unwrap(),
+            r#""waiting_for_stability""#
+        );
+        assert_eq!(
+            idle.enqueue.reason,
+            WatchFolderIntakeEnqueueReason::NoNewStableCandidates
         );
     }
 

@@ -41,6 +41,10 @@ Library workflow changes must preserve deterministic, bounded intake behavior.
 - Require repeated unchanged intake observation evidence before a watcher
   candidate becomes stable. If the observation key changes, stability must
   reset for the next evaluation.
+- Keep watch-folder scan admission decisions pure and diagnostic-rich. A skip
+  decision must expose a typed, redaction-safe reason such as waiting for
+  stability, suppressed candidates, blocked candidates, discovery failures, or
+  no new stable candidates without changing the enqueue condition.
 
 ## Forbidden Patterns
 
