@@ -489,3 +489,38 @@ Deleted the final generic http/access.rs module after Library Access checks move
 ### Next Steps
 
 - None - task complete
+
+
+## Session 111: Playback renderer transport context boundary
+
+**Date**: 2026-06-10
+**Task**: Playback renderer transport context boundary
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Moved renderer transport ticket principal/session resolution from HTTP playback routes into the playback app renderer flow, added app-boundary tests, updated the server directory spec, and archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `72f29691` | (see git log) |
+| `695416b8` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
