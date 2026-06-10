@@ -1203,6 +1203,93 @@ async fn remux_playback_preflight_reuses_active_session_and_links_playback_sessi
 }
 
 #[tokio::test]
+async fn playback_session_control_hides_wrong_owner_and_revoked_play_access() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "session_control_access");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let owner = local_playback_viewer(&store, source.library_id).await;
+    let owner_user_id = owner.user_id;
+    let other = local_playback_viewer(&store, source.library_id).await;
+    let session = app
+        .playback()
+        .start_playback_session(StartPlaybackSessionRequest {
+            principal_id: owner.principal_id.clone(),
+            source_id: source.id,
+            mode: nako_core::PlaybackSessionMode::Direct,
+            client: None,
+        })
+        .await
+        .unwrap();
+
+    let visible = app
+        .playback()
+        .get_playback_session_for_control(&owner, session.id)
+        .await
+        .unwrap();
+    assert_eq!(visible.id, session.id);
+
+    let wrong_owner = app
+        .playback()
+        .get_playback_session_for_control(&other, session.id)
+        .await
+        .unwrap_err();
+    assert_playback_session_not_found(wrong_owner, session.id);
+
+    let wrong_owner_heartbeat = app
+        .playback()
+        .record_playback_session_heartbeat_for_control(
+            &other,
+            PlaybackSessionHeartbeatRequest {
+                session_id: session.id,
+                state: PlaybackSessionState::Paused,
+                position_ms: Some(10),
+                duration_ms: Some(100),
+            },
+        )
+        .await
+        .unwrap_err();
+    assert_playback_session_not_found(wrong_owner_heartbeat, session.id);
+
+    store
+        .delete_library_access_policy(
+            LibraryAccessPolicyScope::User(owner_user_id),
+            source.library_id,
+        )
+        .await
+        .unwrap();
+
+    let revoked_owner = app
+        .playback()
+        .get_playback_session_for_control(&owner, session.id)
+        .await
+        .unwrap_err();
+    assert_playback_session_not_found(revoked_owner, session.id);
+
+    let revoked_heartbeat = app
+        .playback()
+        .record_playback_session_heartbeat_for_control(
+            &owner,
+            PlaybackSessionHeartbeatRequest {
+                session_id: session.id,
+                state: PlaybackSessionState::Paused,
+                position_ms: Some(20),
+                duration_ms: Some(100),
+            },
+        )
+        .await
+        .unwrap_err();
+    assert_playback_session_not_found(revoked_heartbeat, session.id);
+
+    let stored = store
+        .get_playback_session(session.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(stored.state, PlaybackSessionState::Active);
+    assert_eq!(stored.position_ms, None);
+}
+
+#[tokio::test]
 async fn app_startup_marks_stale_transcode_sessions_failed() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "success");
@@ -3967,6 +4054,14 @@ async fn local_playback_principal_with_library_access(
         roles: vec![UserRole::Viewer],
         bootstrap: false,
     }
+}
+
+fn assert_playback_session_not_found(error: NakoError, expected_id: impl ToString) {
+    let NakoError::NotFound { entity, id } = error else {
+        panic!("expected playback_session not found");
+    };
+    assert_eq!(entity, "playback_session");
+    assert_eq!(id, expected_id.to_string());
 }
 
 async fn add_local_playback_source(

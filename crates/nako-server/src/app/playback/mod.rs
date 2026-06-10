@@ -827,10 +827,19 @@ impl PlaybackAppService {
     ) -> Result<PlaybackSessionRecord> {
         PlaybackRuntimeStore::get_playback_session(self.runtime_store.as_ref(), session_id)
             .await?
-            .ok_or_else(|| NakoError::NotFound {
-                entity: "playback_session",
-                id: session_id.to_string(),
-            })
+            .ok_or_else(|| playback_session_not_found(session_id))
+    }
+
+    pub(crate) async fn get_playback_session_for_control(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        session_id: PlaybackSessionId,
+    ) -> Result<PlaybackSessionRecord> {
+        let session = self.get_playback_session(session_id).await?;
+        self.ensure_playback_session_control_access(principal, &session)
+            .await?;
+
+        Ok(session)
     }
 
     pub(crate) async fn list_playback_sessions(
@@ -864,6 +873,36 @@ impl PlaybackAppService {
                 request.session_id
             ),
         })
+    }
+
+    pub(crate) async fn record_playback_session_heartbeat_for_control(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        request: PlaybackSessionHeartbeatRequest,
+    ) -> Result<PlaybackSessionRecord> {
+        let session = self
+            .get_playback_session_for_control(principal, request.session_id)
+            .await?;
+
+        self.record_playback_session_heartbeat(PlaybackSessionHeartbeatRequest {
+            session_id: session.id,
+            state: request.state,
+            position_ms: request.position_ms,
+            duration_ms: request.duration_ms,
+        })
+        .await
+    }
+
+    pub(crate) async fn cancel_playback_session_for_control(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        session_id: PlaybackSessionId,
+    ) -> Result<PlaybackSessionRecord> {
+        let session = self
+            .get_playback_session_for_control(principal, session_id)
+            .await?;
+
+        self.cancel_playback_session(session.id).await
     }
 
     pub(crate) async fn link_playback_session_transcode(
@@ -1396,6 +1435,36 @@ impl PlaybackAppService {
             })
     }
 
+    async fn ensure_playback_session_control_access(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        session: &PlaybackSessionRecord,
+    ) -> Result<()> {
+        if session.principal_id != principal.principal_id {
+            return Err(playback_session_not_found(session.id));
+        }
+
+        let Some(source) =
+            PlaybackRuntimeStore::get_media_source(self.runtime_store.as_ref(), session.source_id)
+                .await?
+        else {
+            return Err(playback_session_not_found(session.id));
+        };
+
+        if principal.is_administrator() {
+            return Ok(());
+        }
+
+        let effective_policy = self
+            .effective_playback_policy_for_source(principal, &source)
+            .await?;
+        if effective_policy.library_access.allows_play() {
+            Ok(())
+        } else {
+            Err(playback_session_not_found(session.id))
+        }
+    }
+
     pub(super) async fn existing_playback_session_for_media_request(
         &self,
         principal: &AuthenticatedPrincipal,
@@ -1549,6 +1618,13 @@ impl PlaybackAppService {
             )?;
         }
         ensure_playback_permission_allowed(&effective_policy, PlaybackPermission::MediaPlayback)
+    }
+}
+
+fn playback_session_not_found(session_id: PlaybackSessionId) -> NakoError {
+    NakoError::NotFound {
+        entity: "playback_session",
+        id: session_id.to_string(),
     }
 }
 

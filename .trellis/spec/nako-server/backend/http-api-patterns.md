@@ -555,6 +555,116 @@ Ok(Json(
 The app service owns source `Play` access before planning and policy details,
 while HTTP remains the query parsing and DTO response boundary.
 
+## Scenario: Playback Session Control Access Boundary
+
+### 1. Scope / Trigger
+
+- Trigger: changing Public Client playback session inspect, cancel, or
+  heartbeat routes; changing
+  `PlaybackAppService::{get_playback_session_for_control,cancel_playback_session_for_control,record_playback_session_heartbeat_for_control}`;
+  or changing session hiding semantics in `crates/nako-server`.
+- Code evidence: `src/http/playback.rs`, `src/app/playback/mod.rs`,
+  `src/http/tests/playback.rs`, `src/app/tests/playback.rs`.
+
+### 2. Signatures
+
+- Playback session control HTTP handlers take
+  `Extension(AuthenticatedPrincipal)` and pass the full principal into
+  `PlaybackAppService`.
+- `PlaybackAppService::get_playback_session_for_control(&AuthenticatedPrincipal, PlaybackSessionId)`
+  owns Public Client inspect authorization.
+- `PlaybackAppService::cancel_playback_session_for_control(&AuthenticatedPrincipal, PlaybackSessionId)`
+  owns Public Client cancel authorization before delegating to the raw cancel
+  state machine.
+- `PlaybackAppService::record_playback_session_heartbeat_for_control(&AuthenticatedPrincipal, PlaybackSessionHeartbeatRequest)`
+  owns Public Client heartbeat authorization before delegating to the raw
+  heartbeat mutation.
+
+### 3. Contracts
+
+- HTTP playback session control routes parse path/body data, convert public
+  heartbeat state, delegate to the app-service control wrappers, and return
+  public DTOs. They must not call a route-local session access helper.
+- The app-service control wrappers verify the session owner and current source
+  `Play` Library Access before exposing or mutating a playback session.
+- The control wrappers intentionally hide session existence from callers that
+  are not allowed to control it. Missing session, wrong owner, missing current
+  source, and revoked current source `Play` access all return
+  `NakoError::NotFound { entity: "playback_session", ... }`.
+- Authorized cancel and heartbeat requests must preserve existing terminal
+  session `Conflict` behavior from the raw session methods.
+- Raw app-service methods such as `get_playback_session`,
+  `cancel_playback_session`, and `record_playback_session_heartbeat` may remain
+  available for internal runtime flows. Public Client HTTP routes use the
+  control wrappers.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Unknown playback session id | Return `404` / `NakoError::NotFound` for `playback_session` |
+| Playback session belongs to a different principal | Return `404` / `NakoError::NotFound` for `playback_session` |
+| Playback session source no longer exists | Return `404` / `NakoError::NotFound` for `playback_session` |
+| Session owner no longer has current source `Play` access | Return `404` / `NakoError::NotFound` for `playback_session` |
+| Authorized heartbeat targets a terminal session | Preserve existing `409 Conflict` terminal heartbeat behavior |
+| Authorized cancel targets a terminal session | Preserve existing `409 Conflict` terminal cancel behavior |
+
+### 5. Good / Base / Bad Cases
+
+- Good: `/playback/sessions/{session_id}/heartbeat` converts public state and
+  calls
+  `app.playback().record_playback_session_heartbeat_for_control(&principal, request)`.
+- Good: control wrappers call the raw heartbeat/cancel methods only after
+  hiding checks pass.
+- Base: internal remux/HLS/runtime flows can continue to call raw session
+  methods where Public Client hiding semantics do not apply.
+- Bad: HTTP fetches a session, calls route-local
+  `require_playback_session_control_access`, then calls a raw app method. That
+  makes HTTP the access authority and leaves non-HTTP Public Client callers
+  able to bypass hiding.
+- Bad: control wrappers reuse source access helpers that return `media_source`
+  `NotFound` or Library Access `Forbidden`, because that leaks why the session
+  cannot be controlled.
+
+### 6. Tests Required
+
+- App-service test proving wrong-owner inspect or heartbeat returns
+  `NakoError::NotFound` for `playback_session`.
+- App-service test proving revoked source `Play` access returns the same
+  `playback_session` `NotFound` and does not mutate heartbeat state.
+- HTTP route test proving non-owner and revoked-access heartbeat attempts
+  return public `404`.
+- Focused gates:
+  `cargo nextest run -p nako-server playback_session --no-fail-fast` and
+  `cargo check -p nako-server --tests`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+let session = app.playback().get_playback_session(session_id).await?;
+require_playback_session_control_access(&app, &principal, &session).await?;
+app.playback()
+    .record_playback_session_heartbeat(request)
+    .await?;
+```
+
+This makes the HTTP route the session-control authority and can drift from
+app-service callers that need the same Public Client contract.
+
+#### Correct
+
+```rust
+app.playback()
+    .record_playback_session_heartbeat_for_control(&principal, request)
+    .await?;
+```
+
+The app service owns session ownership, source lookup, current `Play` access,
+and hidden `playback_session` NotFound behavior; HTTP owns only extraction,
+public state conversion, and DTO response shaping.
+
 ## Scenario: Direct Playback Access Boundary
 
 ### 1. Scope / Trigger

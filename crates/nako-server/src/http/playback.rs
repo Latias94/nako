@@ -46,11 +46,7 @@ use crate::app::{
     ValidateRendererTransportTicketRequest,
 };
 
-use super::{
-    access::{RequiredLibraryAccess, has_library_access},
-    error::ApiResult,
-    trace_context::HttpTraceContext,
-};
+use super::{error::ApiResult, trace_context::HttpTraceContext};
 
 pub(super) fn routes() -> Router<NakoApp> {
     Router::new()
@@ -722,8 +718,10 @@ pub(super) async fn get_playback_session(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(session_id): Path<PlaybackSessionId>,
 ) -> ApiResult<Json<PlaybackSessionResponse>> {
-    let session = app.playback().get_playback_session(session_id).await?;
-    require_playback_session_control_access(&app, &principal, &session).await?;
+    let session = app
+        .playback()
+        .get_playback_session_for_control(&principal, session_id)
+        .await?;
 
     Ok(Json(playback_session_response_from_record(session)))
 }
@@ -734,11 +732,10 @@ pub(super) async fn cancel_playback_session(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(session_id): Path<PlaybackSessionId>,
 ) -> ApiResult<Json<PlaybackSessionResponse>> {
-    let session = app.playback().get_playback_session(session_id).await?;
-    require_playback_session_control_access(&app, &principal, &session).await?;
-
     Ok(Json(playback_session_response_from_record(
-        app.playback().cancel_playback_session(session_id).await?,
+        app.playback()
+            .cancel_playback_session_for_control(&principal, session_id)
+            .await?,
     )))
 }
 
@@ -749,44 +746,19 @@ pub(super) async fn heartbeat_playback_session(
     Path(session_id): Path<PlaybackSessionId>,
     Json(request): Json<PublicPlaybackSessionHeartbeatRequest>,
 ) -> ApiResult<Json<PlaybackSessionResponse>> {
-    let session = app.playback().get_playback_session(session_id).await?;
-    require_playback_session_control_access(&app, &principal, &session).await?;
-
     Ok(Json(playback_session_response_from_record(
         app.playback()
-            .record_playback_session_heartbeat(AppPlaybackSessionHeartbeatRequest {
-                session_id,
-                state: playback_session_state_from_public(&request.state)?,
-                position_ms: request.position_ms,
-                duration_ms: request.duration_ms,
-            })
+            .record_playback_session_heartbeat_for_control(
+                &principal,
+                AppPlaybackSessionHeartbeatRequest {
+                    session_id,
+                    state: playback_session_state_from_public(&request.state)?,
+                    position_ms: request.position_ms,
+                    duration_ms: request.duration_ms,
+                },
+            )
             .await?,
     )))
-}
-
-async fn require_playback_session_control_access(
-    app: &NakoApp,
-    principal: &AuthenticatedPrincipal,
-    session: &nako_core::PlaybackSessionRecord,
-) -> ApiResult<()> {
-    if session.principal_id != principal.principal_id {
-        return Err(playback_session_not_found(session.id).into());
-    }
-    let Some(source) = app.get_media_source_record(session.source_id).await? else {
-        return Err(playback_session_not_found(session.id).into());
-    };
-    if !has_library_access(
-        app,
-        principal,
-        source.library_id,
-        RequiredLibraryAccess::Play,
-    )
-    .await?
-    {
-        return Err(playback_session_not_found(session.id).into());
-    }
-
-    Ok(())
 }
 
 fn browser_ticket_mode_from_public(
@@ -1178,13 +1150,6 @@ fn invalid_browser_playback_ticket() -> NakoError {
 fn invalid_renderer_transport_ticket() -> NakoError {
     NakoError::Unauthorized {
         message: "invalid renderer transport ticket".to_owned(),
-    }
-}
-
-fn playback_session_not_found(session_id: PlaybackSessionId) -> NakoError {
-    NakoError::NotFound {
-        entity: "playback_session",
-        id: session_id.to_string(),
     }
 }
 

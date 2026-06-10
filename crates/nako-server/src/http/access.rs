@@ -7,7 +7,6 @@ use super::error::ApiResult;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum RequiredLibraryAccess {
     Browse,
-    Play,
     Manage,
 }
 
@@ -15,7 +14,6 @@ impl RequiredLibraryAccess {
     fn allows(self, access: LibraryAccessLevel) -> bool {
         match self {
             Self::Browse => access.allows_browse(),
-            Self::Play => access.allows_play(),
             Self::Manage => access.allows_manage(),
         }
     }
@@ -23,7 +21,6 @@ impl RequiredLibraryAccess {
     fn label(self) -> &'static str {
         match self {
             Self::Browse => "browse",
-            Self::Play => "play",
             Self::Manage => "manage",
         }
     }
