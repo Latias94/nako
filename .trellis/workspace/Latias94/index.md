@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 111
+- **Total Sessions**: 112
 - **Last Active**: 2026-06-10
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~526 | Active |
+| `journal-3.md` | ~560 | Active |
 | `journal-2.md` | ~1991 | Archived |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 112 | 2026-06-10 | Operator readiness overview | `c474bc16` | `feat/operator-readiness-u1` |
 | 111 | 2026-06-10 | Playback renderer transport context boundary | `72f29691`, `695416b8` | `main` |
 | 110 | 2026-06-10 | Remove obsolete HTTP access module | `1acd5c12`, `c92e2933` | `main` |
 | 109 | 2026-06-10 | Move library manage access into app services | `59fb5d48`, `74a65243` | `main` |

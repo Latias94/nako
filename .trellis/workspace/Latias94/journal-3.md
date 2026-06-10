@@ -524,3 +524,37 @@ Moved renderer transport ticket principal/session resolution from HTTP playback 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 112: Operator readiness overview
+
+**Date**: 2026-06-10
+**Task**: Operator readiness overview
+**Package**: nako
+**Branch**: `feat/operator-readiness-u1`
+
+### Summary
+
+Implemented the U1 Product-Operator readiness slice from the media-server maturity roadmap, added Admin overview readiness DTOs/server aggregation/Admin Web rendering, updated docs and contracts, and passed workspace Rust plus Admin Web verification.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c474bc16` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
