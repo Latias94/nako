@@ -8,10 +8,11 @@ use nako_core::{
     MediaStreamKind, NakoError, NewOutboxEvent, NewPlaybackSession, NewTranscodeSession,
     OutboxEventRecord, PageRequest, PlaybackPermission, PlaybackPolicyRepository,
     PlaybackSessionHeartbeat, PlaybackSessionId, PlaybackSessionListFilter, PlaybackSessionMode,
-    PlaybackSessionRecord, PlaybackSessionRepository, PlaybackSessionState, Result,
-    StagingManifestRepository, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
-    TranscodeSessionListFilter, TranscodeSessionRecord, TranscodeSessionRepository,
-    TranscodeSessionRuntimeMetrics, TranscodeSessionState, UserId, UserPrincipalId,
+    PlaybackSessionRecord, PlaybackSessionRepository, PlaybackSessionState, RendererSessionId,
+    Result, StagingManifestRepository, TranscodeFailureCategory, TranscodeSessionId,
+    TranscodeSessionKind, TranscodeSessionListFilter, TranscodeSessionRecord,
+    TranscodeSessionRepository, TranscodeSessionRuntimeMetrics, TranscodeSessionState, UserId,
+    UserPrincipalId,
 };
 use nako_playback::{
     ClientPlaybackCapabilities, EffectivePlaybackPolicy, PlaybackDecision, PlaybackPlanner,
@@ -26,6 +27,8 @@ use crate::config::NakoServerConfig;
 
 use super::{
     playback_ticket::BrowserPlaybackTicketMode,
+    renderer::RendererAppService,
+    renderer_transport_ticket::RendererTransportTicketService,
     runtime::RuntimeSupervisor,
     storage::StorageBackendRegistry,
     subtitle_sidecar::{
@@ -607,6 +610,22 @@ pub(crate) struct StartRendererPlaybackSessionOutput {
 }
 
 #[derive(Clone, Debug)]
+pub(crate) struct ResolveRendererTransportPlaybackRequest {
+    pub token: String,
+    pub renderer_session_id: RendererSessionId,
+    pub playback_session_id: PlaybackSessionId,
+    pub source_id: MediaSourceId,
+    pub mode: PlaybackSessionMode,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct ResolvedRendererTransportPlaybackContext {
+    pub principal: AuthenticatedPrincipal,
+    pub renderer_session_id: RendererSessionId,
+    pub playback_session_id: PlaybackSessionId,
+}
+
+#[derive(Clone, Debug)]
 pub(crate) struct BrowserPlaybackTicketValidationRequest {
     pub principal: AuthenticatedPrincipal,
     pub source_id: MediaSourceId,
@@ -634,6 +653,8 @@ pub(crate) struct PlaybackAppService {
     runtime_store: Arc<dyn PlaybackRuntimeStore>,
     storage_backends: StorageBackendRegistry,
     runtime: RuntimeSupervisor,
+    renderer: RendererAppService,
+    renderer_transport_tickets: RendererTransportTicketService,
     input: FfmpegInputService,
     planner: PlaybackPlanner,
     resource_admission: PlaybackRuntimeAdmission,
@@ -650,6 +671,8 @@ impl PlaybackAppService {
         staging_store: Arc<dyn StagingManifestRepository>,
         storage_backends: StorageBackendRegistry,
         runtime: RuntimeSupervisor,
+        renderer: RendererAppService,
+        renderer_transport_tickets: RendererTransportTicketService,
     ) -> Result<Self> {
         let cancellations = PlaybackSessionCancellationRegistry::default();
         let input = FfmpegInputService::new(config.clone(), staging_store, runtime.clone());
@@ -665,6 +688,8 @@ impl PlaybackAppService {
             runtime_store,
             storage_backends,
             runtime,
+            renderer,
+            renderer_transport_tickets,
             cancellations,
         })
     }
@@ -819,6 +844,13 @@ impl PlaybackAppService {
         request: StartRendererPlaybackSessionRequest,
     ) -> Result<StartRendererPlaybackSessionOutput> {
         renderer_flow::start_renderer_playback_session(self, request).await
+    }
+
+    pub(crate) async fn resolve_renderer_transport_playback_context(
+        &self,
+        request: ResolveRendererTransportPlaybackRequest,
+    ) -> Result<ResolvedRendererTransportPlaybackContext> {
+        renderer_flow::resolve_renderer_transport_playback_context(self, request).await
     }
 
     pub(crate) async fn get_playback_session(

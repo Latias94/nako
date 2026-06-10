@@ -882,8 +882,9 @@ existing Remux runner boundary.
 ### 1. Scope / Trigger
 
 - Trigger: changing renderer playback session startup, renderer transport
-  planning, Direct/Remux/HLS renderer mode selection, renderer playback-session
-  transcode linkage, or renderer playback policy enforcement in `nako-server`.
+  planning, renderer transport ticket validation at media-route use,
+  Direct/Remux/HLS renderer mode selection, renderer playback-session transcode
+  linkage, or renderer playback policy enforcement in `nako-server`.
 
 ### 2. Signatures
 
@@ -894,6 +895,10 @@ existing Remux runner boundary.
   effective policy lookup, `RemoteControl` permission enforcement, playback
   planner invocation, mode-specific playback session creation, Remux/HLS
   transcode linkage, and renderer transport plan construction.
+- `PlaybackAppService::resolve_renderer_transport_playback_context(...) ->
+  Result<ResolvedRendererTransportPlaybackContext>` is the app-service entry
+  point for validating a renderer transport ticket when ticketed media routes
+  are used.
 - `http/renderer.rs` owns renderer command transport ticket and URL authoring.
 
 ### 3. Contracts
@@ -910,6 +915,11 @@ existing Remux runner boundary.
 - Renderer flow returns transport facts only. It must not issue renderer
   tickets, author renderer URLs, or expose raw local paths, locators, command
   lines, playback tickets, or renderer ticket tokens.
+- Ticketed playback media routes may parse path/query strings into typed IDs and
+  preserve existing optional-query semantics. The app flow owns online renderer
+  lookup, renderer transport scope construction, ticket validation, and
+  renderer-owner principal matching before returning the principal/session
+  context used by Direct, Remux, and HLS playback routes.
 - Public renderer route shape, DTOs, generated SDKs, and ticket payloads must
   not change during a flow extraction.
 
@@ -922,23 +932,34 @@ existing Remux runner boundary.
 | Planner returns Remux | Start/reuse Remux through `remux_flow`, link playback session, return Remux transport plan |
 | Planner returns HLS Transcode | Start/reuse HLS through `hls_flow`, link playback session, cancel superseded HLS playback sessions, return HLS transport plan |
 | Planner denies playback | Return the existing playback policy forbidden error |
+| Ticketed media route uses a valid renderer transport ticket | Resolve the renderer owner principal and playback session context in app flow |
+| Ticket token is blank, expired, mismatched by renderer/session/source/mode/network, or belongs to a different principal than the renderer owner | Return `NakoError::Unauthorized` with message `invalid renderer transport ticket` |
 
 ### 5. Good / Base / Bad Cases
 
 - Good: renderer HTTP routes call
   `PlaybackAppService::start_renderer_playback_session`, which immediately
   delegates to `renderer_flow`.
+- Good: ticketed playback media routes parse typed route/query IDs, then call
+  `PlaybackAppService::resolve_renderer_transport_playback_context` instead of
+  constructing `ValidateRendererTransportTicketRequest` in `http/playback.rs`.
 - Base: renderer command transport ticket URL construction stays in
   `http/renderer.rs` because it is HTTP/transport mapping, not playback app
   orchestration.
 - Bad: duplicating Remux/HLS source lookup, input staging, playlist readiness,
   or FFmpeg runner behavior inside `renderer_flow`.
+- Bad: building renderer transport ticket scopes, loading renderer owner state,
+  or comparing renderer owner principals inside playback HTTP route handlers.
 - Bad: moving renderer ticket issuance or URL authoring into playback app code.
 
 ### 6. Tests Required
 
 - HTTP renderer tests for Direct, Remux, and HLS renderer play commands must
   continue to pass without public response shape changes.
+- App playback tests must cover successful renderer transport ticket context
+  resolution and owner-principal mismatch rejection.
+- HTTP renderer transport tests must continue to prove ticketed Direct, Remux,
+  HLS playlist, and HLS segment routes preserve status/body behavior.
 - Focused playback tests for affected Remux/HLS startup paths should run when
   helper visibility or flow call paths change.
 - Gate: `cargo check -p nako-server --tests` plus focused

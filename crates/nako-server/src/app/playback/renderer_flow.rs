@@ -2,12 +2,17 @@ use nako_core::{NakoError, PlaybackPermission, PlaybackSessionMode, Result};
 use nako_playback::{PlaybackMode, PlaybackPlanningRequest, PlaybackPreferenceContext};
 use nako_transcode::HlsPlaybackGeneration;
 
+use crate::app::{
+    RendererTransportTicketScope, ValidateRendererTransportTicketRequest, current_time_ms,
+};
+
 use super::{
     HlsSourceRequest, PlaybackAppService, PlaybackRuntimeStore, RemuxSourceRequest,
-    RendererPlaybackTransportPlan, StartPlaybackSessionRequest, StartRendererPlaybackSessionOutput,
-    StartRendererPlaybackSessionRequest, ensure_playback_decision_allowed,
-    ensure_playback_permission_allowed, hls_flow, playback_policy_forbidden, remux_flow,
-    selection::remux_output_container,
+    RendererPlaybackTransportPlan, ResolveRendererTransportPlaybackRequest,
+    ResolvedRendererTransportPlaybackContext, StartPlaybackSessionRequest,
+    StartRendererPlaybackSessionOutput, StartRendererPlaybackSessionRequest,
+    ensure_playback_decision_allowed, ensure_playback_permission_allowed, hls_flow,
+    playback_policy_forbidden, remux_flow, selection::remux_output_container,
 };
 
 pub(super) async fn start_renderer_playback_session(
@@ -134,5 +139,47 @@ pub(super) async fn start_renderer_playback_session(
             })
         }
         PlaybackMode::Denied => Err(playback_policy_forbidden(&decision)),
+    }
+}
+
+pub(super) async fn resolve_renderer_transport_playback_context(
+    app: &PlaybackAppService,
+    request: ResolveRendererTransportPlaybackRequest,
+) -> Result<ResolvedRendererTransportPlaybackContext> {
+    if request.token.trim().is_empty() {
+        return Err(invalid_renderer_transport_ticket());
+    }
+
+    let renderer = app
+        .renderer
+        .get_online_renderer(request.renderer_session_id)
+        .await?;
+    let validated =
+        app.renderer_transport_tickets
+            .validate(ValidateRendererTransportTicketRequest {
+                token: request.token,
+                scope: RendererTransportTicketScope {
+                    renderer_session_id: request.renderer_session_id,
+                    playback_session_id: request.playback_session_id,
+                    source_id: request.source_id,
+                    mode: request.mode,
+                    network_scope: renderer.network_scope,
+                },
+                now_ms: current_time_ms()?,
+            })?;
+    if validated.principal.principal_id != renderer.owner_principal_id {
+        return Err(invalid_renderer_transport_ticket());
+    }
+
+    Ok(ResolvedRendererTransportPlaybackContext {
+        principal: validated.principal,
+        renderer_session_id: request.renderer_session_id,
+        playback_session_id: request.playback_session_id,
+    })
+}
+
+fn invalid_renderer_transport_ticket() -> NakoError {
+    NakoError::Unauthorized {
+        message: "invalid renderer transport ticket".to_owned(),
     }
 }

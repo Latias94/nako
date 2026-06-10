@@ -879,6 +879,132 @@ async fn renderer_playback_session_enforces_source_play_access_before_runtime_re
 }
 
 #[tokio::test]
+async fn renderer_transport_playback_context_resolves_valid_ticket() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "renderer_transport_valid");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let principal = local_playback_viewer(&store, source.library_id).await;
+    let renderer = app
+        .renderer()
+        .register_renderer(crate::app::renderer::RegisterRendererRequest {
+            principal_id: principal.principal_id.clone(),
+            display_name: "Local renderer".to_owned(),
+            target_kind: nako_core::PlaybackTargetKind::NakoRemoteClient,
+            network_scope: nako_core::PlaybackTargetNetworkScope::Local,
+            transport_auth: nako_core::PlaybackTargetTransportAuth::CastTicket,
+            media_capabilities: Some(ClientPlaybackCapabilities::default()),
+            control_capabilities: nako_core::RendererControlCapabilities::basic_playback(),
+            ttl_ms: None,
+        })
+        .await
+        .unwrap();
+    let session = app
+        .playback()
+        .start_playback_session(StartPlaybackSessionRequest {
+            principal_id: principal.principal_id.clone(),
+            source_id: source.id,
+            mode: PlaybackSessionMode::Direct,
+            client: Some(ClientPlaybackCapabilities::default()),
+        })
+        .await
+        .unwrap();
+    let issued = app
+        .renderer_transport_tickets()
+        .issue(IssueRendererTransportTicketRequest {
+            principal: principal.clone(),
+            scope: RendererTransportTicketScope {
+                renderer_session_id: renderer.id,
+                playback_session_id: session.id,
+                source_id: source.id,
+                mode: PlaybackSessionMode::Direct,
+                network_scope: renderer.network_scope,
+            },
+            now_ms: crate::app::current_time_ms().unwrap(),
+        })
+        .unwrap();
+
+    let resolved = app
+        .playback()
+        .resolve_renderer_transport_playback_context(ResolveRendererTransportPlaybackRequest {
+            token: issued.token,
+            renderer_session_id: renderer.id,
+            playback_session_id: session.id,
+            source_id: source.id,
+            mode: PlaybackSessionMode::Direct,
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(resolved.principal, principal);
+    assert_eq!(resolved.renderer_session_id, renderer.id);
+    assert_eq!(resolved.playback_session_id, session.id);
+}
+
+#[tokio::test]
+async fn renderer_transport_playback_context_rejects_wrong_owner_ticket() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "renderer_transport_wrong_owner");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let owner = local_playback_viewer(&store, source.library_id).await;
+    let other = local_playback_viewer(&store, source.library_id).await;
+    let renderer = app
+        .renderer()
+        .register_renderer(crate::app::renderer::RegisterRendererRequest {
+            principal_id: owner.principal_id.clone(),
+            display_name: "Owned renderer".to_owned(),
+            target_kind: nako_core::PlaybackTargetKind::NakoRemoteClient,
+            network_scope: nako_core::PlaybackTargetNetworkScope::Local,
+            transport_auth: nako_core::PlaybackTargetTransportAuth::CastTicket,
+            media_capabilities: Some(ClientPlaybackCapabilities::default()),
+            control_capabilities: nako_core::RendererControlCapabilities::basic_playback(),
+            ttl_ms: None,
+        })
+        .await
+        .unwrap();
+    let session = app
+        .playback()
+        .start_playback_session(StartPlaybackSessionRequest {
+            principal_id: owner.principal_id.clone(),
+            source_id: source.id,
+            mode: PlaybackSessionMode::Direct,
+            client: Some(ClientPlaybackCapabilities::default()),
+        })
+        .await
+        .unwrap();
+    let issued = app
+        .renderer_transport_tickets()
+        .issue(IssueRendererTransportTicketRequest {
+            principal: other,
+            scope: RendererTransportTicketScope {
+                renderer_session_id: renderer.id,
+                playback_session_id: session.id,
+                source_id: source.id,
+                mode: PlaybackSessionMode::Direct,
+                network_scope: renderer.network_scope,
+            },
+            now_ms: crate::app::current_time_ms().unwrap(),
+        })
+        .unwrap();
+
+    let err = app
+        .playback()
+        .resolve_renderer_transport_playback_context(ResolveRendererTransportPlaybackRequest {
+            token: issued.token,
+            renderer_session_id: renderer.id,
+            playback_session_id: session.id,
+            source_id: source.id,
+            mode: PlaybackSessionMode::Direct,
+        })
+        .await
+        .unwrap_err();
+
+    let NakoError::Unauthorized { message } = err else {
+        panic!("expected invalid renderer transport ticket rejection");
+    };
+    assert_eq!(message, "invalid renderer transport ticket");
+}
+
+#[tokio::test]
 async fn remux_source_rejects_persisted_active_duplicate() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "success");

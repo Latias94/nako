@@ -42,8 +42,8 @@ use crate::app::{
     HlsSegmentPlaybackRequest, IssuedBrowserPlaybackTicket, NakoApp,
     PlaybackSessionHeartbeatRequest as AppPlaybackSessionHeartbeatRequest, PlaybackTraceContext,
     RemuxPlaybackPreflightRequest, RemuxPlaybackSessionStreamRequest, RemuxPlaybackStreamRequest,
-    RendererTransportTicketScope, StartPlaybackSessionRequest, SubtitlePlaybackRequest,
-    ValidateRendererTransportTicketRequest,
+    ResolveRendererTransportPlaybackRequest, ResolvedRendererTransportPlaybackContext,
+    StartPlaybackSessionRequest, SubtitlePlaybackRequest,
 };
 
 use super::{error::ApiResult, trace_context::HttpTraceContext};
@@ -1060,13 +1060,6 @@ async fn resolve_subtitle_playback_principal(
     .into())
 }
 
-#[derive(Clone, Debug)]
-struct ResolvedRendererTransport {
-    principal: AuthenticatedPrincipal,
-    renderer_session_id: RendererSessionId,
-    playback_session_id: PlaybackSessionId,
-}
-
 async fn resolve_renderer_transport_principal(
     app: &NakoApp,
     source_id: MediaSourceId,
@@ -1074,7 +1067,7 @@ async fn resolve_renderer_transport_principal(
     renderer_session_id: Option<&str>,
     playback_session_id: Option<&str>,
     renderer_ticket: Option<&str>,
-) -> ApiResult<Option<ResolvedRendererTransport>> {
+) -> ApiResult<Option<ResolvedRendererTransportPlaybackContext>> {
     let Some(playback_session_id) = playback_session_id else {
         if renderer_ticket.is_some() {
             return Err(invalid_renderer_transport_ticket().into());
@@ -1102,7 +1095,7 @@ async fn resolve_renderer_transport_principal_for_session(
     renderer_session_id: Option<&str>,
     playback_session_id: PlaybackSessionId,
     renderer_ticket: Option<&str>,
-) -> ApiResult<Option<ResolvedRendererTransport>> {
+) -> ApiResult<Option<ResolvedRendererTransportPlaybackContext>> {
     let Some(ticket) = renderer_ticket else {
         return Ok(None);
     };
@@ -1113,32 +1106,18 @@ async fn resolve_renderer_transport_principal_for_session(
         return Err(invalid_renderer_transport_ticket().into());
     };
     let renderer_session_id = parse_renderer_session_id(renderer_session_id)?;
-    let renderer = app
-        .renderer()
-        .get_online_renderer(renderer_session_id)
-        .await?;
-    let validated =
-        app.renderer_transport_tickets()
-            .validate(ValidateRendererTransportTicketRequest {
-                token: ticket.to_owned(),
-                scope: RendererTransportTicketScope {
-                    renderer_session_id,
-                    playback_session_id,
-                    source_id,
-                    mode,
-                    network_scope: renderer.network_scope,
-                },
-                now_ms: crate::app::current_time_ms()?,
-            })?;
-    if validated.principal.principal_id != renderer.owner_principal_id {
-        return Err(invalid_renderer_transport_ticket().into());
-    }
 
-    Ok(Some(ResolvedRendererTransport {
-        principal: validated.principal,
-        renderer_session_id,
-        playback_session_id,
-    }))
+    Ok(Some(
+        app.playback()
+            .resolve_renderer_transport_playback_context(ResolveRendererTransportPlaybackRequest {
+                token: ticket.to_owned(),
+                renderer_session_id,
+                playback_session_id,
+                source_id,
+                mode,
+            })
+            .await?,
+    ))
 }
 
 fn invalid_browser_playback_ticket() -> NakoError {

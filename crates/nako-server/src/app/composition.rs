@@ -243,6 +243,10 @@ impl NakoAppServices {
             runtime.storage_backends.clone(),
             runtime.supervisor.clone(),
         );
+        let playback_tickets = BrowserPlaybackTicketService::new();
+        let renderer_transport_tickets = RendererTransportTicketService::new();
+        let renderer_adapters = RendererAdapterBridgeService::new();
+        let renderer = RendererAppService::new(store.clone());
         let runtime_store: Arc<dyn PlaybackRuntimeStore> = Arc::new(store.clone());
         let staging_store: Arc<dyn nako_core::StagingManifestRepository> = Arc::new(store.clone());
         let playback = PlaybackAppService::new(
@@ -251,11 +255,9 @@ impl NakoAppServices {
             staging_store,
             runtime.storage_backends,
             runtime.supervisor,
+            renderer.clone(),
+            renderer_transport_tickets.clone(),
         )?;
-        let playback_tickets = BrowserPlaybackTicketService::new();
-        let renderer_transport_tickets = RendererTransportTicketService::new();
-        let renderer_adapters = RendererAdapterBridgeService::new();
-        let renderer = RendererAppService::new(store.clone());
         let casting = CastingAppService::new(renderer.clone(), playback.clone());
         let user_playlist = UserPlaylistAppService::new(store.clone());
         let user_playback = UserPlaybackAppService::new(store.clone());
