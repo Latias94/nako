@@ -161,8 +161,8 @@ use crate::{
         VfsCacheRepairAutomationEnqueueReport, VfsCacheRepairAutomationJobReport,
         VfsCacheRepairAutomationPolicy, VfsCacheRepairAutomationPolicyReport,
         VfsCacheRepairCommandOutput, VfsCacheRepairExecutableRoute,
-        VfsCacheRepairJobSummary as AppVfsCacheRepairJobSummary, VfsCacheRepairRefreshActionReport,
-        VfsCacheRepairRemediationActionGroupReport,
+        VfsCacheRepairJobSummary as AppVfsCacheRepairJobSummary, VfsCacheRepairReadinessPressure,
+        VfsCacheRepairRefreshActionReport, VfsCacheRepairRemediationActionGroupReport,
         VfsCacheRepairRemediationClassificationCountReport,
         VfsCacheRepairRemediationPlanBoundary as AppVfsCacheRepairRemediationPlanBoundary,
         VfsCacheRepairRemediationPlanReport, VfsCacheRepairTargetPreviewReport,
@@ -1424,11 +1424,7 @@ pub(super) async fn get_admin_overview(State(app): State<NakoApp>) -> ApiResult<
     let metadata = app.metadata().list_metadata_provider_diagnostics();
     let runtime = app.runtime_diagnostics();
     let source_fingerprint_hash = app.source_hash().admin_overview_summary().await?;
-    let vfs_cache_repair = app
-        .storage()
-        .latest_vfs_cache_repair_diagnostic()
-        .await?
-        .map(admin_vfs_cache_repair_diagnostic);
+    let vfs_cache_repair_pressure = app.storage().vfs_cache_repair_readiness_pressure().await?;
     let network_readiness = network_readiness_diagnostics(app.config());
     let playback_readiness = admin_playback_runtime_diagnostics(&app).await.readiness;
     let startup = app.startup_report().clone();
@@ -1462,7 +1458,7 @@ pub(super) async fn get_admin_overview(State(app): State<NakoApp>) -> ApiResult<
         &storage,
         &runtime,
         &source_fingerprint_hash,
-        vfs_cache_repair.as_ref(),
+        vfs_cache_repair_pressure.as_ref(),
         &startup,
         network_readiness,
         playback_readiness,
@@ -3860,7 +3856,7 @@ fn operator_readiness_summary(
     storage: &AdminOverviewStorageSummary,
     runtime: &AdminOverviewRuntimeSummary,
     source_fingerprint_hash: &AdminOverviewSourceFingerprintHashSummary,
-    vfs_cache_repair: Option<&AdminVfsCacheRepairDiagnostic>,
+    vfs_cache_repair_pressure: Option<&VfsCacheRepairReadinessPressure>,
     startup: &AdminOverviewStartupSummary,
     network: AdminNetworkReadinessDiagnostics,
     playback: AdminPlaybackReadinessDiagnostics,
@@ -3869,7 +3865,7 @@ fn operator_readiness_summary(
         setup_readiness_check(config),
         media_library_scan_readiness_check(startup, runtime, source_fingerprint_hash),
         playback_readiness_check(playback),
-        storage_readiness_check(storage, vfs_cache_repair),
+        storage_readiness_check(storage, vfs_cache_repair_pressure),
         network_readiness_check(network),
         backup_readiness_check(config),
     ])
@@ -4081,7 +4077,7 @@ fn playback_readiness_check(
 
 fn storage_readiness_check(
     storage: &AdminOverviewStorageSummary,
-    vfs_cache_repair: Option<&AdminVfsCacheRepairDiagnostic>,
+    vfs_cache_repair_pressure: Option<&VfsCacheRepairReadinessPressure>,
 ) -> AdminOperatorReadinessCheck {
     let attention_count = storage
         .degraded_backends
@@ -4115,16 +4111,15 @@ fn storage_readiness_check(
         );
     }
 
-    if let Some(repair) = vfs_cache_repair.filter(|repair| {
-        repair.classification != AdminVfsCacheRepairClassification::Healthy
-            || repair.recommended_action != AdminVfsCacheRepairAction::None
-    }) {
+    if let Some(pressure) = vfs_cache_repair_pressure {
         return operator_check(
             AdminOperatorReadinessArea::Storage,
             AdminOperatorReadinessStatus::Degraded,
             AdminOperatorReadinessReason::VfsCacheRepairPressure,
-            enum_code(repair.classification),
-            repair.failure_count.unwrap_or(1),
+            enum_code(admin_vfs_cache_repair_classification(
+                pressure.primary_classification,
+            )),
+            pressure.total_unresolved_targets,
             Some(operator_action(
                 ADMIN_STORAGE_REPAIR_TARGETS_ROUTE_KEY,
                 ADMIN_STORAGE_REPAIR_TARGETS_ROUTE_PATH,
@@ -4517,8 +4512,6 @@ fn u64_to_u32(value: u64) -> u32 {
 
 #[cfg(test)]
 mod tests {
-    use nako_core::{StorageFailureClass, VfsCacheOperation};
-
     use super::*;
 
     #[test]
@@ -4623,18 +4616,11 @@ mod tests {
 
     #[test]
     fn storage_readiness_reports_vfs_cache_repair_pressure() {
-        let repair = AdminVfsCacheRepairDiagnostic {
-            classification: AdminVfsCacheRepairClassification::RetryableRefreshFailure,
-            recommended_action: AdminVfsCacheRepairAction::RefreshCache,
-            operation: Some(VfsCacheOperation::Stat),
-            failure_class: Some(StorageFailureClass::Unavailable),
-            retryable: true,
-            failed_at_ms: Some(1_900_000_000_000),
-            failure_count: Some(3),
-            safe_message: Some("storage unavailable".to_owned()),
-            operator_action: "refresh cache".to_owned(),
+        let pressure = VfsCacheRepairReadinessPressure {
+            primary_classification: VfsCacheRepairClassification::RetryableRefreshFailure,
+            total_unresolved_targets: 2,
         };
-        let check = storage_readiness_check(&ready_storage_summary(), Some(&repair));
+        let check = storage_readiness_check(&ready_storage_summary(), Some(&pressure));
         let body = serde_json::to_string(&check).unwrap();
 
         assert_eq!(check.area, AdminOperatorReadinessArea::Storage);
@@ -4647,7 +4633,7 @@ mod tests {
             check.source_reason.as_deref(),
             Some("retryable_refresh_failure")
         );
-        assert_eq!(check.attention_count, 3);
+        assert_eq!(check.attention_count, 2);
         assert_eq!(
             check
                 .action
@@ -4661,19 +4647,8 @@ mod tests {
     }
 
     #[test]
-    fn storage_readiness_ignores_healthy_vfs_cache_repair_diagnostic() {
-        let repair = AdminVfsCacheRepairDiagnostic {
-            classification: AdminVfsCacheRepairClassification::Healthy,
-            recommended_action: AdminVfsCacheRepairAction::None,
-            operation: None,
-            failure_class: None,
-            retryable: false,
-            failed_at_ms: None,
-            failure_count: None,
-            safe_message: None,
-            operator_action: "no action".to_owned(),
-        };
-        let check = storage_readiness_check(&ready_storage_summary(), Some(&repair));
+    fn storage_readiness_ignores_absent_vfs_cache_repair_pressure() {
+        let check = storage_readiness_check(&ready_storage_summary(), None);
 
         assert_eq!(check.area, AdminOperatorReadinessArea::Storage);
         assert_eq!(check.status, AdminOperatorReadinessStatus::Ready);

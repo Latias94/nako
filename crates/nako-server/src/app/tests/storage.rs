@@ -1385,6 +1385,12 @@ async fn vfs_cache_repair_planners_share_unresolved_target_collection() {
         .plan_vfs_cache_repair_remediation()
         .await
         .unwrap();
+    let readiness = app
+        .storage()
+        .vfs_cache_repair_readiness_pressure()
+        .await
+        .unwrap()
+        .expect("repair readiness pressure");
     let automation = app
         .storage()
         .plan_vfs_cache_repair_automation(VfsCacheRepairAutomationPolicy { enabled: true })
@@ -1399,6 +1405,11 @@ async fn vfs_cache_repair_planners_share_unresolved_target_collection() {
     assert_eq!(targets.len(), 1);
     assert_eq!(targets[0].failed_at_ms, unresolved.failed_at_ms);
     assert_eq!(remediation.total_unresolved_targets, targets.len() as u32);
+    assert_eq!(readiness.total_unresolved_targets, targets.len() as u32);
+    assert_eq!(
+        readiness.primary_classification,
+        nako_vfs::VfsCacheRepairClassification::RetryableRefreshFailure
+    );
     assert_eq!(refresh_group.count, targets.len() as u32);
     assert_eq!(refresh_group.sample_targets, targets);
     assert_eq!(automation.total_unresolved_targets, targets.len() as u32);

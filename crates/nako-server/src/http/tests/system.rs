@@ -683,6 +683,103 @@ async fn admin_v1_overview_reports_operator_readiness_for_configured_local_insta
 }
 
 #[tokio::test]
+async fn admin_v1_overview_reports_vfs_cache_repair_pressure_when_latest_failure_is_resolved() {
+    let (_temp, router, store, library_id, _root) = vfs_cache_repair_retry_http_fixture().await;
+    let resolved = store
+        .record_vfs_cache_failure(NewVfsCacheFailure {
+            uri: "local:///Movies/Private/AlreadyFresh.mkv?token=secret".to_owned(),
+            scheme: "local".to_owned(),
+            operation: VfsCacheOperation::Stat,
+            failed_at_ms: 2_000,
+            error: StorageFailureClass::Unavailable.safe_message().to_owned(),
+            authority: VfsCacheFailureAuthority::attributed(
+                library_id,
+                format!("library:{library_id}:local"),
+            ),
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_vfs_cache_object(&VfsCachedObject {
+            uri: resolved.uri.clone(),
+            scheme: resolved.scheme.clone(),
+            kind: VfsCachedObjectKind::File,
+            len: Some(42),
+            modified_at: None,
+            etag: Some("safe-test-etag".to_owned()),
+            fingerprint: Some("safe-test-fingerprint".to_owned()),
+            capabilities_bits: 0,
+            fetched_at_ms: resolved.failed_at_ms + 1,
+            fresh_until_ms: resolved.failed_at_ms + 60_000,
+        })
+        .await
+        .unwrap();
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/overview")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let overview: AdminOverviewResponse = serde_json::from_str(&body).unwrap();
+    let storage_check = overview
+        .operator_readiness
+        .checks
+        .iter()
+        .find(|check| check.area == AdminOperatorReadinessArea::Storage)
+        .expect("storage readiness check");
+
+    assert_eq!(storage_check.status, AdminOperatorReadinessStatus::Degraded);
+    assert_eq!(
+        storage_check.reason,
+        AdminOperatorReadinessReason::VfsCacheRepairPressure
+    );
+    assert_eq!(
+        storage_check.source_reason.as_deref(),
+        Some("retryable_refresh_failure")
+    );
+    assert_eq!(storage_check.attention_count, 1);
+    assert_eq!(
+        storage_check
+            .action
+            .as_ref()
+            .map(|action| action.route_key.as_str()),
+        Some("storageVfsCacheRepairTargets")
+    );
+    for forbidden in [
+        "local:///",
+        "Private",
+        "AdminJob.mkv",
+        "AlreadyFresh",
+        "token=secret",
+        "safe-test-etag",
+        "safe-test-fingerprint",
+        "uri_digest",
+        "input_json",
+        "summary_json",
+        "raw backend",
+    ] {
+        assert!(
+            !body.contains(forbidden),
+            "overview VFS repair readiness leaked forbidden term: {forbidden}"
+        );
+    }
+}
+
+#[tokio::test]
 async fn admin_v1_catalog_governance_lists_unknown_low_confidence_and_redacts_evidence() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
