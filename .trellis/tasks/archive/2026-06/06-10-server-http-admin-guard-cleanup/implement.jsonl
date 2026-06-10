@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "nako-server backend spec index and pre-development checklist"}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "HTTP route guard and admin-route contract"}
+{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "preserve administrator forbidden error behavior"}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "focused metadata/server test gate conventions"}
+{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "HTTP module ownership and cleanup guidance"}
+{"file": ".trellis/spec/guides/index.md", "reason": "shared cross-layer and code-reuse thinking triggers"}
