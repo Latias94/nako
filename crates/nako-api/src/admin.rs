@@ -379,6 +379,7 @@ pub enum AdminOperatorReadinessReason {
     NoMediaLibraryConfigured,
     ScanWorkPending,
     ScanRepairPressure,
+    WatchFolderRuntimeCoverageGap,
     PlaybackReady,
     PlaybackDegraded,
     PlaybackUnavailable,

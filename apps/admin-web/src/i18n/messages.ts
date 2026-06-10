@@ -80,6 +80,8 @@ export const enMessages = {
     "{count} scan or fingerprint jobs are pending",
   "overview.operatorReadiness.reason.scanRepairPressure":
     "{count} scan or job failures need review",
+  "overview.operatorReadiness.reason.watchFolderRuntimeCoverageGap":
+    "{count} watch-folder runtime needs configuration",
   "overview.operatorReadiness.reason.playbackReady": "Playback runtime is ready",
   "overview.operatorReadiness.reason.playbackDegraded":
     "Playback runtime is degraded",
@@ -1748,6 +1750,8 @@ export const zhHansMessages = {
   "overview.operatorReadiness.reason.noMediaLibraryConfigured": "尚未配置媒体库",
   "overview.operatorReadiness.reason.scanWorkPending": "{count} 个扫描或 fingerprint 任务待处理",
   "overview.operatorReadiness.reason.scanRepairPressure": "{count} 个扫描或任务失败需要处理",
+  "overview.operatorReadiness.reason.watchFolderRuntimeCoverageGap":
+    "{count} 个 watch-folder 运行时需要配置",
   "overview.operatorReadiness.reason.playbackReady": "播放运行时已就绪",
   "overview.operatorReadiness.reason.playbackDegraded": "播放运行时降级",
   "overview.operatorReadiness.reason.playbackUnavailable": "播放运行时不可用",

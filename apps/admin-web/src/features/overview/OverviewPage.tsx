@@ -446,6 +446,8 @@ const OPERATOR_READINESS_REASON_LABELS: Record<
   scan_work_pending: "overview.operatorReadiness.reason.scanWorkPending",
   scan_repair_pressure:
     "overview.operatorReadiness.reason.scanRepairPressure",
+  watch_folder_runtime_coverage_gap:
+    "overview.operatorReadiness.reason.watchFolderRuntimeCoverageGap",
   playback_ready: "overview.operatorReadiness.reason.playbackReady",
   playback_degraded: "overview.operatorReadiness.reason.playbackDegraded",
   playback_unavailable: "overview.operatorReadiness.reason.playbackUnavailable",

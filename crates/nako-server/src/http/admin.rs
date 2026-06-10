@@ -3980,6 +3980,22 @@ fn media_library_scan_readiness_check(
         );
     }
 
+    if let Some((source_reason, attention_count)) =
+        watch_folder_runtime_coverage_gap(&startup.watch_folder_runtime)
+    {
+        return operator_check(
+            AdminOperatorReadinessArea::MediaLibraryScan,
+            AdminOperatorReadinessStatus::Degraded,
+            AdminOperatorReadinessReason::WatchFolderRuntimeCoverageGap,
+            Some(source_reason),
+            attention_count,
+            Some(operator_action(
+                ADMIN_SYSTEM_CONFIG_ROUTE_KEY,
+                ADMIN_SYSTEM_CONFIG_ROUTE_PATH,
+            )),
+        );
+    }
+
     operator_check(
         AdminOperatorReadinessArea::MediaLibraryScan,
         AdminOperatorReadinessStatus::Ready,
@@ -3988,6 +4004,38 @@ fn media_library_scan_readiness_check(
         0,
         None,
     )
+}
+
+fn watch_folder_runtime_coverage_gap(
+    runtime: &AdminOverviewWatchFolderRuntimeSummary,
+) -> Option<(String, u32)> {
+    let unsupported_roots = runtime
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.status == AdminWatchFolderRuntimeCoverageStatus::UnsupportedRoot
+        })
+        .count();
+    let missing_roots = runtime
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.status == AdminWatchFolderRuntimeCoverageStatus::MissingRoot
+        })
+        .count();
+    let gap_count = unsupported_roots.saturating_add(missing_roots);
+
+    if gap_count == 0 {
+        return None;
+    }
+
+    let source_reason = if unsupported_roots > 0 {
+        "unsupported_root"
+    } else {
+        "missing_root"
+    };
+
+    Some((source_reason.to_owned(), usize_to_u32(gap_count)))
 }
 
 fn playback_readiness_check(
@@ -4468,5 +4516,130 @@ mod tests {
         );
         assert_eq!(storage_staging_used_ratio_milli(0, 10), None);
         assert_eq!(storage_staging_used_ratio_milli(1_000, 1_250), Some(1_250));
+    }
+
+    #[test]
+    fn media_library_scan_readiness_reports_watch_folder_runtime_coverage_gap() {
+        let startup = startup_summary_with_watch_folder_diagnostics(vec![
+            AdminWatchFolderRuntimeCoverageDiagnostic {
+                library_id: LibraryId::new(),
+                library_name: "Remote Movies".to_owned(),
+                root_scheme: Some("webdav".to_owned()),
+                root_ref_redacted: "webdav://<redacted>".to_owned(),
+                status: AdminWatchFolderRuntimeCoverageStatus::UnsupportedRoot,
+                safe_reason: "watch-folder runtime requires a local root".to_owned(),
+            },
+            AdminWatchFolderRuntimeCoverageDiagnostic {
+                library_id: LibraryId::new(),
+                library_name: "Broken Movies".to_owned(),
+                root_scheme: None,
+                root_ref_redacted: "<redacted>".to_owned(),
+                status: AdminWatchFolderRuntimeCoverageStatus::MissingRoot,
+                safe_reason: "library has no parseable root".to_owned(),
+            },
+        ]);
+        let check = media_library_scan_readiness_check(
+            &startup,
+            &empty_runtime_summary(),
+            &AdminOverviewSourceFingerprintHashSummary::default(),
+        );
+        let body = serde_json::to_string(&check).unwrap();
+
+        assert_eq!(check.area, AdminOperatorReadinessArea::MediaLibraryScan);
+        assert_eq!(check.status, AdminOperatorReadinessStatus::Degraded);
+        assert_eq!(
+            check.reason,
+            AdminOperatorReadinessReason::WatchFolderRuntimeCoverageGap
+        );
+        assert_eq!(check.source_reason.as_deref(), Some("unsupported_root"));
+        assert_eq!(check.attention_count, 2);
+        assert_eq!(
+            check
+                .action
+                .as_ref()
+                .map(|action| action.route_key.as_str()),
+            Some(ADMIN_SYSTEM_CONFIG_ROUTE_KEY)
+        );
+        assert!(!body.contains("webdav:///"));
+        assert!(!body.contains("token"));
+        assert!(!body.contains("password"));
+    }
+
+    #[test]
+    fn media_library_scan_readiness_ignores_disabled_watch_folder_runtime() {
+        let startup = startup_summary_with_watch_folder_diagnostics(vec![
+            AdminWatchFolderRuntimeCoverageDiagnostic {
+                library_id: LibraryId::new(),
+                library_name: "Local Movies".to_owned(),
+                root_scheme: Some("local".to_owned()),
+                root_ref_redacted: "local://<redacted>".to_owned(),
+                status: AdminWatchFolderRuntimeCoverageStatus::Disabled,
+                safe_reason: "realtime monitoring is disabled".to_owned(),
+            },
+        ]);
+        let check = media_library_scan_readiness_check(
+            &startup,
+            &empty_runtime_summary(),
+            &AdminOverviewSourceFingerprintHashSummary::default(),
+        );
+
+        assert_eq!(check.area, AdminOperatorReadinessArea::MediaLibraryScan);
+        assert_eq!(check.status, AdminOperatorReadinessStatus::Ready);
+        assert_eq!(
+            check.reason,
+            AdminOperatorReadinessReason::MediaLibraryConfigured
+        );
+        assert_eq!(check.attention_count, 0);
+    }
+
+    fn startup_summary_with_watch_folder_diagnostics(
+        diagnostics: Vec<AdminWatchFolderRuntimeCoverageDiagnostic>,
+    ) -> AdminOverviewStartupSummary {
+        let realtime_enabled_libraries = diagnostics
+            .iter()
+            .filter(|diagnostic| {
+                diagnostic.status != AdminWatchFolderRuntimeCoverageStatus::Disabled
+            })
+            .count();
+        let started_libraries = diagnostics
+            .iter()
+            .filter(|diagnostic| {
+                diagnostic.status == AdminWatchFolderRuntimeCoverageStatus::Started
+            })
+            .count();
+        let configured_libraries = usize_to_u32(diagnostics.len());
+
+        AdminOverviewStartupSummary {
+            configured_libraries,
+            recovered_transcode_sessions: 0,
+            recovered_jobs: 0,
+            staging_deleted_records: 0,
+            staging_deleted_files: 0,
+            metadata_raw_cache_deleted: 0,
+            metadata_lifecycle_tasks_started: 0,
+            artwork_ingest_worker_started: false,
+            addon_event_scheduler_started: false,
+            watch_folder_runtimes_started: usize_to_u32(started_libraries),
+            watch_folder_runtime: AdminOverviewWatchFolderRuntimeSummary {
+                configured_libraries,
+                realtime_enabled_libraries: usize_to_u32(realtime_enabled_libraries),
+                started_libraries: usize_to_u32(started_libraries),
+                skipped_libraries: configured_libraries
+                    .saturating_sub(usize_to_u32(started_libraries)),
+                diagnostics,
+            },
+        }
+    }
+
+    fn empty_runtime_summary() -> AdminOverviewRuntimeSummary {
+        AdminOverviewRuntimeSummary {
+            active_tasks: 0,
+            completed_tasks: 0,
+            failed_tasks: 0,
+            succeeded_jobs: 0,
+            cancelled_jobs: 0,
+            failed_jobs: 0,
+            shutdown_requested: false,
+        }
     }
 }

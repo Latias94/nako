@@ -2278,6 +2278,7 @@ export type AdminOperatorReadinessReason =
   | "no_media_library_configured"
   | "scan_work_pending"
   | "scan_repair_pressure"
+  | "watch_folder_runtime_coverage_gap"
   | "playback_ready"
   | "playback_degraded"
   | "playback_unavailable"
