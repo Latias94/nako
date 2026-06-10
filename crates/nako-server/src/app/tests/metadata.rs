@@ -46,6 +46,54 @@ fn media_source_for_item(library_id: LibraryId, item: &MediaItem) -> MediaSource
     }
 }
 
+async fn local_principal_with_metadata_access(
+    store: &NakoDatabase,
+    library_id: LibraryId,
+    access: LibraryAccessLevel,
+) -> AuthenticatedPrincipal {
+    let user_id = UserId::new();
+    let principal_id = UserPrincipalId::new(format!("metadata-access:{user_id}")).unwrap();
+    let user = User {
+        id: user_id,
+        principal_id: principal_id.clone(),
+        username: format!("metadata-access-{user_id}"),
+        display_name: "Metadata access principal".to_owned(),
+        status: UserStatus::Active,
+        created_at_ms: 1,
+        updated_at_ms: 1,
+    };
+
+    store.upsert_user(&user).await.unwrap();
+    store
+        .replace_role_assignments(
+            user_id,
+            &[RoleAssignment {
+                user_id,
+                role: UserRole::Viewer,
+                granted_at_ms: 1,
+            }],
+        )
+        .await
+        .unwrap();
+    store
+        .upsert_library_access_policy(&LibraryAccessPolicy {
+            scope: LibraryAccessPolicyScope::User(user_id),
+            library_id,
+            access,
+            created_at_ms: 1,
+            updated_at_ms: 1,
+        })
+        .await
+        .unwrap();
+
+    AuthenticatedPrincipal {
+        user_id,
+        principal_id,
+        roles: vec![UserRole::Viewer],
+        bootstrap: false,
+    }
+}
+
 #[tokio::test]
 async fn metadata_refresh_job_input_does_not_include_secrets() {
     let temp = tempfile::tempdir().unwrap();
@@ -138,6 +186,69 @@ async fn metadata_refresh_job_input_does_not_include_secrets() {
     );
     assert!(input.get("access_token").is_none());
     assert!(input.get("api_key").is_none());
+}
+
+#[tokio::test]
+async fn metadata_refresh_requires_manage_access_in_app_service() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("nako-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Browse Only".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    upsert_item_with_source(&store, library_id, &item).await;
+    let principal =
+        local_principal_with_metadata_access(&store, library_id, LibraryAccessLevel::Browse).await;
+
+    let err = app
+        .metadata()
+        .enqueue_metadata_refresh(&principal, item.id)
+        .await
+        .unwrap_err();
+
+    assert!(
+        err.to_string()
+            .contains("required Library Access level 'manage'")
+    );
 }
 
 #[tokio::test]
@@ -372,7 +483,7 @@ async fn background_metadata_refresh_job_uses_runtime_job_supervision() {
 
     let job = app
         .metadata()
-        .enqueue_metadata_refresh(item.id)
+        .enqueue_metadata_refresh(&AuthenticatedPrincipal::bootstrap_admin(), item.id)
         .await
         .unwrap();
     let diagnostics = wait_for_runtime_jobs(&app, 0, 0, 1).await;

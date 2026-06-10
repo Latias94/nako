@@ -32,20 +32,21 @@ use nako_api::{
 };
 use nako_catalog::{CatalogHydrationPort, CatalogHydrationSummary};
 use nako_core::{
-    CancelLeasedJob, CompleteLeasedJob, DomainEventKind, DomainEventSubject, EventId,
-    EventOutboxRepository, ExternalProvider, FailLeasedJob, Job, JobId, JobKind,
-    JobLeaseClaimRequest, JobLeaseHeartbeat, JobPriority, JobRepository, JobStatus, LeasedJob,
-    Library, LibraryId, LibraryRepository,
-    METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS, MediaItem, MediaItemId,
-    MediaRepository, MediaSource, MetadataAttemptFilter, MetadataCandidateReviewBatchCommit,
-    MetadataCandidateReviewBatchId, MetadataCandidateReviewBatchItemCommit,
-    MetadataCandidateReviewBatchItemOutcomeCommit, MetadataCandidateReviewBatchItemRecord,
-    MetadataCandidateReviewBatchItemStatus, MetadataCandidateReviewBatchRecord,
-    MetadataCandidateReviewBatchStatus, MetadataCandidateReviewId,
-    MetadataCandidateReviewQueueFilter, MetadataCandidateReviewRepository, MetadataProfile,
-    MetadataProviderAttemptRecord, MetadataProviderAttemptStatus, MetadataRefreshMode,
-    MetadataRepository, NakoError, NewJob, NewOutboxEvent, OutboxEventRecord, PageRequest,
-    ProviderRawResponse, ProviderRawResponseCleanup, ProviderRawResponseFilter, Result,
+    AuthenticatedPrincipal, CancelLeasedJob, CompleteLeasedJob, DomainEventKind,
+    DomainEventSubject, EventId, EventOutboxRepository, ExternalProvider, FailLeasedJob,
+    IdentityAccessRepository, Job, JobId, JobKind, JobLeaseClaimRequest, JobLeaseHeartbeat,
+    JobPriority, JobRepository, JobStatus, LeasedJob, Library, LibraryAccessLevel, LibraryId,
+    LibraryRepository, METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS, MediaItem,
+    MediaItemId, MediaRepository, MediaSource, MetadataAttemptFilter,
+    MetadataCandidateReviewBatchCommit, MetadataCandidateReviewBatchId,
+    MetadataCandidateReviewBatchItemCommit, MetadataCandidateReviewBatchItemOutcomeCommit,
+    MetadataCandidateReviewBatchItemRecord, MetadataCandidateReviewBatchItemStatus,
+    MetadataCandidateReviewBatchRecord, MetadataCandidateReviewBatchStatus,
+    MetadataCandidateReviewId, MetadataCandidateReviewQueueFilter,
+    MetadataCandidateReviewRepository, MetadataProfile, MetadataProviderAttemptRecord,
+    MetadataProviderAttemptStatus, MetadataRefreshMode, MetadataRepository, NakoError, NewJob,
+    NewOutboxEvent, OutboxEventRecord, PageRequest, ProviderRawResponse,
+    ProviderRawResponseCleanup, ProviderRawResponseFilter, Result, UserId,
 };
 use nako_db::NakoDatabase;
 use nako_metadata::{
@@ -149,6 +150,12 @@ pub(super) trait MetadataWorkflowStore: std::fmt::Debug + Send + Sync {
         page: PageRequest,
     ) -> Result<Vec<MediaSource>>;
 
+    async fn resolve_library_access_level(
+        &self,
+        user_id: UserId,
+        library_id: LibraryId,
+    ) -> Result<LibraryAccessLevel>;
+
     async fn list_media_items_for_library(
         &self,
         library_id: LibraryId,
@@ -188,6 +195,7 @@ impl<T> MetadataWorkflowStore for T
 where
     T: EventOutboxRepository
         + JobRepository
+        + IdentityAccessRepository
         + LibraryRepository
         + MediaRepository
         + MetadataRepository
@@ -213,6 +221,18 @@ where
         page: PageRequest,
     ) -> Result<Vec<MediaSource>> {
         MediaRepository::list_item_sources(self, item_id, page).await
+    }
+
+    async fn resolve_library_access_level(
+        &self,
+        user_id: UserId,
+        library_id: LibraryId,
+    ) -> Result<LibraryAccessLevel> {
+        Ok(
+            IdentityAccessRepository::resolve_effective_library_access(self, user_id, library_id)
+                .await?
+                .access,
+        )
     }
 
     async fn list_media_items_for_library(
@@ -351,7 +371,13 @@ impl MetadataAppService {
         }
     }
 
-    pub(crate) async fn enqueue_metadata_refresh(&self, item_id: MediaItemId) -> Result<Job> {
+    pub(crate) async fn enqueue_metadata_refresh(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        item_id: MediaItemId,
+    ) -> Result<Job> {
+        self.ensure_item_manage_access(principal, item_id).await?;
+
         let job = self.create_metadata_refresh_job(item_id).await?;
         let job_id = job.id;
         let resource_class = job.resource_class.clone();
@@ -478,10 +504,13 @@ impl MetadataAppService {
 
     pub async fn review_metadata_candidates(
         &self,
+        principal: &AuthenticatedPrincipal,
         item_id: MediaItemId,
         providers: Option<Vec<ExternalProvider>>,
         language: Option<String>,
     ) -> Result<MetadataCandidateReviewResponse> {
+        self.ensure_item_manage_access(principal, item_id).await?;
+
         let item = self
             .workflow_store
             .get_media_item(item_id)
@@ -1487,10 +1516,12 @@ impl MetadataAppService {
 
     pub async fn list_metadata_provider_attempts_for_item(
         &self,
+        principal: &AuthenticatedPrincipal,
         item_id: MediaItemId,
         filter: MetadataAttemptFilter,
         page: PageRequest,
     ) -> Result<MetadataProviderAttemptsResponse> {
+        self.ensure_item_manage_access(principal, item_id).await?;
         self.ensure_metadata_item_exists(item_id).await?;
         let attempts = self
             .workflow_store
@@ -1510,10 +1541,12 @@ impl MetadataAppService {
 
     pub async fn list_provider_raw_responses_for_item(
         &self,
+        principal: &AuthenticatedPrincipal,
         item_id: MediaItemId,
         filter: ProviderRawResponseFilter,
         page: PageRequest,
     ) -> Result<MetadataRawResponsesResponse> {
+        self.ensure_item_manage_access(principal, item_id).await?;
         self.ensure_metadata_item_exists(item_id).await?;
         let responses = self
             .workflow_store
@@ -1895,6 +1928,32 @@ impl MetadataAppService {
 
     fn metadata_provider_registry(&self) -> MetadataProviderRegistry {
         self.providers.clone()
+    }
+
+    async fn ensure_item_manage_access(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        item_id: MediaItemId,
+    ) -> Result<()> {
+        if principal.is_administrator() {
+            return Ok(());
+        }
+
+        let sources = self
+            .workflow_store
+            .list_item_sources(item_id, PageRequest::first_page())
+            .await?;
+        for source in sources {
+            let access = self
+                .workflow_store
+                .resolve_library_access_level(principal.user_id, source.library_id)
+                .await?;
+            if access.allows_manage() {
+                return Ok(());
+            }
+        }
+
+        Err(library_manage_access_forbidden())
     }
 
     async fn record_outbox_event(&self, event: NewOutboxEvent) {
@@ -2407,6 +2466,12 @@ fn metadata_raw_retention_cutoff(retention_ms: u64) -> Result<String> {
         cutoff.second(),
         cutoff.millisecond()
     ))
+}
+
+fn library_manage_access_forbidden() -> NakoError {
+    NakoError::Forbidden {
+        message: "required Library Access level 'manage' is not available".to_owned(),
+    }
 }
 
 fn usize_to_u32(value: usize) -> u32 {

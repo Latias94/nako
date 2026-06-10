@@ -132,8 +132,10 @@ For a new route in an existing admin module, add it to the existing
 - Item detail source DTOs must be selected from accessible source records before
   DTO construction. Do not filter `ItemDetailResponse.sources` in HTTP after the
   DTO is built.
-- `http::access::require_item_access` remains available for non-catalog routes
-  whose semantics are still owned by their route slice, such as metadata.
+- Item-scoped non-catalog routes should pass the authenticated principal to
+  their owning app service for access enforcement. Do not reintroduce
+  route-local item access helpers for metadata refresh, diagnostics, or
+  candidate review surfaces.
 
 ### 4. Validation & Error Matrix
 

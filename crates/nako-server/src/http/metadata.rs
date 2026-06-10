@@ -15,11 +15,7 @@ use tracing::instrument;
 
 use crate::app::NakoApp;
 
-use super::{
-    access::{RequiredLibraryAccess, require_administrator, require_item_access},
-    error::ApiResult,
-    query::PageQuery,
-};
+use super::{access::require_administrator, error::ApiResult, query::PageQuery};
 
 #[derive(Clone, Debug, Default, Deserialize)]
 pub(super) struct MetadataAttemptsQuery {
@@ -88,9 +84,10 @@ pub(super) async fn refresh_item_metadata(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(item_id): Path<MediaItemId>,
 ) -> ApiResult<impl IntoResponse> {
-    require_item_access(&app, &principal, item_id, RequiredLibraryAccess::Manage).await?;
-
-    let job = app.metadata().enqueue_metadata_refresh(item_id).await?;
+    let job = app
+        .metadata()
+        .enqueue_metadata_refresh(&principal, item_id)
+        .await?;
 
     Ok((StatusCode::ACCEPTED, Json(JobResponse::from_job(job))))
 }
@@ -102,11 +99,10 @@ pub(super) async fn list_item_metadata_attempts(
     Path(item_id): Path<MediaItemId>,
     Query(query): Query<MetadataAttemptsQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    require_item_access(&app, &principal, item_id, RequiredLibraryAccess::Manage).await?;
-
     Ok(Json(
         app.metadata()
             .list_metadata_provider_attempts_for_item(
+                &principal,
                 item_id,
                 MetadataAttemptFilter {
                     provider: query.provider,
@@ -125,11 +121,10 @@ pub(super) async fn list_item_metadata_raw_responses(
     Path(item_id): Path<MediaItemId>,
     Query(query): Query<MetadataRawResponsesQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    require_item_access(&app, &principal, item_id, RequiredLibraryAccess::Manage).await?;
-
     Ok(Json(
         app.metadata()
             .list_provider_raw_responses_for_item(
+                &principal,
                 item_id,
                 ProviderRawResponseFilter {
                     provider: query.provider,
@@ -147,11 +142,10 @@ pub(super) async fn review_item_metadata_candidates(
     Path(item_id): Path<MediaItemId>,
     Query(query): Query<MetadataCandidateReviewQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    require_item_access(&app, &principal, item_id, RequiredLibraryAccess::Manage).await?;
-
     Ok(Json(
         app.metadata()
             .review_metadata_candidates(
+                &principal,
                 item_id,
                 query.provider.map(|provider| vec![provider]),
                 query.language,

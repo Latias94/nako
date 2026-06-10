@@ -1,6 +1,4 @@
-use nako_core::{
-    AuthenticatedPrincipal, LibraryAccessLevel, LibraryId, MediaItemId, NakoError, Result,
-};
+use nako_core::{AuthenticatedPrincipal, LibraryAccessLevel, LibraryId, NakoError, Result};
 
 use crate::app::NakoApp;
 
@@ -66,39 +64,6 @@ pub(super) fn require_administrator(principal: &AuthenticatedPrincipal) -> ApiRe
         message: "administrator role is required".to_owned(),
     }
     .into())
-}
-
-pub(super) async fn item_has_access(
-    app: &NakoApp,
-    principal: &AuthenticatedPrincipal,
-    item_id: MediaItemId,
-    required: RequiredLibraryAccess,
-) -> ApiResult<bool> {
-    let sources = app.list_item_media_sources(item_id).await?;
-    if sources.is_empty() {
-        return Ok(principal.is_administrator());
-    }
-
-    for source in sources {
-        if has_library_access(app, principal, source.library_id, required).await? {
-            return Ok(true);
-        }
-    }
-
-    Ok(false)
-}
-
-pub(super) async fn require_item_access(
-    app: &NakoApp,
-    principal: &AuthenticatedPrincipal,
-    item_id: MediaItemId,
-    required: RequiredLibraryAccess,
-) -> ApiResult<()> {
-    if item_has_access(app, principal, item_id, required).await? {
-        return Ok(());
-    }
-
-    Err(library_access_forbidden(required).into())
 }
 
 pub(super) fn parse_public_library_id(value: &str) -> Result<LibraryId> {

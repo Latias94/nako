@@ -118,6 +118,36 @@ async fn metadata_refresh_route_queues_background_job() {
 }
 
 #[tokio::test]
+async fn metadata_refresh_route_requires_manage_library_access() {
+    let (_temp, app, source, store) =
+        app_with_media_source_config("Browse Only Metadata.mkv", b"demo", |_| {}).await;
+    let principal =
+        local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Browse)
+            .await;
+    let router = public_client_router_with_principal(app, principal);
+    let path = format!("/items/{}/metadata/refresh", source.item_id);
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let error = body_json::<ErrorResponse>(response).await;
+    assert_eq!(
+        error.code,
+        nako_api::public_client::ClientErrorCode::Forbidden.as_str()
+    );
+    assert!(error.message.contains("Library Access level 'manage'"));
+}
+
+#[tokio::test]
 async fn metadata_candidate_review_exposes_conflicts_without_committing_canonical_metadata() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();

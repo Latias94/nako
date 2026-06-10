@@ -10,10 +10,9 @@ use argon2::{
 use nako_core::{
     AdminSettingsRepository, EffectiveLibraryAccess, IdentityAccessRepository,
     JobQueuePressureSummary, JobRepository, LibraryAccessPolicy, LibraryAccessPolicyFilter,
-    LibraryAccessPolicyScope, LibraryId, MediaItemId, MediaRepository, MediaSource, MediaSourceId,
-    NakoError, PageRequest, Result, RoleAssignment, User, UserId, UserInvitationId,
-    UserInvitationRecord, UserInvitationStatus, UserPrincipalId, UserRole, UserSessionId,
-    UserSessionRecord, UserStatus,
+    LibraryAccessPolicyScope, LibraryId, MediaRepository, MediaSource, MediaSourceId, NakoError,
+    PageRequest, Result, RoleAssignment, User, UserId, UserInvitationId, UserInvitationRecord,
+    UserInvitationStatus, UserPrincipalId, UserRole, UserSessionId, UserSessionRecord, UserStatus,
 };
 use nako_db::{
     DatabaseBackendCapabilities, DatabaseBackendKind, DatabaseConnectOptions, NakoDatabase,
@@ -750,14 +749,6 @@ impl NakoApp {
         source_id: MediaSourceId,
     ) -> Result<Option<MediaSource>> {
         MediaRepository::get_media_source(&self.inner.store, source_id).await
-    }
-
-    pub(crate) async fn list_item_media_sources(
-        &self,
-        item_id: MediaItemId,
-    ) -> Result<Vec<MediaSource>> {
-        MediaRepository::list_item_sources(&self.inner.store, item_id, PageRequest::first_page())
-            .await
     }
 
     pub(crate) fn shutdown_runtime(&self) {
