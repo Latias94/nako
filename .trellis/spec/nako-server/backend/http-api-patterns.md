@@ -11,7 +11,8 @@ refactor target.
 - Trigger: adding or changing an HTTP endpoint, auth bypass, admin-only route,
   library access check, request query, or route test in `crates/nako-server`.
 - Code evidence: `src/http.rs`, `src/http/account.rs`, `src/http/admin.rs`,
-  `src/http/user_playlist.rs`, `src/http/access.rs`, `src/http/tests/mod.rs`.
+  `src/http/metadata.rs`, `src/http/user_playlist.rs`,
+  `src/http/tests/mod.rs`.
 - Architecture authority: ADR 0019, ADR 0024, ADR 0027, ADR 0036, ADR 0037,
   ADR 0053.
 
@@ -238,7 +239,7 @@ boundary.
   jobs, listing/ignoring ingestion failures, or starting command side effects.
 - Reuse the shared app-layer `ensure_library_manage_access` helper for the
   standard effective Library Access lookup and forbidden message.
-- Do not reintroduce route-local Library Access helpers in `http/access.rs`.
+- Do not reintroduce a route-local Library Access helper module.
 - Admin routes keep using their Admin route guard and raw app-service command
   entry points; this scenario is about Public Client Library Access, not Admin
   authorization.
@@ -2097,8 +2098,9 @@ The shared byte response helper covers Direct Play and Remux consistently.
   that changes HLS, Direct Play, Remux, or Admin response behavior.
 - Bad: returning 304 before auth/library access checks or matching against raw
   user-provided ETag strings instead of the route-authored safe ETag header.
-- Bad: calling `require_selected_artwork_access` from `http::catalog` or
-  passing `HeaderMap`/`If-None-Match` into the artwork app service.
+- Bad: calling a route-local selected artwork access helper from
+  `http::catalog` or passing `HeaderMap`/`If-None-Match` into the artwork app
+  service.
 
 ### 6. Tests Required
 

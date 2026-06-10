@@ -44,7 +44,6 @@ examples and matching architecture decisions.
 - `crates/nako-server/src/http.rs`
 - `crates/nako-server/src/http/auth.rs`
 - `crates/nako-server/src/http/admin.rs`
-- `crates/nako-server/src/http/access.rs`
 - `crates/nako-server/src/http/error.rs`
 - `crates/nako-server/src/http/tests/mod.rs`
 - `crates/nako-server/src/http/catalog.rs`

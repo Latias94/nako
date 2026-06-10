@@ -8,14 +8,14 @@ use axum::{
 use nako_api::{admin::JobResponse, metadata_diagnostics::EnqueueMetadataMaintenanceRequest};
 use nako_core::{
     AuthenticatedPrincipal, ExternalProvider, MediaItemId, MetadataAttemptFilter,
-    MetadataProviderAttemptStatus, ProviderRawResponseFilter,
+    MetadataProviderAttemptStatus, NakoError, ProviderRawResponseFilter,
 };
 use serde::Deserialize;
 use tracing::instrument;
 
 use crate::app::NakoApp;
 
-use super::{access::require_administrator, error::ApiResult, query::PageQuery};
+use super::{error::ApiResult, query::PageQuery};
 
 #[derive(Clone, Debug, Default, Deserialize)]
 pub(super) struct MetadataAttemptsQuery {
@@ -209,4 +209,15 @@ pub(super) async fn list_metadata_providers(
     require_administrator(&principal)?;
 
     Ok(Json(app.metadata().list_metadata_provider_diagnostics()))
+}
+
+fn require_administrator(principal: &AuthenticatedPrincipal) -> ApiResult<()> {
+    if principal.is_administrator() {
+        return Ok(());
+    }
+
+    Err(NakoError::Forbidden {
+        message: "administrator role is required".to_owned(),
+    }
+    .into())
 }
