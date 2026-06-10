@@ -48,9 +48,12 @@ use nako_api::{
         AdminNetworkAccessDiagnostics, AdminNetworkExposureMode,
         AdminNetworkExternalEndpointDiagnostics, AdminNetworkReadinessCheck,
         AdminNetworkReadinessCheckName, AdminNetworkReadinessDiagnostics,
-        AdminNetworkReadinessReason, AdminOriginPolicyDiagnostics, AdminOutboxEventListItem,
-        AdminOutboxEventListResponse, AdminOverviewMetadataProviderSummary,
-        AdminOverviewMetadataSummary, AdminOverviewResponse, AdminOverviewRuntimeSummary,
+        AdminNetworkReadinessReason, AdminNetworkReadinessStatus, AdminOperatorReadinessAction,
+        AdminOperatorReadinessArea, AdminOperatorReadinessCheck, AdminOperatorReadinessReason,
+        AdminOperatorReadinessStatus, AdminOperatorReadinessSummary, AdminOriginPolicyDiagnostics,
+        AdminOutboxEventListItem, AdminOutboxEventListResponse,
+        AdminOverviewMetadataProviderSummary, AdminOverviewMetadataSummary, AdminOverviewResponse,
+        AdminOverviewRuntimeSummary, AdminOverviewSourceFingerprintHashSummary,
         AdminOverviewStartupSummary, AdminOverviewStatus, AdminOverviewStorageBackendSummary,
         AdminOverviewStorageSummary, AdminOverviewWatchFolderRuntimeSummary,
         AdminPlaybackArtifactLifecycleDiagnostics, AdminPlaybackFfmpegDiagnostics,
@@ -61,11 +64,12 @@ use nako_api::{
         AdminPlaybackHardwareSmokeProbeStatus, AdminPlaybackHardwareStageCapability,
         AdminPlaybackPolicyDiagnostics, AdminPlaybackReadinessCheck,
         AdminPlaybackReadinessCheckName, AdminPlaybackReadinessDiagnostics,
-        AdminPlaybackReadinessReason, AdminPlaybackRemoteBudgetDiagnostics,
-        AdminPlaybackRemuxRuntimeDiagnostics, AdminPlaybackResourceClass,
-        AdminPlaybackResourceClassPressure, AdminPlaybackResourceEnforcement,
-        AdminPlaybackResourcePressureDiagnostics, AdminPlaybackRuntimeDiagnosticsResponse,
-        AdminPlaybackRuntimeStatus, AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
+        AdminPlaybackReadinessReason, AdminPlaybackReadinessStatus,
+        AdminPlaybackRemoteBudgetDiagnostics, AdminPlaybackRemuxRuntimeDiagnostics,
+        AdminPlaybackResourceClass, AdminPlaybackResourceClassPressure,
+        AdminPlaybackResourceEnforcement, AdminPlaybackResourcePressureDiagnostics,
+        AdminPlaybackRuntimeDiagnosticsResponse, AdminPlaybackRuntimeStatus,
+        AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
         AdminPlaybackStagingDiagnostics, AdminPlaybackSupportEvidenceResponse,
         AdminPlaybackSupportHardwareCapabilityEvidence, AdminPlaybackSupportHardwareEvidence,
         AdminPlaybackSupportRedactionEvidence, AdminPlaybackSupportRuntimeEvidence,
@@ -136,7 +140,7 @@ use nako_transcode::{
     HardwareEncoderDiscoveryStatus, HardwareSmokeProbeStatus, TranscodeRuntimeInventoryStatus,
 };
 use nako_vfs::{ObjectCacheState, StorageUri, VfsCacheRepairAction, VfsCacheRepairClassification};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     api_mapping::{
@@ -180,6 +184,14 @@ const STORAGE_VFS_CACHE_REPAIR_TARGET_REFRESH_CACHE_ROUTE_KEY: &str =
     "storageVfsCacheRepairTargetRefreshCache";
 const STORAGE_VFS_CACHE_REPAIR_TARGET_REFRESH_CACHE_ROUTE_PATH: &str =
     "/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/refresh-cache";
+const ADMIN_JOBS_ROUTE_KEY: &str = "jobs";
+const ADMIN_JOBS_ROUTE_PATH: &str = "/admin/v1/jobs";
+const ADMIN_PLAYBACK_RUNTIME_ROUTE_KEY: &str = "playbackRuntime";
+const ADMIN_PLAYBACK_RUNTIME_ROUTE_PATH: &str = "/admin/v1/playback/runtime";
+const ADMIN_STORAGE_REPAIR_TARGETS_ROUTE_KEY: &str = "storageVfsCacheRepairTargets";
+const ADMIN_STORAGE_REPAIR_TARGETS_ROUTE_PATH: &str = "/admin/v1/storage/vfs-cache/repair/targets";
+const ADMIN_SYSTEM_CONFIG_ROUTE_KEY: &str = "systemConfig";
+const ADMIN_SYSTEM_CONFIG_ROUTE_PATH: &str = "/admin/v1/system/config";
 
 use super::{
     error::ApiResult,
@@ -1412,6 +1424,8 @@ pub(super) async fn get_admin_overview(State(app): State<NakoApp>) -> ApiResult<
     let metadata = app.metadata().list_metadata_provider_diagnostics();
     let runtime = app.runtime_diagnostics();
     let source_fingerprint_hash = app.source_hash().admin_overview_summary().await?;
+    let network_readiness = network_readiness_diagnostics(app.config());
+    let playback_readiness = admin_playback_runtime_diagnostics(&app).await.readiness;
     let startup = app.startup_report().clone();
 
     let storage = storage_summary(storage);
@@ -1438,12 +1452,22 @@ pub(super) async fn get_admin_overview(State(app): State<NakoApp>) -> ApiResult<
             startup.watch_folder_runtime_coverage,
         ),
     };
+    let operator_readiness = operator_readiness_summary(
+        app.config(),
+        &storage,
+        &runtime,
+        &source_fingerprint_hash,
+        &startup,
+        network_readiness,
+        playback_readiness,
+    );
     let status = overview_status(&storage, &metadata, &runtime);
 
     Ok(Json(AdminOverviewResponse {
         admin_api_version: ADMIN_API_VERSION.to_owned(),
         public_api_version: API_VERSION.to_owned(),
         status,
+        operator_readiness,
         storage,
         catalog,
         metadata,
@@ -3823,6 +3847,331 @@ fn playback_support_runtime_evidence(
         artifact_lifecycle: runtime.artifact_lifecycle,
         throttle: runtime.throttle,
     }
+}
+
+fn operator_readiness_summary(
+    config: &crate::config::NakoServerConfig,
+    storage: &AdminOverviewStorageSummary,
+    runtime: &AdminOverviewRuntimeSummary,
+    source_fingerprint_hash: &AdminOverviewSourceFingerprintHashSummary,
+    startup: &AdminOverviewStartupSummary,
+    network: AdminNetworkReadinessDiagnostics,
+    playback: AdminPlaybackReadinessDiagnostics,
+) -> AdminOperatorReadinessSummary {
+    AdminOperatorReadinessSummary::from_checks(vec![
+        setup_readiness_check(config),
+        media_library_scan_readiness_check(startup, runtime, source_fingerprint_hash),
+        playback_readiness_check(playback),
+        storage_readiness_check(storage),
+        network_readiness_check(network),
+        backup_readiness_check(config),
+    ])
+}
+
+fn setup_readiness_check(config: &crate::config::NakoServerConfig) -> AdminOperatorReadinessCheck {
+    if config.auth.enabled
+        && config
+            .auth
+            .token_env
+            .as_deref()
+            .is_some_and(|value| !value.trim().is_empty())
+    {
+        return operator_check(
+            AdminOperatorReadinessArea::Setup,
+            AdminOperatorReadinessStatus::Ready,
+            AdminOperatorReadinessReason::AuthConfigured,
+            None,
+            0,
+            None,
+        );
+    }
+
+    if config.auth.enabled {
+        return operator_check(
+            AdminOperatorReadinessArea::Setup,
+            AdminOperatorReadinessStatus::Degraded,
+            AdminOperatorReadinessReason::AuthTokenReferenceMissing,
+            None,
+            1,
+            Some(operator_action(
+                ADMIN_SYSTEM_CONFIG_ROUTE_KEY,
+                ADMIN_SYSTEM_CONFIG_ROUTE_PATH,
+            )),
+        );
+    }
+
+    let (status, reason) = if matches!(
+        config.network.exposure_mode,
+        ConfigNetworkExposureMode::LocalOnly
+    ) {
+        (
+            AdminOperatorReadinessStatus::Degraded,
+            AdminOperatorReadinessReason::AuthDisabledLocalOnly,
+        )
+    } else {
+        (
+            AdminOperatorReadinessStatus::Unavailable,
+            AdminOperatorReadinessReason::AuthDisabledRemoteExposure,
+        )
+    };
+
+    operator_check(
+        AdminOperatorReadinessArea::Setup,
+        status,
+        reason,
+        None,
+        1,
+        Some(operator_action(
+            ADMIN_SYSTEM_CONFIG_ROUTE_KEY,
+            ADMIN_SYSTEM_CONFIG_ROUTE_PATH,
+        )),
+    )
+}
+
+fn media_library_scan_readiness_check(
+    startup: &AdminOverviewStartupSummary,
+    runtime: &AdminOverviewRuntimeSummary,
+    source_fingerprint_hash: &AdminOverviewSourceFingerprintHashSummary,
+) -> AdminOperatorReadinessCheck {
+    if startup.configured_libraries == 0 {
+        return operator_check(
+            AdminOperatorReadinessArea::MediaLibraryScan,
+            AdminOperatorReadinessStatus::Unavailable,
+            AdminOperatorReadinessReason::NoMediaLibraryConfigured,
+            None,
+            1,
+            Some(operator_action(
+                ADMIN_SYSTEM_CONFIG_ROUTE_KEY,
+                ADMIN_SYSTEM_CONFIG_ROUTE_PATH,
+            )),
+        );
+    }
+
+    let repair_pressure = runtime
+        .failed_jobs
+        .saturating_add(runtime.failed_tasks)
+        .saturating_add(source_fingerprint_hash.failed_jobs);
+    if repair_pressure > 0 {
+        return operator_check(
+            AdminOperatorReadinessArea::MediaLibraryScan,
+            AdminOperatorReadinessStatus::Degraded,
+            AdminOperatorReadinessReason::ScanRepairPressure,
+            Some("failed_work".to_owned()),
+            u64_to_u32(repair_pressure),
+            Some(operator_action(ADMIN_JOBS_ROUTE_KEY, ADMIN_JOBS_ROUTE_PATH)),
+        );
+    }
+
+    let pending_work = source_fingerprint_hash
+        .queued_jobs
+        .saturating_add(source_fingerprint_hash.running_jobs)
+        .saturating_add(source_fingerprint_hash.delayed_retry_jobs);
+    if pending_work > 0 {
+        return operator_check(
+            AdminOperatorReadinessArea::MediaLibraryScan,
+            AdminOperatorReadinessStatus::Degraded,
+            AdminOperatorReadinessReason::ScanWorkPending,
+            Some("queued_work".to_owned()),
+            u64_to_u32(pending_work),
+            Some(operator_action(ADMIN_JOBS_ROUTE_KEY, ADMIN_JOBS_ROUTE_PATH)),
+        );
+    }
+
+    operator_check(
+        AdminOperatorReadinessArea::MediaLibraryScan,
+        AdminOperatorReadinessStatus::Ready,
+        AdminOperatorReadinessReason::MediaLibraryConfigured,
+        None,
+        0,
+        None,
+    )
+}
+
+fn playback_readiness_check(
+    playback: AdminPlaybackReadinessDiagnostics,
+) -> AdminOperatorReadinessCheck {
+    let status = operator_playback_status(playback.status);
+    let reason = match playback.status {
+        AdminPlaybackReadinessStatus::Ready => AdminOperatorReadinessReason::PlaybackReady,
+        AdminPlaybackReadinessStatus::Degraded => AdminOperatorReadinessReason::PlaybackDegraded,
+        AdminPlaybackReadinessStatus::Unavailable => {
+            AdminOperatorReadinessReason::PlaybackUnavailable
+        }
+    };
+    let attention_count = usize_to_u32(
+        playback
+            .checks
+            .iter()
+            .filter(|check| check.status != AdminPlaybackReadinessStatus::Ready)
+            .count(),
+    );
+
+    operator_check(
+        AdminOperatorReadinessArea::Playback,
+        status,
+        reason,
+        enum_code(playback.reason),
+        attention_count,
+        (status != AdminOperatorReadinessStatus::Ready).then(|| {
+            operator_action(
+                ADMIN_PLAYBACK_RUNTIME_ROUTE_KEY,
+                ADMIN_PLAYBACK_RUNTIME_ROUTE_PATH,
+            )
+        }),
+    )
+}
+
+fn storage_readiness_check(storage: &AdminOverviewStorageSummary) -> AdminOperatorReadinessCheck {
+    let attention_count = storage
+        .degraded_backends
+        .saturating_add(storage.unavailable_backends);
+
+    if storage.unavailable_backends > 0 {
+        return operator_check(
+            AdminOperatorReadinessArea::Storage,
+            AdminOperatorReadinessStatus::Unavailable,
+            AdminOperatorReadinessReason::StorageUnavailable,
+            Some("unavailable_backends".to_owned()),
+            attention_count,
+            Some(operator_action(
+                ADMIN_STORAGE_REPAIR_TARGETS_ROUTE_KEY,
+                ADMIN_STORAGE_REPAIR_TARGETS_ROUTE_PATH,
+            )),
+        );
+    }
+
+    if storage.degraded_backends > 0 {
+        return operator_check(
+            AdminOperatorReadinessArea::Storage,
+            AdminOperatorReadinessStatus::Degraded,
+            AdminOperatorReadinessReason::StorageDegraded,
+            Some("degraded_backends".to_owned()),
+            attention_count,
+            Some(operator_action(
+                ADMIN_STORAGE_REPAIR_TARGETS_ROUTE_KEY,
+                ADMIN_STORAGE_REPAIR_TARGETS_ROUTE_PATH,
+            )),
+        );
+    }
+
+    operator_check(
+        AdminOperatorReadinessArea::Storage,
+        AdminOperatorReadinessStatus::Ready,
+        AdminOperatorReadinessReason::StorageReady,
+        None,
+        0,
+        None,
+    )
+}
+
+fn network_readiness_check(
+    network: AdminNetworkReadinessDiagnostics,
+) -> AdminOperatorReadinessCheck {
+    let status = operator_network_status(network.status);
+    let reason = match network.status {
+        AdminNetworkReadinessStatus::Ready => AdminOperatorReadinessReason::NetworkReady,
+        AdminNetworkReadinessStatus::Degraded => AdminOperatorReadinessReason::NetworkDegraded,
+        AdminNetworkReadinessStatus::Unavailable => {
+            AdminOperatorReadinessReason::NetworkUnavailable
+        }
+    };
+    let attention_count = usize_to_u32(
+        network
+            .checks
+            .iter()
+            .filter(|check| check.status != AdminNetworkReadinessStatus::Ready)
+            .count(),
+    );
+
+    operator_check(
+        AdminOperatorReadinessArea::Network,
+        status,
+        reason,
+        enum_code(network.reason),
+        attention_count,
+        (status != AdminOperatorReadinessStatus::Ready).then(|| {
+            operator_action(
+                ADMIN_SYSTEM_CONFIG_ROUTE_KEY,
+                ADMIN_SYSTEM_CONFIG_ROUTE_PATH,
+            )
+        }),
+    )
+}
+
+fn backup_readiness_check(config: &crate::config::NakoServerConfig) -> AdminOperatorReadinessCheck {
+    if config
+        .database_url
+        .trim()
+        .eq_ignore_ascii_case("sqlite::memory:")
+    {
+        return operator_check(
+            AdminOperatorReadinessArea::Backup,
+            AdminOperatorReadinessStatus::Degraded,
+            AdminOperatorReadinessReason::BackupNeedsDurableDatabase,
+            Some("ephemeral_database".to_owned()),
+            1,
+            Some(operator_action(
+                ADMIN_SYSTEM_CONFIG_ROUTE_KEY,
+                ADMIN_SYSTEM_CONFIG_ROUTE_PATH,
+            )),
+        );
+    }
+
+    operator_check(
+        AdminOperatorReadinessArea::Backup,
+        AdminOperatorReadinessStatus::Ready,
+        AdminOperatorReadinessReason::BackupRunbookAvailable,
+        Some("backup_restore_runbook".to_owned()),
+        0,
+        None,
+    )
+}
+
+fn operator_check(
+    area: AdminOperatorReadinessArea,
+    status: AdminOperatorReadinessStatus,
+    reason: AdminOperatorReadinessReason,
+    source_reason: Option<String>,
+    attention_count: u32,
+    action: Option<AdminOperatorReadinessAction>,
+) -> AdminOperatorReadinessCheck {
+    AdminOperatorReadinessCheck {
+        area,
+        status,
+        reason,
+        source_reason,
+        attention_count,
+        action,
+    }
+}
+
+fn operator_action(route_key: &str, route_path: &str) -> AdminOperatorReadinessAction {
+    AdminOperatorReadinessAction {
+        route_key: route_key.to_owned(),
+        route_path: route_path.to_owned(),
+    }
+}
+
+fn operator_playback_status(status: AdminPlaybackReadinessStatus) -> AdminOperatorReadinessStatus {
+    match status {
+        AdminPlaybackReadinessStatus::Ready => AdminOperatorReadinessStatus::Ready,
+        AdminPlaybackReadinessStatus::Degraded => AdminOperatorReadinessStatus::Degraded,
+        AdminPlaybackReadinessStatus::Unavailable => AdminOperatorReadinessStatus::Unavailable,
+    }
+}
+
+fn operator_network_status(status: AdminNetworkReadinessStatus) -> AdminOperatorReadinessStatus {
+    match status {
+        AdminNetworkReadinessStatus::Ready => AdminOperatorReadinessStatus::Ready,
+        AdminNetworkReadinessStatus::Degraded => AdminOperatorReadinessStatus::Degraded,
+        AdminNetworkReadinessStatus::Unavailable => AdminOperatorReadinessStatus::Unavailable,
+    }
+}
+
+fn enum_code(value: impl Serialize) -> Option<String> {
+    serde_json::to_value(value)
+        .ok()
+        .and_then(|value| value.as_str().map(str::to_owned))
 }
 
 fn overview_status(

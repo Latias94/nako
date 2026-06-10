@@ -311,6 +311,7 @@ pub struct AdminOverviewResponse {
     pub admin_api_version: String,
     pub public_api_version: String,
     pub status: AdminOverviewStatus,
+    pub operator_readiness: AdminOperatorReadinessSummary,
     pub storage: AdminOverviewStorageSummary,
     pub catalog: AdminOverviewCatalogSummary,
     pub metadata: AdminOverviewMetadataSummary,
@@ -324,6 +325,92 @@ pub struct AdminOverviewResponse {
 pub enum AdminOverviewStatus {
     Healthy,
     Degraded,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOperatorReadinessSummary {
+    pub status: AdminOperatorReadinessStatus,
+    pub checks: Vec<AdminOperatorReadinessCheck>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOperatorReadinessCheck {
+    pub area: AdminOperatorReadinessArea,
+    pub status: AdminOperatorReadinessStatus,
+    pub reason: AdminOperatorReadinessReason,
+    pub source_reason: Option<String>,
+    pub attention_count: u32,
+    pub action: Option<AdminOperatorReadinessAction>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOperatorReadinessAction {
+    pub route_key: String,
+    pub route_path: String,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminOperatorReadinessStatus {
+    Ready,
+    Degraded,
+    Unavailable,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminOperatorReadinessArea {
+    Setup,
+    MediaLibraryScan,
+    Playback,
+    Storage,
+    Network,
+    Backup,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminOperatorReadinessReason {
+    AuthConfigured,
+    AuthTokenReferenceMissing,
+    AuthDisabledLocalOnly,
+    AuthDisabledRemoteExposure,
+    MediaLibraryConfigured,
+    NoMediaLibraryConfigured,
+    ScanWorkPending,
+    ScanRepairPressure,
+    PlaybackReady,
+    PlaybackDegraded,
+    PlaybackUnavailable,
+    StorageReady,
+    StorageDegraded,
+    StorageUnavailable,
+    NetworkReady,
+    NetworkDegraded,
+    NetworkUnavailable,
+    BackupRunbookAvailable,
+    BackupNeedsDurableDatabase,
+}
+
+impl AdminOperatorReadinessSummary {
+    #[must_use]
+    pub fn from_checks(checks: Vec<AdminOperatorReadinessCheck>) -> Self {
+        let status = if checks
+            .iter()
+            .any(|check| check.status == AdminOperatorReadinessStatus::Unavailable)
+        {
+            AdminOperatorReadinessStatus::Unavailable
+        } else if checks
+            .iter()
+            .any(|check| check.status == AdminOperatorReadinessStatus::Degraded)
+        {
+            AdminOperatorReadinessStatus::Degraded
+        } else {
+            AdminOperatorReadinessStatus::Ready
+        };
+
+        Self { status, checks }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -452,6 +539,27 @@ mod tests {
             admin_api_version: ADMIN_API_VERSION.to_owned(),
             public_api_version: API_VERSION.to_owned(),
             status: AdminOverviewStatus::Healthy,
+            operator_readiness: AdminOperatorReadinessSummary::from_checks(vec![
+                AdminOperatorReadinessCheck {
+                    area: AdminOperatorReadinessArea::Setup,
+                    status: AdminOperatorReadinessStatus::Ready,
+                    reason: AdminOperatorReadinessReason::AuthConfigured,
+                    source_reason: None,
+                    attention_count: 0,
+                    action: None,
+                },
+                AdminOperatorReadinessCheck {
+                    area: AdminOperatorReadinessArea::Storage,
+                    status: AdminOperatorReadinessStatus::Degraded,
+                    reason: AdminOperatorReadinessReason::StorageDegraded,
+                    source_reason: Some("degraded_backend".to_owned()),
+                    attention_count: 1,
+                    action: Some(AdminOperatorReadinessAction {
+                        route_key: "storageVfsCacheRepairTargets".to_owned(),
+                        route_path: "/admin/v1/storage/vfs-cache/repair/targets".to_owned(),
+                    }),
+                },
+            ]),
             storage: AdminOverviewStorageSummary {
                 total_backends: 1,
                 ready_backends: 1,
@@ -538,6 +646,20 @@ mod tests {
         assert_eq!(value["admin_api_version"], "v1");
         assert_eq!(value["public_api_version"], API_VERSION);
         assert_eq!(value["status"], "healthy");
+        assert_eq!(value["operator_readiness"]["status"], "degraded");
+        assert_eq!(value["operator_readiness"]["checks"][0]["area"], "setup");
+        assert_eq!(
+            value["operator_readiness"]["checks"][0]["reason"],
+            "auth_configured"
+        );
+        assert_eq!(
+            value["operator_readiness"]["checks"][1]["source_reason"],
+            "degraded_backend"
+        );
+        assert_eq!(
+            value["operator_readiness"]["checks"][1]["action"]["route_key"],
+            "storageVfsCacheRepairTargets"
+        );
         assert_eq!(value["storage"]["ready_backends"], 1);
         assert_eq!(value["storage"]["backends"][0]["status"], "ready");
         assert_eq!(value["catalog"]["governed_items"], 2);

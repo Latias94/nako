@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
@@ -411,7 +411,61 @@ describe("Admin Web V2 route shell", () => {
 
     expect(await screen.findByText(/HTTP 503/)).toBeInTheDocument();
     expect(screen.getByText("Mock fallback")).toBeInTheDocument();
+    expect(screen.getByText("Product-Operator readiness")).toBeInTheDocument();
+    expect(screen.getByText("Media Library scan")).toBeInTheDocument();
+    expect(screen.getByText("Action route Admin Jobs")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Admin Jobs/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Storage repair targets/i }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("Anime Vault")).toBeInTheDocument();
+  });
+
+  it("renders Product-Operator readiness facts from the live Overview read model", async () => {
+    const overview = {
+      ...mockOverview,
+      operator_readiness: {
+        status: "unavailable" as const,
+        checks: mockOverview.operator_readiness.checks.map((check) =>
+          check.area === "playback"
+            ? {
+                ...check,
+                status: "unavailable" as const,
+                reason: "playback_unavailable" as const,
+                source_reason: "software_pipeline_unavailable",
+                attention_count: 2,
+                action: {
+                  route_key: "playbackRuntime" as const,
+                  route_path: "/admin/v1/playback/runtime",
+                },
+              }
+            : check,
+        ),
+      },
+    };
+    const loadOverview = vi.fn(async () => ({
+      value: overview,
+      source: "live" as const,
+    }));
+    window.history.pushState(null, "", "/overview");
+
+    render(<App dataSource={{ load: async () => emptyConsoleData(), loadOverview }} />);
+
+    const readinessPanel = (
+      await screen.findByRole("heading", {
+        name: "Product-Operator readiness",
+      })
+    ).closest(".dataPanel");
+    expect(readinessPanel).not.toBeNull();
+    const readiness = within(readinessPanel as HTMLElement);
+    expect(readiness.getByText("Overall readiness is unavailable")).toBeInTheDocument();
+    expect(readiness.getByText("Playback")).toBeInTheDocument();
+    expect(readiness.getByText("Playback runtime is unavailable")).toBeInTheDocument();
+    expect(readiness.getByText("Reason code software_pipeline_unavailable")).toBeInTheDocument();
+    expect(readiness.getByText("Action route Playback runtime")).toBeInTheDocument();
+    expect(loadOverview).toHaveBeenCalledTimes(1);
   });
 
   it("renders localized Overview route copy", async () => {
@@ -430,6 +484,7 @@ describe("Admin Web V2 route shell", () => {
 
     expect(await screen.findByRole("heading", { name: "总览" })).toBeInTheDocument();
     expect(await screen.findByText("服务器状态")).toBeInTheDocument();
+    expect(await screen.findByText("Product-Operator readiness")).toBeInTheDocument();
     expect(screen.getAllByText("存储后端").length).toBeGreaterThan(0);
     expect(await screen.findByText("2/3 就绪")).toBeInTheDocument();
     expect(await screen.findByText("Metadata Provider")).toBeInTheDocument();
@@ -463,6 +518,22 @@ describe("Admin Web V2 route shell", () => {
         raw_fingerprint: "source:v1:content_hash:sha256:secret-content",
         raw_locator: "local:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret",
       },
+      operator_readiness: {
+        ...mockOverview.operator_readiness,
+        checks: mockOverview.operator_readiness.checks.map((check) =>
+          check.area === "playback"
+            ? {
+                ...check,
+                source_reason:
+                  "C:\\secret-cache\\ffmpeg.exe -i local:///Hidden Movie.mkv?token=secret",
+                action: {
+                  route_key: "playbackRuntime",
+                  route_path: "/admin/v1/playback/runtime?token=secret",
+                },
+              }
+            : check,
+        ),
+      },
     } as unknown as typeof mockOverview;
     window.history.pushState(null, "", "/overview");
     const { container } = render(<App dataSource={overviewDataSource(unsafeOverview)} />);
@@ -485,6 +556,9 @@ describe("Admin Web V2 route shell", () => {
     expect(renderedText).not.toContain("source:v1:content_hash:sha256:secret-content");
     expect(renderedText).not.toContain("raw_locator");
     expect(renderedText).not.toContain("Hidden Movie.mkv");
+    expect(renderedText).not.toContain("secret-cache");
+    expect(renderedText).not.toContain("ffmpeg.exe");
+    expect(renderedText).not.toContain("?token=secret");
     expect(renderedText).not.toContain("C:\\");
     expect(renderedText).not.toContain("F:\\");
     expect(renderedText).not.toContain("/Users/");

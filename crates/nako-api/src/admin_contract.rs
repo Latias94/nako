@@ -2259,6 +2259,56 @@ export interface PageInfo {
 
 export type AdminOverviewStatus = "healthy" | "degraded";
 
+export type AdminOperatorReadinessStatus = "ready" | "degraded" | "unavailable";
+
+export type AdminOperatorReadinessArea =
+  | "setup"
+  | "media_library_scan"
+  | "playback"
+  | "storage"
+  | "network"
+  | "backup";
+
+export type AdminOperatorReadinessReason =
+  | "auth_configured"
+  | "auth_token_reference_missing"
+  | "auth_disabled_local_only"
+  | "auth_disabled_remote_exposure"
+  | "media_library_configured"
+  | "no_media_library_configured"
+  | "scan_work_pending"
+  | "scan_repair_pressure"
+  | "playback_ready"
+  | "playback_degraded"
+  | "playback_unavailable"
+  | "storage_ready"
+  | "storage_degraded"
+  | "storage_unavailable"
+  | "network_ready"
+  | "network_degraded"
+  | "network_unavailable"
+  | "backup_runbook_available"
+  | "backup_needs_durable_database";
+
+export interface AdminOperatorReadinessAction {
+  route_key: AdminApiRouteKey;
+  route_path: string;
+}
+
+export interface AdminOperatorReadinessCheck {
+  area: AdminOperatorReadinessArea;
+  status: AdminOperatorReadinessStatus;
+  reason: AdminOperatorReadinessReason;
+  source_reason: string | null;
+  attention_count: number;
+  action: AdminOperatorReadinessAction | null;
+}
+
+export interface AdminOperatorReadinessSummary {
+  status: AdminOperatorReadinessStatus;
+  checks: AdminOperatorReadinessCheck[];
+}
+
 export type AdminWatchFolderRuntimeCoverageStatus = "started" | "disabled" | "unsupported_root" | "missing_root";
 
 export interface AdminOverviewSourceFingerprintHashSummary {
@@ -2280,6 +2330,7 @@ export interface AdminOverviewResponse {
   admin_api_version: string;
   public_api_version: string;
   status: AdminOverviewStatus;
+  operator_readiness: AdminOperatorReadinessSummary;
   storage: {
     total_backends: number;
     ready_backends: number;

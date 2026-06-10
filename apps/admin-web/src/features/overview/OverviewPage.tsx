@@ -42,6 +42,8 @@ type OverviewResult = {
 
 type StorageBackend = AdminOverviewResponse["storage"]["backends"][number];
 type MetadataProvider = AdminOverviewResponse["metadata"]["providers"][number];
+type OperatorReadinessCheck =
+  AdminOverviewResponse["operator_readiness"]["checks"][number];
 
 export function OverviewPage({ dataSource }: OverviewPageProps) {
   const { locale, t } = useI18n();
@@ -142,6 +144,23 @@ export function OverviewPage({ dataSource }: OverviewPageProps) {
               tone="neutral"
             />
           </div>
+
+          <DataPanel
+            description={t("overview.operatorReadiness.description", {
+              status: result.value.operator_readiness.status,
+            })}
+            title={t("overview.operatorReadiness.title")}
+          >
+            <div className="overviewReadinessGrid">
+              {result.value.operator_readiness.checks.map((check) => (
+                <OverviewReadinessItem
+                  check={check}
+                  key={check.area}
+                  t={t}
+                />
+              ))}
+            </div>
+          </DataPanel>
 
           <DataPanel
             description={t("overview.sourceFingerprint.description", {
@@ -268,6 +287,49 @@ function OverviewDiagnosticStat({
   );
 }
 
+function OverviewReadinessItem({
+  check,
+  t,
+}: {
+  check: OperatorReadinessCheck;
+  t: Translate;
+}) {
+  const actionLabel = check.action
+    ? operatorReadinessActionLabel(check.action.route_key, t)
+    : null;
+  const sourceReason = check.source_reason
+    ? safeOperatorReadinessSourceReason(check.source_reason, t)
+    : null;
+
+  return (
+    <div className="overviewReadinessItem">
+      <div className="overviewReadinessHeader">
+        <strong>{t(OPERATOR_READINESS_AREA_LABELS[check.area])}</strong>
+        <Badge tone={operatorReadinessTone(check.status)}>
+          {t(OPERATOR_READINESS_STATUS_LABELS[check.status])}
+        </Badge>
+      </div>
+      <span>
+        {t(OPERATOR_READINESS_REASON_LABELS[check.reason], {
+          count: check.attention_count,
+        })}
+      </span>
+      {sourceReason ? (
+        <small>
+          {t("overview.operatorReadiness.sourceReason", {
+            reason: sourceReason,
+          })}
+        </small>
+      ) : null}
+      {actionLabel ? (
+        <small>
+          {t("overview.operatorReadiness.action", { route: actionLabel })}
+        </small>
+      ) : null}
+    </div>
+  );
+}
+
 function storageTone(
   overview: AdminOverviewResponse,
 ): "success" | "warning" | "danger" {
@@ -344,6 +406,95 @@ function OverviewTable<T>({ table }: { table: ReturnType<typeof useReactTable<T>
 }
 
 type Translate = (id: MessageId, values?: Record<string, number | string>) => string;
+
+const OPERATOR_READINESS_AREA_LABELS: Record<
+  OperatorReadinessCheck["area"],
+  MessageId
+> = {
+  setup: "overview.operatorReadiness.area.setup",
+  media_library_scan: "overview.operatorReadiness.area.mediaLibraryScan",
+  playback: "overview.operatorReadiness.area.playback",
+  storage: "overview.operatorReadiness.area.storage",
+  network: "overview.operatorReadiness.area.network",
+  backup: "overview.operatorReadiness.area.backup",
+};
+
+const OPERATOR_READINESS_STATUS_LABELS: Record<
+  OperatorReadinessCheck["status"],
+  MessageId
+> = {
+  ready: "overview.operatorReadiness.status.ready",
+  degraded: "overview.operatorReadiness.status.degraded",
+  unavailable: "overview.operatorReadiness.status.unavailable",
+};
+
+const OPERATOR_READINESS_REASON_LABELS: Record<
+  OperatorReadinessCheck["reason"],
+  MessageId
+> = {
+  auth_configured: "overview.operatorReadiness.reason.authConfigured",
+  auth_token_reference_missing:
+    "overview.operatorReadiness.reason.authTokenReferenceMissing",
+  auth_disabled_local_only:
+    "overview.operatorReadiness.reason.authDisabledLocalOnly",
+  auth_disabled_remote_exposure:
+    "overview.operatorReadiness.reason.authDisabledRemoteExposure",
+  media_library_configured:
+    "overview.operatorReadiness.reason.mediaLibraryConfigured",
+  no_media_library_configured:
+    "overview.operatorReadiness.reason.noMediaLibraryConfigured",
+  scan_work_pending: "overview.operatorReadiness.reason.scanWorkPending",
+  scan_repair_pressure:
+    "overview.operatorReadiness.reason.scanRepairPressure",
+  playback_ready: "overview.operatorReadiness.reason.playbackReady",
+  playback_degraded: "overview.operatorReadiness.reason.playbackDegraded",
+  playback_unavailable: "overview.operatorReadiness.reason.playbackUnavailable",
+  storage_ready: "overview.operatorReadiness.reason.storageReady",
+  storage_degraded: "overview.operatorReadiness.reason.storageDegraded",
+  storage_unavailable: "overview.operatorReadiness.reason.storageUnavailable",
+  network_ready: "overview.operatorReadiness.reason.networkReady",
+  network_degraded: "overview.operatorReadiness.reason.networkDegraded",
+  network_unavailable: "overview.operatorReadiness.reason.networkUnavailable",
+  backup_runbook_available:
+    "overview.operatorReadiness.reason.backupRunbookAvailable",
+  backup_needs_durable_database:
+    "overview.operatorReadiness.reason.backupNeedsDurableDatabase",
+};
+
+const OPERATOR_READINESS_ACTION_LABELS: Partial<Record<string, MessageId>> = {
+  jobs: "overview.operatorReadiness.action.jobs",
+  playbackRuntime: "overview.operatorReadiness.action.playbackRuntime",
+  storageVfsCacheRepairTargets:
+    "overview.operatorReadiness.action.storageRepair",
+  systemConfig: "overview.operatorReadiness.action.systemConfig",
+};
+
+function operatorReadinessTone(
+  status: OperatorReadinessCheck["status"],
+): "success" | "warning" | "danger" {
+  if (status === "ready") {
+    return "success";
+  }
+
+  if (status === "degraded") {
+    return "warning";
+  }
+
+  return "danger";
+}
+
+function operatorReadinessActionLabel(routeKey: string, t: Translate): string {
+  const label = OPERATOR_READINESS_ACTION_LABELS[routeKey];
+  return label ? t(label) : routeKey;
+}
+
+function safeOperatorReadinessSourceReason(value: string, t: Translate): string {
+  if (/^[a-z0-9_.-]+$/.test(value)) {
+    return value;
+  }
+
+  return t("overview.operatorReadiness.sourceReason.redacted");
+}
 
 function createStorageColumns(t: Translate): Array<ColumnDef<StorageBackend>> {
   return [

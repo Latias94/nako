@@ -17,6 +17,7 @@ use nako_api::admin::{
     AdminMetadataCandidateReviewRelatedHierarchyPlanRequest,
     AdminMetadataCandidateReviewRelatedHierarchyPlanResponse, AdminMetadataCandidateReviewResponse,
     AdminMetadataCandidateReviewUndoMode, AdminMetadataCandidateReviewUndoReason,
+    AdminOperatorReadinessArea, AdminOperatorReadinessReason, AdminOperatorReadinessStatus,
     AdminSourceDuplicateReconciliationApplyExpectedAction,
     AdminSourceDuplicateReconciliationApplyRequest,
     AdminSourceDuplicateReconciliationApplyResponse,
@@ -231,6 +232,53 @@ async fn admin_v1_overview_composes_safe_read_only_diagnostics() {
         nako_api::public_client::API_VERSION
     );
     assert_eq!(overview.status, AdminOverviewStatus::Healthy);
+    assert_eq!(
+        overview.operator_readiness.status,
+        AdminOperatorReadinessStatus::Degraded
+    );
+    assert_eq!(overview.operator_readiness.checks.len(), 6);
+    assert_operator_readiness_check(
+        &overview,
+        AdminOperatorReadinessArea::Setup,
+        AdminOperatorReadinessStatus::Degraded,
+        AdminOperatorReadinessReason::AuthDisabledLocalOnly,
+        Some("systemConfig"),
+    );
+    assert_operator_readiness_check(
+        &overview,
+        AdminOperatorReadinessArea::MediaLibraryScan,
+        AdminOperatorReadinessStatus::Ready,
+        AdminOperatorReadinessReason::MediaLibraryConfigured,
+        None,
+    );
+    assert_operator_readiness_check(
+        &overview,
+        AdminOperatorReadinessArea::Playback,
+        AdminOperatorReadinessStatus::Ready,
+        AdminOperatorReadinessReason::PlaybackReady,
+        None,
+    );
+    assert_operator_readiness_check(
+        &overview,
+        AdminOperatorReadinessArea::Storage,
+        AdminOperatorReadinessStatus::Ready,
+        AdminOperatorReadinessReason::StorageReady,
+        None,
+    );
+    assert_operator_readiness_check(
+        &overview,
+        AdminOperatorReadinessArea::Network,
+        AdminOperatorReadinessStatus::Ready,
+        AdminOperatorReadinessReason::NetworkReady,
+        None,
+    );
+    assert_operator_readiness_check(
+        &overview,
+        AdminOperatorReadinessArea::Backup,
+        AdminOperatorReadinessStatus::Degraded,
+        AdminOperatorReadinessReason::BackupNeedsDurableDatabase,
+        Some("systemConfig"),
+    );
     assert_eq!(overview.storage.total_backends, 1);
     assert_eq!(overview.storage.ready_backends, 1);
     assert_eq!(overview.storage.backends.len(), 1);
@@ -307,6 +355,117 @@ async fn admin_v1_overview_composes_safe_read_only_diagnostics() {
     assert_eq!(health.status, "ok");
     assert_eq!(libraries.libraries[0].id, library_id.to_string());
     assert_eq!(storage.backends[0].library_id, library_id);
+}
+
+fn assert_operator_readiness_check(
+    overview: &AdminOverviewResponse,
+    area: AdminOperatorReadinessArea,
+    status: AdminOperatorReadinessStatus,
+    reason: AdminOperatorReadinessReason,
+    action_route_key: Option<&str>,
+) {
+    let check = overview
+        .operator_readiness
+        .checks
+        .iter()
+        .find(|check| check.area == area)
+        .expect("operator readiness check");
+
+    assert_eq!(check.status, status);
+    assert_eq!(check.reason, reason);
+
+    match action_route_key {
+        Some(route_key) => {
+            let action = check.action.as_ref().expect("operator action");
+            assert_eq!(action.route_key, route_key);
+            assert!(action.route_path.starts_with("/admin/v1/"));
+        }
+        None => assert!(check.action.is_none()),
+    }
+}
+
+#[tokio::test]
+async fn admin_v1_overview_reports_operator_readiness_for_configured_local_install() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: temp.path().join("nako.db").display().to_string(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig {
+            enabled: true,
+            token_env: Some("NAKO_ADMIN_TOKEN".to_owned()),
+        },
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("nako-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store).await.unwrap();
+    let router = build_router_with_auth(app, auth::InboundAuthState::bearer_token("test-token"));
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/overview")
+                .header(header::AUTHORIZATION, "Bearer test-token")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body = String::from_utf8(bytes.to_vec()).unwrap();
+    let overview: AdminOverviewResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(
+        overview.operator_readiness.status,
+        AdminOperatorReadinessStatus::Ready
+    );
+    assert_operator_readiness_check(
+        &overview,
+        AdminOperatorReadinessArea::Setup,
+        AdminOperatorReadinessStatus::Ready,
+        AdminOperatorReadinessReason::AuthConfigured,
+        None,
+    );
+    assert_operator_readiness_check(
+        &overview,
+        AdminOperatorReadinessArea::Backup,
+        AdminOperatorReadinessStatus::Ready,
+        AdminOperatorReadinessReason::BackupRunbookAvailable,
+        None,
+    );
+
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("test-token"));
+    assert!(!body.contains("NAKO_ADMIN_TOKEN"));
+    assert!(!body.contains("ffmpeg -"));
+    assert!(!body.contains("root_uri"));
 }
 
 #[tokio::test]
@@ -13166,6 +13325,7 @@ async fn admin_v1_playback_runtime_reports_unavailable_cpu_pipeline_without_bloc
     let router = build_router(app);
 
     let response = router
+        .clone()
         .oneshot(
             Request::builder()
                 .method(Method::GET)
@@ -13236,6 +13396,58 @@ async fn admin_v1_playback_runtime_reports_unavailable_cpu_pipeline_without_bloc
     assert!(!body.contains("secret-cache"));
     assert!(!body.contains("ffmpeg_path"));
     assert!(!body.contains("remux_staging_root"));
+
+    let overview_response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/overview")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(overview_response.status(), StatusCode::OK);
+    let overview_body = String::from_utf8(
+        to_bytes(overview_response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    let overview: AdminOverviewResponse = serde_json::from_str(&overview_body).unwrap();
+    assert_eq!(
+        overview.operator_readiness.status,
+        AdminOperatorReadinessStatus::Unavailable
+    );
+    let playback_check = overview
+        .operator_readiness
+        .checks
+        .iter()
+        .find(|check| check.area == AdminOperatorReadinessArea::Playback)
+        .expect("playback readiness check");
+    assert_eq!(
+        playback_check.status,
+        AdminOperatorReadinessStatus::Unavailable
+    );
+    assert_eq!(
+        playback_check.reason,
+        AdminOperatorReadinessReason::PlaybackUnavailable
+    );
+    assert_eq!(
+        playback_check.source_reason.as_deref(),
+        Some("software_pipeline_unavailable")
+    );
+    assert_eq!(
+        playback_check.action.as_ref().unwrap().route_key,
+        "playbackRuntime"
+    );
+    assert!(!overview_body.contains(&temp.path().display().to_string()));
+    assert!(!overview_body.contains(&ffmpeg_path.display().to_string()));
+    assert!(!overview_body.contains("secret-cache"));
+    assert!(!overview_body.contains("ffmpeg_path"));
+    assert!(!overview_body.contains("remux_staging_root"));
+    assert!(!overview_body.contains("ffmpeg -"));
 }
 
 #[tokio::test]

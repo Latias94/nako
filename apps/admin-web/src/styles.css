@@ -1910,6 +1910,46 @@ td {
   overflow-wrap: anywhere;
 }
 
+.overviewReadinessGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.overviewReadinessItem {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  min-height: 126px;
+  border: 1px solid var(--nako-admin-line);
+  border-radius: var(--nako-admin-radius);
+  background: var(--nako-admin-surface-raised);
+  padding: 14px;
+}
+
+.overviewReadinessHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.overviewReadinessHeader strong {
+  color: var(--nako-admin-ink);
+  font-size: 0.95rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.overviewReadinessItem span,
+.overviewReadinessItem small {
+  color: var(--nako-admin-muted);
+  font-size: 0.82rem;
+  font-weight: 720;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .settingsSummaryGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3263,6 +3303,7 @@ td {
     .filterBar,
     .overviewMetricGrid,
     .overviewDiagnosticGrid,
+    .overviewReadinessGrid,
     .settingsSummaryGrid,
     .accessSummaryGrid,
     .artworkSummaryGrid,
