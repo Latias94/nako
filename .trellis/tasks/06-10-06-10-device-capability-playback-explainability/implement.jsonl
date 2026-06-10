@@ -1,0 +1,9 @@
+{"file": ".trellis/tasks/06-10-06-10-device-capability-playback-explainability/prd.md", "reason": "U2 scope, acceptance criteria, and implementation boundaries."}
+{"file": "docs/plans/2026-06-10-001-feat-media-server-maturity-roadmap-plan.md", "reason": "Roadmap context and U2 test scenarios."}
+{"file": "docs/architecture/PLAYBACK.md", "reason": "Playback architecture map and Lane A capability-profile guidance."}
+{"file": "docs/adr/0038-playback-planning-and-transcode-policy-seams.md", "reason": "Playback planner and transcode policy boundary."}
+{"file": "docs/adr/0044-playback-capability-profile-planner.md", "reason": "Capability profile planner baseline."}
+{"file": ".trellis/spec/nako-playback/backend/index.md", "reason": "nako-playback package implementation guidance."}
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Public/Admin DTO and generated contract guidance."}
+{"file": ".trellis/spec/nako-client-protocol/backend/index.md", "reason": "Public client protocol contract guidance."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "HTTP route and app orchestration guidance."}

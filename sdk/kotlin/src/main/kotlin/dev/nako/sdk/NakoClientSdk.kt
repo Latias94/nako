@@ -1715,6 +1715,8 @@ public data class ClientPlaybackDecisionReport(
     public val remux: ClientPlaybackCapabilityEvaluation,
     @SerialName("selected_mode")
     public val selectedMode: ClientPlaybackDecisionReportSelectedMode,
+    @SerialName("selection_reasons")
+    public val selectionReasons: List<ClientPlaybackCompatibilityCondition> = emptyList(),
     public val transcode: ClientPlaybackCapabilityEvaluation,
 )
 

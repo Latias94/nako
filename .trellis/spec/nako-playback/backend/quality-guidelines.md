@@ -58,6 +58,96 @@ Playback planner changes must remain deterministic and side-effect free.
 - Playback/server cross-crate:
   `cargo check -p nako-playback -p nako-transcode -p nako-server --tests`
 
+## Scenario: Playback Decision Selection Reasons
+
+### 1. Scope / Trigger
+
+- Trigger: changing a playback decision report, Public Client playback DTO, or
+  SDK/OpenAPI playback decision shape.
+- Scope: `PlaybackDecisionReport.selection_reasons` is the selected-mode reason
+  summary produced by `nako-playback` and mapped through `nako-api`,
+  `nako-client-protocol`, OpenAPI, TypeScript SDK, Kotlin SDK, and server route
+  tests.
+
+### 2. Signatures
+
+- Planner: `PlaybackDecisionReport { selected_mode, selection_reasons,
+  direct_play, remux, transcode, denial }`.
+- Public protocol: `ClientPlaybackDecisionReport { selected_mode,
+  selection_reasons, direct_play, remux, transcode, denial }`.
+- Wire field: `selection_reasons: ClientPlaybackCompatibilityCondition[]`.
+
+### 3. Contracts
+
+- `selection_reasons` explains why the selected mode was chosen; it is not a
+  dump of every failed mode.
+- Direct Play uses its direct-play compatibility reasons.
+- Remux includes the decision reason and non-compatible Direct Play reasons
+  that caused the fallback.
+- Transcode includes the decision reason plus non-compatible Direct Play and
+  Remux reasons relevant to the selected transcode requirement.
+- Denied uses `policy_denied`.
+- Empty selected reasons must normalize to `compatible` for compatible
+  decisions.
+- Public/Admin/client surfaces may expose only stable compatibility enum/string
+  codes; never expose Source Locators, local paths, bearer tokens, FFmpeg
+  commands, provider payloads, or raw runtime stderr.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Direct Play selected and compatible | `selection_reasons == ["compatible"]` |
+| Remux selected because source container is unsupported but codecs are compatible | includes `container_unsupported` |
+| Transcode selected because video codec is unsupported | includes `video_codec_unsupported` |
+| Transcode selected because selected subtitle requires burn-in | includes `subtitle_delivery_unsupported` |
+| Playback denied by policy | `selection_reasons == ["policy_denied"]` |
+| Generated SDK lacks `selection_reasons` | `nako-api` package-entry parity tests fail |
+| Route response contains raw path/token/FFmpeg command instead of reason code | contract violation |
+
+### 5. Good/Base/Bad Cases
+
+- Good: a browser flat capability query that lacks the source video codec
+  returns a Transcode decision with `selection_reasons:
+  ["video_codec_unsupported"]`.
+- Good: a policy denial returns `policy_denied` without constructing Direct
+  Play, Remux, or Transcode artifacts.
+- Base: older clients may omit `selection_reasons` during deserialization;
+  serde/default-compatible DTOs must treat it as an empty list.
+- Bad: deriving UI text from raw FFmpeg errors, file paths, or backend locator
+  strings.
+
+### 6. Tests Required
+
+- Planner matrix tests assert `decision.report.selection_reasons` for Direct
+  Play, Remux, Transcode, subtitle, HDR/audio, requested-transcode, and Denied
+  cases.
+- Public API serialization tests assert the field is present and mapped to
+  `ClientPlaybackCompatibilityCondition`.
+- OpenAPI and SDK generator tests assert TypeScript/Kotlin package entries are
+  regenerated.
+- Server playback route tests assert flat capability query compatibility and
+  redaction-safe reason exposure.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+report.selection_reasons = vec![PlaybackCompatibilityCondition::Other(raw_error)];
+```
+
+#### Correct
+
+```rust
+report = report.with_selection_reasons(vec![
+    PlaybackCompatibilityCondition::VideoCodecUnsupported,
+]);
+```
+
+Selection reasons are stable product facts from planner evaluation, not raw
+runtime diagnostics.
+
 ## Review Checklist
 
 - Is the planner still pure?

@@ -73,6 +73,8 @@ pub struct PlaybackDecisionReport {
     pub source_id: MediaSourceId,
     pub profile_key: String,
     pub selected_mode: PlaybackMode,
+    #[serde(default)]
+    pub selection_reasons: Vec<PlaybackCompatibilityCondition>,
     pub direct_play: PlaybackCapabilityEvaluation,
     pub remux: PlaybackCapabilityEvaluation,
     pub transcode: PlaybackCapabilityEvaluation,
@@ -86,6 +88,7 @@ impl PlaybackDecisionReport {
             source_id,
             profile_key,
             selected_mode: PlaybackMode::Denied,
+            selection_reasons: Vec::new(),
             direct_play: PlaybackCapabilityEvaluation::default(),
             remux: PlaybackCapabilityEvaluation::default(),
             transcode: PlaybackCapabilityEvaluation::default(),
@@ -100,8 +103,15 @@ impl PlaybackDecisionReport {
     }
 
     #[must_use]
+    pub fn with_selection_reasons(mut self, reasons: Vec<PlaybackCompatibilityCondition>) -> Self {
+        self.selection_reasons = stable_unique_reasons(reasons);
+        self
+    }
+
+    #[must_use]
     pub fn with_denial(mut self, denial: PlaybackDenial) -> Self {
         self.denial = Some(denial);
+        self.selection_reasons = vec![PlaybackCompatibilityCondition::PolicyDenied];
         self.direct_play = PlaybackCapabilityEvaluation::unsupported(vec![
             PlaybackCompatibilityCondition::PolicyDenied,
         ]);
@@ -113,6 +123,21 @@ impl PlaybackDecisionReport {
         ]);
         self
     }
+}
+
+fn stable_unique_reasons(
+    reasons: Vec<PlaybackCompatibilityCondition>,
+) -> Vec<PlaybackCompatibilityCondition> {
+    let mut unique = Vec::new();
+    for reason in reasons {
+        if !unique.contains(&reason) {
+            unique.push(reason);
+        }
+    }
+    if unique.is_empty() {
+        unique.push(PlaybackCompatibilityCondition::Compatible);
+    }
+    unique
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
