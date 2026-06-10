@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server backend checklist for final review."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Verify HTTP route auth/access ownership matches updated metadata boundary."}
+{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Verify preserved NakoError status/body semantics."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify focused test and cargo check gates."}
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking-guide index required for check context."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Review cross-layer authorization flow after implementation."}
