@@ -3947,10 +3947,13 @@ fn media_library_scan_readiness_check(
         );
     }
 
+    // Runtime job failures may already include Source Fingerprint hash failures.
+    // Use the larger failed-job count so manually persisted failures still
+    // degrade readiness without double-counting scheduler-recorded failures.
     let repair_pressure = runtime
         .failed_jobs
-        .saturating_add(runtime.failed_tasks)
-        .saturating_add(source_fingerprint_hash.failed_jobs);
+        .max(source_fingerprint_hash.failed_jobs)
+        .saturating_add(runtime.failed_tasks);
     if repair_pressure > 0 {
         return operator_check(
             AdminOperatorReadinessArea::MediaLibraryScan,

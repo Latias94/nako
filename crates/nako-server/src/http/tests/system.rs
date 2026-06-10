@@ -425,6 +425,152 @@ async fn admin_v1_overview_reports_source_hash_queue_pressure_without_payload_le
     assert!(!body.contains("input_json"));
 }
 
+#[tokio::test]
+async fn admin_v1_overview_reports_source_hash_repair_pressure_without_payload_leaks() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(
+        NakoServerConfig {
+            database_backend: Default::default(),
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            database_url_env: None,
+            auth: crate::config::AuthConfig::disabled(),
+            network: crate::config::NetworkAccessConfig::default(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path: PathBuf::from("ffmpeg"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            webhook_concurrency: 2,
+            addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+            remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("nako-cache").join("remux"),
+            metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
+            artwork: crate::config::ArtworkConfig::default(),
+            libraries: vec![LocalLibraryConfig {
+                id: library_id,
+                name: "Movies".to_owned(),
+                root: temp.path().to_path_buf(),
+                preset: nako_core::LibraryPreset::Movies,
+                webdav: None,
+            }],
+        },
+        store.clone(),
+    )
+    .await
+    .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Hidden Movie".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: "local:///Users/Frankorz/Secret Path/Missing Movie.mkv?token=secret".to_owned(),
+        file_name: "Hidden Movie.mkv".to_owned(),
+        size_bytes: Some(42),
+        fingerprint: Some("sha256-private-source-hash".to_owned()),
+    };
+
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+    let router = build_router(app.clone());
+    let source_job = response_body_json(
+        &router,
+        Method::POST,
+        "/admin/v1/source-fingerprint-hashes",
+        &AdminSourceFingerprintHashEnqueueRequest {
+            library_id: source.library_id,
+            source_id: source.id,
+            mode: AdminSourceFingerprintHashMode::Full,
+            partial_prefix_bytes: None,
+            priority: Some(AdminJobPriority::High),
+        },
+    )
+    .await;
+    assert_eq!(source_job.status(), StatusCode::ACCEPTED);
+    let _job = body_json::<AdminJobListItem>(source_job).await;
+
+    app.library_scan()
+        .schedule_queued_library_scans()
+        .await
+        .unwrap();
+    for _ in 0..500 {
+        let diagnostics = app.runtime_diagnostics();
+        if diagnostics.failed_jobs == 1 {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    assert_eq!(app.runtime_diagnostics().failed_jobs, 1);
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/overview")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let overview: AdminOverviewResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(overview.runtime.failed_jobs, 1);
+    assert_eq!(overview.source_fingerprint_hash.failed_jobs, 1);
+    let scan_check = overview
+        .operator_readiness
+        .checks
+        .iter()
+        .find(|check| check.area == AdminOperatorReadinessArea::MediaLibraryScan)
+        .expect("media library scan readiness check");
+    assert_eq!(
+        overview.operator_readiness.status,
+        AdminOperatorReadinessStatus::Degraded
+    );
+    assert_eq!(
+        scan_check.reason,
+        AdminOperatorReadinessReason::ScanRepairPressure
+    );
+    assert_eq!(scan_check.source_reason.as_deref(), Some("failed_work"));
+    assert_eq!(scan_check.attention_count, 1);
+    assert_eq!(
+        scan_check
+            .action
+            .as_ref()
+            .map(|action| action.route_key.as_str()),
+        Some("jobs")
+    );
+
+    assert_source_hash_admin_body_redacted(&body);
+    assert!(!body.contains("source_hash_overview_token"));
+    assert!(!body.contains("sha256-private-source-hash"));
+    assert!(!body.contains("local:///Movies/Private"));
+    assert!(!body.contains("input_json"));
+}
+
 fn assert_operator_readiness_check(
     overview: &AdminOverviewResponse,
     area: AdminOperatorReadinessArea,
