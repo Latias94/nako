@@ -8,10 +8,10 @@ use nako_api::{
     },
 };
 use nako_core::{
-    IngestionFailureFilter, IngestionFailurePhase, IngestionFailureRepository,
-    IngestionFailureStatus, LibraryId, LibraryItemBrowseQuery, LibraryItemRepository,
-    LibraryRepository, MediaRepository, MetadataProfileSource, NakoError, PageRequest, Result,
-    UserPrincipalId,
+    AuthenticatedPrincipal, IdentityAccessRepository, IngestionFailureFilter,
+    IngestionFailurePhase, IngestionFailureRepository, IngestionFailureStatus, LibraryId,
+    LibraryItemBrowseQuery, LibraryItemRepository, LibraryRepository, MediaRepository,
+    MetadataProfileSource, NakoError, PageRequest, Result, UserPrincipalId,
 };
 use nako_db::NakoDatabase;
 
@@ -35,10 +35,45 @@ impl LibraryAppService {
         })
     }
 
+    pub async fn list_libraries_for_browse(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<LibraryListResponse> {
+        let page = page.clamped();
+        let libraries = self.store.list_libraries(page).await?;
+        let mut output_libraries = Vec::with_capacity(libraries.len());
+
+        for library in libraries {
+            if self
+                .has_library_browse_access(principal, library.id)
+                .await?
+            {
+                output_libraries.push(library_to_dto(library));
+            }
+        }
+
+        Ok(LibraryListResponse {
+            page: page_info_from_request(page, output_libraries.len()),
+            libraries: output_libraries,
+        })
+    }
+
     pub async fn get_library(&self, library_id: LibraryId) -> Result<LibraryResponse> {
         Ok(LibraryResponse {
             library: library_to_dto(self.get_library_or_not_found(library_id).await?),
         })
+    }
+
+    pub async fn get_library_for_browse(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        library_id: LibraryId,
+    ) -> Result<LibraryResponse> {
+        self.ensure_library_browse_access(principal, library_id)
+            .await?;
+
+        self.get_library(library_id).await
     }
 
     pub async fn get_admin_metadata_profile(
@@ -96,6 +131,18 @@ impl LibraryAppService {
         })
     }
 
+    pub async fn list_library_sources_for_browse(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        library_id: LibraryId,
+        page: PageRequest,
+    ) -> Result<LibrarySourcesResponse> {
+        self.ensure_library_browse_access(principal, library_id)
+            .await?;
+
+        self.list_library_sources(library_id, page).await
+    }
+
     pub async fn list_library_items(
         &self,
         library_id: LibraryId,
@@ -117,6 +164,23 @@ impl LibraryAppService {
             page: page_info_from_request(page, returned),
             items: items.into_iter().map(media_item_to_dto).collect(),
         })
+    }
+
+    pub async fn list_library_items_for_browse(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        library_id: LibraryId,
+        query: LibraryItemBrowseQuery,
+    ) -> Result<LibraryItemsResponse> {
+        if !self
+            .has_library_browse_access(principal, library_id)
+            .await?
+        {
+            return Err(library_not_found(library_id));
+        }
+
+        self.list_library_items(library_id, query, &principal.principal_id)
+            .await
     }
 
     pub async fn list_ingestion_failures(
@@ -178,5 +242,46 @@ impl LibraryAppService {
                 entity: "library",
                 id: library_id.to_string(),
             })
+    }
+
+    async fn has_library_browse_access(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        library_id: LibraryId,
+    ) -> Result<bool> {
+        let effective = self
+            .store
+            .resolve_effective_library_access(principal.user_id, library_id)
+            .await?;
+
+        Ok(effective.access.allows_browse())
+    }
+
+    async fn ensure_library_browse_access(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        library_id: LibraryId,
+    ) -> Result<()> {
+        if self
+            .has_library_browse_access(principal, library_id)
+            .await?
+        {
+            Ok(())
+        } else {
+            Err(library_browse_access_forbidden())
+        }
+    }
+}
+
+fn library_browse_access_forbidden() -> NakoError {
+    NakoError::Forbidden {
+        message: "required Library Access level 'browse' is not available".to_owned(),
+    }
+}
+
+fn library_not_found(library_id: LibraryId) -> NakoError {
+    NakoError::NotFound {
+        entity: "library",
+        id: library_id.to_string(),
     }
 }

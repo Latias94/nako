@@ -105,6 +105,108 @@ pub(super) fn routes() -> Router<NakoApp> {
 For a new route in an existing admin module, add it to the existing
 `admin::routes()` chain so it inherits the admin principal check.
 
+## Scenario: Public Library Browse Access Boundary
+
+### 1. Scope / Trigger
+
+- Trigger: changing Public Client library list, library detail, source
+  inventory, or library item browse routes in
+  `crates/nako-server/src/http/library.rs`.
+- Code evidence: `src/http/library.rs`, `src/app/library.rs`,
+  `src/http/tests/catalog.rs`, `src/app/tests/library.rs`.
+
+### 2. Signatures
+
+- Library browse/read HTTP handlers take `Extension(AuthenticatedPrincipal)`
+  and pass it to `LibraryAppService`.
+- Public read surfaces use app-service methods such as:
+  - `LibraryAppService::list_libraries_for_browse(&AuthenticatedPrincipal, PageRequest)`
+  - `LibraryAppService::get_library_for_browse(&AuthenticatedPrincipal, LibraryId)`
+  - `LibraryAppService::list_library_sources_for_browse(&AuthenticatedPrincipal, LibraryId, PageRequest)`
+  - `LibraryAppService::list_library_items_for_browse(&AuthenticatedPrincipal, LibraryId, LibraryItemBrowseQuery)`
+- Raw library methods may remain for internal runtime callers that do not model
+  a Public Client principal.
+
+### 3. Contracts
+
+- HTTP handlers parse path/query inputs and return `nako_api::public_client`
+  DTOs only.
+- Public Library app services own Browse access enforcement before returning
+  library, source, or item read responses.
+- `GET /libraries` keeps its current page-local filtering semantics: query one
+  clamped page from storage, remove libraries the principal cannot Browse, and
+  report `page.returned` for the filtered response.
+- Manage-command routes such as scan, NFO import/export, and ingestion failure
+  handling may continue to use a temporary HTTP manage guard until their owning
+  app-service command boundaries are moved in a dedicated slice.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Ordinary principal lists libraries | Response includes only Browse-visible libraries and `page.returned` matches the filtered count |
+| Ordinary principal reads an inaccessible library detail | `NakoError::Forbidden` with required Library Access level `browse` |
+| Ordinary principal reads inaccessible library sources | `NakoError::Forbidden` with required Library Access level `browse` |
+| Ordinary principal browses items for an inaccessible library | `NakoError::NotFound { entity: "library", ... }` to preserve hidden-library semantics |
+| Internal startup or storage diagnostics need raw library data | Raw app-service methods remain callable without an authenticated principal |
+
+### 5. Good / Base / Bad Cases
+
+- Good: `/libraries/{library_id}/items` parses the query and calls
+  `app.library().list_library_items_for_browse(&principal, library_id, query)`.
+- Base: command routes that still fan out to scan, NFO, or ingestion failure
+  services use the temporary HTTP manage guard until those app services own the
+  command access decision.
+- Bad: `/libraries` calls `app.library().list_libraries(page)`, then parses DTO
+  library IDs in HTTP and filters the response with a route-local Browse loop.
+
+### 6. Tests Required
+
+- App-service test proving public library browse wrappers filter/succeed/deny
+  with the exact library detail, source, and item error semantics above.
+- HTTP route tests proving list and item browse behavior remains unchanged after
+  access enforcement moves out of the route.
+- Focused gates:
+  `cargo nextest run -p nako-server library_service_enforces_browse_access_for_public_reads --no-fail-fast`,
+  `cargo nextest run -p nako-server public_browse_routes_filter_libraries_and_items_by_effective_access --no-fail-fast`,
+  `cargo nextest run -p nako-server library_items_route_returns_scoped_items_and_hides_inaccessible_libraries --no-fail-fast`, and
+  `cargo check -p nako-server --tests`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+let mut response = app.library().list_libraries(page).await?;
+let mut libraries = Vec::with_capacity(response.libraries.len());
+
+for library in response.libraries {
+    let library_id = parse_public_library_id(&library.id)?;
+    if has_library_access(&app, &principal, library_id, RequiredLibraryAccess::Browse).await? {
+        libraries.push(library);
+    }
+}
+
+response.libraries = libraries;
+Ok(Json(response))
+```
+
+This makes HTTP the Browse authority and forces routes to parse public DTO IDs
+back into domain IDs.
+
+#### Correct
+
+```rust
+Ok(Json(
+    app.library()
+        .list_libraries_for_browse(&principal, page)
+        .await?,
+))
+```
+
+The app-service path owns Browse access while HTTP remains an extractor and DTO
+boundary.
+
 ## Scenario: Public Catalog Read Access Boundary
 
 ### 1. Scope / Trigger

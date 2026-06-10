@@ -80,6 +80,7 @@ use crate::playback_mapping::{
 mod acquisition_intake;
 mod automation;
 mod catalog;
+mod library;
 mod managed_import;
 mod metadata;
 mod nfo;

@@ -12,10 +12,7 @@ use tracing::instrument;
 use crate::app::{LibraryScanTraceContext, NakoApp};
 
 use super::{
-    access::{
-        RequiredLibraryAccess, has_library_access, page_returned_len, parse_public_library_id,
-        require_library_access,
-    },
+    access::require_library_manage_access,
     error::ApiResult,
     query::{IngestionFailureQuery, LibraryItemsQuery, PageQuery},
     trace_context::HttpTraceContext,
@@ -42,20 +39,11 @@ pub(super) async fn list_libraries(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Query(page): Query<PageQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    let mut response = app.library().list_libraries(page.try_into()?).await?;
-    let mut libraries = Vec::with_capacity(response.libraries.len());
-
-    for library in response.libraries {
-        let library_id = parse_public_library_id(&library.id)?;
-        if has_library_access(&app, &principal, library_id, RequiredLibraryAccess::Browse).await? {
-            libraries.push(library);
-        }
-    }
-
-    response.page.returned = page_returned_len(libraries.len());
-    response.libraries = libraries;
-
-    Ok(Json(response))
+    Ok(Json(
+        app.library()
+            .list_libraries_for_browse(&principal, page.try_into()?)
+            .await?,
+    ))
 }
 
 #[instrument(skip(app))]
@@ -64,9 +52,11 @@ pub(super) async fn get_library(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(library_id): Path<LibraryId>,
 ) -> ApiResult<impl IntoResponse> {
-    require_library_access(&app, &principal, library_id, RequiredLibraryAccess::Browse).await?;
-
-    Ok(Json(app.library().get_library(library_id).await?))
+    Ok(Json(
+        app.library()
+            .get_library_for_browse(&principal, library_id)
+            .await?,
+    ))
 }
 
 #[instrument(skip(app, principal, http_trace_context))]
@@ -76,7 +66,7 @@ pub(super) async fn scan_library(
     Extension(http_trace_context): Extension<HttpTraceContext>,
     Path(library_id): Path<LibraryId>,
 ) -> ApiResult<impl IntoResponse> {
-    require_library_access(&app, &principal, library_id, RequiredLibraryAccess::Manage).await?;
+    require_library_manage_access(&app, &principal, library_id).await?;
 
     let trace_context = LibraryScanTraceContext::from_request_id(http_trace_context.request_id())?;
     let job = app
@@ -93,7 +83,7 @@ pub(super) async fn import_nfo(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(library_id): Path<LibraryId>,
 ) -> ApiResult<impl IntoResponse> {
-    require_library_access(&app, &principal, library_id, RequiredLibraryAccess::Manage).await?;
+    require_library_manage_access(&app, &principal, library_id).await?;
 
     let job = app.nfo().enqueue_nfo_import(library_id).await?;
 
@@ -106,7 +96,7 @@ pub(super) async fn export_nfo(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(library_id): Path<LibraryId>,
 ) -> ApiResult<impl IntoResponse> {
-    require_library_access(&app, &principal, library_id, RequiredLibraryAccess::Manage).await?;
+    require_library_manage_access(&app, &principal, library_id).await?;
 
     let job = app.nfo().enqueue_nfo_export(library_id).await?;
 
@@ -120,11 +110,9 @@ pub(super) async fn list_library_sources(
     Path(library_id): Path<LibraryId>,
     Query(page): Query<PageQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    require_library_access(&app, &principal, library_id, RequiredLibraryAccess::Browse).await?;
-
     Ok(Json(
         app.library()
-            .list_library_sources(library_id, page.try_into()?)
+            .list_library_sources_for_browse(&principal, library_id, page.try_into()?)
             .await?,
     ))
 }
@@ -136,20 +124,12 @@ pub(super) async fn list_library_items(
     Path(library_id): Path<LibraryId>,
     RawQuery(raw_query): RawQuery,
 ) -> ApiResult<impl IntoResponse> {
-    if !has_library_access(&app, &principal, library_id, RequiredLibraryAccess::Browse).await? {
-        return Err(nako_core::NakoError::NotFound {
-            entity: "library",
-            id: library_id.to_string(),
-        }
-        .into());
-    }
-
     Ok(Json(
         app.library()
-            .list_library_items(
+            .list_library_items_for_browse(
+                &principal,
                 library_id,
                 LibraryItemsQuery::from_raw_query(raw_query.as_deref())?.into_browse_query()?,
-                &principal.principal_id,
             )
             .await?,
     ))
@@ -162,7 +142,7 @@ pub(super) async fn list_ingestion_failures(
     Path(library_id): Path<LibraryId>,
     Query(query): Query<IngestionFailureQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    require_library_access(&app, &principal, library_id, RequiredLibraryAccess::Manage).await?;
+    require_library_manage_access(&app, &principal, library_id).await?;
 
     Ok(Json(
         app.library()
@@ -183,7 +163,7 @@ pub(super) async fn ignore_ingestion_failure(
     Path(library_id): Path<LibraryId>,
     Json(request): Json<IgnoreIngestionFailureRequest>,
 ) -> ApiResult<impl IntoResponse> {
-    require_library_access(&app, &principal, library_id, RequiredLibraryAccess::Manage).await?;
+    require_library_manage_access(&app, &principal, library_id).await?;
 
     Ok(Json(
         app.library()
