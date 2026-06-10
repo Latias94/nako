@@ -454,3 +454,38 @@ Moved Public Library Manage command authorization from HTTP helpers into the own
 ### Next Steps
 
 - None - task complete
+
+
+## Session 110: Remove obsolete HTTP access module
+
+**Date**: 2026-06-10
+**Task**: Remove obsolete HTTP access module
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Deleted the final generic http/access.rs module after Library Access checks moved into app services, localized the remaining metadata administrator helper to metadata routes to preserve extractor/error ordering, updated nako-server HTTP specs, and verified metadata HTTP tests plus server test check.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1acd5c12` | (see git log) |
+| `c92e2933` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
