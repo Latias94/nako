@@ -92,10 +92,42 @@ pub enum StableIntakeCandidateState {
     Stable,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StableIntakeCandidateReason {
+    FirstObservation,
+    IncompleteObservationEvidence,
+    ObservationChanged,
+    ObservationRepeated,
+    StabilityThresholdReached,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StableIntakeCandidateDecision {
     pub state: StableIntakeCandidateState,
+    pub reason: StableIntakeCandidateReason,
     pub evidence: StableIntakeCandidateEvidence,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct StableIntakeObservationFacts {
+    pub has_size: bool,
+    pub has_change_marker: bool,
+}
+
+impl StableIntakeObservationFacts {
+    #[must_use]
+    pub fn complete() -> Self {
+        Self {
+            has_size: true,
+            has_change_marker: true,
+        }
+    }
+
+    #[must_use]
+    pub fn has_complete_stability_evidence(self) -> bool {
+        self.has_size && self.has_change_marker
+    }
 }
 
 impl StableIntakeCandidateDecision {
@@ -110,10 +142,36 @@ pub fn observe_stable_intake_candidate(
     previous: Option<&StableIntakeCandidateEvidence>,
     observation_key: impl Into<String>,
 ) -> StableIntakeCandidateDecision {
+    observe_stable_intake_candidate_with_facts(
+        previous,
+        observation_key,
+        StableIntakeObservationFacts::complete(),
+    )
+}
+
+#[must_use]
+pub fn observe_stable_intake_candidate_with_facts(
+    previous: Option<&StableIntakeCandidateEvidence>,
+    observation_key: impl Into<String>,
+    facts: StableIntakeObservationFacts,
+) -> StableIntakeCandidateDecision {
     let observation_key = observation_key.into();
-    let consecutive_stable_observations = previous
-        .filter(|previous| previous.observation_key == observation_key)
-        .map_or(1, |previous| {
+    if !facts.has_complete_stability_evidence() {
+        return StableIntakeCandidateDecision {
+            state: StableIntakeCandidateState::Inspecting,
+            reason: StableIntakeCandidateReason::IncompleteObservationEvidence,
+            evidence: StableIntakeCandidateEvidence {
+                observation_key,
+                consecutive_stable_observations: 0,
+            },
+        };
+    }
+
+    let same_observation = previous.is_some_and(|previous| {
+        previous.observation_key == observation_key && previous.consecutive_stable_observations > 0
+    });
+    let consecutive_stable_observations =
+        previous.filter(|_| same_observation).map_or(1, |previous| {
             previous.consecutive_stable_observations.saturating_add(1)
         });
     let evidence = StableIntakeCandidateEvidence {
@@ -125,8 +183,22 @@ pub fn observe_stable_intake_candidate(
     } else {
         StableIntakeCandidateState::Inspecting
     };
+    let reason = match (previous.is_some(), same_observation, state) {
+        (false, _, _) => StableIntakeCandidateReason::FirstObservation,
+        (true, false, _) => StableIntakeCandidateReason::ObservationChanged,
+        (true, true, StableIntakeCandidateState::Stable) => {
+            StableIntakeCandidateReason::StabilityThresholdReached
+        }
+        (true, true, StableIntakeCandidateState::Inspecting) => {
+            StableIntakeCandidateReason::ObservationRepeated
+        }
+    };
 
-    StableIntakeCandidateDecision { state, evidence }
+    StableIntakeCandidateDecision {
+        state,
+        reason,
+        evidence,
+    }
 }
 
 #[must_use]
@@ -180,6 +252,10 @@ mod tests {
 
         assert_eq!(decision.state, StableIntakeCandidateState::Inspecting);
         assert_eq!(
+            decision.reason,
+            StableIntakeCandidateReason::FirstObservation
+        );
+        assert_eq!(
             decision.evidence,
             StableIntakeCandidateEvidence {
                 observation_key: "sha256:first".to_owned(),
@@ -195,6 +271,10 @@ mod tests {
         let second = observe_stable_intake_candidate(Some(&first.evidence), "sha256:stable");
 
         assert_eq!(second.state, StableIntakeCandidateState::Stable);
+        assert_eq!(
+            second.reason,
+            StableIntakeCandidateReason::StabilityThresholdReached
+        );
         assert_eq!(second.evidence.consecutive_stable_observations, 2);
         assert!(second.is_stable());
     }
@@ -210,8 +290,57 @@ mod tests {
         );
 
         assert_eq!(stable.state, StableIntakeCandidateState::Inspecting);
+        assert_eq!(
+            stable.reason,
+            StableIntakeCandidateReason::ObservationChanged
+        );
         assert_eq!(stable.evidence.consecutive_stable_observations, 1);
         assert_eq!(stable.evidence.observation_key, "sha256:new");
+    }
+
+    #[test]
+    fn incomplete_observation_evidence_cannot_become_stable() {
+        let incomplete = observe_stable_intake_candidate_with_facts(
+            None,
+            "sha256:unknown-size",
+            StableIntakeObservationFacts {
+                has_size: false,
+                has_change_marker: true,
+            },
+        );
+        let repeated_incomplete = observe_stable_intake_candidate_with_facts(
+            Some(&incomplete.evidence),
+            "sha256:unknown-size",
+            StableIntakeObservationFacts {
+                has_size: false,
+                has_change_marker: true,
+            },
+        );
+        let first_complete = observe_stable_intake_candidate_with_facts(
+            Some(&repeated_incomplete.evidence),
+            "sha256:unknown-size",
+            StableIntakeObservationFacts::complete(),
+        );
+
+        assert_eq!(
+            incomplete.reason,
+            StableIntakeCandidateReason::IncompleteObservationEvidence
+        );
+        assert_eq!(incomplete.evidence.consecutive_stable_observations, 0);
+        assert_eq!(
+            repeated_incomplete.reason,
+            StableIntakeCandidateReason::IncompleteObservationEvidence
+        );
+        assert_eq!(
+            repeated_incomplete.evidence.consecutive_stable_observations,
+            0
+        );
+        assert_eq!(
+            first_complete.reason,
+            StableIntakeCandidateReason::ObservationChanged
+        );
+        assert_eq!(first_complete.state, StableIntakeCandidateState::Inspecting);
+        assert_eq!(first_complete.evidence.consecutive_stable_observations, 1);
     }
 
     #[test]

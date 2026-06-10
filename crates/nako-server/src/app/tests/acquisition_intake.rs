@@ -696,6 +696,88 @@ async fn acquisition_intake_watch_folder_discovery_records_classified_candidates
 }
 
 #[tokio::test]
+async fn acquisition_intake_watch_folder_discovery_resets_stability_when_observation_changes() {
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let temp = tempfile::tempdir().unwrap();
+    let watch = temp.path().join("watch");
+    let media_path = watch.join("Growing Movie.mkv");
+    fs::create_dir_all(&watch).unwrap();
+    fs::write(&media_path, b"partial").unwrap();
+    let library_id = LibraryId::new();
+    let app = acquisition_app_with_store(store.clone(), library_id, temp.path()).await;
+    let library = store.get_library(library_id).await.unwrap().unwrap();
+    let service = app.acquisition_intake();
+    let root_uri = StorageUri::from_parts("local", "watch").unwrap();
+
+    let first = service
+        .discover_watch_folder_candidates(DiscoverWatchFolderCandidatesRequest {
+            target_library_id: library.id,
+            root_uri: Some(root_uri.clone()),
+            max_depth: Some(1),
+        })
+        .await
+        .unwrap();
+    fs::write(&media_path, b"partial-but-still-growing").unwrap();
+    let changed = service
+        .discover_watch_folder_candidates(DiscoverWatchFolderCandidatesRequest {
+            target_library_id: library.id,
+            root_uri: Some(root_uri.clone()),
+            max_depth: Some(1),
+        })
+        .await
+        .unwrap();
+    let stable = service
+        .discover_watch_folder_candidates(DiscoverWatchFolderCandidatesRequest {
+            target_library_id: library.id,
+            root_uri: Some(root_uri),
+            max_depth: Some(1),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(first.inspecting_candidates, 1);
+    assert_eq!(first.newly_ready_candidates, 0);
+    assert_eq!(changed.inspecting_candidates, 1);
+    assert_eq!(changed.ready_candidates, 0);
+    assert_eq!(changed.newly_ready_candidates, 0);
+    assert_eq!(stable.ready_candidates, 1);
+    assert_eq!(stable.newly_ready_candidates, 1);
+
+    let records = store
+        .list_acquisition_intake_candidates(
+            AcquisitionIntakeCandidateListFilter {
+                target_library_id: Some(library.id),
+                state: None,
+                source_kind: Some(AcquisitionIntakeSourceKind::WatchFolder),
+                managed_import_artifact_id: None,
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(records.len(), 1);
+    assert_eq!(records[0].state, AcquisitionIntakeCandidateState::Ready);
+    let diagnostics: serde_json::Value =
+        serde_json::from_str(records[0].diagnostics_json.as_deref().unwrap()).unwrap();
+    assert_eq!(diagnostics["classification"], "ready");
+    assert_eq!(
+        diagnostics["stability_reason"],
+        "stability_threshold_reached"
+    );
+    assert_eq!(
+        diagnostics["stable_candidate"]["consecutive_stable_observations"],
+        2
+    );
+
+    let body = serde_json::to_string(&changed).unwrap();
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("Growing Movie"));
+    assert!(!body.contains("partial-but-still-growing"));
+    assert!(!body.contains("local:///"));
+}
+
+#[tokio::test]
 async fn acquisition_intake_watch_folder_discovery_suppresses_planned_host_writes_without_raw_scope()
  {
     let store = NakoDatabase::connect_in_memory().await.unwrap();

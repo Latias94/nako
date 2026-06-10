@@ -357,6 +357,74 @@ async fn admin_v1_overview_composes_safe_read_only_diagnostics() {
     assert_eq!(storage.backends[0].library_id, library_id);
 }
 
+#[tokio::test]
+async fn admin_v1_overview_reports_source_hash_queue_pressure_without_payload_leaks() {
+    let (_temp, router, source, store) =
+        router_with_media_source("source_hash_secret_locator.mkv", b"0123456789abcdef").await;
+    store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::SourceFingerprintHash,
+            resource_class: SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            input_json: Some(
+                r#"{"source_uri":"local:///Movies/Private/source_hash_secret_locator.mkv?token=source_hash_overview_token","fingerprint":"sha256-private-source-hash","input_json":"private"}"#.to_owned(),
+            ),
+        })
+        .await
+        .unwrap();
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/overview")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let overview: AdminOverviewResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(overview.source_fingerprint_hash.total_sources, 1);
+    assert_eq!(overview.source_fingerprint_hash.queued_jobs, 1);
+    assert_eq!(overview.source_fingerprint_hash.claimable_jobs, 1);
+    assert_eq!(overview.source_fingerprint_hash.failed_jobs, 0);
+    let scan_check = overview
+        .operator_readiness
+        .checks
+        .iter()
+        .find(|check| check.area == AdminOperatorReadinessArea::MediaLibraryScan)
+        .expect("media library scan readiness check");
+    assert_eq!(scan_check.status, AdminOperatorReadinessStatus::Degraded);
+    assert_eq!(
+        scan_check.reason,
+        AdminOperatorReadinessReason::ScanWorkPending
+    );
+    assert_eq!(scan_check.source_reason.as_deref(), Some("queued_work"));
+    assert_eq!(scan_check.attention_count, 1);
+    let action = scan_check.action.as_ref().expect("jobs action");
+    assert_eq!(action.route_key, "jobs");
+    assert_eq!(action.route_path, "/admin/v1/jobs");
+
+    assert_source_hash_admin_body_redacted(&body);
+    assert!(!body.contains("source_hash_overview_token"));
+    assert!(!body.contains("sha256-private-source-hash"));
+    assert!(!body.contains("input_json"));
+}
+
 fn assert_operator_readiness_check(
     overview: &AdminOverviewResponse,
     area: AdminOperatorReadinessArea,

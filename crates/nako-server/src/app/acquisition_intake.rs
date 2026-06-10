@@ -11,7 +11,8 @@ use nako_core::{
 use nako_db::NakoDatabase;
 use nako_library::{
     LibraryScannerOptions, STABLE_INTAKE_REQUIRED_OBSERVATIONS, StableIntakeCandidateEvidence,
-    StableIntakeCandidateState, observe_stable_intake_candidate,
+    StableIntakeCandidateReason, StableIntakeCandidateState, StableIntakeObservationFacts,
+    observe_stable_intake_candidate_with_facts,
 };
 use nako_vfs::{ObjectKind, ObjectMetadata, StorageBackend, StorageUri};
 use serde::{Deserialize, Serialize};
@@ -817,6 +818,7 @@ struct WatchFolderCandidateClassification {
     state: AcquisitionIntakeCandidateState,
     reason: WatchFolderCandidateReason,
     stable_candidate: Option<StableIntakeCandidateEvidence>,
+    stability_reason: Option<StableIntakeCandidateReason>,
     newly_ready: bool,
 }
 
@@ -838,6 +840,8 @@ struct WatchFolderCandidateDiagnostics {
     classification: WatchFolderCandidateReason,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     stable_candidate: Option<StableIntakeCandidateEvidence>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    stability_reason: Option<StableIntakeCandidateReason>,
     #[serde(default)]
     writes_library: bool,
     #[serde(default)]
@@ -853,6 +857,7 @@ impl WatchFolderCandidateClassification {
             watch_folder: true,
             classification: self.reason,
             stable_candidate: self.stable_candidate,
+            stability_reason: self.stability_reason,
             writes_library: false,
             managed_import_artifact_created: false,
             promotion_apply: false,
@@ -870,15 +875,17 @@ fn classify_watch_folder_candidate(
             state: AcquisitionIntakeCandidateState::Blocked,
             reason: WatchFolderCandidateReason::Incomplete,
             stable_candidate: None,
+            stability_reason: None,
             newly_ready: false,
         };
     }
 
     if is_supported_media(metadata.uri.as_str()) {
         let previous = previous_watch_folder_stable_candidate(existing, metadata);
-        let decision = observe_stable_intake_candidate(
+        let decision = observe_stable_intake_candidate_with_facts(
             previous.as_ref(),
             watch_folder_observation_key(metadata),
+            watch_folder_observation_facts(metadata),
         );
         let state = match decision.state {
             StableIntakeCandidateState::Inspecting => AcquisitionIntakeCandidateState::Inspecting,
@@ -896,6 +903,7 @@ fn classify_watch_folder_candidate(
                 ),
             },
             stable_candidate: Some(decision.evidence),
+            stability_reason: Some(decision.reason),
             newly_ready: state == AcquisitionIntakeCandidateState::Ready
                 && existing.is_none_or(|candidate| {
                     candidate.state != AcquisitionIntakeCandidateState::Ready
@@ -906,6 +914,7 @@ fn classify_watch_folder_candidate(
             state: AcquisitionIntakeCandidateState::Blocked,
             reason: WatchFolderCandidateReason::Unsupported,
             stable_candidate: None,
+            stability_reason: None,
             newly_ready: false,
         }
     }
@@ -971,6 +980,15 @@ fn watch_folder_observation_key(metadata: &ObjectMetadata) -> String {
     format!("watch_folder_observation:v1:sha256:{:x}", hasher.finalize())
 }
 
+fn watch_folder_observation_facts(metadata: &ObjectMetadata) -> StableIntakeObservationFacts {
+    StableIntakeObservationFacts {
+        has_size: metadata.len.is_some(),
+        has_change_marker: metadata.modified_at.as_deref().is_some_and(has_value)
+            || metadata.etag.as_deref().is_some_and(has_value)
+            || metadata.fingerprint.as_deref().is_some_and(has_value),
+    }
+}
+
 fn previous_watch_folder_stable_candidate(
     existing: Option<&AcquisitionIntakeCandidateRecord>,
     metadata: &ObjectMetadata,
@@ -1002,6 +1020,10 @@ fn update_watch_folder_hash_part(hasher: &mut Sha256, value: &str) {
     hasher.update([0]);
     hasher.update(value.as_bytes());
     hasher.update([0xff]);
+}
+
+fn has_value(value: &str) -> bool {
+    !value.is_empty()
 }
 
 fn file_name(uri: &StorageUri) -> Option<&str> {
