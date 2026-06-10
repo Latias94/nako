@@ -2285,6 +2285,7 @@ export type AdminOperatorReadinessReason =
   | "storage_ready"
   | "storage_degraded"
   | "storage_unavailable"
+  | "vfs_cache_repair_pressure"
   | "network_ready"
   | "network_degraded"
   | "network_unavailable"

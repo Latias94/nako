@@ -454,6 +454,8 @@ const OPERATOR_READINESS_REASON_LABELS: Record<
   storage_ready: "overview.operatorReadiness.reason.storageReady",
   storage_degraded: "overview.operatorReadiness.reason.storageDegraded",
   storage_unavailable: "overview.operatorReadiness.reason.storageUnavailable",
+  vfs_cache_repair_pressure:
+    "overview.operatorReadiness.reason.vfsCacheRepairPressure",
   network_ready: "overview.operatorReadiness.reason.networkReady",
   network_degraded: "overview.operatorReadiness.reason.networkDegraded",
   network_unavailable: "overview.operatorReadiness.reason.networkUnavailable",

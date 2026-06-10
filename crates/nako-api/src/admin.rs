@@ -386,6 +386,7 @@ pub enum AdminOperatorReadinessReason {
     StorageReady,
     StorageDegraded,
     StorageUnavailable,
+    VfsCacheRepairPressure,
     NetworkReady,
     NetworkDegraded,
     NetworkUnavailable,

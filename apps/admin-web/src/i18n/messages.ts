@@ -92,6 +92,8 @@ export const enMessages = {
     "{count} storage backends need review",
   "overview.operatorReadiness.reason.storageUnavailable":
     "{count} storage backends are unavailable",
+  "overview.operatorReadiness.reason.vfsCacheRepairPressure":
+    "{count} VFS cache repair target needs review",
   "overview.operatorReadiness.reason.networkReady": "Network posture is ready",
   "overview.operatorReadiness.reason.networkDegraded":
     "{count} network checks need review",
@@ -1758,6 +1760,8 @@ export const zhHansMessages = {
   "overview.operatorReadiness.reason.storageReady": "存储后端已就绪",
   "overview.operatorReadiness.reason.storageDegraded": "{count} 个存储后端需要检查",
   "overview.operatorReadiness.reason.storageUnavailable": "{count} 个存储后端不可用",
+  "overview.operatorReadiness.reason.vfsCacheRepairPressure":
+    "{count} 个 VFS cache repair 目标需要处理",
   "overview.operatorReadiness.reason.networkReady": "网络状态已就绪",
   "overview.operatorReadiness.reason.networkDegraded": "{count} 个网络检查需要处理",
   "overview.operatorReadiness.reason.networkUnavailable": "{count} 个网络检查不可用",

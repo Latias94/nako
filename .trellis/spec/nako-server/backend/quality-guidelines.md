@@ -57,6 +57,11 @@ Use these gates for `crates/nako-server` feature work.
   unsupported or missing watch roots should degrade the scan readiness check
   with a typed reason and redacted source reason; explicitly disabled watcher
   coverage must not degrade readiness by itself.
+- Admin operator readiness changes for Storage must include unresolved VFS cache
+  repair pressure. Healthy/no-action repair diagnostics must not degrade
+  readiness, but retryable refresh failures or operator-action repair
+  diagnostics should degrade storage readiness with typed, redaction-safe
+  source reasons and route operators to the repair target surface.
 - Internal VFS cache repair durable enqueue changes must prove safe job input
   serialization, non-refresh target rejection, queued/running idempotency,
   duplicate detection beyond the first paginated job page, terminal jobs not
