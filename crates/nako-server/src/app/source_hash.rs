@@ -1,7 +1,7 @@
 use nako_core::{
     EnqueueJobRetry, Job, JobId, JobKind, JobPriority, JobQueuePressureSummary, JobRepository,
     JobStatus, LeasedJob, LibraryId, MediaRepository, MediaSource, MediaSourceId, NakoError,
-    NewJob, Result, ScanRepository,
+    NewJob, PageRequest, Result, ScanRepository,
 };
 use nako_db::NakoDatabase;
 use nako_library::{
@@ -520,26 +520,39 @@ impl SourceFingerprintHashAppService {
         mode: SourceFingerprintHashMode,
     ) -> Result<Option<Job>> {
         for status in [JobStatus::Queued, JobStatus::Running] {
-            let jobs = self
-                .store
-                .list_jobs(
-                    nako_core::JobListFilter {
-                        status: Some(status),
-                        kind: Some(JobKind::SourceFingerprintHash),
-                        resource_class: Some(SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned()),
-                        library_id: Some(library_id),
-                        source_id: Some(source_id),
-                    },
-                    nako_core::PageRequest::new(nako_core::PageRequest::MAX_LIMIT, 0),
-                )
-                .await?;
+            let mut offset = 0_u64;
 
-            for job in jobs {
-                if source_fingerprint_hash_job_input_from_job(&job)
-                    .is_ok_and(|input| input.mode == mode)
-                {
-                    return Ok(Some(job));
+            loop {
+                let jobs = self
+                    .store
+                    .list_jobs(
+                        nako_core::JobListFilter {
+                            status: Some(status),
+                            kind: Some(JobKind::SourceFingerprintHash),
+                            resource_class: Some(
+                                SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned(),
+                            ),
+                            library_id: Some(library_id),
+                            source_id: Some(source_id),
+                        },
+                        PageRequest::new(PageRequest::MAX_LIMIT, offset),
+                    )
+                    .await?;
+                let job_count = jobs.len();
+
+                for job in jobs {
+                    if source_fingerprint_hash_job_input_from_job(&job)
+                        .is_ok_and(|input| input.mode == mode)
+                    {
+                        return Ok(Some(job));
+                    }
                 }
+
+                if job_count < PageRequest::MAX_LIMIT as usize {
+                    break;
+                }
+
+                offset = offset.saturating_add(u64::from(PageRequest::MAX_LIMIT));
             }
         }
 

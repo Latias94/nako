@@ -129,9 +129,9 @@ relationship reconciliation from hash evidence.
   into the durable request_id for correlation.
 - Scan-originated idempotency must check existing queued and running
   `JobKind::SourceFingerprintHash` jobs for the same library, source, resource
-  class, and hash mode. If one exists, return `AlreadyQueued(job)` and do not
-  enqueue another job. Terminal jobs may be followed by a new scan-originated
-  enqueue.
+  class, and hash mode across every job-list page. If one exists, return
+  `AlreadyQueued(job)` and do not enqueue another job. Terminal jobs may be
+  followed by a new scan-originated enqueue.
 - Admin manual enqueue reuses the shipped internal enqueue and disk-scan
   scheduler execution path. The HTTP handler must translate the Admin request
   into `EnqueueSourceFingerprintHashRequest`, normalize the current HTTP trace

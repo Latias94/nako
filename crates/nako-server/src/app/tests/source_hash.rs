@@ -284,6 +284,84 @@ async fn scan_originated_source_fingerprint_hash_enqueue_is_idempotent_for_incom
 }
 
 #[tokio::test]
+async fn scan_originated_source_fingerprint_hash_enqueue_finds_duplicate_beyond_first_job_page() {
+    let library_id = LibraryId::new();
+    let (_temp, app, store, source) =
+        source_hash_app_with_source(library_id, "local:///Movies/Hidden Movie.mkv", None).await;
+    let trigger = scan_source_hash_trigger(
+        source.id,
+        SourceFingerprintEscalationAction::FullHash,
+        Some(SourceFingerprintHashMode::Full),
+    );
+    let duplicate_job = store
+        .enqueue_job(new_source_hash_job(library_id, source.id))
+        .await
+        .unwrap();
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    for index in 0..=PageRequest::MAX_LIMIT {
+        store
+            .enqueue_job(NewJob {
+                id: JobId::new(),
+                input_json: Some(source_hash_job_input_json(
+                    library_id,
+                    source.id,
+                    "local",
+                    SourceFingerprintHashMode::Partial {
+                        prefix_bytes: u64::from(index) + 1,
+                    },
+                )),
+                ..new_source_hash_job(library_id, source.id)
+            })
+            .await
+            .unwrap();
+    }
+
+    let outcome = app
+        .source_hash()
+        .enqueue_scan_originated_source_fingerprint_hash(
+            library_id,
+            &trigger,
+            ScanOriginatedSourceFingerprintHashPolicy::default(),
+        )
+        .await
+        .unwrap();
+    let ScanOriginatedSourceFingerprintHashOutcome::AlreadyQueued(existing) = outcome else {
+        panic!("expected duplicate beyond first job page to block enqueue");
+    };
+    let first_page = store
+        .list_jobs(
+            nako_core::JobListFilter {
+                status: Some(JobStatus::Queued),
+                kind: Some(JobKind::SourceFingerprintHash),
+                resource_class: Some(SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned()),
+                library_id: Some(library_id),
+                source_id: Some(source.id),
+            },
+            PageRequest::new(PageRequest::MAX_LIMIT, 0),
+        )
+        .await
+        .unwrap();
+    let second_page = store
+        .list_jobs(
+            nako_core::JobListFilter {
+                status: Some(JobStatus::Queued),
+                kind: Some(JobKind::SourceFingerprintHash),
+                resource_class: Some(SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned()),
+                library_id: Some(library_id),
+                source_id: Some(source.id),
+            },
+            PageRequest::new(PageRequest::MAX_LIMIT, u64::from(PageRequest::MAX_LIMIT)),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(existing.id, duplicate_job.id);
+    assert!(!first_page.iter().any(|job| job.id == duplicate_job.id));
+    assert!(second_page.iter().any(|job| job.id == duplicate_job.id));
+    assert_eq!(first_page.len(), PageRequest::MAX_LIMIT as usize);
+}
+
+#[tokio::test]
 async fn source_fingerprint_hash_admin_overview_summary_aggregates_redacted_counts() {
     let library_id = LibraryId::new();
     let (_temp, app, store, source) = source_hash_app_with_source(
