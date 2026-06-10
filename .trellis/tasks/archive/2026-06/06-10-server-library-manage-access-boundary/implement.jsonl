@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "nako-server backend spec index and required pre-development checklist"}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "HTTP route and app-service access-boundary contracts for Public Library commands"}
+{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "preserve public NakoError and ApiResult semantics for Manage denials"}
+{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "library scan trace context and background command logging boundaries"}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "server test and verification gate conventions"}
+{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "app-service versus HTTP module ownership conventions"}
+{"file": ".trellis/spec/guides/index.md", "reason": "shared cross-layer and code-reuse thinking triggers"}
