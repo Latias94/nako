@@ -9,6 +9,7 @@ use nako_library::{
     SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS, ScanSourceFingerprintHashTrigger,
     SourceFingerprintHashExecutor, SourceFingerprintHashJobInput, SourceFingerprintHashJobSummary,
     SourceFingerprintHashMode, SourceFingerprintHashReport, SourceFingerprintHashRequest,
+    SourceFingerprintHashSchedulingPolicy, source_fingerprint_hash_mode_for_decision,
 };
 use nako_vfs::StorageUri;
 
@@ -153,8 +154,12 @@ impl SourceFingerprintHashAppService {
             return Ok(ScanOriginatedSourceFingerprintHashOutcome::AdvisoryOnly);
         }
 
-        let Some(mode) =
-            scan_originated_source_fingerprint_hash_mode(trigger, policy.partial_prefix_bytes)?
+        let Some(mode) = source_fingerprint_hash_mode_for_decision(
+            trigger.decision.action,
+            SourceFingerprintHashSchedulingPolicy::Enabled {
+                partial_prefix_bytes: policy.partial_prefix_bytes,
+            },
+        )?
         else {
             return Ok(ScanOriginatedSourceFingerprintHashOutcome::AdvisoryOnly);
         };
@@ -602,28 +607,6 @@ fn source_fingerprint_hash_job_input(
     )?;
     input.request_id = trace_context.map(|trace_context| trace_context.request_id().to_owned());
     Ok(input)
-}
-
-fn scan_originated_source_fingerprint_hash_mode(
-    trigger: &ScanSourceFingerprintHashTrigger,
-    partial_prefix_bytes: u64,
-) -> Result<Option<SourceFingerprintHashMode>> {
-    Ok(match trigger.mode {
-        None => None,
-        Some(SourceFingerprintHashMode::Full) => Some(SourceFingerprintHashMode::Full),
-        Some(SourceFingerprintHashMode::Partial { .. }) => {
-            if partial_prefix_bytes == 0 {
-                return Err(NakoError::InvalidInput {
-                    message:
-                        "scan-originated source fingerprint hash partial prefix must be greater than zero"
-                            .to_owned(),
-                });
-            }
-            Some(SourceFingerprintHashMode::Partial {
-                prefix_bytes: partial_prefix_bytes,
-            })
-        }
-    })
 }
 
 fn source_fingerprint_hash_storage_uri(source: &MediaSource) -> Result<StorageUri> {

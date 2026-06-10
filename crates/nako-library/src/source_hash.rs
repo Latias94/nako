@@ -128,7 +128,7 @@ pub fn plan_source_fingerprint_hash_scheduling(
     input: SourceFingerprintHashSchedulingInput,
 ) -> Result<SourceFingerprintHashSchedulingPlan> {
     let source_scheme = input.source_uri.scheme().to_owned();
-    let mode = hash_mode_for_decision(input.decision.action, input.policy)?;
+    let mode = source_fingerprint_hash_mode_for_decision(input.decision.action, input.policy)?;
     let request = mode.map(|mode| SourceFingerprintHashRequest {
         uri: input.source_uri,
         mode,
@@ -268,7 +268,7 @@ fn source_fingerprint_evidence(
     evidence
 }
 
-fn hash_mode_for_decision(
+pub fn source_fingerprint_hash_mode_for_decision(
     action: SourceFingerprintEscalationAction,
     policy: SourceFingerprintHashSchedulingPolicy,
 ) -> Result<Option<SourceFingerprintHashMode>> {
@@ -279,15 +279,15 @@ fn hash_mode_for_decision(
         } => partial_prefix_bytes,
     };
 
-    if partial_prefix_bytes == 0 {
-        return Err(NakoError::InvalidInput {
-            message: "source fingerprint hash partial prefix must be greater than zero".to_owned(),
-        });
-    }
-
     Ok(match action {
         SourceFingerprintEscalationAction::None => None,
         SourceFingerprintEscalationAction::PartialHash => {
+            if partial_prefix_bytes == 0 {
+                return Err(NakoError::InvalidInput {
+                    message: "source fingerprint hash partial prefix must be greater than zero"
+                        .to_owned(),
+                });
+            }
             Some(SourceFingerprintHashMode::Partial {
                 prefix_bytes: partial_prefix_bytes,
             })
@@ -448,6 +448,46 @@ mod tests {
                 mode: SourceFingerprintHashMode::Full,
             })
         );
+    }
+
+    #[test]
+    fn hash_scheduling_zero_partial_prefix_does_not_block_non_partial_actions() {
+        let full_uri = StorageUri::from_parts("local", "Movies/Full.mkv").unwrap();
+        let full_plan =
+            plan_source_fingerprint_hash_scheduling(SourceFingerprintHashSchedulingInput {
+                source_uri: full_uri.clone(),
+                decision: full_hash_decision(),
+                policy: SourceFingerprintHashSchedulingPolicy::Enabled {
+                    partial_prefix_bytes: 0,
+                },
+            })
+            .unwrap();
+
+        assert_eq!(
+            full_plan.request,
+            Some(SourceFingerprintHashRequest {
+                uri: full_uri,
+                mode: SourceFingerprintHashMode::Full,
+            })
+        );
+        assert_eq!(
+            full_plan.diagnostic.mode,
+            Some(SourceFingerprintHashMode::Full)
+        );
+
+        let none_plan =
+            plan_source_fingerprint_hash_scheduling(SourceFingerprintHashSchedulingInput {
+                source_uri: StorageUri::from_parts("local", "Movies/None.mkv").unwrap(),
+                decision: no_escalation_decision(),
+                policy: SourceFingerprintHashSchedulingPolicy::Enabled {
+                    partial_prefix_bytes: 0,
+                },
+            })
+            .unwrap();
+
+        assert_eq!(none_plan.request, None);
+        assert_eq!(none_plan.diagnostic.mode, None);
+        assert!(!none_plan.diagnostic.scheduled);
     }
 
     #[test]

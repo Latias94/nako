@@ -176,6 +176,47 @@ async fn scan_originated_source_fingerprint_hash_enqueue_respects_policy_and_dec
 }
 
 #[tokio::test]
+async fn scan_originated_full_hash_enqueue_ignores_partial_prefix_validation() {
+    let library_id = LibraryId::new();
+    let (_temp, app, store, source) =
+        source_hash_app_with_source(library_id, "local:///Movies/Hidden Movie.mkv", None).await;
+    let trigger = scan_source_hash_trigger(
+        source.id,
+        SourceFingerprintEscalationAction::FullHash,
+        Some(SourceFingerprintHashMode::Full),
+    );
+
+    let enqueued = app
+        .source_hash()
+        .enqueue_scan_originated_source_fingerprint_hash(
+            library_id,
+            &trigger,
+            ScanOriginatedSourceFingerprintHashPolicy {
+                enabled: true,
+                partial_prefix_bytes: 0,
+                priority: JobPriority::Normal,
+            },
+        )
+        .await
+        .unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    let ScanOriginatedSourceFingerprintHashOutcome::Enqueued(job) = enqueued else {
+        panic!("expected full source hash job");
+    };
+    let input_json = job.input_json.as_deref().expect("job input json");
+    let input: SourceFingerprintHashJobInput = serde_json::from_str(input_json).unwrap();
+
+    assert_eq!(jobs.len(), 1);
+    assert_eq!(input.mode, SourceFingerprintHashMode::Full);
+    assert!(!input_json.contains("Hidden Movie"));
+    assert!(!input_json.contains("local:///"));
+}
+
+#[tokio::test]
 async fn scan_originated_source_fingerprint_hash_enqueue_is_idempotent_for_incomplete_same_mode() {
     let library_id = LibraryId::new();
     let (_temp, app, store, source) =
