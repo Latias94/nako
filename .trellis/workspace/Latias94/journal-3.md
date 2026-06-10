@@ -419,3 +419,38 @@ Moved Public Library browse/read authorization from HTTP helpers into LibraryApp
 ### Next Steps
 
 - None - task complete
+
+
+## Session 109: Move library manage access into app services
+
+**Date**: 2026-06-10
+**Task**: Move library manage access into app services
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Moved Public Library Manage command authorization from HTTP helpers into the owning app-service command boundaries for scan, NFO import/export, and ingestion failure list/ignore; added shared app-layer library manage access helper, removed the obsolete HTTP manage guard and NakoApp access forwarding method, added focused app-service denial coverage, and recorded the command boundary in the nako-server HTTP spec.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `59fb5d48` | (see git log) |
+| `74a65243` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
