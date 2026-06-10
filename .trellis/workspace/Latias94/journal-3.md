@@ -314,3 +314,38 @@ Moved renderer transport ticket use source Play access out of the HTTP resolver 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 106: Metadata item manage access app-service boundary
+
+**Date**: 2026-06-10
+**Task**: Metadata item manage access app-service boundary
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Moved item-scoped metadata Manage access enforcement from HTTP routes into MetadataAppService, removed the unused route-local item access helper, updated HTTP access spec guidance, and archived the Trellis task after focused metadata tests and server test compilation passed.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5daf512d` | (see git log) |
+| `25283dec` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
