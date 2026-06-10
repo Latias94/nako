@@ -349,3 +349,38 @@ Moved item-scoped metadata Manage access enforcement from HTTP routes into Metad
 ### Next Steps
 
 - None - task complete
+
+
+## Session 107: Playback session control access boundary
+
+**Date**: 2026-06-10
+**Task**: Playback session control access boundary
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Moved Public Client playback session inspect/cancel/heartbeat access checks into PlaybackAppService, preserved hidden playback_session NotFound semantics, added app regression coverage, updated HTTP access spec, and archived the task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `64e7e914` | (see git log) |
+| `0bd7cad9` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 106
+- **Total Sessions**: 107
 - **Last Active**: 2026-06-10
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~351 | Active |
+| `journal-3.md` | ~386 | Active |
 | `journal-2.md` | ~1991 | Archived |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 107 | 2026-06-10 | Playback session control access boundary | `64e7e914`, `0bd7cad9` | `main` |
 | 106 | 2026-06-10 | Metadata item manage access app-service boundary | `5daf512d`, `25283dec` | `main` |
 | 105 | 2026-06-10 | Move renderer transport source access into app service | `c197bdee`, `82b38668` | `main` |
 | 104 | 2026-06-10 | Move subtitle playback source access into app service | `bd855bae`, `8c7f3141` | `main` |
