@@ -8,11 +8,11 @@ use argon2::{
     password_hash::{SaltString, rand_core::OsRng},
 };
 use nako_core::{
-    AdminSettingsRepository, EffectiveLibraryAccess, IdentityAccessRepository,
-    JobQueuePressureSummary, JobRepository, LibraryAccessPolicy, LibraryAccessPolicyFilter,
-    LibraryAccessPolicyScope, LibraryId, MediaRepository, MediaSource, MediaSourceId, NakoError,
-    PageRequest, Result, RoleAssignment, User, UserId, UserInvitationId, UserInvitationRecord,
-    UserInvitationStatus, UserPrincipalId, UserRole, UserSessionId, UserSessionRecord, UserStatus,
+    AdminSettingsRepository, IdentityAccessRepository, JobQueuePressureSummary, JobRepository,
+    LibraryAccessPolicy, LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId,
+    MediaRepository, MediaSource, MediaSourceId, NakoError, PageRequest, Result, RoleAssignment,
+    User, UserId, UserInvitationId, UserInvitationRecord, UserInvitationStatus, UserPrincipalId,
+    UserRole, UserSessionId, UserSessionRecord, UserStatus,
 };
 use nako_db::{
     DatabaseBackendCapabilities, DatabaseBackendKind, DatabaseConnectOptions, NakoDatabase,
@@ -27,6 +27,7 @@ use crate::{
     config::{NakoServerConfig, resolve_database_url},
 };
 
+mod access;
 pub(crate) mod acquisition_intake;
 mod addons;
 mod artwork;
@@ -698,17 +699,6 @@ impl NakoApp {
         self.inner
             .store
             .list_library_access_policies(filter, page)
-            .await
-    }
-
-    pub(crate) async fn resolve_effective_library_access(
-        &self,
-        user_id: UserId,
-        library_id: LibraryId,
-    ) -> Result<EffectiveLibraryAccess> {
-        self.inner
-            .store
-            .resolve_effective_library_access(user_id, library_id)
             .await
     }
 

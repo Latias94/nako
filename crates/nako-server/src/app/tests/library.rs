@@ -1,4 +1,6 @@
 use super::*;
+use crate::app::LibraryScanTraceContext;
+use nako_core::{IngestionFailurePhase, JobListFilter};
 
 #[tokio::test]
 async fn library_service_enforces_browse_access_for_public_reads() {
@@ -93,6 +95,90 @@ async fn library_service_enforces_browse_access_for_public_reads() {
         .await
         .unwrap_err();
     assert_library_not_found(hidden_items, blocked_library_id);
+}
+
+#[tokio::test]
+async fn library_manage_commands_require_manage_access_in_app_services() {
+    let temp = tempfile::tempdir().unwrap();
+    let allowed_root = temp.path().join("allowed");
+    let blocked_root = temp.path().join("blocked");
+    fs::create_dir_all(&allowed_root).unwrap();
+    fs::create_dir_all(&blocked_root).unwrap();
+    let allowed_library_id = LibraryId::new();
+    let blocked_library_id = LibraryId::new();
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(
+        library_access_config(
+            allowed_library_id,
+            allowed_root,
+            blocked_library_id,
+            blocked_root,
+            temp.path().join("nako-cache").join("remux"),
+        ),
+        store.clone(),
+    )
+    .await
+    .unwrap();
+    let principal =
+        local_library_principal_with_access(&store, allowed_library_id, LibraryAccessLevel::Browse)
+            .await;
+
+    let trace_context = LibraryScanTraceContext::from_request_id("REQ-MANAGE_123").unwrap();
+    let scan = app
+        .library_scan()
+        .enqueue_library_scan_with_trace_context_for_manage(
+            &principal,
+            allowed_library_id,
+            trace_context,
+        )
+        .await
+        .unwrap_err();
+    assert_library_manage_forbidden(scan);
+
+    let import = app
+        .nfo()
+        .enqueue_nfo_import_for_manage(&principal, allowed_library_id)
+        .await
+        .unwrap_err();
+    assert_library_manage_forbidden(import);
+
+    let export = app
+        .nfo()
+        .enqueue_nfo_export_for_manage(&principal, allowed_library_id)
+        .await
+        .unwrap_err();
+    assert_library_manage_forbidden(export);
+
+    let failures = app
+        .library()
+        .list_ingestion_failures_for_manage(
+            &principal,
+            allowed_library_id,
+            None,
+            None,
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap_err();
+    assert_library_manage_forbidden(failures);
+
+    let ignored = app
+        .library()
+        .ignore_ingestion_failure_for_manage(
+            &principal,
+            allowed_library_id,
+            IngestionFailurePhase::Scan,
+            "local:///Movies/Broken/",
+        )
+        .await
+        .unwrap_err();
+    assert_library_manage_forbidden(ignored);
+
+    let jobs = store
+        .list_jobs(JobListFilter::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+    assert!(jobs.is_empty());
 }
 
 fn library_access_config(
@@ -196,6 +282,13 @@ fn assert_library_browse_forbidden(error: NakoError) {
         panic!("expected library browse forbidden");
     };
     assert!(message.contains("required Library Access level 'browse'"));
+}
+
+fn assert_library_manage_forbidden(error: NakoError) {
+    let NakoError::Forbidden { message } = error else {
+        panic!("expected library manage forbidden");
+    };
+    assert!(message.contains("required Library Access level 'manage'"));
 }
 
 fn assert_library_not_found(error: NakoError, library_id: LibraryId) {

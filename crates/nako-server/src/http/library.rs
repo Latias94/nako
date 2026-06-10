@@ -12,7 +12,6 @@ use tracing::instrument;
 use crate::app::{LibraryScanTraceContext, NakoApp};
 
 use super::{
-    access::require_library_manage_access,
     error::ApiResult,
     query::{IngestionFailureQuery, LibraryItemsQuery, PageQuery},
     trace_context::HttpTraceContext,
@@ -66,12 +65,10 @@ pub(super) async fn scan_library(
     Extension(http_trace_context): Extension<HttpTraceContext>,
     Path(library_id): Path<LibraryId>,
 ) -> ApiResult<impl IntoResponse> {
-    require_library_manage_access(&app, &principal, library_id).await?;
-
     let trace_context = LibraryScanTraceContext::from_request_id(http_trace_context.request_id())?;
     let job = app
         .library_scan()
-        .enqueue_library_scan_with_trace_context(library_id, trace_context)
+        .enqueue_library_scan_with_trace_context_for_manage(&principal, library_id, trace_context)
         .await?;
 
     Ok((StatusCode::ACCEPTED, Json(JobResponse::from_job(job))))
@@ -83,9 +80,10 @@ pub(super) async fn import_nfo(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(library_id): Path<LibraryId>,
 ) -> ApiResult<impl IntoResponse> {
-    require_library_manage_access(&app, &principal, library_id).await?;
-
-    let job = app.nfo().enqueue_nfo_import(library_id).await?;
+    let job = app
+        .nfo()
+        .enqueue_nfo_import_for_manage(&principal, library_id)
+        .await?;
 
     Ok((StatusCode::ACCEPTED, Json(JobResponse::from_job(job))))
 }
@@ -96,9 +94,10 @@ pub(super) async fn export_nfo(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Path(library_id): Path<LibraryId>,
 ) -> ApiResult<impl IntoResponse> {
-    require_library_manage_access(&app, &principal, library_id).await?;
-
-    let job = app.nfo().enqueue_nfo_export(library_id).await?;
+    let job = app
+        .nfo()
+        .enqueue_nfo_export_for_manage(&principal, library_id)
+        .await?;
 
     Ok((StatusCode::ACCEPTED, Json(JobResponse::from_job(job))))
 }
@@ -142,11 +141,10 @@ pub(super) async fn list_ingestion_failures(
     Path(library_id): Path<LibraryId>,
     Query(query): Query<IngestionFailureQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    require_library_manage_access(&app, &principal, library_id).await?;
-
     Ok(Json(
         app.library()
-            .list_ingestion_failures(
+            .list_ingestion_failures_for_manage(
+                &principal,
                 library_id,
                 query.phase,
                 query.status.or(Some(IngestionFailureStatus::Open)),
@@ -163,11 +161,14 @@ pub(super) async fn ignore_ingestion_failure(
     Path(library_id): Path<LibraryId>,
     Json(request): Json<IgnoreIngestionFailureRequest>,
 ) -> ApiResult<impl IntoResponse> {
-    require_library_manage_access(&app, &principal, library_id).await?;
-
     Ok(Json(
         app.library()
-            .ignore_ingestion_failure(library_id, request.phase, &request.target_uri)
+            .ignore_ingestion_failure_for_manage(
+                &principal,
+                library_id,
+                request.phase,
+                &request.target_uri,
+            )
             .await?,
     ))
 }

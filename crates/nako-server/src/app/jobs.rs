@@ -1,12 +1,12 @@
 use std::{cmp::Ordering, sync::Arc};
 
 use nako_core::{
-    CancelLeasedJob, CompleteLeasedJob, DomainEventKind, DomainEventSubject, EventId,
-    EventOutboxRepository, FailLeasedJob, IngestionFailurePhase, IngestionFailureRecord, Job,
-    JobCancellationRequestRecord, JobId, JobKind, JobLeaseClaimFilter, JobLeaseClaimRequest,
-    JobLeaseHeartbeat, JobLeaseRepository, JobListFilter, JobPriority, JobRepository, LeasedJob,
-    Library, LibraryId, LibraryRepository, MediaProbeResult, MediaSource, NakoError,
-    NewIngestionFailure, NewJob, NewOutboxEvent, OutboxEventRecord, PageRequest,
+    AuthenticatedPrincipal, CancelLeasedJob, CompleteLeasedJob, DomainEventKind,
+    DomainEventSubject, EventId, EventOutboxRepository, FailLeasedJob, IngestionFailurePhase,
+    IngestionFailureRecord, Job, JobCancellationRequestRecord, JobId, JobKind, JobLeaseClaimFilter,
+    JobLeaseClaimRequest, JobLeaseHeartbeat, JobLeaseRepository, JobListFilter, JobPriority,
+    JobRepository, LeasedJob, Library, LibraryId, LibraryRepository, MediaProbeResult, MediaSource,
+    NakoError, NewIngestionFailure, NewJob, NewOutboxEvent, OutboxEventRecord, PageRequest,
     RequestJobCancellation, Result, StagingAttribution, StagingPurpose,
     VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS,
 };
@@ -25,6 +25,7 @@ use tracing::{Instrument, info, info_span, warn};
 use crate::config::{NakoServerConfig, libraries_from_config};
 
 use super::{
+    access::ensure_library_manage_access,
     addons::AddonAppService,
     job_runtime::{
         DurableJobContext, DurableJobOperationResult, DurableJobRunOutcome, DurableJobRuntime,
@@ -379,6 +380,17 @@ impl LibraryScanAppService {
         trace_context: LibraryScanTraceContext,
     ) -> Result<Job> {
         self.enqueue_library_scan_with_optional_trace_context(library_id, Some(trace_context))
+            .await
+    }
+
+    pub(crate) async fn enqueue_library_scan_with_trace_context_for_manage(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        library_id: LibraryId,
+        trace_context: LibraryScanTraceContext,
+    ) -> Result<Job> {
+        ensure_library_manage_access(&self.execution_store.store, principal, library_id).await?;
+        self.enqueue_library_scan_with_trace_context(library_id, trace_context)
             .await
     }
 

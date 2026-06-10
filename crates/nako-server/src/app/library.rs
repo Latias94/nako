@@ -15,6 +15,8 @@ use nako_core::{
 };
 use nako_db::NakoDatabase;
 
+use super::access::ensure_library_manage_access;
+
 #[derive(Clone, Debug)]
 pub(crate) struct LibraryAppService {
     store: NakoDatabase,
@@ -215,6 +217,19 @@ impl LibraryAppService {
         })
     }
 
+    pub async fn list_ingestion_failures_for_manage(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        library_id: LibraryId,
+        phase: Option<IngestionFailurePhase>,
+        status: Option<IngestionFailureStatus>,
+        page: PageRequest,
+    ) -> Result<IngestionFailuresResponse> {
+        ensure_library_manage_access(&self.store, principal, library_id).await?;
+        self.list_ingestion_failures(library_id, phase, status, page)
+            .await
+    }
+
     pub async fn ignore_ingestion_failure(
         &self,
         library_id: LibraryId,
@@ -232,6 +247,18 @@ impl LibraryAppService {
             })?;
 
         Ok(IngestionFailureDiagnostic::from_record(record))
+    }
+
+    pub async fn ignore_ingestion_failure_for_manage(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        library_id: LibraryId,
+        phase: IngestionFailurePhase,
+        target_uri: &str,
+    ) -> Result<IngestionFailureDiagnostic> {
+        ensure_library_manage_access(&self.store, principal, library_id).await?;
+        self.ignore_ingestion_failure(library_id, phase, target_uri)
+            .await
     }
 
     async fn get_library_or_not_found(&self, library_id: LibraryId) -> Result<nako_core::Library> {

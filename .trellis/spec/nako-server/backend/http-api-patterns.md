@@ -137,8 +137,8 @@ For a new route in an existing admin module, add it to the existing
   clamped page from storage, remove libraries the principal cannot Browse, and
   report `page.returned` for the filtered response.
 - Manage-command routes such as scan, NFO import/export, and ingestion failure
-  handling may continue to use a temporary HTTP manage guard until their owning
-  app-service command boundaries are moved in a dedicated slice.
+  handling follow the Public Library Manage Command Access Boundary scenario
+  below.
 
 ### 4. Validation & Error Matrix
 
@@ -206,6 +206,101 @@ Ok(Json(
 
 The app-service path owns Browse access while HTTP remains an extractor and DTO
 boundary.
+
+## Scenario: Public Library Manage Command Access Boundary
+
+### 1. Scope / Trigger
+
+- Trigger: changing Public Client library command routes that require Library
+  Access level `manage`.
+- Code evidence: `src/http/library.rs`, `src/app/jobs.rs`, `src/app/nfo.rs`,
+  `src/app/library.rs`, `src/app/access.rs`, `src/http/tests/library.rs`,
+  `src/app/tests/library.rs`.
+
+### 2. Signatures
+
+- Public Library command HTTP handlers take `Extension(AuthenticatedPrincipal)`
+  and pass it into the owning app service.
+- Public command entry points use app-service methods such as:
+  - `LibraryScanAppService::enqueue_library_scan_with_trace_context_for_manage(&AuthenticatedPrincipal, LibraryId, LibraryScanTraceContext)`
+  - `NfoAppService::enqueue_nfo_import_for_manage(&AuthenticatedPrincipal, LibraryId)`
+  - `NfoAppService::enqueue_nfo_export_for_manage(&AuthenticatedPrincipal, LibraryId)`
+  - `LibraryAppService::list_ingestion_failures_for_manage(&AuthenticatedPrincipal, LibraryId, Option<IngestionFailurePhase>, Option<IngestionFailureStatus>, PageRequest)`
+  - `LibraryAppService::ignore_ingestion_failure_for_manage(&AuthenticatedPrincipal, LibraryId, IngestionFailurePhase, &str)`
+- Raw command methods may remain for Admin routes, startup, tests, and internal
+  runtime callers that already have a separate authority boundary.
+
+### 3. Contracts
+
+- HTTP handlers parse path/query/body data, map HTTP trace context into a typed
+  app trace context when needed, and return DTOs only.
+- Public Library command app services own `manage` access before enqueueing
+  jobs, listing/ignoring ingestion failures, or starting command side effects.
+- Reuse the shared app-layer `ensure_library_manage_access` helper for the
+  standard effective Library Access lookup and forbidden message.
+- Do not reintroduce route-local Library Access helpers in `http/access.rs`.
+- Admin routes keep using their Admin route guard and raw app-service command
+  entry points; this scenario is about Public Client Library Access, not Admin
+  authorization.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Ordinary principal has Browse but not Manage | Public Library scan/NFO/ingestion command returns `NakoError::Forbidden` with required Library Access level `manage` |
+| Ordinary principal has Manage | Existing job enqueue or ingestion failure behavior succeeds unchanged |
+| Public scan request includes safe `x-request-id` | Typed trace context is preserved in the queued scan job input |
+| Public command is denied before enqueue/mutation | No durable job or ingestion failure mutation is created |
+| Admin route invokes scan or NFO command | Existing Admin route guard and raw app-service command behavior remain unchanged |
+
+### 5. Good / Base / Bad Cases
+
+- Good: `/libraries/{library_id}/nfo/import` calls
+  `app.nfo().enqueue_nfo_import_for_manage(&principal, library_id)`.
+- Base: `/admin/v1/libraries/{library_id}/nfo/import` calls the raw
+  `enqueue_nfo_import(library_id)` because Admin authorization is inherited
+  from the Admin router.
+- Bad: `/libraries/{library_id}/scan` calls
+  `require_library_manage_access` in HTTP and then invokes the raw scan enqueue
+  method.
+
+### 6. Tests Required
+
+- App-service test proving Browse-only principals are denied by scan, NFO
+  import/export, and ingestion failure command wrappers before durable jobs or
+  mutations are created.
+- HTTP library command route tests proving success DTOs, job facts, trace
+  context preservation, and Admin command parity remain unchanged.
+- Focused gates:
+  `cargo nextest run -p nako-server app::tests::library --no-fail-fast`,
+  `cargo nextest run -p nako-server http::tests::library --no-fail-fast`, and
+  `cargo check -p nako-server --tests`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+require_library_manage_access(&app, &principal, library_id).await?;
+let job = app.nfo().enqueue_nfo_import(library_id).await?;
+Ok((StatusCode::ACCEPTED, Json(JobResponse::from_job(job))))
+```
+
+This makes HTTP the Public Library Manage authority and leaves future app
+callers able to bypass command authorization.
+
+#### Correct
+
+```rust
+let job = app
+    .nfo()
+    .enqueue_nfo_import_for_manage(&principal, library_id)
+    .await?;
+Ok((StatusCode::ACCEPTED, Json(JobResponse::from_job(job))))
+```
+
+The app-service command boundary owns `manage` access while HTTP remains an
+extractor, trace-context, and DTO boundary.
 
 ## Scenario: Public Catalog Read Access Boundary
 

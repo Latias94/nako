@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
 use nako_core::{
-    CancelLeasedJob, CompleteLeasedJob, DomainEventKind, DomainEventSubject, EventId,
-    EventOutboxRepository, FailLeasedJob, Job, JobId, JobKind, JobLeaseClaimRequest,
-    JobLeaseHeartbeat, JobPriority, JobRepository, LeasedJob, Library, LibraryId,
-    LibraryRepository, MediaItem, MediaItemId, MediaRepository, MediaSource, MediaSourceId,
-    NakoError, NewJob, NewNfoSidecarApply, NewOutboxEvent, NfoSidecarApplyId,
+    AuthenticatedPrincipal, CancelLeasedJob, CompleteLeasedJob, DomainEventKind,
+    DomainEventSubject, EventId, EventOutboxRepository, FailLeasedJob, Job, JobId, JobKind,
+    JobLeaseClaimRequest, JobLeaseHeartbeat, JobPriority, JobRepository, LeasedJob, Library,
+    LibraryId, LibraryRepository, MediaItem, MediaItemId, MediaRepository, MediaSource,
+    MediaSourceId, NakoError, NewJob, NewNfoSidecarApply, NewOutboxEvent, NfoSidecarApplyId,
     NfoSidecarApplyOperationKind, NfoSidecarApplyRecord, NfoSidecarApplyRepository,
     NfoSidecarApplyState, OutboxEventRecord, Result, UserPrincipalId,
 };
@@ -24,6 +24,7 @@ use tokio::sync::Semaphore;
 use tracing::{Instrument, info, info_span, warn};
 
 use super::{
+    access::ensure_library_manage_access,
     job_runtime::{
         DurableJobContext, DurableJobLeaseStore, DurableJobOperationError,
         DurableJobOperationResult, DurableJobRunOutcome, DurableJobRuntime,
@@ -356,6 +357,15 @@ impl NfoAppService {
         Ok(job)
     }
 
+    pub(crate) async fn enqueue_nfo_import_for_manage(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        library_id: LibraryId,
+    ) -> Result<Job> {
+        ensure_library_manage_access(&self.nfo_repository, principal, library_id).await?;
+        self.enqueue_nfo_import(library_id).await
+    }
+
     pub(crate) async fn enqueue_nfo_export(&self, library_id: LibraryId) -> Result<Job> {
         let job = self.create_nfo_export_job(library_id).await?;
         let job_id = job.id;
@@ -380,6 +390,15 @@ impl NfoAppService {
         );
 
         Ok(job)
+    }
+
+    pub(crate) async fn enqueue_nfo_export_for_manage(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        library_id: LibraryId,
+    ) -> Result<Job> {
+        ensure_library_manage_access(&self.nfo_repository, principal, library_id).await?;
+        self.enqueue_nfo_export(library_id).await
     }
 
     pub(crate) async fn import_library_nfo(
