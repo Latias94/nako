@@ -384,3 +384,38 @@ Moved Public Client playback session inspect/cancel/heartbeat access checks into
 ### Next Steps
 
 - None - task complete
+
+
+## Session 108: Move library browse access into app service
+
+**Date**: 2026-06-10
+**Task**: Move library browse access into app service
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Moved Public Library browse/read authorization from HTTP helpers into LibraryAppService wrappers, preserved internal raw library methods, slimmed remaining HTTP library manage guard, added focused app-service regression coverage, and recorded the Public Library browse boundary in the nako-server HTTP spec.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a0d8585a` | (see git log) |
+| `75fb7ba0` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
