@@ -1268,9 +1268,7 @@ fn normalized_storage_uri_scope_path(uri: &StorageUri) -> Option<String> {
 }
 
 fn is_windows_prefix_component(value: &str) -> bool {
-    value.len() == 2
-        && value.as_bytes()[1] == b':'
-        && value.as_bytes()[0].is_ascii_alphabetic()
+    value.len() == 2 && value.as_bytes()[1] == b':' && value.as_bytes()[0].is_ascii_alphabetic()
 }
 
 fn uri_scheme(value: &str) -> Option<&str> {

@@ -37,15 +37,15 @@ use nako_api::admin::{
     AdminWatchFolderRuntimeCoverageStatus,
 };
 use nako_core::{
-    AcquisitionIntakeCandidateId, AcquisitionIntakeRepository, AcquisitionIntakeSourceKind,
-    JobKind, JobPriority, JobRepository, JobStatus,
-    METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS, MetadataCandidateRecord,
+    AcquisitionIntakeCandidateId, AcquisitionIntakeCandidateListFilter,
+    AcquisitionIntakeRepository, AcquisitionIntakeSourceKind, JobKind, JobPriority, JobRepository,
+    JobStatus, METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS, MetadataCandidateRecord,
     MetadataCandidateRelationshipKind, MetadataCandidateReviewBatchStatus,
     MetadataCandidateReviewId, MetadataCandidateReviewNode, MetadataCandidateReviewPlan,
     MetadataCandidateReviewRelationship, MetadataCandidateReviewRepository,
     MetadataCandidateReviewStatus as DurableMetadataCandidateReviewStatus, MetadataCandidateSource,
     MetadataCandidateSubject, NewAcquisitionIntakeCandidate, NewJob, NewMetadataCandidateReview,
-    ProviderMappingStatus, StorageBackendHealthRecord, StorageBackendHealthRepository,
+    PageRequest, ProviderMappingStatus, StorageBackendHealthRecord, StorageBackendHealthRepository,
     StorageBackendHealthStatus, StorageCircuitBreakerState, StorageFailureClass,
     VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS, VfsCacheFailureAuthority, VfsCacheRepairJobInput,
     VfsCachedObject, VfsCachedObjectKind,
@@ -11409,6 +11409,67 @@ async fn admin_v1_acquisition_intake_rejects_raw_root_uri_without_echoing_it() {
     assert!(!body.contains("C:\\"));
     assert!(!body.contains("private"));
     assert!(!body.contains("admin-token"));
+}
+
+#[tokio::test]
+async fn admin_v1_acquisition_intake_rejects_out_of_scope_root_without_recording_candidates() {
+    let temp = tempfile::tempdir().unwrap();
+    let watch = temp.path().join("watch");
+    let outside = temp.path().join("outside");
+    fs::create_dir_all(&watch).unwrap();
+    fs::create_dir_all(&outside).unwrap();
+    fs::write(outside.join("Outside Movie.mkv"), b"outside").unwrap();
+    let library_id = LibraryId::new();
+    let (router, store) = test_router_with_store(watch.clone(), library_id).await;
+    let discovery_request = AdminWatchFolderDiscoveryRequest {
+        target_library_id: library_id,
+        root_uri: Some("local:///../outside?token=admin-token".to_owned()),
+        max_depth: Some(1),
+    };
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/admin/v1/acquisition/intake/watch-folder-discovery")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(serde_json::to_vec(&discovery_request).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(body.contains("watch-folder discovery root_uri is outside the library root"));
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("Outside Movie"));
+    assert!(!body.contains("../outside"));
+    assert!(!body.contains("admin-token"));
+    assert!(!body.contains("local:///"));
+    assert!(
+        store
+            .list_acquisition_intake_candidates(
+                AcquisitionIntakeCandidateListFilter {
+                    target_library_id: Some(library_id),
+                    state: None,
+                    source_kind: Some(AcquisitionIntakeSourceKind::WatchFolder),
+                    managed_import_artifact_id: None,
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[tokio::test]
