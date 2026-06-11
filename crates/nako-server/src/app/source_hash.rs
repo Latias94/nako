@@ -683,17 +683,12 @@ fn source_fingerprint_hash_trace_context(
 }
 
 fn source_fingerprint_hash_trace_context_from_job(job: &Job) -> Option<DurableJobTraceContext> {
-    let Some(input_json) = job.input_json.as_deref() else {
+    let Ok(input) = source_fingerprint_hash_job_input_from_job(job) else {
         return None;
     };
-    let Ok(input) = serde_json::from_str::<serde_json::Value>(input_json) else {
-        return None;
-    };
-    let Some(request_id) = input.get("request_id").and_then(serde_json::Value::as_str) else {
-        return None;
-    };
-
-    DurableJobTraceContext::from_request_id(request_id).ok()
+    source_fingerprint_hash_trace_context(&input.request_id)
+        .ok()
+        .flatten()
 }
 
 fn validate_source_fingerprint_hash_job_bindings(
