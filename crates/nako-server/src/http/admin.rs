@@ -3306,12 +3306,10 @@ fn admin_source_fingerprint_hash_mode(
                     .to_owned(),
             })?;
 
-            if prefix_bytes == 0 {
-                return Err(NakoError::InvalidInput {
-                    message: "partial source fingerprint hash prefix must be greater than zero"
-                        .to_owned(),
-                });
-            }
+            nako_library::validate_source_fingerprint_hash_partial_prefix_bytes(
+                prefix_bytes,
+                "partial source fingerprint hash prefix must be greater than zero",
+            )?;
 
             Ok(SourceFingerprintHashMode::Partial { prefix_bytes })
         }

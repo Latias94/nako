@@ -187,12 +187,10 @@ where
         uri: StorageUri,
         prefix_bytes: u64,
     ) -> Result<SourceFingerprintHashReport> {
-        if prefix_bytes == 0 {
-            return Err(NakoError::InvalidInput {
-                message: "partial source fingerprint hash prefix must be greater than zero"
-                    .to_owned(),
-            });
-        }
+        validate_source_fingerprint_hash_partial_prefix_bytes(
+            prefix_bytes,
+            "partial source fingerprint hash prefix must be greater than zero",
+        )?;
 
         let range = ByteRange {
             offset: 0,
@@ -282,18 +280,29 @@ pub fn source_fingerprint_hash_mode_for_decision(
     Ok(match action {
         SourceFingerprintEscalationAction::None => None,
         SourceFingerprintEscalationAction::PartialHash => {
-            if partial_prefix_bytes == 0 {
-                return Err(NakoError::InvalidInput {
-                    message: "source fingerprint hash partial prefix must be greater than zero"
-                        .to_owned(),
-                });
-            }
+            validate_source_fingerprint_hash_partial_prefix_bytes(
+                partial_prefix_bytes,
+                "source fingerprint hash partial prefix must be greater than zero",
+            )?;
             Some(SourceFingerprintHashMode::Partial {
                 prefix_bytes: partial_prefix_bytes,
             })
         }
         SourceFingerprintEscalationAction::FullHash => Some(SourceFingerprintHashMode::Full),
     })
+}
+
+pub fn validate_source_fingerprint_hash_partial_prefix_bytes(
+    prefix_bytes: u64,
+    message: &'static str,
+) -> Result<u64> {
+    if prefix_bytes == 0 {
+        return Err(NakoError::InvalidInput {
+            message: message.to_owned(),
+        });
+    }
+
+    Ok(prefix_bytes)
 }
 
 fn validate_source_scheme(source_scheme: &str) -> Result<()> {
