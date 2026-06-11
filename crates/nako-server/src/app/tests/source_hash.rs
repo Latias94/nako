@@ -5,7 +5,8 @@ use crate::app::source_hash::{
     ScanOriginatedSourceFingerprintHashOutcome, ScanOriginatedSourceFingerprintHashPolicy,
 };
 use nako_core::{
-    JobPriority, ScanRepository, ScanSnapshotId, ScanStatus, SourceFingerprintEscalationAction,
+    JobPriority, ScanRepository, ScanSnapshotId, ScanStatus, SourceDuplicateReconciliationAction,
+    SourceDuplicateRepository, SourceFingerprintEscalationAction,
     SourceFingerprintEscalationDecision, SourceFingerprintEscalationReason,
     SourceFingerprintEvidenceKind, SourceState,
 };
@@ -1176,6 +1177,127 @@ async fn source_fingerprint_hash_scheduler_executes_claimed_job_and_persists_saf
     assert!(!summary_json.contains("abcdef"));
     assert!(!summary_json.contains(r#""fingerprint""#));
     assert!(!summary_json.contains(&persisted_fingerprint));
+}
+
+#[tokio::test]
+async fn source_fingerprint_hash_completion_feeds_duplicate_reconciliation_plan() {
+    let library_id = LibraryId::new();
+    let (temp, app, store, target) =
+        source_hash_app_with_source(library_id, "local:///target-hash.mkv", None).await;
+    let duplicate_item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Duplicate Hidden Movie".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let duplicate = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: duplicate_item.id,
+        locator: "local:///duplicate-hash.mkv".to_owned(),
+        file_name: "Duplicate Hidden Movie.mkv".to_owned(),
+        size_bytes: Some(42),
+        fingerprint: None,
+    };
+    store.upsert_media_item(&duplicate_item).await.unwrap();
+    store.upsert_media_source(&duplicate).await.unwrap();
+    fs::write(temp.path().join("target-hash.mkv"), b"same-media-bytes").unwrap();
+    fs::write(temp.path().join("duplicate-hash.mkv"), b"same-media-bytes").unwrap();
+
+    let target_job = app
+        .source_hash()
+        .enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
+            library_id,
+            source_id: target.id,
+            mode: SourceFingerprintHashMode::Full,
+            priority: None,
+        })
+        .await
+        .unwrap();
+    let duplicate_job = app
+        .source_hash()
+        .enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
+            library_id,
+            source_id: duplicate.id,
+            mode: SourceFingerprintHashMode::Full,
+            priority: None,
+        })
+        .await
+        .unwrap();
+
+    app.source_hash()
+        .execute_source_fingerprint_hash_job(target_job.id)
+        .await
+        .unwrap();
+    app.source_hash()
+        .execute_source_fingerprint_hash_job(duplicate_job.id)
+        .await
+        .unwrap();
+
+    let target = store.get_media_source(target.id).await.unwrap().unwrap();
+    let duplicate = store.get_media_source(duplicate.id).await.unwrap().unwrap();
+    let target_fingerprint = target.fingerprint.as_deref().expect("target fingerprint");
+    let duplicate_fingerprint = duplicate
+        .fingerprint
+        .as_deref()
+        .expect("duplicate fingerprint");
+    let before = store
+        .list_source_duplicate_relationships(target.id, PageRequest::new(20, 0))
+        .await
+        .unwrap();
+
+    let plan = app
+        .source_duplicate_reconciliation()
+        .plan_source_duplicate_reconciliation(SourceDuplicateReconciliationPlanRequest {
+            library_id,
+            source_id: target.id,
+            page: PageRequest::new(20, 0),
+        })
+        .await
+        .unwrap();
+    let after = store
+        .list_source_duplicate_relationships(target.id, PageRequest::new(20, 0))
+        .await
+        .unwrap();
+    let plan_json = serde_json::to_string(&plan).unwrap();
+
+    assert_eq!(target_fingerprint, duplicate_fingerprint);
+    assert!(target_fingerprint.starts_with("source:v1:content_hash:sha256:"));
+    assert!(before.is_empty());
+    assert!(after.is_empty());
+    assert_eq!(plan.library_id, library_id);
+    assert_eq!(plan.source_id, target.id);
+    assert_eq!(
+        plan.fingerprint_evidence_kind,
+        SourceFingerprintEvidenceKind::ContentHash
+    );
+    assert_eq!(plan.confidence_milli, 1_000);
+    assert!(!plan.stale);
+    assert_eq!(plan.candidates.len(), 1);
+    let candidate = &plan.candidates[0];
+    assert_eq!(candidate.source_id, target.id);
+    assert_eq!(candidate.duplicate_source_id, duplicate.id);
+    assert_eq!(
+        candidate.evidence_kind,
+        nako_core::SourceDuplicateEvidenceKind::StrongFingerprint
+    );
+    assert_eq!(candidate.confidence_milli, Some(1_000));
+    assert!(!candidate.stale);
+    assert_eq!(candidate.relationship_id, None);
+    assert_eq!(candidate.existing_status, None);
+    assert_eq!(
+        candidate.recommended_action,
+        SourceDuplicateReconciliationAction::SuggestRelationship
+    );
+    assert!(!plan_json.contains(target_fingerprint));
+    assert!(!plan_json.contains("same-media-bytes"));
+    assert!(!plan_json.contains("target-hash"));
+    assert!(!plan_json.contains("duplicate-hash"));
+    assert!(!plan_json.contains("local:///"));
+    assert!(!plan_json.contains("Hidden Movie"));
 }
 
 #[tokio::test]
