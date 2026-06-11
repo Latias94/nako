@@ -37,16 +37,18 @@ use nako_api::admin::{
     AdminWatchFolderRuntimeCoverageStatus,
 };
 use nako_core::{
+    AcquisitionIntakeCandidateId, AcquisitionIntakeRepository, AcquisitionIntakeSourceKind,
     JobKind, JobPriority, JobRepository, JobStatus,
     METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS, MetadataCandidateRecord,
     MetadataCandidateRelationshipKind, MetadataCandidateReviewBatchStatus,
     MetadataCandidateReviewId, MetadataCandidateReviewNode, MetadataCandidateReviewPlan,
     MetadataCandidateReviewRelationship, MetadataCandidateReviewRepository,
     MetadataCandidateReviewStatus as DurableMetadataCandidateReviewStatus, MetadataCandidateSource,
-    MetadataCandidateSubject, NewJob, NewMetadataCandidateReview, ProviderMappingStatus,
-    StorageBackendHealthRecord, StorageBackendHealthRepository, StorageBackendHealthStatus,
-    StorageCircuitBreakerState, StorageFailureClass, VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS,
-    VfsCacheFailureAuthority, VfsCacheRepairJobInput, VfsCachedObject, VfsCachedObjectKind,
+    MetadataCandidateSubject, NewAcquisitionIntakeCandidate, NewJob, NewMetadataCandidateReview,
+    ProviderMappingStatus, StorageBackendHealthRecord, StorageBackendHealthRepository,
+    StorageBackendHealthStatus, StorageCircuitBreakerState, StorageFailureClass,
+    VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS, VfsCacheFailureAuthority, VfsCacheRepairJobInput,
+    VfsCachedObject, VfsCachedObjectKind,
 };
 use nako_library::{
     SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS, SourceFingerprintHashJobInput,
@@ -11272,6 +11274,101 @@ async fn admin_v1_acquisition_intake_exposes_redacted_diagnostics_and_watch_fold
     assert!(!body.contains("Ready Movie"));
     assert!(!body.contains("Episode 01"));
     assert!(!body.contains("admin-token"));
+    assert!(!body.contains("local:///"));
+}
+
+#[tokio::test]
+async fn admin_v1_acquisition_intake_candidates_paginates_without_raw_source_material() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let (router, store) = test_router_with_store(temp.path().to_path_buf(), library_id).await;
+    let now_ms = crate::app::current_time_ms().unwrap();
+
+    for (index, name) in [
+        "Private Page One.mkv",
+        "Private Page Two.mkv",
+        "Private Page Three.mkv",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let sequence = index as i64 + 1;
+        store
+            .upsert_acquisition_intake_candidate(NewAcquisitionIntakeCandidate {
+                id: AcquisitionIntakeCandidateId::new(),
+                target_library_id: library_id,
+                source_kind: AcquisitionIntakeSourceKind::WatchFolder,
+                source_key: format!("watch-folder-page-{sequence}"),
+                source_uri: format!("local:///Secret Intake/{name}?token=admin-token-{sequence}"),
+                display_name: Some(name.to_owned()),
+                intended_locator: Some(format!("Movies/Secret/{name}")),
+                size_bytes: Some(100 + sequence as u64),
+                fingerprint: Some(format!("sha256-private-fingerprint-{sequence}")),
+                managed_import_artifact_id: None,
+                state: AcquisitionIntakeCandidateState::Ready,
+                diagnostics_json: Some(format!(
+                    r#"{{"raw":"Private Page {sequence} diagnostics admin-token"}}"#
+                )),
+                first_seen_at_ms: now_ms + sequence,
+                last_seen_at_ms: now_ms + sequence,
+                created_at_ms: now_ms + sequence,
+                updated_at_ms: now_ms + sequence,
+            })
+            .await
+            .unwrap();
+    }
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/admin/v1/acquisition/intake/candidates?library_id={library_id}&source_kind=watch_folder&state=ready&limit=1&offset=1"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let diagnostics: AdminAcquisitionIntakeCandidateListResponse =
+        serde_json::from_str(&body).unwrap();
+
+    assert_eq!(diagnostics.page.limit, 1);
+    assert_eq!(diagnostics.page.offset, 1);
+    assert_eq!(diagnostics.page.returned, 1);
+    assert_eq!(diagnostics.candidates.len(), 1);
+    let candidate = &diagnostics.candidates[0];
+    assert_eq!(candidate.target_library_id, library_id);
+    assert_eq!(candidate.source_kind, "watch_folder");
+    assert_eq!(candidate.source_scheme.as_deref(), Some("local"));
+    assert_eq!(candidate.source_ref_redacted, "local://<redacted>");
+    assert_eq!(candidate.state, AcquisitionIntakeCandidateState::Ready);
+    assert_eq!(candidate.size_bytes, Some(102));
+    assert!(candidate.has_display_name);
+    assert!(candidate.has_intended_locator);
+    assert!(candidate.has_fingerprint);
+    assert!(candidate.has_diagnostics);
+    assert!(candidate.source_key_fingerprint.starts_with("sha256:"));
+
+    assert!(!body.contains("source_uri"));
+    assert!(!body.contains("\"display_name\""));
+    assert!(!body.contains("\"intended_locator\""));
+    assert!(!body.contains("diagnostics_json"));
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("Secret Intake"));
+    assert!(!body.contains("Private Page"));
+    assert!(!body.contains("admin-token"));
+    assert!(!body.contains("sha256-private-fingerprint"));
     assert!(!body.contains("local:///"));
 }
 
