@@ -592,3 +592,43 @@ Implemented U2 Server/API first by exposing playback decision selection_reasons 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 114: U3 intake/source-hash readiness verification and closeout
+
+**Date**: 2026-06-11
+**Task**: U3 intake/source-hash readiness verification and closeout
+**Package**: nako
+**Branch**: `feat/u3-intake-stability-source-hash-readiness`
+
+### Summary
+
+Verified the U3 intake stability and source-hash readiness first slice was already complete. Ran cargo fmt --all, git diff --check, cargo nextest for nako-library intake/source_hash and nako-server acquisition_intake/source_hash/watch_folder_runtime, plus cargo check -p nako-server --tests. No code changes were needed in this session; only Trellis task/session metadata was archived.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f23536b8` | (see git log) |
+| `82dfd027` | (see git log) |
+| `3812ec28` | (see git log) |
+| `6f51ad29` | (see git log) |
+| `7d6bb2d9` | (see git log) |
+| `8a3b0238` | (see git log) |
+| `982c3bef` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 113
+- **Total Sessions**: 114
 - **Last Active**: 2026-06-11
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~594 | Active |
+| `journal-3.md` | ~634 | Active |
 | `journal-2.md` | ~1991 | Archived |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 114 | 2026-06-11 | U3 intake/source-hash readiness verification and closeout | `f23536b8`, `82dfd027`, `3812ec28`, `6f51ad29`, `7d6bb2d9`, `8a3b0238`, `982c3bef` | `feat/u3-intake-stability-source-hash-readiness` |
 | 113 | 2026-06-11 | Playback selected reasons | `37338ed1` | `feat/operator-readiness-u1` |
 | 112 | 2026-06-10 | Operator readiness overview | `c474bc16` | `feat/operator-readiness-u1` |
 | 111 | 2026-06-10 | Playback renderer transport context boundary | `72f29691`, `695416b8` | `main` |
