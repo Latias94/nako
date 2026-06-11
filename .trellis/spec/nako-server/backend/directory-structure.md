@@ -528,6 +528,9 @@ runnable candidates to proceed.
 - A runtime tick may enqueue a scan only when
   `newly_ready_candidates > 0`; it must use the existing library scan queue and
   not execute scan/probe work inline.
+- Admin-triggered watch-folder discovery must project the same pure
+  `nako_library::plan_watch_folder_intake` enqueue decision as runtime ticks.
+  Do not derive a separate HTTP-only skip priority from raw candidate counts.
 - Planned-write suppression is process-local and TTL-bounded. A suppression
   request must include library ID, `StorageUri` scope, safe owner, safe reason,
   TTL, and completion behavior. Owner/reason are stable identifiers, not raw
@@ -563,8 +566,9 @@ runnable candidates to proceed.
 - Good: startup builds one `watch_folder_runtime` task per eligible local
   realtime library, records stable-candidate diagnostics, and enqueues a
   `disk.scan` job only after the second unchanged observation.
-- Base: an admin-triggered watch-folder discovery updates intake candidates and
-  returns inspecting/ready/newly-ready counts without mutating library sources.
+- Base: an admin-triggered watch-folder discovery updates intake candidates,
+  returns inspecting/ready/newly-ready counts plus the planner's
+  `enqueue_scan`/`enqueue_reason`, and does not mutate library sources.
 - Base: a Nako-owned NFO/artwork/import write begins a suppression for the
   target `StorageUri`, lets discovery skip that exact URI/descendants, then
   completes the suppression with optional reconciliation intent.
@@ -592,8 +596,8 @@ runnable candidates to proceed.
   reached.
 - HTTP/Admin test: watch-folder discovery response exposes
   `inspecting_candidates`, `newly_ready_candidates`, `suppressed_candidates`,
-  and active suppression summaries while redacting raw root, source, scope, and
-  token details.
+  `enqueue_scan`, `enqueue_reason`, and active suppression summaries while
+  redacting raw root, source, scope, and token details.
 - App test: planned-write suppression matches exact and descendant
   `StorageUri` scopes but not sibling prefixes.
 - App test: repeated runtime ticks over a suppressed media file do not enqueue a

@@ -294,6 +294,14 @@ export interface AdminWatchFolderDiscoveryRequest {
   max_depth?: number;
 }
 
+export type AdminWatchFolderIntakeEnqueueReason =
+  | "new_stable_candidates"
+  | "waiting_for_stability"
+  | "suppressed_candidates"
+  | "blocked_candidates"
+  | "discovery_failures"
+  | "no_new_stable_candidates";
+
 export interface AdminWatchFolderSuppression {
   target_library_id: string;
   scope_scheme: string;
@@ -3047,6 +3055,8 @@ export interface AdminWatchFolderDiscoveryResponse {
   suppressed_candidates: number;
   recorded_candidates: number;
   newly_ready_candidates: number;
+  enqueue_scan: boolean;
+  enqueue_reason: AdminWatchFolderIntakeEnqueueReason;
   active_suppressions: AdminWatchFolderSuppression[];
   failures: Array<{
     ref_redacted: string;

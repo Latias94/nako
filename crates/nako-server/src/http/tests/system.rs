@@ -33,7 +33,8 @@ use nako_api::admin::{
     AdminVfsCacheRepairEnqueueResponse, AdminVfsCacheRepairExecuteResponse,
     AdminVfsCacheRepairJobDiagnosticStatus, AdminVfsCacheRepairRemediationPlanResponse,
     AdminVfsCacheRepairRetryRequest, AdminVfsCacheRepairTargetListResponse,
-    AdminVfsCacheRepairTargetPreviewResponse, AdminWatchFolderRuntimeCoverageStatus,
+    AdminVfsCacheRepairTargetPreviewResponse, AdminWatchFolderIntakeEnqueueReason,
+    AdminWatchFolderRuntimeCoverageStatus,
 };
 use nako_core::{
     JobKind, JobPriority, JobRepository, JobStatus,
@@ -11160,6 +11161,11 @@ async fn admin_v1_acquisition_intake_exposes_redacted_diagnostics_and_watch_fold
     assert_eq!(first_discovery.unsupported_candidates, 1);
     assert_eq!(first_discovery.recorded_candidates, 4);
     assert_eq!(first_discovery.newly_ready_candidates, 0);
+    assert!(!first_discovery.enqueue_scan);
+    assert_eq!(
+        first_discovery.enqueue_reason,
+        AdminWatchFolderIntakeEnqueueReason::BlockedCandidates
+    );
     assert!(first_discovery.failures.is_empty());
 
     let response = router
@@ -11196,6 +11202,11 @@ async fn admin_v1_acquisition_intake_exposes_redacted_diagnostics_and_watch_fold
     assert_eq!(discovery.unsupported_candidates, 1);
     assert_eq!(discovery.recorded_candidates, 4);
     assert_eq!(discovery.newly_ready_candidates, 2);
+    assert!(discovery.enqueue_scan);
+    assert_eq!(
+        discovery.enqueue_reason,
+        AdminWatchFolderIntakeEnqueueReason::NewStableCandidates
+    );
     assert!(discovery.failures.is_empty());
     assert!(!discovery.writes_library);
     assert!(!discovery.managed_import_artifacts_created);

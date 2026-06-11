@@ -114,10 +114,10 @@ use nako_api::{
         AdminVfsCacheRepairRetryRequest, AdminVfsCacheRepairTarget,
         AdminVfsCacheRepairTargetListResponse, AdminVfsCacheRepairTargetPreviewResponse,
         AdminVfsCacheSummary, AdminWatchFolderDiscoveryFailure, AdminWatchFolderDiscoveryRequest,
-        AdminWatchFolderDiscoveryResponse, AdminWatchFolderRuntimeCoverageDiagnostic,
-        AdminWatchFolderRuntimeCoverageStatus, AdminWatchFolderSuppression, JobResponse,
-        StorageBackendDiagnosticsResponse, StorageBackendKind, StorageBackendRuntimeStateScope,
-        StorageBackendStatus,
+        AdminWatchFolderDiscoveryResponse, AdminWatchFolderIntakeEnqueueReason,
+        AdminWatchFolderRuntimeCoverageDiagnostic, AdminWatchFolderRuntimeCoverageStatus,
+        AdminWatchFolderSuppression, JobResponse, StorageBackendDiagnosticsResponse,
+        StorageBackendKind, StorageBackendRuntimeStateScope, StorageBackendStatus,
     },
     metadata_diagnostics::{MetadataProviderDiagnosticStatus, MetadataProviderDiagnosticsResponse},
     public_client::{API_VERSION, ClientErrorCode, ErrorResponse, page_info_from_request},
@@ -134,7 +134,10 @@ use nako_core::{
     RoleAssignment, User, UserId, UserInvitationId, UserPrincipalId, UserRole, UserStatus,
 };
 use nako_db::DatabaseBackendCapabilities;
-use nako_library::SourceFingerprintHashMode;
+use nako_library::{
+    SourceFingerprintHashMode, WatchFolderIntakeEnqueueReason, WatchFolderIntakePlanInput,
+    plan_watch_folder_intake,
+};
 use nako_transcode::{
     HardwareAccelerationCapability, HardwareDeviceInitializationStatus,
     HardwareEncoderDiscoveryStatus, HardwareSmokeProbeStatus, TranscodeRuntimeInventoryStatus,
@@ -645,6 +648,16 @@ pub(super) async fn discover_admin_watch_folder_candidates(
             },
         )
         .await?;
+    let intake_plan = plan_watch_folder_intake(WatchFolderIntakePlanInput {
+        ready_candidates: diagnostic.ready_candidates,
+        inspecting_candidates: diagnostic.inspecting_candidates,
+        blocked_candidates: diagnostic.blocked_candidates,
+        recorded_candidates: diagnostic.recorded_candidates,
+        newly_ready_candidates: diagnostic.newly_ready_candidates,
+        suppressed_candidates: diagnostic.suppressed_candidates,
+        active_suppressions: diagnostic.active_suppressions.len() as u64,
+        failure_count: diagnostic.failures.len() as u64,
+    });
 
     Ok(Json(AdminWatchFolderDiscoveryResponse {
         admin_api_version: ADMIN_API_VERSION.to_owned(),
@@ -660,6 +673,8 @@ pub(super) async fn discover_admin_watch_folder_candidates(
         suppressed_candidates: diagnostic.suppressed_candidates,
         recorded_candidates: diagnostic.recorded_candidates,
         newly_ready_candidates: diagnostic.newly_ready_candidates,
+        enqueue_scan: intake_plan.should_enqueue_scan(),
+        enqueue_reason: admin_watch_folder_intake_enqueue_reason(intake_plan.enqueue.reason),
         active_suppressions: diagnostic
             .active_suppressions
             .into_iter()
@@ -677,6 +692,31 @@ pub(super) async fn discover_admin_watch_folder_candidates(
         managed_import_artifacts_created: diagnostic.managed_import_artifacts_created,
         promotion_apply: diagnostic.promotion_apply,
     }))
+}
+
+fn admin_watch_folder_intake_enqueue_reason(
+    reason: WatchFolderIntakeEnqueueReason,
+) -> AdminWatchFolderIntakeEnqueueReason {
+    match reason {
+        WatchFolderIntakeEnqueueReason::NewStableCandidates => {
+            AdminWatchFolderIntakeEnqueueReason::NewStableCandidates
+        }
+        WatchFolderIntakeEnqueueReason::WaitingForStability => {
+            AdminWatchFolderIntakeEnqueueReason::WaitingForStability
+        }
+        WatchFolderIntakeEnqueueReason::SuppressedCandidates => {
+            AdminWatchFolderIntakeEnqueueReason::SuppressedCandidates
+        }
+        WatchFolderIntakeEnqueueReason::BlockedCandidates => {
+            AdminWatchFolderIntakeEnqueueReason::BlockedCandidates
+        }
+        WatchFolderIntakeEnqueueReason::DiscoveryFailures => {
+            AdminWatchFolderIntakeEnqueueReason::DiscoveryFailures
+        }
+        WatchFolderIntakeEnqueueReason::NoNewStableCandidates => {
+            AdminWatchFolderIntakeEnqueueReason::NoNewStableCandidates
+        }
+    }
 }
 
 fn admin_watch_folder_suppression(

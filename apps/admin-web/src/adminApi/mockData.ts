@@ -1368,6 +1368,8 @@ export const mockWatchFolderDiscovery: AdminWatchFolderDiscoveryResponse = {
   suppressed_candidates: 1,
   recorded_candidates: 2,
   newly_ready_candidates: 1,
+  enqueue_scan: true,
+  enqueue_reason: "new_stable_candidates",
   active_suppressions: [
     {
       target_library_id: "library-anime",
