@@ -79,6 +79,10 @@ import {
   type PlaybackSessionsSearch,
 } from "./features/playback/PlaybackSessionsPage";
 import {
+  PlaybackSupportPage,
+  type PlaybackSupportSearch,
+} from "./features/playback/PlaybackSupportPage";
+import {
   StorageStagingPage,
   type StorageStagingSearch,
 } from "./features/storage/StorageStagingPage";
@@ -223,6 +227,12 @@ const playbackRoute = createRoute({
   validateSearch: validatePlaybackSessionsSearch,
   component: PlaybackSessionsRoute,
 });
+const playbackSupportRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/playback/support",
+  validateSearch: validatePlaybackSupportSearch,
+  component: PlaybackSupportRoute,
+});
 const storageRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/storage/staging",
@@ -313,6 +323,7 @@ const routeTree = rootRoute.addChildren([
   generatedArtifactsRoute,
   generatedArtifactReviewRoute,
   playbackRoute,
+  playbackSupportRoute,
   storageRoute,
   addonsRoute,
   settingsRoute,
@@ -683,6 +694,13 @@ function PlaybackSessionsRoute() {
       search={search}
     />
   );
+}
+
+function PlaybackSupportRoute() {
+  const { dataSource } = playbackSupportRoute.useRouteContext();
+  const search = playbackSupportRoute.useSearch();
+
+  return <PlaybackSupportPage dataSource={dataSource} search={search} />;
 }
 
 function StorageStagingRoute() {
@@ -1102,6 +1120,22 @@ function normalizePlaybackSessionsSearch(
     state: emptyToUndefined(search.state),
     limit: positiveIntSearch(search.limit, 20),
     offset: nonNegativeIntSearch(search.offset, 0),
+  };
+}
+
+function validatePlaybackSupportSearch(search: Record<string, unknown>): PlaybackSupportSearch {
+  return normalizePlaybackSupportSearch({
+    session_id: stringSearch(search.session_id),
+    source_id: stringSearch(search.source_id),
+  });
+}
+
+function normalizePlaybackSupportSearch(
+  search: Partial<PlaybackSupportSearch>,
+): PlaybackSupportSearch {
+  return {
+    session_id: emptyToUndefined(search.session_id),
+    source_id: emptyToUndefined(search.source_id),
   };
 }
 

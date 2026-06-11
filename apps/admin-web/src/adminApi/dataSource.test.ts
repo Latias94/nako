@@ -49,6 +49,7 @@ import {
   mockPlaybackRuntime,
   mockPlaybackRuntimeSettings,
   mockPlaybackSessions,
+  mockPlaybackSupport,
   mockPublicCatalogItems,
   mockPublicCatalogSearch,
   mockPublicItemDetail,
@@ -131,6 +132,13 @@ function addonTaskRunRetryPath(addonId = TEST_ADDON_ID, jobId = "job-addon-task-
   return NAKO_ADMIN_ROUTES.addonTaskRunRetry
     .replace("{addon_id}", addonId)
     .replace("{job_id}", jobId);
+}
+
+function playbackSupportPath(query: Record<string, string> = {}) {
+  const params = new URLSearchParams(query);
+  const search = params.toString();
+
+  return search ? `${NAKO_ADMIN_ROUTES.playbackSupport}?${search}` : NAKO_ADMIN_ROUTES.playbackSupport;
 }
 
 function eventPath(route: string, eventId = "event-webhook") {
@@ -312,6 +320,47 @@ describe("Admin data source", () => {
     expect(data.errors.jobs).toContain("HTTP 503");
     expect(data.jobs[0].id).toBe("job-scan");
     expect(data.sources.playbackRuntime).toBe("live");
+  });
+
+  it("loads route-local Playback Support evidence with query forwarding and fallback", async () => {
+    const seenPaths: string[] = [];
+    const liveSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        seenPaths.push(`${url.pathname}${url.search}`);
+        return Response.json(mockPlaybackSupport);
+      },
+    });
+
+    const liveResult = await liveSource.loadPlaybackSupport?.({
+      session_id: "session-hls",
+      source_id: "source-hls",
+    });
+
+    expect(liveResult).toMatchObject({
+      source: "live",
+      value: mockPlaybackSupport,
+    });
+    expect(seenPaths).toEqual([
+      `${playbackSupportPath({
+        session_id: "session-hls",
+        source_id: "source-hls",
+      })}`,
+    ]);
+
+    const fallbackSource = createAdminDataSource({
+      fetcher: async () => new Response("offline", { status: 503 }),
+    });
+
+    const fallbackResult = await fallbackSource.loadPlaybackSupport?.({
+      source_id: "source-hls",
+    });
+
+    expect(fallbackResult).toMatchObject({
+      source: "mock",
+      value: mockPlaybackSupport,
+      error: expect.stringContaining("HTTP 503"),
+    });
   });
 
   it("loads route-local Overview with section fallback", async () => {

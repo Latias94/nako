@@ -216,6 +216,22 @@ export function ItemDetailPage({ dataSource, itemId }: ItemDetailPageProps) {
               </SupportLink>
               {firstSourceId ? (
                 <SupportLink
+                  label={t("itemDetail.support.playbackSupport")}
+                  value={t("itemDetail.support.playbackSupportValue")}
+                >
+                  <Link
+                    aria-label={t("itemDetail.support.openPlaybackSupportAria")}
+                    className="routeTextLink"
+                    search={{ source_id: firstSourceId }}
+                    to="/playback/support"
+                  >
+                    {t("itemDetail.support.open")}
+                    <ExternalLink size={14} />
+                  </Link>
+                </SupportLink>
+              ) : null}
+              {firstSourceId ? (
+                <SupportLink
                   label={t("itemDetail.support.playbackSessions")}
                   value={t("itemDetail.support.playbackSessionsValue")}
                 >

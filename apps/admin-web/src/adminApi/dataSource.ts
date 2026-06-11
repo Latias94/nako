@@ -35,6 +35,7 @@ import {
   mockPlaybackRuntime,
   mockPlaybackRuntimeSettings,
   mockPlaybackSessions,
+  mockPlaybackSupport,
   mockSourceDuplicateReconciliationPlan,
   mockStorageStaging,
   mockSystemConfig,
@@ -103,6 +104,8 @@ import type {
   AdminPlaybackRuntimeSettingsResponse,
   AdminPlaybackSessionsQuery,
   AdminPlaybackSessionListResponse,
+  AdminPlaybackSupportEvidenceResponse,
+  AdminPlaybackSupportQuery,
   AdminSourceDuplicateReconciliationApplyResponse,
   AdminSourceDuplicateReconciliationPlanQuery,
   AdminSourceDuplicateReconciliationPlanResponse,
@@ -301,6 +304,9 @@ export type AdminDataSource = {
   loadPlaybackSessions?(
     query?: AdminPlaybackSessionsQuery,
   ): Promise<AdminSectionResult<AdminPlaybackSessionListResponse>>;
+  loadPlaybackSupport?(
+    query?: AdminPlaybackSupportQuery,
+  ): Promise<AdminSectionResult<AdminPlaybackSupportEvidenceResponse>>;
   loadPlaybackRuntimeSettings?(): Promise<AdminSectionResult<AdminPlaybackRuntimeSettingsResponse>>;
   updatePlaybackRuntimeSettings?(
     request: AdminUpdatePlaybackRuntimeSettingsRequest,
@@ -720,6 +726,9 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
     },
     async loadPlaybackSessions(query = {}) {
       return loadSection(() => client.getPlaybackSessions(query), mockPlaybackSessions);
+    },
+    async loadPlaybackSupport(query = {}) {
+      return loadSection(() => client.getPlaybackSupport(query), mockPlaybackSupport);
     },
     async loadPlaybackRuntimeSettings() {
       return loadSection(

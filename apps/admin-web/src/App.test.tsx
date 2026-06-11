@@ -11,6 +11,8 @@ import type {
   AdminJobListResponse,
   AdminJobsQuery,
   AdminPlaybackSessionsQuery,
+  AdminPlaybackSupportEvidenceResponse,
+  AdminPlaybackSupportQuery,
   AdminSourceDuplicateReconciliationPlanResponse,
   AdminStorageStagingQuery,
   AddonTaskRunRow,
@@ -61,6 +63,7 @@ import {
   mockOverview,
   mockPlaybackRuntimeSettings,
   mockPlaybackSessions,
+  mockPlaybackSupport,
   mockSourceDuplicateReconciliationApply,
   mockSourceDuplicateReconciliationPlan,
   mockStorageStaging,
@@ -3749,6 +3752,118 @@ describe("Admin Web V2 route shell", () => {
     expect(renderedText).not.toContain("/Users/");
   });
 
+  it("maps Playback Support URL search params into generated query fields", async () => {
+    const loadPlaybackSupport = vi.fn(async (query?: AdminPlaybackSupportQuery) => ({
+      value: mockPlaybackSupport,
+      source: "live" as const,
+      query,
+    }));
+    window.history.pushState(
+      null,
+      "",
+      "/playback/support?session_id=session-hls&source_id=source-hls",
+    );
+
+    render(
+      <App dataSource={{ load: async () => emptyConsoleData(), loadPlaybackSupport }} />,
+    );
+
+    await waitFor(() => {
+      expect(loadPlaybackSupport).toHaveBeenCalledWith({
+        session_id: "session-hls",
+        source_id: "source-hls",
+      });
+    });
+  });
+
+  it("renders Playback Support as a route-owned V2 page", async () => {
+    const loadPlaybackSupport = vi.fn(async () => ({
+      value: mockPlaybackSupport,
+      source: "live" as const,
+    }));
+    window.history.pushState(null, "", "/playback/support?source_id=source-hls");
+
+    render(
+      <App dataSource={{ load: async () => emptyConsoleData(), loadPlaybackSupport }} />,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Playback Support Evidence" }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("Support subject")).toBeInTheDocument();
+    expect(screen.getByText("Session evidence")).toBeInTheDocument();
+    expect(screen.getByText("Source evidence")).toBeInTheDocument();
+    expect(screen.getByText("Runtime evidence")).toBeInTheDocument();
+    expect(screen.getByText("Redaction summary")).toBeInTheDocument();
+    expect(screen.getByText("Live Admin API")).toBeInTheDocument();
+  });
+
+  it("renders localized Playback Support route copy", async () => {
+    window.history.pushState(null, "", "/playback/support");
+
+    render(<App dataSource={playbackSupportDataSource()} initialLocale="zh-Hans" />);
+
+    expect(
+      await screen.findByRole("heading", { name: "播放支持证据" }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("支持主体")).toBeInTheDocument();
+    expect(screen.getByText("会话证据")).toBeInTheDocument();
+    expect(screen.getByText("来源证据")).toBeInTheDocument();
+    expect(screen.getByText("运行时证据")).toBeInTheDocument();
+    expect(screen.getByText("脱敏摘要")).toBeInTheDocument();
+    expect(screen.getByText("实时 Admin API")).toBeInTheDocument();
+  });
+
+  it("keeps unsafe fields out of the Playback Support route rendering", async () => {
+    window.history.pushState(null, "", "/playback/support");
+    const unsafeSupport: AdminPlaybackSupportEvidenceResponse = {
+      ...mockPlaybackSupport,
+      session: {
+        ...mockPlaybackSupport.session!,
+        request_key_fingerprint: "F:\\nako\\support\\session.key",
+      },
+      source: {
+        ...mockPlaybackSupport.source!,
+        file_name: "file:///Users/frank/media/private.mkv",
+      },
+    };
+    const { container } = render(<App dataSource={playbackSupportDataSource(unsafeSupport)} />);
+
+    await screen.findByText("Support subject");
+    const renderedText = container.textContent ?? "";
+
+    expect(renderedText).not.toContain("file:///Users/frank/media/private.mkv");
+    expect(renderedText).not.toContain("F:\\nako\\support\\session.key");
+    expect(renderedText).not.toContain("request_key_fingerprint");
+  });
+
+  it("adds a Playback Support link from Item Detail support links", async () => {
+    window.history.pushState(null, "", "/items/item-unknown-1");
+
+    render(<App dataSource={itemDetailDataSource()} />);
+
+    const supportLink = await screen.findByRole("link", {
+      name: "Open Playback Support Evidence",
+    });
+
+    expect(supportLink).toHaveAttribute("href", expect.stringContaining("/playback/support"));
+    expect(supportLink).toHaveAttribute("href", expect.stringContaining("source_id="));
+  });
+
+  it("adds a Playback Support link from Playback Sessions rows", async () => {
+    window.history.pushState(null, "", "/playback/sessions");
+
+    render(<App dataSource={playbackSessionsDataSource()} />);
+
+    const supportLink = await screen.findByRole("link", {
+      name: "Open playback support evidence for session session-hls",
+    });
+
+    expect(supportLink).toHaveAttribute("href", expect.stringContaining("/playback/support"));
+    expect(supportLink).toHaveAttribute("href", expect.stringContaining("session_id=session-hls"));
+    expect(supportLink).toHaveAttribute("href", expect.stringContaining("source_id=source-hls"));
+  });
+
   it("maps Storage Staging URL search params into generated query fields", async () => {
     const loadStorageStaging = vi.fn(async (query?: AdminStorageStagingQuery) => ({
       value: mockStorageStaging,
@@ -5006,6 +5121,22 @@ function playbackSessionsDataSource(): AdminDataSource {
     async loadPlaybackSessions() {
       return {
         value: mockPlaybackSessions,
+        source: "live",
+      };
+    },
+  };
+}
+
+function playbackSupportDataSource(
+  value: AdminPlaybackSupportEvidenceResponse = mockPlaybackSupport,
+): AdminDataSource {
+  return {
+    async load() {
+      return emptyConsoleData();
+    },
+    async loadPlaybackSupport() {
+      return {
+        value,
         source: "live",
       };
     },
