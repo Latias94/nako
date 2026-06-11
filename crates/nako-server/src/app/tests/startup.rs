@@ -10,11 +10,12 @@ use nako_core::{
     AddonId, AddonPermission, AddonRepository, AddonSideEffectTarget,
     AddonSideEffectValidationStatus, AddonStatus, AddonTaskRunRepository, ArtworkCandidateId,
     ArtworkCandidateRepository, ArtworkCandidateSourceKind, EnqueueJobRetry,
-    IdentityAccessRepository, ImageKind, JobPriority, Library, LibraryItemRepository,
-    LibraryItemState, LibraryOptions, LibraryRepository, ManagedArtworkAcceptanceRecord,
-    ManagedArtworkIngestId, ManagedArtworkIngestStatus, ManagedArtworkRepository, MediaRepository,
-    NewAddonRegistration, NewAddonSideEffect, NewAddonToken, NewArtworkCandidate,
-    NewManagedArtworkIngest, NewStagingManifestRecord, ScanRepository, ScanSnapshotId, ScanStatus,
+    IdentityAccessRepository, ImageKind, JobLeaseClaimFilter, JobLeaseClaimRequest, JobPriority,
+    JobWorkerId, Library, LibraryItemRepository, LibraryItemState, LibraryOptions,
+    LibraryRepository, ManagedArtworkAcceptanceRecord, ManagedArtworkIngestId,
+    ManagedArtworkIngestStatus, ManagedArtworkRepository, MediaRepository, NewAddonRegistration,
+    NewAddonSideEffect, NewAddonToken, NewArtworkCandidate, NewManagedArtworkIngest,
+    NewStagingManifestRecord, ScanRepository, ScanSnapshotId, ScanStatus,
     SourceFingerprintEvidence, SourceFingerprintPolicyInput, SourceState, StagingManifestId,
     StagingManifestRepository, StagingPurpose, StagingState, UserPrincipalId, UserRole,
     bootstrap_admin_user_id,
@@ -2778,7 +2779,8 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
         .unwrap();
     assert!(first.monitored);
     assert_eq!(first.newly_ready_candidates, 0);
-    assert_eq!(first.enqueued_job_id, None);
+    assert_eq!(first.scan_job_id, None);
+    assert!(!first.reused_existing_scan);
     assert_eq!(first.intake_plan.discover.inspecting_candidates, 1);
     assert_eq!(first.intake_plan.summary.observed_candidates, 1);
     assert_eq!(
@@ -2794,9 +2796,10 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
         .unwrap();
     assert!(second.monitored);
     assert_eq!(second.newly_ready_candidates, 1);
-    let Some(job_id) = second.enqueued_job_id else {
+    let Some(job_id) = second.scan_job_id else {
         panic!("expected watch-folder runtime to enqueue a library scan job");
     };
+    assert!(!second.reused_existing_scan);
     assert_eq!(second.intake_plan.discover.ready_candidates, 1);
     assert_eq!(second.intake_plan.discover.newly_ready_candidates, 1);
     assert_eq!(second.intake_plan.summary.observed_candidates, 1);
@@ -2818,7 +2821,8 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
         .unwrap();
     assert!(third.monitored);
     assert_eq!(third.newly_ready_candidates, 0);
-    assert_eq!(third.enqueued_job_id, None);
+    assert_eq!(third.scan_job_id, None);
+    assert!(!third.reused_existing_scan);
     assert_eq!(third.intake_plan.discover.ready_candidates, 1);
     assert_eq!(
         third.intake_plan.enqueue.reason,
@@ -2834,6 +2838,164 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
         .filter(|job| job.kind == JobKind::LibraryScan)
         .count();
     assert_eq!(scan_jobs, 1);
+}
+
+#[tokio::test]
+async fn watch_folder_runtime_tick_reuses_existing_incomplete_scan_for_new_ready_candidates() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let library = LocalLibraryConfig {
+        id: library_id,
+        name: "Movies".to_owned(),
+        root: temp.path().join("movies"),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    fs::create_dir_all(&library.root).unwrap();
+    fs::write(library.root.join("Ready Movie.mkv"), b"ready").unwrap();
+
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let config = startup_config(temp.path(), vec![library]);
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+
+    let mut persisted = store.get_library(library_id).await.unwrap().unwrap();
+    persisted.options.scan.realtime_monitor = true;
+    store.upsert_library(&persisted).await.unwrap();
+
+    let first = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+    assert!(first.monitored);
+    assert_eq!(first.newly_ready_candidates, 0);
+    assert_eq!(first.scan_job_id, None);
+
+    let existing = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::LibraryScan,
+            resource_class: "disk.scan".to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+    let second = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+    let scan_jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap()
+        .into_iter()
+        .filter(|job| job.kind == JobKind::LibraryScan)
+        .collect::<Vec<_>>();
+
+    assert!(second.monitored);
+    assert_eq!(second.newly_ready_candidates, 1);
+    assert_eq!(second.scan_job_id, Some(existing.id));
+    assert!(second.reused_existing_scan);
+    assert!(second.intake_plan.should_enqueue_scan());
+    assert_eq!(scan_jobs.len(), 1);
+    assert_eq!(scan_jobs[0].id, existing.id);
+    assert!(matches!(
+        scan_jobs[0].status,
+        JobStatus::Queued | JobStatus::Running | JobStatus::Succeeded
+    ));
+}
+
+#[tokio::test]
+async fn watch_folder_runtime_tick_reuses_existing_running_scan_for_new_ready_candidates() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let library = LocalLibraryConfig {
+        id: library_id,
+        name: "Movies".to_owned(),
+        root: temp.path().join("movies"),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    fs::create_dir_all(&library.root).unwrap();
+    fs::write(library.root.join("Ready Movie.mkv"), b"ready").unwrap();
+
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let config = startup_config(temp.path(), vec![library]);
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+
+    let mut persisted = store.get_library(library_id).await.unwrap().unwrap();
+    persisted.options.scan.realtime_monitor = true;
+    store.upsert_library(&persisted).await.unwrap();
+
+    let first = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+    assert!(first.monitored);
+    assert_eq!(first.newly_ready_candidates, 0);
+    assert_eq!(first.scan_job_id, None);
+
+    let existing = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::LibraryScan,
+            resource_class: "disk.scan".to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+    let claimed = nako_core::JobLeaseRepository::claim_next_job_lease(
+        &store,
+        JobLeaseClaimRequest {
+            worker_id: JobWorkerId::new(),
+            lease_duration_ms: 10_000,
+            filter: JobLeaseClaimFilter {
+                job_id: Some(existing.id),
+                kind: Some(JobKind::LibraryScan),
+                resource_class: Some("disk.scan".to_owned()),
+                library_id: Some(library_id),
+                source_id: None,
+            },
+        },
+    )
+    .await
+    .unwrap()
+    .expect("expected queued scan to be claimed");
+    assert_eq!(claimed.job.status, JobStatus::Running);
+
+    let second = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+    let scan_jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap()
+        .into_iter()
+        .filter(|job| job.kind == JobKind::LibraryScan)
+        .collect::<Vec<_>>();
+
+    assert!(second.monitored);
+    assert_eq!(second.newly_ready_candidates, 1);
+    assert_eq!(second.scan_job_id, Some(existing.id));
+    assert!(second.reused_existing_scan);
+    assert!(second.intake_plan.should_enqueue_scan());
+    assert_eq!(scan_jobs.len(), 1);
+    assert_eq!(scan_jobs[0].id, existing.id);
+    assert_eq!(scan_jobs[0].status, JobStatus::Running);
 }
 
 #[tokio::test]
@@ -2881,16 +3043,19 @@ async fn watch_folder_runtime_tick_waits_for_changed_observation_before_enqueuin
     assert!(first.monitored);
     assert_eq!(first.intake_plan.discover.inspecting_candidates, 1);
     assert_eq!(first.newly_ready_candidates, 0);
-    assert_eq!(first.enqueued_job_id, None);
+    assert_eq!(first.scan_job_id, None);
+    assert!(!first.reused_existing_scan);
     assert!(changed.monitored);
     assert_eq!(changed.intake_plan.discover.inspecting_candidates, 1);
     assert_eq!(changed.intake_plan.discover.ready_candidates, 0);
     assert_eq!(changed.newly_ready_candidates, 0);
-    assert_eq!(changed.enqueued_job_id, None);
+    assert_eq!(changed.scan_job_id, None);
+    assert!(!changed.reused_existing_scan);
     assert!(stable.monitored);
     assert_eq!(stable.intake_plan.discover.ready_candidates, 1);
     assert_eq!(stable.newly_ready_candidates, 1);
-    assert!(stable.enqueued_job_id.is_some());
+    assert!(stable.scan_job_id.is_some());
+    assert!(!stable.reused_existing_scan);
 
     let scan_jobs = store
         .list_jobs(Default::default(), PageRequest::first_page())
@@ -2961,7 +3126,8 @@ async fn watch_folder_runtime_tick_suppresses_planned_host_write_without_enqueui
     assert!(first.monitored);
     assert_eq!(first.suppressed_candidates, 1);
     assert_eq!(first.newly_ready_candidates, 0);
-    assert_eq!(first.enqueued_job_id, None);
+    assert_eq!(first.scan_job_id, None);
+    assert!(!first.reused_existing_scan);
     assert_eq!(first.intake_plan.suppression.suppressed_candidates, 1);
     assert_eq!(first.intake_plan.summary.observed_candidates, 1);
     assert_eq!(
@@ -2972,7 +3138,8 @@ async fn watch_folder_runtime_tick_suppresses_planned_host_write_without_enqueui
     assert!(second.monitored);
     assert_eq!(second.suppressed_candidates, 1);
     assert_eq!(second.newly_ready_candidates, 0);
-    assert_eq!(second.enqueued_job_id, None);
+    assert_eq!(second.scan_job_id, None);
+    assert!(!second.reused_existing_scan);
     assert_eq!(second.intake_plan.suppression.suppressed_candidates, 1);
     assert!(!second.intake_plan.should_enqueue_scan());
     assert!(jobs.iter().all(|job| job.kind != JobKind::LibraryScan));

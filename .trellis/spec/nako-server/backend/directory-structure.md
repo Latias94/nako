@@ -528,6 +528,10 @@ runnable candidates to proceed.
 - A runtime tick may enqueue a scan only when
   `newly_ready_candidates > 0`; it must use the existing library scan queue and
   not execute scan/probe work inline.
+- Watch-folder scan admission must coalesce with an existing queued or running
+  `JobKind::LibraryScan` for the same Media Library. This coalescing belongs to
+  the watch-folder admission path and must not change explicit Admin/manual scan
+  commands that intentionally create a new scan job per request.
 - Admin-triggered watch-folder discovery must project the same pure
   `nako_library::plan_watch_folder_intake` enqueue decision as runtime ticks.
   Do not derive a separate HTTP-only skip priority from raw candidate counts.
@@ -554,6 +558,7 @@ runnable candidates to proceed.
 | Library root is non-local or unparsable | No runtime is started; remote watch reliability is not assumed. |
 | First supported media observation | Candidate is recorded as `Inspecting`; no scan job is enqueued. |
 | Repeated identical supported media observation | Candidate becomes `Ready`; the runtime enqueues one library scan job through `enqueue_library_scan`. |
+| Repeated identical supported media observation while the same library already has a queued/running scan | Candidate becomes `Ready`; the runtime reuses the incomplete scan job and creates no duplicate job. |
 | Observation key changes | Stable evidence resets to inspecting before any scan handoff. |
 | URI is inside active planned-write suppression scope | Discovery increments `suppressed_candidates`, records no candidate, and runtime tick enqueues no scan for that URI. |
 | Suppression owner/reason is empty, too long, or not a safe identifier | Begin request fails with `NakoError::InvalidInput`. |
@@ -591,6 +596,8 @@ runnable candidates to proceed.
 - App test: first tick records inspecting candidates and enqueues no scan job.
 - App test: second identical tick reports newly ready candidates and enqueues a
   `JobKind::LibraryScan` job with resource class `disk.scan`.
+- App test: second identical tick with an existing queued/running same-library
+  scan reports the admitted scan job and does not enqueue a duplicate.
 - Intake/service test: duplicate discovery updates the same candidate and keeps
   supported media in `Inspecting` until the stable observation threshold is
   reached.

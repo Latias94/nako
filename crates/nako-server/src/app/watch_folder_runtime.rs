@@ -29,7 +29,8 @@ pub(crate) struct WatchFolderRuntimeTickDiagnostic {
     pub(crate) intake_plan: WatchFolderIntakePlan,
     pub(crate) newly_ready_candidates: u64,
     pub(crate) suppressed_candidates: u64,
-    pub(crate) enqueued_job_id: Option<JobId>,
+    pub(crate) scan_job_id: Option<JobId>,
+    pub(crate) reused_existing_scan: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -111,12 +112,13 @@ impl WatchFolderRuntimeAppService {
                     loop {
                         let delay = match service.tick_library(library_id).await {
                             Ok(diagnostic) => {
-                                if let Some(job_id) = diagnostic.enqueued_job_id {
+                                if let Some(job_id) = diagnostic.scan_job_id {
                                     info!(
                                         library_id = %diagnostic.library_id,
                                         job_id = %job_id,
                                         newly_ready_candidates = diagnostic.newly_ready_candidates,
-                                        "watch-folder runtime queued library scan from stable candidates"
+                                        reused_existing_scan = diagnostic.reused_existing_scan,
+                                        "watch-folder runtime admitted library scan from stable candidates"
                                     );
                                 }
                                 Duration::from_millis(WATCH_FOLDER_RUNTIME_INTERVAL_MS)
@@ -179,10 +181,14 @@ impl WatchFolderRuntimeAppService {
             active_suppressions: discovery.active_suppressions.len() as u64,
             failure_count: discovery.failures.len() as u64,
         });
-        let enqueued_job_id = if intake_plan.should_enqueue_scan() {
-            Some(self.library_scan.enqueue_library_scan(library_id).await?.id)
+        let (scan_job_id, reused_existing_scan) = if intake_plan.should_enqueue_scan() {
+            let outcome = self
+                .library_scan
+                .admit_watch_folder_library_scan(library_id)
+                .await?;
+            (Some(outcome.job_id()), outcome.reused_existing())
         } else {
-            None
+            (None, false)
         };
 
         Ok(WatchFolderRuntimeTickDiagnostic {
@@ -191,7 +197,8 @@ impl WatchFolderRuntimeAppService {
             intake_plan,
             newly_ready_candidates: discovery.newly_ready_candidates,
             suppressed_candidates: discovery.suppressed_candidates,
-            enqueued_job_id,
+            scan_job_id,
+            reused_existing_scan,
         })
     }
 
@@ -222,7 +229,8 @@ impl WatchFolderRuntimeTickDiagnostic {
             intake_plan: WatchFolderIntakePlan::idle(),
             newly_ready_candidates: 0,
             suppressed_candidates: 0,
-            enqueued_job_id: None,
+            scan_job_id: None,
+            reused_existing_scan: false,
         }
     }
 }
