@@ -1008,6 +1008,53 @@ async fn acquisition_intake_watch_folder_discovery_resets_stability_when_observa
 }
 
 #[tokio::test]
+async fn acquisition_intake_watch_folder_discovery_rejects_out_of_scope_root_without_recording() {
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let temp = tempfile::tempdir().unwrap();
+    let watch = temp.path().join("watch");
+    let outside = temp.path().join("outside");
+    fs::create_dir_all(&watch).unwrap();
+    fs::create_dir_all(&outside).unwrap();
+    fs::write(outside.join("Outside Movie.mkv"), b"outside").unwrap();
+    let library_id = LibraryId::new();
+    let app = acquisition_app_with_store(store.clone(), library_id, &watch).await;
+    let library = store.get_library(library_id).await.unwrap().unwrap();
+    let service = app.acquisition_intake();
+
+    let err = service
+        .discover_watch_folder_candidates(DiscoverWatchFolderCandidatesRequest {
+            target_library_id: library.id,
+            root_uri: Some(StorageUri::from_parts("local", "../outside").unwrap()),
+            max_depth: Some(1),
+        })
+        .await
+        .unwrap_err();
+
+    assert_eq!(
+        err.to_string(),
+        "invalid input: watch-folder discovery root_uri is outside the library root"
+    );
+    assert!(!err.to_string().contains(&temp.path().display().to_string()));
+    assert!(!err.to_string().contains("Outside Movie"));
+    assert!(
+        store
+            .list_acquisition_intake_candidates(
+                AcquisitionIntakeCandidateListFilter {
+                    target_library_id: Some(library.id),
+                    state: None,
+                    source_kind: Some(AcquisitionIntakeSourceKind::WatchFolder),
+                    managed_import_artifact_id: None,
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
 async fn acquisition_intake_watch_folder_discovery_suppresses_planned_host_writes_without_raw_scope()
  {
     let store = NakoDatabase::connect_in_memory().await.unwrap();

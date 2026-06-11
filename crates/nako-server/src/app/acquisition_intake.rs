@@ -375,6 +375,7 @@ impl AcquisitionIntakeAppService {
                     library.id
                 ),
             })?;
+        validate_watch_folder_discovery_root_scope(&library, &root_uri)?;
         let backend = self
             .storage_backends
             .as_ref()
@@ -1201,6 +1202,77 @@ fn optional_trimmed(value: &str) -> Option<&str> {
     (!value.is_empty()).then_some(value)
 }
 
+fn validate_watch_folder_discovery_root_scope(
+    library: &Library,
+    root_uri: &StorageUri,
+) -> Result<()> {
+    if watch_folder_discovery_root_is_within_library(library, root_uri) {
+        return Ok(());
+    }
+
+    Err(NakoError::InvalidInput {
+        message: "watch-folder discovery root_uri is outside the library root".to_owned(),
+    })
+}
+
+fn watch_folder_discovery_root_is_within_library(library: &Library, root_uri: &StorageUri) -> bool {
+    !storage_uri_has_parent_components(root_uri)
+        && library.roots.iter().any(|root| {
+            let Ok(library_root) = StorageUri::parse(root) else {
+                return false;
+            };
+            storage_uri_is_equal_or_descendant(&library_root, root_uri)
+        })
+}
+
+fn storage_uri_is_equal_or_descendant(root: &StorageUri, candidate: &StorageUri) -> bool {
+    if root.scheme() != candidate.scheme() {
+        return false;
+    }
+
+    let Some(root_path) = normalized_storage_uri_scope_path(root) else {
+        return false;
+    };
+    let Some(candidate_path) = normalized_storage_uri_scope_path(candidate) else {
+        return false;
+    };
+
+    root_path.is_empty()
+        || candidate_path == root_path
+        || candidate_path
+            .strip_prefix(&root_path)
+            .is_some_and(|suffix| suffix.starts_with('/'))
+}
+
+fn storage_uri_has_parent_components(uri: &StorageUri) -> bool {
+    normalized_storage_uri_scope_path(uri).is_none()
+}
+
+fn normalized_storage_uri_scope_path(uri: &StorageUri) -> Option<String> {
+    let normalized = uri
+        .path_part()
+        .trim_start_matches(['/', '\\'])
+        .replace('\\', "/");
+    let mut parts = Vec::new();
+
+    for component in normalized.split('/') {
+        match component {
+            "" | "." => {}
+            ".." => return None,
+            value if is_windows_prefix_component(value) => return None,
+            value => parts.push(value.to_owned()),
+        }
+    }
+
+    Some(parts.join("/"))
+}
+
+fn is_windows_prefix_component(value: &str) -> bool {
+    value.len() == 2
+        && value.as_bytes()[1] == b':'
+        && value.as_bytes()[0].is_ascii_alphabetic()
+}
+
 fn uri_scheme(value: &str) -> Option<&str> {
     value
         .split_once(':')
@@ -1240,6 +1312,42 @@ fn safe_error_message(err: &NakoError) -> String {
         NakoError::Provider { provider, .. } => format!("{provider} provider error"),
         NakoError::Storage { kind, .. } => format!("storage error: {kind:?}"),
         NakoError::Database { .. } => "database error".to_owned(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn watch_folder_discovery_root_scope_allows_descendants_only() {
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+            options: nako_core::LibraryOptions::default(),
+        };
+
+        assert!(watch_folder_discovery_root_is_within_library(
+            &library,
+            &StorageUri::parse("local:///Movies").unwrap()
+        ));
+        assert!(watch_folder_discovery_root_is_within_library(
+            &library,
+            &StorageUri::parse("local:///Movies/Nested").unwrap()
+        ));
+        assert!(!watch_folder_discovery_root_is_within_library(
+            &library,
+            &StorageUri::parse("local:///Movies2").unwrap()
+        ));
+        assert!(!watch_folder_discovery_root_is_within_library(
+            &library,
+            &StorageUri::parse("webdav:///Movies/Nested").unwrap()
+        ));
+        assert!(!watch_folder_discovery_root_is_within_library(
+            &library,
+            &StorageUri::parse("local:///Movies/../Secrets").unwrap()
+        ));
     }
 }
 
