@@ -913,7 +913,12 @@ fn classify_watch_folder_candidate(
         let decision = observe_stable_intake_candidate_with_facts(
             previous.as_ref(),
             watch_folder_observation_key(metadata),
-            watch_folder_observation_facts(metadata),
+            StableIntakeObservationFacts {
+                has_size: metadata.len.is_some(),
+                has_change_marker: metadata.modified_at.as_deref().is_some_and(has_value)
+                    || metadata.etag.as_deref().is_some_and(has_value)
+                    || metadata.fingerprint.as_deref().is_some_and(has_value),
+            },
         );
         let state = match decision.state {
             StableIntakeCandidateState::Inspecting => AcquisitionIntakeCandidateState::Inspecting,
@@ -1006,15 +1011,6 @@ fn watch_folder_observation_key(metadata: &ObjectMetadata) -> String {
     update_watch_folder_hash_part(&mut hasher, metadata.fingerprint.as_deref().unwrap_or(""));
 
     format!("watch_folder_observation:v1:sha256:{:x}", hasher.finalize())
-}
-
-fn watch_folder_observation_facts(metadata: &ObjectMetadata) -> StableIntakeObservationFacts {
-    StableIntakeObservationFacts {
-        has_size: metadata.len.is_some(),
-        has_change_marker: metadata.modified_at.as_deref().is_some_and(has_value)
-            || metadata.etag.as_deref().is_some_and(has_value)
-            || metadata.fingerprint.as_deref().is_some_and(has_value),
-    }
 }
 
 fn previous_watch_folder_stable_candidate(

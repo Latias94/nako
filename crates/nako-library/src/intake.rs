@@ -331,8 +331,16 @@ mod tests {
                 has_change_marker: true,
             },
         );
-        let first_complete = observe_stable_intake_candidate_with_facts(
+        let missing_change_marker = observe_stable_intake_candidate_with_facts(
             Some(&repeated_incomplete.evidence),
+            "sha256:unknown-size",
+            StableIntakeObservationFacts {
+                has_size: true,
+                has_change_marker: false,
+            },
+        );
+        let first_complete = observe_stable_intake_candidate_with_facts(
+            Some(&missing_change_marker.evidence),
             "sha256:unknown-size",
             StableIntakeObservationFacts::complete(),
         );
@@ -348,6 +356,16 @@ mod tests {
         );
         assert_eq!(
             repeated_incomplete.evidence.consecutive_stable_observations,
+            0
+        );
+        assert_eq!(
+            missing_change_marker.reason,
+            StableIntakeCandidateReason::IncompleteObservationEvidence
+        );
+        assert_eq!(
+            missing_change_marker
+                .evidence
+                .consecutive_stable_observations,
             0
         );
         assert_eq!(
