@@ -342,15 +342,12 @@ impl SourceFingerprintHashAppService {
         let input = source_fingerprint_hash_job_input_from_job(job)?;
         validate_source_fingerprint_hash_job_bindings(job, &input)?;
 
-        let source = self.source_for_hash(input.source_id).await?;
-        if source.library_id != input.library_id {
-            return Err(NakoError::Conflict {
-                message: "source fingerprint hash job source no longer belongs to input library"
-                    .to_owned(),
-            });
-        }
-
-        let source_uri = source_fingerprint_hash_storage_uri(&source)?;
+        let (source, source_uri) = self
+            .source_fingerprint_hash_target_for_input(
+                &input,
+                "source fingerprint hash job source no longer belongs to input library",
+            )
+            .await?;
         if source_uri.scheme() != input.source_scheme {
             return Err(NakoError::Conflict {
                 message: "source fingerprint hash job source locator scheme changed since enqueue"
@@ -479,19 +476,32 @@ impl SourceFingerprintHashAppService {
             })
     }
 
-    async fn validate_source_fingerprint_hash_retry_source(
+    async fn source_fingerprint_hash_target_for_input(
         &self,
         input: &SourceFingerprintHashJobInput,
-    ) -> Result<()> {
+        library_error_message: &str,
+    ) -> Result<(MediaSource, StorageUri)> {
         let source = self.source_for_hash(input.source_id).await?;
         if source.library_id != input.library_id {
             return Err(NakoError::Conflict {
-                message: "source fingerprint hash retry source no longer belongs to input library"
-                    .to_owned(),
+                message: library_error_message.to_owned(),
             });
         }
 
         let source_uri = source_fingerprint_hash_storage_uri(&source)?;
+        Ok((source, source_uri))
+    }
+
+    async fn validate_source_fingerprint_hash_retry_source(
+        &self,
+        input: &SourceFingerprintHashJobInput,
+    ) -> Result<()> {
+        let (_, source_uri) = self
+            .source_fingerprint_hash_target_for_input(
+                input,
+                "source fingerprint hash retry source no longer belongs to input library",
+            )
+            .await?;
         if source_uri.scheme() != input.source_scheme {
             return Err(NakoError::Conflict {
                 message:
