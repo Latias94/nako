@@ -214,16 +214,29 @@ impl AcquisitionIntakeAppService {
 
         let source_key = require_non_empty("acquisition intake source_key", request.source_key)?;
         let source_uri = require_non_empty("acquisition intake source_uri", request.source_uri)?;
+        let source_kind = request.source_kind;
         let state = request
             .state
             .unwrap_or(AcquisitionIntakeCandidateState::Discovered);
+        if let Some(existing) = self
+            .store
+            .find_acquisition_intake_candidate_by_source_key(
+                request.target_library_id,
+                &source_kind,
+                &source_key,
+            )
+            .await?
+            .filter(should_preserve_existing_intake_candidate)
+        {
+            return Ok(AcquisitionIntakeCandidateDiagnostic::from_record(existing));
+        }
         let now_ms = super::current_time_ms()?;
         let record = self
             .store
             .upsert_acquisition_intake_candidate(NewAcquisitionIntakeCandidate {
-                id: request.id.unwrap_or_else(AcquisitionIntakeCandidateId::new),
+                id: request.id.unwrap_or_default(),
                 target_library_id: request.target_library_id,
-                source_kind: request.source_kind,
+                source_kind,
                 source_key,
                 source_uri,
                 display_name: optional_non_empty(request.display_name),
@@ -544,14 +557,13 @@ impl AcquisitionIntakeAppService {
         if let (Some(linked), Some(requested)) = (
             candidate.managed_import_artifact_id,
             request.managed_import_artifact_id,
-        ) {
-            if linked != requested {
-                return Err(NakoError::Conflict {
-                    message: format!(
-                        "acquisition intake candidate is already linked to managed import artifact {linked}"
-                    ),
-                });
-            }
+        ) && linked != requested
+        {
+            return Err(NakoError::Conflict {
+                message: format!(
+                    "acquisition intake candidate is already linked to managed import artifact {linked}"
+                ),
+            });
         }
 
         let (artifact, artifact_reused) = match candidate.managed_import_artifact_id {
@@ -662,6 +674,11 @@ impl AcquisitionIntakeAppService {
             })?;
         Ok((artifact, false))
     }
+}
+
+fn should_preserve_existing_intake_candidate(candidate: &AcquisitionIntakeCandidateRecord) -> bool {
+    candidate.state == AcquisitionIntakeCandidateState::Accepted
+        || candidate.managed_import_artifact_id.is_some()
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -870,6 +887,16 @@ fn classify_watch_folder_candidate(
     metadata: &ObjectMetadata,
     existing: Option<&AcquisitionIntakeCandidateRecord>,
 ) -> WatchFolderCandidateClassification {
+    if existing.is_some_and(should_preserve_existing_intake_candidate) {
+        return WatchFolderCandidateClassification {
+            state: AcquisitionIntakeCandidateState::Ready,
+            reason: WatchFolderCandidateReason::Ready,
+            stable_candidate: None,
+            stability_reason: None,
+            newly_ready: false,
+        };
+    }
+
     if is_incomplete_candidate(metadata.uri.as_str()) {
         return WatchFolderCandidateClassification {
             state: AcquisitionIntakeCandidateState::Blocked,

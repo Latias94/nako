@@ -3151,6 +3151,143 @@ async fn watch_folder_runtime_tick_suppresses_planned_host_write_without_enqueui
 }
 
 #[tokio::test]
+async fn watch_folder_runtime_tick_reconciles_completed_suppression_before_scan_admission() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let library = LocalLibraryConfig {
+        id: library_id,
+        name: "Movies".to_owned(),
+        root: temp.path().join("movies"),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    fs::create_dir_all(&library.root).unwrap();
+    let media_name = "Generated Reconcile Movie.mkv";
+    fs::write(library.root.join(media_name), b"generated").unwrap();
+
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let config = startup_config(temp.path(), vec![library]);
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+
+    let mut persisted = store.get_library(library_id).await.unwrap().unwrap();
+    persisted.options.scan.realtime_monitor = true;
+    store.upsert_library(&persisted).await.unwrap();
+    let suppression = app
+        .watch_folder_suppression()
+        .begin_planned_write_suppression(BeginPlannedWatchFolderWriteSuppressionRequest {
+            target_library_id: library_id,
+            scope_uri: StorageUri::from_parts("local", media_name).unwrap(),
+            owner: "managed_import".to_owned(),
+            reason: "library_write".to_owned(),
+            ttl_ms: Some(60_000),
+            completion: PlannedWatchFolderWriteCompletion::ReconcileScope,
+        })
+        .await
+        .unwrap();
+    let token = suppression.token;
+
+    let suppressed = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert!(suppressed.monitored);
+    assert_eq!(suppressed.suppressed_candidates, 1);
+    assert_eq!(suppressed.newly_ready_candidates, 0);
+    assert_eq!(suppressed.scan_job_id, None);
+    assert!(!suppressed.reused_existing_scan);
+    assert_eq!(suppressed.intake_plan.suppression.suppressed_candidates, 1);
+    assert_eq!(suppressed.intake_plan.summary.observed_candidates, 1);
+    assert_eq!(
+        suppressed.intake_plan.enqueue.reason,
+        WatchFolderIntakeEnqueueReason::SuppressedCandidates
+    );
+    assert!(!suppressed.intake_plan.should_enqueue_scan());
+    assert!(jobs.iter().all(|job| job.kind != JobKind::LibraryScan));
+
+    let completed = app
+        .watch_folder_suppression()
+        .complete_planned_write_suppression(token)
+        .await
+        .unwrap()
+        .expect("expected planned write suppression to complete");
+    assert!(completed.reconciliation_requested);
+    let completed_body = serde_json::to_string(&completed.suppression).unwrap();
+    assert!(!completed_body.contains(media_name));
+    assert!(!completed_body.contains(&temp.path().display().to_string()));
+    assert!(!completed_body.contains("scope_uri"));
+    assert!(!completed_body.contains("token"));
+    assert!(!completed_body.contains("local:///"));
+
+    let inspecting = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+
+    assert!(inspecting.monitored);
+    assert_eq!(inspecting.suppressed_candidates, 0);
+    assert_eq!(inspecting.intake_plan.suppression.suppressed_candidates, 0);
+    assert_eq!(inspecting.intake_plan.discover.inspecting_candidates, 1);
+    assert_eq!(inspecting.intake_plan.discover.ready_candidates, 0);
+    assert_eq!(inspecting.newly_ready_candidates, 0);
+    assert_eq!(inspecting.scan_job_id, None);
+    assert!(!inspecting.reused_existing_scan);
+    assert_eq!(
+        inspecting.intake_plan.enqueue.reason,
+        WatchFolderIntakeEnqueueReason::WaitingForStability
+    );
+    assert!(!inspecting.intake_plan.should_enqueue_scan());
+
+    let admitted = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+
+    assert!(admitted.monitored);
+    assert_eq!(admitted.suppressed_candidates, 0);
+    assert_eq!(admitted.intake_plan.suppression.suppressed_candidates, 0);
+    assert_eq!(admitted.intake_plan.discover.ready_candidates, 1);
+    assert_eq!(admitted.intake_plan.discover.newly_ready_candidates, 1);
+    assert_eq!(admitted.newly_ready_candidates, 1);
+    assert!(admitted.scan_job_id.is_some());
+    assert!(!admitted.reused_existing_scan);
+    assert_eq!(
+        admitted.intake_plan.enqueue.reason,
+        WatchFolderIntakeEnqueueReason::NewStableCandidates
+    );
+    assert!(admitted.intake_plan.should_enqueue_scan());
+
+    for plan in [
+        &suppressed.intake_plan,
+        &inspecting.intake_plan,
+        &admitted.intake_plan,
+    ] {
+        let body = serde_json::to_string(plan).unwrap();
+        assert!(!body.contains(media_name));
+        assert!(!body.contains(&temp.path().display().to_string()));
+        assert!(!body.contains("local:///"));
+    }
+
+    let scan_jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap()
+        .into_iter()
+        .filter(|job| job.kind == JobKind::LibraryScan)
+        .count();
+    assert_eq!(scan_jobs, 1);
+}
+
+#[tokio::test]
 async fn app_startup_rejects_unsupported_configured_webdav_root_scheme() {
     let temp = tempfile::tempdir().unwrap();
     let config = startup_config(

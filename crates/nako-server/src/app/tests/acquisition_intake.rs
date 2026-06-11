@@ -270,6 +270,118 @@ async fn acquisition_intake_service_accepts_candidate_into_managed_import_withou
 }
 
 #[tokio::test]
+async fn acquisition_intake_watch_folder_discovery_preserves_accepted_candidate_link() {
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let temp = tempfile::tempdir().unwrap();
+    let watch = temp.path().join("watch");
+    fs::create_dir_all(&watch).unwrap();
+    fs::write(watch.join("Accepted Movie.mkv"), b"accepted").unwrap();
+    let library_id = LibraryId::new();
+    let app = acquisition_app_with_store(store.clone(), library_id, temp.path()).await;
+    let library = store.get_library(library_id).await.unwrap().unwrap();
+    let service = app.acquisition_intake();
+    let root_uri = StorageUri::from_parts("local", "watch").unwrap();
+
+    let first = service
+        .discover_watch_folder_candidates(DiscoverWatchFolderCandidatesRequest {
+            target_library_id: library.id,
+            root_uri: Some(root_uri.clone()),
+            max_depth: Some(1),
+        })
+        .await
+        .unwrap();
+    let ready = service
+        .discover_watch_folder_candidates(DiscoverWatchFolderCandidatesRequest {
+            target_library_id: library.id,
+            root_uri: Some(root_uri.clone()),
+            max_depth: Some(1),
+        })
+        .await
+        .unwrap();
+    let candidate = service
+        .list_candidates(
+            AcquisitionIntakeCandidateListFilter {
+                target_library_id: Some(library.id),
+                state: Some(AcquisitionIntakeCandidateState::Ready),
+                source_kind: Some(AcquisitionIntakeSourceKind::WatchFolder),
+                managed_import_artifact_id: None,
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap()
+        .candidates
+        .into_iter()
+        .next()
+        .unwrap();
+    let accepted = service
+        .accept_candidate(AcceptAcquisitionIntakeCandidateRequest {
+            candidate_id: candidate.id,
+            managed_import_artifact_id: None,
+        })
+        .await
+        .unwrap();
+    let rediscovered = service
+        .discover_watch_folder_candidates(DiscoverWatchFolderCandidatesRequest {
+            target_library_id: library.id,
+            root_uri: Some(root_uri),
+            max_depth: Some(1),
+        })
+        .await
+        .unwrap();
+    let persisted = store
+        .get_acquisition_intake_candidate(candidate.id)
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(first.inspecting_candidates, 1);
+    assert_eq!(ready.ready_candidates, 1);
+    assert_eq!(ready.newly_ready_candidates, 1);
+    assert_eq!(
+        accepted.candidate.state,
+        AcquisitionIntakeCandidateState::Accepted
+    );
+    assert_eq!(persisted.state, AcquisitionIntakeCandidateState::Accepted);
+    assert_eq!(
+        persisted.managed_import_artifact_id,
+        Some(accepted.artifact_id)
+    );
+    assert_eq!(rediscovered.newly_ready_candidates, 0);
+    assert_eq!(rediscovered.ready_candidates, 1);
+    assert_eq!(rediscovered.inspecting_candidates, 0);
+    assert_eq!(
+        service
+            .list_candidates(
+                AcquisitionIntakeCandidateListFilter {
+                    target_library_id: Some(library.id),
+                    state: Some(AcquisitionIntakeCandidateState::Accepted),
+                    source_kind: Some(AcquisitionIntakeSourceKind::WatchFolder),
+                    managed_import_artifact_id: Some(accepted.artifact_id),
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .returned,
+        1
+    );
+    assert!(
+        store
+            .list_media_sources(library.id, PageRequest::first_page())
+            .await
+            .unwrap()
+            .is_empty()
+    );
+
+    let body = serde_json::to_string(&rediscovered).unwrap();
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("Accepted Movie"));
+    assert!(!body.contains("local:///"));
+}
+
+#[tokio::test]
 async fn acquisition_intake_service_links_explicit_existing_managed_import_artifact() {
     let store = NakoDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
@@ -401,7 +513,7 @@ async fn acquisition_intake_records_resource_search_selection_as_host_owned_cand
         .await
         .unwrap();
     let replayed = service
-        .record_resource_search_selection(request)
+        .record_resource_search_selection(request.clone())
         .await
         .unwrap();
 
@@ -459,6 +571,20 @@ async fn acquisition_intake_records_resource_search_selection_as_host_owned_cand
     assert!(!accepted.writes_library);
     assert!(!accepted.promotion_apply);
     assert!(!accepted.media_source_created);
+    let accepted_replay = service
+        .record_resource_search_selection(request)
+        .await
+        .unwrap();
+    assert!(accepted_replay.idempotent_replay);
+    assert_eq!(accepted_replay.candidate.id, first.id);
+    assert_eq!(
+        accepted_replay.candidate.state,
+        AcquisitionIntakeCandidateState::Accepted
+    );
+    assert_eq!(
+        accepted_replay.candidate.managed_import_artifact_id,
+        Some(accepted.artifact_id)
+    );
 
     let artifact = store
         .get_managed_import_artifact(accepted.artifact_id)
@@ -497,6 +623,7 @@ async fn acquisition_intake_records_resource_search_selection_as_host_owned_cand
         serde_json::to_string(&first).unwrap(),
         serde_json::to_string(&listed).unwrap(),
         serde_json::to_string(&accepted).unwrap(),
+        serde_json::to_string(&accepted_replay.candidate).unwrap(),
     ] {
         assert!(!body.contains("private-token"));
         assert!(!body.contains("pwd=hidden"));
