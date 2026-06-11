@@ -285,6 +285,73 @@ async fn scan_originated_source_fingerprint_hash_enqueue_is_idempotent_for_incom
 }
 
 #[tokio::test]
+async fn scan_originated_source_fingerprint_hash_enqueue_ignores_mismatched_input_binding_decoy() {
+    let library_id = LibraryId::new();
+    let (_temp, app, store, source) = source_hash_app_with_source(
+        library_id,
+        "local:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret",
+        Some("source:v1:backend_fingerprint:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned()),
+    )
+    .await;
+    let trigger = scan_source_hash_trigger(
+        source.id,
+        SourceFingerprintEscalationAction::FullHash,
+        Some(SourceFingerprintHashMode::Full),
+    );
+    let decoy = store
+        .enqueue_job(NewJob {
+            input_json: Some(source_hash_job_input_json(
+                LibraryId::new(),
+                MediaSourceId::new(),
+                "local",
+                SourceFingerprintHashMode::Full,
+            )),
+            ..new_source_hash_job(library_id, source.id)
+        })
+        .await
+        .unwrap();
+
+    let outcome = app
+        .source_hash()
+        .enqueue_scan_originated_source_fingerprint_hash(
+            library_id,
+            &trigger,
+            ScanOriginatedSourceFingerprintHashPolicy::default(),
+        )
+        .await
+        .unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    let ScanOriginatedSourceFingerprintHashOutcome::Enqueued(job) = outcome else {
+        panic!("expected mismatched input binding decoy to be ignored");
+    };
+    let input_json = job.input_json.as_deref().expect("job input json");
+    let input: SourceFingerprintHashJobInput = serde_json::from_str(input_json).unwrap();
+
+    assert_ne!(job.id, decoy.id);
+    assert_eq!(jobs.len(), 2);
+    assert!(jobs.iter().any(|candidate| candidate.id == decoy.id));
+    assert!(jobs.iter().any(|candidate| candidate.id == job.id));
+    assert_eq!(job.kind, JobKind::SourceFingerprintHash);
+    assert_eq!(job.status, JobStatus::Queued);
+    assert_eq!(job.library_id, Some(library_id));
+    assert_eq!(job.source_id, Some(source.id));
+    assert_eq!(input.library_id, library_id);
+    assert_eq!(input.source_id, source.id);
+    assert_eq!(input.source_scheme, "local");
+    assert_eq!(input.mode, SourceFingerprintHashMode::Full);
+    assert!(!input_json.contains("Hidden Movie"));
+    assert!(!input_json.contains("Secret Path"));
+    assert!(!input_json.contains("Frankorz"));
+    assert!(!input_json.contains("token"));
+    assert!(!input_json.contains("local:///"));
+    assert!(!input_json.contains("sha256"));
+}
+
+#[tokio::test]
 async fn scan_originated_source_fingerprint_hash_enqueue_finds_duplicate_beyond_first_job_page() {
     let library_id = LibraryId::new();
     let (_temp, app, store, source) =

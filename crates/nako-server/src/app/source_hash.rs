@@ -541,9 +541,13 @@ impl SourceFingerprintHashAppService {
                 let job_count = jobs.len();
 
                 for job in jobs {
-                    if source_fingerprint_hash_job_input_from_job(&job)
-                        .is_ok_and(|input| input.mode == mode)
-                    {
+                    let Ok(input) = source_fingerprint_hash_job_input_from_job(&job) else {
+                        continue;
+                    };
+                    if validate_source_fingerprint_hash_job_bindings(&job, &input).is_err() {
+                        continue;
+                    }
+                    if input.mode == mode {
                         return Ok(Some(job));
                     }
                 }
