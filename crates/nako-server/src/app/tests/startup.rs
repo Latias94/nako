@@ -2778,7 +2778,7 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
         .await
         .unwrap();
     assert!(first.monitored);
-    assert_eq!(first.newly_ready_candidates, 0);
+    assert_eq!(first.intake_plan.summary.newly_ready_candidates, 0);
     assert_eq!(first.scan_job_id, None);
     assert!(!first.reused_existing_scan);
     assert_eq!(first.intake_plan.discover.inspecting_candidates, 1);
@@ -2795,13 +2795,13 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
         .await
         .unwrap();
     assert!(second.monitored);
-    assert_eq!(second.newly_ready_candidates, 1);
+    assert_eq!(second.intake_plan.summary.newly_ready_candidates, 1);
     let Some(job_id) = second.scan_job_id else {
         panic!("expected watch-folder runtime to enqueue a library scan job");
     };
     assert!(!second.reused_existing_scan);
     assert_eq!(second.intake_plan.discover.ready_candidates, 1);
-    assert_eq!(second.intake_plan.discover.newly_ready_candidates, 1);
+    assert_eq!(second.intake_plan.summary.newly_ready_candidates, 1);
     assert_eq!(second.intake_plan.summary.observed_candidates, 1);
     assert!(second.intake_plan.should_enqueue_scan());
     let job = store.get_job(job_id).await.unwrap().unwrap();
@@ -2820,7 +2820,7 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
         .await
         .unwrap();
     assert!(third.monitored);
-    assert_eq!(third.newly_ready_candidates, 0);
+    assert_eq!(third.intake_plan.summary.newly_ready_candidates, 0);
     assert_eq!(third.scan_job_id, None);
     assert!(!third.reused_existing_scan);
     assert_eq!(third.intake_plan.discover.ready_candidates, 1);
@@ -2870,7 +2870,7 @@ async fn watch_folder_runtime_tick_reuses_existing_incomplete_scan_for_new_ready
         .await
         .unwrap();
     assert!(first.monitored);
-    assert_eq!(first.newly_ready_candidates, 0);
+    assert_eq!(first.intake_plan.summary.newly_ready_candidates, 0);
     assert_eq!(first.scan_job_id, None);
 
     let existing = store
@@ -2899,7 +2899,7 @@ async fn watch_folder_runtime_tick_reuses_existing_incomplete_scan_for_new_ready
         .collect::<Vec<_>>();
 
     assert!(second.monitored);
-    assert_eq!(second.newly_ready_candidates, 1);
+    assert_eq!(second.intake_plan.summary.newly_ready_candidates, 1);
     assert_eq!(second.scan_job_id, Some(existing.id));
     assert!(second.reused_existing_scan);
     assert!(second.intake_plan.should_enqueue_scan());
@@ -2941,7 +2941,7 @@ async fn watch_folder_runtime_tick_reuses_existing_running_scan_for_new_ready_ca
         .await
         .unwrap();
     assert!(first.monitored);
-    assert_eq!(first.newly_ready_candidates, 0);
+    assert_eq!(first.intake_plan.summary.newly_ready_candidates, 0);
     assert_eq!(first.scan_job_id, None);
 
     let existing = store
@@ -2989,7 +2989,7 @@ async fn watch_folder_runtime_tick_reuses_existing_running_scan_for_new_ready_ca
         .collect::<Vec<_>>();
 
     assert!(second.monitored);
-    assert_eq!(second.newly_ready_candidates, 1);
+    assert_eq!(second.intake_plan.summary.newly_ready_candidates, 1);
     assert_eq!(second.scan_job_id, Some(existing.id));
     assert!(second.reused_existing_scan);
     assert!(second.intake_plan.should_enqueue_scan());
@@ -3042,18 +3042,18 @@ async fn watch_folder_runtime_tick_waits_for_changed_observation_before_enqueuin
 
     assert!(first.monitored);
     assert_eq!(first.intake_plan.discover.inspecting_candidates, 1);
-    assert_eq!(first.newly_ready_candidates, 0);
+    assert_eq!(first.intake_plan.summary.newly_ready_candidates, 0);
     assert_eq!(first.scan_job_id, None);
     assert!(!first.reused_existing_scan);
     assert!(changed.monitored);
     assert_eq!(changed.intake_plan.discover.inspecting_candidates, 1);
     assert_eq!(changed.intake_plan.discover.ready_candidates, 0);
-    assert_eq!(changed.newly_ready_candidates, 0);
+    assert_eq!(changed.intake_plan.summary.newly_ready_candidates, 0);
     assert_eq!(changed.scan_job_id, None);
     assert!(!changed.reused_existing_scan);
     assert!(stable.monitored);
     assert_eq!(stable.intake_plan.discover.ready_candidates, 1);
-    assert_eq!(stable.newly_ready_candidates, 1);
+    assert_eq!(stable.intake_plan.summary.newly_ready_candidates, 1);
     assert!(stable.scan_job_id.is_some());
     assert!(!stable.reused_existing_scan);
 
@@ -3124,8 +3124,8 @@ async fn watch_folder_runtime_tick_suppresses_planned_host_write_without_enqueui
         .unwrap();
 
     assert!(first.monitored);
-    assert_eq!(first.suppressed_candidates, 1);
-    assert_eq!(first.newly_ready_candidates, 0);
+    assert_eq!(first.intake_plan.summary.suppressed_candidates, 1);
+    assert_eq!(first.intake_plan.summary.newly_ready_candidates, 0);
     assert_eq!(first.scan_job_id, None);
     assert!(!first.reused_existing_scan);
     assert_eq!(first.intake_plan.suppression.suppressed_candidates, 1);
@@ -3136,8 +3136,8 @@ async fn watch_folder_runtime_tick_suppresses_planned_host_write_without_enqueui
     );
     assert!(!first.intake_plan.should_enqueue_scan());
     assert!(second.monitored);
-    assert_eq!(second.suppressed_candidates, 1);
-    assert_eq!(second.newly_ready_candidates, 0);
+    assert_eq!(second.intake_plan.summary.suppressed_candidates, 1);
+    assert_eq!(second.intake_plan.summary.newly_ready_candidates, 0);
     assert_eq!(second.scan_job_id, None);
     assert!(!second.reused_existing_scan);
     assert_eq!(second.intake_plan.suppression.suppressed_candidates, 1);
@@ -3199,8 +3199,8 @@ async fn watch_folder_runtime_tick_reconciles_completed_suppression_before_scan_
         .unwrap();
 
     assert!(suppressed.monitored);
-    assert_eq!(suppressed.suppressed_candidates, 1);
-    assert_eq!(suppressed.newly_ready_candidates, 0);
+    assert_eq!(suppressed.intake_plan.summary.suppressed_candidates, 1);
+    assert_eq!(suppressed.intake_plan.summary.newly_ready_candidates, 0);
     assert_eq!(suppressed.scan_job_id, None);
     assert!(!suppressed.reused_existing_scan);
     assert_eq!(suppressed.intake_plan.suppression.suppressed_candidates, 1);
@@ -3233,11 +3233,11 @@ async fn watch_folder_runtime_tick_reconciles_completed_suppression_before_scan_
         .unwrap();
 
     assert!(inspecting.monitored);
-    assert_eq!(inspecting.suppressed_candidates, 0);
+    assert_eq!(inspecting.intake_plan.summary.suppressed_candidates, 0);
     assert_eq!(inspecting.intake_plan.suppression.suppressed_candidates, 0);
     assert_eq!(inspecting.intake_plan.discover.inspecting_candidates, 1);
     assert_eq!(inspecting.intake_plan.discover.ready_candidates, 0);
-    assert_eq!(inspecting.newly_ready_candidates, 0);
+    assert_eq!(inspecting.intake_plan.summary.newly_ready_candidates, 0);
     assert_eq!(inspecting.scan_job_id, None);
     assert!(!inspecting.reused_existing_scan);
     assert_eq!(
@@ -3253,11 +3253,11 @@ async fn watch_folder_runtime_tick_reconciles_completed_suppression_before_scan_
         .unwrap();
 
     assert!(admitted.monitored);
-    assert_eq!(admitted.suppressed_candidates, 0);
+    assert_eq!(admitted.intake_plan.summary.suppressed_candidates, 0);
     assert_eq!(admitted.intake_plan.suppression.suppressed_candidates, 0);
     assert_eq!(admitted.intake_plan.discover.ready_candidates, 1);
     assert_eq!(admitted.intake_plan.discover.newly_ready_candidates, 1);
-    assert_eq!(admitted.newly_ready_candidates, 1);
+    assert_eq!(admitted.intake_plan.summary.newly_ready_candidates, 1);
     assert!(admitted.scan_job_id.is_some());
     assert!(!admitted.reused_existing_scan);
     assert_eq!(

@@ -27,8 +27,6 @@ pub(crate) struct WatchFolderRuntimeTickDiagnostic {
     pub(crate) library_id: LibraryId,
     pub(crate) monitored: bool,
     pub(crate) intake_plan: WatchFolderIntakePlan,
-    pub(crate) newly_ready_candidates: u64,
-    pub(crate) suppressed_candidates: u64,
     pub(crate) scan_job_id: Option<JobId>,
     pub(crate) reused_existing_scan: bool,
 }
@@ -113,13 +111,14 @@ impl WatchFolderRuntimeAppService {
                         let delay = match service.tick_library(library_id).await {
                             Ok(diagnostic) => {
                                 if let Some(job_id) = diagnostic.scan_job_id {
-                                    info!(
-                                        library_id = %diagnostic.library_id,
-                                        job_id = %job_id,
-                                        newly_ready_candidates = diagnostic.newly_ready_candidates,
-                                        reused_existing_scan = diagnostic.reused_existing_scan,
-                                        "watch-folder runtime admitted library scan from stable candidates"
-                                    );
+                                info!(
+                                    library_id = %diagnostic.library_id,
+                                    job_id = %job_id,
+                                    newly_ready_candidates = diagnostic.intake_plan.summary.newly_ready_candidates,
+                                    suppressed_candidates = diagnostic.intake_plan.summary.suppressed_candidates,
+                                    reused_existing_scan = diagnostic.reused_existing_scan,
+                                    "watch-folder runtime admitted library scan from stable candidates"
+                                );
                                 }
                                 Duration::from_millis(WATCH_FOLDER_RUNTIME_INTERVAL_MS)
                             }
@@ -195,8 +194,6 @@ impl WatchFolderRuntimeAppService {
             library_id,
             monitored: true,
             intake_plan,
-            newly_ready_candidates: discovery.newly_ready_candidates,
-            suppressed_candidates: discovery.suppressed_candidates,
             scan_job_id,
             reused_existing_scan,
         })
@@ -227,8 +224,6 @@ impl WatchFolderRuntimeTickDiagnostic {
             library_id,
             monitored: false,
             intake_plan: WatchFolderIntakePlan::idle(),
-            newly_ready_candidates: 0,
-            suppressed_candidates: 0,
             scan_job_id: None,
             reused_existing_scan: false,
         }
