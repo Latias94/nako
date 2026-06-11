@@ -27,11 +27,6 @@ impl WatchFolderIntakePlan {
     pub fn idle() -> Self {
         plan_watch_folder_intake(WatchFolderIntakePlanInput::default())
     }
-
-    #[must_use]
-    pub fn should_enqueue_scan(&self) -> bool {
-        self.enqueue.action == WatchFolderIntakeEnqueueAction::EnqueueLibraryScan
-    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -371,7 +366,7 @@ mod tests {
             ..WatchFolderIntakePlanInput::default()
         });
 
-        assert!(!inspecting.should_enqueue_scan());
+        assert!(!inspecting.summary.enqueue_scan);
         assert_eq!(
             inspecting.enqueue,
             WatchFolderIntakeEnqueueDecision {
@@ -387,7 +382,7 @@ mod tests {
             ..WatchFolderIntakePlanInput::default()
         });
 
-        assert!(ready.should_enqueue_scan());
+        assert!(ready.summary.enqueue_scan);
         assert_eq!(
             ready.enqueue,
             WatchFolderIntakeEnqueueDecision {
@@ -470,5 +465,12 @@ mod tests {
         assert_eq!(plan.summary.blocked_candidates, 3);
         assert_eq!(plan.summary.failure_count, 5);
         assert!(plan.summary.enqueue_scan);
+        assert_eq!(
+            plan.summary.enqueue_scan,
+            matches!(
+                plan.enqueue.action,
+                WatchFolderIntakeEnqueueAction::EnqueueLibraryScan
+            )
+        );
     }
 }

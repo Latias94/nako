@@ -180,7 +180,7 @@ impl WatchFolderRuntimeAppService {
             active_suppressions: discovery.active_suppressions.len() as u64,
             failure_count: discovery.failures.len() as u64,
         });
-        let (scan_job_id, reused_existing_scan) = if intake_plan.should_enqueue_scan() {
+        let (scan_job_id, reused_existing_scan) = if intake_plan.summary.enqueue_scan {
             let outcome = self
                 .library_scan
                 .admit_watch_folder_library_scan(library_id)

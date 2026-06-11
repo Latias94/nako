@@ -673,7 +673,7 @@ pub(super) async fn discover_admin_watch_folder_candidates(
         suppressed_candidates: diagnostic.suppressed_candidates,
         recorded_candidates: diagnostic.recorded_candidates,
         newly_ready_candidates: diagnostic.newly_ready_candidates,
-        enqueue_scan: intake_plan.should_enqueue_scan(),
+        enqueue_scan: intake_plan.summary.enqueue_scan,
         enqueue_reason: admin_watch_folder_intake_enqueue_reason(intake_plan.enqueue.reason),
         active_suppressions: diagnostic
             .active_suppressions

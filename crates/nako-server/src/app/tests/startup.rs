@@ -2787,7 +2787,7 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
         first.intake_plan.enqueue.reason,
         WatchFolderIntakeEnqueueReason::WaitingForStability
     );
-    assert!(!first.intake_plan.should_enqueue_scan());
+    assert!(!first.intake_plan.summary.enqueue_scan);
 
     let second = app
         .watch_folder_runtime()
@@ -2803,7 +2803,7 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
     assert_eq!(second.intake_plan.discover.ready_candidates, 1);
     assert_eq!(second.intake_plan.summary.newly_ready_candidates, 1);
     assert_eq!(second.intake_plan.summary.observed_candidates, 1);
-    assert!(second.intake_plan.should_enqueue_scan());
+    assert!(second.intake_plan.summary.enqueue_scan);
     let job = store.get_job(job_id).await.unwrap().unwrap();
 
     assert_eq!(job.kind, JobKind::LibraryScan);
@@ -2828,7 +2828,7 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
         third.intake_plan.enqueue.reason,
         WatchFolderIntakeEnqueueReason::NoNewStableCandidates
     );
-    assert!(!third.intake_plan.should_enqueue_scan());
+    assert!(!third.intake_plan.summary.enqueue_scan);
 
     let scan_jobs = store
         .list_jobs(Default::default(), PageRequest::first_page())
@@ -2902,7 +2902,7 @@ async fn watch_folder_runtime_tick_reuses_existing_incomplete_scan_for_new_ready
     assert_eq!(second.intake_plan.summary.newly_ready_candidates, 1);
     assert_eq!(second.scan_job_id, Some(existing.id));
     assert!(second.reused_existing_scan);
-    assert!(second.intake_plan.should_enqueue_scan());
+    assert!(second.intake_plan.summary.enqueue_scan);
     assert_eq!(scan_jobs.len(), 1);
     assert_eq!(scan_jobs[0].id, existing.id);
     assert!(matches!(
@@ -2992,7 +2992,7 @@ async fn watch_folder_runtime_tick_reuses_existing_running_scan_for_new_ready_ca
     assert_eq!(second.intake_plan.summary.newly_ready_candidates, 1);
     assert_eq!(second.scan_job_id, Some(existing.id));
     assert!(second.reused_existing_scan);
-    assert!(second.intake_plan.should_enqueue_scan());
+    assert!(second.intake_plan.summary.enqueue_scan);
     assert_eq!(scan_jobs.len(), 1);
     assert_eq!(scan_jobs[0].id, existing.id);
     assert_eq!(scan_jobs[0].status, JobStatus::Running);
@@ -3134,14 +3134,14 @@ async fn watch_folder_runtime_tick_suppresses_planned_host_write_without_enqueui
         first.intake_plan.enqueue.reason,
         WatchFolderIntakeEnqueueReason::SuppressedCandidates
     );
-    assert!(!first.intake_plan.should_enqueue_scan());
+    assert!(!first.intake_plan.summary.enqueue_scan);
     assert!(second.monitored);
     assert_eq!(second.intake_plan.summary.suppressed_candidates, 1);
     assert_eq!(second.intake_plan.summary.newly_ready_candidates, 0);
     assert_eq!(second.scan_job_id, None);
     assert!(!second.reused_existing_scan);
     assert_eq!(second.intake_plan.suppression.suppressed_candidates, 1);
-    assert!(!second.intake_plan.should_enqueue_scan());
+    assert!(!second.intake_plan.summary.enqueue_scan);
     assert!(jobs.iter().all(|job| job.kind != JobKind::LibraryScan));
 
     let body = serde_json::to_string(&first.intake_plan).unwrap();
@@ -3209,7 +3209,7 @@ async fn watch_folder_runtime_tick_reconciles_completed_suppression_before_scan_
         suppressed.intake_plan.enqueue.reason,
         WatchFolderIntakeEnqueueReason::SuppressedCandidates
     );
-    assert!(!suppressed.intake_plan.should_enqueue_scan());
+    assert!(!suppressed.intake_plan.summary.enqueue_scan);
     assert!(jobs.iter().all(|job| job.kind != JobKind::LibraryScan));
 
     let completed = app
@@ -3244,7 +3244,7 @@ async fn watch_folder_runtime_tick_reconciles_completed_suppression_before_scan_
         inspecting.intake_plan.enqueue.reason,
         WatchFolderIntakeEnqueueReason::WaitingForStability
     );
-    assert!(!inspecting.intake_plan.should_enqueue_scan());
+    assert!(!inspecting.intake_plan.summary.enqueue_scan);
 
     let admitted = app
         .watch_folder_runtime()
@@ -3264,7 +3264,7 @@ async fn watch_folder_runtime_tick_reconciles_completed_suppression_before_scan_
         admitted.intake_plan.enqueue.reason,
         WatchFolderIntakeEnqueueReason::NewStableCandidates
     );
-    assert!(admitted.intake_plan.should_enqueue_scan());
+    assert!(admitted.intake_plan.summary.enqueue_scan);
 
     for plan in [
         &suppressed.intake_plan,
