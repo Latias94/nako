@@ -700,18 +700,12 @@ fn validate_source_fingerprint_hash_job_bindings(
     job: &Job,
     input: &SourceFingerprintHashJobInput,
 ) -> Result<()> {
-    if job
-        .library_id
-        .is_some_and(|library_id| library_id != input.library_id)
-    {
+    if job.library_id != Some(input.library_id) {
         return Err(NakoError::InvalidInput {
             message: "source fingerprint hash job library binding does not match input".to_owned(),
         });
     }
-    if job
-        .source_id
-        .is_some_and(|source_id| source_id != input.source_id)
-    {
+    if job.source_id != Some(input.source_id) {
         return Err(NakoError::InvalidInput {
             message: "source fingerprint hash job source binding does not match input".to_owned(),
         });

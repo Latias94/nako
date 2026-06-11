@@ -876,6 +876,22 @@ async fn source_fingerprint_hash_retry_rejects_binding_mismatch_without_leak() {
         },
     )
     .await;
+    let missing_library_binding = fail_source_hash_retry_source_job(
+        &store,
+        NewJob {
+            library_id: None,
+            ..new_source_hash_job(library_id, source.id)
+        },
+    )
+    .await;
+    let missing_source_binding = fail_source_hash_retry_source_job(
+        &store,
+        NewJob {
+            source_id: None,
+            ..new_source_hash_job(library_id, source.id)
+        },
+    )
+    .await;
 
     let library_message =
         retry_source_hash_job_expect_err_without_retry(&app, &store, library_mismatch.id, None)
@@ -883,6 +899,20 @@ async fn source_fingerprint_hash_retry_rejects_binding_mismatch_without_leak() {
     let source_message =
         retry_source_hash_job_expect_err_without_retry(&app, &store, source_mismatch.id, None)
             .await;
+    let missing_library_message = retry_source_hash_job_expect_err_without_retry(
+        &app,
+        &store,
+        missing_library_binding.id,
+        None,
+    )
+    .await;
+    let missing_source_message = retry_source_hash_job_expect_err_without_retry(
+        &app,
+        &store,
+        missing_source_binding.id,
+        None,
+    )
+    .await;
 
     assert_eq!(
         library_message,
@@ -892,6 +922,16 @@ async fn source_fingerprint_hash_retry_rejects_binding_mismatch_without_leak() {
         source_message,
         "invalid input: source fingerprint hash job source binding does not match input"
     );
+    assert_eq!(
+        missing_library_message,
+        "invalid input: source fingerprint hash job library binding does not match input"
+    );
+    assert_eq!(
+        missing_source_message,
+        "invalid input: source fingerprint hash job source binding does not match input"
+    );
+    assert!(!missing_library_message.contains("local:///"));
+    assert!(!missing_source_message.contains("local:///"));
 }
 
 #[tokio::test]
@@ -913,36 +953,14 @@ async fn source_fingerprint_hash_retry_rejects_source_drift_without_leak() {
         })
         .await
         .unwrap();
-    let missing_source_id = MediaSourceId::new();
-    let missing_source = fail_source_hash_retry_source_job(
-        &store,
-        NewJob {
-            library_id: Some(library_id),
-            source_id: None,
-            input_json: Some(source_hash_job_input_json(
-                library_id,
-                missing_source_id,
-                "local",
-                SourceFingerprintHashMode::Full,
-            )),
-            ..new_source_hash_job(library_id, source.id)
-        },
-    )
-    .await;
     let library_drift =
         fail_source_hash_retry_source_job(&store, new_source_hash_job(library_id, source.id)).await;
     source.library_id = other_library_id;
     store.upsert_media_source(&source).await.unwrap();
 
-    let missing_message =
-        retry_source_hash_job_expect_err_without_retry(&app, &store, missing_source.id, None).await;
     let library_drift_message =
         retry_source_hash_job_expect_err_without_retry(&app, &store, library_drift.id, None).await;
 
-    assert_eq!(
-        missing_message,
-        format!("not found: media_source {missing_source_id}")
-    );
     assert_eq!(
         library_drift_message,
         "conflict: source fingerprint hash retry source no longer belongs to input library"
@@ -1862,6 +1880,40 @@ async fn source_fingerprint_hash_prepare_rejects_binding_mismatch_without_leak()
         })
         .await
         .unwrap();
+    let missing_library_binding = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::SourceFingerprintHash,
+            resource_class: SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned(),
+            priority: JobPriority::Normal,
+            library_id: None,
+            source_id: Some(source.id),
+            input_json: Some(source_hash_job_input_json(
+                library_id,
+                source.id,
+                "local",
+                SourceFingerprintHashMode::Full,
+            )),
+        })
+        .await
+        .unwrap();
+    let missing_source_binding = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::SourceFingerprintHash,
+            resource_class: SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: Some(source_hash_job_input_json(
+                library_id,
+                source.id,
+                "local",
+                SourceFingerprintHashMode::Full,
+            )),
+        })
+        .await
+        .unwrap();
 
     let library_err = app
         .source_hash()
@@ -1873,8 +1925,20 @@ async fn source_fingerprint_hash_prepare_rejects_binding_mismatch_without_leak()
         .prepare_source_fingerprint_hash_execution(&source_mismatch)
         .await
         .unwrap_err();
+    let missing_library_err = app
+        .source_hash()
+        .prepare_source_fingerprint_hash_execution(&missing_library_binding)
+        .await
+        .unwrap_err();
+    let missing_source_err = app
+        .source_hash()
+        .prepare_source_fingerprint_hash_execution(&missing_source_binding)
+        .await
+        .unwrap_err();
     let library_message = library_err.to_string();
     let source_message = source_err.to_string();
+    let missing_library_message = missing_library_err.to_string();
+    let missing_source_message = missing_source_err.to_string();
 
     assert_eq!(
         library_message,
@@ -1882,6 +1946,14 @@ async fn source_fingerprint_hash_prepare_rejects_binding_mismatch_without_leak()
     );
     assert_eq!(
         source_message,
+        "invalid input: source fingerprint hash job source binding does not match input"
+    );
+    assert_eq!(
+        missing_library_message,
+        "invalid input: source fingerprint hash job library binding does not match input"
+    );
+    assert_eq!(
+        missing_source_message,
         "invalid input: source fingerprint hash job source binding does not match input"
     );
     assert!(!library_message.contains("Hidden Movie"));
@@ -1892,6 +1964,10 @@ async fn source_fingerprint_hash_prepare_rejects_binding_mismatch_without_leak()
     assert!(!source_message.contains("Secret Path"));
     assert!(!source_message.contains("Frankorz"));
     assert!(!source_message.contains("local:///"));
+    assert!(!missing_library_message.contains("Hidden Movie"));
+    assert!(!missing_library_message.contains("local:///"));
+    assert!(!missing_source_message.contains("Hidden Movie"));
+    assert!(!missing_source_message.contains("local:///"));
 }
 
 #[tokio::test]
