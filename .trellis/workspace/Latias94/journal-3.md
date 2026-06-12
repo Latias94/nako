@@ -816,3 +816,37 @@ Split Admin Web route pages, i18n catalogs, and Media Web data source into lazy 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 118: Admin Web media watch chunk splitting
+
+**Date**: 2026-06-12
+**Task**: Admin Web media watch chunk splitting
+**Package**: nako
+**Branch**: `feat/u3-intake-stability-source-hash-readiness`
+
+### Summary
+
+Split Media Web browse, item detail, and watch/player code into separate lazy route modules. MediaPages chunk now contains browse/search/library pages only; watch/browser ticket/HLS/progress logic lives in MediaWatchPage. Verified admin-web check, full tests, build, diff check, and task validation.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4a61a1a9` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
