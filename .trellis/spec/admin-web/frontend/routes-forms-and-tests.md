@@ -1124,3 +1124,94 @@ stays server-owned.
   - focused Vitest files for the adapter and affected routes
   - `npm run test --prefix apps/admin-web`
   - `npm run build --prefix apps/admin-web` when route/page code changes.
+
+## Scenario: Route-Level Bundle Splitting
+
+### 1. Scope / Trigger
+
+- Trigger: `apps/admin-web/src/App.tsx`, route shells, i18n providers, Media Web
+  session wiring, or any feature route import changes that can alter Vite chunk
+  boundaries.
+- Evidence: `src/App.tsx`, `src/i18n/I18nProvider.tsx`,
+  `src/surfaces/media/MediaSession.tsx`, and Vite build output.
+
+### 2. Signatures
+
+- Route page values in `App.tsx` should use `React.lazy` with named export
+  mapping:
+  `lazy(() => import("./features/x/Page").then(module => ({ default: module.Page })))`.
+- Route search types remain type-only imports from page modules, for example
+  `import type { JobsSearch } from "./features/jobs/JobsPage";`.
+- Broad default implementations that pull optional product surfaces, large
+  fixtures, SDKs, or locale catalogs should be loaded through dynamic import.
+
+### 3. Contracts
+
+- Keep route ownership in `App.tsx`: routes still read context, params, search,
+  and navigate helpers, then pass typed props into lazy page components.
+- Do not convert a type-only route contract import into a runtime import unless
+  that module is intentionally part of the initial Admin shell.
+- Feature-owned adapters that are only needed by one route should be created in
+  a lazy route wrapper next to the feature page, not imported by `App.tsx`.
+- `I18nProvider` may defer full message catalogs, but it must keep
+  `MessageId`/`AdminLocale` typing, persist locale selection, and avoid
+  rendering untranslated IDs after the catalog is loaded.
+- Media Web default data-source wiring should not statically import the Public
+  Client SDK or fixture data into the Admin shell.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| A route page is lazy-loaded | Its URL search, params, data source, i18n, and fallback behavior stay unchanged |
+| A page exposes only search types to `App.tsx` | Import remains `import type`, and build output keeps the page in a route chunk |
+| Locale catalog is loading | App may temporarily render no shell content, then renders localized copy once loaded |
+| Media Web fixture/live connection is first used | The media data-source module loads on demand and preserves token redaction |
+| Build output moves code into route chunks | Main `index-*.js` shrinks and route chunks are emitted for the affected modules |
+
+### 5. Good / Base / Bad Cases
+
+- Good: lazy route page declarations, type-only search imports, a shared
+  `Suspense` outlet, dynamic message catalog loading, and build output showing
+  route chunks plus a smaller main chunk.
+- Base: simple routes can still pass broad `AdminDataSource` into the page when
+  they do not need a feature adapter.
+- Bad: importing page components, adapter factories, media data-source defaults,
+  generated SDK clients, fixtures, or full message catalogs directly into the
+  Admin shell path.
+
+### 6. Tests Required
+
+- Run `npm run check --prefix apps/admin-web`.
+- Run affected route tests and `npm run test --prefix apps/admin-web` when i18n
+  or shell loading changes.
+- Run `npm run build --prefix apps/admin-web` and inspect emitted
+  `dist/assets/index-*.js` plus route chunks.
+- Keep route tests async-aware with `findBy...`/`waitFor` when lazy pages or
+  dynamic catalogs are involved.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```typescript
+import { SettingsPage } from "./features/settings/SettingsPage";
+import { createMediaWebDataSource } from "./surfaces/media/mediaDataSource";
+```
+
+#### Correct
+
+```typescript
+const SettingsPage = lazy(() =>
+  import("./features/settings/SettingsPage").then((module) => ({
+    default: module.SettingsPage,
+  })),
+);
+
+const dataSource = await import("./mediaDataSource").then((module) =>
+  module.createMediaWebDataSource(connection),
+);
+```
+
+Protect the Admin shell path from route-local and optional-surface code, then
+use the production build output as the source of truth for bundle behavior.

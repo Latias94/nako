@@ -30,96 +30,186 @@ import type { AdminDataSource } from "./adminApi/dataSource";
 import { AdminShell, type AdminShellNavItem } from "./components/layout/AdminShell";
 import { I18nProvider, useI18n } from "./i18n/I18nProvider";
 import type { AdminLocale, MessageId } from "./i18n/messages";
-import {
-  AcquisitionIntakePage,
-  type AcquisitionIntakeSearch,
-} from "./features/acquisition/AcquisitionIntakePage";
-import { AccessPage } from "./features/access/AccessPage";
-import { AddonsPage, type AddonsSearch } from "./features/addons/AddonsPage";
-import {
-  GeneratedArtifactsPage,
-  type GeneratedArtifactsSearch,
-} from "./features/automation/GeneratedArtifactsPage";
-import {
-  GeneratedArtifactReviewPage,
-  type GeneratedArtifactReviewSearch,
-} from "./features/automation/GeneratedArtifactReviewPage";
-import {
-  CatalogBrowsePage,
-  type CatalogSearch,
-} from "./features/catalog/CatalogBrowsePage";
-import {
-  CatalogGovernancePage,
-  type CatalogGovernanceSearch,
-} from "./features/catalog/CatalogGovernancePage";
-import {
-  CatalogGovernanceRepairPage,
-  type CatalogGovernanceRepairSearch,
-} from "./features/catalog/CatalogGovernanceRepairPage";
-import { EventsPage, type EventsSearch } from "./features/events/EventsPage";
-import { JobsPage, type JobsSearch } from "./features/jobs/JobsPage";
-import {
-  ManagedArtworkMaintenancePage,
-  type ManagedArtworkMaintenanceSearch,
-} from "./features/artwork/ManagedArtworkMaintenancePage";
-import {
-  ItemArtworkGalleryPage,
-  type ItemArtworkGallerySearch,
-} from "./features/items/ItemArtworkGalleryPage";
-import { ItemDetailPage } from "./features/items/ItemDetailPage";
-import {
-  SourceDuplicateReconciliationPage,
-  type SourceDuplicateReconciliationSearch,
-} from "./features/items/SourceDuplicateReconciliationPage";
-import { createSourceDuplicateReconciliationDataAdapter } from "./features/items/sourceDuplicateReconciliationData";
-import { LibraryDetailPage } from "./features/libraries/LibraryDetailPage";
-import { LibrariesPage } from "./features/libraries/LibrariesPage";
-import { OverviewPage } from "./features/overview/OverviewPage";
-import {
-  PlaybackSessionsPage,
-  type PlaybackSessionsSearch,
-} from "./features/playback/PlaybackSessionsPage";
-import {
-  PlaybackSupportPage,
-  type PlaybackSupportSearch,
-} from "./features/playback/PlaybackSupportPage";
-import {
-  StorageStagingPage,
-  type StorageStagingSearch,
-} from "./features/storage/StorageStagingPage";
-import { SettingsPage } from "./features/settings/SettingsPage";
-import { LegacyDashboard } from "./legacy/LegacyDashboard";
 import type { AddonStatus } from "./adminApi/types";
+import type { AcquisitionIntakeSearch } from "./features/acquisition/AcquisitionIntakePage";
+import type { AddonsSearch } from "./features/addons/AddonsPage";
+import type { GeneratedArtifactReviewSearch } from "./features/automation/GeneratedArtifactReviewPage";
+import type { GeneratedArtifactsSearch } from "./features/automation/GeneratedArtifactsPage";
+import type { ManagedArtworkMaintenanceSearch } from "./features/artwork/ManagedArtworkMaintenancePage";
+import type { CatalogSearch } from "./features/catalog/CatalogBrowsePage";
+import type { CatalogGovernanceSearch } from "./features/catalog/CatalogGovernancePage";
+import type { CatalogGovernanceRepairSearch } from "./features/catalog/CatalogGovernanceRepairPage";
+import type { EventsSearch } from "./features/events/EventsPage";
+import type { ItemArtworkGallerySearch } from "./features/items/ItemArtworkGalleryPage";
+import type { SourceDuplicateReconciliationSearch } from "./features/items/SourceDuplicateReconciliationPage";
+import type { JobsSearch } from "./features/jobs/JobsPage";
+import type { PlaybackSessionsSearch } from "./features/playback/PlaybackSessionsPage";
+import type { PlaybackSupportSearch } from "./features/playback/PlaybackSupportPage";
+import type { StorageStagingSearch } from "./features/storage/StorageStagingPage";
 import { MediaShell } from "./surfaces/media/MediaShell";
 import { MediaSessionProvider } from "./surfaces/media/MediaSession";
-import {
-  MediaConnectPage,
-  MediaHomePage,
-  MediaItemDetailPage,
-  type MediaItemSearch,
-  MediaLibraryDetailPage,
-  MediaLibrariesPage,
-  type MediaPageSearch,
-  MediaSearchPage,
-  type MediaSearchRouteSearch,
-  MediaWatchPage,
+import type {
+  MediaItemSearch,
+  MediaPageSearch,
+  MediaSearchRouteSearch,
 } from "./surfaces/media/MediaPages";
-import {
-  createMediaWebDataSource,
-  type MediaConnection,
-  type MediaDataSourceFactory,
-} from "./surfaces/media/mediaDataSource";
+import type { MediaConnection, MediaDataSourceFactory } from "./surfaces/media/mediaDataSource";
 
+const AcquisitionIntakePage = lazy(() =>
+  import("./features/acquisition/AcquisitionIntakePage").then((module) => ({
+    default: module.AcquisitionIntakePage,
+  })),
+);
+const AccessPage = lazy(() =>
+  import("./features/access/AccessPage").then((module) => ({
+    default: module.AccessPage,
+  })),
+);
+const AddonsPage = lazy(() =>
+  import("./features/addons/AddonsPage").then((module) => ({
+    default: module.AddonsPage,
+  })),
+);
+const GeneratedArtifactsPage = lazy(() =>
+  import("./features/automation/GeneratedArtifactsPage").then((module) => ({
+    default: module.GeneratedArtifactsPage,
+  })),
+);
+const GeneratedArtifactReviewPage = lazy(() =>
+  import("./features/automation/GeneratedArtifactReviewPage").then((module) => ({
+    default: module.GeneratedArtifactReviewPage,
+  })),
+);
+const CatalogBrowsePage = lazy(() =>
+  import("./features/catalog/CatalogBrowsePage").then((module) => ({
+    default: module.CatalogBrowsePage,
+  })),
+);
+const CatalogGovernancePage = lazy(() =>
+  import("./features/catalog/CatalogGovernancePage").then((module) => ({
+    default: module.CatalogGovernancePage,
+  })),
+);
+const CatalogGovernanceRepairPage = lazy(() =>
+  import("./features/catalog/CatalogGovernanceRepairPage").then((module) => ({
+    default: module.CatalogGovernanceRepairPage,
+  })),
+);
+const EventsPage = lazy(() =>
+  import("./features/events/EventsPage").then((module) => ({
+    default: module.EventsPage,
+  })),
+);
+const JobsPage = lazy(() =>
+  import("./features/jobs/JobsPage").then((module) => ({
+    default: module.JobsPage,
+  })),
+);
+const ManagedArtworkMaintenancePage = lazy(() =>
+  import("./features/artwork/ManagedArtworkMaintenancePage").then((module) => ({
+    default: module.ManagedArtworkMaintenancePage,
+  })),
+);
+const ItemArtworkGalleryPage = lazy(() =>
+  import("./features/items/ItemArtworkGalleryPage").then((module) => ({
+    default: module.ItemArtworkGalleryPage,
+  })),
+);
+const ItemDetailPage = lazy(() =>
+  import("./features/items/ItemDetailPage").then((module) => ({
+    default: module.ItemDetailPage,
+  })),
+);
+const SourceDuplicateReconciliationRoutePage = lazy(() =>
+  import("./features/items/SourceDuplicateReconciliationRoutePage").then((module) => ({
+    default: module.SourceDuplicateReconciliationRoutePage,
+  })),
+);
+const LibraryDetailPage = lazy(() =>
+  import("./features/libraries/LibraryDetailPage").then((module) => ({
+    default: module.LibraryDetailPage,
+  })),
+);
+const LibrariesPage = lazy(() =>
+  import("./features/libraries/LibrariesPage").then((module) => ({
+    default: module.LibrariesPage,
+  })),
+);
+const OverviewPage = lazy(() =>
+  import("./features/overview/OverviewPage").then((module) => ({
+    default: module.OverviewPage,
+  })),
+);
+const PlaybackSessionsPage = lazy(() =>
+  import("./features/playback/PlaybackSessionsPage").then((module) => ({
+    default: module.PlaybackSessionsPage,
+  })),
+);
+const PlaybackSupportPage = lazy(() =>
+  import("./features/playback/PlaybackSupportPage").then((module) => ({
+    default: module.PlaybackSupportPage,
+  })),
+);
+const StorageStagingPage = lazy(() =>
+  import("./features/storage/StorageStagingPage").then((module) => ({
+    default: module.StorageStagingPage,
+  })),
+);
+const SettingsPage = lazy(() =>
+  import("./features/settings/SettingsPage").then((module) => ({
+    default: module.SettingsPage,
+  })),
+);
+const LegacyDashboard = lazy(() =>
+  import("./legacy/LegacyDashboard").then((module) => ({
+    default: module.LegacyDashboard,
+  })),
+);
 const IncidentBundlePage = lazy(() =>
   import("./features/diagnostics/IncidentBundlePage").then((module) => ({
     default: module.IncidentBundlePage,
+  })),
+);
+const MediaConnectPage = lazy(() =>
+  import("./surfaces/media/MediaPages").then((module) => ({
+    default: module.MediaConnectPage,
+  })),
+);
+const MediaHomePage = lazy(() =>
+  import("./surfaces/media/MediaPages").then((module) => ({
+    default: module.MediaHomePage,
+  })),
+);
+const MediaItemDetailPage = lazy(() =>
+  import("./surfaces/media/MediaPages").then((module) => ({
+    default: module.MediaItemDetailPage,
+  })),
+);
+const MediaLibraryDetailPage = lazy(() =>
+  import("./surfaces/media/MediaPages").then((module) => ({
+    default: module.MediaLibraryDetailPage,
+  })),
+);
+const MediaLibrariesPage = lazy(() =>
+  import("./surfaces/media/MediaPages").then((module) => ({
+    default: module.MediaLibrariesPage,
+  })),
+);
+const MediaSearchPage = lazy(() =>
+  import("./surfaces/media/MediaPages").then((module) => ({
+    default: module.MediaSearchPage,
+  })),
+);
+const MediaWatchPage = lazy(() =>
+  import("./surfaces/media/MediaPages").then((module) => ({
+    default: module.MediaWatchPage,
   })),
 );
 
 type RouterContext = {
   dataSource: AdminDataSource;
   initialMediaConnection: MediaConnection | null;
-  mediaDataSourceFactory: MediaDataSourceFactory;
+  mediaDataSourceFactory?: MediaDataSourceFactory;
 };
 
 const rootRoute = createRootRouteWithContext<RouterContext>()({
@@ -389,7 +479,7 @@ export function App({
   dataSource,
   initialMediaConnection = null,
   initialLocale,
-  mediaDataSourceFactory = createMediaWebDataSource,
+  mediaDataSourceFactory,
 }: {
   dataSource: AdminDataSource;
   initialMediaConnection?: MediaConnection | null;
@@ -431,7 +521,9 @@ function RootLayout() {
     >
       {pathname.startsWith("/media") ? (
         <MediaShell activePathname={pathname}>
-          <Outlet />
+          <Suspense fallback={null}>
+            <Outlet />
+          </Suspense>
         </MediaShell>
       ) : (
         <AdminShell
@@ -440,7 +532,9 @@ function RootLayout() {
           navItems={navItems}
           onLocaleChange={setLocale}
         >
-          <Outlet />
+          <Suspense fallback={null}>
+            <Outlet />
+          </Suspense>
         </AdminShell>
       )}
     </MediaSessionProvider>
@@ -490,11 +584,7 @@ function AccessRoute() {
 
 function IncidentBundleRoute() {
   const { dataSource } = incidentBundleRoute.useRouteContext();
-  return (
-    <Suspense fallback={null}>
-      <IncidentBundlePage dataSource={dataSource} />
-    </Suspense>
-  );
+  return <IncidentBundlePage dataSource={dataSource} />;
 }
 
 function OverviewRoute() {
@@ -620,19 +710,10 @@ function SourceDuplicateReconciliationRoute() {
   const { itemId, sourceId } = sourceDuplicateReconciliationRoute.useParams();
   const search = sourceDuplicateReconciliationRoute.useSearch();
   const navigate = sourceDuplicateReconciliationRoute.useNavigate();
-  const { t } = useI18n();
-  const dataAdapter = useMemo(
-    () =>
-      createSourceDuplicateReconciliationDataAdapter(dataSource, {
-        applyUnavailableMessage: t("sourceDuplicate.applyUnavailable"),
-        planUnavailableMessage: t("sourceDuplicate.planUnavailable"),
-      }),
-    [dataSource, t],
-  );
 
   return (
-    <SourceDuplicateReconciliationPage
-      dataAdapter={dataAdapter}
+    <SourceDuplicateReconciliationRoutePage
+      dataSource={dataSource}
       itemId={itemId}
       onSearchChange={(next) => {
         void navigate({

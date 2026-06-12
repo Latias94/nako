@@ -8,13 +8,14 @@ import {
   type ReactNode,
 } from "react";
 
-import {
-  messageCatalogs,
-  type AdminLocale,
-  type MessageId,
-} from "./messages";
+import type { AdminLocale, MessageId } from "./messages";
 
 type MessageValues = Record<string, boolean | number | string | null | undefined>;
+type MessageCatalog = Record<MessageId, string>;
+type LoadedCatalog = {
+  locale: AdminLocale;
+  messages: MessageCatalog;
+};
 
 type I18nContextValue = {
   locale: AdminLocale;
@@ -24,7 +25,11 @@ type I18nContextValue = {
 
 const defaultLocale: AdminLocale = "en-US";
 const localeStorageKey = "nako-admin-locale";
-const availableLocales = Object.keys(messageCatalogs) as AdminLocale[];
+const availableLocaleMap = {
+  "en-US": true,
+  "zh-Hans": true,
+} satisfies Record<AdminLocale, true>;
+const availableLocales = Object.keys(availableLocaleMap) as AdminLocale[];
 
 const I18nContext = createContext<I18nContextValue | null>(null);
 
@@ -38,9 +43,27 @@ export function I18nProvider({
   const [locale, setLocaleState] = useState<AdminLocale>(
     () => initialLocale ?? readStoredLocale() ?? defaultLocale,
   );
+  const [catalog, setCatalog] = useState<LoadedCatalog | null>(null);
 
   useEffect(() => {
     document.documentElement.lang = locale;
+  }, [locale]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void import("./messages").then((module) => {
+      if (!cancelled) {
+        setCatalog({
+          locale,
+          messages: module.messageCatalogs[locale],
+        });
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [locale]);
 
   const setLocale = useCallback((nextLocale: AdminLocale) => {
@@ -52,9 +75,11 @@ export function I18nProvider({
     }
   }, []);
 
+  const activeCatalog = catalog?.locale === locale ? catalog.messages : null;
+
   const t = useCallback(
-    (id: MessageId, values?: MessageValues) => formatMessage(messageCatalogs[locale][id], values),
-    [locale],
+    (id: MessageId, values?: MessageValues) => formatMessage(activeCatalog?.[id] ?? id, values),
+    [activeCatalog],
   );
 
   const value = useMemo(
@@ -65,6 +90,10 @@ export function I18nProvider({
     }),
     [locale, setLocale, t],
   );
+
+  if (!activeCatalog) {
+    return null;
+  }
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
