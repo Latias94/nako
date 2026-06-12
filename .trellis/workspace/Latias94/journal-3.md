@@ -782,3 +782,37 @@ Added Admin Web incident bundle section status summary, lazy-loaded the diagnost
 ### Next Steps
 
 - None - task complete
+
+
+## Session 117: Admin Web route bundle splitting
+
+**Date**: 2026-06-12
+**Task**: Admin Web route bundle splitting
+**Package**: nako
+**Branch**: `feat/u3-intake-stability-source-hash-readiness`
+
+### Summary
+
+Split Admin Web route pages, i18n catalogs, and Media Web data source into lazy chunks; main JS chunk now builds under 500 kB and task evidence was archived.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `faf85b7a` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
