@@ -15,7 +15,7 @@
   "branch": "feat/u3-intake-stability-source-hash-readiness",
   "base_branch": "feat/u3-intake-stability-source-hash-readiness",
   "worktree_path": null,
-  "commit": null,
+  "commit": "ac42a4c6b4b9d5d6f60d802ca8284283a01013b8",
   "pr_url": null,
   "subtasks": [],
   "children": [],

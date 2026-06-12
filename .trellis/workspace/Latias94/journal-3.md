@@ -656,7 +656,7 @@ Implemented the follow-on operator support slice by adding an Admin-only redacte
 
 | Hash | Message |
 |------|---------|
-| `TBD` | `feat(admin): add redacted incident bundle export` |
+| `ac42a4c6` | `feat(admin): add redacted incident bundle export` |
 
 ### Testing
 
