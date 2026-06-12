@@ -1,0 +1,13 @@
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "The checker needs the server boundary overview for route/auth/logging expectations."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Route shape, Admin guard, and bounded response expectations apply to the incident bundle endpoint."}
+{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "Incident bundle validation must keep diagnostics, logs, and composed facts redaction-safe."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server tests and contract gates are needed to verify the bundle assembly."}
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "The checker needs the Admin contract/generator boundary for the incident bundle DTO and route inventory."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "The checker must ensure the bundle stays Admin-only and redaction-safe."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "API contract drift and generated artifact checks are required for the new Admin route."}
+{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web validation and contract coverage follow the frontend boundary."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "The checker needs the route/data-source/test pattern for the incident bundle view."}
+{"file": ".trellis/tasks/06-11-u3-follow-on-slice/research/jellyfin-gap-analysis.md", "reason": "Jellyfin reference findings justify the broader supportability gap."}
+{"file": ".trellis/tasks/06-11-u3-follow-on-slice/research/nako-gap-map.md", "reason": "Nako gap map identifies the existing safe summaries and residual bundle gap."}
+{"file": ".trellis/tasks/06-11-u3-follow-on-slice/research/incident-bundle-plan.md", "reason": "Task-local implementation outline and redaction rules for the chosen incident bundle slice."}
+{"file": ".trellis/tasks/06-11-u3-follow-on-slice/research/playback-support-evidence-plan.md", "reason": "Playback support evidence is a shipped predecessor and should remain out of the current acceptance criteria."}
