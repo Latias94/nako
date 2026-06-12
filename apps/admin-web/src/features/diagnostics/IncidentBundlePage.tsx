@@ -43,6 +43,7 @@ export function IncidentBundlePage({ dataSource }: IncidentBundlePageProps) {
   const repairPlan = bundle.storage.vfs_cache_repair_action_plan;
   const support = bundle.playback.support_evidence;
   const exportJson = incidentBundleExportJson(bundle);
+  const sectionSummary = incidentBundleSectionSummary(bundle, t);
 
   async function copyBundle() {
     try {
@@ -102,35 +103,58 @@ export function IncidentBundlePage({ dataSource }: IncidentBundlePageProps) {
       {query.isLoading ? <RowsSkeleton label={t("incidentBundle.loading")} /> : null}
 
       {!query.isLoading ? (
-        <div className="libraryDetailGrid">
+        <>
           <DataPanel
-            description={t("incidentBundle.artifact.description")}
+            description={t("incidentBundle.summary.description")}
             headerAccessory={
-              <Badge tone={bundle.artifact.format === "json_only" ? "success" : "warning"}>
-                {bundle.artifact.format}
+              <Badge tone={redactionComplete(bundle) ? "success" : "danger"}>
+                {bundle.redaction.status}
               </Badge>
             }
-            title={t("incidentBundle.artifact.title")}
+            title={t("incidentBundle.summary.title")}
           >
-            <div className="libraryFactList">
-              <Fact
-                label={t("incidentBundle.artifact.generatedAt")}
-                value={String(bundle.generated_at_ms)}
-              />
-              <Fact
-                label={t("incidentBundle.artifact.zip")}
-                value={boolText(bundle.artifact.zip_archive_included, t)}
-              />
-              <Fact
-                label={t("incidentBundle.artifact.upload")}
-                value={boolText(bundle.artifact.upload_transport_included, t)}
-              />
-              <Fact
-                label={t("incidentBundle.artifact.logs")}
-                value={boolText(bundle.artifact.unbounded_logs_included, t)}
-              />
+            <div className="settingsRowList">
+              {sectionSummary.map((section) => (
+                <div className="settingsDiagnosticRow" key={section.key}>
+                  <div>
+                    <strong>{section.label}</strong>
+                    <span>{section.detail}</span>
+                  </div>
+                  <Badge tone={section.tone}>{section.status}</Badge>
+                </div>
+              ))}
             </div>
           </DataPanel>
+
+          <div className="libraryDetailGrid">
+            <DataPanel
+              description={t("incidentBundle.artifact.description")}
+              headerAccessory={
+                <Badge tone={bundle.artifact.format === "json_only" ? "success" : "warning"}>
+                  {bundle.artifact.format}
+                </Badge>
+              }
+              title={t("incidentBundle.artifact.title")}
+            >
+              <div className="libraryFactList">
+                <Fact
+                  label={t("incidentBundle.artifact.generatedAt")}
+                  value={String(bundle.generated_at_ms)}
+                />
+                <Fact
+                  label={t("incidentBundle.artifact.zip")}
+                  value={boolText(bundle.artifact.zip_archive_included, t)}
+                />
+                <Fact
+                  label={t("incidentBundle.artifact.upload")}
+                  value={boolText(bundle.artifact.upload_transport_included, t)}
+                />
+                <Fact
+                  label={t("incidentBundle.artifact.logs")}
+                  value={boolText(bundle.artifact.unbounded_logs_included, t)}
+                />
+              </div>
+            </DataPanel>
 
           <DataPanel
             description={t("incidentBundle.overview.description")}
@@ -349,55 +373,56 @@ export function IncidentBundlePage({ dataSource }: IncidentBundlePageProps) {
             )}
           </DataPanel>
 
-          <DataPanel
-            description={t("incidentBundle.redaction.description")}
-            headerAccessory={<Badge tone={redactionComplete(bundle) ? "success" : "danger"}>{bundle.redaction.status}</Badge>}
-            title={t("incidentBundle.redaction.title")}
-          >
-            <div className="libraryFactList">
-              <Fact
-                label={t("incidentBundle.redaction.rawPaths")}
-                value={boolText(bundle.redaction.raw_paths_redacted, t)}
-              />
-              <Fact
-                label={t("incidentBundle.redaction.locators")}
-                value={boolText(bundle.redaction.locators_redacted, t)}
-              />
-              <Fact
-                label={t("incidentBundle.redaction.tokens")}
-                value={boolText(bundle.redaction.tokens_redacted, t)}
-              />
-              <Fact
-                label={t("incidentBundle.redaction.credentials")}
-                value={boolText(bundle.redaction.credentials_redacted, t)}
-              />
-              <Fact
-                label={t("incidentBundle.redaction.ffmpeg")}
-                value={boolText(bundle.redaction.ffmpeg_command_lines_redacted, t)}
-              />
-              <Fact
-                label={t("incidentBundle.redaction.providerPayloads")}
-                value={boolText(bundle.redaction.provider_payloads_redacted, t)}
-              />
-              <Fact
-                label={t("incidentBundle.redaction.backendUrls")}
-                value={boolText(bundle.redaction.backend_urls_redacted, t)}
-              />
-              <Fact
-                label={t("incidentBundle.redaction.queryStrings")}
-                value={boolText(bundle.redaction.query_strings_redacted, t)}
-              />
-              <Fact
-                label={t("incidentBundle.redaction.rawJobPayloads")}
-                value={boolText(bundle.redaction.raw_job_payloads_redacted, t)}
-              />
-              <Fact
-                label={t("incidentBundle.redaction.unboundedLogs")}
-                value={boolText(bundle.redaction.unbounded_logs_redacted, t)}
-              />
-            </div>
-          </DataPanel>
-        </div>
+            <DataPanel
+              description={t("incidentBundle.redaction.description")}
+              headerAccessory={<Badge tone={redactionComplete(bundle) ? "success" : "danger"}>{bundle.redaction.status}</Badge>}
+              title={t("incidentBundle.redaction.title")}
+            >
+              <div className="libraryFactList">
+                <Fact
+                  label={t("incidentBundle.redaction.rawPaths")}
+                  value={boolText(bundle.redaction.raw_paths_redacted, t)}
+                />
+                <Fact
+                  label={t("incidentBundle.redaction.locators")}
+                  value={boolText(bundle.redaction.locators_redacted, t)}
+                />
+                <Fact
+                  label={t("incidentBundle.redaction.tokens")}
+                  value={boolText(bundle.redaction.tokens_redacted, t)}
+                />
+                <Fact
+                  label={t("incidentBundle.redaction.credentials")}
+                  value={boolText(bundle.redaction.credentials_redacted, t)}
+                />
+                <Fact
+                  label={t("incidentBundle.redaction.ffmpeg")}
+                  value={boolText(bundle.redaction.ffmpeg_command_lines_redacted, t)}
+                />
+                <Fact
+                  label={t("incidentBundle.redaction.providerPayloads")}
+                  value={boolText(bundle.redaction.provider_payloads_redacted, t)}
+                />
+                <Fact
+                  label={t("incidentBundle.redaction.backendUrls")}
+                  value={boolText(bundle.redaction.backend_urls_redacted, t)}
+                />
+                <Fact
+                  label={t("incidentBundle.redaction.queryStrings")}
+                  value={boolText(bundle.redaction.query_strings_redacted, t)}
+                />
+                <Fact
+                  label={t("incidentBundle.redaction.rawJobPayloads")}
+                  value={boolText(bundle.redaction.raw_job_payloads_redacted, t)}
+                />
+                <Fact
+                  label={t("incidentBundle.redaction.unboundedLogs")}
+                  value={boolText(bundle.redaction.unbounded_logs_redacted, t)}
+                />
+              </div>
+            </DataPanel>
+          </div>
+        </>
       ) : null}
     </RoutePage>
   );
@@ -431,6 +456,135 @@ function Fact({ label, value }: { label: string; value: string }) {
 
 function boolText(value: boolean, t: (id: MessageId) => string) {
   return value ? t("incidentBundle.boolean.yes") : t("incidentBundle.boolean.no");
+}
+
+type BadgeTone = "danger" | "info" | "neutral" | "success" | "warning";
+
+type Translate = (
+  id: MessageId,
+  values?: Record<string, boolean | number | string | null | undefined>,
+) => string;
+
+function incidentBundleSectionSummary(
+  bundle: AdminIncidentBundleResponse,
+  t: Translate,
+): Array<{
+  key: string;
+  label: string;
+  detail: string;
+  status: string;
+  tone: BadgeTone;
+}> {
+  const failedPressureGroups = bundle.jobs.queue_pressure.filter(
+    (pressure) => pressure.status === "failed",
+  ).length;
+  const redactedFamilies = [
+    bundle.redaction.raw_paths_redacted,
+    bundle.redaction.locators_redacted,
+    bundle.redaction.tokens_redacted,
+    bundle.redaction.credentials_redacted,
+    bundle.redaction.ffmpeg_command_lines_redacted,
+    bundle.redaction.provider_payloads_redacted,
+    bundle.redaction.backend_urls_redacted,
+    bundle.redaction.query_strings_redacted,
+    bundle.redaction.raw_job_payloads_redacted,
+    bundle.redaction.unbounded_logs_redacted,
+  ].filter(Boolean).length;
+  const artifactSafe =
+    bundle.artifact.format === "json_only"
+    && !bundle.artifact.zip_archive_included
+    && !bundle.artifact.upload_transport_included
+    && !bundle.artifact.unbounded_logs_included;
+
+  return [
+    {
+      key: "artifact",
+      label: t("incidentBundle.artifact.title"),
+      detail: t("incidentBundle.summary.artifactDetail"),
+      status: bundle.artifact.format,
+      tone: artifactSafe ? "success" : "danger",
+    },
+    {
+      key: "overview",
+      label: t("incidentBundle.overview.title"),
+      detail: t("incidentBundle.summary.overviewDetail", {
+        failed: bundle.overview.runtime.failed_jobs,
+        readiness: bundle.overview.operator_readiness.status,
+      }),
+      status: bundle.overview.operator_readiness.status,
+      tone: networkTone(bundle.overview.operator_readiness.status),
+    },
+    {
+      key: "system",
+      label: t("incidentBundle.system.title"),
+      detail: t("incidentBundle.summary.systemDetail", {
+        libraries: bundle.system.libraries.configured_count,
+        providers: bundle.system.metadata.provider_count,
+      }),
+      status: bundle.system.auth_enabled
+        ? t("incidentBundle.system.authEnabled")
+        : t("incidentBundle.system.authDisabled"),
+      tone: bundle.system.auth_enabled ? "success" : "warning",
+    },
+    {
+      key: "network",
+      label: t("incidentBundle.network.title"),
+      detail: t("incidentBundle.summary.networkDetail", {
+        exposure: bundle.network.exposure_mode,
+        origins: bundle.network.allowed_origin_count,
+        tunnels: bundle.network.tunnel_provider_count,
+      }),
+      status: bundle.network.readiness.status,
+      tone: networkTone(bundle.network.readiness.status),
+    },
+    {
+      key: "playback",
+      label: t("incidentBundle.playback.title"),
+      detail: t("incidentBundle.summary.playbackDetail", {
+        available: bundle.playback.runtime.ffmpeg.available_gpu_capabilities,
+        ffmpeg: bundle.playback.runtime.ffmpeg.probe_status,
+        total: bundle.playback.runtime.ffmpeg.hardware_capability_count,
+      }),
+      status: bundle.playback.runtime.readiness.status,
+      tone: networkTone(bundle.playback.runtime.readiness.status),
+    },
+    {
+      key: "storage",
+      label: t("incidentBundle.storage.title"),
+      detail: t("incidentBundle.summary.storageDetail", {
+        action: bundle.storage.vfs_cache_repair_action_plan.action,
+        records: bundle.storage.staging.pressure.total_records,
+      }),
+      status: bundle.storage.vfs_cache_repair_action_plan.status,
+      tone: storageSummaryTone(bundle.storage.vfs_cache_repair_action_plan.status),
+    },
+    {
+      key: "jobs",
+      label: t("incidentBundle.jobs.title"),
+      detail: t("incidentBundle.summary.jobsDetail", {
+        failed: failedPressureGroups,
+        groups: bundle.jobs.queue_pressure.length,
+      }),
+      status: t("incidentBundle.summary.jobsStatus", {
+        count: bundle.jobs.queue_pressure.length,
+      }),
+      tone:
+        failedPressureGroups > 0
+          ? "danger"
+          : bundle.jobs.queue_pressure.length > 0
+            ? "warning"
+            : "success",
+    },
+    {
+      key: "redaction",
+      label: t("incidentBundle.redaction.title"),
+      detail: t("incidentBundle.summary.redactionDetail", {
+        families: redactedFamilies,
+      }),
+      status: bundle.redaction.status,
+      tone: redactionComplete(bundle) ? "success" : "danger",
+    },
+  ];
 }
 
 function statusTone(status: string) {
@@ -467,6 +621,18 @@ function repairTone(status: string) {
   }
 
   return "warning";
+}
+
+function storageSummaryTone(status: string): BadgeTone {
+  if (status === "no_action") {
+    return "success";
+  }
+
+  if (status === "executable" || status === "plan_only") {
+    return "warning";
+  }
+
+  return "danger";
 }
 
 function redactionComplete(bundle: AdminIncidentBundleResponse) {

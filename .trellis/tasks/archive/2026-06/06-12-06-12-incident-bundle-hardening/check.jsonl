@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Admin Web required check, route tests, and build gate."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused server nextest and cargo check guidance."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Admin contract and generated artifact drift checklist."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Incident bundle redaction and Admin-only closeout criteria."}

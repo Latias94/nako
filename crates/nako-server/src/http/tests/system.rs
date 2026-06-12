@@ -12001,6 +12001,72 @@ async fn admin_v1_incident_bundle_composes_route_response_without_sensitive_payl
         .await
         .unwrap();
     assert_eq!(missing_auth.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        missing_auth
+            .headers()
+            .get(header::WWW_AUTHENTICATE)
+            .and_then(|value| value.to_str().ok()),
+        Some("Bearer")
+    );
+
+    let viewer = request_body_json_with_bearer::<AdminAccessUserResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/access/users",
+        &AdminCreateUserRequest {
+            username: "incident-bundle-viewer".to_owned(),
+            display_name: "Incident Bundle Viewer".to_owned(),
+            roles: vec![UserRole::Viewer],
+        },
+        admin_token,
+    )
+    .await;
+    let password_path = format!(
+        "/admin/v1/access/users/{}/local-password",
+        viewer.user.user_id
+    );
+    request_body_json_with_bearer::<nako_api::admin::AdminLocalPasswordResponse, _>(
+        &router,
+        Method::PUT,
+        &password_path,
+        &nako_api::admin::AdminSetLocalPasswordRequest {
+            password: "correct horse battery staple".to_owned(),
+        },
+        admin_token,
+    )
+    .await;
+    let viewer_login = request_body_json::<LoginResponse, _>(
+        &router,
+        Method::POST,
+        "/auth/login",
+        &LoginRequest {
+            username: "incident-bundle-viewer".to_owned(),
+            password: "correct horse battery staple".to_owned(),
+        },
+    )
+    .await;
+    let non_admin = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/diagnostics/incident-bundle")
+                .header(
+                    header::AUTHORIZATION,
+                    format!("Bearer {}", viewer_login.session.token),
+                )
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(non_admin.status(), StatusCode::FORBIDDEN);
+    let non_admin_error = body_json::<ErrorResponse>(non_admin).await;
+    assert_eq!(
+        non_admin_error.code,
+        nako_api::public_client::ClientErrorCode::Forbidden.as_str()
+    );
+    assert_eq!(non_admin_error.message, "administrator role is required");
 
     let response = router
         .clone()

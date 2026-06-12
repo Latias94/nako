@@ -583,15 +583,31 @@ describe("Admin Web V2 route shell", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "Incident Bundle" })).toBeInTheDocument();
-    expect(await screen.findByText("Artifact summary")).toBeInTheDocument();
-    expect(await screen.findByText("System")).toBeInTheDocument();
+    expect(await screen.findByText("Section status")).toBeInTheDocument();
+    expect(await screen.findByText("Fast triage view for bundle sections, readiness, queue pressure, and redaction coverage.")).toBeInTheDocument();
+    expect(screen.getByText("JSON-only support artifact; no archive, upload, or unbounded logs.")).toBeInTheDocument();
+    expect(screen.getByText("10/10 sensitive field families redacted.")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Artifact summary" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "System" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Network" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Playback" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Storage" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Jobs" })).toBeInTheDocument();
-    expect(screen.getByText("Redaction summary")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Redaction summary" })).toBeInTheDocument();
     expect(screen.getByText("Live Admin API")).toBeInTheDocument();
     expect(loadIncidentBundle).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders localized Incident Bundle section status summary", async () => {
+    window.history.pushState(null, "", "/diagnostics/incident-bundle");
+
+    render(<App dataSource={incidentBundleDataSource()} initialLocale="zh-Hans" />);
+
+    expect(await screen.findByRole("heading", { name: "Incident Bundle" })).toBeInTheDocument();
+    expect(await screen.findByText("区块状态")).toBeInTheDocument();
+    expect(screen.getByText("用于快速排障的 bundle 区块、readiness、队列压力和脱敏覆盖摘要。")).toBeInTheDocument();
+    expect(screen.getByText("JSON-only 支持工件；不包含压缩包、上传传输或无界日志。")).toBeInTheDocument();
+    expect(screen.getByText("10 类敏感字段族已脱敏 10 类。")).toBeInTheDocument();
   });
 
   it("keeps unsafe fields out of the Incident Bundle route rendering", async () => {
@@ -639,7 +655,7 @@ describe("Admin Web V2 route shell", () => {
       render(<App dataSource={incidentBundleDataSource(unsafeIncidentBundleResponse())} />);
 
       await screen.findByRole("heading", { name: "Incident Bundle" });
-      await screen.findByText("Artifact summary");
+      await screen.findByRole("heading", { name: "Artifact summary" });
       fireEvent.click(screen.getByRole("button", { name: "Copy JSON" }));
 
       await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
@@ -683,7 +699,7 @@ describe("Admin Web V2 route shell", () => {
       render(<App dataSource={incidentBundleDataSource(unsafeIncidentBundleResponse())} />);
 
       await screen.findByRole("heading", { name: "Incident Bundle" });
-      await screen.findByText("Artifact summary");
+      await screen.findByRole("heading", { name: "Artifact summary" });
       fireEvent.click(screen.getByRole("button", { name: "Download JSON" }));
 
       expect(createObjectURL).toHaveBeenCalledTimes(1);

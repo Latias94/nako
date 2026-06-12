@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 115
+- **Total Sessions**: 116
 - **Last Active**: 2026-06-12
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~752 | Active |
+| `journal-3.md` | ~784 | Active |
 | `journal-2.md` | ~1991 | Archived |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 116 | 2026-06-12 | Incident bundle hardening | - | `feat/u3-intake-stability-source-hash-readiness` |
 | 115 | 2026-06-12 | Incident Bundle JSON export actions | `15b09ddf`, `b982df08` | `feat/u3-intake-stability-source-hash-readiness` |
 | 114 | 2026-06-11 | U3 intake/source-hash readiness verification and closeout | `f23536b8`, `82dfd027`, `3812ec28`, `6f51ad29`, `7d6bb2d9`, `8a3b0238`, `982c3bef` | `feat/u3-intake-stability-source-hash-readiness` |
 | 113 | 2026-06-11 | Playback selected reasons | `37338ed1` | `feat/operator-readiness-u1` |

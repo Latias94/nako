@@ -24,7 +24,7 @@ import {
   Sparkles,
   UsersRound,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Suspense, lazy, useMemo, useState } from "react";
 
 import type { AdminDataSource } from "./adminApi/dataSource";
 import { AdminShell, type AdminShellNavItem } from "./components/layout/AdminShell";
@@ -56,7 +56,6 @@ import {
   CatalogGovernanceRepairPage,
   type CatalogGovernanceRepairSearch,
 } from "./features/catalog/CatalogGovernanceRepairPage";
-import { IncidentBundlePage } from "./features/diagnostics/IncidentBundlePage";
 import { EventsPage, type EventsSearch } from "./features/events/EventsPage";
 import { JobsPage, type JobsSearch } from "./features/jobs/JobsPage";
 import {
@@ -110,6 +109,12 @@ import {
   type MediaConnection,
   type MediaDataSourceFactory,
 } from "./surfaces/media/mediaDataSource";
+
+const IncidentBundlePage = lazy(() =>
+  import("./features/diagnostics/IncidentBundlePage").then((module) => ({
+    default: module.IncidentBundlePage,
+  })),
+);
 
 type RouterContext = {
   dataSource: AdminDataSource;
@@ -485,7 +490,11 @@ function AccessRoute() {
 
 function IncidentBundleRoute() {
   const { dataSource } = incidentBundleRoute.useRouteContext();
-  return <IncidentBundlePage dataSource={dataSource} />;
+  return (
+    <Suspense fallback={null}>
+      <IncidentBundlePage dataSource={dataSource} />
+    </Suspense>
+  );
 }
 
 function OverviewRoute() {

@@ -750,3 +750,35 @@ Added Admin Web copy/download actions for the incident bundle with safe JSON pro
 ### Next Steps
 
 - None - task complete
+
+
+## Session 116: Incident bundle hardening
+
+**Date**: 2026-06-12
+**Task**: Incident bundle hardening
+**Package**: admin-web
+**Branch**: `feat/u3-intake-stability-source-hash-readiness`
+
+### Summary
+
+Added Admin Web incident bundle section status summary, lazy-loaded the diagnostics route chunk, and strengthened incident bundle Admin auth smoke coverage.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+(No commits - planning session)
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

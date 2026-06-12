@@ -143,6 +143,22 @@ export const enMessages = {
   "incidentBundle.boolean.yes": "Yes",
   "incidentBundle.boolean.no": "No",
   "incidentBundle.none": "none",
+  "incidentBundle.summary.title": "Section status",
+  "incidentBundle.summary.description":
+    "Fast triage view for bundle sections, readiness, queue pressure, and redaction coverage.",
+  "incidentBundle.summary.artifactDetail": "JSON-only support artifact; no archive, upload, or unbounded logs.",
+  "incidentBundle.summary.overviewDetail": "Readiness {readiness}; {failed} failed runtime job(s).",
+  "incidentBundle.summary.systemDetail": "{libraries} configured library/libraries, {providers} metadata provider(s).",
+  "incidentBundle.summary.networkDetail":
+    "{exposure} exposure; {origins} allowed origin(s), {tunnels} tunnel provider(s).",
+  "incidentBundle.summary.playbackDetail":
+    "FFmpeg {ffmpeg}; {available}/{total} GPU capability available.",
+  "incidentBundle.summary.storageDetail":
+    "{records} staging record(s); repair action {action}.",
+  "incidentBundle.summary.jobsDetail":
+    "{groups} queue pressure group(s); {failed} failed group(s).",
+  "incidentBundle.summary.jobsStatus": "{count} group(s)",
+  "incidentBundle.summary.redactionDetail": "{families}/10 sensitive field families redacted.",
   "incidentBundle.artifact.title": "Artifact summary",
   "incidentBundle.artifact.description":
     "JSON-only bundle metadata. Archive generation, upload transport, and unbounded logs stay out of this slice.",
@@ -1965,6 +1981,19 @@ export const zhHansMessages = {
   "incidentBundle.boolean.yes": "是",
   "incidentBundle.boolean.no": "否",
   "incidentBundle.none": "无",
+  "incidentBundle.summary.title": "区块状态",
+  "incidentBundle.summary.description": "用于快速排障的 bundle 区块、readiness、队列压力和脱敏覆盖摘要。",
+  "incidentBundle.summary.artifactDetail": "JSON-only 支持工件；不包含压缩包、上传传输或无界日志。",
+  "incidentBundle.summary.overviewDetail": "Readiness {readiness}；{failed} 个失败运行时任务。",
+  "incidentBundle.summary.systemDetail": "{libraries} 个已配置媒体库，{providers} 个 metadata provider。",
+  "incidentBundle.summary.networkDetail":
+    "{exposure} 暴露模式；{origins} 个 allowed origin，{tunnels} 个 tunnel provider。",
+  "incidentBundle.summary.playbackDetail":
+    "FFmpeg {ffmpeg}；{available}/{total} 个 GPU 能力可用。",
+  "incidentBundle.summary.storageDetail": "{records} 个 staging 记录；repair action {action}。",
+  "incidentBundle.summary.jobsDetail": "{groups} 个队列压力分组；{failed} 个失败分组。",
+  "incidentBundle.summary.jobsStatus": "{count} 个分组",
+  "incidentBundle.summary.redactionDetail": "10 类敏感字段族已脱敏 {families} 类。",
   "incidentBundle.artifact.title": "工件摘要",
   "incidentBundle.artifact.description":
     "JSON-only bundle 元数据。压缩包生成、上传传输和无界日志不属于此切片。",
