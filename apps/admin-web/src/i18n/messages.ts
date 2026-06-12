@@ -1015,6 +1015,8 @@ export const enMessages = {
   "playbackSupport.loading": "Loading Playback Support Evidence",
   "playbackSupport.dataSourceUnavailable":
     "Playback Support Evidence route data source is unavailable",
+  "playbackSupport.directAccessNotice":
+    "Open this page from an item or playback session so the subject is already scoped.",
   "playbackSupport.subject.title": "Support subject",
   "playbackSupport.subject.description": "URL-owned session and source context.",
   "playbackSupport.subject.sessionId": "Requested session",
@@ -2660,6 +2662,7 @@ export const zhHansMessages = {
   "playbackSupport.fallback": "{error}。正在显示确定性 mock playback support 数据。",
   "playbackSupport.loading": "正在加载播放支持证据",
   "playbackSupport.dataSourceUnavailable": "播放支持证据路由数据源不可用",
+  "playbackSupport.directAccessNotice": "请从 item 或 playback session 进入此页，以便自动带入 subject。",
   "playbackSupport.subject.title": "支持主体",
   "playbackSupport.subject.description": "由 URL 负责的 session 和 source 上下文。",
   "playbackSupport.subject.sessionId": "请求的 session",

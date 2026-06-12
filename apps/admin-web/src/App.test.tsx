@@ -3798,6 +3798,18 @@ describe("Admin Web V2 route shell", () => {
     expect(screen.getByText("Live Admin API")).toBeInTheDocument();
   });
 
+  it("shows a direct-entry hint when Playback Support has no subject context", async () => {
+    window.history.pushState(null, "", "/playback/support");
+
+    render(<App dataSource={playbackSupportDataSource()} />);
+
+    expect(
+      await screen.findByText(
+        "Open this page from an item or playback session so the subject is already scoped.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("renders localized Playback Support route copy", async () => {
     window.history.pushState(null, "", "/playback/support");
 
@@ -3807,6 +3819,9 @@ describe("Admin Web V2 route shell", () => {
       await screen.findByRole("heading", { name: "播放支持证据" }),
     ).toBeInTheDocument();
     expect(await screen.findByText("支持主体")).toBeInTheDocument();
+    expect(
+      screen.getByText("请从 item 或 playback session 进入此页，以便自动带入 subject。"),
+    ).toBeInTheDocument();
     expect(screen.getByText("会话证据")).toBeInTheDocument();
     expect(screen.getByText("来源证据")).toBeInTheDocument();
     expect(screen.getByText("运行时证据")).toBeInTheDocument();

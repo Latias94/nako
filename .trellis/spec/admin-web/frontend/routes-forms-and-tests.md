@@ -131,6 +131,100 @@ const mutation = useMutation({
 Keep network behavior behind the typed data source and generated Admin API
 client, then assert it through route tests.
 
+## Scenario: Playback Support Evidence Route
+
+### 1. Scope / Trigger
+
+- Trigger: Admin Web renders `/playback/support`, maps URL search params into
+  playback support evidence queries, or changes the redaction-safe runtime and
+  subject summaries for this route.
+- Evidence: `src/features/playback/PlaybackSupportPage.tsx`,
+  `src/features/playback/playbackSupportFormatters.ts`,
+  `src/adminApi/dataSource.ts`, `src/App.tsx`, and route tests.
+- Authority: ADR 0027 and ADR 0053.
+
+### 2. Signatures
+
+- Route path: `/playback/support`.
+- Search keys: `session_id?: string` and `source_id?: string`.
+- Data source method:
+  `loadPlaybackSupport(query?: AdminPlaybackSupportQuery):
+  Promise<AdminSectionResult<AdminPlaybackSupportEvidenceResponse>>`.
+- Page props:
+  `dataSource: AdminDataSource` and `search: PlaybackSupportSearch`.
+
+### 3. Contracts
+
+- `session_id` and `source_id` are independently optional. The route may be
+  opened with one, both, or neither value.
+- When both search keys are missing, render a visible direct-entry `RouteNotice`
+  that tells the operator to open the page from an item or playback session
+  context.
+- Keep the page read-only. The route may refresh evidence, but it must not add
+  mutation controls or expose raw paths, tokens, command lines, backend URLs,
+  or credentials.
+- Keep long playback support formatting in a feature-local helper module such as
+  `src/features/playback/playbackSupportFormatters.ts` instead of duplicating
+  helper logic inside the route component.
+- The rendered panels should remain limited to safe subject, session, source,
+  runtime, and redaction summaries.
+
+### 4. Validation & Error Matrix
+
+| Condition | Current behavior |
+|-----------|------------------|
+| Both search keys are missing | Show the direct-entry notice and still render safe fallback/live evidence |
+| One or both search keys are present | Forward the search unchanged to `loadPlaybackSupport` |
+| Live read is unavailable or fails | Return deterministic mock fallback with a visible route notice |
+| Generated support evidence contains raw paths, tokens, command lines, URLs, or credentials | Projection omits them and tests reject rendering |
+
+### 5. Good / Base / Bad Cases
+
+- Good: `PlaybackSupportPage` forwards the route search, shows the
+  direct-entry notice only when the page is opened without subject context, and
+  uses a feature-local formatter helper for long safe summaries.
+- Base: route-owned evidence page opened from item detail with only
+  `source_id`, or from playback sessions with both `session_id` and
+  `source_id`.
+- Bad: hiding the page when one search key is missing, rendering unsafe source
+  material, or keeping a large pile of inline formatter helpers inside the
+  route component.
+
+### 6. Tests Required
+
+- Route tests assert URL search forwarding into `loadPlaybackSupport`.
+- Route tests assert the direct-entry notice appears for `/playback/support`
+  with no search keys.
+- Route tests assert zh-Hans copy for the direct-entry notice.
+- Route tests assert unsafe fields like request fingerprints and raw file
+  names do not appear in rendered text.
+- Data source tests assert route-local playback support fallback and query
+  forwarding.
+- Run:
+  - `npm run check --prefix apps/admin-web`
+  - `npm run test --prefix apps/admin-web`
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```tsx
+if (!search.session_id && !search.source_id) {
+  return <EmptyRouteState>No context</EmptyRouteState>;
+}
+```
+
+#### Correct
+
+```tsx
+{!hasDirectAccessHint ? null : (
+  <RouteNotice>{t("playbackSupport.directAccessNotice")}</RouteNotice>
+)}
+```
+
+Keep playback support evidence route-owned, redaction-safe, and easy to enter
+from the surrounding item or session flows.
+
 ## Scenario: Addon Task Run Operator Projection
 
 ### 1. Scope / Trigger
