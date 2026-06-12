@@ -24,12 +24,19 @@ import {
   Sparkles,
   UsersRound,
 } from "lucide-react";
-import { Suspense, lazy, useMemo, useState } from "react";
+import { Suspense, lazy, useMemo, useState, type ReactNode } from "react";
 
 import type { AdminDataSource } from "./adminApi/dataSource";
-import { AdminShell, type AdminShellNavItem } from "./components/layout/AdminShell";
-import { I18nProvider, useI18n } from "./i18n/I18nProvider";
-import type { AdminLocale, MessageId } from "./i18n/messages";
+import {
+  AdminShell,
+  type AdminShellNavItem,
+} from "./components/layout/AdminShell";
+import {
+  I18nNamespaceBoundary,
+  I18nProvider,
+  useI18n,
+} from "./i18n/I18nProvider";
+import type { AdminLocale, I18nNamespace, MessageId } from "./i18n/messages";
 import type { AddonStatus } from "./adminApi/types";
 import type { AcquisitionIntakeSearch } from "./features/acquisition/AcquisitionIntakePage";
 import type { AddonsSearch } from "./features/addons/AddonsPage";
@@ -53,7 +60,10 @@ import type {
   MediaPageSearch,
   MediaSearchRouteSearch,
 } from "./surfaces/media/MediaCore";
-import type { MediaConnection, MediaDataSourceFactory } from "./surfaces/media/mediaDataSource";
+import type {
+  MediaConnection,
+  MediaDataSourceFactory,
+} from "./surfaces/media/mediaDataSource";
 
 const AcquisitionIntakePage = lazy(() =>
   import("./features/acquisition/AcquisitionIntakePage").then((module) => ({
@@ -76,9 +86,11 @@ const GeneratedArtifactsPage = lazy(() =>
   })),
 );
 const GeneratedArtifactReviewPage = lazy(() =>
-  import("./features/automation/GeneratedArtifactReviewPage").then((module) => ({
-    default: module.GeneratedArtifactReviewPage,
-  })),
+  import("./features/automation/GeneratedArtifactReviewPage").then(
+    (module) => ({
+      default: module.GeneratedArtifactReviewPage,
+    }),
+  ),
 );
 const CatalogBrowsePage = lazy(() =>
   import("./features/catalog/CatalogBrowsePage").then((module) => ({
@@ -121,9 +133,11 @@ const ItemDetailPage = lazy(() =>
   })),
 );
 const SourceDuplicateReconciliationRoutePage = lazy(() =>
-  import("./features/items/SourceDuplicateReconciliationRoutePage").then((module) => ({
-    default: module.SourceDuplicateReconciliationRoutePage,
-  })),
+  import("./features/items/SourceDuplicateReconciliationRoutePage").then(
+    (module) => ({
+      default: module.SourceDuplicateReconciliationRoutePage,
+    }),
+  ),
 );
 const LibraryDetailPage = lazy(() =>
   import("./features/libraries/LibraryDetailPage").then((module) => ({
@@ -446,18 +460,35 @@ const adminNavItems = [
   { to: "/jobs", labelId: "nav.jobs", icon: ListChecks },
   { to: "/events", labelId: "nav.events", icon: Activity },
   { to: "/access", labelId: "nav.access", icon: UsersRound },
-  { to: "/diagnostics/incident-bundle", labelId: "nav.incidentBundle", icon: FileJson },
+  {
+    to: "/diagnostics/incident-bundle",
+    labelId: "nav.incidentBundle",
+    icon: FileJson,
+  },
   { to: "/libraries", labelId: "nav.libraries", icon: Library },
   { to: "/catalog", labelId: "nav.catalog", icon: Film },
-  { to: "/artwork/maintenance", labelId: "nav.artworkMaintenance", icon: Images },
+  {
+    to: "/artwork/maintenance",
+    labelId: "nav.artworkMaintenance",
+    icon: Images,
+  },
   { to: "/acquisition/intake", labelId: "nav.intake", icon: Inbox },
-  { to: "/automation/generated-artifacts", labelId: "nav.automation", icon: Sparkles },
+  {
+    to: "/automation/generated-artifacts",
+    labelId: "nav.automation",
+    icon: Sparkles,
+  },
   { to: "/playback/sessions", labelId: "nav.playback", icon: PlayCircle },
   { to: "/storage/staging", labelId: "nav.storage", icon: HardDrive },
   { to: "/addons", labelId: "nav.addons", icon: Puzzle },
   { to: "/settings", labelId: "nav.settings", icon: Settings },
   { to: "/legacy", labelId: "nav.legacy", icon: Database },
-] satisfies ReadonlyArray<Omit<AdminShellNavItem, "label"> & { labelId: MessageId }>;
+] satisfies ReadonlyArray<
+  Omit<AdminShellNavItem, "label"> & { labelId: MessageId }
+>;
+
+const libraryDetailI18nNamespaces = ["libraryDetail", "libraries"] as const;
+const playbackSessionsI18nNamespaces = ["playback", "playbackSupport"] as const;
 
 function createAppRouter(context: RouterContext) {
   return createRouter({
@@ -488,7 +519,12 @@ export function App({
 }) {
   const [queryClient] = useState(() => new QueryClient());
   const router = useMemo(
-    () => createAppRouter({ dataSource, initialMediaConnection, mediaDataSourceFactory }),
+    () =>
+      createAppRouter({
+        dataSource,
+        initialMediaConnection,
+        mediaDataSourceFactory,
+      }),
     [dataSource, initialMediaConnection, mediaDataSourceFactory],
   );
 
@@ -502,8 +538,11 @@ export function App({
 }
 
 function RootLayout() {
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const { initialMediaConnection, mediaDataSourceFactory } = rootRoute.useRouteContext();
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  });
+  const { initialMediaConnection, mediaDataSourceFactory } =
+    rootRoute.useRouteContext();
   const { locale, setLocale, t } = useI18n();
   const navItems = useMemo(
     () =>
@@ -541,21 +580,37 @@ function RootLayout() {
   );
 }
 
+function RouteI18n({
+  children,
+  namespace,
+}: {
+  children: ReactNode;
+  namespace: I18nNamespace | readonly I18nNamespace[];
+}) {
+  return (
+    <I18nNamespaceBoundary namespace={namespace}>
+      {children}
+    </I18nNamespaceBoundary>
+  );
+}
+
 function JobsRoute() {
   const { dataSource } = jobsRoute.useRouteContext();
   const search = jobsRoute.useSearch();
   const navigate = jobsRoute.useNavigate();
 
   return (
-    <JobsPage
-      dataSource={dataSource}
-      onSearchChange={(next) => {
-        void navigate({
-          search: (current) => normalizeJobsSearch({ ...current, ...next }),
-        });
-      }}
-      search={search}
-    />
+    <RouteI18n namespace="jobs">
+      <JobsPage
+        dataSource={dataSource}
+        onSearchChange={(next) => {
+          void navigate({
+            search: (current) => normalizeJobsSearch({ ...current, ...next }),
+          });
+        }}
+        search={search}
+      />
+    </RouteI18n>
   );
 }
 
@@ -565,42 +620,64 @@ function EventsRoute() {
   const navigate = eventsRoute.useNavigate();
 
   return (
-    <EventsPage
-      dataSource={dataSource}
-      onSearchChange={(next) => {
-        void navigate({
-          search: (current) => normalizeEventsSearch({ ...current, ...next }),
-        });
-      }}
-      search={search}
-    />
+    <RouteI18n namespace="events">
+      <EventsPage
+        dataSource={dataSource}
+        onSearchChange={(next) => {
+          void navigate({
+            search: (current) => normalizeEventsSearch({ ...current, ...next }),
+          });
+        }}
+        search={search}
+      />
+    </RouteI18n>
   );
 }
 
 function AccessRoute() {
   const { dataSource } = accessRoute.useRouteContext();
-  return <AccessPage dataSource={dataSource} />;
+  return (
+    <RouteI18n namespace="access">
+      <AccessPage dataSource={dataSource} />
+    </RouteI18n>
+  );
 }
 
 function IncidentBundleRoute() {
   const { dataSource } = incidentBundleRoute.useRouteContext();
-  return <IncidentBundlePage dataSource={dataSource} />;
+  return (
+    <RouteI18n namespace="incidentBundle">
+      <IncidentBundlePage dataSource={dataSource} />
+    </RouteI18n>
+  );
 }
 
 function OverviewRoute() {
   const { dataSource } = overviewRoute.useRouteContext();
-  return <OverviewPage dataSource={dataSource} />;
+  return (
+    <RouteI18n namespace="overview">
+      <OverviewPage dataSource={dataSource} />
+    </RouteI18n>
+  );
 }
 
 function LibrariesRoute() {
   const { dataSource } = librariesRoute.useRouteContext();
-  return <LibrariesPage dataSource={dataSource} />;
+  return (
+    <RouteI18n namespace="libraries">
+      <LibrariesPage dataSource={dataSource} />
+    </RouteI18n>
+  );
 }
 
 function LibraryDetailRoute() {
   const { dataSource } = libraryDetailRoute.useRouteContext();
   const { libraryId } = libraryDetailRoute.useParams();
-  return <LibraryDetailPage dataSource={dataSource} libraryId={libraryId} />;
+  return (
+    <RouteI18n namespace={libraryDetailI18nNamespaces}>
+      <LibraryDetailPage dataSource={dataSource} libraryId={libraryId} />
+    </RouteI18n>
+  );
 }
 
 function CatalogBrowseRoute() {
@@ -609,15 +686,18 @@ function CatalogBrowseRoute() {
   const navigate = catalogBrowseRoute.useNavigate();
 
   return (
-    <CatalogBrowsePage
-      dataSource={dataSource}
-      onSearchChange={(next) => {
-        void navigate({
-          search: (current) => normalizeCatalogSearch({ ...current, ...next }),
-        });
-      }}
-      search={search}
-    />
+    <RouteI18n namespace="catalogBrowse">
+      <CatalogBrowsePage
+        dataSource={dataSource}
+        onSearchChange={(next) => {
+          void navigate({
+            search: (current) =>
+              normalizeCatalogSearch({ ...current, ...next }),
+          });
+        }}
+        search={search}
+      />
+    </RouteI18n>
   );
 }
 
@@ -627,15 +707,18 @@ function CatalogGovernanceRoute() {
   const navigate = catalogGovernanceRoute.useNavigate();
 
   return (
-    <CatalogGovernancePage
-      dataSource={dataSource}
-      onSearchChange={(next) => {
-        void navigate({
-          search: (current) => normalizeCatalogGovernanceSearch({ ...current, ...next }),
-        });
-      }}
-      search={search}
-    />
+    <RouteI18n namespace="catalogGovernance">
+      <CatalogGovernancePage
+        dataSource={dataSource}
+        onSearchChange={(next) => {
+          void navigate({
+            search: (current) =>
+              normalizeCatalogGovernanceSearch({ ...current, ...next }),
+          });
+        }}
+        search={search}
+      />
+    </RouteI18n>
   );
 }
 
@@ -646,16 +729,19 @@ function CatalogGovernanceRepairRoute() {
   const navigate = catalogGovernanceRepairRoute.useNavigate();
 
   return (
-    <CatalogGovernanceRepairPage
-      dataSource={dataSource}
-      itemId={itemId}
-      onSearchChange={(next) => {
-        void navigate({
-          search: (current) => normalizeCatalogGovernanceRepairSearch({ ...current, ...next }),
-        });
-      }}
-      search={search}
-    />
+    <RouteI18n namespace="catalogGovernance">
+      <CatalogGovernanceRepairPage
+        dataSource={dataSource}
+        itemId={itemId}
+        onSearchChange={(next) => {
+          void navigate({
+            search: (current) =>
+              normalizeCatalogGovernanceRepairSearch({ ...current, ...next }),
+          });
+        }}
+        search={search}
+      />
+    </RouteI18n>
   );
 }
 
@@ -663,7 +749,11 @@ function ItemDetailRoute() {
   const { dataSource } = itemDetailRoute.useRouteContext();
   const { itemId } = itemDetailRoute.useParams();
 
-  return <ItemDetailPage dataSource={dataSource} itemId={itemId} />;
+  return (
+    <RouteI18n namespace="itemDetail">
+      <ItemDetailPage dataSource={dataSource} itemId={itemId} />
+    </RouteI18n>
+  );
 }
 
 function ItemArtworkGalleryRoute() {
@@ -673,16 +763,19 @@ function ItemArtworkGalleryRoute() {
   const navigate = itemArtworkGalleryRoute.useNavigate();
 
   return (
-    <ItemArtworkGalleryPage
-      dataSource={dataSource}
-      itemId={itemId}
-      onSearchChange={(next) => {
-        void navigate({
-          search: (current) => normalizeItemArtworkGallerySearch({ ...current, ...next }),
-        });
-      }}
-      search={search}
-    />
+    <RouteI18n namespace="itemArtwork">
+      <ItemArtworkGalleryPage
+        dataSource={dataSource}
+        itemId={itemId}
+        onSearchChange={(next) => {
+          void navigate({
+            search: (current) =>
+              normalizeItemArtworkGallerySearch({ ...current, ...next }),
+          });
+        }}
+        search={search}
+      />
+    </RouteI18n>
   );
 }
 
@@ -692,16 +785,18 @@ function ManagedArtworkMaintenanceRoute() {
   const navigate = managedArtworkMaintenanceRoute.useNavigate();
 
   return (
-    <ManagedArtworkMaintenancePage
-      dataSource={dataSource}
-      onSearchChange={(next) => {
-        void navigate({
-          search: (current) =>
-            normalizeManagedArtworkMaintenanceSearch({ ...current, ...next }),
-        });
-      }}
-      search={search}
-    />
+    <RouteI18n namespace="artworkMaintenance">
+      <ManagedArtworkMaintenancePage
+        dataSource={dataSource}
+        onSearchChange={(next) => {
+          void navigate({
+            search: (current) =>
+              normalizeManagedArtworkMaintenanceSearch({ ...current, ...next }),
+          });
+        }}
+        search={search}
+      />
+    </RouteI18n>
   );
 }
 
@@ -712,18 +807,23 @@ function SourceDuplicateReconciliationRoute() {
   const navigate = sourceDuplicateReconciliationRoute.useNavigate();
 
   return (
-    <SourceDuplicateReconciliationRoutePage
-      dataSource={dataSource}
-      itemId={itemId}
-      onSearchChange={(next) => {
-        void navigate({
-          search: (current) =>
-            normalizeSourceDuplicateReconciliationSearch({ ...current, ...next }),
-        });
-      }}
-      search={search}
-      sourceId={sourceId}
-    />
+    <RouteI18n namespace="sourceDuplicate">
+      <SourceDuplicateReconciliationRoutePage
+        dataSource={dataSource}
+        itemId={itemId}
+        onSearchChange={(next) => {
+          void navigate({
+            search: (current) =>
+              normalizeSourceDuplicateReconciliationSearch({
+                ...current,
+                ...next,
+              }),
+          });
+        }}
+        search={search}
+        sourceId={sourceId}
+      />
+    </RouteI18n>
   );
 }
 
@@ -733,15 +833,18 @@ function AcquisitionIntakeRoute() {
   const navigate = acquisitionIntakeRoute.useNavigate();
 
   return (
-    <AcquisitionIntakePage
-      dataSource={dataSource}
-      onSearchChange={(next) => {
-        void navigate({
-          search: (current) => normalizeAcquisitionIntakeSearch({ ...current, ...next }),
-        });
-      }}
-      search={search}
-    />
+    <RouteI18n namespace="acquisition">
+      <AcquisitionIntakePage
+        dataSource={dataSource}
+        onSearchChange={(next) => {
+          void navigate({
+            search: (current) =>
+              normalizeAcquisitionIntakeSearch({ ...current, ...next }),
+          });
+        }}
+        search={search}
+      />
+    </RouteI18n>
   );
 }
 
@@ -751,15 +854,18 @@ function GeneratedArtifactsRoute() {
   const navigate = generatedArtifactsRoute.useNavigate();
 
   return (
-    <GeneratedArtifactsPage
-      dataSource={dataSource}
-      onSearchChange={(next) => {
-        void navigate({
-          search: (current) => normalizeGeneratedArtifactsSearch({ ...current, ...next }),
-        });
-      }}
-      search={search}
-    />
+    <RouteI18n namespace="generatedArtifacts">
+      <GeneratedArtifactsPage
+        dataSource={dataSource}
+        onSearchChange={(next) => {
+          void navigate({
+            search: (current) =>
+              normalizeGeneratedArtifactsSearch({ ...current, ...next }),
+          });
+        }}
+        search={search}
+      />
+    </RouteI18n>
   );
 }
 
@@ -770,16 +876,19 @@ function GeneratedArtifactReviewRoute() {
   const navigate = generatedArtifactReviewRoute.useNavigate();
 
   return (
-    <GeneratedArtifactReviewPage
-      artifactId={artifactId}
-      dataSource={dataSource}
-      onSearchChange={(next) => {
-        void navigate({
-          search: (current) => normalizeGeneratedArtifactReviewSearch({ ...current, ...next }),
-        });
-      }}
-      search={search}
-    />
+    <RouteI18n namespace="generatedArtifactReview">
+      <GeneratedArtifactReviewPage
+        artifactId={artifactId}
+        dataSource={dataSource}
+        onSearchChange={(next) => {
+          void navigate({
+            search: (current) =>
+              normalizeGeneratedArtifactReviewSearch({ ...current, ...next }),
+          });
+        }}
+        search={search}
+      />
+    </RouteI18n>
   );
 }
 
@@ -789,15 +898,18 @@ function PlaybackSessionsRoute() {
   const navigate = playbackRoute.useNavigate();
 
   return (
-    <PlaybackSessionsPage
-      dataSource={dataSource}
-      onSearchChange={(next) => {
-        void navigate({
-          search: (current) => normalizePlaybackSessionsSearch({ ...current, ...next }),
-        });
-      }}
-      search={search}
-    />
+    <RouteI18n namespace={playbackSessionsI18nNamespaces}>
+      <PlaybackSessionsPage
+        dataSource={dataSource}
+        onSearchChange={(next) => {
+          void navigate({
+            search: (current) =>
+              normalizePlaybackSessionsSearch({ ...current, ...next }),
+          });
+        }}
+        search={search}
+      />
+    </RouteI18n>
   );
 }
 
@@ -805,7 +917,11 @@ function PlaybackSupportRoute() {
   const { dataSource } = playbackSupportRoute.useRouteContext();
   const search = playbackSupportRoute.useSearch();
 
-  return <PlaybackSupportPage dataSource={dataSource} search={search} />;
+  return (
+    <RouteI18n namespace="playbackSupport">
+      <PlaybackSupportPage dataSource={dataSource} search={search} />
+    </RouteI18n>
+  );
 }
 
 function StorageStagingRoute() {
@@ -814,15 +930,18 @@ function StorageStagingRoute() {
   const navigate = storageRoute.useNavigate();
 
   return (
-    <StorageStagingPage
-      dataSource={dataSource}
-      onSearchChange={(next) => {
-        void navigate({
-          search: (current) => normalizeStorageStagingSearch({ ...current, ...next }),
-        });
-      }}
-      search={search}
-    />
+    <RouteI18n namespace="storage">
+      <StorageStagingPage
+        dataSource={dataSource}
+        onSearchChange={(next) => {
+          void navigate({
+            search: (current) =>
+              normalizeStorageStagingSearch({ ...current, ...next }),
+          });
+        }}
+        search={search}
+      />
+    </RouteI18n>
   );
 }
 
@@ -832,21 +951,27 @@ function AddonsRoute() {
   const navigate = addonsRoute.useNavigate();
 
   return (
-    <AddonsPage
-      dataSource={dataSource}
-      onSearchChange={(next) => {
-        void navigate({
-          search: (current) => normalizeAddonsSearch({ ...current, ...next }),
-        });
-      }}
-      search={search}
-    />
+    <RouteI18n namespace="addons">
+      <AddonsPage
+        dataSource={dataSource}
+        onSearchChange={(next) => {
+          void navigate({
+            search: (current) => normalizeAddonsSearch({ ...current, ...next }),
+          });
+        }}
+        search={search}
+      />
+    </RouteI18n>
   );
 }
 
 function SettingsRoute() {
   const { dataSource } = settingsRoute.useRouteContext();
-  return <SettingsPage dataSource={dataSource} />;
+  return (
+    <RouteI18n namespace="settings">
+      <SettingsPage dataSource={dataSource} />
+    </RouteI18n>
+  );
 }
 
 function LegacyRoute() {
@@ -870,7 +995,8 @@ function MediaLibrariesRoute() {
     <MediaLibrariesPage
       onSearchChange={(next) => {
         void navigate({
-          search: (current) => normalizeMediaPageSearch({ ...current, ...next }),
+          search: (current) =>
+            normalizeMediaPageSearch({ ...current, ...next }),
         });
       }}
       search={search}
@@ -888,7 +1014,8 @@ function MediaLibraryDetailRoute() {
       libraryId={libraryId}
       onSearchChange={(next) => {
         void navigate({
-          search: (current) => normalizeMediaPageSearch({ ...current, ...next }),
+          search: (current) =>
+            normalizeMediaPageSearch({ ...current, ...next }),
         });
       }}
       search={search}
@@ -922,7 +1049,8 @@ function MediaItemDetailRoute() {
       itemId={itemId}
       onSearchChange={(next) => {
         void navigate({
-          search: (current) => normalizeMediaItemSearch({ ...current, ...next }),
+          search: (current) =>
+            normalizeMediaItemSearch({ ...current, ...next }),
         });
       }}
       search={search}
@@ -940,7 +1068,8 @@ function MediaWatchRoute() {
       itemId={itemId}
       onSearchChange={(next) => {
         void navigate({
-          search: (current) => normalizeMediaItemSearch({ ...current, ...next }),
+          search: (current) =>
+            normalizeMediaItemSearch({ ...current, ...next }),
         });
       }}
       search={search}
@@ -948,21 +1077,27 @@ function MediaWatchRoute() {
   );
 }
 
-function validateMediaPageSearch(search: Record<string, unknown>): MediaPageSearch {
+function validateMediaPageSearch(
+  search: Record<string, unknown>,
+): MediaPageSearch {
   return normalizeMediaPageSearch({
     limit: positiveIntSearch(search.limit, 20),
     offset: nonNegativeIntSearch(search.offset, 0),
   });
 }
 
-function normalizeMediaPageSearch(search: Partial<MediaPageSearch>): MediaPageSearch {
+function normalizeMediaPageSearch(
+  search: Partial<MediaPageSearch>,
+): MediaPageSearch {
   return {
     limit: positiveIntSearch(search.limit, 20),
     offset: nonNegativeIntSearch(search.offset, 0),
   };
 }
 
-function validateMediaSearch(search: Record<string, unknown>): MediaSearchRouteSearch {
+function validateMediaSearch(
+  search: Record<string, unknown>,
+): MediaSearchRouteSearch {
   return normalizeMediaSearch({
     facet: stringSearch(search.facet),
     limit: positiveIntSearch(search.limit, 20),
@@ -971,7 +1106,9 @@ function validateMediaSearch(search: Record<string, unknown>): MediaSearchRouteS
   });
 }
 
-function normalizeMediaSearch(search: Partial<MediaSearchRouteSearch>): MediaSearchRouteSearch {
+function normalizeMediaSearch(
+  search: Partial<MediaSearchRouteSearch>,
+): MediaSearchRouteSearch {
   return {
     facet: emptyToUndefined(search.facet),
     limit: positiveIntSearch(search.limit, 20),
@@ -980,13 +1117,17 @@ function normalizeMediaSearch(search: Partial<MediaSearchRouteSearch>): MediaSea
   };
 }
 
-function validateMediaItemSearch(search: Record<string, unknown>): MediaItemSearch {
+function validateMediaItemSearch(
+  search: Record<string, unknown>,
+): MediaItemSearch {
   return normalizeMediaItemSearch({
     source_id: stringSearch(search.source_id),
   });
 }
 
-function normalizeMediaItemSearch(search: Partial<MediaItemSearch>): MediaItemSearch {
+function normalizeMediaItemSearch(
+  search: Partial<MediaItemSearch>,
+): MediaItemSearch {
   return {
     source_id: emptyToUndefined(search.source_id),
   };
@@ -1056,7 +1197,9 @@ function normalizeCatalogSearch(search: Partial<CatalogSearch>): CatalogSearch {
   };
 }
 
-function validateCatalogGovernanceSearch(search: Record<string, unknown>): CatalogGovernanceSearch {
+function validateCatalogGovernanceSearch(
+  search: Record<string, unknown>,
+): CatalogGovernanceSearch {
   return normalizeCatalogGovernanceSearch({
     library_id: stringSearch(search.library_id),
     max_confidence_milli: milliSearch(search.max_confidence_milli),
@@ -1094,7 +1237,9 @@ function normalizeCatalogGovernanceRepairSearch(
   };
 }
 
-function validateAcquisitionIntakeSearch(search: Record<string, unknown>): AcquisitionIntakeSearch {
+function validateAcquisitionIntakeSearch(
+  search: Record<string, unknown>,
+): AcquisitionIntakeSearch {
   return normalizeAcquisitionIntakeSearch({
     library_id: stringSearch(search.library_id),
     state: stringSearch(search.state),
@@ -1112,13 +1257,17 @@ function normalizeAcquisitionIntakeSearch(
     library_id: emptyToUndefined(search.library_id),
     state: emptyToUndefined(search.state),
     source_kind: emptyToUndefined(search.source_kind),
-    managed_import_artifact_id: emptyToUndefined(search.managed_import_artifact_id),
+    managed_import_artifact_id: emptyToUndefined(
+      search.managed_import_artifact_id,
+    ),
     limit: positiveIntSearch(search.limit, 20),
     offset: nonNegativeIntSearch(search.offset, 0),
   };
 }
 
-function validateGeneratedArtifactsSearch(search: Record<string, unknown>): GeneratedArtifactsSearch {
+function validateGeneratedArtifactsSearch(
+  search: Record<string, unknown>,
+): GeneratedArtifactsSearch {
   return normalizeGeneratedArtifactsSearch({
     limit: positiveIntSearch(search.limit, 20),
     offset: nonNegativeIntSearch(search.offset, 0),
@@ -1150,7 +1299,9 @@ function normalizeGeneratedArtifactReviewSearch(
   };
 }
 
-function validateItemArtworkGallerySearch(search: Record<string, unknown>): ItemArtworkGallerySearch {
+function validateItemArtworkGallerySearch(
+  search: Record<string, unknown>,
+): ItemArtworkGallerySearch {
   return normalizeItemArtworkGallerySearch({
     limit: positiveIntSearch(search.limit, 20),
     offset: nonNegativeIntSearch(search.offset, 0),
@@ -1208,7 +1359,9 @@ function normalizeSourceDuplicateReconciliationSearch(
   };
 }
 
-function validatePlaybackSessionsSearch(search: Record<string, unknown>): PlaybackSessionsSearch {
+function validatePlaybackSessionsSearch(
+  search: Record<string, unknown>,
+): PlaybackSessionsSearch {
   return normalizePlaybackSessionsSearch({
     source_id: stringSearch(search.source_id),
     state: stringSearch(search.state),
@@ -1228,7 +1381,9 @@ function normalizePlaybackSessionsSearch(
   };
 }
 
-function validatePlaybackSupportSearch(search: Record<string, unknown>): PlaybackSupportSearch {
+function validatePlaybackSupportSearch(
+  search: Record<string, unknown>,
+): PlaybackSupportSearch {
   return normalizePlaybackSupportSearch({
     session_id: stringSearch(search.session_id),
     source_id: stringSearch(search.source_id),
@@ -1244,7 +1399,9 @@ function normalizePlaybackSupportSearch(
   };
 }
 
-function validateStorageStagingSearch(search: Record<string, unknown>): StorageStagingSearch {
+function validateStorageStagingSearch(
+  search: Record<string, unknown>,
+): StorageStagingSearch {
   return normalizeStorageStagingSearch({
     purpose: stringSearch(search.purpose),
     state: stringSearch(search.state),
@@ -1253,7 +1410,9 @@ function validateStorageStagingSearch(search: Record<string, unknown>): StorageS
   });
 }
 
-function normalizeStorageStagingSearch(search: Partial<StorageStagingSearch>): StorageStagingSearch {
+function normalizeStorageStagingSearch(
+  search: Partial<StorageStagingSearch>,
+): StorageStagingSearch {
   return {
     purpose: emptyToUndefined(search.purpose),
     state: emptyToUndefined(search.state),
@@ -1298,7 +1457,9 @@ function addonStatusSearch(value: unknown): AddonStatus | undefined {
   return undefined;
 }
 
-function reviewDecisionSearch(value: unknown): GeneratedArtifactReviewSearch["decision"] {
+function reviewDecisionSearch(
+  value: unknown,
+): GeneratedArtifactReviewSearch["decision"] {
   return value === "reject" ? "reject" : "accept";
 }
 
@@ -1325,5 +1486,7 @@ function nonNegativeIntSearch(value: unknown, fallback: number) {
 
 function milliSearch(value: unknown) {
   const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed >= 0 && parsed <= 1000 ? parsed : undefined;
+  return Number.isInteger(parsed) && parsed >= 0 && parsed <= 1000
+    ? parsed
+    : undefined;
 }

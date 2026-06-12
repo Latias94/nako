@@ -1144,6 +1144,8 @@ stays server-owned.
   `import type { JobsSearch } from "./features/jobs/JobsPage";`.
 - Broad default implementations that pull optional product surfaces, large
   fixtures, SDKs, or locale catalogs should be loaded through dynamic import.
+- Route-owned localized pages should be wrapped with `RouteI18n` in `App.tsx`
+  and declare the `I18nNamespace` catalog prefixes they need.
 
 ### 3. Contracts
 
@@ -1156,6 +1158,13 @@ stays server-owned.
 - `I18nProvider` may defer full message catalogs, but it must keep
   `MessageId`/`AdminLocale` typing, persist locale selection, and avoid
   rendering untranslated IDs after the catalog is loaded.
+- `src/i18n/messages.ts` owns only type composition. Runtime message text stays
+  in `src/i18n/catalogs/base.ts` and route/feature catalog modules loaded
+  through `src/i18n/catalogLoader.ts`.
+- Keep `shell`, `nav`, `source`, and `locale` messages in the base catalog so
+  the shell can render before a route catalog loads.
+- If a page renders another feature's copy, declare all needed namespaces in
+  its route wrapper, for example `["playback", "playbackSupport"]`.
 - Media Web default data-source wiring should not statically import the Public
   Client SDK or fixture data into the Admin shell.
 - Media Web route modules should keep browse/search/library pages, item detail
@@ -1169,15 +1178,19 @@ stays server-owned.
 |-----------|-------------------|
 | A route page is lazy-loaded | Its URL search, params, data source, i18n, and fallback behavior stay unchanged |
 | A page exposes only search types to `App.tsx` | Import remains `import type`, and build output keeps the page in a route chunk |
-| Locale catalog is loading | App may temporarily render no shell content, then renders localized copy once loaded |
+| Base locale catalog is loading | The shell may temporarily render no content, then renders localized copy once loaded |
+| Route locale catalog is loading | The shell remains rendered while the route outlet waits for all declared namespaces |
 | Media Web fixture/live connection is first used | The media data-source module loads on demand and preserves token redaction |
-| Build output moves code into route chunks | Main `index-*.js` shrinks and route chunks are emitted for the affected modules |
+| Build output moves code into route chunks | Main `index-*.js` shrinks and route/page plus route catalog chunks are emitted for the affected modules |
 
 ### 5. Good / Base / Bad Cases
 
 - Good: lazy route page declarations, type-only search imports, a shared
   `Suspense` outlet, dynamic message catalog loading, and build output showing
   route chunks plus a smaller main chunk.
+- Good: route catalog modules emit chunks such as `settings-*.js` and
+  `storage-*.js`; there is no single route-agnostic `messages-*.js` chunk that
+  contains all localized page copy.
 - Good: Media Web browse routes import only `MediaPages.tsx` plus lightweight
   media core helpers; `/media/items/$itemId` loads item playback state; and
   `/media/watch/$itemId` loads browser ticket/player/progress code.
@@ -1193,9 +1206,11 @@ stays server-owned.
 - Run affected route tests and `npm run test --prefix apps/admin-web` when i18n
   or shell loading changes.
 - Run `npm run build --prefix apps/admin-web` and inspect emitted
-  `dist/assets/index-*.js` plus route chunks.
+  `dist/assets/index-*.js`, route chunks, and route catalog chunks.
 - Keep route tests async-aware with `findBy...`/`waitFor` when lazy pages or
   dynamic catalogs are involved.
+- Add or keep tests that prove a route catalog loads on demand without
+  importing unrelated route catalogs.
 
 ### 7. Wrong vs Correct
 

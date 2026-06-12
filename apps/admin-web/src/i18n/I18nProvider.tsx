@@ -4,20 +4,27 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 
-import type { AdminLocale, MessageId } from "./messages";
+import {
+  baseCatalogs,
+  loadCatalogNamespace,
+  type LocaleMessageCatalogs,
+  type MessageCatalog,
+} from "./catalogLoader";
+import type { AdminLocale, I18nNamespace, MessageId } from "./messages";
 
-type MessageValues = Record<string, boolean | number | string | null | undefined>;
-type MessageCatalog = Record<MessageId, string>;
-type LoadedCatalog = {
-  locale: AdminLocale;
-  messages: MessageCatalog;
-};
+type MessageValues = Record<
+  string,
+  boolean | number | string | null | undefined
+>;
 
 type I18nContextValue = {
+  ensureNamespaces(namespaces: readonly I18nNamespace[]): Promise<void>;
+  hasNamespaces(namespaces: readonly I18nNamespace[]): boolean;
   locale: AdminLocale;
   setLocale(locale: AdminLocale): void;
   t(id: MessageId, values?: MessageValues): string;
@@ -43,28 +50,19 @@ export function I18nProvider({
   const [locale, setLocaleState] = useState<AdminLocale>(
     () => initialLocale ?? readStoredLocale() ?? defaultLocale,
   );
-  const [catalog, setCatalog] = useState<LoadedCatalog | null>(null);
+  const [namespaceCatalogs, setNamespaceCatalogs] = useState<
+    Partial<Record<I18nNamespace, LocaleMessageCatalogs>>
+  >({});
+  const namespaceCatalogsRef = useRef(namespaceCatalogs);
+  const pendingNamespacesRef = useRef(new Map<I18nNamespace, Promise<void>>());
 
   useEffect(() => {
     document.documentElement.lang = locale;
   }, [locale]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    void import("./messages").then((module) => {
-      if (!cancelled) {
-        setCatalog({
-          locale,
-          messages: module.messageCatalogs[locale],
-        });
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [locale]);
+    namespaceCatalogsRef.current = namespaceCatalogs;
+  }, [namespaceCatalogs]);
 
   const setLocale = useCallback((nextLocale: AdminLocale) => {
     setLocaleState(nextLocale);
@@ -75,27 +73,103 @@ export function I18nProvider({
     }
   }, []);
 
-  const activeCatalog = catalog?.locale === locale ? catalog.messages : null;
+  const ensureNamespaces = useCallback(
+    async (namespaces: readonly I18nNamespace[]) => {
+      await Promise.all(
+        namespaces.map((namespace) => {
+          if (namespaceCatalogsRef.current[namespace]) {
+            return Promise.resolve();
+          }
+
+          const pendingNamespace = pendingNamespacesRef.current.get(namespace);
+          if (pendingNamespace) {
+            return pendingNamespace;
+          }
+
+          const pending = loadCatalogNamespace(namespace).then((catalogs) => {
+            pendingNamespacesRef.current.delete(namespace);
+            setNamespaceCatalogs((current) => {
+              if (current[namespace]) {
+                return current;
+              }
+
+              const next = {
+                ...current,
+                [namespace]: catalogs,
+              };
+              namespaceCatalogsRef.current = next;
+              return next;
+            });
+          });
+
+          pendingNamespacesRef.current.set(namespace, pending);
+          return pending;
+        }),
+      );
+    },
+    [],
+  );
+
+  const hasNamespaces = useCallback(
+    (namespaces: readonly I18nNamespace[]) =>
+      namespaces.every((namespace) => Boolean(namespaceCatalogs[namespace])),
+    [namespaceCatalogs],
+  );
+
+  const activeCatalog = useMemo(() => {
+    const mergedCatalog: Record<string, string> = {
+      ...baseCatalogs[locale],
+    };
+
+    for (const catalogs of Object.values(namespaceCatalogs)) {
+      Object.assign(mergedCatalog, catalogs?.[locale]);
+    }
+
+    return mergedCatalog as MessageCatalog;
+  }, [locale, namespaceCatalogs]);
 
   const t = useCallback(
-    (id: MessageId, values?: MessageValues) => formatMessage(activeCatalog?.[id] ?? id, values),
+    (id: MessageId, values?: MessageValues) =>
+      formatMessage(activeCatalog?.[id] ?? id, values),
     [activeCatalog],
   );
 
   const value = useMemo(
     () => ({
+      ensureNamespaces,
+      hasNamespaces,
       locale,
       setLocale,
       t,
     }),
-    [locale, setLocale, t],
+    [ensureNamespaces, hasNamespaces, locale, setLocale, t],
   );
 
-  if (!activeCatalog) {
+  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
+}
+
+export function I18nNamespaceBoundary({
+  children,
+  namespace,
+}: {
+  children: ReactNode;
+  namespace: I18nNamespace | readonly I18nNamespace[];
+}) {
+  const namespaces = useMemo(
+    () => (typeof namespace === "string" ? [namespace] : [...namespace]),
+    [namespace],
+  );
+  const { ensureNamespaces, hasNamespaces } = useI18n();
+
+  useEffect(() => {
+    void ensureNamespaces(namespaces);
+  }, [ensureNamespaces, namespaces]);
+
+  if (!hasNamespaces(namespaces)) {
     return null;
   }
 
-  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
+  return <>{children}</>;
 }
 
 export function useI18n() {

@@ -1,6 +1,21 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const catalogImportSpies = vi.hoisted(() => ({
+  jobs: vi.fn(),
+  settings: vi.fn(),
+}));
+
+vi.mock("./i18n/catalogs/jobs", async (importOriginal) => {
+  catalogImportSpies.jobs();
+  return importOriginal<typeof import("./i18n/catalogs/jobs")>();
+});
+
+vi.mock("./i18n/catalogs/settings", async (importOriginal) => {
+  catalogImportSpies.settings();
+  return importOriginal<typeof import("./i18n/catalogs/settings")>();
+});
+
 import { App } from "./App";
 import type { AdminConsoleData, AdminDataSource } from "./adminApi/dataSource";
 import type {
@@ -932,11 +947,15 @@ describe("Admin Web V2 route shell", () => {
       value: mockSystemConfig,
       source: "live" as const,
     }));
+    catalogImportSpies.jobs.mockClear();
+    catalogImportSpies.settings.mockClear();
     window.history.pushState(null, "", "/settings");
 
     render(<App dataSource={{ load: async () => emptyConsoleData(), loadSettings }} />);
 
     expect(await screen.findByRole("heading", { name: "System Settings" })).toBeInTheDocument();
+    expect(catalogImportSpies.settings).toHaveBeenCalledTimes(1);
+    expect(catalogImportSpies.jobs).not.toHaveBeenCalled();
     expect(await screen.findByText("Network readiness")).toBeInTheDocument();
     expect(await screen.findByText("reverse_proxy")).toBeInTheDocument();
     expect(screen.getAllByText("ready").length).toBeGreaterThan(0);
