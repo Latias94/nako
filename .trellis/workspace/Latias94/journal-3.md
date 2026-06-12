@@ -715,3 +715,38 @@ Added a focused `nako-server` HTTP route test for `GET /admin/v1/diagnostics/inc
 ### Next Steps
 
 - Commit and archive the Trellis task after review.
+
+
+## Session 115: Incident Bundle JSON export actions
+
+**Date**: 2026-06-12
+**Task**: Incident Bundle JSON export actions
+**Package**: nako
+**Branch**: `feat/u3-intake-stability-source-hash-readiness`
+
+### Summary
+
+Added Admin Web copy/download actions for the incident bundle with safe JSON projection, extended incident bundle route inventory coverage, and verified Admin Web, API contract, and server tests.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `15b09ddf` | (see git log) |
+| `b982df08` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
