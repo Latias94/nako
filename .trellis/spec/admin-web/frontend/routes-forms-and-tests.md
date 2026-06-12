@@ -1158,6 +1158,10 @@ stays server-owned.
   rendering untranslated IDs after the catalog is loaded.
 - Media Web default data-source wiring should not statically import the Public
   Client SDK or fixture data into the Admin shell.
+- Media Web route modules should keep browse/search/library pages, item detail
+  playback state, and watch/browser-player code in separate lazy modules. Do
+  not put browser playback tickets, HLS adapter probing, video element handlers,
+  or playback progress flushing back into `MediaPages.tsx`.
 
 ### 4. Validation & Error Matrix
 
@@ -1174,11 +1178,14 @@ stays server-owned.
 - Good: lazy route page declarations, type-only search imports, a shared
   `Suspense` outlet, dynamic message catalog loading, and build output showing
   route chunks plus a smaller main chunk.
+- Good: Media Web browse routes import only `MediaPages.tsx` plus lightweight
+  media core helpers; `/media/items/$itemId` loads item playback state; and
+  `/media/watch/$itemId` loads browser ticket/player/progress code.
 - Base: simple routes can still pass broad `AdminDataSource` into the page when
   they do not need a feature adapter.
 - Bad: importing page components, adapter factories, media data-source defaults,
-  generated SDK clients, fixtures, or full message catalogs directly into the
-  Admin shell path.
+  generated SDK clients, fixtures, full message catalogs, or watch/player-only
+  media code directly into the Admin shell or browse route path.
 
 ### 6. Tests Required
 

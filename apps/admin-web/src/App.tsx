@@ -52,7 +52,7 @@ import type {
   MediaItemSearch,
   MediaPageSearch,
   MediaSearchRouteSearch,
-} from "./surfaces/media/MediaPages";
+} from "./surfaces/media/MediaCore";
 import type { MediaConnection, MediaDataSourceFactory } from "./surfaces/media/mediaDataSource";
 
 const AcquisitionIntakePage = lazy(() =>
@@ -171,7 +171,7 @@ const IncidentBundlePage = lazy(() =>
   })),
 );
 const MediaConnectPage = lazy(() =>
-  import("./surfaces/media/MediaPages").then((module) => ({
+  import("./surfaces/media/MediaConnectPage").then((module) => ({
     default: module.MediaConnectPage,
   })),
 );
@@ -181,7 +181,7 @@ const MediaHomePage = lazy(() =>
   })),
 );
 const MediaItemDetailPage = lazy(() =>
-  import("./surfaces/media/MediaPages").then((module) => ({
+  import("./surfaces/media/MediaItemDetailPage").then((module) => ({
     default: module.MediaItemDetailPage,
   })),
 );
@@ -201,7 +201,7 @@ const MediaSearchPage = lazy(() =>
   })),
 );
 const MediaWatchPage = lazy(() =>
-  import("./surfaces/media/MediaPages").then((module) => ({
+  import("./surfaces/media/MediaWatchPage").then((module) => ({
     default: module.MediaWatchPage,
   })),
 );
