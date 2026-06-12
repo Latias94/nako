@@ -11,6 +11,7 @@ import {
 import {
   Activity,
   Database,
+  FileJson,
   Film,
   HardDrive,
   Inbox,
@@ -55,6 +56,7 @@ import {
   CatalogGovernanceRepairPage,
   type CatalogGovernanceRepairSearch,
 } from "./features/catalog/CatalogGovernanceRepairPage";
+import { IncidentBundlePage } from "./features/diagnostics/IncidentBundlePage";
 import { EventsPage, type EventsSearch } from "./features/events/EventsPage";
 import { JobsPage, type JobsSearch } from "./features/jobs/JobsPage";
 import {
@@ -145,6 +147,12 @@ const accessRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/access",
   component: AccessRoute,
+});
+
+const incidentBundleRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/diagnostics/incident-bundle",
+  component: IncidentBundleRoute,
 });
 
 const overviewRoute = createRoute({
@@ -309,6 +317,7 @@ const routeTree = rootRoute.addChildren([
   jobsRoute,
   eventsRoute,
   accessRoute,
+  incidentBundleRoute,
   overviewRoute,
   librariesRoute,
   libraryDetailRoute,
@@ -342,6 +351,7 @@ const adminNavItems = [
   { to: "/jobs", labelId: "nav.jobs", icon: ListChecks },
   { to: "/events", labelId: "nav.events", icon: Activity },
   { to: "/access", labelId: "nav.access", icon: UsersRound },
+  { to: "/diagnostics/incident-bundle", labelId: "nav.incidentBundle", icon: FileJson },
   { to: "/libraries", labelId: "nav.libraries", icon: Library },
   { to: "/catalog", labelId: "nav.catalog", icon: Film },
   { to: "/artwork/maintenance", labelId: "nav.artworkMaintenance", icon: Images },
@@ -471,6 +481,11 @@ function EventsRoute() {
 function AccessRoute() {
   const { dataSource } = accessRoute.useRouteContext();
   return <AccessPage dataSource={dataSource} />;
+}
+
+function IncidentBundleRoute() {
+  const { dataSource } = incidentBundleRoute.useRouteContext();
+  return <IncidentBundlePage dataSource={dataSource} />;
 }
 
 function OverviewRoute() {

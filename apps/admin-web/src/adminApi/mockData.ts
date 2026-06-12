@@ -27,6 +27,7 @@ import type {
   AdminGeneratedArtifactReviewPlanResponse,
   AdminGeneratedArtifactReviewRequest,
   AdminGeneratedArtifactReviewResponse,
+  AdminIncidentBundleResponse,
   AdminMetadataRawCacheSettingsResponse,
   AdminManagedArtworkArtifactLifecycleResponse,
   AdminManagedArtworkArtifactRemediationPlanResponse,
@@ -3110,6 +3111,95 @@ export const mockSystemConfig: AdminServerConfigDiagnosticsResponse = {
     has_fetch_proxy: false,
     max_width: 4096,
     max_height: 4096,
+  },
+};
+
+export const mockIncidentBundle: AdminIncidentBundleResponse = {
+  admin_api_version: "v1",
+  public_api_version: "v1",
+  generated_at_ms: 1_779_667_200_000,
+  artifact: {
+    format: "json_only",
+    zip_archive_included: false,
+    upload_transport_included: false,
+    unbounded_logs_included: false,
+  },
+  overview: mockOverview,
+  system: {
+    auth_enabled: mockSystemConfig.auth.enabled,
+    database: {
+      configured_backend_kind: mockSystemConfig.database.configured_backend_kind,
+      active_backend_kind: mockSystemConfig.database.active_backend_kind,
+      url_scheme: mockSystemConfig.database.url_scheme,
+      runtime_supported: mockSystemConfig.database.runtime_supported,
+      migrated_on_startup: mockSystemConfig.database.migrated_on_startup,
+    },
+    runtime: {
+      scan_concurrency: mockSystemConfig.runtime.scan_concurrency,
+      probe_concurrency: mockSystemConfig.runtime.probe_concurrency,
+      metadata_concurrency: mockSystemConfig.runtime.metadata_concurrency,
+      remux_concurrency: mockSystemConfig.runtime.remux_concurrency,
+      webhook_concurrency: mockSystemConfig.runtime.webhook_concurrency,
+    },
+    libraries: {
+      configured_count: mockSystemConfig.libraries.length,
+      local_count: mockSystemConfig.libraries.filter((library) => library.backend_kind === "local").length,
+      webdav_count: mockSystemConfig.libraries.filter((library) => library.backend_kind === "webdav").length,
+    },
+    metadata: {
+      provider_count: mockSystemConfig.metadata.providers.length,
+      enabled_provider_count: mockSystemConfig.metadata.providers.filter((provider) => provider.enabled).length,
+      disabled_provider_count: mockSystemConfig.metadata.providers.filter((provider) => !provider.enabled).length,
+      providers_with_secret_reference_count: mockSystemConfig.metadata.providers.filter(
+        (provider) =>
+          provider.token_env !== null
+          || provider.api_key_env !== null
+          || provider.secret_header_count > 0,
+      ).length,
+      providers_with_runtime_override_count: mockSystemConfig.metadata.providers.filter(
+        (provider) => provider.has_provider_runtime_override,
+      ).length,
+    },
+  },
+  network: {
+    exposure_mode: mockSystemConfig.network.exposure_mode,
+    readiness: mockSystemConfig.network.readiness,
+    external_endpoint_configured: mockSystemConfig.network.external_endpoint.configured,
+    external_endpoint_scheme: mockSystemConfig.network.external_endpoint.scheme,
+    trusted_proxy_headers_enabled: mockSystemConfig.network.trusted_proxy.headers_enabled,
+    trusted_proxy_source_count: mockSystemConfig.network.trusted_proxy.source_count,
+    allowed_origin_count: mockSystemConfig.network.origins.allowed_origin_count,
+    tunnel_provider_count: mockSystemConfig.network.tunnel_providers.length,
+    tunnel_providers_with_endpoint_count: mockSystemConfig.network.tunnel_providers.filter(
+      (provider) => provider.endpoint_configured,
+    ).length,
+    tunnel_providers_with_token_reference_count: mockSystemConfig.network.tunnel_providers.filter(
+      (provider) => provider.token_env !== null,
+    ).length,
+  },
+  playback: {
+    runtime: mockPlaybackRuntime,
+    support_evidence: mockPlaybackSupport,
+  },
+  storage: {
+    staging: mockStorageStaging.summary,
+    vfs_cache_repair_action_plan: mockVfsCacheRepairActionPlan.plan,
+  },
+  jobs: {
+    queue_pressure: mockJobs.queue_pressure,
+  },
+  redaction: {
+    status: "complete",
+    raw_paths_redacted: true,
+    locators_redacted: true,
+    tokens_redacted: true,
+    credentials_redacted: true,
+    ffmpeg_command_lines_redacted: true,
+    provider_payloads_redacted: true,
+    backend_urls_redacted: true,
+    query_strings_redacted: true,
+    raw_job_payloads_redacted: true,
+    unbounded_logs_redacted: true,
   },
 };
 

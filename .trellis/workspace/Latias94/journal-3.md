@@ -632,3 +632,47 @@ Verified the U3 intake stability and source-hash readiness first slice was alrea
 ### Next Steps
 
 - None - task complete
+
+
+## Session 115: Redacted incident bundle export
+
+**Date**: 2026-06-12
+**Task**: JSON-only redacted incident bundle export
+**Package**: nako
+**Branch**: `feat/u3-intake-stability-source-hash-readiness`
+
+### Summary
+
+Implemented the follow-on operator support slice by adding an Admin-only redacted incident bundle API, server aggregation from safe diagnostic posture DTOs, and an Admin Web inspection page for manual support sharing without raw secrets or host-specific locators.
+
+### Main Changes
+
+- Added the incident bundle Admin DTO, generated Admin TypeScript contracts, and a new `GET /admin/v1/diagnostics/incident-bundle` route.
+- Composed the server bundle from safe system, network, playback, storage, VFS repair, and durable job pressure summaries without forwarding raw config diagnostics.
+- Added Admin Web client/data-source wiring, mock data, navigation, localized copy, and route coverage for the read-only incident bundle page.
+- Updated the Admin/Public contract Trellis spec with the redaction contract for incident bundles.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `TBD` | `feat(admin): add redacted incident bundle export` |
+
+### Testing
+
+- [OK] `cargo fmt --all`
+- [OK] `git diff --check`
+- [OK] `npm run generate:admin-api --prefix apps/admin-web`
+- [OK] `cargo run -q -p nako-api --example emit-admin-typescript-contract -- --output web/src/api/admin/generated/contract.ts`
+- [OK] `npm run check --prefix apps/admin-web`
+- [OK] `npm run test --prefix apps/admin-web -- adminApi/client.test.ts adminApi/dataSource.test.ts App.test.tsx`
+- [OK] `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+- [OK] `cargo check -p nako-server --tests`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Commit the incident bundle implementation and backfill the commit hash in task metadata if needed.

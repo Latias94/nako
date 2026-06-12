@@ -5,6 +5,7 @@ export const NAKO_ADMIN_API_VERSION = "v1" as const;
 
 export const NAKO_ADMIN_ROUTES = {
   overview: "/admin/v1/overview",
+  incidentBundle: "/admin/v1/diagnostics/incident-bundle",
   accessSummary: "/admin/v1/access/summary",
   accessInvitations: "/admin/v1/access/invitations",
   accessInvitationRevoke: "/admin/v1/access/invitations/{invitation_id}/revoke",
@@ -2128,6 +2129,88 @@ export interface AdminOverviewResponse {
   };
 }
 
+export type AdminIncidentBundleFormat = "json_only";
+
+export type AdminIncidentBundleRedactionStatus = "complete";
+
+export interface AdminIncidentBundleResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  generated_at_ms: number;
+  artifact: {
+    format: AdminIncidentBundleFormat;
+    zip_archive_included: boolean;
+    upload_transport_included: boolean;
+    unbounded_logs_included: boolean;
+  };
+  overview: AdminOverviewResponse;
+  system: {
+    auth_enabled: boolean;
+    database: {
+      configured_backend_kind: string;
+      active_backend_kind: string;
+      url_scheme: string;
+      runtime_supported: boolean;
+      migrated_on_startup: boolean;
+    };
+    runtime: {
+      scan_concurrency: number;
+      probe_concurrency: number;
+      metadata_concurrency: number;
+      remux_concurrency: number;
+      webhook_concurrency: number;
+    };
+    libraries: {
+      configured_count: number;
+      local_count: number;
+      webdav_count: number;
+    };
+    metadata: {
+      provider_count: number;
+      enabled_provider_count: number;
+      disabled_provider_count: number;
+      providers_with_secret_reference_count: number;
+      providers_with_runtime_override_count: number;
+    };
+  };
+  network: {
+    exposure_mode: AdminNetworkExposureMode;
+    readiness: AdminNetworkReadinessDiagnostics;
+    external_endpoint_configured: boolean;
+    external_endpoint_scheme: string | null;
+    trusted_proxy_headers_enabled: boolean;
+    trusted_proxy_source_count: number;
+    allowed_origin_count: number;
+    tunnel_provider_count: number;
+    tunnel_providers_with_endpoint_count: number;
+    tunnel_providers_with_token_reference_count: number;
+  };
+  playback: {
+    runtime: AdminPlaybackRuntimeDiagnosticsResponse;
+    support_evidence: AdminPlaybackSupportEvidenceResponse;
+  };
+  storage: {
+    staging: AdminStorageStagingDiagnosticsResponse["summary"];
+    vfs_cache_repair_action_plan: AdminVfsCacheRepairActionPlanResponse["plan"];
+  };
+  jobs: {
+    queue_pressure: AdminJobQueuePressureSummary[];
+  };
+  redaction: {
+    status: AdminIncidentBundleRedactionStatus;
+    raw_paths_redacted: boolean;
+    locators_redacted: boolean;
+    tokens_redacted: boolean;
+    credentials_redacted: boolean;
+    ffmpeg_command_lines_redacted: boolean;
+    provider_payloads_redacted: boolean;
+    backend_urls_redacted: boolean;
+    query_strings_redacted: boolean;
+    raw_job_payloads_redacted: boolean;
+    unbounded_logs_redacted: boolean;
+  };
+}
+
 export interface AdminCatalogGovernanceItemListResponse {
   items: AdminCatalogGovernanceItem[];
   page: PageInfo;
@@ -4006,6 +4089,16 @@ export type AdminNetworkReadinessCheckName =
   | "origin_policy"
   | "tunnel_provider";
 
+export interface AdminNetworkReadinessDiagnostics {
+  status: AdminNetworkReadinessStatus;
+  reason: AdminNetworkReadinessReason;
+  checks: Array<{
+    name: AdminNetworkReadinessCheckName;
+    status: AdminNetworkReadinessStatus;
+    reason: AdminNetworkReadinessReason;
+  }>;
+}
+
 export type AdminTunnelProviderKind =
   | "external"
   | "cloudflare_tunnel"
@@ -4014,15 +4107,7 @@ export type AdminTunnelProviderKind =
 
 export interface AdminNetworkAccessDiagnostics {
   exposure_mode: AdminNetworkExposureMode;
-  readiness: {
-    status: AdminNetworkReadinessStatus;
-    reason: AdminNetworkReadinessReason;
-    checks: Array<{
-      name: AdminNetworkReadinessCheckName;
-      status: AdminNetworkReadinessStatus;
-      reason: AdminNetworkReadinessReason;
-    }>;
-  };
+  readiness: AdminNetworkReadinessDiagnostics;
   external_endpoint: {
     configured: boolean;
     scheme: string | null;

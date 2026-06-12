@@ -87,6 +87,144 @@ cargo run -p nako-api --example emit-admin-typescript-contract -- --output apps/
 Generated contract files are artifacts from `nako-api`; edit the generator and
 DTO source, then regenerate.
 
+## Scenario: Redacted Incident Bundle Admin Contract
+
+### 1. Scope / Trigger
+
+- Trigger: adding or changing Admin-only diagnostic bundle/export routes that
+  aggregate multiple operational read models for support.
+- Scope: `AdminIncidentBundleResponse`, related redaction DTOs,
+  `GET /admin/v1/diagnostics/incident-bundle`, Admin route inventory,
+  generated Admin Web contracts, and Admin Web read-only projections.
+- Authority: ADR 0027 and ADR 0053.
+
+### 2. Signatures
+
+- Route: `GET /admin/v1/diagnostics/incident-bundle`.
+- Generated route key: `incidentBundle`.
+- Admin DTO:
+  `AdminIncidentBundleResponse { admin_api_version, public_api_version,
+  generated_at_ms, artifact, overview, system, network, playback, storage,
+  jobs, redaction }`.
+- Artifact format: `AdminIncidentBundleFormat::JsonOnly`.
+- Redaction status: `AdminIncidentBundleRedactionStatus::Complete`.
+- Admin Web client method:
+  `AdminApiClient.getIncidentBundle(): Promise<AdminIncidentBundleResponse>`.
+- Admin Web data-source method:
+  `loadIncidentBundle(): Promise<AdminSectionResult<AdminIncidentBundleResponse>>`.
+
+### 3. Contracts
+
+- Incident bundle routes are Admin-only. Do not add them to Public Client route
+  inventories, OpenAPI public routes, or the generated Public TypeScript SDK.
+- The first incident bundle contract is JSON-only. Do not add zip generation,
+  upload/share transport, log streaming, backup/restore, or remote-support
+  transport without a dedicated task and contract.
+- Compose the bundle from existing safe summaries where possible:
+  overview, network posture, playback runtime/support evidence, storage/VFS
+  repair posture, and durable job queue pressure.
+- Do not embed full raw configuration diagnostics when a smaller posture DTO is
+  enough. For example, expose system counts and booleans rather than
+  `token_env`, `api_key_env`, exact listener addresses, library roots, provider
+  URLs, or tunnel token references.
+- The network section may expose readiness status/checks, exposure mode,
+  endpoint configured/scheme, trusted proxy source count, allowed-origin count,
+  and tunnel-provider counts. It must not expose hosts, full endpoints, trusted
+  proxy source values, allowed origin values, token env names, or query
+  strings.
+- The storage section may include safe staging pressure and VFS repair action
+  plan DTOs. It must not expose raw cache URI, source locator, local path,
+  backend URL, etag, fingerprint, credential, URI digest, or raw backend error.
+- The playback section may include playback runtime diagnostics and existing
+  support evidence. It must not expose FFmpeg command lines, stderr, source
+  locators, raw paths, credentials, backend URLs, or token values.
+- The jobs section may expose only queue pressure summaries: kind, status,
+  resource class, counts, claimable count, delayed retry count, oldest queued
+  timestamp, and next retry timestamp.
+- The redaction summary must explicitly cover raw paths, locators, tokens,
+  credentials, FFmpeg command lines, provider payloads, backend URLs, query
+  strings, raw job payloads, and unbounded logs.
+- Generated Admin Web contract files under `apps/admin-web` and `web` must be
+  regenerated from `nako-api`; do not hand-edit them.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Admin route is requested by an unauthorized caller | Existing Admin guard returns forbidden/unauthorized |
+| Bundle is generated successfully | Response has `artifact.format: "json_only"` and complete redaction flags |
+| A source summary is unavailable because runtime facts are empty | Return the safe empty summary shape, not raw fallback logs |
+| System config contains token env names, provider key env names, listener address, root schemes, or WebDAV credentials | Bundle exposes only booleans/counts/schemes allowed by the posture DTO |
+| Network config contains endpoint hosts, trusted proxy source values, allowed origins, tunnel token env names, or query strings | Bundle exposes only configured booleans, schemes, and counts |
+| Playback runtime/support evidence contains command, stderr, source locator, or path-like fields | Bundle response and Admin Web projection omit those values |
+| Storage/VFS data contains cache URI, backend URL, etag, fingerprint, local path, or raw backend error | Bundle response and Admin Web projection omit those values |
+| Durable jobs contain raw input JSON, summary JSON, payload JSON, or raw error blobs | Bundle exposes only queue pressure aggregates |
+| Generated Admin contract references a named DTO | The named TypeScript interface/type is emitted in the same generated contract |
+| Admin Web live read fails | Data source returns deterministic mock fallback with a visible route notice |
+
+### 5. Good / Base / Bad Cases
+
+- Good: `AdminIncidentBundleSystemPosture` derives auth/database/runtime/library
+  and provider counts from system config without carrying the full system config
+  response.
+- Good: `AdminIncidentBundleNetworkPosture` carries readiness plus endpoint and
+  tunnel counts, not endpoint hosts or token reference names.
+- Good: Admin Web renders read-only panels and route-local mock fallback, and
+  tests reject injected unsafe fields from rendered text.
+- Base: the bundle can include safe summaries that already have their own
+  redaction tests.
+- Bad: `AdminIncidentBundleResponse { system_config:
+  AdminServerConfigDiagnosticsResponse }`, because that can expose token env
+  names and other fields outside the bundle contract.
+- Bad: adding raw server log excerpts, upload buttons, zip archives, or a
+  support transport to the JSON-only route.
+- Bad: fixing a generated TypeScript contract by editing
+  `apps/admin-web/src/adminApi/generated/contract.ts` directly.
+
+### 6. Tests Required
+
+- API serialization tests assert redaction flags serialize and forbidden field
+  family terms are absent from the serialized bundle.
+- Admin contract tests:
+  `cargo nextest run -p nako-api admin_contract --no-fail-fast`.
+- Server route tests should assert route assembly, Admin-only access, safe
+  section composition, and no sensitive field family leaks when server handlers
+  receive unsafe config/job/storage/playback facts.
+- Admin Web client tests assert `getIncidentBundle()` uses
+  `NAKO_ADMIN_ROUTES.incidentBundle`.
+- Admin Web data-source tests assert live load and mock fallback.
+- Admin Web route tests assert read-only rendering and unsafe field omission.
+- Run:
+  - `npm run generate:admin-api --prefix apps/admin-web`
+  - `cargo run -q -p nako-api --example emit-admin-typescript-contract -- --output web/src/api/admin/generated/contract.ts`
+  - `npm run check --prefix apps/admin-web`
+  - focused Vitest files for `client`, `dataSource`, and `App`
+  - `cargo check -p nako-server --tests`
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+AdminIncidentBundleResponse {
+    system_config: admin_system_config_response(app),
+    // ...
+}
+```
+
+#### Correct
+
+```rust
+AdminIncidentBundleResponse {
+    system: incident_bundle_system_posture(&admin_system_config_response(app)),
+    // ...
+}
+```
+
+Keep support artifacts as deliberate redacted projections. Existing Admin
+diagnostic DTOs can be useful inputs, but the incident bundle owns its own
+safe support contract.
+
 ## Scenario: Provider Governance Public Client Exclusion
 
 ### 1. Scope / Trigger

@@ -38,6 +38,7 @@ import {
   mockGeneratedArtifactProposals,
   mockGeneratedArtifactReviewPlan,
   mockGeneratedArtifactReviewResponse,
+  mockIncidentBundle,
   mockJobCancelRequestResponse,
   mockJobs,
   mockLibraryMetadataProfile,
@@ -390,6 +391,37 @@ describe("Admin data source", () => {
     expect(fallbackResult).toMatchObject({
       source: "mock",
       value: mockOverview,
+      error: expect.stringContaining("HTTP 503"),
+    });
+  });
+
+  it("loads route-local Incident Bundle with section fallback", async () => {
+    const seenPaths: string[] = [];
+    const liveSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        seenPaths.push(url.pathname);
+        return Response.json(mockIncidentBundle);
+      },
+    });
+
+    const liveResult = await liveSource.loadIncidentBundle?.();
+
+    expect(liveResult).toMatchObject({
+      source: "live",
+      value: mockIncidentBundle,
+    });
+    expect(seenPaths).toEqual([NAKO_ADMIN_ROUTES.incidentBundle]);
+
+    const fallbackSource = createAdminDataSource({
+      fetcher: async () => new Response("offline", { status: 503 }),
+    });
+
+    const fallbackResult = await fallbackSource.loadIncidentBundle?.();
+
+    expect(fallbackResult).toMatchObject({
+      source: "mock",
+      value: mockIncidentBundle,
       error: expect.stringContaining("HTTP 503"),
     });
   });

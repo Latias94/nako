@@ -43,6 +43,7 @@ import type {
   AdminGeneratedArtifactReviewPlanResponse,
   AdminGeneratedArtifactReviewRequest,
   AdminGeneratedArtifactReviewResponse,
+  AdminIncidentBundleResponse,
   AdminArtworkKind,
   AdminItemArtworkGalleryQuery,
   AdminManagedArtworkArtifactCleanupQuery,
@@ -143,6 +144,10 @@ export class AdminApiClient {
 
   async getOverview(): Promise<AdminOverviewResponse> {
     return this.getJson<AdminOverviewResponse>(NAKO_ADMIN_ROUTES.overview);
+  }
+
+  async getIncidentBundle(): Promise<AdminIncidentBundleResponse> {
+    return this.getJson<AdminIncidentBundleResponse>(NAKO_ADMIN_ROUTES.incidentBundle);
   }
 
   async getAccessSummary(): Promise<AdminAccessSummaryResponse> {

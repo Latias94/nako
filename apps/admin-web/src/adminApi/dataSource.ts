@@ -24,6 +24,7 @@ import {
   mockEvents,
   mockGeneratedArtifactProposals,
   mockGeneratedArtifactReviewPlan,
+  mockIncidentBundle,
   mockAdminItemArtworkGallery,
   mockManagedArtworkArtifactLifecycle,
   mockManagedArtworkArtifactRemediationPlan,
@@ -80,6 +81,7 @@ import type {
   AdminGeneratedArtifactProposalsQuery,
   AdminGeneratedArtifactReviewPlanResponse,
   AdminGeneratedArtifactReviewResponse,
+  AdminIncidentBundleResponse,
   AdminMetadataSource,
   AdminArtworkKind,
   AdminItemArtworkGalleryQuery,
@@ -214,6 +216,7 @@ export type AdminDataSource = {
   ): Promise<AccessInvitationCreateResult>;
   revokeAccessInvitation?(invitationId: string): Promise<AccessInvitationRow>;
   loadOverview?(): Promise<AdminSectionResult<AdminOverviewResponse>>;
+  loadIncidentBundle?(): Promise<AdminSectionResult<AdminIncidentBundleResponse>>;
   loadEvents?(query?: EventListQuery): Promise<AdminSectionResult<EventSummary>>;
   loadAddonEventDeliveryAttempts?(
     eventId: string,
@@ -535,6 +538,9 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
     },
     async loadOverview() {
       return loadSection(() => client.getOverview(), mockOverview);
+    },
+    async loadIncidentBundle() {
+      return loadSection(() => client.getIncidentBundle(), mockIncidentBundle);
     },
     async loadEvents(query = {}) {
       return loadEvents(client, query);

@@ -33,9 +33,15 @@ use nako_api::{
         AdminGeneratedArtifactMetadataBulkApplyRequest, AdminGeneratedArtifactProposal,
         AdminGeneratedArtifactProposalListResponse, AdminGeneratedArtifactReviewPlanResponse,
         AdminGeneratedArtifactReviewRequest, AdminGeneratedArtifactReviewResponse,
-        AdminInvitationListResponse, AdminInvitationRecord, AdminInvitationResponse,
-        AdminJobCancelRequestResponse, AdminJobListItem, AdminJobListResponse,
-        AdminLibraryAccessLevel, AdminLibraryAccessPolicyDeleteResponse,
+        AdminIncidentBundleArtifactSummary, AdminIncidentBundleDatabasePosture,
+        AdminIncidentBundleFormat, AdminIncidentBundleJobQueuePosture,
+        AdminIncidentBundleLibraryPosture, AdminIncidentBundleMetadataPosture,
+        AdminIncidentBundleNetworkPosture, AdminIncidentBundlePlaybackPosture,
+        AdminIncidentBundleRedactionSummary, AdminIncidentBundleResponse,
+        AdminIncidentBundleRuntimePosture, AdminIncidentBundleStoragePosture,
+        AdminIncidentBundleSystemPosture, AdminInvitationListResponse, AdminInvitationRecord,
+        AdminInvitationResponse, AdminJobCancelRequestResponse, AdminJobListItem,
+        AdminJobListResponse, AdminLibraryAccessLevel, AdminLibraryAccessPolicyDeleteResponse,
         AdminLibraryAccessPolicyListResponse, AdminLibraryAccessPolicyRecord,
         AdminLibraryAccessPolicyResponse, AdminLibraryAccessReason, AdminLibraryAccessSummary,
         AdminLibraryAccessSummaryEntry, AdminLibraryConfigDiagnostics,
@@ -131,7 +137,8 @@ use nako_core::{
     MetadataCandidateReviewBatchId, MetadataCandidateReviewId, MetadataCandidateReviewQueueFilter,
     MetadataCandidateReviewStatus, NakoError, PageRequest, PlaybackTargetKind,
     PlaybackTargetTransportAuth, ProviderMappingId, RendererSessionRecord, RendererSessionState,
-    RoleAssignment, User, UserId, UserInvitationId, UserPrincipalId, UserRole, UserStatus,
+    RoleAssignment, TranscodeSessionId, User, UserId, UserInvitationId, UserPrincipalId, UserRole,
+    UserStatus,
 };
 use nako_db::DatabaseBackendCapabilities;
 use nako_library::{
@@ -211,6 +218,10 @@ use super::{
 pub(super) fn routes() -> Router<NakoApp> {
     Router::new()
         .route("/admin/v1/overview", get(get_admin_overview))
+        .route(
+            "/admin/v1/diagnostics/incident-bundle",
+            get(get_admin_incident_bundle),
+        )
         .route(
             "/admin/v1/acquisition/intake/candidates",
             get(list_admin_acquisition_intake_candidates),
@@ -1459,6 +1470,10 @@ pub(super) async fn apply_admin_metadata_candidate_review_related_hierarchy(
 }
 
 pub(super) async fn get_admin_overview(State(app): State<NakoApp>) -> ApiResult<impl IntoResponse> {
+    Ok(Json(admin_overview_response(&app).await?))
+}
+
+async fn admin_overview_response(app: &NakoApp) -> ApiResult<AdminOverviewResponse> {
     let storage = app.storage().list_storage_backend_diagnostics().await;
     let catalog = app.catalog().catalog_governance_summary().await?;
     let metadata = app.metadata().list_metadata_provider_diagnostics();
@@ -1505,7 +1520,7 @@ pub(super) async fn get_admin_overview(State(app): State<NakoApp>) -> ApiResult<
     );
     let status = overview_status(&storage, &metadata, &runtime);
 
-    Ok(Json(AdminOverviewResponse {
+    Ok(AdminOverviewResponse {
         admin_api_version: ADMIN_API_VERSION.to_owned(),
         public_api_version: API_VERSION.to_owned(),
         status,
@@ -1516,15 +1531,170 @@ pub(super) async fn get_admin_overview(State(app): State<NakoApp>) -> ApiResult<
         runtime,
         source_fingerprint_hash,
         startup,
+    })
+}
+
+pub(super) async fn get_admin_incident_bundle(
+    State(app): State<NakoApp>,
+) -> ApiResult<impl IntoResponse> {
+    let overview = admin_overview_response(&app).await?;
+    let system_config = admin_system_config_response(&app);
+    let playback_runtime = admin_playback_runtime_diagnostics(&app).await;
+    let playback_support = admin_playback_support_evidence(&app, None, None).await?;
+    let storage = admin_storage_staging_summary(&app).await?;
+    let vfs_cache_repair_action_plan = admin_vfs_cache_repair_action_plan(
+        app.storage().plan_latest_vfs_cache_repair_action().await?,
+    );
+    let queue_pressure = app
+        .job_queue_pressure_diagnostics()
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect();
+
+    Ok(Json(AdminIncidentBundleResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        generated_at_ms: crate::app::current_time_ms()?,
+        artifact: AdminIncidentBundleArtifactSummary {
+            format: AdminIncidentBundleFormat::JsonOnly,
+            zip_archive_included: false,
+            upload_transport_included: false,
+            unbounded_logs_included: false,
+        },
+        overview,
+        system: incident_bundle_system_posture(&system_config),
+        network: incident_bundle_network_posture(&system_config.network),
+        playback: AdminIncidentBundlePlaybackPosture {
+            runtime: playback_runtime,
+            support_evidence: playback_support,
+        },
+        storage: AdminIncidentBundleStoragePosture {
+            staging: storage,
+            vfs_cache_repair_action_plan,
+        },
+        jobs: AdminIncidentBundleJobQueuePosture { queue_pressure },
+        redaction: AdminIncidentBundleRedactionSummary::complete(),
     }))
+}
+
+fn incident_bundle_system_posture(
+    config: &AdminServerConfigDiagnosticsResponse,
+) -> AdminIncidentBundleSystemPosture {
+    let local_count = config
+        .libraries
+        .iter()
+        .filter(|library| library.backend_kind == StorageBackendKind::Local)
+        .count();
+    let webdav_count = config
+        .libraries
+        .iter()
+        .filter(|library| library.backend_kind == StorageBackendKind::WebDav)
+        .count();
+    let enabled_provider_count = config
+        .metadata
+        .providers
+        .iter()
+        .filter(|provider| provider.enabled)
+        .count();
+    let providers_with_secret_reference_count = config
+        .metadata
+        .providers
+        .iter()
+        .filter(|provider| {
+            provider.token_env.is_some()
+                || provider.api_key_env.is_some()
+                || provider.secret_header_count > 0
+        })
+        .count();
+    let providers_with_runtime_override_count = config
+        .metadata
+        .providers
+        .iter()
+        .filter(|provider| provider.has_provider_runtime_override)
+        .count();
+
+    AdminIncidentBundleSystemPosture {
+        auth_enabled: config.auth.enabled,
+        database: AdminIncidentBundleDatabasePosture {
+            configured_backend_kind: config.database.configured_backend_kind.clone(),
+            active_backend_kind: config.database.active_backend_kind.clone(),
+            url_scheme: config.database.url_scheme.clone(),
+            runtime_supported: config.database.runtime_supported,
+            migrated_on_startup: config.database.migrated_on_startup,
+        },
+        runtime: AdminIncidentBundleRuntimePosture {
+            scan_concurrency: config.runtime.scan_concurrency,
+            probe_concurrency: config.runtime.probe_concurrency,
+            metadata_concurrency: config.runtime.metadata_concurrency,
+            remux_concurrency: config.runtime.remux_concurrency,
+            webhook_concurrency: config.runtime.webhook_concurrency,
+        },
+        libraries: AdminIncidentBundleLibraryPosture {
+            configured_count: usize_to_u32(config.libraries.len()),
+            local_count: usize_to_u32(local_count),
+            webdav_count: usize_to_u32(webdav_count),
+        },
+        metadata: AdminIncidentBundleMetadataPosture {
+            provider_count: usize_to_u32(config.metadata.providers.len()),
+            enabled_provider_count: usize_to_u32(enabled_provider_count),
+            disabled_provider_count: usize_to_u32(
+                config
+                    .metadata
+                    .providers
+                    .len()
+                    .saturating_sub(enabled_provider_count),
+            ),
+            providers_with_secret_reference_count: usize_to_u32(
+                providers_with_secret_reference_count,
+            ),
+            providers_with_runtime_override_count: usize_to_u32(
+                providers_with_runtime_override_count,
+            ),
+        },
+    }
+}
+
+fn incident_bundle_network_posture(
+    network: &AdminNetworkAccessDiagnostics,
+) -> AdminIncidentBundleNetworkPosture {
+    let tunnel_providers_with_endpoint_count = network
+        .tunnel_providers
+        .iter()
+        .filter(|provider| provider.endpoint_configured)
+        .count();
+    let tunnel_providers_with_token_reference_count = network
+        .tunnel_providers
+        .iter()
+        .filter(|provider| provider.token_env.is_some())
+        .count();
+
+    AdminIncidentBundleNetworkPosture {
+        exposure_mode: network.exposure_mode,
+        readiness: network.readiness.clone(),
+        external_endpoint_configured: network.external_endpoint.configured,
+        external_endpoint_scheme: network.external_endpoint.scheme.clone(),
+        trusted_proxy_headers_enabled: network.trusted_proxy.headers_enabled,
+        trusted_proxy_source_count: network.trusted_proxy.source_count,
+        allowed_origin_count: network.origins.allowed_origin_count,
+        tunnel_provider_count: usize_to_u32(network.tunnel_providers.len()),
+        tunnel_providers_with_endpoint_count: usize_to_u32(tunnel_providers_with_endpoint_count),
+        tunnel_providers_with_token_reference_count: usize_to_u32(
+            tunnel_providers_with_token_reference_count,
+        ),
+    }
 }
 
 pub(super) async fn get_admin_system_config(
     State(app): State<NakoApp>,
 ) -> Json<AdminServerConfigDiagnosticsResponse> {
+    Json(admin_system_config_response(&app))
+}
+
+fn admin_system_config_response(app: &NakoApp) -> AdminServerConfigDiagnosticsResponse {
     let config = app.config();
 
-    Json(AdminServerConfigDiagnosticsResponse {
+    AdminServerConfigDiagnosticsResponse {
         admin_api_version: ADMIN_API_VERSION.to_owned(),
         public_api_version: API_VERSION.to_owned(),
         auth: AdminAuthConfigDiagnostics {
@@ -1606,7 +1776,7 @@ pub(super) async fn get_admin_system_config(
             max_width: config.artwork.max_width,
             max_height: config.artwork.max_height,
         },
-    })
+    }
 }
 
 pub(super) async fn get_admin_access_summary(
@@ -1991,6 +2161,18 @@ pub(super) async fn list_admin_storage_staging(
         .into_iter()
         .map(AdminStorageStagingRecord::from_record)
         .collect();
+    let summary = admin_storage_staging_summary(&app).await?;
+
+    Ok(Json(AdminStorageStagingDiagnosticsResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        summary,
+        records,
+        page: page_info_from_request(page, returned),
+    }))
+}
+
+async fn admin_storage_staging_summary(app: &NakoApp) -> ApiResult<AdminStorageStagingSummary> {
     let startup = app.startup_report().clone();
     let process_cached_backends = usize_to_u32(app.storage().process_cached_backend_count().await);
     let used_manifest_bytes = app.storage().sum_staging_manifest_bytes().await?;
@@ -2026,52 +2208,46 @@ pub(super) async fn list_admin_storage_staging(
         .await?
         .map(admin_vfs_cache_repair_diagnostic);
 
-    Ok(Json(AdminStorageStagingDiagnosticsResponse {
-        admin_api_version: ADMIN_API_VERSION.to_owned(),
-        public_api_version: API_VERSION.to_owned(),
-        summary: AdminStorageStagingSummary {
-            configured_max_bytes: app.config().staging.max_bytes,
+    Ok(AdminStorageStagingSummary {
+        configured_max_bytes: app.config().staging.max_bytes,
+        used_manifest_bytes,
+        pressure: storage_staging_pressure_summary(
+            app.config().staging.max_bytes,
             used_manifest_bytes,
-            pressure: storage_staging_pressure_summary(
-                app.config().staging.max_bytes,
-                used_manifest_bytes,
-                manifest_pressure.total_records,
-                manifest_pressure.in_flight_records,
-                manifest_pressure.failed_records,
-                manifest_pressure.unknown_size_records,
-                manifest_pressure.active_leases,
-                manifest_pressure.ffmpeg_input_records,
-                manifest_pressure.probe_input_records,
-            ),
-            policy_slices,
-            purpose_state_summaries,
-            cleanup_purpose_state_summaries,
-            cleanup_on_startup: app.config().staging.cleanup_on_startup,
-            retention_ms: app.config().staging.retention_ms,
-            startup_deleted_records: startup
-                .staging_cleanup
-                .as_ref()
-                .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_records)),
-            startup_deleted_files: startup
-                .staging_cleanup
-                .as_ref()
-                .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_files)),
-            cleanup_candidate_records: usize_to_u32(cleanup_pressure.cleanup_candidate_records),
-            cleanup_candidate_bytes: cleanup_pressure.cleanup_candidate_bytes,
-            process_cached_backends,
-            vfs_cache: AdminVfsCacheSummary {
-                object_count: vfs_cache.object_count,
-                listing_count: vfs_cache.listing_count,
-                failure_count: vfs_cache.failure_count,
-                stale_object_count: vfs_cache.stale_object_count,
-                stale_listing_count: vfs_cache.stale_listing_count,
-                last_failure_at_ms: vfs_cache.last_failure_at_ms,
-                repair: vfs_cache_repair,
-            },
+            manifest_pressure.total_records,
+            manifest_pressure.in_flight_records,
+            manifest_pressure.failed_records,
+            manifest_pressure.unknown_size_records,
+            manifest_pressure.active_leases,
+            manifest_pressure.ffmpeg_input_records,
+            manifest_pressure.probe_input_records,
+        ),
+        policy_slices,
+        purpose_state_summaries,
+        cleanup_purpose_state_summaries,
+        cleanup_on_startup: app.config().staging.cleanup_on_startup,
+        retention_ms: app.config().staging.retention_ms,
+        startup_deleted_records: startup
+            .staging_cleanup
+            .as_ref()
+            .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_records)),
+        startup_deleted_files: startup
+            .staging_cleanup
+            .as_ref()
+            .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_files)),
+        cleanup_candidate_records: usize_to_u32(cleanup_pressure.cleanup_candidate_records),
+        cleanup_candidate_bytes: cleanup_pressure.cleanup_candidate_bytes,
+        process_cached_backends,
+        vfs_cache: AdminVfsCacheSummary {
+            object_count: vfs_cache.object_count,
+            listing_count: vfs_cache.listing_count,
+            failure_count: vfs_cache.failure_count,
+            stale_object_count: vfs_cache.stale_object_count,
+            stale_listing_count: vfs_cache.stale_listing_count,
+            last_failure_at_ms: vfs_cache.last_failure_at_ms,
+            repair: vfs_cache_repair,
         },
-        records,
-        page: page_info_from_request(page, returned),
-    }))
+    })
 }
 
 pub(super) async fn refresh_admin_vfs_cache(
@@ -3360,6 +3536,16 @@ pub(super) async fn get_admin_playback_support_evidence(
     Query(query): Query<PlaybackSupportEvidenceQuery>,
 ) -> ApiResult<impl IntoResponse> {
     let (session_id, source_id) = query.into_context()?;
+    Ok(Json(
+        admin_playback_support_evidence(&app, session_id, source_id).await?,
+    ))
+}
+
+async fn admin_playback_support_evidence(
+    app: &NakoApp,
+    session_id: Option<TranscodeSessionId>,
+    source_id: Option<MediaSourceId>,
+) -> ApiResult<AdminPlaybackSupportEvidenceResponse> {
     let context = app
         .playback()
         .support_evidence_context(crate::app::playback::PlaybackSupportEvidenceRequest {
@@ -3375,7 +3561,7 @@ pub(super) async fn get_admin_playback_support_evidence(
         .or_else(|| context.source.as_ref().map(|source| source.id))
         .or(source_id);
 
-    Ok(Json(AdminPlaybackSupportEvidenceResponse {
+    Ok(AdminPlaybackSupportEvidenceResponse {
         admin_api_version: ADMIN_API_VERSION.to_owned(),
         public_api_version: API_VERSION.to_owned(),
         subject: AdminPlaybackSupportSubject {
@@ -3396,7 +3582,7 @@ pub(super) async fn get_admin_playback_support_evidence(
             stderr_redacted: true,
             credentials_redacted: true,
         },
-    }))
+    })
 }
 
 fn admin_watch_folder_runtime_summary(
