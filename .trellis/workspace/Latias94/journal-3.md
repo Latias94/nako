@@ -850,3 +850,37 @@ Split Media Web browse, item detail, and watch/player code into separate lazy ro
 ### Next Steps
 
 - None - task complete
+
+
+## Session 119: Admin Web i18n route catalog chunk splitting
+
+**Date**: 2026-06-13
+**Task**: Admin Web i18n route catalog chunk splitting
+**Package**: nako
+**Branch**: `feat/u3-intake-stability-source-hash-readiness`
+
+### Summary
+
+Split Admin Web i18n catalogs into base and route namespaces, added dynamic namespace loading and RouteI18n wiring, verified check/test/build, and archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3d9a0dcb` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
