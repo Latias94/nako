@@ -699,7 +699,7 @@ Added a focused `nako-server` HTTP route test for `GET /admin/v1/diagnostics/inc
 
 | Hash | Message |
 |------|---------|
-| `TBD` | `test(admin): cover incident bundle route redaction` |
+| `c45e56f0` | `test(admin): cover incident bundle route redaction` |
 
 ### Testing
 
