@@ -1,5 +1,6 @@
-import { RefreshCw } from "lucide-react";
+import { Copy, Download, RefreshCw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 import type { AdminDataSource, DataSourceMode } from "../../adminApi/dataSource";
 import type { AdminIncidentBundleResponse } from "../../adminApi/types";
@@ -25,6 +26,10 @@ type IncidentBundleResult = {
 
 export function IncidentBundlePage({ dataSource }: IncidentBundlePageProps) {
   const { locale, t } = useI18n();
+  const [exportStatus, setExportStatus] = useState<{
+    tone: "success" | "error";
+    message: string;
+  } | null>(null);
   const query = useQuery({
     queryKey: ["admin-incident-bundle", locale],
     queryFn: () => loadIncidentBundle(dataSource, t("incidentBundle.dataSourceUnavailable")),
@@ -37,14 +42,45 @@ export function IncidentBundlePage({ dataSource }: IncidentBundlePageProps) {
   const staging = bundle.storage.staging;
   const repairPlan = bundle.storage.vfs_cache_repair_action_plan;
   const support = bundle.playback.support_evidence;
+  const exportJson = incidentBundleExportJson(bundle);
+
+  async function copyBundle() {
+    try {
+      await copyTextToClipboard(exportJson);
+      setExportStatus({ tone: "success", message: t("incidentBundle.copySuccess") });
+    } catch {
+      setExportStatus({ tone: "error", message: t("incidentBundle.copyFailure") });
+    }
+  }
+
+  function downloadBundle() {
+    const blob = new Blob([exportJson], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = incidentBundleFilename(bundle);
+    link.click();
+    URL.revokeObjectURL(url);
+    setExportStatus({ tone: "success", message: t("incidentBundle.downloadReady") });
+  }
 
   return (
     <RoutePage
       actions={
-        <Button disabled={query.isFetching} onClick={() => void query.refetch()} variant="outline">
-          <RefreshCw size={16} />
-          {t("incidentBundle.refresh")}
-        </Button>
+        <div className="routeActionGroup" role="group" aria-label={t("incidentBundle.actions")}>
+          <Button disabled={query.isFetching} onClick={() => void query.refetch()} variant="outline">
+            <RefreshCw size={16} />
+            {t("incidentBundle.refresh")}
+          </Button>
+          <Button disabled={query.isLoading} onClick={() => void copyBundle()} variant="outline">
+            <Copy size={16} />
+            {t("incidentBundle.copy")}
+          </Button>
+          <Button disabled={query.isLoading} onClick={downloadBundle} variant="outline">
+            <Download size={16} />
+            {t("incidentBundle.download")}
+          </Button>
+        </div>
       }
       description={t("incidentBundle.description")}
       kicker={t("incidentBundle.kicker")}
@@ -54,6 +90,13 @@ export function IncidentBundlePage({ dataSource }: IncidentBundlePageProps) {
     >
       {result.error ? (
         <RouteNotice>{t("incidentBundle.fallback", { error: result.error })}</RouteNotice>
+      ) : null}
+      {exportStatus ? (
+        <RouteNotice>
+          <span className={exportStatus.tone === "success" ? "statusPositive" : "statusDanger"}>
+            {exportStatus.message}
+          </span>
+        </RouteNotice>
       ) : null}
 
       {query.isLoading ? <RowsSkeleton label={t("incidentBundle.loading")} /> : null}
@@ -440,4 +483,209 @@ function redactionComplete(bundle: AdminIncidentBundleResponse) {
     && bundle.redaction.raw_job_payloads_redacted
     && bundle.redaction.unbounded_logs_redacted
   );
+}
+
+export function incidentBundleExportJson(bundle: AdminIncidentBundleResponse) {
+  return `${JSON.stringify(safeIncidentBundleExport(bundle), null, 2)}\n`;
+}
+
+function safeIncidentBundleExport(bundle: AdminIncidentBundleResponse): AdminIncidentBundleResponse {
+  return {
+    admin_api_version: bundle.admin_api_version,
+    public_api_version: bundle.public_api_version,
+    generated_at_ms: bundle.generated_at_ms,
+    artifact: {
+      format: bundle.artifact.format,
+      zip_archive_included: bundle.artifact.zip_archive_included,
+      upload_transport_included: bundle.artifact.upload_transport_included,
+      unbounded_logs_included: bundle.artifact.unbounded_logs_included,
+    },
+    overview: safeExportObject(bundle.overview),
+    system: {
+      auth_enabled: bundle.system.auth_enabled,
+      database: {
+        configured_backend_kind: bundle.system.database.configured_backend_kind,
+        active_backend_kind: bundle.system.database.active_backend_kind,
+        url_scheme: bundle.system.database.url_scheme,
+        runtime_supported: bundle.system.database.runtime_supported,
+        migrated_on_startup: bundle.system.database.migrated_on_startup,
+      },
+      runtime: {
+        scan_concurrency: bundle.system.runtime.scan_concurrency,
+        probe_concurrency: bundle.system.runtime.probe_concurrency,
+        metadata_concurrency: bundle.system.runtime.metadata_concurrency,
+        remux_concurrency: bundle.system.runtime.remux_concurrency,
+        webhook_concurrency: bundle.system.runtime.webhook_concurrency,
+      },
+      libraries: {
+        configured_count: bundle.system.libraries.configured_count,
+        local_count: bundle.system.libraries.local_count,
+        webdav_count: bundle.system.libraries.webdav_count,
+      },
+      metadata: {
+        provider_count: bundle.system.metadata.provider_count,
+        enabled_provider_count: bundle.system.metadata.enabled_provider_count,
+        disabled_provider_count: bundle.system.metadata.disabled_provider_count,
+        providers_with_secret_reference_count:
+          bundle.system.metadata.providers_with_secret_reference_count,
+        providers_with_runtime_override_count:
+          bundle.system.metadata.providers_with_runtime_override_count,
+      },
+    },
+    network: {
+      exposure_mode: bundle.network.exposure_mode,
+      readiness: bundle.network.readiness,
+      external_endpoint_configured: bundle.network.external_endpoint_configured,
+      external_endpoint_scheme: bundle.network.external_endpoint_scheme,
+      trusted_proxy_headers_enabled: bundle.network.trusted_proxy_headers_enabled,
+      trusted_proxy_source_count: bundle.network.trusted_proxy_source_count,
+      allowed_origin_count: bundle.network.allowed_origin_count,
+      tunnel_provider_count: bundle.network.tunnel_provider_count,
+      tunnel_providers_with_endpoint_count: bundle.network.tunnel_providers_with_endpoint_count,
+      tunnel_providers_with_token_reference_count:
+        bundle.network.tunnel_providers_with_token_reference_count,
+    },
+    playback: {
+      runtime: safeExportObject(bundle.playback.runtime),
+      support_evidence: safeExportObject(bundle.playback.support_evidence),
+    },
+    storage: {
+      staging: safeExportObject(bundle.storage.staging),
+      vfs_cache_repair_action_plan: safeExportObject(bundle.storage.vfs_cache_repair_action_plan),
+    },
+    jobs: {
+      queue_pressure: bundle.jobs.queue_pressure.map((item) => ({
+        kind: item.kind,
+        status: item.status,
+        resource_class: item.resource_class,
+        count: item.count,
+        claimable_count: item.claimable_count,
+        delayed_retry_count: item.delayed_retry_count,
+        oldest_queued_at: item.oldest_queued_at,
+        next_attempt_at: item.next_attempt_at,
+      })),
+    },
+    redaction: {
+      status: bundle.redaction.status,
+      raw_paths_redacted: bundle.redaction.raw_paths_redacted,
+      locators_redacted: bundle.redaction.locators_redacted,
+      tokens_redacted: bundle.redaction.tokens_redacted,
+      credentials_redacted: bundle.redaction.credentials_redacted,
+      ffmpeg_command_lines_redacted: bundle.redaction.ffmpeg_command_lines_redacted,
+      provider_payloads_redacted: bundle.redaction.provider_payloads_redacted,
+      backend_urls_redacted: bundle.redaction.backend_urls_redacted,
+      query_strings_redacted: bundle.redaction.query_strings_redacted,
+      raw_job_payloads_redacted: bundle.redaction.raw_job_payloads_redacted,
+      unbounded_logs_redacted: bundle.redaction.unbounded_logs_redacted,
+    },
+  };
+}
+
+function incidentBundleFilename(bundle: AdminIncidentBundleResponse) {
+  return `nako-incident-bundle-${bundle.generated_at_ms}.json`;
+}
+
+type SafeJsonValue = null | boolean | number | string | SafeJsonValue[] | { [key: string]: SafeJsonValue };
+
+function safeExportObject<T>(value: T): T {
+  return safeExportValue(value) as unknown as T;
+}
+
+function safeExportValue(value: unknown): SafeJsonValue | undefined {
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value === "string") {
+    return unsafeExportString(value) ? "<redacted>" : value;
+  }
+
+  if (typeof value === "boolean" || typeof value === "number") {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => safeExportValue(item))
+      .filter((item): item is SafeJsonValue => item !== undefined);
+  }
+
+  if (typeof value !== "object" || value === undefined) {
+    return undefined;
+  }
+
+  const result: { [key: string]: SafeJsonValue } = {};
+  for (const [key, childValue] of Object.entries(value)) {
+    if (forbiddenExportKey(key)) {
+      continue;
+    }
+
+    const safeChildValue = safeExportValue(childValue);
+    if (safeChildValue !== undefined) {
+      result[key] = safeChildValue;
+    }
+  }
+
+  return result;
+}
+
+function forbiddenExportKey(key: string) {
+  const lower = key.toLowerCase();
+
+  if (
+    lower.endsWith("_redacted")
+    || lower.endsWith("_count")
+    || lower.startsWith("has_")
+    || lower === "source_fingerprint_hash"
+    || lower === "url_scheme"
+    || lower === "root_scheme"
+    || lower === "source_scheme"
+    || lower === "external_endpoint_scheme"
+  ) {
+    return false;
+  }
+
+  if (
+    lower === "command"
+    || lower === "stderr"
+    || lower === "file_name"
+    || lower === "query_string"
+  ) {
+    return true;
+  }
+
+  return [
+    "_url",
+    "_uri",
+    "_path",
+    "_locator",
+    "_payload",
+    "_command",
+    "_stderr",
+    "_token",
+    "_secret",
+    "_password",
+    "_credential",
+    "_credentials",
+    "_fingerprint",
+    "_etag",
+    "_ref",
+  ].some((suffix) => lower.endsWith(suffix));
+}
+
+function unsafeExportString(value: string) {
+  return (
+    /^[a-z][a-z0-9+.-]*:\/\//iu.test(value)
+    || /[a-z]:[\\/]/iu.test(value)
+    || /(^|[\s"'])\/(users|home|var|tmp|mnt|media|srv|opt|etc)\//iu.test(value)
+    || /\?.*(token|secret|password)=/iu.test(value)
+  );
+}
+
+async function copyTextToClipboard(text: string) {
+  if (!navigator.clipboard?.writeText) {
+    throw new Error("clipboard unavailable");
+  }
+
+  await navigator.clipboard.writeText(text);
 }

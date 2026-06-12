@@ -1660,6 +1660,16 @@ td {
   text-underline-offset: 3px;
 }
 
+.statusPositive {
+  color: var(--nako-admin-success-ink);
+  font-weight: 800;
+}
+
+.statusDanger {
+  color: var(--nako-admin-danger-ink);
+  font-weight: 800;
+}
+
 .routeBackLink {
   min-height: 36px;
 }

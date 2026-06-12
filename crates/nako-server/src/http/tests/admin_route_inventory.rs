@@ -17,6 +17,19 @@ fn implemented_admin_routes_are_generated_or_explicitly_excluded() {
 
     let generated = generated_admin_routes_by_path();
     let exclusions = excluded_admin_routes_by_path();
+    assert_generated_route(
+        &generated,
+        "/admin/v1/diagnostics/incident-bundle",
+        "incidentBundle",
+    );
+    assert!(
+        !exclusions.contains_key("/admin/v1/diagnostics/incident-bundle"),
+        "Incident Bundle is Admin Web-facing and must not be route-inventory excluded"
+    );
+    assert!(
+        implemented.contains_key("/admin/v1/diagnostics/incident-bundle"),
+        "Incident Bundle generated route must be implemented by the Admin router"
+    );
 
     let generated_without_server = generated
         .iter()
@@ -102,6 +115,18 @@ fn excluded_admin_routes_by_path() -> BTreeMap<String, &'static str> {
         );
     }
     routes
+}
+
+fn assert_generated_route(
+    generated: &BTreeMap<String, &'static str>,
+    expected_path: &str,
+    expected_key: &str,
+) {
+    assert_eq!(
+        generated.get(expected_path).copied(),
+        Some(expected_key),
+        "Admin route inventory must generate {expected_key} at {expected_path}"
+    );
 }
 
 #[derive(Debug)]

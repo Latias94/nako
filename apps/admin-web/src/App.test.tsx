@@ -595,67 +595,7 @@ describe("Admin Web V2 route shell", () => {
   });
 
   it("keeps unsafe fields out of the Incident Bundle route rendering", async () => {
-    const unsafeIncidentBundle: AdminIncidentBundleResponse = {
-      ...mockIncidentBundle,
-      artifact: {
-        ...mockIncidentBundle.artifact,
-        raw_path: "F:\\nako\\incident-bundle.json",
-        upload_url: "https://operator:secret@example.test/upload?token=secret",
-      } as typeof mockIncidentBundle.artifact,
-      system: {
-        ...mockIncidentBundle.system,
-        database: {
-          ...mockIncidentBundle.system.database,
-          backend_url: "postgres://user:secret@example.test:5432/nako",
-          query_string: "?token=secret",
-        } as typeof mockIncidentBundle.system.database,
-      },
-      network: {
-        ...mockIncidentBundle.network,
-        backend_url: "https://user:secret@example.test/admin?token=secret",
-      } as typeof mockIncidentBundle.network,
-      playback: {
-        ...mockIncidentBundle.playback,
-        runtime: {
-          ...mockIncidentBundle.playback.runtime,
-          ffmpeg: {
-            ...mockIncidentBundle.playback.runtime.ffmpeg,
-            command: "C:\\ffmpeg.exe -i file:///Users/frank/media/private.mkv",
-          } as typeof mockIncidentBundle.playback.runtime.ffmpeg,
-        },
-        support_evidence: {
-          ...mockIncidentBundle.playback.support_evidence,
-          session: {
-            ...mockIncidentBundle.playback.support_evidence.session!,
-            request_key_fingerprint: "F:\\nako\\support\\secret-request-key",
-          },
-          source: {
-            ...mockIncidentBundle.playback.support_evidence.source!,
-            file_name: "file:///Users/frank/media/private.mkv",
-          },
-        },
-      },
-      storage: {
-        ...mockIncidentBundle.storage,
-        staging: {
-          ...mockIncidentBundle.storage.staging,
-          source_uri: "file:///Users/frank/media/private.mkv",
-          root_ref: "local://unsafe-root",
-        } as typeof mockIncidentBundle.storage.staging,
-      },
-      jobs: {
-        ...mockIncidentBundle.jobs,
-        queue_pressure: mockIncidentBundle.jobs.queue_pressure.map((item) => ({
-          ...item,
-          raw_job_payload: "secret job payload",
-          backend_url: "https://user:secret@example.test/jobs",
-        })) as AdminIncidentBundleResponse["jobs"]["queue_pressure"],
-      },
-      redaction: {
-        ...mockIncidentBundle.redaction,
-        raw_paths_redacted: true,
-      },
-    };
+    const unsafeIncidentBundle = unsafeIncidentBundleResponse();
     window.history.pushState(null, "", "/diagnostics/incident-bundle");
     const { container } = render(
       <App
@@ -684,6 +624,95 @@ describe("Admin Web V2 route shell", () => {
     expect(renderedText).not.toContain("C:\\");
     expect(renderedText).not.toContain("F:\\");
     expect(renderedText).not.toContain("/Users/");
+  });
+
+  it("copies only the redacted Incident Bundle JSON projection", async () => {
+    const writeText = vi.fn(async (_text: string) => undefined);
+    const originalClipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    window.history.pushState(null, "", "/diagnostics/incident-bundle");
+
+    try {
+      render(<App dataSource={incidentBundleDataSource(unsafeIncidentBundleResponse())} />);
+
+      await screen.findByRole("heading", { name: "Incident Bundle" });
+      await screen.findByText("Artifact summary");
+      fireEvent.click(screen.getByRole("button", { name: "Copy JSON" }));
+
+      await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+      expect(await screen.findByText("Redacted JSON copied to clipboard.")).toBeInTheDocument();
+
+      const copied = writeText.mock.calls[0][0];
+      expect(copied).toContain('"artifact"');
+      expect(copied).toContain('"redaction"');
+      expect(copied).not.toContain("incident-bundle.json");
+      expect(copied).not.toContain("upload?token=secret");
+      expect(copied).not.toContain("postgres://user:secret");
+      expect(copied).not.toContain("secret job payload");
+      expect(copied).not.toContain("source_uri");
+      expect(copied).not.toContain("local://unsafe-root");
+      expect(copied).not.toContain("file_name");
+      expect(copied).not.toContain('"command"');
+      expect(copied).not.toContain("ffmpeg.exe");
+      expect(copied).not.toContain("C:\\");
+      expect(copied).not.toContain("F:\\");
+      expect(copied).not.toContain("/Users/");
+    } finally {
+      if (originalClipboard) {
+        Object.defineProperty(navigator, "clipboard", originalClipboard);
+      } else {
+        delete (navigator as { clipboard?: Clipboard }).clipboard;
+      }
+    }
+  });
+
+  it("downloads only the redacted Incident Bundle JSON projection", async () => {
+    const createdBlobs: Blob[] = [];
+    const createObjectURL = vi.spyOn(URL, "createObjectURL").mockImplementation((blob) => {
+      createdBlobs.push(blob as Blob);
+      return "blob:nako-incident-bundle";
+    });
+    const revokeObjectURL = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    window.history.pushState(null, "", "/diagnostics/incident-bundle");
+
+    try {
+      render(<App dataSource={incidentBundleDataSource(unsafeIncidentBundleResponse())} />);
+
+      await screen.findByRole("heading", { name: "Incident Bundle" });
+      await screen.findByText("Artifact summary");
+      fireEvent.click(screen.getByRole("button", { name: "Download JSON" }));
+
+      expect(createObjectURL).toHaveBeenCalledTimes(1);
+      expect(revokeObjectURL).toHaveBeenCalledWith("blob:nako-incident-bundle");
+      expect(click).toHaveBeenCalledTimes(1);
+      expect(await screen.findByText("Redacted JSON download prepared.")).toBeInTheDocument();
+
+      const [createdBlob] = createdBlobs;
+      expect(createdBlob).toBeDefined();
+      const downloaded = await createdBlob.text();
+      expect(downloaded).toContain('"artifact"');
+      expect(downloaded).toContain('"redaction"');
+      expect(downloaded).not.toContain("incident-bundle.json");
+      expect(downloaded).not.toContain("upload?token=secret");
+      expect(downloaded).not.toContain("postgres://user:secret");
+      expect(downloaded).not.toContain("secret job payload");
+      expect(downloaded).not.toContain("source_uri");
+      expect(downloaded).not.toContain("local://unsafe-root");
+      expect(downloaded).not.toContain("file_name");
+      expect(downloaded).not.toContain('"command"');
+      expect(downloaded).not.toContain("ffmpeg.exe");
+      expect(downloaded).not.toContain("C:\\");
+      expect(downloaded).not.toContain("F:\\");
+      expect(downloaded).not.toContain("/Users/");
+    } finally {
+      createObjectURL.mockRestore();
+      revokeObjectURL.mockRestore();
+      click.mockRestore();
+    }
   });
 
   it("renders Media Libraries as a route-owned V2 page", async () => {
@@ -4339,6 +4368,84 @@ function overviewDataSource(overview = mockOverview): AdminDataSource {
         value: overview,
         source: "live",
       };
+    },
+  };
+}
+
+function incidentBundleDataSource(bundle = mockIncidentBundle): AdminDataSource {
+  return {
+    async load() {
+      return emptyConsoleData();
+    },
+    async loadIncidentBundle() {
+      return {
+        value: bundle,
+        source: "live",
+      };
+    },
+  };
+}
+
+function unsafeIncidentBundleResponse(): AdminIncidentBundleResponse {
+  return {
+    ...mockIncidentBundle,
+    artifact: {
+      ...mockIncidentBundle.artifact,
+      raw_path: "F:\\nako\\incident-bundle.json",
+      upload_url: "https://operator:secret@example.test/upload?token=secret",
+    } as typeof mockIncidentBundle.artifact,
+    system: {
+      ...mockIncidentBundle.system,
+      database: {
+        ...mockIncidentBundle.system.database,
+        backend_url: "postgres://user:secret@example.test:5432/nako",
+        query_string: "?token=secret",
+      } as typeof mockIncidentBundle.system.database,
+    },
+    network: {
+      ...mockIncidentBundle.network,
+      backend_url: "https://user:secret@example.test/admin?token=secret",
+    } as typeof mockIncidentBundle.network,
+    playback: {
+      ...mockIncidentBundle.playback,
+      runtime: {
+        ...mockIncidentBundle.playback.runtime,
+        ffmpeg: {
+          ...mockIncidentBundle.playback.runtime.ffmpeg,
+          command: "C:\\ffmpeg.exe -i file:///Users/frank/media/private.mkv",
+        } as typeof mockIncidentBundle.playback.runtime.ffmpeg,
+      },
+      support_evidence: {
+        ...mockIncidentBundle.playback.support_evidence,
+        session: {
+          ...mockIncidentBundle.playback.support_evidence.session!,
+          request_key_fingerprint: "F:\\nako\\support\\secret-request-key",
+        },
+        source: {
+          ...mockIncidentBundle.playback.support_evidence.source!,
+          file_name: "file:///Users/frank/media/private.mkv",
+        },
+      },
+    },
+    storage: {
+      ...mockIncidentBundle.storage,
+      staging: {
+        ...mockIncidentBundle.storage.staging,
+        source_uri: "file:///Users/frank/media/private.mkv",
+        root_ref: "local://unsafe-root",
+      } as typeof mockIncidentBundle.storage.staging,
+    },
+    jobs: {
+      ...mockIncidentBundle.jobs,
+      queue_pressure: mockIncidentBundle.jobs.queue_pressure.map((item) => ({
+        ...item,
+        raw_job_payload: "secret job payload",
+        backend_url: "https://user:secret@example.test/jobs",
+      })) as AdminIncidentBundleResponse["jobs"]["queue_pressure"],
+    },
+    redaction: {
+      ...mockIncidentBundle.redaction,
+      raw_paths_redacted: true,
     },
   };
 }
