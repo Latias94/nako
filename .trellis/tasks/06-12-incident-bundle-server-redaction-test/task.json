@@ -1,0 +1,30 @@
+{
+  "id": "incident-bundle-server-redaction-test",
+  "name": "incident-bundle-server-redaction-test",
+  "title": "brainstorm: incident bundle server redaction route test",
+  "description": "Add a focused nako-server HTTP route redaction test for the JSON-only incident bundle export.",
+  "status": "completed",
+  "dev_type": "test",
+  "scope": "admin-diagnostics",
+  "package": "nako",
+  "priority": "P2",
+  "creator": "Latias94",
+  "assignee": "Latias94",
+  "createdAt": "2026-06-12",
+  "completedAt": "2026-06-12",
+  "branch": "feat/u3-intake-stability-source-hash-readiness",
+  "base_branch": "feat/u3-intake-stability-source-hash-readiness",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "crates/nako-server/src/http/tests/system.rs",
+    "crates/nako-api/src/admin/incident_bundle.rs",
+    ".trellis/spec/nako-api/backend/admin-and-public-contracts.md"
+  ],
+  "notes": "Focused follow-up after the JSON-only incident bundle export: cover the real server route aggregation path, not only DTO serialization and Admin Web projection.",
+  "meta": {}
+}

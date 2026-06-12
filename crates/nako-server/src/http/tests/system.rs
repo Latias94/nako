@@ -2,10 +2,11 @@ use std::sync::Arc;
 
 use super::*;
 use nako_api::admin::{
-    AdminGeneratedArtifactMetadataApplyRecoveryResponse, AdminJobListItem, AdminJobPriority,
-    AdminMetadataCandidateReviewApplicationAction, AdminMetadataCandidateReviewApplicationReason,
-    AdminMetadataCandidateReviewApplyRequest, AdminMetadataCandidateReviewApplyResponse,
-    AdminMetadataCandidateReviewAuditEventKind, AdminMetadataCandidateReviewBatchApplyItemRequest,
+    AdminGeneratedArtifactMetadataApplyRecoveryResponse, AdminIncidentBundleResponse,
+    AdminJobListItem, AdminJobPriority, AdminMetadataCandidateReviewApplicationAction,
+    AdminMetadataCandidateReviewApplicationReason, AdminMetadataCandidateReviewApplyRequest,
+    AdminMetadataCandidateReviewApplyResponse, AdminMetadataCandidateReviewAuditEventKind,
+    AdminMetadataCandidateReviewBatchApplyItemRequest,
     AdminMetadataCandidateReviewBatchApplyRequest, AdminMetadataCandidateReviewBatchApplyResponse,
     AdminMetadataCandidateReviewBatchApplyResultStatus,
     AdminMetadataCandidateReviewBatchCreateRequest, AdminMetadataCandidateReviewBatchPlanRequest,
@@ -11764,6 +11765,405 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
     assert!(!body.contains("nako.example.test"));
     assert!(!body.contains("tunnel.example.test"));
     assert!(!body.contains("x-forwarded"));
+}
+
+#[tokio::test]
+async fn admin_v1_incident_bundle_composes_route_response_without_sensitive_payloads() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let admin_token = "incident-bundle-admin-token";
+    let mut metadata = MetadataConfig::default();
+    metadata.runtime = MetadataProviderRuntimeConfig {
+        timeout_ms: 7_000,
+        max_attempts: 3,
+        min_interval_ms: 500,
+        concurrency: 2,
+        user_agent: "nako-test/1".to_owned(),
+        proxy: Some("http://user:proxy-secret@127.0.0.1:10809".into()),
+        circuit_breaker_failures: 4,
+        circuit_breaker_backoff_ms: 12_345,
+    };
+    metadata.providers = vec![MetadataProviderConfig {
+        provider: ExternalProvider::Bangumi,
+        enabled: true,
+        token_env: Some("BANGUMI_INCIDENT_TOKEN".to_owned()),
+        api_key_env: Some("BANGUMI_INCIDENT_API_KEY".to_owned()),
+        api_base_url: Some("https://api.bgm.tv/private?token=provider-secret".to_owned()),
+        image_base_url: Some("https://lain.bgm.tv/private".to_owned()),
+        language: Some("zh-CN".to_owned()),
+        include_adult: true,
+        headers: vec![MetadataProviderHeaderConfig {
+            name: "X-Secret".to_owned(),
+            value: Some("literal-header-secret".into()),
+            value_env: Some("BANGUMI_INCIDENT_HEADER".to_owned()),
+        }],
+        runtime: Some(MetadataProviderRuntimeConfig::default()),
+    }];
+    let network = crate::config::NetworkAccessConfig {
+        exposure_mode: crate::config::NetworkExposureMode::TunnelProvider,
+        external_base_url: Some(
+            "https://user:network-secret@nako.example.test/path?token=url-secret".to_owned(),
+        ),
+        trusted_proxy_headers: true,
+        trusted_proxy_sources: vec!["127.0.0.1".to_owned(), "10.0.0.0/8".to_owned()],
+        allowed_origins: vec!["https://operator-secret.example.test".to_owned()],
+        tunnel_providers: vec![crate::config::TunnelProviderConfig {
+            id: "cloudflared".to_owned(),
+            kind: crate::config::TunnelProviderKind::CloudflareTunnel,
+            public_url: Some(
+                "https://user:tunnel-url-secret@tunnel.example.test/path?token=secret".to_owned(),
+            ),
+            token_env: Some("NAKO_TUNNEL_INCIDENT_TOKEN".to_owned()),
+        }],
+    };
+    let ffmpeg_path = temp.path().join("private").join("ffmpeg");
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite://F:/secret/incident-bundle.db".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig {
+            enabled: true,
+            token_env: Some("NAKO_INCIDENT_BUNDLE_ADMIN_TOKEN".to_owned()),
+        },
+        network,
+        ffprobe_path: temp.path().join("private").join("ffprobe"),
+        ffmpeg_path: ffmpeg_path.clone(),
+        scan_concurrency: 2,
+        probe_concurrency: 3,
+        metadata_concurrency: 4,
+        remux_concurrency: 5,
+        webhook_concurrency: 6,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 60_000,
+        remux_staging_root: temp.path().join("secret-cache").join("remux"),
+        metadata,
+        transcode: TranscodeConfig {
+            hardware_acceleration: nako_transcode::HardwareAcceleration::Nvenc,
+            hardware_fallback: nako_transcode::HardwareAccelerationFallback::Cpu,
+            cpu_concurrency: 1,
+            gpu_concurrency: 0,
+        },
+        staging: StagingConfig {
+            max_bytes: 9_999,
+            retention_ms: 8_888,
+            cleanup_on_startup: false,
+        },
+        playback: PlaybackConfig {
+            remote_stream_concurrency: 2,
+            remote_stage_concurrency: 3,
+            ..PlaybackConfig::default()
+        },
+        artwork: crate::config::ArtworkConfig {
+            artifact_root: temp.path().join("artwork-secret-root"),
+            fetch_proxy: Some("http://user:artwork-proxy-secret@127.0.0.1:10809".into()),
+            ..crate::config::ArtworkConfig::default()
+        },
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Remote Anime".to_owned(),
+            root: temp.path().join("local-root-secret"),
+            preset: nako_core::LibraryPreset::Anime,
+            webdav: Some(crate::config::WebDavLibraryConfig {
+                root: "webdav:///PrivateAnime".to_owned(),
+                base_url: "https://user:webdav-secret@example.test/dav".to_owned(),
+                username: Some("webdav-user".to_owned()),
+                password_env: Some("NAKO_WEBDAV_INCIDENT_PASSWORD".to_owned()),
+                timeout_ms: 11_000,
+                max_attempts: 3,
+            }),
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Incident Bundle Demo".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: "local:///Movies/Private/Incident Bundle Demo.mkv?token=admin-token".to_owned(),
+        file_name: "Incident Bundle Demo.mkv".to_owned(),
+        size_bytes: Some(42),
+        fingerprint: Some("sha256-private-fingerprint".to_owned()),
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id,
+            item_id: item.id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+
+    let session = store
+        .create_transcode_session(NewTranscodeSession {
+            id: TranscodeSessionId::new(),
+            source_id: source.id,
+            kind: TranscodeSessionKind::HlsTranscode,
+            request_key: local_hls_request_key(&source, nako_transcode::HardwareAcceleration::None),
+            output_path: temp
+                .path()
+                .join("secret-cache")
+                .join("hls")
+                .join("private")
+                .join("playlist.m3u8"),
+            state: TranscodeSessionState::Running,
+        })
+        .await
+        .unwrap();
+    store
+        .set_transcode_session_state(
+            session.id,
+            TranscodeSessionState::Failed,
+            Some(nako_core::TranscodeFailureCategory::Runner),
+            Some(format!(
+                "ffmpeg failed while writing {} with argv -i local:///Movies/Private/Incident Bundle Demo.mkv token=admin-token",
+                temp.path()
+                    .join("secret-cache")
+                    .join("hls")
+                    .join("private")
+                    .join("playlist.m3u8")
+                    .display()
+            )),
+        )
+        .await
+        .unwrap();
+
+    let failed_job = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::LibraryScan,
+            resource_class: "disk.scan".to_owned(),
+            priority: nako_core::JobPriority::Normal,
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: Some(
+                r#"{"source_uri":"local:///Movies/Private/Incident Bundle Demo.mkv?token=admin-token"}"#
+                    .to_owned(),
+            ),
+        })
+        .await
+        .unwrap();
+    store
+        .fail_job(
+            failed_job.id,
+            format!(
+                "scan failed for {} with token admin-token",
+                temp.path()
+                    .join("Private")
+                    .join("Incident Bundle Demo.mkv")
+                    .display()
+            ),
+        )
+        .await
+        .unwrap();
+    store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::MetadataRefresh,
+            resource_class: "metadata.provider".to_owned(),
+            priority: nako_core::JobPriority::Normal,
+            library_id: Some(library_id),
+            source_id: Some(source.id),
+            input_json: Some(
+                r#"{"provider_payload":{"api_key":"provider-secret"},"path":"F:/secret/movie.mkv"}"#
+                    .to_owned(),
+            ),
+        })
+        .await
+        .unwrap();
+
+    let router = super::super::build_router_with_auth(
+        app,
+        super::super::auth::InboundAuthState::bearer_token(admin_token),
+    );
+    let missing_auth = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/diagnostics/incident-bundle")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(missing_auth.status(), StatusCode::UNAUTHORIZED);
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/diagnostics/incident-bundle")
+                .header(header::AUTHORIZATION, format!("Bearer {admin_token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = response_text(response).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let bundle: AdminIncidentBundleResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(
+        bundle.artifact.format,
+        nako_api::admin::AdminIncidentBundleFormat::JsonOnly
+    );
+    assert!(!bundle.artifact.zip_archive_included);
+    assert!(!bundle.artifact.upload_transport_included);
+    assert!(!bundle.artifact.unbounded_logs_included);
+    assert!(bundle.system.auth_enabled);
+    assert_eq!(bundle.system.database.url_scheme, "sqlite");
+    assert_eq!(bundle.system.libraries.configured_count, 1);
+    assert_eq!(bundle.system.libraries.local_count, 0);
+    assert_eq!(bundle.system.libraries.webdav_count, 1);
+    assert_eq!(bundle.system.metadata.provider_count, 1);
+    assert_eq!(
+        bundle.system.metadata.providers_with_secret_reference_count,
+        1
+    );
+    assert_eq!(
+        bundle.network.exposure_mode,
+        nako_api::admin::AdminNetworkExposureMode::TunnelProvider
+    );
+    assert!(bundle.network.external_endpoint_configured);
+    assert_eq!(
+        bundle.network.external_endpoint_scheme.as_deref(),
+        Some("https")
+    );
+    assert_eq!(bundle.network.trusted_proxy_source_count, 2);
+    assert_eq!(bundle.network.allowed_origin_count, 1);
+    assert_eq!(bundle.network.tunnel_provider_count, 1);
+    assert_eq!(bundle.network.tunnel_providers_with_endpoint_count, 1);
+    assert_eq!(
+        bundle.network.tunnel_providers_with_token_reference_count,
+        1
+    );
+    assert_eq!(
+        bundle.playback.support_evidence.subject.session_id, None,
+        "incident bundle default support evidence stays global unless a subject is requested"
+    );
+    assert!(bundle.playback.support_evidence.redaction.paths_redacted);
+    assert!(
+        bundle
+            .playback
+            .support_evidence
+            .redaction
+            .source_references_redacted
+    );
+    assert!(
+        bundle
+            .playback
+            .support_evidence
+            .redaction
+            .ffmpeg_commands_redacted
+    );
+    assert!(bundle.playback.support_evidence.redaction.stderr_redacted);
+    assert!(
+        bundle
+            .playback
+            .support_evidence
+            .redaction
+            .credentials_redacted
+    );
+    assert!(bundle.redaction.raw_paths_redacted);
+    assert!(bundle.redaction.locators_redacted);
+    assert!(bundle.redaction.tokens_redacted);
+    assert!(bundle.redaction.credentials_redacted);
+    assert!(bundle.redaction.ffmpeg_command_lines_redacted);
+    assert!(bundle.redaction.provider_payloads_redacted);
+    assert!(bundle.redaction.backend_urls_redacted);
+    assert!(bundle.redaction.query_strings_redacted);
+    assert!(bundle.redaction.raw_job_payloads_redacted);
+    assert!(bundle.redaction.unbounded_logs_redacted);
+    assert!(bundle.jobs.queue_pressure.iter().any(|pressure| {
+        pressure.kind == JobKind::LibraryScan
+            && pressure.status == JobStatus::Failed
+            && pressure.resource_class == "disk.scan"
+            && pressure.count == 1
+    }));
+    assert!(bundle.jobs.queue_pressure.iter().any(|pressure| {
+        pressure.kind == JobKind::MetadataRefresh
+            && pressure.status == JobStatus::Queued
+            && pressure.resource_class == "metadata.provider"
+            && pressure.count == 1
+            && pressure.claimable_count == 1
+    }));
+
+    for forbidden in [
+        "NAKO_INCIDENT_BUNDLE_ADMIN_TOKEN",
+        "BANGUMI_INCIDENT_TOKEN",
+        "BANGUMI_INCIDENT_API_KEY",
+        "BANGUMI_INCIDENT_HEADER",
+        "NAKO_TUNNEL_INCIDENT_TOKEN",
+        "NAKO_WEBDAV_INCIDENT_PASSWORD",
+        "token_env",
+        "api_key_env",
+        "listen_addr",
+        "database_url",
+        "ffmpeg_path",
+        "ffprobe_path",
+        "remux_staging_root",
+        "artifact_root",
+        "external_base_url",
+        "trusted_proxy_sources",
+        "allowed_origins",
+        "input_json",
+        "summary_json",
+        "payload_json",
+        "source_uri",
+        "source_locator",
+        "output_path",
+        "\"provider_payload\"",
+        "raw_provider_response",
+        "provider-secret",
+        "local:///",
+        "F:/secret",
+        "secret/incident-bundle.db",
+        "local-root-secret",
+        "PrivateAnime",
+        "webdav-secret",
+        "webdav-user",
+        "proxy-secret",
+        "artwork-proxy-secret",
+        "api.bgm.tv",
+        "lain.bgm.tv",
+        "literal-header-secret",
+        "network-secret",
+        "url-secret",
+        "operator-secret",
+        "tunnel-url-secret",
+        "nako.example.test",
+        "tunnel.example.test",
+        "secret-cache",
+        "playlist.m3u8",
+        "Incident Bundle Demo.mkv",
+        "sha256-private-fingerprint",
+        "ffmpeg failed while writing",
+        "argv",
+        "admin-token",
+        &ffmpeg_path.display().to_string(),
+        &temp.path().display().to_string(),
+    ] {
+        assert!(
+            !body.contains(forbidden),
+            "incident bundle route leaked forbidden fixture material: {forbidden}"
+        );
+    }
 }
 
 #[tokio::test]

@@ -676,3 +676,42 @@ Implemented the follow-on operator support slice by adding an Admin-only redacte
 ### Next Steps
 
 - Commit the incident bundle implementation and backfill the commit hash in task metadata if needed.
+
+
+## Session 116: Incident bundle server route redaction test
+
+**Date**: 2026-06-12
+**Task**: Incident bundle server redaction route test
+**Package**: nako
+**Branch**: `feat/u3-intake-stability-source-hash-readiness`
+
+### Summary
+
+Added a focused `nako-server` HTTP route test for `GET /admin/v1/diagnostics/incident-bundle`, covering Admin auth, real route assembly, safe section composition, durable job pressure aggregation, and fixture-value redaction across unsafe config, playback, media source, and job payload inputs.
+
+### Main Changes
+
+- Created the Trellis task for the follow-up route-level redaction gate.
+- Added a server `system.rs` test that builds an intentionally unsafe app fixture and asserts the incident bundle response stays JSON-only and redaction-complete.
+- Verified the focused route test and server test compilation.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `TBD` | `test(admin): cover incident bundle route redaction` |
+
+### Testing
+
+- [OK] `cargo fmt --all`
+- [OK] `cargo nextest run -p nako-server admin_v1_incident_bundle --no-fail-fast`
+- [OK] `cargo check -p nako-server --tests`
+- [OK] `git diff --check`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Commit and archive the Trellis task after review.
