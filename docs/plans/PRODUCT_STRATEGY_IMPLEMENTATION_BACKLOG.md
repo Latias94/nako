@@ -82,14 +82,14 @@ flowchart TD
 
 Type: AFK.
 
-Blocked by: none.
+Dependencies: none.
 
 Goal:
 
 - Expose a durable, generated inventory of official Addons that operators and
   release gates can trust.
 
-What to build:
+Deliverables:
 
 - A generated or validated official catalog artifact in the Nako repository.
 - Catalog facts for each official Addon:
@@ -126,14 +126,14 @@ Non-goals:
 
 Type: AFK.
 
-Blocked by: slice 1.
+Dependencies: slice 1.
 
 Goal:
 
 - Provide one low-friction Compose path for the common official Addon setup
   while preserving per-Addon permissions and diagnostics.
 
-What to build:
+Deliverables:
 
 - An official suite example that includes:
   - metadata scraper;
@@ -169,14 +169,14 @@ Non-goals:
 
 Type: AFK.
 
-Blocked by: slices 1 and 2.
+Dependencies: slices 1 and 2.
 
 Goal:
 
 - Make the official Addon set a conformance baseline for future third-party
   authors.
 
-What to build:
+Deliverables:
 
 - Sidecar-only smoke coverage for every official Addon and browser-worker.
 - Nako-mediated smoke coverage where the host boundary matters:
@@ -208,14 +208,14 @@ Non-goals:
 
 Type: AFK.
 
-Blocked by: none.
+Dependencies: none.
 
 Goal:
 
 - Give operators a supported remote-access posture without creating a
   Plex-style relay or central account service.
 
-What to build:
+Deliverables:
 
 - Deployment cookbook for:
   - reverse proxy;
@@ -250,14 +250,14 @@ Non-goals:
 
 Type: HITL.
 
-Blocked by: none.
+Dependencies: none.
 
 Goal:
 
 - Define the migration story that makes Nako credible for Jellyfin, Plex,
   Emby, and NFO-heavy users.
 
-What to build:
+Deliverables:
 
 - A plan for importing, preserving, or mapping:
   - NFO metadata;
@@ -291,20 +291,21 @@ Non-goals:
 
 Type: HITL.
 
-Blocked by: slice 5.
+Dependencies: slice 5.
 
 Goal:
 
 - Prototype the highest-value ecosystem integrations before absorbing those
   workflows into core Nako.
 
-Candidate integrations:
+Deliverables:
 
-- OpenSubtitles or another subtitle provider.
-- Trakt/scrobble and watched-state sync.
-- WatchState-style cross-server state sync.
-- Servarr/Seerr request and acquisition flow.
-- Kometa-style collection/artwork curation.
+- Prototype decision notes for one or more candidate integrations:
+  - OpenSubtitles or another subtitle provider.
+  - Trakt/scrobble and watched-state sync.
+  - WatchState-style cross-server state sync.
+  - Servarr/Seerr request and acquisition flow.
+  - Kometa-style collection/artwork curation.
 
 Acceptance criteria:
 
@@ -325,14 +326,14 @@ Non-goals:
 
 Type: AFK.
 
-Blocked by: slice 3.
+Dependencies: slice 3.
 
 Goal:
 
 - Turn the official Addon conformance baseline into practical starting points
   for third-party Addon authors.
 
-What to build:
+Deliverables:
 
 - Minimal templates for:
   - read-only resource Addon;
@@ -360,7 +361,7 @@ Non-goals:
 
 Type: AFK.
 
-Blocked by: slices 4 and 5; can start in parallel with slice 6 for docs-only
+Dependencies: slices 4 and 5; can start in parallel with slice 6 for docs-only
 work.
 
 Goal:
@@ -369,7 +370,7 @@ Goal:
   install, configure, scan, browse, play, diagnose, extend, and understand
   migration path.
 
-What to build:
+Deliverables:
 
 - A product adoption guide that uses the positioning language consistently.
 - A browse/play demo path for Web or Android that does not overclaim TV-client
