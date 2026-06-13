@@ -1,0 +1,33 @@
+{
+  "id": "official-addon-catalog-minimal-loop",
+  "name": "official-addon-catalog-minimal-loop",
+  "title": "feat: official addon catalog minimal loop",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": "product-strategy",
+  "package": "nako",
+  "priority": "P2",
+  "creator": "Latias94",
+  "assignee": "Latias94",
+  "createdAt": "2026-06-13",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "docs/plans/PRODUCT_STRATEGY_IMPLEMENTATION_BACKLOG.md",
+    "docs/plans/ADDON_ECOSYSTEM_STRATEGY.md",
+    "crates/nako-official-addon-catalog/src/lib.rs",
+    "crates/nako-official-addon-catalog/README.md",
+    "crates/nako-official-addon-catalog/Cargo.toml",
+    "../nako-official-addons/README.md"
+  ],
+  "notes": "",
+  "meta": {}
+}

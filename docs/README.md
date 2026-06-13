@@ -46,6 +46,9 @@ policy, and workstream-level design notes for Nako.
 - [HTTP API](api/HTTP_API.md): current server API contract.
 - [Addon author guide](guides/ADDON_AUTHOR_GUIDE.md): Nako HTTP addon manifest
   and resource contract.
+- [Official Addon catalog](addons/OFFICIAL_ADDON_CATALOG.md): operator-visible
+  official Addon inventory, compatibility facts, install references, trust
+  tiers, and smoke status.
 - [Webhook receiver guide](guides/WEBHOOK_RECEIVER_GUIDE.md): webhook
   endpoint setup, signatures, and retry inspection.
 - [Automation provider guide](guides/AUTOMATION_PROVIDER_GUIDE.md): external

@@ -2,6 +2,11 @@
 
 This guide describes the first Nako HTTP addon contract.
 
+Operators looking for official sidecars should start with the
+[Official Addon catalog](../addons/OFFICIAL_ADDON_CATALOG.md). The catalog
+lists official Addon manifests, version compatibility, install references,
+trust tiers, and smoke status, but it is not a host-managed Addon Manager.
+
 ## Manifest
 
 An addon is an HTTP sidecar described by a JSON manifest. Nako stores a

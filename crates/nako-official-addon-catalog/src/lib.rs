@@ -1437,17 +1437,310 @@ pub mod notification_bridge {
     }
 }
 
+pub const OFFICIAL_ADDON_CATALOG_ARTIFACT_PATH: &str = "docs/addons/OFFICIAL_ADDON_CATALOG.md";
+pub const COMPATIBLE_NAKO_VERSION_RANGE: &str = ">=0.1.0-alpha.2 <0.2.0";
+pub const ADDON_HEALTH_CHECK_PATH: &str = "/health";
+pub const OFFICIAL_ADDON_CATALOG_EXCLUDED_HELPERS: &[&str] = &["browser-worker"];
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct OfficialAddonCatalogEntry {
+    pub manifest: AddonManifest,
+    pub binary_install_descriptor: AddonInstallDescriptor,
+    pub container_install_descriptor: AddonInstallDescriptor,
+    pub compatible_nako_version_range: &'static str,
+    pub health_check_path: &'static str,
+    pub trust_tier: &'static str,
+    pub smoke_status: &'static str,
+    pub install_docs: &'static str,
+    pub compose_reference: Option<&'static str>,
+    pub local_smoke_reference: &'static str,
+    pub live_smoke_reference: Option<&'static str>,
+}
+
+impl OfficialAddonCatalogEntry {
+    #[must_use]
+    pub fn addon_id(&self) -> &str {
+        &self.manifest.id
+    }
+}
+
+#[must_use]
+pub fn official_addon_catalog() -> Vec<OfficialAddonCatalogEntry> {
+    vec![
+        catalog_entry(
+            metadata_scraper::binary_install_descriptor(),
+            metadata_scraper::container_install_descriptor(),
+            "official side-effect",
+            "local smoke; Nako-mediated alpha smoke",
+            "../nako-official-addons/addons/metadata-scraper/README.md",
+            Some("../nako-official-addons/addons/metadata-scraper/compose.example.yml"),
+            "../nako-official-addons/addons/metadata-scraper/smoke.local.ps1",
+            None,
+        ),
+        catalog_entry(
+            resource_search::binary_install_descriptor(),
+            resource_search::container_install_descriptor(),
+            "official read-only",
+            "local smoke",
+            "../nako-official-addons/addons/resource-search/README.md",
+            Some("../nako-official-addons/addons/resource-search/compose.example.yml"),
+            "../nako-official-addons/addons/resource-search/smoke.local.ps1",
+            None,
+        ),
+        catalog_entry(
+            subtitle_provider::binary_install_descriptor(),
+            subtitle_provider::container_install_descriptor(),
+            "official read-only",
+            "local smoke",
+            "../nako-official-addons/addons/subtitle-provider/README.md",
+            None,
+            "../nako-official-addons/addons/subtitle-provider/smoke.local.ps1",
+            None,
+        ),
+        catalog_entry(
+            chromecast_renderer::binary_install_descriptor(),
+            chromecast_renderer::container_install_descriptor(),
+            "renderer adapter",
+            "local smoke",
+            "../nako-official-addons/addons/chromecast-renderer/README.md",
+            Some("../nako-official-addons/addons/chromecast-renderer/compose.example.yml"),
+            "../nako-official-addons/addons/chromecast-renderer/smoke.local.ps1",
+            None,
+        ),
+        catalog_entry(
+            dlna_renderer::binary_install_descriptor(),
+            dlna_renderer::container_install_descriptor(),
+            "renderer adapter",
+            "local smoke",
+            "../nako-official-addons/addons/dlna-renderer/README.md",
+            Some("../nako-official-addons/addons/dlna-renderer/compose.example.yml"),
+            "../nako-official-addons/addons/dlna-renderer/smoke.local.ps1",
+            None,
+        ),
+        catalog_entry(
+            notification_bridge::binary_install_descriptor(),
+            notification_bridge::container_install_descriptor(),
+            "notification fan-out",
+            "local smoke; optional live smoke",
+            "../nako-official-addons/addons/notification-bridge/README.md",
+            Some("../nako-official-addons/addons/notification-bridge/compose.example.yml"),
+            "../nako-official-addons/addons/notification-bridge/smoke.local.ps1",
+            Some("../nako-official-addons/addons/notification-bridge/smoke.live.ps1"),
+        ),
+        catalog_entry(
+            external_acquisition_runner::binary_install_descriptor(),
+            external_acquisition_runner::container_install_descriptor(),
+            "official side-effect",
+            "local smoke",
+            "../nako-official-addons/addons/external-acquisition-runner/README.md",
+            Some("../nako-official-addons/addons/external-acquisition-runner/compose.example.yml"),
+            "../nako-official-addons/addons/external-acquisition-runner/smoke.local.ps1",
+            None,
+        ),
+    ]
+}
+
+#[must_use]
+pub fn render_official_addon_catalog_markdown() -> String {
+    let mut markdown = String::from(
+        "# Official Addon Catalog\n\n\
+         This generated catalog is the operator-visible inventory for official Nako Addons. \
+         It is derived from `crates/nako-official-addon-catalog` manifest and install descriptor \
+         builders, then verified by crate tests.\n\n\
+         Catalog scope is discovery, compatibility, install references, and smoke status. \
+         It is not an Addon Manager: Nako still does not install, update, start, stop, remove, \
+         log, or supervise Addon Sidecar processes.\n\n",
+    );
+    markdown.push_str(&format!(
+        "- Catalog artifact: `{OFFICIAL_ADDON_CATALOG_ARTIFACT_PATH}`\n"
+    ));
+    markdown.push_str(&format!(
+        "- Compatible Nako version range: `{COMPATIBLE_NAKO_VERSION_RANGE}`\n"
+    ));
+    markdown.push_str(&format!(
+        "- Excluded helper surfaces: `{}` is a browser-render helper, not an Addon catalog entry.\n\n",
+        OFFICIAL_ADDON_CATALOG_EXCLUDED_HELPERS.join("`, `")
+    ));
+    markdown.push_str(
+        "| Addon | Addon Version | Addon Protocol Version | Compatible Nako | Runtime | Default Base URLs | Health Check | Capabilities | Required Scopes | Trust Tier | Smoke Status | Install References |\n",
+    );
+    markdown
+        .push_str("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n");
+
+    for entry in official_addon_catalog() {
+        let manifest = &entry.manifest;
+        let binary = entry
+            .binary_install_descriptor
+            .runtime
+            .binary
+            .as_deref()
+            .unwrap_or("none");
+        let image = entry
+            .container_install_descriptor
+            .runtime
+            .image
+            .as_deref()
+            .unwrap_or("none");
+        let container_base_url = &entry.container_install_descriptor.manifest.base_url;
+
+        markdown.push_str(&format!(
+            "| `{}`<br>{} | `{}` | `{}` | `{}` | binary `{}`<br>image `{}` | local `{}`<br>container `{}` | `POST {}` | resources {}<br>tasks {}<br>events {}<br>hosted pages {} | {} | {} | {} | docs `{}`<br>compose {}<br>smoke `{}`{} |\n",
+            manifest.id,
+            manifest.name,
+            manifest.version,
+            manifest.protocol_version,
+            entry.compatible_nako_version_range,
+            binary,
+            image,
+            manifest.base_url,
+            container_base_url,
+            entry.health_check_path,
+            resource_summary(manifest),
+            task_summary(manifest),
+            event_summary(manifest),
+            hosted_page_summary(manifest),
+            scope_summary(manifest),
+            entry.trust_tier,
+            entry.smoke_status,
+            entry.install_docs,
+            optional_reference(entry.compose_reference),
+            entry.local_smoke_reference,
+            optional_live_smoke(entry.live_smoke_reference),
+        ));
+    }
+
+    markdown.push_str(
+        "\n## Validation\n\n\
+         Run `cargo nextest run -p nako-official-addon-catalog --no-fail-fast` to verify that every \
+         catalog entry validates its manifest and binary/container install descriptors, and that this \
+         artifact matches the crate renderer.\n",
+    );
+    markdown
+}
+
+#[must_use]
+fn catalog_entry(
+    binary_install_descriptor: AddonInstallDescriptor,
+    container_install_descriptor: AddonInstallDescriptor,
+    trust_tier: &'static str,
+    smoke_status: &'static str,
+    install_docs: &'static str,
+    compose_reference: Option<&'static str>,
+    local_smoke_reference: &'static str,
+    live_smoke_reference: Option<&'static str>,
+) -> OfficialAddonCatalogEntry {
+    OfficialAddonCatalogEntry {
+        manifest: binary_install_descriptor.manifest.clone(),
+        binary_install_descriptor,
+        container_install_descriptor,
+        compatible_nako_version_range: COMPATIBLE_NAKO_VERSION_RANGE,
+        health_check_path: ADDON_HEALTH_CHECK_PATH,
+        trust_tier,
+        smoke_status,
+        install_docs,
+        compose_reference,
+        local_smoke_reference,
+        live_smoke_reference,
+    }
+}
+
+#[must_use]
+fn resource_summary(manifest: &AddonManifest) -> String {
+    if manifest.resources.is_empty() {
+        return "none".to_owned();
+    }
+
+    manifest
+        .resources
+        .iter()
+        .map(|resource| resource.kind.as_str())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+#[must_use]
+fn task_summary(manifest: &AddonManifest) -> String {
+    if manifest.tasks.is_empty() {
+        return "none".to_owned();
+    }
+
+    manifest
+        .tasks
+        .iter()
+        .map(|task| task.id.as_str())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+#[must_use]
+fn event_summary(manifest: &AddonManifest) -> String {
+    if manifest.event_subscriptions.is_empty() {
+        return "none".to_owned();
+    }
+
+    manifest
+        .event_subscriptions
+        .iter()
+        .map(|event| event.event_kind.as_str())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+#[must_use]
+fn hosted_page_summary(manifest: &AddonManifest) -> String {
+    if manifest.hosted_pages.is_empty() {
+        return "none".to_owned();
+    }
+
+    manifest
+        .hosted_pages
+        .iter()
+        .map(|page| page.id.as_str())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+#[must_use]
+fn scope_summary(manifest: &AddonManifest) -> String {
+    manifest
+        .scopes
+        .iter()
+        .map(|scope| format!("`{}`", scope.as_str()))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+#[must_use]
+fn optional_reference(reference: Option<&str>) -> String {
+    reference
+        .map(|reference| format!("`{reference}`"))
+        .unwrap_or_else(|| "none".to_owned())
+}
+
+#[must_use]
+fn optional_live_smoke(reference: Option<&str>) -> String {
+    reference
+        .map(|reference| format!("<br>live smoke `{reference}`"))
+        .unwrap_or_default()
+}
+
 #[cfg(test)]
 mod tests {
-    use nako_addon_protocol::{AddonRuntimeReferenceKind, addon_install_guide, validate_manifest};
+    use nako_addon_protocol::{
+        AddonRuntimeReferenceKind, addon_install_guide, validate_install_descriptor,
+        validate_manifest,
+    };
 
     use super::chromecast_renderer;
     use super::dlna_renderer;
     use super::external_acquisition_runner;
     use super::metadata_scraper::*;
     use super::notification_bridge;
+    use super::official_addon_catalog;
+    use super::render_official_addon_catalog_markdown;
     use super::resource_search;
     use super::subtitle_provider;
+    use super::{COMPATIBLE_NAKO_VERSION_RANGE, OFFICIAL_ADDON_CATALOG_EXCLUDED_HELPERS};
 
     #[test]
     fn metadata_scraper_default_manifest_matches_official_catalog_facts() {
@@ -2029,5 +2322,67 @@ mod tests {
         assert_eq!(guide.event_subscription_count, 0);
         assert_eq!(guide.entry_point_count, 1);
         assert_eq!(guide.hosted_page_count, 1);
+    }
+
+    #[test]
+    fn official_catalog_contains_every_addon_and_excludes_helpers() {
+        let catalog = official_addon_catalog();
+        let addon_ids = catalog
+            .iter()
+            .map(|entry| entry.addon_id())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            addon_ids,
+            vec![
+                ADDON_ID,
+                resource_search::ADDON_ID,
+                subtitle_provider::ADDON_ID,
+                chromecast_renderer::ADDON_ID,
+                dlna_renderer::ADDON_ID,
+                notification_bridge::ADDON_ID,
+                external_acquisition_runner::ADDON_ID,
+            ]
+        );
+        assert!(!addon_ids.contains(&"browser-worker"));
+        assert_eq!(OFFICIAL_ADDON_CATALOG_EXCLUDED_HELPERS, &["browser-worker"]);
+    }
+
+    #[test]
+    fn official_catalog_entries_validate_manifest_and_install_descriptors() {
+        for entry in official_addon_catalog() {
+            validate_manifest(&entry.manifest).unwrap();
+            validate_install_descriptor(&entry.binary_install_descriptor).unwrap();
+            validate_install_descriptor(&entry.container_install_descriptor).unwrap();
+
+            assert_eq!(
+                entry.compatible_nako_version_range,
+                COMPATIBLE_NAKO_VERSION_RANGE
+            );
+            assert_eq!(entry.health_check_path, super::ADDON_HEALTH_CHECK_PATH);
+            assert_eq!(
+                entry.manifest.protocol_version,
+                nako_addon_protocol::ADDON_PROTOCOL_VERSION
+            );
+            assert_eq!(
+                entry.manifest.id,
+                entry.binary_install_descriptor.manifest.id
+            );
+            assert_eq!(
+                entry.manifest.id,
+                entry.container_install_descriptor.manifest.id
+            );
+            assert!(!entry.trust_tier.is_empty());
+            assert!(!entry.smoke_status.is_empty());
+            assert!(!entry.install_docs.is_empty());
+            assert!(!entry.local_smoke_reference.is_empty());
+        }
+    }
+
+    #[test]
+    fn official_catalog_artifact_matches_renderer() {
+        let artifact = include_str!("../../../docs/addons/OFFICIAL_ADDON_CATALOG.md");
+
+        assert_eq!(artifact, render_official_addon_catalog_markdown());
     }
 }
