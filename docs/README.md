@@ -59,6 +59,14 @@ policy, and workstream-level design notes for Nako.
   expectations.
 - [Licensing](legal/LICENSING.md): license policy and reference-code boundary.
 - [Workstreams](workstreams/README.md): long-running implementation areas.
+- [Product competitive research](research/nako-product-competitive-analysis/README.md):
+  first-pass Nako positioning and competitive analysis.
+- [Product positioning plan](plans/PRODUCT_POSITIONING.md): recommended Nako
+  positioning, target users, alternatives, success metrics, and risks.
+- [Media server parity gap matrix](plans/MEDIA_SERVER_PARITY_GAP_MATRIX.md):
+  build/integrate/defer/do-not-chase decisions for competitive capabilities.
+- [Addon ecosystem strategy](plans/ADDON_ECOSYSTEM_STRATEGY.md): official
+  Addon catalog, suite packaging, trust tiers, and author-kit direction.
 
 ## How To Update Docs
 

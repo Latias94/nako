@@ -1,0 +1,251 @@
+topic: "Nako self-hosted media server product competitive analysis"
+created_at: "2026-06-13"
+language: "zh-CN"
+purpose: >
+  为 Nako 的产品定位、路线图、Addon 生态、播放/转码能力、媒体库治理、
+  自托管运营体验和差异化策略建立可继续深研的竞品分析框架。
+
+items:
+  - id: "nako"
+    name: "Nako"
+    category: "subject"
+    role: "research_subject"
+    why: "Rust 自托管媒体服务器后端；当前 alpha；需要与竞品能力和生态角色对齐分析。"
+    local_sources:
+      - "README.md"
+      - "CONTEXT.md"
+      - "docs/ARCHITECTURE.md"
+      - "docs/architecture/"
+      - "crates/nako-addon-protocol/README.md"
+      - "docs/guides/ADDON_AUTHOR_GUIDE.md"
+
+  - id: "jellyfin"
+    name: "Jellyfin"
+    category: "core_media_server"
+    role: "direct_competitor_and_open_source_reference"
+    why: "开源自托管媒体服务器基线；插件、客户端、播放、Live TV、元数据和社区生态是 Nako 必须理解的参照。"
+    sources:
+      - "https://jellyfin.org/docs/"
+      - "https://jellyfin.org/docs/general/server/plugins/"
+      - "https://jellyfin.org/posts/jellyfin-release-10.11.0/"
+
+  - id: "plex"
+    name: "Plex"
+    category: "core_media_server"
+    role: "direct_competitor_and_commercial_leader"
+    why: "成熟商业化媒体平台；远程访问、客户端覆盖、账号体系、Plex Pass 和生态规模影响用户预期。"
+    sources:
+      - "https://www.plex.tv/plans/"
+      - "https://www.plex.tv/blog/important-2025-plex-updates/"
+      - "https://support.plex.tv/articles/requirements-for-remote-playback-of-personal-media/"
+
+  - id: "emby"
+    name: "Emby"
+    category: "core_media_server"
+    role: "direct_competitor"
+    why: "商业 freemium 媒体服务器；功能门控、客户端支持、Premiere 策略和 Jellyfin 分叉历史值得对比。"
+    sources:
+      - "https://emby.media/"
+      - "https://emby.media/support/articles/Premiere-Feature-Matrix.html"
+      - "https://github.com/MediaBrowser/Emby.Releases/releases"
+
+  - id: "kodi"
+    name: "Kodi"
+    category: "client_media_center"
+    role: "client_ux_and_addon_ecosystem_reference"
+    why: "本地媒体中心和客厅 UX 强基线；Addon 生态可启发 Nako 客户端/入口设计，但不是同类 server-only 竞品。"
+    sources:
+      - "https://kodi.tv/"
+      - "https://kodi.tv/addons/"
+      - "https://kodi.tv/article/kodi-21-0-omega-release/"
+
+  - id: "stremio"
+    name: "Stremio"
+    category: "addon_catalog_streaming"
+    role: "addon_protocol_and_catalog_reference"
+    why: "Addon-centric 的 catalog/meta/stream 聚合产品；适合比较资源发现、Addon 分发和法律/政策边界。"
+    sources:
+      - "https://www.stremio.com/addon-sdk"
+      - "https://github.com/Stremio/stremio-addon-sdk/blob/master/docs/protocol.md"
+
+  - id: "immich"
+    name: "Immich"
+    category: "photo_video_server"
+    role: "adjacent_vertical_benchmark"
+    why: "现代自托管照片/视频库代表；移动备份、ML 搜索、产品速度和自托管 UX 对 Nako 非影视媒体域有参考价值。"
+    sources:
+      - "https://immich.app/"
+      - "https://docs.immich.app/"
+      - "https://immich.app/blog/stable-release"
+
+  - id: "navidrome"
+    name: "Navidrome"
+    category: "music_server"
+    role: "adjacent_vertical_benchmark"
+    why: "轻量自托管音乐服务器；可对比简单部署、Subsonic API 兼容、音乐域模型和客户端生态。"
+    sources:
+      - "https://www.navidrome.org/"
+      - "https://github.com/navidrome/navidrome/releases"
+
+  - id: "audiobookshelf"
+    name: "Audiobookshelf"
+    category: "audiobook_podcast_server"
+    role: "adjacent_vertical_benchmark"
+    why: "有声书/播客自托管代表；可对比章节、进度、离线收听、移动客户端和媒体域深度。"
+    sources:
+      - "https://www.audiobookshelf.org/"
+      - "https://github.com/advplyr/audiobookshelf"
+
+  - id: "servarr_stack"
+    name: "Servarr stack"
+    category: "automation_ecosystem"
+    role: "workflow_adjacent"
+    includes:
+      - "Sonarr"
+      - "Radarr"
+      - "Lidarr"
+      - "Readarr"
+      - "Prowlarr"
+    why: "自托管媒体自动化事实外围系统；影响请求、抓取、整理、命名、索引器同步和 Nako 外部集成策略。"
+    sources:
+      - "https://wiki.servarr.com/"
+
+  - id: "bazarr"
+    name: "Bazarr"
+    category: "subtitle_automation"
+    role: "workflow_adjacent"
+    why: "Sonarr/Radarr 字幕自动化伴侣；适合对比 Nako 字幕发现、导入、生命周期和 Addon provider 模型。"
+    sources:
+      - "https://www.bazarr.media/"
+
+  - id: "seerr"
+    name: "Seerr"
+    category: "request_management"
+    role: "workflow_adjacent"
+    why: "媒体发现和请求审批入口；对多用户请求、审批、入库、通知工作流有参考价值。"
+    sources:
+      - "https://seerr.dev/"
+
+  - id: "kometa"
+    name: "Kometa"
+    category: "metadata_curation"
+    role: "workflow_adjacent"
+    why: "集合、海报覆盖层、榜单驱动元数据策展工具；可启发 Nako Metadata/NFO/Artwork pipeline。"
+    sources:
+      - "https://kometa.wiki/"
+
+  - id: "media_processing_automation"
+    name: "Tdarr / FileFlows / Unmanic"
+    category: "media_processing_automation"
+    role: "workflow_adjacent"
+    why: "转码、重封装、库优化和规则流工具；可对比 Nako playback transcode、optimized version 和 artifact workflow。"
+    sources:
+      - "https://tdarr.io/"
+      - "https://fileflows.com/"
+      - "https://github.com/unmanic/unmanic"
+
+  - id: "analytics_monitoring"
+    name: "Tautulli / Jellystat"
+    category: "analytics_monitoring"
+    role: "workflow_adjacent"
+    why: "播放统计、使用分析、服务器观察性工具；可对比 Nako Admin diagnostics 和未来 usage analytics。"
+    sources:
+      - "https://tautulli.com/"
+      - "https://github.com/CyferShepard/Jellystat"
+
+  - id: "state_sync_and_migration"
+    name: "WatchState / JellyPlex-Watched"
+    category: "state_sync_migration"
+    role: "workflow_adjacent"
+    why: "跨 Plex/Jellyfin/Emby 同步 watched state；迁移、互操作和用户状态可携带性是 Nako 上手成本关键。"
+    sources:
+      - "https://github.com/arabcoders/watchstate"
+
+  - id: "maintainerr"
+    name: "Maintainerr"
+    category: "library_lifecycle_governance"
+    role: "workflow_adjacent"
+    why: "规则化清理、删除和保留策略；对应 Nako 存储治理、空间策略和安全护栏。"
+    sources:
+      - "https://maintainerr.info/"
+
+  - id: "linear_tv_tools"
+    name: "Tunarr / ErsatzTV / Dispatcharr / Channels DVR"
+    category: "live_tv_linear_experience"
+    role: "workflow_adjacent"
+    why: "虚拟频道、IPTV/M3U/EPG、DVR 和电视化体验；补充 Jellyfin/Plex Live TV 之外的产品形态。"
+    sources:
+      - "https://tunarr.com/"
+      - "https://ersatztv.org/"
+      - "https://dispatcharr.github.io/Dispatcharr-Docs/"
+      - "https://getchannels.com/"
+
+  - id: "reading_servers"
+    name: "Kavita / Komga / Calibre-Web"
+    category: "reading_media_server"
+    role: "adjacent_vertical_benchmark"
+    why: "漫画、电子书、OPDS 和阅读进度代表；补齐 Nako 长期 document/mixed media scope 的竞品样本。"
+    sources:
+      - "https://www.kavitareader.com/"
+      - "https://komga.org/"
+      - "https://github.com/janeczku/calibre-web"
+
+  - id: "photo_alternatives"
+    name: "PhotoPrism / Ente Photos / LibrePhotos / Nextcloud Memories"
+    category: "photo_video_server"
+    role: "adjacent_vertical_benchmark"
+    why: "照片域不能只用 Immich 代表；这些项目分别覆盖 AI 照片库、E2EE、自托管 ML 和 Nextcloud 集成体验。"
+    sources:
+      - "https://www.photoprism.app/"
+      - "https://ente.com/help/self-hosting/"
+      - "https://docs.librephotos.com/"
+      - "https://memories.gallery/"
+
+  - id: "online_archive_tools"
+    name: "Tube Archivist / Pinchflat / MeTube"
+    category: "online_archive_import"
+    role: "workflow_adjacent"
+    why: "在线视频归档、订阅、yt-dlp 导入和离线观看；对应 Nako online/catalog resource 与合规边界。"
+    sources:
+      - "https://www.tubearchivist.com/"
+      - "https://github.com/kieraneglin/pinchflat"
+      - "https://github.com/alexta69/metube"
+
+  - id: "peertube"
+    name: "PeerTube"
+    category: "federated_video_platform"
+    role: "low_priority_adjacent"
+    why: "不是个人媒体库服务器，但若 Nako 未来考虑公开分享、社区目录或联邦分发，应作为相邻观察对象。"
+    sources:
+      - "https://joinpeertube.org/"
+
+execution:
+  batch_size: 4
+  items_per_agent: 3
+  output_dir: ".trellis/tasks/06-13-research-nako-product-competitive-analysis/research/results"
+  suggested_batches:
+    - name: "核心媒体服务器"
+      item_ids: ["jellyfin", "plex", "emby", "nako"]
+    - name: "客户端和 Addon 协议参照"
+      item_ids: ["kodi", "stremio"]
+    - name: "垂直媒体域"
+      item_ids: ["immich", "navidrome", "audiobookshelf", "reading_servers", "photo_alternatives"]
+    - name: "自托管媒体生态工作流"
+      item_ids: ["servarr_stack", "bazarr", "seerr", "kometa", "media_processing_automation", "analytics_monitoring", "state_sync_and_migration", "maintainerr"]
+    - name: "Live TV 和在线视频归档"
+      item_ids: ["linear_tv_tools", "online_archive_tools", "peertube"]
+
+research_references:
+  local_pending:
+    - "research/nako-current-state.md"
+    - "research/official-addons-current-state.md"
+    - "research/jellyfin-source-architecture-notes.md"
+  external_seed_sources:
+    - "https://jellyfin.org/docs/"
+    - "https://www.plex.tv/plans/"
+    - "https://support.plex.tv/articles/requirements-for-remote-playback-of-personal-media/"
+    - "https://emby.media/support/articles/Premiere-Feature-Matrix.html"
+    - "https://kodi.tv/addons/"
+    - "https://www.stremio.com/addon-sdk"
+    - "https://immich.app/blog/stable-release"
+    - "https://wiki.servarr.com/"
