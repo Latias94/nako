@@ -24,19 +24,15 @@ import {
   Sparkles,
   UsersRound,
 } from "lucide-react";
-import { Suspense, lazy, useMemo, useState, type ReactNode } from "react";
+import { Suspense, lazy, useMemo, useState } from "react";
 
 import type { AdminDataSource } from "./adminApi/dataSource";
 import {
   AdminShell,
   type AdminShellNavItem,
 } from "./components/layout/AdminShell";
-import {
-  I18nNamespaceBoundary,
-  I18nProvider,
-  useI18n,
-} from "./i18n/I18nProvider";
-import type { AdminLocale, I18nNamespace, MessageId } from "./i18n/messages";
+import { I18nProvider, useI18n } from "./i18n/I18nProvider";
+import type { AdminLocale, MessageId } from "./i18n/messages";
 import type { AddonStatus } from "./adminApi/types";
 import type { AcquisitionIntakeSearch } from "./features/acquisition/AcquisitionIntakePage";
 import type { AddonsSearch } from "./features/addons/AddonsPage";
@@ -65,158 +61,156 @@ import type {
   MediaDataSourceFactory,
 } from "./surfaces/media/mediaDataSource";
 
-const AcquisitionIntakePage = lazy(() =>
-  import("./features/acquisition/AcquisitionIntakePage").then((module) => ({
-    default: module.AcquisitionIntakePage,
+const AcquisitionIntakeRouteModule = lazy(() =>
+  import("./routes/AcquisitionIntakeRouteModule").then((module) => ({
+    default: module.AcquisitionIntakeRouteModule,
   })),
 );
-const AccessPage = lazy(() =>
-  import("./features/access/AccessPage").then((module) => ({
-    default: module.AccessPage,
+const AccessRouteModule = lazy(() =>
+  import("./routes/AccessRouteModule").then((module) => ({
+    default: module.AccessRouteModule,
   })),
 );
-const AddonsPage = lazy(() =>
-  import("./features/addons/AddonsPage").then((module) => ({
-    default: module.AddonsPage,
+const AddonsRouteModule = lazy(() =>
+  import("./routes/AddonsRouteModule").then((module) => ({
+    default: module.AddonsRouteModule,
   })),
 );
-const GeneratedArtifactsPage = lazy(() =>
-  import("./features/automation/GeneratedArtifactsPage").then((module) => ({
-    default: module.GeneratedArtifactsPage,
+const GeneratedArtifactsRouteModule = lazy(() =>
+  import("./routes/GeneratedArtifactsRouteModule").then((module) => ({
+    default: module.GeneratedArtifactsRouteModule,
   })),
 );
-const GeneratedArtifactReviewPage = lazy(() =>
-  import("./features/automation/GeneratedArtifactReviewPage").then(
+const GeneratedArtifactReviewRouteModule = lazy(() =>
+  import("./routes/GeneratedArtifactReviewRouteModule").then((module) => ({
+    default: module.GeneratedArtifactReviewRouteModule,
+  })),
+);
+const CatalogBrowseRouteModule = lazy(() =>
+  import("./routes/CatalogBrowseRouteModule").then((module) => ({
+    default: module.CatalogBrowseRouteModule,
+  })),
+);
+const CatalogGovernanceRouteModule = lazy(() =>
+  import("./routes/CatalogGovernanceRouteModule").then((module) => ({
+    default: module.CatalogGovernanceRouteModule,
+  })),
+);
+const CatalogGovernanceRepairRouteModule = lazy(() =>
+  import("./routes/CatalogGovernanceRepairRouteModule").then((module) => ({
+    default: module.CatalogGovernanceRepairRouteModule,
+  })),
+);
+const EventsRouteModule = lazy(() =>
+  import("./routes/EventsRouteModule").then((module) => ({
+    default: module.EventsRouteModule,
+  })),
+);
+const IncidentBundleRouteModule = lazy(() =>
+  import("./routes/IncidentBundleRouteModule").then((module) => ({
+    default: module.IncidentBundleRouteModule,
+  })),
+);
+const JobsRouteModule = lazy(() =>
+  import("./routes/JobsRouteModule").then((module) => ({
+    default: module.JobsRouteModule,
+  })),
+);
+const ManagedArtworkMaintenanceRouteModule = lazy(() =>
+  import("./routes/ManagedArtworkMaintenanceRouteModule").then((module) => ({
+    default: module.ManagedArtworkMaintenanceRouteModule,
+  })),
+);
+const ItemArtworkGalleryRouteModule = lazy(() =>
+  import("./routes/ItemArtworkGalleryRouteModule").then((module) => ({
+    default: module.ItemArtworkGalleryRouteModule,
+  })),
+);
+const ItemDetailRouteModule = lazy(() =>
+  import("./routes/ItemDetailRouteModule").then((module) => ({
+    default: module.ItemDetailRouteModule,
+  })),
+);
+const SourceDuplicateReconciliationRouteModule = lazy(() =>
+  import("./routes/SourceDuplicateReconciliationRouteModule").then(
     (module) => ({
-      default: module.GeneratedArtifactReviewPage,
+      default: module.SourceDuplicateReconciliationRouteModule,
     }),
   ),
 );
-const CatalogBrowsePage = lazy(() =>
-  import("./features/catalog/CatalogBrowsePage").then((module) => ({
-    default: module.CatalogBrowsePage,
+const LibraryDetailRouteModule = lazy(() =>
+  import("./routes/LibraryDetailRouteModule").then((module) => ({
+    default: module.LibraryDetailRouteModule,
   })),
 );
-const CatalogGovernancePage = lazy(() =>
-  import("./features/catalog/CatalogGovernancePage").then((module) => ({
-    default: module.CatalogGovernancePage,
+const LibrariesRouteModule = lazy(() =>
+  import("./routes/LibrariesRouteModule").then((module) => ({
+    default: module.LibrariesRouteModule,
   })),
 );
-const CatalogGovernanceRepairPage = lazy(() =>
-  import("./features/catalog/CatalogGovernanceRepairPage").then((module) => ({
-    default: module.CatalogGovernanceRepairPage,
+const OverviewRouteModule = lazy(() =>
+  import("./routes/OverviewRouteModule").then((module) => ({
+    default: module.OverviewRouteModule,
   })),
 );
-const EventsPage = lazy(() =>
-  import("./features/events/EventsPage").then((module) => ({
-    default: module.EventsPage,
+const PlaybackSessionsRouteModule = lazy(() =>
+  import("./routes/PlaybackSessionsRouteModule").then((module) => ({
+    default: module.PlaybackSessionsRouteModule,
   })),
 );
-const JobsPage = lazy(() =>
-  import("./features/jobs/JobsPage").then((module) => ({
-    default: module.JobsPage,
+const PlaybackSupportRouteModule = lazy(() =>
+  import("./routes/PlaybackSupportRouteModule").then((module) => ({
+    default: module.PlaybackSupportRouteModule,
   })),
 );
-const ManagedArtworkMaintenancePage = lazy(() =>
-  import("./features/artwork/ManagedArtworkMaintenancePage").then((module) => ({
-    default: module.ManagedArtworkMaintenancePage,
+const StorageStagingRouteModule = lazy(() =>
+  import("./routes/StorageStagingRouteModule").then((module) => ({
+    default: module.StorageStagingRouteModule,
   })),
 );
-const ItemArtworkGalleryPage = lazy(() =>
-  import("./features/items/ItemArtworkGalleryPage").then((module) => ({
-    default: module.ItemArtworkGalleryPage,
+const SettingsRouteModule = lazy(() =>
+  import("./routes/SettingsRouteModule").then((module) => ({
+    default: module.SettingsRouteModule,
   })),
 );
-const ItemDetailPage = lazy(() =>
-  import("./features/items/ItemDetailPage").then((module) => ({
-    default: module.ItemDetailPage,
+const LegacyRouteModule = lazy(() =>
+  import("./routes/LegacyRouteModule").then((module) => ({
+    default: module.LegacyRouteModule,
   })),
 );
-const SourceDuplicateReconciliationRoutePage = lazy(() =>
-  import("./features/items/SourceDuplicateReconciliationRoutePage").then(
-    (module) => ({
-      default: module.SourceDuplicateReconciliationRoutePage,
-    }),
-  ),
-);
-const LibraryDetailPage = lazy(() =>
-  import("./features/libraries/LibraryDetailPage").then((module) => ({
-    default: module.LibraryDetailPage,
+const MediaConnectRouteModule = lazy(() =>
+  import("./routes/MediaConnectRouteModule").then((module) => ({
+    default: module.MediaConnectRouteModule,
   })),
 );
-const LibrariesPage = lazy(() =>
-  import("./features/libraries/LibrariesPage").then((module) => ({
-    default: module.LibrariesPage,
+const MediaHomeRouteModule = lazy(() =>
+  import("./routes/MediaHomeRouteModule").then((module) => ({
+    default: module.MediaHomeRouteModule,
   })),
 );
-const OverviewPage = lazy(() =>
-  import("./features/overview/OverviewPage").then((module) => ({
-    default: module.OverviewPage,
+const MediaItemDetailRouteModule = lazy(() =>
+  import("./routes/MediaItemDetailRouteModule").then((module) => ({
+    default: module.MediaItemDetailRouteModule,
   })),
 );
-const PlaybackSessionsPage = lazy(() =>
-  import("./features/playback/PlaybackSessionsPage").then((module) => ({
-    default: module.PlaybackSessionsPage,
+const MediaLibraryDetailRouteModule = lazy(() =>
+  import("./routes/MediaLibraryDetailRouteModule").then((module) => ({
+    default: module.MediaLibraryDetailRouteModule,
   })),
 );
-const PlaybackSupportPage = lazy(() =>
-  import("./features/playback/PlaybackSupportPage").then((module) => ({
-    default: module.PlaybackSupportPage,
+const MediaLibrariesRouteModule = lazy(() =>
+  import("./routes/MediaLibrariesRouteModule").then((module) => ({
+    default: module.MediaLibrariesRouteModule,
   })),
 );
-const StorageStagingPage = lazy(() =>
-  import("./features/storage/StorageStagingPage").then((module) => ({
-    default: module.StorageStagingPage,
+const MediaSearchRouteModule = lazy(() =>
+  import("./routes/MediaSearchRouteModule").then((module) => ({
+    default: module.MediaSearchRouteModule,
   })),
 );
-const SettingsPage = lazy(() =>
-  import("./features/settings/SettingsPage").then((module) => ({
-    default: module.SettingsPage,
-  })),
-);
-const LegacyDashboard = lazy(() =>
-  import("./legacy/LegacyDashboard").then((module) => ({
-    default: module.LegacyDashboard,
-  })),
-);
-const IncidentBundlePage = lazy(() =>
-  import("./features/diagnostics/IncidentBundlePage").then((module) => ({
-    default: module.IncidentBundlePage,
-  })),
-);
-const MediaConnectPage = lazy(() =>
-  import("./surfaces/media/MediaConnectPage").then((module) => ({
-    default: module.MediaConnectPage,
-  })),
-);
-const MediaHomePage = lazy(() =>
-  import("./surfaces/media/MediaPages").then((module) => ({
-    default: module.MediaHomePage,
-  })),
-);
-const MediaItemDetailPage = lazy(() =>
-  import("./surfaces/media/MediaItemDetailPage").then((module) => ({
-    default: module.MediaItemDetailPage,
-  })),
-);
-const MediaLibraryDetailPage = lazy(() =>
-  import("./surfaces/media/MediaPages").then((module) => ({
-    default: module.MediaLibraryDetailPage,
-  })),
-);
-const MediaLibrariesPage = lazy(() =>
-  import("./surfaces/media/MediaPages").then((module) => ({
-    default: module.MediaLibrariesPage,
-  })),
-);
-const MediaSearchPage = lazy(() =>
-  import("./surfaces/media/MediaPages").then((module) => ({
-    default: module.MediaSearchPage,
-  })),
-);
-const MediaWatchPage = lazy(() =>
-  import("./surfaces/media/MediaWatchPage").then((module) => ({
-    default: module.MediaWatchPage,
+const MediaWatchRouteModule = lazy(() =>
+  import("./routes/MediaWatchRouteModule").then((module) => ({
+    default: module.MediaWatchRouteModule,
   })),
 );
 
@@ -487,9 +481,6 @@ const adminNavItems = [
   Omit<AdminShellNavItem, "label"> & { labelId: MessageId }
 >;
 
-const libraryDetailI18nNamespaces = ["libraryDetail", "libraries"] as const;
-const playbackSessionsI18nNamespaces = ["playback", "playbackSupport"] as const;
-
 function createAppRouter(context: RouterContext) {
   return createRouter({
     routeTree,
@@ -580,37 +571,21 @@ function RootLayout() {
   );
 }
 
-function RouteI18n({
-  children,
-  namespace,
-}: {
-  children: ReactNode;
-  namespace: I18nNamespace | readonly I18nNamespace[];
-}) {
-  return (
-    <I18nNamespaceBoundary namespace={namespace}>
-      {children}
-    </I18nNamespaceBoundary>
-  );
-}
-
 function JobsRoute() {
   const { dataSource } = jobsRoute.useRouteContext();
   const search = jobsRoute.useSearch();
   const navigate = jobsRoute.useNavigate();
 
   return (
-    <RouteI18n namespace="jobs">
-      <JobsPage
-        dataSource={dataSource}
-        onSearchChange={(next) => {
-          void navigate({
-            search: (current) => normalizeJobsSearch({ ...current, ...next }),
-          });
-        }}
-        search={search}
-      />
-    </RouteI18n>
+    <JobsRouteModule
+      dataSource={dataSource}
+      onSearchChange={(next) => {
+        void navigate({
+          search: (current) => normalizeJobsSearch({ ...current, ...next }),
+        });
+      }}
+      search={search}
+    />
   );
 }
 
@@ -620,64 +595,42 @@ function EventsRoute() {
   const navigate = eventsRoute.useNavigate();
 
   return (
-    <RouteI18n namespace="events">
-      <EventsPage
-        dataSource={dataSource}
-        onSearchChange={(next) => {
-          void navigate({
-            search: (current) => normalizeEventsSearch({ ...current, ...next }),
-          });
-        }}
-        search={search}
-      />
-    </RouteI18n>
+    <EventsRouteModule
+      dataSource={dataSource}
+      onSearchChange={(next) => {
+        void navigate({
+          search: (current) => normalizeEventsSearch({ ...current, ...next }),
+        });
+      }}
+      search={search}
+    />
   );
 }
 
 function AccessRoute() {
   const { dataSource } = accessRoute.useRouteContext();
-  return (
-    <RouteI18n namespace="access">
-      <AccessPage dataSource={dataSource} />
-    </RouteI18n>
-  );
+  return <AccessRouteModule dataSource={dataSource} />;
 }
 
 function IncidentBundleRoute() {
   const { dataSource } = incidentBundleRoute.useRouteContext();
-  return (
-    <RouteI18n namespace="incidentBundle">
-      <IncidentBundlePage dataSource={dataSource} />
-    </RouteI18n>
-  );
+  return <IncidentBundleRouteModule dataSource={dataSource} />;
 }
 
 function OverviewRoute() {
   const { dataSource } = overviewRoute.useRouteContext();
-  return (
-    <RouteI18n namespace="overview">
-      <OverviewPage dataSource={dataSource} />
-    </RouteI18n>
-  );
+  return <OverviewRouteModule dataSource={dataSource} />;
 }
 
 function LibrariesRoute() {
   const { dataSource } = librariesRoute.useRouteContext();
-  return (
-    <RouteI18n namespace="libraries">
-      <LibrariesPage dataSource={dataSource} />
-    </RouteI18n>
-  );
+  return <LibrariesRouteModule dataSource={dataSource} />;
 }
 
 function LibraryDetailRoute() {
   const { dataSource } = libraryDetailRoute.useRouteContext();
   const { libraryId } = libraryDetailRoute.useParams();
-  return (
-    <RouteI18n namespace={libraryDetailI18nNamespaces}>
-      <LibraryDetailPage dataSource={dataSource} libraryId={libraryId} />
-    </RouteI18n>
-  );
+  return <LibraryDetailRouteModule dataSource={dataSource} libraryId={libraryId} />;
 }
 
 function CatalogBrowseRoute() {
@@ -686,18 +639,16 @@ function CatalogBrowseRoute() {
   const navigate = catalogBrowseRoute.useNavigate();
 
   return (
-    <RouteI18n namespace="catalogBrowse">
-      <CatalogBrowsePage
-        dataSource={dataSource}
-        onSearchChange={(next) => {
-          void navigate({
-            search: (current) =>
-              normalizeCatalogSearch({ ...current, ...next }),
-          });
-        }}
-        search={search}
-      />
-    </RouteI18n>
+    <CatalogBrowseRouteModule
+      dataSource={dataSource}
+      onSearchChange={(next) => {
+        void navigate({
+          search: (current) =>
+            normalizeCatalogSearch({ ...current, ...next }),
+        });
+      }}
+      search={search}
+    />
   );
 }
 
@@ -707,18 +658,16 @@ function CatalogGovernanceRoute() {
   const navigate = catalogGovernanceRoute.useNavigate();
 
   return (
-    <RouteI18n namespace="catalogGovernance">
-      <CatalogGovernancePage
-        dataSource={dataSource}
-        onSearchChange={(next) => {
-          void navigate({
-            search: (current) =>
-              normalizeCatalogGovernanceSearch({ ...current, ...next }),
-          });
-        }}
-        search={search}
-      />
-    </RouteI18n>
+    <CatalogGovernanceRouteModule
+      dataSource={dataSource}
+      onSearchChange={(next) => {
+        void navigate({
+          search: (current) =>
+            normalizeCatalogGovernanceSearch({ ...current, ...next }),
+        });
+      }}
+      search={search}
+    />
   );
 }
 
@@ -729,19 +678,17 @@ function CatalogGovernanceRepairRoute() {
   const navigate = catalogGovernanceRepairRoute.useNavigate();
 
   return (
-    <RouteI18n namespace="catalogGovernance">
-      <CatalogGovernanceRepairPage
-        dataSource={dataSource}
-        itemId={itemId}
-        onSearchChange={(next) => {
-          void navigate({
-            search: (current) =>
-              normalizeCatalogGovernanceRepairSearch({ ...current, ...next }),
-          });
-        }}
-        search={search}
-      />
-    </RouteI18n>
+    <CatalogGovernanceRepairRouteModule
+      dataSource={dataSource}
+      itemId={itemId}
+      onSearchChange={(next) => {
+        void navigate({
+          search: (current) =>
+            normalizeCatalogGovernanceRepairSearch({ ...current, ...next }),
+        });
+      }}
+      search={search}
+    />
   );
 }
 
@@ -749,11 +696,7 @@ function ItemDetailRoute() {
   const { dataSource } = itemDetailRoute.useRouteContext();
   const { itemId } = itemDetailRoute.useParams();
 
-  return (
-    <RouteI18n namespace="itemDetail">
-      <ItemDetailPage dataSource={dataSource} itemId={itemId} />
-    </RouteI18n>
-  );
+  return <ItemDetailRouteModule dataSource={dataSource} itemId={itemId} />;
 }
 
 function ItemArtworkGalleryRoute() {
@@ -763,19 +706,17 @@ function ItemArtworkGalleryRoute() {
   const navigate = itemArtworkGalleryRoute.useNavigate();
 
   return (
-    <RouteI18n namespace="itemArtwork">
-      <ItemArtworkGalleryPage
-        dataSource={dataSource}
-        itemId={itemId}
-        onSearchChange={(next) => {
-          void navigate({
-            search: (current) =>
-              normalizeItemArtworkGallerySearch({ ...current, ...next }),
-          });
-        }}
-        search={search}
-      />
-    </RouteI18n>
+    <ItemArtworkGalleryRouteModule
+      dataSource={dataSource}
+      itemId={itemId}
+      onSearchChange={(next) => {
+        void navigate({
+          search: (current) =>
+            normalizeItemArtworkGallerySearch({ ...current, ...next }),
+        });
+      }}
+      search={search}
+    />
   );
 }
 
@@ -785,18 +726,16 @@ function ManagedArtworkMaintenanceRoute() {
   const navigate = managedArtworkMaintenanceRoute.useNavigate();
 
   return (
-    <RouteI18n namespace="artworkMaintenance">
-      <ManagedArtworkMaintenancePage
-        dataSource={dataSource}
-        onSearchChange={(next) => {
-          void navigate({
-            search: (current) =>
-              normalizeManagedArtworkMaintenanceSearch({ ...current, ...next }),
-          });
-        }}
-        search={search}
-      />
-    </RouteI18n>
+    <ManagedArtworkMaintenanceRouteModule
+      dataSource={dataSource}
+      onSearchChange={(next) => {
+        void navigate({
+          search: (current) =>
+            normalizeManagedArtworkMaintenanceSearch({ ...current, ...next }),
+        });
+      }}
+      search={search}
+    />
   );
 }
 
@@ -807,23 +746,21 @@ function SourceDuplicateReconciliationRoute() {
   const navigate = sourceDuplicateReconciliationRoute.useNavigate();
 
   return (
-    <RouteI18n namespace="sourceDuplicate">
-      <SourceDuplicateReconciliationRoutePage
-        dataSource={dataSource}
-        itemId={itemId}
-        onSearchChange={(next) => {
-          void navigate({
-            search: (current) =>
-              normalizeSourceDuplicateReconciliationSearch({
-                ...current,
-                ...next,
-              }),
-          });
-        }}
-        search={search}
-        sourceId={sourceId}
-      />
-    </RouteI18n>
+    <SourceDuplicateReconciliationRouteModule
+      dataSource={dataSource}
+      itemId={itemId}
+      onSearchChange={(next) => {
+        void navigate({
+          search: (current) =>
+            normalizeSourceDuplicateReconciliationSearch({
+              ...current,
+              ...next,
+            }),
+        });
+      }}
+      search={search}
+      sourceId={sourceId}
+    />
   );
 }
 
@@ -833,18 +770,16 @@ function AcquisitionIntakeRoute() {
   const navigate = acquisitionIntakeRoute.useNavigate();
 
   return (
-    <RouteI18n namespace="acquisition">
-      <AcquisitionIntakePage
-        dataSource={dataSource}
-        onSearchChange={(next) => {
-          void navigate({
-            search: (current) =>
-              normalizeAcquisitionIntakeSearch({ ...current, ...next }),
-          });
-        }}
-        search={search}
-      />
-    </RouteI18n>
+    <AcquisitionIntakeRouteModule
+      dataSource={dataSource}
+      onSearchChange={(next) => {
+        void navigate({
+          search: (current) =>
+            normalizeAcquisitionIntakeSearch({ ...current, ...next }),
+        });
+      }}
+      search={search}
+    />
   );
 }
 
@@ -854,18 +789,16 @@ function GeneratedArtifactsRoute() {
   const navigate = generatedArtifactsRoute.useNavigate();
 
   return (
-    <RouteI18n namespace="generatedArtifacts">
-      <GeneratedArtifactsPage
-        dataSource={dataSource}
-        onSearchChange={(next) => {
-          void navigate({
-            search: (current) =>
-              normalizeGeneratedArtifactsSearch({ ...current, ...next }),
-          });
-        }}
-        search={search}
-      />
-    </RouteI18n>
+    <GeneratedArtifactsRouteModule
+      dataSource={dataSource}
+      onSearchChange={(next) => {
+        void navigate({
+          search: (current) =>
+            normalizeGeneratedArtifactsSearch({ ...current, ...next }),
+        });
+      }}
+      search={search}
+    />
   );
 }
 
@@ -876,19 +809,17 @@ function GeneratedArtifactReviewRoute() {
   const navigate = generatedArtifactReviewRoute.useNavigate();
 
   return (
-    <RouteI18n namespace="generatedArtifactReview">
-      <GeneratedArtifactReviewPage
-        artifactId={artifactId}
-        dataSource={dataSource}
-        onSearchChange={(next) => {
-          void navigate({
-            search: (current) =>
-              normalizeGeneratedArtifactReviewSearch({ ...current, ...next }),
-          });
-        }}
-        search={search}
-      />
-    </RouteI18n>
+    <GeneratedArtifactReviewRouteModule
+      artifactId={artifactId}
+      dataSource={dataSource}
+      onSearchChange={(next) => {
+        void navigate({
+          search: (current) =>
+            normalizeGeneratedArtifactReviewSearch({ ...current, ...next }),
+        });
+      }}
+      search={search}
+    />
   );
 }
 
@@ -898,18 +829,16 @@ function PlaybackSessionsRoute() {
   const navigate = playbackRoute.useNavigate();
 
   return (
-    <RouteI18n namespace={playbackSessionsI18nNamespaces}>
-      <PlaybackSessionsPage
-        dataSource={dataSource}
-        onSearchChange={(next) => {
-          void navigate({
-            search: (current) =>
-              normalizePlaybackSessionsSearch({ ...current, ...next }),
-          });
-        }}
-        search={search}
-      />
-    </RouteI18n>
+    <PlaybackSessionsRouteModule
+      dataSource={dataSource}
+      onSearchChange={(next) => {
+        void navigate({
+          search: (current) =>
+            normalizePlaybackSessionsSearch({ ...current, ...next }),
+        });
+      }}
+      search={search}
+    />
   );
 }
 
@@ -918,9 +847,7 @@ function PlaybackSupportRoute() {
   const search = playbackSupportRoute.useSearch();
 
   return (
-    <RouteI18n namespace="playbackSupport">
-      <PlaybackSupportPage dataSource={dataSource} search={search} />
-    </RouteI18n>
+    <PlaybackSupportRouteModule dataSource={dataSource} search={search} />
   );
 }
 
@@ -930,18 +857,16 @@ function StorageStagingRoute() {
   const navigate = storageRoute.useNavigate();
 
   return (
-    <RouteI18n namespace="storage">
-      <StorageStagingPage
-        dataSource={dataSource}
-        onSearchChange={(next) => {
-          void navigate({
-            search: (current) =>
-              normalizeStorageStagingSearch({ ...current, ...next }),
-          });
-        }}
-        search={search}
-      />
-    </RouteI18n>
+    <StorageStagingRouteModule
+      dataSource={dataSource}
+      onSearchChange={(next) => {
+        void navigate({
+          search: (current) =>
+            normalizeStorageStagingSearch({ ...current, ...next }),
+        });
+      }}
+      search={search}
+    />
   );
 }
 
@@ -951,40 +876,34 @@ function AddonsRoute() {
   const navigate = addonsRoute.useNavigate();
 
   return (
-    <RouteI18n namespace="addons">
-      <AddonsPage
-        dataSource={dataSource}
-        onSearchChange={(next) => {
-          void navigate({
-            search: (current) => normalizeAddonsSearch({ ...current, ...next }),
-          });
-        }}
-        search={search}
-      />
-    </RouteI18n>
+    <AddonsRouteModule
+      dataSource={dataSource}
+      onSearchChange={(next) => {
+        void navigate({
+          search: (current) => normalizeAddonsSearch({ ...current, ...next }),
+        });
+      }}
+      search={search}
+    />
   );
 }
 
 function SettingsRoute() {
   const { dataSource } = settingsRoute.useRouteContext();
-  return (
-    <RouteI18n namespace="settings">
-      <SettingsPage dataSource={dataSource} />
-    </RouteI18n>
-  );
+  return <SettingsRouteModule dataSource={dataSource} />;
 }
 
 function LegacyRoute() {
   const { dataSource } = legacyRoute.useRouteContext();
-  return <LegacyDashboard dataSource={dataSource} />;
+  return <LegacyRouteModule dataSource={dataSource} />;
 }
 
 function MediaHomeRoute() {
-  return <MediaHomePage />;
+  return <MediaHomeRouteModule />;
 }
 
 function MediaConnectRoute() {
-  return <MediaConnectPage />;
+  return <MediaConnectRouteModule />;
 }
 
 function MediaLibrariesRoute() {
@@ -992,7 +911,7 @@ function MediaLibrariesRoute() {
   const navigate = mediaLibrariesRoute.useNavigate();
 
   return (
-    <MediaLibrariesPage
+    <MediaLibrariesRouteModule
       onSearchChange={(next) => {
         void navigate({
           search: (current) =>
@@ -1010,7 +929,7 @@ function MediaLibraryDetailRoute() {
   const navigate = mediaLibraryDetailRoute.useNavigate();
 
   return (
-    <MediaLibraryDetailPage
+    <MediaLibraryDetailRouteModule
       libraryId={libraryId}
       onSearchChange={(next) => {
         void navigate({
@@ -1028,7 +947,7 @@ function MediaSearchRoute() {
   const navigate = mediaSearchRoute.useNavigate();
 
   return (
-    <MediaSearchPage
+    <MediaSearchRouteModule
       onSearchChange={(next) => {
         void navigate({
           search: (current) => normalizeMediaSearch({ ...current, ...next }),
@@ -1045,7 +964,7 @@ function MediaItemDetailRoute() {
   const navigate = mediaItemDetailRoute.useNavigate();
 
   return (
-    <MediaItemDetailPage
+    <MediaItemDetailRouteModule
       itemId={itemId}
       onSearchChange={(next) => {
         void navigate({
@@ -1064,7 +983,7 @@ function MediaWatchRoute() {
   const navigate = mediaWatchRoute.useNavigate();
 
   return (
-    <MediaWatchPage
+    <MediaWatchRouteModule
       itemId={itemId}
       onSearchChange={(next) => {
         void navigate({

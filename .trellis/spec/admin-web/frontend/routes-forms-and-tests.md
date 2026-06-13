@@ -1137,24 +1137,35 @@ stays server-owned.
 
 ### 2. Signatures
 
-- Route page values in `App.tsx` should use `React.lazy` with named export
-  mapping:
-  `lazy(() => import("./features/x/Page").then(module => ({ default: module.Page })))`.
+- Route runtime values in `App.tsx` should use `React.lazy` with named export
+  mapping against route modules:
+  `lazy(() => import("./routes/XRouteModule").then(module => ({ default: module.XRouteModule })))`.
+- Route modules live under `src/routes/*RouteModule.tsx` and own the
+  route-local page import, `RouteI18n` wrapper, and page prop assembly.
 - Route search types remain type-only imports from page modules, for example
   `import type { JobsSearch } from "./features/jobs/JobsPage";`.
 - Broad default implementations that pull optional product surfaces, large
   fixtures, SDKs, or locale catalogs should be loaded through dynamic import.
-- Route-owned localized pages should be wrapped with `RouteI18n` in `App.tsx`
-  and declare the `I18nNamespace` catalog prefixes they need.
+- Route-owned localized pages should be wrapped with `RouteI18n` in their lazy
+  route module and declare the `I18nNamespace` catalog prefixes they need.
 
 ### 3. Contracts
 
-- Keep route ownership in `App.tsx`: routes still read context, params, search,
-  and navigate helpers, then pass typed props into lazy page components.
+- Keep TanStack route ownership in `App.tsx`: routes still read context,
+  params, search, and navigate helpers, then pass typed props into lazy route
+  modules.
+- Keep search validation and normalization primitives in `App.tsx` or another
+  lightweight shell-owned helper. Route modules may receive `onSearchChange`,
+  but they should not import TanStack route instances or duplicate URL
+  normalization logic.
 - Do not convert a type-only route contract import into a runtime import unless
   that module is intentionally part of the initial Admin shell.
 - Feature-owned adapters that are only needed by one route should be created in
   a lazy route wrapper next to the feature page, not imported by `App.tsx`.
+- Do not wrap page components with `RouteI18n` directly in `App.tsx`. Declare
+  route namespaces in the lazy route module, including multi-namespace routes
+  such as `["libraryDetail", "libraries"]` and
+  `["playback", "playbackSupport"]`.
 - `I18nProvider` may defer full message catalogs, but it must keep
   `MessageId`/`AdminLocale` typing, persist locale selection, and avoid
   rendering untranslated IDs after the catalog is loaded.
@@ -1185,9 +1196,9 @@ stays server-owned.
 
 ### 5. Good / Base / Bad Cases
 
-- Good: lazy route page declarations, type-only search imports, a shared
+- Good: lazy route module declarations, type-only search imports, a shared
   `Suspense` outlet, dynamic message catalog loading, and build output showing
-  route chunks plus a smaller main chunk.
+  route module/page/catalog chunks plus a smaller main chunk.
 - Good: route catalog modules emit chunks such as `settings-*.js` and
   `storage-*.js`; there is no single route-agnostic `messages-*.js` chunk that
   contains all localized page copy.
@@ -1224,9 +1235,9 @@ import { createMediaWebDataSource } from "./surfaces/media/mediaDataSource";
 #### Correct
 
 ```typescript
-const SettingsPage = lazy(() =>
-  import("./features/settings/SettingsPage").then((module) => ({
-    default: module.SettingsPage,
+const SettingsRouteModule = lazy(() =>
+  import("./routes/SettingsRouteModule").then((module) => ({
+    default: module.SettingsRouteModule,
   })),
 );
 
