@@ -64,7 +64,13 @@ Moved public playback decision source Play access into PlaybackAppService, added
 
 ### Main Changes
 
-(Add details)
+- Added lazy Admin Web route modules under `apps/admin-web/src/routes/` so
+  `App.tsx` keeps TanStack route ownership while route-local page imports and
+  `RouteI18n` namespaces load per route.
+- Added `createLazyAdminDataSource` for production entrypoint use, deferring
+  `createAdminDataSource`, Admin API client, and mock fallback data until the
+  first data-source method call.
+- Recorded the route module convention in the Admin Web frontend Trellis spec.
 
 ### Git Commits
 
@@ -75,7 +81,13 @@ Moved public playback decision source Play access into PlaybackAppService, added
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] `npm run check --prefix apps/admin-web`
+- [OK] `npm run test --prefix apps/admin-web`
+- [OK] `npm run build --prefix apps/admin-web`
+- [OK] `git diff --check`
+- [OK] Production `index-*.js` observed at about 367.1 kB, down from about
+  488.6 kB; `dataSource-*.js` and `mockData-*.js` emitted as independent
+  chunks.
 
 ### Status
 
@@ -872,6 +884,40 @@ Split Admin Web i18n catalogs into base and route namespaces, added dynamic name
 | Hash | Message |
 |------|---------|
 | `3d9a0dcb` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 120: Admin Web route shell chunk splitting
+
+**Date**: 2026-06-13
+**Task**: Admin Web route shell chunk splitting
+**Package**: nako
+**Branch**: `feat/u3-intake-stability-source-hash-readiness`
+
+### Summary
+
+Split Admin Web route wrappers into lazy route modules and deferred default Admin data source loading, reducing the production index chunk from about 488.6 kB to 367.1 kB while keeping check/test/build green.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5f7e2ee1` | (see git log) |
 
 ### Testing
 
