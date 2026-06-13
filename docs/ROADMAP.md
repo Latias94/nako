@@ -35,6 +35,10 @@ shipped. This section is the current reading path for deciding what to do next.
 | M4: Metadata governance maturity | Local, NFO, provider, and addon metadata can be reviewed, applied, audited, and repaired without losing local authority. | Candidate Review queues, provider mapping undo/audit, hierarchy confirmation/repair, NFO round trip, and provider depth are operator-governed and redaction-safe. | Public Client mutation APIs unless separately designed. |
 | M5: Addon ecosystem maturity | Addons are discoverable, installable by guide, health-checked, and safely mediated as out-of-process capabilities. | Official catalog, token rotation, health checks, hosted settings, resource search selection, Nako-managed artifact materialization, addon tasks, and event subscriptions are bounded by grants. | In-process plugin ABI and Nako-owned addon process supervision. |
 
+Product-strategy execution slices for Addon catalog, suite packaging, remote
+access, migration/interop, ecosystem integrations, and adoption docs are tracked
+in `docs/plans/PRODUCT_STRATEGY_IMPLEMENTATION_BACKLOG.md`.
+
 ### M1 Release Convergence Queue
 
 Open focused Trellis tasks from this queue. Do not reopen closed workstreams or

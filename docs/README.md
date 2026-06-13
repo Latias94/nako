@@ -67,6 +67,9 @@ policy, and workstream-level design notes for Nako.
   build/integrate/defer/do-not-chase decisions for competitive capabilities.
 - [Addon ecosystem strategy](plans/ADDON_ECOSYSTEM_STRATEGY.md): official
   Addon catalog, suite packaging, trust tiers, and author-kit direction.
+- [Product strategy implementation backlog](plans/PRODUCT_STRATEGY_IMPLEMENTATION_BACKLOG.md):
+  execution slices for Addon catalog, suite packaging, remote access,
+  migration/interop, ecosystem integrations, and adoption docs.
 
 ## How To Update Docs
 
