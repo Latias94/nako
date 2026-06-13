@@ -5,7 +5,7 @@
   "description": "",
   "status": "in_progress",
   "dev_type": null,
-  "scope": null,
+  "scope": "product-strategy",
   "package": "nako",
   "priority": "P2",
   "creator": "Latias94",
@@ -20,7 +20,14 @@
   "subtasks": [],
   "children": [],
   "parent": null,
-  "relatedFiles": [],
+  "relatedFiles": [
+    "docs/plans/PRODUCT_STRATEGY_IMPLEMENTATION_BACKLOG.md",
+    "docs/plans/PRODUCT_POSITIONING.md",
+    "docs/plans/MEDIA_SERVER_PARITY_GAP_MATRIX.md",
+    "docs/plans/ADDON_ECOSYSTEM_STRATEGY.md",
+    "docs/plans/2026-06-10-001-feat-media-server-maturity-roadmap-plan.md",
+    "docs/ROADMAP.md"
+  ],
   "notes": "",
   "meta": {}
 }
