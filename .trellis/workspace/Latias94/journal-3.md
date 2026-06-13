@@ -930,3 +930,47 @@ Split Admin Web route wrappers into lazy route modules and deferred default Admi
 ### Next Steps
 
 - None - task complete
+
+
+## Session 121: Official addon catalog artifact
+
+**Date**: 2026-06-13
+**Task**: Official addon catalog artifact
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Added a generated official Addon catalog artifact, linked docs, and recorded the catalog renderer contract.
+
+### Main Changes
+
+- Added the operator-visible official Addon catalog artifact under
+  `docs/addons/OFFICIAL_ADDON_CATALOG.md`.
+- Exposed `official_addon_catalog()` and
+  `render_official_addon_catalog_markdown()` from
+  `crates/nako-official-addon-catalog`.
+- Linked the catalog from `docs/README.md` and the addon author guide.
+- Recorded the renderer contract in the `nako-official-addon-catalog`
+  Trellis spec and pinned the generated artifact to LF line endings.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `42d0c663` | (see git log) |
+
+### Testing
+
+- [OK] `cargo fmt --all -- --check`
+- [OK] `cargo nextest run -p nako-official-addon-catalog --no-fail-fast`
+- [OK] `python .\\.trellis\\scripts\\task.py validate 06-13-official-addon-catalog-minimal-loop`
+- [OK] `git diff --check`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
