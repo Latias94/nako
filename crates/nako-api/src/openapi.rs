@@ -1529,6 +1529,7 @@ fn schemas() -> Value {
         })),
         "ClientPlaybackDecisionReport": object_schema(&["selected_mode", "direct_play", "remux", "transcode"], json!({
             "selected_mode": enum_schema(&["direct_play", "remux", "transcode", "denied"]),
+            "selection_reasons": array_schema(schema_ref("ClientPlaybackCompatibilityCondition")),
             "direct_play": schema_ref("ClientPlaybackCapabilityEvaluation"),
             "remux": schema_ref("ClientPlaybackCapabilityEvaluation"),
             "transcode": schema_ref("ClientPlaybackCapabilityEvaluation"),
@@ -2470,6 +2471,11 @@ mod tests {
             document["components"]["schemas"]["ClientPlaybackDecisionReport"]["properties"]["direct_play"]
                 ["$ref"],
             "#/components/schemas/ClientPlaybackCapabilityEvaluation"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["ClientPlaybackDecisionReport"]["properties"]["selection_reasons"]
+                ["items"]["$ref"],
+            "#/components/schemas/ClientPlaybackCompatibilityCondition"
         );
         assert_eq!(
             document["components"]["schemas"]["ClientPlaybackCapabilityEvaluation"]["properties"]["reasons"]

@@ -64,7 +64,13 @@ Moved public playback decision source Play access into PlaybackAppService, added
 
 ### Main Changes
 
-(Add details)
+- Added lazy Admin Web route modules under `apps/admin-web/src/routes/` so
+  `App.tsx` keeps TanStack route ownership while route-local page imports and
+  `RouteI18n` namespaces load per route.
+- Added `createLazyAdminDataSource` for production entrypoint use, deferring
+  `createAdminDataSource`, Admin API client, and mock fallback data until the
+  first data-source method call.
+- Recorded the route module convention in the Admin Web frontend Trellis spec.
 
 ### Git Commits
 
@@ -75,7 +81,13 @@ Moved public playback decision source Play access into PlaybackAppService, added
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] `npm run check --prefix apps/admin-web`
+- [OK] `npm run test --prefix apps/admin-web`
+- [OK] `npm run build --prefix apps/admin-web`
+- [OK] `git diff --check`
+- [OK] Production `index-*.js` observed at about 367.1 kB, down from about
+  488.6 kB; `dataSource-*.js` and `mockData-*.js` emitted as independent
+  chunks.
 
 ### Status
 
@@ -512,6 +524,400 @@ Moved renderer transport ticket principal/session resolution from HTTP playback 
 |------|---------|
 | `72f29691` | (see git log) |
 | `695416b8` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 112: Operator readiness overview
+
+**Date**: 2026-06-10
+**Task**: Operator readiness overview
+**Package**: nako
+**Branch**: `feat/operator-readiness-u1`
+
+### Summary
+
+Implemented the U1 Product-Operator readiness slice from the media-server maturity roadmap, added Admin overview readiness DTOs/server aggregation/Admin Web rendering, updated docs and contracts, and passed workspace Rust plus Admin Web verification.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c474bc16` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 113: Playback selected reasons
+
+**Date**: 2026-06-11
+**Task**: Playback selected reasons
+**Package**: nako
+**Branch**: `feat/operator-readiness-u1`
+
+### Summary
+
+Implemented U2 Server/API first by exposing playback decision selection_reasons through the planner, public API/protocol contracts, OpenAPI, generated SDKs, and playback route tests; updated playback spec guidance and passed focused Rust/SDK checks plus trellis-check.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `37338ed1` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 114: U3 intake/source-hash readiness verification and closeout
+
+**Date**: 2026-06-11
+**Task**: U3 intake/source-hash readiness verification and closeout
+**Package**: nako
+**Branch**: `feat/u3-intake-stability-source-hash-readiness`
+
+### Summary
+
+Verified the U3 intake stability and source-hash readiness first slice was already complete. Ran cargo fmt --all, git diff --check, cargo nextest for nako-library intake/source_hash and nako-server acquisition_intake/source_hash/watch_folder_runtime, plus cargo check -p nako-server --tests. No code changes were needed in this session; only Trellis task/session metadata was archived.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f23536b8` | (see git log) |
+| `82dfd027` | (see git log) |
+| `3812ec28` | (see git log) |
+| `6f51ad29` | (see git log) |
+| `7d6bb2d9` | (see git log) |
+| `8a3b0238` | (see git log) |
+| `982c3bef` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 115: Redacted incident bundle export
+
+**Date**: 2026-06-12
+**Task**: JSON-only redacted incident bundle export
+**Package**: nako
+**Branch**: `feat/u3-intake-stability-source-hash-readiness`
+
+### Summary
+
+Implemented the follow-on operator support slice by adding an Admin-only redacted incident bundle API, server aggregation from safe diagnostic posture DTOs, and an Admin Web inspection page for manual support sharing without raw secrets or host-specific locators.
+
+### Main Changes
+
+- Added the incident bundle Admin DTO, generated Admin TypeScript contracts, and a new `GET /admin/v1/diagnostics/incident-bundle` route.
+- Composed the server bundle from safe system, network, playback, storage, VFS repair, and durable job pressure summaries without forwarding raw config diagnostics.
+- Added Admin Web client/data-source wiring, mock data, navigation, localized copy, and route coverage for the read-only incident bundle page.
+- Updated the Admin/Public contract Trellis spec with the redaction contract for incident bundles.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ac42a4c6` | `feat(admin): add redacted incident bundle export` |
+
+### Testing
+
+- [OK] `cargo fmt --all`
+- [OK] `git diff --check`
+- [OK] `npm run generate:admin-api --prefix apps/admin-web`
+- [OK] `cargo run -q -p nako-api --example emit-admin-typescript-contract -- --output web/src/api/admin/generated/contract.ts`
+- [OK] `npm run check --prefix apps/admin-web`
+- [OK] `npm run test --prefix apps/admin-web -- adminApi/client.test.ts adminApi/dataSource.test.ts App.test.tsx`
+- [OK] `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+- [OK] `cargo check -p nako-server --tests`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Commit the incident bundle implementation and backfill the commit hash in task metadata if needed.
+
+
+## Session 116: Incident bundle server route redaction test
+
+**Date**: 2026-06-12
+**Task**: Incident bundle server redaction route test
+**Package**: nako
+**Branch**: `feat/u3-intake-stability-source-hash-readiness`
+
+### Summary
+
+Added a focused `nako-server` HTTP route test for `GET /admin/v1/diagnostics/incident-bundle`, covering Admin auth, real route assembly, safe section composition, durable job pressure aggregation, and fixture-value redaction across unsafe config, playback, media source, and job payload inputs.
+
+### Main Changes
+
+- Created the Trellis task for the follow-up route-level redaction gate.
+- Added a server `system.rs` test that builds an intentionally unsafe app fixture and asserts the incident bundle response stays JSON-only and redaction-complete.
+- Verified the focused route test and server test compilation.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c45e56f0` | `test(admin): cover incident bundle route redaction` |
+
+### Testing
+
+- [OK] `cargo fmt --all`
+- [OK] `cargo nextest run -p nako-server admin_v1_incident_bundle --no-fail-fast`
+- [OK] `cargo check -p nako-server --tests`
+- [OK] `git diff --check`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Commit and archive the Trellis task after review.
+
+
+## Session 115: Incident Bundle JSON export actions
+
+**Date**: 2026-06-12
+**Task**: Incident Bundle JSON export actions
+**Package**: nako
+**Branch**: `feat/u3-intake-stability-source-hash-readiness`
+
+### Summary
+
+Added Admin Web copy/download actions for the incident bundle with safe JSON projection, extended incident bundle route inventory coverage, and verified Admin Web, API contract, and server tests.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `15b09ddf` | (see git log) |
+| `b982df08` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 116: Incident bundle hardening
+
+**Date**: 2026-06-12
+**Task**: Incident bundle hardening
+**Package**: admin-web
+**Branch**: `feat/u3-intake-stability-source-hash-readiness`
+
+### Summary
+
+Added Admin Web incident bundle section status summary, lazy-loaded the diagnostics route chunk, and strengthened incident bundle Admin auth smoke coverage.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+(No commits - planning session)
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 117: Admin Web route bundle splitting
+
+**Date**: 2026-06-12
+**Task**: Admin Web route bundle splitting
+**Package**: nako
+**Branch**: `feat/u3-intake-stability-source-hash-readiness`
+
+### Summary
+
+Split Admin Web route pages, i18n catalogs, and Media Web data source into lazy chunks; main JS chunk now builds under 500 kB and task evidence was archived.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `faf85b7a` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 118: Admin Web media watch chunk splitting
+
+**Date**: 2026-06-12
+**Task**: Admin Web media watch chunk splitting
+**Package**: nako
+**Branch**: `feat/u3-intake-stability-source-hash-readiness`
+
+### Summary
+
+Split Media Web browse, item detail, and watch/player code into separate lazy route modules. MediaPages chunk now contains browse/search/library pages only; watch/browser ticket/HLS/progress logic lives in MediaWatchPage. Verified admin-web check, full tests, build, diff check, and task validation.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4a61a1a9` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 119: Admin Web i18n route catalog chunk splitting
+
+**Date**: 2026-06-13
+**Task**: Admin Web i18n route catalog chunk splitting
+**Package**: nako
+**Branch**: `feat/u3-intake-stability-source-hash-readiness`
+
+### Summary
+
+Split Admin Web i18n catalogs into base and route namespaces, added dynamic namespace loading and RouteI18n wiring, verified check/test/build, and archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3d9a0dcb` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 120: Admin Web route shell chunk splitting
+
+**Date**: 2026-06-13
+**Task**: Admin Web route shell chunk splitting
+**Package**: nako
+**Branch**: `feat/u3-intake-stability-source-hash-readiness`
+
+### Summary
+
+Split Admin Web route wrappers into lazy route modules and deferred default Admin data source loading, reducing the production index chunk from about 488.6 kB to 367.1 kB while keeping check/test/build green.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5f7e2ee1` | (see git log) |
 
 ### Testing
 

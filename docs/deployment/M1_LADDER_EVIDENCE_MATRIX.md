@@ -49,6 +49,7 @@ The runner is an orchestrator. Detailed assertions remain owned by
 
 | M1 quality area | Minimum ladder evidence | Current evidence source | Follow-up if weak |
 | --- | --- | --- | --- |
+| Product-Operator readiness overview | `fast` and focused Admin Web overview tests | `GET /admin/v1/overview` and Admin Web Overview render setup, Media Library scan, playback, storage, network, and backup readiness facts without raw paths, tokens, Source Locators, or FFmpeg command details. | web-product plus owning backend lane for the failed readiness area |
 | Install/config readiness | `docs`, `release-fast`, `container` when publishing containers | `scripts/release-gate.ps1`; `docs/deployment/RELEASE_CHECKLIST.md`; compose config gates | operations-release |
 | Library scan and source identity | `fast` and `smoke` | `.trellis/tasks/archive/2026-06/06-06-m1-operator-journey-smoke/`; scan-originated source hash evidence | storage-vfs or control-plane |
 | Catalog and media browse | `fast` and `smoke` | Admin Web `App.test.tsx`; Media surface tests recorded in M1 smoke evidence | web-product |

@@ -169,6 +169,7 @@ export interface ClientPlaybackDecisionReport {
   direct_play: ClientPlaybackCapabilityEvaluation;
   remux: ClientPlaybackCapabilityEvaluation;
   selected_mode: "direct_play" | "remux" | "transcode" | "denied";
+  selection_reasons?: Array<ClientPlaybackCompatibilityCondition>;
   transcode: ClientPlaybackCapabilityEvaluation;
 }
 

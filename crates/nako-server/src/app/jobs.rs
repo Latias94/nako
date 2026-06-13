@@ -5,9 +5,9 @@ use nako_core::{
     DomainEventSubject, EventId, EventOutboxRepository, FailLeasedJob, IngestionFailurePhase,
     IngestionFailureRecord, Job, JobCancellationRequestRecord, JobId, JobKind, JobLeaseClaimFilter,
     JobLeaseClaimRequest, JobLeaseHeartbeat, JobLeaseRepository, JobListFilter, JobPriority,
-    JobRepository, LeasedJob, Library, LibraryId, LibraryRepository, MediaProbeResult, MediaSource,
-    NakoError, NewIngestionFailure, NewJob, NewOutboxEvent, OutboxEventRecord, PageRequest,
-    RequestJobCancellation, Result, StagingAttribution, StagingPurpose,
+    JobRepository, JobStatus, LeasedJob, Library, LibraryId, LibraryRepository, MediaProbeResult,
+    MediaSource, NakoError, NewIngestionFailure, NewJob, NewOutboxEvent, OutboxEventRecord,
+    PageRequest, RequestJobCancellation, Result, StagingAttribution, StagingPurpose,
     VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS,
 };
 use nako_db::NakoDatabase;
@@ -64,6 +64,24 @@ pub(crate) enum LibraryScanScheduleOutcome {
     Scheduled(JobId),
     NoQueuedJob,
     BudgetSaturated,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum LibraryScanAdmissionOutcome {
+    Enqueued(Job),
+    ReusedIncomplete(Job),
+}
+
+impl LibraryScanAdmissionOutcome {
+    pub(crate) fn job_id(&self) -> JobId {
+        match self {
+            Self::Enqueued(job) | Self::ReusedIncomplete(job) => job.id,
+        }
+    }
+
+    pub(crate) fn reused_existing(&self) -> bool {
+        matches!(self, Self::ReusedIncomplete(_))
+    }
 }
 
 const LIBRARY_SCAN_SCHEDULER_CANDIDATE_LIMIT: u32 = PageRequest::MAX_LIMIT;
@@ -374,6 +392,23 @@ impl LibraryScanAppService {
             .await
     }
 
+    pub(crate) async fn admit_watch_folder_library_scan(
+        &self,
+        library_id: LibraryId,
+    ) -> Result<LibraryScanAdmissionOutcome> {
+        if let Some(existing) = self
+            .existing_incomplete_library_scan_for_library(library_id)
+            .await?
+        {
+            self.schedule_queued_library_scans().await?;
+            return Ok(LibraryScanAdmissionOutcome::ReusedIncomplete(existing));
+        }
+
+        self.enqueue_library_scan(library_id)
+            .await
+            .map(LibraryScanAdmissionOutcome::Enqueued)
+    }
+
     pub(crate) async fn enqueue_library_scan_with_trace_context(
         &self,
         library_id: LibraryId,
@@ -404,6 +439,33 @@ impl LibraryScanAppService {
             .await?;
         self.schedule_queued_library_scans().await?;
         Ok(job)
+    }
+
+    async fn existing_incomplete_library_scan_for_library(
+        &self,
+        library_id: LibraryId,
+    ) -> Result<Option<Job>> {
+        for status in [JobStatus::Queued, JobStatus::Running] {
+            let jobs = self
+                .execution_store
+                .store
+                .list_jobs(
+                    JobListFilter {
+                        status: Some(status),
+                        kind: Some(JobKind::LibraryScan),
+                        resource_class: Some("disk.scan".to_owned()),
+                        library_id: Some(library_id),
+                        source_id: None,
+                    },
+                    PageRequest::first_page(),
+                )
+                .await?;
+            if let Some(job) = jobs.into_iter().next() {
+                return Ok(Some(job));
+            }
+        }
+
+        Ok(None)
     }
 
     pub(crate) async fn schedule_queued_library_scans(&self) -> Result<LibraryScanScheduleOutcome> {

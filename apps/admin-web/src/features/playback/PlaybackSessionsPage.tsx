@@ -4,7 +4,8 @@ import {
   useReactTable,
   type ColumnDef,
 } from "@tanstack/react-table";
-import { RefreshCw, Search, X } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { ExternalLink, RefreshCw, Search, X } from "lucide-react";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -247,6 +248,24 @@ function createColumns(t: Translate): Array<ColumnDef<AdminPlaybackSessionListIt
     {
       accessorKey: "updated_at",
       header: t("playback.column.updated"),
+    },
+    {
+      id: "support",
+      header: t("playback.column.support"),
+      cell: ({ row }) => (
+        <Link
+          aria-label={t("playbackSupport.openAria", { sessionId: row.original.id })}
+          className="routeTextLink"
+          search={{
+            session_id: row.original.id,
+            source_id: row.original.source_id,
+          }}
+          to="/playback/support"
+        >
+          {t("playbackSupport.open")}
+          <ExternalLink size={14} />
+        </Link>
+      ),
     },
   ];
 }

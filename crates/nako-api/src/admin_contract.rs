@@ -12,8 +12,9 @@ pub struct AdminContractRouteExclusion {
     pub reason: &'static str,
 }
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 114] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 115] = [
     ("overview", "overview"),
+    ("incidentBundle", "diagnostics/incident-bundle"),
     ("accessSummary", "access/summary"),
     ("accessInvitations", "access/invitations"),
     (
@@ -573,6 +574,14 @@ export interface AdminWatchFolderDiscoveryRequest {
   root_uri?: string;
   max_depth?: number;
 }
+
+export type AdminWatchFolderIntakeEnqueueReason =
+  | "new_stable_candidates"
+  | "waiting_for_stability"
+  | "suppressed_candidates"
+  | "blocked_candidates"
+  | "discovery_failures"
+  | "no_new_stable_candidates";
 
 export interface AdminWatchFolderSuppression {
   target_library_id: string;
@@ -2259,6 +2268,58 @@ export interface PageInfo {
 
 export type AdminOverviewStatus = "healthy" | "degraded";
 
+export type AdminOperatorReadinessStatus = "ready" | "degraded" | "unavailable";
+
+export type AdminOperatorReadinessArea =
+  | "setup"
+  | "media_library_scan"
+  | "playback"
+  | "storage"
+  | "network"
+  | "backup";
+
+export type AdminOperatorReadinessReason =
+  | "auth_configured"
+  | "auth_token_reference_missing"
+  | "auth_disabled_local_only"
+  | "auth_disabled_remote_exposure"
+  | "media_library_configured"
+  | "no_media_library_configured"
+  | "scan_work_pending"
+  | "scan_repair_pressure"
+  | "watch_folder_runtime_coverage_gap"
+  | "playback_ready"
+  | "playback_degraded"
+  | "playback_unavailable"
+  | "storage_ready"
+  | "storage_degraded"
+  | "storage_unavailable"
+  | "vfs_cache_repair_pressure"
+  | "network_ready"
+  | "network_degraded"
+  | "network_unavailable"
+  | "backup_runbook_available"
+  | "backup_needs_durable_database";
+
+export interface AdminOperatorReadinessAction {
+  route_key: AdminApiRouteKey;
+  route_path: string;
+}
+
+export interface AdminOperatorReadinessCheck {
+  area: AdminOperatorReadinessArea;
+  status: AdminOperatorReadinessStatus;
+  reason: AdminOperatorReadinessReason;
+  source_reason: string | null;
+  attention_count: number;
+  action: AdminOperatorReadinessAction | null;
+}
+
+export interface AdminOperatorReadinessSummary {
+  status: AdminOperatorReadinessStatus;
+  checks: AdminOperatorReadinessCheck[];
+}
+
 export type AdminWatchFolderRuntimeCoverageStatus = "started" | "disabled" | "unsupported_root" | "missing_root";
 
 export interface AdminOverviewSourceFingerprintHashSummary {
@@ -2280,6 +2341,7 @@ export interface AdminOverviewResponse {
   admin_api_version: string;
   public_api_version: string;
   status: AdminOverviewStatus;
+  operator_readiness: AdminOperatorReadinessSummary;
   storage: {
     total_backends: number;
     ready_backends: number;
@@ -2344,6 +2406,88 @@ export interface AdminOverviewResponse {
         safe_reason: string;
       }>;
     };
+  };
+}
+
+export type AdminIncidentBundleFormat = "json_only";
+
+export type AdminIncidentBundleRedactionStatus = "complete";
+
+export interface AdminIncidentBundleResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  generated_at_ms: number;
+  artifact: {
+    format: AdminIncidentBundleFormat;
+    zip_archive_included: boolean;
+    upload_transport_included: boolean;
+    unbounded_logs_included: boolean;
+  };
+  overview: AdminOverviewResponse;
+  system: {
+    auth_enabled: boolean;
+    database: {
+      configured_backend_kind: string;
+      active_backend_kind: string;
+      url_scheme: string;
+      runtime_supported: boolean;
+      migrated_on_startup: boolean;
+    };
+    runtime: {
+      scan_concurrency: number;
+      probe_concurrency: number;
+      metadata_concurrency: number;
+      remux_concurrency: number;
+      webhook_concurrency: number;
+    };
+    libraries: {
+      configured_count: number;
+      local_count: number;
+      webdav_count: number;
+    };
+    metadata: {
+      provider_count: number;
+      enabled_provider_count: number;
+      disabled_provider_count: number;
+      providers_with_secret_reference_count: number;
+      providers_with_runtime_override_count: number;
+    };
+  };
+  network: {
+    exposure_mode: AdminNetworkExposureMode;
+    readiness: AdminNetworkReadinessDiagnostics;
+    external_endpoint_configured: boolean;
+    external_endpoint_scheme: string | null;
+    trusted_proxy_headers_enabled: boolean;
+    trusted_proxy_source_count: number;
+    allowed_origin_count: number;
+    tunnel_provider_count: number;
+    tunnel_providers_with_endpoint_count: number;
+    tunnel_providers_with_token_reference_count: number;
+  };
+  playback: {
+    runtime: AdminPlaybackRuntimeDiagnosticsResponse;
+    support_evidence: AdminPlaybackSupportEvidenceResponse;
+  };
+  storage: {
+    staging: AdminStorageStagingDiagnosticsResponse["summary"];
+    vfs_cache_repair_action_plan: AdminVfsCacheRepairActionPlanResponse["plan"];
+  };
+  jobs: {
+    queue_pressure: AdminJobQueuePressureSummary[];
+  };
+  redaction: {
+    status: AdminIncidentBundleRedactionStatus;
+    raw_paths_redacted: boolean;
+    locators_redacted: boolean;
+    tokens_redacted: boolean;
+    credentials_redacted: boolean;
+    ffmpeg_command_lines_redacted: boolean;
+    provider_payloads_redacted: boolean;
+    backend_urls_redacted: boolean;
+    query_strings_redacted: boolean;
+    raw_job_payloads_redacted: boolean;
+    unbounded_logs_redacted: boolean;
   };
 }
 
@@ -3274,6 +3418,8 @@ export interface AdminWatchFolderDiscoveryResponse {
   suppressed_candidates: number;
   recorded_candidates: number;
   newly_ready_candidates: number;
+  enqueue_scan: boolean;
+  enqueue_reason: AdminWatchFolderIntakeEnqueueReason;
   active_suppressions: AdminWatchFolderSuppression[];
   failures: Array<{
     ref_redacted: string;
@@ -4223,6 +4369,16 @@ export type AdminNetworkReadinessCheckName =
   | "origin_policy"
   | "tunnel_provider";
 
+export interface AdminNetworkReadinessDiagnostics {
+  status: AdminNetworkReadinessStatus;
+  reason: AdminNetworkReadinessReason;
+  checks: Array<{
+    name: AdminNetworkReadinessCheckName;
+    status: AdminNetworkReadinessStatus;
+    reason: AdminNetworkReadinessReason;
+  }>;
+}
+
 export type AdminTunnelProviderKind =
   | "external"
   | "cloudflare_tunnel"
@@ -4231,15 +4387,7 @@ export type AdminTunnelProviderKind =
 
 export interface AdminNetworkAccessDiagnostics {
   exposure_mode: AdminNetworkExposureMode;
-  readiness: {
-    status: AdminNetworkReadinessStatus;
-    reason: AdminNetworkReadinessReason;
-    checks: Array<{
-      name: AdminNetworkReadinessCheckName;
-      status: AdminNetworkReadinessStatus;
-      reason: AdminNetworkReadinessReason;
-    }>;
-  };
+  readiness: AdminNetworkReadinessDiagnostics;
   external_endpoint: {
     configured: boolean;
     scheme: string | null;
@@ -4725,6 +4873,7 @@ mod tests {
             "AddonGrantsResponse",
             "AdminAcquisitionIntakeCandidatesQuery",
             "AdminWatchFolderDiscoveryRequest",
+            "AdminWatchFolderIntakeEnqueueReason",
             "AdminGeneratedArtifactProposalsQuery",
             "AdminGeneratedArtifactReviewRequest",
             "AdminGeneratedArtifactMetadataApplyRequest",

@@ -1,0 +1,3 @@
+{"file":".trellis/spec/admin-web/frontend/index.md","reason":"Admin Web frontend entry point and pre-development checklist for route/page changes."}
+{"file":".trellis/spec/admin-web/frontend/routes-forms-and-tests.md","reason":"Route-level bundle splitting, route ownership, i18n, and route test conventions for Admin Web."}
+{"file":".trellis/spec/guides/index.md","reason":"Shared Trellis thinking guide index for reuse and cross-layer checks."}

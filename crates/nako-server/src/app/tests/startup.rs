@@ -10,11 +10,12 @@ use nako_core::{
     AddonId, AddonPermission, AddonRepository, AddonSideEffectTarget,
     AddonSideEffectValidationStatus, AddonStatus, AddonTaskRunRepository, ArtworkCandidateId,
     ArtworkCandidateRepository, ArtworkCandidateSourceKind, EnqueueJobRetry,
-    IdentityAccessRepository, ImageKind, JobPriority, Library, LibraryItemRepository,
-    LibraryItemState, LibraryOptions, LibraryRepository, ManagedArtworkAcceptanceRecord,
-    ManagedArtworkIngestId, ManagedArtworkIngestStatus, ManagedArtworkRepository, MediaRepository,
-    NewAddonRegistration, NewAddonSideEffect, NewAddonToken, NewArtworkCandidate,
-    NewManagedArtworkIngest, NewStagingManifestRecord, ScanRepository, ScanSnapshotId, ScanStatus,
+    IdentityAccessRepository, ImageKind, JobLeaseClaimFilter, JobLeaseClaimRequest, JobPriority,
+    JobWorkerId, Library, LibraryItemRepository, LibraryItemState, LibraryOptions,
+    LibraryRepository, ManagedArtworkAcceptanceRecord, ManagedArtworkIngestId,
+    ManagedArtworkIngestStatus, ManagedArtworkRepository, MediaRepository, NewAddonRegistration,
+    NewAddonSideEffect, NewAddonToken, NewArtworkCandidate, NewManagedArtworkIngest,
+    NewStagingManifestRecord, ScanRepository, ScanSnapshotId, ScanStatus,
     SourceFingerprintEvidence, SourceFingerprintPolicyInput, SourceState, StagingManifestId,
     StagingManifestRepository, StagingPurpose, StagingState, UserPrincipalId, UserRole,
     bootstrap_admin_user_id,
@@ -26,7 +27,7 @@ use nako_core::{
 use nako_library::{
     DEFAULT_SCAN_SOURCE_FINGERPRINT_HASH_PARTIAL_PREFIX_BYTES,
     SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS, SourceFingerprintHashJobInput,
-    SourceFingerprintHashMode,
+    SourceFingerprintHashMode, WatchFolderIntakeEnqueueReason,
 };
 use nako_official_addon_catalog::metadata_scraper;
 use tokio::sync::Mutex;
@@ -644,6 +645,159 @@ async fn scan_library_enqueues_scan_originated_source_hash_after_weak_match() {
             prefix_bytes: DEFAULT_SCAN_SOURCE_FINGERPRINT_HASH_PARTIAL_PREFIX_BYTES,
         }
     );
+    assert!(!input_json.contains("archive"));
+    assert!(!input_json.contains("demo.mp4"));
+    assert!(!input_json.contains("local:///"));
+    assert!(!input_json.contains(&temp.path().display().to_string()));
+    assert!(!input_json.contains("source:v1:"));
+    assert!(!input_json.contains("sha256"));
+}
+
+#[tokio::test]
+async fn scan_library_enqueues_full_scan_originated_source_hash_after_ambiguous_weak_matches() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_root = temp.path().join("library");
+    fs::create_dir_all(&library_root).unwrap();
+    write_fixture_mp4(&library_root.join("demo.mp4"));
+    let metadata = fs::metadata(library_root.join("demo.mp4")).unwrap();
+    let modified_at = metadata
+        .modified()
+        .unwrap()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis()
+        .to_string();
+    let fingerprint = SourceFingerprintEvidence::from_scan_metadata(SourceFingerprintPolicyInput {
+        scheme: "local",
+        size_bytes: Some(metadata.len()),
+        modified_at: Some(&modified_at),
+        etag: None,
+        backend_fingerprint: None,
+        stale: false,
+    })
+    .fingerprint
+    .expect("local size and mtime should produce weak fingerprint evidence");
+    let library_id = LibraryId::new();
+    let config = startup_config(
+        temp.path(),
+        vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: library_root.clone(),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    );
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let prior_scan_id = ScanSnapshotId::new();
+    let first_prior_item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Prior Demo One".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let second_prior_item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Prior Demo Two".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let first_prior_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: first_prior_item.id,
+        locator: "local:///archive/prior-demo-one.mp4".to_owned(),
+        file_name: "prior-demo-one.mp4".to_owned(),
+        size_bytes: Some(metadata.len()),
+        fingerprint: Some(fingerprint.clone()),
+    };
+    let second_prior_source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: second_prior_item.id,
+        locator: "local:///archive/prior-demo-two.mp4".to_owned(),
+        file_name: "prior-demo-two.mp4".to_owned(),
+        size_bytes: Some(metadata.len()),
+        fingerprint: Some(fingerprint.clone()),
+    };
+
+    store.upsert_media_item(&first_prior_item).await.unwrap();
+    store.upsert_media_item(&second_prior_item).await.unwrap();
+    store
+        .upsert_media_source(&first_prior_source)
+        .await
+        .unwrap();
+    store
+        .upsert_media_source(&second_prior_source)
+        .await
+        .unwrap();
+    store
+        .begin_scan_snapshot(prior_scan_id, library_id, "local:///archive")
+        .await
+        .unwrap();
+    store
+        .complete_scan_snapshot(prior_scan_id, ScanStatus::Succeeded, None)
+        .await
+        .unwrap();
+    for prior_source in [&first_prior_source, &second_prior_source] {
+        store
+            .upsert_source_state(&SourceState {
+                library_id,
+                source_id: Some(prior_source.id),
+                uri: prior_source.locator.clone(),
+                size_bytes: Some(metadata.len()),
+                modified_at: Some(modified_at.clone()),
+                etag: None,
+                fingerprint: Some(fingerprint.clone()),
+                last_seen_scan_id: prior_scan_id,
+                tombstoned: false,
+            })
+            .await
+            .unwrap();
+    }
+
+    let output = app.library_scan().scan_library(library_id).await.unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+    let source_hash_jobs = jobs
+        .iter()
+        .filter(|job| job.kind == JobKind::SourceFingerprintHash)
+        .collect::<Vec<_>>();
+
+    assert_eq!(output.job.status, JobStatus::Succeeded);
+    assert_eq!(output.index.discovered_files, 1);
+    assert_eq!(source_hash_jobs.len(), 1);
+    let job = source_hash_jobs[0];
+    let input_json = job.input_json.as_deref().expect("source hash input json");
+    let input: SourceFingerprintHashJobInput = serde_json::from_str(input_json).unwrap();
+
+    assert_eq!(job.status, JobStatus::Queued);
+    assert_eq!(
+        job.resource_class,
+        SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS
+    );
+    assert_eq!(job.priority, JobPriority::Normal);
+    assert_eq!(job.library_id, Some(library_id));
+    assert_ne!(job.source_id, Some(first_prior_source.id));
+    assert_ne!(job.source_id, Some(second_prior_source.id));
+    assert_eq!(input.library_id, library_id);
+    assert_eq!(
+        input.source_id,
+        job.source_id.expect("source hash source id")
+    );
+    assert_eq!(input.source_scheme, "local");
+    assert_eq!(input.mode, SourceFingerprintHashMode::Full);
     assert!(!input_json.contains("archive"));
     assert!(!input_json.contains("demo.mp4"));
     assert!(!input_json.contains("local:///"));
@@ -2624,11 +2778,16 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
         .await
         .unwrap();
     assert!(first.monitored);
-    assert_eq!(first.newly_ready_candidates, 0);
-    assert_eq!(first.enqueued_job_id, None);
+    assert_eq!(first.intake_plan.summary.newly_ready_candidates, 0);
+    assert_eq!(first.scan_job_id, None);
+    assert!(!first.reused_existing_scan);
     assert_eq!(first.intake_plan.discover.inspecting_candidates, 1);
     assert_eq!(first.intake_plan.summary.observed_candidates, 1);
-    assert!(!first.intake_plan.should_enqueue_scan());
+    assert_eq!(
+        first.intake_plan.enqueue.reason,
+        WatchFolderIntakeEnqueueReason::WaitingForStability
+    );
+    assert!(!first.intake_plan.summary.enqueue_scan);
 
     let second = app
         .watch_folder_runtime()
@@ -2636,14 +2795,15 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
         .await
         .unwrap();
     assert!(second.monitored);
-    assert_eq!(second.newly_ready_candidates, 1);
-    let Some(job_id) = second.enqueued_job_id else {
+    assert_eq!(second.intake_plan.summary.newly_ready_candidates, 1);
+    let Some(job_id) = second.scan_job_id else {
         panic!("expected watch-folder runtime to enqueue a library scan job");
     };
+    assert!(!second.reused_existing_scan);
     assert_eq!(second.intake_plan.discover.ready_candidates, 1);
-    assert_eq!(second.intake_plan.discover.newly_ready_candidates, 1);
+    assert_eq!(second.intake_plan.summary.newly_ready_candidates, 1);
     assert_eq!(second.intake_plan.summary.observed_candidates, 1);
-    assert!(second.intake_plan.should_enqueue_scan());
+    assert!(second.intake_plan.summary.enqueue_scan);
     let job = store.get_job(job_id).await.unwrap().unwrap();
 
     assert_eq!(job.kind, JobKind::LibraryScan);
@@ -2660,10 +2820,15 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
         .await
         .unwrap();
     assert!(third.monitored);
-    assert_eq!(third.newly_ready_candidates, 0);
-    assert_eq!(third.enqueued_job_id, None);
+    assert_eq!(third.intake_plan.summary.newly_ready_candidates, 0);
+    assert_eq!(third.scan_job_id, None);
+    assert!(!third.reused_existing_scan);
     assert_eq!(third.intake_plan.discover.ready_candidates, 1);
-    assert!(!third.intake_plan.should_enqueue_scan());
+    assert_eq!(
+        third.intake_plan.enqueue.reason,
+        WatchFolderIntakeEnqueueReason::NoNewStableCandidates
+    );
+    assert!(!third.intake_plan.summary.enqueue_scan);
 
     let scan_jobs = store
         .list_jobs(Default::default(), PageRequest::first_page())
@@ -2673,6 +2838,239 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
         .filter(|job| job.kind == JobKind::LibraryScan)
         .count();
     assert_eq!(scan_jobs, 1);
+}
+
+#[tokio::test]
+async fn watch_folder_runtime_tick_reuses_existing_incomplete_scan_for_new_ready_candidates() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let library = LocalLibraryConfig {
+        id: library_id,
+        name: "Movies".to_owned(),
+        root: temp.path().join("movies"),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    fs::create_dir_all(&library.root).unwrap();
+    fs::write(library.root.join("Ready Movie.mkv"), b"ready").unwrap();
+
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let config = startup_config(temp.path(), vec![library]);
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+
+    let mut persisted = store.get_library(library_id).await.unwrap().unwrap();
+    persisted.options.scan.realtime_monitor = true;
+    store.upsert_library(&persisted).await.unwrap();
+
+    let first = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+    assert!(first.monitored);
+    assert_eq!(first.intake_plan.summary.newly_ready_candidates, 0);
+    assert_eq!(first.scan_job_id, None);
+
+    let existing = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::LibraryScan,
+            resource_class: "disk.scan".to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+    let second = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+    let scan_jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap()
+        .into_iter()
+        .filter(|job| job.kind == JobKind::LibraryScan)
+        .collect::<Vec<_>>();
+
+    assert!(second.monitored);
+    assert_eq!(second.intake_plan.summary.newly_ready_candidates, 1);
+    assert_eq!(second.scan_job_id, Some(existing.id));
+    assert!(second.reused_existing_scan);
+    assert!(second.intake_plan.summary.enqueue_scan);
+    assert_eq!(scan_jobs.len(), 1);
+    assert_eq!(scan_jobs[0].id, existing.id);
+    assert!(matches!(
+        scan_jobs[0].status,
+        JobStatus::Queued | JobStatus::Running | JobStatus::Succeeded
+    ));
+}
+
+#[tokio::test]
+async fn watch_folder_runtime_tick_reuses_existing_running_scan_for_new_ready_candidates() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let library = LocalLibraryConfig {
+        id: library_id,
+        name: "Movies".to_owned(),
+        root: temp.path().join("movies"),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    fs::create_dir_all(&library.root).unwrap();
+    fs::write(library.root.join("Ready Movie.mkv"), b"ready").unwrap();
+
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let config = startup_config(temp.path(), vec![library]);
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+
+    let mut persisted = store.get_library(library_id).await.unwrap().unwrap();
+    persisted.options.scan.realtime_monitor = true;
+    store.upsert_library(&persisted).await.unwrap();
+
+    let first = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+    assert!(first.monitored);
+    assert_eq!(first.intake_plan.summary.newly_ready_candidates, 0);
+    assert_eq!(first.scan_job_id, None);
+
+    let existing = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::LibraryScan,
+            resource_class: "disk.scan".to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+    let claimed = nako_core::JobLeaseRepository::claim_next_job_lease(
+        &store,
+        JobLeaseClaimRequest {
+            worker_id: JobWorkerId::new(),
+            lease_duration_ms: 10_000,
+            filter: JobLeaseClaimFilter {
+                job_id: Some(existing.id),
+                kind: Some(JobKind::LibraryScan),
+                resource_class: Some("disk.scan".to_owned()),
+                library_id: Some(library_id),
+                source_id: None,
+            },
+        },
+    )
+    .await
+    .unwrap()
+    .expect("expected queued scan to be claimed");
+    assert_eq!(claimed.job.status, JobStatus::Running);
+
+    let second = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+    let scan_jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap()
+        .into_iter()
+        .filter(|job| job.kind == JobKind::LibraryScan)
+        .collect::<Vec<_>>();
+
+    assert!(second.monitored);
+    assert_eq!(second.intake_plan.summary.newly_ready_candidates, 1);
+    assert_eq!(second.scan_job_id, Some(existing.id));
+    assert!(second.reused_existing_scan);
+    assert!(second.intake_plan.summary.enqueue_scan);
+    assert_eq!(scan_jobs.len(), 1);
+    assert_eq!(scan_jobs[0].id, existing.id);
+    assert_eq!(scan_jobs[0].status, JobStatus::Running);
+}
+
+#[tokio::test]
+async fn watch_folder_runtime_tick_waits_for_changed_observation_before_enqueuing_scan() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let library = LocalLibraryConfig {
+        id: library_id,
+        name: "Movies".to_owned(),
+        root: temp.path().join("movies"),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    fs::create_dir_all(&library.root).unwrap();
+    let media_path = library.root.join("Growing Movie.mkv");
+    fs::write(&media_path, b"partial").unwrap();
+
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let config = startup_config(temp.path(), vec![library]);
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+
+    let mut persisted = store.get_library(library_id).await.unwrap().unwrap();
+    persisted.options.scan.realtime_monitor = true;
+    store.upsert_library(&persisted).await.unwrap();
+
+    let first = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+    fs::write(&media_path, b"partial-but-still-growing").unwrap();
+    let changed = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+    let stable = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+
+    assert!(first.monitored);
+    assert_eq!(first.intake_plan.discover.inspecting_candidates, 1);
+    assert_eq!(first.intake_plan.summary.newly_ready_candidates, 0);
+    assert_eq!(first.scan_job_id, None);
+    assert!(!first.reused_existing_scan);
+    assert!(changed.monitored);
+    assert_eq!(changed.intake_plan.discover.inspecting_candidates, 1);
+    assert_eq!(changed.intake_plan.discover.ready_candidates, 0);
+    assert_eq!(changed.intake_plan.summary.newly_ready_candidates, 0);
+    assert_eq!(changed.scan_job_id, None);
+    assert!(!changed.reused_existing_scan);
+    assert!(stable.monitored);
+    assert_eq!(stable.intake_plan.discover.ready_candidates, 1);
+    assert_eq!(stable.intake_plan.summary.newly_ready_candidates, 1);
+    assert!(stable.scan_job_id.is_some());
+    assert!(!stable.reused_existing_scan);
+
+    let scan_jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap()
+        .into_iter()
+        .filter(|job| job.kind == JobKind::LibraryScan)
+        .count();
+    assert_eq!(scan_jobs, 1);
+
+    let body = serde_json::to_string(&changed.intake_plan).unwrap();
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("Growing Movie"));
+    assert!(!body.contains("partial-but-still-growing"));
+    assert!(!body.contains("local:///"));
 }
 
 #[tokio::test]
@@ -2726,24 +3124,167 @@ async fn watch_folder_runtime_tick_suppresses_planned_host_write_without_enqueui
         .unwrap();
 
     assert!(first.monitored);
-    assert_eq!(first.suppressed_candidates, 1);
-    assert_eq!(first.newly_ready_candidates, 0);
-    assert_eq!(first.enqueued_job_id, None);
+    assert_eq!(first.intake_plan.summary.suppressed_candidates, 1);
+    assert_eq!(first.intake_plan.summary.newly_ready_candidates, 0);
+    assert_eq!(first.scan_job_id, None);
+    assert!(!first.reused_existing_scan);
     assert_eq!(first.intake_plan.suppression.suppressed_candidates, 1);
     assert_eq!(first.intake_plan.summary.observed_candidates, 1);
-    assert!(!first.intake_plan.should_enqueue_scan());
+    assert_eq!(
+        first.intake_plan.enqueue.reason,
+        WatchFolderIntakeEnqueueReason::SuppressedCandidates
+    );
+    assert!(!first.intake_plan.summary.enqueue_scan);
     assert!(second.monitored);
-    assert_eq!(second.suppressed_candidates, 1);
-    assert_eq!(second.newly_ready_candidates, 0);
-    assert_eq!(second.enqueued_job_id, None);
+    assert_eq!(second.intake_plan.summary.suppressed_candidates, 1);
+    assert_eq!(second.intake_plan.summary.newly_ready_candidates, 0);
+    assert_eq!(second.scan_job_id, None);
+    assert!(!second.reused_existing_scan);
     assert_eq!(second.intake_plan.suppression.suppressed_candidates, 1);
-    assert!(!second.intake_plan.should_enqueue_scan());
+    assert!(!second.intake_plan.summary.enqueue_scan);
     assert!(jobs.iter().all(|job| job.kind != JobKind::LibraryScan));
 
     let body = serde_json::to_string(&first.intake_plan).unwrap();
     assert!(!body.contains("Generated Movie"));
     assert!(!body.contains("local:///"));
     assert!(!body.contains(&temp.path().display().to_string()));
+}
+
+#[tokio::test]
+async fn watch_folder_runtime_tick_reconciles_completed_suppression_before_scan_admission() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let library = LocalLibraryConfig {
+        id: library_id,
+        name: "Movies".to_owned(),
+        root: temp.path().join("movies"),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    fs::create_dir_all(&library.root).unwrap();
+    let media_name = "Generated Reconcile Movie.mkv";
+    fs::write(library.root.join(media_name), b"generated").unwrap();
+
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let config = startup_config(temp.path(), vec![library]);
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+
+    let mut persisted = store.get_library(library_id).await.unwrap().unwrap();
+    persisted.options.scan.realtime_monitor = true;
+    store.upsert_library(&persisted).await.unwrap();
+    let suppression = app
+        .watch_folder_suppression()
+        .begin_planned_write_suppression(BeginPlannedWatchFolderWriteSuppressionRequest {
+            target_library_id: library_id,
+            scope_uri: StorageUri::from_parts("local", media_name).unwrap(),
+            owner: "managed_import".to_owned(),
+            reason: "library_write".to_owned(),
+            ttl_ms: Some(60_000),
+            completion: PlannedWatchFolderWriteCompletion::ReconcileScope,
+        })
+        .await
+        .unwrap();
+    let token = suppression.token;
+
+    let suppressed = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert!(suppressed.monitored);
+    assert_eq!(suppressed.intake_plan.summary.suppressed_candidates, 1);
+    assert_eq!(suppressed.intake_plan.summary.newly_ready_candidates, 0);
+    assert_eq!(suppressed.scan_job_id, None);
+    assert!(!suppressed.reused_existing_scan);
+    assert_eq!(suppressed.intake_plan.suppression.suppressed_candidates, 1);
+    assert_eq!(suppressed.intake_plan.summary.observed_candidates, 1);
+    assert_eq!(
+        suppressed.intake_plan.enqueue.reason,
+        WatchFolderIntakeEnqueueReason::SuppressedCandidates
+    );
+    assert!(!suppressed.intake_plan.summary.enqueue_scan);
+    assert!(jobs.iter().all(|job| job.kind != JobKind::LibraryScan));
+
+    let completed = app
+        .watch_folder_suppression()
+        .complete_planned_write_suppression(token)
+        .await
+        .unwrap()
+        .expect("expected planned write suppression to complete");
+    assert!(completed.reconciliation_requested);
+    let completed_body = serde_json::to_string(&completed.suppression).unwrap();
+    assert!(!completed_body.contains(media_name));
+    assert!(!completed_body.contains(&temp.path().display().to_string()));
+    assert!(!completed_body.contains("scope_uri"));
+    assert!(!completed_body.contains("token"));
+    assert!(!completed_body.contains("local:///"));
+
+    let inspecting = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+
+    assert!(inspecting.monitored);
+    assert_eq!(inspecting.intake_plan.summary.suppressed_candidates, 0);
+    assert_eq!(inspecting.intake_plan.suppression.suppressed_candidates, 0);
+    assert_eq!(inspecting.intake_plan.discover.inspecting_candidates, 1);
+    assert_eq!(inspecting.intake_plan.discover.ready_candidates, 0);
+    assert_eq!(inspecting.intake_plan.summary.newly_ready_candidates, 0);
+    assert_eq!(inspecting.scan_job_id, None);
+    assert!(!inspecting.reused_existing_scan);
+    assert_eq!(
+        inspecting.intake_plan.enqueue.reason,
+        WatchFolderIntakeEnqueueReason::WaitingForStability
+    );
+    assert!(!inspecting.intake_plan.summary.enqueue_scan);
+
+    let admitted = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+
+    assert!(admitted.monitored);
+    assert_eq!(admitted.intake_plan.summary.suppressed_candidates, 0);
+    assert_eq!(admitted.intake_plan.suppression.suppressed_candidates, 0);
+    assert_eq!(admitted.intake_plan.discover.ready_candidates, 1);
+    assert_eq!(admitted.intake_plan.discover.newly_ready_candidates, 1);
+    assert_eq!(admitted.intake_plan.summary.newly_ready_candidates, 1);
+    assert!(admitted.scan_job_id.is_some());
+    assert!(!admitted.reused_existing_scan);
+    assert_eq!(
+        admitted.intake_plan.enqueue.reason,
+        WatchFolderIntakeEnqueueReason::NewStableCandidates
+    );
+    assert!(admitted.intake_plan.summary.enqueue_scan);
+
+    for plan in [
+        &suppressed.intake_plan,
+        &inspecting.intake_plan,
+        &admitted.intake_plan,
+    ] {
+        let body = serde_json::to_string(plan).unwrap();
+        assert!(!body.contains(media_name));
+        assert!(!body.contains(&temp.path().display().to_string()));
+        assert!(!body.contains("local:///"));
+    }
+
+    let scan_jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap()
+        .into_iter()
+        .filter(|job| job.kind == JobKind::LibraryScan)
+        .count();
+    assert_eq!(scan_jobs, 1);
 }
 
 #[tokio::test]

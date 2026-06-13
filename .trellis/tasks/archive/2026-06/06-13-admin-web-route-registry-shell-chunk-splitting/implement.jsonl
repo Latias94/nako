@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web frontend entry point and pre-development checklist."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Route ownership, lazy route splitting, i18n catalog, and validation requirements."}

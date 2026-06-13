@@ -42,6 +42,17 @@ pub struct AdminWatchFolderDiscoveryRequest {
     pub max_depth: Option<usize>,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminWatchFolderIntakeEnqueueReason {
+    NewStableCandidates,
+    WaitingForStability,
+    SuppressedCandidates,
+    BlockedCandidates,
+    DiscoveryFailures,
+    NoNewStableCandidates,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminWatchFolderDiscoveryResponse {
     pub admin_api_version: String,
@@ -57,6 +68,8 @@ pub struct AdminWatchFolderDiscoveryResponse {
     pub suppressed_candidates: u64,
     pub recorded_candidates: u64,
     pub newly_ready_candidates: u64,
+    pub enqueue_scan: bool,
+    pub enqueue_reason: AdminWatchFolderIntakeEnqueueReason,
     pub active_suppressions: Vec<AdminWatchFolderSuppression>,
     pub failures: Vec<AdminWatchFolderDiscoveryFailure>,
     pub writes_library: bool,
@@ -157,6 +170,8 @@ mod tests {
             suppressed_candidates: 1,
             recorded_candidates: 3,
             newly_ready_candidates: 2,
+            enqueue_scan: true,
+            enqueue_reason: AdminWatchFolderIntakeEnqueueReason::NewStableCandidates,
             active_suppressions: vec![AdminWatchFolderSuppression {
                 target_library_id: LibraryId::new(),
                 scope_scheme: "local".to_owned(),
@@ -183,6 +198,8 @@ mod tests {
         assert_eq!(value["inspecting_candidates"], 0);
         assert_eq!(value["newly_ready_candidates"], 2);
         assert_eq!(value["suppressed_candidates"], 1);
+        assert_eq!(value["enqueue_scan"], true);
+        assert_eq!(value["enqueue_reason"], "new_stable_candidates");
         assert_eq!(
             value["active_suppressions"][0]["scope_ref_redacted"],
             "local://<redacted>"

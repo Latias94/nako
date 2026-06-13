@@ -52,6 +52,18 @@ Use these gates for `crates/nako-server` feature work.
   durable job errors, and existing background scan scheduler behavior remains
   green. Keep API routes, schema changes, evidence persistence, and duplicate
   reconciliation out of scheduler-only slices.
+- Admin operator readiness changes for Media Library scan must include
+  watch-folder runtime coverage gaps. Realtime-enabled libraries with
+  unsupported or missing watch roots should degrade the scan readiness check
+  with a typed reason and redacted source reason; explicitly disabled watcher
+  coverage must not degrade readiness by itself.
+- Admin operator readiness changes for Storage must include unresolved VFS cache
+  repair pressure. Healthy/no-action repair diagnostics must not degrade
+  readiness, but any current unresolved repair target with retryable refresh
+  failure or operator-action pressure should degrade storage readiness with
+  typed, redaction-safe source reasons and route operators to the repair target
+  surface. Do not base readiness only on the latest failure; a newer resolved
+  failure must not hide older unresolved repair targets.
 - Internal VFS cache repair durable enqueue changes must prove safe job input
   serialization, non-refresh target rejection, queued/running idempotency,
   duplicate detection beyond the first paginated job page, terminal jobs not

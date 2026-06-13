@@ -134,10 +134,11 @@ pub(crate) use storage::{
     VfsCacheRepairAutomationEnqueueOutcome, VfsCacheRepairAutomationEnqueueReport,
     VfsCacheRepairAutomationJobReport, VfsCacheRepairAutomationPolicy,
     VfsCacheRepairAutomationPolicyReport, VfsCacheRepairCommandOutput,
-    VfsCacheRepairExecutableRoute, VfsCacheRepairJobSummary, VfsCacheRepairRefreshActionReport,
-    VfsCacheRepairRemediationActionGroupReport, VfsCacheRepairRemediationClassificationCountReport,
-    VfsCacheRepairRemediationPlanBoundary, VfsCacheRepairRemediationPlanReport,
-    VfsCacheRepairTargetPreviewReport, VfsCacheRepairTargetReport, storage_staging_pressure_status,
+    VfsCacheRepairExecutableRoute, VfsCacheRepairJobSummary, VfsCacheRepairReadinessPressure,
+    VfsCacheRepairRefreshActionReport, VfsCacheRepairRemediationActionGroupReport,
+    VfsCacheRepairRemediationClassificationCountReport, VfsCacheRepairRemediationPlanBoundary,
+    VfsCacheRepairRemediationPlanReport, VfsCacheRepairTargetPreviewReport,
+    VfsCacheRepairTargetReport, storage_staging_pressure_status,
 };
 use user_playback::UserPlaybackAppService;
 use user_playlist::UserPlaylistAppService;

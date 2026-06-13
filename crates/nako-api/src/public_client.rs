@@ -260,6 +260,11 @@ pub fn playback_decision_to_dto(decision: PlaybackDecision) -> ClientPlaybackDec
 fn playback_decision_report_to_dto(report: PlaybackDecisionReport) -> ClientPlaybackDecisionReport {
     ClientPlaybackDecisionReport {
         selected_mode: playback_mode_to_dto(report.selected_mode),
+        selection_reasons: report
+            .selection_reasons
+            .into_iter()
+            .map(playback_compatibility_condition_to_dto)
+            .collect(),
         direct_play: playback_capability_evaluation_to_dto(report.direct_play),
         remux: playback_capability_evaluation_to_dto(report.remux),
         transcode: playback_capability_evaluation_to_dto(report.transcode),
@@ -1431,6 +1436,10 @@ mod tests {
         assert_eq!(value["reason"], "client_disabled_direct_play");
         assert_eq!(
             value["report"]["direct_play"]["reasons"][0],
+            "direct_play_disabled"
+        );
+        assert_eq!(
+            value["report"]["selection_reasons"][0],
             "direct_play_disabled"
         );
         assert_eq!(value["transcode_plan"]["output_container"], "hls");

@@ -348,6 +348,12 @@ pub(crate) struct VfsCacheRepairRemediationPlanReport {
     pub(crate) boundary: VfsCacheRepairRemediationPlanBoundary,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct VfsCacheRepairReadinessPressure {
+    pub(crate) total_unresolved_targets: u32,
+    pub(crate) primary_classification: VfsCacheRepairClassification,
+}
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) struct VfsCacheRepairAutomationPolicy {
     pub(crate) enabled: bool,
@@ -484,6 +490,12 @@ struct VfsCacheRepairRemediationPlanAccumulator {
 }
 
 #[derive(Default)]
+struct VfsCacheRepairReadinessPressureAccumulator {
+    total_unresolved_targets: u32,
+    primary_classification: Option<VfsCacheRepairClassification>,
+}
+
+#[derive(Default)]
 struct VfsCacheRepairRemediationActionAccumulator {
     count: u32,
     sample_targets: Vec<VfsCacheRepairTargetReport>,
@@ -575,6 +587,41 @@ impl VfsCacheRepairRemediationActionAccumulator {
         if self.sample_targets.len() < VFS_CACHE_REPAIR_REMEDIATION_SAMPLE_LIMIT {
             self.sample_targets.push(target);
         }
+    }
+}
+
+impl VfsCacheRepairReadinessPressureAccumulator {
+    fn record(&mut self, target: &VfsCacheRepairTargetReport) {
+        self.total_unresolved_targets = self.total_unresolved_targets.saturating_add(1);
+        let classification = target.repair.classification;
+        self.primary_classification = Some(match self.primary_classification {
+            Some(current)
+                if vfs_cache_repair_readiness_classification_rank(current)
+                    >= vfs_cache_repair_readiness_classification_rank(classification) =>
+            {
+                current
+            }
+            _ => classification,
+        });
+    }
+
+    fn into_pressure(self) -> Option<VfsCacheRepairReadinessPressure> {
+        Some(VfsCacheRepairReadinessPressure {
+            total_unresolved_targets: self.total_unresolved_targets,
+            primary_classification: self.primary_classification?,
+        })
+    }
+}
+
+const fn vfs_cache_repair_readiness_classification_rank(
+    classification: VfsCacheRepairClassification,
+) -> u8 {
+    match classification {
+        VfsCacheRepairClassification::Healthy => 0,
+        VfsCacheRepairClassification::RepairableStaleFallback => 1,
+        VfsCacheRepairClassification::UnknownFailure => 2,
+        VfsCacheRepairClassification::RetryableRefreshFailure => 3,
+        VfsCacheRepairClassification::OperatorActionRequired => 4,
     }
 }
 
@@ -1053,6 +1100,20 @@ impl StorageDiagnosticsAppService {
         .await?;
 
         Ok(accumulator.into_report())
+    }
+
+    pub(crate) async fn vfs_cache_repair_readiness_pressure(
+        &self,
+    ) -> Result<Option<VfsCacheRepairReadinessPressure>> {
+        let mut accumulator = VfsCacheRepairReadinessPressureAccumulator::default();
+
+        self.visit_unresolved_vfs_cache_repair_targets(|_failure, target| {
+            accumulator.record(&target);
+            Ok(VfsCacheRepairTargetVisit::Continue)
+        })
+        .await?;
+
+        Ok(accumulator.into_pressure())
     }
 
     pub(crate) async fn plan_vfs_cache_repair_automation(

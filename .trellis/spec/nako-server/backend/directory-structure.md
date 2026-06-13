@@ -528,6 +528,13 @@ runnable candidates to proceed.
 - A runtime tick may enqueue a scan only when
   `newly_ready_candidates > 0`; it must use the existing library scan queue and
   not execute scan/probe work inline.
+- Watch-folder scan admission must coalesce with an existing queued or running
+  `JobKind::LibraryScan` for the same Media Library. This coalescing belongs to
+  the watch-folder admission path and must not change explicit Admin/manual scan
+  commands that intentionally create a new scan job per request.
+- Admin-triggered watch-folder discovery must project the same pure
+  `nako_library::plan_watch_folder_intake` enqueue decision as runtime ticks.
+  Do not derive a separate HTTP-only skip priority from raw candidate counts.
 - Planned-write suppression is process-local and TTL-bounded. A suppression
   request must include library ID, `StorageUri` scope, safe owner, safe reason,
   TTL, and completion behavior. Owner/reason are stable identifiers, not raw
@@ -551,6 +558,7 @@ runnable candidates to proceed.
 | Library root is non-local or unparsable | No runtime is started; remote watch reliability is not assumed. |
 | First supported media observation | Candidate is recorded as `Inspecting`; no scan job is enqueued. |
 | Repeated identical supported media observation | Candidate becomes `Ready`; the runtime enqueues one library scan job through `enqueue_library_scan`. |
+| Repeated identical supported media observation while the same library already has a queued/running scan | Candidate becomes `Ready`; the runtime reuses the incomplete scan job and creates no duplicate job. |
 | Observation key changes | Stable evidence resets to inspecting before any scan handoff. |
 | URI is inside active planned-write suppression scope | Discovery increments `suppressed_candidates`, records no candidate, and runtime tick enqueues no scan for that URI. |
 | Suppression owner/reason is empty, too long, or not a safe identifier | Begin request fails with `NakoError::InvalidInput`. |
@@ -563,8 +571,9 @@ runnable candidates to proceed.
 - Good: startup builds one `watch_folder_runtime` task per eligible local
   realtime library, records stable-candidate diagnostics, and enqueues a
   `disk.scan` job only after the second unchanged observation.
-- Base: an admin-triggered watch-folder discovery updates intake candidates and
-  returns inspecting/ready/newly-ready counts without mutating library sources.
+- Base: an admin-triggered watch-folder discovery updates intake candidates,
+  returns inspecting/ready/newly-ready counts plus the planner's
+  `enqueue_scan`/`enqueue_reason`, and does not mutate library sources.
 - Base: a Nako-owned NFO/artwork/import write begins a suppression for the
   target `StorageUri`, lets discovery skip that exact URI/descendants, then
   completes the suppression with optional reconciliation intent.
@@ -587,13 +596,15 @@ runnable candidates to proceed.
 - App test: first tick records inspecting candidates and enqueues no scan job.
 - App test: second identical tick reports newly ready candidates and enqueues a
   `JobKind::LibraryScan` job with resource class `disk.scan`.
+- App test: second identical tick with an existing queued/running same-library
+  scan reports the admitted scan job and does not enqueue a duplicate.
 - Intake/service test: duplicate discovery updates the same candidate and keeps
   supported media in `Inspecting` until the stable observation threshold is
   reached.
 - HTTP/Admin test: watch-folder discovery response exposes
   `inspecting_candidates`, `newly_ready_candidates`, `suppressed_candidates`,
-  and active suppression summaries while redacting raw root, source, scope, and
-  token details.
+  `enqueue_scan`, `enqueue_reason`, and active suppression summaries while
+  redacting raw root, source, scope, and token details.
 - App test: planned-write suppression matches exact and descendant
   `StorageUri` scopes but not sibling prefixes.
 - App test: repeated runtime ticks over a suppressed media file do not enqueue a

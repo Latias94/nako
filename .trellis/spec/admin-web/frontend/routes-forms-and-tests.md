@@ -131,6 +131,100 @@ const mutation = useMutation({
 Keep network behavior behind the typed data source and generated Admin API
 client, then assert it through route tests.
 
+## Scenario: Playback Support Evidence Route
+
+### 1. Scope / Trigger
+
+- Trigger: Admin Web renders `/playback/support`, maps URL search params into
+  playback support evidence queries, or changes the redaction-safe runtime and
+  subject summaries for this route.
+- Evidence: `src/features/playback/PlaybackSupportPage.tsx`,
+  `src/features/playback/playbackSupportFormatters.ts`,
+  `src/adminApi/dataSource.ts`, `src/App.tsx`, and route tests.
+- Authority: ADR 0027 and ADR 0053.
+
+### 2. Signatures
+
+- Route path: `/playback/support`.
+- Search keys: `session_id?: string` and `source_id?: string`.
+- Data source method:
+  `loadPlaybackSupport(query?: AdminPlaybackSupportQuery):
+  Promise<AdminSectionResult<AdminPlaybackSupportEvidenceResponse>>`.
+- Page props:
+  `dataSource: AdminDataSource` and `search: PlaybackSupportSearch`.
+
+### 3. Contracts
+
+- `session_id` and `source_id` are independently optional. The route may be
+  opened with one, both, or neither value.
+- When both search keys are missing, render a visible direct-entry `RouteNotice`
+  that tells the operator to open the page from an item or playback session
+  context.
+- Keep the page read-only. The route may refresh evidence, but it must not add
+  mutation controls or expose raw paths, tokens, command lines, backend URLs,
+  or credentials.
+- Keep long playback support formatting in a feature-local helper module such as
+  `src/features/playback/playbackSupportFormatters.ts` instead of duplicating
+  helper logic inside the route component.
+- The rendered panels should remain limited to safe subject, session, source,
+  runtime, and redaction summaries.
+
+### 4. Validation & Error Matrix
+
+| Condition | Current behavior |
+|-----------|------------------|
+| Both search keys are missing | Show the direct-entry notice and still render safe fallback/live evidence |
+| One or both search keys are present | Forward the search unchanged to `loadPlaybackSupport` |
+| Live read is unavailable or fails | Return deterministic mock fallback with a visible route notice |
+| Generated support evidence contains raw paths, tokens, command lines, URLs, or credentials | Projection omits them and tests reject rendering |
+
+### 5. Good / Base / Bad Cases
+
+- Good: `PlaybackSupportPage` forwards the route search, shows the
+  direct-entry notice only when the page is opened without subject context, and
+  uses a feature-local formatter helper for long safe summaries.
+- Base: route-owned evidence page opened from item detail with only
+  `source_id`, or from playback sessions with both `session_id` and
+  `source_id`.
+- Bad: hiding the page when one search key is missing, rendering unsafe source
+  material, or keeping a large pile of inline formatter helpers inside the
+  route component.
+
+### 6. Tests Required
+
+- Route tests assert URL search forwarding into `loadPlaybackSupport`.
+- Route tests assert the direct-entry notice appears for `/playback/support`
+  with no search keys.
+- Route tests assert zh-Hans copy for the direct-entry notice.
+- Route tests assert unsafe fields like request fingerprints and raw file
+  names do not appear in rendered text.
+- Data source tests assert route-local playback support fallback and query
+  forwarding.
+- Run:
+  - `npm run check --prefix apps/admin-web`
+  - `npm run test --prefix apps/admin-web`
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```tsx
+if (!search.session_id && !search.source_id) {
+  return <EmptyRouteState>No context</EmptyRouteState>;
+}
+```
+
+#### Correct
+
+```tsx
+{!hasDirectAccessHint ? null : (
+  <RouteNotice>{t("playbackSupport.directAccessNotice")}</RouteNotice>
+)}
+```
+
+Keep playback support evidence route-owned, redaction-safe, and easy to enter
+from the surrounding item or session flows.
+
 ## Scenario: Addon Task Run Operator Projection
 
 ### 1. Scope / Trigger
@@ -1030,3 +1124,127 @@ stays server-owned.
   - focused Vitest files for the adapter and affected routes
   - `npm run test --prefix apps/admin-web`
   - `npm run build --prefix apps/admin-web` when route/page code changes.
+
+## Scenario: Route-Level Bundle Splitting
+
+### 1. Scope / Trigger
+
+- Trigger: `apps/admin-web/src/App.tsx`, route shells, i18n providers, Media Web
+  session wiring, or any feature route import changes that can alter Vite chunk
+  boundaries.
+- Evidence: `src/App.tsx`, `src/i18n/I18nProvider.tsx`,
+  `src/surfaces/media/MediaSession.tsx`, and Vite build output.
+
+### 2. Signatures
+
+- Route runtime values in `App.tsx` should use `React.lazy` with named export
+  mapping against route modules:
+  `lazy(() => import("./routes/XRouteModule").then(module => ({ default: module.XRouteModule })))`.
+- Route modules live under `src/routes/*RouteModule.tsx` and own the
+  route-local page import, `RouteI18n` wrapper, and page prop assembly.
+- Route search types remain type-only imports from page modules, for example
+  `import type { JobsSearch } from "./features/jobs/JobsPage";`.
+- Broad default implementations that pull optional product surfaces, large
+  fixtures, SDKs, or locale catalogs should be loaded through dynamic import.
+- Route-owned localized pages should be wrapped with `RouteI18n` in their lazy
+  route module and declare the `I18nNamespace` catalog prefixes they need.
+
+### 3. Contracts
+
+- Keep TanStack route ownership in `App.tsx`: routes still read context,
+  params, search, and navigate helpers, then pass typed props into lazy route
+  modules.
+- Keep search validation and normalization primitives in `App.tsx` or another
+  lightweight shell-owned helper. Route modules may receive `onSearchChange`,
+  but they should not import TanStack route instances or duplicate URL
+  normalization logic.
+- Do not convert a type-only route contract import into a runtime import unless
+  that module is intentionally part of the initial Admin shell.
+- Feature-owned adapters that are only needed by one route should be created in
+  a lazy route wrapper next to the feature page, not imported by `App.tsx`.
+- Do not wrap page components with `RouteI18n` directly in `App.tsx`. Declare
+  route namespaces in the lazy route module, including multi-namespace routes
+  such as `["libraryDetail", "libraries"]` and
+  `["playback", "playbackSupport"]`.
+- `I18nProvider` may defer full message catalogs, but it must keep
+  `MessageId`/`AdminLocale` typing, persist locale selection, and avoid
+  rendering untranslated IDs after the catalog is loaded.
+- `src/i18n/messages.ts` owns only type composition. Runtime message text stays
+  in `src/i18n/catalogs/base.ts` and route/feature catalog modules loaded
+  through `src/i18n/catalogLoader.ts`.
+- Keep `shell`, `nav`, `source`, and `locale` messages in the base catalog so
+  the shell can render before a route catalog loads.
+- If a page renders another feature's copy, declare all needed namespaces in
+  its route wrapper, for example `["playback", "playbackSupport"]`.
+- Media Web default data-source wiring should not statically import the Public
+  Client SDK or fixture data into the Admin shell.
+- Media Web route modules should keep browse/search/library pages, item detail
+  playback state, and watch/browser-player code in separate lazy modules. Do
+  not put browser playback tickets, HLS adapter probing, video element handlers,
+  or playback progress flushing back into `MediaPages.tsx`.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| A route page is lazy-loaded | Its URL search, params, data source, i18n, and fallback behavior stay unchanged |
+| A page exposes only search types to `App.tsx` | Import remains `import type`, and build output keeps the page in a route chunk |
+| Base locale catalog is loading | The shell may temporarily render no content, then renders localized copy once loaded |
+| Route locale catalog is loading | The shell remains rendered while the route outlet waits for all declared namespaces |
+| Media Web fixture/live connection is first used | The media data-source module loads on demand and preserves token redaction |
+| Build output moves code into route chunks | Main `index-*.js` shrinks and route/page plus route catalog chunks are emitted for the affected modules |
+
+### 5. Good / Base / Bad Cases
+
+- Good: lazy route module declarations, type-only search imports, a shared
+  `Suspense` outlet, dynamic message catalog loading, and build output showing
+  route module/page/catalog chunks plus a smaller main chunk.
+- Good: route catalog modules emit chunks such as `settings-*.js` and
+  `storage-*.js`; there is no single route-agnostic `messages-*.js` chunk that
+  contains all localized page copy.
+- Good: Media Web browse routes import only `MediaPages.tsx` plus lightweight
+  media core helpers; `/media/items/$itemId` loads item playback state; and
+  `/media/watch/$itemId` loads browser ticket/player/progress code.
+- Base: simple routes can still pass broad `AdminDataSource` into the page when
+  they do not need a feature adapter.
+- Bad: importing page components, adapter factories, media data-source defaults,
+  generated SDK clients, fixtures, full message catalogs, or watch/player-only
+  media code directly into the Admin shell or browse route path.
+
+### 6. Tests Required
+
+- Run `npm run check --prefix apps/admin-web`.
+- Run affected route tests and `npm run test --prefix apps/admin-web` when i18n
+  or shell loading changes.
+- Run `npm run build --prefix apps/admin-web` and inspect emitted
+  `dist/assets/index-*.js`, route chunks, and route catalog chunks.
+- Keep route tests async-aware with `findBy...`/`waitFor` when lazy pages or
+  dynamic catalogs are involved.
+- Add or keep tests that prove a route catalog loads on demand without
+  importing unrelated route catalogs.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```typescript
+import { SettingsPage } from "./features/settings/SettingsPage";
+import { createMediaWebDataSource } from "./surfaces/media/mediaDataSource";
+```
+
+#### Correct
+
+```typescript
+const SettingsRouteModule = lazy(() =>
+  import("./routes/SettingsRouteModule").then((module) => ({
+    default: module.SettingsRouteModule,
+  })),
+);
+
+const dataSource = await import("./mediaDataSource").then((module) =>
+  module.createMediaWebDataSource(connection),
+);
+```
+
+Protect the Admin shell path from route-local and optional-surface code, then
+use the production build output as the source of truth for bundle behavior.

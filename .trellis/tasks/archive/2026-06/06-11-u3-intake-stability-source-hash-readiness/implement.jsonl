@@ -1,0 +1,13 @@
+{"file": "CONTEXT.md", "reason": "Nako domain vocabulary for Media Library, Media Source, Source Locator, Source Fingerprint, and operator-facing language."}
+{"file": "docs/plans/2026-06-10-001-feat-media-server-maturity-roadmap-plan.md", "reason": "Roadmap U3 scope, requirements, target files, and verification scenarios."}
+{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "Library intake pipeline authority and watcher/debounce maturity state."}
+{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "ADR 0053-aligned durable job, runtime supervision, and redacted diagnostics boundary."}
+{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Storage/VFS source locator, source fingerprint, remote storage, and repair diagnostic constraints."}
+{"file": ".trellis/spec/nako-library/backend/index.md", "reason": "Library package pre-development checklist and authority index."}
+{"file": ".trellis/spec/nako-library/backend/directory-structure.md", "reason": "Placement rules for intake, ingestion, scan, source_hash, and summaries."}
+{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "Stable intake, Source Fingerprint escalation, and redaction-safe library test requirements."}
+{"file": ".trellis/spec/nako-library/backend/error-handling.md", "reason": "Library failure classification expectations for scan/intake/probe flows."}
+{"file": ".trellis/spec/nako-library/backend/logging-guidelines.md", "reason": "Redaction-safe library diagnostics requirements."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server package pre-development checklist and source hash policy routing."}
+{"file": ".trellis/spec/nako-server/backend/source-fingerprint-hash-policy.md", "reason": "Source Fingerprint hash scan-originated enqueue, retry, scheduler, and Admin redaction contracts."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server test gates and durable job/source hash regression expectations."}

@@ -1,0 +1,356 @@
+export const enStorageMessages = {
+  "storage.title": "Storage Staging",
+  "storage.kicker": "Storage operations",
+  "storage.description":
+    "Staging records and VFS cache health without roots, Source Locators, cache URIs, or credentials.",
+  "storage.refresh": "Refresh",
+  "storage.fallback": "{error}. Showing deterministic mock fallback data.",
+  "storage.filters": "Storage staging filters",
+  "storage.filter.purpose": "Purpose",
+  "storage.filter.purposeAria": "Storage purpose filter",
+  "storage.filter.state": "State",
+  "storage.filter.stateAria": "Storage state filter",
+  "storage.filter.anyState": "Any state",
+  "storage.state.ready": "Ready",
+  "storage.state.failed": "Failed",
+  "storage.state.stale": "Stale",
+  "storage.state.expired": "Expired",
+  "storage.filter.limit": "Limit",
+  "storage.filter.limitAria": "Storage page limit",
+  "storage.filter.active": "{count} filters",
+  "storage.clear": "Clear",
+  "storage.records.title": "Staging records",
+  "storage.records.description": "{returned} returned, {used} used of {max}",
+  "storage.records.urlFilters": "URL filters are authoritative",
+  "storage.purposeState.title": "Purpose/state summary",
+  "storage.purposeState.description":
+    "{count} purpose/state groups from the staging manifest.",
+  "storage.purposeState.empty":
+    "No purpose/state staging summary is available.",
+  "storage.purposeState.column.purpose": "Purpose",
+  "storage.purposeState.column.state": "State",
+  "storage.purposeState.column.records": "Records",
+  "storage.purposeState.column.size": "Manifest bytes",
+  "storage.purposeState.column.leases": "Active leases",
+  "storage.purposeState.column.unknownSize": "Unknown size records",
+  "storage.cleanupPurposeState.title":
+    "Cleanup candidate purpose/state summary",
+  "storage.cleanupPurposeState.description":
+    "{count} purpose/state groups from cleanup candidates.",
+  "storage.cleanupPurposeState.empty":
+    "No cleanup candidate purpose/state summary is available.",
+  "storage.cleanupPurposeState.column.purpose": "Purpose",
+  "storage.cleanupPurposeState.column.state": "State",
+  "storage.cleanupPurposeState.column.records": "Records",
+  "storage.cleanupPurposeState.column.size": "Cleanup candidate bytes",
+  "storage.cleanupPurposeState.column.leases": "Active leases",
+  "storage.cleanupPurposeState.column.unknownSize": "Unknown size records",
+  "storage.repair.title": "VFS cache repair",
+  "storage.repair.description":
+    "{total} unresolved targets, {returned} targets returned. Operator actions stay bounded to refresh and enqueue.",
+  "storage.repair.actions": "VFS cache repair actions",
+  "storage.repair.refreshLatest": "Refresh latest cache",
+  "storage.repair.refreshing": "Refreshing",
+  "storage.repair.enqueueFirstTarget": "Enqueue first repair target",
+  "storage.repair.enqueueAutomation": "Enqueue automation batch",
+  "storage.repair.enqueueing": "Enqueueing",
+  "storage.repair.automationEnqueueing": "Enqueueing automation",
+  "storage.repair.loading": "Loading VFS cache repair context",
+  "storage.repair.actionPlan": "Repair action plan",
+  "storage.repair.remediationPlan": "Remediation plan",
+  "storage.repair.automationPlan": "Automation dry-run plan",
+  "storage.repair.automationPolicy": "Automation policy",
+  "storage.repair.automationEnabled": "enabled",
+  "storage.repair.automationDisabled": "disabled",
+  "storage.repair.eligibleTargets": "Eligible targets",
+  "storage.repair.blockedTargets": "Blocked targets",
+  "storage.repair.automationTargets": "Automation targets",
+  "storage.repair.planStatus": "Plan status",
+  "storage.repair.action": "Action",
+  "storage.repair.readiness": "Readiness",
+  "storage.repair.apiExecutable": "API executable",
+  "storage.repair.planOnly": "Plan only",
+  "storage.repair.unresolvedTargets": "Unresolved targets",
+  "storage.repair.classification": "Classification",
+  "storage.repair.totalTargets": "{count} targets",
+  "storage.repair.targetsReturned": "{count} targets",
+  "storage.repair.actionGroups": "Remediation action groups",
+  "storage.repair.targetsTitle": "Repair targets",
+  "storage.repair.none": "none",
+  "storage.repair.yes": "yes",
+  "storage.repair.no": "no",
+  "storage.repair.noActionGroups":
+    "No remediation action groups are available.",
+  "storage.repair.noTargets": "No VFS cache repair targets are available.",
+  "storage.repair.noTarget": "No VFS cache repair target is available.",
+  "storage.repair.noEnqueueableTarget":
+    "No enqueueable VFS cache repair target is available.",
+  "storage.repair.noAutomationEligibleTargets":
+    "No automation-eligible VFS cache repair targets are available.",
+  "storage.repair.noAutomationBlockedTargets":
+    "No automation-blocked VFS cache repair targets are available.",
+  "storage.repair.noClassificationCounts":
+    "No classification counts are available.",
+  "storage.repair.mutationDisabled": "Repair actions are disabled. {reasons}",
+  "storage.repair.disabled.refreshNotLive":
+    "Refresh requires live repair action-plan data.",
+  "storage.repair.disabled.refreshRouteMissing":
+    "Refresh route is unavailable.",
+  "storage.repair.disabled.enqueueNotLive":
+    "Enqueue requires live repair targets data.",
+  "storage.repair.disabled.enqueueRouteMissing":
+    "Enqueue route is unavailable.",
+  "storage.repair.disabled.noEnqueueableTarget":
+    "No returned repair target can be enqueued.",
+  "storage.repair.disabled.automationNotLive":
+    "Automation enqueue requires live automation dry-run data.",
+  "storage.repair.disabled.automationRouteMissing":
+    "Automation enqueue route is unavailable.",
+  "storage.repair.disabled.automationPolicyDisabled":
+    "Automation policy is disabled.",
+  "storage.repair.disabled.noAutomationEligibleTarget":
+    "No returned automation target can be enqueued.",
+  "storage.repair.notLiveError":
+    "VFS cache repair actions require live Admin API data.",
+  "storage.repair.refreshUnavailable":
+    "VFS cache repair refresh action is unavailable.",
+  "storage.repair.enqueueUnavailable":
+    "VFS cache repair enqueue action is unavailable.",
+  "storage.repair.automationEnqueueUnavailable":
+    "VFS cache repair automation enqueue action is unavailable.",
+  "storage.repair.automationPolicyDisabled":
+    "VFS cache repair automation policy is disabled.",
+  "storage.repair.operationFailed": "VFS cache repair operation failed.",
+  "storage.repair.refreshSucceeded":
+    "Latest VFS cache refresh completed. Refreshed: {refreshed}.",
+  "storage.repair.enqueueSucceeded":
+    "Queued VFS cache repair job {jobId}, status {status}.",
+  "storage.repair.automationEnqueueSucceeded":
+    "Queued {enqueued} VFS cache repair automation jobs; {alreadyQueued} already queued.",
+  "storage.repair.actionPlanUnavailable":
+    "VFS cache repair action-plan data source is unavailable",
+  "storage.repair.remediationPlanUnavailable":
+    "VFS cache repair remediation-plan data source is unavailable",
+  "storage.repair.automationPlanUnavailable":
+    "VFS cache repair automation dry-run data source is unavailable",
+  "storage.repair.targetsUnavailable":
+    "VFS cache repair targets data source is unavailable",
+  "storage.repair.actionPlanFallback":
+    "{error}. Showing deterministic mock repair action-plan fallback.",
+  "storage.repair.remediationPlanFallback":
+    "{error}. Showing deterministic mock remediation-plan fallback.",
+  "storage.repair.automationPlanFallback":
+    "{error}. Showing deterministic mock automation dry-run fallback.",
+  "storage.repair.targetsFallback":
+    "{error}. Showing deterministic mock repair targets fallback.",
+  "storage.repair.boundary.refreshesCache": "Refreshes VFS cache",
+  "storage.repair.boundary.readsTargets": "Reads repair targets",
+  "storage.repair.boundary.mayStartJobs": "May start durable jobs",
+  "storage.repair.boundary.backendConfig": "Changes backend configuration",
+  "storage.repair.boundary.manualInspection":
+    "Requires manual failure inspection",
+  "storage.repair.boundary.deletesCache": "Deletes cache entries",
+  "storage.repair.boundary.writesFiles": "Writes library files",
+  "storage.repair.boundary.startsJob": "Starts durable job",
+  "storage.repair.boundary.readOnly": "Read-only plan",
+  "storage.repair.boundary.included": "included",
+  "storage.repair.boundary.excluded": "excluded",
+  "storage.repair.column.actionGroup": "Action group",
+  "storage.repair.column.status": "Status",
+  "storage.repair.column.readiness": "Readiness",
+  "storage.repair.column.sampleTargets": "Sample targets",
+  "storage.repair.column.target": "Target",
+  "storage.repair.column.operation": "Operation",
+  "storage.repair.column.classification": "Classification",
+  "storage.repair.column.recommendedAction": "Recommended action",
+  "storage.repair.column.retryable": "Retryable",
+  "storage.repair.column.safeMessage": "Safe message",
+  "storage.loading": "Loading Storage Staging records",
+  "storage.empty": "No Storage Staging records match the current filters.",
+  "storage.dataSourceUnavailable":
+    "Storage Staging route data source is unavailable",
+  "storage.column.record": "Record",
+  "storage.column.state": "State",
+  "storage.column.sourceScheme": "Source Scheme",
+  "storage.column.size": "Size",
+  "storage.column.leases": "Leases",
+  "storage.column.validation": "Validation",
+  "storage.column.expires": "Expires",
+  "storage.validation.failed": "failed",
+  "storage.validation.clean": "clean",
+  "storage.none": "none",
+  "storage.unknown": "unknown",
+} as const;
+
+export type StorageMessageId = keyof typeof enStorageMessages;
+
+export const zhHansStorageMessages = {
+  "storage.title": "Storage Staging",
+  "storage.kicker": "存储运维",
+  "storage.description":
+    "Staging 记录和 VFS cache 健康状态，不暴露 root、Source Locator、cache URI 或凭据。",
+  "storage.refresh": "刷新",
+  "storage.fallback": "{error}。正在显示确定性 mock 回退数据。",
+  "storage.filters": "Storage staging 过滤器",
+  "storage.filter.purpose": "用途",
+  "storage.filter.purposeAria": "Storage 用途过滤器",
+  "storage.filter.state": "状态",
+  "storage.filter.stateAria": "Storage 状态过滤器",
+  "storage.filter.anyState": "任意状态",
+  "storage.state.ready": "就绪",
+  "storage.state.failed": "失败",
+  "storage.state.stale": "陈旧",
+  "storage.state.expired": "已过期",
+  "storage.filter.limit": "Limit",
+  "storage.filter.limitAria": "Storage 页面 limit",
+  "storage.filter.active": "{count} 个过滤器",
+  "storage.clear": "清除",
+  "storage.records.title": "Staging 记录",
+  "storage.records.description":
+    "返回 {returned} 条，已使用 {used}，上限 {max}",
+  "storage.records.urlFilters": "URL 过滤条件具有权威性",
+  "storage.purposeState.title": "用途/状态汇总",
+  "storage.purposeState.description":
+    "来自 staging manifest 的 {count} 个用途/状态分组。",
+  "storage.purposeState.empty": "没有可用的用途/状态 staging 汇总。",
+  "storage.purposeState.column.purpose": "用途",
+  "storage.purposeState.column.state": "状态",
+  "storage.purposeState.column.records": "记录数",
+  "storage.purposeState.column.size": "Manifest 字节",
+  "storage.purposeState.column.leases": "活跃租约",
+  "storage.purposeState.column.unknownSize": "未知大小记录",
+  "storage.cleanupPurposeState.title": "清理候选用途/状态汇总",
+  "storage.cleanupPurposeState.description":
+    "来自清理候选的 {count} 个用途/状态分组。",
+  "storage.cleanupPurposeState.empty": "没有可用的清理候选用途/状态汇总。",
+  "storage.cleanupPurposeState.column.purpose": "用途",
+  "storage.cleanupPurposeState.column.state": "状态",
+  "storage.cleanupPurposeState.column.records": "记录数",
+  "storage.cleanupPurposeState.column.size": "清理候选字节",
+  "storage.cleanupPurposeState.column.leases": "活跃租约",
+  "storage.cleanupPurposeState.column.unknownSize": "未知大小记录",
+  "storage.repair.title": "VFS cache 修复",
+  "storage.repair.description":
+    "{total} 个未解决目标，返回 {returned} 个目标。操作仅限刷新和入队。",
+  "storage.repair.actions": "VFS cache 修复操作",
+  "storage.repair.refreshLatest": "刷新最新 cache",
+  "storage.repair.refreshing": "刷新中",
+  "storage.repair.enqueueFirstTarget": "入队首个修复目标",
+  "storage.repair.enqueueAutomation": "入队自动化批次",
+  "storage.repair.enqueueing": "入队中",
+  "storage.repair.automationEnqueueing": "自动化入队中",
+  "storage.repair.loading": "正在加载 VFS cache 修复上下文",
+  "storage.repair.actionPlan": "修复 action plan",
+  "storage.repair.remediationPlan": "修复计划",
+  "storage.repair.automationPlan": "自动化 dry-run 计划",
+  "storage.repair.automationPolicy": "自动化策略",
+  "storage.repair.automationEnabled": "已启用",
+  "storage.repair.automationDisabled": "已禁用",
+  "storage.repair.eligibleTargets": "符合条件目标",
+  "storage.repair.blockedTargets": "阻塞目标",
+  "storage.repair.automationTargets": "自动化目标",
+  "storage.repair.planStatus": "计划状态",
+  "storage.repair.action": "操作",
+  "storage.repair.readiness": "就绪度",
+  "storage.repair.apiExecutable": "API 可执行",
+  "storage.repair.planOnly": "仅计划",
+  "storage.repair.unresolvedTargets": "未解决目标",
+  "storage.repair.classification": "分类",
+  "storage.repair.totalTargets": "{count} 个目标",
+  "storage.repair.targetsReturned": "{count} 个目标",
+  "storage.repair.actionGroups": "修复动作分组",
+  "storage.repair.targetsTitle": "修复目标",
+  "storage.repair.none": "无",
+  "storage.repair.yes": "是",
+  "storage.repair.no": "否",
+  "storage.repair.noActionGroups": "没有可用的修复动作分组。",
+  "storage.repair.noTargets": "没有可用的 VFS cache 修复目标。",
+  "storage.repair.noTarget": "没有可用的 VFS cache 修复目标。",
+  "storage.repair.noEnqueueableTarget": "没有可入队的 VFS cache 修复目标。",
+  "storage.repair.noAutomationEligibleTargets":
+    "没有符合自动化条件的 VFS cache 修复目标。",
+  "storage.repair.noAutomationBlockedTargets":
+    "没有被自动化阻塞的 VFS cache 修复目标。",
+  "storage.repair.noClassificationCounts": "没有可用的分类计数。",
+  "storage.repair.mutationDisabled": "修复操作已禁用。{reasons}",
+  "storage.repair.disabled.refreshNotLive":
+    "刷新需要实时修复 action-plan 数据。",
+  "storage.repair.disabled.refreshRouteMissing": "刷新路由不可用。",
+  "storage.repair.disabled.enqueueNotLive": "入队需要实时修复目标数据。",
+  "storage.repair.disabled.enqueueRouteMissing": "入队路由不可用。",
+  "storage.repair.disabled.noEnqueueableTarget": "返回的修复目标都不可入队。",
+  "storage.repair.disabled.automationNotLive":
+    "自动化入队需要实时 automation dry-run 数据。",
+  "storage.repair.disabled.automationRouteMissing": "自动化入队路由不可用。",
+  "storage.repair.disabled.automationPolicyDisabled": "自动化策略已禁用。",
+  "storage.repair.disabled.noAutomationEligibleTarget":
+    "返回的自动化目标都不可入队。",
+  "storage.repair.notLiveError": "VFS cache 修复操作需要实时 Admin API 数据。",
+  "storage.repair.refreshUnavailable": "VFS cache 修复刷新操作不可用。",
+  "storage.repair.enqueueUnavailable": "VFS cache 修复入队操作不可用。",
+  "storage.repair.automationEnqueueUnavailable":
+    "VFS cache 修复自动化入队操作不可用。",
+  "storage.repair.automationPolicyDisabled": "VFS cache 修复自动化策略已禁用。",
+  "storage.repair.operationFailed": "VFS cache 修复操作失败。",
+  "storage.repair.refreshSucceeded":
+    "最新 VFS cache 刷新完成。已刷新：{refreshed}。",
+  "storage.repair.enqueueSucceeded":
+    "VFS cache 修复任务 {jobId} 已入队，状态 {status}。",
+  "storage.repair.automationEnqueueSucceeded":
+    "VFS cache 修复自动化已入队 {enqueued} 个任务；{alreadyQueued} 个已在队列中。",
+  "storage.repair.actionPlanUnavailable":
+    "VFS cache 修复 action-plan 数据源不可用",
+  "storage.repair.remediationPlanUnavailable":
+    "VFS cache 修复 remediation-plan 数据源不可用",
+  "storage.repair.automationPlanUnavailable":
+    "VFS cache 修复 automation dry-run 数据源不可用",
+  "storage.repair.targetsUnavailable": "VFS cache 修复目标数据源不可用",
+  "storage.repair.actionPlanFallback":
+    "{error}。正在显示确定性 mock 修复 action-plan 回退。",
+  "storage.repair.remediationPlanFallback":
+    "{error}。正在显示确定性 mock remediation-plan 回退。",
+  "storage.repair.automationPlanFallback":
+    "{error}。正在显示确定性 mock automation dry-run 回退。",
+  "storage.repair.targetsFallback":
+    "{error}。正在显示确定性 mock 修复目标回退。",
+  "storage.repair.boundary.refreshesCache": "刷新 VFS cache",
+  "storage.repair.boundary.readsTargets": "读取修复目标",
+  "storage.repair.boundary.mayStartJobs": "可能启动持久任务",
+  "storage.repair.boundary.backendConfig": "修改后端配置",
+  "storage.repair.boundary.manualInspection": "需要人工检查失败",
+  "storage.repair.boundary.deletesCache": "删除 cache 条目",
+  "storage.repair.boundary.writesFiles": "写入媒体库文件",
+  "storage.repair.boundary.startsJob": "启动持久任务",
+  "storage.repair.boundary.readOnly": "只读计划",
+  "storage.repair.boundary.included": "包含",
+  "storage.repair.boundary.excluded": "不包含",
+  "storage.repair.column.actionGroup": "动作分组",
+  "storage.repair.column.status": "状态",
+  "storage.repair.column.readiness": "就绪度",
+  "storage.repair.column.sampleTargets": "示例目标",
+  "storage.repair.column.target": "目标",
+  "storage.repair.column.operation": "操作",
+  "storage.repair.column.classification": "分类",
+  "storage.repair.column.recommendedAction": "建议操作",
+  "storage.repair.column.retryable": "可重试",
+  "storage.repair.column.safeMessage": "安全消息",
+  "storage.loading": "正在加载 Storage Staging 记录",
+  "storage.empty": "当前过滤条件下没有匹配的 Storage Staging 记录。",
+  "storage.dataSourceUnavailable": "Storage Staging 路由数据源不可用",
+  "storage.column.record": "记录",
+  "storage.column.state": "状态",
+  "storage.column.sourceScheme": "Source Scheme",
+  "storage.column.size": "大小",
+  "storage.column.leases": "租约",
+  "storage.column.validation": "校验",
+  "storage.column.expires": "过期时间",
+  "storage.validation.failed": "失败",
+  "storage.validation.clean": "干净",
+  "storage.none": "无",
+  "storage.unknown": "未知",
+} satisfies Record<StorageMessageId, string>;
+
+export const storageMessageCatalogs = {
+  "en-US": enStorageMessages,
+  "zh-Hans": zhHansStorageMessages,
+} as const;

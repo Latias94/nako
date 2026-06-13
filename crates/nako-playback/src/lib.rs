@@ -556,12 +556,15 @@ fn direct_play_decision(
     reason: PlaybackDecisionReason,
     report: PlaybackDecisionReport,
 ) -> PlaybackDecision {
+    let selection_reasons = report.direct_play.reasons.clone();
     PlaybackDecision {
         mode: PlaybackMode::DirectPlay,
         reason,
         selected_source,
         rendition: PlaybackRenditionPlan::DirectPlay(direct_play),
-        report: report.with_selected_mode(PlaybackMode::DirectPlay),
+        report: report
+            .with_selected_mode(PlaybackMode::DirectPlay)
+            .with_selection_reasons(selection_reasons),
         denial: None,
     }
 }
@@ -573,6 +576,7 @@ fn remux_decision(
     reason: PlaybackDecisionReason,
     report: PlaybackDecisionReport,
 ) -> PlaybackDecision {
+    let selection_reasons = selection_reasons_for_remux(reason, &report);
     PlaybackDecision {
         mode: PlaybackMode::Remux,
         reason,
@@ -581,7 +585,9 @@ fn remux_decision(
             input_locator,
             output_container,
         }),
-        report: report.with_selected_mode(PlaybackMode::Remux),
+        report: report
+            .with_selected_mode(PlaybackMode::Remux)
+            .with_selection_reasons(selection_reasons),
         selected_source,
         denial: None,
     }
@@ -596,6 +602,7 @@ fn transcode_decision(
     target_profile: &PlaybackTargetProfile,
     probe: Option<&MediaProbeResult>,
 ) -> PlaybackDecision {
+    let selection_reasons = selection_reasons_for_transcode(reason, &report);
     let output_profile = target_profile
         .transcode_profiles
         .iter()
@@ -624,8 +631,7 @@ fn transcode_decision(
         audio_codec,
         target_profile,
         probe,
-        reason,
-        &report,
+        selection_reasons.clone(),
     );
 
     PlaybackDecision {
@@ -635,7 +641,9 @@ fn transcode_decision(
             plan: transcode_plan,
             requirement: transcode_requirement,
         }),
-        report: report.with_selected_mode(PlaybackMode::Transcode),
+        report: report
+            .with_selected_mode(PlaybackMode::Transcode)
+            .with_selection_reasons(selection_reasons),
         selected_source,
         denial: None,
     }
@@ -666,8 +674,7 @@ fn build_transcode_requirement(
     output_audio_codec: Option<String>,
     target_profile: &PlaybackTargetProfile,
     probe: Option<&MediaProbeResult>,
-    reason: PlaybackDecisionReason,
-    report: &PlaybackDecisionReport,
+    reasons: Vec<PlaybackCompatibilityCondition>,
 ) -> TranscodeRequirement {
     let track_selection = target_profile.track_selection_for_probe(probe);
     let selected_streams = selected_transcode_streams(probe, track_selection);
@@ -704,7 +711,7 @@ fn build_transcode_requirement(
                 .and_then(|stream| stream.codec.as_deref()),
         ),
         selected_streams,
-        reasons: transcode_requirement_reasons(reason, report),
+        reasons,
     }
 }
 
@@ -790,7 +797,7 @@ impl From<&TranscodeRequirementStream> for PlaybackColorPipelineSource {
     }
 }
 
-fn transcode_requirement_reasons(
+fn selection_reasons_for_transcode(
     reason: PlaybackDecisionReason,
     report: &PlaybackDecisionReport,
 ) -> Vec<PlaybackCompatibilityCondition> {
@@ -804,6 +811,24 @@ fn transcode_requirement_reasons(
             if *condition != PlaybackCompatibilityCondition::Compatible {
                 push_unique_condition(&mut reasons, *condition);
             }
+        }
+    }
+
+    reasons
+}
+
+fn selection_reasons_for_remux(
+    reason: PlaybackDecisionReason,
+    report: &PlaybackDecisionReport,
+) -> Vec<PlaybackCompatibilityCondition> {
+    let mut reasons = Vec::new();
+    if let Some(condition) = decision_reason_condition(reason) {
+        push_unique_condition(&mut reasons, condition);
+    }
+
+    for condition in &report.direct_play.reasons {
+        if *condition != PlaybackCompatibilityCondition::Compatible {
+            push_unique_condition(&mut reasons, *condition);
         }
     }
 
@@ -925,6 +950,10 @@ mod tests {
 
         assert_eq!(decision.mode, PlaybackMode::DirectPlay);
         assert_eq!(decision.reason, PlaybackDecisionReason::Compatible);
+        assert_eq!(
+            decision.report.selection_reasons,
+            vec![PlaybackCompatibilityCondition::Compatible]
+        );
         assert_eq!(decision.selected_source.source_id, source.id);
         assert!(matches!(
             decision.rendition,
@@ -966,6 +995,10 @@ mod tests {
             PlaybackDecisionReason::ClientContainerUnsupported
         );
         assert_eq!(decision.report.selected_mode, PlaybackMode::Remux);
+        assert_eq!(
+            decision.report.selection_reasons,
+            vec![PlaybackCompatibilityCondition::ContainerUnsupported]
+        );
         assert!(
             decision
                 .report
@@ -1031,6 +1064,18 @@ mod tests {
                 .report
                 .remux
                 .has(PlaybackCompatibilityCondition::SubtitleDeliveryUnsupported)
+        );
+        assert!(
+            decision
+                .report
+                .selection_reasons
+                .contains(&PlaybackCompatibilityCondition::ContainerUnsupported)
+        );
+        assert!(
+            decision
+                .report
+                .selection_reasons
+                .contains(&PlaybackCompatibilityCondition::SubtitleDeliveryUnsupported)
         );
 
         let requirement = decision
@@ -1753,6 +1798,10 @@ mod tests {
                 decision.report.direct_play.has(reason),
                 "missing direct-play reason {reason:?}"
             );
+            assert!(
+                decision.report.selection_reasons.contains(&reason),
+                "missing selected decision reason {reason:?}"
+            );
         }
 
         let requirement = decision
@@ -2388,6 +2437,13 @@ mod tests {
                     case.name
                 );
             }
+            for condition in case.expected_selection_conditions {
+                assert!(
+                    decision.report.selection_reasons.contains(&condition),
+                    "{} missing selected decision condition {condition:?}",
+                    case.name
+                );
+            }
 
             match case.expected_transcode {
                 Some(expected) => {
@@ -2727,6 +2783,12 @@ mod tests {
                 .direct_play
                 .has(PlaybackCompatibilityCondition::VideoCodecUnsupported)
         );
+        assert!(
+            decision
+                .report
+                .selection_reasons
+                .contains(&PlaybackCompatibilityCondition::VideoCodecUnsupported)
+        );
         assert!(decision.report.transcode.supported);
     }
 
@@ -2927,6 +2989,7 @@ mod tests {
         expected_direct_conditions: Vec<PlaybackCompatibilityCondition>,
         expected_remux_supported: bool,
         expected_remux_conditions: Vec<PlaybackCompatibilityCondition>,
+        expected_selection_conditions: Vec<PlaybackCompatibilityCondition>,
         expected_transcode: Option<ExpectedTranscodeMatrixRequirement>,
     }
 
@@ -2965,6 +3028,7 @@ mod tests {
                 expected_direct_conditions: vec![PlaybackCompatibilityCondition::Compatible],
                 expected_remux_supported: true,
                 expected_remux_conditions: vec![PlaybackCompatibilityCondition::Compatible],
+                expected_selection_conditions: vec![PlaybackCompatibilityCondition::Compatible],
                 expected_transcode: None,
             },
             PlaybackCompatibilityMatrixCase {
@@ -2985,6 +3049,9 @@ mod tests {
                 ],
                 expected_remux_supported: true,
                 expected_remux_conditions: vec![PlaybackCompatibilityCondition::Compatible],
+                expected_selection_conditions: vec![
+                    PlaybackCompatibilityCondition::ContainerUnsupported,
+                ],
                 expected_transcode: None,
             },
             PlaybackCompatibilityMatrixCase {
@@ -3007,6 +3074,9 @@ mod tests {
                 expected_remux_conditions: vec![
                     PlaybackCompatibilityCondition::VideoCodecUnsupported,
                 ],
+                expected_selection_conditions: vec![
+                    PlaybackCompatibilityCondition::VideoCodecUnsupported,
+                ],
                 expected_transcode: Some(default_hls_requirement_expectation()),
             },
             PlaybackCompatibilityMatrixCase {
@@ -3027,6 +3097,9 @@ mod tests {
                 ],
                 expected_remux_supported: false,
                 expected_remux_conditions: vec![
+                    PlaybackCompatibilityCondition::AudioCodecUnsupported,
+                ],
+                expected_selection_conditions: vec![
                     PlaybackCompatibilityCondition::AudioCodecUnsupported,
                 ],
                 expected_transcode: Some(default_hls_requirement_expectation()),
@@ -3052,6 +3125,10 @@ mod tests {
                 ],
                 expected_remux_supported: false,
                 expected_remux_conditions: vec![
+                    PlaybackCompatibilityCondition::VideoHdrUnsupported,
+                ],
+                expected_selection_conditions: vec![
+                    PlaybackCompatibilityCondition::ContainerUnsupported,
                     PlaybackCompatibilityCondition::VideoHdrUnsupported,
                 ],
                 expected_transcode: Some(ExpectedTranscodeMatrixRequirement {
@@ -3081,6 +3158,10 @@ mod tests {
                 ],
                 expected_remux_supported: false,
                 expected_remux_conditions: vec![
+                    PlaybackCompatibilityCondition::AudioChannelsUnsupported,
+                ],
+                expected_selection_conditions: vec![
+                    PlaybackCompatibilityCondition::ContainerUnsupported,
                     PlaybackCompatibilityCondition::AudioChannelsUnsupported,
                 ],
                 expected_transcode: Some(ExpectedTranscodeMatrixRequirement {
@@ -3119,6 +3200,9 @@ mod tests {
                 expected_direct_conditions: vec![PlaybackCompatibilityCondition::Compatible],
                 expected_remux_supported: true,
                 expected_remux_conditions: vec![PlaybackCompatibilityCondition::Compatible],
+                expected_selection_conditions: vec![
+                    PlaybackCompatibilityCondition::RequestedTranscodeOutput,
+                ],
                 expected_transcode: Some(ExpectedTranscodeMatrixRequirement {
                     hls_output: Some(PlaybackHlsOutputRequirement {
                         variant_policy: PlaybackHlsVariantPolicy::Adaptive,
@@ -3335,6 +3419,10 @@ mod tests {
             }) if actual_permission == permission && actual_reason == reason
         ));
         assert_eq!(decision.denial, Some(PlaybackDenial { permission, reason }));
+        assert_eq!(
+            decision.report.selection_reasons,
+            vec![PlaybackCompatibilityCondition::PolicyDenied]
+        );
         assert!(decision.direct_play_plan().is_none());
         assert!(decision.transcode_plan().is_none());
     }

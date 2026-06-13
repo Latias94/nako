@@ -826,6 +826,7 @@ mod tests {
                 reason: ClientPlaybackDecisionReason::Compatible,
                 report: ClientPlaybackDecisionReport {
                     selected_mode: ClientPlaybackMode::DirectPlay,
+                    selection_reasons: vec![ClientPlaybackCompatibilityCondition::Compatible],
                     direct_play: ClientPlaybackCapabilityEvaluation {
                         supported: true,
                         reasons: vec![ClientPlaybackCompatibilityCondition::Compatible],
@@ -856,6 +857,10 @@ mod tests {
 
         assert_eq!(value["decision"]["mode"], "direct_play");
         assert_eq!(value["decision"]["reason"], "compatible");
+        assert_eq!(
+            value["decision"]["report"]["selection_reasons"][0],
+            "compatible"
+        );
         assert_eq!(value["target"]["kind"], "browser");
         assert_eq!(value["target"]["transport_auth"], "browser_ticket");
         assert_eq!(value["decision"]["direct_play"]["source_id"], "source-1");
@@ -1207,6 +1212,9 @@ mod tests {
                 reason: ClientPlaybackDecisionReason::Other("server_future_reason".to_owned()),
                 report: ClientPlaybackDecisionReport {
                     selected_mode: ClientPlaybackMode::Other("server_future_mode".to_owned()),
+                    selection_reasons: vec![ClientPlaybackCompatibilityCondition::Other(
+                        "future_selection_reason".to_owned(),
+                    )],
                     direct_play: ClientPlaybackCapabilityEvaluation {
                         supported: false,
                         reasons: vec![ClientPlaybackCompatibilityCondition::Other(
@@ -1243,6 +1251,10 @@ mod tests {
 
         assert_eq!(encoded["decision"]["mode"], "server_future_mode");
         assert_eq!(encoded["decision"]["reason"], "server_future_reason");
+        assert_eq!(
+            encoded["decision"]["report"]["selection_reasons"][0],
+            "future_selection_reason"
+        );
         assert_eq!(
             encoded["decision"]["transcode_plan"]["output_container"],
             "future_container"

@@ -11,7 +11,8 @@ use nako_core::{
 use nako_db::NakoDatabase;
 use nako_library::{
     LibraryScannerOptions, STABLE_INTAKE_REQUIRED_OBSERVATIONS, StableIntakeCandidateEvidence,
-    StableIntakeCandidateState, observe_stable_intake_candidate,
+    StableIntakeCandidateReason, StableIntakeCandidateState, StableIntakeObservationFacts,
+    observe_stable_intake_candidate_with_facts,
 };
 use nako_vfs::{ObjectKind, ObjectMetadata, StorageBackend, StorageUri};
 use serde::{Deserialize, Serialize};
@@ -213,16 +214,29 @@ impl AcquisitionIntakeAppService {
 
         let source_key = require_non_empty("acquisition intake source_key", request.source_key)?;
         let source_uri = require_non_empty("acquisition intake source_uri", request.source_uri)?;
+        let source_kind = request.source_kind;
         let state = request
             .state
             .unwrap_or(AcquisitionIntakeCandidateState::Discovered);
+        if let Some(existing) = self
+            .store
+            .find_acquisition_intake_candidate_by_source_key(
+                request.target_library_id,
+                &source_kind,
+                &source_key,
+            )
+            .await?
+            .filter(should_preserve_existing_intake_candidate)
+        {
+            return Ok(AcquisitionIntakeCandidateDiagnostic::from_record(existing));
+        }
         let now_ms = super::current_time_ms()?;
         let record = self
             .store
             .upsert_acquisition_intake_candidate(NewAcquisitionIntakeCandidate {
-                id: request.id.unwrap_or_else(AcquisitionIntakeCandidateId::new),
+                id: request.id.unwrap_or_default(),
                 target_library_id: request.target_library_id,
-                source_kind: request.source_kind,
+                source_kind,
                 source_key,
                 source_uri,
                 display_name: optional_non_empty(request.display_name),
@@ -361,6 +375,7 @@ impl AcquisitionIntakeAppService {
                     library.id
                 ),
             })?;
+        validate_watch_folder_discovery_root_scope(&library, &root_uri)?;
         let backend = self
             .storage_backends
             .as_ref()
@@ -543,14 +558,13 @@ impl AcquisitionIntakeAppService {
         if let (Some(linked), Some(requested)) = (
             candidate.managed_import_artifact_id,
             request.managed_import_artifact_id,
-        ) {
-            if linked != requested {
-                return Err(NakoError::Conflict {
-                    message: format!(
-                        "acquisition intake candidate is already linked to managed import artifact {linked}"
-                    ),
-                });
-            }
+        ) && linked != requested
+        {
+            return Err(NakoError::Conflict {
+                message: format!(
+                    "acquisition intake candidate is already linked to managed import artifact {linked}"
+                ),
+            });
         }
 
         let (artifact, artifact_reused) = match candidate.managed_import_artifact_id {
@@ -661,6 +675,11 @@ impl AcquisitionIntakeAppService {
             })?;
         Ok((artifact, false))
     }
+}
+
+fn should_preserve_existing_intake_candidate(candidate: &AcquisitionIntakeCandidateRecord) -> bool {
+    candidate.state == AcquisitionIntakeCandidateState::Accepted
+        || candidate.managed_import_artifact_id.is_some()
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -817,6 +836,7 @@ struct WatchFolderCandidateClassification {
     state: AcquisitionIntakeCandidateState,
     reason: WatchFolderCandidateReason,
     stable_candidate: Option<StableIntakeCandidateEvidence>,
+    stability_reason: Option<StableIntakeCandidateReason>,
     newly_ready: bool,
 }
 
@@ -838,6 +858,8 @@ struct WatchFolderCandidateDiagnostics {
     classification: WatchFolderCandidateReason,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     stable_candidate: Option<StableIntakeCandidateEvidence>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    stability_reason: Option<StableIntakeCandidateReason>,
     #[serde(default)]
     writes_library: bool,
     #[serde(default)]
@@ -853,6 +875,7 @@ impl WatchFolderCandidateClassification {
             watch_folder: true,
             classification: self.reason,
             stable_candidate: self.stable_candidate,
+            stability_reason: self.stability_reason,
             writes_library: false,
             managed_import_artifact_created: false,
             promotion_apply: false,
@@ -865,20 +888,37 @@ fn classify_watch_folder_candidate(
     metadata: &ObjectMetadata,
     existing: Option<&AcquisitionIntakeCandidateRecord>,
 ) -> WatchFolderCandidateClassification {
+    if existing.is_some_and(should_preserve_existing_intake_candidate) {
+        return WatchFolderCandidateClassification {
+            state: AcquisitionIntakeCandidateState::Ready,
+            reason: WatchFolderCandidateReason::Ready,
+            stable_candidate: None,
+            stability_reason: None,
+            newly_ready: false,
+        };
+    }
+
     if is_incomplete_candidate(metadata.uri.as_str()) {
         return WatchFolderCandidateClassification {
             state: AcquisitionIntakeCandidateState::Blocked,
             reason: WatchFolderCandidateReason::Incomplete,
             stable_candidate: None,
+            stability_reason: None,
             newly_ready: false,
         };
     }
 
     if is_supported_media(metadata.uri.as_str()) {
         let previous = previous_watch_folder_stable_candidate(existing, metadata);
-        let decision = observe_stable_intake_candidate(
+        let decision = observe_stable_intake_candidate_with_facts(
             previous.as_ref(),
             watch_folder_observation_key(metadata),
+            StableIntakeObservationFacts {
+                has_size: metadata.len.is_some(),
+                has_change_marker: metadata.modified_at.as_deref().is_some_and(has_value)
+                    || metadata.etag.as_deref().is_some_and(has_value)
+                    || metadata.fingerprint.as_deref().is_some_and(has_value),
+            },
         );
         let state = match decision.state {
             StableIntakeCandidateState::Inspecting => AcquisitionIntakeCandidateState::Inspecting,
@@ -896,6 +936,7 @@ fn classify_watch_folder_candidate(
                 ),
             },
             stable_candidate: Some(decision.evidence),
+            stability_reason: Some(decision.reason),
             newly_ready: state == AcquisitionIntakeCandidateState::Ready
                 && existing.is_none_or(|candidate| {
                     candidate.state != AcquisitionIntakeCandidateState::Ready
@@ -906,6 +947,7 @@ fn classify_watch_folder_candidate(
             state: AcquisitionIntakeCandidateState::Blocked,
             reason: WatchFolderCandidateReason::Unsupported,
             stable_candidate: None,
+            stability_reason: None,
             newly_ready: false,
         }
     }
@@ -1002,6 +1044,10 @@ fn update_watch_folder_hash_part(hasher: &mut Sha256, value: &str) {
     hasher.update([0]);
     hasher.update(value.as_bytes());
     hasher.update([0xff]);
+}
+
+fn has_value(value: &str) -> bool {
+    !value.is_empty()
 }
 
 fn file_name(uri: &StorageUri) -> Option<&str> {
@@ -1152,6 +1198,75 @@ fn optional_trimmed(value: &str) -> Option<&str> {
     (!value.is_empty()).then_some(value)
 }
 
+fn validate_watch_folder_discovery_root_scope(
+    library: &Library,
+    root_uri: &StorageUri,
+) -> Result<()> {
+    if watch_folder_discovery_root_is_within_library(library, root_uri) {
+        return Ok(());
+    }
+
+    Err(NakoError::InvalidInput {
+        message: "watch-folder discovery root_uri is outside the library root".to_owned(),
+    })
+}
+
+fn watch_folder_discovery_root_is_within_library(library: &Library, root_uri: &StorageUri) -> bool {
+    !storage_uri_has_parent_components(root_uri)
+        && library.roots.iter().any(|root| {
+            let Ok(library_root) = StorageUri::parse(root) else {
+                return false;
+            };
+            storage_uri_is_equal_or_descendant(&library_root, root_uri)
+        })
+}
+
+fn storage_uri_is_equal_or_descendant(root: &StorageUri, candidate: &StorageUri) -> bool {
+    if root.scheme() != candidate.scheme() {
+        return false;
+    }
+
+    let Some(root_path) = normalized_storage_uri_scope_path(root) else {
+        return false;
+    };
+    let Some(candidate_path) = normalized_storage_uri_scope_path(candidate) else {
+        return false;
+    };
+
+    root_path.is_empty()
+        || candidate_path == root_path
+        || candidate_path
+            .strip_prefix(&root_path)
+            .is_some_and(|suffix| suffix.starts_with('/'))
+}
+
+fn storage_uri_has_parent_components(uri: &StorageUri) -> bool {
+    normalized_storage_uri_scope_path(uri).is_none()
+}
+
+fn normalized_storage_uri_scope_path(uri: &StorageUri) -> Option<String> {
+    let normalized = uri
+        .path_part()
+        .trim_start_matches(['/', '\\'])
+        .replace('\\', "/");
+    let mut parts = Vec::new();
+
+    for component in normalized.split('/') {
+        match component {
+            "" | "." => {}
+            ".." => return None,
+            value if is_windows_prefix_component(value) => return None,
+            value => parts.push(value.to_owned()),
+        }
+    }
+
+    Some(parts.join("/"))
+}
+
+fn is_windows_prefix_component(value: &str) -> bool {
+    value.len() == 2 && value.as_bytes()[1] == b':' && value.as_bytes()[0].is_ascii_alphabetic()
+}
+
 fn uri_scheme(value: &str) -> Option<&str> {
     value
         .split_once(':')
@@ -1191,6 +1306,42 @@ fn safe_error_message(err: &NakoError) -> String {
         NakoError::Provider { provider, .. } => format!("{provider} provider error"),
         NakoError::Storage { kind, .. } => format!("storage error: {kind:?}"),
         NakoError::Database { .. } => "database error".to_owned(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn watch_folder_discovery_root_scope_allows_descendants_only() {
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Movies".to_owned()],
+            options: nako_core::LibraryOptions::default(),
+        };
+
+        assert!(watch_folder_discovery_root_is_within_library(
+            &library,
+            &StorageUri::parse("local:///Movies").unwrap()
+        ));
+        assert!(watch_folder_discovery_root_is_within_library(
+            &library,
+            &StorageUri::parse("local:///Movies/Nested").unwrap()
+        ));
+        assert!(!watch_folder_discovery_root_is_within_library(
+            &library,
+            &StorageUri::parse("local:///Movies2").unwrap()
+        ));
+        assert!(!watch_folder_discovery_root_is_within_library(
+            &library,
+            &StorageUri::parse("webdav:///Movies/Nested").unwrap()
+        ));
+        assert!(!watch_folder_discovery_root_is_within_library(
+            &library,
+            &StorageUri::parse("local:///Movies/../Secrets").unwrap()
+        ));
     }
 }
 

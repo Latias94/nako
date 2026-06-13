@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Admin Web route, data-source, i18n, redaction, and test patterns for the incident bundle page."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Admin route auth guard and focused HTTP route test patterns."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server nextest gate selection and auth/status assertion guidance."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Incident bundle Admin-only redacted contract boundary."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Cross-layer route/API/Admin Web data-flow checklist."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse and search-first guidance before adding route helpers or summary code."}

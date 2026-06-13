@@ -1,5 +1,20 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+const catalogImportSpies = vi.hoisted(() => ({
+  jobs: vi.fn(),
+  settings: vi.fn(),
+}));
+
+vi.mock("./i18n/catalogs/jobs", async (importOriginal) => {
+  catalogImportSpies.jobs();
+  return importOriginal<typeof import("./i18n/catalogs/jobs")>();
+});
+
+vi.mock("./i18n/catalogs/settings", async (importOriginal) => {
+  catalogImportSpies.settings();
+  return importOriginal<typeof import("./i18n/catalogs/settings")>();
+});
 
 import { App } from "./App";
 import type { AdminConsoleData, AdminDataSource } from "./adminApi/dataSource";
@@ -11,6 +26,9 @@ import type {
   AdminJobListResponse,
   AdminJobsQuery,
   AdminPlaybackSessionsQuery,
+  AdminPlaybackSupportEvidenceResponse,
+  AdminPlaybackSupportQuery,
+  AdminIncidentBundleResponse,
   AdminSourceDuplicateReconciliationPlanResponse,
   AdminStorageStagingQuery,
   AddonTaskRunRow,
@@ -52,6 +70,7 @@ import {
   mockCatalogBrowse,
   mockCatalogGovernance,
   mockGeneratedArtifactProposals,
+  mockIncidentBundle,
   mockItemArtworkGallerySummary,
   mockItemDetailSummary,
   mockJobCancelRequestResponse,
@@ -61,6 +80,7 @@ import {
   mockOverview,
   mockPlaybackRuntimeSettings,
   mockPlaybackSessions,
+  mockPlaybackSupport,
   mockSourceDuplicateReconciliationApply,
   mockSourceDuplicateReconciliationPlan,
   mockStorageStaging,
@@ -411,7 +431,61 @@ describe("Admin Web V2 route shell", () => {
 
     expect(await screen.findByText(/HTTP 503/)).toBeInTheDocument();
     expect(screen.getByText("Mock fallback")).toBeInTheDocument();
+    expect(screen.getByText("Product-Operator readiness")).toBeInTheDocument();
+    expect(screen.getByText("Media Library scan")).toBeInTheDocument();
+    expect(screen.getByText("Action route Admin Jobs")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Admin Jobs/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Storage repair targets/i }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("Anime Vault")).toBeInTheDocument();
+  });
+
+  it("renders Product-Operator readiness facts from the live Overview read model", async () => {
+    const overview = {
+      ...mockOverview,
+      operator_readiness: {
+        status: "unavailable" as const,
+        checks: mockOverview.operator_readiness.checks.map((check) =>
+          check.area === "playback"
+            ? {
+                ...check,
+                status: "unavailable" as const,
+                reason: "playback_unavailable" as const,
+                source_reason: "software_pipeline_unavailable",
+                attention_count: 2,
+                action: {
+                  route_key: "playbackRuntime" as const,
+                  route_path: "/admin/v1/playback/runtime",
+                },
+              }
+            : check,
+        ),
+      },
+    };
+    const loadOverview = vi.fn(async () => ({
+      value: overview,
+      source: "live" as const,
+    }));
+    window.history.pushState(null, "", "/overview");
+
+    render(<App dataSource={{ load: async () => emptyConsoleData(), loadOverview }} />);
+
+    const readinessPanel = (
+      await screen.findByRole("heading", {
+        name: "Product-Operator readiness",
+      })
+    ).closest(".dataPanel");
+    expect(readinessPanel).not.toBeNull();
+    const readiness = within(readinessPanel as HTMLElement);
+    expect(readiness.getByText("Overall readiness is unavailable")).toBeInTheDocument();
+    expect(readiness.getByText("Playback")).toBeInTheDocument();
+    expect(readiness.getByText("Playback runtime is unavailable")).toBeInTheDocument();
+    expect(readiness.getByText("Reason code software_pipeline_unavailable")).toBeInTheDocument();
+    expect(readiness.getByText("Action route Playback runtime")).toBeInTheDocument();
+    expect(loadOverview).toHaveBeenCalledTimes(1);
   });
 
   it("renders localized Overview route copy", async () => {
@@ -430,6 +504,7 @@ describe("Admin Web V2 route shell", () => {
 
     expect(await screen.findByRole("heading", { name: "总览" })).toBeInTheDocument();
     expect(await screen.findByText("服务器状态")).toBeInTheDocument();
+    expect(await screen.findByText("Product-Operator readiness")).toBeInTheDocument();
     expect(screen.getAllByText("存储后端").length).toBeGreaterThan(0);
     expect(await screen.findByText("2/3 就绪")).toBeInTheDocument();
     expect(await screen.findByText("Metadata Provider")).toBeInTheDocument();
@@ -463,6 +538,22 @@ describe("Admin Web V2 route shell", () => {
         raw_fingerprint: "source:v1:content_hash:sha256:secret-content",
         raw_locator: "local:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret",
       },
+      operator_readiness: {
+        ...mockOverview.operator_readiness,
+        checks: mockOverview.operator_readiness.checks.map((check) =>
+          check.area === "playback"
+            ? {
+                ...check,
+                source_reason:
+                  "C:\\secret-cache\\ffmpeg.exe -i local:///Hidden Movie.mkv?token=secret",
+                action: {
+                  route_key: "playbackRuntime",
+                  route_path: "/admin/v1/playback/runtime?token=secret",
+                },
+              }
+            : check,
+        ),
+      },
     } as unknown as typeof mockOverview;
     window.history.pushState(null, "", "/overview");
     const { container } = render(<App dataSource={overviewDataSource(unsafeOverview)} />);
@@ -485,9 +576,174 @@ describe("Admin Web V2 route shell", () => {
     expect(renderedText).not.toContain("source:v1:content_hash:sha256:secret-content");
     expect(renderedText).not.toContain("raw_locator");
     expect(renderedText).not.toContain("Hidden Movie.mkv");
+    expect(renderedText).not.toContain("secret-cache");
+    expect(renderedText).not.toContain("ffmpeg.exe");
+    expect(renderedText).not.toContain("?token=secret");
     expect(renderedText).not.toContain("C:\\");
     expect(renderedText).not.toContain("F:\\");
     expect(renderedText).not.toContain("/Users/");
+  });
+
+  it("renders Incident Bundle as a route-owned V2 page", async () => {
+    const loadIncidentBundle = vi.fn(async () => ({
+      value: mockIncidentBundle,
+      source: "live" as const,
+    }));
+    window.history.pushState(null, "", "/diagnostics/incident-bundle");
+
+    render(
+      <App
+        dataSource={{ load: async () => emptyConsoleData(), loadIncidentBundle }}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Incident Bundle" })).toBeInTheDocument();
+    expect(await screen.findByText("Section status")).toBeInTheDocument();
+    expect(await screen.findByText("Fast triage view for bundle sections, readiness, queue pressure, and redaction coverage.")).toBeInTheDocument();
+    expect(screen.getByText("JSON-only support artifact; no archive, upload, or unbounded logs.")).toBeInTheDocument();
+    expect(screen.getByText("10/10 sensitive field families redacted.")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Artifact summary" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "System" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Network" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Playback" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Storage" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Jobs" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Redaction summary" })).toBeInTheDocument();
+    expect(screen.getByText("Live Admin API")).toBeInTheDocument();
+    expect(loadIncidentBundle).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders localized Incident Bundle section status summary", async () => {
+    window.history.pushState(null, "", "/diagnostics/incident-bundle");
+
+    render(<App dataSource={incidentBundleDataSource()} initialLocale="zh-Hans" />);
+
+    expect(await screen.findByRole("heading", { name: "Incident Bundle" })).toBeInTheDocument();
+    expect(await screen.findByText("区块状态")).toBeInTheDocument();
+    expect(screen.getByText("用于快速排障的 bundle 区块、readiness、队列压力和脱敏覆盖摘要。")).toBeInTheDocument();
+    expect(screen.getByText("JSON-only 支持工件；不包含压缩包、上传传输或无界日志。")).toBeInTheDocument();
+    expect(screen.getByText("10 类敏感字段族已脱敏 10 类。")).toBeInTheDocument();
+  });
+
+  it("keeps unsafe fields out of the Incident Bundle route rendering", async () => {
+    const unsafeIncidentBundle = unsafeIncidentBundleResponse();
+    window.history.pushState(null, "", "/diagnostics/incident-bundle");
+    const { container } = render(
+      <App
+        dataSource={{
+          load: async () => emptyConsoleData(),
+          loadIncidentBundle: async () => ({
+            value: unsafeIncidentBundle,
+            source: "live" as const,
+          }),
+        }}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "Incident Bundle" });
+    const renderedText = container.textContent ?? "";
+
+    expect(renderedText).not.toContain("incident-bundle.json");
+    expect(renderedText).not.toContain("upload?token=secret");
+    expect(renderedText).not.toContain("postgres://user:secret");
+    expect(renderedText).not.toContain("backend_url");
+    expect(renderedText).not.toContain("ffmpeg.exe");
+    expect(renderedText).not.toContain("secret-request-key");
+    expect(renderedText).not.toContain("raw_job_payload");
+    expect(renderedText).not.toContain("source_uri");
+    expect(renderedText).not.toContain("root_ref");
+    expect(renderedText).not.toContain("C:\\");
+    expect(renderedText).not.toContain("F:\\");
+    expect(renderedText).not.toContain("/Users/");
+  });
+
+  it("copies only the redacted Incident Bundle JSON projection", async () => {
+    const writeText = vi.fn(async (_text: string) => undefined);
+    const originalClipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    window.history.pushState(null, "", "/diagnostics/incident-bundle");
+
+    try {
+      render(<App dataSource={incidentBundleDataSource(unsafeIncidentBundleResponse())} />);
+
+      await screen.findByRole("heading", { name: "Incident Bundle" });
+      await screen.findByRole("heading", { name: "Artifact summary" });
+      fireEvent.click(screen.getByRole("button", { name: "Copy JSON" }));
+
+      await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+      expect(await screen.findByText("Redacted JSON copied to clipboard.")).toBeInTheDocument();
+
+      const copied = writeText.mock.calls[0][0];
+      expect(copied).toContain('"artifact"');
+      expect(copied).toContain('"redaction"');
+      expect(copied).not.toContain("incident-bundle.json");
+      expect(copied).not.toContain("upload?token=secret");
+      expect(copied).not.toContain("postgres://user:secret");
+      expect(copied).not.toContain("secret job payload");
+      expect(copied).not.toContain("source_uri");
+      expect(copied).not.toContain("local://unsafe-root");
+      expect(copied).not.toContain("file_name");
+      expect(copied).not.toContain('"command"');
+      expect(copied).not.toContain("ffmpeg.exe");
+      expect(copied).not.toContain("C:\\");
+      expect(copied).not.toContain("F:\\");
+      expect(copied).not.toContain("/Users/");
+    } finally {
+      if (originalClipboard) {
+        Object.defineProperty(navigator, "clipboard", originalClipboard);
+      } else {
+        delete (navigator as { clipboard?: Clipboard }).clipboard;
+      }
+    }
+  });
+
+  it("downloads only the redacted Incident Bundle JSON projection", async () => {
+    const createdBlobs: Blob[] = [];
+    const createObjectURL = vi.spyOn(URL, "createObjectURL").mockImplementation((blob) => {
+      createdBlobs.push(blob as Blob);
+      return "blob:nako-incident-bundle";
+    });
+    const revokeObjectURL = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    window.history.pushState(null, "", "/diagnostics/incident-bundle");
+
+    try {
+      render(<App dataSource={incidentBundleDataSource(unsafeIncidentBundleResponse())} />);
+
+      await screen.findByRole("heading", { name: "Incident Bundle" });
+      await screen.findByRole("heading", { name: "Artifact summary" });
+      fireEvent.click(screen.getByRole("button", { name: "Download JSON" }));
+
+      expect(createObjectURL).toHaveBeenCalledTimes(1);
+      expect(revokeObjectURL).toHaveBeenCalledWith("blob:nako-incident-bundle");
+      expect(click).toHaveBeenCalledTimes(1);
+      expect(await screen.findByText("Redacted JSON download prepared.")).toBeInTheDocument();
+
+      const [createdBlob] = createdBlobs;
+      expect(createdBlob).toBeDefined();
+      const downloaded = await createdBlob.text();
+      expect(downloaded).toContain('"artifact"');
+      expect(downloaded).toContain('"redaction"');
+      expect(downloaded).not.toContain("incident-bundle.json");
+      expect(downloaded).not.toContain("upload?token=secret");
+      expect(downloaded).not.toContain("postgres://user:secret");
+      expect(downloaded).not.toContain("secret job payload");
+      expect(downloaded).not.toContain("source_uri");
+      expect(downloaded).not.toContain("local://unsafe-root");
+      expect(downloaded).not.toContain("file_name");
+      expect(downloaded).not.toContain('"command"');
+      expect(downloaded).not.toContain("ffmpeg.exe");
+      expect(downloaded).not.toContain("C:\\");
+      expect(downloaded).not.toContain("F:\\");
+      expect(downloaded).not.toContain("/Users/");
+    } finally {
+      createObjectURL.mockRestore();
+      revokeObjectURL.mockRestore();
+      click.mockRestore();
+    }
   });
 
   it("renders Media Libraries as a route-owned V2 page", async () => {
@@ -691,11 +947,15 @@ describe("Admin Web V2 route shell", () => {
       value: mockSystemConfig,
       source: "live" as const,
     }));
+    catalogImportSpies.jobs.mockClear();
+    catalogImportSpies.settings.mockClear();
     window.history.pushState(null, "", "/settings");
 
     render(<App dataSource={{ load: async () => emptyConsoleData(), loadSettings }} />);
 
     expect(await screen.findByRole("heading", { name: "System Settings" })).toBeInTheDocument();
+    expect(catalogImportSpies.settings).toHaveBeenCalledTimes(1);
+    expect(catalogImportSpies.jobs).not.toHaveBeenCalled();
     expect(await screen.findByText("Network readiness")).toBeInTheDocument();
     expect(await screen.findByText("reverse_proxy")).toBeInTheDocument();
     expect(screen.getAllByText("ready").length).toBeGreaterThan(0);
@@ -3675,6 +3935,133 @@ describe("Admin Web V2 route shell", () => {
     expect(renderedText).not.toContain("/Users/");
   });
 
+  it("maps Playback Support URL search params into generated query fields", async () => {
+    const loadPlaybackSupport = vi.fn(async (query?: AdminPlaybackSupportQuery) => ({
+      value: mockPlaybackSupport,
+      source: "live" as const,
+      query,
+    }));
+    window.history.pushState(
+      null,
+      "",
+      "/playback/support?session_id=session-hls&source_id=source-hls",
+    );
+
+    render(
+      <App dataSource={{ load: async () => emptyConsoleData(), loadPlaybackSupport }} />,
+    );
+
+    await waitFor(() => {
+      expect(loadPlaybackSupport).toHaveBeenCalledWith({
+        session_id: "session-hls",
+        source_id: "source-hls",
+      });
+    });
+  });
+
+  it("renders Playback Support as a route-owned V2 page", async () => {
+    const loadPlaybackSupport = vi.fn(async () => ({
+      value: mockPlaybackSupport,
+      source: "live" as const,
+    }));
+    window.history.pushState(null, "", "/playback/support?source_id=source-hls");
+
+    render(
+      <App dataSource={{ load: async () => emptyConsoleData(), loadPlaybackSupport }} />,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Playback Support Evidence" }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("Support subject")).toBeInTheDocument();
+    expect(screen.getByText("Session evidence")).toBeInTheDocument();
+    expect(screen.getByText("Source evidence")).toBeInTheDocument();
+    expect(screen.getByText("Runtime evidence")).toBeInTheDocument();
+    expect(screen.getByText("Redaction summary")).toBeInTheDocument();
+    expect(screen.getByText("Live Admin API")).toBeInTheDocument();
+  });
+
+  it("shows a direct-entry hint when Playback Support has no subject context", async () => {
+    window.history.pushState(null, "", "/playback/support");
+
+    render(<App dataSource={playbackSupportDataSource()} />);
+
+    expect(
+      await screen.findByText(
+        "Open this page from an item or playback session so the subject is already scoped.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("renders localized Playback Support route copy", async () => {
+    window.history.pushState(null, "", "/playback/support");
+
+    render(<App dataSource={playbackSupportDataSource()} initialLocale="zh-Hans" />);
+
+    expect(
+      await screen.findByRole("heading", { name: "播放支持证据" }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("支持主体")).toBeInTheDocument();
+    expect(
+      screen.getByText("请从 item 或 playback session 进入此页，以便自动带入 subject。"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("会话证据")).toBeInTheDocument();
+    expect(screen.getByText("来源证据")).toBeInTheDocument();
+    expect(screen.getByText("运行时证据")).toBeInTheDocument();
+    expect(screen.getByText("脱敏摘要")).toBeInTheDocument();
+    expect(screen.getByText("实时 Admin API")).toBeInTheDocument();
+  });
+
+  it("keeps unsafe fields out of the Playback Support route rendering", async () => {
+    window.history.pushState(null, "", "/playback/support");
+    const unsafeSupport: AdminPlaybackSupportEvidenceResponse = {
+      ...mockPlaybackSupport,
+      session: {
+        ...mockPlaybackSupport.session!,
+        request_key_fingerprint: "F:\\nako\\support\\session.key",
+      },
+      source: {
+        ...mockPlaybackSupport.source!,
+        file_name: "file:///Users/frank/media/private.mkv",
+      },
+    };
+    const { container } = render(<App dataSource={playbackSupportDataSource(unsafeSupport)} />);
+
+    await screen.findByText("Support subject");
+    const renderedText = container.textContent ?? "";
+
+    expect(renderedText).not.toContain("file:///Users/frank/media/private.mkv");
+    expect(renderedText).not.toContain("F:\\nako\\support\\session.key");
+    expect(renderedText).not.toContain("request_key_fingerprint");
+  });
+
+  it("adds a Playback Support link from Item Detail support links", async () => {
+    window.history.pushState(null, "", "/items/item-unknown-1");
+
+    render(<App dataSource={itemDetailDataSource()} />);
+
+    const supportLink = await screen.findByRole("link", {
+      name: "Open Playback Support Evidence",
+    });
+
+    expect(supportLink).toHaveAttribute("href", expect.stringContaining("/playback/support"));
+    expect(supportLink).toHaveAttribute("href", expect.stringContaining("source_id="));
+  });
+
+  it("adds a Playback Support link from Playback Sessions rows", async () => {
+    window.history.pushState(null, "", "/playback/sessions");
+
+    render(<App dataSource={playbackSessionsDataSource()} />);
+
+    const supportLink = await screen.findByRole("link", {
+      name: "Open playback support evidence for session session-hls",
+    });
+
+    expect(supportLink).toHaveAttribute("href", expect.stringContaining("/playback/support"));
+    expect(supportLink).toHaveAttribute("href", expect.stringContaining("session_id=session-hls"));
+    expect(supportLink).toHaveAttribute("href", expect.stringContaining("source_id=source-hls"));
+  });
+
   it("maps Storage Staging URL search params into generated query fields", async () => {
     const loadStorageStaging = vi.fn(async (query?: AdminStorageStagingQuery) => ({
       value: mockStorageStaging,
@@ -4016,6 +4403,84 @@ function overviewDataSource(overview = mockOverview): AdminDataSource {
         value: overview,
         source: "live",
       };
+    },
+  };
+}
+
+function incidentBundleDataSource(bundle = mockIncidentBundle): AdminDataSource {
+  return {
+    async load() {
+      return emptyConsoleData();
+    },
+    async loadIncidentBundle() {
+      return {
+        value: bundle,
+        source: "live",
+      };
+    },
+  };
+}
+
+function unsafeIncidentBundleResponse(): AdminIncidentBundleResponse {
+  return {
+    ...mockIncidentBundle,
+    artifact: {
+      ...mockIncidentBundle.artifact,
+      raw_path: "F:\\nako\\incident-bundle.json",
+      upload_url: "https://operator:secret@example.test/upload?token=secret",
+    } as typeof mockIncidentBundle.artifact,
+    system: {
+      ...mockIncidentBundle.system,
+      database: {
+        ...mockIncidentBundle.system.database,
+        backend_url: "postgres://user:secret@example.test:5432/nako",
+        query_string: "?token=secret",
+      } as typeof mockIncidentBundle.system.database,
+    },
+    network: {
+      ...mockIncidentBundle.network,
+      backend_url: "https://user:secret@example.test/admin?token=secret",
+    } as typeof mockIncidentBundle.network,
+    playback: {
+      ...mockIncidentBundle.playback,
+      runtime: {
+        ...mockIncidentBundle.playback.runtime,
+        ffmpeg: {
+          ...mockIncidentBundle.playback.runtime.ffmpeg,
+          command: "C:\\ffmpeg.exe -i file:///Users/frank/media/private.mkv",
+        } as typeof mockIncidentBundle.playback.runtime.ffmpeg,
+      },
+      support_evidence: {
+        ...mockIncidentBundle.playback.support_evidence,
+        session: {
+          ...mockIncidentBundle.playback.support_evidence.session!,
+          request_key_fingerprint: "F:\\nako\\support\\secret-request-key",
+        },
+        source: {
+          ...mockIncidentBundle.playback.support_evidence.source!,
+          file_name: "file:///Users/frank/media/private.mkv",
+        },
+      },
+    },
+    storage: {
+      ...mockIncidentBundle.storage,
+      staging: {
+        ...mockIncidentBundle.storage.staging,
+        source_uri: "file:///Users/frank/media/private.mkv",
+        root_ref: "local://unsafe-root",
+      } as typeof mockIncidentBundle.storage.staging,
+    },
+    jobs: {
+      ...mockIncidentBundle.jobs,
+      queue_pressure: mockIncidentBundle.jobs.queue_pressure.map((item) => ({
+        ...item,
+        raw_job_payload: "secret job payload",
+        backend_url: "https://user:secret@example.test/jobs",
+      })) as AdminIncidentBundleResponse["jobs"]["queue_pressure"],
+    },
+    redaction: {
+      ...mockIncidentBundle.redaction,
+      raw_paths_redacted: true,
     },
   };
 }
@@ -4932,6 +5397,22 @@ function playbackSessionsDataSource(): AdminDataSource {
     async loadPlaybackSessions() {
       return {
         value: mockPlaybackSessions,
+        source: "live",
+      };
+    },
+  };
+}
+
+function playbackSupportDataSource(
+  value: AdminPlaybackSupportEvidenceResponse = mockPlaybackSupport,
+): AdminDataSource {
+  return {
+    async load() {
+      return emptyConsoleData();
+    },
+    async loadPlaybackSupport() {
+      return {
+        value,
         source: "live",
       };
     },

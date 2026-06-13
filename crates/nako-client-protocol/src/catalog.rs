@@ -591,6 +591,8 @@ pub struct ClientPlaybackDecision {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ClientPlaybackDecisionReport {
     pub selected_mode: ClientPlaybackMode,
+    #[serde(default)]
+    pub selection_reasons: Vec<ClientPlaybackCompatibilityCondition>,
     pub direct_play: ClientPlaybackCapabilityEvaluation,
     pub remux: ClientPlaybackCapabilityEvaluation,
     pub transcode: ClientPlaybackCapabilityEvaluation,

@@ -64,6 +64,7 @@ export type {
   AdminGeneratedArtifactReviewPlanResponse,
   AdminGeneratedArtifactReviewRequest,
   AdminGeneratedArtifactReviewResponse,
+  AdminIncidentBundleResponse,
   AdminItemArtworkGalleryQuery,
   AdminManagedArtworkArtifactLifecycleQuery,
   AdminManagedArtworkArtifactLifecycleResponse,

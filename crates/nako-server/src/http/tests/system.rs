@@ -2,10 +2,11 @@ use std::sync::Arc;
 
 use super::*;
 use nako_api::admin::{
-    AdminGeneratedArtifactMetadataApplyRecoveryResponse, AdminJobListItem, AdminJobPriority,
-    AdminMetadataCandidateReviewApplicationAction, AdminMetadataCandidateReviewApplicationReason,
-    AdminMetadataCandidateReviewApplyRequest, AdminMetadataCandidateReviewApplyResponse,
-    AdminMetadataCandidateReviewAuditEventKind, AdminMetadataCandidateReviewBatchApplyItemRequest,
+    AdminGeneratedArtifactMetadataApplyRecoveryResponse, AdminIncidentBundleResponse,
+    AdminJobListItem, AdminJobPriority, AdminMetadataCandidateReviewApplicationAction,
+    AdminMetadataCandidateReviewApplicationReason, AdminMetadataCandidateReviewApplyRequest,
+    AdminMetadataCandidateReviewApplyResponse, AdminMetadataCandidateReviewAuditEventKind,
+    AdminMetadataCandidateReviewBatchApplyItemRequest,
     AdminMetadataCandidateReviewBatchApplyRequest, AdminMetadataCandidateReviewBatchApplyResponse,
     AdminMetadataCandidateReviewBatchApplyResultStatus,
     AdminMetadataCandidateReviewBatchCreateRequest, AdminMetadataCandidateReviewBatchPlanRequest,
@@ -17,6 +18,7 @@ use nako_api::admin::{
     AdminMetadataCandidateReviewRelatedHierarchyPlanRequest,
     AdminMetadataCandidateReviewRelatedHierarchyPlanResponse, AdminMetadataCandidateReviewResponse,
     AdminMetadataCandidateReviewUndoMode, AdminMetadataCandidateReviewUndoReason,
+    AdminOperatorReadinessArea, AdminOperatorReadinessReason, AdminOperatorReadinessStatus,
     AdminSourceDuplicateReconciliationApplyExpectedAction,
     AdminSourceDuplicateReconciliationApplyRequest,
     AdminSourceDuplicateReconciliationApplyResponse,
@@ -32,19 +34,22 @@ use nako_api::admin::{
     AdminVfsCacheRepairEnqueueResponse, AdminVfsCacheRepairExecuteResponse,
     AdminVfsCacheRepairJobDiagnosticStatus, AdminVfsCacheRepairRemediationPlanResponse,
     AdminVfsCacheRepairRetryRequest, AdminVfsCacheRepairTargetListResponse,
-    AdminVfsCacheRepairTargetPreviewResponse, AdminWatchFolderRuntimeCoverageStatus,
+    AdminVfsCacheRepairTargetPreviewResponse, AdminWatchFolderIntakeEnqueueReason,
+    AdminWatchFolderRuntimeCoverageStatus,
 };
 use nako_core::{
-    JobKind, JobPriority, JobRepository, JobStatus,
-    METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS, MetadataCandidateRecord,
+    AcquisitionIntakeCandidateId, AcquisitionIntakeCandidateListFilter,
+    AcquisitionIntakeRepository, AcquisitionIntakeSourceKind, JobKind, JobPriority, JobRepository,
+    JobStatus, METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS, MetadataCandidateRecord,
     MetadataCandidateRelationshipKind, MetadataCandidateReviewBatchStatus,
     MetadataCandidateReviewId, MetadataCandidateReviewNode, MetadataCandidateReviewPlan,
     MetadataCandidateReviewRelationship, MetadataCandidateReviewRepository,
     MetadataCandidateReviewStatus as DurableMetadataCandidateReviewStatus, MetadataCandidateSource,
-    MetadataCandidateSubject, NewJob, NewMetadataCandidateReview, ProviderMappingStatus,
-    StorageBackendHealthRecord, StorageBackendHealthRepository, StorageBackendHealthStatus,
-    StorageCircuitBreakerState, StorageFailureClass, VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS,
-    VfsCacheFailureAuthority, VfsCacheRepairJobInput, VfsCachedObject, VfsCachedObjectKind,
+    MetadataCandidateSubject, NewAcquisitionIntakeCandidate, NewJob, NewMetadataCandidateReview,
+    PageRequest, ProviderMappingStatus, StorageBackendHealthRecord, StorageBackendHealthRepository,
+    StorageBackendHealthStatus, StorageCircuitBreakerState, StorageFailureClass,
+    VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS, VfsCacheFailureAuthority, VfsCacheRepairJobInput,
+    VfsCachedObject, VfsCachedObjectKind,
 };
 use nako_library::{
     SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS, SourceFingerprintHashJobInput,
@@ -231,6 +236,53 @@ async fn admin_v1_overview_composes_safe_read_only_diagnostics() {
         nako_api::public_client::API_VERSION
     );
     assert_eq!(overview.status, AdminOverviewStatus::Healthy);
+    assert_eq!(
+        overview.operator_readiness.status,
+        AdminOperatorReadinessStatus::Degraded
+    );
+    assert_eq!(overview.operator_readiness.checks.len(), 6);
+    assert_operator_readiness_check(
+        &overview,
+        AdminOperatorReadinessArea::Setup,
+        AdminOperatorReadinessStatus::Degraded,
+        AdminOperatorReadinessReason::AuthDisabledLocalOnly,
+        Some("systemConfig"),
+    );
+    assert_operator_readiness_check(
+        &overview,
+        AdminOperatorReadinessArea::MediaLibraryScan,
+        AdminOperatorReadinessStatus::Ready,
+        AdminOperatorReadinessReason::MediaLibraryConfigured,
+        None,
+    );
+    assert_operator_readiness_check(
+        &overview,
+        AdminOperatorReadinessArea::Playback,
+        AdminOperatorReadinessStatus::Ready,
+        AdminOperatorReadinessReason::PlaybackReady,
+        None,
+    );
+    assert_operator_readiness_check(
+        &overview,
+        AdminOperatorReadinessArea::Storage,
+        AdminOperatorReadinessStatus::Ready,
+        AdminOperatorReadinessReason::StorageReady,
+        None,
+    );
+    assert_operator_readiness_check(
+        &overview,
+        AdminOperatorReadinessArea::Network,
+        AdminOperatorReadinessStatus::Ready,
+        AdminOperatorReadinessReason::NetworkReady,
+        None,
+    );
+    assert_operator_readiness_check(
+        &overview,
+        AdminOperatorReadinessArea::Backup,
+        AdminOperatorReadinessStatus::Degraded,
+        AdminOperatorReadinessReason::BackupNeedsDurableDatabase,
+        Some("systemConfig"),
+    );
     assert_eq!(overview.storage.total_backends, 1);
     assert_eq!(overview.storage.ready_backends, 1);
     assert_eq!(overview.storage.backends.len(), 1);
@@ -307,6 +359,428 @@ async fn admin_v1_overview_composes_safe_read_only_diagnostics() {
     assert_eq!(health.status, "ok");
     assert_eq!(libraries.libraries[0].id, library_id.to_string());
     assert_eq!(storage.backends[0].library_id, library_id);
+}
+
+#[tokio::test]
+async fn admin_v1_overview_reports_source_hash_queue_pressure_without_payload_leaks() {
+    let (_temp, router, source, store) =
+        router_with_media_source("source_hash_secret_locator.mkv", b"0123456789abcdef").await;
+    store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::SourceFingerprintHash,
+            resource_class: SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(source.library_id),
+            source_id: Some(source.id),
+            input_json: Some(
+                r#"{"source_uri":"local:///Movies/Private/source_hash_secret_locator.mkv?token=source_hash_overview_token","fingerprint":"sha256-private-source-hash","input_json":"private"}"#.to_owned(),
+            ),
+        })
+        .await
+        .unwrap();
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/overview")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let overview: AdminOverviewResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(overview.source_fingerprint_hash.total_sources, 1);
+    assert_eq!(overview.source_fingerprint_hash.queued_jobs, 1);
+    assert_eq!(overview.source_fingerprint_hash.claimable_jobs, 1);
+    assert_eq!(overview.source_fingerprint_hash.failed_jobs, 0);
+    let scan_check = overview
+        .operator_readiness
+        .checks
+        .iter()
+        .find(|check| check.area == AdminOperatorReadinessArea::MediaLibraryScan)
+        .expect("media library scan readiness check");
+    assert_eq!(scan_check.status, AdminOperatorReadinessStatus::Degraded);
+    assert_eq!(
+        scan_check.reason,
+        AdminOperatorReadinessReason::ScanWorkPending
+    );
+    assert_eq!(scan_check.source_reason.as_deref(), Some("queued_work"));
+    assert_eq!(scan_check.attention_count, 1);
+    let action = scan_check.action.as_ref().expect("jobs action");
+    assert_eq!(action.route_key, "jobs");
+    assert_eq!(action.route_path, "/admin/v1/jobs");
+
+    assert_source_hash_admin_body_redacted(&body);
+    assert!(!body.contains("source_hash_overview_token"));
+    assert!(!body.contains("sha256-private-source-hash"));
+    assert!(!body.contains("input_json"));
+}
+
+#[tokio::test]
+async fn admin_v1_overview_reports_source_hash_repair_pressure_without_payload_leaks() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(
+        NakoServerConfig {
+            database_backend: Default::default(),
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            database_url_env: None,
+            auth: crate::config::AuthConfig::disabled(),
+            network: crate::config::NetworkAccessConfig::default(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path: PathBuf::from("ffmpeg"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            webhook_concurrency: 2,
+            addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+            remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: temp.path().join("nako-cache").join("remux"),
+            metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
+            artwork: crate::config::ArtworkConfig::default(),
+            libraries: vec![LocalLibraryConfig {
+                id: library_id,
+                name: "Movies".to_owned(),
+                root: temp.path().to_path_buf(),
+                preset: nako_core::LibraryPreset::Movies,
+                webdav: None,
+            }],
+        },
+        store.clone(),
+    )
+    .await
+    .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Hidden Movie".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: "local:///Users/Frankorz/Secret Path/Missing Movie.mkv?token=secret".to_owned(),
+        file_name: "Hidden Movie.mkv".to_owned(),
+        size_bytes: Some(42),
+        fingerprint: Some("sha256-private-source-hash".to_owned()),
+    };
+
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+    let router = build_router(app.clone());
+    let source_job = response_body_json(
+        &router,
+        Method::POST,
+        "/admin/v1/source-fingerprint-hashes",
+        &AdminSourceFingerprintHashEnqueueRequest {
+            library_id: source.library_id,
+            source_id: source.id,
+            mode: AdminSourceFingerprintHashMode::Full,
+            partial_prefix_bytes: None,
+            priority: Some(AdminJobPriority::High),
+        },
+    )
+    .await;
+    assert_eq!(source_job.status(), StatusCode::ACCEPTED);
+    let _job = body_json::<AdminJobListItem>(source_job).await;
+
+    app.library_scan()
+        .schedule_queued_library_scans()
+        .await
+        .unwrap();
+    for _ in 0..500 {
+        let diagnostics = app.runtime_diagnostics();
+        if diagnostics.failed_jobs == 1 {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    assert_eq!(app.runtime_diagnostics().failed_jobs, 1);
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/overview")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let overview: AdminOverviewResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(overview.runtime.failed_jobs, 1);
+    assert_eq!(overview.source_fingerprint_hash.failed_jobs, 1);
+    let scan_check = overview
+        .operator_readiness
+        .checks
+        .iter()
+        .find(|check| check.area == AdminOperatorReadinessArea::MediaLibraryScan)
+        .expect("media library scan readiness check");
+    assert_eq!(
+        overview.operator_readiness.status,
+        AdminOperatorReadinessStatus::Degraded
+    );
+    assert_eq!(
+        scan_check.reason,
+        AdminOperatorReadinessReason::ScanRepairPressure
+    );
+    assert_eq!(scan_check.source_reason.as_deref(), Some("failed_work"));
+    assert_eq!(scan_check.attention_count, 1);
+    assert_eq!(
+        scan_check
+            .action
+            .as_ref()
+            .map(|action| action.route_key.as_str()),
+        Some("jobs")
+    );
+
+    assert_source_hash_admin_body_redacted(&body);
+    assert!(!body.contains("source_hash_overview_token"));
+    assert!(!body.contains("sha256-private-source-hash"));
+    assert!(!body.contains("local:///Movies/Private"));
+    assert!(!body.contains("input_json"));
+}
+
+fn assert_operator_readiness_check(
+    overview: &AdminOverviewResponse,
+    area: AdminOperatorReadinessArea,
+    status: AdminOperatorReadinessStatus,
+    reason: AdminOperatorReadinessReason,
+    action_route_key: Option<&str>,
+) {
+    let check = overview
+        .operator_readiness
+        .checks
+        .iter()
+        .find(|check| check.area == area)
+        .expect("operator readiness check");
+
+    assert_eq!(check.status, status);
+    assert_eq!(check.reason, reason);
+
+    match action_route_key {
+        Some(route_key) => {
+            let action = check.action.as_ref().expect("operator action");
+            assert_eq!(action.route_key, route_key);
+            assert!(action.route_path.starts_with("/admin/v1/"));
+        }
+        None => assert!(check.action.is_none()),
+    }
+}
+
+#[tokio::test]
+async fn admin_v1_overview_reports_operator_readiness_for_configured_local_install() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: temp.path().join("nako.db").display().to_string(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig {
+            enabled: true,
+            token_env: Some("NAKO_ADMIN_TOKEN".to_owned()),
+        },
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("nako-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store).await.unwrap();
+    let router = build_router_with_auth(app, auth::InboundAuthState::bearer_token("test-token"));
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/overview")
+                .header(header::AUTHORIZATION, "Bearer test-token")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body = String::from_utf8(bytes.to_vec()).unwrap();
+    let overview: AdminOverviewResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(
+        overview.operator_readiness.status,
+        AdminOperatorReadinessStatus::Ready
+    );
+    assert_operator_readiness_check(
+        &overview,
+        AdminOperatorReadinessArea::Setup,
+        AdminOperatorReadinessStatus::Ready,
+        AdminOperatorReadinessReason::AuthConfigured,
+        None,
+    );
+    assert_operator_readiness_check(
+        &overview,
+        AdminOperatorReadinessArea::Backup,
+        AdminOperatorReadinessStatus::Ready,
+        AdminOperatorReadinessReason::BackupRunbookAvailable,
+        None,
+    );
+
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("test-token"));
+    assert!(!body.contains("NAKO_ADMIN_TOKEN"));
+    assert!(!body.contains("ffmpeg -"));
+    assert!(!body.contains("root_uri"));
+}
+
+#[tokio::test]
+async fn admin_v1_overview_reports_vfs_cache_repair_pressure_when_latest_failure_is_resolved() {
+    let (_temp, router, store, library_id, _root) = vfs_cache_repair_retry_http_fixture().await;
+    let resolved = store
+        .record_vfs_cache_failure(NewVfsCacheFailure {
+            uri: "local:///Movies/Private/AlreadyFresh.mkv?token=secret".to_owned(),
+            scheme: "local".to_owned(),
+            operation: VfsCacheOperation::Stat,
+            failed_at_ms: 2_000,
+            error: StorageFailureClass::Unavailable.safe_message().to_owned(),
+            authority: VfsCacheFailureAuthority::attributed(
+                library_id,
+                format!("library:{library_id}:local"),
+            ),
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_vfs_cache_object(&VfsCachedObject {
+            uri: resolved.uri.clone(),
+            scheme: resolved.scheme.clone(),
+            kind: VfsCachedObjectKind::File,
+            len: Some(42),
+            modified_at: None,
+            etag: Some("safe-test-etag".to_owned()),
+            fingerprint: Some("safe-test-fingerprint".to_owned()),
+            capabilities_bits: 0,
+            fetched_at_ms: resolved.failed_at_ms + 1,
+            fresh_until_ms: resolved.failed_at_ms + 60_000,
+        })
+        .await
+        .unwrap();
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/overview")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let overview: AdminOverviewResponse = serde_json::from_str(&body).unwrap();
+    let storage_check = overview
+        .operator_readiness
+        .checks
+        .iter()
+        .find(|check| check.area == AdminOperatorReadinessArea::Storage)
+        .expect("storage readiness check");
+
+    assert_eq!(storage_check.status, AdminOperatorReadinessStatus::Degraded);
+    assert_eq!(
+        storage_check.reason,
+        AdminOperatorReadinessReason::VfsCacheRepairPressure
+    );
+    assert_eq!(
+        storage_check.source_reason.as_deref(),
+        Some("retryable_refresh_failure")
+    );
+    assert_eq!(storage_check.attention_count, 1);
+    assert_eq!(
+        storage_check
+            .action
+            .as_ref()
+            .map(|action| action.route_key.as_str()),
+        Some("storageVfsCacheRepairTargets")
+    );
+    for forbidden in [
+        "local:///",
+        "Private",
+        "AdminJob.mkv",
+        "AlreadyFresh",
+        "token=secret",
+        "safe-test-etag",
+        "safe-test-fingerprint",
+        "uri_digest",
+        "input_json",
+        "summary_json",
+        "raw backend",
+    ] {
+        assert!(
+            !body.contains(forbidden),
+            "overview VFS repair readiness leaked forbidden term: {forbidden}"
+        );
+    }
 }
 
 #[tokio::test]
@@ -10690,6 +11164,11 @@ async fn admin_v1_acquisition_intake_exposes_redacted_diagnostics_and_watch_fold
     assert_eq!(first_discovery.unsupported_candidates, 1);
     assert_eq!(first_discovery.recorded_candidates, 4);
     assert_eq!(first_discovery.newly_ready_candidates, 0);
+    assert!(!first_discovery.enqueue_scan);
+    assert_eq!(
+        first_discovery.enqueue_reason,
+        AdminWatchFolderIntakeEnqueueReason::BlockedCandidates
+    );
     assert!(first_discovery.failures.is_empty());
 
     let response = router
@@ -10726,6 +11205,11 @@ async fn admin_v1_acquisition_intake_exposes_redacted_diagnostics_and_watch_fold
     assert_eq!(discovery.unsupported_candidates, 1);
     assert_eq!(discovery.recorded_candidates, 4);
     assert_eq!(discovery.newly_ready_candidates, 2);
+    assert!(discovery.enqueue_scan);
+    assert_eq!(
+        discovery.enqueue_reason,
+        AdminWatchFolderIntakeEnqueueReason::NewStableCandidates
+    );
     assert!(discovery.failures.is_empty());
     assert!(!discovery.writes_library);
     assert!(!discovery.managed_import_artifacts_created);
@@ -10795,6 +11279,101 @@ async fn admin_v1_acquisition_intake_exposes_redacted_diagnostics_and_watch_fold
 }
 
 #[tokio::test]
+async fn admin_v1_acquisition_intake_candidates_paginates_without_raw_source_material() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let (router, store) = test_router_with_store(temp.path().to_path_buf(), library_id).await;
+    let now_ms = crate::app::current_time_ms().unwrap();
+
+    for (index, name) in [
+        "Private Page One.mkv",
+        "Private Page Two.mkv",
+        "Private Page Three.mkv",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let sequence = index as i64 + 1;
+        store
+            .upsert_acquisition_intake_candidate(NewAcquisitionIntakeCandidate {
+                id: AcquisitionIntakeCandidateId::new(),
+                target_library_id: library_id,
+                source_kind: AcquisitionIntakeSourceKind::WatchFolder,
+                source_key: format!("watch-folder-page-{sequence}"),
+                source_uri: format!("local:///Secret Intake/{name}?token=admin-token-{sequence}"),
+                display_name: Some(name.to_owned()),
+                intended_locator: Some(format!("Movies/Secret/{name}")),
+                size_bytes: Some(100 + sequence as u64),
+                fingerprint: Some(format!("sha256-private-fingerprint-{sequence}")),
+                managed_import_artifact_id: None,
+                state: AcquisitionIntakeCandidateState::Ready,
+                diagnostics_json: Some(format!(
+                    r#"{{"raw":"Private Page {sequence} diagnostics admin-token"}}"#
+                )),
+                first_seen_at_ms: now_ms + sequence,
+                last_seen_at_ms: now_ms + sequence,
+                created_at_ms: now_ms + sequence,
+                updated_at_ms: now_ms + sequence,
+            })
+            .await
+            .unwrap();
+    }
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/admin/v1/acquisition/intake/candidates?library_id={library_id}&source_kind=watch_folder&state=ready&limit=1&offset=1"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let diagnostics: AdminAcquisitionIntakeCandidateListResponse =
+        serde_json::from_str(&body).unwrap();
+
+    assert_eq!(diagnostics.page.limit, 1);
+    assert_eq!(diagnostics.page.offset, 1);
+    assert_eq!(diagnostics.page.returned, 1);
+    assert_eq!(diagnostics.candidates.len(), 1);
+    let candidate = &diagnostics.candidates[0];
+    assert_eq!(candidate.target_library_id, library_id);
+    assert_eq!(candidate.source_kind, "watch_folder");
+    assert_eq!(candidate.source_scheme.as_deref(), Some("local"));
+    assert_eq!(candidate.source_ref_redacted, "local://<redacted>");
+    assert_eq!(candidate.state, AcquisitionIntakeCandidateState::Ready);
+    assert_eq!(candidate.size_bytes, Some(102));
+    assert!(candidate.has_display_name);
+    assert!(candidate.has_intended_locator);
+    assert!(candidate.has_fingerprint);
+    assert!(candidate.has_diagnostics);
+    assert!(candidate.source_key_fingerprint.starts_with("sha256:"));
+
+    assert!(!body.contains("source_uri"));
+    assert!(!body.contains("\"display_name\""));
+    assert!(!body.contains("\"intended_locator\""));
+    assert!(!body.contains("diagnostics_json"));
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("Secret Intake"));
+    assert!(!body.contains("Private Page"));
+    assert!(!body.contains("admin-token"));
+    assert!(!body.contains("sha256-private-fingerprint"));
+    assert!(!body.contains("local:///"));
+}
+
+#[tokio::test]
 async fn admin_v1_acquisition_intake_rejects_raw_root_uri_without_echoing_it() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
@@ -10831,6 +11410,67 @@ async fn admin_v1_acquisition_intake_rejects_raw_root_uri_without_echoing_it() {
     assert!(!body.contains("C:\\"));
     assert!(!body.contains("private"));
     assert!(!body.contains("admin-token"));
+}
+
+#[tokio::test]
+async fn admin_v1_acquisition_intake_rejects_out_of_scope_root_without_recording_candidates() {
+    let temp = tempfile::tempdir().unwrap();
+    let watch = temp.path().join("watch");
+    let outside = temp.path().join("outside");
+    fs::create_dir_all(&watch).unwrap();
+    fs::create_dir_all(&outside).unwrap();
+    fs::write(outside.join("Outside Movie.mkv"), b"outside").unwrap();
+    let library_id = LibraryId::new();
+    let (router, store) = test_router_with_store(watch.clone(), library_id).await;
+    let discovery_request = AdminWatchFolderDiscoveryRequest {
+        target_library_id: library_id,
+        root_uri: Some("local:///../outside?token=admin-token".to_owned()),
+        max_depth: Some(1),
+    };
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/admin/v1/acquisition/intake/watch-folder-discovery")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(serde_json::to_vec(&discovery_request).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(body.contains("watch-folder discovery root_uri is outside the library root"));
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("Outside Movie"));
+    assert!(!body.contains("../outside"));
+    assert!(!body.contains("admin-token"));
+    assert!(!body.contains("local:///"));
+    assert!(
+        store
+            .list_acquisition_intake_candidates(
+                AcquisitionIntakeCandidateListFilter {
+                    target_library_id: Some(library_id),
+                    state: None,
+                    source_kind: Some(AcquisitionIntakeSourceKind::WatchFolder),
+                    managed_import_artifact_id: None,
+                },
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[tokio::test]
@@ -11125,6 +11765,471 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
     assert!(!body.contains("nako.example.test"));
     assert!(!body.contains("tunnel.example.test"));
     assert!(!body.contains("x-forwarded"));
+}
+
+#[tokio::test]
+async fn admin_v1_incident_bundle_composes_route_response_without_sensitive_payloads() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let admin_token = "incident-bundle-admin-token";
+    let mut metadata = MetadataConfig::default();
+    metadata.runtime = MetadataProviderRuntimeConfig {
+        timeout_ms: 7_000,
+        max_attempts: 3,
+        min_interval_ms: 500,
+        concurrency: 2,
+        user_agent: "nako-test/1".to_owned(),
+        proxy: Some("http://user:proxy-secret@127.0.0.1:10809".into()),
+        circuit_breaker_failures: 4,
+        circuit_breaker_backoff_ms: 12_345,
+    };
+    metadata.providers = vec![MetadataProviderConfig {
+        provider: ExternalProvider::Bangumi,
+        enabled: true,
+        token_env: Some("BANGUMI_INCIDENT_TOKEN".to_owned()),
+        api_key_env: Some("BANGUMI_INCIDENT_API_KEY".to_owned()),
+        api_base_url: Some("https://api.bgm.tv/private?token=provider-secret".to_owned()),
+        image_base_url: Some("https://lain.bgm.tv/private".to_owned()),
+        language: Some("zh-CN".to_owned()),
+        include_adult: true,
+        headers: vec![MetadataProviderHeaderConfig {
+            name: "X-Secret".to_owned(),
+            value: Some("literal-header-secret".into()),
+            value_env: Some("BANGUMI_INCIDENT_HEADER".to_owned()),
+        }],
+        runtime: Some(MetadataProviderRuntimeConfig::default()),
+    }];
+    let network = crate::config::NetworkAccessConfig {
+        exposure_mode: crate::config::NetworkExposureMode::TunnelProvider,
+        external_base_url: Some(
+            "https://user:network-secret@nako.example.test/path?token=url-secret".to_owned(),
+        ),
+        trusted_proxy_headers: true,
+        trusted_proxy_sources: vec!["127.0.0.1".to_owned(), "10.0.0.0/8".to_owned()],
+        allowed_origins: vec!["https://operator-secret.example.test".to_owned()],
+        tunnel_providers: vec![crate::config::TunnelProviderConfig {
+            id: "cloudflared".to_owned(),
+            kind: crate::config::TunnelProviderKind::CloudflareTunnel,
+            public_url: Some(
+                "https://user:tunnel-url-secret@tunnel.example.test/path?token=secret".to_owned(),
+            ),
+            token_env: Some("NAKO_TUNNEL_INCIDENT_TOKEN".to_owned()),
+        }],
+    };
+    let ffmpeg_path = temp.path().join("private").join("ffmpeg");
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite://F:/secret/incident-bundle.db".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig {
+            enabled: true,
+            token_env: Some("NAKO_INCIDENT_BUNDLE_ADMIN_TOKEN".to_owned()),
+        },
+        network,
+        ffprobe_path: temp.path().join("private").join("ffprobe"),
+        ffmpeg_path: ffmpeg_path.clone(),
+        scan_concurrency: 2,
+        probe_concurrency: 3,
+        metadata_concurrency: 4,
+        remux_concurrency: 5,
+        webhook_concurrency: 6,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        remux_timeout_ms: 60_000,
+        remux_staging_root: temp.path().join("secret-cache").join("remux"),
+        metadata,
+        transcode: TranscodeConfig {
+            hardware_acceleration: nako_transcode::HardwareAcceleration::Nvenc,
+            hardware_fallback: nako_transcode::HardwareAccelerationFallback::Cpu,
+            cpu_concurrency: 1,
+            gpu_concurrency: 0,
+        },
+        staging: StagingConfig {
+            max_bytes: 9_999,
+            retention_ms: 8_888,
+            cleanup_on_startup: false,
+        },
+        playback: PlaybackConfig {
+            remote_stream_concurrency: 2,
+            remote_stage_concurrency: 3,
+            ..PlaybackConfig::default()
+        },
+        artwork: crate::config::ArtworkConfig {
+            artifact_root: temp.path().join("artwork-secret-root"),
+            fetch_proxy: Some("http://user:artwork-proxy-secret@127.0.0.1:10809".into()),
+            ..crate::config::ArtworkConfig::default()
+        },
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Remote Anime".to_owned(),
+            root: temp.path().join("local-root-secret"),
+            preset: nako_core::LibraryPreset::Anime,
+            webdav: Some(crate::config::WebDavLibraryConfig {
+                root: "webdav:///PrivateAnime".to_owned(),
+                base_url: "https://user:webdav-secret@example.test/dav".to_owned(),
+                username: Some("webdav-user".to_owned()),
+                password_env: Some("NAKO_WEBDAV_INCIDENT_PASSWORD".to_owned()),
+                timeout_ms: 11_000,
+                max_attempts: 3,
+            }),
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Incident Bundle Demo".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: item.id,
+        locator: "local:///Movies/Private/Incident Bundle Demo.mkv?token=admin-token".to_owned(),
+        file_name: "Incident Bundle Demo.mkv".to_owned(),
+        size_bytes: Some(42),
+        fingerprint: Some("sha256-private-fingerprint".to_owned()),
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store
+        .upsert_library_item_state(&LibraryItemState {
+            library_id,
+            item_id: item.id,
+            provisional: false,
+        })
+        .await
+        .unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+
+    let session = store
+        .create_transcode_session(NewTranscodeSession {
+            id: TranscodeSessionId::new(),
+            source_id: source.id,
+            kind: TranscodeSessionKind::HlsTranscode,
+            request_key: local_hls_request_key(&source, nako_transcode::HardwareAcceleration::None),
+            output_path: temp
+                .path()
+                .join("secret-cache")
+                .join("hls")
+                .join("private")
+                .join("playlist.m3u8"),
+            state: TranscodeSessionState::Running,
+        })
+        .await
+        .unwrap();
+    store
+        .set_transcode_session_state(
+            session.id,
+            TranscodeSessionState::Failed,
+            Some(nako_core::TranscodeFailureCategory::Runner),
+            Some(format!(
+                "ffmpeg failed while writing {} with argv -i local:///Movies/Private/Incident Bundle Demo.mkv token=admin-token",
+                temp.path()
+                    .join("secret-cache")
+                    .join("hls")
+                    .join("private")
+                    .join("playlist.m3u8")
+                    .display()
+            )),
+        )
+        .await
+        .unwrap();
+
+    let failed_job = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::LibraryScan,
+            resource_class: "disk.scan".to_owned(),
+            priority: nako_core::JobPriority::Normal,
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: Some(
+                r#"{"source_uri":"local:///Movies/Private/Incident Bundle Demo.mkv?token=admin-token"}"#
+                    .to_owned(),
+            ),
+        })
+        .await
+        .unwrap();
+    store
+        .fail_job(
+            failed_job.id,
+            format!(
+                "scan failed for {} with token admin-token",
+                temp.path()
+                    .join("Private")
+                    .join("Incident Bundle Demo.mkv")
+                    .display()
+            ),
+        )
+        .await
+        .unwrap();
+    store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::MetadataRefresh,
+            resource_class: "metadata.provider".to_owned(),
+            priority: nako_core::JobPriority::Normal,
+            library_id: Some(library_id),
+            source_id: Some(source.id),
+            input_json: Some(
+                r#"{"provider_payload":{"api_key":"provider-secret"},"path":"F:/secret/movie.mkv"}"#
+                    .to_owned(),
+            ),
+        })
+        .await
+        .unwrap();
+
+    let router = super::super::build_router_with_auth(
+        app,
+        super::super::auth::InboundAuthState::bearer_token(admin_token),
+    );
+    let missing_auth = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/diagnostics/incident-bundle")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(missing_auth.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        missing_auth
+            .headers()
+            .get(header::WWW_AUTHENTICATE)
+            .and_then(|value| value.to_str().ok()),
+        Some("Bearer")
+    );
+
+    let viewer = request_body_json_with_bearer::<AdminAccessUserResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/access/users",
+        &AdminCreateUserRequest {
+            username: "incident-bundle-viewer".to_owned(),
+            display_name: "Incident Bundle Viewer".to_owned(),
+            roles: vec![UserRole::Viewer],
+        },
+        admin_token,
+    )
+    .await;
+    let password_path = format!(
+        "/admin/v1/access/users/{}/local-password",
+        viewer.user.user_id
+    );
+    request_body_json_with_bearer::<nako_api::admin::AdminLocalPasswordResponse, _>(
+        &router,
+        Method::PUT,
+        &password_path,
+        &nako_api::admin::AdminSetLocalPasswordRequest {
+            password: "correct horse battery staple".to_owned(),
+        },
+        admin_token,
+    )
+    .await;
+    let viewer_login = request_body_json::<LoginResponse, _>(
+        &router,
+        Method::POST,
+        "/auth/login",
+        &LoginRequest {
+            username: "incident-bundle-viewer".to_owned(),
+            password: "correct horse battery staple".to_owned(),
+        },
+    )
+    .await;
+    let non_admin = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/diagnostics/incident-bundle")
+                .header(
+                    header::AUTHORIZATION,
+                    format!("Bearer {}", viewer_login.session.token),
+                )
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(non_admin.status(), StatusCode::FORBIDDEN);
+    let non_admin_error = body_json::<ErrorResponse>(non_admin).await;
+    assert_eq!(
+        non_admin_error.code,
+        nako_api::public_client::ClientErrorCode::Forbidden.as_str()
+    );
+    assert_eq!(non_admin_error.message, "administrator role is required");
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/diagnostics/incident-bundle")
+                .header(header::AUTHORIZATION, format!("Bearer {admin_token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = response_text(response).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let bundle: AdminIncidentBundleResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(
+        bundle.artifact.format,
+        nako_api::admin::AdminIncidentBundleFormat::JsonOnly
+    );
+    assert!(!bundle.artifact.zip_archive_included);
+    assert!(!bundle.artifact.upload_transport_included);
+    assert!(!bundle.artifact.unbounded_logs_included);
+    assert!(bundle.system.auth_enabled);
+    assert_eq!(bundle.system.database.url_scheme, "sqlite");
+    assert_eq!(bundle.system.libraries.configured_count, 1);
+    assert_eq!(bundle.system.libraries.local_count, 0);
+    assert_eq!(bundle.system.libraries.webdav_count, 1);
+    assert_eq!(bundle.system.metadata.provider_count, 1);
+    assert_eq!(
+        bundle.system.metadata.providers_with_secret_reference_count,
+        1
+    );
+    assert_eq!(
+        bundle.network.exposure_mode,
+        nako_api::admin::AdminNetworkExposureMode::TunnelProvider
+    );
+    assert!(bundle.network.external_endpoint_configured);
+    assert_eq!(
+        bundle.network.external_endpoint_scheme.as_deref(),
+        Some("https")
+    );
+    assert_eq!(bundle.network.trusted_proxy_source_count, 2);
+    assert_eq!(bundle.network.allowed_origin_count, 1);
+    assert_eq!(bundle.network.tunnel_provider_count, 1);
+    assert_eq!(bundle.network.tunnel_providers_with_endpoint_count, 1);
+    assert_eq!(
+        bundle.network.tunnel_providers_with_token_reference_count,
+        1
+    );
+    assert_eq!(
+        bundle.playback.support_evidence.subject.session_id, None,
+        "incident bundle default support evidence stays global unless a subject is requested"
+    );
+    assert!(bundle.playback.support_evidence.redaction.paths_redacted);
+    assert!(
+        bundle
+            .playback
+            .support_evidence
+            .redaction
+            .source_references_redacted
+    );
+    assert!(
+        bundle
+            .playback
+            .support_evidence
+            .redaction
+            .ffmpeg_commands_redacted
+    );
+    assert!(bundle.playback.support_evidence.redaction.stderr_redacted);
+    assert!(
+        bundle
+            .playback
+            .support_evidence
+            .redaction
+            .credentials_redacted
+    );
+    assert!(bundle.redaction.raw_paths_redacted);
+    assert!(bundle.redaction.locators_redacted);
+    assert!(bundle.redaction.tokens_redacted);
+    assert!(bundle.redaction.credentials_redacted);
+    assert!(bundle.redaction.ffmpeg_command_lines_redacted);
+    assert!(bundle.redaction.provider_payloads_redacted);
+    assert!(bundle.redaction.backend_urls_redacted);
+    assert!(bundle.redaction.query_strings_redacted);
+    assert!(bundle.redaction.raw_job_payloads_redacted);
+    assert!(bundle.redaction.unbounded_logs_redacted);
+    assert!(bundle.jobs.queue_pressure.iter().any(|pressure| {
+        pressure.kind == JobKind::LibraryScan
+            && pressure.status == JobStatus::Failed
+            && pressure.resource_class == "disk.scan"
+            && pressure.count == 1
+    }));
+    assert!(bundle.jobs.queue_pressure.iter().any(|pressure| {
+        pressure.kind == JobKind::MetadataRefresh
+            && pressure.status == JobStatus::Queued
+            && pressure.resource_class == "metadata.provider"
+            && pressure.count == 1
+            && pressure.claimable_count == 1
+    }));
+
+    for forbidden in [
+        "NAKO_INCIDENT_BUNDLE_ADMIN_TOKEN",
+        "BANGUMI_INCIDENT_TOKEN",
+        "BANGUMI_INCIDENT_API_KEY",
+        "BANGUMI_INCIDENT_HEADER",
+        "NAKO_TUNNEL_INCIDENT_TOKEN",
+        "NAKO_WEBDAV_INCIDENT_PASSWORD",
+        "token_env",
+        "api_key_env",
+        "listen_addr",
+        "database_url",
+        "ffmpeg_path",
+        "ffprobe_path",
+        "remux_staging_root",
+        "artifact_root",
+        "external_base_url",
+        "trusted_proxy_sources",
+        "allowed_origins",
+        "input_json",
+        "summary_json",
+        "payload_json",
+        "source_uri",
+        "source_locator",
+        "output_path",
+        "\"provider_payload\"",
+        "raw_provider_response",
+        "provider-secret",
+        "local:///",
+        "F:/secret",
+        "secret/incident-bundle.db",
+        "local-root-secret",
+        "PrivateAnime",
+        "webdav-secret",
+        "webdav-user",
+        "proxy-secret",
+        "artwork-proxy-secret",
+        "api.bgm.tv",
+        "lain.bgm.tv",
+        "literal-header-secret",
+        "network-secret",
+        "url-secret",
+        "operator-secret",
+        "tunnel-url-secret",
+        "nako.example.test",
+        "tunnel.example.test",
+        "secret-cache",
+        "playlist.m3u8",
+        "Incident Bundle Demo.mkv",
+        "sha256-private-fingerprint",
+        "ffmpeg failed while writing",
+        "argv",
+        "admin-token",
+        &ffmpeg_path.display().to_string(),
+        &temp.path().display().to_string(),
+    ] {
+        assert!(
+            !body.contains(forbidden),
+            "incident bundle route leaked forbidden fixture material: {forbidden}"
+        );
+    }
 }
 
 #[tokio::test]
@@ -13166,6 +14271,7 @@ async fn admin_v1_playback_runtime_reports_unavailable_cpu_pipeline_without_bloc
     let router = build_router(app);
 
     let response = router
+        .clone()
         .oneshot(
             Request::builder()
                 .method(Method::GET)
@@ -13236,6 +14342,58 @@ async fn admin_v1_playback_runtime_reports_unavailable_cpu_pipeline_without_bloc
     assert!(!body.contains("secret-cache"));
     assert!(!body.contains("ffmpeg_path"));
     assert!(!body.contains("remux_staging_root"));
+
+    let overview_response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/overview")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(overview_response.status(), StatusCode::OK);
+    let overview_body = String::from_utf8(
+        to_bytes(overview_response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    let overview: AdminOverviewResponse = serde_json::from_str(&overview_body).unwrap();
+    assert_eq!(
+        overview.operator_readiness.status,
+        AdminOperatorReadinessStatus::Unavailable
+    );
+    let playback_check = overview
+        .operator_readiness
+        .checks
+        .iter()
+        .find(|check| check.area == AdminOperatorReadinessArea::Playback)
+        .expect("playback readiness check");
+    assert_eq!(
+        playback_check.status,
+        AdminOperatorReadinessStatus::Unavailable
+    );
+    assert_eq!(
+        playback_check.reason,
+        AdminOperatorReadinessReason::PlaybackUnavailable
+    );
+    assert_eq!(
+        playback_check.source_reason.as_deref(),
+        Some("software_pipeline_unavailable")
+    );
+    assert_eq!(
+        playback_check.action.as_ref().unwrap().route_key,
+        "playbackRuntime"
+    );
+    assert!(!overview_body.contains(&temp.path().display().to_string()));
+    assert!(!overview_body.contains(&ffmpeg_path.display().to_string()));
+    assert!(!overview_body.contains("secret-cache"));
+    assert!(!overview_body.contains("ffmpeg_path"));
+    assert!(!overview_body.contains("remux_staging_root"));
+    assert!(!overview_body.contains("ffmpeg -"));
 }
 
 #[tokio::test]

@@ -34,6 +34,7 @@ import {
   mockGeneratedArtifactProposals,
   mockGeneratedArtifactReviewPlan,
   mockGeneratedArtifactReviewResponse,
+  mockIncidentBundle,
   mockJobCancelRequestResponse,
   mockJobs,
   mockLibraryMetadataProfile,
@@ -192,6 +193,7 @@ describe("AdminApiClient", () => {
   it("loads existing Admin API read models through typed route methods", async () => {
     const responses = new Map<string, unknown>([
       [NAKO_ADMIN_ROUTES.catalogGovernanceItems, mockCatalogGovernance],
+      [NAKO_ADMIN_ROUTES.incidentBundle, mockIncidentBundle],
       [NAKO_ADMIN_ROUTES.accessSummary, mockAccessSummary],
       [
         NAKO_ADMIN_ROUTES.catalogGovernanceItemDetail.replace("{item_id}", "item-candidate"),
@@ -241,6 +243,7 @@ describe("AdminApiClient", () => {
         offset: 0,
       }),
     ).resolves.toEqual(mockCatalogGovernance);
+    await expect(client.getIncidentBundle()).resolves.toEqual(mockIncidentBundle);
     await expect(client.getAccessSummary()).resolves.toEqual(mockAccessSummary);
     await expect(client.getCatalogGovernanceItemDetail("item-candidate")).resolves.toEqual(
       mockCatalogGovernanceItemDetail("item-candidate"),
@@ -296,6 +299,7 @@ describe("AdminApiClient", () => {
 
     expect(fetcher.mock.calls.map(([input]) => input.toString())).toEqual([
       `${NAKO_ADMIN_ROUTES.catalogGovernanceItems}?library_id=library-anime&max_confidence_milli=500&limit=5&offset=0`,
+      NAKO_ADMIN_ROUTES.incidentBundle,
       NAKO_ADMIN_ROUTES.accessSummary,
       NAKO_ADMIN_ROUTES.catalogGovernanceItemDetail.replace("{item_id}", "item-candidate"),
       `${NAKO_ADMIN_ROUTES.addons}?status=enabled`,

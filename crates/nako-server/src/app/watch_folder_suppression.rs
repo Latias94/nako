@@ -363,4 +363,61 @@ mod tests {
                 .is_none()
         );
     }
+
+    #[tokio::test]
+    async fn planned_write_suppression_rejects_unsafe_labels_and_ttl() {
+        let service = WatchFolderSuppressionAppService::new();
+        let library_id = LibraryId::new();
+        let scope_uri = StorageUri::from_parts("local", "Movies/Demo.mkv").unwrap();
+
+        for (owner, reason, ttl_ms, expected) in [
+            (
+                "",
+                "sidecar_write",
+                Some(60_000),
+                "planned write owner cannot be empty",
+            ),
+            (
+                "managed import",
+                "sidecar_write",
+                Some(60_000),
+                "planned write owner must be a safe identifier",
+            ),
+            (
+                "managed_import",
+                "wrote local:///Movies/Demo.mkv",
+                Some(60_000),
+                "planned write reason must be a safe identifier",
+            ),
+            (
+                "managed_import",
+                "sidecar_write",
+                Some(0),
+                "planned write suppression ttl_ms must be greater than zero",
+            ),
+            (
+                "managed_import",
+                "sidecar_write",
+                Some(MAX_PLANNED_WRITE_SUPPRESSION_TTL_MS + 1),
+                "planned write suppression ttl_ms must be at most 3600000",
+            ),
+        ] {
+            let err = service
+                .begin_planned_write_suppression(BeginPlannedWatchFolderWriteSuppressionRequest {
+                    target_library_id: library_id,
+                    scope_uri: scope_uri.clone(),
+                    owner: owner.to_owned(),
+                    reason: reason.to_owned(),
+                    ttl_ms,
+                    completion: PlannedWatchFolderWriteCompletion::SuppressOnly,
+                })
+                .await
+                .unwrap_err();
+
+            assert_eq!(err.to_string(), format!("invalid input: {expected}"));
+            let body = err.to_string();
+            assert!(!body.contains("local:///"));
+            assert!(!body.contains("Demo.mkv"));
+        }
+    }
 }

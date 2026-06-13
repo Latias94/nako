@@ -1,4 +1,4 @@
-use nako_core::{Result, ScanSnapshotId, ScanStatus, SourceFingerprintEscalationAction};
+use nako_core::{Result, ScanSnapshotId, ScanStatus};
 use nako_vfs::StorageUri;
 
 use super::{
@@ -7,7 +7,9 @@ use super::{
         LibrarySourceIngestionDisposition, LibrarySourceObservationCommit,
     },
     scan::LibraryScanner,
-    source_hash::SourceFingerprintHashMode,
+    source_hash::{
+        SourceFingerprintHashSchedulingPolicy, source_fingerprint_hash_mode_for_decision,
+    },
     summary::{
         LibraryIndexRequest, LibraryIndexSummary, LibraryScanRequest,
         ScanSourceFingerprintHashTrigger,
@@ -176,7 +178,13 @@ where
                     .source_fingerprint_hash_triggers
                     .push(ScanSourceFingerprintHashTrigger {
                         source_id: source_summary.persistence.source_id,
-                        mode: source_hash_mode_for_escalation(decision.action),
+                        mode: source_fingerprint_hash_mode_for_decision(
+                            decision.action,
+                            SourceFingerprintHashSchedulingPolicy::Enabled {
+                                partial_prefix_bytes:
+                                    crate::DEFAULT_SCAN_SOURCE_FINGERPRINT_HASH_PARTIAL_PREFIX_BYTES,
+                            },
+                        )?,
                         decision,
                     });
             }
@@ -189,20 +197,6 @@ where
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct IndexRootsOutcome {
     complete: bool,
-}
-
-fn source_hash_mode_for_escalation(
-    action: SourceFingerprintEscalationAction,
-) -> Option<SourceFingerprintHashMode> {
-    match action {
-        SourceFingerprintEscalationAction::None => None,
-        SourceFingerprintEscalationAction::PartialHash => {
-            Some(SourceFingerprintHashMode::Partial {
-                prefix_bytes: crate::DEFAULT_SCAN_SOURCE_FINGERPRINT_HASH_PARTIAL_PREFIX_BYTES,
-            })
-        }
-        SourceFingerprintEscalationAction::FullHash => Some(SourceFingerprintHashMode::Full),
-    }
 }
 
 #[cfg(test)]
@@ -221,6 +215,7 @@ mod tests {
     use super::*;
     use crate::{
         DiscoveredMediaSource, LibraryScanSummary, LibrarySourceIngestionSummary, ScannedDirectory,
+        SourceFingerprintHashMode,
     };
 
     #[tokio::test]
@@ -315,6 +310,49 @@ mod tests {
         assert!(!trigger_body.contains("Frankorz"));
         assert!(!trigger_body.contains("local:///"));
         assert!(!public_summary.contains("source_fingerprint_hash_triggers"));
+    }
+
+    #[tokio::test]
+    async fn index_service_collects_full_source_hash_trigger_fact() {
+        let scanner = SingleSourceScanner;
+        let workflow = RecordingIngestionWorkflow::with_source_escalation(
+            SourceFingerprintEscalationDecision {
+                action: SourceFingerprintEscalationAction::FullHash,
+                reason: SourceFingerprintEscalationReason::DisambiguateMultipleCandidates,
+                evidence_kind: SourceFingerprintEvidenceKind::BackendFingerprint,
+                confidence_milli: 700,
+                stale: false,
+                candidate_count: 2,
+            },
+        );
+        let service = LibraryIndexService::new(scanner, workflow);
+        let library = Library {
+            id: LibraryId::new(),
+            name: "Movies".to_owned(),
+            roots: vec!["local:///Users/Frankorz/Secret Path".to_owned()],
+            options: LibraryOptions::from_preset(LibraryPreset::Movies),
+        };
+
+        let summary = service
+            .index_library(LibraryIndexRequest {
+                job_id: JobId::new(),
+                library,
+                force: false,
+            })
+            .await
+            .unwrap();
+        let public_summary = serde_json::to_string(&summary).expect("summary serialization");
+
+        assert_eq!(summary.source_fingerprint_hash_triggers.len(), 1);
+        let trigger = &summary.source_fingerprint_hash_triggers[0];
+        assert_eq!(trigger.mode, Some(SourceFingerprintHashMode::Full));
+        assert_eq!(
+            trigger.decision.action,
+            SourceFingerprintEscalationAction::FullHash
+        );
+        assert!(!public_summary.contains("source_fingerprint_hash_triggers"));
+        assert!(!public_summary.contains("Secret Path"));
+        assert!(!public_summary.contains("local:///"));
     }
 
     struct SingleSourceScanner;

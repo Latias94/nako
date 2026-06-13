@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 111
-- **Last Active**: 2026-06-10
+- **Total Sessions**: 120
+- **Last Active**: 2026-06-13
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~526 | Active |
+| `journal-3.md` | ~920 | Active |
 | `journal-2.md` | ~1991 | Archived |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,15 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 120 | 2026-06-13 | Admin Web route shell chunk splitting | `5f7e2ee1` | `feat/u3-intake-stability-source-hash-readiness` |
+| 119 | 2026-06-13 | Admin Web i18n route catalog chunk splitting | `3d9a0dcb` | `feat/u3-intake-stability-source-hash-readiness` |
+| 118 | 2026-06-12 | Admin Web media watch chunk splitting | `4a61a1a9` | `feat/u3-intake-stability-source-hash-readiness` |
+| 117 | 2026-06-12 | Admin Web route bundle splitting | `faf85b7a` | `feat/u3-intake-stability-source-hash-readiness` |
+| 116 | 2026-06-12 | Incident bundle hardening | - | `feat/u3-intake-stability-source-hash-readiness` |
+| 115 | 2026-06-12 | Incident Bundle JSON export actions | `15b09ddf`, `b982df08` | `feat/u3-intake-stability-source-hash-readiness` |
+| 114 | 2026-06-11 | U3 intake/source-hash readiness verification and closeout | `f23536b8`, `82dfd027`, `3812ec28`, `6f51ad29`, `7d6bb2d9`, `8a3b0238`, `982c3bef` | `feat/u3-intake-stability-source-hash-readiness` |
+| 113 | 2026-06-11 | Playback selected reasons | `37338ed1` | `feat/operator-readiness-u1` |
+| 112 | 2026-06-10 | Operator readiness overview | `c474bc16` | `feat/operator-readiness-u1` |
 | 111 | 2026-06-10 | Playback renderer transport context boundary | `72f29691`, `695416b8` | `main` |
 | 110 | 2026-06-10 | Remove obsolete HTTP access module | `1acd5c12`, `c92e2933` | `main` |
 | 109 | 2026-06-10 | Move library manage access into app services | `59fb5d48`, `74a65243` | `main` |

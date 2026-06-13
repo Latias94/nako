@@ -24,6 +24,7 @@ import {
   mockEvents,
   mockGeneratedArtifactProposals,
   mockGeneratedArtifactReviewPlan,
+  mockIncidentBundle,
   mockAdminItemArtworkGallery,
   mockManagedArtworkArtifactLifecycle,
   mockManagedArtworkArtifactRemediationPlan,
@@ -35,6 +36,7 @@ import {
   mockPlaybackRuntime,
   mockPlaybackRuntimeSettings,
   mockPlaybackSessions,
+  mockPlaybackSupport,
   mockSourceDuplicateReconciliationPlan,
   mockStorageStaging,
   mockSystemConfig,
@@ -79,6 +81,7 @@ import type {
   AdminGeneratedArtifactProposalsQuery,
   AdminGeneratedArtifactReviewPlanResponse,
   AdminGeneratedArtifactReviewResponse,
+  AdminIncidentBundleResponse,
   AdminMetadataSource,
   AdminArtworkKind,
   AdminItemArtworkGalleryQuery,
@@ -103,6 +106,8 @@ import type {
   AdminPlaybackRuntimeSettingsResponse,
   AdminPlaybackSessionsQuery,
   AdminPlaybackSessionListResponse,
+  AdminPlaybackSupportEvidenceResponse,
+  AdminPlaybackSupportQuery,
   AdminSourceDuplicateReconciliationApplyResponse,
   AdminSourceDuplicateReconciliationPlanQuery,
   AdminSourceDuplicateReconciliationPlanResponse,
@@ -211,6 +216,7 @@ export type AdminDataSource = {
   ): Promise<AccessInvitationCreateResult>;
   revokeAccessInvitation?(invitationId: string): Promise<AccessInvitationRow>;
   loadOverview?(): Promise<AdminSectionResult<AdminOverviewResponse>>;
+  loadIncidentBundle?(): Promise<AdminSectionResult<AdminIncidentBundleResponse>>;
   loadEvents?(query?: EventListQuery): Promise<AdminSectionResult<EventSummary>>;
   loadAddonEventDeliveryAttempts?(
     eventId: string,
@@ -301,6 +307,9 @@ export type AdminDataSource = {
   loadPlaybackSessions?(
     query?: AdminPlaybackSessionsQuery,
   ): Promise<AdminSectionResult<AdminPlaybackSessionListResponse>>;
+  loadPlaybackSupport?(
+    query?: AdminPlaybackSupportQuery,
+  ): Promise<AdminSectionResult<AdminPlaybackSupportEvidenceResponse>>;
   loadPlaybackRuntimeSettings?(): Promise<AdminSectionResult<AdminPlaybackRuntimeSettingsResponse>>;
   updatePlaybackRuntimeSettings?(
     request: AdminUpdatePlaybackRuntimeSettingsRequest,
@@ -530,6 +539,9 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
     async loadOverview() {
       return loadSection(() => client.getOverview(), mockOverview);
     },
+    async loadIncidentBundle() {
+      return loadSection(() => client.getIncidentBundle(), mockIncidentBundle);
+    },
     async loadEvents(query = {}) {
       return loadEvents(client, query);
     },
@@ -720,6 +732,9 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
     },
     async loadPlaybackSessions(query = {}) {
       return loadSection(() => client.getPlaybackSessions(query), mockPlaybackSessions);
+    },
+    async loadPlaybackSupport(query = {}) {
+      return loadSection(() => client.getPlaybackSupport(query), mockPlaybackSupport);
     },
     async loadPlaybackRuntimeSettings() {
       return loadSection(

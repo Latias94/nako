@@ -436,6 +436,10 @@ async fn playback_decision_and_direct_stream_routes_work() {
         decision_json["decision"]["report"]["direct_play"]["reasons"][0],
         "direct_play_disabled"
     );
+    assert_eq!(
+        decision_json["decision"]["report"]["selection_reasons"][0],
+        "direct_play_disabled"
+    );
     assert!(decision_json["source"].get("locator").is_none());
     assert!(
         decision_json["decision"]["transcode_plan"]
@@ -452,6 +456,47 @@ async fn playback_decision_and_direct_stream_routes_work() {
     );
     let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
     assert_eq!(&bytes[..], b"2345");
+}
+
+#[tokio::test]
+async fn playback_decision_route_exposes_safe_selection_reasons_from_flat_capability_query() {
+    let (_temp, app, source, store) =
+        app_with_media_source_config("codec-gap.mp4", b"media", |_| {}).await;
+    let mut probe = compatible_probe();
+    probe.container = Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned());
+    store.upsert_media_probe(source.id, &probe).await.unwrap();
+    let router = build_router(app);
+
+    let decision = request_json::<nako_api::public_client::PlaybackDecisionResponse>(
+        &router,
+        Method::GET,
+        &format!(
+            "/sources/{}/playback/decision?container=mp4&video_codec=vp9&audio_codec=aac",
+            source.id
+        ),
+    )
+    .await;
+    let body = serde_json::to_string(&decision).unwrap();
+
+    assert_eq!(
+        decision.decision.mode,
+        nako_api::public_client::ClientPlaybackMode::Transcode
+    );
+    assert_eq!(
+        decision.decision.reason,
+        nako_api::public_client::ClientPlaybackDecisionReason::SourceCodecsUnsupported
+    );
+    assert_eq!(
+        decision.decision.report.selection_reasons,
+        vec![nako_api::public_client::ClientPlaybackCompatibilityCondition::VideoCodecUnsupported]
+    );
+    assert!(decision.decision.report.direct_play.reasons.contains(
+        &nako_api::public_client::ClientPlaybackCompatibilityCondition::VideoCodecUnsupported
+    ));
+    assert!(decision.decision.report.transcode.supported);
+    assert!(!body.contains("local:///"));
+    assert!(!body.contains("Bearer"));
+    assert!(!body.contains("ffmpeg"));
 }
 
 #[tokio::test]
@@ -683,6 +728,10 @@ async fn playback_decision_returns_safe_target_and_policy_denial() {
     );
     assert_eq!(
         decision.decision.report.direct_play.reasons[0],
+        nako_api::public_client::ClientPlaybackCompatibilityCondition::PolicyDenied
+    );
+    assert_eq!(
+        decision.decision.report.selection_reasons[0],
         nako_api::public_client::ClientPlaybackCompatibilityCondition::PolicyDenied
     );
     let denial = decision.decision.denial.unwrap();

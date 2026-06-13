@@ -5,7 +5,8 @@ use crate::app::source_hash::{
     ScanOriginatedSourceFingerprintHashOutcome, ScanOriginatedSourceFingerprintHashPolicy,
 };
 use nako_core::{
-    JobPriority, ScanRepository, ScanSnapshotId, ScanStatus, SourceFingerprintEscalationAction,
+    JobPriority, ScanRepository, ScanSnapshotId, ScanStatus, SourceDuplicateReconciliationAction,
+    SourceDuplicateRepository, SourceFingerprintEscalationAction,
     SourceFingerprintEscalationDecision, SourceFingerprintEscalationReason,
     SourceFingerprintEvidenceKind, SourceState,
 };
@@ -176,6 +177,47 @@ async fn scan_originated_source_fingerprint_hash_enqueue_respects_policy_and_dec
 }
 
 #[tokio::test]
+async fn scan_originated_full_hash_enqueue_ignores_partial_prefix_validation() {
+    let library_id = LibraryId::new();
+    let (_temp, app, store, source) =
+        source_hash_app_with_source(library_id, "local:///Movies/Hidden Movie.mkv", None).await;
+    let trigger = scan_source_hash_trigger(
+        source.id,
+        SourceFingerprintEscalationAction::FullHash,
+        Some(SourceFingerprintHashMode::Full),
+    );
+
+    let enqueued = app
+        .source_hash()
+        .enqueue_scan_originated_source_fingerprint_hash(
+            library_id,
+            &trigger,
+            ScanOriginatedSourceFingerprintHashPolicy {
+                enabled: true,
+                partial_prefix_bytes: 0,
+                priority: JobPriority::Normal,
+            },
+        )
+        .await
+        .unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    let ScanOriginatedSourceFingerprintHashOutcome::Enqueued(job) = enqueued else {
+        panic!("expected full source hash job");
+    };
+    let input_json = job.input_json.as_deref().expect("job input json");
+    let input: SourceFingerprintHashJobInput = serde_json::from_str(input_json).unwrap();
+
+    assert_eq!(jobs.len(), 1);
+    assert_eq!(input.mode, SourceFingerprintHashMode::Full);
+    assert!(!input_json.contains("Hidden Movie"));
+    assert!(!input_json.contains("local:///"));
+}
+
+#[tokio::test]
 async fn scan_originated_source_fingerprint_hash_enqueue_is_idempotent_for_incomplete_same_mode() {
     let library_id = LibraryId::new();
     let (_temp, app, store, source) =
@@ -240,6 +282,151 @@ async fn scan_originated_source_fingerprint_hash_enqueue_is_idempotent_for_incom
     };
     assert_eq!(third_job.id, first_job.id);
     assert_eq!(jobs.len(), 1);
+}
+
+#[tokio::test]
+async fn scan_originated_source_fingerprint_hash_enqueue_ignores_mismatched_input_binding_decoy() {
+    let library_id = LibraryId::new();
+    let (_temp, app, store, source) = source_hash_app_with_source(
+        library_id,
+        "local:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret",
+        Some("source:v1:backend_fingerprint:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned()),
+    )
+    .await;
+    let trigger = scan_source_hash_trigger(
+        source.id,
+        SourceFingerprintEscalationAction::FullHash,
+        Some(SourceFingerprintHashMode::Full),
+    );
+    let decoy = store
+        .enqueue_job(NewJob {
+            input_json: Some(source_hash_job_input_json(
+                LibraryId::new(),
+                MediaSourceId::new(),
+                "local",
+                SourceFingerprintHashMode::Full,
+            )),
+            ..new_source_hash_job(library_id, source.id)
+        })
+        .await
+        .unwrap();
+
+    let outcome = app
+        .source_hash()
+        .enqueue_scan_originated_source_fingerprint_hash(
+            library_id,
+            &trigger,
+            ScanOriginatedSourceFingerprintHashPolicy::default(),
+        )
+        .await
+        .unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    let ScanOriginatedSourceFingerprintHashOutcome::Enqueued(job) = outcome else {
+        panic!("expected mismatched input binding decoy to be ignored");
+    };
+    let input_json = job.input_json.as_deref().expect("job input json");
+    let input: SourceFingerprintHashJobInput = serde_json::from_str(input_json).unwrap();
+
+    assert_ne!(job.id, decoy.id);
+    assert_eq!(jobs.len(), 2);
+    assert!(jobs.iter().any(|candidate| candidate.id == decoy.id));
+    assert!(jobs.iter().any(|candidate| candidate.id == job.id));
+    assert_eq!(job.kind, JobKind::SourceFingerprintHash);
+    assert_eq!(job.status, JobStatus::Queued);
+    assert_eq!(job.library_id, Some(library_id));
+    assert_eq!(job.source_id, Some(source.id));
+    assert_eq!(input.library_id, library_id);
+    assert_eq!(input.source_id, source.id);
+    assert_eq!(input.source_scheme, "local");
+    assert_eq!(input.mode, SourceFingerprintHashMode::Full);
+    assert!(!input_json.contains("Hidden Movie"));
+    assert!(!input_json.contains("Secret Path"));
+    assert!(!input_json.contains("Frankorz"));
+    assert!(!input_json.contains("token"));
+    assert!(!input_json.contains("local:///"));
+    assert!(!input_json.contains("sha256"));
+}
+
+#[tokio::test]
+async fn scan_originated_source_fingerprint_hash_enqueue_finds_duplicate_beyond_first_job_page() {
+    let library_id = LibraryId::new();
+    let (_temp, app, store, source) =
+        source_hash_app_with_source(library_id, "local:///Movies/Hidden Movie.mkv", None).await;
+    let trigger = scan_source_hash_trigger(
+        source.id,
+        SourceFingerprintEscalationAction::FullHash,
+        Some(SourceFingerprintHashMode::Full),
+    );
+    let duplicate_job = store
+        .enqueue_job(new_source_hash_job(library_id, source.id))
+        .await
+        .unwrap();
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    for index in 0..=PageRequest::MAX_LIMIT {
+        store
+            .enqueue_job(NewJob {
+                id: JobId::new(),
+                input_json: Some(source_hash_job_input_json(
+                    library_id,
+                    source.id,
+                    "local",
+                    SourceFingerprintHashMode::Partial {
+                        prefix_bytes: u64::from(index) + 1,
+                    },
+                )),
+                ..new_source_hash_job(library_id, source.id)
+            })
+            .await
+            .unwrap();
+    }
+
+    let outcome = app
+        .source_hash()
+        .enqueue_scan_originated_source_fingerprint_hash(
+            library_id,
+            &trigger,
+            ScanOriginatedSourceFingerprintHashPolicy::default(),
+        )
+        .await
+        .unwrap();
+    let ScanOriginatedSourceFingerprintHashOutcome::AlreadyQueued(existing) = outcome else {
+        panic!("expected duplicate beyond first job page to block enqueue");
+    };
+    let first_page = store
+        .list_jobs(
+            nako_core::JobListFilter {
+                status: Some(JobStatus::Queued),
+                kind: Some(JobKind::SourceFingerprintHash),
+                resource_class: Some(SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned()),
+                library_id: Some(library_id),
+                source_id: Some(source.id),
+            },
+            PageRequest::new(PageRequest::MAX_LIMIT, 0),
+        )
+        .await
+        .unwrap();
+    let second_page = store
+        .list_jobs(
+            nako_core::JobListFilter {
+                status: Some(JobStatus::Queued),
+                kind: Some(JobKind::SourceFingerprintHash),
+                resource_class: Some(SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned()),
+                library_id: Some(library_id),
+                source_id: Some(source.id),
+            },
+            PageRequest::new(PageRequest::MAX_LIMIT, u64::from(PageRequest::MAX_LIMIT)),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(existing.id, duplicate_job.id);
+    assert!(!first_page.iter().any(|job| job.id == duplicate_job.id));
+    assert!(second_page.iter().any(|job| job.id == duplicate_job.id));
+    assert_eq!(first_page.len(), PageRequest::MAX_LIMIT as usize);
 }
 
 #[tokio::test]
@@ -689,6 +876,22 @@ async fn source_fingerprint_hash_retry_rejects_binding_mismatch_without_leak() {
         },
     )
     .await;
+    let missing_library_binding = fail_source_hash_retry_source_job(
+        &store,
+        NewJob {
+            library_id: None,
+            ..new_source_hash_job(library_id, source.id)
+        },
+    )
+    .await;
+    let missing_source_binding = fail_source_hash_retry_source_job(
+        &store,
+        NewJob {
+            source_id: None,
+            ..new_source_hash_job(library_id, source.id)
+        },
+    )
+    .await;
 
     let library_message =
         retry_source_hash_job_expect_err_without_retry(&app, &store, library_mismatch.id, None)
@@ -696,6 +899,20 @@ async fn source_fingerprint_hash_retry_rejects_binding_mismatch_without_leak() {
     let source_message =
         retry_source_hash_job_expect_err_without_retry(&app, &store, source_mismatch.id, None)
             .await;
+    let missing_library_message = retry_source_hash_job_expect_err_without_retry(
+        &app,
+        &store,
+        missing_library_binding.id,
+        None,
+    )
+    .await;
+    let missing_source_message = retry_source_hash_job_expect_err_without_retry(
+        &app,
+        &store,
+        missing_source_binding.id,
+        None,
+    )
+    .await;
 
     assert_eq!(
         library_message,
@@ -705,6 +922,16 @@ async fn source_fingerprint_hash_retry_rejects_binding_mismatch_without_leak() {
         source_message,
         "invalid input: source fingerprint hash job source binding does not match input"
     );
+    assert_eq!(
+        missing_library_message,
+        "invalid input: source fingerprint hash job library binding does not match input"
+    );
+    assert_eq!(
+        missing_source_message,
+        "invalid input: source fingerprint hash job source binding does not match input"
+    );
+    assert!(!missing_library_message.contains("local:///"));
+    assert!(!missing_source_message.contains("local:///"));
 }
 
 #[tokio::test]
@@ -726,36 +953,14 @@ async fn source_fingerprint_hash_retry_rejects_source_drift_without_leak() {
         })
         .await
         .unwrap();
-    let missing_source_id = MediaSourceId::new();
-    let missing_source = fail_source_hash_retry_source_job(
-        &store,
-        NewJob {
-            library_id: Some(library_id),
-            source_id: None,
-            input_json: Some(source_hash_job_input_json(
-                library_id,
-                missing_source_id,
-                "local",
-                SourceFingerprintHashMode::Full,
-            )),
-            ..new_source_hash_job(library_id, source.id)
-        },
-    )
-    .await;
     let library_drift =
         fail_source_hash_retry_source_job(&store, new_source_hash_job(library_id, source.id)).await;
     source.library_id = other_library_id;
     store.upsert_media_source(&source).await.unwrap();
 
-    let missing_message =
-        retry_source_hash_job_expect_err_without_retry(&app, &store, missing_source.id, None).await;
     let library_drift_message =
         retry_source_hash_job_expect_err_without_retry(&app, &store, library_drift.id, None).await;
 
-    assert_eq!(
-        missing_message,
-        format!("not found: media_source {missing_source_id}")
-    );
     assert_eq!(
         library_drift_message,
         "conflict: source fingerprint hash retry source no longer belongs to input library"
@@ -1057,6 +1262,127 @@ async fn source_fingerprint_hash_scheduler_executes_claimed_job_and_persists_saf
     assert!(!summary_json.contains("abcdef"));
     assert!(!summary_json.contains(r#""fingerprint""#));
     assert!(!summary_json.contains(&persisted_fingerprint));
+}
+
+#[tokio::test]
+async fn source_fingerprint_hash_completion_feeds_duplicate_reconciliation_plan() {
+    let library_id = LibraryId::new();
+    let (temp, app, store, target) =
+        source_hash_app_with_source(library_id, "local:///target-hash.mkv", None).await;
+    let duplicate_item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Duplicate Hidden Movie".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let duplicate = MediaSource {
+        id: MediaSourceId::new(),
+        library_id,
+        item_id: duplicate_item.id,
+        locator: "local:///duplicate-hash.mkv".to_owned(),
+        file_name: "Duplicate Hidden Movie.mkv".to_owned(),
+        size_bytes: Some(42),
+        fingerprint: None,
+    };
+    store.upsert_media_item(&duplicate_item).await.unwrap();
+    store.upsert_media_source(&duplicate).await.unwrap();
+    fs::write(temp.path().join("target-hash.mkv"), b"same-media-bytes").unwrap();
+    fs::write(temp.path().join("duplicate-hash.mkv"), b"same-media-bytes").unwrap();
+
+    let target_job = app
+        .source_hash()
+        .enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
+            library_id,
+            source_id: target.id,
+            mode: SourceFingerprintHashMode::Full,
+            priority: None,
+        })
+        .await
+        .unwrap();
+    let duplicate_job = app
+        .source_hash()
+        .enqueue_source_fingerprint_hash(EnqueueSourceFingerprintHashRequest {
+            library_id,
+            source_id: duplicate.id,
+            mode: SourceFingerprintHashMode::Full,
+            priority: None,
+        })
+        .await
+        .unwrap();
+
+    app.source_hash()
+        .execute_source_fingerprint_hash_job(target_job.id)
+        .await
+        .unwrap();
+    app.source_hash()
+        .execute_source_fingerprint_hash_job(duplicate_job.id)
+        .await
+        .unwrap();
+
+    let target = store.get_media_source(target.id).await.unwrap().unwrap();
+    let duplicate = store.get_media_source(duplicate.id).await.unwrap().unwrap();
+    let target_fingerprint = target.fingerprint.as_deref().expect("target fingerprint");
+    let duplicate_fingerprint = duplicate
+        .fingerprint
+        .as_deref()
+        .expect("duplicate fingerprint");
+    let before = store
+        .list_source_duplicate_relationships(target.id, PageRequest::new(20, 0))
+        .await
+        .unwrap();
+
+    let plan = app
+        .source_duplicate_reconciliation()
+        .plan_source_duplicate_reconciliation(SourceDuplicateReconciliationPlanRequest {
+            library_id,
+            source_id: target.id,
+            page: PageRequest::new(20, 0),
+        })
+        .await
+        .unwrap();
+    let after = store
+        .list_source_duplicate_relationships(target.id, PageRequest::new(20, 0))
+        .await
+        .unwrap();
+    let plan_json = serde_json::to_string(&plan).unwrap();
+
+    assert_eq!(target_fingerprint, duplicate_fingerprint);
+    assert!(target_fingerprint.starts_with("source:v1:content_hash:sha256:"));
+    assert!(before.is_empty());
+    assert!(after.is_empty());
+    assert_eq!(plan.library_id, library_id);
+    assert_eq!(plan.source_id, target.id);
+    assert_eq!(
+        plan.fingerprint_evidence_kind,
+        SourceFingerprintEvidenceKind::ContentHash
+    );
+    assert_eq!(plan.confidence_milli, 1_000);
+    assert!(!plan.stale);
+    assert_eq!(plan.candidates.len(), 1);
+    let candidate = &plan.candidates[0];
+    assert_eq!(candidate.source_id, target.id);
+    assert_eq!(candidate.duplicate_source_id, duplicate.id);
+    assert_eq!(
+        candidate.evidence_kind,
+        nako_core::SourceDuplicateEvidenceKind::StrongFingerprint
+    );
+    assert_eq!(candidate.confidence_milli, Some(1_000));
+    assert!(!candidate.stale);
+    assert_eq!(candidate.relationship_id, None);
+    assert_eq!(candidate.existing_status, None);
+    assert_eq!(
+        candidate.recommended_action,
+        SourceDuplicateReconciliationAction::SuggestRelationship
+    );
+    assert!(!plan_json.contains(target_fingerprint));
+    assert!(!plan_json.contains("same-media-bytes"));
+    assert!(!plan_json.contains("target-hash"));
+    assert!(!plan_json.contains("duplicate-hash"));
+    assert!(!plan_json.contains("local:///"));
+    assert!(!plan_json.contains("Hidden Movie"));
 }
 
 #[tokio::test]
@@ -1554,6 +1880,40 @@ async fn source_fingerprint_hash_prepare_rejects_binding_mismatch_without_leak()
         })
         .await
         .unwrap();
+    let missing_library_binding = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::SourceFingerprintHash,
+            resource_class: SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned(),
+            priority: JobPriority::Normal,
+            library_id: None,
+            source_id: Some(source.id),
+            input_json: Some(source_hash_job_input_json(
+                library_id,
+                source.id,
+                "local",
+                SourceFingerprintHashMode::Full,
+            )),
+        })
+        .await
+        .unwrap();
+    let missing_source_binding = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::SourceFingerprintHash,
+            resource_class: SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: Some(source_hash_job_input_json(
+                library_id,
+                source.id,
+                "local",
+                SourceFingerprintHashMode::Full,
+            )),
+        })
+        .await
+        .unwrap();
 
     let library_err = app
         .source_hash()
@@ -1565,8 +1925,20 @@ async fn source_fingerprint_hash_prepare_rejects_binding_mismatch_without_leak()
         .prepare_source_fingerprint_hash_execution(&source_mismatch)
         .await
         .unwrap_err();
+    let missing_library_err = app
+        .source_hash()
+        .prepare_source_fingerprint_hash_execution(&missing_library_binding)
+        .await
+        .unwrap_err();
+    let missing_source_err = app
+        .source_hash()
+        .prepare_source_fingerprint_hash_execution(&missing_source_binding)
+        .await
+        .unwrap_err();
     let library_message = library_err.to_string();
     let source_message = source_err.to_string();
+    let missing_library_message = missing_library_err.to_string();
+    let missing_source_message = missing_source_err.to_string();
 
     assert_eq!(
         library_message,
@@ -1574,6 +1946,14 @@ async fn source_fingerprint_hash_prepare_rejects_binding_mismatch_without_leak()
     );
     assert_eq!(
         source_message,
+        "invalid input: source fingerprint hash job source binding does not match input"
+    );
+    assert_eq!(
+        missing_library_message,
+        "invalid input: source fingerprint hash job library binding does not match input"
+    );
+    assert_eq!(
+        missing_source_message,
         "invalid input: source fingerprint hash job source binding does not match input"
     );
     assert!(!library_message.contains("Hidden Movie"));
@@ -1584,6 +1964,10 @@ async fn source_fingerprint_hash_prepare_rejects_binding_mismatch_without_leak()
     assert!(!source_message.contains("Secret Path"));
     assert!(!source_message.contains("Frankorz"));
     assert!(!source_message.contains("local:///"));
+    assert!(!missing_library_message.contains("Hidden Movie"));
+    assert!(!missing_library_message.contains("local:///"));
+    assert!(!missing_source_message.contains("Hidden Movie"));
+    assert!(!missing_source_message.contains("local:///"));
 }
 
 #[tokio::test]

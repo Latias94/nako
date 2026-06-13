@@ -1,7 +1,7 @@
 use nako_core::{
     EnqueueJobRetry, Job, JobId, JobKind, JobPriority, JobQueuePressureSummary, JobRepository,
     JobStatus, LeasedJob, LibraryId, MediaRepository, MediaSource, MediaSourceId, NakoError,
-    NewJob, Result, ScanRepository,
+    NewJob, PageRequest, Result, ScanRepository,
 };
 use nako_db::NakoDatabase;
 use nako_library::{
@@ -9,6 +9,7 @@ use nako_library::{
     SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS, ScanSourceFingerprintHashTrigger,
     SourceFingerprintHashExecutor, SourceFingerprintHashJobInput, SourceFingerprintHashJobSummary,
     SourceFingerprintHashMode, SourceFingerprintHashReport, SourceFingerprintHashRequest,
+    SourceFingerprintHashSchedulingPolicy, source_fingerprint_hash_mode_for_decision,
 };
 use nako_vfs::StorageUri;
 
@@ -153,8 +154,12 @@ impl SourceFingerprintHashAppService {
             return Ok(ScanOriginatedSourceFingerprintHashOutcome::AdvisoryOnly);
         }
 
-        let Some(mode) =
-            scan_originated_source_fingerprint_hash_mode(trigger, policy.partial_prefix_bytes)?
+        let Some(mode) = source_fingerprint_hash_mode_for_decision(
+            trigger.decision.action,
+            SourceFingerprintHashSchedulingPolicy::Enabled {
+                partial_prefix_bytes: policy.partial_prefix_bytes,
+            },
+        )?
         else {
             return Ok(ScanOriginatedSourceFingerprintHashOutcome::AdvisoryOnly);
         };
@@ -337,15 +342,12 @@ impl SourceFingerprintHashAppService {
         let input = source_fingerprint_hash_job_input_from_job(job)?;
         validate_source_fingerprint_hash_job_bindings(job, &input)?;
 
-        let source = self.source_for_hash(input.source_id).await?;
-        if source.library_id != input.library_id {
-            return Err(NakoError::Conflict {
-                message: "source fingerprint hash job source no longer belongs to input library"
-                    .to_owned(),
-            });
-        }
-
-        let source_uri = source_fingerprint_hash_storage_uri(&source)?;
+        let (source, source_uri) = self
+            .source_fingerprint_hash_target_for_input(
+                &input,
+                "source fingerprint hash job source no longer belongs to input library",
+            )
+            .await?;
         if source_uri.scheme() != input.source_scheme {
             return Err(NakoError::Conflict {
                 message: "source fingerprint hash job source locator scheme changed since enqueue"
@@ -474,19 +476,32 @@ impl SourceFingerprintHashAppService {
             })
     }
 
-    async fn validate_source_fingerprint_hash_retry_source(
+    async fn source_fingerprint_hash_target_for_input(
         &self,
         input: &SourceFingerprintHashJobInput,
-    ) -> Result<()> {
+        library_error_message: &str,
+    ) -> Result<(MediaSource, StorageUri)> {
         let source = self.source_for_hash(input.source_id).await?;
         if source.library_id != input.library_id {
             return Err(NakoError::Conflict {
-                message: "source fingerprint hash retry source no longer belongs to input library"
-                    .to_owned(),
+                message: library_error_message.to_owned(),
             });
         }
 
         let source_uri = source_fingerprint_hash_storage_uri(&source)?;
+        Ok((source, source_uri))
+    }
+
+    async fn validate_source_fingerprint_hash_retry_source(
+        &self,
+        input: &SourceFingerprintHashJobInput,
+    ) -> Result<()> {
+        let (_, source_uri) = self
+            .source_fingerprint_hash_target_for_input(
+                input,
+                "source fingerprint hash retry source no longer belongs to input library",
+            )
+            .await?;
         if source_uri.scheme() != input.source_scheme {
             return Err(NakoError::Conflict {
                 message:
@@ -515,26 +530,43 @@ impl SourceFingerprintHashAppService {
         mode: SourceFingerprintHashMode,
     ) -> Result<Option<Job>> {
         for status in [JobStatus::Queued, JobStatus::Running] {
-            let jobs = self
-                .store
-                .list_jobs(
-                    nako_core::JobListFilter {
-                        status: Some(status),
-                        kind: Some(JobKind::SourceFingerprintHash),
-                        resource_class: Some(SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned()),
-                        library_id: Some(library_id),
-                        source_id: Some(source_id),
-                    },
-                    nako_core::PageRequest::new(nako_core::PageRequest::MAX_LIMIT, 0),
-                )
-                .await?;
+            let mut offset = 0_u64;
 
-            for job in jobs {
-                if source_fingerprint_hash_job_input_from_job(&job)
-                    .is_ok_and(|input| input.mode == mode)
-                {
-                    return Ok(Some(job));
+            loop {
+                let jobs = self
+                    .store
+                    .list_jobs(
+                        nako_core::JobListFilter {
+                            status: Some(status),
+                            kind: Some(JobKind::SourceFingerprintHash),
+                            resource_class: Some(
+                                SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned(),
+                            ),
+                            library_id: Some(library_id),
+                            source_id: Some(source_id),
+                        },
+                        PageRequest::new(PageRequest::MAX_LIMIT, offset),
+                    )
+                    .await?;
+                let job_count = jobs.len();
+
+                for job in jobs {
+                    let Ok(input) = source_fingerprint_hash_job_input_from_job(&job) else {
+                        continue;
+                    };
+                    if validate_source_fingerprint_hash_job_bindings(&job, &input).is_err() {
+                        continue;
+                    }
+                    if input.mode == mode {
+                        return Ok(Some(job));
+                    }
                 }
+
+                if job_count < PageRequest::MAX_LIMIT as usize {
+                    break;
+                }
+
+                offset = offset.saturating_add(u64::from(PageRequest::MAX_LIMIT));
             }
         }
 
@@ -604,28 +636,6 @@ fn source_fingerprint_hash_job_input(
     Ok(input)
 }
 
-fn scan_originated_source_fingerprint_hash_mode(
-    trigger: &ScanSourceFingerprintHashTrigger,
-    partial_prefix_bytes: u64,
-) -> Result<Option<SourceFingerprintHashMode>> {
-    Ok(match trigger.mode {
-        None => None,
-        Some(SourceFingerprintHashMode::Full) => Some(SourceFingerprintHashMode::Full),
-        Some(SourceFingerprintHashMode::Partial { .. }) => {
-            if partial_prefix_bytes == 0 {
-                return Err(NakoError::InvalidInput {
-                    message:
-                        "scan-originated source fingerprint hash partial prefix must be greater than zero"
-                            .to_owned(),
-                });
-            }
-            Some(SourceFingerprintHashMode::Partial {
-                prefix_bytes: partial_prefix_bytes,
-            })
-        }
-    })
-}
-
 fn source_fingerprint_hash_storage_uri(source: &MediaSource) -> Result<StorageUri> {
     StorageUri::parse(&source.locator).map_err(|_err| NakoError::InvalidInput {
         message: "source fingerprint hash job source locator is not a valid storage URI".to_owned(),
@@ -683,35 +693,24 @@ fn source_fingerprint_hash_trace_context(
 }
 
 fn source_fingerprint_hash_trace_context_from_job(job: &Job) -> Option<DurableJobTraceContext> {
-    let Some(input_json) = job.input_json.as_deref() else {
+    let Ok(input) = source_fingerprint_hash_job_input_from_job(job) else {
         return None;
     };
-    let Ok(input) = serde_json::from_str::<serde_json::Value>(input_json) else {
-        return None;
-    };
-    let Some(request_id) = input.get("request_id").and_then(serde_json::Value::as_str) else {
-        return None;
-    };
-
-    DurableJobTraceContext::from_request_id(request_id).ok()
+    source_fingerprint_hash_trace_context(&input.request_id)
+        .ok()
+        .flatten()
 }
 
 fn validate_source_fingerprint_hash_job_bindings(
     job: &Job,
     input: &SourceFingerprintHashJobInput,
 ) -> Result<()> {
-    if job
-        .library_id
-        .is_some_and(|library_id| library_id != input.library_id)
-    {
+    if job.library_id != Some(input.library_id) {
         return Err(NakoError::InvalidInput {
             message: "source fingerprint hash job library binding does not match input".to_owned(),
         });
     }
-    if job
-        .source_id
-        .is_some_and(|source_id| source_id != input.source_id)
-    {
+    if job.source_id != Some(input.source_id) {
         return Err(NakoError::InvalidInput {
             message: "source fingerprint hash job source binding does not match input".to_owned(),
         });

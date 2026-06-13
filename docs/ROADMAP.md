@@ -74,6 +74,9 @@ slices as implementation work.
 M1 should inherit the validated release-shape ladder and adapt it to the
 operator journey:
 
+- Product-Operator readiness overview in Admin Web and `GET /admin/v1/overview`
+  for setup, Media Library scan, playback, storage, network, and backup
+  posture;
 - install/config readiness;
 - library scan and source identity evidence;
 - metadata/catalog browse readiness;
