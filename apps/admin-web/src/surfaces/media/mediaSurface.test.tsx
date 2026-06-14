@@ -91,6 +91,47 @@ describe("Media Web surface", () => {
     expect(container.textContent).not.toContain("fingerprint");
   });
 
+  it("clears Continue Watching progress from the home row action", async () => {
+    window.history.pushState(null, "", "/media");
+    const dataSource = createFixtureMediaDataSource();
+    const setUserWatchedState = vi.fn(dataSource.setUserWatchedState);
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          setUserWatchedState,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    const { container } = render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Watch next" })).toBeInTheDocument();
+    expect(screen.getByText("38% complete - resume at 9 min")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start over" }));
+
+    await waitFor(() => {
+      expect(setUserWatchedState).toHaveBeenCalledWith("item-episode-1", {
+        duration_ms: 1440000,
+        position_ms: 0,
+        source_id: "source-episode-1",
+        watched: false,
+      });
+    });
+    expect(await screen.findByText("No active playback state")).toBeInTheDocument();
+    expect(screen.queryByText("38% complete - resume at 9 min")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Resume" })).not.toBeInTheDocument();
+    expect(container.textContent).not.toContain("nako_bpt_fixture");
+    expect(container.textContent).not.toContain("/sources/");
+    expect(container.textContent).not.toContain("fingerprint");
+  });
+
   it("renders a Media Library detail route from Public Client fixture data", async () => {
     window.history.pushState(
       null,

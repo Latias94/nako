@@ -8,7 +8,7 @@ import type {
   MediaItemDto,
   SearchResponse,
 } from "@nako/sdk";
-import { ArrowLeft, ArrowRight, Play, Search } from "lucide-react";
+import { ArrowLeft, ArrowRight, Play, RotateCcw, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "../../components/ui/Button";
@@ -31,8 +31,39 @@ export { MediaConnectPage } from "./MediaConnectPage";
 
 export function MediaHomePage() {
   const { dataSource } = useMediaSession();
-  const continueWatching = useMediaLoad(dataSource, (source) => source.listContinueWatching());
+  const [continueWatchingRefreshKey, setContinueWatchingRefreshKey] = useState(0);
+  const [clearingContinueWatchingItemId, setClearingContinueWatchingItemId] =
+    useState<string | null>(null);
+  const [continueWatchingMutationError, setContinueWatchingMutationError] =
+    useState<string | null>(null);
+  const continueWatching = useMediaLoad(
+    dataSource,
+    (source) => source.listContinueWatching(),
+    [continueWatchingRefreshKey],
+  );
   const items = useMediaLoad(dataSource, (source) => source.listItems({ limit: 8, offset: 0 }));
+
+  async function startContinueWatchingOver(entry: ContinueWatchingResponse["items"][number]) {
+    if (!dataSource) {
+      return;
+    }
+
+    setClearingContinueWatchingItemId(entry.item.id);
+    setContinueWatchingMutationError(null);
+    try {
+      await dataSource.setUserWatchedState(entry.item.id, {
+        duration_ms: entry.state.duration_ms,
+        position_ms: 0,
+        ...(entry.state.source_id ? { source_id: entry.state.source_id } : {}),
+        watched: false,
+      });
+      setContinueWatchingRefreshKey((current) => current + 1);
+    } catch {
+      setContinueWatchingMutationError("Continue Watching progress could not be cleared.");
+    } finally {
+      setClearingContinueWatchingItemId(null);
+    }
+  }
 
   if (!dataSource) {
     return <MediaConnectPage />;
@@ -43,7 +74,12 @@ export function MediaHomePage() {
       <header className="mediaPageHeader">
         <h2 id="media-home-title">Watch next</h2>
       </header>
-      <MediaContinueWatching result={continueWatching} />
+      <MediaContinueWatching
+        clearingItemId={clearingContinueWatchingItemId}
+        error={continueWatchingMutationError}
+        onStartOver={(entry) => void startContinueWatchingOver(entry)}
+        result={continueWatching}
+      />
       <section className="mediaPanel" aria-labelledby="media-items-title">
         <div className="mediaPanelHeader">
           <h3 id="media-items-title">Media Items</h3>
@@ -209,8 +245,14 @@ export function MediaSearchPage({
 }
 
 function MediaContinueWatching({
+  clearingItemId,
+  error,
+  onStartOver,
   result,
 }: {
+  clearingItemId: string | null;
+  error: string | null;
+  onStartOver(entry: ContinueWatchingResponse["items"][number]): void;
   result: MediaAsyncState<ContinueWatchingResponse>;
 }) {
   return (
@@ -221,6 +263,7 @@ function MediaContinueWatching({
       </div>
       {result.loading ? <div className="mediaSkeleton" /> : null}
       {result.error ? <div className="mediaError">{result.error}</div> : null}
+      {error ? <div className="mediaError">{error}</div> : null}
       {result.value?.items.length ? (
         <div className="mediaContinueList">
           {result.value.items.map((entry) => (
@@ -247,6 +290,16 @@ function MediaContinueWatching({
                   <Play size={15} />
                   <span>Resume</span>
                 </Link>
+                <Button
+                  disabled={clearingItemId === entry.item.id}
+                  onClick={() => onStartOver(entry)}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  <RotateCcw size={15} />
+                  <span>Start over</span>
+                </Button>
               </div>
               <progress value={entry.state.progress_percent ?? 0} max={1} />
             </article>
