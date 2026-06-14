@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web frontend entrypoint and pre-development checklist for route/page/test changes."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Media Web route/data-source/test/redaction rules for frontend page changes."}
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking guide index required before implementation."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "This task should extend existing Media Web grid/list patterns rather than add duplicate rendering paths."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Confirms this slice stays inside the frontend/data-source boundary without backend contract changes."}

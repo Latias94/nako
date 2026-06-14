@@ -1534,3 +1534,37 @@ Added Media Web Continue Watching Start over failure and retry regression covera
 ### Next Steps
 
 - None - task complete
+
+
+## Session 136: Media Web Recently Added home section
+
+**Date**: 2026-06-15
+**Task**: Media Web Recently Added home section
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Added a Recently Added section to Media Web home using existing item listing, covered empty/error/redaction cases, and updated Admin Web frontend spec for safe Media Web read errors.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `187078ab` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
