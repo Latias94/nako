@@ -1100,3 +1100,46 @@ Added disabled-by-default recurring VFS cache repair automation runtime, verifie
 ### Next Steps
 
 - None - task complete
+
+
+## Session 125: Source fingerprint job diagnostics drilldown
+
+**Date**: 2026-06-14
+**Task**: Source fingerprint job diagnostics drilldown
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Added safe Admin Jobs diagnostics for SourceFingerprintHash jobs, including pending/summary/failed DTOs, generated Admin contracts, source hash route redaction tests, Trellis specs, and task archive.
+
+### Main Changes
+
+- Added `diagnostics.source_fingerprint_hash` to Admin Jobs responses for `SourceFingerprintHash` jobs.
+- Added pending, summary-available, and failed diagnostic DTOs with redacted failure output.
+- Regenerated Admin TypeScript contracts and updated source hash diagnostics specs.
+- Archived `.trellis/tasks/06-14-m2-source-fingerprint-job-diagnostics-drilldown`.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `81f16173` | (see git log) |
+| `e543f3cb` | (see git log) |
+
+### Testing
+
+- [OK] `cargo fmt --all`
+- [OK] `cargo nextest run -p nako-api source_fingerprint_hash --no-fail-fast`
+- [OK] `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server admin_v1_jobs_lists_source_fingerprint_hash_filters_without_payload_leaks admin_v1_jobs_projects_source_fingerprint_hash_summary_diagnostics_without_payload_leaks --no-fail-fast`
+- [OK] `cargo check -p nako-api -p nako-server --tests`
+- [OK] `git diff --check`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
