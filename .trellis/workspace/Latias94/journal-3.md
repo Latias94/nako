@@ -1492,3 +1492,45 @@ Added a Home Continue Watching row-level Start over action that clears saved pro
 ### Next Steps
 
 - None - task complete
+
+
+## Session 135: Continue Watching failure retry coverage
+
+**Date**: 2026-06-14
+**Task**: Continue Watching failure retry coverage
+**Package**: admin-web
+**Branch**: `main`
+
+### Summary
+
+Added Media Web Continue Watching Start over failure and retry regression coverage for safe errors, row retention, retry clearing, and eventual row removal.
+
+### Main Changes
+
+- Added regression coverage for a rejected Continue Watching row-level Start over mutation.
+- Verified the row remains visible, the retry button becomes usable again, and raw backend/transport error details stay hidden.
+- Verified retry clears the previous safe error while pending and removes the row after a successful mutation.
+- Kept the implementation unchanged because existing Home action state already satisfied the failure/retry contract.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `caea003b` | test(admin): cover continue watching retry failures |
+
+### Testing
+
+- [OK] `npm run test --prefix apps/admin-web -- src/surfaces/media/mediaSurface.test.tsx`
+- [OK] `npm run check --prefix apps/admin-web`
+- [OK] `npm run test --prefix apps/admin-web`
+- [OK] `npm run build --prefix apps/admin-web`
+- [OK] `git diff --check`
+- [OK] `python .\.trellis\scripts\task.py validate .\.trellis\tasks\06-14-media-web-playback-action-failure-ux`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
