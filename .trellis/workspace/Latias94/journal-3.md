@@ -1178,3 +1178,38 @@ Added typed watch-folder scan admission diagnostics, covered queued/running reus
 ### Next Steps
 
 - None - task complete
+
+
+## Session 127: Watch Folder Admin Diagnostics
+
+**Date**: 2026-06-14
+**Task**: Watch Folder Admin Diagnostics
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Added watch-folder latest tick diagnostics to Admin Overview and Admin Web, updated generated contracts, tests, and specs, then archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0f14f6b9` | (see git log) |
+| `97be278b` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
