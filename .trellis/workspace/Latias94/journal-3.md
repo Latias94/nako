@@ -1450,3 +1450,45 @@ Added item-detail Resume and Start over actions for Media Web playback state; ve
 ### Next Steps
 
 - None - task complete
+
+
+## Session 134: Continue Watching row clear action
+
+**Date**: 2026-06-14
+**Task**: Continue Watching row clear action
+**Package**: admin-web
+**Branch**: `main`
+
+### Summary
+
+Added a Home Continue Watching row-level Start over action that clears saved progress through the Media Web playback-state mutation and refreshes fixture rows.
+
+### Main Changes
+
+- Added a row-level Start over action to Home Continue Watching entries.
+- Reused `MediaWebDataSource.setUserWatchedState` with the entry duration, saved source, `position_ms: 0`, and `watched: false`.
+- Refreshed Continue Watching after successful mutation so fixture-cleared rows disappear from the rail.
+- Added a route test for the payload, row removal, and Media Web redaction constraints.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e846fc36` | feat(admin): clear continue watching rows |
+
+### Testing
+
+- [OK] `npm run test --prefix apps/admin-web -- src/surfaces/media/mediaSurface.test.tsx`
+- [OK] `npm run check --prefix apps/admin-web`
+- [OK] `npm run test --prefix apps/admin-web`
+- [OK] `npm run build --prefix apps/admin-web`
+- [OK] `git diff --check`
+- [OK] `python .\.trellis\scripts\task.py validate .\.trellis\tasks\06-14-media-web-playback-action-surface-follow-up`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

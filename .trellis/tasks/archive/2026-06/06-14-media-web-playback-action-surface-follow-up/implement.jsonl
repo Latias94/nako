@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web frontend scope and required guideline index."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Route, data-source, mutation, redaction, and route-test conventions for Media Web changes."}
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared guide routing for code reuse and cross-layer checks."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse existing playback-state mutation patterns instead of adding a new state manager."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Continue Watching action flows through Public Client playback-state mutation and fixture refresh."}
+{"file": ".trellis/tasks/archive/2026-06/06-14-media-web-playback-action-surface-follow-up/prd.md", "reason": "Task requirements, acceptance criteria, and chosen MVP approach."}
