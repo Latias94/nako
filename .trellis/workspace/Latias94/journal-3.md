@@ -1213,3 +1213,45 @@ Added watch-folder latest tick diagnostics to Admin Overview and Admin Web, upda
 ### Next Steps
 
 - None - task complete
+
+
+## Session 128: Source duplicate review discovery
+
+**Date**: 2026-06-14
+**Task**: Source duplicate review discovery
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Improved admin item detail access to source duplicate review and added compact duplicate review summary with test/build verification.
+
+### Main Changes
+
+- Added a prominent Admin Item Detail entry point to source duplicate review.
+- Added compact source duplicate review summary counts for returned, actionable, preserved, and stale candidates.
+- Updated English and Simplified Chinese admin copy.
+- Expanded Admin Web tests for discovery, summary counts, zh-Hans copy, and existing apply/redaction behavior.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9bff8b43` | (see git log) |
+
+### Testing
+
+- [OK] npm run check --prefix apps/admin-web
+- [OK] npm run test --prefix apps/admin-web -- src/App.test.tsx
+- [OK] npm run test --prefix apps/admin-web
+- [OK] npm run build --prefix apps/admin-web
+- [OK] git diff --check (line-ending warnings only)
+- [OK] python ./.trellis/scripts/task.py validate .trellis/tasks/06-14-06-14-m2-source-duplicate-suggestion-review
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
