@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web frontend spec index for route, data, and test conventions."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Route ownership, data-source, redaction, and Admin Web test requirements."}
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking guide index required for implementation context."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Guard against duplicating existing Media Web playback helpers."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Validate playback state flow across data source, route search, video element, and progress writes."}
+{"file": ".trellis/tasks/06-14-media-web-auto-resume-playback/prd.md", "reason": "Task requirements, scope, and acceptance criteria."}

@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web frontend spec index for verification context."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Expected Admin Web checks, tests, and redaction assertions."}
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared verification guide index."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Confirm no unnecessary helper duplication was introduced."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Confirm playback state data survives route, component, and DOM event boundaries."}
+{"file": ".trellis/tasks/06-14-media-web-auto-resume-playback/prd.md", "reason": "Acceptance criteria for final verification."}

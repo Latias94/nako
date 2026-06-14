@@ -30,6 +30,8 @@ import {
   playbackDurationMs,
 } from "./MediaPlaybackCore";
 
+const MEDIA_AUTO_RESUME_END_MARGIN_MS = 5_000;
+
 export function MediaWatchPage(props: MediaItemPageProps) {
   const playback = useMediaItemPlayback(props);
   const [browserTicketRetryKey, setBrowserTicketRetryKey] = useState(0);
@@ -132,6 +134,11 @@ function MediaWatch({
   const selectedSource =
     result.sources.find((source) => source.id === selectedSourceId) ?? result.sources[0];
   const fallbackDurationMs = playbackDurationMs(result, decision.value);
+  const autoResumePositionMs = mediaAutoResumePositionMs(
+    playbackState.value,
+    selectedSource?.id,
+    fallbackDurationMs,
+  );
 
   return (
     <section className="mediaPage" aria-labelledby="media-watch-title">
@@ -153,6 +160,7 @@ function MediaWatch({
         </div>
         <MediaResumeSummary result={playbackState} selectedSourceId={selectedSource?.id} />
         <MediaBrowserPlayer
+          autoResumePositionMs={autoResumePositionMs}
           fallbackDurationMs={fallbackDurationMs}
           onBrowserTicketRetry={onBrowserTicketRetry}
           onPlaybackEnded={onPlaybackEnded}
@@ -228,6 +236,29 @@ function MediaResumeSummary({
       <progress value={state.progress_percent ?? 0} max={1} />
     </div>
   );
+}
+
+function mediaAutoResumePositionMs(
+  playbackState: UserPlaybackStateResponse | null,
+  selectedSourceId: string | undefined,
+  fallbackDurationMs: number | null,
+) {
+  const state = playbackState?.state;
+  if (!state || !selectedSourceId || state.source_id !== selectedSourceId || state.watched) {
+    return null;
+  }
+
+  const positionMs = state.resume_position_ms;
+  if (!positionMs || positionMs <= 0) {
+    return null;
+  }
+
+  const durationMs = state.duration_ms ?? fallbackDurationMs;
+  if (durationMs && positionMs >= Math.max(0, durationMs - MEDIA_AUTO_RESUME_END_MARGIN_MS)) {
+    return null;
+  }
+
+  return positionMs;
 }
 
 function useMediaPlaybackProgress({
@@ -360,6 +391,7 @@ function useMediaPlaybackProgress({
 }
 
 function MediaBrowserPlayer({
+  autoResumePositionMs,
   fallbackDurationMs,
   onBrowserTicketRetry,
   onPlaybackEnded,
@@ -369,6 +401,7 @@ function MediaBrowserPlayer({
   result,
   title,
 }: {
+  autoResumePositionMs: number | null;
   fallbackDurationMs: number | null;
   onBrowserTicketRetry(): void;
   onPlaybackEnded(snapshot: MediaPlaybackProgressSnapshot): void;
@@ -379,6 +412,7 @@ function MediaBrowserPlayer({
   title: string;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [startOverCandidateKey, setStartOverCandidateKey] = useState<string | null>(null);
   const [candidateSelectionState, setCandidateSelectionState] =
     useState<MediaPlaybackCandidateSelection>({
       activeCandidateIndex: 0,
@@ -444,6 +478,9 @@ function MediaBrowserPlayer({
     candidateSelection.activeCandidateIndex,
   );
   const attachHlsJs = adapter.kind === "hls-js";
+  const candidateAttemptKey = `${activeCandidate.key}:${candidateSelection.retryCount}`;
+  const activeAutoResumePositionMs =
+    startOverCandidateKey === candidateAttemptKey ? null : autoResumePositionMs;
   const markCandidateFailed = () => {
     setCandidateSelectionState((current) => ({
       ...mediaPlaybackCandidateSelectionFor(current, ticketSignature),
@@ -470,6 +507,19 @@ function MediaBrowserPlayer({
         retryCount: selection.retryCount + 1,
       };
     });
+  };
+  const startOver = () => {
+    setStartOverCandidateKey(candidateAttemptKey);
+    const video = videoRef.current;
+    if (!video) {
+      return;
+    }
+
+    try {
+      video.currentTime = 0;
+    } catch {
+      return;
+    }
   };
 
   return (
@@ -504,6 +554,8 @@ function MediaBrowserPlayer({
         <MediaVideoElement
           adapter={adapter}
           attachHlsJs={attachHlsJs}
+          autoResumeKey={candidateAttemptKey}
+          autoResumePositionMs={activeAutoResumePositionMs}
           candidate={activeCandidate}
           fallbackDurationMs={fallbackDurationMs}
           onFailure={markCandidateFailed}
@@ -547,6 +599,11 @@ function MediaBrowserPlayer({
         <span>{adapter.label}</span>
         <span>{activeCandidate.supportsRangeRequests ? "range ready" : "playlist"}</span>
         <span>expires {ticket.expires_at}</span>
+        {autoResumePositionMs === null ? null : (
+          <Button onClick={startOver} size="sm" type="button" variant="outline">
+            Start over
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -591,6 +648,8 @@ type HlsJsConstructor = {
 function MediaVideoElement({
   adapter,
   attachHlsJs,
+  autoResumeKey,
+  autoResumePositionMs,
   candidate,
   fallbackDurationMs,
   onFailure,
@@ -604,6 +663,8 @@ function MediaVideoElement({
 }: {
   adapter: MediaPlaybackAdapter;
   attachHlsJs: boolean;
+  autoResumeKey: string;
+  autoResumePositionMs: number | null;
   candidate: MediaPlaybackCandidate;
   fallbackDurationMs: number | null;
   onFailure(): void;
@@ -616,10 +677,39 @@ function MediaVideoElement({
   videoRef: RefObject<HTMLVideoElement | null>;
 }) {
   const onFailureRef = useRef(onFailure);
+  const autoResumeAppliedKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     onFailureRef.current = onFailure;
   }, [onFailure]);
+
+  const applyAutoResume = useCallback(
+    (video: HTMLVideoElement) => {
+      if (
+        autoResumePositionMs === null ||
+        autoResumeAppliedKeyRef.current === autoResumeKey
+      ) {
+        return;
+      }
+
+      const durationMs = mediaSecondsToMs(video.duration) ?? fallbackDurationMs;
+      if (
+        durationMs &&
+        autoResumePositionMs >= Math.max(0, durationMs - MEDIA_AUTO_RESUME_END_MARGIN_MS)
+      ) {
+        autoResumeAppliedKeyRef.current = autoResumeKey;
+        return;
+      }
+
+      try {
+        video.currentTime = autoResumePositionMs / 1000;
+      } catch {
+        return;
+      }
+      autoResumeAppliedKeyRef.current = autoResumeKey;
+    },
+    [autoResumeKey, autoResumePositionMs, fallbackDurationMs],
+  );
 
   useEffect(() => {
     if (!attachHlsJs) {
@@ -659,6 +749,7 @@ function MediaVideoElement({
         onPlaybackPaused(mediaPlaybackProgressSnapshot(event.currentTarget, fallbackDurationMs))
       }
       onError={onFailure}
+      onLoadedMetadata={(event) => applyAutoResume(event.currentTarget)}
       onPlay={onPlaybackStarted}
       onPlaying={onPlaybackStarted}
       onTimeUpdate={(event) =>

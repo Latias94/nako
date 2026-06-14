@@ -322,6 +322,89 @@ describe("Media Web surface", () => {
     expect(container.textContent).not.toContain("Bearer");
   });
 
+  it("auto-resumes the browser player after metadata loads for the saved source", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/watch/item-episode-1?source_id=source-episode-1",
+    );
+    const dataSource = createFixtureMediaDataSource();
+    const updateUserPlaybackProgress = vi.fn(dataSource.updateUserPlaybackProgress);
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          updateUserPlaybackProgress,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    const player = await screen.findByLabelText("Pilot player");
+    setMediaTiming(player, 0, 1440);
+    fireEvent.loadedMetadata(player);
+
+    expect(player).toHaveProperty("currentTime", 547.2);
+    expect(updateUserPlaybackProgress).not.toHaveBeenCalled();
+
+    setMediaTiming(player, 12, 1440);
+    fireEvent.loadedMetadata(player);
+
+    expect(player).toHaveProperty("currentTime", 12);
+  });
+
+  it("does not auto-resume when the saved source differs from the selected source", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/watch/item-episode-1?source_id=source-episode-1-alt",
+    );
+
+    render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+      />,
+    );
+
+    const player = await screen.findByLabelText("Pilot player");
+    setMediaTiming(player, 0, 1440);
+    fireEvent.loadedMetadata(player);
+
+    expect(player).toHaveProperty("currentTime", 0);
+    expect(screen.getByText("38% complete - different saved source")).toBeInTheDocument();
+  });
+
+  it("lets the user start over before metadata auto-resume runs", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/watch/item-episode-1?source_id=source-episode-1",
+    );
+
+    render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+      />,
+    );
+
+    const player = await screen.findByLabelText("Pilot player");
+    setMediaTiming(player, 321, 1440);
+    fireEvent.click(screen.getByRole("button", { name: "Start over" }));
+    expect(player).toHaveProperty("currentTime", 0);
+
+    fireEvent.loadedMetadata(player);
+
+    expect(player).toHaveProperty("currentTime", 0);
+  });
+
   it("shows a safe ticket retry state without exposing ticket issuance internals", async () => {
     window.history.pushState(
       null,
@@ -807,6 +890,7 @@ function setMediaTiming(player: HTMLElement, currentTimeSeconds: number, duratio
   Object.defineProperty(player, "currentTime", {
     configurable: true,
     value: currentTimeSeconds,
+    writable: true,
   });
   Object.defineProperty(player, "duration", {
     configurable: true,
