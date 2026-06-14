@@ -2735,6 +2735,14 @@ describe("Admin Web V2 route shell", () => {
       "href",
       "/items/item-unknown-1/artwork?limit=20&offset=0",
     );
+    expect(screen.getByText("Source Duplicate Review")).toBeInTheDocument();
+    expect(
+      screen.getByText("Open the first source's duplicate suggestion review"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open Source Duplicate Review" })).toHaveAttribute(
+      "href",
+      "/items/item-unknown-1/sources/source-unknown-1/duplicates?library_id=library-anime&limit=20&offset=0",
+    );
     expect(
       screen.getByRole("link", { name: "Review duplicates for source-unknown-1" }),
     ).toHaveAttribute(
@@ -2762,6 +2770,12 @@ describe("Admin Web V2 route shell", () => {
     expect(screen.getByRole("link", { name: "打开 Artwork Gallery" })).toHaveAttribute(
       "href",
       "/items/item-unknown-1/artwork?limit=20&offset=0",
+    );
+    expect(screen.getByText("Source Duplicate 审核")).toBeInTheDocument();
+    expect(screen.getByText("打开第一个 source 的重复建议审核")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "打开 Source Duplicate 审核" })).toHaveAttribute(
+      "href",
+      "/items/item-unknown-1/sources/source-unknown-1/duplicates?library_id=library-anime&limit=20&offset=0",
     );
     expect(screen.getByRole("link", { name: "审查 source-unknown-1 的重复来源" })).toHaveAttribute(
       "href",
@@ -2831,6 +2845,11 @@ describe("Admin Web V2 route shell", () => {
 
     expect(await screen.findByRole("heading", { name: "Source duplicate reconciliation" })).toBeInTheDocument();
     expect(await screen.findByText("Plan summary")).toBeInTheDocument();
+    expect(screen.getByText("Review summary")).toBeInTheDocument();
+    expect(screen.getByText("2 candidates on this page")).toBeInTheDocument();
+    expect(screen.getByText("1 recommend suggest_relationship")).toBeInTheDocument();
+    expect(screen.getByText("1 preserved or read-only candidates")).toBeInTheDocument();
+    expect(screen.getByText("1 stale or refresh candidates")).toBeInTheDocument();
     expect(screen.getByText("source-unknown-2")).toBeInTheDocument();
     expect(screen.getByText("source-extra-3")).toBeInTheDocument();
     expect(screen.getByText("Live Admin API")).toBeInTheDocument();
@@ -2980,6 +2999,11 @@ describe("Admin Web V2 route shell", () => {
 
     expect(await screen.findByRole("heading", { name: "Source duplicate 调和" })).toBeInTheDocument();
     expect(await screen.findByText("计划摘要")).toBeInTheDocument();
+    expect(screen.getByText("审核摘要")).toBeInTheDocument();
+    expect(screen.getByText("当前页 2 个候选")).toBeInTheDocument();
+    expect(screen.getByText("1 个推荐 suggest_relationship")).toBeInTheDocument();
+    expect(screen.getByText("1 个保留或只读候选")).toBeInTheDocument();
+    expect(screen.getByText("1 个过期或刷新候选")).toBeInTheDocument();
     expect(screen.getByText("重复候选")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "准备建议" })).toBeInTheDocument();
     expect(screen.getByText("实时 Admin API")).toBeInTheDocument();

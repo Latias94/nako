@@ -216,6 +216,27 @@ export function ItemDetailPage({ dataSource, itemId }: ItemDetailPageProps) {
               </SupportLink>
               {firstSourceId ? (
                 <SupportLink
+                  label={t("itemDetail.support.sourceDuplicateReview")}
+                  value={t("itemDetail.support.sourceDuplicateReviewValue")}
+                >
+                  <Link
+                    aria-label={t("itemDetail.support.openSourceDuplicateReviewAria")}
+                    className="routeTextLink"
+                    params={{ itemId: detail.item.id, sourceId: firstSourceId }}
+                    search={{
+                      library_id: detail.sources[0]?.libraryId,
+                      limit: 20,
+                      offset: 0,
+                    }}
+                    to="/items/$itemId/sources/$sourceId/duplicates"
+                  >
+                    {t("itemDetail.support.open")}
+                    <ExternalLink size={14} />
+                  </Link>
+                </SupportLink>
+              ) : null}
+              {firstSourceId ? (
+                <SupportLink
                   label={t("itemDetail.support.playbackSupport")}
                   value={t("itemDetail.support.playbackSupportValue")}
                 >

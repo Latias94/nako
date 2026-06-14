@@ -25,6 +25,20 @@ export const enSourceDuplicateMessages = {
   "sourceDuplicate.summary.source": "Media Source",
   "sourceDuplicate.summary.fingerprintEvidence": "Fingerprint evidence",
   "sourceDuplicate.summary.confidence": "Confidence",
+  "sourceDuplicate.reviewSummary.title": "Review summary",
+  "sourceDuplicate.reviewSummary.description":
+    "{total} returned candidates on this page, summarized before row-level review.",
+  "sourceDuplicate.reviewSummary.total": "Returned candidates",
+  "sourceDuplicate.reviewSummary.totalValue": "{count} candidates on this page",
+  "sourceDuplicate.reviewSummary.actionable": "Actionable suggestions",
+  "sourceDuplicate.reviewSummary.actionableValue":
+    "{count} recommend suggest_relationship",
+  "sourceDuplicate.reviewSummary.preserved": "Preserved/read-only candidates",
+  "sourceDuplicate.reviewSummary.preservedValue":
+    "{count} preserved or read-only candidates",
+  "sourceDuplicate.reviewSummary.staleRefresh": "Stale/refresh candidates",
+  "sourceDuplicate.reviewSummary.staleRefreshValue":
+    "{count} stale or refresh candidates",
   "sourceDuplicate.candidates.title": "Duplicate candidates",
   "sourceDuplicate.candidates.description":
     "Candidates reduced to IDs, evidence class, confidence, stale state, relationship status, and recommended action.",
@@ -88,6 +102,18 @@ export const zhHansSourceDuplicateMessages = {
   "sourceDuplicate.summary.source": "Media Source",
   "sourceDuplicate.summary.fingerprintEvidence": "指纹证据",
   "sourceDuplicate.summary.confidence": "置信度",
+  "sourceDuplicate.reviewSummary.title": "审核摘要",
+  "sourceDuplicate.reviewSummary.description":
+    "当前页返回 {total} 个候选，先汇总再逐行审核。",
+  "sourceDuplicate.reviewSummary.total": "返回候选",
+  "sourceDuplicate.reviewSummary.totalValue": "当前页 {count} 个候选",
+  "sourceDuplicate.reviewSummary.actionable": "可操作建议",
+  "sourceDuplicate.reviewSummary.actionableValue":
+    "{count} 个推荐 suggest_relationship",
+  "sourceDuplicate.reviewSummary.preserved": "保留/只读候选",
+  "sourceDuplicate.reviewSummary.preservedValue": "{count} 个保留或只读候选",
+  "sourceDuplicate.reviewSummary.staleRefresh": "过期/刷新候选",
+  "sourceDuplicate.reviewSummary.staleRefreshValue": "{count} 个过期或刷新候选",
   "sourceDuplicate.candidates.title": "重复候选",
   "sourceDuplicate.candidates.description":
     "候选只缩减到 ID、证据类别、置信度、过期状态、关系状态和推荐动作。",

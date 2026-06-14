@@ -68,6 +68,9 @@ export const enItemDetailMessages = {
   "itemDetail.support.generatedArtifacts": "Generated Artifacts",
   "itemDetail.support.generatedArtifactsValue":
     "Review route-level automation proposals",
+  "itemDetail.support.sourceDuplicateReview": "Source Duplicate Review",
+  "itemDetail.support.sourceDuplicateReviewValue":
+    "Open the first source's duplicate suggestion review",
   "itemDetail.support.playbackSupport": "Playback Support Evidence",
   "itemDetail.support.playbackSupportValue":
     "Open redacted playback evidence for the selected source",
@@ -76,6 +79,8 @@ export const enItemDetailMessages = {
     "Open source-scoped diagnostics list",
   "itemDetail.support.open": "Open",
   "itemDetail.support.openArtworkGalleryAria": "Open Artwork Gallery",
+  "itemDetail.support.openSourceDuplicateReviewAria":
+    "Open Source Duplicate Review",
   "itemDetail.support.openPlaybackSupportAria":
     "Open Playback Support Evidence",
   "itemDetail.none": "none",
@@ -150,12 +155,16 @@ export const zhHansItemDetailMessages = {
     "审查 Managed Artwork 候选和 Selected Artwork",
   "itemDetail.support.generatedArtifacts": "Generated Artifacts",
   "itemDetail.support.generatedArtifactsValue": "审查路由级自动化 proposal",
+  "itemDetail.support.sourceDuplicateReview": "Source Duplicate 审核",
+  "itemDetail.support.sourceDuplicateReviewValue":
+    "打开第一个 source 的重复建议审核",
   "itemDetail.support.playbackSupport": "播放支持证据",
   "itemDetail.support.playbackSupportValue": "打开所选 source 的脱敏播放证据",
   "itemDetail.support.playbackSessions": "Playback Sessions",
   "itemDetail.support.playbackSessionsValue": "打开按 source 限定的诊断列表",
   "itemDetail.support.open": "打开",
   "itemDetail.support.openArtworkGalleryAria": "打开 Artwork Gallery",
+  "itemDetail.support.openSourceDuplicateReviewAria": "打开 Source Duplicate 审核",
   "itemDetail.support.openPlaybackSupportAria": "打开播放支持证据",
   "itemDetail.none": "无",
   "itemDetail.duration.unknown": "时长未知",

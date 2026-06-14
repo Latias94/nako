@@ -38,6 +38,11 @@ export type SourceDuplicateReconciliationPageProps = {
 
 type BadgeTone = "neutral" | "success" | "warning" | "danger" | "info";
 type Translate = (id: MessageId, values?: Record<string, number | string>) => string;
+type ReviewSummary = {
+  actionableSuggestions: number;
+  preservedOrReadOnlyCandidates: number;
+  staleOrRefreshCandidates: number;
+};
 
 export function SourceDuplicateReconciliationPage({
   dataAdapter,
@@ -79,6 +84,7 @@ export function SourceDuplicateReconciliationPage({
   const [applyResult, setApplyResult] =
     useState<AdminSourceDuplicateReconciliationApplyResponse | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
+  const reviewSummary = plan ? summarizeReview(plan.candidates) : null;
   const applyMutation = useMutation({
     mutationFn: async (duplicateSourceId: string) => {
       if (!libraryId) {
@@ -216,6 +222,42 @@ export function SourceDuplicateReconciliationPage({
               />
             </div>
           </DataPanel>
+
+          {reviewSummary ? (
+            <DataPanel
+              description={t("sourceDuplicate.reviewSummary.description", {
+                total: plan.page.returned,
+              })}
+              title={t("sourceDuplicate.reviewSummary.title")}
+            >
+              <div className="libraryFactList">
+                <Fact
+                  label={t("sourceDuplicate.reviewSummary.total")}
+                  value={t("sourceDuplicate.reviewSummary.totalValue", {
+                    count: plan.page.returned,
+                  })}
+                />
+                <Fact
+                  label={t("sourceDuplicate.reviewSummary.actionable")}
+                  value={t("sourceDuplicate.reviewSummary.actionableValue", {
+                    count: reviewSummary.actionableSuggestions,
+                  })}
+                />
+                <Fact
+                  label={t("sourceDuplicate.reviewSummary.preserved")}
+                  value={t("sourceDuplicate.reviewSummary.preservedValue", {
+                    count: reviewSummary.preservedOrReadOnlyCandidates,
+                  })}
+                />
+                <Fact
+                  label={t("sourceDuplicate.reviewSummary.staleRefresh")}
+                  value={t("sourceDuplicate.reviewSummary.staleRefreshValue", {
+                    count: reviewSummary.staleOrRefreshCandidates,
+                  })}
+                />
+              </div>
+            </DataPanel>
+          ) : null}
 
           <DataPanel
             description={t("sourceDuplicate.candidates.description")}
@@ -401,6 +443,34 @@ function confidenceLabel(value: number | null, t: Translate) {
 
 function evidenceKindLabel(value: AdminSourceDuplicateReconciliationCandidate["evidence_kind"]) {
   return typeof value === "string" ? value : value.other;
+}
+
+function summarizeReview(candidates: AdminSourceDuplicateReconciliationCandidate[]): ReviewSummary {
+  return candidates.reduce(
+    (summary, candidate) => {
+      if (candidate.recommended_action === "suggest_relationship") {
+        summary.actionableSuggestions += 1;
+      }
+
+      if (candidate.recommended_action !== "suggest_relationship") {
+        summary.preservedOrReadOnlyCandidates += 1;
+      }
+
+      if (
+        candidate.stale ||
+        candidate.recommended_action === "refresh_source_fingerprint"
+      ) {
+        summary.staleOrRefreshCandidates += 1;
+      }
+
+      return summary;
+    },
+    {
+      actionableSuggestions: 0,
+      preservedOrReadOnlyCandidates: 0,
+      staleOrRefreshCandidates: 0,
+    },
+  );
 }
 
 function numberInput(value: string): number | null {
