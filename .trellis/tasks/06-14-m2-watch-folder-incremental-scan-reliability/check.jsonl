@@ -1,0 +1,9 @@
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Review server app/runtime/control-plane boundary compliance."}
+{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Review Watch-Folder Runtime Productization contract compliance."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Review focused server test coverage and reliability validation gates."}
+{"file": ".trellis/spec/nako-library/backend/index.md", "reason": "Review library intake and scan boundary compliance."}
+{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "Review stable-candidate intake, scan admission, and diagnostic-rich skip behavior."}
+{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "Review redaction and StorageUri/VFS boundary compliance."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Review cross-layer consistency across server, library, VFS, and durable jobs."}
+{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "Review against current library pipeline architecture."}
+{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Review runtime supervision and durable job architecture alignment."}

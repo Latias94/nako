@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server app/runtime/control-plane boundaries for watch-folder runtime hardening."}
+{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Authoritative Watch-Folder Runtime Productization contract and placement guidance."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused server test requirements for runtime, readiness, durable jobs, and diagnostics."}
+{"file": ".trellis/spec/nako-library/backend/index.md", "reason": "Library scan, intake, ingestion, and probe boundary rules for incremental scan handoff."}
+{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "Stable-candidate intake and pure watch-folder scan admission requirements."}
+{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "StorageUri, redaction, local/remote VFS boundary expectations for watcher diagnostics."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Cross-layer guardrails for server/library/VFS/durable-job reliability work."}
+{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "Library scan and intake pipeline architecture for incremental watcher behavior."}
+{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Runtime supervision and durable job baseline, including ADR 0053 follow-through."}
+{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Storage/VFS constraints and M2 follow-on boundaries that must remain out of this slice."}

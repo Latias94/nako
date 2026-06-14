@@ -170,6 +170,99 @@ fn assert_staging_pressure_admission_error_is_redacted(error: &str, temp: &Path)
     assert!(!error.contains("token=secret"));
 }
 
+fn coverage_diagnostic_for(
+    report: &crate::app::WatchFolderRuntimeCoverageReport,
+    library_id: LibraryId,
+) -> &crate::app::WatchFolderRuntimeCoverageDiagnostic {
+    report
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.library_id == library_id)
+        .expect("expected watch-folder runtime coverage diagnostic")
+}
+
+fn coverage_status_for(
+    report: &crate::app::WatchFolderRuntimeCoverageReport,
+    library_id: LibraryId,
+) -> crate::app::WatchFolderRuntimeCoverageStatus {
+    coverage_diagnostic_for(report, library_id).status
+}
+
+fn coverage_root_ref_for(
+    report: &crate::app::WatchFolderRuntimeCoverageReport,
+    library_id: LibraryId,
+) -> &str {
+    coverage_diagnostic_for(report, library_id)
+        .root_ref_redacted
+        .as_str()
+}
+
+struct WatchFolderFailingDiscoveryBackend {
+    failure_uri: StorageUri,
+}
+
+#[async_trait]
+impl StorageBackend for WatchFolderFailingDiscoveryBackend {
+    fn scheme(&self) -> &'static str {
+        "local"
+    }
+
+    async fn stat(&self, uri: &StorageUri) -> Result<ObjectMetadata> {
+        if uri.as_str() == "local:///" {
+            return Ok(ObjectMetadata {
+                uri: uri.clone(),
+                kind: ObjectKind::Directory,
+                len: None,
+                modified_at: Some("1".to_owned()),
+                etag: None,
+                fingerprint: None,
+                capabilities: StorageCapabilities::WATCHABLE,
+                cache: None,
+            });
+        }
+
+        Err(NakoError::storage_io(
+            uri.to_string(),
+            "failed to inspect Secret Folder/Leaked Movie.mkv?token=secret",
+        ))
+    }
+
+    async fn list(&self, uri: &StorageUri) -> Result<Vec<ObjectMetadata>> {
+        if uri.as_str() != "local:///" {
+            return Err(NakoError::storage_io(
+                uri.to_string(),
+                "failed to list Secret Folder?token=secret",
+            ));
+        }
+
+        Ok(vec![ObjectMetadata {
+            uri: self.failure_uri.clone(),
+            kind: ObjectKind::File,
+            len: Some(42),
+            modified_at: Some("2".to_owned()),
+            etag: Some("private-etag".to_owned()),
+            fingerprint: Some("private-fingerprint".to_owned()),
+            capabilities: StorageCapabilities::WATCHABLE,
+            cache: None,
+        }])
+    }
+
+    async fn open_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<VirtualFile> {
+        let _ = (uri, range);
+        Err(NakoError::Unsupported("test backend does not open ranges"))
+    }
+
+    async fn read_to_string(&self, uri: &StorageUri) -> Result<String> {
+        let _ = uri;
+        Err(NakoError::Unsupported("test backend is read-only"))
+    }
+
+    async fn write_string(&self, uri: &StorageUri, content: &str) -> Result<()> {
+        let _ = (uri, content);
+        Err(NakoError::Unsupported("test backend is read-only"))
+    }
+}
+
 #[tokio::test]
 async fn app_runtime_resource_class_diagnostics_reflect_configured_budgets() {
     let temp = tempfile::tempdir().unwrap();
@@ -2793,6 +2886,138 @@ async fn watch_folder_runtime_task_is_supervised_and_stops_on_shutdown() {
 }
 
 #[tokio::test]
+async fn watch_folder_runtime_startup_coverage_reports_started_and_redacted_skips() {
+    let temp = tempfile::tempdir().unwrap();
+    let started_id = LibraryId::new();
+    let disabled_id = LibraryId::new();
+    let remote_id = LibraryId::new();
+    let missing_id = LibraryId::new();
+    let started_config = LocalLibraryConfig {
+        id: started_id,
+        name: "Started Movies".to_owned(),
+        root: temp.path().join("started"),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    let disabled_config = LocalLibraryConfig {
+        id: disabled_id,
+        name: "Disabled Movies".to_owned(),
+        root: temp.path().join("disabled"),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    let remote_config = LocalLibraryConfig {
+        id: remote_id,
+        name: "Remote Movies".to_owned(),
+        root: temp.path().join("unused-remote-local-root"),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: Some(WebDavLibraryConfig {
+            root: "webdav:///PrivateRemote".to_owned(),
+            base_url: "https://webdav.example.test/private".to_owned(),
+            username: None,
+            password_env: None,
+            timeout_ms: 15_000,
+            max_attempts: 4,
+        }),
+    };
+    for root in [
+        &started_config.root,
+        &disabled_config.root,
+        &remote_config.root,
+    ] {
+        fs::create_dir_all(root).unwrap();
+    }
+
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let mut enabled_options = LibraryOptions::from_preset(nako_core::LibraryPreset::Movies);
+    enabled_options.scan.realtime_monitor = true;
+    store
+        .upsert_library(&Library {
+            id: started_id,
+            name: started_config.name.clone(),
+            roots: vec!["local:///".to_owned()],
+            options: enabled_options.clone(),
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_library(&Library {
+            id: remote_id,
+            name: remote_config.name.clone(),
+            roots: vec!["webdav:///PrivateRemote".to_owned()],
+            options: enabled_options.clone(),
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_library(&Library {
+            id: missing_id,
+            name: "Missing Root Movies".to_owned(),
+            roots: vec!["not-a-storage-uri".to_owned()],
+            options: enabled_options,
+        })
+        .await
+        .unwrap();
+
+    let app = NakoApp::new_with_store(
+        startup_config(
+            temp.path(),
+            vec![started_config, disabled_config, remote_config],
+        ),
+        store,
+    )
+    .await
+    .unwrap();
+
+    let coverage = &app.startup_report().watch_folder_runtime_coverage;
+    assert_eq!(app.startup_report().watch_folder_runtimes_started, 1);
+    assert_eq!(coverage.started_libraries(), 1);
+    assert_eq!(coverage.skipped_libraries(), 3);
+    assert_eq!(coverage.realtime_enabled_libraries(), 3);
+    assert_eq!(coverage.diagnostics.len(), 4);
+    assert_eq!(
+        coverage_status_for(coverage, started_id),
+        crate::app::WatchFolderRuntimeCoverageStatus::Started
+    );
+    assert_eq!(
+        coverage_status_for(coverage, disabled_id),
+        crate::app::WatchFolderRuntimeCoverageStatus::Disabled
+    );
+    assert_eq!(
+        coverage_status_for(coverage, remote_id),
+        crate::app::WatchFolderRuntimeCoverageStatus::UnsupportedRoot
+    );
+    assert_eq!(
+        coverage_status_for(coverage, missing_id),
+        crate::app::WatchFolderRuntimeCoverageStatus::MissingRoot
+    );
+    assert_eq!(
+        coverage_root_ref_for(coverage, started_id),
+        "local://<redacted>"
+    );
+    assert_eq!(
+        coverage_root_ref_for(coverage, disabled_id),
+        "local://<redacted>"
+    );
+    assert_eq!(
+        coverage_root_ref_for(coverage, remote_id),
+        "webdav://<redacted>"
+    );
+    assert_eq!(coverage_root_ref_for(coverage, missing_id), "<redacted>");
+    assert_eq!(app.runtime_diagnostics().active_tasks, 1);
+
+    let body = format!("{coverage:?}");
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("PrivateRemote"));
+    assert!(!body.contains("token=secret"));
+    assert!(!body.contains("not-a-storage-uri"));
+
+    app.shutdown_runtime();
+    tokio::task::yield_now().await;
+}
+
+#[tokio::test]
 async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_observation() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
@@ -2882,6 +3107,82 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
         .filter(|job| job.kind == JobKind::LibraryScan)
         .count();
     assert_eq!(scan_jobs, 1);
+}
+
+#[tokio::test]
+async fn watch_folder_runtime_tick_reports_discovery_failures_and_uses_backoff_without_enqueue() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let library = LocalLibraryConfig {
+        id: library_id,
+        name: "Movies".to_owned(),
+        root: temp.path().join("movies"),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    fs::create_dir_all(&library.root).unwrap();
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let config = startup_config(temp.path(), vec![library.clone()]);
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+
+    let mut persisted = store.get_library(library_id).await.unwrap().unwrap();
+    persisted.options.scan.realtime_monitor = true;
+    store.upsert_library(&persisted).await.unwrap();
+    app.storage()
+        .replace_backend_for_test(
+            library,
+            Arc::new(WatchFolderFailingDiscoveryBackend {
+                failure_uri: StorageUri::from_parts("local", "Secret Folder/Leaked Movie.mkv")
+                    .unwrap(),
+            }),
+        )
+        .await;
+
+    let diagnostic = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert!(diagnostic.monitored);
+    assert_eq!(diagnostic.intake_plan.discover.failure_count, 1);
+    assert_eq!(diagnostic.intake_plan.summary.failure_count, 1);
+    assert_eq!(diagnostic.intake_plan.summary.newly_ready_candidates, 0);
+    assert_eq!(
+        diagnostic.intake_plan.enqueue.reason,
+        WatchFolderIntakeEnqueueReason::DiscoveryFailures
+    );
+    assert!(!diagnostic.intake_plan.summary.enqueue_scan);
+    assert_eq!(diagnostic.scan_job_id, None);
+    assert!(!diagnostic.reused_existing_scan);
+    assert!(diagnostic.backoff_required);
+    assert_eq!(diagnostic.discovery_failures.len(), 1);
+    assert_eq!(
+        diagnostic.discovery_failures[0].uri_redacted,
+        "local://<redacted>"
+    );
+    assert_eq!(
+        diagnostic.discovery_failures[0].safe_message,
+        "storage error: Io"
+    );
+    assert!(jobs.iter().all(|job| job.kind != JobKind::LibraryScan));
+    assert_eq!(
+        crate::app::watch_folder_runtime::watch_folder_runtime_delay_after_tick(&diagnostic),
+        Duration::from_millis(15_000)
+    );
+
+    let body = format!("{diagnostic:?}");
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("Secret Folder"));
+    assert!(!body.contains("Leaked Movie"));
+    assert!(!body.contains("local:///"));
+    assert!(!body.contains("token=secret"));
 }
 
 #[tokio::test]

@@ -553,6 +553,10 @@ runnable candidates to proceed.
 - Diagnostics may include library ID, job ID, counts, resource class, and
   redacted refs. They must not include raw local paths, Source Locators,
   fingerprints, etags, credentials, or backend URLs.
+- Runtime-loop `Err` logging must convert `NakoError` into a typed safe summary
+  before logging. Do not log `%err` directly from watcher ticks; storage and
+  provider errors can carry raw URIs, paths, backend URLs, credentials, or raw
+  provider text.
 
 ### 4. Validation & Error Matrix
 
@@ -569,6 +573,7 @@ runnable candidates to proceed.
 | Suppression TTL is zero, negative, or above the configured maximum | Begin request fails with `NakoError::InvalidInput`. |
 | Suppression completion uses `ReconcileScope` | Completion removes suppression and reports `reconciliation_requested = true`; the caller decides the supervised reconciliation handoff. |
 | Watch-folder discovery/storage error | Tick returns/logs a redaction-safe failure and backs off without bypassing supervision. |
+| Fatal runtime tick error returns `Err(NakoError)` | Runtime logs only a safe error class/summary and backs off; raw `NakoError` text is not emitted. |
 
 ### 5. Good / Base / Bad Cases
 
@@ -590,6 +595,8 @@ runnable candidates to proceed.
 - Bad: using a host path string, display name, Source Locator, etag,
   fingerprint, or raw error text as suppression owner/reason or Admin
   diagnostic output.
+- Bad: logging `Err(err)` from a watch-folder runtime tick with `error = %err`;
+  map it to a redaction-safe class/summary first.
 
 ### 6. Tests Required
 
@@ -613,6 +620,9 @@ runnable candidates to proceed.
   `StorageUri` scopes but not sibling prefixes.
 - App test: repeated runtime ticks over a suppressed media file do not enqueue a
   `JobKind::LibraryScan`.
+- Unit/app test: watch-folder runtime failure logging maps storage/provider
+  errors to redaction-safe summaries and does not expose raw URI, path,
+  credential, etag, fingerprint, or backend error text.
 - Cross-crate check: `cargo check -p nako-api -p nako-server --tests`.
 
 ### 7. Wrong vs Correct
@@ -638,7 +648,10 @@ runtime.spawn("watch_folder_runtime", "disk.scan.watch_folder", async move {
             info!(library_id = %library_id, "watch-folder runtime queued scan");
         }
         Ok(_) => {}
-        Err(err) => warn!(library_id = %library_id, error = %err, "watch-folder tick failed"),
+        Err(err) => {
+            let safe_error = watch_folder_runtime_safe_error_message(&err);
+            warn!(library_id = %library_id, error = %safe_error, "watch-folder tick failed");
+        }
     }
 });
 ```
@@ -646,6 +659,27 @@ runtime.spawn("watch_folder_runtime", "disk.scan.watch_folder", async move {
 The tick implementation owns the `enqueue_library_scan` call. The runtime loop
 keeps the watcher under supervision and lets the existing durable scan queue own
 scan execution.
+
+#### Wrong
+
+```rust
+Err(err) => warn!(library_id = %library_id, error = %err, "watch-folder tick failed"),
+```
+
+This can leak raw storage URIs, paths, backend URLs, credentials, or provider
+text carried by `NakoError`.
+
+#### Correct
+
+```rust
+Err(err) => {
+    let safe_error = watch_folder_runtime_safe_error_message(&err);
+    warn!(library_id = %library_id, error = %safe_error, "watch-folder tick failed");
+}
+```
+
+Runtime tick failure evidence stays useful while preserving the watch-folder
+redaction contract.
 
 #### Wrong
 

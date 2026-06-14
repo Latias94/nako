@@ -1,13 +1,16 @@
 use std::time::Duration;
 
-use nako_core::{JobId, Library, LibraryId, LibraryRepository, PageRequest, Result};
+use nako_core::{JobId, Library, LibraryId, LibraryRepository, NakoError, PageRequest, Result};
 use nako_db::NakoDatabase;
 use nako_library::{WatchFolderIntakePlan, WatchFolderIntakePlanInput, plan_watch_folder_intake};
 use nako_vfs::StorageUri;
 use tracing::{info, warn};
 
 use super::{
-    acquisition_intake::{AcquisitionIntakeAppService, DiscoverWatchFolderCandidatesRequest},
+    acquisition_intake::{
+        AcquisitionIntakeAppService, DiscoverWatchFolderCandidatesRequest,
+        WatchFolderDiscoveryFailureDiagnostic,
+    },
     jobs::LibraryScanAppService,
     runtime::RuntimeSupervisor,
 };
@@ -27,8 +30,16 @@ pub(crate) struct WatchFolderRuntimeTickDiagnostic {
     pub(crate) library_id: LibraryId,
     pub(crate) monitored: bool,
     pub(crate) intake_plan: WatchFolderIntakePlan,
+    pub(crate) discovery_failures: Vec<WatchFolderRuntimeFailureDiagnostic>,
     pub(crate) scan_job_id: Option<JobId>,
     pub(crate) reused_existing_scan: bool,
+    pub(crate) backoff_required: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct WatchFolderRuntimeFailureDiagnostic {
+    pub(crate) uri_redacted: String,
+    pub(crate) safe_message: String,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -120,12 +131,20 @@ impl WatchFolderRuntimeAppService {
                                     "watch-folder runtime admitted library scan from stable candidates"
                                 );
                                 }
-                                Duration::from_millis(WATCH_FOLDER_RUNTIME_INTERVAL_MS)
+                                if diagnostic.backoff_required {
+                                    warn!(
+                                        library_id = %diagnostic.library_id,
+                                        failure_count = diagnostic.discovery_failures.len(),
+                                        "watch-folder runtime tick observed discovery failures"
+                                    );
+                                }
+                                watch_folder_runtime_delay_after_tick(&diagnostic)
                             }
                             Err(err) => {
+                                let safe_error = watch_folder_runtime_safe_error_message(&err);
                                 warn!(
                                     library_id = %library_id,
-                                    error = %err,
+                                    error = %safe_error,
                                     "watch-folder runtime tick failed"
                                 );
                                 Duration::from_millis(WATCH_FOLDER_RUNTIME_ERROR_BACKOFF_MS)
@@ -180,6 +199,12 @@ impl WatchFolderRuntimeAppService {
             active_suppressions: discovery.active_suppressions.len() as u64,
             failure_count: discovery.failures.len() as u64,
         });
+        let discovery_failures = discovery
+            .failures
+            .into_iter()
+            .map(WatchFolderRuntimeFailureDiagnostic::from)
+            .collect::<Vec<_>>();
+        let backoff_required = !discovery_failures.is_empty();
         let (scan_job_id, reused_existing_scan) = if intake_plan.summary.enqueue_scan {
             let outcome = self
                 .library_scan
@@ -194,8 +219,10 @@ impl WatchFolderRuntimeAppService {
             library_id,
             monitored: true,
             intake_plan,
+            discovery_failures,
             scan_job_id,
             reused_existing_scan,
+            backoff_required,
         })
     }
 
@@ -224,9 +251,30 @@ impl WatchFolderRuntimeTickDiagnostic {
             library_id,
             monitored: false,
             intake_plan: WatchFolderIntakePlan::idle(),
+            discovery_failures: Vec::new(),
             scan_job_id: None,
             reused_existing_scan: false,
+            backoff_required: false,
         }
+    }
+}
+
+impl From<WatchFolderDiscoveryFailureDiagnostic> for WatchFolderRuntimeFailureDiagnostic {
+    fn from(value: WatchFolderDiscoveryFailureDiagnostic) -> Self {
+        Self {
+            uri_redacted: value.uri_redacted,
+            safe_message: value.safe_message,
+        }
+    }
+}
+
+pub(super) fn watch_folder_runtime_delay_after_tick(
+    diagnostic: &WatchFolderRuntimeTickDiagnostic,
+) -> Duration {
+    if diagnostic.backoff_required {
+        Duration::from_millis(WATCH_FOLDER_RUNTIME_ERROR_BACKOFF_MS)
+    } else {
+        Duration::from_millis(WATCH_FOLDER_RUNTIME_INTERVAL_MS)
     }
 }
 
@@ -296,6 +344,20 @@ fn redact_storage_scheme(scheme: &str) -> String {
     format!("{scheme}://<redacted>")
 }
 
+fn watch_folder_runtime_safe_error_message(err: &NakoError) -> String {
+    match err {
+        NakoError::NotFound { entity, .. } => format!("{entity} was not found"),
+        NakoError::InvalidInput { .. } => "invalid watch-folder runtime input".to_owned(),
+        NakoError::Conflict { .. } => "watch-folder runtime conflict".to_owned(),
+        NakoError::Unauthorized { .. } => "watch-folder runtime access is unauthorized".to_owned(),
+        NakoError::Forbidden { .. } => "watch-folder runtime access is forbidden".to_owned(),
+        NakoError::Unsupported(_) => "watch-folder runtime operation is unsupported".to_owned(),
+        NakoError::Provider { .. } => "provider error".to_owned(),
+        NakoError::Storage { kind, .. } => format!("storage error: {kind:?}"),
+        NakoError::Database { .. } => "database error".to_owned(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use nako_core::{LibraryOptions, LibraryPreset};
@@ -336,6 +398,23 @@ mod tests {
             !format!("{diagnostics:?}").contains("local:///Movies"),
             "coverage diagnostics must not leak raw roots"
         );
+    }
+
+    #[test]
+    fn watch_folder_runtime_safe_error_message_redacts_storage_details() {
+        let error = NakoError::storage_io(
+            "local:///Secret Folder/Leaked Movie.mkv?token=secret",
+            "failed to inspect C:\\Secret Folder\\Leaked Movie.mkv?token=secret",
+        );
+
+        let safe = watch_folder_runtime_safe_error_message(&error);
+
+        assert_eq!(safe, "storage error: Io");
+        assert!(!safe.contains("Secret Folder"));
+        assert!(!safe.contains("Leaked Movie"));
+        assert!(!safe.contains("local:///"));
+        assert!(!safe.contains("token=secret"));
+        assert!(!safe.contains("C:\\"));
     }
 
     fn library(name: &str, roots: Vec<&str>, realtime_monitor: bool) -> Library {
