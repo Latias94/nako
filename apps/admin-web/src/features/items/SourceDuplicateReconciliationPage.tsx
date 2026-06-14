@@ -10,7 +10,9 @@ import {
 import type {
   AdminSourceDuplicateReconciliationApplyExpectedAction,
   AdminSourceDuplicateReconciliationApplyResponse,
+  AdminSourceDuplicateReconciliationAction,
   AdminSourceDuplicateReconciliationCandidate,
+  AdminSourceDuplicateRelationshipStatus,
 } from "../../adminApi/types";
 import { SourceLabel } from "../../components/SourceLabel";
 import { EmptyRouteState, RouteNotice, RoutePage } from "../../components/layout/RoutePage";
@@ -24,10 +26,24 @@ import type { MessageId } from "../../i18n/messages";
 import type { SourceDuplicateReconciliationDataAdapter } from "./sourceDuplicateReconciliationData";
 
 export type SourceDuplicateReconciliationSearch = {
+  action?: SourceDuplicateReconciliationActionFilter;
+  freshness?: SourceDuplicateReconciliationFreshnessFilter;
   library_id?: string;
   limit: number;
   offset: number;
+  status?: SourceDuplicateReconciliationStatusFilter;
 };
+
+export type SourceDuplicateReconciliationStatusFilter =
+  | "confirmed"
+  | "none"
+  | "rejected"
+  | "suggested";
+
+export type SourceDuplicateReconciliationActionFilter =
+  AdminSourceDuplicateReconciliationAction;
+
+export type SourceDuplicateReconciliationFreshnessFilter = "current" | "stale";
 
 export type SourceDuplicateReconciliationPageProps = {
   dataAdapter: SourceDuplicateReconciliationDataAdapter;
@@ -48,6 +64,42 @@ type PendingReviewAction = {
   duplicateSourceId: string;
   expectedAction: AdminSourceDuplicateReconciliationApplyExpectedAction;
 };
+type QuickFilter = {
+  action?: SourceDuplicateReconciliationActionFilter;
+  freshness?: SourceDuplicateReconciliationFreshnessFilter;
+  id: MessageId;
+  status?: SourceDuplicateReconciliationStatusFilter;
+};
+
+const quickFilters = [
+  {
+    id: "sourceDuplicate.quick.pendingSuggestion",
+    status: "none",
+    action: "suggest_relationship",
+    freshness: "current",
+  },
+  {
+    id: "sourceDuplicate.quick.suggestedReview",
+    status: "suggested",
+    freshness: "current",
+  },
+  {
+    id: "sourceDuplicate.quick.confirmed",
+    status: "confirmed",
+  },
+  {
+    id: "sourceDuplicate.quick.rejected",
+    status: "rejected",
+  },
+  {
+    id: "sourceDuplicate.quick.refreshNeeded",
+    action: "refresh_source_fingerprint",
+  },
+  {
+    id: "sourceDuplicate.quick.stale",
+    freshness: "stale",
+  },
+] satisfies QuickFilter[];
 
 export function SourceDuplicateReconciliationPage({
   dataAdapter,
@@ -90,7 +142,14 @@ export function SourceDuplicateReconciliationPage({
   const [applyResult, setApplyResult] =
     useState<AdminSourceDuplicateReconciliationApplyResponse | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
-  const reviewSummary = plan ? summarizeReview(plan.candidates) : null;
+  const filteredCandidates = plan
+    ? filterCandidates(plan.candidates, search)
+    : [];
+  const reviewSummary = plan ? summarizeReview(filteredCandidates) : null;
+  const activeRelationshipFilterCount =
+    (search.status ? 1 : 0) +
+    (search.action ? 1 : 0) +
+    (search.freshness ? 1 : 0);
   const applyMutation = useMutation({
     mutationFn: async (action: PendingReviewAction) => {
       if (!libraryId) {
@@ -125,7 +184,15 @@ export function SourceDuplicateReconciliationPage({
     setApplyResult(null);
     setApplyError(null);
     applyMutation.reset();
-  }, [libraryId, sourceId, search.limit, search.offset]);
+  }, [
+    libraryId,
+    sourceId,
+    search.action,
+    search.freshness,
+    search.limit,
+    search.offset,
+    search.status,
+  ]);
 
   return (
     <RoutePage
@@ -159,6 +226,59 @@ export function SourceDuplicateReconciliationPage({
       ) : null}
 
       <FilterBar label={t("sourceDuplicate.pagination")}>
+        <FilterField label={t("sourceDuplicate.filter.status")}>
+          <select
+            aria-label={t("sourceDuplicate.filter.statusAria")}
+            onChange={(event) =>
+              onSearchChange({
+                status: statusFilterInput(event.target.value),
+                offset: 0,
+              })
+            }
+            value={search.status ?? ""}
+          >
+            <option value="">{t("sourceDuplicate.filter.anyStatus")}</option>
+            <option value="none">{t("sourceDuplicate.status.none")}</option>
+            <option value="suggested">{t("sourceDuplicate.status.suggested")}</option>
+            <option value="confirmed">{t("sourceDuplicate.status.confirmed")}</option>
+            <option value="rejected">{t("sourceDuplicate.status.rejected")}</option>
+          </select>
+        </FilterField>
+        <FilterField label={t("sourceDuplicate.filter.action")}>
+          <select
+            aria-label={t("sourceDuplicate.filter.actionAria")}
+            onChange={(event) =>
+              onSearchChange({
+                action: actionFilterInput(event.target.value),
+                offset: 0,
+              })
+            }
+            value={search.action ?? ""}
+          >
+            <option value="">{t("sourceDuplicate.filter.anyAction")}</option>
+            <option value="suggest_relationship">suggest_relationship</option>
+            <option value="preserve_suggested">preserve_suggested</option>
+            <option value="preserve_confirmed">preserve_confirmed</option>
+            <option value="preserve_rejected">preserve_rejected</option>
+            <option value="refresh_source_fingerprint">refresh_source_fingerprint</option>
+          </select>
+        </FilterField>
+        <FilterField label={t("sourceDuplicate.filter.freshness")}>
+          <select
+            aria-label={t("sourceDuplicate.filter.freshnessAria")}
+            onChange={(event) =>
+              onSearchChange({
+                freshness: freshnessFilterInput(event.target.value),
+                offset: 0,
+              })
+            }
+            value={search.freshness ?? ""}
+          >
+            <option value="">{t("sourceDuplicate.filter.anyFreshness")}</option>
+            <option value="current">{t("sourceDuplicate.current")}</option>
+            <option value="stale">{t("sourceDuplicate.stale")}</option>
+          </select>
+        </FilterField>
         <FilterField label={t("sourceDuplicate.limit")}>
           <input
             aria-label={t("sourceDuplicate.limitAria")}
@@ -182,17 +302,51 @@ export function SourceDuplicateReconciliationPage({
           />
         </FilterField>
         <FilterActions>
+          {quickFilters.map((filter) => {
+            const active = quickFilterActive(search, filter);
+            return (
+              <Button
+                aria-pressed={active}
+                key={filter.id}
+                onClick={() =>
+                  onSearchChange({
+                    status: filter.status,
+                    action: filter.action,
+                    freshness: filter.freshness,
+                    offset: 0,
+                  })
+                }
+                size="sm"
+                variant={active ? "default" : "outline"}
+              >
+                {t(filter.id)}
+              </Button>
+            );
+          })}
+          <Badge tone={activeRelationshipFilterCount > 0 ? "info" : "neutral"}>
+            {t("sourceDuplicate.filter.active", {
+              count: activeRelationshipFilterCount,
+            })}
+          </Badge>
           <Badge tone="info">{t("sourceDuplicate.redactedPlan")}</Badge>
           <Badge tone={plan?.stale ? "warning" : "success"}>
             {plan?.stale ? t("sourceDuplicate.stale") : t("sourceDuplicate.current")}
           </Badge>
           <Button
-            disabled={!hasPaginationDelta}
-            onClick={() => onSearchChange({ limit: 20, offset: 0 })}
+            disabled={!hasPaginationDelta && activeRelationshipFilterCount === 0}
+            onClick={() =>
+              onSearchChange({
+                status: undefined,
+                action: undefined,
+                freshness: undefined,
+                limit: 20,
+                offset: 0,
+              })
+            }
             variant="ghost"
           >
             <X size={16} />
-            {t("sourceDuplicate.reset")}
+            {t("sourceDuplicate.clear")}
           </Button>
         </FilterActions>
       </FilterBar>
@@ -237,6 +391,7 @@ export function SourceDuplicateReconciliationPage({
           {reviewSummary ? (
             <DataPanel
               description={t("sourceDuplicate.reviewSummary.description", {
+                filtered: filteredCandidates.length,
                 total: plan.page.returned,
               })}
               title={t("sourceDuplicate.reviewSummary.title")}
@@ -244,8 +399,9 @@ export function SourceDuplicateReconciliationPage({
               <div className="libraryFactList">
                 <Fact
                   label={t("sourceDuplicate.reviewSummary.total")}
-                  value={t("sourceDuplicate.reviewSummary.totalValue", {
-                    count: plan.page.returned,
+                  value={t("sourceDuplicate.reviewSummary.filteredValue", {
+                    filtered: filteredCandidates.length,
+                    total: plan.page.returned,
                   })}
                 />
                 <Fact
@@ -274,11 +430,11 @@ export function SourceDuplicateReconciliationPage({
             description={t("sourceDuplicate.candidates.description")}
             title={t("sourceDuplicate.candidates.title")}
           >
-            {plan.candidates.length === 0 ? (
+            {filteredCandidates.length === 0 ? (
               <EmptyRouteState>{t("sourceDuplicate.candidates.empty")}</EmptyRouteState>
             ) : (
               <div className="librarySourceSamples">
-                {plan.candidates.map((candidate) => (
+                {filteredCandidates.map((candidate) => (
                   <CandidateRow
                     applyMutationPending={applyMutation.isPending}
                     canApply={canApplyReviewAction}
@@ -363,12 +519,15 @@ function CandidateRow({
         <span>
           {t("sourceDuplicate.candidates.relationship", {
             relationship: candidate.relationship_id ?? t("sourceDuplicate.none"),
-            status: candidate.existing_status ?? t("sourceDuplicate.none"),
+            status: relationshipStatusLabel(candidate.existing_status, t),
           })}
         </span>
       </div>
       <div className="routeActionGroup">
         <div className="issueBadgeList">
+          <Badge tone={relationshipStatusTone(candidate.existing_status)}>
+            {relationshipStatusLabel(candidate.existing_status, t)}
+          </Badge>
           <Badge tone={actionTone(candidate.recommended_action)}>
             {candidate.recommended_action}
           </Badge>
@@ -508,6 +667,37 @@ function actionTone(action: string): BadgeTone {
   return "info";
 }
 
+function relationshipStatusTone(
+  status: AdminSourceDuplicateRelationshipStatus | null,
+): BadgeTone {
+  switch (status) {
+    case "confirmed":
+      return "success";
+    case "rejected":
+      return "danger";
+    case "suggested":
+      return "warning";
+    case null:
+      return "neutral";
+  }
+}
+
+function relationshipStatusLabel(
+  status: AdminSourceDuplicateRelationshipStatus | null,
+  t: Translate,
+) {
+  switch (status) {
+    case "confirmed":
+      return t("sourceDuplicate.status.confirmed");
+    case "rejected":
+      return t("sourceDuplicate.status.rejected");
+    case "suggested":
+      return t("sourceDuplicate.status.suggested");
+    case null:
+      return t("sourceDuplicate.status.none");
+  }
+}
+
 function confidenceLabel(value: number | null, t: Translate) {
   return value === null
     ? t("sourceDuplicate.confidence.unknown")
@@ -544,6 +734,74 @@ function summarizeReview(candidates: AdminSourceDuplicateReconciliationCandidate
       staleOrRefreshCandidates: 0,
     },
   );
+}
+
+function filterCandidates(
+  candidates: AdminSourceDuplicateReconciliationCandidate[],
+  search: SourceDuplicateReconciliationSearch,
+) {
+  return candidates.filter((candidate) => {
+    if (search.status) {
+      const status = candidate.existing_status ?? "none";
+      if (status !== search.status) {
+        return false;
+      }
+    }
+
+    if (search.action && candidate.recommended_action !== search.action) {
+      return false;
+    }
+
+    if (search.freshness === "current" && candidate.stale) {
+      return false;
+    }
+
+    if (search.freshness === "stale" && !candidate.stale) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+function quickFilterActive(
+  search: SourceDuplicateReconciliationSearch,
+  filter: QuickFilter,
+) {
+  return (
+    search.status === filter.status &&
+    search.action === filter.action &&
+    search.freshness === filter.freshness
+  );
+}
+
+function statusFilterInput(
+  value: string,
+): SourceDuplicateReconciliationStatusFilter | undefined {
+  return value === "none" ||
+    value === "suggested" ||
+    value === "confirmed" ||
+    value === "rejected"
+    ? value
+    : undefined;
+}
+
+function actionFilterInput(
+  value: string,
+): SourceDuplicateReconciliationActionFilter | undefined {
+  return value === "suggest_relationship" ||
+    value === "preserve_suggested" ||
+    value === "preserve_confirmed" ||
+    value === "preserve_rejected" ||
+    value === "refresh_source_fingerprint"
+    ? value
+    : undefined;
+}
+
+function freshnessFilterInput(
+  value: string,
+): SourceDuplicateReconciliationFreshnessFilter | undefined {
+  return value === "current" || value === "stale" ? value : undefined;
 }
 
 function numberInput(value: string): number | null {

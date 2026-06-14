@@ -1262,9 +1262,12 @@ function validateSourceDuplicateReconciliationSearch(
   search: Record<string, unknown>,
 ): SourceDuplicateReconciliationSearch {
   return normalizeSourceDuplicateReconciliationSearch({
+    action: sourceDuplicateActionFilterSearch(search.action),
+    freshness: sourceDuplicateFreshnessFilterSearch(search.freshness),
     library_id: stringSearch(search.library_id),
     limit: positiveIntSearch(search.limit, 20),
     offset: nonNegativeIntSearch(search.offset, 0),
+    status: sourceDuplicateStatusFilterSearch(search.status),
   });
 }
 
@@ -1272,9 +1275,12 @@ function normalizeSourceDuplicateReconciliationSearch(
   search: Partial<SourceDuplicateReconciliationSearch>,
 ): SourceDuplicateReconciliationSearch {
   return {
+    action: sourceDuplicateActionFilterSearch(search.action),
+    freshness: sourceDuplicateFreshnessFilterSearch(search.freshness),
     library_id: emptyToUndefined(search.library_id),
     limit: positiveIntSearch(search.limit, 20),
     offset: nonNegativeIntSearch(search.offset, 0),
+    status: sourceDuplicateStatusFilterSearch(search.status),
   };
 }
 
@@ -1370,6 +1376,47 @@ function booleanSearch(value: unknown) {
 
 function addonStatusSearch(value: unknown): AddonStatus | undefined {
   if (value === "enabled" || value === "disabled" || value === "unregistered") {
+    return value;
+  }
+
+  return undefined;
+}
+
+function sourceDuplicateStatusFilterSearch(
+  value: unknown,
+): SourceDuplicateReconciliationSearch["status"] {
+  if (
+    value === "none" ||
+    value === "suggested" ||
+    value === "confirmed" ||
+    value === "rejected"
+  ) {
+    return value;
+  }
+
+  return undefined;
+}
+
+function sourceDuplicateActionFilterSearch(
+  value: unknown,
+): SourceDuplicateReconciliationSearch["action"] {
+  if (
+    value === "suggest_relationship" ||
+    value === "preserve_suggested" ||
+    value === "preserve_confirmed" ||
+    value === "preserve_rejected" ||
+    value === "refresh_source_fingerprint"
+  ) {
+    return value;
+  }
+
+  return undefined;
+}
+
+function sourceDuplicateFreshnessFilterSearch(
+  value: unknown,
+): SourceDuplicateReconciliationSearch["freshness"] {
+  if (value === "current" || value === "stale") {
     return value;
   }
 

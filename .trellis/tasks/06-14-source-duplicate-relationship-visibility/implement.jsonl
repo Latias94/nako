@@ -1,0 +1,5 @@
+{"file":".trellis/spec/admin-web/frontend/index.md","reason":"Admin Web frontend index and required route/filter/test guidance for this task."}
+{"file":".trellis/spec/admin-web/frontend/routes-forms-and-tests.md","reason":"Route-owned search params, FilterBar usage, live-only mutation, feature adapter, bundle splitting, and test expectations."}
+{"file":".trellis/spec/guides/index.md","reason":"Shared Trellis thinking guide index required before implementation."}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Check for existing filter and helper patterns before adding route-local filter constants."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Confirm this MVP remains frontend-only and does not leak filter semantics into backend/API layers."}

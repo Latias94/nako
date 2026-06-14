@@ -2846,7 +2846,7 @@ describe("Admin Web V2 route shell", () => {
     expect(await screen.findByRole("heading", { name: "Source duplicate reconciliation" })).toBeInTheDocument();
     expect(await screen.findByText("Plan summary")).toBeInTheDocument();
     expect(screen.getByText("Review summary")).toBeInTheDocument();
-    expect(screen.getByText("2 candidates on this page")).toBeInTheDocument();
+    expect(screen.getByText("2/2 candidates shown")).toBeInTheDocument();
     expect(screen.getByText("1 recommend suggest_relationship")).toBeInTheDocument();
     expect(screen.getByText("1 preserved or read-only candidates")).toBeInTheDocument();
     expect(screen.getByText("0 stale or refresh candidates")).toBeInTheDocument();
@@ -2862,6 +2862,117 @@ describe("Admin Web V2 route shell", () => {
       "source-unknown-1",
       { limit: 5, offset: 10 },
     );
+  });
+
+  it("filters source duplicate candidates from URL search without passing filters into plan calls", async () => {
+    const loadSourceDuplicateReconciliationPlan = vi.fn(
+      async (
+        libraryId: string,
+        sourceId: string,
+        query?: { limit?: number; offset?: number },
+      ) => ({
+        value: reviewedSourceDuplicatePlan(libraryId, sourceId),
+        source: "live" as const,
+        query,
+      }),
+    );
+    window.history.pushState(
+      null,
+      "",
+      "/items/item-unknown-1/sources/source-unknown-1/duplicates?library_id=library-anime&limit=5&offset=10&status=confirmed&action=preserve_confirmed&freshness=current",
+    );
+
+    render(
+      <App
+        dataSource={{
+          load: async () => emptyConsoleData(),
+          loadSourceDuplicateReconciliationPlan,
+        }}
+      />,
+    );
+
+    expect(await screen.findByText("source-confirmed-4")).toBeInTheDocument();
+    expect(screen.queryByText("source-unknown-2")).not.toBeInTheDocument();
+    expect(screen.queryByText("source-extra-3")).not.toBeInTheDocument();
+    expect(screen.queryByText("source-rejected-5")).not.toBeInTheDocument();
+    expect(screen.queryByText("source-stale-refresh")).not.toBeInTheDocument();
+    expect(screen.getByText("1/5 candidates shown")).toBeInTheDocument();
+    expect(screen.getByText("0 recommend suggest_relationship")).toBeInTheDocument();
+    expect(screen.getByText("1 preserved or read-only candidates")).toBeInTheDocument();
+    expect(screen.getByText("0 stale or refresh candidates")).toBeInTheDocument();
+    expect(screen.getByLabelText("Source duplicate relationship status filter")).toHaveValue(
+      "confirmed",
+    );
+    expect(screen.getByLabelText("Source duplicate recommended action filter")).toHaveValue(
+      "preserve_confirmed",
+    );
+    expect(screen.getByLabelText("Source duplicate freshness filter")).toHaveValue(
+      "current",
+    );
+    expect(loadSourceDuplicateReconciliationPlan).toHaveBeenCalledWith(
+      "library-anime",
+      "source-unknown-1",
+      { limit: 5, offset: 10 },
+    );
+  });
+
+  it("applies and clears source duplicate quick filters", async () => {
+    const loadSourceDuplicateReconciliationPlan = vi.fn(
+      async (libraryId: string, sourceId: string) => ({
+        value: reviewedSourceDuplicatePlan(libraryId, sourceId),
+        source: "live" as const,
+      }),
+    );
+    window.history.pushState(
+      null,
+      "",
+      "/items/item-unknown-1/sources/source-unknown-1/duplicates?library_id=library-anime",
+    );
+
+    render(
+      <App
+        dataSource={{
+          load: async () => emptyConsoleData(),
+          loadSourceDuplicateReconciliationPlan,
+        }}
+      />,
+    );
+
+    expect(await screen.findByText("source-confirmed-4")).toBeInTheDocument();
+    const rejectedButton = screen.getByRole("button", { name: "Rejected" });
+    fireEvent.click(rejectedButton);
+
+    await waitFor(() => {
+      expect(window.location.search).toContain("status=rejected");
+      expect(screen.getByRole("button", { name: "Rejected" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+    });
+    expect(screen.getByText("source-rejected-5")).toBeInTheDocument();
+    expect(screen.queryByText("source-confirmed-4")).not.toBeInTheDocument();
+    expect(screen.getByText("1/5 candidates shown")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+
+    await waitFor(() => {
+      expect(window.location.search).not.toContain("status=rejected");
+      expect(screen.getByText("source-confirmed-4")).toBeInTheDocument();
+      expect(screen.getByText("source-stale-refresh")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Pending Suggestion" }));
+
+    await waitFor(() => {
+      expect(window.location.search).toContain("status=none");
+      expect(window.location.search).toContain("action=suggest_relationship");
+      expect(window.location.search).toContain("freshness=current");
+      expect(
+        screen.getByRole("button", { name: "Pending Suggestion" }),
+      ).toHaveAttribute("aria-pressed", "true");
+    });
+    expect(screen.getByText("source-unknown-2")).toBeInTheDocument();
+    expect(screen.queryByText("source-stale-refresh")).not.toBeInTheDocument();
   });
 
   it("applies source duplicate suggestions only after explicit confirmation", async () => {
@@ -3081,11 +3192,14 @@ describe("Admin Web V2 route shell", () => {
     expect(await screen.findByRole("heading", { name: "Source duplicate 调和" })).toBeInTheDocument();
     expect(await screen.findByText("计划摘要")).toBeInTheDocument();
     expect(screen.getByText("审核摘要")).toBeInTheDocument();
-    expect(screen.getByText("当前页 2 个候选")).toBeInTheDocument();
+    expect(screen.getByText("显示 2/2 个候选")).toBeInTheDocument();
     expect(screen.getByText("1 个推荐 suggest_relationship")).toBeInTheDocument();
     expect(screen.getByText("1 个保留或只读候选")).toBeInTheDocument();
     expect(screen.getByText("0 个过期或刷新候选")).toBeInTheDocument();
     expect(screen.getByText("重复候选")).toBeInTheDocument();
+    expect(screen.getByLabelText("Source duplicate 关系状态过滤器")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "待建议" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "需要刷新" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "准备建议" })).toBeInTheDocument();
     expect(screen.getByText("实时 Admin API")).toBeInTheDocument();
   });
@@ -5306,6 +5420,54 @@ function itemArtworkGalleryDataSource(
         value: summary,
         source: "live",
       };
+    },
+  };
+}
+
+function reviewedSourceDuplicatePlan(
+  libraryId = "library-anime",
+  sourceId = "source-unknown-1",
+): AdminSourceDuplicateReconciliationPlanResponse {
+  const basePlan = mockSourceDuplicateReconciliationPlan(libraryId, sourceId);
+
+  return {
+    ...basePlan,
+    candidates: [
+      ...basePlan.candidates,
+      {
+        source_id: sourceId,
+        duplicate_source_id: "source-confirmed-4",
+        evidence_kind: "strong_fingerprint",
+        confidence_milli: 940,
+        stale: false,
+        relationship_id: "source-dup-confirmed",
+        existing_status: "confirmed",
+        recommended_action: "preserve_confirmed",
+      },
+      {
+        source_id: sourceId,
+        duplicate_source_id: "source-rejected-5",
+        evidence_kind: "path_evidence",
+        confidence_milli: 610,
+        stale: false,
+        relationship_id: "source-dup-rejected",
+        existing_status: "rejected",
+        recommended_action: "preserve_rejected",
+      },
+      {
+        source_id: sourceId,
+        duplicate_source_id: "source-stale-refresh",
+        evidence_kind: "strong_fingerprint",
+        confidence_milli: 990,
+        stale: true,
+        relationship_id: null,
+        existing_status: null,
+        recommended_action: "refresh_source_fingerprint",
+      },
+    ],
+    page: {
+      ...basePlan.page,
+      returned: 5,
     },
   };
 }
