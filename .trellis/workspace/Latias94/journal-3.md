@@ -974,3 +974,38 @@ Added a generated official Addon catalog artifact, linked docs, and recorded the
 ### Next Steps
 
 - None - task complete
+
+
+## Session 122: Nako server control-plane seam deepening
+
+**Date**: 2026-06-14
+**Task**: Nako server control-plane seam deepening
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Deepened the nako-server startup/composition/runtime seam by extracting a named startup workflow, adding runtime activation coverage, updating server directory-structure spec guidance, and archiving the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `00b0e765` | (see git log) |
+| `8c8bc354` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

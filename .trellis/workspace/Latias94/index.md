@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 121
-- **Last Active**: 2026-06-13
+- **Total Sessions**: 122
+- **Last Active**: 2026-06-14
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~966 | Active |
+| `journal-3.md` | ~1011 | Active |
 | `journal-2.md` | ~1991 | Archived |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 122 | 2026-06-14 | Nako server control-plane seam deepening | `00b0e765`, `8c8bc354` | `main` |
 | 121 | 2026-06-13 | Official addon catalog artifact | `42d0c663` | `main` |
 | 120 | 2026-06-13 | Admin Web route shell chunk splitting | `5f7e2ee1` | `feat/u3-intake-stability-source-hash-readiness` |
 | 119 | 2026-06-13 | Admin Web i18n route catalog chunk splitting | `3d9a0dcb` | `feat/u3-intake-stability-source-hash-readiness` |
