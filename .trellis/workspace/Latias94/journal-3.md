@@ -1374,3 +1374,37 @@ Added one-shot metadata auto-seek for saved playback state plus Start over behav
 ### Next Steps
 
 - None - task complete
+
+
+## Session 132: Media Web continue watching refresh loop
+
+**Date**: 2026-06-14
+**Task**: Media Web continue watching refresh loop
+**Package**: admin-web
+**Branch**: `main`
+
+### Summary
+
+Added fixture playback-state persistence so Continue Watching refreshes after watch-page progress and watched updates.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `fd7a14f1` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
