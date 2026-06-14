@@ -46,6 +46,8 @@ pub struct NakoServerConfig {
     pub webhook_concurrency: usize,
     #[serde(default)]
     pub addon_event_scheduler: AddonEventSchedulerConfig,
+    #[serde(default)]
+    pub vfs_cache_repair_automation: VfsCacheRepairAutomationRuntimeConfig,
     #[serde(default = "default_remux_timeout_ms")]
     pub remux_timeout_ms: u64,
     #[serde(default = "default_remux_staging_root")]
@@ -86,6 +88,26 @@ impl Default for AddonEventSchedulerConfig {
             error_backoff_ms: default_addon_event_scheduler_error_backoff_ms(),
             batch_size: default_addon_event_scheduler_batch_size(),
             concurrency: default_addon_event_scheduler_concurrency(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct VfsCacheRepairAutomationRuntimeConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_vfs_cache_repair_automation_interval_ms")]
+    pub interval_ms: u64,
+    #[serde(default = "default_vfs_cache_repair_automation_error_backoff_ms")]
+    pub error_backoff_ms: u64,
+}
+
+impl Default for VfsCacheRepairAutomationRuntimeConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            interval_ms: default_vfs_cache_repair_automation_interval_ms(),
+            error_backoff_ms: default_vfs_cache_repair_automation_error_backoff_ms(),
         }
     }
 }
@@ -560,6 +582,7 @@ pub fn example_config() -> Result<String> {
         remux_concurrency: default_remux_concurrency(),
         webhook_concurrency: default_webhook_concurrency(),
         addon_event_scheduler: AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: VfsCacheRepairAutomationRuntimeConfig::default(),
         remux_timeout_ms: default_remux_timeout_ms(),
         remux_staging_root: default_remux_staging_root(),
         metadata: MetadataConfig::default(),
@@ -702,6 +725,14 @@ const fn default_addon_event_scheduler_batch_size() -> u32 {
 
 const fn default_addon_event_scheduler_concurrency() -> usize {
     2
+}
+
+const fn default_vfs_cache_repair_automation_interval_ms() -> u64 {
+    60_000
+}
+
+const fn default_vfs_cache_repair_automation_error_backoff_ms() -> u64 {
+    300_000
 }
 
 const fn default_remux_timeout_ms() -> u64 {
@@ -895,6 +926,11 @@ mod tests {
             batch_size = 25
             concurrency = 3
 
+            [vfs_cache_repair_automation]
+            enabled = true
+            interval_ms = 5000
+            error_backoff_ms = 45000
+
             [[libraries]]
             id = "018f0000-0000-7000-8000-000000000001"
             name = "Movies"
@@ -963,6 +999,9 @@ mod tests {
         assert_eq!(config.addon_event_scheduler.error_backoff_ms, 1_000);
         assert_eq!(config.addon_event_scheduler.batch_size, 25);
         assert_eq!(config.addon_event_scheduler.concurrency, 3);
+        assert!(config.vfs_cache_repair_automation.enabled);
+        assert_eq!(config.vfs_cache_repair_automation.interval_ms, 5_000);
+        assert_eq!(config.vfs_cache_repair_automation.error_backoff_ms, 45_000);
         assert_eq!(config.remux_timeout_ms, 60_000);
         assert_eq!(
             config.remux_staging_root,
@@ -1262,6 +1301,13 @@ mod tests {
         assert_eq!(config.metadata_concurrency, 2);
         assert_eq!(config.remux_concurrency, 1);
         assert_eq!(config.webhook_concurrency, 2);
+        assert_eq!(
+            config.vfs_cache_repair_automation,
+            VfsCacheRepairAutomationRuntimeConfig::default()
+        );
+        assert!(!config.vfs_cache_repair_automation.enabled);
+        assert_eq!(config.vfs_cache_repair_automation.interval_ms, 60_000);
+        assert_eq!(config.vfs_cache_repair_automation.error_backoff_ms, 300_000);
         assert_eq!(config.remux_timeout_ms, 30 * 60 * 1_000);
         assert_eq!(config.remux_staging_root, PathBuf::from("nako-cache/remux"));
         assert_eq!(
@@ -1817,6 +1863,7 @@ mod tests {
             remux_concurrency: default_remux_concurrency(),
             webhook_concurrency: default_webhook_concurrency(),
             addon_event_scheduler: AddonEventSchedulerConfig::default(),
+            vfs_cache_repair_automation: VfsCacheRepairAutomationRuntimeConfig::default(),
             remux_timeout_ms: default_remux_timeout_ms(),
             remux_staging_root: PathBuf::from("nako-cache/remux"),
             metadata: MetadataConfig::default(),

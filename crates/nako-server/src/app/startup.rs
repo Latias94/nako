@@ -20,6 +20,7 @@ use super::{
     playback_artifact_cleanup::cleanup_expired_playback_artifacts,
     runtime::RuntimeSupervisor,
     staging::cleanup_expired_staging_inputs,
+    vfs_cache_repair_runtime::VfsCacheRepairAutomationRuntimeAppService,
     watch_folder_runtime::WatchFolderRuntimeAppService,
     watch_folder_runtime::WatchFolderRuntimeCoverageReport,
 };
@@ -38,6 +39,7 @@ pub(crate) struct ServerStartupReport {
     pub metadata_lifecycle_tasks_started: usize,
     pub artwork_ingest_worker_started: bool,
     pub addon_event_scheduler_started: bool,
+    pub vfs_cache_repair_automation_started: bool,
     pub watch_folder_runtimes_started: usize,
     pub watch_folder_runtime_coverage: WatchFolderRuntimeCoverageReport,
 }
@@ -70,6 +72,7 @@ pub(crate) struct ServerStartupWorkflow<'a> {
 pub(crate) struct ServerStartupRuntime<'a> {
     artwork: &'a ManagedArtworkAppService,
     addons: &'a AddonAppService,
+    vfs_cache_repair_runtime: &'a VfsCacheRepairAutomationRuntimeAppService,
     watch_folder_runtime: &'a WatchFolderRuntimeAppService,
     runtime: &'a RuntimeSupervisor,
 }
@@ -78,12 +81,14 @@ impl<'a> ServerStartupRuntime<'a> {
     pub(crate) fn new(
         artwork: &'a ManagedArtworkAppService,
         addons: &'a AddonAppService,
+        vfs_cache_repair_runtime: &'a VfsCacheRepairAutomationRuntimeAppService,
         watch_folder_runtime: &'a WatchFolderRuntimeAppService,
         runtime: &'a RuntimeSupervisor,
     ) -> Self {
         Self {
             artwork,
             addons,
+            vfs_cache_repair_runtime,
             watch_folder_runtime,
             runtime,
         }
@@ -137,6 +142,7 @@ impl<'a> ServerStartupWorkflow<'a> {
             metadata_lifecycle_tasks_started,
             artwork_ingest_worker_started: false,
             addon_event_scheduler_started: false,
+            vfs_cache_repair_automation_started: false,
             watch_folder_runtimes_started: 0,
             watch_folder_runtime_coverage: WatchFolderRuntimeCoverageReport::default(),
         })
@@ -154,6 +160,13 @@ impl<'a> ServerStartupWorkflow<'a> {
             .startup_runtime
             .addons
             .start_addon_event_scheduler(self.config.addon_event_scheduler);
+        report.vfs_cache_repair_automation_started = self
+            .startup_runtime
+            .vfs_cache_repair_runtime
+            .start_recurring_automation(
+                self.config.vfs_cache_repair_automation,
+                self.startup_runtime.runtime,
+            );
         report.watch_folder_runtime_coverage = self
             .startup_runtime
             .watch_folder_runtime

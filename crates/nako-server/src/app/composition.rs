@@ -41,6 +41,7 @@ use super::{
     storage::{StorageBackendRegistry, StorageDiagnosticsAppService},
     user_playback::UserPlaybackAppService,
     user_playlist::UserPlaylistAppService,
+    vfs_cache_repair_runtime::VfsCacheRepairAutomationRuntimeAppService,
     watch_folder_runtime::WatchFolderRuntimeAppService,
     watch_folder_suppression::WatchFolderSuppressionAppService,
     webhooks::WebhookAppService,
@@ -73,6 +74,7 @@ impl NakoAppComposition {
             ServerStartupRuntime::new(
                 &services.artwork,
                 &services.addons,
+                &services.vfs_cache_repair_runtime,
                 &services.watch_folder_runtime,
                 &runtime,
             ),
@@ -175,6 +177,7 @@ pub(super) struct NakoAppServices {
     pub(super) renderer: RendererAppService,
     pub(super) user_playlist: UserPlaylistAppService,
     pub(super) user_playback: UserPlaybackAppService,
+    pub(super) vfs_cache_repair_runtime: VfsCacheRepairAutomationRuntimeAppService,
     pub(super) watch_folder_runtime: WatchFolderRuntimeAppService,
     pub(super) watch_folder_suppression: WatchFolderSuppressionAppService,
 }
@@ -257,6 +260,8 @@ impl NakoAppServices {
             acquisition_intake.clone(),
             library_scan.clone(),
         );
+        let vfs_cache_repair_runtime =
+            VfsCacheRepairAutomationRuntimeAppService::new(storage.clone(), library_scan.clone());
 
         Ok(Self {
             acquisition_intake,
@@ -283,6 +288,7 @@ impl NakoAppServices {
             renderer,
             user_playlist,
             user_playback,
+            vfs_cache_repair_runtime,
             watch_folder_runtime,
             watch_folder_suppression,
         })

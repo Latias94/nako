@@ -2305,6 +2305,8 @@ fn source_hash_config(root: &Path, library_id: LibraryId) -> NakoServerConfig {
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: root.join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),

@@ -62,6 +62,7 @@ mod storage;
 mod subtitle_sidecar;
 pub(crate) mod user_playback;
 pub(crate) mod user_playlist;
+mod vfs_cache_repair_runtime;
 mod watch_folder_runtime;
 mod watch_folder_suppression;
 mod webhooks;
@@ -142,6 +143,7 @@ pub(crate) use storage::{
 };
 use user_playback::UserPlaybackAppService;
 use user_playlist::UserPlaylistAppService;
+pub(crate) use vfs_cache_repair_runtime::VfsCacheRepairAutomationRuntimeAppService;
 pub(crate) use watch_folder_runtime::{
     WatchFolderRuntimeAppService, WatchFolderRuntimeCoverageDiagnostic,
     WatchFolderRuntimeCoverageReport, WatchFolderRuntimeCoverageStatus,
@@ -299,6 +301,11 @@ impl NakoApp {
     #[must_use]
     pub(crate) fn watch_folder_runtime(&self) -> WatchFolderRuntimeAppService {
         self.services().watch_folder_runtime.clone()
+    }
+
+    #[must_use]
+    pub(crate) fn vfs_cache_repair_runtime(&self) -> VfsCacheRepairAutomationRuntimeAppService {
+        self.services().vfs_cache_repair_runtime.clone()
     }
 
     #[must_use]

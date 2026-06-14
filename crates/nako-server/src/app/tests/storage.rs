@@ -38,6 +38,8 @@ async fn webdav_preview_config_builds_scanner_backend() {
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -112,6 +114,8 @@ async fn multi_library_config_registers_libraries_and_resolves_source_backend() 
             remux_concurrency: 1,
             webhook_concurrency: 2,
             addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+            vfs_cache_repair_automation:
+                crate::config::VfsCacheRepairAutomationRuntimeConfig::default(),
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("nako-cache").join("remux"),
             metadata: MetadataConfig::default(),
@@ -232,6 +236,8 @@ async fn storage_diagnostics_lists_reconciled_libraries_missing_from_config() {
             remux_concurrency: 1,
             webhook_concurrency: 2,
             addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+            vfs_cache_repair_automation:
+                crate::config::VfsCacheRepairAutomationRuntimeConfig::default(),
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("nako-cache").join("remux"),
             metadata: MetadataConfig::default(),
@@ -306,6 +312,8 @@ async fn storage_health_records_runtime_updates_and_rejects_durable_circuit() {
             remux_concurrency: 1,
             webhook_concurrency: 2,
             addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+            vfs_cache_repair_automation:
+                crate::config::VfsCacheRepairAutomationRuntimeConfig::default(),
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("nako-cache").join("remux"),
             metadata: MetadataConfig::default(),
@@ -497,6 +505,8 @@ async fn vfs_cache_refresh_action_refreshes_retryable_stat_failure_and_resolves_
             remux_concurrency: 1,
             webhook_concurrency: 2,
             addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+            vfs_cache_repair_automation:
+                crate::config::VfsCacheRepairAutomationRuntimeConfig::default(),
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("nako-cache").join("remux"),
             metadata: MetadataConfig::default(),
@@ -634,6 +644,8 @@ async fn vfs_cache_target_refresh_action_refreshes_selected_failure_not_latest()
             remux_concurrency: 1,
             webhook_concurrency: 2,
             addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+            vfs_cache_repair_automation:
+                crate::config::VfsCacheRepairAutomationRuntimeConfig::default(),
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("nako-cache").join("remux"),
             metadata: MetadataConfig::default(),
@@ -754,6 +766,8 @@ async fn vfs_cache_refresh_action_rejects_non_refresh_recommendation_without_bac
             remux_concurrency: 1,
             webhook_concurrency: 2,
             addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+            vfs_cache_repair_automation:
+                crate::config::VfsCacheRepairAutomationRuntimeConfig::default(),
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("nako-cache").join("remux"),
             metadata: MetadataConfig::default(),
@@ -836,6 +850,8 @@ async fn vfs_cache_target_refresh_action_rejects_non_refresh_recommendation_with
             remux_concurrency: 1,
             webhook_concurrency: 2,
             addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+            vfs_cache_repair_automation:
+                crate::config::VfsCacheRepairAutomationRuntimeConfig::default(),
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("nako-cache").join("remux"),
             metadata: MetadataConfig::default(),
@@ -939,6 +955,8 @@ async fn vfs_cache_refresh_action_uses_authority_for_ambiguous_local_repair_targ
             remux_concurrency: 1,
             webhook_concurrency: 2,
             addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+            vfs_cache_repair_automation:
+                crate::config::VfsCacheRepairAutomationRuntimeConfig::default(),
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("nako-cache").join("remux"),
             metadata: MetadataConfig::default(),
@@ -1046,6 +1064,8 @@ async fn vfs_cache_refresh_action_rejects_mismatched_authority_without_backend_c
             remux_concurrency: 1,
             webhook_concurrency: 2,
             addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+            vfs_cache_repair_automation:
+                crate::config::VfsCacheRepairAutomationRuntimeConfig::default(),
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("nako-cache").join("remux"),
             metadata: MetadataConfig::default(),
@@ -1144,6 +1164,8 @@ async fn vfs_cache_refresh_action_rejects_ambiguous_local_repair_target_without_
             remux_concurrency: 1,
             webhook_concurrency: 2,
             addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+            vfs_cache_repair_automation:
+                crate::config::VfsCacheRepairAutomationRuntimeConfig::default(),
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("nako-cache").join("remux"),
             metadata: MetadataConfig::default(),
@@ -1553,6 +1575,179 @@ async fn vfs_cache_repair_automation_enqueue_reuses_existing_incomplete_job() {
     assert_eq!(second.jobs[0].priority, JobPriority::Low);
     assert_eq!(jobs.len(), 1);
     assert_eq!(jobs[0].priority, JobPriority::Low);
+    assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn vfs_cache_repair_automation_runtime_tick_disabled_does_not_plan_or_enqueue() {
+    let (_temp, app, store, backend, _failure) =
+        vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Unavailable.safe_message())
+            .await;
+
+    let diagnostic = app
+        .vfs_cache_repair_runtime()
+        .run_vfs_cache_repair_automation_tick(
+            crate::config::VfsCacheRepairAutomationRuntimeConfig {
+                enabled: false,
+                interval_ms: 1_000,
+                error_backoff_ms: 2_000,
+            },
+        )
+        .await
+        .unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert!(!diagnostic.enabled);
+    assert_eq!(diagnostic.total_unresolved_targets, 0);
+    assert_eq!(diagnostic.eligible_targets, 0);
+    assert_eq!(diagnostic.blocked_targets, 0);
+    assert_eq!(diagnostic.enqueued_count, 0);
+    assert_eq!(diagnostic.already_queued_count, 0);
+    assert_eq!(diagnostic.scheduler_outcome, None);
+    assert!(!diagnostic.boundary.reads_repair_targets);
+    assert!(!diagnostic.boundary.may_start_durable_jobs);
+    assert!(!diagnostic.boundary.refreshes_vfs_cache);
+    assert!(!diagnostic.boundary.changes_backend_configuration);
+    assert!(!diagnostic.boundary.deletes_cache_entries);
+    assert!(!diagnostic.boundary.writes_library_files);
+    assert!(jobs.is_empty());
+    assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn vfs_cache_repair_automation_runtime_tick_enqueues_and_schedules_repair_job() {
+    let (_temp, app, store, backend, failure) =
+        vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Unavailable.safe_message())
+            .await;
+
+    let diagnostic = app
+        .vfs_cache_repair_runtime()
+        .run_vfs_cache_repair_automation_tick(
+            crate::config::VfsCacheRepairAutomationRuntimeConfig {
+                enabled: true,
+                interval_ms: 1_000,
+                error_backoff_ms: 2_000,
+            },
+        )
+        .await
+        .unwrap();
+    let job_id = match diagnostic.scheduler_outcome {
+        Some(LibraryScanScheduleOutcome::Scheduled(job_id)) => job_id,
+        other => panic!("expected scheduled VFS cache repair job, got {other:?}"),
+    };
+    wait_for_vfs_cache_repair_runtime_job(&app).await;
+    let persisted = store.get_job(job_id).await.unwrap().unwrap();
+
+    assert!(diagnostic.enabled);
+    assert_eq!(diagnostic.total_unresolved_targets, 1);
+    assert_eq!(diagnostic.eligible_targets, 1);
+    assert_eq!(diagnostic.blocked_targets, 0);
+    assert_eq!(diagnostic.enqueued_count, 1);
+    assert_eq!(diagnostic.already_queued_count, 0);
+    assert_eq!(persisted.kind, JobKind::VfsCacheRepair);
+    assert_eq!(
+        persisted.resource_class,
+        VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS
+    );
+    assert_eq!(persisted.priority, JobPriority::Low);
+    assert_eq!(persisted.library_id, failure.authority.library_id);
+    assert_eq!(persisted.source_id, None);
+    assert_eq!(persisted.status, JobStatus::Succeeded);
+    assert!(persisted.summary_json.is_some());
+    assert!(diagnostic.boundary.reads_repair_targets);
+    assert!(diagnostic.boundary.may_start_durable_jobs);
+    assert!(!diagnostic.boundary.refreshes_vfs_cache);
+    assert!(!diagnostic.boundary.changes_backend_configuration);
+    assert!(!diagnostic.boundary.deletes_cache_entries);
+    assert!(!diagnostic.boundary.writes_library_files);
+    assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn vfs_cache_repair_automation_runtime_tick_reports_already_queued_without_duplicate_jobs() {
+    let (_temp, app, store, backend, _failure) =
+        vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Unavailable.safe_message())
+            .await;
+    let first = app
+        .storage()
+        .enqueue_vfs_cache_repair_automation(
+            VfsCacheRepairAutomationPolicy { enabled: true },
+            Some(JobPriority::Low),
+        )
+        .await
+        .unwrap();
+    let existing_job_id = first.jobs[0].job_id;
+    store.start_job(existing_job_id).await.unwrap();
+
+    let diagnostic = app
+        .vfs_cache_repair_runtime()
+        .run_vfs_cache_repair_automation_tick(
+            crate::config::VfsCacheRepairAutomationRuntimeConfig {
+                enabled: true,
+                interval_ms: 1_000,
+                error_backoff_ms: 2_000,
+            },
+        )
+        .await
+        .unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert_eq!(diagnostic.total_unresolved_targets, 1);
+    assert_eq!(diagnostic.eligible_targets, 1);
+    assert_eq!(diagnostic.blocked_targets, 0);
+    assert_eq!(diagnostic.enqueued_count, 0);
+    assert_eq!(diagnostic.already_queued_count, 1);
+    assert_eq!(
+        diagnostic.scheduler_outcome,
+        Some(LibraryScanScheduleOutcome::NoQueuedJob)
+    );
+    assert_eq!(jobs.len(), 1);
+    assert_eq!(jobs[0].id, existing_job_id);
+    assert_eq!(jobs[0].status, JobStatus::Running);
+    assert_eq!(jobs[0].priority, JobPriority::Low);
+    assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn vfs_cache_repair_automation_runtime_tick_blocks_non_refresh_targets() {
+    let (_temp, app, store, backend, _failure) =
+        vfs_cache_repair_enqueue_app_with_failure(StorageFailureClass::Permission.safe_message())
+            .await;
+
+    let diagnostic = app
+        .vfs_cache_repair_runtime()
+        .run_vfs_cache_repair_automation_tick(
+            crate::config::VfsCacheRepairAutomationRuntimeConfig {
+                enabled: true,
+                interval_ms: 1_000,
+                error_backoff_ms: 2_000,
+            },
+        )
+        .await
+        .unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert!(diagnostic.enabled);
+    assert_eq!(diagnostic.total_unresolved_targets, 1);
+    assert_eq!(diagnostic.eligible_targets, 0);
+    assert_eq!(diagnostic.blocked_targets, 1);
+    assert_eq!(diagnostic.enqueued_count, 0);
+    assert_eq!(diagnostic.already_queued_count, 0);
+    assert_eq!(diagnostic.scheduler_outcome, None);
+    assert!(jobs.is_empty());
     assert_eq!(backend.stat_calls.load(Ordering::SeqCst), 0);
     assert_eq!(backend.list_calls.load(Ordering::SeqCst), 0);
 }
@@ -2692,6 +2887,8 @@ async fn vfs_cache_repair_enqueue_app_with_failure(
             remux_concurrency: 1,
             webhook_concurrency: 2,
             addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+            vfs_cache_repair_automation:
+                crate::config::VfsCacheRepairAutomationRuntimeConfig::default(),
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("nako-cache").join("remux"),
             metadata: MetadataConfig::default(),

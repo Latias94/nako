@@ -47,6 +47,8 @@ async fn search_route_returns_indexed_items() {
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -122,6 +124,8 @@ async fn browse_routes_return_catalog_graph() {
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -321,6 +325,8 @@ async fn public_browse_routes_filter_libraries_and_items_by_effective_access() {
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -948,6 +954,8 @@ async fn library_items_route_returns_scoped_items_and_hides_inaccessible_librari
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -1066,6 +1074,8 @@ async fn library_items_route_applies_kind_watch_state_and_last_played_query() {
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -1232,6 +1242,8 @@ async fn catalog_access_route_fixture() -> CatalogAccessRouteFixture {
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),

@@ -3375,6 +3375,8 @@ async fn admin_addon_runtime_readiness_classifies_local_gaps_without_sidecar_cal
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),

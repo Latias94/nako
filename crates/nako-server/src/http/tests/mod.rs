@@ -328,6 +328,8 @@ async fn app_with_media_source_config(
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -417,6 +419,8 @@ async fn router_with_remux_source(
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: staging_root.clone(),
         metadata: MetadataConfig::default(),
@@ -507,6 +511,8 @@ async fn router_with_hls_source_script(
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: staging_root,
         metadata: MetadataConfig::default(),
@@ -1011,6 +1017,8 @@ async fn test_router_with_store(root: PathBuf, library_id: LibraryId) -> (Router
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: root.join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -1064,6 +1072,8 @@ async fn test_router_with_bearer_auth_and_network(
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: root.join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),

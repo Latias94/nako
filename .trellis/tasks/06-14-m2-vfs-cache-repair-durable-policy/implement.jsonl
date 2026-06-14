@@ -1,0 +1,4 @@
+{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Storage/VFS repair capability state and follow-ons"}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server VFS repair durable job and automation test requirements"}
+{"file": ".trellis/spec/nako-vfs/backend/error-handling.md", "reason": "VFS repair classification and redaction rules"}
+{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Control-plane durable job and recurring policy constraints"}

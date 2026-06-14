@@ -48,6 +48,8 @@ fn startup_config(root: &Path, libraries: Vec<LocalLibraryConfig>) -> NakoServer
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: root.join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -564,6 +566,8 @@ async fn scan_library_persists_job_success() {
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -1589,6 +1593,8 @@ async fn background_scan_job_uses_runtime_job_supervision() {
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -1827,6 +1833,8 @@ async fn job_scheduler_leaves_background_scan_jobs_queued_until_scan_budget_is_a
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -2154,6 +2162,8 @@ async fn background_scan_job_acknowledges_cancellation_before_probe_stage() {
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -2679,6 +2689,8 @@ async fn app_startup_rejects_duplicate_configured_library_ids() {
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -2781,6 +2793,64 @@ async fn addon_event_scheduler_runtime_task_is_supervised_and_stops_on_shutdown(
 }
 
 #[tokio::test]
+async fn vfs_cache_repair_automation_runtime_is_disabled_by_default() {
+    let temp = tempfile::tempdir().unwrap();
+    let library = LocalLibraryConfig {
+        id: LibraryId::new(),
+        name: "Movies".to_owned(),
+        root: temp.path().join("movies"),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    fs::create_dir_all(&library.root).unwrap();
+    let config = startup_config(temp.path(), vec![library]);
+
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store).await.unwrap();
+
+    assert!(!app.startup_report().vfs_cache_repair_automation_started);
+    assert_eq!(app.runtime_diagnostics().active_tasks, 0);
+}
+
+#[tokio::test]
+async fn vfs_cache_repair_automation_runtime_task_is_supervised_and_stops_on_shutdown() {
+    let temp = tempfile::tempdir().unwrap();
+    let library = LocalLibraryConfig {
+        id: LibraryId::new(),
+        name: "Movies".to_owned(),
+        root: temp.path().join("movies"),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    fs::create_dir_all(&library.root).unwrap();
+    let mut config = startup_config(temp.path(), vec![library]);
+    config.vfs_cache_repair_automation.enabled = true;
+    config.vfs_cache_repair_automation.interval_ms = 1_000;
+
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store).await.unwrap();
+
+    assert!(app.startup_report().vfs_cache_repair_automation_started);
+    let diagnostics = app.runtime_diagnostics();
+    assert_eq!(diagnostics.active_tasks, 1);
+    assert_eq!(
+        diagnostics.tasks[0].name,
+        "vfs_cache_repair_automation_runtime"
+    );
+    assert_eq!(
+        diagnostics.tasks[0].resource_class,
+        "storage.vfs.cache_repair.automation"
+    );
+
+    app.shutdown_runtime();
+    tokio::task::yield_now().await;
+
+    let diagnostics = app.runtime_diagnostics();
+    assert!(diagnostics.shutdown_requested);
+    assert_eq!(diagnostics.active_tasks, 0);
+}
+
+#[tokio::test]
 async fn app_startup_reports_control_plane_runtime_activation() {
     let temp = tempfile::tempdir().unwrap();
     let library = LocalLibraryConfig {
@@ -2794,16 +2864,19 @@ async fn app_startup_reports_control_plane_runtime_activation() {
     let mut config = startup_config(temp.path(), vec![library]);
     config.artwork.ingest_worker_enabled = true;
     config.addon_event_scheduler.enabled = true;
+    config.vfs_cache_repair_automation.enabled = true;
+    config.vfs_cache_repair_automation.interval_ms = 1_000;
 
     let store = NakoDatabase::connect_in_memory().await.unwrap();
     let app = NakoApp::new_with_store(config, store).await.unwrap();
 
     assert!(app.startup_report().artwork_ingest_worker_started);
     assert!(app.startup_report().addon_event_scheduler_started);
+    assert!(app.startup_report().vfs_cache_repair_automation_started);
     assert_eq!(app.startup_report().watch_folder_runtimes_started, 0);
 
     let diagnostics = app.runtime_diagnostics();
-    assert_eq!(diagnostics.active_tasks, 2);
+    assert_eq!(diagnostics.active_tasks, 3);
     assert!(
         diagnostics
             .tasks
@@ -2817,6 +2890,13 @@ async fn app_startup_reports_control_plane_runtime_activation() {
             .iter()
             .any(|task| task.name == "addon_event_scheduler"
                 && task.resource_class == "addon.event.scheduler")
+    );
+    assert!(
+        diagnostics
+            .tasks
+            .iter()
+            .any(|task| task.name == "vfs_cache_repair_automation_runtime"
+                && task.resource_class == "storage.vfs.cache_repair.automation")
     );
 
     app.shutdown_runtime();
@@ -3762,6 +3842,8 @@ async fn app_startup_rejects_duplicate_metadata_provider_configs() {
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata,
@@ -3986,6 +4068,8 @@ async fn app_startup_recovers_unfinished_jobs_and_preserves_queued_artwork_inges
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -4175,6 +4259,8 @@ async fn startup_report_tracks_disabled_staging_cleanup() {
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),

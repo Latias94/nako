@@ -1641,6 +1641,8 @@ fn managed_import_test_config(root: &std::path::Path, library_id: LibraryId) -> 
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: root.join("cache").join("remux"),
         metadata: MetadataConfig::default(),

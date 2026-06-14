@@ -450,6 +450,8 @@ async fn admin_v1_overview_reports_source_hash_repair_pressure_without_payload_l
             remux_concurrency: 1,
             webhook_concurrency: 2,
             addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+            vfs_cache_repair_automation:
+                crate::config::VfsCacheRepairAutomationRuntimeConfig::default(),
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("nako-cache").join("remux"),
             metadata: MetadataConfig::default(),
@@ -624,6 +626,8 @@ async fn admin_v1_overview_reports_operator_readiness_for_configured_local_insta
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -802,6 +806,8 @@ async fn admin_v1_catalog_governance_lists_unknown_low_confidence_and_redacts_ev
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -1043,6 +1049,8 @@ async fn admin_v1_catalog_governance_provider_mapping_review_plan_is_redacted() 
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -1235,6 +1243,8 @@ async fn admin_v1_catalog_governance_provider_mapping_review_mutates_idempotentl
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -1417,6 +1427,8 @@ async fn admin_v1_metadata_candidate_review_list_is_item_scoped_redacted_and_rea
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -1785,6 +1797,8 @@ async fn admin_v1_metadata_candidate_review_queue_filters_global_rows_without_wr
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -2104,6 +2118,8 @@ async fn admin_v1_metadata_candidate_review_batch_plan_is_bounded_redacted_and_r
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -2343,6 +2359,8 @@ async fn admin_v1_metadata_candidate_review_batch_durable_create_replays_and_rep
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -2724,6 +2742,8 @@ async fn admin_v1_metadata_candidate_review_batch_apply_reports_partial_results_
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -3289,6 +3309,8 @@ async fn admin_v1_metadata_candidate_review_detail_is_redacted_and_read_only() {
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -3565,6 +3587,8 @@ async fn admin_v1_metadata_candidate_review_apply_commits_root_mapping_and_repla
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -3929,6 +3953,8 @@ async fn admin_v1_metadata_candidate_review_related_hierarchy_plan_apply_and_rep
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -4256,6 +4282,8 @@ async fn admin_v1_metadata_candidate_review_related_hierarchy_plan_and_apply_rej
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -4638,6 +4666,8 @@ async fn admin_v1_generated_artifact_proposals_are_admin_only_redacted_and_read_
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -4821,6 +4851,8 @@ async fn admin_v1_generated_artifact_review_accepts_without_autonomous_metadata_
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -5023,6 +5055,8 @@ async fn admin_v1_generated_artifact_metadata_apply_plan_is_redacted_and_read_on
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -5771,6 +5805,8 @@ async fn admin_generated_artifact_metadata_apply_http_fixture()
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -5905,6 +5941,8 @@ async fn admin_v1_jobs_lists_filters_and_redacts_raw_payloads() {
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -6053,6 +6091,8 @@ async fn admin_v1_jobs_lists_source_fingerprint_hash_filters_without_payload_lea
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -8003,6 +8043,8 @@ async fn vfs_cache_repair_retry_http_fixture()
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("secret-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -8074,6 +8116,8 @@ async fn admin_v1_job_cancel_requests_are_truthful_and_redacted() {
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -8232,6 +8276,8 @@ async fn admin_v1_events_lists_filters_and_redacts_payloads() {
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -8368,6 +8414,8 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("secret-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -8697,6 +8745,8 @@ async fn admin_v1_vfs_cache_refresh_action_refreshes_latest_failure_and_redacts_
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("secret-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -8837,6 +8887,8 @@ async fn admin_v1_vfs_cache_target_refresh_action_refreshes_selected_target_and_
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("secret-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -8972,6 +9024,8 @@ async fn admin_v1_vfs_cache_repair_job_routes_enqueue_and_execute_without_payloa
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("secret-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -9663,6 +9717,8 @@ async fn admin_v1_vfs_cache_repair_target_enqueue_rejects_non_refresh_and_unknow
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("secret-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -9786,6 +9842,8 @@ async fn admin_v1_vfs_cache_repair_action_plan_reports_executable_refresh_and_re
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("secret-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -9927,6 +9985,8 @@ async fn admin_v1_vfs_cache_repair_targets_list_and_preview_redact_targets_witho
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("secret-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -10228,6 +10288,8 @@ async fn admin_v1_vfs_cache_repair_targets_page_over_unresolved_targets() {
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("secret-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -10365,6 +10427,8 @@ async fn admin_v1_vfs_cache_repair_target_preview_rejects_stale_and_unknown_refs
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("secret-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -10755,6 +10819,8 @@ async fn admin_v1_storage_staging_attributes_policy_slices_without_raw_backend_d
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("secret-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -10962,6 +11028,8 @@ async fn admin_v1_storage_backends_lists_durable_health_and_resets_circuit() {
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("secret-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -11539,6 +11607,8 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
         remux_concurrency: 5,
         webhook_concurrency: 6,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 60_000,
         remux_staging_root: temp.path().join("secret-cache").join("remux"),
         metadata,
@@ -11835,6 +11905,8 @@ async fn admin_v1_incident_bundle_composes_route_response_without_sensitive_payl
         remux_concurrency: 5,
         webhook_concurrency: 6,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 60_000,
         remux_staging_root: temp.path().join("secret-cache").join("remux"),
         metadata,
@@ -12251,6 +12323,8 @@ async fn admin_v1_system_config_reports_postgres_capability_gaps_for_injected_st
         remux_concurrency: 1,
         webhook_concurrency: 1,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 60_000,
         remux_staging_root: temp.path().join("remux"),
         metadata: MetadataConfig::default(),
@@ -12326,6 +12400,8 @@ async fn admin_v1_access_management_round_trips_users_roles_and_library_policies
         remux_concurrency: 1,
         webhook_concurrency: 1,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 60_000,
         remux_staging_root: temp.path().join("remux"),
         metadata: MetadataConfig::default(),
@@ -12855,6 +12931,8 @@ async fn admin_v1_access_summary_reports_single_admin_effective_library_access_w
         remux_concurrency: 1,
         webhook_concurrency: 1,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 60_000,
         remux_staging_root: temp.path().join("private-remux"),
         metadata: MetadataConfig::default(),
@@ -12997,6 +13075,8 @@ async fn admin_v1_metadata_raw_cache_settings_round_trips_persisted_override() {
         remux_concurrency: 1,
         webhook_concurrency: 1,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 60_000,
         remux_staging_root: temp.path().join("remux"),
         metadata: MetadataConfig::default(),
@@ -13214,6 +13294,8 @@ async fn admin_v1_playback_runtime_settings_round_trips_persisted_override() {
         remux_concurrency: 1,
         webhook_concurrency: 1,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 60_000,
         remux_staging_root: temp.path().join("remux"),
         metadata: MetadataConfig::default(),
@@ -13428,6 +13510,8 @@ async fn admin_v1_playback_sessions_lists_filters_and_redacts_output_paths() {
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -13606,6 +13690,8 @@ async fn admin_v1_playback_support_evidence_is_bounded_and_redacted() {
         remux_concurrency: 2,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 90_000,
         remux_staging_root: temp.path().join("secret-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -13790,6 +13876,8 @@ async fn admin_v1_playback_support_evidence_rejects_mismatched_source_context() 
         remux_concurrency: 1,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 30 * 60 * 1_000,
         remux_staging_root: temp.path().join("nako-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -13907,6 +13995,8 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
         remux_concurrency: 3,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 90_000,
         remux_staging_root: temp.path().join("secret-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -14242,6 +14332,8 @@ async fn admin_v1_playback_runtime_reports_unavailable_cpu_pipeline_without_bloc
         remux_concurrency: 3,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 90_000,
         remux_staging_root: temp.path().join("secret-cache").join("remux"),
         metadata: MetadataConfig::default(),
@@ -14420,6 +14512,8 @@ async fn admin_v1_playback_runtime_reports_typed_readiness_for_cpu_fallback() {
         remux_concurrency: 3,
         webhook_concurrency: 2,
         addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
         remux_timeout_ms: 90_000,
         remux_staging_root: temp.path().join("secret-cache").join("remux"),
         metadata: MetadataConfig::default(),

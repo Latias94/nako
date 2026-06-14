@@ -85,6 +85,8 @@ async fn webhook_attempt_route_lists_attempts_for_existing_event() {
             remux_concurrency: 1,
             webhook_concurrency: 2,
             addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+            vfs_cache_repair_automation:
+                crate::config::VfsCacheRepairAutomationRuntimeConfig::default(),
             remux_timeout_ms: 30 * 60 * 1_000,
             remux_staging_root: temp.path().join("nako-cache").join("remux"),
             metadata: MetadataConfig::default(),

@@ -1797,6 +1797,8 @@ mod tests {
             remux_concurrency: 1,
             webhook_concurrency: 1,
             addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+            vfs_cache_repair_automation:
+                crate::config::VfsCacheRepairAutomationRuntimeConfig::default(),
             remux_timeout_ms: 1_000,
             remux_staging_root: PathBuf::from("cache/remux"),
             metadata: MetadataConfig::default(),

@@ -97,6 +97,13 @@ Use these gates for `crates/nako-server` feature work.
   must not enqueue jobs, refresh cache, purge/delete/invalidate cache entries,
   mutate backend configuration, write library files, or expose raw target
   material.
+- Recurring VFS cache repair automation runtime changes must stay
+  disabled-by-default, run under `RuntimeSupervisor`, reuse the existing dry-run
+  planner and explicit automation enqueue command, and enqueue only
+  `refresh_cache` durable jobs. Runtime tests must prove disabled startup,
+  enabled supervised startup, one-tick enqueue/schedule behavior, duplicate
+  queued/running idempotency, blocked non-refresh targets, bounded delay/backoff
+  helpers, and redaction-safe failure summaries.
 - Admin VFS cache repair manual command changes must accept only opaque
   `target_ref` values or explicit durable job IDs, return only safe job facts
   and summary facts, inherit the existing Admin route guard, and keep automatic
@@ -399,6 +406,126 @@ async fn execute(State(app): State<NakoApp>, Path(job_id): Path<JobId>) -> ApiRe
 
 The route is a thin Admin boundary; the app service owns claim, validation,
 target reselection, backend selection, mutation, and summary redaction.
+
+## Scenario: Recurring VFS Cache Repair Automation Runtime
+
+### 1. Scope / Trigger
+
+- Trigger: adding or changing startup/runtime behavior that periodically
+  discovers unresolved VFS cache repair targets and queues repair jobs.
+- Purpose: provide an operator-controlled recurring enqueue policy without
+  adding a second repair executor or widening VFS mutation semantics.
+
+### 2. Signatures
+
+- Config:
+  `VfsCacheRepairAutomationRuntimeConfig { enabled, interval_ms, error_backoff_ms }`.
+- Startup report:
+  `ServerStartupReport::vfs_cache_repair_automation_started: bool`.
+- Runtime service:
+  `VfsCacheRepairAutomationRuntimeAppService::start_recurring_automation(config, runtime) -> bool`.
+- Runtime tick:
+  `VfsCacheRepairAutomationRuntimeAppService::run_vfs_cache_repair_automation_tick(config) -> Result<VfsCacheRepairAutomationRuntimeTickDiagnostic>`.
+- Enqueue authority reused by the runtime:
+  `StorageDiagnosticsAppService::enqueue_vfs_cache_repair_automation(VfsCacheRepairAutomationPolicy { enabled: true }, Some(JobPriority::Low))`.
+- Execution trigger reused by the runtime:
+  `LibraryScanAppService::schedule_queued_library_scans() -> Result<LibraryScanScheduleOutcome>`.
+
+### 3. Contracts
+
+- The runtime is disabled by default. Startup starts it only when
+  `vfs_cache_repair_automation.enabled = true`.
+- The recurring runtime reads unresolved repair targets only through the
+  existing storage automation command. Do not duplicate target inventory,
+  classification, target-ref parsing, or durable enqueue logic in the runtime.
+- The runtime may enqueue only `refresh_cache` repair jobs through the existing
+  automation policy. Non-refresh targets remain blocked by the storage service.
+- The runtime must reuse durable queue idempotency; queued/running matching jobs
+  are reported as `already_queued` and must not produce duplicate rows.
+- The runtime asks the existing disk-scan scheduler to consider queued or
+  already queued repair work. Actual repair execution stays in
+  `VfsCacheRepair` durable jobs under the `disk.scan` budget.
+- The runtime must not call storage backends, refresh cache, purge/delete/
+  invalidate cache entries, mutate backend configuration, write library files,
+  or create a feature-specific executor.
+- Tick logs and diagnostics may expose enabled state, aggregate eligible/
+  blocked/enqueued/already-queued counts, scheduler outcome, boundary booleans,
+  and safe error summaries only.
+- Tick logs, diagnostics, and persisted evidence must not expose raw
+  `StorageUri`, local path, backend URL, credential, target ref, URI digest,
+  etag, fingerprint, cache payload, job input JSON, or raw backend error text.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Config omits `vfs_cache_repair_automation` | Runtime config defaults to disabled with bounded interval/backoff defaults |
+| Config explicitly enables runtime | Startup reports `vfs_cache_repair_automation_started = true` and registers one supervised runtime task |
+| Config disables runtime | Startup reports `false` and registers no VFS automation runtime task |
+| Enabled tick finds one refreshable target | Queue one low-priority `VfsCacheRepair` job through storage automation and ask the disk-scan scheduler to schedule work |
+| Enabled tick finds the same target already queued/running | Report `already_queued`, create no duplicate job, and still ask the disk-scan scheduler to consider queued work |
+| Enabled tick finds non-refresh or blocked targets only | Report blocked counts, enqueue no jobs, and do not schedule repair work |
+| Planner/enqueue/scheduler returns an error | Loop sleeps for `error_backoff_ms.max(1)` and logs only a safe error summary |
+| Interval or backoff is zero | Runtime delay helper clamps it to at least one millisecond |
+
+### 5. Good/Base/Bad Cases
+
+- Good: a supervised runtime tick calls the existing storage automation enqueue
+  command, queues one safe `VfsCacheRepair` job, and then calls
+  `schedule_queued_library_scans`.
+- Base: an existing queued/running repair job makes the tick report
+  `already_queued` without changing priority or inserting another durable row.
+- Bad: rebuilding target selection in the runtime, refreshing the target
+  directly from the runtime, or introducing `vfs_cache_repair_worker` as a
+  second executor outside the disk-scan scheduler.
+
+### 6. Tests Required
+
+- Config test: TOML defaults keep the runtime disabled and explicit
+  `enabled`, `interval_ms`, and `error_backoff_ms` values parse correctly.
+- Startup tests: disabled startup reports no runtime task; enabled startup
+  reports `vfs_cache_repair_automation_started` and a supervised
+  `vfs_cache_repair_automation_runtime` task with resource class
+  `storage.vfs.cache_repair.automation`.
+- Runtime tick tests: disabled tick performs no planning/enqueueing; enabled
+  tick enqueues and schedules refreshable targets; second tick over
+  queued/running work reports `already_queued`; blocked/non-refresh targets do
+  not enqueue.
+- Redaction tests: runtime safe-error summaries omit raw URI/path/token/backend
+  details.
+- Focused gates:
+  `cargo nextest run -p nako-server vfs_cache_repair_automation --no-fail-fast`,
+  `cargo nextest run -p nako-server vfs_cache_repair_scheduler --no-fail-fast`,
+  and `cargo nextest run -p nako-server startup --no-fail-fast`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+runtime.spawn("vfs_cache_repair_worker", "storage.vfs.cache_repair", async move {
+    backend.refresh_stat_cache(&raw_uri).await?;
+});
+```
+
+This adds a second executor, touches the backend from the runtime, and risks
+logging or persisting raw storage identity.
+
+#### Correct
+
+```rust
+let report = storage
+    .enqueue_vfs_cache_repair_automation(
+        VfsCacheRepairAutomationPolicy { enabled: true },
+        Some(JobPriority::Low),
+    )
+    .await?;
+let _ = library_scan.schedule_queued_library_scans().await?;
+```
+
+The runtime remains an enqueue/scheduler trigger. Storage owns target
+classification and durable input; the existing disk-scan scheduler owns
+execution.
 
 ## Scenario: Internal VFS Cache Repair Retry Seam
 
