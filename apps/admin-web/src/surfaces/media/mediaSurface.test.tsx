@@ -132,6 +132,103 @@ describe("Media Web surface", () => {
     expect(container.textContent).not.toContain("fingerprint");
   });
 
+  it("keeps Continue Watching visible and retryable when Start over fails", async () => {
+    window.history.pushState(null, "", "/media");
+    const dataSource = createFixtureMediaDataSource();
+    const rawMutationError =
+      "HTTP 500 for /sources/source-episode-1?ticket=nako_bpt_secret with bearer secret-token and fingerprint raw-backend";
+    const safeMutationError = "Continue Watching progress could not be cleared.";
+    const successfulRetry: {
+      resolve?: (
+        result: Awaited<ReturnType<MediaWebDataSource["setUserWatchedState"]>>,
+      ) => void;
+    } = {};
+    const setUserWatchedState = vi.fn(dataSource.setUserWatchedState);
+    setUserWatchedState.mockRejectedValueOnce(new Error(rawMutationError));
+    setUserWatchedState.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          successfulRetry.resolve = resolve;
+        }),
+    );
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          setUserWatchedState,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    const { container } = render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Watch next" })).toBeInTheDocument();
+    expect(screen.getByText("38% complete - resume at 9 min")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start over" }));
+
+    await waitFor(() => {
+      expect(setUserWatchedState).toHaveBeenCalledTimes(1);
+    });
+    expect(await screen.findByText(safeMutationError)).toBeInTheDocument();
+    expect(screen.getByText("38% complete - resume at 9 min")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Resume" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start over" })).not.toBeDisabled();
+    expect(container.textContent).not.toContain(rawMutationError);
+    expect(container.textContent).not.toContain("HTTP 500");
+    expect(container.textContent).not.toContain("backend");
+    expect(container.textContent).not.toContain("raw-backend");
+    expect(container.textContent).not.toContain("nako_bpt_secret");
+    expect(container.textContent).not.toContain("/sources/");
+    expect(container.textContent).not.toContain("secret-token");
+    expect(container.textContent).not.toContain("fingerprint");
+
+    fireEvent.click(screen.getByRole("button", { name: "Start over" }));
+
+    await waitFor(() => {
+      expect(setUserWatchedState).toHaveBeenCalledTimes(2);
+    });
+    await waitFor(() => {
+      expect(screen.queryByText(safeMutationError)).not.toBeInTheDocument();
+    });
+    expect(screen.getByText("38% complete - resume at 9 min")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start over" })).toBeDisabled();
+
+    const resolveRetry = successfulRetry.resolve;
+    if (!resolveRetry) {
+      throw new Error("Missing retry resolver");
+    }
+    resolveRetry(
+      await dataSource.setUserWatchedState("item-episode-1", {
+        duration_ms: 1440000,
+        position_ms: 0,
+        source_id: "source-episode-1",
+        watched: false,
+      }),
+    );
+    expect(await screen.findByText("No active playback state")).toBeInTheDocument();
+    expect(screen.queryByText("38% complete - resume at 9 min")).not.toBeInTheDocument();
+    expect(screen.queryByText(safeMutationError)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Resume" })).not.toBeInTheDocument();
+    expect(setUserWatchedState).toHaveBeenNthCalledWith(1, "item-episode-1", {
+      duration_ms: 1440000,
+      position_ms: 0,
+      source_id: "source-episode-1",
+      watched: false,
+    });
+    expect(setUserWatchedState).toHaveBeenNthCalledWith(2, "item-episode-1", {
+      duration_ms: 1440000,
+      position_ms: 0,
+      source_id: "source-episode-1",
+      watched: false,
+    });
+  });
+
   it("renders a Media Library detail route from Public Client fixture data", async () => {
     window.history.pushState(
       null,
