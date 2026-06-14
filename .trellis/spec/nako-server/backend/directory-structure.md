@@ -32,6 +32,10 @@ crates/nako-server/src/
   `config/preflight.rs`.
 - Put route tests under `src/http/tests/` and app-service tests under
   `src/app/tests/`.
+- Prefer a named startup workflow in `src/app/startup.rs` when `NakoApp`
+  composition needs to do more than wire dependencies together. `composition.rs`
+  should stay the composition root and pass a narrow runtime view into the
+  startup workflow instead of rebuilding startup report fields inline.
 
 ## Control-Plane Boundary
 

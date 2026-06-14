@@ -10,13 +10,17 @@ use nako_vfs::StorageUri;
 use tracing::warn;
 
 use super::{
+    addons::AddonAppService,
+    artwork::ManagedArtworkAppService,
     current_time_ms,
     library_reconciliation::{
         ConfiguredLibraryReconciliationReport, ConfiguredLibraryReconciliationService,
     },
     metadata::MetadataAppService,
     playback_artifact_cleanup::cleanup_expired_playback_artifacts,
+    runtime::RuntimeSupervisor,
     staging::cleanup_expired_staging_inputs,
+    watch_folder_runtime::WatchFolderRuntimeAppService,
     watch_folder_runtime::WatchFolderRuntimeCoverageReport,
 };
 use crate::config::{LocalLibraryConfig, NakoServerConfig, libraries_from_config};
@@ -59,6 +63,31 @@ pub(crate) struct ServerStartupWorkflow<'a> {
     config: &'a NakoServerConfig,
     store: &'a NakoDatabase,
     metadata: MetadataAppService,
+    startup_runtime: ServerStartupRuntime<'a>,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct ServerStartupRuntime<'a> {
+    artwork: &'a ManagedArtworkAppService,
+    addons: &'a AddonAppService,
+    watch_folder_runtime: &'a WatchFolderRuntimeAppService,
+    runtime: &'a RuntimeSupervisor,
+}
+
+impl<'a> ServerStartupRuntime<'a> {
+    pub(crate) fn new(
+        artwork: &'a ManagedArtworkAppService,
+        addons: &'a AddonAppService,
+        watch_folder_runtime: &'a WatchFolderRuntimeAppService,
+        runtime: &'a RuntimeSupervisor,
+    ) -> Self {
+        Self {
+            artwork,
+            addons,
+            watch_folder_runtime,
+            runtime,
+        }
+    }
 }
 
 impl<'a> ServerStartupWorkflow<'a> {
@@ -66,15 +95,23 @@ impl<'a> ServerStartupWorkflow<'a> {
         config: &'a NakoServerConfig,
         store: &'a NakoDatabase,
         metadata: MetadataAppService,
+        startup_runtime: ServerStartupRuntime<'a>,
     ) -> Self {
         Self {
             config,
             store,
             metadata,
+            startup_runtime,
         }
     }
 
     pub(crate) async fn run(&self) -> Result<ServerStartupReport> {
+        let mut report = self.build_initial_report().await?;
+        self.start_control_plane_runtimes(&mut report).await?;
+        Ok(report)
+    }
+
+    async fn build_initial_report(&self) -> Result<ServerStartupReport> {
         let recovered_transcode_sessions = self.recover_stale_transcode_sessions().await?;
         let recovered_jobs = self.recover_unfinished_jobs().await?;
         let staging_cleanup = self.cleanup_staging_inputs().await?;
@@ -103,6 +140,29 @@ impl<'a> ServerStartupWorkflow<'a> {
             watch_folder_runtimes_started: 0,
             watch_folder_runtime_coverage: WatchFolderRuntimeCoverageReport::default(),
         })
+    }
+
+    async fn start_control_plane_runtimes(&self, report: &mut ServerStartupReport) -> Result<()> {
+        report.artwork_ingest_worker_started = if self.config.artwork.ingest_worker_enabled {
+            self.startup_runtime
+                .artwork
+                .start_ingest_worker(self.startup_runtime.runtime)
+        } else {
+            false
+        };
+        report.addon_event_scheduler_started = self
+            .startup_runtime
+            .addons
+            .start_addon_event_scheduler(self.config.addon_event_scheduler);
+        report.watch_folder_runtime_coverage = self
+            .startup_runtime
+            .watch_folder_runtime
+            .start_enabled_watchers(self.startup_runtime.runtime)
+            .await?;
+        report.watch_folder_runtimes_started =
+            report.watch_folder_runtime_coverage.started_libraries();
+
+        Ok(())
     }
 
     async fn ensure_bootstrap_admin_user(&self) -> Result<()> {

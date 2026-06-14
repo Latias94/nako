@@ -37,7 +37,7 @@ use super::{
         RUNTIME_RESOURCE_CLASS_DISK_SCAN, RUNTIME_RESOURCE_CLASS_METADATA_SHARED,
         RUNTIME_RESOURCE_CLASS_NETWORK_WEBHOOK, RuntimeResourceClassRegistry, RuntimeSupervisor,
     },
-    startup::{ServerStartupReport, ServerStartupWorkflow},
+    startup::{ServerStartupReport, ServerStartupRuntime, ServerStartupWorkflow},
     storage::{StorageBackendRegistry, StorageDiagnosticsAppService},
     user_playback::UserPlaybackAppService,
     user_playlist::UserPlaylistAppService,
@@ -66,22 +66,19 @@ impl NakoAppComposition {
         let runtime_resource_classes = runtime_resources.resource_classes.clone();
         let services = NakoAppServices::build(&config, store.clone(), runtime_resources)?;
 
-        let startup_report = ServerStartupWorkflow::new(&config, &store, services.metadata.clone())
-            .run()
-            .await?;
-        let artwork_ingest_worker_started = config
-            .artwork
-            .ingest_worker_enabled
-            .then(|| services.artwork.start_ingest_worker(&runtime))
-            .unwrap_or(false);
-        let addon_event_scheduler_started = services
-            .addons
-            .start_addon_event_scheduler(config.addon_event_scheduler);
-        let watch_folder_runtime_coverage = services
-            .watch_folder_runtime
-            .start_enabled_watchers(&runtime)
-            .await?;
-        let watch_folder_runtimes_started = watch_folder_runtime_coverage.started_libraries();
+        let startup_report = ServerStartupWorkflow::new(
+            &config,
+            &store,
+            services.metadata.clone(),
+            ServerStartupRuntime::new(
+                &services.artwork,
+                &services.addons,
+                &services.watch_folder_runtime,
+                &runtime,
+            ),
+        )
+        .run()
+        .await?;
 
         Ok(Self {
             config,
@@ -89,13 +86,7 @@ impl NakoAppComposition {
             runtime,
             runtime_resource_classes,
             services,
-            startup_report: ServerStartupReport {
-                artwork_ingest_worker_started,
-                addon_event_scheduler_started,
-                watch_folder_runtimes_started,
-                watch_folder_runtime_coverage,
-                ..startup_report
-            },
+            startup_report,
         })
     }
 

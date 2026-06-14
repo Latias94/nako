@@ -2688,6 +2688,50 @@ async fn addon_event_scheduler_runtime_task_is_supervised_and_stops_on_shutdown(
 }
 
 #[tokio::test]
+async fn app_startup_reports_control_plane_runtime_activation() {
+    let temp = tempfile::tempdir().unwrap();
+    let library = LocalLibraryConfig {
+        id: LibraryId::new(),
+        name: "Movies".to_owned(),
+        root: temp.path().join("movies"),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    fs::create_dir_all(&library.root).unwrap();
+    let mut config = startup_config(temp.path(), vec![library]);
+    config.artwork.ingest_worker_enabled = true;
+    config.addon_event_scheduler.enabled = true;
+
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store).await.unwrap();
+
+    assert!(app.startup_report().artwork_ingest_worker_started);
+    assert!(app.startup_report().addon_event_scheduler_started);
+    assert_eq!(app.startup_report().watch_folder_runtimes_started, 0);
+
+    let diagnostics = app.runtime_diagnostics();
+    assert_eq!(diagnostics.active_tasks, 2);
+    assert!(
+        diagnostics
+            .tasks
+            .iter()
+            .any(|task| task.name == "managed_artwork_ingest_worker"
+                && task.resource_class == "artwork.ingest")
+    );
+    assert!(
+        diagnostics
+            .tasks
+            .iter()
+            .any(|task| task.name == "addon_event_scheduler"
+                && task.resource_class == "addon.event.scheduler")
+    );
+
+    app.shutdown_runtime();
+    tokio::task::yield_now().await;
+    assert_eq!(app.runtime_diagnostics().active_tasks, 0);
+}
+
+#[tokio::test]
 async fn watch_folder_runtime_task_is_supervised_and_stops_on_shutdown() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
@@ -3373,33 +3417,35 @@ async fn app_startup_allows_same_webdav_root_on_different_endpoints() {
 async fn app_startup_rejects_duplicate_metadata_provider_configs() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
-    let mut metadata = MetadataConfig::default();
-    metadata.providers = vec![
-        MetadataProviderConfig {
-            provider: ExternalProvider::Tmdb,
-            enabled: false,
-            token_env: None,
-            api_key_env: None,
-            api_base_url: None,
-            image_base_url: None,
-            language: None,
-            include_adult: false,
-            headers: Vec::new(),
-            runtime: None,
-        },
-        MetadataProviderConfig {
-            provider: ExternalProvider::Tmdb,
-            enabled: false,
-            token_env: None,
-            api_key_env: None,
-            api_base_url: None,
-            image_base_url: None,
-            language: None,
-            include_adult: false,
-            headers: Vec::new(),
-            runtime: None,
-        },
-    ];
+    let metadata = MetadataConfig {
+        providers: vec![
+            MetadataProviderConfig {
+                provider: ExternalProvider::Tmdb,
+                enabled: false,
+                token_env: None,
+                api_key_env: None,
+                api_base_url: None,
+                image_base_url: None,
+                language: None,
+                include_adult: false,
+                headers: Vec::new(),
+                runtime: None,
+            },
+            MetadataProviderConfig {
+                provider: ExternalProvider::Tmdb,
+                enabled: false,
+                token_env: None,
+                api_key_env: None,
+                api_base_url: None,
+                image_base_url: None,
+                language: None,
+                include_adult: false,
+                headers: Vec::new(),
+                runtime: None,
+            },
+        ],
+        ..MetadataConfig::default()
+    };
     let config = NakoServerConfig {
         database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
