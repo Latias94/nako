@@ -1119,6 +1119,16 @@ td {
   gap: 12px;
 }
 
+.mediaContinueContent {
+  display: grid;
+  justify-content: start;
+  gap: 4px;
+}
+
+.mediaContinueRow .uiButton {
+  flex: 0 0 auto;
+}
+
 .mediaContinueRow progress {
   width: 100%;
   accent-color: var(--media-brand);
@@ -1277,6 +1287,37 @@ td {
 .mediaPlaybackState {
   display: grid;
   gap: 10px;
+}
+
+.mediaResumeSummary {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+  border: 1px solid var(--media-line);
+  border-radius: 8px;
+  background: oklch(21% 0.021 116);
+  padding: 11px;
+}
+
+.mediaResumeSummary > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mediaResumeSummary strong {
+  color: var(--media-ink);
+}
+
+.mediaResumeSummary span {
+  color: var(--media-muted);
+  font-size: 0.82rem;
+}
+
+.mediaResumeSummary progress {
+  width: 100%;
+  accent-color: var(--media-brand);
 }
 
 .mediaPlayerShell {

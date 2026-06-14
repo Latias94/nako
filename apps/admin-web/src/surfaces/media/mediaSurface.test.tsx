@@ -70,6 +70,27 @@ describe("Media Web surface", () => {
     expect(await screen.findByText("Films")).toBeInTheDocument();
   });
 
+  it("links Continue Watching entries to the watch route with source continuity", async () => {
+    window.history.pushState(null, "", "/media");
+
+    const { container } = render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Watch next" })).toBeInTheDocument();
+    expect(screen.getByText("38% complete - resume at 9 min")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Resume" })).toHaveAttribute(
+      "href",
+      "/media/watch/item-episode-1?source_id=source-episode-1",
+    );
+    expect(container.textContent).not.toContain("nako_bpt_fixture");
+    expect(container.textContent).not.toContain("/sources/");
+    expect(container.textContent).not.toContain("fingerprint");
+  });
+
   it("renders a Media Library detail route from Public Client fixture data", async () => {
     window.history.pushState(
       null,
@@ -239,7 +260,7 @@ describe("Media Web surface", () => {
     window.history.pushState(
       null,
       "",
-      "/media/watch/item-episode-1?source_id=source-episode-1-alt",
+      "/media/watch/item-episode-1?source_id=source-episode-1",
     );
     const dataSource = createFixtureMediaDataSource();
     const getPlaybackDecision = vi.fn(dataSource.getPlaybackDecision);
@@ -263,14 +284,16 @@ describe("Media Web surface", () => {
 
     expect(await screen.findByRole("heading", { name: "Pilot" })).toBeInTheDocument();
     expect(screen.getByText("Player")).toBeInTheDocument();
+    expect(screen.getByText("Resume from 9 min")).toBeInTheDocument();
+    expect(screen.getByText("38% complete - current source")).toBeInTheDocument();
     const player = await screen.findByLabelText("Pilot player");
     expect(player.tagName).toBe("VIDEO");
     expect(player).toHaveAttribute("controls");
-    expect(screen.getByRole("button", { name: /Pilot\.alt\.mp4/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Pilot\.mkv/ })).toBeInTheDocument();
     expect(screen.getAllByText("direct_play").length).toBeGreaterThan(0);
     await waitFor(() => {
       expect(getPlaybackDecision).toHaveBeenCalledWith(
-        "source-episode-1-alt",
+        "source-episode-1",
         expect.objectContaining({
           container: expect.arrayContaining(["mp4"]),
           direct_play: true,
@@ -281,7 +304,7 @@ describe("Media Web surface", () => {
     });
     await waitFor(() => {
       expect(createBrowserPlaybackTicket).toHaveBeenCalledWith(
-        "source-episode-1-alt",
+        "source-episode-1",
         expect.objectContaining({
           capabilities: expect.objectContaining({
             container: expect.arrayContaining(["mp4"]),

@@ -8,7 +8,7 @@ import type {
   MediaItemDto,
   SearchResponse,
 } from "@nako/sdk";
-import { ArrowLeft, ArrowRight, Search } from "lucide-react";
+import { ArrowLeft, ArrowRight, Play, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "../../components/ui/Button";
@@ -226,8 +226,27 @@ function MediaContinueWatching({
           {result.value.items.map((entry) => (
             <article className="mediaContinueRow" key={entry.item.id}>
               <div>
-                <strong>{entry.item.metadata.title}</strong>
-                <span>{Math.round((entry.state.progress_percent ?? 0) * 100)}% complete</span>
+                <div className="mediaContinueContent">
+                  <strong>{entry.item.metadata.title}</strong>
+                  <span>
+                    {Math.round((entry.state.progress_percent ?? 0) * 100)}% complete
+                    {" - "}
+                    resume at {formatRuntimeMs(entry.state.resume_position_ms)}
+                  </span>
+                </div>
+                <Link
+                  className="uiButton uiButtonDefault uiButtonSm"
+                  params={{ itemId: entry.item.id }}
+                  search={
+                    entry.state.source_id
+                      ? { source_id: entry.state.source_id }
+                      : {}
+                  }
+                  to="/media/watch/$itemId"
+                >
+                  <Play size={15} />
+                  <span>Resume</span>
+                </Link>
               </div>
               <progress value={entry.state.progress_percent ?? 0} max={1} />
             </article>

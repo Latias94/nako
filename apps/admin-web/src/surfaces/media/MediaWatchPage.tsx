@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 
 import { Button } from "../../components/ui/Button";
 import {
+  formatRuntimeMs,
   type MediaAsyncState,
   useMediaLoad,
 } from "./MediaCore";
@@ -150,6 +151,7 @@ function MediaWatch({
           <h3 id="media-player-title">Player</h3>
           <span>{browserTicket.value?.mode ?? decision.value?.decision.mode ?? "pending"}</span>
         </div>
+        <MediaResumeSummary result={playbackState} selectedSourceId={selectedSource?.id} />
         <MediaBrowserPlayer
           fallbackDurationMs={fallbackDurationMs}
           onBrowserTicketRetry={onBrowserTicketRetry}
@@ -187,6 +189,44 @@ function MediaWatch({
         />
       </section>
     </section>
+  );
+}
+
+function MediaResumeSummary({
+  result,
+  selectedSourceId,
+}: {
+  result: MediaAsyncState<UserPlaybackStateResponse>;
+  selectedSourceId: string | undefined;
+}) {
+  if (result.loading) {
+    return null;
+  }
+
+  const state = result.value?.state;
+  if (!state) {
+    return null;
+  }
+
+  const progressPercent = Math.round((state.progress_percent ?? 0) * 100);
+  const isSelectedSource = state.source_id === selectedSourceId;
+
+  return (
+    <div className="mediaResumeSummary">
+      <div>
+        <strong>
+          {state.resume_position_ms
+            ? `Resume from ${formatRuntimeMs(state.resume_position_ms)}`
+            : "Start from beginning"}
+        </strong>
+        <span>
+          {state.watched ? "Watched" : `${progressPercent}% complete`}
+          {" - "}
+          {isSelectedSource ? "current source" : "different saved source"}
+        </span>
+      </div>
+      <progress value={state.progress_percent ?? 0} max={1} />
+    </div>
   );
 }
 
