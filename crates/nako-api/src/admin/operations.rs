@@ -14,6 +14,54 @@ use serde::{Deserialize, Serialize};
 use super::storage::AdminVfsCacheRepairJobSummary;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminSourceFingerprintHashJobSummaryMode {
+    pub mode: AdminSourceFingerprintHashMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prefix_bytes: Option<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(untagged)]
+enum AdminSourceFingerprintHashSummaryModeCompat {
+    Normalized(AdminSourceFingerprintHashJobSummaryMode),
+    Full(AdminSourceFingerprintHashMode),
+    Partial {
+        partial: AdminSourceFingerprintHashPartialMode,
+    },
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+struct AdminSourceFingerprintHashPartialMode {
+    prefix_bytes: u64,
+}
+
+impl From<AdminSourceFingerprintHashSummaryModeCompat>
+    for AdminSourceFingerprintHashJobSummaryMode
+{
+    fn from(mode: AdminSourceFingerprintHashSummaryModeCompat) -> Self {
+        match mode {
+            AdminSourceFingerprintHashSummaryModeCompat::Normalized(mode) => mode,
+            AdminSourceFingerprintHashSummaryModeCompat::Full(
+                AdminSourceFingerprintHashMode::Full,
+            ) => Self {
+                mode: AdminSourceFingerprintHashMode::Full,
+                prefix_bytes: None,
+            },
+            AdminSourceFingerprintHashSummaryModeCompat::Full(
+                AdminSourceFingerprintHashMode::Partial,
+            ) => Self {
+                mode: AdminSourceFingerprintHashMode::Partial,
+                prefix_bytes: None,
+            },
+            AdminSourceFingerprintHashSummaryModeCompat::Partial { partial } => Self {
+                mode: AdminSourceFingerprintHashMode::Partial,
+                prefix_bytes: Some(partial.prefix_bytes),
+            },
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct JobResponse {
     pub id: JobId,
     pub kind: JobKind,
@@ -170,6 +218,7 @@ impl AdminJobListItem {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminJobDiagnostics {
     pub vfs_cache_repair: Option<AdminVfsCacheRepairJobDiagnostics>,
+    pub source_fingerprint_hash: Option<AdminSourceFingerprintHashJobDiagnostics>,
 }
 
 impl AdminJobDiagnostics {
@@ -177,6 +226,13 @@ impl AdminJobDiagnostics {
         match job.kind {
             JobKind::VfsCacheRepair => Some(Self {
                 vfs_cache_repair: Some(AdminVfsCacheRepairJobDiagnostics::from_job(job)),
+                source_fingerprint_hash: None,
+            }),
+            JobKind::SourceFingerprintHash => Some(Self {
+                vfs_cache_repair: None,
+                source_fingerprint_hash: Some(AdminSourceFingerprintHashJobDiagnostics::from_job(
+                    job,
+                )),
             }),
             _ => None,
         }
@@ -237,6 +293,79 @@ impl AdminVfsCacheRepairJobFailureDiagnostic {
             retryable: StorageFailureClass::Unknown.is_retryable(),
         }
     }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminSourceFingerprintHashJobDiagnostics {
+    pub status: AdminSourceFingerprintHashJobDiagnosticStatus,
+    pub summary: Option<AdminSourceFingerprintHashJobSummary>,
+    pub failure: Option<AdminSourceFingerprintHashJobFailureDiagnostic>,
+}
+
+impl AdminSourceFingerprintHashJobDiagnostics {
+    fn from_job(job: &Job) -> Self {
+        let summary = job.summary_json.as_deref().and_then(|summary| {
+            serde_json::from_str::<AdminSourceFingerprintHashJobSummary>(summary).ok()
+        });
+        let failure = job
+            .error
+            .as_ref()
+            .map(|_error| AdminSourceFingerprintHashJobFailureDiagnostic::redacted(job.status));
+
+        Self {
+            status: match (&summary, &failure) {
+                (Some(_), _) => AdminSourceFingerprintHashJobDiagnosticStatus::SummaryAvailable,
+                (None, Some(_)) => AdminSourceFingerprintHashJobDiagnosticStatus::Failed,
+                (None, None) => AdminSourceFingerprintHashJobDiagnosticStatus::Pending,
+            },
+            summary,
+            failure,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminSourceFingerprintHashJobDiagnosticStatus {
+    Pending,
+    SummaryAvailable,
+    Failed,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminSourceFingerprintHashJobSummary {
+    #[serde(deserialize_with = "deserialize_source_fingerprint_hash_summary_mode")]
+    pub mode: AdminSourceFingerprintHashJobSummaryMode,
+    pub evidence_kind: SourceFingerprintEvidenceKind,
+    pub confidence_milli: u16,
+    pub stale: bool,
+    pub bytes_hashed: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminSourceFingerprintHashJobFailureDiagnostic {
+    pub status: JobStatus,
+    pub safe_message: String,
+    pub retryable: bool,
+}
+
+impl AdminSourceFingerprintHashJobFailureDiagnostic {
+    fn redacted(status: JobStatus) -> Self {
+        Self {
+            status,
+            safe_message: "source fingerprint hash failed".to_owned(),
+            retryable: true,
+        }
+    }
+}
+
+fn deserialize_source_fingerprint_hash_summary_mode<'de, D>(
+    deserializer: D,
+) -> Result<AdminSourceFingerprintHashJobSummaryMode, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    AdminSourceFingerprintHashSummaryModeCompat::deserialize(deserializer).map(Into::into)
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -836,6 +965,205 @@ mod tests {
         assert!(!body.contains("input_json"));
         assert!(!body.contains("summary_json"));
         assert!(!body.contains("error\":\"storage"));
+    }
+
+    #[test]
+    fn source_fingerprint_hash_job_response_projects_safe_summary_diagnostics() {
+        let job = Job {
+            id: JobId::new(),
+            kind: JobKind::SourceFingerprintHash,
+            status: JobStatus::Succeeded,
+            resource_class: "disk.scan.source_fingerprint_hash".to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(LibraryId::new()),
+            source_id: Some(MediaSourceId::new()),
+            input_json: Some(
+                r#"{"source_uri":"local:///Hidden Movie.mkv?token=secret","fingerprint":"sha256-private"}"#
+                    .to_owned(),
+            ),
+            summary_json: Some(
+                r#"{"mode":{"partial":{"prefix_bytes":4096}},"evidence_kind":"content_hash","confidence_milli":1000,"stale":false,"bytes_hashed":4096}"#
+                    .to_owned(),
+            ),
+            error: None,
+            attempt: 1,
+            max_attempts: 1,
+            retry_of_job_id: None,
+            next_attempt_at: None,
+            queued_at: "2026-06-07T00:00:00Z".to_owned(),
+            started_at: Some("2026-06-07T00:00:01Z".to_owned()),
+            completed_at: Some("2026-06-07T00:00:02Z".to_owned()),
+        };
+
+        let response = JobResponse::from_job(job);
+        let value = serde_json::to_value(&response).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(
+            value["diagnostics"]["vfs_cache_repair"],
+            serde_json::Value::Null
+        );
+        assert_eq!(
+            value["diagnostics"]["source_fingerprint_hash"]["status"],
+            "summary_available"
+        );
+        assert_eq!(
+            value["diagnostics"]["source_fingerprint_hash"]["summary"]["mode"]["mode"],
+            "partial"
+        );
+        assert_eq!(
+            value["diagnostics"]["source_fingerprint_hash"]["summary"]["mode"]["prefix_bytes"],
+            4096
+        );
+        assert_eq!(
+            value["diagnostics"]["source_fingerprint_hash"]["summary"]["evidence_kind"],
+            "content_hash"
+        );
+        assert_eq!(
+            value["diagnostics"]["source_fingerprint_hash"]["summary"]["confidence_milli"],
+            1000
+        );
+        assert_eq!(
+            value["diagnostics"]["source_fingerprint_hash"]["summary"]["stale"],
+            false
+        );
+        assert_eq!(
+            value["diagnostics"]["source_fingerprint_hash"]["summary"]["bytes_hashed"],
+            4096
+        );
+        assert_eq!(
+            value["diagnostics"]["source_fingerprint_hash"]["failure"],
+            serde_json::Value::Null
+        );
+        assert!(!body.contains("Hidden Movie"));
+        assert!(!body.contains("local:///"));
+        assert!(!body.contains("token=secret"));
+        assert!(!body.contains("sha256-private"));
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("fingerprint\":\""));
+        assert!(!body.contains("input_json"));
+        assert!(!body.contains("summary_json"));
+    }
+
+    #[test]
+    fn source_fingerprint_hash_job_list_item_projects_only_safe_failure_diagnostics() {
+        let job = Job {
+            id: JobId::new(),
+            kind: JobKind::SourceFingerprintHash,
+            status: JobStatus::Failed,
+            resource_class: "disk.scan.source_fingerprint_hash".to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(LibraryId::new()),
+            source_id: Some(MediaSourceId::new()),
+            input_json: Some(
+                r#"{"source_uri":"local:///Hidden Movie.mkv","source_scheme":"local","fingerprint":"sha256-private"}"#
+                    .to_owned(),
+            ),
+            summary_json: None,
+            error: Some(
+                "source hash failed for local:///Hidden Movie.mkv token=secret sha256-private"
+                    .to_owned(),
+            ),
+            attempt: 1,
+            max_attempts: 2,
+            retry_of_job_id: None,
+            next_attempt_at: None,
+            queued_at: "2026-06-07T00:00:00Z".to_owned(),
+            started_at: Some("2026-06-07T00:00:01Z".to_owned()),
+            completed_at: Some("2026-06-07T00:00:02Z".to_owned()),
+        };
+
+        let item = AdminJobListItem::from_job(job);
+        let value = serde_json::to_value(&item).unwrap();
+        let body = value.to_string();
+
+        assert_eq!(
+            value["diagnostics"]["source_fingerprint_hash"]["status"],
+            "failed"
+        );
+        assert_eq!(
+            value["diagnostics"]["source_fingerprint_hash"]["summary"],
+            serde_json::Value::Null
+        );
+        assert_eq!(
+            value["diagnostics"]["source_fingerprint_hash"]["failure"]["status"],
+            "failed"
+        );
+        assert_eq!(
+            value["diagnostics"]["source_fingerprint_hash"]["failure"]["safe_message"],
+            "source fingerprint hash failed"
+        );
+        assert_eq!(
+            value["diagnostics"]["source_fingerprint_hash"]["failure"]["retryable"],
+            true
+        );
+        assert!(!body.contains("Hidden Movie"));
+        assert!(!body.contains("local:///"));
+        assert!(!body.contains("token=secret"));
+        assert!(!body.contains("sha256-private"));
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("source_scheme"));
+        assert!(!body.contains("fingerprint\":\""));
+        assert!(!body.contains("input_json"));
+        assert!(!body.contains("summary_json"));
+        assert!(!body.contains("error\":\"source hash"));
+    }
+
+    #[test]
+    fn source_fingerprint_hash_pending_diagnostics_omit_summary_and_failure() {
+        let job = Job {
+            id: JobId::new(),
+            kind: JobKind::SourceFingerprintHash,
+            status: JobStatus::Queued,
+            resource_class: "disk.scan.source_fingerprint_hash".to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(LibraryId::new()),
+            source_id: Some(MediaSourceId::new()),
+            input_json: None,
+            summary_json: None,
+            error: None,
+            attempt: 1,
+            max_attempts: 1,
+            retry_of_job_id: None,
+            next_attempt_at: None,
+            queued_at: "2026-06-07T00:00:00Z".to_owned(),
+            started_at: None,
+            completed_at: None,
+        };
+
+        let value = serde_json::to_value(AdminJobListItem::from_job(job)).unwrap();
+
+        assert_eq!(
+            value["diagnostics"]["source_fingerprint_hash"]["status"],
+            "pending"
+        );
+        assert_eq!(
+            value["diagnostics"]["source_fingerprint_hash"]["summary"],
+            serde_json::Value::Null
+        );
+        assert_eq!(
+            value["diagnostics"]["source_fingerprint_hash"]["failure"],
+            serde_json::Value::Null
+        );
+    }
+
+    #[test]
+    fn source_fingerprint_hash_summary_round_trips_normalized_admin_mode() {
+        let summary = AdminSourceFingerprintHashJobSummary {
+            mode: AdminSourceFingerprintHashJobSummaryMode {
+                mode: AdminSourceFingerprintHashMode::Partial,
+                prefix_bytes: Some(2048),
+            },
+            evidence_kind: SourceFingerprintEvidenceKind::BackendFingerprint,
+            confidence_milli: 700,
+            stale: true,
+            bytes_hashed: 2048,
+        };
+
+        let body = serde_json::to_string(&summary).unwrap();
+        let round_trip: AdminSourceFingerprintHashJobSummary = serde_json::from_str(&body).unwrap();
+
+        assert_eq!(round_trip, summary);
     }
 
     #[test]

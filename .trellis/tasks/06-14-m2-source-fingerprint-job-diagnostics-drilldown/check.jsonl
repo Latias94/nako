@@ -1,0 +1,7 @@
+{"file":".trellis/spec/nako-api/backend/index.md","reason":"Verify Admin DTO and generated contract work follows API package guidance."}
+{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Check redaction, route inventory, and generated contract requirements."}
+{"file":".trellis/spec/nako-server/backend/index.md","reason":"Verify server changes follow Admin route and app-service boundaries."}
+{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Check Admin route/auth and response mapping behavior."}
+{"file":".trellis/spec/nako-server/backend/source-fingerprint-hash-policy.md","reason":"Check source fingerprint durable job diagnostics do not leak unsafe facts."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Check focused test coverage and quality gates for this task."}
+{"file":".trellis/tasks/06-14-m2-source-fingerprint-job-diagnostics-drilldown/research/source-fingerprint-job-diagnostics-gap.md","reason":"Check implementation against the selected scope and non-goals."}

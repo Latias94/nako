@@ -3265,6 +3265,7 @@ export interface AddonEventSchedulerWorkResponse {
 
 export interface AdminJobDiagnostics {
   vfs_cache_repair: AdminVfsCacheRepairJobDiagnostics | null;
+  source_fingerprint_hash: AdminSourceFingerprintHashJobDiagnostics | null;
 }
 
 export type AdminVfsCacheRepairJobDiagnosticStatus =
@@ -3281,6 +3282,36 @@ export interface AdminVfsCacheRepairJobDiagnostics {
 export interface AdminVfsCacheRepairJobFailureDiagnostic {
   status: string;
   failure_class: StorageFailureClass;
+  safe_message: string;
+  retryable: boolean;
+}
+
+export type AdminSourceFingerprintHashJobDiagnosticStatus =
+  | "pending"
+  | "summary_available"
+  | "failed";
+
+export interface AdminSourceFingerprintHashJobDiagnostics {
+  status: AdminSourceFingerprintHashJobDiagnosticStatus;
+  summary: AdminSourceFingerprintHashJobSummary | null;
+  failure: AdminSourceFingerprintHashJobFailureDiagnostic | null;
+}
+
+export type AdminSourceFingerprintHashJobSummaryMode = {
+  mode: AdminSourceFingerprintHashMode;
+  prefix_bytes?: number | null;
+};
+
+export interface AdminSourceFingerprintHashJobSummary {
+  mode: AdminSourceFingerprintHashJobSummaryMode;
+  evidence_kind: AdminSourceFingerprintEvidenceKind;
+  confidence_milli: number;
+  stale: boolean;
+  bytes_hashed: number;
+}
+
+export interface AdminSourceFingerprintHashJobFailureDiagnostic {
+  status: string;
   safe_message: string;
   retryable: boolean;
 }
@@ -4952,6 +4983,11 @@ mod tests {
             "AdminVfsCacheRepairJobDiagnostics",
             "AdminVfsCacheRepairJobDiagnosticStatus",
             "AdminVfsCacheRepairJobFailureDiagnostic",
+            "AdminSourceFingerprintHashJobDiagnostics",
+            "AdminSourceFingerprintHashJobDiagnosticStatus",
+            "AdminSourceFingerprintHashJobSummaryMode",
+            "AdminSourceFingerprintHashJobSummary",
+            "AdminSourceFingerprintHashJobFailureDiagnostic",
             "JobResponse",
             "AdminJobQueuePressureSummary",
             "AdminJobCommandResponse",

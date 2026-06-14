@@ -1,0 +1,7 @@
+{"file":".trellis/spec/nako-api/backend/index.md","reason":"API contract entry point for Admin DTO and generated contract changes."}
+{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Admin Jobs diagnostics are redaction-sensitive Admin API DTOs."}
+{"file":".trellis/spec/nako-server/backend/index.md","reason":"Server entry point for Admin route and app-service boundary patterns."}
+{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Admin route/auth and redacted response mapping patterns."}
+{"file":".trellis/spec/nako-server/backend/source-fingerprint-hash-policy.md","reason":"Source fingerprint hash durable job, retry, summary, and redaction rules."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Focused server tests and source hash diagnostics quality gates."}
+{"file":".trellis/tasks/06-14-m2-source-fingerprint-job-diagnostics-drilldown/research/source-fingerprint-job-diagnostics-gap.md","reason":"Task-specific code/architecture gap analysis and scope boundaries."}

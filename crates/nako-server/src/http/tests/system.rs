@@ -53,7 +53,7 @@ use nako_core::{
 };
 use nako_library::{
     SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS, SourceFingerprintHashJobInput,
-    SourceFingerprintHashMode,
+    SourceFingerprintHashJobSummary, SourceFingerprintHashMode,
 };
 
 fn system_process_backed_hls_playlist_readiness_timeout() -> Duration {
@@ -6228,6 +6228,27 @@ async fn admin_v1_jobs_lists_source_fingerprint_hash_filters_without_payload_lea
     assert_eq!(jobs.jobs[0].source_id, Some(source_id));
     assert!(jobs.jobs[0].has_input);
     assert!(jobs.jobs[0].has_error);
+    let diagnostics = jobs.jobs[0]
+        .diagnostics
+        .as_ref()
+        .expect("source fingerprint hash diagnostics");
+    assert!(diagnostics.vfs_cache_repair.is_none());
+    let source_hash_diagnostics = diagnostics
+        .source_fingerprint_hash
+        .as_ref()
+        .expect("source fingerprint hash diagnostic branch");
+    assert_eq!(
+        source_hash_diagnostics.status,
+        nako_api::admin::AdminSourceFingerprintHashJobDiagnosticStatus::Failed
+    );
+    assert!(source_hash_diagnostics.summary.is_none());
+    let failure = source_hash_diagnostics
+        .failure
+        .as_ref()
+        .expect("redacted source hash failure");
+    assert_eq!(failure.status, JobStatus::Failed);
+    assert_eq!(failure.safe_message, "source fingerprint hash failed");
+    assert!(failure.retryable);
     assert_eq!(jobs.page.limit, 10);
     assert_eq!(jobs.page.returned, 1);
     assert!(!body.contains("source_hash_secret_locator"));
@@ -6235,8 +6256,167 @@ async fn admin_v1_jobs_lists_source_fingerprint_hash_filters_without_payload_lea
     assert!(!body.contains("sha256-private-source-hash"));
     assert!(!body.contains("local:///"));
     assert!(!body.contains("source_uri"));
+    assert!(!body.contains("source_scheme"));
     assert!(!body.contains("input_json"));
     assert!(!body.contains("summary_json"));
+    assert!(!body.contains("error\":\"source hash"));
+}
+
+#[tokio::test]
+async fn admin_v1_jobs_projects_source_fingerprint_hash_summary_diagnostics_without_payload_leaks()
+{
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let source_id = MediaSourceId::new();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("nako-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Private Source Hash Summary".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let source = MediaSource {
+        id: source_id,
+        library_id,
+        item_id: item.id,
+        locator: "local:///Movies/Private/source_hash_secret_locator.mkv".to_owned(),
+        file_name: "source_hash_secret_locator.mkv".to_owned(),
+        size_bytes: Some(4096),
+        fingerprint: Some("sha256-private-source-hash".to_owned()),
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_source(&source).await.unwrap();
+    let source_hash = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::SourceFingerprintHash,
+            resource_class: SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS.to_owned(),
+            priority: nako_core::JobPriority::Normal,
+            library_id: Some(library_id),
+            source_id: Some(source_id),
+            input_json: Some(
+                r#"{"source_uri":"local:///Movies/Private/source_hash_secret_locator.mkv?token=source-hash-token","source_scheme":"local","fingerprint":"sha256-private-source-hash"}"#.to_owned(),
+            ),
+        })
+        .await
+        .unwrap();
+    store.start_job(source_hash.id).await.unwrap();
+    let summary = SourceFingerprintHashJobSummary {
+        mode: SourceFingerprintHashMode::Partial { prefix_bytes: 4096 },
+        evidence_kind: nako_core::SourceFingerprintEvidenceKind::ContentHash,
+        confidence_milli: 1_000,
+        stale: false,
+        bytes_hashed: 4096,
+    };
+    store
+        .succeed_job(
+            source_hash.id,
+            Some(serde_json::to_string(&summary).unwrap()),
+        )
+        .await
+        .unwrap();
+
+    let router = build_router(app);
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/admin/v1/jobs?kind=source_fingerprint_hash&resource_class={SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS}&source_id={source_id}&limit=10"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let status = response.status();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let jobs: AdminJobListResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(jobs.jobs.len(), 1);
+    let diagnostics = jobs.jobs[0]
+        .diagnostics
+        .as_ref()
+        .expect("source fingerprint hash diagnostics");
+    let source_hash_diagnostics = diagnostics
+        .source_fingerprint_hash
+        .as_ref()
+        .expect("source fingerprint hash diagnostic branch");
+    assert_eq!(
+        source_hash_diagnostics.status,
+        nako_api::admin::AdminSourceFingerprintHashJobDiagnosticStatus::SummaryAvailable
+    );
+    let summary = source_hash_diagnostics
+        .summary
+        .as_ref()
+        .expect("source hash summary");
+    assert_eq!(
+        summary.evidence_kind,
+        nako_core::SourceFingerprintEvidenceKind::ContentHash
+    );
+    assert_eq!(summary.confidence_milli, 1_000);
+    assert!(!summary.stale);
+    assert_eq!(summary.bytes_hashed, 4096);
+    assert!(source_hash_diagnostics.failure.is_none());
+    assert!(body.contains("\"source_fingerprint_hash\""));
+    assert!(body.contains("\"summary_available\""));
+    assert!(body.contains("\"content_hash\""));
+    assert!(!body.contains("source_hash_secret_locator"));
+    assert!(!body.contains("source-hash-token"));
+    assert!(!body.contains("sha256-private-source-hash"));
+    assert!(!body.contains("local:///"));
+    assert!(!body.contains("source_uri"));
+    assert!(!body.contains("source_scheme"));
+    assert!(!body.contains("input_json"));
+    assert!(!body.contains("summary_json"));
+    assert!(!body.contains("fingerprint\":\""));
 }
 
 #[tokio::test]

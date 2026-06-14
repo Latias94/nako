@@ -1166,8 +1166,8 @@ maps only safe counters into the DTO.
   Admin Web Jobs filter controls, or any route that lets operators inspect
   source-hash durable jobs.
 - Scope: `GET /admin/v1/jobs`, `AdminJobsQuery`, `AdminJobListItem`,
-  `JobListFilter`, Admin Web Jobs route search state, and generated Admin
-  contracts.
+  `AdminJobDiagnostics`, `JobListFilter`, Admin Web Jobs route search state,
+  and generated Admin contracts.
 
 ### 2. Signatures
 
@@ -1180,6 +1180,19 @@ maps only safe counters into the DTO.
 - Job item fields remain safe metadata:
   `id`, `kind`, `status`, `resource_class`, `library_id`, `source_id`,
   input/summary/error presence booleans, and timestamps.
+- Diagnostics branch:
+  `AdminJobDiagnostics { source_fingerprint_hash:
+  AdminSourceFingerprintHashJobDiagnostics | null }`.
+- Source hash diagnostics:
+  `AdminSourceFingerprintHashJobDiagnostics { status, summary, failure }`,
+  where `status` is `pending`, `summary_available`, or `failed`.
+- Source hash summary DTO:
+  `AdminSourceFingerprintHashJobSummary { mode, evidence_kind,
+  confidence_milli, stale, bytes_hashed }`, where `mode` is normalized as
+  `{ mode, prefix_bytes? }`.
+- Source hash failure DTO:
+  `AdminSourceFingerprintHashJobFailureDiagnostic { status, safe_message,
+  retryable }`.
 
 ### 3. Contracts
 
@@ -1189,10 +1202,16 @@ maps only safe counters into the DTO.
   but URL search params remain authoritative.
 - `source_id` is a Media Source identifier filter, not a Source Locator or
   storage URI.
-- Admin Jobs responses expose only presence booleans for input, summary, and
-  error payloads. They must not expose job `input_json`, `summary_json`, raw
-  error bodies, Source Locators, local paths, Source Fingerprints, content
-  hashes, storage URIs, tokens, or backend payloads.
+- Admin Jobs responses expose presence booleans for raw input, summary, and
+  error payloads, but never the raw payloads themselves.
+- For `JobKind::SourceFingerprintHash`, `diagnostics.source_fingerprint_hash`
+  may expose only the parsed redaction-safe summary facts listed above or a
+  generic redacted failure message. It must not expose job `input_json`, raw
+  `summary_json`, raw error bodies, Source Locators, local paths, Source
+  Fingerprints, content hashes, storage URIs, tokens, or backend payloads.
+- Summary parsing must accept both persisted source-hash summary mode shapes
+  such as `{"partial":{"prefix_bytes":4096}}` and the normalized Admin output
+  shape `{ "mode": "partial", "prefix_bytes": 4096 }`.
 
 ### 4. Validation & Error Matrix
 
@@ -1201,13 +1220,22 @@ maps only safe counters into the DTO.
 | Source hash jobs exist with other job kinds in the queue | `kind` and `resource_class` filters return only source hash jobs |
 | `source_id` is present | Parse as `MediaSourceId` and narrow results through `JobListFilter.source_id` |
 | `source_id` is malformed | Return the existing invalid-input error without echoing unsafe payload details |
-| Job input/summary/error contains raw paths, locators, or hashes | Response body omits those payloads and returns only `has_input`, `has_summary`, and `has_error` |
+| Queued/running source hash job has no summary or error | Return `diagnostics.source_fingerprint_hash.status = pending` with null summary and failure |
+| Source hash summary contains safe persisted facts | Return `status = summary_available` and normalized safe summary fields |
+| Source hash summary is malformed | Do not echo raw `summary_json`; leave summary null and avoid leaking parse details |
+| Source hash job has an error | Return `status = failed` with generic `safe_message = source fingerprint hash failed`; do not echo raw error text |
+| Job input/summary/error contains raw paths, locators, or hashes | Response body omits those payloads; raw payload visibility remains limited to `has_input`, `has_summary`, and `has_error` booleans |
 | Admin Web quick filter is clicked | Route search receives the exact kind/resource-class values and resets `offset` to `0` |
 
 ### 5. Good/Base/Bad Cases
 
 - Good: `/admin/v1/jobs?kind=source_fingerprint_hash&resource_class=disk.scan.source_fingerprint_hash&source_id=...`
   returns the safe generic job row for that Media Source.
+- Good: a succeeded source hash job returns
+  `diagnostics.source_fingerprint_hash.summary` with mode, evidence kind,
+  confidence, stale state, and bytes hashed, while omitting raw job JSON.
+- Good: a failed source hash job returns a generic redacted failure diagnostic
+  and still omits raw storage, fingerprint, and error material.
 - Good: Admin Web renders a quick filter that writes existing Jobs route search
   params instead of filtering rows in memory.
 - Base: generic Jobs route still works for library scans, metadata jobs, addon
@@ -1219,9 +1247,14 @@ maps only safe counters into the DTO.
 
 ### 6. Tests Required
 
-- Server route test seeds source hash jobs with sensitive input/error payloads,
-  filters by `kind`, `resource_class`, and `source_id`, and asserts only safe
-  job metadata is returned.
+- API serialization tests prove pending, summary, and failed source hash
+  diagnostics serialize with only safe fields and reject raw input, summary,
+  fingerprint, locator, token, and error text.
+- API contract test proves generated TypeScript includes the source hash
+  diagnostic DTOs and remains out of Public Client outputs.
+- Server route tests seed source hash jobs with sensitive input/summary/error
+  payloads, filter by `kind`, `resource_class`, and `source_id`, and assert
+  only safe job metadata plus safe source hash diagnostics are returned.
 - Admin Web route test proves URL-owned search maps `source_id`, the quick
   filter writes exact source hash filters, and localized controls render.
 - Admin Web redaction/rendering test must continue to reject raw job payload,

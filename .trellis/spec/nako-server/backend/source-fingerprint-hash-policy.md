@@ -76,6 +76,19 @@ relationship reconciliation from hash evidence.
 - Admin job list:
   `GET /admin/v1/jobs` may filter by `kind`, `resource_class`,
   `library_id`, and `source_id`.
+- Admin job diagnostics:
+  `AdminJobDiagnostics { source_fingerprint_hash:
+  AdminSourceFingerprintHashJobDiagnostics | null }`.
+- Admin source hash diagnostics:
+  `AdminSourceFingerprintHashJobDiagnostics { status, summary, failure }`,
+  where `status` is `pending`, `summary_available`, or `failed`.
+- Admin source hash summary:
+  `AdminSourceFingerprintHashJobSummary { mode, evidence_kind,
+  confidence_milli, stale, bytes_hashed }`, where `mode` is normalized to
+  `{ mode, prefix_bytes? }`.
+- Admin source hash failure:
+  `AdminSourceFingerprintHashJobFailureDiagnostic { status, safe_message,
+  retryable }`.
 - Admin trigger request mode is `full` or `partial`. `partial_prefix_bytes`
   is required only for `partial`, must be greater than zero, and is rejected
   for `full`. Optional priority maps to durable job priority `low`,
@@ -160,19 +173,30 @@ relationship reconciliation from hash evidence.
   path, etag, backend URL, credential, raw digest, or fingerprint material.
 - Admin enqueue responses must use the existing redacted Admin job DTO surface:
   job id, kind, status, resource class, optional library/source bindings,
-  timestamps, and `has_input`/`has_summary`/`has_error` booleans only. They
-  must not expose durable input JSON, summary JSON, raw errors, Source
-  Locators, local paths, etags, backend URLs, credentials, raw hashes, or
-  fingerprints.
+  timestamps, `has_input`/`has_summary`/`has_error` booleans, and the optional
+  typed `diagnostics.source_fingerprint_hash` branch. They must not expose
+  durable input JSON, raw summary JSON, raw errors, Source Locators, local
+  paths, etags, backend URLs, credentials, raw hashes, or fingerprints.
 - Admin retry responses must use the same redacted Admin job DTO surface as
   enqueue: job id, kind, status, resource class, optional library/source
-  bindings, timestamps, and `has_input`/`has_summary`/`has_error` booleans
-  only. They must not expose retry linkage (`retry_of_job_id`), priority,
-  attempt/max-attempt counters, durable input JSON, summary JSON, raw errors,
-  Source Locators, local paths, etags, backend URLs, credentials, raw hashes,
-  fingerprints, or fingerprint evidence values. Retry linkage and attempt
-  counters may be verified only through persisted durable job records or an
-  Admin Jobs drilldown surface that explicitly owns that detail.
+  bindings, timestamps, `has_input`/`has_summary`/`has_error` booleans, and
+  the optional typed `diagnostics.source_fingerprint_hash` branch. They must
+  not expose retry linkage (`retry_of_job_id`), priority, attempt/max-attempt
+  counters, durable input JSON, raw summary JSON, raw errors, Source Locators,
+  local paths, etags, backend URLs, credentials, raw hashes, fingerprints, or
+  fingerprint evidence values beyond the explicit safe summary fields listed
+  in this spec. Retry linkage and attempt counters may be verified only through
+  persisted durable job records or a future Admin Jobs drilldown surface that
+  explicitly owns that detail.
+- Admin Jobs source hash diagnostics may expose only:
+  - pending state for jobs without safe summary or error;
+  - parsed safe summary fields from `SourceFingerprintHashJobSummary`;
+  - a generic failed diagnostic with `safe_message =
+    "source fingerprint hash failed"` and retryability.
+- Admin summary parsing must tolerate persisted library summary mode JSON
+  (`"full"` or `{"partial":{"prefix_bytes":...}}`) and normalized Admin JSON
+  (`{"mode":"partial","prefix_bytes":...}`), but Admin output must use the
+  normalized shape.
 - Source hash retry must validate the failed job contract before retrying:
   `JobKind::SourceFingerprintHash`, resource class
   `SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS`, valid
@@ -262,6 +286,10 @@ relationship reconciliation from hash evidence.
 | Admin retry omits `max_attempts` | Use `max(source.max_attempts, source.attempt + 1)`. |
 | Admin retry supplies future `next_attempt_at` | Create a queued retry job that is visible in overview as delayed and cannot be claimed until due. |
 | Admin retry supplies due or past `next_attempt_at` | Create a queued retry job that the existing scheduler may execute through the disk-scan source-hash path. |
+| Admin Jobs lists a queued/running source hash job with no summary/error | Return pending source hash diagnostics with null summary and failure. |
+| Admin Jobs lists a succeeded source hash job with valid summary JSON | Return summary-available diagnostics with normalized safe summary fields. |
+| Admin Jobs lists a source hash job with malformed summary JSON | Do not expose the raw summary or parse error; omit the summary branch. |
+| Admin Jobs lists a failed source hash job | Return failed diagnostics with a generic safe message and no raw error body. |
 | Hash execution succeeds | Persist redacted source fingerprint evidence and redacted job summary. |
 | Hash execution fails with a storage error | Persist a redacted durable job error using only a synthetic scheme URI. |
 | Reconciliation uses missing source id | Return not found without locator/path details. |
@@ -295,7 +323,8 @@ relationship reconciliation from hash evidence.
 
 - Good: an Admin command enqueues a full source hash job by library/source id,
   the existing scheduler executes it under `disk.scan`, and Admin jobs show a
-  redacted row with `has_input`/`has_summary` booleans only.
+  redacted row with `has_input`/`has_summary` booleans plus typed safe
+  diagnostics.
 - Good: an Admin command enqueues a partial source hash job only when the
   request includes a positive `partial_prefix_bytes`; the persisted durable
   input stores mode and source scheme but not a Source Locator.
@@ -308,6 +337,12 @@ relationship reconciliation from hash evidence.
 - Good: a future-dated retry is visible in source hash overview as delayed
   retry pressure and is not claimable until due; offset `next_attempt_at`
   input is stored and reported as canonical UTC `Z` time.
+- Good: a succeeded source hash job surfaces mode, evidence kind, confidence,
+  stale state, and bytes hashed in `diagnostics.source_fingerprint_hash.summary`
+  without returning raw summary JSON or fingerprint material.
+- Good: a failed source hash job surfaces a generic failed diagnostic without
+  returning durable error text, Source Locators, paths, etags, hashes,
+  fingerprints, tokens, or credentials.
 - Good: an immediate retry is executed by
   `LibraryScanAppService::schedule_queued_library_scans` through the same
   disk-scan source-hash path as a freshly queued source hash job.
@@ -348,6 +383,8 @@ relationship reconciliation from hash evidence.
   delegating to the source-hash app service.
 - Bad: Admin DTOs expose job input JSON, Source Locators, raw fingerprints, or
   raw hash material.
+- Bad: Admin Jobs renders `summary_json` or job error text directly for source
+  hash diagnostics instead of parsing into the safe DTO.
 - Bad: the Admin apply handler queries repositories directly or duplicates
   fingerprint freshness/action policy instead of delegating to the app service.
 - Bad: explicit apply relies on repository upsert to overwrite an existing
@@ -393,6 +430,11 @@ relationship reconciliation from hash evidence.
   states, copied retry metadata, and redaction of job input, locators, paths,
   etags, backend URLs, credentials, raw hashes, raw fingerprints, and raw error
   bodies.
+- Admin Jobs source hash diagnostic tests proving pending, succeeded-summary,
+  failed, malformed-summary, generated contract, and HTTP filter responses
+  expose only the safe diagnostics branch and never raw input JSON, summary
+  JSON, Source Locators, paths, etags, backend URLs, credentials, raw hashes,
+  raw fingerprints, tokens, or raw error bodies.
 - Redaction tests proving trigger responses, job rows, errors, and summaries do
   not contain Source Locators, paths, raw digests, raw fingerprints, etags,
   backend URLs, credentials, or job input JSON.
