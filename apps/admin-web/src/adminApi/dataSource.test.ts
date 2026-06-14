@@ -2676,6 +2676,7 @@ describe("Admin data source", () => {
             "library/unsafe id",
             "source/unsafe id",
             "duplicate/source id",
+            "confirmed",
           ),
         );
       },
@@ -2686,13 +2687,14 @@ describe("Admin data source", () => {
         "library/unsafe id",
         "source/unsafe id",
         "duplicate/source id",
+        "confirm_suggested",
       ),
     ).resolves.toMatchObject({
       library_id: "library/unsafe id",
       source_id: "source/unsafe id",
       duplicate_source_id: "duplicate/source id",
-      relationship_status: "suggested",
-      applied_action: "suggest_relationship",
+      relationship_status: "confirmed",
+      applied_action: "confirm_suggested",
     });
 
     expect(seenRequests).toEqual([
@@ -2701,7 +2703,7 @@ describe("Admin data source", () => {
         method: "POST",
         body: {
           duplicate_source_id: "duplicate/source id",
-          expected_action: "suggest_relationship",
+          expected_action: "confirm_suggested",
         },
       },
     ]);
@@ -2715,6 +2717,7 @@ describe("Admin data source", () => {
         "library-anime",
         "source-unknown-1",
         "source-unknown-2",
+        "suggest_relationship",
       ),
     ).rejects.toThrow("HTTP 503");
   });

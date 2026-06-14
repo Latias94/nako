@@ -2,6 +2,7 @@ import type { AdminDataSource, AdminSectionResult } from "../../adminApi/dataSou
 import { mockSourceDuplicateReconciliationPlan } from "../../adminApi/mockData";
 import type {
   AdminSourceDuplicateReconciliationApplyResponse,
+  AdminSourceDuplicateReconciliationApplyExpectedAction,
   AdminSourceDuplicateReconciliationPlanQuery,
   AdminSourceDuplicateReconciliationPlanResponse,
 } from "../../adminApi/types";
@@ -25,6 +26,7 @@ export type SourceDuplicateReconciliationDataAdapter = {
     libraryId: string,
     sourceId: string,
     duplicateSourceId: string,
+    expectedAction: AdminSourceDuplicateReconciliationApplyExpectedAction,
   ): Promise<AdminSourceDuplicateReconciliationApplyResponse>;
 };
 
@@ -47,7 +49,7 @@ export function createSourceDuplicateReconciliationDataAdapter(
 
       return dataSource.loadSourceDuplicateReconciliationPlan(libraryId, sourceId, query);
     },
-    async applySuggestion(libraryId, sourceId, duplicateSourceId) {
+    async applySuggestion(libraryId, sourceId, duplicateSourceId, expectedAction) {
       if (!dataSource.applySourceDuplicateReconciliation) {
         throw new Error(options.applyUnavailableMessage);
       }
@@ -56,6 +58,7 @@ export function createSourceDuplicateReconciliationDataAdapter(
         libraryId,
         sourceId,
         duplicateSourceId,
+        expectedAction,
       );
     },
   };

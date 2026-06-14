@@ -67,8 +67,8 @@ relationship reconciliation from hash evidence.
 - Admin duplicate reconciliation apply:
   `POST /admin/v1/libraries/{library_id}/sources/{source_id}/duplicate-reconciliation-apply`
   with `AdminSourceDuplicateReconciliationApplyRequest {
-  duplicate_source_id, expected_action }`, where `expected_action` is limited
-  to `suggest_relationship`, returning
+  duplicate_source_id, expected_action }`, where `expected_action` is one of
+  `suggest_relationship`, `confirm_suggested`, or `reject_suggested`, returning
   `AdminSourceDuplicateReconciliationApplyResponse`.
 - Durable input:
   `SourceFingerprintHashJobInput { library_id, source_id, source_scheme, mode,
@@ -240,11 +240,16 @@ relationship reconciliation from hash evidence.
   `suggest_relationship`. Replaying the same apply may return the existing
   Suggested relationship with `created: false`; it must not create a second row
   or overwrite the existing pair.
-- Explicit reconciliation apply must not overwrite existing Suggested,
-  Confirmed, or Rejected relationships, auto-confirm duplicates, merge sources,
-  change Playback Source Selection, or mutate Library Access. Existing
-  Confirmed and Rejected pairs remain preserved until a separate reopen/undo
-  workflow is specified.
+- Explicit reconciliation apply may update an existing
+  `SourceDuplicateRelationshipStatus::Suggested` relationship to Confirmed only
+  for `confirm_suggested`, or to Rejected only for `reject_suggested`. The
+  update must preserve relationship id, canonical pair identity, and evidence
+  fields; only the relationship status changes.
+- Explicit reconciliation apply must not create Confirmed or Rejected
+  relationships directly, overwrite existing Confirmed or Rejected
+  relationships, auto-confirm duplicates, merge sources, change Playback Source
+  Selection, or mutate Library Access. Confirmed and Rejected pairs remain
+  preserved until a separate reopen/undo workflow is specified.
 - Admin reconciliation apply responses may expose Admin API version, library id,
   source id, duplicate source id, relationship id/status, applied action, and
   `created`. They must not expose raw Source Locators, local paths, etags,
@@ -303,7 +308,7 @@ relationship reconciliation from hash evidence.
 | Reconciliation sees partial/backend fingerprint match | Plan a weaker Suggested relationship and label the evidence kind/confidence. |
 | Existing relationship is Suggested or Confirmed | Preserve existing status in the read-only plan. |
 | Existing relationship is Rejected | Preserve Rejected unless an explicit reopen/apply request is provided. |
-| Admin apply request uses an `expected_action` other than `suggest_relationship` | Return invalid input and do not write a relationship. |
+| Admin apply request uses an `expected_action` other than `suggest_relationship`, `confirm_suggested`, or `reject_suggested` | Return invalid input and do not write a relationship. |
 | Admin apply target and duplicate source are the same Media Source | Return invalid input and do not write a relationship. |
 | Admin apply target source is missing | Return not found without locator/path details. |
 | Admin apply candidate source is missing | Return not found without locator/path details. |
@@ -313,7 +318,10 @@ relationship reconciliation from hash evidence.
 | Admin apply target or candidate has a raw or unsupported fingerprint string | Return invalid input without echoing the fingerprint. |
 | Admin apply target and candidate fingerprints do not match | Return invalid input without echoing either fingerprint. |
 | Admin apply target or candidate evidence is stale | Return conflict recommending `refresh_source_fingerprint`; do not write a relationship. |
-| Admin apply current pair already has Suggested status | Return the existing relationship with `created: false`; do not insert or update a row. |
+| Admin apply `suggest_relationship` sees current pair already has Suggested status | Return the existing relationship with `created: false`; do not insert or update a row. |
+| Admin apply `confirm_suggested` sees current pair has Suggested status | Update only relationship status to Confirmed and return `applied_action: confirm_suggested`. |
+| Admin apply `reject_suggested` sees current pair has Suggested status | Update only relationship status to Rejected and return `applied_action: reject_suggested`. |
+| Admin apply `confirm_suggested` or `reject_suggested` sees no Suggested relationship | Return conflict preserving the current recommendation; do not create a row. |
 | Admin apply current pair already has Confirmed status | Return conflict preserving `preserve_confirmed`; do not update the row. |
 | Admin apply current pair already has Rejected status | Return conflict preserving `preserve_rejected`; do not update the row. |
 | Admin apply caller is non-admin | Return forbidden through the existing Admin route guard. |
@@ -367,6 +375,9 @@ relationship reconciliation from hash evidence.
   `AdminSourceDuplicateReconciliationApplyResponse` with `created: true`.
 - Good: replaying the same Admin apply returns the existing Suggested
   relationship with `created: false` and does not insert another row.
+- Good: confirming or rejecting an existing Suggested relationship changes only
+  the status and returns the explicit applied action; evidence and canonical
+  pair identity remain intact.
 - Good: applying against stale evidence or an existing Confirmed/Rejected
   relationship returns a safe conflict and preserves stored relationship state.
 - Base: scan commit records a partial/full hash advisory decision but leaves
@@ -389,6 +400,8 @@ relationship reconciliation from hash evidence.
   fingerprint freshness/action policy instead of delegating to the app service.
 - Bad: explicit apply relies on repository upsert to overwrite an existing
   Confirmed or Rejected relationship.
+- Bad: `confirm_suggested` or `reject_suggested` creates a relationship when
+  the pair has no existing Suggested relationship.
 - Bad: the Admin retry handler calls generic durable retry directly and skips
   source-hash kind/resource/input/binding/source-scheme validation.
 - Bad: retry resets the failed job in place instead of creating a new queued
@@ -453,15 +466,16 @@ relationship reconciliation from hash evidence.
   read-only relationship state, and response redaction.
 - Reconciliation apply app-service tests proving fresh apply creates one
   Suggested relationship with canonical source pair ordering, replay preserves
-  the existing Suggested row with `created: false`, existing Confirmed and
-  Rejected relationships are not overwritten, stale evidence recommends refresh
-  without writing, mismatched fingerprints are rejected, and all errors/results
-  remain redaction-safe.
+  the existing Suggested row with `created: false`, confirm/reject update only
+  existing Suggested relationships, existing Confirmed and Rejected
+  relationships are not overwritten, stale evidence recommends refresh without
+  writing, mismatched fingerprints are rejected, and all errors/results remain
+  redaction-safe.
 - Admin apply route tests proving success, replay idempotency, Admin guard,
   generated route key coverage, safe missing/cross-library/missing-fingerprint/
   raw-fingerprint/mismatched-fingerprint/stale errors, existing
-  Suggested/Confirmed/Rejected preservation, no duplicate row creation, and
-  response redaction.
+  Suggested/Confirmed/Rejected preservation, Suggested confirm/reject action
+  serialization, no duplicate row creation, and response redaction.
 - Gate for Admin trigger:
   `cargo check -p nako-api -p nako-server --tests` plus focused
   `cargo nextest run -p nako-server source_fingerprint_hash --no-fail-fast`

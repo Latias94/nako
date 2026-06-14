@@ -277,6 +277,130 @@ async fn source_duplicate_reconciliation_apply_creates_suggested_and_replays_ide
 }
 
 #[tokio::test]
+async fn source_duplicate_reconciliation_apply_reviews_existing_suggestions() {
+    let library_id = LibraryId::new();
+    let other_library_id = LibraryId::new();
+    let (_temp, app, store) = source_duplicate_app(library_id, other_library_id).await;
+    let target = seed_source(
+        &store,
+        library_id,
+        "Target",
+        "local:///Users/Frankorz/Secret Target.mkv?token=secret",
+        Some(CONTENT_FINGERPRINT.to_owned()),
+    )
+    .await;
+    let confirm_duplicate = seed_source(
+        &store,
+        library_id,
+        "Confirm Duplicate",
+        "local:///Users/Frankorz/Confirm Duplicate.mkv",
+        Some(CONTENT_FINGERPRINT.to_owned()),
+    )
+    .await;
+    let reject_duplicate = seed_source(
+        &store,
+        library_id,
+        "Reject Duplicate",
+        "local:///Users/Frankorz/Reject Duplicate.mkv",
+        Some(CONTENT_FINGERPRINT.to_owned()),
+    )
+    .await;
+
+    seed_relationship(
+        &store,
+        target.id,
+        confirm_duplicate.id,
+        SourceDuplicateRelationshipStatus::Suggested,
+    )
+    .await;
+    seed_relationship(
+        &store,
+        target.id,
+        reject_duplicate.id,
+        SourceDuplicateRelationshipStatus::Suggested,
+    )
+    .await;
+
+    let confirmed = apply_duplicate_action(
+        &app,
+        library_id,
+        target.id,
+        confirm_duplicate.id,
+        SourceDuplicateReconciliationAction::ConfirmSuggested,
+    )
+    .await
+    .unwrap();
+    let rejected = apply_duplicate_action(
+        &app,
+        library_id,
+        target.id,
+        reject_duplicate.id,
+        SourceDuplicateReconciliationAction::RejectSuggested,
+    )
+    .await
+    .unwrap();
+    let confirmed_relationship = store
+        .get_source_duplicate_relationship_by_pair(target.id, confirm_duplicate.id)
+        .await
+        .unwrap()
+        .expect("confirmed relationship should remain persisted");
+    let rejected_relationship = store
+        .get_source_duplicate_relationship_by_pair(target.id, reject_duplicate.id)
+        .await
+        .unwrap()
+        .expect("rejected relationship should remain persisted");
+    let relationships = store
+        .list_source_duplicate_relationships(target.id, PageRequest::new(20, 0))
+        .await
+        .unwrap();
+
+    assert!(!confirmed.created);
+    assert_eq!(confirmed.relationship_id, confirmed_relationship.id);
+    assert_eq!(
+        confirmed.relationship_status,
+        SourceDuplicateRelationshipStatus::Confirmed
+    );
+    assert_eq!(
+        confirmed.applied_action,
+        SourceDuplicateReconciliationAction::ConfirmSuggested
+    );
+    assert_eq!(
+        confirmed_relationship.status,
+        SourceDuplicateRelationshipStatus::Confirmed
+    );
+    assert_eq!(
+        confirmed_relationship.evidence_kind,
+        SourceDuplicateEvidenceKind::StrongFingerprint
+    );
+    assert_eq!(
+        confirmed_relationship.evidence_value.as_deref(),
+        Some("redacted-existing-evidence")
+    );
+    assert_eq!(confirmed_relationship.confidence_milli, Some(1_000));
+
+    assert!(!rejected.created);
+    assert_eq!(rejected.relationship_id, rejected_relationship.id);
+    assert_eq!(
+        rejected.relationship_status,
+        SourceDuplicateRelationshipStatus::Rejected
+    );
+    assert_eq!(
+        rejected.applied_action,
+        SourceDuplicateReconciliationAction::RejectSuggested
+    );
+    assert_eq!(
+        rejected_relationship.status,
+        SourceDuplicateRelationshipStatus::Rejected
+    );
+    assert_eq!(relationships.len(), 2);
+
+    let confirmed_json = serde_json::to_string(&confirmed).unwrap();
+    let rejected_json = serde_json::to_string(&rejected).unwrap();
+    assert_source_duplicate_apply_body_redacted(&confirmed_json);
+    assert_source_duplicate_apply_body_redacted(&rejected_json);
+}
+
+#[tokio::test]
 async fn source_duplicate_reconciliation_apply_rejects_non_suggest_without_writing() {
     let library_id = LibraryId::new();
     let other_library_id = LibraryId::new();
@@ -390,6 +514,24 @@ async fn source_duplicate_reconciliation_apply_rejects_non_suggest_without_writi
         })
         .await
         .unwrap_err();
+    let confirm_missing_error = apply_duplicate_action(
+        &app,
+        library_id,
+        target.id,
+        stale.id,
+        SourceDuplicateReconciliationAction::ConfirmSuggested,
+    )
+    .await
+    .unwrap_err();
+    let reject_confirmed_error = apply_duplicate_action(
+        &app,
+        library_id,
+        target.id,
+        confirmed.id,
+        SourceDuplicateReconciliationAction::RejectSuggested,
+    )
+    .await
+    .unwrap_err();
     let self_pair_error = apply_duplicate(&app, library_id, target.id, target.id)
         .await
         .unwrap_err();
@@ -417,7 +559,17 @@ async fn source_duplicate_reconciliation_apply_rejects_non_suggest_without_writi
     );
     assert_eq!(
         wrong_expected_action_error.to_string(),
-        "invalid input: source duplicate reconciliation apply supports only suggest_relationship"
+        "invalid input: source duplicate reconciliation apply supports only suggest_relationship, confirm_suggested, or reject_suggested"
+    );
+    assert_conflict_for_action(
+        &confirm_missing_error,
+        "confirm_suggested",
+        "refresh_source_fingerprint",
+    );
+    assert_conflict_for_action(
+        &reject_confirmed_error,
+        "reject_suggested",
+        "preserve_confirmed",
     );
     assert_eq!(
         self_pair_error.to_string(),
@@ -432,6 +584,8 @@ async fn source_duplicate_reconciliation_apply_rejects_non_suggest_without_writi
         missing_fingerprint_error,
         cross_library_error,
         wrong_expected_action_error,
+        confirm_missing_error,
+        reject_confirmed_error,
         self_pair_error,
     ] {
         let message = error.to_string();
@@ -585,7 +739,32 @@ async fn apply_duplicate(
         .await
 }
 
+async fn apply_duplicate_action(
+    app: &NakoApp,
+    library_id: LibraryId,
+    source_id: MediaSourceId,
+    duplicate_source_id: MediaSourceId,
+    expected_action: SourceDuplicateReconciliationAction,
+) -> std::result::Result<nako_core::SourceDuplicateReconciliationApplyResult, NakoError> {
+    app.source_duplicate_reconciliation()
+        .apply_source_duplicate_reconciliation(SourceDuplicateReconciliationApplyRequest {
+            library_id,
+            source_id,
+            duplicate_source_id,
+            expected_action,
+        })
+        .await
+}
+
 fn assert_conflict_recommendation(error: &NakoError, expected_recommendation: &str) {
+    assert_conflict_for_action(error, "suggest_relationship", expected_recommendation);
+}
+
+fn assert_conflict_for_action(
+    error: &NakoError,
+    expected_action: &str,
+    expected_recommendation: &str,
+) {
     let NakoError::Conflict { message } = error else {
         panic!("expected conflict error, got {error:?}");
     };
@@ -593,7 +772,7 @@ fn assert_conflict_recommendation(error: &NakoError, expected_recommendation: &s
     assert_eq!(
         message,
         &format!(
-            "source duplicate reconciliation apply expected suggest_relationship but current recommendation is {expected_recommendation}"
+            "source duplicate reconciliation apply expected {expected_action} but current recommendation is {expected_recommendation}"
         )
     );
 }

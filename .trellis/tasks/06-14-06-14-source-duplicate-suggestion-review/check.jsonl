@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/nako-server/backend/source-fingerprint-hash-policy.md", "reason": "Focused source duplicate reconciliation gates and redaction checks"}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server nextest and check gate selection"}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Admin contract and generated artifact validation"}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Admin Web focused test/check/build expectations"}

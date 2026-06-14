@@ -108,6 +108,7 @@ import type {
   AdminPlaybackSessionListResponse,
   AdminPlaybackSupportEvidenceResponse,
   AdminPlaybackSupportQuery,
+  AdminSourceDuplicateReconciliationApplyExpectedAction,
   AdminSourceDuplicateReconciliationApplyResponse,
   AdminSourceDuplicateReconciliationPlanQuery,
   AdminSourceDuplicateReconciliationPlanResponse,
@@ -323,6 +324,7 @@ export type AdminDataSource = {
     libraryId: string,
     sourceId: string,
     duplicateSourceId: string,
+    expectedAction: AdminSourceDuplicateReconciliationApplyExpectedAction,
   ): Promise<AdminSourceDuplicateReconciliationApplyResponse>;
   loadStorageStaging?(
     query?: AdminStorageStagingQuery,
@@ -751,10 +753,15 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
         mockSourceDuplicateReconciliationPlan(libraryId, sourceId),
       );
     },
-    async applySourceDuplicateReconciliation(libraryId, sourceId, duplicateSourceId) {
+    async applySourceDuplicateReconciliation(
+      libraryId,
+      sourceId,
+      duplicateSourceId,
+      expectedAction,
+    ) {
       return client.applySourceDuplicateReconciliation(libraryId, sourceId, {
         duplicate_source_id: duplicateSourceId,
-        expected_action: "suggest_relationship",
+        expected_action: expectedAction,
       });
     },
     async loadStorageStaging(query = {}) {

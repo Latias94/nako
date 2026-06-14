@@ -1200,7 +1200,7 @@ describe("AdminApiClient", () => {
         "source/unsafe id",
         {
           duplicate_source_id: "duplicate/source id",
-          expected_action: "suggest_relationship",
+          expected_action: "confirm_suggested",
         },
       ),
     ).resolves.toEqual(
@@ -1226,7 +1226,7 @@ describe("AdminApiClient", () => {
           method: "POST",
           body: JSON.stringify({
             duplicate_source_id: "duplicate/source id",
-            expected_action: "suggest_relationship",
+            expected_action: "confirm_suggested",
           }),
         },
       ],

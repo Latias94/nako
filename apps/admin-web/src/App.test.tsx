@@ -2849,7 +2849,7 @@ describe("Admin Web V2 route shell", () => {
     expect(screen.getByText("2 candidates on this page")).toBeInTheDocument();
     expect(screen.getByText("1 recommend suggest_relationship")).toBeInTheDocument();
     expect(screen.getByText("1 preserved or read-only candidates")).toBeInTheDocument();
-    expect(screen.getByText("1 stale or refresh candidates")).toBeInTheDocument();
+    expect(screen.getByText("0 stale or refresh candidates")).toBeInTheDocument();
     expect(screen.getByText("source-unknown-2")).toBeInTheDocument();
     expect(screen.getByText("source-extra-3")).toBeInTheDocument();
     expect(screen.getByText("Live Admin API")).toBeInTheDocument();
@@ -2866,8 +2866,18 @@ describe("Admin Web V2 route shell", () => {
 
   it("applies source duplicate suggestions only after explicit confirmation", async () => {
     const applySourceDuplicateReconciliation = vi.fn(
-      async (libraryId: string, sourceId: string, duplicateSourceId: string) =>
-        mockSourceDuplicateReconciliationApply(libraryId, sourceId, duplicateSourceId),
+      async (
+        libraryId: string,
+        sourceId: string,
+        duplicateSourceId: string,
+        expectedAction: string,
+      ) =>
+        mockSourceDuplicateReconciliationApply(
+          libraryId,
+          sourceId,
+          duplicateSourceId,
+          expectedAction === "confirm_suggested" ? "confirmed" : "suggested",
+        ),
     );
     window.history.pushState(
       null,
@@ -2899,10 +2909,73 @@ describe("Admin Web V2 route shell", () => {
         "library-anime",
         "source-unknown-1",
         "source-unknown-2",
+        "suggest_relationship",
       );
     });
     expect(await screen.findByText("Suggested relationship")).toBeInTheDocument();
     expect(screen.getByText("source-dup-suggested")).toBeInTheDocument();
+  });
+
+  it("confirms and rejects suggested source duplicate relationships after explicit confirmation", async () => {
+    const applySourceDuplicateReconciliation = vi.fn(
+      async (
+        libraryId: string,
+        sourceId: string,
+        duplicateSourceId: string,
+        expectedAction: string,
+      ) =>
+        mockSourceDuplicateReconciliationApply(
+          libraryId,
+          sourceId,
+          duplicateSourceId,
+          expectedAction === "reject_suggested" ? "rejected" : "confirmed",
+        ),
+    );
+    window.history.pushState(
+      null,
+      "",
+      "/items/item-unknown-1/sources/source-unknown-1/duplicates?library_id=library-anime",
+    );
+
+    render(
+      <App
+        dataSource={{
+          load: async () => emptyConsoleData(),
+          loadSourceDuplicateReconciliationPlan: async (libraryId, sourceId) => ({
+            value: mockSourceDuplicateReconciliationPlan(libraryId, sourceId),
+            source: "live",
+          }),
+          applySourceDuplicateReconciliation,
+        }}
+      />,
+    );
+
+    expect(await screen.findByText("source-extra-3")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Prepare confirm" }));
+    expect(applySourceDuplicateReconciliation).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm relationship" }));
+
+    await waitFor(() => {
+      expect(applySourceDuplicateReconciliation).toHaveBeenCalledWith(
+        "library-anime",
+        "source-unknown-1",
+        "source-extra-3",
+        "confirm_suggested",
+      );
+    });
+    expect(await screen.findByText("confirm_suggested")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Prepare reject" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reject relationship" }));
+
+    await waitFor(() => {
+      expect(applySourceDuplicateReconciliation).toHaveBeenLastCalledWith(
+        "library-anime",
+        "source-unknown-1",
+        "source-extra-3",
+        "reject_suggested",
+      );
+    });
   });
 
   it("disables source duplicate apply controls for mock reconciliation plans", async () => {
@@ -2932,11 +3005,19 @@ describe("Admin Web V2 route shell", () => {
 
     expect(await screen.findByText(/HTTP 503/)).toBeInTheDocument();
     const prepare = screen.getByRole("button", { name: "Prepare suggestion" });
+    const prepareConfirm = screen.getByRole("button", { name: "Prepare confirm" });
+    const prepareReject = screen.getByRole("button", { name: "Prepare reject" });
     expect(prepare).toBeDisabled();
+    expect(prepareConfirm).toBeDisabled();
+    expect(prepareReject).toBeDisabled();
 
     fireEvent.click(prepare);
+    fireEvent.click(prepareConfirm);
+    fireEvent.click(prepareReject);
 
     expect(screen.queryByRole("button", { name: "Confirm suggestion" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm relationship" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reject relationship" })).not.toBeInTheDocument();
     expect(applySourceDuplicateReconciliation).not.toHaveBeenCalled();
   });
 
@@ -3003,7 +3084,7 @@ describe("Admin Web V2 route shell", () => {
     expect(screen.getByText("当前页 2 个候选")).toBeInTheDocument();
     expect(screen.getByText("1 个推荐 suggest_relationship")).toBeInTheDocument();
     expect(screen.getByText("1 个保留或只读候选")).toBeInTheDocument();
-    expect(screen.getByText("1 个过期或刷新候选")).toBeInTheDocument();
+    expect(screen.getByText("0 个过期或刷新候选")).toBeInTheDocument();
     expect(screen.getByText("重复候选")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "准备建议" })).toBeInTheDocument();
     expect(screen.getByText("实时 Admin API")).toBeInTheDocument();

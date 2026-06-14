@@ -107,6 +107,7 @@ export type {
   AdminServerConfigDiagnosticsResponse,
   AdminSourceDuplicateEvidenceKind,
   AdminSourceDuplicateReconciliationAction,
+  AdminSourceDuplicateReconciliationApplyExpectedAction,
   AdminSourceDuplicateReconciliationApplyResponse,
   AdminSourceDuplicateReconciliationCandidate,
   AdminSourceDuplicateReconciliationPlanQuery,

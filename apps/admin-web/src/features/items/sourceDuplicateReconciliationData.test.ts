@@ -62,8 +62,13 @@ describe("source duplicate reconciliation data adapter", () => {
 
   it("delegates apply suggestion without mock success fallback", async () => {
     const applySourceDuplicateReconciliation = vi.fn(
-      async (libraryId: string, sourceId: string, duplicateSourceId: string) =>
-        mockSourceDuplicateReconciliationApply(libraryId, sourceId, duplicateSourceId),
+      async (libraryId: string, sourceId: string, duplicateSourceId: string, expectedAction: string) =>
+        mockSourceDuplicateReconciliationApply(
+          libraryId,
+          sourceId,
+          duplicateSourceId,
+          expectedAction === "confirm_suggested" ? "confirmed" : "suggested",
+        ),
     );
     const adapter = createSourceDuplicateReconciliationDataAdapter(
       { applySourceDuplicateReconciliation },
@@ -74,7 +79,12 @@ describe("source duplicate reconciliation data adapter", () => {
     );
 
     await expect(
-      adapter.applySuggestion("library/unsafe id", "source/unsafe id", "duplicate/source id"),
+      adapter.applySuggestion(
+        "library/unsafe id",
+        "source/unsafe id",
+        "duplicate/source id",
+        "suggest_relationship",
+      ),
     ).resolves.toMatchObject({
       library_id: "library/unsafe id",
       source_id: "source/unsafe id",
@@ -85,6 +95,25 @@ describe("source duplicate reconciliation data adapter", () => {
       "library/unsafe id",
       "source/unsafe id",
       "duplicate/source id",
+      "suggest_relationship",
+    );
+
+    await expect(
+      adapter.applySuggestion(
+        "library/unsafe id",
+        "source/unsafe id",
+        "duplicate/source id",
+        "confirm_suggested",
+      ),
+    ).resolves.toMatchObject({
+      relationship_status: "confirmed",
+      applied_action: "confirm_suggested",
+    });
+    expect(applySourceDuplicateReconciliation).toHaveBeenLastCalledWith(
+      "library/unsafe id",
+      "source/unsafe id",
+      "duplicate/source id",
+      "confirm_suggested",
     );
   });
 
@@ -98,7 +127,12 @@ describe("source duplicate reconciliation data adapter", () => {
     );
 
     await expect(
-      adapter.applySuggestion("library-anime", "source-unknown-1", "source-unknown-2"),
+      adapter.applySuggestion(
+        "library-anime",
+        "source-unknown-1",
+        "source-unknown-2",
+        "suggest_relationship",
+      ),
     ).rejects.toThrow("Apply unavailable");
   });
 });

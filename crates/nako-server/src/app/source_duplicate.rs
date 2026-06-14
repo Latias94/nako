@@ -108,10 +108,14 @@ impl SourceDuplicateReconciliationAppService {
         &self,
         request: SourceDuplicateReconciliationApplyRequest,
     ) -> Result<SourceDuplicateReconciliationApplyResult> {
-        if request.expected_action != SourceDuplicateReconciliationAction::SuggestRelationship {
+        if !matches!(
+            request.expected_action,
+            SourceDuplicateReconciliationAction::SuggestRelationship
+                | SourceDuplicateReconciliationAction::ConfirmSuggested
+                | SourceDuplicateReconciliationAction::RejectSuggested
+        ) {
             return Err(NakoError::InvalidInput {
-                message: "source duplicate reconciliation apply supports only suggest_relationship"
-                    .to_owned(),
+                message: "source duplicate reconciliation apply supports only suggest_relationship, confirm_suggested, or reject_suggested".to_owned(),
             });
         }
         if request.source_id == request.duplicate_source_id {
@@ -156,9 +160,10 @@ impl SourceDuplicateReconciliationAppService {
 
         if source_evidence.stale || duplicate_evidence.stale {
             return Err(NakoError::Conflict {
-                message:
-                    "source duplicate reconciliation apply expected suggest_relationship but current recommendation is refresh_source_fingerprint"
-                        .to_owned(),
+                message: format!(
+                    "source duplicate reconciliation apply expected {} but current recommendation is refresh_source_fingerprint",
+                    source_duplicate_reconciliation_action_name(request.expected_action)
+                ),
             });
         }
 
@@ -168,8 +173,11 @@ impl SourceDuplicateReconciliationAppService {
             .await?;
         let current_action = source_duplicate_reconciliation_action(false, relationship.as_ref());
 
-        match current_action {
-            SourceDuplicateReconciliationAction::SuggestRelationship => {
+        match (request.expected_action, current_action) {
+            (
+                SourceDuplicateReconciliationAction::SuggestRelationship,
+                SourceDuplicateReconciliationAction::SuggestRelationship,
+            ) => {
                 let relationship = SourceDuplicateRelationship {
                     id: SourceDuplicateRelationshipId::new(),
                     source_id: source.id,
@@ -210,7 +218,10 @@ impl SourceDuplicateReconciliationAppService {
                     created: true,
                 })
             }
-            SourceDuplicateReconciliationAction::PreserveSuggested => {
+            (
+                SourceDuplicateReconciliationAction::SuggestRelationship,
+                SourceDuplicateReconciliationAction::PreserveSuggested,
+            ) => {
                 let relationship = relationship.ok_or_else(|| NakoError::Database {
                     message: "suggested source duplicate relationship missing during reconciliation apply"
                         .to_owned(),
@@ -226,16 +237,37 @@ impl SourceDuplicateReconciliationAppService {
                     created: false,
                 })
             }
-            SourceDuplicateReconciliationAction::PreserveConfirmed
-            | SourceDuplicateReconciliationAction::PreserveRejected
-            | SourceDuplicateReconciliationAction::RefreshSourceFingerprint => {
-                Err(NakoError::Conflict {
-                    message: format!(
-                        "source duplicate reconciliation apply expected suggest_relationship but current recommendation is {}",
-                        source_duplicate_reconciliation_action_name(current_action)
-                    ),
-                })
+            (
+                SourceDuplicateReconciliationAction::ConfirmSuggested,
+                SourceDuplicateReconciliationAction::PreserveSuggested,
+            ) => {
+                self.apply_suggested_relationship_review(
+                    request,
+                    relationship,
+                    SourceDuplicateRelationshipStatus::Confirmed,
+                    SourceDuplicateReconciliationAction::ConfirmSuggested,
+                )
+                .await
             }
+            (
+                SourceDuplicateReconciliationAction::RejectSuggested,
+                SourceDuplicateReconciliationAction::PreserveSuggested,
+            ) => {
+                self.apply_suggested_relationship_review(
+                    request,
+                    relationship,
+                    SourceDuplicateRelationshipStatus::Rejected,
+                    SourceDuplicateReconciliationAction::RejectSuggested,
+                )
+                .await
+            }
+            (_, current_action) => Err(NakoError::Conflict {
+                message: format!(
+                    "source duplicate reconciliation apply expected {} but current recommendation is {}",
+                    source_duplicate_reconciliation_action_name(request.expected_action),
+                    source_duplicate_reconciliation_action_name(current_action)
+                ),
+            }),
         }
     }
 
@@ -255,6 +287,46 @@ impl SourceDuplicateReconciliationAppService {
             .get_source_state(source.library_id, &source.locator)
             .await?
             .is_some_and(|state| state.tombstoned))
+    }
+
+    async fn apply_suggested_relationship_review(
+        &self,
+        request: SourceDuplicateReconciliationApplyRequest,
+        relationship: Option<SourceDuplicateRelationship>,
+        status: SourceDuplicateRelationshipStatus,
+        applied_action: SourceDuplicateReconciliationAction,
+    ) -> Result<SourceDuplicateReconciliationApplyResult> {
+        let mut relationship = relationship.ok_or_else(|| NakoError::Database {
+            message: "suggested source duplicate relationship missing during reconciliation apply"
+                .to_owned(),
+        })?;
+        relationship.status = status;
+        let relationship = relationship.canonicalized();
+
+        self.store
+            .upsert_source_duplicate_relationship(&relationship)
+            .await?;
+        let stored = self
+            .store
+            .get_source_duplicate_relationship_by_pair(
+                request.source_id,
+                request.duplicate_source_id,
+            )
+            .await?
+            .ok_or_else(|| NakoError::Database {
+                message: "source duplicate relationship missing after reconciliation review"
+                    .to_owned(),
+            })?;
+
+        Ok(SourceDuplicateReconciliationApplyResult {
+            library_id: request.library_id,
+            source_id: request.source_id,
+            duplicate_source_id: request.duplicate_source_id,
+            relationship_id: stored.id,
+            relationship_status: stored.status,
+            applied_action,
+            created: false,
+        })
     }
 }
 
@@ -304,6 +376,8 @@ fn source_duplicate_reconciliation_action_name(
 ) -> &'static str {
     match action {
         SourceDuplicateReconciliationAction::SuggestRelationship => "suggest_relationship",
+        SourceDuplicateReconciliationAction::ConfirmSuggested => "confirm_suggested",
+        SourceDuplicateReconciliationAction::RejectSuggested => "reject_suggested",
         SourceDuplicateReconciliationAction::PreserveSuggested => "preserve_suggested",
         SourceDuplicateReconciliationAction::PreserveConfirmed => "preserve_confirmed",
         SourceDuplicateReconciliationAction::PreserveRejected => "preserve_rejected",

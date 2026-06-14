@@ -386,6 +386,8 @@ pub struct MediaSourceFingerprintMatch {
 #[serde(rename_all = "snake_case")]
 pub enum SourceDuplicateReconciliationAction {
     SuggestRelationship,
+    ConfirmSuggested,
+    RejectSuggested,
     PreserveSuggested,
     PreserveConfirmed,
     PreserveRejected,

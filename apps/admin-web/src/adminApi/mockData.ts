@@ -737,7 +737,7 @@ export function mockSourceDuplicateReconciliationPlan(
         duplicate_source_id: "source-extra-3",
         evidence_kind: "path_evidence",
         confidence_milli: 640,
-        stale: true,
+        stale: false,
         relationship_id: "source-dup-existing",
         existing_status: "suggested",
         recommended_action: "preserve_suggested",
@@ -751,6 +751,7 @@ export function mockSourceDuplicateReconciliationApply(
   libraryId = "library-anime",
   sourceId = "source-unknown-1",
   duplicateSourceId = "source-unknown-2",
+  relationshipStatus: "confirmed" | "rejected" | "suggested" = "suggested",
 ): AdminSourceDuplicateReconciliationApplyResponse {
   return {
     admin_api_version: "v1",
@@ -758,9 +759,14 @@ export function mockSourceDuplicateReconciliationApply(
     source_id: sourceId,
     duplicate_source_id: duplicateSourceId,
     relationship_id: "source-dup-suggested",
-    relationship_status: "suggested",
-    applied_action: "suggest_relationship",
-    created: true,
+    relationship_status: relationshipStatus,
+    applied_action:
+      relationshipStatus === "confirmed"
+        ? "confirm_suggested"
+        : relationshipStatus === "rejected"
+          ? "reject_suggested"
+          : "suggest_relationship",
+    created: relationshipStatus === "suggested",
   };
 }
 

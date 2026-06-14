@@ -412,6 +412,8 @@ pub struct AdminSourceFingerprintHashRetryRequest {
 #[serde(rename_all = "snake_case")]
 pub enum AdminSourceDuplicateReconciliationApplyExpectedAction {
     SuggestRelationship,
+    ConfirmSuggested,
+    RejectSuggested,
 }
 
 impl From<AdminSourceDuplicateReconciliationApplyExpectedAction>
@@ -421,6 +423,12 @@ impl From<AdminSourceDuplicateReconciliationApplyExpectedAction>
         match action {
             AdminSourceDuplicateReconciliationApplyExpectedAction::SuggestRelationship => {
                 Self::SuggestRelationship
+            }
+            AdminSourceDuplicateReconciliationApplyExpectedAction::ConfirmSuggested => {
+                Self::ConfirmSuggested
+            }
+            AdminSourceDuplicateReconciliationApplyExpectedAction::RejectSuggested => {
+                Self::RejectSuggested
             }
         }
     }
@@ -1274,7 +1282,7 @@ mod tests {
         let request = AdminSourceDuplicateReconciliationApplyRequest {
             duplicate_source_id,
             expected_action:
-                AdminSourceDuplicateReconciliationApplyExpectedAction::SuggestRelationship,
+                AdminSourceDuplicateReconciliationApplyExpectedAction::ConfirmSuggested,
         };
         let response = AdminSourceDuplicateReconciliationApplyResponse::from_result(
             SourceDuplicateReconciliationApplyResult {
@@ -1282,9 +1290,9 @@ mod tests {
                 source_id,
                 duplicate_source_id,
                 relationship_id: SourceDuplicateRelationshipId::new(),
-                relationship_status: SourceDuplicateRelationshipStatus::Suggested,
-                applied_action: SourceDuplicateReconciliationAction::SuggestRelationship,
-                created: true,
+                relationship_status: SourceDuplicateRelationshipStatus::Confirmed,
+                applied_action: SourceDuplicateReconciliationAction::ConfirmSuggested,
+                created: false,
             },
         );
 
@@ -1292,11 +1300,11 @@ mod tests {
         let response_value = serde_json::to_value(&response).unwrap();
         let body = format!("{}{}", request_value, response_value);
 
-        assert_eq!(request_value["expected_action"], "suggest_relationship");
+        assert_eq!(request_value["expected_action"], "confirm_suggested");
         assert_eq!(response_value["admin_api_version"], "v1");
-        assert_eq!(response_value["relationship_status"], "suggested");
-        assert_eq!(response_value["applied_action"], "suggest_relationship");
-        assert_eq!(response_value["created"], true);
+        assert_eq!(response_value["relationship_status"], "confirmed");
+        assert_eq!(response_value["applied_action"], "confirm_suggested");
+        assert_eq!(response_value["created"], false);
         assert!(!body.contains("source_uri"));
         assert!(!body.contains("source_locator"));
         assert!(!body.contains("local:///"));

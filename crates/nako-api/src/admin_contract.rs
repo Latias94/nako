@@ -484,7 +484,10 @@ export interface AdminSourceFingerprintHashRetryRequest {
 
 export interface AdminSourceDuplicateReconciliationPlanQuery extends AdminPageQuery {}
 
-export type AdminSourceDuplicateReconciliationApplyExpectedAction = "suggest_relationship";
+export type AdminSourceDuplicateReconciliationApplyExpectedAction =
+  | "suggest_relationship"
+  | "confirm_suggested"
+  | "reject_suggested";
 
 export interface AdminSourceDuplicateReconciliationApplyRequest {
   duplicate_source_id: string;
@@ -513,6 +516,8 @@ export type AdminSourceDuplicateRelationshipStatus =
 
 export type AdminSourceDuplicateReconciliationAction =
   | "suggest_relationship"
+  | "confirm_suggested"
+  | "reject_suggested"
   | "preserve_suggested"
   | "preserve_confirmed"
   | "preserve_rejected"

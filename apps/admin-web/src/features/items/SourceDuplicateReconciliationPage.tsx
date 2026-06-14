@@ -8,6 +8,7 @@ import {
   requireLiveSectionResult,
 } from "../../adminApi/dataSource";
 import type {
+  AdminSourceDuplicateReconciliationApplyExpectedAction,
   AdminSourceDuplicateReconciliationApplyResponse,
   AdminSourceDuplicateReconciliationCandidate,
 } from "../../adminApi/types";
@@ -42,6 +43,10 @@ type ReviewSummary = {
   actionableSuggestions: number;
   preservedOrReadOnlyCandidates: number;
   staleOrRefreshCandidates: number;
+};
+type PendingReviewAction = {
+  duplicateSourceId: string;
+  expectedAction: AdminSourceDuplicateReconciliationApplyExpectedAction;
 };
 
 export function SourceDuplicateReconciliationPage({
@@ -78,22 +83,28 @@ export function SourceDuplicateReconciliationPage({
         }
       : null);
   const plan = result?.value ?? null;
-  const canApplySuggestion = isLiveSectionResult(result);
+  const canApplyReviewAction = isLiveSectionResult(result);
   const hasPaginationDelta = search.limit !== 20 || search.offset !== 0;
-  const [pendingDuplicateSourceId, setPendingDuplicateSourceId] = useState<string | null>(null);
+  const [pendingReviewAction, setPendingReviewAction] =
+    useState<PendingReviewAction | null>(null);
   const [applyResult, setApplyResult] =
     useState<AdminSourceDuplicateReconciliationApplyResponse | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
   const reviewSummary = plan ? summarizeReview(plan.candidates) : null;
   const applyMutation = useMutation({
-    mutationFn: async (duplicateSourceId: string) => {
+    mutationFn: async (action: PendingReviewAction) => {
       if (!libraryId) {
         throw new Error(t("sourceDuplicate.missingLibrary"));
       }
 
       requireLiveSectionResult(result, t("sourceDuplicate.notLiveError"));
 
-      return dataAdapter.applySuggestion(libraryId, sourceId, duplicateSourceId);
+      return dataAdapter.applySuggestion(
+        libraryId,
+        sourceId,
+        action.duplicateSourceId,
+        action.expectedAction,
+      );
     },
     onError(error: unknown) {
       setApplyResult(null);
@@ -102,7 +113,7 @@ export function SourceDuplicateReconciliationPage({
       );
     },
     onSuccess(value) {
-      setPendingDuplicateSourceId(null);
+      setPendingReviewAction(null);
       setApplyError(null);
       setApplyResult(value);
       void query.refetch();
@@ -110,7 +121,7 @@ export function SourceDuplicateReconciliationPage({
   });
 
   useEffect(() => {
-    setPendingDuplicateSourceId(null);
+    setPendingReviewAction(null);
     setApplyResult(null);
     setApplyError(null);
     applyMutation.reset();
@@ -270,15 +281,27 @@ export function SourceDuplicateReconciliationPage({
                 {plan.candidates.map((candidate) => (
                   <CandidateRow
                     applyMutationPending={applyMutation.isPending}
-                    canApply={canApplySuggestion}
+                    canApply={canApplyReviewAction}
                     candidate={candidate}
-                    isConfirming={pendingDuplicateSourceId === candidate.duplicate_source_id}
+                    pendingAction={
+                      pendingReviewAction?.duplicateSourceId === candidate.duplicate_source_id
+                        ? pendingReviewAction.expectedAction
+                        : null
+                    }
                     key={candidate.duplicate_source_id}
-                    onCancel={() => setPendingDuplicateSourceId(null)}
-                    onConfirm={() => applyMutation.mutate(candidate.duplicate_source_id)}
-                    onPrepare={() => {
+                    onCancel={() => setPendingReviewAction(null)}
+                    onConfirm={(action) =>
+                      applyMutation.mutate({
+                        duplicateSourceId: candidate.duplicate_source_id,
+                        expectedAction: action,
+                      })
+                    }
+                    onPrepare={(action) => {
                       setApplyError(null);
-                      setPendingDuplicateSourceId(candidate.duplicate_source_id);
+                      setPendingReviewAction({
+                        duplicateSourceId: candidate.duplicate_source_id,
+                        expectedAction: action,
+                      });
                     }}
                     t={t}
                   />
@@ -309,7 +332,7 @@ function CandidateRow({
   applyMutationPending,
   canApply,
   candidate,
-  isConfirming,
+  pendingAction,
   onCancel,
   onConfirm,
   onPrepare,
@@ -318,14 +341,16 @@ function CandidateRow({
   applyMutationPending: boolean;
   canApply: boolean;
   candidate: AdminSourceDuplicateReconciliationCandidate;
-  isConfirming: boolean;
+  pendingAction: AdminSourceDuplicateReconciliationApplyExpectedAction | null;
   onCancel(): void;
-  onConfirm(): void;
-  onPrepare(): void;
+  onConfirm(action: AdminSourceDuplicateReconciliationApplyExpectedAction): void;
+  onPrepare(action: AdminSourceDuplicateReconciliationApplyExpectedAction): void;
   t: Translate;
 }) {
   const canSuggest = candidate.recommended_action === "suggest_relationship";
-  const canPrepare = canSuggest && canApply;
+  const canReviewSuggested = candidate.existing_status === "suggested" && !candidate.stale;
+  const canPrepareSuggestion = canSuggest && canApply;
+  const canPrepareReview = canReviewSuggested && canApply;
 
   return (
     <div className="librarySourceSample">
@@ -351,26 +376,59 @@ function CandidateRow({
             {candidate.stale ? t("sourceDuplicate.stale") : t("sourceDuplicate.current")}
           </Badge>
         </div>
-        {!isConfirming ? (
-          <Button
-            disabled={!canPrepare || applyMutationPending}
-            onClick={onPrepare}
-            size="sm"
-            variant={canPrepare ? "outline" : "ghost"}
-          >
-            <CheckCircle2 size={15} />
-            {canSuggest
-              ? t("sourceDuplicate.action.prepareSuggestion")
-              : t("sourceDuplicate.action.noMutation")}
-          </Button>
+        {!pendingAction ? (
+          <div className="routeActionGroup">
+            {canSuggest ? (
+              <Button
+                disabled={!canPrepareSuggestion || applyMutationPending}
+                onClick={() => onPrepare("suggest_relationship")}
+                size="sm"
+                variant={canPrepareSuggestion ? "outline" : "ghost"}
+              >
+                <CheckCircle2 size={15} />
+                {t("sourceDuplicate.action.prepareSuggestion")}
+              </Button>
+            ) : null}
+            {canReviewSuggested ? (
+              <>
+                <Button
+                  disabled={!canPrepareReview || applyMutationPending}
+                  onClick={() => onPrepare("confirm_suggested")}
+                  size="sm"
+                  variant={canPrepareReview ? "outline" : "ghost"}
+                >
+                  <CheckCircle2 size={15} />
+                  {t("sourceDuplicate.action.prepareConfirm")}
+                </Button>
+                <Button
+                  disabled={!canPrepareReview || applyMutationPending}
+                  onClick={() => onPrepare("reject_suggested")}
+                  size="sm"
+                  variant="ghost"
+                >
+                  <X size={15} />
+                  {t("sourceDuplicate.action.prepareReject")}
+                </Button>
+              </>
+            ) : null}
+            {!canSuggest && !canReviewSuggested ? (
+              <Button disabled size="sm" variant="ghost">
+                {t("sourceDuplicate.action.noMutation")}
+              </Button>
+            ) : null}
+          </div>
         ) : (
           <div className="routeActionGroup">
             <Button disabled={applyMutationPending} onClick={onCancel} size="sm" variant="ghost">
               {t("sourceDuplicate.action.cancel")}
             </Button>
-            <Button disabled={applyMutationPending || !canApply} onClick={onConfirm} size="sm">
+            <Button
+              disabled={applyMutationPending || !canApply}
+              onClick={() => onConfirm(pendingAction)}
+              size="sm"
+            >
               <CheckCircle2 size={15} />
-              {t("sourceDuplicate.action.confirmSuggestion")}
+              {confirmActionLabel(pendingAction, t)}
             </Button>
           </div>
         )}
@@ -394,6 +452,7 @@ function ApplyResult({
           <span>
             {result.source_id} / {result.duplicate_source_id}
           </span>
+          <span>{result.applied_action}</span>
         </div>
         <Badge tone="success">{result.relationship_status}</Badge>
       </div>
@@ -410,6 +469,20 @@ function ApplyResult({
       </div>
     </>
   );
+}
+
+function confirmActionLabel(
+  action: AdminSourceDuplicateReconciliationApplyExpectedAction,
+  t: Translate,
+) {
+  switch (action) {
+    case "confirm_suggested":
+      return t("sourceDuplicate.action.confirmRelationship");
+    case "reject_suggested":
+      return t("sourceDuplicate.action.rejectRelationship");
+    case "suggest_relationship":
+      return t("sourceDuplicate.action.confirmSuggestion");
+  }
 }
 
 function Fact({ label, value }: { label: string; value: ReactNode }) {

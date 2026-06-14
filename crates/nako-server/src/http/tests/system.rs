@@ -7434,6 +7434,126 @@ async fn admin_v1_source_duplicate_reconciliation_apply_creates_and_replays_safe
 }
 
 #[tokio::test]
+async fn admin_v1_source_duplicate_reconciliation_apply_reviews_suggested_relationships() {
+    let (_temp, router, mut target, store) =
+        router_with_media_source("source_duplicate_apply_review_target.mkv", b"media").await;
+    target.locator =
+        "local:///Users/Frankorz/Secret Target.mkv?token=source-duplicate-token".to_owned();
+    target.fingerprint = Some(ADMIN_SOURCE_DUPLICATE_CONTENT_FINGERPRINT.to_owned());
+    store.upsert_media_source(&target).await.unwrap();
+    let confirm_duplicate = seed_admin_source_duplicate_source(
+        &store,
+        target.library_id,
+        "Confirm Duplicate",
+        "local:///Users/Frankorz/Confirm Duplicate.mkv",
+        Some(ADMIN_SOURCE_DUPLICATE_CONTENT_FINGERPRINT),
+    )
+    .await;
+    let reject_duplicate = seed_admin_source_duplicate_source(
+        &store,
+        target.library_id,
+        "Reject Duplicate",
+        "local:///Users/Frankorz/Reject Duplicate.mkv",
+        Some(ADMIN_SOURCE_DUPLICATE_CONTENT_FINGERPRINT),
+    )
+    .await;
+
+    seed_admin_source_duplicate_relationship(
+        &store,
+        target.id,
+        confirm_duplicate.id,
+        nako_core::SourceDuplicateRelationshipStatus::Suggested,
+    )
+    .await;
+    seed_admin_source_duplicate_relationship(
+        &store,
+        target.id,
+        reject_duplicate.id,
+        nako_core::SourceDuplicateRelationshipStatus::Suggested,
+    )
+    .await;
+
+    let confirm_response = post_admin_source_duplicate_reconciliation_apply(
+        &router,
+        target.library_id,
+        target.id,
+        &AdminSourceDuplicateReconciliationApplyRequest {
+            duplicate_source_id: confirm_duplicate.id,
+            expected_action:
+                AdminSourceDuplicateReconciliationApplyExpectedAction::ConfirmSuggested,
+        },
+    )
+    .await;
+    let confirm_status = confirm_response.status();
+    let confirm_body = response_text(confirm_response).await;
+    assert_eq!(confirm_status, StatusCode::OK, "{confirm_body}");
+    let confirmed: AdminSourceDuplicateReconciliationApplyResponse =
+        serde_json::from_str(&confirm_body).unwrap();
+
+    let reject_response = post_admin_source_duplicate_reconciliation_apply(
+        &router,
+        target.library_id,
+        target.id,
+        &AdminSourceDuplicateReconciliationApplyRequest {
+            duplicate_source_id: reject_duplicate.id,
+            expected_action: AdminSourceDuplicateReconciliationApplyExpectedAction::RejectSuggested,
+        },
+    )
+    .await;
+    let reject_status = reject_response.status();
+    let reject_body = response_text(reject_response).await;
+    assert_eq!(reject_status, StatusCode::OK, "{reject_body}");
+    let rejected: AdminSourceDuplicateReconciliationApplyResponse =
+        serde_json::from_str(&reject_body).unwrap();
+    let relationships = store
+        .list_source_duplicate_relationships(target.id, PageRequest::new(20, 0))
+        .await
+        .unwrap();
+
+    assert!(!confirmed.created);
+    assert_eq!(
+        confirmed.relationship_status,
+        nako_core::SourceDuplicateRelationshipStatus::Confirmed
+    );
+    assert_eq!(
+        confirmed.applied_action,
+        nako_core::SourceDuplicateReconciliationAction::ConfirmSuggested
+    );
+    assert!(!rejected.created);
+    assert_eq!(
+        rejected.relationship_status,
+        nako_core::SourceDuplicateRelationshipStatus::Rejected
+    );
+    assert_eq!(
+        rejected.applied_action,
+        nako_core::SourceDuplicateReconciliationAction::RejectSuggested
+    );
+    assert_eq!(relationships.len(), 2);
+
+    let reject_confirmed_response = post_admin_source_duplicate_reconciliation_apply(
+        &router,
+        target.library_id,
+        target.id,
+        &AdminSourceDuplicateReconciliationApplyRequest {
+            duplicate_source_id: confirm_duplicate.id,
+            expected_action: AdminSourceDuplicateReconciliationApplyExpectedAction::RejectSuggested,
+        },
+    )
+    .await;
+    let reject_confirmed_body = assert_error_response(
+        reject_confirmed_response,
+        StatusCode::CONFLICT,
+        "conflict",
+        "conflict: source duplicate reconciliation apply expected reject_suggested but current recommendation is preserve_confirmed",
+    )
+    .await;
+
+    assert_source_duplicate_plan_body_redacted(&confirm_body);
+    assert_source_duplicate_plan_body_redacted(&reject_body);
+    assert_source_duplicate_plan_body_redacted(&reject_confirmed_body);
+}
+
+#[tokio::test]
 async fn admin_v1_source_duplicate_reconciliation_apply_rejects_unsafe_states_without_writes() {
     let (_temp, router, mut target, store) =
         router_with_media_source("source_duplicate_apply_reject_target.mkv", b"media").await;
