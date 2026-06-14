@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { BrowserPlaybackTicketResponse } from "@nako/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -203,8 +203,37 @@ describe("Media Web surface", () => {
     expect(screen.getByText("Playback decision")).toBeInTheDocument();
     expect(screen.getAllByText("direct_play").length).toBeGreaterThan(0);
     expect(screen.getByText("Continue from 9 min")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Resume" })).toHaveAttribute(
+      "href",
+      "/media/watch/item-episode-1?source_id=source-episode-1",
+    );
     expect(container.textContent).not.toContain("/sources/");
     expect(container.textContent).not.toContain("secret-token");
+  });
+
+  it("keeps item detail Resume linked to the saved playback source", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/items/item-episode-1?source_id=source-episode-1-alt",
+    );
+
+    render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Pilot" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Watch" })).toHaveAttribute(
+      "href",
+      "/media/watch/item-episode-1?source_id=source-episode-1-alt",
+    );
+    expect(screen.getByRole("link", { name: "Resume" })).toHaveAttribute(
+      "href",
+      "/media/watch/item-episode-1?source_id=source-episode-1",
+    );
   });
 
   it("keeps selected source in the URL and writes watched state through Public Client data", async () => {
@@ -254,6 +283,68 @@ describe("Media Web surface", () => {
         watched: true,
       });
     });
+
+    const markUnwatched = screen.getByRole("button", { name: "Mark unwatched" });
+    await waitFor(() => {
+      expect(markUnwatched).not.toBeDisabled();
+    });
+    fireEvent.click(markUnwatched);
+
+    await waitFor(() => {
+      expect(setUserWatchedState).toHaveBeenLastCalledWith(
+        "item-episode-1",
+        expect.objectContaining({
+          duration_ms: 1440000,
+          source_id: "source-episode-1-alt",
+          watched: false,
+        }),
+      );
+    });
+  });
+
+  it("clears item detail playback progress with Start over", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/items/item-episode-1?source_id=source-episode-1-alt",
+    );
+    const dataSource = createFixtureMediaDataSource();
+    const setUserWatchedState = vi.fn(dataSource.setUserWatchedState);
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          setUserWatchedState,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    expect(await screen.findByText("Continue from 9 min")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start over" }));
+
+    await waitFor(() => {
+      expect(setUserWatchedState).toHaveBeenCalledWith("item-episode-1", {
+        duration_ms: 1440000,
+        position_ms: 0,
+        source_id: "source-episode-1-alt",
+        watched: false,
+      });
+    });
+    expect(await screen.findByText("Start from beginning")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Resume" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: "Home" }));
+
+    expect(await screen.findByRole("heading", { name: "Watch next" })).toBeInTheDocument();
+    expect(screen.getByText("No active playback state")).toBeInTheDocument();
   });
 
   it("renders a ticketed browser player without exposing transport secrets as text", async () => {
@@ -397,7 +488,8 @@ describe("Media Web surface", () => {
 
     const player = await screen.findByLabelText("Pilot player");
     setMediaTiming(player, 321, 1440);
-    fireEvent.click(screen.getByRole("button", { name: "Start over" }));
+    const playerPanel = screen.getByRole("region", { name: "Player" });
+    fireEvent.click(within(playerPanel).getByRole("button", { name: "Start over" }));
     expect(player).toHaveProperty("currentTime", 0);
 
     fireEvent.loadedMetadata(player);

@@ -91,6 +91,7 @@ export function MediaWatchPage(props: MediaItemPageProps) {
       onPlaybackProgress={playbackProgress.onProgress}
       onPlaybackStarted={playbackProgress.onStarted}
       onSourceChange={selectSource}
+      onStartOver={playback.onStartOver}
       playbackState={playback.playbackState}
       result={playback.result.value}
       savingPlaybackState={playback.savingPlaybackState}
@@ -110,6 +111,7 @@ function MediaWatch({
   onPlaybackProgress,
   onPlaybackStarted,
   onSourceChange,
+  onStartOver,
   playbackState,
   result,
   savingPlaybackState,
@@ -125,6 +127,7 @@ function MediaWatch({
   onPlaybackProgress(snapshot: MediaPlaybackProgressSnapshot): void;
   onPlaybackStarted(): void;
   onSourceChange(sourceId: string): void;
+  onStartOver(): void;
   playbackState: MediaAsyncState<UserPlaybackStateResponse>;
   result: ItemDetailResponse;
   savingPlaybackState: boolean;
@@ -192,6 +195,7 @@ function MediaWatch({
           disabled={savingPlaybackState}
           error={mutationError}
           onMarkWatched={onMarkWatched}
+          onStartOver={onStartOver}
           result={playbackState}
           selectedSource={selectedSource}
         />

@@ -40,6 +40,7 @@ export function MediaItemDetailPage(props: MediaItemPageProps) {
       mutationError={playback.mutationError}
       onMarkWatched={playback.onMarkWatched}
       onSourceChange={playback.onSourceChange}
+      onStartOver={playback.onStartOver}
       playbackState={playback.playbackState}
       result={playback.result.value}
       savingPlaybackState={playback.savingPlaybackState}
@@ -53,6 +54,7 @@ function MediaItemDetail({
   mutationError,
   onMarkWatched,
   onSourceChange,
+  onStartOver,
   playbackState,
   result,
   savingPlaybackState,
@@ -62,6 +64,7 @@ function MediaItemDetail({
   mutationError: string | null;
   onMarkWatched(watched: boolean): void;
   onSourceChange(sourceId: string): void;
+  onStartOver(): void;
   playbackState: MediaAsyncState<UserPlaybackStateResponse>;
   result: ItemDetailResponse;
   savingPlaybackState: boolean;
@@ -70,6 +73,10 @@ function MediaItemDetail({
   const metadata = result.item.metadata;
   const selectedSource =
     result.sources.find((source) => source.id === selectedSourceId) ?? result.sources[0];
+  const resumeSourceId =
+    playbackState.value?.state.resume_position_ms
+      ? (playbackState.value.state.source_id ?? selectedSource?.id)
+      : null;
 
   return (
     <section className="mediaPage" aria-labelledby="media-item-title">
@@ -95,6 +102,16 @@ function MediaItemDetail({
           >
             Watch
           </Link>
+          {resumeSourceId ? (
+            <Link
+              className="uiButton uiButtonOutline uiButtonSm"
+              params={{ itemId: result.item.id }}
+              search={{ source_id: resumeSourceId }}
+              to="/media/watch/$itemId"
+            >
+              Resume
+            </Link>
+          ) : null}
         </div>
       </header>
       <MediaSourceVersions
@@ -118,6 +135,7 @@ function MediaItemDetail({
           disabled={savingPlaybackState}
           error={mutationError}
           onMarkWatched={onMarkWatched}
+          onStartOver={onStartOver}
           result={playbackState}
           selectedSource={selectedSource}
         />

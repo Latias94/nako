@@ -83,6 +83,30 @@ export function useMediaItemPlayback({
     }
   }
 
+  async function startOver() {
+    if (!dataSource || !selectedSourceId) {
+      return;
+    }
+
+    setSavingPlaybackState(true);
+    setPlaybackMutationError(null);
+    try {
+      const response = await dataSource.setUserWatchedState(itemId, {
+        duration_ms: fallbackDurationMs,
+        position_ms: 0,
+        source_id: selectedSourceId,
+        watched: false,
+      });
+      setPlaybackStateOverride(response.value);
+    } catch (error: unknown) {
+      setPlaybackMutationError(
+        error instanceof Error ? error.message : "Playback state update failed",
+      );
+    } finally {
+      setSavingPlaybackState(false);
+    }
+  }
+
   function selectSource(sourceId: string) {
     onSearchChange({ source_id: sourceId });
     setPlaybackStateOverride(null);
@@ -97,6 +121,7 @@ export function useMediaItemPlayback({
     mutationError: playbackMutationError,
     onMarkWatched: markWatched,
     onSourceChange: selectSource,
+    onStartOver: startOver,
     playbackState: {
       ...playbackState,
       value: playbackStateOverride ?? playbackState.value,
@@ -204,12 +229,14 @@ export function MediaPlaybackState({
   disabled,
   error,
   onMarkWatched,
+  onStartOver,
   result,
   selectedSource,
 }: {
   disabled: boolean;
   error: string | null;
   onMarkWatched(watched: boolean): void;
+  onStartOver(): void;
   result: MediaAsyncState<UserPlaybackStateResponse>;
   selectedSource: MediaSourceDto | undefined;
 }) {
@@ -223,6 +250,7 @@ export function MediaPlaybackState({
 
   const state = result.value?.state;
   const progress = state?.progress_percent ?? 0;
+  const canStartOver = Boolean(state?.resume_position_ms || state?.watched);
 
   return (
     <div className="mediaPlaybackState">
@@ -252,6 +280,15 @@ export function MediaPlaybackState({
           variant="outline"
         >
           Mark unwatched
+        </Button>
+        <Button
+          disabled={disabled || !canStartOver}
+          onClick={onStartOver}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          Start over
         </Button>
       </div>
       {error ? <div className="mediaError">{error}</div> : null}
