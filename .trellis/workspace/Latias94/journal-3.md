@@ -1009,3 +1009,49 @@ Deepened the nako-server startup/composition/runtime seam by extracting a named 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 123: M2 watch-folder incremental scan reliability
+
+**Date**: 2026-06-14
+**Task**: M2 watch-folder incremental scan reliability
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Hardened watch-folder runtime diagnostics and backoff handling, added focused coverage/discovery tests, updated watch-folder runtime spec, and archived the M2 planning and implementation tasks.
+
+### Main Changes
+
+- Planned M2 large-library reliability and selected watcher/incremental scan
+  reliability as the first executable slice.
+- Hardened watch-folder runtime diagnostics with redaction-safe discovery
+  failure evidence and bounded backoff handling.
+- Added focused runtime coverage, discovery failure, scan admission, and
+  redaction tests.
+- Updated the watch-folder runtime spec so future runtime-loop errors map
+  `NakoError` to safe summaries before logging.
+- Archived the M2 planning and implementation Trellis tasks.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `dee4f21c` | (see git log) |
+
+### Testing
+
+- [OK] `cargo fmt --all -- --check`
+- [OK] `cargo check -p nako-server --tests`
+- [OK] `cargo check -p nako-api -p nako-server --tests`
+- [OK] `cargo nextest run -p nako-server watch_folder_runtime --no-fail-fast`
+- [OK] `cargo nextest run -p nako-library watch_folder_intake --no-fail-fast`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
