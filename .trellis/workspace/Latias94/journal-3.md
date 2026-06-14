@@ -204,7 +204,14 @@ Moved HLS source Play access into PlaybackAppService for playlist and segment us
 
 ### Main Changes
 
-(Add details)
+- Extended Source Duplicate reconciliation apply with `confirm_suggested` and
+  `reject_suggested` actions for existing Suggested relationships.
+- Updated Admin API DTOs, generated TypeScript contracts, and Admin Web data
+  adapters so the expected action is passed end to end.
+- Added live-only Admin Web confirm/reject controls for Suggested rows and kept
+  mock fallback mutations disabled.
+- Updated Source Fingerprint/Duplicate Reconciliation code-spec and archived
+  task evidence.
 
 ### Git Commits
 
@@ -352,7 +359,17 @@ Moved item-scoped metadata Manage access enforcement from HTTP routes into Metad
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] `cargo check -p nako-api -p nako-server --tests`
+- [OK] `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server source_duplicate --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server admin_v1_source_duplicate_reconciliation --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server implemented_admin_routes_are_generated_or_explicitly_excluded --no-fail-fast`
+- [OK] `cargo fmt --all`
+- [OK] `npm run check --prefix apps/admin-web`
+- [OK] `npm run test --prefix apps/admin-web`
+- [OK] `npm run build --prefix apps/admin-web`
+- [OK] `git diff --check`
+- [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-14-06-14-source-duplicate-suggestion-review`
 
 ### Status
 
@@ -1247,6 +1264,40 @@ Improved admin item detail access to source duplicate review and added compact d
 - [OK] npm run build --prefix apps/admin-web
 - [OK] git diff --check (line-ending warnings only)
 - [OK] python ./.trellis/scripts/task.py validate .trellis/tasks/06-14-06-14-m2-source-duplicate-suggestion-review
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 129: Source duplicate suggestion review flow
+
+**Date**: 2026-06-14
+**Task**: Source duplicate suggestion review flow
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Implemented confirm/reject review actions for Suggested Source Duplicate Relationships across server app service, Admin API contracts, generated Admin Web contracts, and live-only Admin Web controls; updated spec and task evidence.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `06ea68a1` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
 
 ### Status
 
