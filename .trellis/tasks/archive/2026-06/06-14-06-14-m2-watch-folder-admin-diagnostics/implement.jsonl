@@ -1,0 +1,6 @@
+{"file":".trellis/spec/nako-server/backend/index.md","reason":"Server Admin overview mapping and app runtime diagnostics."}
+{"file":".trellis/spec/nako-server/backend/directory-structure.md","reason":"Watch-folder runtime productization and diagnostic redaction contracts."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Focused server test and cargo check gates."}
+{"file":".trellis/spec/nako-api/backend/index.md","reason":"Admin DTO contract and generated TypeScript contract ownership."}
+{"file":".trellis/spec/admin-web/frontend/index.md","reason":"Admin Web overview panel, data-source, i18n, and test conventions."}
+{"file":".trellis/tasks/06-14-06-14-m2-watch-folder-admin-diagnostics/prd.md","reason":"Confirmed MVP Option B scope and acceptance criteria."}
