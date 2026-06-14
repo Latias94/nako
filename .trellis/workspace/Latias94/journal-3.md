@@ -1408,3 +1408,45 @@ Added fixture playback-state persistence so Continue Watching refreshes after wa
 ### Next Steps
 
 - None - task complete
+
+
+## Session 133: Media item playback actions
+
+**Date**: 2026-06-14
+**Task**: Media item playback actions
+**Package**: admin-web
+**Branch**: `main`
+
+### Summary
+
+Added item-detail Resume and Start over actions for Media Web playback state; verified focused media tests, full Admin Web tests, check, build, diff check, and task validation.
+
+### Main Changes
+
+- Added an item-detail Resume link when playback state has an active resume position.
+- Kept Resume source continuity on the saved playback-state `source_id`, even when the selected source differs.
+- Added a shared playback-state Start over action that clears resume progress through `setUserWatchedState`.
+- Extended Media Web tests for saved-source Resume, selected-source mutations, Start over clearing, Continue Watching refresh, and watch-page button disambiguation.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d5ad8822` | feat(admin): add media item playback actions |
+
+### Testing
+
+- [OK] `npm run test --prefix apps/admin-web -- src/surfaces/media/mediaSurface.test.tsx`
+- [OK] `npm run check --prefix apps/admin-web`
+- [OK] `npm run test --prefix apps/admin-web`
+- [OK] `npm run build --prefix apps/admin-web`
+- [OK] `git diff --check`
+- [OK] `python .\.trellis\scripts\task.py validate .\.trellis\tasks\06-14-media-web-item-playback-state-actions`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
