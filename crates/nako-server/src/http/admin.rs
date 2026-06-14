@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use axum::{
     Extension, Json, Router,
@@ -122,8 +122,10 @@ use nako_api::{
         AdminVfsCacheSummary, AdminWatchFolderDiscoveryFailure, AdminWatchFolderDiscoveryRequest,
         AdminWatchFolderDiscoveryResponse, AdminWatchFolderIntakeEnqueueReason,
         AdminWatchFolderRuntimeCoverageDiagnostic, AdminWatchFolderRuntimeCoverageStatus,
-        AdminWatchFolderSuppression, JobResponse, StorageBackendDiagnosticsResponse,
-        StorageBackendKind, StorageBackendRuntimeStateScope, StorageBackendStatus,
+        AdminWatchFolderRuntimeFailureDiagnostic, AdminWatchFolderRuntimeTickDiagnostic,
+        AdminWatchFolderScanAdmissionStatus, AdminWatchFolderSuppression, JobResponse,
+        StorageBackendDiagnosticsResponse, StorageBackendKind, StorageBackendRuntimeStateScope,
+        StorageBackendStatus,
     },
     metadata_diagnostics::{MetadataProviderDiagnosticStatus, MetadataProviderDiagnosticsResponse},
     public_client::{API_VERSION, ClientErrorCode, ErrorResponse, page_info_from_request},
@@ -178,6 +180,8 @@ use crate::{
         VfsCacheRepairRemediationPlanReport, VfsCacheRepairTargetPreviewReport,
         VfsCacheRepairTargetReport, WatchFolderRuntimeCoverageDiagnostic,
         WatchFolderRuntimeCoverageReport, WatchFolderRuntimeCoverageStatus,
+        WatchFolderRuntimeTickDiagnostic,
+        WatchFolderScanAdmissionStatus as AppWatchFolderScanAdmissionStatus,
         storage_staging_pressure_status as app_storage_staging_pressure_status,
     },
     config::{
@@ -1483,6 +1487,7 @@ async fn admin_overview_response(app: &NakoApp) -> ApiResult<AdminOverviewRespon
     let network_readiness = network_readiness_diagnostics(app.config());
     let playback_readiness = admin_playback_runtime_diagnostics(&app).await.readiness;
     let startup = app.startup_report().clone();
+    let latest_watch_folder_ticks = app.watch_folder_runtime().latest_tick_diagnostics().await;
 
     let storage = storage_summary(storage);
     let metadata = metadata_summary(metadata);
@@ -1506,6 +1511,7 @@ async fn admin_overview_response(app: &NakoApp) -> ApiResult<AdminOverviewRespon
         watch_folder_runtimes_started: usize_to_u32(startup.watch_folder_runtimes_started),
         watch_folder_runtime: admin_watch_folder_runtime_summary(
             startup.watch_folder_runtime_coverage,
+            latest_watch_folder_ticks,
         ),
     };
     let operator_readiness = operator_readiness_summary(
@@ -3587,6 +3593,7 @@ async fn admin_playback_support_evidence(
 
 fn admin_watch_folder_runtime_summary(
     report: WatchFolderRuntimeCoverageReport,
+    latest_ticks: HashMap<LibraryId, WatchFolderRuntimeTickDiagnostic>,
 ) -> AdminOverviewWatchFolderRuntimeSummary {
     AdminOverviewWatchFolderRuntimeSummary {
         configured_libraries: usize_to_u32(report.diagnostics.len()),
@@ -3596,14 +3603,21 @@ fn admin_watch_folder_runtime_summary(
         diagnostics: report
             .diagnostics
             .into_iter()
-            .map(admin_watch_folder_runtime_coverage_diagnostic)
+            .map(|diagnostic| {
+                admin_watch_folder_runtime_coverage_diagnostic(diagnostic, &latest_ticks)
+            })
             .collect(),
     }
 }
 
 fn admin_watch_folder_runtime_coverage_diagnostic(
     diagnostic: WatchFolderRuntimeCoverageDiagnostic,
+    latest_ticks: &HashMap<LibraryId, WatchFolderRuntimeTickDiagnostic>,
 ) -> AdminWatchFolderRuntimeCoverageDiagnostic {
+    let last_tick = latest_ticks
+        .get(&diagnostic.library_id)
+        .map(admin_watch_folder_runtime_tick_diagnostic);
+
     AdminWatchFolderRuntimeCoverageDiagnostic {
         library_id: diagnostic.library_id,
         library_name: diagnostic.library_name,
@@ -3611,6 +3625,61 @@ fn admin_watch_folder_runtime_coverage_diagnostic(
         root_ref_redacted: diagnostic.root_ref_redacted,
         status: admin_watch_folder_runtime_coverage_status(diagnostic.status),
         safe_reason: diagnostic.safe_reason,
+        last_tick,
+    }
+}
+
+fn admin_watch_folder_runtime_tick_diagnostic(
+    diagnostic: &WatchFolderRuntimeTickDiagnostic,
+) -> AdminWatchFolderRuntimeTickDiagnostic {
+    AdminWatchFolderRuntimeTickDiagnostic {
+        monitored: diagnostic.monitored,
+        ready_candidates: diagnostic.intake_plan.discover.ready_candidates,
+        inspecting_candidates: diagnostic.intake_plan.discover.inspecting_candidates,
+        blocked_candidates: diagnostic.intake_plan.discover.blocked_candidates,
+        recorded_candidates: diagnostic.intake_plan.discover.recorded_candidates,
+        newly_ready_candidates: diagnostic.intake_plan.discover.newly_ready_candidates,
+        observed_candidates: diagnostic.intake_plan.summary.observed_candidates,
+        suppressed_candidates: diagnostic.intake_plan.summary.suppressed_candidates,
+        active_suppressions: diagnostic.intake_plan.suppression.active_suppressions,
+        failure_count: diagnostic.intake_plan.summary.failure_count,
+        enqueue_scan: diagnostic.intake_plan.summary.enqueue_scan,
+        enqueue_reason: admin_watch_folder_intake_enqueue_reason(
+            diagnostic.intake_plan.enqueue.reason,
+        ),
+        scan_admission_status: admin_watch_folder_scan_admission_status(
+            diagnostic.scan_admission_status,
+        ),
+        scan_job_id: diagnostic.scan_job_id,
+        reused_existing_scan: diagnostic.reused_existing_scan,
+        backoff_required: diagnostic.backoff_required,
+        discovery_failures: diagnostic
+            .discovery_failures
+            .iter()
+            .map(|failure| AdminWatchFolderRuntimeFailureDiagnostic {
+                ref_redacted: failure.uri_redacted.clone(),
+                safe_message: failure.safe_message.clone(),
+            })
+            .collect(),
+    }
+}
+
+fn admin_watch_folder_scan_admission_status(
+    status: AppWatchFolderScanAdmissionStatus,
+) -> AdminWatchFolderScanAdmissionStatus {
+    match status {
+        AppWatchFolderScanAdmissionStatus::NotAdmitted => {
+            AdminWatchFolderScanAdmissionStatus::NotAdmitted
+        }
+        AppWatchFolderScanAdmissionStatus::Enqueued => {
+            AdminWatchFolderScanAdmissionStatus::Enqueued
+        }
+        AppWatchFolderScanAdmissionStatus::ReusedQueued => {
+            AdminWatchFolderScanAdmissionStatus::ReusedQueued
+        }
+        AppWatchFolderScanAdmissionStatus::ReusedRunning => {
+            AdminWatchFolderScanAdmissionStatus::ReusedRunning
+        }
     }
 }
 
@@ -4774,6 +4843,7 @@ mod tests {
                 root_ref_redacted: "webdav://<redacted>".to_owned(),
                 status: AdminWatchFolderRuntimeCoverageStatus::UnsupportedRoot,
                 safe_reason: "watch-folder runtime requires a local root".to_owned(),
+                last_tick: None,
             },
             AdminWatchFolderRuntimeCoverageDiagnostic {
                 library_id: LibraryId::new(),
@@ -4782,6 +4852,7 @@ mod tests {
                 root_ref_redacted: "<redacted>".to_owned(),
                 status: AdminWatchFolderRuntimeCoverageStatus::MissingRoot,
                 safe_reason: "library has no parseable root".to_owned(),
+                last_tick: None,
             },
         ]);
         let check = media_library_scan_readiness_check(
@@ -4821,6 +4892,7 @@ mod tests {
                 root_ref_redacted: "local://<redacted>".to_owned(),
                 status: AdminWatchFolderRuntimeCoverageStatus::Disabled,
                 safe_reason: "realtime monitoring is disabled".to_owned(),
+                last_tick: None,
             },
         ]);
         let check = media_library_scan_readiness_check(

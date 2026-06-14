@@ -107,6 +107,51 @@ export const enOverviewMessages = {
   "overview.sourceFingerprint.retry.label": "Next retry",
   "overview.sourceFingerprint.retry.detail": "Oldest queued {oldest}",
   "overview.sourceFingerprint.timestamp.none": "None",
+  "overview.watchFolder.title": "Watch-folder diagnostics",
+  "overview.watchFolder.description":
+    "{realtime} realtime libraries, {started} started, {skipped} skipped",
+  "overview.watchFolder.coverage.label": "Coverage",
+  "overview.watchFolder.coverage.value": "{realtime}/{started}",
+  "overview.watchFolder.coverage.detail": "{skipped} skipped",
+  "overview.watchFolder.tickCoverage.label": "Tick coverage",
+  "overview.watchFolder.tickCoverage.value": "{ticked}/{started}",
+  "overview.watchFolder.tickCoverage.detail": "{never} never ticked",
+  "overview.watchFolder.admission.label": "Scan admission",
+  "overview.watchFolder.admission.detail":
+    "{reused} reused, {notAdmitted} not admitted",
+  "overview.watchFolder.intake.label": "Intake pressure",
+  "overview.watchFolder.intake.detail":
+    "{observed} observed, {suppressed} suppressed",
+  "overview.watchFolder.neverTicked": "Never ticked",
+  "overview.watchFolder.none": "None",
+  "overview.watchFolder.yes": "Yes",
+  "overview.watchFolder.no": "No",
+  "overview.watchFolder.root": "{scheme}: {root}",
+  "overview.watchFolder.safeReason": "Safe reason {reason}",
+  "overview.watchFolder.scanJob": "Scan job {job}",
+  "overview.watchFolder.reusedBackoff": "Backoff {backoff}, reused {reused}",
+  "overview.watchFolder.counts":
+    "{ready} ready, {inspecting} inspecting, {suppressed} suppressed, {failures} failures",
+  "overview.watchFolder.column.runtime": "Runtime",
+  "overview.watchFolder.column.lastTick": "Last tick",
+  "overview.watchFolder.column.admission": "Admission",
+  "overview.watchFolder.coverageStatus.disabled": "Disabled",
+  "overview.watchFolder.coverageStatus.missingRoot": "Missing root",
+  "overview.watchFolder.coverageStatus.started": "Started",
+  "overview.watchFolder.coverageStatus.unsupportedRoot": "Unsupported root",
+  "overview.watchFolder.admissionStatus.enqueued": "Enqueued",
+  "overview.watchFolder.admissionStatus.notAdmitted": "Not admitted",
+  "overview.watchFolder.admissionStatus.reusedQueued": "Reused queued",
+  "overview.watchFolder.admissionStatus.reusedRunning": "Reused running",
+  "overview.watchFolder.enqueueReason.blockedCandidates": "Blocked candidates",
+  "overview.watchFolder.enqueueReason.discoveryFailures": "Discovery failures",
+  "overview.watchFolder.enqueueReason.newStableCandidates": "New stable candidates",
+  "overview.watchFolder.enqueueReason.noNewStableCandidates":
+    "No new stable candidates",
+  "overview.watchFolder.enqueueReason.suppressedCandidates":
+    "Suppressed candidates",
+  "overview.watchFolder.enqueueReason.waitingForStability":
+    "Waiting for stability",
 } as const;
 
 export type OverviewMessageId = keyof typeof enOverviewMessages;
@@ -216,6 +261,50 @@ export const zhHansOverviewMessages = {
   "overview.sourceFingerprint.retry.label": "下次重试",
   "overview.sourceFingerprint.retry.detail": "最早排队 {oldest}",
   "overview.sourceFingerprint.timestamp.none": "无",
+  "overview.watchFolder.title": "Watch-folder 诊断",
+  "overview.watchFolder.description":
+    "{realtime} 个实时媒体库，{started} 个已启动，{skipped} 个已跳过",
+  "overview.watchFolder.coverage.label": "覆盖",
+  "overview.watchFolder.coverage.value": "{realtime}/{started}",
+  "overview.watchFolder.coverage.detail": "{skipped} 个已跳过",
+  "overview.watchFolder.tickCoverage.label": "Tick 覆盖",
+  "overview.watchFolder.tickCoverage.value": "{ticked}/{started}",
+  "overview.watchFolder.tickCoverage.detail": "{never} 个从未 tick",
+  "overview.watchFolder.admission.label": "扫描准入",
+  "overview.watchFolder.admission.detail":
+    "{reused} 个复用，{notAdmitted} 个未准入",
+  "overview.watchFolder.intake.label": "Intake 压力",
+  "overview.watchFolder.intake.detail":
+    "{observed} 个已观测，{suppressed} 个已抑制",
+  "overview.watchFolder.neverTicked": "从未 tick",
+  "overview.watchFolder.none": "无",
+  "overview.watchFolder.yes": "是",
+  "overview.watchFolder.no": "否",
+  "overview.watchFolder.root": "{scheme}：{root}",
+  "overview.watchFolder.safeReason": "安全原因 {reason}",
+  "overview.watchFolder.scanJob": "扫描任务 {job}",
+  "overview.watchFolder.reusedBackoff": "退避 {backoff}，复用 {reused}",
+  "overview.watchFolder.counts":
+    "{ready} 个就绪，{inspecting} 个检查中，{suppressed} 个已抑制，{failures} 个失败",
+  "overview.watchFolder.column.runtime": "运行时",
+  "overview.watchFolder.column.lastTick": "最近 tick",
+  "overview.watchFolder.column.admission": "准入",
+  "overview.watchFolder.coverageStatus.disabled": "已禁用",
+  "overview.watchFolder.coverageStatus.missingRoot": "缺少根路径",
+  "overview.watchFolder.coverageStatus.started": "已启动",
+  "overview.watchFolder.coverageStatus.unsupportedRoot": "根路径不支持",
+  "overview.watchFolder.admissionStatus.enqueued": "已入队",
+  "overview.watchFolder.admissionStatus.notAdmitted": "未准入",
+  "overview.watchFolder.admissionStatus.reusedQueued": "复用排队中",
+  "overview.watchFolder.admissionStatus.reusedRunning": "复用运行中",
+  "overview.watchFolder.enqueueReason.blockedCandidates": "被阻塞候选",
+  "overview.watchFolder.enqueueReason.discoveryFailures": "发现失败",
+  "overview.watchFolder.enqueueReason.newStableCandidates": "新稳定候选",
+  "overview.watchFolder.enqueueReason.noNewStableCandidates":
+    "无新稳定候选",
+  "overview.watchFolder.enqueueReason.suppressedCandidates":
+    "已抑制候选",
+  "overview.watchFolder.enqueueReason.waitingForStability": "等待稳定",
 } satisfies Record<OverviewMessageId, string>;
 
 export const overviewMessageCatalogs = {

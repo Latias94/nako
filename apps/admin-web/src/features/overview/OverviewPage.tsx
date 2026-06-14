@@ -42,6 +42,8 @@ type OverviewResult = {
 
 type StorageBackend = AdminOverviewResponse["storage"]["backends"][number];
 type MetadataProvider = AdminOverviewResponse["metadata"]["providers"][number];
+type WatchFolderDiagnostic =
+  AdminOverviewResponse["startup"]["watch_folder_runtime"]["diagnostics"][number];
 type OperatorReadinessCheck =
   AdminOverviewResponse["operator_readiness"]["checks"][number];
 
@@ -56,8 +58,11 @@ export function OverviewPage({ dataSource }: OverviewPageProps) {
     source: "mock" as const,
   };
   const sourceFingerprintHash = result.value.source_fingerprint_hash;
+  const watchFolderRuntime = result.value.startup.watch_folder_runtime;
+  const watchFolderStats = watchFolderRuntimeStats(watchFolderRuntime.diagnostics);
   const storageColumns = createStorageColumns(t);
   const metadataColumns = createMetadataColumns(t);
+  const watchFolderColumns = createWatchFolderColumns(t);
   const storageTable = useReactTable({
     data: result.value.storage.backends,
     columns: storageColumns,
@@ -66,6 +71,11 @@ export function OverviewPage({ dataSource }: OverviewPageProps) {
   const metadataTable = useReactTable({
     data: result.value.metadata.providers,
     columns: metadataColumns,
+    getCoreRowModel: getCoreRowModel(),
+  });
+  const watchFolderTable = useReactTable({
+    data: watchFolderRuntime.diagnostics,
+    columns: watchFolderColumns,
     getCoreRowModel: getCoreRowModel(),
   });
 
@@ -205,6 +215,55 @@ export function OverviewPage({ dataSource }: OverviewPageProps) {
                 value={formatOptionalTimestamp(sourceFingerprintHash.next_retry_at, t)}
               />
             </div>
+          </DataPanel>
+
+          <DataPanel
+            description={t("overview.watchFolder.description", {
+              realtime: watchFolderRuntime.realtime_enabled_libraries,
+              skipped: watchFolderRuntime.skipped_libraries,
+              started: watchFolderRuntime.started_libraries,
+            })}
+            title={t("overview.watchFolder.title")}
+          >
+            <div className="overviewDiagnosticGrid">
+              <OverviewDiagnosticStat
+                detail={t("overview.watchFolder.coverage.detail", {
+                  skipped: watchFolderRuntime.skipped_libraries,
+                })}
+                label={t("overview.watchFolder.coverage.label")}
+                value={t("overview.watchFolder.coverage.value", {
+                  realtime: watchFolderRuntime.realtime_enabled_libraries,
+                  started: watchFolderRuntime.started_libraries,
+                })}
+              />
+              <OverviewDiagnosticStat
+                detail={t("overview.watchFolder.tickCoverage.detail", {
+                  never: watchFolderStats.neverTicked,
+                })}
+                label={t("overview.watchFolder.tickCoverage.label")}
+                value={t("overview.watchFolder.tickCoverage.value", {
+                  started: watchFolderRuntime.started_libraries,
+                  ticked: watchFolderStats.ticked,
+                })}
+              />
+              <OverviewDiagnosticStat
+                detail={t("overview.watchFolder.admission.detail", {
+                  notAdmitted: watchFolderStats.notAdmitted,
+                  reused: watchFolderStats.reused,
+                })}
+                label={t("overview.watchFolder.admission.label")}
+                value={watchFolderStats.enqueued.toString()}
+              />
+              <OverviewDiagnosticStat
+                detail={t("overview.watchFolder.intake.detail", {
+                  observed: watchFolderStats.observed,
+                  suppressed: watchFolderStats.suppressed,
+                })}
+                label={t("overview.watchFolder.intake.label")}
+                value={watchFolderStats.newlyReady.toString()}
+              />
+            </div>
+            <OverviewTable table={watchFolderTable} />
           </DataPanel>
 
           <DataPanel
@@ -370,6 +429,16 @@ function StatusBadge({ status }: { status: string }) {
   }
 
   return <Badge tone="danger">{status}</Badge>;
+}
+
+function WatchFolderStatusBadge({
+  label,
+  tone,
+}: {
+  label: string;
+  tone: "success" | "warning" | "danger";
+}) {
+  return <Badge tone={tone}>{label}</Badge>;
 }
 
 function OverviewTable<T>({ table }: { table: ReturnType<typeof useReactTable<T>> }) {
@@ -538,3 +607,219 @@ function createMetadataColumns(t: Translate): Array<ColumnDef<MetadataProvider>>
     },
   ];
 }
+
+function createWatchFolderColumns(t: Translate): Array<ColumnDef<WatchFolderDiagnostic>> {
+  return [
+    {
+      accessorKey: "library_name",
+      header: t("overview.column.mediaLibrary"),
+      cell: ({ row }) => (
+        <div className="routePrimaryCell">
+          <strong>{row.original.library_name}</strong>
+          <span>{row.original.library_id}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "status",
+      header: t("overview.watchFolder.column.runtime"),
+      cell: ({ row }) => (
+        <div className="routePrimaryCell">
+          <WatchFolderStatusBadge
+            label={watchFolderCoverageStatusLabel(row.original.status, t)}
+            tone={watchFolderCoverageTone(row.original.status)}
+          />
+          <span>
+            {t("overview.watchFolder.root", {
+              root: row.original.root_ref_redacted,
+              scheme: row.original.root_scheme ?? t("overview.watchFolder.none"),
+            })}
+          </span>
+          <span>
+            {t("overview.watchFolder.safeReason", {
+              reason: row.original.safe_reason,
+            })}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: "last_tick",
+      header: t("overview.watchFolder.column.lastTick"),
+      cell: ({ row }) => {
+        const tick = row.original.last_tick;
+        if (!tick) {
+          return t("overview.watchFolder.neverTicked");
+        }
+
+        return (
+          <div className="routePrimaryCell">
+            <strong>{watchFolderEnqueueReasonLabel(tick.enqueue_reason, t)}</strong>
+            <span>
+              {t("overview.watchFolder.counts", {
+                failures: tick.failure_count,
+                inspecting: tick.inspecting_candidates,
+                ready: tick.ready_candidates,
+                suppressed: tick.suppressed_candidates,
+              })}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
+      id: "admission",
+      header: t("overview.watchFolder.column.admission"),
+      cell: ({ row }) => {
+        const tick = row.original.last_tick;
+        if (!tick) {
+          return t("overview.watchFolder.none");
+        }
+
+        return (
+          <div className="routePrimaryCell">
+            <WatchFolderStatusBadge
+              label={watchFolderAdmissionStatusLabel(tick.scan_admission_status, t)}
+              tone={watchFolderAdmissionTone(tick.scan_admission_status)}
+            />
+            <span>
+              {t("overview.watchFolder.scanJob", {
+                job: tick.scan_job_id ?? t("overview.watchFolder.none"),
+              })}
+            </span>
+            <span>
+              {t("overview.watchFolder.reusedBackoff", {
+                backoff: yesNo(tick.backoff_required, t),
+                reused: yesNo(tick.reused_existing_scan, t),
+              })}
+            </span>
+          </div>
+        );
+      },
+    },
+  ];
+}
+
+function watchFolderRuntimeStats(diagnostics: WatchFolderDiagnostic[]) {
+  return diagnostics.reduce(
+    (stats, diagnostic) => {
+      const tick = diagnostic.last_tick;
+      if (!tick) {
+        stats.neverTicked += diagnostic.status === "started" ? 1 : 0;
+        return stats;
+      }
+
+      stats.ticked += 1;
+      stats.newlyReady += tick.newly_ready_candidates;
+      stats.observed += tick.observed_candidates;
+      stats.suppressed += tick.suppressed_candidates;
+      if (tick.scan_admission_status === "enqueued") {
+        stats.enqueued += 1;
+      } else if (
+        tick.scan_admission_status === "reused_queued"
+        || tick.scan_admission_status === "reused_running"
+      ) {
+        stats.reused += 1;
+      } else {
+        stats.notAdmitted += 1;
+      }
+
+      return stats;
+    },
+    {
+      enqueued: 0,
+      neverTicked: 0,
+      newlyReady: 0,
+      notAdmitted: 0,
+      observed: 0,
+      reused: 0,
+      suppressed: 0,
+      ticked: 0,
+    },
+  );
+}
+
+function yesNo(value: boolean, t: Translate): string {
+  return value ? t("overview.watchFolder.yes") : t("overview.watchFolder.no");
+}
+
+function watchFolderCoverageTone(
+  status: WatchFolderDiagnostic["status"],
+): "success" | "warning" | "danger" {
+  if (status === "started") {
+    return "success";
+  }
+
+  if (status === "disabled") {
+    return "warning";
+  }
+
+  return "danger";
+}
+
+function watchFolderAdmissionTone(
+  status: NonNullable<WatchFolderDiagnostic["last_tick"]>["scan_admission_status"],
+): "success" | "warning" | "danger" {
+  if (status === "enqueued" || status === "reused_queued" || status === "reused_running") {
+    return "success";
+  }
+
+  return "warning";
+}
+
+function watchFolderCoverageStatusLabel(
+  status: WatchFolderDiagnostic["status"],
+  t: Translate,
+): string {
+  return t(WATCH_FOLDER_COVERAGE_STATUS_LABELS[status]);
+}
+
+function watchFolderAdmissionStatusLabel(
+  status: NonNullable<WatchFolderDiagnostic["last_tick"]>["scan_admission_status"],
+  t: Translate,
+): string {
+  return t(WATCH_FOLDER_ADMISSION_STATUS_LABELS[status]);
+}
+
+function watchFolderEnqueueReasonLabel(
+  reason: NonNullable<WatchFolderDiagnostic["last_tick"]>["enqueue_reason"],
+  t: Translate,
+): string {
+  return t(WATCH_FOLDER_ENQUEUE_REASON_LABELS[reason]);
+}
+
+const WATCH_FOLDER_COVERAGE_STATUS_LABELS: Record<
+  WatchFolderDiagnostic["status"],
+  MessageId
+> = {
+  disabled: "overview.watchFolder.coverageStatus.disabled",
+  missing_root: "overview.watchFolder.coverageStatus.missingRoot",
+  started: "overview.watchFolder.coverageStatus.started",
+  unsupported_root: "overview.watchFolder.coverageStatus.unsupportedRoot",
+};
+
+const WATCH_FOLDER_ADMISSION_STATUS_LABELS: Record<
+  NonNullable<WatchFolderDiagnostic["last_tick"]>["scan_admission_status"],
+  MessageId
+> = {
+  enqueued: "overview.watchFolder.admissionStatus.enqueued",
+  not_admitted: "overview.watchFolder.admissionStatus.notAdmitted",
+  reused_queued: "overview.watchFolder.admissionStatus.reusedQueued",
+  reused_running: "overview.watchFolder.admissionStatus.reusedRunning",
+};
+
+const WATCH_FOLDER_ENQUEUE_REASON_LABELS: Record<
+  NonNullable<WatchFolderDiagnostic["last_tick"]>["enqueue_reason"],
+  MessageId
+> = {
+  blocked_candidates: "overview.watchFolder.enqueueReason.blockedCandidates",
+  discovery_failures: "overview.watchFolder.enqueueReason.discoveryFailures",
+  new_stable_candidates:
+    "overview.watchFolder.enqueueReason.newStableCandidates",
+  no_new_stable_candidates:
+    "overview.watchFolder.enqueueReason.noNewStableCandidates",
+  suppressed_candidates:
+    "overview.watchFolder.enqueueReason.suppressedCandidates",
+  waiting_for_stability:
+    "overview.watchFolder.enqueueReason.waitingForStability",
+};

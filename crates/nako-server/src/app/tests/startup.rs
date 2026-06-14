@@ -3162,6 +3162,16 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
     assert_eq!(second.intake_plan.summary.observed_candidates, 1);
     assert!(second.intake_plan.summary.enqueue_scan);
     let job = store.get_job(job_id).await.unwrap().unwrap();
+    let latest_ticks = app.watch_folder_runtime().latest_tick_diagnostics().await;
+    let latest = latest_ticks
+        .get(&library_id)
+        .expect("expected shared latest tick diagnostic");
+    assert_eq!(latest.scan_admission_status, second.scan_admission_status);
+    assert_eq!(latest.scan_job_id, second.scan_job_id);
+    assert_eq!(
+        latest.intake_plan.summary.newly_ready_candidates,
+        second.intake_plan.summary.newly_ready_candidates
+    );
 
     assert_eq!(job.kind, JobKind::LibraryScan);
     assert_eq!(job.resource_class, "disk.scan");

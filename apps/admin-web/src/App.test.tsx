@@ -122,7 +122,7 @@ describe("Admin Web V2 route shell", () => {
     expect(screen.getByText("Source fingerprint hash")).toBeInTheDocument();
     expect(screen.getByText("109/128")).toBeInTheDocument();
     expect(screen.getByText("Metadata providers")).toBeInTheDocument();
-    expect(screen.getByText("Anime Vault")).toBeInTheDocument();
+    expect(screen.getAllByText("Anime Vault").length).toBeGreaterThan(0);
     expect(loadOverview).toHaveBeenCalledTimes(1);
   });
 
@@ -440,7 +440,7 @@ describe("Admin Web V2 route shell", () => {
     expect(
       screen.queryByRole("button", { name: /Storage repair targets/i }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText("Anime Vault")).toBeInTheDocument();
+    expect(screen.getAllByText("Anime Vault").length).toBeGreaterThan(0);
   });
 
   it("renders Product-Operator readiness facts from the live Overview read model", async () => {
@@ -488,6 +488,30 @@ describe("Admin Web V2 route shell", () => {
     expect(loadOverview).toHaveBeenCalledTimes(1);
   });
 
+  it("renders Watch-folder diagnostics from the live Overview read model", async () => {
+    const loadOverview = vi.fn(async () => ({
+      value: mockOverview,
+      source: "live" as const,
+    }));
+    window.history.pushState(null, "", "/overview");
+
+    render(<App dataSource={{ load: async () => emptyConsoleData(), loadOverview }} />);
+
+    const watchFolderPanel = (
+      await screen.findByRole("heading", {
+        name: "Watch-folder diagnostics",
+      })
+    ).closest(".dataPanel");
+    expect(watchFolderPanel).not.toBeNull();
+    const watchFolder = within(watchFolderPanel as HTMLElement);
+    expect(watchFolder.getByText("Coverage")).toBeInTheDocument();
+    expect(watchFolder.getAllByText("1/1")).toHaveLength(2);
+    expect(watchFolder.getByText("Tick coverage")).toBeInTheDocument();
+    expect(watchFolder.getByText("Never ticked")).toBeInTheDocument();
+    expect(watchFolder.getByText("Reused running")).toBeInTheDocument();
+    expect(loadOverview).toHaveBeenCalledTimes(1);
+  });
+
   it("renders localized Overview route copy", async () => {
     const loadOverview = vi.fn(async () => ({
       value: mockOverview,
@@ -505,6 +529,8 @@ describe("Admin Web V2 route shell", () => {
     expect(await screen.findByRole("heading", { name: "总览" })).toBeInTheDocument();
     expect(await screen.findByText("服务器状态")).toBeInTheDocument();
     expect(await screen.findByText("Product-Operator readiness")).toBeInTheDocument();
+    expect(await screen.findByText("Watch-folder 诊断")).toBeInTheDocument();
+    expect(screen.getByText("从未 tick")).toBeInTheDocument();
     expect(screen.getAllByText("存储后端").length).toBeGreaterThan(0);
     expect(await screen.findByText("2/3 就绪")).toBeInTheDocument();
     expect(await screen.findByText("Metadata Provider")).toBeInTheDocument();
@@ -538,6 +564,26 @@ describe("Admin Web V2 route shell", () => {
         raw_fingerprint: "source:v1:content_hash:sha256:secret-content",
         raw_locator: "local:///Users/Frankorz/Secret Path/Hidden Movie.mkv?token=secret",
       },
+      startup: {
+        ...mockOverview.startup,
+        watch_folder_runtime: {
+          ...mockOverview.startup.watch_folder_runtime,
+          diagnostics: mockOverview.startup.watch_folder_runtime.diagnostics.map((diagnostic, index) =>
+            index === 0
+              ? ({
+                  ...diagnostic,
+                  root_ref: "local://unsafe-root",
+                  last_tick: diagnostic.last_tick
+                    ? ({
+                        ...diagnostic.last_tick,
+                        scan_job_raw: "job-secret-007",
+                      } as unknown as typeof diagnostic.last_tick)
+                    : diagnostic.last_tick,
+                } as unknown as typeof diagnostic)
+              : diagnostic,
+          ),
+        },
+      },
       operator_readiness: {
         ...mockOverview.operator_readiness,
         checks: mockOverview.operator_readiness.checks.map((check) =>
@@ -559,7 +605,6 @@ describe("Admin Web V2 route shell", () => {
     const { container } = render(<App dataSource={overviewDataSource(unsafeOverview)} />);
 
     await screen.findByRole("heading", { name: "Overview" });
-    await screen.findByText("Anime Vault");
     const renderedText = container.textContent ?? "";
 
     expect(renderedText).not.toContain("raw_token");
@@ -576,11 +621,13 @@ describe("Admin Web V2 route shell", () => {
     expect(renderedText).not.toContain("source:v1:content_hash:sha256:secret-content");
     expect(renderedText).not.toContain("raw_locator");
     expect(renderedText).not.toContain("Hidden Movie.mkv");
+    expect(renderedText).not.toContain("job-secret-007");
     expect(renderedText).not.toContain("secret-cache");
     expect(renderedText).not.toContain("ffmpeg.exe");
     expect(renderedText).not.toContain("?token=secret");
     expect(renderedText).not.toContain("C:\\");
     expect(renderedText).not.toContain("F:\\");
+    expect(renderedText).not.toContain("local://unsafe-root");
     expect(renderedText).not.toContain("/Users/");
   });
 
@@ -3893,7 +3940,7 @@ describe("Admin Web V2 route shell", () => {
     expect(await screen.findByText("Session 队列")).toBeInTheDocument();
     expect(screen.getByLabelText("Playback 状态过滤器")).toBeInTheDocument();
     expect(screen.getByText("URL 过滤条件具有权威性")).toBeInTheDocument();
-    expect(screen.getByText("实时 Admin API")).toBeInTheDocument();
+    expect((await screen.findAllByText("实时 Admin API")).length).toBeGreaterThan(0);
   });
 
   it("updates Playback Sessions search params from filter controls", async () => {

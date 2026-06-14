@@ -1,5 +1,5 @@
 use nako_core::{
-    AdminSettingsEffect, AdminSettingsSource, ExternalProvider, LibraryId, LibraryPreset,
+    AdminSettingsEffect, AdminSettingsSource, ExternalProvider, JobId, LibraryId, LibraryPreset,
 };
 use serde::{Deserialize, Serialize};
 
@@ -517,6 +517,7 @@ pub struct AdminWatchFolderRuntimeCoverageDiagnostic {
     pub root_ref_redacted: String,
     pub status: AdminWatchFolderRuntimeCoverageStatus,
     pub safe_reason: String,
+    pub last_tick: Option<AdminWatchFolderRuntimeTickDiagnostic>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -526,6 +527,42 @@ pub enum AdminWatchFolderRuntimeCoverageStatus {
     Disabled,
     UnsupportedRoot,
     MissingRoot,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminWatchFolderRuntimeTickDiagnostic {
+    pub monitored: bool,
+    pub ready_candidates: u64,
+    pub inspecting_candidates: u64,
+    pub blocked_candidates: u64,
+    pub recorded_candidates: u64,
+    pub newly_ready_candidates: u64,
+    pub observed_candidates: u64,
+    pub suppressed_candidates: u64,
+    pub active_suppressions: u64,
+    pub failure_count: u64,
+    pub enqueue_scan: bool,
+    pub enqueue_reason: AdminWatchFolderIntakeEnqueueReason,
+    pub scan_admission_status: AdminWatchFolderScanAdmissionStatus,
+    pub scan_job_id: Option<JobId>,
+    pub reused_existing_scan: bool,
+    pub backoff_required: bool,
+    pub discovery_failures: Vec<AdminWatchFolderRuntimeFailureDiagnostic>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminWatchFolderScanAdmissionStatus {
+    NotAdmitted,
+    Enqueued,
+    ReusedQueued,
+    ReusedRunning,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminWatchFolderRuntimeFailureDiagnostic {
+    pub ref_redacted: String,
+    pub safe_message: String,
 }
 
 #[cfg(test)]
@@ -639,6 +676,30 @@ mod tests {
                         root_ref_redacted: "local://<redacted>".to_owned(),
                         status: AdminWatchFolderRuntimeCoverageStatus::Started,
                         safe_reason: "local watch-folder runtime started".to_owned(),
+                        last_tick: Some(AdminWatchFolderRuntimeTickDiagnostic {
+                            monitored: true,
+                            ready_candidates: 2,
+                            inspecting_candidates: 1,
+                            blocked_candidates: 0,
+                            recorded_candidates: 3,
+                            newly_ready_candidates: 2,
+                            observed_candidates: 4,
+                            suppressed_candidates: 1,
+                            active_suppressions: 1,
+                            failure_count: 1,
+                            enqueue_scan: true,
+                            enqueue_reason:
+                                AdminWatchFolderIntakeEnqueueReason::NewStableCandidates,
+                            scan_admission_status:
+                                AdminWatchFolderScanAdmissionStatus::ReusedRunning,
+                            scan_job_id: Some(JobId::new()),
+                            reused_existing_scan: true,
+                            backoff_required: true,
+                            discovery_failures: vec![AdminWatchFolderRuntimeFailureDiagnostic {
+                                ref_redacted: "local://<redacted>".to_owned(),
+                                safe_message: "storage error: Io".to_owned(),
+                            }],
+                        }),
                     }],
                 },
             },
@@ -677,6 +738,19 @@ mod tests {
             value["startup"]["watch_folder_runtime"]["diagnostics"][0]["root_ref_redacted"],
             "local://<redacted>"
         );
+        assert_eq!(
+            value["startup"]["watch_folder_runtime"]["diagnostics"][0]["last_tick"]["enqueue_reason"],
+            "new_stable_candidates"
+        );
+        assert_eq!(
+            value["startup"]["watch_folder_runtime"]["diagnostics"][0]["last_tick"]["scan_admission_status"],
+            "reused_running"
+        );
+        assert_eq!(
+            value["startup"]["watch_folder_runtime"]["diagnostics"][0]["last_tick"]["discovery_failures"]
+                [0]["ref_redacted"],
+            "local://<redacted>"
+        );
         assert_eq!(value["source_fingerprint_hash"]["fingerprinted_sources"], 2);
         assert_eq!(value["source_fingerprint_hash"]["content_hash_sources"], 1);
         assert_eq!(value["source_fingerprint_hash"]["claimable_jobs"], 2);
@@ -691,5 +765,8 @@ mod tests {
         assert!(!body.contains("ProviderRawResponse"));
         assert!(!body.contains("source:v1:content_hash"));
         assert!(!body.contains("locator"));
+        assert!(!body.contains("uri_redacted"));
+        assert!(!body.contains("local:///"));
+        assert!(!body.contains("C:\\"));
     }
 }

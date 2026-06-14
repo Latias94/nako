@@ -35,12 +35,13 @@ use nako_api::admin::{
     AdminVfsCacheRepairJobDiagnosticStatus, AdminVfsCacheRepairRemediationPlanResponse,
     AdminVfsCacheRepairRetryRequest, AdminVfsCacheRepairTargetListResponse,
     AdminVfsCacheRepairTargetPreviewResponse, AdminWatchFolderIntakeEnqueueReason,
-    AdminWatchFolderRuntimeCoverageStatus,
+    AdminWatchFolderRuntimeCoverageStatus, AdminWatchFolderScanAdmissionStatus,
 };
 use nako_core::{
     AcquisitionIntakeCandidateId, AcquisitionIntakeCandidateListFilter,
-    AcquisitionIntakeRepository, AcquisitionIntakeSourceKind, JobKind, JobPriority, JobRepository,
-    JobStatus, METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS, MetadataCandidateRecord,
+    AcquisitionIntakeRepository, AcquisitionIntakeSourceKind, DatabaseLifecycle, JobKind,
+    JobPriority, JobRepository, JobStatus,
+    METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS, MetadataCandidateRecord,
     MetadataCandidateRelationshipKind, MetadataCandidateReviewBatchStatus,
     MetadataCandidateReviewId, MetadataCandidateReviewNode, MetadataCandidateReviewPlan,
     MetadataCandidateReviewRelationship, MetadataCandidateReviewRepository,
@@ -359,6 +360,120 @@ async fn admin_v1_overview_composes_safe_read_only_diagnostics() {
     assert_eq!(health.status, "ok");
     assert_eq!(libraries.libraries[0].id, library_id.to_string());
     assert_eq!(storage.backends[0].library_id, library_id);
+}
+
+#[tokio::test]
+async fn admin_v1_overview_includes_latest_watch_folder_tick_diagnostics() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().join("movies");
+    fs::create_dir_all(&root).unwrap();
+    fs::write(root.join("Ready Movie.mkv"), b"ready").unwrap();
+    let library_id = LibraryId::new();
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let mut options = LibraryOptions::from_preset(nako_core::LibraryPreset::Movies);
+    options.scan.realtime_monitor = true;
+    store.migrate().await.unwrap();
+    store
+        .upsert_library(&Library {
+            id: library_id,
+            name: "Movies".to_owned(),
+            roots: vec!["local:///".to_owned()],
+            options,
+        })
+        .await
+        .unwrap();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("nako-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root,
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+
+    let first_tick = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+    assert_eq!(first_tick.intake_plan.summary.newly_ready_candidates, 0);
+    let second_tick = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+    assert_eq!(second_tick.intake_plan.summary.newly_ready_candidates, 1);
+    let router = build_router(app);
+
+    let overview =
+        request_json::<AdminOverviewResponse>(&router, Method::GET, "/admin/v1/overview").await;
+    let diagnostic = overview
+        .startup
+        .watch_folder_runtime
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.library_id == library_id)
+        .expect("expected watch-folder diagnostic");
+    let last_tick = diagnostic
+        .last_tick
+        .as_ref()
+        .expect("expected latest watch-folder tick");
+    let body = serde_json::to_string(&overview).unwrap();
+
+    assert_eq!(
+        diagnostic.status,
+        AdminWatchFolderRuntimeCoverageStatus::Started
+    );
+    assert_eq!(diagnostic.root_ref_redacted, "local://<redacted>");
+    assert!(last_tick.monitored);
+    assert_eq!(last_tick.ready_candidates, 1);
+    assert_eq!(last_tick.newly_ready_candidates, 1);
+    assert_eq!(last_tick.observed_candidates, 1);
+    assert_eq!(
+        last_tick.enqueue_reason,
+        AdminWatchFolderIntakeEnqueueReason::NewStableCandidates
+    );
+    assert_eq!(
+        last_tick.scan_admission_status,
+        AdminWatchFolderScanAdmissionStatus::Enqueued
+    );
+    assert!(last_tick.scan_job_id.is_some());
+    assert!(!last_tick.reused_existing_scan);
+    assert!(!last_tick.backoff_required);
+    assert!(last_tick.discovery_failures.is_empty());
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("Ready Movie"));
+    assert!(!body.contains("local:///"));
+    assert!(!body.contains("token"));
+    assert!(!body.contains("fingerprint\":\""));
+    assert!(!body.contains("uri_redacted"));
 }
 
 #[tokio::test]

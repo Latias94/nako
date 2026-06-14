@@ -2322,6 +2322,35 @@ export interface AdminOperatorReadinessSummary {
 
 export type AdminWatchFolderRuntimeCoverageStatus = "started" | "disabled" | "unsupported_root" | "missing_root";
 
+export type AdminWatchFolderScanAdmissionStatus =
+  | "not_admitted"
+  | "enqueued"
+  | "reused_queued"
+  | "reused_running";
+
+export interface AdminWatchFolderRuntimeTickDiagnostic {
+  monitored: boolean;
+  ready_candidates: number;
+  inspecting_candidates: number;
+  blocked_candidates: number;
+  recorded_candidates: number;
+  newly_ready_candidates: number;
+  observed_candidates: number;
+  suppressed_candidates: number;
+  active_suppressions: number;
+  failure_count: number;
+  enqueue_scan: boolean;
+  enqueue_reason: AdminWatchFolderIntakeEnqueueReason;
+  scan_admission_status: AdminWatchFolderScanAdmissionStatus;
+  scan_job_id: string | null;
+  reused_existing_scan: boolean;
+  backoff_required: boolean;
+  discovery_failures: Array<{
+    ref_redacted: string;
+    safe_message: string;
+  }>;
+}
+
 export interface AdminOverviewSourceFingerprintHashSummary {
   total_sources: number;
   fingerprinted_sources: number;
@@ -2404,6 +2433,7 @@ export interface AdminOverviewResponse {
         root_ref_redacted: string;
         status: AdminWatchFolderRuntimeCoverageStatus;
         safe_reason: string;
+        last_tick: AdminWatchFolderRuntimeTickDiagnostic | null;
       }>;
     };
   };
@@ -4905,6 +4935,8 @@ mod tests {
             "AdminAcquisitionIntakeCandidatesQuery",
             "AdminWatchFolderDiscoveryRequest",
             "AdminWatchFolderIntakeEnqueueReason",
+            "AdminWatchFolderScanAdmissionStatus",
+            "AdminWatchFolderRuntimeTickDiagnostic",
             "AdminGeneratedArtifactProposalsQuery",
             "AdminGeneratedArtifactReviewRequest",
             "AdminGeneratedArtifactMetadataApplyRequest",

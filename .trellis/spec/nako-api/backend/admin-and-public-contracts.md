@@ -37,6 +37,10 @@ Use this spec when adding API wire types or generated route inventory in
   existing admin responses do so.
 - DTOs should use serde-compatible snake_case wire fields matching existing
   `nako_api::admin` and `nako_api::public_client` structures.
+- `AdminOverviewResponse.startup.watch_folder_runtime.diagnostics[*].last_tick`
+  may expose a redaction-safe latest tick summary for Admin Web. Keep the wire
+  shape limited to safe counts, admission status, scan job id, and redacted
+  failure refs; do not surface raw paths, locators, or failure text.
 
 ### 4. Validation & Error Matrix
 

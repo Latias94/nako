@@ -1,9 +1,10 @@
-use std::time::Duration;
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use nako_core::{JobId, Library, LibraryId, LibraryRepository, NakoError, PageRequest, Result};
 use nako_db::NakoDatabase;
 use nako_library::{WatchFolderIntakePlan, WatchFolderIntakePlanInput, plan_watch_folder_intake};
 use nako_vfs::StorageUri;
+use tokio::sync::RwLock;
 use tracing::{info, warn};
 
 use super::{
@@ -23,6 +24,7 @@ pub(crate) struct WatchFolderRuntimeAppService {
     store: NakoDatabase,
     acquisition_intake: AcquisitionIntakeAppService,
     library_scan: LibraryScanAppService,
+    latest_tick_diagnostics: Arc<RwLock<HashMap<LibraryId, WatchFolderRuntimeTickDiagnostic>>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -106,6 +108,7 @@ impl WatchFolderRuntimeAppService {
             store,
             acquisition_intake,
             library_scan,
+            latest_tick_diagnostics: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -178,16 +181,26 @@ impl WatchFolderRuntimeAppService {
         })
     }
 
+    pub(crate) async fn latest_tick_diagnostics(
+        &self,
+    ) -> HashMap<LibraryId, WatchFolderRuntimeTickDiagnostic> {
+        self.latest_tick_diagnostics.read().await.clone()
+    }
+
     pub(crate) async fn tick_library(
         &self,
         library_id: LibraryId,
     ) -> Result<WatchFolderRuntimeTickDiagnostic> {
         let Some(library) = self.store.get_library(library_id).await? else {
-            return Ok(WatchFolderRuntimeTickDiagnostic::unmonitored(library_id));
+            let diagnostic = WatchFolderRuntimeTickDiagnostic::unmonitored(library_id);
+            self.record_latest_tick(diagnostic.clone()).await;
+            return Ok(diagnostic);
         };
 
         if !library.options.scan.realtime_monitor || !is_local_watch_folder_root(&library) {
-            return Ok(WatchFolderRuntimeTickDiagnostic::unmonitored(library_id));
+            let diagnostic = WatchFolderRuntimeTickDiagnostic::unmonitored(library_id);
+            self.record_latest_tick(diagnostic.clone()).await;
+            return Ok(diagnostic);
         }
 
         let discovery = self
@@ -229,7 +242,7 @@ impl WatchFolderRuntimeAppService {
                 (WatchFolderScanAdmissionStatus::NotAdmitted, None, false)
             };
 
-        Ok(WatchFolderRuntimeTickDiagnostic {
+        let diagnostic = WatchFolderRuntimeTickDiagnostic {
             library_id,
             monitored: true,
             intake_plan,
@@ -238,7 +251,10 @@ impl WatchFolderRuntimeAppService {
             scan_job_id,
             reused_existing_scan,
             backoff_required,
-        })
+        };
+        self.record_latest_tick(diagnostic.clone()).await;
+
+        Ok(diagnostic)
     }
 
     async fn list_libraries(&self) -> Result<Vec<Library>> {
@@ -257,6 +273,13 @@ impl WatchFolderRuntimeAppService {
 
             offset = offset.saturating_add(returned as u64);
         }
+    }
+
+    async fn record_latest_tick(&self, diagnostic: WatchFolderRuntimeTickDiagnostic) {
+        self.latest_tick_diagnostics
+            .write()
+            .await
+            .insert(diagnostic.library_id, diagnostic);
     }
 }
 

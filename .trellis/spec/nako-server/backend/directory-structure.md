@@ -562,6 +562,10 @@ runnable candidates to proceed.
   enqueued scan, reused queued scan, and reused running scan, but it must not
   expose raw local paths, Source Locators, fingerprints, etags, credentials, or
   backend URLs.
+- `WatchFolderRuntimeAppService` may keep a process-local latest tick cache
+  keyed by `LibraryId`. Admin overview may merge that cache into startup
+  coverage diagnostics, but the cache must stay inside the runtime helper and
+  must only feed redaction-safe summary fields.
 - Runtime-loop `Err` logging must convert `NakoError` into a typed safe summary
   before logging. Do not log `%err` directly from watcher ticks; storage and
   provider errors can carry raw URIs, paths, backend URLs, credentials, or raw
@@ -612,8 +616,9 @@ runnable candidates to proceed.
 
 - App test: supervised watch-folder runtime starts for a persisted realtime
   local library and stops when `NakoApp::shutdown_runtime()` is called.
-- App/API/HTTP test: watch-folder runtime coverage diagnostics expose started
-  and skipped status with redacted root references in Admin overview.
+- App/API/HTTP test: watch-folder runtime coverage diagnostics expose started,
+  skipped, and latest tick summary status with redacted root references in
+  Admin overview.
 - App test: first tick records inspecting candidates and enqueues no scan job.
 - App test: second identical tick reports newly ready candidates and enqueues a
   `JobKind::LibraryScan` job with resource class `disk.scan`.
