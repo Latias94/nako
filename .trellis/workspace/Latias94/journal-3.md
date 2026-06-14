@@ -1340,3 +1340,37 @@ Added Continue Watching resume links with source continuity and Watch page resum
 ### Next Steps
 
 - None - task complete
+
+
+## Session 131: Media Web auto resume playback
+
+**Date**: 2026-06-14
+**Task**: Media Web auto resume playback
+**Package**: admin-web
+**Branch**: `main`
+
+### Summary
+
+Added one-shot metadata auto-seek for saved playback state plus Start over behavior.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `10bf4772` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
