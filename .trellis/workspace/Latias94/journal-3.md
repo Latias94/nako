@@ -1055,3 +1055,48 @@ Hardened watch-folder runtime diagnostics and backoff handling, added focused co
 ### Next Steps
 
 - None - task complete
+
+
+## Session 124: M2 VFS cache repair durable policy
+
+**Date**: 2026-06-14
+**Task**: M2 VFS cache repair durable policy
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Added disabled-by-default recurring VFS cache repair automation runtime, verified Trellis quality gates, and preserved storage/control-plane boundaries.
+
+### Main Changes
+
+- Implemented a disabled-by-default recurring VFS cache repair automation runtime.
+- Reused the existing VFS cache repair automation enqueue authority and disk-scan scheduler path.
+- Preserved non-destructive boundaries: no cache purge/delete/invalidation, backend configuration mutation, library file writes, schema migration, public API route, or second repair executor.
+- Updated server quality spec, storage/VFS architecture, control-plane architecture, and Trellis task evidence.
+- Archived the completed Trellis task after quality verification.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `132dbc71` | feat(nako-server): add recurring vfs cache repair automation |
+| `1f16726d` | chore(task): archive 06-14-m2-vfs-cache-repair-durable-policy |
+
+### Testing
+
+- [OK] `cargo fmt --all -- --check`
+- [OK] `git diff --check`
+- [OK] `cargo check -p nako-server --tests`
+- [OK] `cargo nextest run -p nako-server vfs_cache_repair_automation --no-fail-fast` (15 passed)
+- [OK] `cargo nextest run -p nako-server vfs_cache_repair_scheduler --no-fail-fast` (4 passed)
+- [OK] `cargo nextest run -p nako-server startup --no-fail-fast` (59 passed)
+- [OK] `python3 ./.trellis/scripts/task.py validate .trellis/tasks/06-14-m2-vfs-cache-repair-durable-policy`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
