@@ -1,0 +1,6 @@
+{"file":".trellis/spec/nako-server/backend/index.md","reason":"Server app-service and runtime boundary entry point for watcher runtime work."}
+{"file":".trellis/spec/nako-server/backend/directory-structure.md","reason":"Watch-folder runtime productization contract, scan admission boundaries, and redaction rules."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Focused server test patterns and watch-folder runtime quality gates."}
+{"file":".trellis/spec/nako-library/backend/index.md","reason":"Library intake guidance entry point for stable watch-folder candidate behavior."}
+{"file":".trellis/spec/nako-library/backend/quality-guidelines.md","reason":"Stable intake observation and pure watch-folder admission plan contracts."}
+{"file":".trellis/tasks/06-14-m2-watcher-incremental-scan-reliability/prd.md","reason":"Task scope, acceptance criteria, and non-goals."}

@@ -31,6 +31,7 @@ pub(crate) struct WatchFolderRuntimeTickDiagnostic {
     pub(crate) monitored: bool,
     pub(crate) intake_plan: WatchFolderIntakePlan,
     pub(crate) discovery_failures: Vec<WatchFolderRuntimeFailureDiagnostic>,
+    pub(crate) scan_admission_status: WatchFolderScanAdmissionStatus,
     pub(crate) scan_job_id: Option<JobId>,
     pub(crate) reused_existing_scan: bool,
     pub(crate) backoff_required: bool,
@@ -40,6 +41,14 @@ pub(crate) struct WatchFolderRuntimeTickDiagnostic {
 pub(crate) struct WatchFolderRuntimeFailureDiagnostic {
     pub(crate) uri_redacted: String,
     pub(crate) safe_message: String,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum WatchFolderScanAdmissionStatus {
+    NotAdmitted,
+    Enqueued,
+    ReusedQueued,
+    ReusedRunning,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -205,21 +214,27 @@ impl WatchFolderRuntimeAppService {
             .map(WatchFolderRuntimeFailureDiagnostic::from)
             .collect::<Vec<_>>();
         let backoff_required = !discovery_failures.is_empty();
-        let (scan_job_id, reused_existing_scan) = if intake_plan.summary.enqueue_scan {
-            let outcome = self
-                .library_scan
-                .admit_watch_folder_library_scan(library_id)
-                .await?;
-            (Some(outcome.job_id()), outcome.reused_existing())
-        } else {
-            (None, false)
-        };
+        let (scan_admission_status, scan_job_id, reused_existing_scan) =
+            if intake_plan.summary.enqueue_scan {
+                let outcome = self
+                    .library_scan
+                    .admit_watch_folder_library_scan(library_id)
+                    .await?;
+                (
+                    WatchFolderScanAdmissionStatus::from(&outcome),
+                    Some(outcome.job_id()),
+                    outcome.reused_existing(),
+                )
+            } else {
+                (WatchFolderScanAdmissionStatus::NotAdmitted, None, false)
+            };
 
         Ok(WatchFolderRuntimeTickDiagnostic {
             library_id,
             monitored: true,
             intake_plan,
             discovery_failures,
+            scan_admission_status,
             scan_job_id,
             reused_existing_scan,
             backoff_required,
@@ -252,9 +267,32 @@ impl WatchFolderRuntimeTickDiagnostic {
             monitored: false,
             intake_plan: WatchFolderIntakePlan::idle(),
             discovery_failures: Vec::new(),
+            scan_admission_status: WatchFolderScanAdmissionStatus::NotAdmitted,
             scan_job_id: None,
             reused_existing_scan: false,
             backoff_required: false,
+        }
+    }
+}
+
+impl From<&super::jobs::LibraryScanAdmissionOutcome> for WatchFolderScanAdmissionStatus {
+    fn from(value: &super::jobs::LibraryScanAdmissionOutcome) -> Self {
+        match value {
+            super::jobs::LibraryScanAdmissionOutcome::Enqueued(_) => Self::Enqueued,
+            super::jobs::LibraryScanAdmissionOutcome::ReusedIncomplete(job) => match job.status {
+                nako_core::JobStatus::Queued => Self::ReusedQueued,
+                nako_core::JobStatus::Running => Self::ReusedRunning,
+                status => {
+                    debug_assert!(
+                        matches!(
+                            status,
+                            nako_core::JobStatus::Queued | nako_core::JobStatus::Running
+                        ),
+                        "watch-folder admission reused a terminal scan job"
+                    );
+                    Self::ReusedQueued
+                }
+            },
         }
     }
 }

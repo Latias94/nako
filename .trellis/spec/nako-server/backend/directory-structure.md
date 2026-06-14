@@ -509,8 +509,15 @@ runnable candidates to proceed.
 - `WatchFolderSuppressionAppService::complete_planned_write_suppression(token)
   -> Result<Option<CompletePlannedWatchFolderWriteSuppressionDiagnostic>>`
   removes the bracket and reports whether completion requested reconciliation.
-- `LibraryScanAppService::enqueue_library_scan(LibraryId) -> Result<Job>` is
-  the only scan handoff used after candidates become newly ready.
+- `LibraryScanAppService::admit_watch_folder_library_scan(LibraryId) ->
+  Result<LibraryScanAdmissionOutcome>` is the only scan handoff used after
+  candidates become newly ready. It may enqueue a new scan or reuse an existing
+  queued/running same-library scan.
+- `WatchFolderRuntimeTickDiagnostic.scan_admission_status:
+  WatchFolderScanAdmissionStatus` is the internal redaction-safe admission
+  result reported by a tick: `NotAdmitted` (`not_admitted`), `Enqueued`
+  (`enqueued`), `ReusedQueued` (`reused_queued`), or `ReusedRunning`
+  (`reused_running`).
 
 ### 3. Contracts
 
@@ -530,8 +537,8 @@ runnable candidates to proceed.
   keys may include size, modified time, etag, or fingerprint evidence, but those
   facts must not be folded into the candidate identity key for new candidates.
 - A runtime tick may enqueue a scan only when
-  `newly_ready_candidates > 0`; it must use the existing library scan queue and
-  not execute scan/probe work inline.
+  `newly_ready_candidates > 0`; it must use the existing watch-folder scan
+  admission path and not execute scan/probe work inline.
 - Watch-folder scan admission must coalesce with an existing queued or running
   `JobKind::LibraryScan` for the same Media Library. This coalescing belongs to
   the watch-folder admission path and must not change explicit Admin/manual scan
@@ -551,8 +558,10 @@ runnable candidates to proceed.
   report reconciliation intent, but broad degraded watcher state is a separate
   follow-on unless explicitly scoped.
 - Diagnostics may include library ID, job ID, counts, resource class, and
-  redacted refs. They must not include raw local paths, Source Locators,
-  fingerprints, etags, credentials, or backend URLs.
+  redacted refs. `scan_admission_status` may distinguish no admission, newly
+  enqueued scan, reused queued scan, and reused running scan, but it must not
+  expose raw local paths, Source Locators, fingerprints, etags, credentials, or
+  backend URLs.
 - Runtime-loop `Err` logging must convert `NakoError` into a typed safe summary
   before logging. Do not log `%err` directly from watcher ticks; storage and
   provider errors can carry raw URIs, paths, backend URLs, credentials, or raw
@@ -564,11 +573,12 @@ runnable candidates to proceed.
 |-----------|----------|
 | `realtime_monitor` false | No runtime is started; `tick_library` reports `monitored = false`. |
 | Library root is non-local or unparsable | No runtime is started; remote watch reliability is not assumed. |
-| First supported media observation | Candidate is recorded as `Inspecting`; no scan job is enqueued. |
-| Repeated identical supported media observation | Candidate becomes `Ready`; the runtime enqueues one library scan job through `enqueue_library_scan`. |
-| Repeated identical supported media observation while the same library already has a queued/running scan | Candidate becomes `Ready`; the runtime reuses the incomplete scan job and creates no duplicate job. |
-| Observation key changes | Stable evidence resets to inspecting before any scan handoff. |
-| URI is inside active planned-write suppression scope | Discovery increments `suppressed_candidates`, records no candidate, and runtime tick enqueues no scan for that URI. |
+| First supported media observation | Candidate is recorded as `Inspecting`; no scan job is enqueued and `scan_admission_status = NotAdmitted`. |
+| Repeated identical supported media observation | Candidate becomes `Ready`; the runtime enqueues one library scan job through `admit_watch_folder_library_scan` and reports `scan_admission_status = Enqueued`. |
+| Repeated identical supported media observation while the same library already has a queued scan | Candidate becomes `Ready`; the runtime reuses that queued scan, creates no duplicate job, and reports `scan_admission_status = ReusedQueued`. |
+| Repeated identical supported media observation while the same library already has a running scan | Candidate becomes `Ready`; the runtime reuses that running scan, creates no duplicate job, and reports `scan_admission_status = ReusedRunning`. |
+| Observation key changes | Stable evidence resets to inspecting before any scan handoff and reports `scan_admission_status = NotAdmitted`. |
+| URI is inside active planned-write suppression scope | Discovery increments `suppressed_candidates`, records no candidate, runtime tick enqueues no scan for that URI, and reports `scan_admission_status = NotAdmitted`. |
 | Suppression owner/reason is empty, too long, or not a safe identifier | Begin request fails with `NakoError::InvalidInput`. |
 | Suppression TTL is zero, negative, or above the configured maximum | Begin request fails with `NakoError::InvalidInput`. |
 | Suppression completion uses `ReconcileScope` | Completion removes suppression and reports `reconciliation_requested = true`; the caller decides the supervised reconciliation handoff. |
@@ -588,7 +598,7 @@ runnable candidates to proceed.
   completes the suppression with optional reconciliation intent.
 - Bad: a runtime directly scans directories and probes media after a filesystem
   event, or creates another scan executor instead of calling
-  `enqueue_library_scan`.
+  `admit_watch_folder_library_scan`.
 - Bad: using `size`, fingerprint, etag, or modified time as part of the new
   candidate `source_key`, which prevents repeated observations from updating
   the same candidate.
@@ -607,8 +617,17 @@ runnable candidates to proceed.
 - App test: first tick records inspecting candidates and enqueues no scan job.
 - App test: second identical tick reports newly ready candidates and enqueues a
   `JobKind::LibraryScan` job with resource class `disk.scan`.
-- App test: second identical tick with an existing queued/running same-library
-  scan reports the admitted scan job and does not enqueue a duplicate.
+- App test: second identical tick with no existing incomplete scan reports
+  `scan_admission_status = Enqueued`.
+- App test: second identical tick with an existing queued same-library scan
+  reports the admitted scan job, `scan_admission_status = ReusedQueued`, and
+  does not enqueue a duplicate.
+- App test: second identical tick with an existing running same-library scan
+  reports the admitted scan job, `scan_admission_status = ReusedRunning`, and
+  does not enqueue a duplicate.
+- App test: first observations, changed observations, suppressed entries,
+  discovery failures, and unmonitored libraries report
+  `scan_admission_status = NotAdmitted`.
 - Intake/service test: duplicate discovery updates the same candidate and keeps
   supported media in `Inspecting` until the stable observation threshold is
   reached.

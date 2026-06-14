@@ -147,6 +147,7 @@ pub(crate) use vfs_cache_repair_runtime::VfsCacheRepairAutomationRuntimeAppServi
 pub(crate) use watch_folder_runtime::{
     WatchFolderRuntimeAppService, WatchFolderRuntimeCoverageDiagnostic,
     WatchFolderRuntimeCoverageReport, WatchFolderRuntimeCoverageStatus,
+    WatchFolderScanAdmissionStatus,
 };
 pub(crate) use watch_folder_suppression::{
     BeginPlannedWatchFolderWriteSuppressionRequest, PlannedWatchFolderWriteCompletion,
