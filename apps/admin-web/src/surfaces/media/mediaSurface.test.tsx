@@ -792,6 +792,80 @@ describe("Media Web surface", () => {
       });
     });
   });
+
+  it("refreshes Continue Watching from fixture progress after returning home", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/watch/item-episode-1?source_id=source-episode-1-alt",
+    );
+    const dataSource = createFixtureMediaDataSource();
+    const factory = vi.fn(() => dataSource) satisfies MediaDataSourceFactory;
+
+    const { container } = render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    const player = await screen.findByLabelText("Pilot player");
+    fireEvent.play(player);
+    setMediaTiming(player, 61, 1440);
+    fireEvent.timeUpdate(player);
+
+    await waitFor(() => {
+      expect(screen.getByText("Resume from 1 min")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("link", { name: "Home" }));
+
+    expect(await screen.findByRole("heading", { name: "Watch next" })).toBeInTheDocument();
+    expect(screen.getByText("4% complete - resume at 1 min")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Resume" })).toHaveAttribute(
+      "href",
+      "/media/watch/item-episode-1?source_id=source-episode-1-alt",
+    );
+    expect(container.textContent).not.toContain("nako_bpt_fixture");
+    expect(container.textContent).not.toContain("/sources/");
+    expect(container.textContent).not.toContain("fingerprint");
+  });
+
+  it("removes watched fixture items from Continue Watching after returning home", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/watch/item-episode-1?source_id=source-episode-1-alt",
+    );
+    const dataSource = createFixtureMediaDataSource();
+    const factory = vi.fn(() => dataSource) satisfies MediaDataSourceFactory;
+
+    render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    const player = await screen.findByLabelText("Pilot player");
+    fireEvent.play(player);
+    setMediaTiming(player, 1439, 1440);
+    fireEvent.ended(player);
+
+    await waitFor(() => {
+      return expect(
+        dataSource.getUserPlaybackState("item-episode-1").then((result) => result.value.state),
+      ).resolves.toEqual(expect.objectContaining({ watched: true }));
+    });
+
+    fireEvent.click(screen.getByRole("link", { name: "Home" }));
+
+    expect(await screen.findByRole("heading", { name: "Watch next" })).toBeInTheDocument();
+    expect(screen.getByText("No active playback state")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Resume" })).not.toBeInTheDocument();
+  });
 });
 
 function emptyAdminDataSource() {

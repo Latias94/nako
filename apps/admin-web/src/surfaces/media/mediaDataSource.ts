@@ -15,6 +15,7 @@ import {
   type SearchResponse,
   type SetWatchedStateRequest,
   type UpdatePlaybackProgressRequest,
+  type UserPlaybackStateDto,
   type UserPlaybackStateResponse,
 } from "@nako/sdk";
 
@@ -28,6 +29,11 @@ import {
   fixtureSearch,
   fixtureUserPlaybackState,
 } from "./fixtures";
+
+const FIXTURE_PROGRESS_REPORTED_AT = "2026-05-26T10:30:00Z";
+const FIXTURE_WATCHED_MARKED_AT = "2026-05-26T10:35:00Z";
+const WATCHED_PROGRESS_PERCENT_THRESHOLD = 0.9;
+const WATCHED_LONG_DURATION_MARGIN_MS = 120_000;
 
 export type MediaConnection =
   | {
@@ -153,6 +159,18 @@ export function createPublicClientMediaDataSource(
 }
 
 export function createFixtureMediaDataSource(): MediaWebDataSource {
+  const playbackStates = new Map<string, UserPlaybackStateDto>([
+    [fixtureUserPlaybackState.state.item_id, { ...fixtureUserPlaybackState.state }],
+  ]);
+
+  const playbackStateFor = (itemId: string) =>
+    playbackStates.get(itemId) ?? fixtureDefaultUserPlaybackState(itemId);
+
+  const storePlaybackState = (state: UserPlaybackStateDto) => {
+    playbackStates.set(state.item_id, state);
+    return fixtureResult({ state });
+  };
+
   return {
     source: "fixture",
     label: "Fixture mode",
@@ -190,45 +208,59 @@ export function createFixtureMediaDataSource(): MediaWebDataSource {
     async createBrowserPlaybackTicket(sourceId, body) {
       return fixtureResult(fixtureBrowserPlaybackTicket(sourceId, body));
     },
-    async getUserPlaybackState() {
-      return fixtureResult(fixtureUserPlaybackState);
+    async getUserPlaybackState(itemId) {
+      return fixtureResult({ state: playbackStateFor(itemId) });
     },
     async updateUserPlaybackProgress(itemId, body) {
-      return fixtureResult({
-        state: {
-          ...fixtureUserPlaybackState.state,
-          duration_ms: body.duration_ms ?? fixtureUserPlaybackState.state.duration_ms,
-          item_id: itemId,
-          last_played_at: body.reported_at ?? "2026-05-26T10:30:00Z",
-          progress_percent: body.duration_ms ? body.position_ms / body.duration_ms : null,
-          resume_position_ms: body.position_ms,
-          source_id: body.source_id ?? fixtureUserPlaybackState.state.source_id,
-          updated_at: body.reported_at ?? "2026-05-26T10:30:00Z",
-          watched: false,
-          watched_at: null,
-          version: fixtureUserPlaybackState.state.version + 1,
-        },
-      });
+      const existing = playbackStateFor(itemId);
+      const durationMs = body.duration_ms ?? existing.duration_ms;
+      const reportedAt = body.reported_at ?? FIXTURE_PROGRESS_REPORTED_AT;
+      const watched = existing.watched || fixtureIsWatchedByPolicy(body.position_ms, durationMs);
+      const resumePositionMs = watched || body.position_ms === 0 ? null : body.position_ms;
+      const state: UserPlaybackStateDto = {
+        ...existing,
+        duration_ms: durationMs,
+        item_id: itemId,
+        last_played_at: body.position_ms > 0 ? reportedAt : existing.last_played_at,
+        progress_percent: fixturePlaybackProgressPercent(resumePositionMs, durationMs),
+        resume_position_ms: resumePositionMs,
+        source_id: body.source_id ?? existing.source_id,
+        updated_at: reportedAt,
+        version: existing.version + 1,
+        watched,
+        watched_at: watched
+          ? (existing.watched_at ?? reportedAt)
+          : null,
+      };
+      return storePlaybackState(state);
     },
     async setUserWatchedState(itemId, body) {
-      return fixtureResult({
-        state: {
-          ...fixtureUserPlaybackState.state,
-          duration_ms: body.duration_ms ?? fixtureUserPlaybackState.state.duration_ms,
-          item_id: itemId,
-          progress_percent: body.watched ? 1 : fixtureUserPlaybackState.state.progress_percent,
-          resume_position_ms:
-            body.position_ms ?? fixtureUserPlaybackState.state.resume_position_ms,
-          source_id: body.source_id ?? fixtureUserPlaybackState.state.source_id,
-          updated_at: body.marked_at ?? "2026-05-26T10:35:00Z",
-          version: fixtureUserPlaybackState.state.version + 1,
-          watched: body.watched,
-          watched_at: body.watched ? (body.marked_at ?? "2026-05-26T10:35:00Z") : null,
-        },
-      });
+      const existing = playbackStateFor(itemId);
+      const durationMs = body.duration_ms ?? existing.duration_ms;
+      const positionMs = body.position_ms ?? existing.resume_position_ms;
+      const markedAt = body.marked_at ?? FIXTURE_WATCHED_MARKED_AT;
+      const resumePositionMs =
+        body.watched || !positionMs || fixtureIsWatchedByPolicy(positionMs, durationMs)
+          ? null
+          : positionMs;
+      const state: UserPlaybackStateDto = {
+        ...existing,
+        duration_ms: durationMs,
+        item_id: itemId,
+        last_played_at:
+          positionMs && positionMs > 0 ? markedAt : existing.last_played_at,
+        progress_percent: fixturePlaybackProgressPercent(resumePositionMs, durationMs),
+        resume_position_ms: resumePositionMs,
+        source_id: body.source_id ?? existing.source_id,
+        updated_at: markedAt,
+        version: existing.version + 1,
+        watched: body.watched,
+        watched_at: body.watched ? markedAt : null,
+      };
+      return storePlaybackState(state);
     },
-    async listContinueWatching() {
-      return fixtureResult(fixtureContinueWatching);
+    async listContinueWatching(page = defaultPage()) {
+      return fixtureResult(fixtureContinueWatchingFromPlaybackStates(playbackStates, page));
     },
   };
 }
@@ -288,6 +320,94 @@ function fixtureBrowserPlaybackTicket(
       },
     ],
   };
+}
+
+function fixtureDefaultUserPlaybackState(itemId: string): UserPlaybackStateDto {
+  return {
+    duration_ms: null,
+    item_id: itemId,
+    last_played_at: null,
+    progress_percent: null,
+    resume_position_ms: null,
+    source_id: null,
+    updated_at: null,
+    version: 0,
+    watched: false,
+    watched_at: null,
+  };
+}
+
+function fixtureContinueWatchingFromPlaybackStates(
+  playbackStates: ReadonlyMap<string, UserPlaybackStateDto>,
+  page: PageQuery,
+): ContinueWatchingResponse {
+  const limit = page.limit ?? 20;
+  const offset = page.offset ?? 0;
+  const items = Array.from(playbackStates.values())
+    .filter((state) => !state.watched && (state.resume_position_ms ?? 0) > 0)
+    .sort((left, right) => compareIsoDescending(left.updated_at, right.updated_at))
+    .flatMap((state) => {
+      const fixtureEntry = fixtureContinueWatching.items.find(
+        (entry) => entry.item.id === state.item_id,
+      );
+      if (!fixtureEntry) {
+        return [];
+      }
+
+      return [
+        {
+          ...fixtureEntry,
+          state: {
+            ...state,
+            progress_percent: fixturePlaybackProgressPercent(
+              state.resume_position_ms,
+              state.duration_ms,
+            ),
+          },
+        },
+      ];
+    })
+    .slice(offset, offset + limit);
+
+  return {
+    items,
+    page: {
+      limit,
+      offset,
+      returned: items.length,
+    },
+  };
+}
+
+function fixturePlaybackProgressPercent(
+  positionMs: number | null | undefined,
+  durationMs: number | null | undefined,
+) {
+  if (!positionMs || !durationMs || durationMs <= 0) {
+    return null;
+  }
+
+  return Math.min(1, Math.max(0, positionMs / durationMs));
+}
+
+function fixtureIsWatchedByPolicy(
+  positionMs: number,
+  durationMs: number | null | undefined,
+) {
+  if (!durationMs || durationMs <= 0) {
+    return false;
+  }
+
+  return (
+    (durationMs >= 60_000 &&
+      positionMs / durationMs >= WATCHED_PROGRESS_PERCENT_THRESHOLD) ||
+    (durationMs >= 20 * 60_000 &&
+      durationMs - positionMs <= WATCHED_LONG_DURATION_MARGIN_MS)
+  );
+}
+
+function compareIsoDescending(left: string | null, right: string | null) {
+  return (right ?? "").localeCompare(left ?? "");
 }
 
 function fixtureResult<T>(value: T): MediaLoadResult<T> {

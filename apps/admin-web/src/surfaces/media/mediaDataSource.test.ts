@@ -50,6 +50,43 @@ describe("Media Web Public Client data source", () => {
     expect(item.value.item.metadata.title).toBe("Pilot");
   });
 
+  it("keeps fixture Continue Watching derived from playback state writes", async () => {
+    const dataSource = createFixtureMediaDataSource();
+
+    const initial = await dataSource.listContinueWatching();
+    expect(initial.value.items[0].state.resume_position_ms).toBe(547200);
+    expect(initial.value.items[0].state.source_id).toBe("source-episode-1");
+
+    const progress = await dataSource.updateUserPlaybackProgress("item-episode-1", {
+      duration_ms: 1440000,
+      position_ms: 61000,
+      reported_at: "2026-05-26T10:40:00Z",
+      source_id: "source-episode-1-alt",
+    });
+    const refreshed = await dataSource.listContinueWatching({ limit: 20, offset: 0 });
+
+    expect(progress.value.state.resume_position_ms).toBe(61000);
+    expect(progress.value.state.source_id).toBe("source-episode-1-alt");
+    expect(progress.value.state.progress_percent).toBeCloseTo(61000 / 1440000);
+    expect(refreshed.value.page.returned).toBe(1);
+    expect(refreshed.value.items[0].state.resume_position_ms).toBe(61000);
+    expect(refreshed.value.items[0].state.source_id).toBe("source-episode-1-alt");
+
+    const watched = await dataSource.setUserWatchedState("item-episode-1", {
+      duration_ms: 1440000,
+      marked_at: "2026-05-26T10:45:00Z",
+      position_ms: 1440000,
+      source_id: "source-episode-1-alt",
+      watched: true,
+    });
+    const afterWatched = await dataSource.listContinueWatching({ limit: 20, offset: 0 });
+
+    expect(watched.value.state.watched).toBe(true);
+    expect(watched.value.state.resume_position_ms).toBeNull();
+    expect(afterWatched.value.page.returned).toBe(0);
+    expect(afterWatched.value.items).toEqual([]);
+  });
+
   it("uses generated Public Client SDK routes for library and item detail", async () => {
     const fetch = vi.fn(async (input: string | URL | Request, _init?: RequestInit) =>
       jsonResponse({ ok: true, path: String(input) }),
