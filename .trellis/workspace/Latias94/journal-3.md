@@ -1143,3 +1143,38 @@ Added safe Admin Jobs diagnostics for SourceFingerprintHash jobs, including pend
 ### Next Steps
 
 - None - task complete
+
+
+## Session 126: M2 watcher admission diagnostics
+
+**Date**: 2026-06-14
+**Task**: M2 watcher admission diagnostics
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Added typed watch-folder scan admission diagnostics, covered queued/running reuse in server tests, updated watch-folder runtime spec, and archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a052bdee` | (see git log) |
+| `a348d231` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

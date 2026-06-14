@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 125
+- **Total Sessions**: 126
 - **Last Active**: 2026-06-14
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~1137 | Active |
+| `journal-3.md` | ~1180 | Active |
 | `journal-2.md` | ~1991 | Archived |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 126 | 2026-06-14 | M2 watcher admission diagnostics | `a052bdee`, `a348d231` | `main` |
 | 125 | 2026-06-14 | Source fingerprint job diagnostics drilldown | `81f16173`, `e543f3cb` | `main` |
 | 124 | 2026-06-14 | M2 VFS cache repair durable policy | `132dbc71`, `1f16726d` | `main` |
 | 123 | 2026-06-14 | M2 watch-folder incremental scan reliability | `dee4f21c` | `main` |
