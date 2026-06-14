@@ -59,6 +59,11 @@ Use this spec for `apps/admin-web` changes. It records current patterns only.
   DTO is explicitly a patch request.
 - Sensitive tokens stay in memory. Do not add build-time admin tokens or render
   bearer tokens into page text.
+- Media Web read sections that render `MediaLoadResult.error` must replace
+  source/backend error strings with route-safe static copy before passing the
+  result into shared render helpers. Public Client and fixture errors can
+  contain source IDs, stream paths, ticket tokens, bearer tokens, fingerprints,
+  or raw backend details.
 
 ### 4. Validation & Error Matrix
 
@@ -70,6 +75,7 @@ Use this spec for `apps/admin-web` changes. It records current patterns only.
 | Mutation requires confirmation | First click prepares/opens confirmation; second explicit confirm calls data source |
 | URL filter changes | Update search params and reset `offset` to `0` |
 | Media connection token entered | Store in session state only; tests assert token is not rendered |
+| Media Web read returns or throws unsafe error text | Page maps it to safe static copy before rendering |
 
 ### 5. Good / Base / Bad Cases
 
@@ -95,6 +101,8 @@ Use this spec for `apps/admin-web` changes. It records current patterns only.
   - mock fallback visibility for unavailable live reads.
   - mock or hybrid fallback mutation controls are disabled and the mutation data
     source method is not called.
+  - Media Web read errors that include paths, ticket tokens, bearer tokens,
+    fingerprints, or backend details are not rendered verbatim.
   - unsafe fields/secrets are not rendered.
 - Commands:
   - `npm run check --prefix apps/admin-web`

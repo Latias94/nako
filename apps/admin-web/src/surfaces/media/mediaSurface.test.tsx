@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import type { BrowserPlaybackTicketResponse } from "@nako/sdk";
+import type { BrowserPlaybackTicketResponse, ItemsResponse } from "@nako/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../App";
@@ -68,6 +68,203 @@ describe("Media Web surface", () => {
     expect(await screen.findByRole("heading", { name: "Media Libraries" })).toBeInTheDocument();
     expect(screen.getAllByText("Fixture mode").length).toBeGreaterThan(0);
     expect(await screen.findByText("Films")).toBeInTheDocument();
+  });
+
+  it("renders Recently Added item cards from the home item list", async () => {
+    window.history.pushState(null, "", "/media");
+    const dataSource = createFixtureMediaDataSource();
+    const listItems = vi.fn<MediaWebDataSource["listItems"]>(async (page) => {
+      const result = await dataSource.listItems(page);
+      return {
+        ...result,
+        value: {
+          ...result.value,
+          items: result.value.items.map((item) => ({
+            ...item,
+            raw_locator: "/sources/source-episode-1?ticket=nako_bpt_fixture",
+            source: {
+              fingerprint: "fingerprint-raw-backend",
+              local_path: "F:\\media\\library\\Pilot.mkv",
+              root: "redacted-root",
+            },
+            stream_url:
+              "https://fixture.nako.test/sources/source-episode-1/stream?ticket=nako_bpt_fixture",
+          })),
+        },
+      };
+    });
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          listItems,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    const { container } = render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    const recentlyAdded = await findRecentlyAddedSection();
+
+    expect(within(recentlyAdded).getByText("2 shown")).toBeInTheDocument();
+    expect(within(recentlyAdded).getByRole("link", { name: /Pilot/ })).toHaveAttribute(
+      "href",
+      "/media/items/item-episode-1",
+    );
+    expect(
+      within(recentlyAdded).getByRole("link", { name: /After the Rain/ }),
+    ).toHaveAttribute("href", "/media/items/item-film-1");
+    expect(screen.queryByRole("heading", { name: "Media Items" })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(listItems).toHaveBeenCalledWith({ limit: 8, offset: 0 });
+    });
+    expect(container.textContent).not.toContain("nako_bpt_fixture");
+    expect(container.textContent).not.toContain("/sources/");
+    expect(container.textContent).not.toContain("fingerprint");
+    expect(container.textContent).not.toContain("F:\\media");
+    expect(container.textContent).not.toContain("redacted-root");
+  });
+
+  it("shows an empty state when Recently Added has no items", async () => {
+    window.history.pushState(null, "", "/media");
+    const dataSource = createFixtureMediaDataSource();
+    const emptyItems: ItemsResponse = {
+      items: [],
+      page: {
+        limit: 8,
+        offset: 0,
+        returned: 0,
+      },
+    };
+    const listItems = vi.fn(async () => ({
+      source: "fixture" as const,
+      value: emptyItems,
+    }));
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          listItems,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    const recentlyAdded = await findRecentlyAddedSection();
+
+    expect(await within(recentlyAdded).findByText("No recently added media")).toBeInTheDocument();
+    expect(within(recentlyAdded).getByText("0 shown")).toBeInTheDocument();
+    expect(screen.getByText("Continue Watching")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(listItems).toHaveBeenCalledWith({ limit: 8, offset: 0 });
+    });
+  });
+
+  it("keeps Continue Watching visible when Recently Added fails safely", async () => {
+    window.history.pushState(null, "", "/media");
+    const dataSource = createFixtureMediaDataSource();
+    const rawListError =
+      "HTTP 500 for /sources/source-episode-1?ticket=nako_bpt_secret with bearer secret-token and fingerprint raw-backend";
+    const listItems = vi.fn(async () => {
+      throw new Error(rawListError);
+    });
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          listItems,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    const { container } = render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    const recentlyAdded = await findRecentlyAddedSection();
+
+    expect(screen.getByText("Continue Watching")).toBeInTheDocument();
+    expect(await screen.findByText("38% complete - resume at 9 min")).toBeInTheDocument();
+    expect(
+      await within(recentlyAdded).findByText("Recently added media could not be loaded."),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(listItems).toHaveBeenCalledWith({ limit: 8, offset: 0 });
+    });
+    expect(container.textContent).not.toContain(rawListError);
+    expect(container.textContent).not.toContain("HTTP 500");
+    expect(container.textContent).not.toContain("raw-backend");
+    expect(container.textContent).not.toContain("nako_bpt_secret");
+    expect(container.textContent).not.toContain("/sources/");
+    expect(container.textContent).not.toContain("secret-token");
+    expect(container.textContent).not.toContain("fingerprint");
+  });
+
+  it("redacts a Recently Added data-source error result", async () => {
+    window.history.pushState(null, "", "/media");
+    const dataSource = createFixtureMediaDataSource();
+    const rawListError =
+      "HTTP 500 for /sources/source-episode-1?ticket=nako_bpt_secret with bearer secret-token and fingerprint raw-backend";
+    const emptyItems: ItemsResponse = {
+      items: [],
+      page: {
+        limit: 8,
+        offset: 0,
+        returned: 0,
+      },
+    };
+    const listItems = vi.fn(async () => ({
+      error: rawListError,
+      source: "fixture" as const,
+      value: emptyItems,
+    }));
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          listItems,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    const { container } = render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    const recentlyAdded = await findRecentlyAddedSection();
+
+    expect(
+      await within(recentlyAdded).findByText("Recently added media could not be loaded."),
+    ).toBeInTheDocument();
+    expect(within(recentlyAdded).queryByText("No recently added media")).not.toBeInTheDocument();
+    expect(screen.getByText("Continue Watching")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(listItems).toHaveBeenCalledWith({ limit: 8, offset: 0 });
+    });
+    expect(container.textContent).not.toContain(rawListError);
+    expect(container.textContent).not.toContain("HTTP 500");
+    expect(container.textContent).not.toContain("raw-backend");
+    expect(container.textContent).not.toContain("nako_bpt_secret");
+    expect(container.textContent).not.toContain("/sources/");
+    expect(container.textContent).not.toContain("secret-token");
+    expect(container.textContent).not.toContain("fingerprint");
   });
 
   it("links Continue Watching entries to the watch route with source continuity", async () => {
@@ -1104,6 +1301,15 @@ function emptyAdminDataSource() {
       throw new Error("admin data source should not load for media routes");
     },
   };
+}
+
+async function findRecentlyAddedSection() {
+  const heading = await screen.findByRole("heading", { name: "Recently Added" });
+  const section = heading.closest("section");
+  if (!section) {
+    throw new Error("Recently Added section was not rendered");
+  }
+  return section;
 }
 
 const multiplePathTicket: BrowserPlaybackTicketResponse = {

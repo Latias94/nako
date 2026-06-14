@@ -29,6 +29,8 @@ export type { MediaItemSearch, MediaPageSearch, MediaSearchRouteSearch } from ".
 
 export { MediaConnectPage } from "./MediaConnectPage";
 
+const RECENTLY_ADDED_ITEMS_ERROR = "Recently added media could not be loaded.";
+
 export function MediaHomePage() {
   const { dataSource } = useMediaSession();
   const [continueWatchingRefreshKey, setContinueWatchingRefreshKey] = useState(0);
@@ -41,7 +43,17 @@ export function MediaHomePage() {
     (source) => source.listContinueWatching(),
     [continueWatchingRefreshKey],
   );
-  const items = useMediaLoad(dataSource, (source) => source.listItems({ limit: 8, offset: 0 }));
+  const items = useMediaLoad(dataSource, async (source) => {
+    try {
+      const result = await source.listItems({ limit: 8, offset: 0 });
+      return {
+        ...result,
+        error: result.error ? RECENTLY_ADDED_ITEMS_ERROR : undefined,
+      };
+    } catch {
+      throw new Error(RECENTLY_ADDED_ITEMS_ERROR);
+    }
+  });
 
   async function startContinueWatchingOver(entry: ContinueWatchingResponse["items"][number]) {
     if (!dataSource) {
@@ -82,7 +94,7 @@ export function MediaHomePage() {
       />
       <section className="mediaPanel" aria-labelledby="media-items-title">
         <div className="mediaPanelHeader">
-          <h3 id="media-items-title">Media Items</h3>
+          <h3 id="media-items-title">Recently Added</h3>
           <span>{items.value?.page.returned ?? 0} shown</span>
         </div>
         <MediaItemGrid result={items} />
@@ -415,6 +427,10 @@ function MediaItemGrid({ result }: { result: MediaAsyncState<ItemsResponse> }) {
 
   if (result.error) {
     return <div className="mediaError">{result.error}</div>;
+  }
+
+  if (!result.value?.items.length) {
+    return <div className="mediaEmpty">No recently added media</div>;
   }
 
   return (
