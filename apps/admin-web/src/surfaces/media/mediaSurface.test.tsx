@@ -397,6 +397,7 @@ describe("Media Web surface", () => {
     expect(await screen.findByRole("heading", { name: "Media Items" })).toBeInTheDocument();
     expect(await screen.findByText("No media items")).toBeInTheDocument();
     expect(screen.getByText("0 shown")).toBeInTheDocument();
+    expect(screen.getByText("0-0")).toBeInTheDocument();
     await waitFor(() => {
       expect(listItems).toHaveBeenCalledWith({ limit: 20, offset: 0 });
     });

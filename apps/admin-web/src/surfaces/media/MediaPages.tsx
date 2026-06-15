@@ -553,6 +553,10 @@ function MediaPager<TSearch extends MediaPageSearch>({
 }) {
   const canGoBack = search.offset > 0;
   const canGoForward = Boolean(page && page.returned >= search.limit);
+  const rangeLabel =
+    page?.returned && page.returned > 0
+      ? `${search.offset + 1}-${search.offset + page.returned}`
+      : "0-0";
 
   return (
     <div className="mediaPager" aria-label={`${label} pagination`}>
@@ -569,7 +573,7 @@ function MediaPager<TSearch extends MediaPageSearch>({
         <span>Previous</span>
       </Button>
       <span>
-        {search.offset + 1}-{search.offset + (page?.returned ?? 0)}
+        {rangeLabel}
       </span>
       <Button
         disabled={!canGoForward}
