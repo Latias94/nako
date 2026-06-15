@@ -393,7 +393,14 @@ Moved Public Client playback session inspect/cancel/heartbeat access checks into
 
 ### Main Changes
 
-(Add details)
+- Added a Library items panel to Media Library detail using the Public Client
+  `listLibraryItems` capability.
+- Reused Media item browse filters without library text search and kept
+  unsupported `q` out of the route/query contract.
+- Preserved safe static Media Web read errors and separated item browse query
+  params from Library sources pagination.
+- Added route/data-source coverage and recorded the Library detail browse
+  boundary in the admin-web frontend spec.
 
 ### Git Commits
 
@@ -404,7 +411,10 @@ Moved Public Client playback session inspect/cancel/heartbeat access checks into
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] `npm run test --prefix apps/admin-web -- src/surfaces/media/mediaSurface.test.tsx`
+- [OK] `npm run test --prefix apps/admin-web -- src/surfaces/media/mediaDataSource.test.ts`
+- [OK] `npm run check --prefix apps/admin-web`
+- [OK] `npm run build --prefix apps/admin-web`
 
 ### Status
 
@@ -1624,6 +1634,40 @@ Fixed the Media Items browse page empty-range label to render 0-0 on empty resul
 | Hash | Message |
 |------|---------|
 | `34f6fae1` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 139: Media Library items browse
+
+**Date**: 2026-06-15
+**Task**: Media Library items browse
+**Package**: admin-web
+**Branch**: `main`
+
+### Summary
+
+Added library-scoped Media Web item browse on library detail, with rich filters, safe errors, route/data-source tests, and admin-web spec guidance.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `dc52840a` | (see git log) |
 
 ### Testing
 
