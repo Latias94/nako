@@ -8,25 +8,35 @@ import type {
   MediaItemDto,
   SearchResponse,
 } from "@nako/sdk";
-import { ArrowLeft, ArrowRight, Play, RotateCcw, Search } from "lucide-react";
+import { ArrowLeft, ArrowRight, Play, RotateCcw, Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "../../components/ui/Button";
+import { FilterActions, FilterBar, FilterField } from "../../components/ui/FilterBar";
 import {
   formatBytes,
   formatRuntimeMinutes,
   formatRuntimeMs,
   useMediaLoad,
   type MediaAsyncState,
+  type MediaItemsBrowseOrder,
+  type MediaItemsBrowseSearch,
+  type MediaItemsBrowseSort,
+  type MediaItemsWatchState,
   type MediaPageSearch,
   type MediaSearchChange,
   type MediaSearchRouteSearch,
 } from "./MediaCore";
 import { MediaConnectPage } from "./MediaConnectPage";
 import { useMediaSession } from "./MediaSession";
-import type { MediaWebDataSource } from "./mediaDataSource";
+import type { MediaLoadResult, MediaWebDataSource } from "./mediaDataSource";
 
-export type { MediaItemSearch, MediaPageSearch, MediaSearchRouteSearch } from "./MediaCore";
+export type {
+  MediaItemSearch,
+  MediaItemsBrowseSearch,
+  MediaPageSearch,
+  MediaSearchRouteSearch,
+} from "./MediaCore";
 
 export { MediaConnectPage } from "./MediaConnectPage";
 
@@ -35,11 +45,20 @@ const MEDIA_ITEMS_ERROR = "Media items could not be loaded.";
 
 async function loadMediaItems(
   source: MediaWebDataSource,
-  page: MediaPageSearch,
+  search: MediaItemsBrowseSearch,
   errorMessage: string,
-) {
+): Promise<MediaLoadResult<ItemsResponse>> {
   try {
-    const result = await source.listItems(page);
+    const result = search.q
+      ? searchResultToItemsResult(
+          await source.searchItems({
+            facet: search.facet,
+            limit: search.limit,
+            offset: search.offset,
+            q: search.q,
+          }),
+        )
+      : await source.listItems(search);
     return {
       ...result,
       error: result.error ? errorMessage : undefined,
@@ -47,6 +66,18 @@ async function loadMediaItems(
   } catch {
     throw new Error(errorMessage);
   }
+}
+
+function searchResultToItemsResult(
+  result: MediaLoadResult<SearchResponse>,
+): MediaLoadResult<ItemsResponse> {
+  return {
+    ...result,
+    value: {
+      items: result.value.hits.map((hit) => hit.item),
+      page: result.value.page,
+    },
+  };
 }
 
 export function MediaHomePage() {
@@ -129,15 +160,31 @@ export function MediaItemsPage({
   onSearchChange,
   search,
 }: {
-  onSearchChange: MediaSearchChange<MediaPageSearch>;
-  search: MediaPageSearch;
+  onSearchChange: MediaSearchChange<MediaItemsBrowseSearch>;
+  search: MediaItemsBrowseSearch;
 }) {
   const { dataSource } = useMediaSession();
   const result = useMediaLoad(
     dataSource,
     (source) => loadMediaItems(source, search, MEDIA_ITEMS_ERROR),
-    [search.limit, search.offset],
+    [
+      search.facet,
+      search.limit,
+      search.offset,
+      search.order,
+      search.q,
+      search.sort,
+      search.watch_state,
+    ],
   );
+  const activeFilterCount = [
+    search.facet,
+    search.order,
+    search.q,
+    search.sort,
+    search.watch_state,
+  ].filter((value) => value !== undefined).length;
+  const hasPaginationDelta = search.limit !== 20 || search.offset !== 0;
 
   if (!dataSource) {
     return <MediaConnectPage />;
@@ -152,6 +199,113 @@ export function MediaItemsPage({
         </div>
         <span>{result.value?.page.returned ?? 0} shown</span>
       </header>
+      <FilterBar label="Media item filters">
+        <FilterField label="Search">
+          <input
+            aria-label="Search media items"
+            placeholder="title or keyword"
+            value={search.q ?? ""}
+            onChange={(event) =>
+              onSearchChange({ offset: 0, q: event.target.value || undefined })
+            }
+          />
+        </FilterField>
+        <FilterField label="Facet">
+          <input
+            aria-label="Media item facet filter"
+            placeholder="kind:movie"
+            value={search.facet ?? ""}
+            onChange={(event) =>
+              onSearchChange({ facet: event.target.value || undefined, offset: 0 })
+            }
+          />
+        </FilterField>
+        <FilterField label="Sort">
+          <select
+            aria-label="Media item sort"
+            value={search.sort ?? ""}
+            onChange={(event) =>
+              onSearchChange({
+                offset: 0,
+                sort: mediaItemsBrowseSortValue(event.target.value),
+              })
+            }
+          >
+            <option value="">Default</option>
+            <option value="date_added">Date added</option>
+            <option value="title">Title</option>
+            <option value="release_date">Release date</option>
+            <option value="last_played">Last played</option>
+          </select>
+        </FilterField>
+        <FilterField label="Order">
+          <select
+            aria-label="Media item sort order"
+            value={search.order ?? ""}
+            onChange={(event) =>
+              onSearchChange({
+                offset: 0,
+                order: mediaItemsBrowseOrderValue(event.target.value),
+              })
+            }
+          >
+            <option value="">Default</option>
+            <option value="desc">Descending</option>
+            <option value="asc">Ascending</option>
+          </select>
+        </FilterField>
+        <FilterField label="Watch state">
+          <select
+            aria-label="Media item watch state filter"
+            value={search.watch_state ?? "any"}
+            onChange={(event) =>
+              onSearchChange({
+                offset: 0,
+                watch_state: mediaItemsWatchStateValue(event.target.value),
+              })
+            }
+          >
+            <option value="any">Any</option>
+            <option value="unwatched">Unwatched</option>
+            <option value="in_progress">In progress</option>
+            <option value="watched">Watched</option>
+          </select>
+        </FilterField>
+        <FilterField label="Limit">
+          <input
+            aria-label="Media items page limit"
+            min={1}
+            type="number"
+            value={search.limit}
+            onChange={(event) =>
+              onSearchChange({
+                limit: positiveNumberInput(event.target.value, search.limit, 1),
+                offset: 0,
+              })
+            }
+          />
+        </FilterField>
+        <FilterActions>
+          <Button
+            disabled={activeFilterCount === 0 && !hasPaginationDelta}
+            onClick={() =>
+              onSearchChange({
+                facet: undefined,
+                limit: 20,
+                offset: 0,
+                order: undefined,
+                q: undefined,
+                sort: undefined,
+                watch_state: undefined,
+              })
+            }
+            variant="ghost"
+          >
+            <X size={16} />
+            Clear
+          </Button>
+        </FilterActions>
+      </FilterBar>
       <MediaItemGrid emptyMessage="No media items" result={result} />
       <MediaPager
         label="Media Items"
@@ -161,6 +315,30 @@ export function MediaItemsPage({
       />
     </section>
   );
+}
+
+function positiveNumberInput(value: string, fallback: number, minimum: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= minimum ? parsed : fallback;
+}
+
+function mediaItemsBrowseSortValue(value: string): MediaItemsBrowseSort | undefined {
+  return value === "title" ||
+    value === "release_date" ||
+    value === "date_added" ||
+    value === "last_played"
+    ? value
+    : undefined;
+}
+
+function mediaItemsBrowseOrderValue(value: string): MediaItemsBrowseOrder | undefined {
+  return value === "asc" || value === "desc" ? value : undefined;
+}
+
+function mediaItemsWatchStateValue(value: string): MediaItemsWatchState | undefined {
+  return value === "watched" || value === "unwatched" || value === "in_progress"
+    ? value
+    : undefined;
 }
 
 export function MediaLibrariesPage({

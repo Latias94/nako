@@ -7,6 +7,27 @@ export type MediaPageSearch = {
   offset: number;
 };
 
+export type MediaItemsBrowseSort =
+  | "title"
+  | "release_date"
+  | "date_added"
+  | "last_played";
+
+export type MediaItemsBrowseOrder = "asc" | "desc";
+
+export type MediaItemsWatchState =
+  | "watched"
+  | "unwatched"
+  | "in_progress";
+
+export type MediaItemsBrowseSearch = MediaPageSearch & {
+  facet?: string;
+  order?: MediaItemsBrowseOrder;
+  q?: string;
+  sort?: MediaItemsBrowseSort;
+  watch_state?: MediaItemsWatchState;
+};
+
 export type MediaSearchRouteSearch = MediaPageSearch & {
   facet?: string;
   q?: string;

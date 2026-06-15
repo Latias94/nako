@@ -139,6 +139,123 @@ const mutation = useMutation({
 Keep network behavior behind the typed data source and generated Admin API
 client, then assert it through route tests.
 
+## Scenario: Media Web Items Browse Query Boundary
+
+### 1. Scope / Trigger
+
+- Trigger: Admin Web changes `/media/items`, Media Web browse/search route
+  search params, `MediaWebDataSource.listItems`, or Public Client browse/query
+  forwarding.
+- Evidence: `src/App.tsx`, `src/routes/MediaItemsRouteModule.tsx`,
+  `src/surfaces/media/MediaCore.ts`, `src/surfaces/media/MediaPages.tsx`,
+  `src/surfaces/media/mediaDataSource.ts`,
+  `src/surfaces/media/mediaDataSource.test.ts`, and
+  `src/surfaces/media/mediaSurface.test.tsx`.
+
+### 2. Signatures
+
+- `/media/items` search shape:
+  `q?: string`, `facet?: string`,
+  `sort?: "title" | "release_date" | "date_added" | "last_played"`,
+  `order?: "asc" | "desc"`,
+  `watch_state?: "watched" | "unwatched" | "in_progress"`,
+  `limit: number`, and `offset: number`.
+- UI `Any` for watch state is the default and must normalize to an omitted
+  `watch_state` URL param, not `watch_state=any`.
+- `MediaWebDataSource.listItems(query?: MediaItemsBrowseQuery)` may receive the
+  richer browse object.
+- `MediaWebDataSource.searchItems({ q?, facet?, limit?, offset? })` remains the
+  text-search path.
+
+### 3. Contracts
+
+- `/media/items` owns its browse state in the URL. Do not keep search, facet,
+  sort, order, watch state, limit, or offset only in component state.
+- Changing search, facet, sort, order, watch state, or limit resets `offset` to
+  `0`.
+- Clear/reset removes `q`, `facet`, `sort`, `order`, and `watch_state`, then
+  restores `limit=20` and `offset=0`.
+- When `q` is present, `/media/items` uses `searchItems` and projects
+  `SearchResponse.hits[].item` into the item grid with the search response
+  page info.
+- When `q` is absent, `/media/items` uses `listItems`.
+- The live top-level Public Client `/items` contract is pagination-only today.
+  The Media Web live data source must forward only `limit` and `offset` to
+  generated `client.listItems`, even if the UI query object also contains
+  `facet`, `sort`, `order`, or `watch_state`.
+- Rich `facet`/`sort`/`order`/`watch_state` semantics are currently available
+  on library-scoped Public Client browse APIs, not global `/items`.
+- Media Web read errors still use static safe copy before rendering. Do not
+  render backend/source error strings, bearer tokens, ticket tokens, raw paths,
+  stream URLs, fingerprints, or source internals.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| `/media/items` opens with no search | Normalize to default page query and call `listItems({ limit: 20, offset: 0 })` |
+| A filter or sort control changes | Update URL search and reset `offset=0` |
+| `watch_state=any` is entered manually | Treat it as default and omit `watch_state` from normalized route state |
+| `q` is present | Call `searchItems` with `q`, `facet`, `limit`, and `offset`; do not call `listItems` for that render |
+| `q` is absent and rich filters are present | Call `listItems` with the normalized browse object |
+| Live `listItems` receives rich filters | Generated SDK request remains `/items?limit=<n>&offset=<n>` |
+| Media read returns unsafe error text | Render static safe copy only |
+
+### 5. Good / Base / Bad Cases
+
+- Good: `/media/items?q=Rain&facet=kind:movie&limit=1&offset=1` calls
+  `searchItems`, renders item cards from `hits[].item`, and keeps unsafe fields
+  out of the DOM.
+- Good: `/media/items?facet=kind:movie&sort=title&order=asc&watch_state=in_progress`
+  keeps those values in URL state and calls `listItems` with the normalized
+  browse object in fixture/test data sources.
+- Base: pagination-only `/media/items?limit=1&offset=1` keeps the previous
+  browse grid and pager behavior.
+- Bad: adding a page-level `fetch`, rendering raw Public Client errors,
+  forwarding unsupported global `/items` sort/filter query params in live mode,
+  or keeping filter controls outside route search state.
+
+### 6. Tests Required
+
+- Route tests assert:
+  - URL search params after filter, sort, watch-state, limit, and reset changes.
+  - `offset` resets to `0` on non-pagination changes.
+  - `q` calls `searchItems` and no-q calls `listItems`.
+  - `watch_state=any` normalizes to default omitted state.
+  - unsafe errors and unsafe returned fields are not rendered.
+- Data-source tests assert:
+  - live top-level `listItems` forwards only pagination to `/items`;
+  - live `searchItems` forwards `q`, `facet`, `limit`, and `offset` to `/search`.
+- Run:
+  - `npm run test --prefix apps/admin-web -- src/surfaces/media/mediaSurface.test.tsx`
+  - `npm run test --prefix apps/admin-web -- src/surfaces/media/mediaDataSource.test.ts`
+  - `npm run check --prefix apps/admin-web`
+  - `npm run build --prefix apps/admin-web` when route/page code changes.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```tsx
+await client.listItems({
+  facet: "kind:movie",
+  limit: 20,
+  offset: 0,
+  sort: "title",
+  watch_state: "in_progress",
+});
+```
+
+#### Correct
+
+```tsx
+await client.listItems({ limit: query.limit, offset: query.offset });
+```
+
+Until global `/items` exposes rich browse semantics, keep live browse compatible
+with the generated Public Client contract and route text search through
+`searchItems`.
+
 ## Scenario: Playback Support Evidence Route
 
 ### 1. Scope / Trigger

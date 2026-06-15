@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/guides/index.md", "reason": "cross-package quality guidance for browse/search UX"}
+{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web frontend conventions for route-owned pages and UI changes"}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Route search, FilterBar, data-source, and Media Web safe error contracts"}
+{"file": ".trellis/tasks/06-15-media-web-items-browse-filter/research/ui-patterns.md", "reason": "Expected filter/search/sort UI pattern"}
+{"file": ".trellis/tasks/06-15-media-web-items-browse-filter/research/media-capabilities.md", "reason": "Expected media capability boundary and live API limitations"}

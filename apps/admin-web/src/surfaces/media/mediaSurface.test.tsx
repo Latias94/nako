@@ -308,6 +308,8 @@ describe("Media Web surface", () => {
 
     expect(await screen.findByRole("heading", { name: "Media Items" })).toBeInTheDocument();
     expect(screen.getByText("2-2")).toBeInTheDocument();
+    expect(screen.getByLabelText("Search media items")).toHaveValue("");
+    expect(screen.getByLabelText("Media items page limit")).toHaveValue(1);
     expect(screen.getByRole("link", { name: /After the Rain/ })).toHaveAttribute(
       "href",
       "/media/items/item-film-1",
@@ -356,6 +358,158 @@ describe("Media Web surface", () => {
     await waitFor(() => {
       expect(listItems).toHaveBeenLastCalledWith({ limit: 1, offset: 1 });
     });
+  });
+
+  it("keeps Media Items filters URL-owned and resets pagination", async () => {
+    window.history.pushState(null, "", "/media/items?limit=1&offset=1");
+    const dataSource = createFixtureMediaDataSource();
+    const listItems = createBrowseListItemsMock(dataSource);
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          listItems,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Media Items" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(listItems).toHaveBeenCalledWith({ limit: 1, offset: 1 });
+    });
+
+    fireEvent.change(screen.getByLabelText("Media item facet filter"), {
+      target: { value: "kind:movie" },
+    });
+    fireEvent.change(screen.getByLabelText("Media item sort"), {
+      target: { value: "title" },
+    });
+    fireEvent.change(screen.getByLabelText("Media item sort order"), {
+      target: { value: "asc" },
+    });
+    fireEvent.change(screen.getByLabelText("Media item watch state filter"), {
+      target: { value: "in_progress" },
+    });
+
+    await waitFor(() => {
+      expect(window.location.search).toContain("facet=kind%3Amovie");
+      expect(window.location.search).toContain("sort=title");
+      expect(window.location.search).toContain("order=asc");
+      expect(window.location.search).toContain("watch_state=in_progress");
+      expect(window.location.search).toContain("offset=0");
+    });
+    await waitFor(() => {
+      expect(listItems).toHaveBeenLastCalledWith({
+        facet: "kind:movie",
+        limit: 1,
+        offset: 0,
+        order: "asc",
+        sort: "title",
+        watch_state: "in_progress",
+      });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+
+    await waitFor(() => {
+      expect(window.location.search).toBe("?limit=20&offset=0");
+    });
+    await waitFor(() => {
+      expect(listItems).toHaveBeenLastCalledWith({ limit: 20, offset: 0 });
+    });
+  });
+
+  it("searches Media Items through searchItems when a query is present", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/items?q=Rain&facet=kind%3Amovie&limit=1&offset=1",
+    );
+    const dataSource = createFixtureMediaDataSource();
+    const listItems = vi.fn(dataSource.listItems);
+    const searchItems = vi.fn(dataSource.searchItems);
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          listItems,
+          searchItems,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Media Items" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /Pilot/ })).toHaveAttribute(
+      "href",
+      "/media/items/item-episode-1",
+    );
+    await waitFor(() => {
+      expect(searchItems).toHaveBeenCalledWith({
+        facet: "kind:movie",
+        limit: 1,
+        offset: 1,
+        q: "Rain",
+      });
+    });
+    expect(listItems).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText("Search media items"), {
+      target: { value: "" },
+    });
+
+    await waitFor(() => {
+      expect(window.location.search).not.toContain("q=");
+      expect(window.location.search).toContain("offset=0");
+    });
+    await waitFor(() => {
+      expect(listItems).toHaveBeenCalledWith({
+        facet: "kind:movie",
+        limit: 1,
+        offset: 0,
+      });
+    });
+  });
+
+  it("normalizes Media Items watch_state any as the default filter", async () => {
+    window.history.pushState(null, "", "/media/items?watch_state=any&limit=1&offset=1");
+    const dataSource = createFixtureMediaDataSource();
+    const listItems = createBrowseListItemsMock(dataSource);
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          listItems,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Media Items" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Media item watch state filter")).toHaveValue("any");
+    await waitFor(() => {
+      expect(listItems).toHaveBeenCalledWith({ limit: 1, offset: 1 });
+    });
+    expect(window.location.search).not.toContain("watch_state=any");
   });
 
   it("shows a safe empty state on the Media Items browse page", async () => {

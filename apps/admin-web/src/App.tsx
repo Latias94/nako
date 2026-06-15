@@ -53,6 +53,7 @@ import { MediaShell } from "./surfaces/media/MediaShell";
 import { MediaSessionProvider } from "./surfaces/media/MediaSession";
 import type {
   MediaItemSearch,
+  MediaItemsBrowseSearch,
   MediaPageSearch,
   MediaSearchRouteSearch,
 } from "./surfaces/media/MediaCore";
@@ -395,7 +396,7 @@ const mediaLibrariesRoute = createRoute({
 const mediaItemsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/media/items",
-  validateSearch: validateMediaPageSearch,
+  validateSearch: validateMediaItemsBrowseSearch,
   component: MediaItemsRoute,
 });
 
@@ -945,7 +946,7 @@ function MediaItemsRoute() {
       onSearchChange={(next) => {
         void navigate({
           search: (current) =>
-            normalizeMediaPageSearch({ ...current, ...next }),
+            normalizeMediaItemsBrowseSearch({ ...current, ...next }),
         });
       }}
       search={search}
@@ -1314,6 +1315,34 @@ function normalizeSourceDuplicateReconciliationSearch(
   };
 }
 
+function validateMediaItemsBrowseSearch(
+  search: Record<string, unknown>,
+): MediaItemsBrowseSearch {
+  return normalizeMediaItemsBrowseSearch({
+    facet: stringSearch(search.facet),
+    limit: positiveIntSearch(search.limit, 20),
+    offset: nonNegativeIntSearch(search.offset, 0),
+    order: mediaItemsOrderSearch(search.order),
+    q: stringSearch(search.q),
+    sort: mediaItemsSortSearch(search.sort),
+    watch_state: mediaItemsWatchStateSearch(search.watch_state),
+  });
+}
+
+function normalizeMediaItemsBrowseSearch(
+  search: Partial<MediaItemsBrowseSearch>,
+): MediaItemsBrowseSearch {
+  return {
+    facet: emptyToUndefined(search.facet),
+    limit: positiveIntSearch(search.limit, 20),
+    offset: nonNegativeIntSearch(search.offset, 0),
+    order: mediaItemsOrderSearch(search.order),
+    q: emptyToUndefined(search.q),
+    sort: mediaItemsSortSearch(search.sort),
+    watch_state: mediaItemsWatchStateSearch(search.watch_state),
+  };
+}
+
 function validatePlaybackSessionsSearch(
   search: Record<string, unknown>,
 ): PlaybackSessionsSearch {
@@ -1390,6 +1419,27 @@ function normalizeAddonsSearch(search: Partial<AddonsSearch>): AddonsSearch {
 
 function stringSearch(value: unknown) {
   return typeof value === "string" ? value : undefined;
+}
+
+function mediaItemsSortSearch(value: unknown) {
+  return value === "title" ||
+    value === "release_date" ||
+    value === "date_added" ||
+    value === "last_played"
+    ? value
+    : undefined;
+}
+
+function mediaItemsOrderSearch(value: unknown) {
+  return value === "asc" || value === "desc" ? value : undefined;
+}
+
+function mediaItemsWatchStateSearch(value: unknown) {
+  return value === "watched" ||
+    value === "unwatched" ||
+    value === "in_progress"
+    ? value
+    : undefined;
 }
 
 function booleanSearch(value: unknown) {

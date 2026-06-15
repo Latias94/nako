@@ -8,6 +8,7 @@ import {
   type ItemsResponse,
   type LibraryResponse,
   type LibraryListResponse,
+  type LibraryItemsQuery,
   type LibrarySourcesResponse,
   type PageQuery,
   type PlaybackCapabilitiesQuery,
@@ -63,7 +64,7 @@ export type MediaWebDataSource = {
     libraryId: string,
     page?: PageQuery,
   ): Promise<MediaLoadResult<LibrarySourcesResponse>>;
-  listItems(page?: PageQuery): Promise<MediaLoadResult<ItemsResponse>>;
+  listItems(query?: MediaItemsBrowseQuery): Promise<MediaLoadResult<ItemsResponse>>;
   searchItems(
     query: { facet?: string | string[]; q?: string } & PageQuery,
   ): Promise<MediaLoadResult<SearchResponse>>;
@@ -89,6 +90,9 @@ export type MediaWebDataSource = {
 };
 
 export type MediaDataSourceFactory = (connection: MediaConnection) => MediaWebDataSource;
+
+export type MediaItemsBrowseQuery = PageQuery &
+  Pick<LibraryItemsQuery, "facet" | "order" | "sort" | "watch_state">;
 
 export function createMediaWebDataSource(connection: MediaConnection): MediaWebDataSource {
   if (connection.mode === "fixture") {
@@ -123,8 +127,8 @@ export function createPublicClientMediaDataSource(
     async listLibrarySources(libraryId, page = defaultPage()) {
       return liveResult(await client.listLibrarySources(libraryId, page));
     },
-    async listItems(page = defaultPage()) {
-      return liveResult(await client.listItems(page));
+    async listItems(query = defaultPage()) {
+      return liveResult(await client.listItems(toTopLevelItemsPageQuery(query)));
     },
     async searchItems(query) {
       return liveResult(await client.searchItems({ limit: 20, offset: 0, ...query }));
@@ -267,6 +271,13 @@ export function createFixtureMediaDataSource(): MediaWebDataSource {
 
 function defaultPage(): PageQuery {
   return { limit: 20, offset: 0 };
+}
+
+function toTopLevelItemsPageQuery(query: PageQuery): PageQuery {
+  return {
+    limit: query.limit,
+    offset: query.offset,
+  };
 }
 
 function liveResult<T>(value: T): MediaLoadResult<T> {

@@ -33,6 +33,66 @@ describe("Media Web Public Client data source", () => {
     expect(headers.get("Authorization")).toBe("Bearer secret-token");
   });
 
+  it("keeps live top-level items browse pagination-only", async () => {
+    const fetch = vi.fn(async (_input: string | URL | Request, _init?: RequestInit) =>
+      jsonResponse({
+        items: [],
+        page: { limit: 7, offset: 3, returned: 0 },
+      }),
+    );
+    const dataSource = createPublicClientMediaDataSource(
+      {
+        baseUrl: "http://nako.test/",
+        bearerToken: "secret-token",
+        mode: "live",
+      },
+      fetch,
+    );
+
+    await dataSource.listItems({
+      facet: "kind:movie",
+      limit: 7,
+      offset: 3,
+      order: "asc",
+      sort: "title",
+      watch_state: "in_progress",
+    });
+
+    expect(fetch).toHaveBeenCalledWith(
+      "http://nako.test/items?limit=7&offset=3",
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
+  it("uses live search for item text queries with facet and pagination", async () => {
+    const fetch = vi.fn(async (_input: string | URL | Request, _init?: RequestInit) =>
+      jsonResponse({
+        hits: [],
+        page: { limit: 5, offset: 10, returned: 0 },
+      }),
+    );
+    const dataSource = createPublicClientMediaDataSource(
+      {
+        baseUrl: "http://nako.test/",
+        bearerToken: "secret-token",
+        mode: "live",
+      },
+      fetch,
+    );
+
+    await dataSource.searchItems({
+      facet: "kind:movie",
+      limit: 5,
+      offset: 10,
+      q: "Rain",
+    });
+
+    expect(fetch).toHaveBeenCalledWith(
+      "http://nako.test/search?limit=5&offset=10&facet=kind%3Amovie&q=Rain",
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
   it("keeps fixture mode explicitly separated from live requests", async () => {
     const dataSource = createFixtureMediaDataSource();
 
