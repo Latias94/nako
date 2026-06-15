@@ -103,6 +103,9 @@ function createLazyMediaDataSource(connection: MediaConnection): MediaWebDataSou
     async listLibrarySources(libraryId, page) {
       return (await loadDataSource()).listLibrarySources(libraryId, page);
     },
+    async listLibraryItems(libraryId, query) {
+      return (await loadDataSource()).listLibraryItems(libraryId, query);
+    },
     async listItems(page) {
       return (await loadDataSource()).listItems(page);
     },

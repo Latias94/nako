@@ -64,6 +64,10 @@ export type MediaWebDataSource = {
     libraryId: string,
     page?: PageQuery,
   ): Promise<MediaLoadResult<LibrarySourcesResponse>>;
+  listLibraryItems(
+    libraryId: string,
+    query?: MediaItemsBrowseQuery,
+  ): Promise<MediaLoadResult<ItemsResponse>>;
   listItems(query?: MediaItemsBrowseQuery): Promise<MediaLoadResult<ItemsResponse>>;
   searchItems(
     query: { facet?: string | string[]; q?: string } & PageQuery,
@@ -126,6 +130,9 @@ export function createPublicClientMediaDataSource(
     },
     async listLibrarySources(libraryId, page = defaultPage()) {
       return liveResult(await client.listLibrarySources(libraryId, page));
+    },
+    async listLibraryItems(libraryId, query = defaultPage()) {
+      return liveResult(await client.listLibraryItems(libraryId, query));
     },
     async listItems(query = defaultPage()) {
       return liveResult(await client.listItems(toTopLevelItemsPageQuery(query)));
@@ -196,6 +203,12 @@ export function createFixtureMediaDataSource(): MediaWebDataSource {
         throw new Error("Media Library sources not found");
       }
       return fixtureResult(fixtureLibrarySources);
+    },
+    async listLibraryItems(libraryId) {
+      if (!fixtureLibraries.libraries.some((library) => library.id === libraryId)) {
+        throw new Error("Media Library items not found");
+      }
+      return fixtureResult(fixtureItems);
     },
     async listItems() {
       return fixtureResult(fixtureItems);

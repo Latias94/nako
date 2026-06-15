@@ -403,7 +403,7 @@ const mediaItemsRoute = createRoute({
 const mediaLibraryDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/media/libraries/$libraryId",
-  validateSearch: validateMediaPageSearch,
+  validateSearch: validateMediaLibraryItemsBrowseSearch,
   component: MediaLibraryDetailRoute,
 });
 
@@ -965,7 +965,7 @@ function MediaLibraryDetailRoute() {
       onSearchChange={(next) => {
         void navigate({
           search: (current) =>
-            normalizeMediaPageSearch({ ...current, ...next }),
+            normalizeMediaLibraryItemsBrowseSearch({ ...current, ...next }),
         });
       }}
       search={search}
@@ -1338,6 +1338,32 @@ function normalizeMediaItemsBrowseSearch(
     offset: nonNegativeIntSearch(search.offset, 0),
     order: mediaItemsOrderSearch(search.order),
     q: emptyToUndefined(search.q),
+    sort: mediaItemsSortSearch(search.sort),
+    watch_state: mediaItemsWatchStateSearch(search.watch_state),
+  };
+}
+
+function validateMediaLibraryItemsBrowseSearch(
+  search: Record<string, unknown>,
+): MediaItemsBrowseSearch {
+  return normalizeMediaLibraryItemsBrowseSearch({
+    facet: stringSearch(search.facet),
+    limit: positiveIntSearch(search.limit, 20),
+    offset: nonNegativeIntSearch(search.offset, 0),
+    order: mediaItemsOrderSearch(search.order),
+    sort: mediaItemsSortSearch(search.sort),
+    watch_state: mediaItemsWatchStateSearch(search.watch_state),
+  });
+}
+
+function normalizeMediaLibraryItemsBrowseSearch(
+  search: Partial<MediaItemsBrowseSearch>,
+): MediaItemsBrowseSearch {
+  return {
+    facet: emptyToUndefined(search.facet),
+    limit: positiveIntSearch(search.limit, 20),
+    offset: nonNegativeIntSearch(search.offset, 0),
+    order: mediaItemsOrderSearch(search.order),
     sort: mediaItemsSortSearch(search.sort),
     watch_state: mediaItemsWatchStateSearch(search.watch_state),
   };

@@ -781,13 +781,221 @@ describe("Media Web surface", () => {
 
     expect(await screen.findByRole("heading", { name: "Anime Vault" })).toBeInTheDocument();
     expect(screen.getByText("anime")).toBeInTheDocument();
-    expect(screen.getByText("Library sources")).toBeInTheDocument();
-    expect(screen.getByText("Pilot.mkv")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Pilot" })).toHaveAttribute(
+    const libraryItems = await findMediaPanelSection("Library items");
+    expect(within(libraryItems).getByRole("link", { name: /Pilot/ })).toHaveAttribute(
+      "href",
+      "/media/items/item-episode-1",
+    );
+    expect(within(libraryItems).queryByLabelText("Search media items")).not.toBeInTheDocument();
+
+    const librarySources = await findMediaPanelSection("Library sources");
+    expect(within(librarySources).getByText("Pilot.mkv")).toBeInTheDocument();
+    expect(within(librarySources).getByRole("link", { name: "Pilot" })).toHaveAttribute(
       "href",
       "/media/items/item-episode-1",
     );
     expect(container.textContent).not.toContain("redacted-root");
+    expect(container.textContent).not.toContain("fingerprint");
+  });
+
+  it("loads Library detail items from route-owned pagination", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/libraries/library-anime?limit=1&offset=0",
+    );
+    const dataSource = createFixtureMediaDataSource();
+    const listLibraryItems = createBrowseListLibraryItemsMock(dataSource);
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          listLibraryItems,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    const libraryItems = await findMediaPanelSection("Library items");
+
+    expect(within(libraryItems).getByText("1 shown")).toBeInTheDocument();
+    expect(within(libraryItems).getByText("1-1")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(listLibraryItems).toHaveBeenCalledWith("library-anime", {
+        limit: 1,
+        offset: 0,
+      });
+    });
+  });
+
+  it("keeps Library detail item filters URL-owned and forwards rich browse params", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/libraries/library-anime?limit=1&offset=1",
+    );
+    const dataSource = createFixtureMediaDataSource();
+    const listLibraryItems = createBrowseListLibraryItemsMock(dataSource);
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          listLibraryItems,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    const libraryItems = await findMediaPanelSection("Library items");
+    await waitFor(() => {
+      expect(listLibraryItems).toHaveBeenCalledWith("library-anime", {
+        limit: 1,
+        offset: 1,
+      });
+    });
+
+    fireEvent.change(within(libraryItems).getByLabelText("Media item facet filter"), {
+      target: { value: "kind:movie" },
+    });
+    fireEvent.change(within(libraryItems).getByLabelText("Media item sort"), {
+      target: { value: "title" },
+    });
+    fireEvent.change(within(libraryItems).getByLabelText("Media item sort order"), {
+      target: { value: "asc" },
+    });
+    fireEvent.change(within(libraryItems).getByLabelText("Media item watch state filter"), {
+      target: { value: "in_progress" },
+    });
+
+    await waitFor(() => {
+      expect(window.location.search).toContain("facet=kind%3Amovie");
+      expect(window.location.search).toContain("sort=title");
+      expect(window.location.search).toContain("order=asc");
+      expect(window.location.search).toContain("watch_state=in_progress");
+      expect(window.location.search).toContain("offset=0");
+    });
+    await waitFor(() => {
+      expect(listLibraryItems).toHaveBeenLastCalledWith("library-anime", {
+        facet: "kind:movie",
+        limit: 1,
+        offset: 0,
+        order: "asc",
+        sort: "title",
+        watch_state: "in_progress",
+      });
+    });
+
+    fireEvent.click(within(libraryItems).getByRole("button", { name: "Clear" }));
+
+    await waitFor(() => {
+      expect(window.location.search).toBe("?limit=20&offset=0");
+    });
+    await waitFor(() => {
+      expect(listLibraryItems).toHaveBeenLastCalledWith("library-anime", {
+        limit: 20,
+        offset: 0,
+      });
+    });
+  });
+
+  it("normalizes Library detail item browse without text search or any watch state", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/libraries/library-anime?q=Rain&watch_state=any&limit=1&offset=1",
+    );
+    const dataSource = createFixtureMediaDataSource();
+    const listLibraryItems = createBrowseListLibraryItemsMock(dataSource);
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          listLibraryItems,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    const libraryItems = await findMediaPanelSection("Library items");
+
+    expect(within(libraryItems).queryByLabelText("Search media items")).not.toBeInTheDocument();
+    expect(within(libraryItems).getByLabelText("Media item watch state filter")).toHaveValue(
+      "any",
+    );
+    await waitFor(() => {
+      expect(listLibraryItems).toHaveBeenCalledWith("library-anime", {
+        limit: 1,
+        offset: 1,
+      });
+    });
+    expect(window.location.search).not.toContain("watch_state=any");
+  });
+
+  it("redacts Library detail item browse errors", async () => {
+    window.history.pushState(null, "", "/media/libraries/library-anime");
+    const dataSource = createFixtureMediaDataSource();
+    const rawListError =
+      "HTTP 500 for /sources/source-episode-1?ticket=nako_bpt_secret with bearer secret-token and fingerprint raw-backend";
+    const emptyItems: ItemsResponse = {
+      items: [],
+      page: {
+        limit: 20,
+        offset: 0,
+        returned: 0,
+      },
+    };
+    const listLibraryItems = vi.fn(async () => ({
+      error: rawListError,
+      source: "fixture" as const,
+      value: emptyItems,
+    }));
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          listLibraryItems,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    const { container } = render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    const libraryItems = await findMediaPanelSection("Library items");
+
+    expect(
+      await within(libraryItems).findByText("Library items could not be loaded."),
+    ).toBeInTheDocument();
+    expect(within(libraryItems).queryByText("No library items")).not.toBeInTheDocument();
+    expect(await screen.findByText("Library sources")).toBeInTheDocument();
+    expect(container.textContent).not.toContain(rawListError);
+    expect(container.textContent).not.toContain("HTTP 500");
+    expect(container.textContent).not.toContain("raw-backend");
+    expect(container.textContent).not.toContain("nako_bpt_secret");
+    expect(container.textContent).not.toContain("/sources/");
+    expect(container.textContent).not.toContain("secret-token");
     expect(container.textContent).not.toContain("fingerprint");
   });
 
@@ -1651,9 +1859,50 @@ async function findRecentlyAddedSection() {
   return section;
 }
 
+async function findMediaPanelSection(name: string) {
+  const heading = await screen.findByRole("heading", { name });
+  const section = heading.closest("section");
+  if (!section) {
+    throw new Error(`${name} section was not rendered`);
+  }
+  return section;
+}
+
 function createBrowseListItemsMock(dataSource: MediaWebDataSource) {
   return vi.fn<MediaWebDataSource["listItems"]>(async (page) => {
     const result = await dataSource.listItems(page);
+    const limit = page?.limit ?? result.value.page.limit;
+    const offset = page?.offset ?? result.value.page.offset;
+    const items = result.value.items.slice(offset, offset + limit).map((item) => ({
+      ...item,
+      raw_locator: "/sources/source-episode-1?ticket=nako_bpt_fixture",
+      source: {
+        fingerprint: "fingerprint-raw-backend",
+        local_path: "F:\\media\\library\\Pilot.mkv",
+        root: "redacted-root",
+      },
+      stream_url:
+        "https://fixture.nako.test/sources/source-episode-1/stream?ticket=nako_bpt_fixture",
+    })) as ItemsResponse["items"];
+
+    return {
+      ...result,
+      value: {
+        ...result.value,
+        items,
+        page: {
+          limit,
+          offset,
+          returned: items.length,
+        },
+      },
+    };
+  });
+}
+
+function createBrowseListLibraryItemsMock(dataSource: MediaWebDataSource) {
+  return vi.fn<MediaWebDataSource["listLibraryItems"]>(async (libraryId, page) => {
+    const result = await dataSource.listLibraryItems(libraryId, page);
     const limit = page?.limit ?? result.value.page.limit;
     const offset = page?.offset ?? result.value.page.offset;
     const items = result.value.items.slice(offset, offset + limit).map((item) => ({

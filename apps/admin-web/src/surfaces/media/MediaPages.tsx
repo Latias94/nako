@@ -42,6 +42,7 @@ export { MediaConnectPage } from "./MediaConnectPage";
 
 const RECENTLY_ADDED_ITEMS_ERROR = "Recently added media could not be loaded.";
 const MEDIA_ITEMS_ERROR = "Media items could not be loaded.";
+const LIBRARY_ITEMS_ERROR = "Library items could not be loaded.";
 
 async function loadMediaItems(
   source: MediaWebDataSource,
@@ -65,6 +66,29 @@ async function loadMediaItems(
     };
   } catch {
     throw new Error(errorMessage);
+  }
+}
+
+async function loadLibraryItems(
+  source: MediaWebDataSource,
+  libraryId: string,
+  search: MediaItemsBrowseSearch,
+): Promise<MediaLoadResult<ItemsResponse>> {
+  try {
+    const result = await source.listLibraryItems(libraryId, {
+      ...(search.facet ? { facet: search.facet } : {}),
+      limit: search.limit,
+      offset: search.offset,
+      ...(search.order ? { order: search.order } : {}),
+      ...(search.sort ? { sort: search.sort } : {}),
+      ...(search.watch_state ? { watch_state: search.watch_state } : {}),
+    });
+    return {
+      ...result,
+      error: result.error ? LIBRARY_ITEMS_ERROR : undefined,
+    };
+  } catch {
+    throw new Error(LIBRARY_ITEMS_ERROR);
   }
 }
 
@@ -199,7 +223,40 @@ export function MediaItemsPage({
         </div>
         <span>{result.value?.page.returned ?? 0} shown</span>
       </header>
-      <FilterBar label="Media item filters">
+      <MediaItemsBrowseFilters
+        activeFilterCount={activeFilterCount}
+        hasPaginationDelta={hasPaginationDelta}
+        onSearchChange={onSearchChange}
+        search={search}
+        searchEnabled
+      />
+      <MediaItemGrid emptyMessage="No media items" result={result} />
+      <MediaPager
+        label="Media Items"
+        onSearchChange={onSearchChange}
+        page={result.value?.page}
+        search={search}
+      />
+    </section>
+  );
+}
+
+function MediaItemsBrowseFilters({
+  activeFilterCount,
+  hasPaginationDelta,
+  onSearchChange,
+  search,
+  searchEnabled,
+}: {
+  activeFilterCount: number;
+  hasPaginationDelta: boolean;
+  onSearchChange: MediaSearchChange<MediaItemsBrowseSearch>;
+  search: MediaItemsBrowseSearch;
+  searchEnabled?: boolean;
+}) {
+  return (
+    <FilterBar label="Media item filters">
+      {searchEnabled ? (
         <FilterField label="Search">
           <input
             aria-label="Search media items"
@@ -210,110 +267,103 @@ export function MediaItemsPage({
             }
           />
         </FilterField>
-        <FilterField label="Facet">
-          <input
-            aria-label="Media item facet filter"
-            placeholder="kind:movie"
-            value={search.facet ?? ""}
-            onChange={(event) =>
-              onSearchChange({ facet: event.target.value || undefined, offset: 0 })
-            }
-          />
-        </FilterField>
-        <FilterField label="Sort">
-          <select
-            aria-label="Media item sort"
-            value={search.sort ?? ""}
-            onChange={(event) =>
-              onSearchChange({
-                offset: 0,
-                sort: mediaItemsBrowseSortValue(event.target.value),
-              })
-            }
-          >
-            <option value="">Default</option>
-            <option value="date_added">Date added</option>
-            <option value="title">Title</option>
-            <option value="release_date">Release date</option>
-            <option value="last_played">Last played</option>
-          </select>
-        </FilterField>
-        <FilterField label="Order">
-          <select
-            aria-label="Media item sort order"
-            value={search.order ?? ""}
-            onChange={(event) =>
-              onSearchChange({
-                offset: 0,
-                order: mediaItemsBrowseOrderValue(event.target.value),
-              })
-            }
-          >
-            <option value="">Default</option>
-            <option value="desc">Descending</option>
-            <option value="asc">Ascending</option>
-          </select>
-        </FilterField>
-        <FilterField label="Watch state">
-          <select
-            aria-label="Media item watch state filter"
-            value={search.watch_state ?? "any"}
-            onChange={(event) =>
-              onSearchChange({
-                offset: 0,
-                watch_state: mediaItemsWatchStateValue(event.target.value),
-              })
-            }
-          >
-            <option value="any">Any</option>
-            <option value="unwatched">Unwatched</option>
-            <option value="in_progress">In progress</option>
-            <option value="watched">Watched</option>
-          </select>
-        </FilterField>
-        <FilterField label="Limit">
-          <input
-            aria-label="Media items page limit"
-            min={1}
-            type="number"
-            value={search.limit}
-            onChange={(event) =>
-              onSearchChange({
-                limit: positiveNumberInput(event.target.value, search.limit, 1),
-                offset: 0,
-              })
-            }
-          />
-        </FilterField>
-        <FilterActions>
-          <Button
-            disabled={activeFilterCount === 0 && !hasPaginationDelta}
-            onClick={() =>
-              onSearchChange({
-                facet: undefined,
-                limit: 20,
-                offset: 0,
-                order: undefined,
-                q: undefined,
-                sort: undefined,
-                watch_state: undefined,
-              })
-            }
-            variant="ghost"
-          >
-            <X size={16} />
-            Clear
-          </Button>
-        </FilterActions>
-      </FilterBar>
-      <MediaItemGrid emptyMessage="No media items" result={result} />
-      <MediaPager
-        label="Media Items"
-        onSearchChange={onSearchChange}
-        page={result.value?.page}
-        search={search}
-      />
-    </section>
+      ) : null}
+      <FilterField label="Facet">
+        <input
+          aria-label="Media item facet filter"
+          placeholder="kind:movie"
+          value={search.facet ?? ""}
+          onChange={(event) =>
+            onSearchChange({ facet: event.target.value || undefined, offset: 0 })
+          }
+        />
+      </FilterField>
+      <FilterField label="Sort">
+        <select
+          aria-label="Media item sort"
+          value={search.sort ?? ""}
+          onChange={(event) =>
+            onSearchChange({
+              offset: 0,
+              sort: mediaItemsBrowseSortValue(event.target.value),
+            })
+          }
+        >
+          <option value="">Default</option>
+          <option value="date_added">Date added</option>
+          <option value="title">Title</option>
+          <option value="release_date">Release date</option>
+          <option value="last_played">Last played</option>
+        </select>
+      </FilterField>
+      <FilterField label="Order">
+        <select
+          aria-label="Media item sort order"
+          value={search.order ?? ""}
+          onChange={(event) =>
+            onSearchChange({
+              offset: 0,
+              order: mediaItemsBrowseOrderValue(event.target.value),
+            })
+          }
+        >
+          <option value="">Default</option>
+          <option value="desc">Descending</option>
+          <option value="asc">Ascending</option>
+        </select>
+      </FilterField>
+      <FilterField label="Watch state">
+        <select
+          aria-label="Media item watch state filter"
+          value={search.watch_state ?? "any"}
+          onChange={(event) =>
+            onSearchChange({
+              offset: 0,
+              watch_state: mediaItemsWatchStateValue(event.target.value),
+            })
+          }
+        >
+          <option value="any">Any</option>
+          <option value="unwatched">Unwatched</option>
+          <option value="in_progress">In progress</option>
+          <option value="watched">Watched</option>
+        </select>
+      </FilterField>
+      <FilterField label="Limit">
+        <input
+          aria-label="Media items page limit"
+          min={1}
+          type="number"
+          value={search.limit}
+          onChange={(event) =>
+            onSearchChange({
+              limit: positiveNumberInput(event.target.value, search.limit, 1),
+              offset: 0,
+            })
+          }
+        />
+      </FilterField>
+      <FilterActions>
+        <Button
+          disabled={activeFilterCount === 0 && !hasPaginationDelta}
+          onClick={() =>
+            onSearchChange({
+              facet: undefined,
+              limit: 20,
+              offset: 0,
+              order: undefined,
+              q: undefined,
+              sort: undefined,
+              watch_state: undefined,
+            })
+          }
+          variant="ghost"
+        >
+          <X size={16} />
+          Clear
+        </Button>
+      </FilterActions>
+    </FilterBar>
   );
 }
 
@@ -385,8 +435,8 @@ export function MediaLibraryDetailPage({
   search,
 }: {
   libraryId: string;
-  onSearchChange: MediaSearchChange<MediaPageSearch>;
-  search: MediaPageSearch;
+  onSearchChange: MediaSearchChange<MediaItemsBrowseSearch>;
+  search: MediaItemsBrowseSearch;
 }) {
   const { dataSource } = useMediaSession();
   const library = useMediaLoad(
@@ -396,9 +446,33 @@ export function MediaLibraryDetailPage({
   );
   const sources = useMediaLoad(
     dataSource,
-    (source) => source.listLibrarySources(libraryId, search),
+    (source) =>
+      source.listLibrarySources(libraryId, {
+        limit: search.limit,
+        offset: search.offset,
+      }),
     [libraryId, search.limit, search.offset],
   );
+  const items = useMediaLoad(
+    dataSource,
+    (source) => loadLibraryItems(source, libraryId, search),
+    [
+      libraryId,
+      search.facet,
+      search.limit,
+      search.offset,
+      search.order,
+      search.sort,
+      search.watch_state,
+    ],
+  );
+  const activeFilterCount = [
+    search.facet,
+    search.order,
+    search.sort,
+    search.watch_state,
+  ].filter((value) => value !== undefined).length;
+  const hasPaginationDelta = search.limit !== 20 || search.offset !== 0;
 
   if (!dataSource) {
     return <MediaConnectPage />;
@@ -409,6 +483,25 @@ export function MediaLibraryDetailPage({
       {library.loading ? <div className="mediaSkeleton" /> : null}
       {library.error ? <div className="mediaError">{library.error}</div> : null}
       {library.value ? <MediaLibraryDetailHeader result={library.value} /> : null}
+      <section className="mediaPanel" aria-labelledby="media-library-items-title">
+        <div className="mediaPanelHeader">
+          <h3 id="media-library-items-title">Library items</h3>
+          <span>{items.value?.page.returned ?? 0} shown</span>
+        </div>
+        <MediaItemsBrowseFilters
+          activeFilterCount={activeFilterCount}
+          hasPaginationDelta={hasPaginationDelta}
+          onSearchChange={onSearchChange}
+          search={search}
+        />
+        <MediaItemGrid emptyMessage="No library items" result={items} />
+        <MediaPager
+          label="Library items"
+          onSearchChange={onSearchChange}
+          page={items.value?.page}
+          search={search}
+        />
+      </section>
       <section className="mediaPanel" aria-labelledby="media-library-sources-title">
         <div className="mediaPanelHeader">
           <h3 id="media-library-sources-title">Library sources</h3>

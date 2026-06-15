@@ -2,7 +2,7 @@ import {
   MediaLibraryDetailPage,
 } from "../surfaces/media/MediaPages";
 import type {
-  MediaPageSearch,
+  MediaItemsBrowseSearch,
   MediaSearchChange,
 } from "../surfaces/media/MediaCore";
 
@@ -12,8 +12,8 @@ export function MediaLibraryDetailRouteModule({
   search,
 }: {
   libraryId: string;
-  onSearchChange: MediaSearchChange<MediaPageSearch>;
-  search: MediaPageSearch;
+  onSearchChange: MediaSearchChange<MediaItemsBrowseSearch>;
+  search: MediaItemsBrowseSearch;
 }) {
   return (
     <MediaLibraryDetailPage

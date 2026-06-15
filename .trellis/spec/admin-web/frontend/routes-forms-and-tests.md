@@ -256,6 +256,105 @@ Until global `/items` exposes rich browse semantics, keep live browse compatible
 with the generated Public Client contract and route text search through
 `searchItems`.
 
+## Scenario: Media Web Library Detail Items Browse Boundary
+
+### 1. Scope / Trigger
+
+- Trigger: Admin Web changes `/media/libraries/$libraryId`, the Library detail
+  route search params, `MediaWebDataSource.listLibraryItems`, or the Library
+  detail items/sources panels.
+- Evidence: `src/App.tsx`, `src/routes/MediaLibraryDetailRouteModule.tsx`,
+  `src/surfaces/media/MediaPages.tsx`,
+  `src/surfaces/media/mediaDataSource.ts`,
+  `src/surfaces/media/mediaDataSource.test.ts`, and
+  `src/surfaces/media/mediaSurface.test.tsx`.
+
+### 2. Signatures
+
+- `/media/libraries/$libraryId` item browse search shape:
+  `facet?: string`,
+  `sort?: "title" | "release_date" | "date_added" | "last_played"`,
+  `order?: "asc" | "desc"`,
+  `watch_state?: "watched" | "unwatched" | "in_progress"`,
+  `limit: number`, and `offset: number`.
+- The route does not accept `q`; library-scoped text search is not currently a
+  supported Media Web capability.
+- `MediaWebDataSource.listLibraryItems(libraryId, query?: MediaItemsBrowseQuery)`
+  forwards the rich browse query to generated `client.listLibraryItems`.
+
+### 3. Contracts
+
+- The Library detail page renders `Library items` above `Library sources`; do
+  not add a separate route until product scope calls for it.
+- Library item browse controls own state in the URL and reuse the Media item
+  browse controls without the text search input.
+- Changing facet, sort, order, watch state, or limit resets `offset` to `0`.
+- Clear/reset removes `facet`, `sort`, `order`, and `watch_state`, then restores
+  `limit=20` and `offset=0`.
+- Route normalization must drop manually-entered `q` and `watch_state=any`.
+- The items panel calls `listLibraryItems` with only supported rich browse
+  fields. The sources panel calls `listLibrarySources` with only
+  `{ limit, offset }`; do not pass the rich item browse object to sources.
+- Media Web read errors still use static safe copy before rendering.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| `/media/libraries/library-anime?limit=1&offset=0` opens | Render `Library items` and call `listLibraryItems("library-anime", { limit: 1, offset: 0 })` |
+| A library item filter changes | Update URL search and reset `offset=0` |
+| `q` is entered manually | Omit it from normalized route state and `listLibraryItems` query |
+| `watch_state=any` is entered manually | Treat it as default and omit `watch_state` |
+| Sources are loaded while item filters are active | `listLibrarySources` receives only pagination |
+| Library item read returns unsafe error text | Render static safe copy only |
+
+### 5. Good / Base / Bad Cases
+
+- Good: `/media/libraries/library-anime?facet=kind:movie&sort=title&order=asc`
+  forwards those fields to `listLibraryItems` and keeps `Library sources`
+  visible.
+- Base: `/media/libraries/library-anime?limit=1&offset=0` renders the first page
+  of items and sources using the shared pagination state.
+- Bad: adding page-level `fetch`, adding a premature nested route, showing the
+  text search input, forwarding `q`, passing rich item filters to
+  `listLibrarySources`, or rendering raw Public Client errors.
+
+### 6. Tests Required
+
+- Route tests assert:
+  - the `Library items` panel renders above/alongside existing sources;
+  - URL search params update after filter, sort, watch-state, limit, and clear;
+  - `offset` resets to `0` on non-pagination changes;
+  - `q` and `watch_state=any` normalize away;
+  - unsafe errors and unsafe returned fields are not rendered.
+- Data-source tests assert live `listLibraryItems` forwards rich library-scoped
+  query params to `/libraries/{library_id}/items`.
+- Run:
+  - `npm run test --prefix apps/admin-web -- src/surfaces/media/mediaSurface.test.tsx`
+  - `npm run test --prefix apps/admin-web -- src/surfaces/media/mediaDataSource.test.ts`
+  - `npm run check --prefix apps/admin-web`
+  - `npm run build --prefix apps/admin-web` when route/page code changes.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```tsx
+await source.listLibrarySources(libraryId, search);
+```
+
+#### Correct
+
+```tsx
+await source.listLibrarySources(libraryId, {
+  limit: search.limit,
+  offset: search.offset,
+});
+```
+
+Keep library items and sources query contracts separate even when the MVP shares
+pagination state.
+
 ## Scenario: Playback Support Evidence Route
 
 ### 1. Scope / Trigger

@@ -162,6 +162,14 @@ describe("Media Web Public Client data source", () => {
 
     await dataSource.getLibrary("library anime");
     await dataSource.listLibrarySources("library anime", { limit: 10, offset: 5 });
+    await dataSource.listLibraryItems("library anime", {
+      facet: "kind:movie",
+      limit: 6,
+      offset: 2,
+      order: "desc",
+      sort: "last_played",
+      watch_state: "in_progress",
+    });
     await dataSource.getItem("item episode");
 
     expect(fetch).toHaveBeenNthCalledWith(
@@ -176,6 +184,11 @@ describe("Media Web Public Client data source", () => {
     );
     expect(fetch).toHaveBeenNthCalledWith(
       3,
+      "http://nako.test/libraries/library%20anime/items?facet=kind%3Amovie&limit=6&offset=2&order=desc&sort=last_played&watch_state=in_progress",
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(fetch).toHaveBeenNthCalledWith(
+      4,
       "http://nako.test/items/item%20episode",
       expect.objectContaining({ method: "GET" }),
     );
