@@ -999,6 +999,99 @@ describe("Media Web surface", () => {
     expect(container.textContent).not.toContain("fingerprint");
   });
 
+  it("smokes the Library items browse to playback progress loop", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/libraries/library-anime?limit=1&offset=0",
+    );
+    const dataSource = createFixtureMediaDataSource();
+    const updateUserPlaybackProgress = vi.fn(dataSource.updateUserPlaybackProgress);
+    const setUserWatchedState = vi.fn(dataSource.setUserWatchedState);
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          setUserWatchedState,
+          updateUserPlaybackProgress,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    const { container } = render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    const libraryItems = await findMediaPanelSection("Library items");
+    fireEvent.click(within(libraryItems).getByRole("link", { name: /Pilot/ }));
+
+    expect(await screen.findByRole("heading", { name: "Pilot" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/media/items/item-episode-1");
+    expect(screen.getByText("Source versions")).toBeInTheDocument();
+    expect(screen.getByText("Playback decision")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: "Watch" }));
+
+    expect(await screen.findByRole("heading", { name: "Pilot" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/media/watch/item-episode-1");
+    expect(window.location.search).toContain("source_id=source-episode-1");
+    const player = await screen.findByLabelText("Pilot player");
+    expect(player).toHaveAttribute("controls");
+
+    fireEvent.play(player);
+    setMediaTiming(player, 61, 1440);
+    fireEvent.timeUpdate(player);
+
+    await waitFor(() => {
+      expect(updateUserPlaybackProgress).toHaveBeenCalledWith("item-episode-1", {
+        duration_ms: 1440000,
+        position_ms: 61000,
+        source_id: "source-episode-1",
+      });
+    });
+    expect(await screen.findByText("Resume from 1 min")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: "Home" }));
+
+    expect(await screen.findByRole("heading", { name: "Watch next" })).toBeInTheDocument();
+    expect(screen.getByText("4% complete - resume at 1 min")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Resume" })).toHaveAttribute(
+      "href",
+      "/media/watch/item-episode-1?source_id=source-episode-1",
+    );
+
+    fireEvent.click(screen.getByRole("link", { name: "Resume" }));
+
+    expect(await screen.findByRole("heading", { name: "Pilot" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/media/watch/item-episode-1");
+    const resumedPlayer = await screen.findByLabelText("Pilot player");
+    fireEvent.play(resumedPlayer);
+    setMediaTiming(resumedPlayer, 1439, 1440);
+    fireEvent.ended(resumedPlayer);
+
+    await waitFor(() => {
+      expect(setUserWatchedState).toHaveBeenCalledWith("item-episode-1", {
+        duration_ms: 1440000,
+        position_ms: 1440000,
+        source_id: "source-episode-1",
+        watched: true,
+      });
+    });
+
+    fireEvent.click(screen.getByRole("link", { name: "Home" }));
+
+    expect(await screen.findByRole("heading", { name: "Watch next" })).toBeInTheDocument();
+    expect(screen.getByText("No active playback state")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Resume" })).not.toBeInTheDocument();
+    expect(container.textContent).not.toContain("nako_bpt_fixture");
+    expect(container.textContent).not.toContain("/sources/");
+    expect(container.textContent).not.toContain("Bearer");
+    expect(container.textContent).not.toContain("fingerprint");
+  });
+
   it("keeps Media search state URL-owned", async () => {
     window.history.pushState(null, "", "/media/search?q=rain&limit=5&offset=10");
     const dataSource = createFixtureMediaDataSource();
