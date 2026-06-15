@@ -1717,3 +1717,39 @@ Added a route-level Media Web smoke from library item browse through watch progr
 ### Next Steps
 
 - None - task complete
+
+
+## Session 141: Media Web browse state return smoke
+
+**Date**: 2026-06-15
+**Task**: Media Web browse state return smoke
+**Package**: admin-web
+**Branch**: `main`
+
+### Summary
+
+Added a route-level Media Web smoke proving rich browse filters, sort, watch-state, and pagination survive item/watch navigation and browser-history return after playback progress is written.
+
+### Main Changes
+
+- Added route-level coverage for rich `/media/items` browse state moving through item detail and Watch.
+- Verified browser-history return restores the original facet, sort, order, watch-state, limit, and offset before reloading the browse grid.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4ca09a47` | (see git log) |
+
+### Testing
+
+- [OK] `npm run test --prefix apps/admin-web -- src/surfaces/media/mediaSurface.test.tsx`
+- [OK] `npm run check --prefix apps/admin-web`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
