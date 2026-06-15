@@ -1602,3 +1602,37 @@ Added a paginated Media Web items browse page at /media/items, linked it from Re
 ### Next Steps
 
 - None - task complete
+
+
+## Session 138: Media Web browse navigation entry
+
+**Date**: 2026-06-15
+**Task**: Media Web browse navigation entry
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Fixed the Media Items browse page empty-range label to render 0-0 on empty results and added a regression assertion.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `34f6fae1` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
