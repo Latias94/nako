@@ -1680,3 +1680,40 @@ Added library-scoped Media Web item browse on library detail, with rich filters,
 ### Next Steps
 
 - None - task complete
+
+
+## Session 140: Media Web browse playback smoke
+
+**Date**: 2026-06-15
+**Task**: Media Web browse playback smoke
+**Package**: admin-web
+**Branch**: `main`
+
+### Summary
+
+Added a route-level Media Web smoke from library item browse through watch progress, resume, watched state, and Continue Watching refresh.
+
+### Main Changes
+
+- Added a route-level Media Web smoke that starts from library detail, opens a library item, launches Watch, writes playback progress, resumes from Home, marks the item watched, and verifies Continue Watching clears.
+- Kept the smoke focused on fixture route behavior and redaction expectations for playback internals.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6205d949` | (see git log) |
+
+### Testing
+
+- [OK] `npm run test --prefix apps/admin-web -- src/surfaces/media/mediaSurface.test.tsx`
+- [OK] `npm run check --prefix apps/admin-web`
+- [OK] `npm run build --prefix apps/admin-web`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
