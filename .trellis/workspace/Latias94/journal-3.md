@@ -1753,3 +1753,39 @@ Added a route-level Media Web smoke proving rich browse filters, sort, watch-sta
 ### Next Steps
 
 - None - task complete
+
+
+## Session 142: Media Web source continuity smoke
+
+**Date**: 2026-06-15
+**Task**: Media Web source continuity smoke
+**Package**: admin-web
+**Branch**: `main`
+
+### Summary
+
+Added a route-level Media Web smoke proving Watch-page source switches keep ticket issuance, progress writes, and Continue Watching resume links on the selected alternate source.
+
+### Main Changes
+
+- Added a route smoke that switches from the primary source to `Pilot.alt.mp4` on the Watch page.
+- Verified the alternate source drives URL state, browser ticket issuance, playback progress writes, and Home Resume link continuity.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e130e944` | (see git log) |
+
+### Testing
+
+- [OK] `npm run test --prefix apps/admin-web -- src/surfaces/media/mediaSurface.test.tsx`
+- [OK] `npm run check --prefix apps/admin-web`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

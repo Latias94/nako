@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 141
+- **Total Sessions**: 142
 - **Last Active**: 2026-06-15
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~1753 | Active |
+| `journal-3.md` | ~1789 | Active |
 | `journal-2.md` | ~1991 | Archived |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 142 | 2026-06-15 | Media Web source continuity smoke | `e130e944` | `main` |
 | 141 | 2026-06-15 | Media Web browse state return smoke | `4ca09a47` | `main` |
 | 140 | 2026-06-15 | Media Web browse playback smoke | `6205d949` | `main` |
 | 139 | 2026-06-15 | Media Library items browse | `dc52840a` | `main` |
