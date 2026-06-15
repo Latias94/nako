@@ -1657,6 +1657,78 @@ describe("Media Web surface", () => {
     expect(container.textContent).not.toContain("nako_bpt_secondary");
   });
 
+  it("keeps recovered browser paths tied to the selected source through progress and Resume", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/watch/item-episode-1?source_id=source-episode-1-alt",
+    );
+    const dataSource = createFixtureMediaDataSource();
+    const createBrowserPlaybackTicket = vi.fn(async () => ({
+      source: "fixture" as const,
+      value: multiplePathTicket,
+    })) satisfies MediaWebDataSource["createBrowserPlaybackTicket"];
+    const updateUserPlaybackProgress = vi.fn(dataSource.updateUserPlaybackProgress);
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          createBrowserPlaybackTicket,
+          updateUserPlaybackProgress,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    const { container } = render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    const player = await screen.findByLabelText("Pilot player");
+    expect(player).toHaveAttribute("src", expect.stringContaining("path=primary"));
+    expect(createBrowserPlaybackTicket).toHaveBeenCalledWith(
+      "source-episode-1-alt",
+      expect.any(Object),
+    );
+
+    fireEvent.error(player);
+    expect(
+      await screen.findByText("Playback failed before the browser could start the stream."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Try next path" }));
+
+    const recoveredPlayer = await screen.findByLabelText("Pilot player");
+    expect(recoveredPlayer).toHaveAttribute("src", expect.stringContaining("path=secondary"));
+    fireEvent.play(recoveredPlayer);
+    setMediaTiming(recoveredPlayer, 61, 1440);
+    fireEvent.timeUpdate(recoveredPlayer);
+
+    await waitFor(() => {
+      expect(updateUserPlaybackProgress).toHaveBeenCalledWith("item-episode-1", {
+        duration_ms: 1440000,
+        position_ms: 61000,
+        source_id: "source-episode-1-alt",
+      });
+    });
+
+    fireEvent.click(screen.getByRole("link", { name: "Home" }));
+
+    expect(await screen.findByRole("heading", { name: "Watch next" })).toBeInTheDocument();
+    expect(screen.getByText("4% complete - resume at 1 min")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Resume" })).toHaveAttribute(
+      "href",
+      "/media/watch/item-episode-1?source_id=source-episode-1-alt",
+    );
+    expect(container.textContent).not.toContain("nako_bpt_primary");
+    expect(container.textContent).not.toContain("nako_bpt_secondary");
+    expect(container.textContent).not.toContain("/sources/");
+    expect(container.textContent).not.toContain("Bearer");
+    expect(container.textContent).not.toContain("fingerprint");
+  });
+
   it("can leave an unsupported HLS playlist for the next playable ticket URL", async () => {
     window.history.pushState(
       null,
