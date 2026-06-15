@@ -1957,6 +1957,81 @@ describe("Media Web surface", () => {
     });
   });
 
+  it("keeps Watch source switches continuous through ticket, progress, and Resume", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/watch/item-episode-1?source_id=source-episode-1",
+    );
+    const dataSource = createFixtureMediaDataSource();
+    const createBrowserPlaybackTicket = vi.fn(dataSource.createBrowserPlaybackTicket);
+    const updateUserPlaybackProgress = vi.fn(dataSource.updateUserPlaybackProgress);
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          createBrowserPlaybackTicket,
+          updateUserPlaybackProgress,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    const { container } = render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    expect(await screen.findByLabelText("Pilot player")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(createBrowserPlaybackTicket).toHaveBeenCalledWith(
+        "source-episode-1",
+        expect.any(Object),
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Pilot\.alt\.mp4/ }));
+
+    await waitFor(() => {
+      expect(window.location.search).toContain("source_id=source-episode-1-alt");
+      expect(createBrowserPlaybackTicket).toHaveBeenLastCalledWith(
+        "source-episode-1-alt",
+        expect.any(Object),
+      );
+    });
+    expect(screen.getByRole("button", { name: /Pilot\.alt\.mp4/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    const altPlayer = await screen.findByLabelText("Pilot player");
+    fireEvent.play(altPlayer);
+    setMediaTiming(altPlayer, 61, 1440);
+    fireEvent.timeUpdate(altPlayer);
+
+    await waitFor(() => {
+      expect(updateUserPlaybackProgress).toHaveBeenCalledWith("item-episode-1", {
+        duration_ms: 1440000,
+        position_ms: 61000,
+        source_id: "source-episode-1-alt",
+      });
+    });
+
+    fireEvent.click(screen.getByRole("link", { name: "Home" }));
+
+    expect(await screen.findByRole("heading", { name: "Watch next" })).toBeInTheDocument();
+    expect(screen.getByText("4% complete - resume at 1 min")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Resume" })).toHaveAttribute(
+      "href",
+      "/media/watch/item-episode-1?source_id=source-episode-1-alt",
+    );
+    expect(container.textContent).not.toContain("nako_bpt_fixture");
+    expect(container.textContent).not.toContain("/sources/");
+    expect(container.textContent).not.toContain("Bearer");
+    expect(container.textContent).not.toContain("fingerprint");
+  });
+
   it("refreshes Continue Watching from fixture progress after returning home", async () => {
     window.history.pushState(
       null,
