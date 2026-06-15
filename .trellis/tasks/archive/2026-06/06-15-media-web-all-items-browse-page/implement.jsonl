@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web frontend entrypoint and pre-development checklist for route/page/test changes."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Media Web route, pagination, redaction, and test rules for the browse page."}
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking guide index required before implementation."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "This feature should reuse existing Media item grid/pager patterns instead of duplicating them."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Confirms the feature stays within the frontend/data-source boundary without backend API changes."}

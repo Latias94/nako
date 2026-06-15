@@ -1568,3 +1568,37 @@ Added a Recently Added section to Media Web home using existing item listing, co
 ### Next Steps
 
 - None - task complete
+
+
+## Session 137: Media Web all items browse page
+
+**Date**: 2026-06-15
+**Task**: Media Web all items browse page
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Added a paginated Media Web items browse page at /media/items, linked it from Recently Added, reused existing item card/grid/pager primitives, and covered route search, pagination, and redaction in tests.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f66bcc34` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
