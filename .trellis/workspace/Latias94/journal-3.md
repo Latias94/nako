@@ -1789,3 +1789,39 @@ Added a route-level Media Web smoke proving Watch-page source switches keep tick
 ### Next Steps
 
 - None - task complete
+
+
+## Session 143: Media Web source recovery smoke
+
+**Date**: 2026-06-15
+**Task**: Media Web source recovery smoke
+**Package**: admin-web
+**Branch**: `main`
+
+### Summary
+
+Added a route-level Media Web smoke proving path recovery keeps playback progress and Continue Watching Resume bound to the selected alternate source.
+
+### Main Changes
+
+- Added a route smoke that fails the first browser path, recovers with `Try next path`, and then writes playback progress.
+- Verified recovered playback keeps Continue Watching Resume bound to `source-episode-1-alt` and continues redacting ticket/path internals.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f9b3d9eb` | (see git log) |
+
+### Testing
+
+- [OK] `npm run test --prefix apps/admin-web -- src/surfaces/media/mediaSurface.test.tsx`
+- [OK] `npm run check --prefix apps/admin-web`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
