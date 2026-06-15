@@ -1035,8 +1035,9 @@ describe("Media Web surface", () => {
 
     fireEvent.click(screen.getByRole("link", { name: "Watch" }));
 
-    expect(await screen.findByRole("heading", { name: "Pilot" })).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/media/watch/item-episode-1");
+    await waitFor(() => {
+      expect(window.location.pathname).toBe("/media/watch/item-episode-1");
+    });
     expect(window.location.search).toContain("source_id=source-episode-1");
     const player = await screen.findByLabelText("Pilot player");
     expect(player).toHaveAttribute("controls");
@@ -1086,6 +1087,102 @@ describe("Media Web surface", () => {
     expect(await screen.findByRole("heading", { name: "Watch next" })).toBeInTheDocument();
     expect(screen.getByText("No active playback state")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Resume" })).not.toBeInTheDocument();
+    expect(container.textContent).not.toContain("nako_bpt_fixture");
+    expect(container.textContent).not.toContain("/sources/");
+    expect(container.textContent).not.toContain("Bearer");
+    expect(container.textContent).not.toContain("fingerprint");
+  });
+
+  it("restores rich Media Items browse state after opening playback", async () => {
+    window.history.pushState(
+      null,
+      "",
+      "/media/items?facet=kind%3Aepisode&sort=title&order=asc&watch_state=in_progress&limit=1&offset=0",
+    );
+    const dataSource = createFixtureMediaDataSource();
+    const listItems = createBrowseListItemsMock(dataSource);
+    const updateUserPlaybackProgress = vi.fn(dataSource.updateUserPlaybackProgress);
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          listItems,
+          updateUserPlaybackProgress,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    const { container } = render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Media Items" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(listItems).toHaveBeenCalledWith({
+        facet: "kind:episode",
+        limit: 1,
+        offset: 0,
+        order: "asc",
+        sort: "title",
+        watch_state: "in_progress",
+      });
+    });
+
+    fireEvent.click(screen.getByRole("link", { name: /Pilot/ }));
+
+    expect(await screen.findByRole("heading", { name: "Pilot" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/media/items/item-episode-1");
+    expect(screen.getByText("Source versions")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: "Watch" }));
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe("/media/watch/item-episode-1");
+    });
+    expect(window.location.search).toContain("source_id=source-episode-1");
+    const player = await screen.findByLabelText("Pilot player");
+
+    fireEvent.play(player);
+    setMediaTiming(player, 61, 1440);
+    fireEvent.timeUpdate(player);
+
+    await waitFor(() => {
+      expect(updateUserPlaybackProgress).toHaveBeenCalledWith("item-episode-1", {
+        duration_ms: 1440000,
+        position_ms: 61000,
+        source_id: "source-episode-1",
+      });
+    });
+
+    window.history.back();
+    await waitFor(() => {
+      expect(window.location.pathname).toBe("/media/items/item-episode-1");
+    });
+
+    window.history.back();
+    await waitFor(() => {
+      expect(window.location.pathname).toBe("/media/items");
+      expect(window.location.search).toContain("facet=kind%3Aepisode");
+      expect(window.location.search).toContain("sort=title");
+      expect(window.location.search).toContain("order=asc");
+      expect(window.location.search).toContain("watch_state=in_progress");
+      expect(window.location.search).toContain("limit=1");
+      expect(window.location.search).toContain("offset=0");
+    });
+    expect(await screen.findByRole("heading", { name: "Media Items" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(listItems).toHaveBeenLastCalledWith({
+        facet: "kind:episode",
+        limit: 1,
+        offset: 0,
+        order: "asc",
+        sort: "title",
+        watch_state: "in_progress",
+      });
+    });
     expect(container.textContent).not.toContain("nako_bpt_fixture");
     expect(container.textContent).not.toContain("/sources/");
     expect(container.textContent).not.toContain("Bearer");
