@@ -267,6 +267,190 @@ describe("Media Web surface", () => {
     expect(container.textContent).not.toContain("fingerprint");
   });
 
+  it("links Recently Added to the Media Items browse page", async () => {
+    window.history.pushState(null, "", "/media");
+
+    render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+      />,
+    );
+
+    const recentlyAdded = await findRecentlyAddedSection();
+    const viewAll = within(recentlyAdded).getByRole("link", { name: "View all" });
+    expect(viewAll).toHaveAttribute("href", "/media/items?limit=20&offset=0");
+
+    fireEvent.click(viewAll);
+
+    expect(await screen.findByRole("heading", { name: "Media Items" })).toBeInTheDocument();
+  });
+
+  it("renders Media Items from route search and keeps item cards redacted", async () => {
+    window.history.pushState(null, "", "/media/items?limit=1&offset=1");
+    const dataSource = createFixtureMediaDataSource();
+    const listItems = createBrowseListItemsMock(dataSource);
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          listItems,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    const { container } = render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Media Items" })).toBeInTheDocument();
+    expect(screen.getByText("2-2")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /After the Rain/ })).toHaveAttribute(
+      "href",
+      "/media/items/item-film-1",
+    );
+    await waitFor(() => {
+      expect(listItems).toHaveBeenCalledWith({ limit: 1, offset: 1 });
+    });
+    expect(container.textContent).not.toContain("nako_bpt_fixture");
+    expect(container.textContent).not.toContain("/sources/");
+    expect(container.textContent).not.toContain("fingerprint");
+    expect(container.textContent).not.toContain("redacted-root");
+    expect(container.textContent).not.toContain("F:\\media");
+  });
+
+  it("keeps Media Items pagination URL-owned", async () => {
+    window.history.pushState(null, "", "/media/items?limit=1&offset=0");
+    const dataSource = createFixtureMediaDataSource();
+    const listItems = createBrowseListItemsMock(dataSource);
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          listItems,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Media Items" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(listItems).toHaveBeenCalledWith({ limit: 1, offset: 0 });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    await waitFor(() => {
+      expect(window.location.search).toContain("limit=1");
+      expect(window.location.search).toContain("offset=1");
+    });
+    await waitFor(() => {
+      expect(listItems).toHaveBeenLastCalledWith({ limit: 1, offset: 1 });
+    });
+  });
+
+  it("shows a safe empty state on the Media Items browse page", async () => {
+    window.history.pushState(null, "", "/media/items");
+    const dataSource = createFixtureMediaDataSource();
+    const listItems = vi.fn(async (page?: { limit?: number; offset?: number }) => {
+      const result = await dataSource.listItems(page);
+      const limit = page?.limit ?? result.value.page.limit;
+      const offset = page?.offset ?? result.value.page.offset;
+      return {
+        ...result,
+        value: {
+          ...result.value,
+          items: [],
+          page: {
+            limit,
+            offset,
+            returned: 0,
+          },
+        },
+      };
+    });
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          listItems,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Media Items" })).toBeInTheDocument();
+    expect(await screen.findByText("No media items")).toBeInTheDocument();
+    expect(screen.getByText("0 shown")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(listItems).toHaveBeenCalledWith({ limit: 20, offset: 0 });
+    });
+  });
+
+  it("redacts Media Items browse page errors", async () => {
+    window.history.pushState(null, "", "/media/items");
+    const dataSource = createFixtureMediaDataSource();
+    const rawListError =
+      "HTTP 500 for /sources/source-episode-1?ticket=nako_bpt_secret with bearer secret-token and fingerprint raw-backend";
+    const emptyItems: ItemsResponse = {
+      items: [],
+      page: {
+        limit: 20,
+        offset: 0,
+        returned: 0,
+      },
+    };
+    const listItems = vi.fn(async () => ({
+      error: rawListError,
+      source: "fixture" as const,
+      value: emptyItems,
+    }));
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          listItems,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    const { container } = render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Media Items" })).toBeInTheDocument();
+    expect(await screen.findByText("Media items could not be loaded.")).toBeInTheDocument();
+    expect(screen.queryByText("No media items")).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(listItems).toHaveBeenCalledWith({ limit: 20, offset: 0 });
+    });
+    expect(container.textContent).not.toContain(rawListError);
+    expect(container.textContent).not.toContain("HTTP 500");
+    expect(container.textContent).not.toContain("raw-backend");
+    expect(container.textContent).not.toContain("nako_bpt_secret");
+    expect(container.textContent).not.toContain("/sources/");
+    expect(container.textContent).not.toContain("secret-token");
+    expect(container.textContent).not.toContain("fingerprint");
+  });
+
   it("links Continue Watching entries to the watch route with source continuity", async () => {
     window.history.pushState(null, "", "/media");
 
@@ -1310,6 +1494,38 @@ async function findRecentlyAddedSection() {
     throw new Error("Recently Added section was not rendered");
   }
   return section;
+}
+
+function createBrowseListItemsMock(dataSource: MediaWebDataSource) {
+  return vi.fn<MediaWebDataSource["listItems"]>(async (page) => {
+    const result = await dataSource.listItems(page);
+    const limit = page?.limit ?? result.value.page.limit;
+    const offset = page?.offset ?? result.value.page.offset;
+    const items = result.value.items.slice(offset, offset + limit).map((item) => ({
+      ...item,
+      raw_locator: "/sources/source-episode-1?ticket=nako_bpt_fixture",
+      source: {
+        fingerprint: "fingerprint-raw-backend",
+        local_path: "F:\\media\\library\\Pilot.mkv",
+        root: "redacted-root",
+      },
+      stream_url:
+        "https://fixture.nako.test/sources/source-episode-1/stream?ticket=nako_bpt_fixture",
+    })) as ItemsResponse["items"];
+
+    return {
+      ...result,
+      value: {
+        ...result.value,
+        items,
+        page: {
+          limit,
+          offset,
+          returned: items.length,
+        },
+      },
+    };
+  });
 }
 
 const multiplePathTicket: BrowserPlaybackTicketResponse = {

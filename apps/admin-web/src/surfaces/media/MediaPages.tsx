@@ -24,12 +24,30 @@ import {
 } from "./MediaCore";
 import { MediaConnectPage } from "./MediaConnectPage";
 import { useMediaSession } from "./MediaSession";
+import type { MediaWebDataSource } from "./mediaDataSource";
 
 export type { MediaItemSearch, MediaPageSearch, MediaSearchRouteSearch } from "./MediaCore";
 
 export { MediaConnectPage } from "./MediaConnectPage";
 
 const RECENTLY_ADDED_ITEMS_ERROR = "Recently added media could not be loaded.";
+const MEDIA_ITEMS_ERROR = "Media items could not be loaded.";
+
+async function loadMediaItems(
+  source: MediaWebDataSource,
+  page: MediaPageSearch,
+  errorMessage: string,
+) {
+  try {
+    const result = await source.listItems(page);
+    return {
+      ...result,
+      error: result.error ? errorMessage : undefined,
+    };
+  } catch {
+    throw new Error(errorMessage);
+  }
+}
 
 export function MediaHomePage() {
   const { dataSource } = useMediaSession();
@@ -43,17 +61,9 @@ export function MediaHomePage() {
     (source) => source.listContinueWatching(),
     [continueWatchingRefreshKey],
   );
-  const items = useMediaLoad(dataSource, async (source) => {
-    try {
-      const result = await source.listItems({ limit: 8, offset: 0 });
-      return {
-        ...result,
-        error: result.error ? RECENTLY_ADDED_ITEMS_ERROR : undefined,
-      };
-    } catch {
-      throw new Error(RECENTLY_ADDED_ITEMS_ERROR);
-    }
-  });
+  const items = useMediaLoad(dataSource, (source) =>
+    loadMediaItems(source, { limit: 8, offset: 0 }, RECENTLY_ADDED_ITEMS_ERROR),
+  );
 
   async function startContinueWatchingOver(entry: ContinueWatchingResponse["items"][number]) {
     if (!dataSource) {
@@ -95,10 +105,60 @@ export function MediaHomePage() {
       <section className="mediaPanel" aria-labelledby="media-items-title">
         <div className="mediaPanelHeader">
           <h3 id="media-items-title">Recently Added</h3>
-          <span>{items.value?.page.returned ?? 0} shown</span>
+          <div className="mediaConnectActions">
+            <span>{items.value?.page.returned ?? 0} shown</span>
+            <Link
+              className="mediaInlineLink"
+              search={{ limit: 20, offset: 0 }}
+              to="/media/items"
+            >
+              View all
+            </Link>
+          </div>
         </div>
-        <MediaItemGrid result={items} />
+        <MediaItemGrid
+          emptyMessage="No recently added media"
+          result={items}
+        />
       </section>
+    </section>
+  );
+}
+
+export function MediaItemsPage({
+  onSearchChange,
+  search,
+}: {
+  onSearchChange: MediaSearchChange<MediaPageSearch>;
+  search: MediaPageSearch;
+}) {
+  const { dataSource } = useMediaSession();
+  const result = useMediaLoad(
+    dataSource,
+    (source) => loadMediaItems(source, search, MEDIA_ITEMS_ERROR),
+    [search.limit, search.offset],
+  );
+
+  if (!dataSource) {
+    return <MediaConnectPage />;
+  }
+
+  return (
+    <section className="mediaPage" aria-labelledby="media-items-browse-title">
+      <header className="mediaPageHeader">
+        <div>
+          <p className="mediaKicker">Browse</p>
+          <h2 id="media-items-browse-title">Media Items</h2>
+        </div>
+        <span>{result.value?.page.returned ?? 0} shown</span>
+      </header>
+      <MediaItemGrid emptyMessage="No media items" result={result} />
+      <MediaPager
+        label="Media Items"
+        onSearchChange={onSearchChange}
+        page={result.value?.page}
+        search={search}
+      />
     </section>
   );
 }
@@ -420,7 +480,13 @@ function MediaLibrarySources({
   );
 }
 
-function MediaItemGrid({ result }: { result: MediaAsyncState<ItemsResponse> }) {
+function MediaItemGrid({
+  emptyMessage,
+  result,
+}: {
+  emptyMessage: string;
+  result: MediaAsyncState<ItemsResponse>;
+}) {
   if (result.loading) {
     return <div className="mediaSkeletonGrid" />;
   }
@@ -430,7 +496,7 @@ function MediaItemGrid({ result }: { result: MediaAsyncState<ItemsResponse> }) {
   }
 
   if (!result.value?.items.length) {
-    return <div className="mediaEmpty">No recently added media</div>;
+    return <div className="mediaEmpty">{emptyMessage}</div>;
   }
 
   return (

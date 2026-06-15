@@ -188,6 +188,11 @@ const MediaHomeRouteModule = lazy(() =>
     default: module.MediaHomeRouteModule,
   })),
 );
+const MediaItemsRouteModule = lazy(() =>
+  import("./routes/MediaItemsRouteModule").then((module) => ({
+    default: module.MediaItemsRouteModule,
+  })),
+);
 const MediaItemDetailRouteModule = lazy(() =>
   import("./routes/MediaItemDetailRouteModule").then((module) => ({
     default: module.MediaItemDetailRouteModule,
@@ -387,6 +392,13 @@ const mediaLibrariesRoute = createRoute({
   component: MediaLibrariesRoute,
 });
 
+const mediaItemsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/media/items",
+  validateSearch: validateMediaPageSearch,
+  component: MediaItemsRoute,
+});
+
 const mediaLibraryDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/media/libraries/$libraryId",
@@ -443,6 +455,7 @@ const routeTree = rootRoute.addChildren([
   mediaRoute,
   mediaConnectRoute,
   mediaLibrariesRoute,
+  mediaItemsRoute,
   mediaLibraryDetailRoute,
   mediaSearchRoute,
   mediaItemDetailRoute,
@@ -912,6 +925,23 @@ function MediaLibrariesRoute() {
 
   return (
     <MediaLibrariesRouteModule
+      onSearchChange={(next) => {
+        void navigate({
+          search: (current) =>
+            normalizeMediaPageSearch({ ...current, ...next }),
+        });
+      }}
+      search={search}
+    />
+  );
+}
+
+function MediaItemsRoute() {
+  const search = mediaItemsRoute.useSearch();
+  const navigate = mediaItemsRoute.useNavigate();
+
+  return (
+    <MediaItemsRouteModule
       onSearchChange={(next) => {
         void navigate({
           search: (current) =>
