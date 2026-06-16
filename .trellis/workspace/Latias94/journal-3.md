@@ -1893,3 +1893,53 @@ Added focused HTTP coverage proving no-access principals cannot read user playba
 ### Next Steps
 
 - None - task complete
+
+
+## Session 146: Playback policy denial runtime-order evidence
+
+**Date**: 2026-06-16
+**Task**: Playback policy denial runtime-order evidence
+**Package**: nako-server
+**Branch**: `feat/admin-overview-durable-jobs`
+
+### Summary
+
+Locked Remux and HLS playback policy denials before session, artifact, or FFmpeg input staging work.
+
+### Main Changes
+
+Verified U5 playback policy denial ordering evidence.
+
+Changes:
+- Strengthened Remux policy denial test to prove no playback session, no Remux transcode session, no Remux output artifact, and no FFmpeg input staging record are created.
+- Strengthened HLS policy denial test to prove no playback session, no HLS transcode session, no HLS playlist artifact, and no FFmpeg input staging record are created.
+- Archived Trellis task 06-16-playback-policy-denial-before-runtime-work.
+
+Validation:
+- cargo nextest run -p nako-server remux_playback_policy_denial_does_not_create_sessions_or_artifacts --no-fail-fast
+- cargo nextest run -p nako-server hls_playback_policy_denial_does_not_create_sessions_or_artifacts --no-fail-fast
+- cargo nextest run -p nako-server playback_policy_denial --no-fail-fast
+- cargo nextest run -p nako-server browse_only_access_before_policy --no-fail-fast
+- cargo fmt --all -- --check
+- git diff --check
+- python .trellis/scripts/task.py validate .trellis/tasks/06-16-playback-policy-denial-before-runtime-work
+- cargo check -p nako-server --tests
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `db12bd45` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
