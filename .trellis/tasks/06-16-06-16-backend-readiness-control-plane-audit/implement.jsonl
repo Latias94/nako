@@ -1,0 +1,15 @@
+{"file": "docs/plans/2026-06-16-001-feat-backend-self-hosted-maturity-execution-plan.md", "reason": "Primary execution plan; this task implements U1."}
+{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Control-plane baseline for readiness, runtime supervision, durable jobs, diagnostics, remote access, and API scale."}
+{"file": "docs/architecture/OPERATIONS_RELEASE.md", "reason": "Self-hosted release, diagnostics, backup, remote access, and readiness posture."}
+{"file": "docs/architecture/M1_ADMIN_DIAGNOSTICS_REPAIR_COVERAGE.md", "reason": "Current Admin diagnostics and repair coverage baseline."}
+{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Storage/VFS repair, source identity, and redaction boundaries for readiness facts."}
+{"file": "docs/architecture/PLAYBACK.md", "reason": "Playback dependency and transcode readiness boundaries."}
+{"file": "docs/deployment/SELF_HOSTED.md", "reason": "Self-hosted operator guide and remote access diagnostics expectations."}
+{"file": "docs/deployment/BACKUP_RESTORE_UPGRADE.md", "reason": "Backup/restore readiness expectations for operator diagnostics."}
+{"file": "docs/development/REFACTORING_POLICY.md", "reason": "Policy for deleting obsolete compatibility paths after replacement evidence."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server app-service, HTTP, control-plane, and runtime guidance."}
+{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Server ownership boundaries for startup, runtime, jobs, and app services."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused server testing and redaction requirements."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Admin/Public DTO and generated contract redaction rules."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Search-before-helper and reuse guidance for audit and cleanup."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Cross-layer data-flow checks for readiness facts across API, app service, and storage."}
