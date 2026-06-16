@@ -1,0 +1,7 @@
+{"file":".trellis/spec/nako-server/backend/index.md","reason":"Verify runtime supervision and watch-folder diagnostic boundaries stay within ADR 0053 control-plane rules."}
+{"file":".trellis/spec/nako-server/backend/directory-structure.md","reason":"Check watch-folder runtime status contract, degraded/reconciliation states, and no hidden executor bypass."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Check redaction-safe server tests and watch-folder runtime coverage for diagnostics and handoff states."}
+{"file":".trellis/spec/nako-library/backend/index.md","reason":"Ensure intake semantics remain pure and stable-candidate behavior is unchanged."}
+{"file":".trellis/spec/nako-library/backend/quality-guidelines.md","reason":"Review stable-candidate intake, scan-admission, and suppression invariants during watcher follow-on work."}
+{"file":".trellis/spec/nako-api/backend/index.md","reason":"Verify Admin DTO ownership and generated contract sync if watch-folder diagnostics change."}
+{"file":".trellis/spec/nako-api/backend/quality-guidelines.md","reason":"Check generated Admin contract and redaction rules for new diagnostic DTO fields."}
