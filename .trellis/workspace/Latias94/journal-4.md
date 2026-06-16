@@ -66,13 +66,60 @@ Added a conservative no-store cache policy for authenticated Public Client dynam
 
 ### Main Changes
 
-(Add details)
+- Reused `no_store_json` for focused Admin dynamic JSON read models:
+  overview, incident bundle, jobs, storage health/staging, network access,
+  system config, access summary, playback runtime, renderers, and support
+  evidence.
+- Added route-level regression coverage for all covered Admin paths.
+- Documented the executable Admin dynamic JSON cache contract in the
+  `nako-server` HTTP code-spec.
+- Archived the Trellis task evidence with PRD, implement context, and check
+  context.
 
 ### Git Commits
 
 | Hash | Message |
 |------|---------|
 | `9061c2fb` | (see git log) |
+
+### Testing
+
+- [OK] `cargo nextest run -p nako-server admin_dynamic_json_read_routes_use_no_store_cache_policy --no-fail-fast`
+- [OK] `cargo check -p nako-server --tests`
+- [OK] `cargo fmt --all -- --check`
+- [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-16-admin-dynamic-json-cache-policy`
+- [OK] `git diff --check`
+- [OK] Trellis check sub-agent review found no issues and made no changes
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 150: Admin dynamic JSON cache policy
+
+**Date**: 2026-06-17
+**Task**: Admin dynamic JSON cache policy
+**Package**: nako-server
+**Branch**: `feat/admin-overview-durable-jobs`
+
+### Summary
+
+Added a conservative no-store cache policy for focused Admin dynamic JSON read-model and diagnostic routes, documented the HTTP contract, archived the task, and verified with focused nextest, cargo check, fmt check, Trellis validation, diff hygiene, and Trellis check review.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3f617777` | (see git log) |
 
 ### Testing
 

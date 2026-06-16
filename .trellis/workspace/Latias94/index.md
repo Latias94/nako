@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-4.md`
-- **Total Sessions**: 149
-- **Last Active**: 2026-06-16
+- **Total Sessions**: 150
+- **Last Active**: 2026-06-17
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-4.md` | ~75 | Active |
+| `journal-4.md` | ~121 | Active |
 | `journal-3.md` | ~1979 | Archived |
 | `journal-2.md` | ~1991 | Archived |
 | `journal-1.md` | ~1972 | Archived |
@@ -32,6 +32,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 150 | 2026-06-17 | Admin dynamic JSON cache policy | `3f617777` | `feat/admin-overview-durable-jobs` |
 | 149 | 2026-06-16 | Public JSON browse cache policy | `9061c2fb` | `feat/admin-overview-durable-jobs` |
 | 148 | 2026-06-16 | Public browse combined filters contract | `37fd408e` | `feat/admin-overview-durable-jobs` |
 | 147 | 2026-06-16 | Watch folder restart intake recovery | `25886da1` | `feat/admin-overview-durable-jobs` |
