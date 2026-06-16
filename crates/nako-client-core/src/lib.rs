@@ -43,6 +43,7 @@ pub use playback::{
     build_head_direct_playback_target, build_hls_playlist_target, build_hls_segment_request,
     build_playback_decision_request, build_playback_profile_presets_request,
     build_recommended_playback_target, build_remux_playback_target, build_source_probe_request,
+    core_playback_capabilities_from_profile_preset,
 };
 pub use request::{
     CoreHttpHeader, CoreHttpRequest, CoreHttpRequestSpec, CoreQueryParam, CoreSafeRequestPreview,
@@ -200,6 +201,74 @@ mod tests {
             request.safe_preview.headers,
             vec![CoreHttpHeader::new("Authorization", "Bearer <redacted>")]
         );
+    }
+
+    #[test]
+    fn playback_profile_preset_converts_to_core_capabilities() {
+        let preset = nako_client_protocol::PlaybackProfilePresetDto {
+            family: nako_client_protocol::ClientPlaybackProfileFamily::BrowserChromium,
+            device_family: "browser_chromium".to_owned(),
+            profile_version: 1,
+            direct_play: true,
+            containers: vec!["mp4".to_owned(), "webm".to_owned()],
+            video_codecs: vec!["h264".to_owned()],
+            audio_codecs: vec!["aac".to_owned(), "opus".to_owned()],
+            max_video_bitrate: Some(8_000_000),
+            max_width: Some(1920),
+            max_height: Some(1080),
+            max_audio_channels: Some(2),
+            supports_hdr: false,
+            supports_subtitles: true,
+            hls_variant_policy: nako_client_protocol::ClientHlsVariantPolicy::Adaptive,
+            hls_segment_container: nako_client_protocol::ClientHlsSegmentContainer::Fmp4,
+        };
+
+        let capabilities = core_playback_capabilities_from_profile_preset(&preset);
+
+        assert_eq!(
+            capabilities,
+            CorePlaybackCapabilities {
+                direct_play: Some(true),
+                device_family: Some("browser_chromium".to_owned()),
+                profile_version: Some(1),
+                containers: vec!["mp4".to_owned(), "webm".to_owned()],
+                video_codecs: vec!["h264".to_owned()],
+                audio_codecs: vec!["aac".to_owned(), "opus".to_owned()],
+                max_video_bitrate: Some(8_000_000),
+                max_width: Some(1920),
+                max_height: Some(1080),
+                max_audio_channels: Some(2),
+                supports_hdr: Some(false),
+                supports_subtitles: Some(true),
+                hls_variant_policy: Some(CoreHlsVariantPolicy::Adaptive),
+                hls_segment_container: Some(CoreHlsSegmentContainer::Fmp4),
+            }
+        );
+
+        let request = build_playback_decision_request(&CorePlaybackDecisionRequestInput {
+            base_url: "https://nako.example/api".to_owned(),
+            access_token: "secret-token".to_owned(),
+            source_id: "source 1".to_owned(),
+            capabilities,
+        });
+
+        assert_eq!(
+            request.url,
+            "https://nako.example/api/sources/source%201/playback/decision?direct_play=true&device_family=browser_chromium&profile_version=1&container=mp4%2Cwebm&video_codec=h264&audio_codec=aac%2Copus&max_video_bitrate=8000000&max_width=1920&max_height=1080&max_audio_channels=2&supports_hdr=false&supports_subtitles=true&hls_variant_policy=adaptive&hls_segment_container=fmp4"
+        );
+
+        let future_preset = nako_client_protocol::PlaybackProfilePresetDto {
+            hls_variant_policy: nako_client_protocol::ClientHlsVariantPolicy::Other(
+                "future_policy".to_owned(),
+            ),
+            hls_segment_container: nako_client_protocol::ClientHlsSegmentContainer::Other(
+                "future_segment".to_owned(),
+            ),
+            ..preset
+        };
+        let future_capabilities = core_playback_capabilities_from_profile_preset(&future_preset);
+        assert_eq!(future_capabilities.hls_variant_policy, None);
+        assert_eq!(future_capabilities.hls_segment_container, None);
     }
 
     #[test]

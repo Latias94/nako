@@ -23,6 +23,38 @@ impl CorePlaybackCapabilities {
     }
 }
 
+impl From<&nako_client_protocol::PlaybackProfilePresetDto> for CorePlaybackCapabilities {
+    fn from(preset: &nako_client_protocol::PlaybackProfilePresetDto) -> Self {
+        Self {
+            direct_play: Some(preset.direct_play),
+            device_family: Some(preset.device_family.clone()),
+            profile_version: Some(preset.profile_version),
+            containers: preset.containers.clone(),
+            video_codecs: preset.video_codecs.clone(),
+            audio_codecs: preset.audio_codecs.clone(),
+            max_video_bitrate: preset.max_video_bitrate,
+            max_width: preset.max_width,
+            max_height: preset.max_height,
+            max_audio_channels: preset.max_audio_channels,
+            supports_hdr: Some(preset.supports_hdr),
+            supports_subtitles: Some(preset.supports_subtitles),
+            hls_variant_policy: core_hls_variant_policy_from_wire(
+                preset.hls_variant_policy.wire_value(),
+            ),
+            hls_segment_container: core_hls_segment_container_from_wire(
+                preset.hls_segment_container.wire_value(),
+            ),
+        }
+    }
+}
+
+#[must_use]
+pub fn core_playback_capabilities_from_profile_preset(
+    preset: &nako_client_protocol::PlaybackProfilePresetDto,
+) -> CorePlaybackCapabilities {
+    CorePlaybackCapabilities::from(preset)
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CorePlaybackDecisionRequestInput {
     pub base_url: String,
@@ -506,4 +538,20 @@ fn hls_segment_container_wire_value(value: CoreHlsSegmentContainer) -> Option<&'
         CoreHlsSegmentContainer::Fmp4 => Some("fmp4"),
         CoreHlsSegmentContainer::Unknown => None,
     }
+}
+
+fn core_hls_variant_policy_from_wire(value: &str) -> Option<CoreHlsVariantPolicy> {
+    Some(match value {
+        "single_variant" => CoreHlsVariantPolicy::SingleVariant,
+        "adaptive" => CoreHlsVariantPolicy::Adaptive,
+        _ => return None,
+    })
+}
+
+fn core_hls_segment_container_from_wire(value: &str) -> Option<CoreHlsSegmentContainer> {
+    Some(match value {
+        "mpeg_ts" => CoreHlsSegmentContainer::MpegTs,
+        "fmp4" => CoreHlsSegmentContainer::Fmp4,
+        _ => return None,
+    })
 }

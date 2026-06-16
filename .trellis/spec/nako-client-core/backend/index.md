@@ -50,6 +50,10 @@ It performs no network IO and has no runtime dependency on reqwest.
 - Use `encode_path_segment` for all user/domain IDs in paths.
 - Keep `safe_preview` populated and redacted.
 - Use `API_VERSION_HEADER` and `CLIENT_PROTOCOL_VERSION` for response checks.
+- Playback profile preset helpers must convert public protocol DTOs into owned
+  `CorePlaybackCapabilities` without adding server/playback dependencies.
+  Unknown additive HLS policy/container wire values are omitted from core
+  capability fields because core enums only model known request facts.
 
 ## Forbidden Patterns
 

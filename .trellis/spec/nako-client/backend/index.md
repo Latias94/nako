@@ -49,6 +49,11 @@ transport and a reqwest implementation.
 - For authenticated Public Client JSON discovery routes, add the async
   `NakoClient` method and keep the matching transport-neutral request builder
   in `nako-client-core` when CLI/UniFFI bindings need the same route facts.
+- Playback profile preset convenience helpers must expand discovered presets
+  into explicit capability query/body fields. They must not send a preset ID or
+  require the server to apply an implicit preset. Browser ticket capability
+  helpers preserve additive HLS policy/container enum strings from
+  `nako-client-protocol`.
 
 ## Forbidden Patterns
 

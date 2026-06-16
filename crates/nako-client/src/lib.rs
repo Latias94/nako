@@ -450,6 +450,30 @@ impl NakoClient {
         .await
     }
 
+    /// Get playback decision using a discovered playback profile preset as the
+    /// explicit client capability template.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, or decode errors.
+    pub async fn get_playback_decision_with_profile_preset(
+        &self,
+        source_id: impl AsRef<str>,
+        preset: &PlaybackProfilePresetDto,
+    ) -> Result<PlaybackDecisionResponse, NakoClientError> {
+        let query = PlaybackPresetCapabilitiesQuery { preset };
+        self.request_json(
+            Method::GET,
+            &format!(
+                "/sources/{}/playback/decision",
+                encode_path_segment(source_id.as_ref())
+            ),
+            Some(&query),
+            true,
+        )
+        .await
+    }
+
     /// Issue a browser playback ticket for one source.
     ///
     /// # Errors
@@ -899,6 +923,34 @@ impl NakoClient {
         )
     }
 
+    /// Build a remux byte stream request using a discovered profile preset as
+    /// explicit client capability facts.
+    ///
+    /// # Errors
+    ///
+    /// Returns URL or header construction errors.
+    pub fn remux_stream_source_request_with_profile_preset(
+        &self,
+        source_id: impl AsRef<str>,
+        preset: &PlaybackProfilePresetDto,
+        output_container: Option<ClientOutputContainer>,
+        range: Option<&str>,
+    ) -> Result<ClientRequest, NakoClientError> {
+        let query = RemuxPlaybackPresetQuery {
+            preset,
+            output_container,
+        };
+        self.build_streaming_request(
+            Method::GET,
+            &format!(
+                "/sources/{}/stream/remux",
+                encode_path_segment(source_id.as_ref())
+            ),
+            Some(&query),
+            range,
+        )
+    }
+
     /// Build a remux stream header preflight request for one source.
     ///
     /// The response exposes the public playback session id header without
@@ -940,6 +992,29 @@ impl NakoClient {
                 encode_path_segment(source_id.as_ref())
             ),
             capabilities.as_ref(),
+            true,
+        )
+    }
+
+    /// Build an HLS playlist request using a discovered profile preset as
+    /// explicit client capability facts.
+    ///
+    /// # Errors
+    ///
+    /// Returns URL or header construction errors.
+    pub fn hls_playlist_request_with_profile_preset(
+        &self,
+        source_id: impl AsRef<str>,
+        preset: &PlaybackProfilePresetDto,
+    ) -> Result<ClientRequest, NakoClientError> {
+        let query = PlaybackPresetCapabilitiesQuery { preset };
+        self.build_request(
+            Method::GET,
+            &format!(
+                "/sources/{}/stream/hls/playlist.m3u8",
+                encode_path_segment(source_id.as_ref())
+            ),
+            Some(&query),
             true,
         )
     }
@@ -1250,6 +1325,40 @@ impl QueryParams for PlaybackCapabilitiesQuery<'_> {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PlaybackPresetCapabilitiesQuery<'a> {
+    pub preset: &'a PlaybackProfilePresetDto,
+}
+
+impl QueryParams for PlaybackPresetCapabilitiesQuery<'_> {
+    fn append_query(&self, pairs: &mut Vec<(String, String)>) {
+        append_profile_preset_capabilities(self.preset, pairs);
+    }
+}
+
+#[must_use]
+pub fn browser_playback_capabilities_from_profile_preset(
+    preset: &PlaybackProfilePresetDto,
+) -> BrowserPlaybackCapabilitiesDto {
+    BrowserPlaybackCapabilitiesDto {
+        direct_play: Some(preset.direct_play),
+        device_family: Some(preset.device_family.clone()),
+        profile_version: Some(preset.profile_version),
+        container: Some(preset.containers.clone()),
+        video_codec: Some(preset.video_codecs.clone()),
+        audio_codec: Some(preset.audio_codecs.clone()),
+        max_video_bitrate: preset.max_video_bitrate,
+        max_width: preset.max_width,
+        max_height: preset.max_height,
+        max_audio_channels: preset.max_audio_channels,
+        supports_hdr: Some(preset.supports_hdr),
+        supports_subtitles: Some(preset.supports_subtitles),
+        hls_variant_policy: Some(preset.hls_variant_policy.clone()),
+        hls_segment_container: Some(preset.hls_segment_container.clone()),
+        output_container: None,
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct ImageVariantQuery {
     pub width: Option<u32>,
@@ -1273,6 +1382,24 @@ pub struct RemuxPlaybackQuery<'a> {
     pub output_container: Option<ClientOutputContainer>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RemuxPlaybackPresetQuery<'a> {
+    pub preset: &'a PlaybackProfilePresetDto,
+    pub output_container: Option<ClientOutputContainer>,
+}
+
+impl QueryParams for RemuxPlaybackPresetQuery<'_> {
+    fn append_query(&self, pairs: &mut Vec<(String, String)>) {
+        append_profile_preset_capabilities(self.preset, pairs);
+        if let Some(output_container) = &self.output_container {
+            pairs.push((
+                "output_container".to_owned(),
+                output_container.wire_value().to_owned(),
+            ));
+        }
+    }
+}
+
 impl QueryParams for RemuxPlaybackQuery<'_> {
     fn append_query(&self, pairs: &mut Vec<(String, String)>) {
         self.capabilities.append_query(pairs);
@@ -1283,6 +1410,58 @@ impl QueryParams for RemuxPlaybackQuery<'_> {
             ));
         }
     }
+}
+
+fn append_profile_preset_capabilities(
+    preset: &PlaybackProfilePresetDto,
+    pairs: &mut Vec<(String, String)>,
+) {
+    pairs.push(("direct_play".to_owned(), preset.direct_play.to_string()));
+    pairs.push(("device_family".to_owned(), preset.device_family.clone()));
+    pairs.push((
+        "profile_version".to_owned(),
+        preset.profile_version.to_string(),
+    ));
+    if !preset.containers.is_empty() {
+        pairs.push(("container".to_owned(), preset.containers.join(",")));
+    }
+    if !preset.video_codecs.is_empty() {
+        pairs.push(("video_codec".to_owned(), preset.video_codecs.join(",")));
+    }
+    if !preset.audio_codecs.is_empty() {
+        pairs.push(("audio_codec".to_owned(), preset.audio_codecs.join(",")));
+    }
+    if let Some(max_video_bitrate) = preset.max_video_bitrate {
+        pairs.push((
+            "max_video_bitrate".to_owned(),
+            max_video_bitrate.to_string(),
+        ));
+    }
+    if let Some(max_width) = preset.max_width {
+        pairs.push(("max_width".to_owned(), max_width.to_string()));
+    }
+    if let Some(max_height) = preset.max_height {
+        pairs.push(("max_height".to_owned(), max_height.to_string()));
+    }
+    if let Some(max_audio_channels) = preset.max_audio_channels {
+        pairs.push((
+            "max_audio_channels".to_owned(),
+            max_audio_channels.to_string(),
+        ));
+    }
+    pairs.push(("supports_hdr".to_owned(), preset.supports_hdr.to_string()));
+    pairs.push((
+        "supports_subtitles".to_owned(),
+        preset.supports_subtitles.to_string(),
+    ));
+    pairs.push((
+        "hls_variant_policy".to_owned(),
+        preset.hls_variant_policy.wire_value().to_owned(),
+    ));
+    pairs.push((
+        "hls_segment_container".to_owned(),
+        preset.hls_segment_container.wire_value().to_owned(),
+    ));
 }
 
 trait QueryParams {
@@ -1584,6 +1763,82 @@ mod tests {
         })
     }
 
+    fn playback_decision_json() -> serde_json::Value {
+        json!({
+            "source": {
+                "id": "source 1",
+                "library_id": "library-1",
+                "item_id": "item-1",
+                "locator": "local:///Demo.mp4",
+                "file_name": "Demo.mp4",
+                "size_bytes": 10,
+                "fingerprint": null
+            },
+            "probe": null,
+            "target": {
+                "kind": "browser",
+                "network_scope": "local",
+                "transport_auth": "browser_ticket",
+                "media_capabilities": {
+                    "direct_play": true,
+                    "containers": ["mp4", "webm"],
+                    "video_codecs": ["h264"],
+                    "audio_codecs": ["aac"]
+                },
+                "control_capabilities": {
+                    "commands": ["play", "pause", "seek", "stop"]
+                }
+            },
+            "decision": {
+                "mode": "direct_play",
+                "reason": "compatible",
+                "report": {
+                    "selected_mode": "direct_play",
+                    "direct_play": {
+                        "supported": true,
+                        "reasons": ["compatible"]
+                    },
+                    "remux": {
+                        "supported": false,
+                        "reasons": ["client_container_unsupported"]
+                    },
+                    "transcode": {
+                        "supported": false,
+                        "reasons": ["requested_transcode_output"]
+                    },
+                    "denial": null
+                },
+                "denial": null,
+                "direct_play": {
+                    "source_id": "source 1",
+                    "content_type": "video/mp4",
+                    "supports_range_requests": true
+                },
+                "transcode_plan": null
+            }
+        })
+    }
+
+    fn browser_chromium_profile_preset() -> PlaybackProfilePresetDto {
+        PlaybackProfilePresetDto {
+            family: ClientPlaybackProfileFamily::BrowserChromium,
+            device_family: "browser_chromium".to_owned(),
+            profile_version: 1,
+            direct_play: true,
+            containers: vec!["mp4".to_owned(), "webm".to_owned()],
+            video_codecs: vec!["h264".to_owned()],
+            audio_codecs: vec!["aac".to_owned(), "opus".to_owned()],
+            max_video_bitrate: Some(8_000_000),
+            max_width: Some(1920),
+            max_height: Some(1080),
+            max_audio_channels: Some(2),
+            supports_hdr: false,
+            supports_subtitles: true,
+            hls_variant_policy: ClientHlsVariantPolicy::Adaptive,
+            hls_segment_container: ClientHlsSegmentContainer::Fmp4,
+        }
+    }
+
     #[async_trait]
     impl ClientTransport for MockTransport {
         async fn send(&self, request: ClientRequest) -> Result<ClientResponse, NakoClientError> {
@@ -1826,62 +2081,7 @@ mod tests {
     #[tokio::test]
     async fn playback_decision_ticket_and_session_cancel_paths_are_stable() {
         let transport = MockTransport::default();
-        transport.push_json(
-            StatusCode::OK,
-            json!({
-                "source": {
-                    "id": "source 1",
-                    "library_id": "library-1",
-                    "item_id": "item-1",
-                    "locator": "local:///Demo.mp4",
-                    "file_name": "Demo.mp4",
-                    "size_bytes": 10,
-                    "fingerprint": null
-                },
-                "probe": null,
-                "target": {
-                    "kind": "browser",
-                    "network_scope": "local",
-                    "transport_auth": "browser_ticket",
-                    "media_capabilities": {
-                        "direct_play": true,
-                        "containers": ["mp4", "webm"],
-                        "video_codecs": ["h264"],
-                        "audio_codecs": ["aac"]
-                    },
-                    "control_capabilities": {
-                        "commands": ["play", "pause", "seek", "stop"]
-                    }
-                },
-                "decision": {
-                    "mode": "direct_play",
-                    "reason": "compatible",
-                    "report": {
-                        "selected_mode": "direct_play",
-                        "direct_play": {
-                            "supported": true,
-                            "reasons": ["compatible"]
-                        },
-                        "remux": {
-                            "supported": false,
-                            "reasons": ["client_container_unsupported"]
-                        },
-                        "transcode": {
-                            "supported": false,
-                            "reasons": ["requested_transcode_output"]
-                        },
-                        "denial": null
-                    },
-                    "denial": null,
-                    "direct_play": {
-                        "source_id": "source 1",
-                        "content_type": "video/mp4",
-                        "supports_range_requests": true
-                    },
-                    "transcode_plan": null
-                }
-            }),
-        );
+        transport.push_json(StatusCode::OK, playback_decision_json());
         transport.push_json(
             StatusCode::OK,
             json!({
@@ -2035,6 +2235,72 @@ mod tests {
             "http://localhost:3000/playback/sessions/session-1/cancel"
         );
         assert_eq!(requests[3].method, Method::POST);
+    }
+
+    #[tokio::test]
+    async fn playback_profile_preset_helpers_render_explicit_capabilities() {
+        let transport = MockTransport::default();
+        transport.push_json(StatusCode::OK, playback_decision_json());
+        let client = NakoClient::with_transport("http://localhost:3000", transport.clone())
+            .unwrap()
+            .bearer_token("secret");
+        let preset = browser_chromium_profile_preset();
+
+        let decision = client
+            .get_playback_decision_with_profile_preset("source 1", &preset)
+            .await
+            .unwrap();
+        let remux = client
+            .remux_stream_source_request_with_profile_preset(
+                "source 1",
+                &preset,
+                Some(ClientOutputContainer::Mkv),
+                Some("bytes=0-"),
+            )
+            .unwrap();
+        let playlist = client
+            .hls_playlist_request_with_profile_preset("source 1", &preset)
+            .unwrap();
+        let browser_capabilities = browser_playback_capabilities_from_profile_preset(&preset);
+        let requests = transport.requests();
+
+        assert_eq!(decision.source.id, "source 1");
+        assert_eq!(
+            requests[0].url.as_str(),
+            "http://localhost:3000/sources/source%201/playback/decision?direct_play=true&device_family=browser_chromium&profile_version=1&container=mp4%2Cwebm&video_codec=h264&audio_codec=aac%2Copus&max_video_bitrate=8000000&max_width=1920&max_height=1080&max_audio_channels=2&supports_hdr=false&supports_subtitles=true&hls_variant_policy=adaptive&hls_segment_container=fmp4"
+        );
+        assert_eq!(
+            remux.url.as_str(),
+            "http://localhost:3000/sources/source%201/stream/remux?direct_play=true&device_family=browser_chromium&profile_version=1&container=mp4%2Cwebm&video_codec=h264&audio_codec=aac%2Copus&max_video_bitrate=8000000&max_width=1920&max_height=1080&max_audio_channels=2&supports_hdr=false&supports_subtitles=true&hls_variant_policy=adaptive&hls_segment_container=fmp4&output_container=mkv"
+        );
+        assert_eq!(
+            remux.headers.get(RANGE).unwrap(),
+            HeaderValue::from_static("bytes=0-")
+        );
+        assert_eq!(
+            playlist.url.as_str(),
+            "http://localhost:3000/sources/source%201/stream/hls/playlist.m3u8?direct_play=true&device_family=browser_chromium&profile_version=1&container=mp4%2Cwebm&video_codec=h264&audio_codec=aac%2Copus&max_video_bitrate=8000000&max_width=1920&max_height=1080&max_audio_channels=2&supports_hdr=false&supports_subtitles=true&hls_variant_policy=adaptive&hls_segment_container=fmp4"
+        );
+        assert_eq!(browser_capabilities.direct_play, Some(true));
+        assert_eq!(
+            browser_capabilities.device_family.as_deref(),
+            Some("browser_chromium")
+        );
+        assert_eq!(
+            browser_capabilities.container.as_deref(),
+            Some(&["mp4".to_owned(), "webm".to_owned()][..])
+        );
+        assert_eq!(browser_capabilities.output_container, None);
+
+        let future_preset = PlaybackProfilePresetDto {
+            hls_variant_policy: ClientHlsVariantPolicy::Other("future_policy".to_owned()),
+            hls_segment_container: ClientHlsSegmentContainer::Other("future_segment".to_owned()),
+            ..preset
+        };
+        let future_capabilities = browser_playback_capabilities_from_profile_preset(&future_preset);
+        let future_body = serde_json::to_value(&future_capabilities).unwrap();
+        assert_eq!(future_body["hls_variant_policy"], "future_policy");
+        assert_eq!(future_body["hls_segment_container"], "future_segment");
     }
 
     #[tokio::test]

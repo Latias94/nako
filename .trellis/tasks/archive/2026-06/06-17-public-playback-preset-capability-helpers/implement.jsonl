@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/nako-client-protocol/backend/index.md", "reason": "Public playback preset DTO and flat capability contract boundaries."}
+{"file": ".trellis/spec/nako-client-core/backend/index.md", "reason": "Transport-neutral request builder and redaction boundaries for client-core helpers."}
+{"file": ".trellis/spec/nako-client/backend/index.md", "reason": "Async Rust client method/query helper conventions."}
+{"file": "docs/architecture/PLAYBACK.md", "reason": "Playback planning remains explicit request-fact driven; presets are templates only."}
