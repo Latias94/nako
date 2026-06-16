@@ -437,6 +437,7 @@ mod tests {
                 ),
             ]),
             policy: AdminPlaybackPolicyDiagnostics::ready(),
+            profile_presets: Vec::new(),
             ffmpeg: AdminPlaybackFfmpegDiagnostics {
                 probe_status: AdminPlaybackRuntimeStatus::Ready,
                 has_probe_error: false,

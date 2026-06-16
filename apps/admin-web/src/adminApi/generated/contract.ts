@@ -3234,6 +3234,28 @@ export type AdminPlaybackProfileFamily =
   | "dlna_renderer"
   | "unknown";
 
+export type AdminPlaybackHlsVariantPolicy = "single_variant" | "adaptive";
+
+export type AdminPlaybackHlsSegmentContainer = "mpeg_ts" | "fmp4";
+
+export interface AdminPlaybackProfilePresetDiagnostic {
+  family: AdminPlaybackProfileFamily;
+  device_family: string;
+  profile_version: number;
+  direct_play: boolean;
+  containers: string[];
+  video_codecs: string[];
+  audio_codecs: string[];
+  max_video_bitrate: number | null;
+  max_width: number | null;
+  max_height: number | null;
+  max_audio_channels: number | null;
+  supports_hdr: boolean;
+  supports_subtitles: boolean;
+  hls_variant_policy: AdminPlaybackHlsVariantPolicy;
+  hls_segment_container: AdminPlaybackHlsSegmentContainer;
+}
+
 export interface AdminPlaybackSessionListItem {
   id: string;
   principal_id: string;
@@ -3680,6 +3702,7 @@ export interface AdminPlaybackRuntimeDiagnosticsResponse {
     }>;
   };
   policy: AdminPlaybackPolicyDiagnostics;
+  profile_presets: AdminPlaybackProfilePresetDiagnostic[];
   ffmpeg: {
     probe_status: string;
     has_probe_error: boolean;

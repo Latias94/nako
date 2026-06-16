@@ -74,14 +74,14 @@ use nako_api::{
         AdminPlaybackHardwareDiagnostics, AdminPlaybackHardwareEncoderDiscovery,
         AdminPlaybackHardwareEncoderDiscoveryStatus, AdminPlaybackHardwareSmokeProbe,
         AdminPlaybackHardwareSmokeProbeStatus, AdminPlaybackHardwareStageCapability,
-        AdminPlaybackPolicyDiagnostics, AdminPlaybackReadinessCheck,
-        AdminPlaybackReadinessCheckName, AdminPlaybackReadinessDiagnostics,
-        AdminPlaybackReadinessReason, AdminPlaybackReadinessStatus,
-        AdminPlaybackRemoteBudgetDiagnostics, AdminPlaybackRemuxRuntimeDiagnostics,
-        AdminPlaybackResourceClass, AdminPlaybackResourceClassPressure,
-        AdminPlaybackResourceEnforcement, AdminPlaybackResourcePressureDiagnostics,
-        AdminPlaybackRuntimeDiagnosticsResponse, AdminPlaybackRuntimeStatus,
-        AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
+        AdminPlaybackPolicyDiagnostics, AdminPlaybackProfilePresetDiagnostic,
+        AdminPlaybackReadinessCheck, AdminPlaybackReadinessCheckName,
+        AdminPlaybackReadinessDiagnostics, AdminPlaybackReadinessReason,
+        AdminPlaybackReadinessStatus, AdminPlaybackRemoteBudgetDiagnostics,
+        AdminPlaybackRemuxRuntimeDiagnostics, AdminPlaybackResourceClass,
+        AdminPlaybackResourceClassPressure, AdminPlaybackResourceEnforcement,
+        AdminPlaybackResourcePressureDiagnostics, AdminPlaybackRuntimeDiagnosticsResponse,
+        AdminPlaybackRuntimeStatus, AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
         AdminPlaybackStagingDiagnostics, AdminPlaybackSupportEvidenceResponse,
         AdminPlaybackSupportHardwareCapabilityEvidence, AdminPlaybackSupportHardwareEvidence,
         AdminPlaybackSupportRedactionEvidence, AdminPlaybackSupportRuntimeEvidence,
@@ -153,6 +153,7 @@ use nako_library::{
     SourceFingerprintHashMode, WatchFolderIntakeEnqueueReason, WatchFolderIntakePlanInput,
     plan_watch_folder_intake,
 };
+use nako_playback::playback_profile_presets;
 use nako_transcode::{
     HardwareAccelerationCapability, HardwareDeviceInitializationStatus,
     HardwareEncoderDiscoveryStatus, HardwareSmokeProbeStatus, TranscodeRuntimeInventoryStatus,
@@ -3907,6 +3908,10 @@ async fn admin_playback_runtime_diagnostics(
         public_api_version: API_VERSION.to_owned(),
         readiness,
         policy,
+        profile_presets: playback_profile_presets()
+            .into_iter()
+            .map(AdminPlaybackProfilePresetDiagnostic::from_preset)
+            .collect(),
         ffmpeg: AdminPlaybackFfmpegDiagnostics {
             probe_status: playback_runtime_status(playback.runtime_inventory.probe_status),
             has_probe_error: playback.runtime_inventory.has_probe_error,

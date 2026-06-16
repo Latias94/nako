@@ -471,6 +471,115 @@ let family = PlaybackProfileFamily::from_device_family(device_family);
 Admin diagnostics expose only recognized normalized profile facts, while
 unknown raw strings are summarized as `unknown`.
 
+## Scenario: Admin Playback Profile Preset Diagnostics
+
+### 1. Scope / Trigger
+
+- Trigger: changing the built-in playback profile preset catalog or the Admin
+  playback runtime diagnostics field that previews those presets.
+- Scope: `nako-playback::playback_profile_presets`,
+  `AdminPlaybackRuntimeDiagnosticsResponse.profile_presets`, generated Admin
+  TypeScript contracts, Admin Web mock fixtures, and server mapping for
+  `GET /admin/v1/playback/runtime`.
+
+### 2. Signatures
+
+- Playback helper:
+  `playback_profile_presets() -> Vec<PlaybackProfilePreset>`.
+- Preset record:
+  `PlaybackProfilePreset { family, device_family, profile_version,
+  capabilities }`.
+- Admin DTO:
+  `AdminPlaybackProfilePresetDiagnostic { family, device_family,
+  profile_version, direct_play, containers, video_codecs, audio_codecs,
+  max_video_bitrate, max_width, max_height, max_audio_channels, supports_hdr,
+  supports_subtitles, hls_variant_policy, hls_segment_container }`.
+- Admin runtime response:
+  `AdminPlaybackRuntimeDiagnosticsResponse { profile_presets, ... }`.
+
+### 3. Contracts
+
+- Presets are read-only recommendation templates for known profile families.
+  They must not become hidden playback decision rules.
+- Direct Play, Remux, Transcode, Denied, FFmpeg planning, storage staging, and
+  runtime admission must continue to use explicit request/source/policy facts.
+- `unknown` profile families must not produce presets, and raw unknown family
+  strings must not be echoed.
+- Admin DTOs expose only flat client capability facts and normalized profile
+  identity: family, `device_family`, `profile_version`, containers, codecs,
+  bitrate/resolution/channel limits, HDR/subtitle booleans, and HLS output
+  preferences.
+- Generated Admin TypeScript contracts under `apps/admin-web` and `web` must be
+  regenerated from `nako-api`; do not hand-edit generated output.
+- Keep this out of Public Client route inventories, OpenAPI public output, and
+  generated Public SDKs unless a future task explicitly designs public preset
+  discovery.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Known built-in profile family exists | `playback_profile_presets()` returns one preset with matching normalized `device_family` and version |
+| `PlaybackProfileFamily::Unknown` is requested | No preset is produced |
+| Preset capability fields are empty | Treat as a test failure; templates must contain usable container/video/audio values |
+| A playback request includes only `device_family`/`profile_version` changes | Planner decision mode, reason, and selection reasons stay unchanged unless flat capability facts changed |
+| Admin runtime route is requested | Response includes `profile_presets` and remains redaction-safe |
+| Generated Admin contract lacks `profile_presets` or the preset DTO | `cargo nextest run -p nako-api admin_contract --no-fail-fast` fails until regenerated |
+| Public SDK/OpenAPI gains preset DTOs accidentally | Treat as contract drift and remove them from public outputs |
+
+### 5. Good/Base/Bad Cases
+
+- Good: `/admin/v1/playback/runtime` includes browser, mobile, TV, cast, and
+  renderer preset previews with normalized flat capability fields.
+- Good: a server route test asserts the route includes the preset catalog while
+  existing path/token/FFmpeg redaction checks still pass.
+- Base: old Public Client playback calls keep sending flat capability fields;
+  presets are not applied automatically.
+- Bad: a planner branch such as `if family == DlnaRenderer { disable_subtitles
+  }` hidden behind profile identity.
+- Bad: adding preset discovery to Public Client SDKs without a dedicated public
+  contract, versioning, and client migration plan.
+
+### 6. Tests Required
+
+- `nako-playback` unit tests prove known-family coverage, no `Unknown` preset,
+  non-empty flat capability fields, and unchanged planner decisions when only
+  profile identity changes.
+- `nako-api` serialization tests prove `profile_presets` emits safe fields and
+  generated Admin contract artifacts match the generator.
+- `nako-server` Admin playback runtime route test proves the live route returns
+  preset facts and preserves redaction.
+- Admin Web and web type checks must pass after regenerating generated Admin
+  contracts.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+if profile.device_family.as_deref() == Some("dlna_renderer") {
+    profile.direct_play_profiles[0].supports_subtitles = false;
+}
+```
+
+This turns a descriptive preset/profile identity into an implicit playback
+decision rule.
+
+#### Correct
+
+```rust
+AdminPlaybackRuntimeDiagnosticsResponse {
+    profile_presets: playback_profile_presets()
+        .into_iter()
+        .map(AdminPlaybackProfilePresetDiagnostic::from_preset)
+        .collect(),
+    // ...
+}
+```
+
+Preset previews are Admin diagnostics. Actual playback planning still uses the
+explicit capability fields supplied by the client request.
+
 ## Scenario: Admin Diagnostic Summary DTO
 
 ### 1. Scope / Trigger

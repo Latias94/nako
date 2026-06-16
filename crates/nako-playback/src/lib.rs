@@ -14,8 +14,9 @@ mod values;
 
 pub use capability::{
     DirectPlayCapabilityProfile, PlaybackCapabilityEvaluation, PlaybackCompatibilityCondition,
-    PlaybackDecisionReport, PlaybackProfileFamily, PlaybackTargetProfile, RemuxCapabilityProfile,
-    TranscodeCapabilityProfile, normalize_playback_device_family,
+    PlaybackDecisionReport, PlaybackProfileFamily, PlaybackProfilePreset, PlaybackTargetProfile,
+    RemuxCapabilityProfile, TranscodeCapabilityProfile, normalize_playback_device_family,
+    playback_profile_presets,
 };
 use capability::{evaluate_direct_play, evaluate_remux, evaluate_transcode};
 pub use values::{
@@ -2727,6 +2728,110 @@ mod tests {
         assert_eq!(
             normalize_playback_device_family(Some("Experimental Console")).as_deref(),
             Some("experimental_console")
+        );
+    }
+
+    #[test]
+    fn playback_profile_presets_cover_known_families_without_unknown() {
+        let presets = playback_profile_presets();
+        let families = presets
+            .iter()
+            .map(|preset| preset.family)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            families,
+            vec![
+                PlaybackProfileFamily::BrowserChromium,
+                PlaybackProfileFamily::BrowserFirefox,
+                PlaybackProfileFamily::BrowserSafari,
+                PlaybackProfileFamily::AndroidMedia3,
+                PlaybackProfileFamily::DesktopNative,
+                PlaybackProfileFamily::TvWebos,
+                PlaybackProfileFamily::TvTizen,
+                PlaybackProfileFamily::Chromecast,
+                PlaybackProfileFamily::DlnaRenderer,
+            ]
+        );
+        assert_eq!(
+            PlaybackProfilePreset::from_family(PlaybackProfileFamily::Unknown),
+            None
+        );
+
+        for preset in presets {
+            assert_eq!(preset.device_family, preset.family.as_str());
+            assert_eq!(preset.profile_version, 1);
+            assert_eq!(
+                preset.capabilities.device_family.as_deref(),
+                Some(preset.family.as_str())
+            );
+            assert_eq!(preset.capabilities.profile_version, Some(1));
+            assert!(preset.capabilities.direct_play);
+            assert!(
+                !preset.capabilities.containers.is_empty(),
+                "{} preset has no containers",
+                preset.family.as_str()
+            );
+            assert!(
+                !preset.capabilities.video_codecs.is_empty(),
+                "{} preset has no video codecs",
+                preset.family.as_str()
+            );
+            assert!(
+                !preset.capabilities.audio_codecs.is_empty(),
+                "{} preset has no audio codecs",
+                preset.family.as_str()
+            );
+        }
+    }
+
+    #[test]
+    fn playback_profile_presets_do_not_change_planner_decisions_by_family_name() {
+        let source = media_source("movie.mp4");
+        let probe = MediaProbeResult {
+            duration_ms: Some(1_000),
+            container: Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned()),
+            bit_rate: None,
+            streams: vec![
+                stream(MediaStreamKind::Video, Some("h264")),
+                stream(MediaStreamKind::Audio, Some("aac")),
+            ],
+        };
+        let policy = EffectivePlaybackPolicy::from_library_access(
+            source.library_id,
+            nako_core::LibraryAccessLevel::Play,
+        );
+
+        let without_family = plan_with_policy(
+            &source,
+            Some(&probe),
+            ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext::default(),
+            policy.clone(),
+        );
+        let with_family = plan_with_policy(
+            &source,
+            Some(&probe),
+            ClientPlaybackCapabilities {
+                device_family: Some("dlna_renderer".to_owned()),
+                profile_version: Some(1),
+                ..ClientPlaybackCapabilities::default()
+            },
+            PlaybackSelectionContext::default(),
+            policy,
+        );
+
+        assert_eq!(without_family.mode, with_family.mode);
+        assert_eq!(without_family.reason, with_family.reason);
+        assert_eq!(
+            without_family.report.selection_reasons,
+            with_family.report.selection_reasons
+        );
+        assert!(
+            with_family
+                .report
+                .profile_key
+                .contains("device_family=dlna_renderer")
         );
     }
 

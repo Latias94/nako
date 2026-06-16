@@ -3,14 +3,27 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ClientPlaybackCapabilities, PlaybackAudioOutputRequirement, PlaybackColorPipelineRequirement,
-    PlaybackColorPipelineSource, PlaybackDenial, PlaybackHlsOutputRequirement, PlaybackMode,
-    PlaybackOutputConstraints, PlaybackPreferenceContext, PlaybackRemuxContainer,
-    PlaybackSelectionContext, PlaybackStorageContext, PlaybackSubtitleStrategy, PlaybackTarget,
-    PlaybackTrackSelection, PlaybackTranscodeContainer,
+    PlaybackColorPipelineSource, PlaybackDenial, PlaybackHlsOutputRequirement,
+    PlaybackHlsSegmentContainer, PlaybackHlsVariantPolicy, PlaybackMode, PlaybackOutputConstraints,
+    PlaybackPreferenceContext, PlaybackRemuxContainer, PlaybackSelectionContext,
+    PlaybackStorageContext, PlaybackSubtitleStrategy, PlaybackTarget, PlaybackTrackSelection,
+    PlaybackTranscodeContainer,
 };
 
 const HLS_SIDECAR_SUBTITLE_CODECS: &[&str] =
     &["mov_text", "srt", "subrip", "text", "vtt", "webvtt"];
+const PLAYBACK_PROFILE_PRESET_VERSION: u32 = 1;
+const PLAYBACK_PROFILE_PRESET_FAMILIES: &[PlaybackProfileFamily] = &[
+    PlaybackProfileFamily::BrowserChromium,
+    PlaybackProfileFamily::BrowserFirefox,
+    PlaybackProfileFamily::BrowserSafari,
+    PlaybackProfileFamily::AndroidMedia3,
+    PlaybackProfileFamily::DesktopNative,
+    PlaybackProfileFamily::TvWebos,
+    PlaybackProfileFamily::TvTizen,
+    PlaybackProfileFamily::Chromecast,
+    PlaybackProfileFamily::DlnaRenderer,
+];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum HlsSubtitleDeliverySupport {
@@ -200,6 +213,147 @@ impl PlaybackProfileFamily {
             Self::DlnaRenderer => "dlna_renderer",
             Self::Unknown => "unknown",
         }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PlaybackProfilePreset {
+    pub family: PlaybackProfileFamily,
+    pub device_family: String,
+    pub profile_version: u32,
+    pub capabilities: ClientPlaybackCapabilities,
+}
+
+impl PlaybackProfilePreset {
+    #[must_use]
+    pub fn from_family(family: PlaybackProfileFamily) -> Option<Self> {
+        if family == PlaybackProfileFamily::Unknown {
+            return None;
+        }
+
+        let mut capabilities = preset_capabilities(family);
+        capabilities.device_family = Some(family.as_str().to_owned());
+        capabilities.profile_version = Some(PLAYBACK_PROFILE_PRESET_VERSION);
+
+        Some(Self {
+            family,
+            device_family: family.as_str().to_owned(),
+            profile_version: PLAYBACK_PROFILE_PRESET_VERSION,
+            capabilities,
+        })
+    }
+}
+
+#[must_use]
+pub fn playback_profile_presets() -> Vec<PlaybackProfilePreset> {
+    PLAYBACK_PROFILE_PRESET_FAMILIES
+        .iter()
+        .filter_map(|family| PlaybackProfilePreset::from_family(*family))
+        .collect()
+}
+
+fn preset_capabilities(family: PlaybackProfileFamily) -> ClientPlaybackCapabilities {
+    match family {
+        PlaybackProfileFamily::BrowserChromium => capability_template(
+            &["mp4", "m4v", "webm"],
+            &["h264", "vp9"],
+            &["aac", "mp3", "opus"],
+            false,
+            true,
+            PlaybackHlsVariantPolicy::Adaptive,
+            PlaybackHlsSegmentContainer::Fmp4,
+        ),
+        PlaybackProfileFamily::BrowserFirefox => capability_template(
+            &["mp4", "webm"],
+            &["h264", "vp9"],
+            &["aac", "mp3", "opus"],
+            false,
+            true,
+            PlaybackHlsVariantPolicy::Adaptive,
+            PlaybackHlsSegmentContainer::Fmp4,
+        ),
+        PlaybackProfileFamily::BrowserSafari => capability_template(
+            &["mp4", "m4v"],
+            &["h264", "hevc"],
+            &["aac", "mp3"],
+            true,
+            true,
+            PlaybackHlsVariantPolicy::Adaptive,
+            PlaybackHlsSegmentContainer::MpegTs,
+        ),
+        PlaybackProfileFamily::AndroidMedia3 => capability_template(
+            &["mp4", "m4v", "webm", "matroska,webm"],
+            &["h264", "hevc", "vp9"],
+            &["aac", "mp3", "opus"],
+            true,
+            true,
+            PlaybackHlsVariantPolicy::Adaptive,
+            PlaybackHlsSegmentContainer::Fmp4,
+        ),
+        PlaybackProfileFamily::DesktopNative => capability_template(
+            &["mp4", "m4v", "webm", "matroska,webm"],
+            &["h264", "hevc", "vp9", "av1"],
+            &["aac", "mp3", "opus", "flac", "ac3"],
+            true,
+            true,
+            PlaybackHlsVariantPolicy::Adaptive,
+            PlaybackHlsSegmentContainer::Fmp4,
+        ),
+        PlaybackProfileFamily::TvWebos | PlaybackProfileFamily::TvTizen => capability_template(
+            &["mp4", "m4v", "matroska,webm"],
+            &["h264", "hevc"],
+            &["aac", "mp3", "ac3"],
+            true,
+            true,
+            PlaybackHlsVariantPolicy::SingleVariant,
+            PlaybackHlsSegmentContainer::MpegTs,
+        ),
+        PlaybackProfileFamily::Chromecast => capability_template(
+            &["mp4", "webm"],
+            &["h264", "vp9"],
+            &["aac", "mp3", "opus"],
+            false,
+            true,
+            PlaybackHlsVariantPolicy::Adaptive,
+            PlaybackHlsSegmentContainer::MpegTs,
+        ),
+        PlaybackProfileFamily::DlnaRenderer => capability_template(
+            &["mp4"],
+            &["h264"],
+            &["aac", "mp3"],
+            false,
+            false,
+            PlaybackHlsVariantPolicy::SingleVariant,
+            PlaybackHlsSegmentContainer::MpegTs,
+        ),
+        PlaybackProfileFamily::Unknown => ClientPlaybackCapabilities::default(),
+    }
+}
+
+fn capability_template(
+    containers: &[&str],
+    video_codecs: &[&str],
+    audio_codecs: &[&str],
+    supports_hdr: bool,
+    supports_subtitles: bool,
+    hls_variant_policy: PlaybackHlsVariantPolicy,
+    hls_segment_container: PlaybackHlsSegmentContainer,
+) -> ClientPlaybackCapabilities {
+    ClientPlaybackCapabilities {
+        direct_play: true,
+        device_family: None,
+        profile_version: None,
+        containers: strings(containers),
+        video_codecs: strings(video_codecs),
+        audio_codecs: strings(audio_codecs),
+        max_video_bitrate: None,
+        max_width: None,
+        max_height: None,
+        max_audio_channels: None,
+        supports_hdr,
+        supports_subtitles,
+        hls_variant_policy,
+        hls_segment_container,
     }
 }
 
@@ -793,6 +947,10 @@ fn normalized_values(values: &[String]) -> Vec<String> {
     values.sort();
     values.dedup();
     values
+}
+
+fn strings(values: &[&str]) -> Vec<String> {
+    values.iter().map(|value| (*value).to_owned()).collect()
 }
 
 fn normalized_device_family(value: Option<&str>) -> Option<String> {

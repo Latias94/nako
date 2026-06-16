@@ -7,7 +7,10 @@ use nako_core::{
     TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
     TranscodeSessionRuntimeMetrics, TranscodeSessionState, UserPrincipalId,
 };
-use nako_playback::{PlaybackProfileFamily, normalize_playback_device_family};
+use nako_playback::{
+    PlaybackHlsSegmentContainer, PlaybackHlsVariantPolicy, PlaybackProfileFamily,
+    PlaybackProfilePreset, normalize_playback_device_family,
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -150,6 +153,7 @@ pub struct AdminPlaybackRuntimeDiagnosticsResponse {
     pub public_api_version: String,
     pub readiness: AdminPlaybackReadinessDiagnostics,
     pub policy: AdminPlaybackPolicyDiagnostics,
+    pub profile_presets: Vec<AdminPlaybackProfilePresetDiagnostic>,
     pub ffmpeg: AdminPlaybackFfmpegDiagnostics,
     pub hardware: AdminPlaybackHardwareDiagnostics,
     pub transcode: AdminPlaybackTranscodeBudgetDiagnostics,
@@ -159,6 +163,84 @@ pub struct AdminPlaybackRuntimeDiagnosticsResponse {
     pub staging: AdminPlaybackStagingDiagnostics,
     pub artifact_lifecycle: AdminPlaybackArtifactLifecycleDiagnostics,
     pub throttle: AdminPlaybackThrottleDiagnostics,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackProfilePresetDiagnostic {
+    pub family: AdminPlaybackProfileFamily,
+    pub device_family: String,
+    pub profile_version: u32,
+    pub direct_play: bool,
+    pub containers: Vec<String>,
+    pub video_codecs: Vec<String>,
+    pub audio_codecs: Vec<String>,
+    pub max_video_bitrate: Option<u64>,
+    pub max_width: Option<u32>,
+    pub max_height: Option<u32>,
+    pub max_audio_channels: Option<u32>,
+    pub supports_hdr: bool,
+    pub supports_subtitles: bool,
+    pub hls_variant_policy: AdminPlaybackHlsVariantPolicy,
+    pub hls_segment_container: AdminPlaybackHlsSegmentContainer,
+}
+
+impl AdminPlaybackProfilePresetDiagnostic {
+    #[must_use]
+    pub fn from_preset(preset: PlaybackProfilePreset) -> Self {
+        Self {
+            family: AdminPlaybackProfileFamily::from_playback_family(preset.family),
+            device_family: preset.device_family,
+            profile_version: preset.profile_version,
+            direct_play: preset.capabilities.direct_play,
+            containers: preset.capabilities.containers,
+            video_codecs: preset.capabilities.video_codecs,
+            audio_codecs: preset.capabilities.audio_codecs,
+            max_video_bitrate: preset.capabilities.max_video_bitrate,
+            max_width: preset.capabilities.max_width,
+            max_height: preset.capabilities.max_height,
+            max_audio_channels: preset.capabilities.max_audio_channels,
+            supports_hdr: preset.capabilities.supports_hdr,
+            supports_subtitles: preset.capabilities.supports_subtitles,
+            hls_variant_policy: AdminPlaybackHlsVariantPolicy::from_playback_policy(
+                preset.capabilities.hls_variant_policy,
+            ),
+            hls_segment_container: AdminPlaybackHlsSegmentContainer::from_playback_container(
+                preset.capabilities.hls_segment_container,
+            ),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminPlaybackHlsVariantPolicy {
+    SingleVariant,
+    Adaptive,
+}
+
+impl AdminPlaybackHlsVariantPolicy {
+    const fn from_playback_policy(policy: PlaybackHlsVariantPolicy) -> Self {
+        match policy {
+            PlaybackHlsVariantPolicy::SingleVariant => Self::SingleVariant,
+            PlaybackHlsVariantPolicy::Adaptive => Self::Adaptive,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminPlaybackHlsSegmentContainer {
+    MpegTs,
+    Fmp4,
+}
+
+impl AdminPlaybackHlsSegmentContainer {
+    const fn from_playback_container(container: PlaybackHlsSegmentContainer) -> Self {
+        match container {
+            PlaybackHlsSegmentContainer::MpegTs => Self::MpegTs,
+            PlaybackHlsSegmentContainer::Fmp4 => Self::Fmp4,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -1232,6 +1314,10 @@ mod tests {
                 ),
             ]),
             policy: AdminPlaybackPolicyDiagnostics::ready(),
+            profile_presets: vec![AdminPlaybackProfilePresetDiagnostic::from_preset(
+                PlaybackProfilePreset::from_family(PlaybackProfileFamily::BrowserChromium)
+                    .expect("known family should have a preset"),
+            )],
             ffmpeg: AdminPlaybackFfmpegDiagnostics {
                 probe_status: AdminPlaybackRuntimeStatus::Degraded,
                 has_probe_error: true,
@@ -1347,6 +1433,20 @@ mod tests {
         assert_eq!(value["policy"]["user_policy_rows_supported"], true);
         assert_eq!(value["policy"]["role_policy_merge"], "restrictive");
         assert_eq!(value["policy"]["permissions"][2], "remux");
+        assert_eq!(value["profile_presets"][0]["family"], "browser_chromium");
+        assert_eq!(
+            value["profile_presets"][0]["device_family"],
+            "browser_chromium"
+        );
+        assert_eq!(value["profile_presets"][0]["profile_version"], 1);
+        assert_eq!(value["profile_presets"][0]["containers"][0], "mp4");
+        assert_eq!(value["profile_presets"][0]["video_codecs"][0], "h264");
+        assert_eq!(value["profile_presets"][0]["audio_codecs"][0], "aac");
+        assert_eq!(
+            value["profile_presets"][0]["hls_variant_policy"],
+            "adaptive"
+        );
+        assert_eq!(value["profile_presets"][0]["hls_segment_container"], "fmp4");
         assert_eq!(value["ffmpeg"]["probe_status"], "degraded");
         assert_eq!(
             value["resource_pressure"]["classes"][0]["class"],

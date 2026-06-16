@@ -293,6 +293,34 @@ function adminPlaybackRuntimeResponse(status = "ready") {
       reason: status,
       checks: [],
     },
+    policy: {
+      user_policy_rows_supported: true,
+      role_policy_rows_supported: true,
+      effective_resolution_supported: true,
+      library_access_required: true,
+      user_policy_overrides_role_policy: true,
+      role_policy_merge: "restrictive",
+      permissions: ["media_playback"],
+    },
+    profile_presets: [
+      {
+        family: "browser_chromium",
+        device_family: "browser_chromium",
+        profile_version: 1,
+        direct_play: true,
+        containers: ["mp4", "webm"],
+        video_codecs: ["h264", "vp9"],
+        audio_codecs: ["aac", "opus"],
+        max_video_bitrate: null,
+        max_width: null,
+        max_height: null,
+        max_audio_channels: null,
+        supports_hdr: false,
+        supports_subtitles: true,
+        hls_variant_policy: "adaptive",
+        hls_segment_container: "fmp4",
+      },
+    ],
   }
 }
 

@@ -15299,6 +15299,35 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
     assert!(diagnostics.readiness.checks.iter().any(|check| check.name
         == AdminPlaybackReadinessCheckName::PlaybackPolicy
         && check.reason == AdminPlaybackReadinessReason::PlaybackPolicyReady));
+    assert!(
+        diagnostics.profile_presets.len() >= 9,
+        "expected built-in playback profile presets"
+    );
+    let chromium_preset = diagnostics
+        .profile_presets
+        .iter()
+        .find(|preset| preset.device_family == "browser_chromium")
+        .expect("browser_chromium preset should be reported");
+    assert_eq!(chromium_preset.profile_version, 1);
+    assert!(chromium_preset.direct_play);
+    assert!(
+        chromium_preset
+            .containers
+            .iter()
+            .any(|value| value == "mp4")
+    );
+    assert!(
+        chromium_preset
+            .video_codecs
+            .iter()
+            .any(|value| value == "h264")
+    );
+    assert!(
+        chromium_preset
+            .audio_codecs
+            .iter()
+            .any(|value| value == "aac")
+    );
     assert!(diagnostics.readiness.checks.iter().any(|check| check.name
         == AdminPlaybackReadinessCheckName::Staging
         && check.reason == AdminPlaybackReadinessReason::StagingReady));
