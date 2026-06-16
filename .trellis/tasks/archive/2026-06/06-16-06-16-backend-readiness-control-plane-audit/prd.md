@@ -50,17 +50,17 @@ unit U1.
 
 ## Acceptance Criteria
 
-* [ ] A task-local audit document records current readiness facts, missing
+* [x] A task-local audit document records current readiness facts, missing
       backend evidence, and cleanup candidates.
-* [ ] The audit includes the first recommended code-bearing follow-up with file
+* [x] The audit includes the first recommended code-bearing follow-up with file
       areas, tests, and deletion safety criteria.
-* [ ] Legacy source-key, legacy Addon task resource-class, and legacy principal
+* [x] Legacy source-key, legacy Addon task resource-class, and legacy principal
       normalization paths are searched and classified.
-* [ ] Any code cleanup performed by this task has focused tests or existing
+* [x] Any code cleanup performed by this task has focused tests or existing
       passing characterization evidence.
-* [ ] No new public API, schema, generated contract, or frontend runtime change
+* [x] No new public API, schema, generated contract, or frontend runtime change
       is introduced unless explicitly justified in the audit.
-* [ ] Focused verification runs for changed layers; if the task remains
+* [x] Focused verification runs for changed layers; if the task remains
       documentation-only, Trellis validation and `git diff --check` are enough.
 
 ## Definition of Done
