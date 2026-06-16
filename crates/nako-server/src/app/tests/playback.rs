@@ -626,6 +626,11 @@ async fn remux_playback_policy_denial_does_not_create_sessions_or_artifacts() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "policy_denied_remux");
     let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let request_identity = local_remux_request_identity(&source, RemuxContainer::Mp4);
+    let output_path = RemuxStagingPolicy::new(&app.config().remux_staging_root)
+        .unwrap()
+        .output_path(source.id, &request_identity, RemuxContainer::Mp4)
+        .unwrap();
     let principal = local_playback_viewer(&store, source.library_id).await;
     let mut permissions = PlaybackPermissionPolicy::current_playback_defaults();
     permissions.allow_remux = false;
@@ -683,6 +688,8 @@ async fn remux_playback_policy_denial_does_not_create_sessions_or_artifacts() {
             .unwrap()
             .is_empty()
     );
+    assert!(!output_path.exists());
+    assert_no_ffmpeg_input_staging_record(&store).await;
 }
 
 #[tokio::test]
@@ -690,6 +697,15 @@ async fn hls_playback_policy_denial_does_not_create_sessions_or_artifacts() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "policy_denied_hls");
     let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let request_identity = local_hls_request_identity(&source, HardwareAcceleration::None);
+    let layout = HlsStagingPolicy::new(app.config().remux_staging_root.join("hls"))
+        .unwrap()
+        .single_variant_layout(
+            source.id,
+            &request_identity,
+            nako_transcode::HlsOutputRequirement::default(),
+        )
+        .unwrap();
     let principal = local_playback_viewer(&store, source.library_id).await;
     let mut permissions = PlaybackPermissionPolicy::current_playback_defaults();
     permissions.allow_video_transcode = false;
@@ -749,6 +765,8 @@ async fn hls_playback_policy_denial_does_not_create_sessions_or_artifacts() {
             .unwrap()
             .is_empty()
     );
+    assert!(!layout.playlist_path.exists());
+    assert_no_ffmpeg_input_staging_record(&store).await;
 }
 
 #[tokio::test]
