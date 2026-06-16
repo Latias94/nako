@@ -493,6 +493,48 @@ public_string_value! {
     }
 }
 
+public_string_value! {
+    pub enum ClientPlaybackProfileFamily {
+        BrowserChromium => "browser_chromium",
+        BrowserFirefox => "browser_firefox",
+        BrowserSafari => "browser_safari",
+        AndroidMedia3 => "android_media3",
+        DesktopNative => "desktop_native",
+        TvWebos => "tv_webos",
+        TvTizen => "tv_tizen",
+        Chromecast => "chromecast",
+        DlnaRenderer => "dlna_renderer",
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PlaybackProfilePresetsResponse {
+    pub presets: Vec<PlaybackProfilePresetDto>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PlaybackProfilePresetDto {
+    pub family: ClientPlaybackProfileFamily,
+    pub device_family: String,
+    pub profile_version: u32,
+    pub direct_play: bool,
+    pub containers: Vec<String>,
+    pub video_codecs: Vec<String>,
+    pub audio_codecs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_video_bitrate: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_width: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_height: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_audio_channels: Option<u32>,
+    pub supports_hdr: bool,
+    pub supports_subtitles: bool,
+    pub hls_variant_policy: ClientHlsVariantPolicy,
+    pub hls_segment_container: ClientHlsSegmentContainer,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct BrowserPlaybackTicketRequest {
     pub mode: BrowserPlaybackMode,

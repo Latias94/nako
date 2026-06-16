@@ -30,7 +30,7 @@ independent from server internals.
 2. Signatures: public route inventory, `HealthResponse`, `ErrorResponse`,
    `PageInfo`, catalog DTOs, playback DTOs, renderer DTOs, and user state DTOs.
 3. Contracts: current public API version is `v1`; route inventory currently has
-   48 paths; streaming routes are explicitly marked `StreamingBuilder`.
+   49 paths; streaming routes are explicitly marked `StreamingBuilder`.
 4. Validation & Error Matrix: client-visible errors use `ClientErrorCode` string
    values; unknown additive wire strings decode to `Other(String)` where the
    enum uses `public_string_value!`.
@@ -61,6 +61,10 @@ independent from server internals.
   `supports_hdr`, `supports_subtitles`, `hls_variant_policy`, and
   `hls_segment_container`. Remux query/browser ticket remux planning may also
   carry `output_container`.
+- Keep playback profile preset discovery under the authenticated JSON route
+  `/playback/profile-presets`. The DTO is a catalog template, not a playback
+  request: expose `family`, `device_family`, `profile_version`, flat capability
+  fields, and HLS output preferences, and keep runtime/operator facts out.
 
 ## Forbidden Patterns
 

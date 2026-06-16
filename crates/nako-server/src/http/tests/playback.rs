@@ -137,6 +137,93 @@ fn multi_subtitle_probe() -> MediaProbeResult {
     }
 }
 
+#[tokio::test]
+async fn public_playback_profile_presets_route_returns_safe_authenticated_catalog() {
+    let (_temp, app, _source, _store) =
+        app_with_media_source_config("demo.mp4", b"media", |_| {}).await;
+    let router =
+        public_client_router_with_principal(app, AuthenticatedPrincipal::bootstrap_admin());
+
+    let response = request_json::<nako_api::public_client::PlaybackProfilePresetsResponse>(
+        &router,
+        Method::GET,
+        "/playback/profile-presets",
+    )
+    .await;
+    let value = serde_json::to_value(&response).unwrap();
+    let serialized = serde_json::to_string(&value).unwrap().to_ascii_lowercase();
+
+    assert!(response.presets.len() >= 9);
+    assert!(response.presets.iter().all(|preset| preset.family
+        != nako_api::public_client::ClientPlaybackProfileFamily::Other("unknown".to_owned())));
+    let chromium = response
+        .presets
+        .iter()
+        .find(|preset| preset.device_family == "browser_chromium")
+        .expect("browser_chromium preset should be returned");
+    assert_eq!(chromium.profile_version, 1);
+    assert!(chromium.direct_play);
+    assert!(chromium.containers.iter().any(|value| value == "mp4"));
+    assert!(chromium.video_codecs.iter().any(|value| value == "h264"));
+    assert!(chromium.audio_codecs.iter().any(|value| value == "aac"));
+    assert!(!chromium.supports_hdr);
+    assert!(chromium.supports_subtitles);
+    assert_eq!(
+        chromium.hls_variant_policy,
+        nako_api::public_client::ClientHlsVariantPolicy::Adaptive
+    );
+    assert_eq!(
+        chromium.hls_segment_container,
+        nako_api::public_client::ClientHlsSegmentContainer::Fmp4
+    );
+
+    for forbidden in [
+        "unknown",
+        "ffmpeg",
+        "gpu",
+        "hardware",
+        "operator",
+        "resource_pressure",
+        "bearer",
+        "token",
+        "principal",
+        "source_locator",
+        "source_uri",
+        "local_path",
+        "output_path",
+        "raw_locator",
+        "operator_policy",
+    ] {
+        assert!(
+            !serialized.contains(forbidden),
+            "public playback profile preset route leaked forbidden term: {forbidden}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn public_playback_profile_presets_route_requires_bearer_auth() {
+    let (_temp, app, _source, _store) =
+        app_with_media_source_config("demo.mp4", b"media", |_| {}).await;
+    let router = build_router_with_auth(app, auth::InboundAuthState::bearer_token("secret"));
+
+    let unauthenticated = response_for(&router, Method::GET, "/playback/profile-presets").await;
+    assert_eq!(unauthenticated.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        unauthenticated
+            .headers()
+            .get(header::WWW_AUTHENTICATE)
+            .unwrap(),
+        "Bearer"
+    );
+
+    let authenticated = request_json_with_bearer::<
+        nako_api::public_client::PlaybackProfilePresetsResponse,
+    >(&router, Method::GET, "/playback/profile-presets", "secret")
+    .await;
+    assert!(!authenticated.presets.is_empty());
+}
+
 async fn hls_playlist_body_and_transcode_session(
     router: &Router,
     store: &NakoDatabase,

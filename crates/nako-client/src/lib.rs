@@ -10,19 +10,20 @@ pub use nako_client_protocol::{
     BrowserPlaybackMode, BrowserPlaybackOutputContainer, BrowserPlaybackTicketRequest,
     BrowserPlaybackTicketResponse, BrowserPlaybackUrlDto, BrowserPlaybackUrlKind,
     CLIENT_PROTOCOL_VERSION as API_VERSION, ClientBrowseSortKey, ClientHlsSegmentContainer,
-    ClientHlsVariantPolicy, ClientOutputContainer, ClientSortOrder, ClientUserPlaylistVisibility,
-    ClientWatchStateFilter, ContinueWatchingResponse, CreateUserPlaylistRequest,
-    CurrentUserResponse, ErrorResponse, GenreItemsResponse, GenreListResponse, HealthResponse,
-    ImagesResponse, ItemCreditsResponse, ItemDetailResponse, ItemsResponse, LibraryItemsResponse,
-    LibraryListResponse, LibraryResponse, LibrarySourcesResponse, LoginRequest, LoginResponse,
-    LogoutResponse, PLAYBACK_SESSION_ID_HEADER, PageInfo, PeopleResponse, PersonItemsResponse,
-    PersonResponse, PlaybackDecisionResponse, PublicClientRustSdkExposure,
-    ReorderUserPlaylistItemsRequest, SearchResponse, SetWatchedStateRequest, SourceProbeResponse,
-    TagItemsResponse, TagsResponse, TranscodeSessionResponse, UpdatePlaybackProgressRequest,
-    UpdateUserPlaylistRequest, UserPlaybackStateResponse, UserPlaylistDeleteResponse,
-    UserPlaylistDto, UserPlaylistItemDto, UserPlaylistItemsResponse, UserPlaylistResponse,
-    UserPlaylistsResponse, public_client_json_routes, public_client_paths,
-    public_client_streaming_routes,
+    ClientHlsVariantPolicy, ClientOutputContainer, ClientPlaybackProfileFamily, ClientSortOrder,
+    ClientUserPlaylistVisibility, ClientWatchStateFilter, ContinueWatchingResponse,
+    CreateUserPlaylistRequest, CurrentUserResponse, ErrorResponse, GenreItemsResponse,
+    GenreListResponse, HealthResponse, ImagesResponse, ItemCreditsResponse, ItemDetailResponse,
+    ItemsResponse, LibraryItemsResponse, LibraryListResponse, LibraryResponse,
+    LibrarySourcesResponse, LoginRequest, LoginResponse, LogoutResponse,
+    PLAYBACK_SESSION_ID_HEADER, PageInfo, PeopleResponse, PersonItemsResponse, PersonResponse,
+    PlaybackDecisionResponse, PlaybackProfilePresetDto, PlaybackProfilePresetsResponse,
+    PublicClientRustSdkExposure, ReorderUserPlaylistItemsRequest, SearchResponse,
+    SetWatchedStateRequest, SourceProbeResponse, TagItemsResponse, TagsResponse,
+    TranscodeSessionResponse, UpdatePlaybackProgressRequest, UpdateUserPlaylistRequest,
+    UserPlaybackStateResponse, UserPlaylistDeleteResponse, UserPlaylistDto, UserPlaylistItemDto,
+    UserPlaylistItemsResponse, UserPlaylistResponse, UserPlaylistsResponse,
+    public_client_json_routes, public_client_paths, public_client_streaming_routes,
 };
 use reqwest::{
     Method, StatusCode, Url,
@@ -413,6 +414,18 @@ impl NakoClient {
             true,
         )
         .await
+    }
+
+    /// List server-known playback profile presets for bootstrapping client capabilities.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, or decode errors.
+    pub async fn playback_profile_presets(
+        &self,
+    ) -> Result<PlaybackProfilePresetsResponse, NakoClientError> {
+        self.request_json_no_query(Method::GET, "/playback/profile-presets", true)
+            .await
     }
 
     /// Get playback decision for one source.
@@ -1872,6 +1885,24 @@ mod tests {
         transport.push_json(
             StatusCode::OK,
             json!({
+                "presets": [{
+                    "family": "browser_chromium",
+                    "device_family": "browser_chromium",
+                    "profile_version": 1,
+                    "direct_play": true,
+                    "containers": ["mp4"],
+                    "video_codecs": ["h264"],
+                    "audio_codecs": ["aac"],
+                    "supports_hdr": false,
+                    "supports_subtitles": true,
+                    "hls_variant_policy": "adaptive",
+                    "hls_segment_container": "fmp4"
+                }]
+            }),
+        );
+        transport.push_json(
+            StatusCode::OK,
+            json!({
                 "source_id": "source 1",
                 "item_id": "item-1",
                 "playback_session_id": "playback-1",
@@ -1928,6 +1959,7 @@ mod tests {
             )
             .await
             .unwrap();
+        let presets = client.playback_profile_presets().await.unwrap();
         let ticket = client
             .create_browser_playback_ticket(
                 "source 1",
@@ -1951,6 +1983,11 @@ mod tests {
         let session = client.cancel_playback_session("session-1").await.unwrap();
 
         assert_eq!(decision.source.id, "source 1");
+        assert_eq!(
+            presets.presets[0].family,
+            ClientPlaybackProfileFamily::BrowserChromium
+        );
+        assert_eq!(presets.presets[0].device_family, "browser_chromium");
         assert_eq!(ticket.mode, BrowserPlaybackMode::Hls);
         assert_eq!(ticket.playback_session_id.as_deref(), Some("playback-1"));
         assert_eq!(ticket.urls[0].kind, BrowserPlaybackUrlKind::Playlist);
@@ -1965,17 +2002,26 @@ mod tests {
         );
         assert_eq!(
             requests[1].url.as_str(),
+            "http://localhost:3000/playback/profile-presets"
+        );
+        assert_eq!(requests[1].method, Method::GET);
+        assert_eq!(
+            requests[1].headers.get(AUTHORIZATION).unwrap(),
+            HeaderValue::from_static("Bearer secret")
+        );
+        assert_eq!(
+            requests[2].url.as_str(),
             "http://localhost:3000/sources/source%201/playback/browser-ticket"
         );
-        assert_eq!(requests[1].method, Method::POST);
+        assert_eq!(requests[2].method, Method::POST);
         assert_eq!(
-            requests[1]
+            requests[2]
                 .headers
                 .get(reqwest::header::CONTENT_TYPE)
                 .unwrap(),
             HeaderValue::from_static("application/json")
         );
-        let ticket_body = serde_json::from_slice::<serde_json::Value>(&requests[1].body).unwrap();
+        let ticket_body = serde_json::from_slice::<serde_json::Value>(&requests[2].body).unwrap();
         assert_eq!(ticket_body["mode"], "hls");
         assert_eq!(
             ticket_body["capabilities"]["device_family"],
@@ -1985,10 +2031,10 @@ mod tests {
         assert_eq!(ticket_body["capabilities"]["container"][0], "mp4");
         assert_eq!(ticket_body["capabilities"]["output_container"], "mp4");
         assert_eq!(
-            requests[2].url.as_str(),
+            requests[3].url.as_str(),
             "http://localhost:3000/playback/sessions/session-1/cancel"
         );
-        assert_eq!(requests[2].method, Method::POST);
+        assert_eq!(requests[3].method, Method::POST);
     }
 
     #[tokio::test]

@@ -12,9 +12,10 @@ use nako_api::public_client::{
     BrowserPlaybackCapabilitiesDto, BrowserPlaybackMode, BrowserPlaybackOutputContainer,
     BrowserPlaybackTicketRequest, BrowserPlaybackTicketResponse, BrowserPlaybackUrlDto,
     BrowserPlaybackUrlKind, ClientHlsSegmentContainer, ClientHlsVariantPolicy,
-    ClientPlaybackSessionState, PLAYBACK_SESSION_ID_HEADER,
+    ClientPlaybackSessionState, PLAYBACK_SESSION_ID_HEADER, PlaybackProfilePresetsResponse,
     PlaybackSessionHeartbeatRequest as PublicPlaybackSessionHeartbeatRequest,
-    PlaybackSessionResponse, playback_session_response_from_record, timestamp_ms_to_rfc3339,
+    PlaybackSessionResponse, playback_profile_presets_response_from_presets,
+    playback_session_response_from_record, timestamp_ms_to_rfc3339,
 };
 use nako_core::AuthenticatedPrincipal;
 use nako_core::{
@@ -23,7 +24,7 @@ use nako_core::{
 };
 use nako_playback::{
     ClientPlaybackCapabilities, PlaybackHlsSegmentContainer, PlaybackHlsVariantPolicy,
-    PlaybackPreferenceContext, PlaybackTranscodeContainer,
+    PlaybackPreferenceContext, PlaybackTranscodeContainer, playback_profile_presets,
 };
 use nako_streaming::{
     DirectPlayRangeRequest, DirectPlayResponsePlan, DirectPlayResponseStatus,
@@ -50,6 +51,7 @@ use super::{error::ApiResult, trace_context::HttpTraceContext};
 
 pub(super) fn routes() -> Router<NakoApp> {
     Router::new()
+        .route("/playback/profile-presets", get(get_profile_presets))
         .route(
             "/sources/{source_id}/playback/decision",
             get(get_source_playback_decision),
@@ -87,6 +89,13 @@ pub(super) fn routes() -> Router<NakoApp> {
             "/playback/sessions/{session_id}/hls/segments/{segment_name}",
             get(hls_segment),
         )
+}
+
+#[instrument]
+pub(super) async fn get_profile_presets() -> ApiResult<Json<PlaybackProfilePresetsResponse>> {
+    Ok(Json(playback_profile_presets_response_from_presets(
+        playback_profile_presets(),
+    )))
 }
 
 #[instrument(skip(app))]

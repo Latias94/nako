@@ -1,0 +1,7 @@
+{"file":"docs/architecture/PLAYBACK.md","reason":"Verify route supports Device Capability Profiles without changing planner/runtime boundaries."}
+{"file":".trellis/spec/nako-client-protocol/backend/index.md","reason":"Check Public route inventory and DTO ownership."}
+{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Check generated OpenAPI/SDK contract sync and Public/Admin separation."}
+{"file":".trellis/spec/nako-api/backend/quality-guidelines.md","reason":"Check public playback capability parity and generated artifact gates."}
+{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Check server route/auth/version-header patterns."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Check focused server route test coverage."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Verify cross-layer data shape consistency."}

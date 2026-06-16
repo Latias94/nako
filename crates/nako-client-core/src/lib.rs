@@ -28,18 +28,20 @@ pub use ids::{
     PLAYBACK_CANCEL_SESSION_REQUEST_ID, PLAYBACK_DECISION_REQUEST_ID,
     PLAYBACK_DIRECT_STREAM_HEAD_REQUEST_ID, PLAYBACK_DIRECT_STREAM_REQUEST_ID,
     PLAYBACK_HLS_PLAYLIST_REQUEST_ID, PLAYBACK_HLS_SEGMENT_REQUEST_ID,
-    PLAYBACK_REMUX_SESSION_PROBE_REQUEST_ID, PLAYBACK_REMUX_STREAM_REQUEST_ID,
-    PLAYBACK_SESSION_REQUEST_ID, PLAYBACK_SOURCE_PROBE_REQUEST_ID,
+    PLAYBACK_PROFILE_PRESETS_REQUEST_ID, PLAYBACK_REMUX_SESSION_PROBE_REQUEST_ID,
+    PLAYBACK_REMUX_STREAM_REQUEST_ID, PLAYBACK_SESSION_REQUEST_ID,
+    PLAYBACK_SOURCE_PROBE_REQUEST_ID,
 };
 pub use playback::{
     CoreDirectPlaybackTargetInput, CoreHlsPlaylistTargetInput, CoreHlsSegmentContainer,
     CoreHlsVariantPolicy, CoreOutputContainer, CorePlaybackCapabilities,
     CorePlaybackDecisionRequestInput, CorePlaybackDecisionSummary, CorePlaybackMode,
-    CorePlaybackSegmentInput, CorePlaybackSessionRequestInput, CorePlaybackSourceRequestInput,
-    CorePlaybackTarget, CorePlaybackTargetInput, CoreRemuxPlaybackTargetInput,
-    build_cancel_playback_session_request, build_direct_playback_target,
-    build_get_playback_session_request, build_head_direct_playback_target,
-    build_hls_playlist_target, build_hls_segment_request, build_playback_decision_request,
+    CorePlaybackProfilePresetRequestInput, CorePlaybackSegmentInput,
+    CorePlaybackSessionRequestInput, CorePlaybackSourceRequestInput, CorePlaybackTarget,
+    CorePlaybackTargetInput, CoreRemuxPlaybackTargetInput, build_cancel_playback_session_request,
+    build_direct_playback_target, build_get_playback_session_request,
+    build_head_direct_playback_target, build_hls_playlist_target, build_hls_segment_request,
+    build_playback_decision_request, build_playback_profile_presets_request,
     build_recommended_playback_target, build_remux_playback_target, build_source_probe_request,
 };
 pub use request::{
@@ -213,6 +215,30 @@ mod tests {
         assert_eq!(
             request.url,
             "https://nako.example/api/sources/source%201/probe"
+        );
+        assert_eq!(
+            request.headers,
+            vec![CoreHttpHeader::new("Authorization", "Bearer secret-token")]
+        );
+        assert_eq!(
+            request.safe_preview.headers,
+            vec![CoreHttpHeader::new("Authorization", "Bearer <redacted>")]
+        );
+    }
+
+    #[test]
+    fn playback_profile_presets_request_uses_core_auth_and_safe_preview() {
+        let request =
+            build_playback_profile_presets_request(&CorePlaybackProfilePresetRequestInput {
+                base_url: "https://nako.example/api/".to_owned(),
+                access_token: "secret-token".to_owned(),
+            });
+
+        assert_eq!(request.request_id, PLAYBACK_PROFILE_PRESETS_REQUEST_ID);
+        assert_eq!(request.method, "GET");
+        assert_eq!(
+            request.url,
+            "https://nako.example/api/playback/profile-presets"
         );
         assert_eq!(
             request.headers,

@@ -400,6 +400,18 @@ fn public_paths() -> Value {
         }),
     );
     paths.insert(
+        "/playback/profile-presets".to_owned(),
+        json!({
+            "get": json_get(
+                "listPlaybackProfilePresets",
+                "List server-known playback profile presets that clients may copy into explicit playback capability requests.",
+                "playback",
+                vec![],
+                schema_ref("PlaybackProfilePresetsResponse")
+            )
+        }),
+    );
+    paths.insert(
         "/sources/{source_id}/probe".to_owned(),
         json!({
             "get": json_get("getSourceProbe", "Get persisted media probe data for one source.", "playback", vec![path_parameter("source_id", "Media source id.")], schema_ref("SourceProbeResponse"))
@@ -1514,6 +1526,49 @@ fn schemas() -> Value {
             "source_id": uuid_schema(),
             "probe": schema_ref("MediaProbeDto")
         })),
+        "PlaybackProfilePresetsResponse": object_schema(&["presets"], json!({
+            "presets": array_schema(schema_ref("PlaybackProfilePresetDto"))
+        })),
+        "PlaybackProfilePresetDto": object_schema(&[
+            "family",
+            "device_family",
+            "profile_version",
+            "direct_play",
+            "containers",
+            "video_codecs",
+            "audio_codecs",
+            "supports_hdr",
+            "supports_subtitles",
+            "hls_variant_policy",
+            "hls_segment_container"
+        ], json!({
+            "family": schema_ref("ClientPlaybackProfileFamily"),
+            "device_family": string_schema(),
+            "profile_version": integer_schema("int32"),
+            "direct_play": boolean_schema(),
+            "containers": array_schema(string_schema()),
+            "video_codecs": array_schema(string_schema()),
+            "audio_codecs": array_schema(string_schema()),
+            "max_video_bitrate": integer_schema("int64"),
+            "max_width": integer_schema("int32"),
+            "max_height": integer_schema("int32"),
+            "max_audio_channels": integer_schema("int32"),
+            "supports_hdr": boolean_schema(),
+            "supports_subtitles": boolean_schema(),
+            "hls_variant_policy": schema_ref("ClientHlsVariantPolicy"),
+            "hls_segment_container": schema_ref("ClientHlsSegmentContainer")
+        })),
+        "ClientPlaybackProfileFamily": enum_schema(&[
+            "browser_chromium",
+            "browser_firefox",
+            "browser_safari",
+            "android_media3",
+            "desktop_native",
+            "tv_webos",
+            "tv_tizen",
+            "chromecast",
+            "dlna_renderer"
+        ]),
         "BrowserPlaybackTicketRequest": object_schema(&["mode"], json!({
             "mode": enum_schema(&["direct", "remux", "hls", "subtitle"]),
             "capabilities": schema_ref("BrowserPlaybackCapabilitiesDto"),
@@ -2695,6 +2750,85 @@ mod tests {
                 ["nullable"],
             true
         );
+    }
+
+    #[test]
+    fn public_openapi_playback_profile_presets_are_authenticated_safe_templates() {
+        let document = public_openapi_v1();
+        let schemas = document["components"]["schemas"].as_object().unwrap();
+        let preset_surface = serde_json::to_string(&json!({
+            "route": document["paths"]["/playback/profile-presets"],
+            "response": document["components"]["schemas"]["PlaybackProfilePresetsResponse"],
+            "preset": document["components"]["schemas"]["PlaybackProfilePresetDto"],
+            "family": document["components"]["schemas"]["ClientPlaybackProfileFamily"],
+        }))
+        .unwrap()
+        .to_ascii_lowercase();
+
+        assert!(schemas.contains_key("PlaybackProfilePresetsResponse"));
+        assert!(schemas.contains_key("PlaybackProfilePresetDto"));
+        assert!(schemas.contains_key("ClientPlaybackProfileFamily"));
+        assert_eq!(
+            document["paths"]["/playback/profile-presets"]["get"]["operationId"],
+            "listPlaybackProfilePresets"
+        );
+        assert_eq!(
+            document["paths"]["/playback/profile-presets"]["get"]["security"][0]["BearerAuth"],
+            json!([])
+        );
+        assert_eq!(
+            document["paths"]["/playback/profile-presets"]["get"]["responses"]["200"]["content"]["application/json"]
+                ["schema"]["$ref"],
+            "#/components/schemas/PlaybackProfilePresetsResponse"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["PlaybackProfilePresetsResponse"]["properties"]["presets"]
+                ["items"]["$ref"],
+            "#/components/schemas/PlaybackProfilePresetDto"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["PlaybackProfilePresetDto"]["properties"]["family"]["$ref"],
+            "#/components/schemas/ClientPlaybackProfileFamily"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["ClientPlaybackProfileFamily"]["enum"],
+            json!([
+                "browser_chromium",
+                "browser_firefox",
+                "browser_safari",
+                "android_media3",
+                "desktop_native",
+                "tv_webos",
+                "tv_tizen",
+                "chromecast",
+                "dlna_renderer"
+            ])
+        );
+        assert!(
+            !document["components"]["schemas"]["ClientPlaybackProfileFamily"]["enum"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("unknown"))
+        );
+
+        for forbidden in [
+            "ffmpeg",
+            "gpu",
+            "device_path",
+            "hardware",
+            "operator",
+            "resource_pressure",
+            "source_locator",
+            "source_uri",
+            "local_path",
+            "output_path",
+            "raw_locator",
+        ] {
+            assert!(
+                !preset_surface.contains(forbidden),
+                "public OpenAPI playback profile preset surface leaked forbidden term: {forbidden}"
+            );
+        }
     }
 
     #[test]

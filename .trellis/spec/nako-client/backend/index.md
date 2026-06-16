@@ -46,6 +46,9 @@ transport and a reqwest implementation.
 - Use protocol DTOs re-exported from `nako-client`.
 - Add `Authorization` only for methods requiring auth.
 - Validate `x-nako-api-version` on responses.
+- For authenticated Public Client JSON discovery routes, add the async
+  `NakoClient` method and keep the matching transport-neutral request builder
+  in `nako-client-core` when CLI/UniFFI bindings need the same route facts.
 
 ## Forbidden Patterns
 

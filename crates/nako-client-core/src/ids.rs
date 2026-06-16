@@ -1,6 +1,7 @@
 pub const CONNECTION_HEALTH_REQUEST_ID: &str = "connection.health";
 pub const CONNECTION_AUTH_PROBE_REQUEST_ID: &str = "connection.auth_probe";
 pub const ARTWORK_IMAGE_REQUEST_ID: &str = "artwork.image";
+pub const PLAYBACK_PROFILE_PRESETS_REQUEST_ID: &str = "playback.profile_presets";
 pub const PLAYBACK_SOURCE_PROBE_REQUEST_ID: &str = "playback.source_probe";
 pub const PLAYBACK_DECISION_REQUEST_ID: &str = "playback.decision";
 pub const PLAYBACK_DIRECT_STREAM_REQUEST_ID: &str = "playback.direct_stream";

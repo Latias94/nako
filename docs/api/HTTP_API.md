@@ -63,6 +63,7 @@ GET  /tags/{tag_id}/items?limit=50&offset=0
 GET  /genres?limit=50&offset=0
 GET  /genres/{genre_id}/items?limit=50&offset=0
 GET  /search?q=matrix&facet=genre:sci-fi&limit=50&offset=0
+GET  /playback/profile-presets
 GET  /sources/{source_id}/probe
 GET  /sources/{source_id}/playback/decision
 POST /sources/{source_id}/playback/browser-ticket
@@ -1071,6 +1072,40 @@ generated SDK artifacts.
 is optional and comma-separated for the current lightweight route shape. Search
 results return projected media items and relevance scores; richer filters and
 ranking can be added behind the same search boundary.
+
+`GET /playback/profile-presets` returns Nako's server-known playback capability
+preset catalog for authenticated Public Client API callers. Clients may use a
+preset as a bootstrap template, copy its fields into explicit playback decision,
+remux, HLS, browser ticket, renderer registration, or renderer heartbeat
+capability reporting, and then adjust the fields for the actual player.
+
+The response shape is:
+
+```json
+{
+  "presets": [
+    {
+      "family": "browser_chromium",
+      "device_family": "browser_chromium",
+      "profile_version": 1,
+      "direct_play": true,
+      "containers": ["mp4", "m4v", "webm"],
+      "video_codecs": ["h264", "vp9"],
+      "audio_codecs": ["aac", "mp3", "opus"],
+      "supports_hdr": false,
+      "supports_subtitles": true,
+      "hls_variant_policy": "adaptive",
+      "hls_segment_container": "fmp4"
+    }
+  ]
+}
+```
+
+Preset discovery is read-only and does not inspect the database, user agent,
+active sessions, runtime hardware, or FFmpeg state. Presets are client request
+templates only; the server never applies a preset implicitly when planning
+playback. Actual playback planning still uses the explicit flat capability facts
+sent on the request.
 
 `GET /sources/{source_id}/playback/decision` returns the source, optional probe
 data, and a playback decision. The response does not expose raw source locators

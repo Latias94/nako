@@ -884,6 +884,12 @@ public object NakoPublicClientRequests {
             ),
         )
 
+    public fun playbackProfilePresets(): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "GET",
+            pathAndQuery = "/playback/profile-presets",
+        )
+
     public fun getSourceProbe(sourceId: String): NakoRequestDescriptor =
         NakoRequestDescriptor(
             method = "GET",
@@ -1571,6 +1577,10 @@ export class NakoClient {
     return this.requestJson("GET", "/management/context-links", { query });
   }
 
+  playbackProfilePresets(): Promise<PlaybackProfilePresetsResponse> {
+    return this.requestJson("GET", "/playback/profile-presets");
+  }
+
   getSourceProbe(sourceId: string): Promise<SourceProbeResponse> {
     return this.requestJson("GET", `/sources/${encodeURIComponent(sourceId)}/probe`);
   }
@@ -1850,6 +1860,7 @@ mod tests {
             "listLibraryItems(",
             "searchItems(",
             "managementContextLinks(",
+            "playbackProfilePresets(",
             "getPlaybackDecision(",
             "createBrowserPlaybackTicket(",
             "streamSource(",
@@ -1896,6 +1907,9 @@ mod tests {
             "BrowserPlaybackTicketResponse",
             "playback_session_id: string | null",
             "BrowserPlaybackCapabilitiesDto",
+            "PlaybackProfilePresetsResponse",
+            "PlaybackProfilePresetDto",
+            "ClientPlaybackProfileFamily",
             "BrowserPlaybackUrlDto",
             "ClientPlaybackCapabilitiesDto",
             "ClientPlaybackDecisionReason",
@@ -2152,6 +2166,9 @@ mod tests {
             "public data class HealthResponse",
             "public data class LibraryListResponse",
             "public data class ManagementContextLinksResponse",
+            "public data class PlaybackProfilePresetsResponse",
+            "public data class PlaybackProfilePresetDto",
+            "public value class ClientPlaybackProfileFamily",
             "public data class PlaybackDecisionResponse",
             "public val playbackSessionId: String?",
             "public data class HlsPlaybackQuery",
@@ -2172,6 +2189,7 @@ mod tests {
             "public fun listLibraries(page: PageQuery = PageQuery()): NakoRequestDescriptor",
             "public fun listLibraryItems(",
             "public fun managementContextLinks(",
+            "public fun playbackProfilePresets()",
             "public fun createBrowserPlaybackTicket(sourceId: String): NakoRequestDescriptor",
             "public fun getSourceSubtitle(sourceId: String, streamIndex: Int): NakoRequestDescriptor",
             "public fun heartbeatPlaybackSession(sessionId: String): NakoRequestDescriptor",

@@ -39,6 +39,12 @@ pub struct CorePlaybackSourceRequestInput {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CorePlaybackProfilePresetRequestInput {
+    pub base_url: String,
+    pub access_token: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CorePlaybackSessionRequestInput {
     pub base_url: String,
     pub access_token: String,
@@ -121,6 +127,21 @@ pub struct CorePlaybackSegmentInput {
     pub base_url: String,
     pub session_id: String,
     pub segment_name: String,
+}
+
+#[must_use]
+pub fn build_playback_profile_presets_request(
+    input: &CorePlaybackProfilePresetRequestInput,
+) -> crate::CoreHttpRequest {
+    crate::build_core_request(
+        &crate::CoreHttpRequestSpec::new(
+            crate::PLAYBACK_PROFILE_PRESETS_REQUEST_ID,
+            &input.base_url,
+            "GET",
+            "/playback/profile-presets",
+        )
+        .access_token(Some(input.access_token.clone())),
+    )
 }
 
 #[must_use]

@@ -44,6 +44,7 @@ public val NAKO_PUBLIC_PATHS: List<String> = listOf(
     "/genres/{genre_id}/items",
     "/search",
     "/management/context-links",
+    "/playback/profile-presets",
     "/sources/{source_id}/probe",
     "/sources/{source_id}/playback/decision",
     "/sources/{source_id}/playback/browser-ticket",
@@ -411,6 +412,12 @@ public object NakoPublicClientRequests {
                 "/management/context-links",
                 managementContextQuery(query),
             ),
+        )
+
+    public fun playbackProfilePresets(): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "GET",
+            pathAndQuery = "/playback/profile-presets",
         )
 
     public fun getSourceProbe(sourceId: String): NakoRequestDescriptor =
@@ -1824,6 +1831,39 @@ public value class ClientPlaybackPermissionDecisionReason(
     }
 }
 
+@JvmInline
+@Serializable
+public value class ClientPlaybackProfileFamily(
+    public val wireValue: String,
+) {
+    public val isKnown: Boolean
+        get() = wireValue in KnownWireValues
+
+    public companion object {
+        public val BrowserChromium: ClientPlaybackProfileFamily = ClientPlaybackProfileFamily("browser_chromium")
+        public val BrowserFirefox: ClientPlaybackProfileFamily = ClientPlaybackProfileFamily("browser_firefox")
+        public val BrowserSafari: ClientPlaybackProfileFamily = ClientPlaybackProfileFamily("browser_safari")
+        public val AndroidMedia3: ClientPlaybackProfileFamily = ClientPlaybackProfileFamily("android_media3")
+        public val DesktopNative: ClientPlaybackProfileFamily = ClientPlaybackProfileFamily("desktop_native")
+        public val TvWebos: ClientPlaybackProfileFamily = ClientPlaybackProfileFamily("tv_webos")
+        public val TvTizen: ClientPlaybackProfileFamily = ClientPlaybackProfileFamily("tv_tizen")
+        public val Chromecast: ClientPlaybackProfileFamily = ClientPlaybackProfileFamily("chromecast")
+        public val DlnaRenderer: ClientPlaybackProfileFamily = ClientPlaybackProfileFamily("dlna_renderer")
+
+        public val KnownWireValues: Set<String> = setOf(
+            "browser_chromium",
+            "browser_firefox",
+            "browser_safari",
+            "android_media3",
+            "desktop_native",
+            "tv_webos",
+            "tv_tizen",
+            "chromecast",
+            "dlna_renderer",
+        )
+    }
+}
+
 @Serializable
 public data class ClientPlaybackTargetDto(
     @SerialName("control_capabilities")
@@ -2464,6 +2504,43 @@ public data class PlaybackDecisionResponse(
     public val probe: MediaProbeDto?,
     public val source: MediaSourceDto,
     public val target: ClientPlaybackTargetDto,
+)
+
+@Serializable
+public data class PlaybackProfilePresetDto(
+    @SerialName("audio_codecs")
+    public val audioCodecs: List<String>,
+    public val containers: List<String>,
+    @SerialName("device_family")
+    public val deviceFamily: String,
+    @SerialName("direct_play")
+    public val directPlay: Boolean,
+    public val family: ClientPlaybackProfileFamily,
+    @SerialName("hls_segment_container")
+    public val hlsSegmentContainer: ClientHlsSegmentContainer,
+    @SerialName("hls_variant_policy")
+    public val hlsVariantPolicy: ClientHlsVariantPolicy,
+    @SerialName("max_audio_channels")
+    public val maxAudioChannels: Int? = null,
+    @SerialName("max_height")
+    public val maxHeight: Int? = null,
+    @SerialName("max_video_bitrate")
+    public val maxVideoBitrate: Long? = null,
+    @SerialName("max_width")
+    public val maxWidth: Int? = null,
+    @SerialName("profile_version")
+    public val profileVersion: Int,
+    @SerialName("supports_hdr")
+    public val supportsHdr: Boolean,
+    @SerialName("supports_subtitles")
+    public val supportsSubtitles: Boolean,
+    @SerialName("video_codecs")
+    public val videoCodecs: List<String>,
+)
+
+@Serializable
+public data class PlaybackProfilePresetsResponse(
+    public val presets: List<PlaybackProfilePresetDto>,
 )
 
 @Serializable

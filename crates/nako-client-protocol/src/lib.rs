@@ -232,6 +232,12 @@ pub const PUBLIC_CLIENT_ROUTES: &[PublicClientRoute] = &[
         rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
     },
     PublicClientRoute {
+        path: "/playback/profile-presets",
+        methods: &[PublicClientHttpMethod::Get],
+        kind: PublicClientRouteKind::Playback,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
         path: "/sources/{source_id}/probe",
         methods: &[PublicClientHttpMethod::Get],
         kind: PublicClientRouteKind::Playback,
@@ -567,7 +573,7 @@ mod tests {
     fn public_route_inventory_is_protocol_owned_and_complete() {
         let paths = public_client_paths().collect::<Vec<_>>();
 
-        assert_eq!(paths.len(), 48);
+        assert_eq!(paths.len(), 49);
         assert!(paths.contains(&"/health"));
         assert!(paths.contains(&"/auth/login"));
         assert!(paths.contains(&"/auth/invitations/redeem"));
@@ -579,6 +585,7 @@ mod tests {
         assert!(paths.contains(&"/users/me/playlists/{playlist_id}/items/{item_id}"));
         assert!(paths.contains(&"/users/me/playlists/{playlist_id}/items/reorder"));
         assert!(paths.contains(&"/management/context-links"));
+        assert!(paths.contains(&"/playback/profile-presets"));
         assert!(paths.contains(&"/images/{image_id}"));
         assert!(paths.contains(&"/sources/{source_id}/stream"));
         assert!(paths.contains(&"/sources/{source_id}/subtitles/{stream_index}"));
@@ -634,7 +641,7 @@ mod tests {
 
         let json_count = public_client_json_routes().count();
         let streaming_count = public_client_streaming_routes().count();
-        assert_eq!(json_count, 42);
+        assert_eq!(json_count, 43);
         assert_eq!(streaming_count, 6);
         assert_eq!(json_count + streaming_count, PUBLIC_CLIENT_ROUTES.len());
         let remux_stream = PUBLIC_CLIENT_ROUTES
@@ -670,6 +677,23 @@ mod tests {
                 .all(|route| route.path.starts_with("/sources/")
                     || route.path.starts_with("/playback/")
                     || route.path.starts_with("/users/me/playback-state/"))
+        );
+        let profile_presets = PUBLIC_CLIENT_ROUTES
+            .iter()
+            .find(|route| route.path == "/playback/profile-presets")
+            .expect("playback profile preset discovery route exists");
+        assert_eq!(profile_presets.kind, PublicClientRouteKind::Playback);
+        assert_eq!(
+            profile_presets.rust_sdk_exposure,
+            PublicClientRustSdkExposure::JsonMethod
+        );
+        assert_eq!(
+            profile_presets
+                .methods
+                .iter()
+                .map(|method| method.as_str())
+                .collect::<Vec<_>>(),
+            vec!["GET"]
         );
         assert!(
             PUBLIC_CLIENT_ROUTES
@@ -973,6 +997,71 @@ mod tests {
         assert!(subtitle_value["playback_session_id"].is_null());
         assert_eq!(subtitle_value["urls"][0]["kind"], "subtitle");
         assert!(subtitle_value.get("locator").is_none());
+    }
+
+    #[test]
+    fn public_playback_profile_presets_emit_safe_flat_capability_templates() {
+        let response = PlaybackProfilePresetsResponse {
+            presets: vec![PlaybackProfilePresetDto {
+                family: ClientPlaybackProfileFamily::BrowserChromium,
+                device_family: "browser_chromium".to_owned(),
+                profile_version: 1,
+                direct_play: true,
+                containers: vec!["mp4".to_owned(), "webm".to_owned()],
+                video_codecs: vec!["h264".to_owned()],
+                audio_codecs: vec!["aac".to_owned()],
+                max_video_bitrate: None,
+                max_width: Some(1920),
+                max_height: Some(1080),
+                max_audio_channels: Some(2),
+                supports_hdr: false,
+                supports_subtitles: true,
+                hls_variant_policy: ClientHlsVariantPolicy::Adaptive,
+                hls_segment_container: ClientHlsSegmentContainer::Fmp4,
+            }],
+        };
+
+        let value = serde_json::to_value(response).unwrap();
+        let serialized = serde_json::to_string(&value).unwrap().to_ascii_lowercase();
+        let preset = &value["presets"][0];
+
+        assert_eq!(preset["family"], "browser_chromium");
+        assert_eq!(preset["device_family"], "browser_chromium");
+        assert_eq!(preset["profile_version"], 1);
+        assert_eq!(preset["direct_play"], true);
+        assert_eq!(preset["containers"][0], "mp4");
+        assert_eq!(preset["video_codecs"][0], "h264");
+        assert_eq!(preset["audio_codecs"][0], "aac");
+        assert_eq!(preset["max_width"], 1920);
+        assert_eq!(preset["max_height"], 1080);
+        assert_eq!(preset["max_audio_channels"], 2);
+        assert_eq!(preset["supports_hdr"], false);
+        assert_eq!(preset["supports_subtitles"], true);
+        assert_eq!(preset["hls_variant_policy"], "adaptive");
+        assert_eq!(preset["hls_segment_container"], "fmp4");
+        assert!(preset.get("max_video_bitrate").is_none());
+
+        for forbidden in [
+            "unknown",
+            "ffmpeg",
+            "gpu",
+            "hardware",
+            "operator",
+            "resource_pressure",
+            "bearer",
+            "token",
+            "principal",
+            "source_locator",
+            "source_uri",
+            "local_path",
+            "output_path",
+            "raw_locator",
+        ] {
+            assert!(
+                !serialized.contains(forbidden),
+                "playback profile preset response leaked forbidden term: {forbidden}"
+            );
+        }
     }
 
     #[test]

@@ -35,6 +35,7 @@ export const NAKO_PUBLIC_PATHS = [
   "/genres/{genre_id}/items",
   "/search",
   "/management/context-links",
+  "/playback/profile-presets",
   "/sources/{source_id}/probe",
   "/sources/{source_id}/playback/decision",
   "/sources/{source_id}/playback/browser-ticket",
@@ -185,6 +186,8 @@ export interface ClientPlaybackDenialDto {
 export type ClientPlaybackPermission = "media_playback" | "direct_play" | "remux" | "audio_transcode" | "video_transcode" | "remote_playback" | "remote_control" | "cast";
 
 export type ClientPlaybackPermissionDecisionReason = "allowed" | "library_access_does_not_allow_play" | "media_playback_disabled" | "direct_play_disabled" | "remux_disabled" | "audio_transcode_disabled" | "video_transcode_disabled" | "remote_playback_disabled" | "remote_control_disabled" | "cast_disabled";
+
+export type ClientPlaybackProfileFamily = "browser_chromium" | "browser_firefox" | "browser_safari" | "android_media3" | "desktop_native" | "tv_webos" | "tv_tizen" | "chromecast" | "dlna_renderer";
 
 export interface ClientPlaybackTargetDto {
   control_capabilities: ClientRendererControlCapabilitiesDto;
@@ -540,6 +543,28 @@ export interface PlaybackDecisionResponse {
   probe: MediaProbeDto | null;
   source: MediaSourceDto;
   target: ClientPlaybackTargetDto;
+}
+
+export interface PlaybackProfilePresetDto {
+  audio_codecs: Array<string>;
+  containers: Array<string>;
+  device_family: string;
+  direct_play: boolean;
+  family: ClientPlaybackProfileFamily;
+  hls_segment_container: ClientHlsSegmentContainer;
+  hls_variant_policy: ClientHlsVariantPolicy;
+  max_audio_channels?: number;
+  max_height?: number;
+  max_video_bitrate?: number;
+  max_width?: number;
+  profile_version: number;
+  supports_hdr: boolean;
+  supports_subtitles: boolean;
+  video_codecs: Array<string>;
+}
+
+export interface PlaybackProfilePresetsResponse {
+  presets: Array<PlaybackProfilePresetDto>;
 }
 
 export interface PlaybackSessionDto {
@@ -1038,6 +1063,10 @@ export class NakoClient {
 
   managementContextLinks(query?: ManagementContextQuery): Promise<ManagementContextLinksResponse> {
     return this.requestJson("GET", "/management/context-links", { query });
+  }
+
+  playbackProfilePresets(): Promise<PlaybackProfilePresetsResponse> {
+    return this.requestJson("GET", "/playback/profile-presets");
   }
 
   getSourceProbe(sourceId: string): Promise<SourceProbeResponse> {

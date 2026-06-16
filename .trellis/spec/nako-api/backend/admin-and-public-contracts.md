@@ -48,6 +48,7 @@ Use this spec when adding API wire types or generated route inventory in
 |--------|---------------------|
 | Public route/DTO | OpenAPI and SDK generator tests in `nako-api` |
 | Public SDK method | TypeScript SDK generated output check and committed package drift check |
+| Public route/DTO exposed to generated SDK packages | Regenerate both `sdk/typescript/src/index.ts` and `sdk/kotlin/src/main/kotlin/dev/nako/sdk/NakoClientSdk.kt` from `nako-api` |
 | Admin route/DTO used by Admin Web | `admin_contract` tests and regenerated `apps/admin-web` contract |
 | Admin route accidentally added to public inventory | `nako-api` tests must reject `/admin` and `/admin/v1` in public outputs |
 | Sensitive/raw field added | Redaction/leakage tests must reject local paths, secrets, raw tokens, raw provider cache, jobs, addons, webhooks, automation, and storage internals as appropriate |
@@ -57,6 +58,9 @@ Use this spec when adding API wire types or generated route inventory in
 - Good: add a DTO in the correct `nako-api` admin/public module, add route
   inventory in the matching generator, update server mapping, regenerate the
   Admin Web contract if needed, and add focused generator tests.
+- Good: Public Client discovery routes such as `/playback/profile-presets`
+  expose authenticated, read-only templates from protocol-owned DTOs and
+  refresh TypeScript/Kotlin SDK package artifacts from the generator.
 - Base: admin-only diagnostics route updates only `nako_api::admin`,
   `admin_contract.rs`, `nako-server`, and Admin Web local contract.
 - Bad: putting Admin `/admin/v1/*` into the Public Client SDK or hand-editing

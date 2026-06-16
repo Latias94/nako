@@ -14,8 +14,9 @@ use nako_playback::{
     ClientPlaybackCapabilities, DirectPlayPlan, PlaybackCapabilityEvaluation,
     PlaybackCompatibilityCondition, PlaybackDecision, PlaybackDecisionReason,
     PlaybackDecisionReport, PlaybackDenial, PlaybackMode, PlaybackPermission,
-    PlaybackPermissionDecisionReason, PlaybackTarget, PlaybackTargetKind,
-    PlaybackTargetNetworkScope, PlaybackTargetTransportAuth, RendererControlCommand,
+    PlaybackPermissionDecisionReason, PlaybackProfileFamily, PlaybackProfilePreset, PlaybackTarget,
+    PlaybackTargetKind, PlaybackTargetNetworkScope, PlaybackTargetTransportAuth,
+    RendererControlCommand,
 };
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
@@ -34,9 +35,9 @@ pub use nako_client_protocol::{
     ClientPlaybackCapabilitiesDto, ClientPlaybackCapabilityEvaluation,
     ClientPlaybackCompatibilityCondition, ClientPlaybackDecision, ClientPlaybackDecisionReason,
     ClientPlaybackDecisionReport, ClientPlaybackDenialDto, ClientPlaybackMode,
-    ClientPlaybackPermission, ClientPlaybackPermissionDecisionReason, ClientPlaybackSessionMode,
-    ClientPlaybackSessionState, ClientPlaybackTargetDto, ClientPlaybackTargetKind,
-    ClientPlaybackTargetNetworkScope, ClientPlaybackTargetTransportAuth,
+    ClientPlaybackPermission, ClientPlaybackPermissionDecisionReason, ClientPlaybackProfileFamily,
+    ClientPlaybackSessionMode, ClientPlaybackSessionState, ClientPlaybackTargetDto,
+    ClientPlaybackTargetKind, ClientPlaybackTargetNetworkScope, ClientPlaybackTargetTransportAuth,
     ClientRendererCommandState, ClientRendererControlCapabilitiesDto, ClientRendererControlCommand,
     ClientRendererSessionState, ClientSortOrder, ClientTranscodeFailureCategory,
     ClientTranscodePlan, ClientTranscodeSessionKind, ClientTranscodeSessionState,
@@ -51,7 +52,8 @@ pub use nako_client_protocol::{
     ManagementContextLinksResponse, MediaItemDto, MediaProbeDto, MediaSourceDto,
     MediaStreamDispositionDto, MediaStreamDto, MetadataProfileDto, MetadataScanPolicyDto,
     PLAYBACK_SESSION_ID_HEADER, PageInfo, PeopleResponse, PersonDto, PersonItemsResponse,
-    PersonResponse, PlaybackDecisionResponse, PlaybackSessionDto, PlaybackSessionHeartbeatRequest,
+    PersonResponse, PlaybackDecisionResponse, PlaybackProfilePresetDto,
+    PlaybackProfilePresetsResponse, PlaybackSessionDto, PlaybackSessionHeartbeatRequest,
     PlaybackSessionResponse, PublicImageRefDto, RedeemInvitationRequest,
     RendererCommandCompletionRequest, RendererCommandDto, RendererCommandPollResponse,
     RendererCommandResponse, RendererCommandTransportDto, RendererCommandTransportUrlDto,
@@ -1104,6 +1106,63 @@ fn playback_session_state_to_dto(state: PlaybackSessionState) -> ClientPlaybackS
     }
 }
 
+#[must_use]
+pub fn playback_profile_presets_response_from_presets(
+    presets: impl IntoIterator<Item = PlaybackProfilePreset>,
+) -> PlaybackProfilePresetsResponse {
+    PlaybackProfilePresetsResponse {
+        presets: presets
+            .into_iter()
+            .filter_map(playback_profile_preset_to_dto)
+            .collect(),
+    }
+}
+
+fn playback_profile_preset_to_dto(
+    preset: PlaybackProfilePreset,
+) -> Option<PlaybackProfilePresetDto> {
+    let family = playback_profile_family_to_dto(preset.family)?;
+
+    Some(PlaybackProfilePresetDto {
+        family,
+        device_family: preset.device_family,
+        profile_version: preset.profile_version,
+        direct_play: preset.capabilities.direct_play,
+        containers: preset.capabilities.containers,
+        video_codecs: preset.capabilities.video_codecs,
+        audio_codecs: preset.capabilities.audio_codecs,
+        max_video_bitrate: preset.capabilities.max_video_bitrate,
+        max_width: preset.capabilities.max_width,
+        max_height: preset.capabilities.max_height,
+        max_audio_channels: preset.capabilities.max_audio_channels,
+        supports_hdr: preset.capabilities.supports_hdr,
+        supports_subtitles: preset.capabilities.supports_subtitles,
+        hls_variant_policy: hls_variant_policy_to_dto(
+            preset.capabilities.hls_variant_policy.as_str(),
+        ),
+        hls_segment_container: hls_segment_container_to_dto(
+            preset.capabilities.hls_segment_container.as_str(),
+        ),
+    })
+}
+
+fn playback_profile_family_to_dto(
+    family: PlaybackProfileFamily,
+) -> Option<ClientPlaybackProfileFamily> {
+    Some(match family {
+        PlaybackProfileFamily::BrowserChromium => ClientPlaybackProfileFamily::BrowserChromium,
+        PlaybackProfileFamily::BrowserFirefox => ClientPlaybackProfileFamily::BrowserFirefox,
+        PlaybackProfileFamily::BrowserSafari => ClientPlaybackProfileFamily::BrowserSafari,
+        PlaybackProfileFamily::AndroidMedia3 => ClientPlaybackProfileFamily::AndroidMedia3,
+        PlaybackProfileFamily::DesktopNative => ClientPlaybackProfileFamily::DesktopNative,
+        PlaybackProfileFamily::TvWebos => ClientPlaybackProfileFamily::TvWebos,
+        PlaybackProfileFamily::TvTizen => ClientPlaybackProfileFamily::TvTizen,
+        PlaybackProfileFamily::Chromecast => ClientPlaybackProfileFamily::Chromecast,
+        PlaybackProfileFamily::DlnaRenderer => ClientPlaybackProfileFamily::DlnaRenderer,
+        PlaybackProfileFamily::Unknown => return None,
+    })
+}
+
 fn playback_session_client_capabilities_from_json(
     value: &str,
 ) -> Option<ClientPlaybackCapabilitiesDto> {
@@ -1455,6 +1514,75 @@ mod tests {
         );
         assert!(value.get("selected_source").is_none());
         assert!(value.get("rendition").is_none());
+    }
+
+    #[test]
+    fn playback_profile_preset_response_exposes_only_public_capability_templates() {
+        let response = playback_profile_presets_response_from_presets(
+            nako_playback::playback_profile_presets(),
+        );
+        let value = serde_json::to_value(&response).unwrap();
+        let serialized = serde_json::to_string(&value).unwrap().to_ascii_lowercase();
+
+        assert!(response.presets.len() >= 9);
+        assert!(response.presets.iter().all(
+            |preset| preset.family != ClientPlaybackProfileFamily::Other("unknown".to_owned())
+        ));
+
+        let chromium = value["presets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|preset| preset["device_family"] == "browser_chromium")
+            .expect("browser_chromium preset should be exposed");
+        assert_eq!(chromium["family"], "browser_chromium");
+        assert_eq!(chromium["profile_version"], 1);
+        assert_eq!(chromium["direct_play"], true);
+        assert!(
+            chromium["containers"]
+                .as_array()
+                .unwrap()
+                .contains(&serde_json::json!("mp4"))
+        );
+        assert!(
+            chromium["video_codecs"]
+                .as_array()
+                .unwrap()
+                .contains(&serde_json::json!("h264"))
+        );
+        assert!(
+            chromium["audio_codecs"]
+                .as_array()
+                .unwrap()
+                .contains(&serde_json::json!("aac"))
+        );
+        assert_eq!(chromium["supports_hdr"], false);
+        assert_eq!(chromium["supports_subtitles"], true);
+        assert_eq!(chromium["hls_variant_policy"], "adaptive");
+        assert_eq!(chromium["hls_segment_container"], "fmp4");
+
+        for forbidden in [
+            "unknown",
+            "ffmpeg",
+            "gpu",
+            "hardware",
+            "operator",
+            "resource_pressure",
+            "bearer",
+            "token",
+            "principal",
+            "source_locator",
+            "source_uri",
+            "local_path",
+            "output_path",
+            "raw_locator",
+            "operator_policy",
+        ] {
+            assert!(
+                !serialized.contains(forbidden),
+                "public playback profile preset response leaked forbidden term: {forbidden}"
+            );
+        }
     }
 
     #[test]
