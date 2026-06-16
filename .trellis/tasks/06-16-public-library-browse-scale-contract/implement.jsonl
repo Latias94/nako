@@ -1,1 +1,8 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file":".trellis/spec/nako-server/backend/index.md","reason":"Public catalog and library HTTP route patterns, auth/access boundaries, and server test guidance."}
+{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Axum route handler, principal, and access-check patterns for public browse/search routes."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Focused nextest gates and redaction-safe server test requirements for route contracts."}
+{"file":".trellis/spec/nako-api/backend/index.md","reason":"Public DTO and contract ownership if browse/search response shapes change."}
+{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Public/Admin split and generated contract rules for any API surface changes."}
+{"file":".trellis/spec/nako-client-protocol/backend/index.md","reason":"Public Client route inventory, PageInfo, DTO redaction, and protocol boundary guidance."}
+{"file":".trellis/spec/nako-db/backend/index.md","reason":"Repository contract ownership for search/access filtering and backend parity tests."}
+{"file":".trellis/spec/nako-db/backend/quality-guidelines.md","reason":"Database contract test and SQLite/PostgreSQL parity expectations for search/browse behavior."}
