@@ -1157,6 +1157,8 @@ impl QueryParams for SearchQuery<'_> {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct PlaybackCapabilitiesQuery<'a> {
     pub direct_play: Option<bool>,
+    pub device_family: Option<&'a str>,
+    pub profile_version: Option<u32>,
     pub container: Option<&'a str>,
     pub video_codec: Option<&'a str>,
     pub audio_codec: Option<&'a str>,
@@ -1177,6 +1179,12 @@ impl QueryParams for PlaybackCapabilitiesQuery<'_> {
                 "direct_play".to_owned(),
                 if direct_play { "true" } else { "false" }.to_owned(),
             ));
+        }
+        if let Some(device_family) = self.device_family {
+            pairs.push(("device_family".to_owned(), device_family.to_owned()));
+        }
+        if let Some(profile_version) = self.profile_version {
+            pairs.push(("profile_version".to_owned(), profile_version.to_string()));
         }
         if let Some(container) = self.container {
             pairs.push(("container".to_owned(), container.to_owned()));
@@ -1927,6 +1935,8 @@ mod tests {
                     mode: BrowserPlaybackMode::Hls,
                     capabilities: Some(BrowserPlaybackCapabilitiesDto {
                         direct_play: Some(true),
+                        device_family: Some("browser_chromium".to_owned()),
+                        profile_version: Some(1),
                         container: Some(vec!["mp4".to_owned(), "webm".to_owned()]),
                         video_codec: Some(vec!["h264".to_owned()]),
                         audio_codec: Some(vec!["aac".to_owned()]),
@@ -1967,6 +1977,11 @@ mod tests {
         );
         let ticket_body = serde_json::from_slice::<serde_json::Value>(&requests[1].body).unwrap();
         assert_eq!(ticket_body["mode"], "hls");
+        assert_eq!(
+            ticket_body["capabilities"]["device_family"],
+            "browser_chromium"
+        );
+        assert_eq!(ticket_body["capabilities"]["profile_version"], 1);
         assert_eq!(ticket_body["capabilities"]["container"][0], "mp4");
         assert_eq!(ticket_body["capabilities"]["output_container"], "mp4");
         assert_eq!(
@@ -2327,6 +2342,8 @@ mod tests {
                 Some(RemuxPlaybackQuery {
                     capabilities: PlaybackCapabilitiesQuery {
                         direct_play: Some(false),
+                        device_family: Some("browser_chromium"),
+                        profile_version: Some(1),
                         container: Some("mp4,mkv"),
                         video_codec: Some("h264"),
                         audio_codec: Some("aac"),
@@ -2351,6 +2368,8 @@ mod tests {
                 Some(RemuxPlaybackQuery {
                     capabilities: PlaybackCapabilitiesQuery {
                         direct_play: Some(false),
+                        device_family: Some("browser_chromium"),
+                        profile_version: Some(1),
                         container: Some("mp4,mkv"),
                         video_codec: Some("h264"),
                         audio_codec: Some("aac"),
@@ -2373,6 +2392,8 @@ mod tests {
                 "source 1",
                 Some(PlaybackCapabilitiesQuery {
                     direct_play: None,
+                    device_family: Some("browser_chromium"),
+                    profile_version: Some(1),
                     container: Some("hls"),
                     video_codec: Some("h264"),
                     audio_codec: Some("aac"),
@@ -2428,15 +2449,15 @@ mod tests {
         );
         assert_eq!(
             remux.url.as_str(),
-            "http://localhost:3000/api/sources/source%201/stream/remux?direct_play=false&container=mp4%2Cmkv&video_codec=h264&audio_codec=aac&max_video_bitrate=8000000&max_width=1920&max_height=1080&max_audio_channels=2&supports_hdr=false&supports_subtitles=false&hls_variant_policy=single_variant&hls_segment_container=mpeg_ts&output_container=mkv"
+            "http://localhost:3000/api/sources/source%201/stream/remux?direct_play=false&device_family=browser_chromium&profile_version=1&container=mp4%2Cmkv&video_codec=h264&audio_codec=aac&max_video_bitrate=8000000&max_width=1920&max_height=1080&max_audio_channels=2&supports_hdr=false&supports_subtitles=false&hls_variant_policy=single_variant&hls_segment_container=mpeg_ts&output_container=mkv"
         );
         assert_eq!(
             remux_head.url.as_str(),
-            "http://localhost:3000/api/sources/source%201/stream/remux?direct_play=false&container=mp4%2Cmkv&video_codec=h264&audio_codec=aac&max_video_bitrate=8000000&max_width=1920&max_height=1080&max_audio_channels=2&supports_hdr=false&supports_subtitles=false&hls_variant_policy=single_variant&hls_segment_container=mpeg_ts&output_container=mkv"
+            "http://localhost:3000/api/sources/source%201/stream/remux?direct_play=false&device_family=browser_chromium&profile_version=1&container=mp4%2Cmkv&video_codec=h264&audio_codec=aac&max_video_bitrate=8000000&max_width=1920&max_height=1080&max_audio_channels=2&supports_hdr=false&supports_subtitles=false&hls_variant_policy=single_variant&hls_segment_container=mpeg_ts&output_container=mkv"
         );
         assert_eq!(
             playlist.url.as_str(),
-            "http://localhost:3000/api/sources/source%201/stream/hls/playlist.m3u8?container=hls&video_codec=h264&audio_codec=aac&max_video_bitrate=4000000&max_width=1280&max_height=720&max_audio_channels=2&supports_hdr=false&supports_subtitles=true&hls_variant_policy=adaptive&hls_segment_container=fmp4"
+            "http://localhost:3000/api/sources/source%201/stream/hls/playlist.m3u8?device_family=browser_chromium&profile_version=1&container=hls&video_codec=h264&audio_codec=aac&max_video_bitrate=4000000&max_width=1280&max_height=720&max_audio_channels=2&supports_hdr=false&supports_subtitles=true&hls_variant_policy=adaptive&hls_segment_container=fmp4"
         );
         assert_eq!(
             segment.url.as_str(),

@@ -1080,6 +1080,8 @@ client capabilities:
 
 ```text
 direct_play=true
+device_family=browser_chromium
+profile_version=1
 container=mp4,webm
 video_codec=h264,hevc
 audio_codec=aac,opus
@@ -1094,15 +1096,19 @@ hls_segment_container=mpeg_ts|fmp4
 ```
 
 The same flat Public Client playback capability fields are accepted by remux
-and HLS playback query builders. Browser playback tickets accept the same
-capability fields in `capabilities`, plus `output_container=mp4|mkv` for
-explicit remux ticket planning. Renderer registration and heartbeat bodies use
-the response/session capability field names `containers`, `video_codecs`, and
-`audio_codecs` with the same bitrate, resolution, audio-channel, HDR,
-subtitle, and HLS policy fields. These fields describe client/player facts and
-request preferences only; FFmpeg, hardware/GPU, operator policy, resource
-pressure, bearer token, principal, source locator, and local path facts remain
-outside the Public Client playback capability contract.
+and HLS playback query builders. `device_family` and `profile_version` are
+optional client-owned profile identity fields used for reproducibility and
+debug grouping; explicit container, codec, HDR, subtitle, bitrate, resolution,
+and HLS fields still describe actual playback capability. Browser playback
+tickets accept the same capability fields in `capabilities`, plus
+`output_container=mp4|mkv` for explicit remux ticket planning. Renderer
+registration and heartbeat bodies use the response/session capability field
+names `containers`, `video_codecs`, and `audio_codecs` with the same profile,
+bitrate, resolution, audio-channel, HDR, subtitle, and HLS policy fields.
+These fields describe client/player facts and request preferences only; FFmpeg,
+hardware/GPU, operator policy, resource pressure, bearer token, principal,
+source locator, and local path facts remain outside the Public Client playback
+capability contract.
 
 `POST /sources/{source_id}/playback/browser-ticket` issues token-safe browser
 media URLs. `BrowserPlaybackTicketResponse.playback_session_id` is a required

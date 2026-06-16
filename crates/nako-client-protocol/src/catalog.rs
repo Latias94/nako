@@ -507,6 +507,10 @@ pub struct BrowserPlaybackCapabilitiesDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub direct_play: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_family: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile_version: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub container: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub video_codec: Option<Vec<String>>,
@@ -536,6 +540,8 @@ impl Default for BrowserPlaybackCapabilitiesDto {
     fn default() -> Self {
         Self {
             direct_play: None,
+            device_family: None,
+            profile_version: None,
             container: None,
             video_codec: None,
             audio_codec: None,
@@ -706,6 +712,10 @@ pub struct PlaybackSessionDto {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ClientPlaybackCapabilitiesDto {
     pub direct_play: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_family: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile_version: Option<u32>,
     pub containers: Vec<String>,
     pub video_codecs: Vec<String>,
     pub audio_codecs: Vec<String>,
@@ -731,6 +741,8 @@ impl Default for ClientPlaybackCapabilitiesDto {
     fn default() -> Self {
         Self {
             direct_play: true,
+            device_family: None,
+            profile_version: None,
             containers: Vec::new(),
             video_codecs: Vec::new(),
             audio_codecs: Vec::new(),

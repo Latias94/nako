@@ -990,6 +990,8 @@ mod tests {
 
         let browser = serde_json::to_value(BrowserPlaybackCapabilitiesDto {
             direct_play: Some(true),
+            device_family: Some("browser_chromium".to_owned()),
+            profile_version: Some(1),
             container: Some(vec!["mp4".to_owned()]),
             video_codec: Some(vec!["h264".to_owned()]),
             audio_codec: Some(vec!["aac".to_owned()]),
@@ -1006,6 +1008,8 @@ mod tests {
         .unwrap();
         let client = serde_json::to_value(ClientPlaybackCapabilitiesDto {
             direct_play: true,
+            device_family: Some("browser_chromium".to_owned()),
+            profile_version: Some(1),
             containers: vec!["mp4".to_owned()],
             video_codecs: vec!["h264".to_owned()],
             audio_codecs: vec!["aac".to_owned()],
@@ -1025,6 +1029,7 @@ mod tests {
             [
                 "audio_codec",
                 "container",
+                "device_family",
                 "direct_play",
                 "hls_segment_container",
                 "hls_variant_policy",
@@ -1033,6 +1038,7 @@ mod tests {
                 "max_video_bitrate",
                 "max_width",
                 "output_container",
+                "profile_version",
                 "supports_hdr",
                 "supports_subtitles",
                 "video_codec",
@@ -1043,6 +1049,7 @@ mod tests {
             [
                 "audio_codecs",
                 "containers",
+                "device_family",
                 "direct_play",
                 "hls_segment_container",
                 "hls_variant_policy",
@@ -1050,6 +1057,7 @@ mod tests {
                 "max_height",
                 "max_video_bitrate",
                 "max_width",
+                "profile_version",
                 "supports_hdr",
                 "supports_subtitles",
                 "video_codecs",

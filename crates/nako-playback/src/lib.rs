@@ -269,6 +269,8 @@ pub struct TranscodeRequirementStream {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ClientPlaybackCapabilities {
     pub direct_play: bool,
+    pub device_family: Option<String>,
+    pub profile_version: Option<u32>,
     pub containers: Vec<String>,
     pub video_codecs: Vec<String>,
     pub audio_codecs: Vec<String>,
@@ -290,6 +292,8 @@ impl Default for ClientPlaybackCapabilities {
     fn default() -> Self {
         Self {
             direct_play: true,
+            device_family: None,
+            profile_version: None,
             containers: vec!["mp4".to_owned(), "m4v".to_owned(), "webm".to_owned()],
             video_codecs: vec!["h264".to_owned(), "hevc".to_owned(), "vp9".to_owned()],
             audio_codecs: vec!["aac".to_owned(), "mp3".to_owned(), "opus".to_owned()],
@@ -2599,6 +2603,8 @@ mod tests {
         let left = PlaybackTargetProfile::from_capabilities(
             &ClientPlaybackCapabilities {
                 direct_play: true,
+                device_family: Some("Browser_Chromium".to_owned()),
+                profile_version: Some(1),
                 containers: vec!["MP4".to_owned(), "webm".to_owned(), "mp4".to_owned()],
                 video_codecs: vec!["H264".to_owned(), "hevc".to_owned()],
                 audio_codecs: vec!["AAC".to_owned(), "opus".to_owned()],
@@ -2624,6 +2630,8 @@ mod tests {
         let right = PlaybackTargetProfile::from_capabilities(
             &ClientPlaybackCapabilities {
                 direct_play: true,
+                device_family: Some("browser_chromium".to_owned()),
+                profile_version: Some(1),
                 containers: vec!["webm".to_owned(), "mp4".to_owned()],
                 video_codecs: vec!["hevc".to_owned(), "h264".to_owned()],
                 audio_codecs: vec!["opus".to_owned(), "aac".to_owned()],
@@ -2648,6 +2656,11 @@ mod tests {
         );
 
         assert_eq!(left.identity_key(), right.identity_key());
+        assert!(
+            left.identity_key()
+                .contains("device_family=browser_chromium")
+        );
+        assert!(left.identity_key().contains("profile_version=1"));
         assert!(left.identity_key().contains("containers=mp4|webm"));
         assert!(left.identity_key().contains("audio=2"));
         assert!(left.identity_key().contains("hls_variant=single_variant"));
@@ -2656,6 +2669,36 @@ mod tests {
             left.identity_key()
                 .contains("transcode=container=hls,vcodec=h264,acodec=aac")
         );
+    }
+
+    #[test]
+    fn playback_target_profile_identity_sanitizes_device_family() {
+        let profile = PlaybackTargetProfile::from_capabilities(
+            &ClientPlaybackCapabilities {
+                device_family: Some(" Browser Chromium/Win64 ".to_owned()),
+                profile_version: Some(7),
+                ..ClientPlaybackCapabilities::default()
+            },
+            PlaybackSelectionContext::default(),
+        );
+
+        let identity = profile.identity_key();
+
+        assert!(identity.contains("device_family=browser_chromium_win64"));
+        assert!(identity.contains("profile_version=7"));
+    }
+
+    #[test]
+    fn playback_target_profile_identity_omits_absent_device_profile_identity() {
+        let profile = PlaybackTargetProfile::from_capabilities(
+            &ClientPlaybackCapabilities::default(),
+            PlaybackSelectionContext::default(),
+        );
+
+        let identity = profile.identity_key();
+
+        assert!(!identity.contains("device_family="));
+        assert!(!identity.contains("profile_version="));
     }
 
     #[test]

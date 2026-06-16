@@ -1,6 +1,8 @@
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct CorePlaybackCapabilities {
     pub direct_play: Option<bool>,
+    pub device_family: Option<String>,
+    pub profile_version: Option<u32>,
     pub containers: Vec<String>,
     pub video_codecs: Vec<String>,
     pub audio_codecs: Vec<String>,
@@ -362,6 +364,15 @@ fn playback_capability_query(
         query.push(crate::CoreQueryParam::new(
             "direct_play",
             if direct_play { "true" } else { "false" },
+        ));
+    }
+    if let Some(device_family) = capabilities.device_family.as_deref() {
+        query.push(crate::CoreQueryParam::new("device_family", device_family));
+    }
+    if let Some(profile_version) = capabilities.profile_version {
+        query.push(crate::CoreQueryParam::new(
+            "profile_version",
+            profile_version.to_string(),
         ));
     }
     if !capabilities.containers.is_empty() {

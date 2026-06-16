@@ -7,6 +7,8 @@ pub struct CoreHttpHeader {
 #[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
 pub struct CorePlaybackCapabilities {
     pub direct_play: Option<bool>,
+    pub device_family: Option<String>,
+    pub profile_version: Option<u32>,
     pub containers: Vec<String>,
     pub video_codecs: Vec<String>,
     pub audio_codecs: Vec<String>,
@@ -581,6 +583,8 @@ impl From<CorePlaybackCapabilities> for nako_client_core::CorePlaybackCapabiliti
     fn from(value: CorePlaybackCapabilities) -> Self {
         Self {
             direct_play: value.direct_play,
+            device_family: value.device_family,
+            profile_version: value.profile_version,
             containers: value.containers,
             video_codecs: value.video_codecs,
             audio_codecs: value.audio_codecs,
@@ -843,6 +847,8 @@ mod tests {
             },
             CorePlaybackCapabilities {
                 direct_play: None,
+                device_family: None,
+                profile_version: None,
                 containers: Vec::new(),
                 video_codecs: Vec::new(),
                 audio_codecs: Vec::new(),
@@ -873,6 +879,8 @@ mod tests {
             "source 1".to_owned(),
             CorePlaybackCapabilities {
                 direct_play: None,
+                device_family: None,
+                profile_version: None,
                 containers: Vec::new(),
                 video_codecs: Vec::new(),
                 audio_codecs: Vec::new(),
@@ -901,6 +909,8 @@ mod tests {
             "source 1".to_owned(),
             CorePlaybackCapabilities {
                 direct_play: Some(false),
+                device_family: Some("browser_chromium".to_owned()),
+                profile_version: Some(1),
                 containers: vec!["mp4".to_owned(), "webm".to_owned()],
                 video_codecs: vec!["h264".to_owned()],
                 audio_codecs: vec!["aac".to_owned()],
@@ -917,7 +927,7 @@ mod tests {
 
         assert_eq!(
             request.url,
-            "https://nako.example/api/sources/source%201/playback/decision?direct_play=false&container=mp4%2Cwebm&video_codec=h264&audio_codec=aac&max_video_bitrate=8000000&max_width=1920&max_height=1080&max_audio_channels=2&supports_hdr=false&supports_subtitles=true&hls_variant_policy=adaptive&hls_segment_container=fmp4"
+            "https://nako.example/api/sources/source%201/playback/decision?direct_play=false&device_family=browser_chromium&profile_version=1&container=mp4%2Cwebm&video_codec=h264&audio_codec=aac&max_video_bitrate=8000000&max_width=1920&max_height=1080&max_audio_channels=2&supports_hdr=false&supports_subtitles=true&hls_variant_policy=adaptive&hls_segment_container=fmp4"
         );
     }
 

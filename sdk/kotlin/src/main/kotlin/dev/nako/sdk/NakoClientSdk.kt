@@ -99,6 +99,8 @@ public data class ManagementContextQuery(
 
 public data class PlaybackCapabilitiesQuery(
     public val directPlay: Boolean? = null,
+    public val deviceFamily: String? = null,
+    public val profileVersion: Int? = null,
     public val containers: List<String> = emptyList(),
     public val videoCodecs: List<String> = emptyList(),
     public val audioCodecs: List<String> = emptyList(),
@@ -133,6 +135,8 @@ public value class RemuxOutputContainer(
 
 public data class RemuxPlaybackQuery(
     public val directPlay: Boolean? = null,
+    public val deviceFamily: String? = null,
+    public val profileVersion: Int? = null,
     public val containers: List<String> = emptyList(),
     public val videoCodecs: List<String> = emptyList(),
     public val audioCodecs: List<String> = emptyList(),
@@ -149,6 +153,8 @@ public data class RemuxPlaybackQuery(
 
 public data class HlsPlaybackQuery(
     public val directPlay: Boolean? = null,
+    public val deviceFamily: String? = null,
+    public val profileVersion: Int? = null,
     public val containers: List<String> = emptyList(),
     public val videoCodecs: List<String> = emptyList(),
     public val audioCodecs: List<String> = emptyList(),
@@ -633,6 +639,12 @@ public object NakoPublicClientRequests {
             capabilities.directPlay?.let {
                 add("direct_play" to it.toString())
             }
+            capabilities.deviceFamily?.let {
+                add("device_family" to it)
+            }
+            capabilities.profileVersion?.let {
+                add("profile_version" to it.toString())
+            }
             addCsv("container", capabilities.containers)
             addCsv("video_codec", capabilities.videoCodecs)
             addCsv("audio_codec", capabilities.audioCodecs)
@@ -668,6 +680,12 @@ public object NakoPublicClientRequests {
         buildList {
             query.directPlay?.let {
                 add("direct_play" to it.toString())
+            }
+            query.deviceFamily?.let {
+                add("device_family" to it)
+            }
+            query.profileVersion?.let {
+                add("profile_version" to it.toString())
             }
             addCsv("container", query.containers)
             addCsv("video_codec", query.videoCodecs)
@@ -707,6 +725,12 @@ public object NakoPublicClientRequests {
         buildList {
             query.directPlay?.let {
                 add("direct_play" to it.toString())
+            }
+            query.deviceFamily?.let {
+                add("device_family" to it)
+            }
+            query.profileVersion?.let {
+                add("profile_version" to it.toString())
             }
             addCsv("container", query.containers)
             addCsv("video_codec", query.videoCodecs)
@@ -1407,6 +1431,8 @@ public data class BrowserPlaybackCapabilitiesDto(
     @SerialName("audio_codec")
     public val audioCodec: List<String> = emptyList(),
     public val container: List<String> = emptyList(),
+    @SerialName("device_family")
+    public val deviceFamily: String? = null,
     @SerialName("direct_play")
     public val directPlay: Boolean? = null,
     @SerialName("hls_segment_container")
@@ -1423,6 +1449,8 @@ public data class BrowserPlaybackCapabilitiesDto(
     public val maxWidth: Int? = null,
     @SerialName("output_container")
     public val outputContainer: BrowserPlaybackCapabilitiesDtoOutputContainer? = null,
+    @SerialName("profile_version")
+    public val profileVersion: Int? = null,
     @SerialName("supports_hdr")
     public val supportsHdr: Boolean? = null,
     @SerialName("supports_subtitles")
@@ -1591,6 +1619,8 @@ public data class ClientPlaybackCapabilitiesDto(
     @SerialName("audio_codecs")
     public val audioCodecs: List<String>,
     public val containers: List<String>,
+    @SerialName("device_family")
+    public val deviceFamily: String? = null,
     @SerialName("direct_play")
     public val directPlay: Boolean,
     @SerialName("hls_segment_container")
@@ -1605,6 +1635,8 @@ public data class ClientPlaybackCapabilitiesDto(
     public val maxVideoBitrate: Long? = null,
     @SerialName("max_width")
     public val maxWidth: Int? = null,
+    @SerialName("profile_version")
+    public val profileVersion: Int? = null,
     @SerialName("supports_hdr")
     public val supportsHdr: Boolean? = null,
     @SerialName("supports_subtitles")

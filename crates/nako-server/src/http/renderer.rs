@@ -395,6 +395,8 @@ fn client_playback_capabilities(
 
     ClientPlaybackCapabilities {
         direct_play: capabilities.direct_play,
+        device_family: capabilities.device_family,
+        profile_version: capabilities.profile_version,
         containers: capabilities.containers,
         video_codecs: capabilities.video_codecs,
         audio_codecs: capabilities.audio_codecs,
@@ -503,6 +505,8 @@ mod tests {
     fn renderer_media_capabilities_map_all_current_flat_fields() {
         let capabilities = client_playback_capabilities(ClientPlaybackCapabilitiesDto {
             direct_play: false,
+            device_family: Some("browser_chromium".to_owned()),
+            profile_version: Some(1),
             containers: vec!["mp4".to_owned(), "webm".to_owned()],
             video_codecs: vec!["h264".to_owned(), "hevc".to_owned()],
             audio_codecs: vec!["aac".to_owned(), "opus".to_owned()],
@@ -517,6 +521,11 @@ mod tests {
         });
 
         assert!(!capabilities.direct_play);
+        assert_eq!(
+            capabilities.device_family.as_deref(),
+            Some("browser_chromium")
+        );
+        assert_eq!(capabilities.profile_version, Some(1));
         assert_eq!(
             capabilities.containers,
             vec!["mp4".to_owned(), "webm".to_owned()]

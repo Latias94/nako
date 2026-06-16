@@ -65,6 +65,7 @@ export interface AddUserPlaylistItemRequest {
 export interface BrowserPlaybackCapabilitiesDto {
   audio_codec?: Array<string>;
   container?: Array<string>;
+  device_family?: string;
   direct_play?: boolean;
   hls_segment_container?: ClientHlsSegmentContainer;
   hls_variant_policy?: ClientHlsVariantPolicy;
@@ -73,6 +74,7 @@ export interface BrowserPlaybackCapabilitiesDto {
   max_video_bitrate?: number;
   max_width?: number;
   output_container?: "mp4" | "mkv";
+  profile_version?: number;
   supports_hdr?: boolean;
   supports_subtitles?: boolean;
   video_codec?: Array<string>;
@@ -134,6 +136,7 @@ export type ClientMediaKind = "movie" | "series" | "season" | "episode" | "colle
 export interface ClientPlaybackCapabilitiesDto {
   audio_codecs: Array<string>;
   containers: Array<string>;
+  device_family?: string;
   direct_play: boolean;
   hls_segment_container?: ClientHlsSegmentContainer;
   hls_variant_policy?: ClientHlsVariantPolicy;
@@ -141,6 +144,7 @@ export interface ClientPlaybackCapabilitiesDto {
   max_height?: number;
   max_video_bitrate?: number;
   max_width?: number;
+  profile_version?: number;
   supports_hdr?: boolean;
   supports_subtitles?: boolean;
   video_codecs: Array<string>;
@@ -827,6 +831,8 @@ export interface PageQuery {
 
 export interface PlaybackCapabilitiesQuery {
   direct_play?: boolean;
+  device_family?: string;
+  profile_version?: number;
   container?: string | string[];
   video_codec?: string | string[];
   audio_codec?: string | string[];

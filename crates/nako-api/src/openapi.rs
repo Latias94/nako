@@ -1078,6 +1078,18 @@ fn playback_parameters(source_id_name: &str) -> Vec<Value> {
             false,
         ),
         query_parameter(
+            "device_family",
+            "Optional client-owned playback device/profile family such as browser_chromium or android_media3.",
+            string_schema(),
+            false,
+        ),
+        query_parameter(
+            "profile_version",
+            "Optional client-owned playback profile version.",
+            integer_schema("int32"),
+            false,
+        ),
+        query_parameter(
             "container",
             "Comma-separated playable containers.",
             string_schema(),
@@ -1509,6 +1521,8 @@ fn schemas() -> Value {
         })),
         "BrowserPlaybackCapabilitiesDto": object_schema(&[], json!({
             "direct_play": boolean_schema(),
+            "device_family": string_schema(),
+            "profile_version": integer_schema("int32"),
             "container": array_schema(string_schema()),
             "video_codec": array_schema(string_schema()),
             "audio_codec": array_schema(string_schema()),
@@ -1672,6 +1686,8 @@ fn schemas() -> Value {
         })),
         "ClientPlaybackCapabilitiesDto": object_schema(&["direct_play", "containers", "video_codecs", "audio_codecs"], json!({
             "direct_play": boolean_schema(),
+            "device_family": string_schema(),
+            "profile_version": integer_schema("int32"),
             "containers": array_schema(string_schema()),
             "video_codecs": array_schema(string_schema()),
             "audio_codecs": array_schema(string_schema()),
@@ -2017,6 +2033,8 @@ mod tests {
 
     const PLAYBACK_CAPABILITY_QUERY_FIELDS: &[&str] = &[
         "direct_play",
+        "device_family",
+        "profile_version",
         "container",
         "video_codec",
         "audio_codec",
@@ -2031,6 +2049,8 @@ mod tests {
     ];
     const BROWSER_PLAYBACK_CAPABILITY_FIELDS: &[&str] = &[
         "direct_play",
+        "device_family",
+        "profile_version",
         "container",
         "video_codec",
         "audio_codec",
@@ -2046,6 +2066,8 @@ mod tests {
     ];
     const CLIENT_PLAYBACK_CAPABILITY_FIELDS: &[&str] = &[
         "direct_play",
+        "device_family",
+        "profile_version",
         "containers",
         "video_codecs",
         "audio_codecs",

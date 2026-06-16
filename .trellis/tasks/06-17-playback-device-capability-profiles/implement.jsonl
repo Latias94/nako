@@ -1,0 +1,16 @@
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"The profile fields cross protocol, API generation, SDK, client builders, server mapping, and playback planner identity."}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Existing flat playback capability parity helpers should be extended rather than duplicated."}
+{"file":".trellis/spec/nako-playback/backend/index.md","reason":"Playback planner package boundary and pre-development checklist."}
+{"file":".trellis/spec/nako-playback/backend/directory-structure.md","reason":"Keep profile identity changes inside capability/planner value boundaries."}
+{"file":".trellis/spec/nako-playback/backend/quality-guidelines.md","reason":"Planner identity and decision behavior must stay deterministic and covered by tests."}
+{"file":".trellis/spec/nako-client-protocol/backend/index.md","reason":"Public Client protocol DTOs own playback capability wire fields."}
+{"file":".trellis/spec/nako-client-protocol/backend/quality-guidelines.md","reason":"Protocol shape changes need serde, route inventory, and sensitive-field tests."}
+{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Public playback capability fields must stay aligned across OpenAPI, SDK, server mapping, and docs."}
+{"file":".trellis/spec/nako-api/backend/directory-structure.md","reason":"Keep DTO and generator changes in the API contract modules."}
+{"file":".trellis/spec/nako-api/backend/quality-guidelines.md","reason":"Generated public contract surfaces and forbidden host/runtime facts must be tested."}
+{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"HTTP playback query/body mapping remains a thin boundary that delegates to app services."}
+{"file":".trellis/spec/nako-server/backend/error-handling.md","reason":"Invalid query/body behavior must stay stable and public-safe."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Server route mapping changes need focused route tests."}
+{"file":"docs/architecture/PLAYBACK.md","reason":"Playback architecture lane calls out device profiles and client capability reporting as follow-ons."}
+{"file":"docs/plans/2026-06-10-001-feat-media-server-maturity-roadmap-plan.md","reason":"U2 roadmap source for device capability profiles and playback maturity."}
+{"file":"docs/plans/MEDIA_SERVER_PARITY_GAP_MATRIX.md","reason":"Competitive parity context for playback device capability reporting."}

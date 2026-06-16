@@ -1111,6 +1111,8 @@ fn playback_session_client_capabilities_from_json(
 
     Some(ClientPlaybackCapabilitiesDto {
         direct_play: capabilities.direct_play,
+        device_family: capabilities.device_family,
+        profile_version: capabilities.profile_version,
         containers: capabilities.containers,
         video_codecs: capabilities.video_codecs,
         audio_codecs: capabilities.audio_codecs,
@@ -1134,6 +1136,8 @@ fn playback_capabilities_to_dto(
 ) -> ClientPlaybackCapabilitiesDto {
     ClientPlaybackCapabilitiesDto {
         direct_play: capabilities.direct_play,
+        device_family: capabilities.device_family,
+        profile_version: capabilities.profile_version,
         containers: capabilities.containers,
         video_codecs: capabilities.video_codecs,
         audio_codecs: capabilities.audio_codecs,

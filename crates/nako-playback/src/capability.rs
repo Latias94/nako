@@ -143,6 +143,8 @@ fn stable_unique_reasons(
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct PlaybackTargetProfile {
     pub direct_play: bool,
+    pub device_family: Option<String>,
+    pub profile_version: Option<u32>,
     pub direct_play_profiles: Vec<DirectPlayCapabilityProfile>,
     pub remux_profiles: Vec<RemuxCapabilityProfile>,
     pub transcode_profiles: Vec<TranscodeCapabilityProfile>,
@@ -168,6 +170,8 @@ impl PlaybackTargetProfile {
 
         Self {
             direct_play: capabilities.direct_play,
+            device_family: normalized_device_family(capabilities.device_family.as_deref()),
+            profile_version: capabilities.profile_version,
             direct_play_profiles: vec![DirectPlayCapabilityProfile {
                 containers: containers.clone(),
                 video_codecs: video_codecs.clone(),
@@ -203,10 +207,14 @@ impl PlaybackTargetProfile {
 
     #[must_use]
     pub fn identity(&self) -> crate::PlaybackProfileIdentity {
+        let device_profile_identity =
+            device_profile_identity_key(self.device_family.as_deref(), self.profile_version);
+
         crate::PlaybackProfileIdentity {
             request_key: format!(
-                "playback-target-profile:v1;direct={};direct={};remux={};transcode={};hls_variant={};hls_segment={};remote={};range={};audio={};audio_languages={};subtitle={};subtitle_languages={};max_video_bitrate={};prefer_hdr={};remux_pref={};transcode_pref={}",
+                "playback-target-profile:v1;direct={}{};direct={};remux={};transcode={};hls_variant={};hls_segment={};remote={};range={};audio={};audio_languages={};subtitle={};subtitle_languages={};max_video_bitrate={};prefer_hdr={};remux_pref={};transcode_pref={}",
                 self.direct_play,
+                device_profile_identity,
                 direct_play_profiles_key(&self.direct_play_profiles),
                 remux_profiles_key(&self.remux_profiles),
                 transcode_profiles_key(&self.transcode_profiles),
@@ -730,6 +738,40 @@ fn normalized_values(values: &[String]) -> Vec<String> {
     values.sort();
     values.dedup();
     values
+}
+
+fn normalized_device_family(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| {
+            value
+                .chars()
+                .map(|ch| {
+                    if ch.is_ascii_alphanumeric() || ch == '_' || ch == '-' {
+                        ch.to_ascii_lowercase()
+                    } else {
+                        '_'
+                    }
+                })
+                .collect::<String>()
+        })
+}
+
+fn device_profile_identity_key(
+    device_family: Option<&str>,
+    profile_version: Option<u32>,
+) -> String {
+    let mut identity = String::new();
+    if let Some(device_family) = device_family {
+        identity.push_str(";device_family=");
+        identity.push_str(device_family);
+    }
+    if let Some(profile_version) = profile_version {
+        identity.push_str(";profile_version=");
+        identity.push_str(&profile_version.to_string());
+    }
+    identity
 }
 
 fn selected_audio_stream(

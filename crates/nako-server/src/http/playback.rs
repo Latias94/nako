@@ -939,6 +939,11 @@ fn browser_capabilities_to_client(
 
     Ok(ClientPlaybackCapabilities {
         direct_play: capabilities.direct_play.unwrap_or(defaults.direct_play),
+        device_family: capabilities
+            .device_family
+            .clone()
+            .or(defaults.device_family),
+        profile_version: capabilities.profile_version.or(defaults.profile_version),
         containers: capabilities
             .container
             .clone()
@@ -1304,6 +1309,8 @@ fn direct_play_status_code(status: DirectPlayResponseStatus) -> StatusCode {
 #[derive(Clone, Debug, Default, Deserialize)]
 pub(super) struct PlaybackCapabilitiesQuery {
     direct_play: Option<bool>,
+    device_family: Option<String>,
+    profile_version: Option<u32>,
     container: Option<String>,
     video_codec: Option<String>,
     audio_codec: Option<String>,
@@ -1320,6 +1327,8 @@ pub(super) struct PlaybackCapabilitiesQuery {
 #[derive(Clone, Debug, Default, Deserialize)]
 pub(super) struct RemuxPlaybackQuery {
     direct_play: Option<bool>,
+    device_family: Option<String>,
+    profile_version: Option<u32>,
     container: Option<String>,
     video_codec: Option<String>,
     audio_codec: Option<String>,
@@ -1342,6 +1351,8 @@ impl RemuxPlaybackQuery {
     fn capabilities(&self) -> PlaybackCapabilitiesQuery {
         PlaybackCapabilitiesQuery {
             direct_play: self.direct_play,
+            device_family: self.device_family.clone(),
+            profile_version: self.profile_version,
             container: self.container.clone(),
             video_codec: self.video_codec.clone(),
             audio_codec: self.audio_codec.clone(),
@@ -1360,6 +1371,8 @@ impl RemuxPlaybackQuery {
 #[derive(Clone, Debug, Default, Deserialize)]
 pub(super) struct HlsPlaybackQuery {
     direct_play: Option<bool>,
+    device_family: Option<String>,
+    profile_version: Option<u32>,
     container: Option<String>,
     video_codec: Option<String>,
     audio_codec: Option<String>,
@@ -1386,6 +1399,8 @@ impl HlsPlaybackQuery {
     fn capabilities(&self) -> PlaybackCapabilitiesQuery {
         PlaybackCapabilitiesQuery {
             direct_play: self.direct_play,
+            device_family: self.device_family.clone(),
+            profile_version: self.profile_version,
             container: self.container.clone(),
             video_codec: self.video_codec.clone(),
             audio_codec: self.audio_codec.clone(),
@@ -1438,6 +1453,8 @@ impl From<PlaybackCapabilitiesQuery> for ClientPlaybackCapabilities {
 
         Self {
             direct_play: value.direct_play.unwrap_or(defaults.direct_play),
+            device_family: value.device_family.or(defaults.device_family),
+            profile_version: value.profile_version.or(defaults.profile_version),
             containers: csv_or_default(value.container, defaults.containers),
             video_codecs: csv_or_default(value.video_codec, defaults.video_codecs),
             audio_codecs: csv_or_default(value.audio_codec, defaults.audio_codecs),
@@ -1480,6 +1497,11 @@ mod tests {
     fn assert_flat_capabilities(capabilities: ClientPlaybackCapabilities) {
         assert!(!capabilities.direct_play);
         assert_eq!(
+            capabilities.device_family.as_deref(),
+            Some("browser_chromium")
+        );
+        assert_eq!(capabilities.profile_version, Some(1));
+        assert_eq!(
             capabilities.containers,
             vec!["mp4".to_owned(), "webm".to_owned()]
         );
@@ -1511,6 +1533,8 @@ mod tests {
     fn playback_capability_queries_map_all_current_flat_fields() {
         let query = PlaybackCapabilitiesQuery {
             direct_play: Some(false),
+            device_family: Some("browser_chromium".to_owned()),
+            profile_version: Some(1),
             container: Some("mp4,webm".to_owned()),
             video_codec: Some("h264,hevc".to_owned()),
             audio_codec: Some("aac,opus".to_owned()),
@@ -1528,6 +1552,8 @@ mod tests {
 
         let remux = RemuxPlaybackQuery {
             direct_play: query.direct_play,
+            device_family: query.device_family.clone(),
+            profile_version: query.profile_version,
             container: query.container.clone(),
             video_codec: query.video_codec.clone(),
             audio_codec: query.audio_codec.clone(),
@@ -1549,6 +1575,8 @@ mod tests {
 
         let hls = HlsPlaybackQuery {
             direct_play: query.direct_play,
+            device_family: query.device_family,
+            profile_version: query.profile_version,
             container: query.container,
             video_codec: query.video_codec,
             audio_codec: query.audio_codec,
@@ -1577,6 +1605,8 @@ mod tests {
     fn browser_playback_ticket_capabilities_map_all_current_flat_fields() {
         let capabilities = BrowserPlaybackCapabilitiesDto {
             direct_play: Some(false),
+            device_family: Some("browser_chromium".to_owned()),
+            profile_version: Some(1),
             container: Some(vec!["mp4".to_owned(), "webm".to_owned()]),
             video_codec: Some(vec!["h264".to_owned(), "hevc".to_owned()]),
             audio_codec: Some(vec!["aac".to_owned(), "opus".to_owned()]),

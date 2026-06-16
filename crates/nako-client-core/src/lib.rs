@@ -169,6 +169,8 @@ mod tests {
             source_id: "source 1".to_owned(),
             capabilities: CorePlaybackCapabilities {
                 direct_play: Some(true),
+                device_family: Some("browser_chromium".to_owned()),
+                profile_version: Some(1),
                 containers: vec!["mp4".to_owned(), "webm".to_owned()],
                 video_codecs: vec!["h264".to_owned()],
                 audio_codecs: vec!["aac".to_owned(), "opus".to_owned()],
@@ -186,7 +188,7 @@ mod tests {
         assert_eq!(request.request_id, PLAYBACK_DECISION_REQUEST_ID);
         assert_eq!(
             request.url,
-            "https://nako.example/api/sources/source%201/playback/decision?direct_play=true&container=mp4%2Cwebm&video_codec=h264&audio_codec=aac%2Copus&max_video_bitrate=8000000&max_width=1920&max_height=1080&max_audio_channels=2&supports_hdr=false&supports_subtitles=true&hls_variant_policy=adaptive&hls_segment_container=fmp4"
+            "https://nako.example/api/sources/source%201/playback/decision?direct_play=true&device_family=browser_chromium&profile_version=1&container=mp4%2Cwebm&video_codec=h264&audio_codec=aac%2Copus&max_video_bitrate=8000000&max_width=1920&max_height=1080&max_audio_channels=2&supports_hdr=false&supports_subtitles=true&hls_variant_policy=adaptive&hls_segment_container=fmp4"
         );
         assert_eq!(
             request.headers,
@@ -269,6 +271,8 @@ mod tests {
             },
             capabilities: CorePlaybackCapabilities {
                 direct_play: Some(false),
+                device_family: Some("browser_chromium".to_owned()),
+                profile_version: Some(1),
                 containers: vec!["mp4".to_owned(), "mkv".to_owned()],
                 video_codecs: vec!["h264".to_owned()],
                 audio_codecs: vec!["aac".to_owned()],
@@ -288,7 +292,7 @@ mod tests {
         assert_eq!(target.request.request_id, PLAYBACK_REMUX_STREAM_REQUEST_ID);
         assert_eq!(
             target.request.url,
-            "https://nako.example/api/sources/source%201/stream/remux?direct_play=false&container=mp4%2Cmkv&video_codec=h264&audio_codec=aac&max_video_bitrate=4000000&max_width=1280&max_height=720&max_audio_channels=2&supports_hdr=false&supports_subtitles=false&hls_variant_policy=single_variant&hls_segment_container=mpeg_ts&output_container=mkv"
+            "https://nako.example/api/sources/source%201/stream/remux?direct_play=false&device_family=browser_chromium&profile_version=1&container=mp4%2Cmkv&video_codec=h264&audio_codec=aac&max_video_bitrate=4000000&max_width=1280&max_height=720&max_audio_channels=2&supports_hdr=false&supports_subtitles=false&hls_variant_policy=single_variant&hls_segment_container=mpeg_ts&output_container=mkv"
         );
         assert!(target.request.headers.is_empty());
         let preflight = target.session_probe_request.unwrap();

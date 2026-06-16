@@ -570,6 +570,8 @@ public data class ManagementContextQuery(
 
 public data class PlaybackCapabilitiesQuery(
     public val directPlay: Boolean? = null,
+    public val deviceFamily: String? = null,
+    public val profileVersion: Int? = null,
     public val containers: List<String> = emptyList(),
     public val videoCodecs: List<String> = emptyList(),
     public val audioCodecs: List<String> = emptyList(),
@@ -604,6 +606,8 @@ public value class RemuxOutputContainer(
 
 public data class RemuxPlaybackQuery(
     public val directPlay: Boolean? = null,
+    public val deviceFamily: String? = null,
+    public val profileVersion: Int? = null,
     public val containers: List<String> = emptyList(),
     public val videoCodecs: List<String> = emptyList(),
     public val audioCodecs: List<String> = emptyList(),
@@ -620,6 +624,8 @@ public data class RemuxPlaybackQuery(
 
 public data class HlsPlaybackQuery(
     public val directPlay: Boolean? = null,
+    public val deviceFamily: String? = null,
+    public val profileVersion: Int? = null,
     public val containers: List<String> = emptyList(),
     public val videoCodecs: List<String> = emptyList(),
     public val audioCodecs: List<String> = emptyList(),
@@ -1104,6 +1110,12 @@ public object NakoPublicClientRequests {
             capabilities.directPlay?.let {
                 add("direct_play" to it.toString())
             }
+            capabilities.deviceFamily?.let {
+                add("device_family" to it)
+            }
+            capabilities.profileVersion?.let {
+                add("profile_version" to it.toString())
+            }
             addCsv("container", capabilities.containers)
             addCsv("video_codec", capabilities.videoCodecs)
             addCsv("audio_codec", capabilities.audioCodecs)
@@ -1139,6 +1151,12 @@ public object NakoPublicClientRequests {
         buildList {
             query.directPlay?.let {
                 add("direct_play" to it.toString())
+            }
+            query.deviceFamily?.let {
+                add("device_family" to it)
+            }
+            query.profileVersion?.let {
+                add("profile_version" to it.toString())
             }
             addCsv("container", query.containers)
             addCsv("video_codec", query.videoCodecs)
@@ -1178,6 +1196,12 @@ public object NakoPublicClientRequests {
         buildList {
             query.directPlay?.let {
                 add("direct_play" to it.toString())
+            }
+            query.deviceFamily?.let {
+                add("device_family" to it)
+            }
+            query.profileVersion?.let {
+                add("profile_version" to it.toString())
             }
             addCsv("container", query.containers)
             addCsv("video_codec", query.videoCodecs)
@@ -1338,6 +1362,8 @@ const CLIENT_RUNTIME: &str = r#"export interface PageQuery {
 
 export interface PlaybackCapabilitiesQuery {
   direct_play?: boolean;
+  device_family?: string;
+  profile_version?: number;
   container?: string | string[];
   video_codec?: string | string[];
   audio_codec?: string | string[];
@@ -1738,6 +1764,8 @@ mod tests {
 
     const PLAYBACK_CAPABILITY_QUERY_FIELDS: &[&str] = &[
         "direct_play",
+        "device_family",
+        "profile_version",
         "container",
         "video_codec",
         "audio_codec",
@@ -1752,6 +1780,8 @@ mod tests {
     ];
     const KOTLIN_PLAYBACK_CAPABILITY_FIELDS: &[&str] = &[
         "directPlay",
+        "deviceFamily",
+        "profileVersion",
         "containers",
         "videoCodecs",
         "audioCodecs",
