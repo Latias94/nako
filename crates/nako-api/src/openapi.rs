@@ -42,6 +42,19 @@ pub fn public_openapi_v1() -> Value {
                         "type": "string",
                         "format": "uuid"
                     }
+                },
+                "ETag": {
+                    "description": "Opaque selected artwork presentation ETag.",
+                    "schema": {
+                        "type": "string"
+                    }
+                },
+                "SelectedArtworkCacheControl": {
+                    "description": "Selected artwork cache policy.",
+                    "schema": {
+                        "type": "string",
+                        "enum": ["private, max-age=86400"]
+                    }
                 }
             },
             "responses": common_responses(),
@@ -283,13 +296,13 @@ fn public_paths() -> Value {
     paths.insert(
         "/images/{image_id}".to_owned(),
         json!({
-            "get": binary_get_with_tag(
+            "get": selected_artwork_binary_get(
                 "getImage",
                 "Serve one selected artwork image.",
                 "catalog",
                 image_parameters()
             ),
-            "head": empty_head_with_tag(
+            "head": selected_artwork_empty_head(
                 "headImage",
                 "Preflight selected artwork image headers.",
                 "catalog",
@@ -827,6 +840,34 @@ fn binary_get_with_tag(
     )
 }
 
+fn selected_artwork_binary_get(
+    operation_id: &str,
+    summary: &str,
+    tag: &str,
+    parameters: Vec<Value>,
+) -> Value {
+    let mut value = operation(
+        operation_id,
+        summary,
+        tag,
+        parameters,
+        json!({
+            "description": "Binary stream.",
+            "headers": selected_artwork_headers(),
+            "content": {
+                "application/octet-stream": {
+                    "schema": {
+                        "type": "string",
+                        "format": "binary"
+                    }
+                }
+            }
+        }),
+    );
+    value["responses"]["304"] = response_ref("NotModified");
+    value
+}
+
 fn session_text_get(operation_id: &str, summary: &str, parameters: Vec<Value>) -> Value {
     operation(
         operation_id,
@@ -899,6 +940,26 @@ fn empty_head_with_tag(
             "headers": api_version_headers()
         }),
     )
+}
+
+fn selected_artwork_empty_head(
+    operation_id: &str,
+    summary: &str,
+    tag: &str,
+    parameters: Vec<Value>,
+) -> Value {
+    let mut value = operation(
+        operation_id,
+        summary,
+        tag,
+        parameters,
+        json!({
+            "description": "Headers only.",
+            "headers": selected_artwork_headers()
+        }),
+    );
+    value["responses"]["304"] = response_ref("NotModified");
+    value
 }
 
 fn operation(
@@ -976,6 +1037,10 @@ fn common_responses() -> Value {
                     "schema": schema_ref("ErrorResponse")
                 }
             }
+        },
+        "NotModified": {
+            "description": "Selected artwork image was not modified.",
+            "headers": selected_artwork_headers()
         },
         "NotFound": error_response("Resource was not found."),
         "Conflict": error_response("Request conflicts with current state."),
@@ -1195,6 +1260,14 @@ fn schema_ref(name: &str) -> Value {
 
 fn api_version_headers() -> Value {
     json!({API_VERSION_HEADER: header_ref("NakoApiVersion")})
+}
+
+fn selected_artwork_headers() -> Value {
+    json!({
+        API_VERSION_HEADER: header_ref("NakoApiVersion"),
+        "cache-control": header_ref("SelectedArtworkCacheControl"),
+        "etag": header_ref("ETag")
+    })
 }
 
 fn playback_session_headers() -> Value {
@@ -2285,6 +2358,49 @@ mod tests {
             document["paths"]["/images/{image_id}"]["get"]["responses"]["200"]["content"]["application/octet-stream"]
                 ["schema"]["format"],
             "binary"
+        );
+        assert_eq!(
+            document["components"]["headers"]["ETag"]["schema"]["type"],
+            "string"
+        );
+        assert_eq!(
+            document["components"]["headers"]["SelectedArtworkCacheControl"]["schema"]["enum"][0],
+            "private, max-age=86400"
+        );
+        assert_eq!(
+            document["components"]["responses"]["NotModified"]["headers"]["etag"]["$ref"],
+            "#/components/headers/ETag"
+        );
+        assert_eq!(
+            document["components"]["responses"]["NotModified"]["headers"]["cache-control"]["$ref"],
+            "#/components/headers/SelectedArtworkCacheControl"
+        );
+        assert_eq!(
+            document["paths"]["/images/{image_id}"]["get"]["responses"]["200"]["headers"]["etag"]["$ref"],
+            "#/components/headers/ETag"
+        );
+        assert_eq!(
+            document["paths"]["/images/{image_id}"]["get"]["responses"]["200"]["headers"]["cache-control"]
+                ["$ref"],
+            "#/components/headers/SelectedArtworkCacheControl"
+        );
+        assert_eq!(
+            document["paths"]["/images/{image_id}"]["get"]["responses"]["304"]["$ref"],
+            "#/components/responses/NotModified"
+        );
+        assert_eq!(
+            document["paths"]["/images/{image_id}"]["head"]["responses"]["200"]["headers"]["etag"]
+                ["$ref"],
+            "#/components/headers/ETag"
+        );
+        assert_eq!(
+            document["paths"]["/images/{image_id}"]["head"]["responses"]["200"]["headers"]["cache-control"]
+                ["$ref"],
+            "#/components/headers/SelectedArtworkCacheControl"
+        );
+        assert_eq!(
+            document["paths"]["/images/{image_id}"]["head"]["responses"]["304"]["$ref"],
+            "#/components/responses/NotModified"
         );
         assert_eq!(
             document["paths"]["/sources/{source_id}/stream/hls/playlist.m3u8"]["get"]["responses"]
