@@ -57,6 +57,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "source_duplicate_pair_identity",
         include_str!("../migrations/postgres/0005_source_duplicate_pair_identity.sql"),
     ),
+    (
+        6,
+        "watch_folder_source_key_normalization",
+        include_str!("../migrations/postgres/0006_watch_folder_source_key_normalization.sql"),
+    ),
 ];
 
 #[derive(Clone, Debug)]
@@ -505,7 +510,7 @@ mod tests {
     }
 
     #[test]
-    fn postgres_source_duplicate_pair_identity_migration_is_registered() {
+    fn postgres_latest_incremental_migrations_are_registered() {
         let migration = MIGRATIONS
             .iter()
             .find(|(version, _, _)| *version == 5)
@@ -527,5 +532,18 @@ mod tests {
         let baseline_sql = MIGRATIONS[0].2;
         assert!(baseline_sql.contains("CHECK (source_id < duplicate_source_id)"));
         assert!(baseline_sql.contains("source_duplicate_relationships_pair_idx"));
+
+        let migration = MIGRATIONS
+            .iter()
+            .find(|(version, _, _)| *version == 6)
+            .expect("PostgreSQL watch-folder source-key migration should be registered");
+
+        assert_eq!(migration.1, "watch_folder_source_key_normalization");
+        assert!(
+            migration
+                .2
+                .contains("watch_folder_source_key_normalization")
+        );
+        assert!(migration.2.contains("'watch_folder:' || source_uri"));
     }
 }

@@ -826,40 +826,34 @@ async fn acquisition_intake_watch_folder_discovery_records_classified_candidates
 }
 
 #[tokio::test]
-async fn acquisition_intake_watch_folder_discovery_updates_legacy_source_key_without_duplicate() {
+async fn acquisition_intake_watch_folder_discovery_updates_canonical_source_key_without_duplicate()
+{
     let store = NakoDatabase::connect_in_memory().await.unwrap();
     store.migrate().await.unwrap();
     let temp = tempfile::tempdir().unwrap();
     let watch = temp.path().join("watch");
     fs::create_dir_all(&watch).unwrap();
-    fs::write(watch.join("Legacy Movie.mkv"), b"legacy").unwrap();
+    fs::write(watch.join("Canonical Movie.mkv"), b"canonical").unwrap();
     let library_id = LibraryId::new();
     let app = acquisition_app_with_store(store.clone(), library_id, temp.path()).await;
     let library = store.get_library(library_id).await.unwrap().unwrap();
     let service = app.acquisition_intake();
-    let media_uri = StorageUri::from_parts("local", "watch/Legacy Movie.mkv").unwrap();
+    let media_uri = StorageUri::from_parts("local", "watch/Canonical Movie.mkv").unwrap();
     let metadata = LocalFsBackend::new(temp.path())
         .unwrap()
         .stat(&media_uri)
         .await
         .unwrap();
-    let legacy_source_key = match (&metadata.fingerprint, metadata.len) {
-        (Some(fingerprint), Some(size_bytes)) => {
-            format!("{media_uri}|size={size_bytes}|fingerprint={fingerprint}")
-        }
-        (Some(fingerprint), None) => format!("{media_uri}|fingerprint={fingerprint}"),
-        (None, Some(size_bytes)) => format!("{media_uri}|size={size_bytes}"),
-        (None, None) => media_uri.to_string(),
-    };
+    let source_key = format!("watch_folder:{media_uri}");
     let now_ms = crate::app::current_time_ms().unwrap();
     store
         .upsert_acquisition_intake_candidate(NewAcquisitionIntakeCandidate {
             id: AcquisitionIntakeCandidateId::new(),
             target_library_id: library.id,
             source_kind: AcquisitionIntakeSourceKind::WatchFolder,
-            source_key: legacy_source_key,
+            source_key,
             source_uri: media_uri.to_string(),
-            display_name: Some("Legacy Movie.mkv".to_owned()),
+            display_name: Some("Canonical Movie.mkv".to_owned()),
             intended_locator: None,
             size_bytes: metadata.len,
             fingerprint: metadata.fingerprint.clone(),
@@ -922,7 +916,7 @@ async fn acquisition_intake_watch_folder_discovery_updates_legacy_source_key_wit
 
     let body = serde_json::to_string(&second).unwrap();
     assert!(!body.contains(&temp.path().display().to_string()));
-    assert!(!body.contains("Legacy Movie"));
+    assert!(!body.contains("Canonical Movie"));
     assert!(!body.contains("local:///"));
     assert!(!body.contains("fingerprint="));
 }

@@ -530,26 +530,7 @@ impl AcquisitionIntakeAppService {
                 &source_key,
             )
             .await?;
-        if existing.is_some() {
-            return Ok((source_key, existing));
-        }
-
-        let legacy_source_key = legacy_watch_folder_source_key(metadata);
-        if legacy_source_key != source_key {
-            let existing = self
-                .store
-                .find_acquisition_intake_candidate_by_source_key(
-                    library_id,
-                    &AcquisitionIntakeSourceKind::WatchFolder,
-                    &legacy_source_key,
-                )
-                .await?;
-            if existing.is_some() {
-                return Ok((legacy_source_key, existing));
-            }
-        }
-
-        Ok((source_key, None))
+        Ok((source_key, existing))
     }
 
     pub(crate) async fn accept_candidate(
@@ -983,20 +964,6 @@ fn is_incomplete_candidate(value: &str) -> bool {
 
 fn watch_folder_candidate_source_key(uri: &StorageUri) -> String {
     format!("watch_folder:{}", uri)
-}
-
-fn legacy_watch_folder_source_key(metadata: &ObjectMetadata) -> String {
-    match (&metadata.fingerprint, metadata.len) {
-        (Some(fingerprint), Some(size_bytes)) => {
-            format!(
-                "{}|size={size_bytes}|fingerprint={fingerprint}",
-                metadata.uri
-            )
-        }
-        (Some(fingerprint), None) => format!("{}|fingerprint={fingerprint}", metadata.uri),
-        (None, Some(size_bytes)) => format!("{}|size={size_bytes}", metadata.uri),
-        (None, None) => metadata.uri.to_string(),
-    }
 }
 
 fn watch_folder_observation_key(metadata: &ObjectMetadata) -> String {

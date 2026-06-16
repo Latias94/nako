@@ -140,6 +140,99 @@ ALTER TABLE vfs_cache_failures
   surrounding table; do not mix both styles inside one table without a reason.
 - Index names should describe table plus key or access pattern.
 
+## Scenario: Compatibility Key Normalization Migration
+
+### 1. Scope / Trigger
+
+- Trigger: persisted identity keys change shape, such as replacing a legacy
+  file-derived key with a canonical domain key.
+- Scope: SQLite/PostgreSQL migration files, migration registration tests,
+  repository or app behavior that previously had runtime fallback lookup, and
+  focused behavior tests for the owning app flow.
+
+### 2. Signatures
+
+- New migration:
+  `crates/nako-db/migrations/<version>_<normalization>.sql`
+- PostgreSQL parity migration:
+  `crates/nako-db/migrations/postgres/<version>_<normalization>.sql`
+- Registration:
+  `MIGRATIONS: &[(i64, &str, &str)]` in both SQLite and PostgreSQL adapters.
+
+### 3. Contracts
+
+- Normalize stored data before deleting runtime compatibility lookup.
+- When a legacy row and canonical row represent the same domain identity,
+  collapse to one canonical row before updating the unique key.
+- Define winner priority explicitly in SQL. For acquisition intake candidates,
+  accepted or managed-import-linked rows outrank unlinked transient rows, then
+  newer observations win.
+- Merge meaningful nullable fields from loser rows before deletion. Preserve
+  linked artifact IDs, diagnostics, display/intended locator facts, size,
+  fingerprint, earliest `first_seen_at_ms`, latest `last_seen_at_ms`, and
+  latest `updated_at_ms` where applicable.
+- Keep the migration idempotent for empty or already-normalized databases.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Legacy-only row exists | Rewrite its key to the canonical form |
+| Legacy and canonical rows conflict under a unique key | Merge fields, delete loser rows, then update the winner key |
+| Accepted linked row conflicts with newer transient row | Keep the accepted/linked row and merge the newer observation timestamp |
+| Already-normalized database | Migration performs no data change and succeeds |
+| Runtime fallback removed before migration coverage exists | Treat as a compatibility regression |
+
+### 5. Good/Base/Bad Cases
+
+- Good: a migration builds a bounded temporary normalization set, updates the
+  winner, deletes losers, then changes the unique key value.
+- Base: an empty fresh store applies the migration after baseline without
+  touching any row.
+- Bad: app code keeps probing legacy keys forever after data is normalized, or
+  a migration updates legacy rows directly and hits the canonical unique key.
+
+### 6. Tests Required
+
+- SQLite migration test for a legacy-only row.
+- SQLite migration test for duplicate legacy/canonical collapse.
+- PostgreSQL migration registration or live PostgreSQL migration coverage when
+  tooling is available.
+- Focused app test proving the runtime path now uses only canonical lookup and
+  still avoids duplicate rows.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```sql
+UPDATE acquisition_intake_candidates
+SET source_key = 'watch_folder:' || source_uri
+WHERE source_kind = 'watch_folder';
+```
+
+This can violate the unique key when both legacy and canonical rows already
+exist for the same candidate identity.
+
+#### Correct
+
+```sql
+CREATE TEMP TABLE normalization AS
+SELECT winner_id, canonical_source_key
+FROM ranked_candidates
+WHERE candidate_rank = 1;
+
+DELETE FROM acquisition_intake_candidates
+WHERE id IN (SELECT loser_id FROM ...);
+
+UPDATE acquisition_intake_candidates
+SET source_key = normalization.canonical_source_key
+FROM normalization
+WHERE id = normalization.winner_id;
+```
+
+The migration selects and merges a winner before changing the unique key value.
+
 ## Scenario: Source Duplicate Relationship Pair Identity
 
 ### 1. Scope / Trigger

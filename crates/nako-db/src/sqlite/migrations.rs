@@ -27,6 +27,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "source_duplicate_pair_identity",
         include_str!("../../migrations/0005_source_duplicate_pair_identity.sql"),
     ),
+    (
+        6,
+        "watch_folder_source_key_normalization",
+        include_str!("../../migrations/0006_watch_folder_source_key_normalization.sql"),
+    ),
 ];
 
 #[async_trait::async_trait]
@@ -98,7 +103,7 @@ mod tests {
     }
 
     #[test]
-    fn source_duplicate_pair_identity_migration_is_registered() {
+    fn latest_incremental_migrations_are_registered() {
         let migration = MIGRATIONS
             .iter()
             .find(|(version, _, _)| *version == 5)
@@ -111,6 +116,19 @@ mod tests {
                 .contains("source_duplicate_relationships_pair_idx")
         );
         assert!(migration.2.contains("source_id, duplicate_source_id"));
+
+        let migration = MIGRATIONS
+            .iter()
+            .find(|(version, _, _)| *version == 6)
+            .expect("SQLite watch-folder source-key migration should be registered");
+
+        assert_eq!(migration.1, "watch_folder_source_key_normalization");
+        assert!(
+            migration
+                .2
+                .contains("watch_folder_source_key_normalization")
+        );
+        assert!(migration.2.contains("'watch_folder:' || source_uri"));
     }
 
     #[tokio::test]
@@ -125,7 +143,7 @@ mod tests {
                 .await
                 .unwrap();
 
-        assert_eq!(applied_versions, vec![1, 2, 3, 4, 5]);
+        assert_eq!(applied_versions, vec![1, 2, 3, 4, 5, 6]);
 
         for table in [
             "users",
@@ -260,6 +278,240 @@ mod tests {
 
         assert_eq!(value, "literal;inside");
         assert_eq!(applied, 1);
+    }
+
+    #[tokio::test]
+    async fn watch_folder_source_key_migration_normalizes_legacy_rows() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+
+        sqlx::query(
+            r#"
+            INSERT INTO libraries (id, name, roots_json, domain, preset, options_json)
+            VALUES ('018f0000-0000-7000-8000-000000000101', 'Movies', '[]', 'video', 'movies', '{}')
+            "#,
+        )
+        .execute(store.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            r#"
+            INSERT INTO acquisition_intake_candidates (
+                id, target_library_id, source_kind, source_kind_key, source_key,
+                source_uri, display_name, intended_locator, size_bytes, fingerprint,
+                managed_import_artifact_id, state, diagnostics_json, first_seen_at_ms,
+                last_seen_at_ms, created_at_ms, updated_at_ms
+            )
+            VALUES (
+                '018f0000-0000-7000-8000-000000000102',
+                '018f0000-0000-7000-8000-000000000101',
+                'watch_folder',
+                '',
+                'local:///watch/Legacy.mkv|size=9|fingerprint=old',
+                'local:///watch/Legacy.mkv',
+                'Legacy.mkv',
+                NULL,
+                9,
+                'old',
+                NULL,
+                'inspecting',
+                '{"stable":false}',
+                100,
+                110,
+                100,
+                110
+            )
+            "#,
+        )
+        .execute(store.pool())
+        .await
+        .unwrap();
+
+        let migration = MIGRATIONS
+            .iter()
+            .find(|(version, _, _)| *version == 6)
+            .unwrap();
+        sqlx::raw_sql(migration.2)
+            .execute(store.pool())
+            .await
+            .unwrap();
+
+        let rows: Vec<(String, String, String, Option<String>, i64, i64)> = sqlx::query_as(
+            r#"
+            SELECT id, source_key, state, diagnostics_json, first_seen_at_ms, last_seen_at_ms
+            FROM acquisition_intake_candidates
+            ORDER BY id
+            "#,
+        )
+        .fetch_all(store.pool())
+        .await
+        .unwrap();
+
+        assert_eq!(
+            rows,
+            vec![(
+                "018f0000-0000-7000-8000-000000000102".to_owned(),
+                "watch_folder:local:///watch/Legacy.mkv".to_owned(),
+                "inspecting".to_owned(),
+                Some(r#"{"stable":false}"#.to_owned()),
+                100,
+                110
+            )]
+        );
+    }
+
+    #[tokio::test]
+    async fn watch_folder_source_key_migration_collapses_duplicate_rows() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        store.migrate().await.unwrap();
+
+        sqlx::query(
+            r#"
+            INSERT INTO libraries (id, name, roots_json, domain, preset, options_json)
+            VALUES ('018f0000-0000-7000-8000-000000000201', 'Movies', '[]', 'video', 'movies', '{}')
+            "#,
+        )
+        .execute(store.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            r#"
+            INSERT INTO managed_import_artifacts (
+                id, target_library_id, source_kind, source_kind_key, source_uri,
+                artifact_uri, original_file_name, intended_locator, size_bytes,
+                fingerprint, state, diagnostics_json, created_at_ms, updated_at_ms
+            )
+            VALUES (
+                '018f0000-0000-7000-8000-000000000202',
+                '018f0000-0000-7000-8000-000000000201',
+                'watched_candidate',
+                '',
+                'local:///watch/Duplicate.mkv',
+                'local:///library/Duplicate.mkv',
+                'Duplicate.mkv',
+                'Movies/Duplicate.mkv',
+                12,
+                'duplicate-fingerprint',
+                'staged',
+                '{"artifact":true}',
+                200,
+                200
+            )
+            "#,
+        )
+        .execute(store.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            r#"
+            INSERT INTO acquisition_intake_candidates (
+                id, target_library_id, source_kind, source_kind_key, source_key,
+                source_uri, display_name, intended_locator, size_bytes, fingerprint,
+                managed_import_artifact_id, state, diagnostics_json, first_seen_at_ms,
+                last_seen_at_ms, created_at_ms, updated_at_ms
+            )
+            VALUES
+            (
+                '018f0000-0000-7000-8000-000000000203',
+                '018f0000-0000-7000-8000-000000000201',
+                'watch_folder',
+                '',
+                'watch_folder:local:///watch/Duplicate.mkv',
+                'local:///watch/Duplicate.mkv',
+                NULL,
+                NULL,
+                NULL,
+                NULL,
+                NULL,
+                'ready',
+                NULL,
+                220,
+                260,
+                220,
+                260
+            ),
+            (
+                '018f0000-0000-7000-8000-000000000204',
+                '018f0000-0000-7000-8000-000000000201',
+                'watch_folder',
+                '',
+                'local:///watch/Duplicate.mkv|size=12|fingerprint=duplicate-fingerprint',
+                'local:///watch/Duplicate.mkv',
+                'Duplicate.mkv',
+                'Movies/Duplicate.mkv',
+                12,
+                'duplicate-fingerprint',
+                '018f0000-0000-7000-8000-000000000202',
+                'accepted',
+                '{"accepted":true}',
+                210,
+                240,
+                210,
+                240
+            )
+            "#,
+        )
+        .execute(store.pool())
+        .await
+        .unwrap();
+
+        let migration = MIGRATIONS
+            .iter()
+            .find(|(version, _, _)| *version == 6)
+            .unwrap();
+        sqlx::raw_sql(migration.2)
+            .execute(store.pool())
+            .await
+            .unwrap();
+
+        let rows: Vec<(
+            String,
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+            Option<i64>,
+            Option<String>,
+            Option<String>,
+            i64,
+            i64,
+        )> = sqlx::query_as(
+            r#"
+            SELECT
+                id,
+                source_key,
+                state,
+                managed_import_artifact_id,
+                display_name,
+                size_bytes,
+                fingerprint,
+                diagnostics_json,
+                first_seen_at_ms,
+                last_seen_at_ms
+            FROM acquisition_intake_candidates
+            ORDER BY id
+            "#,
+        )
+        .fetch_all(store.pool())
+        .await
+        .unwrap();
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(
+            rows[0],
+            (
+                "018f0000-0000-7000-8000-000000000204".to_owned(),
+                "watch_folder:local:///watch/Duplicate.mkv".to_owned(),
+                "accepted".to_owned(),
+                Some("018f0000-0000-7000-8000-000000000202".to_owned()),
+                Some("Duplicate.mkv".to_owned()),
+                Some(12),
+                Some("duplicate-fingerprint".to_owned()),
+                Some(r#"{"accepted":true}"#.to_owned()),
+                210,
+                260
+            )
+        );
     }
 
     #[tokio::test]
