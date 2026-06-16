@@ -1,0 +1,13 @@
+{"file":"CONTEXT.md","reason":"Use Nako domain terms consistently when documenting and discussing playback capability profiles."}
+{"file":"docs/architecture/PLAYBACK.md","reason":"Device Capability Profiles lane and playback planner authority boundaries for this slice."}
+{"file":".trellis/spec/nako-playback/backend/index.md","reason":"Entry point for pure playback planner crate guidelines."}
+{"file":".trellis/spec/nako-playback/backend/directory-structure.md","reason":"Keep preset capability values in the playback capability module and runtime work out of this crate."}
+{"file":".trellis/spec/nako-playback/backend/quality-guidelines.md","reason":"Preserve planner purity and do not make profile names authoritative decisions."}
+{"file":".trellis/spec/nako-api/backend/index.md","reason":"Entry point for Admin API contract work."}
+{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Admin-only DTO/generator rules and generated TypeScript contract synchronization."}
+{"file":".trellis/spec/nako-api/backend/quality-guidelines.md","reason":"Generated artifact and Public/Admin separation gates for playback capability fields."}
+{"file":".trellis/spec/nako-server/backend/index.md","reason":"Entry point for server route and diagnostics mapping rules."}
+{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Admin route/handler patterns for playback runtime diagnostics."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Server-focused test gate selection for Admin diagnostics changes."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"This change spans playback values, API DTOs, server mapping, and generated frontend contracts."}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Reuse existing profile family normalization and generated contract patterns."}
