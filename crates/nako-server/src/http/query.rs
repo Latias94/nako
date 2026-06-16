@@ -1,3 +1,4 @@
+use crate::app::ImageVariantRequest;
 use nako_core::{
     AcquisitionIntakeCandidateListFilter, AcquisitionIntakeCandidateState,
     AcquisitionIntakeSourceKind, AddonStatus, CatalogGovernanceItemListFilter,
@@ -11,19 +12,16 @@ use nako_core::{
 };
 use serde::Deserialize;
 
-use crate::app::ImageVariantRequest;
-
 #[derive(Clone, Copy, Debug, Default, Deserialize)]
 pub(super) struct PageQuery {
     pub(super) limit: Option<u32>,
     pub(super) offset: Option<u64>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default)]
 pub(super) struct SearchPageQuery {
-    #[serde(default)]
-    pub(super) q: String,
-    pub(super) facet: Option<String>,
+    pub(super) q: Option<String>,
+    pub(super) facets: Vec<String>,
     pub(super) limit: Option<u32>,
     pub(super) offset: Option<u64>,
 }
@@ -78,11 +76,45 @@ impl LibraryItemsQuery {
 }
 
 impl SearchPageQuery {
+    pub(super) fn from_raw_query(raw_query: Option<&str>) -> Result<Self, NakoError> {
+        let mut query = SearchPageQuery::default();
+
+        let Some(raw_query) = raw_query else {
+            return Ok(query);
+        };
+
+        for (name, value) in form_urlencoded::parse(raw_query.as_bytes()) {
+            let value = value.into_owned();
+            match name.as_ref() {
+                "q" => query.q = Some(value),
+                "facet" => query.facets.push(value),
+                "limit" => query.limit = Some(parse_u32_filter("limit", value)?),
+                "offset" => query.offset = Some(parse_u64_filter("offset", value)?),
+                _ => {}
+            }
+        }
+
+        Ok(query)
+    }
+
     pub(super) fn page(&self) -> PageQuery {
         PageQuery {
             limit: self.limit,
             offset: self.offset,
         }
+    }
+
+    pub(super) fn facets(&self) -> Vec<String> {
+        self.facets
+            .iter()
+            .flat_map(|value| {
+                value
+                    .split(',')
+                    .map(str::trim)
+                    .filter(|facet| !facet.is_empty())
+                    .map(str::to_owned)
+            })
+            .collect()
     }
 }
 

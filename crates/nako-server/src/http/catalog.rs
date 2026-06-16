@@ -1,7 +1,7 @@
 use axum::{
     Extension, Json, Router,
     body::Body,
-    extract::{Path, Query, State},
+    extract::{Path, Query, RawQuery, State},
     http::{HeaderMap, HeaderValue, StatusCode, header},
     response::IntoResponse,
     routing::get,
@@ -235,22 +235,15 @@ pub(super) async fn list_genre_items(
 pub(super) async fn search_items(
     State(app): State<NakoApp>,
     Extension(principal): Extension<AuthenticatedPrincipal>,
-    Query(query): Query<SearchPageQuery>,
+    RawQuery(raw_query): RawQuery,
 ) -> ApiResult<impl IntoResponse> {
+    let query = SearchPageQuery::from_raw_query(raw_query.as_deref())?;
     let page = query.page().try_into()?;
-    let facets = query
-        .facet
-        .as_deref()
-        .unwrap_or("")
-        .split(',')
-        .map(str::trim)
-        .filter(|facet| !facet.is_empty())
-        .map(ToOwned::to_owned)
-        .collect::<Vec<_>>();
+    let facets = query.facets();
 
     Ok(Json(
         app.catalog()
-            .search_accessible_items(&principal, query.q, facets, page)
+            .search_accessible_items(&principal, query.q.unwrap_or_default(), facets, page)
             .await?,
     ))
 }

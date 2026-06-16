@@ -106,6 +106,147 @@ async fn search_route_returns_indexed_items() {
 }
 
 #[tokio::test]
+async fn search_route_supports_repeated_and_comma_separated_facets() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("nako-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let item = MediaItem {
+        id: nako_core::MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Facet Route Demo".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let mismatch = MediaItem {
+        id: nako_core::MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Facet Route Mismatch".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let genre_only = MediaItem {
+        id: nako_core::MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Facet Route Genre Only".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    store.upsert_media_item(&item).await.unwrap();
+    store.upsert_media_item(&mismatch).await.unwrap();
+    store.upsert_media_item(&genre_only).await.unwrap();
+    store
+        .upsert(
+            SearchDocument::from_facet_labels(
+                item.id,
+                item.metadata.title.clone(),
+                "A route test fixture",
+                vec!["genre:test".to_owned(), "tag:demo".to_owned()],
+            )
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    store
+        .upsert(
+            SearchDocument::from_facet_labels(
+                mismatch.id,
+                mismatch.metadata.title.clone(),
+                "A route test fixture",
+                vec!["genre:test".to_owned()],
+            )
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    store
+        .upsert(
+            SearchDocument::from_facet_labels(
+                genre_only.id,
+                genre_only.metadata.title.clone(),
+                "A route test fixture",
+                vec!["tag:demo".to_owned()],
+            )
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    let router = build_router(app);
+
+    let repeated = request_json::<nako_api::public_client::SearchResponse>(
+        &router,
+        Method::GET,
+        "/search?q=facet&facet=genre:test&facet=tag:demo&limit=12&offset=0",
+    )
+    .await;
+    let comma_separated = request_json::<nako_api::public_client::SearchResponse>(
+        &router,
+        Method::GET,
+        "/search?q=facet&facet=genre:test,tag:demo&limit=12&offset=0",
+    )
+    .await;
+
+    assert_eq!(repeated.page.returned, 1);
+    assert_eq!(repeated.hits[0].item.id, item.id.to_string());
+    assert_eq!(comma_separated.page.returned, 1);
+    assert_eq!(comma_separated.hits[0].item.id, item.id.to_string());
+    assert!(
+        repeated
+            .hits
+            .iter()
+            .all(|hit| hit.item.id != mismatch.id.to_string()
+                && hit.item.id != genre_only.id.to_string())
+    );
+    assert!(
+        comma_separated
+            .hits
+            .iter()
+            .all(|hit| hit.item.id != mismatch.id.to_string()
+                && hit.item.id != genre_only.id.to_string())
+    );
+}
+
+#[tokio::test]
 async fn browse_routes_return_catalog_graph() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();

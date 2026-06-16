@@ -249,7 +249,7 @@ fn public_paths() -> Value {
                     parameter_ref("Offset"),
                     query_parameter("sort", "Library browse sort key.", schema_ref("ClientBrowseSortKey"), false),
                     query_parameter("order", "Library browse sort order.", schema_ref("ClientSortOrder"), false),
-                    query_parameter("facet", "Comma-separated public browse facet tokens.", string_schema(), false),
+                    query_parameter("facet", "Public browse facet tokens; repeat or comma-separate values.", string_schema(), false),
                     query_parameter("watch_state", "Current user's watch-state filter.", schema_ref("ClientWatchStateFilter"), false),
                 ],
                 schema_ref("LibraryItemsResponse")
@@ -364,7 +364,7 @@ fn public_paths() -> Value {
                 "searchItems",
                 "Search media items.",
                 "catalog",
-                vec![query_parameter("q", "Search query.", string_schema(), false), query_parameter("facet", "Comma-separated lightweight facets.", string_schema(), false), parameter_ref("Limit"), parameter_ref("Offset")],
+                vec![query_parameter("q", "Search query.", string_schema(), false), query_parameter("facet", "Search facet tokens; repeat or comma-separate values.", string_schema(), false), parameter_ref("Limit"), parameter_ref("Offset")],
                 schema_ref("SearchResponse")
             )
         }),
