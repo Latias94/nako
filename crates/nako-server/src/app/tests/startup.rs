@@ -84,6 +84,30 @@ async fn wait_for_runtime_jobs(
     );
 }
 
+async fn wait_for_watch_folder_runtime_scan_admission(
+    app: &NakoApp,
+    library_id: LibraryId,
+) -> crate::app::watch_folder_runtime::WatchFolderRuntimeTickDiagnostic {
+    for _ in 0..500 {
+        if let Some(diagnostic) = app
+            .watch_folder_runtime()
+            .latest_tick_diagnostics()
+            .await
+            .get(&library_id)
+            .filter(|diagnostic| diagnostic.scan_job_id.is_some())
+            .cloned()
+        {
+            return diagnostic;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+
+    panic!(
+        "watch-folder runtime did not admit a scan after restart: {:?}",
+        app.watch_folder_runtime().latest_tick_diagnostics().await
+    );
+}
+
 async fn open_storage_circuit_for_library(
     store: &NakoDatabase,
     library_id: LibraryId,
@@ -3213,6 +3237,97 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
         .filter(|job| job.kind == JobKind::LibraryScan)
         .count();
     assert_eq!(scan_jobs, 1);
+}
+
+#[tokio::test]
+async fn watch_folder_runtime_tick_resumes_inspecting_candidate_after_restart() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let library = LocalLibraryConfig {
+        id: library_id,
+        name: "Movies".to_owned(),
+        root: temp.path().join("movies"),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    fs::create_dir_all(&library.root).unwrap();
+    fs::write(library.root.join("Ready Movie.mkv"), b"ready").unwrap();
+
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let config = startup_config(temp.path(), vec![library]);
+    let app = NakoApp::new_with_store(config.clone(), store.clone())
+        .await
+        .unwrap();
+
+    let mut persisted = store.get_library(library_id).await.unwrap().unwrap();
+    persisted.options.scan.realtime_monitor = true;
+    store.upsert_library(&persisted).await.unwrap();
+
+    let first = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+    assert!(first.monitored);
+    assert_eq!(first.intake_plan.summary.newly_ready_candidates, 0);
+    assert_eq!(
+        first.scan_admission_status,
+        WatchFolderScanAdmissionStatus::NotAdmitted
+    );
+    assert_eq!(
+        first.intake_plan.enqueue.reason,
+        WatchFolderIntakeEnqueueReason::WaitingForStability
+    );
+    assert_eq!(first.scan_job_id, None);
+    assert_eq!(first.intake_plan.discover.inspecting_candidates, 1);
+    assert_eq!(
+        store
+            .list_jobs(Default::default(), PageRequest::first_page())
+            .await
+            .unwrap()
+            .into_iter()
+            .filter(|job| job.kind == JobKind::LibraryScan)
+            .count(),
+        0
+    );
+
+    app.shutdown_runtime();
+    tokio::task::yield_now().await;
+
+    let restarted = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    assert_eq!(restarted.startup_report().watch_folder_runtimes_started, 1);
+
+    let second = wait_for_watch_folder_runtime_scan_admission(&restarted, library_id).await;
+    assert!(second.monitored);
+    assert_eq!(second.intake_plan.summary.newly_ready_candidates, 1);
+    assert_eq!(
+        second.scan_admission_status,
+        WatchFolderScanAdmissionStatus::Enqueued
+    );
+    assert!(!second.reused_existing_scan);
+    assert!(second.intake_plan.summary.enqueue_scan);
+    assert_eq!(second.intake_plan.discover.ready_candidates, 1);
+    assert_eq!(second.intake_plan.summary.observed_candidates, 1);
+    let Some(scan_job_id) = second.scan_job_id else {
+        panic!("expected restarted watch-folder runtime to enqueue a library scan job");
+    };
+
+    let scan_jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap()
+        .into_iter()
+        .filter(|job| job.kind == JobKind::LibraryScan)
+        .collect::<Vec<_>>();
+    assert_eq!(scan_jobs.len(), 1);
+    assert_eq!(scan_jobs[0].id, scan_job_id);
+    assert_eq!(scan_jobs[0].resource_class, "disk.scan");
+    assert_eq!(scan_jobs[0].library_id, Some(library_id));
+
+    restarted.shutdown_runtime();
+    tokio::task::yield_now().await;
 }
 
 #[tokio::test]
