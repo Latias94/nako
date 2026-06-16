@@ -5,8 +5,9 @@ use nako_core::{
     PlaybackTargetNetworkScope, PlaybackTargetTransportAuth, RendererControlCommand,
     RendererSessionId, RendererSessionRecord, RendererSessionState, TranscodeFailureCategory,
     TranscodeSessionId, TranscodeSessionKind, TranscodeSessionRecord,
-    TranscodeSessionRuntimeMetrics, TranscodeSessionState,
+    TranscodeSessionRuntimeMetrics, TranscodeSessionState, UserPrincipalId,
 };
+use nako_playback::{PlaybackProfileFamily, normalize_playback_device_family};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -24,12 +25,16 @@ pub struct AdminPlaybackSessionListResponse {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminPlaybackSessionListItem {
     pub id: PlaybackSessionId,
+    pub principal_id: UserPrincipalId,
     pub source_id: MediaSourceId,
     pub item_id: MediaItemId,
     pub mode: PlaybackSessionMode,
     pub state: PlaybackSessionState,
     pub transcode_session_id: Option<TranscodeSessionId>,
     pub has_client_capabilities: bool,
+    pub client_device_family: Option<String>,
+    pub client_profile_version: Option<u32>,
+    pub client_profile_family: Option<AdminPlaybackProfileFamily>,
     pub active: bool,
     pub terminal: bool,
     pub started_at_ms: i64,
@@ -42,14 +47,22 @@ pub struct AdminPlaybackSessionListItem {
 impl AdminPlaybackSessionListItem {
     #[must_use]
     pub fn from_record(session: PlaybackSessionRecord) -> Self {
+        let client_profile = AdminPlaybackClientProfileSummary::from_capabilities_json(
+            session.client_capabilities_json.as_deref(),
+        );
+
         Self {
             id: session.id,
+            principal_id: session.principal_id,
             source_id: session.source_id,
             item_id: session.item_id,
             mode: session.mode,
             state: session.state,
             transcode_session_id: session.transcode_session_id,
             has_client_capabilities: session.client_capabilities_json.is_some(),
+            client_device_family: client_profile.device_family,
+            client_profile_version: client_profile.profile_version,
+            client_profile_family: client_profile.profile_family,
             active: session.state.is_active(),
             terminal: session.state.is_terminal(),
             started_at_ms: session.started_at_ms,
@@ -57,6 +70,76 @@ impl AdminPlaybackSessionListItem {
             last_heartbeat_at_ms: session.last_heartbeat_at_ms,
             created_at: session.created_at,
             updated_at: session.updated_at,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminPlaybackProfileFamily {
+    BrowserChromium,
+    BrowserFirefox,
+    BrowserSafari,
+    AndroidMedia3,
+    DesktopNative,
+    TvWebos,
+    TvTizen,
+    Chromecast,
+    DlnaRenderer,
+    Unknown,
+}
+
+impl AdminPlaybackProfileFamily {
+    #[must_use]
+    const fn from_playback_family(family: PlaybackProfileFamily) -> Self {
+        match family {
+            PlaybackProfileFamily::BrowserChromium => Self::BrowserChromium,
+            PlaybackProfileFamily::BrowserFirefox => Self::BrowserFirefox,
+            PlaybackProfileFamily::BrowserSafari => Self::BrowserSafari,
+            PlaybackProfileFamily::AndroidMedia3 => Self::AndroidMedia3,
+            PlaybackProfileFamily::DesktopNative => Self::DesktopNative,
+            PlaybackProfileFamily::TvWebos => Self::TvWebos,
+            PlaybackProfileFamily::TvTizen => Self::TvTizen,
+            PlaybackProfileFamily::Chromecast => Self::Chromecast,
+            PlaybackProfileFamily::DlnaRenderer => Self::DlnaRenderer,
+            PlaybackProfileFamily::Unknown => Self::Unknown,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+struct AdminPlaybackClientProfileSummary {
+    device_family: Option<String>,
+    profile_version: Option<u32>,
+    profile_family: Option<AdminPlaybackProfileFamily>,
+}
+
+impl AdminPlaybackClientProfileSummary {
+    fn from_capabilities_json(value: Option<&str>) -> Self {
+        let Some(value) = value else {
+            return Self::default();
+        };
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(value) else {
+            return Self::default();
+        };
+
+        let device_family = normalize_playback_device_family(
+            value.get("device_family").and_then(|value| value.as_str()),
+        );
+        let playback_family = PlaybackProfileFamily::from_device_family(device_family.as_deref());
+        let profile_family = playback_family.map(AdminPlaybackProfileFamily::from_playback_family);
+        let device_family = match playback_family {
+            Some(PlaybackProfileFamily::Unknown) | None => None,
+            Some(_) => device_family,
+        };
+
+        Self {
+            device_family,
+            profile_version: value
+                .get("profile_version")
+                .and_then(serde_json::Value::as_u64)
+                .and_then(|value| u32::try_from(value).ok()),
+            profile_family,
         }
     }
 }
@@ -976,7 +1059,7 @@ mod tests {
             mode: PlaybackSessionMode::Direct,
             state: PlaybackSessionState::Active,
             client_capabilities_json: Some(
-                r#"{"direct_play":true,"container":["mp4"],"video_codec":["h264"]}"#.to_owned(),
+                r#"{"direct_play":true,"device_family":" Browser Chromium ","profile_version":1,"container":["mp4"],"video_codec":["h264"]}"#.to_owned(),
             ),
             transcode_session_id: None,
             position_ms: Some(42_000),
@@ -998,13 +1081,61 @@ mod tests {
         assert_eq!(item.mode, PlaybackSessionMode::Direct);
         assert_eq!(item.state, PlaybackSessionState::Active);
         assert!(item.has_client_capabilities);
+        assert_eq!(
+            item.client_device_family.as_deref(),
+            Some("browser_chromium")
+        );
+        assert_eq!(item.client_profile_version, Some(1));
+        assert_eq!(
+            item.client_profile_family,
+            Some(AdminPlaybackProfileFamily::BrowserChromium)
+        );
         assert!(item.active);
         assert!(!item.terminal);
+        assert!(body.contains("browser_chromium"));
         assert!(!body.contains("nako-cache"));
         assert!(!body.contains("playlist.m3u8"));
         assert!(!body.contains("output_path"));
         assert!(!body.contains("request_key"));
         assert!(!body.contains("ffmpeg failed while writing"));
+    }
+
+    #[test]
+    fn admin_playback_session_list_item_tolerates_unreadable_capabilities() {
+        let session = PlaybackSessionRecord {
+            id: PlaybackSessionId::new(),
+            source_id: MediaSourceId::new(),
+            item_id: MediaItemId::new(),
+            principal_id: nako_core::UserPrincipalId::local_admin(),
+            mode: PlaybackSessionMode::Direct,
+            state: PlaybackSessionState::Active,
+            client_capabilities_json: Some(
+                r#"{"device_family":"C:\\private\\gpu\\path","profile_version":"bad"}"#.to_owned(),
+            ),
+            transcode_session_id: None,
+            position_ms: None,
+            duration_ms: None,
+            last_heartbeat_at_ms: None,
+            started_at_ms: 1_779_814_400_000,
+            ended_at_ms: None,
+            created_at: "2026-05-18T00:00:00Z".to_owned(),
+            updated_at: "2026-05-18T00:00:01Z".to_owned(),
+        };
+
+        let item = AdminPlaybackSessionListItem::from_record(session);
+        let body = serde_json::to_string(&item).unwrap();
+
+        assert!(item.has_client_capabilities);
+        assert_eq!(item.client_device_family, None);
+        assert_eq!(item.client_profile_version, None);
+        assert_eq!(
+            item.client_profile_family,
+            Some(AdminPlaybackProfileFamily::Unknown)
+        );
+        assert!(!body.contains("C:\\"));
+        assert!(!body.contains("private"));
+        assert!(!body.contains("gpu"));
+        assert!(!body.contains("path"));
     }
 
     #[test]

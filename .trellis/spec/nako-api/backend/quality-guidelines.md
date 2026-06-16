@@ -383,6 +383,94 @@ Client profile fields describe what the player can do. Server hardware,
 fallback, and stage readiness remain in Admin diagnostics and transcode runtime
 records.
 
+## Scenario: Admin Playback Session Profile Diagnostics
+
+### 1. Scope / Trigger
+
+- Trigger: changing Admin playback session list DTOs or profile diagnostics
+  derived from `PlaybackSessionRecord.client_capabilities_json`.
+- Scope: `AdminPlaybackSessionListItem`, generated Admin TypeScript contracts,
+  Admin Web mock/test fixtures, and `nako-playback` profile-family helpers.
+
+### 2. Signatures
+
+- Admin DTO:
+  `AdminPlaybackSessionListItem { principal_id, has_client_capabilities,
+  client_device_family, client_profile_version, client_profile_family }`.
+- Profile family enum:
+  `AdminPlaybackProfileFamily = browser_chromium | browser_firefox |
+  browser_safari | android_media3 | desktop_native | tv_webos | tv_tizen |
+  chromecast | dlna_renderer | unknown`.
+- Planner helper:
+  `PlaybackProfileFamily::from_device_family(Option<&str>) -> Option<Self>`.
+- Normalization helper:
+  `normalize_playback_device_family(Option<&str>) -> Option<String>`.
+
+### 3. Contracts
+
+- Admin session list may expose only normalized, recognized client-owned
+  profile facts: known `device_family`, `profile_version`, and recognized
+  `client_profile_family`.
+- Unknown raw `device_family` values must not be echoed in Admin output. Return
+  `client_profile_family: "unknown"` and `client_device_family: null`.
+- Missing or unreadable capability JSON must not fail the session list.
+- Profile family recognition is descriptive only. It must not change Direct
+  Play, Remux, Transcode, Denied, FFmpeg planning, storage staging, or policy.
+- Generated Admin TypeScript contracts and fixtures must be regenerated or
+  updated from `nako-api`; do not hand-edit generated output without changing
+  the generator source.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Known profile family is persisted | Return normalized `client_device_family`, `client_profile_version`, and matching `client_profile_family` |
+| Unknown or path-like profile family is persisted | Return `client_device_family: null`, `client_profile_family: "unknown"`, and do not echo raw text |
+| Capability JSON is malformed or old query-shaped JSON omits unrelated fields | Return the session row and leave unavailable profile facts null |
+| Admin contract changes | Regenerate both generated Admin TypeScript contracts |
+| Public Client outputs are inspected | No Admin playback profile diagnostic fields appear in Public SDK/OpenAPI |
+
+### 5. Good/Base/Bad Cases
+
+- Good: a session with `device_family: " Browser Chromium "` returns
+  `client_device_family: "browser_chromium"` and
+  `client_profile_family: "browser_chromium"`.
+- Base: an old session with no capability JSON still returns
+  `has_client_capabilities: false` and null profile facts.
+- Bad: echoing `C:\private\gpu\path` or a user-agent string as
+  `client_device_family`.
+- Bad: using `device_family` to bypass explicit flat capability checks.
+
+### 6. Tests Required
+
+- Playback unit tests for known, unknown, normalized, and absent profile family
+  values.
+- API/Admin DTO tests for safe profile projection and malformed/unreadable
+  capability JSON.
+- Admin contract parity:
+  `cargo nextest run -p nako-api admin_contract --no-fail-fast`.
+- Admin Web/Web TypeScript checks when generated contract or fixtures change.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+client_device_family = raw_device_family;
+```
+
+This can leak paths, user-agent strings, or local hardware labels into Admin
+diagnostics.
+
+#### Correct
+
+```rust
+let family = PlaybackProfileFamily::from_device_family(device_family);
+```
+
+Admin diagnostics expose only recognized normalized profile facts, while
+unknown raw strings are summarized as `unknown`.
+
 ## Scenario: Admin Diagnostic Summary DTO
 
 ### 1. Scope / Trigger

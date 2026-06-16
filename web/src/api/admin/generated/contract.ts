@@ -3222,6 +3222,18 @@ export interface AdminJobCancelRequestResponse {
   cancel_requested_at: string | null;
 }
 
+export type AdminPlaybackProfileFamily =
+  | "browser_chromium"
+  | "browser_firefox"
+  | "browser_safari"
+  | "android_media3"
+  | "desktop_native"
+  | "tv_webos"
+  | "tv_tizen"
+  | "chromecast"
+  | "dlna_renderer"
+  | "unknown";
+
 export interface AdminPlaybackSessionListItem {
   id: string;
   principal_id: string;
@@ -3231,6 +3243,9 @@ export interface AdminPlaybackSessionListItem {
   state: string;
   transcode_session_id: string | null;
   has_client_capabilities: boolean;
+  client_device_family: string | null;
+  client_profile_version: number | null;
+  client_profile_family: AdminPlaybackProfileFamily | null;
   active: boolean;
   terminal: boolean;
   created_at: string;

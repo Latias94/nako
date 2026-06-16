@@ -14,8 +14,8 @@ mod values;
 
 pub use capability::{
     DirectPlayCapabilityProfile, PlaybackCapabilityEvaluation, PlaybackCompatibilityCondition,
-    PlaybackDecisionReport, PlaybackTargetProfile, RemuxCapabilityProfile,
-    TranscodeCapabilityProfile,
+    PlaybackDecisionReport, PlaybackProfileFamily, PlaybackTargetProfile, RemuxCapabilityProfile,
+    TranscodeCapabilityProfile, normalize_playback_device_family,
 };
 use capability::{evaluate_direct_play, evaluate_remux, evaluate_transcode};
 pub use values::{
@@ -2686,6 +2686,48 @@ mod tests {
 
         assert!(identity.contains("device_family=browser_chromium_win64"));
         assert!(identity.contains("profile_version=7"));
+    }
+
+    #[test]
+    fn playback_profile_family_recognizes_known_device_families_after_normalization() {
+        assert_eq!(
+            PlaybackProfileFamily::from_device_family(Some(" Browser Chromium ")),
+            Some(PlaybackProfileFamily::BrowserChromium)
+        );
+        assert_eq!(
+            PlaybackProfileFamily::from_device_family(Some("Android-Media3")),
+            Some(PlaybackProfileFamily::Unknown)
+        );
+        assert_eq!(
+            PlaybackProfileFamily::from_device_family(Some("Android Media3")),
+            Some(PlaybackProfileFamily::AndroidMedia3)
+        );
+        assert_eq!(
+            PlaybackProfileFamily::from_device_family(Some("DLNA Renderer")),
+            Some(PlaybackProfileFamily::DlnaRenderer)
+        );
+        assert_eq!(
+            normalize_playback_device_family(Some(" TV WebOS ")).as_deref(),
+            Some("tv_webos")
+        );
+        assert_eq!(
+            PlaybackProfileFamily::BrowserSafari.as_str(),
+            "browser_safari"
+        );
+    }
+
+    #[test]
+    fn playback_profile_family_handles_absent_or_unknown_device_families() {
+        assert_eq!(PlaybackProfileFamily::from_device_family(None), None);
+        assert_eq!(PlaybackProfileFamily::from_device_family(Some("  ")), None);
+        assert_eq!(
+            PlaybackProfileFamily::from_device_family(Some("experimental_console")),
+            Some(PlaybackProfileFamily::Unknown)
+        );
+        assert_eq!(
+            normalize_playback_device_family(Some("Experimental Console")).as_deref(),
+            Some("experimental_console")
+        );
     }
 
     #[test]

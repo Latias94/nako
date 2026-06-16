@@ -1,0 +1,8 @@
+{"file":"CONTEXT.md","reason":"Check domain language and redaction-sensitive terms."}
+{"file":"docs/architecture/PLAYBACK.md","reason":"Check task stays within device capability profile lane and no-runtime planner boundary."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Check cross-crate API/server/playback data flow consistency."}
+{"file":".trellis/spec/nako-playback/backend/quality-guidelines.md","reason":"Check planner purity and profile capability test expectations."}
+{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Check Admin DTO contract generation and Public/Admin separation."}
+{"file":".trellis/spec/nako-api/backend/quality-guidelines.md","reason":"Check generated Admin/Public contract and playback capability redaction rules."}
+{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Check Admin route mapping, safe defaults, and response behavior."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Check focused server tests and no unrelated behavior changes."}

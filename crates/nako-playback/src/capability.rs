@@ -153,6 +153,61 @@ pub struct PlaybackTargetProfile {
     pub preferences: PlaybackPreferenceContext,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlaybackProfileFamily {
+    BrowserChromium,
+    BrowserFirefox,
+    BrowserSafari,
+    AndroidMedia3,
+    DesktopNative,
+    TvWebos,
+    TvTizen,
+    Chromecast,
+    DlnaRenderer,
+    Unknown,
+}
+
+impl PlaybackProfileFamily {
+    #[must_use]
+    pub fn from_device_family(value: Option<&str>) -> Option<Self> {
+        let normalized = normalized_device_family(value)?;
+        Some(match normalized.as_str() {
+            "browser_chromium" => Self::BrowserChromium,
+            "browser_firefox" => Self::BrowserFirefox,
+            "browser_safari" => Self::BrowserSafari,
+            "android_media3" => Self::AndroidMedia3,
+            "desktop_native" => Self::DesktopNative,
+            "tv_webos" => Self::TvWebos,
+            "tv_tizen" => Self::TvTizen,
+            "chromecast" => Self::Chromecast,
+            "dlna_renderer" => Self::DlnaRenderer,
+            _ => Self::Unknown,
+        })
+    }
+
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::BrowserChromium => "browser_chromium",
+            Self::BrowserFirefox => "browser_firefox",
+            Self::BrowserSafari => "browser_safari",
+            Self::AndroidMedia3 => "android_media3",
+            Self::DesktopNative => "desktop_native",
+            Self::TvWebos => "tv_webos",
+            Self::TvTizen => "tv_tizen",
+            Self::Chromecast => "chromecast",
+            Self::DlnaRenderer => "dlna_renderer",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
+#[must_use]
+pub fn normalize_playback_device_family(value: Option<&str>) -> Option<String> {
+    normalized_device_family(value)
+}
+
 impl PlaybackTargetProfile {
     #[must_use]
     pub fn from_target(target: &PlaybackTarget, context: PlaybackSelectionContext) -> Self {
