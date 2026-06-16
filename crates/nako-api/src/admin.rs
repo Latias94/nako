@@ -322,6 +322,88 @@ pub struct AdminOverviewResponse {
     pub startup: AdminOverviewStartupSummary,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOperatorReadinessResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub summary: AdminOperatorReadinessSummary,
+    pub details: AdminOperatorReadinessDetails,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOperatorReadinessDetails {
+    pub setup: AdminOperatorReadinessSetupDetail,
+    pub media_library_scan: AdminOperatorReadinessMediaLibraryScanDetail,
+    pub playback: AdminOperatorReadinessPlaybackDetail,
+    pub durable_jobs: AdminOperatorReadinessDurableJobsDetail,
+    pub storage: AdminOperatorReadinessStorageDetail,
+    pub network: AdminOperatorReadinessNetworkDetail,
+    pub backup: AdminOperatorReadinessBackupDetail,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOperatorReadinessSetupDetail {
+    pub auth_enabled: bool,
+    pub token_reference_configured: bool,
+    pub exposure_mode: AdminNetworkExposureMode,
+    pub check: AdminOperatorReadinessCheck,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOperatorReadinessMediaLibraryScanDetail {
+    pub configured_libraries: u32,
+    pub library_scan: AdminOperatorReadinessLibraryScanPosture,
+    pub source_fingerprint_hash: AdminOverviewSourceFingerprintHashSummary,
+    pub watch_folder_runtime: AdminOverviewWatchFolderRuntimeSummary,
+    pub check: AdminOperatorReadinessCheck,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOperatorReadinessLibraryScanPosture {
+    pub configured_libraries: u32,
+    pub pending_libraries: u32,
+    pub failed_libraries: u32,
+    pub never_completed_libraries: u32,
+    pub succeeded_libraries: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOperatorReadinessPlaybackDetail {
+    pub readiness: AdminPlaybackReadinessDiagnostics,
+    pub check: AdminOperatorReadinessCheck,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOperatorReadinessDurableJobsDetail {
+    pub queue_pressure: Vec<AdminJobQueuePressureSummary>,
+    pub check: AdminOperatorReadinessCheck,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOperatorReadinessStorageDetail {
+    pub summary: AdminOverviewStorageSummary,
+    pub vfs_cache_repair: Option<AdminOperatorReadinessVfsCacheRepairPressure>,
+    pub check: AdminOperatorReadinessCheck,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOperatorReadinessVfsCacheRepairPressure {
+    pub total_unresolved_targets: u32,
+    pub primary_classification: AdminVfsCacheRepairClassification,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOperatorReadinessNetworkDetail {
+    pub readiness: AdminNetworkReadinessDiagnostics,
+    pub check: AdminOperatorReadinessCheck,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOperatorReadinessBackupDetail {
+    pub durable_database_configured: bool,
+    pub check: AdminOperatorReadinessCheck,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AdminOverviewStatus {

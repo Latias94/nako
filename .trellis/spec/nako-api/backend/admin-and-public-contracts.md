@@ -670,3 +670,138 @@ diagnostics.failure.safe_message = job.error.clone();
 ```rust
 diagnostics.failure.safe_message = StorageFailureClass::Unknown.safe_message().to_owned();
 ```
+
+## Scenario: Admin Operator Readiness Drilldown Contract
+
+### 1. Scope / Trigger
+
+- Trigger: adding or changing the Admin operator-readiness drilldown route that
+  explains the summarized operator readiness status with existing safe
+  diagnostics.
+- Scope: `GET /admin/v1/operator-readiness`,
+  `AdminOperatorReadinessResponse`, Admin route inventory, generated Admin Web
+  contracts, and server composition from overview, setup, scan, playback,
+  durable jobs, storage, network, and backup posture.
+- Authority: ADR 0027 and ADR 0053.
+
+### 2. Signatures
+
+- Route: `GET /admin/v1/operator-readiness`.
+- Generated route key: `operatorReadiness`.
+- Admin DTO:
+  `AdminOperatorReadinessResponse { admin_api_version, public_api_version,
+  summary, details }`.
+- Detail DTO:
+  `AdminOperatorReadinessDetails { setup, media_library_scan, playback,
+  durable_jobs, storage, network, backup }`.
+- Setup detail:
+  `AdminOperatorReadinessSetupDetail { auth_enabled,
+  token_reference_configured, exposure_mode, check }`.
+- Media library scan detail:
+  `AdminOperatorReadinessMediaLibraryScanDetail { configured_libraries,
+  posture, source_hash_overview, watch_folder_runtime, check }`.
+- Durable job detail:
+  `AdminOperatorReadinessDurableJobsDetail { queue_pressure, check }`.
+- Storage detail:
+  `AdminOperatorReadinessStorageDetail { overview, vfs_cache_repair, check }`.
+- No request body, no path parameters, and no mutation.
+
+### 3. Contracts
+
+- The route is Admin-only. Do not add it to Public Client route inventories,
+  public OpenAPI output, or the generated Public TypeScript SDK.
+- The response summary must reuse the same readiness summary shape as
+  `AdminOverviewResponse` so Admin Web can show a compact status and optional
+  drilldown without reconciling different status vocabularies.
+- Detail sections must be composed from existing redaction-safe summaries:
+  setup config posture, library scan posture, source hash overview summary,
+  watch-folder runtime summary, playback readiness diagnostics, durable job
+  queue pressure, storage/VFS repair posture, network readiness diagnostics,
+  and durable database backup posture.
+- The route must not perform repair, scanning, playback probing, network
+  mutation, backup, durable job enqueue, or scheduler execution.
+- Queue pressure may expose only grouped kind, status, resource class, counts,
+  claimable count, delayed retry count, oldest queued timestamp, and next retry
+  timestamp.
+- Storage and scan details must not expose raw library roots, source locators,
+  cache URI, local path, backend URL, etag, fingerprint, credential, URI
+  digest, raw backend error, raw job input JSON, raw summary JSON, or cache
+  payloads.
+- Setup and network details may expose booleans, counts, schemes, and exposure
+  mode, but must not expose token env names, token values, endpoint hosts,
+  trusted proxy source values, allowed-origin values, query strings, or
+  credentials.
+- Generated TypeScript contract artifacts under `apps/admin-web` and `web`
+  must be regenerated from `nako-api`; do not hand-edit generated files.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Caller lacks Admin authorization | Existing Admin guard rejects the request |
+| Runtime facts are empty | Return deterministic empty safe summary shapes |
+| No durable job repository is configured | Return empty queue pressure and a degraded/unknown check, not a panic |
+| Durable jobs contain raw input JSON, summary JSON, or error bodies | Response exposes only queue pressure aggregates |
+| Storage/VFS facts contain raw URI, path, backend URL, etag, fingerprint, token, credential, or raw backend error | Response omits those values |
+| Setup config contains token env names or secret values | Response exposes only `token_reference_configured` and safe setup status |
+| Network config contains hosts, trusted proxy values, origins, tunnel token env names, or query strings | Response exposes only readiness-safe fields |
+| Admin route inventory changes | Generated Admin TypeScript contracts must match `nako-api` |
+| Operator readiness route is accidentally added to public SDK/OpenAPI | Contract tests must fail |
+
+### 5. Good / Base / Bad Cases
+
+- Good: `/admin/v1/operator-readiness` returns `summary` plus per-area
+  `details` without requiring Admin Web to call every diagnostic route.
+- Good: `details.durable_jobs.queue_pressure` reuses repository-owned queue
+  pressure summaries and never serializes job payloads.
+- Good: `details.media_library_scan.source_hash_overview` exposes aggregate
+  source hash posture, not raw source identities.
+- Base: missing runtime facts produce empty, redaction-safe summaries.
+- Bad: computing readiness by parsing rendered Admin Web text or generated
+  TypeScript files.
+- Bad: copying raw setup config, storage failures, library roots, or durable
+  job payloads into the drilldown DTO.
+- Bad: making this route enqueue scans, repair VFS cache, run playback probes,
+  or start background workers.
+
+### 6. Tests Required
+
+- Admin contract tests prove `operatorReadiness` is emitted and generated
+  TypeScript artifacts match the generator:
+  `cargo nextest run -p nako-api admin_contract --no-fail-fast`.
+- Server route tests prove `/admin/v1/operator-readiness` is Admin-only,
+  no-store, returns `summary` and all expected detail sections, and avoids raw
+  path, token, source locator, durable payload, backend URL, etag, fingerprint,
+  URI digest, and raw error leaks.
+- Server route tests prove overview and operator-readiness use the same safe
+  queue pressure and source hash facts without duplicating unsafe collection
+  logic.
+- Admin Web check gates must pass after regenerating both Admin contract
+  artifacts when the route is consumed by UI code.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+details.storage.raw_failures = app.storage_backend_errors().await?;
+```
+
+#### Correct
+
+```rust
+details.storage.vfs_cache_repair = context.vfs_cache_repair_pressure.clone();
+```
+
+#### Wrong
+
+```rust
+details.setup.token_env = config.server.token_env.clone();
+```
+
+#### Correct
+
+```rust
+details.setup.token_reference_configured =
+    config.server.management_token_reference_configured();
+```

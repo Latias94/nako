@@ -55,9 +55,15 @@ use nako_api::{
         AdminNetworkExternalEndpointDiagnostics, AdminNetworkReadinessCheck,
         AdminNetworkReadinessCheckName, AdminNetworkReadinessDiagnostics,
         AdminNetworkReadinessReason, AdminNetworkReadinessStatus, AdminOperatorReadinessAction,
-        AdminOperatorReadinessArea, AdminOperatorReadinessCheck, AdminOperatorReadinessReason,
-        AdminOperatorReadinessStatus, AdminOperatorReadinessSummary, AdminOriginPolicyDiagnostics,
-        AdminOutboxEventListItem, AdminOutboxEventListResponse,
+        AdminOperatorReadinessArea, AdminOperatorReadinessBackupDetail,
+        AdminOperatorReadinessCheck, AdminOperatorReadinessDetails,
+        AdminOperatorReadinessDurableJobsDetail, AdminOperatorReadinessLibraryScanPosture,
+        AdminOperatorReadinessMediaLibraryScanDetail, AdminOperatorReadinessNetworkDetail,
+        AdminOperatorReadinessPlaybackDetail, AdminOperatorReadinessReason,
+        AdminOperatorReadinessResponse, AdminOperatorReadinessSetupDetail,
+        AdminOperatorReadinessStatus, AdminOperatorReadinessStorageDetail,
+        AdminOperatorReadinessSummary, AdminOperatorReadinessVfsCacheRepairPressure,
+        AdminOriginPolicyDiagnostics, AdminOutboxEventListItem, AdminOutboxEventListResponse,
         AdminOverviewMetadataProviderSummary, AdminOverviewMetadataSummary, AdminOverviewResponse,
         AdminOverviewRuntimeSummary, AdminOverviewSourceFingerprintHashSummary,
         AdminOverviewStartupSummary, AdminOverviewStatus, AdminOverviewStorageBackendSummary,
@@ -224,6 +230,10 @@ use super::{
 pub(super) fn routes() -> Router<NakoApp> {
     Router::new()
         .route("/admin/v1/overview", get(get_admin_overview))
+        .route(
+            "/admin/v1/operator-readiness",
+            get(get_admin_operator_readiness),
+        )
         .route(
             "/admin/v1/diagnostics/incident-bundle",
             get(get_admin_incident_bundle),
@@ -1481,70 +1491,60 @@ pub(super) async fn get_admin_overview(State(app): State<NakoApp>) -> ApiResult<
     Ok(no_store_json(admin_overview_response(&app).await?))
 }
 
+pub(super) async fn get_admin_operator_readiness(
+    State(app): State<NakoApp>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(no_store_json(
+        admin_operator_readiness_response(&app).await?,
+    ))
+}
+
+struct OperatorReadinessContext {
+    summary: AdminOperatorReadinessSummary,
+    storage: AdminOverviewStorageSummary,
+    queue_pressure: Vec<JobQueuePressureSummary>,
+    runtime: AdminOverviewRuntimeSummary,
+    source_fingerprint_hash: AdminOverviewSourceFingerprintHashSummary,
+    library_scan_posture: LibraryScanPostureAggregate,
+    vfs_cache_repair_pressure: Option<VfsCacheRepairReadinessPressure>,
+    startup: AdminOverviewStartupSummary,
+    network_readiness: AdminNetworkReadinessDiagnostics,
+    playback_readiness: AdminPlaybackReadinessDiagnostics,
+}
+
 async fn admin_overview_response(app: &NakoApp) -> ApiResult<AdminOverviewResponse> {
-    let storage = app.storage().list_storage_backend_diagnostics().await;
-    let queue_pressure = app.job_queue_pressure_diagnostics().await?;
     let catalog = app.catalog().catalog_governance_summary().await?;
     let metadata = app.metadata().list_metadata_provider_diagnostics();
-    let runtime = app.runtime_diagnostics();
-    let source_fingerprint_hash = app.source_hash().admin_overview_summary().await?;
-    let library_scan_posture = app.library_scan().library_scan_posture_aggregate().await?;
-    let vfs_cache_repair_pressure = app.storage().vfs_cache_repair_readiness_pressure().await?;
-    let network_readiness = network_readiness_diagnostics(app.config());
-    let playback_readiness = admin_playback_runtime_diagnostics(&app).await.readiness;
-    let startup = app.startup_report().clone();
-    let latest_watch_folder_ticks = app.watch_folder_runtime().latest_tick_diagnostics().await;
+    let readiness = operator_readiness_context(app).await?;
 
-    let storage = storage_summary(storage);
     let metadata = metadata_summary(metadata);
-    let runtime = runtime_summary(runtime);
-    let startup = AdminOverviewStartupSummary {
-        configured_libraries: usize_to_u32(startup.configured_libraries),
-        recovered_transcode_sessions: startup.recovered_transcode_sessions,
-        recovered_jobs: startup.recovered_jobs,
-        staging_deleted_records: startup
-            .staging_cleanup
-            .as_ref()
-            .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_records)),
-        staging_deleted_files: startup
-            .staging_cleanup
-            .as_ref()
-            .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_files)),
-        metadata_raw_cache_deleted: startup.metadata_raw_cache_deleted,
-        metadata_lifecycle_tasks_started: usize_to_u32(startup.metadata_lifecycle_tasks_started),
-        artwork_ingest_worker_started: startup.artwork_ingest_worker_started,
-        addon_event_scheduler_started: startup.addon_event_scheduler_started,
-        watch_folder_runtimes_started: usize_to_u32(startup.watch_folder_runtimes_started),
-        watch_folder_runtime: admin_watch_folder_runtime_summary(
-            startup.watch_folder_runtime_coverage,
-            latest_watch_folder_ticks,
-        ),
-    };
-    let operator_readiness = operator_readiness_summary(
-        app.config(),
-        &storage,
-        &queue_pressure,
-        &runtime,
-        &source_fingerprint_hash,
-        &library_scan_posture,
-        vfs_cache_repair_pressure.as_ref(),
-        &startup,
-        network_readiness,
-        playback_readiness,
-    );
-    let status = overview_status(&storage, &metadata, &runtime);
+    let status = overview_status(&readiness.storage, &metadata, &readiness.runtime);
 
     Ok(AdminOverviewResponse {
         admin_api_version: ADMIN_API_VERSION.to_owned(),
         public_api_version: API_VERSION.to_owned(),
         status,
-        operator_readiness,
-        storage,
+        operator_readiness: readiness.summary,
+        storage: readiness.storage,
         catalog,
         metadata,
-        runtime,
-        source_fingerprint_hash,
-        startup,
+        runtime: readiness.runtime,
+        source_fingerprint_hash: readiness.source_fingerprint_hash,
+        startup: readiness.startup,
+    })
+}
+
+async fn admin_operator_readiness_response(
+    app: &NakoApp,
+) -> ApiResult<AdminOperatorReadinessResponse> {
+    let readiness = operator_readiness_context(app).await?;
+    let details = operator_readiness_details(app.config(), &readiness);
+
+    Ok(AdminOperatorReadinessResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        summary: readiness.summary,
+        details,
     })
 }
 
@@ -4214,6 +4214,160 @@ fn operator_readiness_summary(
         network_readiness_check(network),
         backup_readiness_check(config),
     ])
+}
+
+async fn operator_readiness_context(app: &NakoApp) -> ApiResult<OperatorReadinessContext> {
+    let storage = app.storage().list_storage_backend_diagnostics().await;
+    let queue_pressure = app.job_queue_pressure_diagnostics().await?;
+    let runtime = app.runtime_diagnostics();
+    let source_fingerprint_hash = app.source_hash().admin_overview_summary().await?;
+    let library_scan_posture = app.library_scan().library_scan_posture_aggregate().await?;
+    let vfs_cache_repair_pressure = app.storage().vfs_cache_repair_readiness_pressure().await?;
+    let network_readiness = network_readiness_diagnostics(app.config());
+    let playback_readiness = admin_playback_runtime_diagnostics(&app).await.readiness;
+    let startup = app.startup_report().clone();
+    let latest_watch_folder_ticks = app.watch_folder_runtime().latest_tick_diagnostics().await;
+
+    let storage = storage_summary(storage);
+    let runtime = runtime_summary(runtime);
+    let startup = AdminOverviewStartupSummary {
+        configured_libraries: usize_to_u32(startup.configured_libraries),
+        recovered_transcode_sessions: startup.recovered_transcode_sessions,
+        recovered_jobs: startup.recovered_jobs,
+        staging_deleted_records: startup
+            .staging_cleanup
+            .as_ref()
+            .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_records)),
+        staging_deleted_files: startup
+            .staging_cleanup
+            .as_ref()
+            .map_or(0, |cleanup| usize_to_u32(cleanup.deleted_files)),
+        metadata_raw_cache_deleted: startup.metadata_raw_cache_deleted,
+        metadata_lifecycle_tasks_started: usize_to_u32(startup.metadata_lifecycle_tasks_started),
+        artwork_ingest_worker_started: startup.artwork_ingest_worker_started,
+        addon_event_scheduler_started: startup.addon_event_scheduler_started,
+        watch_folder_runtimes_started: usize_to_u32(startup.watch_folder_runtimes_started),
+        watch_folder_runtime: admin_watch_folder_runtime_summary(
+            startup.watch_folder_runtime_coverage,
+            latest_watch_folder_ticks,
+        ),
+    };
+    let summary = operator_readiness_summary(
+        app.config(),
+        &storage,
+        &queue_pressure,
+        &runtime,
+        &source_fingerprint_hash,
+        &library_scan_posture,
+        vfs_cache_repair_pressure.as_ref(),
+        &startup,
+        network_readiness.clone(),
+        playback_readiness.clone(),
+    );
+
+    Ok(OperatorReadinessContext {
+        summary,
+        storage,
+        queue_pressure,
+        runtime,
+        source_fingerprint_hash,
+        library_scan_posture,
+        vfs_cache_repair_pressure,
+        startup,
+        network_readiness,
+        playback_readiness,
+    })
+}
+
+fn operator_readiness_details(
+    config: &crate::config::NakoServerConfig,
+    context: &OperatorReadinessContext,
+) -> AdminOperatorReadinessDetails {
+    let summary = &context.summary;
+    let setup_check = operator_readiness_check_for(summary, AdminOperatorReadinessArea::Setup);
+    let scan_check =
+        operator_readiness_check_for(summary, AdminOperatorReadinessArea::MediaLibraryScan);
+    let playback_check =
+        operator_readiness_check_for(summary, AdminOperatorReadinessArea::Playback);
+    let durable_jobs_check =
+        operator_readiness_check_for(summary, AdminOperatorReadinessArea::DurableJobs);
+    let storage_check = operator_readiness_check_for(summary, AdminOperatorReadinessArea::Storage);
+    let network_check = operator_readiness_check_for(summary, AdminOperatorReadinessArea::Network);
+    let backup_check = operator_readiness_check_for(summary, AdminOperatorReadinessArea::Backup);
+
+    AdminOperatorReadinessDetails {
+        setup: AdminOperatorReadinessSetupDetail {
+            auth_enabled: config.auth.enabled,
+            token_reference_configured: config
+                .auth
+                .token_env
+                .as_deref()
+                .is_some_and(|value| !value.trim().is_empty()),
+            exposure_mode: admin_network_exposure_mode(config.network.exposure_mode),
+            check: setup_check,
+        },
+        media_library_scan: AdminOperatorReadinessMediaLibraryScanDetail {
+            configured_libraries: context.startup.configured_libraries,
+            library_scan: AdminOperatorReadinessLibraryScanPosture {
+                configured_libraries: context.library_scan_posture.configured_libraries,
+                pending_libraries: context.library_scan_posture.pending_libraries,
+                failed_libraries: context.library_scan_posture.failed_libraries,
+                never_completed_libraries: context.library_scan_posture.never_completed_libraries,
+                succeeded_libraries: context.library_scan_posture.succeeded_libraries,
+            },
+            source_fingerprint_hash: context.source_fingerprint_hash.clone(),
+            watch_folder_runtime: context.startup.watch_folder_runtime.clone(),
+            check: scan_check,
+        },
+        playback: AdminOperatorReadinessPlaybackDetail {
+            readiness: context.playback_readiness.clone(),
+            check: playback_check,
+        },
+        durable_jobs: AdminOperatorReadinessDurableJobsDetail {
+            queue_pressure: context
+                .queue_pressure
+                .iter()
+                .cloned()
+                .map(Into::into)
+                .collect(),
+            check: durable_jobs_check,
+        },
+        storage: AdminOperatorReadinessStorageDetail {
+            summary: context.storage.clone(),
+            vfs_cache_repair: context.vfs_cache_repair_pressure.as_ref().map(|pressure| {
+                AdminOperatorReadinessVfsCacheRepairPressure {
+                    total_unresolved_targets: pressure.total_unresolved_targets,
+                    primary_classification: admin_vfs_cache_repair_classification(
+                        pressure.primary_classification,
+                    ),
+                }
+            }),
+            check: storage_check,
+        },
+        network: AdminOperatorReadinessNetworkDetail {
+            readiness: context.network_readiness.clone(),
+            check: network_check,
+        },
+        backup: AdminOperatorReadinessBackupDetail {
+            durable_database_configured: !config
+                .database_url
+                .trim()
+                .eq_ignore_ascii_case("sqlite::memory:"),
+            check: backup_check,
+        },
+    }
+}
+
+fn operator_readiness_check_for(
+    summary: &AdminOperatorReadinessSummary,
+    area: AdminOperatorReadinessArea,
+) -> AdminOperatorReadinessCheck {
+    summary
+        .checks
+        .iter()
+        .find(|check| check.area == area)
+        .cloned()
+        .expect("operator readiness summary includes every known area")
 }
 
 fn durable_jobs_readiness_check(

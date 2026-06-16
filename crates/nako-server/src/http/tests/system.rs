@@ -18,8 +18,8 @@ use nako_api::admin::{
     AdminMetadataCandidateReviewRelatedHierarchyPlanRequest,
     AdminMetadataCandidateReviewRelatedHierarchyPlanResponse, AdminMetadataCandidateReviewResponse,
     AdminMetadataCandidateReviewUndoMode, AdminMetadataCandidateReviewUndoReason,
-    AdminOperatorReadinessArea, AdminOperatorReadinessReason, AdminOperatorReadinessStatus,
-    AdminSourceDuplicateReconciliationApplyExpectedAction,
+    AdminOperatorReadinessArea, AdminOperatorReadinessReason, AdminOperatorReadinessResponse,
+    AdminOperatorReadinessStatus, AdminSourceDuplicateReconciliationApplyExpectedAction,
     AdminSourceDuplicateReconciliationApplyRequest,
     AdminSourceDuplicateReconciliationApplyResponse,
     AdminSourceDuplicateReconciliationPlanResponse, AdminSourceFingerprintHashEnqueueRequest,
@@ -207,6 +207,7 @@ async fn admin_dynamic_json_read_routes_use_no_store_cache_policy() {
     let router = test_router(temp.path().to_path_buf(), library_id).await;
     let paths = [
         "/admin/v1/overview",
+        "/admin/v1/operator-readiness",
         "/admin/v1/diagnostics/incident-bundle",
         "/admin/v1/jobs?limit=20&offset=0",
         "/admin/v1/storage/backends?limit=20&offset=0",
@@ -415,6 +416,108 @@ async fn admin_v1_overview_composes_safe_read_only_diagnostics() {
 }
 
 #[tokio::test]
+async fn admin_v1_operator_readiness_returns_safe_drilldown_read_model() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let router = test_router(temp.path().to_path_buf(), library_id).await;
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/operator-readiness")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get(header::CACHE_CONTROL),
+        Some(&HeaderValue::from_static("no-store"))
+    );
+
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body = String::from_utf8(bytes.to_vec()).unwrap();
+    let readiness: AdminOperatorReadinessResponse = serde_json::from_str(&body).unwrap();
+
+    assert_eq!(
+        readiness.admin_api_version,
+        nako_api::admin::ADMIN_API_VERSION
+    );
+    assert_eq!(
+        readiness.public_api_version,
+        nako_api::public_client::API_VERSION
+    );
+    assert_eq!(readiness.summary.checks.len(), 7);
+    assert_eq!(
+        readiness.details.setup.check.area,
+        AdminOperatorReadinessArea::Setup
+    );
+    assert!(!readiness.details.setup.auth_enabled);
+    assert!(!readiness.details.setup.token_reference_configured);
+    assert_eq!(
+        readiness.details.media_library_scan.check.reason,
+        AdminOperatorReadinessReason::ScanWorkPending
+    );
+    assert_eq!(
+        readiness
+            .details
+            .media_library_scan
+            .library_scan
+            .configured_libraries,
+        1
+    );
+    assert_eq!(
+        readiness
+            .details
+            .media_library_scan
+            .library_scan
+            .never_completed_libraries,
+        1
+    );
+    assert_eq!(
+        readiness
+            .details
+            .media_library_scan
+            .source_fingerprint_hash
+            .queued_jobs,
+        0
+    );
+    assert_eq!(
+        readiness
+            .details
+            .media_library_scan
+            .watch_folder_runtime
+            .diagnostics[0]
+            .root_ref_redacted,
+        "local://<redacted>"
+    );
+    assert_eq!(
+        readiness.details.playback.readiness.status,
+        AdminPlaybackReadinessStatus::Ready
+    );
+    assert!(readiness.details.durable_jobs.queue_pressure.is_empty());
+    assert_eq!(readiness.details.storage.summary.total_backends, 1);
+    assert!(readiness.details.storage.vfs_cache_repair.is_none());
+    assert_eq!(
+        readiness.details.network.check.reason,
+        AdminOperatorReadinessReason::NetworkReady
+    );
+    assert!(!readiness.details.backup.durable_database_configured);
+
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("local:///"));
+    assert!(!body.contains("input_json"));
+    assert!(!body.contains("summary_json"));
+    assert!(!body.contains("token_env"));
+    assert!(!body.contains("database_url"));
+    assert!(!body.contains("ffmpeg -"));
+}
+
+#[tokio::test]
 async fn admin_v1_overview_includes_latest_watch_folder_tick_diagnostics() {
     let temp = tempfile::tempdir().unwrap();
     let root = temp.path().join("movies");
@@ -616,6 +719,50 @@ async fn admin_v1_overview_reports_source_hash_queue_pressure_without_payload_le
     assert!(!body.contains("source_hash_overview_token"));
     assert!(!body.contains("sha256-private-source-hash"));
     assert!(!body.contains("input_json"));
+
+    let readiness_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/operator-readiness")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let readiness_body = String::from_utf8(
+        to_bytes(readiness_response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    let readiness: AdminOperatorReadinessResponse = serde_json::from_str(&readiness_body).unwrap();
+
+    assert_eq!(
+        readiness.details.durable_jobs.check.status,
+        AdminOperatorReadinessStatus::Degraded
+    );
+    assert_eq!(readiness.details.durable_jobs.queue_pressure.len(), 1);
+    assert_eq!(
+        readiness.details.durable_jobs.queue_pressure[0].resource_class,
+        SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS
+    );
+    assert_eq!(
+        readiness
+            .details
+            .media_library_scan
+            .source_fingerprint_hash
+            .queued_jobs,
+        1
+    );
+    assert!(!readiness_body.contains("source_hash_secret_locator"));
+    assert!(!readiness_body.contains("local:///"));
+    assert!(!readiness_body.contains("fingerprint\":\""));
+    assert!(!readiness_body.contains("source_hash_overview_token"));
+    assert!(!readiness_body.contains("sha256-private-source-hash"));
+    assert!(!readiness_body.contains("input_json"));
 }
 
 #[tokio::test]

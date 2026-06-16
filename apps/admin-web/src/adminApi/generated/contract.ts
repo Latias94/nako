@@ -5,6 +5,7 @@ export const NAKO_ADMIN_API_VERSION = "v1" as const;
 
 export const NAKO_ADMIN_ROUTES = {
   overview: "/admin/v1/overview",
+  operatorReadiness: "/admin/v1/operator-readiness",
   incidentBundle: "/admin/v1/diagnostics/incident-bundle",
   accessSummary: "/admin/v1/access/summary",
   accessInvitations: "/admin/v1/access/invitations",
@@ -2047,6 +2048,75 @@ export interface AdminOperatorReadinessCheck {
 export interface AdminOperatorReadinessSummary {
   status: AdminOperatorReadinessStatus;
   checks: AdminOperatorReadinessCheck[];
+}
+
+export interface AdminOperatorReadinessLibraryScanPosture {
+  configured_libraries: number;
+  pending_libraries: number;
+  failed_libraries: number;
+  never_completed_libraries: number;
+  succeeded_libraries: number;
+}
+
+export interface AdminOperatorReadinessVfsCacheRepairPressure {
+  total_unresolved_targets: number;
+  primary_classification: AdminVfsCacheRepairClassification;
+}
+
+export interface AdminOperatorReadinessResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  summary: AdminOperatorReadinessSummary;
+  details: {
+    setup: {
+      auth_enabled: boolean;
+      token_reference_configured: boolean;
+      exposure_mode: AdminNetworkExposureMode;
+      check: AdminOperatorReadinessCheck;
+    };
+    media_library_scan: {
+      configured_libraries: number;
+      library_scan: AdminOperatorReadinessLibraryScanPosture;
+      source_fingerprint_hash: AdminOverviewSourceFingerprintHashSummary;
+      watch_folder_runtime: {
+        configured_libraries: number;
+        realtime_enabled_libraries: number;
+        started_libraries: number;
+        skipped_libraries: number;
+        diagnostics: Array<{
+          library_id: string;
+          library_name: string;
+          root_scheme: string | null;
+          root_ref_redacted: string;
+          status: AdminWatchFolderRuntimeCoverageStatus;
+          safe_reason: string;
+          last_tick: AdminWatchFolderRuntimeTickDiagnostic | null;
+        }>;
+      };
+      check: AdminOperatorReadinessCheck;
+    };
+    playback: {
+      readiness: AdminPlaybackRuntimeDiagnosticsResponse["readiness"];
+      check: AdminOperatorReadinessCheck;
+    };
+    durable_jobs: {
+      queue_pressure: AdminJobQueuePressureSummary[];
+      check: AdminOperatorReadinessCheck;
+    };
+    storage: {
+      summary: AdminOverviewResponse["storage"];
+      vfs_cache_repair: AdminOperatorReadinessVfsCacheRepairPressure | null;
+      check: AdminOperatorReadinessCheck;
+    };
+    network: {
+      readiness: AdminNetworkReadinessDiagnostics;
+      check: AdminOperatorReadinessCheck;
+    };
+    backup: {
+      durable_database_configured: boolean;
+      check: AdminOperatorReadinessCheck;
+    };
+  };
 }
 
 export type AdminWatchFolderRuntimeCoverageStatus = "started" | "disabled" | "unsupported_root" | "missing_root";
