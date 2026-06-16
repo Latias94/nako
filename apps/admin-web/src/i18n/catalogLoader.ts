@@ -17,6 +17,10 @@ const namespaceCatalogLoaders = {
     import("./catalogs/incidentBundle").then(
       (module) => module.incidentBundleMessageCatalogs,
     ),
+  operatorReadiness: () =>
+    import("./catalogs/operatorReadiness").then(
+      (module) => module.operatorReadinessMessageCatalogs,
+    ),
   access: () =>
     import("./catalogs/access").then((module) => module.accessMessageCatalogs),
   settings: () =>

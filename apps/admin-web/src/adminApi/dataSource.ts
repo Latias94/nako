@@ -32,6 +32,7 @@ import {
   mockJobs,
   mockLibraryMetadataProfile,
   mockMetadataRawCacheSettings,
+  mockOperatorReadiness,
   mockOverview,
   mockPlaybackRuntime,
   mockPlaybackRuntimeSettings,
@@ -82,6 +83,7 @@ import type {
   AdminGeneratedArtifactReviewPlanResponse,
   AdminGeneratedArtifactReviewResponse,
   AdminIncidentBundleResponse,
+  AdminOperatorReadinessResponse,
   AdminMetadataSource,
   AdminArtworkKind,
   AdminItemArtworkGalleryQuery,
@@ -217,6 +219,9 @@ export type AdminDataSource = {
   ): Promise<AccessInvitationCreateResult>;
   revokeAccessInvitation?(invitationId: string): Promise<AccessInvitationRow>;
   loadOverview?(): Promise<AdminSectionResult<AdminOverviewResponse>>;
+  loadOperatorReadiness?(): Promise<
+    AdminSectionResult<AdminOperatorReadinessResponse>
+  >;
   loadIncidentBundle?(): Promise<AdminSectionResult<AdminIncidentBundleResponse>>;
   loadEvents?(query?: EventListQuery): Promise<AdminSectionResult<EventSummary>>;
   loadAddonEventDeliveryAttempts?(
@@ -540,6 +545,12 @@ export function createAdminDataSource(options: AdminApiClientOptions = {}): Admi
     },
     async loadOverview() {
       return loadSection(() => client.getOverview(), mockOverview);
+    },
+    async loadOperatorReadiness() {
+      return loadSection(
+        () => client.getOperatorReadiness(),
+        mockOperatorReadiness,
+      );
     },
     async loadIncidentBundle() {
       return loadSection(() => client.getIncidentBundle(), mockIncidentBundle);

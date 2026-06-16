@@ -29,6 +29,7 @@ import type {
   AdminPlaybackSupportEvidenceResponse,
   AdminPlaybackSupportQuery,
   AdminIncidentBundleResponse,
+  AdminOperatorReadinessResponse,
   AdminSourceDuplicateReconciliationPlanResponse,
   AdminStorageStagingQuery,
   AddonTaskRunRow,
@@ -77,6 +78,7 @@ import {
   mockJobs,
   mockLibraryMetadataProfile,
   mockMetadataRawCacheSettings,
+  mockOperatorReadiness,
   mockOverview,
   mockPlaybackRuntimeSettings,
   mockPlaybackSessions,
@@ -629,6 +631,148 @@ describe("Admin Web V2 route shell", () => {
     expect(renderedText).not.toContain("F:\\");
     expect(renderedText).not.toContain("local://unsafe-root");
     expect(renderedText).not.toContain("/Users/");
+  });
+
+  it("renders Operator Readiness drilldown from the live route data source", async () => {
+    const loadOperatorReadiness = vi.fn(async () => ({
+      value: mockOperatorReadiness,
+      source: "live" as const,
+    }));
+    window.history.pushState(null, "", "/operator-readiness");
+
+    render(
+      <App
+        dataSource={{
+          load: async () => emptyConsoleData(),
+          loadOperatorReadiness,
+        }}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Operator readiness" }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("Live Admin API")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Readiness areas" })).toBeInTheDocument();
+    expect(screen.getAllByText("Media Library scan").length).toBeGreaterThan(0);
+    expect(screen.getByText("Source hash coverage")).toBeInTheDocument();
+    expect(screen.getByText("109/128")).toBeInTheDocument();
+    expect(screen.getAllByText("Durable jobs").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/storage\.vfs\.cache_repair/).length).toBeGreaterThan(0);
+    expect(loadOperatorReadiness).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders localized Operator Readiness drilldown copy", async () => {
+    window.history.pushState(null, "", "/operator-readiness");
+
+    render(
+      <App
+        dataSource={operatorReadinessDataSource()}
+        initialLocale="zh-Hans"
+      />,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Operator readiness" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("返回总览")).toBeInTheDocument();
+    expect(await screen.findByText("整体状态")).toBeInTheDocument();
+    expect(screen.getByText("Readiness 区域")).toBeInTheDocument();
+    expect(screen.getByText("媒体库扫描状态")).toBeInTheDocument();
+    expect(screen.getByText("持久数据库")).toBeInTheDocument();
+    expect(screen.getByText("实时 Admin API")).toBeInTheDocument();
+  });
+
+  it("shows deterministic mock fallback when Operator Readiness is unavailable", async () => {
+    const dataSource: AdminDataSource = {
+      async load() {
+        return emptyConsoleData();
+      },
+      async loadOperatorReadiness() {
+        return {
+          value: mockOperatorReadiness,
+          source: "mock",
+          error: "Admin API request failed with HTTP 503",
+        };
+      },
+    };
+
+    window.history.pushState(null, "", "/operator-readiness");
+    render(<App dataSource={dataSource} />);
+
+    expect(await screen.findByText(/HTTP 503/)).toBeInTheDocument();
+    expect(screen.getByText("Mock fallback")).toBeInTheDocument();
+    expect(screen.getByText("Readiness areas")).toBeInTheDocument();
+    expect(screen.getByText("Configured libraries")).toBeInTheDocument();
+  });
+
+  it("keeps unsafe fields out of the Operator Readiness route rendering", async () => {
+    const unsafeReadiness: AdminOperatorReadinessResponse = {
+      ...mockOperatorReadiness,
+      summary: {
+        ...mockOperatorReadiness.summary,
+        checks: mockOperatorReadiness.summary.checks.map((check) =>
+          check.area === "playback"
+            ? {
+                ...check,
+                source_reason:
+                  "C:\\secret-cache\\ffmpeg.exe -i local:///Hidden Movie.mkv?token=secret",
+                action: {
+                  route_key: "playbackRuntime",
+                  route_path: "/admin/v1/playback/runtime?token=secret",
+                },
+              }
+            : check,
+        ),
+      },
+      details: {
+        ...mockOperatorReadiness.details,
+        playback: {
+          ...mockOperatorReadiness.details.playback,
+          check: {
+            ...mockOperatorReadiness.details.playback.check,
+            source_reason:
+              "C:\\secret-cache\\ffmpeg.exe -i local:///Hidden Movie.mkv?token=secret",
+            action: {
+              route_key: "playbackRuntime",
+              route_path: "/admin/v1/playback/runtime?token=secret",
+            },
+          },
+        },
+        durable_jobs: {
+          ...mockOperatorReadiness.details.durable_jobs,
+          queue_pressure:
+            mockOperatorReadiness.details.durable_jobs.queue_pressure.map(
+              (pressure, index) =>
+                index === 0
+                  ? {
+                      ...pressure,
+                      resource_class:
+                        "local:///Users/frank/Secret Path/Hidden Movie.mkv?token=secret",
+                    }
+                  : pressure,
+            ),
+        },
+      },
+    };
+    window.history.pushState(null, "", "/operator-readiness");
+    const { container } = render(
+      <App dataSource={operatorReadinessDataSource(unsafeReadiness)} />,
+    );
+
+    await screen.findByRole("heading", { name: "Operator readiness" });
+    await screen.findByText("Source hash coverage");
+    const renderedText = container.textContent ?? "";
+
+    expect(renderedText).not.toContain("secret-cache");
+    expect(renderedText).not.toContain("ffmpeg.exe");
+    expect(renderedText).not.toContain("Hidden Movie.mkv");
+    expect(renderedText).not.toContain("?token=secret");
+    expect(renderedText).not.toContain("local:///");
+    expect(renderedText).not.toContain("/Users/");
+    expect(renderedText).not.toContain("C:\\");
+    expect(screen.getAllByText("redacted").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Playback runtime").length).toBeGreaterThan(0);
   });
 
   it("renders Incident Bundle as a route-owned V2 page", async () => {
@@ -3715,7 +3859,7 @@ describe("Admin Web V2 route shell", () => {
     expect(await screen.findByRole("heading", { name: "Catalog Governance" })).toBeInTheDocument();
     expect(await screen.findByText("治理队列")).toBeInTheDocument();
     expect(screen.getByLabelText("Catalog library 过滤器")).toBeInTheDocument();
-    expect(screen.getByText("本地推断")).toBeInTheDocument();
+    expect(await screen.findByText("本地推断")).toBeInTheDocument();
     expect(screen.getAllByText("审查").length).toBeGreaterThan(0);
     expect((await screen.findAllByText("实时 Admin API")).length).toBeGreaterThan(0);
   });
@@ -4667,6 +4811,22 @@ function overviewDataSource(overview = mockOverview): AdminDataSource {
     async loadOverview() {
       return {
         value: overview,
+        source: "live",
+      };
+    },
+  };
+}
+
+function operatorReadinessDataSource(
+  readiness = mockOperatorReadiness,
+): AdminDataSource {
+  return {
+    async load() {
+      return emptyConsoleData();
+    },
+    async loadOperatorReadiness() {
+      return {
+        value: readiness,
         source: "live",
       };
     },

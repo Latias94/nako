@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web frontend quality checklist"}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Required route/data-source/test assertions"}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Generated route and redaction contract for operator readiness"}
+{"file": ".trellis/tasks/06-17-admin-web-operator-readiness-drilldown/prd.md", "reason": "Acceptance criteria to verify"}
+{"file": ".trellis/tasks/06-17-admin-web-operator-readiness-drilldown/research/code-context.md", "reason": "Affected files and risk notes"}

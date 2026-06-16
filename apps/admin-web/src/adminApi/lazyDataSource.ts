@@ -16,6 +16,7 @@ const DEFAULT_ADMIN_DATA_SOURCE_METHODS = [
   "createAccessInvitation",
   "revokeAccessInvitation",
   "loadOverview",
+  "loadOperatorReadiness",
   "loadIncidentBundle",
   "loadEvents",
   "loadAddonEventDeliveryAttempts",

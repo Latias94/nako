@@ -39,6 +39,7 @@ import type {
   AdminJobListItem,
   AdminOutboxEventListResponse,
   AdminOverviewResponse,
+  AdminOperatorReadinessResponse,
   AdminPlaybackRuntimeDiagnosticsResponse,
   AdminPlaybackRuntimeSettingsResponse,
   AdminPlaybackSessionListResponse,
@@ -3244,6 +3245,59 @@ export const mockIncidentBundle: AdminIncidentBundleResponse = {
     query_strings_redacted: true,
     raw_job_payloads_redacted: true,
     unbounded_logs_redacted: true,
+  },
+};
+
+export const mockOperatorReadiness: AdminOperatorReadinessResponse = {
+  admin_api_version: mockOverview.admin_api_version,
+  public_api_version: mockOverview.public_api_version,
+  summary: mockOverview.operator_readiness,
+  details: {
+    setup: {
+      auth_enabled: mockSystemConfig.auth.enabled,
+      token_reference_configured: true,
+      exposure_mode: mockSystemConfig.network.exposure_mode,
+      check: mockOverview.operator_readiness.checks[0],
+    },
+    media_library_scan: {
+      configured_libraries: mockOverview.startup.configured_libraries,
+      library_scan: {
+        configured_libraries: mockOverview.startup.configured_libraries,
+        pending_libraries: 1,
+        failed_libraries: 1,
+        never_completed_libraries: 1,
+        succeeded_libraries: 1,
+      },
+      source_fingerprint_hash: mockOverview.source_fingerprint_hash,
+      watch_folder_runtime: mockOverview.startup.watch_folder_runtime,
+      check: mockOverview.operator_readiness.checks[1],
+    },
+    playback: {
+      readiness: mockPlaybackRuntime.readiness,
+      check: mockOverview.operator_readiness.checks[2],
+    },
+    durable_jobs: {
+      queue_pressure: mockJobs.queue_pressure,
+      check: mockOverview.operator_readiness.checks[3],
+    },
+    storage: {
+      summary: mockOverview.storage,
+      vfs_cache_repair: {
+        total_unresolved_targets:
+          mockVfsCacheRepairRemediationPlan.total_unresolved_targets,
+        primary_classification:
+          mockVfsCacheRepairDiagnostic.classification,
+      },
+      check: mockOverview.operator_readiness.checks[4],
+    },
+    network: {
+      readiness: mockSystemConfig.network.readiness,
+      check: mockOverview.operator_readiness.checks[5],
+    },
+    backup: {
+      durable_database_configured: true,
+      check: mockOverview.operator_readiness.checks[6],
+    },
   },
 };
 

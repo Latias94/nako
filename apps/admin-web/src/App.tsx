@@ -16,6 +16,7 @@ import {
   HardDrive,
   Inbox,
   Images,
+  Gauge,
   Library,
   ListChecks,
   PlayCircle,
@@ -110,6 +111,11 @@ const EventsRouteModule = lazy(() =>
 const IncidentBundleRouteModule = lazy(() =>
   import("./routes/IncidentBundleRouteModule").then((module) => ({
     default: module.IncidentBundleRouteModule,
+  })),
+);
+const OperatorReadinessRouteModule = lazy(() =>
+  import("./routes/OperatorReadinessRouteModule").then((module) => ({
+    default: module.OperatorReadinessRouteModule,
   })),
 );
 const JobsRouteModule = lazy(() =>
@@ -262,6 +268,12 @@ const incidentBundleRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/diagnostics/incident-bundle",
   component: IncidentBundleRoute,
+});
+
+const operatorReadinessRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/operator-readiness",
+  component: OperatorReadinessRoute,
 });
 
 const overviewRoute = createRoute({
@@ -434,6 +446,7 @@ const routeTree = rootRoute.addChildren([
   eventsRoute,
   accessRoute,
   incidentBundleRoute,
+  operatorReadinessRoute,
   overviewRoute,
   librariesRoute,
   libraryDetailRoute,
@@ -472,6 +485,11 @@ const adminNavItems = [
     to: "/diagnostics/incident-bundle",
     labelId: "nav.incidentBundle",
     icon: FileJson,
+  },
+  {
+    to: "/operator-readiness",
+    labelId: "nav.operatorReadiness",
+    icon: Gauge,
   },
   { to: "/libraries", labelId: "nav.libraries", icon: Library },
   { to: "/catalog", labelId: "nav.catalog", icon: Film },
@@ -629,6 +647,11 @@ function AccessRoute() {
 function IncidentBundleRoute() {
   const { dataSource } = incidentBundleRoute.useRouteContext();
   return <IncidentBundleRouteModule dataSource={dataSource} />;
+}
+
+function OperatorReadinessRoute() {
+  const { dataSource } = operatorReadinessRoute.useRouteContext();
+  return <OperatorReadinessRouteModule dataSource={dataSource} />;
 }
 
 function OverviewRoute() {

@@ -11,6 +11,7 @@ export type AdminRouteTo =
   | "/events"
   | "/access"
   | "/diagnostics/incident-bundle"
+  | "/operator-readiness"
   | "/libraries"
   | "/catalog"
   | "/catalog/governance"

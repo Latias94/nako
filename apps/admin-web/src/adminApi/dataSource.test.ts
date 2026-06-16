@@ -46,6 +46,7 @@ import {
   mockManagedArtworkArtifactRemediationPlan,
   mockManagedArtworkArtifactStorageDrift,
   mockMetadataRawCacheSettings,
+  mockOperatorReadiness,
   mockOverview,
   mockPlaybackRuntime,
   mockPlaybackRuntimeSettings,
@@ -422,6 +423,37 @@ describe("Admin data source", () => {
     expect(fallbackResult).toMatchObject({
       source: "mock",
       value: mockIncidentBundle,
+      error: expect.stringContaining("HTTP 503"),
+    });
+  });
+
+  it("loads route-local Operator Readiness with section fallback", async () => {
+    const seenPaths: string[] = [];
+    const liveSource = createAdminDataSource({
+      fetcher: async (input: string | URL | Request) => {
+        const url = new URL(input.toString(), "http://127.0.0.1");
+        seenPaths.push(url.pathname);
+        return Response.json(mockOperatorReadiness);
+      },
+    });
+
+    const liveResult = await liveSource.loadOperatorReadiness?.();
+
+    expect(liveResult).toMatchObject({
+      source: "live",
+      value: mockOperatorReadiness,
+    });
+    expect(seenPaths).toEqual([NAKO_ADMIN_ROUTES.operatorReadiness]);
+
+    const fallbackSource = createAdminDataSource({
+      fetcher: async () => new Response("offline", { status: 503 }),
+    });
+
+    const fallbackResult = await fallbackSource.loadOperatorReadiness?.();
+
+    expect(fallbackResult).toMatchObject({
+      source: "mock",
+      value: mockOperatorReadiness,
       error: expect.stringContaining("HTTP 503"),
     });
   });

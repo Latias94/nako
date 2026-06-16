@@ -1,6 +1,7 @@
 import type { enBaseMessages } from "./catalogs/base";
 import type { enOverviewMessages } from "./catalogs/overview";
 import type { enIncidentBundleMessages } from "./catalogs/incidentBundle";
+import type { enOperatorReadinessMessages } from "./catalogs/operatorReadiness";
 import type { enAccessMessages } from "./catalogs/access";
 import type { enSettingsMessages } from "./catalogs/settings";
 import type { enCatalogGovernanceMessages } from "./catalogs/catalogGovernance";
@@ -26,6 +27,7 @@ export type AdminLocale = "en-US" | "zh-Hans";
 export type I18nNamespace =
   | "overview"
   | "incidentBundle"
+  | "operatorReadiness"
   | "access"
   | "settings"
   | "catalogGovernance"
@@ -50,6 +52,7 @@ export type MessageId =
   | keyof typeof enBaseMessages
   | keyof typeof enOverviewMessages
   | keyof typeof enIncidentBundleMessages
+  | keyof typeof enOperatorReadinessMessages
   | keyof typeof enAccessMessages
   | keyof typeof enSettingsMessages
   | keyof typeof enCatalogGovernanceMessages

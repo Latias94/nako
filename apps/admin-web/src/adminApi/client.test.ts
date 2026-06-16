@@ -42,6 +42,7 @@ import {
   mockManagedArtworkArtifactRemediationPlan,
   mockManagedArtworkArtifactStorageDrift,
   mockMetadataRawCacheSettings,
+  mockOperatorReadiness,
   mockOverview,
   mockPlaybackRuntime,
   mockPlaybackRuntimeSettings,
@@ -194,6 +195,7 @@ describe("AdminApiClient", () => {
     const responses = new Map<string, unknown>([
       [NAKO_ADMIN_ROUTES.catalogGovernanceItems, mockCatalogGovernance],
       [NAKO_ADMIN_ROUTES.incidentBundle, mockIncidentBundle],
+      [NAKO_ADMIN_ROUTES.operatorReadiness, mockOperatorReadiness],
       [NAKO_ADMIN_ROUTES.accessSummary, mockAccessSummary],
       [
         NAKO_ADMIN_ROUTES.catalogGovernanceItemDetail.replace("{item_id}", "item-candidate"),
@@ -244,6 +246,9 @@ describe("AdminApiClient", () => {
       }),
     ).resolves.toEqual(mockCatalogGovernance);
     await expect(client.getIncidentBundle()).resolves.toEqual(mockIncidentBundle);
+    await expect(client.getOperatorReadiness()).resolves.toEqual(
+      mockOperatorReadiness,
+    );
     await expect(client.getAccessSummary()).resolves.toEqual(mockAccessSummary);
     await expect(client.getCatalogGovernanceItemDetail("item-candidate")).resolves.toEqual(
       mockCatalogGovernanceItemDetail("item-candidate"),
@@ -300,6 +305,7 @@ describe("AdminApiClient", () => {
     expect(fetcher.mock.calls.map(([input]) => input.toString())).toEqual([
       `${NAKO_ADMIN_ROUTES.catalogGovernanceItems}?library_id=library-anime&max_confidence_milli=500&limit=5&offset=0`,
       NAKO_ADMIN_ROUTES.incidentBundle,
+      NAKO_ADMIN_ROUTES.operatorReadiness,
       NAKO_ADMIN_ROUTES.accessSummary,
       NAKO_ADMIN_ROUTES.catalogGovernanceItemDetail.replace("{item_id}", "item-candidate"),
       `${NAKO_ADMIN_ROUTES.addons}?status=enabled`,
