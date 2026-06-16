@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, sync::Arc};
+use std::{cmp::Ordering, collections::BTreeMap, sync::Arc};
 
 use nako_core::{
     AuthenticatedPrincipal, CancelLeasedJob, CompleteLeasedJob, DomainEventKind,
@@ -84,7 +84,24 @@ impl LibraryScanAdmissionOutcome {
     }
 }
 
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
+pub(crate) struct LibraryScanPostureAggregate {
+    pub(crate) configured_libraries: u32,
+    pub(crate) pending_libraries: u32,
+    pub(crate) failed_libraries: u32,
+    pub(crate) never_completed_libraries: u32,
+    pub(crate) succeeded_libraries: u32,
+}
+
+#[derive(Clone, Debug, Default)]
+struct LibraryScanPosture {
+    pending: bool,
+    latest_success_at: Option<String>,
+    latest_failure_at: Option<String>,
+}
+
 const LIBRARY_SCAN_SCHEDULER_CANDIDATE_LIMIT: u32 = PageRequest::MAX_LIMIT;
+const LIBRARY_SCAN_POSTURE_JOB_PAGE_LIMIT: u32 = PageRequest::MAX_LIMIT;
 #[cfg(test)]
 const DISK_SCAN_SCHEDULER_STARVATION_GUARD_MS: i64 = 250;
 #[cfg(not(test))]
@@ -129,6 +146,30 @@ fn sort_disk_scan_scheduler_candidates(candidates: &mut [Job]) {
     candidates.sort_by(|left, right| {
         compare_disk_scan_scheduler_candidates(left, right, starvation_cutoff)
     });
+}
+
+fn update_latest_timestamp(latest: &mut Option<String>, candidate: Option<String>) {
+    let Some(candidate) = candidate else {
+        return;
+    };
+
+    if latest
+        .as_ref()
+        .map_or(true, |current| candidate.as_str() > current.as_str())
+    {
+        *latest = Some(candidate);
+    }
+}
+
+fn library_scan_posture_has_unrepaired_failure(posture: &LibraryScanPosture) -> bool {
+    let Some(failed_at) = posture.latest_failure_at.as_ref() else {
+        return false;
+    };
+
+    posture
+        .latest_success_at
+        .as_ref()
+        .map_or(true, |succeeded_at| failed_at > succeeded_at)
 }
 
 #[derive(Clone, Debug)]
@@ -466,6 +507,90 @@ impl LibraryScanAppService {
         }
 
         Ok(None)
+    }
+
+    pub(crate) async fn library_scan_posture_aggregate(
+        &self,
+    ) -> Result<LibraryScanPostureAggregate> {
+        let configured_libraries = libraries_from_config(&self.config);
+        let mut postures = configured_libraries
+            .iter()
+            .map(|library| (library.id, LibraryScanPosture::default()))
+            .collect::<BTreeMap<_, _>>();
+
+        for library in &configured_libraries {
+            let Some(posture) = postures.get_mut(&library.id) else {
+                continue;
+            };
+            let mut offset = 0_u64;
+            loop {
+                let jobs = self
+                    .execution_store
+                    .store
+                    .list_jobs(
+                        JobListFilter {
+                            kind: Some(JobKind::LibraryScan),
+                            resource_class: Some("disk.scan".to_owned()),
+                            library_id: Some(library.id),
+                            ..JobListFilter::default()
+                        },
+                        PageRequest::new(LIBRARY_SCAN_POSTURE_JOB_PAGE_LIMIT, offset),
+                    )
+                    .await?;
+                let returned = jobs.len();
+
+                for job in jobs {
+                    match job.status {
+                        JobStatus::Queued | JobStatus::Running => {
+                            posture.pending = true;
+                        }
+                        JobStatus::Succeeded => {
+                            update_latest_timestamp(
+                                &mut posture.latest_success_at,
+                                job.completed_at.or(Some(job.queued_at)),
+                            );
+                        }
+                        JobStatus::Failed => {
+                            update_latest_timestamp(
+                                &mut posture.latest_failure_at,
+                                job.completed_at.or(Some(job.queued_at)),
+                            );
+                        }
+                        JobStatus::Cancelled => {}
+                    }
+                }
+
+                if returned < LIBRARY_SCAN_POSTURE_JOB_PAGE_LIMIT as usize {
+                    break;
+                }
+                offset =
+                    offset
+                        .checked_add(returned as u64)
+                        .ok_or_else(|| NakoError::InvalidInput {
+                            message: "library scan posture pagination offset overflowed".to_owned(),
+                        })?;
+            }
+        }
+
+        let mut aggregate = LibraryScanPostureAggregate {
+            configured_libraries: configured_libraries.len().try_into().unwrap_or(u32::MAX),
+            ..LibraryScanPostureAggregate::default()
+        };
+
+        for posture in postures.values() {
+            if library_scan_posture_has_unrepaired_failure(posture) {
+                aggregate.failed_libraries = aggregate.failed_libraries.saturating_add(1);
+            } else if posture.pending {
+                aggregate.pending_libraries = aggregate.pending_libraries.saturating_add(1);
+            } else if posture.latest_success_at.is_some() {
+                aggregate.succeeded_libraries = aggregate.succeeded_libraries.saturating_add(1);
+            } else {
+                aggregate.never_completed_libraries =
+                    aggregate.never_completed_libraries.saturating_add(1);
+            }
+        }
+
+        Ok(aggregate)
     }
 
     pub(crate) async fn schedule_queued_library_scans(&self) -> Result<LibraryScanScheduleOutcome> {
@@ -1266,4 +1391,198 @@ fn library_scan_trace_context_from_job(job: &Job) -> Result<Option<LibraryScanTr
                 job.id
             ),
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+    };
+
+    use nako_core::{JobRepository, LibraryPreset};
+
+    use super::*;
+    use crate::{
+        app::NakoApp,
+        config::{
+            ArtworkConfig, AuthConfig, LocalLibraryConfig, MetadataConfig, NakoServerConfig,
+            NetworkAccessConfig, PlaybackConfig, StagingConfig, TranscodeConfig,
+        },
+    };
+
+    #[tokio::test]
+    async fn library_scan_posture_aggregate_counts_durable_scan_posture() {
+        let temp = tempfile::tempdir().unwrap();
+        let never_completed_library_id = LibraryId::new();
+        let failed_library_id = LibraryId::new();
+        let pending_library_id = LibraryId::new();
+        let succeeded_library_id = LibraryId::new();
+        let repaired_library_id = LibraryId::new();
+        let store = NakoDatabase::connect_in_memory().await.unwrap();
+        let app = NakoApp::new_with_store(
+            scan_posture_test_config(
+                temp.path(),
+                vec![
+                    ("Never Completed", never_completed_library_id),
+                    ("Failed", failed_library_id),
+                    ("Pending", pending_library_id),
+                    ("Succeeded", succeeded_library_id),
+                    ("Repaired", repaired_library_id),
+                ],
+            ),
+            store.clone(),
+        )
+        .await
+        .unwrap();
+
+        enqueue_failed_scan(&store, failed_library_id).await;
+        enqueue_queued_scan(&store, pending_library_id).await;
+        enqueue_succeeded_scan(&store, succeeded_library_id).await;
+        enqueue_failed_scan(&store, repaired_library_id).await;
+        enqueue_succeeded_scan(&store, repaired_library_id).await;
+
+        let aggregate = app
+            .library_scan()
+            .library_scan_posture_aggregate()
+            .await
+            .unwrap();
+        let body = serde_json::to_string(&aggregate).unwrap();
+
+        assert_eq!(aggregate.configured_libraries, 5);
+        assert_eq!(aggregate.pending_libraries, 1);
+        assert_eq!(aggregate.failed_libraries, 1);
+        assert_eq!(aggregate.never_completed_libraries, 1);
+        assert_eq!(aggregate.succeeded_libraries, 2);
+        assert!(!body.contains("local:///"));
+        assert!(!body.contains("input_json"));
+        assert!(!body.contains("summary_json"));
+        assert!(!body.contains("secret"));
+        assert!(!body.contains("durable scan failed"));
+    }
+
+    #[tokio::test]
+    async fn library_scan_posture_aggregate_reads_all_job_pages() {
+        let temp = tempfile::tempdir().unwrap();
+        let library_id = LibraryId::new();
+        let store = NakoDatabase::connect_in_memory().await.unwrap();
+        let app = NakoApp::new_with_store(
+            scan_posture_test_config(temp.path(), vec![("Paged", library_id)]),
+            store.clone(),
+        )
+        .await
+        .unwrap();
+
+        enqueue_queued_scan(&store, library_id).await;
+        tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        for _ in 0..LIBRARY_SCAN_POSTURE_JOB_PAGE_LIMIT {
+            let job = enqueue_queued_scan(&store, library_id).await;
+            store.start_job(job.id).await.unwrap();
+            store
+                .succeed_job(job.id, Some(r#"{"page":"first"}"#.to_owned()))
+                .await
+                .unwrap();
+        }
+
+        let aggregate = app
+            .library_scan()
+            .library_scan_posture_aggregate()
+            .await
+            .unwrap();
+
+        assert_eq!(aggregate.configured_libraries, 1);
+        assert_eq!(aggregate.pending_libraries, 1);
+        assert_eq!(aggregate.failed_libraries, 0);
+        assert_eq!(aggregate.never_completed_libraries, 0);
+        assert_eq!(aggregate.succeeded_libraries, 0);
+    }
+
+    async fn enqueue_queued_scan(store: &NakoDatabase, library_id: LibraryId) -> Job {
+        JobRepository::enqueue_job(
+            store,
+            NewJob {
+                id: JobId::new(),
+                kind: JobKind::LibraryScan,
+                resource_class: "disk.scan".to_owned(),
+                priority: JobPriority::Normal,
+                library_id: Some(library_id),
+                source_id: None,
+                input_json: Some(
+                    r#"{"source_locator":"local:///Private/Pending.mkv","token":"secret"}"#
+                        .to_owned(),
+                ),
+            },
+        )
+        .await
+        .unwrap()
+    }
+
+    async fn enqueue_failed_scan(store: &NakoDatabase, library_id: LibraryId) -> Job {
+        let job = enqueue_queued_scan(store, library_id).await;
+        store.start_job(job.id).await.unwrap();
+        store
+            .fail_job(
+                job.id,
+                "durable scan failed at local:///Private/Failed.mkv token=secret".to_owned(),
+            )
+            .await
+            .unwrap()
+    }
+
+    async fn enqueue_succeeded_scan(store: &NakoDatabase, library_id: LibraryId) -> Job {
+        let job = enqueue_queued_scan(store, library_id).await;
+        store.start_job(job.id).await.unwrap();
+        store
+            .succeed_job(
+                job.id,
+                Some(r#"{"source_locator":"local:///Private/Succeeded.mkv"}"#.to_owned()),
+            )
+            .await
+            .unwrap()
+    }
+
+    fn scan_posture_test_config(
+        root: &Path,
+        libraries: Vec<(&str, LibraryId)>,
+    ) -> NakoServerConfig {
+        NakoServerConfig {
+            database_backend: Default::default(),
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            database_url: "sqlite::memory:".to_owned(),
+            database_url_env: None,
+            auth: AuthConfig::disabled(),
+            network: NetworkAccessConfig::default(),
+            ffprobe_path: PathBuf::from("ffprobe"),
+            ffmpeg_path: PathBuf::from("ffmpeg"),
+            scan_concurrency: 1,
+            probe_concurrency: 1,
+            metadata_concurrency: 1,
+            remux_concurrency: 1,
+            webhook_concurrency: 2,
+            addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+            vfs_cache_repair_automation:
+                crate::config::VfsCacheRepairAutomationRuntimeConfig::default(),
+            remux_timeout_ms: 30 * 60 * 1_000,
+            remux_staging_root: root.join("nako-cache").join("remux"),
+            metadata: MetadataConfig::default(),
+            transcode: TranscodeConfig::default(),
+            staging: StagingConfig::default(),
+            playback: PlaybackConfig::default(),
+            artwork: ArtworkConfig::default(),
+            libraries: libraries
+                .into_iter()
+                .map(|(name, id)| {
+                    let library_root = root.join(name.replace(' ', "-"));
+                    fs::create_dir_all(&library_root).unwrap();
+                    LocalLibraryConfig {
+                        id,
+                        name: name.to_owned(),
+                        root: library_root,
+                        preset: LibraryPreset::Movies,
+                        webdav: None,
+                    }
+                })
+                .collect(),
+        }
+    }
 }

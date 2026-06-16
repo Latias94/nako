@@ -57,6 +57,13 @@ Use these gates for `crates/nako-server` feature work.
   unsupported or missing watch roots should degrade the scan readiness check
   with a typed reason and redacted source reason; explicitly disabled watcher
   coverage must not degrade readiness by itself.
+- Admin operator readiness changes for Media Library scan must also preserve
+  the durable `LibraryScan` posture order: runtime/source-hash repair pressure,
+  source-hash pending work, failed same-library `LibraryScan` posture,
+  queued/running `LibraryScan` posture, never-completed configured libraries,
+  watch-folder coverage gaps, then ready. Tests should prove paginated scan-job
+  aggregation and must not expose job `input_json`, `summary_json`, errors,
+  paths, Source Locators, filenames, or tokens.
 - Admin operator readiness changes for Storage must include unresolved VFS cache
   repair pressure. Healthy/no-action repair diagnostics must not degrade
   readiness, but any current unresolved repair target with retryable refresh

@@ -283,10 +283,21 @@ async fn admin_v1_overview_composes_safe_read_only_diagnostics() {
     assert_operator_readiness_check(
         &overview,
         AdminOperatorReadinessArea::MediaLibraryScan,
-        AdminOperatorReadinessStatus::Ready,
-        AdminOperatorReadinessReason::MediaLibraryConfigured,
-        None,
+        AdminOperatorReadinessStatus::Degraded,
+        AdminOperatorReadinessReason::ScanWorkPending,
+        Some("jobs"),
     );
+    let scan_check = overview
+        .operator_readiness
+        .checks
+        .iter()
+        .find(|check| check.area == AdminOperatorReadinessArea::MediaLibraryScan)
+        .expect("media library scan readiness check");
+    assert_eq!(
+        scan_check.source_reason.as_deref(),
+        Some("library_scan_never_completed")
+    );
+    assert_eq!(scan_check.attention_count, 1);
     assert_operator_readiness_check(
         &overview,
         AdminOperatorReadinessArea::Playback,
@@ -338,6 +349,9 @@ async fn admin_v1_overview_composes_safe_read_only_diagnostics() {
     assert_eq!(overview.catalog.governed_items, 0);
     assert_eq!(overview.catalog.unknown_kind_items, 0);
     assert_eq!(overview.catalog.low_confidence_items, 0);
+    assert!(!body.contains("local:///"));
+    assert!(!body.contains("input_json"));
+    assert!(!body.contains("summary_json"));
     assert_eq!(overview.catalog.items_with_duplicate_relationships, 0);
     assert_eq!(overview.catalog.items_missing_accepted_provider_mapping, 0);
     assert_eq!(overview.metadata.total_providers, 0);
@@ -836,7 +850,29 @@ async fn admin_v1_overview_reports_operator_readiness_for_configured_local_insta
         }],
     };
     let store = NakoDatabase::connect_in_memory().await.unwrap();
-    let app = NakoApp::new_with_store(config, store).await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let scan = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::LibraryScan,
+            resource_class: "disk.scan".to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: Some(r#"{"secret":"scan-ready-token"}"#.to_owned()),
+        })
+        .await
+        .unwrap();
+    store.start_job(scan.id).await.unwrap();
+    store
+        .succeed_job(
+            scan.id,
+            Some(r#"{"path":"local:///Private/Ready.mkv"}"#.to_owned()),
+        )
+        .await
+        .unwrap();
     let router = build_router_with_auth(app, auth::InboundAuthState::bearer_token("test-token"));
 
     let response = router
@@ -878,6 +914,10 @@ async fn admin_v1_overview_reports_operator_readiness_for_configured_local_insta
     assert!(!body.contains(&temp.path().display().to_string()));
     assert!(!body.contains("test-token"));
     assert!(!body.contains("NAKO_ADMIN_TOKEN"));
+    assert!(!body.contains("scan-ready-token"));
+    assert!(!body.contains("local:///Private/Ready"));
+    assert!(!body.contains("input_json"));
+    assert!(!body.contains("summary_json"));
     assert!(!body.contains("ffmpeg -"));
     assert!(!body.contains("root_uri"));
 }

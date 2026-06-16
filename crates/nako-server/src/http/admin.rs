@@ -161,8 +161,9 @@ use crate::{
     },
     app::{
         EnqueueSourceFingerprintHashRequest, EnqueueVfsCacheRepairTargetOutcome,
-        LibraryScanTraceContext, NakoApp, RetrySourceFingerprintHashRequest,
-        RetryVfsCacheRepairJobRequest, RuntimeSupervisorDiagnostics,
+        LibraryScanPostureAggregate, LibraryScanTraceContext, NakoApp,
+        RetrySourceFingerprintHashRequest, RetryVfsCacheRepairJobRequest,
+        RuntimeSupervisorDiagnostics,
         SourceDuplicateReconciliationApplyRequest as AppSourceDuplicateReconciliationApplyRequest,
         SourceDuplicateReconciliationPlanRequest, StagingBudgetPolicySlice,
         StagingCleanupPurposeStateSummary, StagingPurposeStateSummary,
@@ -1487,6 +1488,7 @@ async fn admin_overview_response(app: &NakoApp) -> ApiResult<AdminOverviewRespon
     let metadata = app.metadata().list_metadata_provider_diagnostics();
     let runtime = app.runtime_diagnostics();
     let source_fingerprint_hash = app.source_hash().admin_overview_summary().await?;
+    let library_scan_posture = app.library_scan().library_scan_posture_aggregate().await?;
     let vfs_cache_repair_pressure = app.storage().vfs_cache_repair_readiness_pressure().await?;
     let network_readiness = network_readiness_diagnostics(app.config());
     let playback_readiness = admin_playback_runtime_diagnostics(&app).await.readiness;
@@ -1524,6 +1526,7 @@ async fn admin_overview_response(app: &NakoApp) -> ApiResult<AdminOverviewRespon
         &queue_pressure,
         &runtime,
         &source_fingerprint_hash,
+        &library_scan_posture,
         vfs_cache_repair_pressure.as_ref(),
         &startup,
         network_readiness,
@@ -4175,6 +4178,7 @@ fn operator_readiness_summary(
     queue_pressure: &[JobQueuePressureSummary],
     runtime: &AdminOverviewRuntimeSummary,
     source_fingerprint_hash: &AdminOverviewSourceFingerprintHashSummary,
+    library_scan_posture: &LibraryScanPostureAggregate,
     vfs_cache_repair_pressure: Option<&VfsCacheRepairReadinessPressure>,
     startup: &AdminOverviewStartupSummary,
     network: AdminNetworkReadinessDiagnostics,
@@ -4182,7 +4186,12 @@ fn operator_readiness_summary(
 ) -> AdminOperatorReadinessSummary {
     AdminOperatorReadinessSummary::from_checks(vec![
         setup_readiness_check(config),
-        media_library_scan_readiness_check(startup, runtime, source_fingerprint_hash),
+        media_library_scan_readiness_check(
+            startup,
+            runtime,
+            source_fingerprint_hash,
+            library_scan_posture,
+        ),
         playback_readiness_check(playback),
         durable_jobs_readiness_check(queue_pressure),
         storage_readiness_check(storage, vfs_cache_repair_pressure),
@@ -4284,6 +4293,7 @@ fn media_library_scan_readiness_check(
     startup: &AdminOverviewStartupSummary,
     runtime: &AdminOverviewRuntimeSummary,
     source_fingerprint_hash: &AdminOverviewSourceFingerprintHashSummary,
+    library_scan_posture: &LibraryScanPostureAggregate,
 ) -> AdminOperatorReadinessCheck {
     if startup.configured_libraries == 0 {
         return operator_check(
@@ -4328,6 +4338,39 @@ fn media_library_scan_readiness_check(
             AdminOperatorReadinessReason::ScanWorkPending,
             Some("queued_work".to_owned()),
             u64_to_u32(pending_work),
+            Some(operator_action(ADMIN_JOBS_ROUTE_KEY, ADMIN_JOBS_ROUTE_PATH)),
+        );
+    }
+
+    if library_scan_posture.failed_libraries > 0 {
+        return operator_check(
+            AdminOperatorReadinessArea::MediaLibraryScan,
+            AdminOperatorReadinessStatus::Degraded,
+            AdminOperatorReadinessReason::ScanRepairPressure,
+            Some("failed_library_scan".to_owned()),
+            library_scan_posture.failed_libraries,
+            Some(operator_action(ADMIN_JOBS_ROUTE_KEY, ADMIN_JOBS_ROUTE_PATH)),
+        );
+    }
+
+    if library_scan_posture.pending_libraries > 0 {
+        return operator_check(
+            AdminOperatorReadinessArea::MediaLibraryScan,
+            AdminOperatorReadinessStatus::Degraded,
+            AdminOperatorReadinessReason::ScanWorkPending,
+            Some("library_scan_pending".to_owned()),
+            library_scan_posture.pending_libraries,
+            Some(operator_action(ADMIN_JOBS_ROUTE_KEY, ADMIN_JOBS_ROUTE_PATH)),
+        );
+    }
+
+    if library_scan_posture.never_completed_libraries > 0 {
+        return operator_check(
+            AdminOperatorReadinessArea::MediaLibraryScan,
+            AdminOperatorReadinessStatus::Degraded,
+            AdminOperatorReadinessReason::ScanWorkPending,
+            Some("library_scan_never_completed".to_owned()),
+            library_scan_posture.never_completed_libraries,
             Some(operator_action(ADMIN_JOBS_ROUTE_KEY, ADMIN_JOBS_ROUTE_PATH)),
         );
     }
@@ -4915,6 +4958,7 @@ mod tests {
             &startup,
             &empty_runtime_summary(),
             &AdminOverviewSourceFingerprintHashSummary::default(),
+            &ready_library_scan_posture(startup.configured_libraries as usize),
         );
         let body = serde_json::to_string(&check).unwrap();
 
@@ -4955,6 +4999,7 @@ mod tests {
             &startup,
             &empty_runtime_summary(),
             &AdminOverviewSourceFingerprintHashSummary::default(),
+            &ready_library_scan_posture(1),
         );
 
         assert_eq!(check.area, AdminOperatorReadinessArea::MediaLibraryScan);
@@ -4964,6 +5009,182 @@ mod tests {
             AdminOperatorReadinessReason::MediaLibraryConfigured
         );
         assert_eq!(check.attention_count, 0);
+    }
+
+    #[test]
+    fn media_library_scan_readiness_reports_never_completed_scan_posture() {
+        let startup = startup_summary_with_configured_libraries(1);
+        let posture = LibraryScanPostureAggregate {
+            configured_libraries: 1,
+            never_completed_libraries: 1,
+            ..LibraryScanPostureAggregate::default()
+        };
+        let check = media_library_scan_readiness_check(
+            &startup,
+            &empty_runtime_summary(),
+            &AdminOverviewSourceFingerprintHashSummary::default(),
+            &posture,
+        );
+        let body = serde_json::to_string(&check).unwrap();
+
+        assert_eq!(check.area, AdminOperatorReadinessArea::MediaLibraryScan);
+        assert_eq!(check.status, AdminOperatorReadinessStatus::Degraded);
+        assert_eq!(check.reason, AdminOperatorReadinessReason::ScanWorkPending);
+        assert_eq!(
+            check.source_reason.as_deref(),
+            Some("library_scan_never_completed")
+        );
+        assert_eq!(check.attention_count, 1);
+        assert_eq!(
+            check
+                .action
+                .as_ref()
+                .map(|action| action.route_key.as_str()),
+            Some(ADMIN_JOBS_ROUTE_KEY)
+        );
+        assert!(!body.contains("local:///"));
+        assert!(!body.contains("input_json"));
+        assert!(!body.contains("summary_json"));
+        assert!(!body.contains("job error"));
+    }
+
+    #[test]
+    fn media_library_scan_readiness_reports_failed_scan_posture() {
+        let startup = startup_summary_with_configured_libraries(1);
+        let posture = LibraryScanPostureAggregate {
+            configured_libraries: 1,
+            failed_libraries: 1,
+            never_completed_libraries: 1,
+            ..LibraryScanPostureAggregate::default()
+        };
+        let check = media_library_scan_readiness_check(
+            &startup,
+            &empty_runtime_summary(),
+            &AdminOverviewSourceFingerprintHashSummary::default(),
+            &posture,
+        );
+
+        assert_eq!(check.status, AdminOperatorReadinessStatus::Degraded);
+        assert_eq!(
+            check.reason,
+            AdminOperatorReadinessReason::ScanRepairPressure
+        );
+        assert_eq!(check.source_reason.as_deref(), Some("failed_library_scan"));
+        assert_eq!(check.attention_count, 1);
+        assert_eq!(
+            check
+                .action
+                .as_ref()
+                .map(|action| action.route_key.as_str()),
+            Some(ADMIN_JOBS_ROUTE_KEY)
+        );
+    }
+
+    #[test]
+    fn media_library_scan_readiness_reports_pending_scan_posture() {
+        let startup = startup_summary_with_configured_libraries(2);
+        let posture = LibraryScanPostureAggregate {
+            configured_libraries: 2,
+            pending_libraries: 2,
+            never_completed_libraries: 2,
+            ..LibraryScanPostureAggregate::default()
+        };
+        let check = media_library_scan_readiness_check(
+            &startup,
+            &empty_runtime_summary(),
+            &AdminOverviewSourceFingerprintHashSummary::default(),
+            &posture,
+        );
+
+        assert_eq!(check.status, AdminOperatorReadinessStatus::Degraded);
+        assert_eq!(check.reason, AdminOperatorReadinessReason::ScanWorkPending);
+        assert_eq!(check.source_reason.as_deref(), Some("library_scan_pending"));
+        assert_eq!(check.attention_count, 2);
+        assert_eq!(
+            check
+                .action
+                .as_ref()
+                .map(|action| action.route_key.as_str()),
+            Some(ADMIN_JOBS_ROUTE_KEY)
+        );
+    }
+
+    #[test]
+    fn media_library_scan_readiness_prioritizes_source_hash_repair_over_scan_posture() {
+        let startup = startup_summary_with_configured_libraries(1);
+        let check = media_library_scan_readiness_check(
+            &startup,
+            &empty_runtime_summary(),
+            &AdminOverviewSourceFingerprintHashSummary {
+                failed_jobs: 1,
+                ..AdminOverviewSourceFingerprintHashSummary::default()
+            },
+            &LibraryScanPostureAggregate {
+                configured_libraries: 1,
+                failed_libraries: 1,
+                pending_libraries: 1,
+                never_completed_libraries: 1,
+                ..LibraryScanPostureAggregate::default()
+            },
+        );
+
+        assert_eq!(check.status, AdminOperatorReadinessStatus::Degraded);
+        assert_eq!(
+            check.reason,
+            AdminOperatorReadinessReason::ScanRepairPressure
+        );
+        assert_eq!(check.source_reason.as_deref(), Some("failed_work"));
+        assert_eq!(check.attention_count, 1);
+    }
+
+    #[test]
+    fn media_library_scan_readiness_prioritizes_source_hash_pending_over_scan_posture() {
+        let startup = startup_summary_with_configured_libraries(1);
+        let check = media_library_scan_readiness_check(
+            &startup,
+            &empty_runtime_summary(),
+            &AdminOverviewSourceFingerprintHashSummary {
+                queued_jobs: 1,
+                ..AdminOverviewSourceFingerprintHashSummary::default()
+            },
+            &LibraryScanPostureAggregate {
+                configured_libraries: 1,
+                failed_libraries: 1,
+                pending_libraries: 1,
+                never_completed_libraries: 1,
+                ..LibraryScanPostureAggregate::default()
+            },
+        );
+
+        assert_eq!(check.status, AdminOperatorReadinessStatus::Degraded);
+        assert_eq!(check.reason, AdminOperatorReadinessReason::ScanWorkPending);
+        assert_eq!(check.source_reason.as_deref(), Some("queued_work"));
+        assert_eq!(check.attention_count, 1);
+    }
+
+    #[test]
+    fn media_library_scan_readiness_reports_ready_for_succeeded_scan_posture() {
+        let startup = startup_summary_with_configured_libraries(1);
+        let check = media_library_scan_readiness_check(
+            &startup,
+            &empty_runtime_summary(),
+            &AdminOverviewSourceFingerprintHashSummary::default(),
+            &LibraryScanPostureAggregate {
+                configured_libraries: 1,
+                succeeded_libraries: 1,
+                ..LibraryScanPostureAggregate::default()
+            },
+        );
+
+        assert_eq!(check.area, AdminOperatorReadinessArea::MediaLibraryScan);
+        assert_eq!(check.status, AdminOperatorReadinessStatus::Ready);
+        assert_eq!(
+            check.reason,
+            AdminOperatorReadinessReason::MediaLibraryConfigured
+        );
+        assert_eq!(check.source_reason.as_deref(), None);
+        assert_eq!(check.attention_count, 0);
+        assert!(check.action.is_none());
     }
 
     #[test]
@@ -5057,6 +5278,30 @@ mod tests {
         }
     }
 
+    fn startup_summary_with_configured_libraries(
+        configured_libraries: u32,
+    ) -> AdminOverviewStartupSummary {
+        AdminOverviewStartupSummary {
+            configured_libraries,
+            recovered_transcode_sessions: 0,
+            recovered_jobs: 0,
+            staging_deleted_records: 0,
+            staging_deleted_files: 0,
+            metadata_raw_cache_deleted: 0,
+            metadata_lifecycle_tasks_started: 0,
+            artwork_ingest_worker_started: false,
+            addon_event_scheduler_started: false,
+            watch_folder_runtimes_started: 0,
+            watch_folder_runtime: AdminOverviewWatchFolderRuntimeSummary {
+                configured_libraries,
+                realtime_enabled_libraries: 0,
+                started_libraries: 0,
+                skipped_libraries: configured_libraries,
+                diagnostics: Vec::new(),
+            },
+        }
+    }
+
     fn empty_runtime_summary() -> AdminOverviewRuntimeSummary {
         AdminOverviewRuntimeSummary {
             active_tasks: 0,
@@ -5066,6 +5311,14 @@ mod tests {
             cancelled_jobs: 0,
             failed_jobs: 0,
             shutdown_requested: false,
+        }
+    }
+
+    fn ready_library_scan_posture(configured_libraries: usize) -> LibraryScanPostureAggregate {
+        LibraryScanPostureAggregate {
+            configured_libraries: usize_to_u32(configured_libraries),
+            succeeded_libraries: usize_to_u32(configured_libraries),
+            ..LibraryScanPostureAggregate::default()
         }
     }
 }

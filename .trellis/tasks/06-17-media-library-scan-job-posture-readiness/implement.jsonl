@@ -1,0 +1,7 @@
+{"file":".trellis/spec/nako-server/backend/index.md","reason":"Server app/control-plane boundaries for Admin overview readiness and durable job aggregation."}
+{"file":".trellis/spec/nako-server/backend/directory-structure.md","reason":"Keep workflow logic in app services and HTTP handlers thin while extending readiness."}
+{"file":".trellis/spec/nako-server/backend/database-guidelines.md","reason":"Reuse repository/facade APIs and avoid server-owned SQL or schema work."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Focused server tests and operator readiness redaction gates."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Reason about job repository to app aggregate to Admin readiness mapping."}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Search and reuse existing readiness/job aggregation patterns."}
+{"file":".trellis/tasks/06-17-media-library-scan-job-posture-readiness/prd.md","reason":"Task-specific requirements and acceptance criteria."}
