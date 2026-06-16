@@ -201,6 +201,37 @@ async fn storage_backend_diagnostics_route_exposes_registry_state_without_secret
 }
 
 #[tokio::test]
+async fn admin_dynamic_json_read_routes_use_no_store_cache_policy() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let router = test_router(temp.path().to_path_buf(), library_id).await;
+    let paths = [
+        "/admin/v1/overview",
+        "/admin/v1/diagnostics/incident-bundle",
+        "/admin/v1/jobs?limit=20&offset=0",
+        "/admin/v1/storage/backends?limit=20&offset=0",
+        "/admin/v1/storage/staging?limit=20&offset=0",
+        "/admin/v1/network/access",
+        "/admin/v1/system/config",
+        "/admin/v1/access/summary",
+        "/admin/v1/playback/runtime",
+        "/admin/v1/playback/renderers?limit=20&offset=0",
+        "/admin/v1/playback/support",
+    ];
+
+    for path in paths {
+        let response = response_for(&router, Method::GET, path).await;
+
+        assert_eq!(response.status(), StatusCode::OK, "path: {path}");
+        assert_eq!(
+            response.headers().get(header::CACHE_CONTROL),
+            Some(&HeaderValue::from_static("no-store")),
+            "path: {path}"
+        );
+    }
+}
+
+#[tokio::test]
 async fn admin_v1_overview_composes_safe_read_only_diagnostics() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();

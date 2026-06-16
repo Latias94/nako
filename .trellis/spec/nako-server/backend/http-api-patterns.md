@@ -456,6 +456,95 @@ Ok(no_store_json(
 ))
 ```
 
+## Scenario: Admin Dynamic JSON Read Cache-Control
+
+### 1. Scope / Trigger
+
+- Trigger: changing Admin API JSON read-model, list, or diagnostics routes that
+  expose volatile operator state such as durable jobs, readiness, storage
+  health, playback runtime pressure, remote access posture, or incident support
+  evidence.
+- Code evidence: `src/http.rs`, `src/http/admin.rs`, and
+  `src/http/tests/system.rs`.
+
+### 2. Signatures
+
+- Covered Admin HTTP handlers return `ApiResult<impl IntoResponse>` or
+  `axum::response::Response`.
+- Covered Admin dynamic JSON handlers wrap DTOs with the shared helper:
+  `no_store_json<T: serde::Serialize>(value: T) -> axum::response::Response`.
+- Current covered routes:
+  - `GET /admin/v1/overview`
+  - `GET /admin/v1/diagnostics/incident-bundle`
+  - `GET /admin/v1/jobs`
+  - `GET /admin/v1/storage/backends`
+  - `GET /admin/v1/storage/staging`
+  - `GET /admin/v1/network/access`
+  - `GET /admin/v1/system/config`
+  - `GET /admin/v1/access/summary`
+  - `GET /admin/v1/playback/runtime`
+  - `GET /admin/v1/playback/renderers`
+  - `GET /admin/v1/playback/support`
+
+### 3. Contracts
+
+- Covered Admin dynamic JSON read responses must include
+  `Cache-Control: no-store`.
+- Routes stay under `admin::routes()` and inherit the existing authenticated
+  Admin principal guard.
+- The helper must not change DTO shape, response status, pagination, redaction,
+  generated Admin contract inventory, or app-service behavior.
+- Keep this contract separate from Public Client dynamic JSON, selected artwork
+  image, playback byte, and HLS cache policies.
+- Do not add `ETag`, `Last-Modified`, `304`, Admin DTO/schema changes,
+  generated contract changes, total-count behavior, repository behavior, or
+  frontend behavior without a dedicated validator/cache design task.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Covered Admin dynamic JSON route returns `200 OK` | Response includes `Cache-Control: no-store` |
+| Covered route returns auth/admin/application error | Existing status, body, and `WWW-Authenticate` behavior are preserved |
+| Admin mutating command returns JSON | Not covered by this read-model cache slice |
+| Public Client dynamic JSON route returns a list response | Uses the Public JSON dynamic list cache policy |
+| Selected artwork or playback byte route returns bytes/artifacts | Uses its route-specific cache policy |
+
+### 5. Good / Base / Bad Cases
+
+- Good: `/admin/v1/jobs` queries the app service, builds
+  `AdminJobListResponse`, then returns `Ok(no_store_json(response))`.
+- Base: Admin mutating commands keep their current response behavior until a
+  separate command-response cache policy is designed.
+- Bad: `/admin/v1/overview` returns `Ok(Json(response))` and allows a browser,
+  reverse proxy, or tunnel to reuse stale readiness/job/storage facts.
+
+### 6. Tests Required
+
+- HTTP route test proving each covered route includes
+  `Cache-Control: no-store`.
+- Focused gate:
+  `cargo nextest run -p nako-server admin_dynamic_json_read_routes_use_no_store_cache_policy --no-fail-fast`.
+- Type-check gate: `cargo check -p nako-server --tests`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+Ok(Json(AdminJobListResponse { jobs, queue_pressure, page }))
+```
+
+#### Correct
+
+```rust
+Ok(no_store_json(AdminJobListResponse {
+    jobs,
+    queue_pressure,
+    page,
+}))
+```
+
 ## Scenario: User Playlist Item Mutation Access Boundary
 
 ### 1. Scope / Trigger

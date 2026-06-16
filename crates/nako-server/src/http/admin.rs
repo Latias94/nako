@@ -209,6 +209,7 @@ const ADMIN_SYSTEM_CONFIG_ROUTE_PATH: &str = "/admin/v1/system/config";
 
 use super::{
     error::ApiResult,
+    no_store_json,
     query::{
         AcquisitionIntakeCandidateListQuery, ArtworkArtifactCleanupQuery,
         ArtworkArtifactLifecycleQuery, ArtworkArtifactRemediationQuery,
@@ -1476,7 +1477,7 @@ pub(super) async fn apply_admin_metadata_candidate_review_related_hierarchy(
 }
 
 pub(super) async fn get_admin_overview(State(app): State<NakoApp>) -> ApiResult<impl IntoResponse> {
-    Ok(Json(admin_overview_response(&app).await?))
+    Ok(no_store_json(admin_overview_response(&app).await?))
 }
 
 async fn admin_overview_response(app: &NakoApp) -> ApiResult<AdminOverviewResponse> {
@@ -1562,7 +1563,7 @@ pub(super) async fn get_admin_incident_bundle(
         .map(Into::into)
         .collect();
 
-    Ok(Json(AdminIncidentBundleResponse {
+    Ok(no_store_json(AdminIncidentBundleResponse {
         admin_api_version: ADMIN_API_VERSION.to_owned(),
         public_api_version: API_VERSION.to_owned(),
         generated_at_ms: crate::app::current_time_ms()?,
@@ -1695,16 +1696,12 @@ fn incident_bundle_network_posture(
     }
 }
 
-pub(super) async fn get_admin_system_config(
-    State(app): State<NakoApp>,
-) -> Json<AdminServerConfigDiagnosticsResponse> {
-    Json(admin_system_config_response(&app))
+pub(super) async fn get_admin_system_config(State(app): State<NakoApp>) -> Response {
+    no_store_json(admin_system_config_response(&app))
 }
 
-pub(super) async fn get_admin_network_access(
-    State(app): State<NakoApp>,
-) -> Json<AdminNetworkAccessDiagnostics> {
-    Json(network_access_diagnostics(app.config()))
+pub(super) async fn get_admin_network_access(State(app): State<NakoApp>) -> Response {
+    no_store_json(network_access_diagnostics(app.config()))
 }
 
 fn admin_system_config_response(app: &NakoApp) -> AdminServerConfigDiagnosticsResponse {
@@ -1817,7 +1814,7 @@ pub(super) async fn get_admin_access_summary(
         })
         .collect::<Vec<_>>();
 
-    Ok(Json(AdminAccessSummaryResponse {
+    Ok(no_store_json(AdminAccessSummaryResponse {
         admin_api_version: ADMIN_API_VERSION.to_owned(),
         public_api_version: API_VERSION.to_owned(),
         mode: AdminAccessMode::SingleAdmin,
@@ -2131,12 +2128,14 @@ pub(super) async fn list_admin_storage_backends(
         .map(AdminStorageBackendHealthDiagnostic::from_record)
         .collect();
 
-    Ok(Json(AdminStorageBackendHealthDiagnosticsResponse {
-        admin_api_version: ADMIN_API_VERSION.to_owned(),
-        public_api_version: API_VERSION.to_owned(),
-        backends,
-        page: page_info_from_request(page, returned),
-    }))
+    Ok(no_store_json(
+        AdminStorageBackendHealthDiagnosticsResponse {
+            admin_api_version: ADMIN_API_VERSION.to_owned(),
+            public_api_version: API_VERSION.to_owned(),
+            backends,
+            page: page_info_from_request(page, returned),
+        },
+    ))
 }
 
 pub(super) async fn reset_admin_storage_backend_circuit_breaker(
@@ -2179,7 +2178,7 @@ pub(super) async fn list_admin_storage_staging(
         .collect();
     let summary = admin_storage_staging_summary(&app).await?;
 
-    Ok(Json(AdminStorageStagingDiagnosticsResponse {
+    Ok(no_store_json(AdminStorageStagingDiagnosticsResponse {
         admin_api_version: ADMIN_API_VERSION.to_owned(),
         public_api_version: API_VERSION.to_owned(),
         summary,
@@ -3367,7 +3366,7 @@ pub(super) async fn list_admin_jobs(
     let jobs = jobs.into_iter().map(AdminJobListItem::from_job).collect();
     let queue_pressure = queue_pressure.into_iter().map(Into::into).collect();
 
-    Ok(Json(AdminJobListResponse {
+    Ok(no_store_json(AdminJobListResponse {
         jobs,
         queue_pressure,
         page: page_info_from_request(page, returned),
@@ -3526,10 +3525,8 @@ pub(super) async fn list_admin_playback_sessions(
     }))
 }
 
-pub(super) async fn get_admin_playback_runtime(
-    State(app): State<NakoApp>,
-) -> Json<AdminPlaybackRuntimeDiagnosticsResponse> {
-    Json(admin_playback_runtime_diagnostics(&app).await)
+pub(super) async fn get_admin_playback_runtime(State(app): State<NakoApp>) -> Response {
+    no_store_json(admin_playback_runtime_diagnostics(&app).await)
 }
 
 pub(super) async fn get_admin_playback_renderers(
@@ -3544,7 +3541,7 @@ pub(super) async fn get_admin_playback_renderers(
     let returned = sessions.len();
     let diagnostics = admin_renderer_runtime_diagnostics(sessions, page, returned);
 
-    Ok(Json(diagnostics))
+    Ok(no_store_json(diagnostics))
 }
 
 pub(super) async fn get_admin_playback_support_evidence(
@@ -3552,7 +3549,7 @@ pub(super) async fn get_admin_playback_support_evidence(
     Query(query): Query<PlaybackSupportEvidenceQuery>,
 ) -> ApiResult<impl IntoResponse> {
     let (session_id, source_id) = query.into_context()?;
-    Ok(Json(
+    Ok(no_store_json(
         admin_playback_support_evidence(&app, session_id, source_id).await?,
     ))
 }

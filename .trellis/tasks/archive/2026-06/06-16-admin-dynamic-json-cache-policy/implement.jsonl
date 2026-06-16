@@ -1,0 +1,5 @@
+{"file":"docs/plans/2026-06-16-001-feat-backend-self-hosted-maturity-execution-plan.md","reason":"Backend maturity roadmap context for Admin/API scale/cache contracts."}
+{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"HTTP route, Admin guard, response helper, and cache-control contract patterns."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Focused server test and gate selection guidance."}
+{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Admin API DTO/contract boundary; this task must avoid schema/generated changes."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Guard against unnecessary API/frontend/repository expansion for a narrow HTTP response policy slice."}
