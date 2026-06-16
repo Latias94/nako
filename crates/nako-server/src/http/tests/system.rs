@@ -40,8 +40,7 @@ use nako_api::admin::{
 use nako_core::{
     AcquisitionIntakeCandidateId, AcquisitionIntakeCandidateListFilter,
     AcquisitionIntakeRepository, AcquisitionIntakeSourceKind, DatabaseLifecycle, JobKind,
-    JobPriority, JobRepository, JobStatus,
-    METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS, MetadataCandidateRecord,
+    JobPriority, JobRepository, JobStatus, MetadataCandidateRecord,
     MetadataCandidateRelationshipKind, MetadataCandidateReviewBatchStatus,
     MetadataCandidateReviewId, MetadataCandidateReviewNode, MetadataCandidateReviewPlan,
     MetadataCandidateReviewRelationship, MetadataCandidateReviewRepository,
@@ -49,12 +48,12 @@ use nako_core::{
     MetadataCandidateSubject, NewAcquisitionIntakeCandidate, NewJob, NewMetadataCandidateReview,
     PageRequest, ProviderMappingStatus, StorageBackendHealthRecord, StorageBackendHealthRepository,
     StorageBackendHealthStatus, StorageCircuitBreakerState, StorageFailureClass,
-    VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS, VfsCacheFailureAuthority, VfsCacheRepairJobInput,
-    VfsCachedObject, VfsCachedObjectKind,
+    VfsCacheFailureAuthority, VfsCacheRepairJobInput, VfsCachedObject, VfsCachedObjectKind,
+    METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS, VFS_CACHE_REPAIR_JOB_RESOURCE_CLASS,
 };
 use nako_library::{
-    SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS, SourceFingerprintHashJobInput,
-    SourceFingerprintHashJobSummary, SourceFingerprintHashMode,
+    SourceFingerprintHashJobInput, SourceFingerprintHashJobSummary, SourceFingerprintHashMode,
+    SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS,
 };
 
 fn system_process_backed_hls_playlist_readiness_timeout() -> Duration {
@@ -241,7 +240,7 @@ async fn admin_v1_overview_composes_safe_read_only_diagnostics() {
         overview.operator_readiness.status,
         AdminOperatorReadinessStatus::Degraded
     );
-    assert_eq!(overview.operator_readiness.checks.len(), 6);
+    assert_eq!(overview.operator_readiness.checks.len(), 7);
     assert_operator_readiness_check(
         &overview,
         AdminOperatorReadinessArea::Setup,
@@ -261,6 +260,13 @@ async fn admin_v1_overview_composes_safe_read_only_diagnostics() {
         AdminOperatorReadinessArea::Playback,
         AdminOperatorReadinessStatus::Ready,
         AdminOperatorReadinessReason::PlaybackReady,
+        None,
+    );
+    assert_operator_readiness_check(
+        &overview,
+        AdminOperatorReadinessArea::DurableJobs,
+        AdminOperatorReadinessStatus::Ready,
+        AdminOperatorReadinessReason::DurableJobsReady,
         None,
     );
     assert_operator_readiness_check(
@@ -521,6 +527,28 @@ async fn admin_v1_overview_reports_source_hash_queue_pressure_without_payload_le
     assert_eq!(overview.source_fingerprint_hash.queued_jobs, 1);
     assert_eq!(overview.source_fingerprint_hash.claimable_jobs, 1);
     assert_eq!(overview.source_fingerprint_hash.failed_jobs, 0);
+    let durable_jobs_check = overview
+        .operator_readiness
+        .checks
+        .iter()
+        .find(|check| check.area == AdminOperatorReadinessArea::DurableJobs)
+        .expect("durable jobs readiness check");
+    assert_eq!(
+        durable_jobs_check.status,
+        AdminOperatorReadinessStatus::Degraded
+    );
+    assert_eq!(
+        durable_jobs_check.reason,
+        AdminOperatorReadinessReason::DurableJobsPressure
+    );
+    assert_eq!(
+        durable_jobs_check.source_reason.as_deref(),
+        Some("queued_work")
+    );
+    assert_eq!(durable_jobs_check.attention_count, 1);
+    let action = durable_jobs_check.action.as_ref().expect("jobs action");
+    assert_eq!(action.route_key, "jobs");
+    assert_eq!(action.route_path, "/admin/v1/jobs");
     let scan_check = overview
         .operator_readiness
         .checks
@@ -661,6 +689,23 @@ async fn admin_v1_overview_reports_source_hash_repair_pressure_without_payload_l
 
     assert_eq!(overview.runtime.failed_jobs, 1);
     assert_eq!(overview.source_fingerprint_hash.failed_jobs, 1);
+    let durable_jobs_check = overview
+        .operator_readiness
+        .checks
+        .iter()
+        .find(|check| check.area == AdminOperatorReadinessArea::DurableJobs)
+        .expect("durable jobs readiness check");
+    assert_eq!(
+        durable_jobs_check.status,
+        AdminOperatorReadinessStatus::Ready
+    );
+    assert_eq!(
+        durable_jobs_check.reason,
+        AdminOperatorReadinessReason::DurableJobsReady
+    );
+    assert_eq!(durable_jobs_check.source_reason.as_deref(), None);
+    assert_eq!(durable_jobs_check.attention_count, 0);
+    assert!(durable_jobs_check.action.is_none());
     let scan_check = overview
         .operator_readiness
         .checks
@@ -1820,13 +1865,11 @@ async fn admin_v1_metadata_candidate_review_list_is_item_scoped_redacted_and_rea
         list.reviews[0].governance.undo_plan.mode,
         AdminMetadataCandidateReviewUndoMode::NoMutationObserved
     );
-    assert!(
-        list.reviews[0]
-            .governance
-            .undo_plan
-            .reasons
-            .contains(&AdminMetadataCandidateReviewUndoReason::NoProviderMappingMutationObserved)
-    );
+    assert!(list.reviews[0]
+        .governance
+        .undo_plan
+        .reasons
+        .contains(&AdminMetadataCandidateReviewUndoReason::NoProviderMappingMutationObserved));
     assert_eq!(list.reviews[1].review_id, older_review.id);
     assert_eq!(
         list.reviews[1].application_plan.action,
@@ -1855,31 +1898,25 @@ async fn admin_v1_metadata_candidate_review_list_is_item_scoped_redacted_and_rea
             .stale_state_guard_updated_at_ms,
         Some(300)
     );
-    assert!(
-        list.reviews[1]
-            .governance
-            .undo_plan
-            .reasons
-            .contains(&AdminMetadataCandidateReviewUndoReason::ApplyOutcomeAuditRequired)
-    );
-    assert!(
-        store
-            .list_provider_mappings_for_item(item.id, PageRequest::first_page())
-            .await
-            .unwrap()
-            .is_empty()
-    );
-    assert!(
-        store
-            .find_provider_subject(
-                &ExternalProvider::Bangumi,
-                &ProviderSubjectKind::Subject,
-                "newer"
-            )
-            .await
-            .unwrap()
-            .is_none()
-    );
+    assert!(list.reviews[1]
+        .governance
+        .undo_plan
+        .reasons
+        .contains(&AdminMetadataCandidateReviewUndoReason::ApplyOutcomeAuditRequired));
+    assert!(store
+        .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+        .await
+        .unwrap()
+        .is_empty());
+    assert!(store
+        .find_provider_subject(
+            &ExternalProvider::Bangumi,
+            &ProviderSubjectKind::Subject,
+            "newer"
+        )
+        .await
+        .unwrap()
+        .is_none());
     assert!(!body.contains(&other_review.id.to_string()));
     assert!(!body.contains("other-secret-subject"));
     assert!(!body.contains("overview"));
@@ -2187,31 +2224,25 @@ async fn admin_v1_metadata_candidate_review_queue_filters_global_rows_without_wr
     assert_eq!(provider_queue.reviews[0].review_id, accepted_review.id);
     assert!(!provider_body.contains(&other_review.id.to_string()));
 
-    assert!(
-        store
-            .list_provider_mappings_for_item(item.id, PageRequest::first_page())
-            .await
-            .unwrap()
-            .is_empty()
-    );
-    assert!(
-        store
-            .list_provider_mappings_for_item(other_item.id, PageRequest::first_page())
-            .await
-            .unwrap()
-            .is_empty()
-    );
-    assert!(
-        store
-            .find_provider_subject(
-                &ExternalProvider::Bangumi,
-                &ProviderSubjectKind::Subject,
-                "accepted"
-            )
-            .await
-            .unwrap()
-            .is_none()
-    );
+    assert!(store
+        .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+        .await
+        .unwrap()
+        .is_empty());
+    assert!(store
+        .list_provider_mappings_for_item(other_item.id, PageRequest::first_page())
+        .await
+        .unwrap()
+        .is_empty());
+    assert!(store
+        .find_provider_subject(
+            &ExternalProvider::Bangumi,
+            &ProviderSubjectKind::Subject,
+            "accepted"
+        )
+        .await
+        .unwrap()
+        .is_none());
 }
 
 #[tokio::test]
@@ -2392,31 +2423,25 @@ async fn admin_v1_metadata_candidate_review_batch_plan_is_bounded_redacted_and_r
         plan.reviews[0].governance.undo_plan.mode,
         AdminMetadataCandidateReviewUndoMode::DeferredUntilApplyOutcomeAudit
     );
-    assert!(
-        plan.reviews[1]
-            .governance
-            .undo_plan
-            .reasons
-            .contains(&AdminMetadataCandidateReviewUndoReason::NoProviderMappingMutationObserved)
-    );
-    assert!(
-        store
-            .list_provider_mappings_for_item(item.id, PageRequest::first_page())
-            .await
-            .unwrap()
-            .is_empty()
-    );
-    assert!(
-        store
-            .find_provider_subject(
-                &ExternalProvider::Bangumi,
-                &ProviderSubjectKind::Subject,
-                "batch-accepted"
-            )
-            .await
-            .unwrap()
-            .is_none()
-    );
+    assert!(plan.reviews[1]
+        .governance
+        .undo_plan
+        .reasons
+        .contains(&AdminMetadataCandidateReviewUndoReason::NoProviderMappingMutationObserved));
+    assert!(store
+        .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+        .await
+        .unwrap()
+        .is_empty());
+    assert!(store
+        .find_provider_subject(
+            &ExternalProvider::Bangumi,
+            &ProviderSubjectKind::Subject,
+            "batch-accepted"
+        )
+        .await
+        .unwrap()
+        .is_none());
     assert!(!body.contains("overview"));
     assert!(!body.contains("batch secret accepted overview"));
     assert!(!body.contains("batch secret pending overview"));
@@ -2630,11 +2655,9 @@ async fn admin_v1_metadata_candidate_review_batch_durable_create_replays_and_rep
         AdminMetadataCandidateReviewApplicationAction::Skip
     );
     assert!(!created.batch.idempotency_key_fingerprint.is_empty());
-    assert!(
-        !created.batch.items[0]
-            .idempotency_key_fingerprint
-            .is_empty()
-    );
+    assert!(!created.batch.items[0]
+        .idempotency_key_fingerprint
+        .is_empty());
 
     let job = store.get_job(created.batch.job_id).await.unwrap().unwrap();
     assert_eq!(job.kind, JobKind::MetadataCandidateReviewBatchApply);
@@ -2642,24 +2665,20 @@ async fn admin_v1_metadata_candidate_review_batch_durable_create_replays_and_rep
         job.resource_class,
         METADATA_CANDIDATE_REVIEW_BATCH_APPLY_JOB_RESOURCE_CLASS
     );
-    assert!(
-        store
-            .list_provider_mappings_for_item(item.id, PageRequest::first_page())
-            .await
-            .unwrap()
-            .is_empty()
-    );
-    assert!(
-        store
-            .find_provider_subject(
-                &ExternalProvider::Bangumi,
-                &ProviderSubjectKind::Subject,
-                "durable-batch-accepted"
-            )
-            .await
-            .unwrap()
-            .is_none()
-    );
+    assert!(store
+        .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+        .await
+        .unwrap()
+        .is_empty());
+    assert!(store
+        .find_provider_subject(
+            &ExternalProvider::Bangumi,
+            &ProviderSubjectKind::Subject,
+            "durable-batch-accepted"
+        )
+        .await
+        .unwrap()
+        .is_none());
     assert!(!body.contains("candidate-review:durable-secret"));
     assert!(!body.contains("private durable overview"));
     assert!(!body.contains("private durable tag"));
@@ -2732,17 +2751,15 @@ async fn admin_v1_metadata_candidate_review_batch_durable_create_replays_and_rep
         .unwrap();
     assert_eq!(provider_mappings.len(), 1);
     assert_eq!(provider_mappings[0].status, ProviderMappingStatus::Accepted);
-    assert!(
-        store
-            .find_provider_subject(
-                &ExternalProvider::Bangumi,
-                &ProviderSubjectKind::Subject,
-                "durable-batch-accepted"
-            )
-            .await
-            .unwrap()
-            .is_some()
-    );
+    assert!(store
+        .find_provider_subject(
+            &ExternalProvider::Bangumi,
+            &ProviderSubjectKind::Subject,
+            "durable-batch-accepted"
+        )
+        .await
+        .unwrap()
+        .is_some());
 
     let completed_status_response = router
         .clone()
@@ -3268,18 +3285,14 @@ async fn admin_v1_metadata_candidate_review_batch_apply_reports_partial_results_
     assert_eq!(batch.results[4].governance, None);
     assert_eq!(batch.results[5].governance, None);
     assert_eq!(batch.results[6].governance, None);
-    assert!(
-        batch.results[4]
-            .error
-            .as_ref()
-            .is_some_and(|error| error.code == "conflict")
-    );
-    assert!(
-        batch.results[6]
-            .error
-            .as_ref()
-            .is_some_and(|error| error.code == "not_found")
-    );
+    assert!(batch.results[4]
+        .error
+        .as_ref()
+        .is_some_and(|error| error.code == "conflict"));
+    assert!(batch.results[6]
+        .error
+        .as_ref()
+        .is_some_and(|error| error.code == "not_found"));
     assert!(!batch.idempotency_key_fingerprint.is_empty());
 
     let provider_mappings = store
@@ -3287,22 +3300,18 @@ async fn admin_v1_metadata_candidate_review_batch_apply_reports_partial_results_
         .await
         .unwrap();
     assert_eq!(provider_mappings.len(), 2);
-    assert!(
-        provider_mappings
-            .iter()
-            .all(|mapping| mapping.status == ProviderMappingStatus::Accepted)
-    );
-    assert!(
-        store
-            .find_provider_subject(
-                &ExternalProvider::Bangumi,
-                &ProviderSubjectKind::Episode,
-                "batch-apply/1"
-            )
-            .await
-            .unwrap()
-            .is_none()
-    );
+    assert!(provider_mappings
+        .iter()
+        .all(|mapping| mapping.status == ProviderMappingStatus::Accepted));
+    assert!(store
+        .find_provider_subject(
+            &ExternalProvider::Bangumi,
+            &ProviderSubjectKind::Episode,
+            "batch-apply/1"
+        )
+        .await
+        .unwrap()
+        .is_none());
     assert!(!body.contains("candidate-review:batch-secret"));
     assert!(!body.contains("private batch overview"));
     assert!(!body.contains("private batch tag"));
@@ -3630,49 +3639,39 @@ async fn admin_v1_metadata_candidate_review_detail_is_redacted_and_read_only() {
         detail.governance.undo_plan.stale_state_guard_updated_at_ms,
         Some(300)
     );
-    assert!(
-        detail
-            .governance
-            .undo_plan
-            .reasons
-            .contains(&AdminMetadataCandidateReviewUndoReason::ApplyOutcomeAuditRequired)
-    );
-    assert!(
-        detail
-            .governance
-            .undo_plan
-            .reasons
-            .contains(&AdminMetadataCandidateReviewUndoReason::StaleStateGuardRequired)
-    );
-    assert!(
-        store
-            .list_provider_mappings_for_item(item.id, PageRequest::first_page())
-            .await
-            .unwrap()
-            .is_empty()
-    );
-    assert!(
-        store
-            .find_provider_subject(
-                &ExternalProvider::Bangumi,
-                &ProviderSubjectKind::Subject,
-                "1437"
-            )
-            .await
-            .unwrap()
-            .is_none()
-    );
-    assert!(
-        store
-            .find_provider_subject(
-                &ExternalProvider::Bangumi,
-                &ProviderSubjectKind::Episode,
-                "1437/1"
-            )
-            .await
-            .unwrap()
-            .is_none()
-    );
+    assert!(detail
+        .governance
+        .undo_plan
+        .reasons
+        .contains(&AdminMetadataCandidateReviewUndoReason::ApplyOutcomeAuditRequired));
+    assert!(detail
+        .governance
+        .undo_plan
+        .reasons
+        .contains(&AdminMetadataCandidateReviewUndoReason::StaleStateGuardRequired));
+    assert!(store
+        .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+        .await
+        .unwrap()
+        .is_empty());
+    assert!(store
+        .find_provider_subject(
+            &ExternalProvider::Bangumi,
+            &ProviderSubjectKind::Subject,
+            "1437"
+        )
+        .await
+        .unwrap()
+        .is_none());
+    assert!(store
+        .find_provider_subject(
+            &ExternalProvider::Bangumi,
+            &ProviderSubjectKind::Episode,
+            "1437/1"
+        )
+        .await
+        .unwrap()
+        .is_none());
     assert!(!body.contains("overview"));
     assert!(!body.contains("secret-overview"));
     assert!(!body.contains("secret-related-overview"));
@@ -3844,13 +3843,11 @@ async fn admin_v1_metadata_candidate_review_apply_commits_root_mapping_and_repla
     let stale_error: ErrorResponse = serde_json::from_str(&stale_body).unwrap();
     assert_eq!(stale_error.code, "conflict");
     assert!(!stale_body.contains("candidate-review:stale-secret"));
-    assert!(
-        store
-            .list_provider_mappings_for_item(item.id, PageRequest::first_page())
-            .await
-            .unwrap()
-            .is_empty()
-    );
+    assert!(store
+        .list_provider_mappings_for_item(item.id, PageRequest::first_page())
+        .await
+        .unwrap()
+        .is_empty());
 
     let empty_key_response = response_body_json(
         &router,
@@ -3939,27 +3936,21 @@ async fn admin_v1_metadata_candidate_review_apply_commits_root_mapping_and_repla
         applied.governance.undo_plan.stale_state_guard_updated_at_ms,
         Some(300)
     );
-    assert!(
-        applied
-            .governance
-            .undo_plan
-            .reasons
-            .contains(&AdminMetadataCandidateReviewUndoReason::MissingPersistedPreApplySnapshot)
-    );
-    assert!(
-        applied
-            .governance
-            .undo_plan
-            .reasons
-            .contains(&AdminMetadataCandidateReviewUndoReason::ProviderMappingMayPreexistReview)
-    );
-    assert!(
-        applied
-            .governance
-            .undo_plan
-            .reasons
-            .contains(&AdminMetadataCandidateReviewUndoReason::StaleStateGuardRequired)
-    );
+    assert!(applied
+        .governance
+        .undo_plan
+        .reasons
+        .contains(&AdminMetadataCandidateReviewUndoReason::MissingPersistedPreApplySnapshot));
+    assert!(applied
+        .governance
+        .undo_plan
+        .reasons
+        .contains(&AdminMetadataCandidateReviewUndoReason::ProviderMappingMayPreexistReview));
+    assert!(applied
+        .governance
+        .undo_plan
+        .reasons
+        .contains(&AdminMetadataCandidateReviewUndoReason::StaleStateGuardRequired));
 
     let provider_mappings = store
         .list_provider_mappings_for_item(item.id, PageRequest::first_page())
@@ -3967,17 +3958,15 @@ async fn admin_v1_metadata_candidate_review_apply_commits_root_mapping_and_repla
         .unwrap();
     assert_eq!(provider_mappings.len(), 1);
     assert_eq!(provider_mappings[0].status, ProviderMappingStatus::Accepted);
-    assert!(
-        store
-            .find_provider_subject(
-                &ExternalProvider::Bangumi,
-                &ProviderSubjectKind::Episode,
-                "1437/1"
-            )
-            .await
-            .unwrap()
-            .is_none()
-    );
+    assert!(store
+        .find_provider_subject(
+            &ExternalProvider::Bangumi,
+            &ProviderSubjectKind::Episode,
+            "1437/1"
+        )
+        .await
+        .unwrap()
+        .is_none());
     assert!(!body.contains("candidate-review:operator-confirmation:secret"));
     assert!(!body.contains("secret apply overview"));
     assert!(!body.contains("secret related apply overview"));
@@ -4271,17 +4260,15 @@ async fn admin_v1_metadata_candidate_review_related_hierarchy_plan_apply_and_rep
     assert!(planned.boundary.apply_confirms_related_library_item_state);
     assert!(!planned.boundary.updates_parent_hierarchy);
     assert!(!planned.boundary.updates_canonical_metadata);
-    assert!(
-        store
-            .find_provider_subject(
-                &ExternalProvider::Bangumi,
-                &ProviderSubjectKind::Episode,
-                "2437/1"
-            )
-            .await
-            .unwrap()
-            .is_none()
-    );
+    assert!(store
+        .find_provider_subject(
+            &ExternalProvider::Bangumi,
+            &ProviderSubjectKind::Episode,
+            "2437/1"
+        )
+        .await
+        .unwrap()
+        .is_none());
     assert!(!plan_body.contains("secret related root overview"));
     assert!(!plan_body.contains("secret related child overview"));
     assert!(!plan_body.contains("secret-related-root-tag"));
@@ -4378,8 +4365,8 @@ async fn admin_v1_metadata_candidate_review_related_hierarchy_plan_apply_and_rep
 }
 
 #[tokio::test]
-async fn admin_v1_metadata_candidate_review_related_hierarchy_plan_and_apply_reject_pending_and_missing_root_mapping()
- {
+async fn admin_v1_metadata_candidate_review_related_hierarchy_plan_and_apply_reject_pending_and_missing_root_mapping(
+) {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let config = NakoServerConfig {
@@ -4603,42 +4590,34 @@ async fn admin_v1_metadata_candidate_review_related_hierarchy_plan_and_apply_rej
     assert!(missing_root_apply_body.contains("requires an accepted root provider mapping"));
     assert!(!missing_root_apply_body.contains("candidate-review-related-missing-root-secret"));
 
-    assert!(
-        store
-            .find_provider_subject(
-                &ExternalProvider::Bangumi,
-                &ProviderSubjectKind::Subject,
-                "related-reject-root",
-            )
-            .await
-            .unwrap()
-            .is_none()
-    );
-    assert!(
-        store
-            .find_provider_subject(
-                &ExternalProvider::Bangumi,
-                &ProviderSubjectKind::Episode,
-                "related-reject-root/1",
-            )
-            .await
-            .unwrap()
-            .is_none()
-    );
-    assert!(
-        store
-            .list_provider_mappings_for_item(root.id, PageRequest::first_page())
-            .await
-            .unwrap()
-            .is_empty()
-    );
-    assert!(
-        store
-            .list_provider_mappings_for_item(child.id, PageRequest::first_page())
-            .await
-            .unwrap()
-            .is_empty()
-    );
+    assert!(store
+        .find_provider_subject(
+            &ExternalProvider::Bangumi,
+            &ProviderSubjectKind::Subject,
+            "related-reject-root",
+        )
+        .await
+        .unwrap()
+        .is_none());
+    assert!(store
+        .find_provider_subject(
+            &ExternalProvider::Bangumi,
+            &ProviderSubjectKind::Episode,
+            "related-reject-root/1",
+        )
+        .await
+        .unwrap()
+        .is_none());
+    assert!(store
+        .list_provider_mappings_for_item(root.id, PageRequest::first_page())
+        .await
+        .unwrap()
+        .is_empty());
+    assert!(store
+        .list_provider_mappings_for_item(child.id, PageRequest::first_page())
+        .await
+        .unwrap()
+        .is_empty());
     assert!(
         store
             .get_library_item_state(library_id, child.id)
@@ -4922,12 +4901,10 @@ async fn admin_v1_generated_artifact_proposals_are_admin_only_redacted_and_read_
     );
     assert_eq!(diagnostics.proposals[0].target.source_id, Some(source.id));
     assert_eq!(diagnostics.proposals[0].payload.confidence_milli, Some(810));
-    assert!(
-        diagnostics.proposals[0]
-            .payload
-            .payload_fingerprint
-            .starts_with("sha256:")
-    );
+    assert!(diagnostics.proposals[0]
+        .payload
+        .payload_fingerprint
+        .starts_with("sha256:"));
     assert_eq!(
         diagnostics.proposals[0].readiness.status,
         nako_core::GeneratedArtifactReadinessStatus::Ready
@@ -5901,8 +5878,8 @@ struct AdminGeneratedArtifactMetadataApplyHttpFixture {
     item_id: MediaItemId,
 }
 
-async fn admin_generated_artifact_metadata_apply_http_fixture()
--> AdminGeneratedArtifactMetadataApplyHttpFixture {
+async fn admin_generated_artifact_metadata_apply_http_fixture(
+) -> AdminGeneratedArtifactMetadataApplyHttpFixture {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let config = NakoServerConfig {
@@ -6535,8 +6512,8 @@ async fn admin_v1_jobs_projects_source_fingerprint_hash_summary_diagnostics_with
 }
 
 #[tokio::test]
-async fn admin_v1_source_fingerprint_hash_enqueue_queues_full_and_partial_jobs_without_payload_leaks()
- {
+async fn admin_v1_source_fingerprint_hash_enqueue_queues_full_and_partial_jobs_without_payload_leaks(
+) {
     let (_temp, router, source, store) =
         router_with_media_source("source_hash_secret_locator.mkv", b"0123456789abcdef").await;
 
@@ -8432,8 +8409,8 @@ fn assert_vfs_cache_repair_job_summary_redacted(summary_json: &str) {
     }
 }
 
-async fn vfs_cache_repair_retry_http_fixture()
--> (tempfile::TempDir, Router, NakoDatabase, LibraryId, PathBuf) {
+async fn vfs_cache_repair_retry_http_fixture(
+) -> (tempfile::TempDir, Router, NakoDatabase, LibraryId, PathBuf) {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let root = temp.path().join("movies");
@@ -9073,16 +9050,13 @@ async fn admin_v1_storage_staging_lists_filters_and_redacts_paths() {
     assert_eq!(cleanup_probe_reserved.cleanup_candidate_bytes, 10);
     assert_eq!(cleanup_probe_reserved.active_leases, 0);
     assert_eq!(cleanup_probe_reserved.unknown_size_records, 0);
-    assert!(
-        !diagnostics
-            .summary
-            .cleanup_purpose_state_summaries
-            .iter()
-            .any(|summary| {
-                summary.purpose == StagingPurpose::ProbeInput
-                    && summary.state == StagingState::Failed
-            })
-    );
+    assert!(!diagnostics
+        .summary
+        .cleanup_purpose_state_summaries
+        .iter()
+        .any(|summary| {
+            summary.purpose == StagingPurpose::ProbeInput && summary.state == StagingState::Failed
+        }));
     assert_eq!(diagnostics.summary.vfs_cache.object_count, 1);
     assert_eq!(diagnostics.summary.vfs_cache.failure_count, 1);
     assert_eq!(
@@ -9389,13 +9363,11 @@ async fn admin_v1_vfs_cache_target_refresh_action_refreshes_selected_target_and_
         refresh.repair.classification,
         nako_api::admin::AdminVfsCacheRepairClassification::RetryableRefreshFailure
     );
-    assert!(
-        store
-            .get_vfs_cache_object("local:///Movies/Private/Selected.mkv")
-            .await
-            .unwrap()
-            .is_some()
-    );
+    assert!(store
+        .get_vfs_cache_object("local:///Movies/Private/Selected.mkv")
+        .await
+        .unwrap()
+        .is_some());
     let remaining: AdminVfsCacheRepairTargetListResponse = request_json(
         &router,
         Method::GET,
@@ -9635,13 +9607,11 @@ async fn admin_v1_vfs_cache_repair_job_routes_enqueue_and_execute_without_payloa
         execute.summary.refreshed_cache_state,
         Some(AdminVfsCacheRepairCacheState::Fresh)
     );
-    assert!(
-        store
-            .get_vfs_cache_object("local:///Movies/Private/AdminJob.mkv")
-            .await
-            .unwrap()
-            .is_some()
-    );
+    assert!(store
+        .get_vfs_cache_object("local:///Movies/Private/AdminJob.mkv")
+        .await
+        .unwrap()
+        .is_some());
     let completed = store
         .get_job(enqueue.job.id)
         .await
@@ -10650,13 +10620,11 @@ async fn admin_v1_vfs_cache_repair_targets_list_and_preview_redact_targets_witho
         "/admin/v1/storage/vfs-cache/repair/targets/{target_ref}/refresh-cache"
     );
     assert!(preview.plan.repair.is_some());
-    assert!(
-        store
-            .get_vfs_cache_object("local:///Movies/Private/Demo.mkv")
-            .await
-            .unwrap()
-            .is_none()
-    );
+    assert!(store
+        .get_vfs_cache_object("local:///Movies/Private/Demo.mkv")
+        .await
+        .unwrap()
+        .is_none());
     assert_eq!(
         store
             .list_vfs_cache_failures(PageRequest::new(10, 0))
@@ -11939,21 +11907,19 @@ async fn admin_v1_acquisition_intake_rejects_out_of_scope_root_without_recording
     assert!(!body.contains("../outside"));
     assert!(!body.contains("admin-token"));
     assert!(!body.contains("local:///"));
-    assert!(
-        store
-            .list_acquisition_intake_candidates(
-                AcquisitionIntakeCandidateListFilter {
-                    target_library_id: Some(library_id),
-                    state: None,
-                    source_kind: Some(AcquisitionIntakeSourceKind::WatchFolder),
-                    managed_import_artifact_id: None,
-                },
-                PageRequest::first_page(),
-            )
-            .await
-            .unwrap()
-            .is_empty()
-    );
+    assert!(store
+        .list_acquisition_intake_candidates(
+            AcquisitionIntakeCandidateListFilter {
+                target_library_id: Some(library_id),
+                state: None,
+                source_kind: Some(AcquisitionIntakeSourceKind::WatchFolder),
+                managed_import_artifact_id: None,
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap()
+        .is_empty());
 }
 
 #[tokio::test]
@@ -12120,14 +12086,12 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
         diagnostics.network.external_endpoint.scheme.as_deref(),
         Some("https")
     );
-    assert!(
-        diagnostics
-            .network
-            .external_endpoint
-            .host_fingerprint
-            .as_deref()
-            .is_some_and(|fingerprint| fingerprint.starts_with("sha256:"))
-    );
+    assert!(diagnostics
+        .network
+        .external_endpoint
+        .host_fingerprint
+        .as_deref()
+        .is_some_and(|fingerprint| fingerprint.starts_with("sha256:")));
     assert!(diagnostics.network.trusted_proxy.headers_enabled);
     assert_eq!(diagnostics.network.trusted_proxy.source_count, 2);
     assert_eq!(diagnostics.network.origins.allowed_origin_count, 1);
@@ -14664,22 +14628,18 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
         nvenc_capability.device_initialization.status,
         nako_api::admin::AdminPlaybackHardwareDeviceInitializationStatus::NotRun
     );
-    assert!(
-        nvenc_capability
-            .device_initialization
-            .operator_check
-            .contains("NVENC")
-    );
+    assert!(nvenc_capability
+        .device_initialization
+        .operator_check
+        .contains("NVENC"));
     assert_eq!(
         nvenc_capability.smoke_probe.status,
         nako_api::admin::AdminPlaybackHardwareSmokeProbeStatus::NotRun
     );
-    assert!(
-        nvenc_capability
-            .smoke_probe
-            .operator_check
-            .contains("NVENC")
-    );
+    assert!(nvenc_capability
+        .smoke_probe
+        .operator_check
+        .contains("NVENC"));
     assert_eq!(diagnostics.transcode.configured_cpu_slots, 2);
     assert_eq!(diagnostics.transcode.configured_gpu_slots, 4);
     assert_eq!(diagnostics.transcode.effective_cpu_slots, 2);
@@ -14704,12 +14664,10 @@ async fn admin_v1_playback_runtime_reports_safe_diagnostics() {
     assert!(diagnostics.policy.effective_resolution_supported);
     assert!(diagnostics.policy.library_access_required);
     assert!(diagnostics.policy.user_policy_overrides_role_policy);
-    assert!(
-        diagnostics
-            .policy
-            .permissions
-            .contains(&nako_core::PlaybackPermission::Remux)
-    );
+    assert!(diagnostics
+        .policy
+        .permissions
+        .contains(&nako_core::PlaybackPermission::Remux));
     assert_eq!(diagnostics.staging.max_bytes, 123_456);
     assert_eq!(diagnostics.staging.retention_ms, 654_321);
     assert!(diagnostics.staging.cleanup_on_startup);

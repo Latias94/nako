@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
 use axum::{
-    Extension, Json, Router,
     extract::Request,
     extract::{Path, Query, State},
     http::StatusCode,
@@ -9,13 +8,14 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
     routing::{delete, get, patch, post, put},
+    Extension, Json, Router,
 };
 use nako_api::{
     admin::{
-        ADMIN_API_VERSION, AdminAccessAuthSummary, AdminAccessCapabilityState,
-        AdminAccessCapabilitySummary, AdminAccessMode, AdminAccessPrincipalKind,
-        AdminAccessPrincipalSummary, AdminAccessSummaryResponse, AdminAccessUserListResponse,
-        AdminAccessUserRecord, AdminAccessUserResponse, AdminAcquisitionIntakeCandidateDiagnostic,
+        AdminAccessAuthSummary, AdminAccessCapabilityState, AdminAccessCapabilitySummary,
+        AdminAccessMode, AdminAccessPrincipalKind, AdminAccessPrincipalSummary,
+        AdminAccessSummaryResponse, AdminAccessUserListResponse, AdminAccessUserRecord,
+        AdminAccessUserResponse, AdminAcquisitionIntakeCandidateDiagnostic,
         AdminAcquisitionIntakeCandidateListResponse, AdminArtworkConfigDiagnostics,
         AdminAuthConfigDiagnostics, AdminCatalogGovernanceItem,
         AdminCatalogGovernanceItemListResponse, AdminCatalogGovernanceProviderMappingReviewRequest,
@@ -125,27 +125,27 @@ use nako_api::{
         AdminWatchFolderRuntimeFailureDiagnostic, AdminWatchFolderRuntimeTickDiagnostic,
         AdminWatchFolderScanAdmissionStatus, AdminWatchFolderSuppression, JobResponse,
         StorageBackendDiagnosticsResponse, StorageBackendKind, StorageBackendRuntimeStateScope,
-        StorageBackendStatus,
+        StorageBackendStatus, ADMIN_API_VERSION,
     },
     metadata_diagnostics::{MetadataProviderDiagnosticStatus, MetadataProviderDiagnosticsResponse},
-    public_client::{API_VERSION, ClientErrorCode, ErrorResponse, page_info_from_request},
+    public_client::{page_info_from_request, ClientErrorCode, ErrorResponse, API_VERSION},
 };
 use nako_core::{
     ArtworkCandidateId, AutomationArtifactId, ExternalProvider,
     GeneratedArtifactMetadataApplyOutcomeId, GeneratedArtifactMetadataApplyRecoveryAttention,
     GeneratedArtifactMetadataApplyRecoveryFilter, GeneratedArtifactMetadataBulkApplyBatchId,
-    ImageKind, JobId, LibraryAccessPolicy, LibraryAccessPolicyFilter, LibraryAccessPolicyScope,
-    LibraryId, ManagedArtworkArtifactId, ManagedArtworkIngestId, MediaItemId, MediaSourceId,
-    MetadataCandidateReviewBatchId, MetadataCandidateReviewId, MetadataCandidateReviewQueueFilter,
-    MetadataCandidateReviewStatus, NakoError, PageRequest, PlaybackTargetKind,
-    PlaybackTargetTransportAuth, ProviderMappingId, RendererSessionRecord, RendererSessionState,
-    RoleAssignment, TranscodeSessionId, User, UserId, UserInvitationId, UserPrincipalId, UserRole,
-    UserStatus,
+    ImageKind, JobId, JobQueuePressureSummary, JobStatus, LibraryAccessPolicy,
+    LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId, ManagedArtworkArtifactId,
+    ManagedArtworkIngestId, MediaItemId, MediaSourceId, MetadataCandidateReviewBatchId,
+    MetadataCandidateReviewId, MetadataCandidateReviewQueueFilter, MetadataCandidateReviewStatus,
+    NakoError, PageRequest, PlaybackTargetKind, PlaybackTargetTransportAuth, ProviderMappingId,
+    RendererSessionRecord, RendererSessionState, RoleAssignment, TranscodeSessionId, User, UserId,
+    UserInvitationId, UserPrincipalId, UserRole, UserStatus,
 };
 use nako_db::DatabaseBackendCapabilities;
 use nako_library::{
-    SourceFingerprintHashMode, WatchFolderIntakeEnqueueReason, WatchFolderIntakePlanInput,
-    plan_watch_folder_intake,
+    plan_watch_folder_intake, SourceFingerprintHashMode, WatchFolderIntakeEnqueueReason,
+    WatchFolderIntakePlanInput,
 };
 use nako_transcode::{
     HardwareAccelerationCapability, HardwareDeviceInitializationStatus,
@@ -160,6 +160,7 @@ use crate::{
         admin_transcode_pipeline_readiness,
     },
     app::{
+        storage_staging_pressure_status as app_storage_staging_pressure_status,
         EnqueueSourceFingerprintHashRequest, EnqueueVfsCacheRepairTargetOutcome,
         LibraryScanTraceContext, NakoApp, RetrySourceFingerprintHashRequest,
         RetryVfsCacheRepairJobRequest, RuntimeSupervisorDiagnostics,
@@ -182,7 +183,6 @@ use crate::{
         WatchFolderRuntimeCoverageReport, WatchFolderRuntimeCoverageStatus,
         WatchFolderRuntimeTickDiagnostic,
         WatchFolderScanAdmissionStatus as AppWatchFolderScanAdmissionStatus,
-        storage_staging_pressure_status as app_storage_staging_pressure_status,
     },
     config::{
         LocalLibraryConfig, MetadataProviderConfig, MetadataProviderRuntimeConfig,
@@ -210,11 +210,11 @@ const ADMIN_SYSTEM_CONFIG_ROUTE_PATH: &str = "/admin/v1/system/config";
 use super::{
     error::ApiResult,
     query::{
-        AcquisitionIntakeCandidateListQuery, ArtworkArtifactCleanupQuery,
-        ArtworkArtifactLifecycleQuery, ArtworkArtifactRemediationQuery,
-        ArtworkArtifactStorageDriftQuery, ArtworkGalleryQuery, CatalogGovernanceItemsQuery,
-        JobListQuery, OutboxEventListQuery, PageQuery, PlaybackSessionListQuery,
-        PlaybackSupportEvidenceQuery, StorageStagingQuery, parse_u32_filter, parse_u64_filter,
+        parse_u32_filter, parse_u64_filter, AcquisitionIntakeCandidateListQuery,
+        ArtworkArtifactCleanupQuery, ArtworkArtifactLifecycleQuery,
+        ArtworkArtifactRemediationQuery, ArtworkArtifactStorageDriftQuery, ArtworkGalleryQuery,
+        CatalogGovernanceItemsQuery, JobListQuery, OutboxEventListQuery, PageQuery,
+        PlaybackSessionListQuery, PlaybackSupportEvidenceQuery, StorageStagingQuery,
     },
     trace_context::HttpTraceContext,
 };
@@ -1479,6 +1479,7 @@ pub(super) async fn get_admin_overview(State(app): State<NakoApp>) -> ApiResult<
 
 async fn admin_overview_response(app: &NakoApp) -> ApiResult<AdminOverviewResponse> {
     let storage = app.storage().list_storage_backend_diagnostics().await;
+    let queue_pressure = app.job_queue_pressure_diagnostics().await?;
     let catalog = app.catalog().catalog_governance_summary().await?;
     let metadata = app.metadata().list_metadata_provider_diagnostics();
     let runtime = app.runtime_diagnostics();
@@ -1517,6 +1518,7 @@ async fn admin_overview_response(app: &NakoApp) -> ApiResult<AdminOverviewRespon
     let operator_readiness = operator_readiness_summary(
         app.config(),
         &storage,
+        &queue_pressure,
         &runtime,
         &source_fingerprint_hash,
         vfs_cache_repair_pressure.as_ref(),
@@ -4147,6 +4149,7 @@ fn playback_support_runtime_evidence(
 fn operator_readiness_summary(
     config: &crate::config::NakoServerConfig,
     storage: &AdminOverviewStorageSummary,
+    queue_pressure: &[JobQueuePressureSummary],
     runtime: &AdminOverviewRuntimeSummary,
     source_fingerprint_hash: &AdminOverviewSourceFingerprintHashSummary,
     vfs_cache_repair_pressure: Option<&VfsCacheRepairReadinessPressure>,
@@ -4158,10 +4161,40 @@ fn operator_readiness_summary(
         setup_readiness_check(config),
         media_library_scan_readiness_check(startup, runtime, source_fingerprint_hash),
         playback_readiness_check(playback),
+        durable_jobs_readiness_check(queue_pressure),
         storage_readiness_check(storage, vfs_cache_repair_pressure),
         network_readiness_check(network),
         backup_readiness_check(config),
     ])
+}
+
+fn durable_jobs_readiness_check(
+    queue_pressure: &[JobQueuePressureSummary],
+) -> AdminOperatorReadinessCheck {
+    let has_queue_pressure = queue_pressure.iter().any(|summary| {
+        summary.status == JobStatus::Queued
+            && (summary.claimable_count > 0 || summary.delayed_retry_count > 0)
+    });
+
+    if has_queue_pressure {
+        operator_check(
+            AdminOperatorReadinessArea::DurableJobs,
+            AdminOperatorReadinessStatus::Degraded,
+            AdminOperatorReadinessReason::DurableJobsPressure,
+            Some("queued_work".to_owned()),
+            1,
+            Some(operator_action(ADMIN_JOBS_ROUTE_KEY, ADMIN_JOBS_ROUTE_PATH)),
+        )
+    } else {
+        operator_check(
+            AdminOperatorReadinessArea::DurableJobs,
+            AdminOperatorReadinessStatus::Ready,
+            AdminOperatorReadinessReason::DurableJobsReady,
+            None,
+            0,
+            None,
+        )
+    }
 }
 
 fn setup_readiness_check(config: &crate::config::NakoServerConfig) -> AdminOperatorReadinessCheck {

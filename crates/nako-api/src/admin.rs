@@ -364,6 +364,7 @@ pub enum AdminOperatorReadinessStatus {
 pub enum AdminOperatorReadinessArea {
     Setup,
     MediaLibraryScan,
+    DurableJobs,
     Playback,
     Storage,
     Network,
@@ -382,6 +383,8 @@ pub enum AdminOperatorReadinessReason {
     ScanWorkPending,
     ScanRepairPressure,
     WatchFolderRuntimeCoverageGap,
+    DurableJobsReady,
+    DurableJobsPressure,
     PlaybackReady,
     PlaybackDegraded,
     PlaybackUnavailable,
@@ -600,6 +603,17 @@ mod tests {
                         route_path: "/admin/v1/storage/vfs-cache/repair/targets".to_owned(),
                     }),
                 },
+                AdminOperatorReadinessCheck {
+                    area: AdminOperatorReadinessArea::DurableJobs,
+                    status: AdminOperatorReadinessStatus::Degraded,
+                    reason: AdminOperatorReadinessReason::DurableJobsPressure,
+                    source_reason: Some("queued_work".to_owned()),
+                    attention_count: 2,
+                    action: Some(AdminOperatorReadinessAction {
+                        route_key: "jobs".to_owned(),
+                        route_path: "/admin/v1/jobs".to_owned(),
+                    }),
+                },
             ]),
             storage: AdminOverviewStorageSummary {
                 total_backends: 1,
@@ -725,6 +739,22 @@ mod tests {
             value["operator_readiness"]["checks"][1]["action"]["route_key"],
             "storageVfsCacheRepairTargets"
         );
+        assert_eq!(
+            value["operator_readiness"]["checks"][2]["area"],
+            "durable_jobs"
+        );
+        assert_eq!(
+            value["operator_readiness"]["checks"][2]["reason"],
+            "durable_jobs_pressure"
+        );
+        assert_eq!(
+            value["operator_readiness"]["checks"][2]["action"]["route_key"],
+            "jobs"
+        );
+        assert_eq!(
+            value["operator_readiness"]["checks"][2]["action"]["route_path"],
+            "/admin/v1/jobs"
+        );
         assert_eq!(value["storage"]["ready_backends"], 1);
         assert_eq!(value["storage"]["backends"][0]["status"], "ready");
         assert_eq!(value["catalog"]["governed_items"], 2);
@@ -739,16 +769,18 @@ mod tests {
             "local://<redacted>"
         );
         assert_eq!(
-            value["startup"]["watch_folder_runtime"]["diagnostics"][0]["last_tick"]["enqueue_reason"],
+            value["startup"]["watch_folder_runtime"]["diagnostics"][0]["last_tick"]
+                ["enqueue_reason"],
             "new_stable_candidates"
         );
         assert_eq!(
-            value["startup"]["watch_folder_runtime"]["diagnostics"][0]["last_tick"]["scan_admission_status"],
+            value["startup"]["watch_folder_runtime"]["diagnostics"][0]["last_tick"]
+                ["scan_admission_status"],
             "reused_running"
         );
         assert_eq!(
-            value["startup"]["watch_folder_runtime"]["diagnostics"][0]["last_tick"]["discovery_failures"]
-                [0]["ref_redacted"],
+            value["startup"]["watch_folder_runtime"]["diagnostics"][0]["last_tick"]
+                ["discovery_failures"][0]["ref_redacted"],
             "local://<redacted>"
         );
         assert_eq!(value["source_fingerprint_hash"]["fingerprinted_sources"], 2);

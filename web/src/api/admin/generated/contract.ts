@@ -1998,6 +1998,7 @@ export type AdminOperatorReadinessStatus = "ready" | "degraded" | "unavailable";
 export type AdminOperatorReadinessArea =
   | "setup"
   | "media_library_scan"
+  | "durable_jobs"
   | "playback"
   | "storage"
   | "network"
@@ -2013,6 +2014,8 @@ export type AdminOperatorReadinessReason =
   | "scan_work_pending"
   | "scan_repair_pressure"
   | "watch_folder_runtime_coverage_gap"
+  | "durable_jobs_ready"
+  | "durable_jobs_pressure"
   | "playback_ready"
   | "playback_degraded"
   | "playback_unavailable"

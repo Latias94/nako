@@ -36,6 +36,7 @@ export const enOverviewMessages = {
   "overview.operatorReadiness.area.setup": "Setup",
   "overview.operatorReadiness.area.mediaLibraryScan": "Media Library scan",
   "overview.operatorReadiness.area.playback": "Playback",
+  "overview.operatorReadiness.area.durableJobs": "Durable jobs",
   "overview.operatorReadiness.area.storage": "Storage",
   "overview.operatorReadiness.area.network": "Network",
   "overview.operatorReadiness.area.backup": "Backup",
@@ -65,6 +66,10 @@ export const enOverviewMessages = {
     "Playback runtime is degraded",
   "overview.operatorReadiness.reason.playbackUnavailable":
     "Playback runtime is unavailable",
+  "overview.operatorReadiness.reason.durableJobsReady":
+    "Durable jobs queue is clear",
+  "overview.operatorReadiness.reason.durableJobsPressure":
+    "{count} durable jobs need review",
   "overview.operatorReadiness.reason.storageReady":
     "Storage backends are ready",
   "overview.operatorReadiness.reason.storageDegraded":
@@ -194,6 +199,7 @@ export const zhHansOverviewMessages = {
   "overview.operatorReadiness.area.setup": "初始化",
   "overview.operatorReadiness.area.mediaLibraryScan": "媒体库扫描",
   "overview.operatorReadiness.area.playback": "播放",
+  "overview.operatorReadiness.area.durableJobs": "持久任务",
   "overview.operatorReadiness.area.storage": "存储",
   "overview.operatorReadiness.area.network": "网络",
   "overview.operatorReadiness.area.backup": "备份",
@@ -220,6 +226,9 @@ export const zhHansOverviewMessages = {
   "overview.operatorReadiness.reason.playbackReady": "播放运行时已就绪",
   "overview.operatorReadiness.reason.playbackDegraded": "播放运行时降级",
   "overview.operatorReadiness.reason.playbackUnavailable": "播放运行时不可用",
+  "overview.operatorReadiness.reason.durableJobsReady": "持久任务队列正常",
+  "overview.operatorReadiness.reason.durableJobsPressure":
+    "{count} 个持久任务需要处理",
   "overview.operatorReadiness.reason.storageReady": "存储后端已就绪",
   "overview.operatorReadiness.reason.storageDegraded":
     "{count} 个存储后端需要检查",

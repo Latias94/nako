@@ -483,6 +483,7 @@ const OPERATOR_READINESS_AREA_LABELS: Record<
   setup: "overview.operatorReadiness.area.setup",
   media_library_scan: "overview.operatorReadiness.area.mediaLibraryScan",
   playback: "overview.operatorReadiness.area.playback",
+  durable_jobs: "overview.operatorReadiness.area.durableJobs",
   storage: "overview.operatorReadiness.area.storage",
   network: "overview.operatorReadiness.area.network",
   backup: "overview.operatorReadiness.area.backup",
@@ -520,6 +521,9 @@ const OPERATOR_READINESS_REASON_LABELS: Record<
   playback_ready: "overview.operatorReadiness.reason.playbackReady",
   playback_degraded: "overview.operatorReadiness.reason.playbackDegraded",
   playback_unavailable: "overview.operatorReadiness.reason.playbackUnavailable",
+  durable_jobs_ready: "overview.operatorReadiness.reason.durableJobsReady",
+  durable_jobs_pressure:
+    "overview.operatorReadiness.reason.durableJobsPressure",
   storage_ready: "overview.operatorReadiness.reason.storageReady",
   storage_degraded: "overview.operatorReadiness.reason.storageDegraded",
   storage_unavailable: "overview.operatorReadiness.reason.storageUnavailable",

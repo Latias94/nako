@@ -235,6 +235,14 @@ export const mockOverview: AdminOverviewResponse = {
         action: null,
       },
       {
+        area: "durable_jobs",
+        status: "ready",
+        reason: "durable_jobs_ready",
+        source_reason: null,
+        attention_count: 0,
+        action: null,
+      },
+      {
         area: "storage",
         status: "degraded",
         reason: "storage_degraded",
