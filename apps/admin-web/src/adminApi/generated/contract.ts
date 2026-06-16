@@ -15,6 +15,7 @@ export const NAKO_ADMIN_ROUTES = {
   accessUserRoles: "/admin/v1/access/users/{user_id}/roles",
   accessUserStatus: "/admin/v1/access/users/{user_id}/status",
   accessLibraryPolicies: "/admin/v1/access/library-policies",
+  accessPlaybackPolicies: "/admin/v1/access/playback-policies",
   addons: "/admin/v1/addons",
   addonInstallGuidePreview: "/admin/v1/addons/install-guide-preview",
   addonCatalogSources: "/admin/v1/addons/catalog/sources",
@@ -3666,6 +3667,29 @@ export type AdminPlaybackPolicyPermission =
   | "remote_control"
   | "cast";
 
+export type AdminPlaybackPolicyScope =
+  | {
+      scope: "user";
+      user_id: string;
+    }
+  | {
+      scope: "role";
+      role: AdminUserRole;
+    };
+
+export interface AdminPlaybackPermissionPolicy {
+  allow_media_playback: boolean;
+  allow_direct_play: boolean;
+  allow_remux: boolean;
+  allow_audio_transcode: boolean;
+  allow_video_transcode: boolean;
+  allow_remote_playback: boolean;
+  allow_remote_control: boolean;
+  allow_cast: boolean;
+  max_streaming_bitrate: number | null;
+  max_remote_bitrate: number | null;
+}
+
 export interface AdminPlaybackPolicyDiagnostics {
   user_policy_rows_supported: boolean;
   role_policy_rows_supported: boolean;
@@ -4496,6 +4520,39 @@ export interface AdminUpsertLibraryAccessPolicyRequest {
   scope: AdminLibraryAccessPolicyScope;
   library_id: string;
   access: AdminLibraryAccessPolicyLevel;
+}
+
+export interface AdminPlaybackPolicyRecord {
+  scope: AdminPlaybackPolicyScope;
+  library_id: string;
+  permissions: AdminPlaybackPermissionPolicy;
+  created_at_ms: number;
+  updated_at_ms: number;
+}
+
+export interface AdminPlaybackPolicyListResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  policies: AdminPlaybackPolicyRecord[];
+  page: PageInfo;
+}
+
+export interface AdminPlaybackPolicyResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  policy: AdminPlaybackPolicyRecord;
+}
+
+export interface AdminPlaybackPolicyDeleteResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  deleted: boolean;
+}
+
+export interface AdminUpsertPlaybackPolicyRequest {
+  scope: AdminPlaybackPolicyScope;
+  library_id: string;
+  permissions: AdminPlaybackPermissionPolicy;
 }
 
 export interface AdminServerConfigDiagnosticsResponse {

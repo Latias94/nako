@@ -10,7 +10,8 @@ use argon2::{
 use nako_core::{
     AdminSettingsRepository, IdentityAccessRepository, JobQueuePressureSummary, JobRepository,
     LibraryAccessPolicy, LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId,
-    MediaRepository, MediaSource, MediaSourceId, NakoError, PageRequest, Result, RoleAssignment,
+    MediaRepository, MediaSource, MediaSourceId, NakoError, PageRequest, PlaybackPolicy,
+    PlaybackPolicyFilter, PlaybackPolicyRepository, PlaybackPolicyScope, Result, RoleAssignment,
     User, UserId, UserInvitationId, UserInvitationRecord, UserInvitationStatus, UserPrincipalId,
     UserRole, UserSessionId, UserSessionRecord, UserStatus,
 };
@@ -711,6 +712,29 @@ impl NakoApp {
             .store
             .list_library_access_policies(filter, page)
             .await
+    }
+
+    pub(crate) async fn upsert_playback_policy(&self, policy: &PlaybackPolicy) -> Result<()> {
+        self.inner.store.upsert_playback_policy(policy).await
+    }
+
+    pub(crate) async fn delete_playback_policy(
+        &self,
+        scope: PlaybackPolicyScope,
+        library_id: LibraryId,
+    ) -> Result<()> {
+        self.inner
+            .store
+            .delete_playback_policy(scope, library_id)
+            .await
+    }
+
+    pub(crate) async fn list_playback_policies(
+        &self,
+        filter: PlaybackPolicyFilter,
+        page: PageRequest,
+    ) -> Result<Vec<PlaybackPolicy>> {
+        self.inner.store.list_playback_policies(filter, page).await
     }
 
     async fn issue_user_session(&self, user_id: UserId) -> Result<IssuedUserSession> {

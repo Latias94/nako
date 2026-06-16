@@ -13471,7 +13471,7 @@ async fn admin_v1_system_config_reports_postgres_capability_gaps_for_injected_st
 }
 
 #[tokio::test]
-async fn admin_v1_access_management_round_trips_users_roles_and_library_policies() {
+async fn admin_playback_policy_management_round_trips_users_roles_library_and_playback_policies() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
     let config = NakoServerConfig {
@@ -13595,6 +13595,147 @@ async fn admin_v1_access_management_round_trips_users_roles_and_library_policies
         request_json::<AdminLibraryAccessPolicyListResponse>(&router, Method::GET, &list_path)
             .await;
     assert!(listed.policies.is_empty());
+
+    let mut playback_permissions = PlaybackPermissionPolicy::current_playback_defaults();
+    playback_permissions.allow_remote_playback = false;
+    playback_permissions.allow_video_transcode = false;
+    playback_permissions.max_streaming_bitrate = Some(8_000_000);
+    playback_permissions.max_remote_bitrate = Some(3_000_000);
+
+    let playback_policy = request_body_json::<AdminPlaybackPolicyResponse, _>(
+        &router,
+        Method::PUT,
+        "/admin/v1/access/playback-policies",
+        &AdminUpsertPlaybackPolicyRequest {
+            scope: AdminPlaybackPolicyScope::Role {
+                role: UserRole::Viewer,
+            },
+            library_id,
+            permissions: AdminPlaybackPermissionPolicy::from(playback_permissions),
+        },
+    )
+    .await;
+    assert_eq!(playback_policy.policy.library_id, library_id);
+    assert_eq!(
+        playback_policy.policy.scope,
+        AdminPlaybackPolicyScope::Role {
+            role: UserRole::Viewer
+        }
+    );
+    assert!(!playback_policy.policy.permissions.allow_remote_playback);
+    assert!(!playback_policy.policy.permissions.allow_video_transcode);
+    assert_eq!(
+        playback_policy.policy.permissions.max_streaming_bitrate,
+        Some(8_000_000)
+    );
+    assert_eq!(
+        playback_policy.policy.permissions.max_remote_bitrate,
+        Some(3_000_000)
+    );
+
+    let mut user_playback_permissions = PlaybackPermissionPolicy::current_playback_defaults();
+    user_playback_permissions.allow_cast = true;
+    user_playback_permissions.allow_remote_control = true;
+    let user_playback_policy = request_body_json::<AdminPlaybackPolicyResponse, _>(
+        &router,
+        Method::PUT,
+        "/admin/v1/access/playback-policies",
+        &AdminUpsertPlaybackPolicyRequest {
+            scope: AdminPlaybackPolicyScope::User {
+                user_id: created.user.user_id,
+            },
+            library_id,
+            permissions: AdminPlaybackPermissionPolicy::from(user_playback_permissions),
+        },
+    )
+    .await;
+    assert_eq!(
+        user_playback_policy.policy.scope,
+        AdminPlaybackPolicyScope::User {
+            user_id: created.user.user_id
+        }
+    );
+    assert!(user_playback_policy.policy.permissions.allow_cast);
+    assert!(user_playback_policy.policy.permissions.allow_remote_control);
+
+    let playback_list_path =
+        format!("/admin/v1/access/playback-policies?role=viewer&library_id={library_id}");
+    let listed_playback =
+        request_json::<AdminPlaybackPolicyListResponse>(&router, Method::GET, &playback_list_path)
+            .await;
+    let listed_playback_json = serde_json::to_string(&listed_playback).unwrap();
+    assert_eq!(listed_playback.policies.len(), 1);
+    assert_eq!(
+        listed_playback.policies[0].scope,
+        AdminPlaybackPolicyScope::Role {
+            role: UserRole::Viewer
+        }
+    );
+    assert!(!listed_playback_json.contains("principal_id"));
+    assert!(!listed_playback_json.contains("password"));
+    assert!(!listed_playback_json.contains("token"));
+    assert!(!listed_playback_json.contains("local:///"));
+
+    let user_playback_list_path = format!(
+        "/admin/v1/access/playback-policies?user_id={}&library_id={library_id}",
+        created.user.user_id
+    );
+    let listed_user_playback = request_json::<AdminPlaybackPolicyListResponse>(
+        &router,
+        Method::GET,
+        &user_playback_list_path,
+    )
+    .await;
+    assert_eq!(listed_user_playback.policies.len(), 1);
+    assert_eq!(
+        listed_user_playback.policies[0].scope,
+        AdminPlaybackPolicyScope::User {
+            user_id: created.user.user_id
+        }
+    );
+
+    let ambiguous_list = response_for(
+        &router,
+        Method::GET,
+        &format!(
+            "/admin/v1/access/playback-policies?user_id={}&role=viewer&library_id={library_id}",
+            created.user.user_id
+        ),
+    )
+    .await;
+    assert_eq!(ambiguous_list.status(), StatusCode::BAD_REQUEST);
+
+    let deleted_playback = request_json::<AdminPlaybackPolicyDeleteResponse>(
+        &router,
+        Method::DELETE,
+        &playback_list_path,
+    )
+    .await;
+    assert!(deleted_playback.deleted);
+
+    let listed_playback =
+        request_json::<AdminPlaybackPolicyListResponse>(&router, Method::GET, &playback_list_path)
+            .await;
+    assert!(listed_playback.policies.is_empty());
+
+    let missing_scope_delete = response_for(
+        &router,
+        Method::DELETE,
+        &format!("/admin/v1/access/playback-policies?library_id={library_id}"),
+    )
+    .await;
+    assert_eq!(missing_scope_delete.status(), StatusCode::BAD_REQUEST);
+
+    let ambiguous_delete = response_for(
+        &router,
+        Method::DELETE,
+        &format!(
+            "/admin/v1/access/playback-policies?user_id={}&role=viewer&library_id={library_id}",
+            created.user.user_id
+        ),
+    )
+    .await;
+    assert_eq!(ambiguous_delete.status(), StatusCode::BAD_REQUEST);
 }
 
 #[tokio::test]

@@ -95,6 +95,121 @@ cargo run -p nako-api --example emit-admin-typescript-contract -- --output apps/
 Generated contract files are artifacts from `nako-api`; edit the generator and
 DTO source, then regenerate.
 
+## Scenario: Admin Playback Policy Management Contract
+
+### 1. Scope / Trigger
+
+- Trigger: adding or changing Admin-only routes that manage persisted Playback
+  Policy records for user or role scopes.
+- Scope: `AdminPlaybackPolicy*` DTOs,
+  `GET|PUT|DELETE /admin/v1/access/playback-policies`,
+  `admin_contract.rs`, generated Admin Web contracts, and server mappings to
+  `PlaybackPolicyRepository`.
+- Boundary: this API configures policies already enforced by playback runtime.
+  Do not add public policy mutation, schema migration, playback execution, or
+  addon lifecycle behavior in this contract.
+
+### 2. Signatures
+
+- Route: `/admin/v1/access/playback-policies`.
+- Generated route key: `accessPlaybackPolicies`.
+- List: `GET` with optional `user_id`, `role`, `library_id`, `limit`, and
+  `offset` query parameters.
+- Upsert: `PUT` with `AdminUpsertPlaybackPolicyRequest`.
+- Delete: `DELETE` with required `library_id` and exactly one of `user_id` or
+  `role`.
+- Scope DTO:
+  `AdminPlaybackPolicyScope = { scope: "user", user_id } | { scope: "role", role }`.
+- Permission DTO:
+  `AdminPlaybackPermissionPolicy { allow_media_playback, allow_direct_play,
+  allow_remux, allow_audio_transcode, allow_video_transcode,
+  allow_remote_playback, allow_remote_control, allow_cast,
+  max_streaming_bitrate, max_remote_bitrate }`.
+- Response DTOs:
+  `AdminPlaybackPolicyListResponse`,
+  `AdminPlaybackPolicyResponse`, and `AdminPlaybackPolicyDeleteResponse`.
+
+### 3. Contracts
+
+- Playback policy management is Admin-only and must stay out of Public Client
+  route inventories, OpenAPI public routes, and generated Public SDKs.
+- `AdminPlaybackPolicyRecord` is a redaction-safe projection of
+  `PlaybackPolicy`; it exposes scope, library id, permission booleans, bitrate
+  caps, and timestamps only.
+- Upsert must map the Admin DTO into `PlaybackPolicy` and preserve all
+  permission fields. Do not invent route-local defaults except the DTO default
+  used by tests or clients constructing a full request.
+- List returns repository-owned pagination via `PageInfo` and may filter by
+  user, role, and library.
+- Delete targets the exact `(scope, library_id)` pair; ambiguous scope input is
+  invalid rather than silently choosing one.
+- Generated Admin Web contract files under `apps/admin-web` and `web` must be
+  regenerated from `nako-api`; do not hand-edit them.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Caller lacks Admin authorization | Existing Admin guard rejects the request |
+| List receives no filters | Return the bounded page from the repository |
+| List receives `user_id`, `role`, or `library_id` filters | Apply the repository filter and return `PageInfo` for the page |
+| Upsert receives a user scope | Persist a user-scoped Playback Policy for the target library |
+| Upsert receives a role scope | Persist a role-scoped Playback Policy for the target library |
+| Upsert changes bitrate caps or playback/transcode/remote/cast booleans | Response and subsequent list preserve the same values |
+| Delete omits both `user_id` and `role` | Return invalid input: `either user_id or role is required` |
+| Delete includes both `user_id` and `role` | Return invalid input: `user_id and role filters are mutually exclusive` |
+| Delete targets an exact persisted policy | Remove that policy and return `deleted: true` |
+| Response contains principal id, password, token, raw source URI, or local path | Contract violation |
+
+### 5. Good / Base / Bad Cases
+
+- Good: add the DTOs in `nako_api::admin::access`, add
+  `accessPlaybackPolicies` to `ADMIN_ROUTE_SUFFIXES`, map through
+  `PlaybackPolicyRepository`, regenerate both generated Admin contracts, and add
+  a server round-trip test.
+- Base: this API has no schema migration because `PlaybackPolicyRepository`
+  already owns persisted playback policy records.
+- Bad: exposing Playback Policy mutation through Public Client routes.
+- Bad: returning internal repository rows directly or adding raw user principal
+  fields to the Admin policy record.
+- Bad: changing generated TypeScript files by hand instead of changing the
+  Rust generator.
+
+### 6. Tests Required
+
+- Admin contract:
+  `cargo nextest run -p nako-api admin_contract --no-fail-fast`.
+- Server route inventory:
+  `cargo nextest run -p nako-server implemented_admin_routes_are_generated_or_explicitly_excluded --no-fail-fast`.
+- Server policy round trip:
+  `cargo nextest run -p nako-server admin_playback_policy --no-fail-fast`.
+- TypeScript contract check after regeneration:
+  `npm run generate:admin-api --prefix apps/admin-web` and
+  `npm run check --prefix apps/admin-web`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+Ok(Json(policy_row))
+```
+
+This exposes the repository shape as the wire contract and can grow unsafe
+fields accidentally.
+
+#### Correct
+
+```rust
+Ok(Json(AdminPlaybackPolicyResponse {
+    admin_api_version: ADMIN_API_VERSION.to_owned(),
+    public_api_version: API_VERSION.to_owned(),
+    policy: AdminPlaybackPolicyRecord::from(policy),
+}))
+```
+
+The Admin API owns the stable, redaction-safe wire projection.
+
 ## Scenario: Redacted Incident Bundle Admin Contract
 
 ### 1. Scope / Trigger

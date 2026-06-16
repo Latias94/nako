@@ -74,14 +74,16 @@ use nako_api::{
         AdminPlaybackHardwareDiagnostics, AdminPlaybackHardwareEncoderDiscovery,
         AdminPlaybackHardwareEncoderDiscoveryStatus, AdminPlaybackHardwareSmokeProbe,
         AdminPlaybackHardwareSmokeProbeStatus, AdminPlaybackHardwareStageCapability,
-        AdminPlaybackPolicyDiagnostics, AdminPlaybackProfilePresetDiagnostic,
-        AdminPlaybackReadinessCheck, AdminPlaybackReadinessCheckName,
-        AdminPlaybackReadinessDiagnostics, AdminPlaybackReadinessReason,
-        AdminPlaybackReadinessStatus, AdminPlaybackRemoteBudgetDiagnostics,
-        AdminPlaybackRemuxRuntimeDiagnostics, AdminPlaybackResourceClass,
-        AdminPlaybackResourceClassPressure, AdminPlaybackResourceEnforcement,
-        AdminPlaybackResourcePressureDiagnostics, AdminPlaybackRuntimeDiagnosticsResponse,
-        AdminPlaybackRuntimeStatus, AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
+        AdminPlaybackPolicyDeleteResponse, AdminPlaybackPolicyDiagnostics,
+        AdminPlaybackPolicyListResponse, AdminPlaybackPolicyRecord, AdminPlaybackPolicyResponse,
+        AdminPlaybackProfilePresetDiagnostic, AdminPlaybackReadinessCheck,
+        AdminPlaybackReadinessCheckName, AdminPlaybackReadinessDiagnostics,
+        AdminPlaybackReadinessReason, AdminPlaybackReadinessStatus,
+        AdminPlaybackRemoteBudgetDiagnostics, AdminPlaybackRemuxRuntimeDiagnostics,
+        AdminPlaybackResourceClass, AdminPlaybackResourceClassPressure,
+        AdminPlaybackResourceEnforcement, AdminPlaybackResourcePressureDiagnostics,
+        AdminPlaybackRuntimeDiagnosticsResponse, AdminPlaybackRuntimeStatus,
+        AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
         AdminPlaybackStagingDiagnostics, AdminPlaybackSupportClientEvidence,
         AdminPlaybackSupportEvidenceResponse, AdminPlaybackSupportHardwareCapabilityEvidence,
         AdminPlaybackSupportHardwareEvidence, AdminPlaybackSupportRedactionEvidence,
@@ -108,8 +110,8 @@ use nako_api::{
         AdminTrustedProxyDiagnostics, AdminTunnelProviderDiagnostics, AdminTunnelProviderKind,
         AdminUpdateLibraryMetadataProfileRequest, AdminUpdateMetadataRawCacheSettingsRequest,
         AdminUpdatePlaybackRuntimeSettingsRequest, AdminUpdateUserStatusRequest,
-        AdminUpsertLibraryAccessPolicyRequest, AdminVfsCacheRefreshResponse,
-        AdminVfsCacheRepairAction, AdminVfsCacheRepairActionBoundary,
+        AdminUpsertLibraryAccessPolicyRequest, AdminUpsertPlaybackPolicyRequest,
+        AdminVfsCacheRefreshResponse, AdminVfsCacheRepairAction, AdminVfsCacheRepairActionBoundary,
         AdminVfsCacheRepairActionPlan, AdminVfsCacheRepairActionPlanReason,
         AdminVfsCacheRepairActionPlanResponse, AdminVfsCacheRepairActionPlanStatus,
         AdminVfsCacheRepairActionReadiness, AdminVfsCacheRepairAutomationBlockReason,
@@ -145,9 +147,10 @@ use nako_core::{
     LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId, ManagedArtworkArtifactId,
     ManagedArtworkIngestId, MediaItemId, MediaSourceId, MetadataCandidateReviewBatchId,
     MetadataCandidateReviewId, MetadataCandidateReviewQueueFilter, MetadataCandidateReviewStatus,
-    NakoError, PageRequest, PlaybackTargetKind, PlaybackTargetTransportAuth, ProviderMappingId,
-    RendererSessionRecord, RendererSessionState, RoleAssignment, TranscodeSessionId, User, UserId,
-    UserInvitationId, UserPrincipalId, UserRole, UserStatus,
+    NakoError, PageRequest, PlaybackPolicy, PlaybackPolicyFilter, PlaybackPolicyScope,
+    PlaybackTargetKind, PlaybackTargetTransportAuth, ProviderMappingId, RendererSessionRecord,
+    RendererSessionState, RoleAssignment, TranscodeSessionId, User, UserId, UserInvitationId,
+    UserPrincipalId, UserRole, UserStatus,
 };
 use nako_db::DatabaseBackendCapabilities;
 use nako_library::{
@@ -397,6 +400,12 @@ pub(super) fn routes() -> Router<NakoApp> {
             get(list_admin_library_access_policies)
                 .put(upsert_admin_library_access_policy)
                 .delete(delete_admin_library_access_policy),
+        )
+        .route(
+            "/admin/v1/access/playback-policies",
+            get(list_admin_playback_policies)
+                .put(upsert_admin_playback_policy)
+                .delete(delete_admin_playback_policy),
         )
         .route(
             "/admin/v1/libraries/{library_id}/metadata-profile",
@@ -1120,6 +1129,62 @@ impl AdminLibraryAccessPolicyDeleteQuery {
         let scope = match (self.user_id, self.role) {
             (Some(user_id), None) => LibraryAccessPolicyScope::User(user_id),
             (None, Some(role)) => LibraryAccessPolicyScope::Role(role),
+            (None, None) => {
+                return Err(NakoError::InvalidInput {
+                    message: "either user_id or role is required".to_owned(),
+                });
+            }
+            (Some(_), Some(_)) => {
+                return Err(NakoError::InvalidInput {
+                    message: "user_id and role filters are mutually exclusive".to_owned(),
+                });
+            }
+        };
+
+        Ok((scope, self.library_id))
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
+pub(super) struct AdminPlaybackPolicyListQuery {
+    pub(super) user_id: Option<UserId>,
+    pub(super) role: Option<UserRole>,
+    pub(super) library_id: Option<LibraryId>,
+    #[serde(flatten)]
+    pub(super) page: PageQuery,
+}
+
+impl AdminPlaybackPolicyListQuery {
+    fn into_filter_and_page(self) -> Result<(PlaybackPolicyFilter, PageRequest), NakoError> {
+        if self.user_id.is_some() && self.role.is_some() {
+            return Err(NakoError::InvalidInput {
+                message: "user_id and role filters are mutually exclusive".to_owned(),
+            });
+        }
+
+        Ok((
+            PlaybackPolicyFilter {
+                user_id: self.user_id,
+                role: self.role,
+                library_id: self.library_id,
+            },
+            self.page.try_into()?,
+        ))
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+pub(super) struct AdminPlaybackPolicyDeleteQuery {
+    pub(super) user_id: Option<UserId>,
+    pub(super) role: Option<UserRole>,
+    pub(super) library_id: LibraryId,
+}
+
+impl AdminPlaybackPolicyDeleteQuery {
+    fn into_scope_and_library(self) -> Result<(PlaybackPolicyScope, LibraryId), NakoError> {
+        let scope = match (self.user_id, self.role) {
+            (Some(user_id), None) => PlaybackPolicyScope::User(user_id),
+            (None, Some(role)) => PlaybackPolicyScope::Role(role),
             (None, None) => {
                 return Err(NakoError::InvalidInput {
                     message: "either user_id or role is required".to_owned(),
@@ -2081,6 +2146,61 @@ pub(super) async fn delete_admin_library_access_policy(
     app.delete_library_access_policy(scope, library_id).await?;
 
     Ok(Json(AdminLibraryAccessPolicyDeleteResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        deleted: true,
+    }))
+}
+
+pub(super) async fn list_admin_playback_policies(
+    State(app): State<NakoApp>,
+    Query(query): Query<AdminPlaybackPolicyListQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let (filter, page) = query.into_filter_and_page()?;
+    let policies = app.list_playback_policies(filter, page).await?;
+    let returned = policies.len();
+    let policies = policies
+        .into_iter()
+        .map(AdminPlaybackPolicyRecord::from)
+        .collect();
+
+    Ok(Json(AdminPlaybackPolicyListResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        policies,
+        page: page_info_from_request(page, returned),
+    }))
+}
+
+pub(super) async fn upsert_admin_playback_policy(
+    State(app): State<NakoApp>,
+    Json(request): Json<AdminUpsertPlaybackPolicyRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let now_ms = crate::app::current_time_ms()?;
+    let policy = PlaybackPolicy {
+        scope: request.scope.into(),
+        library_id: request.library_id,
+        permissions: request.permissions.into(),
+        created_at_ms: now_ms,
+        updated_at_ms: now_ms,
+    };
+    app.upsert_playback_policy(&policy).await?;
+
+    Ok(Json(AdminPlaybackPolicyResponse {
+        admin_api_version: ADMIN_API_VERSION.to_owned(),
+        public_api_version: API_VERSION.to_owned(),
+        policy: AdminPlaybackPolicyRecord::from(policy),
+    }))
+}
+
+pub(super) async fn delete_admin_playback_policy(
+    State(app): State<NakoApp>,
+    Query(query): Query<AdminPlaybackPolicyDeleteQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let (scope, library_id) = query.into_scope_and_library()?;
+    app.delete_playback_policy(scope, library_id).await?;
+
+    Ok(Json(AdminPlaybackPolicyDeleteResponse {
         admin_api_version: ADMIN_API_VERSION.to_owned(),
         public_api_version: API_VERSION.to_owned(),
         deleted: true,

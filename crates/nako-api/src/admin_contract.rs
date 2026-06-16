@@ -12,7 +12,7 @@ pub struct AdminContractRouteExclusion {
     pub reason: &'static str,
 }
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 117] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 118] = [
     ("overview", "overview"),
     ("operatorReadiness", "operator-readiness"),
     ("incidentBundle", "diagnostics/incident-bundle"),
@@ -30,6 +30,7 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 117] = [
     ("accessUserRoles", "access/users/{user_id}/roles"),
     ("accessUserStatus", "access/users/{user_id}/status"),
     ("accessLibraryPolicies", "access/library-policies"),
+    ("accessPlaybackPolicies", "access/playback-policies"),
     ("addons", "addons"),
     ("addonInstallGuidePreview", "addons/install-guide-preview"),
     ("addonCatalogSources", "addons/catalog/sources"),
@@ -3946,6 +3947,29 @@ export type AdminPlaybackPolicyPermission =
   | "remote_control"
   | "cast";
 
+export type AdminPlaybackPolicyScope =
+  | {
+      scope: "user";
+      user_id: string;
+    }
+  | {
+      scope: "role";
+      role: AdminUserRole;
+    };
+
+export interface AdminPlaybackPermissionPolicy {
+  allow_media_playback: boolean;
+  allow_direct_play: boolean;
+  allow_remux: boolean;
+  allow_audio_transcode: boolean;
+  allow_video_transcode: boolean;
+  allow_remote_playback: boolean;
+  allow_remote_control: boolean;
+  allow_cast: boolean;
+  max_streaming_bitrate: number | null;
+  max_remote_bitrate: number | null;
+}
+
 export interface AdminPlaybackPolicyDiagnostics {
   user_policy_rows_supported: boolean;
   role_policy_rows_supported: boolean;
@@ -4778,6 +4802,39 @@ export interface AdminUpsertLibraryAccessPolicyRequest {
   access: AdminLibraryAccessPolicyLevel;
 }
 
+export interface AdminPlaybackPolicyRecord {
+  scope: AdminPlaybackPolicyScope;
+  library_id: string;
+  permissions: AdminPlaybackPermissionPolicy;
+  created_at_ms: number;
+  updated_at_ms: number;
+}
+
+export interface AdminPlaybackPolicyListResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  policies: AdminPlaybackPolicyRecord[];
+  page: PageInfo;
+}
+
+export interface AdminPlaybackPolicyResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  policy: AdminPlaybackPolicyRecord;
+}
+
+export interface AdminPlaybackPolicyDeleteResponse {
+  admin_api_version: string;
+  public_api_version: string;
+  deleted: boolean;
+}
+
+export interface AdminUpsertPlaybackPolicyRequest {
+  scope: AdminPlaybackPolicyScope;
+  library_id: string;
+  permissions: AdminPlaybackPermissionPolicy;
+}
+
 export interface AdminServerConfigDiagnosticsResponse {
   admin_api_version: string;
   public_api_version: string;
@@ -5229,8 +5286,14 @@ mod tests {
             "runtime_metrics",
             "total_size_bytes",
             "output_time_ms",
+            "AdminPlaybackPolicyDeleteResponse",
             "AdminPlaybackPolicyDiagnostics",
+            "AdminPlaybackPolicyListResponse",
             "AdminPlaybackPolicyPermission",
+            "AdminPlaybackPolicyRecord",
+            "AdminPlaybackPolicyResponse",
+            "AdminPlaybackPolicyScope",
+            "AdminPlaybackPermissionPolicy",
             "AdminRendererRuntimeDiagnosticsResponse",
             "AdminRendererAdapterKind",
             "AdminRendererMediaTransport",
@@ -5240,6 +5303,7 @@ mod tests {
             "AdminAccessSummaryResponse",
             "AdminSetLocalPasswordRequest",
             "AdminLocalPasswordResponse",
+            "AdminUpsertPlaybackPolicyRequest",
             "AdminAccessMode",
             "AdminAccessCapabilityState",
             "AdminLibraryAccessLevel",

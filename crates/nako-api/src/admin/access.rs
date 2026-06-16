@@ -1,7 +1,8 @@
 use nako_client_protocol::PageInfo;
 use nako_core::{
-    LibraryAccessLevel, LibraryAccessPolicy, LibraryAccessPolicyScope, LibraryId, User, UserId,
-    UserInvitationId, UserInvitationRecord, UserInvitationStatus, UserRole, UserStatus,
+    LibraryAccessLevel, LibraryAccessPolicy, LibraryAccessPolicyScope, LibraryId,
+    PlaybackPermissionPolicy, PlaybackPolicy, PlaybackPolicyScope, User, UserId, UserInvitationId,
+    UserInvitationRecord, UserInvitationStatus, UserRole, UserStatus,
 };
 use serde::{Deserialize, Serialize};
 
@@ -225,4 +226,133 @@ pub struct AdminUpsertLibraryAccessPolicyRequest {
     pub scope: AdminLibraryAccessPolicyScope,
     pub library_id: LibraryId,
     pub access: LibraryAccessLevel,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackPolicyListResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub policies: Vec<AdminPlaybackPolicyRecord>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackPolicyResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub policy: AdminPlaybackPolicyRecord,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackPolicyDeleteResponse {
+    pub admin_api_version: String,
+    pub public_api_version: String,
+    pub deleted: bool,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case", tag = "scope")]
+pub enum AdminPlaybackPolicyScope {
+    User { user_id: UserId },
+    Role { role: UserRole },
+}
+
+impl From<PlaybackPolicyScope> for AdminPlaybackPolicyScope {
+    fn from(value: PlaybackPolicyScope) -> Self {
+        match value {
+            PlaybackPolicyScope::User(user_id) => Self::User { user_id },
+            PlaybackPolicyScope::Role(role) => Self::Role { role },
+        }
+    }
+}
+
+impl From<AdminPlaybackPolicyScope> for PlaybackPolicyScope {
+    fn from(value: AdminPlaybackPolicyScope) -> Self {
+        match value {
+            AdminPlaybackPolicyScope::User { user_id } => Self::User(user_id),
+            AdminPlaybackPolicyScope::Role { role } => Self::Role(role),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackPermissionPolicy {
+    pub allow_media_playback: bool,
+    pub allow_direct_play: bool,
+    pub allow_remux: bool,
+    pub allow_audio_transcode: bool,
+    pub allow_video_transcode: bool,
+    pub allow_remote_playback: bool,
+    pub allow_remote_control: bool,
+    pub allow_cast: bool,
+    pub max_streaming_bitrate: Option<u64>,
+    pub max_remote_bitrate: Option<u64>,
+}
+
+impl From<PlaybackPermissionPolicy> for AdminPlaybackPermissionPolicy {
+    fn from(value: PlaybackPermissionPolicy) -> Self {
+        Self {
+            allow_media_playback: value.allow_media_playback,
+            allow_direct_play: value.allow_direct_play,
+            allow_remux: value.allow_remux,
+            allow_audio_transcode: value.allow_audio_transcode,
+            allow_video_transcode: value.allow_video_transcode,
+            allow_remote_playback: value.allow_remote_playback,
+            allow_remote_control: value.allow_remote_control,
+            allow_cast: value.allow_cast,
+            max_streaming_bitrate: value.max_streaming_bitrate,
+            max_remote_bitrate: value.max_remote_bitrate,
+        }
+    }
+}
+
+impl From<AdminPlaybackPermissionPolicy> for PlaybackPermissionPolicy {
+    fn from(value: AdminPlaybackPermissionPolicy) -> Self {
+        Self {
+            allow_media_playback: value.allow_media_playback,
+            allow_direct_play: value.allow_direct_play,
+            allow_remux: value.allow_remux,
+            allow_audio_transcode: value.allow_audio_transcode,
+            allow_video_transcode: value.allow_video_transcode,
+            allow_remote_playback: value.allow_remote_playback,
+            allow_remote_control: value.allow_remote_control,
+            allow_cast: value.allow_cast,
+            max_streaming_bitrate: value.max_streaming_bitrate,
+            max_remote_bitrate: value.max_remote_bitrate,
+        }
+    }
+}
+
+impl Default for AdminPlaybackPermissionPolicy {
+    fn default() -> Self {
+        PlaybackPermissionPolicy::current_playback_defaults().into()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackPolicyRecord {
+    pub scope: AdminPlaybackPolicyScope,
+    pub library_id: LibraryId,
+    pub permissions: AdminPlaybackPermissionPolicy,
+    pub created_at_ms: i64,
+    pub updated_at_ms: i64,
+}
+
+impl From<PlaybackPolicy> for AdminPlaybackPolicyRecord {
+    fn from(value: PlaybackPolicy) -> Self {
+        Self {
+            scope: value.scope.into(),
+            library_id: value.library_id,
+            permissions: value.permissions.into(),
+            created_at_ms: value.created_at_ms,
+            updated_at_ms: value.updated_at_ms,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminUpsertPlaybackPolicyRequest {
+    pub scope: AdminPlaybackPolicyScope,
+    pub library_id: LibraryId,
+    pub permissions: AdminPlaybackPermissionPolicy,
 }
