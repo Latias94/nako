@@ -1,0 +1,16 @@
+{"file": "docs/plans/2026-06-16-001-feat-backend-self-hosted-maturity-execution-plan.md", "reason": "Primary backend maturity execution plan produced by this task."}
+{"file": "docs/plans/2026-06-10-001-feat-media-server-maturity-roadmap-plan.md", "reason": "Broad maturity roadmap that this backend execution plan narrows and sequences."}
+{"file": "docs/plans/MEDIA_SERVER_PARITY_GAP_MATRIX.md", "reason": "Competitive capability classification and scope boundaries for build/integrate/defer decisions."}
+{"file": "docs/ROADMAP.md", "reason": "Current M1-M5 milestone ladder and self-hosted product targets."}
+{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Control-plane baseline for durable jobs, runtime supervision, diagnostics, remote access, and API scale."}
+{"file": "docs/architecture/PLAYBACK.md", "reason": "Playback and transcode maturity boundaries for capability and reason contract planning."}
+{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "Library scan, watcher, stable intake, metadata, and source hash workflow boundaries."}
+{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Storage, source identity, VFS cache repair, and non-destructive mutation policy boundaries."}
+{"file": "docs/architecture/STATE_ACCESS.md", "reason": "Identity, Library Access, playback policy, API scale, and cache contract boundaries."}
+{"file": "docs/architecture/OPERATIONS_RELEASE.md", "reason": "Self-hosted operations, release gates, remote access, backup, and diagnostics posture."}
+{"file": "docs/development/REFACTORING_POLICY.md", "reason": "Fearless refactor and obsolete path removal policy for backend cleanup."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server control-plane, HTTP, app-service, and runtime guidance for future implementation tasks."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Admin/Public API contract and redaction rules for planned backend DTO work."}
+{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "Persistence and contract-test guidance for large-library and access-filtered query work."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse-first guidance before introducing shared helpers or deleting compatibility paths."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Cross-layer consistency guidance for backend slices spanning API, service, storage, and clients."}
