@@ -535,6 +535,7 @@ pub enum AdminWatchFolderRuntimeCoverageStatus {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminWatchFolderRuntimeTickDiagnostic {
     pub monitored: bool,
+    pub status: AdminWatchFolderRuntimeOutcomeStatus,
     pub ready_candidates: u64,
     pub inspecting_candidates: u64,
     pub blocked_candidates: u64,
@@ -692,6 +693,7 @@ mod tests {
                         safe_reason: "local watch-folder runtime started".to_owned(),
                         last_tick: Some(AdminWatchFolderRuntimeTickDiagnostic {
                             monitored: true,
+                            status: AdminWatchFolderRuntimeOutcomeStatus::Degraded,
                             ready_candidates: 2,
                             inspecting_candidates: 1,
                             blocked_candidates: 0,
@@ -769,18 +771,20 @@ mod tests {
             "local://<redacted>"
         );
         assert_eq!(
-            value["startup"]["watch_folder_runtime"]["diagnostics"][0]["last_tick"]
-                ["enqueue_reason"],
+            value["startup"]["watch_folder_runtime"]["diagnostics"][0]["last_tick"]["enqueue_reason"],
             "new_stable_candidates"
         );
         assert_eq!(
-            value["startup"]["watch_folder_runtime"]["diagnostics"][0]["last_tick"]
-                ["scan_admission_status"],
+            value["startup"]["watch_folder_runtime"]["diagnostics"][0]["last_tick"]["status"],
+            "degraded"
+        );
+        assert_eq!(
+            value["startup"]["watch_folder_runtime"]["diagnostics"][0]["last_tick"]["scan_admission_status"],
             "reused_running"
         );
         assert_eq!(
-            value["startup"]["watch_folder_runtime"]["diagnostics"][0]["last_tick"]
-                ["discovery_failures"][0]["ref_redacted"],
+            value["startup"]["watch_folder_runtime"]["diagnostics"][0]["last_tick"]["discovery_failures"]
+                [0]["ref_redacted"],
             "local://<redacted>"
         );
         assert_eq!(value["source_fingerprint_hash"]["fingerprinted_sources"], 2);

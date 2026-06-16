@@ -2056,8 +2056,17 @@ export type AdminWatchFolderScanAdmissionStatus =
   | "reused_queued"
   | "reused_running";
 
+export type AdminWatchFolderRuntimeOutcomeStatus =
+  | "healthy"
+  | "idle"
+  | "suppressed"
+  | "reconciliation_pending"
+  | "blocked"
+  | "degraded";
+
 export interface AdminWatchFolderRuntimeTickDiagnostic {
   monitored: boolean;
+  status: AdminWatchFolderRuntimeOutcomeStatus;
   ready_candidates: number;
   inspecting_candidates: number;
   blocked_candidates: number;
@@ -3199,6 +3208,7 @@ export interface AdminWatchFolderDiscoveryResponse {
   target_library_id: string;
   root_scheme: string | null;
   root_ref_redacted: string;
+  status: AdminWatchFolderRuntimeOutcomeStatus;
   ready_candidates: number;
   inspecting_candidates: number;
   blocked_candidates: number;

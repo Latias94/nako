@@ -3140,6 +3140,7 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
         first.intake_plan.enqueue.reason,
         WatchFolderIntakeEnqueueReason::WaitingForStability
     );
+    assert_eq!(first.status, WatchFolderRuntimeOutcomeStatus::Idle);
     assert!(!first.intake_plan.summary.enqueue_scan);
 
     let second = app
@@ -3157,6 +3158,7 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
         panic!("expected watch-folder runtime to enqueue a library scan job");
     };
     assert!(!second.reused_existing_scan);
+    assert_eq!(second.status, WatchFolderRuntimeOutcomeStatus::Healthy);
     assert_eq!(second.intake_plan.discover.ready_candidates, 1);
     assert_eq!(second.intake_plan.summary.newly_ready_candidates, 1);
     assert_eq!(second.intake_plan.summary.observed_candidates, 1);
@@ -3168,6 +3170,7 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
         .expect("expected shared latest tick diagnostic");
     assert_eq!(latest.scan_admission_status, second.scan_admission_status);
     assert_eq!(latest.scan_job_id, second.scan_job_id);
+    assert_eq!(latest.status, second.status);
     assert_eq!(
         latest.intake_plan.summary.newly_ready_candidates,
         second.intake_plan.summary.newly_ready_candidates
@@ -3199,6 +3202,7 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
         third.intake_plan.enqueue.reason,
         WatchFolderIntakeEnqueueReason::NoNewStableCandidates
     );
+    assert_eq!(third.status, WatchFolderRuntimeOutcomeStatus::Idle);
     assert!(!third.intake_plan.summary.enqueue_scan);
 
     let scan_jobs = store
@@ -3260,6 +3264,7 @@ async fn watch_folder_runtime_tick_reports_discovery_failures_and_uses_backoff_w
         diagnostic.intake_plan.enqueue.reason,
         WatchFolderIntakeEnqueueReason::DiscoveryFailures
     );
+    assert_eq!(diagnostic.status, WatchFolderRuntimeOutcomeStatus::Degraded);
     assert!(!diagnostic.intake_plan.summary.enqueue_scan);
     assert_eq!(
         diagnostic.scan_admission_status,
@@ -3617,6 +3622,10 @@ async fn watch_folder_runtime_tick_suppresses_planned_host_write_without_enqueui
         first.intake_plan.enqueue.reason,
         WatchFolderIntakeEnqueueReason::SuppressedCandidates
     );
+    assert_eq!(
+        first.status,
+        WatchFolderRuntimeOutcomeStatus::ReconciliationPending
+    );
     assert!(!first.intake_plan.summary.enqueue_scan);
     assert!(second.monitored);
     assert_eq!(second.intake_plan.summary.suppressed_candidates, 1);
@@ -3628,6 +3637,10 @@ async fn watch_folder_runtime_tick_suppresses_planned_host_write_without_enqueui
     assert_eq!(second.scan_job_id, None);
     assert!(!second.reused_existing_scan);
     assert_eq!(second.intake_plan.suppression.suppressed_candidates, 1);
+    assert_eq!(
+        second.status,
+        WatchFolderRuntimeOutcomeStatus::ReconciliationPending
+    );
     assert!(!second.intake_plan.summary.enqueue_scan);
     assert!(jobs.iter().all(|job| job.kind != JobKind::LibraryScan));
 
@@ -3739,6 +3752,7 @@ async fn watch_folder_runtime_tick_reconciles_completed_suppression_before_scan_
         inspecting.intake_plan.enqueue.reason,
         WatchFolderIntakeEnqueueReason::WaitingForStability
     );
+    assert_eq!(inspecting.status, WatchFolderRuntimeOutcomeStatus::Idle);
     assert!(!inspecting.intake_plan.summary.enqueue_scan);
 
     let admitted = app
@@ -3763,6 +3777,7 @@ async fn watch_folder_runtime_tick_reconciles_completed_suppression_before_scan_
         admitted.intake_plan.enqueue.reason,
         WatchFolderIntakeEnqueueReason::NewStableCandidates
     );
+    assert_eq!(admitted.status, WatchFolderRuntimeOutcomeStatus::Healthy);
     assert!(admitted.intake_plan.summary.enqueue_scan);
 
     for plan in [

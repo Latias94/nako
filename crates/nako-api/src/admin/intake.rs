@@ -44,6 +44,17 @@ pub struct AdminWatchFolderDiscoveryRequest {
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
+pub enum AdminWatchFolderRuntimeOutcomeStatus {
+    Healthy,
+    Idle,
+    Suppressed,
+    ReconciliationPending,
+    Blocked,
+    Degraded,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum AdminWatchFolderIntakeEnqueueReason {
     NewStableCandidates,
     WaitingForStability,
@@ -60,6 +71,7 @@ pub struct AdminWatchFolderDiscoveryResponse {
     pub target_library_id: LibraryId,
     pub root_scheme: Option<String>,
     pub root_ref_redacted: String,
+    pub status: AdminWatchFolderRuntimeOutcomeStatus,
     pub ready_candidates: u64,
     pub inspecting_candidates: u64,
     pub blocked_candidates: u64,
@@ -162,6 +174,7 @@ mod tests {
             target_library_id: LibraryId::new(),
             root_scheme: Some("local".to_owned()),
             root_ref_redacted: "local://<redacted>".to_owned(),
+            status: AdminWatchFolderRuntimeOutcomeStatus::Degraded,
             ready_candidates: 2,
             inspecting_candidates: 0,
             blocked_candidates: 1,
@@ -194,6 +207,7 @@ mod tests {
         let body = value.to_string();
 
         assert_eq!(value["root_ref_redacted"], "local://<redacted>");
+        assert_eq!(value["status"], "degraded");
         assert_eq!(value["ready_candidates"], 2);
         assert_eq!(value["inspecting_candidates"], 0);
         assert_eq!(value["newly_ready_candidates"], 2);

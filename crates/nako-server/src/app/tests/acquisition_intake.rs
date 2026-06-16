@@ -740,6 +740,7 @@ async fn acquisition_intake_watch_folder_discovery_records_classified_candidates
     assert_eq!(first.unsupported_candidates, 1);
     assert_eq!(first.recorded_candidates, 4);
     assert_eq!(first.newly_ready_candidates, 0);
+    assert_eq!(first.status, WatchFolderRuntimeOutcomeStatus::Blocked);
     assert_eq!(first.failures.len(), 0);
     assert!(!first.writes_library);
     assert!(!first.managed_import_artifacts_created);
@@ -748,6 +749,7 @@ async fn acquisition_intake_watch_folder_discovery_records_classified_candidates
     assert_eq!(replayed.ready_candidates, 2);
     assert_eq!(replayed.inspecting_candidates, 0);
     assert_eq!(replayed.newly_ready_candidates, 2);
+    assert_eq!(replayed.status, WatchFolderRuntimeOutcomeStatus::Blocked);
 
     assert_eq!(
         service
@@ -1102,6 +1104,7 @@ async fn acquisition_intake_watch_folder_discovery_suppresses_planned_host_write
     assert_eq!(first.recorded_candidates, 1);
     assert_eq!(first.inspecting_candidates, 1);
     assert_eq!(first.newly_ready_candidates, 0);
+    assert_eq!(first.status, WatchFolderRuntimeOutcomeStatus::Suppressed);
     assert_eq!(first.active_suppressions.len(), 1);
     assert_eq!(first.active_suppressions[0].scope_scheme, "local");
     assert_eq!(
@@ -1114,6 +1117,7 @@ async fn acquisition_intake_watch_folder_discovery_suppresses_planned_host_write
     assert_eq!(replayed.recorded_candidates, 1);
     assert_eq!(replayed.ready_candidates, 1);
     assert_eq!(replayed.newly_ready_candidates, 1);
+    assert_eq!(replayed.status, WatchFolderRuntimeOutcomeStatus::Suppressed);
 
     let listed = service
         .list_candidates(

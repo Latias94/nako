@@ -365,6 +365,7 @@ export const mockOverview: AdminOverviewResponse = {
           safe_reason: "watch folder runtime started",
           last_tick: {
             monitored: true,
+            status: "suppressed",
             ready_candidates: 5,
             inspecting_candidates: 1,
             blocked_candidates: 0,
@@ -1403,6 +1404,7 @@ export const mockWatchFolderDiscovery: AdminWatchFolderDiscoveryResponse = {
   target_library_id: "library-anime",
   root_scheme: "local",
   root_ref_redacted: "local://<redacted>",
+  status: "blocked",
   ready_candidates: 1,
   inspecting_candidates: 0,
   blocked_candidates: 1,

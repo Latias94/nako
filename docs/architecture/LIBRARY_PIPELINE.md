@@ -455,6 +455,9 @@ Shipped MVP foundation:
   operators can see which configured libraries started a supervised watcher and
   which were skipped because monitoring was disabled, unsupported, or missing a
   parseable root.
+- Watch-folder discovery and the latest runtime tick now expose a typed
+  outcome status for healthy, idle, suppressed, reconciliation-pending,
+  blocked, and degraded results; absent ticks still read as `never_ticked`.
 - This slice does not add an OS watcher daemon, storage-pressure admission, or
   scan scheduler behavior; those remain follow-on productization work.
 

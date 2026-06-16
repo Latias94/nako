@@ -22,6 +22,7 @@ use std::sync::Arc;
 use super::{
     managed_import::{CreateManagedImportArtifactRequest, ManagedImportAppService},
     storage::StorageBackendRegistry,
+    watch_folder_runtime::{WatchFolderRuntimeOutcomeStatus, watch_folder_runtime_outcome_status},
     watch_folder_suppression::{
         PlannedWatchFolderWriteSuppressionDiagnostic, WatchFolderSuppressionAppService,
     },
@@ -482,10 +483,23 @@ impl AcquisitionIntakeAppService {
             }
         }
 
+        let active_suppressions = self
+            .watch_folder_suppression
+            .list_active_for_library(library.id)
+            .await?;
+        let status = watch_folder_runtime_outcome_status(
+            !failures.is_empty(),
+            blocked_candidates,
+            suppressed_candidates,
+            &active_suppressions,
+            newly_ready_candidates > 0,
+        );
+
         Ok(WatchFolderDiscoveryDiagnostic {
             target_library_id: library.id,
             root_scheme: Some(root_uri.scheme().to_owned()),
             root_uri_redacted: redact_uri(root_uri.as_str()),
+            status,
             ready_candidates,
             inspecting_candidates,
             blocked_candidates,
@@ -494,10 +508,7 @@ impl AcquisitionIntakeAppService {
             suppressed_candidates,
             recorded_candidates,
             newly_ready_candidates,
-            active_suppressions: self
-                .watch_folder_suppression
-                .list_active_for_library(library.id)
-                .await?,
+            active_suppressions,
             failures,
             writes_library: false,
             managed_import_artifacts_created: false,
@@ -774,6 +785,7 @@ pub(crate) struct WatchFolderDiscoveryDiagnostic {
     pub(crate) target_library_id: LibraryId,
     pub(crate) root_scheme: Option<String>,
     pub(crate) root_uri_redacted: String,
+    pub(crate) status: WatchFolderRuntimeOutcomeStatus,
     pub(crate) ready_candidates: u64,
     pub(crate) inspecting_candidates: u64,
     pub(crate) blocked_candidates: u64,

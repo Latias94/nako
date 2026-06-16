@@ -4,6 +4,7 @@ use nako_core::{JobId, Library, LibraryId, LibraryRepository, NakoError, PageReq
 use nako_db::NakoDatabase;
 use nako_library::{WatchFolderIntakePlan, WatchFolderIntakePlanInput, plan_watch_folder_intake};
 use nako_vfs::StorageUri;
+use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tracing::{info, warn};
 
@@ -14,6 +15,9 @@ use super::{
     },
     jobs::LibraryScanAppService,
     runtime::RuntimeSupervisor,
+    watch_folder_suppression::{
+        PlannedWatchFolderWriteCompletion, PlannedWatchFolderWriteSuppressionDiagnostic,
+    },
 };
 
 const WATCH_FOLDER_RUNTIME_INTERVAL_MS: u64 = 5_000;
@@ -31,6 +35,7 @@ pub(crate) struct WatchFolderRuntimeAppService {
 pub(crate) struct WatchFolderRuntimeTickDiagnostic {
     pub(crate) library_id: LibraryId,
     pub(crate) monitored: bool,
+    pub(crate) status: WatchFolderRuntimeOutcomeStatus,
     pub(crate) intake_plan: WatchFolderIntakePlan,
     pub(crate) discovery_failures: Vec<WatchFolderRuntimeFailureDiagnostic>,
     pub(crate) scan_admission_status: WatchFolderScanAdmissionStatus,
@@ -43,6 +48,17 @@ pub(crate) struct WatchFolderRuntimeTickDiagnostic {
 pub(crate) struct WatchFolderRuntimeFailureDiagnostic {
     pub(crate) uri_redacted: String,
     pub(crate) safe_message: String,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum WatchFolderRuntimeOutcomeStatus {
+    Healthy,
+    Idle,
+    Suppressed,
+    ReconciliationPending,
+    Blocked,
+    Degraded,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -227,6 +243,13 @@ impl WatchFolderRuntimeAppService {
             .map(WatchFolderRuntimeFailureDiagnostic::from)
             .collect::<Vec<_>>();
         let backoff_required = !discovery_failures.is_empty();
+        let status = watch_folder_runtime_outcome_status(
+            backoff_required,
+            intake_plan.summary.blocked_candidates,
+            intake_plan.summary.suppressed_candidates,
+            &discovery.active_suppressions,
+            intake_plan.summary.enqueue_scan,
+        );
         let (scan_admission_status, scan_job_id, reused_existing_scan) =
             if intake_plan.summary.enqueue_scan {
                 let outcome = self
@@ -245,6 +268,7 @@ impl WatchFolderRuntimeAppService {
         let diagnostic = WatchFolderRuntimeTickDiagnostic {
             library_id,
             monitored: true,
+            status,
             intake_plan,
             discovery_failures,
             scan_admission_status,
@@ -288,6 +312,7 @@ impl WatchFolderRuntimeTickDiagnostic {
         Self {
             library_id,
             monitored: false,
+            status: WatchFolderRuntimeOutcomeStatus::Idle,
             intake_plan: WatchFolderIntakePlan::idle(),
             discovery_failures: Vec::new(),
             scan_admission_status: WatchFolderScanAdmissionStatus::NotAdmitted,
@@ -326,6 +351,30 @@ impl From<WatchFolderDiscoveryFailureDiagnostic> for WatchFolderRuntimeFailureDi
             uri_redacted: value.uri_redacted,
             safe_message: value.safe_message,
         }
+    }
+}
+
+pub(crate) fn watch_folder_runtime_outcome_status(
+    degraded: bool,
+    blocked_candidates: u64,
+    suppressed_candidates: u64,
+    active_suppressions: &[PlannedWatchFolderWriteSuppressionDiagnostic],
+    enqueue_scan: bool,
+) -> WatchFolderRuntimeOutcomeStatus {
+    if degraded {
+        WatchFolderRuntimeOutcomeStatus::Degraded
+    } else if blocked_candidates > 0 {
+        WatchFolderRuntimeOutcomeStatus::Blocked
+    } else if active_suppressions.iter().any(|suppression| {
+        suppression.completion == PlannedWatchFolderWriteCompletion::ReconcileScope
+    }) {
+        WatchFolderRuntimeOutcomeStatus::ReconciliationPending
+    } else if suppressed_candidates > 0 {
+        WatchFolderRuntimeOutcomeStatus::Suppressed
+    } else if enqueue_scan {
+        WatchFolderRuntimeOutcomeStatus::Healthy
+    } else {
+        WatchFolderRuntimeOutcomeStatus::Idle
     }
 }
 

@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use axum::{
+    Extension, Json, Router,
     extract::Request,
     extract::{Path, Query, State},
     http::StatusCode,
@@ -8,14 +9,13 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
     routing::{delete, get, patch, post, put},
-    Extension, Json, Router,
 };
 use nako_api::{
     admin::{
-        AdminAccessAuthSummary, AdminAccessCapabilityState, AdminAccessCapabilitySummary,
-        AdminAccessMode, AdminAccessPrincipalKind, AdminAccessPrincipalSummary,
-        AdminAccessSummaryResponse, AdminAccessUserListResponse, AdminAccessUserRecord,
-        AdminAccessUserResponse, AdminAcquisitionIntakeCandidateDiagnostic,
+        ADMIN_API_VERSION, AdminAccessAuthSummary, AdminAccessCapabilityState,
+        AdminAccessCapabilitySummary, AdminAccessMode, AdminAccessPrincipalKind,
+        AdminAccessPrincipalSummary, AdminAccessSummaryResponse, AdminAccessUserListResponse,
+        AdminAccessUserRecord, AdminAccessUserResponse, AdminAcquisitionIntakeCandidateDiagnostic,
         AdminAcquisitionIntakeCandidateListResponse, AdminArtworkConfigDiagnostics,
         AdminAuthConfigDiagnostics, AdminCatalogGovernanceItem,
         AdminCatalogGovernanceItemListResponse, AdminCatalogGovernanceProviderMappingReviewRequest,
@@ -122,13 +122,13 @@ use nako_api::{
         AdminVfsCacheSummary, AdminWatchFolderDiscoveryFailure, AdminWatchFolderDiscoveryRequest,
         AdminWatchFolderDiscoveryResponse, AdminWatchFolderIntakeEnqueueReason,
         AdminWatchFolderRuntimeCoverageDiagnostic, AdminWatchFolderRuntimeCoverageStatus,
-        AdminWatchFolderRuntimeFailureDiagnostic, AdminWatchFolderRuntimeTickDiagnostic,
-        AdminWatchFolderScanAdmissionStatus, AdminWatchFolderSuppression, JobResponse,
-        StorageBackendDiagnosticsResponse, StorageBackendKind, StorageBackendRuntimeStateScope,
-        StorageBackendStatus, ADMIN_API_VERSION,
+        AdminWatchFolderRuntimeFailureDiagnostic, AdminWatchFolderRuntimeOutcomeStatus,
+        AdminWatchFolderRuntimeTickDiagnostic, AdminWatchFolderScanAdmissionStatus,
+        AdminWatchFolderSuppression, JobResponse, StorageBackendDiagnosticsResponse,
+        StorageBackendKind, StorageBackendRuntimeStateScope, StorageBackendStatus,
     },
     metadata_diagnostics::{MetadataProviderDiagnosticStatus, MetadataProviderDiagnosticsResponse},
-    public_client::{page_info_from_request, ClientErrorCode, ErrorResponse, API_VERSION},
+    public_client::{API_VERSION, ClientErrorCode, ErrorResponse, page_info_from_request},
 };
 use nako_core::{
     ArtworkCandidateId, AutomationArtifactId, ExternalProvider,
@@ -144,8 +144,8 @@ use nako_core::{
 };
 use nako_db::DatabaseBackendCapabilities;
 use nako_library::{
-    plan_watch_folder_intake, SourceFingerprintHashMode, WatchFolderIntakeEnqueueReason,
-    WatchFolderIntakePlanInput,
+    SourceFingerprintHashMode, WatchFolderIntakeEnqueueReason, WatchFolderIntakePlanInput,
+    plan_watch_folder_intake,
 };
 use nako_transcode::{
     HardwareAccelerationCapability, HardwareDeviceInitializationStatus,
@@ -160,7 +160,6 @@ use crate::{
         admin_transcode_pipeline_readiness,
     },
     app::{
-        storage_staging_pressure_status as app_storage_staging_pressure_status,
         EnqueueSourceFingerprintHashRequest, EnqueueVfsCacheRepairTargetOutcome,
         LibraryScanTraceContext, NakoApp, RetrySourceFingerprintHashRequest,
         RetryVfsCacheRepairJobRequest, RuntimeSupervisorDiagnostics,
@@ -181,8 +180,9 @@ use crate::{
         VfsCacheRepairRemediationPlanReport, VfsCacheRepairTargetPreviewReport,
         VfsCacheRepairTargetReport, WatchFolderRuntimeCoverageDiagnostic,
         WatchFolderRuntimeCoverageReport, WatchFolderRuntimeCoverageStatus,
-        WatchFolderRuntimeTickDiagnostic,
+        WatchFolderRuntimeOutcomeStatus, WatchFolderRuntimeTickDiagnostic,
         WatchFolderScanAdmissionStatus as AppWatchFolderScanAdmissionStatus,
+        storage_staging_pressure_status as app_storage_staging_pressure_status,
     },
     config::{
         LocalLibraryConfig, MetadataProviderConfig, MetadataProviderRuntimeConfig,
@@ -210,11 +210,11 @@ const ADMIN_SYSTEM_CONFIG_ROUTE_PATH: &str = "/admin/v1/system/config";
 use super::{
     error::ApiResult,
     query::{
-        parse_u32_filter, parse_u64_filter, AcquisitionIntakeCandidateListQuery,
-        ArtworkArtifactCleanupQuery, ArtworkArtifactLifecycleQuery,
-        ArtworkArtifactRemediationQuery, ArtworkArtifactStorageDriftQuery, ArtworkGalleryQuery,
-        CatalogGovernanceItemsQuery, JobListQuery, OutboxEventListQuery, PageQuery,
-        PlaybackSessionListQuery, PlaybackSupportEvidenceQuery, StorageStagingQuery,
+        AcquisitionIntakeCandidateListQuery, ArtworkArtifactCleanupQuery,
+        ArtworkArtifactLifecycleQuery, ArtworkArtifactRemediationQuery,
+        ArtworkArtifactStorageDriftQuery, ArtworkGalleryQuery, CatalogGovernanceItemsQuery,
+        JobListQuery, OutboxEventListQuery, PageQuery, PlaybackSessionListQuery,
+        PlaybackSupportEvidenceQuery, StorageStagingQuery, parse_u32_filter, parse_u64_filter,
     },
     trace_context::HttpTraceContext,
 };
@@ -680,6 +680,7 @@ pub(super) async fn discover_admin_watch_folder_candidates(
         target_library_id: diagnostic.target_library_id,
         root_scheme: diagnostic.root_scheme,
         root_ref_redacted: diagnostic.root_uri_redacted,
+        status: admin_watch_folder_runtime_outcome_status(diagnostic.status),
         ready_candidates: diagnostic.ready_candidates,
         inspecting_candidates: diagnostic.inspecting_candidates,
         blocked_candidates: diagnostic.blocked_candidates,
@@ -3636,6 +3637,7 @@ fn admin_watch_folder_runtime_tick_diagnostic(
 ) -> AdminWatchFolderRuntimeTickDiagnostic {
     AdminWatchFolderRuntimeTickDiagnostic {
         monitored: diagnostic.monitored,
+        status: admin_watch_folder_runtime_outcome_status(diagnostic.status),
         ready_candidates: diagnostic.intake_plan.discover.ready_candidates,
         inspecting_candidates: diagnostic.intake_plan.discover.inspecting_candidates,
         blocked_candidates: diagnostic.intake_plan.discover.blocked_candidates,
@@ -3682,6 +3684,23 @@ fn admin_watch_folder_scan_admission_status(
         AppWatchFolderScanAdmissionStatus::ReusedRunning => {
             AdminWatchFolderScanAdmissionStatus::ReusedRunning
         }
+    }
+}
+
+fn admin_watch_folder_runtime_outcome_status(
+    status: WatchFolderRuntimeOutcomeStatus,
+) -> AdminWatchFolderRuntimeOutcomeStatus {
+    match status {
+        WatchFolderRuntimeOutcomeStatus::Healthy => AdminWatchFolderRuntimeOutcomeStatus::Healthy,
+        WatchFolderRuntimeOutcomeStatus::Idle => AdminWatchFolderRuntimeOutcomeStatus::Idle,
+        WatchFolderRuntimeOutcomeStatus::Suppressed => {
+            AdminWatchFolderRuntimeOutcomeStatus::Suppressed
+        }
+        WatchFolderRuntimeOutcomeStatus::ReconciliationPending => {
+            AdminWatchFolderRuntimeOutcomeStatus::ReconciliationPending
+        }
+        WatchFolderRuntimeOutcomeStatus::Blocked => AdminWatchFolderRuntimeOutcomeStatus::Blocked,
+        WatchFolderRuntimeOutcomeStatus::Degraded => AdminWatchFolderRuntimeOutcomeStatus::Degraded,
     }
 }
 
