@@ -1859,3 +1859,37 @@ Added a dedicated redacted Admin network access diagnostics route, generated Adm
 ### Next Steps
 
 - None - task complete
+
+
+## Session 145: User playback route access contract
+
+**Date**: 2026-06-16
+**Task**: User playback route access contract
+**Package**: nako-server
+**Branch**: `feat/admin-overview-durable-jobs`
+
+### Summary
+
+Added focused HTTP coverage proving no-access principals cannot read user playback state, preserving the app-service-owned Browse/Play access boundary.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `73f8b3b7` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

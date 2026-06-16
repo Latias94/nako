@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 144
+- **Total Sessions**: 145
 - **Last Active**: 2026-06-16
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~1861 | Active |
+| `journal-3.md` | ~1895 | Active |
 | `journal-2.md` | ~1991 | Archived |
 | `journal-1.md` | ~1972 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 145 | 2026-06-16 | User playback route access contract | `73f8b3b7` | `feat/admin-overview-durable-jobs` |
 | 144 | 2026-06-16 | Admin network access diagnostics route | `3176d5ac` | `feat/admin-overview-durable-jobs` |
 | 143 | 2026-06-15 | Media Web source recovery smoke | `f9b3d9eb` | `main` |
 | 142 | 2026-06-15 | Media Web source continuity smoke | `e130e944` | `main` |
