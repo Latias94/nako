@@ -1,0 +1,4 @@
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Server-focused validation gates for overview and contract tests"}
+{"file":".trellis/spec/nako-api/backend/quality-guidelines.md","reason":"Contract generation and DTO sync checks for Admin schema changes"}
+{"file":"docs/architecture/CONTROL_PLANE.md","reason":"Durable-job readiness evidence and redaction boundaries"}
+{"file":"docs/architecture/M1_ADMIN_DIAGNOSTICS_REPAIR_COVERAGE.md","reason":"M1 evidence gate for operator readiness coverage"}

@@ -1,8 +1,8 @@
 {
-  "id": "m2-watch-folder-degraded-reconciliation-diagnostics",
-  "name": "m2-watch-folder-degraded-reconciliation-diagnostics",
-  "title": "M2 watch-folder degraded reconciliation diagnostics",
-  "description": "",
+  "id": "06-16-playback-reason-public-contract",
+  "name": "06-16-playback-reason-public-contract",
+  "title": "playback reason public contract",
+  "description": "Implement the U3 playback capability and reason contract slice: expose stable compatibility reasons for Direct Play, Remux, Transcode, and Denied decisions through redaction-safe public/admin contracts and focused tests.",
   "status": "completed",
   "dev_type": null,
   "scope": null,
