@@ -14993,6 +14993,42 @@ async fn admin_v1_playback_support_evidence_is_bounded_and_redacted() {
         )
         .await
         .unwrap();
+    let playback_session = store
+        .create_playback_session(NewPlaybackSession {
+            id: PlaybackSessionId::new(),
+            principal_id: UserPrincipalId::local_admin(),
+            source_id: source.id,
+            item_id: source.item_id,
+            mode: PlaybackSessionMode::Hls,
+            state: PlaybackSessionState::Failed,
+            client_capabilities_json: Some(
+                r#"{
+                    "direct_play": false,
+                    "device_family": " Browser Chromium ",
+                    "profile_version": 1,
+                    "containers": ["mp4", "webm"],
+                    "video_codecs": ["h264"],
+                    "audio_codecs": ["aac", "opus"],
+                    "max_video_bitrate": 8000000,
+                    "max_width": 1920,
+                    "max_height": 1080,
+                    "max_audio_channels": 2,
+                    "supports_hdr": false,
+                    "supports_subtitles": true,
+                    "hls_variant_policy": "adaptive",
+                    "hls_segment_container": "fmp4"
+                }"#
+                .to_owned(),
+            ),
+            started_at_ms: 1_779_814_400_000,
+            updated_at_ms: 1_779_814_401_000,
+        })
+        .await
+        .unwrap();
+    store
+        .link_playback_session_transcode(playback_session.id, session.id)
+        .await
+        .unwrap();
 
     let router = build_router(app);
     let response = router
@@ -15037,6 +15073,35 @@ async fn admin_v1_playback_support_evidence_is_bounded_and_redacted() {
         Some(nako_core::TranscodeFailureCategory::Runner)
     );
     assert!(evidence.session.as_ref().unwrap().has_failure_message);
+    let client = evidence.client.as_ref().unwrap();
+    assert_eq!(client.playback_session_id, playback_session.id);
+    assert_eq!(client.mode, PlaybackSessionMode::Hls);
+    assert_eq!(client.state, PlaybackSessionState::Failed);
+    assert!(client.has_client_capabilities);
+    assert_eq!(client.device_family.as_deref(), Some("browser_chromium"));
+    assert_eq!(client.profile_version, Some(1));
+    assert_eq!(
+        client.profile_family,
+        Some(nako_api::admin::AdminPlaybackProfileFamily::BrowserChromium)
+    );
+    assert!(!client.direct_play);
+    assert_eq!(client.containers, vec!["mp4", "webm"]);
+    assert_eq!(client.video_codecs, vec!["h264"]);
+    assert_eq!(client.audio_codecs, vec!["aac", "opus"]);
+    assert_eq!(client.max_video_bitrate, Some(8_000_000));
+    assert_eq!(client.max_width, Some(1920));
+    assert_eq!(client.max_height, Some(1080));
+    assert_eq!(client.max_audio_channels, Some(2));
+    assert!(!client.supports_hdr);
+    assert!(client.supports_subtitles);
+    assert_eq!(
+        client.hls_variant_policy,
+        nako_api::admin::AdminPlaybackHlsVariantPolicy::Adaptive
+    );
+    assert_eq!(
+        client.hls_segment_container,
+        nako_api::admin::AdminPlaybackHlsSegmentContainer::Fmp4
+    );
     assert_eq!(evidence.source.as_ref().unwrap().source_id, source.id);
     assert_eq!(evidence.source.as_ref().unwrap().source_scheme, "local");
     assert_eq!(
@@ -15067,8 +15132,82 @@ async fn admin_v1_playback_support_evidence_is_bounded_and_redacted() {
     assert!(!body.contains("argv"));
     assert!(!body.contains("admin-token"));
     assert!(!body.contains("private-fingerprint"));
+    assert!(!body.contains("client_capabilities_json"));
     assert!(!body.contains("ffmpeg_path"));
     assert!(!body.contains("remux_staging_root"));
+
+    let malformed_transcode_session = store
+        .create_transcode_session(NewTranscodeSession {
+            id: TranscodeSessionId::new(),
+            source_id: source.id,
+            kind: TranscodeSessionKind::Remux,
+            request_key: local_remux_request_key(&source, nako_transcode::RemuxContainer::Mp4),
+            output_path: temp
+                .path()
+                .join("secret-cache")
+                .join("remux")
+                .join("malformed.mp4"),
+            state: TranscodeSessionState::Running,
+        })
+        .await
+        .unwrap();
+    let malformed_playback_session = store
+        .create_playback_session(NewPlaybackSession {
+            id: PlaybackSessionId::new(),
+            principal_id: UserPrincipalId::local_admin(),
+            source_id: source.id,
+            item_id: source.item_id,
+            mode: PlaybackSessionMode::Remux,
+            state: PlaybackSessionState::Active,
+            client_capabilities_json: Some(
+                r#"{"device_family":"C:\\private\\gpu\\path","direct_play":"bad"}"#.to_owned(),
+            ),
+            started_at_ms: 1_779_814_402_000,
+            updated_at_ms: 1_779_814_403_000,
+        })
+        .await
+        .unwrap();
+    store
+        .link_playback_session_transcode(
+            malformed_playback_session.id,
+            malformed_transcode_session.id,
+        )
+        .await
+        .unwrap();
+
+    let malformed_response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/admin/v1/playback/support?session_id={}",
+                    malformed_transcode_session.id
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let malformed_status = malformed_response.status();
+    let malformed_body = String::from_utf8(
+        to_bytes(malformed_response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert_eq!(malformed_status, StatusCode::OK, "{malformed_body}");
+    let malformed_evidence: AdminPlaybackSupportEvidenceResponse =
+        serde_json::from_str(&malformed_body).unwrap();
+    assert_eq!(
+        malformed_evidence.session.unwrap().id,
+        malformed_transcode_session.id
+    );
+    assert_eq!(malformed_evidence.client, None);
+    assert!(!malformed_body.contains("C:\\"));
+    assert!(!malformed_body.contains("C:\\private\\gpu\\path"));
+    assert!(!malformed_body.contains("client_capabilities_json"));
 }
 
 #[tokio::test]

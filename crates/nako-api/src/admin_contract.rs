@@ -4259,6 +4259,27 @@ export interface AdminPlaybackSupportEvidenceResponse {
     started_at: string | null;
     completed_at: string | null;
   } | null;
+  client: {
+    playback_session_id: string;
+    mode: string;
+    state: string;
+    has_client_capabilities: boolean;
+    device_family: string | null;
+    profile_version: number | null;
+    profile_family: string | null;
+    direct_play: boolean;
+    containers: string[];
+    video_codecs: string[];
+    audio_codecs: string[];
+    max_video_bitrate: number | null;
+    max_width: number | null;
+    max_height: number | null;
+    max_audio_channels: number | null;
+    supports_hdr: boolean;
+    supports_subtitles: boolean;
+    hls_variant_policy: string;
+    hls_segment_container: string;
+  } | null;
   source: {
     source_id: string;
     library_id: string;

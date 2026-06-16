@@ -159,6 +159,26 @@ impl PlaybackSessionRepository for PostgresStore {
         rows.into_iter().map(row_to_playback_session).collect()
     }
 
+    async fn find_latest_playback_session_by_transcode_session(
+        &self,
+        transcode_session_id: TranscodeSessionId,
+    ) -> Result<Option<PlaybackSessionRecord>> {
+        let row = sqlx::query(&format!(
+            r#"
+            {PLAYBACK_SESSION_SELECT}
+            WHERE transcode_session_id = $1
+            ORDER BY updated_at DESC, id DESC
+            LIMIT 1
+            "#
+        ))
+        .bind(transcode_session_id.as_uuid())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.map(row_to_playback_session).transpose()
+    }
+
     async fn link_playback_session_transcode(
         &self,
         id: PlaybackSessionId,

@@ -517,6 +517,7 @@ mod tests {
                 source_id: None,
             },
             session: None,
+            client: None,
             source: None,
             runtime: AdminPlaybackSupportRuntimeEvidence {
                 readiness: runtime.readiness,

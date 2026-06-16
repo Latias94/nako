@@ -2550,6 +2550,15 @@ impl PlaybackSessionRepository for NakoDatabase {
         self.backend().list_playback_sessions(filter, page).await
     }
 
+    async fn find_latest_playback_session_by_transcode_session(
+        &self,
+        transcode_session_id: TranscodeSessionId,
+    ) -> Result<Option<PlaybackSessionRecord>> {
+        self.backend()
+            .find_latest_playback_session_by_transcode_session(transcode_session_id)
+            .await
+    }
+
     async fn link_playback_session_transcode(
         &self,
         id: PlaybackSessionId,

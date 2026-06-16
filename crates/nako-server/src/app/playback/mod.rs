@@ -112,6 +112,11 @@ pub(crate) trait PlaybackRuntimeStore: std::fmt::Debug + Send + Sync {
         page: PageRequest,
     ) -> Result<Vec<PlaybackSessionRecord>>;
 
+    async fn find_latest_playback_session_by_transcode_session(
+        &self,
+        transcode_session_id: TranscodeSessionId,
+    ) -> Result<Option<PlaybackSessionRecord>>;
+
     async fn link_playback_session_transcode(
         &self,
         id: PlaybackSessionId,
@@ -232,6 +237,17 @@ where
         page: PageRequest,
     ) -> Result<Vec<PlaybackSessionRecord>> {
         PlaybackSessionRepository::list_playback_sessions(self, filter, page).await
+    }
+
+    async fn find_latest_playback_session_by_transcode_session(
+        &self,
+        transcode_session_id: TranscodeSessionId,
+    ) -> Result<Option<PlaybackSessionRecord>> {
+        PlaybackSessionRepository::find_latest_playback_session_by_transcode_session(
+            self,
+            transcode_session_id,
+        )
+        .await
     }
 
     async fn link_playback_session_transcode(

@@ -8,8 +8,8 @@ use nako_core::{
     TranscodeSessionRuntimeMetrics, TranscodeSessionState, UserPrincipalId,
 };
 use nako_playback::{
-    PlaybackHlsSegmentContainer, PlaybackHlsVariantPolicy, PlaybackProfileFamily,
-    PlaybackProfilePreset, normalize_playback_device_family,
+    ClientPlaybackCapabilities, PlaybackHlsSegmentContainer, PlaybackHlsVariantPolicy,
+    PlaybackProfileFamily, PlaybackProfilePreset, normalize_playback_device_family,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -534,6 +534,7 @@ pub struct AdminPlaybackSupportEvidenceResponse {
     pub public_api_version: String,
     pub subject: AdminPlaybackSupportSubject,
     pub session: Option<AdminPlaybackSupportSessionEvidence>,
+    pub client: Option<AdminPlaybackSupportClientEvidence>,
     pub source: Option<AdminPlaybackSupportSourceEvidence>,
     pub runtime: AdminPlaybackSupportRuntimeEvidence,
     pub redaction: AdminPlaybackSupportRedactionEvidence,
@@ -584,6 +585,72 @@ impl AdminPlaybackSupportSessionEvidence {
             started_at: session.started_at,
             completed_at: session.completed_at,
         }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackSupportClientEvidence {
+    pub playback_session_id: PlaybackSessionId,
+    pub mode: PlaybackSessionMode,
+    pub state: PlaybackSessionState,
+    pub has_client_capabilities: bool,
+    pub device_family: Option<String>,
+    pub profile_version: Option<u32>,
+    pub profile_family: Option<AdminPlaybackProfileFamily>,
+    pub direct_play: bool,
+    pub containers: Vec<String>,
+    pub video_codecs: Vec<String>,
+    pub audio_codecs: Vec<String>,
+    pub max_video_bitrate: Option<u64>,
+    pub max_width: Option<u32>,
+    pub max_height: Option<u32>,
+    pub max_audio_channels: Option<u32>,
+    pub supports_hdr: bool,
+    pub supports_subtitles: bool,
+    pub hls_variant_policy: AdminPlaybackHlsVariantPolicy,
+    pub hls_segment_container: AdminPlaybackHlsSegmentContainer,
+}
+
+impl AdminPlaybackSupportClientEvidence {
+    #[must_use]
+    pub fn from_playback_session(session: &PlaybackSessionRecord) -> Option<Self> {
+        let capabilities = session
+            .client_capabilities_json
+            .as_deref()
+            .and_then(|value| serde_json::from_str::<ClientPlaybackCapabilities>(value).ok())?;
+        let device_family = normalize_playback_device_family(capabilities.device_family.as_deref());
+        let playback_family = PlaybackProfileFamily::from_device_family(device_family.as_deref());
+        let profile_family = playback_family.map(AdminPlaybackProfileFamily::from_playback_family);
+        let device_family = match playback_family {
+            Some(PlaybackProfileFamily::Unknown) | None => None,
+            Some(_) => device_family,
+        };
+
+        Some(Self {
+            playback_session_id: session.id,
+            mode: session.mode,
+            state: session.state,
+            has_client_capabilities: true,
+            device_family,
+            profile_version: capabilities.profile_version,
+            profile_family,
+            direct_play: capabilities.direct_play,
+            containers: capabilities.containers,
+            video_codecs: capabilities.video_codecs,
+            audio_codecs: capabilities.audio_codecs,
+            max_video_bitrate: capabilities.max_video_bitrate,
+            max_width: capabilities.max_width,
+            max_height: capabilities.max_height,
+            max_audio_channels: capabilities.max_audio_channels,
+            supports_hdr: capabilities.supports_hdr,
+            supports_subtitles: capabilities.supports_subtitles,
+            hls_variant_policy: AdminPlaybackHlsVariantPolicy::from_playback_policy(
+                capabilities.hls_variant_policy,
+            ),
+            hls_segment_container: AdminPlaybackHlsSegmentContainer::from_playback_container(
+                capabilities.hls_segment_container,
+            ),
+        })
     }
 }
 
@@ -1266,6 +1333,128 @@ mod tests {
         assert!(!body.contains("playlist.m3u8"));
         assert!(!body.contains("output_path"));
         assert!(!body.contains("ffmpeg failed while writing"));
+    }
+
+    #[test]
+    fn admin_playback_support_client_evidence_projects_safe_capability_facts() {
+        let session = PlaybackSessionRecord {
+            id: PlaybackSessionId::new(),
+            source_id: MediaSourceId::new(),
+            item_id: MediaItemId::new(),
+            principal_id: nako_core::UserPrincipalId::local_admin(),
+            mode: PlaybackSessionMode::Hls,
+            state: PlaybackSessionState::Active,
+            client_capabilities_json: Some(
+                r#"{
+                    "direct_play": false,
+                    "device_family": " Browser Chromium ",
+                    "profile_version": 1,
+                    "containers": ["mp4", "webm"],
+                    "video_codecs": ["h264"],
+                    "audio_codecs": ["aac", "opus"],
+                    "max_video_bitrate": 8000000,
+                    "max_width": 1920,
+                    "max_height": 1080,
+                    "max_audio_channels": 2,
+                    "supports_hdr": false,
+                    "supports_subtitles": true,
+                    "hls_variant_policy": "adaptive",
+                    "hls_segment_container": "fmp4"
+                }"#
+                .to_owned(),
+            ),
+            transcode_session_id: Some(TranscodeSessionId::new()),
+            position_ms: None,
+            duration_ms: None,
+            last_heartbeat_at_ms: None,
+            started_at_ms: 1_779_814_400_000,
+            ended_at_ms: None,
+            created_at: "2026-05-18T00:00:00Z".to_owned(),
+            updated_at: "2026-05-18T00:00:01Z".to_owned(),
+        };
+
+        let evidence = AdminPlaybackSupportClientEvidence::from_playback_session(&session)
+            .expect("valid capabilities should project");
+        let body = serde_json::to_string(&evidence).unwrap();
+
+        assert_eq!(evidence.playback_session_id, session.id);
+        assert_eq!(evidence.mode, PlaybackSessionMode::Hls);
+        assert_eq!(evidence.state, PlaybackSessionState::Active);
+        assert!(evidence.has_client_capabilities);
+        assert_eq!(evidence.device_family.as_deref(), Some("browser_chromium"));
+        assert_eq!(evidence.profile_version, Some(1));
+        assert_eq!(
+            evidence.profile_family,
+            Some(AdminPlaybackProfileFamily::BrowserChromium)
+        );
+        assert!(!evidence.direct_play);
+        assert_eq!(evidence.containers, vec!["mp4", "webm"]);
+        assert_eq!(evidence.video_codecs, vec!["h264"]);
+        assert_eq!(evidence.audio_codecs, vec!["aac", "opus"]);
+        assert_eq!(evidence.max_video_bitrate, Some(8_000_000));
+        assert_eq!(evidence.max_width, Some(1920));
+        assert_eq!(evidence.max_height, Some(1080));
+        assert_eq!(evidence.max_audio_channels, Some(2));
+        assert!(!evidence.supports_hdr);
+        assert!(evidence.supports_subtitles);
+        assert_eq!(
+            evidence.hls_variant_policy,
+            AdminPlaybackHlsVariantPolicy::Adaptive
+        );
+        assert_eq!(
+            evidence.hls_segment_container,
+            AdminPlaybackHlsSegmentContainer::Fmp4
+        );
+        assert!(!body.contains("client_capabilities_json"));
+    }
+
+    #[test]
+    fn admin_playback_support_client_evidence_omits_unknown_or_unreadable_raw_profile() {
+        let mut session = PlaybackSessionRecord {
+            id: PlaybackSessionId::new(),
+            source_id: MediaSourceId::new(),
+            item_id: MediaItemId::new(),
+            principal_id: nako_core::UserPrincipalId::local_admin(),
+            mode: PlaybackSessionMode::Direct,
+            state: PlaybackSessionState::Active,
+            client_capabilities_json: Some(
+                r#"{"direct_play":true,"device_family":"C:\\private\\gpu\\path","containers":["mp4"],"video_codecs":["h264"],"audio_codecs":["aac"]}"#
+                    .to_owned(),
+            ),
+            transcode_session_id: None,
+            position_ms: None,
+            duration_ms: None,
+            last_heartbeat_at_ms: None,
+            started_at_ms: 1_779_814_400_000,
+            ended_at_ms: None,
+            created_at: "2026-05-18T00:00:00Z".to_owned(),
+            updated_at: "2026-05-18T00:00:01Z".to_owned(),
+        };
+
+        let evidence = AdminPlaybackSupportClientEvidence::from_playback_session(&session)
+            .expect("unknown profile should still project safe capability facts");
+        let body = serde_json::to_string(&evidence).unwrap();
+
+        assert_eq!(evidence.device_family, None);
+        assert_eq!(
+            evidence.profile_family,
+            Some(AdminPlaybackProfileFamily::Unknown)
+        );
+        assert!(!body.contains("C:\\"));
+        assert!(!body.contains("private"));
+        assert!(!body.contains("gpu"));
+        assert!(!body.contains("path"));
+
+        session.client_capabilities_json = Some("{not json".to_owned());
+        assert_eq!(
+            AdminPlaybackSupportClientEvidence::from_playback_session(&session),
+            None
+        );
+        session.client_capabilities_json = None;
+        assert_eq!(
+            AdminPlaybackSupportClientEvidence::from_playback_session(&session),
+            None
+        );
     }
 
     #[test]

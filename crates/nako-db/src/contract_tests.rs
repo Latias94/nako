@@ -7310,6 +7310,16 @@ where
         .await
         .unwrap();
     assert_eq!(linked.transcode_session_id, Some(transcode_session_id));
+    let linked_lookup = store
+        .find_latest_playback_session_by_transcode_session(transcode_session_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(linked_lookup.id, session_id);
+    assert_eq!(
+        linked_lookup.client_capabilities_json,
+        created.client_capabilities_json
+    );
 
     let ended = store
         .set_playback_session_state(
@@ -7322,6 +7332,13 @@ where
         .unwrap();
     assert_eq!(ended.state, PlaybackSessionState::Ended);
     assert_eq!(ended.ended_at_ms, Some(now_ms + 2_000));
+    let latest_linked_lookup = store
+        .find_latest_playback_session_by_transcode_session(transcode_session_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(latest_linked_lookup.id, session_id);
+    assert_eq!(latest_linked_lookup.state, PlaybackSessionState::Ended);
 
     assert!(
         store

@@ -82,18 +82,19 @@ use nako_api::{
         AdminPlaybackResourceClassPressure, AdminPlaybackResourceEnforcement,
         AdminPlaybackResourcePressureDiagnostics, AdminPlaybackRuntimeDiagnosticsResponse,
         AdminPlaybackRuntimeStatus, AdminPlaybackSessionListItem, AdminPlaybackSessionListResponse,
-        AdminPlaybackStagingDiagnostics, AdminPlaybackSupportEvidenceResponse,
-        AdminPlaybackSupportHardwareCapabilityEvidence, AdminPlaybackSupportHardwareEvidence,
-        AdminPlaybackSupportRedactionEvidence, AdminPlaybackSupportRuntimeEvidence,
-        AdminPlaybackSupportSessionEvidence, AdminPlaybackSupportSourceEvidence,
-        AdminPlaybackSupportSubject, AdminPlaybackThrottleDiagnostics,
-        AdminPlaybackTranscodeBudgetDiagnostics, AdminRendererAdapterDiagnostics,
-        AdminRendererAdapterKind, AdminRendererAdapterReason, AdminRendererAdapterStatus,
-        AdminRendererControlPlane, AdminRendererDiscoveryMode, AdminRendererMediaTransport,
-        AdminRendererReadinessDiagnostics, AdminRendererRuntimeDiagnosticsResponse,
-        AdminRendererSessionDiagnostics, AdminRendererSessionSummary, AdminReplaceUserRolesRequest,
-        AdminRuntimeConfigDiagnostics, AdminServerConfigDiagnosticsResponse,
-        AdminSetLocalPasswordRequest, AdminSourceDuplicateReconciliationApplyRequest,
+        AdminPlaybackStagingDiagnostics, AdminPlaybackSupportClientEvidence,
+        AdminPlaybackSupportEvidenceResponse, AdminPlaybackSupportHardwareCapabilityEvidence,
+        AdminPlaybackSupportHardwareEvidence, AdminPlaybackSupportRedactionEvidence,
+        AdminPlaybackSupportRuntimeEvidence, AdminPlaybackSupportSessionEvidence,
+        AdminPlaybackSupportSourceEvidence, AdminPlaybackSupportSubject,
+        AdminPlaybackThrottleDiagnostics, AdminPlaybackTranscodeBudgetDiagnostics,
+        AdminRendererAdapterDiagnostics, AdminRendererAdapterKind, AdminRendererAdapterReason,
+        AdminRendererAdapterStatus, AdminRendererControlPlane, AdminRendererDiscoveryMode,
+        AdminRendererMediaTransport, AdminRendererReadinessDiagnostics,
+        AdminRendererRuntimeDiagnosticsResponse, AdminRendererSessionDiagnostics,
+        AdminRendererSessionSummary, AdminReplaceUserRolesRequest, AdminRuntimeConfigDiagnostics,
+        AdminServerConfigDiagnosticsResponse, AdminSetLocalPasswordRequest,
+        AdminSourceDuplicateReconciliationApplyRequest,
         AdminSourceDuplicateReconciliationApplyResponse,
         AdminSourceDuplicateReconciliationPlanResponse, AdminSourceFingerprintHashEnqueueRequest,
         AdminSourceFingerprintHashMode, AdminSourceFingerprintHashRetryRequest,
@@ -3604,6 +3605,10 @@ async fn admin_playback_support_evidence(
         session: context
             .session
             .map(AdminPlaybackSupportSessionEvidence::from_record),
+        client: context
+            .playback_session
+            .as_ref()
+            .and_then(AdminPlaybackSupportClientEvidence::from_playback_session),
         source: context
             .source
             .map(AdminPlaybackSupportSourceEvidence::from_record),

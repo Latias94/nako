@@ -389,14 +389,22 @@ records.
 
 - Trigger: changing Admin playback session list DTOs or profile diagnostics
   derived from `PlaybackSessionRecord.client_capabilities_json`.
-- Scope: `AdminPlaybackSessionListItem`, generated Admin TypeScript contracts,
-  Admin Web mock/test fixtures, and `nako-playback` profile-family helpers.
+- Scope: `AdminPlaybackSessionListItem`,
+  `AdminPlaybackSupportEvidenceResponse.client`, generated Admin TypeScript
+  contracts, Admin Web mock/test fixtures, and `nako-playback` profile-family
+  helpers.
 
 ### 2. Signatures
 
 - Admin DTO:
   `AdminPlaybackSessionListItem { principal_id, has_client_capabilities,
   client_device_family, client_profile_version, client_profile_family }`.
+- Admin support DTO:
+  `AdminPlaybackSupportClientEvidence { playback_session_id, mode, state,
+  has_client_capabilities, device_family, profile_version, profile_family,
+  direct_play, containers, video_codecs, audio_codecs, max_video_bitrate,
+  max_width, max_height, max_audio_channels, supports_hdr,
+  supports_subtitles, hls_variant_policy, hls_segment_container }`.
 - Profile family enum:
   `AdminPlaybackProfileFamily = browser_chromium | browser_firefox |
   browser_safari | android_media3 | desktop_native | tv_webos | tv_tizen |
@@ -411,9 +419,14 @@ records.
 - Admin session list may expose only normalized, recognized client-owned
   profile facts: known `device_family`, `profile_version`, and recognized
   `client_profile_family`.
+- Admin playback support evidence may expose the same normalized profile facts
+  plus explicit flat client capability facts that are already persisted with a
+  linked playback session. It must not expose raw capability JSON.
 - Unknown raw `device_family` values must not be echoed in Admin output. Return
-  `client_profile_family: "unknown"` and `client_device_family: null`.
-- Missing or unreadable capability JSON must not fail the session list.
+  `client_profile_family: "unknown"` / `profile_family: "unknown"` and
+  `client_device_family: null` / `device_family: null`.
+- Missing or unreadable capability JSON must not fail the session list or
+  playback support route. Support evidence returns `client: null`.
 - Profile family recognition is descriptive only. It must not change Direct
   Play, Remux, Transcode, Denied, FFmpeg planning, storage staging, or policy.
 - Generated Admin TypeScript contracts and fixtures must be regenerated or
@@ -427,6 +440,7 @@ records.
 | Known profile family is persisted | Return normalized `client_device_family`, `client_profile_version`, and matching `client_profile_family` |
 | Unknown or path-like profile family is persisted | Return `client_device_family: null`, `client_profile_family: "unknown"`, and do not echo raw text |
 | Capability JSON is malformed or old query-shaped JSON omits unrelated fields | Return the session row and leave unavailable profile facts null |
+| Playback support has linked malformed client capability JSON | Return support evidence with `client: null` and no raw capability text |
 | Admin contract changes | Regenerate both generated Admin TypeScript contracts |
 | Public Client outputs are inspected | No Admin playback profile diagnostic fields appear in Public SDK/OpenAPI |
 
@@ -447,6 +461,8 @@ records.
   values.
 - API/Admin DTO tests for safe profile projection and malformed/unreadable
   capability JSON.
+- Server playback support route tests for linked client capability evidence and
+  `client: null` on malformed capability JSON.
 - Admin contract parity:
   `cargo nextest run -p nako-api admin_contract --no-fail-fast`.
 - Admin Web/Web TypeScript checks when generated contract or fixtures change.

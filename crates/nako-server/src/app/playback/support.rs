@@ -1,5 +1,6 @@
 use nako_core::{
-    MediaSource, MediaSourceId, NakoError, Result, TranscodeSessionId, TranscodeSessionRecord,
+    MediaSource, MediaSourceId, NakoError, PlaybackSessionRecord, Result, TranscodeSessionId,
+    TranscodeSessionRecord,
 };
 use nako_transcode::{
     HardwareAccelerationPolicy, HardwareAccelerationReport, TranscodePipelineReadiness,
@@ -40,6 +41,7 @@ pub(crate) struct PlaybackRuntimeDiagnostics {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct PlaybackSupportEvidenceContext {
     pub session: Option<TranscodeSessionRecord>,
+    pub playback_session: Option<PlaybackSessionRecord>,
     pub source: Option<MediaSource>,
 }
 
@@ -75,8 +77,21 @@ pub(super) async fn support_evidence_context(
         Some(source_id) => Some(get_source_or_not_found(store, source_id).await?),
         None => None,
     };
+    let playback_session = match session.as_ref() {
+        Some(session) => {
+            PlaybackRuntimeStore::find_latest_playback_session_by_transcode_session(
+                store, session.id,
+            )
+            .await?
+        }
+        None => None,
+    };
 
-    Ok(PlaybackSupportEvidenceContext { session, source })
+    Ok(PlaybackSupportEvidenceContext {
+        session,
+        playback_session,
+        source,
+    })
 }
 
 pub(super) fn runtime_diagnostics(
