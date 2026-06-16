@@ -1,0 +1,6 @@
+{"file":"docs/plans/2026-06-16-001-feat-backend-self-hosted-maturity-execution-plan.md","reason":"U2 defines the backend browse/search/cache contract hardening scope for self-hosted maturity."}
+{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Public Library and Public Catalog HTTP handlers must parse query strings at the HTTP boundary and delegate access-aware work to app services."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Server route tests and focused nextest gates must follow the established Nako server quality pattern."}
+{"file":".trellis/spec/nako-db/backend/quality-guidelines.md","reason":"Repository-backed browse/search filters must apply access, ordering, deduplication, and pagination in the storage query contract."}
+{"file":".trellis/spec/nako-client-protocol/backend/index.md","reason":"Public Client browse/search DTO and route behavior must remain additive and redaction-safe."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"This slice crosses frontend query state, generated SDK serialization, HTTP parsing, service delegation, and repository filtering."}

@@ -1526,6 +1526,36 @@ async fn library_items_route_applies_kind_watch_state_and_last_played_query() {
         repeated_facet_response.items[0].id,
         in_progress_movie.id.to_string()
     );
+
+    let csv_facet_response = request_json::<nako_api::public_client::LibraryItemsResponse>(
+        &router,
+        Method::GET,
+        &format!(
+            "/libraries/{library_id}/items?facet=kind:movie,,&watch_state=in_progress&sort=last_played&order=desc&limit=1&offset=0"
+        ),
+    )
+    .await;
+
+    assert_eq!(csv_facet_response.page.limit, 1);
+    assert_eq!(csv_facet_response.page.offset, 0);
+    assert_eq!(csv_facet_response.page.returned, 1);
+    assert_eq!(
+        csv_facet_response.items[0].id,
+        in_progress_movie.id.to_string()
+    );
+
+    let impossible_csv_facet_response =
+        request_json::<nako_api::public_client::LibraryItemsResponse>(
+            &router,
+            Method::GET,
+            &format!(
+                "/libraries/{library_id}/items?facet=kind:movie,kind:episode&watch_state=in_progress"
+            ),
+        )
+        .await;
+
+    assert_eq!(impossible_csv_facet_response.page.returned, 0);
+    assert!(impossible_csv_facet_response.items.is_empty());
 }
 
 #[tokio::test]
