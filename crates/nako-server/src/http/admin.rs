@@ -1787,10 +1787,10 @@ fn admin_system_config_response(app: &NakoApp) -> AdminServerConfigDiagnosticsRe
 
 pub(super) async fn get_admin_access_summary(
     State(app): State<NakoApp>,
-    Extension(principal): Extension<UserPrincipalId>,
+    Extension(principal): Extension<nako_core::AuthenticatedPrincipal>,
 ) -> ApiResult<impl IntoResponse> {
     let config = app.config();
-    let user = app.get_user_by_principal(&principal).await?;
+    let user = app.get_user_by_principal(&principal.principal_id).await?;
     let libraries = config
         .libraries
         .iter()
@@ -1812,7 +1812,7 @@ pub(super) async fn get_admin_access_summary(
         public_api_version: API_VERSION.to_owned(),
         mode: AdminAccessMode::SingleAdmin,
         principal: AdminAccessPrincipalSummary {
-            principal_id: principal.to_string(),
+            principal_id: principal.principal_id.to_string(),
             display_name: user
                 .as_ref()
                 .map(|user| user.display_name.clone())

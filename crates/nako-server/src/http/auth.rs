@@ -6,7 +6,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use nako_api::public_client::{ClientErrorCode, ErrorResponse};
-use nako_core::{AuthenticatedPrincipal, SecretString, UserPrincipalId};
+use nako_core::{AuthenticatedPrincipal, SecretString};
 
 use crate::app::NakoApp;
 use crate::config::AuthConfig;
@@ -74,9 +74,6 @@ pub(super) async fn require_auth(request: Request, next: Next) -> Response {
     };
     match app.resolve_user_session_token(token).await {
         Ok(Some(resolved)) => {
-            request
-                .extensions_mut()
-                .insert(resolved.principal.principal_id.clone());
             request.extensions_mut().insert(resolved.principal);
             request.extensions_mut().insert(resolved.session_id);
             next.run(request).await
@@ -115,11 +112,9 @@ fn unauthorized_response() -> Response {
 }
 
 fn insert_bootstrap_admin_principal(request: &mut Request) {
-    let principal = AuthenticatedPrincipal::bootstrap_admin();
     request
         .extensions_mut()
-        .insert(principal.principal_id.clone());
-    request.extensions_mut().insert(principal);
+        .insert(AuthenticatedPrincipal::bootstrap_admin());
 }
 
 fn playback_ticket_bypass_allowed(method: &Method, uri: &Uri) -> bool {
@@ -183,19 +178,12 @@ mod tests {
             .route(
                 "/principal",
                 get(|request: Request| async move {
-                    let legacy_principal = request
-                        .extensions()
-                        .get::<UserPrincipalId>()
-                        .map(ToString::to_string)
-                        .unwrap_or_default();
-                    let resolved_principal = request
+                    request
                         .extensions()
                         .get::<AuthenticatedPrincipal>()
                         .filter(|principal| principal.is_administrator())
                         .map(|principal| principal.principal_id.to_string())
-                        .unwrap_or_default();
-
-                    format!("{legacy_principal}:{resolved_principal}")
+                        .unwrap_or_default()
                 }),
             )
             .layer(axum::middleware::from_fn(require_auth))
@@ -211,7 +199,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(body.as_ref(), b"local-admin:local-admin");
+        assert_eq!(body.as_ref(), b"local-admin");
     }
 
     #[tokio::test]
@@ -222,8 +210,9 @@ mod tests {
                 get(|request: Request| async move {
                     request
                         .extensions()
-                        .get::<UserPrincipalId>()
-                        .map(ToString::to_string)
+                        .get::<AuthenticatedPrincipal>()
+                        .filter(|principal| principal.is_administrator())
+                        .map(|principal| principal.principal_id.to_string())
                         .unwrap_or_default()
                 }),
             )

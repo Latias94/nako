@@ -13472,6 +13472,131 @@ async fn admin_v1_access_summary_reports_single_admin_effective_library_access_w
 }
 
 #[tokio::test]
+async fn admin_v1_access_summary_works_when_auth_disabled_with_canonical_principal() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let router = test_router(temp.path().to_path_buf(), library_id).await;
+
+    let summary = request_json::<AdminAccessSummaryResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/access/summary",
+    )
+    .await;
+
+    assert_eq!(
+        summary.principal.principal_id,
+        nako_core::LOCAL_ADMIN_PRINCIPAL_ID
+    );
+    assert_eq!(
+        summary.principal.principal_kind,
+        AdminAccessPrincipalKind::LocalAdmin
+    );
+    assert_eq!(summary.principal.display_name, "Local administrator");
+    assert!(!summary.auth.enabled);
+    assert!(!summary.auth.token_reference_configured);
+    assert_eq!(summary.library_access.configured_libraries, 1);
+    assert_eq!(summary.library_access.libraries[0].library_id, library_id);
+}
+
+#[tokio::test]
+async fn admin_v1_access_summary_works_for_admin_session_canonical_principal() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let token = "test-admin-token";
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig {
+            enabled: true,
+            token_env: Some("NAKO_ADMIN_TOKEN".to_owned()),
+        },
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 1,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
+        remux_timeout_ms: 60_000,
+        remux_staging_root: temp.path().join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig::default(),
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store).await.unwrap();
+    let router = build_router_with_auth(app, auth::InboundAuthState::bearer_token(token));
+
+    let created = request_body_json_with_bearer::<AdminAccessUserResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/access/users",
+        &AdminCreateUserRequest {
+            username: "session-admin".to_owned(),
+            display_name: "Session Admin".to_owned(),
+            roles: vec![UserRole::Administrator],
+        },
+        token,
+    )
+    .await;
+    let password_path = format!(
+        "/admin/v1/access/users/{}/local-password",
+        created.user.user_id
+    );
+    request_body_json_with_bearer::<nako_api::admin::AdminLocalPasswordResponse, _>(
+        &router,
+        Method::PUT,
+        &password_path,
+        &nako_api::admin::AdminSetLocalPasswordRequest {
+            password: "correct horse battery staple".to_owned(),
+        },
+        token,
+    )
+    .await;
+
+    let login = request_body_json::<LoginResponse, _>(
+        &router,
+        Method::POST,
+        "/auth/login",
+        &LoginRequest {
+            username: "session-admin".to_owned(),
+            password: "correct horse battery staple".to_owned(),
+        },
+    )
+    .await;
+
+    let summary = request_json_with_bearer::<AdminAccessSummaryResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/access/summary",
+        &login.session.token,
+    )
+    .await;
+
+    assert_eq!(summary.principal.principal_id, created.user.principal_id);
+    assert_eq!(summary.principal.display_name, "Session Admin");
+    assert!(summary.auth.enabled);
+    assert_eq!(summary.library_access.configured_libraries, 1);
+    assert_eq!(summary.library_access.libraries[0].library_id, library_id);
+}
+
+#[tokio::test]
 async fn admin_v1_metadata_raw_cache_settings_round_trips_persisted_override() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();
