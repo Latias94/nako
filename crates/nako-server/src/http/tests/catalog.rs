@@ -474,7 +474,10 @@ async fn public_browse_routes_filter_libraries_and_items_by_effective_access() {
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
-        artwork: crate::config::ArtworkConfig::default(),
+        artwork: crate::config::ArtworkConfig {
+            artifact_root: temp.path().join("nako-cache").join("artwork"),
+            ..crate::config::ArtworkConfig::default()
+        },
         libraries: vec![
             LocalLibraryConfig {
                 id: allowed_library_id,
@@ -630,6 +633,83 @@ async fn catalog_item_detail_credits_and_images_require_browse_access() {
     assert_eq!(detail.status(), StatusCode::FORBIDDEN);
     assert_eq!(credits.status(), StatusCode::FORBIDDEN);
     assert_eq!(images.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn catalog_selected_artwork_image_route_uses_private_cache_validators() {
+    let fixture = catalog_access_route_fixture().await;
+    let item = seed_catalog_route_item(
+        &fixture.store,
+        fixture.allowed_library_id,
+        "Visible Selected Artwork Cache",
+    )
+    .await;
+    let selected = seed_catalog_route_selected_artwork(
+        &fixture.store,
+        &fixture.artwork_root,
+        fixture.allowed_library_id,
+        item.id,
+        68,
+        "sha256-visible-selected-artwork-cache",
+    )
+    .await;
+    let path = format!("/images/{}", selected.id);
+
+    let get = response_for(&fixture.router, Method::GET, &path).await;
+    assert_eq!(get.status(), StatusCode::OK);
+    assert_eq!(
+        get.headers().get(header::CACHE_CONTROL).unwrap(),
+        "private, max-age=86400"
+    );
+    let etag = get
+        .headers()
+        .get(header::ETAG)
+        .expect("selected artwork response has an ETag")
+        .to_str()
+        .unwrap()
+        .to_owned();
+    assert!(etag.contains("nako-img-v1-"));
+    to_bytes(get.into_body(), usize::MAX).await.unwrap();
+
+    let not_modified = fixture
+        .router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&path)
+                .header(header::IF_NONE_MATCH, &etag)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(not_modified.status(), StatusCode::NOT_MODIFIED);
+    assert_eq!(
+        not_modified.headers().get(header::CACHE_CONTROL).unwrap(),
+        "private, max-age=86400"
+    );
+    assert_eq!(
+        not_modified.headers().get(header::ETAG).unwrap(),
+        HeaderValue::from_str(&etag).unwrap()
+    );
+    let not_modified_body = to_bytes(not_modified.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    assert!(not_modified_body.is_empty());
+
+    let head = response_for(&fixture.router, Method::HEAD, &path).await;
+    assert_eq!(head.status(), StatusCode::OK);
+    assert_eq!(
+        head.headers().get(header::CACHE_CONTROL).unwrap(),
+        "private, max-age=86400"
+    );
+    assert_eq!(
+        head.headers().get(header::ETAG).unwrap(),
+        HeaderValue::from_str(&etag).unwrap()
+    );
+    let head_body = to_bytes(head.into_body(), usize::MAX).await.unwrap();
+    assert!(head_body.is_empty());
 }
 
 #[tokio::test]
@@ -1103,7 +1183,10 @@ async fn library_items_route_returns_scoped_items_and_hides_inaccessible_librari
         transcode: TranscodeConfig::default(),
         staging: StagingConfig::default(),
         playback: PlaybackConfig::default(),
-        artwork: crate::config::ArtworkConfig::default(),
+        artwork: crate::config::ArtworkConfig {
+            artifact_root: temp.path().join("nako-cache").join("artwork"),
+            ..crate::config::ArtworkConfig::default()
+        },
         libraries: vec![
             LocalLibraryConfig {
                 id: allowed_library_id,
@@ -1352,8 +1435,150 @@ async fn library_items_route_applies_kind_watch_state_and_last_played_query() {
     );
 }
 
+#[tokio::test]
+async fn library_items_route_uses_stable_sort_keys_with_pagination() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let config = NakoServerConfig {
+        database_backend: Default::default(),
+        listen_addr: "127.0.0.1:0".parse().unwrap(),
+        database_url: "sqlite::memory:".to_owned(),
+        database_url_env: None,
+        auth: crate::config::AuthConfig::disabled(),
+        network: crate::config::NetworkAccessConfig::default(),
+        ffprobe_path: PathBuf::from("ffprobe"),
+        ffmpeg_path: PathBuf::from("ffmpeg"),
+        scan_concurrency: 1,
+        probe_concurrency: 1,
+        metadata_concurrency: 1,
+        remux_concurrency: 1,
+        webhook_concurrency: 2,
+        addon_event_scheduler: crate::config::AddonEventSchedulerConfig::default(),
+        vfs_cache_repair_automation: crate::config::VfsCacheRepairAutomationRuntimeConfig::default(
+        ),
+        remux_timeout_ms: 30 * 60 * 1_000,
+        remux_staging_root: temp.path().join("nako-cache").join("remux"),
+        metadata: MetadataConfig::default(),
+        transcode: TranscodeConfig::default(),
+        staging: StagingConfig::default(),
+        playback: PlaybackConfig::default(),
+        artwork: crate::config::ArtworkConfig {
+            artifact_root: temp.path().join("nako-cache").join("artwork"),
+            ..crate::config::ArtworkConfig::default()
+        },
+        libraries: vec![LocalLibraryConfig {
+            id: library_id,
+            name: "Movies".to_owned(),
+            root: temp.path().to_path_buf(),
+            preset: nako_core::LibraryPreset::Movies,
+            webdav: None,
+        }],
+    };
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let alpha = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Alpha Sort".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    let beta = MediaItem {
+        id: MediaItemId::new(),
+        kind: MediaKind::Movie,
+        parent_id: None,
+        metadata: CanonicalMetadata {
+            title: "Beta Sort".to_owned(),
+            ..CanonicalMetadata::default()
+        },
+    };
+    for item in [&alpha, &beta] {
+        store.upsert_media_item(item).await.unwrap();
+        store
+            .upsert_media_source(&MediaSource {
+                id: MediaSourceId::new(),
+                library_id,
+                item_id: item.id,
+                locator: format!("local:///{}.mkv", item.metadata.title),
+                file_name: format!("{}.mkv", item.metadata.title),
+                size_bytes: Some(5),
+                fingerprint: None,
+            })
+            .await
+            .unwrap();
+    }
+    let principal =
+        local_viewer_with_library_access(&store, library_id, LibraryAccessLevel::Browse).await;
+    store
+        .upsert_user_playback_state(UserPlaybackStateWrite {
+            principal_id: principal.principal_id.clone(),
+            item_id: alpha.id,
+            source_id: None,
+            resume_position_ms: Some(10_000),
+            duration_ms: Some(100_000),
+            watched: false,
+            watched_at_ms: None,
+            last_played_at_ms: Some(200),
+            updated_at_ms: 200,
+        })
+        .await
+        .unwrap();
+    store
+        .upsert_user_playback_state(UserPlaybackStateWrite {
+            principal_id: principal.principal_id.clone(),
+            item_id: beta.id,
+            source_id: None,
+            resume_position_ms: Some(10_000),
+            duration_ms: Some(100_000),
+            watched: false,
+            watched_at_ms: None,
+            last_played_at_ms: Some(300),
+            updated_at_ms: 300,
+        })
+        .await
+        .unwrap();
+    let router = public_client_router_with_principal(app, principal);
+
+    let title_asc = request_json::<nako_api::public_client::LibraryItemsResponse>(
+        &router,
+        Method::GET,
+        &format!("/libraries/{library_id}/items?sort=title&order=asc&limit=1&offset=0"),
+    )
+    .await;
+    let title_asc_page_2 = request_json::<nako_api::public_client::LibraryItemsResponse>(
+        &router,
+        Method::GET,
+        &format!("/libraries/{library_id}/items?sort=title&order=asc&limit=1&offset=1"),
+    )
+    .await;
+    let last_played_desc = request_json::<nako_api::public_client::LibraryItemsResponse>(
+        &router,
+        Method::GET,
+        &format!("/libraries/{library_id}/items?sort=last_played&order=desc&limit=1&offset=0"),
+    )
+    .await;
+
+    assert_eq!(title_asc.page.limit, 1);
+    assert_eq!(title_asc.page.offset, 0);
+    assert_eq!(title_asc.page.returned, 1);
+    assert_eq!(title_asc.items[0].id, alpha.id.to_string());
+    assert_eq!(title_asc_page_2.page.limit, 1);
+    assert_eq!(title_asc_page_2.page.offset, 1);
+    assert_eq!(title_asc_page_2.page.returned, 1);
+    assert_eq!(title_asc_page_2.items[0].id, beta.id.to_string());
+    assert_eq!(last_played_desc.page.limit, 1);
+    assert_eq!(last_played_desc.page.offset, 0);
+    assert_eq!(last_played_desc.page.returned, 1);
+    assert_eq!(last_played_desc.items[0].id, beta.id.to_string());
+}
+
 struct CatalogAccessRouteFixture {
     _temp: tempfile::TempDir,
+    artwork_root: std::path::PathBuf,
     router: Router,
     store: NakoDatabase,
     allowed_library_id: LibraryId,
@@ -1413,6 +1638,7 @@ async fn catalog_access_route_fixture() -> CatalogAccessRouteFixture {
     let app = NakoApp::new_with_store(config, store.clone())
         .await
         .unwrap();
+    let artwork_root = app.config().artwork.artifact_root.clone();
     let principal =
         local_viewer_with_library_access(&store, allowed_library_id, LibraryAccessLevel::Browse)
             .await;
@@ -1420,6 +1646,7 @@ async fn catalog_access_route_fixture() -> CatalogAccessRouteFixture {
 
     CatalogAccessRouteFixture {
         _temp: temp,
+        artwork_root,
         router,
         store,
         allowed_library_id,
@@ -1465,6 +1692,148 @@ async fn catalog_route_item_source(store: &NakoDatabase, item_id: MediaItemId) -
         .into_iter()
         .next()
         .unwrap()
+}
+
+async fn seed_catalog_route_selected_artwork(
+    store: &NakoDatabase,
+    artwork_root: &std::path::Path,
+    library_id: LibraryId,
+    item_id: MediaItemId,
+    byte_len: u64,
+    content_hash: &str,
+) -> nako_core::SelectedArtworkRecord {
+    let addon_id = AddonId::new();
+    store
+        .upsert_addon_registration(NewAddonRegistration {
+            id: addon_id,
+            manifest_id: "catalog.artwork.cache".to_owned(),
+            name: "Catalog Artwork Cache".to_owned(),
+            version: "0.1.0".to_owned(),
+            protocol_version: "0.1.0-alpha.1".to_owned(),
+            base_url: "https://example.test/addon".to_owned(),
+            manifest_json: "{}".to_owned(),
+            outbound_task_dispatch_secret_env: None,
+            granted_scopes: vec!["artwork_write".to_owned()],
+            status: AddonStatus::Enabled,
+        })
+        .await
+        .unwrap();
+    let token_id = AddonTokenId::new();
+    store
+        .create_addon_token(NewAddonToken {
+            id: token_id,
+            addon_id,
+            label: "catalog-artwork".to_owned(),
+            token_prefix: "nako_at_catalog".to_owned(),
+            token_hash: "sha256:catalog-artwork".to_owned(),
+        })
+        .await
+        .unwrap();
+    let side_effect = store
+        .create_addon_side_effect(NewAddonSideEffect {
+            id: AddonSideEffectId::new(),
+            addon_id,
+            token_id,
+            permission: AddonPermission::ArtworkWrite,
+            library_id,
+            target: AddonSideEffectTarget::media_item(item_id),
+            idempotency_key: format!("catalog-artwork-cache-{item_id}"),
+            provenance_json: "{}".to_owned(),
+            payload_json: "{}".to_owned(),
+            validation_status: AddonSideEffectValidationStatus::Accepted,
+            safe_error_code: None,
+        })
+        .await
+        .unwrap();
+    let candidate = store
+        .create_artwork_candidate(NewArtworkCandidate {
+            id: ArtworkCandidateId::new(),
+            addon_id,
+            side_effect_id: side_effect.id,
+            library_id,
+            item_id,
+            kind: ImageKind::Poster,
+            source_kind: ArtworkCandidateSourceKind::RemoteUrl,
+            source_uri: "https://cdn.example.test/poster.png".to_owned(),
+            width: Some(1),
+            height: Some(1),
+            language: None,
+        })
+        .await
+        .unwrap();
+    let ingest_id = ManagedArtworkIngestId::new();
+    let job_id = JobId::new();
+    let accepted = store
+        .accept_managed_artwork_candidate_ingest(
+            candidate.id,
+            NewManagedArtworkIngest {
+                id: ingest_id,
+                candidate_id: candidate.id,
+                job_id,
+                library_id,
+                item_id,
+                kind: ImageKind::Poster,
+                status: ManagedArtworkIngestStatus::Queued,
+                artifact_id: None,
+                failure_code: None,
+            },
+            NewJob {
+                id: job_id,
+                kind: JobKind::ManagedArtworkIngest,
+                resource_class: "artwork.ingest".to_owned(),
+                priority: JobPriority::Normal,
+                library_id: Some(library_id),
+                source_id: None,
+                input_json: Some("{}".to_owned()),
+            },
+        )
+        .await
+        .unwrap();
+    let claim = store
+        .claim_next_queued_managed_artwork_ingest()
+        .await
+        .unwrap()
+        .expect("expected queued managed artwork ingest");
+    let artifact_id = ManagedArtworkArtifactId::new();
+    store
+        .commit_managed_artwork_artifact(
+            accepted.ingest.id,
+            NewManagedArtworkArtifact {
+                id: artifact_id,
+                ingest_id: claim.ingest.id,
+                library_id,
+                item_id,
+                kind: ImageKind::Poster,
+                storage_uri: format!("managed-artwork://artifact/{artifact_id}"),
+                content_hash: Some(content_hash.to_owned()),
+                width: Some(1),
+                height: Some(1),
+                byte_len: Some(byte_len),
+                media_type: Some("image/png".to_owned()),
+            },
+            Some(r#"{"status":"stored"}"#.to_owned()),
+        )
+        .await
+        .unwrap();
+    let shard = artifact_id.to_string()[0..2].to_owned();
+    let artifact_path = artwork_root.join(shard).join(format!("{artifact_id}.png"));
+    fs::create_dir_all(artifact_path.parent().unwrap()).unwrap();
+    fs::write(artifact_path, catalog_route_png()).unwrap();
+
+    store
+        .publish_selected_artwork(artifact_id)
+        .await
+        .unwrap()
+        .selected_artwork
+}
+
+fn catalog_route_png() -> Vec<u8> {
+    let image = image::RgbaImage::from_fn(1, 1, |_, _| image::Rgba([31, 119, 180, 255]));
+    let mut cursor = std::io::Cursor::new(Vec::new());
+    image::DynamicImage::ImageRgba8(image)
+        .write_to(&mut cursor, image::ImageFormat::Png)
+        .unwrap();
+    cursor.into_inner()
 }
 
 fn catalog_route_probe() -> MediaProbeResult {
