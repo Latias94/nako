@@ -1152,6 +1152,99 @@ async fn catalog_search_route_filters_accessible_batch_without_leaking_hidden_hi
 }
 
 #[tokio::test]
+async fn catalog_search_route_combines_facets_and_access_filtering_before_pagination() {
+    let fixture = catalog_access_route_fixture().await;
+    let hidden_match = seed_catalog_route_item(
+        &fixture.store,
+        fixture.blocked_library_id,
+        "Needle Hidden Facet Search",
+    )
+    .await;
+    let visible_match = seed_catalog_route_item(
+        &fixture.store,
+        fixture.allowed_library_id,
+        "Needle Visible Facet Search",
+    )
+    .await;
+    let visible_genre_only = seed_catalog_route_item(
+        &fixture.store,
+        fixture.allowed_library_id,
+        "Needle Visible Genre Only",
+    )
+    .await;
+    let visible_tag_only = seed_catalog_route_item(
+        &fixture.store,
+        fixture.allowed_library_id,
+        "Needle Visible Tag Only",
+    )
+    .await;
+    for (item, facets) in [
+        (
+            &hidden_match,
+            vec!["genre:test".to_owned(), "tag:demo".to_owned()],
+        ),
+        (
+            &visible_match,
+            vec!["genre:test".to_owned(), "tag:demo".to_owned()],
+        ),
+        (&visible_genre_only, vec!["genre:test".to_owned()]),
+        (&visible_tag_only, vec!["tag:demo".to_owned()]),
+    ] {
+        fixture
+            .store
+            .upsert(
+                SearchDocument::from_facet_labels(
+                    item.id,
+                    item.metadata.title.clone(),
+                    "needle route fixture",
+                    facets,
+                )
+                .unwrap(),
+            )
+            .await
+            .unwrap();
+    }
+
+    let repeated = request_json::<nako_api::public_client::SearchResponse>(
+        &fixture.router,
+        Method::GET,
+        "/search?q=needle&facet=genre:test&facet=tag:demo&limit=1&offset=0",
+    )
+    .await;
+    let comma_separated = request_json::<nako_api::public_client::SearchResponse>(
+        &fixture.router,
+        Method::GET,
+        "/search?q=needle&facet=genre:test,tag:demo&limit=1&offset=0",
+    )
+    .await;
+    let second_page = request_json::<nako_api::public_client::SearchResponse>(
+        &fixture.router,
+        Method::GET,
+        "/search?q=needle&facet=genre:test,tag:demo&limit=1&offset=1",
+    )
+    .await;
+
+    for response in [&repeated, &comma_separated] {
+        assert_eq!(response.page.limit, 1);
+        assert_eq!(response.page.offset, 0);
+        assert_eq!(response.page.returned, 1);
+        assert_eq!(response.hits[0].item.id, visible_match.id.to_string());
+        assert!(
+            response
+                .hits
+                .iter()
+                .all(|hit| hit.item.id != hidden_match.id.to_string()
+                    && hit.item.id != visible_genre_only.id.to_string()
+                    && hit.item.id != visible_tag_only.id.to_string())
+        );
+    }
+    assert_eq!(second_page.page.limit, 1);
+    assert_eq!(second_page.page.offset, 1);
+    assert_eq!(second_page.page.returned, 0);
+    assert!(second_page.hits.is_empty());
+}
+
+#[tokio::test]
 async fn library_items_route_returns_scoped_items_and_hides_inaccessible_libraries() {
     let temp = tempfile::tempdir().unwrap();
     let allowed_root = temp.path().join("allowed");

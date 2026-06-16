@@ -25,10 +25,10 @@ Harden the Public Client Media Library browse, search, and selected artwork deli
 
 - [x] Library item browse route proves stable `title` and `last_played` ordering across pagination.
 - [x] Selected artwork image route proves `Cache-Control: private, max-age=86400`, ETag, GET/HEAD, and `If-None-Match` `304` behavior.
-- [ ] Search route proves combined text plus repeated/comma facets return only matching accessible items.
-- [ ] Search route proves access filtering happens before public pagination for hidden hits.
-- [ ] Repository-level search/access contract remains green for SQLite and the optional PostgreSQL contract family where available.
-- [ ] No public DTO exposes source locators, local paths, principal IDs, raw storage identity, provider payloads, tokens, or backend URLs.
+- [x] Search route proves combined text plus repeated/comma facets return only matching accessible items.
+- [x] Search route proves access filtering happens before public pagination for hidden hits.
+- [x] Repository-level search/access contract remains green for SQLite and the optional PostgreSQL contract family where available.
+- [x] No public DTO exposes source locators, local paths, principal IDs, raw storage identity, provider payloads, tokens, or backend URLs.
 
 ## Definition of Done
 
@@ -69,6 +69,12 @@ Harden the Public Client Media Library browse, search, and selected artwork deli
 - `cargo nextest run -p nako-server library_items_route_uses_stable_sort_keys_with_pagination --no-fail-fast` passed.
 - `cargo nextest run -p nako-server catalog_selected_artwork_image_route_uses_private_cache_validators --no-fail-fast` passed.
 - `cargo fmt --all` passed for the committed browse/cache slice.
+- Added `catalog_search_route_combines_facets_and_access_filtering_before_pagination` to prove text search, repeated facets, comma-separated facets, Library Access filtering, and public pagination behave together.
+- `cargo nextest run -p nako-server catalog_search_route_combines_facets_and_access_filtering_before_pagination --no-fail-fast` passed.
+- `cargo nextest run -p nako-server catalog_search_route_combines_facets_and_access_filtering_before_pagination catalog_search_route_filters_accessible_batch_without_leaking_hidden_hits search_route_supports_repeated_and_comma_separated_facets --no-fail-fast` passed.
+- `cargo nextest run -p nako-db sqlite_catalog_access_contract_filters_search_documents_before_pagination --no-fail-fast` passed.
+- `cargo nextest list -p nako-db | Select-String -Pattern 'postgres_.*catalog_access.*search|catalog_access_contract_filters_search_documents_before_pagination'` found the SQLite repository contract in this local environment; no PostgreSQL URL/tooling was configured for an optional ignored run.
+- No DTO, public route inventory, schema, or generated contract shape changed in this task.
 
 ## Technical Notes
 
