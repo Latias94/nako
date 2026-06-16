@@ -3,7 +3,7 @@
   "name": "admin-web-operator-readiness-drilldown",
   "title": "feat: Admin Web operator readiness drilldown",
   "description": "Add an Admin Web read-only drilldown page for the backend operator readiness read model so self-hosting operators can inspect safe per-area reasons and next actions.",
-  "status": "done",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": "admin-web",
