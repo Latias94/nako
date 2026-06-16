@@ -725,6 +725,7 @@ DELETE /admin/v1/items/{item_id}/artwork/{kind}/selection
 GET  /admin/v1/playback/sessions
 GET  /admin/v1/playback/runtime
 GET  /admin/v1/storage/staging
+GET  /admin/v1/network/access
 GET  /admin/v1/system/config
 GET  /admin/v1/settings/metadata/raw-cache
 PUT  /admin/v1/settings/metadata/raw-cache
@@ -755,7 +756,7 @@ contract for the first read-model routes above:
 `GET /admin/v1/events`,
 `GET /admin/v1/jobs`, `GET /admin/v1/playback/sessions`,
 `GET /admin/v1/playback/runtime`, `GET /admin/v1/storage/staging`,
-`GET /admin/v1/system/config`, and
+`GET /admin/v1/network/access`, `GET /admin/v1/system/config`, and
 `GET|PUT /admin/v1/settings/metadata/raw-cache`.
 Refresh it from `apps/admin-web` with `npm run generate:admin-api`.
 
@@ -1203,6 +1204,17 @@ The runtime diagnostics route does not return `ffmpeg_path`,
 errors, device paths, smoke-probe detail text, secrets, tokens, runner handles,
 or cancellation tokens. Device initialization and smoke-probe detail are exposed
 only as boolean `has_detail` flags plus safe operator-check guidance. It is an
+Admin API route and is not part of Public Client OpenAPI or generated SDK
+artifacts.
+
+`GET /admin/v1/network/access` returns the sanitized **Network Access**
+diagnostics used by the control plane. It reports exposure mode, readiness
+status/reason/checks, whether an external endpoint is configured, external
+endpoint scheme, endpoint host fingerprint, trusted proxy header enablement and
+source count, allowed-origin count, and declared tunnel providers. It does not
+return raw `external_base_url`, endpoint host names, endpoint path/query/userinfo
+values, trusted proxy sources, allowed origins, forwarded header names, tunnel
+public URLs, token values, credentials, or local listener details. It is an
 Admin API route and is not part of Public Client OpenAPI or generated SDK
 artifacts.
 

@@ -12306,6 +12306,211 @@ async fn admin_v1_system_config_reports_sanitized_configuration() {
     assert!(!body.contains("x-forwarded"));
 }
 
+fn sensitive_remote_access_network_config() -> crate::config::NetworkAccessConfig {
+    crate::config::NetworkAccessConfig {
+        exposure_mode: crate::config::NetworkExposureMode::TunnelProvider,
+        external_base_url: Some(
+            "https://user:network-secret@nako.example.test/path?token=url-secret".to_owned(),
+        ),
+        trusted_proxy_headers: true,
+        trusted_proxy_sources: vec!["127.0.0.1".to_owned(), "10.0.0.0/8".to_owned()],
+        allowed_origins: vec!["https://operator-secret.example.test".to_owned()],
+        tunnel_providers: vec![crate::config::TunnelProviderConfig {
+            id: "cloudflared".to_owned(),
+            kind: crate::config::TunnelProviderKind::CloudflareTunnel,
+            public_url: Some(
+                "https://user:tunnel-url-secret@tunnel.example.test/path?token=secret".to_owned(),
+            ),
+            token_env: None,
+        }],
+    }
+}
+
+#[tokio::test]
+async fn admin_v1_network_access_reports_redacted_remote_endpoint_readiness() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let token = "test-admin-token";
+    let router = test_router_with_bearer_auth_and_network(
+        temp.path().to_path_buf(),
+        library_id,
+        token,
+        sensitive_remote_access_network_config(),
+    )
+    .await;
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/network/access")
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = response_text(response).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let diagnostics: nako_api::admin::AdminNetworkAccessDiagnostics =
+        serde_json::from_str(&body).unwrap();
+    let system_config = request_json_with_bearer::<AdminServerConfigDiagnosticsResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/system/config",
+        token,
+    )
+    .await;
+
+    assert_eq!(
+        diagnostics.exposure_mode,
+        nako_api::admin::AdminNetworkExposureMode::TunnelProvider
+    );
+    assert_eq!(diagnostics, system_config.network);
+    assert_eq!(
+        diagnostics.readiness.status,
+        nako_api::admin::AdminNetworkReadinessStatus::Unavailable
+    );
+    assert_eq!(
+        diagnostics.readiness.reason,
+        nako_api::admin::AdminNetworkReadinessReason::AuthDisabled
+    );
+    assert_eq!(diagnostics.readiness.checks.len(), 6);
+    assert!(diagnostics.readiness.checks.iter().any(|check| {
+        check.name == nako_api::admin::AdminNetworkReadinessCheckName::TunnelProvider
+            && check.status == nako_api::admin::AdminNetworkReadinessStatus::Unavailable
+            && check.reason == nako_api::admin::AdminNetworkReadinessReason::MissingTunnelToken
+    }));
+    assert!(diagnostics.external_endpoint.configured);
+    assert_eq!(
+        diagnostics.external_endpoint.scheme.as_deref(),
+        Some("https")
+    );
+    assert!(
+        diagnostics
+            .external_endpoint
+            .host_fingerprint
+            .as_deref()
+            .is_some_and(|fingerprint| fingerprint.starts_with("sha256:"))
+    );
+    assert!(diagnostics.trusted_proxy.headers_enabled);
+    assert_eq!(diagnostics.trusted_proxy.source_count, 2);
+    assert_eq!(diagnostics.origins.allowed_origin_count, 1);
+    assert!(diagnostics.origins.configured);
+    assert_eq!(diagnostics.tunnel_providers.len(), 1);
+    assert_eq!(diagnostics.tunnel_providers[0].id, "cloudflared");
+    assert_eq!(
+        diagnostics.tunnel_providers[0].kind,
+        nako_api::admin::AdminTunnelProviderKind::CloudflareTunnel
+    );
+    assert!(diagnostics.tunnel_providers[0].endpoint_configured);
+    assert_eq!(
+        diagnostics.tunnel_providers[0].endpoint_scheme.as_deref(),
+        Some("https")
+    );
+    assert_eq!(diagnostics.tunnel_providers[0].token_env, None);
+    assert!(!diagnostics.tunnel_providers[0].token_present);
+
+    for forbidden in [
+        "external_base_url",
+        "trusted_proxy_sources",
+        "allowed_origins",
+        "public_url",
+        "network-secret",
+        "url-secret",
+        "operator-secret",
+        "tunnel-url-secret",
+        "nako.example.test",
+        "tunnel.example.test",
+        "127.0.0.1",
+        "10.0.0.0/8",
+        "x-forwarded",
+        "Authorization",
+    ] {
+        assert!(
+            !body.contains(forbidden),
+            "network access diagnostics leaked forbidden term: {forbidden}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn admin_v1_network_access_rejects_non_admin_session() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let token = "test-admin-token";
+    let router = test_router_with_bearer_auth_and_network(
+        temp.path().to_path_buf(),
+        library_id,
+        token,
+        sensitive_remote_access_network_config(),
+    )
+    .await;
+
+    let created = request_body_json_with_bearer::<AdminAccessUserResponse, _>(
+        &router,
+        Method::POST,
+        "/admin/v1/access/users",
+        &AdminCreateUserRequest {
+            username: "network-access-viewer".to_owned(),
+            display_name: "Network Access Viewer".to_owned(),
+            roles: vec![UserRole::Viewer],
+        },
+        token,
+    )
+    .await;
+    let password_path = format!(
+        "/admin/v1/access/users/{}/local-password",
+        created.user.user_id
+    );
+    request_body_json_with_bearer::<nako_api::admin::AdminLocalPasswordResponse, _>(
+        &router,
+        Method::PUT,
+        &password_path,
+        &nako_api::admin::AdminSetLocalPasswordRequest {
+            password: "correct horse battery staple".to_owned(),
+        },
+        token,
+    )
+    .await;
+    let login = request_body_json::<LoginResponse, _>(
+        &router,
+        Method::POST,
+        "/auth/login",
+        &LoginRequest {
+            username: "network-access-viewer".to_owned(),
+            password: "correct horse battery staple".to_owned(),
+        },
+    )
+    .await;
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/network/access")
+                .header(
+                    header::AUTHORIZATION,
+                    format!("Bearer {}", login.session.token),
+                )
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let error = body_json::<ErrorResponse>(response).await;
+    assert_eq!(
+        error.code,
+        nako_api::public_client::ClientErrorCode::Forbidden.as_str()
+    );
+    assert_eq!(error.message, "administrator role is required");
+}
+
 #[tokio::test]
 async fn admin_v1_incident_bundle_composes_route_response_without_sensitive_payloads() {
     let temp = tempfile::tempdir().unwrap();

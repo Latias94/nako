@@ -116,6 +116,7 @@ export const NAKO_ADMIN_ROUTES = {
   storageVfsCacheRepairJobRetry: "/admin/v1/storage/vfs-cache/repair/jobs/{job_id}/retry",
   storageVfsCacheRepairActionPlan: "/admin/v1/storage/vfs-cache/repair/action-plan",
   storageVfsCacheRepairRefreshCache: "/admin/v1/storage/vfs-cache/repair/refresh-cache",
+  networkAccess: "/admin/v1/network/access",
   systemConfig: "/admin/v1/system/config",
   settingsPlaybackRuntime: "/admin/v1/settings/playback/runtime",
   settingsMetadataRawCache: "/admin/v1/settings/metadata/raw-cache",

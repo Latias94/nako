@@ -12,7 +12,7 @@ pub struct AdminContractRouteExclusion {
     pub reason: &'static str,
 }
 
-const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 115] = [
+const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 116] = [
     ("overview", "overview"),
     ("incidentBundle", "diagnostics/incident-bundle"),
     ("accessSummary", "access/summary"),
@@ -326,6 +326,7 @@ const ADMIN_ROUTE_SUFFIXES: [(&str, &str); 115] = [
         "storageVfsCacheRepairRefreshCache",
         "storage/vfs-cache/repair/refresh-cache",
     ),
+    ("networkAccess", "network/access"),
     ("systemConfig", "system/config"),
     ("settingsPlaybackRuntime", "settings/playback/runtime"),
     ("settingsMetadataRawCache", "settings/metadata/raw-cache"),

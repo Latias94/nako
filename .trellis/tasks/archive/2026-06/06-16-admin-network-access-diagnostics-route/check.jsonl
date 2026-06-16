@@ -1,0 +1,7 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "API/Admin contract and generated route inventory rules"}
+{"file": "crates/nako-api/src/admin/network.rs", "reason": "Existing redacted network DTO contract"}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Admin route inventory parity gate"}
+{"file": "crates/nako-server/src/http/admin.rs", "reason": "Existing Admin route and network diagnostics implementation"}
+{"file": "crates/nako-server/src/http/tests/system.rs", "reason": "Existing system diagnostics route test patterns"}
+{"file": "docs/api/HTTP_API.md", "reason": "Admin HTTP API documentation for the new network diagnostics route"}

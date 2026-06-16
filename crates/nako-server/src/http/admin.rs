@@ -498,6 +498,7 @@ pub(super) fn routes() -> Router<NakoApp> {
             "/admin/v1/storage/vfs-cache/repair/refresh-cache",
             post(refresh_admin_vfs_cache),
         )
+        .route("/admin/v1/network/access", get(get_admin_network_access))
         .route("/admin/v1/system/config", get(get_admin_system_config))
         .route(
             "/admin/v1/settings/metadata/raw-cache",
@@ -1698,6 +1699,12 @@ pub(super) async fn get_admin_system_config(
     State(app): State<NakoApp>,
 ) -> Json<AdminServerConfigDiagnosticsResponse> {
     Json(admin_system_config_response(&app))
+}
+
+pub(super) async fn get_admin_network_access(
+    State(app): State<NakoApp>,
+) -> Json<AdminNetworkAccessDiagnostics> {
+    Json(network_access_diagnostics(app.config()))
 }
 
 fn admin_system_config_response(app: &NakoApp) -> AdminServerConfigDiagnosticsResponse {
