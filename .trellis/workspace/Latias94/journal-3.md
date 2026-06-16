@@ -1943,3 +1943,37 @@ Validation:
 ### Next Steps
 
 - None - task complete
+
+
+## Session 147: Watch folder restart intake recovery
+
+**Date**: 2026-06-16
+**Task**: Watch folder restart intake recovery
+**Package**: nako-server
+**Branch**: `feat/admin-overview-durable-jobs`
+
+### Summary
+
+Added a focused nako-server restart regression test proving persisted watch-folder intake evidence survives app restart and the supervised runtime enqueues exactly one library scan through the existing admission path.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `25886da1` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
