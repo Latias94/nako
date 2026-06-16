@@ -1,5 +1,9 @@
-use axum::http::{HeaderName, HeaderValue};
-use axum::{Extension, Router, middleware, response::Response};
+use axum::{
+    Extension, Json, Router,
+    http::{HeaderName, HeaderValue, header},
+    middleware,
+    response::{IntoResponse, Response},
+};
 use nako_api::public_client::{API_VERSION, API_VERSION_HEADER};
 
 use crate::app::NakoApp;
@@ -75,6 +79,17 @@ async fn add_api_version_header(mut response: Response) -> Response {
         HeaderName::from_static(API_VERSION_HEADER),
         HeaderValue::from_static(API_VERSION),
     );
+    response
+}
+
+fn no_store_json<T>(value: T) -> Response
+where
+    T: serde::Serialize,
+{
+    let mut response = Json(value).into_response();
+    response
+        .headers_mut()
+        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
     response
 }
 

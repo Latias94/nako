@@ -13,6 +13,7 @@ use crate::app::{LibraryScanTraceContext, NakoApp};
 
 use super::{
     error::ApiResult,
+    no_store_json,
     query::{IngestionFailureQuery, LibraryItemsQuery, PageQuery},
     trace_context::HttpTraceContext,
 };
@@ -38,7 +39,7 @@ pub(super) async fn list_libraries(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Query(page): Query<PageQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    Ok(Json(
+    Ok(no_store_json(
         app.library()
             .list_libraries_for_browse(&principal, page.try_into()?)
             .await?,
@@ -109,7 +110,7 @@ pub(super) async fn list_library_sources(
     Path(library_id): Path<LibraryId>,
     Query(page): Query<PageQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    Ok(Json(
+    Ok(no_store_json(
         app.library()
             .list_library_sources_for_browse(&principal, library_id, page.try_into()?)
             .await?,
@@ -123,7 +124,7 @@ pub(super) async fn list_library_items(
     Path(library_id): Path<LibraryId>,
     RawQuery(raw_query): RawQuery,
 ) -> ApiResult<impl IntoResponse> {
-    Ok(Json(
+    Ok(no_store_json(
         app.library()
             .list_library_items_for_browse(
                 &principal,

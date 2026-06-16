@@ -378,6 +378,84 @@ Ok(Json(filter_item_detail_sources(&app, &principal, detail).await?))
 Ok(Json(app.catalog().get_item(&principal, item_id).await?))
 ```
 
+## Scenario: Public JSON Dynamic List Cache-Control
+
+### 1. Scope / Trigger
+
+- Trigger: changing authenticated Public Client JSON list, browse, or search
+  responses that depend on Library Access, current principal, user playback
+  state, search index freshness, or mutable catalog/library membership.
+- Code evidence: `src/http.rs`, `src/http/catalog.rs`, `src/http/library.rs`,
+  and `src/http/tests/catalog.rs`.
+
+### 2. Signatures
+
+- Covered HTTP handlers return `ApiResult<impl IntoResponse>`.
+- Dynamic JSON list handlers wrap DTOs with the shared helper:
+  `no_store_json<T: serde::Serialize>(value: T) -> axum::response::Response`.
+- Current covered routes:
+  - `GET /items`
+  - `GET /search`
+  - `GET /libraries`
+  - `GET /libraries/{library_id}/sources`
+  - `GET /libraries/{library_id}/items`
+
+### 3. Contracts
+
+- Covered Public Client dynamic JSON list responses must include
+  `Cache-Control: no-store`.
+- Keep this contract separate from selected artwork image routes, which use
+  `Cache-Control: private, max-age=86400` with ETag/304 support.
+- Keep this contract separate from playback byte and HLS routes, which use
+  playback-specific no-store helpers.
+- Do not add `ETag`, `Last-Modified`, `304`, public DTO/schema changes,
+  generated SDK changes, total-count behavior, or repository behavior without a
+  dedicated validator/cache design task.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Covered dynamic list route returns `200 OK` | Response includes `Cache-Control: no-store` |
+| Covered route returns an auth/access/application error | Existing error behavior is preserved |
+| Selected artwork image route returns bytes or `304` | Uses selected artwork private cache/ETag contract, not JSON list policy |
+| Playback byte or HLS route returns bytes/artifacts | Uses playback cache helpers, not `no_store_json` |
+
+### 5. Good / Base / Bad Cases
+
+- Good: `/search` calls the app service, then returns
+  `Ok(no_store_json(search_response))`.
+- Base: item detail, credits, images, and other stable read DTOs keep their
+  existing response behavior until a separate cache policy is designed.
+- Bad: `/libraries/{library_id}/items` returns `Ok(Json(response))` and leaves
+  browser/proxy caching to HTTP defaults.
+
+### 6. Tests Required
+
+- HTTP route test proving each covered route includes
+  `Cache-Control: no-store`.
+- Focused gate:
+  `cargo nextest run -p nako-server public_json_browse_routes_use_no_store_cache_policy --no-fail-fast`.
+- Type-check gate: `cargo check -p nako-server --tests`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+Ok(Json(app.catalog().search_accessible_items(&principal, q, facets, page).await?))
+```
+
+#### Correct
+
+```rust
+Ok(no_store_json(
+    app.catalog()
+        .search_accessible_items(&principal, q, facets, page)
+        .await?,
+))
+```
+
 ## Scenario: User Playlist Item Mutation Access Boundary
 
 ### 1. Scope / Trigger

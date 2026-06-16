@@ -1,0 +1,4 @@
+{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Check route changes preserve auth, access, public DTO, and response boundaries."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Check focused route tests and gate selection."}
+{"file":".trellis/spec/nako-client-protocol/backend/index.md","reason":"Check that no Public Client wire shape drift is introduced."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Check cache policy assumptions across HTTP clients, frontend surfaces, and backend access filtering."}

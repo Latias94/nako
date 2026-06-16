@@ -29,6 +29,31 @@ async fn empty_sources_and_items_routes_work() {
 }
 
 #[tokio::test]
+async fn public_json_browse_routes_use_no_store_cache_policy() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let router = test_router(temp.path().to_path_buf(), library_id).await;
+    let paths = [
+        "/items".to_owned(),
+        "/search?q=route&limit=1&offset=0".to_owned(),
+        "/libraries?limit=20&offset=0".to_owned(),
+        format!("/libraries/{library_id}/sources?limit=20&offset=0"),
+        format!("/libraries/{library_id}/items?limit=20&offset=0"),
+    ];
+
+    for path in paths {
+        let response = response_for(&router, Method::GET, &path).await;
+
+        assert_eq!(response.status(), StatusCode::OK, "path: {path}");
+        assert_eq!(
+            response.headers().get(header::CACHE_CONTROL),
+            Some(&HeaderValue::from_static("no-store")),
+            "path: {path}"
+        );
+    }
+}
+
+#[tokio::test]
 async fn search_route_returns_indexed_items() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();

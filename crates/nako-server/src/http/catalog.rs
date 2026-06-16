@@ -16,6 +16,7 @@ use crate::app::NakoApp;
 
 use super::{
     error::ApiResult,
+    no_store_json,
     query::{ImageVariantQuery, PageQuery, SearchPageQuery},
 };
 
@@ -43,7 +44,7 @@ pub(super) async fn list_items(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Query(page): Query<PageQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    Ok(Json(
+    Ok(no_store_json(
         app.catalog()
             .list_accessible_items(&principal, page.try_into()?)
             .await?,
@@ -241,7 +242,7 @@ pub(super) async fn search_items(
     let page = query.page().try_into()?;
     let facets = query.facets();
 
-    Ok(Json(
+    Ok(no_store_json(
         app.catalog()
             .search_accessible_items(&principal, query.q.unwrap_or_default(), facets, page)
             .await?,
