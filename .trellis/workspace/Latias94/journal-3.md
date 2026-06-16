@@ -1825,3 +1825,37 @@ Added a route-level Media Web smoke proving path recovery keeps playback progres
 ### Next Steps
 
 - None - task complete
+
+
+## Session 144: Admin network access diagnostics route
+
+**Date**: 2026-06-16
+**Task**: Admin network access diagnostics route
+**Package**: nako-server
+**Branch**: `feat/admin-overview-durable-jobs`
+
+### Summary
+
+Added a dedicated redacted Admin network access diagnostics route, generated Admin route constants, focused HTTP/contract tests, docs, and archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3176d5ac` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
