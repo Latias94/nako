@@ -1,0 +1,4 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": "docs/plans/2026-06-16-001-feat-backend-self-hosted-maturity-execution-plan.md", "reason": "U5 access and playback policy execution unit"}
+{"file": "docs/architecture/STATE_ACCESS.md", "reason": "Policy-before-work and user playback state access authority"}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "User Playback State Access Boundary"}

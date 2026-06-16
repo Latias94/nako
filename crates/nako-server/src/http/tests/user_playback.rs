@@ -127,6 +127,29 @@ async fn user_playback_write_routes_require_play_library_access() {
 }
 
 #[tokio::test]
+async fn user_playback_read_route_requires_browse_library_access() {
+    let (_temp, app, source, store) =
+        app_with_media_source_config("no-access-state.mkv", b"media", |_| {}).await;
+    let principal =
+        local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::None).await;
+    let router = public_client_router_with_principal(app, principal);
+    let state_path = format!("/users/me/playback-state/items/{}", source.item_id);
+
+    let response = response_for(&router, Method::GET, &state_path).await;
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let error = body_json::<nako_api::public_client::ErrorResponse>(response).await;
+    assert_eq!(error.code, "forbidden");
+    assert!(
+        error
+            .message
+            .contains("required Library Access level 'browse'"),
+        "{}",
+        error.message
+    );
+}
+
+#[tokio::test]
 async fn continue_watching_filters_items_without_current_library_access() {
     let (_temp, app, source, store) =
         app_with_media_source_config("hidden-continue.mkv", b"media", |_| {}).await;
