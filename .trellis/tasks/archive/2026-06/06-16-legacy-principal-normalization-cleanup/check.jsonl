@@ -1,0 +1,8 @@
+{"file": ".trellis/tasks/06-16-legacy-principal-normalization-cleanup/prd.md", "reason": "Task requirements, acceptance criteria, and scope boundaries."}
+{"file": ".trellis/tasks/archive/2026-06/06-16-06-16-backend-readiness-control-plane-audit/audit.md", "reason": "Check implementation against audit deletion safety criteria."}
+{"file": "docs/development/REFACTORING_POLICY.md", "reason": "Confirm obsolete compatibility deletion is covered and scoped."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Review auth and route handler compliance."}
+{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Review auth failure behavior remains unchanged."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Review focused server verification."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Review search-before-delete evidence."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Review middleware-to-handler data flow."}
