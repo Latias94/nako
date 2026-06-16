@@ -12508,6 +12508,203 @@ async fn admin_v1_network_access_reports_redacted_remote_endpoint_readiness() {
 }
 
 #[tokio::test]
+async fn admin_v1_network_access_flags_invalid_browser_origin_policy_without_leaking_origin() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let token = "test-admin-token";
+    let mut network = crate::config::NetworkAccessConfig::default();
+    network.exposure_mode = crate::config::NetworkExposureMode::ReverseProxy;
+    network.external_base_url = Some("https://nako.example.test".to_owned());
+    network.allowed_origins = vec![
+        "https://operator-secret.example.test/path?token=origin-secret".to_owned(),
+        "*".to_owned(),
+    ];
+    let router = test_router_with_configured_bearer_auth_and_network(
+        temp.path().to_path_buf(),
+        library_id,
+        token,
+        network,
+    )
+    .await;
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/network/access")
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let status = response.status();
+    let body = response_text(response).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let diagnostics: nako_api::admin::AdminNetworkAccessDiagnostics =
+        serde_json::from_str(&body).unwrap();
+
+    assert_eq!(
+        diagnostics.readiness.status,
+        nako_api::admin::AdminNetworkReadinessStatus::Unavailable
+    );
+    assert_eq!(
+        diagnostics.readiness.reason,
+        nako_api::admin::AdminNetworkReadinessReason::InvalidBrowserOriginPolicy
+    );
+    assert!(diagnostics.readiness.checks.iter().any(|check| {
+        check.name == nako_api::admin::AdminNetworkReadinessCheckName::OriginPolicy
+            && check.status == nako_api::admin::AdminNetworkReadinessStatus::Unavailable
+            && check.reason
+                == nako_api::admin::AdminNetworkReadinessReason::InvalidBrowserOriginPolicy
+    }));
+    assert_eq!(diagnostics.origins.allowed_origin_count, 2);
+    assert!(diagnostics.origins.configured);
+
+    for forbidden in [
+        "operator-secret",
+        "origin-secret",
+        "nako.example.test",
+        "allowed_origins",
+        "https://operator-secret.example.test",
+    ] {
+        assert!(
+            !body.contains(forbidden),
+            "network readiness leaked forbidden origin material: {forbidden}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn admin_v1_network_access_ignores_invalid_browser_origins_for_local_only_mode() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let token = "test-admin-token";
+    let mut network = crate::config::NetworkAccessConfig::default();
+    network.exposure_mode = crate::config::NetworkExposureMode::LocalOnly;
+    network.allowed_origins = vec![
+        "https://operator-secret.example.test/path?token=origin-secret".to_owned(),
+        "*".to_owned(),
+    ];
+    let router = test_router_with_configured_bearer_auth_and_network(
+        temp.path().to_path_buf(),
+        library_id,
+        token,
+        network,
+    )
+    .await;
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/network/access")
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let status = response.status();
+    let body = response_text(response).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let diagnostics: nako_api::admin::AdminNetworkAccessDiagnostics =
+        serde_json::from_str(&body).unwrap();
+
+    assert_eq!(
+        diagnostics.readiness.status,
+        nako_api::admin::AdminNetworkReadinessStatus::Ready
+    );
+    assert!(diagnostics.readiness.checks.iter().any(|check| {
+        check.name == nako_api::admin::AdminNetworkReadinessCheckName::OriginPolicy
+            && check.status == nako_api::admin::AdminNetworkReadinessStatus::Ready
+            && check.reason == nako_api::admin::AdminNetworkReadinessReason::Ready
+    }));
+
+    for forbidden in [
+        "operator-secret",
+        "origin-secret",
+        "allowed_origins",
+        "https://operator-secret.example.test",
+    ] {
+        assert!(
+            !body.contains(forbidden),
+            "local-only network readiness leaked forbidden origin material: {forbidden}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn admin_v1_overview_reports_invalid_browser_origin_policy_as_network_unavailable() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let token = "test-admin-token";
+    let mut network = crate::config::NetworkAccessConfig::default();
+    network.exposure_mode = crate::config::NetworkExposureMode::ReverseProxy;
+    network.external_base_url = Some("https://nako.example.test".to_owned());
+    network.allowed_origins = vec!["https://operator-secret.example.test/path".to_owned()];
+    let router = test_router_with_configured_bearer_auth_and_network(
+        temp.path().to_path_buf(),
+        library_id,
+        token,
+        network,
+    )
+    .await;
+
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/admin/v1/overview")
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let status = response.status();
+    let body = response_text(response).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let overview: AdminOverviewResponse = serde_json::from_str(&body).unwrap();
+    let network_check = overview
+        .operator_readiness
+        .checks
+        .iter()
+        .find(|check| check.area == AdminOperatorReadinessArea::Network)
+        .expect("network operator readiness check");
+
+    assert_eq!(
+        network_check.status,
+        AdminOperatorReadinessStatus::Unavailable
+    );
+    assert_eq!(
+        network_check.reason,
+        AdminOperatorReadinessReason::NetworkUnavailable
+    );
+    assert_eq!(
+        network_check.source_reason.as_deref(),
+        Some("invalid_browser_origin_policy")
+    );
+    assert_eq!(network_check.attention_count, 1);
+    assert_eq!(
+        network_check
+            .action
+            .as_ref()
+            .expect("network action")
+            .route_key,
+        "systemConfig"
+    );
+    assert!(!body.contains("operator-secret"));
+    assert!(!body.contains("https://operator-secret.example.test"));
+}
+
+#[tokio::test]
 async fn admin_v1_network_access_rejects_non_admin_session() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();

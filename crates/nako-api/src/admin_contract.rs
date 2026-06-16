@@ -4439,7 +4439,8 @@ export type AdminNetworkReadinessReason =
   | "missing_trusted_proxy_sources"
   | "missing_tunnel_provider"
   | "missing_tunnel_token"
-  | "browser_origins_not_configured";
+  | "browser_origins_not_configured"
+  | "invalid_browser_origin_policy";
 
 export type AdminNetworkReadinessCheckName =
   | "exposure_mode"

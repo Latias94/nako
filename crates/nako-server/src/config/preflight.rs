@@ -3,7 +3,10 @@ use std::{collections::HashSet, fs, io, path::Path};
 use nako_db::DatabaseBackendKind;
 use serde::Serialize;
 
-use super::{LocalLibraryConfig, NakoServerConfig, NetworkAccessConfig, NetworkExposureMode};
+use super::{
+    LocalLibraryConfig, NakoServerConfig, NetworkAccessConfig, NetworkExposureMode,
+    valid_http_origin,
+};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct ConfigPreflightOptions {
@@ -427,7 +430,7 @@ fn check_origin_policy(network: &NetworkAccessConfig) -> ConfigPreflightCheck {
     if network
         .allowed_origins
         .iter()
-        .any(|origin| !has_http_origin(Some(origin)))
+        .any(|origin| !valid_http_origin(Some(origin)))
     {
         return preflight_check(
             "network.origins",
@@ -522,28 +525,6 @@ fn has_https_url(value: Option<&str>) -> bool {
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .is_some_and(|value| value.starts_with("https://"))
-}
-
-fn has_http_origin(value: Option<&str>) -> bool {
-    let Some(value) = value.map(str::trim).filter(|value| !value.is_empty()) else {
-        return false;
-    };
-    let Some(rest) = value
-        .strip_prefix("https://")
-        .or_else(|| value.strip_prefix("http://"))
-    else {
-        return false;
-    };
-
-    !rest.is_empty()
-        && !rest.contains('@')
-        && !rest.contains('/')
-        && !rest.contains('\\')
-        && !rest.contains('?')
-        && !rest.contains('#')
-        && !rest.contains(',')
-        && !rest.contains(';')
-        && !rest.chars().any(char::is_whitespace)
 }
 
 fn check_runtime_directories(

@@ -177,6 +177,28 @@ impl fmt::Debug for NetworkAccessConfig {
     }
 }
 
+pub(crate) fn valid_http_origin(value: Option<&str>) -> bool {
+    let Some(value) = value.map(str::trim).filter(|value| !value.is_empty()) else {
+        return false;
+    };
+    let Some(rest) = value
+        .strip_prefix("https://")
+        .or_else(|| value.strip_prefix("http://"))
+    else {
+        return false;
+    };
+
+    !rest.is_empty()
+        && !rest.contains('@')
+        && !rest.contains('/')
+        && !rest.contains('\\')
+        && !rest.contains('?')
+        && !rest.contains('#')
+        && !rest.contains(',')
+        && !rest.contains(';')
+        && !rest.chars().any(char::is_whitespace)
+}
+
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NetworkExposureMode {

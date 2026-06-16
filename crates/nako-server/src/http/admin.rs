@@ -3052,9 +3052,25 @@ fn trusted_proxy_readiness_check(network: &NetworkAccessConfig) -> AdminNetworkR
 }
 
 fn origin_policy_readiness_check(network: &NetworkAccessConfig) -> AdminNetworkReadinessCheck {
-    if matches!(network.exposure_mode, ConfigNetworkExposureMode::LocalOnly)
-        || !network.allowed_origins.is_empty()
+    if matches!(network.exposure_mode, ConfigNetworkExposureMode::LocalOnly) {
+        return AdminNetworkReadinessCheck::ready(
+            AdminNetworkReadinessCheckName::OriginPolicy,
+            AdminNetworkReadinessReason::Ready,
+        );
+    }
+
+    if network
+        .allowed_origins
+        .iter()
+        .any(|origin| !crate::config::valid_http_origin(Some(origin)))
     {
+        return AdminNetworkReadinessCheck::unavailable(
+            AdminNetworkReadinessCheckName::OriginPolicy,
+            AdminNetworkReadinessReason::InvalidBrowserOriginPolicy,
+        );
+    }
+
+    if !network.allowed_origins.is_empty() {
         AdminNetworkReadinessCheck::ready(
             AdminNetworkReadinessCheckName::OriginPolicy,
             AdminNetworkReadinessReason::Ready,

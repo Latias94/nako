@@ -1060,12 +1060,48 @@ async fn test_router_with_bearer_auth_and_network(
     token: &str,
     network: NetworkAccessConfig,
 ) -> Router {
+    test_router_with_bearer_auth_config_and_network(
+        root,
+        library_id,
+        token,
+        crate::config::AuthConfig::disabled(),
+        network,
+    )
+    .await
+}
+
+async fn test_router_with_configured_bearer_auth_and_network(
+    root: PathBuf,
+    library_id: LibraryId,
+    token: &str,
+    network: NetworkAccessConfig,
+) -> Router {
+    test_router_with_bearer_auth_config_and_network(
+        root,
+        library_id,
+        token,
+        crate::config::AuthConfig {
+            enabled: true,
+            token_env: Some("NAKO_ADMIN_TOKEN".to_owned()),
+        },
+        network,
+    )
+    .await
+}
+
+async fn test_router_with_bearer_auth_config_and_network(
+    root: PathBuf,
+    library_id: LibraryId,
+    token: &str,
+    auth_config: crate::config::AuthConfig,
+    network: NetworkAccessConfig,
+) -> Router {
     let config = NakoServerConfig {
         database_backend: Default::default(),
         listen_addr: "127.0.0.1:0".parse().unwrap(),
         database_url: "sqlite::memory:".to_owned(),
         database_url_env: None,
-        auth: crate::config::AuthConfig::disabled(),
+        auth: auth_config,
         network,
         ffprobe_path: PathBuf::from("ffprobe"),
         ffmpeg_path: PathBuf::from("ffmpeg"),

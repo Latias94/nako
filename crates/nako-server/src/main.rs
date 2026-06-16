@@ -1,4 +1,7 @@
-use std::{path::PathBuf, process::ExitCode};
+use std::{
+    path::{Path, PathBuf},
+    process::ExitCode,
+};
 
 use clap::{Parser, Subcommand};
 use nako_core::{
@@ -79,11 +82,10 @@ enum Command {
     ExportNfo { library_id: Option<LibraryId> },
 }
 
-#[tokio::main]
-async fn main() -> ExitCode {
+fn main() -> ExitCode {
     init_tracing();
 
-    match run(Cli::parse()).await {
+    match run(Cli::parse()) {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
             error!(error = %err, "nako-server command failed");
@@ -93,99 +95,153 @@ async fn main() -> ExitCode {
     }
 }
 
-async fn run(cli: Cli) -> Result<()> {
+fn run(cli: Cli) -> Result<()> {
+    let config_path = cli.config;
     match cli.command.unwrap_or(Command::Serve) {
-        Command::ConfigExample => {
-            println!("{}", example_config()?);
-            Ok(())
-        }
+        Command::ConfigExample => run_config_example(),
         Command::ConfigCheck { json, create_dirs } => {
-            let config = load_config(&cli.config)?;
-            let report = preflight_config(&config, ConfigPreflightOptions { create_dirs });
-            if json {
-                print_json(&report)?;
-            } else {
-                print!("{}", render_config_preflight_text(&report));
-            }
-            if report.has_failures() {
-                Err(NakoError::InvalidInput {
-                    message: "configuration preflight failed".to_owned(),
-                })
-            } else {
-                Ok(())
-            }
+            run_config_check(&config_path, json, create_dirs)
         }
-        Command::Serve => {
-            let config = load_config(&cli.config)?;
-            let listen_addr = config.listen_addr;
-            let app = NakoApp::new(config).await?;
-            serve(listen_addr, app).await
-        }
-        Command::Scan { library_id } => {
-            let config = load_config(&cli.config)?;
-            let app = NakoApp::new(config).await?;
-            let library_id = resolve_cli_library_id(app.config(), library_id, "scan")?;
-            print_json(&app.library_scan().scan_library(library_id).await?)
-        }
-        Command::ScanAll => {
-            let config = load_config(&cli.config)?;
-            let app = NakoApp::new(config).await?;
-            print_json(&app.library_scan().scan_all_configured_libraries().await?)
-        }
-        Command::List { library_id } => {
-            let config = load_config(&cli.config)?;
-            let app = NakoApp::new(config).await?;
-            let library_id = resolve_cli_library_id(app.config(), library_id, "list")?;
-            print_json(
-                &app.library()
-                    .list_library_sources(library_id, nako_core::PageRequest::first_page())
-                    .await?,
-            )
-        }
+        command => run_async_command(config_path, command),
+    }
+}
+
+fn run_config_example() -> Result<()> {
+    println!("{}", example_config()?);
+    Ok(())
+}
+
+fn run_config_check(config_path: &Path, json: bool, create_dirs: bool) -> Result<()> {
+    let config = load_config(config_path)?;
+    let report = preflight_config(&config, ConfigPreflightOptions { create_dirs });
+    if json {
+        print_json(&report)?;
+    } else {
+        print!("{}", render_config_preflight_text(&report));
+    }
+    if report.has_failures() {
+        Err(NakoError::InvalidInput {
+            message: "configuration preflight failed".to_owned(),
+        })
+    } else {
+        Ok(())
+    }
+}
+
+fn run_async_command(config_path: PathBuf, command: Command) -> Result<()> {
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .map_err(|err| NakoError::InvalidInput {
+            message: format!("failed to start async runtime: {err}"),
+        })?;
+
+    match command {
+        Command::Serve => runtime.block_on(run_serve(config_path)),
+        Command::Scan { library_id } => runtime.block_on(run_scan(config_path, library_id)),
+        Command::ScanAll => runtime.block_on(run_scan_all(config_path)),
+        Command::List { library_id } => runtime.block_on(run_list(config_path, library_id)),
         Command::IngestionFailures {
             library_id,
             phase,
             status,
             all,
-        } => {
-            let config = load_config(&cli.config)?;
-            let app = NakoApp::new(config).await?;
-            let library_id =
-                resolve_cli_library_id(app.config(), library_id, "ingestion-failures")?;
-            let status = if all {
-                None
-            } else {
-                status.or(Some(IngestionFailureStatus::Open))
-            };
-            print_json(
-                &app.library()
-                    .list_ingestion_failures(
-                        library_id,
-                        phase,
-                        status,
-                        nako_core::PageRequest::first_page(),
-                    )
-                    .await?,
-            )
-        }
+        } => runtime.block_on(run_ingestion_failures(
+            config_path,
+            library_id,
+            phase,
+            status,
+            all,
+        )),
         Command::RefreshMetadata { item_id } => {
-            let config = load_config(&cli.config)?;
-            let app = NakoApp::new(config).await?;
-            print_json(&app.metadata().refresh_item_metadata(item_id).await?)
+            runtime.block_on(run_refresh_metadata(config_path, item_id))
         }
         Command::ImportNfo { library_id } => {
-            let config = load_config(&cli.config)?;
-            let app = NakoApp::new(config).await?;
-            let library_id = resolve_cli_library_id(app.config(), library_id, "import-nfo")?;
-            print_json(&app.nfo().import_library_nfo(library_id).await?)
+            runtime.block_on(run_import_nfo(config_path, library_id))
         }
         Command::ExportNfo { library_id } => {
-            let config = load_config(&cli.config)?;
-            let app = NakoApp::new(config).await?;
-            let library_id = resolve_cli_library_id(app.config(), library_id, "export-nfo")?;
-            print_json(&app.nfo().export_library_nfo(library_id).await?)
+            runtime.block_on(run_export_nfo(config_path, library_id))
+        }
+        Command::ConfigExample | Command::ConfigCheck { .. } => {
+            unreachable!("config-only commands are handled before async runtime startup")
         }
     }
+}
+
+async fn run_serve(config_path: PathBuf) -> Result<()> {
+    let config = load_config(&config_path)?;
+    let listen_addr = config.listen_addr;
+    let app = NakoApp::new(config).await?;
+    serve(listen_addr, app).await
+}
+
+async fn load_app(config_path: &Path) -> Result<NakoApp> {
+    let config = load_config(config_path)?;
+    NakoApp::new(config).await
+}
+
+async fn run_scan(config_path: PathBuf, library_id: Option<LibraryId>) -> Result<()> {
+    let app = load_app(&config_path).await?;
+    let library_id = resolve_cli_library_id(app.config(), library_id, "scan")?;
+    print_json(&app.library_scan().scan_library(library_id).await?)
+}
+
+async fn run_scan_all(config_path: PathBuf) -> Result<()> {
+    let app = load_app(&config_path).await?;
+    print_json(&app.library_scan().scan_all_configured_libraries().await?)
+}
+
+async fn run_list(config_path: PathBuf, library_id: Option<LibraryId>) -> Result<()> {
+    let app = load_app(&config_path).await?;
+    let library_id = resolve_cli_library_id(app.config(), library_id, "list")?;
+    print_json(
+        &app.library()
+            .list_library_sources(library_id, nako_core::PageRequest::first_page())
+            .await?,
+    )
+}
+
+async fn run_ingestion_failures(
+    config_path: PathBuf,
+    library_id: Option<LibraryId>,
+    phase: Option<IngestionFailurePhase>,
+    status: Option<IngestionFailureStatus>,
+    all: bool,
+) -> Result<()> {
+    let app = load_app(&config_path).await?;
+    let library_id = resolve_cli_library_id(app.config(), library_id, "ingestion-failures")?;
+    let status = if all {
+        None
+    } else {
+        status.or(Some(IngestionFailureStatus::Open))
+    };
+    print_json(
+        &app.library()
+            .list_ingestion_failures(
+                library_id,
+                phase,
+                status,
+                nako_core::PageRequest::first_page(),
+            )
+            .await?,
+    )
+}
+
+async fn run_refresh_metadata(config_path: PathBuf, item_id: MediaItemId) -> Result<()> {
+    let app = load_app(&config_path).await?;
+    print_json(&app.metadata().refresh_item_metadata(item_id).await?)
+}
+
+async fn run_import_nfo(config_path: PathBuf, library_id: Option<LibraryId>) -> Result<()> {
+    let app = load_app(&config_path).await?;
+    let library_id = resolve_cli_library_id(app.config(), library_id, "import-nfo")?;
+    print_json(&app.nfo().import_library_nfo(library_id).await?)
+}
+
+async fn run_export_nfo(config_path: PathBuf, library_id: Option<LibraryId>) -> Result<()> {
+    let app = load_app(&config_path).await?;
+    let library_id = resolve_cli_library_id(app.config(), library_id, "export-nfo")?;
+    print_json(&app.nfo().export_library_nfo(library_id).await?)
 }
 
 fn resolve_cli_library_id(

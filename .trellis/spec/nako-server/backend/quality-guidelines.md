@@ -836,6 +836,10 @@ orchestration layer.
 - JSON reports must not contain raw fixture URLs, tunnel token values, bearer
   token values, private origins, trusted proxy sources, forwarded header names,
   or local host details such as `127.0.0.1`.
+- Config-only CLI commands such as `config-example` and `config-check` must
+  complete before server runtime startup. The remote access gate is an operator
+  preflight path, not a reason to construct `NakoApp` or enter the full async
+  command future.
 
 ### 4. Validation & Error Matrix
 
@@ -862,6 +866,8 @@ orchestration layer.
 
 - `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/remote-access-config-gate.ps1`.
 - `bash -n scripts/remote-access-config-gate.sh`.
+- `cargo run -q -p nako-server -- config-example` when changing CLI runtime
+  dispatch for config-only commands.
 - Actual Bash gate when the shell environment has working Cargo/Rust.
 - `python .trellis/scripts/task.py validate <remote-access-task-dir>`.
 - `git diff --check`.

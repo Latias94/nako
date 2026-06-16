@@ -45,6 +45,7 @@ pub enum AdminNetworkReadinessReason {
     MissingTunnelProvider,
     MissingTunnelToken,
     BrowserOriginsNotConfigured,
+    InvalidBrowserOriginPolicy,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
