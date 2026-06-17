@@ -509,6 +509,10 @@ runnable candidates to proceed.
 - `WatchFolderSuppressionAppService::complete_planned_write_suppression(token)
   -> Result<Option<CompletePlannedWatchFolderWriteSuppressionDiagnostic>>`
   removes the bracket and reports whether completion requested reconciliation.
+- `NakoApp::complete_planned_watch_folder_write_suppression(token) ->
+  Result<Option<CompletePlannedWatchFolderWriteSuppressionOutcome>>` is the
+  app-level handoff that completes suppression and admits a reconciliation
+  library scan when requested.
 - `LibraryScanAppService::admit_watch_folder_library_scan(LibraryId) ->
   Result<LibraryScanAdmissionOutcome>` is the only scan handoff used after
   candidates become newly ready. It may enqueue a new scan or reuse an existing
@@ -554,9 +558,10 @@ runnable candidates to proceed.
   the exact URI and descendants. It must not use host filesystem paths or expose
   raw source locators.
 - Suppressed watch-folder entries must not update intake candidates, advance
-  stable observation evidence, or enqueue library scan jobs. Completion may
-  report reconciliation intent, but broad degraded watcher state is a separate
-  follow-on unless explicitly scoped.
+  stable observation evidence, or enqueue library scan jobs. The suppression
+  state service only reports reconciliation intent; the app-level completion
+  workflow performs the scan admission handoff for `ReconcileScope`. Broad
+  degraded watcher state is a separate follow-on unless explicitly scoped.
 - Diagnostics may include library ID, job ID, counts, resource class, and
   redacted refs. `scan_admission_status` may distinguish no admission, newly
   enqueued scan, reused queued scan, and reused running scan, but it must not
@@ -585,7 +590,9 @@ runnable candidates to proceed.
 | URI is inside active planned-write suppression scope | Discovery increments `suppressed_candidates`, records no candidate, runtime tick enqueues no scan for that URI, and reports `scan_admission_status = NotAdmitted`. |
 | Suppression owner/reason is empty, too long, or not a safe identifier | Begin request fails with `NakoError::InvalidInput`. |
 | Suppression TTL is zero, negative, or above the configured maximum | Begin request fails with `NakoError::InvalidInput`. |
-| Suppression completion uses `ReconcileScope` | Completion removes suppression and reports `reconciliation_requested = true`; the caller decides the supervised reconciliation handoff. |
+| Suppression completion uses `ReconcileScope` through the app-level workflow | Completion removes suppression, reports `reconciliation_requested = true`, and admits a library scan through `admit_watch_folder_library_scan`. |
+| Suppression completion uses `SuppressOnly` through the app-level workflow | Completion removes suppression and admits no scan. |
+| Suppression completion token is unknown or expired | Completion returns `None` and admits no scan. |
 | Watch-folder discovery/storage error | Tick returns/logs a redaction-safe failure and backs off without bypassing supervision. |
 | Fatal runtime tick error returns `Err(NakoError)` | Runtime logs only a safe error class/summary and backs off; raw `NakoError` text is not emitted. |
 

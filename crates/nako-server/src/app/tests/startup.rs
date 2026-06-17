@@ -3832,18 +3832,31 @@ async fn watch_folder_runtime_tick_reconciles_completed_suppression_before_scan_
     assert!(jobs.iter().all(|job| job.kind != JobKind::LibraryScan));
 
     let completed = app
-        .watch_folder_suppression()
-        .complete_planned_write_suppression(token)
+        .complete_planned_watch_folder_write_suppression(token)
         .await
         .unwrap()
         .expect("expected planned write suppression to complete");
-    assert!(completed.reconciliation_requested);
-    let completed_body = serde_json::to_string(&completed.suppression).unwrap();
+    assert!(completed.completion.reconciliation_requested);
+    let admission = completed
+        .scan_admission
+        .as_ref()
+        .expect("reconcile completion should admit a library scan");
+    assert!(!admission.reused_existing());
+    let completed_body = serde_json::to_string(&completed.completion.suppression).unwrap();
     assert!(!completed_body.contains(media_name));
     assert!(!completed_body.contains(&temp.path().display().to_string()));
     assert!(!completed_body.contains("scope_uri"));
     assert!(!completed_body.contains("token"));
     assert!(!completed_body.contains("local:///"));
+    let scan_jobs_after_completion = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap()
+        .into_iter()
+        .filter(|job| job.kind == JobKind::LibraryScan)
+        .collect::<Vec<_>>();
+    assert_eq!(scan_jobs_after_completion.len(), 1);
+    assert_eq!(scan_jobs_after_completion[0].id, admission.job_id());
 
     let inspecting = app
         .watch_folder_runtime()
@@ -3882,12 +3895,13 @@ async fn watch_folder_runtime_tick_reconciles_completed_suppression_before_scan_
     assert_eq!(admitted.intake_plan.discover.ready_candidates, 1);
     assert_eq!(admitted.intake_plan.discover.newly_ready_candidates, 1);
     assert_eq!(admitted.intake_plan.summary.newly_ready_candidates, 1);
-    assert_eq!(
+    assert!(matches!(
         admitted.scan_admission_status,
-        WatchFolderScanAdmissionStatus::Enqueued
-    );
-    assert!(admitted.scan_job_id.is_some());
-    assert!(!admitted.reused_existing_scan);
+        WatchFolderScanAdmissionStatus::ReusedQueued
+            | WatchFolderScanAdmissionStatus::ReusedRunning
+    ));
+    assert_eq!(admitted.scan_job_id, Some(admission.job_id()));
+    assert!(admitted.reused_existing_scan);
     assert_eq!(
         admitted.intake_plan.enqueue.reason,
         WatchFolderIntakeEnqueueReason::NewStableCandidates
@@ -3914,6 +3928,167 @@ async fn watch_folder_runtime_tick_reconciles_completed_suppression_before_scan_
         .filter(|job| job.kind == JobKind::LibraryScan)
         .count();
     assert_eq!(scan_jobs, 1);
+}
+
+#[tokio::test]
+async fn watch_folder_reconcile_completion_reuses_existing_incomplete_scan() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let library = LocalLibraryConfig {
+        id: library_id,
+        name: "Movies".to_owned(),
+        root: temp.path().join("movies"),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    fs::create_dir_all(&library.root).unwrap();
+
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let config = startup_config(temp.path(), vec![library]);
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let existing = store
+        .enqueue_job(NewJob {
+            id: JobId::new(),
+            kind: JobKind::LibraryScan,
+            resource_class: "disk.scan".to_owned(),
+            priority: JobPriority::Normal,
+            library_id: Some(library_id),
+            source_id: None,
+            input_json: None,
+        })
+        .await
+        .unwrap();
+    let suppression = app
+        .watch_folder_suppression()
+        .begin_planned_write_suppression(BeginPlannedWatchFolderWriteSuppressionRequest {
+            target_library_id: library_id,
+            scope_uri: StorageUri::from_parts("local", "Generated Reconcile Movie.mkv").unwrap(),
+            owner: "managed_import".to_owned(),
+            reason: "library_write".to_owned(),
+            ttl_ms: Some(60_000),
+            completion: PlannedWatchFolderWriteCompletion::ReconcileScope,
+        })
+        .await
+        .unwrap();
+
+    let completed = app
+        .complete_planned_watch_folder_write_suppression(suppression.token)
+        .await
+        .unwrap()
+        .expect("expected planned write suppression to complete");
+    let scan_jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap()
+        .into_iter()
+        .filter(|job| job.kind == JobKind::LibraryScan)
+        .collect::<Vec<_>>();
+
+    assert!(completed.completion.reconciliation_requested);
+    let admission = completed
+        .scan_admission
+        .expect("reconcile completion should reuse scan admission");
+    assert!(admission.reused_existing());
+    assert_eq!(admission.job_id(), existing.id);
+    assert_eq!(scan_jobs.len(), 1);
+    assert_eq!(scan_jobs[0].id, existing.id);
+    assert!(matches!(
+        scan_jobs[0].status,
+        JobStatus::Queued | JobStatus::Running | JobStatus::Succeeded
+    ));
+}
+
+#[tokio::test]
+async fn watch_folder_suppress_only_completion_does_not_admit_scan() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let library = LocalLibraryConfig {
+        id: library_id,
+        name: "Movies".to_owned(),
+        root: temp.path().join("movies"),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    fs::create_dir_all(&library.root).unwrap();
+
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let config = startup_config(temp.path(), vec![library]);
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let suppression = app
+        .watch_folder_suppression()
+        .begin_planned_write_suppression(BeginPlannedWatchFolderWriteSuppressionRequest {
+            target_library_id: library_id,
+            scope_uri: StorageUri::from_parts("local", "Generated Suppress Movie.mkv").unwrap(),
+            owner: "managed_import".to_owned(),
+            reason: "library_write".to_owned(),
+            ttl_ms: Some(60_000),
+            completion: PlannedWatchFolderWriteCompletion::SuppressOnly,
+        })
+        .await
+        .unwrap();
+
+    let completed = app
+        .complete_planned_watch_folder_write_suppression(suppression.token)
+        .await
+        .unwrap()
+        .expect("expected planned write suppression to complete");
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert!(!completed.completion.reconciliation_requested);
+    assert!(completed.scan_admission.is_none());
+    assert!(jobs.iter().all(|job| job.kind != JobKind::LibraryScan));
+}
+
+#[tokio::test]
+async fn watch_folder_unknown_completion_does_not_admit_scan() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let library = LocalLibraryConfig {
+        id: library_id,
+        name: "Movies".to_owned(),
+        root: temp.path().join("movies"),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    fs::create_dir_all(&library.root).unwrap();
+
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let config = startup_config(temp.path(), vec![library]);
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+    let suppression = app
+        .watch_folder_suppression()
+        .begin_planned_write_suppression(BeginPlannedWatchFolderWriteSuppressionRequest {
+            target_library_id: library_id,
+            scope_uri: StorageUri::from_parts("local", "Expired Suppression Movie.mkv").unwrap(),
+            owner: "managed_import".to_owned(),
+            reason: "library_write".to_owned(),
+            ttl_ms: Some(1),
+            completion: PlannedWatchFolderWriteCompletion::ReconcileScope,
+        })
+        .await
+        .unwrap();
+    tokio::time::sleep(Duration::from_millis(5)).await;
+
+    let completed = app
+        .complete_planned_watch_folder_write_suppression(suppression.token)
+        .await
+        .unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert!(completed.is_none());
+    assert!(jobs.iter().all(|job| job.kind != JobKind::LibraryScan));
 }
 
 #[tokio::test]

@@ -152,8 +152,10 @@ pub(crate) use watch_folder_runtime::{
     WatchFolderScanAdmissionStatus,
 };
 pub(crate) use watch_folder_suppression::{
-    BeginPlannedWatchFolderWriteSuppressionRequest, PlannedWatchFolderWriteCompletion,
-    PlannedWatchFolderWriteSuppressionDiagnostic, WatchFolderSuppressionAppService,
+    BeginPlannedWatchFolderWriteSuppressionRequest,
+    CompletePlannedWatchFolderWriteSuppressionDiagnostic, PlannedWatchFolderWriteCompletion,
+    PlannedWatchFolderWriteSuppressionDiagnostic, PlannedWatchFolderWriteSuppressionToken,
+    WatchFolderSuppressionAppService,
 };
 use webhooks::WebhookAppService;
 
@@ -187,6 +189,12 @@ pub(crate) struct IssuedUserInvitation {
 pub(crate) struct ResolvedSessionPrincipal {
     pub(crate) principal: nako_core::AuthenticatedPrincipal,
     pub(crate) session_id: UserSessionId,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct CompletePlannedWatchFolderWriteSuppressionOutcome {
+    pub(crate) completion: CompletePlannedWatchFolderWriteSuppressionDiagnostic,
+    pub(crate) scan_admission: Option<jobs::LibraryScanAdmissionOutcome>,
 }
 
 const USER_SESSION_TTL_MS: i64 = 30 * 24 * 60 * 60 * 1_000;
@@ -314,6 +322,34 @@ impl NakoApp {
     #[must_use]
     pub(crate) fn watch_folder_suppression(&self) -> WatchFolderSuppressionAppService {
         self.services().watch_folder_suppression.clone()
+    }
+
+    pub(crate) async fn complete_planned_watch_folder_write_suppression(
+        &self,
+        token: PlannedWatchFolderWriteSuppressionToken,
+    ) -> Result<Option<CompletePlannedWatchFolderWriteSuppressionOutcome>> {
+        let Some(completion) = self
+            .watch_folder_suppression()
+            .complete_planned_write_suppression(token)
+            .await?
+        else {
+            return Ok(None);
+        };
+
+        let scan_admission = if completion.reconciliation_requested {
+            Some(
+                self.library_scan()
+                    .admit_watch_folder_library_scan(completion.suppression.target_library_id)
+                    .await?,
+            )
+        } else {
+            None
+        };
+
+        Ok(Some(CompletePlannedWatchFolderWriteSuppressionOutcome {
+            completion,
+            scan_admission,
+        }))
     }
 
     #[must_use]
