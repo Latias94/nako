@@ -14,6 +14,9 @@ inspection envelopes, and error envelopes for current server routes.
 - IDs are UUID strings.
 - Timestamps are stored and returned as UTC strings.
 - List endpoints use offset pagination.
+- Public list query parameters cap `limit` at `PageRequest::MAX_LIMIT`
+  (currently 500); higher values are rejected as `invalid_input` instead of
+  silently widening response budgets.
 - Error responses use a stable JSON envelope.
 - Job responses expose lifecycle identity plus presence flags for durable input,
   summary, and error payloads. They do not serialize raw job input, summary, or

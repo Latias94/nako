@@ -54,6 +54,33 @@ async fn public_json_browse_routes_use_no_store_cache_policy() {
 }
 
 #[tokio::test]
+async fn public_json_browse_routes_reject_limits_above_the_response_budget() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let router = test_router(temp.path().to_path_buf(), library_id).await;
+    let paths = [
+        "/items?limit=501".to_owned(),
+        "/search?q=route&limit=501&offset=0".to_owned(),
+        "/libraries?limit=501&offset=0".to_owned(),
+        format!("/libraries/{library_id}/sources?limit=501&offset=0"),
+        format!("/libraries/{library_id}/items?limit=501&offset=0"),
+    ];
+
+    for path in paths {
+        let response = response_for(&router, Method::GET, &path).await;
+        let error = body_json::<nako_api::public_client::ErrorResponse>(response).await;
+
+        assert_eq!(error.code, "invalid_input", "path: {path}");
+        assert!(
+            error
+                .message
+                .contains("limit must be less than or equal to"),
+            "path: {path}"
+        );
+    }
+}
+
+#[tokio::test]
 async fn search_route_returns_indexed_items() {
     let temp = tempfile::tempdir().unwrap();
     let library_id = LibraryId::new();

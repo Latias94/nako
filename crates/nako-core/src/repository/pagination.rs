@@ -35,3 +35,20 @@ impl PageRequest {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::PageRequest;
+
+    #[test]
+    fn clamped_uses_default_limit_for_zero_and_caps_large_limits() {
+        assert_eq!(
+            PageRequest::new(0, 7).clamped(),
+            PageRequest::new(PageRequest::DEFAULT_LIMIT, 7)
+        );
+        assert_eq!(
+            PageRequest::new(PageRequest::MAX_LIMIT + 1, 7).clamped(),
+            PageRequest::new(PageRequest::MAX_LIMIT, 7)
+        );
+    }
+}
