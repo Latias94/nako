@@ -7076,6 +7076,18 @@ where
         browse_ids_from_hits(admin_hits),
         vec![hidden_source.item_id, visible_ids[0], visible_ids[1],]
     );
+
+    let hidden_page_hole = store
+        .search_accessible(
+            &principal,
+            SearchQuery::from_facet_labels("needle", Vec::new(), 2, 0).unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        browse_ids_from_hits(hidden_page_hole),
+        vec![visible_ids[0], visible_ids[1]]
+    );
 }
 
 async fn catalog_access_filters_relation_items_before_pagination_contract<S>(store: S)

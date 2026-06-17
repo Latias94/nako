@@ -180,18 +180,20 @@ pub fn evaluate_search_documents(
         })
         .collect::<Vec<_>>();
 
-    hits.sort_by(|left, right| {
-        right
-            .score
-            .partial_cmp(&left.score)
-            .unwrap_or(Ordering::Equal)
-            .then_with(|| left.item_id.cmp(&right.item_id))
-    });
+    hits.sort_by(search_hit_cmp);
 
     hits.into_iter()
         .skip(page.offset as usize)
         .take(page.limit as usize)
         .collect()
+}
+
+fn search_hit_cmp(left: &SearchHit, right: &SearchHit) -> Ordering {
+    right
+        .score
+        .partial_cmp(&left.score)
+        .unwrap_or(Ordering::Equal)
+        .then_with(|| left.item_id.cmp(&right.item_id))
 }
 
 fn score_document(
@@ -433,5 +435,60 @@ mod tests {
         );
 
         assert_eq!(hits[0].item_id, item_id);
+    }
+
+    #[test]
+    fn search_evaluation_uses_deterministic_tie_breaks_and_page_order() {
+        let first_item = MediaItemId::new();
+        let second_item = MediaItemId::new();
+        let third_item = MediaItemId::new();
+
+        let documents = vec![
+            SearchEvaluationDocument::from_facet_labels(
+                second_item,
+                current_projection_version(),
+                "Same Score Second",
+                "needle body",
+                Vec::new(),
+                Vec::new(),
+            ),
+            SearchEvaluationDocument::from_facet_labels(
+                third_item,
+                current_projection_version(),
+                "Same Score Third",
+                "needle body",
+                Vec::new(),
+                Vec::new(),
+            ),
+            SearchEvaluationDocument::from_facet_labels(
+                first_item,
+                current_projection_version(),
+                "Same Score First",
+                "needle body",
+                Vec::new(),
+                Vec::new(),
+            ),
+        ];
+
+        let first_page = evaluate_search_documents(
+            &SearchQuery::from_facet_labels("needle", Vec::new(), 2, 0).unwrap(),
+            documents.clone(),
+        );
+        let second_page = evaluate_search_documents(
+            &SearchQuery::from_facet_labels("needle", Vec::new(), 2, 2).unwrap(),
+            documents,
+        );
+
+        assert_eq!(
+            first_page.iter().map(|hit| hit.item_id).collect::<Vec<_>>(),
+            vec![first_item, second_item]
+        );
+        assert_eq!(
+            second_page
+                .iter()
+                .map(|hit| hit.item_id)
+                .collect::<Vec<_>>(),
+            vec![third_item]
+        );
     }
 }
