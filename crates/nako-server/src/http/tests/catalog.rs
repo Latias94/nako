@@ -30,19 +30,51 @@ async fn empty_sources_and_items_routes_work() {
 
 #[tokio::test]
 async fn public_json_browse_routes_use_no_store_cache_policy() {
-    let temp = tempfile::tempdir().unwrap();
-    let library_id = LibraryId::new();
-    let router = test_router(temp.path().to_path_buf(), library_id).await;
+    let fixture = catalog_access_route_fixture().await;
+    let visible_person = Person {
+        id: PersonId::new(),
+        name: "No Store Route Person".to_owned(),
+        sort_name: None,
+        overview: None,
+        external_ids: Vec::new(),
+    };
+    let visible_genre = Genre {
+        id: GenreId::new(),
+        name: "No Store Route Genre".to_owned(),
+        source: MetadataSource::User,
+    };
+    let visible_tag = Tag {
+        id: TagId::new(),
+        name: "no-store-route-tag".to_owned(),
+        source: MetadataSource::User,
+    };
+
+    fixture.store.upsert_person(&visible_person).await.unwrap();
+    fixture.store.upsert_genre(&visible_genre).await.unwrap();
+    fixture.store.upsert_tag(&visible_tag).await.unwrap();
+
     let paths = [
         "/items".to_owned(),
         "/search?q=route&limit=1&offset=0".to_owned(),
         "/libraries?limit=20&offset=0".to_owned(),
-        format!("/libraries/{library_id}/sources?limit=20&offset=0"),
-        format!("/libraries/{library_id}/items?limit=20&offset=0"),
+        format!(
+            "/libraries/{}/sources?limit=20&offset=0",
+            fixture.allowed_library_id
+        ),
+        format!(
+            "/libraries/{}/items?limit=20&offset=0",
+            fixture.allowed_library_id
+        ),
+        "/people?limit=20&offset=0".to_owned(),
+        format!("/people/{}/items?limit=20&offset=0", visible_person.id),
+        "/tags?limit=20&offset=0".to_owned(),
+        format!("/tags/{}/items?limit=20&offset=0", visible_tag.id),
+        "/genres?limit=20&offset=0".to_owned(),
+        format!("/genres/{}/items?limit=20&offset=0", visible_genre.id),
     ];
 
     for path in paths {
-        let response = response_for(&router, Method::GET, &path).await;
+        let response = response_for(&fixture.router, Method::GET, &path).await;
 
         assert_eq!(response.status(), StatusCode::OK, "path: {path}");
         assert_eq!(
@@ -55,19 +87,32 @@ async fn public_json_browse_routes_use_no_store_cache_policy() {
 
 #[tokio::test]
 async fn public_json_browse_routes_reject_limits_above_the_response_budget() {
-    let temp = tempfile::tempdir().unwrap();
-    let library_id = LibraryId::new();
-    let router = test_router(temp.path().to_path_buf(), library_id).await;
+    let fixture = catalog_access_route_fixture().await;
+    let visible_person = PersonId::new();
+    let visible_genre = GenreId::new();
+    let visible_tag = TagId::new();
     let paths = [
         "/items?limit=501".to_owned(),
         "/search?q=route&limit=501&offset=0".to_owned(),
         "/libraries?limit=501&offset=0".to_owned(),
-        format!("/libraries/{library_id}/sources?limit=501&offset=0"),
-        format!("/libraries/{library_id}/items?limit=501&offset=0"),
+        format!(
+            "/libraries/{}/sources?limit=501&offset=0",
+            fixture.allowed_library_id
+        ),
+        format!(
+            "/libraries/{}/items?limit=501&offset=0",
+            fixture.allowed_library_id
+        ),
+        "/people?limit=501&offset=0".to_owned(),
+        format!("/people/{}/items?limit=501&offset=0", visible_person),
+        "/tags?limit=501&offset=0".to_owned(),
+        format!("/tags/{}/items?limit=501&offset=0", visible_tag),
+        "/genres?limit=501&offset=0".to_owned(),
+        format!("/genres/{}/items?limit=501&offset=0", visible_genre),
     ];
 
     for path in paths {
-        let response = response_for(&router, Method::GET, &path).await;
+        let response = response_for(&fixture.router, Method::GET, &path).await;
         let error = body_json::<nako_api::public_client::ErrorResponse>(response).await;
 
         assert_eq!(error.code, "invalid_input", "path: {path}");
@@ -1074,6 +1119,32 @@ async fn catalog_root_aggregate_routes_filter_access_before_pagination() {
     assert_eq!(tags.tags[0].id, visible_tag.id.to_string());
     assert_ne!(tags.tags[0].id, hidden_tag.id.to_string());
     assert_ne!(tags.tags[0].id, orphan_tag.id.to_string());
+
+    let person_items = request_json::<nako_api::public_client::PersonItemsResponse>(
+        &fixture.router,
+        Method::GET,
+        &format!("/people/{}/items?limit=1&offset=0", visible_person.id),
+    )
+    .await;
+    let genre_items = request_json::<nako_api::public_client::GenreItemsResponse>(
+        &fixture.router,
+        Method::GET,
+        &format!("/genres/{}/items?limit=1&offset=0", visible_genre.id),
+    )
+    .await;
+    let tag_items = request_json::<nako_api::public_client::TagItemsResponse>(
+        &fixture.router,
+        Method::GET,
+        &format!("/tags/{}/items?limit=1&offset=0", visible_tag.id),
+    )
+    .await;
+
+    assert_eq!(person_items.page.returned, 1);
+    assert_eq!(person_items.items[0].id, visible_item.id.to_string());
+    assert_eq!(genre_items.page.returned, 1);
+    assert_eq!(genre_items.items[0].id, visible_item.id.to_string());
+    assert_eq!(tag_items.page.returned, 1);
+    assert_eq!(tag_items.items[0].id, visible_item.id.to_string());
 }
 
 #[tokio::test]

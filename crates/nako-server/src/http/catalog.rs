@@ -148,7 +148,7 @@ pub(super) async fn list_people(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Query(page): Query<PageQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    Ok(Json(
+    Ok(no_store_json(
         app.catalog()
             .list_accessible_people(&principal, page.try_into()?)
             .await?,
@@ -171,7 +171,7 @@ pub(super) async fn list_person_items(
     Path(person_id): Path<PersonId>,
     Query(page): Query<PageQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    Ok(Json(
+    Ok(no_store_json(
         app.catalog()
             .list_accessible_person_items(&principal, person_id, page.try_into()?)
             .await?,
@@ -184,7 +184,7 @@ pub(super) async fn list_tags(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Query(page): Query<PageQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    Ok(Json(
+    Ok(no_store_json(
         app.catalog()
             .list_accessible_tags(&principal, page.try_into()?)
             .await?,
@@ -198,7 +198,7 @@ pub(super) async fn list_tag_items(
     Path(tag_id): Path<TagId>,
     Query(page): Query<PageQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    Ok(Json(
+    Ok(no_store_json(
         app.catalog()
             .list_accessible_tag_items(&principal, tag_id, page.try_into()?)
             .await?,
@@ -211,7 +211,7 @@ pub(super) async fn list_genres(
     Extension(principal): Extension<AuthenticatedPrincipal>,
     Query(page): Query<PageQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    Ok(Json(
+    Ok(no_store_json(
         app.catalog()
             .list_accessible_genres(&principal, page.try_into()?)
             .await?,
@@ -225,7 +225,7 @@ pub(super) async fn list_genre_items(
     Path(genre_id): Path<GenreId>,
     Query(page): Query<PageQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    Ok(Json(
+    Ok(no_store_json(
         app.catalog()
             .list_accessible_genre_items(&principal, genre_id, page.try_into()?)
             .await?,

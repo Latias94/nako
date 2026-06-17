@@ -17,6 +17,10 @@ inspection envelopes, and error envelopes for current server routes.
 - Public list query parameters cap `limit` at `PageRequest::MAX_LIMIT`
   (currently 500); higher values are rejected as `invalid_input` instead of
   silently widening response budgets.
+- Public dynamic JSON list routes for `items`, `search`, `libraries`,
+  `libraries/{library_id}/sources`, `libraries/{library_id}/items`,
+  `people`, `people/{person_id}/items`, `tags`, `tags/{tag_id}/items`,
+  `genres`, and `genres/{genre_id}/items` are `Cache-Control: no-store`.
 - Error responses use a stable JSON envelope.
 - Job responses expose lifecycle identity plus presence flags for durable input,
   summary, and error payloads. They do not serialize raw job input, summary, or
