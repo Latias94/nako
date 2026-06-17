@@ -362,14 +362,20 @@ decisions, persists the resolved effective capability payload, and returns that
 resolved payload to clients. These routes do not store item progress and do
 not apply Admin playback policy.
 
-The default named profile is used as the current user's fallback client
-capability payload when a playback decision, direct stream or HEAD preflight,
-remux stream or HEAD preflight, or HLS playlist startup request omits explicit
-playback capability query fields. Any explicit capability query field on a
-request wins for that request and is not merged with the saved default.
+The current user may also pass `playback_profile_id` on playback decision,
+direct stream or HEAD preflight, remux stream or HEAD preflight, and HLS
+playlist startup requests. The selector is current-user scoped and points at
+one of the current user's named profiles. Selection precedence is:
+
+1. explicit capability query fields;
+2. `playback_profile_id` for the current user;
+3. the current user's default named profile;
+4. built-in default client capabilities.
+
 Browser playback tickets, renderer transport URLs, and existing
 playback-session-bound media requests keep using the client context carried by
-their ticket or playback session.
+their ticket or playback session. They do not re-resolve
+`playback_profile_id` after session or ticket creation.
 
 ```http
 GET /users/me/playback-profiles?limit=50&offset=0
@@ -1334,22 +1340,24 @@ supports_hdr=false
 supports_subtitles=true
 hls_variant_policy=single_variant|adaptive
 hls_segment_container=mpeg_ts|fmp4
+playback_profile_id=00000000-0000-0000-0000-000000000123
 ```
 
 The same flat Public Client playback capability fields are accepted by remux
 and HLS playback query builders. `device_family` and `profile_version` are
 optional client-owned profile identity fields used for reproducibility and
-debug grouping; explicit container, codec, HDR, subtitle, bitrate, resolution,
-and HLS fields still describe actual playback capability. Browser playback
-tickets accept the same capability fields in `capabilities`, plus
-`output_container=mp4|mkv` for explicit remux ticket planning. Renderer
-registration and heartbeat bodies use the response/session capability field
-names `containers`, `video_codecs`, and `audio_codecs` with the same profile,
-bitrate, resolution, audio-channel, HDR, subtitle, and HLS policy fields.
-These fields describe client/player facts and request preferences only; FFmpeg,
-hardware/GPU, operator policy, resource pressure, bearer token, principal,
-source locator, and local path facts remain outside the Public Client playback
-capability contract.
+debug grouping; `playback_profile_id` selects a saved current-user named
+profile without changing the default profile. Explicit container, codec, HDR,
+subtitle, bitrate, resolution, HLS, and selected-profile fields still describe
+request selection and playback capability. Browser playback tickets accept the
+same capability fields in `capabilities`, plus `output_container=mp4|mkv` for
+explicit remux ticket planning. Renderer registration and heartbeat bodies use
+the response/session capability field names `containers`, `video_codecs`, and
+`audio_codecs` with the same profile, bitrate, resolution, audio-channel, HDR,
+subtitle, and HLS policy fields. These fields describe client/player facts and
+request preferences only; FFmpeg, hardware/GPU, operator policy, resource
+pressure, bearer token, principal, source locator, and local path facts remain
+outside the Public Client playback capability contract.
 
 `POST /sources/{source_id}/playback/browser-ticket` issues token-safe browser
 media URLs. `BrowserPlaybackTicketResponse.playback_session_id` is a required
@@ -1368,6 +1376,8 @@ returns `206 Partial Content` with `Accept-Ranges`, `Content-Range`, and
 `Content-Length` when a satisfiable range is requested. For WebDAV sources,
 Nako streams the selected range through `nako-vfs` into the HTTP response body
 instead of buffering the selected bytes in memory.
+Direct Play requests may include `playback_profile_id` to select a current-user
+named profile when no explicit capability fields are present.
 
 `HEAD /sources/{source_id}/stream` returns the same direct play headers without
 a body. Clients can use it to preflight source length, MIME type, range support,
@@ -1380,7 +1390,9 @@ Invalid, unsupported multi-range, or unsatisfiable ranges return
 `GET /sources/{source_id}/stream/remux` runs or reuses a staged copy-remux for
 sources whose playback decision is `remux`, then streams the staged output. It
 accepts the same client capability query parameters as the playback decision
-route plus:
+route plus `output_container`. Remux requests may also include
+`playback_profile_id` to select a current-user named profile when no explicit
+capability fields are present:
 
 ```text
 output_container=mp4|mkv
@@ -1500,6 +1512,8 @@ single-variant HLS transcode session and returns a rewritten media playlist.
 HLS uses the configured FFmpeg binary, `remux_timeout_ms`, and the
 `[transcode]` hardware/concurrency policy. HLS artifacts are staged below
 `remux_staging_root/hls`.
+HLS playlist requests may also include `playback_profile_id` to select a
+current-user named profile when no explicit capability fields are present.
 Clients may pass `preferred_audio_language` as a comma-separated ordered list
 of BCP-47-like audio language tags. The first matching source audio stream is
 used as the HLS audio rendition default; explicit `audio_stream` still wins.

@@ -41,6 +41,11 @@ Use this spec when adding API wire types or generated route inventory in
   may expose a redaction-safe latest tick summary for Admin Web. Keep the wire
   shape limited to safe counts, admission status, scan job id, and redacted
   failure refs; do not surface raw paths, locators, or failure text.
+- Public playback startup query generators must keep `playback_profile_id` as a
+  current-user named-profile selector for decision, Direct Stream, Remux, and
+  HLS playlist routes. It is not part of persisted capability DTOs, renderer
+  bodies, browser ticket bodies, existing session routes, or HLS segment
+  routes.
 
 ### 4. Validation & Error Matrix
 

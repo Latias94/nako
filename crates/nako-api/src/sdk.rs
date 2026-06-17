@@ -572,6 +572,7 @@ public data class PlaybackCapabilitiesQuery(
     public val directPlay: Boolean? = null,
     public val deviceFamily: String? = null,
     public val profileVersion: Int? = null,
+    public val playbackProfileId: String? = null,
     public val containers: List<String> = emptyList(),
     public val videoCodecs: List<String> = emptyList(),
     public val audioCodecs: List<String> = emptyList(),
@@ -583,6 +584,10 @@ public data class PlaybackCapabilitiesQuery(
     public val supportsSubtitles: Boolean? = null,
     public val hlsVariantPolicy: ClientHlsVariantPolicy? = null,
     public val hlsSegmentContainer: ClientHlsSegmentContainer? = null,
+)
+
+public data class DirectPlaybackQuery(
+    public val playbackProfileId: String? = null,
 )
 
 @JvmInline
@@ -608,6 +613,7 @@ public data class RemuxPlaybackQuery(
     public val directPlay: Boolean? = null,
     public val deviceFamily: String? = null,
     public val profileVersion: Int? = null,
+    public val playbackProfileId: String? = null,
     public val containers: List<String> = emptyList(),
     public val videoCodecs: List<String> = emptyList(),
     public val audioCodecs: List<String> = emptyList(),
@@ -626,6 +632,7 @@ public data class HlsPlaybackQuery(
     public val directPlay: Boolean? = null,
     public val deviceFamily: String? = null,
     public val profileVersion: Int? = null,
+    public val playbackProfileId: String? = null,
     public val containers: List<String> = emptyList(),
     public val videoCodecs: List<String> = emptyList(),
     public val audioCodecs: List<String> = emptyList(),
@@ -914,16 +921,28 @@ public object NakoPublicClientRequests {
             pathAndQuery = "/sources/${encodePathSegment(sourceId)}/playback/browser-ticket",
         )
 
-    public fun streamSource(sourceId: String): NakoRequestDescriptor =
+    public fun streamSource(
+        sourceId: String,
+        query: DirectPlaybackQuery = DirectPlaybackQuery(),
+    ): NakoRequestDescriptor =
         NakoRequestDescriptor(
             method = "GET",
-            pathAndQuery = "/sources/${encodePathSegment(sourceId)}/stream",
+            pathAndQuery = pathWithQuery(
+                "/sources/${encodePathSegment(sourceId)}/stream",
+                directPlaybackQuery(query),
+            ),
         )
 
-    public fun headStreamSource(sourceId: String): NakoRequestDescriptor =
+    public fun headStreamSource(
+        sourceId: String,
+        query: DirectPlaybackQuery = DirectPlaybackQuery(),
+    ): NakoRequestDescriptor =
         NakoRequestDescriptor(
             method = "HEAD",
-            pathAndQuery = "/sources/${encodePathSegment(sourceId)}/stream",
+            pathAndQuery = pathWithQuery(
+                "/sources/${encodePathSegment(sourceId)}/stream",
+                directPlaybackQuery(query),
+            ),
         )
 
     public fun remuxStreamSource(
@@ -1170,6 +1189,9 @@ public object NakoPublicClientRequests {
             capabilities.profileVersion?.let {
                 add("profile_version" to it.toString())
             }
+            capabilities.playbackProfileId?.let {
+                add("playback_profile_id" to it)
+            }
             addCsv("container", capabilities.containers)
             addCsv("video_codec", capabilities.videoCodecs)
             addCsv("audio_codec", capabilities.audioCodecs)
@@ -1199,6 +1221,15 @@ public object NakoPublicClientRequests {
             }
         }
 
+    private fun directPlaybackQuery(
+        query: DirectPlaybackQuery,
+    ): List<Pair<String, String>> =
+        buildList {
+            query.playbackProfileId?.let {
+                add("playback_profile_id" to it)
+            }
+        }
+
     private fun remuxPlaybackQuery(
         query: RemuxPlaybackQuery,
     ): List<Pair<String, String>> =
@@ -1211,6 +1242,9 @@ public object NakoPublicClientRequests {
             }
             query.profileVersion?.let {
                 add("profile_version" to it.toString())
+            }
+            query.playbackProfileId?.let {
+                add("playback_profile_id" to it)
             }
             addCsv("container", query.containers)
             addCsv("video_codec", query.videoCodecs)
@@ -1256,6 +1290,9 @@ public object NakoPublicClientRequests {
             }
             query.profileVersion?.let {
                 add("profile_version" to it.toString())
+            }
+            query.playbackProfileId?.let {
+                add("playback_profile_id" to it)
             }
             addCsv("container", query.containers)
             addCsv("video_codec", query.videoCodecs)
@@ -1418,6 +1455,7 @@ export interface PlaybackCapabilitiesQuery {
   direct_play?: boolean;
   device_family?: string;
   profile_version?: number;
+  playback_profile_id?: string;
   container?: string | string[];
   video_codec?: string | string[];
   audio_codec?: string | string[];
@@ -1429,6 +1467,10 @@ export interface PlaybackCapabilitiesQuery {
   supports_subtitles?: boolean;
   hls_variant_policy?: "single_variant" | "adaptive";
   hls_segment_container?: "mpeg_ts" | "fmp4";
+}
+
+export interface DirectPlaybackQuery {
+  playback_profile_id?: string;
 }
 
 export interface RemuxPlaybackQuery extends PlaybackCapabilitiesQuery {
@@ -1645,8 +1687,16 @@ export class NakoClient {
     return this.requestRaw("GET", `/sources/${encodeURIComponent(sourceId)}/stream`, { range });
   }
 
+  streamSourceWithQuery(sourceId: string, query?: DirectPlaybackQuery, range?: string): Promise<Response> {
+    return this.requestRaw("GET", `/sources/${encodeURIComponent(sourceId)}/stream`, { query, range });
+  }
+
   headStreamSource(sourceId: string, range?: string): Promise<Response> {
     return this.requestRaw("HEAD", `/sources/${encodeURIComponent(sourceId)}/stream`, { range });
+  }
+
+  headStreamSourceWithQuery(sourceId: string, query?: DirectPlaybackQuery, range?: string): Promise<Response> {
+    return this.requestRaw("HEAD", `/sources/${encodeURIComponent(sourceId)}/stream`, { query, range });
   }
 
   remuxStreamSource(sourceId: string, query?: RemuxPlaybackQuery, range?: string): Promise<Response> {
@@ -1856,6 +1906,7 @@ mod tests {
         "direct_play",
         "device_family",
         "profile_version",
+        "playback_profile_id",
         "container",
         "video_codec",
         "audio_codec",
@@ -1872,6 +1923,7 @@ mod tests {
         "directPlay",
         "deviceFamily",
         "profileVersion",
+        "playbackProfileId",
         "containers",
         "videoCodecs",
         "audioCodecs",
@@ -2011,6 +2063,10 @@ mod tests {
             "RendererTransportUrlKind",
             "PlaybackSessionResponse",
             "PlaybackSessionHeartbeatRequest",
+            "DirectPlaybackQuery",
+            "playback_profile_id?: string",
+            "streamSourceWithQuery(sourceId: string, query?: DirectPlaybackQuery, range?: string)",
+            "headStreamSourceWithQuery(sourceId: string, query?: DirectPlaybackQuery, range?: string)",
             "HlsPlaybackQuery",
             "preferred_audio_language?: string | string[]",
             "preferred_subtitle_language?: string | string[]",

@@ -36,7 +36,7 @@ pub use playback::{
     CoreDirectPlaybackTargetInput, CoreHlsPlaylistTargetInput, CoreHlsSegmentContainer,
     CoreHlsVariantPolicy, CoreOutputContainer, CorePlaybackCapabilities,
     CorePlaybackDecisionRequestInput, CorePlaybackDecisionSummary, CorePlaybackMode,
-    CorePlaybackProfilePresetRequestInput, CorePlaybackSegmentInput,
+    CorePlaybackProfilePresetRequestInput, CorePlaybackSegmentInput, CorePlaybackSelection,
     CorePlaybackSessionRequestInput, CorePlaybackSourceRequestInput, CorePlaybackTarget,
     CorePlaybackTargetInput, CoreRemuxPlaybackTargetInput, build_cancel_playback_session_request,
     build_direct_playback_target, build_get_playback_session_request,
@@ -175,6 +175,7 @@ mod tests {
             base_url: "https://nako.example/api".to_owned(),
             access_token: "secret-token".to_owned(),
             source_id: "source 1".to_owned(),
+            selection: CorePlaybackSelection::empty(),
             capabilities: CorePlaybackCapabilities {
                 direct_play: Some(true),
                 device_family: Some("browser_chromium".to_owned()),
@@ -254,6 +255,7 @@ mod tests {
             base_url: "https://nako.example/api".to_owned(),
             access_token: "secret-token".to_owned(),
             source_id: "source 1".to_owned(),
+            selection: CorePlaybackSelection::empty(),
             capabilities,
         });
 
@@ -369,6 +371,7 @@ mod tests {
                 mode: CorePlaybackMode::Remux,
                 transcode_output_container: Some(CoreOutputContainer::Mkv),
             },
+            selection: CorePlaybackSelection::empty(),
             capabilities: CorePlaybackCapabilities {
                 direct_play: Some(false),
                 device_family: Some("browser_chromium".to_owned()),
@@ -406,6 +409,7 @@ mod tests {
         let explicit_hls_remux = build_remux_playback_target(&CoreRemuxPlaybackTargetInput {
             base_url: "https://nako.example/api".to_owned(),
             source_id: "source 1".to_owned(),
+            selection: CorePlaybackSelection::empty(),
             capabilities: CorePlaybackCapabilities::empty(),
             output_container: Some(CoreOutputContainer::Hls),
         });
@@ -417,6 +421,7 @@ mod tests {
         let explicit_direct = build_direct_playback_target(&CoreDirectPlaybackTargetInput {
             base_url: "https://nako.example/api".to_owned(),
             source_id: "source 1".to_owned(),
+            selection: CorePlaybackSelection::empty(),
         });
         assert_eq!(
             explicit_direct.request.url,
@@ -431,6 +436,66 @@ mod tests {
             ..input
         });
         assert_eq!(unknown, None);
+    }
+
+    #[test]
+    fn playback_builders_encode_named_profile_selection() {
+        let selection = CorePlaybackSelection::from_playback_profile_id("profile 1");
+
+        let decision = build_playback_decision_request(&CorePlaybackDecisionRequestInput {
+            base_url: "https://nako.example/api".to_owned(),
+            access_token: "secret-token".to_owned(),
+            source_id: "source 1".to_owned(),
+            selection: selection.clone(),
+            capabilities: CorePlaybackCapabilities::empty(),
+        });
+        assert_eq!(
+            decision.url,
+            "https://nako.example/api/sources/source%201/playback/decision?playback_profile_id=profile%201"
+        );
+
+        let direct = build_direct_playback_target(&CoreDirectPlaybackTargetInput {
+            base_url: "https://nako.example/api".to_owned(),
+            source_id: "source 1".to_owned(),
+            selection: selection.clone(),
+        });
+        assert_eq!(
+            direct.request.url,
+            "https://nako.example/api/sources/source%201/stream?playback_profile_id=profile%201"
+        );
+
+        let direct_head = build_head_direct_playback_target(&CoreDirectPlaybackTargetInput {
+            base_url: "https://nako.example/api".to_owned(),
+            source_id: "source 1".to_owned(),
+            selection: selection.clone(),
+        });
+        assert_eq!(direct_head.request.method, "HEAD");
+        assert_eq!(direct_head.request.url, direct.request.url);
+
+        let remux = build_remux_playback_target(&CoreRemuxPlaybackTargetInput {
+            base_url: "https://nako.example/api".to_owned(),
+            source_id: "source 1".to_owned(),
+            selection: selection.clone(),
+            capabilities: CorePlaybackCapabilities::empty(),
+            output_container: Some(CoreOutputContainer::Mp4),
+        });
+        assert_eq!(
+            remux.request.url,
+            "https://nako.example/api/sources/source%201/stream/remux?playback_profile_id=profile%201&output_container=mp4"
+        );
+        assert_eq!(remux.session_probe_request.unwrap().url, remux.request.url);
+
+        let hls = build_hls_playlist_target(&CoreHlsPlaylistTargetInput {
+            base_url: "https://nako.example/api".to_owned(),
+            source_id: "source 1".to_owned(),
+            selection,
+            capabilities: CorePlaybackCapabilities::empty(),
+        });
+        assert_eq!(
+            hls.request.url,
+            "https://nako.example/api/sources/source%201/stream/hls/playlist.m3u8?playback_profile_id=profile%201"
+        );
+        assert_eq!(hls.session_probe_request.unwrap().url, hls.request.url);
     }
 
     #[test]

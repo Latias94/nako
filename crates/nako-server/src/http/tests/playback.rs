@@ -59,18 +59,14 @@ async fn save_chromium_playback_profile_preference(router: &Router) {
 }
 
 async fn create_chromium_named_default_playback_profile(router: &Router) {
-    let response = request_body_json::<nako_api::public_client::UserPlaybackProfileResponse, _>(
+    let response = create_named_playback_profile(
         router,
-        Method::POST,
-        "/users/me/playback-profiles",
-        &nako_api::public_client::CreateUserPlaybackProfileRequest {
-            name: "Chromium".to_owned(),
-            is_default: Some(true),
-            capabilities: nako_api::public_client::UserPlaybackProfileCapabilitiesRequest {
-                device_family: Some("browser_chromium".to_owned()),
-                profile_version: Some(1),
-                ..nako_api::public_client::UserPlaybackProfileCapabilitiesRequest::default()
-            },
+        "Chromium",
+        Some(true),
+        nako_api::public_client::UserPlaybackProfileCapabilitiesRequest {
+            device_family: Some("browser_chromium".to_owned()),
+            profile_version: Some(1),
+            ..nako_api::public_client::UserPlaybackProfileCapabilitiesRequest::default()
         },
     )
     .await;
@@ -89,6 +85,42 @@ async fn create_chromium_named_default_playback_profile(router: &Router) {
             .iter()
             .any(|codec| codec == "hevc")
     );
+}
+
+async fn create_named_playback_profile(
+    router: &Router,
+    name: &str,
+    is_default: Option<bool>,
+    capabilities: nako_api::public_client::UserPlaybackProfileCapabilitiesRequest,
+) -> nako_api::public_client::UserPlaybackProfileResponse {
+    request_body_json::<nako_api::public_client::UserPlaybackProfileResponse, _>(
+        router,
+        Method::POST,
+        "/users/me/playback-profiles",
+        &nako_api::public_client::CreateUserPlaybackProfileRequest {
+            name: name.to_owned(),
+            is_default,
+            capabilities,
+        },
+    )
+    .await
+}
+
+async fn create_hevc_named_playback_profile(
+    router: &Router,
+) -> nako_api::public_client::UserPlaybackProfileResponse {
+    create_named_playback_profile(
+        router,
+        "HEVC device",
+        Some(false),
+        nako_api::public_client::UserPlaybackProfileCapabilitiesRequest {
+            device_family: Some("hevc_device".to_owned()),
+            profile_version: Some(1),
+            video_codecs: Some(vec!["h264".to_owned(), "hevc".to_owned()]),
+            ..nako_api::public_client::UserPlaybackProfileCapabilitiesRequest::default()
+        },
+    )
+    .await
 }
 
 async fn save_hls_mpeg_ts_playback_profile_preference(router: &Router) {
@@ -876,6 +908,101 @@ async fn playback_decision_route_uses_named_default_profile_when_query_omits_cap
 }
 
 #[tokio::test]
+async fn playback_decision_route_uses_selected_named_profile_id() {
+    let (_temp, router, source, store) =
+        router_with_media_source("selected-profile-hevc.mp4", b"media").await;
+    let mut probe = compatible_probe();
+    probe.container = Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned());
+    if let Some(video) = probe
+        .streams
+        .iter_mut()
+        .find(|stream| matches!(stream.kind, MediaStreamKind::Video))
+    {
+        video.codec = Some("hevc".to_owned());
+    }
+    store.upsert_media_probe(source.id, &probe).await.unwrap();
+    create_chromium_named_default_playback_profile(&router).await;
+    let hevc_profile = create_hevc_named_playback_profile(&router).await;
+
+    let selected = request_json::<nako_api::public_client::PlaybackDecisionResponse>(
+        &router,
+        Method::GET,
+        &format!(
+            "/sources/{}/playback/decision?playback_profile_id={}",
+            source.id, hevc_profile.profile.profile_id
+        ),
+    )
+    .await;
+
+    assert_eq!(
+        selected.decision.mode,
+        nako_api::public_client::ClientPlaybackMode::DirectPlay
+    );
+    assert!(selected.decision.report.direct_play.supported);
+
+    let explicit_override = request_json::<nako_api::public_client::PlaybackDecisionResponse>(
+        &router,
+        Method::GET,
+        &format!(
+            "/sources/{}/playback/decision?playback_profile_id={}&video_codec=h264",
+            source.id, hevc_profile.profile.profile_id
+        ),
+    )
+    .await;
+
+    assert_eq!(
+        explicit_override.decision.mode,
+        nako_api::public_client::ClientPlaybackMode::Transcode
+    );
+    assert!(
+        explicit_override
+            .decision
+            .report
+            .direct_play
+            .reasons
+            .contains(
+            &nako_api::public_client::ClientPlaybackCompatibilityCondition::VideoCodecUnsupported,
+        )
+    );
+}
+
+#[tokio::test]
+async fn playback_decision_route_rejects_missing_selected_named_profile_without_default_fallback() {
+    let (_temp, router, source, store) =
+        router_with_media_source("missing-selected-profile-hevc.mp4", b"media").await;
+    let mut probe = compatible_probe();
+    probe.container = Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned());
+    if let Some(video) = probe
+        .streams
+        .iter_mut()
+        .find(|stream| matches!(stream.kind, MediaStreamKind::Video))
+    {
+        video.codec = Some("hevc".to_owned());
+    }
+    store.upsert_media_probe(source.id, &probe).await.unwrap();
+    create_hevc_named_playback_profile(&router).await;
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/sources/{}/playback/decision?playback_profile_id=00000000-0000-0000-0000-000000000404",
+                    source.id
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let error = body_json::<ErrorResponse>(response).await;
+    assert_eq!(error.code, "not_found");
+    assert!(error.message.contains("playback_profile"));
+}
+
+#[tokio::test]
 async fn playback_decision_route_uses_default_capabilities_without_saved_profile() {
     let (_temp, router, source, store) =
         router_with_media_source("default-profile-hevc.mp4", b"media").await;
@@ -1576,6 +1703,82 @@ async fn direct_stream_routes_use_saved_profile_for_new_sessions() {
         .expect("direct GET session should be persisted");
     let get_capabilities = playback_session_client_capabilities(&get_session);
     assert_eq!(get_capabilities, head_capabilities);
+    let bytes = to_bytes(get.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(&bytes[..], b"2345");
+}
+
+#[tokio::test]
+async fn direct_stream_routes_use_selected_named_profile_for_new_sessions() {
+    let (_temp, router, source, store) =
+        router_with_media_source("direct-selected-profile.mp4", b"0123456789").await;
+    create_chromium_named_default_playback_profile(&router).await;
+    let hevc_profile = create_hevc_named_playback_profile(&router).await;
+
+    let head = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::HEAD)
+                .uri(format!(
+                    "/sources/{}/stream?playback_profile_id={}",
+                    source.id, hevc_profile.profile.profile_id
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(head.status(), StatusCode::OK);
+    let head_session_id: PlaybackSessionId = head
+        .headers()
+        .get(PLAYBACK_SESSION_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .expect("direct HEAD should expose playback session id")
+        .parse()
+        .unwrap();
+    let head_session = store
+        .get_playback_session(head_session_id)
+        .await
+        .unwrap()
+        .expect("direct HEAD session should be persisted");
+    let head_capabilities = playback_session_client_capabilities(&head_session);
+    assert_eq!(
+        head_capabilities.device_family.as_deref(),
+        Some("hevc_device")
+    );
+    assert!(head_capabilities.video_codecs.contains(&"hevc".to_owned()));
+
+    let get = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/sources/{}/stream?playback_profile_id={}",
+                    source.id, hevc_profile.profile.profile_id
+                ))
+                .header(header::RANGE, "bytes=2-5")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(get.status(), StatusCode::PARTIAL_CONTENT);
+    let get_session_id: PlaybackSessionId = get
+        .headers()
+        .get(PLAYBACK_SESSION_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .expect("direct GET should expose playback session id")
+        .parse()
+        .unwrap();
+    let get_session = store
+        .get_playback_session(get_session_id)
+        .await
+        .unwrap()
+        .expect("direct GET session should be persisted");
+    assert_eq!(
+        playback_session_client_capabilities(&get_session),
+        head_capabilities
+    );
     let bytes = to_bytes(get.into_body(), usize::MAX).await.unwrap();
     assert_eq!(&bytes[..], b"2345");
 }
@@ -2470,6 +2673,50 @@ async fn remux_stream_route_uses_saved_profile_for_new_session() {
 }
 
 #[tokio::test]
+async fn remux_stream_route_uses_selected_named_profile_for_new_session() {
+    let (_temp, router, source, _staging_root, _ffmpeg_path, _marker, store) =
+        router_with_remux_source(false).await;
+    create_chromium_named_default_playback_profile(&router).await;
+    let hevc_profile = create_hevc_named_playback_profile(&router).await;
+    let path = format!(
+        "/sources/{}/stream/remux?output_container=mp4&playback_profile_id={}",
+        source.id, hevc_profile.profile.profile_id
+    );
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let session_id: PlaybackSessionId = response
+        .headers()
+        .get(PLAYBACK_SESSION_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .expect("remux stream should expose playback session id")
+        .parse()
+        .unwrap();
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(&bytes[..], b"remuxed");
+
+    let session = store
+        .get_playback_session(session_id)
+        .await
+        .unwrap()
+        .expect("remux session should be persisted");
+    assert_eq!(session.mode, PlaybackSessionMode::Remux);
+    let capabilities = playback_session_client_capabilities(&session);
+    assert_eq!(capabilities.device_family.as_deref(), Some("hevc_device"));
+    assert!(capabilities.video_codecs.contains(&"hevc".to_owned()));
+}
+
+#[tokio::test]
 async fn browser_playback_ticket_streams_remux_bytes() {
     let (_temp, router, source, _staging_root, _ffmpeg_path, _marker, _store) =
         router_with_remux_source(false).await;
@@ -3301,6 +3548,78 @@ async fn hls_playlist_route_uses_saved_profile_for_new_session() {
     let capabilities = playback_session_client_capabilities(&session);
     assert_eq!(capabilities.device_family.as_deref(), Some("saved_hls_ts"));
     assert_eq!(capabilities.profile_version, Some(1));
+    assert_eq!(
+        capabilities.hls_variant_policy,
+        PlaybackHlsVariantPolicy::SingleVariant
+    );
+    assert_eq!(
+        capabilities.hls_segment_container,
+        PlaybackHlsSegmentContainer::MpegTs
+    );
+}
+
+#[tokio::test]
+async fn hls_playlist_route_uses_selected_named_profile_for_new_session() {
+    let (_temp, router, source, store) = router_with_hls_source().await;
+    create_chromium_named_default_playback_profile(&router).await;
+    let hls_profile = create_named_playback_profile(
+        &router,
+        "HLS MPEG-TS device",
+        Some(false),
+        nako_api::public_client::UserPlaybackProfileCapabilitiesRequest {
+            device_family: Some("selected_hls_ts".to_owned()),
+            profile_version: Some(1),
+            hls_variant_policy: Some(
+                nako_api::public_client::ClientHlsVariantPolicy::SingleVariant,
+            ),
+            hls_segment_container: Some(nako_api::public_client::ClientHlsSegmentContainer::MpegTs),
+            ..nako_api::public_client::UserPlaybackProfileCapabilitiesRequest::default()
+        },
+    )
+    .await;
+    let playlist_path = format!(
+        "/sources/{}/stream/hls/playlist.m3u8?playback_profile_id={}",
+        source.id, hls_profile.profile.profile_id
+    );
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&playlist_path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let session_id: PlaybackSessionId = response
+        .headers()
+        .get(PLAYBACK_SESSION_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .expect("hls playlist should expose playback session id")
+        .parse()
+        .unwrap();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert!(body.contains(&format!("/playback/sessions/{session_id}/hls/segments/")));
+
+    let session = store
+        .get_playback_session(session_id)
+        .await
+        .unwrap()
+        .expect("hls playback session should be persisted");
+    let capabilities = playback_session_client_capabilities(&session);
+    assert_eq!(
+        capabilities.device_family.as_deref(),
+        Some("selected_hls_ts")
+    );
     assert_eq!(
         capabilities.hls_variant_policy,
         PlaybackHlsVariantPolicy::SingleVariant

@@ -12,7 +12,7 @@ use nako_core::{
     Result, StagingManifestRepository, TranscodeFailureCategory, TranscodeSessionId,
     TranscodeSessionKind, TranscodeSessionListFilter, TranscodeSessionRecord,
     TranscodeSessionRepository, TranscodeSessionRuntimeMetrics, TranscodeSessionState, UserId,
-    UserPlaybackProfile, UserPlaybackProfileRepository, UserPrincipalId,
+    UserPlaybackProfile, UserPlaybackProfileId, UserPlaybackProfileRepository, UserPrincipalId,
 };
 use nako_playback::{
     ClientPlaybackCapabilities, ClientPlaybackCapabilityRequest, EffectivePlaybackPolicy,
@@ -100,6 +100,12 @@ pub(crate) trait PlaybackRuntimeStore: std::fmt::Debug + Send + Sync {
     async fn get_default_user_playback_profile(
         &self,
         principal_id: &UserPrincipalId,
+    ) -> Result<Option<UserPlaybackProfile>>;
+
+    async fn get_user_playback_profile(
+        &self,
+        principal_id: &UserPrincipalId,
+        profile_id: UserPlaybackProfileId,
     ) -> Result<Option<UserPlaybackProfile>>;
 
     async fn create_playback_session(
@@ -229,6 +235,15 @@ where
         principal_id: &UserPrincipalId,
     ) -> Result<Option<UserPlaybackProfile>> {
         UserPlaybackProfileRepository::get_default_user_playback_profile(self, principal_id).await
+    }
+
+    async fn get_user_playback_profile(
+        &self,
+        principal_id: &UserPrincipalId,
+        profile_id: UserPlaybackProfileId,
+    ) -> Result<Option<UserPlaybackProfile>> {
+        UserPlaybackProfileRepository::get_user_playback_profile(self, principal_id, profile_id)
+            .await
     }
 
     async fn create_playback_session(
@@ -770,6 +785,27 @@ impl PlaybackAppService {
         .await?
         else {
             return Ok(ClientPlaybackCapabilityRequest::default().resolve());
+        };
+
+        client_capabilities_from_user_playback_profile(&profile)
+    }
+
+    pub(crate) async fn client_capabilities_for_user_playback_profile(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        profile_id: UserPlaybackProfileId,
+    ) -> Result<ClientPlaybackCapabilities> {
+        let Some(profile) = PlaybackRuntimeStore::get_user_playback_profile(
+            self.runtime_store.as_ref(),
+            &principal.principal_id,
+            profile_id,
+        )
+        .await?
+        else {
+            return Err(NakoError::NotFound {
+                entity: "playback_profile",
+                id: profile_id.to_string(),
+            });
         };
 
         client_capabilities_from_user_playback_profile(&profile)

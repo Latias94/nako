@@ -961,6 +961,7 @@ export interface PlaybackCapabilitiesQuery {
   direct_play?: boolean;
   device_family?: string;
   profile_version?: number;
+  playback_profile_id?: string;
   container?: string | string[];
   video_codec?: string | string[];
   audio_codec?: string | string[];
@@ -972,6 +973,10 @@ export interface PlaybackCapabilitiesQuery {
   supports_subtitles?: boolean;
   hls_variant_policy?: "single_variant" | "adaptive";
   hls_segment_container?: "mpeg_ts" | "fmp4";
+}
+
+export interface DirectPlaybackQuery {
+  playback_profile_id?: string;
 }
 
 export interface RemuxPlaybackQuery extends PlaybackCapabilitiesQuery {
@@ -1188,8 +1193,16 @@ export class NakoClient {
     return this.requestRaw("GET", `/sources/${encodeURIComponent(sourceId)}/stream`, { range });
   }
 
+  streamSourceWithQuery(sourceId: string, query?: DirectPlaybackQuery, range?: string): Promise<Response> {
+    return this.requestRaw("GET", `/sources/${encodeURIComponent(sourceId)}/stream`, { query, range });
+  }
+
   headStreamSource(sourceId: string, range?: string): Promise<Response> {
     return this.requestRaw("HEAD", `/sources/${encodeURIComponent(sourceId)}/stream`, { range });
+  }
+
+  headStreamSourceWithQuery(sourceId: string, query?: DirectPlaybackQuery, range?: string): Promise<Response> {
+    return this.requestRaw("HEAD", `/sources/${encodeURIComponent(sourceId)}/stream`, { query, range });
   }
 
   remuxStreamSource(sourceId: string, query?: RemuxPlaybackQuery, range?: string): Promise<Response> {

@@ -61,6 +61,11 @@ independent from server internals.
   `supports_hdr`, `supports_subtitles`, `hls_variant_policy`, and
   `hls_segment_container`. Remux query/browser ticket remux planning may also
   carry `output_container`.
+- `playback_profile_id` is a current-user named-profile selector query for new
+  playback decision, Direct Stream, Remux, and HLS playlist startup requests.
+  It is not a capability DTO field, not a preset id, and must stay out of
+  browser-ticket bodies, renderer bodies, existing session routes, and HLS
+  segment routes.
 - Keep playback profile preset discovery under the authenticated JSON route
   `/playback/profile-presets`. The DTO is a catalog template, not a playback
   request: expose `family`, `device_family`, `profile_version`, flat capability

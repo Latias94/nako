@@ -445,8 +445,8 @@ fn public_paths() -> Value {
     paths.insert(
         "/sources/{source_id}/stream".to_owned(),
         json!({
-            "get": binary_get("streamSource", "Stream direct-play bytes for one source.", vec![path_parameter("source_id", "Media source id."), range_header_parameter()]),
-            "head": empty_head("headStreamSource", "Preflight direct-play stream headers for one source.", vec![path_parameter("source_id", "Media source id."), range_header_parameter()])
+            "get": binary_get("streamSource", "Stream direct-play bytes for one source.", direct_stream_parameters("source_id")),
+            "head": empty_head("headStreamSource", "Preflight direct-play stream headers for one source.", direct_stream_parameters("source_id"))
         }),
     );
     paths.insert(
@@ -1175,6 +1175,7 @@ fn playback_parameters(source_id_name: &str) -> Vec<Value> {
             integer_schema("int32"),
             false,
         ),
+        playback_profile_id_parameter(),
         query_parameter(
             "container",
             "Comma-separated playable containers.",
@@ -1241,6 +1242,23 @@ fn playback_parameters(source_id_name: &str) -> Vec<Value> {
             enum_schema(&["mpeg_ts", "fmp4"]),
             false,
         ),
+    ]
+}
+
+fn playback_profile_id_parameter() -> Value {
+    query_parameter(
+        "playback_profile_id",
+        "Optional current-user named playback profile id. Explicit capability query fields take precedence when both are present.",
+        uuid_schema(),
+        false,
+    )
+}
+
+fn direct_stream_parameters(source_id_name: &str) -> Vec<Value> {
+    vec![
+        path_parameter(source_id_name, "Media source id."),
+        playback_profile_id_parameter(),
+        range_header_parameter(),
     ]
 }
 
@@ -2276,6 +2294,7 @@ mod tests {
         "direct_play",
         "device_family",
         "profile_version",
+        "playback_profile_id",
         "container",
         "video_codec",
         "audio_codec",
@@ -2463,6 +2482,9 @@ mod tests {
 
         let decision =
             operation_parameter_names(&document, "/sources/{source_id}/playback/decision", "get");
+        let direct_get = operation_parameter_names(&document, "/sources/{source_id}/stream", "get");
+        let direct_head =
+            operation_parameter_names(&document, "/sources/{source_id}/stream", "head");
         let remux_get =
             operation_parameter_names(&document, "/sources/{source_id}/stream/remux", "get");
         let remux_head =
@@ -2477,6 +2499,16 @@ mod tests {
             &decision,
             PLAYBACK_CAPABILITY_QUERY_FIELDS,
             "playback decision query",
+        );
+        assert_contains_all(
+            &direct_get,
+            &["playback_profile_id"],
+            "direct stream GET query",
+        );
+        assert_contains_all(
+            &direct_head,
+            &["playback_profile_id"],
+            "direct stream HEAD query",
         );
         assert_contains_all(
             &remux_get,

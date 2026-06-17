@@ -944,13 +944,30 @@ impl NakoClient {
         source_id: impl AsRef<str>,
         range: Option<&str>,
     ) -> Result<ClientRequest, NakoClientError> {
+        self.stream_source_request_with_query(source_id, None, range)
+    }
+
+    /// Build a direct-play byte stream request with optional profile selection.
+    ///
+    /// This only constructs the request. It does not execute or own the
+    /// response body.
+    ///
+    /// # Errors
+    ///
+    /// Returns URL or header construction errors.
+    pub fn stream_source_request_with_query(
+        &self,
+        source_id: impl AsRef<str>,
+        query: Option<DirectPlaybackQuery<'_>>,
+        range: Option<&str>,
+    ) -> Result<ClientRequest, NakoClientError> {
         self.build_streaming_request(
             Method::GET,
             &format!(
                 "/sources/{}/stream",
                 encode_path_segment(source_id.as_ref())
             ),
-            Option::<&NoQuery>::None,
+            query.as_ref(),
             range,
         )
     }
@@ -965,13 +982,28 @@ impl NakoClient {
         source_id: impl AsRef<str>,
         range: Option<&str>,
     ) -> Result<ClientRequest, NakoClientError> {
+        self.head_stream_source_request_with_query(source_id, None, range)
+    }
+
+    /// Build a direct-play stream header preflight request with optional
+    /// profile selection.
+    ///
+    /// # Errors
+    ///
+    /// Returns URL or header construction errors.
+    pub fn head_stream_source_request_with_query(
+        &self,
+        source_id: impl AsRef<str>,
+        query: Option<DirectPlaybackQuery<'_>>,
+        range: Option<&str>,
+    ) -> Result<ClientRequest, NakoClientError> {
         self.build_streaming_request(
             Method::HEAD,
             &format!(
                 "/sources/{}/stream",
                 encode_path_segment(source_id.as_ref())
             ),
-            Option::<&NoQuery>::None,
+            query.as_ref(),
             range,
         )
     }
@@ -1382,6 +1414,7 @@ pub struct PlaybackCapabilitiesQuery<'a> {
     pub direct_play: Option<bool>,
     pub device_family: Option<&'a str>,
     pub profile_version: Option<u32>,
+    pub playback_profile_id: Option<&'a str>,
     pub container: Option<&'a str>,
     pub video_codec: Option<&'a str>,
     pub audio_codec: Option<&'a str>,
@@ -1408,6 +1441,12 @@ impl QueryParams for PlaybackCapabilitiesQuery<'_> {
         }
         if let Some(profile_version) = self.profile_version {
             pairs.push(("profile_version".to_owned(), profile_version.to_string()));
+        }
+        if let Some(playback_profile_id) = self.playback_profile_id {
+            pairs.push((
+                "playback_profile_id".to_owned(),
+                playback_profile_id.to_owned(),
+            ));
         }
         if let Some(container) = self.container {
             pairs.push(("container".to_owned(), container.to_owned()));
@@ -1491,6 +1530,22 @@ pub fn browser_playback_capabilities_from_profile_preset(
         hls_variant_policy: Some(preset.hls_variant_policy.clone()),
         hls_segment_container: Some(preset.hls_segment_container.clone()),
         output_container: None,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct DirectPlaybackQuery<'a> {
+    pub playback_profile_id: Option<&'a str>,
+}
+
+impl QueryParams for DirectPlaybackQuery<'_> {
+    fn append_query(&self, pairs: &mut Vec<(String, String)>) {
+        if let Some(playback_profile_id) = self.playback_profile_id {
+            pairs.push((
+                "playback_profile_id".to_owned(),
+                playback_profile_id.to_owned(),
+            ));
+        }
     }
 }
 
@@ -2997,6 +3052,24 @@ mod tests {
             .stream_source_request("source 1", Some("bytes=10-20"))
             .unwrap();
         let head = client.head_stream_source_request("source 1", None).unwrap();
+        let direct_selected = client
+            .stream_source_request_with_query(
+                "source 1",
+                Some(DirectPlaybackQuery {
+                    playback_profile_id: Some("profile 1"),
+                }),
+                None,
+            )
+            .unwrap();
+        let head_selected = client
+            .head_stream_source_request_with_query(
+                "source 1",
+                Some(DirectPlaybackQuery {
+                    playback_profile_id: Some("profile 1"),
+                }),
+                None,
+            )
+            .unwrap();
         let image = client.image_request("image 1").unwrap();
         let image_head = client.head_image_request("image 1").unwrap();
         let image_variant = client
@@ -3025,6 +3098,7 @@ mod tests {
                         direct_play: Some(false),
                         device_family: Some("browser_chromium"),
                         profile_version: Some(1),
+                        playback_profile_id: Some("profile 1"),
                         container: Some("mp4,mkv"),
                         video_codec: Some("h264"),
                         audio_codec: Some("aac"),
@@ -3051,6 +3125,7 @@ mod tests {
                         direct_play: Some(false),
                         device_family: Some("browser_chromium"),
                         profile_version: Some(1),
+                        playback_profile_id: Some("profile 1"),
                         container: Some("mp4,mkv"),
                         video_codec: Some("h264"),
                         audio_codec: Some("aac"),
@@ -3075,6 +3150,7 @@ mod tests {
                     direct_play: None,
                     device_family: Some("browser_chromium"),
                     profile_version: Some(1),
+                    playback_profile_id: Some("profile 1"),
                     container: Some("hls"),
                     video_codec: Some("h264"),
                     audio_codec: Some("aac"),
@@ -3096,6 +3172,8 @@ mod tests {
 
         assert_eq!(direct.method, Method::GET);
         assert_eq!(head.method, Method::HEAD);
+        assert_eq!(direct_selected.method, Method::GET);
+        assert_eq!(head_selected.method, Method::HEAD);
         assert_eq!(image.method, Method::GET);
         assert_eq!(image_head.method, Method::HEAD);
         assert_eq!(image_variant.method, Method::GET);
@@ -3111,6 +3189,14 @@ mod tests {
         assert_eq!(
             head.url.as_str(),
             "http://localhost:3000/api/sources/source%201/stream"
+        );
+        assert_eq!(
+            direct_selected.url.as_str(),
+            "http://localhost:3000/api/sources/source%201/stream?playback_profile_id=profile%201"
+        );
+        assert_eq!(
+            head_selected.url.as_str(),
+            "http://localhost:3000/api/sources/source%201/stream?playback_profile_id=profile%201"
         );
         assert_eq!(
             image.url.as_str(),
@@ -3130,15 +3216,15 @@ mod tests {
         );
         assert_eq!(
             remux.url.as_str(),
-            "http://localhost:3000/api/sources/source%201/stream/remux?direct_play=false&device_family=browser_chromium&profile_version=1&container=mp4%2Cmkv&video_codec=h264&audio_codec=aac&max_video_bitrate=8000000&max_width=1920&max_height=1080&max_audio_channels=2&supports_hdr=false&supports_subtitles=false&hls_variant_policy=single_variant&hls_segment_container=mpeg_ts&output_container=mkv"
+            "http://localhost:3000/api/sources/source%201/stream/remux?direct_play=false&device_family=browser_chromium&profile_version=1&playback_profile_id=profile%201&container=mp4%2Cmkv&video_codec=h264&audio_codec=aac&max_video_bitrate=8000000&max_width=1920&max_height=1080&max_audio_channels=2&supports_hdr=false&supports_subtitles=false&hls_variant_policy=single_variant&hls_segment_container=mpeg_ts&output_container=mkv"
         );
         assert_eq!(
             remux_head.url.as_str(),
-            "http://localhost:3000/api/sources/source%201/stream/remux?direct_play=false&device_family=browser_chromium&profile_version=1&container=mp4%2Cmkv&video_codec=h264&audio_codec=aac&max_video_bitrate=8000000&max_width=1920&max_height=1080&max_audio_channels=2&supports_hdr=false&supports_subtitles=false&hls_variant_policy=single_variant&hls_segment_container=mpeg_ts&output_container=mkv"
+            "http://localhost:3000/api/sources/source%201/stream/remux?direct_play=false&device_family=browser_chromium&profile_version=1&playback_profile_id=profile%201&container=mp4%2Cmkv&video_codec=h264&audio_codec=aac&max_video_bitrate=8000000&max_width=1920&max_height=1080&max_audio_channels=2&supports_hdr=false&supports_subtitles=false&hls_variant_policy=single_variant&hls_segment_container=mpeg_ts&output_container=mkv"
         );
         assert_eq!(
             playlist.url.as_str(),
-            "http://localhost:3000/api/sources/source%201/stream/hls/playlist.m3u8?device_family=browser_chromium&profile_version=1&container=hls&video_codec=h264&audio_codec=aac&max_video_bitrate=4000000&max_width=1280&max_height=720&max_audio_channels=2&supports_hdr=false&supports_subtitles=true&hls_variant_policy=adaptive&hls_segment_container=fmp4"
+            "http://localhost:3000/api/sources/source%201/stream/hls/playlist.m3u8?device_family=browser_chromium&profile_version=1&playback_profile_id=profile%201&container=hls&video_codec=h264&audio_codec=aac&max_video_bitrate=4000000&max_width=1280&max_height=720&max_audio_channels=2&supports_hdr=false&supports_subtitles=true&hls_variant_policy=adaptive&hls_segment_container=fmp4"
         );
         assert_eq!(
             segment.url.as_str(),
@@ -3148,6 +3234,8 @@ mod tests {
         for request in [
             &direct,
             &head,
+            &direct_selected,
+            &head_selected,
             &image,
             &image_head,
             &image_variant,
@@ -3167,6 +3255,8 @@ mod tests {
             HeaderValue::from_static("bytes=10-20")
         );
         assert!(head.headers.get(RANGE).is_none());
+        assert!(direct_selected.headers.get(RANGE).is_none());
+        assert!(head_selected.headers.get(RANGE).is_none());
         assert_eq!(
             remux.headers.get(RANGE).unwrap(),
             HeaderValue::from_static("bytes=0-")

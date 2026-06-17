@@ -54,6 +54,11 @@ It performs no network IO and has no runtime dependency on reqwest.
   `CorePlaybackCapabilities` without adding server/playback dependencies.
   Unknown additive HLS policy/container wire values are omitted from core
   capability fields because core enums only model known request facts.
+- Explicit playback profile selection must use `CorePlaybackSelection` and
+  encode `playback_profile_id` on playback decision, Direct Stream, Remux, and
+  HLS playlist builders. Keep the selector separate from
+  `CorePlaybackCapabilities`; it is a current-user profile choice, not a player
+  capability fact.
 - Current-user playback profile preference builders must use the stable JSON
   route `/users/me/playback-profile` with request IDs
   `user_playback.profile_preference`,

@@ -105,6 +105,7 @@ public data class PlaybackCapabilitiesQuery(
     public val directPlay: Boolean? = null,
     public val deviceFamily: String? = null,
     public val profileVersion: Int? = null,
+    public val playbackProfileId: String? = null,
     public val containers: List<String> = emptyList(),
     public val videoCodecs: List<String> = emptyList(),
     public val audioCodecs: List<String> = emptyList(),
@@ -116,6 +117,10 @@ public data class PlaybackCapabilitiesQuery(
     public val supportsSubtitles: Boolean? = null,
     public val hlsVariantPolicy: ClientHlsVariantPolicy? = null,
     public val hlsSegmentContainer: ClientHlsSegmentContainer? = null,
+)
+
+public data class DirectPlaybackQuery(
+    public val playbackProfileId: String? = null,
 )
 
 @JvmInline
@@ -141,6 +146,7 @@ public data class RemuxPlaybackQuery(
     public val directPlay: Boolean? = null,
     public val deviceFamily: String? = null,
     public val profileVersion: Int? = null,
+    public val playbackProfileId: String? = null,
     public val containers: List<String> = emptyList(),
     public val videoCodecs: List<String> = emptyList(),
     public val audioCodecs: List<String> = emptyList(),
@@ -159,6 +165,7 @@ public data class HlsPlaybackQuery(
     public val directPlay: Boolean? = null,
     public val deviceFamily: String? = null,
     public val profileVersion: Int? = null,
+    public val playbackProfileId: String? = null,
     public val containers: List<String> = emptyList(),
     public val videoCodecs: List<String> = emptyList(),
     public val audioCodecs: List<String> = emptyList(),
@@ -447,16 +454,28 @@ public object NakoPublicClientRequests {
             pathAndQuery = "/sources/${encodePathSegment(sourceId)}/playback/browser-ticket",
         )
 
-    public fun streamSource(sourceId: String): NakoRequestDescriptor =
+    public fun streamSource(
+        sourceId: String,
+        query: DirectPlaybackQuery = DirectPlaybackQuery(),
+    ): NakoRequestDescriptor =
         NakoRequestDescriptor(
             method = "GET",
-            pathAndQuery = "/sources/${encodePathSegment(sourceId)}/stream",
+            pathAndQuery = pathWithQuery(
+                "/sources/${encodePathSegment(sourceId)}/stream",
+                directPlaybackQuery(query),
+            ),
         )
 
-    public fun headStreamSource(sourceId: String): NakoRequestDescriptor =
+    public fun headStreamSource(
+        sourceId: String,
+        query: DirectPlaybackQuery = DirectPlaybackQuery(),
+    ): NakoRequestDescriptor =
         NakoRequestDescriptor(
             method = "HEAD",
-            pathAndQuery = "/sources/${encodePathSegment(sourceId)}/stream",
+            pathAndQuery = pathWithQuery(
+                "/sources/${encodePathSegment(sourceId)}/stream",
+                directPlaybackQuery(query),
+            ),
         )
 
     public fun remuxStreamSource(
@@ -703,6 +722,9 @@ public object NakoPublicClientRequests {
             capabilities.profileVersion?.let {
                 add("profile_version" to it.toString())
             }
+            capabilities.playbackProfileId?.let {
+                add("playback_profile_id" to it)
+            }
             addCsv("container", capabilities.containers)
             addCsv("video_codec", capabilities.videoCodecs)
             addCsv("audio_codec", capabilities.audioCodecs)
@@ -732,6 +754,15 @@ public object NakoPublicClientRequests {
             }
         }
 
+    private fun directPlaybackQuery(
+        query: DirectPlaybackQuery,
+    ): List<Pair<String, String>> =
+        buildList {
+            query.playbackProfileId?.let {
+                add("playback_profile_id" to it)
+            }
+        }
+
     private fun remuxPlaybackQuery(
         query: RemuxPlaybackQuery,
     ): List<Pair<String, String>> =
@@ -744,6 +775,9 @@ public object NakoPublicClientRequests {
             }
             query.profileVersion?.let {
                 add("profile_version" to it.toString())
+            }
+            query.playbackProfileId?.let {
+                add("playback_profile_id" to it)
             }
             addCsv("container", query.containers)
             addCsv("video_codec", query.videoCodecs)
@@ -789,6 +823,9 @@ public object NakoPublicClientRequests {
             }
             query.profileVersion?.let {
                 add("profile_version" to it.toString())
+            }
+            query.playbackProfileId?.let {
+                add("playback_profile_id" to it)
             }
             addCsv("container", query.containers)
             addCsv("video_codec", query.videoCodecs)

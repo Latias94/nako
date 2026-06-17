@@ -2,8 +2,9 @@ use std::{collections::BTreeMap, env};
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use nako_client::{
-    ClientOutputContainer, ClientRequest, ClientTransport, NakoClient, NakoClientError, PageQuery,
-    PlaybackCapabilitiesQuery, RemuxPlaybackQuery, ReqwestTransport, SearchQuery,
+    ClientOutputContainer, ClientRequest, ClientTransport, DirectPlaybackQuery, NakoClient,
+    NakoClientError, PageQuery, PlaybackCapabilitiesQuery, RemuxPlaybackQuery, ReqwestTransport,
+    SearchQuery,
 };
 use serde::Serialize;
 use thiserror::Error;
@@ -99,11 +100,15 @@ pub enum StreamCommand {
         source_id: String,
         #[arg(long)]
         range: Option<String>,
+        #[arg(long)]
+        playback_profile_id: Option<String>,
     },
     Head {
         source_id: String,
         #[arg(long)]
         range: Option<String>,
+        #[arg(long)]
+        playback_profile_id: Option<String>,
     },
     Remux {
         source_id: String,
@@ -128,6 +133,8 @@ pub enum StreamCommand {
 #[derive(Clone, Debug, Default, Args)]
 pub struct PlaybackCapabilityArgs {
     #[arg(long)]
+    pub playback_profile_id: Option<String>,
+    #[arg(long)]
     pub direct_play: Option<bool>,
     #[arg(long)]
     pub container: Option<String>,
@@ -140,7 +147,8 @@ pub struct PlaybackCapabilityArgs {
 impl PlaybackCapabilityArgs {
     #[must_use]
     pub fn as_query(&self) -> Option<PlaybackCapabilitiesQuery<'_>> {
-        if self.direct_play.is_none()
+        if self.playback_profile_id.is_none()
+            && self.direct_play.is_none()
             && self.container.is_none()
             && self.video_codec.is_none()
             && self.audio_codec.is_none()
@@ -148,6 +156,7 @@ impl PlaybackCapabilityArgs {
             None
         } else {
             Some(PlaybackCapabilitiesQuery {
+                playback_profile_id: self.playback_profile_id.as_deref(),
                 direct_play: self.direct_play,
                 container: self.container.as_deref(),
                 video_codec: self.video_codec.as_deref(),
@@ -272,12 +281,28 @@ fn streaming_command_output(
     command: StreamCommand,
 ) -> Result<serde_json::Value, CliError> {
     let request = match command {
-        StreamCommand::Direct { source_id, range } => {
-            client.stream_source_request(source_id, range.as_deref())?
-        }
-        StreamCommand::Head { source_id, range } => {
-            client.head_stream_source_request(source_id, range.as_deref())?
-        }
+        StreamCommand::Direct {
+            source_id,
+            range,
+            playback_profile_id,
+        } => client.stream_source_request_with_query(
+            source_id,
+            Some(DirectPlaybackQuery {
+                playback_profile_id: playback_profile_id.as_deref(),
+            }),
+            range.as_deref(),
+        )?,
+        StreamCommand::Head {
+            source_id,
+            range,
+            playback_profile_id,
+        } => client.head_stream_source_request_with_query(
+            source_id,
+            Some(DirectPlaybackQuery {
+                playback_profile_id: playback_profile_id.as_deref(),
+            }),
+            range.as_deref(),
+        )?,
         StreamCommand::Remux {
             source_id,
             range,

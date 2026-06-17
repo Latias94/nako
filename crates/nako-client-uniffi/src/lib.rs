@@ -248,6 +248,29 @@ pub fn build_playback_decision_request(
             base_url,
             access_token,
             source_id,
+            selection: nako_client_core::CorePlaybackSelection::empty(),
+            capabilities: capabilities.into(),
+        },
+    )
+    .into()
+}
+
+#[uniffi::export]
+pub fn build_playback_decision_request_with_profile(
+    base_url: String,
+    access_token: String,
+    source_id: String,
+    playback_profile_id: String,
+    capabilities: CorePlaybackCapabilities,
+) -> CoreHttpRequest {
+    nako_client_core::build_playback_decision_request(
+        &nako_client_core::CorePlaybackDecisionRequestInput {
+            base_url,
+            access_token,
+            source_id,
+            selection: nako_client_core::CorePlaybackSelection::from_playback_profile_id(
+                playback_profile_id,
+            ),
             capabilities: capabilities.into(),
         },
     )
@@ -269,6 +292,7 @@ pub fn build_recommended_playback_target(
         &nako_client_core::CorePlaybackTargetInput {
             base_url,
             decision: decision.into(),
+            selection: nako_client_core::CorePlaybackSelection::empty(),
             capabilities: capabilities.into(),
         },
     )
@@ -281,6 +305,25 @@ pub fn build_direct_playback_target(base_url: String, source_id: String) -> Core
         &nako_client_core::CoreDirectPlaybackTargetInput {
             base_url,
             source_id,
+            selection: nako_client_core::CorePlaybackSelection::empty(),
+        },
+    )
+    .into()
+}
+
+#[uniffi::export]
+pub fn build_direct_playback_target_with_profile(
+    base_url: String,
+    source_id: String,
+    playback_profile_id: String,
+) -> CorePlaybackTarget {
+    nako_client_core::build_direct_playback_target(
+        &nako_client_core::CoreDirectPlaybackTargetInput {
+            base_url,
+            source_id,
+            selection: nako_client_core::CorePlaybackSelection::from_playback_profile_id(
+                playback_profile_id,
+            ),
         },
     )
     .into()
@@ -295,6 +338,25 @@ pub fn build_head_direct_playback_target(
         &nako_client_core::CoreDirectPlaybackTargetInput {
             base_url,
             source_id,
+            selection: nako_client_core::CorePlaybackSelection::empty(),
+        },
+    )
+    .into()
+}
+
+#[uniffi::export]
+pub fn build_head_direct_playback_target_with_profile(
+    base_url: String,
+    source_id: String,
+    playback_profile_id: String,
+) -> CorePlaybackTarget {
+    nako_client_core::build_head_direct_playback_target(
+        &nako_client_core::CoreDirectPlaybackTargetInput {
+            base_url,
+            source_id,
+            selection: nako_client_core::CorePlaybackSelection::from_playback_profile_id(
+                playback_profile_id,
+            ),
         },
     )
     .into()
@@ -310,6 +372,27 @@ pub fn build_remux_playback_target(
     nako_client_core::build_remux_playback_target(&nako_client_core::CoreRemuxPlaybackTargetInput {
         base_url,
         source_id,
+        selection: nako_client_core::CorePlaybackSelection::empty(),
+        capabilities: capabilities.into(),
+        output_container: output_container.map(Into::into),
+    })
+    .into()
+}
+
+#[uniffi::export]
+pub fn build_remux_playback_target_with_profile(
+    base_url: String,
+    source_id: String,
+    playback_profile_id: String,
+    capabilities: CorePlaybackCapabilities,
+    output_container: Option<CoreOutputContainer>,
+) -> CorePlaybackTarget {
+    nako_client_core::build_remux_playback_target(&nako_client_core::CoreRemuxPlaybackTargetInput {
+        base_url,
+        source_id,
+        selection: nako_client_core::CorePlaybackSelection::from_playback_profile_id(
+            playback_profile_id,
+        ),
         capabilities: capabilities.into(),
         output_container: output_container.map(Into::into),
     })
@@ -325,6 +408,25 @@ pub fn build_hls_playlist_target(
     nako_client_core::build_hls_playlist_target(&nako_client_core::CoreHlsPlaylistTargetInput {
         base_url,
         source_id,
+        selection: nako_client_core::CorePlaybackSelection::empty(),
+        capabilities: capabilities.into(),
+    })
+    .into()
+}
+
+#[uniffi::export]
+pub fn build_hls_playlist_target_with_profile(
+    base_url: String,
+    source_id: String,
+    playback_profile_id: String,
+    capabilities: CorePlaybackCapabilities,
+) -> CorePlaybackTarget {
+    nako_client_core::build_hls_playlist_target(&nako_client_core::CoreHlsPlaylistTargetInput {
+        base_url,
+        source_id,
+        selection: nako_client_core::CorePlaybackSelection::from_playback_profile_id(
+            playback_profile_id,
+        ),
         capabilities: capabilities.into(),
     })
     .into()

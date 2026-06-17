@@ -23,6 +23,25 @@ impl CorePlaybackCapabilities {
     }
 }
 
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct CorePlaybackSelection {
+    pub playback_profile_id: Option<String>,
+}
+
+impl CorePlaybackSelection {
+    #[must_use]
+    pub fn empty() -> Self {
+        Self::default()
+    }
+
+    #[must_use]
+    pub fn from_playback_profile_id(playback_profile_id: impl Into<String>) -> Self {
+        Self {
+            playback_profile_id: Some(playback_profile_id.into()),
+        }
+    }
+}
+
 impl From<&nako_client_protocol::PlaybackProfilePresetDto> for CorePlaybackCapabilities {
     fn from(preset: &nako_client_protocol::PlaybackProfilePresetDto) -> Self {
         Self {
@@ -60,6 +79,7 @@ pub struct CorePlaybackDecisionRequestInput {
     pub base_url: String,
     pub access_token: String,
     pub source_id: String,
+    pub selection: CorePlaybackSelection,
     pub capabilities: CorePlaybackCapabilities,
 }
 
@@ -124,6 +144,7 @@ pub struct CorePlaybackDecisionSummary {
 pub struct CorePlaybackTargetInput {
     pub base_url: String,
     pub decision: CorePlaybackDecisionSummary,
+    pub selection: CorePlaybackSelection,
     pub capabilities: CorePlaybackCapabilities,
 }
 
@@ -131,12 +152,14 @@ pub struct CorePlaybackTargetInput {
 pub struct CoreDirectPlaybackTargetInput {
     pub base_url: String,
     pub source_id: String,
+    pub selection: CorePlaybackSelection,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CoreRemuxPlaybackTargetInput {
     pub base_url: String,
     pub source_id: String,
+    pub selection: CorePlaybackSelection,
     pub capabilities: CorePlaybackCapabilities,
     pub output_container: Option<CoreOutputContainer>,
 }
@@ -145,6 +168,7 @@ pub struct CoreRemuxPlaybackTargetInput {
 pub struct CoreHlsPlaylistTargetInput {
     pub base_url: String,
     pub source_id: String,
+    pub selection: CorePlaybackSelection,
     pub capabilities: CorePlaybackCapabilities,
 }
 
@@ -208,7 +232,10 @@ pub fn build_playback_decision_request(
                 crate::encode_path_segment(&input.source_id)
             ),
         )
-        .query(playback_capability_query(&input.capabilities))
+        .query(playback_capability_query(
+            &input.capabilities,
+            &input.selection,
+        ))
         .access_token(Some(input.access_token.clone())),
     )
 }
@@ -222,12 +249,14 @@ pub fn build_recommended_playback_target(
             &CoreDirectPlaybackTargetInput {
                 base_url: input.base_url.clone(),
                 source_id: input.decision.source_id.clone(),
+                selection: input.selection.clone(),
             },
         )),
         CorePlaybackMode::Remux => {
             Some(build_remux_playback_target(&CoreRemuxPlaybackTargetInput {
                 base_url: input.base_url.clone(),
                 source_id: input.decision.source_id.clone(),
+                selection: input.selection.clone(),
                 capabilities: input.capabilities.clone(),
                 output_container: remux_output_container(&input.decision),
             }))
@@ -236,6 +265,7 @@ pub fn build_recommended_playback_target(
             Some(build_hls_playlist_target(&CoreHlsPlaylistTargetInput {
                 base_url: input.base_url.clone(),
                 source_id: input.decision.source_id.clone(),
+                selection: input.selection.clone(),
                 capabilities: input.capabilities.clone(),
             }))
         }
@@ -251,7 +281,7 @@ pub fn build_direct_playback_target(input: &CoreDirectPlaybackTargetInput) -> Co
             &input.base_url,
             &input.source_id,
             "/stream",
-            Vec::new(),
+            playback_selection_query(&input.selection),
             None,
         ),
         session_probe_request: None,
@@ -268,7 +298,7 @@ pub fn build_head_direct_playback_target(
             &input.base_url,
             &input.source_id,
             "/stream",
-            Vec::new(),
+            playback_selection_query(&input.selection),
             Some("HEAD"),
         ),
         session_probe_request: None,
@@ -277,7 +307,11 @@ pub fn build_head_direct_playback_target(
 
 #[must_use]
 pub fn build_remux_playback_target(input: &CoreRemuxPlaybackTargetInput) -> CorePlaybackTarget {
-    let query = remux_query(&input.capabilities, input.output_container);
+    let query = remux_query(
+        &input.capabilities,
+        &input.selection,
+        input.output_container,
+    );
     CorePlaybackTarget {
         request: streaming_request(
             crate::PLAYBACK_REMUX_STREAM_REQUEST_ID,
@@ -300,7 +334,7 @@ pub fn build_remux_playback_target(input: &CoreRemuxPlaybackTargetInput) -> Core
 
 #[must_use]
 pub fn build_hls_playlist_target(input: &CoreHlsPlaylistTargetInput) -> CorePlaybackTarget {
-    let query = playback_capability_query(&input.capabilities);
+    let query = playback_capability_query(&input.capabilities, &input.selection);
     CorePlaybackTarget {
         request: streaming_request(
             crate::PLAYBACK_HLS_PLAYLIST_REQUEST_ID,
@@ -411,6 +445,7 @@ fn build_playback_session_request(
 
 fn playback_capability_query(
     capabilities: &CorePlaybackCapabilities,
+    selection: &CorePlaybackSelection,
 ) -> Vec<crate::CoreQueryParam> {
     let mut query = Vec::new();
     if let Some(direct_play) = capabilities.direct_play {
@@ -428,6 +463,7 @@ fn playback_capability_query(
             profile_version.to_string(),
         ));
     }
+    query.extend(playback_selection_query(selection));
     if !capabilities.containers.is_empty() {
         query.push(crate::CoreQueryParam::new(
             "container",
@@ -497,11 +533,22 @@ fn playback_capability_query(
     query
 }
 
+fn playback_selection_query(selection: &CorePlaybackSelection) -> Vec<crate::CoreQueryParam> {
+    selection
+        .playback_profile_id
+        .as_deref()
+        .into_iter()
+        .filter(|value| !value.is_empty())
+        .map(|value| crate::CoreQueryParam::new("playback_profile_id", value))
+        .collect()
+}
+
 fn remux_query(
     capabilities: &CorePlaybackCapabilities,
+    selection: &CorePlaybackSelection,
     output_container: Option<CoreOutputContainer>,
 ) -> Vec<crate::CoreQueryParam> {
-    let mut query = playback_capability_query(capabilities);
+    let mut query = playback_capability_query(capabilities, selection);
     if let Some(value) = output_container.and_then(output_container_wire_value) {
         query.push(crate::CoreQueryParam::new("output_container", value));
     }

@@ -1,0 +1,7 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Check server route precedence and profile scoping"}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Check OpenAPI and generated SDK drift"}
+{"file": ".trellis/spec/nako-client-protocol/backend/index.md", "reason": "Check public protocol DTO and route rules"}
+{"file": ".trellis/spec/nako-client-core/backend/index.md", "reason": "Check client-core builder query behavior"}
+{"file": ".trellis/spec/nako-client/backend/index.md", "reason": "Check Rust client query behavior"}
+{"file": "docs/architecture/PLAYBACK.md", "reason": "Check playback architecture alignment"}

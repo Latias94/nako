@@ -20,7 +20,7 @@ use nako_api::public_client::{
 use nako_core::AuthenticatedPrincipal;
 use nako_core::{
     MediaSourceId, NakoError, PlaybackSessionId, PlaybackSessionMode, PlaybackSessionState,
-    RendererSessionId,
+    RendererSessionId, UserPlaybackProfileId,
 };
 use nako_playback::{
     ClientPlaybackCapabilities, ClientPlaybackCapabilityRequest, PlaybackHlsSegmentContainer,
@@ -275,10 +275,12 @@ pub(super) async fn stream_source(
             })
             .await?
     } else {
-        let client = app
-            .playback()
-            .default_client_capabilities_for_principal(&source_playback.principal)
-            .await?;
+        let client = client_capabilities_for_profile_id_or_default(
+            &app,
+            &source_playback.principal,
+            ticket_query.playback_profile_id.as_deref(),
+        )
+        .await?;
         app.playback()
             .direct_playback_stream(DirectPlaybackStreamRequest {
                 principal: source_playback.principal,
@@ -365,10 +367,12 @@ pub(super) async fn head_stream_source(
 
         return Ok(response);
     } else {
-        let client = app
-            .playback()
-            .default_client_capabilities_for_principal(&source_playback.principal)
-            .await?;
+        let client = client_capabilities_for_profile_id_or_default(
+            &app,
+            &source_playback.principal,
+            ticket_query.playback_profile_id.as_deref(),
+        )
+        .await?;
         let direct_play = app
             .playback()
             .direct_playback_preflight(DirectPlaybackPreflightRequest {
@@ -1026,10 +1030,60 @@ async fn client_capabilities_for_query_or_preference(
         return Ok(query.into_client_capabilities());
     }
 
+    if let Some(profile_id) = query.playback_profile_id() {
+        return app
+            .playback()
+            .client_capabilities_for_user_playback_profile(
+                principal,
+                parse_playback_profile_id(profile_id)?,
+            )
+            .await
+            .map_err(Into::into);
+    }
+
     Ok(app
         .playback()
         .default_client_capabilities_for_principal(principal)
         .await?)
+}
+
+async fn client_capabilities_for_profile_id_or_default(
+    app: &NakoApp,
+    principal: &AuthenticatedPrincipal,
+    playback_profile_id: Option<&str>,
+) -> ApiResult<ClientPlaybackCapabilities> {
+    if let Some(profile_id) = playback_profile_id {
+        return app
+            .playback()
+            .client_capabilities_for_user_playback_profile(
+                principal,
+                parse_playback_profile_id(profile_id)?,
+            )
+            .await
+            .map_err(Into::into);
+    }
+
+    Ok(app
+        .playback()
+        .default_client_capabilities_for_principal(principal)
+        .await?)
+}
+
+fn parse_playback_profile_id(value: &str) -> ApiResult<UserPlaybackProfileId> {
+    let value = value.trim();
+    if value.is_empty() {
+        return Err(NakoError::InvalidInput {
+            message: "playback_profile_id must not be empty".to_owned(),
+        }
+        .into());
+    }
+
+    value.parse::<UserPlaybackProfileId>().map_err(|_| {
+        NakoError::InvalidInput {
+            message: "playback_profile_id must be a valid profile id".to_owned(),
+        }
+        .into()
+    })
 }
 
 #[derive(Clone, Debug)]
@@ -1350,6 +1404,7 @@ pub(super) struct PlaybackCapabilitiesQuery {
     direct_play: Option<bool>,
     device_family: Option<String>,
     profile_version: Option<u32>,
+    playback_profile_id: Option<String>,
     container: Option<String>,
     video_codec: Option<String>,
     audio_codec: Option<String>,
@@ -1368,6 +1423,7 @@ pub(super) struct RemuxPlaybackQuery {
     direct_play: Option<bool>,
     device_family: Option<String>,
     profile_version: Option<u32>,
+    playback_profile_id: Option<String>,
     container: Option<String>,
     video_codec: Option<String>,
     audio_codec: Option<String>,
@@ -1392,6 +1448,7 @@ impl RemuxPlaybackQuery {
             direct_play: self.direct_play,
             device_family: self.device_family.clone(),
             profile_version: self.profile_version,
+            playback_profile_id: self.playback_profile_id.clone(),
             container: self.container.clone(),
             video_codec: self.video_codec.clone(),
             audio_codec: self.audio_codec.clone(),
@@ -1412,6 +1469,7 @@ pub(super) struct HlsPlaybackQuery {
     direct_play: Option<bool>,
     device_family: Option<String>,
     profile_version: Option<u32>,
+    playback_profile_id: Option<String>,
     container: Option<String>,
     video_codec: Option<String>,
     audio_codec: Option<String>,
@@ -1440,6 +1498,7 @@ impl HlsPlaybackQuery {
             direct_play: self.direct_play,
             device_family: self.device_family.clone(),
             profile_version: self.profile_version,
+            playback_profile_id: self.playback_profile_id.clone(),
             container: self.container.clone(),
             video_codec: self.video_codec.clone(),
             audio_codec: self.audio_codec.clone(),
@@ -1481,6 +1540,7 @@ impl HlsPlaybackQuery {
 #[derive(Clone, Debug, Default, Deserialize)]
 pub(super) struct BrowserPlaybackTicketQuery {
     ticket: Option<String>,
+    playback_profile_id: Option<String>,
     renderer_session_id: Option<String>,
     playback_session_id: Option<String>,
     renderer_ticket: Option<String>,
@@ -1502,6 +1562,10 @@ impl PlaybackCapabilitiesQuery {
             || self.supports_subtitles.is_some()
             || self.hls_variant_policy.is_some()
             || self.hls_segment_container.is_some()
+    }
+
+    fn playback_profile_id(&self) -> Option<&str> {
+        self.playback_profile_id.as_deref()
     }
 
     fn into_client_capabilities(self) -> ClientPlaybackCapabilities {
@@ -1632,6 +1696,7 @@ mod tests {
             direct_play: Some(false),
             device_family: Some("browser_chromium".to_owned()),
             profile_version: Some(1),
+            playback_profile_id: None,
             container: Some("mp4,webm".to_owned()),
             video_codec: Some("h264,hevc".to_owned()),
             audio_codec: Some("aac,opus".to_owned()),
@@ -1651,6 +1716,7 @@ mod tests {
             direct_play: query.direct_play,
             device_family: query.device_family.clone(),
             profile_version: query.profile_version,
+            playback_profile_id: query.playback_profile_id.clone(),
             container: query.container.clone(),
             video_codec: query.video_codec.clone(),
             audio_codec: query.audio_codec.clone(),
@@ -1674,6 +1740,7 @@ mod tests {
             direct_play: query.direct_play,
             device_family: query.device_family,
             profile_version: query.profile_version,
+            playback_profile_id: query.playback_profile_id,
             container: query.container,
             video_codec: query.video_codec,
             audio_codec: query.audio_codec,
@@ -1701,6 +1768,13 @@ mod tests {
     #[test]
     fn playback_capability_queries_identify_explicit_capability_fields_only() {
         assert!(!PlaybackCapabilitiesQuery::default().has_explicit_capability_fields());
+        assert!(
+            !PlaybackCapabilitiesQuery {
+                playback_profile_id: Some("019ecf4f-1b1d-7d32-9278-8dd4430f20a0".to_owned()),
+                ..PlaybackCapabilitiesQuery::default()
+            }
+            .has_explicit_capability_fields()
+        );
         assert!(
             PlaybackCapabilitiesQuery {
                 video_codec: Some("".to_owned()),

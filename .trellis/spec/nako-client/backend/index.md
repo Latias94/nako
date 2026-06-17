@@ -54,6 +54,11 @@ transport and a reqwest implementation.
   require the server to apply an implicit preset. Browser ticket capability
   helpers preserve additive HLS policy/container enum strings from
   `nako-client-protocol`.
+- Playback decision, Direct Stream, Remux, and HLS playlist request builders
+  must expose optional `playback_profile_id` selection for current-user named
+  profiles. Keep it out of browser ticket bodies, renderer bodies, existing
+  session routes, and HLS segment requests. Direct Stream keeps compatibility
+  methods and adds query-aware builder variants.
 - Current-user playback profile preference methods must expose
   `get_user_playback_profile_preference`,
   `set_user_playback_profile_preference`, and
