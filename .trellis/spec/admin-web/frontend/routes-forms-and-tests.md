@@ -139,6 +139,106 @@ const mutation = useMutation({
 Keep network behavior behind the typed data source and generated Admin API
 client, then assert it through route tests.
 
+## Scenario: Operator Readiness Recent Evidence Projection
+
+### 1. Scope / Trigger
+
+- Trigger: Admin Web renders
+  `details.media_library_scan.recent_evidence` from
+  `GET /admin/v1/operator-readiness`.
+- Evidence: `src/features/overview/OperatorReadinessPage.tsx`,
+  `src/i18n/catalogs/operatorReadiness.ts`, `src/App.test.tsx`, and the
+  `nako-api` Admin Operator Readiness Drilldown Contract.
+- Authority: ADR 0053.
+
+### 2. Signatures
+
+- Existing route path: `/operator-readiness`.
+- Existing data-source method: `loadOperatorReadiness()`.
+- Rendered source:
+  `AdminOperatorReadinessResponse.details.media_library_scan.recent_evidence`.
+- Recent evidence shape:
+  `read_only` plus ordered `components[]`.
+- Component entries expose only:
+  `component`, `status`, `reason`, optional `source_reason`,
+  `attention_count`, optional `latest_job`, and optional
+  `latest_watch_folder_tick`.
+
+### 3. Contracts
+
+- Render recent evidence inside the existing Media Library Scan detail panel,
+  near the intake action plan.
+- Keep the section read-only. Do not add refresh, retry, repair, enqueue, or
+  job-drilldown mutation controls from this projection.
+- Preserve backend component order. The expected components are library scan,
+  source fingerprint hash, and watch folders.
+- Latest job rendering may show only kind, status, resource class, timestamps,
+  and `has_error`.
+- Latest watch-folder tick rendering may show only safe enum values, booleans,
+  and counters. Render `scan_job_present`; never render a scan job id.
+- Missing latest job or watch tick facts must render a deterministic `None`
+  value rather than silently omitting the fact row.
+- Localize every user-visible label through the `operatorReadiness` catalog.
+- Treat enum/code-looking values as safe only when they match
+  `/^[a-z0-9_.-]+$/`. Other strings must render the existing redacted label.
+- Do not render raw paths, source locators, URLs, tokens, fingerprints, etags,
+  durable job ids, durable `input_json`, durable `summary_json`, raw errors, or
+  backend payload text.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Recent evidence contains three components | Render three component entries in backend order |
+| A component has no `latest_job` | Render `Latest job: None` |
+| A component has no `latest_watch_folder_tick` | Render `Latest watch tick: None` |
+| A latest job has a path, URL, token, fingerprint, or free-form payload string in a display field | Render the redacted label instead of the raw value |
+| A watch tick has a scan job id in backend facts | UI renders only `scan_job_present` |
+| Locale is `zh-Hans` | Recent evidence labels and counter summaries are localized |
+
+### 5. Good / Base / Bad Cases
+
+- Good: the route shows "what to do" in the intake action plan and "what just
+  happened" in recent evidence, both as compact read-only operations panels.
+- Base: empty job/tick evidence still renders visible `None` facts so operators
+  can distinguish missing evidence from a broken UI.
+- Bad: linking directly to a durable job id, rendering raw durable job payloads,
+  or adding mutation buttons to the operator-readiness drilldown.
+
+### 6. Tests Required
+
+- Route tests assert English and zh-Hans recent evidence copy.
+- Route tests assert source fingerprint hash mock data renders a safe latest
+  job summary and `has_error`.
+- Route tests assert watch-folder mock data renders `scan_job_present` and safe
+  candidate/failure counts.
+- Route tests assert injected paths, URLs, tokens, and backend/source strings do
+  not appear in rendered text.
+- Run:
+  - `npm run check --prefix apps/admin-web`
+  - focused `src/App.test.tsx` route tests
+  - `npm run build --prefix apps/admin-web` when route/page code changes.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```tsx
+<a href={`/admin/jobs/${entry.latest_job.id}`}>{entry.latest_job.id}</a>
+```
+
+#### Correct
+
+```tsx
+<EvidenceFact
+  label={t("operatorReadiness.scan.recentJob")}
+  value={formatRecentJobSummary(entry.latest_job, t)}
+/>
+```
+
+Recent evidence is a bounded operations projection, not a durable job browser.
+Keep it safe, local, and read-only.
+
 ## Scenario: Media Web Items Browse Query Boundary
 
 ### 1. Scope / Trigger

@@ -658,11 +658,21 @@ describe("Admin Web V2 route shell", () => {
     expect(screen.getByText("Source hash coverage")).toBeInTheDocument();
     expect(screen.getByText("109/128")).toBeInTheDocument();
     expect(screen.getByText("Intake action plan")).toBeInTheDocument();
-    expect(screen.getByText("Read-only")).toBeInTheDocument();
-    expect(screen.getByText("Library scan")).toBeInTheDocument();
-    expect(screen.getByText("Source fingerprint hash")).toBeInTheDocument();
-    expect(screen.getByText("Watch folders")).toBeInTheDocument();
-    expect(screen.getByText("11 need attention")).toBeInTheDocument();
+    expect(screen.getAllByText("Read-only").length).toBeGreaterThan(1);
+    expect(screen.getAllByText("Library scan").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Source fingerprint hash").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Watch folders").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("11 need attention").length).toBeGreaterThan(0);
+    expect(screen.getByText("Recent intake evidence")).toBeInTheDocument();
+    expect(screen.getByText("Last safe execution facts for the same intake components.")).toBeInTheDocument();
+    expect(screen.getByText("source_fingerprint_hash / queued")).toBeInTheDocument();
+    expect(screen.getAllByText("disk.scan.source_fingerprint_hash").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Has error").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("No").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Latest watch tick").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("degraded").length).toBeGreaterThan(0);
+    expect(screen.getByText("Scan job present")).toBeInTheDocument();
+    expect(screen.getByText("2 ready, 2 new, 4 observed")).toBeInTheDocument();
     expect(screen.getAllByText("Open Admin Jobs").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Durable jobs").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/storage\.vfs\.cache_repair/).length).toBeGreaterThan(0);
@@ -687,8 +697,12 @@ describe("Admin Web V2 route shell", () => {
     expect(screen.getByText("Readiness 区域")).toBeInTheDocument();
     expect(screen.getByText("媒体库扫描状态")).toBeInTheDocument();
     expect(screen.getByText("入库行动计划")).toBeInTheDocument();
-    expect(screen.getByText("只读")).toBeInTheDocument();
-    expect(screen.getByText("11 个需关注")).toBeInTheDocument();
+    expect(screen.getAllByText("只读").length).toBeGreaterThan(1);
+    expect(screen.getAllByText("11 个需关注").length).toBeGreaterThan(0);
+    expect(screen.getByText("最近入库证据")).toBeInTheDocument();
+    expect(screen.getByText("同一入库组件的最近安全执行事实。")).toBeInTheDocument();
+    expect(screen.getByText("存在扫描任务")).toBeInTheDocument();
+    expect(screen.getByText("2 就绪，2 新增，4 已观察")).toBeInTheDocument();
     expect(screen.getByText("持久数据库")).toBeInTheDocument();
     expect(screen.getByText("实时 Admin API")).toBeInTheDocument();
   });
@@ -784,6 +798,41 @@ describe("Admin Web V2 route shell", () => {
                     : entry,
               ),
           },
+          recent_evidence: {
+            ...mockOperatorReadiness.details.media_library_scan
+              .recent_evidence,
+            components:
+              mockOperatorReadiness.details.media_library_scan.recent_evidence.components.map(
+                (entry) =>
+                  entry.component === "source_fingerprint_hash"
+                    ? {
+                        ...entry,
+                        source_reason:
+                          "C:\\secret-cache\\Hidden Movie.mkv?token=secret",
+                        latest_job: entry.latest_job
+                          ? {
+                              ...entry.latest_job,
+                              kind: "source_fingerprint_hash",
+                              resource_class:
+                                "local:///Users/frank/Secret Path/Hidden Movie.mkv?token=secret",
+                              queued_at:
+                                "C:\\secret-cache\\Hidden Movie.mkv?token=secret",
+                              started_at:
+                                "https://nako.example.test/source?token=secret",
+                              completed_at:
+                                "/Users/frank/Secret Path/Hidden Movie.mkv",
+                            }
+                          : entry.latest_job,
+                      }
+                    : entry.component === "watch_folder"
+                      ? {
+                          ...entry,
+                          source_reason:
+                            "C:\\secret-cache\\Hidden Movie.mkv?token=secret",
+                        }
+                      : entry,
+              ),
+          },
         },
       },
     };
@@ -803,6 +852,7 @@ describe("Admin Web V2 route shell", () => {
     expect(renderedText).not.toContain("admin/v1/jobs");
     expect(renderedText).not.toContain("local:///");
     expect(renderedText).not.toContain("/Users/");
+    expect(renderedText).not.toContain("https://nako.example.test/source");
     expect(renderedText).not.toContain("C:\\");
     expect(screen.getAllByText("redacted").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Playback runtime").length).toBeGreaterThan(0);

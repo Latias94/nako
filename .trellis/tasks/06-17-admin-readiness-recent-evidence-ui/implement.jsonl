@@ -1,0 +1,5 @@
+{"file":".trellis/spec/admin-web/frontend/index.md","reason":"Admin Web pre-development checklist for frontend route changes."}
+{"file":".trellis/spec/admin-web/frontend/routes-forms-and-tests.md","reason":"Existing Admin Web route/data/i18n/test patterns and redaction rules."}
+{"file":".trellis/spec/guides/index.md","reason":"Cross-layer thinking trigger for rendering a new generated Admin API field."}
+{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Operator readiness recent evidence contract, safe fields, and forbidden data."}
+{"file":"docs/adr/0053-application-control-plane-boundary.md","reason":"Control-plane redaction and bounded diagnostics baseline for operator readiness."}

@@ -2061,6 +2061,72 @@ td {
   overflow-wrap: anywhere;
 }
 
+.operatorReadinessRecentEvidence {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid var(--nako-admin-line-soft);
+  padding: 14px 16px 16px;
+}
+
+.operatorReadinessRecentEvidenceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.operatorReadinessRecentEvidenceItem {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  min-height: 170px;
+  border: 1px solid var(--nako-admin-line);
+  border-radius: var(--nako-admin-radius);
+  background: var(--nako-admin-surface-raised);
+  padding: 12px;
+}
+
+.operatorReadinessRecentEvidenceItem span,
+.operatorReadinessRecentEvidenceItem small {
+  color: var(--nako-admin-muted);
+  font-size: 0.8rem;
+  font-weight: 720;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.operatorReadinessEvidenceFacts {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  border-top: 1px solid var(--nako-admin-line-soft);
+  padding-top: 8px;
+}
+
+.operatorReadinessEvidenceFact {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.operatorReadinessEvidenceFact span {
+  color: var(--nako-admin-muted);
+  font-size: 0.76rem;
+  font-weight: 720;
+}
+
+.operatorReadinessEvidenceFact strong {
+  color: var(--nako-admin-ink);
+  font-size: 0.78rem;
+  font-weight: 780;
+  line-height: 1.3;
+  max-width: 60%;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
 .settingsSummaryGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3416,6 +3482,7 @@ td {
     .overviewDiagnosticGrid,
     .overviewReadinessGrid,
     .operatorReadinessActionPlanGrid,
+    .operatorReadinessRecentEvidenceGrid,
     .settingsSummaryGrid,
     .accessSummaryGrid,
     .artworkSummaryGrid,

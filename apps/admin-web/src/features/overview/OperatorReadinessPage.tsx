@@ -52,6 +52,19 @@ type IntakeActionPlan =
 
 type IntakeActionPlanEntry = IntakeActionPlan["components"][number];
 
+type IntakeRecentEvidence =
+  AdminOperatorReadinessResponse["details"]["media_library_scan"]["recent_evidence"];
+
+type IntakeRecentEvidenceEntry = IntakeRecentEvidence["components"][number];
+
+type IntakeRecentJobEvidence = NonNullable<
+  IntakeRecentEvidenceEntry["latest_job"]
+>;
+
+type IntakeRecentWatchFolderTickEvidence = NonNullable<
+  IntakeRecentEvidenceEntry["latest_watch_folder_tick"]
+>;
+
 export function OperatorReadinessPage({
   dataSource,
 }: OperatorReadinessPageProps) {
@@ -227,6 +240,12 @@ export function OperatorReadinessPage({
             >
               <IntakeActionPlanView
                 plan={readiness.details.media_library_scan.intake_action_plan}
+                t={t}
+              />
+              <IntakeRecentEvidenceView
+                evidence={
+                  readiness.details.media_library_scan.recent_evidence
+                }
                 t={t}
               />
             </ReadinessDetailPanel>
@@ -563,6 +582,217 @@ function IntakeActionPlanEntryView({
   );
 }
 
+function IntakeRecentEvidenceView({
+  evidence,
+  t,
+}: {
+  evidence: IntakeRecentEvidence;
+  t: OperatorReadinessTranslate;
+}) {
+  return (
+    <section
+      aria-label={t("operatorReadiness.scan.recentEvidence")}
+      className="operatorReadinessRecentEvidence"
+    >
+      <div className="operatorReadinessActionPlanHeader">
+        <div>
+          <strong>{t("operatorReadiness.scan.recentEvidence")}</strong>
+          <span>{t("operatorReadiness.scan.recentEvidenceDescription")}</span>
+        </div>
+        <Badge tone={evidence.read_only ? "info" : "warning"}>
+          {evidence.read_only
+            ? t("operatorReadiness.scan.intakeReadOnly")
+            : t("operatorReadiness.scan.intakeMutable")}
+        </Badge>
+      </div>
+      <div className="operatorReadinessRecentEvidenceGrid">
+        {evidence.components.map((entry) => (
+          <IntakeRecentEvidenceEntryView
+            entry={entry}
+            key={entry.component}
+            t={t}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function IntakeRecentEvidenceEntryView({
+  entry,
+  t,
+}: {
+  entry: IntakeRecentEvidenceEntry;
+  t: OperatorReadinessTranslate;
+}) {
+  const sourceReason = entry.source_reason
+    ? safeOperatorReadinessSourceReason(entry.source_reason, t)
+    : null;
+
+  return (
+    <article className="operatorReadinessRecentEvidenceItem">
+      <div className="overviewReadinessHeader">
+        <strong>
+          {operatorReadinessIntakeComponentLabel(entry.component, t)}
+        </strong>
+        <Badge tone={operatorReadinessTone(entry.status)}>
+          {operatorReadinessStatusLabel(entry.status, t)}
+        </Badge>
+      </div>
+      <span>{operatorReadinessReasonLabel(entry, t)}</span>
+      <small>
+        {t("operatorReadiness.scan.intakeAttention", {
+          count: entry.attention_count,
+        })}
+      </small>
+      {sourceReason ? (
+        <small>
+          {t("overview.operatorReadiness.sourceReason", {
+            reason: sourceReason,
+          })}
+        </small>
+      ) : null}
+      <div className="operatorReadinessEvidenceFacts">
+        <EvidenceFact
+          label={t("operatorReadiness.scan.recentJob")}
+          value={formatRecentJobSummary(entry.latest_job, t)}
+        />
+        {entry.latest_job ? (
+          <RecentJobFacts job={entry.latest_job} t={t} />
+        ) : null}
+        <EvidenceFact
+          label={t("operatorReadiness.scan.recentWatchTick")}
+          value={formatWatchTickSummary(entry.latest_watch_folder_tick, t)}
+        />
+        {entry.latest_watch_folder_tick ? (
+          <RecentWatchTickFacts tick={entry.latest_watch_folder_tick} t={t} />
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
+function RecentJobFacts({
+  job,
+  t,
+}: {
+  job: IntakeRecentJobEvidence;
+  t: OperatorReadinessTranslate;
+}) {
+  return (
+    <>
+      <EvidenceFact
+        label={t("operatorReadiness.scan.recentJobResource")}
+        value={safeOperatorReadinessCodeValue(job.resource_class, t)}
+      />
+      <EvidenceFact
+        label={t("operatorReadiness.scan.recentJobQueued")}
+        value={safeOperatorReadinessDisplayValue(job.queued_at, t)}
+      />
+      <EvidenceFact
+        label={t("operatorReadiness.scan.recentJobStarted")}
+        value={safeOptionalDisplayValue(job.started_at, t)}
+      />
+      <EvidenceFact
+        label={t("operatorReadiness.scan.recentJobCompleted")}
+        value={safeOptionalDisplayValue(job.completed_at, t)}
+      />
+      <EvidenceFact
+        label={t("operatorReadiness.scan.recentJobHasError")}
+        value={yesNo(job.has_error, t)}
+      />
+    </>
+  );
+}
+
+function RecentWatchTickFacts({
+  tick,
+  t,
+}: {
+  tick: IntakeRecentWatchFolderTickEvidence;
+  t: OperatorReadinessTranslate;
+}) {
+  return (
+    <>
+      <EvidenceFact
+        label={t("operatorReadiness.scan.watchTickEnqueueScan")}
+        value={yesNo(tick.enqueue_scan, t)}
+      />
+      <EvidenceFact
+        label={t("operatorReadiness.scan.watchTickEnqueueReason")}
+        value={safeOperatorReadinessCodeValue(tick.enqueue_reason, t)}
+      />
+      <EvidenceFact
+        label={t("operatorReadiness.scan.watchTickAdmission")}
+        value={safeOperatorReadinessCodeValue(tick.scan_admission_status, t)}
+      />
+      <EvidenceFact
+        label={t("operatorReadiness.scan.watchTickScanJobPresent")}
+        value={yesNo(tick.scan_job_present, t)}
+      />
+      <EvidenceFact
+        label={t("operatorReadiness.scan.watchTickReusedScan")}
+        value={yesNo(tick.reused_existing_scan, t)}
+      />
+      <EvidenceFact
+        label={t("operatorReadiness.scan.watchTickBackoff")}
+        value={yesNo(tick.backoff_required, t)}
+      />
+      <EvidenceFact
+        label={t("operatorReadiness.scan.watchTickCandidates")}
+        value={t("operatorReadiness.scan.watchTickCandidatesValue", {
+          newly: tick.newly_ready_candidates,
+          observed: tick.observed_candidates,
+          ready: tick.ready_candidates,
+        })}
+      />
+      <EvidenceFact
+        label={t("operatorReadiness.scan.watchTickFailures")}
+        value={t("operatorReadiness.scan.watchTickFailuresValue", {
+          discovery: tick.discovery_failure_count,
+          total: tick.failure_count,
+        })}
+      />
+    </>
+  );
+}
+
+function EvidenceFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="operatorReadinessEvidenceFact">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function formatRecentJobSummary(
+  job: IntakeRecentJobEvidence | null,
+  t: OperatorReadinessTranslate,
+) {
+  if (!job) {
+    return t("operatorReadiness.none");
+  }
+
+  return t("operatorReadiness.scan.recentJobSummary", {
+    kind: safeOperatorReadinessCodeValue(job.kind, t),
+    status: safeOperatorReadinessCodeValue(job.status, t),
+  });
+}
+
+function formatWatchTickSummary(
+  tick: IntakeRecentWatchFolderTickEvidence | null,
+  t: OperatorReadinessTranslate,
+) {
+  if (!tick) {
+    return t("operatorReadiness.none");
+  }
+
+  return t("operatorReadiness.scan.recentWatchTickSummary", {
+    status: safeOperatorReadinessCodeValue(tick.status, t),
+  });
+}
+
 function Fact({ label, value }: { label: string; value: string }) {
   return (
     <div className="libraryFactRow">
@@ -610,4 +840,24 @@ function yesNo(value: boolean, t: (id: MessageId) => string) {
   return value
     ? t("operatorReadiness.boolean.yes")
     : t("operatorReadiness.boolean.no");
+}
+
+function safeOptionalDisplayValue(
+  value: string | null,
+  t: OperatorReadinessTranslate,
+) {
+  return value
+    ? safeOperatorReadinessDisplayValue(value, t)
+    : t("operatorReadiness.none");
+}
+
+function safeOperatorReadinessCodeValue(
+  value: string,
+  t: OperatorReadinessTranslate,
+) {
+  if (/^[a-z0-9_.-]+$/.test(value)) {
+    return value;
+  }
+
+  return t("operatorReadiness.redacted");
 }
