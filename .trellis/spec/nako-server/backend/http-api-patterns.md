@@ -645,10 +645,18 @@ app.user_playlist()
   - `SetUserWatchedStateRequest`
 - `UserPlaybackAppService::get_state(&AuthenticatedPrincipal, MediaItemId)`
   owns read access for default/current playback state.
-- Current-user playback profile preference handlers use the same
-  `Extension(AuthenticatedPrincipal)` pattern for
-  `GET|PUT|DELETE /users/me/playback-profile`, but they operate on the new
-  playback preference repository contract rather than item state.
+- Current-user playback profile handlers use the same
+  `Extension(AuthenticatedPrincipal)` pattern for the compatibility facade
+  `GET|PUT|DELETE /users/me/playback-profile` and named profile CRUD routes:
+  - `GET|POST /users/me/playback-profiles`
+  - `GET|PUT|DELETE /users/me/playback-profiles/{profile_id}`
+- Named profile app-service methods carry the authenticated principal and bind
+  reads/writes to that principal before repository calls:
+  - `list_profiles(&AuthenticatedPrincipal, PageRequest)`
+  - `create_profile(CreateUserPlaybackProfileRequest)`
+  - `get_profile(&AuthenticatedPrincipal, profile_id)`
+  - `update_profile(UpdateUserPlaybackProfileRequest)`
+  - `delete_profile(&AuthenticatedPrincipal, profile_id)`
 
 ### 3. Contracts
 
@@ -662,16 +670,24 @@ app.user_playlist()
   and preserves source-to-item validation before writing state.
 - Continue-watching list routes continue to use access-aware repository
   projections; do not turn them into route-local filtering loops.
-- `/users/me/playback-profile` is a current-user preference route. The HTTP
-  layer resolves compact preference input through the playback capability
+- Named playback profiles are the current source-of-truth profile model.
+  `/users/me/playback-profile` is only a default-profile compatibility facade.
+- The HTTP layer resolves compact profile input through the playback capability
   resolver, rejects unsupported additive HLS enum variants before storage, and
-  returns a resolved capability DTO. It must not accept or echo `principal_id`.
-- Saved playback profile preferences are applied by playback routes only as the
-  authenticated principal's fallback client capabilities when a new playback
-  decision, Direct Play stream/preflight, Remux stream/preflight, or HLS
-  playlist startup request provides no explicit capability query field.
+  returns resolved capability DTOs. Profile routes must not accept or echo
+  `principal_id` or `user_id`.
+- Named profile lists are bounded by `PageRequest` and current-principal
+  scoped. Do not list all principals and filter in HTTP or app code.
+- Creating the first profile for a principal makes it default. Setting
+  `is_default = true` makes that profile the only default for the principal.
+  Deleting the default profile leaves no default and must not promote another
+  profile silently.
+- Saved default named playback profiles are applied by playback routes only as
+  the authenticated principal's fallback client capabilities when a new
+  playback decision, Direct Play stream/preflight, Remux stream/preflight, or
+  HLS playlist startup request provides no explicit capability query field.
   Explicit capability query fields are authoritative and must not be merged
-  with the saved preference.
+  with the saved default profile.
 - Browser playback tickets, renderer transport requests, and existing
   playback-session-bound media requests keep using the client context already
   carried by the ticket/session path; they must not be replanned from the saved
@@ -686,18 +702,26 @@ app.user_playlist()
 | Write uses source from another item after access passes | `NakoError::InvalidInput` mentioning source/item mismatch |
 | Continue-watching state exists for inaccessible item | list omits it and backfills visible rows before pagination |
 | Administrator reads or writes source-less/multi-source item | Preserve administrator access semantics |
-| Playback decision or new stream startup omits capability query fields and the current principal has a saved profile preference | Use the saved resolved capability payload before planning or creating the playback session |
-| Playback request includes any explicit capability query field | Resolve from query fields and ignore the saved preference |
-| Browser ticket, renderer transport, or existing playback session route is used | Preserve the ticket/session client context and do not read the saved preference |
-| Stored preference JSON is invalid | Return a server-side data error instead of silently falling back to defaults |
+| Named profile list is requested | Return a bounded current-principal page and do not expose other principals |
+| First profile is created with `is_default = false` | Store it as the default profile |
+| A later profile is written with `is_default = true` | Clear any previous default for the same principal |
+| Default profile is deleted | Leave the principal with no default profile |
+| `/users/me/playback-profile` is read with no default | Return `preference: null` |
+| `/users/me/playback-profile` is written with no default | Create a default named profile and return the legacy preference DTO |
+| Playback decision or new stream startup omits capability query fields and the current principal has a default named profile | Use the saved resolved capability payload before planning or creating the playback session |
+| Playback request includes any explicit capability query field | Resolve from query fields and ignore the saved default profile |
+| Browser ticket, renderer transport, or existing playback session route is used | Preserve the ticket/session client context and do not read the saved default profile |
+| Stored profile JSON is invalid | Return a server-side data error instead of silently falling back to defaults |
 
 ### 5. Good / Base / Bad Cases
 
 - Good: route parses optional `source_id`, then calls
   `app.user_playback().update_progress(AppUpdateUserPlaybackProgressRequest { principal, ... })`.
-- Good: playback profile preference PUT resolves compact inputs, persists only
-  the resolved effective capability JSON, and returns `preference: null` or a
-  resolved preference DTO.
+- Good: named playback profile create/update resolves compact inputs, persists
+  only the resolved effective capability JSON, and returns an opaque profile
+  id, display name, resolved capabilities, default flag, timestamp, and version.
+- Good: `/users/me/playback-profile` maps the same default named profile into
+  the legacy `preference: null` or resolved preference DTO shape.
 - Good: playback decision and new Direct Play/Remux/HLS startup requests with
   no capability query fields load the current principal's saved resolved
   profile before falling back to default capabilities.
@@ -706,7 +730,8 @@ app.user_playlist()
 - Bad: route checks Play access with `require_item_access`, then the app
   service writes user playback state without knowing the caller principal.
 - Bad: HTTP accepts unsupported additive HLS enum variants, stores unresolved
-  preference JSON, or exposes another principal's preference by identifier.
+  request JSON, exposes another principal's profile by identifier, or silently
+  promotes another default profile after deleting the current default.
 - Bad: merging saved preferences with explicit capability query fields, or
   re-resolving browser ticket/session-bound playback from saved preferences.
 
@@ -716,8 +741,12 @@ app.user_playlist()
 - HTTP route test proving browse-only principals can read state but cannot
   update progress or watched state.
 - Route test preserving source-from-another-item `400 invalid_input` behavior.
-- HTTP route test proving `/users/me/playback-profile` rejects unsupported HLS
-  enum variants and round-trips resolved preference DTOs.
+- HTTP route tests proving `/users/me/playback-profiles` list/create/read/
+  update/delete behavior is current-principal scoped, bounded, default-aware,
+  idempotent on missing delete, and rejects unsupported HLS enum variants.
+- HTTP route test proving `/users/me/playback-profile` maps to the current
+  default named profile and preserves the legacy absent/read/write/delete DTO
+  shape.
 - Playback route tests proving saved preferences affect decision, Direct
   Play, Remux, and HLS startup only when explicit capability query fields are
   absent.

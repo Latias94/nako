@@ -87,6 +87,11 @@ PUT  /users/me/playlists/{playlist_id}/items/reorder
 GET  /users/me/playback-profile
 PUT  /users/me/playback-profile
 DELETE /users/me/playback-profile
+GET  /users/me/playback-profiles?limit=50&offset=0
+POST /users/me/playback-profiles
+GET  /users/me/playback-profiles/{profile_id}
+PUT  /users/me/playback-profiles/{profile_id}
+DELETE /users/me/playback-profiles/{profile_id}
 GET  /users/me/playback-state/items/{item_id}
 GET  /users/me/playback-state/continue-watching?limit=50&offset=0
 PUT  /users/me/playback-state/items/{item_id}/progress
@@ -192,7 +197,8 @@ The SDK provides:
   library-scoped browse, playback decision, playback session inspection, and
   playback session cancellation;
 - JSON methods for User Playback Profile Preference read, write, and delete
-  under `/users/me/playback-profile`;
+  under `/users/me/playback-profile`, plus named User Playback Profile CRUD
+  under `/users/me/playback-profiles`;
 - JSON methods for User Playback State lookup, Continue Watching, progress
   reporting, and watched-state updates under `/users/me`.
 
@@ -347,27 +353,127 @@ User Playback current-user state is server-authoritative and scoped to the
 authenticated current user. Public client routes always use `/users/me`; they
 never expose internal principal IDs.
 
-`/users/me/playback-profile` stores one default playback profile preference
-for the current principal. The server resolves compact profile input through
-the same playback capability resolver used by playback decisions, persists the
-resolved effective capability payload, and returns that resolved payload to
-clients. It does not store item progress and it does not apply Admin playback
-policy.
+Named playback profiles are the source-of-truth device capability records for
+the current principal. `/users/me/playback-profiles` manages those named
+profiles, while `/users/me/playback-profile` remains a compatibility facade
+for the current user's default named profile. The server resolves compact
+profile input through the same playback capability resolver used by playback
+decisions, persists the resolved effective capability payload, and returns that
+resolved payload to clients. These routes do not store item progress and do
+not apply Admin playback policy.
 
-The saved preference is used as the current user's fallback client capability
-payload when a playback decision, direct stream or HEAD preflight, remux
-stream or HEAD preflight, or HLS playlist startup request omits explicit
+The default named profile is used as the current user's fallback client
+capability payload when a playback decision, direct stream or HEAD preflight,
+remux stream or HEAD preflight, or HLS playlist startup request omits explicit
 playback capability query fields. Any explicit capability query field on a
-request wins for that request and is not merged with the saved preference.
+request wins for that request and is not merged with the saved default.
 Browser playback tickets, renderer transport URLs, and existing
 playback-session-bound media requests keep using the client context carried by
 their ticket or playback session.
 
 ```http
+GET /users/me/playback-profiles?limit=50&offset=0
+```
+
+```json
+{
+  "profiles": [
+    {
+      "profile_id": "prof_browser",
+      "name": "Browser",
+      "capabilities": {
+        "direct_play": true,
+        "device_family": "browser_chromium",
+        "profile_version": 1,
+        "containers": ["mp4", "webm"],
+        "video_codecs": ["h264", "vp9"],
+        "audio_codecs": ["aac", "opus"],
+        "max_video_bitrate": null,
+        "max_width": null,
+        "max_height": null,
+        "max_audio_channels": null,
+        "supports_hdr": false,
+        "supports_subtitles": true,
+        "hls_variant_policy": "adaptive",
+        "hls_segment_container": "fmp4"
+      },
+      "is_default": true,
+      "updated_at": "2026-06-17T00:00:00Z",
+      "version": 1
+    }
+  ],
+  "page": { "limit": 50, "offset": 0, "returned": 1 }
+}
+```
+
+```http
+POST /users/me/playback-profiles
+Content-Type: application/json
+```
+
+```json
+{
+  "name": "Living Room TV",
+  "is_default": true,
+  "device_family": "android_tv",
+  "profile_version": 1,
+  "containers": ["mp4"],
+  "video_codecs": ["h264", "hevc"],
+  "audio_codecs": ["aac", "ac3"],
+  "supports_hdr": true,
+  "supports_subtitles": true,
+  "hls_variant_policy": "adaptive",
+  "hls_segment_container": "mpegts"
+}
+```
+
+The create/read/update response wraps the same resolved profile DTO:
+
+```json
+{
+  "profile": {
+    "profile_id": "prof_living_room_tv",
+    "name": "Living Room TV",
+    "capabilities": {
+      "direct_play": true,
+      "device_family": "android_tv",
+      "profile_version": 1,
+      "containers": ["mp4"],
+      "video_codecs": ["h264", "hevc"],
+      "audio_codecs": ["aac", "ac3"],
+      "max_video_bitrate": null,
+      "max_width": null,
+      "max_height": null,
+      "max_audio_channels": null,
+      "supports_hdr": true,
+      "supports_subtitles": true,
+      "hls_variant_policy": "adaptive",
+      "hls_segment_container": "mpegts"
+    },
+    "is_default": true,
+    "updated_at": "2026-06-17T00:00:00Z",
+    "version": 1
+  }
+}
+```
+
+```http
+GET /users/me/playback-profiles/{profile_id}
+PUT /users/me/playback-profiles/{profile_id}
+DELETE /users/me/playback-profiles/{profile_id}
+```
+
+The first created profile becomes the default when no default exists. Setting
+`is_default: true` on a profile makes it the only default for the current
+principal. Deleting the default profile leaves the current principal with no
+default profile; the server does not silently promote another device profile.
+
+```http
 GET /users/me/playback-profile
 ```
 
-When no preference exists, the response is:
+The compatibility facade reads the current default named profile. When no
+default profile exists, the response is:
 
 ```json
 {
@@ -430,6 +536,10 @@ DELETE /users/me/playback-profile
   "deleted": true
 }
 ```
+
+`PUT /users/me/playback-profile` upserts the current default named profile and
+creates one named `Default` when no default exists. `DELETE` deletes the
+current default named profile and returns whether a profile was removed.
 
 Unsupported additive HLS enum values are rejected at the HTTP boundary instead
 of being stored. Unknown device families and profile-version mismatches use the
