@@ -44,6 +44,7 @@ trait DatabaseBackendAdapter:
     + PlaybackSessionRepository
     + RendererSessionRepository
     + TranscodeSessionRepository
+    + UserPlaybackProfileRepository
     + UserPlaybackProfilePreferenceRepository
     + UserPlaybackStateRepository
     + UserPlaylistRepository
@@ -93,6 +94,7 @@ impl<T> DatabaseBackendAdapter for T where
         + PlaybackSessionRepository
         + RendererSessionRepository
         + TranscodeSessionRepository
+        + UserPlaybackProfileRepository
         + UserPlaybackProfilePreferenceRepository
         + UserPlaybackStateRepository
         + UserPlaylistRepository
@@ -2831,6 +2833,62 @@ impl UserPlaybackProfilePreferenceRepository for NakoDatabase {
     ) -> Result<bool> {
         self.backend()
             .delete_user_playback_profile_preference(principal_id)
+            .await
+    }
+}
+
+#[async_trait::async_trait]
+impl UserPlaybackProfileRepository for NakoDatabase {
+    async fn create_user_playback_profile(
+        &self,
+        profile: NewUserPlaybackProfile,
+    ) -> Result<UserPlaybackProfile> {
+        self.backend().create_user_playback_profile(profile).await
+    }
+
+    async fn get_user_playback_profile(
+        &self,
+        principal_id: &UserPrincipalId,
+        profile_id: UserPlaybackProfileId,
+    ) -> Result<Option<UserPlaybackProfile>> {
+        self.backend()
+            .get_user_playback_profile(principal_id, profile_id)
+            .await
+    }
+
+    async fn get_default_user_playback_profile(
+        &self,
+        principal_id: &UserPrincipalId,
+    ) -> Result<Option<UserPlaybackProfile>> {
+        self.backend()
+            .get_default_user_playback_profile(principal_id)
+            .await
+    }
+
+    async fn list_user_playback_profiles(
+        &self,
+        principal_id: &UserPrincipalId,
+        page: PageRequest,
+    ) -> Result<Vec<UserPlaybackProfile>> {
+        self.backend()
+            .list_user_playback_profiles(principal_id, page)
+            .await
+    }
+
+    async fn update_user_playback_profile(
+        &self,
+        profile: UserPlaybackProfileUpdate,
+    ) -> Result<Option<UserPlaybackProfile>> {
+        self.backend().update_user_playback_profile(profile).await
+    }
+
+    async fn delete_user_playback_profile(
+        &self,
+        principal_id: &UserPrincipalId,
+        profile_id: UserPlaybackProfileId,
+    ) -> Result<bool> {
+        self.backend()
+            .delete_user_playback_profile(principal_id, profile_id)
             .await
     }
 }

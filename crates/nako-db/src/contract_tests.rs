@@ -78,10 +78,10 @@ use nako_core::{
     NewJob, NewManagedArtworkArtifact, NewManagedArtworkIngest, NewManagedImportArtifact,
     NewManagedImportPromotionApply, NewMetadataCandidateReview, NewMetadataProviderAttempt,
     NewNfoSidecarApply, NewOutboxEvent, NewPlaybackSession, NewRendererCommand, NewRendererSession,
-    NewStagingManifestRecord, NewTranscodeSession, NewUserPlaylist, NewVfsCacheFailure,
-    NewWebhookDeliveryAttempt, NewWebhookEndpoint, NfoImportPersistenceCommit, NfoSidecarApplyId,
-    NfoSidecarApplyOperationKind, NfoSidecarApplyRepository, NfoSidecarApplyState,
-    OutboxEventListFilter, OutboxEventStatus, PageRequest, Person, PersonId,
+    NewStagingManifestRecord, NewTranscodeSession, NewUserPlaybackProfile, NewUserPlaylist,
+    NewVfsCacheFailure, NewWebhookDeliveryAttempt, NewWebhookEndpoint, NfoImportPersistenceCommit,
+    NfoSidecarApplyId, NfoSidecarApplyOperationKind, NfoSidecarApplyRepository,
+    NfoSidecarApplyState, OutboxEventListFilter, OutboxEventStatus, PageRequest, Person, PersonId,
     PlaybackPermissionPolicy, PlaybackPolicy, PlaybackPolicyFilter, PlaybackPolicyRepository,
     PlaybackPolicyScope, PlaybackSessionHeartbeat, PlaybackSessionId, PlaybackSessionListFilter,
     PlaybackSessionMode, PlaybackSessionRepository, PlaybackSessionState, PlaybackTargetKind,
@@ -100,13 +100,14 @@ use nako_core::{
     StorageFailureClass, Studio, StudioId, Tag, TagId, TranscodeFailureCategory,
     TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
     TranscodeSessionRepository, TranscodeSessionState, User, UserId, UserInvitationId,
-    UserInvitationRecord, UserInvitationStatus, UserPlaybackProfilePreferenceRepository,
-    UserPlaybackProfilePreferenceWrite, UserPlaybackStateRepository, UserPlaybackStateWrite,
-    UserPlaylistId, UserPlaylistItemRemoval, UserPlaylistItemWrite, UserPlaylistReorder,
-    UserPlaylistRepository, UserPrincipalId, UserRole, UserSessionId, UserSessionRecord,
-    UserStatus, VfsCacheFailureAuthority, VfsCacheOperation, VfsCacheRepository, VfsCachedListing,
-    VfsCachedObject, VfsCachedObjectKind, WebhookDeliveryStatus, WebhookEndpointStatus,
-    WebhookRepository,
+    UserInvitationRecord, UserInvitationStatus, UserPlaybackProfileId,
+    UserPlaybackProfilePreferenceRepository, UserPlaybackProfilePreferenceWrite,
+    UserPlaybackProfileRepository, UserPlaybackProfileUpdate, UserPlaybackStateRepository,
+    UserPlaybackStateWrite, UserPlaylistId, UserPlaylistItemRemoval, UserPlaylistItemWrite,
+    UserPlaylistReorder, UserPlaylistRepository, UserPrincipalId, UserRole, UserSessionId,
+    UserSessionRecord, UserStatus, VfsCacheFailureAuthority, VfsCacheOperation, VfsCacheRepository,
+    VfsCachedListing, VfsCachedObject, VfsCachedObjectKind, WebhookDeliveryStatus,
+    WebhookEndpointStatus, WebhookRepository,
 };
 use nako_search::{SearchDocument, SearchIndex, SearchQuery};
 
@@ -423,6 +424,7 @@ trait PlaybackRuntimeContractBackend:
     + MediaRepository
     + PlaybackSessionRepository
     + TranscodeSessionRepository
+    + UserPlaybackProfileRepository
     + UserPlaybackProfilePreferenceRepository
     + UserPlaybackStateRepository
     + UserPlaylistRepository
@@ -435,6 +437,7 @@ impl<T> PlaybackRuntimeContractBackend for T where
         + MediaRepository
         + PlaybackSessionRepository
         + TranscodeSessionRepository
+        + UserPlaybackProfileRepository
         + UserPlaybackProfilePreferenceRepository
         + UserPlaybackStateRepository
         + UserPlaylistRepository
@@ -5466,6 +5469,351 @@ where
     assert!(
         !store
             .delete_user_playback_profile_preference(&principal)
+            .await
+            .unwrap()
+    );
+}
+
+async fn user_playback_profile_crud_and_default_contract<S>(store: S)
+where
+    S: PlaybackRuntimeContractBackend,
+{
+    let principal = UserPrincipalId::new("contract-named-profile").unwrap();
+    let other_principal = UserPrincipalId::new("contract-other-named-profile").unwrap();
+    let first_id = UserPlaybackProfileId::new();
+    let second_id = UserPlaybackProfileId::new();
+    let third_id = UserPlaybackProfileId::new();
+    let other_id = UserPlaybackProfileId::new();
+
+    let assert_payload = |actual: &str, expected: serde_json::Value| {
+        let actual: serde_json::Value = serde_json::from_str(actual).unwrap();
+        assert_eq!(actual, expected);
+    };
+
+    assert_eq!(
+        store
+            .get_default_user_playback_profile(&principal)
+            .await
+            .unwrap(),
+        None
+    );
+    assert_eq!(
+        store
+            .list_user_playback_profiles(&principal, PageRequest::new(0, 0))
+            .await
+            .unwrap(),
+        Vec::new()
+    );
+    assert!(
+        !store
+            .delete_user_playback_profile(&principal, first_id)
+            .await
+            .unwrap()
+    );
+
+    let invalid_create = store
+        .create_user_playback_profile(NewUserPlaybackProfile {
+            profile_id: third_id,
+            principal_id: principal.clone(),
+            name: "Broken".to_owned(),
+            capabilities_json: "not-json".to_owned(),
+            is_default: false,
+            updated_at_ms: 500,
+        })
+        .await;
+    assert!(matches!(invalid_create, Err(NakoError::Database { .. })));
+    assert_eq!(
+        store
+            .get_user_playback_profile(&principal, third_id)
+            .await
+            .unwrap(),
+        None
+    );
+    assert_eq!(
+        store
+            .get_default_user_playback_profile(&principal)
+            .await
+            .unwrap(),
+        None
+    );
+
+    let first_payload = r#"{"direct_play":true,"containers":["mp4"]}"#.to_owned();
+    let first = store
+        .create_user_playback_profile(NewUserPlaybackProfile {
+            profile_id: first_id,
+            principal_id: principal.clone(),
+            name: "Browser".to_owned(),
+            capabilities_json: first_payload,
+            is_default: false,
+            updated_at_ms: 1_000,
+        })
+        .await
+        .unwrap();
+    assert_eq!(first.profile_id, first_id);
+    assert_eq!(first.principal_id, principal);
+    assert_eq!(first.name, "Browser");
+    assert!(first.is_default, "first profile should become default");
+    assert_eq!(first.version, 1);
+    assert_payload(
+        &first.capabilities_json,
+        serde_json::json!({"direct_play": true, "containers": ["mp4"]}),
+    );
+    assert_eq!(
+        store
+            .get_default_user_playback_profile(&principal)
+            .await
+            .unwrap()
+            .map(|profile| profile.profile_id),
+        Some(first_id)
+    );
+
+    let second = store
+        .create_user_playback_profile(NewUserPlaybackProfile {
+            profile_id: second_id,
+            principal_id: principal.clone(),
+            name: "TV".to_owned(),
+            capabilities_json: r#"{"direct_play":false,"containers":["mkv"]}"#.to_owned(),
+            is_default: false,
+            updated_at_ms: 2_000,
+        })
+        .await
+        .unwrap();
+    assert!(!second.is_default);
+    assert_eq!(
+        store
+            .get_default_user_playback_profile(&principal)
+            .await
+            .unwrap()
+            .map(|profile| profile.profile_id),
+        Some(first_id)
+    );
+
+    let other = store
+        .create_user_playback_profile(NewUserPlaybackProfile {
+            profile_id: other_id,
+            principal_id: other_principal.clone(),
+            name: "Other".to_owned(),
+            capabilities_json: r#"{"direct_play":true,"containers":["webm"]}"#.to_owned(),
+            is_default: true,
+            updated_at_ms: 2_500,
+        })
+        .await
+        .unwrap();
+    assert!(other.is_default);
+    assert_eq!(
+        store
+            .get_user_playback_profile(&principal, other_id)
+            .await
+            .unwrap(),
+        None
+    );
+
+    let listed = store
+        .list_user_playback_profiles(&principal, PageRequest::new(1, 0))
+        .await
+        .unwrap();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].profile_id, first_id);
+
+    let listed = store
+        .list_user_playback_profiles(&principal, PageRequest::first_page())
+        .await
+        .unwrap();
+    assert_eq!(
+        listed
+            .iter()
+            .map(|profile| profile.profile_id)
+            .collect::<Vec<_>>(),
+        vec![first_id, second_id]
+    );
+
+    let promoted_second = store
+        .update_user_playback_profile(UserPlaybackProfileUpdate {
+            profile_id: second_id,
+            principal_id: principal.clone(),
+            name: "Living Room TV".to_owned(),
+            capabilities_json:
+                r#"{"direct_play":false,"containers":["mkv"],"video_codecs":["hevc"]}"#.to_owned(),
+            is_default: true,
+            updated_at_ms: 3_000,
+        })
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(promoted_second.is_default);
+    assert_eq!(promoted_second.version, 2);
+    assert_eq!(promoted_second.name, "Living Room TV");
+    assert_payload(
+        &promoted_second.capabilities_json,
+        serde_json::json!({
+            "direct_play": false,
+            "containers": ["mkv"],
+            "video_codecs": ["hevc"]
+        }),
+    );
+    let demoted_first = store
+        .get_user_playback_profile(&principal, first_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(!demoted_first.is_default);
+    assert_eq!(
+        demoted_first.version, 2,
+        "clearing a prior default should version the changed row"
+    );
+    assert_eq!(
+        store
+            .get_default_user_playback_profile(&principal)
+            .await
+            .unwrap()
+            .map(|profile| profile.profile_id),
+        Some(second_id)
+    );
+
+    let invalid_update = store
+        .update_user_playback_profile(UserPlaybackProfileUpdate {
+            profile_id: first_id,
+            principal_id: principal.clone(),
+            name: "Broken".to_owned(),
+            capabilities_json: "not-json".to_owned(),
+            is_default: true,
+            updated_at_ms: 3_500,
+        })
+        .await;
+    assert!(matches!(invalid_update, Err(NakoError::Database { .. })));
+    assert_eq!(
+        store
+            .get_user_playback_profile(&principal, first_id)
+            .await
+            .unwrap(),
+        Some(demoted_first),
+        "failed JSON validation must roll back the profile update"
+    );
+    assert_eq!(
+        store
+            .get_user_playback_profile(&principal, second_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .version,
+        2,
+        "failed JSON validation must roll back default clearing"
+    );
+    assert_eq!(
+        store
+            .get_default_user_playback_profile(&principal)
+            .await
+            .unwrap()
+            .map(|profile| profile.profile_id),
+        Some(second_id)
+    );
+
+    let cleared_second = store
+        .update_user_playback_profile(UserPlaybackProfileUpdate {
+            profile_id: second_id,
+            principal_id: principal.clone(),
+            name: "Living Room TV".to_owned(),
+            capabilities_json: r#"{"direct_play":false,"containers":["mkv"]}"#.to_owned(),
+            is_default: false,
+            updated_at_ms: 4_000,
+        })
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(!cleared_second.is_default);
+    assert_eq!(
+        store
+            .get_default_user_playback_profile(&principal)
+            .await
+            .unwrap(),
+        None
+    );
+
+    assert_eq!(
+        store
+            .update_user_playback_profile(UserPlaybackProfileUpdate {
+                profile_id: other_id,
+                principal_id: principal.clone(),
+                name: "Wrong Principal".to_owned(),
+                capabilities_json: "{}".to_owned(),
+                is_default: true,
+                updated_at_ms: 5_000,
+            })
+            .await
+            .unwrap(),
+        None
+    );
+    assert_eq!(
+        store
+            .get_default_user_playback_profile(&other_principal)
+            .await
+            .unwrap()
+            .map(|profile| profile.profile_id),
+        Some(other_id)
+    );
+
+    let first_default = store
+        .update_user_playback_profile(UserPlaybackProfileUpdate {
+            profile_id: first_id,
+            principal_id: principal.clone(),
+            name: "Browser".to_owned(),
+            capabilities_json: r#"{"direct_play":true,"containers":["mp4"]}"#.to_owned(),
+            is_default: true,
+            updated_at_ms: 6_000,
+        })
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(first_default.is_default);
+    assert!(
+        store
+            .delete_user_playback_profile(&principal, first_id)
+            .await
+            .unwrap()
+    );
+    assert_eq!(
+        store
+            .get_default_user_playback_profile(&principal)
+            .await
+            .unwrap(),
+        None,
+        "deleting default must not promote another profile"
+    );
+    assert_eq!(
+        store
+            .list_user_playback_profiles(&principal, PageRequest::first_page())
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|profile| (profile.profile_id, profile.is_default))
+            .collect::<Vec<_>>(),
+        vec![(second_id, false)]
+    );
+    let third = store
+        .create_user_playback_profile(NewUserPlaybackProfile {
+            profile_id: third_id,
+            principal_id: principal.clone(),
+            name: "Tablet".to_owned(),
+            capabilities_json: r#"{"direct_play":true,"containers":["mp4"]}"#.to_owned(),
+            is_default: false,
+            updated_at_ms: 7_000,
+        })
+        .await
+        .unwrap();
+    assert!(
+        !third.is_default,
+        "creating after default deletion must leave default optional"
+    );
+    assert_eq!(
+        store
+            .get_default_user_playback_profile(&principal)
+            .await
+            .unwrap(),
+        None
+    );
+    assert!(
+        !store
+            .delete_user_playback_profile(&principal, first_id)
             .await
             .unwrap()
     );
@@ -12379,6 +12727,16 @@ database_contract_pair!(
         "user_playback_profile_preference_crud"
     ),
     contract = user_playback_profile_preference_crud_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_playback_runtime_contract_user_playback_profile_crud_and_default,
+    postgres = postgres_playback_runtime_contract_user_playback_profile_crud_and_default,
+    case = ContractCase::migrated(
+        ContractFamily::PlaybackRuntime,
+        "user_playback_profile_crud_and_default"
+    ),
+    contract = user_playback_profile_crud_and_default_contract,
 );
 
 database_contract_pair!(

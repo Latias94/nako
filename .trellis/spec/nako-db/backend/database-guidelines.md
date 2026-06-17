@@ -334,6 +334,142 @@ VALUES ($1, $2::jsonb)
 The Postgres adapter binds resolved capabilities as text from the neutral core
 record and explicitly casts it to `jsonb` at the SQL boundary.
 
+## Scenario: Named User Playback Profile Persistence
+
+### 1. Scope / Trigger
+
+- Trigger: adding or changing persisted current-user named playback profile
+  records, default selection, or the compatibility bridge from the legacy single
+  playback profile preference table.
+- Scope: `UserPlaybackProfileRepository`, `UserPlaybackProfile`,
+  `NewUserPlaybackProfile`, `UserPlaybackProfileUpdate`,
+  `UserPlaybackProfileId`, SQLite/PostgreSQL `user_playback_profiles`
+  migrations, adapter CRUD SQL, `NakoDatabase` facade forwarding, and
+  repository contract tests.
+- Boundary: persistence stores resolved effective capability payloads. It does
+  not resolve playback presets, parse Public Client DTOs, apply Admin playback
+  policy, or plan playback decisions.
+
+### 2. Signatures
+
+- Table: `user_playback_profiles`.
+- Identity: `profile_id`, isolated by `principal_id` for every read/write.
+- Columns:
+  `profile_id`, `principal_id`, `name`, `capabilities_json`, `is_default`,
+  `updated_at_ms`, `version`, `created_at`, and `updated_at`.
+- Repository:
+  `create_user_playback_profile(NewUserPlaybackProfile) ->
+  Result<UserPlaybackProfile>`.
+- Repository:
+  `get_user_playback_profile(principal_id, profile_id) ->
+  Result<Option<UserPlaybackProfile>>`.
+- Repository:
+  `get_default_user_playback_profile(principal_id) ->
+  Result<Option<UserPlaybackProfile>>`.
+- Repository:
+  `list_user_playback_profiles(principal_id, PageRequest) ->
+  Result<Vec<UserPlaybackProfile>>`.
+- Repository:
+  `update_user_playback_profile(UserPlaybackProfileUpdate) ->
+  Result<Option<UserPlaybackProfile>>`.
+- Repository:
+  `delete_user_playback_profile(principal_id, profile_id) -> Result<bool>`.
+
+### 3. Contracts
+
+- `nako-core` stores `capabilities_json: String` so persistence remains
+  independent from `nako-playback`, `nako-api`, and Public Client DTOs.
+- SQLite stores `capabilities_json` as `TEXT NOT NULL` with `json_valid`.
+  PostgreSQL stores it as `jsonb NOT NULL`; insert/update SQL must cast bound
+  text parameters with `::jsonb`.
+- The version starts at `1` and increments on replacement writes. Clearing a
+  previous default because another profile became default is also a row change
+  and must increment that prior default row's version.
+- The first profile created for a principal becomes default even when the write
+  requested `is_default = false`.
+- Default is optional after at least one profile has existed. Deleting a default
+  profile or updating a default profile with `is_default = false` leaves no
+  default; persistence must not silently promote another profile.
+- Setting one profile as default clears other defaults for the same principal
+  in the same transaction.
+- Failed JSON validation during create/update must roll back any default
+  clearing or version changes from the same repository call.
+- List methods must clamp `PageRequest` and must not expose an unbounded scan.
+- The migration copies rows from legacy
+  `user_playback_profile_preferences` into `user_playback_profiles` as named
+  `Default` profiles with `is_default = true`, preserving `capabilities_json`,
+  `updated_at_ms`, and `version`. The old table can remain for compatibility,
+  but new named-profile behavior should use the named repository.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Missing default | `get_default` returns `Ok(None)` |
+| Missing profile id for principal | `get` returns `Ok(None)` |
+| `delete` on missing profile | Returns `false` |
+| Create first profile with `is_default = false` | Stores it as default |
+| Create later profile with `is_default = false` after default deletion | Leaves default absent |
+| Create or update with invalid JSON | Returns `NakoError::Database` and rolls back the transaction |
+| Update another principal's profile id | Returns `Ok(None)` and does not affect either principal's default |
+| Set profile default | Clears only the same principal's previous default |
+| Delete default profile | Does not promote another profile |
+| List with zero or excessive limit | Uses `PageRequest::clamped()` |
+| Migration misses legacy preference copy | Migration contract failure |
+
+### 5. Good/Base/Bad Cases
+
+- Good: a server app stores the resolved capability JSON for a user's browser
+  and TV profiles, then reads the current default profile for playback fallback.
+- Good: `update_user_playback_profile` clears previous defaults and writes the
+  target profile inside one transaction, so JSON validation failure cannot leave
+  no default by accident.
+- Base: a migrated store with no legacy preference rows has an empty
+  `user_playback_profiles` table and `get_default` returns `None`.
+- Bad: list all profile rows for every principal and filter in the server app.
+- Bad: deleting the default profile automatically promotes the most recently
+  updated profile.
+- Bad: storing unresolved Public Client request JSON and re-resolving it later
+  after presets have changed.
+
+### 6. Tests Required
+
+- SQLite and PostgreSQL migration registration tests.
+- SQLite migration test proving legacy single preferences are copied into
+  named `Default` profiles.
+- Backend-agnostic repository contract for absent reads, create, bounded list,
+  read isolation, default selection, default clearing, delete idempotence,
+  delete-default-no-promotion, and optional default after deletion.
+- Contract assertions for invalid JSON create/update proving transaction
+  rollback, unchanged default, and unchanged version.
+- Focused gate:
+  `cargo nextest run -p nako-db user_playback_profile --no-fail-fast`.
+- Compile gate:
+  `cargo check -p nako-db --tests`.
+- Live PostgreSQL gate when `NAKO_TEST_POSTGRES_URL` is available:
+  `cargo nextest run -p nako-db postgres_playback_runtime_contract_user_playback_profile_crud_and_default --run-ignored only --no-fail-fast`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+let profiles = store.list_user_playback_profiles_for_all_principals().await?;
+let current = profiles.into_iter().filter(|p| p.principal_id == principal);
+```
+
+#### Correct
+
+```rust
+let page = page.clamped();
+let profiles = store
+    .list_user_playback_profiles(&principal_id, page)
+    .await?;
+```
+
+The repository binds the current principal in SQL and applies the bounded page
+inside the database query.
+
 ## Scenario: Source Duplicate Relationship Pair Identity
 
 ### 1. Scope / Trigger

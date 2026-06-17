@@ -28,6 +28,18 @@ const USER_PLAYBACK_PROFILE_PREFERENCE_SELECT: &str = r#"
             FROM user_playback_profile_preferences
             "#;
 
+const USER_PLAYBACK_PROFILE_SELECT: &str = r#"
+            SELECT
+                profile_id,
+                principal_id,
+                name,
+                capabilities_json,
+                is_default,
+                updated_at_ms,
+                version
+            FROM user_playback_profiles
+            "#;
+
 #[async_trait::async_trait]
 impl UserPlaybackStateRepository for SqliteStore {
     async fn upsert_user_playback_state(
@@ -219,6 +231,197 @@ impl UserPlaybackProfilePreferenceRepository for SqliteStore {
                 .execute(&self.pool)
                 .await
                 .map_err(database_error)?;
+
+        Ok(result.rows_affected() > 0)
+    }
+}
+
+#[async_trait::async_trait]
+impl UserPlaybackProfileRepository for SqliteStore {
+    async fn create_user_playback_profile(
+        &self,
+        profile: NewUserPlaybackProfile,
+    ) -> Result<UserPlaybackProfile> {
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+        let make_default = profile.is_default
+            || !user_playback_profile_exists(&mut transaction, &profile.principal_id).await?;
+
+        if make_default {
+            clear_user_playback_profile_defaults(
+                &mut transaction,
+                &profile.principal_id,
+                None,
+                profile.updated_at_ms,
+            )
+            .await?;
+        }
+
+        sqlx::query(
+            r#"
+            INSERT INTO user_playback_profiles (
+                profile_id,
+                principal_id,
+                name,
+                capabilities_json,
+                is_default,
+                updated_at_ms
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            "#,
+        )
+        .bind(profile.profile_id.to_string())
+        .bind(profile.principal_id.as_str())
+        .bind(&profile.name)
+        .bind(&profile.capabilities_json)
+        .bind(bool_to_i64(make_default))
+        .bind(profile.updated_at_ms)
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+
+        transaction.commit().await.map_err(database_error)?;
+
+        self.get_user_playback_profile(&profile.principal_id, profile.profile_id)
+            .await?
+            .ok_or_else(|| NakoError::Database {
+                message: format!(
+                    "user playback profile {} for principal {} was not found after insert",
+                    profile.profile_id, profile.principal_id
+                ),
+            })
+    }
+
+    async fn get_user_playback_profile(
+        &self,
+        principal_id: &UserPrincipalId,
+        profile_id: UserPlaybackProfileId,
+    ) -> Result<Option<UserPlaybackProfile>> {
+        let row = sqlx::query(&format!(
+            "{USER_PLAYBACK_PROFILE_SELECT} WHERE principal_id = ?1 AND profile_id = ?2"
+        ))
+        .bind(principal_id.as_str())
+        .bind(profile_id.to_string())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.as_ref().map(row_to_user_playback_profile).transpose()
+    }
+
+    async fn get_default_user_playback_profile(
+        &self,
+        principal_id: &UserPrincipalId,
+    ) -> Result<Option<UserPlaybackProfile>> {
+        let row = sqlx::query(&format!(
+            r#"
+            {USER_PLAYBACK_PROFILE_SELECT}
+            WHERE principal_id = ?1 AND is_default = 1
+            "#
+        ))
+        .bind(principal_id.as_str())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.as_ref().map(row_to_user_playback_profile).transpose()
+    }
+
+    async fn list_user_playback_profiles(
+        &self,
+        principal_id: &UserPrincipalId,
+        page: PageRequest,
+    ) -> Result<Vec<UserPlaybackProfile>> {
+        let page = page.clamped();
+        let rows = sqlx::query(&format!(
+            r#"
+            {USER_PLAYBACK_PROFILE_SELECT}
+            WHERE principal_id = ?1
+            ORDER BY is_default DESC, updated_at_ms DESC, profile_id ASC
+            LIMIT ?2 OFFSET ?3
+            "#
+        ))
+        .bind(principal_id.as_str())
+        .bind(u32_to_i64(page.limit))
+        .bind(u64_to_i64(page.offset)?)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        rows.iter().map(row_to_user_playback_profile).collect()
+    }
+
+    async fn update_user_playback_profile(
+        &self,
+        profile: UserPlaybackProfileUpdate,
+    ) -> Result<Option<UserPlaybackProfile>> {
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+        let exists: Option<i64> = sqlx::query_scalar(
+            "SELECT 1 FROM user_playback_profiles WHERE principal_id = ?1 AND profile_id = ?2",
+        )
+        .bind(profile.principal_id.as_str())
+        .bind(profile.profile_id.to_string())
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+
+        if exists.is_none() {
+            transaction.commit().await.map_err(database_error)?;
+            return Ok(None);
+        }
+
+        if profile.is_default {
+            clear_user_playback_profile_defaults(
+                &mut transaction,
+                &profile.principal_id,
+                Some(profile.profile_id),
+                profile.updated_at_ms,
+            )
+            .await?;
+        }
+
+        sqlx::query(
+            r#"
+            UPDATE user_playback_profiles
+            SET
+                name = ?3,
+                capabilities_json = ?4,
+                is_default = ?5,
+                updated_at_ms = ?6,
+                version = version + 1,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE principal_id = ?1
+              AND profile_id = ?2
+            "#,
+        )
+        .bind(profile.principal_id.as_str())
+        .bind(profile.profile_id.to_string())
+        .bind(&profile.name)
+        .bind(&profile.capabilities_json)
+        .bind(bool_to_i64(profile.is_default))
+        .bind(profile.updated_at_ms)
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+
+        transaction.commit().await.map_err(database_error)?;
+
+        self.get_user_playback_profile(&profile.principal_id, profile.profile_id)
+            .await
+    }
+
+    async fn delete_user_playback_profile(
+        &self,
+        principal_id: &UserPrincipalId,
+        profile_id: UserPlaybackProfileId,
+    ) -> Result<bool> {
+        let result = sqlx::query(
+            "DELETE FROM user_playback_profiles WHERE principal_id = ?1 AND profile_id = ?2",
+        )
+        .bind(principal_id.as_str())
+        .bind(profile_id.to_string())
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
 
         Ok(result.rows_affected() > 0)
     }
@@ -479,4 +682,59 @@ fn row_to_user_playback_profile_preference(
         updated_at_ms: row_get(row, "updated_at_ms")?,
         version: i64_to_u64(row_get(row, "version")?)?,
     })
+}
+
+fn row_to_user_playback_profile(row: &SqliteRow) -> Result<UserPlaybackProfile> {
+    Ok(UserPlaybackProfile {
+        profile_id: parse_id(row_get::<String>(row, "profile_id")?)?,
+        principal_id: UserPrincipalId::new(row_get::<String>(row, "principal_id")?)?,
+        name: row_get(row, "name")?,
+        capabilities_json: row_get(row, "capabilities_json")?,
+        is_default: i64_to_bool(row_get(row, "is_default")?)?,
+        updated_at_ms: row_get(row, "updated_at_ms")?,
+        version: i64_to_u64(row_get(row, "version")?)?,
+    })
+}
+
+async fn user_playback_profile_exists(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    principal_id: &UserPrincipalId,
+) -> Result<bool> {
+    let exists: Option<i64> =
+        sqlx::query_scalar("SELECT 1 FROM user_playback_profiles WHERE principal_id = ?1 LIMIT 1")
+            .bind(principal_id.as_str())
+            .fetch_optional(&mut **transaction)
+            .await
+            .map_err(database_error)?;
+
+    Ok(exists.is_some())
+}
+
+async fn clear_user_playback_profile_defaults(
+    transaction: &mut sqlx::Transaction<'_, Sqlite>,
+    principal_id: &UserPrincipalId,
+    except_profile_id: Option<UserPlaybackProfileId>,
+    updated_at_ms: i64,
+) -> Result<()> {
+    sqlx::query(
+        r#"
+        UPDATE user_playback_profiles
+        SET
+            is_default = 0,
+            updated_at_ms = ?3,
+            version = version + 1,
+            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+        WHERE principal_id = ?1
+          AND is_default = 1
+          AND (?2 IS NULL OR profile_id <> ?2)
+        "#,
+    )
+    .bind(principal_id.as_str())
+    .bind(except_profile_id.map(|id| id.to_string()))
+    .bind(updated_at_ms)
+    .execute(&mut **transaction)
+    .await
+    .map_err(database_error)?;
+
+    Ok(())
 }

@@ -1,0 +1,13 @@
+{"file": ".trellis/spec/nako-core/backend/index.md", "reason": "Verify domain/repository changes remain in core without playback/API dependencies."}
+{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "Verify migrations, SQLite/PostgreSQL adapters, and repository contract tests."}
+{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "Verify JSON persistence, migration compatibility, and old single-profile bridge behavior."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Verify server layering, app-service ownership, and HTTP route composition."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Verify current-user route scoping, fallback precedence, and ticket/session exclusions."}
+{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Verify invalid input and stored-data error behavior."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify focused server quality gates and regression coverage."}
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Verify OpenAPI and generated SDK package outputs."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Verify Public Client/Admin separation and redaction-safe DTOs."}
+{"file": ".trellis/spec/nako-client-protocol/backend/index.md", "reason": "Verify route inventory, serde shape, and current-user contract."}
+{"file": ".trellis/spec/nako-client-core/backend/index.md", "reason": "Verify transport-neutral client builders for new routes."}
+{"file": ".trellis/spec/nako-client/backend/index.md", "reason": "Verify async client wrappers for new Public Client methods."}
+{"file": ".trellis/spec/nako-playback/backend/index.md", "reason": "Verify capability fallback semantics stay aligned with playback planner boundaries."}

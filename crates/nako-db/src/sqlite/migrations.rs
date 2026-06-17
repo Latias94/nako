@@ -37,6 +37,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "user_playback_profile_preferences",
         include_str!("../../migrations/0007_user_playback_profile_preferences.sql"),
     ),
+    (
+        8,
+        "user_playback_profiles",
+        include_str!("../../migrations/0008_user_playback_profiles.sql"),
+    ),
 ];
 
 #[async_trait::async_trait]
@@ -143,6 +148,20 @@ mod tests {
         assert_eq!(migration.1, "user_playback_profile_preferences");
         assert!(migration.2.contains("user_playback_profile_preferences"));
         assert!(migration.2.contains("capabilities_json"));
+
+        let migration = MIGRATIONS
+            .iter()
+            .find(|(version, _, _)| *version == 8)
+            .expect("SQLite user playback profile migration should be registered");
+
+        assert_eq!(migration.1, "user_playback_profiles");
+        assert!(migration.2.contains("user_playback_profiles"));
+        assert!(migration.2.contains("user_playback_profiles_default_idx"));
+        assert!(
+            migration
+                .2
+                .contains("FROM user_playback_profile_preferences")
+        );
     }
 
     #[tokio::test]
@@ -157,7 +176,7 @@ mod tests {
                 .await
                 .unwrap();
 
-        assert_eq!(applied_versions, vec![1, 2, 3, 4, 5, 6, 7]);
+        assert_eq!(applied_versions, vec![1, 2, 3, 4, 5, 6, 7, 8]);
 
         for table in [
             "users",
@@ -526,6 +545,95 @@ mod tests {
                 260
             )
         );
+    }
+
+    #[tokio::test]
+    async fn user_playback_profiles_migration_copies_legacy_default_preferences() {
+        let store = SqliteStore::connect_in_memory().await.unwrap();
+        let legacy_migrator = Migrator {
+            migrations: Cow::Owned(
+                MIGRATIONS
+                    .iter()
+                    .filter(|(version, _, _)| *version <= 7)
+                    .map(|(version, description, sql)| {
+                        Migration::new(
+                            *version,
+                            Cow::Borrowed(*description),
+                            MigrationType::Simple,
+                            Cow::Borrowed(*sql),
+                            false,
+                        )
+                    })
+                    .collect(),
+            ),
+            ..Migrator::DEFAULT
+        };
+        legacy_migrator.run(store.pool()).await.unwrap();
+
+        sqlx::query(
+            r#"
+            INSERT INTO user_playback_profile_preferences (
+                principal_id,
+                capabilities_json,
+                updated_at_ms,
+                version
+            )
+            VALUES (
+                'legacy-profile-principal',
+                '{"direct_play":false,"containers":["mp4"],"video_codecs":["h264"]}',
+                1234,
+                3
+            )
+            "#,
+        )
+        .execute(store.pool())
+        .await
+        .unwrap();
+
+        let migration = MIGRATIONS
+            .iter()
+            .find(|(version, _, _)| *version == 8)
+            .unwrap();
+        sqlx::raw_sql(migration.2)
+            .execute(store.pool())
+            .await
+            .unwrap();
+
+        let rows: Vec<(String, String, String, String, i64, i64, i64)> = sqlx::query_as(
+            r#"
+            SELECT
+                profile_id,
+                principal_id,
+                name,
+                capabilities_json,
+                is_default,
+                updated_at_ms,
+                version
+            FROM user_playback_profiles
+            ORDER BY principal_id
+            "#,
+        )
+        .fetch_all(store.pool())
+        .await
+        .unwrap();
+
+        assert_eq!(rows.len(), 1);
+        let (profile_id, principal_id, name, capabilities_json, is_default, updated_at_ms, version) =
+            &rows[0];
+        assert_eq!(profile_id.len(), 36);
+        assert_eq!(principal_id, "legacy-profile-principal");
+        assert_eq!(name, "Default");
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(capabilities_json).unwrap(),
+            serde_json::json!({
+                "direct_play": false,
+                "containers": ["mp4"],
+                "video_codecs": ["h264"]
+            })
+        );
+        assert_eq!(*is_default, 1);
+        assert_eq!(*updated_at_ms, 1234);
+        assert_eq!(*version, 3);
     }
 
     #[tokio::test]

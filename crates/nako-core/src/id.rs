@@ -102,6 +102,7 @@ define_id!(SelectedArtworkId);
 define_id!(ScanSnapshotId);
 define_id!(ArtworkTaskId);
 define_id!(PlaybackSessionId);
+define_id!(UserPlaybackProfileId);
 define_id!(PlaybackTargetId);
 define_id!(RendererSessionId);
 define_id!(RendererCommandId);

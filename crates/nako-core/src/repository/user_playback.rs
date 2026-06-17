@@ -3,7 +3,8 @@ use async_trait::async_trait;
 use super::PageRequest;
 use crate::{
     AuthenticatedPrincipal, ManagedArtworkArtifactRecord, MediaItem, MediaItemId, Result,
-    SelectedArtworkRecord, UserPlaybackProfilePreference, UserPlaybackProfilePreferenceWrite,
+    SelectedArtworkRecord, UserPlaybackProfile, UserPlaybackProfileId,
+    UserPlaybackProfilePreference, UserPlaybackProfilePreferenceWrite, UserPlaybackProfileUpdate,
     UserPlaybackState, UserPlaybackStateWrite, UserPrincipalId,
 };
 
@@ -61,5 +62,41 @@ pub trait UserPlaybackProfilePreferenceRepository: Send + Sync {
     async fn delete_user_playback_profile_preference(
         &self,
         principal_id: &UserPrincipalId,
+    ) -> Result<bool>;
+}
+
+#[async_trait]
+pub trait UserPlaybackProfileRepository: Send + Sync {
+    async fn create_user_playback_profile(
+        &self,
+        profile: crate::NewUserPlaybackProfile,
+    ) -> Result<UserPlaybackProfile>;
+
+    async fn get_user_playback_profile(
+        &self,
+        principal_id: &UserPrincipalId,
+        profile_id: UserPlaybackProfileId,
+    ) -> Result<Option<UserPlaybackProfile>>;
+
+    async fn get_default_user_playback_profile(
+        &self,
+        principal_id: &UserPrincipalId,
+    ) -> Result<Option<UserPlaybackProfile>>;
+
+    async fn list_user_playback_profiles(
+        &self,
+        principal_id: &UserPrincipalId,
+        page: PageRequest,
+    ) -> Result<Vec<UserPlaybackProfile>>;
+
+    async fn update_user_playback_profile(
+        &self,
+        profile: UserPlaybackProfileUpdate,
+    ) -> Result<Option<UserPlaybackProfile>>;
+
+    async fn delete_user_playback_profile(
+        &self,
+        principal_id: &UserPrincipalId,
+        profile_id: UserPlaybackProfileId,
     ) -> Result<bool>;
 }

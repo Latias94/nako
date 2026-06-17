@@ -67,6 +67,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "user_playback_profile_preferences",
         include_str!("../migrations/postgres/0007_user_playback_profile_preferences.sql"),
     ),
+    (
+        8,
+        "user_playback_profiles",
+        include_str!("../migrations/postgres/0008_user_playback_profiles.sql"),
+    ),
 ];
 
 #[derive(Clone, Debug)]
@@ -559,5 +564,19 @@ mod tests {
         assert_eq!(migration.1, "user_playback_profile_preferences");
         assert!(migration.2.contains("user_playback_profile_preferences"));
         assert!(migration.2.contains("capabilities_json jsonb"));
+
+        let migration = MIGRATIONS
+            .iter()
+            .find(|(version, _, _)| *version == 8)
+            .expect("PostgreSQL user playback profile migration should be registered");
+
+        assert_eq!(migration.1, "user_playback_profiles");
+        assert!(migration.2.contains("user_playback_profiles"));
+        assert!(migration.2.contains("user_playback_profiles_default_idx"));
+        assert!(
+            migration
+                .2
+                .contains("FROM user_playback_profile_preferences")
+        );
     }
 }

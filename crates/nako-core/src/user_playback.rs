@@ -2,7 +2,7 @@ use std::{fmt, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{MediaItemId, MediaSourceId, NakoError, Result};
+use crate::{MediaItemId, MediaSourceId, NakoError, Result, UserPlaybackProfileId};
 
 pub const LOCAL_ADMIN_PRINCIPAL_ID: &str = "local-admin";
 
@@ -111,5 +111,36 @@ pub struct UserPlaybackProfilePreference {
 pub struct UserPlaybackProfilePreferenceWrite {
     pub principal_id: UserPrincipalId,
     pub capabilities_json: String,
+    pub updated_at_ms: i64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct UserPlaybackProfile {
+    pub profile_id: UserPlaybackProfileId,
+    pub principal_id: UserPrincipalId,
+    pub name: String,
+    pub capabilities_json: String,
+    pub is_default: bool,
+    pub updated_at_ms: i64,
+    pub version: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct NewUserPlaybackProfile {
+    pub profile_id: UserPlaybackProfileId,
+    pub principal_id: UserPrincipalId,
+    pub name: String,
+    pub capabilities_json: String,
+    pub is_default: bool,
+    pub updated_at_ms: i64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct UserPlaybackProfileUpdate {
+    pub profile_id: UserPlaybackProfileId,
+    pub principal_id: UserPrincipalId,
+    pub name: String,
+    pub capabilities_json: String,
+    pub is_default: bool,
     pub updated_at_ms: i64,
 }
