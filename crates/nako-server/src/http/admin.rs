@@ -4675,6 +4675,20 @@ fn media_library_scan_readiness_check(
         );
     }
 
+    if let Some(pressure) = watch_folder_runtime_tick_pressure(&startup.watch_folder_runtime) {
+        return operator_check(
+            AdminOperatorReadinessArea::MediaLibraryScan,
+            AdminOperatorReadinessStatus::Degraded,
+            pressure.reason,
+            Some(pressure.source_reason.to_owned()),
+            pressure.attention_count,
+            Some(operator_action(
+                pressure.action_route_key,
+                pressure.action_route_path,
+            )),
+        );
+    }
+
     if let Some((source_reason, attention_count)) =
         watch_folder_runtime_coverage_gap(&startup.watch_folder_runtime)
     {
@@ -4699,6 +4713,77 @@ fn media_library_scan_readiness_check(
         0,
         None,
     )
+}
+
+struct WatchFolderRuntimeTickPressure {
+    reason: AdminOperatorReadinessReason,
+    source_reason: &'static str,
+    attention_count: u32,
+    action_route_key: &'static str,
+    action_route_path: &'static str,
+}
+
+fn watch_folder_runtime_tick_pressure(
+    runtime: &AdminOverviewWatchFolderRuntimeSummary,
+) -> Option<WatchFolderRuntimeTickPressure> {
+    let mut degraded = 0usize;
+    let mut blocked = 0usize;
+    let mut reconciliation_pending = 0usize;
+
+    for diagnostic in runtime.diagnostics.iter().filter(|diagnostic| {
+        diagnostic.status == AdminWatchFolderRuntimeCoverageStatus::Started
+            && diagnostic.last_tick.is_some()
+    }) {
+        match diagnostic.last_tick.as_ref().map(|tick| tick.status) {
+            Some(AdminWatchFolderRuntimeOutcomeStatus::Degraded) => {
+                degraded = degraded.saturating_add(1);
+            }
+            Some(AdminWatchFolderRuntimeOutcomeStatus::Blocked) => {
+                blocked = blocked.saturating_add(1);
+            }
+            Some(AdminWatchFolderRuntimeOutcomeStatus::ReconciliationPending) => {
+                reconciliation_pending = reconciliation_pending.saturating_add(1);
+            }
+            Some(
+                AdminWatchFolderRuntimeOutcomeStatus::Healthy
+                | AdminWatchFolderRuntimeOutcomeStatus::Idle
+                | AdminWatchFolderRuntimeOutcomeStatus::Suppressed,
+            )
+            | None => {}
+        }
+    }
+
+    if degraded > 0 {
+        return Some(WatchFolderRuntimeTickPressure {
+            reason: AdminOperatorReadinessReason::ScanRepairPressure,
+            source_reason: "watch_folder_runtime_degraded",
+            attention_count: usize_to_u32(degraded),
+            action_route_key: ADMIN_JOBS_ROUTE_KEY,
+            action_route_path: ADMIN_JOBS_ROUTE_PATH,
+        });
+    }
+
+    if blocked > 0 {
+        return Some(WatchFolderRuntimeTickPressure {
+            reason: AdminOperatorReadinessReason::ScanRepairPressure,
+            source_reason: "watch_folder_runtime_blocked",
+            attention_count: usize_to_u32(blocked),
+            action_route_key: ADMIN_JOBS_ROUTE_KEY,
+            action_route_path: ADMIN_JOBS_ROUTE_PATH,
+        });
+    }
+
+    if reconciliation_pending > 0 {
+        return Some(WatchFolderRuntimeTickPressure {
+            reason: AdminOperatorReadinessReason::ScanWorkPending,
+            source_reason: "watch_folder_reconciliation_pending",
+            attention_count: usize_to_u32(reconciliation_pending),
+            action_route_key: ADMIN_SYSTEM_CONFIG_ROUTE_KEY,
+            action_route_path: ADMIN_SYSTEM_CONFIG_ROUTE_PATH,
+        });
+    }
+
+    None
 }
 
 fn watch_folder_runtime_coverage_gap(
@@ -5312,6 +5397,195 @@ mod tests {
     }
 
     #[test]
+    fn media_library_scan_readiness_reports_degraded_watch_folder_latest_tick() {
+        let startup = startup_summary_with_watch_folder_diagnostics(vec![
+            watch_folder_runtime_diagnostic(
+                AdminWatchFolderRuntimeCoverageStatus::Started,
+                Some(AdminWatchFolderRuntimeOutcomeStatus::Degraded),
+            ),
+            watch_folder_runtime_diagnostic(
+                AdminWatchFolderRuntimeCoverageStatus::Started,
+                Some(AdminWatchFolderRuntimeOutcomeStatus::Degraded),
+            ),
+        ]);
+        let check = media_library_scan_readiness_check(
+            &startup,
+            &empty_runtime_summary(),
+            &AdminOverviewSourceFingerprintHashSummary::default(),
+            &ready_library_scan_posture(startup.configured_libraries as usize),
+        );
+        let body = serde_json::to_string(&check).unwrap();
+
+        assert_eq!(check.area, AdminOperatorReadinessArea::MediaLibraryScan);
+        assert_eq!(check.status, AdminOperatorReadinessStatus::Degraded);
+        assert_eq!(
+            check.reason,
+            AdminOperatorReadinessReason::ScanRepairPressure
+        );
+        assert_eq!(
+            check.source_reason.as_deref(),
+            Some("watch_folder_runtime_degraded")
+        );
+        assert_eq!(check.attention_count, 2);
+        assert_eq!(
+            check
+                .action
+                .as_ref()
+                .map(|action| action.route_key.as_str()),
+            Some(ADMIN_JOBS_ROUTE_KEY)
+        );
+        assert!(!body.contains("local:///"));
+        assert!(!body.contains("input_json"));
+        assert!(!body.contains("summary_json"));
+        assert!(!body.contains("token"));
+    }
+
+    #[test]
+    fn media_library_scan_readiness_reports_blocked_watch_folder_latest_tick() {
+        let startup = startup_summary_with_watch_folder_diagnostics(vec![
+            watch_folder_runtime_diagnostic(
+                AdminWatchFolderRuntimeCoverageStatus::Started,
+                Some(AdminWatchFolderRuntimeOutcomeStatus::Blocked),
+            ),
+            watch_folder_runtime_diagnostic(
+                AdminWatchFolderRuntimeCoverageStatus::Started,
+                Some(AdminWatchFolderRuntimeOutcomeStatus::Healthy),
+            ),
+        ]);
+        let check = media_library_scan_readiness_check(
+            &startup,
+            &empty_runtime_summary(),
+            &AdminOverviewSourceFingerprintHashSummary::default(),
+            &ready_library_scan_posture(startup.configured_libraries as usize),
+        );
+
+        assert_eq!(check.status, AdminOperatorReadinessStatus::Degraded);
+        assert_eq!(
+            check.reason,
+            AdminOperatorReadinessReason::ScanRepairPressure
+        );
+        assert_eq!(
+            check.source_reason.as_deref(),
+            Some("watch_folder_runtime_blocked")
+        );
+        assert_eq!(check.attention_count, 1);
+        assert_eq!(
+            check
+                .action
+                .as_ref()
+                .map(|action| action.route_key.as_str()),
+            Some(ADMIN_JOBS_ROUTE_KEY)
+        );
+    }
+
+    #[test]
+    fn media_library_scan_readiness_reports_reconciliation_pending_watch_folder_latest_tick() {
+        let startup =
+            startup_summary_with_watch_folder_diagnostics(vec![watch_folder_runtime_diagnostic(
+                AdminWatchFolderRuntimeCoverageStatus::Started,
+                Some(AdminWatchFolderRuntimeOutcomeStatus::ReconciliationPending),
+            )]);
+        let check = media_library_scan_readiness_check(
+            &startup,
+            &empty_runtime_summary(),
+            &AdminOverviewSourceFingerprintHashSummary::default(),
+            &ready_library_scan_posture(startup.configured_libraries as usize),
+        );
+
+        assert_eq!(check.status, AdminOperatorReadinessStatus::Degraded);
+        assert_eq!(check.reason, AdminOperatorReadinessReason::ScanWorkPending);
+        assert_eq!(
+            check.source_reason.as_deref(),
+            Some("watch_folder_reconciliation_pending")
+        );
+        assert_eq!(check.attention_count, 1);
+        assert_eq!(
+            check
+                .action
+                .as_ref()
+                .map(|action| action.route_key.as_str()),
+            Some(ADMIN_SYSTEM_CONFIG_ROUTE_KEY)
+        );
+    }
+
+    #[test]
+    fn media_library_scan_readiness_ignores_non_pressure_watch_folder_latest_ticks() {
+        let startup = startup_summary_with_watch_folder_diagnostics(vec![
+            watch_folder_runtime_diagnostic(
+                AdminWatchFolderRuntimeCoverageStatus::Started,
+                Some(AdminWatchFolderRuntimeOutcomeStatus::Healthy),
+            ),
+            watch_folder_runtime_diagnostic(
+                AdminWatchFolderRuntimeCoverageStatus::Started,
+                Some(AdminWatchFolderRuntimeOutcomeStatus::Idle),
+            ),
+            watch_folder_runtime_diagnostic(
+                AdminWatchFolderRuntimeCoverageStatus::Started,
+                Some(AdminWatchFolderRuntimeOutcomeStatus::Suppressed),
+            ),
+            watch_folder_runtime_diagnostic(AdminWatchFolderRuntimeCoverageStatus::Started, None),
+            watch_folder_runtime_diagnostic(
+                AdminWatchFolderRuntimeCoverageStatus::Disabled,
+                Some(AdminWatchFolderRuntimeOutcomeStatus::Degraded),
+            ),
+        ]);
+        let check = media_library_scan_readiness_check(
+            &startup,
+            &empty_runtime_summary(),
+            &AdminOverviewSourceFingerprintHashSummary::default(),
+            &ready_library_scan_posture(startup.configured_libraries as usize),
+        );
+
+        assert_eq!(check.area, AdminOperatorReadinessArea::MediaLibraryScan);
+        assert_eq!(check.status, AdminOperatorReadinessStatus::Ready);
+        assert_eq!(
+            check.reason,
+            AdminOperatorReadinessReason::MediaLibraryConfigured
+        );
+        assert_eq!(check.source_reason.as_deref(), None);
+        assert_eq!(check.attention_count, 0);
+        assert!(check.action.is_none());
+    }
+
+    #[test]
+    fn media_library_scan_readiness_prioritizes_watch_folder_latest_tick_over_coverage_gap() {
+        let startup = startup_summary_with_watch_folder_diagnostics(vec![
+            watch_folder_runtime_diagnostic(
+                AdminWatchFolderRuntimeCoverageStatus::Started,
+                Some(AdminWatchFolderRuntimeOutcomeStatus::Degraded),
+            ),
+            watch_folder_runtime_diagnostic(
+                AdminWatchFolderRuntimeCoverageStatus::UnsupportedRoot,
+                None,
+            ),
+        ]);
+        let check = media_library_scan_readiness_check(
+            &startup,
+            &empty_runtime_summary(),
+            &AdminOverviewSourceFingerprintHashSummary::default(),
+            &ready_library_scan_posture(startup.configured_libraries as usize),
+        );
+
+        assert_eq!(check.status, AdminOperatorReadinessStatus::Degraded);
+        assert_eq!(
+            check.reason,
+            AdminOperatorReadinessReason::ScanRepairPressure
+        );
+        assert_eq!(
+            check.source_reason.as_deref(),
+            Some("watch_folder_runtime_degraded")
+        );
+        assert_eq!(check.attention_count, 1);
+        assert_eq!(
+            check
+                .action
+                .as_ref()
+                .map(|action| action.route_key.as_str()),
+            Some(ADMIN_JOBS_ROUTE_KEY)
+        );
+    }
+
+    #[test]
     fn media_library_scan_readiness_reports_never_completed_scan_posture() {
         let startup = startup_summary_with_configured_libraries(1);
         let posture = LibraryScanPostureAggregate {
@@ -5536,6 +5810,46 @@ mod tests {
             degraded_backends: 0,
             unavailable_backends: 0,
             backends: Vec::new(),
+        }
+    }
+
+    fn watch_folder_runtime_diagnostic(
+        status: AdminWatchFolderRuntimeCoverageStatus,
+        tick_status: Option<AdminWatchFolderRuntimeOutcomeStatus>,
+    ) -> AdminWatchFolderRuntimeCoverageDiagnostic {
+        AdminWatchFolderRuntimeCoverageDiagnostic {
+            library_id: LibraryId::new(),
+            library_name: "Local Movies".to_owned(),
+            root_scheme: Some("local".to_owned()),
+            root_ref_redacted: "local://<redacted>".to_owned(),
+            status,
+            safe_reason: "local watch-folder runtime state".to_owned(),
+            last_tick: tick_status.map(watch_folder_runtime_tick),
+        }
+    }
+
+    fn watch_folder_runtime_tick(
+        status: AdminWatchFolderRuntimeOutcomeStatus,
+    ) -> AdminWatchFolderRuntimeTickDiagnostic {
+        AdminWatchFolderRuntimeTickDiagnostic {
+            monitored: true,
+            status,
+            ready_candidates: 0,
+            inspecting_candidates: 0,
+            blocked_candidates: 0,
+            recorded_candidates: 0,
+            newly_ready_candidates: 0,
+            observed_candidates: 0,
+            suppressed_candidates: 0,
+            active_suppressions: 0,
+            failure_count: 0,
+            enqueue_scan: false,
+            enqueue_reason: AdminWatchFolderIntakeEnqueueReason::NoNewStableCandidates,
+            scan_admission_status: AdminWatchFolderScanAdmissionStatus::NotAdmitted,
+            scan_job_id: None,
+            reused_existing_scan: false,
+            backoff_required: false,
+            discovery_failures: Vec::new(),
         }
     }
 
