@@ -282,3 +282,38 @@ Implemented current-user named playback profiles across persistence, Public Clie
 ### Next Steps
 
 - None - task complete
+
+
+## Session 155: Playback decision reason public contract
+
+**Date**: 2026-06-18
+**Task**: Playback decision reason public contract
+**Package**: nako
+**Branch**: `feat/admin-overview-durable-jobs`
+
+### Summary
+
+Added redaction-safe public playback decision reason details, refreshed OpenAPI and generated SDKs, and preserved future-safe TypeScript additive enum literals.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `15da7f4b` | (see git log) |
+| `b7960d67` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

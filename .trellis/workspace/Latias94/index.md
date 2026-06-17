@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-4.md`
-- **Total Sessions**: 154
-- **Last Active**: 2026-06-17
+- **Total Sessions**: 155
+- **Last Active**: 2026-06-18
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-4.md` | ~284 | Active |
+| `journal-4.md` | ~319 | Active |
 | `journal-3.md` | ~1979 | Archived |
 | `journal-2.md` | ~1991 | Archived |
 | `journal-1.md` | ~1972 | Archived |
@@ -32,6 +32,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 155 | 2026-06-18 | Playback decision reason public contract | `15da7f4b`, `b7960d67` | `feat/admin-overview-durable-jobs` |
 | 154 | 2026-06-17 | Named playback profile preferences | `75cd79c6`, `dbc96cc4`, `1c3d9695`, `572c52ad` | `feat/admin-overview-durable-jobs` |
 | 153 | 2026-06-17 | Apply saved playback profile preference | `676e6632`, `b560f702` | `feat/admin-overview-durable-jobs` |
 | 152 | 2026-06-17 | User playback profile preference | `d463075c` | `feat/admin-overview-durable-jobs` |
