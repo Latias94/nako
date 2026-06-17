@@ -245,3 +245,40 @@ Applied current-user saved playback profile preferences as fallback capabilities
 ### Next Steps
 
 - None - task complete
+
+
+## Session 154: Named playback profile preferences
+
+**Date**: 2026-06-17
+**Task**: Named playback profile preferences
+**Package**: nako
+**Branch**: `feat/admin-overview-durable-jobs`
+
+### Summary
+
+Implemented current-user named playback profiles across persistence, Public Client contracts, server routes, playback default fallback, and API/code-spec documentation.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `75cd79c6` | (see git log) |
+| `dbc96cc4` | (see git log) |
+| `1c3d9695` | (see git log) |
+| `572c52ad` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
