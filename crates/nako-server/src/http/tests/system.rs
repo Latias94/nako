@@ -14875,6 +14875,8 @@ async fn admin_v1_playback_runtime_settings_round_trips_persisted_override() {
         remux_timeout_ms: 45_000,
         remote_stream_concurrency: 5,
         remote_stage_concurrency: 6,
+        active_playback_session_limit: 7,
+        idle_playback_session_timeout_ms: 12_000,
         staging_max_bytes: 7_000,
         staging_retention_ms: 8_000,
         staging_cleanup_on_startup: false,
@@ -14944,6 +14946,8 @@ async fn admin_v1_playback_runtime_settings_round_trips_persisted_override() {
     assert_eq!(runtime.remux.timeout_ms, 45_000);
     assert_eq!(runtime.remote_playback.stream_permits_max, 5);
     assert_eq!(runtime.remote_playback.stage_permits_max, 6);
+    assert_eq!(runtime.session_admission.active_session_limit, 7);
+    assert_eq!(runtime.session_admission.idle_session_timeout_ms, 12_000);
     assert_eq!(runtime.staging.max_bytes, 7_000);
     assert_eq!(runtime.staging.retention_ms, 8_000);
     assert_eq!(
@@ -14967,6 +14971,11 @@ async fn admin_v1_playback_runtime_settings_round_trips_persisted_override() {
     assert_eq!(diagnostics.runtime.remux_timeout_ms, 45_000);
     assert_eq!(diagnostics.playback.remote_stream_concurrency, 5);
     assert_eq!(diagnostics.playback.remote_stage_concurrency, 6);
+    assert_eq!(diagnostics.playback.active_playback_session_limit, 7);
+    assert_eq!(
+        diagnostics.playback.idle_playback_session_timeout_ms,
+        12_000
+    );
     assert_eq!(diagnostics.staging.max_bytes, 7_000);
     assert_eq!(diagnostics.staging.retention_ms, 8_000);
     assert_eq!(diagnostics.playback.transcode_artifact_retention_ms, 9_000);
@@ -15012,6 +15021,48 @@ async fn admin_v1_playback_runtime_settings_rejects_invalid_policy_values() {
         "/admin/v1/settings/playback/runtime",
         &AdminUpdatePlaybackRuntimeSettingsRequest {
             settings: zero_throttle_delay,
+        },
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let error = body_json::<ErrorResponse>(response).await;
+    assert_eq!(
+        error.code,
+        nako_api::public_client::ClientErrorCode::InvalidInput.as_str()
+    );
+
+    let configured = request_json::<AdminPlaybackRuntimeSettingsResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/settings/playback/runtime",
+    )
+    .await;
+    let mut zero_session_limit = configured.settings.clone();
+    zero_session_limit.active_playback_session_limit = 0;
+    let response = response_body_json(
+        &router,
+        Method::PUT,
+        "/admin/v1/settings/playback/runtime",
+        &AdminUpdatePlaybackRuntimeSettingsRequest {
+            settings: zero_session_limit,
+        },
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let error = body_json::<ErrorResponse>(response).await;
+    assert_eq!(
+        error.code,
+        nako_api::public_client::ClientErrorCode::InvalidInput.as_str()
+    );
+
+    let mut zero_idle_timeout = configured.settings;
+    zero_idle_timeout.idle_playback_session_timeout_ms = 0;
+    let response = response_body_json(
+        &router,
+        Method::PUT,
+        "/admin/v1/settings/playback/runtime",
+        &AdminUpdatePlaybackRuntimeSettingsRequest {
+            settings: zero_idle_timeout,
         },
     )
     .await;

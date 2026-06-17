@@ -25,9 +25,9 @@ Authenticated Principal
 | Repository traits | Shipped foundation | `docs/adr/0001-modular-monolith-rust-workspace.md` | Keep domain traits out of adapters. |
 | Local credential auth | Shipped | `docs/adr/0037-local-credential-and-session-auth.md` | Account recovery/SSO follow-ons. |
 | Library access | Shipped foundation | identity/access lanes | Fine-grained content policies. |
-| Playback policy | Shipped foundation | `docs/adr/0039-playback-policy-and-renderer-target-boundary.md`; `docs/workstreams/playback-policy-and-renderer-targets/` | Editable operator controls, remote bitrate, transcode, and session-limit policies. |
+| Playback policy | Shipped runtime admission first slice | `docs/adr/0039-playback-policy-and-renderer-target-boundary.md`; `docs/workstreams/playback-policy-and-renderer-targets/`; `.trellis/tasks/06-18-playback-access-policy-session-limits/` | Per-user quotas, editable operator controls, and strict reservation semantics. |
 | User playback progress | Shipped foundation | `docs/adr/0028-user-playback-state-principal-and-public-contract.md` | Heartbeat buffering and conflict semantics. |
-| Transcode/playback sessions | Shipped foundation | playback runtime lanes | Active-session limits and write pressure tests. |
+| Transcode/playback sessions | Shipped runtime admission first slice | playback runtime lanes; `.trellis/tasks/06-18-playback-access-policy-session-limits/` | Strict concurrent session reservation and write pressure tests. |
 | Search projection | Shipped foundation | catalog/search lanes | FTS/filter scale-up. |
 | Event outbox | Shipped | `docs/adr/0014-durable-event-outbox-for-webhooks-and-automation.md` | Realtime client gateway bridge. |
 
@@ -65,11 +65,11 @@ Goal: Let self-hosted operators control playback cost and access by user.
 
 Scope:
 
-- per-user remote playback permission;
-- max remote bitrate;
-- allow/deny transcode;
-- active session count or resource limit;
-- idle session termination policy.
+- shipped first slice: remote playback permission enforcement, max remote
+  bitrate admission, server-wide active session ceiling, and idle session
+  termination before admission;
+- follow-ons: per-user quotas, allow/deny transcode operator workflows, strict
+  concurrent reservation semantics, and broader playback write-pressure tests.
 
 ### api-scale-and-cache-contracts
 

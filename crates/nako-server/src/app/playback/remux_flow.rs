@@ -49,8 +49,9 @@ pub(super) async fn remux_playback_stream(
     app: &PlaybackAppService,
     request: RemuxPlaybackStreamRequest,
 ) -> Result<RemuxPlaybackStreamOutput> {
+    let source = app.get_source_or_not_found(request.source_id).await?;
     let effective_policy = app
-        .effective_playback_policy_for_playable_source_id(&request.principal, request.source_id)
+        .admit_playback_session_start(&request.principal, &source, None)
         .await?;
     let remux_request = RemuxSourceRequest {
         source_id: request.source_id,
@@ -61,7 +62,7 @@ pub(super) async fn remux_playback_stream(
     let playback_session = start_linked_playback_session(
         app,
         StartPlaybackSessionRequest {
-            principal_id: request.principal.principal_id,
+            principal: request.principal,
             source_id: request.source_id,
             mode: PlaybackSessionMode::Remux,
             client: Some(request.client.clone()),
@@ -162,8 +163,9 @@ pub(super) async fn remux_playback_preflight(
     app: &PlaybackAppService,
     request: RemuxPlaybackPreflightRequest,
 ) -> Result<RemuxPlaybackPreflightOutput> {
+    let source = app.get_source_or_not_found(request.source_id).await?;
     let effective_policy = app
-        .effective_playback_policy_for_playable_source_id(&request.principal, request.source_id)
+        .admit_playback_session_start(&request.principal, &source, None)
         .await?;
     let remux = start_remux_source_with_policy(
         app,
@@ -178,7 +180,7 @@ pub(super) async fn remux_playback_preflight(
     let playback_session = start_linked_playback_session(
         app,
         StartPlaybackSessionRequest {
-            principal_id: request.principal.principal_id,
+            principal: request.principal,
             source_id: request.source_id,
             mode: PlaybackSessionMode::Remux,
             client: Some(request.client.clone()),

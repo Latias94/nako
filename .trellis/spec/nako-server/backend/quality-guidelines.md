@@ -127,6 +127,125 @@ Use these gates for `crates/nako-server` feature work.
   schedulers, purge/delete/invalidation, backend configuration mutation, and
   library file writes out of the route slice.
 
+## Scenario: Playback Session Admission And Limits
+
+### 1. Scope / Trigger
+
+- Trigger: changing playback session start behavior, remote playback policy
+  enforcement, idle playback-session cleanup, playback runtime settings, or any
+  Direct Play, Remux, HLS, or renderer startup path that can create playback
+  sessions or downstream playback work.
+- Purpose: enforce access and cost policy before stream/transcode work starts
+  while keeping admission errors typed and redaction-safe.
+
+### 2. Signatures
+
+- App boundary:
+  `PlaybackAppService::admit_playback_session_start(principal, source, effective_policy) -> Result<EffectivePlaybackPolicy>`.
+- Session creation after pre-admission:
+  `PlaybackAppService::create_playback_session_after_admission(request, source) -> Result<PlaybackSessionRecord>`.
+- Repository helpers:
+  `PlaybackSessionRepository::count_active_playback_sessions() -> Result<u64>`
+  and
+  `PlaybackSessionRepository::end_idle_playback_sessions(stale_before_ms, ended_at_ms) -> Result<u64>`.
+- Runtime settings fields:
+  `active_playback_session_limit` and `idle_playback_session_timeout_ms`.
+
+### 3. Contracts
+
+- Playback app service owns admission. HTTP handlers, planner crates, and
+  transcode helpers must not duplicate session-limit or bitrate admission.
+- Admission checks library/play access, remote playback permission, remote
+  bitrate cap, idle-session cleanup, and active-session ceiling before creating
+  a new playback session.
+- Idle cleanup treats `active`, `paused`, and `cancel_requested` sessions as
+  active candidates and terminalizes only rows whose heartbeat or update time
+  is older than the configured timeout.
+- Active-session count includes `active`, `paused`, and `cancel_requested`
+  states. Terminal states do not consume session ceiling.
+- Remote playback over `max_remote_bitrate` returns `NakoError::Forbidden`
+  before creating playback session, transcode session, or artifact records.
+- Active session ceiling denial returns `NakoError::Conflict` before creating
+  playback session, transcode session, or artifact records.
+- Remux, HLS, and renderer flows that need downstream work must pre-admit once,
+  then create the linked playback session through the after-admission helper so
+  admission is not skipped or double-counted.
+- Admin runtime settings and diagnostics must expose new admission knobs through
+  `nako-api` DTOs and regenerated Admin TypeScript contracts.
+- The first slice is process-local and count-then-create. Strict cross-request
+  or cross-node reservation requires a dedicated repository transaction or
+  reservation contract.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Remote source exceeds effective `max_remote_bitrate` | Return `Forbidden` before session/transcode/artifact creation |
+| Caller lacks remote playback permission for a remote source | Return `Forbidden` before downstream playback work |
+| Active session count is at or above configured ceiling | Return `Conflict` and create no new playback/transcode/artifact rows |
+| Stale active or paused sessions are older than timeout | Terminalize them before counting active sessions |
+| Fresh heartbeat exists on an otherwise old session | Keep the session active and count it |
+| Runtime setting limit or timeout is zero | Reject the settings update as invalid input |
+| Admin contract output changes | Regenerate both Admin TypeScript contract outputs from `nako-api` |
+| Error body contains source locator, local path, ticket, or FFmpeg command | Treat as a redaction failure |
+
+### 5. Good/Base/Bad Cases
+
+- Good: a Remux request calls app-service admission, rejects at the session
+  ceiling, and never starts a transcode session.
+- Good: a stale paused session is ended during admission and no longer blocks a
+  fresh playback request.
+- Base: a local Direct Play request still uses the same session ceiling but does
+  not require remote bitrate checks.
+- Bad: an HTTP route counts active sessions directly or starts FFmpeg before
+  checking remote bitrate and session ceiling.
+- Bad: a helper creates a linked playback session by calling the full public
+  start path after pre-admission, causing a second admission check against the
+  same request.
+
+### 6. Tests Required
+
+- Server app tests for remote bitrate denial, session ceiling rejection, idle
+  session reaping, and Remux/HLS/renderer no-orphan downstream work.
+- Server Admin route tests for playback runtime settings validation and
+  diagnostics round trip.
+- API contract tests:
+  `cargo nextest run -p nako-api admin_contract --no-fail-fast`.
+- Repository contract tests for SQLite and PostgreSQL adapter parity:
+  `cargo nextest run -p nako-db playback_session_active_count_and_idle_reap --no-fail-fast`.
+- Cross-crate compile when public DTOs or repository traits change:
+  `cargo check -p nako-api -p nako-core -p nako-db -p nako-server --tests`.
+- Formatting and whitespace:
+  `cargo fmt --all -- --check` and `git diff --check`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+let session = self.start_remux_source(request).await?;
+self.start_playback_session(linked_session_request).await?;
+```
+
+This can start downstream state before policy admission and can double-admit
+linked playback sessions.
+
+#### Correct
+
+```rust
+let effective_policy = self
+    .admit_playback_session_start(&principal, &source, None)
+    .await?;
+let transcode = self
+    .start_remux_source_with_policy(request, effective_policy)
+    .await?;
+self.create_playback_session_after_admission(linked_session_request, source)
+    .await?;
+```
+
+Admission happens once before expensive work, and linked session creation stays
+inside the already-admitted flow.
+
 ## Scenario: VFS Cache Repair Durable Enqueue
 
 ### 1. Scope / Trigger

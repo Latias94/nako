@@ -1,0 +1,14 @@
+{"file":"docs/architecture/STATE_ACCESS.md","reason":"Check session-limit scope and idle-termination claims."}
+{"file":"docs/architecture/PLAYBACK.md","reason":"Check playback runtime boundary and follow-on claims."}
+{"file":"docs/architecture/CONTROL_PLANE.md","reason":"Check ADR 0053-aligned cleanup and admission boundaries."}
+{"file":"docs/adr/0039-playback-policy-and-renderer-target-boundary.md","reason":"Check bitrate cap semantics stay as policy, not planner logic."}
+{"file":"docs/adr/0053-application-control-plane-boundary.md","reason":"Check runtime admission stays in the control plane."}
+{"file":".trellis/spec/nako-server/backend/index.md","reason":"Check server tests, error mapping, and app-service boundaries."}
+{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Check playback route and access contracts remain consistent."}
+{"file":".trellis/spec/nako-server/backend/error-handling.md","reason":"Check denial paths remain typed and redaction-safe."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Check server code quality and focused regression coverage."}
+{"file":".trellis/spec/nako-db/backend/index.md","reason":"Check repository contract behavior across SQLite/PostgreSQL."}
+{"file":".trellis/spec/nako-db/backend/quality-guidelines.md","reason":"Check adapter and contract-test conventions."}
+{"file":".trellis/spec/nako-api/backend/index.md","reason":"Check runtime-settings/admin contract updates if fields change."}
+{"file":".trellis/spec/nako-api/backend/quality-guidelines.md","reason":"Check generated contract and redaction rules."}
+{"file":".trellis/tasks/06-18-playback-access-policy-session-limits/research/playback-session-admission-gap.md","reason":"Check implementation assumptions against the local seam summary."}

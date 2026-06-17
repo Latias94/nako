@@ -25,11 +25,11 @@ use nako_core::{
     MediaColorInfo, MediaHdrMetadata, MediaItem, MediaItemId, MediaKind, MediaProbeRepository,
     MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
     MediaStreamKind, MediaStreamTechnicalFacts, MetadataField, MetadataRefreshMode,
-    MetadataRepository, MetadataSource, NewJob, NewStagingManifestRecord, NewTranscodeSession,
-    PageRequest, PlaybackPermissionPolicy, PlaybackPolicy, PlaybackPolicyRepository,
-    PlaybackSessionListFilter, PlaybackSessionMode, PlaybackSessionRepository,
-    PlaybackSessionState, ProviderRawResponse, RoleAssignment, StagingAttribution,
-    StagingManifestId, StagingManifestRepository, StagingPurpose, StagingState,
+    MetadataRepository, MetadataSource, NewJob, NewPlaybackSession, NewStagingManifestRecord,
+    NewTranscodeSession, PageRequest, PlaybackPermissionPolicy, PlaybackPolicy,
+    PlaybackPolicyRepository, PlaybackSessionId, PlaybackSessionListFilter, PlaybackSessionMode,
+    PlaybackSessionRepository, PlaybackSessionState, ProviderRawResponse, RoleAssignment,
+    StagingAttribution, StagingManifestId, StagingManifestRepository, StagingPurpose, StagingState,
     TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
     TranscodeSessionRecord, TranscodeSessionRepository, TranscodeSessionState, User, UserId,
     UserPrincipalId, UserRole, UserStatus,
@@ -63,8 +63,9 @@ use tokio::{
 use super::playback::{
     HlsSourceDisposition, HlsStagingPolicy, PlaybackResourceAdmissionStatus,
     PlaybackResourceCapacity, PlaybackResourceClass, PlaybackResourceDemand,
-    PlaybackResourceEnforcement, PlaybackRuntimeAdmission, RemuxRequestKey, RemuxSourceDisposition,
-    RemuxStagingPolicy, source_path_for_ffmpeg_with_backend,
+    PlaybackResourceEnforcement, PlaybackRuntimeAdmission, PlaybackSessionAdmissionConfig,
+    RemuxRequestKey, RemuxSourceDisposition, RemuxStagingPolicy,
+    source_path_for_ffmpeg_with_backend,
 };
 use super::staging::ManifestRecordingStorageBackend;
 use super::*;

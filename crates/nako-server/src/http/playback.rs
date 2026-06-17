@@ -155,7 +155,7 @@ pub(super) async fn create_browser_playback_ticket(
         Some(
             app.playback()
                 .start_playback_session(StartPlaybackSessionRequest {
-                    principal_id: principal.principal_id.clone(),
+                    principal: principal.clone(),
                     source_id,
                     mode: session_mode,
                     client: Some(client),

@@ -1,0 +1,18 @@
+{"file":"docs/architecture/STATE_ACCESS.md","reason":"Playback-access scope and session-limit boundary."}
+{"file":"docs/architecture/PLAYBACK.md","reason":"Playback runtime scope and session-admission follow-ons."}
+{"file":"docs/architecture/CONTROL_PLANE.md","reason":"ADR 0053 control-plane boundary for runtime admission and cleanup."}
+{"file":"docs/adr/0039-playback-policy-and-renderer-target-boundary.md","reason":"Keep bitrate caps and playback policy semantics aligned."}
+{"file":"docs/adr/0053-application-control-plane-boundary.md","reason":"Keep session cleanup and admission inside the control plane."}
+{"file":"docs/workstreams/playback-policy-and-renderer-targets/DESIGN.md","reason":"Current playback policy vocabulary and server-app boundary."}
+{"file":".trellis/spec/nako-server/backend/index.md","reason":"Server runtime ownership, HTTP boundary, and test patterns."}
+{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Playback HTTP/app-service access and route behavior patterns."}
+{"file":".trellis/spec/nako-server/backend/error-handling.md","reason":"Typed denial and redaction-safe error handling rules."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Server code quality and test expectations."}
+{"file":".trellis/spec/nako-server/backend/directory-structure.md","reason":"Playback app-service module ownership and placement."}
+{"file":".trellis/spec/nako-core/backend/index.md","reason":"Shared domain records and repository trait boundaries."}
+{"file":".trellis/spec/nako-core/backend/quality-guidelines.md","reason":"Domain type, policy, and session record conventions."}
+{"file":".trellis/spec/nako-db/backend/index.md","reason":"SQLite/PostgreSQL repository contract and migration constraints."}
+{"file":".trellis/spec/nako-db/backend/quality-guidelines.md","reason":"Repository contract-test and adapter patterns."}
+{"file":".trellis/spec/nako-api/backend/index.md","reason":"Admin DTO and generated contract shape for runtime settings."}
+{"file":".trellis/spec/nako-api/backend/quality-guidelines.md","reason":"Public/Admin contract update conventions and redaction rules."}
+{"file":".trellis/tasks/06-18-playback-access-policy-session-limits/research/playback-session-admission-gap.md","reason":"Local seam summary and implementation assumptions for this task."}

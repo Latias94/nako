@@ -23,6 +23,9 @@ pub(super) async fn start_renderer_playback_session(
     let effective_policy = app
         .effective_playback_policy_for_playable_source(&request.principal, &source)
         .await?;
+    let effective_policy = app
+        .admit_playback_session_start(&request.principal, &source, Some(effective_policy))
+        .await?;
     let probe =
         PlaybackRuntimeStore::get_media_probe(app.runtime_store.as_ref(), source.id).await?;
     let context = app.playback_selection_context_for_source(&source).await?;
@@ -43,12 +46,15 @@ pub(super) async fn start_renderer_playback_session(
                 NakoError::Unsupported("direct renderer decision did not include a direct plan")
             })?;
             let session = app
-                .start_playback_session(StartPlaybackSessionRequest {
-                    principal_id: request.principal.principal_id,
-                    source_id: request.source_id,
-                    mode: PlaybackSessionMode::Direct,
-                    client: Some(request.target.media_capabilities.clone()),
-                })
+                .create_playback_session_after_admission(
+                    StartPlaybackSessionRequest {
+                        principal: request.principal,
+                        source_id: request.source_id,
+                        mode: PlaybackSessionMode::Direct,
+                        client: Some(request.target.media_capabilities.clone()),
+                    },
+                    source,
+                )
                 .await?;
 
             Ok(StartRendererPlaybackSessionOutput {
@@ -74,12 +80,15 @@ pub(super) async fn start_renderer_playback_session(
             )
             .await?;
             let session = app
-                .start_playback_session(StartPlaybackSessionRequest {
-                    principal_id: request.principal.principal_id,
-                    source_id: request.source_id,
-                    mode: PlaybackSessionMode::Remux,
-                    client: Some(request.target.media_capabilities.clone()),
-                })
+                .create_playback_session_after_admission(
+                    StartPlaybackSessionRequest {
+                        principal: request.principal,
+                        source_id: request.source_id,
+                        mode: PlaybackSessionMode::Remux,
+                        client: Some(request.target.media_capabilities.clone()),
+                    },
+                    source,
+                )
                 .await?;
             app.link_playback_session_transcode(session.id, remux.session.id)
                 .await?;
@@ -112,12 +121,15 @@ pub(super) async fn start_renderer_playback_session(
             )
             .await?;
             let session = app
-                .start_playback_session(StartPlaybackSessionRequest {
-                    principal_id: request.principal.principal_id,
-                    source_id: request.source_id,
-                    mode: PlaybackSessionMode::Hls,
-                    client: Some(request.target.media_capabilities.clone()),
-                })
+                .create_playback_session_after_admission(
+                    StartPlaybackSessionRequest {
+                        principal: request.principal,
+                        source_id: request.source_id,
+                        mode: PlaybackSessionMode::Hls,
+                        client: Some(request.target.media_capabilities.clone()),
+                    },
+                    source,
+                )
                 .await?;
             app.link_playback_session_transcode(session.id, playlist.session.id)
                 .await?;

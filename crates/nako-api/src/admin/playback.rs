@@ -160,6 +160,7 @@ pub struct AdminPlaybackRuntimeDiagnosticsResponse {
     pub remux: AdminPlaybackRemuxRuntimeDiagnostics,
     pub resource_pressure: AdminPlaybackResourcePressureDiagnostics,
     pub remote_playback: AdminPlaybackRemoteBudgetDiagnostics,
+    pub session_admission: AdminPlaybackSessionAdmissionDiagnostics,
     pub staging: AdminPlaybackStagingDiagnostics,
     pub artifact_lifecycle: AdminPlaybackArtifactLifecycleDiagnostics,
     pub throttle: AdminPlaybackThrottleDiagnostics,
@@ -503,6 +504,8 @@ pub struct AdminPlaybackRuntimeSettingsPayload {
     pub remux_timeout_ms: u64,
     pub remote_stream_concurrency: u32,
     pub remote_stage_concurrency: u32,
+    pub active_playback_session_limit: u32,
+    pub idle_playback_session_timeout_ms: u64,
     pub staging_max_bytes: u64,
     pub staging_retention_ms: u64,
     pub staging_cleanup_on_startup: bool,
@@ -1133,6 +1136,12 @@ pub struct AdminPlaybackRemoteBudgetDiagnostics {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminPlaybackSessionAdmissionDiagnostics {
+    pub active_session_limit: u32,
+    pub idle_session_timeout_ms: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AdminPlaybackStagingDiagnostics {
     pub max_bytes: u64,
     pub retention_ms: u64,
@@ -1584,6 +1593,10 @@ mod tests {
                 stage_permits_max: 2,
                 state_scope: StorageBackendRuntimeStateScope::ProcessLocal,
             },
+            session_admission: AdminPlaybackSessionAdmissionDiagnostics {
+                active_session_limit: 12,
+                idle_session_timeout_ms: 120_000,
+            },
             staging: AdminPlaybackStagingDiagnostics {
                 max_bytes: 100,
                 retention_ms: 200,
@@ -1676,6 +1689,11 @@ mod tests {
             "not_run"
         );
         assert_eq!(value["remote_playback"]["state_scope"], "process_local");
+        assert_eq!(value["session_admission"]["active_session_limit"], 12);
+        assert_eq!(
+            value["session_admission"]["idle_session_timeout_ms"],
+            120_000
+        );
         assert_eq!(
             value["artifact_lifecycle"]["transcode_artifact_retention_ms"],
             300

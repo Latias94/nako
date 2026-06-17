@@ -295,6 +295,10 @@ pub struct PlaybackConfig {
     pub remote_stream_concurrency: usize,
     #[serde(default = "default_remote_stage_concurrency")]
     pub remote_stage_concurrency: usize,
+    #[serde(default = "default_active_playback_session_limit")]
+    pub active_playback_session_limit: usize,
+    #[serde(default = "default_idle_playback_session_timeout_ms")]
+    pub idle_playback_session_timeout_ms: u64,
     #[serde(default = "default_transcode_artifact_retention_ms")]
     pub transcode_artifact_retention_ms: u64,
     #[serde(default)]
@@ -314,6 +318,8 @@ impl Default for PlaybackConfig {
         Self {
             remote_stream_concurrency: default_remote_stream_concurrency(),
             remote_stage_concurrency: default_remote_stage_concurrency(),
+            active_playback_session_limit: default_active_playback_session_limit(),
+            idle_playback_session_timeout_ms: default_idle_playback_session_timeout_ms(),
             transcode_artifact_retention_ms: default_transcode_artifact_retention_ms(),
             transcode_artifact_cleanup_on_startup: false,
             hls_segment_cleanup_enabled: false,
@@ -777,6 +783,14 @@ const fn default_remote_stage_concurrency() -> usize {
     2
 }
 
+const fn default_active_playback_session_limit() -> usize {
+    32
+}
+
+const fn default_idle_playback_session_timeout_ms() -> u64 {
+    30 * 60 * 1_000
+}
+
 const fn default_transcode_artifact_retention_ms() -> u64 {
     7 * 24 * 60 * 60 * 1_000
 }
@@ -930,6 +944,8 @@ mod tests {
             [playback]
             remote_stream_concurrency = 7
             remote_stage_concurrency = 2
+            active_playback_session_limit = 9
+            idle_playback_session_timeout_ms = 120000
             transcode_artifact_retention_ms = 3600000
             transcode_artifact_cleanup_on_startup = true
             hls_segment_cleanup_enabled = true
@@ -1055,6 +1071,8 @@ mod tests {
         assert!(!config.staging.cleanup_on_startup);
         assert_eq!(config.playback.remote_stream_concurrency, 7);
         assert_eq!(config.playback.remote_stage_concurrency, 2);
+        assert_eq!(config.playback.active_playback_session_limit, 9);
+        assert_eq!(config.playback.idle_playback_session_timeout_ms, 120_000);
         assert_eq!(config.playback.transcode_artifact_retention_ms, 3_600_000);
         assert!(config.playback.transcode_artifact_cleanup_on_startup);
         assert!(config.playback.hls_segment_cleanup_enabled);

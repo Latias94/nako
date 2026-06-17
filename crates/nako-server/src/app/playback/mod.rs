@@ -124,6 +124,14 @@ pub(crate) trait PlaybackRuntimeStore: std::fmt::Debug + Send + Sync {
         page: PageRequest,
     ) -> Result<Vec<PlaybackSessionRecord>>;
 
+    async fn count_active_playback_sessions(&self) -> Result<u64>;
+
+    async fn end_idle_playback_sessions(
+        &self,
+        stale_before_ms: i64,
+        ended_at_ms: i64,
+    ) -> Result<u64>;
+
     async fn find_latest_playback_session_by_transcode_session(
         &self,
         transcode_session_id: TranscodeSessionId,
@@ -266,6 +274,19 @@ where
         page: PageRequest,
     ) -> Result<Vec<PlaybackSessionRecord>> {
         PlaybackSessionRepository::list_playback_sessions(self, filter, page).await
+    }
+
+    async fn count_active_playback_sessions(&self) -> Result<u64> {
+        PlaybackSessionRepository::count_active_playback_sessions(self).await
+    }
+
+    async fn end_idle_playback_sessions(
+        &self,
+        stale_before_ms: i64,
+        ended_at_ms: i64,
+    ) -> Result<u64> {
+        PlaybackSessionRepository::end_idle_playback_sessions(self, stale_before_ms, ended_at_ms)
+            .await
     }
 
     async fn find_latest_playback_session_by_transcode_session(
@@ -635,7 +656,7 @@ pub(crate) struct HlsPlaylistSessionRequest {
 
 #[derive(Clone, Debug)]
 pub(crate) struct StartPlaybackSessionRequest {
-    pub principal_id: UserPrincipalId,
+    pub principal: AuthenticatedPrincipal,
     pub source_id: MediaSourceId,
     pub mode: PlaybackSessionMode,
     pub client: Option<ClientPlaybackCapabilities>,
@@ -692,6 +713,24 @@ const ACTIVE_PLAYBACK_SESSION_STATES: [PlaybackSessionState; 3] = [
     PlaybackSessionState::CancelRequested,
 ];
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct PlaybackSessionAdmissionConfig {
+    pub(crate) active_session_limit: u64,
+    pub(crate) idle_session_timeout_ms: u64,
+}
+
+impl PlaybackSessionAdmissionConfig {
+    #[must_use]
+    fn from_server_config(config: &NakoServerConfig) -> Self {
+        Self {
+            active_session_limit: u64::try_from(config.playback.active_playback_session_limit)
+                .unwrap_or(u64::MAX)
+                .max(1),
+            idle_session_timeout_ms: config.playback.idle_playback_session_timeout_ms.max(1),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct PlaybackAppService {
     config: NakoServerConfig,
@@ -707,6 +746,8 @@ pub(crate) struct PlaybackAppService {
     remux: RemuxAppService,
     hls: HlsAppService,
     hls_artifacts: HlsArtifactService,
+    #[cfg(test)]
+    session_admission_config_override: Option<PlaybackSessionAdmissionConfig>,
 }
 
 impl PlaybackAppService {
@@ -736,7 +777,19 @@ impl PlaybackAppService {
             renderer,
             renderer_transport_tickets,
             cancellations,
+            #[cfg(test)]
+            session_admission_config_override: None,
         })
+    }
+
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) fn with_session_admission_config_for_tests(
+        mut self,
+        config: PlaybackSessionAdmissionConfig,
+    ) -> Self {
+        self.session_admission_config_override = Some(config);
+        self
     }
 
     #[must_use]
@@ -879,6 +932,17 @@ impl PlaybackAppService {
         request: StartPlaybackSessionRequest,
     ) -> Result<PlaybackSessionRecord> {
         let source = self.get_source_or_not_found(request.source_id).await?;
+        self.admit_playback_session_start(&request.principal, &source, None)
+            .await?;
+        self.create_playback_session_after_admission(request, source)
+            .await
+    }
+
+    pub(super) async fn create_playback_session_after_admission(
+        &self,
+        request: StartPlaybackSessionRequest,
+        source: MediaSource,
+    ) -> Result<PlaybackSessionRecord> {
         let now_ms = crate::app::current_time_ms()?;
         let client_capabilities_json = request
             .client
@@ -893,7 +957,7 @@ impl PlaybackAppService {
             self.runtime_store.as_ref(),
             NewPlaybackSession {
                 id: PlaybackSessionId::new(),
-                principal_id: request.principal_id,
+                principal_id: request.principal.principal_id,
                 source_id: source.id,
                 item_id: source.item_id,
                 mode: request.mode,
@@ -904,6 +968,122 @@ impl PlaybackAppService {
             },
         )
         .await
+    }
+
+    pub(super) async fn admit_playback_session_start(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        source: &MediaSource,
+        effective_policy: Option<EffectivePlaybackPolicy>,
+    ) -> Result<EffectivePlaybackPolicy> {
+        let effective_policy = match effective_policy {
+            Some(effective_policy) => {
+                if principal.is_administrator() || effective_policy.library_access.allows_play() {
+                    effective_policy
+                } else {
+                    return Err(library_play_access_forbidden());
+                }
+            }
+            None => {
+                self.effective_playback_policy_for_playable_source(principal, source)
+                    .await?
+            }
+        };
+
+        self.ensure_remote_playback_session_admission(source, &effective_policy)
+            .await?;
+        let now_ms = crate::app::current_time_ms()?;
+        self.ensure_playback_session_admission(now_ms).await?;
+
+        Ok(effective_policy)
+    }
+
+    async fn ensure_playback_session_admission(&self, now_ms: i64) -> Result<()> {
+        let config = self.playback_session_admission_config();
+        let timeout_ms = i64::try_from(config.idle_session_timeout_ms).map_err(|err| {
+            NakoError::InvalidInput {
+                message: format!("playback idle session timeout is too large: {err}"),
+            }
+        })?;
+        let stale_before_ms = now_ms.saturating_sub(timeout_ms);
+
+        PlaybackRuntimeStore::end_idle_playback_sessions(
+            self.runtime_store.as_ref(),
+            stale_before_ms,
+            now_ms,
+        )
+        .await?;
+
+        let active_sessions =
+            PlaybackRuntimeStore::count_active_playback_sessions(self.runtime_store.as_ref())
+                .await?;
+        let limit = config.active_session_limit;
+        if active_sessions >= limit {
+            return Err(NakoError::Conflict {
+                message: format!(
+                    "playback active session limit reached: active={active_sessions}, limit={limit}"
+                ),
+            });
+        }
+
+        Ok(())
+    }
+
+    fn playback_session_admission_config(&self) -> PlaybackSessionAdmissionConfig {
+        #[cfg(test)]
+        if let Some(config) = self.session_admission_config_override {
+            return config;
+        }
+
+        PlaybackSessionAdmissionConfig::from_server_config(&self.config)
+    }
+
+    async fn ensure_remote_playback_session_admission(
+        &self,
+        source: &MediaSource,
+        effective_policy: &EffectivePlaybackPolicy,
+    ) -> Result<()> {
+        let uri = StorageUri::parse(source.locator.clone())?;
+        if !should_budget_remote_stream(&uri) {
+            return Ok(());
+        }
+
+        ensure_playback_permission_allowed(effective_policy, PlaybackPermission::RemotePlayback)?;
+        self.ensure_remote_bitrate_allowed(source.id, effective_policy)
+            .await
+    }
+
+    async fn ensure_remote_bitrate_allowed(
+        &self,
+        source_id: MediaSourceId,
+        effective_policy: &EffectivePlaybackPolicy,
+    ) -> Result<()> {
+        let Some(max_remote_bitrate) = effective_policy.permissions.max_remote_bitrate else {
+            return Ok(());
+        };
+        let Some(source_bitrate) = self.source_bitrate_for_admission(source_id).await? else {
+            return Ok(());
+        };
+
+        if source_bitrate > max_remote_bitrate {
+            return Err(NakoError::Forbidden {
+                message: format!(
+                    "playback policy denied remote playback: source bitrate {source_bitrate} exceeds max_remote_bitrate {max_remote_bitrate}"
+                ),
+            });
+        }
+
+        Ok(())
+    }
+
+    async fn source_bitrate_for_admission(&self, source_id: MediaSourceId) -> Result<Option<u64>> {
+        let Some(probe) =
+            PlaybackRuntimeStore::get_media_probe(self.runtime_store.as_ref(), source_id).await?
+        else {
+            return Ok(None);
+        };
+
+        Ok(probe.bit_rate.or_else(|| summed_stream_bitrate(&probe)))
     }
 
     pub(super) fn client_capabilities_for_playback_session(
@@ -1075,6 +1255,9 @@ impl PlaybackAppService {
         &self,
         request: DirectPlaybackStreamRequest,
     ) -> Result<DirectPlaybackStreamOutput> {
+        let source = self.get_source_or_not_found(request.source_id).await?;
+        self.admit_playback_session_start(&request.principal, &source, None)
+            .await?;
         self.ensure_direct_playback_allowed(&request.principal, request.source_id)
             .await?;
         let direct_play = self
@@ -1092,12 +1275,15 @@ impl PlaybackAppService {
         }
 
         let session = self
-            .start_playback_session(StartPlaybackSessionRequest {
-                principal_id: request.principal.principal_id,
-                source_id: request.source_id,
-                mode: PlaybackSessionMode::Direct,
-                client: Some(request.client),
-            })
+            .create_playback_session_after_admission(
+                StartPlaybackSessionRequest {
+                    principal: request.principal,
+                    source_id: request.source_id,
+                    mode: PlaybackSessionMode::Direct,
+                    client: Some(request.client),
+                },
+                source,
+            )
             .await?;
 
         Ok(DirectPlaybackStreamOutput {
@@ -1169,18 +1355,24 @@ impl PlaybackAppService {
         &self,
         request: DirectPlaybackPreflightRequest,
     ) -> Result<DirectPlaybackPreflightOutput> {
+        let source = self.get_source_or_not_found(request.source_id).await?;
+        self.admit_playback_session_start(&request.principal, &source, None)
+            .await?;
         self.ensure_direct_playback_allowed(&request.principal, request.source_id)
             .await?;
         let response = self
             .plan_direct_play_preflight(request.source_id, request.range_request)
             .await?;
         let session = self
-            .start_playback_session(StartPlaybackSessionRequest {
-                principal_id: request.principal.principal_id,
-                source_id: request.source_id,
-                mode: PlaybackSessionMode::Direct,
-                client: Some(request.client),
-            })
+            .create_playback_session_after_admission(
+                StartPlaybackSessionRequest {
+                    principal: request.principal,
+                    source_id: request.source_id,
+                    mode: PlaybackSessionMode::Direct,
+                    client: Some(request.client),
+                },
+                source,
+            )
             .await?;
 
         Ok(DirectPlaybackPreflightOutput { session, response })
@@ -1764,6 +1956,15 @@ fn subtitle_stream_for_probe(
             entity: "subtitle_stream",
             id: stream_index.to_string(),
         })
+}
+
+fn summed_stream_bitrate(probe: &MediaProbeResult) -> Option<u64> {
+    probe
+        .streams
+        .iter()
+        .filter_map(|stream| stream.bit_rate)
+        .try_fold(0_u64, u64::checked_add)
+        .filter(|bitrate| *bitrate > 0)
 }
 
 fn redact_subtitle_sidecar_storage_error(

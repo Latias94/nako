@@ -118,6 +118,49 @@ impl PlaybackSessionRepository for SqliteStore {
         rows.into_iter().map(row_to_playback_session).collect()
     }
 
+    async fn count_active_playback_sessions(&self) -> Result<u64> {
+        let count: i64 = sqlx::query_scalar(
+            r#"
+            SELECT COUNT(*)
+            FROM playback_sessions
+            WHERE state IN ('active', 'paused', 'cancel_requested')
+            "#,
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        u64::try_from(count).map_err(|_| NakoError::Database {
+            message: "active playback session count was negative".to_owned(),
+        })
+    }
+
+    async fn end_idle_playback_sessions(
+        &self,
+        stale_before_ms: i64,
+        ended_at_ms: i64,
+    ) -> Result<u64> {
+        let result = sqlx::query(
+            r#"
+            UPDATE playback_sessions
+            SET
+                state = 'ended',
+                updated_at_ms = ?2,
+                ended_at_ms = COALESCE(ended_at_ms, ?2),
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE state IN ('active', 'paused', 'cancel_requested')
+              AND COALESCE(last_heartbeat_at_ms, updated_at_ms) < ?1
+            "#,
+        )
+        .bind(stale_before_ms)
+        .bind(ended_at_ms)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        Ok(result.rows_affected())
+    }
+
     async fn find_latest_playback_session_by_transcode_session(
         &self,
         transcode_session_id: TranscodeSessionId,

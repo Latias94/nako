@@ -1101,6 +1101,18 @@ fn validate_playback_runtime_settings(
                 .to_owned(),
         });
     }
+    if settings.active_playback_session_limit == 0 {
+        return Err(NakoError::InvalidInput {
+            message: "playback runtime active_playback_session_limit must be greater than zero"
+                .to_owned(),
+        });
+    }
+    if settings.idle_playback_session_timeout_ms == 0 {
+        return Err(NakoError::InvalidInput {
+            message: "playback runtime idle_playback_session_timeout_ms must be greater than zero"
+                .to_owned(),
+        });
+    }
     if settings.remux_timeout_ms == 0 {
         return Err(NakoError::InvalidInput {
             message: "playback runtime remux_timeout_ms must be greater than zero".to_owned(),
@@ -1177,6 +1189,8 @@ pub(super) fn configured_playback_runtime_settings(
         remux_timeout_ms: config.remux_timeout_ms,
         remote_stream_concurrency: usize_to_u32(config.playback.remote_stream_concurrency),
         remote_stage_concurrency: usize_to_u32(config.playback.remote_stage_concurrency),
+        active_playback_session_limit: usize_to_u32(config.playback.active_playback_session_limit),
+        idle_playback_session_timeout_ms: config.playback.idle_playback_session_timeout_ms,
         staging_max_bytes: config.staging.max_bytes,
         staging_retention_ms: config.staging.retention_ms,
         staging_cleanup_on_startup: config.staging.cleanup_on_startup,
@@ -1204,6 +1218,8 @@ pub(super) fn apply_playback_runtime_settings(
     config.remux_timeout_ms = settings.remux_timeout_ms;
     config.playback.remote_stream_concurrency = settings.remote_stream_concurrency as usize;
     config.playback.remote_stage_concurrency = settings.remote_stage_concurrency as usize;
+    config.playback.active_playback_session_limit = settings.active_playback_session_limit as usize;
+    config.playback.idle_playback_session_timeout_ms = settings.idle_playback_session_timeout_ms;
     config.staging.max_bytes = settings.staging_max_bytes;
     config.staging.retention_ms = settings.staging_retention_ms;
     config.staging.cleanup_on_startup = settings.staging_cleanup_on_startup;

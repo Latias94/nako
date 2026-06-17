@@ -131,6 +131,199 @@ async fn playback_resource_admission_accepts_remote_stream_capacity() {
     );
 }
 
+#[tokio::test]
+async fn start_playback_session_rejects_when_active_session_limit_is_reached() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "session_limit_reached");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let playback =
+        app.playback()
+            .with_session_admission_config_for_tests(PlaybackSessionAdmissionConfig {
+                active_session_limit: 1,
+                idle_session_timeout_ms: 60_000,
+            });
+    let principal = local_playback_viewer(&store, source.library_id).await;
+
+    let first = playback
+        .start_playback_session(StartPlaybackSessionRequest {
+            principal: principal.clone(),
+            source_id: source.id,
+            mode: PlaybackSessionMode::Direct,
+            client: Some(ClientPlaybackCapabilities::default()),
+        })
+        .await
+        .unwrap();
+
+    let err = playback
+        .start_playback_session(StartPlaybackSessionRequest {
+            principal,
+            source_id: source.id,
+            mode: PlaybackSessionMode::Direct,
+            client: Some(ClientPlaybackCapabilities::default()),
+        })
+        .await
+        .unwrap_err();
+
+    let NakoError::Conflict { message } = err else {
+        panic!("expected active playback session limit conflict");
+    };
+    assert!(message.contains("active session limit"));
+
+    let sessions = store
+        .list_playback_sessions(
+            PlaybackSessionListFilter::default(),
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(sessions.len(), 1);
+    assert_eq!(sessions[0].id, first.id);
+}
+
+#[tokio::test]
+async fn remux_playback_rejects_session_limit_before_transcode_start() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "session_limit_remux");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let playback =
+        app.playback()
+            .with_session_admission_config_for_tests(PlaybackSessionAdmissionConfig {
+                active_session_limit: 1,
+                idle_session_timeout_ms: 60_000,
+            });
+    let principal = local_playback_viewer(&store, source.library_id).await;
+    playback
+        .start_playback_session(StartPlaybackSessionRequest {
+            principal: principal.clone(),
+            source_id: source.id,
+            mode: PlaybackSessionMode::Direct,
+            client: Some(ClientPlaybackCapabilities::default()),
+        })
+        .await
+        .unwrap();
+
+    let err = playback
+        .remux_playback_stream(RemuxPlaybackStreamRequest {
+            principal,
+            source_id: source.id,
+            client: ClientPlaybackCapabilities::default(),
+            output_container: RemuxContainer::Mp4,
+            range_request: DirectPlayRangeRequest::None,
+        })
+        .await
+        .unwrap_err();
+
+    let NakoError::Conflict { message } = err else {
+        panic!("expected active playback session limit conflict");
+    };
+    assert!(message.contains("active session limit"));
+    assert!(
+        store
+            .list_transcode_sessions(
+                TranscodeSessionListFilter::default(),
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn start_playback_session_reaps_idle_sessions_before_admission() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "session_limit_reap_idle");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let playback =
+        app.playback()
+            .with_session_admission_config_for_tests(PlaybackSessionAdmissionConfig {
+                active_session_limit: 1,
+                idle_session_timeout_ms: 1,
+            });
+    let principal = local_playback_viewer(&store, source.library_id).await;
+    let stale = store
+        .create_playback_session(NewPlaybackSession {
+            id: PlaybackSessionId::new(),
+            principal_id: principal.principal_id.clone(),
+            source_id: source.id,
+            item_id: source.item_id,
+            mode: PlaybackSessionMode::Direct,
+            state: PlaybackSessionState::Paused,
+            client_capabilities_json: None,
+            started_at_ms: 1,
+            updated_at_ms: 1,
+        })
+        .await
+        .unwrap();
+
+    let admitted = playback
+        .start_playback_session(StartPlaybackSessionRequest {
+            principal,
+            source_id: source.id,
+            mode: PlaybackSessionMode::Direct,
+            client: Some(ClientPlaybackCapabilities::default()),
+        })
+        .await
+        .unwrap();
+
+    assert_ne!(admitted.id, stale.id);
+    let stale = store.get_playback_session(stale.id).await.unwrap().unwrap();
+    assert_eq!(stale.state, PlaybackSessionState::Ended);
+    assert!(stale.ended_at_ms.is_some());
+    assert_eq!(store.count_active_playback_sessions().await.unwrap(), 1);
+}
+
+#[tokio::test]
+async fn start_playback_session_rejects_remote_bitrate_above_policy_without_session() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_hls_ffmpeg_script(script_root.path(), "session_remote_bitrate_cap");
+    let (_server, _temp, app, store, source) =
+        hls_remote_app_with_source(ffmpeg_path, TranscodeConfig::default()).await;
+    let principal = local_playback_viewer(&store, source.library_id).await;
+    store
+        .upsert_media_probe(source.id, &media_probe_with_bitrate(12_000_000))
+        .await
+        .unwrap();
+    let mut permissions = PlaybackPermissionPolicy::current_playback_defaults();
+    permissions.max_remote_bitrate = Some(8_000_000);
+    store
+        .upsert_playback_policy(&PlaybackPolicy::user(
+            principal.user_id,
+            source.library_id,
+            permissions,
+            2,
+        ))
+        .await
+        .unwrap();
+
+    let err = app
+        .playback()
+        .start_playback_session(StartPlaybackSessionRequest {
+            principal,
+            source_id: source.id,
+            mode: PlaybackSessionMode::Direct,
+            client: Some(ClientPlaybackCapabilities::default()),
+        })
+        .await
+        .unwrap_err();
+
+    let NakoError::Forbidden { message } = err else {
+        panic!("expected remote bitrate policy denial");
+    };
+    assert!(message.contains("max_remote_bitrate"));
+    assert!(!message.contains("webdav://"));
+    assert!(
+        store
+            .list_playback_sessions(
+                PlaybackSessionListFilter::default(),
+                PageRequest::first_page(),
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
 #[test]
 fn playback_resource_admission_rejects_unavailable_host_owned_capacity() {
     let admission = PlaybackRuntimeAdmission::new(PlaybackResourceCapacity {
@@ -919,7 +1112,7 @@ async fn renderer_transport_playback_context_resolves_valid_ticket() {
     let session = app
         .playback()
         .start_playback_session(StartPlaybackSessionRequest {
-            principal_id: principal.principal_id.clone(),
+            principal: principal.clone(),
             source_id: source.id,
             mode: PlaybackSessionMode::Direct,
             client: Some(ClientPlaybackCapabilities::default()),
@@ -982,7 +1175,7 @@ async fn renderer_transport_playback_context_rejects_wrong_owner_ticket() {
     let session = app
         .playback()
         .start_playback_session(StartPlaybackSessionRequest {
-            principal_id: owner.principal_id.clone(),
+            principal: owner.clone(),
             source_id: source.id,
             mode: PlaybackSessionMode::Direct,
             client: Some(ClientPlaybackCapabilities::default()),
@@ -1357,7 +1550,7 @@ async fn playback_session_control_hides_wrong_owner_and_revoked_play_access() {
     let session = app
         .playback()
         .start_playback_session(StartPlaybackSessionRequest {
-            principal_id: owner.principal_id.clone(),
+            principal: owner.clone(),
             source_id: source.id,
             mode: nako_core::PlaybackSessionMode::Direct,
             client: None,
@@ -4203,6 +4396,15 @@ async fn local_playback_principal_with_library_access(
         principal_id,
         roles: vec![UserRole::Viewer],
         bootstrap: false,
+    }
+}
+
+fn media_probe_with_bitrate(bit_rate: u64) -> MediaProbeResult {
+    MediaProbeResult {
+        duration_ms: Some(1_000),
+        container: Some("matroska,webm".to_owned()),
+        bit_rate: Some(bit_rate),
+        streams: Vec::new(),
     }
 }
 

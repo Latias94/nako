@@ -2554,6 +2554,20 @@ impl PlaybackSessionRepository for NakoDatabase {
         self.backend().list_playback_sessions(filter, page).await
     }
 
+    async fn count_active_playback_sessions(&self) -> Result<u64> {
+        self.backend().count_active_playback_sessions().await
+    }
+
+    async fn end_idle_playback_sessions(
+        &self,
+        stale_before_ms: i64,
+        ended_at_ms: i64,
+    ) -> Result<u64> {
+        self.backend()
+            .end_idle_playback_sessions(stale_before_ms, ended_at_ms)
+            .await
+    }
+
     async fn find_latest_playback_session_by_transcode_session(
         &self,
         transcode_session_id: TranscodeSessionId,

@@ -7816,6 +7816,157 @@ where
     );
 }
 
+async fn playback_session_active_count_and_idle_reap_contract<S>(store: S)
+where
+    S: PlaybackRuntimeContractBackend,
+{
+    let library = seed_contract_library(&store).await;
+    let source = seed_contract_media_item_with_source(
+        &store,
+        library.id,
+        "Playback Session Admission",
+        "local:///Contract Movies/Playback Session Admission.mkv",
+    )
+    .await;
+    let principal_id = UserPrincipalId::local_admin();
+    let now_ms = 1_779_814_400_000;
+
+    let fresh_active_id = PlaybackSessionId::new();
+    store
+        .create_playback_session(NewPlaybackSession {
+            id: fresh_active_id,
+            principal_id: principal_id.clone(),
+            source_id: source.id,
+            item_id: source.item_id,
+            mode: PlaybackSessionMode::Direct,
+            state: PlaybackSessionState::Active,
+            client_capabilities_json: None,
+            started_at_ms: now_ms,
+            updated_at_ms: now_ms,
+        })
+        .await
+        .unwrap();
+    store
+        .record_playback_session_heartbeat(PlaybackSessionHeartbeat {
+            id: fresh_active_id,
+            state: PlaybackSessionState::Active,
+            position_ms: None,
+            duration_ms: None,
+            heartbeat_at_ms: now_ms + 5_000,
+        })
+        .await
+        .unwrap()
+        .unwrap();
+
+    let stale_paused_id = PlaybackSessionId::new();
+    store
+        .create_playback_session(NewPlaybackSession {
+            id: stale_paused_id,
+            principal_id: principal_id.clone(),
+            source_id: source.id,
+            item_id: source.item_id,
+            mode: PlaybackSessionMode::Hls,
+            state: PlaybackSessionState::Paused,
+            client_capabilities_json: None,
+            started_at_ms: now_ms,
+            updated_at_ms: now_ms,
+        })
+        .await
+        .unwrap();
+    store
+        .record_playback_session_heartbeat(PlaybackSessionHeartbeat {
+            id: stale_paused_id,
+            state: PlaybackSessionState::Paused,
+            position_ms: Some(10_000),
+            duration_ms: Some(60_000),
+            heartbeat_at_ms: now_ms - 60_000,
+        })
+        .await
+        .unwrap()
+        .unwrap();
+
+    let stale_without_heartbeat_id = PlaybackSessionId::new();
+    store
+        .create_playback_session(NewPlaybackSession {
+            id: stale_without_heartbeat_id,
+            principal_id: principal_id.clone(),
+            source_id: source.id,
+            item_id: source.item_id,
+            mode: PlaybackSessionMode::Remux,
+            state: PlaybackSessionState::CancelRequested,
+            client_capabilities_json: None,
+            started_at_ms: now_ms - 90_000,
+            updated_at_ms: now_ms - 90_000,
+        })
+        .await
+        .unwrap();
+
+    let terminal_id = PlaybackSessionId::new();
+    store
+        .create_playback_session(NewPlaybackSession {
+            id: terminal_id,
+            principal_id,
+            source_id: source.id,
+            item_id: source.item_id,
+            mode: PlaybackSessionMode::Direct,
+            state: PlaybackSessionState::Active,
+            client_capabilities_json: None,
+            started_at_ms: now_ms - 120_000,
+            updated_at_ms: now_ms - 120_000,
+        })
+        .await
+        .unwrap();
+    store
+        .set_playback_session_state(
+            terminal_id,
+            PlaybackSessionState::Cancelled,
+            Some(now_ms - 30_000),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(store.count_active_playback_sessions().await.unwrap(), 3);
+
+    let ended = store
+        .end_idle_playback_sessions(now_ms - 30_000, now_ms + 10_000)
+        .await
+        .unwrap();
+    assert_eq!(ended, 2);
+    assert_eq!(store.count_active_playback_sessions().await.unwrap(), 1);
+
+    let fresh_active = store
+        .get_playback_session(fresh_active_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(fresh_active.state, PlaybackSessionState::Active);
+    assert_eq!(fresh_active.ended_at_ms, None);
+
+    for stale_id in [stale_paused_id, stale_without_heartbeat_id] {
+        let stale = store.get_playback_session(stale_id).await.unwrap().unwrap();
+        assert_eq!(stale.state, PlaybackSessionState::Ended);
+        assert_eq!(stale.ended_at_ms, Some(now_ms + 10_000));
+    }
+
+    let terminal = store
+        .get_playback_session(terminal_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(terminal.state, PlaybackSessionState::Cancelled);
+    assert_eq!(terminal.ended_at_ms, Some(now_ms - 30_000));
+
+    assert_eq!(
+        store
+            .end_idle_playback_sessions(now_ms + 20_000, now_ms + 30_000)
+            .await
+            .unwrap(),
+        1
+    );
+    assert_eq!(store.count_active_playback_sessions().await.unwrap(), 0);
+}
+
 async fn renderer_session_and_command_queue_contract<S>(store: S)
 where
     S: RendererRuntimeContractBackend,
@@ -12817,6 +12968,16 @@ database_contract_pair!(
         "playback_session_tracks_user_attempt_independent_of_transcode"
     ),
     contract = playback_session_tracks_user_attempt_independent_of_transcode_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_playback_runtime_contract_playback_session_active_count_and_idle_reap,
+    postgres = postgres_playback_runtime_contract_playback_session_active_count_and_idle_reap,
+    case = ContractCase::migrated(
+        ContractFamily::PlaybackRuntime,
+        "playback_session_active_count_and_idle_reap"
+    ),
+    contract = playback_session_active_count_and_idle_reap_contract,
 );
 
 database_contract_pair!(

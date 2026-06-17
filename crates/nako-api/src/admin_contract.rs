@@ -4141,6 +4141,10 @@ export interface AdminPlaybackRuntimeDiagnosticsResponse {
     stage_permits_max: number;
     state_scope: string;
   };
+  session_admission: {
+    active_session_limit: number;
+    idle_session_timeout_ms: number;
+  };
   staging: {
     max_bytes: number;
     retention_ms: number;
@@ -4298,6 +4302,8 @@ export interface AdminPlaybackRuntimeSettingsPayload {
   remux_timeout_ms: number;
   remote_stream_concurrency: number;
   remote_stage_concurrency: number;
+  active_playback_session_limit: number;
+  idle_playback_session_timeout_ms: number;
   staging_max_bytes: number;
   staging_retention_ms: number;
   staging_cleanup_on_startup: boolean;
@@ -5003,6 +5009,8 @@ export interface AdminServerConfigDiagnosticsResponse {
   playback: {
     remote_stream_concurrency: number;
     remote_stage_concurrency: number;
+    active_playback_session_limit: number;
+    idle_playback_session_timeout_ms: number;
     transcode_artifact_retention_ms: number;
     transcode_artifact_cleanup_on_startup: boolean;
     hls_segment_cleanup_enabled: boolean;

@@ -286,6 +286,8 @@ pub struct AdminConfigStagingDiagnostics {
 pub struct AdminConfigPlaybackDiagnostics {
     pub remote_stream_concurrency: usize,
     pub remote_stage_concurrency: usize,
+    pub active_playback_session_limit: usize,
+    pub idle_playback_session_timeout_ms: u64,
     pub transcode_artifact_retention_ms: u64,
     pub transcode_artifact_cleanup_on_startup: bool,
     pub hls_segment_cleanup_enabled: bool,

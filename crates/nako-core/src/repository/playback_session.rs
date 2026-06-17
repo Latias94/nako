@@ -30,6 +30,14 @@ pub trait PlaybackSessionRepository: Send + Sync {
         page: PageRequest,
     ) -> Result<Vec<PlaybackSessionRecord>>;
 
+    async fn count_active_playback_sessions(&self) -> Result<u64>;
+
+    async fn end_idle_playback_sessions(
+        &self,
+        stale_before_ms: i64,
+        ended_at_ms: i64,
+    ) -> Result<u64>;
+
     async fn find_latest_playback_session_by_transcode_session(
         &self,
         transcode_session_id: TranscodeSessionId,
