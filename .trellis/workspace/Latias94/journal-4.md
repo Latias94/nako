@@ -176,3 +176,37 @@ Added redaction-safe Media Library Scan intake evidence to Admin operator readin
 ### Next Steps
 
 - None - task complete
+
+
+## Session 152: User playback profile preference
+
+**Date**: 2026-06-17
+**Task**: User playback profile preference
+**Package**: nako
+**Branch**: `feat/admin-overview-durable-jobs`
+
+### Summary
+
+Added current-user playback profile preference persistence, Public Client routes, generated SDK coverage, DB migrations, and code-spec contracts.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d463075c` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
