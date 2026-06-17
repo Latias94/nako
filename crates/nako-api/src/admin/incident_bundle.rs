@@ -387,7 +387,6 @@ mod tests {
         };
 
         let value = serde_json::to_value(&response).unwrap();
-        let body = value.to_string();
 
         assert_eq!(value["artifact"]["format"], "json_only");
         assert_eq!(value["system"]["libraries"]["configured_count"], 2);
@@ -397,7 +396,11 @@ mod tests {
         );
         assert_eq!(value["redaction"]["tokens_redacted"], true);
 
-        for forbidden in [
+        assert_incident_bundle_has_no_forbidden_sensitive_terms(&value);
+    }
+
+    fn assert_incident_bundle_has_no_forbidden_sensitive_terms(value: &serde_json::Value) {
+        const FORBIDDEN_TERMS: &[&str] = &[
             "token_env",
             "api_key_env",
             "credential",
@@ -418,10 +421,81 @@ mod tests {
             "raw_provider_response",
             "provider_payload",
             "ffmpeg_command",
-        ] {
+        ];
+
+        const ALLOWED_REDACTION_STATUS_FIELDS: &[&str] = &[
+            "credentials_redacted",
+            "backend_urls_redacted",
+            "query_strings_redacted",
+            "provider_payloads_redacted",
+            "raw_job_payloads_redacted",
+            "raw_payloads_redacted",
+            "source_locators_redacted",
+            "local_paths_redacted",
+            "stderr_redacted",
+            "ffmpeg_command_lines_redacted",
+            "ffmpeg_commands_redacted",
+        ];
+
+        assert_json_has_no_forbidden_sensitive_terms(
+            value,
+            "$",
+            FORBIDDEN_TERMS,
+            ALLOWED_REDACTION_STATUS_FIELDS,
+        );
+    }
+
+    fn assert_json_has_no_forbidden_sensitive_terms(
+        value: &serde_json::Value,
+        path: &str,
+        forbidden_terms: &[&str],
+        allowed_keys: &[&str],
+    ) {
+        match value {
+            serde_json::Value::Object(object) => {
+                for (key, child) in object {
+                    if !allowed_keys.contains(&key.as_str()) {
+                        assert_string_has_no_forbidden_sensitive_terms(
+                            key,
+                            &format!("{path}.{key}"),
+                            forbidden_terms,
+                        );
+                    }
+                    assert_json_has_no_forbidden_sensitive_terms(
+                        child,
+                        &format!("{path}.{key}"),
+                        forbidden_terms,
+                        allowed_keys,
+                    );
+                }
+            }
+            serde_json::Value::Array(items) => {
+                for (index, child) in items.iter().enumerate() {
+                    assert_json_has_no_forbidden_sensitive_terms(
+                        child,
+                        &format!("{path}[{index}]"),
+                        forbidden_terms,
+                        allowed_keys,
+                    );
+                }
+            }
+            serde_json::Value::String(text) => {
+                assert_string_has_no_forbidden_sensitive_terms(text, path, forbidden_terms);
+            }
+            serde_json::Value::Null | serde_json::Value::Bool(_) | serde_json::Value::Number(_) => {
+            }
+        }
+    }
+
+    fn assert_string_has_no_forbidden_sensitive_terms(
+        text: &str,
+        path: &str,
+        forbidden_terms: &[&str],
+    ) {
+        for forbidden in forbidden_terms {
             assert!(
-                !body.contains(forbidden),
-                "incident bundle leaked forbidden term: {forbidden}"
+                !text.contains(forbidden),
+                "incident bundle leaked forbidden term `{forbidden}` at {path}"
             );
         }
     }

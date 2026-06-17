@@ -14,6 +14,11 @@ API contract work must keep generated artifacts and route inventories honest.
 - Add tests for route inventory, DTO generation, redaction, and Public/Admin
   separation.
 - Use snake_case serde wire fields to match existing contracts.
+- Redaction tests for diagnostic/support bundles should inspect JSON object
+  keys and string values with explicit allowed `*_redacted` status fields
+  instead of scanning the whole serialized body with broad substrings. This
+  keeps tests strict for unsafe payloads while avoiding false positives on
+  legitimate redaction-summary field names such as `credentials_redacted`.
 
 ## Gate Selection
 
