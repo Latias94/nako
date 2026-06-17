@@ -2,8 +2,9 @@ use tokio::sync::Mutex;
 
 use nako_core::{
     AuthenticatedPrincipal, ContinueWatchingEntry, DatabaseLifecycle, LibraryItemRepository,
-    LibraryItemState, UserPlaybackProfilePreference, UserPlaybackProfilePreferenceWrite,
-    UserPlaybackState, UserPlaybackStateRepository, UserPlaybackStateWrite, UserPrincipalId,
+    LibraryItemState, NewUserPlaybackProfile, PageRequest, UserPlaybackProfile,
+    UserPlaybackProfileId, UserPlaybackProfileUpdate, UserPlaybackState,
+    UserPlaybackStateRepository, UserPlaybackStateWrite, UserPrincipalId,
 };
 
 use super::*;
@@ -517,7 +518,7 @@ struct FakeUserPlaybackStore {
     item: MediaItem,
     source: MediaSource,
     state: Arc<Mutex<Option<UserPlaybackState>>>,
-    profile_preference: Arc<Mutex<Option<UserPlaybackProfilePreference>>>,
+    profiles: Arc<Mutex<Vec<UserPlaybackProfile>>>,
 }
 
 impl FakeUserPlaybackStore {
@@ -551,7 +552,7 @@ impl FakeUserPlaybackStore {
             item,
             source,
             state: Arc::new(Mutex::new(None)),
-            profile_preference: Arc::new(Mutex::new(None)),
+            profiles: Arc::new(Mutex::new(Vec::new())),
         }
     }
 }
@@ -589,50 +590,144 @@ impl UserPlaybackStore for FakeUserPlaybackStore {
         Ok(state)
     }
 
-    async fn load_user_playback_profile_preference(
+    async fn create_user_playback_profile(
         &self,
-        principal_id: &UserPrincipalId,
-    ) -> nako_core::Result<Option<UserPlaybackProfilePreference>> {
-        let preference = self.profile_preference.lock().await;
-        Ok(preference
-            .clone()
-            .filter(|preference| preference.principal_id == *principal_id))
+        profile: NewUserPlaybackProfile,
+    ) -> nako_core::Result<UserPlaybackProfile> {
+        serde_json::from_str::<serde_json::Value>(&profile.capabilities_json).map_err(|err| {
+            nako_core::NakoError::Database {
+                message: format!("invalid stored playback capability JSON: {err}"),
+            }
+        })?;
+
+        let mut profiles = self.profiles.lock().await;
+        let should_be_default = profile.is_default
+            || !profiles
+                .iter()
+                .any(|existing| existing.principal_id == profile.principal_id);
+        if should_be_default {
+            for existing in profiles
+                .iter_mut()
+                .filter(|existing| existing.principal_id == profile.principal_id)
+            {
+                if existing.is_default {
+                    existing.is_default = false;
+                    existing.version += 1;
+                    existing.updated_at_ms = profile.updated_at_ms;
+                }
+            }
+        }
+
+        let created = UserPlaybackProfile {
+            profile_id: profile.profile_id,
+            principal_id: profile.principal_id,
+            name: profile.name,
+            capabilities_json: profile.capabilities_json,
+            is_default: should_be_default,
+            updated_at_ms: profile.updated_at_ms,
+            version: 1,
+        };
+        profiles.push(created.clone());
+        Ok(created)
     }
 
-    async fn store_user_playback_profile_preference(
+    async fn load_user_playback_profile(
         &self,
-        write: UserPlaybackProfilePreferenceWrite,
-    ) -> nako_core::Result<UserPlaybackProfilePreference> {
-        let current_version = self
-            .profile_preference
+        principal_id: &UserPrincipalId,
+        profile_id: UserPlaybackProfileId,
+    ) -> nako_core::Result<Option<UserPlaybackProfile>> {
+        Ok(self
+            .profiles
             .lock()
             .await
-            .as_ref()
-            .filter(|preference| preference.principal_id == write.principal_id)
-            .map_or(0, |preference| preference.version);
-        let preference = UserPlaybackProfilePreference {
-            principal_id: write.principal_id,
-            capabilities_json: write.capabilities_json,
-            updated_at_ms: write.updated_at_ms,
-            version: current_version + 1,
-        };
-        *self.profile_preference.lock().await = Some(preference.clone());
-        Ok(preference)
+            .iter()
+            .find(|profile| {
+                profile.principal_id == *principal_id && profile.profile_id == profile_id
+            })
+            .cloned())
     }
 
-    async fn delete_user_playback_profile_preference(
+    async fn load_default_user_playback_profile(
         &self,
         principal_id: &UserPrincipalId,
-    ) -> nako_core::Result<bool> {
-        let mut preference = self.profile_preference.lock().await;
-        if preference
-            .as_ref()
-            .is_some_and(|preference| preference.principal_id == *principal_id)
-        {
-            *preference = None;
-            return Ok(true);
+    ) -> nako_core::Result<Option<UserPlaybackProfile>> {
+        Ok(self
+            .profiles
+            .lock()
+            .await
+            .iter()
+            .find(|profile| profile.principal_id == *principal_id && profile.is_default)
+            .cloned())
+    }
+
+    async fn list_user_playback_profiles(
+        &self,
+        principal_id: &UserPrincipalId,
+        page: PageRequest,
+    ) -> nako_core::Result<Vec<UserPlaybackProfile>> {
+        Ok(self
+            .profiles
+            .lock()
+            .await
+            .iter()
+            .filter(|profile| profile.principal_id == *principal_id)
+            .skip(page.offset as usize)
+            .take(page.limit as usize)
+            .cloned()
+            .collect())
+    }
+
+    async fn update_user_playback_profile(
+        &self,
+        profile: UserPlaybackProfileUpdate,
+    ) -> nako_core::Result<Option<UserPlaybackProfile>> {
+        serde_json::from_str::<serde_json::Value>(&profile.capabilities_json).map_err(|err| {
+            nako_core::NakoError::Database {
+                message: format!("invalid stored playback capability JSON: {err}"),
+            }
+        })?;
+
+        let mut profiles = self.profiles.lock().await;
+        let Some(position) = profiles.iter().position(|existing| {
+            existing.principal_id == profile.principal_id
+                && existing.profile_id == profile.profile_id
+        }) else {
+            return Ok(None);
+        };
+
+        if profile.is_default {
+            for existing in profiles
+                .iter_mut()
+                .filter(|existing| existing.principal_id == profile.principal_id)
+            {
+                if existing.profile_id != profile.profile_id && existing.is_default {
+                    existing.is_default = false;
+                    existing.version += 1;
+                    existing.updated_at_ms = profile.updated_at_ms;
+                }
+            }
         }
-        Ok(false)
+
+        let existing = &mut profiles[position];
+        existing.name = profile.name;
+        existing.capabilities_json = profile.capabilities_json;
+        existing.is_default = profile.is_default;
+        existing.updated_at_ms = profile.updated_at_ms;
+        existing.version += 1;
+        Ok(Some(existing.clone()))
+    }
+
+    async fn delete_user_playback_profile(
+        &self,
+        principal_id: &UserPrincipalId,
+        profile_id: UserPlaybackProfileId,
+    ) -> nako_core::Result<bool> {
+        let mut profiles = self.profiles.lock().await;
+        let original_len = profiles.len();
+        profiles.retain(|profile| {
+            !(profile.principal_id == *principal_id && profile.profile_id == profile_id)
+        });
+        Ok(profiles.len() != original_len)
     }
 
     async fn list_continue_watching_user_playback_states(

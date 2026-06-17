@@ -1,10 +1,10 @@
 use async_trait::async_trait;
 use nako_core::{
     AuthenticatedPrincipal, ContinueWatchingEntry, IdentityAccessRepository, LibraryAccessLevel,
-    LibraryId, MediaItemId, MediaRepository, MediaSource, MediaSourceId, NakoError, PageRequest,
-    Result, UserId, UserPlaybackProfilePreference, UserPlaybackProfilePreferenceRepository,
-    UserPlaybackProfilePreferenceWrite, UserPlaybackState, UserPlaybackStateRepository,
-    UserPlaybackStateWrite, UserPrincipalId,
+    LibraryId, MediaItemId, MediaRepository, MediaSource, MediaSourceId, NakoError,
+    NewUserPlaybackProfile, PageRequest, Result, UserId, UserPlaybackProfile,
+    UserPlaybackProfileId, UserPlaybackProfileRepository, UserPlaybackProfileUpdate,
+    UserPlaybackState, UserPlaybackStateRepository, UserPlaybackStateWrite, UserPrincipalId,
 };
 use nako_db::NakoDatabase;
 
@@ -31,6 +31,23 @@ pub(crate) struct SetUserWatchedStateRequest {
     pub marked_at_ms: Option<i64>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct CreateUserPlaybackProfileRequest {
+    pub principal: AuthenticatedPrincipal,
+    pub name: String,
+    pub capabilities_json: String,
+    pub is_default: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct UpdateUserPlaybackProfileRequest {
+    pub principal: AuthenticatedPrincipal,
+    pub profile_id: UserPlaybackProfileId,
+    pub name: Option<String>,
+    pub capabilities_json: Option<String>,
+    pub is_default: Option<bool>,
+}
+
 #[async_trait]
 pub(crate) trait UserPlaybackStore: Clone + Send + Sync + std::fmt::Debug {
     async fn load_user_playback_state(
@@ -44,19 +61,37 @@ pub(crate) trait UserPlaybackStore: Clone + Send + Sync + std::fmt::Debug {
         write: UserPlaybackStateWrite,
     ) -> Result<UserPlaybackState>;
 
-    async fn load_user_playback_profile_preference(
+    async fn create_user_playback_profile(
+        &self,
+        profile: NewUserPlaybackProfile,
+    ) -> Result<UserPlaybackProfile>;
+
+    async fn load_user_playback_profile(
         &self,
         principal_id: &UserPrincipalId,
-    ) -> Result<Option<UserPlaybackProfilePreference>>;
+        profile_id: UserPlaybackProfileId,
+    ) -> Result<Option<UserPlaybackProfile>>;
 
-    async fn store_user_playback_profile_preference(
-        &self,
-        write: UserPlaybackProfilePreferenceWrite,
-    ) -> Result<UserPlaybackProfilePreference>;
-
-    async fn delete_user_playback_profile_preference(
+    async fn load_default_user_playback_profile(
         &self,
         principal_id: &UserPrincipalId,
+    ) -> Result<Option<UserPlaybackProfile>>;
+
+    async fn list_user_playback_profiles(
+        &self,
+        principal_id: &UserPrincipalId,
+        page: PageRequest,
+    ) -> Result<Vec<UserPlaybackProfile>>;
+
+    async fn update_user_playback_profile(
+        &self,
+        profile: UserPlaybackProfileUpdate,
+    ) -> Result<Option<UserPlaybackProfile>>;
+
+    async fn delete_user_playback_profile(
+        &self,
+        principal_id: &UserPrincipalId,
+        profile_id: UserPlaybackProfileId,
     ) -> Result<bool>;
 
     async fn list_continue_watching_user_playback_states(
@@ -108,36 +143,51 @@ impl UserPlaybackStore for NakoDatabase {
         UserPlaybackStateRepository::upsert_user_playback_state(self, write).await
     }
 
-    async fn load_user_playback_profile_preference(
+    async fn create_user_playback_profile(
         &self,
-        principal_id: &UserPrincipalId,
-    ) -> Result<Option<UserPlaybackProfilePreference>> {
-        UserPlaybackProfilePreferenceRepository::get_user_playback_profile_preference(
-            self,
-            principal_id,
-        )
-        .await
+        profile: NewUserPlaybackProfile,
+    ) -> Result<UserPlaybackProfile> {
+        UserPlaybackProfileRepository::create_user_playback_profile(self, profile).await
     }
 
-    async fn store_user_playback_profile_preference(
-        &self,
-        write: UserPlaybackProfilePreferenceWrite,
-    ) -> Result<UserPlaybackProfilePreference> {
-        UserPlaybackProfilePreferenceRepository::upsert_user_playback_profile_preference(
-            self, write,
-        )
-        .await
-    }
-
-    async fn delete_user_playback_profile_preference(
+    async fn load_user_playback_profile(
         &self,
         principal_id: &UserPrincipalId,
+        profile_id: UserPlaybackProfileId,
+    ) -> Result<Option<UserPlaybackProfile>> {
+        UserPlaybackProfileRepository::get_user_playback_profile(self, principal_id, profile_id)
+            .await
+    }
+
+    async fn load_default_user_playback_profile(
+        &self,
+        principal_id: &UserPrincipalId,
+    ) -> Result<Option<UserPlaybackProfile>> {
+        UserPlaybackProfileRepository::get_default_user_playback_profile(self, principal_id).await
+    }
+
+    async fn list_user_playback_profiles(
+        &self,
+        principal_id: &UserPrincipalId,
+        page: PageRequest,
+    ) -> Result<Vec<UserPlaybackProfile>> {
+        UserPlaybackProfileRepository::list_user_playback_profiles(self, principal_id, page).await
+    }
+
+    async fn update_user_playback_profile(
+        &self,
+        profile: UserPlaybackProfileUpdate,
+    ) -> Result<Option<UserPlaybackProfile>> {
+        UserPlaybackProfileRepository::update_user_playback_profile(self, profile).await
+    }
+
+    async fn delete_user_playback_profile(
+        &self,
+        principal_id: &UserPrincipalId,
+        profile_id: UserPlaybackProfileId,
     ) -> Result<bool> {
-        UserPlaybackProfilePreferenceRepository::delete_user_playback_profile_preference(
-            self,
-            principal_id,
-        )
-        .await
+        UserPlaybackProfileRepository::delete_user_playback_profile(self, principal_id, profile_id)
+            .await
     }
 
     async fn list_continue_watching_user_playback_states(
@@ -345,35 +395,153 @@ where
             .await
     }
 
-    pub(crate) async fn get_profile_preference(
+    pub(crate) async fn get_default_profile(
         &self,
         principal: &AuthenticatedPrincipal,
-    ) -> Result<Option<UserPlaybackProfilePreference>> {
+    ) -> Result<Option<UserPlaybackProfile>> {
         self.store
-            .load_user_playback_profile_preference(&principal.principal_id)
+            .load_default_user_playback_profile(&principal.principal_id)
             .await
     }
 
-    pub(crate) async fn set_profile_preference(
+    pub(crate) async fn set_default_profile(
         &self,
         principal: &AuthenticatedPrincipal,
         capabilities_json: String,
-    ) -> Result<UserPlaybackProfilePreference> {
+    ) -> Result<UserPlaybackProfile> {
+        let updated_at_ms = current_time_ms()?;
+
+        if let Some(default_profile) = self
+            .store
+            .load_default_user_playback_profile(&principal.principal_id)
+            .await?
+        {
+            return self
+                .store
+                .update_user_playback_profile(UserPlaybackProfileUpdate {
+                    profile_id: default_profile.profile_id,
+                    principal_id: principal.principal_id.clone(),
+                    name: default_profile.name,
+                    capabilities_json,
+                    is_default: true,
+                    updated_at_ms,
+                })
+                .await?
+                .ok_or_else(|| NakoError::Database {
+                    message: "default user playback profile disappeared during update".to_owned(),
+                });
+        }
+
+        self.create_profile(CreateUserPlaybackProfileRequest {
+            principal: principal.clone(),
+            name: DEFAULT_PLAYBACK_PROFILE_NAME.to_owned(),
+            capabilities_json,
+            is_default: true,
+        })
+        .await
+    }
+
+    pub(crate) async fn delete_default_profile(
+        &self,
+        principal: &AuthenticatedPrincipal,
+    ) -> Result<bool> {
+        let Some(default_profile) = self
+            .store
+            .load_default_user_playback_profile(&principal.principal_id)
+            .await?
+        else {
+            return Ok(false);
+        };
+
         self.store
-            .store_user_playback_profile_preference(UserPlaybackProfilePreferenceWrite {
-                principal_id: principal.principal_id.clone(),
-                capabilities_json,
+            .delete_user_playback_profile(&principal.principal_id, default_profile.profile_id)
+            .await
+    }
+
+    pub(crate) async fn list_profiles(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        page: PageRequest,
+    ) -> Result<Vec<UserPlaybackProfile>> {
+        self.store
+            .list_user_playback_profiles(&principal.principal_id, page)
+            .await
+    }
+
+    pub(crate) async fn create_profile(
+        &self,
+        request: CreateUserPlaybackProfileRequest,
+    ) -> Result<UserPlaybackProfile> {
+        let name = validate_playback_profile_name(request.name)?;
+        self.store
+            .create_user_playback_profile(NewUserPlaybackProfile {
+                profile_id: UserPlaybackProfileId::new(),
+                principal_id: request.principal.principal_id,
+                name,
+                capabilities_json: request.capabilities_json,
+                is_default: request.is_default,
                 updated_at_ms: current_time_ms()?,
             })
             .await
     }
 
-    pub(crate) async fn delete_profile_preference(
+    pub(crate) async fn get_profile(
         &self,
         principal: &AuthenticatedPrincipal,
+        profile_id: UserPlaybackProfileId,
+    ) -> Result<UserPlaybackProfile> {
+        self.store
+            .load_user_playback_profile(&principal.principal_id, profile_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "user_playback_profile",
+                id: profile_id.to_string(),
+            })
+    }
+
+    pub(crate) async fn update_profile(
+        &self,
+        request: UpdateUserPlaybackProfileRequest,
+    ) -> Result<UserPlaybackProfile> {
+        let existing = self
+            .store
+            .load_user_playback_profile(&request.principal.principal_id, request.profile_id)
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "user_playback_profile",
+                id: request.profile_id.to_string(),
+            })?;
+        let name = request
+            .name
+            .map(validate_playback_profile_name)
+            .transpose()?
+            .unwrap_or(existing.name);
+
+        self.store
+            .update_user_playback_profile(UserPlaybackProfileUpdate {
+                profile_id: existing.profile_id,
+                principal_id: request.principal.principal_id.clone(),
+                name,
+                capabilities_json: request
+                    .capabilities_json
+                    .unwrap_or(existing.capabilities_json),
+                is_default: request.is_default.unwrap_or(existing.is_default),
+                updated_at_ms: current_time_ms()?,
+            })
+            .await?
+            .ok_or_else(|| NakoError::NotFound {
+                entity: "user_playback_profile",
+                id: existing.profile_id.to_string(),
+            })
+    }
+
+    pub(crate) async fn delete_profile(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        profile_id: UserPlaybackProfileId,
     ) -> Result<bool> {
         self.store
-            .delete_user_playback_profile_preference(&principal.principal_id)
+            .delete_user_playback_profile(&principal.principal_id, profile_id)
             .await
     }
 
@@ -538,6 +706,30 @@ fn default_user_playback_state(
         updated_at_ms: 0,
         version: 0,
     }
+}
+
+const DEFAULT_PLAYBACK_PROFILE_NAME: &str = "Default";
+
+fn validate_playback_profile_name(name: String) -> Result<String> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return Err(NakoError::InvalidInput {
+            message: "playback profile name cannot be empty".to_owned(),
+        });
+    }
+    if trimmed.len() != name.len() {
+        return Err(NakoError::InvalidInput {
+            message: "playback profile name cannot contain leading or trailing whitespace"
+                .to_owned(),
+        });
+    }
+    if name.chars().any(char::is_control) {
+        return Err(NakoError::InvalidInput {
+            message: "playback profile name cannot contain control characters".to_owned(),
+        });
+    }
+
+    Ok(name)
 }
 
 fn is_watched_by_policy(position_ms: u64, duration_ms: Option<u64>) -> bool {

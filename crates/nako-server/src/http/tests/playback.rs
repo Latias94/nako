@@ -58,6 +58,39 @@ async fn save_chromium_playback_profile_preference(router: &Router) {
     );
 }
 
+async fn create_chromium_named_default_playback_profile(router: &Router) {
+    let response = request_body_json::<nako_api::public_client::UserPlaybackProfileResponse, _>(
+        router,
+        Method::POST,
+        "/users/me/playback-profiles",
+        &nako_api::public_client::CreateUserPlaybackProfileRequest {
+            name: "Chromium".to_owned(),
+            is_default: Some(true),
+            capabilities: nako_api::public_client::UserPlaybackProfileCapabilitiesRequest {
+                device_family: Some("browser_chromium".to_owned()),
+                profile_version: Some(1),
+                ..nako_api::public_client::UserPlaybackProfileCapabilitiesRequest::default()
+            },
+        },
+    )
+    .await;
+
+    assert!(response.profile.is_default);
+    assert_eq!(
+        response.profile.capabilities.device_family.as_deref(),
+        Some("browser_chromium")
+    );
+    assert_eq!(response.profile.capabilities.profile_version, Some(1));
+    assert!(
+        !response
+            .profile
+            .capabilities
+            .video_codecs
+            .iter()
+            .any(|codec| codec == "hevc")
+    );
+}
+
 async fn save_hls_mpeg_ts_playback_profile_preference(router: &Router) {
     let response = request_body_json::<
         nako_api::public_client::UserPlaybackProfilePreferenceResponse,
@@ -808,6 +841,38 @@ async fn playback_decision_route_uses_saved_profile_when_query_omits_capabilitie
         nako_api::public_client::ClientPlaybackMode::DirectPlay
     );
     assert!(explicit_override.decision.report.direct_play.supported);
+}
+
+#[tokio::test]
+async fn playback_decision_route_uses_named_default_profile_when_query_omits_capabilities() {
+    let (_temp, router, source, store) =
+        router_with_media_source("named-default-profile-hevc.mp4", b"media").await;
+    let mut probe = compatible_probe();
+    probe.container = Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned());
+    if let Some(video) = probe
+        .streams
+        .iter_mut()
+        .find(|stream| matches!(stream.kind, MediaStreamKind::Video))
+    {
+        video.codec = Some("hevc".to_owned());
+    }
+    store.upsert_media_probe(source.id, &probe).await.unwrap();
+    create_chromium_named_default_playback_profile(&router).await;
+
+    let decision = request_json::<nako_api::public_client::PlaybackDecisionResponse>(
+        &router,
+        Method::GET,
+        &format!("/sources/{}/playback/decision", source.id),
+    )
+    .await;
+
+    assert_eq!(
+        decision.decision.mode,
+        nako_api::public_client::ClientPlaybackMode::Transcode
+    );
+    assert!(decision.decision.report.direct_play.reasons.contains(
+        &nako_api::public_client::ClientPlaybackCompatibilityCondition::VideoCodecUnsupported
+    ));
 }
 
 #[tokio::test]

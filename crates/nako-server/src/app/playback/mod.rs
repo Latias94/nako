@@ -12,7 +12,7 @@ use nako_core::{
     Result, StagingManifestRepository, TranscodeFailureCategory, TranscodeSessionId,
     TranscodeSessionKind, TranscodeSessionListFilter, TranscodeSessionRecord,
     TranscodeSessionRepository, TranscodeSessionRuntimeMetrics, TranscodeSessionState, UserId,
-    UserPlaybackProfilePreference, UserPlaybackProfilePreferenceRepository, UserPrincipalId,
+    UserPlaybackProfile, UserPlaybackProfileRepository, UserPrincipalId,
 };
 use nako_playback::{
     ClientPlaybackCapabilities, ClientPlaybackCapabilityRequest, EffectivePlaybackPolicy,
@@ -97,10 +97,10 @@ pub(crate) trait PlaybackRuntimeStore: std::fmt::Debug + Send + Sync {
         library_id: nako_core::LibraryId,
     ) -> Result<EffectivePlaybackPolicy>;
 
-    async fn get_user_playback_profile_preference(
+    async fn get_default_user_playback_profile(
         &self,
         principal_id: &UserPrincipalId,
-    ) -> Result<Option<UserPlaybackProfilePreference>>;
+    ) -> Result<Option<UserPlaybackProfile>>;
 
     async fn create_playback_session(
         &self,
@@ -203,7 +203,7 @@ where
         + PlaybackPolicyRepository
         + PlaybackSessionRepository
         + TranscodeSessionRepository
-        + UserPlaybackProfilePreferenceRepository
+        + UserPlaybackProfileRepository
         + std::fmt::Debug
         + Send
         + Sync,
@@ -224,15 +224,11 @@ where
         PlaybackPolicyRepository::resolve_effective_playback_policy(self, user_id, library_id).await
     }
 
-    async fn get_user_playback_profile_preference(
+    async fn get_default_user_playback_profile(
         &self,
         principal_id: &UserPrincipalId,
-    ) -> Result<Option<UserPlaybackProfilePreference>> {
-        UserPlaybackProfilePreferenceRepository::get_user_playback_profile_preference(
-            self,
-            principal_id,
-        )
-        .await
+    ) -> Result<Option<UserPlaybackProfile>> {
+        UserPlaybackProfileRepository::get_default_user_playback_profile(self, principal_id).await
     }
 
     async fn create_playback_session(
@@ -767,7 +763,7 @@ impl PlaybackAppService {
         &self,
         principal: &AuthenticatedPrincipal,
     ) -> Result<ClientPlaybackCapabilities> {
-        let Some(preference) = PlaybackRuntimeStore::get_user_playback_profile_preference(
+        let Some(profile) = PlaybackRuntimeStore::get_default_user_playback_profile(
             self.runtime_store.as_ref(),
             &principal.principal_id,
         )
@@ -776,7 +772,7 @@ impl PlaybackAppService {
             return Ok(ClientPlaybackCapabilityRequest::default().resolve());
         };
 
-        client_capabilities_from_playback_profile_preference(&preference)
+        client_capabilities_from_user_playback_profile(&profile)
     }
 
     pub(crate) async fn validate_browser_playback_ticket_request(
@@ -1710,14 +1706,14 @@ fn playback_session_not_found(session_id: PlaybackSessionId) -> NakoError {
     }
 }
 
-fn client_capabilities_from_playback_profile_preference(
-    preference: &UserPlaybackProfilePreference,
+fn client_capabilities_from_user_playback_profile(
+    profile: &UserPlaybackProfile,
 ) -> Result<ClientPlaybackCapabilities> {
-    serde_json::from_str::<ClientPlaybackCapabilities>(&preference.capabilities_json).map_err(
-        |err| NakoError::Database {
+    serde_json::from_str::<ClientPlaybackCapabilities>(&profile.capabilities_json).map_err(|err| {
+        NakoError::Database {
             message: format!("invalid stored playback capability JSON: {err}"),
-        },
-    )
+        }
+    })
 }
 
 fn subtitle_stream_for_probe(
@@ -1871,9 +1867,11 @@ mod tests {
     }
 
     #[test]
-    fn stored_playback_profile_preference_json_deserializes_to_client_capabilities() {
-        let preference = UserPlaybackProfilePreference {
+    fn stored_user_playback_profile_json_deserializes_to_client_capabilities() {
+        let profile = UserPlaybackProfile {
+            profile_id: nako_core::UserPlaybackProfileId::new(),
             principal_id: UserPrincipalId::local_admin(),
+            name: "Default".to_owned(),
             capabilities_json: serde_json::to_string(
                 &ClientPlaybackCapabilityRequest {
                     device_family: Some("browser_chromium".to_owned()),
@@ -1883,12 +1881,12 @@ mod tests {
                 .resolve(),
             )
             .unwrap(),
+            is_default: true,
             updated_at_ms: 1,
             version: 1,
         };
 
-        let capabilities =
-            client_capabilities_from_playback_profile_preference(&preference).unwrap();
+        let capabilities = client_capabilities_from_user_playback_profile(&profile).unwrap();
 
         assert_eq!(
             capabilities.device_family.as_deref(),
@@ -1904,15 +1902,18 @@ mod tests {
     }
 
     #[test]
-    fn stored_playback_profile_preference_json_errors_when_invalid() {
-        let preference = UserPlaybackProfilePreference {
+    fn stored_user_playback_profile_json_errors_when_invalid() {
+        let profile = UserPlaybackProfile {
+            profile_id: nako_core::UserPlaybackProfileId::new(),
             principal_id: UserPrincipalId::local_admin(),
+            name: "Default".to_owned(),
             capabilities_json: "not-json".to_owned(),
+            is_default: true,
             updated_at_ms: 1,
             version: 1,
         };
 
-        let err = client_capabilities_from_playback_profile_preference(&preference).unwrap_err();
+        let err = client_capabilities_from_user_playback_profile(&profile).unwrap_err();
 
         assert!(matches!(err, NakoError::Database { .. }));
         assert!(

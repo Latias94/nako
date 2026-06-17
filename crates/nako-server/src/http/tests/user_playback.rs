@@ -47,6 +47,16 @@ async fn user_playback_profile_preference_routes_resolve_store_read_and_delete()
     );
     assert_eq!(saved_preference.version, 1);
 
+    let named = request_json::<nako_api::public_client::UserPlaybackProfilesResponse>(
+        &router,
+        Method::GET,
+        "/users/me/playback-profiles?limit=10&offset=0",
+    )
+    .await;
+    assert_eq!(named.page.returned, 1);
+    assert_eq!(named.profiles[0].name, "Default");
+    assert!(named.profiles[0].is_default);
+
     let read = request_json::<nako_api::public_client::UserPlaybackProfilePreferenceResponse>(
         &router,
         Method::GET,
@@ -75,6 +85,206 @@ async fn user_playback_profile_preference_routes_resolve_store_read_and_delete()
 }
 
 #[tokio::test]
+async fn user_playback_named_profile_routes_scope_crud_and_default_to_current_principal() {
+    let (_temp, app, source, store) =
+        app_with_media_source_config("named-profiles.mkv", b"media", |_| {}).await;
+    let principal =
+        local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Play).await;
+    let other_principal =
+        local_viewer_with_library_access(&store, source.library_id, LibraryAccessLevel::Play).await;
+    let router = public_client_router_with_principal(app.clone(), principal);
+    let other_router = public_client_router_with_principal(app, other_principal);
+
+    let empty = request_json::<nako_api::public_client::UserPlaybackProfilesResponse>(
+        &router,
+        Method::GET,
+        "/users/me/playback-profiles?limit=10&offset=0",
+    )
+    .await;
+    assert_eq!(empty.page.returned, 0);
+    assert!(empty.profiles.is_empty());
+
+    let created = request_body_json::<nako_api::public_client::UserPlaybackProfileResponse, _>(
+        &router,
+        Method::POST,
+        "/users/me/playback-profiles",
+        &nako_api::public_client::CreateUserPlaybackProfileRequest {
+            name: "Living Room TV".to_owned(),
+            is_default: Some(false),
+            capabilities: nako_api::public_client::UserPlaybackProfileCapabilitiesRequest {
+                direct_play: Some(false),
+                device_family: Some("tv_webos".to_owned()),
+                profile_version: Some(1),
+                containers: Some(vec!["mkv".to_owned()]),
+                video_codecs: Some(vec!["hevc".to_owned()]),
+                audio_codecs: Some(vec!["aac".to_owned()]),
+                hls_variant_policy: Some(nako_api::public_client::ClientHlsVariantPolicy::Adaptive),
+                hls_segment_container: Some(
+                    nako_api::public_client::ClientHlsSegmentContainer::Fmp4,
+                ),
+                ..nako_api::public_client::UserPlaybackProfileCapabilitiesRequest::default()
+            },
+        },
+    )
+    .await;
+    let profile_id = created.profile.profile_id.clone();
+    assert_eq!(created.profile.name, "Living Room TV");
+    assert!(
+        created.profile.is_default,
+        "first profile becomes default even when create asks for false"
+    );
+    assert_eq!(
+        created.profile.capabilities.device_family.as_deref(),
+        Some("tv_webos")
+    );
+    assert_eq!(
+        created.profile.capabilities.video_codecs,
+        vec!["hevc".to_owned()]
+    );
+
+    let other_list = request_json::<nako_api::public_client::UserPlaybackProfilesResponse>(
+        &other_router,
+        Method::GET,
+        "/users/me/playback-profiles?limit=10&offset=0",
+    )
+    .await;
+    assert!(other_list.profiles.is_empty());
+    let other_read = response_for(
+        &other_router,
+        Method::GET,
+        &format!("/users/me/playback-profiles/{profile_id}"),
+    )
+    .await;
+    assert_eq!(other_read.status(), StatusCode::NOT_FOUND);
+
+    let updated = request_body_json::<nako_api::public_client::UserPlaybackProfileResponse, _>(
+        &router,
+        Method::PUT,
+        &format!("/users/me/playback-profiles/{profile_id}"),
+        &nako_api::public_client::UpdateUserPlaybackProfileRequest {
+            name: Some("Tablet".to_owned()),
+            is_default: Some(false),
+            capabilities: nako_api::public_client::UserPlaybackProfileCapabilitiesRequest {
+                containers: Some(vec!["mp4".to_owned()]),
+                video_codecs: Some(vec!["h264".to_owned()]),
+                audio_codecs: Some(vec!["aac".to_owned()]),
+                ..nako_api::public_client::UserPlaybackProfileCapabilitiesRequest::default()
+            },
+        },
+    )
+    .await;
+    assert_eq!(updated.profile.name, "Tablet");
+    assert!(!updated.profile.is_default);
+    assert_eq!(
+        updated.profile.capabilities.containers,
+        vec!["mp4".to_owned()]
+    );
+
+    let facade_without_default = request_json::<
+        nako_api::public_client::UserPlaybackProfilePreferenceResponse,
+    >(&router, Method::GET, "/users/me/playback-profile")
+    .await;
+    assert_eq!(facade_without_default.preference, None);
+
+    let defaulted = request_body_json::<nako_api::public_client::UserPlaybackProfileResponse, _>(
+        &router,
+        Method::PUT,
+        &format!("/users/me/playback-profiles/{profile_id}"),
+        &nako_api::public_client::UpdateUserPlaybackProfileRequest {
+            is_default: Some(true),
+            ..nako_api::public_client::UpdateUserPlaybackProfileRequest::default()
+        },
+    )
+    .await;
+    assert!(defaulted.profile.is_default);
+
+    let facade = request_json::<nako_api::public_client::UserPlaybackProfilePreferenceResponse>(
+        &router,
+        Method::GET,
+        "/users/me/playback-profile",
+    )
+    .await;
+    let preference = facade
+        .preference
+        .expect("default named profile appears through facade");
+    assert_eq!(preference.capabilities.containers, vec!["mp4".to_owned()]);
+
+    let raw = request_json::<serde_json::Value>(
+        &router,
+        Method::GET,
+        &format!("/users/me/playback-profiles/{profile_id}"),
+    )
+    .await;
+    assert!(raw["profile"].get("principal_id").is_none());
+    assert!(raw["profile"].get("capabilities_json").is_none());
+
+    let deleted = request_json::<nako_api::public_client::DeleteUserPlaybackProfileResponse>(
+        &router,
+        Method::DELETE,
+        &format!("/users/me/playback-profiles/{profile_id}"),
+    )
+    .await;
+    assert_eq!(deleted.profile_id, profile_id);
+    assert!(deleted.deleted);
+
+    let deleted_again = request_json::<nako_api::public_client::DeleteUserPlaybackProfileResponse>(
+        &router,
+        Method::DELETE,
+        &format!("/users/me/playback-profiles/{}", deleted.profile_id),
+    )
+    .await;
+    assert!(!deleted_again.deleted);
+}
+
+#[tokio::test]
+async fn user_playback_named_profile_routes_reject_unknown_hls_fields() {
+    let (_temp, router, _source, _store) = router_with_hls_source().await;
+
+    let create = response_body_json(
+        &router,
+        Method::POST,
+        "/users/me/playback-profiles",
+        &serde_json::json!({
+            "name": "Future HLS",
+            "device_family": "browser_chromium",
+            "profile_version": 1,
+            "hls_segment_container": "future_container"
+        }),
+    )
+    .await;
+    assert_eq!(create.status(), StatusCode::BAD_REQUEST);
+    let error = body_json::<nako_api::public_client::ErrorResponse>(create).await;
+    assert_eq!(error.code, "invalid_input");
+    assert!(error.message.contains("unsupported playback profile"));
+
+    let existing = request_body_json::<nako_api::public_client::UserPlaybackProfileResponse, _>(
+        &router,
+        Method::POST,
+        "/users/me/playback-profiles",
+        &nako_api::public_client::CreateUserPlaybackProfileRequest {
+            name: "Valid".to_owned(),
+            is_default: None,
+            capabilities: nako_api::public_client::UserPlaybackProfileCapabilitiesRequest::default(
+            ),
+        },
+    )
+    .await;
+    let update = response_body_json(
+        &router,
+        Method::PUT,
+        &format!(
+            "/users/me/playback-profiles/{}",
+            existing.profile.profile_id
+        ),
+        &serde_json::json!({
+            "hls_variant_policy": "future_policy"
+        }),
+    )
+    .await;
+    assert_eq!(update.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
 async fn user_playback_profile_preference_route_rejects_unknown_hls_fields() {
     let (_temp, router, _source, _store) = router_with_hls_source().await;
 
@@ -93,11 +303,7 @@ async fn user_playback_profile_preference_route_rejects_unknown_hls_fields() {
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     let error = body_json::<nako_api::public_client::ErrorResponse>(response).await;
     assert_eq!(error.code, "invalid_input");
-    assert!(
-        error
-            .message
-            .contains("unsupported playback profile preference")
-    );
+    assert!(error.message.contains("unsupported playback profile"));
 }
 
 #[tokio::test]
