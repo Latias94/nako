@@ -1672,6 +1672,7 @@ fn schemas() -> Value {
         "ClientPlaybackDecisionReport": object_schema(&["selected_mode", "direct_play", "remux", "transcode"], json!({
             "selected_mode": enum_schema(&["direct_play", "remux", "transcode", "denied"]),
             "selection_reasons": array_schema(schema_ref("ClientPlaybackCompatibilityCondition")),
+            "selection_reason_details": array_schema(schema_ref("ClientPlaybackCompatibilityConditionDetail")),
             "direct_play": schema_ref("ClientPlaybackCapabilityEvaluation"),
             "remux": schema_ref("ClientPlaybackCapabilityEvaluation"),
             "transcode": schema_ref("ClientPlaybackCapabilityEvaluation"),
@@ -1679,7 +1680,13 @@ fn schemas() -> Value {
         })),
         "ClientPlaybackCapabilityEvaluation": object_schema(&["supported", "reasons"], json!({
             "supported": boolean_schema(),
-            "reasons": array_schema(schema_ref("ClientPlaybackCompatibilityCondition"))
+            "reasons": array_schema(schema_ref("ClientPlaybackCompatibilityCondition")),
+            "reason_details": array_schema(schema_ref("ClientPlaybackCompatibilityConditionDetail"))
+        })),
+        "ClientPlaybackCompatibilityConditionDetail": object_schema(&["condition", "summary", "detail"], json!({
+            "condition": schema_ref("ClientPlaybackCompatibilityCondition"),
+            "summary": string_schema(),
+            "detail": string_schema()
         })),
         "ClientPlaybackCompatibilityCondition": enum_schema(&[
             "compatible",
@@ -2642,6 +2649,7 @@ mod tests {
         assert!(schemas.contains_key("ClientPlaybackDecisionReason"));
         assert!(schemas.contains_key("ClientPlaybackDecisionReport"));
         assert!(schemas.contains_key("ClientPlaybackCapabilityEvaluation"));
+        assert!(schemas.contains_key("ClientPlaybackCompatibilityConditionDetail"));
         assert!(schemas.contains_key("ClientPlaybackCompatibilityCondition"));
         assert!(schemas.contains_key("ClientPlaybackCapabilitiesDto"));
         assert!(schemas.contains_key("ClientPlaybackTargetDto"));
@@ -2671,8 +2679,23 @@ mod tests {
             "#/components/schemas/ClientPlaybackCompatibilityCondition"
         );
         assert_eq!(
+            document["components"]["schemas"]["ClientPlaybackDecisionReport"]["properties"]["selection_reason_details"]
+                ["items"]["$ref"],
+            "#/components/schemas/ClientPlaybackCompatibilityConditionDetail"
+        );
+        assert_eq!(
             document["components"]["schemas"]["ClientPlaybackCapabilityEvaluation"]["properties"]["reasons"]
                 ["items"]["$ref"],
+            "#/components/schemas/ClientPlaybackCompatibilityCondition"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["ClientPlaybackCapabilityEvaluation"]["properties"]["reason_details"]
+                ["items"]["$ref"],
+            "#/components/schemas/ClientPlaybackCompatibilityConditionDetail"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["ClientPlaybackCompatibilityConditionDetail"]["properties"]
+                ["condition"]["$ref"],
             "#/components/schemas/ClientPlaybackCompatibilityCondition"
         );
         assert_eq!(

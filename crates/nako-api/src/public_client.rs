@@ -33,11 +33,12 @@ pub use nako_client_protocol::{
     ClientMediaStreamKind, ClientMediaStreamOrigin, ClientMetadataRefreshMode,
     ClientMetadataSource, ClientNamingStrategy, ClientOutputContainer,
     ClientPlaybackCapabilitiesDto, ClientPlaybackCapabilityEvaluation,
-    ClientPlaybackCompatibilityCondition, ClientPlaybackDecision, ClientPlaybackDecisionReason,
-    ClientPlaybackDecisionReport, ClientPlaybackDenialDto, ClientPlaybackMode,
-    ClientPlaybackPermission, ClientPlaybackPermissionDecisionReason, ClientPlaybackProfileFamily,
-    ClientPlaybackSessionMode, ClientPlaybackSessionState, ClientPlaybackTargetDto,
-    ClientPlaybackTargetKind, ClientPlaybackTargetNetworkScope, ClientPlaybackTargetTransportAuth,
+    ClientPlaybackCompatibilityCondition, ClientPlaybackCompatibilityConditionDetail,
+    ClientPlaybackDecision, ClientPlaybackDecisionReason, ClientPlaybackDecisionReport,
+    ClientPlaybackDenialDto, ClientPlaybackMode, ClientPlaybackPermission,
+    ClientPlaybackPermissionDecisionReason, ClientPlaybackProfileFamily, ClientPlaybackSessionMode,
+    ClientPlaybackSessionState, ClientPlaybackTargetDto, ClientPlaybackTargetKind,
+    ClientPlaybackTargetNetworkScope, ClientPlaybackTargetTransportAuth,
     ClientRendererCommandState, ClientRendererControlCapabilitiesDto, ClientRendererControlCommand,
     ClientRendererSessionState, ClientSortOrder, ClientTranscodeFailureCategory,
     ClientTranscodePlan, ClientTranscodeSessionKind, ClientTranscodeSessionState,
@@ -260,13 +261,16 @@ pub fn playback_decision_to_dto(decision: PlaybackDecision) -> ClientPlaybackDec
 }
 
 fn playback_decision_report_to_dto(report: PlaybackDecisionReport) -> ClientPlaybackDecisionReport {
+    let selection_reasons = report
+        .selection_reasons
+        .into_iter()
+        .map(playback_compatibility_condition_to_dto)
+        .collect::<Vec<_>>();
+
     ClientPlaybackDecisionReport {
         selected_mode: playback_mode_to_dto(report.selected_mode),
-        selection_reasons: report
-            .selection_reasons
-            .into_iter()
-            .map(playback_compatibility_condition_to_dto)
-            .collect(),
+        selection_reason_details: playback_compatibility_condition_details(&selection_reasons),
+        selection_reasons,
         direct_play: playback_capability_evaluation_to_dto(report.direct_play),
         remux: playback_capability_evaluation_to_dto(report.remux),
         transcode: playback_capability_evaluation_to_dto(report.transcode),
@@ -277,14 +281,23 @@ fn playback_decision_report_to_dto(report: PlaybackDecisionReport) -> ClientPlay
 fn playback_capability_evaluation_to_dto(
     evaluation: PlaybackCapabilityEvaluation,
 ) -> ClientPlaybackCapabilityEvaluation {
+    let reasons = evaluation
+        .reasons
+        .into_iter()
+        .map(playback_compatibility_condition_to_dto)
+        .collect::<Vec<_>>();
+
     ClientPlaybackCapabilityEvaluation {
         supported: evaluation.supported,
-        reasons: evaluation
-            .reasons
-            .into_iter()
-            .map(playback_compatibility_condition_to_dto)
-            .collect(),
+        reason_details: playback_compatibility_condition_details(&reasons),
+        reasons,
     }
+}
+
+fn playback_compatibility_condition_details(
+    reasons: &[ClientPlaybackCompatibilityCondition],
+) -> Vec<ClientPlaybackCompatibilityConditionDetail> {
+    nako_client_protocol::playback_compatibility_condition_details(reasons)
 }
 
 #[must_use]
@@ -1503,6 +1516,18 @@ mod tests {
         );
         assert_eq!(
             value["report"]["selection_reasons"][0],
+            "direct_play_disabled"
+        );
+        assert_eq!(
+            value["report"]["selection_reason_details"][0]["condition"],
+            "direct_play_disabled"
+        );
+        assert_eq!(
+            value["report"]["selection_reason_details"][0]["summary"],
+            "Direct Play disabled"
+        );
+        assert_eq!(
+            value["report"]["direct_play"]["reason_details"][0]["condition"],
             "direct_play_disabled"
         );
         assert_eq!(value["transcode_plan"]["output_container"], "hls");

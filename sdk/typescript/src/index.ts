@@ -152,11 +152,18 @@ export interface ClientPlaybackCapabilitiesDto {
 }
 
 export interface ClientPlaybackCapabilityEvaluation {
+  reason_details?: Array<ClientPlaybackCompatibilityConditionDetail>;
   reasons: Array<ClientPlaybackCompatibilityCondition>;
   supported: boolean;
 }
 
 export type ClientPlaybackCompatibilityCondition = "compatible" | "direct_play_disabled" | "media_technical_facts_missing" | "container_unknown" | "container_unsupported" | "remux_container_unsupported" | "video_codec_unsupported" | "audio_codec_unsupported" | "video_bitrate_unsupported" | "video_resolution_unsupported" | "video_hdr_unsupported" | "audio_channels_unsupported" | "subtitle_delivery_unsupported" | "requested_transcode_output" | "transcode_profile_unsupported" | "policy_denied";
+
+export interface ClientPlaybackCompatibilityConditionDetail {
+  condition: ClientPlaybackCompatibilityCondition;
+  detail: string;
+  summary: string;
+}
 
 export interface ClientPlaybackDecision {
   denial: ClientPlaybackDenialDto | null;
@@ -174,6 +181,7 @@ export interface ClientPlaybackDecisionReport {
   direct_play: ClientPlaybackCapabilityEvaluation;
   remux: ClientPlaybackCapabilityEvaluation;
   selected_mode: "direct_play" | "remux" | "transcode" | "denied";
+  selection_reason_details?: Array<ClientPlaybackCompatibilityConditionDetail>;
   selection_reasons?: Array<ClientPlaybackCompatibilityCondition>;
   transcode: ClientPlaybackCapabilityEvaluation;
 }

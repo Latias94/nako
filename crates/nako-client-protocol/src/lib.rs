@@ -851,19 +851,31 @@ mod tests {
                 report: ClientPlaybackDecisionReport {
                     selected_mode: ClientPlaybackMode::DirectPlay,
                     selection_reasons: vec![ClientPlaybackCompatibilityCondition::Compatible],
+                    selection_reason_details: playback_compatibility_condition_details(&[
+                        ClientPlaybackCompatibilityCondition::Compatible,
+                    ]),
                     direct_play: ClientPlaybackCapabilityEvaluation {
                         supported: true,
                         reasons: vec![ClientPlaybackCompatibilityCondition::Compatible],
+                        reason_details: playback_compatibility_condition_details(&[
+                            ClientPlaybackCompatibilityCondition::Compatible,
+                        ]),
                     },
                     remux: ClientPlaybackCapabilityEvaluation {
                         supported: false,
                         reasons: vec![
                             ClientPlaybackCompatibilityCondition::MediaTechnicalFactsMissing,
                         ],
+                        reason_details: playback_compatibility_condition_details(&[
+                            ClientPlaybackCompatibilityCondition::MediaTechnicalFactsMissing,
+                        ]),
                     },
                     transcode: ClientPlaybackCapabilityEvaluation {
                         supported: true,
                         reasons: vec![ClientPlaybackCompatibilityCondition::Compatible],
+                        reason_details: playback_compatibility_condition_details(&[
+                            ClientPlaybackCompatibilityCondition::Compatible,
+                        ]),
                     },
                     denial: None,
                 },
@@ -884,6 +896,18 @@ mod tests {
         assert_eq!(
             value["decision"]["report"]["selection_reasons"][0],
             "compatible"
+        );
+        assert_eq!(
+            value["decision"]["report"]["selection_reason_details"][0]["condition"],
+            "compatible"
+        );
+        assert_eq!(
+            value["decision"]["report"]["selection_reason_details"][0]["summary"],
+            "Compatible"
+        );
+        assert_eq!(
+            value["decision"]["report"]["remux"]["reason_details"][0]["condition"],
+            "media_technical_facts_missing"
         );
         assert_eq!(value["target"]["kind"], "browser");
         assert_eq!(value["target"]["transport_auth"], "browser_ticket");
@@ -1294,6 +1318,15 @@ mod tests {
             response.decision.report.direct_play.reasons[0],
             ClientPlaybackCompatibilityCondition::Other("future_direct_reason".to_owned())
         );
+        assert!(response.decision.report.selection_reason_details.is_empty());
+        assert!(
+            response
+                .decision
+                .report
+                .direct_play
+                .reason_details
+                .is_empty()
+        );
         let plan = response.decision.transcode_plan.unwrap();
         assert_eq!(
             plan.output_container,
@@ -1312,23 +1345,43 @@ mod tests {
                     selection_reasons: vec![ClientPlaybackCompatibilityCondition::Other(
                         "future_selection_reason".to_owned(),
                     )],
+                    selection_reason_details: playback_compatibility_condition_details(&[
+                        ClientPlaybackCompatibilityCondition::Other(
+                            "future_selection_reason".to_owned(),
+                        ),
+                    ]),
                     direct_play: ClientPlaybackCapabilityEvaluation {
                         supported: false,
                         reasons: vec![ClientPlaybackCompatibilityCondition::Other(
                             "future_direct_reason".to_owned(),
                         )],
+                        reason_details: playback_compatibility_condition_details(&[
+                            ClientPlaybackCompatibilityCondition::Other(
+                                "future_direct_reason".to_owned(),
+                            ),
+                        ]),
                     },
                     remux: ClientPlaybackCapabilityEvaluation {
                         supported: false,
                         reasons: vec![ClientPlaybackCompatibilityCondition::Other(
                             "future_remux_reason".to_owned(),
                         )],
+                        reason_details: playback_compatibility_condition_details(&[
+                            ClientPlaybackCompatibilityCondition::Other(
+                                "future_remux_reason".to_owned(),
+                            ),
+                        ]),
                     },
                     transcode: ClientPlaybackCapabilityEvaluation {
                         supported: true,
                         reasons: vec![ClientPlaybackCompatibilityCondition::Other(
                             "future_transcode_reason".to_owned(),
                         )],
+                        reason_details: playback_compatibility_condition_details(&[
+                            ClientPlaybackCompatibilityCondition::Other(
+                                "future_transcode_reason".to_owned(),
+                            ),
+                        ]),
                     },
                     denial: None,
                 },
@@ -1351,6 +1404,14 @@ mod tests {
         assert_eq!(
             encoded["decision"]["report"]["selection_reasons"][0],
             "future_selection_reason"
+        );
+        assert_eq!(
+            encoded["decision"]["report"]["selection_reason_details"][0]["condition"],
+            "future_selection_reason"
+        );
+        assert_eq!(
+            encoded["decision"]["report"]["selection_reason_details"][0]["summary"],
+            "Unknown compatibility reason"
         );
         assert_eq!(
             encoded["decision"]["transcode_plan"]["output_container"],
@@ -1386,6 +1447,42 @@ mod tests {
             browser_ticket.urls[0].kind,
             BrowserPlaybackUrlKind::Other("future_url_kind".to_owned())
         );
+    }
+
+    #[test]
+    fn public_playback_compatibility_condition_details_cover_known_and_future_reasons() {
+        let known_reasons = [
+            ClientPlaybackCompatibilityCondition::Compatible,
+            ClientPlaybackCompatibilityCondition::DirectPlayDisabled,
+            ClientPlaybackCompatibilityCondition::MediaTechnicalFactsMissing,
+            ClientPlaybackCompatibilityCondition::ContainerUnknown,
+            ClientPlaybackCompatibilityCondition::ContainerUnsupported,
+            ClientPlaybackCompatibilityCondition::RemuxContainerUnsupported,
+            ClientPlaybackCompatibilityCondition::VideoCodecUnsupported,
+            ClientPlaybackCompatibilityCondition::AudioCodecUnsupported,
+            ClientPlaybackCompatibilityCondition::VideoBitrateUnsupported,
+            ClientPlaybackCompatibilityCondition::VideoResolutionUnsupported,
+            ClientPlaybackCompatibilityCondition::VideoHdrUnsupported,
+            ClientPlaybackCompatibilityCondition::AudioChannelsUnsupported,
+            ClientPlaybackCompatibilityCondition::SubtitleDeliveryUnsupported,
+            ClientPlaybackCompatibilityCondition::RequestedTranscodeOutput,
+            ClientPlaybackCompatibilityCondition::TranscodeProfileUnsupported,
+            ClientPlaybackCompatibilityCondition::PolicyDenied,
+        ];
+
+        let details = playback_compatibility_condition_details(&known_reasons);
+        assert_eq!(details.len(), known_reasons.len());
+        for (reason, detail) in known_reasons.iter().zip(details) {
+            assert_eq!(detail.condition, *reason);
+            assert!(!detail.summary.trim().is_empty());
+            assert!(!detail.detail.trim().is_empty());
+        }
+
+        let future = ClientPlaybackCompatibilityCondition::Other("server_future_reason".to_owned());
+        let future_detail = future.detail();
+        assert_eq!(future_detail.condition, future);
+        assert_eq!(future_detail.summary, "Unknown compatibility reason");
+        assert!(!future_detail.detail.contains("server_future_reason"));
     }
 
     #[test]

@@ -1654,6 +1654,8 @@ public data class ClientPlaybackCapabilitiesDto(
 
 @Serializable
 public data class ClientPlaybackCapabilityEvaluation(
+    @SerialName("reason_details")
+    public val reasonDetails: List<ClientPlaybackCompatibilityConditionDetail> = emptyList(),
     public val reasons: List<ClientPlaybackCompatibilityCondition>,
     public val supported: Boolean,
 )
@@ -1706,6 +1708,13 @@ public value class ClientPlaybackCompatibilityCondition(
 }
 
 @Serializable
+public data class ClientPlaybackCompatibilityConditionDetail(
+    public val condition: ClientPlaybackCompatibilityCondition,
+    public val detail: String,
+    public val summary: String,
+)
+
+@Serializable
 public data class ClientPlaybackDecision(
     public val denial: ClientPlaybackDenialDto?,
     @SerialName("direct_play")
@@ -1754,6 +1763,8 @@ public data class ClientPlaybackDecisionReport(
     public val remux: ClientPlaybackCapabilityEvaluation,
     @SerialName("selected_mode")
     public val selectedMode: ClientPlaybackDecisionReportSelectedMode,
+    @SerialName("selection_reason_details")
+    public val selectionReasonDetails: List<ClientPlaybackCompatibilityConditionDetail> = emptyList(),
     @SerialName("selection_reasons")
     public val selectionReasons: List<ClientPlaybackCompatibilityCondition> = emptyList(),
     public val transcode: ClientPlaybackCapabilityEvaluation,

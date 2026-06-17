@@ -575,14 +575,47 @@ async fn playback_decision_route_exposes_safe_selection_reasons_from_flat_capabi
         decision.decision.reason,
         nako_api::public_client::ClientPlaybackDecisionReason::SourceCodecsUnsupported
     );
+    let video_codec_unsupported =
+        nako_api::public_client::ClientPlaybackCompatibilityCondition::VideoCodecUnsupported;
     assert_eq!(
         decision.decision.report.selection_reasons,
-        vec![nako_api::public_client::ClientPlaybackCompatibilityCondition::VideoCodecUnsupported]
+        vec![video_codec_unsupported.clone()]
     );
-    assert!(decision.decision.report.direct_play.reasons.contains(
-        &nako_api::public_client::ClientPlaybackCompatibilityCondition::VideoCodecUnsupported
-    ));
+    assert_eq!(
+        decision.decision.report.selection_reason_details[0].condition,
+        video_codec_unsupported
+    );
+    assert_eq!(
+        decision.decision.report.selection_reason_details[0].summary,
+        "Video codec unsupported"
+    );
+    assert!(
+        decision.decision.report.selection_reason_details[0]
+            .detail
+            .contains("video codec")
+    );
+    assert!(
+        decision
+            .decision
+            .report
+            .direct_play
+            .reasons
+            .contains(&video_codec_unsupported)
+    );
+    assert!(
+        decision
+            .decision
+            .report
+            .direct_play
+            .reason_details
+            .iter()
+            .any(|detail| {
+                detail.condition == video_codec_unsupported
+                    && detail.summary == "Video codec unsupported"
+            })
+    );
     assert!(decision.decision.report.transcode.supported);
+    assert!(body.contains("Video codec unsupported"));
     assert!(!body.contains("local:///"));
     assert!(!body.contains("Bearer"));
     assert!(!body.contains("ffmpeg"));
@@ -815,13 +848,28 @@ async fn playback_decision_returns_safe_target_and_policy_denial() {
         decision.decision.report.denial.as_ref().unwrap().permission,
         nako_api::public_client::ClientPlaybackPermission::Remux
     );
+    let policy_denied = nako_api::public_client::ClientPlaybackCompatibilityCondition::PolicyDenied;
     assert_eq!(
         decision.decision.report.direct_play.reasons[0],
-        nako_api::public_client::ClientPlaybackCompatibilityCondition::PolicyDenied
+        policy_denied
+    );
+    assert_eq!(decision.decision.report.selection_reasons[0], policy_denied);
+    assert_eq!(
+        decision.decision.report.selection_reason_details[0].condition,
+        policy_denied
     );
     assert_eq!(
-        decision.decision.report.selection_reasons[0],
-        nako_api::public_client::ClientPlaybackCompatibilityCondition::PolicyDenied
+        decision.decision.report.selection_reason_details[0].summary,
+        "Playback policy denied"
+    );
+    assert!(
+        decision.decision.report.selection_reason_details[0]
+            .detail
+            .contains("policy blocked")
+    );
+    assert_eq!(
+        decision.decision.report.direct_play.reason_details[0].condition,
+        policy_denied
     );
     let denial = decision.decision.denial.unwrap();
     assert_eq!(
@@ -832,6 +880,7 @@ async fn playback_decision_returns_safe_target_and_policy_denial() {
         denial.reason,
         nako_api::public_client::ClientPlaybackPermissionDecisionReason::RemuxDisabled
     );
+    assert!(body.contains("Playback policy denied"));
     assert!(!body.contains("user_id"));
     assert!(!body.contains("role"));
     assert!(!body.contains("policy_rows"));

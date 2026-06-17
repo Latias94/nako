@@ -1,0 +1,8 @@
+{"file":"CONTEXT.md","reason":"Project language for Playback Runtime, Client Applications, Public Client API, and redaction boundaries."}
+{"file":".trellis/spec/nako-playback/backend/index.md","reason":"Playback planner crate boundary and pre-development checklist."}
+{"file":".trellis/spec/nako-playback/backend/quality-guidelines.md","reason":"Playback decision report, selection reasons, and planner purity rules."}
+{"file":".trellis/spec/nako-client-protocol/backend/index.md","reason":"Public Client DTO ownership, additive string enums, and playback capability field contract."}
+{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Public API contract generation, OpenAPI/SDK, and redaction requirements."}
+{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Public route/auth and HTTP handler patterns for server route tests."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"This change maps planner conditions through protocol, API, OpenAPI, and server route responses."}
+{"file":"docs/architecture/PLAYBACK.md","reason":"Playback capability profile and compatibility reason roadmap authority."}

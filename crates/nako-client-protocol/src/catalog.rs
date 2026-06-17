@@ -641,6 +641,8 @@ pub struct ClientPlaybackDecisionReport {
     pub selected_mode: ClientPlaybackMode,
     #[serde(default)]
     pub selection_reasons: Vec<ClientPlaybackCompatibilityCondition>,
+    #[serde(default)]
+    pub selection_reason_details: Vec<ClientPlaybackCompatibilityConditionDetail>,
     pub direct_play: ClientPlaybackCapabilityEvaluation,
     pub remux: ClientPlaybackCapabilityEvaluation,
     pub transcode: ClientPlaybackCapabilityEvaluation,
@@ -651,6 +653,15 @@ pub struct ClientPlaybackDecisionReport {
 pub struct ClientPlaybackCapabilityEvaluation {
     pub supported: bool,
     pub reasons: Vec<ClientPlaybackCompatibilityCondition>,
+    #[serde(default)]
+    pub reason_details: Vec<ClientPlaybackCompatibilityConditionDetail>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ClientPlaybackCompatibilityConditionDetail {
+    pub condition: ClientPlaybackCompatibilityCondition,
+    pub summary: String,
+    pub detail: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -703,6 +714,103 @@ public_string_value! {
         RequestedTranscodeOutput => "requested_transcode_output",
         TranscodeProfileUnsupported => "transcode_profile_unsupported",
         PolicyDenied => "policy_denied",
+    }
+}
+
+impl ClientPlaybackCompatibilityCondition {
+    #[must_use]
+    pub fn detail(&self) -> ClientPlaybackCompatibilityConditionDetail {
+        let (summary, detail) = playback_compatibility_condition_copy(self);
+        ClientPlaybackCompatibilityConditionDetail {
+            condition: self.clone(),
+            summary: summary.to_owned(),
+            detail: detail.to_owned(),
+        }
+    }
+}
+
+#[must_use]
+pub fn playback_compatibility_condition_details(
+    reasons: &[ClientPlaybackCompatibilityCondition],
+) -> Vec<ClientPlaybackCompatibilityConditionDetail> {
+    reasons
+        .iter()
+        .map(ClientPlaybackCompatibilityCondition::detail)
+        .collect()
+}
+
+fn playback_compatibility_condition_copy(
+    condition: &ClientPlaybackCompatibilityCondition,
+) -> (&'static str, &'static str) {
+    match condition {
+        ClientPlaybackCompatibilityCondition::Compatible => (
+            "Compatible",
+            "The selected source matches the advertised playback capability profile.",
+        ),
+        ClientPlaybackCompatibilityCondition::DirectPlayDisabled => (
+            "Direct Play disabled",
+            "The client request or capability profile disabled Direct Play.",
+        ),
+        ClientPlaybackCompatibilityCondition::MediaTechnicalFactsMissing => (
+            "Media facts missing",
+            "Nako does not have enough media technical facts to safely choose this playback mode.",
+        ),
+        ClientPlaybackCompatibilityCondition::ContainerUnknown => (
+            "Container unknown",
+            "Nako could not infer the source container from the available source facts.",
+        ),
+        ClientPlaybackCompatibilityCondition::ContainerUnsupported => (
+            "Container unsupported",
+            "The source container is not listed in the client playback capability profile.",
+        ),
+        ClientPlaybackCompatibilityCondition::RemuxContainerUnsupported => (
+            "Remux container unsupported",
+            "The requested remux output container is not available for this playback target.",
+        ),
+        ClientPlaybackCompatibilityCondition::VideoCodecUnsupported => (
+            "Video codec unsupported",
+            "The selected source video codec is not listed in the client playback capability profile.",
+        ),
+        ClientPlaybackCompatibilityCondition::AudioCodecUnsupported => (
+            "Audio codec unsupported",
+            "The selected source audio codec is not listed in the client playback capability profile.",
+        ),
+        ClientPlaybackCompatibilityCondition::VideoBitrateUnsupported => (
+            "Video bitrate unsupported",
+            "The selected source video bitrate exceeds the client or request playback limit.",
+        ),
+        ClientPlaybackCompatibilityCondition::VideoResolutionUnsupported => (
+            "Video resolution unsupported",
+            "The selected source resolution exceeds the client playback capability profile.",
+        ),
+        ClientPlaybackCompatibilityCondition::VideoHdrUnsupported => (
+            "HDR unsupported",
+            "The selected source uses HDR video that the client capability profile cannot present directly.",
+        ),
+        ClientPlaybackCompatibilityCondition::AudioChannelsUnsupported => (
+            "Audio channels unsupported",
+            "The selected source audio channel count exceeds the client playback capability profile.",
+        ),
+        ClientPlaybackCompatibilityCondition::SubtitleDeliveryUnsupported => (
+            "Subtitle delivery unsupported",
+            "The selected subtitle track cannot be delivered by the current direct or remux playback path.",
+        ),
+        ClientPlaybackCompatibilityCondition::RequestedTranscodeOutput => (
+            "Transcode requested",
+            "The playback request explicitly selected a transcode output.",
+        ),
+        ClientPlaybackCompatibilityCondition::TranscodeProfileUnsupported => (
+            "Transcode profile unsupported",
+            "The requested transcode output is not available for this playback target.",
+        ),
+        ClientPlaybackCompatibilityCondition::PolicyDenied => (
+            "Playback policy denied",
+            "The effective playback policy blocked the selected playback mode.",
+        ),
+        ClientPlaybackCompatibilityCondition::Other(_) => (
+            "Unknown compatibility reason",
+            "The server returned a newer playback compatibility reason that this client does not recognize yet.",
+        ),
     }
 }
 

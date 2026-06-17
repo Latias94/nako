@@ -2062,6 +2062,11 @@ mod tests {
             ),
             text_section(
                 &typescript,
+                "export interface ClientPlaybackDecision",
+                "export interface ClientPlaybackDecisionReport",
+            ),
+            text_section(
+                &typescript,
                 "export interface PlaybackCapabilitiesQuery",
                 "export interface ImageVariantQuery",
             ),
@@ -2073,7 +2078,12 @@ mod tests {
             text_section(
                 &kotlin,
                 "public data class ClientPlaybackCapabilitiesDto",
-                "public data class ClientPlaybackCapabilityEvaluation",
+                "public data class ClientPlaybackDecision",
+            ),
+            text_section(
+                &kotlin,
+                "public data class ClientPlaybackDecision",
+                "public data class ClientPlaybackDecisionReport",
             ),
             text_section(
                 &kotlin,
@@ -2103,6 +2113,34 @@ mod tests {
             assert!(
                 !capability_sections.contains(forbidden),
                 "generated Public Client playback capability SDK surface leaked forbidden term: {forbidden}"
+            );
+        }
+    }
+
+    #[test]
+    fn public_sdk_playback_reason_detail_surfaces_include_generated_copy() {
+        let typescript = typescript_sdk();
+        let kotlin = kotlin_sdk();
+
+        for expected in [
+            "export interface ClientPlaybackCompatibilityConditionDetail",
+            "selection_reason_details?: Array<ClientPlaybackCompatibilityConditionDetail>",
+            "reason_details?: Array<ClientPlaybackCompatibilityConditionDetail>",
+        ] {
+            assert!(
+                typescript.contains(expected),
+                "TypeScript SDK missing generated detail {expected}"
+            );
+        }
+
+        for expected in [
+            "public data class ClientPlaybackCompatibilityConditionDetail",
+            "public val selectionReasonDetails: List<ClientPlaybackCompatibilityConditionDetail> = emptyList()",
+            "public val reasonDetails: List<ClientPlaybackCompatibilityConditionDetail> = emptyList()",
+        ] {
+            assert!(
+                kotlin.contains(expected),
+                "Kotlin SDK missing generated detail {expected}"
             );
         }
     }
