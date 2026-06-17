@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-4.md`
-- **Total Sessions**: 152
+- **Total Sessions**: 153
 - **Last Active**: 2026-06-17
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-4.md` | ~212 | Active |
+| `journal-4.md` | ~247 | Active |
 | `journal-3.md` | ~1979 | Archived |
 | `journal-2.md` | ~1991 | Archived |
 | `journal-1.md` | ~1972 | Archived |
@@ -32,6 +32,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 153 | 2026-06-17 | Apply saved playback profile preference | `676e6632`, `b560f702` | `feat/admin-overview-durable-jobs` |
 | 152 | 2026-06-17 | User playback profile preference | `d463075c` | `feat/admin-overview-durable-jobs` |
 | 151 | 2026-06-17 | Admin intake evidence summary | `3000730b` | `feat/admin-overview-durable-jobs` |
 | 150 | 2026-06-17 | Admin dynamic JSON cache policy | `3f617777` | `feat/admin-overview-durable-jobs` |

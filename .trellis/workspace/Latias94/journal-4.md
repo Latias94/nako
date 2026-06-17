@@ -210,3 +210,38 @@ Added current-user playback profile preference persistence, Public Client routes
 ### Next Steps
 
 - None - task complete
+
+
+## Session 153: Apply saved playback profile preference
+
+**Date**: 2026-06-17
+**Task**: Apply saved playback profile preference
+**Package**: nako
+**Branch**: `feat/admin-overview-durable-jobs`
+
+### Summary
+
+Applied current-user saved playback profile preferences as fallback capabilities for playback decision and new Direct/Remux/HLS sessions; preserved explicit query and ticket/session-bound behavior; updated server/API docs and focused playback tests.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `676e6632` | (see git log) |
+| `b560f702` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
