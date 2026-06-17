@@ -6994,6 +6994,13 @@ where
         "local:///Contract Movies/Visible Search Access.mkv",
     )
     .await;
+    let second_visible_source = seed_contract_media_item_with_source(
+        &store,
+        accessible_library.id,
+        "Visible Search Access Two",
+        "local:///Contract Movies/Visible Search Access Two.mkv",
+    )
+    .await;
 
     store
         .upsert(
@@ -7019,6 +7026,20 @@ where
         )
         .await
         .unwrap();
+    store
+        .upsert(
+            SearchDocument::from_facet_labels(
+                second_visible_source.item_id,
+                "Visible Search Access Two",
+                "needle visible overview two",
+                Vec::new(),
+            )
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let visible_ids = sorted_ids([visible_source.item_id, second_visible_source.item_id]);
 
     let first_visible_page = store
         .search_accessible(
@@ -7029,7 +7050,7 @@ where
         .unwrap();
     assert_eq!(
         browse_ids_from_hits(first_visible_page),
-        vec![visible_source.item_id]
+        vec![visible_ids[0]]
     );
 
     let second_visible_page = store
@@ -7039,18 +7060,21 @@ where
         )
         .await
         .unwrap();
-    assert!(second_visible_page.is_empty());
+    assert_eq!(
+        browse_ids_from_hits(second_visible_page),
+        vec![visible_ids[1]]
+    );
 
     let admin_hits = store
         .search_accessible(
             &AuthenticatedPrincipal::bootstrap_admin(),
-            SearchQuery::from_facet_labels("needle", Vec::new(), 2, 0).unwrap(),
+            SearchQuery::from_facet_labels("needle", Vec::new(), 3, 0).unwrap(),
         )
         .await
         .unwrap();
     assert_eq!(
         browse_ids_from_hits(admin_hits),
-        vec![hidden_source.item_id, visible_source.item_id]
+        vec![hidden_source.item_id, visible_ids[0], visible_ids[1],]
     );
 }
 
