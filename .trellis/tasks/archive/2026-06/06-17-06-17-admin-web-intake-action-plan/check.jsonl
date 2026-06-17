@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Verify Admin Web route and component conventions."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Verify route tests, deterministic mock fallback, and redaction rules."}
+{"file": ".trellis/spec/guides/index.md", "reason": "Verify shared cross-layer/reuse checklist is considered."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify API-to-UI data flow for the new action-plan field."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Verify existing formatter and component patterns are reused."}

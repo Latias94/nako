@@ -2001,6 +2001,66 @@ td {
   overflow-wrap: anywhere;
 }
 
+.operatorReadinessActionPlan {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid var(--nako-admin-line-soft);
+  padding: 14px 16px 16px;
+}
+
+.operatorReadinessActionPlanHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.operatorReadinessActionPlanHeader div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.operatorReadinessActionPlanHeader strong {
+  color: var(--nako-admin-ink);
+  font-size: 0.92rem;
+  line-height: 1.2;
+}
+
+.operatorReadinessActionPlanHeader span {
+  color: var(--nako-admin-muted);
+  font-size: 0.8rem;
+  font-weight: 720;
+  line-height: 1.35;
+}
+
+.operatorReadinessActionPlanGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.operatorReadinessActionPlanItem {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  min-height: 112px;
+  border: 1px solid var(--nako-admin-line);
+  border-radius: var(--nako-admin-radius);
+  background: var(--nako-admin-surface-raised);
+  padding: 12px;
+}
+
+.operatorReadinessActionPlanItem span,
+.operatorReadinessActionPlanItem small {
+  color: var(--nako-admin-muted);
+  font-size: 0.8rem;
+  font-weight: 720;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .settingsSummaryGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3355,6 +3415,7 @@ td {
     .overviewMetricGrid,
     .overviewDiagnosticGrid,
     .overviewReadinessGrid,
+    .operatorReadinessActionPlanGrid,
     .settingsSummaryGrid,
     .accessSummaryGrid,
     .artworkSummaryGrid,

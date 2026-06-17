@@ -1,5 +1,6 @@
 import { RefreshCw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 
 import type {
   AdminDataSource,
@@ -22,6 +23,7 @@ import type { MessageId } from "../../i18n/messages";
 import {
   operatorReadinessActionLabel,
   operatorReadinessAreaLabel,
+  operatorReadinessIntakeComponentLabel,
   operatorReadinessReasonLabel,
   operatorReadinessStatusLabel,
   operatorReadinessTone,
@@ -44,6 +46,11 @@ type FactItem = {
   label: string;
   value: string;
 };
+
+type IntakeActionPlan =
+  AdminOperatorReadinessResponse["details"]["media_library_scan"]["intake_action_plan"];
+
+type IntakeActionPlanEntry = IntakeActionPlan["components"][number];
 
 export function OperatorReadinessPage({
   dataSource,
@@ -217,7 +224,12 @@ export function OperatorReadinessPage({
                 t,
               )}
               t={t}
-            />
+            >
+              <IntakeActionPlanView
+                plan={readiness.details.media_library_scan.intake_action_plan}
+                t={t}
+              />
+            </ReadinessDetailPanel>
 
             <ReadinessDetailPanel
               check={readiness.details.playback.check}
@@ -418,11 +430,13 @@ function ReadinessCheckCard({
 }
 
 function ReadinessDetailPanel({
+  children,
   check,
   facts,
   title,
   t,
 }: {
+  children?: ReactNode;
   check: AdminOperatorReadinessCheck;
   facts: FactItem[];
   title: string;
@@ -462,7 +476,90 @@ function ReadinessDetailPanel({
           />
         ) : null}
       </div>
+      {children}
     </DataPanel>
+  );
+}
+
+function IntakeActionPlanView({
+  plan,
+  t,
+}: {
+  plan: IntakeActionPlan;
+  t: OperatorReadinessTranslate;
+}) {
+  return (
+    <section
+      aria-label={t("operatorReadiness.scan.intakeActionPlan")}
+      className="operatorReadinessActionPlan"
+    >
+      <div className="operatorReadinessActionPlanHeader">
+        <div>
+          <strong>{t("operatorReadiness.scan.intakeActionPlan")}</strong>
+          <span>{t("operatorReadiness.scan.intakeActionPlanDescription")}</span>
+        </div>
+        <Badge tone={plan.read_only ? "info" : "warning"}>
+          {plan.read_only
+            ? t("operatorReadiness.scan.intakeReadOnly")
+            : t("operatorReadiness.scan.intakeMutable")}
+        </Badge>
+      </div>
+      <div className="operatorReadinessActionPlanGrid">
+        {plan.components.map((entry) => (
+          <IntakeActionPlanEntryView
+            entry={entry}
+            key={entry.component}
+            t={t}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function IntakeActionPlanEntryView({
+  entry,
+  t,
+}: {
+  entry: IntakeActionPlanEntry;
+  t: OperatorReadinessTranslate;
+}) {
+  const sourceReason = entry.source_reason
+    ? safeOperatorReadinessSourceReason(entry.source_reason, t)
+    : null;
+  const actionLabel = entry.action
+    ? operatorReadinessActionLabel(entry.action.route_key, t)
+    : null;
+
+  return (
+    <article className="operatorReadinessActionPlanItem">
+      <div className="overviewReadinessHeader">
+        <strong>
+          {operatorReadinessIntakeComponentLabel(entry.component, t)}
+        </strong>
+        <Badge tone={operatorReadinessTone(entry.status)}>
+          {operatorReadinessStatusLabel(entry.status, t)}
+        </Badge>
+      </div>
+      <span>{operatorReadinessReasonLabel(entry, t)}</span>
+      <small>
+        {t("operatorReadiness.scan.intakeAttention", {
+          count: entry.attention_count,
+        })}
+      </small>
+      {sourceReason ? (
+        <small>
+          {t("overview.operatorReadiness.sourceReason", {
+            reason: sourceReason,
+          })}
+        </small>
+      ) : null}
+      <small>
+        {actionLabel
+          ? t("operatorReadiness.actionHint", { route: actionLabel })
+          : t("operatorReadiness.scan.noIntakeAction")}
+      </small>
+    </article>
   );
 }
 

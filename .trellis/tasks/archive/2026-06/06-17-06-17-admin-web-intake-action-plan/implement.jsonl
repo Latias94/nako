@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Entry point for Admin Web route and component work."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Operator readiness is a route-owned Admin Web feature with deterministic mock fallback and RTL tests."}
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking guide index for cross-layer and reuse checks."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "The page consumes a newly added backend-generated Admin contract field."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "The UI should reuse existing formatter and panel patterns."}

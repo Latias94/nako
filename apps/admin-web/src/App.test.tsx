@@ -657,6 +657,13 @@ describe("Admin Web V2 route shell", () => {
     expect(screen.getAllByText("Media Library scan").length).toBeGreaterThan(0);
     expect(screen.getByText("Source hash coverage")).toBeInTheDocument();
     expect(screen.getByText("109/128")).toBeInTheDocument();
+    expect(screen.getByText("Intake action plan")).toBeInTheDocument();
+    expect(screen.getByText("Read-only")).toBeInTheDocument();
+    expect(screen.getByText("Library scan")).toBeInTheDocument();
+    expect(screen.getByText("Source fingerprint hash")).toBeInTheDocument();
+    expect(screen.getByText("Watch folders")).toBeInTheDocument();
+    expect(screen.getByText("11 need attention")).toBeInTheDocument();
+    expect(screen.getAllByText("Open Admin Jobs").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Durable jobs").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/storage\.vfs\.cache_repair/).length).toBeGreaterThan(0);
     expect(loadOperatorReadiness).toHaveBeenCalledTimes(1);
@@ -679,6 +686,9 @@ describe("Admin Web V2 route shell", () => {
     expect(await screen.findByText("整体状态")).toBeInTheDocument();
     expect(screen.getByText("Readiness 区域")).toBeInTheDocument();
     expect(screen.getByText("媒体库扫描状态")).toBeInTheDocument();
+    expect(screen.getByText("入库行动计划")).toBeInTheDocument();
+    expect(screen.getByText("只读")).toBeInTheDocument();
+    expect(screen.getByText("11 个需关注")).toBeInTheDocument();
     expect(screen.getByText("持久数据库")).toBeInTheDocument();
     expect(screen.getByText("实时 Admin API")).toBeInTheDocument();
   });
@@ -753,6 +763,28 @@ describe("Admin Web V2 route shell", () => {
                   : pressure,
             ),
         },
+        media_library_scan: {
+          ...mockOperatorReadiness.details.media_library_scan,
+          intake_action_plan: {
+            ...mockOperatorReadiness.details.media_library_scan
+              .intake_action_plan,
+            components:
+              mockOperatorReadiness.details.media_library_scan.intake_action_plan.components.map(
+                (entry) =>
+                  entry.component === "source_fingerprint_hash"
+                    ? {
+                        ...entry,
+                        source_reason:
+                          "C:\\secret-cache\\Hidden Movie.mkv?token=secret",
+                        action: {
+                          route_key: "jobs",
+                          route_path: "/admin/v1/jobs?token=secret",
+                        },
+                      }
+                    : entry,
+              ),
+          },
+        },
       },
     };
     window.history.pushState(null, "", "/operator-readiness");
@@ -768,6 +800,7 @@ describe("Admin Web V2 route shell", () => {
     expect(renderedText).not.toContain("ffmpeg.exe");
     expect(renderedText).not.toContain("Hidden Movie.mkv");
     expect(renderedText).not.toContain("?token=secret");
+    expect(renderedText).not.toContain("admin/v1/jobs");
     expect(renderedText).not.toContain("local:///");
     expect(renderedText).not.toContain("/Users/");
     expect(renderedText).not.toContain("C:\\");

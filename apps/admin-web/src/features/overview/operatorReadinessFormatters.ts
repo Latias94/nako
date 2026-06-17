@@ -1,5 +1,6 @@
 import type {
   AdminOperatorReadinessCheck,
+  AdminOperatorReadinessResponse,
   AdminOperatorReadinessStatus,
 } from "../../adminApi/types";
 import type { MessageId } from "../../i18n/messages";
@@ -10,6 +11,9 @@ export type OperatorReadinessTranslate = (
 ) => string;
 
 export type OperatorReadinessBadgeTone = "success" | "warning" | "danger";
+
+type OperatorReadinessIntakeComponent =
+  AdminOperatorReadinessResponse["details"]["media_library_scan"]["intake_action_plan"]["components"][number]["component"];
 
 export const OPERATOR_READINESS_AREA_LABELS: Record<
   AdminOperatorReadinessCheck["area"],
@@ -80,6 +84,16 @@ const OPERATOR_READINESS_ACTION_LABELS: Partial<Record<string, MessageId>> = {
   systemConfig: "overview.operatorReadiness.action.systemConfig",
 };
 
+const OPERATOR_READINESS_INTAKE_COMPONENT_LABELS: Record<
+  OperatorReadinessIntakeComponent,
+  MessageId
+> = {
+  library_scan: "operatorReadiness.scan.intakeComponent.libraryScan",
+  source_fingerprint_hash:
+    "operatorReadiness.scan.intakeComponent.sourceFingerprintHash",
+  watch_folder: "operatorReadiness.scan.intakeComponent.watchFolder",
+};
+
 export function operatorReadinessAreaLabel(
   check: Pick<AdminOperatorReadinessCheck, "area">,
   t: OperatorReadinessTranslate,
@@ -95,12 +109,19 @@ export function operatorReadinessStatusLabel(
 }
 
 export function operatorReadinessReasonLabel(
-  check: AdminOperatorReadinessCheck,
+  check: Pick<AdminOperatorReadinessCheck, "attention_count" | "reason">,
   t: OperatorReadinessTranslate,
 ) {
   return t(OPERATOR_READINESS_REASON_LABELS[check.reason], {
     count: check.attention_count,
   });
+}
+
+export function operatorReadinessIntakeComponentLabel(
+  component: OperatorReadinessIntakeComponent,
+  t: OperatorReadinessTranslate,
+) {
+  return t(OPERATOR_READINESS_INTAKE_COMPONENT_LABELS[component]);
 }
 
 export function operatorReadinessActionLabel(
