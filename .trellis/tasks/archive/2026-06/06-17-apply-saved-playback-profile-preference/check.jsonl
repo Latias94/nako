@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server quality gate and route boundary guidance for playback behavior changes."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Playback access boundary, current-user scoping, and route expectations."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused server test gates and verification commands."}
+{"file": ".trellis/spec/nako-playback/backend/quality-guidelines.md", "reason": "Playback planner correctness and profile identity regression checks."}
+{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "Repository contract expectations for profile preference persistence."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Public Client contract parity and generated output checks."}
+{"file": ".trellis/tasks/06-17-apply-saved-playback-profile-preference/prd.md", "reason": "Task requirements and acceptance criteria for validation."}
