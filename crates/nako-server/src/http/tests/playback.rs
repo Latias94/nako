@@ -719,6 +719,17 @@ async fn playback_decision_route_exposes_safe_selection_reasons_from_flat_capabi
         decision.decision.reason,
         nako_api::public_client::ClientPlaybackDecisionReason::SourceCodecsUnsupported
     );
+    let reason_detail = decision
+        .decision
+        .reason_detail
+        .as_ref()
+        .expect("selected reason detail is present");
+    assert_eq!(
+        reason_detail.reason,
+        nako_api::public_client::ClientPlaybackDecisionReason::SourceCodecsUnsupported
+    );
+    assert_eq!(reason_detail.summary, "Codec unsupported");
+    assert!(reason_detail.detail.contains("client capability profile"));
     let video_codec_unsupported =
         nako_api::public_client::ClientPlaybackCompatibilityCondition::VideoCodecUnsupported;
     assert_eq!(
@@ -760,9 +771,12 @@ async fn playback_decision_route_exposes_safe_selection_reasons_from_flat_capabi
     );
     assert!(decision.decision.report.transcode.supported);
     assert!(body.contains("Video codec unsupported"));
+    assert!(body.contains("Codec unsupported"));
     assert!(!body.contains("local:///"));
     assert!(!body.contains("Bearer"));
     assert!(!body.contains("ffmpeg"));
+    assert!(!body.contains("input_locator"));
+    assert!(!body.contains("output_path"));
 }
 
 #[tokio::test]
@@ -1295,6 +1309,17 @@ async fn playback_decision_returns_safe_target_and_policy_denial() {
         decision.decision.reason,
         nako_api::public_client::ClientPlaybackDecisionReason::PolicyDenied
     );
+    let reason_detail = decision
+        .decision
+        .reason_detail
+        .as_ref()
+        .expect("selected policy denial detail is present");
+    assert_eq!(
+        reason_detail.reason,
+        nako_api::public_client::ClientPlaybackDecisionReason::PolicyDenied
+    );
+    assert_eq!(reason_detail.summary, "Playback policy denied");
+    assert!(reason_detail.detail.contains("before media transport"));
     assert_eq!(
         decision.decision.report.selected_mode,
         nako_api::public_client::ClientPlaybackMode::Denied

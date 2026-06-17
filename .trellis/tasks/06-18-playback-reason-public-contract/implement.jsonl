@@ -1,0 +1,11 @@
+{"file":"docs/plans/2026-06-16-001-feat-backend-self-hosted-maturity-execution-plan.md","reason":"Backend maturity execution plan identifies playback reason public contract as U3 and defines scope boundaries."}
+{"file":"docs/architecture/PLAYBACK.md","reason":"Playback architecture map defines the target chain and explains that transcodes must be explainable from source, client, policy, or user selection facts."}
+{"file":".trellis/spec/nako-client-protocol/backend/index.md","reason":"Public Client protocol owns playback DTOs, future-safe enum/string behavior, and sensitive-field exclusions."}
+{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"API contract spec governs public DTO/OpenAPI/SDK generation and playback capability contract parity."}
+{"file":".trellis/spec/nako-api/backend/quality-guidelines.md","reason":"API quality gates for public OpenAPI/SDK changes and generated artifact refresh."}
+{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Server HTTP route, auth, DTO, cache, and playback route contract rules."}
+{"file":".trellis/spec/nako-server/backend/error-handling.md","reason":"HTTP error and redaction mapping rules for public route responses."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Server playback and route test gate expectations."}
+{"file":".trellis/spec/nako-playback/backend/index.md","reason":"Pure playback planner boundary and reason/reporting authority."}
+{"file":".trellis/spec/nako-transcode/backend/index.md","reason":"Transcode boundary must not leak FFmpeg/runtime details into Public Client reasons."}
+{"file":".trellis/spec/guides/index.md","reason":"Shared cross-layer and code-reuse thinking guide index for this multi-crate public contract slice."}

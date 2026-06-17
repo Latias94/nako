@@ -50,6 +50,11 @@ independent from server internals.
 - Keep `PageInfo { limit, offset, returned }` as the public pagination envelope.
 - Keep public playback URLs safe and ticketed; do not expose source locators.
 - Keep current-user routes under `/users/me`.
+- Public playback decision responses expose `decision.reason` for the selected
+  machine-readable outcome and `decision.reason_detail` for safe display copy.
+  The full compatibility matrix remains in `decision.report`. Unknown future
+  reason strings must decode through `Other(String)`, and unknown detail copy
+  must not echo the unknown server string back to users.
 - Keep provider governance, Metadata Candidate Review, batch apply,
   idempotency, raw provider payload, and related hierarchy application route
   fragments out of `PUBLIC_CLIENT_ROUTES`; these are Admin API surfaces unless a

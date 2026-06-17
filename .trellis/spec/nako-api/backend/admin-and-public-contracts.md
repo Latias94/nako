@@ -46,6 +46,10 @@ Use this spec when adding API wire types or generated route inventory in
   HLS playlist routes. It is not part of persisted capability DTOs, renderer
   bodies, browser ticket bodies, existing session routes, or HLS segment
   routes.
+- Public playback decision DTOs must keep selected-reason display copy in
+  `ClientPlaybackDecision.reason_detail` and full compatibility explanations
+  in `ClientPlaybackDecisionReport`. Generated TypeScript and Kotlin SDKs must
+  include both reason-detail DTO families when this shape changes.
 
 ### 4. Validation & Error Matrix
 

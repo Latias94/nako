@@ -173,11 +173,18 @@ export interface ClientPlaybackDecision {
   direct_play: ClientDirectPlayPlan | null;
   mode: "direct_play" | "remux" | "transcode" | "denied";
   reason: ClientPlaybackDecisionReason;
+  reason_detail?: ClientPlaybackDecisionReasonDetail | null;
   report: ClientPlaybackDecisionReport;
   transcode_plan: ClientTranscodePlan | null;
 }
 
 export type ClientPlaybackDecisionReason = "compatible" | "requested_transcode_output" | "client_disabled_direct_play" | "source_container_unknown" | "client_container_unsupported" | "source_codecs_unsupported" | "policy_denied";
+
+export interface ClientPlaybackDecisionReasonDetail {
+  detail: string;
+  reason: ClientPlaybackDecisionReason;
+  summary: string;
+}
 
 export interface ClientPlaybackDecisionReport {
   denial?: ClientPlaybackDenialDto | null;

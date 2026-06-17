@@ -630,6 +630,8 @@ pub struct PlaybackDecisionResponse {
 pub struct ClientPlaybackDecision {
     pub mode: ClientPlaybackMode,
     pub reason: ClientPlaybackDecisionReason,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason_detail: Option<ClientPlaybackDecisionReasonDetail>,
     pub report: ClientPlaybackDecisionReport,
     pub denial: Option<ClientPlaybackDenialDto>,
     pub direct_play: Option<ClientDirectPlayPlan>,
@@ -660,6 +662,13 @@ pub struct ClientPlaybackCapabilityEvaluation {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ClientPlaybackCompatibilityConditionDetail {
     pub condition: ClientPlaybackCompatibilityCondition,
+    pub summary: String,
+    pub detail: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ClientPlaybackDecisionReasonDetail {
+    pub reason: ClientPlaybackDecisionReason,
     pub summary: String,
     pub detail: String,
 }
@@ -696,6 +705,18 @@ public_string_value! {
     }
 }
 
+impl ClientPlaybackDecisionReason {
+    #[must_use]
+    pub fn detail(&self) -> ClientPlaybackDecisionReasonDetail {
+        let (summary, detail) = playback_decision_reason_copy(self);
+        ClientPlaybackDecisionReasonDetail {
+            reason: self.clone(),
+            summary: summary.to_owned(),
+            detail: detail.to_owned(),
+        }
+    }
+}
+
 public_string_value! {
     pub enum ClientPlaybackCompatibilityCondition {
         Compatible => "compatible",
@@ -714,6 +735,45 @@ public_string_value! {
         RequestedTranscodeOutput => "requested_transcode_output",
         TranscodeProfileUnsupported => "transcode_profile_unsupported",
         PolicyDenied => "policy_denied",
+    }
+}
+
+fn playback_decision_reason_copy(
+    reason: &ClientPlaybackDecisionReason,
+) -> (&'static str, &'static str) {
+    match reason {
+        ClientPlaybackDecisionReason::Compatible => (
+            "Direct Play selected",
+            "The selected source container and codecs match the advertised client capability profile.",
+        ),
+        ClientPlaybackDecisionReason::RequestedTranscodeOutput => (
+            "Transcode requested",
+            "The playback request explicitly selected a transcode output, so Nako planned HLS transcode output.",
+        ),
+        ClientPlaybackDecisionReason::ClientDisabledDirectPlay => (
+            "Direct Play disabled",
+            "The client capability profile disabled Direct Play, so Nako selected a compatible fallback mode.",
+        ),
+        ClientPlaybackDecisionReason::SourceContainerUnknown => (
+            "Container unknown",
+            "Nako could not infer the source container from safe source facts and selected a compatible fallback mode.",
+        ),
+        ClientPlaybackDecisionReason::ClientContainerUnsupported => (
+            "Container unsupported",
+            "The source container is not listed in the client capability profile, so Nako selected Remux or HLS transcode.",
+        ),
+        ClientPlaybackDecisionReason::SourceCodecsUnsupported => (
+            "Codec unsupported",
+            "One or more source codecs or stream requirements are not compatible with the client capability profile.",
+        ),
+        ClientPlaybackDecisionReason::PolicyDenied => (
+            "Playback policy denied",
+            "The effective playback policy blocked the selected playback mode before media transport started.",
+        ),
+        ClientPlaybackDecisionReason::Other(_) => (
+            "Unknown playback decision reason",
+            "The server returned a newer playback decision reason that this client does not recognize yet.",
+        ),
     }
 }
 

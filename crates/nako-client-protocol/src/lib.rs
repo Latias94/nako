@@ -930,6 +930,7 @@ mod tests {
             decision: ClientPlaybackDecision {
                 mode: ClientPlaybackMode::DirectPlay,
                 reason: ClientPlaybackDecisionReason::Compatible,
+                reason_detail: Some(ClientPlaybackDecisionReason::Compatible.detail()),
                 report: ClientPlaybackDecisionReport {
                     selected_mode: ClientPlaybackMode::DirectPlay,
                     selection_reasons: vec![ClientPlaybackCompatibilityCondition::Compatible],
@@ -1502,6 +1503,7 @@ mod tests {
             ClientPlaybackDecisionReason::Other("server_future_reason".to_owned())
         );
         assert!(!response.decision.reason.is_known());
+        assert!(response.decision.reason_detail.is_none());
         assert_eq!(
             response.target.kind,
             ClientPlaybackTargetKind::Other("server_future_target".to_owned())
@@ -1540,6 +1542,9 @@ mod tests {
             decision: ClientPlaybackDecision {
                 mode: ClientPlaybackMode::Other("server_future_mode".to_owned()),
                 reason: ClientPlaybackDecisionReason::Other("server_future_reason".to_owned()),
+                reason_detail: Some(
+                    ClientPlaybackDecisionReason::Other("server_future_reason".to_owned()).detail(),
+                ),
                 report: ClientPlaybackDecisionReport {
                     selected_mode: ClientPlaybackMode::Other("server_future_mode".to_owned()),
                     selection_reasons: vec![ClientPlaybackCompatibilityCondition::Other(
@@ -1601,6 +1606,20 @@ mod tests {
 
         assert_eq!(encoded["decision"]["mode"], "server_future_mode");
         assert_eq!(encoded["decision"]["reason"], "server_future_reason");
+        assert_eq!(
+            encoded["decision"]["reason_detail"]["reason"],
+            "server_future_reason"
+        );
+        assert_eq!(
+            encoded["decision"]["reason_detail"]["summary"],
+            "Unknown playback decision reason"
+        );
+        assert!(
+            !encoded["decision"]["reason_detail"]["detail"]
+                .as_str()
+                .unwrap()
+                .contains("server_future_reason")
+        );
         assert_eq!(
             encoded["decision"]["report"]["selection_reasons"][0],
             "future_selection_reason"
@@ -1682,6 +1701,32 @@ mod tests {
         let future_detail = future.detail();
         assert_eq!(future_detail.condition, future);
         assert_eq!(future_detail.summary, "Unknown compatibility reason");
+        assert!(!future_detail.detail.contains("server_future_reason"));
+    }
+
+    #[test]
+    fn public_playback_decision_reason_detail_covers_known_and_future_reasons() {
+        let known_reasons = [
+            ClientPlaybackDecisionReason::Compatible,
+            ClientPlaybackDecisionReason::RequestedTranscodeOutput,
+            ClientPlaybackDecisionReason::ClientDisabledDirectPlay,
+            ClientPlaybackDecisionReason::SourceContainerUnknown,
+            ClientPlaybackDecisionReason::ClientContainerUnsupported,
+            ClientPlaybackDecisionReason::SourceCodecsUnsupported,
+            ClientPlaybackDecisionReason::PolicyDenied,
+        ];
+
+        for reason in known_reasons {
+            let detail = reason.detail();
+            assert_eq!(detail.reason, reason);
+            assert!(!detail.summary.trim().is_empty());
+            assert!(!detail.detail.trim().is_empty());
+        }
+
+        let future = ClientPlaybackDecisionReason::Other("server_future_reason".to_owned());
+        let future_detail = future.detail();
+        assert_eq!(future_detail.reason, future);
+        assert_eq!(future_detail.summary, "Unknown playback decision reason");
         assert!(!future_detail.detail.contains("server_future_reason"));
     }
 

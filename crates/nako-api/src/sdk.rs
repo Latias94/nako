@@ -1403,6 +1403,17 @@ fn schema_to_ts(schema: &Value) -> String {
     }
 
     let nullable = schema.get("nullable").and_then(Value::as_bool) == Some(true);
+    if schema
+        .get("x-extensible-enum")
+        .and_then(Value::as_array)
+        .is_some()
+    {
+        let mut value = "string".to_owned();
+        if nullable {
+            value.push_str(" | null");
+        }
+        return value;
+    }
     let mut value = if let Some(values) = schema.get("enum").and_then(Value::as_array) {
         values
             .iter()
@@ -2281,6 +2292,10 @@ mod tests {
 
         for expected in [
             "export interface ClientPlaybackCompatibilityConditionDetail",
+            "export interface ClientPlaybackDecisionReasonDetail",
+            "export type ClientPlaybackDecisionReason = string;",
+            "reason: ClientPlaybackDecisionReason",
+            "reason_detail?: ClientPlaybackDecisionReasonDetail | null",
             "selection_reason_details?: Array<ClientPlaybackCompatibilityConditionDetail>",
             "reason_details?: Array<ClientPlaybackCompatibilityConditionDetail>",
         ] {
@@ -2292,6 +2307,9 @@ mod tests {
 
         for expected in [
             "public data class ClientPlaybackCompatibilityConditionDetail",
+            "public data class ClientPlaybackDecisionReasonDetail",
+            "public val reason: ClientPlaybackDecisionReason",
+            "public val reasonDetail: ClientPlaybackDecisionReasonDetail? = null",
             "public val selectionReasonDetails: List<ClientPlaybackCompatibilityConditionDetail> = emptyList()",
             "public val reasonDetails: List<ClientPlaybackCompatibilityConditionDetail> = emptyList()",
         ] {

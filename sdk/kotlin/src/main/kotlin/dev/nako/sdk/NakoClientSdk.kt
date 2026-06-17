@@ -1809,6 +1809,8 @@ public data class ClientPlaybackDecision(
     public val directPlay: ClientDirectPlayPlan?,
     public val mode: ClientPlaybackDecisionMode,
     public val reason: ClientPlaybackDecisionReason,
+    @SerialName("reason_detail")
+    public val reasonDetail: ClientPlaybackDecisionReasonDetail? = null,
     public val report: ClientPlaybackDecisionReport,
     @SerialName("transcode_plan")
     public val transcodePlan: ClientTranscodePlan?,
@@ -1842,6 +1844,13 @@ public value class ClientPlaybackDecisionReason(
         )
     }
 }
+
+@Serializable
+public data class ClientPlaybackDecisionReasonDetail(
+    public val detail: String,
+    public val reason: ClientPlaybackDecisionReason,
+    public val summary: String,
+)
 
 @Serializable
 public data class ClientPlaybackDecisionReport(

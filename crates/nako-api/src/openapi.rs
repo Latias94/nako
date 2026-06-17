@@ -1413,6 +1413,10 @@ fn enum_schema(values: &[&str]) -> Value {
     json!({"type": "string", "enum": values})
 }
 
+fn additive_enum_schema(values: &[&str]) -> Value {
+    json!({"type": "string", "enum": values, "x-extensible-enum": values})
+}
+
 fn array_schema(item_schema: Value) -> Value {
     json!({"type": "array", "items": item_schema})
 }
@@ -1837,6 +1841,7 @@ fn schemas() -> Value {
         "ClientPlaybackDecision": object_schema(&["mode", "reason", "report", "denial", "direct_play", "transcode_plan"], json!({
             "mode": enum_schema(&["direct_play", "remux", "transcode", "denied"]),
             "reason": schema_ref("ClientPlaybackDecisionReason"),
+            "reason_detail": nullable_ref("ClientPlaybackDecisionReasonDetail"),
             "report": schema_ref("ClientPlaybackDecisionReport"),
             "denial": nullable_ref("ClientPlaybackDenialDto"),
             "direct_play": nullable_ref("ClientDirectPlayPlan"),
@@ -1861,6 +1866,11 @@ fn schemas() -> Value {
             "summary": string_schema(),
             "detail": string_schema()
         })),
+        "ClientPlaybackDecisionReasonDetail": object_schema(&["reason", "summary", "detail"], json!({
+            "reason": schema_ref("ClientPlaybackDecisionReason"),
+            "summary": string_schema(),
+            "detail": string_schema()
+        })),
         "ClientPlaybackCompatibilityCondition": enum_schema(&[
             "compatible",
             "direct_play_disabled",
@@ -1879,7 +1889,7 @@ fn schemas() -> Value {
             "transcode_profile_unsupported",
             "policy_denied"
         ]),
-        "ClientPlaybackDecisionReason": enum_schema(&[
+        "ClientPlaybackDecisionReason": additive_enum_schema(&[
             "compatible",
             "requested_transcode_output",
             "client_disabled_direct_play",
@@ -2864,6 +2874,7 @@ mod tests {
         let schemas = document["components"]["schemas"].as_object().unwrap();
 
         assert!(schemas.contains_key("ClientPlaybackDecisionReason"));
+        assert!(schemas.contains_key("ClientPlaybackDecisionReasonDetail"));
         assert!(schemas.contains_key("ClientPlaybackDecisionReport"));
         assert!(schemas.contains_key("ClientPlaybackCapabilityEvaluation"));
         assert!(schemas.contains_key("ClientPlaybackCompatibilityConditionDetail"));
@@ -2880,6 +2891,11 @@ mod tests {
         assert_eq!(
             document["components"]["schemas"]["ClientPlaybackDecision"]["properties"]["reason"]["$ref"],
             "#/components/schemas/ClientPlaybackDecisionReason"
+        );
+        assert_eq!(
+            document["components"]["schemas"]["ClientPlaybackDecision"]["properties"]["reason_detail"]
+                ["allOf"][0]["$ref"],
+            "#/components/schemas/ClientPlaybackDecisionReasonDetail"
         );
         assert_eq!(
             document["components"]["schemas"]["ClientPlaybackDecision"]["properties"]["report"]["$ref"],
@@ -2916,6 +2932,11 @@ mod tests {
             "#/components/schemas/ClientPlaybackCompatibilityCondition"
         );
         assert_eq!(
+            document["components"]["schemas"]["ClientPlaybackDecisionReasonDetail"]["properties"]["reason"]
+                ["$ref"],
+            "#/components/schemas/ClientPlaybackDecisionReason"
+        );
+        assert_eq!(
             document["components"]["schemas"]["ClientPlaybackDecision"]["properties"]["denial"]["allOf"]
                 [0]["$ref"],
             "#/components/schemas/ClientPlaybackDenialDto"
@@ -2936,6 +2957,19 @@ mod tests {
         );
         assert_eq!(
             document["components"]["schemas"]["ClientPlaybackDecisionReason"]["enum"],
+            json!([
+                "compatible",
+                "requested_transcode_output",
+                "client_disabled_direct_play",
+                "source_container_unknown",
+                "client_container_unsupported",
+                "source_codecs_unsupported",
+                "policy_denied"
+            ])
+        );
+        assert_eq!(
+            document["components"]["schemas"]["ClientPlaybackDecisionReason"]
+                ["x-extensible-enum"],
             json!([
                 "compatible",
                 "requested_transcode_output",

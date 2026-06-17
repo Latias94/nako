@@ -256,9 +256,12 @@ pub fn playback_decision_to_dto(decision: PlaybackDecision) -> ClientPlaybackDec
         audio_codec: plan.audio_codec.clone(),
     });
 
+    let reason = playback_decision_reason_to_dto(decision.reason);
+
     ClientPlaybackDecision {
         mode: playback_mode_to_dto(decision.mode),
-        reason: playback_decision_reason_to_dto(decision.reason),
+        reason_detail: Some(reason.detail()),
+        reason,
         report: playback_decision_report_to_dto(decision.report),
         denial: decision.denial.map(playback_denial_to_dto),
         direct_play: direct_play.map(direct_play_plan_to_dto),
@@ -1582,6 +1585,17 @@ mod tests {
 
         assert_eq!(value["mode"], "transcode");
         assert_eq!(value["reason"], "client_disabled_direct_play");
+        assert_eq!(
+            value["reason_detail"]["reason"],
+            "client_disabled_direct_play"
+        );
+        assert_eq!(value["reason_detail"]["summary"], "Direct Play disabled");
+        assert!(
+            value["reason_detail"]["detail"]
+                .as_str()
+                .expect("reason detail is a string")
+                .contains("Direct Play")
+        );
         assert_eq!(
             value["report"]["direct_play"]["reasons"][0],
             "direct_play_disabled"

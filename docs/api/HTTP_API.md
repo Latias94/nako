@@ -1359,6 +1359,15 @@ request preferences only; FFmpeg, hardware/GPU, operator policy, resource
 pressure, bearer token, principal, source locator, and local path facts remain
 outside the Public Client playback capability contract.
 
+`decision.reason` is a stable machine-readable reason for the selected
+playback outcome, and `decision.reason_detail` is the client-displayable
+summary/detail for that selected reason. Richer per-path compatibility facts
+remain under `decision.report.selection_reasons`,
+`selection_reason_details`, and the Direct Play/Remux/Transcode capability
+evaluations. Reason details are safe presentation copy only; they do not
+include FFmpeg commands, source locators, local paths, runtime hardware facts,
+tokens, or raw probe/runtime payloads.
+
 `POST /sources/{source_id}/playback/browser-ticket` issues token-safe browser
 media URLs. `BrowserPlaybackTicketResponse.playback_session_id` is a required
 nullable field. `direct`, `remux`, and `hls` ticket responses return a non-null
