@@ -317,3 +317,38 @@ Added redaction-safe public playback decision reason details, refreshed OpenAPI 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 156: Playback Session Admission Limits
+
+**Date**: 2026-06-18
+**Task**: Playback Session Admission Limits
+**Package**: nako
+**Branch**: `feat/admin-overview-durable-jobs`
+
+### Summary
+
+Implemented playback runtime admission for remote bitrate, active session limits, idle session reaping, admin diagnostics/settings contracts, repository parity coverage, and archived the Trellis task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d931e5fe` | (see git log) |
+| `e4854cd9` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
