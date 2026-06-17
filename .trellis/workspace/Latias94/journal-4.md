@@ -132,3 +132,47 @@ Added a conservative no-store cache policy for focused Admin dynamic JSON read-m
 ### Next Steps
 
 - None - task complete
+
+
+## Session 151: Admin intake evidence summary
+
+**Date**: 2026-06-17
+**Task**: Admin intake evidence summary
+**Package**: nako-server
+**Branch**: `feat/admin-overview-durable-jobs`
+
+### Summary
+
+Added redaction-safe Media Library Scan intake evidence to Admin operator readiness and refreshed generated contracts.
+
+### Main Changes
+
+- Added `details.media_library_scan.intake_evidence` to the Admin operator-readiness response.
+- Aggregated library scan, Source Fingerprint Hash, and Watch Folder runtime attention counts from existing redaction-safe read models.
+- Refreshed Admin Web and `web/` generated TypeScript contracts and updated Admin Web mock readiness data.
+- Archived the Trellis task `06-17-06-17-admin-intake-evidence-summary`.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3000730b` | (see git log) |
+
+### Testing
+
+- [OK] `cargo fmt --all -- --check`
+- [OK] `cargo nextest run -p nako-api admin_contract --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server admin_v1_operator_readiness_returns_safe_drilldown_read_model --no-fail-fast`
+- [OK] `cargo nextest run -p nako-server media_library_scan_intake_evidence --no-fail-fast`
+- [OK] `cargo check -p nako-api -p nako-server --tests`
+- [OK] `npm run check --prefix apps/admin-web`
+- [OK] `python ./.trellis/scripts/task.py validate .trellis/tasks/06-17-06-17-admin-intake-evidence-summary`
+- [OK] `git diff --check`
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
