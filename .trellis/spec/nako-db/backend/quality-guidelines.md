@@ -24,6 +24,84 @@ Persistence work must prove repository behavior, not only compile.
 - Docs-only spec update:
   `git diff --check`
 
+## Scenario: SQLite Playback Write Pressure Regression
+
+### 1. Scope / Trigger
+
+- Trigger: changing SQLite runtime options, playback heartbeat persistence,
+  transcode runtime metrics, or any write path that can contend with the
+  on-disk default database.
+- Scope: `crates/nako-db/src/sqlite/runtime.rs`,
+  `crates/nako-db/src/sqlite/playback.rs`,
+  `crates/nako-db/src/contract_tests.rs`, and any docs that state the operator
+  expectation for playback write pressure.
+- Boundary: prove the existing on-disk policy is still acceptable under
+  lock contention; do not add a queueing layer or new write worker just to hide
+  pressure.
+
+### 2. Signatures
+
+- SQLite runtime policy:
+  `SqliteRuntimeOptions::on_disk() -> SqliteRuntimeOptions`
+- Playback write paths:
+  `record_playback_session_heartbeat(PlaybackSessionHeartbeat) -> Result<...>`
+  and `update_transcode_session_runtime_metrics(TranscodeSessionId, TranscodeSessionRuntimeMetrics) -> Result<...>`
+
+### 3. Contracts
+
+- On-disk SQLite keeps WAL enabled, uses the configured busy timeout, and
+  keeps a bounded connection pool.
+- A held write lock should make playback heartbeat and transcode metric writes
+  wait rather than fail spuriously.
+- When the lock is released, both writes must complete successfully and update
+  the expected rows.
+- In-memory SQLite remains single-connection and is not the target of this
+  regression.
+
+### 4. Validation & Error Matrix
+
+- WAL or busy-timeout policy regressed -> pressure test or policy test fails.
+- Playback write returns lock error while the lock is held -> regression in
+  SQLite runtime policy or repository behavior.
+- Playback write succeeds before the held lock is released -> regression in
+  pool or transaction handling.
+- Lock release does not unblock the writes -> regression in connection cleanup
+  or test setup.
+
+### 5. Good/Base/Bad Cases
+
+- Good: a deterministic `BEGIN IMMEDIATE` test holds the SQLite write lock,
+  starts heartbeat and metrics writes in parallel, confirms they are pending,
+  then releases the lock and observes both writes complete.
+- Base: on-disk runtime still reports WAL, the configured busy timeout, and
+  the expected pool size.
+- Bad: adding a retry queue or background write worker only to paper over the
+  lock contention.
+
+### 6. Tests Required
+
+- `cargo nextest run -p nako-db on_disk_runtime_uses_wal_and_busy_timeout --no-fail-fast`
+- `cargo nextest run -p nako-db on_disk_runtime_keeps_playback_writes_pending_while_a_write_lock_is_held --no-fail-fast`
+- `cargo check -p nako-db --tests`
+- `cargo fmt --all -- --check`
+- `git diff --check`
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+// Treat a lock wait as a hard failure and add a new queue to hide it.
+```
+
+#### Correct
+
+```rust
+let mut lock_conn = store.pool().acquire().await.unwrap();
+sqlx::query("BEGIN IMMEDIATE").execute(&mut *lock_conn).await.unwrap();
+// Playback writes stay pending until the lock is released.
+```
+
 ## Scenario: Repository-Backed Browse Queries
 
 ### 1. Scope / Trigger

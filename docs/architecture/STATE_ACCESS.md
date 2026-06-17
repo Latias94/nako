@@ -57,7 +57,9 @@ Exit criteria:
 
 - focused tests exercise concurrent heartbeat/session writes;
 - docs explain SQLite and PostgreSQL operational expectations;
-- public API remains responsive under simulated write pressure.
+- public API remains responsive under simulated write pressure;
+- the on-disk SQLite runtime policy is backed by a deterministic write-lock
+  pressure regression.
 
 ### playback-access-policy-and-session-limits
 

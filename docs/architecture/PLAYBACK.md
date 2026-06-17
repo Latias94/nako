@@ -349,8 +349,10 @@ Future VFS hardening should cover:
 
 SQLite is a good self-hosted default, but playback creates frequent writes:
 heartbeats, session state, metrics, cleanup, and scan/provider jobs. Existing
-SQLite/PostgreSQL boundaries are strong, but playback-specific pressure tests
-should verify WAL behavior, busy timeouts, pool sizing, and transaction scope.
+SQLite/PostgreSQL boundaries are strong, and the current SQLite runtime policy
+already uses WAL, a 10s busy timeout, and a bounded connection pool. Playback-
+specific pressure tests should keep verifying that those settings hold under
+concurrent write pressure and transaction scope remains narrow.
 
 ### Release Packaging Is A Playback Feature
 
